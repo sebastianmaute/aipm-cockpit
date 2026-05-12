@@ -1,3 +1,19 @@
+## List of Open Points Tracker
+
+Capture open project items. Stored locally in this browser.
+
+Latest feature highlights
+- Claude chat with tool calls — list, add, edit, delete tasks in natural language.
+- Voice commands and per-field dictation (browser SpeechRecognition).
+- Local JSON / CSV / Markdown files or browser-only storage.
+- Bidirectional Jira Cloud sync — pull, push, per-task conflict review, create new issues.
+- Reports with status, assignee, group, label, and on-time / late completion stats.
+- Configurable due-date banner, toast, and pop-up notifications.
+- Resizable + collapsible workspace, resizable tasks table, persisted across reloads.
+- Gantt chart with dragging, sorting and updating task.
+
+Built with Next.js, React, Tailwind CSS, and Titillium Web. Runs entirely client-side; no app backend.
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
