@@ -10,6 +10,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { type Lang, t } from "./i18n";
+import { Modal } from "./modal";
 import {
   DEFAULT_WEEK_HOURS,
   MAX_HOURS_PER_DAY,
@@ -80,14 +81,7 @@ export function ShiftEditModal({
     setError(null);
   }, [shift]);
 
-  useEffect(() => {
-    if (!draft) return;
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [draft, onClose]);
+  // Escape, focus management, and backdrop-click are owned by <Modal>.
 
   const datalistOptions = useMemo(() => {
     const seen = new Set<string>();
@@ -160,16 +154,15 @@ export function ShiftEditModal({
   );
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label={
+    <Modal
+      open
+      onClose={onClose}
+      ariaLabel={
         isNew ? t(lang, "shiftNewItem") : t(lang, "shiftEditItem", draft.id)
       }
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      align="center"
+      backdropClassName="bg-black/40"
+      zIndex={50}
     >
       <div className="relative flex w-[640px] min-w-[320px] max-w-[95vw] flex-col overflow-hidden rounded-xl border border-AIPM-light-grey bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-950">
         <header className="flex shrink-0 items-center justify-between border-b border-zinc-200 px-5 py-3 dark:border-zinc-800">
@@ -325,7 +318,7 @@ export function ShiftEditModal({
           </footer>
         </form>
       </div>
-    </div>
+    </Modal>
   );
 }
 

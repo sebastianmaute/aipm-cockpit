@@ -11,6 +11,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { type Lang, t } from "./i18n";
+import { Modal } from "./modal";
 import { SegmentedControl } from "./segmented-control";
 import { ABSENCE_TYPES, type Absence, type AbsenceType } from "./types";
 
@@ -52,15 +53,7 @@ export function AbsenceEditModal({
     setError(null);
   }, [absence]);
 
-  // Close on Escape, like the other modals in this app.
-  useEffect(() => {
-    if (!draft) return;
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [draft, onClose]);
+  // Escape, focus management, and backdrop-click are owned by <Modal>.
 
   const datalistOptions = useMemo(() => {
     // Deduplicate by case-folded name; keep the first observed casing.
@@ -77,8 +70,6 @@ export function AbsenceEditModal({
     out.sort((a, b) => a.name.localeCompare(b.name));
     return out;
   }, [knownAssignees]);
-
-  if (!draft) return null;
 
   function update<K extends keyof Absence>(key: K, value: Absence[K]) {
     setDraft((prev) => (prev ? { ...prev, [key]: value } : prev));
@@ -118,20 +109,20 @@ export function AbsenceEditModal({
     }
   }
 
+  if (!draft) return null;
+
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label={
+    <Modal
+      open
+      onClose={onClose}
+      ariaLabel={
         isNew
           ? t(lang, "absenceNewItem")
           : t(lang, "absenceEditItem", draft.id)
       }
-      onClick={(e) => {
-        // Click on the backdrop (not on the panel) closes.
-        if (e.target === e.currentTarget) onClose();
-      }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      align="center"
+      backdropClassName="bg-black/40"
+      zIndex={50}
     >
       <div className="relative flex w-[560px] min-w-[320px] max-w-[95vw] flex-col overflow-hidden rounded-xl border border-AIPM-light-grey bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-950">
         <header className="flex shrink-0 items-center justify-between border-b border-zinc-200 px-5 py-3 dark:border-zinc-800">
@@ -306,7 +297,7 @@ export function AbsenceEditModal({
           </footer>
         </form>
       </div>
-    </div>
+    </Modal>
   );
 }
 

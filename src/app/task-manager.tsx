@@ -73,6 +73,7 @@ const ShiftEditModal = dynamic(
 );
 import { ComboInput } from "./combo-input";
 import { ContactInput } from "./contact-input";
+import { Modal } from "./modal";
 import {
   type ContactsMap,
   listContacts,
@@ -3000,27 +3001,23 @@ export default function TaskManager() {
       {/*
         New-task / Edit-task modal. Opened by the header "+" button or by
         editing a row. Backdrop click + Esc cancel and close. Submit closes
-        on success.
+        on success. Dialog role + a11y owned by <Modal>; the inner div is
+        just the resizable panel surface (the `modalRef` carries the saved
+        size via useResizable).
       */}
       {taskModalOpen && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label={
+        <Modal
+          open
+          onClose={handleCancelEdit}
+          ariaLabel={
             isEditing
               ? t(lang, "tabEditTask", editingId!)
               : t(lang, "tabNewTask")
           }
-          className="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto bg-AIPM-dark-blue/40 p-4 sm:p-10"
-          onClick={handleCancelEdit}
-          onKeyDown={(e) => {
-            if (e.key === "Escape") handleCancelEdit();
-          }}
-          tabIndex={-1}
+          backdropClassName="bg-AIPM-dark-blue/40 overflow-y-auto"
         >
           <div
             ref={modalRef}
-            onClick={(e) => e.stopPropagation()}
             className="relative flex w-[700px] min-w-[460px] max-w-[95vw] resize flex-col overflow-hidden rounded-xl border border-AIPM-light-grey bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-950"
           >
             <header className="sticky top-0 z-10 flex shrink-0 items-center justify-between gap-4 border-b border-AIPM-light-grey bg-white px-6 py-4 dark:border-zinc-800 dark:bg-zinc-950">
@@ -3404,7 +3401,7 @@ export default function TaskManager() {
           </div>
             </form>
           </div>
-        </div>
+        </Modal>
       )}
 
       {/*

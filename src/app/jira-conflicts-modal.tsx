@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { type Lang, type TranslationKey, t } from "./i18n";
 import type { ConflictFieldKey, ConflictItem } from "./jira-api";
+import { Modal } from "./modal";
 import { useResizable } from "./use-resizable";
 
 export type ConflictResolution = {
@@ -70,14 +71,7 @@ export function JiraConflictsModal({
   // Reset state whenever the conflicts identity changes.
   useEffect(() => setPicks(initial), [initial]);
 
-  // Esc closes
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  // Escape and backdrop-click are owned by <Modal>.
 
   function setPick(
     taskId: number,
@@ -119,16 +113,9 @@ export function JiraConflictsModal({
   const { ref: panelRef } = useResizable("lop-app:conflicts-modal-size");
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label={t(lang, "jiraConflictTitle")}
-      className="fixed inset-0 z-40 flex items-start justify-center bg-AIPM-dark-blue/40 p-4 sm:p-10"
-      onClick={onClose}
-    >
+    <Modal open onClose={onClose} ariaLabel={t(lang, "jiraConflictTitle")}>
       <div
         ref={panelRef}
-        onClick={(e) => e.stopPropagation()}
         title={t(lang, "tableResizeHint")}
         className="relative h-[680px] max-h-[95vh] min-h-[320px] w-[768px] min-w-[400px] max-w-[95vw] resize overflow-y-auto rounded-xl border border-AIPM-light-grey bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-950"
       >
@@ -288,6 +275,6 @@ export function JiraConflictsModal({
           </button>
         </footer>
       </div>
-    </div>
+    </Modal>
   );
 }

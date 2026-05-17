@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect } from "react";
 import {
   type AlertCategory,
   type AlertableTask,
   summarizeAlerts,
 } from "./due-dates";
 import { type Lang, t } from "./i18n";
+import { Modal } from "./modal";
 import { useResizable } from "./use-resizable";
 
 const categoryStyle: Record<AlertCategory, string> = {
@@ -96,28 +96,14 @@ export function DueDatesModal({
   onClose: () => void;
   onSelectTask?: (taskId: number) => void;
 }) {
-  // Esc closes modal
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  // Escape and backdrop-click are owned by <Modal>.
 
   const { ref: panelRef } = useResizable("lop-app:due-modal-size");
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label={t(lang, "alertModalTitle")}
-      className="fixed inset-0 z-40 flex items-start justify-center bg-AIPM-dark-blue/40 p-4 sm:p-10"
-      onClick={onClose}
-    >
+    <Modal open onClose={onClose} ariaLabel={t(lang, "alertModalTitle")}>
       <div
         ref={panelRef}
-        onClick={(e) => e.stopPropagation()}
         title={t(lang, "tableResizeHint")}
         className="relative h-[640px] max-h-[95vh] min-h-[300px] w-[640px] min-w-[320px] max-w-[95vw] resize overflow-y-auto rounded-xl border border-AIPM-light-grey bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-950"
       >
@@ -204,6 +190,6 @@ export function DueDatesModal({
           </ul>
         )}
       </div>
-    </div>
+    </Modal>
   );
 }
