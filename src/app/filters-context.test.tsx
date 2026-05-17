@@ -51,4 +51,30 @@ describe("FiltersProvider", () => {
     act(() => result.current.setRaidFilterTaskId(null));
     expect(result.current.raidFilterTaskId).toBeNull();
   });
+
+  test("resetFilters returns every slice to its default", () => {
+    const { result } = renderHook(() => useFilters(), { wrapper });
+
+    act(() => {
+      result.current.setSearch("hello");
+      result.current.setPriorityFilter("High");
+      result.current.setAssigneeFilter("Alex Example");
+      result.current.setGroupFilter("Auth Migration");
+      result.current.setLabelFilter("backend");
+      result.current.setSortKey("dueDate");
+      result.current.setSortDir("desc");
+      result.current.setRaidFilterTaskId(42);
+    });
+
+    act(() => result.current.resetFilters());
+
+    expect(result.current.search).toBe("");
+    expect(result.current.priorityFilter).toBe("All");
+    expect(result.current.assigneeFilter).toBe("All");
+    expect(result.current.groupFilter).toBe("All");
+    expect(result.current.labelFilter).toBe("All");
+    expect(result.current.sortKey).toBe("id");
+    expect(result.current.sortDir).toBe("asc");
+    expect(result.current.raidFilterTaskId).toBeNull();
+  });
 });

@@ -12,6 +12,7 @@
 
 import {
   createContext,
+  useCallback,
   useContext,
   useState,
   type ReactNode,
@@ -65,6 +66,17 @@ export function FiltersProvider({ children }: { children: ReactNode }) {
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [raidFilterTaskId, setRaidFilterTaskId] = useState<number | null>(null);
 
+  const resetFilters = useCallback(() => {
+    setSearch("");
+    setPriorityFilter("All");
+    setAssigneeFilter("All");
+    setGroupFilter("All");
+    setLabelFilter("All");
+    setSortKey("id");
+    setSortDir("asc");
+    setRaidFilterTaskId(null);
+  }, []);
+
   const value: FiltersValue = {
     search,
     searchDebounced,
@@ -83,9 +95,7 @@ export function FiltersProvider({ children }: { children: ReactNode }) {
     setSortKey,
     setSortDir,
     setRaidFilterTaskId,
-    resetFilters: () => {
-      // Placeholder — fleshed out in Task 3.
-    },
+    resetFilters,
   };
 
   return (
