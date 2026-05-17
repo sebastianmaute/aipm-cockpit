@@ -1,0 +1,46 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #636362;
+
+  /* Acme brand palette — only these colors are permitted */
+  --AIPM-dark-grey: #636362;
+  --AIPM-dark-blue: #004159;
+  --AIPM-green: #84bd00;
+  --AIPM-white: #ffffff;
+  --AIPM-light-grey: #e3e6e6;
+  --AIPM-medium-grey: #939598;
+  --AIPM-blue: #60c0dd;
+  --AIPM-pink: #e5497c;
+  --AIPM-purple: #aa4899;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-titillium), "Segoe UI", Arial, sans-serif;
+
+  --color-AIPM-dark-grey: var(--AIPM-dark-grey);
+  --color-AIPM-dark-blue: var(--AIPM-dark-blue);
+  --color-AIPM-green: var(--AIPM-green);
+  --color-AIPM-white: var(--AIPM-white);
+  --color-AIPM-light-grey: var(--AIPM-light-grey);
+  --color-AIPM-medium-grey: var(--AIPM-medium-grey);
+  --color-AIPM-blue: var(--AIPM-blue);
+  --color-AIPM-pink: var(--AIPM-pink);
+  --color-AIPM-purple: var(--AIPM-purple);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #e3e6e6;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-titillium), "Segoe UI", Arial, sans-serif;
+}

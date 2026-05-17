@@ -1,0 +1,4504 @@
+"use client";
+
+import dynamic from "next/dynamic";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { Filters, ToolDispatcher } from "./chat-tools";
+import { getAlertableTasks } from "./due-dates";
+import {
+  computeTaskHealth,
+  formatHealthTooltip,
+  HEALTH_VALUES,
+  healthColorName,
+  type Health,
+  type TaskHealth,
+} from "./health";
+import { ExportMenu } from "./export-menu";
+import { HelpMenu } from "./help-menu";
+// jira-api is lazy-loaded via loadJiraApi() — pulls ~400 LOC out of the
+// initial bundle for users who don't have Jira configured.
+import type { ConflictItem } from "./jira-api";
+import { holidaysForCountries } from "./holidays";
+import { type Lang, type TranslationKey, loadI18n, migrateLang, t } from "./i18n";
+import { VersionMenu } from "./version-menu";
+import {
+  DueBanner,
+  DueDatesModal,
+  dueAlertsToastText,
+} from "./notifications";
+// Heavy tab panels are dynamic-imported so each panel's code (and its
+// transitive deps like chat-tools / markdown / resource-calendar) only
+// loads when the user first opens that tab. ssr:false because every
+// panel uses browser-only APIs (window, IndexedDB handles, etc.) and
+// can't be prerendered.
+const ChatPanel = dynamic(
+  () => import("./chat-panel").then((m) => m.ChatPanel),
+  { ssr: false },
+);
+const GanttPanel = dynamic(
+  () => import("./gantt").then((m) => m.GanttPanel),
+  { ssr: false },
+);
+const ReportsPanel = dynamic(
+  () => import("./reports").then((m) => m.ReportsPanel),
+  { ssr: false },
+);
+const RaidPanel = dynamic(
+  () => import("./raid-panel").then((m) => m.RaidPanel),
+  { ssr: false },
+);
+const ResourcesPanel = dynamic(
+  () => import("./resources-panel").then((m) => m.ResourcesPanel),
+  { ssr: false },
+);
+const ActivityLogPanel = dynamic(
+  () => import("./activity-log-panel").then((m) => m.ActivityLogPanel),
+  { ssr: false },
+);
+// Modals are dynamic-imported on the same principle — JiraConflictsModal
+// only opens during a Jira-sync conflict; absence/shift editors only open
+// when the user clicks an edit/add affordance. Helpers
+// (emptyAbsenceDraft / emptyShiftDraft) are inlined below so opening
+// these modals doesn't need to await the module load.
+const JiraConflictsModal = dynamic(
+  () => import("./jira-conflicts-modal").then((m) => m.JiraConflictsModal),
+  { ssr: false },
+);
+const AbsenceEditModal = dynamic(
+  () => import("./absence-edit-modal").then((m) => m.AbsenceEditModal),
+  { ssr: false },
+);
+const ShiftEditModal = dynamic(
+  () => import("./shift-edit-modal").then((m) => m.ShiftEditModal),
+  { ssr: false },
+);
+import { ComboInput } from "./combo-input";
+import { ContactInput } from "./contact-input";
+import {
+  type ContactsMap,
+  listContacts,
+  loadContacts,
+  removeContact as removeContactFromMap,
+  saveContacts,
+  seedContactsFromTasks,
+  upsertContact,
+} from "./contacts";
+import { DependenciesEditor } from "./dependencies-editor";
+import { LabelsInput } from "./labels-input";
+import {
+  ASSIGNEE_MAX,
+  EMAIL_MAX,
+  GROUP_MAX,
+  TASK_NAME_MAX,
+  TEXTAREA_MAX,
+  isPlainObject,
+  sanitizeAssignee,
+  sanitizeBlockers,
+  sanitizeDependencies,
+  sanitizeEmail,
+  sanitizeGroup,
+  sanitizeIsoDate,
+  sanitizeLabels,
+  sanitizeNonNegInt,
+  sanitizeNotes,
+  sanitizePriority,
+  sanitizeTaskName,
+  sanitizeVoiceTranscript,
+} from "./sanitize";
+import {
+  type Settings,
+  SettingsMenu,
+  defaultSettings,
+} from "./settings-menu";
+import {
+  StorageNotImplementedError,
+  StorageNotReadyError,
+  createBackend,
+  openFileForBackend,
+  pickFileForBackend,
+  requestWriteAccessForBackend,
+} from "./storage";
+import { SegmentedControl } from "./segmented-control";
+import {
+  appendActivity,
+  type ActivityEntry,
+  type ActivityKind,
+  clearActivityLog as clearActivityLogStorage,
+  loadActivityLog,
+  saveActivityLog,
+} from "./activity-log";
+import {
+  DEFAULT_WEEK_HOURS,
+  PRIORITIES,
+  type Absence,
+  type Priority,
+  type RaidItem,
+  type Shift,
+  type Task,
+  type TaskDependency,
+} from "./types";
+import { buildRaidByTaskIndex, countByCategory, nextRaidId } from "./raid";
+import { useResizable } from "./use-resizable";
+// voice-button is lazy-loaded — it transitively pulls the Web Speech API
+// shims in voice.ts which we only need when the user clicks the mic.
+const InlineMicButton = dynamic(
+  () => import("./voice-button").then((m) => m.InlineMicButton),
+  { ssr: false },
+);
+const VoiceCommandButton = dynamic(
+  () => import("./voice-button").then((m) => m.VoiceCommandButton),
+  { ssr: false },
+);
+import type { Command } from "./voice";
+
+// --- jira-api lazy loader -----------------------------------------------
+//
+// Caches the dynamic-imported module so subsequent Jira operations don't
+// pay the load cost again. Returns the namespace object — callers do
+// (await loadJiraApi()).createIssue(...). Defer-on-first-use defers the
+// whole jira-api module + its transitive deps from the initial bundle for
+// users who never enable Jira sync.
+type JiraApiModule = typeof import("./jira-api");
+let jiraApiPromise: Promise<JiraApiModule> | null = null;
+function loadJiraApi(): Promise<JiraApiModule> {
+  if (!jiraApiPromise) {
+    jiraApiPromise = import("./jira-api");
+  }
+  return jiraApiPromise;
+}
+
+// --- inlined absence / shift draft helpers ------------------------------
+//
+// Originally re-exported from absence-edit-modal.tsx / shift-edit-modal.tsx
+// alongside the components. Inlined here so opening a draft doesn't need
+// to await the modal module — the parent computes the seed synchronously
+// and the dynamic-imported modal hydrates around it.
+
+function isoToday(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function emptyAbsenceDraft(id: number): Absence {
+  const today = isoToday();
+  return {
+    id,
+    assignee: "",
+    assigneeEmail: undefined,
+    startDate: today,
+    endDate: today,
+    type: "vacation",
+    note: undefined,
+  };
+}
+
+function emptyShiftDraft(id: number): Shift {
+  return {
+    id,
+    assignee: "",
+    assigneeEmail: undefined,
+    hoursPerWeekday: DEFAULT_WEEK_HOURS,
+    note: undefined,
+  };
+}
+
+type TopTab = "chat" | "reports" | "gantt" | "raid" | "resources" | "activity";
+
+type SortKey =
+  | "id"
+  | "taskName"
+  | "assignee"
+  | "startDate"
+  | "dueDate"
+  | "lastUpdateDate"
+  | "priority";
+type SortDir = "asc" | "desc";
+
+const SETTINGS_KEY = "lop-app:settings";
+const WORKSPACE_COLLAPSED_KEY = "lop-app:workspace-collapsed";
+const COL_WIDTHS_KEY = "lop-app:col-widths";
+const HIDDEN_COLS_KEY = "lop-app:hidden-cols";
+
+// Columns the user can show/hide. sel, taskName, and actions are always visible.
+const CONFIGURABLE_COLS: Array<{ key: string; labelKey: TranslationKey }> = [
+  { key: "status",         labelKey: "colStatus" },
+  { key: "id",             labelKey: "id" },
+  { key: "assignee",       labelKey: "assignee" },
+  { key: "startDate",      labelKey: "start" },
+  { key: "dueDate",        labelKey: "due" },
+  { key: "lastUpdateDate", labelKey: "lastUpdate" },
+  { key: "priority",       labelKey: "priority" },
+  { key: "blockers",       labelKey: "blockers" },
+  { key: "notes",          labelKey: "notes" },
+  { key: "depRelations",   labelKey: "depRelations" },
+];
+
+const DEFAULT_COL_WIDTHS: Record<string, number> = {
+  sel: 36, status: 36, id: 80, taskName: 200, assignee: 140,
+  startDate: 110, dueDate: 110, lastUpdateDate: 110, priority: 90,
+  blockers: 140, notes: 140, depRelations: 120, actions: 60,
+};
+
+/** Soft cap on chars shown for a note in collapsed mode. We prefer to break
+ *  earlier on a newline or word boundary, so the real cut point can be a few
+ *  chars shy of this. */
+const NOTES_COLLAPSED_MAX = 50;
+
+/**
+ * Produce a one-line summary of a note for the collapsed Notes cell.
+ *
+ * Rules (in order):
+ *   1. Take only the first line — anything past the first `\n` is hidden.
+ *   2. If that line fits within `maxLen`, show it as-is (still flagged as
+ *      truncated when there were more lines hidden below).
+ *   3. Otherwise, cut at the last whitespace ≤ maxLen so we never split mid-word.
+ *      Fall back to a hard slice only when the first word itself is too long.
+ */
+function summarizeNote(
+  notes: string,
+  maxLen: number,
+): { text: string; truncated: boolean } {
+  if (!notes) return { text: "", truncated: false };
+
+  const newlineIdx = notes.search(/\r?\n/);
+  const firstLine = newlineIdx >= 0 ? notes.slice(0, newlineIdx) : notes;
+  const hasMoreLines = firstLine.length < notes.length;
+
+  if (firstLine.length <= maxLen) {
+    return { text: firstLine, truncated: hasMoreLines };
+  }
+
+  // First line itself is longer than the cap — break on word boundary.
+  const window = firstLine.slice(0, maxLen + 1);
+  // Find the last whitespace before the cap. Require at least half of maxLen
+  // worth of content before it, so a single very-long token doesn't collapse
+  // the cell to nearly empty.
+  const lastWs = window.search(/\s\S*$/);
+  const cut = lastWs > Math.floor(maxLen / 2) ? lastWs : maxLen;
+  return { text: firstLine.slice(0, cut).trimEnd(), truncated: true };
+}
+
+const PRIORITY_RANK: Record<Priority, number> = {
+  Low: 0,
+  Medium: 1,
+  High: 2,
+  Urgent: 3,
+};
+
+function todayISO() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function emptyForm() {
+  return {
+    taskName: "",
+    assignee: "",
+    assigneeEmail: "",
+    startDate: "",
+    dueDate: "",
+    lastUpdateDate: todayISO(),
+    priority: "Medium" as Priority,
+    blockers: "",
+    notes: "",
+    group: "",
+    labels: [] as string[],
+    dependencies: [] as TaskDependency[],
+    pushToJira: false,
+    // Empty string = "Auto" (no override). Mapped to undefined on save.
+    healthOverride: "" as "" | Health,
+  };
+}
+
+type BulkEditField =
+  | "priority"
+  | "dueDate"
+  | "lastUpdateDate"
+  | "assignee"
+  | "assigneeEmail"
+  | "blockers"
+  | "notes"
+  | "group"
+  | "labels";
+
+function emptyBulkEdit() {
+  return {
+    enabled: {
+      priority: false,
+      dueDate: false,
+      lastUpdateDate: false,
+      assignee: false,
+      assigneeEmail: false,
+      blockers: false,
+      notes: false,
+      group: false,
+      labels: false,
+    } as Record<BulkEditField, boolean>,
+    priority: "Medium" as Priority,
+    dueDate: "",
+    lastUpdateDate: todayISO(),
+    assignee: "",
+    assigneeEmail: "",
+    blockers: "",
+    notes: "",
+    group: "",
+    labels: [] as string[],
+  };
+}
+
+function isValidEmail(s: string): boolean {
+  return /^\S+@\S+\.\S+$/.test(s.trim());
+}
+
+function greetingName(assignee: string): string {
+  const trimmed = assignee.trim();
+  if (!trimmed) return "";
+  if (isValidEmail(trimmed)) {
+    const local = trimmed.split("@")[0];
+    return local.charAt(0).toUpperCase() + local.slice(1);
+  }
+  return trimmed.split(/\s+/)[0];
+}
+
+function priorityLabel(lang: Lang, p: Priority): string {
+  return t(lang, `priority${p}` as TranslationKey);
+}
+
+const priorityStyle: Record<Priority, string> = {
+  Low: "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
+  Medium: "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300",
+  High: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300",
+  Urgent: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300",
+};
+
+// RAG dot palette — standard steering-committee colors, distinct from the
+// existing AIPM-pink "overdue" highlight used elsewhere.
+const healthDot: Record<Health, string> = {
+  R: "bg-red-500",
+  A: "bg-amber-500",
+  G: "bg-emerald-500",
+};
+
+const inputClass =
+  "w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100";
+
+// Build the Jira browse URL only when siteUrl parses to an http(s) origin.
+// Without this guard, a user-supplied siteUrl like "javascript:..." would
+// render as an executable href — React does not block javascript: URLs in
+// href attributes, and all credentials (Anthropic key, Jira token) live in
+// the same localStorage origin.
+function safeJiraIssueHref(siteUrl: string, key: string): string | null {
+  try {
+    const u = new URL(siteUrl);
+    if (u.protocol !== "https:" && u.protocol !== "http:") return null;
+    return `${u.origin}/browse/${encodeURIComponent(key)}`;
+  } catch {
+    return null;
+  }
+}
+
+export default function TaskManager() {
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [raid, setRaid] = useState<RaidItem[]>([]);
+  const [absences, setAbsences] = useState<Absence[]>([]);
+  const [shifts, setShifts] = useState<Shift[]>([]);
+  // When the user clicks a RAID-reference badge on a task row, we jump to
+  // the RAID tab pre-filtered to items referencing that task. `null` clears
+  // the filter; the RaidPanel honors the prop.
+  const [raidFilterTaskId, setRaidFilterTaskId] = useState<number | null>(null);
+  const [settings, setSettings] = useState<Settings>(defaultSettings);
+  const [form, setForm] = useState(emptyForm);
+  const [hydrated, setHydrated] = useState(false);
+  // Gates the JSX return below. `t()` falls back to en-US for German keys
+  // until the de dict is dynamically imported, so for a de user we render
+  // nothing until loadI18n resolves — avoids a flash-of-English on first
+  // paint. en-US/en-GB users resolve immediately, so the gate lifts on
+  // the next microtask (imperceptible).
+  const [i18nReady, setI18nReady] = useState(false);
+
+  // Activity log — recorded user actions persisted to `lop-app:activity-log`
+  // in localStorage. Cleared via the panel's Clear button. Not part of the
+  // workspace export.
+  const [activityLog, setActivityLog] = useState<ActivityEntry[]>([]);
+  const activityLogHydratedRef = useRef(false);
+  useEffect(() => {
+    setActivityLog(loadActivityLog());
+    activityLogHydratedRef.current = true;
+  }, []);
+  useEffect(() => {
+    if (!activityLogHydratedRef.current) return;
+    saveActivityLog(activityLog);
+  }, [activityLog]);
+  const logActivity = useCallback(
+    (kind: ActivityKind, ...args: (string | number)[]) => {
+      setActivityLog((prev) => appendActivity(prev, kind, ...args));
+    },
+    [],
+  );
+  const handleClearActivityLog = useCallback(() => {
+    setActivityLog([]);
+    clearActivityLogStorage();
+  }, []);
+
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<TopTab>("chat");
+  // The new-task / edit-task form is no longer a workspace tab — it lives
+  // in a modal that is opened by the header "+" button or by editing a row.
+  const [taskModalOpen, setTaskModalOpen] = useState(false);
+  // Collapsed state for the workspace section. When true, only the tab
+  // strip (with the expand chevron) is visible — panels are hidden and the
+  // section drops to its intrinsic height with no resize handle. The
+  // initial value is hydrated from localStorage in an effect below so the
+  // SSR-rendered HTML still matches the client's first paint.
+  const [workspaceCollapsed, setWorkspaceCollapsed] = useState(false);
+
+  // Remembered (assignee → email) address book. Persisted at
+  // `CONTACTS_KEY` independent of tasks. The store is hydrated in a
+  // mount-time effect below (also seeded from existing tasks on first
+  // load), upserted on every successful task save, and removed-from when
+  // the user clicks × on a suggestion row.
+  const [contacts, setContacts] = useState<ContactsMap>({});
+  const contactsHydratedRef = useRef(false);
+
+  const [search, setSearch] = useState("");
+  // Debounced mirror of `search`. The filter useMemo reads this instead of
+  // `search` directly, so re-filtering doesn't fire on every keystroke. The
+  // input itself stays bound to `search` so it feels immediate.
+  const [searchDebounced, setSearchDebounced] = useState("");
+  useEffect(() => {
+    const id = setTimeout(() => setSearchDebounced(search), 150);
+    return () => clearTimeout(id);
+  }, [search]);
+  const [priorityFilter, setPriorityFilter] = useState<Priority | "All">(
+    "All",
+  );
+  const [assigneeFilter, setAssigneeFilter] = useState<string>("All");
+  const [groupFilter, setGroupFilter] = useState<string>("All");
+  const [labelFilter, setLabelFilter] = useState<string>("All");
+
+  const [sortKey, setSortKey] = useState<SortKey>("id");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
+
+  const [toast, setToast] = useState<
+    { kind: "info" | "error"; text: string; id: number } | null
+  >(null);
+
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkEditOpen, setBulkEditOpen] = useState(false);
+  const [bulkEdit, setBulkEdit] = useState(emptyBulkEdit);
+
+  const [storageDescription, setStorageDescription] = useState<string | null>(
+    null,
+  );
+  const [storageReady, setStorageReady] = useState(false);
+  const suppressNextSaveRef = useRef(false);
+
+  const [bannerDismissed, setBannerDismissed] = useState(false);
+  const [dueModalOpen, setDueModalOpen] = useState(false);
+  const notifiedThisSessionRef = useRef(false);
+
+  const [jiraSyncing, setJiraSyncing] = useState(false);
+  const [jiraConflicts, setJiraConflicts] = useState<ConflictItem[]>([]);
+  const [pushingIds, setPushingIds] = useState<Set<number>>(new Set());
+  // Tracks which rows have their Notes cell expanded. Default is collapsed
+  // (i.e. id not in the set) — collapsed notes are capped at NOTES_COLLAPSED_MAX
+  // characters with an ellipsis and a "Show more" toggle.
+  const [expandedNotes, setExpandedNotes] = useState<Set<number>>(new Set());
+
+  // Resizable surfaces. See `use-resizable.ts` — each has its own
+  // localStorage key, only deliberate corner-drag gestures are persisted.
+  const { ref: tableRef, reset: resetTableSize } = useResizable(
+    "lop-app:task-table-size",
+  );
+  const { ref: workspaceRef, reset: resetWorkspaceSize } = useResizable(
+    "lop-app:workspace-size",
+  );
+  const { ref: modalRef } = useResizable("lop-app:task-modal-size");
+
+  const [colWidths, setColWidths] = useState<Record<string, number>>(DEFAULT_COL_WIDTHS);
+  const colDragRef = useRef<{ col: string; startX: number; startW: number } | null>(null);
+
+  const [hiddenCols, setHiddenCols] = useState<Set<string>>(new Set());
+  const [colConfigOpen, setColConfigOpen] = useState(false);
+  const colConfigRef = useRef<HTMLDivElement | null>(null);
+
+  const resetColWidths = useCallback(() => {
+    setColWidths(DEFAULT_COL_WIDTHS);
+    try { window.localStorage.removeItem(COL_WIDTHS_KEY); } catch { /* non-fatal */ }
+  }, []);
+
+  const startColResize = useCallback((col: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    colDragRef.current = { col, startX: e.clientX, startW: colWidths[col] ?? 80 };
+    function onMove(mv: MouseEvent) {
+      if (!colDragRef.current) return;
+      const { col: c, startX, startW } = colDragRef.current;
+      setColWidths((prev) => ({ ...prev, [c]: Math.max(40, startW + mv.clientX - startX) }));
+    }
+    function onUp() {
+      colDragRef.current = null;
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    }
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  }, [colWidths]);
+
+  const today = todayISO();
+  const lang = settings.language;
+
+  // `holidaysForCountries` is now async because `date-holidays` (and its
+  // transitive moment + moment-timezone, ~100 KB+ gzipped) is dynamically
+  // imported only when the user has at least one country selected. We
+  // mirror the result into local state; consumers continue to read a
+  // plain `Set<string>` and just see an empty set briefly on first paint
+  // (or until a non-empty selection is loaded).
+  const [holidaySet, setHolidaySet] = useState<Set<string>>(
+    () => new Set<string>(),
+  );
+  useEffect(() => {
+    let cancelled = false;
+    void holidaysForCountries(settings.holidayCountries).then((set) => {
+      if (!cancelled) setHolidaySet(set);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [settings.holidayCountries]);
+
+  const backend = useMemo(
+    () => createBackend(settings.storageConfig),
+    [settings.storageConfig],
+  );
+
+  // Load settings (synchronous, blocks task hydration)
+  useEffect(() => {
+    let cancelled = false;
+    let resolvedLang: Lang = defaultSettings.language;
+    try {
+      const settingsRaw = window.localStorage.getItem(SETTINGS_KEY);
+      if (settingsRaw) {
+        const parsed = JSON.parse(settingsRaw);
+        if (isPlainObject(parsed)) {
+          resolvedLang = migrateLang(
+            (parsed as Record<string, unknown>).language,
+          );
+          setSettings({
+            ...defaultSettings,
+            ...parsed,
+            language: resolvedLang,
+            // Backfill nested defaults for older saved configs
+            ai: {
+              ...defaultSettings.ai,
+              ...(isPlainObject(parsed.ai) ? parsed.ai : {}),
+            },
+            notifications: {
+              ...defaultSettings.notifications,
+              ...(isPlainObject(parsed.notifications)
+                ? parsed.notifications
+                : {}),
+            },
+            jira: {
+              ...defaultSettings.jira,
+              ...(isPlainObject(parsed.jira) ? parsed.jira : {}),
+            },
+            holidayCountries: Array.isArray(parsed.holidayCountries)
+              ? (parsed.holidayCountries as unknown[]).filter(
+                  (v): v is string => typeof v === "string",
+                )
+              : defaultSettings.holidayCountries,
+          });
+        }
+      }
+    } catch {
+      // ignore corrupt storage
+    }
+    setHydrated(true);
+    // Pull the dictionary for the resolved language and lift the render
+    // gate when it's in memory. For en-US/en-GB this is a no-op promise
+    // that resolves on the next microtask; for de it awaits the dynamic
+    // import of ./i18n.de.
+    loadI18n(resolvedLang).finally(() => {
+      if (!cancelled) setI18nReady(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  }, [settings, hydrated]);
+
+  useEffect(() => {
+    document.documentElement.lang = settings.language;
+    // Mid-session switch (e.g. user picks "Deutsch" in Settings) — fetch
+    // the dict if we don't have it yet. Idempotent: subsequent calls are
+    // no-ops. Doesn't gate render; an in-flight switch shows en-US strings
+    // briefly until the next prop change, which is acceptable for an
+    // explicit user action.
+    void loadI18n(settings.language);
+  }, [settings.language]);
+
+  // Hydrate the workspace collapsed flag from localStorage on mount; then
+  // persist any change. Default (key absent) is expanded — matches the
+  // initial useState value, so first paint is consistent.
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(WORKSPACE_COLLAPSED_KEY);
+      if (raw === "1") setWorkspaceCollapsed(true);
+    } catch {
+      // Ignore — localStorage may be disabled.
+    }
+  }, []);
+  useEffect(() => {
+    try {
+      if (workspaceCollapsed) {
+        window.localStorage.setItem(WORKSPACE_COLLAPSED_KEY, "1");
+      } else {
+        window.localStorage.removeItem(WORKSPACE_COLLAPSED_KEY);
+      }
+    } catch {
+      // Same — non-fatal.
+    }
+  }, [workspaceCollapsed]);
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(COL_WIDTHS_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as unknown;
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+          setColWidths((prev) => ({ ...prev, ...(parsed as Record<string, number>) }));
+        }
+      }
+    } catch { /* non-fatal */ }
+  }, []);
+  // Debounced: column drag fires setColWidths on every mousemove. Without
+  // the timeout we'd JSON.stringify and write to localStorage 60×/sec
+  // during a drag. 250 ms after the user lets go is plenty.
+  useEffect(() => {
+    const id = setTimeout(() => {
+      try {
+        window.localStorage.setItem(COL_WIDTHS_KEY, JSON.stringify(colWidths));
+      } catch {
+        /* non-fatal */
+      }
+    }, 250);
+    return () => clearTimeout(id);
+  }, [colWidths]);
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(HIDDEN_COLS_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) setHiddenCols(new Set(parsed as string[]));
+      }
+    } catch { /* non-fatal */ }
+  }, []);
+  useEffect(() => {
+    try { window.localStorage.setItem(HIDDEN_COLS_KEY, JSON.stringify([...hiddenCols])); } catch { /* non-fatal */ }
+  }, [hiddenCols]);
+
+  useEffect(() => {
+    if (!colConfigOpen) return;
+    function onDown(e: MouseEvent) {
+      if (colConfigRef.current && !colConfigRef.current.contains(e.target as Node))
+        setColConfigOpen(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setColConfigOpen(false);
+    }
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [colConfigOpen]);
+
+  // Hydrate the contacts map on mount. If the persisted store is empty,
+  // seed it once from whatever tasks have already been hydrated — that way
+  // users who created tasks before this feature existed still get
+  // assignee/email autocomplete the first time they open the modal.
+  useEffect(() => {
+    if (contactsHydratedRef.current) return;
+    if (!hydrated) return; // wait until tasks are loaded so seeding works
+    contactsHydratedRef.current = true;
+    const loaded = loadContacts();
+    const seeded =
+      Object.keys(loaded).length === 0
+        ? seedContactsFromTasks(loaded, tasks)
+        : loaded;
+    setContacts(seeded);
+    if (Object.keys(seeded).length > 0 && Object.keys(loaded).length === 0) {
+      saveContacts(seeded);
+    }
+  }, [hydrated, tasks]);
+
+  // Persist on every change after hydration.
+  useEffect(() => {
+    if (!contactsHydratedRef.current) return;
+    saveContacts(contacts);
+  }, [contacts]);
+
+  function handleRemoveContact(name: string) {
+    setContacts((prev) => removeContactFromMap(prev, name));
+  }
+
+  // --- RAID CRUD handlers ---------------------------------------------
+  //
+  // The RAID panel owns its own form state and edit modal; these are pure
+  // mutators that update the top-level `raid` array, which round-trips to
+  // storage via the existing save effect.
+
+  const handleSaveRaidItem = useCallback(
+    (item: RaidItem) => {
+      const stamp = new Date().toISOString();
+      const previous = raid.find((r) => r.id === item.id);
+      const idx = raid.findIndex((r) => r.id === item.id);
+      const withStamp: RaidItem = { ...item, localModifiedAt: stamp };
+      const baseList =
+        idx < 0
+          ? [...raid, withStamp]
+          : raid.map((r) => (r.id === item.id ? withStamp : r));
+
+      // Auto-create an Issue when a Risk *transitions* into "Realized". Fires
+      // exactly once per transition: idempotent against repeated saves of an
+      // already-realized risk (prev.status === "Realized" → skip), and skips
+      // when any Issue already lists this risk as a cause so users can
+      // re-realize without spam.
+      const triggersAutoIssue =
+        previous !== undefined &&
+        item.category === "R" &&
+        previous.status !== "Realized" &&
+        item.status === "Realized" &&
+        !raid.some(
+          (r) => r.category === "I" && r.causedByRaidIds.includes(item.id),
+        );
+
+      let autoIssueId: number | null = null;
+      if (triggersAutoIssue) {
+        const newIssueId = nextRaidId(baseList);
+        autoIssueId = newIssueId;
+        const autoIssue: RaidItem = {
+          id: newIssueId,
+          category: "I",
+          title: item.title,
+          description: item.description,
+          severity: item.severity,
+          status: "Open",
+          owner: item.owner,
+          ownerEmail: item.ownerEmail,
+          mitigation: undefined,
+          linkedTaskIds: [],
+          causedByRaidIds: [item.id],
+          raisedDate: today,
+          targetDate: item.targetDate,
+          localModifiedAt: stamp,
+        };
+        setRaid([...baseList, autoIssue]);
+        // Inline setToast (instead of showToast()) keeps this useCallback's
+        // dep list to the values it actually closes over.
+        setToast({
+          kind: "info",
+          text: t(lang, "raidAutoCreatedIssue", item.id, newIssueId),
+          id: Date.now(),
+        });
+      } else {
+        setRaid(baseList);
+      }
+
+      // Activity log: distinguish create vs status-change vs other update,
+      // and emit a separate autoIssue entry when one was spawned.
+      if (previous === undefined) {
+        logActivity("raid.created", item.id, item.category, item.title);
+      } else if (previous.status !== item.status) {
+        logActivity(
+          "raid.statusChanged",
+          item.id,
+          previous.status,
+          item.status,
+        );
+      } else {
+        logActivity("raid.updated", item.id, item.category, item.title);
+      }
+      if (autoIssueId !== null) {
+        logActivity("raid.autoIssue", item.id, autoIssueId);
+      }
+    },
+    [raid, today, lang, logActivity],
+  );
+
+  const handleDeleteRaidItem = useCallback(
+    (id: number) => {
+      const removed = raid.find((r) => r.id === id);
+      setRaid((prev) => prev.filter((r) => r.id !== id));
+      if (removed) {
+        logActivity("raid.deleted", id, removed.category, removed.title);
+      }
+    },
+    [raid, logActivity],
+  );
+
+  // --- Absence CRUD (Phase 2 of Resource Planner) ----------------------
+  //
+  // The modal is controlled here: `editingAbsence` is `null` when closed,
+  // otherwise `{ absence, isNew }` for the modal to render. New absences
+  // get the next monotonic id from the current `absences` list.
+
+  const [editingAbsence, setEditingAbsence] = useState<
+    { absence: Absence; isNew: boolean } | null
+  >(null);
+
+  const handleOpenAddAbsence = useCallback(
+    (seed?: Partial<Absence>) => {
+      const list = absences;
+      const nextId =
+        list.length > 0 ? Math.max(...list.map((a) => a.id)) + 1 : 1;
+      // seed is merged on top of the empty draft; id is re-fixed to nextId
+      // so a stale seed.id cannot collide with an existing record.
+      const draft: Absence = {
+        ...emptyAbsenceDraft(nextId),
+        ...seed,
+        id: nextId,
+      };
+      setEditingAbsence({ absence: draft, isNew: true });
+    },
+    [absences],
+  );
+
+  const handleEditAbsence = useCallback((absence: Absence) => {
+    setEditingAbsence({ absence, isNew: false });
+  }, []);
+
+  const handleCloseAbsenceModal = useCallback(() => {
+    setEditingAbsence(null);
+  }, []);
+
+  const handleSaveAbsence = useCallback(
+    (next: Absence) => {
+      const stamp = new Date().toISOString();
+      const withStamp: Absence = { ...next, localModifiedAt: stamp };
+      const existing = absences.find((a) => a.id === next.id);
+      if (existing) {
+        setAbsences((prev) =>
+          prev.map((a) => (a.id === next.id ? withStamp : a)),
+        );
+        logActivity(
+          "absence.updated",
+          next.id,
+          next.assignee,
+          next.startDate,
+          next.endDate,
+        );
+      } else {
+        setAbsences((prev) => [...prev, withStamp]);
+        logActivity(
+          "absence.created",
+          next.id,
+          next.assignee,
+          next.startDate,
+          next.endDate,
+        );
+      }
+      setEditingAbsence(null);
+    },
+    [absences, logActivity],
+  );
+
+  const handleDeleteAbsence = useCallback(
+    (id: number) => {
+      const removed = absences.find((a) => a.id === id);
+      setAbsences((prev) => prev.filter((a) => a.id !== id));
+      if (removed) {
+        logActivity("absence.deleted", id, removed.assignee);
+      }
+      setEditingAbsence(null);
+    },
+    [absences, logActivity],
+  );
+
+  // --- Shift CRUD (Phase 4 of Resource Planner) ------------------------
+  //
+  // Mirrors the absence flow. `editingShift` is `null` when closed,
+  // otherwise `{ shift, isNew }` for the modal to render. The Resources
+  // panel passes either an existing Shift (edit) or null + the row's
+  // assignee (create with prefill) to handleOpenShiftEditor.
+
+  const [editingShift, setEditingShift] = useState<
+    { shift: Shift; isNew: boolean } | null
+  >(null);
+
+  const handleOpenShiftEditor = useCallback(
+    (
+      existing: Shift | null,
+      seed: { display: string; email: string },
+    ) => {
+      if (existing) {
+        setEditingShift({ shift: existing, isNew: false });
+        return;
+      }
+      const nextId =
+        shifts.length > 0 ? Math.max(...shifts.map((s) => s.id)) + 1 : 1;
+      const draft: Shift = {
+        ...emptyShiftDraft(nextId),
+        assignee: seed.display,
+        assigneeEmail: seed.email || undefined,
+      };
+      setEditingShift({ shift: draft, isNew: true });
+    },
+    [shifts],
+  );
+
+  const handleCloseShiftModal = useCallback(() => {
+    setEditingShift(null);
+  }, []);
+
+  const handleSaveShift = useCallback(
+    (next: Shift) => {
+      const stamp = new Date().toISOString();
+      const withStamp: Shift = { ...next, localModifiedAt: stamp };
+      const existing = shifts.find((s) => s.id === next.id);
+      if (existing) {
+        setShifts((prev) =>
+          prev.map((s) => (s.id === next.id ? withStamp : s)),
+        );
+        logActivity("shift.updated", next.id, next.assignee);
+      } else {
+        setShifts((prev) => [...prev, withStamp]);
+        logActivity("shift.created", next.id, next.assignee);
+      }
+      setEditingShift(null);
+    },
+    [shifts, logActivity],
+  );
+
+  const handleDeleteShift = useCallback(
+    (id: number) => {
+      const removed = shifts.find((s) => s.id === id);
+      setShifts((prev) => prev.filter((s) => s.id !== id));
+      if (removed) {
+        logActivity("shift.deleted", id, removed.assignee);
+      }
+      setEditingShift(null);
+    },
+    [shifts, logActivity],
+  );
+
+  /**
+   * Spawns a new task pre-filled from a RAID item (title, owner, target
+   * date) and links it back into the item's `linkedTaskIds`. Returns the
+   * new task's id so the panel can show a "linked" indicator without a
+   * round-trip through state.
+   */
+  const handleCreateMitigationTaskFromRaid = useCallback(
+    (raidItemId: number): number | null => {
+      const item = raid.find((r) => r.id === raidItemId);
+      if (!item) return null;
+      // Compute nextId from tasksRef so this callback doesn't depend on
+      // the (frequently re-rendered) `tasks` array.
+      const list = tasksRef.current;
+      const newId =
+        list.length > 0 ? Math.max(...list.map((tk) => tk.id)) + 1 : 1;
+      const stamp = new Date().toISOString();
+      const newTask: Task = {
+        id: newId,
+        taskName: item.title,
+        assignee: item.owner ?? "",
+        assigneeEmail: item.ownerEmail ?? "",
+        dueDate: item.targetDate ?? today,
+        lastUpdateDate: today,
+        priority: "Medium",
+        blockers: "",
+        notes: item.mitigation ?? item.description ?? "",
+        inquiriesSent: 0,
+        localModifiedAt: stamp,
+      };
+      const nextList = [...list, newTask];
+      tasksRef.current = nextList;
+      setTasks(nextList);
+      setRaid((prev) =>
+        prev.map((r) =>
+          r.id === raidItemId
+            ? {
+                ...r,
+                linkedTaskIds: [...r.linkedTaskIds, newId],
+                localModifiedAt: stamp,
+              }
+            : r,
+        ),
+      );
+      return newId;
+    },
+    [raid, today],
+  );
+
+  async function refreshBackendStatus() {
+    try {
+      const desc = (await backend.describe?.()) ?? null;
+      setStorageDescription(desc);
+      setStorageReady(await backend.isReady());
+    } catch {
+      setStorageDescription(null);
+      setStorageReady(false);
+    }
+  }
+
+  // Load tasks from backend whenever backend changes (or on hydration)
+  useEffect(() => {
+    if (!hydrated) return;
+    let cancelled = false;
+    refreshBackendStatus();
+    const snapshot = { tasks, raid, absences, shifts };
+    backend
+      .load()
+      .then((loaded) => {
+        if (cancelled) return;
+        if (
+          loaded.tasks.length > 0 ||
+          loaded.raid.length > 0 ||
+          loaded.absences.length > 0
+        ) {
+          suppressNextSaveRef.current = true;
+          setTasks(loaded.tasks);
+          setRaid(loaded.raid);
+          setAbsences(loaded.absences);
+          setShifts(loaded.shifts);
+        } else if (
+          snapshot.tasks.length > 0 ||
+          snapshot.raid.length > 0 ||
+          snapshot.absences.length > 0 ||
+          snapshot.shifts.length > 0
+        ) {
+          backend.save(snapshot).catch(() => {
+            /* swallow — toast will fire on next save attempt */
+          });
+        }
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        if (err instanceof StorageNotReadyError) {
+          if (settings.storageConfig.kind !== "browser") {
+            const key =
+              err.hint === "local-file-permission-needed"
+                ? "storagePermissionGestureNeeded"
+                : "storageNotReady";
+            showToast("error", t(lang, key));
+          }
+        } else if (!(err instanceof StorageNotImplementedError)) {
+          showToast("error", t(lang, "storageLoadFailed", String(err)));
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [backend, hydrated]);
+
+  // Save tasks to backend on change (debounced)
+  useEffect(() => {
+    if (!hydrated) return;
+    if (suppressNextSaveRef.current) {
+      suppressNextSaveRef.current = false;
+      return;
+    }
+    const timer = setTimeout(() => {
+      backend.save({ tasks, raid, absences, shifts }).catch((err) => {
+        if (err instanceof StorageNotReadyError) {
+          const key =
+            err.hint === "local-file-permission-needed"
+              ? "storagePermissionGestureNeeded"
+              : "storageNotReady";
+          showToast("error", t(lang, key));
+        } else if (!(err instanceof StorageNotImplementedError)) {
+          showToast("error", t(lang, "storageSaveFailed", String(err)));
+        }
+      });
+    }, 500);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tasks, raid, absences, shifts, hydrated, backend]);
+
+  async function onPickStorageFile() {
+    const promise = pickFileForBackend(backend);
+    if (!promise) return;
+    await promise;
+    try {
+      await backend.save({ tasks, raid, absences, shifts });
+      await refreshBackendStatus();
+      showToast("info", t(lang, "storageSwitchedToast"));
+    } catch (err) {
+      showToast("error", t(lang, "storageSaveFailed", String(err)));
+    }
+  }
+
+  async function onGrantWriteAccess() {
+    const promise = requestWriteAccessForBackend(backend);
+    if (!promise) return;
+    const granted = await promise;
+    await refreshBackendStatus();
+    if (granted) {
+      showToast("info", t(lang, "storagePermissionGranted"));
+    } else {
+      showToast("error", t(lang, "storagePermissionDenied"));
+    }
+  }
+
+  async function onOpenStorageFile() {
+    const promise = openFileForBackend(backend);
+    if (!promise) return;
+    await promise;
+    try {
+      const loaded = await backend.load();
+      if (
+        tasks.length > 0 &&
+        !window.confirm(t(lang, "storageConfirmOverwrite", tasks.length))
+      ) {
+        return;
+      }
+      suppressNextSaveRef.current = true;
+      setTasks(loaded.tasks);
+      setRaid(loaded.raid);
+      await refreshBackendStatus();
+      showToast("info", t(lang, "storageOpenedToast", loaded.tasks.length));
+    } catch (err) {
+      if (err instanceof StorageNotReadyError) {
+        const key =
+          err.hint === "local-file-permission-needed"
+            ? "storagePermissionGestureNeeded"
+            : "storageNotReady";
+        showToast("error", t(lang, key));
+      } else {
+        showToast("error", t(lang, "storageLoadFailed", String(err)));
+      }
+    }
+  }
+
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => setToast(null), 4000);
+    return () => clearTimeout(timer);
+  }, [toast?.id]);
+
+  function showToast(kind: "info" | "error", text: string) {
+    setToast({ kind, text, id: Date.now() });
+  }
+
+  const nextId =
+    tasks.length > 0 ? Math.max(...tasks.map((t) => t.id)) + 1 : 1;
+
+  const uniqueAssignees = useMemo(
+    () =>
+      Array.from(new Set(tasks.map((t) => t.assignee))).sort((a, b) =>
+        a.localeCompare(b),
+      ),
+    [tasks],
+  );
+
+  const uniqueGroups = useMemo(
+    () =>
+      Array.from(
+        new Set(tasks.map((t) => (t.group ?? "").trim()).filter(Boolean)),
+      ).sort((a, b) => a.localeCompare(b)),
+    [tasks],
+  );
+
+  const uniqueLabels = useMemo(() => {
+    const set = new Set<string>();
+    for (const t of tasks) {
+      for (const l of t.labels ?? []) {
+        const clean = l.trim();
+        if (clean) set.add(clean);
+      }
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [tasks]);
+
+  // O(1) id → Task lookup. Used by the row renderer to resolve predecessor
+  // names when drawing dependency chips and by anything else needing a quick
+  // task lookup without scanning the whole array.
+  const tasksById = useMemo(() => {
+    const m = new Map<number, Task>();
+    for (const t of tasks) m.set(t.id, t);
+    return m;
+  }, [tasks]);
+
+  // Stable, sorted contacts array for the ContactInput suggestion list.
+  const contactsList = useMemo(() => listContacts(contacts), [contacts]);
+
+  // Reverse-lookup index for the "referenced by N RAID items" badge on
+  // each task row. Map<taskId, RaidItem[]>. O(R) on every raid update,
+  // then O(1) per row. Empty when `raid` is empty — the per-row check
+  // bails out fast.
+  const raidByTask = useMemo(() => buildRaidByTaskIndex(raid), [raid]);
+
+  // Pre-built lowercase haystack per task, keyed by id. Rebuilds only when
+  // `tasks` changes — not on every keystroke or filter toggle, which is what
+  // the old per-task string-join inside `filteredSortedTasks` was doing.
+  const taskSearchIndex = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const t of tasks) {
+      map.set(
+        t.id,
+        [
+          `#${t.id}`,
+          t.taskName,
+          t.assignee,
+          t.blockers,
+          t.notes,
+          t.group ?? "",
+          (t.labels ?? []).join(" "),
+        ]
+          .join(" ")
+          .toLowerCase(),
+      );
+    }
+    return map;
+  }, [tasks]);
+
+  const filteredSortedTasks = useMemo(() => {
+    const q = searchDebounced.trim().toLowerCase();
+    const filtered = tasks.filter((t) => {
+      if (priorityFilter !== "All" && t.priority !== priorityFilter)
+        return false;
+      if (assigneeFilter !== "All" && t.assignee !== assigneeFilter)
+        return false;
+      if (groupFilter !== "All" && (t.group ?? "") !== groupFilter)
+        return false;
+      if (
+        labelFilter !== "All" &&
+        !(t.labels ?? []).some(
+          (l) => l.toLowerCase() === labelFilter.toLowerCase(),
+        )
+      )
+        return false;
+      if (q) {
+        const haystack = taskSearchIndex.get(t.id) ?? "";
+        if (!haystack.includes(q)) return false;
+      }
+      return true;
+    });
+
+    const dir = sortDir === "asc" ? 1 : -1;
+    return filtered.slice().sort((a, b) => {
+      let cmp = 0;
+      if (sortKey === "id") cmp = a.id - b.id;
+      else if (sortKey === "priority")
+        cmp = PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority];
+      else if (sortKey === "startDate") {
+        // startDate is optional. Missing values sort to the bottom
+        // regardless of direction so empty cells don't collect at one end.
+        const av = a.startDate ?? "";
+        const bv = b.startDate ?? "";
+        if (av && !bv) cmp = -1;
+        else if (!av && bv) cmp = 1;
+        else if (!av && !bv) cmp = 0;
+        else cmp = av.localeCompare(bv);
+      } else cmp = a[sortKey].localeCompare(b[sortKey]);
+      return cmp * dir;
+    });
+  }, [
+    tasks,
+    taskSearchIndex,
+    searchDebounced,
+    priorityFilter,
+    assigneeFilter,
+    groupFilter,
+    labelFilter,
+    sortKey,
+    sortDir,
+  ]);
+
+  function toggleSort(key: SortKey) {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  }
+
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setError(null);
+
+    const taskName = sanitizeTaskName(form.taskName);
+    const assignee = sanitizeAssignee(form.assignee);
+    const dueDate = sanitizeIsoDate(form.dueDate);
+
+    if (!taskName || !assignee || !dueDate) {
+      setError(t(lang, "errorRequired"));
+      return;
+    }
+    if (dueDate < today) {
+      setError(t(lang, "errorPastDate"));
+      return;
+    }
+
+    // Block assignee changes on Jira-linked tasks (also enforced by the disabled
+    // input, but a paste/devtools edit could still get here).
+    if (editingId !== null) {
+      const existing = tasks.find((row) => row.id === editingId);
+      if (
+        existing?.jiraKey &&
+        sanitizeAssignee(existing.assignee) !== assignee
+      ) {
+        window.alert(t(lang, "jiraAssigneeForbidden", existing.jiraKey));
+        return;
+      }
+    }
+
+    const email = sanitizeEmail(form.assigneeEmail);
+    if (email && !isValidEmail(email)) {
+      setError(t(lang, "errorInvalidEmail"));
+      return;
+    }
+
+    // Sanitize dependencies against the current snapshot of task ids. The
+    // editor already filters by id and prevents self-loops + cycles, but a
+    // sanitize pass keeps the persistence layer honest if anything slipped
+    // through (e.g. a referenced task was deleted while the modal was open).
+    const knownIds = new Set(tasks.map((t) => t.id));
+    const cleanDependencies = sanitizeDependencies(
+      form.dependencies,
+      knownIds,
+      editingId,
+    );
+
+    // startDate is optional and must not exceed dueDate. Empty → undefined
+    // (preserves the derived behavior in the Gantt). If the user picked a
+    // start past the due date we clamp it to dueDate so the bar collapses
+    // to a single-day milestone instead of running backwards.
+    const rawStart = sanitizeIsoDate(form.startDate);
+    const startDate =
+      rawStart && rawStart > dueDate ? dueDate : rawStart || undefined;
+
+    const payload = {
+      taskName,
+      assignee,
+      assigneeEmail: email,
+      startDate,
+      dueDate,
+      lastUpdateDate: sanitizeIsoDate(form.lastUpdateDate) || today,
+      priority: sanitizePriority(form.priority),
+      blockers: sanitizeBlockers(form.blockers),
+      notes: sanitizeNotes(form.notes),
+      group: sanitizeGroup(form.group),
+      labels: sanitizeLabels(form.labels),
+      dependencies: cleanDependencies,
+      // Empty string in the form means "Auto" (no override) — store as
+      // undefined so the field round-trips cleanly via JSON.
+      healthOverride: form.healthOverride || undefined,
+    };
+
+    // Remember this (assignee, email) pair for autocomplete next time.
+    setContacts((prev) => upsertContact(prev, assignee, email));
+
+    if (editingId !== null) {
+      const stamp = new Date().toISOString();
+      const updatedId = editingId;
+      setTasks((prev) =>
+        prev.map((t) =>
+          t.id === editingId
+            ? { ...t, ...payload, localModifiedAt: stamp }
+            : t,
+        ),
+      );
+      setEditingId(null);
+      logActivity("task.updated", updatedId, taskName);
+    } else {
+      const newTask: Task = { id: nextId, ...payload, inquiriesSent: 0 };
+      const newId = newTask.id;
+      const shouldPush =
+        form.pushToJira &&
+        settings.jira.enabled &&
+        !!settings.jira.projectKey;
+      // Synchronously update tasksRef so handlePushToJira can find the row by id.
+      const nextList = [...tasksRef.current, newTask];
+      tasksRef.current = nextList;
+      setTasks(nextList);
+      logActivity("task.created", newId, taskName);
+      if (shouldPush) {
+        // Fire-and-forget; handlePushToJira shows its own toasts.
+        void handlePushToJira(newId);
+      }
+    }
+    setForm(emptyForm());
+    setTaskModalOpen(false);
+  }
+
+  const handleEdit = useCallback((task: Task) => {
+    setEditingId(task.id);
+    setError(null);
+    setTaskModalOpen(true);
+    setForm({
+      taskName: task.taskName,
+      assignee: task.assignee,
+      assigneeEmail: task.assigneeEmail ?? "",
+      startDate: task.startDate ?? "",
+      dueDate: task.dueDate,
+      lastUpdateDate: task.lastUpdateDate,
+      priority: task.priority,
+      blockers: task.blockers,
+      notes: task.notes,
+      group: task.group ?? "",
+      labels: task.labels ?? [],
+      dependencies: task.dependencies ?? [],
+      pushToJira: false,
+      healthOverride: task.healthOverride ?? "",
+    });
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }, []);
+
+  // Stable refs for the props passed to memoized <RaidPanel>. Without these
+  // every parent re-render (search keystroke, column drag, etc.) would
+  // produce a new function identity and bust the memo.
+  const handleClearRaidTaskFilter = useCallback(() => {
+    setRaidFilterTaskId(null);
+  }, []);
+
+  const handleJumpToTaskFromRaid = useCallback(
+    (taskId: number) => {
+      const task = tasksRef.current.find((tk) => tk.id === taskId);
+      if (task) handleEdit(task);
+    },
+    [handleEdit],
+  );
+
+  function handleCancelEdit() {
+    setEditingId(null);
+    setError(null);
+    setForm(emptyForm());
+    setTaskModalOpen(false);
+  }
+
+  function handleDelete(id: number) {
+    if (!window.confirm(t(lang, "confirmDelete", id))) return;
+    const deletedName = tasksRef.current.find((t) => t.id === id)?.taskName ?? "";
+    // Drop the task AND strip any predecessor references to it from the
+    // dependency lists of all surviving tasks — otherwise rows would carry
+    // chips pointing to a missing id.
+    setTasks((prev) =>
+      prev
+        .filter((t) => t.id !== id)
+        .map((t) =>
+          t.dependencies && t.dependencies.some((d) => d.taskId === id)
+            ? { ...t, dependencies: t.dependencies.filter((d) => d.taskId !== id) }
+            : t,
+        ),
+    );
+    setSelectedIds((prev) => {
+      if (!prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+    if (editingId === id) handleCancelEdit();
+    logActivity("task.deleted", id, deletedName);
+  }
+
+  async function handleJiraSync() {
+    if (jiraSyncing) return;
+    const jiraCfg = settings.jira;
+    if (!jiraCfg.enabled) return;
+    const {
+      buildJql,
+      searchAllIssues,
+      issueToTaskFields,
+      diffTaskAgainstIssue,
+      isIssueDone,
+      updateIssue,
+      taskFieldsToJiraFields,
+      transitionIssueTo,
+      formatJiraError,
+    } = await loadJiraApi();
+    const jql = buildJql(jiraCfg);
+    if (!jql) {
+      showToast("error", t(lang, "jiraSyncNoScope"));
+      return;
+    }
+    const creds = {
+      siteUrl: jiraCfg.siteUrl,
+      email: jiraCfg.email,
+      apiToken: jiraCfg.apiToken,
+    };
+    setJiraSyncing(true);
+    try {
+      const issues = await searchAllIssues(creds, jql);
+      const issueByKey = new Map(issues.map((i) => [i.key, i]));
+      const todayNow = todayRef.current;
+      const syncStamp = new Date().toISOString();
+      const list = tasksRef.current;
+
+      let added = 0;
+      let pulled = 0;
+      let pushed = 0;
+      let pushErrors = 0;
+      const conflictItems: ConflictItem[] = [];
+      let nextId =
+        list.length > 0 ? Math.max(...list.map((row) => row.id)) + 1 : 1;
+
+      // Walk existing tasks first; decide pull/push/conflict per row.
+      const next: Task[] = [];
+      for (const row of list) {
+        if (!row.jiraKey) {
+          next.push(row);
+          continue;
+        }
+        const issue = issueByKey.get(row.jiraKey);
+        if (!issue) {
+          // Out of scope or deleted in Jira — leave alone.
+          next.push(row);
+          continue;
+        }
+        const remoteUpdated = (issue.fields?.updated ?? "").slice(0, 19);
+        const lastSync = row.lastSyncedAt ?? "";
+        const localMod = row.localModifiedAt ?? "";
+        const remoteChanged = lastSync ? remoteUpdated > lastSync : true;
+        const localChanged = lastSync ? localMod > lastSync : false;
+
+        if (remoteChanged && localChanged) {
+          // Both sides moved — queue for user review. Don't touch the row;
+          // the conflicts modal will resolve it after the user picks per field.
+          const patch = issueToTaskFields(issue, todayNow);
+          const diffs = diffTaskAgainstIssue(row, patch);
+          if (diffs.length === 0) {
+            // Both timestamps moved but actual values match → just refresh sync stamp.
+            next.push({
+              ...row,
+              lastSyncedAt: syncStamp,
+              localModifiedAt: undefined,
+            });
+          } else {
+            conflictItems.push({
+              taskId: row.id,
+              jiraKey: issue.key,
+              jiraIssueType: row.jiraIssueType ?? patch.jiraIssueType,
+              remoteDone: isIssueDone(issue),
+              fields: diffs,
+            });
+            next.push(row);
+          }
+        } else if (localChanged) {
+          // Push local fields → Jira.
+          try {
+            await updateIssue(
+              creds,
+              row.jiraKey,
+              taskFieldsToJiraFields(row),
+            );
+            // Status transition if completion state diverges.
+            const localDone = !!row.completedDate;
+            const remoteDone = isIssueDone(issue);
+            if (localDone && !remoteDone) {
+              await transitionIssueTo(creds, row.jiraKey, "done");
+            }
+            // Note: reopening (local !completed but remote done) isn't pushed —
+            // workflows vary and "go back to To Do" requires per-project mapping.
+            pushed++;
+            next.push({
+              ...row,
+              lastSyncedAt: syncStamp,
+              localModifiedAt: undefined,
+            });
+          } catch (err) {
+            pushErrors++;
+            // Keep the local row as-is; user can retry.
+            next.push(row);
+            // Surface the first push failure for visibility.
+            if (pushErrors === 1) {
+              showToast(
+                "error",
+                t(
+                  lang,
+                  "jiraPushFailed",
+                  row.jiraKey,
+                  formatJiraError(err),
+                ),
+              );
+            }
+          }
+        } else if (remoteChanged) {
+          // Pull Jira → local.
+          const patch = issueToTaskFields(issue, todayNow);
+          pulled++;
+          next.push({
+            ...row,
+            taskName: patch.taskName ?? row.taskName,
+            assignee: patch.assignee ?? row.assignee,
+            assigneeEmail: patch.assigneeEmail ?? row.assigneeEmail,
+            dueDate: patch.dueDate ?? row.dueDate,
+            lastUpdateDate: patch.lastUpdateDate ?? row.lastUpdateDate,
+            priority: patch.priority ?? row.priority,
+            labels: patch.labels ?? row.labels,
+            notes: patch.notes ?? row.notes,
+            completedDate: patch.completedDate ?? row.completedDate,
+            jiraKey: issue.key,
+            jiraIssueType: patch.jiraIssueType ?? row.jiraIssueType,
+            lastSyncedAt: syncStamp,
+          });
+        } else {
+          // No-op; refresh sync stamp.
+          next.push({ ...row, lastSyncedAt: syncStamp });
+        }
+      }
+
+      // New Jira issues we didn't have locally → create.
+      const existingKeys = new Set(list.map((r) => r.jiraKey).filter(Boolean));
+      for (const issue of issues) {
+        if (existingKeys.has(issue.key)) continue;
+        const patch = issueToTaskFields(issue, todayNow);
+        next.push({
+          id: nextId++,
+          taskName: patch.taskName ?? issue.key,
+          assignee: patch.assignee ?? "",
+          assigneeEmail: patch.assigneeEmail ?? "",
+          dueDate: patch.dueDate ?? "",
+          lastUpdateDate: patch.lastUpdateDate ?? todayNow,
+          priority: patch.priority ?? "Medium",
+          blockers: "",
+          notes: patch.notes ?? "",
+          completedDate: patch.completedDate,
+          inquiriesSent: 0,
+          group: jiraCfg.projectName || jiraCfg.projectKey || "",
+          labels: patch.labels ?? [],
+          jiraKey: issue.key,
+          jiraIssueType: patch.jiraIssueType,
+          lastSyncedAt: syncStamp,
+        });
+        added++;
+      }
+
+      tasksRef.current = next;
+      setTasks(next);
+
+      logActivity("jira.sync", added + pulled, pushed, conflictItems.length);
+
+      const summary = t(
+        lang,
+        "jiraSyncDoneFull",
+        issues.length,
+        added,
+        pulled,
+        pushed,
+      );
+      if (conflictItems.length > 0) {
+        setJiraConflicts(conflictItems);
+        showToast(
+          "info",
+          summary +
+            " " +
+            t(lang, "jiraSyncConflictsReview", conflictItems.length),
+        );
+      } else {
+        showToast("info", summary);
+      }
+    } catch (err) {
+      showToast("error", t(lang, "jiraSyncFailed", formatJiraError(err)));
+    } finally {
+      setJiraSyncing(false);
+    }
+  }
+
+  async function handleResolveConflicts(
+    resolutions: import("./jira-conflicts-modal").ConflictResolution[],
+  ) {
+    const jiraCfg = settings.jira;
+    const {
+      updateIssue,
+      taskFieldsToJiraFields,
+      transitionIssueTo,
+      formatJiraError,
+    } = await loadJiraApi();
+    const creds = {
+      siteUrl: jiraCfg.siteUrl,
+      email: jiraCfg.email,
+      apiToken: jiraCfg.apiToken,
+    };
+    const syncStamp = new Date().toISOString();
+    let pulled = 0;
+    let pushed = 0;
+    let pushErrors = 0;
+
+    // Walk through resolutions sequentially so we can await Jira pushes.
+    for (const res of resolutions) {
+      const original = tasksRef.current.find((row) => row.id === res.taskId);
+      const conflict = jiraConflicts.find((c) => c.taskId === res.taskId);
+      if (!original || !conflict) continue;
+
+      // Build the new local task by applying field-by-field picks.
+      const merged: Task = { ...original };
+      let anyLocalPicked = false;
+      let completionChanged = false;
+      for (const field of conflict.fields) {
+        const pick = res.picks[field.key] ?? "remote";
+        const value = pick === "local" ? field.localValue : field.remoteValue;
+        if (pick === "local") anyLocalPicked = true;
+        if (field.key === "labels") {
+          merged.labels = Array.isArray(value) ? (value as string[]) : [];
+        } else if (field.key === "completedDate") {
+          merged.completedDate =
+            typeof value === "string" && value ? value : undefined;
+          completionChanged = true;
+        } else if (
+          field.key === "taskName" ||
+          field.key === "assignee" ||
+          field.key === "assigneeEmail" ||
+          field.key === "dueDate" ||
+          field.key === "priority" ||
+          field.key === "notes"
+        ) {
+          (merged as Record<string, unknown>)[field.key] =
+            typeof value === "string" ? value : "";
+        }
+      }
+
+      // Push to Jira if any "local" pick was made. We push the full Jira-owned
+      // field set rather than the diff — it's idempotent and simpler.
+      if (anyLocalPicked) {
+        try {
+          await updateIssue(
+            creds,
+            conflict.jiraKey,
+            taskFieldsToJiraFields(merged),
+          );
+          // Status transition: if local now Done but remote isn't, transition.
+          if (completionChanged && merged.completedDate && !conflict.remoteDone) {
+            await transitionIssueTo(creds, conflict.jiraKey, "done");
+          }
+          pushed++;
+        } catch (err) {
+          pushErrors++;
+          if (pushErrors === 1) {
+            showToast(
+              "error",
+              t(lang, "jiraPushFailed", conflict.jiraKey, formatJiraError(err)),
+            );
+          }
+          // On push failure: keep the original local row untouched. Don't update
+          // lastSyncedAt so it stays a conflict on the next sync.
+          continue;
+        }
+      } else {
+        pulled++;
+      }
+
+      merged.lastSyncedAt = syncStamp;
+      merged.localModifiedAt = undefined;
+      const next = tasksRef.current.map((row) =>
+        row.id === merged.id ? merged : row,
+      );
+      tasksRef.current = next;
+      setTasks(next);
+    }
+
+    // Clear resolved conflicts; any that errored will resurface on next sync.
+    setJiraConflicts([]);
+    showToast(
+      "info",
+      t(lang, "jiraConflictResolved", resolutions.length, pulled, pushed),
+    );
+  }
+
+  /**
+   * Commit a Gantt drag-edit. Writes `startDate` + `dueDate` to the task,
+   * stamps `localModifiedAt` so the Jira-sync conflict detection picks up
+   * the change, and clamps the dates so start never exceeds due.
+   *
+   * No-ops if either date is unparseable (defensive — the panel already
+   * formats them as YYYY-MM-DD) or if the task disappeared between drag
+   * start and drop.
+   */
+  function handleGanttBarUpdate(edit: {
+    taskId: number;
+    startDate: string;
+    dueDate: string;
+  }) {
+    const start = sanitizeIsoDate(edit.startDate);
+    const due = sanitizeIsoDate(edit.dueDate);
+    if (!due) return;
+    // Reorder if the drag accidentally produced start > due.
+    const finalStart = start && start > due ? due : start;
+    const stamp = new Date().toISOString();
+    const todayIso = today;
+    const next = tasksRef.current.map((row) =>
+      row.id === edit.taskId
+        ? {
+            ...row,
+            startDate: finalStart || undefined,
+            dueDate: due,
+            // A drag-edit IS a meaningful change to the task, so bump
+            // lastUpdateDate too. This makes the "Last update" column in
+            // the tasks list reflect the edit, and `localModifiedAt`
+            // keeps Jira-sync's conflict detection accurate.
+            lastUpdateDate: todayIso,
+            localModifiedAt: stamp,
+          }
+        : row,
+    );
+    tasksRef.current = next;
+    setTasks(next);
+  }
+
+  async function handlePushToJira(taskId: number): Promise<boolean> {
+    const jiraCfg = settings.jira;
+    if (!jiraCfg.enabled || !jiraCfg.projectKey) {
+      showToast("error", t(lang, "jiraPushPrereq"));
+      return false;
+    }
+    const task = tasksRef.current.find((row) => row.id === taskId);
+    if (!task) return false;
+    if (task.jiraKey) {
+      // Already linked — nothing to push.
+      return false;
+    }
+    if (pushingIds.has(taskId)) return false;
+
+    setPushingIds((prev) => {
+      const next = new Set(prev);
+      next.add(taskId);
+      return next;
+    });
+
+    const { createIssue, taskFieldsToJiraFields, formatJiraError } =
+      await loadJiraApi();
+    // Inlined from defaultIssueTypeForCreate to avoid awaiting jira-api
+    // before the user actually triggers a push.
+    const issueType = jiraCfg.issueTypes[0] ?? "Task";
+    try {
+      const created = await createIssue(
+        {
+          siteUrl: jiraCfg.siteUrl,
+          email: jiraCfg.email,
+          apiToken: jiraCfg.apiToken,
+        },
+        jiraCfg.projectKey,
+        issueType,
+        taskFieldsToJiraFields(task),
+      );
+      if (!created?.key) {
+        showToast("error", t(lang, "jiraPushFailed", `#${taskId}`, "no key"));
+        return false;
+      }
+      // Stamp the now-linked task. Clear localModifiedAt so the next sync
+      // treats this as up-to-date (it will pull whatever Jira normalized,
+      // e.g. assignee, which we deliberately didn't push).
+      const syncStamp = new Date().toISOString();
+      const next = tasksRef.current.map((row) =>
+        row.id === taskId
+          ? {
+              ...row,
+              jiraKey: created.key,
+              jiraIssueType: issueType,
+              lastSyncedAt: syncStamp,
+              localModifiedAt: undefined,
+            }
+          : row,
+      );
+      tasksRef.current = next;
+      setTasks(next);
+      showToast(
+        "info",
+        t(lang, "jiraPushedToast", created.key, issueType),
+      );
+      return true;
+    } catch (err) {
+      showToast(
+        "error",
+        t(lang, "jiraPushFailed", `#${taskId}`, formatJiraError(err)),
+      );
+      return false;
+    } finally {
+      setPushingIds((prev) => {
+        if (!prev.has(taskId)) return prev;
+        const next = new Set(prev);
+        next.delete(taskId);
+        return next;
+      });
+    }
+  }
+
+  function handleClearAll() {
+    if (tasks.length === 0) return;
+    if (!window.confirm(t(lang, "confirmClearAll", tasks.length))) return;
+    setTasks([]);
+    setSelectedIds(new Set());
+    handleCancelEdit();
+  }
+
+  function handleSendInquiry(task: Task) {
+    let email = task.assigneeEmail?.trim();
+    if (!email && isValidEmail(task.assignee)) {
+      email = task.assignee.trim();
+    }
+    if (!email) {
+      const provided = window.prompt(
+        t(lang, "promptEmail", task.assignee),
+        "",
+      );
+      if (provided === null) return;
+      const trimmed = provided.trim();
+      if (!isValidEmail(trimmed)) {
+        window.alert(t(lang, "errorInvalidEmail"));
+        return;
+      }
+      email = trimmed;
+      setTasks((prev) =>
+        prev.map((row) =>
+          row.id === task.id ? { ...row, assigneeEmail: trimmed } : row,
+        ),
+      );
+    }
+
+    const greeting = greetingName(task.assignee) || task.assignee;
+    const subject = t(lang, "emailSubject", task.id, task.taskName);
+    const body = t(
+      lang,
+      "emailBodyTemplate",
+      greeting,
+      task.id,
+      task.taskName,
+      task.dueDate,
+      task.lastUpdateDate,
+    );
+    const url = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    window.location.href = url;
+    setTasks((prev) =>
+      prev.map((row) =>
+        row.id === task.id
+          ? { ...row, inquiriesSent: (row.inquiriesSent ?? 0) + 1 }
+          : row,
+      ),
+    );
+  }
+
+  function handleToggleComplete(task: Task) {
+    // Reopening a Jira-linked task requires a workflow transition that varies
+    // per project — refuse here and tell the user to reopen in Jira.
+    if (task.completedDate && task.jiraKey) {
+      window.alert(t(lang, "jiraReopenForbidden", task.jiraKey));
+      return;
+    }
+    const wasComplete = !!task.completedDate;
+    const stamp = new Date().toISOString();
+    setTasks((prev) =>
+      prev.map((row) => {
+        if (row.id !== task.id) return row;
+        if (row.completedDate) {
+          // Reopen
+          return { ...row, completedDate: undefined, localModifiedAt: stamp };
+        }
+        return { ...row, completedDate: today, localModifiedAt: stamp };
+      }),
+    );
+    if (editingId === task.id) handleCancelEdit();
+    logActivity(
+      wasComplete ? "task.reopened" : "task.completed",
+      task.id,
+      task.taskName,
+    );
+  }
+
+  function handleCommand(cmd: Command, originalText: string) {
+    switch (cmd.kind) {
+      case "edit": {
+        const task = tasks.find((row) => row.id === cmd.id);
+        if (!task) {
+          showToast("error", t(lang, "voiceTaskNotFound", cmd.id));
+          return;
+        }
+        handleEdit(task);
+        return;
+      }
+      case "delete": {
+        const task = tasks.find((row) => row.id === cmd.id);
+        if (!task) {
+          showToast("error", t(lang, "voiceTaskNotFound", cmd.id));
+          return;
+        }
+        handleDelete(cmd.id);
+        return;
+      }
+      case "sendInquiry": {
+        const task = tasks.find((row) => row.id === cmd.id);
+        if (!task) {
+          showToast("error", t(lang, "voiceTaskNotFound", cmd.id));
+          return;
+        }
+        handleSendInquiry(task);
+        return;
+      }
+      case "clearAll":
+        handleClearAll();
+        return;
+      case "openForm":
+        handleCancelEdit();
+        setTaskModalOpen(true);
+        return;
+      case "openFormWith":
+        handleCancelEdit();
+        setForm({ ...emptyForm(), taskName: sanitizeTaskName(cmd.taskName) });
+        setTaskModalOpen(true);
+        return;
+      case "search":
+        setSearch(sanitizeVoiceTranscript(cmd.query));
+        return;
+      case "clearSearch":
+        setSearch("");
+        return;
+      case "language":
+        setSettings((s) => ({ ...s, language: cmd.lang }));
+        return;
+      case "unknown":
+        showToast("error", t(lang, "voiceUnknownCommand", originalText));
+        return;
+    }
+  }
+
+  const visibleIds = filteredSortedTasks.map((row) => row.id);
+  const allVisibleSelected =
+    visibleIds.length > 0 && visibleIds.every((id) => selectedIds.has(id));
+  const selectedJiraCount = tasks.reduce(
+    (n, row) => (selectedIds.has(row.id) && row.jiraKey ? n + 1 : n),
+    0,
+  );
+
+  function toggleSelect(id: number) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleNoteExpanded(id: number) {
+    setExpandedNotes((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAllVisible() {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allVisibleSelected) {
+        visibleIds.forEach((id) => next.delete(id));
+      } else {
+        visibleIds.forEach((id) => next.add(id));
+      }
+      return next;
+    });
+  }
+
+  function clearSelection() {
+    setSelectedIds(new Set());
+    setBulkEditOpen(false);
+  }
+
+  function cancelBulkEdit() {
+    setBulkEditOpen(false);
+    setBulkEdit(emptyBulkEdit());
+  }
+
+  function applyBulkEdit() {
+    const fields = bulkEdit.enabled;
+    const anyEnabled = Object.values(fields).some(Boolean);
+    if (!anyEnabled) {
+      showToast("error", t(lang, "bulkEditNoFields"));
+      return;
+    }
+    if (fields.assignee) {
+      const blockedCount = tasks.reduce(
+        (n, row) => (selectedIds.has(row.id) && row.jiraKey ? n + 1 : n),
+        0,
+      );
+      if (blockedCount > 0) {
+        window.alert(t(lang, "jiraBulkAssigneeBlocked", blockedCount));
+        return;
+      }
+    }
+
+    const newDue = fields.dueDate ? sanitizeIsoDate(bulkEdit.dueDate) : "";
+    if (fields.dueDate && (!newDue || newDue < today)) {
+      showToast("error", t(lang, "errorPastDate"));
+      return;
+    }
+    const newEmail = fields.assigneeEmail
+      ? sanitizeEmail(bulkEdit.assigneeEmail)
+      : "";
+    if (fields.assigneeEmail && newEmail && !isValidEmail(newEmail)) {
+      showToast("error", t(lang, "errorInvalidEmail"));
+      return;
+    }
+
+    const updates: Partial<Task> = {};
+    if (fields.priority) updates.priority = sanitizePriority(bulkEdit.priority);
+    if (fields.dueDate) updates.dueDate = newDue;
+    if (fields.lastUpdateDate)
+      updates.lastUpdateDate = sanitizeIsoDate(bulkEdit.lastUpdateDate) || today;
+    if (fields.assignee) updates.assignee = sanitizeAssignee(bulkEdit.assignee);
+    if (fields.assigneeEmail) updates.assigneeEmail = newEmail;
+    if (fields.blockers) updates.blockers = sanitizeBlockers(bulkEdit.blockers);
+    if (fields.notes) updates.notes = sanitizeNotes(bulkEdit.notes);
+    if (fields.group) updates.group = sanitizeGroup(bulkEdit.group);
+    if (fields.labels) updates.labels = sanitizeLabels(bulkEdit.labels);
+
+    const count = selectedIds.size;
+    const stamp = new Date().toISOString();
+    setTasks((prev) =>
+      prev.map((row) =>
+        selectedIds.has(row.id)
+          ? { ...row, ...updates, localModifiedAt: stamp }
+          : row,
+      ),
+    );
+
+    showToast(
+      "info",
+      count === 1
+        ? t(lang, "bulkEditDoneOne")
+        : t(lang, "bulkEditDoneMany", count),
+    );
+    logActivity("bulk.edit", count);
+    cancelBulkEdit();
+    setSelectedIds(new Set());
+  }
+
+  function handleBulkSendInquiry() {
+    const selected = tasks.filter((row) => selectedIds.has(row.id));
+    if (selected.length === 0) return;
+
+    const emailUpdates: Record<number, string> = {};
+    const resolved: Array<{ task: Task; email: string }> = [];
+
+    for (const task of selected) {
+      let email = task.assigneeEmail?.trim() || "";
+      if (!email && isValidEmail(task.assignee)) email = task.assignee.trim();
+      if (!email) {
+        const provided = window.prompt(
+          t(lang, "promptEmail", task.assignee),
+          "",
+        );
+        if (provided === null) continue;
+        const trimmed = provided.trim();
+        if (!isValidEmail(trimmed)) {
+          showToast("error", t(lang, "errorInvalidEmail"));
+          continue;
+        }
+        email = trimmed;
+        emailUpdates[task.id] = trimmed;
+      }
+      resolved.push({ task, email });
+    }
+
+    if (Object.keys(emailUpdates).length > 0) {
+      setTasks((prev) =>
+        prev.map((row) =>
+          emailUpdates[row.id]
+            ? { ...row, assigneeEmail: emailUpdates[row.id] }
+            : row,
+        ),
+      );
+    }
+
+    if (resolved.length === 0) {
+      showToast("error", t(lang, "bulkSendNoTasks"));
+      return;
+    }
+
+    const groups = new Map<string, Task[]>();
+    for (const { task, email } of resolved) {
+      const list = groups.get(email) || [];
+      list.push(task);
+      groups.set(email, list);
+    }
+
+    if (
+      !window.confirm(
+        t(lang, "confirmBulkSend", groups.size, resolved.length),
+      )
+    ) {
+      return;
+    }
+
+    for (const [email, taskList] of groups) {
+      const greeting =
+        greetingName(taskList[0].assignee) || taskList[0].assignee;
+      const subject =
+        taskList.length === 1
+          ? t(lang, "emailSubject", taskList[0].id, taskList[0].taskName)
+          : t(lang, "emailSubjectBulk", taskList.length);
+
+      let body: string;
+      if (taskList.length === 1) {
+        const t0 = taskList[0];
+        body = t(
+          lang,
+          "emailBodyTemplate",
+          greeting,
+          t0.id,
+          t0.taskName,
+          t0.dueDate,
+          t0.lastUpdateDate,
+        );
+      } else {
+        const items = taskList
+          .map((tk) => `- #${tk.id}: ${tk.taskName} (${tk.dueDate})`)
+          .join("\n");
+        body = t(
+          lang,
+          "emailBodyBulkTemplate",
+          greeting,
+          taskList.length,
+          items,
+        );
+      }
+
+      const url = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+      window.open(url);
+    }
+
+    const sentIds = new Set(resolved.map(({ task }) => task.id));
+    setTasks((prev) =>
+      prev.map((row) =>
+        sentIds.has(row.id)
+          ? { ...row, inquiriesSent: (row.inquiriesSent ?? 0) + 1 }
+          : row,
+      ),
+    );
+
+    showToast(
+      "info",
+      t(lang, "bulkSendDone", groups.size, resolved.length),
+    );
+    logActivity("bulk.inquiries", resolved.length);
+    setSelectedIds(new Set());
+  }
+
+  const bannerItems = useMemo(() => {
+    const cfg = settings.notifications.banner;
+    if (!cfg.enabled) return [];
+    return getAlertableTasks(tasks, cfg.thresholdWorkDays, today, holidaySet);
+  }, [tasks, settings.notifications.banner, today, holidaySet]);
+
+  const dueModalItems = useMemo(() => {
+    const cfg = settings.notifications.popup;
+    return getAlertableTasks(tasks, cfg.thresholdWorkDays, today, holidaySet);
+  }, [tasks, settings.notifications.popup, today, holidaySet]);
+
+  // Fire toast + popup once per session after settings + tasks are ready.
+  useEffect(() => {
+    if (!hydrated || notifiedThisSessionRef.current) return;
+    if (tasks.length === 0) return; // wait for backend load
+    notifiedThisSessionRef.current = true;
+
+    const { toast: toastCfg, popup: popupCfg } = settings.notifications;
+    if (toastCfg.enabled) {
+      const items = getAlertableTasks(
+        tasks,
+        toastCfg.thresholdWorkDays,
+        today,
+        holidaySet,
+      );
+      if (items.length > 0) {
+        showToast("info", dueAlertsToastText(items, settings.language));
+      }
+    }
+    if (popupCfg.enabled) {
+      const items = getAlertableTasks(
+        tasks,
+        popupCfg.thresholdWorkDays,
+        today,
+        holidaySet,
+      );
+      if (items.length > 0) setDueModalOpen(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated, tasks, holidaySet]);
+
+  // Refs feed the chat dispatcher without forcing it to rebuild every render.
+  const tasksRef = useRef(tasks);
+  const settingsRef = useRef(settings);
+  const todayRef = useRef(today);
+  useEffect(() => {
+    tasksRef.current = tasks;
+  }, [tasks]);
+  useEffect(() => {
+    settingsRef.current = settings;
+  }, [settings]);
+  useEffect(() => {
+    todayRef.current = today;
+  }, [today]);
+
+  const dispatcherSendInquiry = useCallback(
+    (id: number): { sent: boolean; reason?: string } => {
+      const task = tasksRef.current.find((row) => row.id === id);
+      if (!task) return { sent: false, reason: "task-not-found" };
+      let email = task.assigneeEmail?.trim();
+      if (!email && isValidEmail(task.assignee)) email = task.assignee.trim();
+      if (!email) return { sent: false, reason: "no-email-on-file" };
+
+      const greeting = greetingName(task.assignee) || task.assignee;
+      const currentLang = settingsRef.current.language;
+      const subject = t(currentLang, "emailSubject", task.id, task.taskName);
+      const body = t(
+        currentLang,
+        "emailBodyTemplate",
+        greeting,
+        task.id,
+        task.taskName,
+        task.dueDate,
+        task.lastUpdateDate,
+      );
+      const url = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+      window.open(url);
+      setTasks((prev) =>
+        prev.map((row) =>
+          row.id === task.id
+            ? { ...row, inquiriesSent: (row.inquiriesSent ?? 0) + 1 }
+            : row,
+        ),
+      );
+      return { sent: true };
+    },
+    [],
+  );
+
+  const applyFilters = useCallback((f: Filters) => {
+    if (f.search !== undefined) setSearch(f.search);
+    if (f.priority !== undefined) setPriorityFilter(f.priority);
+    if (f.assignee !== undefined)
+      setAssigneeFilter(f.assignee.trim() === "" ? "All" : f.assignee);
+    if (f.group !== undefined)
+      setGroupFilter(f.group.trim() === "" ? "All" : f.group);
+    if (f.label !== undefined)
+      setLabelFilter(f.label.trim() === "" ? "All" : f.label);
+  }, []);
+
+  const dispatcher = useMemo<ToolDispatcher>(
+    () => ({
+      listTasks: () => tasksRef.current,
+      getTask: (id) => tasksRef.current.find((row) => row.id === id) ?? null,
+      createTask: (input) => {
+        const list = tasksRef.current;
+        const id =
+          list.length > 0 ? Math.max(...list.map((row) => row.id)) + 1 : 1;
+        const taskName = sanitizeTaskName(input.taskName);
+        const assignee = sanitizeAssignee(input.assignee);
+        const dueDate = sanitizeIsoDate(input.dueDate);
+        if (!taskName) throw new Error("taskName is required");
+        if (!assignee) throw new Error("assignee is required");
+        if (!dueDate) throw new Error("dueDate must be YYYY-MM-DD");
+        const email = sanitizeEmail(input.assigneeEmail);
+        if (email && !isValidEmail(email))
+          throw new Error("assigneeEmail is invalid");
+        const newTask: Task = {
+          id,
+          taskName,
+          assignee,
+          assigneeEmail: email,
+          dueDate,
+          lastUpdateDate:
+            sanitizeIsoDate(input.lastUpdateDate) || todayRef.current,
+          priority: sanitizePriority(input.priority),
+          blockers: sanitizeBlockers(input.blockers),
+          notes: sanitizeNotes(input.notes),
+          inquiriesSent: 0,
+          group: sanitizeGroup(input.group),
+          labels: sanitizeLabels(input.labels),
+        };
+        const next = [...list, newTask];
+        tasksRef.current = next; // keep ref in sync for back-to-back tool calls
+        setTasks(next);
+        return newTask;
+      },
+      updateTask: (id, patch) => {
+        const existing = tasksRef.current.find((row) => row.id === id);
+        if (!existing) return null;
+        // Jira-managed fields can't be changed locally on linked tasks.
+        if (existing.jiraKey) {
+          if (
+            patch.assignee !== undefined &&
+            sanitizeAssignee(patch.assignee) !==
+              sanitizeAssignee(existing.assignee)
+          ) {
+            throw new Error(
+              `Assignee for ${existing.jiraKey} is managed in Jira. Change it in Jira and re-sync.`,
+            );
+          }
+          if (
+            patch.completedDate === undefined &&
+            "completedDate" in patch &&
+            existing.completedDate
+          ) {
+            throw new Error(
+              `Reopening ${existing.jiraKey} must be done in Jira (workflow transition required).`,
+            );
+          }
+        }
+        const cleanPatch: Partial<Task> = {};
+        if (patch.taskName !== undefined)
+          cleanPatch.taskName = sanitizeTaskName(patch.taskName);
+        if (patch.assignee !== undefined)
+          cleanPatch.assignee = sanitizeAssignee(patch.assignee);
+        if (patch.assigneeEmail !== undefined) {
+          const e = sanitizeEmail(patch.assigneeEmail);
+          if (e && !isValidEmail(e))
+            throw new Error("assigneeEmail is invalid");
+          cleanPatch.assigneeEmail = e;
+        }
+        if (patch.dueDate !== undefined) {
+          const d = sanitizeIsoDate(patch.dueDate);
+          if (!d) throw new Error("dueDate must be YYYY-MM-DD");
+          cleanPatch.dueDate = d;
+        }
+        if (patch.lastUpdateDate !== undefined) {
+          const d = sanitizeIsoDate(patch.lastUpdateDate);
+          if (d) cleanPatch.lastUpdateDate = d;
+        }
+        if (patch.priority !== undefined)
+          cleanPatch.priority = sanitizePriority(
+            patch.priority,
+            existing.priority,
+          );
+        if (patch.blockers !== undefined)
+          cleanPatch.blockers = sanitizeBlockers(patch.blockers);
+        if (patch.notes !== undefined)
+          cleanPatch.notes = sanitizeNotes(patch.notes);
+        if (patch.inquiriesSent !== undefined)
+          cleanPatch.inquiriesSent = sanitizeNonNegInt(patch.inquiriesSent);
+        if (patch.group !== undefined)
+          cleanPatch.group = sanitizeGroup(patch.group);
+        if (patch.labels !== undefined)
+          cleanPatch.labels = sanitizeLabels(patch.labels);
+        const merged: Task = {
+          ...existing,
+          ...cleanPatch,
+          id: existing.id,
+          localModifiedAt: new Date().toISOString(),
+        };
+        const next = tasksRef.current.map((row) =>
+          row.id === id ? merged : row,
+        );
+        tasksRef.current = next;
+        setTasks(next);
+        return merged;
+      },
+      deleteTask: (id) => {
+        const exists = tasksRef.current.some((row) => row.id === id);
+        if (!exists) return false;
+        // Mirror handleDelete's cascade: strip references to the deleted id
+        // from every other task's dependency list.
+        const next = tasksRef.current
+          .filter((row) => row.id !== id)
+          .map((row) =>
+            row.dependencies &&
+            row.dependencies.some((d) => d.taskId === id)
+              ? {
+                  ...row,
+                  dependencies: row.dependencies.filter(
+                    (d) => d.taskId !== id,
+                  ),
+                }
+              : row,
+          );
+        tasksRef.current = next;
+        setTasks(next);
+        setSelectedIds((prev) => {
+          if (!prev.has(id)) return prev;
+          const n = new Set(prev);
+          n.delete(id);
+          return n;
+        });
+        if (editingId === id) {
+          setEditingId(null);
+          setForm(emptyForm());
+        }
+        return true;
+      },
+      deleteAllTasks: () => {
+        const count = tasksRef.current.length;
+        tasksRef.current = [];
+        setTasks([]);
+        setSelectedIds(new Set());
+        setEditingId(null);
+        setForm(emptyForm());
+        return count;
+      },
+      sendInquiry: dispatcherSendInquiry,
+      setFilters: applyFilters,
+      setLanguage: (l) =>
+        setSettings((s) => ({ ...s, language: l })),
+      getSnapshot: () => {
+        const tasks = tasksRef.current;
+        const groups = new Set<string>();
+        const labels = new Set<string>();
+        for (const tk of tasks) {
+          if (tk.group?.trim()) groups.add(tk.group);
+          for (const l of tk.labels ?? []) {
+            const clean = l.trim();
+            if (clean) labels.add(clean);
+          }
+        }
+        return {
+          today: todayRef.current,
+          language: settingsRef.current.language,
+          holidayCountries: settingsRef.current.holidayCountries,
+          storageKind: settingsRef.current.storageConfig.kind,
+          taskCount: tasks.length,
+          knownGroups: Array.from(groups).sort(),
+          knownLabels: Array.from(labels).sort(),
+        };
+      },
+    }),
+    [editingId, dispatcherSendInquiry, applyFilters],
+  );
+
+  const isEditing = editingId !== null;
+  const editingTask =
+    editingId !== null
+      ? tasks.find((row) => row.id === editingId) ?? null
+      : null;
+  const editingIsJiraLinked = !!editingTask?.jiraKey;
+
+  // Render gate: hold first paint until the active-language dictionary is
+  // in memory. Lifts in the next microtask for en-US/en-GB (no fetch);
+  // briefly delays initial paint for de while ./i18n.de loads. Keeping
+  // this AFTER every hook so the rules-of-hooks invariant holds.
+  if (!i18nReady) return null;
+
+  return (
+    <div className="mx-auto w-full max-w-6xl p-6 sm:p-10">
+      <header className="mb-8 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-semibold tracking-tight text-AIPM-dark-blue dark:text-AIPM-light-grey">
+            {t(lang, "appTitle")}
+          </h1>
+          <p className="mt-1 text-sm text-AIPM-dark-grey dark:text-AIPM-medium-grey">
+            {t(lang, "appSubtitle")}
+          </p>
+        </div>
+        <div className="flex flex-col items-end gap-2">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/AIPM-logo.svg"
+            alt="Acme"
+            className="h-7 w-auto"
+          />
+          <div className="flex items-center gap-1">
+            <VoiceCommandButton
+              lang={lang}
+              onCommand={handleCommand}
+              onError={(msg) => showToast("error", msg)}
+            />
+            <button
+              type="button"
+              onClick={() => {
+                // Open a fresh new-task modal. If the user was in the middle
+                // of editing, cancel that first so the form starts empty.
+                handleCancelEdit();
+                setTaskModalOpen(true);
+              }}
+              aria-label={t(lang, "addTaskButton")}
+              title={t(lang, "addTaskButton")}
+              className="rounded-md p-2 text-AIPM-dark-grey hover:bg-AIPM-light-grey hover:text-AIPM-dark-blue focus:outline-none focus:ring-2 focus:ring-AIPM-dark-blue dark:text-AIPM-medium-grey dark:hover:bg-zinc-800 dark:hover:text-AIPM-light-grey"
+            >
+              <svg
+                viewBox="0 0 20 20"
+                fill="currentColor"
+                aria-hidden="true"
+                className="h-5 w-5"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setBannerDismissed(false);
+                setDueModalOpen(true);
+              }}
+              aria-label={t(lang, "showDueAlerts")}
+              title={t(lang, "showDueAlerts")}
+              className="relative rounded-md p-2 text-AIPM-dark-grey hover:bg-AIPM-light-grey hover:text-AIPM-dark-blue focus:outline-none focus:ring-2 focus:ring-AIPM-dark-blue dark:text-AIPM-medium-grey dark:hover:bg-zinc-800 dark:hover:text-AIPM-light-grey"
+            >
+              <svg
+                viewBox="0 0 20 20"
+                fill="currentColor"
+                aria-hidden="true"
+                className="h-5 w-5"
+              >
+                <path d="M10 2a6 6 0 00-6 6v2.586l-.707.707A1 1 0 004 13h12a1 1 0 00.707-1.707L16 10.586V8a6 6 0 00-6-6zM8 15a2 2 0 104 0H8z" />
+              </svg>
+              {bannerItems.length > 0 && (
+                <span
+                  aria-hidden
+                  className="absolute -right-0.5 -top-0.5 inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-AIPM-pink px-1 text-[10px] font-semibold leading-none text-white"
+                >
+                  {bannerItems.length}
+                </span>
+              )}
+            </button>
+            <ExportMenu lang={lang} tasks={tasks} raid={raid} absences={absences} shifts={shifts} />
+            <HelpMenu lang={lang} />
+            <VersionMenu lang={lang} />
+            <SettingsMenu
+              settings={settings}
+              onChange={setSettings}
+              storageDescription={storageDescription}
+              storageReady={storageReady}
+              onPickStorageFile={onPickStorageFile}
+              onOpenStorageFile={onOpenStorageFile}
+              onGrantStorageWrite={onGrantWriteAccess}
+            />
+          </div>
+        </div>
+      </header>
+
+      {!bannerDismissed && (
+        <DueBanner
+          items={bannerItems}
+          lang={lang}
+          onOpenList={() => setDueModalOpen(true)}
+          onDismiss={() => setBannerDismissed(true)}
+        />
+      )}
+
+      {/*
+        Resizable + collapsible workspace section. Only Chat and Reports
+        live here — the New-task / Edit-task form moved out into a
+        header-triggered modal.
+
+        Resize state is persisted at "lop-app:workspace-size"; collapsed
+        state at "lop-app:workspace-collapsed". When collapsed, the section
+        drops resize/overflow and shrinks to just the tab strip — the
+        chevron button on the right toggles back.
+
+        `overflow-hidden` on the expanded section is required for CSS
+        `resize` to take effect on a flex container; the individual panels
+        still scroll internally via their own overflow rules. Min dimensions
+        are sized so chat (input row + a few bubbles) and reports (4-tile
+        row + first section header) render fully without internal
+        scrollbars on first load.
+      */}
+      <section
+        ref={workspaceRef}
+        title={
+          workspaceCollapsed ? undefined : t(lang, "workspaceResizeHint")
+        }
+        className={
+          workspaceCollapsed
+            ? "mb-10 flex w-full flex-col rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950"
+            : "mb-10 flex h-[560px] min-h-[420px] w-full min-w-[520px] resize flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950"
+        }
+      >
+        <div
+          role="tablist"
+          aria-label="Workspace tabs"
+          className={
+            workspaceCollapsed
+              ? "-mx-2 -mt-2 flex shrink-0 items-end gap-1 px-2"
+              : "-mx-2 -mt-2 flex shrink-0 items-end gap-1 border-b border-zinc-200 px-2 dark:border-zinc-800"
+          }
+        >
+          <TabButton
+            active={activeTab === "chat"}
+            onClick={() => {
+              setActiveTab("chat");
+              if (workspaceCollapsed) setWorkspaceCollapsed(false);
+            }}
+            controls="panel-chat"
+          >
+            {t(lang, "tabChat")}
+          </TabButton>
+          <TabButton
+            active={activeTab === "reports"}
+            onClick={() => {
+              setActiveTab("reports");
+              if (workspaceCollapsed) setWorkspaceCollapsed(false);
+            }}
+            controls="panel-reports"
+          >
+            {t(lang, "tabReports")}
+          </TabButton>
+          <TabButton
+            active={activeTab === "gantt"}
+            onClick={() => {
+              setActiveTab("gantt");
+              if (workspaceCollapsed) setWorkspaceCollapsed(false);
+            }}
+            controls="panel-gantt"
+          >
+            {t(lang, "tabGantt")}
+          </TabButton>
+          <TabButton
+            active={activeTab === "raid"}
+            onClick={() => {
+              setActiveTab("raid");
+              setRaidFilterTaskId(null);
+              if (workspaceCollapsed) setWorkspaceCollapsed(false);
+            }}
+            controls="panel-raid"
+          >
+            {t(lang, "tabRaid")}
+          </TabButton>
+          <TabButton
+            active={activeTab === "resources"}
+            onClick={() => {
+              setActiveTab("resources");
+              if (workspaceCollapsed) setWorkspaceCollapsed(false);
+            }}
+            controls="panel-resources"
+          >
+            {t(lang, "tabResources")}
+          </TabButton>
+          <TabButton
+            active={activeTab === "activity"}
+            onClick={() => {
+              setActiveTab("activity");
+              if (workspaceCollapsed) setWorkspaceCollapsed(false);
+            }}
+            controls="panel-activity"
+          >
+            {t(lang, "tabActivity")}
+          </TabButton>
+          {!workspaceCollapsed && (
+            <button
+              type="button"
+              onClick={resetWorkspaceSize}
+              aria-label={t(lang, "tableResetSizeHint")}
+              title={t(lang, "tableResetSizeHint")}
+              className="ml-auto mb-1 rounded-md border border-zinc-300 bg-white p-1.5 text-zinc-500 shadow-sm hover:bg-zinc-50 hover:text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+            >
+              <ResetSizeIcon />
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setWorkspaceCollapsed((v) => !v)}
+            aria-expanded={!workspaceCollapsed}
+            aria-controls="workspace-panels"
+            title={
+              workspaceCollapsed
+                ? t(lang, "workspaceExpand")
+                : t(lang, "workspaceCollapse")
+            }
+            className={
+              workspaceCollapsed
+                ? "ml-auto mb-1 rounded-md p-1.5 text-AIPM-dark-grey hover:bg-AIPM-light-grey hover:text-AIPM-dark-blue dark:text-AIPM-medium-grey dark:hover:bg-zinc-800 dark:hover:text-AIPM-light-grey"
+                : "mb-1 rounded-md p-1.5 text-AIPM-dark-grey hover:bg-AIPM-light-grey hover:text-AIPM-dark-blue dark:text-AIPM-medium-grey dark:hover:bg-zinc-800 dark:hover:text-AIPM-light-grey"
+            }
+          >
+            <svg
+              viewBox="0 0 20 20"
+              fill="currentColor"
+              aria-hidden="true"
+              className={`h-4 w-4 transition-transform ${workspaceCollapsed ? "rotate-180" : ""}`}
+            >
+              {/* Chevron up — flipped to chevron down via rotate-180 when collapsed. */}
+              <path
+                fillRule="evenodd"
+                d="M14.78 12.78a.75.75 0 01-1.06 0L10 9.06l-3.72 3.72a.75.75 0 11-1.06-1.06l4.25-4.25a.75.75 0 011.06 0l4.25 4.25a.75.75 0 010 1.06z"
+                clipRule="evenodd"
+              />
+            </svg>
+          </button>
+        </div>
+
+        <div
+          id="workspace-panels"
+          hidden={workspaceCollapsed}
+          className="flex min-h-0 flex-1 flex-col"
+        >
+          <div
+            id="panel-chat"
+            role="tabpanel"
+            hidden={activeTab !== "chat"}
+            className="min-h-0 flex-1 pt-4"
+          >
+            <ChatPanel
+              lang={lang}
+              ai={settings.ai}
+              dispatcher={dispatcher}
+              onAcceptConsent={() =>
+                setSettings((s) => ({
+                  ...s,
+                  ai: { ...s.ai, consentAccepted: true },
+                }))
+              }
+            />
+          </div>
+
+          {activeTab === "reports" && (
+            <div
+              id="panel-reports"
+              role="tabpanel"
+              className="min-h-0 flex-1 overflow-y-auto pt-4"
+            >
+              <ReportsPanel
+                tasks={tasks}
+                today={today}
+                holidaySet={holidaySet}
+                lang={lang}
+              />
+            </div>
+          )}
+
+          {activeTab === "gantt" && (
+            <div
+              id="panel-gantt"
+              role="tabpanel"
+              className="min-h-0 flex-1 pt-4"
+            >
+              <GanttPanel
+                lang={lang}
+                tasks={tasks}
+                absences={absences}
+                onUpdateBar={handleGanttBarUpdate}
+                onAddTask={() => {
+                  handleCancelEdit();
+                  setTaskModalOpen(true);
+                }}
+              />
+            </div>
+          )}
+
+          <div
+            id="panel-raid"
+            role="tabpanel"
+            hidden={activeTab !== "raid"}
+            className="min-h-0 flex-1 pt-4"
+          >
+            <RaidPanel
+              lang={lang}
+              tasks={tasks}
+              raid={raid}
+              today={today}
+              filterTaskId={raidFilterTaskId}
+              onClearTaskFilter={handleClearRaidTaskFilter}
+              onSave={handleSaveRaidItem}
+              onDelete={handleDeleteRaidItem}
+              onCreateMitigationTask={handleCreateMitigationTaskFromRaid}
+              onJumpToTask={handleJumpToTaskFromRaid}
+            />
+          </div>
+
+          {activeTab === "resources" && (
+            <div
+              id="panel-resources"
+              role="tabpanel"
+              className="min-h-0 flex-1 pt-4"
+            >
+              <ResourcesPanel
+                lang={lang}
+                tasks={tasks}
+                absences={absences}
+                shifts={shifts}
+                today={today}
+                holidaySet={holidaySet}
+                onAddAbsence={handleOpenAddAbsence}
+                onEditAbsence={handleEditAbsence}
+                onEditShift={handleOpenShiftEditor}
+              />
+            </div>
+          )}
+
+          {activeTab === "activity" && (
+            <div
+              id="panel-activity"
+              role="tabpanel"
+              className="min-h-0 flex-1 pt-4"
+            >
+              <ActivityLogPanel
+                lang={lang}
+                entries={activityLog}
+                onClear={handleClearActivityLog}
+              />
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/*
+        New-task / Edit-task modal. Opened by the header "+" button or by
+        editing a row. Backdrop click + Esc cancel and close. Submit closes
+        on success.
+      */}
+      {taskModalOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={
+            isEditing
+              ? t(lang, "tabEditTask", editingId!)
+              : t(lang, "tabNewTask")
+          }
+          className="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto bg-AIPM-dark-blue/40 p-4 sm:p-10"
+          onClick={handleCancelEdit}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") handleCancelEdit();
+          }}
+          tabIndex={-1}
+        >
+          <div
+            ref={modalRef}
+            onClick={(e) => e.stopPropagation()}
+            className="relative flex w-[700px] min-w-[460px] max-w-[95vw] resize flex-col overflow-hidden rounded-xl border border-AIPM-light-grey bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-950"
+          >
+            <header className="sticky top-0 z-10 flex shrink-0 items-center justify-between gap-4 border-b border-AIPM-light-grey bg-white px-6 py-4 dark:border-zinc-800 dark:bg-zinc-950">
+              <h2 className="text-lg font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
+                {isEditing
+                  ? t(lang, "tabEditTask", editingId!)
+                  : t(lang, "tabNewTask")}
+              </h2>
+              <button
+                type="button"
+                onClick={handleCancelEdit}
+                aria-label={t(lang, "alertModalClose")}
+                title={t(lang, "alertModalClose")}
+                className="rounded-md p-2 text-AIPM-dark-grey hover:bg-AIPM-light-grey hover:text-AIPM-dark-blue dark:text-AIPM-medium-grey dark:hover:bg-zinc-800 dark:hover:text-AIPM-light-grey"
+              >
+                <svg
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                  aria-hidden="true"
+                  className="h-4 w-4"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M4.28 4.28a.75.75 0 011.06 0L10 8.94l4.66-4.66a.75.75 0 111.06 1.06L11.06 10l4.66 4.66a.75.75 0 11-1.06 1.06L10 11.06l-4.66 4.66a.75.75 0 01-1.06-1.06L8.94 10 4.28 5.34a.75.75 0 010-1.06z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              </button>
+            </header>
+            <form
+              onSubmit={handleSubmit}
+              className="min-h-0 flex-1 overflow-y-auto grid grid-cols-1 gap-4 p-6 sm:grid-cols-2"
+            >
+          <Field label={t(lang, "id")}>
+            <input
+              type="text"
+              value={`#${isEditing ? editingId : nextId}`}
+              readOnly
+              className="w-full cursor-not-allowed rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400"
+            />
+          </Field>
+
+          <Field label={t(lang, "priority")}>
+            <SegmentedControl
+              value={form.priority}
+              ariaLabel={t(lang, "priority")}
+              options={PRIORITIES.map((p) => ({
+                value: p,
+                label: priorityLabel(lang, p),
+              }))}
+              onChange={(p) => setForm({ ...form, priority: p })}
+            />
+          </Field>
+
+          <Field
+            label={t(lang, "taskName")}
+            required
+            className="sm:col-span-2"
+          >
+            <div className="relative">
+              <input
+                type="text"
+                required
+                maxLength={TASK_NAME_MAX}
+                value={form.taskName}
+                onChange={(e) => setForm({ ...form, taskName: e.target.value })}
+                placeholder={t(lang, "placeholderTaskName")}
+                className={`${inputClass} pr-10`}
+              />
+              <InlineMicButton
+                lang={lang}
+                onTranscript={(text) => {
+                  const clean = sanitizeVoiceTranscript(text);
+                  setForm((prev) => ({
+                    ...prev,
+                    taskName: (prev.taskName
+                      ? `${prev.taskName} ${clean}`
+                      : clean
+                    ).slice(0, TASK_NAME_MAX),
+                  }));
+                }}
+                onError={(msg) => showToast("error", msg)}
+              />
+            </div>
+          </Field>
+
+          <Field label={t(lang, "assignee")} required>
+            {/*
+              ContactInput renders a text input + autocomplete popover of
+              previously-used (assignee, email) pairs. Picking a suggestion
+              fills BOTH the assignee field and the email field in one go.
+              Typing freely is still allowed; the suggestion is just a
+              convenience. Each row carries its own × to remove it from the
+              persisted address book.
+            */}
+            <ContactInput
+              lang={lang}
+              value={form.assignee}
+              contacts={contactsList}
+              onChangeName={(name) =>
+                setForm((prev) => ({ ...prev, assignee: name }))
+              }
+              onChangePair={(name, email) =>
+                setForm((prev) => ({
+                  ...prev,
+                  assignee: name,
+                  assigneeEmail: email,
+                }))
+              }
+              onRemoveContact={handleRemoveContact}
+              placeholder={t(lang, "placeholderAssignee")}
+              maxLength={ASSIGNEE_MAX}
+              disabled={editingIsJiraLinked}
+              title={
+                editingIsJiraLinked ? t(lang, "jiraManagedHint") : undefined
+              }
+            />
+            {editingIsJiraLinked && (
+              <p className="mt-1 text-xs italic text-AIPM-medium-grey">
+                🔒 {t(lang, "jiraManagedHint")}
+              </p>
+            )}
+          </Field>
+
+          <Field label={t(lang, "email")}>
+            <input
+              type="email"
+              maxLength={EMAIL_MAX}
+              value={form.assigneeEmail}
+              onChange={(e) =>
+                setForm({ ...form, assigneeEmail: e.target.value })
+              }
+              placeholder={t(lang, "placeholderEmail")}
+              className={inputClass}
+            />
+          </Field>
+
+          <Field label={t(lang, "startDate")}>
+            <input
+              type="date"
+              max={form.dueDate || undefined}
+              value={form.startDate}
+              onChange={(e) =>
+                setForm({ ...form, startDate: e.target.value })
+              }
+              className={inputClass}
+            />
+            <p className="mt-1 text-xs text-AIPM-medium-grey">
+              {t(lang, "startDateHint")}
+            </p>
+          </Field>
+
+          <Field label={t(lang, "dueDate")} required>
+            <input
+              type="date"
+              required
+              min={today}
+              value={form.dueDate}
+              onChange={(e) => setForm({ ...form, dueDate: e.target.value })}
+              className={inputClass}
+            />
+            {(() => {
+              // Phase 5 — non-blocking absence warning: when the due date
+              // falls inside any absence for the form's assignee, show a
+              // hint. Multiple overlaps render as one line each.
+              const assigneeKey = form.assignee.trim().toLowerCase();
+              const due = form.dueDate.trim();
+              if (!assigneeKey || !due) return null;
+              const hits = absences.filter(
+                (a) =>
+                  a.assignee.trim().toLowerCase() === assigneeKey &&
+                  due >= a.startDate &&
+                  due <= a.endDate,
+              );
+              if (hits.length === 0) return null;
+              return (
+                <div className="mt-1 space-y-0.5">
+                  {hits.map((a) => (
+                    <p
+                      key={a.id}
+                      className="text-xs text-amber-700 dark:text-amber-400"
+                    >
+                      {t(
+                        lang,
+                        "taskDueDateAbsenceWarning",
+                        a.assignee,
+                        a.type,
+                        a.startDate,
+                        a.endDate,
+                      )}
+                    </p>
+                  ))}
+                </div>
+              );
+            })()}
+          </Field>
+
+          <Field label={t(lang, "lastUpdateDate")}>
+            <input
+              type="date"
+              value={form.lastUpdateDate}
+              onChange={(e) =>
+                setForm({ ...form, lastUpdateDate: e.target.value })
+              }
+              className={inputClass}
+            />
+          </Field>
+
+          <Field label={t(lang, "group")}>
+            <ComboInput
+              lang={lang}
+              value={form.group}
+              suggestions={uniqueGroups}
+              onChange={(group) => setForm({ ...form, group })}
+              placeholder={t(lang, "placeholderGroup")}
+              maxLength={GROUP_MAX}
+            />
+          </Field>
+
+          <Field label={t(lang, "labels")}>
+            <LabelsInput
+              lang={lang}
+              value={form.labels}
+              suggestions={uniqueLabels}
+              onChange={(labels) => setForm({ ...form, labels })}
+            />
+          </Field>
+
+          <Field label={t(lang, "depDependencies")} className="sm:col-span-2">
+            <DependenciesEditor
+              lang={lang}
+              value={form.dependencies}
+              allTasks={tasks}
+              ownTaskId={editingId}
+              onChange={(dependencies) =>
+                setForm((prev) => ({ ...prev, dependencies }))
+              }
+            />
+          </Field>
+
+          <Field label={t(lang, "blockers")} className="sm:col-span-2">
+            <textarea
+              rows={2}
+              maxLength={TEXTAREA_MAX}
+              value={form.blockers}
+              onChange={(e) => setForm({ ...form, blockers: e.target.value })}
+              placeholder={t(lang, "placeholderBlockers")}
+              className={inputClass}
+            />
+          </Field>
+
+          <Field label={t(lang, "health")} className="sm:col-span-2">
+            {(() => {
+              // Show what the auto-rule would say so the user can decide
+              // whether to override it. Recomputed each render — cheap.
+              const previewTask: Task = {
+                id: editingId ?? 0,
+                taskName: form.taskName,
+                assignee: form.assignee,
+                assigneeEmail: form.assigneeEmail,
+                startDate: form.startDate || undefined,
+                dueDate: form.dueDate,
+                lastUpdateDate: form.lastUpdateDate,
+                priority: form.priority,
+                blockers: form.blockers,
+                notes: form.notes,
+                group: form.group,
+                labels: form.labels,
+                dependencies: form.dependencies,
+              };
+              const autoHealth = computeTaskHealth(previewTask, today, holidaySet);
+              const autoLabel = t(
+                lang,
+                "healthAutoCurrent",
+                healthColorName(autoHealth.color, lang),
+              );
+              const chipBase =
+                "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium focus:outline-none focus:ring-1";
+              const chipInactive =
+                "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800";
+              const chipActive: Record<Health, string> = {
+                R: "border-red-500 bg-red-50 text-red-700 dark:border-red-500 dark:bg-red-950/40 dark:text-red-300",
+                A: "border-amber-500 bg-amber-50 text-amber-800 dark:border-amber-500 dark:bg-amber-950/40 dark:text-amber-200",
+                G: "border-emerald-500 bg-emerald-50 text-emerald-800 dark:border-emerald-500 dark:bg-emerald-950/40 dark:text-emerald-200",
+              };
+              return (
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setForm({ ...form, healthOverride: "" })}
+                    aria-pressed={form.healthOverride === ""}
+                    className={`${chipBase} ${
+                      form.healthOverride === ""
+                        ? "border-AIPM-dark-blue bg-AIPM-light-grey text-AIPM-dark-blue dark:border-AIPM-blue dark:bg-zinc-800 dark:text-AIPM-light-grey"
+                        : chipInactive
+                    }`}
+                  >
+                    {autoLabel}
+                  </button>
+                  {HEALTH_VALUES.map((h) => (
+                    <button
+                      key={h}
+                      type="button"
+                      onClick={() => setForm({ ...form, healthOverride: h })}
+                      aria-pressed={form.healthOverride === h}
+                      className={`${chipBase} ${
+                        form.healthOverride === h ? chipActive[h] : chipInactive
+                      }`}
+                    >
+                      <span
+                        aria-hidden
+                        className={`inline-block h-2 w-2 rounded-full ${healthDot[h]}`}
+                      />
+                      {healthColorName(h, lang)}
+                    </button>
+                  ))}
+                </div>
+              );
+            })()}
+          </Field>
+
+          <Field label={t(lang, "notes")} className="sm:col-span-2">
+            <textarea
+              rows={3}
+              maxLength={TEXTAREA_MAX}
+              value={form.notes}
+              onChange={(e) => setForm({ ...form, notes: e.target.value })}
+              placeholder={t(lang, "placeholderNotes")}
+              className={inputClass}
+            />
+          </Field>
+
+          {error && (
+            <p
+              role="alert"
+              className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300 sm:col-span-2"
+            >
+              {error}
+            </p>
+          )}
+
+          {!isEditing &&
+            settings.jira.enabled &&
+            settings.jira.projectKey && (
+              <label className="flex items-center gap-2 text-sm text-AIPM-dark-grey sm:col-span-2 dark:text-AIPM-light-grey">
+                <input
+                  type="checkbox"
+                  checked={form.pushToJira}
+                  onChange={(e) =>
+                    setForm({ ...form, pushToJira: e.target.checked })
+                  }
+                  className="h-4 w-4 cursor-pointer rounded border-zinc-300 text-AIPM-dark-blue focus:ring-AIPM-dark-blue dark:border-zinc-600 dark:bg-zinc-800"
+                />
+                <span>
+                  {t(
+                    lang,
+                    "jiraCreateOnSubmit",
+                    settings.jira.projectKey,
+                    // Inlined: same as jira-api's defaultIssueTypeForCreate.
+                    settings.jira.issueTypes[0] ?? "Task",
+                  )}
+                </span>
+              </label>
+            )}
+          <div className="flex justify-end gap-2 sm:col-span-2">
+            {isEditing && (
+              <button
+                type="button"
+                onClick={handleCancelEdit}
+                className="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 shadow-sm hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              >
+                {t(lang, "cancel")}
+              </button>
+            )}
+            <button
+              type="submit"
+              className="rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white shadow-sm hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-AIPM-dark-blue focus:ring-offset-2"
+            >
+              {isEditing ? t(lang, "updateTask") : t(lang, "addTask")}
+            </button>
+          </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/*
+        Tasks list section — wrapped in the same rounded-xl card surface as
+        the workspace section so the two main areas of the page share visual
+        weight. The internal layout (toolbar row, filter row, resizable
+        table, bulk-edit panel) is unchanged.
+      */}
+      <section
+        ref={tableRef}
+        title={t(lang, "tableResizeHint")}
+        className="mb-10 flex h-[560px] min-h-[300px] min-w-[520px] resize flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950"
+      >
+        {/* shrink-0 wrapper keeps header, filters and bulk-edit from growing into the table area */}
+        <div className="shrink-0">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <div ref={colConfigRef} className="relative">
+              <button
+                type="button"
+                onClick={() => setColConfigOpen((o) => !o)}
+                aria-label={t(lang, "colConfigTitle")}
+                title={t(lang, "colConfigTitle")}
+                aria-expanded={colConfigOpen}
+                className="rounded-md p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:text-zinc-500 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
+              >
+                <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-4 w-4">
+                  <path fillRule="evenodd" d="M7.84 1.804A1 1 0 018.82 1h2.36a1 1 0 01.98.804l.25 1.252a6.013 6.013 0 011.317.757l1.198-.42a1 1 0 011.15.376l1.18 2.044a1 1 0 01-.205 1.274l-.96.836a6.02 6.02 0 010 1.514l.96.836a1 1 0 01.205 1.274l-1.18 2.044a1 1 0 01-1.15.376l-1.198-.42a6.014 6.014 0 01-1.317.757l-.25 1.252a1 1 0 01-.98.804H8.82a1 1 0 01-.98-.804l-.25-1.252a6.013 6.013 0 01-1.317-.757l-1.198.42a1 1 0 01-1.15-.376L2.745 13.3a1 1 0 01.205-1.274l.96-.836a6.023 6.023 0 010-1.514l-.96-.836a1 1 0 01-.205-1.274L3.925 5.52a1 1 0 011.15-.376l1.198.42a6.013 6.013 0 011.317-.757l.25-1.252zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
+                </svg>
+              </button>
+              {colConfigOpen && (
+                <div
+                  role="dialog"
+                  aria-label={t(lang, "colConfigTitle")}
+                  className="absolute left-0 top-full z-40 mt-1 w-52 rounded-lg border border-zinc-200 bg-white p-3 shadow-lg dark:border-zinc-800 dark:bg-zinc-900"
+                >
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
+                    {t(lang, "colConfigTitle")}
+                  </p>
+                  <ul className="space-y-1">
+                    {CONFIGURABLE_COLS.map(({ key, labelKey }) => (
+                      <li key={key}>
+                        <label className="flex cursor-pointer items-center gap-2 rounded px-1 py-0.5 text-sm text-zinc-700 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-800">
+                          <input
+                            type="checkbox"
+                            checked={!hiddenCols.has(key)}
+                            onChange={() =>
+                              setHiddenCols((prev) => {
+                                const next = new Set(prev);
+                                next.has(key) ? next.delete(key) : next.add(key);
+                                return next;
+                              })
+                            }
+                            className="h-3.5 w-3.5 rounded border-zinc-300 text-AIPM-dark-blue focus:ring-AIPM-dark-blue dark:border-zinc-600 dark:bg-zinc-800"
+                          />
+                          {t(lang, labelKey)}
+                        </label>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+            <h2 className="text-lg font-medium text-zinc-900 dark:text-zinc-100">
+              {t(lang, "tasks")}{" "}
+              {filteredSortedTasks.length !== tasks.length
+                ? t(lang, "tasksCountFiltered", filteredSortedTasks.length, tasks.length)
+                : t(lang, "tasksCount", filteredSortedTasks.length)}
+            </h2>
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                handleCancelEdit();
+                setTaskModalOpen(true);
+              }}
+              aria-label={t(lang, "addTaskButton")}
+              title={t(lang, "addTaskButton")}
+              className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-AIPM-dark-blue/90"
+            >
+              + {t(lang, "addTaskButton")}
+            </button>
+            {settings.jira.enabled && (
+              <button
+                type="button"
+                onClick={handleJiraSync}
+                disabled={jiraSyncing || !settings.jira.projectKey}
+                title={
+                  settings.jira.projectKey
+                    ? t(lang, "jiraSync")
+                    : t(lang, "jiraSyncNoScope")
+                }
+                className="inline-flex items-center gap-1.5 rounded-md border border-AIPM-dark-blue bg-white px-3 py-1.5 text-sm font-medium text-AIPM-dark-blue shadow-sm hover:bg-AIPM-light-grey disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+              >
+                <svg
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                  aria-hidden="true"
+                  className={`h-4 w-4 ${jiraSyncing ? "animate-spin" : ""}`}
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M15.312 11.424a5.5 5.5 0 01-9.201 2.466l-.312-.311h2.433a.75.75 0 000-1.5H3.989a.75.75 0 00-.75.75v4.242a.75.75 0 001.5 0v-2.43l.31.31a7 7 0 0011.712-3.138.75.75 0 00-1.449-.39zm1.23-3.723a.75.75 0 00.219-.53V2.929a.75.75 0 00-1.5 0V5.36l-.31-.31A7 7 0 003.239 8.188a.75.75 0 101.448.389A5.5 5.5 0 0113.89 6.11l.311.31h-2.432a.75.75 0 000 1.5h4.243a.75.75 0 00.53-.219z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                {jiraSyncing ? t(lang, "jiraSyncing") : t(lang, "jiraSync")}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={resetTableSize}
+              aria-label={t(lang, "tableResetSizeHint")}
+              title={t(lang, "tableResetSizeHint")}
+              className="rounded-md border border-zinc-300 bg-white p-1.5 text-zinc-500 shadow-sm hover:bg-zinc-50 hover:text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+            >
+              <ResetSizeIcon />
+            </button>
+            <button
+              type="button"
+              onClick={resetColWidths}
+              aria-label={t(lang, "colResetWidthsHint")}
+              title={t(lang, "colResetWidthsHint")}
+              className="rounded-md border border-zinc-300 bg-white p-1.5 text-zinc-500 shadow-sm hover:bg-zinc-50 hover:text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+            >
+              <ResetColWidthsIcon />
+            </button>
+            <button
+              type="button"
+              onClick={handleClearAll}
+              disabled={tasks.length === 0}
+              aria-label={t(lang, "clearAll")}
+              title={t(lang, "clearAll")}
+              className="rounded-md border border-zinc-300 bg-white p-1.5 text-zinc-500 shadow-sm hover:bg-zinc-50 hover:text-zinc-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+            >
+              <EraserIcon />
+            </button>
+          </div>
+        </div>
+
+        <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={t(lang, "searchPlaceholder")}
+            className={inputClass}
+          />
+          <select
+            value={priorityFilter}
+            onChange={(e) =>
+              setPriorityFilter(e.target.value as Priority | "All")
+            }
+            className={inputClass}
+          >
+            <option value="All">{t(lang, "allPriorities")}</option>
+            {PRIORITIES.map((p) => (
+              <option key={p} value={p}>
+                {priorityLabel(lang, p)}
+              </option>
+            ))}
+          </select>
+          <select
+            value={assigneeFilter}
+            onChange={(e) => setAssigneeFilter(e.target.value)}
+            className={inputClass}
+          >
+            <option value="All">{t(lang, "allAssignees")}</option>
+            {uniqueAssignees.map((a) => (
+              <option key={a} value={a}>
+                {a}
+              </option>
+            ))}
+          </select>
+          <select
+            value={groupFilter}
+            onChange={(e) => setGroupFilter(e.target.value)}
+            className={inputClass}
+          >
+            <option value="All">{t(lang, "allGroups")}</option>
+            <option value="">{t(lang, "groupNone")}</option>
+            {uniqueGroups.map((g) => (
+              <option key={g} value={g}>
+                {g}
+              </option>
+            ))}
+          </select>
+          <select
+            value={labelFilter}
+            onChange={(e) => setLabelFilter(e.target.value)}
+            className={inputClass}
+          >
+            <option value="All">{t(lang, "allLabels")}</option>
+            {uniqueLabels.map((l) => (
+              <option key={l} value={l}>
+                {l}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {selectedIds.size > 0 && (
+          <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-AIPM-medium-grey/40 bg-AIPM-light-grey p-3 dark:border-zinc-700 dark:bg-zinc-900">
+            <span className="text-sm font-medium text-AIPM-dark-blue dark:text-AIPM-light-grey">
+              {t(lang, "selectionCount", selectedIds.size)}
+            </span>
+            <div className="ml-auto flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={handleBulkSendInquiry}
+                className="rounded-md bg-AIPM-green px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:opacity-90"
+              >
+                {t(lang, "bulkSendInquiries")}
+              </button>
+              <button
+                type="button"
+                onClick={() => setBulkEditOpen((o) => !o)}
+                aria-pressed={bulkEditOpen}
+                className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 shadow-sm hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              >
+                {t(lang, "bulkEdit")}
+              </button>
+              <button
+                type="button"
+                onClick={clearSelection}
+                className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 shadow-sm hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              >
+                {t(lang, "clearSelection")}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {bulkEditOpen && selectedIds.size > 0 && (
+          <div className="mb-4 rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+            <h3 className="mb-4 text-lg font-medium text-zinc-900 dark:text-zinc-100">
+              {selectedIds.size === 1
+                ? t(lang, "bulkEditTitleOne")
+                : t(lang, "bulkEditTitleMany", selectedIds.size)}
+            </h3>
+
+            <div className="space-y-4">
+              <BulkEditFieldRow
+                id="bulk-priority"
+                label={t(lang, "priority")}
+                enabled={bulkEdit.enabled.priority}
+                onToggle={() =>
+                  setBulkEdit((b) => ({
+                    ...b,
+                    enabled: { ...b.enabled, priority: !b.enabled.priority },
+                  }))
+                }
+              >
+                <select
+                  value={bulkEdit.priority}
+                  onChange={(e) =>
+                    setBulkEdit((b) => ({
+                      ...b,
+                      priority: e.target.value as Priority,
+                    }))
+                  }
+                  disabled={!bulkEdit.enabled.priority}
+                  className={`${inputClass} disabled:opacity-50`}
+                >
+                  {PRIORITIES.map((p) => (
+                    <option key={p} value={p}>
+                      {priorityLabel(lang, p)}
+                    </option>
+                  ))}
+                </select>
+              </BulkEditFieldRow>
+
+              <BulkEditFieldRow
+                id="bulk-due-date"
+                label={t(lang, "dueDate")}
+                enabled={bulkEdit.enabled.dueDate}
+                onToggle={() =>
+                  setBulkEdit((b) => ({
+                    ...b,
+                    enabled: { ...b.enabled, dueDate: !b.enabled.dueDate },
+                  }))
+                }
+              >
+                <input
+                  type="date"
+                  min={today}
+                  value={bulkEdit.dueDate}
+                  onChange={(e) =>
+                    setBulkEdit((b) => ({ ...b, dueDate: e.target.value }))
+                  }
+                  disabled={!bulkEdit.enabled.dueDate}
+                  className={`${inputClass} disabled:opacity-50`}
+                />
+              </BulkEditFieldRow>
+
+              <BulkEditFieldRow
+                id="bulk-last-update"
+                label={t(lang, "lastUpdateDate")}
+                enabled={bulkEdit.enabled.lastUpdateDate}
+                onToggle={() =>
+                  setBulkEdit((b) => ({
+                    ...b,
+                    enabled: {
+                      ...b.enabled,
+                      lastUpdateDate: !b.enabled.lastUpdateDate,
+                    },
+                  }))
+                }
+              >
+                <input
+                  type="date"
+                  value={bulkEdit.lastUpdateDate}
+                  onChange={(e) =>
+                    setBulkEdit((b) => ({
+                      ...b,
+                      lastUpdateDate: e.target.value,
+                    }))
+                  }
+                  disabled={!bulkEdit.enabled.lastUpdateDate}
+                  className={`${inputClass} disabled:opacity-50`}
+                />
+              </BulkEditFieldRow>
+
+              <BulkEditFieldRow
+                id="bulk-assignee"
+                label={t(lang, "assignee")}
+                enabled={bulkEdit.enabled.assignee && selectedJiraCount === 0}
+                onToggle={() => {
+                  if (selectedJiraCount > 0) {
+                    window.alert(
+                      t(lang, "jiraBulkAssigneeBlocked", selectedJiraCount),
+                    );
+                    return;
+                  }
+                  setBulkEdit((b) => ({
+                    ...b,
+                    enabled: { ...b.enabled, assignee: !b.enabled.assignee },
+                  }));
+                }}
+              >
+                <input
+                  type="text"
+                  maxLength={ASSIGNEE_MAX}
+                  value={bulkEdit.assignee}
+                  onChange={(e) =>
+                    setBulkEdit((b) => ({ ...b, assignee: e.target.value }))
+                  }
+                  placeholder={t(lang, "placeholderAssignee")}
+                  disabled={
+                    !bulkEdit.enabled.assignee || selectedJiraCount > 0
+                  }
+                  className={`${inputClass} disabled:opacity-50`}
+                />
+                {selectedJiraCount > 0 && (
+                  <p className="mt-1 text-xs italic text-AIPM-medium-grey">
+                    🔒 {t(lang, "jiraBulkAssigneeBlocked", selectedJiraCount)}
+                  </p>
+                )}
+              </BulkEditFieldRow>
+
+              <BulkEditFieldRow
+                id="bulk-email"
+                label={t(lang, "email")}
+                enabled={bulkEdit.enabled.assigneeEmail}
+                onToggle={() =>
+                  setBulkEdit((b) => ({
+                    ...b,
+                    enabled: {
+                      ...b.enabled,
+                      assigneeEmail: !b.enabled.assigneeEmail,
+                    },
+                  }))
+                }
+              >
+                <input
+                  type="email"
+                  maxLength={EMAIL_MAX}
+                  value={bulkEdit.assigneeEmail}
+                  onChange={(e) =>
+                    setBulkEdit((b) => ({
+                      ...b,
+                      assigneeEmail: e.target.value,
+                    }))
+                  }
+                  placeholder={t(lang, "placeholderEmail")}
+                  disabled={!bulkEdit.enabled.assigneeEmail}
+                  className={`${inputClass} disabled:opacity-50`}
+                />
+              </BulkEditFieldRow>
+
+              <BulkEditFieldRow
+                id="bulk-blockers"
+                label={t(lang, "blockers")}
+                enabled={bulkEdit.enabled.blockers}
+                onToggle={() =>
+                  setBulkEdit((b) => ({
+                    ...b,
+                    enabled: { ...b.enabled, blockers: !b.enabled.blockers },
+                  }))
+                }
+              >
+                <textarea
+                  rows={2}
+                  maxLength={TEXTAREA_MAX}
+                  value={bulkEdit.blockers}
+                  onChange={(e) =>
+                    setBulkEdit((b) => ({ ...b, blockers: e.target.value }))
+                  }
+                  placeholder={t(lang, "placeholderBlockers")}
+                  disabled={!bulkEdit.enabled.blockers}
+                  className={`${inputClass} disabled:opacity-50`}
+                />
+              </BulkEditFieldRow>
+
+              <BulkEditFieldRow
+                id="bulk-notes"
+                label={t(lang, "notes")}
+                enabled={bulkEdit.enabled.notes}
+                onToggle={() =>
+                  setBulkEdit((b) => ({
+                    ...b,
+                    enabled: { ...b.enabled, notes: !b.enabled.notes },
+                  }))
+                }
+              >
+                <textarea
+                  rows={3}
+                  maxLength={TEXTAREA_MAX}
+                  value={bulkEdit.notes}
+                  onChange={(e) =>
+                    setBulkEdit((b) => ({ ...b, notes: e.target.value }))
+                  }
+                  placeholder={t(lang, "placeholderNotes")}
+                  disabled={!bulkEdit.enabled.notes}
+                  className={`${inputClass} disabled:opacity-50`}
+                />
+              </BulkEditFieldRow>
+
+              <BulkEditFieldRow
+                id="bulk-group"
+                label={t(lang, "group")}
+                enabled={bulkEdit.enabled.group}
+                onToggle={() =>
+                  setBulkEdit((b) => ({
+                    ...b,
+                    enabled: { ...b.enabled, group: !b.enabled.group },
+                  }))
+                }
+              >
+                <ComboInput
+                  lang={lang}
+                  value={bulkEdit.group}
+                  suggestions={uniqueGroups}
+                  onChange={(group) =>
+                    setBulkEdit((b) => ({ ...b, group }))
+                  }
+                  placeholder={t(lang, "placeholderGroup")}
+                  maxLength={GROUP_MAX}
+                  disabled={!bulkEdit.enabled.group}
+                />
+              </BulkEditFieldRow>
+
+              <BulkEditFieldRow
+                id="bulk-labels"
+                label={t(lang, "labels")}
+                enabled={bulkEdit.enabled.labels}
+                onToggle={() =>
+                  setBulkEdit((b) => ({
+                    ...b,
+                    enabled: { ...b.enabled, labels: !b.enabled.labels },
+                  }))
+                }
+              >
+                <LabelsInput
+                  lang={lang}
+                  value={bulkEdit.labels}
+                  suggestions={uniqueLabels}
+                  onChange={(labels) =>
+                    setBulkEdit((b) => ({ ...b, labels }))
+                  }
+                  disabled={!bulkEdit.enabled.labels}
+                />
+              </BulkEditFieldRow>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={cancelBulkEdit}
+                className="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 shadow-sm hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              >
+                {t(lang, "cancel")}
+              </button>
+              <button
+                type="button"
+                onClick={applyBulkEdit}
+                className="rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white shadow-sm hover:opacity-90"
+              >
+                {selectedIds.size === 1
+                  ? t(lang, "bulkApplyOne")
+                  : t(lang, "bulkApplyMany", selectedIds.size)}
+              </button>
+            </div>
+          </div>
+        )}
+
+        </div>{/* end shrink-0 */}
+
+        {tasks.length === 0 ? (
+          <div className="flex-1 rounded-xl border border-dashed border-zinc-300 bg-white p-10 text-center text-sm text-zinc-500 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400">
+            {t(lang, "noTasks")}
+          </div>
+        ) : filteredSortedTasks.length === 0 ? (
+          <div className="flex-1 rounded-xl border border-dashed border-zinc-300 bg-white p-10 text-center text-sm text-zinc-500 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400">
+            {t(lang, "noTasksFiltered")}
+          </div>
+        ) : (
+          <div
+            className="min-h-0 flex-1 w-full overflow-auto rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950"
+          >
+            <table
+              className="divide-y divide-zinc-200 text-left text-sm dark:divide-zinc-800"
+              style={{ tableLayout: "fixed", width: "max-content", minWidth: "100%" }}
+            >
+              <colgroup>
+                {(["sel","status","id","taskName","assignee","startDate","dueDate","lastUpdateDate","priority","blockers","notes","depRelations","actions"] as const)
+                  .filter((col) => !hiddenCols.has(col))
+                  .map((col) => (
+                    <col key={col} style={{ width: colWidths[col] ?? DEFAULT_COL_WIDTHS[col] }} />
+                  ))}
+              </colgroup>
+              <thead className="sticky top-0 z-10 bg-zinc-50 text-xs uppercase tracking-wide text-zinc-500 shadow-sm dark:bg-zinc-900 dark:text-zinc-400">
+                <tr>
+                  <Th onResize={(e) => startColResize("sel", e)}>
+                    <input
+                      type="checkbox"
+                      checked={allVisibleSelected}
+                      onChange={toggleSelectAllVisible}
+                      aria-label={t(lang, "selectAllVisible")}
+                      className="h-4 w-4 cursor-pointer rounded border-zinc-300 text-AIPM-dark-blue focus:ring-AIPM-dark-blue dark:border-zinc-600 dark:bg-zinc-800"
+                    />
+                  </Th>
+                  {!hiddenCols.has("status") && <Th onResize={(e) => startColResize("status", e)}><span className="sr-only">Status</span></Th>}
+                  {!hiddenCols.has("id") && <SortableTh label={t(lang, "id")} sortKey="id" currentKey={sortKey} dir={sortDir} onClick={toggleSort} onResize={(e) => startColResize("id", e)} />}
+                  <SortableTh label={t(lang, "task")} sortKey="taskName" currentKey={sortKey} dir={sortDir} onClick={toggleSort} onResize={(e) => startColResize("taskName", e)} />
+                  {!hiddenCols.has("assignee") && <SortableTh label={t(lang, "assignee")} sortKey="assignee" currentKey={sortKey} dir={sortDir} onClick={toggleSort} onResize={(e) => startColResize("assignee", e)} />}
+                  {!hiddenCols.has("startDate") && <SortableTh label={t(lang, "start")} sortKey="startDate" currentKey={sortKey} dir={sortDir} onClick={toggleSort} onResize={(e) => startColResize("startDate", e)} />}
+                  {!hiddenCols.has("dueDate") && <SortableTh label={t(lang, "due")} sortKey="dueDate" currentKey={sortKey} dir={sortDir} onClick={toggleSort} onResize={(e) => startColResize("dueDate", e)} />}
+                  {!hiddenCols.has("lastUpdateDate") && <SortableTh label={t(lang, "lastUpdate")} sortKey="lastUpdateDate" currentKey={sortKey} dir={sortDir} onClick={toggleSort} onResize={(e) => startColResize("lastUpdateDate", e)} />}
+                  {!hiddenCols.has("priority") && <SortableTh label={t(lang, "priority")} sortKey="priority" currentKey={sortKey} dir={sortDir} onClick={toggleSort} onResize={(e) => startColResize("priority", e)} />}
+                  {!hiddenCols.has("blockers") && <Th onResize={(e) => startColResize("blockers", e)}>{t(lang, "blockers")}</Th>}
+                  {!hiddenCols.has("notes") && <Th onResize={(e) => startColResize("notes", e)}>{t(lang, "notes")}</Th>}
+                  {!hiddenCols.has("depRelations") && <Th onResize={(e) => startColResize("depRelations", e)}>{t(lang, "depRelations")}</Th>}
+                  <Th>
+                    <span className="sr-only">Actions</span>
+                  </Th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
+                {filteredSortedTasks.map((task) => {
+                  const isComplete = !!task.completedDate;
+                  const health: TaskHealth = computeTaskHealth(
+                    task,
+                    today,
+                    holidaySet,
+                  );
+                  const label = isComplete
+                    ? t(lang, "completedOn", task.completedDate!)
+                    : formatHealthTooltip(health, lang);
+                  return (
+                    <tr
+                      key={task.id}
+                      className={`align-top ${editingId === task.id ? "bg-amber-50 dark:bg-amber-950/20" : selectedIds.has(task.id) ? "bg-AIPM-light-grey dark:bg-zinc-900" : isComplete ? "opacity-60" : ""}`}
+                    >
+                      <Td>
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(task.id)}
+                          onChange={() => toggleSelect(task.id)}
+                          aria-label={t(lang, "selectRow", task.id)}
+                          className="h-4 w-4 cursor-pointer rounded border-zinc-300 text-AIPM-dark-blue focus:ring-AIPM-dark-blue dark:border-zinc-600 dark:bg-zinc-800"
+                        />
+                      </Td>
+                      {!hiddenCols.has("status") && (
+                        <Td>
+                          {isComplete && !task.healthOverride ? (
+                            <span title={label} aria-label={label} className="text-AIPM-green">✓</span>
+                          ) : (
+                            <span title={label} aria-label={label} className={`inline-block h-2.5 w-2.5 rounded-full ${healthDot[health.color]}`} />
+                          )}
+                        </Td>
+                      )}
+                      {!hiddenCols.has("id") && <Td className="font-mono text-zinc-500">
+                        #{task.id}
+                        {(() => {
+                          if (!task.jiraKey || !settings.jira.siteUrl) return null;
+                          const href = safeJiraIssueHref(
+                            settings.jira.siteUrl,
+                            task.jiraKey,
+                          );
+                          if (!href) return null;
+                          return (
+                            <a
+                              href={href}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title={
+                                task.jiraIssueType
+                                  ? `${task.jiraKey} (${task.jiraIssueType})`
+                                  : task.jiraKey
+                              }
+                              className="ml-1 inline-block rounded bg-AIPM-light-grey px-1.5 py-0.5 text-[10px] font-medium text-AIPM-dark-blue no-underline hover:bg-AIPM-dark-blue hover:text-white dark:bg-zinc-800 dark:text-AIPM-blue dark:hover:bg-AIPM-dark-blue dark:hover:text-white"
+                            >
+                              {task.jiraKey}
+                            </a>
+                          );
+                        })()}
+                        {(() => {
+                          const refs = raidByTask.get(task.id);
+                          if (!refs || refs.length === 0) return null;
+                          const counts = countByCategory(refs);
+                          return (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setRaidFilterTaskId(task.id);
+                                setActiveTab("raid");
+                                if (workspaceCollapsed) setWorkspaceCollapsed(false);
+                              }}
+                              title={t(lang, "raidReferencedBy", refs.length)}
+                              aria-label={t(lang, "raidReferencedBy", refs.length)}
+                              className="ml-1 inline-flex items-center rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800 hover:bg-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-amber-950/60"
+                            >
+                              {t(
+                                lang,
+                                "raidReferencedByMix",
+                                counts.R,
+                                counts.A,
+                                counts.I,
+                                counts.D,
+                              )}
+                            </button>
+                          );
+                        })()}
+                      </Td>}
+                      <Td
+                        className={`font-medium text-zinc-900 dark:text-zinc-100 ${isComplete ? "line-through" : ""}`}
+                      >
+                        <span>{task.taskName}</span>
+                        {(task.group || (task.labels?.length ?? 0) > 0) && (
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {task.group && (
+                              <span className="inline-flex rounded-md bg-AIPM-dark-blue/10 px-1.5 py-0.5 text-[10px] font-medium text-AIPM-dark-blue dark:bg-AIPM-dark-blue/30 dark:text-AIPM-light-grey">
+                                {task.group}
+                              </span>
+                            )}
+                            {(task.labels ?? []).map((l) => (
+                              <span
+                                key={l}
+                                className="inline-flex rounded-full bg-AIPM-light-grey px-1.5 py-0.5 text-[10px] font-medium text-AIPM-dark-grey dark:bg-zinc-800 dark:text-AIPM-medium-grey"
+                              >
+                                {l}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </Td>
+                      {!hiddenCols.has("assignee") && <Td>{task.assignee}</Td>}
+                      {!hiddenCols.has("startDate") && (
+                        <Td className="whitespace-nowrap text-zinc-600 dark:text-zinc-400">
+                          {task.startDate || "—"}
+                        </Td>
+                      )}
+                      {!hiddenCols.has("dueDate") && <Td>{task.dueDate}</Td>}
+                      {!hiddenCols.has("lastUpdateDate") && <Td>{task.lastUpdateDate}</Td>}
+                      {!hiddenCols.has("priority") && (
+                        <Td>
+                          <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${priorityStyle[task.priority]}`}>
+                            {priorityLabel(lang, task.priority)}
+                          </span>
+                        </Td>
+                      )}
+                      {!hiddenCols.has("blockers") && (
+                        <Td className="max-w-xs whitespace-pre-wrap text-zinc-600 dark:text-zinc-400">
+                          {task.blockers || "—"}
+                        </Td>
+                      )}
+                      {!hiddenCols.has("notes") && (
+                        <Td className="max-w-xs text-zinc-600 dark:text-zinc-400">
+                          {(() => {
+                            const notes = task.notes ?? "";
+                            if (!notes) return <span>—</span>;
+                            const isExpanded = expandedNotes.has(task.id);
+                            const summary = summarizeNote(notes, NOTES_COLLAPSED_MAX);
+                            const displayed = isExpanded ? notes : summary.text + (summary.truncated ? " …" : "");
+                            return (
+                              <div className="flex flex-col gap-1">
+                                <span className={isExpanded ? "whitespace-pre-wrap" : "whitespace-normal"}>
+                                  {displayed}
+                                </span>
+                                {summary.truncated && (
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleNoteExpanded(task.id)}
+                                    className="self-start text-xs font-medium text-AIPM-dark-blue underline-offset-2 hover:underline dark:text-AIPM-blue"
+                                    aria-expanded={isExpanded}
+                                  >
+                                    {isExpanded ? t(lang, "showLess") : t(lang, "showMore")}
+                                  </button>
+                                )}
+                              </div>
+                            );
+                          })()}
+                        </Td>
+                      )}
+                      {!hiddenCols.has("depRelations") && (
+                        <Td className="text-zinc-600 dark:text-zinc-400">
+                          {(task.dependencies?.length ?? 0) === 0 ? (
+                            <span>—</span>
+                          ) : (
+                            <ul className="flex flex-wrap gap-1">
+                              {(task.dependencies ?? []).map((dep, i) => {
+                                const pred = tasksById.get(dep.taskId);
+                                const predName =
+                                  pred?.taskName ?? t(lang, "depMissing");
+                                return (
+                                  <li
+                                    key={`dep-${dep.taskId}-${dep.type}-${i}`}
+                                  >
+                                    <span
+                                      title={`${t(lang, "depDependsOn")} #${dep.taskId} (${dep.type}) — ${predName}`}
+                                      className="inline-flex items-center gap-0.5 rounded-full bg-AIPM-blue/15 px-1.5 py-0.5 text-[10px] font-medium text-AIPM-dark-blue dark:bg-AIPM-blue/25 dark:text-AIPM-light-grey"
+                                    >
+                                      <span className="font-mono">
+                                        {dep.type}
+                                      </span>
+                                      <span className="opacity-70">·</span>
+                                      <span className="font-mono">
+                                        #{dep.taskId}
+                                      </span>
+                                    </span>
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          )}
+                        </Td>
+                      )}
+                      <Td>
+                        {/*
+                          Action buttons split across two lines:
+                            Row 1 — workflow actions (Mark complete / Reopen,
+                                    Send inquiry, Push to Jira).
+                            Row 2 — row-management actions (Edit, Delete).
+                          The two flex rows wrap independently so the column
+                          stays narrow even when all five buttons are visible.
+                        */}
+                        <div className="flex flex-col gap-1 whitespace-nowrap">
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleToggleComplete(task)}
+                              className="text-xs font-medium text-AIPM-green underline-offset-2 hover:underline"
+                            >
+                              {task.completedDate
+                                ? t(lang, "reopenTask")
+                                : t(lang, "markComplete")}
+                            </button>
+                            {!task.completedDate && (
+                              <button
+                                type="button"
+                                onClick={() => handleSendInquiry(task)}
+                                className="text-xs font-medium text-AIPM-dark-blue underline-offset-2 hover:underline dark:text-AIPM-blue"
+                              >
+                                {t(lang, "sendInquiry")}
+                              </button>
+                            )}
+                            {settings.jira.enabled &&
+                              settings.jira.projectKey &&
+                              !task.jiraKey &&
+                              !task.completedDate && (
+                                <button
+                                  type="button"
+                                  onClick={() => handlePushToJira(task.id)}
+                                  disabled={pushingIds.has(task.id)}
+                                  className="text-xs font-medium text-AIPM-dark-blue underline-offset-2 hover:underline disabled:cursor-not-allowed disabled:opacity-50 dark:text-AIPM-blue"
+                                >
+                                  {pushingIds.has(task.id)
+                                    ? t(lang, "jiraPushing")
+                                    : t(lang, "jiraPushToJira")}
+                                </button>
+                              )}
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleEdit(task)}
+                              className="text-xs font-medium text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-300"
+                            >
+                              {t(lang, "edit")}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDelete(task.id)}
+                              className="text-xs font-medium text-red-600 underline-offset-2 hover:underline dark:text-red-400"
+                            >
+                              {t(lang, "delete")}
+                            </button>
+                          </div>
+                        </div>
+                      </Td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      {dueModalOpen && (
+        <DueDatesModal
+          items={dueModalItems}
+          lang={lang}
+          onClose={() => setDueModalOpen(false)}
+          onSelectTask={(taskId) => {
+            const task = tasks.find((row) => row.id === taskId);
+            if (task) {
+              setDueModalOpen(false);
+              handleEdit(task);
+            }
+          }}
+        />
+      )}
+
+      {jiraConflicts.length > 0 && (
+        <JiraConflictsModal
+          lang={lang}
+          conflicts={jiraConflicts}
+          onResolve={handleResolveConflicts}
+          onClose={() => setJiraConflicts([])}
+        />
+      )}
+
+      {editingAbsence && (
+        <AbsenceEditModal
+          lang={lang}
+          absence={editingAbsence.absence}
+          isNew={editingAbsence.isNew}
+          knownAssignees={[
+            ...tasks.map((tk) => ({
+              name: tk.assignee,
+              email: tk.assigneeEmail,
+            })),
+            ...absences.map((a) => ({
+              name: a.assignee,
+              email: a.assigneeEmail,
+            })),
+          ]}
+          onSave={handleSaveAbsence}
+          onDelete={handleDeleteAbsence}
+          onClose={handleCloseAbsenceModal}
+        />
+      )}
+
+      {editingShift && (
+        <ShiftEditModal
+          lang={lang}
+          shift={editingShift.shift}
+          isNew={editingShift.isNew}
+          existingAssigneeKeys={
+            new Set(
+              shifts
+                .filter((s) => s.id !== editingShift.shift.id)
+                .map((s) => s.assignee.trim().toLowerCase()),
+            )
+          }
+          knownAssignees={[
+            ...tasks.map((tk) => ({
+              name: tk.assignee,
+              email: tk.assigneeEmail,
+            })),
+            ...absences.map((a) => ({
+              name: a.assignee,
+              email: a.assigneeEmail,
+            })),
+            ...shifts.map((s) => ({
+              name: s.assignee,
+              email: s.assigneeEmail,
+            })),
+          ]}
+          onSave={handleSaveShift}
+          onDelete={handleDeleteShift}
+          onClose={handleCloseShiftModal}
+        />
+      )}
+
+      <footer className="mt-12 flex items-center justify-between gap-4 border-t border-AIPM-light-grey pt-6 text-xs text-AIPM-medium-grey dark:border-zinc-800">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/AIPM-logo.svg" alt="Acme" className="h-6 w-auto" />
+        <span className="text-right italic">
+          Identity Excellence Delivered. Globally.
+        </span>
+      </footer>
+
+      {toast && (
+        <div
+          role="status"
+          aria-live="polite"
+          className={`fixed bottom-4 right-4 z-30 max-w-md rounded-md px-4 py-2.5 text-sm shadow-lg ${
+            toast.kind === "error"
+              ? "bg-AIPM-pink text-white"
+              : "bg-AIPM-dark-blue text-white"
+          }`}
+        >
+          {toast.text}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TabButton({
+  active,
+  onClick,
+  controls,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  controls: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={active}
+      aria-controls={controls}
+      onClick={onClick}
+      className={`-mb-px rounded-t-md border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
+        active
+          ? "border-AIPM-green text-AIPM-dark-blue dark:border-AIPM-green dark:text-AIPM-light-grey"
+          : "border-transparent text-AIPM-medium-grey hover:text-AIPM-dark-blue dark:text-zinc-400 dark:hover:text-zinc-200"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function Field({
+  label,
+  required,
+  className,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <label className={`block ${className ?? ""}`}>
+      <span className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+        {label}
+        {required && <span className="ml-0.5 text-red-500">*</span>}
+      </span>
+      {children}
+    </label>
+  );
+}
+
+function ResetSizeIcon() {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className="h-4 w-4"
+    >
+      {/* center square */}
+      <rect x="8.5" y="8.5" width="3" height="3" fill="currentColor" stroke="none" />
+      {/* top arrow — shaft + head pointing down toward center */}
+      <line x1="10" y1="2" x2="10" y2="6.5" />
+      <polyline points="8,4.5 10,6.5 12,4.5" />
+      {/* bottom arrow — shaft + head pointing up toward center */}
+      <line x1="10" y1="18" x2="10" y2="13.5" />
+      <polyline points="8,15.5 10,13.5 12,15.5" />
+      {/* left arrow — shaft + head pointing right toward center */}
+      <line x1="2" y1="10" x2="6.5" y2="10" />
+      <polyline points="4.5,8 6.5,10 4.5,12" />
+      {/* right arrow — shaft + head pointing left toward center */}
+      <line x1="18" y1="10" x2="13.5" y2="10" />
+      <polyline points="15.5,8 13.5,10 15.5,12" />
+    </svg>
+  );
+}
+
+function ResetColWidthsIcon() {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className="h-4 w-4"
+    >
+      {/* column fill between the two guide lines */}
+      <rect x="7" y="3" width="6" height="14" fill="currentColor" fillOpacity="0.15" stroke="none" />
+      {/* left vertical guide line */}
+      <line x1="7" y1="3" x2="7" y2="17" />
+      {/* right vertical guide line */}
+      <line x1="13" y1="3" x2="13" y2="17" />
+      {/* left arrow — shaft + head pointing right toward left guide line */}
+      <line x1="1.5" y1="10" x2="5.5" y2="10" />
+      <polyline points="5.5,8.5 7,10 5.5,11.5" />
+      {/* right arrow — shaft + head pointing left toward right guide line */}
+      <line x1="18.5" y1="10" x2="14.5" y2="10" />
+      <polyline points="14.5,8.5 13,10 14.5,11.5" />
+    </svg>
+  );
+}
+
+function EraserIcon() {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className="h-4 w-4"
+    >
+      <g transform="rotate(-30, 10, 10)">
+        {/* tip — left portion with rounded left corners, filled */}
+        <path
+          d="M2 9.5 Q2 7 4 7 L7.5 7 L7.5 13 L4 13 Q2 13 2 10.5 Z"
+          fill="currentColor"
+          fillOpacity="0.35"
+          stroke="none"
+        />
+        {/* eraser body outline */}
+        <rect x="2" y="7" width="16" height="6" rx="2" />
+        {/* dividing band between tip and body */}
+        <line x1="7.5" y1="7" x2="7.5" y2="13" />
+      </g>
+    </svg>
+  );
+}
+
+function Th({
+  children,
+  onResize,
+}: {
+  children: React.ReactNode;
+  onResize?: (e: React.MouseEvent) => void;
+}) {
+  return (
+    <th className="relative px-4 py-2 font-medium">
+      {children}
+      {onResize && (
+        <div
+          onMouseDown={onResize}
+          className="absolute right-0 top-0 h-full w-1 cursor-col-resize select-none hover:bg-AIPM-dark-blue/40 dark:hover:bg-AIPM-blue/40"
+        />
+      )}
+    </th>
+  );
+}
+
+function SortableTh({
+  label,
+  sortKey,
+  currentKey,
+  dir,
+  onClick,
+  onResize,
+}: {
+  label: string;
+  sortKey: SortKey;
+  currentKey: SortKey;
+  dir: SortDir;
+  onClick: (k: SortKey) => void;
+  onResize?: (e: React.MouseEvent) => void;
+}) {
+  const isActive = currentKey === sortKey;
+  const indicator = isActive ? (dir === "asc" ? "↑" : "↓") : "";
+  return (
+    <th className="relative px-4 py-2 font-medium">
+      <button
+        type="button"
+        onClick={() => onClick(sortKey)}
+        className={`inline-flex items-center gap-1 uppercase tracking-wide hover:text-zinc-900 dark:hover:text-zinc-100 ${isActive ? "text-zinc-900 dark:text-zinc-100" : ""}`}
+      >
+        {label}
+        <span aria-hidden className="text-[0.65rem]">
+          {indicator}
+        </span>
+      </button>
+      {onResize && (
+        <div
+          onMouseDown={onResize}
+          className="absolute right-0 top-0 h-full w-1 cursor-col-resize select-none hover:bg-AIPM-dark-blue/40 dark:hover:bg-AIPM-blue/40"
+        />
+      )}
+    </th>
+  );
+}
+
+function Td({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return <td className={`px-4 py-3 ${className ?? ""}`}>{children}</td>;
+}
+
+function BulkEditFieldRow({
+  id,
+  label,
+  enabled,
+  onToggle,
+  children,
+}: {
+  id: string;
+  label: string;
+  enabled: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-start gap-3">
+      <input
+        id={id}
+        type="checkbox"
+        checked={enabled}
+        onChange={onToggle}
+        className="mt-2 h-4 w-4 cursor-pointer rounded border-zinc-300 text-AIPM-dark-blue focus:ring-AIPM-dark-blue dark:border-zinc-600 dark:bg-zinc-800"
+      />
+      <div className="min-w-0 flex-1">
+        <label
+          htmlFor={id}
+          className="mb-1 block cursor-pointer text-sm font-medium text-zinc-700 dark:text-zinc-300"
+        >
+          {label}
+        </label>
+        {children}
+      </div>
+    </div>
+  );
+}

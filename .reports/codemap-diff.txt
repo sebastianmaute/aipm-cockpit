@@ -1,0 +1,42 @@
+Codemap Generation Report — 2026-05-15
+==========================================================================
+
+Mode:                Initial generation (no prior codemaps existed)
+Diff vs previous:    N/A — first run
+
+Files created:
+  docs/CODEMAPS/architecture.md       ~600 tokens
+  docs/CODEMAPS/backend.md            ~400 tokens
+  docs/CODEMAPS/frontend.md           ~900 tokens
+  docs/CODEMAPS/data.md               ~700 tokens
+  docs/CODEMAPS/dependencies.md       ~500 tokens
+  TOTAL ESTIMATED TOKENS:             ~3,100  (avg 620/file — under 1000 cap)
+
+Source coverage:
+  Application code:   src/app/*.ts(x)         ~35 files
+  API routes:         src/app/api/jira/       10 files (8 routes + 2 helpers)
+  Config:             package.json, next.config.ts, tsconfig.json
+  Types:              src/app/types.ts
+
+New dependencies detected:   none since last `npm install` (lock-file unchanged)
+New routes detected:         none (8 Jira proxies, all documented)
+New services detected:       none
+
+Architecture changes captured from Phases A-G of the recent refactor:
+  - Phase A   Conditional mount of GanttPanel + ReportsPanel
+  - Phase B   Dynamic-import export-ooxml.ts on demand
+  - Phase C   React.memo + useCallback handlers for RaidPanel
+  - Phase D   Debounced search, precomputed taskSearchIndex,
+              debounced colWidths write
+  - Phase E   IndexedDB record-level writes + legacy localStorage migration
+  - Phase F   Code-split i18n.de.ts; loadI18n() gate in TaskManager
+  - Phase G   Lazy-loaded date-holidays via holidaysForCountries
+
+Staleness warnings:   none -- all codemap files generated today
+README.md sync:       up to date (Storage Backends row corrected on 2026-05-15)
+
+Open items recorded (not yet implemented):
+  - ChatPanel memoization (gated on dispatcher useMemo deps audit)
+  - tasksRef duplication cleanup (useSyncExternalStore or small store)
+  - Virtualized task table (high-risk; preserve if N < 500)
+  - Canvas-based Gantt (only if 500+ tasks regularly)

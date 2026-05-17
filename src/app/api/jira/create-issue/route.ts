@@ -1,0 +1,62 @@
+import {
+  callJira,
+  forwardJsonResponse,
+  parseCreds,
+  sanitizeIssueFields,
+} from "../_helpers";
+import { rateLimit } from "../_rate-limit";
+
+export const runtime = "nodejs";
+
+// POST /rest/api/3/issue — creates a new issue under the configured project &
+// issue type. The client is expected to have already mapped Task fields to
+// the Jira `fields` payload (summary, description as ADF, priority, labels,
+// duedate); we just attach project + issuetype + Basic auth and forward.
+export async function POST(request: Request) {
+  const limited = rateLimit(request);
+  if (limited) return limited;
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return Response.json({ error: "invalid-json" }, { status: 400 });
+  }
+  const creds = parseCreds(body);
+  if (!creds) {
+    return Response.json({ error: "missing-credentials" }, { status: 400 });
+  }
+  const b = body as Record<string, unknown>;
+  const projectKey =
+    typeof b.projectKey === "string" ? b.projectKey.trim() : "";
+  const issueType =
+    typeof b.issueType === "string" ? b.issueType.trim() : "";
+  if (!projectKey) {
+    return Response.json({ error: "missing-project-key" }, { status: 400 });
+  }
+  if (!issueType) {
+    return Response.json({ error: "missing-issue-type" }, { status: 400 });
+  }
+  const rawFields =
+    b.fields && typeof b.fields === "object" && !Array.isArray(b.fields)
+      ? (b.fields as Record<string, unknown>)
+      : null;
+  if (!rawFields) {
+    return Response.json({ error: "missing-fields" }, { status: 400 });
+  }
+  const fields = sanitizeIssueFields(rawFields);
+  if (!fields) {
+    return Response.json({ error: "invalid-fields" }, { status: 400 });
+  }
+
+  // Attach project + issuetype on the server side so the caller can't pick
+  // arbitrary projects or types beyond the configured scope.
+  fields.project = { key: projectKey };
+  fields.issuetype = { name: issueType };
+
+  const upstream = await callJira(creds, "/rest/api/3/issue", {
+    method: "POST",
+    body: JSON.stringify({ fields }),
+  });
+  return forwardJsonResponse(upstream);
+}

@@ -1,0 +1,40 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls -la src/)",
+      "Bash(ls -la app/)",
+      "Bash(npx knip *)",
+      "Bash(npx depcheck *)",
+      "Bash(npm run *)",
+      "Bash(npm audit *)",
+      "Bash(npm install *)",
+      "Bash(npx tsc *)",
+      "Bash(npx ts-prune *)",
+      "Bash(grep -v \"\\\\.next\\\\\\\\\")",
+      "Bash(Select-String -NotMatch \"\\(used in module\\)|\\\\.next\")",
+      "Bash(grep -v \"//.*console\")",
+      "Bash(cat next.config.ts)",
+      "Bash(cat next.config.js)",
+      "Bash(npm outdated *)",
+      "Bash(node -e \"console.log\\(require\\('./package.json'\\).dependencies.next || require\\('./package.json'\\).devDependencies.next\\)\")",
+      "Bash(npm show *)",
+      "Bash(node -e \"const d=JSON.parse\\(require\\('fs'\\).readFileSync\\('/dev/stdin','utf8'\\)\\); const v=d.filter\\(x=>x.startsWith\\('16'\\)\\); console.log\\(v.slice\\(-5\\).join\\('\\\\n'\\)\\)\")",
+      "Bash(npm update *)",
+      "Skill(superpowers:brainstorming)",
+      "Bash(npx --yes knip)",
+      "Bash(npx --yes depcheck --ignores=\"@types/*,eslint*,@eslint/*,@tailwindcss/*,tailwindcss,postcss,typescript\")",
+      "Bash(sort -k5 -n -r)",
+      "Bash(echo \"exit=$?\")",
+      "Bash(npm ls *)",
+      "Bash(npx --yes knip --no-progress --reporter compact)",
+      "Bash(echo \"knip_exit=$?\")",
+      "Bash(xargs wc -l)",
+      "Bash(npx eslint *)",
+      "Bash(git branch *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git remote *)",
+      "Bash(git push *)"
+    ]
+  }
+}
