@@ -1,52 +1,87 @@
-## List of Open Points Tracker
+# List of Open Points Tracker
 
-Capture open project items. Stored locally in this browser.
+**v0.6.0** — Track open project items and draft status-inquiry emails for delayed tasks.
 
-Latest feature highlights
-- Claude chat with tool calls — list, add, edit, delete tasks in natural language.
-- Voice commands and per-field dictation (browser SpeechRecognition).
-- Local JSON / CSV / Markdown files or browser-only storage.
-- Bidirectional Jira Cloud sync — pull, push, per-task conflict review, create new issues.
-- Reports with status, assignee, group, label, and on-time / late completion stats.
-- Configurable due-date banner, toast, and pop-up notifications.
-- Resizable + collapsible workspace, resizable tasks table, persisted across reloads.
-- Gantt chart with dragging, sorting and updating task.
+## What It Does
 
-Built with Next.js, React, Tailwind CSS, and Titillium Web. Runs entirely client-side; no app backend.
+A single-page task manager built for project leads who maintain a "List of Open Points" (LOP). Core workflow:
 
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+1. Add tasks with assignee, due date, and priority
+2. Filter, sort, and view tasks in a table or Gantt chart
+3. Send pre-filled status-inquiry emails to assignees with one click
+4. Export the task list to CSV, Markdown, PDF, DOCX, XLSX, or PPTX
+5. Optionally sync tasks bidirectionally with a Jira project
 
-## Getting Started
+All data is stored locally by default — no backend account required.
 
-First, run the development server:
+## Features
+
+| Feature | Description |
+|---------|-------------|
+| Task management | Create, edit, delete, bulk-edit, filter by priority / assignee / group / label |
+| Gantt chart | Visual timeline with drag-and-drop reorder and dependency arrows |
+| Task dependencies | FS / SS / FF / SF predecessor relationships with cycle detection |
+| Groups & labels | Categorize tasks freely; filter by group or label |
+| AI chat (Claude) | Ask questions or create/update tasks in natural language |
+| Voice commands | Speak commands in English or German (Web Speech API) |
+| Due-date notifications | Banner, toast, and popup alerts for approaching deadlines |
+| Reports | Summary view with overdue, due-soon, and completion stats |
+| Jira sync | Pull from and push to a Jira Cloud project (bidirectional, with conflict resolution) |
+| Export | CSV, Markdown, PDF (print), DOCX, XLSX, PPTX |
+| Localization | English (US / UK) and German |
+
+## Storage Backends
+
+The app persists tasks in one of several backends, switchable in Settings:
+
+| Backend | Description |
+|---------|-------------|
+| Browser (default) | `IndexedDB` for tasks & RAID (record-level writes, legacy `localStorage` data migrates on first load); `localStorage` for settings — zero setup, survives page refresh |
+| Local JSON / CSV / Markdown | File System Access API — reads and writes a local file you pick |
+| SharePoint JSON / CSV | Coming soon |
+
+The Jira integration stores credentials (site URL, email, API token) in `localStorage`. They are never sent to any server other than your own Atlassian domain via the local proxy routes below.
+
+## API Routes
+
+All routes are CORS proxy endpoints — the browser calls them, they call Atlassian, and forward the response. Credentials are sent in the POST body and are never persisted server-side.
+
+| Route | Purpose |
+|-------|---------|
+| `POST /api/jira/test` | Verify credentials (calls `/rest/api/3/myself`) |
+| `POST /api/jira/projects` | List accessible projects |
+| `POST /api/jira/issue-types` | List issue types for a project |
+| `POST /api/jira/users` | Search assignable users |
+| `POST /api/jira/search` | Run a JQL query (paginated) |
+| `POST /api/jira/create-issue` | Create a new Jira issue from a local task |
+| `POST /api/jira/update-issue` | Push local task edits back to Jira |
+| `POST /api/jira/transition-issue` | Change the issue's workflow status category |
+
+## Commands
+
+<!-- AUTO-GENERATED from package.json scripts -->
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start development server (hot reload on `http://localhost:3000`) |
+| `npm run build` | Production build with TypeScript type-checking |
+| `npm run start` | Serve the production build |
+| `npm run lint` | Run ESLint |
+<!-- END AUTO-GENERATED -->
+
+## Tech Stack
+
+- **Framework**: Next.js 16 (App Router)
+- **UI**: React 19, Tailwind CSS 4
+- **Language**: TypeScript 5
+- **AI**: Anthropic Claude API (key stored client-side in Settings)
+
+## Setup
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+No environment variables are required. The Claude API key and Jira credentials are entered in the in-app Settings panel and stored in `localStorage`.
