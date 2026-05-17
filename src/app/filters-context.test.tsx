@@ -105,4 +105,19 @@ describe("FiltersProvider", () => {
     });
     expect(result.current.searchDebounced).toBe("hello");
   });
+
+  test("useFilters() outside a FiltersProvider throws a documented error", () => {
+    // React logs the rendering error to console.error in dev; silence it
+    // so the test output stays clean. Restore after to avoid hiding
+    // unrelated noise from later tests.
+    const original = console.error;
+    console.error = () => {};
+    try {
+      expect(() => renderHook(() => useFilters())).toThrow(
+        "useFilters must be used within FiltersProvider",
+      );
+    } finally {
+      console.error = original;
+    }
+  });
 });

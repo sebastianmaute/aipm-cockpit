@@ -105,6 +105,6 @@ export function FiltersProvider({ children }: { children: ReactNode }) {
 
 export function useFilters(): FiltersValue {
   const ctx = useContext(FiltersContext);
-  // Outside-provider behaviour is tightened in Task 5.
-  return ctx as FiltersValue;
+  if (!ctx) throw new Error("useFilters must be used within FiltersProvider");
+  return ctx;
 }
