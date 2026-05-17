@@ -1,4 +1,4 @@
-import { describe, test, expect } from "vitest";
+import { describe, test, expect, beforeEach, afterEach, vi } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { type ReactNode } from "react";
 import { FiltersProvider, useFilters } from "./filters-context";
@@ -6,6 +6,14 @@ import { FiltersProvider, useFilters } from "./filters-context";
 function wrapper({ children }: { children: ReactNode }) {
   return <FiltersProvider>{children}</FiltersProvider>;
 }
+
+beforeEach(() => {
+  vi.useFakeTimers();
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 describe("FiltersProvider", () => {
   test("exposes the documented defaults", () => {
@@ -76,5 +84,25 @@ describe("FiltersProvider", () => {
     expect(result.current.sortKey).toBe("id");
     expect(result.current.sortDir).toBe("asc");
     expect(result.current.raidFilterTaskId).toBeNull();
+  });
+
+  test("searchDebounced lags search by 150 ms", () => {
+    const { result } = renderHook(() => useFilters(), { wrapper });
+    expect(result.current.searchDebounced).toBe("");
+
+    act(() => result.current.setSearch("hello"));
+    // Same tick — searchDebounced has not yet caught up.
+    expect(result.current.search).toBe("hello");
+    expect(result.current.searchDebounced).toBe("");
+
+    act(() => {
+      vi.advanceTimersByTime(149);
+    });
+    expect(result.current.searchDebounced).toBe("");
+
+    act(() => {
+      vi.advanceTimersByTime(1);
+    });
+    expect(result.current.searchDebounced).toBe("hello");
   });
 });
