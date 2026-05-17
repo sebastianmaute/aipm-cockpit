@@ -1,0 +1,30 @@
+# TASKS
+id,taskName,assignee,assigneeEmail,startDate,dueDate,lastUpdateDate,priority,blockers,notes,completedDate,inquiriesSent,group,labels,dependencies,jiraKey,jiraIssueType,lastSyncedAt,localModifiedAt,healthOverride
+1,Design SSO architecture,Alex Example,Sample.Dummy@example.com,2026-04-01,2026-04-20,2026-04-22,High,,Reviewed OIDC vs SAML; OIDC selected based on partner roadmap.,2026-04-22,0,Auth Migration,design|architecture,,LOP-101,Story,,,
+2,POC OIDC integration,Sam Placeholder,Fictional.Jordan@example.com,2026-04-15,2026-04-30,2026-05-04,High,,Worked through token refresh edge cases. One inquiry from product lead about UX. Merged to main.,2026-05-04,1,Auth Migration,poc|backend,FS:1,LOP-102,Story,,,
+3,Stakeholder workshop,Taylor Specimen,aria.patel@example.com,,2026-05-05,2026-05-05,Medium,,"Workshop with security, legal, product. Action items captured in Confluence: SSO-2026-Q2.",2026-05-05,0,Auth Migration,planning|stakeholder,,,,,,
+4,Backend API skeleton,Sam Placeholder,Fictional.Jordan@example.com,2026-05-04,2026-05-12,2026-05-13,Urgent,Waiting on database schema review from DBA team.,Stalled while Jane is on holiday. Rate-limit middleware design needs review; current draft uses sliding-window over Redis.,,3,Auth Migration,backend|api,FS:2,LOP-103,Story,2026-05-13T10:30:00.000Z,2026-05-13T10:35:12.000Z,
+5,Frontend login flow,Alex Example,Sample.Dummy@example.com,2026-05-15,2026-05-22,2026-05-14,High,,React component scaffolded; need to wire token storage. Considering httpOnly cookie vs sessionStorage tradeoff.,,0,Auth Migration,frontend|ui,FS:4,,,,2026-05-14T16:20:00.000Z,
+6,Migration script for legacy users,Sam Placeholder,Fictional.Jordan@example.com,2026-05-12,2026-05-25,2026-05-15,High,Pending DBA approval on dry-run plan.,50k legacy users with bcrypt-hashed passwords. Plan for incremental migration in 5k batches with rollback markers.,,2,Auth Migration,backend|migration,,,,,2026-05-15T09:10:00.000Z,R
+7,Security review,Morgan Standin,Invented.Riley@example.com,2026-05-20,2026-06-02,2026-05-15,Medium,,"Schedule with InfoSec. Expect ~1 week turnaround. Scope: token storage, redirect URIs, CSP, session fixation.",,0,Auth Migration,security|compliance,FS:4,,,,,
+8,Load testing,Sam Placeholder,Fictional.Jordan@example.com,2026-06-03,2026-06-10,2026-05-15,Medium,,Target: 10k concurrent logins/sec sustained for 30 minutes. Tools: k6 or Gatling. Hold a slot in the staging env.,,0,Auth Migration,testing|performance,FS:5|FS:6,,,,,
+9,Documentation,Taylor Specimen,aria.patel@example.com,,2026-06-15,2026-05-10,Low,,Update Confluence runbook + internal API docs. Add a runbook for token rotation incidents.,,0,Auth Migration,docs,,,,,,G
+10,Production cutover,Alex Example,Sample.Dummy@example.com,,2026-06-20,2026-05-15,Urgent,,Maintenance window: Sun 02:00-06:00 UTC. Rollback via DNS flip (60s TTL pre-staged). Status page banner from -30min.,,0,Auth Migration,deployment|critical,FS:7|FS:8,,,,,
+11,Quarterly OKR review,Morgan Standin,Invented.Riley@example.com,,2026-05-30,2026-05-08,Medium,,"Compile Q2 metrics: KR1 conversion, KR2 incident MTTR, KR3 NPS. Slides due 48h before steering committee.",,0,Operations,okr|reporting,,,,,,
+12,Vendor renewal: Datadog,Taylor Specimen,aria.patel@example.com,,2026-07-01,2026-05-15,Low,,Auto-renew expires 2026-07-15. Negotiate seat count downward (we overprovisioned by ~30%).,,0,Operations,vendor|renewal,,,,,,
+
+# RAID
+id,category,title,description,severity,probability,impact,status,owner,ownerEmail,mitigation,linkedTaskIds,raisedDate,targetDate,closedDate,localModifiedAt,causedByRaidIds
+1,R,Legacy user data corruption during migration,50k bcrypt-hashed passwords; corruption could lock users out of all services.,High,3,5,Mitigated,Sam Placeholder,Fictional.Jordan@example.com,Pre-migration backup + 5k-batch dry-runs with rollback markers. Weekly integrity checks during cutover week.,6,2026-04-25,2026-06-15,,,
+2,R,SSO provider outage during peak hours,Vendor-side downtime would block all logins.,Medium,2,4,Open,Morgan Standin,Invented.Riley@example.com,"Provider SLA: 99.95%. Fallback: temporary local-account bypass for ops accounts (documented, time-boxed).",,2026-05-01,,,,
+3,R,Performance regression on login under load,Auth path adds 200ms p95 latency vs baseline; could degrade homepage TTFB.,High,4,3,Realized,Sam Placeholder,Fictional.Jordan@example.com,Token verification cached; index added on session lookup. Still monitoring.,4,2026-05-08,,,,
+4,A,Users accept 4-hour maintenance window for cutover,Comms team confirmed via survey: 92% acceptance for off-hours maintenance.,Medium,,,Validated,Taylor Specimen,aria.patel@example.com,,,2026-05-05,,,,
+5,I,SSO redirect loop on Safari,Issue surfaced from Risk #3 mitigation work: SameSite=Strict cookie + cross-origin redirect chain triggers Safari ITP loop.,High,,,In Progress,Sam Placeholder,Fictional.Jordan@example.com,Workaround in dev: SameSite=Lax. Need security review before prod.,4,2026-05-13,2026-05-22,,,3
+6,D,Compliance team sign-off for production,InfoSec must approve SOC2 evidence package before cutover.,Medium,,,Open,Morgan Standin,Invented.Riley@example.com,,7,2026-05-10,2026-06-02,,,
+7,D,Network team firewall changes,Egress rules to api.sso-provider.com on 443.,Medium,,,Delivered,Taylor Specimen,aria.patel@example.com,Confirmed by ticket NET-2342 closed 2026-05-10.,4,2026-04-28,2026-05-10,2026-05-10,,
+
+# ABSENCES
+id,assignee,assigneeEmail,startDate,endDate,type,note,localModifiedAt
+1,Alex Example,Sample.Dummy@example.com,2026-06-01,2026-06-14,vacation,Family trip,
+2,Sam Placeholder,Fictional.Jordan@example.com,2026-05-28,2026-05-28,sick,,
+3,Taylor Specimen,aria.patel@example.com,2026-06-23,2026-06-25,training,Kubernetes cert,
