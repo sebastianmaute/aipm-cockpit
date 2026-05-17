@@ -35,13 +35,11 @@ All data is stored locally by default — no backend account required.
 
 ## Screenshots
 
-<details><summary>Click to expand...</summary>
 [Main Screen](./public/Main.png)
 [Reports](./public/Reports.png)
 [Gantt](./public/Gantt.png)
 [RAID](./public/RAID.png)
 [Resources](./public/Resources.png)
-</details>
 
 ## Storage Backends
 
