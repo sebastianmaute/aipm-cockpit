@@ -411,7 +411,7 @@ export const de: Record<TranslationKey, string> = {
     "Auf das +-Symbol im Header klicken, um den Dialog \"Neue Aufgabe\" zu öffnen. Beim Klick auf \"Bearbeiten\" einer Zeile öffnet sich derselbe Dialog vorbefüllt. Pflichtfelder: Aufgabenname, Zugewiesener, Fälligkeit. Optional: E-Mail, Gruppe, Labels, Blocker, Notizen. Alternativ im Chat-Tab Claude bitten (z. B. \"neue Aufgabe Deck prüfen, fällig Freitag\").",
   helpSecWorkspaceTitle: "Arbeitsbereich",
   helpSecWorkspaceBody:
-    "Der eingerahmte Bereich unter dem Header enthält Chat und Berichte. Untere rechte Ecke ziehen zum Vergrößern, Pfeil rechts in der Tab-Leiste zum Ein-/Ausklappen, \"Größe zurücksetzen\" für die Standardgröße. Beide Zustände werden zwischen Seitenladevorgängen gespeichert.",
+    "Der eingerahmte Bereich unter dem Header enthält die Workspace-Tabs (Chat, Berichte, Gantt, RAID, Ressourcen, Aktivität). Untere rechte Ecke ziehen zum Vergrößern, Pfeil rechts in der Tab-Leiste zum Ein-/Ausklappen, \"Größe zurücksetzen\" für die Standardgröße. Beide Zustände werden zwischen Seitenladevorgängen gespeichert.",
   helpSecTabsTitle: "Tabs",
   helpSecTabsBody:
     "Chat – mit Claude per natürlicher Sprache Aufgaben anzeigen, anlegen, ändern und löschen.\nBerichte – Statistiken zu Aufgaben, Zugewiesenen, Status, Abfragen und pünktlichen / verspäteten Erledigungen, inkl. Auswertung nach Gruppe und Label.\nGantt – visuelle Zeitleiste mit Drag-Verschiebung und Abhängigkeitspfeilen (FS / SS / FF / SF).\nRAID – Register für Risks, Assumptions, Issues und Dependencies mit Verknüpfung zu Aufgaben.\nRessourcen – Kapazitätskalender mit Schichten, Abwesenheiten, Feiertagen und Tagesauslastung.\nAktivität – Audit-Log aller Änderungen an Aufgaben, RAID und Ressourcen in diesem Browser.",
@@ -420,16 +420,16 @@ export const de: Record<TranslationKey, string> = {
     "Spaltenüberschriften klicken zum Sortieren. Filtern über das Suchfeld und die Priorität- / Zugewiesener-Dropdowns. Über die Zeilen-Checkboxen lassen sich mehrere Aufgaben auswählen; eine Bulk-Edit-Leiste erscheint für Sammeländerungen. Aktionen pro Zeile: Erledigt / Wieder öffnen, Anfrage senden, An Jira übertragen (bei aktivem Jira und ungebundener Zeile), Bearbeiten, Löschen. Lange Notizen werden auf die erste Zeile gekürzt – \"Mehr anzeigen\" klappt sie auf. Untere rechte Tabellenecke ziehen zum Vergrößern.",
   helpSecGanttTitle: "Gantt-Diagramm",
   helpSecGanttBody:
-    "Visuelle Projekt-Zeitleiste, gespeist aus Start- / Fälligkeitsdatum und dem Vorgänger-Graphen. Balken ziehen zum Verschieben, rechte Kante ziehen zum Verlängern, die Griffe ziehen, um eine Abhängigkeit zwischen Aufgaben zu zeichnen (FS, SS, FF, SF). Zyklen werden blockiert und markiert. Klick auf einen Balken öffnet den Aufgabendialog. Heute-Linie, Wochenend-Schraffur und Feiertagsspalten sind automatisch enthalten.",
+    "Visuelle Projekt-Zeitleiste, gespeist aus Start- / Fälligkeitsdatum und dem Vorgänger-Graphen. Balken ziehen zum Verschieben, rechte Kante ziehen zum Verlängern, die Griffe ziehen, um eine Abhängigkeit zwischen Aufgaben zu zeichnen (FS, SS, FF, SF). Zyklen werden blockiert und markiert. Klick auf einen Balken öffnet den Aufgabendialog. Heute-Linie, Wochenend-Schraffur, Feiertagsspalten und Abwesenheiten je Zugewiesenen werden automatisch in die Zeitleiste eingezeichnet.",
   helpSecRaidTitle: "RAID-Register",
   helpSecRaidBody:
-    "Risks, Assumptions, Issues und Dependencies in einem separaten Register erfassen. Jeder Eintrag hat Kategorie, Verantwortliche, Status, Schweregrad und optionale Verknüpfungen zu einer oder mehreren Aufgaben. Geeignet für Punkte, die nicht ins Aufgabenmodell passen, aber Nachverfolgung brauchen. Aufgabenzeilen mit verknüpften RAID-Einträgen zeigen ein Symbol – Klick filtert direkt im Register.",
+    "Risks, Assumptions, Issues und Dependencies in einem separaten Register erfassen. Jeder Eintrag hat Kategorie, Verantwortliche, Status, Schweregrad, optionale Verknüpfungen zu einer oder mehreren Aufgaben und optional eine Liste auslösender RAID-Einträge (\"verursacht durch\" – kategorieübergreifend; Zyklen werden beim Speichern blockiert). Für Risks wird der Schweregrad aus der Wahrscheinlichkeits × Auswirkungs-Matrix abgeleitet. Aufgabenzeilen mit verknüpften RAID-Einträgen zeigen ein Symbol – Klick filtert direkt im Register.",
   helpSecResourcesTitle: "Ressourcen",
   helpSecResourcesBody:
-    "Kapazitätsplanung für Zugewiesene. Schicht hinzufügen, um die Arbeitszeiten pro Tag festzulegen; Abwesenheit hinzufügen, um Urlaub, Krankheit oder freie Tage zu blockieren. Der Kalender zeigt Schichten, Abwesenheiten und Feiertage zusammen mit der Tagesauslastung. Ressourcendaten liegen im selben Speicher-Backend wie die Aufgaben.",
+    "Kapazitätsplanung für Zugewiesene. Umschaltbar zwischen Listenansicht (Statistiken pro Zugewiesenem – offene Aufgaben, überfällig, kommende Abwesenheiten, hinterlegte Schicht) und Kalenderansicht (30-Tage-Raster mit Aufgaben, Abwesenheiten und Feiertagen pro Zugewiesenem). Schicht hinzufügen, um die Stunden pro Wochentag festzulegen; Abwesenheit hinzufügen, um Urlaub, Krankheit, Schulung oder andere freie Tage zu blockieren. Ressourcendaten liegen im selben Speicher-Backend wie die Aufgaben.",
   helpSecActivityTitle: "Aktivitätslog",
   helpSecActivityBody:
-    "Append-only-Log aller Änderungen an Aufgaben, RAID und Ressourcen in diesem Browser. Erfasst wird, was sich wann geändert hat, mit handelnder Person, sofern bekannt. Filter nach Entitätstyp oder Text. Hilfreich für Audit-artige Reviews nach Bulk-Edits oder Jira-Syncs. Das Log ist begrenzt und schneidet die ältesten Einträge ab.",
+    "Append-only-Log aller Änderungen an Aufgaben, RAID, Abwesenheiten und Schichten in diesem Browser. Sortierbar nach Zeit / Typ, filterbar nach Entitätsgruppe und Suche per Text, Wildcard (`*`, `?`) oder Regex. Hilfreich für Audit-artige Reviews nach Bulk-Edits oder Jira-Syncs. Das Log liegt nur in diesem Browser – es wird in keine Export-Datei geschrieben – und schneidet die ältesten Einträge ab 500 ab.",
   helpSecVoiceTitle: "Sprachbefehle",
   helpSecVoiceBody:
     "Auf das Mikrofon im Header klicken und z. B. sagen:\n• \"neue Aufgabe Deck prüfen\"\n• \"Aufgabe 2 bearbeiten\"\n• \"Aufgabe 3 löschen\"\n• \"Anfrage für Aufgabe 5 senden\"\n• \"Suche Blocker\" / \"Suche zurücksetzen\"\n• \"Sprache Englisch\"\nEinzelne Textfelder haben zusätzlich ein Mikrofon-Symbol für Diktate.",
@@ -465,9 +465,11 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightRaid: "RAID-Register für Risks, Assumptions, Issues und Dependencies, verknüpft mit Aufgaben.",
   versionHighlightResources: "Ressourcenplanung mit Schichten, Abwesenheiten, Feiertagen und Tagesauslastung im Kalender.",
   versionHighlightActivity: "Aktivitätslog aller Änderungen an Aufgaben, RAID und Ressourcen, filterbar.",
+  versionHighlightContacts: "Persistentes Kontakt-Adressbuch – Vorschläge für Zugewiesene und E-Mail überdauern Aufgabenlöschung und Jira-Sync.",
   versionHighlightExport: "Export nach CSV, Markdown, PDF (Druck), DOCX, XLSX und PPTX.",
   versionHighlightNotifications: "Konfigurierbare Fälligkeits-Banner, -Toasts und -Pop-ups.",
   versionHighlightWorkspace: "Größenveränderbarer + einklappbarer Arbeitsbereich, größenveränderbare Tabelle, persistent.",
+  versionHighlightSecurity: "Content-Security-Policy mit Nonce pro Anfrage und strikten Script- + Style-Direktiven; kein Inline-Script-Bypass.",
   versionHighlightPerformance: "Schnellerer Start und geringerer Speicherverbrauch durch lazy geladene Module (DOCX/XLSX/PPTX-Export, deutsche UI, Feiertagskalender) und IndexedDB-Datensatzspeicher.",
 
   group: "Gruppe",

@@ -43,11 +43,25 @@ Any of these works:
 | **Static export** | Not supported — `/api/jira/*` route handlers require the Node runtime. |
 
 ### Security headers
-Defined in `next.config.ts`. CSP allows `script-src 'self' 'unsafe-inline'`
-and `connect-src 'self' https://api.anthropic.com`. **If you add a new
-outbound origin** (e.g. a different LLM, a logging endpoint), update the CSP
-`connect-src` list or the browser will block the call silently except for a
-DevTools console message.
+Static headers (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`,
+`Permissions-Policy`) live in `next.config.ts`. The **Content-Security-Policy**
+lives in `src/proxy.ts` because it carries a per-request nonce — Next.js 16
+extracts that nonce from the request header and attaches it to framework
+scripts and SSR `<style>` blocks. Production CSP is nonce-strict for
+`script-src` and `style-src-elem` (no `'unsafe-inline'`); `style-src-attr`
+keeps `'unsafe-inline'` because React renders `style={{...}}` props as the
+`style` HTML attribute (Gantt/table use dynamic px math). The app never
+renders untrusted HTML — no `dangerouslySetInnerHTML` anywhere — so the
+attribute allowance is low-risk. `connect-src` allows
+`https://api.anthropic.com`. **If you add a new outbound origin** (e.g. a
+different LLM, a logging endpoint), update `connect-src` in `src/proxy.ts`
+or the browser will block the call silently except for a DevTools console
+message.
+
+Because `src/proxy.ts` sets the per-request nonce, all pages must render
+dynamically. `src/app/page.tsx` calls `await connection()` to opt in; new
+routes must do the same or the served HTML will carry a build-time nonce
+that no longer matches the per-request CSP header.
 
 ### Smoke test after deploy
 
@@ -143,10 +157,12 @@ Next 16 + React 19 have moved fast. Pin the patch version and check
 `AGENTS.md` exists specifically to flag this risk.
 
 ### "CSP blocks a new feature"
-Symptoms: feature works in dev (where CSP is set via Next headers) but a
-specific resource fails in DevTools Console with `Refused to connect to ...`
-or `Refused to load the script ...`. Fix: edit `next.config.ts` →
-`CSP` constant → add the origin to the correct directive. Redeploy.
+Symptoms: a specific resource fails in DevTools Console with `Refused to
+connect to ...` or `Refused to load the script ...`. Fix: edit
+`src/proxy.ts` → `buildCsp()` → add the origin to the correct directive.
+Redeploy. Note the production CSP is nonce-strict for scripts and `<style>`
+blocks — third-party inline scripts/styles will need the nonce attached
+(read `headers().get('x-nonce')` and pass it to `<Script nonce={...}>`).
 
 ## Monitoring & alerting
 

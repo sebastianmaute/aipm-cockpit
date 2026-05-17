@@ -26,6 +26,9 @@ All data is stored locally by default — no backend account required.
 | Voice commands | Speak commands in English or German (Web Speech API) |
 | Due-date notifications | Banner, toast, and popup alerts for approaching deadlines |
 | Reports | Summary view with overdue, due-soon, and completion stats |
+| RAID register | Risks / Assumptions / Issues / Dependencies log with parent/child cycle detection |
+| Resource planner | Per-assignee absences (vacation / sick / training / other), weekly shift patterns, and a 30-day calendar view |
+| Activity log | Browser-local chronological record of task / RAID / absence / shift CRUD with text / wildcard / regex search |
 | Jira sync | Pull from and push to a Jira Cloud project (bidirectional, with conflict resolution) |
 | Export | CSV, Markdown, PDF (print), DOCX, XLSX, PPTX |
 | Localization | English (US / UK) and German |

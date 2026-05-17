@@ -394,7 +394,7 @@ const enUS = {
     "Click the + button in the header to open the New task modal. The same modal opens — pre-filled — when you click Edit on a row. Required fields: Task name, Assignee, Due date. Optional: Email, Group, Labels, Blockers, Notes. You can also ask Claude in the Chat tab (e.g. \"add a task to review the deck due Friday\").",
   helpSecWorkspaceTitle: "Workspace pane",
   helpSecWorkspaceBody:
-    "The boxed pane below the header holds Chat and Reports. Drag its bottom-right corner to resize, click the chevron on the right of the tab strip to collapse / expand, and Reset size to restore the default. Resize and collapsed state both persist across reloads.",
+    "The boxed pane below the header holds the workspace tabs (Chat, Reports, Gantt, RAID, Resources, Activity). Drag its bottom-right corner to resize, click the chevron on the right of the tab strip to collapse / expand, and Reset size to restore the default. Resize and collapsed state both persist across reloads.",
   helpSecTabsTitle: "Tabs",
   helpSecTabsBody:
     "Chat — talk to Claude to view, add, update, and delete tasks in natural language.\nReports — statistics about tasks, assignees, status, inquiries, and on-time / late completions, plus breakdowns by group and label.\nGantt — visual timeline with drag-to-reschedule and FS / SS / FF / SF dependency arrows.\nRAID — register risks, assumptions, issues, and dependencies; link entries to specific tasks.\nResources — capacity calendar with shifts, absences, holidays, and per-day workload.\nActivity — audit log of every task / RAID / resource change in this browser.",
@@ -403,16 +403,16 @@ const enUS = {
     "Sort by clicking column headers. Filter via the search box and the priority / assignee dropdowns. Tick the row checkboxes to multi-select; a bulk-edit bar appears for batch updates. Per-row actions: Mark complete / Reopen, Send inquiry, Push to Jira (when Jira is enabled and the row is unlinked), Edit, Delete. Long notes collapse to the first line — click \"Show more\" to expand. Drag the table's bottom-right corner to resize.",
   helpSecGanttTitle: "Gantt chart",
   helpSecGanttBody:
-    "Visual project timeline driven by start / due dates and the predecessor graph. Drag a bar to move it, drag its right edge to extend the due date, and drag the handles to draw a dependency between tasks (FS, SS, FF, SF). Cycles are blocked and flagged. Click a bar to open the task editor. Today line, weekend shading, and holiday columns are included automatically.",
+    "Visual project timeline driven by start / due dates and the predecessor graph. Drag a bar to move it, drag its right edge to extend the due date, and drag the handles to draw a dependency between tasks (FS, SS, FF, SF). Cycles are blocked and flagged. Click a bar to open the task editor. Today line, weekend shading, holiday columns, and per-assignee absences are shaded onto the timeline automatically.",
   helpSecRaidTitle: "RAID register",
   helpSecRaidBody:
-    "Track Risks, Assumptions, Issues, and Dependencies in a separate register. Each entry has a category, owner, status, severity, and optional links to one or more tasks. Use it for items that don't fit the task model but still need follow-up. Task rows with related RAID entries show an indicator — click it to jump straight to the filtered register.",
+    "Track Risks, Assumptions, Issues, and Dependencies in a separate register. Each entry has a category, owner, status, severity, optional links to one or more tasks, and an optional list of \"caused by\" parent RAID items (cross-category allowed; cycles are blocked at edit time). For risks, the probability × impact matrix derives the severity automatically. Task rows with related RAID entries show an indicator — click it to jump straight to the filtered register.",
   helpSecResourcesTitle: "Resources",
   helpSecResourcesBody:
-    "Capacity planning for assignees. Add a shift to set someone's working hours per day; add an absence to block vacation, sick days, or off-time. The calendar shows shifts, absences, and holidays alongside per-day workload. Resource data lives in the same storage backend as tasks.",
+    "Capacity planning for assignees. Toggle between List view (per-assignee stats — open tasks, overdue, upcoming absences, configured shift) and Calendar view (30-day grid of tasks, absences, and holidays per assignee). Add a shift to set someone's hours per weekday; add an absence to block vacation, sick days, training, or other off-time. Resource data lives in the same storage backend as tasks.",
   helpSecActivityTitle: "Activity log",
   helpSecActivityBody:
-    "Append-only log of task, RAID, and resource changes in this browser. Records what changed and when, with the actor noted where known. Filter by entity type or text. Useful for audit-style review after bulk edits or Jira syncs. The log is bounded and trims oldest entries beyond the cap.",
+    "Append-only log of task, RAID, absence, and shift changes in this browser. Sort by time / kind, filter by entity group, and search by text, wildcard (`*`, `?`), or regex. Useful for audit-style review after bulk edits or Jira syncs. The log lives in this browser only — it is never written to any export file — and trims the oldest entries when it exceeds 500.",
   helpSecVoiceTitle: "Voice commands",
   helpSecVoiceBody:
     "Click the microphone in the header and try:\n• \"add task review the deck\"\n• \"edit task 2\"\n• \"delete task 3\"\n• \"send inquiry for task 5\"\n• \"search blockers\" / \"clear search\"\n• \"switch to German\"\nIndividual text fields also have an inline microphone for dictation.",
@@ -448,9 +448,11 @@ const enUS = {
   versionHighlightRaid: "RAID register for risks, assumptions, issues, and dependencies, linked to tasks.",
   versionHighlightResources: "Resource planning with shifts, absences, holidays, and a per-day workload calendar.",
   versionHighlightActivity: "Activity log of every task / RAID / resource change with filtering.",
+  versionHighlightContacts: "Persisted contacts address book — assignee + email suggestions survive task deletion and Jira sync churn.",
   versionHighlightExport: "Export to CSV, Markdown, PDF (print), DOCX, XLSX, and PPTX.",
   versionHighlightNotifications: "Configurable due-date banner, toast, and pop-up notifications.",
   versionHighlightWorkspace: "Resizable + collapsible workspace, resizable tasks table, persisted across reloads.",
+  versionHighlightSecurity: "Per-request Content-Security-Policy nonce with strict script + style directives; no inline-script bypass.",
   versionHighlightPerformance: "Faster startup and lower memory use via lazy-loaded modules (DOCX/XLSX/PPTX export, German UI, holiday calendars) and IndexedDB record-level storage.",
 
   group: "Group",

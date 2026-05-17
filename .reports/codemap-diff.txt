@@ -1,42 +1,135 @@
-Codemap Generation Report — 2026-05-15
+Codemap Generation Report — 2026-05-17
 ==========================================================================
 
-Mode:                Initial generation (no prior codemaps existed)
-Diff vs previous:    N/A — first run
+Mode:                Update (prior run: 2026-05-15)
+Diff vs previous:    > 30% (significant). User approved full overwrite of
+                     all five codemap files via /ecc:update-codemaps.
 
-Files created:
-  docs/CODEMAPS/architecture.md       ~600 tokens
-  docs/CODEMAPS/backend.md            ~400 tokens
-  docs/CODEMAPS/frontend.md           ~900 tokens
-  docs/CODEMAPS/data.md               ~700 tokens
-  docs/CODEMAPS/dependencies.md       ~500 tokens
-  TOTAL ESTIMATED TOKENS:             ~3,100  (avg 620/file — under 1000 cap)
+Files updated:
+  docs/CODEMAPS/architecture.md       ~700  tokens   (was ~600)
+  docs/CODEMAPS/backend.md            ~500  tokens   (was ~400)
+  docs/CODEMAPS/frontend.md           ~1000 tokens   (was ~900)
+  docs/CODEMAPS/data.md               ~900  tokens   (was ~700)
+  docs/CODEMAPS/dependencies.md       ~500  tokens   (unchanged size)
+  TOTAL ESTIMATED TOKENS:             ~3,600  (avg 720/file — under 1000 cap)
 
 Source coverage:
-  Application code:   src/app/*.ts(x)         ~35 files
+  Application code:   src/app/*.ts(x)         ~48 files
+  Middleware:         src/proxy.ts            1 file (new since last scan)
   API routes:         src/app/api/jira/       10 files (8 routes + 2 helpers)
   Config:             package.json, next.config.ts, tsconfig.json
   Types:              src/app/types.ts
 
-New dependencies detected:   none since last `npm install` (lock-file unchanged)
-New routes detected:         none (8 Jira proxies, all documented)
-New services detected:       none
+==========================================================================
+Architecture changes captured in this run
+==========================================================================
 
-Architecture changes captured from Phases A-G of the recent refactor:
-  - Phase A   Conditional mount of GanttPanel + ReportsPanel
-  - Phase B   Dynamic-import export-ooxml.ts on demand
-  - Phase C   React.memo + useCallback handlers for RaidPanel
-  - Phase D   Debounced search, precomputed taskSearchIndex,
-              debounced colWidths write
-  - Phase E   IndexedDB record-level writes + legacy localStorage migration
-  - Phase F   Code-split i18n.de.ts; loadI18n() gate in TaskManager
-  - Phase G   Lazy-loaded date-holidays via holidaysForCountries
+Resource Planner feature (new — Phases 1–4)
+  + src/app/resources-panel.tsx         (list + calendar view shell)
+  + src/app/resource-calendar.tsx       (30-day assignee × day grid)
+  + src/app/segmented-control.tsx       (2-segment toggle, used by panel)
+  + src/app/absence-edit-modal.tsx      (Absence editor; dynamic-imported)
+  + src/app/shift-edit-modal.tsx        (Shift editor; dynamic-imported)
+  + Absence, Shift, WeekHours types in src/app/types.ts
+  + DEFAULT_WEEK_HOURS = [0,8,8,8,8,8,0], MAX_HOURS_PER_DAY = 24
+  + sanitizeAbsence, sanitizeShift in src/app/sanitize.ts
+  + IndexedDB v3 → "absences" store; v4 → "shifts" store
+  + tab "resources" added between "raid" and "activity"
 
-Staleness warnings:   none -- all codemap files generated today
-README.md sync:       up to date (Storage Backends row corrected on 2026-05-15)
+Activity Log feature (new)
+  + src/app/activity-log.ts             (21 ActivityKind values, capped 500)
+  + src/app/activity-log-panel.tsx      (sortable/filter/text+wildcard+regex
+                                         search; memo()-wrapped)
+  + localStorage key: lop-app:activity-log
+  + tab "activity" added as the last tab
 
-Open items recorded (not yet implemented):
+Contacts address book (new)
+  + src/app/contacts.ts                 (Contact, ContactsMap;
+                                         loadContacts/saveContacts;
+                                         CONTACTS_MAX = 500)
+  + localStorage key: lop-app:contacts
+  + Feeds ContactInput suggestions; independent of tasks list
+
+Per-request CSP nonce middleware (new)
+  + src/proxy.ts                        (Next.js 16 middleware)
+  + nonce-base64(uuid) attached to script-src + style-src-elem
+  + strict-dynamic on scripts; style-src-attr 'unsafe-inline' kept for
+    React inline style={{...}} (Gantt/table dynamic px math)
+  + connect-src whitelists api.anthropic.com
+  + dev-only: 'unsafe-eval' for scripts, 'unsafe-inline' for style-src-elem
+  + matcher skips /api/*, /_next/static, /_next/image, favicon, prefetch
+  ~ src/app/page.tsx: now awaits connection() to force dynamic rendering
+    so the CSP nonce attached at SSR matches the runtime header
+  ~ next.config.ts: now only emits static security headers (X-Frame-Options,
+    X-Content-Type-Options, Referrer-Policy, Permissions-Policy). CSP moved
+    out to proxy.ts because per-request nonces aren't supported there.
+
+Module extractions
+  + src/app/adf.ts                      (plain-text ↔ ADF, pulled out of
+                                         src/app/api/jira/_helpers.ts so the
+                                         client-side import/export paths can
+                                         share it without dragging server-only
+                                         code into the browser bundle)
+  + src/app/zip.ts                      (STORE-method ZIP writer pulled out
+                                         of export-ooxml.ts; standalone)
+  + src/app/version.ts                  (APP_VERSION = "0.6.0",
+                                         APP_BUILD_DATE = "2026-05-15",
+                                         APP_HIGHLIGHT_KEYS for the Version
+                                         popover; was inlined in version-menu)
+
+Panel mounting strategy
+  ~ All six workspace panels are now next/dynamic({ ssr: false }):
+        ChatPanel, GanttPanel, ReportsPanel, RaidPanel,
+        ResourcesPanel, ActivityLogPanel
+  ~ ChatPanel and RaidPanel are kept mounted-but-hidden (hidden={...})
+    so their internal state survives tab switches; the other four panels
+    use conditional render (only mounted while their tab is active).
+  ~ All three modals are dynamic-imported too: JiraConflictsModal,
+    AbsenceEditModal, ShiftEditModal.
+
+SharePoint backend stubs (forward-looking only)
+  + StorageKind "sp-json", "sp-csv" added to src/app/storage.ts
+  + SharePointBackend class — isReady() returns false; load()/save() throw
+    StorageNotImplementedError("sharepoint-coming-soon")
+  + storage-config.tsx flags both with comingSoon: true
+  No MSAL / Graph SDK added; UI plumbing is in place but the network calls
+  aren't.
+
+Sizes
+  ~ src/app/task-manager.tsx           4,504 lines (was ~3,900)
+  ~ src/app/storage.ts                 1,806 lines (was ~1,400)
+  ~ src/app/i18n.ts                      704 lines (key surface grew with
+                                         Resource Planner + Activity Log)
+  ~ src/app/i18n.de.ts                   677 lines
+
+==========================================================================
+Other deltas
+==========================================================================
+
+New dependencies detected:   none. package.json runtime + dev deps unchanged
+                             since 2026-05-15.
+
+New routes detected:         none. Still 8 POST routes under /api/jira/*.
+
+New external services:       none reachable. SharePoint listed but stubbed
+                             out; no MSAL or Graph SDK pulled in.
+
+Staleness warnings:          none — all codemap files refreshed today.
+
+README.md / RUNBOOK.md sync: docs/RUNBOOK.md and src/app/page.tsx are
+                             currently modified in the working tree (per
+                             `git status`). Codemaps reflect the working-tree
+                             state, not the last commit. The CSP/middleware
+                             changes in RUNBOOK.md are consistent with
+                             src/proxy.ts.
+
+==========================================================================
+Open items recorded (not yet implemented)
+==========================================================================
+
   - ChatPanel memoization (gated on dispatcher useMemo deps audit)
-  - tasksRef duplication cleanup (useSyncExternalStore or small store)
-  - Virtualized task table (high-risk; preserve if N < 500)
-  - Canvas-based Gantt (only if 500+ tasks regularly)
+  - tasksRef duplication cleanup (useSyncExternalStore or a small store)
+  - Virtualized task table (high-risk; defer while N < 500 rows)
+  - Canvas-based Gantt (only when 500+ tasks regularly)
+  - SharePoint backends (sp-json, sp-csv) — UI + factory stub present;
+    actual MSAL auth + Graph file IO not yet implemented

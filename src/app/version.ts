@@ -1,4 +1,9 @@
-// 0.6.0 captures the May 2026 performance refactor: lazy-loaded heavy
+// 0.7.0 brings Resource Planner (per-assignee absences + weekly shift
+// patterns + 30-day calendar view) and an Activity Log of task / RAID /
+// resource changes. Also: persisted contacts address book, per-request
+// Content-Security-Policy nonce via Next.js 16 middleware (`src/proxy.ts`),
+// and SharePoint storage backend stubs (UI present, MSAL not yet wired).
+// 0.6.0 captured the May 2026 performance refactor: lazy-loaded heavy
 // modules (OOXML export, German dictionary, date-holidays), IndexedDB
 // record-level storage for tasks/RAID, debounced search + colWidths,
 // memoized RAID panel, and conditional mount of Gantt/Reports tabs.
@@ -7,8 +12,8 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.6.0";
-export const APP_BUILD_DATE = "2026-05-15";
+export const APP_VERSION = "0.7.0";
+export const APP_BUILD_DATE = "2026-05-17";
 export const APP_REPO_URL = "https://www.example.com";
 
 /** Translation keys for the high-level feature highlights shown in the
@@ -23,8 +28,10 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightRaid",
   "versionHighlightResources",
   "versionHighlightActivity",
+  "versionHighlightContacts",
   "versionHighlightExport",
   "versionHighlightNotifications",
   "versionHighlightWorkspace",
+  "versionHighlightSecurity",
   "versionHighlightPerformance",
 ] as const;
