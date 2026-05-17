@@ -144,6 +144,7 @@ import {
   readPopoutTabFromUrl,
   useBroadcastSync,
 } from "./broadcast-sync";
+import { useDebounce } from "./use-debounce";
 import { useResizable } from "./use-resizable";
 // voice-button is lazy-loaded — it transitively pulls the Web Speech API
 // shims in voice.ts which we only need when the user clicks the mic.
@@ -487,11 +488,7 @@ export default function TaskManager() {
   // Debounced mirror of `search`. The filter useMemo reads this instead of
   // `search` directly, so re-filtering doesn't fire on every keystroke. The
   // input itself stays bound to `search` so it feels immediate.
-  const [searchDebounced, setSearchDebounced] = useState("");
-  useEffect(() => {
-    const id = setTimeout(() => setSearchDebounced(search), 150);
-    return () => clearTimeout(id);
-  }, [search]);
+  const searchDebounced = useDebounce(search, 150);
   const [priorityFilter, setPriorityFilter] = useState<Priority | "All">(
     "All",
   );
