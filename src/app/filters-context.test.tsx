@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import { renderHook } from "@testing-library/react";
+import { renderHook, act } from "@testing-library/react";
 import { type ReactNode } from "react";
 import { FiltersProvider, useFilters } from "./filters-context";
 
@@ -18,6 +18,37 @@ describe("FiltersProvider", () => {
     expect(result.current.labelFilter).toBe("All");
     expect(result.current.sortKey).toBe("id");
     expect(result.current.sortDir).toBe("asc");
+    expect(result.current.raidFilterTaskId).toBeNull();
+  });
+
+  test("each setter updates the corresponding slice", () => {
+    const { result } = renderHook(() => useFilters(), { wrapper });
+
+    act(() => result.current.setSearch("hello"));
+    expect(result.current.search).toBe("hello");
+
+    act(() => result.current.setPriorityFilter("High"));
+    expect(result.current.priorityFilter).toBe("High");
+
+    act(() => result.current.setAssigneeFilter("Alex Example"));
+    expect(result.current.assigneeFilter).toBe("Alex Example");
+
+    act(() => result.current.setGroupFilter("Auth Migration"));
+    expect(result.current.groupFilter).toBe("Auth Migration");
+
+    act(() => result.current.setLabelFilter("backend"));
+    expect(result.current.labelFilter).toBe("backend");
+
+    act(() => result.current.setSortKey("dueDate"));
+    expect(result.current.sortKey).toBe("dueDate");
+
+    act(() => result.current.setSortDir("desc"));
+    expect(result.current.sortDir).toBe("desc");
+
+    act(() => result.current.setRaidFilterTaskId(42));
+    expect(result.current.raidFilterTaskId).toBe(42);
+
+    act(() => result.current.setRaidFilterTaskId(null));
     expect(result.current.raidFilterTaskId).toBeNull();
   });
 });
