@@ -83,6 +83,7 @@ frontend/backend repos.
 - **Activity log** — `activity-log.ts` + `activity-log-panel.tsx`; chronological CRUD record persisted to `lop-app:activity-log` (capped 500 entries), never written to exports.
 - **Contacts** — `contacts.ts`; assignee↔email address book in `lop-app:contacts`, survives task deletion and Jira churn.
 - **Jira ADF** — `adf.ts`; lossy plain-text ↔ Atlassian Document Format conversion for issue descriptions.
+- **Testing** — Vitest + RTL for unit/component (`src/**/*.test.{ts,tsx}`, `vitest.config.ts`, 80% v8 coverage threshold). Playwright for E2E (`e2e/**/*.spec.ts`, `playwright.config.ts`, Chromium-only, auto-starts `npm run dev`). Neither runner integrates with Next's build pipeline. See [dependencies.md](dependencies.md#testing-stack).
 
 See [backend.md](backend.md), [frontend.md](frontend.md), [data.md](data.md),
 [dependencies.md](dependencies.md) for per-layer detail.

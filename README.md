@@ -1,6 +1,6 @@
 # List of Open Points Tracker
 
-**v0.6.0** — Track open project items and draft status-inquiry emails for delayed tasks.
+**v0.7.1** — Track open project items and draft status-inquiry emails for delayed tasks.
 
 ## What It Does
 
@@ -65,10 +65,18 @@ All routes are CORS proxy endpoints — the browser calls them, they call Atlass
 <!-- AUTO-GENERATED from package.json scripts -->
 | Command | Description |
 |---------|-------------|
-| `npm run dev` | Start development server (hot reload on `http://localhost:3000`) |
-| `npm run build` | Production build with TypeScript type-checking |
-| `npm run start` | Serve the production build |
-| `npm run lint` | Run ESLint |
+| `npm run dev` | Start Next.js dev server with hot reload on http://localhost:3000 |
+| `npm run build` | Production build — runs TypeScript type-check, then emits `.next/` |
+| `npm run start` | Serve the production build (run `npm run build` first) |
+| `npm run lint` | Run ESLint (`eslint-config-next` preset) |
+| `npm run test` | Vitest unit/component tests in watch mode |
+| `npm run test:run` | Vitest, single run (CI-friendly) |
+| `npm run test:coverage` | Vitest + v8 coverage report (fails below 80%) |
+| `npm run e2e` | Playwright E2E suite, headless |
+| `npm run e2e:ui` | Playwright interactive UI mode |
+| `npm run e2e:install` | One-time: download Chromium browser binary |
+| `npm run docs:scripts` | Regenerate AUTO-GENERATED scripts tables in repo docs from `package.json` |
+| `npm run docs:scripts:check` | Verify AUTO-GENERATED scripts tables are in sync; exit non-zero on drift (CI mode) |
 <!-- END AUTO-GENERATED -->
 
 ## Tech Stack

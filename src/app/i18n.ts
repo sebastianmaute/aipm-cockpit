@@ -595,6 +595,7 @@ const enUS = {
   activitySearchRegex: "Regex",
   activitySearchInvalidRegex: "Invalid regex",
   activityNoMatches: "No entries match the filters.",
+  popoutOpenInNewWindow: "Open in new window",
   tabResources: "Resources",
   resourcesEmpty: "No tasks have been assigned to anyone yet.",
   resourcesOpenTasks: "Open",

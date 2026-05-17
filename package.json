@@ -5,9 +5,32 @@
   "license": "Apache-2.0",
   "scripts": {
     "dev": "next dev",
+    "prebuild": "node scripts/sync-script-docs.mjs --check",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "e2e": "playwright test",
+    "e2e:ui": "playwright test --ui",
+    "e2e:install": "playwright install --with-deps chromium",
+    "docs:scripts": "node scripts/sync-script-docs.mjs",
+    "docs:scripts:check": "node scripts/sync-script-docs.mjs --check"
+  },
+  "scriptsDescriptions": {
+    "dev": "Start Next.js dev server with hot reload on http://localhost:3000",
+    "build": "Production build — runs TypeScript type-check, then emits `.next/`",
+    "start": "Serve the production build (run `npm run build` first)",
+    "lint": "Run ESLint (`eslint-config-next` preset)",
+    "test": "Vitest unit/component tests in watch mode",
+    "test:run": "Vitest, single run (CI-friendly)",
+    "test:coverage": "Vitest + v8 coverage report (fails below 80%)",
+    "e2e": "Playwright E2E suite, headless",
+    "e2e:ui": "Playwright interactive UI mode",
+    "e2e:install": "One-time: download Chromium browser binary",
+    "docs:scripts": "Regenerate AUTO-GENERATED scripts tables in repo docs from `package.json`",
+    "docs:scripts:check": "Verify AUTO-GENERATED scripts tables are in sync; exit non-zero on drift (CI mode)"
   },
   "dependencies": {
     "date-holidays": "^3.28.0",
@@ -15,14 +38,25 @@
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },
+  "overrides": {
+    "postcss": "^8.5.14"
+  },
   "devDependencies": {
+    "@playwright/test": "^1.49.0",
     "@tailwindcss/postcss": "^4",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^4.3.4",
+    "@vitest/coverage-v8": "^3.0.0",
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
+    "jsdom": "^25.0.1",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^3.0.0"
   }
 }

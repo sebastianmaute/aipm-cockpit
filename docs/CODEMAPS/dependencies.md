@@ -1,4 +1,4 @@
-<!-- Generated: 2026-05-17 | Files scanned: package.json, package-lock.json | Token estimate: ~500 -->
+<!-- Generated: 2026-05-17 | Files scanned: package.json, package-lock.json, vitest.config.ts, playwright.config.ts | Token estimate: ~700 -->
 
 # Dependencies
 
@@ -23,8 +23,16 @@ Deliberately small surface. The runtime dep tree fits on one screen.
 | `@tailwindcss/postcss` | ^4 | Tailwind via PostCSS plugin (Tailwind v4 uses this layer) |
 | `eslint` | ^9 | Linter |
 | `eslint-config-next` | 16.2.6 | Next.js eslint preset |
+| `vitest` | ^3 | Unit/component test runner (`vitest.config.ts`) |
+| `@vitest/coverage-v8` | ^3 | v8 coverage provider; threshold enforced at 80% lines/functions/branches/statements |
+| `@vitejs/plugin-react` | ^4 | JSX/TSX transform inside the Vitest runner |
+| `jsdom` | ^25 | DOM environment for component tests |
+| `@testing-library/react` | ^16 | RTL render + queries (React 19 compatible) |
+| `@testing-library/jest-dom` | ^6 | Custom DOM matchers; registered in `vitest.setup.ts` |
+| `@testing-library/user-event` | ^14 | Realistic user interaction simulation |
+| `@playwright/test` | ^1.49 | E2E runner (`playwright.config.ts`); Chromium-only by default |
 
-Unchanged since 2026-05-15 — no new runtime or dev deps.
+No runtime deps changed in this update — only dev tooling (test scaffolding).
 
 ## Notable transitive deps
 
@@ -64,6 +72,28 @@ processor. Self-contained.
 | `src/app/contacts.ts` | localStorage address book; no third-party autocomplete library. |
 | `src/app/activity-log.ts` | localStorage-only CRUD audit log. |
 | `src/app/use-resizable.ts` | Corner-drag resize hook with localStorage persistence. No react-resizable / react-rnd. |
+
+## Testing stack
+
+```
+unit / component  →  vitest + jsdom + @vitejs/plugin-react
+                     @testing-library/{react,jest-dom,user-event}
+                     coverage: @vitest/coverage-v8 (80% threshold)
+                     config: vitest.config.ts, vitest.setup.ts
+                     location: src/**/*.test.{ts,tsx}
+
+E2E               →  @playwright/test (Chromium only)
+                     config: playwright.config.ts
+                     auto-starts `npm run dev`; reuses local server
+                     location: e2e/**/*.spec.ts
+                     artifacts (gitignored): /test-results,
+                       /playwright-report, /playwright/.cache,
+                       /blob-report
+```
+
+Both runners are independent of Next's build pipeline. Vitest uses its own
+SWC-via-Vite transform (not Next's). Playwright treats the dev server as a
+black box.
 
 ## Verified absent
 

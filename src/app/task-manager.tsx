@@ -137,6 +137,12 @@ import {
   type TaskDependency,
 } from "./types";
 import { buildRaidByTaskIndex, countByCategory, nextRaidId } from "./raid";
+import {
+  openPopoutWindow,
+  type PopoutTab,
+  readPopoutTabFromUrl,
+  useBroadcastSync,
+} from "./broadcast-sync";
 import { useResizable } from "./use-resizable";
 // voice-button is lazy-loaded — it transitively pulls the Web Speech API
 // shims in voice.ts which we only need when the user clicks the mic.
@@ -201,6 +207,17 @@ function emptyShiftDraft(id: number): Shift {
 }
 
 type TopTab = "chat" | "reports" | "gantt" | "raid" | "resources" | "activity";
+
+// i18n key for each tab's label — used by both the tab strip and the
+// popout window's document.title. Adding a new tab requires a row here.
+const TAB_LABEL_KEYS: Record<TopTab, TranslationKey> = {
+  chat: "tabChat",
+  reports: "tabReports",
+  gantt: "tabGantt",
+  raid: "tabRaid",
+  resources: "tabResources",
+  activity: "tabActivity",
+};
 
 type SortKey =
   | "id"
@@ -439,7 +456,14 @@ export default function TaskManager() {
 
   const [editingId, setEditingId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<TopTab>("chat");
+  // Popout mode: when the URL carries `?popout=<tab>`, the window suppresses
+  // the page header / banner / task table / footer and renders only the
+  // requested workspace panel. The popout window is opened by the per-tab
+  // popout icon (see TabButton). State stays in sync with the opening window
+  // via BroadcastChannel — see the useBroadcastSync calls further down.
+  const [popoutTab] = useState<PopoutTab | null>(() => readPopoutTabFromUrl());
+  const isPopout = popoutTab !== null;
+  const [activeTab, setActiveTab] = useState<TopTab>(popoutTab ?? "chat");
   // The new-task / edit-task form is no longer a workspace tab — it lives
   // in a modal that is opened by the header "+" button or by editing a row.
   const [taskModalOpen, setTaskModalOpen] = useState(false);
@@ -544,6 +568,14 @@ export default function TaskManager() {
 
   const today = todayISO();
   const lang = settings.language;
+
+  // Set the browser tab title in popout mode. The main-window title is
+  // managed by `next/metadata` via layout.tsx; this only fires when
+  // `?popout=<tab>` is present, so it never overwrites the main title.
+  useEffect(() => {
+    if (!isPopout || !popoutTab) return;
+    document.title = `${t(lang, TAB_LABEL_KEYS[popoutTab])} — ${t(lang, "appTitle")}`;
+  }, [isPopout, popoutTab, lang]);
 
   // `holidaysForCountries` is now async because `date-holidays` (and its
   // transitive moment + moment-timezone, ~100 KB+ gzipped) is dynamically
@@ -1119,6 +1151,16 @@ export default function TaskManager() {
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tasks, raid, absences, shifts, hydrated, backend]);
+
+  // Cross-window state sync. The five workspace slices are mirrored over
+  // a BroadcastChannel so the main window and any `?popout=<tab>` window
+  // stay in sync. Local-only UI state (activeTab, modals, drafts) is
+  // intentionally not synced. See broadcast-sync.ts for the echo guard.
+  useBroadcastSync("tasks", tasks, setTasks);
+  useBroadcastSync("raid", raid, setRaid);
+  useBroadcastSync("absences", absences, setAbsences);
+  useBroadcastSync("shifts", shifts, setShifts);
+  useBroadcastSync("activityLog", activityLog, setActivityLog);
 
   async function onPickStorageFile() {
     const promise = pickFileForBackend(backend);
@@ -2574,7 +2616,14 @@ export default function TaskManager() {
   if (!i18nReady) return null;
 
   return (
-    <div className="mx-auto w-full max-w-6xl p-6 sm:p-10">
+    <div
+      className={
+        isPopout
+          ? "flex flex-1 flex-col p-4"
+          : "mx-auto w-full max-w-6xl p-6 sm:p-10"
+      }
+    >
+      {!isPopout && (
       <header className="mb-8 flex items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-semibold tracking-tight text-AIPM-dark-blue dark:text-AIPM-light-grey">
@@ -2664,8 +2713,9 @@ export default function TaskManager() {
           </div>
         </div>
       </header>
+      )}
 
-      {!bannerDismissed && (
+      {!isPopout && !bannerDismissed && (
         <DueBanner
           items={bannerItems}
           lang={lang}
@@ -2694,14 +2744,19 @@ export default function TaskManager() {
       <section
         ref={workspaceRef}
         title={
-          workspaceCollapsed ? undefined : t(lang, "workspaceResizeHint")
+          isPopout || workspaceCollapsed
+            ? undefined
+            : t(lang, "workspaceResizeHint")
         }
         className={
-          workspaceCollapsed
+          isPopout
+            ? "flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950"
+            : workspaceCollapsed
             ? "mb-10 flex w-full flex-col rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950"
             : "mb-10 flex h-[560px] min-h-[420px] w-full min-w-[520px] resize flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950"
         }
       >
+        {!isPopout && (
         <div
           role="tablist"
           aria-label="Workspace tabs"
@@ -2718,6 +2773,8 @@ export default function TaskManager() {
               if (workspaceCollapsed) setWorkspaceCollapsed(false);
             }}
             controls="panel-chat"
+            onPopout={() => openPopoutWindow("chat")}
+            popoutLabel={t(lang, "popoutOpenInNewWindow")}
           >
             {t(lang, "tabChat")}
           </TabButton>
@@ -2728,6 +2785,8 @@ export default function TaskManager() {
               if (workspaceCollapsed) setWorkspaceCollapsed(false);
             }}
             controls="panel-reports"
+            onPopout={() => openPopoutWindow("reports")}
+            popoutLabel={t(lang, "popoutOpenInNewWindow")}
           >
             {t(lang, "tabReports")}
           </TabButton>
@@ -2738,6 +2797,8 @@ export default function TaskManager() {
               if (workspaceCollapsed) setWorkspaceCollapsed(false);
             }}
             controls="panel-gantt"
+            onPopout={() => openPopoutWindow("gantt")}
+            popoutLabel={t(lang, "popoutOpenInNewWindow")}
           >
             {t(lang, "tabGantt")}
           </TabButton>
@@ -2749,6 +2810,8 @@ export default function TaskManager() {
               if (workspaceCollapsed) setWorkspaceCollapsed(false);
             }}
             controls="panel-raid"
+            onPopout={() => openPopoutWindow("raid")}
+            popoutLabel={t(lang, "popoutOpenInNewWindow")}
           >
             {t(lang, "tabRaid")}
           </TabButton>
@@ -2759,6 +2822,8 @@ export default function TaskManager() {
               if (workspaceCollapsed) setWorkspaceCollapsed(false);
             }}
             controls="panel-resources"
+            onPopout={() => openPopoutWindow("resources")}
+            popoutLabel={t(lang, "popoutOpenInNewWindow")}
           >
             {t(lang, "tabResources")}
           </TabButton>
@@ -2769,6 +2834,8 @@ export default function TaskManager() {
               if (workspaceCollapsed) setWorkspaceCollapsed(false);
             }}
             controls="panel-activity"
+            onPopout={() => openPopoutWindow("activity")}
+            popoutLabel={t(lang, "popoutOpenInNewWindow")}
           >
             {t(lang, "tabActivity")}
           </TabButton>
@@ -2814,10 +2881,11 @@ export default function TaskManager() {
             </svg>
           </button>
         </div>
+        )}
 
         <div
           id="workspace-panels"
-          hidden={workspaceCollapsed}
+          hidden={!isPopout && workspaceCollapsed}
           className="flex min-h-0 flex-1 flex-col"
         >
           <div
@@ -3343,8 +3411,10 @@ export default function TaskManager() {
         Tasks list section — wrapped in the same rounded-xl card surface as
         the workspace section so the two main areas of the page share visual
         weight. The internal layout (toolbar row, filter row, resizable
-        table, bulk-edit panel) is unchanged.
+        table, bulk-edit panel) is unchanged. Hidden in popout mode so the
+        popout window only shows the requested workspace panel.
       */}
+      {!isPopout && (
       <section
         ref={tableRef}
         title={t(lang, "tableResizeHint")}
@@ -4158,6 +4228,7 @@ export default function TaskManager() {
           </div>
         )}
       </section>
+      )}
 
       {dueModalOpen && (
         <DueDatesModal
@@ -4236,6 +4307,7 @@ export default function TaskManager() {
         />
       )}
 
+      {!isPopout && (
       <footer className="mt-12 flex items-center justify-between gap-4 border-t border-AIPM-light-grey pt-6 text-xs text-AIPM-medium-grey dark:border-zinc-800">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/AIPM-logo.svg" alt="Acme" className="h-6 w-auto" />
@@ -4243,6 +4315,7 @@ export default function TaskManager() {
           Identity Excellence Delivered. Globally.
         </span>
       </footer>
+      )}
 
       {toast && (
         <div
@@ -4266,27 +4339,63 @@ function TabButton({
   onClick,
   controls,
   children,
+  onPopout,
+  popoutLabel,
 }: {
   active: boolean;
   onClick: () => void;
   controls: string;
   children: React.ReactNode;
+  onPopout?: () => void;
+  popoutLabel?: string;
 }) {
+  // Active/hover colors are applied to the wrapping flex row so the active
+  // border-b-2 indicator spans both the label and the popout icon.
+  const colorClass = active
+    ? "border-AIPM-green text-AIPM-dark-blue dark:border-AIPM-green dark:text-AIPM-light-grey"
+    : "border-transparent text-AIPM-medium-grey hover:text-AIPM-dark-blue dark:text-zinc-400 dark:hover:text-zinc-200";
   return (
-    <button
-      type="button"
-      role="tab"
-      aria-selected={active}
-      aria-controls={controls}
-      onClick={onClick}
-      className={`-mb-px rounded-t-md border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
-        active
-          ? "border-AIPM-green text-AIPM-dark-blue dark:border-AIPM-green dark:text-AIPM-light-grey"
-          : "border-transparent text-AIPM-medium-grey hover:text-AIPM-dark-blue dark:text-zinc-400 dark:hover:text-zinc-200"
-      }`}
+    <div
+      className={`-mb-px inline-flex items-stretch rounded-t-md border-b-2 transition-colors ${colorClass}`}
     >
-      {children}
-    </button>
+      <button
+        type="button"
+        role="tab"
+        aria-selected={active}
+        aria-controls={controls}
+        onClick={onClick}
+        className={`py-2 pl-4 text-sm font-medium ${onPopout ? "pr-1" : "pr-4"}`}
+      >
+        {children}
+      </button>
+      {onPopout && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onPopout();
+          }}
+          aria-label={popoutLabel}
+          title={popoutLabel}
+          className="rounded-tr-md px-1.5 py-2 opacity-50 hover:opacity-100 focus-visible:opacity-100"
+        >
+          <svg
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={1.5}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+            className="h-3.5 w-3.5"
+          >
+            <path d="M9.5 2.5h4v4" />
+            <path d="m13.5 2.5-5.5 5.5" />
+            <path d="M11 9v2.5A1.5 1.5 0 0 1 9.5 13H4A1.5 1.5 0 0 1 2.5 11.5V6A1.5 1.5 0 0 1 4 4.5h2.5" />
+          </svg>
+        </button>
+      )}
+    </div>
   );
 }
 

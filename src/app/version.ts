@@ -1,3 +1,7 @@
+// 0.7.1 adds developer test scaffolding: Vitest + React Testing Library
+// for unit/component tests (`src/**/*.test.ts(x)`) and Playwright for E2E
+// (`e2e/**/*.spec.ts`). Coverage threshold set at 80%. Dev-only change —
+// no user-visible behavior difference vs 0.7.0.
 // 0.7.0 brings Resource Planner (per-assignee absences + weekly shift
 // patterns + 30-day calendar view) and an Activity Log of task / RAID /
 // resource changes. Also: persisted contacts address book, per-request
@@ -12,7 +16,7 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.7.0";
+export const APP_VERSION = "0.7.1";
 export const APP_BUILD_DATE = "2026-05-17";
 export const APP_REPO_URL = "https://www.example.com";
 

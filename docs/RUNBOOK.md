@@ -32,6 +32,29 @@ npm run build
 `next build` runs the TypeScript check and emits `.next/`. The build artifact
 is portable — any Node 20+ host with `npm start` will serve it.
 
+### Pre-deploy testing (recommended)
+
+Since v0.7.1 the repo carries a test suite. Recommended pre-ship sequence:
+
+```bash
+npm run lint
+npm run test:run          # Vitest unit/component, single run
+npm run e2e:install       # one-time per host; downloads Chromium
+npm run e2e               # Playwright headless against a fresh dev server
+```
+
+Notes:
+
+- `npm run test:coverage` enforces an 80% v8 threshold and will exit non-zero
+  while coverage is still ramping. Either keep adding tests or temporarily
+  lower the threshold in `vitest.config.ts` during bootstrap — don't block
+  ships on it yet.
+- `npm run e2e` boots `npm run dev` on port 3000. If you already have a dev
+  server running there, Playwright reuses it (outside CI). In CI it always
+  spawns its own.
+- Tests run independently of `next build`. None of them feed into the
+  bundler; failures don't pollute `.next/`.
+
 ### Hosting options
 
 Any of these works:

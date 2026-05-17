@@ -1,130 +1,118 @@
-Codemap Generation Report — 2026-05-17
+Codemap Generation Report — 2026-05-17 (run 2)
 ==========================================================================
 
-Mode:                Update (prior run: 2026-05-15)
-Diff vs previous:    > 30% (significant). User approved full overwrite of
-                     all five codemap files via /ecc:update-codemaps.
+Mode:                Incremental update (prior run: 2026-05-17 run 1)
+Diff vs previous:    < 30% (small). Updated dependencies.md +
+                     architecture.md in place. frontend.md, backend.md,
+                     data.md unchanged (no meaningful delta).
 
 Files updated:
-  docs/CODEMAPS/architecture.md       ~700  tokens   (was ~600)
-  docs/CODEMAPS/backend.md            ~500  tokens   (was ~400)
-  docs/CODEMAPS/frontend.md           ~1000 tokens   (was ~900)
-  docs/CODEMAPS/data.md               ~900  tokens   (was ~700)
-  docs/CODEMAPS/dependencies.md       ~500  tokens   (unchanged size)
-  TOTAL ESTIMATED TOKENS:             ~3,600  (avg 720/file — under 1000 cap)
+  docs/CODEMAPS/dependencies.md       ~700  tokens   (was ~500)
+  docs/CODEMAPS/architecture.md       ~720  tokens   (was ~700, +1 bullet)
+  docs/CODEMAPS/frontend.md           ~1000 tokens   (unchanged)
+  docs/CODEMAPS/backend.md            ~500  tokens   (unchanged)
+  docs/CODEMAPS/data.md               ~900  tokens   (unchanged)
+  TOTAL ESTIMATED TOKENS:             ~3,820  (avg 764/file — under 1000 cap)
 
 Source coverage:
-  Application code:   src/app/*.ts(x)         ~48 files
-  Middleware:         src/proxy.ts            1 file (new since last scan)
-  API routes:         src/app/api/jira/       10 files (8 routes + 2 helpers)
-  Config:             package.json, next.config.ts, tsconfig.json
-  Types:              src/app/types.ts
+  Application code:   src/app/*.ts(x)           ~52 files (+4 since run 1)
+                          src/app/sanitize.test.ts            (new)
+                          src/app/due-dates.test.ts           (new)
+                          src/app/segmented-control.test.tsx  (new)
+  E2E tests:          e2e/                      1 file (new top-level dir)
+                          e2e/smoke.spec.ts                   (new)
+  Test config:        vitest.config.ts, vitest.setup.ts,
+                      playwright.config.ts                   (3 new at root)
+  Middleware:         src/proxy.ts             unchanged
+  API routes:         src/app/api/jira/        unchanged (10 files)
+  Config:             package.json (+10 entries: 6 scripts + 8 devDeps),
+                      next.config.ts, tsconfig.json unchanged
 
 ==========================================================================
-Architecture changes captured in this run
+Changes captured in this run
 ==========================================================================
 
-Resource Planner feature (new — Phases 1–4)
-  + src/app/resources-panel.tsx         (list + calendar view shell)
-  + src/app/resource-calendar.tsx       (30-day assignee × day grid)
-  + src/app/segmented-control.tsx       (2-segment toggle, used by panel)
-  + src/app/absence-edit-modal.tsx      (Absence editor; dynamic-imported)
-  + src/app/shift-edit-modal.tsx        (Shift editor; dynamic-imported)
-  + Absence, Shift, WeekHours types in src/app/types.ts
-  + DEFAULT_WEEK_HOURS = [0,8,8,8,8,8,0], MAX_HOURS_PER_DAY = 24
-  + sanitizeAbsence, sanitizeShift in src/app/sanitize.ts
-  + IndexedDB v3 → "absences" store; v4 → "shifts" store
-  + tab "resources" added between "raid" and "activity"
+Developer test scaffolding (new — v0.7.1)
+  + vitest.config.ts                    (jsdom env, `@` path alias,
+                                         @vitejs/plugin-react JSX transform,
+                                         v8 coverage with 80% thresholds on
+                                         lines/functions/branches/statements,
+                                         excludes test files + *.d.ts)
+  + vitest.setup.ts                     (imports @testing-library/jest-dom
+                                         matchers; runs RTL cleanup after each
+                                         test)
+  + src/app/sanitize.test.ts            (14 cases: sanitizeTaskName,
+                                         sanitizeIsoDate, sanitizeLabels,
+                                         sanitizePriority, dependency CSV
+                                         round-trip)
+  + src/app/due-dates.test.ts           (6 cases: workdaysUntil with
+                                         weekends+holidays, getAlertableTasks
+                                         categorization+sort)
+  + src/app/segmented-control.test.tsx  (3 cases: selected state, click→
+                                         onChange, disabled no-op)
+  + playwright.config.ts                (testDir: ./e2e, Chromium-only project,
+                                         webServer runs `npm run dev` on :3000,
+                                         reuseExistingServer outside CI,
+                                         trace/screenshot/video retained on
+                                         failure)
+  + e2e/smoke.spec.ts                   (root page loads, title matches
+                                         /List of Open Points Tracker/,
+                                         <main> visible)
 
-Activity Log feature (new)
-  + src/app/activity-log.ts             (21 ActivityKind values, capped 500)
-  + src/app/activity-log-panel.tsx      (sortable/filter/text+wildcard+regex
-                                         search; memo()-wrapped)
-  + localStorage key: lop-app:activity-log
-  + tab "activity" added as the last tab
+Dependencies (devDeps only — no runtime additions)
+  + vitest                       ^3
+  + @vitest/coverage-v8          ^3
+  + @vitejs/plugin-react         ^4
+  + jsdom                        ^25
+  + @testing-library/react       ^16     (React 19 compatible)
+  + @testing-library/jest-dom    ^6
+  + @testing-library/user-event  ^14
+  + @playwright/test             ^1.49
 
-Contacts address book (new)
-  + src/app/contacts.ts                 (Contact, ContactsMap;
-                                         loadContacts/saveContacts;
-                                         CONTACTS_MAX = 500)
-  + localStorage key: lop-app:contacts
-  + Feeds ContactInput suggestions; independent of tasks list
+Scripts (package.json — 6 new)
+  + test            → vitest                (watch)
+  + test:run        → vitest run            (single, CI)
+  + test:coverage   → vitest run --coverage (fails below 80%)
+  + e2e             → playwright test
+  + e2e:ui          → playwright test --ui
+  + e2e:install     → playwright install --with-deps chromium
 
-Per-request CSP nonce middleware (new)
-  + src/proxy.ts                        (Next.js 16 middleware)
-  + nonce-base64(uuid) attached to script-src + style-src-elem
-  + strict-dynamic on scripts; style-src-attr 'unsafe-inline' kept for
-    React inline style={{...}} (Gantt/table dynamic px math)
-  + connect-src whitelists api.anthropic.com
-  + dev-only: 'unsafe-eval' for scripts, 'unsafe-inline' for style-src-elem
-  + matcher skips /api/*, /_next/static, /_next/image, favicon, prefetch
-  ~ src/app/page.tsx: now awaits connection() to force dynamic rendering
-    so the CSP nonce attached at SSR matches the runtime header
-  ~ next.config.ts: now only emits static security headers (X-Frame-Options,
-    X-Content-Type-Options, Referrer-Policy, Permissions-Policy). CSP moved
-    out to proxy.ts because per-request nonces aren't supported there.
+Version bump
+  ~ src/app/version.ts: APP_VERSION 0.7.0 → 0.7.1
+  ~ src/app/version.ts: leading comment block prepended with 0.7.1 entry
+  ~ APP_BUILD_DATE unchanged (already 2026-05-17)
+  ~ APP_HIGHLIGHT_KEYS unchanged (dev-only change, not a user-facing highlight)
+  ~ README.md: banner v0.7.0 → v0.7.1; scripts table extended
+  ~ CONTRIBUTING.md: scripts table extended; "Testing" section rewritten
+                     from "no test suite" to describe Vitest + Playwright
 
-Module extractions
-  + src/app/adf.ts                      (plain-text ↔ ADF, pulled out of
-                                         src/app/api/jira/_helpers.ts so the
-                                         client-side import/export paths can
-                                         share it without dragging server-only
-                                         code into the browser bundle)
-  + src/app/zip.ts                      (STORE-method ZIP writer pulled out
-                                         of export-ooxml.ts; standalone)
-  + src/app/version.ts                  (APP_VERSION = "0.6.0",
-                                         APP_BUILD_DATE = "2026-05-15",
-                                         APP_HIGHLIGHT_KEYS for the Version
-                                         popover; was inlined in version-menu)
-
-Panel mounting strategy
-  ~ All six workspace panels are now next/dynamic({ ssr: false }):
-        ChatPanel, GanttPanel, ReportsPanel, RaidPanel,
-        ResourcesPanel, ActivityLogPanel
-  ~ ChatPanel and RaidPanel are kept mounted-but-hidden (hidden={...})
-    so their internal state survives tab switches; the other four panels
-    use conditional render (only mounted while their tab is active).
-  ~ All three modals are dynamic-imported too: JiraConflictsModal,
-    AbsenceEditModal, ShiftEditModal.
-
-SharePoint backend stubs (forward-looking only)
-  + StorageKind "sp-json", "sp-csv" added to src/app/storage.ts
-  + SharePointBackend class — isReady() returns false; load()/save() throw
-    StorageNotImplementedError("sharepoint-coming-soon")
-  + storage-config.tsx flags both with comingSoon: true
-  No MSAL / Graph SDK added; UI plumbing is in place but the network calls
-  aren't.
-
-Sizes
-  ~ src/app/task-manager.tsx           4,504 lines (was ~3,900)
-  ~ src/app/storage.ts                 1,806 lines (was ~1,400)
-  ~ src/app/i18n.ts                      704 lines (key surface grew with
-                                         Resource Planner + Activity Log)
-  ~ src/app/i18n.de.ts                   677 lines
+gitignore additions
+  + /test-results
+  + /playwright-report
+  + /playwright/.cache
+  + /blob-report
+  (/coverage was already gitignored from a prior run.)
 
 ==========================================================================
 Other deltas
 ==========================================================================
 
-New dependencies detected:   none. package.json runtime + dev deps unchanged
-                             since 2026-05-15.
+New runtime services:        none. Tests run locally; no telemetry, no
+                             remote test orchestrator.
 
-New routes detected:         none. Still 8 POST routes under /api/jira/*.
+New runtime routes:          none. Still 8 POST routes under /api/jira/*.
 
-New external services:       none reachable. SharePoint listed but stubbed
-                             out; no MSAL or Graph SDK pulled in.
+In-app help / version popover changes:
+                             none. The in-app HelpMenu (help-menu.tsx) was
+                             deliberately NOT updated — test infra is
+                             developer-facing, not end-user-facing. Version
+                             popover highlights (APP_HIGHLIGHT_KEYS) also
+                             unchanged for the same reason.
 
-Staleness warnings:          none — all codemap files refreshed today.
-
-README.md / RUNBOOK.md sync: docs/RUNBOOK.md and src/app/page.tsx are
-                             currently modified in the working tree (per
-                             `git status`). Codemaps reflect the working-tree
-                             state, not the last commit. The CSP/middleware
-                             changes in RUNBOOK.md are consistent with
-                             src/proxy.ts.
+Staleness warnings:          none — all codemap files current as of today.
 
 ==========================================================================
-Open items recorded (not yet implemented)
+Open items (unchanged since run 1)
 ==========================================================================
 
   - ChatPanel memoization (gated on dispatcher useMemo deps audit)
@@ -133,3 +121,8 @@ Open items recorded (not yet implemented)
   - Canvas-based Gantt (only when 500+ tasks regularly)
   - SharePoint backends (sp-json, sp-csv) — UI + factory stub present;
     actual MSAL auth + Graph file IO not yet implemented
+  - Coverage will fail the 80% threshold until more tests land — either
+    keep adding tests or temporarily lower the threshold in
+    vitest.config.ts while ramping up
+  - Critical flows still missing E2E coverage: Jira sync, storage backend
+    switching, voice commands, OOXML export
