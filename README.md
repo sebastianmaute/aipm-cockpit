@@ -36,10 +36,12 @@ All data is stored locally by default — no backend account required.
 ## Screenshots
 
 [Main Screen](./public/Main.png)
+[New task](./public/Newtask.png)
 [Reports](./public/Reports.png)
 [Gantt](./public/Gantt.png)
 [RAID](./public/RAID.png)
 [Resources](./public/Resources.png)
+[Configuration](./public/Configuration.png)
 
 ## Storage Backends
 
