@@ -1,0 +1,97 @@
+# Changelog
+
+All notable changes to **List of Open Points Tracker** are recorded here.
+The format is loosely based on [Keep a Changelog](https://keepachangelog.com/);
+versioning follows [Semantic Versioning](https://semver.org/).
+
+Authoritative source for version + build date: [`src/app/version.ts`](src/app/version.ts).
+This file is seeded from that module's milestone comment plus the
+post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-diff.txt).
+
+## [Unreleased]
+
+_No unreleased changes._
+
+## [0.7.1] "Kennedy" — 2026-05-17
+
+Developer test scaffolding. Dev-only change — no user-visible behavior
+difference vs 0.7.0.
+
+### Added
+
+- **Vitest** unit/component test runner. Config: `vitest.config.ts` (jsdom env, `@` path alias, `@vitejs/plugin-react`); setup: `vitest.setup.ts` (registers `@testing-library/jest-dom` matchers, RTL cleanup). Tests live alongside their sources as `src/**/*.test.{ts,tsx}`. v8 coverage threshold at 80% for lines / functions / branches / statements.
+- **Sample unit tests**: `src/app/sanitize.test.ts` (14 cases), `src/app/due-dates.test.ts` (6 cases), `src/app/segmented-control.test.tsx` (3 cases).
+- **Playwright** E2E runner. Config: `playwright.config.ts` (Chromium-only by default; Firefox / WebKit commented in). Auto-starts `npm run dev` on port 3000; reuses an existing local dev server. Traces, screenshots, and video retained on failure. Tests live in `e2e/**/*.spec.ts`.
+- **Sample E2E test**: `e2e/smoke.spec.ts` — root page loads, title matches, `<main>` visible.
+- **Scripts**: `npm run test`, `test:run`, `test:coverage`, `e2e`, `e2e:ui`, `e2e:install`.
+- **`.gitignore`**: `/test-results`, `/playwright-report`, `/playwright/.cache`, `/blob-report`.
+- **8 new devDependencies**: `vitest`, `@vitest/coverage-v8`, `@vitejs/plugin-react`, `jsdom`, `@testing-library/react`, `@testing-library/jest-dom`, `@testing-library/user-event`, `@playwright/test`. No runtime deps added.
+
+### Changed
+
+- `README.md` and `CONTRIBUTING.md` scripts tables extended with the six new commands.
+- `CONTRIBUTING.md` "Testing" section rewritten from "there is currently no test suite" to describe the new Vitest + Playwright setup.
+- `src/app/version.ts` comment block prepended with a 0.7.1 entry; `APP_BUILD_DATE` unchanged (already today).
+
+### Not changed (intentional)
+
+- In-app `HelpMenu` and `APP_HIGHLIGHT_KEYS`. Test infrastructure is developer-facing; end-user help and version popover stay focused on user features.
+
+## [0.7.0] "Heinlein" — 2026-05-17
+
+Resource Planner + Activity Log release. Adds per-assignee absences and
+shift patterns, a chronological CRUD audit log, a persisted contacts
+address book, and a per-request CSP nonce middleware. Also lands
+SharePoint storage backend stubs (UI present, MSAL not yet wired).
+
+### Added
+
+- **Resource planner** (Phases 1–4): per-assignee absences (vacation / sick / training / other), weekly shift patterns, and a 30-day calendar view. New `Absence` and `Shift` types in `src/app/types.ts`; new IndexedDB stores `absences` (v3) and `shifts` (v4).
+- **Activity log**: chronological CRUD record for tasks, RAID, absences, and shifts. 21 `ActivityKind` values; capped at 500 entries; persisted to `localStorage` key `lop-app:activity-log` and explicitly excluded from any file export.
+- **Contacts address book**: persisted to `localStorage` key `lop-app:contacts`; capped at 500 entries; survives task deletion and Jira sync churn.
+- **Per-request Content-Security-Policy nonce** via Next.js 16 middleware (`src/proxy.ts`). `script-src` and `style-src-elem` are nonce-strict in production; `style-src-attr 'unsafe-inline'` is retained for React inline `style={{...}}` props. `connect-src` whitelists `https://api.anthropic.com`.
+- **SharePoint storage backend stubs** (`sp-json`, `sp-csv`). Surfaced as "Coming soon" in Settings; factory returns a stub that throws `StorageNotImplementedError("sharepoint-coming-soon")`. No MSAL/Graph SDK pulled in yet.
+
+### Changed
+
+- ADF (Atlassian Document Format) ↔ plain-text conversion extracted from the Jira proxy helpers into `src/app/adf.ts` so the client-side import/export paths can share it without dragging server-only code into the browser bundle.
+- Hand-rolled STORE-method ZIP writer extracted from `export-ooxml.ts` into `src/app/zip.ts`.
+- Version metadata (`APP_VERSION`, `APP_BUILD_DATE`, `APP_HIGHLIGHT_KEYS`) extracted from `version-menu.tsx` into a dedicated `src/app/version.ts`.
+- `src/app/page.tsx` now `await connection()` so the CSP nonce attached at SSR matches the runtime middleware header.
+- `next.config.ts` now only emits the static security headers (`X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`); the CSP moved out to `src/proxy.ts` because per-request nonces aren't supported in static `headers()`.
+- All six workspace panels (Chat, Reports, Gantt, RAID, Resources, Activity) now load via `next/dynamic({ ssr: false })`; modals (`JiraConflictsModal`, `AbsenceEditModal`, `ShiftEditModal`) also dynamic-imported.
+
+## [0.6.0] "Asimov" — 2026-05-15
+
+May 2026 performance refactor. (Quoted from `src/app/version.ts`:
+"0.6.0 captures the May 2026 performance refactor".)
+
+### Changed
+
+- **Lazy-loaded heavy modules**: OOXML export, German i18n dictionary, `date-holidays` (+ moment / moment-tz).
+- **IndexedDB record-level storage** for tasks and RAID — saves diff per record against an in-memory baseline using reference equality; only changed records are written. One-time migration from legacy `localStorage` keys (`lop-app:tasks`, `lop-app:raid`).
+- **Debounced search** (150 ms) with a precomputed lowercase task index; **column-width writes debounced 250 ms**.
+- **Memoized RAID panel** (`React.memo` + stable `useCallback` handlers).
+- **Conditional mount of Gantt and Reports tabs** instead of always-mounted.
+
+## [0.5.0] "Clarke"
+
+Prior feature-accretion milestone. (Quoted from `src/app/version.ts`:
+"0.5.0 was the prior feature-accretion milestone".)
+
+### Added
+
+- Claude chat panel with tool calls for task CRUD.
+- Voice commands via Web Speech API (English + German).
+- Due-date notifications: banner, toast, and popup alerts.
+- Reports tab.
+- Labels and groups on tasks; bulk edit.
+- Bidirectional Jira sync (pull + push) with conflict resolution.
+- ADF (Atlassian Document Format) ↔ notes round-tripping.
+- Resizable + collapsible workspace, resizable tasks table, header "+" task modal.
+
+[Unreleased]: # (no tag yet)
+[0.7.1]: # (no tag yet)
+[0.7.0]: # (no tag yet)
+[0.6.0]: # (no tag yet)
+[0.5.0]: # (no tag yet)
