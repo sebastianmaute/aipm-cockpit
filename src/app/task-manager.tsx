@@ -541,7 +541,7 @@ function TaskManagerInner() {
     setRaidFilterTaskId(id);
     setActiveTab("raid");
     setWorkspaceCollapsed((prev) => (prev ? false : prev));
-  }, [setRaidFilterTaskId]);
+  }, [setRaidFilterTaskId, setActiveTab, setWorkspaceCollapsed]);
 
   const onToggleComplete = useCallback((task: Task) => {
     if (task.completedDate && task.jiraKey) {
