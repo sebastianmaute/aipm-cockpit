@@ -151,6 +151,7 @@ import {
   type SortKey,
   useFilters,
 } from "./filters-context";
+import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { useResizable } from "./use-resizable";
 // voice-button is lazy-loaded — it transitively pulls the Web Speech API
 // shims in voice.ts which we only need when the user clicks the mic.
@@ -405,7 +406,6 @@ function safeJiraIssueHref(siteUrl: string, key: string): string | null {
 // TaskManagerInner consumes the FiltersProvider context. The default
 // export below wraps this in <FiltersProvider> so useFilters() works.
 function TaskManagerInner() {
-  const [tasks, setTasks] = useState<Task[]>([]);
   const [raid, setRaid] = useState<RaidItem[]>([]);
   const [absences, setAbsences] = useState<Absence[]>([]);
   const [shifts, setShifts] = useState<Shift[]>([]);
@@ -497,6 +497,22 @@ function TaskManagerInner() {
     setSortDir,
     setRaidFilterTaskId,
   } = useFilters();
+
+  // Tasks data + derivations owned by WorkspaceProvider (Slice 2 of the
+  // task-manager decomposition; see
+  // docs/superpowers/specs/2026-05-18-workspace-context-slice2-design.md).
+  // The default export wraps this component in <WorkspaceProvider> inside
+  // <FiltersProvider>.
+  const {
+    tasks,
+    setTasks,
+    uniqueAssignees,
+    uniqueGroups,
+    uniqueLabels,
+    tasksById,
+    taskSearchIndex,
+    filteredSortedTasks,
+  } = useWorkspace();
 
   const [toast, setToast] = useState<
     { kind: "info" | "error"; text: string; id: number } | null
@@ -1227,42 +1243,6 @@ function TaskManagerInner() {
   const nextId =
     tasks.length > 0 ? Math.max(...tasks.map((t) => t.id)) + 1 : 1;
 
-  const uniqueAssignees = useMemo(
-    () =>
-      Array.from(new Set(tasks.map((t) => t.assignee))).sort((a, b) =>
-        a.localeCompare(b),
-      ),
-    [tasks],
-  );
-
-  const uniqueGroups = useMemo(
-    () =>
-      Array.from(
-        new Set(tasks.map((t) => (t.group ?? "").trim()).filter(Boolean)),
-      ).sort((a, b) => a.localeCompare(b)),
-    [tasks],
-  );
-
-  const uniqueLabels = useMemo(() => {
-    const set = new Set<string>();
-    for (const t of tasks) {
-      for (const l of t.labels ?? []) {
-        const clean = l.trim();
-        if (clean) set.add(clean);
-      }
-    }
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }, [tasks]);
-
-  // O(1) id → Task lookup. Used by the row renderer to resolve predecessor
-  // names when drawing dependency chips and by anything else needing a quick
-  // task lookup without scanning the whole array.
-  const tasksById = useMemo(() => {
-    const m = new Map<number, Task>();
-    for (const t of tasks) m.set(t.id, t);
-    return m;
-  }, [tasks]);
-
   // Stable, sorted contacts array for the ContactInput suggestion list.
   const contactsList = useMemo(() => listContacts(contacts), [contacts]);
 
@@ -1271,83 +1251,6 @@ function TaskManagerInner() {
   // then O(1) per row. Empty when `raid` is empty — the per-row check
   // bails out fast.
   const raidByTask = useMemo(() => buildRaidByTaskIndex(raid), [raid]);
-
-  // Pre-built lowercase haystack per task, keyed by id. Rebuilds only when
-  // `tasks` changes — not on every keystroke or filter toggle, which is what
-  // the old per-task string-join inside `filteredSortedTasks` was doing.
-  const taskSearchIndex = useMemo(() => {
-    const map = new Map<number, string>();
-    for (const t of tasks) {
-      map.set(
-        t.id,
-        [
-          `#${t.id}`,
-          t.taskName,
-          t.assignee,
-          t.blockers,
-          t.notes,
-          t.group ?? "",
-          (t.labels ?? []).join(" "),
-        ]
-          .join(" ")
-          .toLowerCase(),
-      );
-    }
-    return map;
-  }, [tasks]);
-
-  const filteredSortedTasks = useMemo(() => {
-    const q = searchDebounced.trim().toLowerCase();
-    const filtered = tasks.filter((t) => {
-      if (priorityFilter !== "All" && t.priority !== priorityFilter)
-        return false;
-      if (assigneeFilter !== "All" && t.assignee !== assigneeFilter)
-        return false;
-      if (groupFilter !== "All" && (t.group ?? "") !== groupFilter)
-        return false;
-      if (
-        labelFilter !== "All" &&
-        !(t.labels ?? []).some(
-          (l) => l.toLowerCase() === labelFilter.toLowerCase(),
-        )
-      )
-        return false;
-      if (q) {
-        const haystack = taskSearchIndex.get(t.id) ?? "";
-        if (!haystack.includes(q)) return false;
-      }
-      return true;
-    });
-
-    const dir = sortDir === "asc" ? 1 : -1;
-    return filtered.slice().sort((a, b) => {
-      let cmp = 0;
-      if (sortKey === "id") cmp = a.id - b.id;
-      else if (sortKey === "priority")
-        cmp = PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority];
-      else if (sortKey === "startDate") {
-        // startDate is optional. Missing values sort to the bottom
-        // regardless of direction so empty cells don't collect at one end.
-        const av = a.startDate ?? "";
-        const bv = b.startDate ?? "";
-        if (av && !bv) cmp = -1;
-        else if (!av && bv) cmp = 1;
-        else if (!av && !bv) cmp = 0;
-        else cmp = av.localeCompare(bv);
-      } else cmp = a[sortKey].localeCompare(b[sortKey]);
-      return cmp * dir;
-    });
-  }, [
-    tasks,
-    taskSearchIndex,
-    searchDebounced,
-    priorityFilter,
-    assigneeFilter,
-    groupFilter,
-    labelFilter,
-    sortKey,
-    sortDir,
-  ]);
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
@@ -4330,7 +4233,9 @@ function TaskManagerInner() {
 export default function TaskManager() {
   return (
     <FiltersProvider>
-      <TaskManagerInner />
+      <WorkspaceProvider>
+        <TaskManagerInner />
+      </WorkspaceProvider>
     </FiltersProvider>
   );
 }
