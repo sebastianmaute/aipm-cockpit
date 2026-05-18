@@ -1,6 +1,177 @@
-import { describe, test, expect } from "vitest";
-import { renderHook } from "@testing-library/react";
-import { useTaskRowContext } from "./task-row";
+import { describe, test, expect, vi } from "vitest";
+import { render, renderHook, act } from "@testing-library/react";
+import React, { Profiler, type ReactNode, type ProfilerOnRenderCallback } from "react";
+import {
+  TaskRow,
+  RowContextProvider,
+  useTaskRowContext,
+  type RowContextValue,
+} from "./task-row";
+import { type Task } from "./types";
+
+function makeTask(overrides: Partial<Task> = {}): Task {
+  return {
+    id: 1,
+    taskName: "Sample task",
+    assignee: "Alice",
+    assigneeEmail: "",
+    dueDate: "2026-12-01",
+    lastUpdateDate: "2026-05-18",
+    priority: "Medium",
+    blockers: "",
+    notes: "",
+    group: "",
+    labels: [],
+    dependencies: [],
+    ...overrides,
+  };
+}
+
+function makeContext(overrides: Partial<RowContextValue> = {}): RowContextValue {
+  return {
+    lang: "en-US",
+    today: "2026-05-18",
+    holidaySet: new Set(),
+    jiraSiteUrl: "",
+    jiraEnabled: false,
+    jiraProjectKey: "",
+    hiddenCols: new Set(),
+    tasksById: new Map(),
+    onToggleSelect: vi.fn(),
+    onToggleNoteExpanded: vi.fn(),
+    onJumpToRaid: vi.fn(),
+    onToggleComplete: vi.fn(),
+    onSendInquiry: vi.fn(),
+    onPushToJira: vi.fn(),
+    onEdit: vi.fn(),
+    onDelete: vi.fn(),
+    ...overrides,
+  };
+}
+
+function rowWrapper({
+  context,
+  children,
+}: {
+  context: RowContextValue;
+  children: ReactNode;
+}) {
+  // <tbody> wrapper required because TaskRow returns a <tr>.
+  return (
+    <table>
+      <tbody>
+        <RowContextProvider value={context}>{children}</RowContextProvider>
+      </tbody>
+    </table>
+  );
+}
+
+describe("TaskRow", () => {
+  test("renders task data: name, assignee, due date, priority label", () => {
+    const ctx = makeContext();
+    const task = makeTask({
+      id: 7,
+      taskName: "Showcase this app",
+      assignee: "Paul",
+      dueDate: "2026-09-01",
+      priority: "High",
+    });
+    const { getByText } = render(
+      rowWrapper({
+        context: ctx,
+        children: (
+          <TaskRow
+            task={task}
+            isSelected={false}
+            isEditing={false}
+            isExpanded={false}
+            isPushing={false}
+            raidRefs={undefined}
+          />
+        ),
+      }),
+    );
+    expect(getByText("Showcase this app")).toBeTruthy();
+    expect(getByText("Paul")).toBeTruthy();
+    expect(getByText("2026-09-01")).toBeTruthy();
+    // "High" is the English label for priority High.
+    expect(getByText("High")).toBeTruthy();
+  });
+
+  test("does not re-render on unrelated parent state change (memo holds)", () => {
+    const ctx = makeContext();
+    const task = makeTask({ id: 42 });
+    let setCounter: (n: number) => void = () => {};
+    const renderSpy = vi.fn<ProfilerOnRenderCallback>();
+
+    function Harness() {
+      const [, setN] = React.useState(0);
+      setCounter = setN;
+      // useMemo keeps the Profiler+TaskRow element stable across re-renders
+      // so the only thing that can trigger Profiler is TaskRow itself rendering.
+      const stableRow = React.useMemo(
+        () => (
+          <Profiler id="row" onRender={renderSpy}>
+            <TaskRow
+              task={task}
+              isSelected={false}
+              isEditing={false}
+              isExpanded={false}
+              isPushing={false}
+              raidRefs={undefined}
+            />
+          </Profiler>
+        ),
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [],
+      );
+      return rowWrapper({ context: ctx, children: stableRow });
+    }
+
+    render(<Harness />);
+    const initialRenders = renderSpy.mock.calls.length;
+    expect(initialRenders).toBeGreaterThanOrEqual(1);
+
+    act(() => setCounter(1));
+    act(() => setCounter(2));
+
+    expect(renderSpy.mock.calls.length).toBe(initialRenders);
+  });
+
+  test("re-renders when its own props change (isSelected flip)", () => {
+    const ctx = makeContext();
+    const task = makeTask({ id: 100 });
+    let setSel: (b: boolean) => void = () => {};
+    const renderSpy = vi.fn<ProfilerOnRenderCallback>();
+
+    function Harness() {
+      const [sel, setSelLocal] = React.useState(false);
+      setSel = setSelLocal;
+      return rowWrapper({
+        context: ctx,
+        children: (
+          <Profiler id="row" onRender={renderSpy}>
+            <TaskRow
+              task={task}
+              isSelected={sel}
+              isEditing={false}
+              isExpanded={false}
+              isPushing={false}
+              raidRefs={undefined}
+            />
+          </Profiler>
+        ),
+      });
+    }
+
+    render(<Harness />);
+    const before = renderSpy.mock.calls.length;
+
+    act(() => setSel(true));
+
+    expect(renderSpy.mock.calls.length).toBeGreaterThan(before);
+  });
+});
 
 describe("useTaskRowContext", () => {
   test("throws a documented error when used outside RowContext.Provider", () => {
