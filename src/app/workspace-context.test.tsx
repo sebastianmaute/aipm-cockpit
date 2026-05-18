@@ -80,4 +80,33 @@ describe("WorkspaceProvider", () => {
     expect(result.current.ws.filteredSortedTasks).toHaveLength(1);
     expect(result.current.ws.filteredSortedTasks[0].id).toBe(3);
   });
+
+  test("sort key/dir reorders filteredSortedTasks", () => {
+    const { result } = renderHook(
+      () => ({ ws: useWorkspace(), filters: useFilters() }),
+      { wrapper },
+    );
+
+    act(() =>
+      result.current.ws.setTasks([
+        makeTask({ id: 10, taskName: "Bravo" }),
+        makeTask({ id: 20, taskName: "Alpha" }),
+      ]),
+    );
+
+    // Default sort: id asc → [#10, #20]
+    expect(result.current.ws.filteredSortedTasks.map((t) => t.id)).toEqual([10, 20]);
+
+    // Sort by taskName asc → Alpha before Bravo
+    act(() => result.current.filters.setSortKey("taskName"));
+    expect(
+      result.current.ws.filteredSortedTasks.map((t) => t.taskName),
+    ).toEqual(["Alpha", "Bravo"]);
+
+    // Toggle to desc → Bravo before Alpha
+    act(() => result.current.filters.setSortDir("desc"));
+    expect(
+      result.current.ws.filteredSortedTasks.map((t) => t.taskName),
+    ).toEqual(["Bravo", "Alpha"]);
+  });
 });
