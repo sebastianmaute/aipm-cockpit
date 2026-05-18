@@ -4,7 +4,7 @@ import { createContext, memo, useContext, type ReactNode } from "react";
 import { computeTaskHealth, formatHealthTooltip, healthDot, type TaskHealth } from "./health";
 import { priorityLabel, t, type Lang } from "./i18n";
 import { countByCategory } from "./raid";
-import { type Priority, type Task, type RaidItem } from "./types";
+import { type Priority, type Task, type TaskDependency, type RaidItem } from "./types";
 
 export interface RowContextValue {
   lang: Lang;
@@ -141,9 +141,7 @@ function TaskRowImpl({
     holidaySet,
     jiraSiteUrl,
     hiddenCols,
-    tasksById,
     onToggleSelect,
-    onJumpToRaid,
   } = useTaskRowContext();
 
   const isComplete = !!task.completedDate;
@@ -196,23 +194,9 @@ function TaskRowImpl({
             </a>
           );
         })()}
-        {raidRefs && raidRefs.length > 0 && (() => {
-          const counts = countByCategory(raidRefs);
-          return (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onJumpToRaid(task.id);
-              }}
-              title={t(lang, "raidReferencedBy", raidRefs.length)}
-              aria-label={t(lang, "raidReferencedBy", raidRefs.length)}
-              className="ml-1 inline-flex items-center rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800 hover:bg-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-amber-950/60"
-            >
-              {t(lang, "raidReferencedByMix", counts.R, counts.A, counts.I, counts.D)}
-            </button>
-          );
-        })()}
+        {raidRefs && raidRefs.length > 0 && (
+          <RaidBadge taskId={task.id} refs={raidRefs} />
+        )}
       </Td>}
       <Td
         className={`font-medium text-zinc-900 dark:text-zinc-100 ${isComplete ? "line-through" : ""}`}
@@ -263,28 +247,7 @@ function TaskRowImpl({
       )}
       {!hiddenCols.has("depRelations") && (
         <Td className="text-zinc-600 dark:text-zinc-400">
-          {(task.dependencies?.length ?? 0) === 0 ? (
-            <span>—</span>
-          ) : (
-            <ul className="flex flex-wrap gap-1">
-              {(task.dependencies ?? []).map((dep, i) => {
-                const pred = tasksById.get(dep.taskId);
-                const predName = pred?.taskName ?? t(lang, "depMissing");
-                return (
-                  <li key={`dep-${dep.taskId}-${dep.type}-${i}`}>
-                    <span
-                      title={`${t(lang, "depDependsOn")} #${dep.taskId} (${dep.type}) — ${predName}`}
-                      className="inline-flex items-center gap-0.5 rounded-full bg-AIPM-blue/15 px-1.5 py-0.5 text-[10px] font-medium text-AIPM-dark-blue dark:bg-AIPM-blue/25 dark:text-AIPM-light-grey"
-                    >
-                      <span className="font-mono">{dep.type}</span>
-                      <span className="opacity-70">·</span>
-                      <span className="font-mono">#{dep.taskId}</span>
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
+          <DependencyChips deps={task.dependencies ?? []} />
         </Td>
       )}
       <Td>
@@ -397,3 +360,60 @@ function TaskActionsImpl({ task, isPushing }: TaskActionsProps) {
 }
 
 export const TaskActions = memo(TaskActionsImpl);
+
+interface DependencyChipsProps {
+  deps: TaskDependency[];
+}
+
+function DependencyChipsImpl({ deps }: DependencyChipsProps) {
+  const { lang, tasksById } = useTaskRowContext();
+  if (deps.length === 0) return <span>—</span>;
+  return (
+    <ul className="flex flex-wrap gap-1">
+      {deps.map((dep, i) => {
+        const pred = tasksById.get(dep.taskId);
+        const predName = pred?.taskName ?? t(lang, "depMissing");
+        return (
+          <li key={`dep-${dep.taskId}-${dep.type}-${i}`}>
+            <span
+              title={`${t(lang, "depDependsOn")} #${dep.taskId} (${dep.type}) — ${predName}`}
+              className="inline-flex items-center gap-0.5 rounded-full bg-AIPM-blue/15 px-1.5 py-0.5 text-[10px] font-medium text-AIPM-dark-blue dark:bg-AIPM-blue/25 dark:text-AIPM-light-grey"
+            >
+              <span className="font-mono">{dep.type}</span>
+              <span className="opacity-70">·</span>
+              <span className="font-mono">#{dep.taskId}</span>
+            </span>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+export const DependencyChips = memo(DependencyChipsImpl);
+
+interface RaidBadgeProps {
+  taskId: number;
+  refs: RaidItem[];
+}
+
+function RaidBadgeImpl({ taskId, refs }: RaidBadgeProps) {
+  const { lang, onJumpToRaid } = useTaskRowContext();
+  const counts = countByCategory(refs);
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        onJumpToRaid(taskId);
+      }}
+      title={t(lang, "raidReferencedBy", refs.length)}
+      aria-label={t(lang, "raidReferencedBy", refs.length)}
+      className="ml-1 inline-flex items-center rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800 hover:bg-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-amber-950/60"
+    >
+      {t(lang, "raidReferencedByMix", counts.R, counts.A, counts.I, counts.D)}
+    </button>
+  );
+}
+
+export const RaidBadge = memo(RaidBadgeImpl);
