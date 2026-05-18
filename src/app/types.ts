@@ -1,5 +1,12 @@
 export type Priority = "Low" | "Medium" | "High" | "Urgent";
 
+export const PRIORITY_RANK: Record<Priority, number> = {
+  Low: 0,
+  Medium: 1,
+  High: 2,
+  Urgent: 3,
+};
+
 /**
  * Classic project-planning dependency types between two tasks.
  *

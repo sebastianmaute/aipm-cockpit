@@ -130,6 +130,7 @@ import {
 import {
   DEFAULT_WEEK_HOURS,
   PRIORITIES,
+  PRIORITY_RANK,
   type Absence,
   type Priority,
   type RaidItem,
@@ -289,13 +290,6 @@ function summarizeNote(
   const cut = lastWs > Math.floor(maxLen / 2) ? lastWs : maxLen;
   return { text: firstLine.slice(0, cut).trimEnd(), truncated: true };
 }
-
-const PRIORITY_RANK: Record<Priority, number> = {
-  Low: 0,
-  Medium: 1,
-  High: 2,
-  Urgent: 3,
-};
 
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
