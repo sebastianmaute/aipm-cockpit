@@ -153,6 +153,11 @@ import {
   useFilters,
 } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
+import {
+  RowContextProvider,
+  TaskRow,
+  type RowContextValue,
+} from "./task-row";
 import { useResizable } from "./use-resizable";
 // voice-button is lazy-loaded — it transitively pulls the Web Speech API
 // shims in voice.ts which we only need when the user clicks the mic.
@@ -254,44 +259,6 @@ const DEFAULT_COL_WIDTHS: Record<string, number> = {
   blockers: 140, notes: 140, depRelations: 120, actions: 60,
 };
 
-/** Soft cap on chars shown for a note in collapsed mode. We prefer to break
- *  earlier on a newline or word boundary, so the real cut point can be a few
- *  chars shy of this. */
-const NOTES_COLLAPSED_MAX = 50;
-
-/**
- * Produce a one-line summary of a note for the collapsed Notes cell.
- *
- * Rules (in order):
- *   1. Take only the first line — anything past the first `\n` is hidden.
- *   2. If that line fits within `maxLen`, show it as-is (still flagged as
- *      truncated when there were more lines hidden below).
- *   3. Otherwise, cut at the last whitespace ≤ maxLen so we never split mid-word.
- *      Fall back to a hard slice only when the first word itself is too long.
- */
-function summarizeNote(
-  notes: string,
-  maxLen: number,
-): { text: string; truncated: boolean } {
-  if (!notes) return { text: "", truncated: false };
-
-  const newlineIdx = notes.search(/\r?\n/);
-  const firstLine = newlineIdx >= 0 ? notes.slice(0, newlineIdx) : notes;
-  const hasMoreLines = firstLine.length < notes.length;
-
-  if (firstLine.length <= maxLen) {
-    return { text: firstLine, truncated: hasMoreLines };
-  }
-
-  // First line itself is longer than the cap — break on word boundary.
-  const window = firstLine.slice(0, maxLen + 1);
-  // Find the last whitespace before the cap. Require at least half of maxLen
-  // worth of content before it, so a single very-long token doesn't collapse
-  // the cell to nearly empty.
-  const lastWs = window.search(/\s\S*$/);
-  const cut = lastWs > Math.floor(maxLen / 2) ? lastWs : maxLen;
-  return { text: firstLine.slice(0, cut).trimEnd(), truncated: true };
-}
 
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
@@ -367,30 +334,8 @@ function greetingName(assignee: string): string {
   return trimmed.split(/\s+/)[0];
 }
 
-const priorityStyle: Record<Priority, string> = {
-  Low: "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
-  Medium: "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300",
-  High: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300",
-  Urgent: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300",
-};
-
 const inputClass =
   "w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100";
-
-// Build the Jira browse URL only when siteUrl parses to an http(s) origin.
-// Without this guard, a user-supplied siteUrl like "javascript:..." would
-// render as an executable href — React does not block javascript: URLs in
-// href attributes, and all credentials (Anthropic key, Jira token) live in
-// the same localStorage origin.
-function safeJiraIssueHref(siteUrl: string, key: string): string | null {
-  try {
-    const u = new URL(siteUrl);
-    if (u.protocol !== "https:" && u.protocol !== "http:") return null;
-    return `${u.origin}/browse/${encodeURIComponent(key)}`;
-  } catch {
-    return null;
-  }
-}
 
 // TaskManagerInner consumes the FiltersProvider context. The default
 // export below wraps this in <FiltersProvider> so useFilters() works.
@@ -570,6 +515,222 @@ function TaskManagerInner() {
 
   const today = todayISO();
   const lang = settings.language;
+
+  // Row-related handlers converted to useCallback for TaskRow consumption.
+  // Placed here, after lang/today are defined, before first usage.
+
+  const onToggleSelect = useCallback((id: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const onToggleNoteExpanded = useCallback((id: number) => {
+    setExpandedNotes((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const onJumpToRaid = useCallback((id: number) => {
+    setRaidFilterTaskId(id);
+    setActiveTab("raid");
+    setWorkspaceCollapsed((prev) => (prev ? false : prev));
+  }, [setRaidFilterTaskId]);
+
+  const onToggleComplete = useCallback((task: Task) => {
+    if (task.completedDate && task.jiraKey) {
+      window.alert(t(lang, "jiraReopenForbidden", task.jiraKey));
+      return;
+    }
+    const wasComplete = !!task.completedDate;
+    const stamp = new Date().toISOString();
+    setTasks((prev) =>
+      prev.map((row) => {
+        if (row.id !== task.id) return row;
+        if (row.completedDate) {
+          return { ...row, completedDate: undefined, localModifiedAt: stamp };
+        }
+        return { ...row, completedDate: today, localModifiedAt: stamp };
+      }),
+    );
+    if (editingId === task.id) handleCancelEdit();
+    logActivity(
+      wasComplete ? "task.reopened" : "task.completed",
+      task.id,
+      task.taskName,
+    );
+  }, [lang, today, editingId, logActivity]);
+
+  const onSendInquiry = useCallback((task: Task) => {
+    let email = task.assigneeEmail?.trim();
+    if (!email && isValidEmail(task.assignee)) {
+      email = task.assignee.trim();
+    }
+    if (!email) {
+      const provided = window.prompt(
+        t(lang, "promptEmail", task.assignee),
+        "",
+      );
+      if (provided === null) return;
+      const trimmed = provided.trim();
+      if (!isValidEmail(trimmed)) {
+        window.alert(t(lang, "errorInvalidEmail"));
+        return;
+      }
+      email = trimmed;
+      setTasks((prev) =>
+        prev.map((row) =>
+          row.id === task.id ? { ...row, assigneeEmail: trimmed } : row,
+        ),
+      );
+    }
+
+    const greeting = greetingName(task.assignee) || task.assignee;
+    const subject = t(lang, "emailSubject", task.id, task.taskName);
+    const body = t(
+      lang,
+      "emailBodyTemplate",
+      greeting,
+      task.id,
+      task.taskName,
+      task.dueDate,
+      task.lastUpdateDate,
+    );
+    const url = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    window.location.href = url;
+    setTasks((prev) =>
+      prev.map((row) =>
+        row.id === task.id
+          ? { ...row, inquiriesSent: (row.inquiriesSent ?? 0) + 1 }
+          : row,
+      ),
+    );
+  }, [lang]);
+
+  const onPushToJira = useCallback(async (taskId: number): Promise<boolean> => {
+    const jiraCfg = settings.jira;
+    if (!jiraCfg.enabled || !jiraCfg.projectKey) {
+      showToast("error", t(lang, "jiraPushPrereq"));
+      return false;
+    }
+    const task = tasksRef.current.find((row) => row.id === taskId);
+    if (!task) return false;
+    if (task.jiraKey) {
+      return false;
+    }
+    if (pushingIds.has(taskId)) return false;
+
+    setPushingIds((prev) => {
+      const next = new Set(prev);
+      next.add(taskId);
+      return next;
+    });
+
+    const { createIssue, taskFieldsToJiraFields, formatJiraError } =
+      await loadJiraApi();
+    const issueType = jiraCfg.issueTypes[0] ?? "Task";
+    try {
+      const created = await createIssue(
+        {
+          siteUrl: jiraCfg.siteUrl,
+          email: jiraCfg.email,
+          apiToken: jiraCfg.apiToken,
+        },
+        jiraCfg.projectKey,
+        issueType,
+        taskFieldsToJiraFields(task),
+      );
+      if (!created?.key) {
+        showToast("error", t(lang, "jiraPushFailed", `#${taskId}`, "no key"));
+        return false;
+      }
+      const syncStamp = new Date().toISOString();
+      const next = tasksRef.current.map((row) =>
+        row.id === taskId
+          ? {
+              ...row,
+              jiraKey: created.key,
+              jiraIssueType: issueType,
+              lastSyncedAt: syncStamp,
+              localModifiedAt: undefined,
+            }
+          : row,
+      );
+      tasksRef.current = next;
+      setTasks(next);
+      showToast(
+        "info",
+        t(lang, "jiraPushedToast", created.key, issueType),
+      );
+      return true;
+    } catch (err) {
+      showToast(
+        "error",
+        t(lang, "jiraPushFailed", `#${taskId}`, formatJiraError(err)),
+      );
+      return false;
+    } finally {
+      setPushingIds((prev) => {
+        if (!prev.has(taskId)) return prev;
+        const next = new Set(prev);
+        next.delete(taskId);
+        return next;
+      });
+    }
+  }, [settings.jira, lang, showToast]);
+
+  const onEdit = useCallback((task: Task) => {
+    setEditingId(task.id);
+    setError(null);
+    setTaskModalOpen(true);
+    setForm({
+      taskName: task.taskName,
+      assignee: task.assignee,
+      assigneeEmail: task.assigneeEmail ?? "",
+      startDate: task.startDate ?? "",
+      dueDate: task.dueDate,
+      lastUpdateDate: task.lastUpdateDate,
+      priority: task.priority,
+      blockers: task.blockers,
+      notes: task.notes,
+      group: task.group ?? "",
+      labels: task.labels ?? [],
+      dependencies: task.dependencies ?? [],
+      pushToJira: false,
+      healthOverride: task.healthOverride ?? "",
+    });
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }, []);
+
+  const onDelete = useCallback((id: number) => {
+    if (!window.confirm(t(lang, "confirmDelete", id))) return;
+    const deletedName = tasksRef.current.find((t) => t.id === id)?.taskName ?? "";
+    setTasks((prev) =>
+      prev
+        .filter((t) => t.id !== id)
+        .map((t) =>
+          t.dependencies && t.dependencies.some((d) => d.taskId === id)
+            ? { ...t, dependencies: t.dependencies.filter((d) => d.taskId !== id) }
+            : t,
+        ),
+    );
+    setSelectedIds((prev) => {
+      if (!prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+    if (editingId === id) handleCancelEdit();
+    logActivity("task.deleted", id, deletedName);
+  }, [lang, editingId, logActivity]);
 
   // Set the browser tab title in popout mode. The main-window title is
   // managed by `next/metadata` via layout.tsx; this only fires when
@@ -1345,14 +1506,14 @@ function TaskManagerInner() {
         form.pushToJira &&
         settings.jira.enabled &&
         !!settings.jira.projectKey;
-      // Synchronously update tasksRef so handlePushToJira can find the row by id.
+      // Synchronously update tasksRef so onPushToJira can find the row by id.
       const nextList = [...tasksRef.current, newTask];
       tasksRef.current = nextList;
       setTasks(nextList);
       logActivity("task.created", newId, taskName);
       if (shouldPush) {
-        // Fire-and-forget; handlePushToJira shows its own toasts.
-        void handlePushToJira(newId);
+        // Fire-and-forget; onPushToJira shows its own toasts.
+        void onPushToJira(newId);
       }
     }
     setForm(emptyForm());
@@ -1404,31 +1565,6 @@ function TaskManagerInner() {
     setError(null);
     setForm(emptyForm());
     setTaskModalOpen(false);
-  }
-
-  function handleDelete(id: number) {
-    if (!window.confirm(t(lang, "confirmDelete", id))) return;
-    const deletedName = tasksRef.current.find((t) => t.id === id)?.taskName ?? "";
-    // Drop the task AND strip any predecessor references to it from the
-    // dependency lists of all surviving tasks — otherwise rows would carry
-    // chips pointing to a missing id.
-    setTasks((prev) =>
-      prev
-        .filter((t) => t.id !== id)
-        .map((t) =>
-          t.dependencies && t.dependencies.some((d) => d.taskId === id)
-            ? { ...t, dependencies: t.dependencies.filter((d) => d.taskId !== id) }
-            : t,
-        ),
-    );
-    setSelectedIds((prev) => {
-      if (!prev.has(id)) return prev;
-      const next = new Set(prev);
-      next.delete(id);
-      return next;
-    });
-    if (editingId === id) handleCancelEdit();
-    logActivity("task.deleted", id, deletedName);
   }
 
   async function handleJiraSync() {
@@ -1774,163 +1910,12 @@ function TaskManagerInner() {
     setTasks(next);
   }
 
-  async function handlePushToJira(taskId: number): Promise<boolean> {
-    const jiraCfg = settings.jira;
-    if (!jiraCfg.enabled || !jiraCfg.projectKey) {
-      showToast("error", t(lang, "jiraPushPrereq"));
-      return false;
-    }
-    const task = tasksRef.current.find((row) => row.id === taskId);
-    if (!task) return false;
-    if (task.jiraKey) {
-      // Already linked — nothing to push.
-      return false;
-    }
-    if (pushingIds.has(taskId)) return false;
-
-    setPushingIds((prev) => {
-      const next = new Set(prev);
-      next.add(taskId);
-      return next;
-    });
-
-    const { createIssue, taskFieldsToJiraFields, formatJiraError } =
-      await loadJiraApi();
-    // Inlined from defaultIssueTypeForCreate to avoid awaiting jira-api
-    // before the user actually triggers a push.
-    const issueType = jiraCfg.issueTypes[0] ?? "Task";
-    try {
-      const created = await createIssue(
-        {
-          siteUrl: jiraCfg.siteUrl,
-          email: jiraCfg.email,
-          apiToken: jiraCfg.apiToken,
-        },
-        jiraCfg.projectKey,
-        issueType,
-        taskFieldsToJiraFields(task),
-      );
-      if (!created?.key) {
-        showToast("error", t(lang, "jiraPushFailed", `#${taskId}`, "no key"));
-        return false;
-      }
-      // Stamp the now-linked task. Clear localModifiedAt so the next sync
-      // treats this as up-to-date (it will pull whatever Jira normalized,
-      // e.g. assignee, which we deliberately didn't push).
-      const syncStamp = new Date().toISOString();
-      const next = tasksRef.current.map((row) =>
-        row.id === taskId
-          ? {
-              ...row,
-              jiraKey: created.key,
-              jiraIssueType: issueType,
-              lastSyncedAt: syncStamp,
-              localModifiedAt: undefined,
-            }
-          : row,
-      );
-      tasksRef.current = next;
-      setTasks(next);
-      showToast(
-        "info",
-        t(lang, "jiraPushedToast", created.key, issueType),
-      );
-      return true;
-    } catch (err) {
-      showToast(
-        "error",
-        t(lang, "jiraPushFailed", `#${taskId}`, formatJiraError(err)),
-      );
-      return false;
-    } finally {
-      setPushingIds((prev) => {
-        if (!prev.has(taskId)) return prev;
-        const next = new Set(prev);
-        next.delete(taskId);
-        return next;
-      });
-    }
-  }
-
   function handleClearAll() {
     if (tasks.length === 0) return;
     if (!window.confirm(t(lang, "confirmClearAll", tasks.length))) return;
     setTasks([]);
     setSelectedIds(new Set());
     handleCancelEdit();
-  }
-
-  function handleSendInquiry(task: Task) {
-    let email = task.assigneeEmail?.trim();
-    if (!email && isValidEmail(task.assignee)) {
-      email = task.assignee.trim();
-    }
-    if (!email) {
-      const provided = window.prompt(
-        t(lang, "promptEmail", task.assignee),
-        "",
-      );
-      if (provided === null) return;
-      const trimmed = provided.trim();
-      if (!isValidEmail(trimmed)) {
-        window.alert(t(lang, "errorInvalidEmail"));
-        return;
-      }
-      email = trimmed;
-      setTasks((prev) =>
-        prev.map((row) =>
-          row.id === task.id ? { ...row, assigneeEmail: trimmed } : row,
-        ),
-      );
-    }
-
-    const greeting = greetingName(task.assignee) || task.assignee;
-    const subject = t(lang, "emailSubject", task.id, task.taskName);
-    const body = t(
-      lang,
-      "emailBodyTemplate",
-      greeting,
-      task.id,
-      task.taskName,
-      task.dueDate,
-      task.lastUpdateDate,
-    );
-    const url = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-    window.location.href = url;
-    setTasks((prev) =>
-      prev.map((row) =>
-        row.id === task.id
-          ? { ...row, inquiriesSent: (row.inquiriesSent ?? 0) + 1 }
-          : row,
-      ),
-    );
-  }
-
-  function handleToggleComplete(task: Task) {
-    // Reopening a Jira-linked task requires a workflow transition that varies
-    // per project — refuse here and tell the user to reopen in Jira.
-    if (task.completedDate && task.jiraKey) {
-      window.alert(t(lang, "jiraReopenForbidden", task.jiraKey));
-      return;
-    }
-    const wasComplete = !!task.completedDate;
-    const stamp = new Date().toISOString();
-    setTasks((prev) =>
-      prev.map((row) => {
-        if (row.id !== task.id) return row;
-        if (row.completedDate) {
-          // Reopen
-          return { ...row, completedDate: undefined, localModifiedAt: stamp };
-        }
-        return { ...row, completedDate: today, localModifiedAt: stamp };
-      }),
-    );
-    if (editingId === task.id) handleCancelEdit();
-    logActivity(
-      wasComplete ? "task.reopened" : "task.completed",
-      task.id,
-      task.taskName,
-    );
   }
 
   function handleCommand(cmd: Command, originalText: string) {
@@ -1950,7 +1935,7 @@ function TaskManagerInner() {
           showToast("error", t(lang, "voiceTaskNotFound", cmd.id));
           return;
         }
-        handleDelete(cmd.id);
+        onDelete(cmd.id);
         return;
       }
       case "sendInquiry": {
@@ -1959,7 +1944,7 @@ function TaskManagerInner() {
           showToast("error", t(lang, "voiceTaskNotFound", cmd.id));
           return;
         }
-        handleSendInquiry(task);
+        onSendInquiry(task);
         return;
       }
       case "clearAll":
@@ -1996,24 +1981,6 @@ function TaskManagerInner() {
     (n, row) => (selectedIds.has(row.id) && row.jiraKey ? n + 1 : n),
     0,
   );
-
-  function toggleSelect(id: number) {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
-
-  function toggleNoteExpanded(id: number) {
-    setExpandedNotes((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
 
   function toggleSelectAllVisible() {
     setSelectedIds((prev) => {
@@ -2503,6 +2470,45 @@ function TaskManagerInner() {
   // briefly delays initial paint for de while ./i18n.de loads. Keeping
   // this AFTER every hook so the rules-of-hooks invariant holds.
   if (!i18nReady) return null;
+
+  const rowContextValue = useMemo<RowContextValue>(
+    () => ({
+      lang,
+      today,
+      holidaySet,
+      jiraSiteUrl: settings.jira.siteUrl,
+      jiraEnabled: settings.jira.enabled,
+      jiraProjectKey: settings.jira.projectKey,
+      hiddenCols,
+      tasksById,
+      onToggleSelect,
+      onToggleNoteExpanded,
+      onJumpToRaid,
+      onToggleComplete,
+      onSendInquiry,
+      onPushToJira,
+      onEdit,
+      onDelete,
+    }),
+    [
+      lang,
+      today,
+      holidaySet,
+      settings.jira.siteUrl,
+      settings.jira.enabled,
+      settings.jira.projectKey,
+      hiddenCols,
+      tasksById,
+      onToggleSelect,
+      onToggleNoteExpanded,
+      onJumpToRaid,
+      onToggleComplete,
+      onSendInquiry,
+      onPushToJira,
+      onEdit,
+      onDelete,
+    ],
+  );
 
   return (
     <div
@@ -3813,10 +3819,11 @@ function TaskManagerInner() {
           <div
             className="min-h-0 flex-1 w-full overflow-auto rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950"
           >
-            <table
-              className="divide-y divide-zinc-200 text-left text-sm dark:divide-zinc-800"
-              style={{ tableLayout: "fixed", width: "max-content", minWidth: "100%" }}
-            >
+            <RowContextProvider value={rowContextValue}>
+              <table
+                className="divide-y divide-zinc-200 text-left text-sm dark:divide-zinc-800"
+                style={{ tableLayout: "fixed", width: "max-content", minWidth: "100%" }}
+              >
               <colgroup>
                 {(["sel","status","id","taskName","assignee","startDate","dueDate","lastUpdateDate","priority","blockers","notes","depRelations","actions"] as const)
                   .filter((col) => !hiddenCols.has(col))
@@ -3852,264 +3859,20 @@ function TaskManagerInner() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
-                {filteredSortedTasks.map((task) => {
-                  const isComplete = !!task.completedDate;
-                  const health: TaskHealth = computeTaskHealth(
-                    task,
-                    today,
-                    holidaySet,
-                  );
-                  const label = isComplete
-                    ? t(lang, "completedOn", task.completedDate!)
-                    : formatHealthTooltip(health, lang);
-                  return (
-                    <tr
-                      key={task.id}
-                      className={`align-top ${editingId === task.id ? "bg-amber-50 dark:bg-amber-950/20" : selectedIds.has(task.id) ? "bg-AIPM-light-grey dark:bg-zinc-900" : isComplete ? "opacity-60" : ""}`}
-                    >
-                      <Td>
-                        <input
-                          type="checkbox"
-                          checked={selectedIds.has(task.id)}
-                          onChange={() => toggleSelect(task.id)}
-                          aria-label={t(lang, "selectRow", task.id)}
-                          className="h-4 w-4 cursor-pointer rounded border-zinc-300 text-AIPM-dark-blue focus:ring-AIPM-dark-blue dark:border-zinc-600 dark:bg-zinc-800"
-                        />
-                      </Td>
-                      {!hiddenCols.has("status") && (
-                        <Td>
-                          {isComplete && !task.healthOverride ? (
-                            <span title={label} aria-label={label} className="text-AIPM-green">✓</span>
-                          ) : (
-                            <span title={label} aria-label={label} className={`inline-block h-2.5 w-2.5 rounded-full ${healthDot[health.color]}`} />
-                          )}
-                        </Td>
-                      )}
-                      {!hiddenCols.has("id") && <Td className="font-mono text-zinc-500">
-                        #{task.id}
-                        {(() => {
-                          if (!task.jiraKey || !settings.jira.siteUrl) return null;
-                          const href = safeJiraIssueHref(
-                            settings.jira.siteUrl,
-                            task.jiraKey,
-                          );
-                          if (!href) return null;
-                          return (
-                            <a
-                              href={href}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              title={
-                                task.jiraIssueType
-                                  ? `${task.jiraKey} (${task.jiraIssueType})`
-                                  : task.jiraKey
-                              }
-                              className="ml-1 inline-block rounded bg-AIPM-light-grey px-1.5 py-0.5 text-[10px] font-medium text-AIPM-dark-blue no-underline hover:bg-AIPM-dark-blue hover:text-white dark:bg-zinc-800 dark:text-AIPM-blue dark:hover:bg-AIPM-dark-blue dark:hover:text-white"
-                            >
-                              {task.jiraKey}
-                            </a>
-                          );
-                        })()}
-                        {(() => {
-                          const refs = raidByTask.get(task.id);
-                          if (!refs || refs.length === 0) return null;
-                          const counts = countByCategory(refs);
-                          return (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setRaidFilterTaskId(task.id);
-                                setActiveTab("raid");
-                                if (workspaceCollapsed) setWorkspaceCollapsed(false);
-                              }}
-                              title={t(lang, "raidReferencedBy", refs.length)}
-                              aria-label={t(lang, "raidReferencedBy", refs.length)}
-                              className="ml-1 inline-flex items-center rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800 hover:bg-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-amber-950/60"
-                            >
-                              {t(
-                                lang,
-                                "raidReferencedByMix",
-                                counts.R,
-                                counts.A,
-                                counts.I,
-                                counts.D,
-                              )}
-                            </button>
-                          );
-                        })()}
-                      </Td>}
-                      <Td
-                        className={`font-medium text-zinc-900 dark:text-zinc-100 ${isComplete ? "line-through" : ""}`}
-                      >
-                        <span>{task.taskName}</span>
-                        {(task.group || (task.labels?.length ?? 0) > 0) && (
-                          <div className="mt-1 flex flex-wrap gap-1">
-                            {task.group && (
-                              <span className="inline-flex rounded-md bg-AIPM-dark-blue/10 px-1.5 py-0.5 text-[10px] font-medium text-AIPM-dark-blue dark:bg-AIPM-dark-blue/30 dark:text-AIPM-light-grey">
-                                {task.group}
-                              </span>
-                            )}
-                            {(task.labels ?? []).map((l) => (
-                              <span
-                                key={l}
-                                className="inline-flex rounded-full bg-AIPM-light-grey px-1.5 py-0.5 text-[10px] font-medium text-AIPM-dark-grey dark:bg-zinc-800 dark:text-AIPM-medium-grey"
-                              >
-                                {l}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </Td>
-                      {!hiddenCols.has("assignee") && <Td>{task.assignee}</Td>}
-                      {!hiddenCols.has("startDate") && (
-                        <Td className="whitespace-nowrap text-zinc-600 dark:text-zinc-400">
-                          {task.startDate || "—"}
-                        </Td>
-                      )}
-                      {!hiddenCols.has("dueDate") && <Td>{task.dueDate}</Td>}
-                      {!hiddenCols.has("lastUpdateDate") && <Td>{task.lastUpdateDate}</Td>}
-                      {!hiddenCols.has("priority") && (
-                        <Td>
-                          <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${priorityStyle[task.priority]}`}>
-                            {priorityLabel(lang, task.priority)}
-                          </span>
-                        </Td>
-                      )}
-                      {!hiddenCols.has("blockers") && (
-                        <Td className="max-w-xs whitespace-pre-wrap text-zinc-600 dark:text-zinc-400">
-                          {task.blockers || "—"}
-                        </Td>
-                      )}
-                      {!hiddenCols.has("notes") && (
-                        <Td className="max-w-xs text-zinc-600 dark:text-zinc-400">
-                          {(() => {
-                            const notes = task.notes ?? "";
-                            if (!notes) return <span>—</span>;
-                            const isExpanded = expandedNotes.has(task.id);
-                            const summary = summarizeNote(notes, NOTES_COLLAPSED_MAX);
-                            const displayed = isExpanded ? notes : summary.text + (summary.truncated ? " …" : "");
-                            return (
-                              <div className="flex flex-col gap-1">
-                                <span className={isExpanded ? "whitespace-pre-wrap" : "whitespace-normal"}>
-                                  {displayed}
-                                </span>
-                                {summary.truncated && (
-                                  <button
-                                    type="button"
-                                    onClick={() => toggleNoteExpanded(task.id)}
-                                    className="self-start text-xs font-medium text-AIPM-dark-blue underline-offset-2 hover:underline dark:text-AIPM-blue"
-                                    aria-expanded={isExpanded}
-                                  >
-                                    {isExpanded ? t(lang, "showLess") : t(lang, "showMore")}
-                                  </button>
-                                )}
-                              </div>
-                            );
-                          })()}
-                        </Td>
-                      )}
-                      {!hiddenCols.has("depRelations") && (
-                        <Td className="text-zinc-600 dark:text-zinc-400">
-                          {(task.dependencies?.length ?? 0) === 0 ? (
-                            <span>—</span>
-                          ) : (
-                            <ul className="flex flex-wrap gap-1">
-                              {(task.dependencies ?? []).map((dep, i) => {
-                                const pred = tasksById.get(dep.taskId);
-                                const predName =
-                                  pred?.taskName ?? t(lang, "depMissing");
-                                return (
-                                  <li
-                                    key={`dep-${dep.taskId}-${dep.type}-${i}`}
-                                  >
-                                    <span
-                                      title={`${t(lang, "depDependsOn")} #${dep.taskId} (${dep.type}) — ${predName}`}
-                                      className="inline-flex items-center gap-0.5 rounded-full bg-AIPM-blue/15 px-1.5 py-0.5 text-[10px] font-medium text-AIPM-dark-blue dark:bg-AIPM-blue/25 dark:text-AIPM-light-grey"
-                                    >
-                                      <span className="font-mono">
-                                        {dep.type}
-                                      </span>
-                                      <span className="opacity-70">·</span>
-                                      <span className="font-mono">
-                                        #{dep.taskId}
-                                      </span>
-                                    </span>
-                                  </li>
-                                );
-                              })}
-                            </ul>
-                          )}
-                        </Td>
-                      )}
-                      <Td>
-                        {/*
-                          Action buttons split across two lines:
-                            Row 1 — workflow actions (Mark complete / Reopen,
-                                    Send inquiry, Push to Jira).
-                            Row 2 — row-management actions (Edit, Delete).
-                          The two flex rows wrap independently so the column
-                          stays narrow even when all five buttons are visible.
-                        */}
-                        <div className="flex flex-col gap-1 whitespace-nowrap">
-                          <div className="flex flex-wrap gap-2">
-                            <button
-                              type="button"
-                              onClick={() => handleToggleComplete(task)}
-                              className="text-xs font-medium text-AIPM-green underline-offset-2 hover:underline"
-                            >
-                              {task.completedDate
-                                ? t(lang, "reopenTask")
-                                : t(lang, "markComplete")}
-                            </button>
-                            {!task.completedDate && (
-                              <button
-                                type="button"
-                                onClick={() => handleSendInquiry(task)}
-                                className="text-xs font-medium text-AIPM-dark-blue underline-offset-2 hover:underline dark:text-AIPM-blue"
-                              >
-                                {t(lang, "sendInquiry")}
-                              </button>
-                            )}
-                            {settings.jira.enabled &&
-                              settings.jira.projectKey &&
-                              !task.jiraKey &&
-                              !task.completedDate && (
-                                <button
-                                  type="button"
-                                  onClick={() => handlePushToJira(task.id)}
-                                  disabled={pushingIds.has(task.id)}
-                                  className="text-xs font-medium text-AIPM-dark-blue underline-offset-2 hover:underline disabled:cursor-not-allowed disabled:opacity-50 dark:text-AIPM-blue"
-                                >
-                                  {pushingIds.has(task.id)
-                                    ? t(lang, "jiraPushing")
-                                    : t(lang, "jiraPushToJira")}
-                                </button>
-                              )}
-                          </div>
-                          <div className="flex flex-wrap gap-2">
-                            <button
-                              type="button"
-                              onClick={() => handleEdit(task)}
-                              className="text-xs font-medium text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-300"
-                            >
-                              {t(lang, "edit")}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDelete(task.id)}
-                              className="text-xs font-medium text-red-600 underline-offset-2 hover:underline dark:text-red-400"
-                            >
-                              {t(lang, "delete")}
-                            </button>
-                          </div>
-                        </div>
-                      </Td>
-                    </tr>
-                  );
-                })}
+                {filteredSortedTasks.map((task) => (
+                  <TaskRow
+                    key={task.id}
+                    task={task}
+                    isSelected={selectedIds.has(task.id)}
+                    isEditing={editingId === task.id}
+                    isExpanded={expandedNotes.has(task.id)}
+                    isPushing={pushingIds.has(task.id)}
+                    raidRefs={raidByTask.get(task.id)}
+                  />
+                ))}
               </tbody>
-            </table>
+              </table>
+            </RowContextProvider>
           </div>
         )}
       </section>
@@ -4460,16 +4223,6 @@ function SortableTh({
       )}
     </th>
   );
-}
-
-function Td({
-  children,
-  className,
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return <td className={`px-4 py-3 ${className ?? ""}`}>{children}</td>;
 }
 
 function BulkEditFieldRow({
