@@ -164,6 +164,6 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
 export function useWorkspace(): WorkspaceValue {
   const ctx = useContext(WorkspaceContext);
-  // Outside-provider behaviour is tightened in Task 6.
-  return ctx as WorkspaceValue;
+  if (!ctx) throw new Error("useWorkspace must be used within WorkspaceProvider");
+  return ctx;
 }

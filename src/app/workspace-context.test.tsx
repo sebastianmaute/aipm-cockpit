@@ -109,4 +109,19 @@ describe("WorkspaceProvider", () => {
       result.current.ws.filteredSortedTasks.map((t) => t.taskName),
     ).toEqual(["Bravo", "Alpha"]);
   });
+
+  test("useWorkspace() outside a WorkspaceProvider throws a documented error", () => {
+    // React logs the rendering error to console.error in dev; silence it
+    // so the test output stays clean. Restore after to avoid hiding
+    // unrelated noise from later tests.
+    const original = console.error;
+    console.error = () => {};
+    try {
+      expect(() => renderHook(() => useWorkspace())).toThrow(
+        "useWorkspace must be used within WorkspaceProvider",
+      );
+    } finally {
+      console.error = original;
+    }
+  });
 });
