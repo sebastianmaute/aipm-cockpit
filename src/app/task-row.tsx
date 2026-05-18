@@ -140,17 +140,10 @@ function TaskRowImpl({
     today,
     holidaySet,
     jiraSiteUrl,
-    jiraEnabled,
-    jiraProjectKey,
     hiddenCols,
     tasksById,
     onToggleSelect,
     onJumpToRaid,
-    onToggleComplete,
-    onSendInquiry,
-    onPushToJira,
-    onEdit,
-    onDelete,
   } = useTaskRowContext();
 
   const isComplete = !!task.completedDate;
@@ -295,52 +288,7 @@ function TaskRowImpl({
         </Td>
       )}
       <Td>
-        <div className="flex flex-col gap-1 whitespace-nowrap">
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => onToggleComplete(task)}
-              className="text-xs font-medium text-AIPM-green underline-offset-2 hover:underline"
-            >
-              {task.completedDate ? t(lang, "reopenTask") : t(lang, "markComplete")}
-            </button>
-            {!task.completedDate && (
-              <button
-                type="button"
-                onClick={() => onSendInquiry(task)}
-                className="text-xs font-medium text-AIPM-dark-blue underline-offset-2 hover:underline dark:text-AIPM-blue"
-              >
-                {t(lang, "sendInquiry")}
-              </button>
-            )}
-            {jiraEnabled && jiraProjectKey && !task.jiraKey && !task.completedDate && (
-              <button
-                type="button"
-                onClick={() => onPushToJira(task.id)}
-                disabled={isPushing}
-                className="text-xs font-medium text-AIPM-dark-blue underline-offset-2 hover:underline disabled:cursor-not-allowed disabled:opacity-50 dark:text-AIPM-blue"
-              >
-                {isPushing ? t(lang, "jiraPushing") : t(lang, "jiraPushToJira")}
-              </button>
-            )}
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => onEdit(task)}
-              className="text-xs font-medium text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-300"
-            >
-              {t(lang, "edit")}
-            </button>
-            <button
-              type="button"
-              onClick={() => onDelete(task.id)}
-              className="text-xs font-medium text-red-600 underline-offset-2 hover:underline dark:text-red-400"
-            >
-              {t(lang, "delete")}
-            </button>
-          </div>
-        </div>
+        <TaskActions task={task} isPushing={isPushing} />
       </Td>
     </tr>
   );
@@ -381,3 +329,71 @@ function NotesCellImpl({ notes, isExpanded, taskId }: NotesCellProps) {
 }
 
 export const NotesCell = memo(NotesCellImpl);
+
+interface TaskActionsProps {
+  task: Task;
+  isPushing: boolean;
+}
+
+function TaskActionsImpl({ task, isPushing }: TaskActionsProps) {
+  const {
+    lang,
+    jiraEnabled,
+    jiraProjectKey,
+    onToggleComplete,
+    onSendInquiry,
+    onPushToJira,
+    onEdit,
+    onDelete,
+  } = useTaskRowContext();
+  return (
+    <div className="flex flex-col gap-1 whitespace-nowrap">
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => onToggleComplete(task)}
+          className="text-xs font-medium text-AIPM-green underline-offset-2 hover:underline"
+        >
+          {task.completedDate ? t(lang, "reopenTask") : t(lang, "markComplete")}
+        </button>
+        {!task.completedDate && (
+          <button
+            type="button"
+            onClick={() => onSendInquiry(task)}
+            className="text-xs font-medium text-AIPM-dark-blue underline-offset-2 hover:underline dark:text-AIPM-blue"
+          >
+            {t(lang, "sendInquiry")}
+          </button>
+        )}
+        {jiraEnabled && jiraProjectKey && !task.jiraKey && !task.completedDate && (
+          <button
+            type="button"
+            onClick={() => onPushToJira(task.id)}
+            disabled={isPushing}
+            className="text-xs font-medium text-AIPM-dark-blue underline-offset-2 hover:underline disabled:cursor-not-allowed disabled:opacity-50 dark:text-AIPM-blue"
+          >
+            {isPushing ? t(lang, "jiraPushing") : t(lang, "jiraPushToJira")}
+          </button>
+        )}
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => onEdit(task)}
+          className="text-xs font-medium text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-300"
+        >
+          {t(lang, "edit")}
+        </button>
+        <button
+          type="button"
+          onClick={() => onDelete(task.id)}
+          className="text-xs font-medium text-red-600 underline-offset-2 hover:underline dark:text-red-400"
+        >
+          {t(lang, "delete")}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export const TaskActions = memo(TaskActionsImpl);

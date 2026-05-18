@@ -1,9 +1,10 @@
 import { describe, test, expect, vi } from "vitest";
-import { render, renderHook, act } from "@testing-library/react";
+import { render, renderHook, act, fireEvent } from "@testing-library/react";
 import React, { Profiler, type ReactNode, type ProfilerOnRenderCallback } from "react";
 import {
   TaskRow,
   NotesCell,
+  TaskActions,
   RowContextProvider,
   useTaskRowContext,
   type RowContextValue,
@@ -237,5 +238,38 @@ describe("NotesCell", () => {
     act(() => setExpA(true));
 
     expect(renderSpyB.mock.calls.length).toBe(before);
+  });
+});
+
+describe("TaskActions", () => {
+  test("each button calls the corresponding handler with the right argument", () => {
+    const ctx = makeContext({ jiraEnabled: true, jiraProjectKey: "MCP" });
+    const task = makeTask({ id: 99 });
+
+    const { getByText } = render(
+      <table>
+        <tbody>
+          <tr>
+            <td>
+              <RowContextProvider value={ctx}>
+                <TaskActions task={task} isPushing={false} />
+              </RowContextProvider>
+            </td>
+          </tr>
+        </tbody>
+      </table>,
+    );
+
+    fireEvent.click(getByText("Mark complete"));
+    expect(ctx.onToggleComplete).toHaveBeenCalledTimes(1);
+    expect(ctx.onToggleComplete).toHaveBeenCalledWith(task);
+
+    fireEvent.click(getByText("Edit"));
+    expect(ctx.onEdit).toHaveBeenCalledTimes(1);
+    expect(ctx.onEdit).toHaveBeenCalledWith(task);
+
+    fireEvent.click(getByText("Delete"));
+    expect(ctx.onDelete).toHaveBeenCalledTimes(1);
+    expect(ctx.onDelete).toHaveBeenCalledWith(99);
   });
 });
