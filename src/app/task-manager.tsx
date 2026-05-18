@@ -9,6 +9,7 @@ import {
   formatHealthTooltip,
   HEALTH_VALUES,
   healthColorName,
+  healthDot,
   type Health,
   type TaskHealth,
 } from "./health";
@@ -18,7 +19,7 @@ import { HelpMenu } from "./help-menu";
 // initial bundle for users who don't have Jira configured.
 import type { ConflictItem } from "./jira-api";
 import { holidaysForCountries } from "./holidays";
-import { type Lang, type TranslationKey, loadI18n, migrateLang, t } from "./i18n";
+import { type Lang, type TranslationKey, loadI18n, migrateLang, priorityLabel, t } from "./i18n";
 import { VersionMenu } from "./version-menu";
 import {
   DueBanner,
@@ -366,23 +367,11 @@ function greetingName(assignee: string): string {
   return trimmed.split(/\s+/)[0];
 }
 
-function priorityLabel(lang: Lang, p: Priority): string {
-  return t(lang, `priority${p}` as TranslationKey);
-}
-
 const priorityStyle: Record<Priority, string> = {
   Low: "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
   Medium: "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300",
   High: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300",
   Urgent: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300",
-};
-
-// RAG dot palette — standard steering-committee colors, distinct from the
-// existing AIPM-pink "overdue" highlight used elsewhere.
-const healthDot: Record<Health, string> = {
-  R: "bg-red-500",
-  A: "bg-amber-500",
-  G: "bg-emerald-500",
 };
 
 const inputClass =

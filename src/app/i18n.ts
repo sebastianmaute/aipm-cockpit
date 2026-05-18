@@ -1,3 +1,5 @@
+import { type Priority } from "./types";
+
 export type Lang = "en-US" | "en-GB" | "de";
 
 const enUS = {
@@ -704,4 +706,12 @@ export function migrateLang(value: unknown): Lang {
   if (value === "en-US" || value === "en-GB" || value === "de") return value;
   if (value === "en") return "en-US"; // legacy
   return "en-US";
+}
+
+/**
+ * Localized label for a task priority value. Thin wrapper over `t()` that
+ * encodes the convention `priority${Low|Medium|High|Urgent}`.
+ */
+export function priorityLabel(lang: Lang, p: Priority): string {
+  return t(lang, `priority${p}` as TranslationKey);
 }

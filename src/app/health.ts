@@ -178,3 +178,14 @@ export function formatHealthTooltip(health: TaskHealth, lang: Lang): string {
   return t(lang, "healthTooltip", name, drivers);
 }
 
+/**
+ * Tailwind class for the RAG status dot, indexed by health color.
+ * Standard steering-committee palette, distinct from the AIPM-pink
+ * "overdue" highlight used elsewhere.
+ */
+export const healthDot: Record<Health, string> = {
+  R: "bg-red-500",
+  A: "bg-amber-500",
+  G: "bg-emerald-500",
+};
+
