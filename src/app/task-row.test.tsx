@@ -3,6 +3,7 @@ import { render, renderHook, act } from "@testing-library/react";
 import React, { Profiler, type ReactNode, type ProfilerOnRenderCallback } from "react";
 import {
   TaskRow,
+  NotesCell,
   RowContextProvider,
   useTaskRowContext,
   type RowContextValue,
@@ -184,5 +185,57 @@ describe("useTaskRowContext", () => {
     } finally {
       console.error = original;
     }
+  });
+});
+
+describe("NotesCell", () => {
+  test("isolation: re-rendering cell A does not re-render cell B", () => {
+    const ctx = makeContext();
+    let setExpA: (b: boolean) => void = () => {};
+    const renderSpyB = vi.fn<ProfilerOnRenderCallback>();
+
+    function Harness() {
+      const [expA, setExpALocal] = React.useState(false);
+      setExpA = setExpALocal;
+      const cellBTree = React.useMemo(
+        () => (
+          <Profiler id="cellB" onRender={renderSpyB}>
+            <NotesCell
+              notes="B note also long enough to trigger expansion behaviour with more than fifty characters of body text here."
+              isExpanded={false}
+              taskId={2}
+            />
+          </Profiler>
+        ),
+        [],
+      );
+      return (
+        <table>
+          <tbody>
+            <tr>
+              <td>
+                <RowContextProvider value={ctx}>
+                  <NotesCell
+                    notes="A note long enough to trigger expansion behaviour with more than fifty characters of body text here."
+                    isExpanded={expA}
+                    taskId={1}
+                  />
+                </RowContextProvider>
+              </td>
+              <td>
+                <RowContextProvider value={ctx}>{cellBTree}</RowContextProvider>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      );
+    }
+
+    render(<Harness />);
+    const before = renderSpyB.mock.calls.length;
+
+    act(() => setExpA(true));
+
+    expect(renderSpyB.mock.calls.length).toBe(before);
   });
 });

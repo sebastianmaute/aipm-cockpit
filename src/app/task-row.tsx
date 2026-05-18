@@ -145,7 +145,6 @@ function TaskRowImpl({
     hiddenCols,
     tasksById,
     onToggleSelect,
-    onToggleNoteExpanded,
     onJumpToRaid,
     onToggleComplete,
     onSendInquiry,
@@ -266,29 +265,7 @@ function TaskRowImpl({
       )}
       {!hiddenCols.has("notes") && (
         <Td className="max-w-xs text-zinc-600 dark:text-zinc-400">
-          {(() => {
-            const notes = task.notes ?? "";
-            if (!notes) return <span>—</span>;
-            const summary = summarizeNote(notes, NOTES_COLLAPSED_MAX);
-            const displayed = isExpanded ? notes : summary.text + (summary.truncated ? " …" : "");
-            return (
-              <div className="flex flex-col gap-1">
-                <span className={isExpanded ? "whitespace-pre-wrap" : "whitespace-normal"}>
-                  {displayed}
-                </span>
-                {summary.truncated && (
-                  <button
-                    type="button"
-                    onClick={() => onToggleNoteExpanded(task.id)}
-                    className="self-start text-xs font-medium text-AIPM-dark-blue underline-offset-2 hover:underline dark:text-AIPM-blue"
-                    aria-expanded={isExpanded}
-                  >
-                    {isExpanded ? t(lang, "showLess") : t(lang, "showMore")}
-                  </button>
-                )}
-              </div>
-            );
-          })()}
+          <NotesCell notes={task.notes ?? ""} isExpanded={isExpanded} taskId={task.id} />
         </Td>
       )}
       {!hiddenCols.has("depRelations") && (
@@ -370,3 +347,37 @@ function TaskRowImpl({
 }
 
 export const TaskRow = memo(TaskRowImpl);
+
+interface NotesCellProps {
+  notes: string;
+  isExpanded: boolean;
+  taskId: number;
+}
+
+function NotesCellImpl({ notes, isExpanded, taskId }: NotesCellProps) {
+  const { lang, onToggleNoteExpanded } = useTaskRowContext();
+  if (!notes) return <span>—</span>;
+  const summary = summarizeNote(notes, NOTES_COLLAPSED_MAX);
+  const displayed = isExpanded
+    ? notes
+    : summary.text + (summary.truncated ? " …" : "");
+  return (
+    <div className="flex flex-col gap-1">
+      <span className={isExpanded ? "whitespace-pre-wrap" : "whitespace-normal"}>
+        {displayed}
+      </span>
+      {summary.truncated && (
+        <button
+          type="button"
+          onClick={() => onToggleNoteExpanded(taskId)}
+          className="self-start text-xs font-medium text-AIPM-dark-blue underline-offset-2 hover:underline dark:text-AIPM-blue"
+          aria-expanded={isExpanded}
+        >
+          {isExpanded ? t(lang, "showLess") : t(lang, "showMore")}
+        </button>
+      )}
+    </div>
+  );
+}
+
+export const NotesCell = memo(NotesCellImpl);
