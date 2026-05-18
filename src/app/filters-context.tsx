@@ -15,7 +15,9 @@ import {
   useCallback,
   useContext,
   useState,
+  type Dispatch,
   type ReactNode,
+  type SetStateAction,
 } from "react";
 import { useDebounce } from "./use-debounce";
 import { type Priority } from "./types";
@@ -41,14 +43,17 @@ interface FiltersValue {
   sortDir: SortDir;
   raidFilterTaskId: number | null;
 
-  setSearch: (v: string) => void;
-  setPriorityFilter: (v: Priority | "All") => void;
-  setAssigneeFilter: (v: string) => void;
-  setGroupFilter: (v: string) => void;
-  setLabelFilter: (v: string) => void;
-  setSortKey: (v: SortKey) => void;
-  setSortDir: (v: SortDir) => void;
-  setRaidFilterTaskId: (v: number | null) => void;
+  // React.Dispatch<SetStateAction<...>> so callers can use either the
+  // direct-value form (setX(value)) or the updater form (setX(prev =>
+  // ...)). Matches what useState returns natively.
+  setSearch: Dispatch<SetStateAction<string>>;
+  setPriorityFilter: Dispatch<SetStateAction<Priority | "All">>;
+  setAssigneeFilter: Dispatch<SetStateAction<string>>;
+  setGroupFilter: Dispatch<SetStateAction<string>>;
+  setLabelFilter: Dispatch<SetStateAction<string>>;
+  setSortKey: Dispatch<SetStateAction<SortKey>>;
+  setSortDir: Dispatch<SetStateAction<SortDir>>;
+  setRaidFilterTaskId: Dispatch<SetStateAction<number | null>>;
 
   resetFilters: () => void;
 }

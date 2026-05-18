@@ -144,7 +144,12 @@ import {
   readPopoutTabFromUrl,
   useBroadcastSync,
 } from "./broadcast-sync";
-import { useDebounce } from "./use-debounce";
+import {
+  FiltersProvider,
+  type SortDir,
+  type SortKey,
+  useFilters,
+} from "./filters-context";
 import { useResizable } from "./use-resizable";
 // voice-button is lazy-loaded — it transitively pulls the Web Speech API
 // shims in voice.ts which we only need when the user clicks the mic.
@@ -220,16 +225,6 @@ const TAB_LABEL_KEYS: Record<TopTab, TranslationKey> = {
   resources: "tabResources",
   activity: "tabActivity",
 };
-
-type SortKey =
-  | "id"
-  | "taskName"
-  | "assignee"
-  | "startDate"
-  | "dueDate"
-  | "lastUpdateDate"
-  | "priority";
-type SortDir = "asc" | "desc";
 
 const SETTINGS_KEY = "lop-app:settings";
 const WORKSPACE_COLLAPSED_KEY = "lop-app:workspace-collapsed";
@@ -413,15 +408,13 @@ function safeJiraIssueHref(siteUrl: string, key: string): string | null {
   }
 }
 
-export default function TaskManager() {
+// TaskManagerInner consumes the FiltersProvider context. The default
+// export below wraps this in <FiltersProvider> so useFilters() works.
+function TaskManagerInner() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [raid, setRaid] = useState<RaidItem[]>([]);
   const [absences, setAbsences] = useState<Absence[]>([]);
   const [shifts, setShifts] = useState<Shift[]>([]);
-  // When the user clicks a RAID-reference badge on a task row, we jump to
-  // the RAID tab pre-filtered to items referencing that task. `null` clears
-  // the filter; the RaidPanel honors the prop.
-  const [raidFilterTaskId, setRaidFilterTaskId] = useState<number | null>(null);
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [form, setForm] = useState(emptyForm);
   const [hydrated, setHydrated] = useState(false);
@@ -484,20 +477,32 @@ export default function TaskManager() {
   const [contacts, setContacts] = useState<ContactsMap>({});
   const contactsHydratedRef = useRef(false);
 
-  const [search, setSearch] = useState("");
-  // Debounced mirror of `search`. The filter useMemo reads this instead of
-  // `search` directly, so re-filtering doesn't fire on every keystroke. The
-  // input itself stays bound to `search` so it feels immediate.
-  const searchDebounced = useDebounce(search, 150);
-  const [priorityFilter, setPriorityFilter] = useState<Priority | "All">(
-    "All",
-  );
-  const [assigneeFilter, setAssigneeFilter] = useState<string>("All");
-  const [groupFilter, setGroupFilter] = useState<string>("All");
-  const [labelFilter, setLabelFilter] = useState<string>("All");
-
-  const [sortKey, setSortKey] = useState<SortKey>("id");
-  const [sortDir, setSortDir] = useState<SortDir>("asc");
+  // Filter / sort state owned by FiltersProvider (Slice 1 of the
+  // task-manager decomposition; see docs/superpowers/specs/2026-05-17-
+  // filters-context-slice1-design.md). The default export wraps this
+  // component in <FiltersProvider> at the bottom of the file.
+  // raidFilterTaskId is set when the user clicks a task's RAID badge;
+  // the RaidPanel still receives it as a prop (kept that way until a
+  // later slice hoists the provider above the dynamic() boundary).
+  const {
+    search,
+    searchDebounced,
+    priorityFilter,
+    assigneeFilter,
+    groupFilter,
+    labelFilter,
+    sortKey,
+    sortDir,
+    raidFilterTaskId,
+    setSearch,
+    setPriorityFilter,
+    setAssigneeFilter,
+    setGroupFilter,
+    setLabelFilter,
+    setSortKey,
+    setSortDir,
+    setRaidFilterTaskId,
+  } = useFilters();
 
   const [toast, setToast] = useState<
     { kind: "info" | "error"; text: string; id: number } | null
@@ -4325,6 +4330,14 @@ export default function TaskManager() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function TaskManager() {
+  return (
+    <FiltersProvider>
+      <TaskManagerInner />
+    </FiltersProvider>
   );
 }
 
