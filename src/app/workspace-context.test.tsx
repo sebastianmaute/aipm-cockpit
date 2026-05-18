@@ -1,7 +1,7 @@
 import { describe, test, expect } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { type ReactNode } from "react";
-import { FiltersProvider } from "./filters-context";
+import { FiltersProvider, useFilters } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 
 function wrapper({ children }: { children: ReactNode }) {
@@ -59,5 +59,25 @@ describe("WorkspaceProvider", () => {
     expect(result.current.tasksById.get(2)).toBe(seeded[1]);
     expect(result.current.taskSearchIndex.get(1)).toContain("alpha");
     expect(result.current.taskSearchIndex.get(1)).toContain("bob");
+  });
+
+  test("filteredSortedTasks narrows when priority filter changes", () => {
+    const { result } = renderHook(
+      () => ({ ws: useWorkspace(), filters: useFilters() }),
+      { wrapper },
+    );
+
+    const seeded = [
+      makeTask({ id: 1, taskName: "Low task",    priority: "Low" }),
+      makeTask({ id: 2, taskName: "Medium task", priority: "Medium" }),
+      makeTask({ id: 3, taskName: "High task",   priority: "High" }),
+    ];
+
+    act(() => result.current.ws.setTasks(seeded));
+    expect(result.current.ws.filteredSortedTasks).toHaveLength(3);
+
+    act(() => result.current.filters.setPriorityFilter("High"));
+    expect(result.current.ws.filteredSortedTasks).toHaveLength(1);
+    expect(result.current.ws.filteredSortedTasks[0].id).toBe(3);
   });
 });
