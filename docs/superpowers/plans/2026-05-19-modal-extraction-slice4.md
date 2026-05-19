@@ -288,7 +288,7 @@ const InlineMicButton = dynamic(
 // Same compact input class the rest of the form uses. Declared here to avoid
 // a circular import back into task-manager.tsx.
 const inputClass =
-  "w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-AIPM-dark-blue focus:outline-none focus:ring-1 focus:ring-AIPM-dark-blue dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100";
+  "w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100";
 
 export interface TaskFormModalProps {
   lang: Lang;
@@ -716,7 +716,7 @@ import { PRIORITIES, type Priority } from "./types";
 // Same compact input class the rest of the form uses. Duplicated here to
 // avoid a circular import back into task-manager.tsx.
 const inputClass =
-  "w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-AIPM-dark-blue focus:outline-none focus:ring-1 focus:ring-AIPM-dark-blue dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100";
+  "w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100";
 
 export interface BulkEditModalProps {
   lang: Lang;
