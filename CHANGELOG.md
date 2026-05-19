@@ -12,6 +12,51 @@ post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-
 
 _No unreleased changes._
 
+## [0.7.2] "Banks" — 2026-05-19
+
+Activity-log confirm dialog, three Rules-of-Hooks / hydration bug fixes,
+and a large internal refactor that cut `task-manager.tsx` by ~700 lines
+without changing any user-visible behaviour.
+
+### Added
+
+- **Activity log — confirm before clear**: "Clear log" now shows a native
+  `window.confirm` dialog with the entry count before wiping. Consistent
+  with the existing confirm-before-delete pattern on "Delete all tasks"
+  (`handleClearAll`) and single-task delete (`handleDelete`). Help text
+  updated in EN and DE.
+- **Next.js 16 error boundaries** (`src/app/error.tsx`,
+  `src/app/global-error.tsx`): React 19 render-error boundaries.
+
+### Fixed
+
+- **Rules of Hooks — `TaskManagerInner`**: `rowContextValue useMemo` was
+  declared after the `!i18nReady` early return; moved before the gate so
+  the hook count is stable across renders.
+- **Rules of Hooks — `ReportsPanel`**: `groupHealth useMemo` was declared
+  after the `stats.total === 0` early return; same fix.
+- **Hydration mismatch on `<html>`**: added `suppressHydrationWarning` to
+  `layout.tsx` to silence false mismatches when browser extensions (e.g.
+  LanguageTool) inject attributes before React hydrates.
+
+### Changed (internal — no user-visible behaviour change)
+
+- **Slice 4 — modal extraction**: `TaskFormModal` (~491 lines) and
+  `BulkEditModal` (~354 lines) extracted from `task-manager.tsx` into
+  standalone files with component-level tests. Net −707 lines from the
+  god-component.
+- **Slices 1–3 — context extraction**: `FiltersProvider`,
+  `WorkspaceProvider`, and `TaskFormProvider` pulled out of
+  `task-manager.tsx` into dedicated context files, each with full test
+  coverage.
+- **Slice 2b — `TaskRow` extraction**: the per-row `<tr>` and its
+  sub-components (`TaskActions`, `NotesCell`, `DependencyChips`,
+  `RaidBadge`) extracted into `src/app/task-row.tsx` with `React.memo`
+  isolation.
+- **Shared `<Modal>` shell** extracted from duplicated modal JSX into
+  `src/app/modal.tsx`.
+- **`useDebounce` hook** extracted into `src/app/use-debounce.ts`.
+
 ## [0.7.1] "Kennedy" — 2026-05-17
 
 Developer test scaffolding. Dev-only change — no user-visible behavior
@@ -90,8 +135,9 @@ Prior feature-accretion milestone. (Quoted from `src/app/version.ts`:
 - ADF (Atlassian Document Format) ↔ notes round-tripping.
 - Resizable + collapsible workspace, resizable tasks table, header "+" task modal.
 
-[Unreleased]: # (no tag yet)
-[0.7.1]: # (no tag yet)
-[0.7.0]: # (no tag yet)
-[0.6.0]: # (no tag yet)
-[0.5.0]: # (no tag yet)
+[Unreleased]: https://gitlab.example.com/example-group/public-collab/lop-app/-/compare/v0.7.2...main
+[0.7.2]: https://gitlab.example.com/example-group/public-collab/lop-app/-/compare/v0.7.1...v0.7.2
+[0.7.1]: https://gitlab.example.com/example-group/public-collab/lop-app/-/compare/v0.7.0...v0.7.1
+[0.7.0]: # (no tag)
+[0.6.0]: # (no tag)
+[0.5.0]: # (no tag)
