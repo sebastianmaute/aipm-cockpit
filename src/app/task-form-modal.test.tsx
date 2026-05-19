@@ -39,7 +39,7 @@ function defaultProps() {
     holidaySet: new Set<string>(),
     jiraProjectKey: undefined,
     jiraDefaultIssueType: undefined,
-    modalRef: createRef<HTMLDivElement>(),
+    modalRef: createRef<HTMLDivElement | null>(),
     onSubmit: vi.fn(),
     onCancel: vi.fn(),
     onRemoveContact: vi.fn(),

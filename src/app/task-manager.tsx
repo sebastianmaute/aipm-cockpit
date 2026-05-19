@@ -73,8 +73,6 @@ const ShiftEditModal = dynamic(
   { ssr: false },
 );
 import { ComboInput } from "./combo-input";
-import { ContactInput } from "./contact-input";
-import { Modal } from "./modal";
 import {
   type ContactsMap,
   listContacts,
@@ -84,7 +82,6 @@ import {
   seedContactsFromTasks,
   upsertContact,
 } from "./contacts";
-import { DependenciesEditor } from "./dependencies-editor";
 import { LabelsInput } from "./labels-input";
 import {
   ASSIGNEE_MAX,
@@ -119,7 +116,6 @@ import {
   pickFileForBackend,
   requestWriteAccessForBackend,
 } from "./storage";
-import { SegmentedControl } from "./segmented-control";
 import {
   appendActivity,
   type ActivityEntry,
