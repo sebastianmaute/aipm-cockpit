@@ -82,7 +82,6 @@ import {
   upsertContact,
 } from "./contacts";
 import {
-  TASK_NAME_MAX,
   isPlainObject,
   sanitizeAssignee,
   sanitizeBlockers,
