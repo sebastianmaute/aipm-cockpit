@@ -309,9 +309,11 @@ function TaskManagerInner() {
     [],
   );
   const handleClearActivityLog = useCallback(() => {
+    if (activityLog.length === 0) return;
+    if (!window.confirm(t(settings.language, "confirmClearActivityLog", activityLog.length))) return;
     setActivityLog([]);
     clearActivityLogStorage();
-  }, []);
+  }, [activityLog.length, settings.language]);
 
   const [error, setError] = useState<string | null>(null);
   // Popout mode: when the URL carries `?popout=<tab>`, the window suppresses

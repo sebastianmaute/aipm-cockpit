@@ -80,6 +80,7 @@ export const de: Record<TranslationKey, string> = {
 
   confirmDelete: "Aufgabe #{0} löschen? Dies kann nicht rückgängig gemacht werden.",
   confirmClearAll: "Alle {0} Aufgaben löschen? Dies kann nicht rückgängig gemacht werden.",
+  confirmClearActivityLog: "Alle {0} Aktivitätsprotokoll-Einträge löschen? Dies kann nicht rückgängig gemacht werden.",
   promptEmail: "Keine E-Mail-Adresse für {0} gespeichert. Bitte E-Mail-Adresse eingeben:",
 
   emailSubject: "Update zur zugewiesenen Aufgabe: #{0} – {1}",

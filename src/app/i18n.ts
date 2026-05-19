@@ -75,6 +75,7 @@ const enUS = {
 
   confirmDelete: "Delete task #{0}? This cannot be undone.",
   confirmClearAll: "Delete all {0} tasks? This cannot be undone.",
+  confirmClearActivityLog: "Clear all {0} activity log entries? This cannot be undone.",
   promptEmail: "No email saved for {0}. Enter their email address:",
 
   emailSubject: "Update for assigned task: #{0} – {1}",
