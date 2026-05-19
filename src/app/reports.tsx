@@ -214,18 +214,9 @@ export function ReportsPanel({
     [tasks, today, holidaySet],
   );
 
-  if (stats.total === 0) {
-    return (
-      <div className="rounded-lg border border-dashed border-AIPM-light-grey p-10 text-center text-sm text-AIPM-medium-grey dark:border-zinc-800">
-        {t(lang, "reportsEmpty")}
-      </div>
-    );
-  }
-
-  const completedTotal = stats.completedOnTime + stats.completedLate;
-
   // Group tasks by `task.group`, then compute RAG per group. Sorted R → A → G
   // so the worst workstreams float to the top — the steering-committee view.
+  // Computed before the empty-state early return so hook order stays stable.
   const groupHealth = useMemo(() => {
     const buckets = new Map<string, Task[]>();
     for (const task of tasks) {
@@ -256,6 +247,16 @@ export function ReportsPanel({
     });
     return rows;
   }, [tasks, today, holidaySet, lang]);
+
+  if (stats.total === 0) {
+    return (
+      <div className="rounded-lg border border-dashed border-AIPM-light-grey p-10 text-center text-sm text-AIPM-medium-grey dark:border-zinc-800">
+        {t(lang, "reportsEmpty")}
+      </div>
+    );
+  }
+
+  const completedTotal = stats.completedOnTime + stats.completedLate;
 
   const groupDotClass: Record<Health, string> = {
     R: "bg-red-500",
