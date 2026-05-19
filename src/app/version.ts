@@ -1,3 +1,7 @@
+// 0.7.2 adds a confirm dialog before clearing the activity log, matching the
+// existing confirm-before-delete pattern on "Delete all tasks" and single-task
+// delete. Internal: TaskFormModal + BulkEditModal extracted from
+// task-manager.tsx (slice 4 refactor, no user-visible change).
 // 0.7.1 adds developer test scaffolding: Vitest + React Testing Library
 // for unit/component tests (`src/**/*.test.ts(x)`) and Playwright for E2E
 // (`e2e/**/*.spec.ts`). Coverage threshold set at 80%. Dev-only change —
@@ -16,8 +20,8 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.7.1";
-export const APP_BUILD_DATE = "2026-05-17";
+export const APP_VERSION = "0.7.2";
+export const APP_BUILD_DATE = "2026-05-19";
 export const APP_REPO_URL = "https://www.example.com";
 
 /** Translation keys for the high-level feature highlights shown in the

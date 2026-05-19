@@ -1,6 +1,6 @@
 # List of Open Points Tracker
 
-**v0.7.1** — Track open project items and draft status-inquiry emails for delayed tasks.
+**v0.7.2** — Track open project items and draft status-inquiry emails for delayed tasks.
 
 ## What It Does
 

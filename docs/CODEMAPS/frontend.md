@@ -1,4 +1,4 @@
-<!-- Generated: 2026-05-17 | Files scanned: ~50 (src/app/*.tsx, *.ts) | Token estimate: ~1000 -->
+<!-- Generated: 2026-05-19 | Files scanned: ~58 (src/app/*.tsx, *.ts) | Token estimate: ~1060 -->
 
 # Frontend
 
@@ -11,7 +11,7 @@ tabbed panels, and a network of inputs / menus.
 src/proxy.ts                 — middleware (per-request CSP nonce)
 src/app/layout.tsx           — root layout, security headers, globals.css
 └── src/app/page.tsx         — await connection(); renders <TaskManager />
-    └── src/app/task-manager.tsx   (~4,500 lines; container for everything)
+    └── src/app/task-manager.tsx   (~3,517 lines; container for everything)
         ├── header (+ button → task modal, ExportMenu, HelpMenu,
         │           VersionMenu, SettingsMenu, VoiceCommandButton)
         ├── banner / due-modal     (notifications.tsx)
@@ -29,8 +29,10 @@ src/app/layout.tsx           — root layout, security headers, globals.css
             ├── tbody (non-virtualized; full render of filteredSortedTasks)
             └── per-row actions (mark complete, send inquiry, Jira push…)
 
-Modals (all dynamic-imported, only mounted while open):
-  JiraConflictsModal, AbsenceEditModal, ShiftEditModal
+Modals:
+  TaskFormModal      (task-form-modal.tsx)   — statically imported; renders null when closed
+  BulkEditModal      (bulk-edit-modal.tsx)   — statically imported; renders null when closed
+  JiraConflictsModal, AbsenceEditModal, ShiftEditModal — dynamic-imported, only mounted while open
 ```
 
 ★ = conditional mount (only when its tab is active)
@@ -61,6 +63,8 @@ prerendered.
 
 | File | Role | Notes |
 |---|---|---|
+| `task-form-modal.tsx` | Task create/edit form inside a `<Modal>`; reads `form`, `setForm`, `editingId`, `taskModalOpen` from `useTaskForm()` | ~491 lines extracted from task-manager in slice 4; returns null when closed |
+| `bulk-edit-modal.tsx` | Bulk-edit dialog (apply field to N selected tasks); reads `bulkEdit`, `setBulkEdit`, `bulkEditOpen` from `useTaskForm()` | ~354 lines extracted from task-manager in slice 4; returns null when closed |
 | `gantt.tsx` | Visual timeline with bar drag, dependency arrows, critical path | conditional mount; consumes `absences` to grey out off-days |
 | `raid-panel.tsx` | Risks/Assumptions/Issues/Dependencies log | `memo()`-wrapped; mounted-but-hidden |
 | `reports.tsx` | Stats by group, label, status, on-time vs late | conditional mount |

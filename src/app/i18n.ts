@@ -415,7 +415,7 @@ const enUS = {
     "Capacity planning for assignees. Toggle between List view (per-assignee stats — open tasks, overdue, upcoming absences, configured shift) and Calendar view (30-day grid of tasks, absences, and holidays per assignee). Add a shift to set someone's hours per weekday; add an absence to block vacation, sick days, training, or other off-time. Resource data lives in the same storage backend as tasks.",
   helpSecActivityTitle: "Activity log",
   helpSecActivityBody:
-    "Append-only log of task, RAID, absence, and shift changes in this browser. Sort by time / kind, filter by entity group, and search by text, wildcard (`*`, `?`), or regex. Useful for audit-style review after bulk edits or Jira syncs. The log lives in this browser only — it is never written to any export file — and trims the oldest entries when it exceeds 500.",
+    "Append-only log of task, RAID, absence, and shift changes in this browser. Sort by time / kind, filter by entity group, and search by text, wildcard (`*`, `?`), or regex. Useful for audit-style review after bulk edits or Jira syncs. The log lives in this browser only — it is never written to any export file — and trims the oldest entries when it exceeds 500. \"Clear log\" asks for confirmation before deleting all entries.",
   helpSecVoiceTitle: "Voice commands",
   helpSecVoiceBody:
     "Click the microphone in the header and try:\n• \"add task review the deck\"\n• \"edit task 2\"\n• \"delete task 3\"\n• \"send inquiry for task 5\"\n• \"search blockers\" / \"clear search\"\n• \"switch to German\"\nIndividual text fields also have an inline microphone for dictation.",
