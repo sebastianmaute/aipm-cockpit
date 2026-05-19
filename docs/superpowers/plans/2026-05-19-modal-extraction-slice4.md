@@ -124,7 +124,7 @@ function Probe({
 
 function defaultProps() {
   return {
-    lang: "en" as const,
+    lang: "en-US" as const,
     today: "2026-05-19",
     nextId: 1,
     contactsList: [],
@@ -583,7 +583,7 @@ function defaultProps(
   }> = {},
 ) {
   return {
-    lang: "en" as const,
+    lang: "en-US" as const,
     today: "2026-05-19",
     selectedIds: overrides.selectedIds ?? new Set<number>([1]),
     selectedJiraCount: overrides.selectedJiraCount ?? 0,

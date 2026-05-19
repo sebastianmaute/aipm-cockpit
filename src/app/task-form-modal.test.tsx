@@ -25,7 +25,7 @@ function Probe({
 
 function defaultProps() {
   return {
-    lang: "en" as const,
+    lang: "en-US" as const,
     today: "2026-05-19",
     nextId: 1,
     contactsList: [],
