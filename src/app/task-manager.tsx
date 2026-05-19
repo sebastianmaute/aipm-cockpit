@@ -72,7 +72,6 @@ const ShiftEditModal = dynamic(
   () => import("./shift-edit-modal").then((m) => m.ShiftEditModal),
   { ssr: false },
 );
-import { ComboInput } from "./combo-input";
 import {
   type ContactsMap,
   listContacts,
@@ -82,13 +81,8 @@ import {
   seedContactsFromTasks,
   upsertContact,
 } from "./contacts";
-import { LabelsInput } from "./labels-input";
 import {
-  ASSIGNEE_MAX,
-  EMAIL_MAX,
-  GROUP_MAX,
   TASK_NAME_MAX,
-  TEXTAREA_MAX,
   isPlainObject,
   sanitizeAssignee,
   sanitizeBlockers,
@@ -155,6 +149,7 @@ import {
   emptyForm,
   useTaskForm,
 } from "./task-form-context";
+import { BulkEditModal } from "./bulk-edit-modal";
 import { TaskFormModal } from "./task-form-modal";
 import {
   RowContextProvider,
@@ -3109,278 +3104,16 @@ function TaskManagerInner() {
           </div>
         )}
 
-        {bulkEditOpen && selectedIds.size > 0 && (
-          <div className="mb-4 rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-            <h3 className="mb-4 text-lg font-medium text-zinc-900 dark:text-zinc-100">
-              {selectedIds.size === 1
-                ? t(lang, "bulkEditTitleOne")
-                : t(lang, "bulkEditTitleMany", selectedIds.size)}
-            </h3>
-
-            <div className="space-y-4">
-              <BulkEditFieldRow
-                id="bulk-priority"
-                label={t(lang, "priority")}
-                enabled={bulkEdit.enabled.priority}
-                onToggle={() =>
-                  setBulkEdit((b) => ({
-                    ...b,
-                    enabled: { ...b.enabled, priority: !b.enabled.priority },
-                  }))
-                }
-              >
-                <select
-                  value={bulkEdit.priority}
-                  onChange={(e) =>
-                    setBulkEdit((b) => ({
-                      ...b,
-                      priority: e.target.value as Priority,
-                    }))
-                  }
-                  disabled={!bulkEdit.enabled.priority}
-                  className={`${inputClass} disabled:opacity-50`}
-                >
-                  {PRIORITIES.map((p) => (
-                    <option key={p} value={p}>
-                      {priorityLabel(lang, p)}
-                    </option>
-                  ))}
-                </select>
-              </BulkEditFieldRow>
-
-              <BulkEditFieldRow
-                id="bulk-due-date"
-                label={t(lang, "dueDate")}
-                enabled={bulkEdit.enabled.dueDate}
-                onToggle={() =>
-                  setBulkEdit((b) => ({
-                    ...b,
-                    enabled: { ...b.enabled, dueDate: !b.enabled.dueDate },
-                  }))
-                }
-              >
-                <input
-                  type="date"
-                  min={today}
-                  value={bulkEdit.dueDate}
-                  onChange={(e) =>
-                    setBulkEdit((b) => ({ ...b, dueDate: e.target.value }))
-                  }
-                  disabled={!bulkEdit.enabled.dueDate}
-                  className={`${inputClass} disabled:opacity-50`}
-                />
-              </BulkEditFieldRow>
-
-              <BulkEditFieldRow
-                id="bulk-last-update"
-                label={t(lang, "lastUpdateDate")}
-                enabled={bulkEdit.enabled.lastUpdateDate}
-                onToggle={() =>
-                  setBulkEdit((b) => ({
-                    ...b,
-                    enabled: {
-                      ...b.enabled,
-                      lastUpdateDate: !b.enabled.lastUpdateDate,
-                    },
-                  }))
-                }
-              >
-                <input
-                  type="date"
-                  value={bulkEdit.lastUpdateDate}
-                  onChange={(e) =>
-                    setBulkEdit((b) => ({
-                      ...b,
-                      lastUpdateDate: e.target.value,
-                    }))
-                  }
-                  disabled={!bulkEdit.enabled.lastUpdateDate}
-                  className={`${inputClass} disabled:opacity-50`}
-                />
-              </BulkEditFieldRow>
-
-              <BulkEditFieldRow
-                id="bulk-assignee"
-                label={t(lang, "assignee")}
-                enabled={bulkEdit.enabled.assignee && selectedJiraCount === 0}
-                onToggle={() => {
-                  if (selectedJiraCount > 0) {
-                    window.alert(
-                      t(lang, "jiraBulkAssigneeBlocked", selectedJiraCount),
-                    );
-                    return;
-                  }
-                  setBulkEdit((b) => ({
-                    ...b,
-                    enabled: { ...b.enabled, assignee: !b.enabled.assignee },
-                  }));
-                }}
-              >
-                <input
-                  type="text"
-                  maxLength={ASSIGNEE_MAX}
-                  value={bulkEdit.assignee}
-                  onChange={(e) =>
-                    setBulkEdit((b) => ({ ...b, assignee: e.target.value }))
-                  }
-                  placeholder={t(lang, "placeholderAssignee")}
-                  disabled={
-                    !bulkEdit.enabled.assignee || selectedJiraCount > 0
-                  }
-                  className={`${inputClass} disabled:opacity-50`}
-                />
-                {selectedJiraCount > 0 && (
-                  <p className="mt-1 text-xs italic text-AIPM-medium-grey">
-                    🔒 {t(lang, "jiraBulkAssigneeBlocked", selectedJiraCount)}
-                  </p>
-                )}
-              </BulkEditFieldRow>
-
-              <BulkEditFieldRow
-                id="bulk-email"
-                label={t(lang, "email")}
-                enabled={bulkEdit.enabled.assigneeEmail}
-                onToggle={() =>
-                  setBulkEdit((b) => ({
-                    ...b,
-                    enabled: {
-                      ...b.enabled,
-                      assigneeEmail: !b.enabled.assigneeEmail,
-                    },
-                  }))
-                }
-              >
-                <input
-                  type="email"
-                  maxLength={EMAIL_MAX}
-                  value={bulkEdit.assigneeEmail}
-                  onChange={(e) =>
-                    setBulkEdit((b) => ({
-                      ...b,
-                      assigneeEmail: e.target.value,
-                    }))
-                  }
-                  placeholder={t(lang, "placeholderEmail")}
-                  disabled={!bulkEdit.enabled.assigneeEmail}
-                  className={`${inputClass} disabled:opacity-50`}
-                />
-              </BulkEditFieldRow>
-
-              <BulkEditFieldRow
-                id="bulk-blockers"
-                label={t(lang, "blockers")}
-                enabled={bulkEdit.enabled.blockers}
-                onToggle={() =>
-                  setBulkEdit((b) => ({
-                    ...b,
-                    enabled: { ...b.enabled, blockers: !b.enabled.blockers },
-                  }))
-                }
-              >
-                <textarea
-                  rows={2}
-                  maxLength={TEXTAREA_MAX}
-                  value={bulkEdit.blockers}
-                  onChange={(e) =>
-                    setBulkEdit((b) => ({ ...b, blockers: e.target.value }))
-                  }
-                  placeholder={t(lang, "placeholderBlockers")}
-                  disabled={!bulkEdit.enabled.blockers}
-                  className={`${inputClass} disabled:opacity-50`}
-                />
-              </BulkEditFieldRow>
-
-              <BulkEditFieldRow
-                id="bulk-notes"
-                label={t(lang, "notes")}
-                enabled={bulkEdit.enabled.notes}
-                onToggle={() =>
-                  setBulkEdit((b) => ({
-                    ...b,
-                    enabled: { ...b.enabled, notes: !b.enabled.notes },
-                  }))
-                }
-              >
-                <textarea
-                  rows={3}
-                  maxLength={TEXTAREA_MAX}
-                  value={bulkEdit.notes}
-                  onChange={(e) =>
-                    setBulkEdit((b) => ({ ...b, notes: e.target.value }))
-                  }
-                  placeholder={t(lang, "placeholderNotes")}
-                  disabled={!bulkEdit.enabled.notes}
-                  className={`${inputClass} disabled:opacity-50`}
-                />
-              </BulkEditFieldRow>
-
-              <BulkEditFieldRow
-                id="bulk-group"
-                label={t(lang, "group")}
-                enabled={bulkEdit.enabled.group}
-                onToggle={() =>
-                  setBulkEdit((b) => ({
-                    ...b,
-                    enabled: { ...b.enabled, group: !b.enabled.group },
-                  }))
-                }
-              >
-                <ComboInput
-                  lang={lang}
-                  value={bulkEdit.group}
-                  suggestions={uniqueGroups}
-                  onChange={(group) =>
-                    setBulkEdit((b) => ({ ...b, group }))
-                  }
-                  placeholder={t(lang, "placeholderGroup")}
-                  maxLength={GROUP_MAX}
-                  disabled={!bulkEdit.enabled.group}
-                />
-              </BulkEditFieldRow>
-
-              <BulkEditFieldRow
-                id="bulk-labels"
-                label={t(lang, "labels")}
-                enabled={bulkEdit.enabled.labels}
-                onToggle={() =>
-                  setBulkEdit((b) => ({
-                    ...b,
-                    enabled: { ...b.enabled, labels: !b.enabled.labels },
-                  }))
-                }
-              >
-                <LabelsInput
-                  lang={lang}
-                  value={bulkEdit.labels}
-                  suggestions={uniqueLabels}
-                  onChange={(labels) =>
-                    setBulkEdit((b) => ({ ...b, labels }))
-                  }
-                  disabled={!bulkEdit.enabled.labels}
-                />
-              </BulkEditFieldRow>
-            </div>
-
-            <div className="mt-6 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={cancelBulkEdit}
-                className="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 shadow-sm hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
-              >
-                {t(lang, "cancel")}
-              </button>
-              <button
-                type="button"
-                onClick={applyBulkEdit}
-                className="rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white shadow-sm hover:opacity-90"
-              >
-                {selectedIds.size === 1
-                  ? t(lang, "bulkApplyOne")
-                  : t(lang, "bulkApplyMany", selectedIds.size)}
-              </button>
-            </div>
-          </div>
-        )}
+        <BulkEditModal
+          lang={lang}
+          today={today}
+          selectedIds={selectedIds}
+          selectedJiraCount={selectedJiraCount}
+          uniqueGroups={uniqueGroups}
+          uniqueLabels={uniqueLabels}
+          onApply={applyBulkEdit}
+          onCancel={cancelBulkEdit}
+        />
 
         </div>{/* end shrink-0 */}
 
@@ -3782,37 +3515,3 @@ function SortableTh({
   );
 }
 
-function BulkEditFieldRow({
-  id,
-  label,
-  enabled,
-  onToggle,
-  children,
-}: {
-  id: string;
-  label: string;
-  enabled: boolean;
-  onToggle: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="flex items-start gap-3">
-      <input
-        id={id}
-        type="checkbox"
-        checked={enabled}
-        onChange={onToggle}
-        className="mt-2 h-4 w-4 cursor-pointer rounded border-zinc-300 text-AIPM-dark-blue focus:ring-AIPM-dark-blue dark:border-zinc-600 dark:bg-zinc-800"
-      />
-      <div className="min-w-0 flex-1">
-        <label
-          htmlFor={id}
-          className="mb-1 block cursor-pointer text-sm font-medium text-zinc-700 dark:text-zinc-300"
-        >
-          {label}
-        </label>
-        {children}
-      </div>
-    </div>
-  );
-}

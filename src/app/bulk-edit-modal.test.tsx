@@ -1,6 +1,7 @@
 import { describe, test, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { type ReactNode } from "react";
+import { t } from "./i18n";
 import { TaskFormProvider, useTaskForm } from "./task-form-context";
 import { BulkEditModal } from "./bulk-edit-modal";
 
@@ -64,5 +65,99 @@ describe("BulkEditModal", () => {
     );
     expect(container.querySelector("h3")).toBeNull();
     expect(screen.queryByRole("button")).toBeNull();
+  });
+
+  test("renders the heading when exactly one row is selected", () => {
+    bulkOpenedRef.current = false;
+    render(
+      <TaskFormProvider>
+        <Probe openBulk={true}>
+          <BulkEditModal {...defaultProps({ selectedIds: new Set([1]) })} />
+        </Probe>
+      </TaskFormProvider>,
+    );
+    expect(screen.getByRole("heading", { level: 3 })).toBeInTheDocument();
+  });
+
+  test("renders the count in the heading when multiple rows are selected", () => {
+    bulkOpenedRef.current = false;
+    render(
+      <TaskFormProvider>
+        <Probe openBulk={true}>
+          <BulkEditModal {...defaultProps({ selectedIds: new Set([1, 2, 3]) })} />
+        </Probe>
+      </TaskFormProvider>,
+    );
+    // Plural title interpolates the count in any language. Substring match
+    // on "3" is robust to translations of the surrounding phrase.
+    expect(
+      screen.getByRole("heading", { level: 3 }).textContent ?? "",
+    ).toMatch(/3/);
+  });
+
+  test("cancel button fires onCancel exactly once", () => {
+    bulkOpenedRef.current = false;
+    const props = defaultProps();
+    render(
+      <TaskFormProvider>
+        <Probe openBulk={true}>
+          <BulkEditModal {...props} />
+        </Probe>
+      </TaskFormProvider>,
+    );
+    // Resolve by accessible name — the cancel button renders t(lang,"cancel").
+    const cancel = screen.getByRole("button", { name: t("en-US", "cancel") });
+    cancel.click();
+    expect(props.onCancel).toHaveBeenCalledTimes(1);
+  });
+
+  test("apply button fires onApply exactly once", () => {
+    bulkOpenedRef.current = false;
+    const props = defaultProps({ selectedIds: new Set([1]) });
+    render(
+      <TaskFormProvider>
+        <Probe openBulk={true}>
+          <BulkEditModal {...props} />
+        </Probe>
+      </TaskFormProvider>,
+    );
+    const buttons = screen.getAllByRole("button");
+    const apply = buttons.find((b) =>
+      (b.className ?? "").includes("bg-AIPM-dark-blue"),
+    );
+    expect(apply).toBeDefined();
+    apply!.click();
+    expect(props.onApply).toHaveBeenCalledTimes(1);
+  });
+
+  test("toggling the priority row updates bulkEdit.enabled.priority via setBulkEdit", () => {
+    bulkOpenedRef.current = false;
+    const captured: { enabledPriority?: boolean } = {};
+
+    function Spy() {
+      const { bulkEdit } = useTaskForm();
+      captured.enabledPriority = bulkEdit.enabled.priority;
+      return null;
+    }
+
+    render(
+      <TaskFormProvider>
+        <Probe openBulk={true}>
+          <BulkEditModal {...defaultProps()} />
+          <Spy />
+        </Probe>
+      </TaskFormProvider>,
+    );
+
+    expect(captured.enabledPriority).toBe(false);
+
+    // BulkEditFieldRow renders an <input type="checkbox" id={id}> toggle.
+    // The priority row uses id="bulk-priority".
+    const toggle = document.getElementById("bulk-priority") as
+      | HTMLInputElement
+      | null;
+    expect(toggle).not.toBeNull();
+    toggle!.click();
+    expect(captured.enabledPriority).toBe(true);
   });
 });
