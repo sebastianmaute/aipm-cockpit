@@ -154,6 +154,12 @@ import {
 } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import {
+  TaskFormProvider,
+  emptyBulkEdit,
+  emptyForm,
+  useTaskForm,
+} from "./task-form-context";
+import {
   RowContextProvider,
   TaskRow,
   type RowContextValue,
@@ -264,62 +270,6 @@ function todayISO() {
   return new Date().toISOString().slice(0, 10);
 }
 
-function emptyForm() {
-  return {
-    taskName: "",
-    assignee: "",
-    assigneeEmail: "",
-    startDate: "",
-    dueDate: "",
-    lastUpdateDate: todayISO(),
-    priority: "Medium" as Priority,
-    blockers: "",
-    notes: "",
-    group: "",
-    labels: [] as string[],
-    dependencies: [] as TaskDependency[],
-    pushToJira: false,
-    // Empty string = "Auto" (no override). Mapped to undefined on save.
-    healthOverride: "" as "" | Health,
-  };
-}
-
-type BulkEditField =
-  | "priority"
-  | "dueDate"
-  | "lastUpdateDate"
-  | "assignee"
-  | "assigneeEmail"
-  | "blockers"
-  | "notes"
-  | "group"
-  | "labels";
-
-function emptyBulkEdit() {
-  return {
-    enabled: {
-      priority: false,
-      dueDate: false,
-      lastUpdateDate: false,
-      assignee: false,
-      assigneeEmail: false,
-      blockers: false,
-      notes: false,
-      group: false,
-      labels: false,
-    } as Record<BulkEditField, boolean>,
-    priority: "Medium" as Priority,
-    dueDate: "",
-    lastUpdateDate: todayISO(),
-    assignee: "",
-    assigneeEmail: "",
-    blockers: "",
-    notes: "",
-    group: "",
-    labels: [] as string[],
-  };
-}
-
 function isValidEmail(s: string): boolean {
   return /^\S+@\S+\.\S+$/.test(s.trim());
 }
@@ -344,7 +294,6 @@ function TaskManagerInner() {
   const [absences, setAbsences] = useState<Absence[]>([]);
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [settings, setSettings] = useState<Settings>(defaultSettings);
-  const [form, setForm] = useState(emptyForm);
   const [hydrated, setHydrated] = useState(false);
   // Gates the JSX return below. `t()` falls back to en-US for German keys
   // until the de dict is dynamically imported, so for a de user we render
@@ -377,7 +326,6 @@ function TaskManagerInner() {
     clearActivityLogStorage();
   }, []);
 
-  const [editingId, setEditingId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   // Popout mode: when the URL carries `?popout=<tab>`, the window suppresses
   // the page header / banner / task table / footer and renders only the
@@ -387,9 +335,6 @@ function TaskManagerInner() {
   const [popoutTab] = useState<PopoutTab | null>(() => readPopoutTabFromUrl());
   const isPopout = popoutTab !== null;
   const [activeTab, setActiveTab] = useState<TopTab>(popoutTab ?? "chat");
-  // The new-task / edit-task form is no longer a workspace tab — it lives
-  // in a modal that is opened by the header "+" button or by editing a row.
-  const [taskModalOpen, setTaskModalOpen] = useState(false);
   // Collapsed state for the workspace section. When true, only the tab
   // strip (with the expand chevron) is visible — panels are hidden and the
   // section drops to its intrinsic height with no resize handle. The
@@ -448,13 +393,29 @@ function TaskManagerInner() {
     filteredSortedTasks,
   } = useWorkspace();
 
+  // Form / modal state owned by TaskFormProvider (Slice 3 of the
+  // task-manager decomposition; see
+  // docs/superpowers/specs/2026-05-18-task-form-context-slice3-design.md).
+  // The default export wraps this component in <TaskFormProvider> inside
+  // <WorkspaceProvider>.
+  const {
+    form,
+    setForm,
+    editingId,
+    setEditingId,
+    taskModalOpen,
+    setTaskModalOpen,
+    bulkEdit,
+    setBulkEdit,
+    bulkEditOpen,
+    setBulkEditOpen,
+  } = useTaskForm();
+
   const [toast, setToast] = useState<
     { kind: "info" | "error"; text: string; id: number } | null
   >(null);
 
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
-  const [bulkEditOpen, setBulkEditOpen] = useState(false);
-  const [bulkEdit, setBulkEdit] = useState(emptyBulkEdit);
 
   const [storageDescription, setStorageDescription] = useState<string | null>(
     null,
@@ -3986,7 +3947,9 @@ export default function TaskManager() {
   return (
     <FiltersProvider>
       <WorkspaceProvider>
-        <TaskManagerInner />
+        <TaskFormProvider>
+          <TaskManagerInner />
+        </TaskFormProvider>
       </WorkspaceProvider>
     </FiltersProvider>
   );
