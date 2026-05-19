@@ -46,4 +46,33 @@ describe("TaskFormProvider", () => {
     expect(result.current.form.taskName).toBe("");
     expect(result.current.form.assignee).toBe("");
   });
+
+  test("modal toggles and setEditingId work as a cluster", () => {
+    const { result } = renderHook(() => useTaskForm(), { wrapper });
+
+    // Enter "edit task #7" mode.
+    act(() => {
+      result.current.setEditingId(7);
+      result.current.setTaskModalOpen(true);
+    });
+    expect(result.current.editingId).toBe(7);
+    expect(result.current.taskModalOpen).toBe(true);
+
+    // Close modal — editingId is NOT auto-reset.
+    act(() => result.current.setTaskModalOpen(false));
+    expect(result.current.taskModalOpen).toBe(false);
+    expect(result.current.editingId).toBe(7);
+
+    // Bulk-edit cluster mirrors the same pattern.
+    act(() => {
+      result.current.setBulkEdit((prev) => ({ ...prev, priority: "Urgent" }));
+      result.current.setBulkEditOpen(true);
+    });
+    expect(result.current.bulkEdit.priority).toBe("Urgent");
+    expect(result.current.bulkEditOpen).toBe(true);
+
+    act(() => result.current.setBulkEditOpen(false));
+    expect(result.current.bulkEditOpen).toBe(false);
+    expect(result.current.bulkEdit.priority).toBe("Urgent");
+  });
 });
