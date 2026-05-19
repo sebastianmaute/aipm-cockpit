@@ -661,8 +661,7 @@ function parseCsv(text: string): string[][] {
 /**
  * Splits a marker-segmented CSV into its tasks / raid / absences / shifts
  * sections. A "marker" is a line whose first cell starts with "# TASKS",
- * "# RAID", "# ABSENCES", or "# SHIFTS". Files without markers (older
- * format) collapse to tasksText = whole input, the other sections = empty.
+ * "# RAID", "# ABSENCES", or "# SHIFTS".
  */
 function splitCsvSections(csv: string): {
   tasksText: string;
@@ -672,7 +671,6 @@ function splitCsvSections(csv: string): {
 } {
   const lines = csv.split(/\r?\n/);
   let mode: "tasks" | "raid" | "absences" | "shifts" | null = null;
-  let sawAnyMarker = false;
   const tasksLines: string[] = [];
   const raidLines: string[] = [];
   const absencesLines: string[] = [];
@@ -681,29 +679,25 @@ function splitCsvSections(csv: string): {
     const trimmed = line.trimStart();
     if (trimmed.startsWith(CSV_SECTION_TASKS)) {
       mode = "tasks";
-      sawAnyMarker = true;
       continue;
     }
     if (trimmed.startsWith(CSV_SECTION_RAID)) {
       mode = "raid";
-      sawAnyMarker = true;
       continue;
     }
     if (trimmed.startsWith(CSV_SECTION_ABSENCES)) {
       mode = "absences";
-      sawAnyMarker = true;
       continue;
     }
     if (trimmed.startsWith(CSV_SECTION_SHIFTS)) {
       mode = "shifts";
-      sawAnyMarker = true;
       continue;
     }
     if (mode === "shifts") shiftsLines.push(line);
     else if (mode === "absences") absencesLines.push(line);
     else if (mode === "raid") raidLines.push(line);
-    else if (mode === "tasks" || !sawAnyMarker) tasksLines.push(line);
-    // (else: a leading blank/comment before any marker; drop it.)
+    else if (mode === "tasks") tasksLines.push(line);
+    // (else: line before the first marker — drop it.)
   }
   return {
     tasksText: tasksLines.join("\r\n"),
@@ -987,9 +981,7 @@ function splitMdRow(line: string): string[] {
 
 /**
  * Splits a workspace markdown into its tasks / raid / absences / shifts
- * sections by H1 heading. Files without a `# RAID Log` / `# Absences` /
- * `# Shifts` heading produce empty arrays for those sections (back-compat
- * with pre-RAID / pre-absences / pre-shifts formats).
+ * sections by H1 heading. Sections absent from the file produce empty arrays.
  */
 function splitMarkdownSections(md: string): {
   tasksMd: string;
@@ -1669,38 +1661,32 @@ class LocalFileBackend implements StorageBackend {
     if (this.format === "json") {
       try {
         const parsed = JSON.parse(text);
-        // Back-compat: a bare array is a pre-RAID tasks file.
-        if (Array.isArray(parsed)) {
-          return {
-            tasks: parsed as Task[],
-            raid: [],
-            absences: [],
-            shifts: [],
+        // Envelope shape: { schemaVersion, tasks, raid, absences, shifts }.
+        if (
+          parsed &&
+          typeof parsed === "object" &&
+          !Array.isArray(parsed) &&
+          Array.isArray((parsed as { tasks?: unknown }).tasks) &&
+          Array.isArray((parsed as { raid?: unknown }).raid) &&
+          Array.isArray((parsed as { absences?: unknown }).absences) &&
+          Array.isArray((parsed as { shifts?: unknown }).shifts)
+        ) {
+          const p = parsed as {
+            tasks: Task[];
+            raid: RaidItem[];
+            absences: unknown[];
+            shifts: unknown[];
           };
-        }
-        // Envelope shape: { schemaVersion, tasks, raid, absences?, shifts? }.
-        // v2 files have no absences/shifts; v3 has absences but no shifts —
-        // missing fields default to [].
-        if (parsed && typeof parsed === "object") {
-          const tasks = Array.isArray((parsed as { tasks?: unknown }).tasks)
-            ? ((parsed as { tasks: Task[] }).tasks)
-            : [];
-          const raid = Array.isArray((parsed as { raid?: unknown }).raid)
-            ? ((parsed as { raid: RaidItem[] }).raid)
-            : [];
-          const rawAbsences = (parsed as { absences?: unknown }).absences;
-          const absences: Absence[] = Array.isArray(rawAbsences)
-            ? rawAbsences
-                .map((a) => sanitizeAbsence(a))
-                .filter((a): a is Absence => a !== null)
-            : [];
-          const rawShifts = (parsed as { shifts?: unknown }).shifts;
-          const shifts: Shift[] = Array.isArray(rawShifts)
-            ? rawShifts
-                .map((s) => sanitizeShift(s))
-                .filter((s): s is Shift => s !== null)
-            : [];
-          return { tasks, raid, absences, shifts };
+          return {
+            tasks: p.tasks,
+            raid: p.raid,
+            absences: p.absences
+              .map((a) => sanitizeAbsence(a))
+              .filter((a): a is Absence => a !== null),
+            shifts: p.shifts
+              .map((s) => sanitizeShift(s))
+              .filter((s): s is Shift => s !== null),
+          };
         }
         return { tasks: [], raid: [], absences: [], shifts: [] };
       } catch {

@@ -16,6 +16,7 @@
 /playwright-report
 /playwright/.cache
 /blob-report
+/.playwright-mcp
 
 # next.js
 /.next/
@@ -44,3 +45,10 @@ dev.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# claude
+/.claude
+/.reports
+
+# skills
+/docs/superpowers/*
