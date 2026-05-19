@@ -33,4 +33,17 @@ describe("TaskFormProvider", () => {
     expect(result.current.form.assignee).toBe("");
     expect(result.current.form.priority).toBe("Medium");
   });
+
+  test("setForm accepts an updater function", () => {
+    const { result } = renderHook(() => useTaskForm(), { wrapper });
+
+    act(() =>
+      result.current.setForm((prev) => ({ ...prev, priority: "High" })),
+    );
+
+    expect(result.current.form.priority).toBe("High");
+    // Other fields should still be defaults.
+    expect(result.current.form.taskName).toBe("");
+    expect(result.current.form.assignee).toBe("");
+  });
 });
