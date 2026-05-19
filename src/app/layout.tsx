@@ -24,6 +24,7 @@ export default function RootLayout({
     <html
       lang="en"
       className={`${titillium.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col font-[var(--font-titillium)]">
         {children}
