@@ -120,6 +120,6 @@ export function TaskFormProvider({ children }: { children: ReactNode }) {
 
 export function useTaskForm(): TaskFormValue {
   const ctx = useContext(TaskFormContext);
-  // Outside-provider behaviour is tightened in Task 5.
-  return ctx as TaskFormValue;
+  if (!ctx) throw new Error("useTaskForm must be used within TaskFormProvider");
+  return ctx;
 }

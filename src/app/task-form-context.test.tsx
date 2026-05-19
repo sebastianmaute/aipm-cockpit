@@ -75,4 +75,19 @@ describe("TaskFormProvider", () => {
     expect(result.current.bulkEditOpen).toBe(false);
     expect(result.current.bulkEdit.priority).toBe("Urgent");
   });
+
+  test("useTaskForm() outside a TaskFormProvider throws a documented error", () => {
+    // React logs the rendering error to console.error in dev; silence it
+    // so the test output stays clean. Restore after to avoid hiding
+    // unrelated noise from later tests.
+    const original = console.error;
+    console.error = () => {};
+    try {
+      expect(() => renderHook(() => useTaskForm())).toThrow(
+        "useTaskForm must be used within TaskFormProvider",
+      );
+    } finally {
+      console.error = original;
+    }
+  });
 });
