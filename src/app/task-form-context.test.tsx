@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import { renderHook } from "@testing-library/react";
+import { renderHook, act } from "@testing-library/react";
 import { type ReactNode } from "react";
 import {
   TaskFormProvider,
@@ -20,5 +20,17 @@ describe("TaskFormProvider", () => {
     expect(result.current.editingId).toBeNull();
     expect(result.current.taskModalOpen).toBe(false);
     expect(result.current.bulkEditOpen).toBe(false);
+  });
+
+  test("setForm accepts object replacement", () => {
+    const { result } = renderHook(() => useTaskForm(), { wrapper });
+
+    act(() =>
+      result.current.setForm({ ...emptyForm(), taskName: "hello" }),
+    );
+
+    expect(result.current.form.taskName).toBe("hello");
+    expect(result.current.form.assignee).toBe("");
+    expect(result.current.form.priority).toBe("Medium");
   });
 });
