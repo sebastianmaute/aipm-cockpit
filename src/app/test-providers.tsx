@@ -13,7 +13,9 @@ function Seeder({ tasks }: { tasks: Task[] }) {
     if (seededRef.current) return;
     seededRef.current = true;
     if (tasks.length > 0) setTasks(tasks);
-  }, [tasks, setTasks]);
+    // Seed once on mount; subsequent `tasks` prop changes are intentionally ignored.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   return null;
 }
 
