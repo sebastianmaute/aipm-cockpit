@@ -1,5 +1,5 @@
 import { describe, test, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { createRef, type ReactNode } from "react";
 import { TaskFormProvider, useTaskForm } from "./task-form-context";
 import { TaskFormModal } from "./task-form-modal";
@@ -35,6 +35,10 @@ function defaultProps() {
     uniqueLabels: [],
     editingIsJiraLinked: false,
     jiraEnabled: false,
+    error: null,
+    holidaySet: new Set<string>(),
+    jiraProjectKey: undefined,
+    jiraDefaultIssueType: undefined,
     modalRef: createRef<HTMLDivElement>(),
     onSubmit: vi.fn(),
     onCancel: vi.fn(),
@@ -55,5 +59,54 @@ describe("TaskFormModal", () => {
     );
     expect(container.querySelector("form")).toBeNull();
     expect(screen.queryByRole("heading")).toBeNull();
+  });
+
+  test("renders header and form when modal is open", () => {
+    taskModalOpenedRef.current = false;
+    render(
+      <TaskFormProvider>
+        <Probe openModal={true}>
+          <TaskFormModal {...defaultProps()} />
+        </Probe>
+      </TaskFormProvider>,
+    );
+    expect(screen.getByRole("heading", { level: 2 })).toBeInTheDocument();
+    expect(document.querySelector("form")).not.toBeNull();
+  });
+
+  test("close button fires onCancel exactly once", () => {
+    taskModalOpenedRef.current = false;
+    const props = defaultProps();
+    render(
+      <TaskFormProvider>
+        <Probe openModal={true}>
+          <TaskFormModal {...props} />
+        </Probe>
+      </TaskFormProvider>,
+    );
+    // The header close button is the only button in the modal that carries
+    // an aria-label (it's t(lang, "alertModalClose")).
+    const closeButton = screen
+      .getAllByRole("button")
+      .find((b) => (b.getAttribute("aria-label") ?? "").length > 0);
+    expect(closeButton).toBeDefined();
+    closeButton!.click();
+    expect(props.onCancel).toHaveBeenCalledTimes(1);
+  });
+
+  test("submitting the form fires onSubmit", () => {
+    taskModalOpenedRef.current = false;
+    const props = defaultProps();
+    render(
+      <TaskFormProvider>
+        <Probe openModal={true}>
+          <TaskFormModal {...props} />
+        </Probe>
+      </TaskFormProvider>,
+    );
+    const form = document.querySelector("form");
+    expect(form).not.toBeNull();
+    fireEvent.submit(form!);
+    expect(props.onSubmit).toHaveBeenCalledTimes(1);
   });
 });

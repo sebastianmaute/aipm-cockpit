@@ -159,6 +159,7 @@ import {
   emptyForm,
   useTaskForm,
 } from "./task-form-context";
+import { TaskFormModal } from "./task-form-modal";
 import {
   RowContextProvider,
   TaskRow,
@@ -167,10 +168,6 @@ import {
 import { useResizable } from "./use-resizable";
 // voice-button is lazy-loaded — it transitively pulls the Web Speech API
 // shims in voice.ts which we only need when the user clicks the mic.
-const InlineMicButton = dynamic(
-  () => import("./voice-button").then((m) => m.InlineMicButton),
-  { ssr: false },
-);
 const VoiceCommandButton = dynamic(
   () => import("./voice-button").then((m) => m.VoiceCommandButton),
   { ssr: false },
@@ -2860,404 +2857,27 @@ function TaskManagerInner() {
         just the resizable panel surface (the `modalRef` carries the saved
         size via useResizable).
       */}
-      {taskModalOpen && (
-        <Modal
-          open
-          onClose={handleCancelEdit}
-          ariaLabel={
-            isEditing
-              ? t(lang, "tabEditTask", editingId!)
-              : t(lang, "tabNewTask")
-          }
-          backdropClassName="bg-AIPM-dark-blue/40 overflow-y-auto"
-        >
-          <div
-            ref={modalRef}
-            className="relative flex w-[700px] min-w-[460px] max-w-[95vw] resize flex-col overflow-hidden rounded-xl border border-AIPM-light-grey bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-950"
-          >
-            <header className="sticky top-0 z-10 flex shrink-0 items-center justify-between gap-4 border-b border-AIPM-light-grey bg-white px-6 py-4 dark:border-zinc-800 dark:bg-zinc-950">
-              <h2 className="text-lg font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
-                {isEditing
-                  ? t(lang, "tabEditTask", editingId!)
-                  : t(lang, "tabNewTask")}
-              </h2>
-              <button
-                type="button"
-                onClick={handleCancelEdit}
-                aria-label={t(lang, "alertModalClose")}
-                title={t(lang, "alertModalClose")}
-                className="rounded-md p-2 text-AIPM-dark-grey hover:bg-AIPM-light-grey hover:text-AIPM-dark-blue dark:text-AIPM-medium-grey dark:hover:bg-zinc-800 dark:hover:text-AIPM-light-grey"
-              >
-                <svg
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                  aria-hidden="true"
-                  className="h-4 w-4"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M4.28 4.28a.75.75 0 011.06 0L10 8.94l4.66-4.66a.75.75 0 111.06 1.06L11.06 10l4.66 4.66a.75.75 0 11-1.06 1.06L10 11.06l-4.66 4.66a.75.75 0 01-1.06-1.06L8.94 10 4.28 5.34a.75.75 0 010-1.06z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              </button>
-            </header>
-            <form
-              onSubmit={handleSubmit}
-              className="min-h-0 flex-1 overflow-y-auto grid grid-cols-1 gap-4 p-6 sm:grid-cols-2"
-            >
-          <Field label={t(lang, "id")}>
-            <input
-              type="text"
-              value={`#${isEditing ? editingId : nextId}`}
-              readOnly
-              className="w-full cursor-not-allowed rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400"
-            />
-          </Field>
-
-          <Field label={t(lang, "priority")}>
-            <SegmentedControl
-              value={form.priority}
-              ariaLabel={t(lang, "priority")}
-              options={PRIORITIES.map((p) => ({
-                value: p,
-                label: priorityLabel(lang, p),
-              }))}
-              onChange={(p) => setForm({ ...form, priority: p })}
-            />
-          </Field>
-
-          <Field
-            label={t(lang, "taskName")}
-            required
-            className="sm:col-span-2"
-          >
-            <div className="relative">
-              <input
-                type="text"
-                required
-                maxLength={TASK_NAME_MAX}
-                value={form.taskName}
-                onChange={(e) => setForm({ ...form, taskName: e.target.value })}
-                placeholder={t(lang, "placeholderTaskName")}
-                className={`${inputClass} pr-10`}
-              />
-              <InlineMicButton
-                lang={lang}
-                onTranscript={(text) => {
-                  const clean = sanitizeVoiceTranscript(text);
-                  setForm((prev) => ({
-                    ...prev,
-                    taskName: (prev.taskName
-                      ? `${prev.taskName} ${clean}`
-                      : clean
-                    ).slice(0, TASK_NAME_MAX),
-                  }));
-                }}
-                onError={(msg) => showToast("error", msg)}
-              />
-            </div>
-          </Field>
-
-          <Field label={t(lang, "assignee")} required>
-            {/*
-              ContactInput renders a text input + autocomplete popover of
-              previously-used (assignee, email) pairs. Picking a suggestion
-              fills BOTH the assignee field and the email field in one go.
-              Typing freely is still allowed; the suggestion is just a
-              convenience. Each row carries its own × to remove it from the
-              persisted address book.
-            */}
-            <ContactInput
-              lang={lang}
-              value={form.assignee}
-              contacts={contactsList}
-              onChangeName={(name) =>
-                setForm((prev) => ({ ...prev, assignee: name }))
-              }
-              onChangePair={(name, email) =>
-                setForm((prev) => ({
-                  ...prev,
-                  assignee: name,
-                  assigneeEmail: email,
-                }))
-              }
-              onRemoveContact={handleRemoveContact}
-              placeholder={t(lang, "placeholderAssignee")}
-              maxLength={ASSIGNEE_MAX}
-              disabled={editingIsJiraLinked}
-              title={
-                editingIsJiraLinked ? t(lang, "jiraManagedHint") : undefined
-              }
-            />
-            {editingIsJiraLinked && (
-              <p className="mt-1 text-xs italic text-AIPM-medium-grey">
-                🔒 {t(lang, "jiraManagedHint")}
-              </p>
-            )}
-          </Field>
-
-          <Field label={t(lang, "email")}>
-            <input
-              type="email"
-              maxLength={EMAIL_MAX}
-              value={form.assigneeEmail}
-              onChange={(e) =>
-                setForm({ ...form, assigneeEmail: e.target.value })
-              }
-              placeholder={t(lang, "placeholderEmail")}
-              className={inputClass}
-            />
-          </Field>
-
-          <Field label={t(lang, "startDate")}>
-            <input
-              type="date"
-              max={form.dueDate || undefined}
-              value={form.startDate}
-              onChange={(e) =>
-                setForm({ ...form, startDate: e.target.value })
-              }
-              className={inputClass}
-            />
-            <p className="mt-1 text-xs text-AIPM-medium-grey">
-              {t(lang, "startDateHint")}
-            </p>
-          </Field>
-
-          <Field label={t(lang, "dueDate")} required>
-            <input
-              type="date"
-              required
-              min={today}
-              value={form.dueDate}
-              onChange={(e) => setForm({ ...form, dueDate: e.target.value })}
-              className={inputClass}
-            />
-            {(() => {
-              // Phase 5 — non-blocking absence warning: when the due date
-              // falls inside any absence for the form's assignee, show a
-              // hint. Multiple overlaps render as one line each.
-              const assigneeKey = form.assignee.trim().toLowerCase();
-              const due = form.dueDate.trim();
-              if (!assigneeKey || !due) return null;
-              const hits = absences.filter(
-                (a) =>
-                  a.assignee.trim().toLowerCase() === assigneeKey &&
-                  due >= a.startDate &&
-                  due <= a.endDate,
-              );
-              if (hits.length === 0) return null;
-              return (
-                <div className="mt-1 space-y-0.5">
-                  {hits.map((a) => (
-                    <p
-                      key={a.id}
-                      className="text-xs text-amber-700 dark:text-amber-400"
-                    >
-                      {t(
-                        lang,
-                        "taskDueDateAbsenceWarning",
-                        a.assignee,
-                        a.type,
-                        a.startDate,
-                        a.endDate,
-                      )}
-                    </p>
-                  ))}
-                </div>
-              );
-            })()}
-          </Field>
-
-          <Field label={t(lang, "lastUpdateDate")}>
-            <input
-              type="date"
-              value={form.lastUpdateDate}
-              onChange={(e) =>
-                setForm({ ...form, lastUpdateDate: e.target.value })
-              }
-              className={inputClass}
-            />
-          </Field>
-
-          <Field label={t(lang, "group")}>
-            <ComboInput
-              lang={lang}
-              value={form.group}
-              suggestions={uniqueGroups}
-              onChange={(group) => setForm({ ...form, group })}
-              placeholder={t(lang, "placeholderGroup")}
-              maxLength={GROUP_MAX}
-            />
-          </Field>
-
-          <Field label={t(lang, "labels")}>
-            <LabelsInput
-              lang={lang}
-              value={form.labels}
-              suggestions={uniqueLabels}
-              onChange={(labels) => setForm({ ...form, labels })}
-            />
-          </Field>
-
-          <Field label={t(lang, "depDependencies")} className="sm:col-span-2">
-            <DependenciesEditor
-              lang={lang}
-              value={form.dependencies}
-              allTasks={tasks}
-              ownTaskId={editingId}
-              onChange={(dependencies) =>
-                setForm((prev) => ({ ...prev, dependencies }))
-              }
-            />
-          </Field>
-
-          <Field label={t(lang, "blockers")} className="sm:col-span-2">
-            <textarea
-              rows={2}
-              maxLength={TEXTAREA_MAX}
-              value={form.blockers}
-              onChange={(e) => setForm({ ...form, blockers: e.target.value })}
-              placeholder={t(lang, "placeholderBlockers")}
-              className={inputClass}
-            />
-          </Field>
-
-          <Field label={t(lang, "health")} className="sm:col-span-2">
-            {(() => {
-              // Show what the auto-rule would say so the user can decide
-              // whether to override it. Recomputed each render — cheap.
-              const previewTask: Task = {
-                id: editingId ?? 0,
-                taskName: form.taskName,
-                assignee: form.assignee,
-                assigneeEmail: form.assigneeEmail,
-                startDate: form.startDate || undefined,
-                dueDate: form.dueDate,
-                lastUpdateDate: form.lastUpdateDate,
-                priority: form.priority,
-                blockers: form.blockers,
-                notes: form.notes,
-                group: form.group,
-                labels: form.labels,
-                dependencies: form.dependencies,
-              };
-              const autoHealth = computeTaskHealth(previewTask, today, holidaySet);
-              const autoLabel = t(
-                lang,
-                "healthAutoCurrent",
-                healthColorName(autoHealth.color, lang),
-              );
-              const chipBase =
-                "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium focus:outline-none focus:ring-1";
-              const chipInactive =
-                "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800";
-              const chipActive: Record<Health, string> = {
-                R: "border-red-500 bg-red-50 text-red-700 dark:border-red-500 dark:bg-red-950/40 dark:text-red-300",
-                A: "border-amber-500 bg-amber-50 text-amber-800 dark:border-amber-500 dark:bg-amber-950/40 dark:text-amber-200",
-                G: "border-emerald-500 bg-emerald-50 text-emerald-800 dark:border-emerald-500 dark:bg-emerald-950/40 dark:text-emerald-200",
-              };
-              return (
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setForm({ ...form, healthOverride: "" })}
-                    aria-pressed={form.healthOverride === ""}
-                    className={`${chipBase} ${
-                      form.healthOverride === ""
-                        ? "border-AIPM-dark-blue bg-AIPM-light-grey text-AIPM-dark-blue dark:border-AIPM-blue dark:bg-zinc-800 dark:text-AIPM-light-grey"
-                        : chipInactive
-                    }`}
-                  >
-                    {autoLabel}
-                  </button>
-                  {HEALTH_VALUES.map((h) => (
-                    <button
-                      key={h}
-                      type="button"
-                      onClick={() => setForm({ ...form, healthOverride: h })}
-                      aria-pressed={form.healthOverride === h}
-                      className={`${chipBase} ${
-                        form.healthOverride === h ? chipActive[h] : chipInactive
-                      }`}
-                    >
-                      <span
-                        aria-hidden
-                        className={`inline-block h-2 w-2 rounded-full ${healthDot[h]}`}
-                      />
-                      {healthColorName(h, lang)}
-                    </button>
-                  ))}
-                </div>
-              );
-            })()}
-          </Field>
-
-          <Field label={t(lang, "notes")} className="sm:col-span-2">
-            <textarea
-              rows={3}
-              maxLength={TEXTAREA_MAX}
-              value={form.notes}
-              onChange={(e) => setForm({ ...form, notes: e.target.value })}
-              placeholder={t(lang, "placeholderNotes")}
-              className={inputClass}
-            />
-          </Field>
-
-          {error && (
-            <p
-              role="alert"
-              className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300 sm:col-span-2"
-            >
-              {error}
-            </p>
-          )}
-
-          {!isEditing &&
-            settings.jira.enabled &&
-            settings.jira.projectKey && (
-              <label className="flex items-center gap-2 text-sm text-AIPM-dark-grey sm:col-span-2 dark:text-AIPM-light-grey">
-                <input
-                  type="checkbox"
-                  checked={form.pushToJira}
-                  onChange={(e) =>
-                    setForm({ ...form, pushToJira: e.target.checked })
-                  }
-                  className="h-4 w-4 cursor-pointer rounded border-zinc-300 text-AIPM-dark-blue focus:ring-AIPM-dark-blue dark:border-zinc-600 dark:bg-zinc-800"
-                />
-                <span>
-                  {t(
-                    lang,
-                    "jiraCreateOnSubmit",
-                    settings.jira.projectKey,
-                    // Inlined: same as jira-api's defaultIssueTypeForCreate.
-                    settings.jira.issueTypes[0] ?? "Task",
-                  )}
-                </span>
-              </label>
-            )}
-          <div className="flex justify-end gap-2 sm:col-span-2">
-            {isEditing && (
-              <button
-                type="button"
-                onClick={handleCancelEdit}
-                className="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 shadow-sm hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
-              >
-                {t(lang, "cancel")}
-              </button>
-            )}
-            <button
-              type="submit"
-              className="rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white shadow-sm hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-AIPM-dark-blue focus:ring-offset-2"
-            >
-              {isEditing ? t(lang, "updateTask") : t(lang, "addTask")}
-            </button>
-          </div>
-            </form>
-          </div>
-        </Modal>
-      )}
+      <TaskFormModal
+        lang={lang}
+        today={today}
+        nextId={nextId}
+        contactsList={contactsList}
+        absences={absences}
+        tasksForDeps={tasks}
+        uniqueGroups={uniqueGroups}
+        uniqueLabels={uniqueLabels}
+        editingIsJiraLinked={editingIsJiraLinked}
+        jiraEnabled={settings.jira.enabled}
+        error={error}
+        holidaySet={holidaySet}
+        jiraProjectKey={settings.jira.projectKey}
+        jiraDefaultIssueType={settings.jira.issueTypes[0]}
+        modalRef={modalRef}
+        onSubmit={handleSubmit}
+        onCancel={handleCancelEdit}
+        onRemoveContact={handleRemoveContact}
+        onShowToast={showToast}
+      />
 
       {/*
         Tasks list section — wrapped in the same rounded-xl card surface as
@@ -4017,28 +3637,6 @@ function TabButton({
         </button>
       )}
     </div>
-  );
-}
-
-function Field({
-  label,
-  required,
-  className,
-  children,
-}: {
-  label: string;
-  required?: boolean;
-  className?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <label className={`block ${className ?? ""}`}>
-      <span className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-        {label}
-        {required && <span className="ml-0.5 text-red-500">*</span>}
-      </span>
-      {children}
-    </label>
   );
 }
 
