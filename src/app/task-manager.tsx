@@ -2413,12 +2413,6 @@ function TaskManagerInner() {
       : null;
   const editingIsJiraLinked = !!editingTask?.jiraKey;
 
-  // Render gate: hold first paint until the active-language dictionary is
-  // in memory. Lifts in the next microtask for en-US/en-GB (no fetch);
-  // briefly delays initial paint for de while ./i18n.de loads. Keeping
-  // this AFTER every hook so the rules-of-hooks invariant holds.
-  if (!i18nReady) return null;
-
   const rowContextValue = useMemo<RowContextValue>(
     () => ({
       lang,
@@ -2457,6 +2451,12 @@ function TaskManagerInner() {
       onDelete,
     ],
   );
+
+  // Render gate: hold first paint until the active-language dictionary is
+  // in memory. Lifts in the next microtask for en-US/en-GB (no fetch);
+  // briefly delays initial paint for de while ./i18n.de loads. Must come
+  // AFTER every hook so the rules-of-hooks invariant holds.
+  if (!i18nReady) return null;
 
   return (
     <div
