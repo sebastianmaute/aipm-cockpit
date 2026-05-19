@@ -35,6 +35,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   // Refs absorb every reactive value the dispatcher reads. Without these the
   // dispatcher would rebuild on every task/settings/today/editingId change,
   // which is the whole reason ChatPanel currently re-renders on form input.
+  // Refs seeded synchronously on first render; refreshed by the effects below.
   const tasksRef = useRef(tasks);
   const settingsRef = useRef(args.settings);
   const todayRef = useRef(args.today);
@@ -54,6 +55,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
 
   // Helpers live inside the hook — they're not consumed anywhere else.
   // Stubbed for now; filled in by later tasks.
+  // (Hoisted as useCallback for Tasks 3/5 ergonomics; other stubs stay inline.)
   const sendInquiry = useCallback(
     (_id: number): { sent: boolean; reason?: string } => {
       throw new Error("not implemented yet");
@@ -90,6 +92,9 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
       },
     }),
     // Empty deps: every reactive value is read via a ref. Identity is stable.
+    // Note: when Task 6 lands, audit whether any captured value still needs
+    // ref-routing; the eslint-disable stays as long as the empty-deps approach
+    // is intentional.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );

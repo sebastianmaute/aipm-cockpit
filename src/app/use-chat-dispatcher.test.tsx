@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { renderHook } from "@testing-library/react";
-import { createElement, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import { useChatDispatcher } from "./use-chat-dispatcher";
 import { TestProviders } from "./test-providers";
 import { type Settings } from "./settings-menu";
@@ -88,9 +88,10 @@ function renderDispatcher(initial: Task[] = seedTasks()) {
   const setSelectedIds = vi.fn();
   const setSettings = vi.fn();
   const settings = makeSettings();
-  const wrapper = ({ children }: { children: ReactNode }) =>
-    createElement(TestProviders, { tasks: initial, children });
-  const { result, rerender } = renderHook(
+  const wrapper = ({ children }: { children: ReactNode }) => (
+    <TestProviders tasks={initial}>{children}</TestProviders>
+  );
+  const { result } = renderHook(
     () =>
       useChatDispatcher({
         settings,
@@ -100,7 +101,7 @@ function renderDispatcher(initial: Task[] = seedTasks()) {
       }),
     { wrapper },
   );
-  return { result, rerender, setSelectedIds, setSettings };
+  return { result, setSelectedIds, setSettings };
 }
 
 describe("useChatDispatcher", () => {
