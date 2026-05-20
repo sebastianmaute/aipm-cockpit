@@ -1,3 +1,8 @@
+// 0.7.5 extracts useStorageBackend hook (~167 LoC) from task-manager.tsx.
+// All storage, broadcast-sync, and file-handler logic now lives in the hook.
+// WorkspaceContext widened (Phase A) to own raid, absences, and shifts state.
+// 14 new unit tests in use-storage-backend.test.tsx; workspace-context.test.tsx
+// gains assertions for new defaults. task-manager.tsx −164 net lines.
 // 0.7.4 extracts the Jira sync logic (~315 LoC) out of task-manager.tsx into
 // a new useJiraSync hook. handleJiraSync + handleResolveConflicts move into
 // the hook with ref-based reactive reads (tasks, settings, lang, today).
@@ -33,7 +38,7 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.7.4";
+export const APP_VERSION = "0.7.5";
 export const APP_BUILD_DATE = "2026-05-20";
 export const APP_REPO_URL = "https://www.example.com";
 

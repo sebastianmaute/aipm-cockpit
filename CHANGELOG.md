@@ -12,6 +12,31 @@ post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-
 
 _No unreleased changes._
 
+## [0.7.5] "Calvino" — 2026-05-20
+
+Internal refactor. Slice 7 of the task-manager.tsx decomposition extracts
+the storage backend logic into a dedicated useStorageBackend hook, and
+widens WorkspaceContext (Phase A) to own raid, absences, and shifts state.
+Net: task-manager.tsx −164 lines.
+
+### Refactored
+
+- **useStorageBackend hook** (`src/app/use-storage-backend.ts`): ~167 lines
+  moved from task-manager.tsx. Owns all storage, broadcast-sync, and
+  file-handler logic.
+- **WorkspaceContext** widened (Phase A) to own `raid`, `absences`, and
+  `shifts` state so downstream consumers can read these without prop-drilling.
+- **task-manager.tsx** −164 net lines; all storage, broadcast-sync, and
+  file-handler logic now lives in the hook.
+
+### Tests
+
+- `use-storage-backend.test.tsx`: 14 tests covering state-init, load effect,
+  save effect, and file handlers.
+- `workspace-context.test.tsx`: assertions for new raid/absences/shifts
+  defaults.
+  Suite total: 110+ tests.
+
 ## [0.7.4] "Bradbury" -- 2026-05-20
 
 Internal refactor. Slice 6 of the task-manager.tsx decomposition extracts

@@ -282,7 +282,7 @@ function TaskManagerInner() {
   // the page header / banner / task table / footer and renders only the
   // requested workspace panel. The popout window is opened by the per-tab
   // popout icon (see TabButton). State stays in sync with the opening window
-  // via BroadcastChannel — see the useBroadcastSync calls further down.
+  // via BroadcastChannel — see useStorageBackend.
   const [popoutTab] = useState<PopoutTab | null>(() => readPopoutTabFromUrl());
   const isPopout = popoutTab !== null;
   const [activeTab, setActiveTab] = useState<TopTab>(popoutTab ?? "chat");
