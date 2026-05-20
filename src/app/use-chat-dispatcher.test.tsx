@@ -1,10 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
-import { renderHook } from "@testing-library/react";
+import { act, renderHook } from "@testing-library/react";
 import { type ReactNode } from "react";
 import { useChatDispatcher } from "./use-chat-dispatcher";
 import { TestProviders } from "./test-providers";
 import { type Settings } from "./settings-menu";
 import { type StorageConfig } from "./storage";
+import { useTaskForm } from "./task-form-context";
 import { type Task } from "./types";
 
 function makeSettings(): Settings {
@@ -251,5 +252,42 @@ describe("useChatDispatcher", () => {
     expect(snap.storageKind).toBe("browser");
     expect(snap.knownGroups).toEqual(["Backend", "Frontend"]);
     expect(snap.knownLabels).toEqual(["api", "docs", "ui"]);
+  });
+
+  it("dispatcher identity is stable across tasks-change re-renders", () => {
+    const { result } = renderDispatcher();
+    const before = result.current;
+    // Trigger a tasks change via the dispatcher itself.
+    result.current.createTask({
+      taskName: "Echo",
+      assignee: "Eve",
+      dueDate: "2026-06-05",
+    });
+    const after = result.current;
+    expect(after).toBe(before);
+  });
+
+  it("dispatcher identity is stable across editingId-change re-renders", () => {
+    // Render the hook AND useTaskForm in the same TestProviders wrapper so
+    // setEditingId triggers a re-render of the dispatcher's host component.
+    function probe() {
+      const dispatcher = useChatDispatcher({
+        settings: makeSettings(),
+        today: "2026-05-19",
+        setSelectedIds: vi.fn(),
+        setSettings: vi.fn(),
+      });
+      const form = useTaskForm();
+      return { dispatcher, form };
+    }
+    const { result } = renderHook(probe, {
+      wrapper: ({ children }) => <TestProviders>{children}</TestProviders>,
+    });
+    const before = result.current.dispatcher;
+    act(() => {
+      result.current.form.setEditingId(42);
+    });
+    const after = result.current.dispatcher;
+    expect(after).toBe(before);
   });
 });
