@@ -15,11 +15,11 @@ import {
 
 function Wrapper({ children }: { children: ReactNode }) {
   return (
-    <WorkspaceProvider>
-      <FiltersProvider>
+    <FiltersProvider>
+      <WorkspaceProvider>
         <TaskFormProvider>{children}</TaskFormProvider>
-      </FiltersProvider>
-    </WorkspaceProvider>
+      </WorkspaceProvider>
+    </FiltersProvider>
   );
 }
 
