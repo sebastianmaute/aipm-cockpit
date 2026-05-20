@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ActivityKind } from "./activity-log";
-import { t } from "./i18n";
+import { type Lang, t } from "./i18n";
 import type { ConflictItem } from "./jira-api";
 import type { ConflictResolution } from "./jira-conflicts-modal";
 import type { Settings } from "./settings-menu";
@@ -20,7 +20,7 @@ export function loadJiraApi(): Promise<JiraApiModule> {
 export interface UseJiraSyncArgs {
   settings: Settings;
   today: string;
-  lang: string;
+  lang: Lang;
   showToast: (kind: "info" | "error", text: string) => void;
   logActivity: (kind: ActivityKind, ...args: (string | number)[]) => void;
 }

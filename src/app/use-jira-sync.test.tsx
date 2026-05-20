@@ -64,7 +64,7 @@ function makeProbe(overrideSettings = baseSettings) {
     const sync = useJiraSync({
       settings: overrideSettings,
       today: "2026-05-20",
-      lang: "en",
+      lang: "en-US",
       showToast,
       logActivity,
     });
