@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { TOOL_DEFS, type ToolDispatcher, runTool } from "./chat-tools";
 import { type Lang, type TranslationKey, t } from "./i18n";
 import { Markdown } from "./markdown";
@@ -98,7 +98,7 @@ function stringifyResult(value: unknown): string {
   }
 }
 
-export function ChatPanel({
+function ChatPanelImpl({
   lang,
   ai,
   dispatcher,
@@ -116,6 +116,12 @@ export function ChatPanel({
     <ChatPanelInner lang={lang} ai={ai} dispatcher={dispatcher} />
   );
 }
+
+// Memoized export: with the dispatcher's stable identity (slice 5) and an
+// upstream useCallback for onAcceptConsent, all four props are reference-
+// stable across parent renders that don't touch lang/ai. ChatPanel now
+// skips re-renders triggered by, e.g., task-form keystrokes.
+export const ChatPanel = memo(ChatPanelImpl);
 
 function ChatPanelInner({
   lang,
