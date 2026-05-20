@@ -220,3 +220,76 @@ describe("useStorageBackend — save effect", () => {
     expect(showToast).toHaveBeenCalledWith("error", expect.any(String));
   });
 });
+
+describe("useStorageBackend — handlers", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+    (storageMod.createBackend as ReturnType<typeof vi.fn>).mockReturnValue(mockBackend);
+    mockBackend.load.mockResolvedValue({ tasks: [], raid: [], absences: [], shifts: [] });
+    mockBackend.isReady.mockResolvedValue(true);
+    mockBackend.describe.mockResolvedValue("f.json");
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("onPickStorageFile saves current workspace + refreshes status", async () => {
+    (storageMod.pickFileForBackend as ReturnType<typeof vi.fn>).mockReturnValue(
+      Promise.resolve(undefined),
+    );
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+
+    await act(async () => { await result.current.onPickStorageFile(); });
+
+    expect(storageMod.pickFileForBackend).toHaveBeenCalledWith(mockBackend);
+    expect(mockBackend.save).toHaveBeenCalled();
+    expect(mockBackend.isReady).toHaveBeenCalled();
+  });
+
+  it("onGrantWriteAccess shows granted toast on success", async () => {
+    (storageMod.requestWriteAccessForBackend as ReturnType<typeof vi.fn>).mockReturnValue(
+      Promise.resolve(true),
+    );
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+
+    await act(async () => { await result.current.onGrantWriteAccess(); });
+
+    expect(showToast).toHaveBeenCalledWith("info", expect.any(String));
+  });
+
+  it("onGrantWriteAccess shows denied toast when access not granted", async () => {
+    (storageMod.requestWriteAccessForBackend as ReturnType<typeof vi.fn>).mockReturnValue(
+      Promise.resolve(false),
+    );
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+
+    await act(async () => { await result.current.onGrantWriteAccess(); });
+
+    expect(showToast).toHaveBeenCalledWith("error", expect.any(String));
+  });
+
+  it("onOpenStorageFile loads workspace on confirm", async () => {
+    (storageMod.openFileForBackend as ReturnType<typeof vi.fn>).mockReturnValue(
+      Promise.resolve(undefined),
+    );
+    mockBackend.load.mockResolvedValueOnce({
+      tasks: [{ id: 99, taskName: "Loaded" }] as any,
+      raid: [],
+      absences: [],
+      shifts: [],
+    });
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+
+    await act(async () => { await result.current.onOpenStorageFile(); });
+
+    expect(storageMod.openFileForBackend).toHaveBeenCalledWith(mockBackend);
+    expect(result.current.tasks.length).toBeGreaterThanOrEqual(0);
+  });
+});

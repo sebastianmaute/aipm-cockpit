@@ -4,7 +4,14 @@ import type { ActivityEntry } from "./activity-log";
 import { useBroadcastSync } from "./broadcast-sync";
 import { type Lang, t } from "./i18n";
 import type { Settings } from "./settings-menu";
-import { StorageNotImplementedError, StorageNotReadyError, createBackend } from "./storage";
+import {
+  StorageNotImplementedError,
+  StorageNotReadyError,
+  createBackend,
+  openFileForBackend,
+  pickFileForBackend,
+  requestWriteAccessForBackend,
+} from "./storage";
 import { useWorkspace } from "./workspace-context";
 
 export interface UseStorageBackendArgs {
@@ -112,9 +119,62 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   useBroadcastSync("shifts", shifts, setShifts);
   useBroadcastSync("activityLog", args.activityLog, args.setActivityLog);
 
-  const onPickStorageFile = async () => {};
-  const onGrantWriteAccess = async () => {};
-  const onOpenStorageFile = async () => {};
+  async function onPickStorageFile() {
+    const promise = pickFileForBackend(backend);
+    if (!promise) return;
+    await promise;
+    try {
+      await backend.save({ tasks, raid, absences, shifts });
+      await refreshBackendStatus();
+      args.showToast("info", t(langRef.current, "storageSwitchedToast"));
+    } catch (err) {
+      args.showToast("error", t(langRef.current, "storageSaveFailed", String(err)));
+    }
+  }
+
+  async function onGrantWriteAccess() {
+    const promise = requestWriteAccessForBackend(backend);
+    if (!promise) return;
+    const granted = await promise;
+    await refreshBackendStatus();
+    if (granted) {
+      args.showToast("info", t(langRef.current, "storagePermissionGranted"));
+    } else {
+      args.showToast("error", t(langRef.current, "storagePermissionDenied"));
+    }
+  }
+
+  async function onOpenStorageFile() {
+    const promise = openFileForBackend(backend);
+    if (!promise) return;
+    await promise;
+    try {
+      const loaded = await backend.load();
+      if (
+        tasks.length > 0 &&
+        !window.confirm(t(langRef.current, "storageConfirmOverwrite", tasks.length))
+      ) {
+        return;
+      }
+      suppressNextSaveRef.current = true;
+      setTasks(loaded.tasks);
+      setRaid(loaded.raid);
+      // NOTE: absences and shifts intentionally NOT restored here —
+      // faithful extraction of original behavior (not a bug fix).
+      await refreshBackendStatus();
+      args.showToast("info", t(langRef.current, "storageOpenedToast", loaded.tasks.length));
+    } catch (err) {
+      if (err instanceof StorageNotReadyError) {
+        const key =
+          (err as StorageNotReadyError).hint === "local-file-permission-needed"
+            ? "storagePermissionGestureNeeded"
+            : "storageNotReady";
+        args.showToast("error", t(langRef.current, key));
+      } else {
+        args.showToast("error", t(langRef.current, "storageLoadFailed", String(err)));
+      }
+    }
+  }
 
   return {
     storageDescription,
