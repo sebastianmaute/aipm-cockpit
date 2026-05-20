@@ -24,7 +24,7 @@ import {
   sanitizeTaskName,
 } from "./sanitize";
 import { type Settings } from "./settings-menu";
-import { useTaskForm } from "./task-form-context";
+import { emptyForm, useTaskForm } from "./task-form-context";
 import { type Task } from "./types";
 import { useWorkspace } from "./workspace-context";
 
@@ -189,11 +189,46 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         setTasks(next);
         return merged;
       },
-      deleteTask: () => {
-        throw new Error("not implemented yet");
+      deleteTask: (id) => {
+        const exists = tasksRef.current.some((row) => row.id === id);
+        if (!exists) return false;
+        // Mirror handleDelete's cascade: strip references to the deleted id
+        // from every other task's dependency list.
+        const next = tasksRef.current
+          .filter((row) => row.id !== id)
+          .map((row) =>
+            row.dependencies &&
+            row.dependencies.some((d) => d.taskId === id)
+              ? {
+                  ...row,
+                  dependencies: row.dependencies.filter(
+                    (d) => d.taskId !== id,
+                  ),
+                }
+              : row,
+          );
+        tasksRef.current = next;
+        setTasks(next);
+        args.setSelectedIds((prev) => {
+          if (!prev.has(id)) return prev;
+          const n = new Set(prev);
+          n.delete(id);
+          return n;
+        });
+        if (editingIdRef.current === id) {
+          setEditingId(null);
+          setForm(emptyForm());
+        }
+        return true;
       },
       deleteAllTasks: () => {
-        throw new Error("not implemented yet");
+        const count = tasksRef.current.length;
+        tasksRef.current = [];
+        setTasks([]);
+        args.setSelectedIds(new Set());
+        setEditingId(null);
+        setForm(emptyForm());
+        return count;
       },
       sendInquiry,
       setFilters: applyFilters,
@@ -215,8 +250,6 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   // Suppress unused-variable warnings for state we don't yet read; later
   // tasks consume them. Removing this when those methods land is part of
   // Task 6.
-  void setEditingId;
-  void setForm;
   void setSearch;
   void setPriorityFilter;
   void setAssigneeFilter;

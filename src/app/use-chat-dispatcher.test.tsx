@@ -179,4 +179,36 @@ describe("useChatDispatcher", () => {
       result.current.updateTask(1, { assignee: "Different Person" }),
     ).toThrow(/managed in Jira/);
   });
+
+  it("deleteTask removes the row and cascades dependency cleanup", () => {
+    const dependants: Task[] = [
+      ...seedTasks(),
+      {
+        id: 4,
+        taskName: "Delta",
+        assignee: "Dave",
+        assigneeEmail: "",
+        dueDate: "2026-06-04",
+        lastUpdateDate: "2026-05-19",
+        priority: "Medium",
+        blockers: "",
+        notes: "",
+        inquiriesSent: 0,
+        dependencies: [{ taskId: 2, type: "FS" }],
+      },
+    ];
+    const { result } = renderDispatcher(dependants);
+    const deleted = result.current.deleteTask(2);
+    expect(deleted).toBe(true);
+    expect(result.current.listTasks()).toHaveLength(3);
+    expect(result.current.getTask(4)?.dependencies).toEqual([]);
+  });
+
+  it("deleteAllTasks empties the workspace and clears selection state", () => {
+    const { result, setSelectedIds } = renderDispatcher();
+    const count = result.current.deleteAllTasks();
+    expect(count).toBe(3);
+    expect(result.current.listTasks()).toHaveLength(0);
+    expect(setSelectedIds).toHaveBeenCalledWith(new Set());
+  });
 });
