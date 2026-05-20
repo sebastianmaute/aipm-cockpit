@@ -1,9 +1,9 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ActivityEntry } from "./activity-log";
-import { type Lang } from "./i18n";
+import { type Lang, t } from "./i18n";
 import type { Settings } from "./settings-menu";
-import { createBackend } from "./storage";
+import { StorageNotImplementedError, StorageNotReadyError, createBackend } from "./storage";
 import { useWorkspace } from "./workspace-context";
 
 export interface UseStorageBackendArgs {
@@ -37,6 +37,45 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
 
   // Suppresses the save effect that fires immediately after a load
   const suppressNextSaveRef = useRef(false);
+
+  const refreshBackendStatus = async () => {
+    try {
+      const ready = await backend.isReady();
+      setStorageReady(ready);
+      const desc = backend.describe ? await backend.describe() : null;
+      setStorageDescription(desc ?? null);
+    } catch {
+      setStorageReady(false);
+      setStorageDescription(null);
+    }
+  };
+
+  useEffect(() => {
+    if (!args.hydrated) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const workspace = await backend.load();
+        if (cancelled) return;
+        setTasks(workspace.tasks ?? []);
+        setRaid(workspace.raid ?? []);
+        setAbsences(workspace.absences ?? []);
+        setShifts(workspace.shifts ?? []);
+        suppressNextSaveRef.current = true;
+        await refreshBackendStatus();
+      } catch (err) {
+        if (cancelled) return;
+        if (err instanceof StorageNotReadyError || err instanceof StorageNotImplementedError) {
+          args.showToast("error", t(langRef.current, "storageNotReady", (err as StorageNotReadyError).hint ?? ""));
+        } else {
+          args.showToast("error", t(langRef.current, "storageLoadFailed", String(err)));
+        }
+        await refreshBackendStatus();
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [backend, args.hydrated]);
 
   const onPickStorageFile = async () => {};
   const onGrantWriteAccess = async () => {};
