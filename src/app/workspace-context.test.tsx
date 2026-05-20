@@ -39,6 +39,9 @@ describe("WorkspaceProvider", () => {
     expect(result.current.tasksById.size).toBe(0);
     expect(result.current.taskSearchIndex.size).toBe(0);
     expect(result.current.filteredSortedTasks).toEqual([]);
+    expect(result.current.raid).toEqual([]);
+    expect(result.current.absences).toEqual([]);
+    expect(result.current.shifts).toEqual([]);
   });
 
   test("setTasks updates state and rebuilds derivations", () => {
