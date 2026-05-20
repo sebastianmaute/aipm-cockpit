@@ -41,17 +41,22 @@ const baseSettings = {
 
 const noCredSettings = { jira: { enabled: false } } as any;
 
-const baseTask: Task = {
-  id: 1,
-  taskName: "T1",
-  assignee: "",
-  assigneeEmail: "",
-  dueDate: "2026-06-01",
-  lastUpdateDate: "2026-01-01",
-  priority: "Medium",
-  blockers: "",
-  notes: "",
-} as any;
+function makeTask(overrides: Partial<Task> = {}): Task {
+  return {
+    id: 1,
+    taskName: "T1",
+    assignee: "",
+    assigneeEmail: "",
+    dueDate: "2026-06-01",
+    lastUpdateDate: "2026-01-01",
+    priority: "Medium",
+    blockers: "",
+    notes: "",
+    ...overrides,
+  };
+}
+
+const baseTask = makeTask();
 
 // ── Composite probe hook so we can inspect workspace tasks ───────────────────
 function makeProbe(overrideSettings = baseSettings) {
@@ -90,5 +95,26 @@ describe("useJiraSync — state initialisation", () => {
     expect(typeof result.current.clearConflicts).toBe("function");
     await act(async () => { result.current.clearConflicts(); });
     expect(result.current.jiraConflicts).toEqual([]);
+  });
+});
+
+describe("useJiraSync — handleJiraSync", () => {
+  it("shows error toast when buildJql returns null (no JQL scope)", async () => {
+    // buildJql vi.fn() returns undefined by default → triggers "no scope" toast
+    const { result } = renderSync([]);
+    await act(async () => { await result.current.handleJiraSync(); });
+    expect(showToast).toHaveBeenCalledWith("error", expect.any(String));
+    expect(result.current.jiraSyncing).toBe(false);
+  });
+
+  it("shows info toast after successful empty sync (jiraSyncing resets to false)", async () => {
+    (jiraApi.buildJql as ReturnType<typeof vi.fn>).mockReturnValueOnce("project = TEST");
+    (jiraApi.searchAllIssues as ReturnType<typeof vi.fn>).mockResolvedValueOnce([]);
+
+    const { result } = renderSync([]);
+    await act(async () => { await result.current.handleJiraSync(); });
+
+    expect(showToast).toHaveBeenCalledWith("info", expect.any(String));
+    expect(result.current.jiraSyncing).toBe(false);
   });
 });
