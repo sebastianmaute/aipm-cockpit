@@ -65,9 +65,14 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         await refreshBackendStatus();
       } catch (err) {
         if (cancelled) return;
-        if (err instanceof StorageNotReadyError || err instanceof StorageNotImplementedError) {
-          args.showToast("error", t(langRef.current, "storageNotReady", (err as StorageNotReadyError).hint ?? ""));
-        } else {
+        if (err instanceof StorageNotReadyError) {
+          if (settingsRef.current.storageConfig.kind !== "browser") {
+            const key = (err as StorageNotReadyError).hint === "local-file-permission-needed"
+              ? "storagePermissionGestureNeeded"
+              : "storageNotReady";
+            args.showToast("error", t(langRef.current, key));
+          }
+        } else if (!(err instanceof StorageNotImplementedError)) {
           args.showToast("error", t(langRef.current, "storageLoadFailed", String(err)));
         }
         await refreshBackendStatus();
