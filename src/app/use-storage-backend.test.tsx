@@ -55,8 +55,8 @@ function makeArgs(overrides: Partial<Parameters<typeof useStorageBackend>[0]> = 
 function makeProbe(args: Parameters<typeof useStorageBackend>[0]) {
   return function probe() {
     const backend = useStorageBackend(args);
-    const { tasks, raid, absences, shifts } = useWorkspace();
-    return { ...backend, tasks, raid, absences, shifts };
+    const { tasks, raid, absences, shifts, setTasks } = useWorkspace();
+    return { ...backend, tasks, raid, absences, shifts, setTasks };
   };
 }
 
@@ -168,11 +168,18 @@ describe("useStorageBackend — save effect", () => {
 
   it("calls backend.save after workspace changes (debounced 500ms)", async () => {
     const { result } = renderBackend();
-    // Let load effect complete and suppress flag clear
+    // Load completes → suppressNextSaveRef = true
+    await act(async () => { await Promise.resolve(); });
+    // First debounce cycle: suppress fires and clears
+    await act(async () => { vi.advanceTimersByTime(600); });
     await act(async () => { await Promise.resolve(); });
     mockBackend.save.mockClear();
 
-    // Advance past debounce window — save should fire
+    // Trigger a workspace change so the save effect re-runs
+    await act(async () => {
+      result.current.setTasks([{ id: 1, taskName: "T1" } as any]);
+    });
+    // Advance past debounce — save should fire now
     await act(async () => { vi.advanceTimersByTime(600); });
     await act(async () => { await Promise.resolve(); });
 
@@ -198,22 +205,18 @@ describe("useStorageBackend — save effect", () => {
     const { result } = renderBackend();
     // Load completes → suppressNextSaveRef = true
     await act(async () => { await Promise.resolve(); });
-
-    // First debounce cycle: suppress fires, clears suppressNextSaveRef, no save call
+    // First debounce cycle: suppress fires and clears
     await act(async () => { vi.advanceTimersByTime(600); });
     await act(async () => { await Promise.resolve(); });
 
     // Trigger a workspace change so the save effect re-runs with suppress cleared
     await act(async () => {
-      // Access result to confirm no throw so far
-      void result.current.storageReady;
-      // Advance again — on the next cycle backend.save is called and rejects
-      vi.advanceTimersByTime(600);
+      result.current.setTasks([{ id: 2, taskName: "T2" } as any]);
     });
+    // Advance past debounce — save fires and rejects → toast shown
+    await act(async () => { vi.advanceTimersByTime(600); });
     await act(async () => { await Promise.resolve(); });
 
-    // The save error should have been caught and shown as a toast
-    // (passes trivially now since save effect not yet implemented; will be GREEN in Task 8)
     expect(showToast).toHaveBeenCalledWith("error", expect.any(String));
   });
 });
