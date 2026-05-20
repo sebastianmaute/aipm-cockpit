@@ -12,6 +12,31 @@ post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-
 
 _No unreleased changes._
 
+## [0.7.4] "Bradbury" -- 2026-05-20
+
+Internal refactor. Slice 6 of the task-manager.tsx decomposition extracts
+the Jira sync logic into a dedicated useJiraSync hook, reducing
+task-manager.tsx by ~315 lines.
+
+### Changed (internal)
+
+- **useJiraSync hook** (src/app/use-jira-sync.ts): owns jiraSyncing +
+  jiraConflicts state, handleJiraSync, and handleResolveConflicts. Reactive
+  values (tasks, settings, lang, today) routed through refs so useCallback
+  deps stay [showToast, logActivity] only.
+- **loadJiraApi** lazy-load cache moved from task-manager.tsx to
+  use-jira-sync.ts and re-exported for onPushToJira.
+- **task-manager.tsx** calls useJiraSync({ settings, today, lang, showToast,
+  logActivity }) and destructures the five return values.
+  Net: -303 lines (3289 -> 2986).
+
+### Tests
+
+- 12 new unit tests in src/app/use-jira-sync.test.tsx covering state-init,
+  no-credentials guard, jiraSyncing flip, pull, push, conflict detection,
+  create-issue, error toast, and conflict resolution paths.
+  Suite total: 96 tests across 13 files.
+
 ## [0.7.3] "Adams" — 2026-05-20
 
 Internal refactor + a visible performance win. Slice 5 of the

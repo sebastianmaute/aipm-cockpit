@@ -1,6 +1,9 @@
-# List of Open Points Tracker
+# AIPM Project Management Tracker
 
-**v0.7.3** — Track open project items and draft status-inquiry emails for delayed tasks.
+[![Pipeline Status](https://gitlab.example.com/example-group/public-collab/lop-app/badges/main/pipeline.svg)](https://gitlab.example.com/example-group/public-collab/lop-app/-/commits/main)
+[![coverage](https://gitlab.example.com/example-group/public-collab/lop-app/badges/main/coverage.svg)](https://gitlab.example.com/example-group/public-collab/lop-app/-/commits/main)
+
+**v0.7.4** — AI-assisted project-status tracker for Acme project leads. Manage open points, track accountability, and draft status-inquiry emails — all in the browser, no backend required.
 
 ## What It Does
 
@@ -8,9 +11,14 @@ A single-page task manager built for project leads who maintain a "List of Open 
 
 1. Add tasks with assignee, due date, and priority
 2. Filter, sort, and view tasks in a table or Gantt chart
-3. Send pre-filled status-inquiry emails to assignees with one click
-4. Export the task list to CSV, Markdown, PDF, DOCX, XLSX, or PPTX
-5. Optionally sync tasks bidirectionally with a Jira project
+3. Ask the integrated Claude AI chat to create, update, or summarize tasks in natural language
+4. Send pre-filled status-inquiry emails to assignees with one click
+5. Export the task list to CSV, Markdown, PDF, DOCX, XLSX, or PPTX
+6. Optionally sync tasks bidirectionally with a Jira project
+7. Track RAID items and create reports to the steering commitee
+8. Plan capacity, utilization, availability and cost rates internally and externally while considering holidays
+
+The **Claude AI chat** (Settings → AI; user-supplied API key) understands natural-language commands ("mark all overdue tasks as delayed", "add a task for Alice due next Friday") and answers questions about your open points. **Voice commands** (Web Speech API, EN/DE) provide the same capability hands-free.
 
 All data is stored locally by default — no backend account required.
 
@@ -29,19 +37,24 @@ All data is stored locally by default — no backend account required.
 | RAID register | Risks / Assumptions / Issues / Dependencies log with parent/child cycle detection |
 | Resource planner | Per-assignee absences (vacation / sick / training / other), weekly shift patterns, and a 30-day calendar view |
 | Activity log | Browser-local chronological record of task / RAID / absence / shift CRUD with text / wildcard / regex search |
+| Contacts | Assignee address book — persists across task deletion and Jira sync churn; auto-suggests on task forms |
 | Jira sync | Pull from and push to a Jira Cloud project (bidirectional, with conflict resolution) |
 | Export | CSV, Markdown, PDF (print), DOCX, XLSX, PPTX |
 | Localization | English (US / UK) and German |
 
 ## Screenshots
 
-[Main Screen](./public/Main.png)
-[New task](./public/Newtask.png)
-[Reports](./public/Reports.png)
-[Gantt](./public/Gantt.png)
-[RAID](./public/RAID.png)
-[Resources](./public/Resources.png)
-[Configuration](./public/Configuration.png)
+<details>
+<summary>Here are some screenshots...</summary>
+
+![Main Screen](./public/Main.png)
+![New task](./public/Newtask.png)
+![Reports](./public/Reports.png)
+![Gantt](./public/Gantt.png)
+![RAID](./public/RAID.png)
+![Resources](./public/Resources.png)
+![Configuration](./public/Configuration.png)
+</details>
 
 ## Storage Backends
 

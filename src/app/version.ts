@@ -1,3 +1,9 @@
+// 0.7.4 extracts the Jira sync logic (~315 LoC) out of task-manager.tsx into
+// a new useJiraSync hook. handleJiraSync + handleResolveConflicts move into
+// the hook with ref-based reactive reads (tasks, settings, lang, today).
+// loadJiraApi lazy-load cache moves to use-jira-sync.ts and is re-exported.
+// 12 new unit tests covering state-init, pull, push, conflict detection,
+// create-issue, and conflict resolution paths. task-manager.tsx −303 lines.
 // 0.7.3 extracts the Claude chat-tool dispatcher (~240 LoC) out of
 // task-manager.tsx into a new useChatDispatcher hook with empty-deps useMemo
 // + ref-based reactive reads. ChatPanel is now wrapped in React.memo; with
@@ -27,7 +33,7 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.7.3";
+export const APP_VERSION = "0.7.4";
 export const APP_BUILD_DATE = "2026-05-20";
 export const APP_REPO_URL = "https://www.example.com";
 
