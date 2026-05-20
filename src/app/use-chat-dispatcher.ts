@@ -9,7 +9,9 @@ import {
   type SetStateAction,
 } from "react";
 import { type Filters, type ToolDispatcher } from "./chat-tools";
+import { greetingName } from "./contacts";
 import { useFilters } from "./filters-context";
+import { t } from "./i18n";
 import {
   isValidEmail,
   sanitizeAssignee,
@@ -71,14 +73,57 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   // Stubbed for now; filled in by later tasks.
   // (Hoisted as useCallback for Tasks 3/5 ergonomics; other stubs stay inline.)
   const sendInquiry = useCallback(
-    (_id: number): { sent: boolean; reason?: string } => {
-      throw new Error("not implemented yet");
+    (id: number): { sent: boolean; reason?: string } => {
+      const task = tasksRef.current.find((row) => row.id === id);
+      if (!task) return { sent: false, reason: "task-not-found" };
+      let email = task.assigneeEmail?.trim();
+      if (!email && isValidEmail(task.assignee)) email = task.assignee.trim();
+      if (!email) return { sent: false, reason: "no-email-on-file" };
+
+      const greeting = greetingName(task.assignee) || task.assignee;
+      const currentLang = settingsRef.current.language;
+      const subject = t(currentLang, "emailSubject", task.id, task.taskName);
+      const body = t(
+        currentLang,
+        "emailBodyTemplate",
+        greeting,
+        task.id,
+        task.taskName,
+        task.dueDate,
+        task.lastUpdateDate,
+      );
+      const url = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+      window.open(url);
+      const next = tasksRef.current.map((row) =>
+        row.id === task.id
+          ? { ...row, inquiriesSent: (row.inquiriesSent ?? 0) + 1 }
+          : row,
+      );
+      tasksRef.current = next;
+      setTasks(next);
+      return { sent: true };
     },
-    [],
+    [setTasks],
   );
-  const applyFilters = useCallback((_f: Filters): void => {
-    throw new Error("not implemented yet");
-  }, []);
+  const applyFilters = useCallback(
+    (f: Filters): void => {
+      if (f.search !== undefined) setSearch(f.search);
+      if (f.priority !== undefined) setPriorityFilter(f.priority);
+      if (f.assignee !== undefined)
+        setAssigneeFilter(f.assignee.trim() === "" ? "All" : f.assignee);
+      if (f.group !== undefined)
+        setGroupFilter(f.group.trim() === "" ? "All" : f.group);
+      if (f.label !== undefined)
+        setLabelFilter(f.label.trim() === "" ? "All" : f.label);
+    },
+    [
+      setSearch,
+      setPriorityFilter,
+      setAssigneeFilter,
+      setGroupFilter,
+      setLabelFilter,
+    ],
+  );
 
   const dispatcher = useMemo<ToolDispatcher>(
     () => ({
@@ -232,11 +277,28 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
       },
       sendInquiry,
       setFilters: applyFilters,
-      setLanguage: (_l) => {
-        throw new Error("not implemented yet");
-      },
+      setLanguage: (l) =>
+        args.setSettings((s) => ({ ...s, language: l })),
       getSnapshot: () => {
-        throw new Error("not implemented yet");
+        const tasks = tasksRef.current;
+        const groups = new Set<string>();
+        const labels = new Set<string>();
+        for (const tk of tasks) {
+          if (tk.group?.trim()) groups.add(tk.group);
+          for (const l of tk.labels ?? []) {
+            const clean = l.trim();
+            if (clean) labels.add(clean);
+          }
+        }
+        return {
+          today: todayRef.current,
+          language: settingsRef.current.language,
+          holidayCountries: settingsRef.current.holidayCountries,
+          storageKind: settingsRef.current.storageConfig.kind,
+          taskCount: tasks.length,
+          knownGroups: Array.from(groups).sort(),
+          knownLabels: Array.from(labels).sort(),
+        };
       },
     }),
     // Empty deps: every reactive value is read via a ref. Identity is stable.
@@ -246,15 +308,6 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
-
-  // Suppress unused-variable warnings for state we don't yet read; later
-  // tasks consume them. Removing this when those methods land is part of
-  // Task 6.
-  void setSearch;
-  void setPriorityFilter;
-  void setAssigneeFilter;
-  void setGroupFilter;
-  void setLabelFilter;
 
   return dispatcher;
 }

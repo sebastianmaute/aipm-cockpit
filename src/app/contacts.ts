@@ -11,7 +11,28 @@
 // value's `name` field.
 
 import type { Task } from "./types";
-import { isPlainObject, sanitizeAssignee, sanitizeEmail } from "./sanitize";
+import {
+  isPlainObject,
+  isValidEmail,
+  sanitizeAssignee,
+  sanitizeEmail,
+} from "./sanitize";
+
+/**
+ * First-name-style greeting for an assignee. Returns "" when blank; falls
+ * back to the email local-part (capitalized) for email-style assignees;
+ * otherwise returns the first whitespace-delimited token (typical
+ * "Firstname Lastname" -> "Firstname").
+ */
+export function greetingName(assignee: string): string {
+  const trimmed = assignee.trim();
+  if (!trimmed) return "";
+  if (isValidEmail(trimmed)) {
+    const local = trimmed.split("@")[0];
+    return local.charAt(0).toUpperCase() + local.slice(1);
+  }
+  return trimmed.split(/\s+/)[0];
+}
 
 const CONTACTS_KEY = "lop-app:contacts";
 const CONTACTS_MAX = 500;

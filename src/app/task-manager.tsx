@@ -74,6 +74,7 @@ const ShiftEditModal = dynamic(
 );
 import {
   type ContactsMap,
+  greetingName,
   listContacts,
   loadContacts,
   removeContact as removeContactFromMap,
@@ -256,16 +257,6 @@ const DEFAULT_COL_WIDTHS: Record<string, number> = {
 
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
-}
-
-function greetingName(assignee: string): string {
-  const trimmed = assignee.trim();
-  if (!trimmed) return "";
-  if (isValidEmail(trimmed)) {
-    const local = trimmed.split("@")[0];
-    return local.charAt(0).toUpperCase() + local.slice(1);
-  }
-  return trimmed.split(/\s+/)[0];
 }
 
 const inputClass =

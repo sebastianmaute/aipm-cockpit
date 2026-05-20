@@ -211,4 +211,45 @@ describe("useChatDispatcher", () => {
     expect(result.current.listTasks()).toHaveLength(0);
     expect(setSelectedIds).toHaveBeenCalledWith(new Set());
   });
+
+  it("sendInquiry opens a mailto URL and increments inquiriesSent", () => {
+    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+    const { result } = renderDispatcher();
+    const outcome = result.current.sendInquiry(1);
+    expect(outcome).toEqual({ sent: true });
+    expect(openSpy).toHaveBeenCalledWith(
+      expect.stringMatching(/^mailto:alice%40example\.com\?/),
+    );
+    expect(result.current.getTask(1)?.inquiriesSent).toBe(1);
+    openSpy.mockRestore();
+  });
+
+  it("setFilters does not throw and forwards through FiltersProvider", () => {
+    const { result } = renderDispatcher();
+    expect(() =>
+      result.current.setFilters({ search: "alpha", priority: "Urgent" }),
+    ).not.toThrow();
+  });
+
+  it("setLanguage calls setSettings with an updater that merges language", () => {
+    const { result, setSettings } = renderDispatcher();
+    result.current.setLanguage("de");
+    expect(setSettings).toHaveBeenCalledTimes(1);
+    const updater = setSettings.mock.calls[0][0] as (s: Settings) => Settings;
+    const prev = makeSettings();
+    const next = updater(prev);
+    expect(next.language).toBe("de");
+    expect(next.ai).toBe(prev.ai);
+  });
+
+  it("getSnapshot returns sorted unique groups/labels and accurate counts", () => {
+    const { result } = renderDispatcher();
+    const snap = result.current.getSnapshot();
+    expect(snap.taskCount).toBe(3);
+    expect(snap.today).toBe("2026-05-19");
+    expect(snap.language).toBe("en-US");
+    expect(snap.storageKind).toBe("browser");
+    expect(snap.knownGroups).toEqual(["Backend", "Frontend"]);
+    expect(snap.knownLabels).toEqual(["api", "docs", "ui"]);
+  });
 });
