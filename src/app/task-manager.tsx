@@ -20,7 +20,7 @@ import type { ConflictItem } from "./jira-api";
 import { holidaysForCountries } from "./holidays";
 import { type Lang, type TranslationKey, loadI18n, migrateLang, priorityLabel, t } from "./i18n";
 import { useChatDispatcher } from "./use-chat-dispatcher";
-import { loadJiraApi } from "./use-jira-sync";
+import { loadJiraApi, useJiraSync } from "./use-jira-sync";
 import { VersionMenu } from "./version-menu";
 import {
   DueBanner,
@@ -389,8 +389,6 @@ function TaskManagerInner() {
   const [dueModalOpen, setDueModalOpen] = useState(false);
   const notifiedThisSessionRef = useRef(false);
 
-  const [jiraSyncing, setJiraSyncing] = useState(false);
-  const [jiraConflicts, setJiraConflicts] = useState<ConflictItem[]>([]);
   const [pushingIds, setPushingIds] = useState<Set<number>>(new Set());
   // Tracks which rows have their Notes cell expanded. Default is collapsed
   // (i.e. id not in the set) — collapsed notes are capped at NOTES_COLLAPSED_MAX
@@ -1313,6 +1311,14 @@ function TaskManagerInner() {
     setToast({ kind, text, id: Date.now() });
   }
 
+  const { jiraSyncing, jiraConflicts, handleJiraSync, handleResolveConflicts, clearConflicts } = useJiraSync({
+    settings,
+    today,
+    lang,
+    showToast,
+    logActivity,
+  });
+
   const nextId =
     tasks.length > 0 ? Math.max(...tasks.map((t) => t.id)) + 1 : 1;
 
@@ -1488,309 +1494,6 @@ function TaskManagerInner() {
     setError(null);
     setForm(emptyForm());
     setTaskModalOpen(false);
-  }
-
-  async function handleJiraSync() {
-    if (jiraSyncing) return;
-    const jiraCfg = settings.jira;
-    if (!jiraCfg.enabled) return;
-    const {
-      buildJql,
-      searchAllIssues,
-      issueToTaskFields,
-      diffTaskAgainstIssue,
-      isIssueDone,
-      updateIssue,
-      taskFieldsToJiraFields,
-      transitionIssueTo,
-      formatJiraError,
-    } = await loadJiraApi();
-    const jql = buildJql(jiraCfg);
-    if (!jql) {
-      showToast("error", t(lang, "jiraSyncNoScope"));
-      return;
-    }
-    const creds = {
-      siteUrl: jiraCfg.siteUrl,
-      email: jiraCfg.email,
-      apiToken: jiraCfg.apiToken,
-    };
-    setJiraSyncing(true);
-    try {
-      const issues = await searchAllIssues(creds, jql);
-      const issueByKey = new Map(issues.map((i) => [i.key, i]));
-      const todayNow = todayRef.current;
-      const syncStamp = new Date().toISOString();
-      const list = tasksRef.current;
-
-      let added = 0;
-      let pulled = 0;
-      let pushed = 0;
-      let pushErrors = 0;
-      const conflictItems: ConflictItem[] = [];
-      let nextId =
-        list.length > 0 ? Math.max(...list.map((row) => row.id)) + 1 : 1;
-
-      // Walk existing tasks first; decide pull/push/conflict per row.
-      const next: Task[] = [];
-      for (const row of list) {
-        if (!row.jiraKey) {
-          next.push(row);
-          continue;
-        }
-        const issue = issueByKey.get(row.jiraKey);
-        if (!issue) {
-          // Out of scope or deleted in Jira — leave alone.
-          next.push(row);
-          continue;
-        }
-        const remoteUpdated = (issue.fields?.updated ?? "").slice(0, 19);
-        const lastSync = row.lastSyncedAt ?? "";
-        const localMod = row.localModifiedAt ?? "";
-        const remoteChanged = lastSync ? remoteUpdated > lastSync : true;
-        const localChanged = lastSync ? localMod > lastSync : false;
-
-        if (remoteChanged && localChanged) {
-          // Both sides moved — queue for user review. Don't touch the row;
-          // the conflicts modal will resolve it after the user picks per field.
-          const patch = issueToTaskFields(issue, todayNow);
-          const diffs = diffTaskAgainstIssue(row, patch);
-          if (diffs.length === 0) {
-            // Both timestamps moved but actual values match → just refresh sync stamp.
-            next.push({
-              ...row,
-              lastSyncedAt: syncStamp,
-              localModifiedAt: undefined,
-            });
-          } else {
-            conflictItems.push({
-              taskId: row.id,
-              jiraKey: issue.key,
-              jiraIssueType: row.jiraIssueType ?? patch.jiraIssueType,
-              remoteDone: isIssueDone(issue),
-              fields: diffs,
-            });
-            next.push(row);
-          }
-        } else if (localChanged) {
-          // Push local fields → Jira.
-          try {
-            await updateIssue(
-              creds,
-              row.jiraKey,
-              taskFieldsToJiraFields(row),
-            );
-            // Status transition if completion state diverges.
-            const localDone = !!row.completedDate;
-            const remoteDone = isIssueDone(issue);
-            if (localDone && !remoteDone) {
-              await transitionIssueTo(creds, row.jiraKey, "done");
-            }
-            // Note: reopening (local !completed but remote done) isn't pushed —
-            // workflows vary and "go back to To Do" requires per-project mapping.
-            pushed++;
-            next.push({
-              ...row,
-              lastSyncedAt: syncStamp,
-              localModifiedAt: undefined,
-            });
-          } catch (err) {
-            pushErrors++;
-            // Keep the local row as-is; user can retry.
-            next.push(row);
-            // Surface the first push failure for visibility.
-            if (pushErrors === 1) {
-              showToast(
-                "error",
-                t(
-                  lang,
-                  "jiraPushFailed",
-                  row.jiraKey,
-                  formatJiraError(err),
-                ),
-              );
-            }
-          }
-        } else if (remoteChanged) {
-          // Pull Jira → local.
-          const patch = issueToTaskFields(issue, todayNow);
-          pulled++;
-          next.push({
-            ...row,
-            taskName: patch.taskName ?? row.taskName,
-            assignee: patch.assignee ?? row.assignee,
-            assigneeEmail: patch.assigneeEmail ?? row.assigneeEmail,
-            dueDate: patch.dueDate ?? row.dueDate,
-            lastUpdateDate: patch.lastUpdateDate ?? row.lastUpdateDate,
-            priority: patch.priority ?? row.priority,
-            labels: patch.labels ?? row.labels,
-            notes: patch.notes ?? row.notes,
-            completedDate: patch.completedDate ?? row.completedDate,
-            jiraKey: issue.key,
-            jiraIssueType: patch.jiraIssueType ?? row.jiraIssueType,
-            lastSyncedAt: syncStamp,
-          });
-        } else {
-          // No-op; refresh sync stamp.
-          next.push({ ...row, lastSyncedAt: syncStamp });
-        }
-      }
-
-      // New Jira issues we didn't have locally → create.
-      const existingKeys = new Set(list.map((r) => r.jiraKey).filter(Boolean));
-      for (const issue of issues) {
-        if (existingKeys.has(issue.key)) continue;
-        const patch = issueToTaskFields(issue, todayNow);
-        next.push({
-          id: nextId++,
-          taskName: patch.taskName ?? issue.key,
-          assignee: patch.assignee ?? "",
-          assigneeEmail: patch.assigneeEmail ?? "",
-          dueDate: patch.dueDate ?? "",
-          lastUpdateDate: patch.lastUpdateDate ?? todayNow,
-          priority: patch.priority ?? "Medium",
-          blockers: "",
-          notes: patch.notes ?? "",
-          completedDate: patch.completedDate,
-          inquiriesSent: 0,
-          group: jiraCfg.projectName || jiraCfg.projectKey || "",
-          labels: patch.labels ?? [],
-          jiraKey: issue.key,
-          jiraIssueType: patch.jiraIssueType,
-          lastSyncedAt: syncStamp,
-        });
-        added++;
-      }
-
-      tasksRef.current = next;
-      setTasks(next);
-
-      logActivity("jira.sync", added + pulled, pushed, conflictItems.length);
-
-      const summary = t(
-        lang,
-        "jiraSyncDoneFull",
-        issues.length,
-        added,
-        pulled,
-        pushed,
-      );
-      if (conflictItems.length > 0) {
-        setJiraConflicts(conflictItems);
-        showToast(
-          "info",
-          summary +
-            " " +
-            t(lang, "jiraSyncConflictsReview", conflictItems.length),
-        );
-      } else {
-        showToast("info", summary);
-      }
-    } catch (err) {
-      showToast("error", t(lang, "jiraSyncFailed", formatJiraError(err)));
-    } finally {
-      setJiraSyncing(false);
-    }
-  }
-
-  async function handleResolveConflicts(
-    resolutions: import("./jira-conflicts-modal").ConflictResolution[],
-  ) {
-    const jiraCfg = settings.jira;
-    const {
-      updateIssue,
-      taskFieldsToJiraFields,
-      transitionIssueTo,
-      formatJiraError,
-    } = await loadJiraApi();
-    const creds = {
-      siteUrl: jiraCfg.siteUrl,
-      email: jiraCfg.email,
-      apiToken: jiraCfg.apiToken,
-    };
-    const syncStamp = new Date().toISOString();
-    let pulled = 0;
-    let pushed = 0;
-    let pushErrors = 0;
-
-    // Walk through resolutions sequentially so we can await Jira pushes.
-    for (const res of resolutions) {
-      const original = tasksRef.current.find((row) => row.id === res.taskId);
-      const conflict = jiraConflicts.find((c) => c.taskId === res.taskId);
-      if (!original || !conflict) continue;
-
-      // Build the new local task by applying field-by-field picks.
-      const merged: Task = { ...original };
-      let anyLocalPicked = false;
-      let completionChanged = false;
-      for (const field of conflict.fields) {
-        const pick = res.picks[field.key] ?? "remote";
-        const value = pick === "local" ? field.localValue : field.remoteValue;
-        if (pick === "local") anyLocalPicked = true;
-        if (field.key === "labels") {
-          merged.labels = Array.isArray(value) ? (value as string[]) : [];
-        } else if (field.key === "completedDate") {
-          merged.completedDate =
-            typeof value === "string" && value ? value : undefined;
-          completionChanged = true;
-        } else if (
-          field.key === "taskName" ||
-          field.key === "assignee" ||
-          field.key === "assigneeEmail" ||
-          field.key === "dueDate" ||
-          field.key === "priority" ||
-          field.key === "notes"
-        ) {
-          (merged as Record<string, unknown>)[field.key] =
-            typeof value === "string" ? value : "";
-        }
-      }
-
-      // Push to Jira if any "local" pick was made. We push the full Jira-owned
-      // field set rather than the diff — it's idempotent and simpler.
-      if (anyLocalPicked) {
-        try {
-          await updateIssue(
-            creds,
-            conflict.jiraKey,
-            taskFieldsToJiraFields(merged),
-          );
-          // Status transition: if local now Done but remote isn't, transition.
-          if (completionChanged && merged.completedDate && !conflict.remoteDone) {
-            await transitionIssueTo(creds, conflict.jiraKey, "done");
-          }
-          pushed++;
-        } catch (err) {
-          pushErrors++;
-          if (pushErrors === 1) {
-            showToast(
-              "error",
-              t(lang, "jiraPushFailed", conflict.jiraKey, formatJiraError(err)),
-            );
-          }
-          // On push failure: keep the original local row untouched. Don't update
-          // lastSyncedAt so it stays a conflict on the next sync.
-          continue;
-        }
-      } else {
-        pulled++;
-      }
-
-      merged.lastSyncedAt = syncStamp;
-      merged.localModifiedAt = undefined;
-      const next = tasksRef.current.map((row) =>
-        row.id === merged.id ? merged : row,
-      );
-      tasksRef.current = next;
-      setTasks(next);
-    }
-
-    // Clear resolved conflicts; any that errored will resurface on next sync.
-    setJiraConflicts([]);
-    showToast(
-      "info",
-      t(lang, "jiraConflictResolved", resolutions.length, pulled, pushed),
-    );
   }
 
   /**
@@ -2965,7 +2668,7 @@ function TaskManagerInner() {
           lang={lang}
           conflicts={jiraConflicts}
           onResolve={handleResolveConflicts}
-          onClose={() => setJiraConflicts([])}
+          onClose={clearConflicts}
         />
       )}
 
