@@ -254,8 +254,95 @@ export function useJiraSync(args: UseJiraSyncArgs) {
     }
   }, [args.showToast, args.logActivity]);
 
-  const handleResolveConflicts = useCallback(async (_resolutions: ConflictResolution[]) => {
-    // TODO: implement in Task 8
+  const handleResolveConflicts = useCallback(async (resolutions: ConflictResolution[]) => {
+    const jiraCfg = settingsRef.current.jira;
+    const {
+      updateIssue,
+      taskFieldsToJiraFields,
+      transitionIssueTo,
+      formatJiraError,
+    } = await loadJiraApi();
+    const creds = {
+      siteUrl: jiraCfg.siteUrl,
+      email: jiraCfg.email,
+      apiToken: jiraCfg.apiToken,
+    };
+    const syncStamp = new Date().toISOString();
+    let pulled = 0;
+    let pushed = 0;
+    let pushErrors = 0;
+
+    for (const res of resolutions) {
+      const original = tasksRef.current.find((row) => row.id === res.taskId);
+      const conflict = jiraConflictsRef.current.find((c) => c.taskId === res.taskId);
+      if (!original || !conflict) continue;
+
+      const merged: Task = { ...original };
+      let anyLocalPicked = false;
+      let completionChanged = false;
+      for (const field of conflict.fields) {
+        const pick = res.picks[field.key] ?? "remote";
+        const value = pick === "local" ? field.localValue : field.remoteValue;
+        if (pick === "local") anyLocalPicked = true;
+        if (field.key === "labels") {
+          merged.labels = Array.isArray(value) ? (value as string[]) : [];
+        } else if (field.key === "completedDate") {
+          merged.completedDate =
+            typeof value === "string" && value ? value : undefined;
+          completionChanged = true;
+        } else if (
+          field.key === "taskName" ||
+          field.key === "assignee" ||
+          field.key === "assigneeEmail" ||
+          field.key === "dueDate" ||
+          field.key === "priority" ||
+          field.key === "notes"
+        ) {
+          (merged as Record<string, unknown>)[field.key] =
+            typeof value === "string" ? value : "";
+        }
+      }
+
+      if (anyLocalPicked) {
+        try {
+          await updateIssue(
+            creds,
+            conflict.jiraKey,
+            taskFieldsToJiraFields(merged),
+          );
+          if (completionChanged && merged.completedDate && !conflict.remoteDone) {
+            await transitionIssueTo(creds, conflict.jiraKey, "done");
+          }
+          pushed++;
+        } catch (err) {
+          pushErrors++;
+          if (pushErrors === 1) {
+            args.showToast(
+              "error",
+              t(langRef.current, "jiraPushFailed", conflict.jiraKey, formatJiraError(err)),
+            );
+          }
+          continue;
+        }
+      } else {
+        pulled++;
+      }
+
+      merged.lastSyncedAt = syncStamp;
+      merged.localModifiedAt = undefined;
+      const next = tasksRef.current.map((row) =>
+        row.id === merged.id ? merged : row,
+      );
+      tasksRef.current = next;
+      setTasks(next);
+    }
+
+    setJiraConflicts([]);
+    jiraConflictsRef.current = [];
+    args.showToast(
+      "info",
+      t(langRef.current, "jiraConflictResolved", resolutions.length, pulled, pushed),
+    );
   }, [args.showToast, args.logActivity]);
 
   const clearConflicts = useCallback(() => setJiraConflicts([]), []);

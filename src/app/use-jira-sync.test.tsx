@@ -261,7 +261,7 @@ describe("useJiraSync — handleResolveConflicts", () => {
   beforeEach(() => { vi.clearAllMocks(); });
 
   // Helper to set up a conflict in jiraConflicts state
-  async function setupConflict(result: { current: ReturnType<typeof makeProbe> & { currentTasks: Task[] } }) {
+  async function setupConflict(result: { current: ReturnType<ReturnType<typeof makeProbe>> }) {
     (jiraApi.buildJql as ReturnType<typeof vi.fn>).mockReturnValueOnce("project = TEST");
     const remoteIssue = {
       key: "TEST-1",
