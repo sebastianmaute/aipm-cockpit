@@ -21,6 +21,7 @@ import { holidaysForCountries } from "./holidays";
 import { type Lang, type TranslationKey, loadI18n, migrateLang, priorityLabel, t } from "./i18n";
 import { useChatDispatcher } from "./use-chat-dispatcher";
 import { loadJiraApi, useJiraSync } from "./use-jira-sync";
+import { useStorageBackend } from "./use-storage-backend";
 import { VersionMenu } from "./version-menu";
 import {
   DueBanner,
@@ -105,14 +106,6 @@ import {
   defaultSettings,
 } from "./settings-menu";
 import {
-  StorageNotImplementedError,
-  StorageNotReadyError,
-  createBackend,
-  openFileForBackend,
-  pickFileForBackend,
-  requestWriteAccessForBackend,
-} from "./storage";
-import {
   appendActivity,
   type ActivityEntry,
   type ActivityKind,
@@ -136,7 +129,6 @@ import {
   openPopoutWindow,
   type PopoutTab,
   readPopoutTabFromUrl,
-  useBroadcastSync,
 } from "./broadcast-sync";
 import {
   FiltersProvider,
@@ -381,12 +373,6 @@ function TaskManagerInner() {
   >(null);
 
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
-
-  const [storageDescription, setStorageDescription] = useState<string | null>(
-    null,
-  );
-  const [storageReady, setStorageReady] = useState(false);
-  const suppressNextSaveRef = useRef(false);
 
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const [dueModalOpen, setDueModalOpen] = useState(false);
@@ -682,11 +668,6 @@ function TaskManagerInner() {
       cancelled = true;
     };
   }, [settings.holidayCountries]);
-
-  const backend = useMemo(
-    () => createBackend(settings.storageConfig),
-    [settings.storageConfig],
-  );
 
   // Load settings (synchronous, blocks task hydration)
   useEffect(() => {
@@ -1153,157 +1134,6 @@ function TaskManagerInner() {
     [raid, today],
   );
 
-  async function refreshBackendStatus() {
-    try {
-      const desc = (await backend.describe?.()) ?? null;
-      setStorageDescription(desc);
-      setStorageReady(await backend.isReady());
-    } catch {
-      setStorageDescription(null);
-      setStorageReady(false);
-    }
-  }
-
-  // Load tasks from backend whenever backend changes (or on hydration)
-  useEffect(() => {
-    if (!hydrated) return;
-    let cancelled = false;
-    refreshBackendStatus();
-    const snapshot = { tasks, raid, absences, shifts };
-    backend
-      .load()
-      .then((loaded) => {
-        if (cancelled) return;
-        if (
-          loaded.tasks.length > 0 ||
-          loaded.raid.length > 0 ||
-          loaded.absences.length > 0
-        ) {
-          suppressNextSaveRef.current = true;
-          setTasks(loaded.tasks);
-          setRaid(loaded.raid);
-          setAbsences(loaded.absences);
-          setShifts(loaded.shifts);
-        } else if (
-          snapshot.tasks.length > 0 ||
-          snapshot.raid.length > 0 ||
-          snapshot.absences.length > 0 ||
-          snapshot.shifts.length > 0
-        ) {
-          backend.save(snapshot).catch(() => {
-            /* swallow — toast will fire on next save attempt */
-          });
-        }
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        if (err instanceof StorageNotReadyError) {
-          if (settings.storageConfig.kind !== "browser") {
-            const key =
-              err.hint === "local-file-permission-needed"
-                ? "storagePermissionGestureNeeded"
-                : "storageNotReady";
-            showToast("error", t(lang, key));
-          }
-        } else if (!(err instanceof StorageNotImplementedError)) {
-          showToast("error", t(lang, "storageLoadFailed", String(err)));
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [backend, hydrated]);
-
-  // Save tasks to backend on change (debounced)
-  useEffect(() => {
-    if (!hydrated) return;
-    if (suppressNextSaveRef.current) {
-      suppressNextSaveRef.current = false;
-      return;
-    }
-    const timer = setTimeout(() => {
-      backend.save({ tasks, raid, absences, shifts }).catch((err) => {
-        if (err instanceof StorageNotReadyError) {
-          const key =
-            err.hint === "local-file-permission-needed"
-              ? "storagePermissionGestureNeeded"
-              : "storageNotReady";
-          showToast("error", t(lang, key));
-        } else if (!(err instanceof StorageNotImplementedError)) {
-          showToast("error", t(lang, "storageSaveFailed", String(err)));
-        }
-      });
-    }, 500);
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tasks, raid, absences, shifts, hydrated, backend]);
-
-  // Cross-window state sync. The five workspace slices are mirrored over
-  // a BroadcastChannel so the main window and any `?popout=<tab>` window
-  // stay in sync. Local-only UI state (activeTab, modals, drafts) is
-  // intentionally not synced. See broadcast-sync.ts for the echo guard.
-  useBroadcastSync("tasks", tasks, setTasks);
-  useBroadcastSync("raid", raid, setRaid);
-  useBroadcastSync("absences", absences, setAbsences);
-  useBroadcastSync("shifts", shifts, setShifts);
-  useBroadcastSync("activityLog", activityLog, setActivityLog);
-
-  async function onPickStorageFile() {
-    const promise = pickFileForBackend(backend);
-    if (!promise) return;
-    await promise;
-    try {
-      await backend.save({ tasks, raid, absences, shifts });
-      await refreshBackendStatus();
-      showToast("info", t(lang, "storageSwitchedToast"));
-    } catch (err) {
-      showToast("error", t(lang, "storageSaveFailed", String(err)));
-    }
-  }
-
-  async function onGrantWriteAccess() {
-    const promise = requestWriteAccessForBackend(backend);
-    if (!promise) return;
-    const granted = await promise;
-    await refreshBackendStatus();
-    if (granted) {
-      showToast("info", t(lang, "storagePermissionGranted"));
-    } else {
-      showToast("error", t(lang, "storagePermissionDenied"));
-    }
-  }
-
-  async function onOpenStorageFile() {
-    const promise = openFileForBackend(backend);
-    if (!promise) return;
-    await promise;
-    try {
-      const loaded = await backend.load();
-      if (
-        tasks.length > 0 &&
-        !window.confirm(t(lang, "storageConfirmOverwrite", tasks.length))
-      ) {
-        return;
-      }
-      suppressNextSaveRef.current = true;
-      setTasks(loaded.tasks);
-      setRaid(loaded.raid);
-      await refreshBackendStatus();
-      showToast("info", t(lang, "storageOpenedToast", loaded.tasks.length));
-    } catch (err) {
-      if (err instanceof StorageNotReadyError) {
-        const key =
-          err.hint === "local-file-permission-needed"
-            ? "storagePermissionGestureNeeded"
-            : "storageNotReady";
-        showToast("error", t(lang, key));
-      } else {
-        showToast("error", t(lang, "storageLoadFailed", String(err)));
-      }
-    }
-  }
-
   useEffect(() => {
     if (!toast) return;
     const timer = setTimeout(() => setToast(null), 4000);
@@ -1321,6 +1151,9 @@ function TaskManagerInner() {
     showToast,
     logActivity,
   });
+
+  const { storageDescription, storageReady, onPickStorageFile, onGrantWriteAccess, onOpenStorageFile } =
+    useStorageBackend({ settings, lang, hydrated, activityLog, setActivityLog, showToast });
 
   const nextId =
     tasks.length > 0 ? Math.max(...tasks.map((t) => t.id)) + 1 : 1;
