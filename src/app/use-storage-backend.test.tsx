@@ -144,6 +144,20 @@ describe("useStorageBackend — load effect", () => {
     expect(showToast).toHaveBeenCalledWith("error", expect.any(String));
   });
 
+  it("silently swallows StorageNotImplementedError without toast or state change", async () => {
+    const { StorageNotImplementedError } = storageMod as any;
+    mockBackend.load.mockRejectedValueOnce(new StorageNotImplementedError("not implemented"));
+    mockBackend.isReady.mockResolvedValueOnce(false);
+    mockBackend.describe.mockResolvedValueOnce(null);
+
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+
+    expect(showToast).not.toHaveBeenCalled();
+    expect(result.current.storageReady).toBe(false);
+    expect(result.current.storageDescription).toBeNull();
+  });
+
   it("does not call backend.load when hydrated is false", async () => {
     renderBackend(makeArgs({ hydrated: false }));
     await act(async () => { await Promise.resolve(); });
@@ -277,6 +291,9 @@ describe("useStorageBackend — handlers", () => {
     (storageMod.openFileForBackend as ReturnType<typeof vi.fn>).mockReturnValue(
       Promise.resolve(undefined),
     );
+    // First call: mount load effect (returns empty workspace)
+    mockBackend.load.mockResolvedValueOnce({ tasks: [], raid: [], absences: [], shifts: [] });
+    // Second call: inside onOpenStorageFile (returns task with id 99)
     mockBackend.load.mockResolvedValueOnce({
       tasks: [{ id: 99, taskName: "Loaded" }] as any,
       raid: [],
@@ -288,8 +305,10 @@ describe("useStorageBackend — handlers", () => {
     await act(async () => { await Promise.resolve(); });
 
     await act(async () => { await result.current.onOpenStorageFile(); });
+    // Flush React state updates from setTasks
+    await act(async () => { await Promise.resolve(); });
 
     expect(storageMod.openFileForBackend).toHaveBeenCalledWith(mockBackend);
-    expect(result.current.tasks.length).toBeGreaterThanOrEqual(0);
+    expect(result.current.tasks[0]?.id).toBe(99);
   });
 });
