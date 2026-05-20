@@ -12,6 +12,60 @@ post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-
 
 _No unreleased changes._
 
+## [0.7.3] "Adams" — 2026-05-20
+
+Internal refactor + a visible performance win. Slice 5 of the
+`task-manager.tsx` decomposition extracts the Claude chat-tool dispatcher
+into its own custom hook with a stable identity, which lets us memoize
+`ChatPanel`. The chat panel no longer re-renders on every task-form
+keystroke.
+
+### Changed (internal — single user-visible side effect)
+
+- **`useChatDispatcher` hook** (`src/app/use-chat-dispatcher.ts`): consumes
+  `useWorkspace` / `useTaskForm` / `useFilters` directly. Four internal
+  refs (`tasksRef`, `settingsRef`, `todayRef`, `editingIdRef`) absorb every
+  reactive value the dispatcher reads, so the `useMemo<ToolDispatcher>`
+  has empty deps and its identity never changes after first render. The
+  dispatcher synchronously updates `tasksRef.current` before calling
+  `setTasks` so back-to-back chat tool calls in one turn see each other's
+  writes.
+- **`task-manager.tsx`** now calls `useChatDispatcher({ settings, today,
+  setSelectedIds, setSettings })` instead of inlining ~240 lines of refs,
+  helpers, and the dispatcher `useMemo`. Net: −228 lines (3517 → 3289).
+- **`ChatPanel` wrapped in `React.memo`** (`src/app/chat-panel.tsx`).
+  Combined with a `useCallback` for `onAcceptConsent` and the now-stable
+  dispatcher, all four `ChatPanel` props are reference-stable for any
+  parent re-render that doesn't change `lang` or `settings.ai` — so the
+  Chat tab skips re-renders during, e.g., task-form input. **This is the
+  visible performance win.**
+
+### Added
+
+- **`src/app/test-providers.tsx`** — small test helper composing
+  `FiltersProvider` → `WorkspaceProvider` → `TaskFormProvider`, with a
+  one-shot `Seeder` child for initial tasks. Used by the new hook tests.
+- **15 unit tests for `useChatDispatcher`** covering each of the 10
+  dispatcher methods plus two identity-stability tests that pin the
+  empty-deps invariant the slice is designed around. Test count: 69 → 84.
+
+### Moved (small refactor opportunities exposed by extraction)
+
+- `isValidEmail` moved from a private function in `task-manager.tsx` to
+  an exported member of `src/app/sanitize.ts`. Behaviour identical at all
+  10 existing call sites.
+- `greetingName` moved from a private function in `task-manager.tsx` to
+  an exported member of `src/app/contacts.ts` (also pulled in
+  `isValidEmail` from `./sanitize`). Behaviour identical at all 3
+  existing call sites.
+
+### Fixed
+
+- The "ChatPanel memoization (gated on dispatcher useMemo deps audit)"
+  open item in `.reports/codemap-diff.txt` is now closed. The dispatcher's
+  `editingId` dep — the last reactive value preventing identity
+  stability — is routed through `editingIdRef.current`.
+
 ## [0.7.2] "Banks" — 2026-05-19
 
 Activity-log confirm dialog, three Rules-of-Hooks / hydration bug fixes,
@@ -135,7 +189,8 @@ Prior feature-accretion milestone. (Quoted from `src/app/version.ts`:
 - ADF (Atlassian Document Format) ↔ notes round-tripping.
 - Resizable + collapsible workspace, resizable tasks table, header "+" task modal.
 
-[Unreleased]: https://gitlab.example.com/example-group/public-collab/lop-app/-/compare/v0.7.2...main
+[Unreleased]: https://gitlab.example.com/example-group/public-collab/lop-app/-/compare/v0.7.3...main
+[0.7.3]: https://gitlab.example.com/example-group/public-collab/lop-app/-/compare/v0.7.2...v0.7.3
 [0.7.2]: https://gitlab.example.com/example-group/public-collab/lop-app/-/compare/v0.7.1...v0.7.2
 [0.7.1]: https://gitlab.example.com/example-group/public-collab/lop-app/-/compare/v0.7.0...v0.7.1
 [0.7.0]: # (no tag)

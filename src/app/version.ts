@@ -1,3 +1,10 @@
+// 0.7.3 extracts the Claude chat-tool dispatcher (~240 LoC) out of
+// task-manager.tsx into a new useChatDispatcher hook with empty-deps useMemo
+// + ref-based reactive reads. ChatPanel is now wrapped in React.memo; with
+// the dispatcher's stable identity it no longer re-renders on task-form
+// keystrokes. task-manager.tsx -228 lines. 15 new unit tests for the hook,
+// including identity-stability pins. isValidEmail moved to sanitize.ts;
+// greetingName moved to contacts.ts.
 // 0.7.2 adds a confirm dialog before clearing the activity log, matching the
 // existing confirm-before-delete pattern on "Delete all tasks" and single-task
 // delete. Internal: TaskFormModal + BulkEditModal extracted from
@@ -20,8 +27,8 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.7.2";
-export const APP_BUILD_DATE = "2026-05-19";
+export const APP_VERSION = "0.7.3";
+export const APP_BUILD_DATE = "2026-05-20";
 export const APP_REPO_URL = "https://www.example.com";
 
 /** Translation keys for the high-level feature highlights shown in the
