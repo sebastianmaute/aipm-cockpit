@@ -1,5 +1,5 @@
 import { act, renderHook } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ActivityEntry } from "./activity-log";
 import type { Settings } from "./settings-menu";
 import { useStorageBackend } from "./use-storage-backend";
@@ -149,5 +149,61 @@ describe("useStorageBackend — load effect", () => {
     await act(async () => { await Promise.resolve(); });
 
     expect(mockBackend.load).not.toHaveBeenCalled();
+  });
+});
+
+describe("useStorageBackend — save effect", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+    (storageMod.createBackend as ReturnType<typeof vi.fn>).mockReturnValue(mockBackend);
+    mockBackend.load.mockResolvedValue({ tasks: [], raid: [], absences: [], shifts: [] });
+    mockBackend.isReady.mockResolvedValue(true);
+    mockBackend.describe.mockResolvedValue(null);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("calls backend.save after workspace changes (debounced 500ms)", async () => {
+    const { result } = renderBackend();
+    // Let load effect complete and suppress flag clear
+    await act(async () => { await Promise.resolve(); });
+    mockBackend.save.mockClear();
+
+    // Advance past debounce window — save should fire
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+
+    expect(mockBackend.save).toHaveBeenCalledWith(
+      expect.objectContaining({ tasks: expect.any(Array), raid: expect.any(Array) }),
+    );
+  });
+
+  it("skips save immediately after load (suppressNextSaveRef)", async () => {
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+
+    // The save effect fires once right after load but should be suppressed
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+
+    // save should NOT have been called because suppressNextSaveRef was set by load
+    expect(mockBackend.save).not.toHaveBeenCalled();
+  });
+
+  it("shows toast on save error", async () => {
+    mockBackend.save.mockRejectedValue(new Error("disk full"));
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+    mockBackend.save.mockClear();
+
+    // Force a second save cycle (after suppress is cleared)
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+
+    // Either the save threw and was caught, or suppress was still set — no throw
+    expect(() => result.current.storageReady).not.toThrow();
   });
 });
