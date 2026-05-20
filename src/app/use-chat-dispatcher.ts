@@ -10,9 +10,23 @@ import {
 } from "react";
 import { type Filters, type ToolDispatcher } from "./chat-tools";
 import { useFilters } from "./filters-context";
-import { useTaskForm } from "./task-form-context";
-import { useWorkspace } from "./workspace-context";
+import {
+  isValidEmail,
+  sanitizeAssignee,
+  sanitizeBlockers,
+  sanitizeEmail,
+  sanitizeGroup,
+  sanitizeIsoDate,
+  sanitizeLabels,
+  sanitizeNonNegInt,
+  sanitizeNotes,
+  sanitizePriority,
+  sanitizeTaskName,
+} from "./sanitize";
 import { type Settings } from "./settings-menu";
+import { useTaskForm } from "./task-form-context";
+import { type Task } from "./types";
+import { useWorkspace } from "./workspace-context";
 
 export interface ChatDispatcherArgs {
   settings: Settings;
@@ -70,8 +84,38 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
     () => ({
       listTasks: () => tasksRef.current,
       getTask: (id) => tasksRef.current.find((row) => row.id === id) ?? null,
-      createTask: () => {
-        throw new Error("not implemented yet");
+      createTask: (input) => {
+        const list = tasksRef.current;
+        const id =
+          list.length > 0 ? Math.max(...list.map((row) => row.id)) + 1 : 1;
+        const taskName = sanitizeTaskName(input.taskName);
+        const assignee = sanitizeAssignee(input.assignee);
+        const dueDate = sanitizeIsoDate(input.dueDate);
+        if (!taskName) throw new Error("taskName is required");
+        if (!assignee) throw new Error("assignee is required");
+        if (!dueDate) throw new Error("dueDate must be YYYY-MM-DD");
+        const email = sanitizeEmail(input.assigneeEmail);
+        if (email && !isValidEmail(email))
+          throw new Error("assigneeEmail is invalid");
+        const newTask: Task = {
+          id,
+          taskName,
+          assignee,
+          assigneeEmail: email,
+          dueDate,
+          lastUpdateDate:
+            sanitizeIsoDate(input.lastUpdateDate) || todayRef.current,
+          priority: sanitizePriority(input.priority),
+          blockers: sanitizeBlockers(input.blockers),
+          notes: sanitizeNotes(input.notes),
+          inquiriesSent: 0,
+          group: sanitizeGroup(input.group),
+          labels: sanitizeLabels(input.labels),
+        };
+        const next = [...list, newTask];
+        tasksRef.current = next; // keep ref in sync for back-to-back tool calls
+        setTasks(next);
+        return newTask;
       },
       updateTask: () => {
         throw new Error("not implemented yet");
@@ -102,7 +146,6 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   // Suppress unused-variable warnings for state we don't yet read; later
   // tasks consume them. Removing this when those methods land is part of
   // Task 6.
-  void setTasks;
   void setEditingId;
   void setForm;
   void setSearch;

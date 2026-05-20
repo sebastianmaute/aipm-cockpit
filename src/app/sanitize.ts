@@ -26,6 +26,12 @@ export const LABEL_MAX = 50;
 export const LABELS_MAX_COUNT = 20;
 const DEPENDENCIES_MAX_COUNT = 20;
 
+// --- Email validation ------------------------------------------------------
+
+export function isValidEmail(s: string): boolean {
+  return /^\S+@\S+\.\S+$/.test(s.trim());
+}
+
 // --- Generic helpers -------------------------------------------------------
 
 function clipText(s: unknown, max: number): string {

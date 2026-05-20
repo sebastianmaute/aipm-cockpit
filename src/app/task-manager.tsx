@@ -83,6 +83,7 @@ import {
 } from "./contacts";
 import {
   isPlainObject,
+  isValidEmail,
   sanitizeAssignee,
   sanitizeBlockers,
   sanitizeDependencies,
@@ -255,10 +256,6 @@ const DEFAULT_COL_WIDTHS: Record<string, number> = {
 
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
-}
-
-function isValidEmail(s: string): boolean {
-  return /^\S+@\S+\.\S+$/.test(s.trim());
 }
 
 function greetingName(assignee: string): string {

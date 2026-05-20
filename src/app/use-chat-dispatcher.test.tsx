@@ -122,4 +122,41 @@ describe("useChatDispatcher", () => {
     const { result } = renderDispatcher();
     expect(result.current.getTask(999)).toBeNull();
   });
+
+  it("createTask appends a row with id = max(ids) + 1 and sanitizes inputs", () => {
+    const { result } = renderDispatcher();
+    const created = result.current.createTask({
+      taskName: "  Delta  ",
+      assignee: "Dave",
+      dueDate: "2026-06-04",
+    });
+    expect(created.id).toBe(4);
+    expect(created.taskName).toBe("Delta");
+    expect(result.current.listTasks()).toHaveLength(4);
+  });
+
+  it("createTask throws when required fields are missing", () => {
+    const { result } = renderDispatcher();
+    expect(() =>
+      result.current.createTask({
+        taskName: "",
+        assignee: "Dave",
+        dueDate: "2026-06-04",
+      }),
+    ).toThrow(/taskName is required/);
+    expect(() =>
+      result.current.createTask({
+        taskName: "Delta",
+        assignee: "",
+        dueDate: "2026-06-04",
+      }),
+    ).toThrow(/assignee is required/);
+    expect(() =>
+      result.current.createTask({
+        taskName: "Delta",
+        assignee: "Dave",
+        dueDate: "not-a-date",
+      }),
+    ).toThrow(/dueDate must be YYYY-MM-DD/);
+  });
 });
