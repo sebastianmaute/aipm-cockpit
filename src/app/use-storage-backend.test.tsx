@@ -83,3 +83,71 @@ describe("useStorageBackend — state initialisation", () => {
     expect(result.current.storageDescription).toBeNull();
   });
 });
+
+describe("useStorageBackend — load effect", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (storageMod.createBackend as ReturnType<typeof vi.fn>).mockReturnValue(mockBackend);
+  });
+
+  it("populates workspace from backend on mount", async () => {
+    mockBackend.load.mockResolvedValueOnce({
+      tasks: [{ id: 1, taskName: "T1" }] as any,
+      raid: [{ id: "r1" }] as any,
+      absences: [],
+      shifts: [],
+    });
+    mockBackend.isReady.mockResolvedValueOnce(true);
+    mockBackend.describe.mockResolvedValueOnce("my-file.json");
+
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+
+    expect(result.current.tasks.length).toBe(1);
+    expect(result.current.raid.length).toBe(1);
+    expect(result.current.storageReady).toBe(true);
+    expect(result.current.storageDescription).toBe("my-file.json");
+  });
+
+  it("suppresses the next save after load", async () => {
+    mockBackend.isReady.mockResolvedValueOnce(true);
+    mockBackend.describe.mockResolvedValueOnce("f.json");
+
+    renderBackend();
+    await act(async () => { await Promise.resolve(); });
+
+    // save must NOT have been called immediately after load
+    expect(mockBackend.save).not.toHaveBeenCalled();
+  });
+
+  it("shows error toast on StorageNotReadyError", async () => {
+    const { StorageNotReadyError } = storageMod as any;
+    mockBackend.load.mockRejectedValueOnce(new StorageNotReadyError("no access"));
+    mockBackend.isReady.mockResolvedValueOnce(false);
+    mockBackend.describe.mockResolvedValueOnce(null);
+
+    renderBackend();
+    await act(async () => { await Promise.resolve(); });
+
+    expect(showToast).toHaveBeenCalledWith("error", expect.any(String));
+    expect(mockBackend.isReady).toHaveBeenCalled();
+  });
+
+  it("shows error toast on unknown load error", async () => {
+    mockBackend.load.mockRejectedValueOnce(new Error("boom"));
+    mockBackend.isReady.mockResolvedValueOnce(false);
+    mockBackend.describe.mockResolvedValueOnce(null);
+
+    renderBackend();
+    await act(async () => { await Promise.resolve(); });
+
+    expect(showToast).toHaveBeenCalledWith("error", expect.any(String));
+  });
+
+  it("does not call backend.load when hydrated is false", async () => {
+    renderBackend(makeArgs({ hydrated: false }));
+    await act(async () => { await Promise.resolve(); });
+
+    expect(mockBackend.load).not.toHaveBeenCalled();
+  });
+});
