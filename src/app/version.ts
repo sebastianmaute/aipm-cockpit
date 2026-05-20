@@ -1,3 +1,11 @@
+// 0.7.6 extracts useResourcePlanner (~350 LoC) and useBulkOperations (~270 LoC)
+// hooks from task-manager.tsx. Slice 8 of the decomposition: useResourcePlanner
+// owns RAID CRUD, absence CRUD (with modal state), shift CRUD (with modal state),
+// and handleCreateMitigationTaskFromRaid. useBulkOperations owns selectedIds state,
+// bulk edit logic, handleCommand (voice dispatcher), handleClearAll, and
+// handleBulkSendInquiry. 13 tests each covering modal state, CRUD ops, auto-issue
+// on Risk→Realized, voice dispatch, and bulk inquiry. task-manager.tsx −518 net
+// lines; now ~2,295 lines.
 // 0.7.5 extracts useStorageBackend hook (~167 LoC) from task-manager.tsx.
 // All storage, broadcast-sync, and file-handler logic now lives in the hook.
 // WorkspaceContext widened (Phase A) to own raid, absences, and shifts state.
@@ -38,7 +46,7 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.7.5";
+export const APP_VERSION = "0.7.6";
 export const APP_BUILD_DATE = "2026-05-20";
 export const APP_REPO_URL = "https://www.example.com";
 
