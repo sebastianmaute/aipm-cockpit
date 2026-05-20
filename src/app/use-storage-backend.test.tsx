@@ -196,14 +196,24 @@ describe("useStorageBackend — save effect", () => {
   it("shows toast on save error", async () => {
     mockBackend.save.mockRejectedValue(new Error("disk full"));
     const { result } = renderBackend();
+    // Load completes → suppressNextSaveRef = true
     await act(async () => { await Promise.resolve(); });
-    mockBackend.save.mockClear();
 
-    // Force a second save cycle (after suppress is cleared)
+    // First debounce cycle: suppress fires, clears suppressNextSaveRef, no save call
     await act(async () => { vi.advanceTimersByTime(600); });
     await act(async () => { await Promise.resolve(); });
 
-    // Either the save threw and was caught, or suppress was still set — no throw
-    expect(() => result.current.storageReady).not.toThrow();
+    // Trigger a workspace change so the save effect re-runs with suppress cleared
+    await act(async () => {
+      // Access result to confirm no throw so far
+      void result.current.storageReady;
+      // Advance again — on the next cycle backend.save is called and rejects
+      vi.advanceTimersByTime(600);
+    });
+    await act(async () => { await Promise.resolve(); });
+
+    // The save error should have been caught and shown as a toast
+    // (passes trivially now since save effect not yet implemented; will be GREEN in Task 8)
+    expect(showToast).toHaveBeenCalledWith("error", expect.any(String));
   });
 });
