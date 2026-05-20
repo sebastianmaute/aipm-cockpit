@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ActivityEntry } from "./activity-log";
+import { useBroadcastSync } from "./broadcast-sync";
 import { type Lang, t } from "./i18n";
 import type { Settings } from "./settings-menu";
 import { StorageNotImplementedError, StorageNotReadyError, createBackend } from "./storage";
@@ -81,6 +82,35 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [backend, args.hydrated]);
+
+  // Save workspace to backend on change (debounced 500ms)
+  useEffect(() => {
+    if (!args.hydrated) return;
+    if (suppressNextSaveRef.current) {
+      suppressNextSaveRef.current = false;
+      return;
+    }
+    const timer = setTimeout(() => {
+      backend.save({ tasks, raid, absences, shifts }).catch((err) => {
+        if (err instanceof StorageNotReadyError) {
+          const key = (err as StorageNotReadyError).hint === "local-file-permission-needed"
+            ? "storagePermissionGestureNeeded"
+            : "storageNotReady";
+          args.showToast("error", t(langRef.current, key));
+        } else if (!(err instanceof StorageNotImplementedError)) {
+          args.showToast("error", t(langRef.current, "storageSaveFailed", String(err)));
+        }
+      });
+    }, 500);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tasks, raid, absences, shifts, args.hydrated, backend]);
+
+  useBroadcastSync("tasks", tasks, setTasks);
+  useBroadcastSync("raid", raid, setRaid);
+  useBroadcastSync("absences", absences, setAbsences);
+  useBroadcastSync("shifts", shifts, setShifts);
+  useBroadcastSync("activityLog", args.activityLog, args.setActivityLog);
 
   const onPickStorageFile = async () => {};
   const onGrantWriteAccess = async () => {};
