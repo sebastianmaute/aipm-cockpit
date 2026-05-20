@@ -256,3 +256,90 @@ describe("useJiraSync — handleJiraSync", () => {
     expect(result.current.jiraSyncing).toBe(false);
   });
 });
+
+describe("useJiraSync — handleResolveConflicts", () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+
+  // Helper to set up a conflict in jiraConflicts state
+  async function setupConflict(result: { current: ReturnType<typeof makeProbe> & { currentTasks: Task[] } }) {
+    (jiraApi.buildJql as ReturnType<typeof vi.fn>).mockReturnValueOnce("project = TEST");
+    const remoteIssue = {
+      key: "TEST-1",
+      fields: { summary: "Remote name", updated: "2026-05-10T00:00:00" },
+    } as any;
+    (jiraApi.searchAllIssues as ReturnType<typeof vi.fn>).mockResolvedValueOnce([remoteIssue]);
+    (jiraApi.isIssueDone as ReturnType<typeof vi.fn>).mockReturnValue(false);
+    (jiraApi.issueToTaskFields as ReturnType<typeof vi.fn>).mockReturnValue({ taskName: "Remote name" });
+    (jiraApi.diffTaskAgainstIssue as ReturnType<typeof vi.fn>).mockReturnValue([
+      { key: "taskName", localValue: "Local name", remoteValue: "Remote name" },
+    ]);
+    await act(async () => { await result.current.handleJiraSync(); });
+    expect(result.current.jiraConflicts.length).toBeGreaterThan(0);
+  }
+
+  it("'keep local' resolution → task unchanged, updateIssue called with local value", async () => {
+    const localTask = makeTask({
+      id: 1, jiraKey: "TEST-1", taskName: "Local name",
+      lastSyncedAt: "2026-01-01T00:00:00", localModifiedAt: "2026-05-01T00:00:00",
+    });
+    const { result } = renderSync([localTask]);
+    await setupConflict(result as any);
+
+    vi.clearAllMocks();
+    (jiraApi.taskFieldsToJiraFields as ReturnType<typeof vi.fn>).mockReturnValue({ summary: "Local name" });
+    (jiraApi.updateIssue as ReturnType<typeof vi.fn>).mockResolvedValueOnce(undefined);
+
+    const resolution: import("./jira-conflicts-modal").ConflictResolution = {
+      taskId: 1,
+      jiraKey: "TEST-1",
+      picks: { taskName: "local", assignee: "remote", assigneeEmail: "remote", dueDate: "remote", priority: "remote", labels: "remote", notes: "remote", completedDate: "remote" },
+    };
+    await act(async () => { await result.current.handleResolveConflicts([resolution]); });
+
+    expect(result.current.currentTasks[0].taskName).toBe("Local name");
+    expect(jiraApi.updateIssue).toHaveBeenCalled();
+  });
+
+  it("'use remote' resolution → task updated with remote value, updateIssue NOT called", async () => {
+    const localTask = makeTask({
+      id: 1, jiraKey: "TEST-1", taskName: "Local name",
+      lastSyncedAt: "2026-01-01T00:00:00", localModifiedAt: "2026-05-01T00:00:00",
+    });
+    const { result } = renderSync([localTask]);
+    await setupConflict(result as any);
+
+    vi.clearAllMocks();
+
+    const resolution: import("./jira-conflicts-modal").ConflictResolution = {
+      taskId: 1,
+      jiraKey: "TEST-1",
+      picks: { taskName: "remote", assignee: "remote", assigneeEmail: "remote", dueDate: "remote", priority: "remote", labels: "remote", notes: "remote", completedDate: "remote" },
+    };
+    await act(async () => { await result.current.handleResolveConflicts([resolution]); });
+
+    expect(result.current.currentTasks[0].taskName).toBe("Remote name");
+    expect(jiraApi.updateIssue).not.toHaveBeenCalled();
+  });
+
+  it("after resolution completes → jiraConflicts cleared to []", async () => {
+    const localTask = makeTask({
+      id: 1, jiraKey: "TEST-1", taskName: "Local name",
+      lastSyncedAt: "2026-01-01T00:00:00", localModifiedAt: "2026-05-01T00:00:00",
+    });
+    const { result } = renderSync([localTask]);
+    await setupConflict(result as any);
+
+    vi.clearAllMocks();
+    (jiraApi.taskFieldsToJiraFields as ReturnType<typeof vi.fn>).mockReturnValue({});
+    (jiraApi.updateIssue as ReturnType<typeof vi.fn>).mockResolvedValueOnce(undefined);
+
+    const resolution: import("./jira-conflicts-modal").ConflictResolution = {
+      taskId: 1,
+      jiraKey: "TEST-1",
+      picks: { taskName: "local", assignee: "remote", assigneeEmail: "remote", dueDate: "remote", priority: "remote", labels: "remote", notes: "remote", completedDate: "remote" },
+    };
+    await act(async () => { await result.current.handleResolveConflicts([resolution]); });
+
+    expect(result.current.jiraConflicts).toEqual([]);
+  });
+});
