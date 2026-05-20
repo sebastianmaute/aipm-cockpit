@@ -20,6 +20,7 @@ import type { ConflictItem } from "./jira-api";
 import { holidaysForCountries } from "./holidays";
 import { type Lang, type TranslationKey, loadI18n, migrateLang, priorityLabel, t } from "./i18n";
 import { useChatDispatcher } from "./use-chat-dispatcher";
+import { loadJiraApi } from "./use-jira-sync";
 import { VersionMenu } from "./version-menu";
 import {
   DueBanner,
@@ -165,22 +166,6 @@ const VoiceCommandButton = dynamic(
   { ssr: false },
 );
 import type { Command } from "./voice";
-
-// --- jira-api lazy loader -----------------------------------------------
-//
-// Caches the dynamic-imported module so subsequent Jira operations don't
-// pay the load cost again. Returns the namespace object — callers do
-// (await loadJiraApi()).createIssue(...). Defer-on-first-use defers the
-// whole jira-api module + its transitive deps from the initial bundle for
-// users who never enable Jira sync.
-type JiraApiModule = typeof import("./jira-api");
-let jiraApiPromise: Promise<JiraApiModule> | null = null;
-function loadJiraApi(): Promise<JiraApiModule> {
-  if (!jiraApiPromise) {
-    jiraApiPromise = import("./jira-api");
-  }
-  return jiraApiPromise;
-}
 
 // --- inlined absence / shift draft helpers ------------------------------
 //
