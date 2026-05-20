@@ -45,6 +45,7 @@ export function useJiraSync(args: UseJiraSyncArgs) {
   const jiraSyncingRef = useRef(false);
   const jiraConflictsRef = useRef(jiraConflicts);
   useEffect(() => { jiraConflictsRef.current = jiraConflicts; }, [jiraConflicts]);
+  useEffect(() => { jiraSyncingRef.current = jiraSyncing; }, [jiraSyncing]);
 
   const handleJiraSync = useCallback(async () => {
     // TODO: implement in Tasks 4 + 6
