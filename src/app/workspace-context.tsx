@@ -10,7 +10,7 @@ import {
   type SetStateAction,
 } from "react";
 import { useFilters } from "./filters-context";
-import { PRIORITY_RANK, type Task } from "./types";
+import { PRIORITY_RANK, type Absence, type RaidItem, type Shift, type Task } from "./types";
 
 interface WorkspaceValue {
   tasks: Task[];
@@ -23,12 +23,22 @@ interface WorkspaceValue {
   taskSearchIndex: Map<number, string>;
 
   filteredSortedTasks: Task[];
+
+  raid: RaidItem[];
+  setRaid: Dispatch<SetStateAction<RaidItem[]>>;
+  absences: Absence[];
+  setAbsences: Dispatch<SetStateAction<Absence[]>>;
+  shifts: Shift[];
+  setShifts: Dispatch<SetStateAction<Shift[]>>;
 }
 
 const WorkspaceContext = createContext<WorkspaceValue | undefined>(undefined);
 
 export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [raid, setRaid] = useState<RaidItem[]>([]);
+  const [absences, setAbsences] = useState<Absence[]>([]);
+  const [shifts, setShifts] = useState<Shift[]>([]);
   const {
     searchDebounced,
     priorityFilter,
@@ -153,6 +163,12 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     tasksById,
     taskSearchIndex,
     filteredSortedTasks,
+    raid,
+    setRaid,
+    absences,
+    setAbsences,
+    shifts,
+    setShifts,
   };
 
   return (

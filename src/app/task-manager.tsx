@@ -250,9 +250,6 @@ const inputClass =
 // TaskManagerInner consumes the FiltersProvider context. The default
 // export below wraps this in <FiltersProvider> so useFilters() works.
 function TaskManagerInner() {
-  const [raid, setRaid] = useState<RaidItem[]>([]);
-  const [absences, setAbsences] = useState<Absence[]>([]);
-  const [shifts, setShifts] = useState<Shift[]>([]);
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [hydrated, setHydrated] = useState(false);
   // Gates the JSX return below. `t()` falls back to en-US for German keys
@@ -353,6 +350,12 @@ function TaskManagerInner() {
     tasksById,
     taskSearchIndex,
     filteredSortedTasks,
+    raid,
+    setRaid,
+    absences,
+    setAbsences,
+    shifts,
+    setShifts,
   } = useWorkspace();
 
   // Form / modal state owned by TaskFormProvider (Slice 3 of the
