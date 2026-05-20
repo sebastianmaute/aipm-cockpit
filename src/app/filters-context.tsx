@@ -14,6 +14,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useRef,
   useState,
   type Dispatch,
   type ReactNode,
@@ -47,6 +48,10 @@ interface FiltersValue {
   // direct-value form (setX(value)) or the updater form (setX(prev =>
   // ...)). Matches what useState returns natively.
   setSearch: Dispatch<SetStateAction<string>>;
+  /** Sets search + searchDebounced synchronously (bypasses the 150 ms
+   *  debounce). Use for programmatic triggers like voice commands where
+   *  the user expects an instant result. */
+  setSearchImmediate: (value: string) => void;
   setPriorityFilter: Dispatch<SetStateAction<Priority | "All">>;
   setAssigneeFilter: Dispatch<SetStateAction<string>>;
   setGroupFilter: Dispatch<SetStateAction<string>>;
@@ -62,7 +67,25 @@ const FiltersContext = createContext<FiltersValue | undefined>(undefined);
 
 export function FiltersProvider({ children }: { children: ReactNode }) {
   const [search, setSearch] = useState("");
-  const searchDebounced = useDebounce(search, 150);
+  const searchDebouncedHook = useDebounce(search, 150);
+  // Override allows programmatic callers (e.g. voice commands) to set the
+  // debounced value synchronously without waiting for the 150 ms timer.
+  const [searchDebouncedOverride, setSearchDebouncedOverride] = useState<string | null>(null);
+  const searchDebounced = searchDebouncedOverride ?? searchDebouncedHook;
+
+  // When the debounce hook catches up, clear the override so normal typing
+  // still benefits from debounce.
+  const prevHook = useRef(searchDebouncedHook);
+  if (prevHook.current !== searchDebouncedHook) {
+    prevHook.current = searchDebouncedHook;
+    if (searchDebouncedOverride !== null) setSearchDebouncedOverride(null);
+  }
+
+  const setSearchImmediate = useCallback((value: string) => {
+    setSearch(value);
+    setSearchDebouncedOverride(value);
+  }, []);
+
   const [priorityFilter, setPriorityFilter] = useState<Priority | "All">("All");
   const [assigneeFilter, setAssigneeFilter] = useState("All");
   const [groupFilter, setGroupFilter] = useState("All");
@@ -73,6 +96,7 @@ export function FiltersProvider({ children }: { children: ReactNode }) {
 
   const resetFilters = useCallback(() => {
     setSearch("");
+    setSearchDebouncedOverride(null);
     setPriorityFilter("All");
     setAssigneeFilter("All");
     setGroupFilter("All");
@@ -93,6 +117,7 @@ export function FiltersProvider({ children }: { children: ReactNode }) {
     sortDir,
     raidFilterTaskId,
     setSearch,
+    setSearchImmediate,
     setPriorityFilter,
     setAssigneeFilter,
     setGroupFilter,
