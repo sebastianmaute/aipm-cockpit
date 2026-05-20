@@ -70,23 +70,243 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
     isNew: boolean;
   } | null>(null);
 
-  const handleSaveRaidItem = useCallback((_item: RaidItem) => {}, []);
-  const handleDeleteRaidItem = useCallback((_id: number) => {}, []);
-  const handleOpenAddAbsence = useCallback((_seed?: Partial<Absence>) => {}, []);
-  const handleEditAbsence = useCallback((_absence: Absence) => {}, []);
-  const handleCloseAbsenceModal = useCallback(() => {}, []);
-  const handleSaveAbsence = useCallback((_next: Absence) => {}, []);
-  const handleDeleteAbsence = useCallback((_id: number) => {}, []);
-  const handleOpenShiftEditor = useCallback(
-    (_existing: Shift | null, _seed: { display: string; email: string }) => {},
-    [],
+  const handleSaveRaidItem = useCallback(
+    (item: RaidItem) => {
+      const stamp = new Date().toISOString();
+      const previous = raid.find((r) => r.id === item.id);
+      const idx = raid.findIndex((r) => r.id === item.id);
+      const withStamp: RaidItem = { ...item, localModifiedAt: stamp };
+      const baseList =
+        idx < 0
+          ? [...raid, withStamp]
+          : raid.map((r) => (r.id === item.id ? withStamp : r));
+
+      const triggersAutoIssue =
+        previous !== undefined &&
+        item.category === "R" &&
+        previous.status !== "Realized" &&
+        item.status === "Realized" &&
+        !raid.some(
+          (r) => r.category === "I" && r.causedByRaidIds.includes(item.id),
+        );
+
+      let autoIssueId: number | null = null;
+      if (triggersAutoIssue) {
+        const newIssueId = nextRaidId(baseList);
+        autoIssueId = newIssueId;
+        const today = isoToday();
+        const autoIssue: RaidItem = {
+          id: newIssueId,
+          category: "I",
+          title: item.title,
+          description: item.description,
+          severity: item.severity,
+          status: "Open",
+          owner: item.owner,
+          ownerEmail: item.ownerEmail,
+          mitigation: undefined,
+          linkedTaskIds: [],
+          causedByRaidIds: [item.id],
+          raisedDate: today,
+          targetDate: item.targetDate,
+          localModifiedAt: stamp,
+        };
+        setRaid([...baseList, autoIssue]);
+        showToastRef.current(
+          "info",
+          t(langRef.current, "raidAutoCreatedIssue", item.id, newIssueId),
+        );
+      } else {
+        setRaid(baseList);
+      }
+
+      if (previous === undefined) {
+        logActivityRef.current("raid.created", item.id, item.category, item.title);
+      } else if (previous.status !== item.status) {
+        logActivityRef.current(
+          "raid.statusChanged",
+          item.id,
+          previous.status,
+          item.status,
+        );
+      } else {
+        logActivityRef.current("raid.updated", item.id, item.category, item.title);
+      }
+      if (autoIssueId !== null) {
+        logActivityRef.current("raid.autoIssue", item.id, autoIssueId);
+      }
+    },
+    [raid, setRaid],
   );
-  const handleCloseShiftModal = useCallback(() => {}, []);
-  const handleSaveShift = useCallback((_next: Shift) => {}, []);
-  const handleDeleteShift = useCallback((_id: number) => {}, []);
+
+  const handleDeleteRaidItem = useCallback(
+    (id: number) => {
+      const removed = raid.find((r) => r.id === id);
+      setRaid((prev) => prev.filter((r) => r.id !== id));
+      if (removed) {
+        logActivityRef.current("raid.deleted", id, removed.category, removed.title);
+      }
+    },
+    [raid, setRaid],
+  );
+
+  const handleOpenAddAbsence = useCallback(
+    (seed?: Partial<Absence>) => {
+      const nextId =
+        absences.length > 0 ? Math.max(...absences.map((a) => a.id)) + 1 : 1;
+      const draft: Absence = {
+        ...emptyAbsenceDraft(nextId),
+        ...seed,
+        id: nextId,
+      };
+      setEditingAbsence({ absence: draft, isNew: true });
+    },
+    [absences],
+  );
+
+  const handleEditAbsence = useCallback((absence: Absence) => {
+    setEditingAbsence({ absence, isNew: false });
+  }, []);
+
+  const handleCloseAbsenceModal = useCallback(() => {
+    setEditingAbsence(null);
+  }, []);
+
+  const handleSaveAbsence = useCallback(
+    (next: Absence) => {
+      const stamp = new Date().toISOString();
+      const withStamp: Absence = { ...next, localModifiedAt: stamp };
+      const existing = absences.find((a) => a.id === next.id);
+      if (existing) {
+        setAbsences((prev) =>
+          prev.map((a) => (a.id === next.id ? withStamp : a)),
+        );
+        logActivityRef.current(
+          "absence.updated",
+          next.id,
+          next.assignee,
+          next.startDate,
+          next.endDate,
+        );
+      } else {
+        setAbsences((prev) => [...prev, withStamp]);
+        logActivityRef.current(
+          "absence.created",
+          next.id,
+          next.assignee,
+          next.startDate,
+          next.endDate,
+        );
+      }
+      setEditingAbsence(null);
+    },
+    [absences, setAbsences],
+  );
+
+  const handleDeleteAbsence = useCallback(
+    (id: number) => {
+      const removed = absences.find((a) => a.id === id);
+      setAbsences((prev) => prev.filter((a) => a.id !== id));
+      if (removed) {
+        logActivityRef.current("absence.deleted", id, removed.assignee);
+      }
+      setEditingAbsence(null);
+    },
+    [absences, setAbsences],
+  );
+
+  const handleOpenShiftEditor = useCallback(
+    (existing: Shift | null, seed: { display: string; email: string }) => {
+      if (existing) {
+        setEditingShift({ shift: existing, isNew: false });
+        return;
+      }
+      const nextId =
+        shifts.length > 0 ? Math.max(...shifts.map((s) => s.id)) + 1 : 1;
+      const draft: Shift = {
+        ...emptyShiftDraft(nextId),
+        assignee: seed.display,
+        assigneeEmail: seed.email || undefined,
+      };
+      setEditingShift({ shift: draft, isNew: true });
+    },
+    [shifts],
+  );
+
+  const handleCloseShiftModal = useCallback(() => {
+    setEditingShift(null);
+  }, []);
+
+  const handleSaveShift = useCallback(
+    (next: Shift) => {
+      const stamp = new Date().toISOString();
+      const withStamp: Shift = { ...next, localModifiedAt: stamp };
+      const existing = shifts.find((s) => s.id === next.id);
+      if (existing) {
+        setShifts((prev) =>
+          prev.map((s) => (s.id === next.id ? withStamp : s)),
+        );
+        logActivityRef.current("shift.updated", next.id, next.assignee);
+      } else {
+        setShifts((prev) => [...prev, withStamp]);
+        logActivityRef.current("shift.created", next.id, next.assignee);
+      }
+      setEditingShift(null);
+    },
+    [shifts, setShifts],
+  );
+
+  const handleDeleteShift = useCallback(
+    (id: number) => {
+      const removed = shifts.find((s) => s.id === id);
+      setShifts((prev) => prev.filter((s) => s.id !== id));
+      if (removed) {
+        logActivityRef.current("shift.deleted", id, removed.assignee);
+      }
+      setEditingShift(null);
+    },
+    [shifts, setShifts],
+  );
+
   const handleCreateMitigationTaskFromRaid = useCallback(
-    (_raidItemId: number): number | null => null,
-    [],
+    (raidItemId: number): number | null => {
+      const item = raid.find((r) => r.id === raidItemId);
+      if (!item) return null;
+      const list = tasksRef.current;
+      const newId =
+        list.length > 0 ? Math.max(...list.map((tk) => tk.id)) + 1 : 1;
+      const stamp = new Date().toISOString();
+      const today = isoToday();
+      const newTask: Task = {
+        id: newId,
+        taskName: item.title,
+        assignee: item.owner ?? "",
+        assigneeEmail: item.ownerEmail ?? "",
+        dueDate: item.targetDate ?? today,
+        lastUpdateDate: today,
+        priority: "Medium",
+        blockers: "",
+        notes: item.mitigation ?? item.description ?? "",
+        inquiriesSent: 0,
+        localModifiedAt: stamp,
+      };
+      const nextList = [...list, newTask];
+      tasksRef.current = nextList;
+      setTasks(nextList);
+      setRaid((prev) =>
+        prev.map((r) =>
+          r.id === raidItemId
+            ? {
+                ...r,
+                linkedTaskIds: [...r.linkedTaskIds, newId],
+                localModifiedAt: stamp,
+              }
+            : r,
+        ),
+      );
+      return newId;
+    },
+    [raid, setRaid, setTasks],
   );
 
   return {
