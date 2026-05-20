@@ -7,7 +7,7 @@ import type { Task } from "./types";
 import { defaultSettings } from "./settings-menu";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { FiltersProvider } from "./filters-context";
-import { TaskFormProvider } from "./task-form-context";
+import { TaskFormProvider, useTaskForm } from "./task-form-context";
 import {
   useBulkOperations,
   type UseBulkOperationsArgs,
@@ -48,6 +48,7 @@ function renderBulk(overrides?: Partial<UseBulkOperationsArgs>) {
     () => ({
       bulk: useBulkOperations(args),
       workspace: useWorkspace(),
+      taskForm: useTaskForm(),
     }),
     { wrapper: Wrapper },
   );
@@ -83,6 +84,45 @@ describe("useBulkOperations", () => {
       act(() => { result.current.bulk.clearSelection(); });
       expect(result.current.bulk.selectedIds.size).toBe(0);
     });
+
+    it("toggleSelectAllVisible selects all filtered tasks; calling again deselects", () => {
+      const { result } = renderBulk();
+      act(() => {
+        result.current.workspace.setTasks([
+          {
+            id: 1,
+            taskName: "Task A",
+            assignee: "Alice",
+            assigneeEmail: "alice@test.com",
+            dueDate: "2026-06-01",
+            lastUpdateDate: "2026-05-20",
+            priority: "Medium",
+            blockers: "",
+            notes: "",
+            inquiriesSent: 0,
+            localModifiedAt: "2026-05-20T00:00:00.000Z",
+          },
+          {
+            id: 2,
+            taskName: "Task B",
+            assignee: "Bob",
+            assigneeEmail: "bob@test.com",
+            dueDate: "2026-06-01",
+            lastUpdateDate: "2026-05-20",
+            priority: "Medium",
+            blockers: "",
+            notes: "",
+            inquiriesSent: 0,
+            localModifiedAt: "2026-05-20T00:00:00.000Z",
+          },
+        ]);
+      });
+      act(() => { result.current.bulk.toggleSelectAllVisible(); });
+      expect(result.current.bulk.selectedIds.has(1)).toBe(true);
+      expect(result.current.bulk.selectedIds.has(2)).toBe(true);
+      act(() => { result.current.bulk.toggleSelectAllVisible(); });
+      expect(result.current.bulk.selectedIds.size).toBe(0);
+    });
   });
 
   describe("bulk edit", () => {
@@ -91,6 +131,41 @@ describe("useBulkOperations", () => {
       const { result } = renderBulk({ showToast });
       act(() => { result.current.bulk.applyBulkEdit(); });
       expect(showToast).toHaveBeenCalledWith("error", expect.any(String));
+    });
+
+    it("applyBulkEdit patches selected tasks with enabled fields, logs bulk.edit, clears selection", () => {
+      const logActivity = vi.fn();
+      const showToast = vi.fn();
+      const { result } = renderBulk({ logActivity, showToast });
+      act(() => {
+        result.current.workspace.setTasks([
+          {
+            id: 1,
+            taskName: "Task A",
+            assignee: "Alice",
+            assigneeEmail: "alice@test.com",
+            dueDate: "2026-06-01",
+            lastUpdateDate: "2026-05-20",
+            priority: "Medium",
+            blockers: "",
+            notes: "",
+            inquiriesSent: 0,
+            localModifiedAt: "2026-05-20T00:00:00.000Z",
+          },
+        ]);
+      });
+      act(() => { result.current.bulk.onToggleSelect(1); });
+      act(() => {
+        result.current.taskForm.setBulkEdit(prev => ({
+          ...prev,
+          enabled: { ...prev.enabled, priority: true },
+          priority: "High",
+        }));
+      });
+      act(() => { result.current.bulk.applyBulkEdit(); });
+      expect(result.current.workspace.tasks[0].priority).toBe("High");
+      expect(logActivity).toHaveBeenCalledWith("bulk.edit", 1);
+      expect(result.current.bulk.selectedIds.size).toBe(0);
     });
   });
 
