@@ -1,9 +1,11 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ActivityKind } from "./activity-log";
+import { t } from "./i18n";
 import type { ConflictItem } from "./jira-api";
 import type { ConflictResolution } from "./jira-conflicts-modal";
 import type { Settings } from "./settings-menu";
+import type { Task } from "./types";
 import { useWorkspace } from "./workspace-context";
 
 // ── Lazy-load cache ──────────────────────────────────────────────────────────
@@ -48,7 +50,208 @@ export function useJiraSync(args: UseJiraSyncArgs) {
   useEffect(() => { jiraSyncingRef.current = jiraSyncing; }, [jiraSyncing]);
 
   const handleJiraSync = useCallback(async () => {
-    // TODO: implement in Tasks 4 + 6
+    if (jiraSyncingRef.current) return;
+    const jiraCfg = settingsRef.current.jira;
+    if (!jiraCfg.enabled) return;
+    const {
+      buildJql,
+      searchAllIssues,
+      issueToTaskFields,
+      diffTaskAgainstIssue,
+      isIssueDone,
+      updateIssue,
+      taskFieldsToJiraFields,
+      transitionIssueTo,
+      formatJiraError,
+    } = await loadJiraApi();
+    const jql = buildJql(jiraCfg);
+    if (!jql) {
+      args.showToast("error", t(langRef.current, "jiraSyncNoScope"));
+      return;
+    }
+    const creds = {
+      siteUrl: jiraCfg.siteUrl,
+      email: jiraCfg.email,
+      apiToken: jiraCfg.apiToken,
+    };
+    jiraSyncingRef.current = true;
+    setJiraSyncing(true);
+    try {
+      const issues = await searchAllIssues(creds, jql);
+      const issueByKey = new Map(issues.map((i) => [i.key, i]));
+      const todayNow = todayRef.current;
+      const syncStamp = new Date().toISOString();
+      const list = tasksRef.current;
+
+      let added = 0;
+      let pulled = 0;
+      let pushed = 0;
+      let pushErrors = 0;
+      const conflictItems: ConflictItem[] = [];
+      let nextId =
+        list.length > 0 ? Math.max(...list.map((row) => row.id)) + 1 : 1;
+
+      // Walk existing tasks first; decide pull/push/conflict per row.
+      const next: Task[] = [];
+      for (const row of list) {
+        if (!row.jiraKey) {
+          next.push(row);
+          continue;
+        }
+        const issue = issueByKey.get(row.jiraKey);
+        if (!issue) {
+          // Out of scope or deleted in Jira — leave alone.
+          next.push(row);
+          continue;
+        }
+        const remoteUpdated = (issue.fields?.updated ?? "").slice(0, 19);
+        const lastSync = row.lastSyncedAt ?? "";
+        const localMod = row.localModifiedAt ?? "";
+        const remoteChanged = lastSync ? remoteUpdated > lastSync : true;
+        const localChanged = lastSync ? localMod > lastSync : false;
+
+        if (remoteChanged && localChanged) {
+          // Both sides moved — queue for user review. Don't touch the row;
+          // the conflicts modal will resolve it after the user picks per field.
+          const patch = issueToTaskFields(issue, todayNow);
+          const diffs = diffTaskAgainstIssue(row, patch);
+          if (diffs.length === 0) {
+            // Both timestamps moved but actual values match → just refresh sync stamp.
+            next.push({
+              ...row,
+              lastSyncedAt: syncStamp,
+              localModifiedAt: undefined,
+            });
+          } else {
+            conflictItems.push({
+              taskId: row.id,
+              jiraKey: issue.key,
+              jiraIssueType: row.jiraIssueType ?? patch.jiraIssueType,
+              remoteDone: isIssueDone(issue),
+              fields: diffs,
+            });
+            next.push(row);
+          }
+        } else if (localChanged) {
+          // Push local fields → Jira.
+          try {
+            await updateIssue(
+              creds,
+              row.jiraKey,
+              taskFieldsToJiraFields(row),
+            );
+            // Status transition if completion state diverges.
+            const localDone = !!row.completedDate;
+            const remoteDone = isIssueDone(issue);
+            if (localDone && !remoteDone) {
+              await transitionIssueTo(creds, row.jiraKey, "done");
+            }
+            // Note: reopening (local !completed but remote done) isn't pushed —
+            // workflows vary and "go back to To Do" requires per-project mapping.
+            pushed++;
+            next.push({
+              ...row,
+              lastSyncedAt: syncStamp,
+              localModifiedAt: undefined,
+            });
+          } catch (err) {
+            pushErrors++;
+            // Keep the local row as-is; user can retry.
+            next.push(row);
+            // Surface the first push failure for visibility.
+            if (pushErrors === 1) {
+              args.showToast(
+                "error",
+                t(
+                  langRef.current,
+                  "jiraPushFailed",
+                  row.jiraKey,
+                  formatJiraError(err),
+                ),
+              );
+            }
+          }
+        } else if (remoteChanged) {
+          // Pull Jira → local.
+          const patch = issueToTaskFields(issue, todayNow);
+          pulled++;
+          next.push({
+            ...row,
+            taskName: patch.taskName ?? row.taskName,
+            assignee: patch.assignee ?? row.assignee,
+            assigneeEmail: patch.assigneeEmail ?? row.assigneeEmail,
+            dueDate: patch.dueDate ?? row.dueDate,
+            lastUpdateDate: patch.lastUpdateDate ?? row.lastUpdateDate,
+            priority: patch.priority ?? row.priority,
+            labels: patch.labels ?? row.labels,
+            notes: patch.notes ?? row.notes,
+            completedDate: patch.completedDate ?? row.completedDate,
+            jiraKey: issue.key,
+            jiraIssueType: patch.jiraIssueType ?? row.jiraIssueType,
+            lastSyncedAt: syncStamp,
+          });
+        } else {
+          // No-op; refresh sync stamp.
+          next.push({ ...row, lastSyncedAt: syncStamp });
+        }
+      }
+
+      // New Jira issues we didn't have locally → create.
+      const existingKeys = new Set(list.map((r) => r.jiraKey).filter(Boolean));
+      for (const issue of issues) {
+        if (existingKeys.has(issue.key)) continue;
+        const patch = issueToTaskFields(issue, todayNow);
+        next.push({
+          id: nextId++,
+          taskName: patch.taskName ?? issue.key,
+          assignee: patch.assignee ?? "",
+          assigneeEmail: patch.assigneeEmail ?? "",
+          dueDate: patch.dueDate ?? "",
+          lastUpdateDate: patch.lastUpdateDate ?? todayNow,
+          priority: patch.priority ?? "Medium",
+          blockers: "",
+          notes: patch.notes ?? "",
+          completedDate: patch.completedDate,
+          inquiriesSent: 0,
+          group: jiraCfg.projectName || jiraCfg.projectKey || "",
+          labels: patch.labels ?? [],
+          jiraKey: issue.key,
+          jiraIssueType: patch.jiraIssueType,
+          lastSyncedAt: syncStamp,
+        });
+        added++;
+      }
+
+      tasksRef.current = next;
+      setTasks(next);
+
+      args.logActivity("jira.sync", added + pulled, pushed, conflictItems.length);
+
+      const summary = t(
+        langRef.current,
+        "jiraSyncDoneFull",
+        issues.length,
+        added,
+        pulled,
+        pushed,
+      );
+      if (conflictItems.length > 0) {
+        setJiraConflicts(conflictItems);
+        args.showToast(
+          "info",
+          summary +
+            " " +
+            t(langRef.current, "jiraSyncConflictsReview", conflictItems.length),
+        );
+      } else {
+        args.showToast("info", summary);
+      }
+    } catch (err) {
+      args.showToast("error", t(langRef.current, "jiraSyncFailed", formatJiraError(err)));
+    } finally {
+      jiraSyncingRef.current = false;
+      setJiraSyncing(false);
+    }
   }, [args.showToast, args.logActivity]);
 
   const handleResolveConflicts = useCallback(async (_resolutions: ConflictResolution[]) => {

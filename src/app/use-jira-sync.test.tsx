@@ -1,5 +1,5 @@
 import { act, renderHook } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Task } from "./types";
 import { useJiraSync } from "./use-jira-sync";
 import { useWorkspace } from "./workspace-context";
@@ -99,6 +99,8 @@ describe("useJiraSync — state initialisation", () => {
 });
 
 describe("useJiraSync — handleJiraSync", () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+
   it("shows error toast when buildJql returns null (no JQL scope)", async () => {
     // buildJql vi.fn() returns undefined by default → triggers "no scope" toast
     const { result } = renderSync([]);
