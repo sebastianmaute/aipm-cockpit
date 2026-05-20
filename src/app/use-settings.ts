@@ -1,0 +1,88 @@
+"use client";
+
+import { type Dispatch, type SetStateAction, useEffect, useState } from "react";
+import { type Lang, loadI18n, migrateLang } from "./i18n";
+import { defaultSettings, type Settings } from "./settings-menu";
+import { isPlainObject } from "./sanitize";
+
+const SETTINGS_KEY = "lop-app:settings";
+
+export function useSettings(): {
+  settings: Settings;
+  setSettings: Dispatch<SetStateAction<Settings>>;
+  hydrated: boolean;
+  i18nReady: boolean;
+  lang: Lang;
+} {
+  const [settings, setSettings] = useState<Settings>(defaultSettings);
+  const [hydrated, setHydrated] = useState(false);
+  const [i18nReady, setI18nReady] = useState(false);
+
+  // Load settings from localStorage once on mount; lift hydrated + i18nReady gates.
+  useEffect(() => {
+    let cancelled = false;
+    let resolvedLang: Lang = defaultSettings.language;
+    try {
+      const settingsRaw = window.localStorage.getItem(SETTINGS_KEY);
+      if (settingsRaw) {
+        const parsed = JSON.parse(settingsRaw);
+        if (isPlainObject(parsed)) {
+          resolvedLang = migrateLang(
+            (parsed as Record<string, unknown>).language,
+          );
+          setSettings({
+            ...defaultSettings,
+            ...parsed,
+            language: resolvedLang,
+            ai: {
+              ...defaultSettings.ai,
+              ...(isPlainObject(parsed.ai) ? parsed.ai : {}),
+            },
+            notifications: {
+              ...defaultSettings.notifications,
+              ...(isPlainObject(parsed.notifications)
+                ? parsed.notifications
+                : {}),
+            },
+            jira: {
+              ...defaultSettings.jira,
+              ...(isPlainObject(parsed.jira) ? parsed.jira : {}),
+            },
+            holidayCountries: Array.isArray(parsed.holidayCountries)
+              ? (parsed.holidayCountries as unknown[]).filter(
+                  (v): v is string => typeof v === "string",
+                )
+              : defaultSettings.holidayCountries,
+          });
+        }
+      }
+    } catch {
+      // ignore corrupt storage
+    }
+    Promise.resolve().then(() => {
+      if (!cancelled) setHydrated(true);
+    });
+    loadI18n(resolvedLang).finally(() => {
+      if (!cancelled) setI18nReady(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Persist settings on every change, guarded by hydration so mount doesn't overwrite.
+  useEffect(() => {
+    if (!hydrated) return;
+    window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  }, [settings, hydrated]);
+
+  // Sync document language attribute and ensure dict is loaded on mid-session switch.
+  useEffect(() => {
+    document.documentElement.lang = settings.language;
+    void loadI18n(settings.language);
+  }, [settings.language]);
+
+  const lang = settings.language;
+
+  return { settings, setSettings, hydrated, i18nReady, lang };
+}
