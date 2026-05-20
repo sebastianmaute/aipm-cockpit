@@ -148,6 +148,8 @@ describe("useJiraSync — handleJiraSync", () => {
 
     expect(result.current.currentTasks[0].taskName).toBe("Remote name");
     expect(logActivity).toHaveBeenCalled();
+    expect(result.current.currentTasks[0].lastSyncedAt).toBeDefined();
+    expect(result.current.currentTasks[0].lastSyncedAt).not.toBe("2026-01-01T00:00:00");
   });
 
   it("push path: local changes newer than lastSync + remote not changed → updateIssue called", async () => {
@@ -177,10 +179,12 @@ describe("useJiraSync — handleJiraSync", () => {
     await act(async () => { await result.current.handleJiraSync(); });
 
     expect(jiraApi.updateIssue).toHaveBeenCalledWith(
-      expect.objectContaining({ siteUrl: expect.any(String) }),
+      expect.objectContaining({ siteUrl: "https://acme.atlassian.net" }),
       "TEST-1",
       expect.objectContaining({ summary: "New name" }),
     );
+    expect(result.current.currentTasks[0].localModifiedAt).toBeUndefined();
+    expect(result.current.currentTasks[0].lastSyncedAt).toBeDefined();
   });
 
   it("conflict path: both local and remote changed → jiraConflicts populated, task unchanged", async () => {
