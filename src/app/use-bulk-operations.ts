@@ -119,6 +119,15 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
     setBulkEditOpen(false);
   }, [setBulkEditOpen]);
 
+  const deselectId = useCallback((id: number) => {
+    setSelectedIds((prev) => {
+      if (!prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+  }, []);
+
   const applyBulkEdit = useCallback(() => {
     const lang = langRef.current;
     const today = new Date().toISOString().slice(0, 10);
@@ -337,11 +346,13 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
 
   return {
     selectedIds,
+    setSelectedIds,
     allVisibleSelected,
     selectedJiraCount,
     onToggleSelect,
     toggleSelectAllVisible,
     clearSelection,
+    deselectId,
     cancelBulkEdit,
     applyBulkEdit,
     handleBulkSendInquiry,

@@ -22,6 +22,8 @@ import { type Lang, type TranslationKey, loadI18n, migrateLang, priorityLabel, t
 import { useChatDispatcher } from "./use-chat-dispatcher";
 import { loadJiraApi, useJiraSync } from "./use-jira-sync";
 import { useStorageBackend } from "./use-storage-backend";
+import { useResourcePlanner } from "./use-resource-planner";
+import { useBulkOperations } from "./use-bulk-operations";
 import { VersionMenu } from "./version-menu";
 import {
   DueBanner,
@@ -372,11 +374,12 @@ function TaskManagerInner() {
     { kind: "info" | "error"; text: string; id: number } | null
   >(null);
 
-  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
-
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const [dueModalOpen, setDueModalOpen] = useState(false);
   const notifiedThisSessionRef = useRef(false);
+  // Populated after useBulkOperations is called below; onDelete calls through
+  // this ref so it doesn't depend on deselectId being defined first.
+  const deselectIdRef = useRef<(id: number) => void>(() => {});
 
   const [pushingIds, setPushingIds] = useState<Set<number>>(new Set());
   // Tracks which rows have their Notes cell expanded. Default is collapsed
@@ -428,15 +431,6 @@ function TaskManagerInner() {
 
   // Row-related handlers converted to useCallback for TaskRow consumption.
   // Placed here, after lang/today are defined, before first usage.
-
-  const onToggleSelect = useCallback((id: number) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }, []);
 
   const onToggleNoteExpanded = useCallback((id: number) => {
     setExpandedNotes((prev) => {
@@ -632,12 +626,7 @@ function TaskManagerInner() {
             : t,
         ),
     );
-    setSelectedIds((prev) => {
-      if (!prev.has(id)) return prev;
-      const next = new Set(prev);
-      next.delete(id);
-      return next;
-    });
+    deselectIdRef.current(id);
     if (editingId === id) handleCancelEdit();
     logActivity("task.deleted", id, deletedName);
   }, [lang, editingId, logActivity]);
@@ -852,288 +841,6 @@ function TaskManagerInner() {
   // mutators that update the top-level `raid` array, which round-trips to
   // storage via the existing save effect.
 
-  const handleSaveRaidItem = useCallback(
-    (item: RaidItem) => {
-      const stamp = new Date().toISOString();
-      const previous = raid.find((r) => r.id === item.id);
-      const idx = raid.findIndex((r) => r.id === item.id);
-      const withStamp: RaidItem = { ...item, localModifiedAt: stamp };
-      const baseList =
-        idx < 0
-          ? [...raid, withStamp]
-          : raid.map((r) => (r.id === item.id ? withStamp : r));
-
-      // Auto-create an Issue when a Risk *transitions* into "Realized". Fires
-      // exactly once per transition: idempotent against repeated saves of an
-      // already-realized risk (prev.status === "Realized" → skip), and skips
-      // when any Issue already lists this risk as a cause so users can
-      // re-realize without spam.
-      const triggersAutoIssue =
-        previous !== undefined &&
-        item.category === "R" &&
-        previous.status !== "Realized" &&
-        item.status === "Realized" &&
-        !raid.some(
-          (r) => r.category === "I" && r.causedByRaidIds.includes(item.id),
-        );
-
-      let autoIssueId: number | null = null;
-      if (triggersAutoIssue) {
-        const newIssueId = nextRaidId(baseList);
-        autoIssueId = newIssueId;
-        const autoIssue: RaidItem = {
-          id: newIssueId,
-          category: "I",
-          title: item.title,
-          description: item.description,
-          severity: item.severity,
-          status: "Open",
-          owner: item.owner,
-          ownerEmail: item.ownerEmail,
-          mitigation: undefined,
-          linkedTaskIds: [],
-          causedByRaidIds: [item.id],
-          raisedDate: today,
-          targetDate: item.targetDate,
-          localModifiedAt: stamp,
-        };
-        setRaid([...baseList, autoIssue]);
-        // Inline setToast (instead of showToast()) keeps this useCallback's
-        // dep list to the values it actually closes over.
-        setToast({
-          kind: "info",
-          text: t(lang, "raidAutoCreatedIssue", item.id, newIssueId),
-          id: Date.now(),
-        });
-      } else {
-        setRaid(baseList);
-      }
-
-      // Activity log: distinguish create vs status-change vs other update,
-      // and emit a separate autoIssue entry when one was spawned.
-      if (previous === undefined) {
-        logActivity("raid.created", item.id, item.category, item.title);
-      } else if (previous.status !== item.status) {
-        logActivity(
-          "raid.statusChanged",
-          item.id,
-          previous.status,
-          item.status,
-        );
-      } else {
-        logActivity("raid.updated", item.id, item.category, item.title);
-      }
-      if (autoIssueId !== null) {
-        logActivity("raid.autoIssue", item.id, autoIssueId);
-      }
-    },
-    [raid, today, lang, logActivity],
-  );
-
-  const handleDeleteRaidItem = useCallback(
-    (id: number) => {
-      const removed = raid.find((r) => r.id === id);
-      setRaid((prev) => prev.filter((r) => r.id !== id));
-      if (removed) {
-        logActivity("raid.deleted", id, removed.category, removed.title);
-      }
-    },
-    [raid, logActivity],
-  );
-
-  // --- Absence CRUD (Phase 2 of Resource Planner) ----------------------
-  //
-  // The modal is controlled here: `editingAbsence` is `null` when closed,
-  // otherwise `{ absence, isNew }` for the modal to render. New absences
-  // get the next monotonic id from the current `absences` list.
-
-  const [editingAbsence, setEditingAbsence] = useState<
-    { absence: Absence; isNew: boolean } | null
-  >(null);
-
-  const handleOpenAddAbsence = useCallback(
-    (seed?: Partial<Absence>) => {
-      const list = absences;
-      const nextId =
-        list.length > 0 ? Math.max(...list.map((a) => a.id)) + 1 : 1;
-      // seed is merged on top of the empty draft; id is re-fixed to nextId
-      // so a stale seed.id cannot collide with an existing record.
-      const draft: Absence = {
-        ...emptyAbsenceDraft(nextId),
-        ...seed,
-        id: nextId,
-      };
-      setEditingAbsence({ absence: draft, isNew: true });
-    },
-    [absences],
-  );
-
-  const handleEditAbsence = useCallback((absence: Absence) => {
-    setEditingAbsence({ absence, isNew: false });
-  }, []);
-
-  const handleCloseAbsenceModal = useCallback(() => {
-    setEditingAbsence(null);
-  }, []);
-
-  const handleSaveAbsence = useCallback(
-    (next: Absence) => {
-      const stamp = new Date().toISOString();
-      const withStamp: Absence = { ...next, localModifiedAt: stamp };
-      const existing = absences.find((a) => a.id === next.id);
-      if (existing) {
-        setAbsences((prev) =>
-          prev.map((a) => (a.id === next.id ? withStamp : a)),
-        );
-        logActivity(
-          "absence.updated",
-          next.id,
-          next.assignee,
-          next.startDate,
-          next.endDate,
-        );
-      } else {
-        setAbsences((prev) => [...prev, withStamp]);
-        logActivity(
-          "absence.created",
-          next.id,
-          next.assignee,
-          next.startDate,
-          next.endDate,
-        );
-      }
-      setEditingAbsence(null);
-    },
-    [absences, logActivity],
-  );
-
-  const handleDeleteAbsence = useCallback(
-    (id: number) => {
-      const removed = absences.find((a) => a.id === id);
-      setAbsences((prev) => prev.filter((a) => a.id !== id));
-      if (removed) {
-        logActivity("absence.deleted", id, removed.assignee);
-      }
-      setEditingAbsence(null);
-    },
-    [absences, logActivity],
-  );
-
-  // --- Shift CRUD (Phase 4 of Resource Planner) ------------------------
-  //
-  // Mirrors the absence flow. `editingShift` is `null` when closed,
-  // otherwise `{ shift, isNew }` for the modal to render. The Resources
-  // panel passes either an existing Shift (edit) or null + the row's
-  // assignee (create with prefill) to handleOpenShiftEditor.
-
-  const [editingShift, setEditingShift] = useState<
-    { shift: Shift; isNew: boolean } | null
-  >(null);
-
-  const handleOpenShiftEditor = useCallback(
-    (
-      existing: Shift | null,
-      seed: { display: string; email: string },
-    ) => {
-      if (existing) {
-        setEditingShift({ shift: existing, isNew: false });
-        return;
-      }
-      const nextId =
-        shifts.length > 0 ? Math.max(...shifts.map((s) => s.id)) + 1 : 1;
-      const draft: Shift = {
-        ...emptyShiftDraft(nextId),
-        assignee: seed.display,
-        assigneeEmail: seed.email || undefined,
-      };
-      setEditingShift({ shift: draft, isNew: true });
-    },
-    [shifts],
-  );
-
-  const handleCloseShiftModal = useCallback(() => {
-    setEditingShift(null);
-  }, []);
-
-  const handleSaveShift = useCallback(
-    (next: Shift) => {
-      const stamp = new Date().toISOString();
-      const withStamp: Shift = { ...next, localModifiedAt: stamp };
-      const existing = shifts.find((s) => s.id === next.id);
-      if (existing) {
-        setShifts((prev) =>
-          prev.map((s) => (s.id === next.id ? withStamp : s)),
-        );
-        logActivity("shift.updated", next.id, next.assignee);
-      } else {
-        setShifts((prev) => [...prev, withStamp]);
-        logActivity("shift.created", next.id, next.assignee);
-      }
-      setEditingShift(null);
-    },
-    [shifts, logActivity],
-  );
-
-  const handleDeleteShift = useCallback(
-    (id: number) => {
-      const removed = shifts.find((s) => s.id === id);
-      setShifts((prev) => prev.filter((s) => s.id !== id));
-      if (removed) {
-        logActivity("shift.deleted", id, removed.assignee);
-      }
-      setEditingShift(null);
-    },
-    [shifts, logActivity],
-  );
-
-  /**
-   * Spawns a new task pre-filled from a RAID item (title, owner, target
-   * date) and links it back into the item's `linkedTaskIds`. Returns the
-   * new task's id so the panel can show a "linked" indicator without a
-   * round-trip through state.
-   */
-  const handleCreateMitigationTaskFromRaid = useCallback(
-    (raidItemId: number): number | null => {
-      const item = raid.find((r) => r.id === raidItemId);
-      if (!item) return null;
-      // Compute nextId from tasksRef so this callback doesn't depend on
-      // the (frequently re-rendered) `tasks` array.
-      const list = tasksRef.current;
-      const newId =
-        list.length > 0 ? Math.max(...list.map((tk) => tk.id)) + 1 : 1;
-      const stamp = new Date().toISOString();
-      const newTask: Task = {
-        id: newId,
-        taskName: item.title,
-        assignee: item.owner ?? "",
-        assigneeEmail: item.ownerEmail ?? "",
-        dueDate: item.targetDate ?? today,
-        lastUpdateDate: today,
-        priority: "Medium",
-        blockers: "",
-        notes: item.mitigation ?? item.description ?? "",
-        inquiriesSent: 0,
-        localModifiedAt: stamp,
-      };
-      const nextList = [...list, newTask];
-      tasksRef.current = nextList;
-      setTasks(nextList);
-      setRaid((prev) =>
-        prev.map((r) =>
-          r.id === raidItemId
-            ? {
-                ...r,
-                linkedTaskIds: [...r.linkedTaskIds, newId],
-                localModifiedAt: stamp,
-              }
-            : r,
-        ),
-      );
-      return newId;
-    },
-    [raid, today],
-  );
-
   useEffect(() => {
     if (!toast) return;
     const timer = setTimeout(() => setToast(null), 4000);
@@ -1332,6 +1039,50 @@ function TaskManagerInner() {
     setTaskModalOpen(false);
   }
 
+  const {
+    editingAbsence,
+    editingShift,
+    handleSaveRaidItem,
+    handleDeleteRaidItem,
+    handleOpenAddAbsence,
+    handleEditAbsence,
+    handleCloseAbsenceModal,
+    handleSaveAbsence,
+    handleDeleteAbsence,
+    handleOpenShiftEditor,
+    handleCloseShiftModal,
+    handleSaveShift,
+    handleDeleteShift,
+    handleCreateMitigationTaskFromRaid,
+  } = useResourcePlanner({ lang, logActivity, showToast });
+
+  const {
+    selectedIds,
+    setSelectedIds,
+    allVisibleSelected,
+    selectedJiraCount,
+    onToggleSelect,
+    toggleSelectAllVisible,
+    clearSelection,
+    deselectId,
+    cancelBulkEdit,
+    applyBulkEdit,
+    handleBulkSendInquiry,
+    handleClearAll,
+    handleCommand,
+  } = useBulkOperations({
+    lang,
+    settings,
+    setSettings,
+    handlers: { onEdit: handleEdit, onDelete, onSendInquiry },
+    onCancelEdit: handleCancelEdit,
+    logActivity,
+    showToast,
+  });
+  // Sync deselectIdRef so onDelete (defined above) can call it without
+  // depending on useBulkOperations being declared first.
+  deselectIdRef.current = deselectId;
+
   /**
    * Commit a Gantt drag-edit. Writes `startDate` + `dueDate` to the task,
    * stamps `localModifiedAt` so the Jira-sync conflict detection picks up
@@ -1370,275 +1121,6 @@ function TaskManagerInner() {
     );
     tasksRef.current = next;
     setTasks(next);
-  }
-
-  function handleClearAll() {
-    if (tasks.length === 0) return;
-    if (!window.confirm(t(lang, "confirmClearAll", tasks.length))) return;
-    setTasks([]);
-    setSelectedIds(new Set());
-    handleCancelEdit();
-  }
-
-  function handleCommand(cmd: Command, originalText: string) {
-    switch (cmd.kind) {
-      case "edit": {
-        const task = tasks.find((row) => row.id === cmd.id);
-        if (!task) {
-          showToast("error", t(lang, "voiceTaskNotFound", cmd.id));
-          return;
-        }
-        handleEdit(task);
-        return;
-      }
-      case "delete": {
-        const task = tasks.find((row) => row.id === cmd.id);
-        if (!task) {
-          showToast("error", t(lang, "voiceTaskNotFound", cmd.id));
-          return;
-        }
-        onDelete(cmd.id);
-        return;
-      }
-      case "sendInquiry": {
-        const task = tasks.find((row) => row.id === cmd.id);
-        if (!task) {
-          showToast("error", t(lang, "voiceTaskNotFound", cmd.id));
-          return;
-        }
-        onSendInquiry(task);
-        return;
-      }
-      case "clearAll":
-        handleClearAll();
-        return;
-      case "openForm":
-        handleCancelEdit();
-        setTaskModalOpen(true);
-        return;
-      case "openFormWith":
-        handleCancelEdit();
-        setForm({ ...emptyForm(), taskName: sanitizeTaskName(cmd.taskName) });
-        setTaskModalOpen(true);
-        return;
-      case "search":
-        setSearch(sanitizeVoiceTranscript(cmd.query));
-        return;
-      case "clearSearch":
-        setSearch("");
-        return;
-      case "language":
-        setSettings((s) => ({ ...s, language: cmd.lang }));
-        return;
-      case "unknown":
-        showToast("error", t(lang, "voiceUnknownCommand", originalText));
-        return;
-    }
-  }
-
-  const visibleIds = filteredSortedTasks.map((row) => row.id);
-  const allVisibleSelected =
-    visibleIds.length > 0 && visibleIds.every((id) => selectedIds.has(id));
-  const selectedJiraCount = tasks.reduce(
-    (n, row) => (selectedIds.has(row.id) && row.jiraKey ? n + 1 : n),
-    0,
-  );
-
-  function toggleSelectAllVisible() {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (allVisibleSelected) {
-        visibleIds.forEach((id) => next.delete(id));
-      } else {
-        visibleIds.forEach((id) => next.add(id));
-      }
-      return next;
-    });
-  }
-
-  function clearSelection() {
-    setSelectedIds(new Set());
-    setBulkEditOpen(false);
-  }
-
-  function cancelBulkEdit() {
-    setBulkEditOpen(false);
-    setBulkEdit(emptyBulkEdit());
-  }
-
-  function applyBulkEdit() {
-    const fields = bulkEdit.enabled;
-    const anyEnabled = Object.values(fields).some(Boolean);
-    if (!anyEnabled) {
-      showToast("error", t(lang, "bulkEditNoFields"));
-      return;
-    }
-    if (fields.assignee) {
-      const blockedCount = tasks.reduce(
-        (n, row) => (selectedIds.has(row.id) && row.jiraKey ? n + 1 : n),
-        0,
-      );
-      if (blockedCount > 0) {
-        window.alert(t(lang, "jiraBulkAssigneeBlocked", blockedCount));
-        return;
-      }
-    }
-
-    const newDue = fields.dueDate ? sanitizeIsoDate(bulkEdit.dueDate) : "";
-    if (fields.dueDate && (!newDue || newDue < today)) {
-      showToast("error", t(lang, "errorPastDate"));
-      return;
-    }
-    const newEmail = fields.assigneeEmail
-      ? sanitizeEmail(bulkEdit.assigneeEmail)
-      : "";
-    if (fields.assigneeEmail && newEmail && !isValidEmail(newEmail)) {
-      showToast("error", t(lang, "errorInvalidEmail"));
-      return;
-    }
-
-    const updates: Partial<Task> = {};
-    if (fields.priority) updates.priority = sanitizePriority(bulkEdit.priority);
-    if (fields.dueDate) updates.dueDate = newDue;
-    if (fields.lastUpdateDate)
-      updates.lastUpdateDate = sanitizeIsoDate(bulkEdit.lastUpdateDate) || today;
-    if (fields.assignee) updates.assignee = sanitizeAssignee(bulkEdit.assignee);
-    if (fields.assigneeEmail) updates.assigneeEmail = newEmail;
-    if (fields.blockers) updates.blockers = sanitizeBlockers(bulkEdit.blockers);
-    if (fields.notes) updates.notes = sanitizeNotes(bulkEdit.notes);
-    if (fields.group) updates.group = sanitizeGroup(bulkEdit.group);
-    if (fields.labels) updates.labels = sanitizeLabels(bulkEdit.labels);
-
-    const count = selectedIds.size;
-    const stamp = new Date().toISOString();
-    setTasks((prev) =>
-      prev.map((row) =>
-        selectedIds.has(row.id)
-          ? { ...row, ...updates, localModifiedAt: stamp }
-          : row,
-      ),
-    );
-
-    showToast(
-      "info",
-      count === 1
-        ? t(lang, "bulkEditDoneOne")
-        : t(lang, "bulkEditDoneMany", count),
-    );
-    logActivity("bulk.edit", count);
-    cancelBulkEdit();
-    setSelectedIds(new Set());
-  }
-
-  function handleBulkSendInquiry() {
-    const selected = tasks.filter((row) => selectedIds.has(row.id));
-    if (selected.length === 0) return;
-
-    const emailUpdates: Record<number, string> = {};
-    const resolved: Array<{ task: Task; email: string }> = [];
-
-    for (const task of selected) {
-      let email = task.assigneeEmail?.trim() || "";
-      if (!email && isValidEmail(task.assignee)) email = task.assignee.trim();
-      if (!email) {
-        const provided = window.prompt(
-          t(lang, "promptEmail", task.assignee),
-          "",
-        );
-        if (provided === null) continue;
-        const trimmed = provided.trim();
-        if (!isValidEmail(trimmed)) {
-          showToast("error", t(lang, "errorInvalidEmail"));
-          continue;
-        }
-        email = trimmed;
-        emailUpdates[task.id] = trimmed;
-      }
-      resolved.push({ task, email });
-    }
-
-    if (Object.keys(emailUpdates).length > 0) {
-      setTasks((prev) =>
-        prev.map((row) =>
-          emailUpdates[row.id]
-            ? { ...row, assigneeEmail: emailUpdates[row.id] }
-            : row,
-        ),
-      );
-    }
-
-    if (resolved.length === 0) {
-      showToast("error", t(lang, "bulkSendNoTasks"));
-      return;
-    }
-
-    const groups = new Map<string, Task[]>();
-    for (const { task, email } of resolved) {
-      const list = groups.get(email) || [];
-      list.push(task);
-      groups.set(email, list);
-    }
-
-    if (
-      !window.confirm(
-        t(lang, "confirmBulkSend", groups.size, resolved.length),
-      )
-    ) {
-      return;
-    }
-
-    for (const [email, taskList] of groups) {
-      const greeting =
-        greetingName(taskList[0].assignee) || taskList[0].assignee;
-      const subject =
-        taskList.length === 1
-          ? t(lang, "emailSubject", taskList[0].id, taskList[0].taskName)
-          : t(lang, "emailSubjectBulk", taskList.length);
-
-      let body: string;
-      if (taskList.length === 1) {
-        const t0 = taskList[0];
-        body = t(
-          lang,
-          "emailBodyTemplate",
-          greeting,
-          t0.id,
-          t0.taskName,
-          t0.dueDate,
-          t0.lastUpdateDate,
-        );
-      } else {
-        const items = taskList
-          .map((tk) => `- #${tk.id}: ${tk.taskName} (${tk.dueDate})`)
-          .join("\n");
-        body = t(
-          lang,
-          "emailBodyBulkTemplate",
-          greeting,
-          taskList.length,
-          items,
-        );
-      }
-
-      const url = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-      window.open(url);
-    }
-
-    const sentIds = new Set(resolved.map(({ task }) => task.id));
-    setTasks((prev) =>
-      prev.map((row) =>
-        sentIds.has(row.id)
-          ? { ...row, inquiriesSent: (row.inquiriesSent ?? 0) + 1 }
-          : row,
-      ),
-    );
-
-    showToast(
-      "info",
-      t(lang, "bulkSendDone", groups.size, resolved.length),
-    );
-    logActivity("bulk.inquiries", resolved.length);
-    setSelectedIds(new Set());
   }
 
   const bannerItems = useMemo(() => {
