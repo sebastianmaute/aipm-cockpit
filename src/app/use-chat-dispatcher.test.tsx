@@ -159,4 +159,24 @@ describe("useChatDispatcher", () => {
       }),
     ).toThrow(/dueDate must be YYYY-MM-DD/);
   });
+
+  it("updateTask patches fields and bumps localModifiedAt", () => {
+    const { result } = renderDispatcher();
+    const updated = result.current.updateTask(1, { priority: "Urgent" });
+    expect(updated?.priority).toBe("Urgent");
+    expect(updated?.localModifiedAt).toMatch(
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/,
+    );
+    expect(result.current.getTask(1)?.priority).toBe("Urgent");
+  });
+
+  it("updateTask rejects assignee changes on a jiraKey-linked task", () => {
+    const tasksWithJira = seedTasks().map((t, i) =>
+      i === 0 ? { ...t, jiraKey: "LOP-1" } : t,
+    );
+    const { result } = renderDispatcher(tasksWithJira);
+    expect(() =>
+      result.current.updateTask(1, { assignee: "Different Person" }),
+    ).toThrow(/managed in Jira/);
+  });
 });

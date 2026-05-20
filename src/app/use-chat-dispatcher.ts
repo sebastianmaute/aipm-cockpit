@@ -117,8 +117,77 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         setTasks(next);
         return newTask;
       },
-      updateTask: () => {
-        throw new Error("not implemented yet");
+      updateTask: (id, patch) => {
+        const existing = tasksRef.current.find((row) => row.id === id);
+        if (!existing) return null;
+        // Jira-managed fields can't be changed locally on linked tasks.
+        if (existing.jiraKey) {
+          if (
+            patch.assignee !== undefined &&
+            sanitizeAssignee(patch.assignee) !==
+              sanitizeAssignee(existing.assignee)
+          ) {
+            throw new Error(
+              `Assignee for ${existing.jiraKey} is managed in Jira. Change it in Jira and re-sync.`,
+            );
+          }
+          if (
+            patch.completedDate === undefined &&
+            "completedDate" in patch &&
+            existing.completedDate
+          ) {
+            throw new Error(
+              `Reopening ${existing.jiraKey} must be done in Jira (workflow transition required).`,
+            );
+          }
+        }
+        const cleanPatch: Partial<Task> = {};
+        if (patch.taskName !== undefined)
+          cleanPatch.taskName = sanitizeTaskName(patch.taskName);
+        if (patch.assignee !== undefined)
+          cleanPatch.assignee = sanitizeAssignee(patch.assignee);
+        if (patch.assigneeEmail !== undefined) {
+          const e = sanitizeEmail(patch.assigneeEmail);
+          if (e && !isValidEmail(e))
+            throw new Error("assigneeEmail is invalid");
+          cleanPatch.assigneeEmail = e;
+        }
+        if (patch.dueDate !== undefined) {
+          const d = sanitizeIsoDate(patch.dueDate);
+          if (!d) throw new Error("dueDate must be YYYY-MM-DD");
+          cleanPatch.dueDate = d;
+        }
+        if (patch.lastUpdateDate !== undefined) {
+          const d = sanitizeIsoDate(patch.lastUpdateDate);
+          if (d) cleanPatch.lastUpdateDate = d;
+        }
+        if (patch.priority !== undefined)
+          cleanPatch.priority = sanitizePriority(
+            patch.priority,
+            existing.priority,
+          );
+        if (patch.blockers !== undefined)
+          cleanPatch.blockers = sanitizeBlockers(patch.blockers);
+        if (patch.notes !== undefined)
+          cleanPatch.notes = sanitizeNotes(patch.notes);
+        if (patch.inquiriesSent !== undefined)
+          cleanPatch.inquiriesSent = sanitizeNonNegInt(patch.inquiriesSent);
+        if (patch.group !== undefined)
+          cleanPatch.group = sanitizeGroup(patch.group);
+        if (patch.labels !== undefined)
+          cleanPatch.labels = sanitizeLabels(patch.labels);
+        const merged: Task = {
+          ...existing,
+          ...cleanPatch,
+          id: existing.id,
+          localModifiedAt: new Date().toISOString(),
+        };
+        const next = tasksRef.current.map((row) =>
+          row.id === id ? merged : row,
+        );
+        tasksRef.current = next;
+        setTasks(next);
+        return merged;
       },
       deleteTask: () => {
         throw new Error("not implemented yet");
