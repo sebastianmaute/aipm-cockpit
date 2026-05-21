@@ -17,7 +17,7 @@ import { HelpMenu } from "./help-menu";
 // jira-api is lazy-loaded via loadJiraApi() — pulls ~400 LOC out of the
 // initial bundle for users who don't have Jira configured.
 import type { ConflictItem } from "./jira-api";
-import { type Lang, type TranslationKey, priorityLabel, t } from "./i18n";
+import { type Lang, type TranslationKey, t } from "./i18n";
 import { useChatDispatcher } from "./use-chat-dispatcher";
 import { useActivityLog } from "./use-activity-log";
 import { useDueAlerts } from "./use-due-alerts";
@@ -27,7 +27,7 @@ import { useJiraSync } from "./use-jira-sync";
 import { useStorageBackend } from "./use-storage-backend";
 import { useResourcePlanner } from "./use-resource-planner";
 import { useBulkOperations } from "./use-bulk-operations";
-import { useColumnManager, DEFAULT_COL_WIDTHS } from "./use-column-manager";
+import { useColumnManager } from "./use-column-manager";
 import { useContacts } from "./use-contacts";
 import { useWorkspaceCollapsed } from "./use-workspace-collapsed";
 import { useHolidaySet } from "./use-holiday-set";
@@ -89,10 +89,7 @@ import {
 } from "./settings-menu";
 import {
   DEFAULT_WEEK_HOURS,
-  PRIORITIES,
-  PRIORITY_RANK,
   type Absence,
-  type Priority,
   type RaidItem,
   type Shift,
   type Task,
@@ -104,12 +101,7 @@ import {
   type PopoutTab,
   readPopoutTabFromUrl,
 } from "./broadcast-sync";
-import {
-  FiltersProvider,
-  type SortDir,
-  type SortKey,
-  useFilters,
-} from "./filters-context";
+import { FiltersProvider, useFilters } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import {
   TaskFormProvider,
@@ -117,13 +109,17 @@ import {
   emptyForm,
   useTaskForm,
 } from "./task-form-context";
-import { BulkEditModal } from "./bulk-edit-modal";
 import { TaskFormModal } from "./task-form-modal";
+import { type RowContextValue } from "./task-row";
 import {
-  RowContextProvider,
-  TaskRow,
-  type RowContextValue,
-} from "./task-row";
+  TabButton,
+  Th,
+  SortableTh,
+  ResetSizeIcon,
+  ResetColWidthsIcon,
+  EraserIcon,
+} from "./task-manager-ui";
+import { TasksSection } from "./tasks-section";
 import { useResizable } from "./use-resizable";
 // voice-button is lazy-loaded — it transitively pulls the Web Speech API
 // shims in voice.ts which we only need when the user clicks the mic.
@@ -180,26 +176,9 @@ const TAB_LABEL_KEYS: Record<TopTab, TranslationKey> = {
   activity: "tabActivity",
 };
 
-// Columns the user can show/hide. sel, taskName, and actions are always visible.
-const CONFIGURABLE_COLS: Array<{ key: string; labelKey: TranslationKey }> = [
-  { key: "status",         labelKey: "colStatus" },
-  { key: "id",             labelKey: "id" },
-  { key: "assignee",       labelKey: "assignee" },
-  { key: "startDate",      labelKey: "start" },
-  { key: "dueDate",        labelKey: "due" },
-  { key: "lastUpdateDate", labelKey: "lastUpdate" },
-  { key: "priority",       labelKey: "priority" },
-  { key: "blockers",       labelKey: "blockers" },
-  { key: "notes",          labelKey: "notes" },
-  { key: "depRelations",   labelKey: "depRelations" },
-];
-
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
 }
-
-const inputClass =
-  "w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100";
 
 // TaskManagerInner consumes the FiltersProvider context. The default
 // export below wraps this in <FiltersProvider> so useFilters() works.
@@ -229,33 +208,10 @@ function TaskManagerInner() {
   const [popoutTab] = useState<PopoutTab | null>(() => readPopoutTabFromUrl());
   const isPopout = popoutTab !== null;
   const [activeTab, setActiveTab] = useState<TopTab>(popoutTab ?? "chat");
-  // Filter / sort state owned by FiltersProvider (Slice 1 of the
-  // task-manager decomposition; see docs/superpowers/specs/2026-05-17-
-  // filters-context-slice1-design.md). The default export wraps this
-  // component in <FiltersProvider> at the bottom of the file.
-  // raidFilterTaskId is set when the user clicks a task's RAID badge;
-  // the RaidPanel still receives it as a prop (kept that way until a
-  // later slice hoists the provider above the dynamic() boundary).
-  const {
-    search,
-    searchDebounced,
-    priorityFilter,
-    assigneeFilter,
-    groupFilter,
-    labelFilter,
-    sortKey,
-    sortDir,
-    raidFilterTaskId,
-    setSearch,
-    setPriorityFilter,
-    setAssigneeFilter,
-    setGroupFilter,
-    setLabelFilter,
-    setSortKey,
-    setSortDir,
-    setRaidFilterTaskId,
-  } = useFilters();
-
+  // raidFilterTaskId / setRaidFilterTaskId remain in TaskManagerInner because
+  // the RAID tab button (in the workspace section) calls setRaidFilterTaskId(null)
+  // on click, and RaidPanel receives filterTaskId as a prop.
+  const { raidFilterTaskId, setRaidFilterTaskId } = useFilters();
   // Tasks data + derivations owned by WorkspaceProvider (Slice 2 of the
   // task-manager decomposition; see
   // docs/superpowers/specs/2026-05-18-workspace-context-slice2-design.md).
@@ -264,12 +220,10 @@ function TaskManagerInner() {
   const {
     tasks,
     setTasks,
-    uniqueAssignees,
     uniqueGroups,
     uniqueLabels,
     tasksById,
     taskSearchIndex,
-    filteredSortedTasks,
     raid,
     setRaid,
     absences,
@@ -295,8 +249,6 @@ function TaskManagerInner() {
     setTaskModalOpen,
     bulkEdit,
     setBulkEdit,
-    bulkEditOpen,
-    setBulkEditOpen,
   } = useTaskForm();
 
   // Populated after useBulkOperations is called below; onDelete calls through
@@ -354,15 +306,6 @@ function TaskManagerInner() {
   // then O(1) per row. Empty when `raid` is empty — the per-row check
   // bails out fast.
   const raidByTask = useMemo(() => buildRaidByTaskIndex(raid), [raid]);
-
-  function toggleSort(key: SortKey) {
-    if (sortKey === key) {
-      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    } else {
-      setSortKey(key);
-      setSortDir("asc");
-    }
-  }
 
   const nextId = tasks.length > 0 ? Math.max(...tasks.map((row) => row.id)) + 1 : 1;
 
@@ -950,322 +893,40 @@ function TaskManagerInner() {
         onShowToast={showToast}
       />
 
-      {/*
-        Tasks list section — wrapped in the same rounded-xl card surface as
-        the workspace section so the two main areas of the page share visual
-        weight. The internal layout (toolbar row, filter row, resizable
-        table, bulk-edit panel) is unchanged. Hidden in popout mode so the
-        popout window only shows the requested workspace panel.
-      */}
       {!isPopout && (
-      <section
-        ref={tableRef}
-        title={t(lang, "tableResizeHint")}
-        className="mb-10 flex h-[560px] min-h-[300px] min-w-[520px] resize flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950"
-      >
-        {/* shrink-0 wrapper keeps header, filters and bulk-edit from growing into the table area */}
-        <div className="shrink-0">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <div ref={colConfigRef} className="relative">
-              <button
-                type="button"
-                onClick={() => setColConfigOpen((o) => !o)}
-                aria-label={t(lang, "colConfigTitle")}
-                title={t(lang, "colConfigTitle")}
-                aria-expanded={colConfigOpen}
-                className="rounded-md p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:text-zinc-500 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
-              >
-                <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-4 w-4">
-                  <path fillRule="evenodd" d="M7.84 1.804A1 1 0 018.82 1h2.36a1 1 0 01.98.804l.25 1.252a6.013 6.013 0 011.317.757l1.198-.42a1 1 0 011.15.376l1.18 2.044a1 1 0 01-.205 1.274l-.96.836a6.02 6.02 0 010 1.514l.96.836a1 1 0 01.205 1.274l-1.18 2.044a1 1 0 01-1.15.376l-1.198-.42a6.014 6.014 0 01-1.317.757l-.25 1.252a1 1 0 01-.98.804H8.82a1 1 0 01-.98-.804l-.25-1.252a6.013 6.013 0 01-1.317-.757l-1.198.42a1 1 0 01-1.15-.376L2.745 13.3a1 1 0 01.205-1.274l.96-.836a6.023 6.023 0 010-1.514l-.96-.836a1 1 0 01-.205-1.274L3.925 5.52a1 1 0 011.15-.376l1.198.42a6.013 6.013 0 011.317-.757l.25-1.252zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
-                </svg>
-              </button>
-              {colConfigOpen && (
-                <div
-                  role="dialog"
-                  aria-label={t(lang, "colConfigTitle")}
-                  className="absolute left-0 top-full z-40 mt-1 w-52 rounded-lg border border-zinc-200 bg-white p-3 shadow-lg dark:border-zinc-800 dark:bg-zinc-900"
-                >
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
-                    {t(lang, "colConfigTitle")}
-                  </p>
-                  <ul className="space-y-1">
-                    {CONFIGURABLE_COLS.map(({ key, labelKey }) => (
-                      <li key={key}>
-                        <label className="flex cursor-pointer items-center gap-2 rounded px-1 py-0.5 text-sm text-zinc-700 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-800">
-                          <input
-                            type="checkbox"
-                            checked={!hiddenCols.has(key)}
-                            onChange={() =>
-                              setHiddenCols((prev) => {
-                                const next = new Set(prev);
-                                next.has(key) ? next.delete(key) : next.add(key);
-                                return next;
-                              })
-                            }
-                            className="h-3.5 w-3.5 rounded border-zinc-300 text-AIPM-dark-blue focus:ring-AIPM-dark-blue dark:border-zinc-600 dark:bg-zinc-800"
-                          />
-                          {t(lang, labelKey)}
-                        </label>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-            <h2 className="text-lg font-medium text-zinc-900 dark:text-zinc-100">
-              {t(lang, "tasks")}{" "}
-              {filteredSortedTasks.length !== tasks.length
-                ? t(lang, "tasksCountFiltered", filteredSortedTasks.length, tasks.length)
-                : t(lang, "tasksCount", filteredSortedTasks.length)}
-            </h2>
-          </div>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                handleCancelEdit();
-                setTaskModalOpen(true);
-              }}
-              aria-label={t(lang, "addTaskButton")}
-              title={t(lang, "addTaskButton")}
-              className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-AIPM-dark-blue/90"
-            >
-              + {t(lang, "addTaskButton")}
-            </button>
-            {settings.jira.enabled && (
-              <button
-                type="button"
-                onClick={handleJiraSync}
-                disabled={jiraSyncing || !settings.jira.projectKey}
-                title={
-                  settings.jira.projectKey
-                    ? t(lang, "jiraSync")
-                    : t(lang, "jiraSyncNoScope")
-                }
-                className="inline-flex items-center gap-1.5 rounded-md border border-AIPM-dark-blue bg-white px-3 py-1.5 text-sm font-medium text-AIPM-dark-blue shadow-sm hover:bg-AIPM-light-grey disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-900 dark:hover:bg-zinc-800"
-              >
-                <svg
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                  aria-hidden="true"
-                  className={`h-4 w-4 ${jiraSyncing ? "animate-spin" : ""}`}
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M15.312 11.424a5.5 5.5 0 01-9.201 2.466l-.312-.311h2.433a.75.75 0 000-1.5H3.989a.75.75 0 00-.75.75v4.242a.75.75 0 001.5 0v-2.43l.31.31a7 7 0 0011.712-3.138.75.75 0 00-1.449-.39zm1.23-3.723a.75.75 0 00.219-.53V2.929a.75.75 0 00-1.5 0V5.36l-.31-.31A7 7 0 003.239 8.188a.75.75 0 101.448.389A5.5 5.5 0 0113.89 6.11l.311.31h-2.432a.75.75 0 000 1.5h4.243a.75.75 0 00.53-.219z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-                {jiraSyncing ? t(lang, "jiraSyncing") : t(lang, "jiraSync")}
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={resetTableSize}
-              aria-label={t(lang, "tableResetSizeHint")}
-              title={t(lang, "tableResetSizeHint")}
-              className="rounded-md border border-zinc-300 bg-white p-1.5 text-zinc-500 shadow-sm hover:bg-zinc-50 hover:text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
-            >
-              <ResetSizeIcon />
-            </button>
-            <button
-              type="button"
-              onClick={resetColWidths}
-              aria-label={t(lang, "colResetWidthsHint")}
-              title={t(lang, "colResetWidthsHint")}
-              className="rounded-md border border-zinc-300 bg-white p-1.5 text-zinc-500 shadow-sm hover:bg-zinc-50 hover:text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
-            >
-              <ResetColWidthsIcon />
-            </button>
-            <button
-              type="button"
-              onClick={handleClearAll}
-              disabled={tasks.length === 0}
-              aria-label={t(lang, "clearAll")}
-              title={t(lang, "clearAll")}
-              className="rounded-md border border-zinc-300 bg-white p-1.5 text-zinc-500 shadow-sm hover:bg-zinc-50 hover:text-zinc-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
-            >
-              <EraserIcon />
-            </button>
-          </div>
-        </div>
-
-        <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          <input
-            type="search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={t(lang, "searchPlaceholder")}
-            className={inputClass}
-          />
-          <select
-            value={priorityFilter}
-            onChange={(e) =>
-              setPriorityFilter(e.target.value as Priority | "All")
-            }
-            className={inputClass}
-          >
-            <option value="All">{t(lang, "allPriorities")}</option>
-            {PRIORITIES.map((p) => (
-              <option key={p} value={p}>
-                {priorityLabel(lang, p)}
-              </option>
-            ))}
-          </select>
-          <select
-            value={assigneeFilter}
-            onChange={(e) => setAssigneeFilter(e.target.value)}
-            className={inputClass}
-          >
-            <option value="All">{t(lang, "allAssignees")}</option>
-            {uniqueAssignees.map((a) => (
-              <option key={a} value={a}>
-                {a}
-              </option>
-            ))}
-          </select>
-          <select
-            value={groupFilter}
-            onChange={(e) => setGroupFilter(e.target.value)}
-            className={inputClass}
-          >
-            <option value="All">{t(lang, "allGroups")}</option>
-            <option value="">{t(lang, "groupNone")}</option>
-            {uniqueGroups.map((g) => (
-              <option key={g} value={g}>
-                {g}
-              </option>
-            ))}
-          </select>
-          <select
-            value={labelFilter}
-            onChange={(e) => setLabelFilter(e.target.value)}
-            className={inputClass}
-          >
-            <option value="All">{t(lang, "allLabels")}</option>
-            {uniqueLabels.map((l) => (
-              <option key={l} value={l}>
-                {l}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {selectedIds.size > 0 && (
-          <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-AIPM-medium-grey/40 bg-AIPM-light-grey p-3 dark:border-zinc-700 dark:bg-zinc-900">
-            <span className="text-sm font-medium text-AIPM-dark-blue dark:text-AIPM-light-grey">
-              {t(lang, "selectionCount", selectedIds.size)}
-            </span>
-            <div className="ml-auto flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={handleBulkSendInquiry}
-                className="rounded-md bg-AIPM-green px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:opacity-90"
-              >
-                {t(lang, "bulkSendInquiries")}
-              </button>
-              <button
-                type="button"
-                onClick={() => setBulkEditOpen((o) => !o)}
-                aria-pressed={bulkEditOpen}
-                className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 shadow-sm hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
-              >
-                {t(lang, "bulkEdit")}
-              </button>
-              <button
-                type="button"
-                onClick={clearSelection}
-                className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 shadow-sm hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
-              >
-                {t(lang, "clearSelection")}
-              </button>
-            </div>
-          </div>
-        )}
-
-        <BulkEditModal
+        <TasksSection
           lang={lang}
           today={today}
+          rowContextValue={rowContextValue}
+          hiddenCols={hiddenCols}
+          setHiddenCols={setHiddenCols}
+          colWidths={colWidths}
+          colConfigOpen={colConfigOpen}
+          setColConfigOpen={setColConfigOpen}
+          colConfigRef={colConfigRef}
+          startColResize={startColResize}
+          resetColWidths={resetColWidths}
+          tableRef={tableRef}
+          resetTableSize={resetTableSize}
+          expandedNotes={expandedNotes}
+          pushingIds={pushingIds}
+          raidByTask={raidByTask}
+          jiraEnabled={settings.jira.enabled}
+          jiraSyncing={jiraSyncing}
+          jiraProjectKey={settings.jira.projectKey}
+          handleJiraSync={handleJiraSync}
+          handleCancelEdit={handleCancelEdit}
+          setTaskModalOpen={setTaskModalOpen}
+          handleClearAll={handleClearAll}
           selectedIds={selectedIds}
+          allVisibleSelected={allVisibleSelected}
           selectedJiraCount={selectedJiraCount}
-          uniqueGroups={uniqueGroups}
-          uniqueLabels={uniqueLabels}
-          onApply={applyBulkEdit}
-          onCancel={cancelBulkEdit}
+          toggleSelectAllVisible={toggleSelectAllVisible}
+          clearSelection={clearSelection}
+          handleBulkSendInquiry={handleBulkSendInquiry}
+          applyBulkEdit={applyBulkEdit}
+          cancelBulkEdit={cancelBulkEdit}
         />
-
-        </div>{/* end shrink-0 */}
-
-        {tasks.length === 0 ? (
-          <div className="flex-1 rounded-xl border border-dashed border-zinc-300 bg-white p-10 text-center text-sm text-zinc-500 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400">
-            {t(lang, "noTasks")}
-          </div>
-        ) : filteredSortedTasks.length === 0 ? (
-          <div className="flex-1 rounded-xl border border-dashed border-zinc-300 bg-white p-10 text-center text-sm text-zinc-500 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400">
-            {t(lang, "noTasksFiltered")}
-          </div>
-        ) : (
-          <div
-            className="min-h-0 flex-1 w-full overflow-auto rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950"
-          >
-            <RowContextProvider value={rowContextValue}>
-              <table
-                className="divide-y divide-zinc-200 text-left text-sm dark:divide-zinc-800"
-                style={{ tableLayout: "fixed", width: "max-content", minWidth: "100%" }}
-              >
-              <colgroup>
-                {(["sel","status","id","taskName","assignee","startDate","dueDate","lastUpdateDate","priority","blockers","notes","depRelations","actions"] as const)
-                  .filter((col) => !hiddenCols.has(col))
-                  .map((col) => (
-                    <col key={col} style={{ width: colWidths[col] ?? DEFAULT_COL_WIDTHS[col] }} />
-                  ))}
-              </colgroup>
-              <thead className="sticky top-0 z-10 bg-zinc-50 text-xs uppercase tracking-wide text-zinc-500 shadow-sm dark:bg-zinc-900 dark:text-zinc-400">
-                <tr>
-                  <Th onResize={(e) => startColResize("sel", e)}>
-                    <input
-                      type="checkbox"
-                      checked={allVisibleSelected}
-                      onChange={toggleSelectAllVisible}
-                      aria-label={t(lang, "selectAllVisible")}
-                      className="h-4 w-4 cursor-pointer rounded border-zinc-300 text-AIPM-dark-blue focus:ring-AIPM-dark-blue dark:border-zinc-600 dark:bg-zinc-800"
-                    />
-                  </Th>
-                  {!hiddenCols.has("status") && <Th onResize={(e) => startColResize("status", e)}><span className="sr-only">Status</span></Th>}
-                  {!hiddenCols.has("id") && <SortableTh label={t(lang, "id")} sortKey="id" currentKey={sortKey} dir={sortDir} onClick={toggleSort} onResize={(e) => startColResize("id", e)} />}
-                  <SortableTh label={t(lang, "task")} sortKey="taskName" currentKey={sortKey} dir={sortDir} onClick={toggleSort} onResize={(e) => startColResize("taskName", e)} />
-                  {!hiddenCols.has("assignee") && <SortableTh label={t(lang, "assignee")} sortKey="assignee" currentKey={sortKey} dir={sortDir} onClick={toggleSort} onResize={(e) => startColResize("assignee", e)} />}
-                  {!hiddenCols.has("startDate") && <SortableTh label={t(lang, "start")} sortKey="startDate" currentKey={sortKey} dir={sortDir} onClick={toggleSort} onResize={(e) => startColResize("startDate", e)} />}
-                  {!hiddenCols.has("dueDate") && <SortableTh label={t(lang, "due")} sortKey="dueDate" currentKey={sortKey} dir={sortDir} onClick={toggleSort} onResize={(e) => startColResize("dueDate", e)} />}
-                  {!hiddenCols.has("lastUpdateDate") && <SortableTh label={t(lang, "lastUpdate")} sortKey="lastUpdateDate" currentKey={sortKey} dir={sortDir} onClick={toggleSort} onResize={(e) => startColResize("lastUpdateDate", e)} />}
-                  {!hiddenCols.has("priority") && <SortableTh label={t(lang, "priority")} sortKey="priority" currentKey={sortKey} dir={sortDir} onClick={toggleSort} onResize={(e) => startColResize("priority", e)} />}
-                  {!hiddenCols.has("blockers") && <Th onResize={(e) => startColResize("blockers", e)}>{t(lang, "blockers")}</Th>}
-                  {!hiddenCols.has("notes") && <Th onResize={(e) => startColResize("notes", e)}>{t(lang, "notes")}</Th>}
-                  {!hiddenCols.has("depRelations") && <Th onResize={(e) => startColResize("depRelations", e)}>{t(lang, "depRelations")}</Th>}
-                  <Th>
-                    <span className="sr-only">Actions</span>
-                  </Th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
-                {filteredSortedTasks.map((task) => (
-                  <TaskRow
-                    key={task.id}
-                    task={task}
-                    isSelected={selectedIds.has(task.id)}
-                    isEditing={editingId === task.id}
-                    isExpanded={expandedNotes.has(task.id)}
-                    isPushing={pushingIds.has(task.id)}
-                    raidRefs={raidByTask.get(task.id)}
-                  />
-                ))}
-              </tbody>
-              </table>
-            </RowContextProvider>
-          </div>
-        )}
-      </section>
       )}
 
       {dueModalOpen && (
@@ -1384,214 +1045,5 @@ export default function TaskManager() {
   );
 }
 
-function TabButton({
-  active,
-  onClick,
-  controls,
-  children,
-  onPopout,
-  popoutLabel,
-}: {
-  active: boolean;
-  onClick: () => void;
-  controls: string;
-  children: React.ReactNode;
-  onPopout?: () => void;
-  popoutLabel?: string;
-}) {
-  // Active/hover colors are applied to the wrapping flex row so the active
-  // border-b-2 indicator spans both the label and the popout icon.
-  const colorClass = active
-    ? "border-AIPM-green text-AIPM-dark-blue dark:border-AIPM-green dark:text-AIPM-light-grey"
-    : "border-transparent text-AIPM-medium-grey hover:text-AIPM-dark-blue dark:text-zinc-400 dark:hover:text-zinc-200";
-  return (
-    <div
-      className={`-mb-px inline-flex items-stretch rounded-t-md border-b-2 transition-colors ${colorClass}`}
-    >
-      <button
-        type="button"
-        role="tab"
-        aria-selected={active}
-        aria-controls={controls}
-        onClick={onClick}
-        className={`py-2 pl-4 text-sm font-medium ${onPopout ? "pr-1" : "pr-4"}`}
-      >
-        {children}
-      </button>
-      {onPopout && (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onPopout();
-          }}
-          aria-label={popoutLabel}
-          title={popoutLabel}
-          className="rounded-tr-md px-1.5 py-2 opacity-50 hover:opacity-100 focus-visible:opacity-100"
-        >
-          <svg
-            viewBox="0 0 16 16"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={1.5}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-            className="h-3.5 w-3.5"
-          >
-            <path d="M9.5 2.5h4v4" />
-            <path d="m13.5 2.5-5.5 5.5" />
-            <path d="M11 9v2.5A1.5 1.5 0 0 1 9.5 13H4A1.5 1.5 0 0 1 2.5 11.5V6A1.5 1.5 0 0 1 4 4.5h2.5" />
-          </svg>
-        </button>
-      )}
-    </div>
-  );
-}
 
-function ResetSizeIcon() {
-  return (
-    <svg
-      viewBox="0 0 20 20"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      className="h-4 w-4"
-    >
-      {/* center square */}
-      <rect x="8.5" y="8.5" width="3" height="3" fill="currentColor" stroke="none" />
-      {/* top arrow — shaft + head pointing down toward center */}
-      <line x1="10" y1="2" x2="10" y2="6.5" />
-      <polyline points="8,4.5 10,6.5 12,4.5" />
-      {/* bottom arrow — shaft + head pointing up toward center */}
-      <line x1="10" y1="18" x2="10" y2="13.5" />
-      <polyline points="8,15.5 10,13.5 12,15.5" />
-      {/* left arrow — shaft + head pointing right toward center */}
-      <line x1="2" y1="10" x2="6.5" y2="10" />
-      <polyline points="4.5,8 6.5,10 4.5,12" />
-      {/* right arrow — shaft + head pointing left toward center */}
-      <line x1="18" y1="10" x2="13.5" y2="10" />
-      <polyline points="15.5,8 13.5,10 15.5,12" />
-    </svg>
-  );
-}
-
-function ResetColWidthsIcon() {
-  return (
-    <svg
-      viewBox="0 0 20 20"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      className="h-4 w-4"
-    >
-      {/* column fill between the two guide lines */}
-      <rect x="7" y="3" width="6" height="14" fill="currentColor" fillOpacity="0.15" stroke="none" />
-      {/* left vertical guide line */}
-      <line x1="7" y1="3" x2="7" y2="17" />
-      {/* right vertical guide line */}
-      <line x1="13" y1="3" x2="13" y2="17" />
-      {/* left arrow — shaft + head pointing right toward left guide line */}
-      <line x1="1.5" y1="10" x2="5.5" y2="10" />
-      <polyline points="5.5,8.5 7,10 5.5,11.5" />
-      {/* right arrow — shaft + head pointing left toward right guide line */}
-      <line x1="18.5" y1="10" x2="14.5" y2="10" />
-      <polyline points="14.5,8.5 13,10 14.5,11.5" />
-    </svg>
-  );
-}
-
-function EraserIcon() {
-  return (
-    <svg
-      viewBox="0 0 20 20"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      className="h-4 w-4"
-    >
-      <g transform="rotate(-30, 10, 10)">
-        {/* tip — left portion with rounded left corners, filled */}
-        <path
-          d="M2 9.5 Q2 7 4 7 L7.5 7 L7.5 13 L4 13 Q2 13 2 10.5 Z"
-          fill="currentColor"
-          fillOpacity="0.35"
-          stroke="none"
-        />
-        {/* eraser body outline */}
-        <rect x="2" y="7" width="16" height="6" rx="2" />
-        {/* dividing band between tip and body */}
-        <line x1="7.5" y1="7" x2="7.5" y2="13" />
-      </g>
-    </svg>
-  );
-}
-
-function Th({
-  children,
-  onResize,
-}: {
-  children: React.ReactNode;
-  onResize?: (e: React.MouseEvent) => void;
-}) {
-  return (
-    <th className="relative px-4 py-2 font-medium">
-      {children}
-      {onResize && (
-        <div
-          onMouseDown={onResize}
-          className="absolute right-0 top-0 h-full w-1 cursor-col-resize select-none hover:bg-AIPM-dark-blue/40 dark:hover:bg-AIPM-blue/40"
-        />
-      )}
-    </th>
-  );
-}
-
-function SortableTh({
-  label,
-  sortKey,
-  currentKey,
-  dir,
-  onClick,
-  onResize,
-}: {
-  label: string;
-  sortKey: SortKey;
-  currentKey: SortKey;
-  dir: SortDir;
-  onClick: (k: SortKey) => void;
-  onResize?: (e: React.MouseEvent) => void;
-}) {
-  const isActive = currentKey === sortKey;
-  const indicator = isActive ? (dir === "asc" ? "↑" : "↓") : "";
-  return (
-    <th className="relative px-4 py-2 font-medium">
-      <button
-        type="button"
-        onClick={() => onClick(sortKey)}
-        className={`inline-flex items-center gap-1 uppercase tracking-wide hover:text-zinc-900 dark:hover:text-zinc-100 ${isActive ? "text-zinc-900 dark:text-zinc-100" : ""}`}
-      >
-        {label}
-        <span aria-hidden className="text-[0.65rem]">
-          {indicator}
-        </span>
-      </button>
-      {onResize && (
-        <div
-          onMouseDown={onResize}
-          className="absolute right-0 top-0 h-full w-1 cursor-col-resize select-none hover:bg-AIPM-dark-blue/40 dark:hover:bg-AIPM-blue/40"
-        />
-      )}
-    </th>
-  );
-}
 
