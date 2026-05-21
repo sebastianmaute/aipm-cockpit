@@ -1,3 +1,9 @@
+// 0.7.7 extracts useSettings (~100 LoC) and useActivityLog (~50 LoC) from
+// task-manager.tsx. Slice 9 of the decomposition: useSettings owns settings
+// state, localStorage load/persist, i18n loading, and the hydrated + i18nReady
+// gates. useActivityLog owns activityLog state, localStorage load/persist,
+// logActivity, and handleClearActivityLog. 12 new unit tests. task-manager.tsx
+// ~−150 lines; now ~2,145 lines.
 // 0.7.6 extracts useResourcePlanner (~350 LoC) and useBulkOperations (~270 LoC)
 // hooks from task-manager.tsx. Slice 8 of the decomposition: useResourcePlanner
 // owns RAID CRUD, absence CRUD (with modal state), shift CRUD (with modal state),
@@ -46,7 +52,7 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.7.6";
+export const APP_VERSION = "0.7.7";
 export const APP_BUILD_DATE = "2026-05-20";
 export const APP_REPO_URL = "https://www.example.com";
 

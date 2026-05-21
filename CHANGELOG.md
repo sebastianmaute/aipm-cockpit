@@ -12,6 +12,17 @@ post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-
 
 _No unreleased changes._
 
+## [0.7.7] "Elias" — 2026-05-20
+
+### Refactored
+- Extracted `useSettings` hook (~100 lines): settings state, localStorage load/persist, `hydrated` + `i18nReady` gates, i18n loading
+- Extracted `useActivityLog` hook (~50 lines): activity log state, localStorage load/persist, `logActivity`, `handleClearActivityLog`
+- `task-manager.tsx` ~−150 lines; now ~2,145 lines
+
+### Tests
+- `use-settings.test.ts`: 6 tests — initial state, hydration gates, localStorage load/persist
+- `use-activity-log.test.ts`: 6 tests — state-init, logActivity append, handleClearActivityLog confirm variants
+
 ## [0.7.6] "Duras" — 2026-05-20
 
 ### Refactored
