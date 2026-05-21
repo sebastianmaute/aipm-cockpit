@@ -12,6 +12,13 @@ post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-
 
 _No unreleased changes._
 
+## [0.7.9] "García" — 2026-05-21
+
+### Refactored
+- Extracted `useToast` hook: toast state, `showToast` factory, auto-dismiss timer
+- Extracted `useDueAlerts` hook: banner/modal state, session-once due-date alert effect
+- `task-manager.tsx` net −48 lines
+
 ## [0.7.8] "Faulkner" — 2026-05-21
 
 ### Refactored

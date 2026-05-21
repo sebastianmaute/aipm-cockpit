@@ -60,7 +60,7 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.7.8";
+export const APP_VERSION = "0.7.9";
 export const APP_BUILD_DATE = "2026-05-21";
 export const APP_REPO_URL = "https://www.example.com";
 
