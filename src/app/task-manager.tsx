@@ -18,8 +18,10 @@ import { HelpMenu } from "./help-menu";
 // initial bundle for users who don't have Jira configured.
 import type { ConflictItem } from "./jira-api";
 import { holidaysForCountries } from "./holidays";
-import { type Lang, type TranslationKey, loadI18n, migrateLang, priorityLabel, t } from "./i18n";
+import { type Lang, type TranslationKey, priorityLabel, t } from "./i18n";
 import { useChatDispatcher } from "./use-chat-dispatcher";
+import { useActivityLog } from "./use-activity-log";
+import { useSettings } from "./use-settings";
 import { loadJiraApi, useJiraSync } from "./use-jira-sync";
 import { useStorageBackend } from "./use-storage-backend";
 import { useResourcePlanner } from "./use-resource-planner";
@@ -87,7 +89,6 @@ import {
   upsertContact,
 } from "./contacts";
 import {
-  isPlainObject,
   isValidEmail,
   sanitizeAssignee,
   sanitizeBlockers,
@@ -105,16 +106,7 @@ import {
 import {
   type Settings,
   SettingsMenu,
-  defaultSettings,
 } from "./settings-menu";
-import {
-  appendActivity,
-  type ActivityEntry,
-  type ActivityKind,
-  clearActivityLog as clearActivityLogStorage,
-  loadActivityLog,
-  saveActivityLog,
-} from "./activity-log";
 import {
   DEFAULT_WEEK_HOURS,
   PRIORITIES,
@@ -208,7 +200,6 @@ const TAB_LABEL_KEYS: Record<TopTab, TranslationKey> = {
   activity: "tabActivity",
 };
 
-const SETTINGS_KEY = "lop-app:settings";
 const WORKSPACE_COLLAPSED_KEY = "lop-app:workspace-collapsed";
 const COL_WIDTHS_KEY = "lop-app:col-widths";
 const HIDDEN_COLS_KEY = "lop-app:hidden-cols";
@@ -244,40 +235,9 @@ const inputClass =
 // TaskManagerInner consumes the FiltersProvider context. The default
 // export below wraps this in <FiltersProvider> so useFilters() works.
 function TaskManagerInner() {
-  const [settings, setSettings] = useState<Settings>(defaultSettings);
-  const [hydrated, setHydrated] = useState(false);
-  // Gates the JSX return below. `t()` falls back to en-US for German keys
-  // until the de dict is dynamically imported, so for a de user we render
-  // nothing until loadI18n resolves — avoids a flash-of-English on first
-  // paint. en-US/en-GB users resolve immediately, so the gate lifts on
-  // the next microtask (imperceptible).
-  const [i18nReady, setI18nReady] = useState(false);
-
-  // Activity log — recorded user actions persisted to `lop-app:activity-log`
-  // in localStorage. Cleared via the panel's Clear button. Not part of the
-  // workspace export.
-  const [activityLog, setActivityLog] = useState<ActivityEntry[]>([]);
-  const activityLogHydratedRef = useRef(false);
-  useEffect(() => {
-    setActivityLog(loadActivityLog());
-    activityLogHydratedRef.current = true;
-  }, []);
-  useEffect(() => {
-    if (!activityLogHydratedRef.current) return;
-    saveActivityLog(activityLog);
-  }, [activityLog]);
-  const logActivity = useCallback(
-    (kind: ActivityKind, ...args: (string | number)[]) => {
-      setActivityLog((prev) => appendActivity(prev, kind, ...args));
-    },
-    [],
-  );
-  const handleClearActivityLog = useCallback(() => {
-    if (activityLog.length === 0) return;
-    if (!window.confirm(t(settings.language, "confirmClearActivityLog", activityLog.length))) return;
-    setActivityLog([]);
-    clearActivityLogStorage();
-  }, [activityLog.length, settings.language]);
+  const { settings, setSettings, hydrated, i18nReady, lang } = useSettings();
+  const { activityLog, setActivityLog, logActivity, handleClearActivityLog } =
+    useActivityLog({ lang });
 
   const [error, setError] = useState<string | null>(null);
   // Popout mode: when the URL carries `?popout=<tab>`, the window suppresses
@@ -427,7 +387,6 @@ function TaskManagerInner() {
   }, [colWidths]);
 
   const today = todayISO();
-  const lang = settings.language;
 
   // Row-related handlers converted to useCallback for TaskRow consumption.
   // Placed here, after lang/today are defined, before first usage.
@@ -657,76 +616,6 @@ function TaskManagerInner() {
       cancelled = true;
     };
   }, [settings.holidayCountries]);
-
-  // Load settings (synchronous, blocks task hydration)
-  useEffect(() => {
-    let cancelled = false;
-    let resolvedLang: Lang = defaultSettings.language;
-    try {
-      const settingsRaw = window.localStorage.getItem(SETTINGS_KEY);
-      if (settingsRaw) {
-        const parsed = JSON.parse(settingsRaw);
-        if (isPlainObject(parsed)) {
-          resolvedLang = migrateLang(
-            (parsed as Record<string, unknown>).language,
-          );
-          setSettings({
-            ...defaultSettings,
-            ...parsed,
-            language: resolvedLang,
-            // Backfill nested defaults for older saved configs
-            ai: {
-              ...defaultSettings.ai,
-              ...(isPlainObject(parsed.ai) ? parsed.ai : {}),
-            },
-            notifications: {
-              ...defaultSettings.notifications,
-              ...(isPlainObject(parsed.notifications)
-                ? parsed.notifications
-                : {}),
-            },
-            jira: {
-              ...defaultSettings.jira,
-              ...(isPlainObject(parsed.jira) ? parsed.jira : {}),
-            },
-            holidayCountries: Array.isArray(parsed.holidayCountries)
-              ? (parsed.holidayCountries as unknown[]).filter(
-                  (v): v is string => typeof v === "string",
-                )
-              : defaultSettings.holidayCountries,
-          });
-        }
-      }
-    } catch {
-      // ignore corrupt storage
-    }
-    setHydrated(true);
-    // Pull the dictionary for the resolved language and lift the render
-    // gate when it's in memory. For en-US/en-GB this is a no-op promise
-    // that resolves on the next microtask; for de it awaits the dynamic
-    // import of ./i18n.de.
-    loadI18n(resolvedLang).finally(() => {
-      if (!cancelled) setI18nReady(true);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!hydrated) return;
-    window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-  }, [settings, hydrated]);
-
-  useEffect(() => {
-    document.documentElement.lang = settings.language;
-    // Mid-session switch (e.g. user picks "Deutsch" in Settings) — fetch
-    // the dict if we don't have it yet. Idempotent: subsequent calls are
-    // no-ops. Doesn't gate render; an in-flight switch shows en-US strings
-    // briefly until the next prop change, which is acceptable for an
-    // explicit user action.
-    void loadI18n(settings.language);
-  }, [settings.language]);
 
   // Hydrate the workspace collapsed flag from localStorage on mount; then
   // persist any change. Default (key absent) is expanded — matches the
