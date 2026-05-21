@@ -53,6 +53,7 @@ function makeSettings(overrides: {
 
 describe("useDueAlerts", () => {
   it("bannerDismissed and dueModalOpen are false initially", () => {
+    const showToast = vi.fn();
     const { result } = renderHook(() =>
       useDueAlerts({
         hydrated: false,
@@ -60,7 +61,7 @@ describe("useDueAlerts", () => {
         holidaySet: new Set(),
         settings: makeSettings(),
         today: TODAY,
-        showToast: vi.fn(),
+        showToast,
       })
     );
     expect(result.current.bannerDismissed).toBe(false);
@@ -95,6 +96,7 @@ describe("useDueAlerts", () => {
         showToast,
       })
     );
+    // Flush microtasks so the deferred setState inside void Promise.resolve().then() executes
     await act(async () => {
       await Promise.resolve();
     });
@@ -114,6 +116,7 @@ describe("useDueAlerts", () => {
         showToast,
       })
     );
+    // Flush microtasks so the deferred setState inside void Promise.resolve().then() executes
     await act(async () => {
       await Promise.resolve();
     });
