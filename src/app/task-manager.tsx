@@ -32,6 +32,8 @@ import { useContacts } from "./use-contacts";
 import { useWorkspaceCollapsed } from "./use-workspace-collapsed";
 import { useHolidaySet } from "./use-holiday-set";
 import { useTaskRowHandlers } from "./use-task-row-handlers";
+import { useTaskSubmit } from "./use-task-submit";
+import { useGanttHandlers } from "./use-gantt-handlers";
 import { VersionMenu } from "./version-menu";
 import { DueBanner, DueDatesModal } from "./notifications";
 // Heavy tab panels are dynamic-imported so each panel's code (and its
@@ -80,22 +82,7 @@ const ShiftEditModal = dynamic(
   () => import("./shift-edit-modal").then((m) => m.ShiftEditModal),
   { ssr: false },
 );
-import { greetingName, upsertContact } from "./contacts";
-import {
-  isValidEmail,
-  sanitizeAssignee,
-  sanitizeBlockers,
-  sanitizeDependencies,
-  sanitizeEmail,
-  sanitizeGroup,
-  sanitizeIsoDate,
-  sanitizeLabels,
-  sanitizeNonNegInt,
-  sanitizeNotes,
-  sanitizePriority,
-  sanitizeTaskName,
-  sanitizeVoiceTranscript,
-} from "./sanitize";
+import { greetingName } from "./contacts";
 import {
   type Settings,
   SettingsMenu,
@@ -234,7 +221,6 @@ function TaskManagerInner() {
     resetColWidths,
     startColResize,
   } = useColumnManager();
-  const [error, setError] = useState<string | null>(null);
   // Popout mode: when the URL carries `?popout=<tab>`, the window suppresses
   // the page header / banner / task table / footer and renders only the
   // requested workspace panel. The popout window is opened by the per-tab
@@ -363,9 +349,6 @@ function TaskManagerInner() {
   const { storageDescription, storageReady, onPickStorageFile, onGrantWriteAccess, onOpenStorageFile } =
     useStorageBackend({ settings, lang, hydrated, activityLog, setActivityLog, showToast });
 
-  const nextId =
-    tasks.length > 0 ? Math.max(...tasks.map((t) => t.id)) + 1 : 1;
-
   // Reverse-lookup index for the "referenced by N RAID items" badge on
   // each task row. Map<taskId, RaidItem[]>. O(R) on every raid update,
   // then O(1) per row. Empty when `raid` is empty — the per-row check
@@ -381,122 +364,7 @@ function TaskManagerInner() {
     }
   }
 
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setError(null);
-
-    const taskName = sanitizeTaskName(form.taskName);
-    const assignee = sanitizeAssignee(form.assignee);
-    const dueDate = sanitizeIsoDate(form.dueDate);
-
-    if (!taskName || !assignee || !dueDate) {
-      setError(t(lang, "errorRequired"));
-      return;
-    }
-    if (dueDate < today) {
-      setError(t(lang, "errorPastDate"));
-      return;
-    }
-
-    // Block assignee changes on Jira-linked tasks (also enforced by the disabled
-    // input, but a paste/devtools edit could still get here).
-    if (editingId !== null) {
-      const existing = tasks.find((row) => row.id === editingId);
-      if (
-        existing?.jiraKey &&
-        sanitizeAssignee(existing.assignee) !== assignee
-      ) {
-        window.alert(t(lang, "jiraAssigneeForbidden", existing.jiraKey));
-        return;
-      }
-    }
-
-    const email = sanitizeEmail(form.assigneeEmail);
-    if (email && !isValidEmail(email)) {
-      setError(t(lang, "errorInvalidEmail"));
-      return;
-    }
-
-    // Sanitize dependencies against the current snapshot of task ids. The
-    // editor already filters by id and prevents self-loops + cycles, but a
-    // sanitize pass keeps the persistence layer honest if anything slipped
-    // through (e.g. a referenced task was deleted while the modal was open).
-    const knownIds = new Set(tasks.map((t) => t.id));
-    const cleanDependencies = sanitizeDependencies(
-      form.dependencies,
-      knownIds,
-      editingId,
-    );
-
-    // startDate is optional and must not exceed dueDate. Empty → undefined
-    // (preserves the derived behavior in the Gantt). If the user picked a
-    // start past the due date we clamp it to dueDate so the bar collapses
-    // to a single-day milestone instead of running backwards.
-    const rawStart = sanitizeIsoDate(form.startDate);
-    const startDate =
-      rawStart && rawStart > dueDate ? dueDate : rawStart || undefined;
-
-    const payload = {
-      taskName,
-      assignee,
-      assigneeEmail: email,
-      startDate,
-      dueDate,
-      lastUpdateDate: sanitizeIsoDate(form.lastUpdateDate) || today,
-      priority: sanitizePriority(form.priority),
-      blockers: sanitizeBlockers(form.blockers),
-      notes: sanitizeNotes(form.notes),
-      group: sanitizeGroup(form.group),
-      labels: sanitizeLabels(form.labels),
-      dependencies: cleanDependencies,
-      // Empty string in the form means "Auto" (no override) — store as
-      // undefined so the field round-trips cleanly via JSON.
-      healthOverride: form.healthOverride || undefined,
-    };
-
-    // Remember this (assignee, email) pair for autocomplete next time.
-    setContacts((prev) => upsertContact(prev, assignee, email));
-
-    if (editingId !== null) {
-      const stamp = new Date().toISOString();
-      const updatedId = editingId;
-      setTasks((prev) =>
-        prev.map((t) =>
-          t.id === editingId
-            ? { ...t, ...payload, localModifiedAt: stamp }
-            : t,
-        ),
-      );
-      setEditingId(null);
-      logActivity("task.updated", updatedId, taskName);
-    } else {
-      const newTask: Task = { id: nextId, ...payload, inquiriesSent: 0 };
-      const newId = newTask.id;
-      const shouldPush =
-        form.pushToJira &&
-        settings.jira.enabled &&
-        !!settings.jira.projectKey;
-      // Synchronously update tasksRef so onPushToJira can find the row by id.
-      const nextList = [...tasksRef.current, newTask];
-      tasksRef.current = nextList;
-      setTasks(nextList);
-      logActivity("task.created", newId, taskName);
-      if (shouldPush) {
-        // Fire-and-forget; onPushToJira shows its own toasts.
-        void onPushToJira(newId);
-      }
-    }
-    setForm(emptyForm());
-    setTaskModalOpen(false);
-  }
-
-
-  function handleCancelEdit() {
-    setEditingId(null);
-    setError(null);
-    setForm(emptyForm());
-    setTaskModalOpen(false);
-  }
+  const nextId = tasks.length > 0 ? Math.max(...tasks.map((row) => row.id)) + 1 : 1;
 
   const {
     editingAbsence,
@@ -520,30 +388,26 @@ function TaskManagerInner() {
     tasksRef.current = tasks;
   }, [tasks]);
 
-  const openEditModal = useCallback((task: Task) => {
-    setEditingId(task.id);
-    setError(null);
-    setTaskModalOpen(true);
-    setForm({
-      taskName: task.taskName,
-      assignee: task.assignee,
-      assigneeEmail: task.assigneeEmail ?? "",
-      startDate: task.startDate ?? "",
-      dueDate: task.dueDate,
-      lastUpdateDate: task.lastUpdateDate,
-      priority: task.priority,
-      blockers: task.blockers,
-      notes: task.notes,
-      group: task.group ?? "",
-      labels: task.labels ?? [],
-      dependencies: task.dependencies ?? [],
-      pushToJira: false,
-      healthOverride: task.healthOverride ?? "",
-    });
-    if (typeof window !== "undefined") {
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    }
-  }, []);
+  const onPushToJiraRef = useRef<(taskId: number) => Promise<boolean>>(
+    () => Promise.resolve(false),
+  );
+  const { error, handleSubmit, handleCancelEdit, openEditModal } = useTaskSubmit({
+    form,
+    setForm,
+    editingId,
+    setEditingId,
+    setTaskModalOpen,
+    tasks,
+    today,
+    lang,
+    settings,
+    tasksRef,
+    setTasks,
+    setContacts,
+    logActivity,
+    showToast,
+    onPushToJiraRef,
+  });
 
   const {
     expandedNotes,
@@ -575,6 +439,7 @@ function TaskManagerInner() {
     handleCancelEdit,
     logActivity,
   });
+  onPushToJiraRef.current = onPushToJira;
 
   const {
     selectedIds,
@@ -602,46 +467,7 @@ function TaskManagerInner() {
   // Sync deselectIdRef so onDelete (defined above) can call it without
   // depending on useBulkOperations being declared first.
   deselectIdRef.current = deselectId;
-
-  /**
-   * Commit a Gantt drag-edit. Writes `startDate` + `dueDate` to the task,
-   * stamps `localModifiedAt` so the Jira-sync conflict detection picks up
-   * the change, and clamps the dates so start never exceeds due.
-   *
-   * No-ops if either date is unparseable (defensive — the panel already
-   * formats them as YYYY-MM-DD) or if the task disappeared between drag
-   * start and drop.
-   */
-  function handleGanttBarUpdate(edit: {
-    taskId: number;
-    startDate: string;
-    dueDate: string;
-  }) {
-    const start = sanitizeIsoDate(edit.startDate);
-    const due = sanitizeIsoDate(edit.dueDate);
-    if (!due) return;
-    // Reorder if the drag accidentally produced start > due.
-    const finalStart = start && start > due ? due : start;
-    const stamp = new Date().toISOString();
-    const todayIso = today;
-    const next = tasksRef.current.map((row) =>
-      row.id === edit.taskId
-        ? {
-            ...row,
-            startDate: finalStart || undefined,
-            dueDate: due,
-            // A drag-edit IS a meaningful change to the task, so bump
-            // lastUpdateDate too. This makes the "Last update" column in
-            // the tasks list reflect the edit, and `localModifiedAt`
-            // keeps Jira-sync's conflict detection accurate.
-            lastUpdateDate: todayIso,
-            localModifiedAt: stamp,
-          }
-        : row,
-    );
-    tasksRef.current = next;
-    setTasks(next);
-  }
+  const { handleGanttBarUpdate } = useGanttHandlers({ tasksRef, setTasks, today });
 
   const bannerItems = useMemo(() => {
     const cfg = settings.notifications.banner;

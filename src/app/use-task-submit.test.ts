@@ -2,6 +2,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { useTaskSubmit } from "./use-task-submit";
+import type { TaskFormDraft } from "./task-form-context";
 import type { Task } from "./types";
 
 function makeTask(overrides: Partial<Task> = {}): Task {
@@ -19,7 +20,7 @@ function makeTask(overrides: Partial<Task> = {}): Task {
   };
 }
 
-function validForm() {
+function validForm(): TaskFormDraft {
   return {
     taskName: "Valid Task",
     assignee: "Bob",

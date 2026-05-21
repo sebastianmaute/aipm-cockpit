@@ -2,7 +2,7 @@
 import { useCallback, useState } from "react";
 import type React from "react";
 import { emptyForm, type TaskFormDraft } from "./task-form-context";
-import { upsertContact, type Contact } from "./contacts";
+import { upsertContact, type ContactsMap } from "./contacts";
 import { type ActivityKind } from "./activity-log";
 import { t, type Lang } from "./i18n";
 import { type Settings } from "./settings-menu";
@@ -33,7 +33,7 @@ export interface UseTaskSubmitArgs {
   settings: Settings;
   tasksRef: React.MutableRefObject<Task[]>;
   setTasks: React.Dispatch<React.SetStateAction<Task[]>>;
-  setContacts: React.Dispatch<React.SetStateAction<Contact[]>>;
+  setContacts: React.Dispatch<React.SetStateAction<ContactsMap>>;
   logActivity: (kind: ActivityKind, ...args: (string | number)[]) => void;
   showToast: (kind: "info" | "error", text: string) => void;
   onPushToJiraRef: React.MutableRefObject<(taskId: number) => Promise<boolean>>;
