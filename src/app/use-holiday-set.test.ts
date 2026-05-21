@@ -1,5 +1,5 @@
 // src/app/use-holiday-set.test.ts
-import { act, renderHook } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { useHolidaySet } from "./use-holiday-set";
 
@@ -15,8 +15,9 @@ describe("useHolidaySet", () => {
     const { result } = renderHook(() =>
       useHolidaySet({ holidayCountries: ["DE"] }),
     );
-    await act(async () => {});
-    expect(result.current.holidaySet.size).toBeGreaterThan(0);
+    await waitFor(() => {
+      expect(result.current.holidaySet.size).toBeGreaterThan(0);
+    });
   });
 
   it("cancels in-flight load on unmount — no state update after unmount", async () => {
