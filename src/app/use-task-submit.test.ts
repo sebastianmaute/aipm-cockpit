@@ -1,6 +1,10 @@
 // src/app/use-task-submit.test.ts
 import { act, renderHook } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
+
+beforeAll(() => {
+  window.scrollTo = vi.fn();
+});
 import { useTaskSubmit } from "./use-task-submit";
 import type { TaskFormDraft } from "./task-form-context";
 import type { Task } from "./types";
