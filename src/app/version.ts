@@ -1,3 +1,10 @@
+// 0.8.1 extracts useTaskSubmit (~170 LoC) and useGanttHandlers (~25 LoC) from
+// task-manager.tsx. Slice 13 of the decomposition: useTaskSubmit owns error
+// state, handleSubmit (validation + create/update paths + Jira push via
+// onPushToJiraRef forwarding-ref pattern), handleCancelEdit, and openEditModal.
+// useGanttHandlers owns handleGanttBarUpdate (drag-edit with date clamping).
+// ContactsMap type alignment; nextId retained in task-manager for TaskFormModal.
+// 8 new unit tests. task-manager.tsx ~−165 lines; now ~1,705 lines.
 // 0.8.0 extracts useHolidaySet (~25 LoC) and useTaskRowHandlers (~150 LoC)
 // from task-manager.tsx. Slice 12 of the decomposition: useHolidaySet wraps
 // the async holidaysForCountries utility with a cancellation guard.
@@ -70,7 +77,7 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.8.0";
+export const APP_VERSION = "0.8.1";
 export const APP_BUILD_DATE = "2026-05-21";
 export const APP_REPO_URL = "https://www.example.com";
 

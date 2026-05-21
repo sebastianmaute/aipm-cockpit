@@ -12,6 +12,15 @@ post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-
 
 _No unreleased changes._
 
+## [0.8.1] "Ibsen" — 2026-05-21
+
+### Refactored
+- Extracted `useTaskSubmit`: error state, `handleSubmit` (validation + create/update + Jira push), `handleCancelEdit`, `openEditModal`
+- Extracted `useGanttHandlers`: `handleGanttBarUpdate` (drag-edit with start ≤ due clamping)
+- Circular dep resolved via `onPushToJiraRef` forwarding-ref pattern (mirrors `handleCancelEditRef` in slice 12)
+- Dropped dead sanitize imports and `upsertContact` from `task-manager.tsx`
+- `task-manager.tsx` −165 lines; 8 new unit tests
+
 ## [0.8.0] "Hemingway" — 2026-05-21
 
 ### Refactored
