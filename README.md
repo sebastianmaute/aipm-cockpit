@@ -3,7 +3,7 @@
 [![Pipeline Status](https://gitlab.example.com/example-group/public-collab/lop-app/badges/main/pipeline.svg)](https://gitlab.example.com/example-group/public-collab/lop-app/-/commits/main)
 [![coverage](https://gitlab.example.com/example-group/public-collab/lop-app/badges/main/coverage.svg)](https://gitlab.example.com/example-group/public-collab/lop-app/-/commits/main)
 
-**v0.7.9** — AI-assisted project-status tracker for Acme project leads. Manage open points, track accountability, and draft status-inquiry emails — all in the browser, no backend required.
+**v0.8.0** — AI-assisted project-status tracker for Acme project leads. Manage open points, track accountability, and draft status-inquiry emails — all in the browser, no backend required.
 
 ## What It Does
 

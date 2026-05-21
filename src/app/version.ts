@@ -1,3 +1,13 @@
+// 0.8.0 extracts useHolidaySet (~25 LoC) and useTaskRowHandlers (~150 LoC)
+// from task-manager.tsx. Slice 12 of the decomposition: useHolidaySet wraps
+// the async holidaysForCountries utility with a cancellation guard.
+// useTaskRowHandlers owns expandedNotes + pushingIds state and the 9 row
+// callbacks (onToggleNoteExpanded, onJumpToRaid, onToggleComplete,
+// onSendInquiry, onPushToJira, onEdit, onDelete, handleClearRaidTaskFilter,
+// handleJumpToTaskFromRaid). handleEdit duplicate eliminated; openEditModal
+// introduced as a stable useCallback in task-manager. TopTab exported.
+// Dead settingsRef/todayRef removed. 9 new unit tests.
+// task-manager.tsx ~−120 lines; now ~1,870 lines.
 // 0.7.8 extracts useColumnManager (~110 LoC), useContacts (~45 LoC), and
 // useWorkspaceCollapsed (~25 LoC) from task-manager.tsx. Slice 10 of the
 // decomposition: all three are localStorage-backed UI-state hooks.
@@ -60,7 +70,7 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.7.9";
+export const APP_VERSION = "0.8.0";
 export const APP_BUILD_DATE = "2026-05-21";
 export const APP_REPO_URL = "https://www.example.com";
 

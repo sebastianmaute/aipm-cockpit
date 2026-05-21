@@ -12,6 +12,16 @@ post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-
 
 _No unreleased changes._
 
+## [0.8.0] "Hemingway" — 2026-05-21
+
+### Refactored
+- Extracted `useHolidaySet`: async holiday load with cancellation flag
+- Extracted `useTaskRowHandlers`: 9 row callbacks + `expandedNotes`/`pushingIds` state
+- Eliminated `handleEdit` duplicate; `useBulkOperations` consumes `onEdit` from hook
+- Removed dead `settingsRef`/`todayRef` (leftover from Slice 11)
+- Exported `TopTab` from `task-manager.tsx` for hook type sharing
+- `task-manager.tsx` −120 lines; 9 new unit tests
+
 ## [0.7.9] "García" — 2026-05-21
 
 ### Refactored
