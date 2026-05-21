@@ -5,7 +5,10 @@ import { t } from "./i18n";
 
 vi.mock("./workspace-context", () => ({ useWorkspace: vi.fn() }));
 vi.mock("./filters-context", () => ({ useFilters: vi.fn() }));
-vi.mock("./task-form-context", () => ({ useTaskForm: vi.fn() }));
+vi.mock("./task-form-context", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./task-form-context")>();
+  return { ...actual, useTaskForm: vi.fn() };
+});
 vi.mock("./task-row", () => ({
   RowContextProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   TaskRow: ({ task }: { task: { id: number; taskName: string } }) => (
