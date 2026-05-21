@@ -21,6 +21,8 @@ import { holidaysForCountries } from "./holidays";
 import { type Lang, type TranslationKey, priorityLabel, t } from "./i18n";
 import { useChatDispatcher } from "./use-chat-dispatcher";
 import { useActivityLog } from "./use-activity-log";
+import { useDueAlerts } from "./use-due-alerts";
+import { useToast } from "./use-toast";
 import { useSettings } from "./use-settings";
 import { loadJiraApi, useJiraSync } from "./use-jira-sync";
 import { useStorageBackend } from "./use-storage-backend";
@@ -30,11 +32,7 @@ import { useColumnManager, DEFAULT_COL_WIDTHS } from "./use-column-manager";
 import { useContacts } from "./use-contacts";
 import { useWorkspaceCollapsed } from "./use-workspace-collapsed";
 import { VersionMenu } from "./version-menu";
-import {
-  DueBanner,
-  DueDatesModal,
-  dueAlertsToastText,
-} from "./notifications";
+import { DueBanner, DueDatesModal } from "./notifications";
 // Heavy tab panels are dynamic-imported so each panel's code (and its
 // transitive deps like chat-tools / markdown / resource-calendar) only
 // loads when the user first opens that tab. ssr:false because every
@@ -221,6 +219,7 @@ function TaskManagerInner() {
   const { settings, setSettings, hydrated, i18nReady, lang } = useSettings();
   const { activityLog, setActivityLog, logActivity, handleClearActivityLog } =
     useActivityLog({ lang });
+  const { toast, showToast } = useToast();
 
   const { workspaceCollapsed, setWorkspaceCollapsed } = useWorkspaceCollapsed();
   const {
@@ -313,13 +312,6 @@ function TaskManagerInner() {
     setBulkEditOpen,
   } = useTaskForm();
 
-  const [toast, setToast] = useState<
-    { kind: "info" | "error"; text: string; id: number } | null
-  >(null);
-
-  const [bannerDismissed, setBannerDismissed] = useState(false);
-  const [dueModalOpen, setDueModalOpen] = useState(false);
-  const notifiedThisSessionRef = useRef(false);
   // Populated after useBulkOperations is called below; onDelete calls through
   // this ref so it doesn't depend on deselectId being defined first.
   const deselectIdRef = useRef<(id: number) => void>(() => {});
@@ -571,21 +563,14 @@ function TaskManagerInner() {
     };
   }, [settings.holidayCountries]);
 
+  const { bannerDismissed, setBannerDismissed, dueModalOpen, setDueModalOpen } =
+    useDueAlerts({ hydrated, tasks, holidaySet, settings, today, showToast });
+
   // --- RAID CRUD handlers ---------------------------------------------
   //
   // The RAID panel owns its own form state and edit modal; these are pure
   // mutators that update the top-level `raid` array, which round-trips to
   // storage via the existing save effect.
-
-  useEffect(() => {
-    if (!toast) return;
-    const timer = setTimeout(() => setToast(null), 4000);
-    return () => clearTimeout(timer);
-  }, [toast?.id]);
-
-  function showToast(kind: "info" | "error", text: string) {
-    setToast({ kind, text, id: Date.now() });
-  }
 
   const { jiraSyncing, jiraConflicts, handleJiraSync, handleResolveConflicts, clearConflicts } = useJiraSync({
     settings,
@@ -866,36 +851,6 @@ function TaskManagerInner() {
     const cfg = settings.notifications.popup;
     return getAlertableTasks(tasks, cfg.thresholdWorkDays, today, holidaySet);
   }, [tasks, settings.notifications.popup, today, holidaySet]);
-
-  // Fire toast + popup once per session after settings + tasks are ready.
-  useEffect(() => {
-    if (!hydrated || notifiedThisSessionRef.current) return;
-    if (tasks.length === 0) return; // wait for backend load
-    notifiedThisSessionRef.current = true;
-
-    const { toast: toastCfg, popup: popupCfg } = settings.notifications;
-    if (toastCfg.enabled) {
-      const items = getAlertableTasks(
-        tasks,
-        toastCfg.thresholdWorkDays,
-        today,
-        holidaySet,
-      );
-      if (items.length > 0) {
-        showToast("info", dueAlertsToastText(items, settings.language));
-      }
-    }
-    if (popupCfg.enabled) {
-      const items = getAlertableTasks(
-        tasks,
-        popupCfg.thresholdWorkDays,
-        today,
-        holidaySet,
-      );
-      if (items.length > 0) setDueModalOpen(true);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hydrated, tasks, holidaySet]);
 
   // Refs used by task-manager handlers (voice commands, sync helpers, etc.).
   // The chat dispatcher has its own internal refs inside useChatDispatcher.
