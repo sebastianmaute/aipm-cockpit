@@ -15,7 +15,7 @@ vi.mock("./task-row", () => ({
 
 import { useWorkspace } from "./workspace-context";
 import { useFilters } from "./filters-context";
-import { useTaskForm } from "./task-form-context";
+import { useTaskForm, emptyForm, emptyBulkEdit } from "./task-form-context";
 import { TasksSection, type TasksSectionProps } from "./tasks-section";
 
 const mockUseWorkspace = useWorkspace as ReturnType<typeof vi.fn>;
@@ -25,30 +25,42 @@ const mockUseTaskForm = useTaskForm as ReturnType<typeof vi.fn>;
 function stubFilters() {
   mockUseFilters.mockReturnValue({
     search: "", setSearch: vi.fn(),
+    searchDebounced: "",
+    setSearchImmediate: vi.fn(),
     priorityFilter: "All", setPriorityFilter: vi.fn(),
     assigneeFilter: "All", setAssigneeFilter: vi.fn(),
     groupFilter: "All", setGroupFilter: vi.fn(),
     labelFilter: "All", setLabelFilter: vi.fn(),
     sortKey: "taskName", sortDir: "asc",
     setSortKey: vi.fn(), setSortDir: vi.fn(),
+    raidFilterTaskId: null, setRaidFilterTaskId: vi.fn(),
+    resetFilters: vi.fn(),
   });
 }
 
 function stubTaskForm() {
   mockUseTaskForm.mockReturnValue({
-    editingId: null,
-    bulkEditOpen: false,
-    setBulkEditOpen: vi.fn(),
+    form: emptyForm(), setForm: vi.fn(),
+    editingId: null, setEditingId: vi.fn(),
+    taskModalOpen: false, setTaskModalOpen: vi.fn(),
+    bulkEdit: emptyBulkEdit(), setBulkEdit: vi.fn(),
+    bulkEditOpen: false, setBulkEditOpen: vi.fn(),
   });
 }
 
 function stubWorkspace(tasks: unknown[], filteredSortedTasks: unknown[]) {
   mockUseWorkspace.mockReturnValue({
     tasks,
+    setTasks: vi.fn(),
     filteredSortedTasks,
     uniqueAssignees: [],
     uniqueGroups: [],
     uniqueLabels: [],
+    tasksById: new Map(),
+    taskSearchIndex: new Map(),
+    raid: [], setRaid: vi.fn(),
+    absences: [], setAbsences: vi.fn(),
+    shifts: [], setShifts: vi.fn(),
   });
 }
 
