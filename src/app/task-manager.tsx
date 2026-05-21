@@ -26,6 +26,9 @@ import { loadJiraApi, useJiraSync } from "./use-jira-sync";
 import { useStorageBackend } from "./use-storage-backend";
 import { useResourcePlanner } from "./use-resource-planner";
 import { useBulkOperations } from "./use-bulk-operations";
+import { useColumnManager, DEFAULT_COL_WIDTHS } from "./use-column-manager";
+import { useContacts } from "./use-contacts";
+import { useWorkspaceCollapsed } from "./use-workspace-collapsed";
 import { VersionMenu } from "./version-menu";
 import {
   DueBanner,
@@ -78,16 +81,7 @@ const ShiftEditModal = dynamic(
   () => import("./shift-edit-modal").then((m) => m.ShiftEditModal),
   { ssr: false },
 );
-import {
-  type ContactsMap,
-  greetingName,
-  listContacts,
-  loadContacts,
-  removeContact as removeContactFromMap,
-  saveContacts,
-  seedContactsFromTasks,
-  upsertContact,
-} from "./contacts";
+import { greetingName, upsertContact } from "./contacts";
 import {
   isValidEmail,
   sanitizeAssignee,
@@ -200,10 +194,6 @@ const TAB_LABEL_KEYS: Record<TopTab, TranslationKey> = {
   activity: "tabActivity",
 };
 
-const WORKSPACE_COLLAPSED_KEY = "lop-app:workspace-collapsed";
-const COL_WIDTHS_KEY = "lop-app:col-widths";
-const HIDDEN_COLS_KEY = "lop-app:hidden-cols";
-
 // Columns the user can show/hide. sel, taskName, and actions are always visible.
 const CONFIGURABLE_COLS: Array<{ key: string; labelKey: TranslationKey }> = [
   { key: "status",         labelKey: "colStatus" },
@@ -217,13 +207,6 @@ const CONFIGURABLE_COLS: Array<{ key: string; labelKey: TranslationKey }> = [
   { key: "notes",          labelKey: "notes" },
   { key: "depRelations",   labelKey: "depRelations" },
 ];
-
-const DEFAULT_COL_WIDTHS: Record<string, number> = {
-  sel: 36, status: 36, id: 80, taskName: 200, assignee: 140,
-  startDate: 110, dueDate: 110, lastUpdateDate: 110, priority: 90,
-  blockers: 140, notes: 140, depRelations: 120, actions: 60,
-};
-
 
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
@@ -239,6 +222,18 @@ function TaskManagerInner() {
   const { activityLog, setActivityLog, logActivity, handleClearActivityLog } =
     useActivityLog({ lang });
 
+  const { workspaceCollapsed, setWorkspaceCollapsed } = useWorkspaceCollapsed();
+  const {
+    colWidths,
+    setColWidths,
+    hiddenCols,
+    setHiddenCols,
+    colConfigOpen,
+    setColConfigOpen,
+    colConfigRef,
+    resetColWidths,
+    startColResize,
+  } = useColumnManager();
   const [error, setError] = useState<string | null>(null);
   // Popout mode: when the URL carries `?popout=<tab>`, the window suppresses
   // the page header / banner / task table / footer and renders only the
@@ -248,21 +243,6 @@ function TaskManagerInner() {
   const [popoutTab] = useState<PopoutTab | null>(() => readPopoutTabFromUrl());
   const isPopout = popoutTab !== null;
   const [activeTab, setActiveTab] = useState<TopTab>(popoutTab ?? "chat");
-  // Collapsed state for the workspace section. When true, only the tab
-  // strip (with the expand chevron) is visible — panels are hidden and the
-  // section drops to its intrinsic height with no resize handle. The
-  // initial value is hydrated from localStorage in an effect below so the
-  // SSR-rendered HTML still matches the client's first paint.
-  const [workspaceCollapsed, setWorkspaceCollapsed] = useState(false);
-
-  // Remembered (assignee → email) address book. Persisted at
-  // `CONTACTS_KEY` independent of tasks. The store is hydrated in a
-  // mount-time effect below (also seeded from existing tasks on first
-  // load), upserted on every successful task save, and removed-from when
-  // the user clicks × on a suggestion row.
-  const [contacts, setContacts] = useState<ContactsMap>({});
-  const contactsHydratedRef = useRef(false);
-
   // Filter / sort state owned by FiltersProvider (Slice 1 of the
   // task-manager decomposition; see docs/superpowers/specs/2026-05-17-
   // filters-context-slice1-design.md). The default export wraps this
@@ -312,6 +292,9 @@ function TaskManagerInner() {
     setShifts,
   } = useWorkspace();
 
+  const { contacts, setContacts, contactsList, handleRemoveContact } =
+    useContacts({ hydrated, tasks });
+
   // Form / modal state owned by TaskFormProvider (Slice 3 of the
   // task-manager decomposition; see
   // docs/superpowers/specs/2026-05-18-task-form-context-slice3-design.md).
@@ -356,35 +339,6 @@ function TaskManagerInner() {
     "lop-app:workspace-size",
   );
   const { ref: modalRef } = useResizable("lop-app:task-modal-size");
-
-  const [colWidths, setColWidths] = useState<Record<string, number>>(DEFAULT_COL_WIDTHS);
-  const colDragRef = useRef<{ col: string; startX: number; startW: number } | null>(null);
-
-  const [hiddenCols, setHiddenCols] = useState<Set<string>>(new Set());
-  const [colConfigOpen, setColConfigOpen] = useState(false);
-  const colConfigRef = useRef<HTMLDivElement | null>(null);
-
-  const resetColWidths = useCallback(() => {
-    setColWidths(DEFAULT_COL_WIDTHS);
-    try { window.localStorage.removeItem(COL_WIDTHS_KEY); } catch { /* non-fatal */ }
-  }, []);
-
-  const startColResize = useCallback((col: string, e: React.MouseEvent) => {
-    e.preventDefault();
-    colDragRef.current = { col, startX: e.clientX, startW: colWidths[col] ?? 80 };
-    function onMove(mv: MouseEvent) {
-      if (!colDragRef.current) return;
-      const { col: c, startX, startW } = colDragRef.current;
-      setColWidths((prev) => ({ ...prev, [c]: Math.max(40, startW + mv.clientX - startX) }));
-    }
-    function onUp() {
-      colDragRef.current = null;
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
-    }
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
-  }, [colWidths]);
 
   const today = todayISO();
 
@@ -617,113 +571,6 @@ function TaskManagerInner() {
     };
   }, [settings.holidayCountries]);
 
-  // Hydrate the workspace collapsed flag from localStorage on mount; then
-  // persist any change. Default (key absent) is expanded — matches the
-  // initial useState value, so first paint is consistent.
-  useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(WORKSPACE_COLLAPSED_KEY);
-      if (raw === "1") setWorkspaceCollapsed(true);
-    } catch {
-      // Ignore — localStorage may be disabled.
-    }
-  }, []);
-  useEffect(() => {
-    try {
-      if (workspaceCollapsed) {
-        window.localStorage.setItem(WORKSPACE_COLLAPSED_KEY, "1");
-      } else {
-        window.localStorage.removeItem(WORKSPACE_COLLAPSED_KEY);
-      }
-    } catch {
-      // Same — non-fatal.
-    }
-  }, [workspaceCollapsed]);
-
-  useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(COL_WIDTHS_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw) as unknown;
-        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-          setColWidths((prev) => ({ ...prev, ...(parsed as Record<string, number>) }));
-        }
-      }
-    } catch { /* non-fatal */ }
-  }, []);
-  // Debounced: column drag fires setColWidths on every mousemove. Without
-  // the timeout we'd JSON.stringify and write to localStorage 60×/sec
-  // during a drag. 250 ms after the user lets go is plenty.
-  useEffect(() => {
-    const id = setTimeout(() => {
-      try {
-        window.localStorage.setItem(COL_WIDTHS_KEY, JSON.stringify(colWidths));
-      } catch {
-        /* non-fatal */
-      }
-    }, 250);
-    return () => clearTimeout(id);
-  }, [colWidths]);
-
-  useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(HIDDEN_COLS_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) setHiddenCols(new Set(parsed as string[]));
-      }
-    } catch { /* non-fatal */ }
-  }, []);
-  useEffect(() => {
-    try { window.localStorage.setItem(HIDDEN_COLS_KEY, JSON.stringify([...hiddenCols])); } catch { /* non-fatal */ }
-  }, [hiddenCols]);
-
-  useEffect(() => {
-    if (!colConfigOpen) return;
-    function onDown(e: MouseEvent) {
-      if (colConfigRef.current && !colConfigRef.current.contains(e.target as Node))
-        setColConfigOpen(false);
-    }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setColConfigOpen(false);
-    }
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [colConfigOpen]);
-
-  // Hydrate the contacts map on mount. If the persisted store is empty,
-  // seed it once from whatever tasks have already been hydrated — that way
-  // users who created tasks before this feature existed still get
-  // assignee/email autocomplete the first time they open the modal.
-  useEffect(() => {
-    if (contactsHydratedRef.current) return;
-    if (!hydrated) return; // wait until tasks are loaded so seeding works
-    contactsHydratedRef.current = true;
-    const loaded = loadContacts();
-    const seeded =
-      Object.keys(loaded).length === 0
-        ? seedContactsFromTasks(loaded, tasks)
-        : loaded;
-    setContacts(seeded);
-    if (Object.keys(seeded).length > 0 && Object.keys(loaded).length === 0) {
-      saveContacts(seeded);
-    }
-  }, [hydrated, tasks]);
-
-  // Persist on every change after hydration.
-  useEffect(() => {
-    if (!contactsHydratedRef.current) return;
-    saveContacts(contacts);
-  }, [contacts]);
-
-  function handleRemoveContact(name: string) {
-    setContacts((prev) => removeContactFromMap(prev, name));
-  }
-
   // --- RAID CRUD handlers ---------------------------------------------
   //
   // The RAID panel owns its own form state and edit modal; these are pure
@@ -753,9 +600,6 @@ function TaskManagerInner() {
 
   const nextId =
     tasks.length > 0 ? Math.max(...tasks.map((t) => t.id)) + 1 : 1;
-
-  // Stable, sorted contacts array for the ContactInput suggestion list.
-  const contactsList = useMemo(() => listContacts(contacts), [contacts]);
 
   // Reverse-lookup index for the "referenced by N RAID items" badge on
   // each task row. Map<taskId, RaidItem[]>. O(R) on every raid update,
