@@ -240,8 +240,6 @@ function TaskManagerInner() {
     setEditingId,
     taskModalOpen,
     setTaskModalOpen,
-    bulkEdit,
-    setBulkEdit,
   } = useTaskForm();
 
   // Populated after useBulkOperations is called below; onDelete calls through
@@ -347,9 +345,7 @@ function TaskManagerInner() {
 
   const {
     expandedNotes,
-    setExpandedNotes,
     pushingIds,
-    setPushingIds,
     onToggleNoteExpanded,
     onJumpToRaid,
     onToggleComplete,
