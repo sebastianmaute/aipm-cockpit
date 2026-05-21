@@ -17,20 +17,21 @@ import { HelpMenu } from "./help-menu";
 // jira-api is lazy-loaded via loadJiraApi() — pulls ~400 LOC out of the
 // initial bundle for users who don't have Jira configured.
 import type { ConflictItem } from "./jira-api";
-import { holidaysForCountries } from "./holidays";
 import { type Lang, type TranslationKey, priorityLabel, t } from "./i18n";
 import { useChatDispatcher } from "./use-chat-dispatcher";
 import { useActivityLog } from "./use-activity-log";
 import { useDueAlerts } from "./use-due-alerts";
 import { useToast } from "./use-toast";
 import { useSettings } from "./use-settings";
-import { loadJiraApi, useJiraSync } from "./use-jira-sync";
+import { useJiraSync } from "./use-jira-sync";
 import { useStorageBackend } from "./use-storage-backend";
 import { useResourcePlanner } from "./use-resource-planner";
 import { useBulkOperations } from "./use-bulk-operations";
 import { useColumnManager, DEFAULT_COL_WIDTHS } from "./use-column-manager";
 import { useContacts } from "./use-contacts";
 import { useWorkspaceCollapsed } from "./use-workspace-collapsed";
+import { useHolidaySet } from "./use-holiday-set";
+import { useTaskRowHandlers } from "./use-task-row-handlers";
 import { VersionMenu } from "./version-menu";
 import { DueBanner, DueDatesModal } from "./notifications";
 // Heavy tab panels are dynamic-imported so each panel's code (and its
@@ -316,11 +317,6 @@ function TaskManagerInner() {
   // this ref so it doesn't depend on deselectId being defined first.
   const deselectIdRef = useRef<(id: number) => void>(() => {});
 
-  const [pushingIds, setPushingIds] = useState<Set<number>>(new Set());
-  // Tracks which rows have their Notes cell expanded. Default is collapsed
-  // (i.e. id not in the set) — collapsed notes are capped at NOTES_COLLAPSED_MAX
-  // characters with an ellipsis and a "Show more" toggle.
-  const [expandedNotes, setExpandedNotes] = useState<Set<number>>(new Set());
 
   // Resizable surfaces. See `use-resizable.ts` — each has its own
   // localStorage key, only deliberate corner-drag gestures are persisted.
@@ -334,207 +330,6 @@ function TaskManagerInner() {
 
   const today = todayISO();
 
-  // Row-related handlers converted to useCallback for TaskRow consumption.
-  // Placed here, after lang/today are defined, before first usage.
-
-  const onToggleNoteExpanded = useCallback((id: number) => {
-    setExpandedNotes((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }, []);
-
-  const onJumpToRaid = useCallback((id: number) => {
-    setRaidFilterTaskId(id);
-    setActiveTab("raid");
-    setWorkspaceCollapsed((prev) => (prev ? false : prev));
-  }, [setRaidFilterTaskId, setActiveTab, setWorkspaceCollapsed]);
-
-  const onToggleComplete = useCallback((task: Task) => {
-    if (task.completedDate && task.jiraKey) {
-      window.alert(t(lang, "jiraReopenForbidden", task.jiraKey));
-      return;
-    }
-    const wasComplete = !!task.completedDate;
-    const stamp = new Date().toISOString();
-    setTasks((prev) =>
-      prev.map((row) => {
-        if (row.id !== task.id) return row;
-        if (row.completedDate) {
-          return { ...row, completedDate: undefined, localModifiedAt: stamp };
-        }
-        return { ...row, completedDate: today, localModifiedAt: stamp };
-      }),
-    );
-    if (editingId === task.id) handleCancelEdit();
-    logActivity(
-      wasComplete ? "task.reopened" : "task.completed",
-      task.id,
-      task.taskName,
-    );
-  }, [lang, today, editingId, logActivity]);
-
-  const onSendInquiry = useCallback((task: Task) => {
-    let email = task.assigneeEmail?.trim();
-    if (!email && isValidEmail(task.assignee)) {
-      email = task.assignee.trim();
-    }
-    if (!email) {
-      const provided = window.prompt(
-        t(lang, "promptEmail", task.assignee),
-        "",
-      );
-      if (provided === null) return;
-      const trimmed = provided.trim();
-      if (!isValidEmail(trimmed)) {
-        window.alert(t(lang, "errorInvalidEmail"));
-        return;
-      }
-      email = trimmed;
-      setTasks((prev) =>
-        prev.map((row) =>
-          row.id === task.id ? { ...row, assigneeEmail: trimmed } : row,
-        ),
-      );
-    }
-
-    const greeting = greetingName(task.assignee) || task.assignee;
-    const subject = t(lang, "emailSubject", task.id, task.taskName);
-    const body = t(
-      lang,
-      "emailBodyTemplate",
-      greeting,
-      task.id,
-      task.taskName,
-      task.dueDate,
-      task.lastUpdateDate,
-    );
-    const url = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-    window.location.href = url;
-    setTasks((prev) =>
-      prev.map((row) =>
-        row.id === task.id
-          ? { ...row, inquiriesSent: (row.inquiriesSent ?? 0) + 1 }
-          : row,
-      ),
-    );
-  }, [lang]);
-
-  const onPushToJira = useCallback(async (taskId: number): Promise<boolean> => {
-    const jiraCfg = settings.jira;
-    if (!jiraCfg.enabled || !jiraCfg.projectKey) {
-      showToast("error", t(lang, "jiraPushPrereq"));
-      return false;
-    }
-    const task = tasksRef.current.find((row) => row.id === taskId);
-    if (!task) return false;
-    if (task.jiraKey) {
-      return false;
-    }
-    if (pushingIds.has(taskId)) return false;
-
-    setPushingIds((prev) => {
-      const next = new Set(prev);
-      next.add(taskId);
-      return next;
-    });
-
-    const { createIssue, taskFieldsToJiraFields, formatJiraError } =
-      await loadJiraApi();
-    const issueType = jiraCfg.issueTypes[0] ?? "Task";
-    try {
-      const created = await createIssue(
-        {
-          siteUrl: jiraCfg.siteUrl,
-          email: jiraCfg.email,
-          apiToken: jiraCfg.apiToken,
-        },
-        jiraCfg.projectKey,
-        issueType,
-        taskFieldsToJiraFields(task),
-      );
-      if (!created?.key) {
-        showToast("error", t(lang, "jiraPushFailed", `#${taskId}`, "no key"));
-        return false;
-      }
-      const syncStamp = new Date().toISOString();
-      const next = tasksRef.current.map((row) =>
-        row.id === taskId
-          ? {
-              ...row,
-              jiraKey: created.key,
-              jiraIssueType: issueType,
-              lastSyncedAt: syncStamp,
-              localModifiedAt: undefined,
-            }
-          : row,
-      );
-      tasksRef.current = next;
-      setTasks(next);
-      showToast(
-        "info",
-        t(lang, "jiraPushedToast", created.key, issueType),
-      );
-      return true;
-    } catch (err) {
-      showToast(
-        "error",
-        t(lang, "jiraPushFailed", `#${taskId}`, formatJiraError(err)),
-      );
-      return false;
-    } finally {
-      setPushingIds((prev) => {
-        if (!prev.has(taskId)) return prev;
-        const next = new Set(prev);
-        next.delete(taskId);
-        return next;
-      });
-    }
-  }, [settings.jira, lang, showToast]);
-
-  const onEdit = useCallback((task: Task) => {
-    setEditingId(task.id);
-    setError(null);
-    setTaskModalOpen(true);
-    setForm({
-      taskName: task.taskName,
-      assignee: task.assignee,
-      assigneeEmail: task.assigneeEmail ?? "",
-      startDate: task.startDate ?? "",
-      dueDate: task.dueDate,
-      lastUpdateDate: task.lastUpdateDate,
-      priority: task.priority,
-      blockers: task.blockers,
-      notes: task.notes,
-      group: task.group ?? "",
-      labels: task.labels ?? [],
-      dependencies: task.dependencies ?? [],
-      pushToJira: false,
-      healthOverride: task.healthOverride ?? "",
-    });
-    if (typeof window !== "undefined") {
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    }
-  }, []);
-
-  const onDelete = useCallback((id: number) => {
-    if (!window.confirm(t(lang, "confirmDelete", id))) return;
-    const deletedName = tasksRef.current.find((t) => t.id === id)?.taskName ?? "";
-    setTasks((prev) =>
-      prev
-        .filter((t) => t.id !== id)
-        .map((t) =>
-          t.dependencies && t.dependencies.some((d) => d.taskId === id)
-            ? { ...t, dependencies: t.dependencies.filter((d) => d.taskId !== id) }
-            : t,
-        ),
-    );
-    deselectIdRef.current(id);
-    if (editingId === id) handleCancelEdit();
-    logActivity("task.deleted", id, deletedName);
-  }, [lang, editingId, logActivity]);
 
   // Set the browser tab title in popout mode. The main-window title is
   // managed by `next/metadata` via layout.tsx; this only fires when
@@ -544,24 +339,9 @@ function TaskManagerInner() {
     document.title = `${t(lang, TAB_LABEL_KEYS[popoutTab])} — ${t(lang, "appTitle")}`;
   }, [isPopout, popoutTab, lang]);
 
-  // `holidaysForCountries` is now async because `date-holidays` (and its
-  // transitive moment + moment-timezone, ~100 KB+ gzipped) is dynamically
-  // imported only when the user has at least one country selected. We
-  // mirror the result into local state; consumers continue to read a
-  // plain `Set<string>` and just see an empty set briefly on first paint
-  // (or until a non-empty selection is loaded).
-  const [holidaySet, setHolidaySet] = useState<Set<string>>(
-    () => new Set<string>(),
-  );
-  useEffect(() => {
-    let cancelled = false;
-    void holidaysForCountries(settings.holidayCountries).then((set) => {
-      if (!cancelled) setHolidaySet(set);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [settings.holidayCountries]);
+  const { holidaySet } = useHolidaySet({
+    holidayCountries: settings.holidayCountries,
+  });
 
   const { bannerDismissed, setBannerDismissed, dueModalOpen, setDueModalOpen } =
     useDueAlerts({ hydrated, tasks, holidaySet, settings, today, showToast });
@@ -710,45 +490,6 @@ function TaskManagerInner() {
     setTaskModalOpen(false);
   }
 
-  const handleEdit = useCallback((task: Task) => {
-    setEditingId(task.id);
-    setError(null);
-    setTaskModalOpen(true);
-    setForm({
-      taskName: task.taskName,
-      assignee: task.assignee,
-      assigneeEmail: task.assigneeEmail ?? "",
-      startDate: task.startDate ?? "",
-      dueDate: task.dueDate,
-      lastUpdateDate: task.lastUpdateDate,
-      priority: task.priority,
-      blockers: task.blockers,
-      notes: task.notes,
-      group: task.group ?? "",
-      labels: task.labels ?? [],
-      dependencies: task.dependencies ?? [],
-      pushToJira: false,
-      healthOverride: task.healthOverride ?? "",
-    });
-    if (typeof window !== "undefined") {
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    }
-  }, []);
-
-  // Stable refs for the props passed to memoized <RaidPanel>. Without these
-  // every parent re-render (search keystroke, column drag, etc.) would
-  // produce a new function identity and bust the memo.
-  const handleClearRaidTaskFilter = useCallback(() => {
-    setRaidFilterTaskId(null);
-  }, []);
-
-  const handleJumpToTaskFromRaid = useCallback(
-    (taskId: number) => {
-      const task = tasksRef.current.find((tk) => tk.id === taskId);
-      if (task) handleEdit(task);
-    },
-    [handleEdit],
-  );
 
   function handleCancelEdit() {
     setEditingId(null);
@@ -774,6 +515,67 @@ function TaskManagerInner() {
     handleCreateMitigationTaskFromRaid,
   } = useResourcePlanner({ lang, logActivity, showToast });
 
+  const tasksRef = useRef(tasks);
+  useEffect(() => {
+    tasksRef.current = tasks;
+  }, [tasks]);
+
+  const openEditModal = useCallback((task: Task) => {
+    setEditingId(task.id);
+    setError(null);
+    setTaskModalOpen(true);
+    setForm({
+      taskName: task.taskName,
+      assignee: task.assignee,
+      assigneeEmail: task.assigneeEmail ?? "",
+      startDate: task.startDate ?? "",
+      dueDate: task.dueDate,
+      lastUpdateDate: task.lastUpdateDate,
+      priority: task.priority,
+      blockers: task.blockers,
+      notes: task.notes,
+      group: task.group ?? "",
+      labels: task.labels ?? [],
+      dependencies: task.dependencies ?? [],
+      pushToJira: false,
+      healthOverride: task.healthOverride ?? "",
+    });
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }, []);
+
+  const {
+    expandedNotes,
+    setExpandedNotes,
+    pushingIds,
+    setPushingIds,
+    onToggleNoteExpanded,
+    onJumpToRaid,
+    onToggleComplete,
+    onSendInquiry,
+    onPushToJira,
+    onEdit,
+    onDelete,
+    handleClearRaidTaskFilter,
+    handleJumpToTaskFromRaid,
+  } = useTaskRowHandlers({
+    tasksRef,
+    settings,
+    lang,
+    today,
+    editingId,
+    showToast,
+    openEditModal,
+    setTasks,
+    setRaidFilterTaskId,
+    setActiveTab,
+    setWorkspaceCollapsed,
+    deselectIdRef,
+    handleCancelEdit,
+    logActivity,
+  });
+
   const {
     selectedIds,
     setSelectedIds,
@@ -792,7 +594,7 @@ function TaskManagerInner() {
     lang,
     settings,
     setSettings,
-    handlers: { onEdit: handleEdit, onDelete, onSendInquiry },
+    handlers: { onEdit, onDelete, onSendInquiry },
     onCancelEdit: handleCancelEdit,
     logActivity,
     showToast,
@@ -852,20 +654,6 @@ function TaskManagerInner() {
     return getAlertableTasks(tasks, cfg.thresholdWorkDays, today, holidaySet);
   }, [tasks, settings.notifications.popup, today, holidaySet]);
 
-  // Refs used by task-manager handlers (voice commands, sync helpers, etc.).
-  // The chat dispatcher has its own internal refs inside useChatDispatcher.
-  const tasksRef = useRef(tasks);
-  const settingsRef = useRef(settings);
-  const todayRef = useRef(today);
-  useEffect(() => {
-    tasksRef.current = tasks;
-  }, [tasks]);
-  useEffect(() => {
-    settingsRef.current = settings;
-  }, [settings]);
-  useEffect(() => {
-    todayRef.current = today;
-  }, [today]);
 
   const dispatcher = useChatDispatcher({
     settings,
@@ -1663,7 +1451,7 @@ function TaskManagerInner() {
             const task = tasks.find((row) => row.id === taskId);
             if (task) {
               setDueModalOpen(false);
-              handleEdit(task);
+              openEditModal(task);
             }
           }}
         />

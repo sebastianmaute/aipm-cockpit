@@ -34,7 +34,7 @@ function makeArgs(
         projectKey: "",
         issueTypes: [],
       },
-    } as Parameters<typeof useTaskRowHandlers>[0]["settings"],
+    } as unknown as Parameters<typeof useTaskRowHandlers>[0]["settings"],
     lang: "en-US" as const,
     today: "2030-01-01",
     editingId: null,
