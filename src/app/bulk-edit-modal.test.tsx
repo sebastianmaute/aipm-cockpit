@@ -1,11 +1,9 @@
 import { describe, test, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { type ReactNode } from "react";
+import { useLayoutEffect, type ReactNode } from "react";
 import { t } from "./i18n";
 import { TaskFormProvider, useTaskForm } from "./task-form-context";
 import { BulkEditModal } from "./bulk-edit-modal";
-
-const bulkOpenedRef = { current: false };
 
 function Probe({
   children,
@@ -15,10 +13,9 @@ function Probe({
   openBulk: boolean;
 }) {
   const { setBulkEditOpen } = useTaskForm();
-  if (openBulk && !bulkOpenedRef.current) {
-    bulkOpenedRef.current = true;
-    setBulkEditOpen(true);
-  }
+  useLayoutEffect(() => {
+    if (openBulk) setBulkEditOpen(true);
+  }, [openBulk, setBulkEditOpen]);
   return <>{children}</>;
 }
 
@@ -42,7 +39,6 @@ function defaultProps(
 
 describe("BulkEditModal", () => {
   test("renders nothing when bulkEditOpen is false", () => {
-    bulkOpenedRef.current = false;
     const { container } = render(
       <TaskFormProvider>
         <Probe openBulk={false}>
@@ -55,7 +51,6 @@ describe("BulkEditModal", () => {
   });
 
   test("renders nothing when bulkEditOpen is true but selectedIds is empty", () => {
-    bulkOpenedRef.current = false;
     const { container } = render(
       <TaskFormProvider>
         <Probe openBulk={true}>
@@ -68,7 +63,6 @@ describe("BulkEditModal", () => {
   });
 
   test("renders the heading when exactly one row is selected", () => {
-    bulkOpenedRef.current = false;
     render(
       <TaskFormProvider>
         <Probe openBulk={true}>
@@ -80,7 +74,6 @@ describe("BulkEditModal", () => {
   });
 
   test("renders the count in the heading when multiple rows are selected", () => {
-    bulkOpenedRef.current = false;
     render(
       <TaskFormProvider>
         <Probe openBulk={true}>
@@ -96,7 +89,6 @@ describe("BulkEditModal", () => {
   });
 
   test("cancel button fires onCancel exactly once", () => {
-    bulkOpenedRef.current = false;
     const props = defaultProps();
     render(
       <TaskFormProvider>
@@ -112,7 +104,6 @@ describe("BulkEditModal", () => {
   });
 
   test("apply button fires onApply exactly once", () => {
-    bulkOpenedRef.current = false;
     const props = defaultProps({ selectedIds: new Set([1]) });
     render(
       <TaskFormProvider>
@@ -131,7 +122,6 @@ describe("BulkEditModal", () => {
   });
 
   test("toggling the priority row updates bulkEdit.enabled.priority via setBulkEdit", () => {
-    bulkOpenedRef.current = false;
     const captured: { enabledPriority?: boolean } = {};
 
     function Spy() {
