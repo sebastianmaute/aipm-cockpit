@@ -1,12 +1,8 @@
 import { describe, test, expect, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { createRef, type ReactNode } from "react";
+import { createRef, useLayoutEffect, type ReactNode } from "react";
 import { TaskFormProvider, useTaskForm } from "./task-form-context";
 import { TaskFormModal } from "./task-form-modal";
-
-// Module-scoped ref so the inline open below runs exactly once per render
-// tree (React renders Probe twice in StrictMode; we want one setState).
-const taskModalOpenedRef = { current: false };
 
 function Probe({
   children,
@@ -16,10 +12,9 @@ function Probe({
   openModal: boolean;
 }) {
   const { setTaskModalOpen } = useTaskForm();
-  if (openModal && !taskModalOpenedRef.current) {
-    taskModalOpenedRef.current = true;
-    setTaskModalOpen(true);
-  }
+  useLayoutEffect(() => {
+    if (openModal) setTaskModalOpen(true);
+  }, [openModal, setTaskModalOpen]);
   return <>{children}</>;
 }
 
@@ -49,7 +44,6 @@ function defaultProps() {
 
 describe("TaskFormModal", () => {
   test("renders nothing when taskModalOpen is false", () => {
-    taskModalOpenedRef.current = false;
     const { container } = render(
       <TaskFormProvider>
         <Probe openModal={false}>
@@ -62,7 +56,6 @@ describe("TaskFormModal", () => {
   });
 
   test("renders header and form when modal is open", () => {
-    taskModalOpenedRef.current = false;
     render(
       <TaskFormProvider>
         <Probe openModal={true}>
@@ -75,7 +68,6 @@ describe("TaskFormModal", () => {
   });
 
   test("close button fires onCancel exactly once", () => {
-    taskModalOpenedRef.current = false;
     const props = defaultProps();
     render(
       <TaskFormProvider>
@@ -95,7 +87,6 @@ describe("TaskFormModal", () => {
   });
 
   test("submitting the form fires onSubmit", () => {
-    taskModalOpenedRef.current = false;
     const props = defaultProps();
     render(
       <TaskFormProvider>
