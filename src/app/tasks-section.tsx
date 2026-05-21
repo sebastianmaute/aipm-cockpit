@@ -2,7 +2,7 @@
 import type React from "react";
 import { type Lang, type TranslationKey, priorityLabel, t } from "./i18n";
 import { PRIORITIES, type Priority, type RaidItem } from "./types";
-import { type SortDir, type SortKey, useFilters } from "./filters-context";
+import { type SortKey, useFilters } from "./filters-context";
 import { useWorkspace } from "./workspace-context";
 import { useTaskForm } from "./task-form-context";
 import { BulkEditModal } from "./bulk-edit-modal";
@@ -42,11 +42,11 @@ export interface TasksSectionProps {
   colWidths: Record<string, number>;
   colConfigOpen: boolean;
   setColConfigOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  colConfigRef: React.RefObject<HTMLDivElement>;
+  colConfigRef: React.RefObject<HTMLDivElement | null>;
   startColResize: (col: string, e: React.MouseEvent) => void;
   resetColWidths: () => void;
   // resizable table
-  tableRef: React.RefObject<HTMLElement>;
+  tableRef: React.RefObject<HTMLElement | null>;
   resetTableSize: () => void;
   // row state
   expandedNotes: Set<number>;
@@ -170,7 +170,7 @@ export function TasksSection({
                           onChange={() =>
                             setHiddenCols((prev) => {
                               const next = new Set(prev);
-                              next.has(key) ? next.delete(key) : next.add(key);
+                              if (next.has(key)) { next.delete(key); } else { next.add(key); }
                               return next;
                             })
                           }
