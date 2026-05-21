@@ -12,6 +12,19 @@ post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-
 
 _No unreleased changes._
 
+## [0.7.8] "Faulkner" — 2026-05-21
+
+### Refactored
+- Extracted `useColumnManager` hook (~110 lines): column widths, hidden columns, column-config dropdown, resize-drag interaction; localStorage load/persist (debounced 250 ms for widths)
+- Extracted `useContacts` hook (~45 lines): contacts address-book lifecycle, seed-from-tasks on first load, localStorage load/persist
+- Extracted `useWorkspaceCollapsed` hook (~25 lines): workspace-panel collapsed boolean, localStorage load/persist
+- `task-manager.tsx` ~−175 lines; now ~2,010 lines
+
+### Tests
+- `use-column-manager.test.ts`: 7 tests — initial state, localStorage hydration, resetColWidths, debounced persistence
+- `use-contacts.test.ts`: 4 tests — initial state, hydration gate, localStorage load, handleRemoveContact
+- `use-workspace-collapsed.test.ts`: 4 tests — initial state, localStorage load, persist true/false
+
 ## [0.7.7] "Elias" — 2026-05-20
 
 ### Refactored

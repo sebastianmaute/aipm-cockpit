@@ -1,3 +1,11 @@
+// 0.7.8 extracts useColumnManager (~110 LoC), useContacts (~45 LoC), and
+// useWorkspaceCollapsed (~25 LoC) from task-manager.tsx. Slice 10 of the
+// decomposition: all three are localStorage-backed UI-state hooks.
+// useColumnManager owns column widths, hidden columns, the column-config
+// dropdown, and the resize-drag interaction. useContacts owns the contacts
+// address-book lifecycle (gated on hydrated + tasks for seeding).
+// useWorkspaceCollapsed owns the workspace-panel collapsed boolean.
+// 15 new unit tests. task-manager.tsx ~−175 lines; now ~2,010 lines.
 // 0.7.7 extracts useSettings (~100 LoC) and useActivityLog (~50 LoC) from
 // task-manager.tsx. Slice 9 of the decomposition: useSettings owns settings
 // state, localStorage load/persist, i18n loading, and the hydrated + i18nReady
@@ -52,8 +60,8 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.7.7";
-export const APP_BUILD_DATE = "2026-05-20";
+export const APP_VERSION = "0.7.8";
+export const APP_BUILD_DATE = "2026-05-21";
 export const APP_REPO_URL = "https://www.example.com";
 
 /** Translation keys for the high-level feature highlights shown in the
