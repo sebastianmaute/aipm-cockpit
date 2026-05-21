@@ -26,25 +26,25 @@ describe("useToast", () => {
     expect(result.current.toast?.text).toBe("hello");
   });
 
-  it("auto-dismisses toast after 4000ms", async () => {
+  it("auto-dismisses toast after 4000ms", () => {
     const { result } = renderHook(() => useToast());
     act(() => {
       result.current.showToast("error", "oops");
     });
     expect(result.current.toast).not.toBeNull();
-    await act(async () => {
+    act(() => {
       vi.advanceTimersByTime(4000);
     });
     expect(result.current.toast).toBeNull();
   });
 
-  it("calling showToast twice resets the timer", async () => {
+  it("calling showToast twice resets the timer", () => {
     const { result } = renderHook(() => useToast());
     act(() => {
       result.current.showToast("info", "first");
     });
     const firstId = result.current.toast?.id;
-    await act(async () => {
+    act(() => {
       vi.advanceTimersByTime(2000);
     });
     act(() => {
@@ -53,13 +53,13 @@ describe("useToast", () => {
     const secondId = result.current.toast?.id;
     expect(secondId).not.toBe(firstId);
     // 2000ms more (4000ms total from first) — timer restarted, still alive
-    await act(async () => {
+    act(() => {
       vi.advanceTimersByTime(2000);
     });
     expect(result.current.toast).not.toBeNull();
     expect(result.current.toast?.text).toBe("second");
     // 2000ms more (4000ms from second showToast) — now dismissed
-    await act(async () => {
+    act(() => {
       vi.advanceTimersByTime(2000);
     });
     expect(result.current.toast).toBeNull();
