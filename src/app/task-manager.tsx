@@ -179,7 +179,7 @@ function emptyShiftDraft(id: number): Shift {
   };
 }
 
-type TopTab = "chat" | "reports" | "gantt" | "raid" | "resources" | "activity";
+export type TopTab = "chat" | "reports" | "gantt" | "raid" | "resources" | "activity";
 
 // i18n key for each tab's label — used by both the tab strip and the
 // popout window's document.title. Adding a new tab requires a row here.
