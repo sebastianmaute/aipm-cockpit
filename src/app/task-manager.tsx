@@ -111,14 +111,7 @@ import {
 } from "./task-form-context";
 import { TaskFormModal } from "./task-form-modal";
 import { type RowContextValue } from "./task-row";
-import {
-  TabButton,
-  Th,
-  SortableTh,
-  ResetSizeIcon,
-  ResetColWidthsIcon,
-  EraserIcon,
-} from "./task-manager-ui";
+import { TabButton, ResetSizeIcon } from "./task-manager-ui";
 import { TasksSection } from "./tasks-section";
 import { useResizable } from "./use-resizable";
 // voice-button is lazy-loaded — it transitively pulls the Web Speech API
