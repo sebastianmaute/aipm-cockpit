@@ -74,12 +74,10 @@ export function useDueAlerts({
         )
       : [];
 
+    const currentLanguage = settingsRef.current.language;
     void Promise.resolve().then(() => {
       if (toastItems.length > 0)
-        showToast(
-          "info",
-          dueAlertsToastText(toastItems, settingsRef.current.language)
-        );
+        showToast("info", dueAlertsToastText(toastItems, currentLanguage));
       if (popupItems.length > 0) setDueModalOpen(true);
     });
   }, [hydrated, tasks, holidaySet, showToast]);
