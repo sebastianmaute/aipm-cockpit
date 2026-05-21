@@ -8,6 +8,16 @@ Authoritative source for version + build date: [`src/app/version.ts`](src/app/ve
 This file is seeded from that module's milestone comment plus the
 post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-diff.txt).
 
+## [0.8.2] "Joyce" — 2026-05-21
+
+Extract `TabButton`, `Th`, `SortableTh`, `ResetSizeIcon`, `ResetColWidthsIcon`,
+`EraserIcon` to `task-manager-ui.tsx` and the entire tasks `<section>` JSX to
+`tasks-section.tsx`. `TasksSection` reads `useFilters()`, `useWorkspace()`, and
+`useTaskForm()` from providers internally; receives 31 explicit props for state
+that originates outside those contexts (column manager, resizable table, row
+state, Jira, task actions, bulk operations). 3 smoke tests. `task-manager.tsx`
+−520 lines; now ~1,049 lines. Slice 14 of the decomposition.
+
 ## [Unreleased]
 
 _No unreleased changes._

@@ -1,3 +1,10 @@
+// 0.8.2 extracts 6 UI helper components (TabButton, Th, SortableTh,
+// ResetSizeIcon, ResetColWidthsIcon, EraserIcon) to task-manager-ui.tsx
+// and the entire tasks <section> JSX (~310 lines) to tasks-section.tsx.
+// TasksSection reads useFilters(), useWorkspace(), and useTaskForm()
+// internally; 31 explicit props for column manager, resizable table,
+// row state, Jira, task actions, and bulk operations. 3 smoke tests.
+// task-manager.tsx ~−520 lines; now ~1,049 lines. Slice 14.
 // 0.8.1 extracts useTaskSubmit (~170 LoC) and useGanttHandlers (~25 LoC) from
 // task-manager.tsx. Slice 13 of the decomposition: useTaskSubmit owns error
 // state, handleSubmit (validation + create/update paths + Jira push via
@@ -77,7 +84,7 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.8.1";
+export const APP_VERSION = "0.8.2";
 export const APP_BUILD_DATE = "2026-05-21";
 export const APP_REPO_URL = "https://www.example.com";
 
