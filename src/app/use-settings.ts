@@ -30,7 +30,7 @@ export function useSettings(): {
           resolvedLang = migrateLang(
             (parsed as Record<string, unknown>).language,
           );
-          setSettings({
+          const merged: Settings = {
             ...defaultSettings,
             ...parsed,
             language: resolvedLang,
@@ -53,6 +53,9 @@ export function useSettings(): {
                   (v): v is string => typeof v === "string",
                 )
               : defaultSettings.holidayCountries,
+          };
+          Promise.resolve().then(() => {
+            if (!cancelled) setSettings(merged);
           });
         }
       }
