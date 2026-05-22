@@ -100,6 +100,7 @@ export const POPOUT_TABS = [
 ] as const;
 export type PopoutTab = (typeof POPOUT_TABS)[number];
 
+// Single-slot ref. reuseWindow mode focuses this regardless of which tab opened it.
 let _popoutWindowRef: Window | null = null;
 
 export function readPopoutTabFromUrl(): PopoutTab | null {
@@ -111,7 +112,7 @@ export function readPopoutTabFromUrl(): PopoutTab | null {
     : null;
 }
 
-export function openPopoutWindow(tab: PopoutTab, reuseWindow: boolean): void {
+export function openPopoutWindow(tab: PopoutTab, reuseWindow = false): void {
   if (typeof window === "undefined") return;
   if (reuseWindow && _popoutWindowRef && !_popoutWindowRef.closed) {
     _popoutWindowRef.focus();
