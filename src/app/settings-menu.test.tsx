@@ -15,15 +15,18 @@ function makeSettings(overrides: Partial<Settings> = {}): Settings {
   return { ...defaultSettings, ...overrides };
 }
 
-const baseMenuProps = {
-  settings: makeSettings(),
-  onChange: vi.fn(),
-  storageDescription: null,
-  storageReady: false,
-  onPickStorageFile: vi.fn().mockResolvedValue(undefined),
-  onOpenStorageFile: vi.fn().mockResolvedValue(undefined),
-  onGrantStorageWrite: vi.fn().mockResolvedValue(undefined),
-};
+function makeProps(overrides: Partial<ReturnType<typeof makeProps>> = {}) {
+  return {
+    settings: makeSettings(),
+    onChange: vi.fn(),
+    storageDescription: null,
+    storageReady: false,
+    onPickStorageFile: vi.fn().mockResolvedValue(undefined),
+    onOpenStorageFile: vi.fn().mockResolvedValue(undefined),
+    onGrantStorageWrite: vi.fn().mockResolvedValue(undefined),
+    ...overrides,
+  };
+}
 
 describe("defaultSettings", () => {
   it("popout.reuseWindow defaults to false", () => {
@@ -33,7 +36,7 @@ describe("defaultSettings", () => {
 
 describe("SettingsMenu popout toggle", () => {
   it("renders 'Reuse popout window' toggle in settings panel", () => {
-    render(<SettingsMenu {...baseMenuProps} />);
+    render(<SettingsMenu {...makeProps()} />);
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "settings") }));
 
     expect(
@@ -43,7 +46,7 @@ describe("SettingsMenu popout toggle", () => {
 
   it("toggling calls onChange with updated popout.reuseWindow value", () => {
     const onChange = vi.fn();
-    render(<SettingsMenu {...baseMenuProps} onChange={onChange} />);
+    render(<SettingsMenu {...makeProps({ onChange })} />);
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "settings") }));
 
     fireEvent.click(

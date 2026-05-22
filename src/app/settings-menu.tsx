@@ -338,7 +338,7 @@ export function SettingsMenu({
                     popout: { ...settings.popout, reuseWindow: e.target.checked },
                   })
                 }
-                className="h-4 w-4 rounded border-zinc-300 text-AIPM-dark-blue focus:ring-AIPM-dark-blue dark:border-zinc-600 dark:bg-zinc-800"
+                className="h-4 w-4 cursor-pointer rounded border-zinc-300 text-AIPM-dark-blue focus:ring-AIPM-dark-blue dark:border-zinc-600 dark:bg-zinc-800"
               />
               <span className="text-sm text-zinc-700 dark:text-zinc-300">
                 {t(lang, "popoutReuseWindow")}
