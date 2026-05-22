@@ -86,6 +86,7 @@ export type Settings = {
   ai: AiConfig;
   notifications: NotificationsConfig;
   jira: JiraConfig;
+  popout: { reuseWindow: boolean };
 };
 
 export const defaultSettings: Settings = {
@@ -95,6 +96,7 @@ export const defaultSettings: Settings = {
   ai: defaultAiConfig,
   notifications: defaultNotificationsConfig,
   jira: defaultJiraConfig,
+  popout: { reuseWindow: false },
 };
 
 export function SettingsMenu({

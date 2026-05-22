@@ -36,6 +36,7 @@ function makeSettings(): Settings {
       assigneeAccountId: "",
       assigneeDisplayName: "",
     },
+    popout: { reuseWindow: false },
   };
 }
 

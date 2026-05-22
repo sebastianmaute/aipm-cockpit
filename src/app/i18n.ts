@@ -599,6 +599,7 @@ const enUS = {
   activitySearchInvalidRegex: "Invalid regex",
   activityNoMatches: "No entries match the filters.",
   popoutOpenInNewWindow: "Open in new window",
+  popoutReuseWindow: "Reuse popout window",
   tabResources: "Resources",
   resourcesEmpty: "No tasks have been assigned to anyone yet.",
   resourcesOpenTasks: "Open",

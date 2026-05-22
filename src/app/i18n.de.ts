@@ -615,6 +615,7 @@ export const de: Record<TranslationKey, string> = {
   activitySearchInvalidRegex: "Ungültiger Regex",
   activityNoMatches: "Keine Einträge entsprechen den Filtern.",
   popoutOpenInNewWindow: "In neuem Fenster öffnen",
+  popoutReuseWindow: "Bereits geöffnetes Fenster wiederverwenden",
   tabResources: "Ressourcen",
   resourcesEmpty: "Es wurden noch keine Aufgaben zugewiesen.",
   resourcesOpenTasks: "Offen",

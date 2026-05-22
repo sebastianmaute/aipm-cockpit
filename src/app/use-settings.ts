@@ -48,6 +48,10 @@ export function useSettings(): {
               ...defaultSettings.jira,
               ...(isPlainObject(parsed.jira) ? parsed.jira : {}),
             },
+            popout: {
+              ...defaultSettings.popout,
+              ...(isPlainObject(parsed.popout) ? parsed.popout : {}),
+            },
             holidayCountries: Array.isArray(parsed.holidayCountries)
               ? (parsed.holidayCountries as unknown[]).filter(
                   (v): v is string => typeof v === "string",
