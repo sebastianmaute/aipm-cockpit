@@ -1,4 +1,4 @@
-import { act, renderHook } from "@testing-library/react";
+import { renderHook } from "@testing-library/react";
 import { useLayoutEffect, type ReactNode } from "react";
 import { describe, expect, it } from "vitest";
 import { WorkspaceTabProvider, useWorkspaceTab } from "./workspace-tab-context";
