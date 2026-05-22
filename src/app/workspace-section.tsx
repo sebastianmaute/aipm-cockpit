@@ -129,7 +129,7 @@ export function WorkspaceSection({
               if (workspaceCollapsed) setWorkspaceCollapsed(false);
             }}
             controls="panel-chat"
-            onPopout={() => openPopoutWindow("chat")}
+            onPopout={() => openPopoutWindow("chat", settings.popout.reuseWindow)}
             popoutLabel={t(lang, "popoutOpenInNewWindow")}
           >
             {t(lang, "tabChat")}
@@ -141,7 +141,7 @@ export function WorkspaceSection({
               if (workspaceCollapsed) setWorkspaceCollapsed(false);
             }}
             controls="panel-reports"
-            onPopout={() => openPopoutWindow("reports")}
+            onPopout={() => openPopoutWindow("reports", settings.popout.reuseWindow)}
             popoutLabel={t(lang, "popoutOpenInNewWindow")}
           >
             {t(lang, "tabReports")}
@@ -153,7 +153,7 @@ export function WorkspaceSection({
               if (workspaceCollapsed) setWorkspaceCollapsed(false);
             }}
             controls="panel-gantt"
-            onPopout={() => openPopoutWindow("gantt")}
+            onPopout={() => openPopoutWindow("gantt", settings.popout.reuseWindow)}
             popoutLabel={t(lang, "popoutOpenInNewWindow")}
           >
             {t(lang, "tabGantt")}
@@ -166,7 +166,7 @@ export function WorkspaceSection({
               if (workspaceCollapsed) setWorkspaceCollapsed(false);
             }}
             controls="panel-raid"
-            onPopout={() => openPopoutWindow("raid")}
+            onPopout={() => openPopoutWindow("raid", settings.popout.reuseWindow)}
             popoutLabel={t(lang, "popoutOpenInNewWindow")}
           >
             {t(lang, "tabRaid")}
@@ -178,7 +178,7 @@ export function WorkspaceSection({
               if (workspaceCollapsed) setWorkspaceCollapsed(false);
             }}
             controls="panel-resources"
-            onPopout={() => openPopoutWindow("resources")}
+            onPopout={() => openPopoutWindow("resources", settings.popout.reuseWindow)}
             popoutLabel={t(lang, "popoutOpenInNewWindow")}
           >
             {t(lang, "tabResources")}
@@ -190,7 +190,7 @@ export function WorkspaceSection({
               if (workspaceCollapsed) setWorkspaceCollapsed(false);
             }}
             controls="panel-activity"
-            onPopout={() => openPopoutWindow("activity")}
+            onPopout={() => openPopoutWindow("activity", settings.popout.reuseWindow)}
             popoutLabel={t(lang, "popoutOpenInNewWindow")}
           >
             {t(lang, "tabActivity")}
