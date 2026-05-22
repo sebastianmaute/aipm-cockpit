@@ -3,18 +3,6 @@
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getAlertableTasks } from "./due-dates";
-import {
-  computeTaskHealth,
-  formatHealthTooltip,
-  HEALTH_VALUES,
-  healthColorName,
-  healthDot,
-  type Health,
-  type TaskHealth,
-} from "./health";
-// jira-api is lazy-loaded via loadJiraApi() — pulls ~400 LOC out of the
-// initial bundle for users who don't have Jira configured.
-import type { ConflictItem } from "./jira-api";
 import { type TranslationKey, t } from "./i18n";
 import { useChatDispatcher } from "./use-chat-dispatcher";
 import { useActivityLog } from "./use-activity-log";
@@ -35,9 +23,7 @@ import { useGanttHandlers } from "./use-gantt-handlers";
 import { DueBanner, DueDatesModal } from "./notifications";
 // Modals are dynamic-imported on the same principle — JiraConflictsModal
 // only opens during a Jira-sync conflict; absence/shift editors only open
-// when the user clicks an edit/add affordance. Helpers
-// (emptyAbsenceDraft / emptyShiftDraft) are inlined below so opening
-// these modals doesn't need to await the module load.
+// when the user clicks an edit/add affordance.
 const JiraConflictsModal = dynamic(
   () => import("./jira-conflicts-modal").then((m) => m.JiraConflictsModal),
   { ssr: false },
@@ -51,20 +37,16 @@ const ShiftEditModal = dynamic(
   { ssr: false },
 );
 import {
-  DEFAULT_WEEK_HOURS,
   type Absence,
   type RaidItem,
   type Shift,
   type Task,
-  type TaskDependency,
 } from "./types";
-import { buildRaidByTaskIndex, countByCategory, nextRaidId } from "./raid";
+import { buildRaidByTaskIndex } from "./raid";
 import { FiltersProvider, useFilters } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import {
   TaskFormProvider,
-  emptyBulkEdit,
-  emptyForm,
   useTaskForm,
 } from "./task-form-context";
 import { TaskFormModal } from "./task-form-modal";
@@ -74,40 +56,6 @@ import { useResizable } from "./use-resizable";
 import { WorkspaceTabProvider, useWorkspaceTab, type TopTab } from "./workspace-tab-context";
 import { AppHeader } from "./app-header";
 import { WorkspaceSection } from "./workspace-section";
-
-// --- inlined absence / shift draft helpers ------------------------------
-//
-// Originally re-exported from absence-edit-modal.tsx / shift-edit-modal.tsx
-// alongside the components. Inlined here so opening a draft doesn't need
-// to await the modal module — the parent computes the seed synchronously
-// and the dynamic-imported modal hydrates around it.
-
-function isoToday(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
-function emptyAbsenceDraft(id: number): Absence {
-  const today = isoToday();
-  return {
-    id,
-    assignee: "",
-    assigneeEmail: undefined,
-    startDate: today,
-    endDate: today,
-    type: "vacation",
-    note: undefined,
-  };
-}
-
-function emptyShiftDraft(id: number): Shift {
-  return {
-    id,
-    assignee: "",
-    assigneeEmail: undefined,
-    hoursPerWeekday: DEFAULT_WEEK_HOURS,
-    note: undefined,
-  };
-}
 
 // i18n key for each tab's label — used by both the tab strip and the
 // popout window's document.title. Adding a new tab requires a row here.
