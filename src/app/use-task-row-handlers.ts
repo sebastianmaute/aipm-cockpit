@@ -9,7 +9,6 @@ import type { ActivityKind } from "./activity-log";
 import type { Task } from "./types";
 import type { Settings } from "./settings-menu";
 import { useWorkspaceTab } from "./workspace-tab-context";
-import { useWorkspaceCollapsed } from "./use-workspace-collapsed";
 
 export interface UseTaskRowHandlersArgs {
   tasksRef: React.MutableRefObject<Task[]>;
@@ -21,6 +20,7 @@ export interface UseTaskRowHandlersArgs {
   openEditModal: (task: Task) => void;
   setTasks: React.Dispatch<React.SetStateAction<Task[]>>;
   setRaidFilterTaskId: React.Dispatch<React.SetStateAction<number | null>>;
+  setWorkspaceCollapsed: React.Dispatch<React.SetStateAction<boolean>>;
   deselectIdRef: React.MutableRefObject<(id: number) => void>;
   handleCancelEdit: () => void;
   logActivity: (kind: ActivityKind, ...args: (string | number)[]) => void;
@@ -37,13 +37,13 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
     openEditModal,
     setTasks,
     setRaidFilterTaskId,
+    setWorkspaceCollapsed,
     deselectIdRef,
     handleCancelEdit,
     logActivity,
   } = args;
 
   const { setActiveTab } = useWorkspaceTab();
-  const { setWorkspaceCollapsed } = useWorkspaceCollapsed();
 
   const [expandedNotes, setExpandedNotes] = useState<Set<number>>(new Set());
   const [pushingIds, setPushingIds] = useState<Set<number>>(new Set());
