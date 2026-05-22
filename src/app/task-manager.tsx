@@ -1,6 +1,5 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getAlertableTasks } from "./due-dates";
 import { type TranslationKey, t } from "./i18n";
@@ -20,22 +19,7 @@ import { useHolidaySet } from "./use-holiday-set";
 import { useTaskRowHandlers } from "./use-task-row-handlers";
 import { useTaskSubmit } from "./use-task-submit";
 import { useGanttHandlers } from "./use-gantt-handlers";
-import { DueBanner, DueDatesModal } from "./notifications";
-// Modals are dynamic-imported on the same principle — JiraConflictsModal
-// only opens during a Jira-sync conflict; absence/shift editors only open
-// when the user clicks an edit/add affordance.
-const JiraConflictsModal = dynamic(
-  () => import("./jira-conflicts-modal").then((m) => m.JiraConflictsModal),
-  { ssr: false },
-);
-const AbsenceEditModal = dynamic(
-  () => import("./absence-edit-modal").then((m) => m.AbsenceEditModal),
-  { ssr: false },
-);
-const ShiftEditModal = dynamic(
-  () => import("./shift-edit-modal").then((m) => m.ShiftEditModal),
-  { ssr: false },
-);
+import { AppModals } from "./app-modals";
 import {
   type Absence,
   type RaidItem,
@@ -49,8 +33,6 @@ import {
   TaskFormProvider,
   useTaskForm,
 } from "./task-form-context";
-import { TaskFormModal } from "./task-form-modal";
-import { type RowContextValue } from "./task-row";
 import { TasksSection } from "./tasks-section";
 import { useResizable } from "./use-resizable";
 import { WorkspaceTabProvider, useWorkspaceTab, type TopTab } from "./workspace-tab-context";
@@ -298,6 +280,44 @@ function TaskManagerInner() {
     return getAlertableTasks(tasks, cfg.thresholdWorkDays, today, holidaySet);
   }, [tasks, settings.notifications.popup, today, holidaySet]);
 
+  const absenceKnownAssignees = useMemo(
+    () => [
+      ...tasks.map((tk) => ({ name: tk.assignee, email: tk.assigneeEmail })),
+      ...absences.map((a) => ({ name: a.assignee, email: a.assigneeEmail })),
+    ],
+    [tasks, absences],
+  );
+
+  const shiftKnownAssignees = useMemo(
+    () => [
+      ...tasks.map((tk) => ({ name: tk.assignee, email: tk.assigneeEmail })),
+      ...absences.map((a) => ({ name: a.assignee, email: a.assigneeEmail })),
+      ...shifts.map((s) => ({ name: s.assignee, email: s.assigneeEmail })),
+    ],
+    [tasks, absences, shifts],
+  );
+
+  const shiftExistingAssigneeKeys = useMemo(
+    () =>
+      new Set(
+        shifts
+          .filter((s) => editingShift === null || s.id !== editingShift.shift.id)
+          .map((s) => s.assignee.trim().toLowerCase()),
+      ),
+    [shifts, editingShift],
+  );
+
+  const onSelectDueTask = useCallback(
+    (taskId: number) => {
+      const task = tasks.find((row) => row.id === taskId);
+      if (task) {
+        setDueModalOpen(false);
+        openEditModal(task);
+      }
+    },
+    [tasks, setDueModalOpen, openEditModal],
+  );
+
   const dispatcher = useChatDispatcher({
     settings,
     today,
@@ -315,45 +335,6 @@ function TaskManagerInner() {
       ? tasks.find((row) => row.id === editingId) ?? null
       : null;
   const editingIsJiraLinked = !!editingTask?.jiraKey;
-
-  const rowContextValue = useMemo<RowContextValue>(
-    () => ({
-      lang,
-      today,
-      holidaySet,
-      jiraSiteUrl: settings.jira.siteUrl,
-      jiraEnabled: settings.jira.enabled,
-      jiraProjectKey: settings.jira.projectKey,
-      hiddenCols,
-      tasksById,
-      onToggleSelect,
-      onToggleNoteExpanded,
-      onJumpToRaid,
-      onToggleComplete,
-      onSendInquiry,
-      onPushToJira,
-      onEdit,
-      onDelete,
-    }),
-    [
-      lang,
-      today,
-      holidaySet,
-      settings.jira.siteUrl,
-      settings.jira.enabled,
-      settings.jira.projectKey,
-      hiddenCols,
-      tasksById,
-      onToggleSelect,
-      onToggleNoteExpanded,
-      onJumpToRaid,
-      onToggleComplete,
-      onSendInquiry,
-      onPushToJira,
-      onEdit,
-      onDelete,
-    ],
-  );
 
   // Render gate: hold first paint until the active-language dictionary is
   // in memory. Lifts in the next microtask for en-US/en-GB (no fetch);
@@ -386,15 +367,6 @@ function TaskManagerInner() {
         />
       )}
 
-      {!isPopout && !bannerDismissed && (
-        <DueBanner
-          items={bannerItems}
-          lang={lang}
-          onOpenList={() => setDueModalOpen(true)}
-          onDismiss={() => setBannerDismissed(true)}
-        />
-      )}
-
       <WorkspaceSection
         today={today}
         holidaySet={holidaySet}
@@ -419,40 +391,19 @@ function TaskManagerInner() {
         handleOpenShiftEditor={handleOpenShiftEditor}
       />
 
-      {/*
-        New-task / Edit-task modal. Opened by the header "+" button or by
-        editing a row. Backdrop click + Esc cancel and close. Submit closes
-        on success. Dialog role + a11y owned by <Modal>; the inner div is
-        just the resizable panel surface (the `modalRef` carries the saved
-        size via useResizable).
-      */}
-      <TaskFormModal
-        lang={lang}
-        today={today}
-        nextId={nextId}
-        contactsList={contactsList}
-        absences={absences}
-        tasksForDeps={tasks}
-        uniqueGroups={uniqueGroups}
-        uniqueLabels={uniqueLabels}
-        editingIsJiraLinked={editingIsJiraLinked}
-        jiraEnabled={settings.jira.enabled}
-        error={error}
-        holidaySet={holidaySet}
-        jiraProjectKey={settings.jira.projectKey}
-        jiraDefaultIssueType={settings.jira.issueTypes[0]}
-        modalRef={modalRef}
-        onSubmit={handleSubmit}
-        onCancel={handleCancelEdit}
-        onRemoveContact={handleRemoveContact}
-        onShowToast={showToast}
-      />
-
       {!isPopout && (
         <TasksSection
           lang={lang}
           today={today}
-          rowContextValue={rowContextValue}
+          jiraSiteUrl={settings.jira.siteUrl}
+          onToggleSelect={onToggleSelect}
+          onToggleNoteExpanded={onToggleNoteExpanded}
+          onJumpToRaid={onJumpToRaid}
+          onToggleComplete={onToggleComplete}
+          onSendInquiry={onSendInquiry}
+          onPushToJira={onPushToJira}
+          onEdit={onEdit}
+          onDelete={onDelete}
           hiddenCols={hiddenCols}
           setHiddenCols={setHiddenCols}
           colWidths={colWidths}
@@ -484,106 +435,51 @@ function TaskManagerInner() {
         />
       )}
 
-      {dueModalOpen && (
-        <DueDatesModal
-          items={dueModalItems}
-          lang={lang}
-          onClose={() => setDueModalOpen(false)}
-          onSelectTask={(taskId) => {
-            const task = tasks.find((row) => row.id === taskId);
-            if (task) {
-              setDueModalOpen(false);
-              openEditModal(task);
-            }
-          }}
-        />
-      )}
-
-      {jiraConflicts.length > 0 && (
-        <JiraConflictsModal
-          lang={lang}
-          conflicts={jiraConflicts}
-          onResolve={handleResolveConflicts}
-          onClose={clearConflicts}
-        />
-      )}
-
-      {editingAbsence && (
-        <AbsenceEditModal
-          lang={lang}
-          absence={editingAbsence.absence}
-          isNew={editingAbsence.isNew}
-          knownAssignees={[
-            ...tasks.map((tk) => ({
-              name: tk.assignee,
-              email: tk.assigneeEmail,
-            })),
-            ...absences.map((a) => ({
-              name: a.assignee,
-              email: a.assigneeEmail,
-            })),
-          ]}
-          onSave={handleSaveAbsence}
-          onDelete={handleDeleteAbsence}
-          onClose={handleCloseAbsenceModal}
-        />
-      )}
-
-      {editingShift && (
-        <ShiftEditModal
-          lang={lang}
-          shift={editingShift.shift}
-          isNew={editingShift.isNew}
-          existingAssigneeKeys={
-            new Set(
-              shifts
-                .filter((s) => s.id !== editingShift.shift.id)
-                .map((s) => s.assignee.trim().toLowerCase()),
-            )
-          }
-          knownAssignees={[
-            ...tasks.map((tk) => ({
-              name: tk.assignee,
-              email: tk.assigneeEmail,
-            })),
-            ...absences.map((a) => ({
-              name: a.assignee,
-              email: a.assigneeEmail,
-            })),
-            ...shifts.map((s) => ({
-              name: s.assignee,
-              email: s.assigneeEmail,
-            })),
-          ]}
-          onSave={handleSaveShift}
-          onDelete={handleDeleteShift}
-          onClose={handleCloseShiftModal}
-        />
-      )}
-
-      {!isPopout && (
-      <footer className="mt-12 flex items-center justify-between gap-4 border-t border-AIPM-light-grey pt-6 text-xs text-AIPM-medium-grey dark:border-zinc-800">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/AIPM-logo.svg" alt="Acme" className="h-6 w-auto" />
-        <span className="text-right italic">
-          Identity Excellence Delivered. Globally.
-        </span>
-      </footer>
-      )}
-
-      {toast && (
-        <div
-          role="status"
-          aria-live="polite"
-          className={`fixed bottom-4 right-4 z-30 max-w-md rounded-md px-4 py-2.5 text-sm shadow-lg ${
-            toast.kind === "error"
-              ? "bg-AIPM-pink text-white"
-              : "bg-AIPM-dark-blue text-white"
-          }`}
-        >
-          {toast.text}
-        </div>
-      )}
+      <AppModals
+        lang={lang}
+        isPopout={isPopout}
+        bannerDismissed={bannerDismissed}
+        setBannerDismissed={setBannerDismissed}
+        bannerItems={bannerItems}
+        setDueModalOpen={setDueModalOpen}
+        dueModalOpen={dueModalOpen}
+        dueModalItems={dueModalItems}
+        onSelectDueTask={onSelectDueTask}
+        onCloseDueModal={() => setDueModalOpen(false)}
+        jiraConflicts={jiraConflicts}
+        handleResolveConflicts={handleResolveConflicts}
+        clearConflicts={clearConflicts}
+        editingAbsence={editingAbsence}
+        absenceKnownAssignees={absenceKnownAssignees}
+        handleSaveAbsence={handleSaveAbsence}
+        handleDeleteAbsence={handleDeleteAbsence}
+        handleCloseAbsenceModal={handleCloseAbsenceModal}
+        editingShift={editingShift}
+        shiftKnownAssignees={shiftKnownAssignees}
+        shiftExistingAssigneeKeys={shiftExistingAssigneeKeys}
+        handleSaveShift={handleSaveShift}
+        handleDeleteShift={handleDeleteShift}
+        handleCloseShiftModal={handleCloseShiftModal}
+        today={today}
+        nextId={nextId}
+        contactsList={contactsList}
+        absences={absences}
+        tasksForDeps={tasks}
+        uniqueGroups={uniqueGroups}
+        uniqueLabels={uniqueLabels}
+        editingIsJiraLinked={editingIsJiraLinked}
+        jiraEnabled={settings.jira.enabled}
+        error={error}
+        holidaySet={holidaySet}
+        jiraProjectKey={settings.jira.projectKey}
+        jiraDefaultIssueType={settings.jira.issueTypes[0]}
+        modalRef={modalRef}
+        handleSubmit={handleSubmit}
+        handleCancelEdit={handleCancelEdit}
+        handleRemoveContact={handleRemoveContact}
+        showToast={showToast}
+        toast={toast}
+      />
     </div>
   );
 }
