@@ -1,3 +1,10 @@
+// 0.8.3 extracts WorkspaceTabContext (TopTab type + WorkspaceTabProvider +
+// useWorkspaceTab hook) from task-manager.tsx. Also extracts AppHeader
+// component (app <header> block, ~90 lines) and WorkspaceSection component
+// (workspace <section> block, ~250 lines) from task-manager.tsx.
+// useTaskRowHandlers now reads setActiveTab from WorkspaceTabContext instead
+// of receiving it as a prop. task-manager.tsx −377 lines; now ~661 lines.
+// Slice 15.
 // 0.8.2 extracts 6 UI helper components (TabButton, Th, SortableTh,
 // ResetSizeIcon, ResetColWidthsIcon, EraserIcon) to task-manager-ui.tsx
 // and the entire tasks <section> JSX (~310 lines) to tasks-section.tsx.
@@ -84,8 +91,8 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.8.2";
-export const APP_BUILD_DATE = "2026-05-21";
+export const APP_VERSION = "0.8.3";
+export const APP_BUILD_DATE = "2026-05-22";
 export const APP_REPO_URL = "https://www.example.com";
 
 /** Translation keys for the high-level feature highlights shown in the
