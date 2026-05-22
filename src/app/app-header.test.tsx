@@ -34,7 +34,7 @@ function makeProps(overrides: Partial<AppHeaderProps> = {}): AppHeaderProps {
     setDueModalOpen: vi.fn(),
     showToast: vi.fn(),
     handleCommand: vi.fn(),
-    storageDescription: "",
+    storageDescription: null,
     storageReady: true,
     onPickStorageFile: vi.fn().mockResolvedValue(undefined),
     onOpenStorageFile: vi.fn().mockResolvedValue(undefined),

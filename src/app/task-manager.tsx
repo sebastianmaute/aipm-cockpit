@@ -51,9 +51,6 @@ const ShiftEditModal = dynamic(
   { ssr: false },
 );
 import {
-  type Settings,
-} from "./settings-menu";
-import {
   DEFAULT_WEEK_HOURS,
   type Absence,
   type RaidItem,
@@ -190,7 +187,6 @@ function TaskManagerInner() {
   // this ref so it doesn't depend on deselectId being defined first.
   const deselectIdRef = useRef<(id: number) => void>(() => {});
 
-
   // Resizable surfaces. See `use-resizable.ts` — each has its own
   // localStorage key, only deliberate corner-drag gestures are persisted.
   const { ref: tableRef, reset: resetTableSize } = useResizable(
@@ -202,7 +198,6 @@ function TaskManagerInner() {
   const { ref: modalRef } = useResizable("lop-app:task-modal-size");
 
   const today = todayISO();
-
 
   // Set the browser tab title in popout mode. The main-window title is
   // managed by `next/metadata` via layout.tsx; this only fires when
@@ -354,7 +349,6 @@ function TaskManagerInner() {
     const cfg = settings.notifications.popup;
     return getAlertableTasks(tasks, cfg.thresholdWorkDays, today, holidaySet);
   }, [tasks, settings.notifications.popup, today, holidaySet]);
-
 
   const dispatcher = useChatDispatcher({
     settings,
