@@ -365,8 +365,6 @@ function TaskManagerInner() {
     openEditModal,
     setTasks,
     setRaidFilterTaskId,
-    setActiveTab,
-    setWorkspaceCollapsed,
     deselectIdRef,
     handleCancelEdit,
     logActivity,

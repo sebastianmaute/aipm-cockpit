@@ -4,6 +4,21 @@ import { describe, expect, it, vi } from "vitest";
 import { useTaskRowHandlers } from "./use-task-row-handlers";
 import type { Task } from "./types";
 
+vi.mock("./workspace-tab-context", () => ({
+  useWorkspaceTab: vi.fn(() => ({
+    activeTab: "chat" as const,
+    setActiveTab: vi.fn(),
+    isPopout: false,
+  })),
+}));
+
+vi.mock("./use-workspace-collapsed", () => ({
+  useWorkspaceCollapsed: vi.fn(() => ({
+    workspaceCollapsed: false,
+    setWorkspaceCollapsed: vi.fn(),
+  })),
+}));
+
 function makeTask(overrides: Partial<Task> = {}): Task {
   return {
     id: 1,
@@ -44,12 +59,6 @@ function makeArgs(
     setRaidFilterTaskId: vi.fn() as Parameters<
       typeof useTaskRowHandlers
     >[0]["setRaidFilterTaskId"],
-    setActiveTab: vi.fn() as Parameters<
-      typeof useTaskRowHandlers
-    >[0]["setActiveTab"],
-    setWorkspaceCollapsed: vi.fn() as Parameters<
-      typeof useTaskRowHandlers
-    >[0]["setWorkspaceCollapsed"],
     deselectIdRef: { current: vi.fn() as (id: number) => void },
     handleCancelEdit: vi.fn(),
     logActivity: vi.fn() as Parameters<
