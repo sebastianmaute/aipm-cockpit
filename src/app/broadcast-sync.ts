@@ -100,6 +100,8 @@ export const POPOUT_TABS = [
 ] as const;
 export type PopoutTab = (typeof POPOUT_TABS)[number];
 
+let _popoutWindowRef: Window | null = null;
+
 export function readPopoutTabFromUrl(): PopoutTab | null {
   if (typeof window === "undefined") return null;
   const param = new URLSearchParams(window.location.search).get("popout");
@@ -109,11 +111,13 @@ export function readPopoutTabFromUrl(): PopoutTab | null {
     : null;
 }
 
-export function openPopoutWindow(tab: PopoutTab): void {
+export function openPopoutWindow(tab: PopoutTab, reuseWindow: boolean): void {
   if (typeof window === "undefined") return;
+  if (reuseWindow && _popoutWindowRef && !_popoutWindowRef.closed) {
+    _popoutWindowRef.focus();
+    return;
+  }
   const url = `${window.location.pathname}?popout=${encodeURIComponent(tab)}`;
-  // `popup=yes` is what lets us hint a window-style window in modern
-  // Chromium / Firefox; size hints are advisory. Returns null if the
-  // browser blocked the popup (rare since this is a direct user gesture).
-  window.open(url, `lop-popout-${tab}`, "popup=yes,width=1200,height=800");
+  const win = window.open(url, `lop-popout-${tab}`, "popup=yes,width=1200,height=800");
+  if (win) _popoutWindowRef = win;
 }
