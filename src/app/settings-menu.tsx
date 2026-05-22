@@ -328,6 +328,27 @@ export function SettingsMenu({
           <hr className="my-4 border-zinc-200 dark:border-zinc-800" />
 
           <div className="mb-4">
+            <label className="flex cursor-pointer items-center gap-2">
+              <input
+                type="checkbox"
+                checked={settings.popout.reuseWindow}
+                onChange={(e) =>
+                  onChange({
+                    ...settings,
+                    popout: { ...settings.popout, reuseWindow: e.target.checked },
+                  })
+                }
+                className="h-4 w-4 rounded border-zinc-300 text-AIPM-dark-blue focus:ring-AIPM-dark-blue dark:border-zinc-600 dark:bg-zinc-800"
+              />
+              <span className="text-sm text-zinc-700 dark:text-zinc-300">
+                {t(lang, "popoutReuseWindow")}
+              </span>
+            </label>
+          </div>
+
+          <hr className="my-4 border-zinc-200 dark:border-zinc-800" />
+
+          <div className="mb-4">
             <span className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
               {t(lang, "aiAssistant")}
             </span>
