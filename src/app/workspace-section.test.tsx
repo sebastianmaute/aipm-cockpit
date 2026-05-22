@@ -1,4 +1,4 @@
-import { render } from "@testing-library/react";
+import { render, fireEvent } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type React from "react";
 import { WorkspaceProvider } from "./workspace-context";
@@ -89,5 +89,14 @@ describe("WorkspaceSection", () => {
     const panelRaid = document.getElementById("panel-raid");
     expect(panelRaid).not.toBeNull();
     expect(panelRaid).toHaveAttribute("hidden");
+  });
+
+  it("clicking RAID tab invokes handleClearRaidTaskFilter", () => {
+    const handleClearRaidTaskFilter = vi.fn();
+    render(<WorkspaceSection {...makeProps({ handleClearRaidTaskFilter })} />, { wrapper: Wrapper });
+    const raidTabBtn = document.querySelector('[aria-controls="panel-raid"]') as HTMLElement | null;
+    expect(raidTabBtn).not.toBeNull();
+    fireEvent.click(raidTabBtn!);
+    expect(handleClearRaidTaskFilter).toHaveBeenCalledTimes(1);
   });
 });

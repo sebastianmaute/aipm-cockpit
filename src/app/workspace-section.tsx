@@ -162,6 +162,7 @@ export function WorkspaceSection({
             active={activeTab === "raid"}
             onClick={() => {
               setActiveTab("raid");
+              handleClearRaidTaskFilter();
               if (workspaceCollapsed) setWorkspaceCollapsed(false);
             }}
             controls="panel-raid"
