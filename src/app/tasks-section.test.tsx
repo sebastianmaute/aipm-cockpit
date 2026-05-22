@@ -1,6 +1,6 @@
 import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { t } from "./i18n";
 
 vi.mock("./workspace-context", () => ({ useWorkspace: vi.fn() }));
@@ -172,5 +172,30 @@ describe("TasksSection", () => {
     stubWorkspace([task], [task]);
     const { container } = render(<TasksSection {...makeProps()} />);
     expect(container.querySelector("table")).toBeInTheDocument();
+  });
+
+  it("inline add row is present when tasks list is non-empty", () => {
+    const task = { id: 1, taskName: "T1" };
+    stubWorkspace([task], [task]);
+    render(<TasksSection {...makeProps()} />);
+    const addBtns = screen.getAllByRole("button", { name: t("en-US", "addTask") });
+    expect(addBtns.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("inline add row is present when tasks list is empty", () => {
+    stubWorkspace([], []);
+    render(<TasksSection {...makeProps()} />);
+    const addBtns = screen.getAllByRole("button", { name: t("en-US", "addTask") });
+    expect(addBtns.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("clicking inline add row calls setTaskModalOpen with true", () => {
+    const task = { id: 1, taskName: "T1" };
+    stubWorkspace([task], [task]);
+    const setTaskModalOpen = vi.fn();
+    render(<TasksSection {...makeProps()} setTaskModalOpen={setTaskModalOpen} />);
+    const addBtns = screen.getAllByRole("button", { name: t("en-US", "addTask") });
+    fireEvent.click(addBtns[addBtns.length - 1]); // last = inline row
+    expect(setTaskModalOpen).toHaveBeenCalledWith(true);
   });
 });

@@ -191,6 +191,9 @@ export function TasksSection({
     }
   }
 
+  const ALL_TASK_COLS = ["sel","status","id","taskName","assignee","startDate","dueDate","lastUpdateDate","priority","blockers","notes","depRelations","actions"] as const;
+  const visibleColumnCount = ALL_TASK_COLS.filter((col) => !hiddenCols.has(col)).length;
+
   return (
     <section
       ref={tableRef}
@@ -431,23 +434,14 @@ export function TasksSection({
 
       </div>{/* end shrink-0 */}
 
-      {tasks.length === 0 ? (
-        <div className="flex-1 rounded-xl border border-dashed border-zinc-300 bg-white p-10 text-center text-sm text-zinc-500 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400">
-          {t(lang, "noTasks")}
-        </div>
-      ) : filteredSortedTasks.length === 0 ? (
-        <div className="flex-1 rounded-xl border border-dashed border-zinc-300 bg-white p-10 text-center text-sm text-zinc-500 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400">
-          {t(lang, "noTasksFiltered")}
-        </div>
-      ) : (
-        <div
-          className="min-h-0 flex-1 w-full overflow-auto rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950"
-        >
-          <RowContextProvider value={rowContextValue}>
-            <table
-              className="divide-y divide-zinc-200 text-left text-sm dark:divide-zinc-800"
-              style={{ tableLayout: "fixed", width: "max-content", minWidth: "100%" }}
-            >
+      <div
+        className="min-h-0 flex-1 w-full overflow-auto rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950"
+      >
+        <RowContextProvider value={rowContextValue}>
+          <table
+            className="divide-y divide-zinc-200 text-left text-sm dark:divide-zinc-800"
+            style={{ tableLayout: "fixed", width: "max-content", minWidth: "100%" }}
+          >
             <colgroup>
               {(["sel","status","id","taskName","assignee","startDate","dueDate","lastUpdateDate","priority","blockers","notes","depRelations","actions"] as const)
                 .filter((col) => !hiddenCols.has(col))
@@ -483,6 +477,20 @@ export function TasksSection({
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
+              {tasks.length === 0 && (
+                <tr>
+                  <td colSpan={visibleColumnCount} className="p-10 text-center text-sm text-zinc-500 dark:text-zinc-400">
+                    {t(lang, "noTasks")}
+                  </td>
+                </tr>
+              )}
+              {tasks.length > 0 && filteredSortedTasks.length === 0 && (
+                <tr>
+                  <td colSpan={visibleColumnCount} className="p-10 text-center text-sm text-zinc-500 dark:text-zinc-400">
+                    {t(lang, "noTasksFiltered")}
+                  </td>
+                </tr>
+              )}
               {filteredSortedTasks.map((task) => (
                 <TaskRow
                   key={task.id}
@@ -494,11 +502,33 @@ export function TasksSection({
                   raidRefs={raidByTask.get(task.id)}
                 />
               ))}
+              <tr>
+                <td colSpan={visibleColumnCount}>
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => { handleCancelEdit(); setTaskModalOpen(true); }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        handleCancelEdit();
+                        setTaskModalOpen(true);
+                      }
+                    }}
+                    aria-label={t(lang, "addTask")}
+                    className="group flex cursor-pointer items-center gap-2 border-b border-dashed border-zinc-200 px-3 py-1.5 text-sm text-zinc-400 hover:bg-AIPM-dark-blue/5 hover:text-AIPM-dark-blue dark:border-zinc-700 dark:hover:bg-white/5"
+                  >
+                    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-3.5 w-3.5 opacity-50 group-hover:opacity-100">
+                      <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
+                    </svg>
+                    {t(lang, "addTask")}
+                  </div>
+                </td>
+              </tr>
             </tbody>
-            </table>
-          </RowContextProvider>
-        </div>
-      )}
+          </table>
+        </RowContextProvider>
+      </div>
     </section>
   );
 }
