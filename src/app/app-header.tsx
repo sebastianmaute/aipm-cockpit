@@ -3,6 +3,7 @@ import dynamic from "next/dynamic";
 import type React from "react";
 import { t } from "./i18n";
 import { type Command } from "./voice";
+import { type AlertableTask } from "./due-dates";
 import { ExportMenu } from "./export-menu";
 import { HelpMenu } from "./help-menu";
 import { VersionMenu } from "./version-menu";
@@ -18,12 +19,12 @@ const VoiceCommandButton = dynamic(
 export interface AppHeaderProps {
   handleCancelEdit: () => void;
   setTaskModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  bannerItems: { taskId: number; taskName: string; daysUntilDue: number }[];
+  bannerItems: AlertableTask[];
   setBannerDismissed: React.Dispatch<React.SetStateAction<boolean>>;
   setDueModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  showToast: (kind: "success" | "error", text: string) => void;
+  showToast: (kind: "info" | "error", text: string) => void;
   handleCommand: (cmd: Command, originalText: string) => void;
-  storageDescription: string;
+  storageDescription: string | null;
   storageReady: boolean;
   onPickStorageFile: () => Promise<void>;
   onOpenStorageFile: () => Promise<void>;

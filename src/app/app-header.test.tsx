@@ -6,6 +6,8 @@ import { WorkspaceTabProvider } from "./workspace-tab-context";
 import { WorkspaceProvider } from "./workspace-context";
 import { AppHeader } from "./app-header";
 import type { AppHeaderProps } from "./app-header";
+import type { AlertableTask } from "./due-dates";
+import type { Task } from "./types";
 
 vi.mock("./use-settings", () => ({
   useSettings: vi.fn(() => ({
@@ -58,9 +60,21 @@ describe("AppHeader", () => {
   });
 
   it("bell badge shows count when bannerItems has entries", () => {
-    const items = [
-      { taskId: 1, taskName: "Task A", daysUntilDue: 1 },
-      { taskId: 2, taskName: "Task B", daysUntilDue: 2 },
+    const makeTask = (id: number): Task =>
+      ({
+        id,
+        taskName: `Task ${id}`,
+        assignee: "",
+        assigneeEmail: "",
+        dueDate: "2099-01-01",
+        lastUpdateDate: "2099-01-01",
+        priority: "medium",
+        blockers: "",
+        notes: "",
+      }) as unknown as Task;
+    const items: AlertableTask[] = [
+      { task: makeTask(1), category: "soon", workDaysLeft: 1 },
+      { task: makeTask(2), category: "soon", workDaysLeft: 2 },
     ];
     render(<AppHeader {...makeProps({ bannerItems: items })} />, { wrapper: Wrapper });
     expect(screen.getByText("2")).toBeInTheDocument();
