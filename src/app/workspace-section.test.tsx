@@ -1,0 +1,93 @@
+import { render } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+import type React from "react";
+import { WorkspaceProvider } from "./workspace-context";
+import { WorkspaceTabProvider } from "./workspace-tab-context";
+import { FiltersProvider } from "./filters-context";
+import { WorkspaceSection } from "./workspace-section";
+import type { WorkspaceSectionProps } from "./workspace-section";
+import { createRef } from "react";
+import type { ToolDispatcher } from "./chat-tools";
+import type { ActivityEntry } from "./activity-log";
+import type { Absence, Shift } from "./types";
+
+vi.mock("./use-settings", () => ({
+  useSettings: vi.fn(() => ({
+    settings: {
+      lang: "en-US",
+      ai: { consentAccepted: false, provider: "none" },
+      jira: { enabled: false, siteUrl: "", email: "", apiToken: "", projectKey: "", issueTypes: [] },
+      notifications: { banner: { enabled: false, thresholdWorkDays: 3 }, popup: { enabled: false, thresholdWorkDays: 3 } },
+      holidayCountries: [],
+    },
+    setSettings: vi.fn(),
+    hydrated: true,
+    i18nReady: true,
+    lang: "en-US" as const,
+  })),
+}));
+
+vi.mock("./chat-panel", () => ({ ChatPanel: () => <div data-testid="chat-panel" /> }));
+vi.mock("./reports", () => ({ ReportsPanel: () => <div data-testid="reports-panel" /> }));
+vi.mock("./gantt", () => ({ GanttPanel: () => <div data-testid="gantt-panel" /> }));
+vi.mock("./raid-panel", () => ({ RaidPanel: () => <div data-testid="raid-panel" /> }));
+vi.mock("./resources-panel", () => ({ ResourcesPanel: () => <div data-testid="resources-panel" /> }));
+vi.mock("./activity-log-panel", () => ({ ActivityLogPanel: () => <div data-testid="activity-panel" /> }));
+
+function makeProps(overrides: Partial<WorkspaceSectionProps> = {}): WorkspaceSectionProps {
+  return {
+    today: "2030-01-01",
+    holidaySet: new Set<string>(),
+    workspaceRef: createRef<HTMLElement | null>(),
+    resetWorkspaceSize: vi.fn(),
+    workspaceCollapsed: false,
+    setWorkspaceCollapsed: vi.fn(),
+    dispatcher: {} as ToolDispatcher,
+    handleAcceptAiConsent: vi.fn(),
+    handleGanttBarUpdate: vi.fn(),
+    handleCancelEdit: vi.fn(),
+    setTaskModalOpen: vi.fn(),
+    handleClearRaidTaskFilter: vi.fn(),
+    handleSaveRaidItem: vi.fn(),
+    handleDeleteRaidItem: vi.fn(),
+    handleCreateMitigationTaskFromRaid: vi.fn() as (raidId: number) => number | null,
+    handleJumpToTaskFromRaid: vi.fn(),
+    activityLog: [] as ActivityEntry[],
+    handleClearActivityLog: vi.fn(),
+    handleOpenAddAbsence: vi.fn(),
+    handleEditAbsence: vi.fn() as (absence: Absence) => void,
+    handleOpenShiftEditor: vi.fn() as (existingShift: Shift | null, assignee: { display: string; email: string }) => void,
+    ...overrides,
+  };
+}
+
+function Wrapper({ children }: { children: React.ReactNode }) {
+  return (
+    <FiltersProvider>
+      <WorkspaceProvider>
+        <WorkspaceTabProvider>{children}</WorkspaceTabProvider>
+      </WorkspaceProvider>
+    </FiltersProvider>
+  );
+}
+
+describe("WorkspaceSection", () => {
+  it("section element renders in the DOM", () => {
+    render(<WorkspaceSection {...makeProps()} />, { wrapper: Wrapper });
+    expect(document.querySelector("section")).toBeInTheDocument();
+  });
+
+  it("chat panel is visible by default (no hidden attr)", () => {
+    render(<WorkspaceSection {...makeProps()} />, { wrapper: Wrapper });
+    const panelChat = document.getElementById("panel-chat");
+    expect(panelChat).not.toBeNull();
+    expect(panelChat).not.toHaveAttribute("hidden");
+  });
+
+  it("raid panel has hidden attr when activeTab is 'chat'", () => {
+    render(<WorkspaceSection {...makeProps()} />, { wrapper: Wrapper });
+    const panelRaid = document.getElementById("panel-raid");
+    expect(panelRaid).not.toBeNull();
+    expect(panelRaid).toHaveAttribute("hidden");
+  });
+});
