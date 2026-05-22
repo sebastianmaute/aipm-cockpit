@@ -1,3 +1,9 @@
+// 0.8.4 extracts the modal layer (DueBanner, TaskFormModal, DueDatesModal,
+// JiraConflictsModal, AbsenceEditModal, ShiftEditModal, footer, toast) from
+// task-manager.tsx into AppModals. TasksSection builds rowContextValue
+// internally (useSettings + useHolidaySet + tasksById from useWorkspace);
+// receives 8 row-handler callbacks + jiraSiteUrl as explicit props instead of
+// the compiled RowContextValue object. task-manager.tsx −~140 lines. Slice 16.
 // 0.8.3 extracts WorkspaceTabContext (TopTab type + WorkspaceTabProvider +
 // useWorkspaceTab hook) from task-manager.tsx. Also extracts AppHeader
 // component (app <header> block, ~90 lines) and WorkspaceSection component
@@ -91,7 +97,7 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.8.3";
+export const APP_VERSION = "0.8.4";
 export const APP_BUILD_DATE = "2026-05-22";
 export const APP_REPO_URL = "https://www.example.com";
 
