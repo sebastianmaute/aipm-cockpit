@@ -19,6 +19,8 @@ import {
   Th,
 } from "./task-manager-ui";
 
+const ALL_TASK_COLS = ["sel","status","id","taskName","assignee","startDate","dueDate","lastUpdateDate","priority","blockers","notes","depRelations","actions"] as const;
+
 const CONFIGURABLE_COLS: Array<{ key: string; labelKey: TranslationKey }> = [
   { key: "status",         labelKey: "colStatus" },
   { key: "id",             labelKey: "id" },
@@ -191,7 +193,6 @@ export function TasksSection({
     }
   }
 
-  const ALL_TASK_COLS = ["sel","status","id","taskName","assignee","startDate","dueDate","lastUpdateDate","priority","blockers","notes","depRelations","actions"] as const;
   const visibleColumnCount = ALL_TASK_COLS.filter((col) => !hiddenCols.has(col)).length;
 
   return (
@@ -443,7 +444,7 @@ export function TasksSection({
             style={{ tableLayout: "fixed", width: "max-content", minWidth: "100%" }}
           >
             <colgroup>
-              {(["sel","status","id","taskName","assignee","startDate","dueDate","lastUpdateDate","priority","blockers","notes","depRelations","actions"] as const)
+              {ALL_TASK_COLS
                 .filter((col) => !hiddenCols.has(col))
                 .map((col) => (
                   <col key={col} style={{ width: colWidths[col] ?? DEFAULT_COL_WIDTHS[col] }} />
