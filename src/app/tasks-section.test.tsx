@@ -15,15 +15,21 @@ vi.mock("./task-row", () => ({
     <tr><td>{task.taskName}</td></tr>
   ),
 }));
+vi.mock("./use-settings", () => ({ useSettings: vi.fn() }));
+vi.mock("./use-holiday-set", () => ({ useHolidaySet: vi.fn() }));
 
 import { useWorkspace } from "./workspace-context";
 import { useFilters } from "./filters-context";
 import { useTaskForm, emptyForm, emptyBulkEdit } from "./task-form-context";
+import { useSettings } from "./use-settings";
+import { useHolidaySet } from "./use-holiday-set";
 import { TasksSection, type TasksSectionProps } from "./tasks-section";
 
 const mockUseWorkspace = useWorkspace as ReturnType<typeof vi.fn>;
 const mockUseFilters = useFilters as ReturnType<typeof vi.fn>;
 const mockUseTaskForm = useTaskForm as ReturnType<typeof vi.fn>;
+const mockUseSettings = useSettings as ReturnType<typeof vi.fn>;
+const mockUseHolidaySet = useHolidaySet as ReturnType<typeof vi.fn>;
 
 function stubFilters() {
   mockUseFilters.mockReturnValue({
@@ -67,11 +73,44 @@ function stubWorkspace(tasks: unknown[], filteredSortedTasks: unknown[]) {
   });
 }
 
+function stubSettings() {
+  mockUseSettings.mockReturnValue({
+    settings: {
+      holidayCountries: [],
+      jira: { siteUrl: "", enabled: false, projectKey: "", issueTypes: [] },
+      notifications: {
+        banner: { enabled: false, thresholdWorkDays: 5 },
+        popup: { enabled: false, thresholdWorkDays: 3 },
+      },
+      ai: { consentAccepted: false },
+      lang: "en-US",
+    },
+    setSettings: vi.fn(),
+    hydrated: true,
+    i18nReady: true,
+    lang: "en-US",
+  });
+}
+
+function stubHolidaySet() {
+  mockUseHolidaySet.mockReturnValue({ holidaySet: new Set<string>() });
+}
+
 function makeProps(): TasksSectionProps {
   return {
     lang: "en-US",
-    today: "2026-05-21",
-    rowContextValue: {} as TasksSectionProps["rowContextValue"],
+    today: "2026-05-22",
+    // row context data + callbacks (replaced rowContextValue prop)
+    jiraSiteUrl: "",
+    onToggleSelect: vi.fn(),
+    onToggleNoteExpanded: vi.fn(),
+    onJumpToRaid: vi.fn(),
+    onToggleComplete: vi.fn(),
+    onSendInquiry: vi.fn(),
+    onPushToJira: vi.fn(),
+    onEdit: vi.fn(),
+    onDelete: vi.fn(),
+    // column manager
     hiddenCols: new Set(),
     setHiddenCols: vi.fn(),
     colWidths: {},
@@ -80,18 +119,23 @@ function makeProps(): TasksSectionProps {
     colConfigRef: React.createRef<HTMLDivElement>(),
     startColResize: vi.fn(),
     resetColWidths: vi.fn(),
+    // resizable table
     tableRef: React.createRef<HTMLElement>(),
     resetTableSize: vi.fn(),
+    // row state
     expandedNotes: new Set(),
     pushingIds: new Set(),
     raidByTask: new Map(),
+    // jira
     jiraEnabled: false,
     jiraSyncing: false,
     jiraProjectKey: "",
     handleJiraSync: vi.fn(),
+    // task actions
     handleCancelEdit: vi.fn(),
     setTaskModalOpen: vi.fn(),
     handleClearAll: vi.fn(),
+    // bulk operations
     selectedIds: new Set(),
     allVisibleSelected: false,
     selectedJiraCount: 0,
@@ -107,6 +151,8 @@ describe("TasksSection", () => {
   beforeEach(() => {
     stubFilters();
     stubTaskForm();
+    stubSettings();
+    stubHolidaySet();
   });
 
   it("renders 'no tasks' placeholder when tasks list is empty", () => {

@@ -1,7 +1,10 @@
 "use client";
 import type React from "react";
+import { useMemo } from "react";
 import { type Lang, type TranslationKey, priorityLabel, t } from "./i18n";
-import { PRIORITIES, type Priority, type RaidItem } from "./types";
+import { PRIORITIES, type Priority, type RaidItem, type Task } from "./types";
+import { useSettings } from "./use-settings";
+import { useHolidaySet } from "./use-holiday-set";
 import { type SortKey, useFilters } from "./filters-context";
 import { useWorkspace } from "./workspace-context";
 import { useTaskForm } from "./task-form-context";
@@ -35,7 +38,17 @@ const inputClass =
 export interface TasksSectionProps {
   lang: Lang;
   today: string;
-  rowContextValue: RowContextValue;
+  // Row-context data not already in props
+  jiraSiteUrl: string;
+  // Row-context callbacks — assembled into rowContextValue useMemo internally
+  onToggleSelect: (id: number) => void;
+  onToggleNoteExpanded: (id: number) => void;
+  onJumpToRaid: (id: number) => void;
+  onToggleComplete: (task: Task) => void;
+  onSendInquiry: (task: Task) => void;
+  onPushToJira: (id: number) => void;
+  onEdit: (task: Task) => void;
+  onDelete: (id: number) => void;
   // column manager
   hiddenCols: Set<string>;
   setHiddenCols: React.Dispatch<React.SetStateAction<Set<string>>>;
@@ -75,7 +88,15 @@ export interface TasksSectionProps {
 export function TasksSection({
   lang,
   today,
-  rowContextValue,
+  jiraSiteUrl,
+  onToggleSelect,
+  onToggleNoteExpanded,
+  onJumpToRaid,
+  onToggleComplete,
+  onSendInquiry,
+  onPushToJira,
+  onEdit,
+  onDelete,
   hiddenCols,
   setHiddenCols,
   colWidths,
@@ -114,10 +135,52 @@ export function TasksSection({
     sortKey, sortDir, setSortKey, setSortDir,
   } = useFilters();
 
-  const { tasks, filteredSortedTasks, uniqueAssignees, uniqueGroups, uniqueLabels } =
+  const { tasks, filteredSortedTasks, uniqueAssignees, uniqueGroups, uniqueLabels, tasksById } =
     useWorkspace();
 
   const { editingId, bulkEditOpen, setBulkEditOpen } = useTaskForm();
+
+  const { settings } = useSettings();
+  const { holidaySet } = useHolidaySet({ holidayCountries: settings.holidayCountries });
+
+  const rowContextValue = useMemo<RowContextValue>(
+    () => ({
+      lang,
+      today,
+      holidaySet,
+      jiraSiteUrl,
+      jiraEnabled,
+      jiraProjectKey,
+      hiddenCols,
+      tasksById,
+      onToggleSelect,
+      onToggleNoteExpanded,
+      onJumpToRaid,
+      onToggleComplete,
+      onSendInquiry,
+      onPushToJira,
+      onEdit,
+      onDelete,
+    }),
+    [
+      lang,
+      today,
+      holidaySet,
+      jiraSiteUrl,
+      jiraEnabled,
+      jiraProjectKey,
+      hiddenCols,
+      tasksById,
+      onToggleSelect,
+      onToggleNoteExpanded,
+      onJumpToRaid,
+      onToggleComplete,
+      onSendInquiry,
+      onPushToJira,
+      onEdit,
+      onDelete,
+    ],
+  );
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
