@@ -87,6 +87,7 @@ export type Settings = {
   notifications: NotificationsConfig;
   jira: JiraConfig;
   popout: { reuseWindow: boolean };
+  resources: { workdayHours: number };
 };
 
 export const defaultSettings: Settings = {
@@ -97,6 +98,7 @@ export const defaultSettings: Settings = {
   notifications: defaultNotificationsConfig,
   jira: defaultJiraConfig,
   popout: { reuseWindow: false },
+  resources: { workdayHours: 8 },
 };
 
 export function SettingsMenu({
@@ -343,6 +345,25 @@ export function SettingsMenu({
               <span className="text-sm text-zinc-700 dark:text-zinc-300">
                 {t(lang, "popoutReuseWindow")}
               </span>
+            </label>
+          </div>
+
+          <hr className="my-4 border-zinc-200 dark:border-zinc-800" />
+
+          <div className="mb-4">
+            <label className="flex items-center justify-between gap-2">
+              <span className="text-sm text-AIPM-dark-grey dark:text-AIPM-light-grey">
+                {t(lang, "resourcesWorkdayHours")}
+              </span>
+              <input
+                type="number" min={1} max={24} step={0.5}
+                value={settings.resources.workdayHours}
+                onChange={(e) => {
+                  const n = Math.min(24, Math.max(1, Number(e.target.value) || 8));
+                  onChange({ ...settings, resources: { ...settings.resources, workdayHours: n } });
+                }}
+                className="w-20 rounded-md border border-zinc-300 px-2 py-1 text-sm dark:border-zinc-600 dark:bg-zinc-800"
+              />
             </label>
           </div>
 

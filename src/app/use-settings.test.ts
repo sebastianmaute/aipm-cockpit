@@ -16,6 +16,11 @@ describe("useSettings", () => {
       expect(result.current.settings).toEqual(defaultSettings);
     });
 
+    it("defaults resources.workdayHours to 8", () => {
+      const { result } = renderHook(() => useSettings());
+      expect(result.current.settings.resources.workdayHours).toBe(8);
+    });
+
     it("lang equals settings.language", async () => {
       const { result } = renderHook(() => useSettings());
       await act(async () => {});

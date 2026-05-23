@@ -679,4 +679,6 @@ export const de: Record<TranslationKey, string> = {
   activityShiftDeleted: "Schicht #{0} für {1} gelöscht",
   taskDueDateAbsenceWarning:
     "Hinweis: {0} ist von {2} bis {3} ({1}).",
+  resourcesWorkdayHours: "Stunden pro Arbeitstag",
+  resourcesUnassignedRole: "keine Rolle",
 };

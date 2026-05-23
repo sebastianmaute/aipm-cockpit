@@ -52,6 +52,10 @@ export function useSettings(): {
               ...defaultSettings.popout,
               ...(isPlainObject(parsed.popout) ? parsed.popout : {}),
             },
+            resources: {
+              ...defaultSettings.resources,
+              ...(isPlainObject(parsed.resources) ? parsed.resources : {}),
+            },
             holidayCountries: Array.isArray(parsed.holidayCountries)
               ? (parsed.holidayCountries as unknown[]).filter(
                   (v): v is string => typeof v === "string",
