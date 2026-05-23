@@ -326,6 +326,7 @@ export function sanitizeAbsence(input: unknown): Absence | null {
       typeof raw.localModifiedAt === "string"
         ? raw.localModifiedAt
         : undefined,
+    resourceId: Number(raw.resourceId) || undefined,
   };
 }
 
@@ -465,10 +466,8 @@ export function sanitizeResource(input: unknown): Resource | null {
   const name = sanitizeAssignee(input.name);
   if (!name) return null;
   const mode = sanitizeUtilizationMode(input.utilizationMode);
-  const roleId =
-    typeof input.roleId === "number" && Number.isFinite(input.roleId) && input.roleId > 0
-      ? input.roleId
-      : null;
+  const roleIdNum = Number(input.roleId);
+  const roleId = Number.isFinite(roleIdNum) && roleIdNum > 0 ? roleIdNum : null;
   const utilization = coercePeriodMap(input.utilization, mode === "percent" ? 100 : HOURS_MAP_MAX);
   const overrideRaw = coercePeriodMap(input.absenceOverride, HOURS_MAP_MAX);
   const resource: Resource = {
@@ -481,7 +480,7 @@ export function sanitizeResource(input: unknown): Resource | null {
   };
   if (Object.keys(overrideRaw).length > 0) resource.absenceOverride = overrideRaw;
   if (input.active === false) resource.active = false;
-  if (typeof input.localModifiedAt === "string") resource.localModifiedAt = input.localModifiedAt;
+  if (typeof input.localModifiedAt === "string" && input.localModifiedAt) resource.localModifiedAt = input.localModifiedAt;
   return resource;
 }
 
@@ -504,7 +503,7 @@ export function sanitizeRole(input: unknown): Role | null {
     internalRate: sanitizeRate(input.internalRate),
     externalRate: sanitizeRate(input.externalRate),
   };
-  if (typeof input.localModifiedAt === "string") role.localModifiedAt = input.localModifiedAt;
+  if (typeof input.localModifiedAt === "string" && input.localModifiedAt) role.localModifiedAt = input.localModifiedAt;
   return role;
 }
 
@@ -517,7 +516,7 @@ function sanitizeNamedRef<T extends { id: number; name: string; localModifiedAt?
   const name = sanitizeText(input.name, GROUP_MAX);
   if (!name) return null;
   const ref = { id, name } as T;
-  if (typeof input.localModifiedAt === "string") ref.localModifiedAt = input.localModifiedAt;
+  if (typeof input.localModifiedAt === "string" && input.localModifiedAt) ref.localModifiedAt = input.localModifiedAt;
   return ref;
 }
 
