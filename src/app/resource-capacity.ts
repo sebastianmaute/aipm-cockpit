@@ -67,3 +67,51 @@ export function generatePeriods(
   if (startDate > endDate) return [];
   return granularity === "week" ? weekPeriods(startDate, endDate) : monthPeriods(startDate, endDate);
 }
+
+function isWorkday(d: Date, holidaySet: ReadonlySet<string>): boolean {
+  const day = d.getUTCDay();
+  if (day === 0 || day === 6) return false;
+  return !holidaySet.has(iso(d));
+}
+
+/** Count Mon–Fri dates in [start,end] inclusive that are not holidays. */
+export function workdaysInRange(start: string, end: string, holidaySet: ReadonlySet<string>): number {
+  if (start > end) return 0;
+  let count = 0;
+  const cur = new Date(`${start}T00:00:00Z`);
+  const last = new Date(`${end}T00:00:00Z`);
+  while (cur <= last) {
+    if (isWorkday(cur, holidaySet)) count++;
+    cur.setUTCDate(cur.getUTCDate() + 1);
+  }
+  return count;
+}
+
+/** A resource's absences: by resourceId when set, else case-folded name match. */
+export function absencesForResource(absences: readonly Absence[], resource: Resource): Absence[] {
+  const nameKey = resource.name.trim().toLowerCase();
+  return absences.filter((a) =>
+    a.resourceId != null ? a.resourceId === resource.id : a.assignee.trim().toLowerCase() === nameKey,
+  );
+}
+
+/** Workdays within [periodStart,periodEnd] that fall inside any absence range. */
+export function absenceWorkdays(
+  resourceAbsences: readonly Absence[],
+  periodStart: string,
+  periodEnd: string,
+  holidaySet: ReadonlySet<string>,
+): number {
+  if (resourceAbsences.length === 0 || periodStart > periodEnd) return 0;
+  let count = 0;
+  const cur = new Date(`${periodStart}T00:00:00Z`);
+  const last = new Date(`${periodEnd}T00:00:00Z`);
+  while (cur <= last) {
+    if (isWorkday(cur, holidaySet)) {
+      const d = iso(cur);
+      if (resourceAbsences.some((a) => a.startDate <= d && d <= a.endDate)) count++;
+    }
+    cur.setUTCDate(cur.getUTCDate() + 1);
+  }
+  return count;
+}
