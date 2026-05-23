@@ -7,6 +7,7 @@ import {
   sanitizePriority,
   parseDependenciesString,
   serializeDependencies,
+  sanitizePlan,
 } from "./sanitize";
 import {
   encodePeriodMap,
@@ -135,6 +136,25 @@ describe("sanitizeResource", () => {
   test("returns null without id or name", () => {
     expect(sanitizeResource({ name: "x" })).toBeNull();
     expect(sanitizeResource({ id: 1, name: "" })).toBeNull();
+  });
+});
+
+describe("sanitizePlan", () => {
+  test("preserves a valid plan", () => {
+    const p = { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month", currency: "USD" };
+    expect(sanitizePlan(p, "2026-05-23")).toEqual(p);
+  });
+  test("clamps bad granularity to month and defaults missing currency", () => {
+    const p = sanitizePlan({ startDate: "2026-01-01", endDate: "2026-12-31", granularity: "fortnight" }, "2026-05-23");
+    expect(p.granularity).toBe("month");
+    expect(p.currency).toBe("EUR");
+  });
+  test("falls back to the default window when dates are invalid", () => {
+    const p = sanitizePlan({ startDate: "nope", endDate: "", granularity: "week", currency: "GBP" }, "2026-05-23");
+    expect(p.startDate).toBe("2026-05-01");
+    expect(p.endDate).toBe("2027-04-30");
+    expect(p.granularity).toBe("week");   // granularity/currency still honored
+    expect(p.currency).toBe("GBP");
   });
 });
 

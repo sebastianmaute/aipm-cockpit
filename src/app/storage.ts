@@ -14,6 +14,7 @@ import {
   sanitizeGrade,
   sanitizeGroup,
   sanitizeLabels,
+  sanitizePlan,
   sanitizeResource,
   sanitizeRole,
   sanitizeShift,
@@ -925,8 +926,8 @@ function csvToGrades(csv: string): Grade[] {
 function parsePlanLine(line: string): ResourcePlan | null {
   const cells = parseCsv(line)[0];
   if (!cells || cells.length < 4) return null;
-  const granularity = cells[2] === "week" ? "week" : "month";
-  return { startDate: cells[0], endDate: cells[1], granularity, currency: cells[3] || "EUR" };
+  const today = new Date().toISOString().slice(0, 10);
+  return sanitizePlan({ startDate: cells[0], endDate: cells[1], granularity: cells[2], currency: cells[3] }, today);
 }
 
 function csvToAbsences(csv: string): Absence[] {
@@ -1490,8 +1491,8 @@ function parsePlanMarkdown(md: string): ResourcePlan | null {
     if (!t || t.startsWith("#") || t.startsWith("|")) continue;
     const cells = t.split(",").map((s) => s.trim());
     if (cells.length < 4) continue;
-    const granularity = cells[2] === "week" ? "week" : "month";
-    return { startDate: cells[0], endDate: cells[1], granularity, currency: cells[3] || "EUR" };
+    const today = new Date().toISOString().slice(0, 10);
+    return sanitizePlan({ startDate: cells[0], endDate: cells[1], granularity: cells[2], currency: cells[3] }, today);
   }
   return null;
 }
@@ -1855,20 +1856,17 @@ class BrowserBackend implements StorageBackend {
       // from the (possibly successful) idbGetAll attempts above.
     }
 
-    const ranMigration = resources.length === 0; // backfill/seed will run
     const raw: Workspace = { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan };
     const ws = migrateWorkspaceV5(raw);
 
-    if (ranMigration) {
-      try {
-        await idbBulkUpdate(IDB_RESOURCES_STORE, ws.resources, []);
-        await idbBulkUpdate(IDB_DISCIPLINES_STORE, ws.disciplines, []);
-        await idbBulkUpdate(IDB_GRADES_STORE, ws.grades, []);
-        await idbBulkUpdate(IDB_TASKS_STORE, ws.tasks, []); // resourceId stamped
-        await idbBulkUpdate(IDB_ABSENCES_STORE, ws.absences, []);
-        await idbSet(KV_PLAN_KEY, ws.plan);
-      } catch { /* non-fatal: retried next load */ }
-    }
+    try {
+      if (ws.resources !== raw.resources) await idbBulkUpdate(IDB_RESOURCES_STORE, ws.resources, []);
+      if (ws.disciplines !== raw.disciplines) await idbBulkUpdate(IDB_DISCIPLINES_STORE, ws.disciplines, []);
+      if (ws.grades !== raw.grades) await idbBulkUpdate(IDB_GRADES_STORE, ws.grades, []);
+      if (ws.tasks !== raw.tasks) await idbBulkUpdate(IDB_TASKS_STORE, ws.tasks, []); // resourceId stamped
+      if (ws.absences !== raw.absences) await idbBulkUpdate(IDB_ABSENCES_STORE, ws.absences, []);
+      if (ws.plan !== raw.plan) await idbSet(KV_PLAN_KEY, ws.plan);
+    } catch { /* non-fatal: retried next load */ }
 
     this.tasksBaseline = new Map(ws.tasks.map((t) => [t.id, t]));
     this.raidBaseline = new Map(ws.raid.map((r) => [r.id, r]));
@@ -2123,9 +2121,7 @@ class LocalFileBackend implements StorageBackend {
             grades: (p.grades ?? [])
               .map((g) => sanitizeGrade(g))
               .filter((g): g is Grade => g !== null),
-            plan: (p.plan && typeof p.plan === "object"
-              ? p.plan
-              : null) as ResourcePlan ?? defaultResourcePlan(new Date().toISOString().slice(0, 10)),
+            plan: sanitizePlan(p.plan ?? {}, new Date().toISOString().slice(0, 10)),
           };
           return migrateWorkspaceV5(raw);
         }

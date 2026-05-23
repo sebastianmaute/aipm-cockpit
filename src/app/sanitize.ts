@@ -6,7 +6,9 @@ import {
   DEPENDENCY_TYPES,
   type DependencyType,
   MAX_HOURS_PER_DAY,
+  type PlanGranularity,
   type Priority,
+  type ResourcePlan,
   type Shift,
   type Task,
   type TaskDependency,
@@ -17,6 +19,7 @@ import {
   type Grade,
   type UtilizationMode,
 } from "./types";
+import { defaultResourcePlan } from "./resource-foundation";
 
 // --- Length caps -----------------------------------------------------------
 
@@ -526,4 +529,32 @@ export function sanitizeDiscipline(input: unknown): Discipline | null {
 
 export function sanitizeGrade(input: unknown): Grade | null {
   return sanitizeNamedRef<Grade>(input);
+}
+
+// --- Plan sanitizer --------------------------------------------------------
+
+/**
+ * Validates and normalises a raw plan object (from any load path: JSON, CSV,
+ * or Markdown). Accepts `unknown` so all three paths can share one guard.
+ *
+ * Rules:
+ *   - granularity: "week" passes through; anything else becomes "month".
+ *   - currency: any non-empty trimmed string is preserved; missing → DEFAULT (EUR).
+ *   - startDate / endDate: if either is missing or malformed, the entire date
+ *     window is replaced by the default window (today … +11 months) while
+ *     granularity and currency are still honored.
+ *   - Swaps start/end when reversed.
+ */
+export function sanitizePlan(input: unknown, today: string): ResourcePlan {
+  const fallback = defaultResourcePlan(today);
+  const raw = isPlainObject(input) ? input : {};
+  const startDate = sanitizeIsoDate(raw.startDate);
+  const endDate = sanitizeIsoDate(raw.endDate);
+  const granularity: PlanGranularity = raw.granularity === "week" ? "week" : "month";
+  const currency = typeof raw.currency === "string" && raw.currency.trim() ? raw.currency.trim() : fallback.currency;
+  if (!startDate || !endDate) {
+    return { startDate: fallback.startDate, endDate: fallback.endDate, granularity, currency };
+  }
+  const [s, e] = endDate < startDate ? [endDate, startDate] : [startDate, endDate];
+  return { startDate: s, endDate: e, granularity, currency };
 }
