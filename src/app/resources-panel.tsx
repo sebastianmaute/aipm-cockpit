@@ -183,8 +183,8 @@ function ResourcesPanelInner({
   onSetUtilization,
   onSetUtilizationMode: _onSetUtilizationMode,
   onSetAbsenceOverride: _onSetAbsenceOverride,
-  onSetPlanWindow: _onSetPlanWindow,
-  onSetPlanGranularity: _onSetPlanGranularity,
+  onSetPlanWindow,
+  onSetPlanGranularity,
 }: Props) {
   const [view, setView] = useState<View>("list");
 
@@ -328,26 +328,45 @@ function ResourcesPanelInner({
     </ul>
   );
 
-  const showToggle = rows.length > 0 || resources.length > 0;
-
-  if (rows.length === 0 && resources.length === 0) {
-    return (
-      <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-        {renderHeader(false)}
-        <div className="mt-3 flex-1 rounded-md border border-dashed border-zinc-300 p-6 text-center text-sm text-AIPM-medium-grey dark:border-zinc-800">
-          {t(lang, "resourcesEmpty")}
-        </div>
-      </section>
-    );
-  }
+  const showToggle = true;
+  const isEmpty = rows.length === 0 && resources.length === 0;
 
   return (
     <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
       {renderHeader(showToggle)}
+      {isEmpty && view !== "planning" && (
+        <div className="mt-3 flex-1 rounded-md border border-dashed border-zinc-300 p-6 text-center text-sm text-AIPM-medium-grey dark:border-zinc-800">
+          {t(lang, "resourcesEmpty")}
+        </div>
+      )}
       {view === "planning" && (() => {
         const periods = generatePeriods(plan.startDate, plan.endDate, plan.granularity);
         return (
-          <div className="min-h-0 flex-1 overflow-auto rounded-md border border-zinc-200 dark:border-zinc-800">
+          <>
+            <div className="mb-2 flex flex-wrap items-center gap-3 text-xs">
+              <label className="flex items-center gap-1">
+                <span>{t(lang, "resourcesPlanStart")}</span>
+                <input type="date" aria-label={t(lang, "resourcesPlanStart")} value={plan.startDate}
+                  onChange={(e) => onSetPlanWindow(e.target.value, plan.endDate)}
+                  className="rounded border border-zinc-300 px-1.5 py-0.5 dark:border-zinc-700 dark:bg-zinc-900" />
+              </label>
+              <label className="flex items-center gap-1">
+                <span>{t(lang, "resourcesPlanEnd")}</span>
+                <input type="date" aria-label={t(lang, "resourcesPlanEnd")} value={plan.endDate}
+                  onChange={(e) => onSetPlanWindow(plan.startDate, e.target.value)}
+                  className="rounded border border-zinc-300 px-1.5 py-0.5 dark:border-zinc-700 dark:bg-zinc-900" />
+              </label>
+              <SegmentedControl<"week" | "month">
+                value={plan.granularity}
+                ariaLabel={t(lang, "resourcesViewPlanning")}
+                options={[
+                  { value: "month", label: t(lang, "resourcesGranularityMonth") },
+                  { value: "week", label: t(lang, "resourcesGranularityWeek") },
+                ]}
+                onChange={onSetPlanGranularity}
+              />
+            </div>
+            <div className="min-h-0 flex-1 overflow-auto rounded-md border border-zinc-200 dark:border-zinc-800">
             <table className="text-left text-xs">
               <thead className="sticky top-0 bg-zinc-50 dark:bg-zinc-900">
                 <tr>
@@ -382,6 +401,7 @@ function ResourcesPanelInner({
               </tbody>
             </table>
           </div>
+          </>
         );
       })()}
       {view === "list" ? (
@@ -480,7 +500,7 @@ function ResourcesPanelInner({
           </table>
         </div>
         </>
-      ) : (
+      ) : view === "calendar" ? (
         <ResourceCalendar
           lang={lang}
           rows={rows}
@@ -490,7 +510,7 @@ function ResourcesPanelInner({
           onAddAbsence={onAddAbsence}
           onEditAbsence={onEditAbsence}
         />
-      )}
+      ) : null}
     </section>
   );
 }
