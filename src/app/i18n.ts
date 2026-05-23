@@ -661,6 +661,8 @@ const enUS = {
   activityShiftDeleted: "Shift #{0} deleted for {1}",
   taskDueDateAbsenceWarning:
     "Note: {0} is on {1} from {2} to {3}.",
+  resourcesWorkdayHours: "Hours per work day",
+  resourcesUnassignedRole: "no role",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;

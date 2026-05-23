@@ -7,6 +7,15 @@ import {
   sanitizePriority,
   parseDependenciesString,
   serializeDependencies,
+  sanitizePlan,
+} from "./sanitize";
+import {
+  encodePeriodMap,
+  decodePeriodMap,
+  sanitizeResource,
+  sanitizeRole,
+  sanitizeDiscipline,
+  sanitizeGrade,
 } from "./sanitize";
 
 describe("sanitizeTaskName", () => {
@@ -90,5 +99,73 @@ describe("dependency CSV round-trip", () => {
     expect(parseDependenciesString("FS:12|garbage|SS:")).toEqual([
       { taskId: 12, type: "FS" },
     ]);
+  });
+});
+
+describe("period map codec", () => {
+  test("round-trips a map and drops invalid keys/values", () => {
+    const map = { "2026-01": 80, "2026-W03": 12 };
+    expect(decodePeriodMap(encodePeriodMap(map))).toEqual(map);
+    expect(decodePeriodMap("2026-01=80|bad|2026-13=5|=7|2026-02=x")).toEqual({
+      "2026-01": 80,
+    });
+  });
+});
+
+describe("sanitizeResource", () => {
+  test("accepts an object map and clamps percent to 0..100", () => {
+    const r = sanitizeResource({
+      id: 3, name: "  Sample  ", roleId: 2, utilizationMode: "percent",
+      utilization: { "2026-01": 150, "2026-02": -5 },
+    });
+    expect(r).not.toBeNull();
+    expect(r!.name).toBe("Sample");
+    expect(r!.utilization).toEqual({ "2026-01": 100, "2026-02": 0 });
+  });
+
+  test("accepts an encoded-string map (CSV path) and defaults bad mode", () => {
+    const r = sanitizeResource({
+      id: 4, name: "Bob", roleId: null, utilizationMode: "nope",
+      utilization: "2026-01=12.5", absenceOverride: "2026-01=8",
+    });
+    expect(r!.utilizationMode).toBe("percent");
+    expect(r!.utilization).toEqual({ "2026-01": 12.5 });
+    expect(r!.absenceOverride).toEqual({ "2026-01": 8 });
+  });
+
+  test("returns null without id or name", () => {
+    expect(sanitizeResource({ name: "x" })).toBeNull();
+    expect(sanitizeResource({ id: 1, name: "" })).toBeNull();
+  });
+});
+
+describe("sanitizePlan", () => {
+  test("preserves a valid plan", () => {
+    const p = { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month", currency: "USD" };
+    expect(sanitizePlan(p, "2026-05-23")).toEqual(p);
+  });
+  test("clamps bad granularity to month and defaults missing currency", () => {
+    const p = sanitizePlan({ startDate: "2026-01-01", endDate: "2026-12-31", granularity: "fortnight" }, "2026-05-23");
+    expect(p.granularity).toBe("month");
+    expect(p.currency).toBe("EUR");
+  });
+  test("falls back to the default window when dates are invalid", () => {
+    const p = sanitizePlan({ startDate: "nope", endDate: "", granularity: "week", currency: "GBP" }, "2026-05-23");
+    expect(p.startDate).toBe("2026-05-01");
+    expect(p.endDate).toBe("2027-04-30");
+    expect(p.granularity).toBe("week");   // granularity/currency still honored
+    expect(p.currency).toBe("GBP");
+  });
+});
+
+describe("sanitizeRole / sanitizeDiscipline / sanitizeGrade", () => {
+  test("role clamps negative rates to 0 and requires ids", () => {
+    expect(sanitizeRole({ id: 1, disciplineId: 2, gradeId: 3, internalRate: -10, externalRate: 90 }))
+      .toEqual({ id: 1, disciplineId: 2, gradeId: 3, internalRate: 0, externalRate: 90 });
+    expect(sanitizeRole({ id: 1, disciplineId: 0, gradeId: 3 })).toBeNull();
+  });
+  test("discipline/grade need id + name", () => {
+    expect(sanitizeDiscipline({ id: 2, name: " Dev " })).toEqual({ id: 2, name: "Dev" });
+    expect(sanitizeGrade({ id: 0, name: "Junior" })).toBeNull();
   });
 });

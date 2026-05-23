@@ -6,12 +6,20 @@ import {
   DEPENDENCY_TYPES,
   type DependencyType,
   MAX_HOURS_PER_DAY,
+  type PlanGranularity,
   type Priority,
+  type ResourcePlan,
   type Shift,
   type Task,
   type TaskDependency,
   type WeekHours,
+  type Resource,
+  type Role,
+  type Discipline,
+  type Grade,
+  type UtilizationMode,
 } from "./types";
+import { defaultResourcePlan } from "./resource-foundation";
 
 // --- Length caps -----------------------------------------------------------
 
@@ -321,6 +329,7 @@ export function sanitizeAbsence(input: unknown): Absence | null {
       typeof raw.localModifiedAt === "string"
         ? raw.localModifiedAt
         : undefined,
+    resourceId: Number(raw.resourceId) || undefined,
   };
 }
 
@@ -406,4 +415,146 @@ export function sanitizeShift(input: unknown): Shift | null {
         ? raw.localModifiedAt
         : undefined,
   };
+}
+
+// --- Resource Planner v2 sanitizers ----------------------------------------
+
+const PERIOD_KEY_RE = /^\d{4}-(0[1-9]|1[0-2]|W[0-4]\d|W5[0-3])$/;
+const HOURS_MAP_MAX = 1000; // sane upper bound for a single period's hours
+
+/** Encode a periodKey->number map to "k=v|k=v" (CSV/MD-safe). */
+export function encodePeriodMap(map: Record<string, number> | undefined): string {
+  if (!map) return "";
+  return Object.entries(map)
+    .filter(([k, v]) => PERIOD_KEY_RE.test(k) && Number.isFinite(v))
+    .map(([k, v]) => `${k}=${v}`)
+    .join("|");
+}
+
+/** Decode "k=v|k=v" back to a map; drops malformed keys/values. */
+export function decodePeriodMap(s: unknown): Record<string, number> {
+  if (typeof s !== "string" || !s) return {};
+  const out: Record<string, number> = {};
+  for (const part of s.split("|")) {
+    const eq = part.indexOf("=");
+    if (eq <= 0) continue;
+    const key = part.slice(0, eq).trim();
+    const val = Number(part.slice(eq + 1).trim());
+    if (PERIOD_KEY_RE.test(key) && Number.isFinite(val)) out[key] = val;
+  }
+  return out;
+}
+
+/** Coerce a map input (object OR encoded string) into a clamped number map. */
+function coercePeriodMap(input: unknown, clampMax: number): Record<string, number> {
+  const raw = typeof input === "string" ? decodePeriodMap(input) : isPlainObject(input) ? input : {};
+  const out: Record<string, number> = {};
+  for (const [k, v] of Object.entries(raw)) {
+    if (!PERIOD_KEY_RE.test(k)) continue;
+    const n = typeof v === "number" ? v : Number(v);
+    if (!Number.isFinite(n)) continue;
+    out[k] = Math.min(clampMax, Math.max(0, n));
+  }
+  return out;
+}
+
+export function sanitizeUtilizationMode(s: unknown): UtilizationMode {
+  return s === "hours" ? "hours" : "percent";
+}
+
+export function sanitizeResource(input: unknown): Resource | null {
+  if (!isPlainObject(input)) return null;
+  const id = Number(input.id);
+  if (!Number.isFinite(id) || id <= 0) return null;
+  const name = sanitizeAssignee(input.name);
+  if (!name) return null;
+  const mode = sanitizeUtilizationMode(input.utilizationMode);
+  const roleIdNum = Number(input.roleId);
+  const roleId = Number.isFinite(roleIdNum) && roleIdNum > 0 ? roleIdNum : null;
+  const utilization = coercePeriodMap(input.utilization, mode === "percent" ? 100 : HOURS_MAP_MAX);
+  const overrideRaw = coercePeriodMap(input.absenceOverride, HOURS_MAP_MAX);
+  const resource: Resource = {
+    id,
+    name,
+    email: typeof input.email === "string" ? sanitizeEmail(input.email) || undefined : undefined,
+    roleId,
+    utilizationMode: mode,
+    utilization,
+  };
+  if (Object.keys(overrideRaw).length > 0) resource.absenceOverride = overrideRaw;
+  if (input.active === false) resource.active = false;
+  if (typeof input.localModifiedAt === "string" && input.localModifiedAt) resource.localModifiedAt = input.localModifiedAt;
+  return resource;
+}
+
+function sanitizeRate(n: unknown): number {
+  const num = typeof n === "number" ? n : Number(n);
+  if (!Number.isFinite(num) || num < 0) return 0;
+  return Math.round(num * 100) / 100;
+}
+
+export function sanitizeRole(input: unknown): Role | null {
+  if (!isPlainObject(input)) return null;
+  const id = Number(input.id);
+  const disciplineId = Number(input.disciplineId);
+  const gradeId = Number(input.gradeId);
+  if (![id, disciplineId, gradeId].every((n) => Number.isFinite(n) && n > 0)) return null;
+  const role: Role = {
+    id,
+    disciplineId,
+    gradeId,
+    internalRate: sanitizeRate(input.internalRate),
+    externalRate: sanitizeRate(input.externalRate),
+  };
+  if (typeof input.localModifiedAt === "string" && input.localModifiedAt) role.localModifiedAt = input.localModifiedAt;
+  return role;
+}
+
+function sanitizeNamedRef<T extends { id: number; name: string; localModifiedAt?: string }>(
+  input: unknown,
+): T | null {
+  if (!isPlainObject(input)) return null;
+  const id = Number(input.id);
+  if (!Number.isFinite(id) || id <= 0) return null;
+  const name = sanitizeText(input.name, GROUP_MAX);
+  if (!name) return null;
+  const ref = { id, name } as T;
+  if (typeof input.localModifiedAt === "string" && input.localModifiedAt) ref.localModifiedAt = input.localModifiedAt;
+  return ref;
+}
+
+export function sanitizeDiscipline(input: unknown): Discipline | null {
+  return sanitizeNamedRef<Discipline>(input);
+}
+
+export function sanitizeGrade(input: unknown): Grade | null {
+  return sanitizeNamedRef<Grade>(input);
+}
+
+// --- Plan sanitizer --------------------------------------------------------
+
+/**
+ * Validates and normalises a raw plan object (from any load path: JSON, CSV,
+ * or Markdown). Accepts `unknown` so all three paths can share one guard.
+ *
+ * Rules:
+ *   - granularity: "week" passes through; anything else becomes "month".
+ *   - currency: any non-empty trimmed string is preserved; missing → DEFAULT (EUR).
+ *   - startDate / endDate: if either is missing or malformed, the entire date
+ *     window is replaced by the default window (today … +11 months) while
+ *     granularity and currency are still honored.
+ *   - Swaps start/end when reversed.
+ */
+export function sanitizePlan(input: unknown, today: string): ResourcePlan {
+  const fallback = defaultResourcePlan(today);
+  const raw = isPlainObject(input) ? input : {};
+  const startDate = sanitizeIsoDate(raw.startDate);
+  const endDate = sanitizeIsoDate(raw.endDate);
+  const granularity: PlanGranularity = raw.granularity === "week" ? "week" : "month";
+  const currency = typeof raw.currency === "string" && raw.currency.trim() ? raw.currency.trim() : fallback.currency;
+  if (!startDate || !endDate) {
+    return { startDate: fallback.startDate, endDate: fallback.endDate, granularity, currency };
+  }
+  const [s, e] = endDate < startDate ? [endDate, startDate] : [startDate, endDate];
+  return { startDate: s, endDate: e, granularity, currency };
 }

@@ -1,37 +1,89 @@
 import { riskSeverityFromMatrix } from "./raid";
 import {
+  backfillResources,
+  defaultResourcePlan,
+  seedDisciplines,
+  seedGrades,
+} from "./resource-foundation";
+import {
   dropDanglingDependencies,
+  encodePeriodMap,
   parseDependenciesString,
   sanitizeAbsence,
+  sanitizeDiscipline,
+  sanitizeGrade,
   sanitizeGroup,
   sanitizeLabels,
+  sanitizePlan,
+  sanitizeResource,
+  sanitizeRole,
   sanitizeShift,
   serializeDependencies,
 } from "./sanitize";
 import {
   type Absence,
+  type Discipline,
+  type Grade,
   type Priority,
   type RaidCategory,
   type RaidItem,
   type RaidSeverity,
   type RaidStatus,
+  type Resource,
+  type ResourcePlan,
   type RiskScale,
+  type Role,
   type Shift,
   type Task,
 } from "./types";
 
 /** Top-level shape persisted to storage. JSON wraps it as an envelope; the
- *  CSV/MD encoders emit four sections in one file. The browser backend
- *  keeps tasks, raid, absences, and shifts under separate IndexedDB object
- *  stores. */
+ *  CSV/MD encoders emit sections in one file. The browser backend keeps each
+ *  entity type under a separate IndexedDB object store. */
 export type Workspace = {
   tasks: Task[];
   raid: RaidItem[];
   absences: Absence[];
-  shifts: Shift[];
+  shifts: Shift[]; // dormant
+  resources: Resource[];
+  roles: Role[];
+  disciplines: Discipline[];
+  grades: Grade[];
+  plan: ResourcePlan;
 };
 
-const SCHEMA_VERSION = 4;
+const SCHEMA_VERSION = 5;
+
+/** A blank workspace with a default plan anchored to today. */
+export function emptyWorkspace(): Workspace {
+  return {
+    tasks: [], raid: [], absences: [], shifts: [],
+    resources: [], roles: [], disciplines: [], grades: [],
+    plan: defaultResourcePlan(new Date().toISOString().slice(0, 10)),
+  };
+}
+
+/**
+ * Idempotent v5 migration over a loaded workspace:
+ *   - seeds discipline/grade reference lists when empty,
+ *   - ensures a plan exists,
+ *   - backfills resources from task/absence assignees the first time
+ *     (when no resources are present yet), stamping resourceId.
+ * Pure — no IndexedDB. Returns a new workspace; reuses arrays unchanged.
+ */
+export function migrateWorkspaceV5(ws: Workspace): Workspace {
+  const disciplines = ws.disciplines.length ? ws.disciplines : seedDisciplines();
+  const grades = ws.grades.length ? ws.grades : seedGrades();
+  const plan = ws.plan ?? defaultResourcePlan(new Date().toISOString().slice(0, 10));
+  let { tasks, absences, resources } = ws;
+  if (resources.length === 0) {
+    const built = backfillResources(tasks, absences);
+    resources = built.resources;
+    tasks = built.tasks;
+    absences = built.absences;
+  }
+  return { ...ws, tasks, absences, resources, roles: ws.roles, disciplines, grades, plan };
+}
 
 // --- Storage configuration -------------------------------------------------
 
@@ -113,12 +165,17 @@ export interface StorageBackend {
 // the new record stores additively.
 
 const IDB_NAME = "lop-app";
-const IDB_VERSION = 4;
+const IDB_VERSION = 5;
 const IDB_KV_STORE = "kv";
 const IDB_TASKS_STORE = "tasks";
 const IDB_RAID_STORE = "raid";
 const IDB_ABSENCES_STORE = "absences";
 const IDB_SHIFTS_STORE = "shifts";
+const IDB_RESOURCES_STORE = "resources";
+const IDB_ROLES_STORE = "roles";
+const IDB_DISCIPLINES_STORE = "disciplines";
+const IDB_GRADES_STORE = "grades";
+const KV_PLAN_KEY = "resource-plan";
 
 function openIdb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -143,6 +200,18 @@ function openIdb(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains(IDB_SHIFTS_STORE)) {
         db.createObjectStore(IDB_SHIFTS_STORE, { keyPath: "id" });
+      }
+      if (!db.objectStoreNames.contains(IDB_RESOURCES_STORE)) {
+        db.createObjectStore(IDB_RESOURCES_STORE, { keyPath: "id" });
+      }
+      if (!db.objectStoreNames.contains(IDB_ROLES_STORE)) {
+        db.createObjectStore(IDB_ROLES_STORE, { keyPath: "id" });
+      }
+      if (!db.objectStoreNames.contains(IDB_DISCIPLINES_STORE)) {
+        db.createObjectStore(IDB_DISCIPLINES_STORE, { keyPath: "id" });
+      }
+      if (!db.objectStoreNames.contains(IDB_GRADES_STORE)) {
+        db.createObjectStore(IDB_GRADES_STORE, { keyPath: "id" });
       }
     };
     req.onsuccess = () => resolve(req.result);
@@ -244,6 +313,7 @@ const CSV_COLUMNS: Array<keyof Task> = [
   "lastSyncedAt",
   "localModifiedAt",
   "healthOverride",
+  "resourceId",
 ];
 
 // Whitelist parser shared by CSV and Markdown deserialization. Anything that
@@ -310,6 +380,7 @@ const ABSENCES_CSV_COLUMNS: Array<keyof Absence> = [
   "type",
   "note",
   "localModifiedAt",
+  "resourceId",
 ];
 
 const ABSENCES_MD_COLUMNS: Array<{ key: keyof Absence; label: string }> = [
@@ -321,6 +392,7 @@ const ABSENCES_MD_COLUMNS: Array<{ key: keyof Absence; label: string }> = [
   { key: "type", label: "Type" },
   { key: "note", label: "Note" },
   { key: "localModifiedAt", label: "LocalModified" },
+  { key: "resourceId", label: "ResourceId" },
 ];
 
 // Columns persisted for Shift items in CSV and Markdown. Per-weekday hours
@@ -353,6 +425,50 @@ const SHIFTS_MD_COLUMNS: readonly { col: string; label: string }[] = [
   { col: "friHours", label: "Fri" },
   { col: "satHours", label: "Sat" },
   { col: "note", label: "Note" },
+  { col: "localModifiedAt", label: "LocalModified" },
+];
+
+// --- Resource Planner v2 CSV column definitions ----------------------------
+
+const RESOURCES_CSV_COLUMNS = [
+  "id", "name", "email", "roleId", "utilizationMode", "utilization", "absenceOverride", "active", "localModifiedAt",
+] as const;
+const ROLES_CSV_COLUMNS = ["id", "disciplineId", "gradeId", "internalRate", "externalRate", "localModifiedAt"] as const;
+const REF_CSV_COLUMNS = ["id", "name", "localModifiedAt"] as const;
+
+// Section markers for the new entity sections in multi-section CSV files.
+const CSV_SECTION_RESOURCES = "# RESOURCES";
+const CSV_SECTION_ROLES = "# ROLES";
+const CSV_SECTION_DISCIPLINES = "# DISCIPLINES";
+const CSV_SECTION_GRADES = "# GRADES";
+const CSV_SECTION_PLAN = "# PLAN";
+
+// --- Resource Planner v2 Markdown column definitions -----------------------
+
+const RESOURCES_MD_COLUMNS: readonly { col: string; label: string }[] = [
+  { col: "id", label: "ID" },
+  { col: "name", label: "Name" },
+  { col: "email", label: "Email" },
+  { col: "roleId", label: "RoleId" },
+  { col: "utilizationMode", label: "Mode" },
+  { col: "utilization", label: "Utilization" },
+  { col: "absenceOverride", label: "AbsenceOverride" },
+  { col: "active", label: "Active" },
+  { col: "localModifiedAt", label: "LocalModified" },
+];
+
+const ROLES_MD_COLUMNS: readonly { col: string; label: string }[] = [
+  { col: "id", label: "ID" },
+  { col: "disciplineId", label: "DisciplineId" },
+  { col: "gradeId", label: "GradeId" },
+  { col: "internalRate", label: "InternalRate" },
+  { col: "externalRate", label: "ExternalRate" },
+  { col: "localModifiedAt", label: "LocalModified" },
+];
+
+const REF_MD_COLUMNS: readonly { col: string; label: string }[] = [
+  { col: "id", label: "ID" },
+  { col: "name", label: "Name" },
   { col: "localModifiedAt", label: "LocalModified" },
 ];
 
@@ -572,6 +688,49 @@ function shiftsToCsv(shifts: readonly Shift[]): string {
   return lines.join("\r\n");
 }
 
+// --- Resource CSV encoders -------------------------------------------------
+
+function resourceFieldToString(r: Resource, c: string): string {
+  switch (c) {
+    case "id": return String(r.id);
+    case "name": return r.name;
+    case "email": return r.email ?? "";
+    case "roleId": return r.roleId == null ? "" : String(r.roleId);
+    case "utilizationMode": return r.utilizationMode;
+    case "utilization": return encodePeriodMap(r.utilization);
+    case "absenceOverride": return encodePeriodMap(r.absenceOverride);
+    case "active": return r.active === false ? "false" : "";
+    case "localModifiedAt": return r.localModifiedAt ?? "";
+    default: return "";
+  }
+}
+
+function rowsToCsv(header: readonly string[], rows: string[][]): string {
+  return [header.join(","), ...rows.map((r) => r.map(csvEscape).join(","))].join("\r\n");
+}
+
+function resourcesToCsv(rs: readonly Resource[]): string {
+  return rowsToCsv(
+    RESOURCES_CSV_COLUMNS,
+    rs.map((r) => RESOURCES_CSV_COLUMNS.map((c) => resourceFieldToString(r, c))),
+  );
+}
+
+function rolesToCsv(rs: readonly Role[]): string {
+  return rowsToCsv(
+    ROLES_CSV_COLUMNS,
+    rs.map((r) => ROLES_CSV_COLUMNS.map((c) => String((r as Record<string, unknown>)[c] ?? ""))),
+  );
+}
+
+function refsToCsv(rs: readonly { id: number; name: string; localModifiedAt?: string }[]): string {
+  return rowsToCsv(REF_CSV_COLUMNS, rs.map((r) => [String(r.id), r.name, r.localModifiedAt ?? ""]));
+}
+
+function planToCsvLine(p: ResourcePlan): string {
+  return [CSV_SECTION_PLAN, [p.startDate, p.endDate, p.granularity, p.currency].map(csvEscape).join(",")].join("\r\n");
+}
+
 // Section markers used by `workspaceToCsv` / `csvToWorkspace`. The hash
 // prefix isn't formal CSV but every spreadsheet tool we care about treats
 // a line whose only cell starts with "#" as a comment row.
@@ -595,6 +754,11 @@ export function workspaceToCsv(ws: Workspace): string {
   if (ws.shifts.length > 0) {
     parts.push("", CSV_SECTION_SHIFTS, shiftsToCsv(ws.shifts));
   }
+  if (ws.disciplines.length > 0) parts.push("", CSV_SECTION_DISCIPLINES, refsToCsv(ws.disciplines));
+  if (ws.grades.length > 0) parts.push("", CSV_SECTION_GRADES, refsToCsv(ws.grades));
+  if (ws.roles.length > 0) parts.push("", CSV_SECTION_ROLES, rolesToCsv(ws.roles));
+  if (ws.resources.length > 0) parts.push("", CSV_SECTION_RESOURCES, resourcesToCsv(ws.resources));
+  parts.push("", planToCsvLine(ws.plan));
   return parts.join("\r\n");
 }
 
@@ -659,41 +823,48 @@ function parseCsv(text: string): string[][] {
 }
 
 /**
- * Splits a marker-segmented CSV into its tasks / raid / absences / shifts
- * sections. A "marker" is a line whose first cell starts with "# TASKS",
- * "# RAID", "# ABSENCES", or "# SHIFTS".
+ * Splits a marker-segmented CSV into its sections. A "marker" is a line whose
+ * first cell starts with one of the known "# ..." section constants.
  */
 function splitCsvSections(csv: string): {
   tasksText: string;
   raidText: string;
   absencesText: string;
   shiftsText: string;
+  resourcesText: string;
+  rolesText: string;
+  disciplinesText: string;
+  gradesText: string;
+  planText: string;
 } {
   const lines = csv.split(/\r?\n/);
-  let mode: "tasks" | "raid" | "absences" | "shifts" | null = null;
+  let mode: "tasks" | "raid" | "absences" | "shifts" | "resources" | "roles" | "disciplines" | "grades" | "plan" | null = null;
   const tasksLines: string[] = [];
   const raidLines: string[] = [];
   const absencesLines: string[] = [];
   const shiftsLines: string[] = [];
+  const resourcesLines: string[] = [];
+  const rolesLines: string[] = [];
+  const disciplinesLines: string[] = [];
+  const gradesLines: string[] = [];
+  const planLines: string[] = [];
   for (const line of lines) {
     const trimmed = line.trimStart();
-    if (trimmed.startsWith(CSV_SECTION_TASKS)) {
-      mode = "tasks";
-      continue;
-    }
-    if (trimmed.startsWith(CSV_SECTION_RAID)) {
-      mode = "raid";
-      continue;
-    }
-    if (trimmed.startsWith(CSV_SECTION_ABSENCES)) {
-      mode = "absences";
-      continue;
-    }
-    if (trimmed.startsWith(CSV_SECTION_SHIFTS)) {
-      mode = "shifts";
-      continue;
-    }
-    if (mode === "shifts") shiftsLines.push(line);
+    if (trimmed.startsWith(CSV_SECTION_RESOURCES)) { mode = "resources"; continue; }
+    if (trimmed.startsWith(CSV_SECTION_ROLES)) { mode = "roles"; continue; }
+    if (trimmed.startsWith(CSV_SECTION_DISCIPLINES)) { mode = "disciplines"; continue; }
+    if (trimmed.startsWith(CSV_SECTION_GRADES)) { mode = "grades"; continue; }
+    if (trimmed.startsWith(CSV_SECTION_PLAN)) { mode = "plan"; continue; }
+    if (trimmed.startsWith(CSV_SECTION_TASKS)) { mode = "tasks"; continue; }
+    if (trimmed.startsWith(CSV_SECTION_RAID)) { mode = "raid"; continue; }
+    if (trimmed.startsWith(CSV_SECTION_ABSENCES)) { mode = "absences"; continue; }
+    if (trimmed.startsWith(CSV_SECTION_SHIFTS)) { mode = "shifts"; continue; }
+    if (mode === "resources") resourcesLines.push(line);
+    else if (mode === "roles") rolesLines.push(line);
+    else if (mode === "disciplines") disciplinesLines.push(line);
+    else if (mode === "grades") gradesLines.push(line);
+    else if (mode === "plan") planLines.push(line);
+    else if (mode === "shifts") shiftsLines.push(line);
     else if (mode === "absences") absencesLines.push(line);
     else if (mode === "raid") raidLines.push(line);
     else if (mode === "tasks") tasksLines.push(line);
@@ -704,7 +875,59 @@ function splitCsvSections(csv: string): {
     raidText: raidLines.join("\r\n"),
     absencesText: absencesLines.join("\r\n"),
     shiftsText: shiftsLines.join("\r\n"),
+    resourcesText: resourcesLines.join("\r\n"),
+    rolesText: rolesLines.join("\r\n"),
+    disciplinesText: disciplinesLines.join("\r\n"),
+    gradesText: gradesLines.join("\r\n"),
+    planText: planLines.join("\r\n"),
   };
+}
+
+// --- Resource CSV decoders -------------------------------------------------
+
+/** Generic header-mapped CSV reader: returns one object per data row. */
+function csvRowsToObjects(csv: string): Record<string, string>[] {
+  const rows = parseCsv(csv);
+  let h = -1;
+  for (let i = 0; i < rows.length; i++) {
+    if (rows[i].length && rows[i][0].trim() !== "" && !rows[i][0].startsWith("#")) {
+      h = i;
+      break;
+    }
+  }
+  if (h < 0) return [];
+  const headers = rows[h];
+  const out: Record<string, string>[] = [];
+  for (let i = h + 1; i < rows.length; i++) {
+    if (rows[i].length === 1 && rows[i][0] === "") continue;
+    const obj: Record<string, string> = {};
+    headers.forEach((key, idx) => { obj[key] = rows[i][idx] ?? ""; });
+    out.push(obj);
+  }
+  return out;
+}
+
+function csvToResources(csv: string): Resource[] {
+  return csvRowsToObjects(csv).map((o) => sanitizeResource(o)).filter((r): r is Resource => r !== null);
+}
+
+function csvToRoles(csv: string): Role[] {
+  return csvRowsToObjects(csv).map((o) => sanitizeRole(o)).filter((r): r is Role => r !== null);
+}
+
+function csvToDisciplines(csv: string): Discipline[] {
+  return csvRowsToObjects(csv).map((o) => sanitizeDiscipline(o)).filter((d): d is Discipline => d !== null);
+}
+
+function csvToGrades(csv: string): Grade[] {
+  return csvRowsToObjects(csv).map((o) => sanitizeGrade(o)).filter((g): g is Grade => g !== null);
+}
+
+function parsePlanLine(line: string): ResourcePlan | null {
+  const cells = parseCsv(line)[0];
+  if (!cells || cells.length < 4) return null;
+  const today = new Date().toISOString().slice(0, 10);
+  return sanitizePlan({ startDate: cells[0], endDate: cells[1], granularity: cells[2], currency: cells[3] }, today);
 }
 
 function csvToAbsences(csv: string): Absence[] {
@@ -794,15 +1017,20 @@ function csvToRaid(csv: string): RaidItem[] {
 }
 
 /** Parses all sections out of a (possibly section-marked) CSV string. */
-function csvToWorkspace(csv: string): Workspace {
-  const { tasksText, raidText, absencesText, shiftsText } =
-    splitCsvSections(csv);
-  return {
-    tasks: csvToTasks(tasksText),
-    raid: raidText.trim() ? csvToRaid(raidText) : [],
-    absences: absencesText.trim() ? csvToAbsences(absencesText) : [],
-    shifts: shiftsText.trim() ? csvToShifts(shiftsText) : [],
+export function csvToWorkspace(csv: string): Workspace {
+  const s = splitCsvSections(csv);
+  const ws: Workspace = {
+    tasks: csvToTasks(s.tasksText),
+    raid: s.raidText.trim() ? csvToRaid(s.raidText) : [],
+    absences: s.absencesText.trim() ? csvToAbsences(s.absencesText) : [],
+    shifts: s.shiftsText.trim() ? csvToShifts(s.shiftsText) : [],
+    resources: s.resourcesText.trim() ? csvToResources(s.resourcesText) : [],
+    roles: s.rolesText.trim() ? csvToRoles(s.rolesText) : [],
+    disciplines: s.disciplinesText.trim() ? csvToDisciplines(s.disciplinesText) : [],
+    grades: s.gradesText.trim() ? csvToGrades(s.gradesText) : [],
+    plan: (s.planText.trim() && parsePlanLine(s.planText)) || defaultResourcePlan(new Date().toISOString().slice(0, 10)),
   };
+  return migrateWorkspaceV5(ws);
 }
 
 function csvToTasks(csv: string): Task[] {
@@ -844,6 +1072,7 @@ function csvToTasks(csv: string): Task[] {
       lastSyncedAt: obj.lastSyncedAt || undefined,
       localModifiedAt: obj.localModifiedAt || undefined,
       healthOverride: parseHealthOverride(obj.healthOverride),
+      resourceId: Number(obj.resourceId) || undefined,
     });
   }
   // Final pass: now that we know every id that survived parsing, drop any
@@ -876,6 +1105,7 @@ const MD_COLUMNS: Array<{ key: keyof Task; label: string }> = [
   { key: "lastSyncedAt", label: "LastSynced" },
   { key: "localModifiedAt", label: "LocalModified" },
   { key: "healthOverride", label: "Health" },
+  { key: "resourceId", label: "ResourceId" },
 ];
 
 function mdEscape(value: string): string {
@@ -944,12 +1174,58 @@ function shiftsToMarkdown(shifts: readonly Shift[]): string {
   return lines.join("\n") + "\n";
 }
 
-/** Combined tasks + raid + absences + shifts markdown. Each section is its own H1 + table. */
+function resourcesToMarkdown(rs: readonly Resource[]): string {
+  const header = `| ${RESOURCES_MD_COLUMNS.map((c) => c.label).join(" | ")} |`;
+  const sep = `| ${RESOURCES_MD_COLUMNS.map(() => "---").join(" | ")} |`;
+  const lines = ["# Resources", "", header, sep];
+  for (const r of rs) {
+    const row = RESOURCES_MD_COLUMNS.map((c) =>
+      mdEscape(resourceFieldToString(r, c.col)),
+    ).join(" | ");
+    lines.push(`| ${row} |`);
+  }
+  return lines.join("\n") + "\n";
+}
+
+function rolesToMarkdown(rs: readonly Role[]): string {
+  const header = `| ${ROLES_MD_COLUMNS.map((c) => c.label).join(" | ")} |`;
+  const sep = `| ${ROLES_MD_COLUMNS.map(() => "---").join(" | ")} |`;
+  const lines = ["# Roles", "", header, sep];
+  for (const r of rs) {
+    const row = ROLES_MD_COLUMNS.map((c) =>
+      mdEscape(String((r as Record<string, unknown>)[c.col] ?? "")),
+    ).join(" | ");
+    lines.push(`| ${row} |`);
+  }
+  return lines.join("\n") + "\n";
+}
+
+function refsToMarkdown(heading: string, rs: readonly { id: number; name: string; localModifiedAt?: string }[]): string {
+  const header = `| ${REF_MD_COLUMNS.map((c) => c.label).join(" | ")} |`;
+  const sep = `| ${REF_MD_COLUMNS.map(() => "---").join(" | ")} |`;
+  const lines = [`# ${heading}`, "", header, sep];
+  for (const r of rs) {
+    const row = [String(r.id), mdEscape(r.name), r.localModifiedAt ?? ""].join(" | ");
+    lines.push(`| ${row} |`);
+  }
+  return lines.join("\n") + "\n";
+}
+
+function planToMarkdown(p: ResourcePlan): string {
+  return `## Plan\n\n${p.startDate},${p.endDate},${p.granularity},${p.currency}\n`;
+}
+
+/** Combined markdown workspace. Each entity section is its own heading + table. */
 export function workspaceToMarkdown(ws: Workspace): string {
   let out = tasksToMarkdown(ws.tasks);
   if (ws.raid.length > 0) out += "\n" + raidToMarkdown(ws.raid);
   if (ws.absences.length > 0) out += "\n" + absencesToMarkdown(ws.absences);
   if (ws.shifts.length > 0) out += "\n" + shiftsToMarkdown(ws.shifts);
+  if (ws.disciplines.length > 0) out += "\n" + refsToMarkdown("Disciplines", ws.disciplines);
+  if (ws.grades.length > 0) out += "\n" + refsToMarkdown("Grades", ws.grades);
+  if (ws.roles.length > 0) out += "\n" + rolesToMarkdown(ws.roles);
+  if (ws.resources.length > 0) out += "\n" + resourcesToMarkdown(ws.resources);
+  out += "\n" + planToMarkdown(ws.plan);
   return out;
 }
 
@@ -980,46 +1256,42 @@ function splitMdRow(line: string): string[] {
 }
 
 /**
- * Splits a workspace markdown into its tasks / raid / absences / shifts
- * sections by H1 heading. Sections absent from the file produce empty arrays.
+ * Splits a workspace markdown into its entity sections by heading.
+ * Sections absent from the file produce empty strings.
  */
 function splitMarkdownSections(md: string): {
   tasksMd: string;
   raidMd: string;
   absencesMd: string;
   shiftsMd: string;
+  resourcesMd: string;
+  rolesMd: string;
+  disciplinesMd: string;
+  gradesMd: string;
+  planMd: string;
 } {
   const lines = md.split(/\r?\n/);
   const tasksLines: string[] = [];
   const raidLines: string[] = [];
   const absencesLines: string[] = [];
   const shiftsLines: string[] = [];
+  const resourcesLines: string[] = [];
+  const rolesLines: string[] = [];
+  const disciplinesLines: string[] = [];
+  const gradesLines: string[] = [];
+  const planLines: string[] = [];
   let target = tasksLines;
   for (const line of lines) {
     const trimmed = line.trim();
-    if (/^#\s+RAID\s+Log\b/i.test(trimmed)) {
-      target = raidLines;
-      target.push(line);
-      continue;
-    }
-    if (/^#\s+LOP\s+Tasks\b/i.test(trimmed)) {
-      target = tasksLines;
-      target.push(line);
-      continue;
-    }
-    if (/^#\s+Absences\b/i.test(trimmed)) {
-      target = absencesLines;
-      target.push(line);
-      continue;
-    }
-    if (/^#\s+Shifts\b/i.test(trimmed)) {
-      target = shiftsLines;
-      target.push(line);
-      continue;
-    }
-    // Any other top-level `# Heading` ends the current section but doesn't
-    // open a new one — anything that follows lands wherever it lands until
-    // a recognized heading appears.
+    if (/^#\s+RAID\s+Log\b/i.test(trimmed)) { target = raidLines; target.push(line); continue; }
+    if (/^#\s+LOP\s+Tasks\b/i.test(trimmed)) { target = tasksLines; target.push(line); continue; }
+    if (/^#\s+Absences\b/i.test(trimmed)) { target = absencesLines; target.push(line); continue; }
+    if (/^#\s+Shifts\b/i.test(trimmed)) { target = shiftsLines; target.push(line); continue; }
+    if (/^#\s+Resources\b/i.test(trimmed)) { target = resourcesLines; target.push(line); continue; }
+    if (/^#\s+Roles\b/i.test(trimmed)) { target = rolesLines; target.push(line); continue; }
+    if (/^#\s+Disciplines\b/i.test(trimmed)) { target = disciplinesLines; target.push(line); continue; }
+    if (/^#\s+Grades\b/i.test(trimmed)) { target = gradesLines; target.push(line); continue; }
+    if (/^##\s+Plan\b/i.test(trimmed)) { target = planLines; continue; }
     target.push(line);
   }
   return {
@@ -1027,6 +1299,11 @@ function splitMarkdownSections(md: string): {
     raidMd: raidLines.join("\n"),
     absencesMd: absencesLines.join("\n"),
     shiftsMd: shiftsLines.join("\n"),
+    resourcesMd: resourcesLines.join("\n"),
+    rolesMd: rolesLines.join("\n"),
+    disciplinesMd: disciplinesLines.join("\n"),
+    gradesMd: gradesLines.join("\n"),
+    planMd: planLines.join("\n"),
   };
 }
 
@@ -1128,6 +1405,98 @@ function markdownToShifts(md: string): Shift[] {
   return items;
 }
 
+/** Generic MD table → array of string-keyed objects (label→value). */
+function markdownTableToObjects(md: string): Record<string, string>[] {
+  const lines = md.split(/\r?\n/);
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i].trim();
+    if (line.startsWith("|") && line.includes("|", 1)) {
+      const next = (lines[i + 1] ?? "").trim();
+      if (/^\|\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?$/.test(next)) break;
+    }
+    i++;
+  }
+  if (i + 2 > lines.length) return [];
+  const headers = splitMdRow(lines[i]);
+  const out: Record<string, string>[] = [];
+  for (let j = i + 2; j < lines.length; j++) {
+    const raw = lines[j];
+    if (!raw.trim().startsWith("|")) continue;
+    const cells = splitMdRow(raw);
+    const obj: Record<string, string> = {};
+    headers.forEach((h, idx) => { obj[h] = mdUnescape(cells[idx] ?? ""); });
+    out.push(obj);
+  }
+  return out;
+}
+
+/** Map MD column labels to sanitizer field keys for resources. */
+function markdownToResources(md: string): Resource[] {
+  return markdownTableToObjects(md).map((row) => {
+    const mapped: Record<string, string> = {};
+    for (const [label, val] of Object.entries(row)) {
+      const norm = label.toLowerCase().replace(/\s+/g, "");
+      if (norm === "id") mapped["id"] = val;
+      else if (norm === "name") mapped["name"] = val;
+      else if (norm === "email") mapped["email"] = val;
+      else if (norm === "roleid") mapped["roleId"] = val;
+      else if (norm === "mode" || norm === "utilizationmode") mapped["utilizationMode"] = val;
+      else if (norm === "utilization") mapped["utilization"] = val;
+      else if (norm === "absenceoverride") mapped["absenceOverride"] = val;
+      else if (norm === "active") mapped["active"] = val;
+      else if (norm === "localmodified" || norm === "localmodifiedat") mapped["localModifiedAt"] = val;
+    }
+    return sanitizeResource(mapped);
+  }).filter((r): r is Resource => r !== null);
+}
+
+/** Map MD column labels to sanitizer field keys for roles. */
+function markdownToRoles(md: string): Role[] {
+  return markdownTableToObjects(md).map((row) => {
+    const mapped: Record<string, string> = {};
+    for (const [label, val] of Object.entries(row)) {
+      const norm = label.toLowerCase().replace(/\s+/g, "");
+      if (norm === "id") mapped["id"] = val;
+      else if (norm === "disciplineid") mapped["disciplineId"] = val;
+      else if (norm === "gradeid") mapped["gradeId"] = val;
+      else if (norm === "internalrate") mapped["internalRate"] = val;
+      else if (norm === "externalrate") mapped["externalRate"] = val;
+      else if (norm === "localmodified" || norm === "localmodifiedat") mapped["localModifiedAt"] = val;
+    }
+    return sanitizeRole(mapped);
+  }).filter((r): r is Role => r !== null);
+}
+
+/** Map MD column labels to sanitizer field keys for disciplines/grades. */
+function markdownToRefs<T extends Discipline | Grade>(
+  md: string,
+  sanitize: (input: unknown) => T | null,
+): T[] {
+  return markdownTableToObjects(md).map((row) => {
+    const mapped: Record<string, string> = {};
+    for (const [label, val] of Object.entries(row)) {
+      const norm = label.toLowerCase().replace(/\s+/g, "");
+      if (norm === "id") mapped["id"] = val;
+      else if (norm === "name") mapped["name"] = val;
+      else if (norm === "localmodified" || norm === "localmodifiedat") mapped["localModifiedAt"] = val;
+    }
+    return sanitize(mapped);
+  }).filter((r): r is T => r !== null);
+}
+
+function parsePlanMarkdown(md: string): ResourcePlan | null {
+  for (const line of md.split(/\r?\n/)) {
+    const t = line.trim();
+    if (!t || t.startsWith("#") || t.startsWith("|")) continue;
+    const cells = t.split(",").map((s) => s.trim());
+    if (cells.length < 4) continue;
+    const today = new Date().toISOString().slice(0, 10);
+    return sanitizePlan({ startDate: cells[0], endDate: cells[1], granularity: cells[2], currency: cells[3] }, today);
+  }
+  return null;
+}
+
 function markdownToRaid(md: string): RaidItem[] {
   const lines = md.split(/\r?\n/);
   let i = 0;
@@ -1194,14 +1563,20 @@ function markdownToRaid(md: string): RaidItem[] {
 }
 
 /** Parses all sections out of a (possibly multi-section) markdown string. */
-function markdownToWorkspace(md: string): Workspace {
-  const { tasksMd, raidMd, absencesMd, shiftsMd } = splitMarkdownSections(md);
-  return {
-    tasks: markdownToTasks(tasksMd || md),
-    raid: raidMd.trim() ? markdownToRaid(raidMd) : [],
-    absences: absencesMd.trim() ? markdownToAbsences(absencesMd) : [],
-    shifts: shiftsMd.trim() ? markdownToShifts(shiftsMd) : [],
+export function markdownToWorkspace(md: string): Workspace {
+  const s = splitMarkdownSections(md);
+  const ws: Workspace = {
+    tasks: markdownToTasks(s.tasksMd || md),
+    raid: s.raidMd.trim() ? markdownToRaid(s.raidMd) : [],
+    absences: s.absencesMd.trim() ? markdownToAbsences(s.absencesMd) : [],
+    shifts: s.shiftsMd.trim() ? markdownToShifts(s.shiftsMd) : [],
+    resources: s.resourcesMd.trim() ? markdownToResources(s.resourcesMd) : [],
+    roles: s.rolesMd.trim() ? markdownToRoles(s.rolesMd) : [],
+    disciplines: s.disciplinesMd.trim() ? markdownToRefs(s.disciplinesMd, sanitizeDiscipline) : [],
+    grades: s.gradesMd.trim() ? markdownToRefs(s.gradesMd, sanitizeGrade) : [],
+    plan: (s.planMd.trim() && parsePlanMarkdown(s.planMd)) || defaultResourcePlan(new Date().toISOString().slice(0, 10)),
   };
+  return migrateWorkspaceV5(ws);
 }
 
 function markdownToTasks(md: string): Task[] {
@@ -1252,6 +1627,7 @@ function markdownToTasks(md: string): Task[] {
       colMap[idx] = "localModifiedAt";
     else if (norm === "health" || norm === "healthoverride")
       colMap[idx] = "healthOverride";
+    else if (norm === "resourceid") colMap[idx] = "resourceId";
   });
 
   const tasks: Task[] = [];
@@ -1288,6 +1664,7 @@ function markdownToTasks(md: string): Task[] {
       lastSyncedAt: obj.lastSyncedAt || undefined,
       localModifiedAt: obj.localModifiedAt || undefined,
       healthOverride: parseHealthOverride(obj.healthOverride),
+      resourceId: Number(obj.resourceId) || undefined,
     });
   }
   return dropDanglingDependencies(tasks);
@@ -1438,20 +1815,33 @@ class BrowserBackend implements StorageBackend {
   private raidBaseline = new Map<number, RaidItem>();
   private absencesBaseline = new Map<number, Absence>();
   private shiftsBaseline = new Map<number, Shift>();
+  private resourcesBaseline = new Map<number, Resource>();
+  private rolesBaseline = new Map<number, Role>();
+  private disciplinesBaseline = new Map<number, Discipline>();
+  private gradesBaseline = new Map<number, Grade>();
 
   async load(): Promise<Workspace> {
-    if (typeof window === "undefined")
-      return { tasks: [], raid: [], absences: [], shifts: [] };
+    if (typeof window === "undefined") return emptyWorkspace();
 
     let tasks: Task[] = [];
     let raid: RaidItem[] = [];
     let absences: Absence[] = [];
     let shifts: Shift[] = [];
+    let resources: Resource[] = [];
+    let roles: Role[] = [];
+    let disciplines: Discipline[] = [];
+    let grades: Grade[] = [];
+    let plan: ResourcePlan = defaultResourcePlan(new Date().toISOString().slice(0, 10));
     try {
       tasks = await idbGetAll<Task>(IDB_TASKS_STORE);
       raid = await idbGetAll<RaidItem>(IDB_RAID_STORE);
       absences = await idbGetAll<Absence>(IDB_ABSENCES_STORE);
       shifts = await idbGetAll<Shift>(IDB_SHIFTS_STORE);
+      resources = await idbGetAll<Resource>(IDB_RESOURCES_STORE);
+      roles = await idbGetAll<Role>(IDB_ROLES_STORE);
+      disciplines = await idbGetAll<Discipline>(IDB_DISCIPLINES_STORE);
+      grades = await idbGetAll<Grade>(IDB_GRADES_STORE);
+      plan = (await idbGet<ResourcePlan>(KV_PLAN_KEY)) ?? plan;
     } catch {
       // IDB unavailable or upgrade failed. Fall through — the legacy
       // migration block below will still try localStorage, and if that's
@@ -1462,15 +1852,31 @@ class BrowserBackend implements StorageBackend {
       const migrated = await this.migrateLegacyIfNeeded();
       tasks = migrated.tasks;
       raid = migrated.raid;
-      // Legacy localStorage never stored absences/shifts — leave as-is
+      // Legacy localStorage never stored absences/shifts/resources — leave as-is
       // from the (possibly successful) idbGetAll attempts above.
     }
 
-    this.tasksBaseline = new Map(tasks.map((t) => [t.id, t]));
-    this.raidBaseline = new Map(raid.map((r) => [r.id, r]));
-    this.absencesBaseline = new Map(absences.map((a) => [a.id, a]));
-    this.shiftsBaseline = new Map(shifts.map((s) => [s.id, s]));
-    return { tasks, raid, absences, shifts };
+    const raw: Workspace = { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan };
+    const ws = migrateWorkspaceV5(raw);
+
+    try {
+      if (ws.resources !== raw.resources) await idbBulkUpdate(IDB_RESOURCES_STORE, ws.resources, []);
+      if (ws.disciplines !== raw.disciplines) await idbBulkUpdate(IDB_DISCIPLINES_STORE, ws.disciplines, []);
+      if (ws.grades !== raw.grades) await idbBulkUpdate(IDB_GRADES_STORE, ws.grades, []);
+      if (ws.tasks !== raw.tasks) await idbBulkUpdate(IDB_TASKS_STORE, ws.tasks, []); // resourceId stamped
+      if (ws.absences !== raw.absences) await idbBulkUpdate(IDB_ABSENCES_STORE, ws.absences, []);
+      if (ws.plan !== raw.plan) await idbSet(KV_PLAN_KEY, ws.plan);
+    } catch { /* non-fatal: retried next load */ }
+
+    this.tasksBaseline = new Map(ws.tasks.map((t) => [t.id, t]));
+    this.raidBaseline = new Map(ws.raid.map((r) => [r.id, r]));
+    this.absencesBaseline = new Map(ws.absences.map((a) => [a.id, a]));
+    this.shiftsBaseline = new Map(ws.shifts.map((s) => [s.id, s]));
+    this.resourcesBaseline = new Map(ws.resources.map((r) => [r.id, r]));
+    this.rolesBaseline = new Map(ws.roles.map((r) => [r.id, r]));
+    this.disciplinesBaseline = new Map(ws.disciplines.map((d) => [d.id, d]));
+    this.gradesBaseline = new Map(ws.grades.map((g) => [g.id, g]));
+    return ws;
   }
 
   /**
@@ -1492,7 +1898,7 @@ class BrowserBackend implements StorageBackend {
       BrowserBackend.LEGACY_RAID_KEY,
     );
     if (legacyTasks.length === 0 && legacyRaid.length === 0) {
-      return { tasks: [], raid: [], absences: [], shifts: [] };
+      return emptyWorkspace();
     }
     try {
       await idbBulkUpdate(IDB_TASKS_STORE, legacyTasks, []);
@@ -1508,10 +1914,9 @@ class BrowserBackend implements StorageBackend {
       // session; next load will retry the migration.
     }
     return {
+      ...emptyWorkspace(),
       tasks: legacyTasks,
       raid: legacyRaid,
-      absences: [],
-      shifts: [],
     };
   }
 
@@ -1547,6 +1952,16 @@ class BrowserBackend implements StorageBackend {
       shiftDelta.deletes,
     );
 
+    const resourceDelta = this.diff(this.resourcesBaseline, ws.resources);
+    const roleDelta = this.diff(this.rolesBaseline, ws.roles);
+    const discDelta = this.diff(this.disciplinesBaseline, ws.disciplines);
+    const gradeDelta = this.diff(this.gradesBaseline, ws.grades);
+    await idbBulkUpdate(IDB_RESOURCES_STORE, resourceDelta.puts, resourceDelta.deletes);
+    await idbBulkUpdate(IDB_ROLES_STORE, roleDelta.puts, roleDelta.deletes);
+    await idbBulkUpdate(IDB_DISCIPLINES_STORE, discDelta.puts, discDelta.deletes);
+    await idbBulkUpdate(IDB_GRADES_STORE, gradeDelta.puts, gradeDelta.deletes);
+    await idbSet(KV_PLAN_KEY, ws.plan);
+
     // Refresh baselines so the next save's diff is computed against what's
     // actually in IDB. Rebuilding the maps is O(N) but only runs after a
     // successful write, not on every render.
@@ -1554,6 +1969,10 @@ class BrowserBackend implements StorageBackend {
     this.raidBaseline = new Map(ws.raid.map((r) => [r.id, r]));
     this.absencesBaseline = new Map(ws.absences.map((a) => [a.id, a]));
     this.shiftsBaseline = new Map(ws.shifts.map((s) => [s.id, s]));
+    this.resourcesBaseline = new Map(ws.resources.map((r) => [r.id, r]));
+    this.rolesBaseline = new Map(ws.roles.map((r) => [r.id, r]));
+    this.disciplinesBaseline = new Map(ws.disciplines.map((d) => [d.id, d]));
+    this.gradesBaseline = new Map(ws.grades.map((g) => [g.id, g]));
   }
 
   /**
@@ -1656,41 +2075,59 @@ class LocalFileBackend implements StorageBackend {
       throw new StorageNotReadyError("local-file-permission-needed");
     }
     const text = await readHandle(handle);
-    if (!text.trim())
-      return { tasks: [], raid: [], absences: [], shifts: [] };
+    if (!text.trim()) return emptyWorkspace();
     if (this.format === "json") {
       try {
         const parsed = JSON.parse(text);
-        // Envelope shape: { schemaVersion, tasks, raid, absences, shifts }.
+        // Envelope shape: { schemaVersion, tasks, raid, ... }.
+        // Require only tasks + raid (present since v1); the newer fields
+        // default to [] / seeded so older files still load.
         if (
           parsed &&
           typeof parsed === "object" &&
           !Array.isArray(parsed) &&
           Array.isArray((parsed as { tasks?: unknown }).tasks) &&
-          Array.isArray((parsed as { raid?: unknown }).raid) &&
-          Array.isArray((parsed as { absences?: unknown }).absences) &&
-          Array.isArray((parsed as { shifts?: unknown }).shifts)
+          Array.isArray((parsed as { raid?: unknown }).raid)
         ) {
           const p = parsed as {
             tasks: Task[];
             raid: RaidItem[];
-            absences: unknown[];
-            shifts: unknown[];
+            absences?: unknown[];
+            shifts?: unknown[];
+            resources?: unknown[];
+            roles?: unknown[];
+            disciplines?: unknown[];
+            grades?: unknown[];
+            plan?: unknown;
           };
-          return {
+          const raw: Workspace = {
             tasks: p.tasks,
             raid: p.raid,
-            absences: p.absences
+            absences: (p.absences ?? [])
               .map((a) => sanitizeAbsence(a))
               .filter((a): a is Absence => a !== null),
-            shifts: p.shifts
+            shifts: (p.shifts ?? [])
               .map((s) => sanitizeShift(s))
               .filter((s): s is Shift => s !== null),
+            resources: (p.resources ?? [])
+              .map((r) => sanitizeResource(r))
+              .filter((r): r is Resource => r !== null),
+            roles: (p.roles ?? [])
+              .map((r) => sanitizeRole(r))
+              .filter((r): r is Role => r !== null),
+            disciplines: (p.disciplines ?? [])
+              .map((d) => sanitizeDiscipline(d))
+              .filter((d): d is Discipline => d !== null),
+            grades: (p.grades ?? [])
+              .map((g) => sanitizeGrade(g))
+              .filter((g): g is Grade => g !== null),
+            plan: sanitizePlan(p.plan ?? {}, new Date().toISOString().slice(0, 10)),
           };
+          return migrateWorkspaceV5(raw);
         }
-        return { tasks: [], raid: [], absences: [], shifts: [] };
+        return emptyWorkspace();
       } catch {
-        return { tasks: [], raid: [], absences: [], shifts: [] };
+        return emptyWorkspace();
       }
     }
     if (this.format === "csv") return csvToWorkspace(text);
@@ -1716,6 +2153,11 @@ class LocalFileBackend implements StorageBackend {
           raid: ws.raid,
           absences: ws.absences,
           shifts: ws.shifts,
+          resources: ws.resources,
+          roles: ws.roles,
+          disciplines: ws.disciplines,
+          grades: ws.grades,
+          plan: ws.plan,
         },
         null,
         2,

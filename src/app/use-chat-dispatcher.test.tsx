@@ -37,6 +37,7 @@ function makeSettings(): Settings {
       assigneeDisplayName: "",
     },
     popout: { reuseWindow: false },
+    resources: { workdayHours: 8 },
   };
 }
 

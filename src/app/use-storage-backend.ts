@@ -24,7 +24,17 @@ export interface UseStorageBackendArgs {
 }
 
 export function useStorageBackend(args: UseStorageBackendArgs) {
-  const { tasks, setTasks, raid, setRaid, absences, setAbsences, shifts, setShifts } = useWorkspace();
+  const {
+    tasks, setTasks,
+    raid, setRaid,
+    absences, setAbsences,
+    shifts, setShifts,
+    resources, setResources,
+    roles, setRoles,
+    disciplines, setDisciplines,
+    grades, setGrades,
+    plan, setPlan,
+  } = useWorkspace();
 
   // Reactive refs — synced via useEffect so effects don't re-register on every render
   const langRef = useRef(args.lang);
@@ -69,6 +79,11 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         setRaid(workspace.raid ?? []);
         setAbsences(workspace.absences ?? []);
         setShifts(workspace.shifts ?? []);
+        setResources(workspace.resources ?? []);
+        setRoles(workspace.roles ?? []);
+        setDisciplines(workspace.disciplines ?? []);
+        setGrades(workspace.grades ?? []);
+        if (workspace.plan) setPlan(workspace.plan);
         suppressNextSaveRef.current = true;
         await refreshBackendStatus();
       } catch (err) {
@@ -98,7 +113,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       return;
     }
     const timer = setTimeout(() => {
-      backend.save({ tasks, raid, absences, shifts }).catch((err) => {
+      backend.save({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan }).catch((err) => {
         if (err instanceof StorageNotReadyError) {
           const key = (err as StorageNotReadyError).hint === "local-file-permission-needed"
             ? "storagePermissionGestureNeeded"
@@ -111,12 +126,16 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     }, 500);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tasks, raid, absences, shifts, args.hydrated, backend]);
+  }, [tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, args.hydrated, backend]);
 
   useBroadcastSync("tasks", tasks, setTasks);
   useBroadcastSync("raid", raid, setRaid);
   useBroadcastSync("absences", absences, setAbsences);
   useBroadcastSync("shifts", shifts, setShifts);
+  useBroadcastSync("resources", resources, setResources);
+  useBroadcastSync("roles", roles, setRoles);
+  useBroadcastSync("disciplines", disciplines, setDisciplines);
+  useBroadcastSync("grades", grades, setGrades);
   useBroadcastSync("activityLog", args.activityLog, args.setActivityLog);
 
   async function onPickStorageFile() {
@@ -124,7 +143,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     if (!promise) return;
     await promise;
     try {
-      await backend.save({ tasks, raid, absences, shifts });
+      await backend.save({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan });
       await refreshBackendStatus();
       args.showToast("info", t(langRef.current, "storageSwitchedToast"));
     } catch (err) {

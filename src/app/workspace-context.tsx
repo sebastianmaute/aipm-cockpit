@@ -10,7 +10,19 @@ import {
   type SetStateAction,
 } from "react";
 import { useFilters } from "./filters-context";
-import { PRIORITY_RANK, type Absence, type RaidItem, type Shift, type Task } from "./types";
+import { defaultResourcePlan } from "./resource-foundation";
+import {
+  PRIORITY_RANK,
+  type Absence,
+  type Discipline,
+  type Grade,
+  type RaidItem,
+  type Resource,
+  type ResourcePlan,
+  type Role,
+  type Shift,
+  type Task,
+} from "./types";
 
 interface WorkspaceValue {
   tasks: Task[];
@@ -30,6 +42,16 @@ interface WorkspaceValue {
   setAbsences: Dispatch<SetStateAction<Absence[]>>;
   shifts: Shift[];
   setShifts: Dispatch<SetStateAction<Shift[]>>;
+  resources: Resource[];
+  setResources: Dispatch<SetStateAction<Resource[]>>;
+  roles: Role[];
+  setRoles: Dispatch<SetStateAction<Role[]>>;
+  disciplines: Discipline[];
+  setDisciplines: Dispatch<SetStateAction<Discipline[]>>;
+  grades: Grade[];
+  setGrades: Dispatch<SetStateAction<Grade[]>>;
+  plan: ResourcePlan;
+  setPlan: Dispatch<SetStateAction<ResourcePlan>>;
 }
 
 const WorkspaceContext = createContext<WorkspaceValue | undefined>(undefined);
@@ -39,6 +61,11 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [raid, setRaid] = useState<RaidItem[]>([]);
   const [absences, setAbsences] = useState<Absence[]>([]);
   const [shifts, setShifts] = useState<Shift[]>([]);
+  const [resources, setResources] = useState<Resource[]>([]);
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [disciplines, setDisciplines] = useState<Discipline[]>([]);
+  const [grades, setGrades] = useState<Grade[]>([]);
+  const [plan, setPlan] = useState<ResourcePlan>(() => defaultResourcePlan(new Date().toISOString().slice(0, 10)));
   const {
     searchDebounced,
     priorityFilter,
@@ -169,6 +196,16 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     setAbsences,
     shifts,
     setShifts,
+    resources,
+    setResources,
+    roles,
+    setRoles,
+    disciplines,
+    setDisciplines,
+    grades,
+    setGrades,
+    plan,
+    setPlan,
   };
 
   return (

@@ -9,6 +9,11 @@ import { TestProviders } from "./test-providers";
 // ── Storage mock ─────────────────────────────────────────────────────────────
 vi.mock("./storage", () => ({
   createBackend: vi.fn(),
+  emptyWorkspace: vi.fn(() => ({
+    tasks: [], raid: [], absences: [], shifts: [],
+    resources: [], roles: [], disciplines: [], grades: [],
+    plan: { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month", currency: "EUR" },
+  })),
   StorageNotReadyError: class StorageNotReadyError extends Error {
     hint: string;
     constructor(hint: string) { super(hint); this.hint = hint; }

@@ -92,7 +92,7 @@ export function WorkspaceSection({
   handleOpenShiftEditor,
 }: WorkspaceSectionProps) {
   const { settings, lang } = useSettings();
-  const { tasks, raid, absences, shifts } = useWorkspace();
+  const { tasks, raid, absences, shifts, resources } = useWorkspace();
   const { activeTab, setActiveTab, isPopout } = useWorkspaceTab();
   const { raidFilterTaskId } = useFilters();
 
@@ -322,6 +322,7 @@ export function WorkspaceSection({
               tasks={tasks}
               absences={absences}
               shifts={shifts}
+              resources={resources}
               today={today}
               holidaySet={holidaySet}
               onAddAbsence={handleOpenAddAbsence}

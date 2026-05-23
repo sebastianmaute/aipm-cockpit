@@ -60,6 +60,9 @@ export type Task = {
   lastSyncedAt?: string;
   /** ISO timestamp of the last local edit (used for sync conflict detection). */
   localModifiedAt?: string;
+  /** Resource Planner v2: stable link to a Resource. Additive — the
+   *  free-text `assignee` remains the display value and the fallback join. */
+  resourceId?: number;
   /**
    * Manual RAG (Red/Amber/Green) override for steering-committee reporting.
    * When set, beats the auto-derived health rules (overdue/blocked/due-soon).
@@ -198,6 +201,8 @@ export type Absence = {
   note?: string;
   /** ISO 8601 — set on every save for sync/conflict detection. */
   localModifiedAt?: string;
+  /** Resource Planner v2: stable link to a Resource (see Task.resourceId). */
+  resourceId?: number;
 };
 
 // ----------------------------------------------------------------------------
@@ -237,3 +242,71 @@ export type Shift = {
   /** ISO 8601 — set on every save for sync/conflict detection. */
   localModifiedAt?: string;
 };
+
+// ----------------------------------------------------------------------------
+// Resource Planner v2 — Resources, Roles (discipline × grade), planning window.
+//
+// First-class workspace entities. A Resource links to tasks/absences by
+// `resourceId` (stable) and carries per-period utilization. A Role is a
+// concrete discipline × grade combination that carries internal/external
+// hourly rates. Discipline and Grade are editable, seeded reference lists.
+
+export type Discipline = { id: number; name: string; localModifiedAt?: string };
+export type Grade = { id: number; name: string; localModifiedAt?: string };
+
+export const PRESET_DISCIPLINES = [
+  "Developer",
+  "Business Analyst",
+  "Consultant",
+  "Project Manager",
+] as const;
+
+export const PRESET_GRADES = [
+  "Junior",
+  "Associate",
+  "Consultant",
+  "Senior",
+  "Lead",
+  "Principal",
+] as const;
+
+export type Role = {
+  id: number;
+  disciplineId: number;
+  gradeId: number;
+  /** Cost per hour in the plan currency. */
+  internalRate: number;
+  /** Customer-billable per hour. */
+  externalRate: number;
+  localModifiedAt?: string;
+};
+
+export type UtilizationMode = "percent" | "hours";
+
+export type Resource = {
+  id: number;
+  name: string;
+  email?: string;
+  /** FK -> Role.id; null when unassigned. */
+  roleId: number | null;
+  utilizationMode: UtilizationMode;
+  /** periodKey ("2026-01" | "2026-W03") -> value (percent 0..100 or hours). */
+  utilization: Record<string, number>;
+  /** periodKey -> manual absence-hours override (auto-derived otherwise). */
+  absenceOverride?: Record<string, number>;
+  /** Soft archive; treated as true when absent. */
+  active?: boolean;
+  localModifiedAt?: string;
+};
+
+export type PlanGranularity = "week" | "month";
+
+export type ResourcePlan = {
+  startDate: string; // "YYYY-MM-DD"
+  endDate: string; // "YYYY-MM-DD"
+  granularity: PlanGranularity; // canonical (editable) granularity
+  currency: string; // ISO 4217
+};
+
+/** Default plan currency when none is set. */
+export const DEFAULT_CURRENCY = "EUR";

@@ -46,7 +46,7 @@ export function AppHeader({
   onGrantStorageWrite,
 }: AppHeaderProps) {
   const { settings, setSettings, lang } = useSettings();
-  const { tasks, raid, absences, shifts } = useWorkspace();
+  const { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan } = useWorkspace();
 
   return (
     <header className="mb-8 flex items-start justify-between gap-4">
@@ -121,7 +121,7 @@ export function AppHeader({
               </span>
             )}
           </button>
-          <ExportMenu lang={lang} tasks={tasks} raid={raid} absences={absences} shifts={shifts} />
+          <ExportMenu lang={lang} tasks={tasks} raid={raid} absences={absences} shifts={shifts} resources={resources} roles={roles} disciplines={disciplines} grades={grades} plan={plan} />
           <HelpMenu lang={lang} />
           <VersionMenu lang={lang} />
           <SettingsMenu

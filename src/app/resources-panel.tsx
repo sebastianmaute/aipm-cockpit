@@ -20,6 +20,7 @@ import { SegmentedControl } from "./segmented-control";
 import {
   type Absence,
   DEFAULT_WEEK_HOURS,
+  type Resource,
   type Shift,
   type Task,
   type WeekHours,
@@ -30,6 +31,7 @@ interface Props {
   tasks: readonly Task[];
   absences: readonly Absence[];
   shifts: readonly Shift[];
+  resources: readonly Resource[];
   today: string;
   holidaySet: ReadonlySet<string>;
   onAddAbsence: (seed?: Partial<Absence>) => void;
@@ -86,6 +88,7 @@ function ResourcesPanelInner({
   tasks,
   absences,
   shifts,
+  resources,
   today,
   holidaySet,
   onAddAbsence,
@@ -197,10 +200,24 @@ function ResourcesPanelInner({
     </header>
   );
 
+  const resourceRoster = resources.length > 0 && (
+    <ul className="mb-3 flex flex-wrap gap-2">
+      {resources.map((r) => (
+        <li key={r.id} className="rounded-md border border-zinc-200 px-2 py-0.5 text-xs text-AIPM-dark-grey dark:border-zinc-800 dark:text-AIPM-light-grey">
+          {r.name}
+          {r.roleId == null && (
+            <span className="ml-1 text-AIPM-medium-grey italic">{t(lang, "resourcesUnassignedRole")}</span>
+          )}
+        </li>
+      ))}
+    </ul>
+  );
+
   if (rows.length === 0) {
     return (
       <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
         {renderHeader(false)}
+        {resourceRoster}
         <div className="mt-3 flex-1 rounded-md border border-dashed border-zinc-300 p-6 text-center text-sm text-AIPM-medium-grey dark:border-zinc-800">
           {t(lang, "resourcesEmpty")}
         </div>
@@ -212,7 +229,9 @@ function ResourcesPanelInner({
     <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
       {renderHeader(true)}
       {view === "list" ? (
-        <div className="min-h-0 flex-1 overflow-auto rounded-md border border-zinc-200 dark:border-zinc-800">
+        <>
+          {resourceRoster}
+          <div className="min-h-0 flex-1 overflow-auto rounded-md border border-zinc-200 dark:border-zinc-800">
           <table className="w-full text-left text-sm">
             <thead className="sticky top-0 z-10 bg-zinc-50 text-xs uppercase tracking-wide text-zinc-500 shadow-sm dark:bg-zinc-900 dark:text-zinc-400">
               <tr>
@@ -304,6 +323,7 @@ function ResourcesPanelInner({
             </tbody>
           </table>
         </div>
+        </>
       ) : (
         <ResourceCalendar
           lang={lang}
