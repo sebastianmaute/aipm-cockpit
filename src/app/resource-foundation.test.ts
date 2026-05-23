@@ -4,8 +4,11 @@ import {
   seedGrades,
   defaultResourcePlan,
   backfillResources,
+  nextId,
+  findRoleByCombo,
+  roleLabel,
 } from "./resource-foundation";
-import { PRESET_DISCIPLINES, PRESET_GRADES, type Task, type Absence } from "./types";
+import { PRESET_DISCIPLINES, PRESET_GRADES, type Task, type Absence, type Role, type Discipline, type Grade } from "./types";
 
 function task(id: number, assignee: string, email?: string): Task {
   return {
@@ -55,5 +58,30 @@ describe("backfillResources", () => {
     const { resources, tasks } = backfillResources([task(1, "   ")], []);
     expect(resources).toHaveLength(0);
     expect(tasks[0].resourceId).toBeUndefined();
+  });
+});
+
+describe("nextId", () => {
+  test("returns 1 for empty, max+1 otherwise", () => {
+    expect(nextId([])).toBe(1);
+    expect(nextId([{ id: 3 }, { id: 7 }, { id: 5 }])).toBe(8);
+  });
+});
+
+describe("findRoleByCombo", () => {
+  const roles: Role[] = [{ id: 1, disciplineId: 2, gradeId: 3, internalRate: 0, externalRate: 0 }];
+  test("matches on discipline+grade", () => {
+    expect(findRoleByCombo(roles, 2, 3)?.id).toBe(1);
+    expect(findRoleByCombo(roles, 2, 4)).toBeUndefined();
+  });
+});
+
+describe("roleLabel", () => {
+  const disciplines: Discipline[] = [{ id: 2, name: "Developer" }];
+  const grades: Grade[] = [{ id: 3, name: "Senior" }];
+  test("formats discipline + grade; empty for null role", () => {
+    const role: Role = { id: 1, disciplineId: 2, gradeId: 3, internalRate: 0, externalRate: 0 };
+    expect(roleLabel(role, disciplines, grades)).toBe("Developer Senior");
+    expect(roleLabel(undefined, disciplines, grades)).toBe("");
   });
 });
