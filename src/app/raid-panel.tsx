@@ -217,6 +217,9 @@ function RaidPanelInner({
     });
   }, [raid, filterTaskId, categoryFilter, severityFilter, statusFilter, search]);
 
+  const effectiveCategory: RaidCategory =
+    categoryFilter === "All" ? "R" : categoryFilter;
+
   function openNew(category: RaidCategory = "R") {
     const probability: RiskScale = 3;
     const impact: RiskScale = 3;
@@ -323,7 +326,7 @@ function RaidPanelInner({
         aria-label={t(lang, "raidCategory")}
         className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm text-zinc-900 shadow-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
       >
-        <option value="All">{t(lang, "raidCategoryAll")}</option>
+        <option value="All">All</option>
         {RAID_CATEGORIES.map((c) => (
           <option key={c} value={c}>
             {categoryLabel(c, lang)}
@@ -396,149 +399,175 @@ function RaidPanelInner({
     <div className="flex h-full min-h-[300px] flex-col">
       {toolbar}
 
-      {raid.length === 0 ? (
-        <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-AIPM-light-grey p-10 text-center text-sm text-AIPM-medium-grey dark:border-zinc-800">
-          <span>{t(lang, "raidEmpty")}</span>
-        </div>
-      ) : visible.length === 0 ? (
-        <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-AIPM-light-grey p-10 text-center text-sm text-AIPM-medium-grey dark:border-zinc-800">
-          <span>{t(lang, "raidNoMatches")}</span>
-        </div>
-      ) : (
-        <div className="min-h-[240px] flex-1 overflow-auto rounded-md border border-zinc-200 dark:border-zinc-800">
-          <table className="min-w-full text-left text-sm">
-            <thead className="sticky top-0 z-10 bg-zinc-50 text-xs uppercase tracking-wide text-AIPM-medium-grey dark:bg-zinc-900">
+      <div className="min-h-[240px] flex-1 overflow-auto rounded-md border border-zinc-200 dark:border-zinc-800">
+        <table className="min-w-full text-left text-sm">
+          <thead className="sticky top-0 z-10 bg-zinc-50 text-xs uppercase tracking-wide text-AIPM-medium-grey dark:bg-zinc-900">
+            <tr>
+              <th className="px-3 py-2">#</th>
+              <th className="px-3 py-2">{t(lang, "raidCategory")}</th>
+              <th className="px-3 py-2">{t(lang, "raidTitle")}</th>
+              <th className="px-3 py-2">{t(lang, "raidSeverity")}</th>
+              <th className="px-3 py-2">{t(lang, "raidStatus")}</th>
+              <th className="px-3 py-2">{t(lang, "raidOwner")}</th>
+              <th className="px-3 py-2">{t(lang, "raidTargetDate")}</th>
+              <th className="px-3 py-2">{t(lang, "raidLinkedTasks")}</th>
+              <th className="px-3 py-2">{t(lang, "raidCausedBy")}</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
+            {raid.length === 0 && (
               <tr>
-                <th className="px-3 py-2">#</th>
-                <th className="px-3 py-2">{t(lang, "raidCategory")}</th>
-                <th className="px-3 py-2">{t(lang, "raidTitle")}</th>
-                <th className="px-3 py-2">{t(lang, "raidSeverity")}</th>
-                <th className="px-3 py-2">{t(lang, "raidStatus")}</th>
-                <th className="px-3 py-2">{t(lang, "raidOwner")}</th>
-                <th className="px-3 py-2">{t(lang, "raidTargetDate")}</th>
-                <th className="px-3 py-2">{t(lang, "raidLinkedTasks")}</th>
-                <th className="px-3 py-2">{t(lang, "raidCausedBy")}</th>
+                <td colSpan={9} className="p-10 text-center text-sm text-AIPM-medium-grey dark:text-zinc-400">
+                  {t(lang, "raidEmpty")}
+                </td>
               </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
-              {visible.map((item) => {
-                const rag = severityRag(item.severity);
-                const terminal = isTerminalStatus(item.status, item.category);
-                return (
-                  <tr
-                    key={item.id}
-                    onClick={() => openEdit(item)}
-                    className={`cursor-pointer align-top hover:bg-AIPM-light-grey/40 dark:hover:bg-zinc-900 ${
-                      terminal ? "opacity-60" : ""
-                    }`}
-                  >
-                    <td className="px-3 py-2 font-mono text-AIPM-medium-grey">
-                      #{item.id}
-                    </td>
-                    <td className="px-3 py-2">
+            )}
+            {raid.length > 0 && visible.length === 0 && (
+              <tr>
+                <td colSpan={9} className="p-10 text-center text-sm text-AIPM-medium-grey dark:text-zinc-400">
+                  {t(lang, "raidNoMatches")}
+                </td>
+              </tr>
+            )}
+            {visible.map((item) => {
+              const rag = severityRag(item.severity);
+              const terminal = isTerminalStatus(item.status, item.category);
+              return (
+                <tr
+                  key={item.id}
+                  onClick={() => openEdit(item)}
+                  className={`cursor-pointer align-top hover:bg-AIPM-light-grey/40 dark:hover:bg-zinc-900 ${
+                    terminal ? "opacity-60" : ""
+                  }`}
+                >
+                  <td className="px-3 py-2 font-mono text-AIPM-medium-grey">
+                    #{item.id}
+                  </td>
+                  <td className="px-3 py-2">
+                    <span
+                      className={`inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-medium ${categoryPillClass[item.category]}`}
+                      title={categoryLabel(item.category, lang)}
+                    >
+                      {item.category}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2 font-medium text-zinc-900 dark:text-zinc-100">
+                    {item.title}
+                  </td>
+                  <td className="px-3 py-2">
+                    <span className="inline-flex items-center gap-1.5">
                       <span
-                        className={`inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-medium ${categoryPillClass[item.category]}`}
-                        title={categoryLabel(item.category, lang)}
-                      >
-                        {item.category}
+                        aria-hidden
+                        className={`inline-block h-2 w-2 rounded-full ${severityDotClass[rag]}`}
+                      />
+                      <span>
+                        {item.severity ? severityLabel(item.severity, lang) : "—"}
+                        {item.category === "R" && item.probability && item.impact
+                          ? ` (${item.probability}×${item.impact})`
+                          : ""}
                       </span>
-                    </td>
-                    <td className="px-3 py-2 font-medium text-zinc-900 dark:text-zinc-100">
-                      {item.title}
-                    </td>
-                    <td className="px-3 py-2">
-                      <span className="inline-flex items-center gap-1.5">
-                        <span
-                          aria-hidden
-                          className={`inline-block h-2 w-2 rounded-full ${severityDotClass[rag]}`}
-                        />
-                        <span>
-                          {item.severity ? severityLabel(item.severity, lang) : "—"}
-                          {item.category === "R" && item.probability && item.impact
-                            ? ` (${item.probability}×${item.impact})`
-                            : ""}
-                        </span>
+                    </span>
+                  </td>
+                  <td className="px-3 py-2 text-zinc-700 dark:text-zinc-300">
+                    {statusLabel(item.status, lang)}
+                  </td>
+                  <td className="px-3 py-2 text-zinc-700 dark:text-zinc-300">
+                    {item.owner ?? ""}
+                  </td>
+                  <td className="px-3 py-2 font-mono text-xs text-AIPM-medium-grey">
+                    {item.targetDate ?? ""}
+                  </td>
+                  <td className="px-3 py-2">
+                    {item.linkedTaskIds.length === 0 ? (
+                      <span className="text-AIPM-medium-grey">—</span>
+                    ) : (
+                      <span className="flex flex-wrap gap-1">
+                        {item.linkedTaskIds.map((tid) => {
+                          const tk = tasksById.get(tid);
+                          return (
+                            <button
+                              key={tid}
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onJumpToTask(tid);
+                              }}
+                              title={tk?.taskName ?? `#${tid}`}
+                              className="inline-flex rounded bg-AIPM-light-grey px-1.5 py-0.5 font-mono text-[10px] text-AIPM-dark-blue hover:bg-AIPM-dark-blue hover:text-white dark:bg-zinc-800 dark:text-AIPM-blue"
+                            >
+                              #{tid}
+                            </button>
+                          );
+                        })}
                       </span>
-                    </td>
-                    <td className="px-3 py-2 text-zinc-700 dark:text-zinc-300">
-                      {statusLabel(item.status, lang)}
-                    </td>
-                    <td className="px-3 py-2 text-zinc-700 dark:text-zinc-300">
-                      {item.owner ?? ""}
-                    </td>
-                    <td className="px-3 py-2 font-mono text-xs text-AIPM-medium-grey">
-                      {item.targetDate ?? ""}
-                    </td>
-                    <td className="px-3 py-2">
-                      {item.linkedTaskIds.length === 0 ? (
-                        <span className="text-AIPM-medium-grey">—</span>
-                      ) : (
-                        <span className="flex flex-wrap gap-1">
-                          {item.linkedTaskIds.map((tid) => {
-                            const tk = tasksById.get(tid);
+                    )}
+                  </td>
+                  <td className="px-3 py-2">
+                    {(() => {
+                      const parentIds = item.causedByRaidIds ?? [];
+                      const children = causesIndex.get(item.id) ?? [];
+                      if (parentIds.length === 0 && children.length === 0) {
+                        return <span className="text-AIPM-medium-grey">—</span>;
+                      }
+                      return (
+                        <span className="flex flex-wrap items-center gap-1">
+                          {parentIds.map((pid) => {
+                            const parent = raidById.get(pid);
                             return (
                               <button
-                                key={tid}
+                                key={pid}
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  onJumpToTask(tid);
+                                  if (parent) openEdit(parent);
                                 }}
-                                title={tk?.taskName ?? `#${tid}`}
-                                className="inline-flex rounded bg-AIPM-light-grey px-1.5 py-0.5 font-mono text-[10px] text-AIPM-dark-blue hover:bg-AIPM-dark-blue hover:text-white dark:bg-zinc-800 dark:text-AIPM-blue"
+                                title={parent?.title ?? `RAID #${pid}`}
+                                className="inline-flex items-center gap-1 rounded bg-AIPM-light-grey px-1.5 py-0.5 font-mono text-[10px] text-AIPM-dark-blue hover:bg-AIPM-dark-blue hover:text-white dark:bg-zinc-800 dark:text-AIPM-blue"
                               >
-                                #{tid}
+                                ↩ #{pid}
                               </button>
                             );
                           })}
+                          {children.length > 0 && (
+                            <span
+                              title={t(lang, "raidCausedThisCount", children.length)}
+                              className="inline-flex items-center rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
+                            >
+                              → {children.length}
+                            </span>
+                          )}
                         </span>
-                      )}
-                    </td>
-                    <td className="px-3 py-2">
-                      {(() => {
-                        const parentIds = item.causedByRaidIds ?? [];
-                        const children = causesIndex.get(item.id) ?? [];
-                        if (parentIds.length === 0 && children.length === 0) {
-                          return <span className="text-AIPM-medium-grey">—</span>;
-                        }
-                        return (
-                          <span className="flex flex-wrap items-center gap-1">
-                            {parentIds.map((pid) => {
-                              const parent = raidById.get(pid);
-                              return (
-                                <button
-                                  key={pid}
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    if (parent) openEdit(parent);
-                                  }}
-                                  title={parent?.title ?? `RAID #${pid}`}
-                                  className="inline-flex items-center gap-1 rounded bg-AIPM-light-grey px-1.5 py-0.5 font-mono text-[10px] text-AIPM-dark-blue hover:bg-AIPM-dark-blue hover:text-white dark:bg-zinc-800 dark:text-AIPM-blue"
-                                >
-                                  ↩ #{pid}
-                                </button>
-                              );
-                            })}
-                            {children.length > 0 && (
-                              <span
-                                title={t(lang, "raidCausedThisCount", children.length)}
-                                className="inline-flex items-center rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
-                              >
-                                → {children.length}
-                              </span>
-                            )}
-                          </span>
-                        );
-                      })()}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
+                      );
+                    })()}
+                  </td>
+                </tr>
+              );
+            })}
+            <tr>
+              <td colSpan={9}>
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => openNew(effectiveCategory)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      openNew(effectiveCategory);
+                    }
+                  }}
+                  aria-label={t(lang, "raidAddItem")}
+                  className="group flex cursor-pointer items-center gap-2 border-b border-dashed border-zinc-200 px-3 py-1.5 text-sm text-zinc-400 hover:bg-AIPM-dark-blue/5 hover:text-AIPM-dark-blue dark:border-zinc-700 dark:hover:bg-white/5"
+                >
+                  <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-3.5 w-3.5 opacity-50 group-hover:opacity-100">
+                    <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
+                  </svg>
+                  {t(lang, "raidAddItem")}
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
 
       {draft && (
         <RaidEditModal
