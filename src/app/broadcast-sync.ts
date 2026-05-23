@@ -112,6 +112,14 @@ export function readPopoutTabFromUrl(): PopoutTab | null {
     : null;
 }
 
+/**
+ * Opens a popout window for the given tab.
+ *
+ * When `reuseWindow` is true the call focuses an already-open popout window
+ * instead of opening a new one. This is a single-slot model: whichever tab
+ * was first popped out owns the slot, and subsequent reuse calls focus that
+ * same window regardless of which `tab` is requested.
+ */
 export function openPopoutWindow(tab: PopoutTab, reuseWindow = false): void {
   if (typeof window === "undefined") return;
   if (reuseWindow && _popoutWindowRef && !_popoutWindowRef.closed) {

@@ -84,6 +84,7 @@ function stubSettings() {
       },
       ai: { consentAccepted: false },
       lang: "en-US",
+      popout: { reuseWindow: false },
     },
     setSettings: vi.fn(),
     hydrated: true,

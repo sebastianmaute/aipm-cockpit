@@ -505,25 +505,17 @@ export function TasksSection({
               ))}
               <tr>
                 <td colSpan={visibleColumnCount}>
-                  <div
-                    role="button"
-                    tabIndex={0}
+                  <button
+                    type="button"
                     onClick={() => { handleCancelEdit(); setTaskModalOpen(true); }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        handleCancelEdit();
-                        setTaskModalOpen(true);
-                      }
-                    }}
                     aria-label={t(lang, "addTask")}
-                    className="group flex cursor-pointer items-center gap-2 border-b border-dashed border-zinc-200 px-3 py-1.5 text-sm text-zinc-400 hover:bg-AIPM-dark-blue/5 hover:text-AIPM-dark-blue dark:border-zinc-700 dark:hover:bg-white/5"
+                    className="group flex w-full cursor-pointer items-center gap-2 border-b border-dashed border-zinc-200 px-3 py-1.5 text-sm text-zinc-400 hover:bg-AIPM-dark-blue/5 hover:text-AIPM-dark-blue dark:border-zinc-700 dark:hover:bg-white/5"
                   >
                     <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-3.5 w-3.5 opacity-50 group-hover:opacity-100">
                       <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
                     </svg>
                     {t(lang, "addTask")}
-                  </div>
+                  </button>
                 </td>
               </tr>
             </tbody>
