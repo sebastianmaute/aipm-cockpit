@@ -1,37 +1,88 @@
 import { riskSeverityFromMatrix } from "./raid";
 import {
+  backfillResources,
+  defaultResourcePlan,
+  seedDisciplines,
+  seedGrades,
+} from "./resource-foundation";
+import {
   dropDanglingDependencies,
+  encodePeriodMap,
   parseDependenciesString,
   sanitizeAbsence,
+  sanitizeDiscipline,
+  sanitizeGrade,
   sanitizeGroup,
   sanitizeLabels,
+  sanitizeResource,
+  sanitizeRole,
   sanitizeShift,
   serializeDependencies,
 } from "./sanitize";
 import {
   type Absence,
+  type Discipline,
+  type Grade,
   type Priority,
   type RaidCategory,
   type RaidItem,
   type RaidSeverity,
   type RaidStatus,
+  type Resource,
+  type ResourcePlan,
   type RiskScale,
+  type Role,
   type Shift,
   type Task,
 } from "./types";
 
 /** Top-level shape persisted to storage. JSON wraps it as an envelope; the
- *  CSV/MD encoders emit four sections in one file. The browser backend
- *  keeps tasks, raid, absences, and shifts under separate IndexedDB object
- *  stores. */
+ *  CSV/MD encoders emit sections in one file. The browser backend keeps each
+ *  entity type under a separate IndexedDB object store. */
 export type Workspace = {
   tasks: Task[];
   raid: RaidItem[];
   absences: Absence[];
-  shifts: Shift[];
+  shifts: Shift[]; // dormant
+  resources: Resource[];
+  roles: Role[];
+  disciplines: Discipline[];
+  grades: Grade[];
+  plan: ResourcePlan;
 };
 
-const SCHEMA_VERSION = 4;
+const SCHEMA_VERSION = 5;
+
+/** A blank workspace with a default plan anchored to today. */
+export function emptyWorkspace(): Workspace {
+  return {
+    tasks: [], raid: [], absences: [], shifts: [],
+    resources: [], roles: [], disciplines: [], grades: [],
+    plan: defaultResourcePlan(new Date().toISOString().slice(0, 10)),
+  };
+}
+
+/**
+ * Idempotent v5 migration over a loaded workspace:
+ *   - seeds discipline/grade reference lists when empty,
+ *   - ensures a plan exists,
+ *   - backfills resources from task/absence assignees the first time
+ *     (when no resources are present yet), stamping resourceId.
+ * Pure — no IndexedDB. Returns a new workspace; reuses arrays unchanged.
+ */
+export function migrateWorkspaceV5(ws: Workspace): Workspace {
+  const disciplines = ws.disciplines.length ? ws.disciplines : seedDisciplines();
+  const grades = ws.grades.length ? ws.grades : seedGrades();
+  const plan = ws.plan ?? defaultResourcePlan(new Date().toISOString().slice(0, 10));
+  let { tasks, absences, resources } = ws;
+  if (resources.length === 0) {
+    const built = backfillResources(tasks, absences);
+    resources = built.resources;
+    tasks = built.tasks;
+    absences = built.absences;
+  }
+  return { ...ws, tasks, absences, resources, roles: ws.roles, disciplines, grades, plan };
+}
 
 // --- Storage configuration -------------------------------------------------
 
