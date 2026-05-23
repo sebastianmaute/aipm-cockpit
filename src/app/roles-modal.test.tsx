@@ -21,8 +21,8 @@ function setup(over: Partial<React.ComponentProps<typeof RolesModal>> = {}) {
 
 test("renders existing role combos with their rates", () => {
   setup();
-  expect(screen.getByText("Developer")).toBeInTheDocument();
-  expect(screen.getByText("Senior")).toBeInTheDocument();
+  expect(screen.getAllByText("Developer").length).toBeGreaterThan(0);
+  expect(screen.getAllByText("Senior").length).toBeGreaterThan(0);
   expect(screen.getByDisplayValue("90")).toBeInTheDocument();
 });
 

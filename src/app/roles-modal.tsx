@@ -98,12 +98,12 @@ export function RolesModal({
               <select value={comboDiscipline} onChange={(e) => setComboDiscipline(e.target.value ? Number(e.target.value) : "")}
                 className="rounded-md border border-zinc-300 px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900">
                 <option value="" label={t(lang, "rolesDiscipline")} />
-                {disciplines.map((d) => <option key={d.id} value={d.id} label={d.name} />)}
+                {disciplines.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
               </select>
               <select value={comboGrade} onChange={(e) => setComboGrade(e.target.value ? Number(e.target.value) : "")}
                 className="rounded-md border border-zinc-300 px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900">
                 <option value="" label={t(lang, "rolesGrade")} />
-                {grades.map((g) => <option key={g.id} value={g.id} label={g.name} />)}
+                {grades.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
               </select>
               <button type="button"
                 disabled={comboDiscipline === "" || comboGrade === ""}
