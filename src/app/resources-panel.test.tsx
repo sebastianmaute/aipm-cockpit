@@ -43,4 +43,15 @@ describe("ResourcesPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "Manage roles" }));
     expect(onManageRoles).toHaveBeenCalled();
   });
+
+  test("choosing a discipline then grade assigns the role", () => {
+    const onAssignRole = vi.fn();
+    const resources = [{ id: 1, name: "Alex Example", roleId: null, utilizationMode: "percent" as const, utilization: {} }];
+    render(<ResourcesPanel {...baseProps} resources={resources} roles={[]}
+      disciplines={[{ id: 2, name: "Developer" }]} grades={[{ id: 3, name: "Senior" }]}
+      onManageRoles={() => {}} onAssignRole={onAssignRole} />);
+    fireEvent.change(screen.getByLabelText("Discipline for Alex Example"), { target: { value: "2" } });
+    fireEvent.change(screen.getByLabelText("Grade for Alex Example"), { target: { value: "3" } });
+    expect(onAssignRole).toHaveBeenCalledWith(1, 2, 3);
+  });
 });

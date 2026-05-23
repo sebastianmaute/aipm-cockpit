@@ -102,7 +102,11 @@ function ResourcesPanelInner({
   onAddAbsence,
   onEditAbsence,
   onEditShift,
+  roles,
+  disciplines,
+  grades,
   onManageRoles,
+  onAssignRole,
 }: Props) {
   const [view, setView] = useState<View>("list");
 
@@ -217,15 +221,46 @@ function ResourcesPanelInner({
   );
 
   const resourceRoster = resources.length > 0 && (
-    <ul className="mb-3 flex flex-wrap gap-2">
-      {resources.map((r) => (
-        <li key={r.id} className="rounded-md border border-zinc-200 px-2 py-0.5 text-xs text-AIPM-dark-grey dark:border-zinc-800 dark:text-AIPM-light-grey">
-          {r.name}
-          {r.roleId == null && (
-            <span className="ml-1 text-AIPM-medium-grey italic">{t(lang, "resourcesUnassignedRole")}</span>
-          )}
-        </li>
-      ))}
+    <ul className="mb-3 flex flex-col gap-2">
+      {resources.map((r) => {
+        const current = roles.find((x) => x.id === r.roleId);
+        const disc = String(current?.disciplineId ?? "");
+        const grad = String(current?.gradeId ?? "");
+        return (
+          <li key={r.id} className="flex flex-wrap items-center gap-2 rounded-md border border-zinc-200 px-2 py-1 text-sm dark:border-zinc-800">
+            <span className="font-medium text-AIPM-dark-grey dark:text-AIPM-light-grey">{r.name}</span>
+            {r.roleId == null && (
+              <span className="text-xs text-AIPM-medium-grey italic">{t(lang, "resourcesUnassignedRole")}</span>
+            )}
+            <select
+              aria-label={`Discipline for ${r.name}`}
+              defaultValue={disc}
+              onChange={(e) => {
+                const d = Number(e.target.value);
+                if (d && grad) onAssignRole(r.id, d, Number(grad));
+              }}
+              className="rounded border border-zinc-300 px-1.5 py-0.5 text-xs dark:border-zinc-700 dark:bg-zinc-900"
+            >
+              <option value="">{t(lang, "rolesDiscipline")}</option>
+              {disciplines.map((d) => <option key={d.id} value={d.id} label={d.name} />)}
+            </select>
+            <select
+              aria-label={`Grade for ${r.name}`}
+              defaultValue={grad}
+              onChange={(e) => {
+                const g = Number(e.target.value);
+                const dEl = document.querySelector(`[aria-label="Discipline for ${r.name}"]`) as HTMLSelectElement | null;
+                const d = dEl ? Number(dEl.value) : 0;
+                if (g && d) onAssignRole(r.id, d, g);
+              }}
+              className="rounded border border-zinc-300 px-1.5 py-0.5 text-xs dark:border-zinc-700 dark:bg-zinc-900"
+            >
+              <option value="">{t(lang, "rolesGrade")}</option>
+              {grades.map((g) => <option key={g.id} value={g.id} label={g.name} />)}
+            </select>
+          </li>
+        );
+      })}
     </ul>
   );
 
