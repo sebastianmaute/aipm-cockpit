@@ -1,6 +1,7 @@
 import { describe, test, expect } from "vitest";
-import { generatePeriods, workdaysInRange, absencesForResource, absenceWorkdays } from "./resource-capacity";
+import { generatePeriods, workdaysInRange, absencesForResource, absenceWorkdays, periodCapacityHours } from "./resource-capacity";
 import type { Absence, Resource } from "./types";
+import type { Period } from "./resource-capacity";
 
 describe("generatePeriods - month", () => {
   test("inclusive month range with correct keys and bounds", () => {
@@ -53,5 +54,43 @@ describe("absenceWorkdays", () => {
     expect(absenceWorkdays(abs, "2026-02-01", "2026-02-28", new Set())).toBe(5);
     // a holiday inside the absence range is not counted as a workday:
     expect(absenceWorkdays(abs, "2026-02-01", "2026-02-28", new Set(["2026-02-04"]))).toBe(4);
+  });
+});
+
+const FEB: Period = { key: "2026-02", start: "2026-02-01", end: "2026-02-28" };
+
+describe("periodCapacityHours - percent mode (Excel golden: Andre month 1)", () => {
+  test("0.95 × (20 workdays − 5.5 absence) days = 13.775 days = 110.2h", () => {
+    const r: Resource = {
+      id: 1, name: "Andre", roleId: null, utilizationMode: "percent",
+      utilization: { "2026-02": 95 }, absenceOverride: { "2026-02": 44 }, // 5.5 days × 8h
+    };
+    const cap = periodCapacityHours(r, FEB, [], 8, new Set());
+    expect(cap).toBeCloseTo(110.2, 6);   // hours
+    expect(cap / 8).toBeCloseTo(13.775, 6); // days
+  });
+});
+
+describe("periodCapacityHours - auto absence + holidays", () => {
+  test("percent 100, one 2-day absence, no override → (20−2)×8 = 144h", () => {
+    const r: Resource = { id: 1, name: "x", roleId: null, utilizationMode: "percent", utilization: { "2026-02": 100 } };
+    const abs: Absence[] = [{ id: 1, assignee: "x", startDate: "2026-02-02", endDate: "2026-02-03", type: "vacation" }];
+    expect(periodCapacityHours(r, FEB, abs, 8, new Set())).toBeCloseTo(144, 6);
+  });
+});
+
+describe("periodCapacityHours - hours mode", () => {
+  test("flat 40h minus 8h auto absence (1 day) = 32h", () => {
+    const r: Resource = { id: 1, name: "x", roleId: null, utilizationMode: "hours", utilization: { "2026-02": 40 } };
+    const abs: Absence[] = [{ id: 1, assignee: "x", startDate: "2026-02-02", endDate: "2026-02-02", type: "vacation" }];
+    expect(periodCapacityHours(r, FEB, abs, 8, new Set())).toBe(32);
+  });
+  test("flat hours never goes negative", () => {
+    const r: Resource = { id: 1, name: "x", roleId: null, utilizationMode: "hours", utilization: { "2026-02": 4 }, absenceOverride: { "2026-02": 40 } };
+    expect(periodCapacityHours(r, FEB, [], 8, new Set())).toBe(0);
+  });
+  test("missing utilization value → 0 capacity", () => {
+    const r: Resource = { id: 1, name: "x", roleId: null, utilizationMode: "percent", utilization: {} };
+    expect(periodCapacityHours(r, FEB, [], 8, new Set())).toBe(0);
   });
 });

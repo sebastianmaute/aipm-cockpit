@@ -115,3 +115,32 @@ export function absenceWorkdays(
   }
   return count;
 }
+
+/**
+ * Capacity (hours) for a (resource, period):
+ *   workdays      = Mon–Fri in period, minus holidays
+ *   possibleHours = workdays × workdayHours
+ *   absenceHours  = absenceOverride[key] if set, else (absence workdays × workdayHours)
+ *   percent mode: (util/100) × max(0, possibleHours − absenceHours)
+ *   hours   mode: max(0, util − absenceHours)
+ * `resourceAbsences` must already be filtered to this resource (use absencesForResource).
+ */
+export function periodCapacityHours(
+  resource: Resource,
+  period: Period,
+  resourceAbsences: readonly Absence[],
+  workdayHours: number,
+  holidaySet: ReadonlySet<string>,
+): number {
+  const workdays = workdaysInRange(period.start, period.end, holidaySet);
+  const possibleHours = workdays * workdayHours;
+  const override = resource.absenceOverride?.[period.key];
+  const absenceHours = override != null
+    ? override
+    : absenceWorkdays(resourceAbsences, period.start, period.end, holidaySet) * workdayHours;
+  const util = resource.utilization[period.key] ?? 0;
+  if (resource.utilizationMode === "percent") {
+    return (util / 100) * Math.max(0, possibleHours - absenceHours);
+  }
+  return Math.max(0, util - absenceHours);
+}
