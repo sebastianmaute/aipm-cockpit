@@ -663,6 +663,17 @@ const enUS = {
     "Note: {0} is on {1} from {2} to {3}.",
   resourcesWorkdayHours: "Hours per work day",
   resourcesUnassignedRole: "no role",
+
+  rolesManageTitle: "Roles & rates",
+  rolesRateCard: "Rate card",
+  rolesDiscipline: "Discipline",
+  rolesGrade: "Grade",
+  rolesInternalRate: "Internal /h",
+  rolesExternalRate: "External /h",
+  rolesAddCombo: "Add role",
+  rolesAddDiscipline: "Add discipline",
+  rolesAddGrade: "Add grade",
+  rolesNoRoles: "No roles yet — add a discipline × grade combination.",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;
