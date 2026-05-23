@@ -94,6 +94,9 @@ function TaskManagerInner() {
     setAbsences,
     shifts,
     setShifts,
+    roles,
+    disciplines,
+    grades,
   } = useWorkspace();
 
   const { contacts, setContacts, contactsList, handleRemoveContact } =
@@ -184,6 +187,17 @@ function TaskManagerInner() {
     handleSaveShift,
     handleDeleteShift,
     handleCreateMitigationTaskFromRaid,
+    rolesModalOpen,
+    handleOpenRolesModal,
+    handleCloseRolesModal,
+    handleSaveRole,
+    handleDeleteRole,
+    resolveOrCreateRole,
+    handleAssignResourceRole,
+    handleAddDiscipline,
+    handleRenameDiscipline,
+    handleAddGrade,
+    handleRenameGrade,
   } = useResourcePlanner({ lang, logActivity, showToast });
 
   const tasksRef = useRef(tasks);
@@ -389,6 +403,8 @@ function TaskManagerInner() {
         handleOpenAddAbsence={handleOpenAddAbsence}
         handleEditAbsence={handleEditAbsence}
         handleOpenShiftEditor={handleOpenShiftEditor}
+        onManageRoles={handleOpenRolesModal}
+        onAssignRole={handleAssignResourceRole}
       />
 
       {!isPopout && (
@@ -478,6 +494,18 @@ function TaskManagerInner() {
         handleCancelEdit={handleCancelEdit}
         handleRemoveContact={handleRemoveContact}
         showToast={showToast}
+        rolesModalOpen={rolesModalOpen}
+        roles={roles}
+        disciplines={disciplines}
+        grades={grades}
+        onSaveRole={handleSaveRole}
+        onDeleteRole={handleDeleteRole}
+        onResolveOrCreateRole={resolveOrCreateRole}
+        onAddDiscipline={handleAddDiscipline}
+        onRenameDiscipline={handleRenameDiscipline}
+        onAddGrade={handleAddGrade}
+        onRenameGrade={handleRenameGrade}
+        onCloseRolesModal={handleCloseRolesModal}
         toast={toast}
       />
     </div>

@@ -7,6 +7,7 @@ import {
   type Grade,
   type Resource,
   type ResourcePlan,
+  type Role,
   type Task,
 } from "./types";
 
@@ -71,4 +72,30 @@ export function backfillResources(
     return r ? { ...a, resourceId: r.id } : a;
   });
   return { resources: Array.from(byKey.values()), tasks: outTasks, absences: outAbsences };
+}
+
+/** Next monotonic id for an entity array (1-based). */
+export function nextId(items: ReadonlyArray<{ id: number }>): number {
+  return items.length ? Math.max(...items.map((i) => i.id)) + 1 : 1;
+}
+
+/** Find the Role for a discipline × grade combination, if one exists. */
+export function findRoleByCombo(
+  roles: ReadonlyArray<Role>,
+  disciplineId: number,
+  gradeId: number,
+): Role | undefined {
+  return roles.find((r) => r.disciplineId === disciplineId && r.gradeId === gradeId);
+}
+
+/** Human label for a role: "Developer Senior". Empty string when role is undefined. */
+export function roleLabel(
+  role: Role | undefined,
+  disciplines: ReadonlyArray<Discipline>,
+  grades: ReadonlyArray<Grade>,
+): string {
+  if (!role) return "";
+  const d = disciplines.find((x) => x.id === role.disciplineId)?.name ?? "?";
+  const g = grades.find((x) => x.id === role.gradeId)?.name ?? "?";
+  return `${d} ${g}`;
 }

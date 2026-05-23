@@ -1,7 +1,7 @@
 // src/app/use-resource-planner.test.tsx
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import type { Absence, RaidItem, Shift } from "./types";
+import type { Absence, RaidItem, Resource, Role, Shift } from "./types";
 import type { Lang } from "./i18n";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { FiltersProvider } from "./filters-context";
@@ -263,6 +263,175 @@ describe("useResourcePlanner", () => {
       expect(result.current.workspace.tasks).toHaveLength(1);
       expect(result.current.workspace.tasks[0].id).toBe(newTaskId);
       expect(result.current.workspace.raid[0].linkedTaskIds).toContain(newTaskId);
+    });
+  });
+
+  describe("roles modal", () => {
+    it("rolesModalOpen is false initially", () => {
+      const { result } = renderPlanner();
+      expect(result.current.planner.rolesModalOpen).toBe(false);
+    });
+
+    it("handleOpenRolesModal sets rolesModalOpen to true", () => {
+      const { result } = renderPlanner();
+      act(() => { result.current.planner.handleOpenRolesModal(); });
+      expect(result.current.planner.rolesModalOpen).toBe(true);
+    });
+
+    it("handleCloseRolesModal sets rolesModalOpen to false", () => {
+      const { result } = renderPlanner();
+      act(() => { result.current.planner.handleOpenRolesModal(); });
+      act(() => { result.current.planner.handleCloseRolesModal(); });
+      expect(result.current.planner.rolesModalOpen).toBe(false);
+    });
+  });
+
+  describe("role CRUD", () => {
+    it("resolveOrCreateRole creates a role once, then is idempotent", () => {
+      const { result } = renderPlanner();
+      let id1 = 0;
+      let id2 = 0;
+      act(() => { id1 = result.current.planner.resolveOrCreateRole(1, 1); });
+      act(() => { id2 = result.current.planner.resolveOrCreateRole(1, 1); });
+      expect(id1).toBe(id2);
+      expect(result.current.workspace.roles).toHaveLength(1);
+    });
+
+    it("resolveOrCreateRole creates distinct roles for different discipline/grade combos", () => {
+      const { result } = renderPlanner();
+      let id1 = 0;
+      let id2 = 0;
+      act(() => { id1 = result.current.planner.resolveOrCreateRole(1, 1); });
+      act(() => { id2 = result.current.planner.resolveOrCreateRole(1, 2); });
+      expect(id1).not.toBe(id2);
+      expect(result.current.workspace.roles).toHaveLength(2);
+    });
+
+    it("handleAssignResourceRole sets the resource's roleId", () => {
+      const { result } = renderPlanner();
+      const resource: Resource = {
+        id: 1,
+        name: "Sample",
+        roleId: null,
+        utilizationMode: "percent",
+        utilization: {},
+      };
+      act(() => { result.current.workspace.setResources([resource]); });
+      act(() => { result.current.planner.handleAssignResourceRole(1, 1, 1); });
+      expect(result.current.workspace.resources[0].roleId).not.toBeNull();
+    });
+
+    it("handleClearResourceRole sets the resource's roleId to null", () => {
+      const { result } = renderPlanner();
+      const resource: Resource = {
+        id: 1,
+        name: "Sample",
+        roleId: 5,
+        utilizationMode: "percent",
+        utilization: {},
+      };
+      act(() => { result.current.workspace.setResources([resource]); });
+      act(() => { result.current.planner.handleClearResourceRole(1); });
+      expect(result.current.workspace.resources[0].roleId).toBeNull();
+    });
+
+    it("handleDeleteRole removes the role and clears referencing resources' roleId", () => {
+      const { result } = renderPlanner();
+      const role: Role = {
+        id: 5,
+        disciplineId: 1,
+        gradeId: 1,
+        internalRate: 0,
+        externalRate: 0,
+      };
+      const resource: Resource = {
+        id: 1,
+        name: "Sample",
+        roleId: 5,
+        utilizationMode: "percent",
+        utilization: {},
+      };
+      act(() => {
+        result.current.workspace.setRoles([role]);
+        result.current.workspace.setResources([resource]);
+      });
+      act(() => { result.current.planner.handleDeleteRole(5); });
+      expect(result.current.workspace.roles.some((r) => r.id === 5)).toBe(false);
+      expect(result.current.workspace.resources[0].roleId).toBeNull();
+    });
+
+    it("handleSaveRole updates an existing role in-place", () => {
+      const { result } = renderPlanner();
+      const role: Role = {
+        id: 1,
+        disciplineId: 1,
+        gradeId: 1,
+        internalRate: 100,
+        externalRate: 150,
+      };
+      act(() => { result.current.workspace.setRoles([role]); });
+      act(() => {
+        result.current.planner.handleSaveRole({ ...role, internalRate: 200 });
+      });
+      expect(result.current.workspace.roles[0].internalRate).toBe(200);
+    });
+  });
+
+  describe("discipline CRUD", () => {
+    it("handleAddDiscipline appends a trimmed discipline and returns its id", () => {
+      const { result } = renderPlanner();
+      act(() => {
+        result.current.workspace.setDisciplines([{ id: 1, name: "Developer" }]);
+      });
+      let id = 0;
+      act(() => { id = result.current.planner.handleAddDiscipline("  QA  ")!; });
+      const added = result.current.workspace.disciplines.find((d) => d.id === id);
+      expect(added?.name).toBe("QA");
+    });
+
+    it("handleAddDiscipline returns null for blank input", () => {
+      const { result } = renderPlanner();
+      let id: number | null = -1;
+      act(() => { id = result.current.planner.handleAddDiscipline("   "); });
+      expect(id).toBeNull();
+    });
+
+    it("handleRenameDiscipline updates the discipline name", () => {
+      const { result } = renderPlanner();
+      act(() => {
+        result.current.workspace.setDisciplines([{ id: 1, name: "Developer" }]);
+      });
+      act(() => { result.current.planner.handleRenameDiscipline(1, "Engineer"); });
+      expect(result.current.workspace.disciplines[0].name).toBe("Engineer");
+    });
+  });
+
+  describe("grade CRUD", () => {
+    it("handleAddGrade appends a trimmed grade and returns its id", () => {
+      const { result } = renderPlanner();
+      act(() => {
+        result.current.workspace.setGrades([{ id: 1, name: "Junior" }]);
+      });
+      let id = 0;
+      act(() => { id = result.current.planner.handleAddGrade("  Senior  ")!; });
+      const added = result.current.workspace.grades.find((g) => g.id === id);
+      expect(added?.name).toBe("Senior");
+    });
+
+    it("handleAddGrade returns null for blank input", () => {
+      const { result } = renderPlanner();
+      let id: number | null = -1;
+      act(() => { id = result.current.planner.handleAddGrade(""); });
+      expect(id).toBeNull();
+    });
+
+    it("handleRenameGrade updates the grade name", () => {
+      const { result } = renderPlanner();
+      act(() => {
+        result.current.workspace.setGrades([{ id: 1, name: "Junior" }]);
+      });
+      act(() => { result.current.planner.handleRenameGrade(1, "Mid"); });
+      expect(result.current.workspace.grades[0].name).toBe("Mid");
     });
   });
 });

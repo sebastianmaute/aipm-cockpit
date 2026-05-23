@@ -66,6 +66,8 @@ export interface WorkspaceSectionProps {
     existingShift: Shift | null,
     assignee: { display: string; email: string },
   ) => void;
+  onManageRoles: () => void;
+  onAssignRole: (resourceId: number, disciplineId: number, gradeId: number) => void;
 }
 
 export function WorkspaceSection({
@@ -90,9 +92,11 @@ export function WorkspaceSection({
   handleOpenAddAbsence,
   handleEditAbsence,
   handleOpenShiftEditor,
+  onManageRoles,
+  onAssignRole,
 }: WorkspaceSectionProps) {
   const { settings, lang } = useSettings();
-  const { tasks, raid, absences, shifts, resources } = useWorkspace();
+  const { tasks, raid, absences, shifts, resources, roles, disciplines, grades } = useWorkspace();
   const { activeTab, setActiveTab, isPopout } = useWorkspaceTab();
   const { raidFilterTaskId } = useFilters();
 
@@ -328,6 +332,11 @@ export function WorkspaceSection({
               onAddAbsence={handleOpenAddAbsence}
               onEditAbsence={handleEditAbsence}
               onEditShift={handleOpenShiftEditor}
+              roles={roles}
+              disciplines={disciplines}
+              grades={grades}
+              onManageRoles={onManageRoles}
+              onAssignRole={onAssignRole}
             />
           </div>
         )}

@@ -13,14 +13,17 @@
 // row; display uses the first observed original casing. See
 // docs/RESOURCE-PLANNER-PLAN.md.
 
-import { memo, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { ResourceCalendar } from "./resource-calendar";
 import { SegmentedControl } from "./segmented-control";
 import {
   type Absence,
   DEFAULT_WEEK_HOURS,
+  type Discipline,
+  type Grade,
   type Resource,
+  type Role,
   type Shift,
   type Task,
   type WeekHours,
@@ -43,6 +46,11 @@ interface Props {
     existingShift: Shift | null,
     assignee: { display: string; email: string },
   ) => void;
+  roles: readonly Role[];
+  disciplines: readonly Discipline[];
+  grades: readonly Grade[];
+  onManageRoles: () => void;
+  onAssignRole: (resourceId: number, disciplineId: number, gradeId: number) => void;
 }
 
 type View = "list" | "calendar";
@@ -83,6 +91,68 @@ function shortDateRange(a: Absence, lang: Lang): string {
   return `${start.toLocaleDateString(loc, fmt)}–${end.toLocaleDateString(loc, fmt)}`;
 }
 
+function ResourceRoleRow({
+  lang, resource, roles, disciplines, grades, onAssignRole,
+}: {
+  lang: Lang;
+  resource: Resource;
+  roles: readonly Role[];
+  disciplines: readonly Discipline[];
+  grades: readonly Grade[];
+  onAssignRole: (resourceId: number, disciplineId: number, gradeId: number) => void;
+}) {
+  const current = roles.find((x) => x.id === resource.roleId);
+  const curDisc = current?.disciplineId ?? "";
+  const curGrad = current?.gradeId ?? "";
+  const [disc, setDisc] = useState<number | "">(curDisc);
+  const [grad, setGrad] = useState<number | "">(curGrad);
+  // Re-sync when the resource's role changes externally (assignment elsewhere,
+  // role deletion nulling roleId, cross-window broadcast).
+  useEffect(() => {
+    setDisc(curDisc);
+    setGrad(curGrad);
+  }, [curDisc, curGrad]);
+
+  return (
+    <li className="flex flex-wrap items-center gap-2 rounded-md border border-zinc-200 px-2 py-1 text-sm dark:border-zinc-800">
+      <span className="font-medium text-AIPM-dark-grey dark:text-AIPM-light-grey">{resource.name}</span>
+      {resource.roleId == null && (
+        <span className="text-xs text-AIPM-medium-grey italic">{t(lang, "resourcesUnassignedRole")}</span>
+      )}
+      <select
+        aria-label={`Discipline for ${resource.name}`}
+        value={disc === "" ? "" : String(disc)}
+        onChange={(e) => {
+          const v = e.target.value === "" ? "" : Number(e.target.value);
+          setDisc(v);
+          if (v !== "" && grad !== "") onAssignRole(resource.id, v, Number(grad));
+        }}
+        className="rounded border border-zinc-300 px-1.5 py-0.5 text-xs dark:border-zinc-700 dark:bg-zinc-900"
+      >
+        <option value="">{t(lang, "rolesDiscipline")}</option>
+        {disciplines.map((d) => (
+          <option key={d.id} value={d.id}>{d.name}</option>
+        ))}
+      </select>
+      <select
+        aria-label={`Grade for ${resource.name}`}
+        value={grad === "" ? "" : String(grad)}
+        onChange={(e) => {
+          const v = e.target.value === "" ? "" : Number(e.target.value);
+          setGrad(v);
+          if (disc !== "" && v !== "") onAssignRole(resource.id, Number(disc), v);
+        }}
+        className="rounded border border-zinc-300 px-1.5 py-0.5 text-xs dark:border-zinc-700 dark:bg-zinc-900"
+      >
+        <option value="">{t(lang, "rolesGrade")}</option>
+        {grades.map((g) => (
+          <option key={g.id} value={g.id}>{g.name}</option>
+        ))}
+      </select>
+    </li>
+  );
+}
+
 function ResourcesPanelInner({
   lang,
   tasks,
@@ -94,6 +164,11 @@ function ResourcesPanelInner({
   onAddAbsence,
   onEditAbsence,
   onEditShift,
+  roles,
+  disciplines,
+  grades,
+  onManageRoles,
+  onAssignRole,
 }: Props) {
   const [view, setView] = useState<View>("list");
 
@@ -191,6 +266,13 @@ function ResourcesPanelInner({
         )}
         <button
           type="button"
+          onClick={onManageRoles}
+          className="rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-xs font-medium text-AIPM-dark-grey shadow-sm hover:border-AIPM-dark-blue hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-AIPM-light-grey dark:hover:bg-zinc-800"
+        >
+          {t(lang, "resourcesManageRoles")}
+        </button>
+        <button
+          type="button"
           onClick={() => onAddAbsence()}
           className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-AIPM-dark-blue/90"
         >
@@ -201,14 +283,17 @@ function ResourcesPanelInner({
   );
 
   const resourceRoster = resources.length > 0 && (
-    <ul className="mb-3 flex flex-wrap gap-2">
+    <ul className="mb-3 flex flex-col gap-2">
       {resources.map((r) => (
-        <li key={r.id} className="rounded-md border border-zinc-200 px-2 py-0.5 text-xs text-AIPM-dark-grey dark:border-zinc-800 dark:text-AIPM-light-grey">
-          {r.name}
-          {r.roleId == null && (
-            <span className="ml-1 text-AIPM-medium-grey italic">{t(lang, "resourcesUnassignedRole")}</span>
-          )}
-        </li>
+        <ResourceRoleRow
+          key={r.id}
+          lang={lang}
+          resource={r}
+          roles={roles}
+          disciplines={disciplines}
+          grades={grades}
+          onAssignRole={onAssignRole}
+        />
       ))}
     </ul>
   );

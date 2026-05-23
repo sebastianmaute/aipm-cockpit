@@ -681,4 +681,16 @@ export const de: Record<TranslationKey, string> = {
     "Hinweis: {0} ist von {2} bis {3} ({1}).",
   resourcesWorkdayHours: "Stunden pro Arbeitstag",
   resourcesUnassignedRole: "keine Rolle",
+
+  rolesManageTitle: "Rollen & Sätze",
+  rolesRateCard: "Satztabelle",
+  rolesDiscipline: "Disziplin",
+  rolesGrade: "Stufe",
+  rolesInternalRate: "Intern /Std",
+  rolesExternalRate: "Extern /Std",
+  rolesAddCombo: "Rolle hinzufügen",
+  rolesAddDiscipline: "Disziplin hinzufügen",
+  rolesAddGrade: "Stufe hinzufügen",
+  rolesNoRoles: "Noch keine Rollen — Disziplin × Stufe hinzufügen.",
+  resourcesManageRoles: "Rollen verwalten",
 };

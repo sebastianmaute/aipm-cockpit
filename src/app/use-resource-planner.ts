@@ -2,7 +2,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { nextRaidId } from "./raid";
-import { DEFAULT_WEEK_HOURS, type Absence, type RaidItem, type Shift, type Task } from "./types";
+import { nextId } from "./resource-foundation";
+import { DEFAULT_WEEK_HOURS, type Absence, type RaidItem, type Role, type Shift, type Task } from "./types";
 import type { ActivityKind } from "./activity-log";
 import { useWorkspace } from "./workspace-context";
 
@@ -49,6 +50,14 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
     setAbsences,
     shifts,
     setShifts,
+    resources,
+    setResources,
+    roles,
+    setRoles,
+    disciplines,
+    setDisciplines,
+    grades,
+    setGrades,
   } = useWorkspace();
 
   const langRef = useRef(args.lang);
@@ -268,6 +277,131 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
     [shifts, setShifts],
   );
 
+  const [rolesModalOpen, setRolesModalOpen] = useState(false);
+  const handleOpenRolesModal = useCallback(() => setRolesModalOpen(true), []);
+  const handleCloseRolesModal = useCallback(() => setRolesModalOpen(false), []);
+
+  const resolveOrCreateRole = useCallback(
+    (disciplineId: number, gradeId: number): number => {
+      const existing = roles.find(
+        (r) => r.disciplineId === disciplineId && r.gradeId === gradeId,
+      );
+      if (existing) return existing.id;
+      const id = nextId(roles);
+      const role: Role = {
+        id,
+        disciplineId,
+        gradeId,
+        internalRate: 0,
+        externalRate: 0,
+        localModifiedAt: new Date().toISOString(),
+      };
+      setRoles((prev) => [...prev, role]);
+      return id;
+    },
+    [roles, setRoles],
+  );
+
+  const handleSaveRole = useCallback(
+    (role: Role) => {
+      const stamp = new Date().toISOString();
+      setRoles((prev) =>
+        prev.map((r) => (r.id === role.id ? { ...role, localModifiedAt: stamp } : r)),
+      );
+    },
+    [setRoles],
+  );
+
+  const handleDeleteRole = useCallback(
+    (id: number) => {
+      const stamp = new Date().toISOString();
+      setRoles((prev) => prev.filter((r) => r.id !== id));
+      setResources((prev) =>
+        prev.map((r) =>
+          r.roleId === id ? { ...r, roleId: null, localModifiedAt: stamp } : r,
+        ),
+      );
+    },
+    [setRoles, setResources],
+  );
+
+  const handleAssignResourceRole = useCallback(
+    (resourceId: number, disciplineId: number, gradeId: number) => {
+      const roleId = resolveOrCreateRole(disciplineId, gradeId);
+      const stamp = new Date().toISOString();
+      setResources((prev) =>
+        prev.map((r) =>
+          r.id === resourceId ? { ...r, roleId, localModifiedAt: stamp } : r,
+        ),
+      );
+    },
+    [resolveOrCreateRole, setResources],
+  );
+
+  const handleClearResourceRole = useCallback(
+    (resourceId: number) => {
+      const stamp = new Date().toISOString();
+      setResources((prev) =>
+        prev.map((r) =>
+          r.id === resourceId ? { ...r, roleId: null, localModifiedAt: stamp } : r,
+        ),
+      );
+    },
+    [setResources],
+  );
+
+  const handleAddDiscipline = useCallback(
+    (name: string): number | null => {
+      const clean = name.trim();
+      if (!clean) return null;
+      const id = nextId(disciplines);
+      setDisciplines((prev) => [
+        ...prev,
+        { id, name: clean, localModifiedAt: new Date().toISOString() },
+      ]);
+      return id;
+    },
+    [disciplines, setDisciplines],
+  );
+
+  const handleRenameDiscipline = useCallback(
+    (id: number, name: string) => {
+      const clean = name.trim();
+      if (!clean) return;
+      const stamp = new Date().toISOString();
+      setDisciplines((prev) =>
+        prev.map((d) => (d.id === id ? { ...d, name: clean, localModifiedAt: stamp } : d)),
+      );
+    },
+    [setDisciplines],
+  );
+
+  const handleAddGrade = useCallback(
+    (name: string): number | null => {
+      const clean = name.trim();
+      if (!clean) return null;
+      const id = nextId(grades);
+      setGrades((prev) => [
+        ...prev,
+        { id, name: clean, localModifiedAt: new Date().toISOString() },
+      ]);
+      return id;
+    },
+    [grades, setGrades],
+  );
+
+  const handleRenameGrade = useCallback(
+    (id: number, name: string) => {
+      const clean = name.trim();
+      if (!clean) return;
+      const stamp = new Date().toISOString();
+      setGrades((prev) =>
+        prev.map((g) => (g.id === id ? { ...g, name: clean, localModifiedAt: stamp } : g)),
+      );
+    },
+    [setGrades],
+  );
+
   const handleCreateMitigationTaskFromRaid = useCallback(
     (raidItemId: number): number | null => {
       const item = raid.find((r) => r.id === raidItemId);
@@ -324,5 +458,17 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
     handleSaveShift,
     handleDeleteShift,
     handleCreateMitigationTaskFromRaid,
+    rolesModalOpen,
+    handleOpenRolesModal,
+    handleCloseRolesModal,
+    resolveOrCreateRole,
+    handleSaveRole,
+    handleDeleteRole,
+    handleAssignResourceRole,
+    handleClearResourceRole,
+    handleAddDiscipline,
+    handleRenameDiscipline,
+    handleAddGrade,
+    handleRenameGrade,
   };
 }

@@ -84,6 +84,18 @@ function makeProps(): AppModalsProps {
     handleCancelEdit: vi.fn(),
     handleRemoveContact: vi.fn(),
     showToast: vi.fn(),
+    rolesModalOpen: false,
+    roles: [],
+    disciplines: [],
+    grades: [],
+    onSaveRole: vi.fn(),
+    onDeleteRole: vi.fn(),
+    onResolveOrCreateRole: vi.fn(),
+    onAddDiscipline: vi.fn(),
+    onRenameDiscipline: vi.fn(),
+    onAddGrade: vi.fn(),
+    onRenameGrade: vi.fn(),
+    onCloseRolesModal: vi.fn(),
     toast: null,
   };
 }
