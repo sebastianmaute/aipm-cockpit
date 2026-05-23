@@ -17,12 +17,14 @@ import { memo, useEffect, useMemo, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { ResourceCalendar } from "./resource-calendar";
 import { SegmentedControl } from "./segmented-control";
+import { generatePeriods, displayCapacityHours, absencesForResource } from "./resource-capacity";
 import {
   type Absence,
   DEFAULT_WEEK_HOURS,
   type Discipline,
   type Grade,
   type Resource,
+  type ResourcePlan,
   type Role,
   type Shift,
   type Task,
@@ -51,9 +53,16 @@ interface Props {
   grades: readonly Grade[];
   onManageRoles: () => void;
   onAssignRole: (resourceId: number, disciplineId: number, gradeId: number) => void;
+  plan: ResourcePlan;
+  workdayHours: number;
+  onSetUtilization: (resourceId: number, periodKey: string, value: number) => void;
+  onSetUtilizationMode: (resourceId: number, mode: "percent" | "hours") => void;
+  onSetAbsenceOverride: (resourceId: number, periodKey: string, hours: number | null) => void;
+  onSetPlanWindow: (startDate: string, endDate: string) => void;
+  onSetPlanGranularity: (granularity: "week" | "month") => void;
 }
 
-type View = "list" | "calendar";
+type View = "list" | "calendar" | "planning";
 
 interface AssigneeRow {
   key: string;          // case-folded join key
@@ -169,6 +178,13 @@ function ResourcesPanelInner({
   grades,
   onManageRoles,
   onAssignRole,
+  plan,
+  workdayHours,
+  onSetUtilization,
+  onSetUtilizationMode: _onSetUtilizationMode,
+  onSetAbsenceOverride: _onSetAbsenceOverride,
+  onSetPlanWindow: _onSetPlanWindow,
+  onSetPlanGranularity: _onSetPlanGranularity,
 }: Props) {
   const [view, setView] = useState<View>("list");
 
@@ -254,15 +270,29 @@ function ResourcesPanelInner({
       </h2>
       <div className="flex items-center gap-3">
         {showToggle && (
-          <SegmentedControl<View>
-            value={view}
-            ariaLabel={t(lang, "tabResources")}
-            options={[
-              { value: "list", label: t(lang, "resourcesViewList") },
-              { value: "calendar", label: t(lang, "resourcesViewCalendar") },
-            ]}
-            onChange={setView}
-          />
+          <>
+            <SegmentedControl<"list" | "calendar">
+              value={view === "planning" ? "list" : view}
+              ariaLabel={t(lang, "tabResources")}
+              options={[
+                { value: "list", label: t(lang, "resourcesViewList") },
+                { value: "calendar", label: t(lang, "resourcesViewCalendar") },
+              ]}
+              onChange={(v) => setView(v)}
+            />
+            <button
+              type="button"
+              onClick={() => setView("planning")}
+              aria-pressed={view === "planning"}
+              className={`rounded-md border px-2.5 py-1.5 text-xs font-medium shadow-sm ${
+                view === "planning"
+                  ? "border-AIPM-dark-blue bg-AIPM-dark-blue text-white"
+                  : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              }`}
+            >
+              {t(lang, "resourcesViewPlanning")}
+            </button>
+          </>
         )}
         <button
           type="button"
@@ -298,11 +328,12 @@ function ResourcesPanelInner({
     </ul>
   );
 
-  if (rows.length === 0) {
+  const showToggle = rows.length > 0 || resources.length > 0;
+
+  if (rows.length === 0 && resources.length === 0) {
     return (
       <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
         {renderHeader(false)}
-        {resourceRoster}
         <div className="mt-3 flex-1 rounded-md border border-dashed border-zinc-300 p-6 text-center text-sm text-AIPM-medium-grey dark:border-zinc-800">
           {t(lang, "resourcesEmpty")}
         </div>
@@ -312,7 +343,47 @@ function ResourcesPanelInner({
 
   return (
     <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-      {renderHeader(true)}
+      {renderHeader(showToggle)}
+      {view === "planning" && (() => {
+        const periods = generatePeriods(plan.startDate, plan.endDate, plan.granularity);
+        return (
+          <div className="min-h-0 flex-1 overflow-auto rounded-md border border-zinc-200 dark:border-zinc-800">
+            <table className="text-left text-xs">
+              <thead className="sticky top-0 bg-zinc-50 dark:bg-zinc-900">
+                <tr>
+                  <th className="px-2 py-1.5 text-left">{t(lang, "assignee")}</th>
+                  {periods.map((p) => (
+                    <th key={p.key} className="px-2 py-1.5 text-right tabular-nums">{p.key}</th>
+                  ))}
+                  <th className="px-2 py-1.5 text-right">{t(lang, "resourcesCapacityDays")}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                {resources.map((r) => {
+                  const resAbs = absencesForResource(absences, r);
+                  const totalDays = periods.reduce((sum, p) =>
+                    sum + displayCapacityHours(p, periods, r, resAbs, workdayHours, holidaySet, plan.granularity, plan.granularity) / workdayHours, 0);
+                  return (
+                    <tr key={r.id}>
+                      <td className="px-2 py-1 font-medium text-AIPM-dark-grey dark:text-AIPM-light-grey">{r.name}</td>
+                      {periods.map((p) => (
+                        <td key={p.key} className="px-1 py-1 text-right">
+                          <input type="number" min={0} step={r.utilizationMode === "percent" ? 5 : 1}
+                            aria-label={`Utilization for ${r.name} in ${p.key}`}
+                            value={r.utilization[p.key] ?? ""}
+                            onChange={(e) => onSetUtilization(r.id, p.key, Number(e.target.value) || 0)}
+                            className="w-16 rounded border border-zinc-300 px-1 py-0.5 text-right tabular-nums dark:border-zinc-700 dark:bg-zinc-900" />
+                        </td>
+                      ))}
+                      <td className="px-2 py-1 text-right tabular-nums font-medium">{totalDays.toFixed(1)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        );
+      })()}
       {view === "list" ? (
         <>
           {resourceRoster}

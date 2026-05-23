@@ -198,6 +198,11 @@ function TaskManagerInner() {
     handleRenameDiscipline,
     handleAddGrade,
     handleRenameGrade,
+    handleSetUtilization,
+    handleSetUtilizationMode,
+    handleSetAbsenceOverride,
+    handleSetPlanWindow,
+    handleSetPlanGranularity,
   } = useResourcePlanner({ lang, logActivity, showToast });
 
   const tasksRef = useRef(tasks);
@@ -405,6 +410,11 @@ function TaskManagerInner() {
         handleOpenShiftEditor={handleOpenShiftEditor}
         onManageRoles={handleOpenRolesModal}
         onAssignRole={handleAssignResourceRole}
+        onSetUtilization={handleSetUtilization}
+        onSetUtilizationMode={handleSetUtilizationMode}
+        onSetAbsenceOverride={handleSetAbsenceOverride}
+        onSetPlanWindow={handleSetPlanWindow}
+        onSetPlanGranularity={handleSetPlanGranularity}
       />
 
       {!isPopout && (
