@@ -326,7 +326,7 @@ function RaidPanelInner({
         aria-label={t(lang, "raidCategory")}
         className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm text-zinc-900 shadow-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
       >
-        <option value="All">All</option>
+        <option value="All">{t(lang, "raidCategoryAll")}</option>
         {RAID_CATEGORIES.map((c) => (
           <option key={c} value={c}>
             {categoryLabel(c, lang)}

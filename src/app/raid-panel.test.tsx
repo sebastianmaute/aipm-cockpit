@@ -60,7 +60,7 @@ describe("RaidPanel inline add row", () => {
 
   it("clicking inline add row when category filter is 'A' opens modal with category A", () => {
     render(<RaidPanel {...makeProps()} />);
-    const categorySelect = screen.getByDisplayValue("All");
+    const categorySelect = screen.getByDisplayValue(t("en-US", "raidCategoryAll"));
     fireEvent.change(categorySelect, { target: { value: "A" } });
     const addBtns = screen.getAllByRole("button", { name: t("en-US", "raidAddItem") });
     fireEvent.click(addBtns[addBtns.length - 1]);
