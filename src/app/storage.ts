@@ -164,12 +164,17 @@ export interface StorageBackend {
 // the new record stores additively.
 
 const IDB_NAME = "lop-app";
-const IDB_VERSION = 4;
+const IDB_VERSION = 5;
 const IDB_KV_STORE = "kv";
 const IDB_TASKS_STORE = "tasks";
 const IDB_RAID_STORE = "raid";
 const IDB_ABSENCES_STORE = "absences";
 const IDB_SHIFTS_STORE = "shifts";
+const IDB_RESOURCES_STORE = "resources";
+const IDB_ROLES_STORE = "roles";
+const IDB_DISCIPLINES_STORE = "disciplines";
+const IDB_GRADES_STORE = "grades";
+const KV_PLAN_KEY = "resource-plan";
 
 function openIdb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -194,6 +199,18 @@ function openIdb(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains(IDB_SHIFTS_STORE)) {
         db.createObjectStore(IDB_SHIFTS_STORE, { keyPath: "id" });
+      }
+      if (!db.objectStoreNames.contains(IDB_RESOURCES_STORE)) {
+        db.createObjectStore(IDB_RESOURCES_STORE, { keyPath: "id" });
+      }
+      if (!db.objectStoreNames.contains(IDB_ROLES_STORE)) {
+        db.createObjectStore(IDB_ROLES_STORE, { keyPath: "id" });
+      }
+      if (!db.objectStoreNames.contains(IDB_DISCIPLINES_STORE)) {
+        db.createObjectStore(IDB_DISCIPLINES_STORE, { keyPath: "id" });
+      }
+      if (!db.objectStoreNames.contains(IDB_GRADES_STORE)) {
+        db.createObjectStore(IDB_GRADES_STORE, { keyPath: "id" });
       }
     };
     req.onsuccess = () => resolve(req.result);
@@ -1797,6 +1814,10 @@ class BrowserBackend implements StorageBackend {
   private raidBaseline = new Map<number, RaidItem>();
   private absencesBaseline = new Map<number, Absence>();
   private shiftsBaseline = new Map<number, Shift>();
+  private resourcesBaseline = new Map<number, Resource>();
+  private rolesBaseline = new Map<number, Role>();
+  private disciplinesBaseline = new Map<number, Discipline>();
+  private gradesBaseline = new Map<number, Grade>();
 
   async load(): Promise<Workspace> {
     if (typeof window === "undefined") return emptyWorkspace();
@@ -1805,11 +1826,21 @@ class BrowserBackend implements StorageBackend {
     let raid: RaidItem[] = [];
     let absences: Absence[] = [];
     let shifts: Shift[] = [];
+    let resources: Resource[] = [];
+    let roles: Role[] = [];
+    let disciplines: Discipline[] = [];
+    let grades: Grade[] = [];
+    let plan: ResourcePlan = defaultResourcePlan(new Date().toISOString().slice(0, 10));
     try {
       tasks = await idbGetAll<Task>(IDB_TASKS_STORE);
       raid = await idbGetAll<RaidItem>(IDB_RAID_STORE);
       absences = await idbGetAll<Absence>(IDB_ABSENCES_STORE);
       shifts = await idbGetAll<Shift>(IDB_SHIFTS_STORE);
+      resources = await idbGetAll<Resource>(IDB_RESOURCES_STORE);
+      roles = await idbGetAll<Role>(IDB_ROLES_STORE);
+      disciplines = await idbGetAll<Discipline>(IDB_DISCIPLINES_STORE);
+      grades = await idbGetAll<Grade>(IDB_GRADES_STORE);
+      plan = (await idbGet<ResourcePlan>(KV_PLAN_KEY)) ?? plan;
     } catch {
       // IDB unavailable or upgrade failed. Fall through — the legacy
       // migration block below will still try localStorage, and if that's
@@ -1820,15 +1851,34 @@ class BrowserBackend implements StorageBackend {
       const migrated = await this.migrateLegacyIfNeeded();
       tasks = migrated.tasks;
       raid = migrated.raid;
-      // Legacy localStorage never stored absences/shifts — leave as-is
+      // Legacy localStorage never stored absences/shifts/resources — leave as-is
       // from the (possibly successful) idbGetAll attempts above.
     }
 
-    this.tasksBaseline = new Map(tasks.map((t) => [t.id, t]));
-    this.raidBaseline = new Map(raid.map((r) => [r.id, r]));
-    this.absencesBaseline = new Map(absences.map((a) => [a.id, a]));
-    this.shiftsBaseline = new Map(shifts.map((s) => [s.id, s]));
-    return { tasks, raid, absences, shifts };
+    const ranMigration = resources.length === 0; // backfill/seed will run
+    const raw: Workspace = { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan };
+    const ws = migrateWorkspaceV5(raw);
+
+    if (ranMigration) {
+      try {
+        await idbBulkUpdate(IDB_RESOURCES_STORE, ws.resources, []);
+        await idbBulkUpdate(IDB_DISCIPLINES_STORE, ws.disciplines, []);
+        await idbBulkUpdate(IDB_GRADES_STORE, ws.grades, []);
+        await idbBulkUpdate(IDB_TASKS_STORE, ws.tasks, []); // resourceId stamped
+        await idbBulkUpdate(IDB_ABSENCES_STORE, ws.absences, []);
+        await idbSet(KV_PLAN_KEY, ws.plan);
+      } catch { /* non-fatal: retried next load */ }
+    }
+
+    this.tasksBaseline = new Map(ws.tasks.map((t) => [t.id, t]));
+    this.raidBaseline = new Map(ws.raid.map((r) => [r.id, r]));
+    this.absencesBaseline = new Map(ws.absences.map((a) => [a.id, a]));
+    this.shiftsBaseline = new Map(ws.shifts.map((s) => [s.id, s]));
+    this.resourcesBaseline = new Map(ws.resources.map((r) => [r.id, r]));
+    this.rolesBaseline = new Map(ws.roles.map((r) => [r.id, r]));
+    this.disciplinesBaseline = new Map(ws.disciplines.map((d) => [d.id, d]));
+    this.gradesBaseline = new Map(ws.grades.map((g) => [g.id, g]));
+    return ws;
   }
 
   /**
@@ -1904,6 +1954,16 @@ class BrowserBackend implements StorageBackend {
       shiftDelta.deletes,
     );
 
+    const resourceDelta = this.diff(this.resourcesBaseline, ws.resources);
+    const roleDelta = this.diff(this.rolesBaseline, ws.roles);
+    const discDelta = this.diff(this.disciplinesBaseline, ws.disciplines);
+    const gradeDelta = this.diff(this.gradesBaseline, ws.grades);
+    await idbBulkUpdate(IDB_RESOURCES_STORE, resourceDelta.puts, resourceDelta.deletes);
+    await idbBulkUpdate(IDB_ROLES_STORE, roleDelta.puts, roleDelta.deletes);
+    await idbBulkUpdate(IDB_DISCIPLINES_STORE, discDelta.puts, discDelta.deletes);
+    await idbBulkUpdate(IDB_GRADES_STORE, gradeDelta.puts, gradeDelta.deletes);
+    await idbSet(KV_PLAN_KEY, ws.plan);
+
     // Refresh baselines so the next save's diff is computed against what's
     // actually in IDB. Rebuilding the maps is O(N) but only runs after a
     // successful write, not on every render.
@@ -1911,6 +1971,10 @@ class BrowserBackend implements StorageBackend {
     this.raidBaseline = new Map(ws.raid.map((r) => [r.id, r]));
     this.absencesBaseline = new Map(ws.absences.map((a) => [a.id, a]));
     this.shiftsBaseline = new Map(ws.shifts.map((s) => [s.id, s]));
+    this.resourcesBaseline = new Map(ws.resources.map((r) => [r.id, r]));
+    this.rolesBaseline = new Map(ws.roles.map((r) => [r.id, r]));
+    this.disciplinesBaseline = new Map(ws.disciplines.map((d) => [d.id, d]));
+    this.gradesBaseline = new Map(ws.grades.map((g) => [g.id, g]));
   }
 
   /**

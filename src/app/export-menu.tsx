@@ -10,6 +10,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { type ExportFormat, exportWorkspace } from "./export";
+import { emptyWorkspace } from "./storage";
 import { type Lang, type TranslationKey, t } from "./i18n";
 import type { Absence, RaidItem, Shift, Task } from "./types";
 
@@ -66,7 +67,7 @@ export function ExportMenu({
     // pops the save dialog / new tab. Some browsers focus-steal the dialog
     // and the popover never visually closes otherwise.
     setTimeout(() => {
-      void exportWorkspace({ tasks, raid, absences, shifts }, format);
+      void exportWorkspace({ ...emptyWorkspace(), tasks, raid, absences, shifts }, format);
     }, 0);
   }
 

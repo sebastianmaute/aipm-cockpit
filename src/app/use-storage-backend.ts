@@ -8,6 +8,7 @@ import {
   StorageNotImplementedError,
   StorageNotReadyError,
   createBackend,
+  emptyWorkspace,
   openFileForBackend,
   pickFileForBackend,
   requestWriteAccessForBackend,
@@ -98,7 +99,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       return;
     }
     const timer = setTimeout(() => {
-      backend.save({ tasks, raid, absences, shifts }).catch((err) => {
+      backend.save({ ...emptyWorkspace(), tasks, raid, absences, shifts }).catch((err) => {
         if (err instanceof StorageNotReadyError) {
           const key = (err as StorageNotReadyError).hint === "local-file-permission-needed"
             ? "storagePermissionGestureNeeded"
@@ -124,7 +125,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     if (!promise) return;
     await promise;
     try {
-      await backend.save({ tasks, raid, absences, shifts });
+      await backend.save({ ...emptyWorkspace(), tasks, raid, absences, shifts });
       await refreshBackendStatus();
       args.showToast("info", t(langRef.current, "storageSwitchedToast"));
     } catch (err) {
