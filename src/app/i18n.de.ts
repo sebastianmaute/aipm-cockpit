@@ -692,4 +692,5 @@ export const de: Record<TranslationKey, string> = {
   rolesAddDiscipline: "Disziplin hinzufügen",
   rolesAddGrade: "Stufe hinzufügen",
   rolesNoRoles: "Noch keine Rollen — Disziplin × Stufe hinzufügen.",
+  resourcesManageRoles: "Rollen verwalten",
 };

@@ -20,7 +20,10 @@ import { SegmentedControl } from "./segmented-control";
 import {
   type Absence,
   DEFAULT_WEEK_HOURS,
+  type Discipline,
+  type Grade,
   type Resource,
+  type Role,
   type Shift,
   type Task,
   type WeekHours,
@@ -43,6 +46,11 @@ interface Props {
     existingShift: Shift | null,
     assignee: { display: string; email: string },
   ) => void;
+  roles: readonly Role[];
+  disciplines: readonly Discipline[];
+  grades: readonly Grade[];
+  onManageRoles: () => void;
+  onAssignRole: (resourceId: number, disciplineId: number, gradeId: number) => void;
 }
 
 type View = "list" | "calendar";
@@ -94,6 +102,7 @@ function ResourcesPanelInner({
   onAddAbsence,
   onEditAbsence,
   onEditShift,
+  onManageRoles,
 }: Props) {
   const [view, setView] = useState<View>("list");
 
@@ -189,6 +198,13 @@ function ResourcesPanelInner({
             onChange={setView}
           />
         )}
+        <button
+          type="button"
+          onClick={onManageRoles}
+          className="rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-xs font-medium text-AIPM-dark-grey shadow-sm hover:border-AIPM-dark-blue hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-AIPM-light-grey dark:hover:bg-zinc-800"
+        >
+          {t(lang, "resourcesManageRoles")}
+        </button>
         <button
           type="button"
           onClick={() => onAddAbsence()}

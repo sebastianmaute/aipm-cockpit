@@ -674,6 +674,7 @@ const enUS = {
   rolesAddDiscipline: "Add discipline",
   rolesAddGrade: "Add grade",
   rolesNoRoles: "No roles yet — add a discipline × grade combination.",
+  resourcesManageRoles: "Manage roles",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;
