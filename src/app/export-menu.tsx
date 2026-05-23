@@ -10,9 +10,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { type ExportFormat, exportWorkspace } from "./export";
-import { emptyWorkspace } from "./storage";
 import { type Lang, type TranslationKey, t } from "./i18n";
-import type { Absence, RaidItem, Shift, Task } from "./types";
+import type { Absence, Discipline, Grade, RaidItem, Resource, ResourcePlan, Role, Shift, Task } from "./types";
 
 const OPTIONS: Array<{
   format: ExportFormat;
@@ -33,12 +32,22 @@ export function ExportMenu({
   raid,
   absences,
   shifts,
+  resources,
+  roles,
+  disciplines,
+  grades,
+  plan,
 }: {
   lang: Lang;
   tasks: Task[];
   raid: RaidItem[];
   absences: Absence[];
   shifts: Shift[];
+  resources: Resource[];
+  roles: Role[];
+  disciplines: Discipline[];
+  grades: Grade[];
+  plan: ResourcePlan;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -67,7 +76,7 @@ export function ExportMenu({
     // pops the save dialog / new tab. Some browsers focus-steal the dialog
     // and the popover never visually closes otherwise.
     setTimeout(() => {
-      void exportWorkspace({ ...emptyWorkspace(), tasks, raid, absences, shifts }, format);
+      void exportWorkspace({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan }, format);
     }, 0);
   }
 
