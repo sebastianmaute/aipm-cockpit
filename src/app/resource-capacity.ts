@@ -144,3 +144,42 @@ export function periodCapacityHours(
   }
   return Math.max(0, util - absenceHours);
 }
+
+/**
+ * Capacity (hours) for a DISPLAY period, given the resource's CANONICAL periods.
+ *   - display === canonical granularity → the period's own stored utilization.
+ *   - coarse→fine (canonical month, display week): the fine period borrows the
+ *     utilization VALUE of the canonical period containing its start date, and
+ *     computes capacity over the fine period's own workdays/absence.
+ *   - fine→coarse (canonical week, display month): sum capacity of canonical
+ *     periods whose start date falls within the display period.
+ */
+export function displayCapacityHours(
+  displayPeriod: Period,
+  canonicalPeriods: readonly Period[],
+  resource: Resource,
+  resourceAbsences: readonly Absence[],
+  workdayHours: number,
+  holidaySet: ReadonlySet<string>,
+  canonicalGranularity: PlanGranularity,
+  displayGranularity: PlanGranularity,
+): number {
+  if (canonicalGranularity === displayGranularity) {
+    return periodCapacityHours(resource, displayPeriod, resourceAbsences, workdayHours, holidaySet);
+  }
+  // fine→coarse: sum canonical periods that start within the display period.
+  if (canonicalGranularity === "week" && displayGranularity === "month") {
+    let sum = 0;
+    for (const c of canonicalPeriods) {
+      if (c.start >= displayPeriod.start && c.start <= displayPeriod.end) {
+        sum += periodCapacityHours(resource, c, resourceAbsences, workdayHours, holidaySet);
+      }
+    }
+    return sum;
+  }
+  // coarse→fine: borrow the containing canonical period's utilization VALUE.
+  const owner = canonicalPeriods.find((c) => c.start <= displayPeriod.start && displayPeriod.start <= c.end);
+  const borrowedUtil = owner ? (resource.utilization[owner.key] ?? 0) : 0;
+  const borrowed: Resource = { ...resource, utilization: { [displayPeriod.key]: borrowedUtil } };
+  return periodCapacityHours(borrowed, displayPeriod, resourceAbsences, workdayHours, holidaySet);
+}

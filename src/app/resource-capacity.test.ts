@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import { generatePeriods, workdaysInRange, absencesForResource, absenceWorkdays, periodCapacityHours } from "./resource-capacity";
+import { generatePeriods, workdaysInRange, absencesForResource, absenceWorkdays, periodCapacityHours, displayCapacityHours } from "./resource-capacity";
 import type { Absence, Resource } from "./types";
 import type { Period } from "./resource-capacity";
 
@@ -92,5 +92,31 @@ describe("periodCapacityHours - hours mode", () => {
   test("missing utilization value → 0 capacity", () => {
     const r: Resource = { id: 1, name: "x", roleId: null, utilizationMode: "percent", utilization: {} };
     expect(periodCapacityHours(r, FEB, [], 8, new Set())).toBe(0);
+  });
+});
+
+describe("displayCapacityHours rollup", () => {
+  const wh = 8;
+  const r: Resource = { id: 1, name: "x", roleId: null, utilizationMode: "percent", utilization: { "2026-02": 100 } };
+
+  test("display === canonical: uses the period's own stored utilization", () => {
+    const feb: Period = { key: "2026-02", start: "2026-02-01", end: "2026-02-28" };
+    expect(displayCapacityHours(feb, [feb], r, [], wh, new Set(), "month", "month")).toBeCloseTo(160, 6);
+  });
+
+  test("coarse→fine (month canonical, week display): week borrows its month's util", () => {
+    const feb: Period = { key: "2026-02", start: "2026-02-01", end: "2026-02-28" };
+    const week: Period = { key: "2026-W07", start: "2026-02-09", end: "2026-02-15" }; // Mon–Sun, 5 workdays
+    // 100% × 5 workdays × 8h = 40h
+    expect(displayCapacityHours(week, [feb], r, [], wh, new Set(), "month", "week")).toBeCloseTo(40, 6);
+  });
+
+  test("fine→coarse (week canonical, month display): sum of weeks starting in the month", () => {
+    const rw: Resource = { id: 1, name: "x", roleId: null, utilizationMode: "hours", utilization: { "2026-W07": 10, "2026-W08": 10 } };
+    const w7: Period = { key: "2026-W07", start: "2026-02-09", end: "2026-02-15" };
+    const w8: Period = { key: "2026-W08", start: "2026-02-16", end: "2026-02-22" };
+    const feb: Period = { key: "2026-02", start: "2026-02-01", end: "2026-02-28" };
+    // hours mode, no absence: 10 + 10 = 20
+    expect(displayCapacityHours(feb, [w7, w8], rw, [], wh, new Set(), "week", "month")).toBe(20);
   });
 });
