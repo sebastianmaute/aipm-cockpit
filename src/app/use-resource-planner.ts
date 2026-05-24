@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { nextRaidId } from "./raid";
 import { nextId } from "./resource-foundation";
-import { DEFAULT_WEEK_HOURS, type Absence, type RaidItem, type Role, type Shift, type Task } from "./types";
+import { DEFAULT_WEEK_HOURS, type Absence, type RaidItem, type Resource, type Role, type Shift, type Task } from "./types";
 import type { ActivityKind } from "./activity-log";
 import { useWorkspace } from "./workspace-context";
 
@@ -279,6 +279,57 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
     [shifts, setShifts],
   );
 
+  const [editingResource, setEditingResource] = useState<{
+    resource: Resource;
+    isNew: boolean;
+  } | null>(null);
+
+  const handleOpenAddResource = useCallback(
+    (seed?: Partial<Resource>) => {
+      const id = nextId(resources);
+      const draft: Resource = {
+        firstName: "",
+        lastName: "",
+        roleId: null,
+        utilizationMode: "percent",
+        utilization: {},
+        ...seed,
+        id, // authoritative regardless of seed
+      };
+      setEditingResource({ resource: draft, isNew: true });
+    },
+    [resources],
+  );
+
+  const handleEditResource = useCallback((resource: Resource) => {
+    setEditingResource({ resource, isNew: false });
+  }, []);
+
+  const handleCloseResourceModal = useCallback(() => setEditingResource(null), []);
+
+  const handleSaveResource = useCallback(
+    (next: Resource) => {
+      const stamp = new Date().toISOString();
+      const withStamp: Resource = { ...next, localModifiedAt: stamp };
+      setResources((prev) => {
+        const exists = prev.some((r) => r.id === next.id);
+        return exists
+          ? prev.map((r) => (r.id === next.id ? withStamp : r))
+          : [...prev, withStamp];
+      });
+      setEditingResource(null);
+    },
+    [setResources],
+  );
+
+  const handleDeleteResource = useCallback(
+    (id: number) => {
+      setResources((prev) => prev.filter((r) => r.id !== id));
+      setEditingResource(null);
+    },
+    [setResources],
+  );
+
   const [rolesModalOpen, setRolesModalOpen] = useState(false);
   const handleOpenRolesModal = useCallback(() => setRolesModalOpen(true), []);
   const handleCloseRolesModal = useCallback(() => setRolesModalOpen(false), []);
@@ -507,6 +558,12 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
   return {
     editingAbsence,
     editingShift,
+    editingResource,
+    handleOpenAddResource,
+    handleEditResource,
+    handleCloseResourceModal,
+    handleSaveResource,
+    handleDeleteResource,
     handleSaveRaidItem,
     handleDeleteRaidItem,
     handleOpenAddAbsence,

@@ -151,6 +151,67 @@ describe("useResourcePlanner", () => {
     });
   });
 
+  describe("resource modal", () => {
+    it("editingResource is null initially", () => {
+      const { result } = renderPlanner();
+      expect(result.current.planner.editingResource).toBeNull();
+    });
+
+    it("handleOpenAddResource opens a blank draft with isNew=true and id=1", () => {
+      const { result } = renderPlanner();
+      act(() => { result.current.planner.handleOpenAddResource(); });
+      expect(result.current.planner.editingResource!.isNew).toBe(true);
+      expect(result.current.planner.editingResource!.resource.firstName).toBe("");
+      expect(result.current.planner.editingResource!.resource.id).toBe(1);
+    });
+
+    it("handleEditResource opens with isNew=false and the same resource", () => {
+      const { result } = renderPlanner();
+      const resource: Resource = {
+        id: 3, firstName: "Sample", lastName: "Dummy",
+        roleId: null, utilizationMode: "percent", utilization: {},
+      };
+      act(() => { result.current.planner.handleEditResource(resource); });
+      expect(result.current.planner.editingResource!.isNew).toBe(false);
+      expect(result.current.planner.editingResource!.resource).toBe(resource);
+    });
+
+    it("handleSaveResource adds a new resource and closes the modal", () => {
+      const { result } = renderPlanner();
+      act(() => { result.current.planner.handleOpenAddResource(); });
+      const draft = result.current.planner.editingResource!.resource;
+      act(() => { result.current.planner.handleSaveResource({ ...draft, firstName: "Nora", lastName: "Ito" }); });
+      expect(result.current.planner.editingResource).toBeNull();
+      expect(result.current.workspace.resources).toHaveLength(1);
+      expect(result.current.workspace.resources[0].firstName).toBe("Nora");
+    });
+
+    it("handleSaveResource updates an existing resource in place", () => {
+      const { result } = renderPlanner();
+      const resource: Resource = {
+        id: 2, firstName: "Marc", lastName: "Jordan",
+        roleId: null, utilizationMode: "percent", utilization: {},
+      };
+      act(() => { result.current.workspace.setResources([resource]); });
+      act(() => { result.current.planner.handleSaveResource({ ...resource, title: "Lead" }); });
+      expect(result.current.workspace.resources).toHaveLength(1);
+      expect(result.current.workspace.resources[0].title).toBe("Lead");
+    });
+
+    it("handleDeleteResource removes by id and closes", () => {
+      const { result } = renderPlanner();
+      const resource: Resource = {
+        id: 9, firstName: "Del", lastName: "Ete",
+        roleId: null, utilizationMode: "percent", utilization: {},
+      };
+      act(() => { result.current.workspace.setResources([resource]); });
+      act(() => { result.current.planner.handleEditResource(resource); });
+      act(() => { result.current.planner.handleDeleteResource(9); });
+      expect(result.current.workspace.resources).toHaveLength(0);
+      expect(result.current.planner.editingResource).toBeNull();
+    });
+  });
+
   describe("shift modal", () => {
     it("handleSaveShift creates new shift and logs shift.created", () => {
       const logActivity = vi.fn();
