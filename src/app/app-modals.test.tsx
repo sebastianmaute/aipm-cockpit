@@ -21,6 +21,9 @@ vi.mock("./absence-edit-modal", () => ({
 vi.mock("./shift-edit-modal", () => ({
   ShiftEditModal: () => <div data-testid="shift-edit-modal" />,
 }));
+vi.mock("./resource-edit-modal", () => ({
+  ResourceEditModal: () => <div data-testid="resource-edit-modal" />,
+}));
 // TaskFormModal calls useTaskForm() internally; mock it.
 vi.mock("./task-form-context", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./task-form-context")>();
@@ -79,6 +82,10 @@ function makeProps(): AppModalsProps {
     handleCancelEdit: vi.fn(),
     handleRemoveContact: vi.fn(),
     showToast: vi.fn(),
+    editingResource: null,
+    onSaveResource: vi.fn(),
+    onDeleteResource: vi.fn(),
+    onCloseResourceModal: vi.fn(),
     rolesModalOpen: false,
     roles: [],
     disciplines: [],

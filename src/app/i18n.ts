@@ -703,6 +703,24 @@ const enUS = {
   resourcesRole: "Role",
   resourcesRollupShow: "Show rollup",
   resourcesRollupHide: "Hide rollup",
+
+  resourceNewTitle: "New resource",
+  resourceEditTitle: "Edit resource",
+  resourceFirstName: "First name",
+  resourceLastName: "Last name",
+  resourceJobTitle: "Title",
+  resourceCompany: "Company",
+  resourceDepartment: "Department",
+  resourceLocation: "Location",
+  resourcePhone: "Business phone",
+  resourceEmail: "Email",
+  resourceBirthday: "Birthday",
+  resourceBirthdayMonth: "Month",
+  resourceBirthdayDay: "Day",
+  resourceNotes: "Notes",
+  resourceSave: "Save resource",
+  resourceConfirmDelete: "Delete this resource?",
+  resourceErrorName: "Enter a first or last name.",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;

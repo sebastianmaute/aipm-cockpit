@@ -205,6 +205,12 @@ function TaskManagerInner() {
     handleSetAbsenceOverride,
     handleSetPlanWindow,
     handleSetPlanGranularity,
+    editingResource,
+    handleOpenAddResource,
+    handleEditResource,
+    handleSaveResource,
+    handleDeleteResource,
+    handleCloseResourceModal,
   } = useResourcePlanner({ lang, logActivity, showToast });
 
   const tasksRef = useRef(tasks);
@@ -511,6 +517,10 @@ function TaskManagerInner() {
         handleCancelEdit={handleCancelEdit}
         handleRemoveContact={handleRemoveContact}
         showToast={showToast}
+        editingResource={editingResource}
+        onSaveResource={handleSaveResource}
+        onDeleteResource={handleDeleteResource}
+        onCloseResourceModal={handleCloseResourceModal}
         rolesModalOpen={rolesModalOpen}
         roles={roles}
         disciplines={disciplines}
