@@ -1,11 +1,12 @@
-<!-- Generated: 2026-05-17 | Files scanned: types.ts, storage.ts, sanitize.ts, raid.ts, activity-log.ts, contacts.ts | Token estimate: ~900 -->
+<!-- Generated: 2026-05-24 | Files scanned: types.ts, storage.ts, sanitize.ts, raid.ts, activity-log.ts, contacts.ts, resource-foundation.ts, resource-capacity.ts | Token estimate: ~1180 -->
 
 # Data
 
-No database. All persistence is browser-local: IndexedDB for tasks / RAID /
-absences / shifts, localStorage for UI prefs and lightweight stores (settings,
-contacts, activity log), optional local file (CSV/MD/JSON) via the File
-System Access API.
+No database. All persistence is browser-local: IndexedDB (schema v5) for
+tasks / RAID / absences / shifts / resources / roles / disciplines / grades +
+a `resource-plan` kv singleton; localStorage for UI prefs and lightweight
+stores (settings, contacts, activity log); optional local file (CSV/MD/JSON)
+via the File System Access API.
 
 ## Core schemas (`src/app/types.ts`)
 
@@ -31,6 +32,8 @@ Task {
   lastSyncedAt?   ISO 8601 timestamp
   localModifiedAt? ISO 8601 timestamp
   healthOverride? "R" | "A" | "G"          (manual RAG override)
+  resourceId?     number                   (Resource Planner v2: stable link;
+                                            `assignee` remains display + fallback join)
 }
 
 RaidItem {
@@ -63,6 +66,7 @@ Absence {                                  // Resource Planner v1
   type            "vacation" | "sick" | "training" | "other"
   note?           string
   localModifiedAt? ISO 8601 timestamp
+  resourceId?     number                   // Resource Planner v2 stable link
 }
 
 Shift {                                    // Resource Planner Phase 4
@@ -75,6 +79,49 @@ Shift {                                    // Resource Planner Phase 4
 }
 // Default when no Shift: DEFAULT_WEEK_HOURS = [0, 8, 8, 8, 8, 8, 0]
 // Bound: MAX_HOURS_PER_DAY = 24
+
+// Resource Planner v2 — schema v5 -----------------------------------------
+
+Discipline { id: number; name: string; localModifiedAt? }   // seeded with
+Grade      { id: number; name: string; localModifiedAt? }   // PRESET_DISCIPLINES
+                                                            // / PRESET_GRADES
+PRESET_DISCIPLINES = ["Developer", "Business Analyst", "Consultant",
+                      "Project Manager"]
+PRESET_GRADES      = ["Junior", "Associate", "Consultant", "Senior",
+                      "Lead", "Principal"]
+
+Role {                                       // discipline × grade combo
+  id              number                     // unique per (disciplineId, gradeId)
+  disciplineId    number
+  gradeId         number
+  internalRate    number                     // per hour, in plan.currency
+  externalRate    number                     // per hour, customer-billable
+  localModifiedAt? ISO 8601 timestamp
+}
+
+Resource {                                   // first-class workspace entity
+  id              number
+  name            string
+  email?          string
+  roleId          number | null              // FK → Role.id; null = unassigned
+  utilizationMode "percent" | "hours"        // per resource
+  utilization     Record<string, number>     // periodKey → value
+                                             //   percent mode: 0..100
+                                             //   hours   mode: hours
+  absenceOverride? Record<string, number>    // periodKey → manual absence HOURS
+                                             //   (else auto from Absence ranges)
+  active?         boolean                    // soft archive; absent ≡ true
+  localModifiedAt? ISO 8601 timestamp
+}
+// Period keys: month = "YYYY-MM" | ISO week = "GGGG-Www" (e.g. "2026-W07")
+
+ResourcePlan {                               // workspace singleton
+  startDate       "YYYY-MM-DD"               // planning window start
+  endDate         "YYYY-MM-DD"               // planning window end
+  granularity     "week" | "month"           // canonical (editable) granularity
+  currency        string                     // ISO 4217 (default "EUR")
+}
+DEFAULT_CURRENCY = "EUR"
 ```
 
 ## Workspace envelope (`storage.ts`)
@@ -84,24 +131,45 @@ type Workspace = {
   tasks: Task[];
   raid: RaidItem[];
   absences: Absence[];
-  shifts: Shift[];
+  shifts: Shift[];                          // dormant after Resource Planner v2
+  resources: Resource[];
+  roles: Role[];
+  disciplines: Discipline[];
+  grades: Grade[];
+  plan: ResourcePlan;                       // singleton
 };
-const SCHEMA_VERSION = 4;
+const SCHEMA_VERSION = 5;
 ```
+
+`migrateWorkspaceV5(ws)` is **idempotent**: seeds `disciplines`/`grades` when
+empty, ensures `plan` exists, and runs `backfillResources` once (when
+`resources.length === 0`) to create a Resource per distinct case-folded
+`assignee` across tasks + absences and stamp `resourceId` on those records.
+Re-running over a populated workspace is a no-op (reference equality).
 
 ## IndexedDB layout (`storage.ts`)
 
 ```
-Database: lop-app  (version 4)
-├── object store "kv"        (v1)  — FsHandle storage for LocalFileBackend
-├── object store "tasks"     (v2)  — keyPath: "id", value: Task
-├── object store "raid"      (v2)  — keyPath: "id", value: RaidItem
-├── object store "absences"  (v3)  — keyPath: "id", value: Absence
-└── object store "shifts"    (v4)  — keyPath: "id", value: Shift
+Database: lop-app  (version 5)
+├── object store "kv"           (v1)  — FsHandle + "resource-plan" singleton
+├── object store "tasks"        (v2)  — keyPath: "id", value: Task
+├── object store "raid"         (v2)  — keyPath: "id", value: RaidItem
+├── object store "absences"     (v3)  — keyPath: "id", value: Absence
+├── object store "shifts"       (v4)  — keyPath: "id", value: Shift (dormant)
+├── object store "resources"    (v5)  — keyPath: "id", value: Resource
+├── object store "roles"        (v5)  — keyPath: "id", value: Role
+├── object store "disciplines"  (v5)  — keyPath: "id", value: Discipline
+└── object store "grades"       (v5)  — keyPath: "id", value: Grade
 ```
 
 `onupgradeneeded` adds missing stores idempotently — upgraders keep their
-data and gain the new stores additively.
+data and gain the new stores additively. The `plan` singleton is stored in
+the existing `kv` store under key `"resource-plan"`.
+
+On first load post-upgrade, `BrowserBackend.load()` runs `migrateWorkspaceV5`
+and persists only what migration changed (reference-equality check per
+array + plan kv), so seeds + backfilled `resourceId`s survive reload while a
+no-op migration writes nothing.
 
 Saves are **record-level**: `BrowserBackend.save(ws)` diffs each of `tasks`,
 `raid`, `absences`, `shifts` against an in-memory baseline using reference
@@ -131,14 +199,18 @@ legacy keys are removed.
 ## File-backend formats
 
 `LocalFileBackend` reads/writes one of three formats; round-trips lossless
-inside the supported field set. The CSV and Markdown encoders both emit four
-sections (tasks, raid, absences, shifts) in a single file.
+inside the supported field set. Each path runs `migrateWorkspaceV5` on parse
+so older files self-heal.
 
 | Kind | Sections |
 |---|---|
-| JSON | `{ schemaVersion: 4, tasks: Task[], raid: RaidItem[], absences: Absence[], shifts: Shift[] }` |
-| CSV  | `# TASKS` + `# RAID` + `# ABSENCES` + `# SHIFTS` sections, RFC-style escaping |
-| Markdown | `# LOP Tasks` + `# RAID Log` + `# Absences` + `# Shifts` H1s, each with a pipe table |
+| JSON | `{ schemaVersion: 5, tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan }` |
+| CSV  | `# TASKS` + `# RAID` + `# ABSENCES` + `# SHIFTS` + `# DISCIPLINES` + `# GRADES` + `# ROLES` + `# RESOURCES` + `# PLAN` (one line), RFC-style escaping |
+| Markdown | `# LOP Tasks` + `# RAID Log` + `# Absences` + `# Shifts` + `# Disciplines` + `# Grades` + `# Roles` + `# Resources` + `# Plan` H1s, each with a pipe table |
+
+The `utilization` and `absenceOverride` maps serialize into a single
+encoded cell each via `encodePeriodMap` / `decodePeriodMap` — format
+`"YYYY-MM=80|2026-W07=12"` (period keys validated by `PERIOD_KEY_RE`).
 
 SharePoint backends (`sp-json`, `sp-csv`) are declared in `StorageConfig` but
 not yet implemented — the factory returns a `SharePointBackend` stub whose
@@ -152,9 +224,14 @@ through `sanitize.ts` helpers: `sanitizeTaskName`, `sanitizeAssignee`,
 `sanitizeNotes`, `sanitizeBlockers`, `sanitizeGroup`, `sanitizeLabel(s)`,
 `parseDependenciesString`, `serializeDependencies`, `sanitizeDependencies`,
 `wouldCreateDependencyCycle`, `dropDanglingDependencies`,
-`sanitizeVoiceTranscript`, plus the Resource Planner additions
-`sanitizeAbsence` and `sanitizeShift` (validate types, clamp dates, enforce
-`endDate >= startDate`, clamp weekly hours into `[0, MAX_HOURS_PER_DAY]`).
+`sanitizeVoiceTranscript`, plus the Resource Planner v1 additions
+`sanitizeAbsence` / `sanitizeShift` (validate types, clamp dates, enforce
+`endDate >= startDate`, clamp weekly hours into `[0, MAX_HOURS_PER_DAY]`),
+and the Resource Planner v2 additions `sanitizeResource`, `sanitizeRole`,
+`sanitizeDiscipline`, `sanitizeGrade`, `sanitizePlan`,
+`sanitizeUtilizationMode`, plus the `encodePeriodMap` / `decodePeriodMap`
+codec (clamps percent to 0..100 or hours to `HOURS_MAP_MAX`; accepts both
+object and CSV-string map forms).
 
 ## RAID derivations (`raid.ts`)
 

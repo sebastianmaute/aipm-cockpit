@@ -1,4 +1,4 @@
-<!-- Generated: 2026-05-17 | Files scanned: package.json, package-lock.json, vitest.config.ts, playwright.config.ts | Token estimate: ~700 -->
+<!-- Generated: 2026-05-24 | Files scanned: package.json, package-lock.json, vitest.config.ts, playwright.config.ts | Token estimate: ~700 | No changes since 2026-05-17 — Resource Planner v2 added no runtime/dev deps -->
 
 # Dependencies
 

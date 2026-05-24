@@ -1,4 +1,4 @@
-<!-- Generated: 2026-05-17 | Files scanned: src/proxy.ts + 10 (src/app/api/jira) | Token estimate: ~500 -->
+<!-- Generated: 2026-05-24 | Files scanned: src/proxy.ts + 10 (src/app/api/jira) | Token estimate: ~500 | No changes since 2026-05-17 — Resource Planner v2 added no API routes -->
 
 # Backend
 

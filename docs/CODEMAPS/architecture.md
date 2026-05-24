@@ -1,4 +1,4 @@
-<!-- Generated: 2026-05-19 | Files scanned: ~58 source files | Token estimate: ~730 -->
+<!-- Generated: 2026-05-24 | Files scanned: ~66 source files | Token estimate: ~770 -->
 
 # Architecture
 
@@ -30,7 +30,8 @@ frontend/backend repos.
           │                                                    │ .com         │
           ▼                                                    └──────────────┘
    ┌──────────────┐
-   │ IndexedDB    │ tasks, raid, absences, shifts (record-level)
+   │ IndexedDB    │ tasks, raid, absences, shifts, resources, roles,
+   │ (schema v5)  │ disciplines, grades + resource-plan kv (record-level)
    │ localStorage │ settings, contacts, activity log, UI prefs
    │ FS Access    │ optional local JSON/CSV/MD workspace file
    └──────────────┘
@@ -71,7 +72,7 @@ frontend/backend repos.
                        dispatcher (chat-tools.ts) → CRUD on tasks/raid
 ```
 
-`Workspace = { tasks, raid, absences, shifts }` (schema v4).
+`Workspace = { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan }` (schema v5). The `plan` singleton holds the planning window + canonical granularity + currency; `resources` carry per-period utilization + optional absence overrides; `roles` are discipline × grade combos with internal/external hourly rates.
 
 ## Cross-cutting concerns
 
