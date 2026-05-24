@@ -699,4 +699,8 @@ export const de: Record<TranslationKey, string> = {
   resourcesPlanEnd: "Bis",
   resourcesGranularityWeek: "Wochen",
   resourcesGranularityMonth: "Monate",
+  resourcesInternalCost: "Intern",
+  resourcesExternalCost: "Extern",
+  resourcesMargin: "Marge",
+  resourcesTotal: "Summe",
 };

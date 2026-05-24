@@ -681,6 +681,10 @@ const enUS = {
   resourcesPlanEnd: "To",
   resourcesGranularityWeek: "Weeks",
   resourcesGranularityMonth: "Months",
+  resourcesInternalCost: "Internal",
+  resourcesExternalCost: "External",
+  resourcesMargin: "Margin",
+  resourcesTotal: "Total",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;
