@@ -1,3 +1,15 @@
+// 0.9.0 lands the Resource Utilization feature: first-class Resource
+// entities with two-dimensional Role (discipline × grade) carrying
+// internal/external hourly rates; per-period utilization planning grid
+// (week or month) computing capacity net of weekends, holidays, and
+// absences; internal/external cost + margin columns; read-only
+// week/month rollup view; per-cell absence-override editing; and a
+// pop-out resources report (capacity, cost, margin; per-period /
+// per-discipline / per-grade / per-role / per-resource breakdowns).
+// Schema v5 with additive `resourceId` on tasks/absences and an
+// idempotent migration that backfills resources from existing
+// assignees and seeds preset disciplines/grades. Also: 2 long-standing
+// test-file tsc errors fixed (project now type-checks fully clean).
 // 0.8.4 extracts the modal layer (DueBanner, TaskFormModal, DueDatesModal,
 // JiraConflictsModal, AbsenceEditModal, ShiftEditModal, footer, toast) from
 // task-manager.tsx into AppModals. TasksSection builds rowContextValue
@@ -97,8 +109,8 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.8.4";
-export const APP_BUILD_DATE = "2026-05-22";
+export const APP_VERSION = "0.9.0";
+export const APP_BUILD_DATE = "2026-05-24";
 export const APP_REPO_URL = "https://www.example.com";
 
 /** Translation keys for the high-level feature highlights shown in the

@@ -3,7 +3,7 @@
 [![Pipeline Status](https://gitlab.example.com/example-group/public-collab/lop-app/badges/main/pipeline.svg)](https://gitlab.example.com/example-group/public-collab/lop-app/-/commits/main)
 [![coverage](https://gitlab.example.com/example-group/public-collab/lop-app/badges/main/coverage.svg)](https://gitlab.example.com/example-group/public-collab/lop-app/-/commits/main)
 
-**v0.8.0** — AI-assisted project-status tracker for Acme project leads. Manage open points, track accountability, and draft status-inquiry emails — all in the browser, no backend required.
+**v0.9.0** — AI-assisted project-status tracker for Acme project leads. Manage open points, track accountability, plan resource capacity & cost, and draft status-inquiry emails — all in the browser, no backend required.
 
 ## What It Does
 
@@ -35,7 +35,7 @@ All data is stored locally by default — no backend account required.
 | Due-date notifications | Banner, toast, and popup alerts for approaching deadlines |
 | Reports | Summary view with overdue, due-soon, and completion stats |
 | RAID register | Risks / Assumptions / Issues / Dependencies log with parent/child cycle detection |
-| Resource planner | Per-assignee absences (vacation / sick / training / other), weekly shift patterns, and a 30-day calendar view |
+| Resource planner | First-class resources with two-dimensional roles (discipline × grade) carrying internal/external rates; absences; per-period utilization planning grid (week or month) → capacity, cost & margin with read-only rollup; pop-out resources report |
 | Activity log | Browser-local chronological record of task / RAID / absence / shift CRUD with text / wildcard / regex search |
 | Contacts | Assignee address book — persists across task deletion and Jira sync churn; auto-suggests on task forms |
 | Jira sync | Pull from and push to a Jira Cloud project (bidirectional, with conflict resolution) |
@@ -62,7 +62,7 @@ The app persists tasks in one of several backends, switchable in Settings:
 
 | Backend | Description |
 |---------|-------------|
-| Browser (default) | `IndexedDB` for tasks & RAID (record-level writes, legacy `localStorage` data migrates on first load); `localStorage` for settings — zero setup, survives page refresh |
+| Browser (default) | `IndexedDB` (schema v5) for tasks, RAID, absences, resources, roles, disciplines, grades, and the resource plan (record-level writes, legacy `localStorage` data migrates on first load); `localStorage` for settings — zero setup, survives page refresh |
 | Local JSON / CSV / Markdown | File System Access API — reads and writes a local file you pick |
 | SharePoint JSON / CSV | Coming soon |
 
