@@ -685,6 +685,18 @@ const enUS = {
   resourcesExternalCost: "External",
   resourcesMargin: "Margin",
   resourcesTotal: "Total",
+
+  resourcesReportTitle: "Resource report",
+  resourcesReportTotalCapacity: "Total capacity",
+  resourcesReportByPeriod: "By period",
+  resourcesReportByDiscipline: "By discipline",
+  resourcesReportByGrade: "By grade",
+  resourcesReportByCombo: "By role",
+  resourcesReportByResource: "By resource",
+  resourcesReportHeadcount: "People",
+  resourcesReportAvgUtil: "Avg util.",
+  resourcesReportEmpty: "No resources to report.",
+  resourcesRole: "Role",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;

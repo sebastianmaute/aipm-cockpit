@@ -703,4 +703,16 @@ export const de: Record<TranslationKey, string> = {
   resourcesExternalCost: "Extern",
   resourcesMargin: "Marge",
   resourcesTotal: "Summe",
+
+  resourcesReportTitle: "Ressourcen-Bericht",
+  resourcesReportTotalCapacity: "Gesamtkapazität",
+  resourcesReportByPeriod: "Nach Periode",
+  resourcesReportByDiscipline: "Nach Disziplin",
+  resourcesReportByGrade: "Nach Stufe",
+  resourcesReportByCombo: "Nach Rolle",
+  resourcesReportByResource: "Nach Ressource",
+  resourcesReportHeadcount: "Personen",
+  resourcesReportAvgUtil: "Ø Auslastung",
+  resourcesReportEmpty: "Keine Ressourcen für den Bericht.",
+  resourcesRole: "Rolle",
 };
