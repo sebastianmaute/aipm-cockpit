@@ -16,9 +16,10 @@
 // row; display uses the first observed original casing. See
 // docs/RESOURCE-PLANNER-PLAN.md.
 
-import { memo, useEffect, useMemo, useState } from "react";
+import { memo, useMemo, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { ResourceCalendar } from "./resource-calendar";
+import { ResourceDirectory } from "./resource-directory";
 import { SegmentedControl } from "./segmented-control";
 import { generatePeriods, displayCapacityHours, absencesForResource, absenceWorkdays } from "./resource-capacity";
 import { periodCost, formatCurrency } from "./resource-cost";
@@ -66,9 +67,11 @@ interface Props {
   onSetAbsenceOverride: (resourceId: number, periodKey: string, hours: number | null) => void;
   onSetPlanWindow: (startDate: string, endDate: string) => void;
   onSetPlanGranularity: (granularity: "week" | "month") => void;
+  onEditResource: (resource: Resource) => void;
+  onAddResource: () => void;
 }
 
-type View = "list" | "calendar" | "planning";
+type View = "directory" | "workload" | "calendar" | "planning";
 
 interface AssigneeRow {
   key: string;          // case-folded join key
@@ -106,68 +109,6 @@ function shortDateRange(a: Absence, lang: Lang): string {
   return `${start.toLocaleDateString(loc, fmt)}–${end.toLocaleDateString(loc, fmt)}`;
 }
 
-function ResourceRoleRow({
-  lang, resource, roles, disciplines, grades, onAssignRole,
-}: {
-  lang: Lang;
-  resource: Resource;
-  roles: readonly Role[];
-  disciplines: readonly Discipline[];
-  grades: readonly Grade[];
-  onAssignRole: (resourceId: number, disciplineId: number, gradeId: number) => void;
-}) {
-  const current = roles.find((x) => x.id === resource.roleId);
-  const curDisc = current?.disciplineId ?? "";
-  const curGrad = current?.gradeId ?? "";
-  const [disc, setDisc] = useState<number | "">(curDisc);
-  const [grad, setGrad] = useState<number | "">(curGrad);
-  // Re-sync when the resource's role changes externally (assignment elsewhere,
-  // role deletion nulling roleId, cross-window broadcast).
-  useEffect(() => {
-    setDisc(curDisc);
-    setGrad(curGrad);
-  }, [curDisc, curGrad]);
-
-  return (
-    <li className="flex flex-wrap items-center gap-2 rounded-md border border-zinc-200 px-2 py-1 text-sm dark:border-zinc-800">
-      <span className="font-medium text-AIPM-dark-grey dark:text-AIPM-light-grey">{resourceDisplayName(resource)}</span>
-      {resource.roleId == null && (
-        <span className="text-xs text-AIPM-medium-grey italic">{t(lang, "resourcesUnassignedRole")}</span>
-      )}
-      <select
-        aria-label={`Discipline for ${resourceDisplayName(resource)}`}
-        value={disc === "" ? "" : String(disc)}
-        onChange={(e) => {
-          const v = e.target.value === "" ? "" : Number(e.target.value);
-          setDisc(v);
-          if (v !== "" && grad !== "") onAssignRole(resource.id, v, Number(grad));
-        }}
-        className="rounded border border-zinc-300 px-1.5 py-0.5 text-xs dark:border-zinc-700 dark:bg-zinc-900"
-      >
-        <option value="">{t(lang, "rolesDiscipline")}</option>
-        {disciplines.map((d) => (
-          <option key={d.id} value={d.id}>{d.name}</option>
-        ))}
-      </select>
-      <select
-        aria-label={`Grade for ${resourceDisplayName(resource)}`}
-        value={grad === "" ? "" : String(grad)}
-        onChange={(e) => {
-          const v = e.target.value === "" ? "" : Number(e.target.value);
-          setGrad(v);
-          if (disc !== "" && v !== "") onAssignRole(resource.id, Number(disc), v);
-        }}
-        className="rounded border border-zinc-300 px-1.5 py-0.5 text-xs dark:border-zinc-700 dark:bg-zinc-900"
-      >
-        <option value="">{t(lang, "rolesGrade")}</option>
-        {grades.map((g) => (
-          <option key={g.id} value={g.id}>{g.name}</option>
-        ))}
-      </select>
-    </li>
-  );
-}
-
 function ResourcesPanelInner({
   lang,
   tasks,
@@ -192,8 +133,10 @@ function ResourcesPanelInner({
   onSetAbsenceOverride,
   onSetPlanWindow,
   onSetPlanGranularity,
+  onEditResource,
+  onAddResource,
 }: Props) {
-  const [view, setView] = useState<View>("list");
+  const [view, setView] = useState<View>("directory");
   const [showRollup, setShowRollup] = useState(false);
 
   const rows = useMemo<AssigneeRow[]>(() => {
@@ -282,7 +225,8 @@ function ResourcesPanelInner({
             value={view}
             ariaLabel={t(lang, "tabResources")}
             options={[
-              { value: "list", label: t(lang, "resourcesViewList") },
+              { value: "directory", label: t(lang, "resourcesViewDirectory") },
+              { value: "workload", label: t(lang, "resourcesViewWorkload") },
               { value: "calendar", label: t(lang, "resourcesViewCalendar") },
               { value: "planning", label: t(lang, "resourcesViewPlanning") },
             ]}
@@ -314,29 +258,13 @@ function ResourcesPanelInner({
     </header>
   );
 
-  const resourceRoster = resources.length > 0 && (
-    <ul className="mb-3 flex flex-col gap-2">
-      {resources.map((r) => (
-        <ResourceRoleRow
-          key={r.id}
-          lang={lang}
-          resource={r}
-          roles={roles}
-          disciplines={disciplines}
-          grades={grades}
-          onAssignRole={onAssignRole}
-        />
-      ))}
-    </ul>
-  );
-
   const showToggle = true;
   const isEmpty = rows.length === 0 && resources.length === 0;
 
   return (
     <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
       {renderHeader(showToggle)}
-      {isEmpty && view !== "planning" && (
+      {isEmpty && view !== "planning" && view !== "directory" && (
         <div className="mt-3 flex-1 rounded-md border border-dashed border-zinc-300 p-6 text-center text-sm text-AIPM-medium-grey dark:border-zinc-800">
           {t(lang, "resourcesEmpty")}
         </div>
@@ -483,10 +411,20 @@ function ResourcesPanelInner({
           </>
         );
       })()}
-      {view === "list" ? (
-        <>
-          {resourceRoster}
-          <div className="min-h-0 flex-1 overflow-auto rounded-md border border-zinc-200 dark:border-zinc-800">
+      {view === "directory" && (
+        <ResourceDirectory
+          lang={lang}
+          resources={resources}
+          roles={roles}
+          disciplines={disciplines}
+          grades={grades}
+          onAssignRole={onAssignRole}
+          onEditResource={onEditResource}
+          onAddResource={onAddResource}
+        />
+      )}
+      {view === "workload" && (
+        <div className="min-h-0 flex-1 overflow-auto rounded-md border border-zinc-200 dark:border-zinc-800">
           <table className="w-full text-left text-sm">
             <thead className="sticky top-0 z-10 bg-zinc-50 text-xs uppercase tracking-wide text-zinc-500 shadow-sm dark:bg-zinc-900 dark:text-zinc-400">
               <tr>
@@ -578,8 +516,8 @@ function ResourcesPanelInner({
             </tbody>
           </table>
         </div>
-        </>
-      ) : view === "calendar" ? (
+      )}
+      {view === "calendar" && (
         <ResourceCalendar
           lang={lang}
           rows={rows}
@@ -589,7 +527,7 @@ function ResourcesPanelInner({
           onAddAbsence={onAddAbsence}
           onEditAbsence={onEditAbsence}
         />
-      ) : null}
+      )}
     </section>
   );
 }

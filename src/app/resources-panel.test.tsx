@@ -31,12 +31,15 @@ const baseProps = {
   onSetAbsenceOverride: () => {},
   onSetPlanWindow: () => {},
   onSetPlanGranularity: () => {},
+  onEditResource: () => {},
+  onAddResource: () => {},
 };
 
 describe("ResourcesPanel", () => {
-  test("renders the resource name in the list view", () => {
+  test("renders the resource name in the directory view", () => {
     render(<ResourcesPanel {...baseProps} />);
-    expect(screen.getByText("Alex Example")).toBeInTheDocument();
+    // Default view is Directory — name is rendered as a button
+    expect(screen.getByRole("button", { name: "Alex Example" })).toBeInTheDocument();
   });
 
   test("clicking Manage roles calls onManageRoles", () => {

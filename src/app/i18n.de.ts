@@ -722,6 +722,14 @@ export const de: Record<TranslationKey, string> = {
   resourcesRollupShow: "Rollup anzeigen",
   resourcesRollupHide: "Rollup ausblenden",
 
+  resourcesViewDirectory: "Verzeichnis",
+  resourcesViewWorkload: "Auslastung",
+  resourcesAddResource: "+ Ressource hinzufügen",
+  resourceColTitle: "Titel",
+  resourceColDepartment: "Abteilung",
+  resourceColPhone: "Telefon",
+  resourceColBirthday: "Geburtstag",
+
   resourceNewTitle: "Neue Ressource",
   resourceEditTitle: "Ressource bearbeiten",
   resourceFirstName: "Vorname",

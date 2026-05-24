@@ -432,6 +432,8 @@ function TaskManagerInner() {
         onSetAbsenceOverride={handleSetAbsenceOverride}
         onSetPlanWindow={handleSetPlanWindow}
         onSetPlanGranularity={handleSetPlanGranularity}
+        onEditResource={handleEditResource}
+        onAddResource={handleOpenAddResource}
       />
 
       {!isPopout && (

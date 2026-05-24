@@ -10,7 +10,7 @@ import { useFilters } from "./filters-context";
 import { TabButton, ResetSizeIcon } from "./task-manager-ui";
 import type { ToolDispatcher } from "./chat-tools";
 import type { ActivityEntry } from "./activity-log";
-import type { Absence, PlanGranularity, RaidItem, Shift } from "./types";
+import type { Absence, PlanGranularity, RaidItem, Resource, Shift } from "./types";
 
 const ChatPanel = dynamic(
   () => import("./chat-panel").then((m) => m.ChatPanel),
@@ -77,6 +77,8 @@ export interface WorkspaceSectionProps {
   onSetAbsenceOverride: (resourceId: number, periodKey: string, hours: number | null) => void;
   onSetPlanWindow: (startDate: string, endDate: string) => void;
   onSetPlanGranularity: (granularity: PlanGranularity) => void;
+  onEditResource: (resource: Resource) => void;
+  onAddResource: () => void;
 }
 
 export function WorkspaceSection({
@@ -108,6 +110,8 @@ export function WorkspaceSection({
   onSetAbsenceOverride,
   onSetPlanWindow,
   onSetPlanGranularity,
+  onEditResource,
+  onAddResource,
 }: WorkspaceSectionProps) {
   const { settings, lang } = useSettings();
   const { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan } = useWorkspace();
@@ -359,6 +363,8 @@ export function WorkspaceSection({
               onSetPlanWindow={onSetPlanWindow}
               onSetPlanGranularity={onSetPlanGranularity}
               onOpenReport={() => openPopoutWindow("resource-report", settings.popout.reuseWindow)}
+              onEditResource={onEditResource}
+              onAddResource={onAddResource}
             />
           </div>
         )}

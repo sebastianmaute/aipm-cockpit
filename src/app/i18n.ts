@@ -704,6 +704,14 @@ const enUS = {
   resourcesRollupShow: "Show rollup",
   resourcesRollupHide: "Hide rollup",
 
+  resourcesViewDirectory: "Directory",
+  resourcesViewWorkload: "Workload",
+  resourcesAddResource: "+ Add resource",
+  resourceColTitle: "Title",
+  resourceColDepartment: "Department",
+  resourceColPhone: "Phone",
+  resourceColBirthday: "Birthday",
+
   resourceNewTitle: "New resource",
   resourceEditTitle: "Edit resource",
   resourceFirstName: "First name",
