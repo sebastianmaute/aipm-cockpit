@@ -193,6 +193,7 @@ function ResourcesPanelInner({
   onSetPlanGranularity,
 }: Props) {
   const [view, setView] = useState<View>("list");
+  const [showRollup, setShowRollup] = useState(false);
 
   const rows = useMemo<AssigneeRow[]>(() => {
     const byKey = new Map<string, AssigneeRow>();
@@ -437,6 +438,47 @@ function ResourcesPanelInner({
               })()}
             </table>
           </div>
+          {(() => {
+            const other: "week" | "month" = plan.granularity === "month" ? "week" : "month";
+            const rollupPeriods = generatePeriods(plan.startDate, plan.endDate, other);
+            return (
+              <div className="mt-3">
+                <button type="button" onClick={() => setShowRollup((v) => !v)}
+                  className="rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs font-medium text-AIPM-dark-grey shadow-sm hover:border-AIPM-dark-blue hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-AIPM-light-grey">
+                  {showRollup ? t(lang, "resourcesRollupHide") : t(lang, "resourcesRollupShow")}
+                </button>
+                {showRollup && (
+                  <div className="mt-2 overflow-auto rounded-md border border-zinc-200 dark:border-zinc-800">
+                    <table className="text-left text-xs">
+                      <thead className="sticky top-0 bg-zinc-50 dark:bg-zinc-900">
+                        <tr>
+                          <th className="px-2 py-1.5 text-left">{t(lang, "assignee")}</th>
+                          {rollupPeriods.map((rp) => (
+                            <th key={rp.key} className="px-2 py-1.5 text-right tabular-nums">{rp.key}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                        {resources.map((r) => {
+                          const resAbs2 = absencesForResource(absences, r);
+                          return (
+                            <tr key={r.id}>
+                              <td className="px-2 py-1 font-medium text-AIPM-dark-grey dark:text-AIPM-light-grey">{r.name}</td>
+                              {rollupPeriods.map((rp) => (
+                                <td key={rp.key} className="px-2 py-1 text-right tabular-nums text-AIPM-medium-grey">
+                                  {(displayCapacityHours(rp, periods, r, resAbs2, workdayHours, holidaySet, plan.granularity, other) / workdayHours).toFixed(1)}
+                                </td>
+                              ))}
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
           </>
         );
       })()}

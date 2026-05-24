@@ -130,4 +130,15 @@ describe("ResourcesPanel", () => {
     fireEvent.change(screen.getByLabelText("Absence override for Sample in 2026-02"), { target: { value: "" } });
     expect(onSetAbsenceOverride).toHaveBeenCalledWith(1, "2026-02", null);
   });
+
+  test("planning view: rollup toggle reveals the non-canonical read-only table", () => {
+    const resources = [{ id: 1, name: "Sample", roleId: null, utilizationMode: "percent" as const, utilization: { "2026-02": 100 } }];
+    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "USD" };
+    render(<ResourcesPanel {...baseProps} lang="en-US" resources={resources} plan={plan} workdayHours={8}
+      holidaySet={new Set()} onSetUtilization={() => {}} onSetUtilizationMode={() => {}}
+      onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} onSetPlanGranularity={() => {}} />);
+    fireEvent.click(screen.getByRole("radio", { name: "Planning" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show rollup" }));
+    expect(screen.getByText("2026-W07")).toBeInTheDocument(); // Mon 2026-02-09 ISO week
+  });
 });

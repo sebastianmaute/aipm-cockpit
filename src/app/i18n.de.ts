@@ -717,4 +717,6 @@ export const de: Record<TranslationKey, string> = {
   resourcesReportAvgUtil: "Ø Auslastung",
   resourcesReportEmpty: "Keine Ressourcen für den Bericht.",
   resourcesRole: "Rolle",
+  resourcesRollupShow: "Rollup anzeigen",
+  resourcesRollupHide: "Rollup ausblenden",
 };

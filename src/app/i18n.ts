@@ -699,6 +699,8 @@ const enUS = {
   resourcesReportAvgUtil: "Avg util.",
   resourcesReportEmpty: "No resources to report.",
   resourcesRole: "Role",
+  resourcesRollupShow: "Show rollup",
+  resourcesRollupHide: "Hide rollup",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;
