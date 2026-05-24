@@ -39,11 +39,11 @@
 
 | ID | Assignee | Email | Start | End | Type | Note | LocalModified | ResourceId |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | Alex Example | Sample.Dummy@example.com | 2026-06-01 | 2026-06-14 | vacation | Family trip |  | 1 |
-| 2 | Sam Placeholder | Fictional.Jordan@example.com | 2026-05-28 | 2026-05-28 | sick |  |  | 2 |
-| 3 | Taylor Specimen | aria.patel@example.com | 2026-06-23 | 2026-06-25 | training | Kubernetes cert |  | 3 |
-| 4 | Morgan Standin | Invented.Riley@example.com | 2026-06-17 | 2026-06-18 | other | Offsite leadership summit |  | 4 |
-| 5 | Sam Placeholder | Fictional.Jordan@example.com | 2026-07-07 | 2026-07-11 | vacation | Summer holiday |  | 2 |
+| 1 | Alex Example | Sample.Dummy@example.com | 2026-06-01 | 2026-06-14 | vacation | Family trip |  |  |
+| 2 | Sam Placeholder | Fictional.Jordan@example.com | 2026-05-28 | 2026-05-28 | sick |  |  |  |
+| 3 | Taylor Specimen | aria.patel@example.com | 2026-06-23 | 2026-06-25 | training | Kubernetes cert |  |  |
+| 4 | Morgan Standin | Invented.Riley@example.com | 2026-06-17 | 2026-06-18 | other | Offsite leadership summit |  |  |
+| 5 | Sam Placeholder | Fictional.Jordan@example.com | 2026-07-07 | 2026-07-11 | vacation | Summer holiday |  |  |
 
 # Shifts
 
@@ -87,13 +87,13 @@
 
 # Resources
 
-| ID | Name | Email | RoleId | Mode | Utilization | AbsenceOverride | Active | LocalModified |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | Alex Example | Sample.Dummy@example.com | 1 | percent | 2026-04=80\|2026-05=100\|2026-06=60\|2026-07=50 | 2026-06=88 |  |  |
-| 2 | Sam Placeholder | Fictional.Jordan@example.com | 2 | percent | 2026-04=100\|2026-05=100\|2026-06=80\|2026-07=30 |  |  |  |
-| 3 | Taylor Specimen | aria.patel@example.com | 3 | hours | 2026-04=40\|2026-05=60\|2026-06=56\|2026-07=32 |  |  |  |
-| 4 | Morgan Standin | Invented.Riley@example.com | 4 | percent | 2026-04=50\|2026-05=60\|2026-06=50\|2026-07=30 |  |  |  |
-| 5 | Jamie Testcase | david.Avery@example.com | 5 | percent | 2026-04=100\|2026-05=0\|2026-06=0\|2026-07=0 |  |  | false |
+| ID | First | Last | Title | Phone | Location | Department | Email | Company | Birthday | Notes | RoleId | Mode | Utilization | AbsenceOverride | Active | LocalModified |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | Sample | Dummy | Lead Architect | +49 30 5550101 | Berlin | IAM | Sample.Dummy@example.com | Acme | 06-14 | Primary SSO architect; OIDC lead. | 1 | percent | 2026-04=80\|2026-05=100\|2026-06=60\|2026-07=50 | 2026-06=88 |  |  |
+| 2 | Fictional | Jordan | Senior Developer | +49 89 5550102 | Munich | Engineering | Fictional.Jordan@example.com | Acme | 11-02 | Backend and migration tooling. | 2 | percent | 2026-04=100\|2026-05=100\|2026-06=80\|2026-07=30 |  |  |  |
+| 3 | Aria | Patel | Business Analyst | +44 20 5550103 | London | Consulting | aria.patel@example.com | Acme | 03-27 | Stakeholder workshops; part-time (hours mode). | 3 | hours | 2026-04=40\|2026-05=60\|2026-06=56\|2026-07=32 |  |  |  |
+| 4 | Invented | Riley | Project Manager | +49 30 5550104 | Berlin | PMO | Invented.Riley@example.com | Acme | 09-08 | Compliance and RAID owner. | 4 | percent | 2026-04=50\|2026-05=60\|2026-06=50\|2026-07=30 |  |  |  |
+| 5 | David | Avery | Consultant | +48 22 5550105 | Warsaw | Consulting | david.Avery@example.com | Acme | 12-30 | Rolled off after April (0% utilization). | 5 | percent | 2026-04=100\|2026-05=0\|2026-06=0\|2026-07=0 |  |  |  |
 
 ## Plan
 
