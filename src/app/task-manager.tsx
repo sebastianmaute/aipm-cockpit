@@ -37,6 +37,7 @@ import { TasksSection } from "./tasks-section";
 import { useResizable } from "./use-resizable";
 import { WorkspaceTabProvider, useWorkspaceTab, type TopTab } from "./workspace-tab-context";
 import { AppHeader } from "./app-header";
+import { DueBanner } from "./notifications";
 import { WorkspaceSection } from "./workspace-section";
 
 // i18n key for each tab's label — used by both the tab strip and the
@@ -163,7 +164,7 @@ function TaskManagerInner() {
   });
 
   const { storageDescription, storageReady, onPickStorageFile, onGrantWriteAccess, onOpenStorageFile } =
-    useStorageBackend({ settings, lang, hydrated, activityLog, setActivityLog, showToast });
+    useStorageBackend({ settings, lang, hydrated, isPopout, activityLog, setActivityLog, showToast });
 
   // Reverse-lookup index for the "referenced by N RAID items" badge on
   // each task row. Map<taskId, RaidItem[]>. O(R) on every raid update,
@@ -387,6 +388,15 @@ function TaskManagerInner() {
         />
       )}
 
+      {!isPopout && !bannerDismissed && (
+        <DueBanner
+          items={bannerItems}
+          lang={lang}
+          onOpenList={() => setDueModalOpen(true)}
+          onDismiss={() => setBannerDismissed(true)}
+        />
+      )}
+
       <WorkspaceSection
         today={today}
         holidaySet={holidaySet}
@@ -465,10 +475,6 @@ function TaskManagerInner() {
       <AppModals
         lang={lang}
         isPopout={isPopout}
-        bannerDismissed={bannerDismissed}
-        setBannerDismissed={setBannerDismissed}
-        bannerItems={bannerItems}
-        setDueModalOpen={setDueModalOpen}
         dueModalOpen={dueModalOpen}
         dueModalItems={dueModalItems}
         onSelectDueTask={onSelectDueTask}

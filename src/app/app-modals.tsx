@@ -1,7 +1,7 @@
 "use client";
 
 import React, { type RefObject } from "react";
-import { DueBanner, DueDatesModal } from "./notifications";
+import { DueDatesModal } from "./notifications";
 import { TaskFormModal } from "./task-form-modal";
 import { JiraConflictsModal } from "./jira-conflicts-modal";
 import { AbsenceEditModal } from "./absence-edit-modal";
@@ -17,12 +17,6 @@ import type { Absence, Discipline, Grade, Role, Shift, Task } from "./types";
 export interface AppModalsProps {
   lang: Lang;
   isPopout: boolean;
-
-  // Due-date banner
-  bannerDismissed: boolean;
-  setBannerDismissed: React.Dispatch<React.SetStateAction<boolean>>;
-  bannerItems: AlertableTask[];
-  setDueModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
 
   // Due-dates modal
   dueModalOpen: boolean;
@@ -91,10 +85,6 @@ export interface AppModalsProps {
 export function AppModals({
   lang,
   isPopout,
-  bannerDismissed,
-  setBannerDismissed,
-  bannerItems,
-  setDueModalOpen,
   dueModalOpen,
   dueModalItems,
   onSelectDueTask,
@@ -147,15 +137,6 @@ export function AppModals({
 }: AppModalsProps) {
   return (
     <>
-      {!isPopout && !bannerDismissed && (
-        <DueBanner
-          items={bannerItems}
-          lang={lang}
-          onOpenList={() => setDueModalOpen(true)}
-          onDismiss={() => setBannerDismissed(true)}
-        />
-      )}
-
       <TaskFormModal
         lang={lang}
         today={today}

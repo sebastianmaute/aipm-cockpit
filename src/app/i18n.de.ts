@@ -145,6 +145,8 @@ export const de: Record<TranslationKey, string> = {
   storagePermissionGranted: "Schreibzugriff erteilt.",
   storagePermissionDenied:
     "Schreibzugriff wurde nicht erteilt. Speichern ist erst nach Freigabe möglich.",
+  storageWriteBlocked:
+    "Datei kann nicht beschrieben werden – der Speicherort ist durch die Sicherheitsrichtlinie des Browsers blockiert. Bitte eine andere Datei wählen oder in den Einstellungen auf Browser-Speicher umstellen.",
 
   selectAllVisible: "Alle sichtbaren Aufgaben auswählen",
   selectRow: "Aufgabe #{0} auswählen",

@@ -138,6 +138,8 @@ const enUS = {
   storagePermissionGranted: "Write access granted.",
   storagePermissionDenied:
     "Write access was not granted. Saves will not work until you allow it.",
+  storageWriteBlocked:
+    "Can't write to this file — the location is blocked by the browser's security policy. Pick a different file or switch to browser storage in Settings.",
 
   selectAllVisible: "Select all visible tasks",
   selectRow: "Select task #{0}",

@@ -31,11 +31,17 @@ const IS_DEV = process.env.NODE_ENV !== "production";
 
 function buildCsp(nonce: string): string {
   const scriptExtras = IS_DEV ? " 'unsafe-eval'" : "";
-  const styleElemExtras = IS_DEV ? " 'unsafe-inline'" : "";
+  // Dev: omit the nonce from style-src-elem so 'unsafe-inline' actually works.
+  // When a nonce is present the browser ignores 'unsafe-inline' (CSP Level 2),
+  // which blocks Next.js HMR and next/dynamic CSS injections in the dev server.
+  // Prod keeps strict nonce-only; scripts are still nonce-gated in both modes.
+  const styleElem = IS_DEV
+    ? "style-src-elem 'self' 'unsafe-inline'"
+    : `style-src-elem 'self' 'nonce-${nonce}'`;
   return [
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${scriptExtras}`,
-    `style-src-elem 'self' 'nonce-${nonce}'${styleElemExtras}`,
+    styleElem,
     "style-src-attr 'unsafe-inline'",
     "img-src 'self' data:",
     "font-src 'self'",
