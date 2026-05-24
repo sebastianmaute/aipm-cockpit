@@ -686,6 +686,7 @@ const enUS = {
   resourcesExternalCost: "External",
   resourcesMargin: "Margin",
   resourcesTotal: "Total",
+  resourcesAbsenceOverrideHint: "Absence h (auto if blank)",
 
   resourcesReportTitle: "Resource report",
   resourcesReportTotalCapacity: "Total capacity",

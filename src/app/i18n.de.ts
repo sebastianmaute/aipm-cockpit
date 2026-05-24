@@ -704,6 +704,7 @@ export const de: Record<TranslationKey, string> = {
   resourcesExternalCost: "Extern",
   resourcesMargin: "Marge",
   resourcesTotal: "Summe",
+  resourcesAbsenceOverrideHint: "Abwesenheit Std (auto wenn leer)",
 
   resourcesReportTitle: "Ressourcen-Bericht",
   resourcesReportTotalCapacity: "Gesamtkapazität",

@@ -20,7 +20,7 @@ import { memo, useEffect, useMemo, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { ResourceCalendar } from "./resource-calendar";
 import { SegmentedControl } from "./segmented-control";
-import { generatePeriods, displayCapacityHours, absencesForResource } from "./resource-capacity";
+import { generatePeriods, displayCapacityHours, absencesForResource, absenceWorkdays } from "./resource-capacity";
 import { periodCost, formatCurrency } from "./resource-cost";
 import {
   type Absence,
@@ -187,8 +187,8 @@ function ResourcesPanelInner({
   plan,
   workdayHours,
   onSetUtilization,
-  onSetUtilizationMode: _onSetUtilizationMode,
-  onSetAbsenceOverride: _onSetAbsenceOverride,
+  onSetUtilizationMode,
+  onSetAbsenceOverride,
   onSetPlanWindow,
   onSetPlanGranularity,
 }: Props) {
@@ -397,12 +397,19 @@ function ResourcesPanelInner({
                     <tr key={r.id}>
                       <td className="px-2 py-1 font-medium text-AIPM-dark-grey dark:text-AIPM-light-grey">{r.name}</td>
                       {periods.map((p) => (
-                        <td key={p.key} className="px-1 py-1 text-right">
+                        <td key={p.key} className="px-1 py-1 text-right align-top">
                           <input type="number" min={0} step={r.utilizationMode === "percent" ? 5 : 1}
                             aria-label={`Utilization for ${r.name} in ${p.key}`}
                             value={r.utilization[p.key] ?? ""}
                             onChange={(e) => onSetUtilization(r.id, p.key, Number(e.target.value) || 0)}
                             className="w-16 rounded border border-zinc-300 px-1 py-0.5 text-right tabular-nums dark:border-zinc-700 dark:bg-zinc-900" />
+                          <input type="number" min={0} step={1}
+                            aria-label={`Absence override for ${r.name} in ${p.key}`}
+                            title={t(lang, "resourcesAbsenceOverrideHint")}
+                            value={r.absenceOverride?.[p.key] ?? ""}
+                            placeholder={String(absenceWorkdays(resAbs, p.start, p.end, holidaySet) * workdayHours)}
+                            onChange={(e) => onSetAbsenceOverride(r.id, p.key, e.target.value === "" ? null : Number(e.target.value))}
+                            className="mt-0.5 w-16 rounded border border-amber-200 px-1 py-0.5 text-right text-[10px] tabular-nums text-amber-700 dark:border-amber-900/50 dark:bg-zinc-900 dark:text-amber-400" />
                         </td>
                       ))}
                       <td className="px-2 py-1 text-right tabular-nums font-medium">{(totalHours / workdayHours).toFixed(1)}</td>

@@ -106,4 +106,28 @@ describe("ResourcesPanel", () => {
     // The value appears in both the data row and the footer total row.
     expect(screen.getAllByText("$16,000").length).toBeGreaterThanOrEqual(1);
   });
+
+  test("planning view: editing a cell's absence override calls onSetAbsenceOverride", () => {
+    const onSetAbsenceOverride = vi.fn();
+    const resources = [{ id: 1, name: "Sample", roleId: null, utilizationMode: "percent" as const, utilization: {} }];
+    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "USD" };
+    render(<ResourcesPanel {...baseProps} lang="en-US" resources={resources} plan={plan} workdayHours={8}
+      holidaySet={new Set()} onSetUtilization={() => {}} onSetUtilizationMode={() => {}}
+      onSetAbsenceOverride={onSetAbsenceOverride} onSetPlanWindow={() => {}} onSetPlanGranularity={() => {}} />);
+    fireEvent.click(screen.getByRole("radio", { name: "Planning" }));
+    fireEvent.change(screen.getByLabelText("Absence override for Sample in 2026-02"), { target: { value: "16" } });
+    expect(onSetAbsenceOverride).toHaveBeenCalledWith(1, "2026-02", 16);
+  });
+
+  test("planning view: clearing an absence override passes null", () => {
+    const onSetAbsenceOverride = vi.fn();
+    const resources = [{ id: 1, name: "Sample", roleId: null, utilizationMode: "percent" as const, utilization: {}, absenceOverride: { "2026-02": 16 } }];
+    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "USD" };
+    render(<ResourcesPanel {...baseProps} lang="en-US" resources={resources} plan={plan} workdayHours={8}
+      holidaySet={new Set()} onSetUtilization={() => {}} onSetUtilizationMode={() => {}}
+      onSetAbsenceOverride={onSetAbsenceOverride} onSetPlanWindow={() => {}} onSetPlanGranularity={() => {}} />);
+    fireEvent.click(screen.getByRole("radio", { name: "Planning" }));
+    fireEvent.change(screen.getByLabelText("Absence override for Sample in 2026-02"), { target: { value: "" } });
+    expect(onSetAbsenceOverride).toHaveBeenCalledWith(1, "2026-02", null);
+  });
 });
