@@ -99,3 +99,17 @@ export function roleLabel(
   const g = grades.find((x) => x.id === role.gradeId)?.name ?? "?";
   return `${d} ${g}`;
 }
+
+/** Split a display name on the FIRST space: "Sample Anne Dummy" → first "Sample", last "Anne Dummy". */
+export function splitName(name: string): { firstName: string; lastName: string } {
+  const trimmed = (name ?? "").trim().replace(/\s+/g, " ");
+  if (!trimmed) return { firstName: "", lastName: "" };
+  const idx = trimmed.indexOf(" ");
+  if (idx === -1) return { firstName: trimmed, lastName: "" };
+  return { firstName: trimmed.slice(0, idx), lastName: trimmed.slice(idx + 1) };
+}
+
+/** Display name for a resource: "First Last", trimmed when last name is empty. */
+export function resourceDisplayName(r: Pick<Resource, "firstName" | "lastName">): string {
+  return `${r.firstName} ${r.lastName}`.trim();
+}
