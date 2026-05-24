@@ -49,9 +49,11 @@ export function backfillResources(
     const key = name.toLowerCase();
     let r = byKey.get(key);
     if (!r) {
+      const { firstName, lastName } = splitName(name);
       r = {
         id: nextId++,
-        name,
+        firstName,
+        lastName,
         email: rawEmail?.trim() || undefined,
         roleId: null,
         utilizationMode: "percent",

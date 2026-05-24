@@ -37,7 +37,7 @@ describe("workdaysInRange", () => {
 
 describe("absencesForResource", () => {
   test("matches by resourceId, falls back to case-folded name", () => {
-    const r: Resource = { id: 7, name: "Alex Example", roleId: null, utilizationMode: "percent", utilization: {} };
+    const r: Resource = { id: 7, firstName: "Sample", lastName: "Dummy", roleId: null, utilizationMode: "percent", utilization: {} };
     const abs: Absence[] = [
       { id: 1, assignee: "Alex Example", startDate: "2026-02-02", endDate: "2026-02-02", type: "vacation", resourceId: 7 },
       { id: 2, assignee: "Alex Example", startDate: "2026-02-03", endDate: "2026-02-03", type: "sick" },
@@ -62,7 +62,7 @@ const FEB: Period = { key: "2026-02", start: "2026-02-01", end: "2026-02-28" };
 describe("periodCapacityHours - percent mode (Excel golden: Andre month 1)", () => {
   test("0.95 × (20 workdays − 5.5 absence) days = 13.775 days = 110.2h", () => {
     const r: Resource = {
-      id: 1, name: "Andre", roleId: null, utilizationMode: "percent",
+      id: 1, firstName: "Andre", lastName: "", roleId: null, utilizationMode: "percent",
       utilization: { "2026-02": 95 }, absenceOverride: { "2026-02": 44 }, // 5.5 days × 8h
     };
     const cap = periodCapacityHours(r, FEB, [], 8, new Set());
@@ -73,7 +73,7 @@ describe("periodCapacityHours - percent mode (Excel golden: Andre month 1)", () 
 
 describe("periodCapacityHours - auto absence + holidays", () => {
   test("percent 100, one 2-day absence, no override → (20−2)×8 = 144h", () => {
-    const r: Resource = { id: 1, name: "x", roleId: null, utilizationMode: "percent", utilization: { "2026-02": 100 } };
+    const r: Resource = { id: 1, firstName: "x", lastName: "", roleId: null, utilizationMode: "percent", utilization: { "2026-02": 100 } };
     const abs: Absence[] = [{ id: 1, assignee: "x", startDate: "2026-02-02", endDate: "2026-02-03", type: "vacation" }];
     expect(periodCapacityHours(r, FEB, abs, 8, new Set())).toBeCloseTo(144, 6);
   });
@@ -81,23 +81,23 @@ describe("periodCapacityHours - auto absence + holidays", () => {
 
 describe("periodCapacityHours - hours mode", () => {
   test("flat 40h minus 8h auto absence (1 day) = 32h", () => {
-    const r: Resource = { id: 1, name: "x", roleId: null, utilizationMode: "hours", utilization: { "2026-02": 40 } };
+    const r: Resource = { id: 1, firstName: "x", lastName: "", roleId: null, utilizationMode: "hours", utilization: { "2026-02": 40 } };
     const abs: Absence[] = [{ id: 1, assignee: "x", startDate: "2026-02-02", endDate: "2026-02-02", type: "vacation" }];
     expect(periodCapacityHours(r, FEB, abs, 8, new Set())).toBe(32);
   });
   test("flat hours never goes negative", () => {
-    const r: Resource = { id: 1, name: "x", roleId: null, utilizationMode: "hours", utilization: { "2026-02": 4 }, absenceOverride: { "2026-02": 40 } };
+    const r: Resource = { id: 1, firstName: "x", lastName: "", roleId: null, utilizationMode: "hours", utilization: { "2026-02": 4 }, absenceOverride: { "2026-02": 40 } };
     expect(periodCapacityHours(r, FEB, [], 8, new Set())).toBe(0);
   });
   test("missing utilization value → 0 capacity", () => {
-    const r: Resource = { id: 1, name: "x", roleId: null, utilizationMode: "percent", utilization: {} };
+    const r: Resource = { id: 1, firstName: "x", lastName: "", roleId: null, utilizationMode: "percent", utilization: {} };
     expect(periodCapacityHours(r, FEB, [], 8, new Set())).toBe(0);
   });
 });
 
 describe("displayCapacityHours rollup", () => {
   const wh = 8;
-  const r: Resource = { id: 1, name: "x", roleId: null, utilizationMode: "percent", utilization: { "2026-02": 100 } };
+  const r: Resource = { id: 1, firstName: "x", lastName: "", roleId: null, utilizationMode: "percent", utilization: { "2026-02": 100 } };
 
   test("display === canonical: uses the period's own stored utilization", () => {
     const feb: Period = { key: "2026-02", start: "2026-02-01", end: "2026-02-28" };
@@ -112,7 +112,7 @@ describe("displayCapacityHours rollup", () => {
   });
 
   test("fine→coarse (week canonical, month display): sum of weeks starting in the month", () => {
-    const rw: Resource = { id: 1, name: "x", roleId: null, utilizationMode: "hours", utilization: { "2026-W07": 10, "2026-W08": 10 } };
+    const rw: Resource = { id: 1, firstName: "x", lastName: "", roleId: null, utilizationMode: "hours", utilization: { "2026-W07": 10, "2026-W08": 10 } };
     const w7: Period = { key: "2026-W07", start: "2026-02-09", end: "2026-02-15" };
     const w8: Period = { key: "2026-W08", start: "2026-02-16", end: "2026-02-22" };
     const feb: Period = { key: "2026-02", start: "2026-02-01", end: "2026-02-28" };

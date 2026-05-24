@@ -34,6 +34,7 @@ import {
   type Task,
   type WeekHours,
 } from "./types";
+import { resourceDisplayName } from "./resource-foundation";
 
 interface Props {
   lang: Lang;
@@ -129,12 +130,12 @@ function ResourceRoleRow({
 
   return (
     <li className="flex flex-wrap items-center gap-2 rounded-md border border-zinc-200 px-2 py-1 text-sm dark:border-zinc-800">
-      <span className="font-medium text-AIPM-dark-grey dark:text-AIPM-light-grey">{resource.name}</span>
+      <span className="font-medium text-AIPM-dark-grey dark:text-AIPM-light-grey">{resourceDisplayName(resource)}</span>
       {resource.roleId == null && (
         <span className="text-xs text-AIPM-medium-grey italic">{t(lang, "resourcesUnassignedRole")}</span>
       )}
       <select
-        aria-label={`Discipline for ${resource.name}`}
+        aria-label={`Discipline for ${resourceDisplayName(resource)}`}
         value={disc === "" ? "" : String(disc)}
         onChange={(e) => {
           const v = e.target.value === "" ? "" : Number(e.target.value);
@@ -149,7 +150,7 @@ function ResourceRoleRow({
         ))}
       </select>
       <select
-        aria-label={`Grade for ${resource.name}`}
+        aria-label={`Grade for ${resourceDisplayName(resource)}`}
         value={grad === "" ? "" : String(grad)}
         onChange={(e) => {
           const v = e.target.value === "" ? "" : Number(e.target.value);
@@ -396,16 +397,16 @@ function ResourcesPanelInner({
                   totals.margin += cost.margin;
                   return (
                     <tr key={r.id}>
-                      <td className="px-2 py-1 font-medium text-AIPM-dark-grey dark:text-AIPM-light-grey">{r.name}</td>
+                      <td className="px-2 py-1 font-medium text-AIPM-dark-grey dark:text-AIPM-light-grey">{resourceDisplayName(r)}</td>
                       {periods.map((p) => (
                         <td key={p.key} className="px-1 py-1 text-right align-top">
                           <input type="number" min={0} step={r.utilizationMode === "percent" ? 5 : 1}
-                            aria-label={`Utilization for ${r.name} in ${p.key}`}
+                            aria-label={`Utilization for ${resourceDisplayName(r)} in ${p.key}`}
                             value={r.utilization[p.key] ?? ""}
                             onChange={(e) => onSetUtilization(r.id, p.key, Number(e.target.value) || 0)}
                             className="w-16 rounded border border-zinc-300 px-1 py-0.5 text-right tabular-nums dark:border-zinc-700 dark:bg-zinc-900" />
                           <input type="number" min={0} step={1}
-                            aria-label={`Absence override for ${r.name} in ${p.key}`}
+                            aria-label={`Absence override for ${resourceDisplayName(r)} in ${p.key}`}
                             title={t(lang, "resourcesAbsenceOverrideHint")}
                             value={r.absenceOverride?.[p.key] ?? ""}
                             placeholder={String(absenceWorkdays(resAbs, p.start, p.end, holidaySet) * workdayHours)}
@@ -463,7 +464,7 @@ function ResourcesPanelInner({
                           const resAbs2 = absencesForResource(absences, r);
                           return (
                             <tr key={r.id}>
-                              <td className="px-2 py-1 font-medium text-AIPM-dark-grey dark:text-AIPM-light-grey">{r.name}</td>
+                              <td className="px-2 py-1 font-medium text-AIPM-dark-grey dark:text-AIPM-light-grey">{resourceDisplayName(r)}</td>
                               {rollupPeriods.map((rp) => (
                                 <td key={rp.key} className="px-2 py-1 text-right tabular-nums text-AIPM-medium-grey">
                                   {(displayCapacityHours(rp, periods, r, resAbs2, workdayHours, holidaySet, plan.granularity, other) / workdayHours).toFixed(1)}

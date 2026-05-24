@@ -10,7 +10,7 @@ const plan: ResourcePlan = { startDate: "2026-02-01", endDate: "2026-02-28", gra
 describe("computeResourceReport", () => {
   test("totals + breakdowns for one assigned resource (Feb 2026 = 160h @100%)", () => {
     const resources: Resource[] = [
-      { id: 1, name: "Sample", roleId: 5, utilizationMode: "percent", utilization: { "2026-02": 100 } },
+      { id: 1, firstName: "Sample", lastName: "", roleId: 5, utilizationMode: "percent", utilization: { "2026-02": 100 } },
     ];
     const rep = computeResourceReport(resources, roles, disciplines, grades, plan, [], new Set(), 8);
     expect(rep.totalCapacityHours).toBeCloseTo(160, 6);
@@ -27,7 +27,7 @@ describe("computeResourceReport", () => {
 
   test("unassigned resource: counted in capacity + per-resource (flagged), excluded from breakdowns and cost", () => {
     const resources: Resource[] = [
-      { id: 2, name: "Bob", roleId: null, utilizationMode: "percent", utilization: { "2026-02": 50 } },
+      { id: 2, firstName: "Bob", lastName: "", roleId: null, utilizationMode: "percent", utilization: { "2026-02": 50 } },
     ];
     const rep = computeResourceReport(resources, roles, disciplines, grades, plan, [], new Set(), 8);
     expect(rep.totalCapacityHours).toBeCloseTo(80, 6);

@@ -1,4 +1,5 @@
 import type { Absence, PlanGranularity, Resource } from "./types";
+import { resourceDisplayName } from "./resource-foundation";
 
 /** A planning period. Dates are inclusive "YYYY-MM-DD". */
 export type Period = { key: string; start: string; end: string };
@@ -89,7 +90,7 @@ export function workdaysInRange(start: string, end: string, holidaySet: Readonly
 
 /** A resource's absences: by resourceId when set, else case-folded name match. */
 export function absencesForResource(absences: readonly Absence[], resource: Resource): Absence[] {
-  const nameKey = resource.name.trim().toLowerCase();
+  const nameKey = resourceDisplayName(resource).toLowerCase();
   return absences.filter((a) =>
     a.resourceId != null ? a.resourceId === resource.id : a.assignee.trim().toLowerCase() === nameKey,
   );

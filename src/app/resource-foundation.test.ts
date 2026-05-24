@@ -49,11 +49,11 @@ describe("backfillResources", () => {
       [absence(9, "Bob Lee")],
     );
     expect(resources).toHaveLength(2);
-    const Sample = resources.find((r) => r.name === "Alex Example");
+    const Sample = resources.find((r) => resourceDisplayName(r) === "Alex Example");
     expect(Sample?.email).toBe("Sample@x.io");
     expect(tasks[0].resourceId).toBe(Sample?.id);
     expect(tasks[1].resourceId).toBe(Sample?.id); // case-folded match
-    expect(absences[0].resourceId).toBe(resources.find((r) => r.name === "Bob Lee")?.id);
+    expect(absences[0].resourceId).toBe(resources.find((r) => resourceDisplayName(r) === "Bob Lee")?.id);
   });
 
   test("ignores blank assignees and defaults role/mode", () => {

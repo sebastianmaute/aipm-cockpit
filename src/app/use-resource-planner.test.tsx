@@ -311,7 +311,8 @@ describe("useResourcePlanner", () => {
       const { result } = renderPlanner();
       const resource: Resource = {
         id: 1,
-        name: "Sample",
+        firstName: "Sample",
+        lastName: "",
         roleId: null,
         utilizationMode: "percent",
         utilization: {},
@@ -325,7 +326,8 @@ describe("useResourcePlanner", () => {
       const { result } = renderPlanner();
       const resource: Resource = {
         id: 1,
-        name: "Sample",
+        firstName: "Sample",
+        lastName: "",
         roleId: 5,
         utilizationMode: "percent",
         utilization: {},
@@ -346,7 +348,8 @@ describe("useResourcePlanner", () => {
       };
       const resource: Resource = {
         id: 1,
-        name: "Sample",
+        firstName: "Sample",
+        lastName: "",
         roleId: 5,
         utilizationMode: "percent",
         utilization: {},
@@ -438,7 +441,8 @@ describe("useResourcePlanner", () => {
   describe("utilization / plan handlers", () => {
     const seedResource: Resource = {
       id: 1,
-      name: "S",
+      firstName: "S",
+      lastName: "",
       roleId: null,
       utilizationMode: "percent",
       utilization: {},

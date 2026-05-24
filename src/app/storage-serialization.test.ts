@@ -1,6 +1,7 @@
 import { describe, test, expect } from "vitest";
 import { migrateWorkspaceV5, emptyWorkspace, workspaceToCsv, csvToWorkspace, workspaceToMarkdown, markdownToWorkspace } from "./storage";
 import type { Task, Resource, Role, Discipline, Grade } from "./types";
+import { resourceDisplayName } from "./resource-foundation";
 
 function task(id: number, assignee: string): Task {
   return {
@@ -20,7 +21,7 @@ describe("migrateWorkspaceV5", () => {
     expect(ws.grades.map((g) => g.name)).toContain("Principal");
     expect(ws.plan.granularity).toBe("month");
     expect(ws.resources).toHaveLength(2);
-    expect(ws.tasks[0].resourceId).toBe(ws.resources.find((r) => r.name === "Alex Example")?.id);
+    expect(ws.tasks[0].resourceId).toBe(ws.resources.find((r) => resourceDisplayName(r) === "Alex Example")?.id);
   });
 
   test("is idempotent: existing resources are not rebuilt", () => {
@@ -36,7 +37,7 @@ function sampleWorkspace() {
   const grades: Grade[] = [{ id: 1, name: "Senior" }];
   const roles: Role[] = [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 90, externalRate: 180 }];
   const resources: Resource[] = [
-    { id: 1, name: "Alex Example", email: "Sample@x.io", roleId: 1, utilizationMode: "percent",
+    { id: 1, firstName: "Sample", lastName: "Dummy", email: "Sample@x.io", roleId: 1, utilizationMode: "percent",
       utilization: { "2026-01": 80, "2026-02": 100 }, absenceOverride: { "2026-01": 8 } },
   ];
   return {
@@ -64,5 +65,36 @@ describe("Markdown round-trip (new entities)", () => {
     expect(back.resources).toEqual(ws.resources);
     expect(back.roles).toEqual(ws.roles);
     expect(back.plan).toEqual(ws.plan);
+  });
+});
+
+describe("resource address-book round-trip", () => {
+  const ws = {
+    tasks: [], raid: [], absences: [], shifts: [], roles: [], disciplines: [], grades: [],
+    plan: { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month" as const, currency: "EUR" },
+    resources: [{
+      id: 1, firstName: "Sample", lastName: "Dummy", email: "Sample@x.com",
+      title: "Architect", businessPhone: "+49 30 1", location: "Berlin",
+      department: "IAM", company: "iC", birthday: "06-14",
+      notes: "Note with, comma | pipe\nand newline", roleId: null,
+      utilizationMode: "percent" as const, utilization: {},
+    }],
+  };
+  test("CSV preserves all address-book fields incl. tricky notes", () => {
+    const back = csvToWorkspace(workspaceToCsv(ws as any)).resources[0];
+    expect(back).toMatchObject({
+      firstName: "Sample", lastName: "Dummy", title: "Architect", department: "IAM",
+      company: "iC", birthday: "06-14", businessPhone: "+49 30 1", location: "Berlin",
+      notes: "Note with, comma | pipe\nand newline",
+    });
+  });
+  test("Markdown preserves all address-book fields", () => {
+    const back = markdownToWorkspace(workspaceToMarkdown(ws as any)).resources[0];
+    expect(back).toMatchObject({ firstName: "Sample", lastName: "Dummy", birthday: "06-14" });
+  });
+  test("loads a legacy single-name CSV resource by splitting", () => {
+    const legacy = "# RESOURCES\nid,name,email,roleId,utilizationMode,utilization,absenceOverride,active,localModifiedAt\n1,Sam Placeholder,m@x.com,,percent,,,,\n";
+    const back = csvToWorkspace(legacy).resources.find((r) => r.id === 1);
+    expect(back).toMatchObject({ firstName: "Fictional", lastName: "Jordan" });
   });
 });

@@ -4,7 +4,7 @@ import { ResourcesPanel } from "./resources-panel";
 import type { Resource } from "./types";
 
 const resources: Resource[] = [
-  { id: 1, name: "Alex Example", roleId: null, utilizationMode: "percent", utilization: {} },
+  { id: 1, firstName: "Sample", lastName: "Dummy", roleId: null, utilizationMode: "percent", utilization: {} },
 ];
 
 const baseProps = {
@@ -54,7 +54,7 @@ describe("ResourcesPanel", () => {
 
   test("choosing a discipline then grade assigns the role", () => {
     const onAssignRole = vi.fn();
-    const resources = [{ id: 1, name: "Alex Example", roleId: null, utilizationMode: "percent" as const, utilization: {} }];
+    const resources = [{ id: 1, firstName: "Sample", lastName: "Dummy", roleId: null, utilizationMode: "percent" as const, utilization: {} }];
     render(<ResourcesPanel {...baseProps} resources={resources} roles={[]}
       disciplines={[{ id: 2, name: "Developer" }]} grades={[{ id: 3, name: "Senior" }]}
       onManageRoles={() => {}} onAssignRole={onAssignRole} />);
@@ -65,7 +65,7 @@ describe("ResourcesPanel", () => {
 
   test("planning view: editing a utilization cell calls onSetUtilization", () => {
     const onSetUtilization = vi.fn();
-    const resources = [{ id: 1, name: "Sample", roleId: null, utilizationMode: "percent" as const, utilization: {} }];
+    const resources = [{ id: 1, firstName: "Sample", lastName: "", roleId: null, utilizationMode: "percent" as const, utilization: {} }];
     const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };
     render(<ResourcesPanel {...baseProps} resources={resources} plan={plan}
       workdayHours={8} onSetUtilization={onSetUtilization} onSetUtilizationMode={() => {}}
@@ -95,7 +95,7 @@ describe("ResourcesPanel", () => {
 
   test("planning view shows internal cost from the resource's role rate", () => {
     const roles = [{ id: 5, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 0 }];
-    const resources = [{ id: 1, name: "Sample", roleId: 5, utilizationMode: "percent" as const, utilization: { "2026-02": 100 } }];
+    const resources = [{ id: 1, firstName: "Sample", lastName: "", roleId: 5, utilizationMode: "percent" as const, utilization: { "2026-02": 100 } }];
     const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "USD" };
     render(<ResourcesPanel {...baseProps} lang="en-US" resources={resources} roles={roles} plan={plan}
       workdayHours={8} holidaySet={new Set()}
@@ -109,7 +109,7 @@ describe("ResourcesPanel", () => {
 
   test("planning view: editing a cell's absence override calls onSetAbsenceOverride", () => {
     const onSetAbsenceOverride = vi.fn();
-    const resources = [{ id: 1, name: "Sample", roleId: null, utilizationMode: "percent" as const, utilization: {} }];
+    const resources = [{ id: 1, firstName: "Sample", lastName: "", roleId: null, utilizationMode: "percent" as const, utilization: {} }];
     const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "USD" };
     render(<ResourcesPanel {...baseProps} lang="en-US" resources={resources} plan={plan} workdayHours={8}
       holidaySet={new Set()} onSetUtilization={() => {}} onSetUtilizationMode={() => {}}
@@ -121,7 +121,7 @@ describe("ResourcesPanel", () => {
 
   test("planning view: clearing an absence override passes null", () => {
     const onSetAbsenceOverride = vi.fn();
-    const resources = [{ id: 1, name: "Sample", roleId: null, utilizationMode: "percent" as const, utilization: {}, absenceOverride: { "2026-02": 16 } }];
+    const resources = [{ id: 1, firstName: "Sample", lastName: "", roleId: null, utilizationMode: "percent" as const, utilization: {}, absenceOverride: { "2026-02": 16 } }];
     const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "USD" };
     render(<ResourcesPanel {...baseProps} lang="en-US" resources={resources} plan={plan} workdayHours={8}
       holidaySet={new Set()} onSetUtilization={() => {}} onSetUtilizationMode={() => {}}
@@ -132,7 +132,7 @@ describe("ResourcesPanel", () => {
   });
 
   test("planning view: rollup toggle reveals the non-canonical read-only table", () => {
-    const resources = [{ id: 1, name: "Sample", roleId: null, utilizationMode: "percent" as const, utilization: { "2026-02": 100 } }];
+    const resources = [{ id: 1, firstName: "Sample", lastName: "", roleId: null, utilizationMode: "percent" as const, utilization: { "2026-02": 100 } }];
     const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "USD" };
     render(<ResourcesPanel {...baseProps} lang="en-US" resources={resources} plan={plan} workdayHours={8}
       holidaySet={new Set()} onSetUtilization={() => {}} onSetUtilizationMode={() => {}}
