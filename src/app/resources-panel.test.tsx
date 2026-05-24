@@ -22,6 +22,7 @@ const baseProps = {
   disciplines: [] as never[],
   grades: [] as never[],
   onManageRoles: () => {},
+  onOpenReport: () => {},
   onAssignRole: () => {},
   plan: { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" },
   workdayHours: 8,
@@ -83,5 +84,26 @@ describe("ResourcesPanel", () => {
     fireEvent.click(screen.getByRole("radio", { name: "Planning" }));
     fireEvent.change(screen.getByLabelText("From"), { target: { value: "2026-01-01" } });
     expect(onSetPlanWindow).toHaveBeenCalledWith("2026-01-01", "2026-02-28");
+  });
+
+  test("clicking Report calls onOpenReport", () => {
+    const onOpenReport = vi.fn();
+    render(<ResourcesPanel {...baseProps} resources={[]} onOpenReport={onOpenReport} />);
+    fireEvent.click(screen.getByRole("button", { name: "Report" }));
+    expect(onOpenReport).toHaveBeenCalled();
+  });
+
+  test("planning view shows internal cost from the resource's role rate", () => {
+    const roles = [{ id: 5, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 0 }];
+    const resources = [{ id: 1, name: "Sample", roleId: 5, utilizationMode: "percent" as const, utilization: { "2026-02": 100 } }];
+    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "USD" };
+    render(<ResourcesPanel {...baseProps} lang="en-US" resources={resources} roles={roles} plan={plan}
+      workdayHours={8} holidaySet={new Set()}
+      onSetUtilization={() => {}} onSetUtilizationMode={() => {}} onSetAbsenceOverride={() => {}}
+      onSetPlanWindow={() => {}} onSetPlanGranularity={() => {}} />);
+    fireEvent.click(screen.getByRole("radio", { name: "Planning" }));
+    // Feb 2026 = 20 workdays × 8h = 160h; 100% util; internal = 160 × 100 = $16,000
+    // The value appears in both the data row and the footer total row.
+    expect(screen.getAllByText("$16,000").length).toBeGreaterThanOrEqual(1);
   });
 });

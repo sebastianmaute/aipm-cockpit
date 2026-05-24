@@ -48,6 +48,7 @@ const TAB_LABEL_KEYS: Record<TopTab, TranslationKey> = {
   raid: "tabRaid",
   resources: "tabResources",
   activity: "tabActivity",
+  "resource-report": "resourcesReportTitle",
 };
 
 function todayISO() {

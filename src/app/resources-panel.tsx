@@ -21,6 +21,7 @@ import { type Lang, t } from "./i18n";
 import { ResourceCalendar } from "./resource-calendar";
 import { SegmentedControl } from "./segmented-control";
 import { generatePeriods, displayCapacityHours, absencesForResource } from "./resource-capacity";
+import { periodCost, formatCurrency } from "./resource-cost";
 import {
   type Absence,
   DEFAULT_WEEK_HOURS,
@@ -55,6 +56,7 @@ interface Props {
   disciplines: readonly Discipline[];
   grades: readonly Grade[];
   onManageRoles: () => void;
+  onOpenReport: () => void;
   onAssignRole: (resourceId: number, disciplineId: number, gradeId: number) => void;
   plan: ResourcePlan;
   workdayHours: number;
@@ -180,6 +182,7 @@ function ResourcesPanelInner({
   disciplines,
   grades,
   onManageRoles,
+  onOpenReport,
   onAssignRole,
   plan,
   workdayHours,
@@ -293,6 +296,13 @@ function ResourcesPanelInner({
         </button>
         <button
           type="button"
+          onClick={onOpenReport}
+          className="rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-xs font-medium text-AIPM-dark-grey shadow-sm hover:border-AIPM-dark-blue hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-AIPM-light-grey dark:hover:bg-zinc-800"
+        >
+          {t(lang, "resourcesOpenReport")}
+        </button>
+        <button
+          type="button"
           onClick={() => onAddAbsence()}
           className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-AIPM-dark-blue/90"
         >
@@ -365,13 +375,24 @@ function ResourcesPanelInner({
                     <th key={p.key} className="px-2 py-1.5 text-right tabular-nums">{p.key}</th>
                   ))}
                   <th className="px-2 py-1.5 text-right">{t(lang, "resourcesCapacityDays")}</th>
+                  <th className="px-2 py-1.5 text-right">{t(lang, "resourcesInternalCost")}</th>
+                  <th className="px-2 py-1.5 text-right">{t(lang, "resourcesExternalCost")}</th>
+                  <th className="px-2 py-1.5 text-right">{t(lang, "resourcesMargin")}</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
-                {resources.map((r) => {
+              {(() => {
+                const loc = localeFor(lang);
+                const totals = { days: 0, internal: 0, external: 0, margin: 0 };
+                const rowsJsx = resources.map((r) => {
                   const resAbs = absencesForResource(absences, r);
-                  const totalDays = periods.reduce((sum, p) =>
-                    sum + displayCapacityHours(p, periods, r, resAbs, workdayHours, holidaySet, plan.granularity, plan.granularity) / workdayHours, 0);
+                  const totalHours = periods.reduce((sum, p) =>
+                    sum + displayCapacityHours(p, periods, r, resAbs, workdayHours, holidaySet, plan.granularity, plan.granularity), 0);
+                  const role = roles.find((x) => x.id === r.roleId);
+                  const cost = periodCost(totalHours, role);
+                  totals.days += totalHours / workdayHours;
+                  totals.internal += cost.internal;
+                  totals.external += cost.external;
+                  totals.margin += cost.margin;
                   return (
                     <tr key={r.id}>
                       <td className="px-2 py-1 font-medium text-AIPM-dark-grey dark:text-AIPM-light-grey">{r.name}</td>
@@ -384,11 +405,29 @@ function ResourcesPanelInner({
                             className="w-16 rounded border border-zinc-300 px-1 py-0.5 text-right tabular-nums dark:border-zinc-700 dark:bg-zinc-900" />
                         </td>
                       ))}
-                      <td className="px-2 py-1 text-right tabular-nums font-medium">{totalDays.toFixed(1)}</td>
+                      <td className="px-2 py-1 text-right tabular-nums font-medium">{(totalHours / workdayHours).toFixed(1)}</td>
+                      <td className="px-2 py-1 text-right tabular-nums">{formatCurrency(cost.internal, plan.currency, loc)}</td>
+                      <td className="px-2 py-1 text-right tabular-nums">{formatCurrency(cost.external, plan.currency, loc)}</td>
+                      <td className="px-2 py-1 text-right tabular-nums">{formatCurrency(cost.margin, plan.currency, loc)}</td>
                     </tr>
                   );
-                })}
-              </tbody>
+                });
+                return (
+                  <>
+                    <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">{rowsJsx}</tbody>
+                    <tfoot className="border-t border-zinc-300 dark:border-zinc-700">
+                      <tr className="font-semibold">
+                        <td className="px-2 py-1.5">{t(lang, "resourcesTotal")}</td>
+                        <td className="px-1 py-1.5" colSpan={periods.length} />
+                        <td className="px-2 py-1.5 text-right tabular-nums">{totals.days.toFixed(1)}</td>
+                        <td className="px-2 py-1.5 text-right tabular-nums">{formatCurrency(totals.internal, plan.currency, loc)}</td>
+                        <td className="px-2 py-1.5 text-right tabular-nums">{formatCurrency(totals.external, plan.currency, loc)}</td>
+                        <td className="px-2 py-1.5 text-right tabular-nums">{formatCurrency(totals.margin, plan.currency, loc)}</td>
+                      </tr>
+                    </tfoot>
+                  </>
+                );
+              })()}
             </table>
           </div>
           </>
