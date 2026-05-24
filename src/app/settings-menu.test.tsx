@@ -15,7 +15,7 @@ function makeSettings(overrides: Partial<Settings> = {}): Settings {
   return { ...defaultSettings, ...overrides };
 }
 
-function makeProps(overrides: Partial<ReturnType<typeof makeProps>> = {}) {
+function makeProps(overrides: Partial<React.ComponentProps<typeof SettingsMenu>> = {}): React.ComponentProps<typeof SettingsMenu> {
   return {
     settings: makeSettings(),
     onChange: vi.fn(),

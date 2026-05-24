@@ -25,7 +25,7 @@ function makeSettings(overrides: {
   return {
     language: "en-US",
     holidayCountries: [],
-    storageConfig: { backend: "local" },
+    storageConfig: { kind: "browser" },
     ai: {
       apiKey: "",
       model: "claude-sonnet-4-6",
@@ -48,6 +48,8 @@ function makeSettings(overrides: {
       assigneeAccountId: "",
       assigneeDisplayName: "",
     },
+    popout: { reuseWindow: false },
+    resources: { workdayHours: 8 },
   };
 }
 
