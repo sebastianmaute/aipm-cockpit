@@ -524,7 +524,9 @@ export function sanitizeResource(input: unknown): Resource | null {
   const birthday = sanitizeBirthday(input.birthday); if (birthday) resource.birthday = birthday;
   const notes = optMultiline(input.notes); if (notes) resource.notes = notes;
   if (Object.keys(overrideRaw).length > 0) resource.absenceOverride = overrideRaw;
-  if (input.active === false) resource.active = false;
+  // CSV/MD serialize `active` as the string "false"; JSON keeps the boolean.
+  // Accept both so the soft-archive flag round-trips through every backend.
+  if (input.active === false || input.active === "false") resource.active = false;
   if (typeof input.localModifiedAt === "string" && input.localModifiedAt) resource.localModifiedAt = input.localModifiedAt;
   return resource;
 }

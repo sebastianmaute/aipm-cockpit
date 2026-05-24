@@ -196,6 +196,18 @@ describe("sanitizeResource — address-book fields", () => {
     const r = sanitizeResource({ id: 4, firstName: "A", lastName: "B", birthday: "13-40", utilizationMode: "percent", utilization: {} });
     expect(r?.birthday).toBeUndefined();
   });
+  test('treats the string "false" as inactive (CSV/MD load)', () => {
+    const r = sanitizeResource({ id: 5, firstName: "X", lastName: "Y", active: "false", utilizationMode: "percent", utilization: {} });
+    expect(r?.active).toBe(false);
+  });
+  test("treats boolean false as inactive", () => {
+    const r = sanitizeResource({ id: 6, firstName: "X", lastName: "Y", active: false, utilizationMode: "percent", utilization: {} });
+    expect(r?.active).toBe(false);
+  });
+  test("leaves active unset when truthy or absent", () => {
+    expect(sanitizeResource({ id: 7, firstName: "X", lastName: "Y", active: "true", utilizationMode: "percent", utilization: {} })?.active).toBeUndefined();
+    expect(sanitizeResource({ id: 8, firstName: "X", lastName: "Y", utilizationMode: "percent", utilization: {} })?.active).toBeUndefined();
+  });
 });
 
 describe("sanitizeBirthday", () => {
