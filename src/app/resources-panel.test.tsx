@@ -69,7 +69,7 @@ describe("ResourcesPanel", () => {
     render(<ResourcesPanel {...baseProps} resources={resources} plan={plan}
       workdayHours={8} onSetUtilization={onSetUtilization} onSetUtilizationMode={() => {}}
       onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} onSetPlanGranularity={() => {}} />);
-    fireEvent.click(screen.getByRole("button", { name: "Planning" }));
+    fireEvent.click(screen.getByRole("radio", { name: "Planning" }));
     fireEvent.change(screen.getByLabelText("Utilization for Sample in 2026-02"), { target: { value: "80" } });
     expect(onSetUtilization).toHaveBeenCalledWith(1, "2026-02", 80);
   });
@@ -80,7 +80,7 @@ describe("ResourcesPanel", () => {
     render(<ResourcesPanel {...baseProps} resources={[]} plan={plan} workdayHours={8}
       onSetUtilization={() => {}} onSetUtilizationMode={() => {}} onSetAbsenceOverride={() => {}}
       onSetPlanWindow={onSetPlanWindow} onSetPlanGranularity={() => {}} />);
-    fireEvent.click(screen.getByRole("button", { name: "Planning" }));
+    fireEvent.click(screen.getByRole("radio", { name: "Planning" }));
     fireEvent.change(screen.getByLabelText("From"), { target: { value: "2026-01-01" } });
     expect(onSetPlanWindow).toHaveBeenCalledWith("2026-01-01", "2026-02-28");
   });

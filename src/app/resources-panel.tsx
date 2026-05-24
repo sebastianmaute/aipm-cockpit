@@ -2,13 +2,16 @@
 
 // Resource Planner panel — view shell + per-assignee list view.
 //
-// Two views, switchable via a SegmentedControl in the header:
+// Three views, switchable via a single SegmentedControl in the header:
 //   - "list"     — stats table (open/overdue counts + upcoming absences).
 //                  Phases 1 + 2 of the planner.
 //   - "calendar" — 30-day grid (rows × days). Phase 3. Rendered by the
 //                  sibling <ResourceCalendar /> component.
+//   - "planning" — per-period utilization grid (resources × periods) with a
+//                  planning-window (start/end date) + granularity (week/month)
+//                  control row above the table.
 //
-// Both views share the same per-assignee aggregation: trim + lowercase
+// All views share the same per-assignee aggregation: trim + lowercase
 // the assignee name so "Alex Example" and "Alex Example" land in the same
 // row; display uses the first observed original casing. See
 // docs/RESOURCE-PLANNER-PLAN.md.
@@ -270,29 +273,16 @@ function ResourcesPanelInner({
       </h2>
       <div className="flex items-center gap-3">
         {showToggle && (
-          <>
-            <SegmentedControl<"list" | "calendar">
-              value={view === "planning" ? "list" : view}
-              ariaLabel={t(lang, "tabResources")}
-              options={[
-                { value: "list", label: t(lang, "resourcesViewList") },
-                { value: "calendar", label: t(lang, "resourcesViewCalendar") },
-              ]}
-              onChange={(v) => setView(v)}
-            />
-            <button
-              type="button"
-              onClick={() => setView("planning")}
-              aria-pressed={view === "planning"}
-              className={`rounded-md border px-2.5 py-1.5 text-xs font-medium shadow-sm ${
-                view === "planning"
-                  ? "border-AIPM-dark-blue bg-AIPM-dark-blue text-white"
-                  : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
-              }`}
-            >
-              {t(lang, "resourcesViewPlanning")}
-            </button>
-          </>
+          <SegmentedControl<View>
+            value={view}
+            ariaLabel={t(lang, "tabResources")}
+            options={[
+              { value: "list", label: t(lang, "resourcesViewList") },
+              { value: "calendar", label: t(lang, "resourcesViewCalendar") },
+              { value: "planning", label: t(lang, "resourcesViewPlanning") },
+            ]}
+            onChange={(v) => setView(v)}
+          />
         )}
         <button
           type="button"
