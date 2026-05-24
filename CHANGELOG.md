@@ -8,6 +8,129 @@ Authoritative source for version + build date: [`src/app/version.ts`](src/app/ve
 This file is seeded from that module's milestone comment plus the
 post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-diff.txt).
 
+## [0.9.0] "Mann" — 2026-05-24
+
+Resource Utilization feature — turns the Resources tab from a derived
+read-only view into a first-class capacity & cost planner. Built spec-first
+across five phases (foundation → roles & rates → capacity engine →
+cost layer → report pop-out) plus a polish round.
+
+### Added
+
+- **First-class `Resource` entities** with two-dimensional `Role`
+  (discipline × grade) carrying internal/external hourly rates. Seeded
+  presets — disciplines: Developer / Business Analyst / Consultant /
+  Project Manager; grades: Junior / Associate / Consultant / Senior /
+  Lead / Principal. Both lists are editable (add custom, rename) and
+  `Role` combos are created on demand when a resource is assigned.
+- **Roles & rates manager modal** (`roles-modal.tsx`) — discipline × grade
+  rate card with editable internal/external rates and on-demand role
+  creation; opened from the Resources tab header.
+- **Per-resource role assignment** in the Resources roster (controlled
+  discipline + grade selects per resource).
+- **Editable per-period Planning grid** (third view in the Resources tab):
+  - Per-resource utilization input per period (week or month).
+  - Percent mode (0–100) or hours mode (per resource).
+  - Per-row capacity totals (days).
+  - Per-cell absence override (auto-derived hours as placeholder; clearing
+    reverts to auto).
+  - Planning-window date controls (From / To) and week/month granularity
+    switch.
+- **Capacity engine** (`resource-capacity.ts`, pure) — period generation
+  (calendar months + ISO weeks Mon–Sun), workdays minus weekends and
+  holidays, absence accounting (auto from the `Absence` entity or manual
+  override), and the capacity formula:
+  - percent mode: `(util / 100) × max(0, possibleHours − absenceHours)`
+  - hours mode: `max(0, util − absenceHours)`
+- **Cost layer** (`resource-cost.ts`, pure) — `internalCost = hours × rate`,
+  `externalCost = hours × rate`, `margin = external − internal`. Internal /
+  external / margin columns + footer totals in the Planning grid;
+  formatted via `Intl.NumberFormat(locale, { currency })` from
+  `plan.currency`.
+- **Read-only week ↔ month rollup table** in the Planning view — toggles
+  the non-canonical granularity as a read-only re-bucketing, leaving the
+  canonical editable grid untouched.
+- **Resources report pop-out** (`resources-report.tsx`) — read-only report
+  launched via a "Report" button in the Resources header. Summary tiles
+  (total capacity, internal cost, external cost, margin), per-period
+  table, per-discipline / per-grade / per-role-combo breakdowns, and a
+  per-resource table (role, avg utilization, capacity, costs).
+  Unassigned-role resources are flagged and excluded from the breakdowns
+  (still counted in capacity totals). Opens as a separate window via
+  `?popout=resource-report`; live cross-window data sync via the existing
+  `BroadcastChannel` plumbing.
+- **`workdayHours` setting** (default `8`) under Settings → Resources.
+
+### Changed
+
+- **Storage schema → v5.** `Workspace` now also carries `resources`,
+  `roles`, `disciplines`, `grades`, and a `plan` singleton
+  (`ResourcePlan { startDate, endDate, granularity, currency }`). Four
+  new IndexedDB stores (`resources`, `roles`, `disciplines`, `grades`)
+  plus a `resource-plan` entry in the existing `kv` store. CSV /
+  Markdown / JSON file backends gain matching sections; the dynamic
+  `utilization` / `absenceOverride` maps serialize as a single encoded
+  cell via the new period-map codec.
+- **Additive `resourceId?` on `Task` and `Absence`** — the free-text
+  `assignee` is preserved as the display value, the Jira-sync field, the
+  search/filter key, and a fallback join. `resourceId` is authoritative
+  when present (Approach A — non-destructive).
+- **Idempotent v5 migration** (`migrateWorkspaceV5`) — seeds preset
+  disciplines/grades and a default plan, and on first load backfills one
+  `Resource` per distinct case-folded `assignee` across tasks + absences,
+  stamping `resourceId` onto those records. Re-running over a populated
+  workspace is a no-op (reference equality).
+- **`Resource Planner` Features row in the README** updated to reflect
+  the new roles, planning grid, capacity/cost, rollup, and report.
+- **Storage Backends row** updated to schema v5 + new stores.
+- **`src/app/version.ts`** — `APP_VERSION` `"0.9.0"`, `APP_BUILD_DATE`
+  `2026-05-24`, prepended highlight comment.
+- **CODEMAPS** (`architecture.md`, `frontend.md`, `data.md`) refreshed for
+  the new entities, schema v5 layout, new modules, and the
+  resource-report popout target. `backend.md` / `dependencies.md`
+  freshness-only (no API routes or runtime/dev deps added).
+
+### Fixed
+
+- Two long-standing pre-existing `tsc` errors in test fixtures
+  (`settings-menu.test.tsx`: self-referential `makeProps` type;
+  `use-due-alerts.test.ts`: stale `StorageConfig` shape). Project now
+  type-checks fully clean (`npx tsc --noEmit` → 0 errors).
+
+### Tests
+
+- **`resource-capacity.test.ts`** — 13 tests including the Excel golden
+  fixture from `docs/patterns/Book1.xlsx`: Andre Weiß, Feb 2026 (20
+  workdays), 95 % utilization, 5.5-day absence override (44 h) →
+  `110.2 h` / `13.775 days` — matches the spreadsheet's `D4 = 13.775`.
+- **`resource-cost.test.ts`** — 5 tests (percent/hours costs, unassigned,
+  currency formatter incl. invalid-code fallback).
+- **`resource-foundation.test.ts`** — 7 tests (preset seeding, default
+  plan window, assignee backfill, `findRoleByCombo`, `roleLabel`,
+  `nextId`).
+- **`resource-report.test.ts`** — 2 tests (totals + breakdowns for an
+  assigned resource; unassigned excluded from breakdowns but counted in
+  totals + per-resource).
+- **`storage-serialization.test.ts`** — 4 tests (v5 migration idempotency
+  + assignee backfill; CSV and Markdown round-trip preserve all new
+  entities including encoded period maps).
+- **`sanitize.test.ts`** — extended for period-map codec, `sanitizeResource`
+  (object + encoded-string map forms, percent / hours clamping), `Role`,
+  `Discipline`, `Grade`, and `sanitizePlan`.
+- **`resources-panel.test.tsx`** — 10 tests covering the planning view's
+  edit flow, "Manage roles" + "Report" buttons, per-resource role
+  assignment, planning-window control, absence-override editing, and the
+  read-only rollup toggle.
+- **`roles-modal.test.tsx`** — 3 tests for the rate card.
+- **`resources-report.test.tsx`** — render test for tiles, breakdowns,
+  and the per-resource table.
+- **`use-resource-planner.test.tsx`** — extended to 32 tests (added: role
+  CRUD + on-demand creation, discipline/grade add/rename, utilization
+  set, mode switch, absence override set/clear, plan window/granularity
+  setters).
+
+Full suite: 296 tests across 43 files, all green.
+
 ## [0.8.4] "Lorca" — 2026-05-22
 
 ### Refactored
@@ -33,10 +156,6 @@ Extract `TabButton`, `Th`, `SortableTh`, `ResetSizeIcon`, `ResetColWidthsIcon`,
 that originates outside those contexts (column manager, resizable table, row
 state, Jira, task actions, bulk operations). 3 smoke tests. `task-manager.tsx`
 −520 lines; now ~1,049 lines. Slice 14 of the decomposition.
-
-## [Unreleased]
-
-_No unreleased changes._
 
 ## [0.8.1] "Ibsen" — 2026-05-21
 
@@ -326,10 +445,26 @@ Prior feature-accretion milestone. (Quoted from `src/app/version.ts`:
 - ADF (Atlassian Document Format) ↔ notes round-tripping.
 - Resizable + collapsible workspace, resizable tasks table, header "+" task modal.
 
-[Unreleased]: https://gitlab.example.com/example-group/public-collab/lop-app/-/compare/v0.7.3...main
-[0.7.3]: https://gitlab.example.com/example-group/public-collab/lop-app/-/compare/v0.7.2...v0.7.3
-[0.7.2]: https://gitlab.example.com/example-group/public-collab/lop-app/-/compare/v0.7.1...v0.7.2
-[0.7.1]: https://gitlab.example.com/example-group/public-collab/lop-app/-/compare/v0.7.0...v0.7.1
+## [Unreleased]
+
+_No unreleased changes._
+
+[0.9.0]: # (no tag)
+[0.8.4]: # (no tag)
+[0.8.3]: # (no tag)
+[0.8.2]: # (no tag)
+[0.8.1]: # (no tag)
+[0.8.0]: # (no tag)
+[0.7.9]: # (no tag)
+[0.7.8]: # (no tag)
+[0.7.7]: # (no tag)
+[0.7.6]: # (no tag)
+[0.7.5]: # (no tag)
+[0.7.4]: # (no tag)
+[0.7.3]: # (no tag)
+[0.7.2]: # (no tag)
+[0.7.1]: # (no tag)
 [0.7.0]: # (no tag)
 [0.6.0]: # (no tag)
 [0.5.0]: # (no tag)
+[Unreleased]: # (no tag)
