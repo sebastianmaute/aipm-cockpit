@@ -58,6 +58,8 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
     setDisciplines,
     grades,
     setGrades,
+    plan,
+    setPlan,
   } = useWorkspace();
 
   const langRef = useRef(args.lang);
@@ -443,6 +445,65 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
     [raid, setRaid, setTasks],
   );
 
+  const handleSetUtilization = useCallback(
+    (resourceId: number, periodKey: string, value: number) => {
+      const stamp = new Date().toISOString();
+      setResources((prev) =>
+        prev.map((r) =>
+          r.id === resourceId
+            ? { ...r, utilization: { ...r.utilization, [periodKey]: value }, localModifiedAt: stamp }
+            : r,
+        ),
+      );
+    },
+    [setResources],
+  );
+
+  const handleSetUtilizationMode = useCallback(
+    (resourceId: number, mode: "percent" | "hours") => {
+      const stamp = new Date().toISOString();
+      setResources((prev) =>
+        prev.map((r) =>
+          r.id === resourceId ? { ...r, utilizationMode: mode, localModifiedAt: stamp } : r,
+        ),
+      );
+    },
+    [setResources],
+  );
+
+  const handleSetAbsenceOverride = useCallback(
+    (resourceId: number, periodKey: string, hours: number | null) => {
+      const stamp = new Date().toISOString();
+      setResources((prev) =>
+        prev.map((r) => {
+          if (r.id !== resourceId) return r;
+          const next = { ...(r.absenceOverride ?? {}) };
+          if (hours == null) delete next[periodKey];
+          else next[periodKey] = hours;
+          const out = { ...r, localModifiedAt: stamp } as typeof r;
+          if (Object.keys(next).length > 0) out.absenceOverride = next;
+          else delete out.absenceOverride;
+          return out;
+        }),
+      );
+    },
+    [setResources],
+  );
+
+  const handleSetPlanWindow = useCallback(
+    (startDate: string, endDate: string) => {
+      setPlan((prev) => ({ ...prev, startDate, endDate }));
+    },
+    [setPlan],
+  );
+
+  const handleSetPlanGranularity = useCallback(
+    (granularity: "week" | "month") => {
+      setPlan((prev) => ({ ...prev, granularity }));
+    },
+    [setPlan],
+  );
+
   return {
     editingAbsence,
     editingShift,
@@ -470,5 +531,10 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
     handleRenameDiscipline,
     handleAddGrade,
     handleRenameGrade,
+    handleSetUtilization,
+    handleSetUtilizationMode,
+    handleSetAbsenceOverride,
+    handleSetPlanWindow,
+    handleSetPlanGranularity,
   };
 }

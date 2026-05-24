@@ -10,7 +10,7 @@ import { useFilters } from "./filters-context";
 import { TabButton, ResetSizeIcon } from "./task-manager-ui";
 import type { ToolDispatcher } from "./chat-tools";
 import type { ActivityEntry } from "./activity-log";
-import type { Absence, RaidItem, Shift } from "./types";
+import type { Absence, PlanGranularity, RaidItem, Shift } from "./types";
 
 const ChatPanel = dynamic(
   () => import("./chat-panel").then((m) => m.ChatPanel),
@@ -68,6 +68,11 @@ export interface WorkspaceSectionProps {
   ) => void;
   onManageRoles: () => void;
   onAssignRole: (resourceId: number, disciplineId: number, gradeId: number) => void;
+  onSetUtilization: (resourceId: number, periodKey: string, value: number) => void;
+  onSetUtilizationMode: (resourceId: number, mode: "percent" | "hours") => void;
+  onSetAbsenceOverride: (resourceId: number, periodKey: string, hours: number | null) => void;
+  onSetPlanWindow: (startDate: string, endDate: string) => void;
+  onSetPlanGranularity: (granularity: PlanGranularity) => void;
 }
 
 export function WorkspaceSection({
@@ -94,9 +99,14 @@ export function WorkspaceSection({
   handleOpenShiftEditor,
   onManageRoles,
   onAssignRole,
+  onSetUtilization,
+  onSetUtilizationMode,
+  onSetAbsenceOverride,
+  onSetPlanWindow,
+  onSetPlanGranularity,
 }: WorkspaceSectionProps) {
   const { settings, lang } = useSettings();
-  const { tasks, raid, absences, shifts, resources, roles, disciplines, grades } = useWorkspace();
+  const { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan } = useWorkspace();
   const { activeTab, setActiveTab, isPopout } = useWorkspaceTab();
   const { raidFilterTaskId } = useFilters();
 
@@ -337,6 +347,13 @@ export function WorkspaceSection({
               grades={grades}
               onManageRoles={onManageRoles}
               onAssignRole={onAssignRole}
+              plan={plan}
+              workdayHours={settings.resources.workdayHours}
+              onSetUtilization={onSetUtilization}
+              onSetUtilizationMode={onSetUtilizationMode}
+              onSetAbsenceOverride={onSetAbsenceOverride}
+              onSetPlanWindow={onSetPlanWindow}
+              onSetPlanGranularity={onSetPlanGranularity}
             />
           </div>
         )}

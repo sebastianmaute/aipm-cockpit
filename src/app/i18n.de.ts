@@ -693,4 +693,10 @@ export const de: Record<TranslationKey, string> = {
   rolesAddGrade: "Stufe hinzufügen",
   rolesNoRoles: "Noch keine Rollen — Disziplin × Stufe hinzufügen.",
   resourcesManageRoles: "Rollen verwalten",
+  resourcesViewPlanning: "Planung",
+  resourcesCapacityDays: "Kapazität (Tage)",
+  resourcesPlanStart: "Von",
+  resourcesPlanEnd: "Bis",
+  resourcesGranularityWeek: "Wochen",
+  resourcesGranularityMonth: "Monate",
 };

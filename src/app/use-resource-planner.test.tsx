@@ -434,4 +434,46 @@ describe("useResourcePlanner", () => {
       expect(result.current.workspace.grades[0].name).toBe("Mid");
     });
   });
+
+  describe("utilization / plan handlers", () => {
+    const seedResource: Resource = {
+      id: 1,
+      name: "S",
+      roleId: null,
+      utilizationMode: "percent",
+      utilization: {},
+    };
+
+    it("handleSetUtilization writes resource.utilization[periodKey]", () => {
+      const { result } = renderPlanner();
+      act(() => { result.current.workspace.setResources([seedResource]); });
+      act(() => { result.current.planner.handleSetUtilization(1, "2026-02", 80); });
+      expect(result.current.workspace.resources[0].utilization["2026-02"]).toBe(80);
+    });
+
+    it("handleSetUtilizationMode switches a resource's mode", () => {
+      const { result } = renderPlanner();
+      act(() => { result.current.workspace.setResources([seedResource]); });
+      act(() => { result.current.planner.handleSetUtilizationMode(1, "hours"); });
+      expect(result.current.workspace.resources[0].utilizationMode).toBe("hours");
+    });
+
+    it("handleSetAbsenceOverride sets and clears (null removes the key)", () => {
+      const { result } = renderPlanner();
+      act(() => { result.current.workspace.setResources([seedResource]); });
+      act(() => { result.current.planner.handleSetAbsenceOverride(1, "2026-02", 16); });
+      expect(result.current.workspace.resources[0].absenceOverride?.["2026-02"]).toBe(16);
+      act(() => { result.current.planner.handleSetAbsenceOverride(1, "2026-02", null); });
+      expect(result.current.workspace.resources[0].absenceOverride?.["2026-02"]).toBeUndefined();
+    });
+
+    it("handleSetPlanWindow and handleSetPlanGranularity update the plan", () => {
+      const { result } = renderPlanner();
+      act(() => { result.current.planner.handleSetPlanWindow("2026-01-01", "2026-06-30"); });
+      act(() => { result.current.planner.handleSetPlanGranularity("week"); });
+      expect(result.current.workspace.plan.startDate).toBe("2026-01-01");
+      expect(result.current.workspace.plan.endDate).toBe("2026-06-30");
+      expect(result.current.workspace.plan.granularity).toBe("week");
+    });
+  });
 });

@@ -675,6 +675,12 @@ const enUS = {
   rolesAddGrade: "Add grade",
   rolesNoRoles: "No roles yet — add a discipline × grade combination.",
   resourcesManageRoles: "Manage roles",
+  resourcesViewPlanning: "Planning",
+  resourcesCapacityDays: "Capacity (days)",
+  resourcesPlanStart: "From",
+  resourcesPlanEnd: "To",
+  resourcesGranularityWeek: "Weeks",
+  resourcesGranularityMonth: "Months",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;

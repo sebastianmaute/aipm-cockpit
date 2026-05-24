@@ -23,6 +23,13 @@ const baseProps = {
   grades: [] as never[],
   onManageRoles: () => {},
   onAssignRole: () => {},
+  plan: { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" },
+  workdayHours: 8,
+  onSetUtilization: () => {},
+  onSetUtilizationMode: () => {},
+  onSetAbsenceOverride: () => {},
+  onSetPlanWindow: () => {},
+  onSetPlanGranularity: () => {},
 };
 
 describe("ResourcesPanel", () => {
@@ -53,5 +60,28 @@ describe("ResourcesPanel", () => {
     fireEvent.change(screen.getByLabelText("Discipline for Alex Example"), { target: { value: "2" } });
     fireEvent.change(screen.getByLabelText("Grade for Alex Example"), { target: { value: "3" } });
     expect(onAssignRole).toHaveBeenCalledWith(1, 2, 3);
+  });
+
+  test("planning view: editing a utilization cell calls onSetUtilization", () => {
+    const onSetUtilization = vi.fn();
+    const resources = [{ id: 1, name: "Sample", roleId: null, utilizationMode: "percent" as const, utilization: {} }];
+    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };
+    render(<ResourcesPanel {...baseProps} resources={resources} plan={plan}
+      workdayHours={8} onSetUtilization={onSetUtilization} onSetUtilizationMode={() => {}}
+      onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} onSetPlanGranularity={() => {}} />);
+    fireEvent.click(screen.getByRole("radio", { name: "Planning" }));
+    fireEvent.change(screen.getByLabelText("Utilization for Sample in 2026-02"), { target: { value: "80" } });
+    expect(onSetUtilization).toHaveBeenCalledWith(1, "2026-02", 80);
+  });
+
+  test("planning view: changing the From date calls onSetPlanWindow", () => {
+    const onSetPlanWindow = vi.fn();
+    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };
+    render(<ResourcesPanel {...baseProps} resources={[]} plan={plan} workdayHours={8}
+      onSetUtilization={() => {}} onSetUtilizationMode={() => {}} onSetAbsenceOverride={() => {}}
+      onSetPlanWindow={onSetPlanWindow} onSetPlanGranularity={() => {}} />);
+    fireEvent.click(screen.getByRole("radio", { name: "Planning" }));
+    fireEvent.change(screen.getByLabelText("From"), { target: { value: "2026-01-01" } });
+    expect(onSetPlanWindow).toHaveBeenCalledWith("2026-01-01", "2026-02-28");
   });
 });
