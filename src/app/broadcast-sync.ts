@@ -97,6 +97,7 @@ export const POPOUT_TABS = [
   "raid",
   "resources",
   "activity",
+  "resource-report",
 ] as const;
 export type PopoutTab = (typeof POPOUT_TABS)[number];
 

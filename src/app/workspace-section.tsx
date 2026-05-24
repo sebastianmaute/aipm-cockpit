@@ -36,6 +36,10 @@ const ActivityLogPanel = dynamic(
   () => import("./activity-log-panel").then((m) => m.ActivityLogPanel),
   { ssr: false },
 );
+const ResourcesReportPanel = dynamic(
+  () => import("./resources-report").then((m) => m.ResourcesReportPanel),
+  { ssr: false },
+);
 
 export interface WorkspaceSectionProps {
   today: string;
@@ -354,6 +358,7 @@ export function WorkspaceSection({
               onSetAbsenceOverride={onSetAbsenceOverride}
               onSetPlanWindow={onSetPlanWindow}
               onSetPlanGranularity={onSetPlanGranularity}
+              onOpenReport={() => openPopoutWindow("resource-report", settings.popout.reuseWindow)}
             />
           </div>
         )}
@@ -369,6 +374,15 @@ export function WorkspaceSection({
               entries={activityLog}
               onClear={handleClearActivityLog}
             />
+          </div>
+        )}
+
+        {activeTab === "resource-report" && (
+          <div id="panel-resource-report" role="tabpanel" className="min-h-0 flex-1 overflow-y-auto pt-4">
+            <ResourcesReportPanel
+              lang={lang} resources={resources} roles={roles} disciplines={disciplines}
+              grades={grades} plan={plan} absences={absences} holidaySet={holidaySet}
+              workdayHours={settings.resources.workdayHours} />
           </div>
         )}
       </div>

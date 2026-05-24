@@ -22,6 +22,7 @@ const baseProps = {
   disciplines: [] as never[],
   grades: [] as never[],
   onManageRoles: () => {},
+  onOpenReport: () => {},
   onAssignRole: () => {},
   plan: { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" },
   workdayHours: 8,
@@ -83,6 +84,13 @@ describe("ResourcesPanel", () => {
     fireEvent.click(screen.getByRole("radio", { name: "Planning" }));
     fireEvent.change(screen.getByLabelText("From"), { target: { value: "2026-01-01" } });
     expect(onSetPlanWindow).toHaveBeenCalledWith("2026-01-01", "2026-02-28");
+  });
+
+  test("clicking Report calls onOpenReport", () => {
+    const onOpenReport = vi.fn();
+    render(<ResourcesPanel {...baseProps} resources={[]} onOpenReport={onOpenReport} />);
+    fireEvent.click(screen.getByRole("button", { name: "Report" }));
+    expect(onOpenReport).toHaveBeenCalled();
   });
 
   test("planning view shows internal cost from the resource's role rate", () => {

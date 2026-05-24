@@ -675,6 +675,7 @@ const enUS = {
   rolesAddGrade: "Add grade",
   rolesNoRoles: "No roles yet — add a discipline × grade combination.",
   resourcesManageRoles: "Manage roles",
+  resourcesOpenReport: "Report",
   resourcesViewPlanning: "Planning",
   resourcesCapacityDays: "Capacity (days)",
   resourcesPlanStart: "From",

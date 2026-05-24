@@ -56,6 +56,7 @@ interface Props {
   disciplines: readonly Discipline[];
   grades: readonly Grade[];
   onManageRoles: () => void;
+  onOpenReport: () => void;
   onAssignRole: (resourceId: number, disciplineId: number, gradeId: number) => void;
   plan: ResourcePlan;
   workdayHours: number;
@@ -181,6 +182,7 @@ function ResourcesPanelInner({
   disciplines,
   grades,
   onManageRoles,
+  onOpenReport,
   onAssignRole,
   plan,
   workdayHours,
@@ -291,6 +293,13 @@ function ResourcesPanelInner({
           className="rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-xs font-medium text-AIPM-dark-grey shadow-sm hover:border-AIPM-dark-blue hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-AIPM-light-grey dark:hover:bg-zinc-800"
         >
           {t(lang, "resourcesManageRoles")}
+        </button>
+        <button
+          type="button"
+          onClick={onOpenReport}
+          className="rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-xs font-medium text-AIPM-dark-grey shadow-sm hover:border-AIPM-dark-blue hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-AIPM-light-grey dark:hover:bg-zinc-800"
+        >
+          {t(lang, "resourcesOpenReport")}
         </button>
         <button
           type="button"
