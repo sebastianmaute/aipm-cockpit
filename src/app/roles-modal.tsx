@@ -179,12 +179,13 @@ function RefList({
               onReorder(filtered);
               draggedIdRef.current = null;
             }}
+            onDragEnd={() => { draggedIdRef.current = null; }}
             className="flex items-center gap-1"
           >
             <span
               title={t(lang, "reorderHint")}
               className="cursor-move select-none px-1 text-AIPM-medium-grey"
-              aria-hidden
+              aria-hidden={true}
             >≡</span>
             <input defaultValue={it.name}
               onBlur={(e) => { if (e.target.value.trim() && e.target.value.trim() !== it.name) onRename(it.id, e.target.value); }}
