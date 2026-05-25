@@ -521,7 +521,11 @@ export function sanitizeResource(input: unknown): Resource | null {
   const location = optText(input.location); if (location) resource.location = location;
   const department = optText(input.department); if (department) resource.department = department;
   const company = optText(input.company); if (company) resource.company = company;
-  const birthday = sanitizeBirthday(input.birthday); if (birthday) resource.birthday = birthday;
+  const birthday =
+    typeof input.birthday === "string" && /^(?:\d{4}-)?(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(input.birthday)
+      ? input.birthday
+      : undefined;
+  if (birthday) resource.birthday = birthday;
   const notes = optMultiline(input.notes); if (notes) resource.notes = notes;
   if (Object.keys(overrideRaw).length > 0) resource.absenceOverride = overrideRaw;
   // CSV/MD serialize `active` as the string "false"; JSON keeps the boolean.
