@@ -112,15 +112,6 @@ function ResourceDirectoryInner({
   const [sortKey, setSortKey] = useState<SortKey>("");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
-  const discName = (r: Resource): string => {
-    const role = roles.find((x) => x.id === r.roleId);
-    return role ? (disciplines.find((d) => d.id === role.disciplineId)?.name ?? "") : "";
-  };
-  const gradeName = (r: Resource): string => {
-    const role = roles.find((x) => x.id === r.roleId);
-    return role ? (grades.find((g) => g.id === role.gradeId)?.name ?? "") : "";
-  };
-
   const toggleSort = (key: SortKey) => {
     if (key === sortKey) {
       setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -131,6 +122,14 @@ function ResourceDirectoryInner({
   };
 
   const rows = useMemo(() => {
+    const discName = (r: Resource): string => {
+      const role = roles.find((x) => x.id === r.roleId);
+      return role ? (disciplines.find((d) => d.id === role.disciplineId)?.name ?? "") : "";
+    };
+    const gradeName = (r: Resource): string => {
+      const role = roles.find((x) => x.id === r.roleId);
+      return role ? (grades.find((g) => g.id === role.gradeId)?.name ?? "") : "";
+    };
     const q = filter.trim().toLowerCase();
     const keyOf = (r: Resource): string => {
       switch (sortKey) {
@@ -147,12 +146,13 @@ function ResourceDirectoryInner({
     };
     const filtered = q
       ? resources.filter((r) =>
-          [resourceDisplayName(r), r.title, r.department, r.businessPhone, r.email, r.company]
+          [resourceDisplayName(r), r.title, r.department, r.businessPhone, r.email, r.company, discName(r), gradeName(r)]
             .some((v) => (v ?? "").toLowerCase().includes(q)))
       : resources.slice();
     if (sortKey !== "") {
       filtered.sort((a, b) => {
         const ka = keyOf(a), kb = keyOf(b);
+        // Blanks always sort last, regardless of asc/desc.
         if (ka === "" && kb !== "") return 1;
         if (kb === "" && ka !== "") return -1;
         const cmp = ka.localeCompare(kb);
@@ -160,7 +160,6 @@ function ResourceDirectoryInner({
       });
     }
     return filtered;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resources, roles, disciplines, grades, filter, sortKey, sortDir]);
 
   const sortIndicator = (key: SortKey) =>

@@ -1,5 +1,5 @@
 import { render, screen, fireEvent, within } from "@testing-library/react";
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { ResourceDirectory } from "./resource-directory";
 import type { Resource } from "./types";
 
@@ -21,6 +21,8 @@ const common = {
 };
 
 describe("ResourceDirectory", () => {
+  beforeEach(() => vi.clearAllMocks());
+
   it("fires onEditResource when the name is clicked", () => {
     const onEdit = vi.fn();
     render(<ResourceDirectory lang="en-US" resources={rs} roles={[]} disciplines={[]} grades={[]} onAssignRole={vi.fn()} onEditResource={onEdit} onAddResource={vi.fn()} />);
@@ -55,5 +57,14 @@ describe("ResourceDirectory", () => {
     fireEvent.click(screen.getByRole("button", { name: /sort by assignee/i }));
     const rows = screen.getAllByRole("row").slice(1); // skip header
     expect(within(rows[0]).getByText("Amy Bell")).toBeInTheDocument();
+  });
+
+  it("reverses to descending on a second click of the same header", () => {
+    render(<ResourceDirectory {...common} resources={twoResources} />);
+    const nameHeader = screen.getByRole("button", { name: /sort by assignee/i });
+    fireEvent.click(nameHeader); // asc → Amy first
+    fireEvent.click(nameHeader); // desc → Zoe first
+    const rows = screen.getAllByRole("row").slice(1);
+    expect(within(rows[0]).getByText("Zoe Adams")).toBeInTheDocument();
   });
 });
