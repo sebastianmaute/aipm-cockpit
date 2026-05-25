@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { type Lang, t } from "./i18n";
-import { buildResourceWorkload } from "./resource-workload-logic";
+import { buildResourceWorkload } from "./resource-workload-rows";
 import type { Absence, Resource, Shift, Task } from "./types";
 
 interface Props {
