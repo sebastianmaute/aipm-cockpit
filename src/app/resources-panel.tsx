@@ -18,6 +18,7 @@
 // first observed original casing.
 
 import { memo, useMemo, useState } from "react";
+import { localeFor } from "./date-format";
 import { type Lang, t } from "./i18n";
 import { ResourceCalendar } from "./resource-calendar";
 import { ResourceDirectory } from "./resource-directory";
@@ -92,25 +93,6 @@ function sumHours(h: WeekHours): number {
 }
 
 const DEFAULT_WEEKLY_HOURS_TOTAL = sumHours(DEFAULT_WEEK_HOURS);
-
-function localeFor(lang: Lang): string {
-  if (lang === "de") return "de-DE";
-  if (lang === "en-GB") return "en-GB";
-  return "en-US";
-}
-
-function shortDateRange(a: Absence, lang: Lang): string {
-  const loc = localeFor(lang);
-  const start = new Date(a.startDate);
-  const end = new Date(a.endDate);
-  const sameDay = a.startDate === a.endDate;
-  const fmt: Intl.DateTimeFormatOptions = { month: "short", day: "2-digit" };
-  if (Number.isNaN(start.valueOf()) || Number.isNaN(end.valueOf())) {
-    return sameDay ? a.startDate : `${a.startDate}–${a.endDate}`;
-  }
-  if (sameDay) return start.toLocaleDateString(loc, fmt);
-  return `${start.toLocaleDateString(loc, fmt)}–${end.toLocaleDateString(loc, fmt)}`;
-}
 
 function ResourcesPanelInner({
   lang,
