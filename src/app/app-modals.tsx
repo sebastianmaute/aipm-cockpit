@@ -46,6 +46,7 @@ export interface AppModalsProps {
   handleCloseShiftModal: () => void;
 
   // TaskFormModal props
+  onAddAssigneeToAddressBook: (name: string, email: string) => void;
   today: string;
   nextId: number;
   contactsList: ReturnType<typeof listContacts>;
@@ -124,6 +125,7 @@ export function AppModals({
   jiraProjectKey,
   jiraDefaultIssueType,
   modalRef,
+  onAddAssigneeToAddressBook,
   handleSubmit,
   handleCancelEdit,
   handleRemoveContact,
@@ -164,6 +166,7 @@ export function AppModals({
         jiraProjectKey={jiraProjectKey}
         jiraDefaultIssueType={jiraDefaultIssueType}
         modalRef={modalRef}
+        onAddAssigneeToAddressBook={onAddAssigneeToAddressBook}
         onSubmit={handleSubmit}
         onCancel={handleCancelEdit}
         onRemoveContact={handleRemoveContact}

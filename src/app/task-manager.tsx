@@ -23,9 +23,11 @@ import { AppModals } from "./app-modals";
 import {
   type Absence,
   type RaidItem,
+  type Resource,
   type Shift,
   type Task,
 } from "./types";
+import { splitName, resourceDisplayName } from "./resource-foundation";
 import { buildRaidByTaskIndex } from "./raid";
 import { FiltersProvider, useFilters } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
@@ -220,6 +222,27 @@ function TaskManagerInner() {
     handleDeleteResource,
     handleCloseResourceModal,
   } = useResourcePlanner({ lang, logActivity, showToast });
+
+  const [fillTaskAssigneeOnSave, setFillTaskAssigneeOnSave] = useState(false);
+
+  const handleAddAssigneeToAddressBook = useCallback((name: string, email: string) => {
+    const { firstName, lastName } = splitName(name);
+    setFillTaskAssigneeOnSave(true);
+    handleOpenAddResource({ firstName, lastName, email: email.trim() || undefined });
+  }, [handleOpenAddResource]);
+
+  const handleSaveResourceFromAnywhere = useCallback((next: Resource) => {
+    handleSaveResource(next);
+    if (fillTaskAssigneeOnSave) {
+      setForm((prev) => ({ ...prev, assignee: resourceDisplayName(next), assigneeEmail: next.email ?? "" }));
+      setFillTaskAssigneeOnSave(false);
+    }
+  }, [handleSaveResource, fillTaskAssigneeOnSave, setForm]);
+
+  const handleCloseResourceFromAnywhere = useCallback(() => {
+    handleCloseResourceModal();
+    setFillTaskAssigneeOnSave(false);
+  }, [handleCloseResourceModal]);
 
   const tasksRef = useRef(tasks);
   useEffect(() => {
@@ -538,10 +561,11 @@ function TaskManagerInner() {
         handleCancelEdit={handleCancelEdit}
         handleRemoveContact={handleRemoveContact}
         showToast={showToast}
+        onAddAssigneeToAddressBook={handleAddAssigneeToAddressBook}
         editingResource={editingResource}
-        onSaveResource={handleSaveResource}
+        onSaveResource={handleSaveResourceFromAnywhere}
         onDeleteResource={handleDeleteResource}
-        onCloseResourceModal={handleCloseResourceModal}
+        onCloseResourceModal={handleCloseResourceFromAnywhere}
         rolesModalOpen={rolesModalOpen}
         roles={roles}
         disciplines={disciplines}
