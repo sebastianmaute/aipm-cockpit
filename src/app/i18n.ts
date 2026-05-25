@@ -738,6 +738,7 @@ const enUS = {
   resourcesOpenAddressBook: "Open address book",
   taskAddAssigneeToAddressBook: "Add to address book",
 
+  reminderLeadDays: "Days ahead",
   notifBirthday: "Birthday reminders",
   birthdayLeadDays: "Days ahead",
   birthdayBannerAria: "Upcoming birthdays",

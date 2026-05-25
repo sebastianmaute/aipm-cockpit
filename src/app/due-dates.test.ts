@@ -37,15 +37,19 @@ describe("workdaysUntil", () => {
 describe("getAlertableTasks", () => {
   const today = "2025-06-10";
   const noHolidays = new Set<string>();
+  const noAbsences: Absence[] = [];
 
   test("categorizes overdue, today, and soon while excluding tasks beyond threshold", () => {
+    // today=2025-06-10 (Tue), reminderLeadDays=5
+    // task 3 due 2025-06-12: trigger = isoAddDays(2025-06-12,-5)=2025-06-07(Sat)->shift->2025-06-06(Fri); 2025-06-10 >= 2025-06-06 => soon
+    // task 4 due 2025-07-15: trigger = 2025-07-10(Thu); 2025-06-10 < 2025-07-10 => excluded
     const tasks: Task[] = [
       makeTask({ id: 1, dueDate: "2025-06-05" }),
       makeTask({ id: 2, dueDate: "2025-06-10" }),
       makeTask({ id: 3, dueDate: "2025-06-12" }),
       makeTask({ id: 4, dueDate: "2025-07-15" }),
     ];
-    const alerts = getAlertableTasks(tasks, 5, today, noHolidays);
+    const alerts = getAlertableTasks(tasks, 5, today, noHolidays, noAbsences);
     expect(alerts.map((a) => [a.task.id, a.category])).toEqual([
       [1, "overdue"],
       [2, "today"],
@@ -57,7 +61,7 @@ describe("getAlertableTasks", () => {
     const tasks: Task[] = [
       makeTask({ id: 1, dueDate: "2025-06-05", completedDate: "2025-06-04" }),
     ];
-    expect(getAlertableTasks(tasks, 5, today, noHolidays)).toEqual([]);
+    expect(getAlertableTasks(tasks, 5, today, noHolidays, noAbsences)).toEqual([]);
   });
 
   test("sorts results by due date ascending", () => {
@@ -66,8 +70,24 @@ describe("getAlertableTasks", () => {
       makeTask({ id: 2, dueDate: "2025-06-10" }),
       makeTask({ id: 3, dueDate: "2025-06-09" }),
     ];
-    const alerts = getAlertableTasks(tasks, 5, today, noHolidays);
+    const alerts = getAlertableTasks(tasks, 5, today, noHolidays, noAbsences);
     expect(alerts.map((a) => a.task.id)).toEqual([3, 2, 1]);
+  });
+
+  test("trigger shifts past weekend: task due Friday, leadDays=1 → trigger is Thursday", () => {
+    // due=2025-06-13 (Fri), trigger=isoAddDays(Fri,-1)=2025-06-12(Thu); today=2025-06-12 >= Thu => soon
+    const tasks: Task[] = [makeTask({ id: 1, dueDate: "2025-06-13" })];
+    const alerts = getAlertableTasks(tasks, 1, "2025-06-12", noHolidays, noAbsences);
+    expect(alerts[0]?.category).toBe("soon");
+  });
+
+  test("trigger shifts past Saturday: due=Mon, leadDays=2 → trigger shifts back from Sat to Fri", () => {
+    // due=2025-06-16(Mon), isoAddDays(-2)=2025-06-14(Sat)->shift->2025-06-13(Fri)
+    const tasks: Task[] = [makeTask({ id: 1, dueDate: "2025-06-16" })];
+    const alerts = getAlertableTasks(tasks, 2, "2025-06-13", noHolidays, noAbsences);
+    expect(alerts[0]?.category).toBe("soon");
+    // Not triggered yet on the day before
+    expect(getAlertableTasks(tasks, 2, "2025-06-12", noHolidays, noAbsences)).toHaveLength(0);
   });
 });
 

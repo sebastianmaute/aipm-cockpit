@@ -3,18 +3,20 @@ import { type Dispatch, type SetStateAction, useEffect, useRef, useState } from 
 import { getUpcomingBirthdays } from "./birthdays";
 import { birthdayToastText } from "./notifications";
 import type { Settings } from "./settings-menu";
-import type { Resource } from "./types";
+import type { Resource, Absence } from "./types";
 
 export interface UseBirthdayAlertsArgs {
   hydrated: boolean;
   resources: Resource[];
   today: string;
   settings: Settings;
+  holidaySet: Set<string>;
+  absences: Absence[];
   showToast: (kind: "info" | "error", text: string) => void;
 }
 
 export function useBirthdayAlerts({
-  hydrated, resources, today, settings, showToast,
+  hydrated, resources, today, settings, holidaySet, absences, showToast,
 }: UseBirthdayAlertsArgs): {
   birthdayDismissed: boolean;
   setBirthdayDismissed: Dispatch<SetStateAction<boolean>>;
@@ -32,7 +34,7 @@ export function useBirthdayAlerts({
     const cfg = settingsRef.current.notifications.birthday;
     if (!cfg.enabled) return;
     notifiedThisSessionRef.current = true;
-    const items = getUpcomingBirthdays(resources, todayRef.current, cfg.leadDays);
+    const items = getUpcomingBirthdays(resources, todayRef.current, settingsRef.current.notifications.reminderLeadDays, holidaySet, absences);
     const lang = settingsRef.current.language;
     void Promise.resolve().then(() => {
       if (items.length > 0) showToast("info", birthdayToastText(items, lang));

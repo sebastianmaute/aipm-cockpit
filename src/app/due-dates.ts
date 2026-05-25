@@ -30,29 +30,27 @@ export type AlertableTask = {
 
 /**
  * Returns tasks that should appear in due-date alerts: overdue, due today,
- * or due within `thresholdWorkDays` workdays. Sorted by due date ascending.
+ * or whose working-day-shifted reminder trigger has been reached. Sorted by
+ * due date ascending.
  */
 export function getAlertableTasks(
   tasks: Task[],
-  thresholdWorkDays: number,
+  reminderLeadDays: number,
   today: string,
   holidays: Set<string>,
+  absences: readonly Absence[],
 ): AlertableTask[] {
+  const absMap = absenceDayMap(absences);
+  const EMPTY: ReadonlySet<string> = new Set();
   const out: AlertableTask[] = [];
   for (const task of tasks) {
-    if (!task.dueDate) continue;
-    if (task.completedDate) continue;
-    if (task.dueDate < today) {
-      out.push({ task, category: "overdue", workDaysLeft: 0 });
-      continue;
-    }
-    if (task.dueDate === today) {
-      out.push({ task, category: "today", workDaysLeft: 0 });
-      continue;
-    }
-    const days = workdaysUntil(task.dueDate, today, holidays);
-    if (days <= thresholdWorkDays) {
-      out.push({ task, category: "soon", workDaysLeft: days });
+    if (!task.dueDate || task.completedDate) continue;
+    if (task.dueDate < today) { out.push({ task, category: "overdue", workDaysLeft: 0 }); continue; }
+    if (task.dueDate === today) { out.push({ task, category: "today", workDaysLeft: 0 }); continue; }
+    const absenceDays = absMap.get(task.assignee.trim().toLowerCase()) ?? EMPTY;
+    const trigger = shiftToWorkingDay(isoAddDays(task.dueDate, -reminderLeadDays), holidays, absenceDays);
+    if (today >= trigger) {
+      out.push({ task, category: "soon", workDaysLeft: workdaysUntil(task.dueDate, today, holidays) });
     }
   }
   out.sort((a, b) => a.task.dueDate.localeCompare(b.task.dueDate));

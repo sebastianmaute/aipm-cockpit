@@ -10,12 +10,13 @@ import {
 import { getAlertableTasks } from "./due-dates";
 import { dueAlertsToastText } from "./notifications";
 import type { Settings } from "./settings-menu";
-import type { Task } from "./types";
+import type { Task, Absence } from "./types";
 
 export interface UseDueAlertsArgs {
   hydrated: boolean;
   tasks: Task[];
   holidaySet: Set<string>;
+  absences: Absence[];
   settings: Settings;
   today: string;
   showToast: (kind: "info" | "error", text: string) => void;
@@ -25,6 +26,7 @@ export function useDueAlerts({
   hydrated,
   tasks,
   holidaySet,
+  absences,
   settings,
   today,
   showToast,
@@ -59,18 +61,20 @@ export function useDueAlerts({
     const toastItems = toastCfg.enabled
       ? getAlertableTasks(
           tasks,
-          toastCfg.thresholdWorkDays,
+          settingsRef.current.notifications.reminderLeadDays,
           todayRef.current,
-          holidaySet
+          holidaySet,
+          absences,
         )
       : [];
 
     const popupItems = popupCfg.enabled
       ? getAlertableTasks(
           tasks,
-          popupCfg.thresholdWorkDays,
+          settingsRef.current.notifications.reminderLeadDays,
           todayRef.current,
-          holidaySet
+          holidaySet,
+          absences,
         )
       : [];
 
@@ -80,7 +84,7 @@ export function useDueAlerts({
         showToast("info", dueAlertsToastText(toastItems, currentLanguage));
       if (popupItems.length > 0) setDueModalOpen(true);
     });
-  }, [hydrated, tasks, holidaySet, showToast]);
+  }, [hydrated, tasks, holidaySet, absences, showToast]);
 
   return { bannerDismissed, setBannerDismissed, dueModalOpen, setDueModalOpen };
 }

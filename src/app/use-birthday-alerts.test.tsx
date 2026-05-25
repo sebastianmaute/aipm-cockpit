@@ -22,7 +22,8 @@ function makeSettings(enabled: boolean, leadDays: number): Settings {
     ...defaultSettings,
     notifications: {
       ...defaultSettings.notifications,
-      birthday: { enabled, leadDays },
+      reminderLeadDays: leadDays,
+      birthday: { enabled },
     },
   };
 }
@@ -36,7 +37,7 @@ describe("useBirthdayAlerts", () => {
     const settings = makeSettings(true, 7);
 
     const { result } = renderHook(() =>
-      useBirthdayAlerts({ hydrated: true, resources, today, settings, showToast }),
+      useBirthdayAlerts({ hydrated: true, resources, today, settings, holidaySet: new Set(), absences: [], showToast }),
     );
 
     // flush Promise.resolve microtask
@@ -56,7 +57,7 @@ describe("useBirthdayAlerts", () => {
     const settings = makeSettings(false, 7);
 
     renderHook(() =>
-      useBirthdayAlerts({ hydrated: true, resources, today, settings, showToast }),
+      useBirthdayAlerts({ hydrated: true, resources, today, settings, holidaySet: new Set(), absences: [], showToast }),
     );
 
     await act(async () => {
@@ -74,7 +75,7 @@ describe("useBirthdayAlerts", () => {
     const settings = makeSettings(true, 7);
 
     renderHook(() =>
-      useBirthdayAlerts({ hydrated: true, resources, today, settings, showToast }),
+      useBirthdayAlerts({ hydrated: true, resources, today, settings, holidaySet: new Set(), absences: [], showToast }),
     );
 
     await act(async () => {
@@ -91,7 +92,7 @@ describe("useBirthdayAlerts", () => {
     const settings = makeSettings(true, 7);
 
     renderHook(() =>
-      useBirthdayAlerts({ hydrated: false, resources, today, settings, showToast }),
+      useBirthdayAlerts({ hydrated: false, resources, today, settings, holidaySet: new Set(), absences: [], showToast }),
     );
 
     await act(async () => {
@@ -108,7 +109,7 @@ describe("useBirthdayAlerts", () => {
     const settings = makeSettings(true, 7);
 
     const { result } = renderHook(() =>
-      useBirthdayAlerts({ hydrated: true, resources, today, settings, showToast }),
+      useBirthdayAlerts({ hydrated: true, resources, today, settings, holidaySet: new Set(), absences: [], showToast }),
     );
 
     await act(async () => {

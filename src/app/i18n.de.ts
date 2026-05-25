@@ -756,6 +756,7 @@ export const de: Record<TranslationKey, string> = {
   resourcesOpenAddressBook: "Adressbuch öffnen",
   taskAddAssigneeToAddressBook: "Zum Adressbuch hinzufügen",
 
+  reminderLeadDays: "Tage im Voraus",
   notifBirthday: "Geburtstagserinnerungen",
   birthdayLeadDays: "Tage im Voraus",
   birthdayBannerAria: "Bevorstehende Geburtstage",

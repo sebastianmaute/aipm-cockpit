@@ -20,10 +20,11 @@ function makeSettings(): Settings {
       consentAccepted: false,
     },
     notifications: {
-      banner: { enabled: true, thresholdWorkDays: 3 },
-      toast: { enabled: true, thresholdWorkDays: 3 },
-      popup: { enabled: true, thresholdWorkDays: 3 },
-      birthday: { enabled: false, leadDays: 7 },
+      reminderLeadDays: 7,
+      banner: { enabled: true },
+      toast: { enabled: true },
+      popup: { enabled: true },
+      birthday: { enabled: false },
     },
     jira: {
       enabled: false,

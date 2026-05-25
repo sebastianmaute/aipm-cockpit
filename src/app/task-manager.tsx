@@ -153,10 +153,10 @@ function TaskManagerInner() {
   });
 
   const { bannerDismissed, setBannerDismissed, dueModalOpen, setDueModalOpen } =
-    useDueAlerts({ hydrated, tasks, holidaySet, settings, today, showToast });
+    useDueAlerts({ hydrated, tasks, holidaySet, absences, settings, today, showToast });
 
   const { birthdayDismissed, setBirthdayDismissed } = useBirthdayAlerts({
-    hydrated, resources, today, settings, showToast,
+    hydrated, resources, today, settings, holidaySet, absences, showToast,
   });
 
   // --- RAID CRUD handlers ---------------------------------------------
@@ -330,20 +330,19 @@ function TaskManagerInner() {
   const bannerItems = useMemo(() => {
     const cfg = settings.notifications.banner;
     if (!cfg.enabled) return [];
-    return getAlertableTasks(tasks, cfg.thresholdWorkDays, today, holidaySet);
-  }, [tasks, settings.notifications.banner, today, holidaySet]);
+    return getAlertableTasks(tasks, settings.notifications.reminderLeadDays, today, holidaySet, absences);
+  }, [tasks, settings.notifications.reminderLeadDays, settings.notifications.banner, today, holidaySet, absences]);
 
   const birthdayItems = useMemo(
     () => settings.notifications.birthday.enabled
-      ? getUpcomingBirthdays(resources, today, settings.notifications.birthday.leadDays)
+      ? getUpcomingBirthdays(resources, today, settings.notifications.reminderLeadDays, holidaySet, absences)
       : [],
-    [resources, settings.notifications.birthday, today],
+    [resources, settings.notifications.reminderLeadDays, settings.notifications.birthday, today, holidaySet, absences],
   );
 
   const dueModalItems = useMemo(() => {
-    const cfg = settings.notifications.popup;
-    return getAlertableTasks(tasks, cfg.thresholdWorkDays, today, holidaySet);
-  }, [tasks, settings.notifications.popup, today, holidaySet]);
+    return getAlertableTasks(tasks, settings.notifications.reminderLeadDays, today, holidaySet, absences);
+  }, [tasks, settings.notifications.reminderLeadDays, settings.notifications.popup, today, holidaySet, absences]);
 
   const absenceKnownAssignees = useMemo(
     () => [
