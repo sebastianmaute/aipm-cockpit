@@ -7,6 +7,17 @@ import { isPlainObject } from "./sanitize";
 
 const SETTINGS_KEY = "lop-app:settings";
 
+function migrateNotifications(raw: unknown): Settings["notifications"] {
+  const p = (isPlainObject(raw) ? raw : {}) as Record<string, unknown>;
+  const pick = (v: unknown) => (isPlainObject(v) ? (v as Record<string, unknown>) : {});
+  const ch = (v: unknown) => ({ enabled: isPlainObject(v) ? (v as { enabled?: unknown }).enabled !== false : true });
+  const lead = Number(p.reminderLeadDays ?? pick(p.birthday).leadDays ?? pick(p.banner).thresholdWorkDays);
+  return {
+    reminderLeadDays: Number.isFinite(lead) && lead >= 0 ? lead : 7,
+    banner: ch(p.banner), toast: ch(p.toast), popup: ch(p.popup), birthday: ch(p.birthday),
+  };
+}
+
 export function useSettings(): {
   settings: Settings;
   setSettings: Dispatch<SetStateAction<Settings>>;
@@ -38,12 +49,7 @@ export function useSettings(): {
               ...defaultSettings.ai,
               ...(isPlainObject(parsed.ai) ? parsed.ai : {}),
             },
-            notifications: {
-              ...defaultSettings.notifications,
-              ...(isPlainObject(parsed.notifications)
-                ? parsed.notifications
-                : {}),
-            },
+            notifications: migrateNotifications(parsed.notifications),
             jira: {
               ...defaultSettings.jira,
               ...(isPlainObject(parsed.jira) ? parsed.jira : {}),

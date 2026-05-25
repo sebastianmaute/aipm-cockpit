@@ -78,6 +78,7 @@ function makeProps(): AppModalsProps {
     jiraProjectKey: undefined,
     jiraDefaultIssueType: undefined,
     modalRef: React.createRef<HTMLDivElement>(),
+    onAddAssigneeToAddressBook: vi.fn(),
     handleSubmit: vi.fn(),
     handleCancelEdit: vi.fn(),
     handleRemoveContact: vi.fn(),

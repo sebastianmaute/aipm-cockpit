@@ -217,8 +217,6 @@ const enUS = {
   notifBanner: "Banner",
   notifToast: "Toast",
   notifPopup: "Pop-up on load",
-  notifThreshold: "Within",
-  notifThresholdSuffix: "work day(s)",
 
   alertCatOverdue: "Overdue",
   alertCatToday: "Today",
@@ -736,9 +734,13 @@ const enUS = {
 
   resourcesAddressBookTitle: "Address Book",
   resourcesOpenAddressBook: "Open address book",
+  taskAddAssigneeToAddressBook: "Add to address book",
 
+  reminderLeadDays: "Days ahead",
+  reminderSnooze: "Snooze",
+  reminderSnooze1h: "In 1 hour",
+  reminderSnooze1d: "In 1 day",
   notifBirthday: "Birthday reminders",
-  birthdayLeadDays: "Days ahead",
   birthdayBannerAria: "Upcoming birthdays",
   birthdayBannerTitle: "{0} upcoming birthday(s)",
   birthdayToday: "today",

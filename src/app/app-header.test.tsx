@@ -15,7 +15,7 @@ vi.mock("./use-settings", () => ({
       lang: "en-US",
       jira: { enabled: false, siteUrl: "", email: "", apiToken: "", projectKey: "", issueTypes: [] },
       ai: { consentAccepted: false, provider: "none" },
-      notifications: { banner: { enabled: false, thresholdWorkDays: 3 }, popup: { enabled: false, thresholdWorkDays: 3 } },
+      notifications: { reminderLeadDays: 7, banner: { enabled: false }, popup: { enabled: false } },
       holidayCountries: [],
     },
     setSettings: vi.fn(),

@@ -60,6 +60,7 @@ export interface TaskFormModalProps {
   onCancel: () => void;
   onRemoveContact: (name: string) => void;
   onShowToast: (kind: "info" | "error", text: string) => void;
+  onAddAssigneeToAddressBook: (name: string, email: string) => void;
 }
 
 export function TaskFormModal({
@@ -82,6 +83,7 @@ export function TaskFormModal({
   onCancel,
   onRemoveContact,
   onShowToast,
+  onAddAssigneeToAddressBook,
 }: TaskFormModalProps) {
   const { form, setForm, editingId, taskModalOpen } = useTaskForm();
   const isEditing = editingId !== null;
@@ -193,28 +195,44 @@ export function TaskFormModal({
               convenience. Each row carries its own × to remove it from the
               persisted address book.
             */}
-            <ContactInput
-              lang={lang}
-              value={form.assignee}
-              contacts={contactsList}
-              onChangeName={(name) =>
-                setForm((prev) => ({ ...prev, assignee: name }))
-              }
-              onChangePair={(name, email) =>
-                setForm((prev) => ({
-                  ...prev,
-                  assignee: name,
-                  assigneeEmail: email,
-                }))
-              }
-              onRemoveContact={onRemoveContact}
-              placeholder={t(lang, "placeholderAssignee")}
-              maxLength={ASSIGNEE_MAX}
-              disabled={editingIsJiraLinked}
-              title={
-                editingIsJiraLinked ? t(lang, "jiraManagedHint") : undefined
-              }
-            />
+            <div className="flex items-start gap-2">
+              <div className="min-w-0 flex-1">
+                <ContactInput
+                  lang={lang}
+                  value={form.assignee}
+                  contacts={contactsList}
+                  onChangeName={(name) =>
+                    setForm((prev) => ({ ...prev, assignee: name }))
+                  }
+                  onChangePair={(name, email) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      assignee: name,
+                      assigneeEmail: email,
+                    }))
+                  }
+                  onRemoveContact={onRemoveContact}
+                  placeholder={t(lang, "placeholderAssignee")}
+                  maxLength={ASSIGNEE_MAX}
+                  disabled={editingIsJiraLinked}
+                  title={
+                    editingIsJiraLinked ? t(lang, "jiraManagedHint") : undefined
+                  }
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() =>
+                  onAddAssigneeToAddressBook(form.assignee, form.assigneeEmail)
+                }
+                disabled={editingIsJiraLinked}
+                aria-label={t(lang, "taskAddAssigneeToAddressBook")}
+                title={t(lang, "taskAddAssigneeToAddressBook")}
+                className="shrink-0 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-AIPM-dark-grey shadow-sm hover:border-AIPM-dark-blue hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-AIPM-light-grey dark:hover:bg-zinc-800"
+              >
+                +
+              </button>
+            </div>
             {editingIsJiraLinked && (
               <p className="mt-1 text-xs italic text-AIPM-medium-grey">
                 🔒 {t(lang, "jiraManagedHint")}

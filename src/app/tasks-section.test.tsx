@@ -79,8 +79,9 @@ function stubSettings() {
       holidayCountries: [],
       jira: { siteUrl: "", enabled: false, projectKey: "", issueTypes: [] },
       notifications: {
-        banner: { enabled: false, thresholdWorkDays: 5 },
-        popup: { enabled: false, thresholdWorkDays: 3 },
+        reminderLeadDays: 7,
+        banner: { enabled: false },
+        popup: { enabled: false },
       },
       ai: { consentAccepted: false },
       lang: "en-US",

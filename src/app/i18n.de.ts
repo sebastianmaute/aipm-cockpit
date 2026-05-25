@@ -224,8 +224,6 @@ export const de: Record<TranslationKey, string> = {
   notifBanner: "Banner",
   notifToast: "Toast",
   notifPopup: "Pop-up beim Laden",
-  notifThreshold: "Innerhalb",
-  notifThresholdSuffix: "Arbeitstag(e)",
 
   alertCatOverdue: "Überfällig",
   alertCatToday: "Heute",
@@ -754,9 +752,13 @@ export const de: Record<TranslationKey, string> = {
 
   resourcesAddressBookTitle: "Adressbuch",
   resourcesOpenAddressBook: "Adressbuch öffnen",
+  taskAddAssigneeToAddressBook: "Zum Adressbuch hinzufügen",
 
+  reminderLeadDays: "Tage im Voraus",
+  reminderSnooze: "Erinnern",
+  reminderSnooze1h: "In 1 Stunde",
+  reminderSnooze1d: "In 1 Tag",
   notifBirthday: "Geburtstagserinnerungen",
-  birthdayLeadDays: "Tage im Voraus",
   birthdayBannerAria: "Bevorstehende Geburtstage",
   birthdayBannerTitle: "{0} bevorstehende Geburtstage",
   birthdayToday: "heute",

@@ -23,9 +23,11 @@ import { AppModals } from "./app-modals";
 import {
   type Absence,
   type RaidItem,
+  type Resource,
   type Shift,
   type Task,
 } from "./types";
+import { splitName, resourceDisplayName } from "./resource-foundation";
 import { buildRaidByTaskIndex } from "./raid";
 import { FiltersProvider, useFilters } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
@@ -41,6 +43,7 @@ import { BirthdayBanner, DueBanner } from "./notifications";
 import { WorkspaceSection } from "./workspace-section";
 import { getUpcomingBirthdays } from "./birthdays";
 import { useBirthdayAlerts } from "./use-birthday-alerts";
+import { useReminderSnooze } from "./use-reminder-snooze";
 
 // i18n key for each tab's label — used by both the tab strip and the
 // popout window's document.title. Adding a new tab requires a row here.
@@ -151,11 +154,14 @@ function TaskManagerInner() {
   });
 
   const { bannerDismissed, setBannerDismissed, dueModalOpen, setDueModalOpen } =
-    useDueAlerts({ hydrated, tasks, holidaySet, settings, today, showToast });
+    useDueAlerts({ hydrated, tasks, holidaySet, absences, settings, today, showToast });
 
   const { birthdayDismissed, setBirthdayDismissed } = useBirthdayAlerts({
-    hydrated, resources, today, settings, showToast,
+    hydrated, resources, today, settings, holidaySet, absences, showToast,
   });
+
+  const dueSnooze = useReminderSnooze("due");
+  const birthdaySnooze = useReminderSnooze("birthday");
 
   // --- RAID CRUD handlers ---------------------------------------------
   //
@@ -220,6 +226,27 @@ function TaskManagerInner() {
     handleDeleteResource,
     handleCloseResourceModal,
   } = useResourcePlanner({ lang, logActivity, showToast });
+
+  const [fillTaskAssigneeOnSave, setFillTaskAssigneeOnSave] = useState(false);
+
+  const handleAddAssigneeToAddressBook = useCallback((name: string, email: string) => {
+    const { firstName, lastName } = splitName(name);
+    setFillTaskAssigneeOnSave(true);
+    handleOpenAddResource({ firstName, lastName, email: email.trim() || undefined });
+  }, [handleOpenAddResource]);
+
+  const handleSaveResourceFromAnywhere = useCallback((next: Resource) => {
+    handleSaveResource(next);
+    if (fillTaskAssigneeOnSave) {
+      setForm((prev) => ({ ...prev, assignee: resourceDisplayName(next), assigneeEmail: next.email ?? "" }));
+      setFillTaskAssigneeOnSave(false);
+    }
+  }, [handleSaveResource, fillTaskAssigneeOnSave, setForm]);
+
+  const handleCloseResourceFromAnywhere = useCallback(() => {
+    handleCloseResourceModal();
+    setFillTaskAssigneeOnSave(false);
+  }, [handleCloseResourceModal]);
 
   const tasksRef = useRef(tasks);
   useEffect(() => {
@@ -307,20 +334,19 @@ function TaskManagerInner() {
   const bannerItems = useMemo(() => {
     const cfg = settings.notifications.banner;
     if (!cfg.enabled) return [];
-    return getAlertableTasks(tasks, cfg.thresholdWorkDays, today, holidaySet);
-  }, [tasks, settings.notifications.banner, today, holidaySet]);
+    return getAlertableTasks(tasks, settings.notifications.reminderLeadDays, today, holidaySet, absences);
+  }, [tasks, settings.notifications.reminderLeadDays, settings.notifications.banner, today, holidaySet, absences]);
 
   const birthdayItems = useMemo(
     () => settings.notifications.birthday.enabled
-      ? getUpcomingBirthdays(resources, today, settings.notifications.birthday.leadDays)
+      ? getUpcomingBirthdays(resources, today, settings.notifications.reminderLeadDays, holidaySet, absences)
       : [],
-    [resources, settings.notifications.birthday, today],
+    [resources, settings.notifications.reminderLeadDays, settings.notifications.birthday, today, holidaySet, absences],
   );
 
   const dueModalItems = useMemo(() => {
-    const cfg = settings.notifications.popup;
-    return getAlertableTasks(tasks, cfg.thresholdWorkDays, today, holidaySet);
-  }, [tasks, settings.notifications.popup, today, holidaySet]);
+    return getAlertableTasks(tasks, settings.notifications.reminderLeadDays, today, holidaySet, absences);
+  }, [tasks, settings.notifications.reminderLeadDays, today, holidaySet, absences]);
 
   const absenceKnownAssignees = useMemo(
     () => [
@@ -409,17 +435,18 @@ function TaskManagerInner() {
         />
       )}
 
-      {!isPopout && !bannerDismissed && (
+      {!isPopout && !bannerDismissed && !dueSnooze.isSnoozed && (
         <DueBanner
           items={bannerItems}
           lang={lang}
           onOpenList={() => setDueModalOpen(true)}
           onDismiss={() => setBannerDismissed(true)}
+          onSnooze={dueSnooze.snooze}
         />
       )}
 
-      {!isPopout && !birthdayDismissed && birthdayItems.length > 0 && (
-        <BirthdayBanner items={birthdayItems} lang={lang} onDismiss={() => setBirthdayDismissed(true)} />
+      {!isPopout && !birthdaySnooze.isSnoozed && !birthdayDismissed && birthdayItems.length > 0 && (
+        <BirthdayBanner items={birthdayItems} lang={lang} onDismiss={() => setBirthdayDismissed(true)} onSnooze={birthdaySnooze.snooze} />
       )}
 
       <WorkspaceSection
@@ -538,10 +565,11 @@ function TaskManagerInner() {
         handleCancelEdit={handleCancelEdit}
         handleRemoveContact={handleRemoveContact}
         showToast={showToast}
+        onAddAssigneeToAddressBook={handleAddAssigneeToAddressBook}
         editingResource={editingResource}
-        onSaveResource={handleSaveResource}
+        onSaveResource={handleSaveResourceFromAnywhere}
         onDeleteResource={handleDeleteResource}
-        onCloseResourceModal={handleCloseResourceModal}
+        onCloseResourceModal={handleCloseResourceFromAnywhere}
         rolesModalOpen={rolesModalOpen}
         roles={roles}
         disciplines={disciplines}

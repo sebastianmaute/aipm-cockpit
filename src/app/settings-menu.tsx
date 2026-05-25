@@ -27,25 +27,22 @@ const defaultAiConfig: AiConfig = {
   consentAccepted: false,
 };
 
-type DueNotificationKind = "banner" | "toast" | "popup";
-
-type DueNotificationConfig = {
-  enabled: boolean;
-  thresholdWorkDays: number;
-};
+type ChannelConfig = { enabled: boolean };
 
 type NotificationsConfig = {
-  banner: DueNotificationConfig;
-  toast: DueNotificationConfig;
-  popup: DueNotificationConfig;
-  birthday: { enabled: boolean; leadDays: number };
+  reminderLeadDays: number;
+  banner: ChannelConfig;
+  toast: ChannelConfig;
+  popup: ChannelConfig;
+  birthday: ChannelConfig;
 };
 
 const defaultNotificationsConfig: NotificationsConfig = {
-  banner: { enabled: true, thresholdWorkDays: 3 },
-  toast: { enabled: true, thresholdWorkDays: 3 },
-  popup: { enabled: true, thresholdWorkDays: 3 },
-  birthday: { enabled: true, leadDays: 7 },
+  reminderLeadDays: 7,
+  banner: { enabled: true },
+  toast: { enabled: true },
+  popup: { enabled: true },
+  birthday: { enabled: true },
 };
 
 export type JiraAssigneeMode = "currentUser" | "any" | "specific";
@@ -294,6 +291,13 @@ export function SettingsMenu({
             <p className="mb-2 text-xs text-zinc-500 dark:text-zinc-400">
               {t(lang, "notificationsHint")}
             </p>
+            <label className="mb-2 flex items-center justify-between gap-2 text-sm text-zinc-700 dark:text-zinc-300">
+              {t(lang, "reminderLeadDays")}
+              <input type="number" min={0} max={365}
+                value={settings.notifications.reminderLeadDays}
+                onChange={(e) => onChange({ ...settings, notifications: { ...settings.notifications, reminderLeadDays: Math.max(0, Math.min(365, Math.round(Number(e.target.value) || 0))) } })}
+                className="w-20 rounded-md border border-zinc-300 px-2 py-1 text-right tabular-nums dark:border-zinc-700 dark:bg-zinc-900" />
+            </label>
             <NotificationRow
               labelKey="notifBanner"
               lang={lang}
@@ -327,17 +331,11 @@ export function SettingsMenu({
                 })
               }
             />
-            <div className="mt-2 flex items-center justify-between gap-3">
-              <label className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
+            <div className="mt-2 flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
+              <label className="flex items-center gap-2">
                 <input type="checkbox" checked={settings.notifications.birthday.enabled}
-                  onChange={(e) => onChange({ ...settings, notifications: { ...settings.notifications, birthday: { ...settings.notifications.birthday, enabled: e.target.checked } } })} />
+                  onChange={(e) => onChange({ ...settings, notifications: { ...settings.notifications, birthday: { enabled: e.target.checked } } })} />
                 {t(lang, "notifBirthday")}
-              </label>
-              <label className="flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400">
-                {t(lang, "birthdayLeadDays")}
-                <input type="number" min={0} max={365} value={settings.notifications.birthday.leadDays}
-                  onChange={(e) => onChange({ ...settings, notifications: { ...settings.notifications, birthday: { ...settings.notifications.birthday, leadDays: Math.max(0, Number(e.target.value) || 0) } } })}
-                  className="w-16 rounded border border-zinc-300 px-1.5 py-0.5 text-right tabular-nums dark:border-zinc-700 dark:bg-zinc-900" />
               </label>
             </div>
           </div>
@@ -492,44 +490,22 @@ function NotificationRow({
 }: {
   labelKey: TranslationKey;
   lang: Lang;
-  config: DueNotificationConfig;
-  onChange: (c: DueNotificationConfig) => void;
+  config: ChannelConfig;
+  onChange: (c: ChannelConfig) => void;
 }) {
   return (
-    <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
-      <label className="flex flex-1 items-center gap-2">
+    <div className="mt-2 flex items-center gap-2 text-sm">
+      <label className="flex items-center gap-2">
         <input
           type="checkbox"
           checked={config.enabled}
-          onChange={(e) => onChange({ ...config, enabled: e.target.checked })}
+          onChange={(e) => onChange({ enabled: e.target.checked })}
           className="h-4 w-4 cursor-pointer rounded border-zinc-300 text-AIPM-dark-blue focus:ring-AIPM-dark-blue dark:border-zinc-600 dark:bg-zinc-800"
         />
         <span className="text-zinc-700 dark:text-zinc-300">
           {t(lang, labelKey)}
         </span>
       </label>
-      <span className="text-xs text-zinc-500 dark:text-zinc-400">
-        {t(lang, "notifThreshold")}
-      </span>
-      <input
-        type="number"
-        min={0}
-        max={30}
-        value={config.thresholdWorkDays}
-        onChange={(e) => {
-          const n = Number(e.target.value);
-          if (Number.isFinite(n))
-            onChange({
-              ...config,
-              thresholdWorkDays: Math.max(0, Math.min(30, Math.round(n))),
-            });
-        }}
-        disabled={!config.enabled}
-        className="w-16 rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm text-zinc-900 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
-      />
-      <span className="text-xs text-zinc-500 dark:text-zinc-400">
-        {t(lang, "notifThresholdSuffix")}
-      </span>
     </div>
   );
 }

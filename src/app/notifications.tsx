@@ -6,6 +6,7 @@ import {
   summarizeAlerts,
 } from "./due-dates";
 import { type Lang, t } from "./i18n";
+import { SNOOZE_1H, SNOOZE_1D } from "./reminder-snooze";
 import { Modal } from "./modal";
 import { useResizable } from "./use-resizable";
 import type { UpcomingBirthday } from "./birthdays";
@@ -36,16 +37,38 @@ export function dueAlertsToastText(items: AlertableTask[], lang: Lang): string {
   return `${t(lang, "alertToastTitle")} — ${summarySentence(items, lang)}`;
 }
 
+function SnoozeMenu({ lang, onSnooze }: { lang: Lang; onSnooze: (ms: number) => void }) {
+  return (
+    <details className="relative">
+      <summary className="cursor-pointer list-none rounded-md border border-AIPM-medium-grey/40 bg-white px-3 py-1.5 text-xs font-medium text-AIPM-dark-grey hover:bg-AIPM-light-grey dark:border-zinc-700 dark:bg-zinc-900 dark:text-AIPM-medium-grey">
+        {t(lang, "reminderSnooze")} ▾
+      </summary>
+      <div className="absolute right-0 z-10 mt-1 flex flex-col rounded-md border border-zinc-200 bg-white py-1 shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
+        <button type="button" onClick={() => onSnooze(SNOOZE_1H)}
+          className="whitespace-nowrap px-3 py-1.5 text-left text-xs text-AIPM-dark-grey hover:bg-AIPM-light-grey dark:text-AIPM-light-grey dark:hover:bg-zinc-800">
+          {t(lang, "reminderSnooze1h")}
+        </button>
+        <button type="button" onClick={() => onSnooze(SNOOZE_1D)}
+          className="whitespace-nowrap px-3 py-1.5 text-left text-xs text-AIPM-dark-grey hover:bg-AIPM-light-grey dark:text-AIPM-light-grey dark:hover:bg-zinc-800">
+          {t(lang, "reminderSnooze1d")}
+        </button>
+      </div>
+    </details>
+  );
+}
+
 export function DueBanner({
   items,
   lang,
   onOpenList,
   onDismiss,
+  onSnooze,
 }: {
   items: AlertableTask[];
   lang: Lang;
   onOpenList: () => void;
   onDismiss: () => void;
+  onSnooze: (ms: number) => void;
 }) {
   if (items.length === 0) return null;
   const summary = summarySentence(items, lang);
@@ -74,6 +97,7 @@ export function DueBanner({
         >
           {t(lang, "alertBannerOpen")}
         </button>
+        <SnoozeMenu lang={lang} onSnooze={onSnooze} />
         <button
           type="button"
           onClick={onDismiss}
@@ -92,8 +116,8 @@ export function birthdayToastText(items: UpcomingBirthday[], lang: Lang): string
 }
 
 export function BirthdayBanner({
-  items, lang, onDismiss,
-}: { items: UpcomingBirthday[]; lang: Lang; onDismiss: () => void }) {
+  items, lang, onDismiss, onSnooze,
+}: { items: UpcomingBirthday[]; lang: Lang; onDismiss: () => void; onSnooze: (ms: number) => void }) {
   if (items.length === 0) return null;
   const summary = items
     .map((b) => `${resourceDisplayName(b.resource)} (${b.daysUntil === 0 ? t(lang, "birthdayToday") : t(lang, "birthdayInDays", b.daysUntil)})`)
@@ -106,10 +130,13 @@ export function BirthdayBanner({
         <p className="text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">{t(lang, "birthdayBannerTitle", items.length)}</p>
         <p className="text-xs text-AIPM-dark-grey dark:text-AIPM-medium-grey">{summary}</p>
       </div>
-      <button type="button" onClick={onDismiss} aria-label={t(lang, "alertBannerDismiss")}
-        className="rounded-md border border-AIPM-medium-grey/40 bg-white px-3 py-1.5 text-xs font-medium text-AIPM-dark-grey hover:bg-AIPM-light-grey dark:border-zinc-700 dark:bg-zinc-900 dark:text-AIPM-medium-grey">
-        {t(lang, "alertBannerDismiss")}
-      </button>
+      <div className="flex gap-2">
+        <SnoozeMenu lang={lang} onSnooze={onSnooze} />
+        <button type="button" onClick={onDismiss} aria-label={t(lang, "alertBannerDismiss")}
+          className="rounded-md border border-AIPM-medium-grey/40 bg-white px-3 py-1.5 text-xs font-medium text-AIPM-dark-grey hover:bg-AIPM-light-grey dark:border-zinc-700 dark:bg-zinc-900 dark:text-AIPM-medium-grey">
+          {t(lang, "alertBannerDismiss")}
+        </button>
+      </div>
     </div>
   );
 }
