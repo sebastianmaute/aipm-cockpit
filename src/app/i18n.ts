@@ -394,7 +394,7 @@ const enUS = {
     "List of Open Points Tracker captures open project items, sends status inquiries, surfaces upcoming due dates, and (optionally) syncs both ways with Jira.",
   helpSecAddTitle: "Adding & editing tasks",
   helpSecAddBody:
-    "Click the + button in the header to open the New task modal. The same modal opens — pre-filled — when you click Edit on a row. Required fields: Task name, Assignee, Due date. Optional: Email, Group, Labels, Blockers, Notes. You can also ask Claude in the Chat tab (e.g. \"add a task to review the deck due Friday\").",
+    "Click the + button in the header to open the New task modal. The same modal opens — pre-filled — when you click Edit on a row. Required fields: Task name, Assignee, Due date. Optional: Email, Group, Labels, Blockers, Notes. The + beside the Assignee adds that person to the address book and fills the assignee in one step. You can also ask Claude in the Chat tab (e.g. \"add a task to review the deck due Friday\").",
   helpSecWorkspaceTitle: "Workspace pane",
   helpSecWorkspaceBody:
     "The boxed pane below the header holds the workspace tabs (Chat, Reports, Gantt, RAID, Resources, Activity). Drag its bottom-right corner to resize, click the chevron on the right of the tab strip to collapse / expand, and Reset size to restore the default. Resize and collapsed state both persist across reloads.",
@@ -412,7 +412,7 @@ const enUS = {
     "Track Risks, Assumptions, Issues, and Dependencies in a separate register. Each entry has a category, owner, status, severity, optional links to one or more tasks, and an optional list of \"caused by\" parent RAID items (cross-category allowed; cycles are blocked at edit time). For risks, the probability × impact matrix derives the severity automatically. Task rows with related RAID entries show an indicator — click it to jump straight to the filtered register.",
   helpSecResourcesTitle: "Resources",
   helpSecResourcesBody:
-    "Capacity planning for assignees. Toggle between List view (per-assignee stats — open tasks, overdue, upcoming absences, configured shift) and Calendar view (30-day grid of tasks, absences, and holidays per assignee). Add a shift to set someone's hours per weekday; add an absence to block vacation, sick days, training, or other off-time. Resource data lives in the same storage backend as tasks.",
+    "Capacity and contact management for the people on your project, across four sub-tabs. Directory is an address book — one row per resource with name, title, contact details, company, and birthday; click a name to edit, or use \"+ Add resource\". Workload shows per-assignee stats (open / overdue tasks, upcoming absences, configured shift), with assignees that have no resource grouped under \"Unlinked\". Calendar is a 30-day grid of tasks, absences, and holidays per resource. Planning is the per-period utilization grid (week or month) → capacity, internal/external cost, and margin, with a read-only rollup and a pop-out report. \"Open address book\" launches the Directory in its own window. Add shifts and absences to shape availability; birthdays raise a reminder. Resource data lives in the same storage backend as tasks.",
   helpSecActivityTitle: "Activity log",
   helpSecActivityBody:
     "Append-only log of task, RAID, absence, and shift changes in this browser. Sort by time / kind, filter by entity group, and search by text, wildcard (`*`, `?`), or regex. Useful for audit-style review after bulk edits or Jira syncs. The log lives in this browser only — it is never written to any export file — and trims the oldest entries when it exceeds 500. \"Clear log\" asks for confirmation before deleting all entries.",
@@ -421,7 +421,7 @@ const enUS = {
     "Click the microphone in the header and try:\n• \"add task review the deck\"\n• \"edit task 2\"\n• \"delete task 3\"\n• \"send inquiry for task 5\"\n• \"search blockers\" / \"clear search\"\n• \"switch to German\"\nIndividual text fields also have an inline microphone for dictation.",
   helpSecNotifTitle: "Due-date notifications",
   helpSecNotifBody:
-    "Banner sits between the header and the workspace while any task needs attention. Toast and pop-up fire once per app load if enabled. The bell icon in the header reopens the list anytime, with an unread-count badge. Configure each channel independently in Settings → Notifications.",
+    "Banner sits between the header and the workspace while any task needs attention; birthdays raise their own banner. Toast and pop-up fire once per app load if enabled. Set how many days ahead reminders arrive in Settings → Notifications — one \"days ahead\" value covers both due dates and birthdays; a reminder that would land on a weekend, holiday, or absence day is shifted earlier so it reaches you on a working day. Snooze any reminder for 1 hour or 1 day — it stays hidden (and the toast stays quiet) until the snooze elapses. The bell icon in the header reopens the list anytime, with an unread-count badge. Configure each channel independently.",
   helpSecJiraTitle: "Jira sync",
   helpSecJiraBody:
     "Settings → Jira: paste your Atlassian site URL, email, and API token, pick a project + issue types, and choose an assignee scope. The Sync button next to the tasks list pulls remote changes, pushes local edits, and queues true conflicts in a per-task review dialog. Push to Jira (row action) or the \"Also create in Jira\" checkbox in the task modal creates a brand-new issue. Notes ↔ Jira description sync is lossy — rich formatting flattens to plain text. Jira-managed fields (assignee, status reopen) are locked in the app.",
@@ -449,11 +449,11 @@ const enUS = {
   versionHighlightReports: "Reports with status, assignee, group, label, and on-time / late completion stats.",
   versionHighlightGantt: "Gantt chart with FS / SS / FF / SF task dependencies, drag-to-reschedule, and cycle detection.",
   versionHighlightRaid: "RAID register for risks, assumptions, issues, and dependencies, linked to tasks.",
-  versionHighlightResources: "Resource planning with shifts, absences, holidays, and a per-day workload calendar.",
+  versionHighlightResources: "First-class resources with an address book (contact details + birthdays), roles & rates, per-period utilization planning, cost & margin, and a pop-out report.",
   versionHighlightActivity: "Activity log of every task / RAID / resource change with filtering.",
   versionHighlightContacts: "Persisted contacts address book — assignee + email suggestions survive task deletion and Jira sync churn.",
   versionHighlightExport: "Export to CSV, Markdown, PDF (print), DOCX, XLSX, and PPTX.",
-  versionHighlightNotifications: "Configurable due-date banner, toast, and pop-up notifications.",
+  versionHighlightNotifications: "Due-date and birthday reminders with a unified working-day-shifted lead, plus snooze (1 hour / 1 day).",
   versionHighlightWorkspace: "Resizable + collapsible workspace, resizable tasks table, persisted across reloads.",
   versionHighlightSecurity: "Per-request Content-Security-Policy nonce with strict script + style directives; no inline-script bypass.",
   versionHighlightPerformance: "Faster startup and lower memory use via lazy-loaded modules (DOCX/XLSX/PPTX export, German UI, holiday calendars) and IndexedDB record-level storage.",

@@ -1,3 +1,28 @@
+// 0.10.0 ships everything built on top of the Resource Utilization release:
+// the Resource Address Book, a unified working-day-shifted reminder lead, and
+// persisted reminder snooze, plus two data-integrity fixes and a project-wide
+// lint pass.
+//   - Address book: Resource splits `name` into firstName/lastName and gains
+//     contact fields (title, business phone, location, department, email,
+//     company, birthday MM-DD, notes). The Resources pane is now four sub-tabs
+//     — Directory (address-book table; click a name to edit, "+ Add resource"),
+//     Workload, Calendar, Planning — plus a pop-out address-book window.
+//     Birthdays raise a banner + once-per-load toast.
+//   - Task form: a "+" beside the assignee opens the address-book add-entry
+//     modal seeded with the typed name/email; saving creates the resource and
+//     fills the assignee.
+//   - Reminders: a single "days ahead" lead (reminderLeadDays) replaces the
+//     split birthday-leadDays / due-threshold settings; a reminder that would
+//     land on a weekend, holiday, or absence day is shifted earlier to the
+//     prior working day so it fires during the work week. Both reminder banners
+//     gain a persisted Snooze (1 hour / 1 day) that also mutes the load toast
+//     until it elapses.
+//   - Fixes: pop-out windows no longer broadcast their initial (empty) state
+//     (which could truncate the synced file); each local file format keeps its
+//     own file-picker id so switching formats no longer sticks.
+//   - Quality: project-wide ESLint pass to zero problems with no rule relaxed
+//     (set-state-in-effect rewrites, render-time ref writes moved to effects,
+//     test-mock typings).
 // 0.9.0 lands the Resource Utilization feature: first-class Resource
 // entities with two-dimensional Role (discipline × grade) carrying
 // internal/external hourly rates; per-period utilization planning grid
@@ -109,8 +134,8 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.9.0";
-export const APP_BUILD_DATE = "2026-05-24";
+export const APP_VERSION = "0.10.0";
+export const APP_BUILD_DATE = "2026-05-25";
 export const APP_REPO_URL = "https://www.example.com";
 
 /** Translation keys for the high-level feature highlights shown in the

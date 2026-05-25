@@ -1,9 +1,9 @@
-<!-- Generated: 2026-05-24 | Files scanned: ~66 (src/app/*.tsx, *.ts) | Token estimate: ~1320 -->
+<!-- Generated: 2026-05-25 | Files scanned: ~74 (src/app/*.tsx, *.ts) | Token estimate: ~1480 -->
 
 # Frontend
 
 Single-page Next.js App Router client. One route, one god-component, six
-tabbed panels, and a network of inputs / menus.
+tabbed panels, two popout windows, and a network of inputs / menus.
 
 ## Page tree
 
@@ -11,11 +11,11 @@ tabbed panels, and a network of inputs / menus.
 src/proxy.ts                 — middleware (per-request CSP nonce)
 src/app/layout.tsx           — root layout, security headers, globals.css
 └── src/app/page.tsx         — await connection(); renders <TaskManager />
-    └── src/app/task-manager.tsx   (~3,517 lines; container for everything)
+    └── src/app/task-manager.tsx   (~550 lines after hook extractions; container for everything)
         ├── header (+ button → task modal, ExportMenu, HelpMenu,
         │           VersionMenu, SettingsMenu, VoiceCommandButton)
         ├── banner / due-modal     (notifications.tsx)
-        ├── workspace section (resizable, collapsible) — 6 tabs + 1 popout-only
+        ├── workspace section (resizable, collapsible) — 6 tabs + 2 popout-only
         │   ├── tab strip (chat | reports | gantt | raid | resources | activity)
         │   ├── ChatPanel          (chat-panel.tsx)        — mounted; hidden when off
         │   ├── ReportsPanel       (reports.tsx)           — conditional mount  ★
@@ -23,7 +23,8 @@ src/app/layout.tsx           — root layout, security headers, globals.css
         │   ├── RaidPanel          (raid-panel.tsx)        — mounted; hidden when off  ✚
         │   ├── ResourcesPanel     (resources-panel.tsx)   — conditional mount  ★
         │   ├── ActivityLogPanel   (activity-log-panel.tsx)— conditional mount  ★
-        │   └── ResourcesReportPanel (resources-report.tsx)— popout-only via ?popout=resource-report  ★
+        │   ├── ResourcesReportPanel (resources-report.tsx)— popout-only via ?popout=resource-report  ★
+        │   └── ResourceDirectory  (resource-directory.tsx)— popout-only via ?popout=address-book  ★
         └── tasks table (always mounted)
             ├── filters / sort / bulk-edit bar
             ├── colgroup / sticky thead
@@ -34,6 +35,7 @@ Modals:
   TaskFormModal      (task-form-modal.tsx)   — statically imported; renders null when closed
   BulkEditModal      (bulk-edit-modal.tsx)   — statically imported; renders null when closed
   RolesModal         (roles-modal.tsx)       — discipline × grade rate card; opened from ResourcesPanel header
+  ResourceEditModal  (resource-edit-modal.tsx) — address-book create/edit/delete; opened from ResourceDirectory
   JiraConflictsModal, AbsenceEditModal, ShiftEditModal — dynamic-imported, only mounted while open
 ```
 
@@ -57,7 +59,8 @@ prerendered.
 | `colWidths`, `hiddenCols` | UI table prefs in `localStorage` (colWidths debounced 250 ms) |
 | `search` + `searchDebounced` + `taskSearchIndex` | 150 ms search debounce + precomputed lowercase index |
 | `selectedIds`, `bulkEdit`, `expandedNotes` | Per-session UI only |
-| `activeTab` | `"chat"` \| `"reports"` \| `"gantt"` \| `"raid"` \| `"resources"` \| `"activity"` \| `"resource-report"` (popout-only) |
+| `activeTab` | `"chat"` \| `"reports"` \| `"gantt"` \| `"raid"` \| `"resources"` \| `"activity"` \| `"resource-report"` \| `"address-book"` (last two are popout-only) |
+| `dueSnooze` / `birthdaySnooze` | `useReminderSnooze("due")` / `useReminderSnooze("birthday")` — each yields `{ isSnoozed, snoozedUntil, snooze, clear }`; banners are gated on `!isSnoozed` |
 | `raidFilterTaskId` | Cross-tab nav: jump from a task row to RAID pre-filtered for that task |
 | `workspaceCollapsed`, `taskModalOpen`, `absenceDraft`, `shiftDraft` | Modal / collapse state |
 | `hydrated`, `i18nReady` | Render gates; `i18nReady=false` returns null until lang dict loads |
@@ -73,13 +76,16 @@ prerendered.
 | `reports.tsx` | Stats by group, label, status, on-time vs late | conditional mount |
 | `chat-panel.tsx` | Claude chat with tool calls via `dispatcher` | conditional mount; chat history kept in TaskManager state to survive tab switches |
 | `chat-tools.ts` | Tool dispatcher object passed to ChatPanel | Huge `useMemo` inside TaskManager |
-| `resources-panel.tsx` | Resource Planner: 3 views — list (stats per assignee), calendar (delegates to `resource-calendar.tsx`), and planning (per-period utilization grid with capacity, internal/external cost, margin, week/month rollup, planning-window control, per-cell absence override). Renders a per-resource roster with discipline+grade assignment selects. Header buttons open the Roles modal and the Report popout. | conditional mount |
+| `resources-panel.tsx` | Resource Planner: **4 views** — Directory (address-book table; delegates to `resource-directory.tsx`), Workload (per-resource open/overdue counts + upcoming absences; delegates to `resource-workload.tsx`, data built by `buildResourceWorkload`), Calendar (delegates to `resource-calendar.tsx`), and Planning (per-period utilization grid with capacity, internal/external cost, margin, week/month rollup, planning-window control, per-cell absence override). Header buttons open the Roles modal, the Report popout, and the Address Book popout. | conditional mount |
 | `resource-calendar.tsx` | 30-day grid (assignee × day) showing tasks, absences, shift hours | rendered inside ResourcesPanel |
 | `resource-capacity.ts` | **Pure** capacity engine: `generatePeriods`, `workdaysInRange`, `absencesForResource`, `absenceWorkdays`, `periodCapacityHours` (percent/hours modes, override absences), `displayCapacityHours` (read-only week↔month rollup) | Unit-tested against Excel golden fixtures |
 | `resource-cost.ts` | **Pure** cost layer: `periodCost(hours, role)` = `{ internal, external, margin }`; `formatCurrency(amount, currency, locale)` with Intl + fallback | |
 | `resource-foundation.ts` | **Pure** helpers: `seedDisciplines`/`seedGrades`, `defaultResourcePlan`, `backfillResources` (one-time assignee → resource migration), `nextId`, `findRoleByCombo`, `roleLabel` | |
 | `resource-report.ts` | **Pure** aggregation: `computeResourceReport(...) → { totals, perPeriod, perDiscipline, perGrade, perCombo, perResource }`. Unassigned resources counted in capacity, excluded from breakdowns/cost | Feeds the report panel |
 | `resources-report.tsx` | Read-only resources report (Tile / Section / Table) — summary tiles + per-period / per-discipline / per-grade / per-combo / per-resource breakdowns. Opens as a popout window | dynamic-imported when `?popout=resource-report` |
+| `resource-directory.tsx` | Address-book table for the Directory tab (and the `?popout=address-book` window). One row per `Resource`; clicking the name cell opens `ResourceEditModal`. Exports `ResourceDirectory` (`memo`-wrapped). Header contains "+ Add resource" and optional "Open address book" buttons | rendered inside ResourcesPanel; also mounted as popout |
+| `resource-edit-modal.tsx` | Address-book editor modal (`ResourceEditModal`). Create / edit / delete a `Resource` with all contact fields (firstName, lastName, title, company, department, location, businessPhone, email, birthday MM/DD selects, notes). Mirrors `AbsenceEditModal`'s local-draft-state pattern | opened from ResourceDirectory on name click, or "+ Add resource" |
+| `resource-workload-rows.ts` | **Pure** `buildResourceWorkload(resources, tasks, absences, shifts, today) → { managed: ManagedWorkloadRow[], unlinked: UnlinkedWorkloadRow[] }`. Managed rows are keyed to `Resource` entities (join by `resourceId` then case-folded display name); unlinked rows collect assignees with no matching resource | feeds `resource-workload.tsx` |
 | `roles-modal.tsx` | Discipline × grade rate card; add/rename disciplines & grades; on-demand `Role` creation | opened from ResourcesPanel header |
 | `absence-edit-modal.tsx` | Add/edit Absence (vacation/sick/training/other) | dynamic-imported; opened on demand |
 | `shift-edit-modal.tsx` | Add/edit weekly working-hours pattern per assignee | dynamic-imported; opened on demand |
@@ -97,7 +103,11 @@ prerendered.
 | `labels-input.tsx`, `combo-input.tsx`, `contact-input.tsx` | Typed-list and combobox inputs | |
 | `contacts.ts` | Persisted address book (`lop-app:contacts`); feeds ContactInput suggestions | Survives task deletion and Jira churn |
 | `markdown.tsx` | Renders chat / report markdown safely | |
-| `notifications.tsx` | Banner, toast, popup alerts | |
+| `notifications.tsx` | `DueBanner` and `BirthdayBanner` — each now embeds a `SnoozeMenu` (In 1 hour / In 1 day) and accepts an `onSnooze: (ms: number) => void` prop. Banners are hidden while snoozed (`!isSnoozed` gate in TaskManager). Also: toast, popup alerts | |
+| `reminder-snooze.ts` | localStorage-backed snooze store. `ReminderKind = "due" \| "birthday"`. Key pattern: `lop-app:reminder-snooze:<kind>` (epoch-ms). Exports `getSnoozedUntil`, `setSnoozedUntil`, `clearSnooze`, `SNOOZE_1H` (3 600 000 ms), `SNOOZE_1D` (86 400 000 ms). Elapsed snoozes are cleared on read | pure; no React |
+| `use-reminder-snooze.ts` | `useReminderSnooze(kind: ReminderKind) → { isSnoozed, snoozedUntil, snooze(durationMs), clear }`. Schedules a one-shot `setTimeout` to auto-reshow the banner when the snooze elapses, without requiring a reload | client hook |
+| `birthdays.ts` | `getUpcomingBirthdays(resources, today, leadDays, holidays, absences) → UpcomingBirthday[]`. Year-wrap aware (birthday on Jan 2, today Dec 30 → next occurrence is in 3 days). Trigger is working-day-shifted via `shiftToWorkingDay`. Sorted by `daysUntil` asc. `UpcomingBirthday = { resource: Resource; daysUntil: number }` | pure |
+| `date-format.ts` | Shared date-formatting helpers extracted from other modules. `localeFor(lang: Lang) → string` (maps `"de"` → `"de-DE"`, `"en-GB"` → `"en-GB"`, else `"en-US"`). `shortDateRange(absence, lang) → string` (compact range like `"Jun 10–Jun 12"`) | pure |
 | `storage-config.tsx` | File-backend / SharePoint picker UI | SharePoint options are flagged `comingSoon` |
 | `use-resizable.ts` | Custom hook for corner-drag resize with localStorage persistence | |
 
@@ -105,7 +115,8 @@ prerendered.
 
 | Trigger | Module loaded | Saved KB (gzipped) |
 |---|---|---|
-| Tab first opened | `chat-panel`, `gantt`, `reports`, `raid-panel`, `resources-panel`, `activity-log-panel`, `resources-report` (all seven via `next/dynamic`) | varies |
+| Tab first opened | `chat-panel`, `gantt`, `reports`, `raid-panel`, `resources-panel`, `activity-log-panel`, `resources-report` (all via `next/dynamic`) | varies |
+| `?popout=address-book` opened | `resource-directory` (address-book popout window, live-synced via `BroadcastChannel`) | small |
 | Jira config first used | `jira-api.ts` (~400 LOC) | ~10 KB |
 | User picks DOCX/XLSX/PPTX export | `export-ooxml.ts` (~1,300 lines, plus `zip.ts`) | ~45 KB |
 | Active language is `de` | `i18n.de.ts` (~700 keys) | ~20 KB |

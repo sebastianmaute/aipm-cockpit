@@ -1,4 +1,4 @@
-<!-- Generated: 2026-05-24 | Files scanned: types.ts, storage.ts, sanitize.ts, raid.ts, activity-log.ts, contacts.ts, resource-foundation.ts, resource-capacity.ts | Token estimate: ~1180 -->
+<!-- Generated: 2026-05-25 | Files scanned: types.ts, storage.ts, sanitize.ts, raid.ts, activity-log.ts, contacts.ts, resource-foundation.ts, resource-capacity.ts, reminder-snooze.ts, use-settings.ts | Token estimate: ~1280 -->
 
 # Data
 
@@ -101,8 +101,16 @@ Role {                                       // discipline × grade combo
 
 Resource {                                   // first-class workspace entity
   id              number
-  name            string
+  firstName       string                     // split from legacy `name`
+  lastName        string                     // display = "firstName lastName" (trimmed)
+  title?          string                     // job title
+  businessPhone?  string
+  location?       string
+  department?     string
   email?          string
+  company?        string
+  birthday?       string                     // "MM-DD" (zero-padded month-day, no year)
+  notes?          string                     // free text
   roleId          number | null              // FK → Role.id; null = unassigned
   utilizationMode "percent" | "hours"        // per resource
   utilization     Record<string, number>     // periodKey → value
@@ -114,6 +122,8 @@ Resource {                                   // first-class workspace entity
   localModifiedAt? ISO 8601 timestamp
 }
 // Period keys: month = "YYYY-MM" | ISO week = "GGGG-Www" (e.g. "2026-W07")
+// `resourceDisplayName(r)` = `"${firstName} ${lastName}".trim()` (resource-foundation.ts)
+// `splitName(str)` splits a free-text string into { firstName, lastName } (resource-foundation.ts)
 
 ResourcePlan {                               // workspace singleton
   startDate       "YYYY-MM-DD"               // planning window start
@@ -186,7 +196,9 @@ legacy keys are removed.
 
 | Key | Shape |
 |---|---|
-| `lop-app:settings` | JSON envelope: `{ language, holidayCountries, ai, jira, notifications, storage }` |
+| `lop-app:settings` | JSON envelope: `{ language, holidayCountries, ai, jira, notifications, storage }`. The `notifications` sub-object shape: `{ reminderLeadDays: number, banner: { enabled }, toast: { enabled }, popup: { enabled }, birthday: { enabled } }`. A single `reminderLeadDays` (default 7) now drives both due-date and birthday lead — replaces the former separate `banner.thresholdWorkDays` and `birthday.leadDays` fields (migrated on parse in `use-settings.ts`). |
+| `lop-app:reminder-snooze:due` | Epoch-ms timestamp (stored as decimal string) until which the due-date reminder banner is snoozed; absent or elapsed = not snoozed |
+| `lop-app:reminder-snooze:birthday` | Epoch-ms timestamp until which the birthday reminder banner is snoozed; absent or elapsed = not snoozed |
 | `lop-app:contacts` | `Record<normalizedName, { name, email }>`, capped at 500 entries |
 | `lop-app:activity-log` | `ActivityEntry[]`, capped at 500 (oldest dropped on overflow) |
 | `lop-app:workspace-collapsed` | `"1"` or absent |

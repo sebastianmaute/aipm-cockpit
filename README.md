@@ -3,7 +3,7 @@
 [![Pipeline Status](https://gitlab.example.com/example-group/public-collab/lop-app/badges/main/pipeline.svg)](https://gitlab.example.com/example-group/public-collab/lop-app/-/commits/main)
 [![coverage](https://gitlab.example.com/example-group/public-collab/lop-app/badges/main/coverage.svg)](https://gitlab.example.com/example-group/public-collab/lop-app/-/commits/main)
 
-**v0.9.0** — AI-assisted project-status tracker for Acme project leads. Manage open points, track accountability, plan resource capacity & cost, and draft status-inquiry emails — all in the browser, no backend required.
+**v0.10.0** — AI-assisted project-status tracker for Acme project leads. Manage open points, track accountability, plan resource capacity & cost, keep an address book of the team, and draft status-inquiry emails — all in the browser, no backend required.
 
 ## What It Does
 
@@ -32,10 +32,10 @@ All data is stored locally by default — no backend account required.
 | Groups & labels | Categorize tasks freely; filter by group or label |
 | AI chat (Claude) | Ask questions or create/update tasks in natural language |
 | Voice commands | Speak commands in English or German (Web Speech API) |
-| Due-date notifications | Banner, toast, and popup alerts for approaching deadlines |
+| Reminders | Banner, toast, and popup alerts for approaching deadlines and birthdays; a unified "days ahead" lead that shifts off weekends / holidays / absences onto a working day; per-reminder snooze (1 hour / 1 day) |
 | Reports | Summary view with overdue, due-soon, and completion stats |
 | RAID register | Risks / Assumptions / Issues / Dependencies log with parent/child cycle detection |
-| Resource planner | First-class resources with two-dimensional roles (discipline × grade) carrying internal/external rates; absences; per-period utilization planning grid (week or month) → capacity, cost & margin with read-only rollup; pop-out resources report |
+| Resource planner & address book | First-class resources with an address book (name, title, contact details, company, birthday) in a Directory tab; two-dimensional roles (discipline × grade) carrying internal/external rates; absences; per-period utilization planning grid (week or month) → capacity, cost & margin with read-only rollup; pop-out resources report and address-book window |
 | Activity log | Browser-local chronological record of task / RAID / absence / shift CRUD with text / wildcard / regex search |
 | Contacts | Assignee address book — persists across task deletion and Jira sync churn; auto-suggests on task forms |
 | Jira sync | Pull from and push to a Jira Cloud project (bidirectional, with conflict resolution) |

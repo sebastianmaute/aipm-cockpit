@@ -1,4 +1,4 @@
-<!-- Generated: 2026-05-24 | Files scanned: package.json, package-lock.json, vitest.config.ts, playwright.config.ts | Token estimate: ~700 | No changes since 2026-05-17 — Resource Planner v2 added no runtime/dev deps -->
+<!-- Generated: 2026-05-25 | Files scanned: package.json, package-lock.json, vitest.config.ts, playwright.config.ts | Token estimate: ~700 | No changes since 0.9.0 — Address Book / snooze / birthday features added no runtime/dev deps -->
 
 # Dependencies
 
@@ -32,7 +32,7 @@ Deliberately small surface. The runtime dep tree fits on one screen.
 | `@testing-library/user-event` | ^14 | Realistic user interaction simulation |
 | `@playwright/test` | ^1.49 | E2E runner (`playwright.config.ts`); Chromium-only by default |
 
-No runtime deps changed in this update — only dev tooling (test scaffolding).
+No runtime or dev deps changed in this update. Full suite: 389 tests across 54 files (0.10.0).
 
 ## Notable transitive deps
 

@@ -8,6 +8,85 @@ Authoritative source for version + build date: [`src/app/version.ts`](src/app/ve
 This file is seeded from that module's milestone comment plus the
 post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-diff.txt).
 
+## [0.10.0] "Nabokov" — 2026-05-25
+
+Everything built on top of the Resource Utilization release: a Resource
+Address Book, a unified working-day-shifted reminder lead, and persisted
+reminder snooze — plus two data-integrity fixes and a project-wide lint pass.
+
+### Added
+
+- **Resource Address Book.** `Resource` splits the single `name` into
+  `firstName` / `lastName` and gains contact fields: title, business phone,
+  location, department, email, company, birthday (month-day only), and
+  free-text notes (`splitName` / `resourceDisplayName` in
+  `resource-foundation.ts`).
+- **Four-tab Resources pane** — Directory | Workload | Calendar | Planning.
+  The new **Directory** tab (`resource-directory.tsx`) is an address-book
+  table (one row per resource); clicking a name opens the resource edit modal
+  (`resource-edit-modal.tsx`) with all address-book fields, and "+ Add
+  resource" creates a new entry. The **Workload** tab is rekeyed to managed
+  resources with a separate "Unlinked" group for assignees that have no
+  resource (`resource-workload-rows.ts`, `buildResourceWorkload`).
+- **Address-book pop-out window** — an "Open address book" button launches the
+  Directory in its own window (`?popout=address-book`), live-synced via the
+  existing `BroadcastChannel` plumbing.
+- **Birthday reminders** — `getUpcomingBirthdays` (year-wrap aware) drives a
+  banner plus a once-per-load toast.
+- **Create a contact from the task form** — a "+" beside the Assignee opens the
+  address-book add-entry modal seeded with the typed name/email; saving creates
+  the resource and fills the task's assignee.
+- **Persisted reminder snooze** — both reminder banners (due-date + birthday)
+  gain a Snooze control (In 1 hour / In 1 day), stored per-kind in
+  `localStorage` (`reminder-snooze.ts`, `useReminderSnooze`) and re-shown
+  automatically when it elapses. While snoozed, the banner is hidden and the
+  load toast is suppressed.
+
+### Changed
+
+- **Unified reminder lead with working-day shift.** A single "days ahead"
+  control (`reminderLeadDays`) replaces the separate birthday lead-days and
+  due-date work-day threshold. A reminder whose trigger would fall on a
+  weekend, holiday, or absence day is shifted earlier onto the prior working
+  day so it fires during the work week (`shiftToWorkingDay` / `absenceDayMap`
+  in `due-dates.ts`; settings migrated in `use-settings.ts`).
+- **Shared `localeFor` / `shortDateRange`** extracted into `date-format.ts`.
+- **README** version badge → 0.10.0; Resources / Notifications feature rows
+  updated.
+
+### Fixed
+
+- **Pop-out data loss** — a pop-out window broadcast its initial (empty) state
+  on mount, which the main window then persisted, truncating the synced file.
+  Windows no longer broadcast their first value (`broadcast-sync.ts`).
+- **Soft-archive round-trip** — `active="false"` on a serialized resource is
+  now honored on load instead of coercing back to `true`.
+- **File-picker stickiness** — each local format (JSON / CSV / Markdown)
+  carries its own picker `id`, so switching formats no longer reopens the
+  previous format's picker.
+- **Workload tab double render** — empty-state and empty-table no longer both
+  render.
+- **Toast freshness** — the once-per-load due/birthday alert reads the holiday
+  set + absences via refs so the toast matches the (reactive) banner.
+
+### Quality
+
+- **ESLint: 75 → 0 problems, no config weakened.**
+  `react-hooks/set-state-in-effect` prop-sync effects rewritten with the
+  set-during-render previous-value pattern; genuine SSR-hydration effects kept
+  with documented disables; render-time `useRef` writes moved into effects
+  (`filters-context.tsx`, `task-manager.tsx`); test mocks typed properly and
+  hook-calling test helpers renamed `probe → useProbe`; unused vars + stale
+  `eslint-disable` directives removed; Gantt bar resize handles
+  `role="slider"` → `role="button"`.
+
+### Tests
+
+- New test files for birthdays (`birthdays.test.ts`), the address-book workload
+  rekey (`resource-workload-rows.test.ts`), the `date-format` helpers, and
+  reminder snooze (`reminder-snooze.test.ts`, `use-reminder-snooze.test.tsx`).
+  Full suite green: 389 tests across 54 files.
+
 ## [0.9.0] "Mann" — 2026-05-24
 
 Resource Utilization feature — turns the Resources tab from a derived
@@ -449,6 +528,7 @@ Prior feature-accretion milestone. (Quoted from `src/app/version.ts`:
 
 _No unreleased changes._
 
+[0.10.0]: # (no tag)
 [0.9.0]: # (no tag)
 [0.8.4]: # (no tag)
 [0.8.3]: # (no tag)
