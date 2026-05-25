@@ -1,4 +1,4 @@
-import type { Task } from "./types";
+import type { Task, Absence } from "./types";
 
 export function workdaysUntil(
   dueDate: string,
@@ -74,3 +74,53 @@ export function summarizeAlerts(items: AlertableTask[]): {
   }
   return { overdue, today, soon };
 }
+
+function isoAddDays(iso: string, delta: number): string {
+  const d = new Date(iso + "T00:00:00");
+  d.setDate(d.getDate() + delta);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function isNonWorkingDay(iso: string, holidays: ReadonlySet<string>, absenceDays: ReadonlySet<string>): boolean {
+  const dow = new Date(iso + "T00:00:00").getDay(); // 0 Sun .. 6 Sat
+  return dow === 0 || dow === 6 || holidays.has(iso) || absenceDays.has(iso);
+}
+
+/**
+ * Step `iso` (YYYY-MM-DD) backward to the nearest working day, skipping
+ * weekends, holidays, and absence days. Bounded to 366 steps. Pure.
+ */
+export function shiftToWorkingDay(
+  iso: string,
+  holidays: ReadonlySet<string>,
+  absenceDays: ReadonlySet<string>,
+): string {
+  let cur = iso;
+  for (let i = 0; i < 366 && isNonWorkingDay(cur, holidays, absenceDays); i++) {
+    cur = isoAddDays(cur, -1);
+  }
+  return cur;
+}
+
+/** Map case-folded assignee name -> set of YYYY-MM-DD covered by their absences (inclusive). */
+export function absenceDayMap(absences: readonly Absence[]): Map<string, Set<string>> {
+  const map = new Map<string, Set<string>>();
+  for (const a of absences) {
+    const key = (a.assignee ?? "").trim().toLowerCase();
+    if (!key || !a.startDate || !a.endDate) continue;
+    let set = map.get(key);
+    if (!set) { set = new Set(); map.set(key, set); }
+    let cur = a.startDate;
+    for (let i = 0; i < 366 && cur <= a.endDate; i++) {
+      set.add(cur);
+      cur = isoAddDays(cur, 1);
+    }
+  }
+  return map;
+}
+
+// Re-exported so birthdays.ts computes event − leadDays with the same calendar math.
+export { isoAddDays };
