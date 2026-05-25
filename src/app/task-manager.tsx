@@ -20,13 +20,7 @@ import { useTaskRowHandlers } from "./use-task-row-handlers";
 import { useTaskSubmit } from "./use-task-submit";
 import { useGanttHandlers } from "./use-gantt-handlers";
 import { AppModals } from "./app-modals";
-import {
-  type Absence,
-  type RaidItem,
-  type Resource,
-  type Shift,
-  type Task,
-} from "./types";
+import { type Resource } from "./types";
 import { splitName, resourceDisplayName } from "./resource-foundation";
 import { buildRaidByTaskIndex } from "./raid";
 import { FiltersProvider, useFilters } from "./filters-context";
@@ -73,7 +67,6 @@ function TaskManagerInner() {
   const { workspaceCollapsed, setWorkspaceCollapsed } = useWorkspaceCollapsed();
   const {
     colWidths,
-    setColWidths,
     hiddenCols,
     setHiddenCols,
     colConfigOpen,
@@ -94,21 +87,16 @@ function TaskManagerInner() {
     setTasks,
     uniqueGroups,
     uniqueLabels,
-    tasksById,
-    taskSearchIndex,
     raid,
-    setRaid,
     absences,
-    setAbsences,
     shifts,
-    setShifts,
     resources,
     roles,
     disciplines,
     grades,
   } = useWorkspace();
 
-  const { contacts, setContacts, contactsList, handleRemoveContact } =
+  const { setContacts, contactsList, handleRemoveContact } =
     useContacts({ hydrated, tasks });
 
   // Form / modal state owned by TaskFormProvider (Slice 3 of the
@@ -121,7 +109,6 @@ function TaskManagerInner() {
     setForm,
     editingId,
     setEditingId,
-    taskModalOpen,
     setTaskModalOpen,
   } = useTaskForm();
 
@@ -402,9 +389,8 @@ function TaskManagerInner() {
 
   const handleAcceptAiConsent = useCallback(() => {
     setSettings((s) => ({ ...s, ai: { ...s.ai, consentAccepted: true } }));
-  }, []);
+  }, [setSettings]);
 
-  const isEditing = editingId !== null;
   const editingTask =
     editingId !== null
       ? tasks.find((row) => row.id === editingId) ?? null
