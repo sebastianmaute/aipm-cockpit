@@ -4,7 +4,7 @@
 // Each row shows a resource's contact details and inline discipline/grade
 // selects. Clicking the name cell opens the edit modal.
 
-import { memo, useEffect, useState } from "react";
+import { memo, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { resourceDisplayName } from "./resource-foundation";
 import type { Discipline, Grade, Resource, Role } from "./types";
@@ -41,14 +41,18 @@ function DirectoryRoleSelects({
   const current = roles.find((x) => x.id === resource.roleId);
   const curDisc = current?.disciplineId ?? "";
   const curGrad = current?.gradeId ?? "";
+  const [prevDisc, setPrevDisc] = useState<number | "">(curDisc);
+  const [prevGrad, setPrevGrad] = useState<number | "">(curGrad);
   const [disc, setDisc] = useState<number | "">(curDisc);
   const [grad, setGrad] = useState<number | "">(curGrad);
 
   // Re-sync when the resource's role changes externally.
-  useEffect(() => {
+  if (prevDisc !== curDisc || prevGrad !== curGrad) {
+    setPrevDisc(curDisc);
+    setPrevGrad(curGrad);
     setDisc(curDisc);
     setGrad(curGrad);
-  }, [curDisc, curGrad]);
+  }
 
   return (
     <>

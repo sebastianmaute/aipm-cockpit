@@ -114,7 +114,6 @@ function ResourcesPanelInner({
   plan,
   workdayHours,
   onSetUtilization,
-  onSetUtilizationMode,
   onSetAbsenceOverride,
   onSetPlanWindow,
   onSetPlanGranularity,

@@ -25,6 +25,7 @@ export function useActivityLog({ lang }: UseActivityLogArgs): {
   const activityLogHydratedRef = useRef(false);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time client-only hydration; lazy initializer would run during SSR
     setActivityLog(loadActivityLog());
     activityLogHydratedRef.current = true;
   }, []);

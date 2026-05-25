@@ -2,6 +2,8 @@ import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ActivityEntry } from "./activity-log";
 import type { Settings } from "./settings-menu";
+import type { Lang } from "./i18n";
+import type { Task } from "./types";
 import { useStorageBackend } from "./use-storage-backend";
 import { useWorkspace } from "./workspace-context";
 import { TestProviders } from "./test-providers";
@@ -47,7 +49,7 @@ const showToast = vi.fn();
 function makeArgs(overrides: Partial<Parameters<typeof useStorageBackend>[0]> = {}): Parameters<typeof useStorageBackend>[0] {
   return {
     settings: { storageConfig: { kind: "file" } } as unknown as Settings,
-    lang: "en-US" as any,
+    lang: "en-US" as Lang,
     hydrated: true,
     isPopout: false,
     activityLog: [] as ActivityEntry[],
@@ -59,7 +61,7 @@ function makeArgs(overrides: Partial<Parameters<typeof useStorageBackend>[0]> = 
 
 // Composite probe so tests can also inspect workspace state
 function makeProbe(args: Parameters<typeof useStorageBackend>[0]) {
-  return function probe() {
+  return function useProbe() {
     const backend = useStorageBackend(args);
     const { tasks, raid, absences, shifts, setTasks } = useWorkspace();
     return { ...backend, tasks, raid, absences, shifts, setTasks };
@@ -98,8 +100,8 @@ describe("useStorageBackend — load effect", () => {
 
   it("populates workspace from backend on mount", async () => {
     mockBackend.load.mockResolvedValueOnce({
-      tasks: [{ id: 1, taskName: "T1" }] as any,
-      raid: [{ id: "r1" }] as any,
+      tasks: [{ id: 1, taskName: "T1" }] as unknown as Task[],
+      raid: [{ id: "r1" }] as unknown as Task[],
       absences: [],
       shifts: [],
     });
@@ -127,7 +129,7 @@ describe("useStorageBackend — load effect", () => {
   });
 
   it("shows error toast on StorageNotReadyError", async () => {
-    const { StorageNotReadyError } = storageMod as any;
+    const { StorageNotReadyError } = storageMod as unknown as Record<string, new (hint: string) => Error>;
     mockBackend.load.mockRejectedValueOnce(new StorageNotReadyError("no access"));
     mockBackend.isReady.mockResolvedValueOnce(false);
     mockBackend.describe.mockResolvedValueOnce(null);
@@ -151,7 +153,7 @@ describe("useStorageBackend — load effect", () => {
   });
 
   it("silently swallows StorageNotImplementedError without toast or state change", async () => {
-    const { StorageNotImplementedError } = storageMod as any;
+    const { StorageNotImplementedError } = storageMod as unknown as Record<string, new (hint: string) => Error>;
     mockBackend.load.mockRejectedValueOnce(new StorageNotImplementedError("not implemented"));
     mockBackend.isReady.mockResolvedValueOnce(false);
     mockBackend.describe.mockResolvedValueOnce(null);
@@ -197,7 +199,7 @@ describe("useStorageBackend — save effect", () => {
 
     // Trigger a workspace change so the save effect re-runs
     await act(async () => {
-      result.current.setTasks([{ id: 1, taskName: "T1" } as any]);
+      result.current.setTasks([{ id: 1, taskName: "T1" } as unknown as Task]);
     });
     // Advance past debounce — save should fire now
     await act(async () => { vi.advanceTimersByTime(600); });
@@ -209,7 +211,7 @@ describe("useStorageBackend — save effect", () => {
   });
 
   it("skips save immediately after load (suppressNextSaveRef)", async () => {
-    const { result } = renderBackend();
+    renderBackend();
     await act(async () => { await Promise.resolve(); });
 
     // The save effect fires once right after load but should be suppressed
@@ -231,7 +233,7 @@ describe("useStorageBackend — save effect", () => {
 
     // Trigger a workspace change so the save effect re-runs
     await act(async () => {
-      result.current.setTasks([{ id: 1, taskName: "T1" } as any]);
+      result.current.setTasks([{ id: 1, taskName: "T1" } as unknown as Task]);
     });
     // Advance past debounce — a non-popout window would save here
     await act(async () => { vi.advanceTimersByTime(600); });
@@ -251,7 +253,7 @@ describe("useStorageBackend — save effect", () => {
 
     // Trigger a workspace change so the save effect re-runs with suppress cleared
     await act(async () => {
-      result.current.setTasks([{ id: 2, taskName: "T2" } as any]);
+      result.current.setTasks([{ id: 2, taskName: "T2" } as unknown as Task]);
     });
     // Advance past debounce — save fires and rejects → toast shown
     await act(async () => { vi.advanceTimersByTime(600); });
@@ -321,7 +323,7 @@ describe("useStorageBackend — handlers", () => {
     mockBackend.load.mockResolvedValueOnce({ tasks: [], raid: [], absences: [], shifts: [] });
     // Second call: inside onOpenStorageFile (returns task with id 99)
     mockBackend.load.mockResolvedValueOnce({
-      tasks: [{ id: 99, taskName: "Loaded" }] as any,
+      tasks: [{ id: 99, taskName: "Loaded" }] as unknown as Task[],
       raid: [],
       absences: [],
       shifts: [],

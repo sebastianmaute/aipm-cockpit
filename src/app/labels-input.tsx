@@ -24,8 +24,16 @@ export function LabelsInput({
   const [draft, setDraft] = useState("");
   const [open, setOpen] = useState(false);
   const [highlight, setHighlight] = useState(-1);
+  const [prevDraft, setPrevDraft] = useState(draft);
+  const [prevOpen, setPrevOpen] = useState(open);
   const rootRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  if (prevDraft !== draft || prevOpen !== open) {
+    setPrevDraft(draft);
+    setPrevOpen(open);
+    setHighlight(-1);
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -36,10 +44,6 @@ export function LabelsInput({
     document.addEventListener("mousedown", onMouseDown);
     return () => document.removeEventListener("mousedown", onMouseDown);
   }, [open]);
-
-  useEffect(() => {
-    setHighlight(-1);
-  }, [draft, open]);
 
   function commit(raw: string) {
     const clean = sanitizeLabel(raw);

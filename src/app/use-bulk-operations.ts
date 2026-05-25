@@ -47,7 +47,6 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
     setBulkEdit,
     setBulkEditOpen,
     setForm,
-    setEditingId,
     setTaskModalOpen,
   } = useTaskForm();
 

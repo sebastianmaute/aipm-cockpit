@@ -43,6 +43,7 @@ export function VoiceCommandButton({
   const [supported, setSupported] = useState(false);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time client-only hydration; lazy initializer would run during SSR
     setSupported(isVoiceSupported());
     return () => {
       stopRef.current?.();
@@ -129,6 +130,7 @@ export function InlineMicButton({
   const [supported, setSupported] = useState(false);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time client-only hydration; lazy initializer would run during SSR
     setSupported(isVoiceSupported());
     return () => {
       stopRef.current?.();

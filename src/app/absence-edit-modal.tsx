@@ -9,7 +9,7 @@
 // HTML5 datalist autocomplete of known assignees so the user can either
 // pick an existing person or type a new one.
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { Modal } from "./modal";
 import { SegmentedControl } from "./segmented-control";
@@ -45,13 +45,15 @@ export function AbsenceEditModal({
 }: Props) {
   // Local draft mirrors the absence prop. Reset whenever the prop changes
   // (open with a new record, or switch from one absence to another).
+  const [prevAbsence, setPrevAbsence] = useState(absence);
   const [draft, setDraft] = useState<Absence | null>(absence);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  if (prevAbsence !== absence) {
+    setPrevAbsence(absence);
     setDraft(absence);
     setError(null);
-  }, [absence]);
+  }
 
   // Escape, focus management, and backdrop-click are owned by <Modal>.
 

@@ -252,6 +252,7 @@ export function useJiraSync(args: UseJiraSyncArgs) {
       jiraSyncingRef.current = false;
       setJiraSyncing(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- args is a new object each render; showToast/logActivity are called directly but are stable callbacks; setTasks is a stable WorkspaceContext setter
   }, [args.showToast, args.logActivity]);
 
   const handleResolveConflicts = useCallback(async (resolutions: ConflictResolution[]) => {
@@ -343,6 +344,7 @@ export function useJiraSync(args: UseJiraSyncArgs) {
       "info",
       t(langRef.current, "jiraConflictResolved", resolutions.length, pulled, pushed),
     );
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- args is a new object each render; showToast/logActivity are called directly but are stable callbacks; setTasks is a stable WorkspaceContext setter
   }, [args.showToast, args.logActivity]);
 
   const clearConflicts = useCallback(() => setJiraConflicts([]), []);

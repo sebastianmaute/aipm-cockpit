@@ -8,7 +8,7 @@
 //
 // Phase 4 of the Resource Planner. See docs/RESOURCE-PLANNER-PLAN.md.
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { Modal } from "./modal";
 import {
@@ -73,13 +73,15 @@ export function ShiftEditModal({
   onDelete,
   onClose,
 }: Props) {
+  const [prevShift, setPrevShift] = useState(shift);
   const [draft, setDraft] = useState<Shift | null>(shift);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  if (prevShift !== shift) {
+    setPrevShift(shift);
     setDraft(shift);
     setError(null);
-  }, [shift]);
+  }
 
   // Escape, focus management, and backdrop-click are owned by <Modal>.
 

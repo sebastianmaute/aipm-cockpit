@@ -274,7 +274,7 @@ describe("useChatDispatcher", () => {
   it("dispatcher identity is stable across editingId-change re-renders", () => {
     // Render the hook AND useTaskForm in the same TestProviders wrapper so
     // setEditingId triggers a re-render of the dispatcher's host component.
-    function probe() {
+    function useProbe() {
       const dispatcher = useChatDispatcher({
         settings: makeSettings(),
         today: "2026-05-19",
@@ -284,7 +284,7 @@ describe("useChatDispatcher", () => {
       const form = useTaskForm();
       return { dispatcher, form };
     }
-    const { result } = renderHook(probe, {
+    const { result } = renderHook(useProbe, {
       wrapper: ({ children }) => <TestProviders>{children}</TestProviders>,
     });
     const before = result.current.dispatcher;

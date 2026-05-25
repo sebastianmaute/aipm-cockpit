@@ -58,7 +58,6 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
     setDisciplines,
     grades,
     setGrades,
-    plan,
     setPlan,
   } = useWorkspace();
 

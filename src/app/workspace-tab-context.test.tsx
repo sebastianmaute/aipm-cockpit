@@ -20,6 +20,7 @@ describe("WorkspaceTabContext", () => {
         const ctx = useWorkspaceTab();
         useLayoutEffect(() => {
           ctx.setActiveTab("reports");
+          // eslint-disable-next-line react-hooks/exhaustive-deps
         }, []);
         return ctx;
       },

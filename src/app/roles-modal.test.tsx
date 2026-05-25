@@ -1,4 +1,4 @@
-import { describe, test, expect, vi } from "vitest";
+import { test, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { RolesModal } from "./roles-modal";
 import type { Role, Discipline, Grade } from "./types";

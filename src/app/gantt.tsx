@@ -775,10 +775,6 @@ export function GanttPanel({
     onUpdateBarRef.current = onUpdateBar;
   }, [onUpdateBar]);
 
-  function dragDeltaDays(clientX: number, drag: BarDrag): number {
-    return Math.round((clientX - drag.startClientX) / DAY_WIDTH_PX);
-  }
-
   /** Apply the current drag in-memory to return what the bar's dates
    *  WOULD be if the user released right now. Centralised so the render
    *  path, the cursor logic, and the commit path agree on the math. */
@@ -986,7 +982,6 @@ export function GanttPanel({
   const timelineWidthPx = range.days * DAY_WIDTH_PX;
   const chartWidthPx = LEFT_GUTTER_PX + timelineWidthPx;
   const rowsCount = layout.placeable.length;
-  const chartHeightPx = HEADER_HEIGHT_PX + rowsCount * ROW_HEIGHT_PX;
 
   // Pre-compute month spans for the top header row.
   const monthGroups = useMemo(() => {
@@ -1355,12 +1350,9 @@ export function GanttPanel({
             })}
           </svg>
 
-          {layout.placeable.map((task, rowIdx) => {
+          {layout.placeable.map((task) => {
             const bar = layout.bars.get(task.id);
             if (!bar) return null;
-            const startX = diffDays(range.min, bar.start) * DAY_WIDTH_PX;
-            const endX = (diffDays(range.min, bar.end) + 1) * DAY_WIDTH_PX;
-            const widthPx = Math.max(DAY_WIDTH_PX / 2, endX - startX);
             const isComplete = !!task.completedDate;
             const isOverdue =
               !isComplete && bar.end.getTime() < today.getTime();
@@ -1632,7 +1624,7 @@ export function GanttPanel({
                               losing the drag.
                             */}
                             <div
-                              role="slider"
+                              role="button"
                               aria-label={t(lang, "ganttBarResizeStart")}
                               className="absolute left-0 top-0 z-10 h-full w-1.5 cursor-ew-resize"
                               onPointerDown={(e) =>
@@ -1648,7 +1640,7 @@ export function GanttPanel({
                               }
                             />
                             <div
-                              role="slider"
+                              role="button"
                               aria-label={t(lang, "ganttBarResizeEnd")}
                               className="absolute right-0 top-0 z-10 h-full w-1.5 cursor-ew-resize"
                               onPointerDown={(e) =>

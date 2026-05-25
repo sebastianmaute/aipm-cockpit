@@ -5,7 +5,7 @@
 // via useEffect, `update(key, value)` helper, footer with Delete/Cancel/Save.
 // Does NOT edit discipline/grade (those are owned by the Roles modal).
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { type Lang, t } from "./i18n";
 import { Modal } from "./modal";
 import type { Resource } from "./types";
@@ -39,13 +39,15 @@ export function ResourceEditModal({
   onDelete,
   onClose,
 }: Props) {
+  const [prevResource, setPrevResource] = useState(resource);
   const [draft, setDraft] = useState<Resource | null>(resource);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  if (prevResource !== resource) {
+    setPrevResource(resource);
     setDraft(resource);
     setError(null);
-  }, [resource]);
+  }
 
   function update<K extends keyof Resource>(key: K, value: Resource[K]) {
     setDraft((prev) => (prev ? { ...prev, [key]: value } : prev));

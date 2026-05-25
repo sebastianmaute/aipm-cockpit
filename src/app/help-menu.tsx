@@ -196,7 +196,7 @@ export function HelpMenu({ lang }: { lang: Lang }) {
       window.addEventListener("mousemove", onMove);
       window.addEventListener("mouseup", onUp);
     },
-    [pos],
+    [pos, panelRef],
   );
 
   return (

@@ -594,8 +594,6 @@ export function buildPptx(
     }
   }
 
-  const slideCount = slideXmls.length;
-
   // [Content_Types].xml entries — one Override per slide, plus the static
   // layout/master/theme parts.
   const slideOverrides = slideXmls

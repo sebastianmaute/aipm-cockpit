@@ -126,7 +126,7 @@ describe("BulkEditModal", () => {
 
     function Spy() {
       const { bulkEdit } = useTaskForm();
-      captured.enabledPriority = bulkEdit.enabled.priority;
+      Object.assign(captured, { enabledPriority: bulkEdit.enabled.priority });
       return null;
     }
 

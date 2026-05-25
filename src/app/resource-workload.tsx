@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { localeFor, shortDateRange } from "./date-format";
+import { shortDateRange } from "./date-format";
 import { type Lang, t } from "./i18n";
 import { buildResourceWorkload } from "./resource-workload-rows";
 import type { Absence, Resource, Shift, Task } from "./types";

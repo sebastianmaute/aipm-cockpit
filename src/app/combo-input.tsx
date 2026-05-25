@@ -30,9 +30,17 @@ export function ComboInput({
 }) {
   const [open, setOpen] = useState(false);
   const [highlight, setHighlight] = useState(-1);
+  const [prevValue, setPrevValue] = useState(value);
+  const [prevOpen, setPrevOpen] = useState(open);
   const rootRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const listId = useId();
+
+  if (prevValue !== value || prevOpen !== open) {
+    setPrevValue(value);
+    setPrevOpen(open);
+    setHighlight(-1);
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -43,10 +51,6 @@ export function ComboInput({
     document.addEventListener("mousedown", onMouseDown);
     return () => document.removeEventListener("mousedown", onMouseDown);
   }, [open]);
-
-  useEffect(() => {
-    setHighlight(-1);
-  }, [value, open]);
 
   const trimmed = value.trim();
   const lower = trimmed.toLowerCase();

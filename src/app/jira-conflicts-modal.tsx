@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { type Lang, type TranslationKey, t } from "./i18n";
 import type { ConflictFieldKey, ConflictItem } from "./jira-api";
 import { Modal } from "./modal";
@@ -67,9 +67,11 @@ export function JiraConflictsModal({
   }, [conflicts]);
 
   const [picks, setPicks] = useState(initial);
-
-  // Reset state whenever the conflicts identity changes.
-  useEffect(() => setPicks(initial), [initial]);
+  const [prevInitial, setPrevInitial] = useState(initial);
+  if (prevInitial !== initial) {
+    setPrevInitial(initial);
+    setPicks(initial);
+  }
 
   // Escape and backdrop-click are owned by <Modal>.
 
@@ -88,7 +90,7 @@ export function JiraConflictsModal({
   }
 
   function applyAll(side: Side) {
-    setPicks((prev) => {
+    setPicks(() => {
       const next: Record<number, ConflictResolution> = {};
       for (const c of conflicts) {
         const fieldPicks = {} as Record<ConflictFieldKey, "local" | "remote">;

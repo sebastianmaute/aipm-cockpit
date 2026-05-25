@@ -14,7 +14,6 @@ import {
   createContext,
   useCallback,
   useContext,
-  useRef,
   useState,
   type Dispatch,
   type ReactNode,
@@ -75,9 +74,9 @@ export function FiltersProvider({ children }: { children: ReactNode }) {
 
   // When the debounce hook catches up, clear the override so normal typing
   // still benefits from debounce.
-  const prevHook = useRef(searchDebouncedHook);
-  if (prevHook.current !== searchDebouncedHook) {
-    prevHook.current = searchDebouncedHook;
+  const [prevHook, setPrevHook] = useState(searchDebouncedHook);
+  if (prevHook !== searchDebouncedHook) {
+    setPrevHook(searchDebouncedHook);
     if (searchDebouncedOverride !== null) setSearchDebouncedOverride(null);
   }
 

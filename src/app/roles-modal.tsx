@@ -131,7 +131,7 @@ export function RolesModal({
 }
 
 function RefList({
-  lang, title, items, onRename, addPlaceholder, addValue, setAddValue, onAdd,
+  title, items, onRename, addPlaceholder, addValue, setAddValue, onAdd,
 }: {
   lang: Lang;
   title: string;

@@ -50,7 +50,6 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // Backend instance — memoised on storageConfig identity
   const backend = useMemo(
     () => createBackend(args.settings.storageConfig),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [args.settings.storageConfig],
   );
 

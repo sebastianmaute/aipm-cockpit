@@ -1,6 +1,8 @@
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Task } from "./types";
+import type { JiraIssue } from "./jira-api";
+import type { Settings } from "./settings-menu";
 import { useJiraSync } from "./use-jira-sync";
 import { useWorkspace } from "./workspace-context";
 import { TestProviders } from "./test-providers";
@@ -37,9 +39,7 @@ const baseSettings = {
     assigneeAccountId: "",
     assigneeDisplayName: "",
   },
-} as any;
-
-const noCredSettings = { jira: { enabled: false } } as any;
+} as unknown as Settings;
 
 function makeTask(overrides: Partial<Task> = {}): Task {
   return {
@@ -56,11 +56,9 @@ function makeTask(overrides: Partial<Task> = {}): Task {
   };
 }
 
-const baseTask = makeTask();
-
 // ── Composite probe hook so we can inspect workspace tasks ───────────────────
 function makeProbe(overrideSettings = baseSettings) {
-  return function probe() {
+  return function useProbe() {
     const sync = useJiraSync({
       settings: overrideSettings,
       today: "2026-05-20",
@@ -128,7 +126,7 @@ describe("useJiraSync — handleJiraSync", () => {
         summary: "Remote name",
         updated: "2026-05-10T00:00:00",
       },
-    } as any;
+    } as unknown as JiraIssue;
     (jiraApi.searchAllIssues as ReturnType<typeof vi.fn>).mockResolvedValueOnce([remoteIssue]);
     (jiraApi.issueToTaskFields as ReturnType<typeof vi.fn>).mockReturnValue({
       taskName: "Remote name",
@@ -160,7 +158,7 @@ describe("useJiraSync — handleJiraSync", () => {
         summary: "Old name",
         updated: "2025-12-01T00:00:00",  // older than lastSyncedAt
       },
-    } as any;
+    } as unknown as JiraIssue;
     (jiraApi.searchAllIssues as ReturnType<typeof vi.fn>).mockResolvedValueOnce([remoteIssue]);
     (jiraApi.isIssueDone as ReturnType<typeof vi.fn>).mockReturnValue(false);
     (jiraApi.taskFieldsToJiraFields as ReturnType<typeof vi.fn>).mockReturnValue({ summary: "New name" });
@@ -195,7 +193,7 @@ describe("useJiraSync — handleJiraSync", () => {
         summary: "Remote name",
         updated: "2026-05-10T00:00:00",  // newer than lastSyncedAt
       },
-    } as any;
+    } as unknown as JiraIssue;
     (jiraApi.searchAllIssues as ReturnType<typeof vi.fn>).mockResolvedValueOnce([remoteIssue]);
     (jiraApi.isIssueDone as ReturnType<typeof vi.fn>).mockReturnValue(false);
     (jiraApi.issueToTaskFields as ReturnType<typeof vi.fn>).mockReturnValue({
@@ -228,7 +226,7 @@ describe("useJiraSync — handleJiraSync", () => {
     const newRemoteIssue = {
       key: "TEST-99",
       fields: { summary: "Brand new", updated: "2026-05-01T00:00:00" },
-    } as any;
+    } as unknown as JiraIssue;
     (jiraApi.searchAllIssues as ReturnType<typeof vi.fn>).mockResolvedValueOnce([newRemoteIssue]);
     (jiraApi.issueToTaskFields as ReturnType<typeof vi.fn>).mockReturnValue({
       taskName: "Brand new",
@@ -266,7 +264,7 @@ describe("useJiraSync — handleResolveConflicts", () => {
     const remoteIssue = {
       key: "TEST-1",
       fields: { summary: "Remote name", updated: "2026-05-10T00:00:00" },
-    } as any;
+    } as unknown as JiraIssue;
     (jiraApi.searchAllIssues as ReturnType<typeof vi.fn>).mockResolvedValueOnce([remoteIssue]);
     (jiraApi.isIssueDone as ReturnType<typeof vi.fn>).mockReturnValue(false);
     (jiraApi.issueToTaskFields as ReturnType<typeof vi.fn>).mockReturnValue({ taskName: "Remote name" });
@@ -283,7 +281,7 @@ describe("useJiraSync — handleResolveConflicts", () => {
       lastSyncedAt: "2026-01-01T00:00:00", localModifiedAt: "2026-05-01T00:00:00",
     });
     const { result } = renderSync([localTask]);
-    await setupConflict(result as any);
+    await setupConflict(result);
 
     vi.clearAllMocks();
     (jiraApi.taskFieldsToJiraFields as ReturnType<typeof vi.fn>).mockReturnValue({ summary: "Local name" });
@@ -306,7 +304,7 @@ describe("useJiraSync — handleResolveConflicts", () => {
       lastSyncedAt: "2026-01-01T00:00:00", localModifiedAt: "2026-05-01T00:00:00",
     });
     const { result } = renderSync([localTask]);
-    await setupConflict(result as any);
+    await setupConflict(result);
 
     vi.clearAllMocks();
 
@@ -327,7 +325,7 @@ describe("useJiraSync — handleResolveConflicts", () => {
       lastSyncedAt: "2026-01-01T00:00:00", localModifiedAt: "2026-05-01T00:00:00",
     });
     const { result } = renderSync([localTask]);
-    await setupConflict(result as any);
+    await setupConflict(result);
 
     vi.clearAllMocks();
     (jiraApi.taskFieldsToJiraFields as ReturnType<typeof vi.fn>).mockReturnValue({});

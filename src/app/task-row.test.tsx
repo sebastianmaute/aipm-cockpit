@@ -124,7 +124,6 @@ describe("TaskRow", () => {
             />
           </Profiler>
         ),
-        // eslint-disable-next-line react-hooks/exhaustive-deps
         [],
       );
       return rowWrapper({ context: ctx, children: stableRow });

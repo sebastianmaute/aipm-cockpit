@@ -2232,7 +2232,7 @@ class SharePointBackend implements StorageBackend {
     throw new StorageNotImplementedError("sharepoint-coming-soon");
   }
 
-  async save(_workspace: Workspace): Promise<void> {
+  async save(): Promise<void> {
     throw new StorageNotImplementedError("sharepoint-coming-soon");
   }
 }

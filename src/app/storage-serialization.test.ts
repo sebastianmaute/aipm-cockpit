@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import { migrateWorkspaceV5, emptyWorkspace, workspaceToCsv, csvToWorkspace, workspaceToMarkdown, markdownToWorkspace } from "./storage";
+import { migrateWorkspaceV5, emptyWorkspace, workspaceToCsv, csvToWorkspace, workspaceToMarkdown, markdownToWorkspace, type Workspace } from "./storage";
 import type { Task, Resource, Role, Discipline, Grade } from "./types";
 import { resourceDisplayName } from "./resource-foundation";
 
@@ -81,7 +81,7 @@ describe("resource address-book round-trip", () => {
     }],
   };
   test("CSV preserves all address-book fields incl. tricky notes", () => {
-    const back = csvToWorkspace(workspaceToCsv(ws as any)).resources[0];
+    const back = csvToWorkspace(workspaceToCsv(ws as unknown as Workspace)).resources[0];
     expect(back).toMatchObject({
       firstName: "Sample", lastName: "Dummy", title: "Architect", department: "IAM",
       company: "iC", birthday: "06-14", businessPhone: "+49 30 1", location: "Berlin",
@@ -89,7 +89,7 @@ describe("resource address-book round-trip", () => {
     });
   });
   test("Markdown preserves all address-book fields", () => {
-    const back = markdownToWorkspace(workspaceToMarkdown(ws as any)).resources[0];
+    const back = markdownToWorkspace(workspaceToMarkdown(ws as unknown as Workspace)).resources[0];
     expect(back).toMatchObject({ firstName: "Sample", lastName: "Dummy", birthday: "06-14" });
   });
   test("loads a legacy single-name CSV resource by splitting", () => {

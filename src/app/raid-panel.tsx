@@ -630,9 +630,11 @@ function RaidEditModal({
   // status / matrix data). Users can unlock it with the inline "Advanced"
   // affordance. Re-locks whenever the user navigates to a different item.
   const [categoryUnlocked, setCategoryUnlocked] = useState(false);
-  useEffect(() => {
+  const [prevDraftId, setPrevDraftId] = useState(draft.id);
+  if (prevDraftId !== draft.id) {
+    setPrevDraftId(draft.id);
     setCategoryUnlocked(false);
-  }, [draft.id]);
+  }
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {

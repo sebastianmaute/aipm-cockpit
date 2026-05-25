@@ -1,4 +1,4 @@
-import { describe, test, expect } from "vitest";
+import { test, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { ResourcesReportPanel } from "./resources-report";
 import type { Resource, Role, Discipline, Grade, ResourcePlan } from "./types";

@@ -68,9 +68,11 @@ export function ContactInput({
   }, [contacts, value]);
 
   // Reset the keyboard highlight when the visible list changes.
-  useEffect(() => {
+  const [prevFilteredLen, setPrevFilteredLen] = useState(filtered.length);
+  if (prevFilteredLen !== filtered.length) {
+    setPrevFilteredLen(filtered.length);
     setHighlight(0);
-  }, [filtered.length]);
+  }
 
   // Click outside closes.
   useEffect(() => {

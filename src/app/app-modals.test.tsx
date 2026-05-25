@@ -30,6 +30,9 @@ vi.mock("./task-form-context", async (importOriginal) => {
   return { ...actual, useTaskForm: vi.fn() };
 });
 import { useTaskForm, emptyForm, emptyBulkEdit } from "./task-form-context";
+import type { ConflictItem } from "./jira-api";
+import type { Absence } from "./types";
+import type { Shift } from "./types";
 const mockUseTaskForm = useTaskForm as ReturnType<typeof vi.fn>;
 
 function stubTaskForm() {
@@ -118,19 +121,19 @@ describe("AppModals", () => {
 
   it("shows JiraConflictsModal when jiraConflicts is non-empty", () => {
     stubTaskForm();
-    render(<AppModals {...makeProps()} jiraConflicts={[{} as any]} />);
+    render(<AppModals {...makeProps()} jiraConflicts={[{} as unknown as ConflictItem]} />);
     expect(screen.getByTestId("jira-conflicts-modal")).toBeInTheDocument();
   });
 
   it("shows AbsenceEditModal when editingAbsence is non-null", () => {
     stubTaskForm();
-    render(<AppModals {...makeProps()} editingAbsence={{ absence: {} as any, isNew: false }} />);
+    render(<AppModals {...makeProps()} editingAbsence={{ absence: {} as unknown as Absence, isNew: false }} />);
     expect(screen.getByTestId("absence-edit-modal")).toBeInTheDocument();
   });
 
   it("shows ShiftEditModal when editingShift is non-null", () => {
     stubTaskForm();
-    render(<AppModals {...makeProps()} editingShift={{ shift: {} as any, isNew: false }} />);
+    render(<AppModals {...makeProps()} editingShift={{ shift: {} as unknown as Shift, isNew: false }} />);
     expect(screen.getByTestId("shift-edit-modal")).toBeInTheDocument();
   });
 

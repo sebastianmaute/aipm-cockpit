@@ -51,12 +51,17 @@ export function JiraSettingsSection({
   };
   const credsReady = !!(config.siteUrl && config.email && config.apiToken);
 
+  // Reset issueTypes synchronously during render when credentials/project are absent.
+  const issueTypesEnabled = credsReady && !!config.projectKey;
+  const [prevIssueTypesEnabled, setPrevIssueTypesEnabled] = useState(issueTypesEnabled);
+  if (prevIssueTypesEnabled !== issueTypesEnabled) {
+    setPrevIssueTypesEnabled(issueTypesEnabled);
+    if (!issueTypesEnabled) setIssueTypes([]);
+  }
+
   // When project changes, reload issue types.
   useEffect(() => {
-    if (!credsReady || !config.projectKey) {
-      setIssueTypes([]);
-      return;
-    }
+    if (!credsReady || !config.projectKey) return;
     let cancelled = false;
     listIssueTypes(creds, config.projectKey)
       .then((list) => {
@@ -71,6 +76,15 @@ export function JiraSettingsSection({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [config.projectKey, config.siteUrl, config.email, config.apiToken]);
 
+  // Reset userResults synchronously during render when search is inactive.
+  const userSearchEnabled =
+    config.assigneeMode === "specific" && credsReady && !!config.projectKey;
+  const [prevUserSearchEnabled, setPrevUserSearchEnabled] = useState(userSearchEnabled);
+  if (prevUserSearchEnabled !== userSearchEnabled) {
+    setPrevUserSearchEnabled(userSearchEnabled);
+    if (!userSearchEnabled) setUserResults([]);
+  }
+
   // Debounced user search for the "specific assignee" picker.
   useEffect(() => {
     if (
@@ -78,7 +92,6 @@ export function JiraSettingsSection({
       !credsReady ||
       !config.projectKey
     ) {
-      setUserResults([]);
       return;
     }
     if (userSearchTimer.current !== null) {

@@ -3,7 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 import { BirthdayBanner, DueBanner } from "./notifications";
 import { SNOOZE_1H, SNOOZE_1D } from "./reminder-snooze";
 import type { UpcomingBirthday } from "./birthdays";
-import type { Resource } from "./types";
+import type { Resource, Task } from "./types";
+import type { AlertableTask } from "./due-dates";
 
 function makeResource(id: number, firstName: string, lastName: string): Resource {
   return {
@@ -90,8 +91,8 @@ describe("BirthdayBanner", () => {
 describe("DueBanner", () => {
   it("DueBanner fires onSnooze with the chosen duration", () => {
     const onSnooze = vi.fn();
-    const items = [{ task: { id: 1, taskName: "T", dueDate: "2026-12-31" } as any, category: "soon" as const, workDaysLeft: 1 }];
-    render(<DueBanner items={items as any} lang="en-US" onOpenList={vi.fn()} onDismiss={vi.fn()} onSnooze={onSnooze} />);
+    const items: AlertableTask[] = [{ task: { id: 1, taskName: "T", dueDate: "2026-12-31" } as unknown as Task, category: "soon" as const, workDaysLeft: 1 }];
+    render(<DueBanner items={items} lang="en-US" onOpenList={vi.fn()} onDismiss={vi.fn()} onSnooze={onSnooze} />);
     fireEvent.click(screen.getByRole("button", { name: /in 1 hour/i }));
     expect(onSnooze).toHaveBeenCalledWith(SNOOZE_1H);
     fireEvent.click(screen.getByRole("button", { name: /in 1 day/i }));

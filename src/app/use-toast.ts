@@ -13,6 +13,7 @@ export function useToast(): {
     if (!toast) return;
     const timer = setTimeout(() => setToast(null), 4000);
     return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally keyed on toast.id so a new toast restarts the timer without including the full object
   }, [toast?.id]);
 
   const showToast = useCallback((kind: "info" | "error", text: string) => {
