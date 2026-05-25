@@ -1,20 +1,21 @@
 "use client";
 
-// Resource Planner panel — view shell + per-assignee list view.
+// Resource Planner panel — view shell hosting four tabs.
 //
-// Three views, switchable via a single SegmentedControl in the header:
-//   - "list"     — stats table (open/overdue counts + upcoming absences).
-//                  Phases 1 + 2 of the planner.
-//   - "calendar" — 30-day grid (rows × days). Phase 3. Rendered by the
-//                  sibling <ResourceCalendar /> component.
-//   - "planning" — per-period utilization grid (resources × periods) with a
-//                  planning-window (start/end date) + granularity (week/month)
-//                  control row above the table.
+// Four views, switchable via a single SegmentedControl in the header:
+//   - "directory" — address-book table (one row per Resource); the name opens
+//                   the edit modal, discipline/grade are inline selects.
+//                   Rendered by the sibling <ResourceDirectory /> component.
+//   - "workload"  — per-assignee stats table (open/overdue counts + upcoming
+//                   absences), aggregated from tasks/absences/shifts.
+//   - "calendar"  — 30-day grid (rows × days). Rendered by <ResourceCalendar />.
+//   - "planning"  — per-period utilization grid (resources × periods) with a
+//                   planning-window (start/end date) + granularity (week/month)
+//                   control row above the table.
 //
-// All views share the same per-assignee aggregation: trim + lowercase
-// the assignee name so "Alex Example" and "Alex Example" land in the same
-// row; display uses the first observed original casing. See
-// docs/RESOURCE-PLANNER-PLAN.md.
+// The "workload" view aggregates per assignee: trim + lowercase the assignee
+// name so "Alex Example" and "Alex Example" land in the same row; display uses the
+// first observed original casing.
 
 import { memo, useMemo, useState } from "react";
 import { type Lang, t } from "./i18n";
@@ -423,7 +424,7 @@ function ResourcesPanelInner({
           onAddResource={onAddResource}
         />
       )}
-      {view === "workload" && (
+      {view === "workload" && !isEmpty && (
         <div className="min-h-0 flex-1 overflow-auto rounded-md border border-zinc-200 dark:border-zinc-800">
           <table className="w-full text-left text-sm">
             <thead className="sticky top-0 z-10 bg-zinc-50 text-xs uppercase tracking-wide text-zinc-500 shadow-sm dark:bg-zinc-900 dark:text-zinc-400">
