@@ -1706,9 +1706,14 @@ export function isFileSystemAccessSupported(): boolean {
 
 type FilePickType = "json" | "csv" | "md";
 
+// `id` gives each format its own remembered directory + filename in the
+// browser's File System Access pickers. Without distinct ids, every format
+// shares one remembered location, so opening the CSV picker lands on the
+// last-picked .md file (and vice versa). Allowed: [A-Za-z0-9_-], <=32 chars.
 const PICK_OPTS: Record<
   FilePickType,
   {
+    id: string;
     suggestedName: string;
     types: Array<{
       description: string;
@@ -1717,14 +1722,17 @@ const PICK_OPTS: Record<
   }
 > = {
   json: {
+    id: "lopfile_json",
     suggestedName: "lop-app-tasks.json",
     types: [{ description: "JSON", accept: { "application/json": [".json"] } }],
   },
   csv: {
+    id: "lopfile_csv",
     suggestedName: "lop-app-tasks.csv",
     types: [{ description: "CSV", accept: { "text/csv": [".csv"] } }],
   },
   md: {
+    id: "lopfile_md",
     suggestedName: "lop-app-tasks.md",
     types: [
       {
@@ -1765,6 +1773,7 @@ async function pickOpenFile(type: FilePickType): Promise<FsHandle> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [handle] = await (window as any).showOpenFilePicker({
     multiple: false,
+    id: PICK_OPTS[type].id,
     types: PICK_OPTS[type].types,
   });
   return handle as FsHandle;
