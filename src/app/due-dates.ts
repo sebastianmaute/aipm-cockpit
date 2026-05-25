@@ -13,7 +13,9 @@ export function workdaysUntil(
     cur.setDate(cur.getDate() + 1);
     const day = cur.getDay();
     if (day === 0 || day === 6) continue;
-    const iso = cur.toISOString().slice(0, 10);
+    // Local date key (not toISOString/UTC) — holidays are keyed by local civil
+    // dates, so UTC would be off by one for this day in UTC+ timezones.
+    const iso = `${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, "0")}-${String(cur.getDate()).padStart(2, "0")}`;
     if (holidays.has(iso)) continue;
     count++;
   }

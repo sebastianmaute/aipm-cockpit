@@ -50,6 +50,17 @@ export function useDueAlerts({
     todayRef.current = today;
   }, [today]);
 
+  // holidaySet + absences load asynchronously; read via refs so the once-per-
+  // session toast uses the latest values (matches the reactive banner).
+  const holidaySetRef = useRef(holidaySet);
+  useEffect(() => {
+    holidaySetRef.current = holidaySet;
+  }, [holidaySet]);
+  const absencesRef = useRef(absences);
+  useEffect(() => {
+    absencesRef.current = absences;
+  }, [absences]);
+
   useEffect(() => {
     if (!hydrated || notifiedThisSessionRef.current) return;
     if (tasks.length === 0) return;
@@ -63,8 +74,8 @@ export function useDueAlerts({
           tasks,
           settingsRef.current.notifications.reminderLeadDays,
           todayRef.current,
-          holidaySet,
-          absences,
+          holidaySetRef.current,
+          absencesRef.current,
         )
       : [];
 
@@ -73,8 +84,8 @@ export function useDueAlerts({
           tasks,
           settingsRef.current.notifications.reminderLeadDays,
           todayRef.current,
-          holidaySet,
-          absences,
+          holidaySetRef.current,
+          absencesRef.current,
         )
       : [];
 
@@ -84,7 +95,7 @@ export function useDueAlerts({
         showToast("info", dueAlertsToastText(toastItems, currentLanguage));
       if (popupItems.length > 0) setDueModalOpen(true);
     });
-  }, [hydrated, tasks, holidaySet, absences, showToast]);
+  }, [hydrated, tasks, showToast]);
 
   return { bannerDismissed, setBannerDismissed, dueModalOpen, setDueModalOpen };
 }
