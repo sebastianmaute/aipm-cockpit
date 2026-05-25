@@ -268,7 +268,7 @@ function ResourceDirectoryInner({
                   <td className="px-3 py-2 text-AIPM-medium-grey" title={r.department ?? ""}>{r.department ?? "—"}</td>
                   <td className="px-3 py-2 text-AIPM-medium-grey" title={r.businessPhone ?? ""}>{r.businessPhone ?? "—"}</td>
                   <td className="px-3 py-2 text-AIPM-medium-grey" title={r.email ?? ""}>{r.email ?? "—"}</td>
-                  <td className="px-3 py-2 text-AIPM-medium-grey" title={birthdayMonthDay(r.birthday) ?? ""}>{r.birthday ?? "—"}</td>
+                  <td className="px-3 py-2 text-AIPM-medium-grey" title={r.birthday ?? ""}>{r.birthday ?? "—"}</td>
                 </tr>
               ))}
             </tbody>

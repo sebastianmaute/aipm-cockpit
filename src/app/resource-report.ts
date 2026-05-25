@@ -135,8 +135,8 @@ export function computeResourceReport(
     });
 
     if (role) {
-      const discName = disciplines.find((d) => d.id === role.disciplineId)?.name ?? "?";
-      const gradeName = grades.find((g) => g.id === role.gradeId)?.name ?? "?";
+      const discName = disciplines.find((d) => d.id === role.disciplineId)?.name ?? "n/a";
+      const gradeName = grades.find((g) => g.id === role.gradeId)?.name ?? "n/a";
       bump(discMap, role.disciplineId, discName, resHours, resCost);
       bump(gradeMap, role.gradeId, gradeName, resHours, resCost);
       bump(comboMap, role.id, roleLabel(role, disciplines, grades), resHours, resCost);
