@@ -1,6 +1,6 @@
 import { generatePeriods, displayCapacityHours, absencesForResource } from "./resource-capacity";
 import { periodCost, type CostBreakdown } from "./resource-cost";
-import { roleLabel } from "./resource-foundation";
+import { roleLabel, resourceDisplayName } from "./resource-foundation";
 import type { Absence, Discipline, Grade, Resource, ResourcePlan, Role } from "./types";
 
 export type ReportGroupRow = {
@@ -125,7 +125,7 @@ export function computeResourceReport(
 
     perResource.push({
       id: r.id,
-      name: r.name,
+      name: resourceDisplayName(r),
       roleLabel: roleLabel(role, disciplines, grades),
       hasRole: !!role,
       avgUtilization: periods.length ? utilSum / periods.length : 0,

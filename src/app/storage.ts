@@ -431,7 +431,9 @@ const SHIFTS_MD_COLUMNS: readonly { col: string; label: string }[] = [
 // --- Resource Planner v2 CSV column definitions ----------------------------
 
 const RESOURCES_CSV_COLUMNS = [
-  "id", "name", "email", "roleId", "utilizationMode", "utilization", "absenceOverride", "active", "localModifiedAt",
+  "id", "firstName", "lastName", "title", "businessPhone", "location",
+  "department", "email", "company", "birthday", "notes",
+  "roleId", "utilizationMode", "utilization", "absenceOverride", "active", "localModifiedAt",
 ] as const;
 const ROLES_CSV_COLUMNS = ["id", "disciplineId", "gradeId", "internalRate", "externalRate", "localModifiedAt"] as const;
 const REF_CSV_COLUMNS = ["id", "name", "localModifiedAt"] as const;
@@ -447,8 +449,16 @@ const CSV_SECTION_PLAN = "# PLAN";
 
 const RESOURCES_MD_COLUMNS: readonly { col: string; label: string }[] = [
   { col: "id", label: "ID" },
-  { col: "name", label: "Name" },
+  { col: "firstName", label: "First" },
+  { col: "lastName", label: "Last" },
+  { col: "title", label: "Title" },
+  { col: "businessPhone", label: "Phone" },
+  { col: "location", label: "Location" },
+  { col: "department", label: "Department" },
   { col: "email", label: "Email" },
+  { col: "company", label: "Company" },
+  { col: "birthday", label: "Birthday" },
+  { col: "notes", label: "Notes" },
   { col: "roleId", label: "RoleId" },
   { col: "utilizationMode", label: "Mode" },
   { col: "utilization", label: "Utilization" },
@@ -693,8 +703,16 @@ function shiftsToCsv(shifts: readonly Shift[]): string {
 function resourceFieldToString(r: Resource, c: string): string {
   switch (c) {
     case "id": return String(r.id);
-    case "name": return r.name;
+    case "firstName": return r.firstName;
+    case "lastName": return r.lastName;
+    case "title": return r.title ?? "";
+    case "businessPhone": return r.businessPhone ?? "";
+    case "location": return r.location ?? "";
+    case "department": return r.department ?? "";
     case "email": return r.email ?? "";
+    case "company": return r.company ?? "";
+    case "birthday": return r.birthday ?? "";
+    case "notes": return r.notes ?? "";
     case "roleId": return r.roleId == null ? "" : String(r.roleId);
     case "utilizationMode": return r.utilizationMode;
     case "utilization": return encodePeriodMap(r.utilization);
@@ -1438,8 +1456,17 @@ function markdownToResources(md: string): Resource[] {
     for (const [label, val] of Object.entries(row)) {
       const norm = label.toLowerCase().replace(/\s+/g, "");
       if (norm === "id") mapped["id"] = val;
-      else if (norm === "name") mapped["name"] = val;
+      else if (norm === "first" || norm === "firstname") mapped["firstName"] = val;
+      else if (norm === "last" || norm === "lastname") mapped["lastName"] = val;
+      else if (norm === "name") mapped["name"] = val; // legacy single-name files
+      else if (norm === "title") mapped["title"] = val;
+      else if (norm === "phone" || norm === "businessphone") mapped["businessPhone"] = val;
+      else if (norm === "location") mapped["location"] = val;
+      else if (norm === "department") mapped["department"] = val;
       else if (norm === "email") mapped["email"] = val;
+      else if (norm === "company") mapped["company"] = val;
+      else if (norm === "birthday") mapped["birthday"] = val;
+      else if (norm === "notes") mapped["notes"] = val;
       else if (norm === "roleid") mapped["roleId"] = val;
       else if (norm === "mode" || norm === "utilizationmode") mapped["utilizationMode"] = val;
       else if (norm === "utilization") mapped["utilization"] = val;
@@ -1778,7 +1805,16 @@ async function readHandle(handle: FsHandle): Promise<string> {
 }
 
 async function writeHandle(handle: FsHandle, content: string): Promise<void> {
-  const writable = await handle.createWritable();
+  let writable: { write(data: BlobPart): Promise<void>; close(): Promise<void> };
+  try {
+    writable = await handle.createWritable();
+  } catch {
+    // createWritable() throws AbortError / SecurityError when Chrome's security
+    // policy blocks the path (corporate policy, externally-modified file, certain
+    // NTFS zones). queryPermission() reports "granted" but the actual write is
+    // still blocked — surface a targeted message instead of the raw DOMException.
+    throw new StorageNotReadyError("local-file-write-blocked");
+  }
   await writable.write(content);
   await writable.close();
 }

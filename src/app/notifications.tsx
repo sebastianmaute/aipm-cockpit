@@ -8,6 +8,8 @@ import {
 import { type Lang, t } from "./i18n";
 import { Modal } from "./modal";
 import { useResizable } from "./use-resizable";
+import type { UpcomingBirthday } from "./birthdays";
+import { resourceDisplayName } from "./resource-foundation";
 
 const categoryStyle: Record<AlertCategory, string> = {
   overdue: "bg-AIPM-pink text-white",
@@ -81,6 +83,33 @@ export function DueBanner({
           {t(lang, "alertBannerDismiss")}
         </button>
       </div>
+    </div>
+  );
+}
+
+export function birthdayToastText(items: UpcomingBirthday[], lang: Lang): string {
+  return t(lang, "birthdayToast", items.length);
+}
+
+export function BirthdayBanner({
+  items, lang, onDismiss,
+}: { items: UpcomingBirthday[]; lang: Lang; onDismiss: () => void }) {
+  if (items.length === 0) return null;
+  const summary = items
+    .map((b) => `${resourceDisplayName(b.resource)} (${b.daysUntil === 0 ? t(lang, "birthdayToday") : t(lang, "birthdayInDays", b.daysUntil)})`)
+    .join(", ");
+  return (
+    <div role="region" aria-label={t(lang, "birthdayBannerAria")}
+      className="mb-6 flex flex-wrap items-center gap-3 rounded-lg border border-AIPM-pink/40 bg-AIPM-pink/10 px-4 py-3 dark:border-AIPM-pink/60 dark:bg-AIPM-pink/15">
+      <span aria-hidden className="text-lg">🎂</span>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">{t(lang, "birthdayBannerTitle", items.length)}</p>
+        <p className="text-xs text-AIPM-dark-grey dark:text-AIPM-medium-grey">{summary}</p>
+      </div>
+      <button type="button" onClick={onDismiss} aria-label={t(lang, "alertBannerDismiss")}
+        className="rounded-md border border-AIPM-medium-grey/40 bg-white px-3 py-1.5 text-xs font-medium text-AIPM-dark-grey hover:bg-AIPM-light-grey dark:border-zinc-700 dark:bg-zinc-900 dark:text-AIPM-medium-grey">
+        {t(lang, "alertBannerDismiss")}
+      </button>
     </div>
   );
 }

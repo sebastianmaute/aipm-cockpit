@@ -18,6 +18,11 @@ export interface UseStorageBackendArgs {
   settings: Settings;
   lang: Lang;
   hydrated: boolean;
+  /** True when this window was opened as a popout (`?popout=<tab>`). Popout
+   *  windows are mirror views — they receive live state and forward their own
+   *  edits via BroadcastChannel, but they must NOT persist. See the save
+   *  effect below. */
+  isPopout: boolean;
   activityLog: ActivityEntry[];
   setActivityLog: React.Dispatch<React.SetStateAction<ActivityEntry[]>>;
   showToast: (kind: "info" | "error", text: string) => void;
@@ -108,6 +113,15 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // Save workspace to backend on change (debounced 500ms)
   useEffect(() => {
     if (!args.hydrated) return;
+    // Single-writer rule: the main window owns persistence. A popout is a
+    // mirror — it already shows the main window's state and forwards its own
+    // edits over BroadcastChannel, which the main window persists. Letting the
+    // popout also call backend.save() would mean two windows writing the same
+    // backend (a race), and popup-window storage is frequently blocked by the
+    // browser's security policy — the blocked IndexedDB write surfaces as
+    // "AbortError: Aborted due to security policy". Skipping it here removes
+    // both problems.
+    if (args.isPopout) return;
     if (suppressNextSaveRef.current) {
       suppressNextSaveRef.current = false;
       return;
@@ -115,9 +129,11 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     const timer = setTimeout(() => {
       backend.save({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan }).catch((err) => {
         if (err instanceof StorageNotReadyError) {
-          const key = (err as StorageNotReadyError).hint === "local-file-permission-needed"
-            ? "storagePermissionGestureNeeded"
-            : "storageNotReady";
+          const hint = (err as StorageNotReadyError).hint;
+          const key =
+            hint === "local-file-permission-needed" ? "storagePermissionGestureNeeded" :
+            hint === "local-file-write-blocked"     ? "storageWriteBlocked" :
+                                                      "storageNotReady";
           args.showToast("error", t(langRef.current, key));
         } else if (!(err instanceof StorageNotImplementedError)) {
           args.showToast("error", t(langRef.current, "storageSaveFailed", String(err)));
@@ -126,7 +142,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     }, 500);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, args.hydrated, backend]);
+  }, [tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, args.hydrated, args.isPopout, backend]);
 
   useBroadcastSync("tasks", tasks, setTasks);
   useBroadcastSync("raid", raid, setRaid);

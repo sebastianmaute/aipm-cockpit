@@ -6,7 +6,6 @@ import { AppModals, type AppModalsProps } from "./app-modals";
 
 // Mock all child components so tests focus on conditional rendering only.
 vi.mock("./notifications", () => ({
-  DueBanner: () => <div data-testid="due-banner" />,
   DueDatesModal: () => <div data-testid="due-dates-modal" />,
 }));
 vi.mock("./task-form-modal", () => ({
@@ -21,6 +20,9 @@ vi.mock("./absence-edit-modal", () => ({
 }));
 vi.mock("./shift-edit-modal", () => ({
   ShiftEditModal: () => <div data-testid="shift-edit-modal" />,
+}));
+vi.mock("./resource-edit-modal", () => ({
+  ResourceEditModal: () => <div data-testid="resource-edit-modal" />,
 }));
 // TaskFormModal calls useTaskForm() internally; mock it.
 vi.mock("./task-form-context", async (importOriginal) => {
@@ -44,10 +46,6 @@ function makeProps(): AppModalsProps {
   return {
     lang: "en-US",
     isPopout: false,
-    bannerDismissed: true,
-    setBannerDismissed: vi.fn(),
-    bannerItems: [],
-    setDueModalOpen: vi.fn(),
     dueModalOpen: false,
     dueModalItems: [],
     onSelectDueTask: vi.fn(),
@@ -84,6 +82,10 @@ function makeProps(): AppModalsProps {
     handleCancelEdit: vi.fn(),
     handleRemoveContact: vi.fn(),
     showToast: vi.fn(),
+    editingResource: null,
+    onSaveResource: vi.fn(),
+    onDeleteResource: vi.fn(),
+    onCloseResourceModal: vi.fn(),
     rolesModalOpen: false,
     roles: [],
     disciplines: [],
@@ -105,20 +107,6 @@ describe("AppModals", () => {
     stubTaskForm();
     render(<AppModals {...makeProps()} />);
     expect(screen.getByTestId("task-form-modal")).toBeInTheDocument();
-  });
-
-  it("hides DueBanner when bannerDismissed is true", () => {
-    stubTaskForm();
-    const item = { task: { id: 1, taskName: "T" } as any, category: "soon" as const, workDaysLeft: 1 };
-    render(<AppModals {...makeProps()} bannerDismissed={true} isPopout={false} bannerItems={[item]} />);
-    expect(screen.queryByTestId("due-banner")).not.toBeInTheDocument();
-  });
-
-  it("shows DueBanner when bannerDismissed is false and isPopout is false", () => {
-    stubTaskForm();
-    const item = { task: { id: 1, taskName: "T" } as any, category: "soon" as const, workDaysLeft: 1 };
-    render(<AppModals {...makeProps()} bannerDismissed={false} isPopout={false} bannerItems={[item]} />);
-    expect(screen.getByTestId("due-banner")).toBeInTheDocument();
   });
 
   it("shows DueDatesModal when dueModalOpen is true", () => {

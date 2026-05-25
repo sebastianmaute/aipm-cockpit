@@ -13,6 +13,7 @@ import {
   encodePeriodMap,
   decodePeriodMap,
   sanitizeResource,
+  sanitizeBirthday,
   sanitizeRole,
   sanitizeDiscipline,
   sanitizeGrade,
@@ -119,7 +120,7 @@ describe("sanitizeResource", () => {
       utilization: { "2026-01": 150, "2026-02": -5 },
     });
     expect(r).not.toBeNull();
-    expect(r!.name).toBe("Sample");
+    expect(r!.firstName).toBe("Sample");
     expect(r!.utilization).toEqual({ "2026-01": 100, "2026-02": 0 });
   });
 
@@ -168,4 +169,50 @@ describe("sanitizeRole / sanitizeDiscipline / sanitizeGrade", () => {
     expect(sanitizeDiscipline({ id: 2, name: " Dev " })).toEqual({ id: 2, name: "Dev" });
     expect(sanitizeGrade({ id: 0, name: "Junior" })).toBeNull();
   });
+});
+
+describe("sanitizeResource — address-book fields", () => {
+  test("reads firstName/lastName and all contact fields", () => {
+    const r = sanitizeResource({
+      id: 1, firstName: "Sample", lastName: "Dummy", email: "Sample@x.com",
+      title: "Architect", businessPhone: "+49 30 1", location: "Berlin",
+      department: "IAM", company: "iC", birthday: "06-14",
+      notes: "VIP, line two", roleId: 2, utilizationMode: "percent", utilization: {},
+    });
+    expect(r).toMatchObject({
+      id: 1, firstName: "Sample", lastName: "Dummy", email: "Sample@x.com",
+      title: "Architect", businessPhone: "+49 30 1", location: "Berlin",
+      department: "IAM", company: "iC", birthday: "06-14", notes: "VIP, line two",
+    });
+  });
+  test("falls back to splitting a legacy name field", () => {
+    const r = sanitizeResource({ id: 2, name: "Sam Placeholder", utilizationMode: "percent", utilization: {} });
+    expect(r).toMatchObject({ firstName: "Fictional", lastName: "Jordan" });
+  });
+  test("drops a record with no usable name", () => {
+    expect(sanitizeResource({ id: 3, utilizationMode: "percent", utilization: {} })).toBeNull();
+  });
+  test("rejects an invalid birthday", () => {
+    const r = sanitizeResource({ id: 4, firstName: "A", lastName: "B", birthday: "13-40", utilizationMode: "percent", utilization: {} });
+    expect(r?.birthday).toBeUndefined();
+  });
+  test('treats the string "false" as inactive (CSV/MD load)', () => {
+    const r = sanitizeResource({ id: 5, firstName: "X", lastName: "Y", active: "false", utilizationMode: "percent", utilization: {} });
+    expect(r?.active).toBe(false);
+  });
+  test("treats boolean false as inactive", () => {
+    const r = sanitizeResource({ id: 6, firstName: "X", lastName: "Y", active: false, utilizationMode: "percent", utilization: {} });
+    expect(r?.active).toBe(false);
+  });
+  test("leaves active unset when truthy or absent", () => {
+    expect(sanitizeResource({ id: 7, firstName: "X", lastName: "Y", active: "true", utilizationMode: "percent", utilization: {} })?.active).toBeUndefined();
+    expect(sanitizeResource({ id: 8, firstName: "X", lastName: "Y", utilizationMode: "percent", utilization: {} })?.active).toBeUndefined();
+  });
+});
+
+describe("sanitizeBirthday", () => {
+  test("accepts MM-DD in range", () => { expect(sanitizeBirthday("02-29")).toBe("02-29"); });
+  test("rejects out-of-range", () => { expect(sanitizeBirthday("00-10")).toBeUndefined(); });
+  test("rejects non MM-DD", () => { expect(sanitizeBirthday("2026-06-14")).toBeUndefined(); });
+  test("rejects non-strings", () => { expect(sanitizeBirthday(614 as unknown as string)).toBeUndefined(); });
 });

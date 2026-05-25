@@ -7,6 +7,8 @@ import {
   nextId,
   findRoleByCombo,
   roleLabel,
+  splitName,
+  resourceDisplayName,
 } from "./resource-foundation";
 import { PRESET_DISCIPLINES, PRESET_GRADES, type Task, type Absence, type Role, type Discipline, type Grade } from "./types";
 
@@ -47,11 +49,11 @@ describe("backfillResources", () => {
       [absence(9, "Bob Lee")],
     );
     expect(resources).toHaveLength(2);
-    const Sample = resources.find((r) => r.name === "Alex Example");
+    const Sample = resources.find((r) => resourceDisplayName(r) === "Alex Example");
     expect(Sample?.email).toBe("Sample@x.io");
     expect(tasks[0].resourceId).toBe(Sample?.id);
     expect(tasks[1].resourceId).toBe(Sample?.id); // case-folded match
-    expect(absences[0].resourceId).toBe(resources.find((r) => r.name === "Bob Lee")?.id);
+    expect(absences[0].resourceId).toBe(resources.find((r) => resourceDisplayName(r) === "Bob Lee")?.id);
   });
 
   test("ignores blank assignees and defaults role/mode", () => {
@@ -83,5 +85,32 @@ describe("roleLabel", () => {
     const role: Role = { id: 1, disciplineId: 2, gradeId: 3, internalRate: 0, externalRate: 0 };
     expect(roleLabel(role, disciplines, grades)).toBe("Developer Senior");
     expect(roleLabel(undefined, disciplines, grades)).toBe("");
+  });
+});
+
+describe("splitName", () => {
+  test("splits on the first space", () => {
+    expect(splitName("Alex Example")).toEqual({ firstName: "Sample", lastName: "Dummy" });
+  });
+  test("keeps multi-word surnames together", () => {
+    expect(splitName("Sample Anne Dummy")).toEqual({ firstName: "Sample", lastName: "Anne Dummy" });
+  });
+  test("handles a single token", () => {
+    expect(splitName("Madonna")).toEqual({ firstName: "Madonna", lastName: "" });
+  });
+  test("collapses and trims whitespace", () => {
+    expect(splitName("  Sample   Dummy  ")).toEqual({ firstName: "Sample", lastName: "Dummy" });
+  });
+  test("returns empty parts for empty input", () => {
+    expect(splitName("")).toEqual({ firstName: "", lastName: "" });
+  });
+});
+
+describe("resourceDisplayName", () => {
+  test("joins first and last", () => {
+    expect(resourceDisplayName({ firstName: "Sample", lastName: "Dummy" })).toBe("Alex Example");
+  });
+  test("omits the trailing space when last name is empty", () => {
+    expect(resourceDisplayName({ firstName: "Madonna", lastName: "" })).toBe("Madonna");
   });
 });

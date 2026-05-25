@@ -1,0 +1,28 @@
+import { render, screen, fireEvent } from "@testing-library/react";
+import { describe, it, expect, vi } from "vitest";
+import { ResourceWorkload } from "./resource-workload";
+import type { Resource, Task } from "./types";
+
+const r: Resource = { id: 1, firstName: "Sample", lastName: "Dummy", roleId: null, utilizationMode: "percent", utilization: {} };
+const baseProps = {
+  lang: "en-US" as const, resources: [r], absences: [], shifts: [], today: "2026-06-01",
+  onEditResource: vi.fn(), onAddResource: vi.fn(), onEditAbsence: vi.fn(), onEditShift: vi.fn(),
+};
+
+describe("ResourceWorkload", () => {
+  it("clicking a managed resource's name opens the editor", () => {
+    const onEditResource = vi.fn();
+    render(<ResourceWorkload {...baseProps} tasks={[]} onEditResource={onEditResource} />);
+    fireEvent.click(screen.getByRole("button", { name: "Alex Example" }));
+    expect(onEditResource).toHaveBeenCalledWith(r);
+  });
+
+  it("offers Add as resource for an unlinked assignee and seeds the name", () => {
+    const onAddResource = vi.fn();
+    const tasks: Task[] = [{ id: 9, taskName: "T", assignee: "Bob Lee", assigneeEmail: "bob@x.com", dueDate: "2026-12-31", lastUpdateDate: "2026-01-01", priority: "Medium", blockers: "", notes: "", inquiriesSent: 0 }];
+    render(<ResourceWorkload {...baseProps} tasks={tasks} onAddResource={onAddResource} />);
+    expect(screen.getByText("Bob Lee")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /add as resource/i }));
+    expect(onAddResource).toHaveBeenCalledWith(expect.objectContaining({ firstName: "Bob", lastName: "Lee", email: "bob@x.com" }));
+  });
+});

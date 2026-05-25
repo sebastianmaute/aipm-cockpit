@@ -23,6 +23,7 @@ import {
   type ActivityGroup,
   activityGroupOf,
 } from "./activity-log";
+import { localeFor } from "./date-format";
 import { type Lang, t } from "./i18n";
 import { SegmentedControl } from "./segmented-control";
 
@@ -36,12 +37,6 @@ type SortKey = "timestamp" | "kind" | "message";
 type SortDir = "asc" | "desc";
 type SearchMode = "literal" | "wildcard" | "regex";
 type GroupFilter = ActivityGroup | "all";
-
-function localeFor(lang: Lang): string {
-  if (lang === "de") return "de-DE";
-  if (lang === "en-GB") return "en-GB";
-  return "en-US";
-}
 
 function formatTimestamp(iso: string, lang: Lang): string {
   const d = new Date(iso);

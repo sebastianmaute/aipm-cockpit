@@ -49,9 +49,11 @@ export function backfillResources(
     const key = name.toLowerCase();
     let r = byKey.get(key);
     if (!r) {
+      const { firstName, lastName } = splitName(name);
       r = {
         id: nextId++,
-        name,
+        firstName,
+        lastName,
         email: rawEmail?.trim() || undefined,
         roleId: null,
         utilizationMode: "percent",
@@ -98,4 +100,18 @@ export function roleLabel(
   const d = disciplines.find((x) => x.id === role.disciplineId)?.name ?? "?";
   const g = grades.find((x) => x.id === role.gradeId)?.name ?? "?";
   return `${d} ${g}`;
+}
+
+/** Split a display name on the FIRST space: "Sample Anne Dummy" → first "Sample", last "Anne Dummy". */
+export function splitName(name: string): { firstName: string; lastName: string } {
+  const trimmed = (name ?? "").trim().replace(/\s+/g, " ");
+  if (!trimmed) return { firstName: "", lastName: "" };
+  const idx = trimmed.indexOf(" ");
+  if (idx === -1) return { firstName: trimmed, lastName: "" };
+  return { firstName: trimmed.slice(0, idx), lastName: trimmed.slice(idx + 1) };
+}
+
+/** Display name for a resource: "First Last", trimmed when last name is empty. */
+export function resourceDisplayName(r: Pick<Resource, "firstName" | "lastName">): string {
+  return `${r.firstName} ${r.lastName}`.trim();
 }

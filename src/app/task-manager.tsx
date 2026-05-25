@@ -37,7 +37,10 @@ import { TasksSection } from "./tasks-section";
 import { useResizable } from "./use-resizable";
 import { WorkspaceTabProvider, useWorkspaceTab, type TopTab } from "./workspace-tab-context";
 import { AppHeader } from "./app-header";
+import { BirthdayBanner, DueBanner } from "./notifications";
 import { WorkspaceSection } from "./workspace-section";
+import { getUpcomingBirthdays } from "./birthdays";
+import { useBirthdayAlerts } from "./use-birthday-alerts";
 
 // i18n key for each tab's label — used by both the tab strip and the
 // popout window's document.title. Adding a new tab requires a row here.
@@ -49,6 +52,7 @@ const TAB_LABEL_KEYS: Record<TopTab, TranslationKey> = {
   resources: "tabResources",
   activity: "tabActivity",
   "resource-report": "resourcesReportTitle",
+  "address-book": "resourcesAddressBookTitle",
 };
 
 function todayISO() {
@@ -95,6 +99,7 @@ function TaskManagerInner() {
     setAbsences,
     shifts,
     setShifts,
+    resources,
     roles,
     disciplines,
     grades,
@@ -148,6 +153,10 @@ function TaskManagerInner() {
   const { bannerDismissed, setBannerDismissed, dueModalOpen, setDueModalOpen } =
     useDueAlerts({ hydrated, tasks, holidaySet, settings, today, showToast });
 
+  const { birthdayDismissed, setBirthdayDismissed } = useBirthdayAlerts({
+    hydrated, resources, today, settings, showToast,
+  });
+
   // --- RAID CRUD handlers ---------------------------------------------
   //
   // The RAID panel owns its own form state and edit modal; these are pure
@@ -163,7 +172,7 @@ function TaskManagerInner() {
   });
 
   const { storageDescription, storageReady, onPickStorageFile, onGrantWriteAccess, onOpenStorageFile } =
-    useStorageBackend({ settings, lang, hydrated, activityLog, setActivityLog, showToast });
+    useStorageBackend({ settings, lang, hydrated, isPopout, activityLog, setActivityLog, showToast });
 
   // Reverse-lookup index for the "referenced by N RAID items" badge on
   // each task row. Map<taskId, RaidItem[]>. O(R) on every raid update,
@@ -204,6 +213,12 @@ function TaskManagerInner() {
     handleSetAbsenceOverride,
     handleSetPlanWindow,
     handleSetPlanGranularity,
+    editingResource,
+    handleOpenAddResource,
+    handleEditResource,
+    handleSaveResource,
+    handleDeleteResource,
+    handleCloseResourceModal,
   } = useResourcePlanner({ lang, logActivity, showToast });
 
   const tasksRef = useRef(tasks);
@@ -294,6 +309,13 @@ function TaskManagerInner() {
     if (!cfg.enabled) return [];
     return getAlertableTasks(tasks, cfg.thresholdWorkDays, today, holidaySet);
   }, [tasks, settings.notifications.banner, today, holidaySet]);
+
+  const birthdayItems = useMemo(
+    () => settings.notifications.birthday.enabled
+      ? getUpcomingBirthdays(resources, today, settings.notifications.birthday.leadDays)
+      : [],
+    [resources, settings.notifications.birthday, today],
+  );
 
   const dueModalItems = useMemo(() => {
     const cfg = settings.notifications.popup;
@@ -387,6 +409,19 @@ function TaskManagerInner() {
         />
       )}
 
+      {!isPopout && !bannerDismissed && (
+        <DueBanner
+          items={bannerItems}
+          lang={lang}
+          onOpenList={() => setDueModalOpen(true)}
+          onDismiss={() => setBannerDismissed(true)}
+        />
+      )}
+
+      {!isPopout && !birthdayDismissed && birthdayItems.length > 0 && (
+        <BirthdayBanner items={birthdayItems} lang={lang} onDismiss={() => setBirthdayDismissed(true)} />
+      )}
+
       <WorkspaceSection
         today={today}
         holidaySet={holidaySet}
@@ -416,6 +451,8 @@ function TaskManagerInner() {
         onSetAbsenceOverride={handleSetAbsenceOverride}
         onSetPlanWindow={handleSetPlanWindow}
         onSetPlanGranularity={handleSetPlanGranularity}
+        onEditResource={handleEditResource}
+        onAddResource={handleOpenAddResource}
       />
 
       {!isPopout && (
@@ -465,10 +502,6 @@ function TaskManagerInner() {
       <AppModals
         lang={lang}
         isPopout={isPopout}
-        bannerDismissed={bannerDismissed}
-        setBannerDismissed={setBannerDismissed}
-        bannerItems={bannerItems}
-        setDueModalOpen={setDueModalOpen}
         dueModalOpen={dueModalOpen}
         dueModalItems={dueModalItems}
         onSelectDueTask={onSelectDueTask}
@@ -505,6 +538,10 @@ function TaskManagerInner() {
         handleCancelEdit={handleCancelEdit}
         handleRemoveContact={handleRemoveContact}
         showToast={showToast}
+        editingResource={editingResource}
+        onSaveResource={handleSaveResource}
+        onDeleteResource={handleDeleteResource}
+        onCloseResourceModal={handleCloseResourceModal}
         rolesModalOpen={rolesModalOpen}
         roles={roles}
         disciplines={disciplines}

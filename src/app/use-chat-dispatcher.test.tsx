@@ -23,6 +23,7 @@ function makeSettings(): Settings {
       banner: { enabled: true, thresholdWorkDays: 3 },
       toast: { enabled: true, thresholdWorkDays: 3 },
       popup: { enabled: true, thresholdWorkDays: 3 },
+      birthday: { enabled: false, leadDays: 7 },
     },
     jira: {
       enabled: false,

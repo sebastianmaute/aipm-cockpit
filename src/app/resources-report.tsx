@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { localeFor } from "./date-format";
 import { type Lang, t } from "./i18n";
 import { computeResourceReport, type ReportGroupRow } from "./resource-report";
 import { formatCurrency } from "./resource-cost";
@@ -16,12 +17,6 @@ interface Props {
   absences: readonly Absence[];
   holidaySet: ReadonlySet<string>;
   workdayHours: number;
-}
-
-function localeFor(lang: Lang): string {
-  if (lang === "de") return "de-DE";
-  if (lang === "en-GB") return "en-GB";
-  return "en-US";
 }
 
 export function ResourcesReportPanel({

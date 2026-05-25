@@ -1,24 +1,28 @@
 "use client";
 
-// Resource Planner panel — view shell + per-assignee list view.
+// Resource Planner panel — view shell hosting four tabs.
 //
-// Three views, switchable via a single SegmentedControl in the header:
-//   - "list"     — stats table (open/overdue counts + upcoming absences).
-//                  Phases 1 + 2 of the planner.
-//   - "calendar" — 30-day grid (rows × days). Phase 3. Rendered by the
-//                  sibling <ResourceCalendar /> component.
-//   - "planning" — per-period utilization grid (resources × periods) with a
-//                  planning-window (start/end date) + granularity (week/month)
-//                  control row above the table.
+// Four views, switchable via a single SegmentedControl in the header:
+//   - "directory" — address-book table (one row per Resource); the name opens
+//                   the edit modal, discipline/grade are inline selects.
+//                   Rendered by the sibling <ResourceDirectory /> component.
+//   - "workload"  — per-assignee stats table (open/overdue counts + upcoming
+//                   absences), aggregated from tasks/absences/shifts.
+//   - "calendar"  — 30-day grid (rows × days). Rendered by <ResourceCalendar />.
+//   - "planning"  — per-period utilization grid (resources × periods) with a
+//                   planning-window (start/end date) + granularity (week/month)
+//                   control row above the table.
 //
-// All views share the same per-assignee aggregation: trim + lowercase
-// the assignee name so "Alex Example" and "Alex Example" land in the same
-// row; display uses the first observed original casing. See
-// docs/RESOURCE-PLANNER-PLAN.md.
+// The "workload" view aggregates per assignee: trim + lowercase the assignee
+// name so "Alex Example" and "Alex Example" land in the same row; display uses the
+// first observed original casing.
 
-import { memo, useEffect, useMemo, useState } from "react";
+import { memo, useMemo, useState } from "react";
+import { localeFor } from "./date-format";
 import { type Lang, t } from "./i18n";
 import { ResourceCalendar } from "./resource-calendar";
+import { ResourceDirectory } from "./resource-directory";
+import { ResourceWorkload } from "./resource-workload";
 import { SegmentedControl } from "./segmented-control";
 import { generatePeriods, displayCapacityHours, absencesForResource, absenceWorkdays } from "./resource-capacity";
 import { periodCost, formatCurrency } from "./resource-cost";
@@ -34,6 +38,7 @@ import {
   type Task,
   type WeekHours,
 } from "./types";
+import { resourceDisplayName } from "./resource-foundation";
 
 interface Props {
   lang: Lang;
@@ -65,9 +70,12 @@ interface Props {
   onSetAbsenceOverride: (resourceId: number, periodKey: string, hours: number | null) => void;
   onSetPlanWindow: (startDate: string, endDate: string) => void;
   onSetPlanGranularity: (granularity: "week" | "month") => void;
+  onEditResource: (resource: Resource) => void;
+  onAddResource: (seed?: Partial<Resource>) => void;
+  onOpenAddressBook?: () => void;
 }
 
-type View = "list" | "calendar" | "planning";
+type View = "directory" | "workload" | "calendar" | "planning";
 
 interface AssigneeRow {
   key: string;          // case-folded join key
@@ -85,87 +93,6 @@ function sumHours(h: WeekHours): number {
 }
 
 const DEFAULT_WEEKLY_HOURS_TOTAL = sumHours(DEFAULT_WEEK_HOURS);
-
-function localeFor(lang: Lang): string {
-  if (lang === "de") return "de-DE";
-  if (lang === "en-GB") return "en-GB";
-  return "en-US";
-}
-
-function shortDateRange(a: Absence, lang: Lang): string {
-  const loc = localeFor(lang);
-  const start = new Date(a.startDate);
-  const end = new Date(a.endDate);
-  const sameDay = a.startDate === a.endDate;
-  const fmt: Intl.DateTimeFormatOptions = { month: "short", day: "2-digit" };
-  if (Number.isNaN(start.valueOf()) || Number.isNaN(end.valueOf())) {
-    return sameDay ? a.startDate : `${a.startDate}–${a.endDate}`;
-  }
-  if (sameDay) return start.toLocaleDateString(loc, fmt);
-  return `${start.toLocaleDateString(loc, fmt)}–${end.toLocaleDateString(loc, fmt)}`;
-}
-
-function ResourceRoleRow({
-  lang, resource, roles, disciplines, grades, onAssignRole,
-}: {
-  lang: Lang;
-  resource: Resource;
-  roles: readonly Role[];
-  disciplines: readonly Discipline[];
-  grades: readonly Grade[];
-  onAssignRole: (resourceId: number, disciplineId: number, gradeId: number) => void;
-}) {
-  const current = roles.find((x) => x.id === resource.roleId);
-  const curDisc = current?.disciplineId ?? "";
-  const curGrad = current?.gradeId ?? "";
-  const [disc, setDisc] = useState<number | "">(curDisc);
-  const [grad, setGrad] = useState<number | "">(curGrad);
-  // Re-sync when the resource's role changes externally (assignment elsewhere,
-  // role deletion nulling roleId, cross-window broadcast).
-  useEffect(() => {
-    setDisc(curDisc);
-    setGrad(curGrad);
-  }, [curDisc, curGrad]);
-
-  return (
-    <li className="flex flex-wrap items-center gap-2 rounded-md border border-zinc-200 px-2 py-1 text-sm dark:border-zinc-800">
-      <span className="font-medium text-AIPM-dark-grey dark:text-AIPM-light-grey">{resource.name}</span>
-      {resource.roleId == null && (
-        <span className="text-xs text-AIPM-medium-grey italic">{t(lang, "resourcesUnassignedRole")}</span>
-      )}
-      <select
-        aria-label={`Discipline for ${resource.name}`}
-        value={disc === "" ? "" : String(disc)}
-        onChange={(e) => {
-          const v = e.target.value === "" ? "" : Number(e.target.value);
-          setDisc(v);
-          if (v !== "" && grad !== "") onAssignRole(resource.id, v, Number(grad));
-        }}
-        className="rounded border border-zinc-300 px-1.5 py-0.5 text-xs dark:border-zinc-700 dark:bg-zinc-900"
-      >
-        <option value="">{t(lang, "rolesDiscipline")}</option>
-        {disciplines.map((d) => (
-          <option key={d.id} value={d.id}>{d.name}</option>
-        ))}
-      </select>
-      <select
-        aria-label={`Grade for ${resource.name}`}
-        value={grad === "" ? "" : String(grad)}
-        onChange={(e) => {
-          const v = e.target.value === "" ? "" : Number(e.target.value);
-          setGrad(v);
-          if (disc !== "" && v !== "") onAssignRole(resource.id, Number(disc), v);
-        }}
-        className="rounded border border-zinc-300 px-1.5 py-0.5 text-xs dark:border-zinc-700 dark:bg-zinc-900"
-      >
-        <option value="">{t(lang, "rolesGrade")}</option>
-        {grades.map((g) => (
-          <option key={g.id} value={g.id}>{g.name}</option>
-        ))}
-      </select>
-    </li>
-  );
-}
 
 function ResourcesPanelInner({
   lang,
@@ -191,8 +118,11 @@ function ResourcesPanelInner({
   onSetAbsenceOverride,
   onSetPlanWindow,
   onSetPlanGranularity,
+  onEditResource,
+  onAddResource,
+  onOpenAddressBook,
 }: Props) {
-  const [view, setView] = useState<View>("list");
+  const [view, setView] = useState<View>("directory");
   const [showRollup, setShowRollup] = useState(false);
 
   const rows = useMemo<AssigneeRow[]>(() => {
@@ -281,7 +211,8 @@ function ResourcesPanelInner({
             value={view}
             ariaLabel={t(lang, "tabResources")}
             options={[
-              { value: "list", label: t(lang, "resourcesViewList") },
+              { value: "directory", label: t(lang, "resourcesViewDirectory") },
+              { value: "workload", label: t(lang, "resourcesViewWorkload") },
               { value: "calendar", label: t(lang, "resourcesViewCalendar") },
               { value: "planning", label: t(lang, "resourcesViewPlanning") },
             ]}
@@ -313,29 +244,13 @@ function ResourcesPanelInner({
     </header>
   );
 
-  const resourceRoster = resources.length > 0 && (
-    <ul className="mb-3 flex flex-col gap-2">
-      {resources.map((r) => (
-        <ResourceRoleRow
-          key={r.id}
-          lang={lang}
-          resource={r}
-          roles={roles}
-          disciplines={disciplines}
-          grades={grades}
-          onAssignRole={onAssignRole}
-        />
-      ))}
-    </ul>
-  );
-
   const showToggle = true;
   const isEmpty = rows.length === 0 && resources.length === 0;
 
   return (
     <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
       {renderHeader(showToggle)}
-      {isEmpty && view !== "planning" && (
+      {isEmpty && view !== "planning" && view !== "directory" && (
         <div className="mt-3 flex-1 rounded-md border border-dashed border-zinc-300 p-6 text-center text-sm text-AIPM-medium-grey dark:border-zinc-800">
           {t(lang, "resourcesEmpty")}
         </div>
@@ -396,16 +311,16 @@ function ResourcesPanelInner({
                   totals.margin += cost.margin;
                   return (
                     <tr key={r.id}>
-                      <td className="px-2 py-1 font-medium text-AIPM-dark-grey dark:text-AIPM-light-grey">{r.name}</td>
+                      <td className="px-2 py-1 font-medium text-AIPM-dark-grey dark:text-AIPM-light-grey">{resourceDisplayName(r)}</td>
                       {periods.map((p) => (
                         <td key={p.key} className="px-1 py-1 text-right align-top">
                           <input type="number" min={0} step={r.utilizationMode === "percent" ? 5 : 1}
-                            aria-label={`Utilization for ${r.name} in ${p.key}`}
+                            aria-label={`Utilization for ${resourceDisplayName(r)} in ${p.key}`}
                             value={r.utilization[p.key] ?? ""}
                             onChange={(e) => onSetUtilization(r.id, p.key, Number(e.target.value) || 0)}
                             className="w-16 rounded border border-zinc-300 px-1 py-0.5 text-right tabular-nums dark:border-zinc-700 dark:bg-zinc-900" />
                           <input type="number" min={0} step={1}
-                            aria-label={`Absence override for ${r.name} in ${p.key}`}
+                            aria-label={`Absence override for ${resourceDisplayName(r)} in ${p.key}`}
                             title={t(lang, "resourcesAbsenceOverrideHint")}
                             value={r.absenceOverride?.[p.key] ?? ""}
                             placeholder={String(absenceWorkdays(resAbs, p.start, p.end, holidaySet) * workdayHours)}
@@ -463,7 +378,7 @@ function ResourcesPanelInner({
                           const resAbs2 = absencesForResource(absences, r);
                           return (
                             <tr key={r.id}>
-                              <td className="px-2 py-1 font-medium text-AIPM-dark-grey dark:text-AIPM-light-grey">{r.name}</td>
+                              <td className="px-2 py-1 font-medium text-AIPM-dark-grey dark:text-AIPM-light-grey">{resourceDisplayName(r)}</td>
                               {rollupPeriods.map((rp) => (
                                 <td key={rp.key} className="px-2 py-1 text-right tabular-nums text-AIPM-medium-grey">
                                   {(displayCapacityHours(rp, periods, r, resAbs2, workdayHours, holidaySet, plan.granularity, other) / workdayHours).toFixed(1)}
@@ -482,103 +397,34 @@ function ResourcesPanelInner({
           </>
         );
       })()}
-      {view === "list" ? (
-        <>
-          {resourceRoster}
-          <div className="min-h-0 flex-1 overflow-auto rounded-md border border-zinc-200 dark:border-zinc-800">
-          <table className="w-full text-left text-sm">
-            <thead className="sticky top-0 z-10 bg-zinc-50 text-xs uppercase tracking-wide text-zinc-500 shadow-sm dark:bg-zinc-900 dark:text-zinc-400">
-              <tr>
-                <th className="px-3 py-2 font-medium">{t(lang, "assignee")}</th>
-                <th className="px-3 py-2 font-medium">{t(lang, "email")}</th>
-                <th className="px-3 py-2 font-medium text-right">
-                  {t(lang, "resourcesOpenTasks")}
-                </th>
-                <th className="px-3 py-2 font-medium text-right">
-                  {t(lang, "resourcesOverdueTasks")}
-                </th>
-                <th className="px-3 py-2 font-medium text-right">
-                  {t(lang, "resourcesWeeklyHours")}
-                </th>
-                <th className="px-3 py-2 font-medium">
-                  {t(lang, "resourcesUpcomingAbsences")}
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
-              {rows.map((row) => (
-                <tr key={row.key} className="align-top">
-                  <td className="px-3 py-2 font-medium text-AIPM-dark-grey dark:text-AIPM-light-grey">
-                    {row.display}
-                  </td>
-                  <td className="px-3 py-2 text-AIPM-medium-grey">
-                    {row.email || "—"}
-                  </td>
-                  <td className="px-3 py-2 text-right tabular-nums text-AIPM-dark-grey dark:text-AIPM-light-grey">
-                    {row.openCount}
-                  </td>
-                  <td
-                    className={`px-3 py-2 text-right tabular-nums ${
-                      row.overdueCount > 0
-                        ? "font-medium text-red-600 dark:text-red-400"
-                        : "text-AIPM-medium-grey"
-                    }`}
-                  >
-                    {row.overdueCount}
-                  </td>
-                  <td className="px-3 py-2 text-right tabular-nums">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        onEditShift(row.shift, {
-                          display: row.display,
-                          email: row.email,
-                        })
-                      }
-                      title={
-                        row.shift
-                          ? t(lang, "resourcesEditShift")
-                          : t(lang, "resourcesDefaultShift")
-                      }
-                      className={`rounded-md border border-transparent px-2 py-0.5 text-xs shadow-sm hover:border-AIPM-dark-blue hover:bg-zinc-50 dark:hover:bg-zinc-800 ${
-                        row.shift
-                          ? "text-AIPM-dark-grey dark:text-AIPM-light-grey"
-                          : "text-AIPM-medium-grey italic"
-                      }`}
-                    >
-                      {row.weeklyHours}
-                    </button>
-                  </td>
-                  <td className="px-3 py-2 text-AIPM-medium-grey">
-                    {row.upcoming.length === 0 ? (
-                      "—"
-                    ) : (
-                      <ul className="flex flex-wrap gap-1.5">
-                        {row.upcoming.map((a) => (
-                          <li key={a.id}>
-                            <button
-                              type="button"
-                              onClick={() => onEditAbsence(a)}
-                              title={a.note ?? ""}
-                              className="inline-flex items-center gap-1 rounded-md border border-zinc-300 bg-white px-2 py-0.5 text-xs text-AIPM-dark-grey shadow-sm hover:border-AIPM-dark-blue hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-AIPM-light-grey dark:hover:bg-zinc-800"
-                            >
-                              <span>{shortDateRange(a, lang)}</span>
-                              <span className="text-[10px] uppercase tracking-wide text-AIPM-medium-grey">
-                                {a.type}
-                              </span>
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        </>
-      ) : view === "calendar" ? (
+      {view === "directory" && (
+        <ResourceDirectory
+          lang={lang}
+          resources={resources}
+          roles={roles}
+          disciplines={disciplines}
+          grades={grades}
+          onAssignRole={onAssignRole}
+          onEditResource={onEditResource}
+          onAddResource={onAddResource}
+          onOpenAddressBook={onOpenAddressBook}
+        />
+      )}
+      {view === "workload" && !isEmpty && (
+        <ResourceWorkload
+          lang={lang}
+          resources={resources}
+          tasks={tasks}
+          absences={absences}
+          shifts={shifts}
+          today={today}
+          onEditResource={onEditResource}
+          onAddResource={onAddResource}
+          onEditAbsence={onEditAbsence}
+          onEditShift={onEditShift}
+        />
+      )}
+      {view === "calendar" && (
         <ResourceCalendar
           lang={lang}
           rows={rows}
@@ -588,7 +434,7 @@ function ResourcesPanelInner({
           onAddAbsence={onAddAbsence}
           onEditAbsence={onEditAbsence}
         />
-      ) : null}
+      )}
     </section>
   );
 }

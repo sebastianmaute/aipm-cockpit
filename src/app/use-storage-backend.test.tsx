@@ -49,6 +49,7 @@ function makeArgs(overrides: Partial<Parameters<typeof useStorageBackend>[0]> = 
     settings: { storageConfig: { kind: "file" } } as unknown as Settings,
     lang: "en-US" as any,
     hydrated: true,
+    isPopout: false,
     activityLog: [] as ActivityEntry[],
     setActivityLog: vi.fn(),
     showToast,
@@ -216,6 +217,26 @@ describe("useStorageBackend — save effect", () => {
     await act(async () => { await Promise.resolve(); });
 
     // save should NOT have been called because suppressNextSaveRef was set by load
+    expect(mockBackend.save).not.toHaveBeenCalled();
+  });
+
+  it("does not call backend.save in popout mode (main window owns persistence)", async () => {
+    const { result } = renderBackend(makeArgs({ isPopout: true }));
+    // Load completes → suppressNextSaveRef = true
+    await act(async () => { await Promise.resolve(); });
+    // First debounce cycle
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    mockBackend.save.mockClear();
+
+    // Trigger a workspace change so the save effect re-runs
+    await act(async () => {
+      result.current.setTasks([{ id: 1, taskName: "T1" } as any]);
+    });
+    // Advance past debounce — a non-popout window would save here
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+
     expect(mockBackend.save).not.toHaveBeenCalled();
   });
 

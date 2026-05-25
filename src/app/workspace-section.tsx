@@ -10,7 +10,8 @@ import { useFilters } from "./filters-context";
 import { TabButton, ResetSizeIcon } from "./task-manager-ui";
 import type { ToolDispatcher } from "./chat-tools";
 import type { ActivityEntry } from "./activity-log";
-import type { Absence, PlanGranularity, RaidItem, Shift } from "./types";
+import type { Absence, PlanGranularity, RaidItem, Resource, Shift } from "./types";
+import { ResourceDirectory } from "./resource-directory";
 
 const ChatPanel = dynamic(
   () => import("./chat-panel").then((m) => m.ChatPanel),
@@ -77,6 +78,8 @@ export interface WorkspaceSectionProps {
   onSetAbsenceOverride: (resourceId: number, periodKey: string, hours: number | null) => void;
   onSetPlanWindow: (startDate: string, endDate: string) => void;
   onSetPlanGranularity: (granularity: PlanGranularity) => void;
+  onEditResource: (resource: Resource) => void;
+  onAddResource: (seed?: Partial<Resource>) => void;
 }
 
 export function WorkspaceSection({
@@ -108,6 +111,8 @@ export function WorkspaceSection({
   onSetAbsenceOverride,
   onSetPlanWindow,
   onSetPlanGranularity,
+  onEditResource,
+  onAddResource,
 }: WorkspaceSectionProps) {
   const { settings, lang } = useSettings();
   const { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan } = useWorkspace();
@@ -359,6 +364,9 @@ export function WorkspaceSection({
               onSetPlanWindow={onSetPlanWindow}
               onSetPlanGranularity={onSetPlanGranularity}
               onOpenReport={() => openPopoutWindow("resource-report", settings.popout.reuseWindow)}
+              onOpenAddressBook={() => openPopoutWindow("address-book", settings.popout.reuseWindow)}
+              onEditResource={onEditResource}
+              onAddResource={onAddResource}
             />
           </div>
         )}
@@ -383,6 +391,21 @@ export function WorkspaceSection({
               lang={lang} resources={resources} roles={roles} disciplines={disciplines}
               grades={grades} plan={plan} absences={absences} holidaySet={holidaySet}
               workdayHours={settings.resources.workdayHours} />
+          </div>
+        )}
+
+        {activeTab === "address-book" && (
+          <div id="panel-address-book" role="tabpanel" className="min-h-0 flex-1 overflow-y-auto pt-4">
+            <ResourceDirectory
+              lang={lang}
+              resources={resources}
+              roles={roles}
+              disciplines={disciplines}
+              grades={grades}
+              onAssignRole={onAssignRole}
+              onEditResource={onEditResource}
+              onAddResource={onAddResource}
+            />
           </div>
         )}
       </div>

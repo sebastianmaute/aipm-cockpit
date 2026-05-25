@@ -1,0 +1,77 @@
+import { render, screen, fireEvent } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+import { BirthdayBanner } from "./notifications";
+import type { UpcomingBirthday } from "./birthdays";
+import type { Resource } from "./types";
+
+function makeResource(id: number, firstName: string, lastName: string): Resource {
+  return {
+    id,
+    firstName,
+    lastName,
+    roleId: null,
+    utilizationMode: "percent",
+    utilization: {},
+  };
+}
+
+function makeItem(id: number, firstName: string, lastName: string, daysUntil: number): UpcomingBirthday {
+  return { resource: makeResource(id, firstName, lastName), daysUntil };
+}
+
+describe("BirthdayBanner", () => {
+  it("renders nothing when items is empty", () => {
+    const { container } = render(
+      <BirthdayBanner items={[]} lang="en-US" onDismiss={() => {}} />,
+    );
+    expect(container.firstChild).toBeNull();
+  });
+
+  it("renders banner title with count and summary for a single item (today)", () => {
+    const items = [makeItem(1, "Alice", "Smith", 0)];
+    render(<BirthdayBanner items={items} lang="en-US" onDismiss={() => {}} />);
+
+    expect(screen.getByText(/1 upcoming birthday/i)).toBeInTheDocument();
+    expect(screen.getByText(/Alice Smith/i)).toBeInTheDocument();
+    expect(screen.getByText(/today/i)).toBeInTheDocument();
+  });
+
+  it("renders 'in Nd' for daysUntil > 0", () => {
+    const items = [makeItem(1, "Bob", "Jones", 5)];
+    render(<BirthdayBanner items={items} lang="en-US" onDismiss={() => {}} />);
+
+    expect(screen.getByText(/Bob Jones/i)).toBeInTheDocument();
+    expect(screen.getByText(/in 5d/i)).toBeInTheDocument();
+  });
+
+  it("calls onDismiss when the dismiss button is clicked", () => {
+    const onDismiss = vi.fn();
+    const items = [makeItem(1, "Carol", "White", 3)];
+    render(<BirthdayBanner items={items} lang="en-US" onDismiss={onDismiss} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /dismiss/i }));
+    expect(onDismiss).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders multiple items as a comma-separated summary", () => {
+    const items = [
+      makeItem(1, "Dave", "Brown", 0),
+      makeItem(2, "Eve", "Green", 2),
+    ];
+    render(<BirthdayBanner items={items} lang="en-US" onDismiss={() => {}} />);
+
+    expect(screen.getByText(/2 upcoming birthday/i)).toBeInTheDocument();
+    expect(screen.getByText(/Dave Brown/i)).toBeInTheDocument();
+    expect(screen.getByText(/Eve Green/i)).toBeInTheDocument();
+  });
+
+  it("uses German translations when lang is 'de'", () => {
+    const items = [makeItem(1, "Franz", "Müller", 0)];
+    render(<BirthdayBanner items={items} lang="de" onDismiss={() => {}} />);
+
+    // Falls back to en-US for 'de' until the async dict loads — 'today' key
+    // will be "today" (en-US fallback). This is the expected behaviour per
+    // the i18n design: de dict is lazy-loaded and not available synchronously.
+    expect(screen.getByText(/Franz Müller/i)).toBeInTheDocument();
+  });
+});

@@ -35,6 +35,7 @@ function makeSettings(overrides: {
       banner: { enabled: true, thresholdWorkDays: 3 },
       toast: { enabled: overrides.toastEnabled ?? false, thresholdWorkDays: 3 },
       popup: { enabled: overrides.popupEnabled ?? false, thresholdWorkDays: 3 },
+      birthday: { enabled: false, leadDays: 7 },
     },
     jira: {
       enabled: false,

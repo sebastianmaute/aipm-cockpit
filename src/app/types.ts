@@ -285,8 +285,16 @@ export type UtilizationMode = "percent" | "hours";
 
 export type Resource = {
   id: number;
-  name: string;
+  firstName: string;
+  lastName: string;
+  title?: string;
+  businessPhone?: string;
+  location?: string;
+  department?: string;
   email?: string;
+  company?: string;
+  birthday?: string;   // "MM-DD" (zero-padded month-day, no year)
+  notes?: string;      // free text (may contain commas, pipes, newlines)
   /** FK -> Role.id; null when unassigned. */
   roleId: number | null;
   utilizationMode: UtilizationMode;

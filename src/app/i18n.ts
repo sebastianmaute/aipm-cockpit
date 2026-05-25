@@ -138,6 +138,8 @@ const enUS = {
   storagePermissionGranted: "Write access granted.",
   storagePermissionDenied:
     "Write access was not granted. Saves will not work until you allow it.",
+  storageWriteBlocked:
+    "Can't write to this file — the location is blocked by the browser's security policy. Pick a different file or switch to browser storage in Settings.",
 
   selectAllVisible: "Select all visible tasks",
   selectRow: "Select task #{0}",
@@ -701,6 +703,47 @@ const enUS = {
   resourcesRole: "Role",
   resourcesRollupShow: "Show rollup",
   resourcesRollupHide: "Hide rollup",
+
+  resourcesViewDirectory: "Directory",
+  resourcesViewWorkload: "Workload",
+  resourcesAddResource: "+ Add resource",
+  resourceColTitle: "Title",
+  resourceColDepartment: "Department",
+  resourceColPhone: "Phone",
+  resourceColBirthday: "Birthday",
+
+  resourceNewTitle: "New resource",
+  resourceEditTitle: "Edit resource",
+  resourceFirstName: "First name",
+  resourceLastName: "Last name",
+  resourceJobTitle: "Title",
+  resourceCompany: "Company",
+  resourceDepartment: "Department",
+  resourceLocation: "Location",
+  resourcePhone: "Business phone",
+  resourceEmail: "Email",
+  resourceBirthday: "Birthday",
+  resourceBirthdayMonth: "Month",
+  resourceBirthdayDay: "Day",
+  resourceNotes: "Notes",
+  resourceSave: "Save resource",
+  resourceConfirmDelete: "Delete this resource?",
+  resourceErrorName: "Enter a first or last name.",
+
+  resourcesUnlinked: "Unlinked",
+  resourcesUnlinkedHint: "Not in the address book",
+  resourcesAddAsResource: "Add as resource",
+
+  resourcesAddressBookTitle: "Address Book",
+  resourcesOpenAddressBook: "Open address book",
+
+  notifBirthday: "Birthday reminders",
+  birthdayLeadDays: "Days ahead",
+  birthdayBannerAria: "Upcoming birthdays",
+  birthdayBannerTitle: "{0} upcoming birthday(s)",
+  birthdayToday: "today",
+  birthdayInDays: "in {0}d",
+  birthdayToast: "🎂 {0} upcoming birthday(s)",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;

@@ -10,6 +10,7 @@
 // Phase 3 of the Resource Planner (see docs/RESOURCE-PLANNER-PLAN.md).
 
 import { memo, useMemo } from "react";
+import { localeFor } from "./date-format";
 import { type Lang, t } from "./i18n";
 import type { Absence, AbsenceType } from "./types";
 
@@ -44,12 +45,6 @@ interface CalendarDay {
   isWeekend: boolean;
   isHoliday: boolean;
   isToday: boolean;
-}
-
-function localeFor(lang: Lang): string {
-  if (lang === "de") return "de-DE";
-  if (lang === "en-GB") return "en-GB";
-  return "en-US";
 }
 
 function absenceCellBg(type: AbsenceType): string {

@@ -1,28 +1,23 @@
 "use client";
 
 import React, { type RefObject } from "react";
-import { DueBanner, DueDatesModal } from "./notifications";
+import { DueDatesModal } from "./notifications";
 import { TaskFormModal } from "./task-form-modal";
 import { JiraConflictsModal } from "./jira-conflicts-modal";
 import { AbsenceEditModal } from "./absence-edit-modal";
 import { ShiftEditModal } from "./shift-edit-modal";
 import { RolesModal } from "./roles-modal";
+import { ResourceEditModal } from "./resource-edit-modal";
 import type { listContacts } from "./contacts";
 import type { AlertableTask } from "./due-dates";
 import type { Lang } from "./i18n";
 import type { ConflictItem } from "./jira-api";
 import type { ConflictResolution } from "./jira-conflicts-modal";
-import type { Absence, Discipline, Grade, Role, Shift, Task } from "./types";
+import type { Absence, Discipline, Grade, Resource, Role, Shift, Task } from "./types";
 
 export interface AppModalsProps {
   lang: Lang;
   isPopout: boolean;
-
-  // Due-date banner
-  bannerDismissed: boolean;
-  setBannerDismissed: React.Dispatch<React.SetStateAction<boolean>>;
-  bannerItems: AlertableTask[];
-  setDueModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
 
   // Due-dates modal
   dueModalOpen: boolean;
@@ -70,6 +65,12 @@ export interface AppModalsProps {
   handleRemoveContact: (name: string) => void;
   showToast: (kind: "info" | "error", text: string) => void;
 
+  // Resource edit modal
+  editingResource: { resource: Resource; isNew: boolean } | null;
+  onSaveResource: (r: Resource) => void;
+  onDeleteResource: (id: number) => void;
+  onCloseResourceModal: () => void;
+
   // Roles modal
   rolesModalOpen: boolean;
   roles: Role[];
@@ -91,10 +92,6 @@ export interface AppModalsProps {
 export function AppModals({
   lang,
   isPopout,
-  bannerDismissed,
-  setBannerDismissed,
-  bannerItems,
-  setDueModalOpen,
   dueModalOpen,
   dueModalItems,
   onSelectDueTask,
@@ -131,6 +128,10 @@ export function AppModals({
   handleCancelEdit,
   handleRemoveContact,
   showToast,
+  editingResource,
+  onSaveResource,
+  onDeleteResource,
+  onCloseResourceModal,
   rolesModalOpen,
   roles,
   disciplines,
@@ -147,15 +148,6 @@ export function AppModals({
 }: AppModalsProps) {
   return (
     <>
-      {!isPopout && !bannerDismissed && (
-        <DueBanner
-          items={bannerItems}
-          lang={lang}
-          onOpenList={() => setDueModalOpen(true)}
-          onDismiss={() => setBannerDismissed(true)}
-        />
-      )}
-
       <TaskFormModal
         lang={lang}
         today={today}
@@ -218,6 +210,17 @@ export function AppModals({
           onSave={handleSaveShift}
           onDelete={handleDeleteShift}
           onClose={handleCloseShiftModal}
+        />
+      )}
+
+      {editingResource && (
+        <ResourceEditModal
+          lang={lang}
+          resource={editingResource.resource}
+          isNew={editingResource.isNew}
+          onSave={onSaveResource}
+          onDelete={onDeleteResource}
+          onClose={onCloseResourceModal}
         />
       )}
 

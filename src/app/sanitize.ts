@@ -19,7 +19,7 @@ import {
   type Grade,
   type UtilizationMode,
 } from "./types";
-import { defaultResourcePlan } from "./resource-foundation";
+import { defaultResourcePlan, splitName } from "./resource-foundation";
 
 // --- Length caps -----------------------------------------------------------
 
@@ -462,27 +462,71 @@ export function sanitizeUtilizationMode(s: unknown): UtilizationMode {
   return s === "hours" ? "hours" : "percent";
 }
 
+function optText(v: unknown): string | undefined {
+  if (typeof v !== "string") return undefined;
+  const s = v.trim();
+  return s || undefined;
+}
+
+function optMultiline(v: unknown): string | undefined {
+  if (typeof v !== "string") return undefined;
+  const s = v.replace(/\r\n/g, "\n").trim();
+  return s || undefined;
+}
+
+/** Validate a "MM-DD" birthday (no year). Month 01–12, day 01–31. */
+export function sanitizeBirthday(v: unknown): string | undefined {
+  if (typeof v !== "string") return undefined;
+  const m = v.trim().match(/^(\d{2})-(\d{2})$/);
+  if (!m) return undefined;
+  const mm = Number(m[1]);
+  const dd = Number(m[2]);
+  if (mm < 1 || mm > 12 || dd < 1 || dd > 31) return undefined;
+  return `${m[1]}-${m[2]}`;
+}
+
 export function sanitizeResource(input: unknown): Resource | null {
   if (!isPlainObject(input)) return null;
   const id = Number(input.id);
   if (!Number.isFinite(id) || id <= 0) return null;
-  const name = sanitizeAssignee(input.name);
-  if (!name) return null;
+
+  // Prefer explicit firstName/lastName; fall back to splitting a legacy `name`.
+  let firstName = sanitizeAssignee(input.firstName) ?? "";
+  let lastName = sanitizeAssignee(input.lastName) ?? "";
+  if (!firstName && !lastName && typeof input.name === "string") {
+    const split = splitName(input.name);
+    firstName = split.firstName;
+    lastName = split.lastName;
+  }
+  if (!firstName && !lastName) return null;
+
   const mode = sanitizeUtilizationMode(input.utilizationMode);
   const roleIdNum = Number(input.roleId);
   const roleId = Number.isFinite(roleIdNum) && roleIdNum > 0 ? roleIdNum : null;
   const utilization = coercePeriodMap(input.utilization, mode === "percent" ? 100 : HOURS_MAP_MAX);
   const overrideRaw = coercePeriodMap(input.absenceOverride, HOURS_MAP_MAX);
+
   const resource: Resource = {
     id,
-    name,
-    email: typeof input.email === "string" ? sanitizeEmail(input.email) || undefined : undefined,
+    firstName,
+    lastName,
     roleId,
     utilizationMode: mode,
     utilization,
   };
+  const email = typeof input.email === "string" ? sanitizeEmail(input.email) || undefined : undefined;
+  if (email) resource.email = email;
+  const title = optText(input.title); if (title) resource.title = title;
+  const phone = optText(input.businessPhone); if (phone) resource.businessPhone = phone;
+  const location = optText(input.location); if (location) resource.location = location;
+  const department = optText(input.department); if (department) resource.department = department;
+  const company = optText(input.company); if (company) resource.company = company;
+  const birthday = sanitizeBirthday(input.birthday); if (birthday) resource.birthday = birthday;
+  const notes = optMultiline(input.notes); if (notes) resource.notes = notes;
   if (Object.keys(overrideRaw).length > 0) resource.absenceOverride = overrideRaw;
-  if (input.active === false) resource.active = false;
+  // CSV/MD serialize `active` as the string "false"; JSON keeps the boolean.
+  // Accept both so the soft-archive flag round-trips through every backend.
+  if (input.active === false || input.active === "false") resource.active = false;
   if (typeof input.localModifiedAt === "string" && input.localModifiedAt) resource.localModifiedAt = input.localModifiedAt;
   return resource;
 }

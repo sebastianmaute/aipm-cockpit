@@ -145,6 +145,8 @@ export const de: Record<TranslationKey, string> = {
   storagePermissionGranted: "Schreibzugriff erteilt.",
   storagePermissionDenied:
     "Schreibzugriff wurde nicht erteilt. Speichern ist erst nach Freigabe möglich.",
+  storageWriteBlocked:
+    "Datei kann nicht beschrieben werden – der Speicherort ist durch die Sicherheitsrichtlinie des Browsers blockiert. Bitte eine andere Datei wählen oder in den Einstellungen auf Browser-Speicher umstellen.",
 
   selectAllVisible: "Alle sichtbaren Aufgaben auswählen",
   selectRow: "Aufgabe #{0} auswählen",
@@ -719,4 +721,45 @@ export const de: Record<TranslationKey, string> = {
   resourcesRole: "Rolle",
   resourcesRollupShow: "Rollup anzeigen",
   resourcesRollupHide: "Rollup ausblenden",
+
+  resourcesViewDirectory: "Verzeichnis",
+  resourcesViewWorkload: "Auslastung",
+  resourcesAddResource: "+ Ressource hinzufügen",
+  resourceColTitle: "Titel",
+  resourceColDepartment: "Abteilung",
+  resourceColPhone: "Telefon",
+  resourceColBirthday: "Geburtstag",
+
+  resourceNewTitle: "Neue Ressource",
+  resourceEditTitle: "Ressource bearbeiten",
+  resourceFirstName: "Vorname",
+  resourceLastName: "Nachname",
+  resourceJobTitle: "Titel",
+  resourceCompany: "Firma",
+  resourceDepartment: "Abteilung",
+  resourceLocation: "Standort",
+  resourcePhone: "Telefon (geschäftlich)",
+  resourceEmail: "E-Mail",
+  resourceBirthday: "Geburtstag",
+  resourceBirthdayMonth: "Monat",
+  resourceBirthdayDay: "Tag",
+  resourceNotes: "Notizen",
+  resourceSave: "Ressource speichern",
+  resourceConfirmDelete: "Diese Ressource löschen?",
+  resourceErrorName: "Bitte Vor- oder Nachnamen angeben.",
+
+  resourcesUnlinked: "Nicht zugeordnet",
+  resourcesUnlinkedHint: "Nicht im Verzeichnis",
+  resourcesAddAsResource: "Als Ressource hinzufügen",
+
+  resourcesAddressBookTitle: "Adressbuch",
+  resourcesOpenAddressBook: "Adressbuch öffnen",
+
+  notifBirthday: "Geburtstagserinnerungen",
+  birthdayLeadDays: "Tage im Voraus",
+  birthdayBannerAria: "Bevorstehende Geburtstage",
+  birthdayBannerTitle: "{0} bevorstehende Geburtstage",
+  birthdayToday: "heute",
+  birthdayInDays: "in {0} T",
+  birthdayToast: "🎂 {0} bevorstehende Geburtstage",
 };
