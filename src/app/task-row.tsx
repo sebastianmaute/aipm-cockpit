@@ -180,6 +180,7 @@ function TaskRowImpl({
           type="button"
           onClick={() => onEdit(task)}
           title={`#${task.id} — ${t(lang, "clickToEdit")}`}
+          aria-label={`#${task.id} — ${t(lang, "clickToEdit")}`}
           className="cursor-pointer rounded font-mono text-zinc-500 hover:text-AIPM-dark-blue hover:underline"
         >#{task.id}</button>
         {(() => {
@@ -233,14 +234,14 @@ function TaskRowImpl({
           </div>
         )}
       </Td>
-      {!hiddenCols.has("assignee") && <Td title={`${t(lang, "assignee")}: ${task.assignee}`}>{task.assignee}</Td>}
+      {!hiddenCols.has("assignee") && <Td title={`${t(lang, "assignee")}: ${task.assignee || "—"}`}>{task.assignee}</Td>}
       {!hiddenCols.has("startDate") && (
         <Td className="whitespace-nowrap text-zinc-600 dark:text-zinc-400" title={`${t(lang, "startDate")}: ${task.startDate || "—"}`}>
           {task.startDate || "—"}
         </Td>
       )}
-      {!hiddenCols.has("dueDate") && <Td title={`${t(lang, "dueDate")}: ${task.dueDate}`}>{task.dueDate}</Td>}
-      {!hiddenCols.has("lastUpdateDate") && <Td title={`${t(lang, "lastUpdateDate")}: ${task.lastUpdateDate}`}>{task.lastUpdateDate}</Td>}
+      {!hiddenCols.has("dueDate") && <Td title={`${t(lang, "dueDate")}: ${task.dueDate || "—"}`}>{task.dueDate}</Td>}
+      {!hiddenCols.has("lastUpdateDate") && <Td title={`${t(lang, "lastUpdateDate")}: ${task.lastUpdateDate || "—"}`}>{task.lastUpdateDate}</Td>}
       {!hiddenCols.has("priority") && (
         <Td>
           <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${priorityStyle[task.priority]}`}>

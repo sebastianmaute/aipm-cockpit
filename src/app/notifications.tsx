@@ -244,8 +244,6 @@ export function DueDatesModal({
             ))}
           </ul>
         )}
-      <span aria-hidden={true} title={t(lang, "tableResizeHint")}
-        className="pointer-events-none absolute bottom-1 right-1 select-none text-zinc-300 dark:text-zinc-600">⠿</span>
       </div>
     </Modal>
   );
