@@ -301,7 +301,11 @@ function TaskManagerInner() {
     handleCancelEdit,
     logActivity,
   });
-  onPushToJiraRef.current = onPushToJira;
+  // Keep the forwarding ref current after every commit (it's only ever read
+  // from event handlers, never during render).
+  useEffect(() => {
+    onPushToJiraRef.current = onPushToJira;
+  });
 
   const {
     selectedIds,
@@ -327,8 +331,11 @@ function TaskManagerInner() {
     showToast,
   });
   // Sync deselectIdRef so onDelete (defined above) can call it without
-  // depending on useBulkOperations being declared first.
-  deselectIdRef.current = deselectId;
+  // depending on useBulkOperations being declared first. Written in an effect
+  // (after commit) because onDelete only reads it from its event handler.
+  useEffect(() => {
+    deselectIdRef.current = deselectId;
+  });
   const { handleGanttBarUpdate } = useGanttHandlers({ tasksRef, setTasks, today });
 
   const bannerItems = useMemo(() => {
