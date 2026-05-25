@@ -342,7 +342,7 @@ function TaskManagerInner() {
 
   const dueModalItems = useMemo(() => {
     return getAlertableTasks(tasks, settings.notifications.reminderLeadDays, today, holidaySet, absences);
-  }, [tasks, settings.notifications.reminderLeadDays, settings.notifications.popup, today, holidaySet, absences]);
+  }, [tasks, settings.notifications.reminderLeadDays, today, holidaySet, absences]);
 
   const absenceKnownAssignees = useMemo(
     () => [

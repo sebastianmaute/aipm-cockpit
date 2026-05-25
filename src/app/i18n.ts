@@ -217,8 +217,6 @@ const enUS = {
   notifBanner: "Banner",
   notifToast: "Toast",
   notifPopup: "Pop-up on load",
-  notifThreshold: "Within",
-  notifThresholdSuffix: "work day(s)",
 
   alertCatOverdue: "Overdue",
   alertCatToday: "Today",
@@ -740,7 +738,6 @@ const enUS = {
 
   reminderLeadDays: "Days ahead",
   notifBirthday: "Birthday reminders",
-  birthdayLeadDays: "Days ahead",
   birthdayBannerAria: "Upcoming birthdays",
   birthdayBannerTitle: "{0} upcoming birthday(s)",
   birthdayToday: "today",
