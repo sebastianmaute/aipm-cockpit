@@ -1,7 +1,19 @@
 // src/app/use-holiday-set.test.ts
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { useHolidaySet } from "./use-holiday-set";
+
+// The real `holidaysForCountries` lazy-imports `date-holidays` (+ moment),
+// whose wall-clock load time under the parallel full suite could exceed
+// waitFor's 1s default and flake this test. Mock it so the hook's
+// async-resolve and cancel-on-unmount behavior is verified deterministically,
+// without the heavy dynamic import. (Module mocks are scoped to this file —
+// other suites still use the real holidays module.)
+vi.mock("./holidays", () => ({
+  holidaysForCountries: vi.fn(async (codes: string[]) =>
+    codes.length ? new Set(["2026-01-01", "2026-12-25"]) : new Set<string>(),
+  ),
+}));
 
 describe("useHolidaySet", () => {
   it("returns empty set initially", () => {
