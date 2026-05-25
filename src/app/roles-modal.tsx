@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { Modal } from "./modal";
 import { roleLabel } from "./resource-foundation";
@@ -17,8 +17,12 @@ interface Props {
   onResolveOrCreateRole: (disciplineId: number, gradeId: number) => number;
   onAddDiscipline: (name: string) => number | null;
   onRenameDiscipline: (id: number, name: string) => void;
+  onDeleteDiscipline: (id: number) => void;
+  onReorderDisciplines: (ids: number[]) => void;
   onAddGrade: (name: string) => number | null;
   onRenameGrade: (id: number, name: string) => void;
+  onDeleteGrade: (id: number) => void;
+  onReorderGrades: (ids: number[]) => void;
   onClose: () => void;
 }
 
@@ -31,7 +35,9 @@ function clampRate(raw: string): number {
 export function RolesModal({
   lang, open, roles, disciplines, grades,
   onSaveRole, onDeleteRole, onResolveOrCreateRole,
-  onAddDiscipline, onRenameDiscipline, onAddGrade, onRenameGrade, onClose,
+  onAddDiscipline, onRenameDiscipline, onDeleteDiscipline, onReorderDisciplines,
+  onAddGrade, onRenameGrade, onDeleteGrade, onReorderGrades,
+  onClose,
 }: Props) {
   const [newDiscipline, setNewDiscipline] = useState("");
   const [newGrade, setNewGrade] = useState("");
@@ -73,8 +79,8 @@ export function RolesModal({
                 <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
                   {sortedRoles.map((r) => (
                     <tr key={r.id}>
-                      <td className="py-1.5">{disciplines.find((d) => d.id === r.disciplineId)?.name ?? "?"}</td>
-                      <td className="py-1.5">{grades.find((g) => g.id === r.gradeId)?.name ?? "?"}</td>
+                      <td className="py-1.5">{disciplines.find((d) => d.id === r.disciplineId)?.name ?? "n/a"}</td>
+                      <td className="py-1.5">{grades.find((g) => g.id === r.gradeId)?.name ?? "n/a"}</td>
                       <td className="py-1.5 text-right">
                         <input type="number" min={0} step={1} value={r.internalRate}
                           onChange={(e) => onSaveRole({ ...r, internalRate: clampRate(e.target.value) })}
@@ -116,11 +122,13 @@ export function RolesModal({
 
           <section className="grid grid-cols-1 gap-6 sm:grid-cols-2">
             <RefList lang={lang} title={t(lang, "rolesDiscipline")} items={disciplines}
-              onRename={onRenameDiscipline} addPlaceholder={t(lang, "rolesAddDiscipline")}
+              onRename={onRenameDiscipline} onDelete={onDeleteDiscipline} onReorder={onReorderDisciplines}
+              addPlaceholder={t(lang, "rolesAddDiscipline")}
               addValue={newDiscipline} setAddValue={setNewDiscipline}
               onAdd={() => { if (onAddDiscipline(newDiscipline) != null) setNewDiscipline(""); }} />
             <RefList lang={lang} title={t(lang, "rolesGrade")} items={grades}
-              onRename={onRenameGrade} addPlaceholder={t(lang, "rolesAddGrade")}
+              onRename={onRenameGrade} onDelete={onDeleteGrade} onReorder={onReorderGrades}
+              addPlaceholder={t(lang, "rolesAddGrade")}
               addValue={newGrade} setAddValue={setNewGrade}
               onAdd={() => { if (onAddGrade(newGrade) != null) setNewGrade(""); }} />
           </section>
@@ -131,26 +139,65 @@ export function RolesModal({
 }
 
 function RefList({
-  title, items, onRename, addPlaceholder, addValue, setAddValue, onAdd,
+  lang, title, items, onRename, onDelete, onReorder,
+  addPlaceholder, addValue, setAddValue, onAdd,
 }: {
   lang: Lang;
   title: string;
   items: readonly { id: number; name: string }[];
   onRename: (id: number, name: string) => void;
+  onDelete: (id: number) => void;
+  onReorder: (ids: number[]) => void;
   addPlaceholder: string;
   addValue: string;
   setAddValue: (v: string) => void;
   onAdd: () => void;
 }) {
+  const draggedIdRef = useRef<number | null>(null);
+
   return (
     <div>
       <h4 className="mb-2 text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">{title}</h4>
       <ul className="flex flex-col gap-1.5">
         {items.map((it) => (
-          <li key={it.id}>
+          <li
+            key={it.id}
+            draggable
+            onDragStart={(e) => {
+              draggedIdRef.current = it.id;
+              e.dataTransfer.effectAllowed = "move";
+            }}
+            onDragOver={(e) => { e.preventDefault(); }}
+            onDrop={(e) => {
+              e.preventDefault();
+              const fromId = draggedIdRef.current;
+              if (fromId === null || fromId === it.id) return;
+              const ids = items.map((x) => x.id);
+              const filtered = ids.filter((id) => id !== fromId);
+              const dropIdx = filtered.indexOf(it.id);
+              filtered.splice(dropIdx, 0, fromId);
+              onReorder(filtered);
+              draggedIdRef.current = null;
+            }}
+            onDragEnd={() => { draggedIdRef.current = null; }}
+            className="flex items-center gap-1"
+          >
+            <span
+              title={t(lang, "reorderHint")}
+              className="cursor-move select-none px-1 text-AIPM-medium-grey"
+              aria-hidden={true}
+            >≡</span>
             <input defaultValue={it.name}
               onBlur={(e) => { if (e.target.value.trim() && e.target.value.trim() !== it.name) onRename(it.id, e.target.value); }}
-              className="w-full rounded-md border border-zinc-200 px-2 py-1 text-sm dark:border-zinc-800 dark:bg-zinc-900" />
+              className="flex-1 rounded-md border border-zinc-200 px-2 py-1 text-sm dark:border-zinc-800 dark:bg-zinc-900" />
+            <button
+              type="button"
+              aria-label={t(lang, "delete")}
+              onClick={() => {
+                if (window.confirm(t(lang, "rolesConfirmDeleteRef"))) onDelete(it.id);
+              }}
+              className="rounded p-1 text-AIPM-medium-grey hover:bg-red-50 hover:text-red-600 dark:hover:bg-zinc-800"
+            >×</button>
           </li>
         ))}
       </ul>

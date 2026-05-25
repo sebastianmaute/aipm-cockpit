@@ -682,6 +682,8 @@ export const de: Record<TranslationKey, string> = {
   resourcesWorkdayHours: "Stunden pro Arbeitstag",
   resourcesUnassignedRole: "keine Rolle",
 
+  reorderHint: "Zum Umsortieren ziehen",
+  rolesConfirmDeleteRef: "Eintrag entfernen? Rollen, die ihn verwenden, werden n/a mit Sätzen 0.",
   rolesManageTitle: "Rollen & Sätze",
   rolesRateCard: "Satztabelle",
   rolesDiscipline: "Disziplin",
@@ -739,8 +741,7 @@ export const de: Record<TranslationKey, string> = {
   resourcePhone: "Telefon (geschäftlich)",
   resourceEmail: "E-Mail",
   resourceBirthday: "Geburtstag",
-  resourceBirthdayMonth: "Monat",
-  resourceBirthdayDay: "Tag",
+  resourceBirthdayYearUnknown: "Genaues Jahr unbekannt",
   resourceNotes: "Notizen",
   resourceSave: "Ressource speichern",
   resourceConfirmDelete: "Diese Ressource löschen?",
@@ -764,4 +765,8 @@ export const de: Record<TranslationKey, string> = {
   birthdayToday: "heute",
   birthdayInDays: "in {0} T",
   birthdayToast: "🎂 {0} bevorstehende Geburtstage",
+
+  directorySearchPlaceholder: "Nach Name, Titel, Abteilung, E-Mail filtern…",
+  sortBy: "Sortieren nach {0}",
+  clickToEdit: "zum Bearbeiten klicken",
 };

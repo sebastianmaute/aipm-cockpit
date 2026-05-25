@@ -198,8 +198,7 @@ export function TasksSection({
   return (
     <section
       ref={tableRef}
-      title={t(lang, "tableResizeHint")}
-      className="mb-10 flex h-[560px] min-h-[300px] min-w-[520px] resize flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950"
+      className="relative mb-10 flex h-[560px] min-h-[300px] min-w-[520px] resize flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950"
     >
       {/* shrink-0 wrapper keeps header, filters and bulk-edit from growing into the table area */}
       <div className="shrink-0">
@@ -522,6 +521,8 @@ export function TasksSection({
           </table>
         </RowContextProvider>
       </div>
+      <span aria-hidden={true} title={t(lang, "tableResizeHint")}
+        className="pointer-events-none absolute bottom-1 right-1 select-none text-zinc-300 dark:text-zinc-600">⠿</span>
     </section>
   );
 }

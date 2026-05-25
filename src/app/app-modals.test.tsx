@@ -99,8 +99,12 @@ function makeProps(): AppModalsProps {
     onResolveOrCreateRole: vi.fn(),
     onAddDiscipline: vi.fn(),
     onRenameDiscipline: vi.fn(),
+    onDeleteDiscipline: vi.fn(),
+    onReorderDisciplines: vi.fn(),
     onAddGrade: vi.fn(),
     onRenameGrade: vi.fn(),
+    onDeleteGrade: vi.fn(),
+    onReorderGrades: vi.fn(),
     onCloseRolesModal: vi.fn(),
     toast: null,
   };

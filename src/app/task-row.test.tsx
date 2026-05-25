@@ -240,6 +240,54 @@ describe("NotesCell", () => {
   });
 });
 
+describe("TaskRow click-to-edit", () => {
+  test("opens the editor when the task id is clicked", () => {
+    const onEdit = vi.fn();
+    const ctx = makeContext({ onEdit });
+    const task = makeTask({ id: 7, taskName: "Review the deck" });
+    const { getByRole } = render(
+      rowWrapper({
+        context: ctx,
+        children: (
+          <TaskRow
+            task={task}
+            isSelected={false}
+            isEditing={false}
+            isExpanded={false}
+            isPushing={false}
+            raidRefs={undefined}
+          />
+        ),
+      }),
+    );
+    fireEvent.click(getByRole("button", { name: /#7/ }));
+    expect(onEdit).toHaveBeenCalledWith(expect.objectContaining({ id: 7 }));
+  });
+
+  test("opens the editor when the task name is clicked", () => {
+    const onEdit = vi.fn();
+    const ctx = makeContext({ onEdit });
+    const task = makeTask({ id: 7, taskName: "Review the deck" });
+    const { getByRole } = render(
+      rowWrapper({
+        context: ctx,
+        children: (
+          <TaskRow
+            task={task}
+            isSelected={false}
+            isEditing={false}
+            isExpanded={false}
+            isPushing={false}
+            raidRefs={undefined}
+          />
+        ),
+      }),
+    );
+    fireEvent.click(getByRole("button", { name: /review the deck/i }));
+    expect(onEdit).toHaveBeenCalledWith(expect.objectContaining({ id: 7 }));
+  });
+});
+
 describe("TaskActions", () => {
   test("each button calls the corresponding handler with the right argument", () => {
     const ctx = makeContext({ jiraEnabled: true, jiraProjectKey: "MCP" });

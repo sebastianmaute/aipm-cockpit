@@ -118,7 +118,6 @@ export function JiraConflictsModal({
     <Modal open onClose={onClose} ariaLabel={t(lang, "jiraConflictTitle")}>
       <div
         ref={panelRef}
-        title={t(lang, "tableResizeHint")}
         className="relative h-[680px] max-h-[95vh] min-h-[320px] w-[768px] min-w-[400px] max-w-[95vw] resize overflow-y-auto rounded-xl border border-AIPM-light-grey bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-950"
       >
         <header className="sticky top-0 z-10 flex items-center justify-between gap-4 border-b border-AIPM-light-grey bg-white px-6 py-4 dark:border-zinc-800 dark:bg-zinc-950">

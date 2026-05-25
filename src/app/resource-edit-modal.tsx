@@ -9,6 +9,7 @@ import { useState } from "react";
 import { type Lang, t } from "./i18n";
 import { Modal } from "./modal";
 import type { Resource } from "./types";
+import { birthdayHasYear, birthdayMonthDay } from "./birthdays";
 
 interface Props {
   lang: Lang;
@@ -21,15 +22,21 @@ interface Props {
   onClose: () => void;
 }
 
-const pad2 = (n: number) => String(n).padStart(2, "0");
+// 2000 is a leap year, so an unknown-year Feb 29 stays representable in the picker.
+const BIRTHDAY_ANCHOR_YEAR = "2000";
 
-function parseBirthday(b?: string): { mm: string; dd: string } {
-  const m = (b ?? "").match(/^(\d{2})-(\d{2})$/);
-  return m ? { mm: m[1], dd: m[2] } : { mm: "", dd: "" };
+// "" | "MM-DD" | "YYYY-MM-DD"  ->  full "YYYY-MM-DD" for the <input type=date>
+function birthdayToInput(b?: string): string {
+  const md = birthdayMonthDay(b);
+  if (!md) return "";
+  return birthdayHasYear(b) ? b : `${BIRTHDAY_ANCHOR_YEAR}-${md}`;
 }
 
-const months = Array.from({ length: 12 }, (_, i) => pad2(i + 1));
-const days = Array.from({ length: 31 }, (_, i) => pad2(i + 1));
+// full "YYYY-MM-DD" from the input  ->  stored value honoring the year-unknown toggle
+function inputToBirthday(input: string, yearUnknown: boolean): string | undefined {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input)) return undefined;
+  return yearUnknown ? input.slice(5) : input;
+}
 
 export function ResourceEditModal({
   lang,
@@ -42,11 +49,13 @@ export function ResourceEditModal({
   const [prevResource, setPrevResource] = useState(resource);
   const [draft, setDraft] = useState<Resource | null>(resource);
   const [error, setError] = useState<string | null>(null);
+  const [yearUnknown, setYearUnknown] = useState(() => !birthdayHasYear(resource?.birthday));
 
   if (prevResource !== resource) {
     setPrevResource(resource);
     setDraft(resource);
     setError(null);
+    setYearUnknown(!birthdayHasYear(resource?.birthday));
   }
 
   function update<K extends keyof Resource>(key: K, value: Resource[K]) {
@@ -86,16 +95,6 @@ export function ResourceEditModal({
   }
 
   if (!draft) return null;
-
-  const { mm, dd } = parseBirthday(draft.birthday);
-
-  function handleBirthdayChange(newMm: string, newDd: string) {
-    if (newMm && newDd) {
-      update("birthday", `${newMm}-${newDd}`);
-    } else {
-      update("birthday", undefined);
-    }
-  }
 
   return (
     <Modal
@@ -238,43 +237,36 @@ export function ResourceEditModal({
             />
           </label>
 
-          {/* Birthday — two selects */}
+          {/* Birthday — native date picker with optional year */}
           <div className="flex flex-col gap-1 text-sm sm:col-span-2">
             <span className="font-medium text-AIPM-dark-grey dark:text-AIPM-light-grey">
               {t(lang, "resourceBirthday")}
             </span>
-            <div className="flex gap-2">
-              <label className="flex flex-1 flex-col gap-1 text-sm">
-                <span className="sr-only">{t(lang, "resourceBirthdayMonth")}</span>
-                <select
-                  value={mm}
-                  onChange={(e) => handleBirthdayChange(e.target.value, dd ?? "")}
-                  aria-label={t(lang, "resourceBirthdayMonth")}
-                  className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
-                >
-                  <option value="">{t(lang, "resourceBirthdayMonth")}</option>
-                  {months.map((m) => (
-                    <option key={m} value={m}>
-                      {m}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="flex flex-1 flex-col gap-1 text-sm">
-                <span className="sr-only">{t(lang, "resourceBirthdayDay")}</span>
-                <select
-                  value={dd}
-                  onChange={(e) => handleBirthdayChange(mm ?? "", e.target.value)}
-                  aria-label={t(lang, "resourceBirthdayDay")}
-                  className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
-                >
-                  <option value="">{t(lang, "resourceBirthdayDay")}</option>
-                  {days.map((d) => (
-                    <option key={d} value={d}>
-                      {d}
-                    </option>
-                  ))}
-                </select>
+            <div className="flex flex-wrap items-center gap-3">
+              <input
+                type="date"
+                value={birthdayToInput(draft.birthday)}
+                onChange={(e) => update("birthday", inputToBirthday(e.target.value, yearUnknown))}
+                aria-label={t(lang, "resourceBirthday")}
+                className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
+              />
+              <label className="flex items-center gap-1.5 text-sm text-AIPM-dark-grey dark:text-AIPM-light-grey">
+                <input
+                  type="checkbox"
+                  checked={yearUnknown}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setYearUnknown(checked);
+                    // Re-normalize from the pending draft (not the render snapshot).
+                    setDraft((prev) =>
+                      prev
+                        ? { ...prev, birthday: inputToBirthday(birthdayToInput(prev.birthday), checked) }
+                        : prev,
+                    );
+                    setError(null);
+                  }}
+                />
+                {t(lang, "resourceBirthdayYearUnknown")}
               </label>
             </div>
           </div>

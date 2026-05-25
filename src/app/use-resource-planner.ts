@@ -454,6 +454,36 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
     [setGrades],
   );
 
+  const onDeleteDiscipline = useCallback((id: number) => {
+    setDisciplines((prev) => prev.filter((d) => d.id !== id));
+    setRoles((prev) => prev.map((r) =>
+      r.disciplineId === id ? { ...r, disciplineId: 0, internalRate: 0, externalRate: 0 } : r,
+    ));
+  }, [setDisciplines, setRoles]);
+
+  const onDeleteGrade = useCallback((id: number) => {
+    setGrades((prev) => prev.filter((g) => g.id !== id));
+    setRoles((prev) => prev.map((r) =>
+      r.gradeId === id ? { ...r, gradeId: 0, internalRate: 0, externalRate: 0 } : r,
+    ));
+  }, [setGrades, setRoles]);
+
+  const onReorderDisciplines = useCallback((orderedIds: number[]) => {
+    setDisciplines((prev) =>
+      orderedIds
+        .map((id) => prev.find((d) => d.id === id))
+        .filter((d): d is (typeof prev)[number] => !!d),
+    );
+  }, [setDisciplines]);
+
+  const onReorderGrades = useCallback((orderedIds: number[]) => {
+    setGrades((prev) =>
+      orderedIds
+        .map((id) => prev.find((g) => g.id === id))
+        .filter((g): g is (typeof prev)[number] => !!g),
+    );
+  }, [setGrades]);
+
   const handleCreateMitigationTaskFromRaid = useCallback(
     (raidItemId: number): number | null => {
       const item = raid.find((r) => r.id === raidItemId);
@@ -587,6 +617,10 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
     handleRenameDiscipline,
     handleAddGrade,
     handleRenameGrade,
+    onDeleteDiscipline,
+    onDeleteGrade,
+    onReorderDisciplines,
+    onReorderGrades,
     handleSetUtilization,
     handleSetUtilizationMode,
     handleSetAbsenceOverride,

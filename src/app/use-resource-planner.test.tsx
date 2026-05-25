@@ -470,6 +470,49 @@ describe("useResourcePlanner", () => {
     });
   });
 
+  describe("discipline/grade delete + reorder", () => {
+    it("deleting a discipline degrades its roles to n/a (id 0) with zero rates", () => {
+      const { result } = renderPlanner();
+      act(() => {
+        result.current.workspace.setDisciplines([{ id: 1, name: "Dev" }]);
+        result.current.workspace.setGrades([{ id: 1, name: "Jr" }]);
+        result.current.workspace.setRoles([{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 200 }]);
+      });
+      act(() => { result.current.planner.onDeleteDiscipline(1); });
+      expect(result.current.workspace.disciplines.some((d) => d.id === 1)).toBe(false);
+      expect(result.current.workspace.roles[0].disciplineId).toBe(0);
+      expect(result.current.workspace.roles[0].internalRate).toBe(0);
+      expect(result.current.workspace.roles[0].externalRate).toBe(0);
+      expect(result.current.workspace.roles[0].gradeId).toBe(1);
+    });
+
+    it("deleting a grade degrades its roles to n/a (id 0) with zero rates", () => {
+      const { result } = renderPlanner();
+      act(() => {
+        result.current.workspace.setDisciplines([{ id: 1, name: "Dev" }]);
+        result.current.workspace.setGrades([{ id: 1, name: "Jr" }]);
+        result.current.workspace.setRoles([{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 200 }]);
+      });
+      act(() => { result.current.planner.onDeleteGrade(1); });
+      expect(result.current.workspace.grades.some((g) => g.id === 1)).toBe(false);
+      expect(result.current.workspace.roles[0].gradeId).toBe(0);
+      expect(result.current.workspace.roles[0].internalRate).toBe(0);
+      expect(result.current.workspace.roles[0].externalRate).toBe(0);
+      expect(result.current.workspace.roles[0].disciplineId).toBe(1);
+    });
+
+    it("reordering disciplines applies the given id order", () => {
+      const { result } = renderPlanner();
+      act(() => {
+        result.current.workspace.setDisciplines([
+          { id: 1, name: "A" }, { id: 2, name: "B" }, { id: 3, name: "C" },
+        ]);
+      });
+      act(() => { result.current.planner.onReorderDisciplines([3, 1, 2]); });
+      expect(result.current.workspace.disciplines.map((d) => d.id)).toEqual([3, 1, 2]);
+    });
+  });
+
   describe("grade CRUD", () => {
     it("handleAddGrade appends a trimmed grade and returns its id", () => {
       const { result } = renderPlanner();

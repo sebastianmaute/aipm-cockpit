@@ -664,6 +664,8 @@ const enUS = {
   resourcesWorkdayHours: "Hours per work day",
   resourcesUnassignedRole: "no role",
 
+  reorderHint: "Drag to reorder",
+  rolesConfirmDeleteRef: "Remove this entry? Roles using it become n/a with zero rates.",
   rolesManageTitle: "Roles & rates",
   rolesRateCard: "Rate card",
   rolesDiscipline: "Discipline",
@@ -721,8 +723,7 @@ const enUS = {
   resourcePhone: "Business phone",
   resourceEmail: "Email",
   resourceBirthday: "Birthday",
-  resourceBirthdayMonth: "Month",
-  resourceBirthdayDay: "Day",
+  resourceBirthdayYearUnknown: "Exact year unknown",
   resourceNotes: "Notes",
   resourceSave: "Save resource",
   resourceConfirmDelete: "Delete this resource?",
@@ -746,6 +747,10 @@ const enUS = {
   birthdayToday: "today",
   birthdayInDays: "in {0}d",
   birthdayToast: "🎂 {0} upcoming birthday(s)",
+
+  directorySearchPlaceholder: "Filter by name, title, department, email…",
+  sortBy: "Sort by {0}",
+  clickToEdit: "click to edit",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;

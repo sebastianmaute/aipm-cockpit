@@ -1,4 +1,4 @@
-import { describe, test, expect } from "vitest";
+import { describe, it, test, expect } from "vitest";
 import {
   TASK_NAME_MAX,
   sanitizeTaskName,
@@ -212,7 +212,20 @@ describe("sanitizeResource — address-book fields", () => {
 
 describe("sanitizeBirthday", () => {
   test("accepts MM-DD in range", () => { expect(sanitizeBirthday("02-29")).toBe("02-29"); });
+  test("accepts YYYY-MM-DD", () => { expect(sanitizeBirthday("2026-06-14")).toBe("2026-06-14"); });
   test("rejects out-of-range", () => { expect(sanitizeBirthday("00-10")).toBeUndefined(); });
-  test("rejects non MM-DD", () => { expect(sanitizeBirthday("2026-06-14")).toBeUndefined(); });
+  test("rejects malformed", () => { expect(sanitizeBirthday("nope")).toBeUndefined(); });
   test("rejects non-strings", () => { expect(sanitizeBirthday(614 as unknown as string)).toBeUndefined(); });
+});
+
+describe("sanitizeResource — birthday widened to MM-DD or YYYY-MM-DD", () => {
+  it("keeps a MM-DD birthday", () => {
+    expect(sanitizeResource({ id: 1, firstName: "A", lastName: "B", birthday: "06-03" })?.birthday).toBe("06-03");
+  });
+  it("keeps a YYYY-MM-DD birthday", () => {
+    expect(sanitizeResource({ id: 1, firstName: "A", lastName: "B", birthday: "1990-06-03" })?.birthday).toBe("1990-06-03");
+  });
+  it("drops a malformed birthday", () => {
+    expect(sanitizeResource({ id: 1, firstName: "A", lastName: "B", birthday: "nope" })?.birthday).toBeUndefined();
+  });
 });
