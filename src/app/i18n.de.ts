@@ -747,4 +747,8 @@ export const de: Record<TranslationKey, string> = {
   resourceSave: "Ressource speichern",
   resourceConfirmDelete: "Diese Ressource löschen?",
   resourceErrorName: "Bitte Vor- oder Nachnamen angeben.",
+
+  resourcesUnlinked: "Nicht zugeordnet",
+  resourcesUnlinkedHint: "Nicht im Verzeichnis",
+  resourcesAddAsResource: "Als Ressource hinzufügen",
 };

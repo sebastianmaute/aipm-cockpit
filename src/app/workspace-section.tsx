@@ -78,7 +78,7 @@ export interface WorkspaceSectionProps {
   onSetPlanWindow: (startDate: string, endDate: string) => void;
   onSetPlanGranularity: (granularity: PlanGranularity) => void;
   onEditResource: (resource: Resource) => void;
-  onAddResource: () => void;
+  onAddResource: (seed?: Partial<Resource>) => void;
 }
 
 export function WorkspaceSection({

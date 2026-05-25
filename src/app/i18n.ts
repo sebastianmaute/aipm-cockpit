@@ -729,6 +729,10 @@ const enUS = {
   resourceSave: "Save resource",
   resourceConfirmDelete: "Delete this resource?",
   resourceErrorName: "Enter a first or last name.",
+
+  resourcesUnlinked: "Unlinked",
+  resourcesUnlinkedHint: "Not in the address book",
+  resourcesAddAsResource: "Add as resource",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;

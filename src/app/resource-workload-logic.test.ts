@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildResourceWorkload } from "./resource-workload";
+import { buildResourceWorkload } from "./resource-workload-logic";
 import type { Absence, Resource, Shift, Task } from "./types";
 
 const res = (id: number, firstName: string, lastName: string, email?: string): Resource =>

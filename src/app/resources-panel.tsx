@@ -21,6 +21,7 @@ import { memo, useMemo, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { ResourceCalendar } from "./resource-calendar";
 import { ResourceDirectory } from "./resource-directory";
+import { ResourceWorkload } from "./resource-workload";
 import { SegmentedControl } from "./segmented-control";
 import { generatePeriods, displayCapacityHours, absencesForResource, absenceWorkdays } from "./resource-capacity";
 import { periodCost, formatCurrency } from "./resource-cost";
@@ -69,7 +70,7 @@ interface Props {
   onSetPlanWindow: (startDate: string, endDate: string) => void;
   onSetPlanGranularity: (granularity: "week" | "month") => void;
   onEditResource: (resource: Resource) => void;
-  onAddResource: () => void;
+  onAddResource: (seed?: Partial<Resource>) => void;
 }
 
 type View = "directory" | "workload" | "calendar" | "planning";
@@ -425,98 +426,18 @@ function ResourcesPanelInner({
         />
       )}
       {view === "workload" && !isEmpty && (
-        <div className="min-h-0 flex-1 overflow-auto rounded-md border border-zinc-200 dark:border-zinc-800">
-          <table className="w-full text-left text-sm">
-            <thead className="sticky top-0 z-10 bg-zinc-50 text-xs uppercase tracking-wide text-zinc-500 shadow-sm dark:bg-zinc-900 dark:text-zinc-400">
-              <tr>
-                <th className="px-3 py-2 font-medium">{t(lang, "assignee")}</th>
-                <th className="px-3 py-2 font-medium">{t(lang, "email")}</th>
-                <th className="px-3 py-2 font-medium text-right">
-                  {t(lang, "resourcesOpenTasks")}
-                </th>
-                <th className="px-3 py-2 font-medium text-right">
-                  {t(lang, "resourcesOverdueTasks")}
-                </th>
-                <th className="px-3 py-2 font-medium text-right">
-                  {t(lang, "resourcesWeeklyHours")}
-                </th>
-                <th className="px-3 py-2 font-medium">
-                  {t(lang, "resourcesUpcomingAbsences")}
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
-              {rows.map((row) => (
-                <tr key={row.key} className="align-top">
-                  <td className="px-3 py-2 font-medium text-AIPM-dark-grey dark:text-AIPM-light-grey">
-                    {row.display}
-                  </td>
-                  <td className="px-3 py-2 text-AIPM-medium-grey">
-                    {row.email || "—"}
-                  </td>
-                  <td className="px-3 py-2 text-right tabular-nums text-AIPM-dark-grey dark:text-AIPM-light-grey">
-                    {row.openCount}
-                  </td>
-                  <td
-                    className={`px-3 py-2 text-right tabular-nums ${
-                      row.overdueCount > 0
-                        ? "font-medium text-red-600 dark:text-red-400"
-                        : "text-AIPM-medium-grey"
-                    }`}
-                  >
-                    {row.overdueCount}
-                  </td>
-                  <td className="px-3 py-2 text-right tabular-nums">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        onEditShift(row.shift, {
-                          display: row.display,
-                          email: row.email,
-                        })
-                      }
-                      title={
-                        row.shift
-                          ? t(lang, "resourcesEditShift")
-                          : t(lang, "resourcesDefaultShift")
-                      }
-                      className={`rounded-md border border-transparent px-2 py-0.5 text-xs shadow-sm hover:border-AIPM-dark-blue hover:bg-zinc-50 dark:hover:bg-zinc-800 ${
-                        row.shift
-                          ? "text-AIPM-dark-grey dark:text-AIPM-light-grey"
-                          : "text-AIPM-medium-grey italic"
-                      }`}
-                    >
-                      {row.weeklyHours}
-                    </button>
-                  </td>
-                  <td className="px-3 py-2 text-AIPM-medium-grey">
-                    {row.upcoming.length === 0 ? (
-                      "—"
-                    ) : (
-                      <ul className="flex flex-wrap gap-1.5">
-                        {row.upcoming.map((a) => (
-                          <li key={a.id}>
-                            <button
-                              type="button"
-                              onClick={() => onEditAbsence(a)}
-                              title={a.note ?? ""}
-                              className="inline-flex items-center gap-1 rounded-md border border-zinc-300 bg-white px-2 py-0.5 text-xs text-AIPM-dark-grey shadow-sm hover:border-AIPM-dark-blue hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-AIPM-light-grey dark:hover:bg-zinc-800"
-                            >
-                              <span>{shortDateRange(a, lang)}</span>
-                              <span className="text-[10px] uppercase tracking-wide text-AIPM-medium-grey">
-                                {a.type}
-                              </span>
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <ResourceWorkload
+          lang={lang}
+          resources={resources}
+          tasks={tasks}
+          absences={absences}
+          shifts={shifts}
+          today={today}
+          onEditResource={onEditResource}
+          onAddResource={onAddResource}
+          onEditAbsence={onEditAbsence}
+          onEditShift={onEditShift}
+        />
       )}
       {view === "calendar" && (
         <ResourceCalendar
