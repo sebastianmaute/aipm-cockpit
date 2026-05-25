@@ -1,4 +1,43 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { renderHook } from "@testing-library/react";
+import { useBroadcastSync } from "./broadcast-sync";
+
+// Records every postMessage so we can assert what a window broadcasts.
+const posted: unknown[] = [];
+class FakeBroadcastChannel {
+  constructor(public name: string) {}
+  postMessage(msg: unknown) { posted.push(msg); }
+  addEventListener() {}
+  removeEventListener() {}
+  close() {}
+}
+
+describe("useBroadcastSync", () => {
+  beforeEach(() => {
+    posted.length = 0;
+    vi.stubGlobal("BroadcastChannel", FakeBroadcastChannel as unknown as typeof BroadcastChannel);
+  });
+
+  // Regression: a freshly-mounted window (e.g. a pop-out) must NOT broadcast
+  // its initial/empty value. Doing so let a pop-out clobber the main window's
+  // workspace with empty state, which the main window then persisted — wiping
+  // the local file. Only real post-mount changes may broadcast.
+  it("does NOT broadcast the initial value on mount", () => {
+    renderHook(() => useBroadcastSync("tasks", [] as number[], () => {}));
+    expect(posted).toHaveLength(0);
+  });
+
+  it("broadcasts a value change that happens after mount", () => {
+    const { rerender } = renderHook(
+      ({ v }: { v: number[] }) => useBroadcastSync("tasks", v, () => {}),
+      { initialProps: { v: [] as number[] } },
+    );
+    expect(posted).toHaveLength(0);
+    rerender({ v: [1] });
+    expect(posted).toHaveLength(1);
+    expect(posted[0]).toMatchObject({ kind: "tasks", value: [1] });
+  });
+});
 
 describe("openPopoutWindow", () => {
   beforeEach(() => {

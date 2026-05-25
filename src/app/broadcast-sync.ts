@@ -41,7 +41,14 @@ export function useBroadcastSync<T>(
   // The last value we either sent or received. Reference-equal check on the
   // next render lets us skip echoing back a value that was just applied
   // from an incoming message.
-  const lastSeenRef = useRef<T | undefined>(undefined);
+  //
+  // Initialised to the MOUNT value (not undefined) so the broadcast effect
+  // skips the very first run: a freshly-mounted window — especially a pop-out,
+  // which boots with empty workspace state — must never broadcast its initial
+  // value. Doing so let a pop-out push empty arrays to the main window, which
+  // applied them and (as sole writer) persisted the empty workspace, wiping
+  // the local file. Only genuine post-mount changes are broadcast.
+  const lastSeenRef = useRef<T | undefined>(value);
 
   useEffect(() => {
     if (!enabled) return;
