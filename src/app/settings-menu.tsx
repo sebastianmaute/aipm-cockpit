@@ -38,12 +38,14 @@ type NotificationsConfig = {
   banner: DueNotificationConfig;
   toast: DueNotificationConfig;
   popup: DueNotificationConfig;
+  birthday: { enabled: boolean; leadDays: number };
 };
 
 const defaultNotificationsConfig: NotificationsConfig = {
   banner: { enabled: true, thresholdWorkDays: 3 },
   toast: { enabled: true, thresholdWorkDays: 3 },
   popup: { enabled: true, thresholdWorkDays: 3 },
+  birthday: { enabled: true, leadDays: 7 },
 };
 
 export type JiraAssigneeMode = "currentUser" | "any" | "specific";
@@ -325,6 +327,19 @@ export function SettingsMenu({
                 })
               }
             />
+            <div className="mt-2 flex items-center justify-between gap-3">
+              <label className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
+                <input type="checkbox" checked={settings.notifications.birthday.enabled}
+                  onChange={(e) => onChange({ ...settings, notifications: { ...settings.notifications, birthday: { ...settings.notifications.birthday, enabled: e.target.checked } } })} />
+                {t(lang, "notifBirthday")}
+              </label>
+              <label className="flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400">
+                {t(lang, "birthdayLeadDays")}
+                <input type="number" min={0} max={365} value={settings.notifications.birthday.leadDays}
+                  onChange={(e) => onChange({ ...settings, notifications: { ...settings.notifications, birthday: { ...settings.notifications.birthday, leadDays: Math.max(0, Number(e.target.value) || 0) } } })}
+                  className="w-16 rounded border border-zinc-300 px-1.5 py-0.5 text-right tabular-nums dark:border-zinc-700 dark:bg-zinc-900" />
+              </label>
+            </div>
           </div>
 
           <hr className="my-4 border-zinc-200 dark:border-zinc-800" />

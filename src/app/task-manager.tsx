@@ -37,8 +37,10 @@ import { TasksSection } from "./tasks-section";
 import { useResizable } from "./use-resizable";
 import { WorkspaceTabProvider, useWorkspaceTab, type TopTab } from "./workspace-tab-context";
 import { AppHeader } from "./app-header";
-import { DueBanner } from "./notifications";
+import { BirthdayBanner, DueBanner } from "./notifications";
 import { WorkspaceSection } from "./workspace-section";
+import { getUpcomingBirthdays } from "./birthdays";
+import { useBirthdayAlerts } from "./use-birthday-alerts";
 
 // i18n key for each tab's label — used by both the tab strip and the
 // popout window's document.title. Adding a new tab requires a row here.
@@ -97,6 +99,7 @@ function TaskManagerInner() {
     setAbsences,
     shifts,
     setShifts,
+    resources,
     roles,
     disciplines,
     grades,
@@ -149,6 +152,10 @@ function TaskManagerInner() {
 
   const { bannerDismissed, setBannerDismissed, dueModalOpen, setDueModalOpen } =
     useDueAlerts({ hydrated, tasks, holidaySet, settings, today, showToast });
+
+  const { birthdayDismissed, setBirthdayDismissed } = useBirthdayAlerts({
+    hydrated, resources, today, settings, showToast,
+  });
 
   // --- RAID CRUD handlers ---------------------------------------------
   //
@@ -303,6 +310,13 @@ function TaskManagerInner() {
     return getAlertableTasks(tasks, cfg.thresholdWorkDays, today, holidaySet);
   }, [tasks, settings.notifications.banner, today, holidaySet]);
 
+  const birthdayItems = useMemo(
+    () => settings.notifications.birthday.enabled
+      ? getUpcomingBirthdays(resources, today, settings.notifications.birthday.leadDays)
+      : [],
+    [resources, settings.notifications.birthday, today],
+  );
+
   const dueModalItems = useMemo(() => {
     const cfg = settings.notifications.popup;
     return getAlertableTasks(tasks, cfg.thresholdWorkDays, today, holidaySet);
@@ -402,6 +416,10 @@ function TaskManagerInner() {
           onOpenList={() => setDueModalOpen(true)}
           onDismiss={() => setBannerDismissed(true)}
         />
+      )}
+
+      {!isPopout && !birthdayDismissed && birthdayItems.length > 0 && (
+        <BirthdayBanner items={birthdayItems} lang={lang} onDismiss={() => setBirthdayDismissed(true)} />
       )}
 
       <WorkspaceSection

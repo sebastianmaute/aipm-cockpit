@@ -736,6 +736,14 @@ const enUS = {
 
   resourcesAddressBookTitle: "Address Book",
   resourcesOpenAddressBook: "Open address book",
+
+  notifBirthday: "Birthday reminders",
+  birthdayLeadDays: "Days ahead",
+  birthdayBannerAria: "Upcoming birthdays",
+  birthdayBannerTitle: "{0} upcoming birthday(s)",
+  birthdayToday: "today",
+  birthdayInDays: "in {0}d",
+  birthdayToast: "🎂 {0} upcoming birthday(s)",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;
