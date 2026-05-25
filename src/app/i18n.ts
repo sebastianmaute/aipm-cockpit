@@ -750,6 +750,7 @@ const enUS = {
 
   directorySearchPlaceholder: "Filter by name, title, department, email…",
   sortBy: "Sort by {0}",
+  clickToEdit: "click to edit",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;

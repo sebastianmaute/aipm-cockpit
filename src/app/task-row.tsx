@@ -111,11 +111,13 @@ export function safeJiraIssueHref(siteUrl: string, key: string): string | null {
 function Td({
   children,
   className,
+  title,
 }: {
   children: ReactNode;
   className?: string;
+  title?: string;
 }) {
-  return <td className={`px-4 py-3 ${className ?? ""}`}>{children}</td>;
+  return <td title={title} className={`px-4 py-3 ${className ?? ""}`}>{children}</td>;
 }
 
 interface TaskRowProps {
@@ -142,6 +144,7 @@ function TaskRowImpl({
     jiraSiteUrl,
     hiddenCols,
     onToggleSelect,
+    onEdit,
   } = useTaskRowContext();
 
   const isComplete = !!task.completedDate;
@@ -173,7 +176,12 @@ function TaskRowImpl({
         </Td>
       )}
       {!hiddenCols.has("id") && <Td className="font-mono text-zinc-500">
-        #{task.id}
+        <button
+          type="button"
+          onClick={() => onEdit(task)}
+          title={`#${task.id} — ${t(lang, "clickToEdit")}`}
+          className="cursor-pointer rounded font-mono text-zinc-500 hover:text-AIPM-dark-blue hover:underline"
+        >#{task.id}</button>
         {(() => {
           if (!task.jiraKey || !jiraSiteUrl) return null;
           const href = safeJiraIssueHref(jiraSiteUrl, task.jiraKey);
@@ -201,7 +209,12 @@ function TaskRowImpl({
       <Td
         className={`font-medium text-zinc-900 dark:text-zinc-100 ${isComplete ? "line-through" : ""}`}
       >
-        <span>{task.taskName}</span>
+        <button
+          type="button"
+          onClick={() => onEdit(task)}
+          title={`${task.taskName} — ${t(lang, "clickToEdit")}`}
+          className="cursor-pointer text-left font-medium hover:text-AIPM-dark-blue hover:underline"
+        >{task.taskName}</button>
         {(task.group || (task.labels?.length ?? 0) > 0) && (
           <div className="mt-1 flex flex-wrap gap-1">
             {task.group && (
@@ -220,14 +233,14 @@ function TaskRowImpl({
           </div>
         )}
       </Td>
-      {!hiddenCols.has("assignee") && <Td>{task.assignee}</Td>}
+      {!hiddenCols.has("assignee") && <Td title={`${t(lang, "assignee")}: ${task.assignee}`}>{task.assignee}</Td>}
       {!hiddenCols.has("startDate") && (
-        <Td className="whitespace-nowrap text-zinc-600 dark:text-zinc-400">
+        <Td className="whitespace-nowrap text-zinc-600 dark:text-zinc-400" title={`${t(lang, "startDate")}: ${task.startDate || "—"}`}>
           {task.startDate || "—"}
         </Td>
       )}
-      {!hiddenCols.has("dueDate") && <Td>{task.dueDate}</Td>}
-      {!hiddenCols.has("lastUpdateDate") && <Td>{task.lastUpdateDate}</Td>}
+      {!hiddenCols.has("dueDate") && <Td title={`${t(lang, "dueDate")}: ${task.dueDate}`}>{task.dueDate}</Td>}
+      {!hiddenCols.has("lastUpdateDate") && <Td title={`${t(lang, "lastUpdateDate")}: ${task.lastUpdateDate}`}>{task.lastUpdateDate}</Td>}
       {!hiddenCols.has("priority") && (
         <Td>
           <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${priorityStyle[task.priority]}`}>

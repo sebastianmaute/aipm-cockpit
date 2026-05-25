@@ -160,7 +160,6 @@ export function DueDatesModal({
     <Modal open onClose={onClose} ariaLabel={t(lang, "alertModalTitle")}>
       <div
         ref={panelRef}
-        title={t(lang, "tableResizeHint")}
         className="relative h-[640px] max-h-[95vh] min-h-[300px] w-[640px] min-w-[320px] max-w-[95vw] resize overflow-y-auto rounded-xl border border-AIPM-light-grey bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-950"
       >
         <header className="sticky top-0 flex items-center justify-between gap-4 border-b border-AIPM-light-grey bg-white px-6 py-4 dark:border-zinc-800 dark:bg-zinc-950">
@@ -245,6 +244,8 @@ export function DueDatesModal({
             ))}
           </ul>
         )}
+      <span aria-hidden={true} title={t(lang, "tableResizeHint")}
+        className="pointer-events-none absolute bottom-1 right-1 select-none text-zinc-300 dark:text-zinc-600">⠿</span>
       </div>
     </Modal>
   );
