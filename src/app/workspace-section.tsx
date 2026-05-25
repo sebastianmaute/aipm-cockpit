@@ -11,6 +11,7 @@ import { TabButton, ResetSizeIcon } from "./task-manager-ui";
 import type { ToolDispatcher } from "./chat-tools";
 import type { ActivityEntry } from "./activity-log";
 import type { Absence, PlanGranularity, RaidItem, Resource, Shift } from "./types";
+import { ResourceDirectory } from "./resource-directory";
 
 const ChatPanel = dynamic(
   () => import("./chat-panel").then((m) => m.ChatPanel),
@@ -40,7 +41,6 @@ const ResourcesReportPanel = dynamic(
   () => import("./resources-report").then((m) => m.ResourcesReportPanel),
   { ssr: false },
 );
-import { ResourceDirectory } from "./resource-directory";
 
 export interface WorkspaceSectionProps {
   today: string;
