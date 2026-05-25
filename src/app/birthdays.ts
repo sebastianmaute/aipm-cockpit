@@ -13,8 +13,9 @@ export function birthdayMonthDay(b?: string): string | null {
   return `${m[1]}-${m[2]}`;
 }
 
-/** True when the birthday carries a year ("YYYY-MM-DD"). */
-export function birthdayHasYear(b?: string): boolean {
+/** True when the birthday carries a year ("YYYY-MM-DD"). Type predicate so
+ *  callers narrow `string | undefined` to `string` on the true branch. */
+export function birthdayHasYear(b?: string): b is string {
   return !!b && /^\d{4}-\d{2}-\d{2}$/.test(b);
 }
 

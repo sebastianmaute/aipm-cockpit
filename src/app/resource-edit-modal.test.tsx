@@ -117,4 +117,22 @@ describe("ResourceEditModal", () => {
     fireEvent.click(screen.getByRole("button", { name: /save resource/i }));
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ birthday: "06-03" }));
   });
+
+  it("loads an existing MM-DD birthday (year-unknown, anchored) and re-saves it as MM-DD", () => {
+    const onSave = vi.fn();
+    render(
+      <ResourceEditModal
+        lang="en-US"
+        resource={{ ...base, birthday: "06-03" }}
+        isNew={false}
+        onSave={onSave}
+        onDelete={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+    expect(screen.getByLabelText(/exact year unknown/i)).toBeChecked();
+    expect(screen.getByLabelText("Birthday")).toHaveValue("2000-06-03");
+    fireEvent.click(screen.getByRole("button", { name: /save resource/i }));
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ birthday: "06-03" }));
+  });
 });

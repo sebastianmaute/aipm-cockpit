@@ -22,13 +22,14 @@ interface Props {
   onClose: () => void;
 }
 
+// 2000 is a leap year, so an unknown-year Feb 29 stays representable in the picker.
 const BIRTHDAY_ANCHOR_YEAR = "2000";
 
 // "" | "MM-DD" | "YYYY-MM-DD"  ->  full "YYYY-MM-DD" for the <input type=date>
 function birthdayToInput(b?: string): string {
   const md = birthdayMonthDay(b);
   if (!md) return "";
-  return birthdayHasYear(b) ? (b as string) : `${BIRTHDAY_ANCHOR_YEAR}-${md}`;
+  return birthdayHasYear(b) ? b : `${BIRTHDAY_ANCHOR_YEAR}-${md}`;
 }
 
 // full "YYYY-MM-DD" from the input  ->  stored value honoring the year-unknown toggle
@@ -254,8 +255,15 @@ export function ResourceEditModal({
                   type="checkbox"
                   checked={yearUnknown}
                   onChange={(e) => {
-                    setYearUnknown(e.target.checked);
-                    update("birthday", inputToBirthday(birthdayToInput(draft.birthday), e.target.checked));
+                    const checked = e.target.checked;
+                    setYearUnknown(checked);
+                    // Re-normalize from the pending draft (not the render snapshot).
+                    setDraft((prev) =>
+                      prev
+                        ? { ...prev, birthday: inputToBirthday(birthdayToInput(prev.birthday), checked) }
+                        : prev,
+                    );
+                    setError(null);
                   }}
                 />
                 {t(lang, "resourceBirthdayYearUnknown")}
