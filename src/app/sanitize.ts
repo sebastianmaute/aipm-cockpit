@@ -474,15 +474,20 @@ function optMultiline(v: unknown): string | undefined {
   return s || undefined;
 }
 
-/** Validate a "MM-DD" birthday (no year). Month 01–12, day 01–31. */
+/** Canonical birthday pattern: "MM-DD" (no year) or "YYYY-MM-DD". Month 01–12,
+ *  day 01–31. Feb 29 is intentionally allowed — birthdays are matched month-day
+ *  only, so the year (when present) is informational. Kept stricter than
+ *  `birthdayMonthDay` in birthdays.ts (which only extracts), so every value
+ *  stored here is extractable there. */
+const BIRTHDAY_RE = /^(?:\d{4}-)?(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
+
+/** Validate a birthday string ("MM-DD" or "YYYY-MM-DD"); returns it trimmed, or
+ *  undefined when malformed. The authoritative birthday validator — both
+ *  `sanitizeResource` and external callers should go through this. */
 export function sanitizeBirthday(v: unknown): string | undefined {
   if (typeof v !== "string") return undefined;
-  const m = v.trim().match(/^(\d{2})-(\d{2})$/);
-  if (!m) return undefined;
-  const mm = Number(m[1]);
-  const dd = Number(m[2]);
-  if (mm < 1 || mm > 12 || dd < 1 || dd > 31) return undefined;
-  return `${m[1]}-${m[2]}`;
+  const s = v.trim();
+  return BIRTHDAY_RE.test(s) ? s : undefined;
 }
 
 export function sanitizeResource(input: unknown): Resource | null {
@@ -521,10 +526,7 @@ export function sanitizeResource(input: unknown): Resource | null {
   const location = optText(input.location); if (location) resource.location = location;
   const department = optText(input.department); if (department) resource.department = department;
   const company = optText(input.company); if (company) resource.company = company;
-  const birthday =
-    typeof input.birthday === "string" && /^(?:\d{4}-)?(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(input.birthday)
-      ? input.birthday
-      : undefined;
+  const birthday = sanitizeBirthday(input.birthday);
   if (birthday) resource.birthday = birthday;
   const notes = optMultiline(input.notes); if (notes) resource.notes = notes;
   if (Object.keys(overrideRaw).length > 0) resource.absenceOverride = overrideRaw;

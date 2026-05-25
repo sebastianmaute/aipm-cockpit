@@ -68,11 +68,13 @@ describe("birthdayMonthDay / birthdayHasYear", () => {
   });
 });
 
-it("triggers for a YYYY-MM-DD birthday the same as MM-DD", () => {
-  const holidays = new Set<string>();
-  const withYear = getUpcomingBirthdays(
-    [{ id: 1, firstName: "Y", lastName: "Z", roleId: null, utilizationMode: "percent", utilization: {}, birthday: "1990-06-03" } as never],
-    "2026-06-03", 0, holidays, [],
-  );
-  expect(withYear).toHaveLength(1);
+describe("getUpcomingBirthdays — YYYY-MM-DD format", () => {
+  it("triggers for a YYYY-MM-DD birthday the same as MM-DD", () => {
+    const holidays = new Set<string>();
+    const withYear = getUpcomingBirthdays(
+      [{ id: 1, firstName: "Y", lastName: "Z", roleId: null, utilizationMode: "percent", utilization: {}, birthday: "1990-06-03" } as never],
+      "2026-06-03", 0, holidays, [],
+    );
+    expect(withYear).toHaveLength(1);
+  });
 });

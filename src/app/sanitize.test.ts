@@ -212,8 +212,9 @@ describe("sanitizeResource — address-book fields", () => {
 
 describe("sanitizeBirthday", () => {
   test("accepts MM-DD in range", () => { expect(sanitizeBirthday("02-29")).toBe("02-29"); });
+  test("accepts YYYY-MM-DD", () => { expect(sanitizeBirthday("2026-06-14")).toBe("2026-06-14"); });
   test("rejects out-of-range", () => { expect(sanitizeBirthday("00-10")).toBeUndefined(); });
-  test("rejects non MM-DD", () => { expect(sanitizeBirthday("2026-06-14")).toBeUndefined(); });
+  test("rejects malformed", () => { expect(sanitizeBirthday("nope")).toBeUndefined(); });
   test("rejects non-strings", () => { expect(sanitizeBirthday(614 as unknown as string)).toBeUndefined(); });
 });
 
