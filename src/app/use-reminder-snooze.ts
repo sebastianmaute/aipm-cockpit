@@ -15,17 +15,16 @@ export function useReminderSnooze(kind: ReminderKind): {
 } {
   const [snoozedUntil, setSnoozedUntilState] = useState<number | null>(() => getSnoozedUntil(kind));
 
+  // `getSnoozedUntil` only ever returns a future timestamp (it clears elapsed
+  // snoozes) and `snooze` always stores a future one, so state holds either
+  // null or a future epoch. Schedule a one-shot timer to re-show the reminder
+  // when it elapses, without needing a reload.
   useEffect(() => {
     if (snoozedUntil == null) return;
-    const remaining = snoozedUntil - Date.now();
-    if (remaining <= 0) {
-      setSnoozedUntilState(null);
-      clearSnooze(kind);
-      return;
-    }
+    const remaining = Math.max(0, snoozedUntil - Date.now());
     const timer = setTimeout(() => {
-      setSnoozedUntilState(null);
       clearSnooze(kind);
+      setSnoozedUntilState(null);
     }, remaining);
     return () => clearTimeout(timer);
   }, [snoozedUntil, kind]);
@@ -41,6 +40,6 @@ export function useReminderSnooze(kind: ReminderKind): {
     setSnoozedUntilState(null);
   }, [kind]);
 
-  const isSnoozed = snoozedUntil != null && Date.now() < snoozedUntil;
+  const isSnoozed = snoozedUntil != null;
   return { isSnoozed, snoozedUntil, snooze, clear };
 }
