@@ -199,8 +199,12 @@ function TaskManagerInner() {
     handleAssignResourceRole,
     handleAddDiscipline,
     handleRenameDiscipline,
+    onDeleteDiscipline,
+    onReorderDisciplines,
     handleAddGrade,
     handleRenameGrade,
+    onDeleteGrade,
+    onReorderGrades,
     handleSetUtilization,
     handleSetUtilizationMode,
     handleSetAbsenceOverride,
@@ -572,8 +576,12 @@ function TaskManagerInner() {
         onResolveOrCreateRole={resolveOrCreateRole}
         onAddDiscipline={handleAddDiscipline}
         onRenameDiscipline={handleRenameDiscipline}
+        onDeleteDiscipline={onDeleteDiscipline}
+        onReorderDisciplines={onReorderDisciplines}
         onAddGrade={handleAddGrade}
         onRenameGrade={handleRenameGrade}
+        onDeleteGrade={onDeleteGrade}
+        onReorderGrades={onReorderGrades}
         onCloseRolesModal={handleCloseRolesModal}
         toast={toast}
       />

@@ -682,6 +682,8 @@ export const de: Record<TranslationKey, string> = {
   resourcesWorkdayHours: "Stunden pro Arbeitstag",
   resourcesUnassignedRole: "keine Rolle",
 
+  reorderHint: "Zum Umsortieren ziehen",
+  rolesConfirmDeleteRef: "Eintrag entfernen? Rollen, die ihn verwenden, werden n/a mit Sätzen 0.",
   rolesManageTitle: "Rollen & Sätze",
   rolesRateCard: "Satztabelle",
   rolesDiscipline: "Disziplin",

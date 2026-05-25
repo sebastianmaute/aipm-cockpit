@@ -1,4 +1,4 @@
-import { describe, test, expect } from "vitest";
+import { describe, test, it, expect } from "vitest";
 import {
   seedDisciplines,
   seedGrades,
@@ -85,6 +85,10 @@ describe("roleLabel", () => {
     const role: Role = { id: 1, disciplineId: 2, gradeId: 3, internalRate: 0, externalRate: 0 };
     expect(roleLabel(role, disciplines, grades)).toBe("Developer Senior");
     expect(roleLabel(undefined, disciplines, grades)).toBe("");
+  });
+  it("renders an unresolved/sentinel dimension as n/a", () => {
+    const role = { id: 5, disciplineId: 0, gradeId: 2, internalRate: 0, externalRate: 0 };
+    expect(roleLabel(role as never, [], [{ id: 2, name: "Senior" }])).toBe("n/a Senior");
   });
 });
 

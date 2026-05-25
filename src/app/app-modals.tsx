@@ -82,8 +82,12 @@ export interface AppModalsProps {
   onResolveOrCreateRole: (disciplineId: number, gradeId: number) => number;
   onAddDiscipline: (name: string) => number | null;
   onRenameDiscipline: (id: number, name: string) => void;
+  onDeleteDiscipline: (id: number) => void;
+  onReorderDisciplines: (ids: number[]) => void;
   onAddGrade: (name: string) => number | null;
   onRenameGrade: (id: number, name: string) => void;
+  onDeleteGrade: (id: number) => void;
+  onReorderGrades: (ids: number[]) => void;
   onCloseRolesModal: () => void;
 
   // Toast
@@ -143,8 +147,12 @@ export function AppModals({
   onResolveOrCreateRole,
   onAddDiscipline,
   onRenameDiscipline,
+  onDeleteDiscipline,
+  onReorderDisciplines,
   onAddGrade,
   onRenameGrade,
+  onDeleteGrade,
+  onReorderGrades,
   onCloseRolesModal,
   toast,
 }: AppModalsProps) {
@@ -238,8 +246,12 @@ export function AppModals({
         onResolveOrCreateRole={onResolveOrCreateRole}
         onAddDiscipline={onAddDiscipline}
         onRenameDiscipline={onRenameDiscipline}
+        onDeleteDiscipline={onDeleteDiscipline}
+        onReorderDisciplines={onReorderDisciplines}
         onAddGrade={onAddGrade}
         onRenameGrade={onRenameGrade}
+        onDeleteGrade={onDeleteGrade}
+        onReorderGrades={onReorderGrades}
         onClose={onCloseRolesModal}
       />
 

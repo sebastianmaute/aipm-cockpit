@@ -12,7 +12,10 @@ function setup(over: Partial<React.ComponentProps<typeof RolesModal>> = {}) {
     lang: "en-US" as const, open: true, roles, disciplines, grades,
     onSaveRole: vi.fn(), onDeleteRole: vi.fn(), onResolveOrCreateRole: vi.fn(),
     onAddDiscipline: vi.fn(), onRenameDiscipline: vi.fn(),
-    onAddGrade: vi.fn(), onRenameGrade: vi.fn(), onClose: vi.fn(),
+    onDeleteDiscipline: vi.fn(), onReorderDisciplines: vi.fn(),
+    onAddGrade: vi.fn(), onRenameGrade: vi.fn(),
+    onDeleteGrade: vi.fn(), onReorderGrades: vi.fn(),
+    onClose: vi.fn(),
     ...over,
   };
   render(<RolesModal {...props} />);
@@ -37,4 +40,13 @@ test("adding a discipline calls onAddDiscipline with the typed name", () => {
   fireEvent.change(screen.getByPlaceholderText("Add discipline"), { target: { value: "QA" } });
   fireEvent.click(screen.getByRole("button", { name: "Add discipline" }));
   expect(props.onAddDiscipline).toHaveBeenCalledWith("QA");
+});
+
+test("clicking the delete button on a discipline calls onDeleteDiscipline with its id", () => {
+  vi.spyOn(window, "confirm").mockReturnValue(true);
+  const props = setup();
+  // Delete buttons: [0] = role row (rate-card), [1] = discipline RefList, [2] = grade RefList
+  const deleteButtons = screen.getAllByRole("button", { name: "Delete" });
+  fireEvent.click(deleteButtons[1]);
+  expect(props.onDeleteDiscipline).toHaveBeenCalledWith(1);
 });

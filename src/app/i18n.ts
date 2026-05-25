@@ -664,6 +664,8 @@ const enUS = {
   resourcesWorkdayHours: "Hours per work day",
   resourcesUnassignedRole: "no role",
 
+  reorderHint: "Drag to reorder",
+  rolesConfirmDeleteRef: "Remove this entry? Roles using it become n/a with zero rates.",
   rolesManageTitle: "Roles & rates",
   rolesRateCard: "Rate card",
   rolesDiscipline: "Discipline",

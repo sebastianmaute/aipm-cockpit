@@ -97,8 +97,8 @@ export function roleLabel(
   grades: ReadonlyArray<Grade>,
 ): string {
   if (!role) return "";
-  const d = disciplines.find((x) => x.id === role.disciplineId)?.name ?? "?";
-  const g = grades.find((x) => x.id === role.gradeId)?.name ?? "?";
+  const d = disciplines.find((x) => x.id === role.disciplineId)?.name ?? "n/a";
+  const g = grades.find((x) => x.id === role.gradeId)?.name ?? "n/a";
   return `${d} ${g}`;
 }
 
