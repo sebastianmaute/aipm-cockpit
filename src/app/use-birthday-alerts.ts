@@ -2,6 +2,7 @@
 import { type Dispatch, type SetStateAction, useEffect, useRef, useState } from "react";
 import { getUpcomingBirthdays } from "./birthdays";
 import { birthdayToastText } from "./notifications";
+import { getSnoozedUntil } from "./reminder-snooze";
 import type { Settings } from "./settings-menu";
 import type { Resource, Absence } from "./types";
 
@@ -41,6 +42,8 @@ export function useBirthdayAlerts({
     if (resources.length === 0) return;
     const cfg = settingsRef.current.notifications.birthday;
     if (!cfg.enabled) return;
+    const u = getSnoozedUntil("birthday");
+    if (u != null && Date.now() < u) { notifiedThisSessionRef.current = true; return; }
     notifiedThisSessionRef.current = true;
     const items = getUpcomingBirthdays(resources, todayRef.current, settingsRef.current.notifications.reminderLeadDays, holidaySetRef.current, absencesRef.current);
     const lang = settingsRef.current.language;

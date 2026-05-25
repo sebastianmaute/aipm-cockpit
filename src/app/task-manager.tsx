@@ -43,6 +43,7 @@ import { BirthdayBanner, DueBanner } from "./notifications";
 import { WorkspaceSection } from "./workspace-section";
 import { getUpcomingBirthdays } from "./birthdays";
 import { useBirthdayAlerts } from "./use-birthday-alerts";
+import { useReminderSnooze } from "./use-reminder-snooze";
 
 // i18n key for each tab's label — used by both the tab strip and the
 // popout window's document.title. Adding a new tab requires a row here.
@@ -158,6 +159,9 @@ function TaskManagerInner() {
   const { birthdayDismissed, setBirthdayDismissed } = useBirthdayAlerts({
     hydrated, resources, today, settings, holidaySet, absences, showToast,
   });
+
+  const dueSnooze = useReminderSnooze("due");
+  const birthdaySnooze = useReminderSnooze("birthday");
 
   // --- RAID CRUD handlers ---------------------------------------------
   //
@@ -431,17 +435,18 @@ function TaskManagerInner() {
         />
       )}
 
-      {!isPopout && !bannerDismissed && (
+      {!isPopout && !bannerDismissed && !dueSnooze.isSnoozed && (
         <DueBanner
           items={bannerItems}
           lang={lang}
           onOpenList={() => setDueModalOpen(true)}
           onDismiss={() => setBannerDismissed(true)}
+          onSnooze={dueSnooze.snooze}
         />
       )}
 
-      {!isPopout && !birthdayDismissed && birthdayItems.length > 0 && (
-        <BirthdayBanner items={birthdayItems} lang={lang} onDismiss={() => setBirthdayDismissed(true)} />
+      {!isPopout && !birthdaySnooze.isSnoozed && !birthdayDismissed && birthdayItems.length > 0 && (
+        <BirthdayBanner items={birthdayItems} lang={lang} onDismiss={() => setBirthdayDismissed(true)} onSnooze={birthdaySnooze.snooze} />
       )}
 
       <WorkspaceSection

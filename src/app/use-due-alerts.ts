@@ -9,6 +9,7 @@ import {
 } from "react";
 import { getAlertableTasks } from "./due-dates";
 import { dueAlertsToastText } from "./notifications";
+import { getSnoozedUntil } from "./reminder-snooze";
 import type { Settings } from "./settings-menu";
 import type { Task, Absence } from "./types";
 
@@ -66,10 +67,13 @@ export function useDueAlerts({
     if (tasks.length === 0) return;
     notifiedThisSessionRef.current = true;
 
+    const u = getSnoozedUntil("due");
+    const snoozed = u != null && Date.now() < u;
+
     const { toast: toastCfg, popup: popupCfg } =
       settingsRef.current.notifications;
 
-    const toastItems = toastCfg.enabled
+    const toastItems = toastCfg.enabled && !snoozed
       ? getAlertableTasks(
           tasks,
           settingsRef.current.notifications.reminderLeadDays,
@@ -79,7 +83,7 @@ export function useDueAlerts({
         )
       : [];
 
-    const popupItems = popupCfg.enabled
+    const popupItems = popupCfg.enabled && !snoozed
       ? getAlertableTasks(
           tasks,
           settingsRef.current.notifications.reminderLeadDays,

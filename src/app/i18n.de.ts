@@ -755,6 +755,9 @@ export const de: Record<TranslationKey, string> = {
   taskAddAssigneeToAddressBook: "Zum Adressbuch hinzufügen",
 
   reminderLeadDays: "Tage im Voraus",
+  reminderSnooze: "Erinnern",
+  reminderSnooze1h: "In 1 Stunde",
+  reminderSnooze1d: "In 1 Tag",
   notifBirthday: "Geburtstagserinnerungen",
   birthdayBannerAria: "Bevorstehende Geburtstage",
   birthdayBannerTitle: "{0} bevorstehende Geburtstage",

@@ -737,6 +737,9 @@ const enUS = {
   taskAddAssigneeToAddressBook: "Add to address book",
 
   reminderLeadDays: "Days ahead",
+  reminderSnooze: "Snooze",
+  reminderSnooze1h: "In 1 hour",
+  reminderSnooze1d: "In 1 day",
   notifBirthday: "Birthday reminders",
   birthdayBannerAria: "Upcoming birthdays",
   birthdayBannerTitle: "{0} upcoming birthday(s)",
