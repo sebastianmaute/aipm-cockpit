@@ -747,6 +747,9 @@ const enUS = {
   birthdayToday: "today",
   birthdayInDays: "in {0}d",
   birthdayToast: "🎂 {0} upcoming birthday(s)",
+
+  directorySearchPlaceholder: "Filter by name, title, department, email…",
+  sortBy: "Sort by {0}",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;

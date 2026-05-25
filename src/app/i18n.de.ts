@@ -765,4 +765,7 @@ export const de: Record<TranslationKey, string> = {
   birthdayToday: "heute",
   birthdayInDays: "in {0} T",
   birthdayToast: "🎂 {0} bevorstehende Geburtstage",
+
+  directorySearchPlaceholder: "Nach Name, Titel, Abteilung, E-Mail filtern…",
+  sortBy: "Sortieren nach {0}",
 };
