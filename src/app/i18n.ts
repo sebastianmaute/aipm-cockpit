@@ -733,6 +733,9 @@ const enUS = {
   resourcesUnlinked: "Unlinked",
   resourcesUnlinkedHint: "Not in the address book",
   resourcesAddAsResource: "Add as resource",
+
+  resourcesAddressBookTitle: "Address Book",
+  resourcesOpenAddressBook: "Open address book",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;

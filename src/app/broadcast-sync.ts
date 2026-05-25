@@ -98,6 +98,7 @@ export const POPOUT_TABS = [
   "resources",
   "activity",
   "resource-report",
+  "address-book",
 ] as const;
 export type PopoutTab = (typeof POPOUT_TABS)[number];
 

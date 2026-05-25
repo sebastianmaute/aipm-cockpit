@@ -50,6 +50,7 @@ const TAB_LABEL_KEYS: Record<TopTab, TranslationKey> = {
   resources: "tabResources",
   activity: "tabActivity",
   "resource-report": "resourcesReportTitle",
+  "address-book": "resourcesAddressBookTitle",
 };
 
 function todayISO() {

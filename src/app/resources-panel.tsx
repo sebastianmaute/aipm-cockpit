@@ -71,6 +71,7 @@ interface Props {
   onSetPlanGranularity: (granularity: "week" | "month") => void;
   onEditResource: (resource: Resource) => void;
   onAddResource: (seed?: Partial<Resource>) => void;
+  onOpenAddressBook?: () => void;
 }
 
 type View = "directory" | "workload" | "calendar" | "planning";
@@ -137,6 +138,7 @@ function ResourcesPanelInner({
   onSetPlanGranularity,
   onEditResource,
   onAddResource,
+  onOpenAddressBook,
 }: Props) {
   const [view, setView] = useState<View>("directory");
   const [showRollup, setShowRollup] = useState(false);
@@ -423,6 +425,7 @@ function ResourcesPanelInner({
           onAssignRole={onAssignRole}
           onEditResource={onEditResource}
           onAddResource={onAddResource}
+          onOpenAddressBook={onOpenAddressBook}
         />
       )}
       {view === "workload" && !isEmpty && (

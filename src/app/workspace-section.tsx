@@ -40,6 +40,7 @@ const ResourcesReportPanel = dynamic(
   () => import("./resources-report").then((m) => m.ResourcesReportPanel),
   { ssr: false },
 );
+import { ResourceDirectory } from "./resource-directory";
 
 export interface WorkspaceSectionProps {
   today: string;
@@ -363,6 +364,7 @@ export function WorkspaceSection({
               onSetPlanWindow={onSetPlanWindow}
               onSetPlanGranularity={onSetPlanGranularity}
               onOpenReport={() => openPopoutWindow("resource-report", settings.popout.reuseWindow)}
+              onOpenAddressBook={() => openPopoutWindow("address-book", settings.popout.reuseWindow)}
               onEditResource={onEditResource}
               onAddResource={onAddResource}
             />
@@ -389,6 +391,21 @@ export function WorkspaceSection({
               lang={lang} resources={resources} roles={roles} disciplines={disciplines}
               grades={grades} plan={plan} absences={absences} holidaySet={holidaySet}
               workdayHours={settings.resources.workdayHours} />
+          </div>
+        )}
+
+        {activeTab === "address-book" && (
+          <div id="panel-address-book" role="tabpanel" className="min-h-0 flex-1 overflow-y-auto pt-4">
+            <ResourceDirectory
+              lang={lang}
+              resources={resources}
+              roles={roles}
+              disciplines={disciplines}
+              grades={grades}
+              onAssignRole={onAssignRole}
+              onEditResource={onEditResource}
+              onAddResource={onAddResource}
+            />
           </div>
         )}
       </div>

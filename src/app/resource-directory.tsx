@@ -18,6 +18,7 @@ interface Props {
   onAssignRole: (resourceId: number, disciplineId: number, gradeId: number) => void;
   onEditResource: (resource: Resource) => void;
   onAddResource: () => void;
+  onOpenAddressBook?: () => void;
 }
 
 // Inline discipline + grade selects for a single directory row.
@@ -98,6 +99,7 @@ function ResourceDirectoryInner({
   onAssignRole,
   onEditResource,
   onAddResource,
+  onOpenAddressBook,
 }: Props) {
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -109,6 +111,15 @@ function ResourceDirectoryInner({
         >
           {t(lang, "resourcesAddResource")}
         </button>
+        {onOpenAddressBook && (
+          <button
+            type="button"
+            onClick={onOpenAddressBook}
+            className="rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-xs font-medium text-AIPM-dark-grey shadow-sm hover:border-AIPM-dark-blue hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-AIPM-light-grey dark:hover:bg-zinc-800"
+          >
+            {t(lang, "resourcesOpenAddressBook")}
+          </button>
+        )}
       </div>
       {resources.length === 0 ? (
         <div className="mt-3 flex-1 rounded-md border border-dashed border-zinc-300 p-6 text-center text-sm text-AIPM-medium-grey dark:border-zinc-800">

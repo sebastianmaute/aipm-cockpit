@@ -751,4 +751,7 @@ export const de: Record<TranslationKey, string> = {
   resourcesUnlinked: "Nicht zugeordnet",
   resourcesUnlinkedHint: "Nicht im Verzeichnis",
   resourcesAddAsResource: "Als Ressource hinzufügen",
+
+  resourcesAddressBookTitle: "Adressbuch",
+  resourcesOpenAddressBook: "Adressbuch öffnen",
 };

@@ -18,4 +18,12 @@ describe("ResourceDirectory", () => {
     fireEvent.click(screen.getByRole("button", { name: /add resource/i }));
     expect(onAdd).toHaveBeenCalled();
   });
+  it("renders Open address book button only when the handler is provided", () => {
+    const onOpen = vi.fn();
+    const { rerender } = render(<ResourceDirectory lang="en-US" resources={rs} roles={[]} disciplines={[]} grades={[]} onAssignRole={vi.fn()} onEditResource={vi.fn()} onAddResource={vi.fn()} />);
+    expect(screen.queryByRole("button", { name: /open address book/i })).toBeNull();
+    rerender(<ResourceDirectory lang="en-US" resources={rs} roles={[]} disciplines={[]} grades={[]} onAssignRole={vi.fn()} onEditResource={vi.fn()} onAddResource={vi.fn()} onOpenAddressBook={onOpen} />);
+    fireEvent.click(screen.getByRole("button", { name: /open address book/i }));
+    expect(onOpen).toHaveBeenCalled();
+  });
 });
