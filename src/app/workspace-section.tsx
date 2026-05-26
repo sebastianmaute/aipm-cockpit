@@ -122,17 +122,12 @@ export function WorkspaceSection({
   return (
     <section
       ref={workspaceRef}
-      title={
-        isPopout || workspaceCollapsed
-          ? undefined
-          : t(lang, "workspaceResizeHint")
-      }
       className={
         isPopout
           ? "flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950"
           : workspaceCollapsed
           ? "mb-10 flex w-full flex-col rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950"
-          : "mb-10 flex h-[560px] min-h-[420px] w-full min-w-[520px] resize flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950"
+          : "relative mb-10 flex h-[560px] min-h-[420px] w-full min-w-[520px] resize flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950"
       }
     >
       {!isPopout && (
@@ -409,6 +404,15 @@ export function WorkspaceSection({
           </div>
         )}
       </div>
+      {!isPopout && !workspaceCollapsed && (
+        <span
+          aria-hidden={true}
+          title={t(lang, "workspaceResizeHint")}
+          className="pointer-events-none absolute bottom-1 right-1 select-none text-zinc-300 dark:text-zinc-600"
+        >
+          ⠿
+        </span>
+      )}
     </section>
   );
 }
