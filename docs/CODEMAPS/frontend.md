@@ -61,7 +61,7 @@ prerendered.
 | `search` + `searchDebounced` + `taskSearchIndex` | 150 ms search debounce + precomputed lowercase index |
 | `selectedIds`, `bulkEdit`, `expandedNotes` | Per-session UI only |
 | `activeTab` | `"chat"` \| `"reports"` \| `"gantt"` \| `"raid"` \| `"budget"` \| `"resources"` \| `"activity"` \| `"resource-report"` \| `"address-book"` (last two are popout-only) |
-| `budgets: BudgetBucket[]`, `fxRates: FxRateCache` | Persisted via `StorageBackend.save()`; lives in `WorkspaceContext`; `fxRates` refreshed on mount via `useFxRates` |
+| `budgets: BudgetBucket[]`, `fxRates: FxRates \| null` | Persisted via `StorageBackend.save()`; lives in `WorkspaceContext`; `fxRates` refreshed on demand via `useFxRates` (Refresh ECB rates button) |
 | `dueSnooze` / `birthdaySnooze` / `jiraTokenSnooze` | `useReminderSnooze("due")` / `useReminderSnooze("birthday")` / `useReminderSnooze("jiraToken")` — each yields `{ isSnoozed, snoozedUntil, snooze, clear }`; banners are gated on `!isSnoozed` |
 | `raidFilterTaskId` | Cross-tab nav: jump from a task row to RAID pre-filtered for that task |
 | `workspaceCollapsed`, `taskModalOpen`, `absenceDraft`, `shiftDraft` | Modal / collapse state |
