@@ -18,6 +18,14 @@ import {
   type Discipline,
   type Grade,
   type UtilizationMode,
+  type BudgetBucket,
+  type BucketAllocation,
+  type BudgetType,
+  type BucketStatus,
+  type FxRates,
+  BUDGET_TYPES,
+  SUPPORTED_CURRENCIES,
+  isBudgetCurrency,
 } from "./types";
 import { defaultResourcePlan, splitName } from "./resource-foundation";
 
@@ -607,4 +615,137 @@ export function sanitizePlan(input: unknown, today: string): ResourcePlan {
   }
   const [s, e] = endDate < startDate ? [endDate, startDate] : [startDate, endDate];
   return { startDate: s, endDate: e, granularity, currency };
+}
+
+// --- Budget planner sanitizers ---------------------------------------------
+
+const BUDGET_NAME_MAX = 200;
+const PO_NUMBER_MAX = 64;
+const AMOUNT_MAX = 1_000_000_000;
+const BUDGET_TYPE_SET: ReadonlySet<BudgetType> = new Set(BUDGET_TYPES);
+
+function sanitizeAmount(n: unknown): number | undefined {
+  const num = typeof n === "number" ? n : Number(n);
+  if (!Number.isFinite(num) || num < 0) return undefined;
+  return Math.min(AMOUNT_MAX, Math.round(num * 100) / 100);
+}
+
+function sanitizeIdList(input: unknown): number[] {
+  let arr: unknown[];
+  if (Array.isArray(input)) arr = input;
+  else if (typeof input === "string") arr = input.split(".");
+  else return [];
+  const out: number[] = [];
+  const seen = new Set<number>();
+  for (const item of arr) {
+    const n = typeof item === "number" ? item : Number(String(item).trim());
+    if (Number.isFinite(n) && n > 0 && !seen.has(n)) { seen.add(n); out.push(n); }
+  }
+  return out;
+}
+
+// Allocation text encoding (CSV/MD-safe). One allocation =
+//   roleId ; resourceIds(.-joined) ; budgetHours(periodmap) ; actualHours(periodmap)
+// Allocations joined by "~". Period maps reuse encode/decodePeriodMap ("k=v|k=v").
+export function encodeAllocations(allocs: readonly BucketAllocation[] | undefined): string {
+  if (!Array.isArray(allocs) || allocs.length === 0) return "";
+  return allocs
+    .map((a) =>
+      [a.roleId, a.resourceIds.join("."), encodePeriodMap(a.budgetHours), encodePeriodMap(a.actualHours)].join(";"),
+    )
+    .join("~");
+}
+
+export function decodeAllocations(s: unknown): BucketAllocation[] {
+  if (typeof s !== "string" || !s) return [];
+  const out: BucketAllocation[] = [];
+  for (const part of s.split("~")) {
+    if (!part.trim()) continue;
+    const [roleIdStr = "", idsStr = "", budgetStr = "", actualStr = ""] = part.split(";");
+    const roleId = Number(roleIdStr);
+    if (!Number.isFinite(roleId) || roleId <= 0) continue;
+    out.push({
+      roleId,
+      resourceIds: sanitizeIdList(idsStr),
+      budgetHours: decodePeriodMap(budgetStr),
+      actualHours: decodePeriodMap(actualStr),
+    });
+  }
+  return out;
+}
+
+function sanitizeAllocation(input: unknown): BucketAllocation | null {
+  if (!isPlainObject(input)) return null;
+  const roleId = Number(input.roleId);
+  if (!Number.isFinite(roleId) || roleId <= 0) return null;
+  return {
+    roleId,
+    resourceIds: sanitizeIdList(input.resourceIds),
+    budgetHours: coercePeriodMap(input.budgetHours, HOURS_MAP_MAX),
+    actualHours: coercePeriodMap(input.actualHours, HOURS_MAP_MAX),
+  };
+}
+
+function sanitizeAllocations(input: unknown): BucketAllocation[] {
+  if (typeof input === "string") return decodeAllocations(input);
+  if (!Array.isArray(input)) return [];
+  return input.map(sanitizeAllocation).filter((a): a is BucketAllocation => a !== null);
+}
+
+export function sanitizeBudgetBucket(input: unknown): BudgetBucket | null {
+  if (!isPlainObject(input)) return null;
+  const id = Number(input.id);
+  if (!Number.isFinite(id) || id <= 0) return null;
+  const name = sanitizeText(input.name, BUDGET_NAME_MAX);
+  if (!name) return null;
+
+  const type: BudgetType =
+    typeof input.type === "string" && BUDGET_TYPE_SET.has(input.type as BudgetType)
+      ? (input.type as BudgetType)
+      : "tm";
+  const currency = isBudgetCurrency(input.currency) ? input.currency : SUPPORTED_CURRENCIES[0];
+  const status: BucketStatus = input.status === "closed" ? "closed" : "open";
+
+  const startDate = sanitizeIsoDate(input.startDate);
+  const endDate = sanitizeIsoDate(input.endDate);
+  const [start, end] = startDate && endDate && endDate < startDate ? [endDate, startDate] : [startDate, endDate];
+
+  const bucket: BudgetBucket = {
+    id, name, type, currency,
+    startDate: start, endDate: end,
+    status,
+    allocations: sanitizeAllocations(input.allocations),
+  };
+  const po = sanitizeText(input.poNumber, PO_NUMBER_MAX); if (po) bucket.poNumber = po;
+  if (type === "fixed") {
+    const amt = sanitizeAmount(input.fixedPriceAmount);
+    if (amt !== undefined) bucket.fixedPriceAmount = amt;
+  }
+  const succ = Number(input.successorId);
+  if (Number.isFinite(succ) && succ > 0 && succ !== id) bucket.successorId = succ;
+  if (status === "closed") {
+    const cd = sanitizeIsoDate(input.closedDate);
+    if (cd) bucket.closedDate = cd;
+  }
+  const fx = sanitizeAmount(input.fxRateOverride);
+  if (fx !== undefined && fx > 0) bucket.fxRateOverride = fx;
+  if (typeof input.localModifiedAt === "string" && input.localModifiedAt) bucket.localModifiedAt = input.localModifiedAt;
+  return bucket;
+}
+
+export function sanitizeFxRates(input: unknown): FxRates | null {
+  if (!isPlainObject(input)) return null;
+  if (input.base !== "EUR") return null;
+  const date = sanitizeIsoDate(input.date);
+  if (!date) return null;
+  const fetchedAt = typeof input.fetchedAt === "string" && input.fetchedAt ? input.fetchedAt : "";
+  if (!fetchedAt) return null;
+  const ratesIn = isPlainObject(input.rates) ? input.rates : {};
+  const rates: Record<string, number> = {};
+  for (const code of SUPPORTED_CURRENCIES) {
+    const n = Number((ratesIn as Record<string, unknown>)[code]);
+    if (Number.isFinite(n) && n > 0) rates[code] = Math.round(n * 1e6) / 1e6;
+  }
+  rates.EUR = 1;
+  return { base: "EUR", date, fetchedAt, rates };
 }
