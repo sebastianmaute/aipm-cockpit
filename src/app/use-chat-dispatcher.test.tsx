@@ -89,7 +89,10 @@ function seedTasks(): Task[] {
   ];
 }
 
-function renderDispatcher(initial: Task[] = seedTasks()) {
+function renderDispatcher(
+  initial: Task[] = seedTasks(),
+  isReadOnly = false,
+) {
   const setSelectedIds = vi.fn();
   const setSettings = vi.fn();
   const settings = makeSettings();
@@ -103,6 +106,7 @@ function renderDispatcher(initial: Task[] = seedTasks()) {
         today: "2026-05-19",
         setSelectedIds,
         setSettings,
+        isReadOnly,
       }),
     { wrapper },
   );
@@ -280,6 +284,7 @@ describe("useChatDispatcher", () => {
         today: "2026-05-19",
         setSelectedIds: vi.fn(),
         setSettings: vi.fn(),
+        isReadOnly: false,
       });
       const form = useTaskForm();
       return { dispatcher, form };
@@ -293,5 +298,63 @@ describe("useChatDispatcher", () => {
     });
     const after = result.current.dispatcher;
     expect(after).toBe(before);
+  });
+});
+
+describe("useChatDispatcher – read-only (popout) mode", () => {
+  it("refuses createTask in read-only mode and does not mutate", () => {
+    const { result } = renderDispatcher([], true);
+    expect(() =>
+      result.current.createTask({
+        taskName: "X",
+        assignee: "Y",
+        dueDate: "2026-06-01",
+      }),
+    ).toThrow();
+    expect(result.current.listTasks()).toHaveLength(0);
+  });
+
+  it("refuses updateTask in read-only mode", () => {
+    const { result } = renderDispatcher(seedTasks(), true);
+    expect(() => result.current.updateTask(1, { priority: "Urgent" })).toThrow();
+    expect(result.current.getTask(1)?.priority).toBe("Medium");
+  });
+
+  it("refuses deleteTask in read-only mode", () => {
+    const { result } = renderDispatcher(seedTasks(), true);
+    expect(() => result.current.deleteTask(1)).toThrow();
+    expect(result.current.listTasks()).toHaveLength(3);
+  });
+
+  it("refuses deleteAllTasks in read-only mode", () => {
+    const { result } = renderDispatcher(seedTasks(), true);
+    expect(() => result.current.deleteAllTasks()).toThrow();
+    expect(result.current.listTasks()).toHaveLength(3);
+  });
+
+  it("sendInquiry returns a read-only refusal in read-only mode and does not mutate", () => {
+    const { result } = renderDispatcher(seedTasks(), true);
+    const res = result.current.sendInquiry(1);
+    expect(res).toEqual({ sent: false, reason: "read-only" });
+    expect(result.current.getTask(1)?.inquiriesSent).toBe(0);
+  });
+
+  it("allows createTask when not read-only", () => {
+    const { result } = renderDispatcher([], false);
+    const created = result.current.createTask({
+      taskName: "X",
+      assignee: "Y",
+      dueDate: "2026-06-01",
+    });
+    expect(created.taskName).toBe("X");
+    expect(result.current.listTasks()).toHaveLength(1);
+  });
+
+  it("read/view tools remain enabled in read-only mode", () => {
+    const { result } = renderDispatcher(seedTasks(), true);
+    expect(() => result.current.listTasks()).not.toThrow();
+    expect(() => result.current.getTask(1)).not.toThrow();
+    expect(() => result.current.getSnapshot()).not.toThrow();
+    expect(() => result.current.setFilters({ search: "x" })).not.toThrow();
   });
 });

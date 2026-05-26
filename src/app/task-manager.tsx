@@ -391,6 +391,7 @@ function TaskManagerInner() {
     today,
     setSelectedIds,
     setSettings,
+    isReadOnly: isPopout,
   });
 
   const handleAcceptAiConsent = useCallback(() => {

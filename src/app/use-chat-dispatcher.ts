@@ -35,6 +35,9 @@ export interface ChatDispatcherArgs {
   today: string;
   setSelectedIds: Dispatch<SetStateAction<Set<number>>>;
   setSettings: Dispatch<SetStateAction<Settings>>;
+  /** True in a popout/mirror window — mutating tools are refused so chat edits
+   *  can't be silently lost (popouts neither persist nor broadcast). */
+  isReadOnly: boolean;
 }
 
 export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
@@ -74,6 +77,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   // (Hoisted as useCallback for Tasks 3/5 ergonomics; other stubs stay inline.)
   const sendInquiry = useCallback(
     (id: number): { sent: boolean; reason?: string } => {
+      if (args.isReadOnly) return { sent: false, reason: "read-only" };
       const task = tasksRef.current.find((row) => row.id === id);
       if (!task) return { sent: false, reason: "task-not-found" };
       let email = task.assigneeEmail?.trim();
@@ -103,7 +107,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
       setTasks(next);
       return { sent: true };
     },
-    [setTasks],
+    [args.isReadOnly, setTasks],
   );
   const applyFilters = useCallback(
     (f: Filters): void => {
@@ -130,6 +134,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
       listTasks: () => tasksRef.current,
       getTask: (id) => tasksRef.current.find((row) => row.id === id) ?? null,
       createTask: (input) => {
+        if (args.isReadOnly) throw new Error(t(settingsRef.current.language, "popoutReadOnly"));
         const list = tasksRef.current;
         const id =
           list.length > 0 ? Math.max(...list.map((row) => row.id)) + 1 : 1;
@@ -163,6 +168,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         return newTask;
       },
       updateTask: (id, patch) => {
+        if (args.isReadOnly) throw new Error(t(settingsRef.current.language, "popoutReadOnly"));
         const existing = tasksRef.current.find((row) => row.id === id);
         if (!existing) return null;
         // Jira-managed fields can't be changed locally on linked tasks.
@@ -235,6 +241,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         return merged;
       },
       deleteTask: (id) => {
+        if (args.isReadOnly) throw new Error(t(settingsRef.current.language, "popoutReadOnly"));
         const exists = tasksRef.current.some((row) => row.id === id);
         if (!exists) return false;
         // Mirror handleDelete's cascade: strip references to the deleted id
@@ -267,6 +274,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         return true;
       },
       deleteAllTasks: () => {
+        if (args.isReadOnly) throw new Error(t(settingsRef.current.language, "popoutReadOnly"));
         const count = tasksRef.current.length;
         tasksRef.current = [];
         setTasks([]);
@@ -306,7 +314,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
     // ref-routing; the eslint-disable stays as long as the empty-deps approach
     // is intentional.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [],
+    [args.isReadOnly],
   );
 
   return dispatcher;
