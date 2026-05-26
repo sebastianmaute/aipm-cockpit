@@ -52,8 +52,12 @@ export type Workspace = {
   disciplines: Discipline[];
   grades: Grade[];
   plan: ResourcePlan;
-  budgets: BudgetBucket[];
-  fxRates: FxRates | null;
+  /** Budget planner buckets. Optional so older saved files and existing
+   *  Workspace literals still satisfy the type; every load path defaults to
+   *  [] (see migrateWorkspaceV6). */
+  budgets?: BudgetBucket[];
+  /** Cached ECB rate table; null/absent until first fetched. */
+  fxRates?: FxRates | null;
 };
 
 const SCHEMA_VERSION = 6;
