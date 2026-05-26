@@ -21,3 +21,10 @@ export function shortDateRange(a: Absence, lang: Lang): string {
   if (sameDay) return start.toLocaleDateString(loc, fmt);
   return `${start.toLocaleDateString(loc, fmt)}–${end.toLocaleDateString(loc, fmt)}`;
 }
+
+/** Formats a "YYYY-MM-DD" date for display in the active language; returns the input if unparseable. */
+export function formatExpiryDate(isoDate: string, lang: Lang): string {
+  const d = new Date(`${isoDate}T12:00:00`);
+  if (Number.isNaN(d.valueOf())) return isoDate;
+  return d.toLocaleDateString(localeFor(lang), { year: "numeric", month: "short", day: "2-digit" });
+}
