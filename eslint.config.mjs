@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Generated coverage report + ephemeral agent git worktrees (both
+    // git-ignored). Linting them surfaces stale/generated code that isn't ours.
+    "coverage/**",
+    ".claude/**",
   ]),
 ]);
 
