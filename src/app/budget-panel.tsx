@@ -171,14 +171,14 @@ export function BudgetPanel(props: BudgetPanelProps) {
                               <input
                                 aria-label={`budget-${bucket.id}-${a.roleId}-${p.key}`}
                                 type="number"
-                                defaultValue={a.budgetHours[p.key] ?? ""}
+                                value={a.budgetHours[p.key] ?? ""}
                                 onChange={(e) => setCell(bucket.id, a.roleId, p.key, "budgetHours", Number(e.target.value) || 0)}
                                 className="w-16 rounded border border-zinc-200 bg-white px-1 text-right dark:border-zinc-700 dark:bg-zinc-900"
                               />
                               <input
                                 aria-label={`actual-${bucket.id}-${a.roleId}-${p.key}`}
                                 type="number"
-                                defaultValue={a.actualHours[p.key] ?? ""}
+                                value={a.actualHours[p.key] ?? ""}
                                 onChange={(e) => setCell(bucket.id, a.roleId, p.key, "actualHours", Number(e.target.value) || 0)}
                                 className="w-16 rounded border border-zinc-200 bg-zinc-50 px-1 text-right dark:border-zinc-700 dark:bg-zinc-800"
                               />
