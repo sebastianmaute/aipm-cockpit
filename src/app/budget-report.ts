@@ -241,3 +241,36 @@ export function computeBudgetReport(
   };
   return { buckets: reports, project };
 }
+
+export type BucketReminder = {
+  bucket: BudgetBucket;
+  category: "overdue" | "today" | "soon";
+  daysLeft: number; // negative when overdue
+};
+
+function daysBetween(fromIso: string, toIso: string): number {
+  const a = new Date(`${fromIso}T00:00:00Z`).getTime();
+  const b = new Date(`${toIso}T00:00:00Z`).getTime();
+  return Math.round((b - a) / 86400000);
+}
+
+/**
+ * Open buckets whose end date is overdue, today, or within `leadDays` calendar
+ * days of `today`. Sorted by end date ascending. Closed buckets are skipped.
+ */
+export function getBucketReminders(
+  buckets: readonly BudgetBucket[],
+  leadDays: number,
+  today: string,
+): BucketReminder[] {
+  const out: BucketReminder[] = [];
+  for (const bucket of buckets) {
+    if (bucket.status === "closed" || !bucket.endDate) continue;
+    const left = daysBetween(today, bucket.endDate);
+    if (left < 0) out.push({ bucket, category: "overdue", daysLeft: left });
+    else if (left === 0) out.push({ bucket, category: "today", daysLeft: 0 });
+    else if (left <= leadDays) out.push({ bucket, category: "soon", daysLeft: left });
+  }
+  out.sort((a, b) => a.bucket.endDate.localeCompare(b.bucket.endDate));
+  return out;
+}
