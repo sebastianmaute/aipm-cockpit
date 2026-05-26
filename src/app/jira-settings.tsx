@@ -6,6 +6,7 @@ import {
   type JiraIssueType,
   type JiraProject,
   type JiraUser,
+  classifyJiraError,
   formatJiraError,
   listIssueTypes,
   listProjects,
@@ -126,6 +127,7 @@ export function JiraSettingsSection({
         kind: "ok",
         message: t(lang, "jiraConnectedAs", me.displayName),
       });
+      onChange({ ...config, tokenInvalidAt: undefined });
       // Auto-load projects after a successful test.
       try {
         const list = await listProjects(creds);
@@ -135,6 +137,9 @@ export function JiraSettingsSection({
       }
     } catch (err) {
       setStatus({ kind: "err", message: formatJiraError(err) });
+      if (classifyJiraError(err) === "auth") {
+        onChange({ ...config, tokenInvalidAt: new Date().toISOString() });
+      }
     }
   }
 
@@ -263,6 +268,18 @@ export function JiraSettingsSection({
               >
                 {t(lang, "jiraApiTokenLink")} ↗
               </a>
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs text-AIPM-medium-grey">
+                {t(lang, "jiraTokenExpires")}
+              </span>
+              <input
+                type="date"
+                className={inputClass}
+                value={config.tokenExpiresAt ?? ""}
+                onChange={(e) => onChange({ ...config, tokenExpiresAt: e.target.value })}
+              />
+              <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{t(lang, "jiraTokenExpiresHint")}</p>
             </label>
 
             <div className="flex items-center gap-2">
