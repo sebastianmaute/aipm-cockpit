@@ -130,7 +130,7 @@ describe("loadContacts", () => {
 
   it("returns empty object when window is undefined", () => {
     const originalWindow = global.window;
-    // @ts-ignore
+    // @ts-expect-error -- forcing window undefined to exercise the SSR path
     global.window = undefined;
     const result = loadContacts();
     global.window = originalWindow;
@@ -306,7 +306,7 @@ describe("saveContacts", () => {
 
   it("does nothing when window is undefined", () => {
     const originalWindow = global.window;
-    // @ts-ignore
+    // @ts-expect-error -- forcing window undefined to exercise the SSR path
     global.window = undefined;
     const contacts: ContactsMap = {
       alice: { name: "Alice", email: "alice@example.com" },

@@ -422,7 +422,7 @@ describe("computeTaskHealth", () => {
 
     it("handles task with undefined dueDate", () => {
       const task = createTask({
-        dueDate: undefined as any, // explicitly undefined
+        dueDate: undefined as unknown as string, // explicitly undefined
       });
 
       const health = computeTaskHealth(task, today, holidays);
