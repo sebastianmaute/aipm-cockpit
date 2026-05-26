@@ -33,7 +33,8 @@ import { TasksSection } from "./tasks-section";
 import { useResizable } from "./use-resizable";
 import { WorkspaceTabProvider, useWorkspaceTab, type TopTab } from "./workspace-tab-context";
 import { AppHeader } from "./app-header";
-import { BirthdayBanner, DueBanner } from "./notifications";
+import { BirthdayBanner, DueBanner, JiraTokenBanner } from "./notifications";
+import { getJiraTokenAlert } from "./jira-token-status";
 import { WorkspaceSection } from "./workspace-section";
 import { getUpcomingBirthdays } from "./birthdays";
 import { useBirthdayAlerts } from "./use-birthday-alerts";
@@ -151,6 +152,12 @@ function TaskManagerInner() {
 
   const dueSnooze = useReminderSnooze("due");
   const birthdaySnooze = useReminderSnooze("birthday");
+  const jiraTokenSnooze = useReminderSnooze("jiraToken");
+  const [jiraTokenDismissed, setJiraTokenDismissed] = useState(false);
+  const jiraTokenAlert = useMemo(
+    () => getJiraTokenAlert(settings.jira, today, settings.notifications.reminderLeadDays),
+    [settings.jira, today, settings.notifications.reminderLeadDays],
+  );
 
   // --- RAID CRUD handlers ---------------------------------------------
   //
@@ -164,6 +171,8 @@ function TaskManagerInner() {
     lang,
     showToast,
     logActivity,
+    onJiraAuthResult: (ok: boolean) =>
+      setSettings((s) => ({ ...s, jira: { ...s.jira, tokenInvalidAt: ok ? undefined : new Date().toISOString() } })),
   });
 
   const { storageDescription, storageReady, onPickStorageFile, onGrantWriteAccess, onOpenStorageFile } =
@@ -452,6 +461,15 @@ function TaskManagerInner() {
 
       {!isPopout && !birthdaySnooze.isSnoozed && !birthdayDismissed && birthdayItems.length > 0 && (
         <BirthdayBanner items={birthdayItems} lang={lang} onDismiss={() => setBirthdayDismissed(true)} onSnooze={birthdaySnooze.snooze} />
+      )}
+
+      {!isPopout && jiraTokenAlert && !jiraTokenSnooze.isSnoozed && !jiraTokenDismissed && (
+        <JiraTokenBanner
+          alert={jiraTokenAlert}
+          lang={lang}
+          onSnooze={jiraTokenSnooze.snooze}
+          onDismiss={() => setJiraTokenDismissed(true)}
+        />
       )}
 
       <WorkspaceSection
