@@ -21,6 +21,8 @@ export interface SegmentedControlProps<T extends string> {
   onChange: (value: T) => void;
   disabled?: boolean;
   ariaLabel?: string;
+  /** Tooltip text for the whole control (rendered as the radiogroup's title). */
+  title?: string;
   /** Extra classes for the wrapper (e.g. `w-full` to span its column). */
   className?: string;
 }
@@ -31,12 +33,14 @@ export function SegmentedControl<T extends string>({
   onChange,
   disabled = false,
   ariaLabel,
+  title,
   className = "",
 }: SegmentedControlProps<T>) {
   return (
     <div
       role="radiogroup"
       aria-label={ariaLabel}
+      title={title}
       aria-disabled={disabled || undefined}
       className={`inline-flex flex-wrap rounded-md border border-zinc-300 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900 ${
         disabled ? "opacity-60" : ""

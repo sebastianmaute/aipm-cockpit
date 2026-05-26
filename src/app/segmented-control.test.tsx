@@ -57,4 +57,17 @@ describe("SegmentedControl", () => {
     await userEvent.click(screen.getByRole("radio", { name: "High" }));
     expect(onChange).not.toHaveBeenCalled();
   });
+
+  test("applies the title attribute to the radiogroup root", () => {
+    render(
+      <SegmentedControl
+        value="Low"
+        options={[{ value: "Low", label: "Low" }, { value: "High", label: "High" }]}
+        onChange={() => {}}
+        ariaLabel="Demo"
+        title="Helpful hint"
+      />,
+    );
+    expect(screen.getByRole("radiogroup")).toHaveAttribute("title", "Helpful hint");
+  });
 });
