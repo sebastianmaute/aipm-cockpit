@@ -181,6 +181,7 @@ function ResourceDirectoryInner({
           onChange={(e) => setFilter(e.target.value)}
           placeholder={t(lang, "directorySearchPlaceholder")}
           aria-label={t(lang, "directorySearchPlaceholder")}
+          title={t(lang, "directorySearchHint")}
           className="min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-xs text-AIPM-dark-grey placeholder:text-zinc-400 focus:border-AIPM-dark-blue focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-AIPM-light-grey dark:placeholder:text-zinc-500"
         />
         {onOpenAddressBook && (

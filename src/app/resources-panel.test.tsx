@@ -134,6 +134,14 @@ describe("ResourcesPanel", () => {
     expect(onSetAbsenceOverride).toHaveBeenCalledWith(1, "2026-02", null);
   });
 
+  test("gives the Manage roles button a descriptive tooltip", () => {
+    render(<ResourcesPanel {...baseProps} resources={[]} />);
+    expect(screen.getByRole("button", { name: /manage roles/i })).toHaveAttribute(
+      "title",
+      "Open the roles & rates editor to manage disciplines, grades, and rate cards.",
+    );
+  });
+
   test("planning view: rollup toggle reveals the non-canonical read-only table", () => {
     const resources = [{ id: 1, firstName: "Sample", lastName: "", roleId: null, utilizationMode: "percent" as const, utilization: { "2026-02": 100 } }];
     const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "USD" };

@@ -67,4 +67,12 @@ describe("ResourceDirectory", () => {
     const rows = screen.getAllByRole("row").slice(1);
     expect(within(rows[0]).getByText("Zoe Adams")).toBeInTheDocument();
   });
+
+  it("gives the directory search box a descriptive tooltip", () => {
+    render(<ResourceDirectory {...common} resources={rs} />);
+    expect(screen.getByPlaceholderText(/filter by name, title/i)).toHaveAttribute(
+      "title",
+      "Filter the directory to people whose name, title, department, or email match your text.",
+    );
+  });
 });

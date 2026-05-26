@@ -209,6 +209,7 @@ function ResourcesPanelInner({
           <SegmentedControl<View>
             value={view}
             ariaLabel={t(lang, "tabResources")}
+            title={t(lang, "resourcesViewHint")}
             options={[
               { value: "directory", label: t(lang, "resourcesViewDirectory") },
               { value: "workload", label: t(lang, "resourcesViewWorkload") },
@@ -221,6 +222,7 @@ function ResourcesPanelInner({
         <button
           type="button"
           onClick={onManageRoles}
+          title={t(lang, "resourcesManageRolesHint")}
           className="rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-xs font-medium text-AIPM-dark-grey shadow-sm hover:border-AIPM-dark-blue hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-AIPM-light-grey dark:hover:bg-zinc-800"
         >
           {t(lang, "resourcesManageRoles")}
@@ -228,6 +230,7 @@ function ResourcesPanelInner({
         <button
           type="button"
           onClick={onOpenReport}
+          title={t(lang, "resourcesOpenReportHint")}
           className="rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-xs font-medium text-AIPM-dark-grey shadow-sm hover:border-AIPM-dark-blue hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-AIPM-light-grey dark:hover:bg-zinc-800"
         >
           {t(lang, "resourcesOpenReport")}
@@ -235,6 +238,7 @@ function ResourcesPanelInner({
         <button
           type="button"
           onClick={() => onAddAbsence()}
+          title={t(lang, "resourcesAddAbsenceHint")}
           className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-AIPM-dark-blue/90"
         >
           {t(lang, "resourcesAddAbsence")}
@@ -262,18 +266,21 @@ function ResourcesPanelInner({
               <label className="flex items-center gap-1">
                 <span>{t(lang, "resourcesPlanStart")}</span>
                 <input type="date" aria-label={t(lang, "resourcesPlanStart")} value={plan.startDate}
+                  title={t(lang, "resourcesPlanStartHint")}
                   onChange={(e) => onSetPlanWindow(e.target.value, plan.endDate)}
                   className="rounded border border-zinc-300 px-1.5 py-0.5 dark:border-zinc-700 dark:bg-zinc-900" />
               </label>
               <label className="flex items-center gap-1">
                 <span>{t(lang, "resourcesPlanEnd")}</span>
                 <input type="date" aria-label={t(lang, "resourcesPlanEnd")} value={plan.endDate}
+                  title={t(lang, "resourcesPlanEndHint")}
                   onChange={(e) => onSetPlanWindow(plan.startDate, e.target.value)}
                   className="rounded border border-zinc-300 px-1.5 py-0.5 dark:border-zinc-700 dark:bg-zinc-900" />
               </label>
               <SegmentedControl<"week" | "month">
                 value={plan.granularity}
                 ariaLabel={t(lang, "resourcesViewPlanning")}
+                title={t(lang, "resourcesGranularityHint")}
                 options={[
                   { value: "month", label: t(lang, "resourcesGranularityMonth") },
                   { value: "week", label: t(lang, "resourcesGranularityWeek") },
@@ -358,6 +365,7 @@ function ResourcesPanelInner({
             return (
               <div className="mt-3">
                 <button type="button" onClick={() => setShowRollup((v) => !v)}
+                  title={t(lang, "resourcesRollupHint")}
                   className="rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs font-medium text-AIPM-dark-grey shadow-sm hover:border-AIPM-dark-blue hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-AIPM-light-grey">
                   {showRollup ? t(lang, "resourcesRollupHide") : t(lang, "resourcesRollupShow")}
                 </button>
