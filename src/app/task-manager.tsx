@@ -38,6 +38,8 @@ import { WorkspaceSection } from "./workspace-section";
 import { getUpcomingBirthdays } from "./birthdays";
 import { useBirthdayAlerts } from "./use-birthday-alerts";
 import { useReminderSnooze } from "./use-reminder-snooze";
+import { makeEditGuard } from "./read-only-guard";
+import { ReadOnlyMirrorBanner } from "./read-only-mirror-banner";
 
 // i18n key for each tab's label — used by both the tab strip and the
 // popout window's document.title. Adding a new tab requires a row here.
@@ -405,6 +407,10 @@ function TaskManagerInner() {
   // in memory. Lifts in the next microtask for en-US/en-GB (no fetch);
   // briefly delays initial paint for de while ./i18n.de loads. Must come
   // AFTER every hook so the rules-of-hooks invariant holds.
+  const guardEdit = makeEditGuard(isPopout, () =>
+    showToast("info", t(lang, "popoutReadOnly")),
+  );
+
   if (!i18nReady) return null;
 
   return (
@@ -415,6 +421,7 @@ function TaskManagerInner() {
           : "mx-auto w-full max-w-6xl p-6 sm:p-10"
       }
     >
+      {isPopout && <ReadOnlyMirrorBanner lang={lang} />}
       {!isPopout && (
         <AppHeader
           handleCancelEdit={handleCancelEdit}
@@ -455,28 +462,28 @@ function TaskManagerInner() {
         setWorkspaceCollapsed={setWorkspaceCollapsed}
         dispatcher={dispatcher}
         handleAcceptAiConsent={handleAcceptAiConsent}
-        handleGanttBarUpdate={handleGanttBarUpdate}
+        handleGanttBarUpdate={guardEdit(handleGanttBarUpdate)}
         handleCancelEdit={handleCancelEdit}
         setTaskModalOpen={setTaskModalOpen}
         handleClearRaidTaskFilter={handleClearRaidTaskFilter}
-        handleSaveRaidItem={handleSaveRaidItem}
-        handleDeleteRaidItem={handleDeleteRaidItem}
-        handleCreateMitigationTaskFromRaid={handleCreateMitigationTaskFromRaid}
+        handleSaveRaidItem={guardEdit(handleSaveRaidItem)}
+        handleDeleteRaidItem={guardEdit(handleDeleteRaidItem)}
+        handleCreateMitigationTaskFromRaid={guardEdit(handleCreateMitigationTaskFromRaid) as typeof handleCreateMitigationTaskFromRaid}
         handleJumpToTaskFromRaid={handleJumpToTaskFromRaid}
         activityLog={activityLog}
-        handleClearActivityLog={handleClearActivityLog}
-        handleOpenAddAbsence={handleOpenAddAbsence}
-        handleEditAbsence={handleEditAbsence}
-        handleOpenShiftEditor={handleOpenShiftEditor}
-        onManageRoles={handleOpenRolesModal}
-        onAssignRole={handleAssignResourceRole}
-        onSetUtilization={handleSetUtilization}
-        onSetUtilizationMode={handleSetUtilizationMode}
-        onSetAbsenceOverride={handleSetAbsenceOverride}
-        onSetPlanWindow={handleSetPlanWindow}
-        onSetPlanGranularity={handleSetPlanGranularity}
-        onEditResource={handleEditResource}
-        onAddResource={handleOpenAddResource}
+        handleClearActivityLog={guardEdit(handleClearActivityLog)}
+        handleOpenAddAbsence={guardEdit(handleOpenAddAbsence)}
+        handleEditAbsence={guardEdit(handleEditAbsence)}
+        handleOpenShiftEditor={guardEdit(handleOpenShiftEditor)}
+        onManageRoles={guardEdit(handleOpenRolesModal)}
+        onAssignRole={guardEdit(handleAssignResourceRole)}
+        onSetUtilization={guardEdit(handleSetUtilization)}
+        onSetUtilizationMode={guardEdit(handleSetUtilizationMode)}
+        onSetAbsenceOverride={guardEdit(handleSetAbsenceOverride)}
+        onSetPlanWindow={guardEdit(handleSetPlanWindow)}
+        onSetPlanGranularity={guardEdit(handleSetPlanGranularity)}
+        onEditResource={guardEdit(handleEditResource)}
+        onAddResource={guardEdit(handleOpenAddResource)}
       />
 
       {!isPopout && (
