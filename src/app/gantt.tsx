@@ -1021,6 +1021,7 @@ export function GanttPanel({
         onChange={(e) => setSearch(e.target.value)}
         placeholder={t(lang, "searchPlaceholder")}
         aria-label={t(lang, "searchPlaceholder")}
+        title={t(lang, "ganttSearchHint")}
         className="min-w-[12rem] flex-1 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-900 shadow-sm focus:border-AIPM-dark-blue focus:outline-none focus:ring-1 focus:ring-AIPM-dark-blue dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
       />
       <select
@@ -1029,6 +1030,7 @@ export function GanttPanel({
           setStatusFilter(e.target.value as GanttStatusFilter)
         }
         aria-label={t(lang, "ganttFilterStatus")}
+        title={t(lang, "ganttStatusFilterHint")}
         className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm text-zinc-900 shadow-sm focus:border-AIPM-dark-blue focus:outline-none focus:ring-1 focus:ring-AIPM-dark-blue dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
       >
         <option value="all">{t(lang, "ganttStatusAll")}</option>
@@ -1042,6 +1044,7 @@ export function GanttPanel({
           setPriorityFilter(e.target.value as Priority | "All")
         }
         aria-label={t(lang, "allPriorities")}
+        title={t(lang, "priorityFilterHint")}
         className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm text-zinc-900 shadow-sm focus:border-AIPM-dark-blue focus:outline-none focus:ring-1 focus:ring-AIPM-dark-blue dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
       >
         <option value="All">{t(lang, "allPriorities")}</option>
@@ -1055,6 +1058,7 @@ export function GanttPanel({
         value={prefs.assignee}
         onChange={(e) => setAssigneeFilter(e.target.value)}
         aria-label={t(lang, "allAssignees")}
+        title={t(lang, "assigneeFilterHint")}
         className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm text-zinc-900 shadow-sm focus:border-AIPM-dark-blue focus:outline-none focus:ring-1 focus:ring-AIPM-dark-blue dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
       >
         <option value="All">{t(lang, "allAssignees")}</option>
@@ -1070,6 +1074,7 @@ export function GanttPanel({
           value={prefs.sort}
           onChange={(e) => setSort(e.target.value as GanttSort)}
           aria-label={t(lang, "ganttSortLabel")}
+          title={t(lang, "ganttSortHint")}
           className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm text-zinc-900 shadow-sm focus:border-AIPM-dark-blue focus:outline-none focus:ring-1 focus:ring-AIPM-dark-blue dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
         >
           <option value="auto">{t(lang, "ganttSortAuto")}</option>
@@ -1085,6 +1090,7 @@ export function GanttPanel({
         <button
           type="button"
           onClick={resetFilters}
+          title={t(lang, "resetFiltersHint")}
           className="rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-xs font-medium text-zinc-700 shadow-sm hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
         >
           {t(lang, "ganttResetFilters")}
