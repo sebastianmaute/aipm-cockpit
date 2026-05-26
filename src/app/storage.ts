@@ -190,7 +190,7 @@ export interface StorageBackend {
 // the new record stores additively.
 
 const IDB_NAME = "lop-app";
-const IDB_VERSION = 5;
+const IDB_VERSION = 6;
 const IDB_KV_STORE = "kv";
 const IDB_TASKS_STORE = "tasks";
 const IDB_RAID_STORE = "raid";
@@ -201,6 +201,8 @@ const IDB_ROLES_STORE = "roles";
 const IDB_DISCIPLINES_STORE = "disciplines";
 const IDB_GRADES_STORE = "grades";
 const KV_PLAN_KEY = "resource-plan";
+const IDB_BUDGETS_STORE = "budgets";
+const KV_FXRATES_KEY = "fx-rates";
 
 function openIdb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -237,6 +239,9 @@ function openIdb(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains(IDB_GRADES_STORE)) {
         db.createObjectStore(IDB_GRADES_STORE, { keyPath: "id" });
+      }
+      if (!db.objectStoreNames.contains(IDB_BUDGETS_STORE)) {
+        db.createObjectStore(IDB_BUDGETS_STORE, { keyPath: "id" });
       }
     };
     req.onsuccess = () => resolve(req.result);
@@ -839,6 +844,48 @@ const CSV_SECTION_TASKS = "# TASKS";
 const CSV_SECTION_RAID = "# RAID";
 const CSV_SECTION_ABSENCES = "# ABSENCES";
 const CSV_SECTION_SHIFTS = "# SHIFTS";
+
+/** Serialize a workspace to the JSON envelope (schemaVersion + entity arrays). */
+export function workspaceToJson(ws: Workspace): string {
+  return JSON.stringify(
+    {
+      schemaVersion: SCHEMA_VERSION,
+      tasks: ws.tasks, raid: ws.raid, absences: ws.absences, shifts: ws.shifts,
+      resources: ws.resources, roles: ws.roles, disciplines: ws.disciplines,
+      grades: ws.grades, plan: ws.plan, budgets: ws.budgets ?? [], fxRates: ws.fxRates ?? null,
+    },
+    null,
+    2,
+  );
+}
+
+/** Parse a JSON envelope back to a workspace. Tolerates legacy files (pre-v6)
+ *  by defaulting budgets -> [] and fxRates -> null. Returns an empty workspace
+ *  on malformed input. */
+export function jsonToWorkspace(text: string): Workspace {
+  try {
+    const parsed = JSON.parse(text);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return emptyWorkspace();
+    const p = parsed as Record<string, unknown>;
+    if (!Array.isArray(p.tasks) || !Array.isArray(p.raid)) return emptyWorkspace();
+    const raw: Workspace = {
+      tasks: p.tasks as Task[],
+      raid: p.raid as RaidItem[],
+      absences: ((p.absences as unknown[]) ?? []).map((a) => sanitizeAbsence(a)).filter((a): a is Absence => a !== null),
+      shifts: ((p.shifts as unknown[]) ?? []).map((s) => sanitizeShift(s)).filter((s): s is Shift => s !== null),
+      resources: ((p.resources as unknown[]) ?? []).map((r) => sanitizeResource(r)).filter((r): r is Resource => r !== null),
+      roles: ((p.roles as unknown[]) ?? []).map((r) => sanitizeRole(r)).filter((r): r is Role => r !== null),
+      disciplines: ((p.disciplines as unknown[]) ?? []).map((d) => sanitizeDiscipline(d)).filter((d): d is Discipline => d !== null),
+      grades: ((p.grades as unknown[]) ?? []).map((g) => sanitizeGrade(g)).filter((g): g is Grade => g !== null),
+      plan: sanitizePlan(p.plan ?? {}, new Date().toISOString().slice(0, 10)),
+      budgets: ((p.budgets as unknown[]) ?? []).map((b) => sanitizeBudgetBucket(b)).filter((b): b is BudgetBucket => b !== null),
+      fxRates: sanitizeFxRates(p.fxRates),
+    };
+    return migrateWorkspaceV6(raw);
+  } catch {
+    return emptyWorkspace();
+  }
+}
 
 /** Multi-section CSV: tasks then (optionally) raid, absences, and shifts,
  *  separated by marker lines. Used by file backends for round-trip;
@@ -2061,6 +2108,7 @@ class BrowserBackend implements StorageBackend {
   private rolesBaseline = new Map<number, Role>();
   private disciplinesBaseline = new Map<number, Discipline>();
   private gradesBaseline = new Map<number, Grade>();
+  private budgetsBaseline = new Map<number, BudgetBucket>();
 
   async load(): Promise<Workspace> {
     if (typeof window === "undefined") return emptyWorkspace();
@@ -2074,6 +2122,8 @@ class BrowserBackend implements StorageBackend {
     let disciplines: Discipline[] = [];
     let grades: Grade[] = [];
     let plan: ResourcePlan = defaultResourcePlan(new Date().toISOString().slice(0, 10));
+    let budgets: BudgetBucket[] = [];
+    let fxRates: FxRates | null = null;
     try {
       tasks = await idbGetAll<Task>(IDB_TASKS_STORE);
       raid = await idbGetAll<RaidItem>(IDB_RAID_STORE);
@@ -2084,6 +2134,8 @@ class BrowserBackend implements StorageBackend {
       disciplines = await idbGetAll<Discipline>(IDB_DISCIPLINES_STORE);
       grades = await idbGetAll<Grade>(IDB_GRADES_STORE);
       plan = (await idbGet<ResourcePlan>(KV_PLAN_KEY)) ?? plan;
+      budgets = await idbGetAll<BudgetBucket>(IDB_BUDGETS_STORE);
+      fxRates = (await idbGet<FxRates>(KV_FXRATES_KEY)) ?? null;
     } catch {
       // IDB unavailable or upgrade failed. Fall through — the legacy
       // migration block below will still try localStorage, and if that's
@@ -2098,8 +2150,8 @@ class BrowserBackend implements StorageBackend {
       // from the (possibly successful) idbGetAll attempts above.
     }
 
-    const raw: Workspace = { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan };
-    const ws = migrateWorkspaceV5(raw);
+    const raw: Workspace = { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates };
+    const ws = migrateWorkspaceV6(raw);
 
     try {
       if (ws.resources !== raw.resources) await idbBulkUpdate(IDB_RESOURCES_STORE, ws.resources, []);
@@ -2118,6 +2170,7 @@ class BrowserBackend implements StorageBackend {
     this.rolesBaseline = new Map(ws.roles.map((r) => [r.id, r]));
     this.disciplinesBaseline = new Map(ws.disciplines.map((d) => [d.id, d]));
     this.gradesBaseline = new Map(ws.grades.map((g) => [g.id, g]));
+    this.budgetsBaseline = new Map((ws.budgets ?? []).map((b) => [b.id, b]));
     return ws;
   }
 
@@ -2204,6 +2257,10 @@ class BrowserBackend implements StorageBackend {
     await idbBulkUpdate(IDB_GRADES_STORE, gradeDelta.puts, gradeDelta.deletes);
     await idbSet(KV_PLAN_KEY, ws.plan);
 
+    const budgetDelta = this.diff(this.budgetsBaseline, ws.budgets ?? []);
+    await idbBulkUpdate(IDB_BUDGETS_STORE, budgetDelta.puts, budgetDelta.deletes);
+    await idbSet(KV_FXRATES_KEY, ws.fxRates ?? null);
+
     // Refresh baselines so the next save's diff is computed against what's
     // actually in IDB. Rebuilding the maps is O(N) but only runs after a
     // successful write, not on every render.
@@ -2215,6 +2272,7 @@ class BrowserBackend implements StorageBackend {
     this.rolesBaseline = new Map(ws.roles.map((r) => [r.id, r]));
     this.disciplinesBaseline = new Map(ws.disciplines.map((d) => [d.id, d]));
     this.gradesBaseline = new Map(ws.grades.map((g) => [g.id, g]));
+    this.budgetsBaseline = new Map((ws.budgets ?? []).map((b) => [b.id, b]));
   }
 
   /**
@@ -2318,60 +2376,7 @@ class LocalFileBackend implements StorageBackend {
     }
     const text = await readHandle(handle);
     if (!text.trim()) return emptyWorkspace();
-    if (this.format === "json") {
-      try {
-        const parsed = JSON.parse(text);
-        // Envelope shape: { schemaVersion, tasks, raid, ... }.
-        // Require only tasks + raid (present since v1); the newer fields
-        // default to [] / seeded so older files still load.
-        if (
-          parsed &&
-          typeof parsed === "object" &&
-          !Array.isArray(parsed) &&
-          Array.isArray((parsed as { tasks?: unknown }).tasks) &&
-          Array.isArray((parsed as { raid?: unknown }).raid)
-        ) {
-          const p = parsed as {
-            tasks: Task[];
-            raid: RaidItem[];
-            absences?: unknown[];
-            shifts?: unknown[];
-            resources?: unknown[];
-            roles?: unknown[];
-            disciplines?: unknown[];
-            grades?: unknown[];
-            plan?: unknown;
-          };
-          const raw: Workspace = {
-            tasks: p.tasks,
-            raid: p.raid,
-            absences: (p.absences ?? [])
-              .map((a) => sanitizeAbsence(a))
-              .filter((a): a is Absence => a !== null),
-            shifts: (p.shifts ?? [])
-              .map((s) => sanitizeShift(s))
-              .filter((s): s is Shift => s !== null),
-            resources: (p.resources ?? [])
-              .map((r) => sanitizeResource(r))
-              .filter((r): r is Resource => r !== null),
-            roles: (p.roles ?? [])
-              .map((r) => sanitizeRole(r))
-              .filter((r): r is Role => r !== null),
-            disciplines: (p.disciplines ?? [])
-              .map((d) => sanitizeDiscipline(d))
-              .filter((d): d is Discipline => d !== null),
-            grades: (p.grades ?? [])
-              .map((g) => sanitizeGrade(g))
-              .filter((g): g is Grade => g !== null),
-            plan: sanitizePlan(p.plan ?? {}, new Date().toISOString().slice(0, 10)),
-          };
-          return migrateWorkspaceV5(raw);
-        }
-        return emptyWorkspace();
-      } catch {
-        return emptyWorkspace();
-      }
-    }
+    if (this.format === "json") return jsonToWorkspace(text);
     if (this.format === "csv") return csvToWorkspace(text);
     return markdownToWorkspace(text);
   }
@@ -2387,24 +2392,8 @@ class LocalFileBackend implements StorageBackend {
       throw new StorageNotReadyError("local-file-permission-needed");
     }
     let content: string;
-    if (this.format === "json") {
-      content = JSON.stringify(
-        {
-          schemaVersion: SCHEMA_VERSION,
-          tasks: ws.tasks,
-          raid: ws.raid,
-          absences: ws.absences,
-          shifts: ws.shifts,
-          resources: ws.resources,
-          roles: ws.roles,
-          disciplines: ws.disciplines,
-          grades: ws.grades,
-          plan: ws.plan,
-        },
-        null,
-        2,
-      );
-    } else if (this.format === "csv") content = workspaceToCsv(ws);
+    if (this.format === "json") content = workspaceToJson(ws);
+    else if (this.format === "csv") content = workspaceToCsv(ws);
     else content = workspaceToMarkdown(ws);
     await writeHandle(handle, content);
   }
