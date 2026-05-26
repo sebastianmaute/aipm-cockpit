@@ -154,3 +154,88 @@ export function computeBucketReport(
     consumption: { amount: budgetValue - consumedValue, percent: consumptionPercent },
   };
 }
+
+export type ProjectReport = {
+  budgetHours: number;
+  plannedHours: number;
+  actualHours: number;
+  budgetValue: number;
+  consumedValue: number;
+  revenue: number;
+  cost: number;
+  winLossHours: number;
+  winLossValue: number;
+  contributionMargin: CciValue;
+  costPerformance: CciValue;
+  consumption: CciValue;
+};
+
+export type BudgetReport = {
+  buckets: BucketReport[];
+  project: ProjectReport;
+};
+
+/**
+ * Spillover-in amounts per bucket: a CLOSED bucket with a successor contributes
+ * its remaining budget (budget - actual hours, and the EUR value) to the
+ * successor. Single hop (no transitive chains); self-refs and missing
+ * successors are ignored. Returns maps keyed by successor bucket id.
+ */
+function computeSpillover(
+  buckets: readonly BudgetBucket[],
+  plan: ResourcePlan,
+  roles: readonly Role[],
+  resources: readonly Resource[],
+  workdayHours: number,
+  holidaySet: ReadonlySet<string>,
+): { hours: Map<number, number>; value: Map<number, number> } {
+  const hours = new Map<number, number>();
+  const value = new Map<number, number>();
+  const ids = new Set(buckets.map((b) => b.id));
+  for (const b of buckets) {
+    if (b.status !== "closed" || b.successorId == null) continue;
+    if (b.successorId === b.id || !ids.has(b.successorId)) continue;
+    const rep = computeBucketReport(b, plan, roles, resources, workdayHours, holidaySet);
+    hours.set(b.successorId, (hours.get(b.successorId) ?? 0) + rep.winLossHours);
+    value.set(b.successorId, (value.get(b.successorId) ?? 0) + (rep.budgetValue - rep.consumedValue));
+  }
+  return { hours, value };
+}
+
+export function computeBudgetReport(
+  buckets: readonly BudgetBucket[],
+  plan: ResourcePlan,
+  roles: readonly Role[],
+  resources: readonly Resource[],
+  workdayHours: number,
+  holidaySet: ReadonlySet<string>,
+  absences: readonly Absence[] = [],
+): BudgetReport {
+  const spill = computeSpillover(buckets, plan, roles, resources, workdayHours, holidaySet);
+  const reports = buckets.map((b) =>
+    computeBucketReport(
+      b, plan, roles, resources, workdayHours, holidaySet,
+      spill.hours.get(b.id) ?? 0, spill.value.get(b.id) ?? 0, absences,
+    ),
+  );
+
+  const sum = (sel: (r: BucketReport) => number) => reports.reduce((a, r) => a + sel(r), 0);
+  const revenue = sum((r) => r.revenue);
+  const cost = sum((r) => r.cost);
+  const budgetValue = sum((r) => r.budgetValue);
+  const consumedValue = sum((r) => r.consumedValue);
+  const budgetCost = sum((r) => r.budgetCost);
+
+  const project: ProjectReport = {
+    budgetHours: sum((r) => r.budgetHours),
+    plannedHours: sum((r) => r.plannedHours),
+    actualHours: sum((r) => r.actualHours),
+    budgetValue, consumedValue, revenue, cost,
+    winLossHours: sum((r) => r.winLossHours),
+    winLossValue: sum((r) => r.winLossValue),
+    contributionMargin: { amount: revenue - cost, percent: pct(revenue - cost, revenue) },
+    costPerformance: { amount: budgetCost - cost, percent: pct(budgetCost, cost) },
+    consumption: { amount: budgetValue - consumedValue, percent: pct(consumedValue, budgetValue) },
+  };
+  return { buckets: reports, project };
+}
