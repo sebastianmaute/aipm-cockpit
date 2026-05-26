@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getAlertableTasks } from "./due-dates";
+import { getBucketReminders } from "./budget-report";
 import { type TranslationKey, t } from "./i18n";
 import { useChatDispatcher } from "./use-chat-dispatcher";
 import { useActivityLog } from "./use-activity-log";
@@ -101,6 +102,7 @@ function TaskManagerInner() {
     grades,
     setBudgets,
     setFxRates,
+    budgets,
   } = useWorkspace();
 
   const { setContacts, contactsList, handleRemoveContact } =
@@ -360,6 +362,19 @@ function TaskManagerInner() {
   const dueModalItems = useMemo(() => {
     return getAlertableTasks(tasks, settings.notifications.reminderLeadDays, today, holidaySet, absences);
   }, [tasks, settings.notifications.reminderLeadDays, today, holidaySet, absences]);
+
+  const bucketReminders = useMemo(
+    () => getBucketReminders(budgets, settings.notifications.reminderLeadDays, today),
+    [budgets, settings.notifications.reminderLeadDays, today],
+  );
+
+  const bucketReminderKey = bucketReminders.map((r) => r.bucket.id).join(",");
+  useEffect(() => {
+    if (bucketReminders.length > 0) {
+      showToast("info", `${bucketReminders.length} ${t(lang, "budgetEndingSoon")}`);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bucketReminderKey]);
 
   const absenceKnownAssignees = useMemo(
     () => [
