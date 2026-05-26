@@ -143,15 +143,16 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, args.hydrated, args.isPopout, backend]);
 
-  useBroadcastSync("tasks", tasks, setTasks);
-  useBroadcastSync("raid", raid, setRaid);
-  useBroadcastSync("absences", absences, setAbsences);
-  useBroadcastSync("shifts", shifts, setShifts);
-  useBroadcastSync("resources", resources, setResources);
-  useBroadcastSync("roles", roles, setRoles);
-  useBroadcastSync("disciplines", disciplines, setDisciplines);
-  useBroadcastSync("grades", grades, setGrades);
-  useBroadcastSync("activityLog", args.activityLog, args.setActivityLog);
+  const canSend = !args.isPopout;
+  useBroadcastSync("tasks", tasks, setTasks, canSend);
+  useBroadcastSync("raid", raid, setRaid, canSend);
+  useBroadcastSync("absences", absences, setAbsences, canSend);
+  useBroadcastSync("shifts", shifts, setShifts, canSend);
+  useBroadcastSync("resources", resources, setResources, canSend);
+  useBroadcastSync("roles", roles, setRoles, canSend);
+  useBroadcastSync("disciplines", disciplines, setDisciplines, canSend);
+  useBroadcastSync("grades", grades, setGrades, canSend);
+  useBroadcastSync("activityLog", args.activityLog, args.setActivityLog, canSend);
 
   async function onPickStorageFile() {
     const promise = pickFileForBackend(backend);

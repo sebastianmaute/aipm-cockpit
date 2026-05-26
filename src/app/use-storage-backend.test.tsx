@@ -5,6 +5,7 @@ import type { Settings } from "./settings-menu";
 import type { Lang } from "./i18n";
 import type { Task } from "./types";
 import { useStorageBackend } from "./use-storage-backend";
+import { useBroadcastSync } from "./broadcast-sync";
 import { useWorkspace } from "./workspace-context";
 import { TestProviders } from "./test-providers";
 
@@ -338,5 +339,30 @@ describe("useStorageBackend — handlers", () => {
 
     expect(storageMod.openFileForBackend).toHaveBeenCalledWith(mockBackend);
     expect(result.current.tasks[0]?.id).toBe(99);
+  });
+});
+
+describe("useStorageBackend — broadcast send gating", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (storageMod.createBackend as ReturnType<typeof vi.fn>).mockReturnValue(mockBackend);
+  });
+
+  it("passes canSend=true to every useBroadcastSync call in the main window", () => {
+    renderBackend(makeArgs({ isPopout: false }));
+    const calls = (useBroadcastSync as ReturnType<typeof vi.fn>).mock.calls;
+    expect(calls.length).toBeGreaterThanOrEqual(9);
+    for (const call of calls) {
+      expect(call[3]).toBe(true);
+    }
+  });
+
+  it("passes canSend=false to every useBroadcastSync call in a popout", () => {
+    renderBackend(makeArgs({ isPopout: true }));
+    const calls = (useBroadcastSync as ReturnType<typeof vi.fn>).mock.calls;
+    expect(calls.length).toBeGreaterThanOrEqual(9);
+    for (const call of calls) {
+      expect(call[3]).toBe(false);
+    }
   });
 });
