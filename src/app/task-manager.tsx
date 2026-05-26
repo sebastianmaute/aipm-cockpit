@@ -20,7 +20,8 @@ import { useTaskRowHandlers } from "./use-task-row-handlers";
 import { useTaskSubmit } from "./use-task-submit";
 import { useGanttHandlers } from "./use-gantt-handlers";
 import { AppModals } from "./app-modals";
-import { type Resource } from "./types";
+import { type Resource, type BudgetBucket } from "./types";
+import { useFxRates } from "./use-fx-rates";
 import { splitName, resourceDisplayName } from "./resource-foundation";
 import { buildRaidByTaskIndex } from "./raid";
 import { FiltersProvider, useFilters } from "./filters-context";
@@ -98,6 +99,8 @@ function TaskManagerInner() {
     roles,
     disciplines,
     grades,
+    setBudgets,
+    setFxRates,
   } = useWorkspace();
 
   const { setContacts, contactsList, handleRemoveContact } =
@@ -408,6 +411,10 @@ function TaskManagerInner() {
     setSettings((s) => ({ ...s, ai: { ...s.ai, consentAccepted: true } }));
   }, [setSettings]);
 
+  const handleChangeBudgets = useCallback((next: BudgetBucket[]) => setBudgets(next), [setBudgets]);
+  const cacheFxRates = useCallback((fx: import("./types").FxRates) => setFxRates(fx), [setFxRates]);
+  const { refresh: refreshFx } = useFxRates(cacheFxRates);
+
   const editingTask =
     editingId !== null
       ? tasks.find((row) => row.id === editingId) ?? null
@@ -504,6 +511,8 @@ function TaskManagerInner() {
         onSetPlanGranularity={guardEdit(handleSetPlanGranularity)}
         onEditResource={guardEdit(handleEditResource)}
         onAddResource={guardEdit(handleOpenAddResource)}
+        onChangeBudgets={handleChangeBudgets}
+        onRefreshFx={refreshFx}
       />
 
       {!isPopout && (
