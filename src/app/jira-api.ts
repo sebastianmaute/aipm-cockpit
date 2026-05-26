@@ -36,7 +36,7 @@ export type JiraIssueType = {
   subtask?: boolean;
 };
 
-class JiraApiError extends Error {
+export class JiraApiError extends Error {
   constructor(
     public status: number,
     public payload: unknown,
@@ -390,6 +390,21 @@ export function diffTaskAgainstIssue(
 }
 
 // --- error helpers ---------------------------------------------------------
+
+export type JiraErrorKind = "auth" | "network" | "other";
+
+/**
+ * Classify a Jira error for use in sync logic. Distinguishes between
+ * authentication failures (401/403), network failures (5xx), and other errors.
+ */
+export function classifyJiraError(err: unknown): JiraErrorKind {
+  if (err instanceof JiraApiError) {
+    if (err.status === 401 || err.status === 403) return "auth";
+    if (err.status >= 500) return "network";
+    return "other";
+  }
+  return "network";
+}
 
 /** Best-effort, user-facing message from a JiraApiError payload. */
 export function formatJiraError(err: unknown): string {
