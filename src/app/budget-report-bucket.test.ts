@@ -54,3 +54,19 @@ describe("computeBucketReport — fixed-price", () => {
     expect(rep.consumption.percent).toBeNull();
   });
 });
+
+describe("computeBucketReport — fixed-price ignores spilled-in value in budget", () => {
+  test("budgetValue stays the contract amount; spillover hours still count", () => {
+    const b: BudgetBucket = {
+      id: 1, name: "FX", type: "fixed", currency: "EUR", fixedPriceAmount: 20000,
+      startDate: "2026-01-01", endDate: "2026-01-31", status: "open",
+      allocations: [{ roleId: 3, resourceIds: [], budgetHours: { "2026-01": 100 }, actualHours: { "2026-01": 100 } }],
+    };
+    // spilloverInHours = 10, spilloverInValue = 5000
+    const rep = computeBucketReport(b, plan, roles, resources, 8, noHolidays, 10, 5000);
+    expect(rep.budgetValue).toBe(20000);                 // NOT 25000
+    expect(rep.budgetHours).toBe(110);                   // 100 + 10 spilled hours
+    expect(rep.consumption.amount).toBe(20000 - 20000);  // fully burned (100/100 of contract)
+    expect(rep.consumption.percent).toBeCloseTo(100, 5);
+  });
+});

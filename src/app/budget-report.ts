@@ -131,7 +131,9 @@ export function computeBucketReport(
   const fixedPrice = bucket.fixedPriceAmount ?? 0;
 
   const revenue = isFixed ? fixedPrice : tmRevenue;
-  const budgetValue = (isFixed ? fixedPrice : budgetValueExternal) + spilloverInValue;
+  // Spillover adds available budget to a T&M bucket; a fixed-price bucket's
+  // budget IS the contract amount and is not inflated by spilled-in value.
+  const budgetValue = isFixed ? fixedPrice : budgetValueExternal + spilloverInValue;
   const consumedValue = isFixed
     ? (budgetHours > 0 ? Math.min(fixedPrice, fixedPrice * (actualHours / budgetHours)) : 0)
     : tmRevenue;

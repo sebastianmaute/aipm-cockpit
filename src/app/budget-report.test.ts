@@ -23,8 +23,7 @@ describe("allocationPlannedHours", () => {
     const alloc = { roleId: 3, resourceIds: [5, 7], budgetHours: {}, actualHours: {} };
     const period = { key: "2026-01", start: "2026-01-01", end: "2026-01-31" };
     const hours = allocationPlannedHours(alloc, period, [period], resources, 8, noHolidays, "month");
-    // Jan 2026 workdays * 8h at 100% plus same at 50%.
-    expect(hours).toBeGreaterThan(0);
-    expect(hours).toBeCloseTo(hours, 5); // finite
+    // Jan 2026 has 22 Mon–Fri workdays × 8h = 176h at 100%, +88h at 50%.
+    expect(hours).toBeCloseTo(176 + 88, 5);
   });
 });
