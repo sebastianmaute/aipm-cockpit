@@ -136,34 +136,34 @@ DEFAULT_CURRENCY = "EUR"
 // Budget Planner — schema v6 -----------------------------------------------
 
 BudgetBucket {
-  id              number
-  name            string
-  poNumber?       string
-  type            "tm" | "fixed"
-  currency        "EUR" | "USD" | "GBP"
-  startDate       "YYYY-MM-DD"
-  endDate         "YYYY-MM-DD"
-  successorId?    number                   // spillover target on close
-  closed?         boolean
-  manualFxRate?   number                   // overrides ECB cached rate
-  allocations     BudgetAllocation[]
+  id               number
+  name             string
+  poNumber?        string
+  type             "tm" | "fixed"
+  currency         "EUR" | "USD" | "GBP"
+  fixedPriceAmount? number                  // fixed-price contract amount (bucket currency)
+  startDate        "YYYY-MM-DD"
+  endDate          "YYYY-MM-DD"
+  successorId?     number | null            // spillover target on close
+  status           "open" | "closed"
+  closedDate?      "YYYY-MM-DD"
+  fxRateOverride?  number                   // EUR→currency; overrides cached ECB while set
+  allocations      BucketAllocation[]
+  localModifiedAt? string
 }
 
-BudgetAllocation {
-  id              number
-  roleId          number                   // FK → Role.id
-  resourceIds     number[]                 // feeding resources from planner
-  periods         Record<string, BudgetPeriod>  // periodKey → BudgetPeriod
+BucketAllocation {                          // one role line within a bucket
+  roleId          number                    // FK → Role.id (supplies internal/external rates)
+  resourceIds     number[]                  // feeding resources; their capacity = PLAN hours
+  budgetHours     Record<string, number>    // periodKey → budgeted hours
+  actualHours     Record<string, number>    // periodKey → actual/booked hours
 }
 
-BudgetPeriod {
-  budgetHours     number
-  actualHours     number
-}
-
-FxRateCache {
-  date            "YYYY-MM-DD"             // ECB publication date
-  rates           Record<string, number>  // ISO 4217 → EUR-base rate
+FxRates {                                   // one cached table per workspace
+  base            "EUR"
+  date            "YYYY-MM-DD"              // ECB publication date
+  fetchedAt       string                    // ISO timestamp of the fetch
+  rates           Record<string, number>    // currency code → units per 1 EUR
 }
 ```
 
@@ -181,7 +181,7 @@ type Workspace = {
   grades: Grade[];
   plan: ResourcePlan;                       // singleton
   budgets?: BudgetBucket[];                 // schema v6; optional for compat
-  fxRates?: FxRateCache;                   // schema v6; optional for compat
+  fxRates?: FxRates | null;                // schema v6; optional for compat
 };
 const SCHEMA_VERSION = 6;
 ```
@@ -287,7 +287,7 @@ and the Resource Planner v2 additions `sanitizeResource`, `sanitizeRole`,
 codec (clamps percent to 0..100 or hours to `HOURS_MAP_MAX`; accepts both
 object and CSV-string map forms).
 
-Budget sanitizers (schema v6) add `sanitizeBudgetBucket`, `sanitizeBudgetAllocation`, `sanitizeBudgetPeriod`, `sanitizeFxRateCache` to the same module.
+Budget sanitizers (schema v6) add `sanitizeBudgetBucket` and `sanitizeFxRates` to the same module, plus `encodeAllocations`/`decodeAllocations` (the CSV/MD allocation codec); allocations are validated inside `sanitizeBudgetBucket`.
 
 ## RAID derivations (`raid.ts`)
 
