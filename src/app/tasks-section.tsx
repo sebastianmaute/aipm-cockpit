@@ -334,6 +334,7 @@ export function TasksSection({
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder={t(lang, "searchPlaceholder")}
+          title={t(lang, "tasksSearchHint")}
           className={inputClass}
         />
         <select
@@ -341,6 +342,7 @@ export function TasksSection({
           onChange={(e) =>
             setPriorityFilter(e.target.value as Priority | "All")
           }
+          title={t(lang, "priorityFilterHint")}
           className={inputClass}
         >
           <option value="All">{t(lang, "allPriorities")}</option>
@@ -353,6 +355,7 @@ export function TasksSection({
         <select
           value={assigneeFilter}
           onChange={(e) => setAssigneeFilter(e.target.value)}
+          title={t(lang, "assigneeFilterHint")}
           className={inputClass}
         >
           <option value="All">{t(lang, "allAssignees")}</option>
@@ -365,6 +368,7 @@ export function TasksSection({
         <select
           value={groupFilter}
           onChange={(e) => setGroupFilter(e.target.value)}
+          title={t(lang, "tasksGroupFilterHint")}
           className={inputClass}
         >
           <option value="All">{t(lang, "allGroups")}</option>
@@ -378,6 +382,7 @@ export function TasksSection({
         <select
           value={labelFilter}
           onChange={(e) => setLabelFilter(e.target.value)}
+          title={t(lang, "tasksLabelFilterHint")}
           className={inputClass}
         >
           <option value="All">{t(lang, "allLabels")}</option>

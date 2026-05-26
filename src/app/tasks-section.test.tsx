@@ -200,4 +200,14 @@ describe("TasksSection", () => {
     fireEvent.click(addBtns[addBtns.length - 1]); // last = inline row
     expect(setTaskModalOpen).toHaveBeenCalledWith(true);
   });
+
+  it("gives the tasks search box a descriptive tooltip", () => {
+    const task = { id: 1, taskName: "T1" };
+    stubWorkspace([task], [task]);
+    render(<TasksSection {...makeProps()} />);
+    expect(screen.getByPlaceholderText(/search/i)).toHaveAttribute(
+      "title",
+      t("en-US", "tasksSearchHint")
+    );
+  });
 });
