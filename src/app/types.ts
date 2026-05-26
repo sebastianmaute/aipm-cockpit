@@ -318,3 +318,61 @@ export type ResourcePlan = {
 
 /** Default plan currency when none is set. */
 export const DEFAULT_CURRENCY = "EUR";
+
+// ----------------------------------------------------------------------------
+// Project Budget Planner.
+//
+// A single project-level budget = all BudgetBuckets in the workspace. A bucket
+// is a named PO/contract line (T&M or fixed-price) in a currency. It spans one
+// or more roles via per-role ALLOCATIONS: each allocation names a role + the
+// resources whose capacity forms its PLAN, plus per-period budget & actual
+// hours. Closing a bucket spills its remaining budget into a successor.
+
+export const BUDGET_TYPES = ["tm", "fixed"] as const;
+export type BudgetType = (typeof BUDGET_TYPES)[number]; // time-&-material | fixed-price
+
+export const SUPPORTED_CURRENCIES = ["EUR", "USD", "GBP"] as const;
+export type BudgetCurrency = (typeof SUPPORTED_CURRENCIES)[number];
+
+export function isBudgetCurrency(v: unknown): v is BudgetCurrency {
+  return typeof v === "string" && (SUPPORTED_CURRENCIES as readonly string[]).includes(v);
+}
+
+export type BucketStatus = "open" | "closed";
+
+/** One role line within a bucket. `resourceIds` feed the PLAN (their capacity);
+ *  `budgetHours`/`actualHours` are periodKey → hours maps (aligned to the plan). */
+export type BucketAllocation = {
+  roleId: number;
+  resourceIds: number[];
+  budgetHours: Record<string, number>;
+  actualHours: Record<string, number>;
+};
+
+export type BudgetBucket = {
+  id: number;
+  name: string;
+  poNumber?: string;
+  type: BudgetType;
+  currency: BudgetCurrency;
+  /** Fixed-price contract amount in the bucket currency; only when type === "fixed". */
+  fixedPriceAmount?: number;
+  startDate: string; // YYYY-MM-DD
+  endDate: string;   // YYYY-MM-DD
+  /** Successor bucket id that receives this bucket's remaining budget on close. */
+  successorId?: number | null;
+  status: BucketStatus;
+  closedDate?: string;
+  /** Manual EUR → currency rate override; wins over cached ECB while present. */
+  fxRateOverride?: number;
+  allocations: BucketAllocation[];
+  localModifiedAt?: string;
+};
+
+/** Cached ECB reference rates (EUR base), one table per workspace. */
+export type FxRates = {
+  base: "EUR";
+  date: string;      // ECB publication date (YYYY-MM-DD)
+  fetchedAt: string; // ISO timestamp of the fetch
+  rates: Record<string, number>; // currency code → units per 1 EUR
+};
