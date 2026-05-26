@@ -63,6 +63,10 @@ export type JiraConfig = {
   /** Used when assigneeMode === "specific". Jira's stable accountId. */
   assigneeAccountId: string;
   assigneeDisplayName: string;
+  /** Optional ISO date "YYYY-MM-DD" the user records from Atlassian; "" = unknown/never. Drives proactive warnings. */
+  tokenExpiresAt: string;
+  /** ISO timestamp set when a Jira call returns 401/403; cleared on the next successful sync/test. Drives the reactive "rejected" state. */
+  tokenInvalidAt?: string;
 };
 
 export const defaultJiraConfig: JiraConfig = {
@@ -76,6 +80,7 @@ export const defaultJiraConfig: JiraConfig = {
   assigneeMode: "currentUser",
   assigneeAccountId: "",
   assigneeDisplayName: "",
+  tokenExpiresAt: "",
 };
 
 export type Settings = {

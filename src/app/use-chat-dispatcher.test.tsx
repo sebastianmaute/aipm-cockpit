@@ -37,6 +37,7 @@ function makeSettings(): Settings {
       assigneeMode: "currentUser",
       assigneeAccountId: "",
       assigneeDisplayName: "",
+      tokenExpiresAt: "",
     },
     popout: { reuseWindow: false },
     resources: { workdayHours: 8 },

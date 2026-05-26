@@ -49,6 +49,7 @@ function makeSettings(overrides: {
       assigneeMode: "currentUser",
       assigneeAccountId: "",
       assigneeDisplayName: "",
+      tokenExpiresAt: "",
     },
     popout: { reuseWindow: false },
     resources: { workdayHours: 8 },
