@@ -2,6 +2,7 @@ import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Task } from "./types";
 import type { JiraIssue } from "./jira-api";
+import { JiraApiError } from "./jira-api";
 import type { Settings } from "./settings-menu";
 import { useJiraSync } from "./use-jira-sync";
 import { useWorkspace } from "./workspace-context";
@@ -18,7 +19,27 @@ vi.mock("./jira-api", () => ({
   taskFieldsToJiraFields: vi.fn(() => ({})),
   transitionIssueTo: vi.fn(),
   formatJiraError: vi.fn((e: unknown) => String(e)),
+  classifyJiraError: vi.fn((e: unknown) => {
+    // Minimal real-logic mirror so tests that don't override still work
+    if (e instanceof Error && e.name === "JiraApiError") {
+      const status = (e as { status?: number }).status ?? 0;
+      if (status === 401 || status === 403) return "auth";
+      if (status >= 500) return "network";
+      return "other";
+    }
+    return "network";
+  }),
   createIssue: vi.fn(),
+  JiraApiError: class JiraApiError extends Error {
+    status: number;
+    payload: unknown;
+    constructor(status: number, payload: unknown) {
+      super(`Jira ${status}`);
+      this.name = "JiraApiError";
+      this.status = status;
+      this.payload = payload;
+    }
+  },
 }));
 import * as jiraApi from "./jira-api";
 
@@ -57,14 +78,18 @@ function makeTask(overrides: Partial<Task> = {}): Task {
 }
 
 // ── Composite probe hook so we can inspect workspace tasks ───────────────────
-function makeProbe(overrideSettings = baseSettings) {
+function makeProbe(
+  overrideSettings = baseSettings,
+  overrides: { today?: string; onJiraAuthResult?: ReturnType<typeof vi.fn> } = {},
+) {
   return function useProbe() {
     const sync = useJiraSync({
       settings: overrideSettings,
-      today: "2026-05-20",
+      today: overrides.today ?? "2026-05-20",
       lang: "en-US",
       showToast,
       logActivity,
+      onJiraAuthResult: overrides.onJiraAuthResult,
     });
     const { tasks } = useWorkspace();
     return { ...sync, currentTasks: tasks };
@@ -72,8 +97,12 @@ function makeProbe(overrideSettings = baseSettings) {
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
-function renderSync(initialTasks: Task[] = [], overrideSettings = baseSettings) {
-  return renderHook(makeProbe(overrideSettings), {
+function renderSync(
+  initialTasks: Task[] = [],
+  overrideSettings = baseSettings,
+  overrides: { today?: string; onJiraAuthResult?: ReturnType<typeof vi.fn> } = {},
+) {
+  return renderHook(makeProbe(overrideSettings, overrides), {
     wrapper: ({ children }) => (
       <TestProviders tasks={initialTasks}>{children}</TestProviders>
     ),
@@ -241,7 +270,7 @@ describe("useJiraSync — handleJiraSync", () => {
     expect(created?.taskName).toBe("Brand new");
   });
 
-  it("error path: searchAllIssues throws → error toast shown, jiraSyncing reset to false", async () => {
+  it("error path: searchAllIssues throws network error → info toast (unreachable), jiraSyncing reset to false", async () => {
     (jiraApi.buildJql as ReturnType<typeof vi.fn>).mockReturnValueOnce("project = TEST");
     (jiraApi.searchAllIssues as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
       new Error("network failure")
@@ -250,7 +279,7 @@ describe("useJiraSync — handleJiraSync", () => {
     const { result } = renderSync([]);
     await act(async () => { await result.current.handleJiraSync(); });
 
-    expect(showToast).toHaveBeenCalledWith("error", expect.any(String));
+    expect(showToast).toHaveBeenCalledWith("info", expect.any(String));
     expect(result.current.jiraSyncing).toBe(false);
   });
 });
@@ -339,5 +368,58 @@ describe("useJiraSync — handleResolveConflicts", () => {
     await act(async () => { await result.current.handleResolveConflicts([resolution]); });
 
     expect(result.current.jiraConflicts).toEqual([]);
+  });
+});
+
+describe("useJiraSync — preflight, classified failures, flag sync", () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+
+  it("preflight expired: does not call searchAllIssues and shows info toast when tokenExpiresAt is in the past", async () => {
+    const onJiraAuthResult = vi.fn();
+    const expiredSettings = {
+      jira: {
+        ...baseSettings.jira,
+        tokenExpiresAt: "2020-01-01",
+      },
+    } as unknown as Settings;
+
+    (jiraApi.buildJql as ReturnType<typeof vi.fn>).mockReturnValueOnce("project = TEST");
+
+    const { result } = renderSync([], expiredSettings, {
+      today: "2026-05-26",
+      onJiraAuthResult,
+    });
+    await act(async () => { await result.current.handleJiraSync(); });
+
+    expect(showToast).toHaveBeenCalledWith("info", expect.any(String));
+    expect(jiraApi.searchAllIssues).not.toHaveBeenCalled();
+  });
+
+  it("401 → calls onJiraAuthResult(false) and shows info toast", async () => {
+    const onJiraAuthResult = vi.fn();
+
+    (jiraApi.buildJql as ReturnType<typeof vi.fn>).mockReturnValueOnce("project = TEST");
+    (jiraApi.searchAllIssues as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+      new JiraApiError(401, {}),
+    );
+    (jiraApi.classifyJiraError as ReturnType<typeof vi.fn>).mockReturnValueOnce("auth");
+
+    const { result } = renderSync([], baseSettings, { onJiraAuthResult });
+    await act(async () => { await result.current.handleJiraSync(); });
+
+    expect(onJiraAuthResult).toHaveBeenCalledWith(false);
+    expect(showToast).toHaveBeenCalledWith("info", expect.any(String));
+  });
+
+  it("success → calls onJiraAuthResult(true)", async () => {
+    const onJiraAuthResult = vi.fn();
+
+    (jiraApi.buildJql as ReturnType<typeof vi.fn>).mockReturnValueOnce("project = TEST");
+    (jiraApi.searchAllIssues as ReturnType<typeof vi.fn>).mockResolvedValueOnce([]);
+
+    const { result } = renderSync([], baseSettings, { onJiraAuthResult });
+    await act(async () => { await result.current.handleJiraSync(); });
+
+    expect(onJiraAuthResult).toHaveBeenCalledWith(true);
   });
 });

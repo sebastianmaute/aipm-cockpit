@@ -1,11 +1,13 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ActivityKind } from "./activity-log";
+import { formatExpiryDate } from "./date-format";
 import { type Lang, t } from "./i18n";
 import type { ConflictItem } from "./jira-api";
 import type { ConflictResolution } from "./jira-conflicts-modal";
 import type { Settings } from "./settings-menu";
 import type { Task } from "./types";
+import { daysUntil } from "./jira-token-status";
 import { useWorkspace } from "./workspace-context";
 
 // ── Lazy-load cache ──────────────────────────────────────────────────────────
@@ -23,6 +25,8 @@ export interface UseJiraSyncArgs {
   lang: Lang;
   showToast: (kind: "info" | "error", text: string) => void;
   logActivity: (kind: ActivityKind, ...args: (string | number)[]) => void;
+  /** Called false when a sync hits a 401/403 (token rejected), true on a successful sync. */
+  onJiraAuthResult?: (ok: boolean) => void;
 }
 
 // ── Hook ─────────────────────────────────────────────────────────────────────
@@ -53,6 +57,13 @@ export function useJiraSync(args: UseJiraSyncArgs) {
     if (jiraSyncingRef.current) return;
     const jiraCfg = settingsRef.current.jira;
     if (!jiraCfg.enabled) return;
+    if (jiraCfg.tokenExpiresAt) {
+      const d = daysUntil(jiraCfg.tokenExpiresAt, todayRef.current);
+      if (d !== null && d < 0) {
+        args.showToast("info", t(langRef.current, "jiraTokenExpiredBanner", formatExpiryDate(jiraCfg.tokenExpiresAt, langRef.current)));
+        return;
+      }
+    }
     const {
       buildJql,
       searchAllIssues,
@@ -63,6 +74,7 @@ export function useJiraSync(args: UseJiraSyncArgs) {
       taskFieldsToJiraFields,
       transitionIssueTo,
       formatJiraError,
+      classifyJiraError,
     } = await loadJiraApi();
     const jql = buildJql(jiraCfg);
     if (!jql) {
@@ -78,6 +90,7 @@ export function useJiraSync(args: UseJiraSyncArgs) {
     setJiraSyncing(true);
     try {
       const issues = await searchAllIssues(creds, jql);
+      args.onJiraAuthResult?.(true);
       const issueByKey = new Map(issues.map((i) => [i.key, i]));
       const todayNow = todayRef.current;
       const syncStamp = new Date().toISOString();
@@ -247,7 +260,15 @@ export function useJiraSync(args: UseJiraSyncArgs) {
         args.showToast("info", summary);
       }
     } catch (err) {
-      args.showToast("error", t(langRef.current, "jiraSyncFailed", formatJiraError(err)));
+      const kind = classifyJiraError(err);
+      if (kind === "auth") {
+        args.onJiraAuthResult?.(false);
+        args.showToast("info", t(langRef.current, "jiraTokenInvalidBanner"));
+      } else if (kind === "network") {
+        args.showToast("info", t(langRef.current, "jiraSyncUnreachable"));
+      } else {
+        args.showToast("error", t(langRef.current, "jiraSyncFailed", formatJiraError(err)));
+      }
     } finally {
       jiraSyncingRef.current = false;
       setJiraSyncing(false);
