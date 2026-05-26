@@ -1,4 +1,4 @@
-import { render, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type React from "react";
 import { WorkspaceProvider } from "./workspace-context";
@@ -33,6 +33,7 @@ vi.mock("./gantt", () => ({ GanttPanel: () => <div data-testid="gantt-panel" /> 
 vi.mock("./raid-panel", () => ({ RaidPanel: () => <div data-testid="raid-panel" /> }));
 vi.mock("./resources-panel", () => ({ ResourcesPanel: () => <div data-testid="resources-panel" /> }));
 vi.mock("./activity-log-panel", () => ({ ActivityLogPanel: () => <div data-testid="activity-panel" /> }));
+vi.mock("./budget-panel", () => ({ BudgetPanel: () => <div data-testid="budget-panel" /> }));
 
 function makeProps(overrides: Partial<WorkspaceSectionProps> = {}): WorkspaceSectionProps {
   return {
@@ -66,6 +67,8 @@ function makeProps(overrides: Partial<WorkspaceSectionProps> = {}): WorkspaceSec
     onSetPlanGranularity: vi.fn(),
     onEditResource: vi.fn(),
     onAddResource: vi.fn(),
+    onChangeBudgets: vi.fn(),
+    onRefreshFx: vi.fn(),
     ...overrides,
   };
 }
@@ -98,6 +101,11 @@ describe("WorkspaceSection", () => {
     const panelRaid = document.getElementById("panel-raid");
     expect(panelRaid).not.toBeNull();
     expect(panelRaid).toHaveAttribute("hidden");
+  });
+
+  it("renders the Budget tab button", () => {
+    render(<WorkspaceSection {...makeProps()} />, { wrapper: Wrapper });
+    expect(screen.getByRole("tab", { name: /Budget/i })).toBeInTheDocument();
   });
 
   it("clicking RAID tab invokes handleClearRaidTaskFilter", () => {

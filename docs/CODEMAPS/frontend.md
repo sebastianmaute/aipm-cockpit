@@ -16,12 +16,13 @@ src/app/layout.tsx           — root layout, security headers, globals.css
         │           VersionMenu, SettingsMenu, VoiceCommandButton)
         ├── banner / due-modal / jira-token-banner  (notifications.tsx)
         ├── workspace section (resizable, collapsible) — 6 tabs + 2 popout-only (read-only mirrors)
-        │   ├── tab strip (chat | reports | gantt | raid | resources | activity)
+        │   ├── tab strip (chat | reports | gantt | raid | budget | resources | activity)
         │   ├── ChatPanel          (chat-panel.tsx)        — mounted; hidden when off
         │   ├── ReportsPanel       (reports.tsx)           — conditional mount  ★
         │   ├── GanttPanel         (gantt.tsx)             — conditional mount  ★
         │   ├── RaidPanel          (raid-panel.tsx)        — mounted; hidden when off  ✚
         │   ├── ResourcesPanel     (resources-panel.tsx)   — conditional mount  ★
+        │   ├── BudgetPanel        (budget-panel.tsx)      — conditional mount  ★
         │   ├── ActivityLogPanel   (activity-log-panel.tsx)— conditional mount  ★
         │   ├── ResourcesReportPanel (resources-report.tsx)— popout-only via ?popout=resource-report  ★
         │   └── ResourceDirectory  (resource-directory.tsx)— popout-only via ?popout=address-book  ★
@@ -59,7 +60,8 @@ prerendered.
 | `colWidths`, `hiddenCols` | UI table prefs in `localStorage` (colWidths debounced 250 ms) |
 | `search` + `searchDebounced` + `taskSearchIndex` | 150 ms search debounce + precomputed lowercase index |
 | `selectedIds`, `bulkEdit`, `expandedNotes` | Per-session UI only |
-| `activeTab` | `"chat"` \| `"reports"` \| `"gantt"` \| `"raid"` \| `"resources"` \| `"activity"` \| `"resource-report"` \| `"address-book"` (last two are popout-only) |
+| `activeTab` | `"chat"` \| `"reports"` \| `"gantt"` \| `"raid"` \| `"budget"` \| `"resources"` \| `"activity"` \| `"resource-report"` \| `"address-book"` (last two are popout-only) |
+| `budgets: BudgetBucket[]`, `fxRates: FxRateCache` | Persisted via `StorageBackend.save()`; lives in `WorkspaceContext`; `fxRates` refreshed on mount via `useFxRates` |
 | `dueSnooze` / `birthdaySnooze` / `jiraTokenSnooze` | `useReminderSnooze("due")` / `useReminderSnooze("birthday")` / `useReminderSnooze("jiraToken")` — each yields `{ isSnoozed, snoozedUntil, snooze, clear }`; banners are gated on `!isSnoozed` |
 | `raidFilterTaskId` | Cross-tab nav: jump from a task row to RAID pre-filtered for that task |
 | `workspaceCollapsed`, `taskModalOpen`, `absenceDraft`, `shiftDraft` | Modal / collapse state |
@@ -78,6 +80,11 @@ prerendered.
 | `chat-tools.ts` | Tool dispatcher object passed to ChatPanel | Huge `useMemo` inside TaskManager |
 | `resources-panel.tsx` | Resource Planner: **4 views** — Directory (address-book table; delegates to `resource-directory.tsx`), Workload (per-resource open/overdue counts + upcoming absences; delegates to `resource-workload.tsx`, data built by `buildResourceWorkload`), Calendar (delegates to `resource-calendar.tsx`), and Planning (per-period utilization grid with capacity, internal/external cost, margin, week/month rollup, planning-window control, per-cell absence override). Header buttons open the Roles modal, the Report popout, and the Address Book popout. | conditional mount |
 | `resource-calendar.tsx` | 30-day grid (assignee × day) showing tasks, absences, shift hours | rendered inside ResourcesPanel |
+| `budget-panel.tsx` | Budget tab UI: bucket list/editor, per-role allocation grid, CCI cards (margin / cost-performance / consumption), win/loss, spillover controls, reminder surfacing | conditional mount |
+| `budget-report.ts` | **Pure** calc engine: `getActivePeriods`, `plannedHoursForAllocation`, `computeBucketReport` (CCI ×3, win/loss, spillover), `computeProjectBudgetRollup`, `getBucketReminders` | no React |
+| `fx.ts` | **Pure** FX helpers: `resolveFxRate(bucket, fxRates)` (manual override → cached ECB rate → 1.0 fallback) + `convertAmount` | no React |
+| `ecb.ts` | ECB XML parser: `parseEcbRates(xml) → Record<string,number>` (EUR-base daily reference rates) | no React |
+| `use-fx-rates.ts` | `useFxRates(workspace) → { rates, refresh }` — fetches `/api/ecb`, caches in workspace `fxRates`; stale-while-revalidate | client hook |
 | `resource-capacity.ts` | **Pure** capacity engine: `generatePeriods`, `workdaysInRange`, `absencesForResource`, `absenceWorkdays`, `periodCapacityHours` (percent/hours modes, override absences), `displayCapacityHours` (read-only week↔month rollup) | Unit-tested against Excel golden fixtures |
 | `resource-cost.ts` | **Pure** cost layer: `periodCost(hours, role)` = `{ internal, external, margin }`; `formatCurrency(amount, currency, locale)` with Intl + fallback | |
 | `resource-foundation.ts` | **Pure** helpers: `seedDisciplines`/`seedGrades`, `defaultResourcePlan`, `backfillResources` (one-time assignee → resource migration), `nextId`, `findRoleByCombo`, `roleLabel` | |
@@ -130,5 +137,5 @@ prerendered.
 ## Routing
 
 App Router with a single visible page (`/`). API routes under `/api/jira/*`
-(see [backend.md](backend.md)). Middleware `src/proxy.ts` runs on every
-HTML response.
+(see [backend.md](backend.md)) and `GET /api/ecb` (ECB FX rates proxy, cached).
+Middleware `src/proxy.ts` runs on every HTML response.

@@ -7,10 +7,13 @@ import {
 } from "./resource-foundation";
 import {
   dropDanglingDependencies,
+  encodeAllocations,
   encodePeriodMap,
   parseDependenciesString,
   sanitizeAbsence,
+  sanitizeBudgetBucket,
   sanitizeDiscipline,
+  sanitizeFxRates,
   sanitizeGrade,
   sanitizeGroup,
   sanitizeLabels,
@@ -22,7 +25,9 @@ import {
 } from "./sanitize";
 import {
   type Absence,
+  type BudgetBucket,
   type Discipline,
+  type FxRates,
   type Grade,
   type Priority,
   type RaidCategory,
@@ -50,9 +55,15 @@ export type Workspace = {
   disciplines: Discipline[];
   grades: Grade[];
   plan: ResourcePlan;
+  /** Budget planner buckets. Optional so older saved files and existing
+   *  Workspace literals still satisfy the type; every load path defaults to
+   *  [] (see migrateWorkspaceV6). */
+  budgets?: BudgetBucket[];
+  /** Cached ECB rate table; null/absent until first fetched. */
+  fxRates?: FxRates | null;
 };
 
-const SCHEMA_VERSION = 5;
+const SCHEMA_VERSION = 6;
 
 /** A blank workspace with a default plan anchored to today. */
 export function emptyWorkspace(): Workspace {
@@ -60,6 +71,8 @@ export function emptyWorkspace(): Workspace {
     tasks: [], raid: [], absences: [], shifts: [],
     resources: [], roles: [], disciplines: [], grades: [],
     plan: defaultResourcePlan(new Date().toISOString().slice(0, 10)),
+    budgets: [],
+    fxRates: null,
   };
 }
 
@@ -83,6 +96,18 @@ export function migrateWorkspaceV5(ws: Workspace): Workspace {
     absences = built.absences;
   }
   return { ...ws, tasks, absences, resources, roles: ws.roles, disciplines, grades, plan };
+}
+
+/**
+ * v6 migration: ensures the budget planner fields exist. Runs after v5.
+ * Idempotent — reuses arrays/values unchanged.
+ */
+export function migrateWorkspaceV6(ws: Workspace): Workspace {
+  const base = migrateWorkspaceV5(ws);
+  const budgets = Array.isArray(base.budgets) ? base.budgets : [];
+  const fxRates = base.fxRates ?? null;
+  if (budgets === base.budgets && fxRates === base.fxRates) return base;
+  return { ...base, budgets, fxRates };
 }
 
 // --- Storage configuration -------------------------------------------------
@@ -165,7 +190,7 @@ export interface StorageBackend {
 // the new record stores additively.
 
 const IDB_NAME = "lop-app";
-const IDB_VERSION = 5;
+const IDB_VERSION = 6;
 const IDB_KV_STORE = "kv";
 const IDB_TASKS_STORE = "tasks";
 const IDB_RAID_STORE = "raid";
@@ -176,6 +201,8 @@ const IDB_ROLES_STORE = "roles";
 const IDB_DISCIPLINES_STORE = "disciplines";
 const IDB_GRADES_STORE = "grades";
 const KV_PLAN_KEY = "resource-plan";
+const IDB_BUDGETS_STORE = "budgets";
+const KV_FXRATES_KEY = "fx-rates";
 
 function openIdb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -212,6 +239,9 @@ function openIdb(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains(IDB_GRADES_STORE)) {
         db.createObjectStore(IDB_GRADES_STORE, { keyPath: "id" });
+      }
+      if (!db.objectStoreNames.contains(IDB_BUDGETS_STORE)) {
+        db.createObjectStore(IDB_BUDGETS_STORE, { keyPath: "id" });
       }
     };
     req.onsuccess = () => resolve(req.result);
@@ -438,6 +468,15 @@ const RESOURCES_CSV_COLUMNS = [
 const ROLES_CSV_COLUMNS = ["id", "disciplineId", "gradeId", "internalRate", "externalRate", "localModifiedAt"] as const;
 const REF_CSV_COLUMNS = ["id", "name", "localModifiedAt"] as const;
 
+const BUDGETS_CSV_COLUMNS = [
+  "id", "name", "poNumber", "type", "currency", "fixedPriceAmount",
+  "startDate", "endDate", "successorId", "status", "closedDate",
+  "fxRateOverride", "allocations", "localModifiedAt",
+] as const;
+
+const CSV_SECTION_BUDGETS = "# BUDGETS";
+const CSV_SECTION_FXRATES = "# FXRATES";
+
 // Section markers for the new entity sections in multi-section CSV files.
 const CSV_SECTION_RESOURCES = "# RESOURCES";
 const CSV_SECTION_ROLES = "# ROLES";
@@ -473,6 +512,23 @@ const ROLES_MD_COLUMNS: readonly { col: string; label: string }[] = [
   { col: "gradeId", label: "GradeId" },
   { col: "internalRate", label: "InternalRate" },
   { col: "externalRate", label: "ExternalRate" },
+  { col: "localModifiedAt", label: "LocalModified" },
+];
+
+const BUDGETS_MD_COLUMNS: readonly { col: string; label: string }[] = [
+  { col: "id", label: "ID" },
+  { col: "name", label: "Name" },
+  { col: "poNumber", label: "PO" },
+  { col: "type", label: "Type" },
+  { col: "currency", label: "Currency" },
+  { col: "fixedPriceAmount", label: "FixedPrice" },
+  { col: "startDate", label: "Start" },
+  { col: "endDate", label: "End" },
+  { col: "successorId", label: "SuccessorId" },
+  { col: "status", label: "Status" },
+  { col: "closedDate", label: "Closed" },
+  { col: "fxRateOverride", label: "FxOverride" },
+  { col: "allocations", label: "Allocations" },
   { col: "localModifiedAt", label: "LocalModified" },
 ];
 
@@ -734,6 +790,38 @@ function resourcesToCsv(rs: readonly Resource[]): string {
   );
 }
 
+function budgetFieldToString(b: BudgetBucket, c: string): string {
+  switch (c) {
+    case "id": return String(b.id);
+    case "name": return b.name;
+    case "poNumber": return b.poNumber ?? "";
+    case "type": return b.type;
+    case "currency": return b.currency;
+    case "fixedPriceAmount": return b.fixedPriceAmount == null ? "" : String(b.fixedPriceAmount);
+    case "startDate": return b.startDate;
+    case "endDate": return b.endDate;
+    case "successorId": return b.successorId == null ? "" : String(b.successorId);
+    case "status": return b.status;
+    case "closedDate": return b.closedDate ?? "";
+    case "fxRateOverride": return b.fxRateOverride == null ? "" : String(b.fxRateOverride);
+    case "allocations": return encodeAllocations(b.allocations);
+    case "localModifiedAt": return b.localModifiedAt ?? "";
+    default: return "";
+  }
+}
+
+function budgetsToCsv(bs: readonly BudgetBucket[]): string {
+  return rowsToCsv(BUDGETS_CSV_COLUMNS, bs.map((b) => BUDGETS_CSV_COLUMNS.map((c) => budgetFieldToString(b, c))));
+}
+
+function encodeRatesMap(rates: Record<string, number>): string {
+  return Object.entries(rates).filter(([, v]) => Number.isFinite(v)).map(([k, v]) => `${k}=${v}`).join("|");
+}
+
+function fxRatesToCsvLine(fx: FxRates): string {
+  return [CSV_SECTION_FXRATES, [fx.base, fx.date, fx.fetchedAt, encodeRatesMap(fx.rates)].map(csvEscape).join(",")].join("\r\n");
+}
+
 function rolesToCsv(rs: readonly Role[]): string {
   return rowsToCsv(
     ROLES_CSV_COLUMNS,
@@ -757,6 +845,48 @@ const CSV_SECTION_RAID = "# RAID";
 const CSV_SECTION_ABSENCES = "# ABSENCES";
 const CSV_SECTION_SHIFTS = "# SHIFTS";
 
+/** Serialize a workspace to the JSON envelope (schemaVersion + entity arrays). */
+export function workspaceToJson(ws: Workspace): string {
+  return JSON.stringify(
+    {
+      schemaVersion: SCHEMA_VERSION,
+      tasks: ws.tasks, raid: ws.raid, absences: ws.absences, shifts: ws.shifts,
+      resources: ws.resources, roles: ws.roles, disciplines: ws.disciplines,
+      grades: ws.grades, plan: ws.plan, budgets: ws.budgets ?? [], fxRates: ws.fxRates ?? null,
+    },
+    null,
+    2,
+  );
+}
+
+/** Parse a JSON envelope back to a workspace. Tolerates legacy files (pre-v6)
+ *  by defaulting budgets -> [] and fxRates -> null. Returns an empty workspace
+ *  on malformed input. */
+export function jsonToWorkspace(text: string): Workspace {
+  try {
+    const parsed = JSON.parse(text);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return emptyWorkspace();
+    const p = parsed as Record<string, unknown>;
+    if (!Array.isArray(p.tasks) || !Array.isArray(p.raid)) return emptyWorkspace();
+    const raw: Workspace = {
+      tasks: p.tasks as Task[],
+      raid: p.raid as RaidItem[],
+      absences: ((p.absences as unknown[]) ?? []).map((a) => sanitizeAbsence(a)).filter((a): a is Absence => a !== null),
+      shifts: ((p.shifts as unknown[]) ?? []).map((s) => sanitizeShift(s)).filter((s): s is Shift => s !== null),
+      resources: ((p.resources as unknown[]) ?? []).map((r) => sanitizeResource(r)).filter((r): r is Resource => r !== null),
+      roles: ((p.roles as unknown[]) ?? []).map((r) => sanitizeRole(r)).filter((r): r is Role => r !== null),
+      disciplines: ((p.disciplines as unknown[]) ?? []).map((d) => sanitizeDiscipline(d)).filter((d): d is Discipline => d !== null),
+      grades: ((p.grades as unknown[]) ?? []).map((g) => sanitizeGrade(g)).filter((g): g is Grade => g !== null),
+      plan: sanitizePlan(p.plan ?? {}, new Date().toISOString().slice(0, 10)),
+      budgets: ((p.budgets as unknown[]) ?? []).map((b) => sanitizeBudgetBucket(b)).filter((b): b is BudgetBucket => b !== null),
+      fxRates: sanitizeFxRates(p.fxRates),
+    };
+    return migrateWorkspaceV6(raw);
+  } catch {
+    return emptyWorkspace();
+  }
+}
+
 /** Multi-section CSV: tasks then (optionally) raid, absences, and shifts,
  *  separated by marker lines. Used by file backends for round-trip;
  *  `tasksToCsv` remains the marker-less variant that the Export menu uses
@@ -776,6 +906,8 @@ export function workspaceToCsv(ws: Workspace): string {
   if (ws.grades.length > 0) parts.push("", CSV_SECTION_GRADES, refsToCsv(ws.grades));
   if (ws.roles.length > 0) parts.push("", CSV_SECTION_ROLES, rolesToCsv(ws.roles));
   if (ws.resources.length > 0) parts.push("", CSV_SECTION_RESOURCES, resourcesToCsv(ws.resources));
+  if ((ws.budgets ?? []).length > 0) parts.push("", CSV_SECTION_BUDGETS, budgetsToCsv(ws.budgets ?? []));
+  if (ws.fxRates) parts.push("", fxRatesToCsvLine(ws.fxRates));
   parts.push("", planToCsvLine(ws.plan));
   return parts.join("\r\n");
 }
@@ -854,9 +986,11 @@ function splitCsvSections(csv: string): {
   disciplinesText: string;
   gradesText: string;
   planText: string;
+  budgetsText: string;
+  fxRatesText: string;
 } {
   const lines = csv.split(/\r?\n/);
-  let mode: "tasks" | "raid" | "absences" | "shifts" | "resources" | "roles" | "disciplines" | "grades" | "plan" | null = null;
+  let mode: "tasks" | "raid" | "absences" | "shifts" | "resources" | "roles" | "disciplines" | "grades" | "plan" | "budgets" | "fxrates" | null = null;
   const tasksLines: string[] = [];
   const raidLines: string[] = [];
   const absencesLines: string[] = [];
@@ -866,8 +1000,12 @@ function splitCsvSections(csv: string): {
   const disciplinesLines: string[] = [];
   const gradesLines: string[] = [];
   const planLines: string[] = [];
+  const budgetsLines: string[] = [];
+  const fxRatesLines: string[] = [];
   for (const line of lines) {
     const trimmed = line.trimStart();
+    if (trimmed.startsWith(CSV_SECTION_BUDGETS)) { mode = "budgets"; continue; }
+    if (trimmed.startsWith(CSV_SECTION_FXRATES)) { mode = "fxrates"; continue; }
     if (trimmed.startsWith(CSV_SECTION_RESOURCES)) { mode = "resources"; continue; }
     if (trimmed.startsWith(CSV_SECTION_ROLES)) { mode = "roles"; continue; }
     if (trimmed.startsWith(CSV_SECTION_DISCIPLINES)) { mode = "disciplines"; continue; }
@@ -886,6 +1024,8 @@ function splitCsvSections(csv: string): {
     else if (mode === "absences") absencesLines.push(line);
     else if (mode === "raid") raidLines.push(line);
     else if (mode === "tasks") tasksLines.push(line);
+    else if (mode === "budgets") budgetsLines.push(line);
+    else if (mode === "fxrates") fxRatesLines.push(line);
     // (else: line before the first marker — drop it.)
   }
   return {
@@ -898,6 +1038,8 @@ function splitCsvSections(csv: string): {
     disciplinesText: disciplinesLines.join("\r\n"),
     gradesText: gradesLines.join("\r\n"),
     planText: planLines.join("\r\n"),
+    budgetsText: budgetsLines.join("\r\n"),
+    fxRatesText: fxRatesLines.join("\r\n"),
   };
 }
 
@@ -931,6 +1073,28 @@ function csvToResources(csv: string): Resource[] {
 
 function csvToRoles(csv: string): Role[] {
   return csvRowsToObjects(csv).map((o) => sanitizeRole(o)).filter((r): r is Role => r !== null);
+}
+
+function csvToBudgets(csv: string): BudgetBucket[] {
+  return csvRowsToObjects(csv).map((o) => sanitizeBudgetBucket(o)).filter((b): b is BudgetBucket => b !== null);
+}
+
+function decodeRatesMap(s: string): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const part of s.split("|")) {
+    const eq = part.indexOf("=");
+    if (eq <= 0) continue;
+    const k = part.slice(0, eq).trim();
+    const v = Number(part.slice(eq + 1).trim());
+    if (k && Number.isFinite(v)) out[k] = v;
+  }
+  return out;
+}
+
+function parseFxRatesLine(line: string): FxRates | null {
+  const cells = parseCsv(line)[0];
+  if (!cells || cells.length < 4) return null;
+  return sanitizeFxRates({ base: cells[0], date: cells[1], fetchedAt: cells[2], rates: decodeRatesMap(cells[3]) });
 }
 
 function csvToDisciplines(csv: string): Discipline[] {
@@ -1047,8 +1211,10 @@ export function csvToWorkspace(csv: string): Workspace {
     disciplines: s.disciplinesText.trim() ? csvToDisciplines(s.disciplinesText) : [],
     grades: s.gradesText.trim() ? csvToGrades(s.gradesText) : [],
     plan: (s.planText.trim() && parsePlanLine(s.planText)) || defaultResourcePlan(new Date().toISOString().slice(0, 10)),
+    budgets: s.budgetsText.trim() ? csvToBudgets(s.budgetsText) : [],
+    fxRates: s.fxRatesText.trim() ? parseFxRatesLine(s.fxRatesText.split(/\r?\n/).find((l) => l.trim() && !l.startsWith("#")) ?? "") : null,
   };
-  return migrateWorkspaceV5(ws);
+  return migrateWorkspaceV6(ws);
 }
 
 function csvToTasks(csv: string): Task[] {
@@ -1218,6 +1384,20 @@ function rolesToMarkdown(rs: readonly Role[]): string {
   return lines.join("\n") + "\n";
 }
 
+function budgetsToMarkdown(bs: readonly BudgetBucket[]): string {
+  const header = `| ${BUDGETS_MD_COLUMNS.map((c) => c.label).join(" | ")} |`;
+  const sep = `| ${BUDGETS_MD_COLUMNS.map(() => "---").join(" | ")} |`;
+  const lines = ["# Budgets", "", header, sep];
+  for (const b of bs) {
+    lines.push(`| ${BUDGETS_MD_COLUMNS.map((c) => mdEscape(budgetFieldToString(b, c.col))).join(" | ")} |`);
+  }
+  return lines.join("\n") + "\n";
+}
+
+function fxRatesToMarkdown(fx: FxRates): string {
+  return `## FX Rates\n\n${fx.base},${fx.date},${fx.fetchedAt},${encodeRatesMap(fx.rates)}\n`;
+}
+
 function refsToMarkdown(heading: string, rs: readonly { id: number; name: string; localModifiedAt?: string }[]): string {
   const header = `| ${REF_MD_COLUMNS.map((c) => c.label).join(" | ")} |`;
   const sep = `| ${REF_MD_COLUMNS.map(() => "---").join(" | ")} |`;
@@ -1243,6 +1423,8 @@ export function workspaceToMarkdown(ws: Workspace): string {
   if (ws.grades.length > 0) out += "\n" + refsToMarkdown("Grades", ws.grades);
   if (ws.roles.length > 0) out += "\n" + rolesToMarkdown(ws.roles);
   if (ws.resources.length > 0) out += "\n" + resourcesToMarkdown(ws.resources);
+  if ((ws.budgets ?? []).length > 0) out += "\n" + budgetsToMarkdown(ws.budgets ?? []);
+  if (ws.fxRates) out += "\n" + fxRatesToMarkdown(ws.fxRates);
   out += "\n" + planToMarkdown(ws.plan);
   return out;
 }
@@ -1287,6 +1469,8 @@ function splitMarkdownSections(md: string): {
   disciplinesMd: string;
   gradesMd: string;
   planMd: string;
+  budgetsMd: string;
+  fxRatesMd: string;
 } {
   const lines = md.split(/\r?\n/);
   const tasksLines: string[] = [];
@@ -1298,6 +1482,8 @@ function splitMarkdownSections(md: string): {
   const disciplinesLines: string[] = [];
   const gradesLines: string[] = [];
   const planLines: string[] = [];
+  const budgetsLines: string[] = [];
+  const fxRatesLines: string[] = [];
   let target = tasksLines;
   for (const line of lines) {
     const trimmed = line.trim();
@@ -1310,6 +1496,8 @@ function splitMarkdownSections(md: string): {
     if (/^#\s+Disciplines\b/i.test(trimmed)) { target = disciplinesLines; target.push(line); continue; }
     if (/^#\s+Grades\b/i.test(trimmed)) { target = gradesLines; target.push(line); continue; }
     if (/^##\s+Plan\b/i.test(trimmed)) { target = planLines; continue; }
+    if (/^#\s+Budgets\b/i.test(trimmed)) { target = budgetsLines; target.push(line); continue; }
+    if (/^##\s+FX\s+Rates\b/i.test(trimmed)) { target = fxRatesLines; continue; }
     target.push(line);
   }
   return {
@@ -1322,6 +1510,8 @@ function splitMarkdownSections(md: string): {
     disciplinesMd: disciplinesLines.join("\n"),
     gradesMd: gradesLines.join("\n"),
     planMd: planLines.join("\n"),
+    budgetsMd: budgetsLines.join("\n"),
+    fxRatesMd: fxRatesLines.join("\n"),
   };
 }
 
@@ -1495,6 +1685,41 @@ function markdownToRoles(md: string): Role[] {
   }).filter((r): r is Role => r !== null);
 }
 
+function markdownToBudgets(md: string): BudgetBucket[] {
+  return markdownTableToObjects(md).map((row) => {
+    const mapped: Record<string, string> = {};
+    for (const [label, val] of Object.entries(row)) {
+      const norm = label.toLowerCase().replace(/\s+/g, "");
+      if (norm === "id") mapped["id"] = val;
+      else if (norm === "name") mapped["name"] = val;
+      else if (norm === "po" || norm === "ponumber") mapped["poNumber"] = val;
+      else if (norm === "type") mapped["type"] = val;
+      else if (norm === "currency") mapped["currency"] = val;
+      else if (norm === "fixedprice" || norm === "fixedpriceamount") mapped["fixedPriceAmount"] = val;
+      else if (norm === "start" || norm === "startdate") mapped["startDate"] = val;
+      else if (norm === "end" || norm === "enddate") mapped["endDate"] = val;
+      else if (norm === "successorid") mapped["successorId"] = val;
+      else if (norm === "status") mapped["status"] = val;
+      else if (norm === "closed" || norm === "closeddate") mapped["closedDate"] = val;
+      else if (norm === "fxoverride" || norm === "fxrateoverride") mapped["fxRateOverride"] = val;
+      else if (norm === "allocations") mapped["allocations"] = val;
+      else if (norm === "localmodified" || norm === "localmodifiedat") mapped["localModifiedAt"] = val;
+    }
+    return sanitizeBudgetBucket(mapped);
+  }).filter((b): b is BudgetBucket => b !== null);
+}
+
+function parseFxRatesMarkdown(md: string): FxRates | null {
+  for (const line of md.split(/\r?\n/)) {
+    const tline = line.trim();
+    if (!tline || tline.startsWith("#") || tline.startsWith("|")) continue;
+    const cells = tline.split(",").map((s) => s.trim());
+    if (cells.length < 4) continue;
+    return sanitizeFxRates({ base: cells[0], date: cells[1], fetchedAt: cells[2], rates: decodeRatesMap(cells.slice(3).join(",")) });
+  }
+  return null;
+}
+
 /** Map MD column labels to sanitizer field keys for disciplines/grades. */
 function markdownToRefs<T extends Discipline | Grade>(
   md: string,
@@ -1602,8 +1827,10 @@ export function markdownToWorkspace(md: string): Workspace {
     disciplines: s.disciplinesMd.trim() ? markdownToRefs(s.disciplinesMd, sanitizeDiscipline) : [],
     grades: s.gradesMd.trim() ? markdownToRefs(s.gradesMd, sanitizeGrade) : [],
     plan: (s.planMd.trim() && parsePlanMarkdown(s.planMd)) || defaultResourcePlan(new Date().toISOString().slice(0, 10)),
+    budgets: s.budgetsMd.trim() ? markdownToBudgets(s.budgetsMd) : [],
+    fxRates: s.fxRatesMd.trim() ? parseFxRatesMarkdown(s.fxRatesMd) : null,
   };
-  return migrateWorkspaceV5(ws);
+  return migrateWorkspaceV6(ws);
 }
 
 function markdownToTasks(md: string): Task[] {
@@ -1881,6 +2108,7 @@ class BrowserBackend implements StorageBackend {
   private rolesBaseline = new Map<number, Role>();
   private disciplinesBaseline = new Map<number, Discipline>();
   private gradesBaseline = new Map<number, Grade>();
+  private budgetsBaseline = new Map<number, BudgetBucket>();
 
   async load(): Promise<Workspace> {
     if (typeof window === "undefined") return emptyWorkspace();
@@ -1894,6 +2122,8 @@ class BrowserBackend implements StorageBackend {
     let disciplines: Discipline[] = [];
     let grades: Grade[] = [];
     let plan: ResourcePlan = defaultResourcePlan(new Date().toISOString().slice(0, 10));
+    let budgets: BudgetBucket[] = [];
+    let fxRates: FxRates | null = null;
     try {
       tasks = await idbGetAll<Task>(IDB_TASKS_STORE);
       raid = await idbGetAll<RaidItem>(IDB_RAID_STORE);
@@ -1904,6 +2134,8 @@ class BrowserBackend implements StorageBackend {
       disciplines = await idbGetAll<Discipline>(IDB_DISCIPLINES_STORE);
       grades = await idbGetAll<Grade>(IDB_GRADES_STORE);
       plan = (await idbGet<ResourcePlan>(KV_PLAN_KEY)) ?? plan;
+      budgets = await idbGetAll<BudgetBucket>(IDB_BUDGETS_STORE);
+      fxRates = (await idbGet<FxRates>(KV_FXRATES_KEY)) ?? null;
     } catch {
       // IDB unavailable or upgrade failed. Fall through — the legacy
       // migration block below will still try localStorage, and if that's
@@ -1918,8 +2150,8 @@ class BrowserBackend implements StorageBackend {
       // from the (possibly successful) idbGetAll attempts above.
     }
 
-    const raw: Workspace = { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan };
-    const ws = migrateWorkspaceV5(raw);
+    const raw: Workspace = { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates };
+    const ws = migrateWorkspaceV6(raw);
 
     try {
       if (ws.resources !== raw.resources) await idbBulkUpdate(IDB_RESOURCES_STORE, ws.resources, []);
@@ -1938,6 +2170,7 @@ class BrowserBackend implements StorageBackend {
     this.rolesBaseline = new Map(ws.roles.map((r) => [r.id, r]));
     this.disciplinesBaseline = new Map(ws.disciplines.map((d) => [d.id, d]));
     this.gradesBaseline = new Map(ws.grades.map((g) => [g.id, g]));
+    this.budgetsBaseline = new Map((ws.budgets ?? []).map((b) => [b.id, b]));
     return ws;
   }
 
@@ -2024,6 +2257,10 @@ class BrowserBackend implements StorageBackend {
     await idbBulkUpdate(IDB_GRADES_STORE, gradeDelta.puts, gradeDelta.deletes);
     await idbSet(KV_PLAN_KEY, ws.plan);
 
+    const budgetDelta = this.diff(this.budgetsBaseline, ws.budgets ?? []);
+    await idbBulkUpdate(IDB_BUDGETS_STORE, budgetDelta.puts, budgetDelta.deletes);
+    await idbSet(KV_FXRATES_KEY, ws.fxRates ?? null);
+
     // Refresh baselines so the next save's diff is computed against what's
     // actually in IDB. Rebuilding the maps is O(N) but only runs after a
     // successful write, not on every render.
@@ -2035,6 +2272,7 @@ class BrowserBackend implements StorageBackend {
     this.rolesBaseline = new Map(ws.roles.map((r) => [r.id, r]));
     this.disciplinesBaseline = new Map(ws.disciplines.map((d) => [d.id, d]));
     this.gradesBaseline = new Map(ws.grades.map((g) => [g.id, g]));
+    this.budgetsBaseline = new Map((ws.budgets ?? []).map((b) => [b.id, b]));
   }
 
   /**
@@ -2138,60 +2376,7 @@ class LocalFileBackend implements StorageBackend {
     }
     const text = await readHandle(handle);
     if (!text.trim()) return emptyWorkspace();
-    if (this.format === "json") {
-      try {
-        const parsed = JSON.parse(text);
-        // Envelope shape: { schemaVersion, tasks, raid, ... }.
-        // Require only tasks + raid (present since v1); the newer fields
-        // default to [] / seeded so older files still load.
-        if (
-          parsed &&
-          typeof parsed === "object" &&
-          !Array.isArray(parsed) &&
-          Array.isArray((parsed as { tasks?: unknown }).tasks) &&
-          Array.isArray((parsed as { raid?: unknown }).raid)
-        ) {
-          const p = parsed as {
-            tasks: Task[];
-            raid: RaidItem[];
-            absences?: unknown[];
-            shifts?: unknown[];
-            resources?: unknown[];
-            roles?: unknown[];
-            disciplines?: unknown[];
-            grades?: unknown[];
-            plan?: unknown;
-          };
-          const raw: Workspace = {
-            tasks: p.tasks,
-            raid: p.raid,
-            absences: (p.absences ?? [])
-              .map((a) => sanitizeAbsence(a))
-              .filter((a): a is Absence => a !== null),
-            shifts: (p.shifts ?? [])
-              .map((s) => sanitizeShift(s))
-              .filter((s): s is Shift => s !== null),
-            resources: (p.resources ?? [])
-              .map((r) => sanitizeResource(r))
-              .filter((r): r is Resource => r !== null),
-            roles: (p.roles ?? [])
-              .map((r) => sanitizeRole(r))
-              .filter((r): r is Role => r !== null),
-            disciplines: (p.disciplines ?? [])
-              .map((d) => sanitizeDiscipline(d))
-              .filter((d): d is Discipline => d !== null),
-            grades: (p.grades ?? [])
-              .map((g) => sanitizeGrade(g))
-              .filter((g): g is Grade => g !== null),
-            plan: sanitizePlan(p.plan ?? {}, new Date().toISOString().slice(0, 10)),
-          };
-          return migrateWorkspaceV5(raw);
-        }
-        return emptyWorkspace();
-      } catch {
-        return emptyWorkspace();
-      }
-    }
+    if (this.format === "json") return jsonToWorkspace(text);
     if (this.format === "csv") return csvToWorkspace(text);
     return markdownToWorkspace(text);
   }
@@ -2207,24 +2392,8 @@ class LocalFileBackend implements StorageBackend {
       throw new StorageNotReadyError("local-file-permission-needed");
     }
     let content: string;
-    if (this.format === "json") {
-      content = JSON.stringify(
-        {
-          schemaVersion: SCHEMA_VERSION,
-          tasks: ws.tasks,
-          raid: ws.raid,
-          absences: ws.absences,
-          shifts: ws.shifts,
-          resources: ws.resources,
-          roles: ws.roles,
-          disciplines: ws.disciplines,
-          grades: ws.grades,
-          plan: ws.plan,
-        },
-        null,
-        2,
-      );
-    } else if (this.format === "csv") content = workspaceToCsv(ws);
+    if (this.format === "json") content = workspaceToJson(ws);
+    else if (this.format === "csv") content = workspaceToCsv(ws);
     else content = workspaceToMarkdown(ws);
     await writeHandle(handle, content);
   }

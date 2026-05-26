@@ -8,6 +8,40 @@ Authoritative source for version + build date: [`src/app/version.ts`](src/app/ve
 This file is seeded from that module's milestone comment plus the
 post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-diff.txt).
 
+## [0.12.0] "Huxley" — 2026-05-26
+
+Adds a project budget planner: named PO-line budget buckets (T&M or fixed-price)
+that span roles, draw planned hours from the resource engine, track entered
+actuals, and report a three-value CCI plus win/loss — with multi-currency
+display backed by ECB rates and remaining-budget spillover on close.
+
+### Added
+
+- **Budget tab + planner.** Create budget buckets (name, PO number, type
+  T&M/fixed-price, currency EUR/USD/GBP, start/end dates, successor). Each
+  bucket holds per-role allocations (role + feeding resources + per-period
+  budget/actual hours). `budget-panel.tsx`.
+- **CCI panel (×3).** Contribution margin, cost performance, and consumption —
+  each as amount + percent, at bucket and project level. Win/loss in hours and
+  currency. Pure engine in `budget-report.ts`.
+- **Planned-from-resources, actuals entered.** Planned hours derive from the
+  existing resource capacity/utilization engine for the resources listed on each
+  allocation; actuals are entered per bucket/role/period.
+- **Spillover.** Closing a bucket rolls its remaining budget (hours + amount)
+  into a named successor (computed, reversible on reopen).
+- **Multi-currency via ECB.** New `/api/ecb` route fetches ECB daily reference
+  rates (cached in the workspace); per-bucket manual rate override wins while
+  present, else the cached rate, else EUR. `fx.ts`, `ecb.ts`, `use-fx-rates.ts`.
+- **Bucket end-date reminders** via the existing reminder lead-time, surfaced as
+  a toast (`getBucketReminders`).
+
+### Changed
+
+- **Workspace schema v6.** Additive `budgets` + `fxRates`, with an idempotent
+  v5→v6 migration; full round-trip across IndexedDB, JSON, CSV, and Markdown,
+  and inclusion in manual CSV/MD exports. `budgets`/`fxRates` are optional on
+  the `Workspace` type for backward compatibility.
+
 ## [0.11.0] "Orwell" — 2026-05-26
 
 Pop-out windows become read-only mirrors (closing a data-loss path), every

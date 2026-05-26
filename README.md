@@ -36,6 +36,7 @@ All data is stored locally by default — no backend account required.
 | Reports | Summary view with overdue, due-soon, and completion stats |
 | RAID register | Risks / Assumptions / Issues / Dependencies log with parent/child cycle detection |
 | Resource planner & address book | First-class resources with an address book (name, title, contact details, company, birthday) in a Directory tab; two-dimensional roles (discipline × grade) carrying internal/external rates; absences; per-period utilization planning grid (week or month) → capacity, cost & margin with read-only rollup; pop-out resources report and address-book window |
+| Budget planner | PO-line budget buckets (T&M / fixed-price) with per-role allocations, a three-value CCI (margin / cost-performance / consumption), win/loss with spillover, and multi-currency display via ECB rates |
 | Activity log | Browser-local chronological record of task / RAID / absence / shift CRUD with text / wildcard / regex search |
 | Contacts | Assignee address book — persists across task deletion and Jira sync churn; auto-suggests on task forms |
 | Jira sync | Pull from and push to a Jira Cloud project (bidirectional, with conflict resolution); optional API-token-expiry reminder, and clear messages when the token is expired/invalid or Jira is unreachable |

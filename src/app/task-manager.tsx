@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getAlertableTasks } from "./due-dates";
+import { getBucketReminders } from "./budget-report";
 import { type TranslationKey, t } from "./i18n";
 import { useChatDispatcher } from "./use-chat-dispatcher";
 import { useActivityLog } from "./use-activity-log";
@@ -20,7 +21,8 @@ import { useTaskRowHandlers } from "./use-task-row-handlers";
 import { useTaskSubmit } from "./use-task-submit";
 import { useGanttHandlers } from "./use-gantt-handlers";
 import { AppModals } from "./app-modals";
-import { type Resource } from "./types";
+import { type Resource, type BudgetBucket } from "./types";
+import { useFxRates } from "./use-fx-rates";
 import { splitName, resourceDisplayName } from "./resource-foundation";
 import { buildRaidByTaskIndex } from "./raid";
 import { FiltersProvider, useFilters } from "./filters-context";
@@ -53,6 +55,7 @@ const TAB_LABEL_KEYS: Record<TopTab, TranslationKey> = {
   activity: "tabActivity",
   "resource-report": "resourcesReportTitle",
   "address-book": "resourcesAddressBookTitle",
+  budget: "tabBudget",
 };
 
 function todayISO() {
@@ -97,6 +100,9 @@ function TaskManagerInner() {
     roles,
     disciplines,
     grades,
+    setBudgets,
+    setFxRates,
+    budgets,
   } = useWorkspace();
 
   const { setContacts, contactsList, handleRemoveContact } =
@@ -357,6 +363,19 @@ function TaskManagerInner() {
     return getAlertableTasks(tasks, settings.notifications.reminderLeadDays, today, holidaySet, absences);
   }, [tasks, settings.notifications.reminderLeadDays, today, holidaySet, absences]);
 
+  const bucketReminders = useMemo(
+    () => getBucketReminders(budgets, settings.notifications.reminderLeadDays, today),
+    [budgets, settings.notifications.reminderLeadDays, today],
+  );
+
+  const bucketReminderKey = bucketReminders.map((r) => r.bucket.id).join(",");
+  useEffect(() => {
+    if (bucketReminders.length > 0) {
+      showToast("info", `${bucketReminders.length} ${t(lang, "budgetEndingSoon")}`);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bucketReminderKey]);
+
   const absenceKnownAssignees = useMemo(
     () => [
       ...tasks.map((tk) => ({ name: tk.assignee, email: tk.assigneeEmail })),
@@ -406,6 +425,10 @@ function TaskManagerInner() {
   const handleAcceptAiConsent = useCallback(() => {
     setSettings((s) => ({ ...s, ai: { ...s.ai, consentAccepted: true } }));
   }, [setSettings]);
+
+  const handleChangeBudgets = useCallback((next: BudgetBucket[]) => setBudgets(next), [setBudgets]);
+  const cacheFxRates = useCallback((fx: import("./types").FxRates) => setFxRates(fx), [setFxRates]);
+  const { refresh: refreshFx } = useFxRates(cacheFxRates);
 
   const editingTask =
     editingId !== null
@@ -503,6 +526,8 @@ function TaskManagerInner() {
         onSetPlanGranularity={guardEdit(handleSetPlanGranularity)}
         onEditResource={guardEdit(handleEditResource)}
         onAddResource={guardEdit(handleOpenAddResource)}
+        onChangeBudgets={handleChangeBudgets}
+        onRefreshFx={refreshFx}
       />
 
       {!isPopout && (
