@@ -811,4 +811,11 @@ export const de: Record<TranslationKey, string> = {
   tasksSearchHint: "Filtert die Tabelle auf Aufgaben, deren Name, Zuständige(r), Blocker oder Notizen zum Text passen.",
   tasksGroupFilterHint: "Zeigt nur Aufgaben der gewählten Gruppe.",
   tasksLabelFilterHint: "Zeigt nur Aufgaben mit der gewählten Beschriftung.",
+  jiraTokenExpires: "Token läuft ab am",
+  jiraTokenExpiresHint: "Optional. Atlassian zeigt dieses Datum beim Erstellen des Tokens an. Leer lassen, wenn Ihr Token nicht abläuft.",
+  jiraTokenBannerAria: "Jira-Token-Erinnerung",
+  jiraTokenExpiringBanner: "Ihr Jira-API-Token läuft in {0} Tag(en) ab, am {1}. Erstellen Sie in Jira ein neues und hinterlegen Sie es unter Einstellungen → Jira, bevor es nicht mehr funktioniert.",
+  jiraTokenExpiredBanner: "Ihr Jira-API-Token ist am {0} abgelaufen. Die Synchronisierung ist pausiert, bis Sie ein neues Token erstellen und es unter Einstellungen → Jira hinterlegen.",
+  jiraTokenInvalidBanner: "Jira hat Ihr API-Token abgelehnt – es ist möglicherweise abgelaufen oder ungültig. Erstellen Sie ein neues Token und hinterlegen Sie es unter Einstellungen → Jira.",
+  jiraSyncUnreachable: "Jira konnte nicht erreicht werden – bitte Verbindung und Site-URL prüfen und erneut versuchen.",
 };

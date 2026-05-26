@@ -793,6 +793,13 @@ const enUS = {
   tasksSearchHint: "Filter the table to tasks whose name, assignee, blockers, or notes match your text.",
   tasksGroupFilterHint: "Show only tasks in the selected group.",
   tasksLabelFilterHint: "Show only tasks carrying the selected label.",
+  jiraTokenExpires: "Token expires on",
+  jiraTokenExpiresHint: "Optional. Atlassian shows this date when you create the token. Leave blank if your token doesn't expire.",
+  jiraTokenBannerAria: "Jira token reminder",
+  jiraTokenExpiringBanner: "Your Jira API token expires in {0} day(s), on {1}. Create a new one in Jira and update Settings → Jira before it stops working.",
+  jiraTokenExpiredBanner: "Your Jira API token expired on {0}. Sync is paused until you create a new token and update Settings → Jira.",
+  jiraTokenInvalidBanner: "Jira rejected your API token — it may be expired or invalid. Create a new token and update Settings → Jira.",
+  jiraSyncUnreachable: "Couldn't reach Jira — check your connection and the site URL, then try again.",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;
