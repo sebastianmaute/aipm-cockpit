@@ -1,4 +1,4 @@
-<!-- Generated: 2026-05-25 | Files scanned: ~74 source files | Token estimate: ~820 -->
+<!-- Generated: 2026-05-26 | Files scanned: ~77 source files | Token estimate: ~820 -->
 
 # Architecture
 
@@ -75,14 +75,14 @@ frontend/backend repos.
 
 `Workspace = { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan }` (schema v5). The `plan` singleton holds the planning window + canonical granularity + currency; `resources` carry per-period utilization + optional absence overrides + address-book contact fields (`firstName`/`lastName`/`birthday`/…); `roles` are discipline × grade combos with internal/external hourly rates.
 
-Pop-out windows (`?popout=resource-report`, `?popout=address-book`) are separate browser windows that load the same Next.js page. They stay in sync with the main window via `BroadcastChannel` (`broadcast-sync.ts`). Pop-outs no longer broadcast their initial state on mount (fixed in 0.10.0) so they cannot overwrite the main window's data.
+Pop-out windows (`?popout=resource-report`, `?popout=address-book`) are separate browser windows that load the same Next.js page. They stay in sync with the main window via `BroadcastChannel` (`broadcast-sync.ts`). Pop-outs are **read-only mirrors**: `useBroadcastSync` is called with `canSend={false}` in popouts so they receive updates but never broadcast — preventing overwrite of the main window's data. Edit affordances are locked (via `makeEditGuard`), a `ReadOnlyMirrorBanner` is shown, and mutating chat tools are refused.
 
 ## Cross-cutting concerns
 
 - **i18n** — `src/app/i18n.ts` (en-US/en-GB baked in) + `i18n.de.ts` (lazy-loaded for German users); both dictionaries carry the same ~700-key surface, including Resource Planner + Activity Log labels.
 - **Holidays** — `src/app/holidays.ts` lazy-imports `date-holidays` (and its moment-tz cost) only when at least one country is selected.
 - **Health / due-dates** — `health.ts` + `due-dates.ts` compute RAG status and alertable lists from `Task[] × today × holidaySet`. `due-dates.ts` also exports `shiftToWorkingDay` (shifts a date earlier past weekends, holidays, and absence days) and `absenceDayMap` (builds a per-assignee set of absent ISO dates) used by both due-date and birthday reminder logic.
-- **Reminders & snooze** — `getAlertableTasks` (due-dates.ts) and `getUpcomingBirthdays` (birthdays.ts) each apply `shiftToWorkingDay` so triggers never fall on non-working days. Both reminder banners (`DueBanner`, `BirthdayBanner` in notifications.tsx) accept an `onSnooze` prop wired to `useReminderSnooze` in TaskManager; snooze state is persisted per-kind to `localStorage` keys `lop-app:reminder-snooze:due` and `lop-app:reminder-snooze:birthday` (epoch-ms) via `reminder-snooze.ts`. The hook auto-clears state after the snooze elapses.
+- **Reminders & snooze** — `getAlertableTasks` (due-dates.ts) and `getUpcomingBirthdays` (birthdays.ts) each apply `shiftToWorkingDay` so triggers never fall on non-working days. Reminder banners (`DueBanner`, `BirthdayBanner`, `JiraTokenBanner` in notifications.tsx) accept an `onSnooze` prop wired to `useReminderSnooze` in TaskManager; snooze state is persisted per-kind via `reminder-snooze.ts` (`ReminderKind = "due" | "birthday" | "jiraToken"`). The hook auto-clears state after the snooze elapses.
 - **Export** — `export.ts` + `export-ooxml.ts` (lazy-imported for DOCX/XLSX/PPTX) + `export-menu.tsx` + `zip.ts` (hand-rolled STORE-method ZIP writer; no DEFLATE).
 - **Voice commands** — Web Speech API via `voice.ts` + `voice-button.tsx`.
 - **Activity log** — `activity-log.ts` + `activity-log-panel.tsx`; chronological CRUD record persisted to `lop-app:activity-log` (capped 500 entries), never written to exports. "Clear log" is gated behind `window.confirm` (matches `handleClearAll` / `handleDelete` precedent).

@@ -1,4 +1,4 @@
-<!-- Generated: 2026-05-25 | Files scanned: types.ts, storage.ts, sanitize.ts, raid.ts, activity-log.ts, contacts.ts, resource-foundation.ts, resource-capacity.ts, reminder-snooze.ts, use-settings.ts | Token estimate: ~1280 -->
+<!-- Generated: 2026-05-26 | Files scanned: types.ts, storage.ts, sanitize.ts, raid.ts, activity-log.ts, contacts.ts, resource-foundation.ts, resource-capacity.ts, reminder-snooze.ts, use-settings.ts, jira-token-status.ts | Token estimate: ~1280 -->
 
 # Data
 
@@ -181,6 +181,8 @@ and persists only what migration changed (reference-equality check per
 array + plan kv), so seeds + backfilled `resourceId`s survive reload while a
 no-op migration writes nothing.
 
+`writeHandle` guards `write()`/`close()` and calls `abort()` on failure so a blocked write cannot delete the original file (`local-file-write-blocked` guard).
+
 Saves are **record-level**: `BrowserBackend.save(ws)` diffs each of `tasks`,
 `raid`, `absences`, `shifts` against an in-memory baseline using reference
 equality (relies on the codebase's immutable-update convention) and emits
@@ -196,9 +198,10 @@ legacy keys are removed.
 
 | Key | Shape |
 |---|---|
-| `lop-app:settings` | JSON envelope: `{ language, holidayCountries, ai, jira, notifications, storage }`. The `notifications` sub-object shape: `{ reminderLeadDays: number, banner: { enabled }, toast: { enabled }, popup: { enabled }, birthday: { enabled } }`. A single `reminderLeadDays` (default 7) now drives both due-date and birthday lead — replaces the former separate `banner.thresholdWorkDays` and `birthday.leadDays` fields (migrated on parse in `use-settings.ts`). |
+| `lop-app:settings` | JSON envelope: `{ language, holidayCountries, ai, jira, notifications, storage }`. The `jira` sub-object (`JiraConfig`) now includes `tokenExpiresAt: string` (ISO date) and optional `tokenInvalidAt?: string` (ISO timestamp set when a connection test returns an auth error, cleared on success). The `notifications` sub-object: `{ reminderLeadDays: number, banner: { enabled }, toast: { enabled }, popup: { enabled }, birthday: { enabled } }`. |
 | `lop-app:reminder-snooze:due` | Epoch-ms timestamp (stored as decimal string) until which the due-date reminder banner is snoozed; absent or elapsed = not snoozed |
 | `lop-app:reminder-snooze:birthday` | Epoch-ms timestamp until which the birthday reminder banner is snoozed; absent or elapsed = not snoozed |
+| `lop-app:reminder-snooze:jiraToken` | Epoch-ms timestamp until which the Jira token expiry banner is snoozed; absent or elapsed = not snoozed |
 | `lop-app:contacts` | `Record<normalizedName, { name, email }>`, capped at 500 entries |
 | `lop-app:activity-log` | `ActivityEntry[]`, capped at 500 (oldest dropped on overflow) |
 | `lop-app:workspace-collapsed` | `"1"` or absent |

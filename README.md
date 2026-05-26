@@ -3,7 +3,7 @@
 [![Pipeline Status](https://gitlab.example.com/example-group/public-collab/lop-app/badges/main/pipeline.svg)](https://gitlab.example.com/example-group/public-collab/lop-app/-/commits/main)
 [![coverage](https://gitlab.example.com/example-group/public-collab/lop-app/badges/main/coverage.svg)](https://gitlab.example.com/example-group/public-collab/lop-app/-/commits/main)
 
-**v0.10.0** — AI-assisted project-status tracker for Acme project leads. Manage open points, track accountability, plan resource capacity & cost, keep an address book of the team, and draft status-inquiry emails — all in the browser, no backend required.
+**v0.11.0** — AI-assisted project-status tracker for Acme project leads. Manage open points, track accountability, plan resource capacity & cost, keep an address book of the team, and draft status-inquiry emails — all in the browser, no backend required.
 
 ## What It Does
 
@@ -38,7 +38,8 @@ All data is stored locally by default — no backend account required.
 | Resource planner & address book | First-class resources with an address book (name, title, contact details, company, birthday) in a Directory tab; two-dimensional roles (discipline × grade) carrying internal/external rates; absences; per-period utilization planning grid (week or month) → capacity, cost & margin with read-only rollup; pop-out resources report and address-book window |
 | Activity log | Browser-local chronological record of task / RAID / absence / shift CRUD with text / wildcard / regex search |
 | Contacts | Assignee address book — persists across task deletion and Jira sync churn; auto-suggests on task forms |
-| Jira sync | Pull from and push to a Jira Cloud project (bidirectional, with conflict resolution) |
+| Jira sync | Pull from and push to a Jira Cloud project (bidirectional, with conflict resolution); optional API-token-expiry reminder, and clear messages when the token is expired/invalid or Jira is unreachable |
+| Pop-out windows | Open Chat, Gantt, RAID, Resources, Activity, or the address book in their own window — read-only mirror views synced live from the main window |
 | Export | CSV, Markdown, PDF (print), DOCX, XLSX, PPTX |
 | Localization | English (US / UK) and German |
 

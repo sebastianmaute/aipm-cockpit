@@ -1,4 +1,4 @@
-<!-- Generated: 2026-05-25 | Files scanned: ~74 (src/app/*.tsx, *.ts) | Token estimate: ~1480 -->
+<!-- Generated: 2026-05-26 | Files scanned: ~77 (src/app/*.tsx, *.ts) | Token estimate: ~1480 -->
 
 # Frontend
 
@@ -14,8 +14,8 @@ src/app/layout.tsx           — root layout, security headers, globals.css
     └── src/app/task-manager.tsx   (~550 lines after hook extractions; container for everything)
         ├── header (+ button → task modal, ExportMenu, HelpMenu,
         │           VersionMenu, SettingsMenu, VoiceCommandButton)
-        ├── banner / due-modal     (notifications.tsx)
-        ├── workspace section (resizable, collapsible) — 6 tabs + 2 popout-only
+        ├── banner / due-modal / jira-token-banner  (notifications.tsx)
+        ├── workspace section (resizable, collapsible) — 6 tabs + 2 popout-only (read-only mirrors)
         │   ├── tab strip (chat | reports | gantt | raid | resources | activity)
         │   ├── ChatPanel          (chat-panel.tsx)        — mounted; hidden when off
         │   ├── ReportsPanel       (reports.tsx)           — conditional mount  ★
@@ -60,7 +60,7 @@ prerendered.
 | `search` + `searchDebounced` + `taskSearchIndex` | 150 ms search debounce + precomputed lowercase index |
 | `selectedIds`, `bulkEdit`, `expandedNotes` | Per-session UI only |
 | `activeTab` | `"chat"` \| `"reports"` \| `"gantt"` \| `"raid"` \| `"resources"` \| `"activity"` \| `"resource-report"` \| `"address-book"` (last two are popout-only) |
-| `dueSnooze` / `birthdaySnooze` | `useReminderSnooze("due")` / `useReminderSnooze("birthday")` — each yields `{ isSnoozed, snoozedUntil, snooze, clear }`; banners are gated on `!isSnoozed` |
+| `dueSnooze` / `birthdaySnooze` / `jiraTokenSnooze` | `useReminderSnooze("due")` / `useReminderSnooze("birthday")` / `useReminderSnooze("jiraToken")` — each yields `{ isSnoozed, snoozedUntil, snooze, clear }`; banners are gated on `!isSnoozed` |
 | `raidFilterTaskId` | Cross-tab nav: jump from a task row to RAID pre-filtered for that task |
 | `workspaceCollapsed`, `taskModalOpen`, `absenceDraft`, `shiftDraft` | Modal / collapse state |
 | `hydrated`, `i18nReady` | Render gates; `i18nReady=false` returns null until lang dict loads |
@@ -90,8 +90,8 @@ prerendered.
 | `absence-edit-modal.tsx` | Add/edit Absence (vacation/sick/training/other) | dynamic-imported; opened on demand |
 | `shift-edit-modal.tsx` | Add/edit weekly working-hours pattern per assignee | dynamic-imported; opened on demand |
 | `activity-log-panel.tsx` | Sortable/filterable/searchable CRUD log (text, wildcard, regex search) | conditional mount; `memo()`-wrapped |
-| `segmented-control.tsx` | Reusable 2-segment toggle (used by ResourcesPanel) | |
-| `jira-settings.tsx` / `jira-conflicts-modal.tsx` / `jira-api.ts` | Jira UI + client | Calls `/api/jira/*`; `jira-api.ts` lazy-imported via `loadJiraApi()` |
+| `segmented-control.tsx` | Reusable 2-segment toggle (used by ResourcesPanel). Accepts optional `title` prop forwarded to root element | |
+| `jira-settings.tsx` / `jira-conflicts-modal.tsx` / `jira-api.ts` | Jira UI + client. `jira-settings.tsx` includes a "Token expires on" date field; test-connection sets/clears `tokenInvalidAt`. `jira-api.ts` exports `JiraApiError` and `classifyJiraError(err): "auth"\|"network"\|"other"` | Calls `/api/jira/*`; `jira-api.ts` lazy-imported via `loadJiraApi()` |
 | `adf.ts` | Plain-text ↔ ADF conversion (extracted from `_helpers.ts`) | Shared between client paths and the Jira proxy routes |
 | `settings-menu.tsx` | Language, holidays, AI, notifications, Jira, storage backend | |
 | `help-menu.tsx`, `version-menu.tsx` | Header dropdowns | |
@@ -103,13 +103,16 @@ prerendered.
 | `labels-input.tsx`, `combo-input.tsx`, `contact-input.tsx` | Typed-list and combobox inputs | |
 | `contacts.ts` | Persisted address book (`lop-app:contacts`); feeds ContactInput suggestions | Survives task deletion and Jira churn |
 | `markdown.tsx` | Renders chat / report markdown safely | |
-| `notifications.tsx` | `DueBanner` and `BirthdayBanner` — each now embeds a `SnoozeMenu` (In 1 hour / In 1 day) and accepts an `onSnooze: (ms: number) => void` prop. Banners are hidden while snoozed (`!isSnoozed` gate in TaskManager). Also: toast, popup alerts | |
-| `reminder-snooze.ts` | localStorage-backed snooze store. `ReminderKind = "due" \| "birthday"`. Key pattern: `lop-app:reminder-snooze:<kind>` (epoch-ms). Exports `getSnoozedUntil`, `setSnoozedUntil`, `clearSnooze`, `SNOOZE_1H` (3 600 000 ms), `SNOOZE_1D` (86 400 000 ms). Elapsed snoozes are cleared on read | pure; no React |
+| `notifications.tsx` | `DueBanner`, `BirthdayBanner`, `JiraTokenBanner` — each embeds a `SnoozeMenu` and accepts an `onSnooze: (ms: number) => void` prop. `JiraTokenBanner` covers expiring/expired/invalid token states with snooze + dismiss. Banners gated on `!isSnoozed` in TaskManager. Also: toast, popup alerts | |
+| `reminder-snooze.ts` | localStorage-backed snooze store. `ReminderKind = "due" \| "birthday" \| "jiraToken"`. Key pattern: `lop-app:reminder-snooze:<kind>` (epoch-ms). Exports `getSnoozedUntil`, `setSnoozedUntil`, `clearSnooze`, `SNOOZE_1H` (3 600 000 ms), `SNOOZE_1D` (86 400 000 ms). Elapsed snoozes are cleared on read | pure; no React |
 | `use-reminder-snooze.ts` | `useReminderSnooze(kind: ReminderKind) → { isSnoozed, snoozedUntil, snooze(durationMs), clear }`. Schedules a one-shot `setTimeout` to auto-reshow the banner when the snooze elapses, without requiring a reload | client hook |
 | `birthdays.ts` | `getUpcomingBirthdays(resources, today, leadDays, holidays, absences) → UpcomingBirthday[]`. Year-wrap aware (birthday on Jan 2, today Dec 30 → next occurrence is in 3 days). Trigger is working-day-shifted via `shiftToWorkingDay`. Sorted by `daysUntil` asc. `UpcomingBirthday = { resource: Resource; daysUntil: number }` | pure |
-| `date-format.ts` | Shared date-formatting helpers extracted from other modules. `localeFor(lang: Lang) → string` (maps `"de"` → `"de-DE"`, `"en-GB"` → `"en-GB"`, else `"en-US"`). `shortDateRange(absence, lang) → string` (compact range like `"Jun 10–Jun 12"`) | pure |
+| `date-format.ts` | Shared date-formatting helpers. `localeFor(lang) → string`, `shortDateRange(absence, lang) → string`, `formatExpiryDate(isoDate, lang) → string` (Jira token expiry display) | pure |
 | `storage-config.tsx` | File-backend / SharePoint picker UI | SharePoint options are flagged `comingSoon` |
 | `use-resizable.ts` | Custom hook for corner-drag resize with localStorage persistence | |
+| `read-only-guard.ts` | `makeEditGuard(isReadOnly, notify)` — wraps a commit handler to no-op (with a toast) when `isReadOnly` is true; preserves the handler's return value | pure; no React |
+| `read-only-mirror-banner.tsx` | `ReadOnlyMirrorBanner` — shown inside popout windows to indicate read-only mirror state | rendered by task-manager in popouts |
+| `jira-token-status.ts` | `getJiraTokenAlert(jira, today, leadDays) → { kind: "invalid"\|"expired"\|"expiring"\|null, daysUntil? }` — client-side derivation of Jira token alert state | pure; no React |
 
 ## Lazy-loaded modules
 

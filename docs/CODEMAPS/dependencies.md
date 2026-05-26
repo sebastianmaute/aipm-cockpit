@@ -1,4 +1,4 @@
-<!-- Generated: 2026-05-25 | Files scanned: package.json, package-lock.json, vitest.config.ts, playwright.config.ts | Token estimate: ~700 | No changes since 0.9.0 — Address Book / snooze / birthday features added no runtime/dev deps -->
+<!-- Generated: 2026-05-26 | Files scanned: package.json, package-lock.json, vitest.config.ts, playwright.config.ts | Token estimate: ~700 | No new deps — read-only mirrors, tooltip parity, and Jira token expiry are all in-tree -->
 
 # Dependencies
 

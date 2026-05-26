@@ -1,3 +1,29 @@
+// 0.11.0 hardens pop-out windows, reworks control tooltips, and adds Jira
+// token-expiry reminders.
+//   - Pop-out windows are now read-only mirrors: they receive live state over
+//     BroadcastChannel but never broadcast and never persist. This closes a
+//     data-loss path where a pop-out's load broadcast its state to the main
+//     window, which then triggered a redundant (and on Chrome sometimes
+//     destructive) save of the local file. `useBroadcastSync` gained a
+//     `canSend` flag (receive always; send gated), and `writeHandle` now
+//     aborts the swap-temp on a blocked write so the original file can't be
+//     deleted. Edit affordances are locked in pop-outs: commit handlers no-op
+//     with a toast (`makeEditGuard`), the chat dispatcher refuses mutating
+//     tools, the gantt "Add Task" is hidden, and a read-only banner shows.
+//   - Tooltips: the workspace resize hint no longer leaks onto every
+//     search/filter control — it lived as a `title` on the wrapping
+//     `<section>`, which HTML shows on any title-less descendant. Removed in
+//     favour of an inert corner glyph; every search/filter/sort control (and
+//     the RAID edit-modal fields) now has its own descriptive tooltip, and the
+//     tasks column headers match the resources directory hover. ~40 new EN+DE
+//     strings; `SegmentedControl` gained a `title` passthrough.
+//   - Jira: record the API token's expiry date (Settings → Jira) to get a
+//     reminder banner before it expires and once it has (`getJiraTokenAlert`,
+//     reusing the snooze/banner infra). Clicking Sync with an expired/invalid
+//     token or no connection now shows a clear, actionable info message
+//     (`classifyJiraError`): expired → paused, 401/403 → token rejected,
+//     network → unreachable. A rejected token also raises the banner until a
+//     successful sync/test clears it.
 // 0.10.0 ships everything built on top of the Resource Utilization release:
 // the Resource Address Book, a unified working-day-shifted reminder lead, and
 // persisted reminder snooze, plus two data-integrity fixes and a project-wide
@@ -134,8 +160,8 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.10.0";
-export const APP_BUILD_DATE = "2026-05-25";
+export const APP_VERSION = "0.11.0";
+export const APP_BUILD_DATE = "2026-05-26";
 export const APP_REPO_URL = "https://www.example.com";
 
 /** Translation keys for the high-level feature highlights shown in the

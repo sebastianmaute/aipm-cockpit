@@ -8,6 +8,57 @@ Authoritative source for version + build date: [`src/app/version.ts`](src/app/ve
 This file is seeded from that module's milestone comment plus the
 post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-diff.txt).
 
+## [0.11.0] "Orwell" — 2026-05-26
+
+Pop-out windows become read-only mirrors (closing a data-loss path), every
+search/filter control gets a proper tooltip, and Jira gains token-expiry
+reminders with clearer sync messages.
+
+### Added
+
+- **Jira token-expiry reminders.** Record your API token's expiry date in
+  Settings → Jira ("Token expires on"). A banner warns when it is within your
+  reminder lead time and once it has expired (`getJiraTokenAlert` in
+  `jira-token-status.ts`, reusing the snooze/banner infrastructure;
+  `ReminderKind` gains `"jiraToken"`). A 401/403 from a sync or Test-connection
+  also raises the banner until a successful sync/test clears it.
+- **Descriptive control tooltips.** Every search, filter, and sort control —
+  and every field of the RAID edit modal — now has its own descriptive tooltip
+  across Gantt, RAID, Resources, Activity, and Tasks (~40 new EN + DE strings).
+  `SegmentedControl` gained an optional `title` passthrough.
+- **Read-only mirror banner** in pop-out windows, plus `makeEditGuard`
+  (`read-only-guard.ts`) and `ReadOnlyMirrorBanner` (`read-only-mirror-banner.tsx`).
+
+### Changed
+
+- **Pop-out windows are read-only mirrors.** They receive live state over
+  `BroadcastChannel` but never broadcast and never persist. `useBroadcastSync`
+  gained a `canSend` flag (the receive listener always registers; only the send
+  effect is gated), and `use-storage-backend.ts` passes `canSend={!isPopout}` to
+  all nine calls. Edit affordances are locked in pop-outs: commit handlers no-op
+  with a toast, the chat dispatcher refuses mutating tools, and the Gantt "Add
+  Task" button is hidden.
+- **Clearer Jira sync messages.** `classifyJiraError` maps failures to
+  actionable info messages — a recorded-past expiry blocks the sync ("paused"),
+  401/403 → "token rejected", network/unreachable → "couldn't reach Jira" —
+  while other HTTP errors keep the generic message. `JiraApiError` is now
+  exported.
+- **Tasks column headers** match the Resources directory header hover and gain a
+  "Sort by …" tooltip (`SortableTh` gained a `lang` prop).
+- **README** version badge → 0.11.0.
+
+### Fixed
+
+- **Data loss when closing a pop-out.** A pop-out's load no longer broadcasts its
+  state to the main window (which then persisted it); combined with `writeHandle`
+  now aborting the swap-temp on a blocked `write`/`close`, a Chrome
+  security-policy-blocked write can no longer delete the local workspace file.
+- **Leaking resize tooltip.** The "drag the bottom-right corner to resize this
+  workspace pane" hint no longer appears on the Gantt/RAID/Resources/Activity
+  search & filter controls (or the RAID modal fields): it was a `title` on the
+  wrapping `<section>`, which HTML shows on any title-less descendant. Replaced
+  with an inert corner glyph.
+
 ## [0.10.0] "Nabokov" — 2026-05-25
 
 Everything built on top of the Resource Utilization release: a Resource

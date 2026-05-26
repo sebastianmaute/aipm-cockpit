@@ -1,4 +1,4 @@
-<!-- Generated: 2026-05-25 | Files scanned: src/proxy.ts + 10 (src/app/api/jira) | Token estimate: ~500 | No changes since 0.9.0 — Address Book / snooze / birthday features added no API routes -->
+<!-- Generated: 2026-05-26 | Files scanned: src/proxy.ts + 10 (src/app/api/jira) | Token estimate: ~500 | No API route changes — token-expiry detection is client-side -->
 
 # Backend
 
