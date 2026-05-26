@@ -113,6 +113,14 @@ describe("WorkspaceProvider", () => {
     ).toEqual(["Bravo", "Alpha"]);
   });
 
+  test("exposes budgets and fxRates state", () => {
+    const { result } = renderHook(() => useWorkspace(), { wrapper });
+    expect(result.current.budgets).toEqual([]);
+    expect(result.current.fxRates).toBeNull();
+    act(() => result.current.setBudgets([{ id: 1, name: "B", type: "tm", currency: "EUR", startDate: "2026-01-01", endDate: "2026-06-30", status: "open", allocations: [] }]));
+    expect(result.current.budgets).toHaveLength(1);
+  });
+
   test("useWorkspace() outside a WorkspaceProvider throws a documented error", () => {
     // React logs the rendering error to console.error in dev; silence it
     // so the test output stays clean. Restore after to avoid hiding

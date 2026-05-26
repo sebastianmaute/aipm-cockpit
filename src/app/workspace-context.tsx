@@ -14,7 +14,9 @@ import { defaultResourcePlan } from "./resource-foundation";
 import {
   PRIORITY_RANK,
   type Absence,
+  type BudgetBucket,
   type Discipline,
+  type FxRates,
   type Grade,
   type RaidItem,
   type Resource,
@@ -52,6 +54,10 @@ interface WorkspaceValue {
   setGrades: Dispatch<SetStateAction<Grade[]>>;
   plan: ResourcePlan;
   setPlan: Dispatch<SetStateAction<ResourcePlan>>;
+  budgets: BudgetBucket[];
+  setBudgets: Dispatch<SetStateAction<BudgetBucket[]>>;
+  fxRates: FxRates | null;
+  setFxRates: Dispatch<SetStateAction<FxRates | null>>;
 }
 
 const WorkspaceContext = createContext<WorkspaceValue | undefined>(undefined);
@@ -66,6 +72,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [disciplines, setDisciplines] = useState<Discipline[]>([]);
   const [grades, setGrades] = useState<Grade[]>([]);
   const [plan, setPlan] = useState<ResourcePlan>(() => defaultResourcePlan(new Date().toISOString().slice(0, 10)));
+  const [budgets, setBudgets] = useState<BudgetBucket[]>([]);
+  const [fxRates, setFxRates] = useState<FxRates | null>(null);
   const {
     searchDebounced,
     priorityFilter,
@@ -206,6 +214,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     setGrades,
     plan,
     setPlan,
+    budgets, setBudgets,
+    fxRates, setFxRates,
   };
 
   return (

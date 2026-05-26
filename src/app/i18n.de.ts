@@ -170,6 +170,7 @@ export const de: Record<TranslationKey, string> = {
   emailBodyBulkTemplate:
     "Hallo {0},\n\nkönnten Sie ein Status-Update zu den folgenden {1} offenen Aufgaben geben?\n\n{2}\n\nDanke",
 
+  tabBudget: "Budget",
   tabChat: "Chat",
   tabNewTask: "Neue Aufgabe",
   tabEditTask: "Aufgabe #{0} bearbeiten",

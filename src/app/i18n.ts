@@ -163,6 +163,7 @@ const enUS = {
   emailBodyBulkTemplate:
     "Hi {0},\n\nCould you provide a status update on the following {1} open tasks?\n\n{2}\n\nThanks",
 
+  tabBudget: "Budget",
   tabChat: "Chat",
   tabNewTask: "New task",
   tabEditTask: "Editing task #{0}",

@@ -107,6 +107,7 @@ export const POPOUT_TABS = [
   "activity",
   "resource-report",
   "address-book",
+  "budget",
 ] as const;
 export type PopoutTab = (typeof POPOUT_TABS)[number];
 
