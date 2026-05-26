@@ -751,6 +751,8 @@ const enUS = {
   directorySearchPlaceholder: "Filter by name, title, department, email…",
   sortBy: "Sort by {0}",
   clickToEdit: "click to edit",
+  popoutReadOnly: "Editing is disabled in the pop-out view — make changes in the main window.",
+  popoutReadOnlyBanner: "Read-only mirror — make changes in the main window.",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;

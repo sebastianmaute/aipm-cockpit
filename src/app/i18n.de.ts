@@ -769,4 +769,6 @@ export const de: Record<TranslationKey, string> = {
   directorySearchPlaceholder: "Nach Name, Titel, Abteilung, E-Mail filtern…",
   sortBy: "Sortieren nach {0}",
   clickToEdit: "zum Bearbeiten klicken",
+  popoutReadOnly: "Bearbeiten ist in der abgedockten Ansicht deaktiviert – Änderungen bitte im Hauptfenster vornehmen.",
+  popoutReadOnlyBanner: "Schreibgeschützte Ansicht – Änderungen bitte im Hauptfenster vornehmen.",
 };
