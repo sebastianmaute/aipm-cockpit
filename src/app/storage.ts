@@ -510,6 +510,23 @@ const ROLES_MD_COLUMNS: readonly { col: string; label: string }[] = [
   { col: "localModifiedAt", label: "LocalModified" },
 ];
 
+const BUDGETS_MD_COLUMNS: readonly { col: string; label: string }[] = [
+  { col: "id", label: "ID" },
+  { col: "name", label: "Name" },
+  { col: "poNumber", label: "PO" },
+  { col: "type", label: "Type" },
+  { col: "currency", label: "Currency" },
+  { col: "fixedPriceAmount", label: "FixedPrice" },
+  { col: "startDate", label: "Start" },
+  { col: "endDate", label: "End" },
+  { col: "successorId", label: "SuccessorId" },
+  { col: "status", label: "Status" },
+  { col: "closedDate", label: "Closed" },
+  { col: "fxRateOverride", label: "FxOverride" },
+  { col: "allocations", label: "Allocations" },
+  { col: "localModifiedAt", label: "LocalModified" },
+];
+
 const REF_MD_COLUMNS: readonly { col: string; label: string }[] = [
   { col: "id", label: "ID" },
   { col: "name", label: "Name" },
@@ -1320,6 +1337,20 @@ function rolesToMarkdown(rs: readonly Role[]): string {
   return lines.join("\n") + "\n";
 }
 
+function budgetsToMarkdown(bs: readonly BudgetBucket[]): string {
+  const header = `| ${BUDGETS_MD_COLUMNS.map((c) => c.label).join(" | ")} |`;
+  const sep = `| ${BUDGETS_MD_COLUMNS.map(() => "---").join(" | ")} |`;
+  const lines = ["# Budgets", "", header, sep];
+  for (const b of bs) {
+    lines.push(`| ${BUDGETS_MD_COLUMNS.map((c) => mdEscape(budgetFieldToString(b, c.col))).join(" | ")} |`);
+  }
+  return lines.join("\n") + "\n";
+}
+
+function fxRatesToMarkdown(fx: FxRates): string {
+  return `## FX Rates\n\n${fx.base},${fx.date},${fx.fetchedAt},${encodeRatesMap(fx.rates)}\n`;
+}
+
 function refsToMarkdown(heading: string, rs: readonly { id: number; name: string; localModifiedAt?: string }[]): string {
   const header = `| ${REF_MD_COLUMNS.map((c) => c.label).join(" | ")} |`;
   const sep = `| ${REF_MD_COLUMNS.map(() => "---").join(" | ")} |`;
@@ -1345,6 +1376,8 @@ export function workspaceToMarkdown(ws: Workspace): string {
   if (ws.grades.length > 0) out += "\n" + refsToMarkdown("Grades", ws.grades);
   if (ws.roles.length > 0) out += "\n" + rolesToMarkdown(ws.roles);
   if (ws.resources.length > 0) out += "\n" + resourcesToMarkdown(ws.resources);
+  if ((ws.budgets ?? []).length > 0) out += "\n" + budgetsToMarkdown(ws.budgets ?? []);
+  if (ws.fxRates) out += "\n" + fxRatesToMarkdown(ws.fxRates);
   out += "\n" + planToMarkdown(ws.plan);
   return out;
 }
@@ -1389,6 +1422,8 @@ function splitMarkdownSections(md: string): {
   disciplinesMd: string;
   gradesMd: string;
   planMd: string;
+  budgetsMd: string;
+  fxRatesMd: string;
 } {
   const lines = md.split(/\r?\n/);
   const tasksLines: string[] = [];
@@ -1400,6 +1435,8 @@ function splitMarkdownSections(md: string): {
   const disciplinesLines: string[] = [];
   const gradesLines: string[] = [];
   const planLines: string[] = [];
+  const budgetsLines: string[] = [];
+  const fxRatesLines: string[] = [];
   let target = tasksLines;
   for (const line of lines) {
     const trimmed = line.trim();
@@ -1412,6 +1449,8 @@ function splitMarkdownSections(md: string): {
     if (/^#\s+Disciplines\b/i.test(trimmed)) { target = disciplinesLines; target.push(line); continue; }
     if (/^#\s+Grades\b/i.test(trimmed)) { target = gradesLines; target.push(line); continue; }
     if (/^##\s+Plan\b/i.test(trimmed)) { target = planLines; continue; }
+    if (/^#\s+Budgets\b/i.test(trimmed)) { target = budgetsLines; target.push(line); continue; }
+    if (/^##\s+FX\s+Rates\b/i.test(trimmed)) { target = fxRatesLines; continue; }
     target.push(line);
   }
   return {
@@ -1424,6 +1463,8 @@ function splitMarkdownSections(md: string): {
     disciplinesMd: disciplinesLines.join("\n"),
     gradesMd: gradesLines.join("\n"),
     planMd: planLines.join("\n"),
+    budgetsMd: budgetsLines.join("\n"),
+    fxRatesMd: fxRatesLines.join("\n"),
   };
 }
 
@@ -1597,6 +1638,41 @@ function markdownToRoles(md: string): Role[] {
   }).filter((r): r is Role => r !== null);
 }
 
+function markdownToBudgets(md: string): BudgetBucket[] {
+  return markdownTableToObjects(md).map((row) => {
+    const mapped: Record<string, string> = {};
+    for (const [label, val] of Object.entries(row)) {
+      const norm = label.toLowerCase().replace(/\s+/g, "");
+      if (norm === "id") mapped["id"] = val;
+      else if (norm === "name") mapped["name"] = val;
+      else if (norm === "po" || norm === "ponumber") mapped["poNumber"] = val;
+      else if (norm === "type") mapped["type"] = val;
+      else if (norm === "currency") mapped["currency"] = val;
+      else if (norm === "fixedprice" || norm === "fixedpriceamount") mapped["fixedPriceAmount"] = val;
+      else if (norm === "start" || norm === "startdate") mapped["startDate"] = val;
+      else if (norm === "end" || norm === "enddate") mapped["endDate"] = val;
+      else if (norm === "successorid") mapped["successorId"] = val;
+      else if (norm === "status") mapped["status"] = val;
+      else if (norm === "closed" || norm === "closeddate") mapped["closedDate"] = val;
+      else if (norm === "fxoverride" || norm === "fxrateoverride") mapped["fxRateOverride"] = val;
+      else if (norm === "allocations") mapped["allocations"] = val;
+      else if (norm === "localmodified" || norm === "localmodifiedat") mapped["localModifiedAt"] = val;
+    }
+    return sanitizeBudgetBucket(mapped);
+  }).filter((b): b is BudgetBucket => b !== null);
+}
+
+function parseFxRatesMarkdown(md: string): FxRates | null {
+  for (const line of md.split(/\r?\n/)) {
+    const tline = line.trim();
+    if (!tline || tline.startsWith("#") || tline.startsWith("|")) continue;
+    const cells = tline.split(",").map((s) => s.trim());
+    if (cells.length < 4) continue;
+    return sanitizeFxRates({ base: cells[0], date: cells[1], fetchedAt: cells[2], rates: decodeRatesMap(cells.slice(3).join(",")) });
+  }
+  return null;
+}
+
 /** Map MD column labels to sanitizer field keys for disciplines/grades. */
 function markdownToRefs<T extends Discipline | Grade>(
   md: string,
@@ -1704,8 +1780,10 @@ export function markdownToWorkspace(md: string): Workspace {
     disciplines: s.disciplinesMd.trim() ? markdownToRefs(s.disciplinesMd, sanitizeDiscipline) : [],
     grades: s.gradesMd.trim() ? markdownToRefs(s.gradesMd, sanitizeGrade) : [],
     plan: (s.planMd.trim() && parsePlanMarkdown(s.planMd)) || defaultResourcePlan(new Date().toISOString().slice(0, 10)),
+    budgets: s.budgetsMd.trim() ? markdownToBudgets(s.budgetsMd) : [],
+    fxRates: s.fxRatesMd.trim() ? parseFxRatesMarkdown(s.fxRatesMd) : null,
   };
-  return migrateWorkspaceV5(ws);
+  return migrateWorkspaceV6(ws);
 }
 
 function markdownToTasks(md: string): Task[] {
