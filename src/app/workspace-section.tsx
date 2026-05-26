@@ -306,7 +306,7 @@ export function WorkspaceSection({
               tasks={tasks}
               absences={absences}
               onUpdateBar={handleGanttBarUpdate}
-              onAddTask={() => {
+              onAddTask={isPopout ? undefined : () => {
                 handleCancelEdit();
                 setTaskModalOpen(true);
               }}
