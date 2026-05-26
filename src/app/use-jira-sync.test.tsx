@@ -383,8 +383,6 @@ describe("useJiraSync — preflight, classified failures, flag sync", () => {
       },
     } as unknown as Settings;
 
-    (jiraApi.buildJql as ReturnType<typeof vi.fn>).mockReturnValueOnce("project = TEST");
-
     const { result } = renderSync([], expiredSettings, {
       today: "2026-05-26",
       onJiraAuthResult,
@@ -393,6 +391,7 @@ describe("useJiraSync — preflight, classified failures, flag sync", () => {
 
     expect(showToast).toHaveBeenCalledWith("info", expect.any(String));
     expect(jiraApi.searchAllIssues).not.toHaveBeenCalled();
+    expect(onJiraAuthResult).not.toHaveBeenCalled();
   });
 
   it("401 → calls onJiraAuthResult(false) and shows info toast", async () => {

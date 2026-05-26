@@ -38,10 +38,12 @@ export function useJiraSync(args: UseJiraSyncArgs) {
   const settingsRef = useRef(args.settings);
   const langRef = useRef(args.lang);
   const todayRef = useRef(args.today);
+  const onJiraAuthResultRef = useRef(args.onJiraAuthResult);
   useEffect(() => { tasksRef.current = tasks; }, [tasks]);
   useEffect(() => { settingsRef.current = args.settings; }, [args.settings]);
   useEffect(() => { langRef.current = args.lang; }, [args.lang]);
   useEffect(() => { todayRef.current = args.today; }, [args.today]);
+  useEffect(() => { onJiraAuthResultRef.current = args.onJiraAuthResult; }, [args.onJiraAuthResult]);
 
   // Owned state
   const [jiraSyncing, setJiraSyncing] = useState(false);
@@ -90,7 +92,7 @@ export function useJiraSync(args: UseJiraSyncArgs) {
     setJiraSyncing(true);
     try {
       const issues = await searchAllIssues(creds, jql);
-      args.onJiraAuthResult?.(true);
+      onJiraAuthResultRef.current?.(true);
       const issueByKey = new Map(issues.map((i) => [i.key, i]));
       const todayNow = todayRef.current;
       const syncStamp = new Date().toISOString();
@@ -262,7 +264,7 @@ export function useJiraSync(args: UseJiraSyncArgs) {
     } catch (err) {
       const kind = classifyJiraError(err);
       if (kind === "auth") {
-        args.onJiraAuthResult?.(false);
+        onJiraAuthResultRef.current?.(false);
         args.showToast("info", t(langRef.current, "jiraTokenInvalidBanner"));
       } else if (kind === "network") {
         args.showToast("info", t(langRef.current, "jiraSyncUnreachable"));
