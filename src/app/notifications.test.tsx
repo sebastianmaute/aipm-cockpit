@@ -1,10 +1,11 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { BirthdayBanner, DueBanner } from "./notifications";
+import { BirthdayBanner, DueBanner, JiraTokenBanner } from "./notifications";
 import { SNOOZE_1H, SNOOZE_1D } from "./reminder-snooze";
 import type { UpcomingBirthday } from "./birthdays";
 import type { Resource, Task } from "./types";
 import type { AlertableTask } from "./due-dates";
+import type { JiraTokenAlert } from "./jira-token-status";
 
 function makeResource(id: number, firstName: string, lastName: string): Resource {
   return {
@@ -97,5 +98,46 @@ describe("DueBanner", () => {
     expect(onSnooze).toHaveBeenCalledWith(SNOOZE_1H);
     fireEvent.click(screen.getByRole("button", { name: /in 1 day/i }));
     expect(onSnooze).toHaveBeenCalledWith(SNOOZE_1D);
+  });
+});
+
+describe("JiraTokenBanner", () => {
+  it("renders the invalid message", () => {
+    const alert: JiraTokenAlert = { state: "invalid", daysLeft: 0, date: "" };
+    render(
+      <JiraTokenBanner
+        alert={alert}
+        lang="en-US"
+        onSnooze={vi.fn()}
+        onDismiss={vi.fn()}
+      />,
+    );
+    expect(screen.getByText(/rejected your API token/i)).toBeInTheDocument();
+  });
+
+  it("renders the expired message", () => {
+    const alert: JiraTokenAlert = { state: "expired", daysLeft: -3, date: "2026-05-20" };
+    render(
+      <JiraTokenBanner
+        alert={alert}
+        lang="en-US"
+        onSnooze={vi.fn()}
+        onDismiss={vi.fn()}
+      />,
+    );
+    expect(screen.getByText(/expired on/i)).toBeInTheDocument();
+  });
+
+  it("renders the expiring message with day count", () => {
+    const alert: JiraTokenAlert = { state: "expiring", daysLeft: 4, date: "2026-05-30" };
+    render(
+      <JiraTokenBanner
+        alert={alert}
+        lang="en-US"
+        onSnooze={vi.fn()}
+        onDismiss={vi.fn()}
+      />,
+    );
+    expect(screen.getByText(/expires in 4 day/i)).toBeInTheDocument();
   });
 });
