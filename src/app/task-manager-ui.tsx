@@ -1,6 +1,7 @@
 "use client";
 import type React from "react";
 import { type SortDir, type SortKey } from "./filters-context";
+import { type Lang, t } from "./i18n";
 
 export function TabButton({
   active,
@@ -181,6 +182,7 @@ export function SortableTh({
   dir,
   onClick,
   onResize,
+  lang,
 }: {
   label: string;
   sortKey: SortKey;
@@ -188,6 +190,7 @@ export function SortableTh({
   dir: SortDir;
   onClick: (k: SortKey) => void;
   onResize?: (e: React.MouseEvent) => void;
+  lang: Lang;
 }) {
   const isActive = currentKey === sortKey;
   const indicator = isActive ? (dir === "asc" ? "↑" : "↓") : "";
@@ -196,7 +199,8 @@ export function SortableTh({
       <button
         type="button"
         onClick={() => onClick(sortKey)}
-        className={`inline-flex items-center gap-1 uppercase tracking-wide hover:text-zinc-900 dark:hover:text-zinc-100 ${isActive ? "text-zinc-900 dark:text-zinc-100" : ""}`}
+        title={t(lang, "sortBy", label)}
+        className={`inline-flex items-center gap-1 uppercase tracking-wide hover:text-zinc-800 dark:hover:text-zinc-200 ${isActive ? "text-zinc-900 dark:text-zinc-100" : ""}`}
       >
         {label}
         <span aria-hidden className="text-[0.65rem]">
