@@ -12,6 +12,8 @@
 //   setter. We stash the deserialized value in a ref BEFORE calling it so
 //   the broadcast useEffect that fires from the resulting re-render can
 //   bail out on reference equality instead of re-broadcasting.
+// - When `canSend` is false, this instance receives but never broadcasts —
+//   used by popout/mirror windows to stay in sync without pushing state back.
 
 import { useEffect, useRef } from "react";
 
@@ -34,7 +36,7 @@ export function useBroadcastSync<T>(
   kind: string,
   value: T,
   applyIncoming: (next: T) => void,
-  enabled: boolean = true,
+  canSend: boolean = true,
 ): void {
   const channelRef = useRef<BroadcastChannel | null>(null);
   const clientIdRef = useRef<string>("");
@@ -51,7 +53,6 @@ export function useBroadcastSync<T>(
   const lastSeenRef = useRef<T | undefined>(value);
 
   useEffect(() => {
-    if (!enabled) return;
     if (typeof window === "undefined") return;
     if (typeof BroadcastChannel === "undefined") return;
 
@@ -74,10 +75,10 @@ export function useBroadcastSync<T>(
       channel.close();
       channelRef.current = null;
     };
-  }, [kind, enabled, applyIncoming]);
+  }, [kind, applyIncoming]);
 
   useEffect(() => {
-    if (!enabled) return;
+    if (!canSend) return;
     const channel = channelRef.current;
     if (!channel) return;
     // Skip echoing a value that arrived from another window. The incoming
@@ -91,7 +92,7 @@ export function useBroadcastSync<T>(
       value,
     };
     channel.postMessage(msg);
-  }, [kind, value, enabled]);
+  }, [kind, value, canSend]);
 }
 
 // Tab keys mirror `TopTab` in task-manager.tsx. Kept in sync manually

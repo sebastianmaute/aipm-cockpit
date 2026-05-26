@@ -37,6 +37,25 @@ describe("useBroadcastSync", () => {
     expect(posted).toHaveLength(1);
     expect(posted[0]).toMatchObject({ kind: "tasks", value: [1] });
   });
+
+  it("does NOT broadcast a post-mount change when canSend is false", () => {
+    const { rerender } = renderHook(
+      ({ v }: { v: number[] }) =>
+        useBroadcastSync("tasks", v, () => {}, /* canSend */ false),
+      { initialProps: { v: [] as number[] } },
+    );
+    rerender({ v: [1] });
+    expect(posted).toHaveLength(0);
+  });
+
+  it("still broadcasts post-mount changes when canSend defaults to true", () => {
+    const { rerender } = renderHook(
+      ({ v }: { v: number[] }) => useBroadcastSync("tasks", v, () => {}),
+      { initialProps: { v: [] as number[] } },
+    );
+    rerender({ v: [2] });
+    expect(posted).toHaveLength(1);
+  });
 });
 
 describe("openPopoutWindow", () => {
