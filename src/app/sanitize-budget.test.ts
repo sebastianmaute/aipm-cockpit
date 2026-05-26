@@ -5,6 +5,7 @@ import {
   encodeAllocations,
   decodeAllocations,
 } from "./sanitize";
+import type { BucketAllocation } from "./types";
 
 describe("sanitizeBudgetBucket", () => {
   const base = {
@@ -48,7 +49,7 @@ describe("sanitizeBudgetBucket", () => {
 
 describe("encode/decode allocations round-trip", () => {
   test("round-trips", () => {
-    const allocs = [
+    const allocs: BucketAllocation[] = [
       { roleId: 3, resourceIds: [5, 7], budgetHours: { "2026-01": 40, "2026-02": 20 }, actualHours: { "2026-01": 38 } },
       { roleId: 9, resourceIds: [], budgetHours: {}, actualHours: {} },
     ];
