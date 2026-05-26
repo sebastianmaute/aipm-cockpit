@@ -160,6 +160,7 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
           <button
             type="button"
             onClick={onClear}
+            title={t(lang, "activityClearHint")}
             className="rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs font-medium text-zinc-700 shadow-sm hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
           >
             {t(lang, "activityClear")}
@@ -175,6 +176,7 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={t(lang, "activitySearchPlaceholder")}
             aria-label={t(lang, "activitySearchPlaceholder")}
+            title={t(lang, "activitySearchHint")}
             aria-invalid={matcher?.invalid ? true : undefined}
             className={`w-full rounded-md border bg-white px-3 py-1.5 text-sm shadow-sm focus:outline-none focus:ring-1 dark:bg-zinc-900 ${
               matcher?.invalid
@@ -191,6 +193,7 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
         <SegmentedControl<SearchMode>
           value={searchMode}
           ariaLabel={t(lang, "activitySearchPlaceholder")}
+          title={t(lang, "activitySearchModeHint")}
           options={[
             { value: "literal", label: t(lang, "activitySearchLiteral") },
             { value: "wildcard", label: t(lang, "activitySearchWildcard") },
@@ -201,6 +204,7 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
         <SegmentedControl<GroupFilter>
           value={groupFilter}
           ariaLabel={t(lang, "activityFilterAll")}
+          title={t(lang, "activityGroupFilterHint")}
           options={[
             { value: "all", label: t(lang, "activityFilterAll") },
             { value: "tasks", label: t(lang, "activityFilterTasks") },
@@ -229,6 +233,7 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
                   <button
                     type="button"
                     onClick={() => toggleSort("timestamp")}
+                    title={t(lang, "sortBy", t(lang, "activityHeaderWhen"))}
                     className="cursor-pointer select-none text-left text-xs uppercase tracking-wide hover:text-AIPM-dark-blue dark:hover:text-AIPM-light-grey"
                   >
                     {t(lang, "activityHeaderWhen")}
@@ -239,6 +244,7 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
                   <button
                     type="button"
                     onClick={() => toggleSort("kind")}
+                    title={t(lang, "sortBy", t(lang, "activityHeaderKind"))}
                     className="cursor-pointer select-none text-left text-xs uppercase tracking-wide hover:text-AIPM-dark-blue dark:hover:text-AIPM-light-grey"
                   >
                     {t(lang, "activityHeaderKind")}
@@ -249,6 +255,7 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
                   <button
                     type="button"
                     onClick={() => toggleSort("message")}
+                    title={t(lang, "sortBy", t(lang, "activityHeaderMessage"))}
                     className="cursor-pointer select-none text-left text-xs uppercase tracking-wide hover:text-AIPM-dark-blue dark:hover:text-AIPM-light-grey"
                   >
                     {t(lang, "activityHeaderMessage")}
