@@ -1743,7 +1743,7 @@ const PICK_OPTS: Record<
   },
 };
 
-interface FsHandle {
+export interface FsHandle {
   queryPermission(opts: { mode: "read" | "readwrite" }): Promise<PermissionState>;
   requestPermission(opts: { mode: "read" | "readwrite" }): Promise<PermissionState>;
   getFile(): Promise<File>;
@@ -1813,8 +1813,12 @@ async function readHandle(handle: FsHandle): Promise<string> {
   return await file.text();
 }
 
-async function writeHandle(handle: FsHandle, content: string): Promise<void> {
-  let writable: { write(data: BlobPart): Promise<void>; close(): Promise<void> };
+export async function writeHandle(handle: FsHandle, content: string): Promise<void> {
+  let writable: {
+    write(data: BlobPart): Promise<void>;
+    close(): Promise<void>;
+    abort?(): Promise<void>;
+  };
   try {
     writable = await handle.createWritable();
   } catch {
@@ -1824,8 +1828,21 @@ async function writeHandle(handle: FsHandle, content: string): Promise<void> {
     // still blocked — surface a targeted message instead of the raw DOMException.
     throw new StorageNotReadyError("local-file-write-blocked");
   }
-  await writable.write(content);
-  await writable.close();
+  try {
+    await writable.write(content);
+    await writable.close();
+  } catch {
+    // The write/close failed AFTER the writable opened — e.g. the browser
+    // blocked the atomic swap. Abort so the .crswap temp is discarded and the
+    // rename over the original never runs, leaving the original file intact.
+    // Without this, a blocked close can delete the original (data loss).
+    try {
+      await writable.abort?.();
+    } catch {
+      // abort is best-effort; ignore secondary failures.
+    }
+    throw new StorageNotReadyError("local-file-write-blocked");
+  }
 }
 
 // --- Backends --------------------------------------------------------------
