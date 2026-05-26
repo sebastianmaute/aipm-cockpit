@@ -61,7 +61,7 @@ export interface WorkspaceSectionProps {
   handleClearRaidTaskFilter: () => void;
   handleSaveRaidItem: (item: RaidItem) => void;
   handleDeleteRaidItem: (id: number) => void;
-  handleCreateMitigationTaskFromRaid: (raidId: number) => number | null;
+  handleCreateMitigationTaskFromRaid: (raidId: number) => number | null | undefined;
   handleJumpToTaskFromRaid: (taskId: number) => void;
   activityLog: ActivityEntry[];
   handleClearActivityLog: () => void;

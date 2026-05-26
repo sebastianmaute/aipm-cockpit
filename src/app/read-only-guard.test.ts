@@ -19,4 +19,14 @@ describe("makeEditGuard", () => {
     expect(fn).not.toHaveBeenCalled();
     expect(notify).toHaveBeenCalledTimes(1);
   });
+
+  it("returns the handler's result when not read-only", () => {
+    const guarded = makeEditGuard(false, () => {})((n: number) => n + 1);
+    expect(guarded(41)).toBe(42);
+  });
+
+  it("returns undefined when read-only", () => {
+    const guarded = makeEditGuard(true, () => {})((n: number) => n + 1);
+    expect(guarded(41)).toBeUndefined();
+  });
 });

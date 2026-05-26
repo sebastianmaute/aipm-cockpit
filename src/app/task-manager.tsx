@@ -468,7 +468,7 @@ function TaskManagerInner() {
         handleClearRaidTaskFilter={handleClearRaidTaskFilter}
         handleSaveRaidItem={guardEdit(handleSaveRaidItem)}
         handleDeleteRaidItem={guardEdit(handleDeleteRaidItem)}
-        handleCreateMitigationTaskFromRaid={guardEdit(handleCreateMitigationTaskFromRaid) as typeof handleCreateMitigationTaskFromRaid}
+        handleCreateMitigationTaskFromRaid={guardEdit(handleCreateMitigationTaskFromRaid)}
         handleJumpToTaskFromRaid={handleJumpToTaskFromRaid}
         activityLog={activityLog}
         handleClearActivityLog={guardEdit(handleClearActivityLog)}

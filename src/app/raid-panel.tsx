@@ -52,8 +52,9 @@ export type RaidPanelProps = {
   onSave: (item: RaidItem) => void;
   onDelete: (id: number) => void;
   /** Spawns a Task pre-filled from the item; returns its new id so the
-   *  modal can add it to `linkedTaskIds` immediately. */
-  onCreateMitigationTask: (raidItemId: number) => number | null;
+   *  modal can add it to `linkedTaskIds` immediately. In a read-only (popout)
+   *  context the guard returns undefined; callers must treat undefined as null. */
+  onCreateMitigationTask: (raidItemId: number) => number | null | undefined;
   /** Open the task edit modal for the given task id (used by linked-task
    *  chip clicks). */
   onJumpToTask: (taskId: number) => void;
@@ -296,7 +297,7 @@ function RaidPanelInner({
     if (!draft || isNew) return;
     onSave(draft);
     const newTaskId = onCreateMitigationTask(draft.id);
-    if (newTaskId !== null) {
+    if (newTaskId != null) {
       setDraft({ ...draft, linkedTaskIds: [...draft.linkedTaskIds, newTaskId] });
     }
   }
