@@ -7,10 +7,13 @@ import {
 } from "./resource-foundation";
 import {
   dropDanglingDependencies,
+  encodeAllocations,
   encodePeriodMap,
   parseDependenciesString,
   sanitizeAbsence,
+  sanitizeBudgetBucket,
   sanitizeDiscipline,
+  sanitizeFxRates,
   sanitizeGrade,
   sanitizeGroup,
   sanitizeLabels,
@@ -460,6 +463,15 @@ const RESOURCES_CSV_COLUMNS = [
 const ROLES_CSV_COLUMNS = ["id", "disciplineId", "gradeId", "internalRate", "externalRate", "localModifiedAt"] as const;
 const REF_CSV_COLUMNS = ["id", "name", "localModifiedAt"] as const;
 
+const BUDGETS_CSV_COLUMNS = [
+  "id", "name", "poNumber", "type", "currency", "fixedPriceAmount",
+  "startDate", "endDate", "successorId", "status", "closedDate",
+  "fxRateOverride", "allocations", "localModifiedAt",
+] as const;
+
+const CSV_SECTION_BUDGETS = "# BUDGETS";
+const CSV_SECTION_FXRATES = "# FXRATES";
+
 // Section markers for the new entity sections in multi-section CSV files.
 const CSV_SECTION_RESOURCES = "# RESOURCES";
 const CSV_SECTION_ROLES = "# ROLES";
@@ -756,6 +768,38 @@ function resourcesToCsv(rs: readonly Resource[]): string {
   );
 }
 
+function budgetFieldToString(b: BudgetBucket, c: string): string {
+  switch (c) {
+    case "id": return String(b.id);
+    case "name": return b.name;
+    case "poNumber": return b.poNumber ?? "";
+    case "type": return b.type;
+    case "currency": return b.currency;
+    case "fixedPriceAmount": return b.fixedPriceAmount == null ? "" : String(b.fixedPriceAmount);
+    case "startDate": return b.startDate;
+    case "endDate": return b.endDate;
+    case "successorId": return b.successorId == null ? "" : String(b.successorId);
+    case "status": return b.status;
+    case "closedDate": return b.closedDate ?? "";
+    case "fxRateOverride": return b.fxRateOverride == null ? "" : String(b.fxRateOverride);
+    case "allocations": return encodeAllocations(b.allocations);
+    case "localModifiedAt": return b.localModifiedAt ?? "";
+    default: return "";
+  }
+}
+
+function budgetsToCsv(bs: readonly BudgetBucket[]): string {
+  return rowsToCsv(BUDGETS_CSV_COLUMNS, bs.map((b) => BUDGETS_CSV_COLUMNS.map((c) => budgetFieldToString(b, c))));
+}
+
+function encodeRatesMap(rates: Record<string, number>): string {
+  return Object.entries(rates).filter(([, v]) => Number.isFinite(v)).map(([k, v]) => `${k}=${v}`).join("|");
+}
+
+function fxRatesToCsvLine(fx: FxRates): string {
+  return [CSV_SECTION_FXRATES, [fx.base, fx.date, fx.fetchedAt, encodeRatesMap(fx.rates)].map(csvEscape).join(",")].join("\r\n");
+}
+
 function rolesToCsv(rs: readonly Role[]): string {
   return rowsToCsv(
     ROLES_CSV_COLUMNS,
@@ -798,6 +842,8 @@ export function workspaceToCsv(ws: Workspace): string {
   if (ws.grades.length > 0) parts.push("", CSV_SECTION_GRADES, refsToCsv(ws.grades));
   if (ws.roles.length > 0) parts.push("", CSV_SECTION_ROLES, rolesToCsv(ws.roles));
   if (ws.resources.length > 0) parts.push("", CSV_SECTION_RESOURCES, resourcesToCsv(ws.resources));
+  if ((ws.budgets ?? []).length > 0) parts.push("", CSV_SECTION_BUDGETS, budgetsToCsv(ws.budgets ?? []));
+  if (ws.fxRates) parts.push("", fxRatesToCsvLine(ws.fxRates));
   parts.push("", planToCsvLine(ws.plan));
   return parts.join("\r\n");
 }
@@ -876,9 +922,11 @@ function splitCsvSections(csv: string): {
   disciplinesText: string;
   gradesText: string;
   planText: string;
+  budgetsText: string;
+  fxRatesText: string;
 } {
   const lines = csv.split(/\r?\n/);
-  let mode: "tasks" | "raid" | "absences" | "shifts" | "resources" | "roles" | "disciplines" | "grades" | "plan" | null = null;
+  let mode: "tasks" | "raid" | "absences" | "shifts" | "resources" | "roles" | "disciplines" | "grades" | "plan" | "budgets" | "fxrates" | null = null;
   const tasksLines: string[] = [];
   const raidLines: string[] = [];
   const absencesLines: string[] = [];
@@ -888,8 +936,12 @@ function splitCsvSections(csv: string): {
   const disciplinesLines: string[] = [];
   const gradesLines: string[] = [];
   const planLines: string[] = [];
+  const budgetsLines: string[] = [];
+  const fxRatesLines: string[] = [];
   for (const line of lines) {
     const trimmed = line.trimStart();
+    if (trimmed.startsWith(CSV_SECTION_BUDGETS)) { mode = "budgets"; continue; }
+    if (trimmed.startsWith(CSV_SECTION_FXRATES)) { mode = "fxrates"; continue; }
     if (trimmed.startsWith(CSV_SECTION_RESOURCES)) { mode = "resources"; continue; }
     if (trimmed.startsWith(CSV_SECTION_ROLES)) { mode = "roles"; continue; }
     if (trimmed.startsWith(CSV_SECTION_DISCIPLINES)) { mode = "disciplines"; continue; }
@@ -908,6 +960,8 @@ function splitCsvSections(csv: string): {
     else if (mode === "absences") absencesLines.push(line);
     else if (mode === "raid") raidLines.push(line);
     else if (mode === "tasks") tasksLines.push(line);
+    else if (mode === "budgets") budgetsLines.push(line);
+    else if (mode === "fxrates") fxRatesLines.push(line);
     // (else: line before the first marker — drop it.)
   }
   return {
@@ -920,6 +974,8 @@ function splitCsvSections(csv: string): {
     disciplinesText: disciplinesLines.join("\r\n"),
     gradesText: gradesLines.join("\r\n"),
     planText: planLines.join("\r\n"),
+    budgetsText: budgetsLines.join("\r\n"),
+    fxRatesText: fxRatesLines.join("\r\n"),
   };
 }
 
@@ -953,6 +1009,28 @@ function csvToResources(csv: string): Resource[] {
 
 function csvToRoles(csv: string): Role[] {
   return csvRowsToObjects(csv).map((o) => sanitizeRole(o)).filter((r): r is Role => r !== null);
+}
+
+function csvToBudgets(csv: string): BudgetBucket[] {
+  return csvRowsToObjects(csv).map((o) => sanitizeBudgetBucket(o)).filter((b): b is BudgetBucket => b !== null);
+}
+
+function decodeRatesMap(s: string): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const part of s.split("|")) {
+    const eq = part.indexOf("=");
+    if (eq <= 0) continue;
+    const k = part.slice(0, eq).trim();
+    const v = Number(part.slice(eq + 1).trim());
+    if (k && Number.isFinite(v)) out[k] = v;
+  }
+  return out;
+}
+
+function parseFxRatesLine(line: string): FxRates | null {
+  const cells = parseCsv(line)[0];
+  if (!cells || cells.length < 4) return null;
+  return sanitizeFxRates({ base: cells[0], date: cells[1], fetchedAt: cells[2], rates: decodeRatesMap(cells[3]) });
 }
 
 function csvToDisciplines(csv: string): Discipline[] {
@@ -1069,8 +1147,10 @@ export function csvToWorkspace(csv: string): Workspace {
     disciplines: s.disciplinesText.trim() ? csvToDisciplines(s.disciplinesText) : [],
     grades: s.gradesText.trim() ? csvToGrades(s.gradesText) : [],
     plan: (s.planText.trim() && parsePlanLine(s.planText)) || defaultResourcePlan(new Date().toISOString().slice(0, 10)),
+    budgets: s.budgetsText.trim() ? csvToBudgets(s.budgetsText) : [],
+    fxRates: s.fxRatesText.trim() ? parseFxRatesLine(s.fxRatesText.split(/\r?\n/).find((l) => l.trim() && !l.startsWith("#")) ?? "") : null,
   };
-  return migrateWorkspaceV5(ws);
+  return migrateWorkspaceV6(ws);
 }
 
 function csvToTasks(csv: string): Task[] {
