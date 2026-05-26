@@ -22,7 +22,9 @@ import {
 } from "./sanitize";
 import {
   type Absence,
+  type BudgetBucket,
   type Discipline,
+  type FxRates,
   type Grade,
   type Priority,
   type RaidCategory,
@@ -50,9 +52,11 @@ export type Workspace = {
   disciplines: Discipline[];
   grades: Grade[];
   plan: ResourcePlan;
+  budgets: BudgetBucket[];
+  fxRates: FxRates | null;
 };
 
-const SCHEMA_VERSION = 5;
+const SCHEMA_VERSION = 6;
 
 /** A blank workspace with a default plan anchored to today. */
 export function emptyWorkspace(): Workspace {
@@ -60,6 +64,8 @@ export function emptyWorkspace(): Workspace {
     tasks: [], raid: [], absences: [], shifts: [],
     resources: [], roles: [], disciplines: [], grades: [],
     plan: defaultResourcePlan(new Date().toISOString().slice(0, 10)),
+    budgets: [],
+    fxRates: null,
   };
 }
 
@@ -83,6 +89,18 @@ export function migrateWorkspaceV5(ws: Workspace): Workspace {
     absences = built.absences;
   }
   return { ...ws, tasks, absences, resources, roles: ws.roles, disciplines, grades, plan };
+}
+
+/**
+ * v6 migration: ensures the budget planner fields exist. Runs after v5.
+ * Idempotent — reuses arrays/values unchanged.
+ */
+export function migrateWorkspaceV6(ws: Workspace): Workspace {
+  const base = migrateWorkspaceV5(ws);
+  const budgets = Array.isArray(base.budgets) ? base.budgets : [];
+  const fxRates = base.fxRates ?? null;
+  if (budgets === base.budgets && fxRates === base.fxRates) return base;
+  return { ...base, budgets, fxRates };
 }
 
 // --- Storage configuration -------------------------------------------------
