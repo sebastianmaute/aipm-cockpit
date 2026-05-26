@@ -19,6 +19,8 @@ frontend/backend repos.
    ┌──────────────┐  │  ┌──────────────────────────────────┐  │   ┌──────────────┐
    │ <TaskManager>│──┼─▶│ /api/jira/*  (8 POST routes)     │──┼──▶│ Atlassian    │
    │              │  │  │  CORS proxy + rate-limit         │  │   │ Cloud REST   │
+   │              │  │  ├──────────────────────────────────┤  │   └──────────────┘
+   │              │  │  │ GET /api/ecb  (ECB FX rates)     │──┼──▶│ ECB XML feed │
    └──────┬───────┘  │  └──────────────────────────────────┘  │   └──────────────┘
           │          │  ┌──────────────────────────────────┐  │
           │          │  │ src/proxy.ts (middleware)        │  │
@@ -31,7 +33,8 @@ frontend/backend repos.
           ▼                                                    └──────────────┘
    ┌──────────────┐
    │ IndexedDB    │ tasks, raid, absences, shifts, resources, roles,
-   │ (schema v5)  │ disciplines, grades + resource-plan kv (record-level)
+   │ (schema v6)  │ disciplines, grades + resource-plan kv, budgets kv,
+   │              │ fxRates kv (record-level)
    │ localStorage │ settings, contacts, activity log, UI prefs,
    │              │ reminder-snooze:due, reminder-snooze:birthday
    │ FS Access    │ optional local JSON/CSV/MD workspace file
@@ -73,7 +76,7 @@ frontend/backend repos.
                        dispatcher (chat-tools.ts) → CRUD on tasks/raid
 ```
 
-`Workspace = { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan }` (schema v5). The `plan` singleton holds the planning window + canonical granularity + currency; `resources` carry per-period utilization + optional absence overrides + address-book contact fields (`firstName`/`lastName`/`birthday`/…); `roles` are discipline × grade combos with internal/external hourly rates.
+`Workspace = { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets?, fxRates? }` (schema v6). The `plan` singleton holds the planning window + canonical granularity + currency; `resources` carry per-period utilization + optional absence overrides + address-book contact fields; `roles` are discipline × grade combos with internal/external hourly rates; `budgets` are PO-line budget buckets (schema v6, optional for backward compat); `fxRates` is the cached ECB rate map (schema v6, optional).
 
 Pop-out windows (`?popout=resource-report`, `?popout=address-book`) are separate browser windows that load the same Next.js page. They stay in sync with the main window via `BroadcastChannel` (`broadcast-sync.ts`). Pop-outs are **read-only mirrors**: `useBroadcastSync` is called with `canSend={false}` in popouts so they receive updates but never broadcast — preventing overwrite of the main window's data. Edit affordances are locked (via `makeEditGuard`), a `ReadOnlyMirrorBanner` is shown, and mutating chat tools are refused.
 
@@ -83,6 +86,7 @@ Pop-out windows (`?popout=resource-report`, `?popout=address-book`) are separate
 - **Holidays** — `src/app/holidays.ts` lazy-imports `date-holidays` (and its moment-tz cost) only when at least one country is selected.
 - **Health / due-dates** — `health.ts` + `due-dates.ts` compute RAG status and alertable lists from `Task[] × today × holidaySet`. `due-dates.ts` also exports `shiftToWorkingDay` (shifts a date earlier past weekends, holidays, and absence days) and `absenceDayMap` (builds a per-assignee set of absent ISO dates) used by both due-date and birthday reminder logic.
 - **Reminders & snooze** — `getAlertableTasks` (due-dates.ts) and `getUpcomingBirthdays` (birthdays.ts) each apply `shiftToWorkingDay` so triggers never fall on non-working days. Reminder banners (`DueBanner`, `BirthdayBanner`, `JiraTokenBanner` in notifications.tsx) accept an `onSnooze` prop wired to `useReminderSnooze` in TaskManager; snooze state is persisted per-kind via `reminder-snooze.ts` (`ReminderKind = "due" | "birthday" | "jiraToken"`). The hook auto-clears state after the snooze elapses.
+- **Budget planner** — `budget-report.ts` (pure engine: CCI ×3, spillover, project rollup, reminders) + `budget-panel.tsx` (Budget tab) + `fx.ts` + `ecb.ts` + `use-fx-rates.ts` + `api/ecb/route.ts` (ECB FX). `budgets`/`fxRates` added to `Workspace` (schema v6, optional); full CSV/MD/JSON/IDB round-trip.
 - **Export** — `export.ts` + `export-ooxml.ts` (lazy-imported for DOCX/XLSX/PPTX) + `export-menu.tsx` + `zip.ts` (hand-rolled STORE-method ZIP writer; no DEFLATE).
 - **Voice commands** — Web Speech API via `voice.ts` + `voice-button.tsx`.
 - **Activity log** — `activity-log.ts` + `activity-log-panel.tsx`; chronological CRUD record persisted to `lop-app:activity-log` (capped 500 entries), never written to exports. "Clear log" is gated behind `window.confirm` (matches `handleClearAll` / `handleDelete` precedent).

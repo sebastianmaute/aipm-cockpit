@@ -502,6 +502,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightWorkspace: "Größenveränderbarer + einklappbarer Arbeitsbereich, größenveränderbare Tabelle, persistent.",
   versionHighlightSecurity: "Content-Security-Policy mit Nonce pro Anfrage und strikten Script- + Style-Direktiven; kein Inline-Script-Bypass.",
   versionHighlightPerformance: "Schnellerer Start und geringerer Speicherverbrauch durch lazy geladene Module (DOCX/XLSX/PPTX-Export, deutsche UI, Feiertagskalender) und IndexedDB-Datensatzspeicher.",
+  versionHighlightBudget: "Projektbudget-Planer — Buckets, CCI, Gewinn/Verlust, Mehrwährung (EZB)",
 
   group: "Gruppe",
   labels: "Labels",

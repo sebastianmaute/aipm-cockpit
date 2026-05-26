@@ -132,6 +132,39 @@ ResourcePlan {                               // workspace singleton
   currency        string                     // ISO 4217 (default "EUR")
 }
 DEFAULT_CURRENCY = "EUR"
+
+// Budget Planner — schema v6 -----------------------------------------------
+
+BudgetBucket {
+  id              number
+  name            string
+  poNumber?       string
+  type            "tm" | "fixed"
+  currency        "EUR" | "USD" | "GBP"
+  startDate       "YYYY-MM-DD"
+  endDate         "YYYY-MM-DD"
+  successorId?    number                   // spillover target on close
+  closed?         boolean
+  manualFxRate?   number                   // overrides ECB cached rate
+  allocations     BudgetAllocation[]
+}
+
+BudgetAllocation {
+  id              number
+  roleId          number                   // FK → Role.id
+  resourceIds     number[]                 // feeding resources from planner
+  periods         Record<string, BudgetPeriod>  // periodKey → BudgetPeriod
+}
+
+BudgetPeriod {
+  budgetHours     number
+  actualHours     number
+}
+
+FxRateCache {
+  date            "YYYY-MM-DD"             // ECB publication date
+  rates           Record<string, number>  // ISO 4217 → EUR-base rate
+}
 ```
 
 ## Workspace envelope (`storage.ts`)
@@ -147,8 +180,10 @@ type Workspace = {
   disciplines: Discipline[];
   grades: Grade[];
   plan: ResourcePlan;                       // singleton
+  budgets?: BudgetBucket[];                 // schema v6; optional for compat
+  fxRates?: FxRateCache;                   // schema v6; optional for compat
 };
-const SCHEMA_VERSION = 5;
+const SCHEMA_VERSION = 6;
 ```
 
 `migrateWorkspaceV5(ws)` is **idempotent**: seeds `disciplines`/`grades` when
@@ -157,11 +192,15 @@ empty, ensures `plan` exists, and runs `backfillResources` once (when
 `assignee` across tasks + absences and stamp `resourceId` on those records.
 Re-running over a populated workspace is a no-op (reference equality).
 
+`migrateWorkspaceV6(ws)` is **idempotent**: ensures `budgets: []` and
+`fxRates: undefined` exist when absent. Safe to run over a v5 or v6 workspace.
+
 ## IndexedDB layout (`storage.ts`)
 
 ```
-Database: lop-app  (version 5)
+Database: lop-app  (version 6)
 ├── object store "kv"           (v1)  — FsHandle + "resource-plan" singleton
+│                                       + "budgets" array + "fxRates" object (v6)
 ├── object store "tasks"        (v2)  — keyPath: "id", value: Task
 ├── object store "raid"         (v2)  — keyPath: "id", value: RaidItem
 ├── object store "absences"     (v3)  — keyPath: "id", value: Absence
@@ -219,9 +258,9 @@ so older files self-heal.
 
 | Kind | Sections |
 |---|---|
-| JSON | `{ schemaVersion: 5, tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan }` |
-| CSV  | `# TASKS` + `# RAID` + `# ABSENCES` + `# SHIFTS` + `# DISCIPLINES` + `# GRADES` + `# ROLES` + `# RESOURCES` + `# PLAN` (one line), RFC-style escaping |
-| Markdown | `# LOP Tasks` + `# RAID Log` + `# Absences` + `# Shifts` + `# Disciplines` + `# Grades` + `# Roles` + `# Resources` + `# Plan` H1s, each with a pipe table |
+| JSON | `{ schemaVersion: 6, tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates }` |
+| CSV  | `# TASKS` + `# RAID` + `# ABSENCES` + `# SHIFTS` + `# DISCIPLINES` + `# GRADES` + `# ROLES` + `# RESOURCES` + `# PLAN` + `# BUDGETS` + `# FX_RATES`, RFC-style escaping |
+| Markdown | `# LOP Tasks` + `# RAID Log` + `# Absences` + `# Shifts` + `# Disciplines` + `# Grades` + `# Roles` + `# Resources` + `# Plan` + `# Budgets` + `# FX Rates` H1s, each with a pipe table |
 
 The `utilization` and `absenceOverride` maps serialize into a single
 encoded cell each via `encodePeriodMap` / `decodePeriodMap` — format
@@ -247,6 +286,8 @@ and the Resource Planner v2 additions `sanitizeResource`, `sanitizeRole`,
 `sanitizeUtilizationMode`, plus the `encodePeriodMap` / `decodePeriodMap`
 codec (clamps percent to 0..100 or hours to `HOURS_MAP_MAX`; accepts both
 object and CSV-string map forms).
+
+Budget sanitizers (schema v6) add `sanitizeBudgetBucket`, `sanitizeBudgetAllocation`, `sanitizeBudgetPeriod`, `sanitizeFxRateCache` to the same module.
 
 ## RAID derivations (`raid.ts`)
 

@@ -487,6 +487,7 @@ const enUS = {
   versionHighlightWorkspace: "Resizable + collapsible workspace, resizable tasks table, persisted across reloads.",
   versionHighlightSecurity: "Per-request Content-Security-Policy nonce with strict script + style directives; no inline-script bypass.",
   versionHighlightPerformance: "Faster startup and lower memory use via lazy-loaded modules (DOCX/XLSX/PPTX export, German UI, holiday calendars) and IndexedDB record-level storage.",
+  versionHighlightBudget: "Project budget planner — buckets, CCI, win/loss, multi-currency (ECB)",
 
   group: "Group",
   labels: "Labels",

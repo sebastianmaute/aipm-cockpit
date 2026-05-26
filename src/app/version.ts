@@ -1,3 +1,21 @@
+// 0.12.0 adds a Project Budget Planner: named PO-line budget buckets (T&M or
+// fixed-price, in EUR/USD/GBP) that span roles via per-role allocations (each
+// naming a role + feeding resources + per-period budget/actual hours). Planned
+// hours derive from the existing resource-capacity engine; actuals are entered
+// per bucket/role/period. A three-value CCI panel (contribution margin, cost
+// performance, consumption — each as amount + %) is computed at bucket and
+// project level, together with win/loss in hours and currency. Closing a bucket
+// spills its remaining budget (hours + amount) into a named successor (reversible
+// on reopen). Multi-currency display is backed by ECB daily reference rates: a
+// new /api/ecb route fetches and caches them in the workspace; a per-bucket
+// manual rate override wins over the cached rate. Bucket end-date reminders fire
+// via the existing reminder lead-time infrastructure. New modules: budget-report.ts
+// (pure engine: active periods, planned hours, per-bucket report, CCI, spillover,
+// project rollup, reminders), budget-panel.tsx (Budget tab UI), fx.ts + ecb.ts +
+// api/ecb/route.ts + use-fx-rates.ts (ECB FX layer). Budget types added to
+// types.ts; budget sanitizers in sanitize.ts; budgets + fxRates persisted in
+// storage.ts (schema v6, additive migration from v5, full CSV/MD/JSON/IDB
+// round-trip; budgets/fxRates are optional on Workspace for backward compat).
 // 0.11.0 hardens pop-out windows, reworks control tooltips, and adds Jira
 // token-expiry reminders.
 //   - Pop-out windows are now read-only mirrors: they receive live state over
@@ -160,7 +178,7 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.11.0";
+export const APP_VERSION = "0.12.0";
 export const APP_BUILD_DATE = "2026-05-26";
 export const APP_REPO_URL = "https://www.example.com";
 
@@ -182,4 +200,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightWorkspace",
   "versionHighlightSecurity",
   "versionHighlightPerformance",
+  "versionHighlightBudget",
 ] as const;
