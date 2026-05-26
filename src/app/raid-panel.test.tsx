@@ -21,6 +21,16 @@ function makeProps(overrides: Partial<RaidPanelProps> = {}): RaidPanelProps {
   };
 }
 
+describe("RaidPanel tooltips", () => {
+  it("gives the RAID search box a descriptive tooltip", () => {
+    render(<RaidPanel {...makeProps()} />);
+    expect(screen.getByPlaceholderText(/search title, owner/i)).toHaveAttribute(
+      "title",
+      "Filter the register to items whose title, owner, or description match your text.",
+    );
+  });
+});
+
 describe("RaidPanel inline add row", () => {
   it("inline add row is present when RAID list is empty", () => {
     render(<RaidPanel {...makeProps()} />);

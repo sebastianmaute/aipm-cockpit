@@ -317,6 +317,7 @@ function RaidPanelInner({
         onChange={(e) => setSearch(e.target.value)}
         placeholder={t(lang, "raidSearchPlaceholder")}
         aria-label={t(lang, "raidSearchPlaceholder")}
+        title={t(lang, "raidSearchHint")}
         className="min-w-[12rem] flex-1 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-900 shadow-sm focus:border-AIPM-dark-blue focus:outline-none focus:ring-1 focus:ring-AIPM-dark-blue dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
       />
       <select
@@ -325,6 +326,7 @@ function RaidPanelInner({
           setCategoryFilter(e.target.value as "All" | RaidCategory)
         }
         aria-label={t(lang, "raidCategory")}
+        title={t(lang, "raidCategoryFilterHint")}
         className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm text-zinc-900 shadow-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
       >
         <option value="All">{t(lang, "raidCategoryAll")}</option>
@@ -340,6 +342,7 @@ function RaidPanelInner({
           setSeverityFilter(e.target.value as "All" | RaidSeverity)
         }
         aria-label={t(lang, "raidSeverity")}
+        title={t(lang, "raidSeverityFilterHint")}
         className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm text-zinc-900 shadow-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
       >
         <option value="All">{t(lang, "raidSeverityAll")}</option>
@@ -355,6 +358,7 @@ function RaidPanelInner({
           setStatusFilter(e.target.value as "All" | "Open" | "Closed")
         }
         aria-label={t(lang, "raidStatus")}
+        title={t(lang, "raidStatusFilterHint")}
         className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm text-zinc-900 shadow-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
       >
         <option value="All">{t(lang, "raidStatusAll")}</option>
@@ -381,6 +385,7 @@ function RaidPanelInner({
             setStatusFilter("All");
             onClearTaskFilter();
           }}
+          title={t(lang, "resetFiltersHint")}
           className="rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-xs font-medium text-zinc-700 shadow-sm hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
         >
           {t(lang, "ganttResetFilters")}
@@ -786,6 +791,7 @@ function RaidEditModal({
                 value={draft.category}
                 disabled={!isNew && !categoryUnlocked}
                 ariaLabel={t(lang, "raidCategory")}
+                title={t(lang, "raidFieldCategoryHint")}
                 options={RAID_CATEGORIES.map((c) => ({
                   value: c,
                   label: categoryLabel(c, lang),
@@ -849,6 +855,7 @@ function RaidEditModal({
             <SegmentedControl<RaidStatus>
               value={draft.status}
               ariaLabel={t(lang, "raidStatus")}
+              title={t(lang, "raidFieldStatusHint")}
               options={statusOpts.map((s) => ({
                 value: s,
                 label: statusLabel(s, lang),
@@ -867,6 +874,7 @@ function RaidEditModal({
               value={draft.title}
               onChange={(e) => onChange({ ...draft, title: e.target.value })}
               placeholder={t(lang, "raidPlaceholderTitle")}
+              title={t(lang, "raidFieldTitleHint")}
               className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
             />
           </label>
@@ -882,12 +890,13 @@ function RaidEditModal({
                 onChange({ ...draft, description: e.target.value || undefined })
               }
               placeholder={t(lang, "raidPlaceholderDescription")}
+              title={t(lang, "raidFieldDescriptionHint")}
               className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
             />
           </label>
 
           {draft.category === "R" ? (
-            <div className="sm:col-span-2">
+            <div className="sm:col-span-2" title={t(lang, "raidFieldRiskMatrixHint")}>
               <div className="mb-2 flex items-baseline justify-between gap-2">
                 <span className="text-sm font-medium text-AIPM-dark-grey dark:text-AIPM-light-grey">
                   {t(lang, "raidRiskMatrix")}
@@ -913,6 +922,7 @@ function RaidEditModal({
               <SegmentedControl<RaidSeverity>
                 value={draft.severity ?? "Medium"}
                 ariaLabel={t(lang, "raidSeverity")}
+                title={t(lang, "raidFieldSeverityHint")}
                 options={RAID_SEVERITIES.map((s) => ({
                   value: s,
                   label: severityLabel(s, lang),
@@ -932,6 +942,7 @@ function RaidEditModal({
               onChange={(e) =>
                 onChange({ ...draft, owner: e.target.value || undefined })
               }
+              title={t(lang, "raidFieldOwnerHint")}
               className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
             />
           </label>
@@ -946,6 +957,7 @@ function RaidEditModal({
               onChange={(e) =>
                 onChange({ ...draft, ownerEmail: e.target.value || undefined })
               }
+              title={t(lang, "raidFieldOwnerEmailHint")}
               className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
             />
           </label>
@@ -958,6 +970,7 @@ function RaidEditModal({
               type="date"
               value={draft.raisedDate}
               onChange={(e) => onChange({ ...draft, raisedDate: e.target.value })}
+              title={t(lang, "raidFieldRaisedDateHint")}
               className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
             />
           </label>
@@ -972,6 +985,7 @@ function RaidEditModal({
               onChange={(e) =>
                 onChange({ ...draft, targetDate: e.target.value || undefined })
               }
+              title={t(lang, "raidFieldTargetDateHint")}
               className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
             />
           </label>
@@ -987,6 +1001,7 @@ function RaidEditModal({
                 onChange({ ...draft, mitigation: e.target.value || undefined })
               }
               placeholder={t(lang, "raidPlaceholderMitigation")}
+              title={t(lang, "raidFieldMitigationHint")}
               className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
             />
           </label>
@@ -1040,6 +1055,7 @@ function RaidEditModal({
                 value={taskPickerQuery}
                 onChange={(e) => setTaskPickerQuery(e.target.value)}
                 placeholder={t(lang, "raidLinkPickerPlaceholder")}
+                title={t(lang, "raidFieldLinkedTasksHint")}
                 className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
               />
               {taskPickerQuery.trim() !== "" && availableTasks.length > 0 && (
@@ -1108,6 +1124,7 @@ function RaidEditModal({
                 value={causePickerQuery}
                 onChange={(e) => setCausePickerQuery(e.target.value)}
                 placeholder={t(lang, "raidCausedByPlaceholder")}
+                title={t(lang, "raidFieldCausedByHint")}
                 className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
               />
               {causePickerQuery.trim() !== "" && availableCauses.length > 0 && (
@@ -1171,6 +1188,7 @@ function RaidEditModal({
                 if (window.confirm(t(lang, "raidConfirmDelete"))) onDelete();
               }}
               disabled={isNew}
+              title={t(lang, "raidFieldDeleteHint")}
               className="rounded-md border border-AIPM-pink/40 bg-white px-3 py-2 text-sm font-medium text-AIPM-pink hover:bg-AIPM-pink/10 disabled:cursor-not-allowed disabled:opacity-50 dark:border-AIPM-pink/40 dark:bg-zinc-900"
             >
               {t(lang, "raidDelete")}
