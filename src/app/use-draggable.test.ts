@@ -16,9 +16,9 @@ describe("clampOffset", () => {
     expect(rect.left + rect.width + out.x).toBeGreaterThanOrEqual(24); // still grabbable
   });
 
-  test("clamps upward drag so the header stays below the top edge", () => {
+  test("clamps upward drag so the header stays at least a margin below the top edge", () => {
     const out = clampOffset({ x: 0, y: -10000 }, rect, vp);
-    expect(rect.top + out.y).toBeGreaterThanOrEqual(0);
+    expect(rect.top + out.y).toBeGreaterThanOrEqual(24);
   });
 
   test("clamps downward drag so the header stays above the bottom edge", () => {

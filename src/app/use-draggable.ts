@@ -7,6 +7,18 @@ export interface Offset {
   y: number;
 }
 
+interface DragHandleProps {
+  onPointerDown: (e: React.PointerEvent<HTMLElement>) => void;
+  onPointerMove: (e: React.PointerEvent<HTMLElement>) => void;
+  onPointerUp: (e: React.PointerEvent<HTMLElement>) => void;
+}
+
+export interface UseDraggableResult {
+  offset: Offset;
+  reset: () => void;
+  handleProps: DragHandleProps;
+}
+
 interface Rect {
   left: number;
   top: number;
@@ -29,7 +41,7 @@ const MARGIN = 24;
 export function clampOffset(desired: Offset, rect: Rect, vp: Viewport): Offset {
   const minX = MARGIN - (rect.left + rect.width);
   const maxX = vp.w - MARGIN - rect.left;
-  const minY = -rect.top;
+  const minY = MARGIN - rect.top;
   const maxY = vp.h - MARGIN - rect.top;
   return {
     x: Math.min(Math.max(desired.x, minX), maxX),
@@ -42,7 +54,7 @@ export function clampOffset(desired: Offset, rect: Rect, vp: Viewport): Offset {
  * header). The panel element gets `style={{ transform: translate(offset) }}`.
  * Offset resets to {0,0} (centered) each time `open` transitions false→true.
  */
-export function useDraggable(open: boolean) {
+export function useDraggable(open: boolean): UseDraggableResult {
   const [offset, setOffset] = useState<Offset>({ x: 0, y: 0 });
   const dragState = useRef<{ startX: number; startY: number; base: Offset; rect: Rect } | null>(null);
 
