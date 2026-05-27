@@ -224,6 +224,9 @@ export const de: Record<TranslationKey, string> = {
   budgetNoRolesLeft: "Alle Rollen sind bereits zugeordnet.",
   budgetNameRequired: "Name ist erforderlich.",
   budgetDateRangeInvalid: "Das Startdatum muss am oder vor dem Enddatum liegen.",
+  budgetSave: "Speichern",
+  budgetAmountInvalid: "Betrag muss null oder größer sein.",
+  budgetFxOverrideInvalid: "Wechselkurs muss größer als null sein.",
 
   tabChat: "Chat",
   tabNewTask: "Neue Aufgabe",

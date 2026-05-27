@@ -71,6 +71,25 @@ describe("BudgetBucketModal", () => {
     expect(screen.getByText(/start date must be/i)).toBeInTheDocument();
   });
 
+  test("negative fixed-price amount blocks save", () => {
+    const { onSave } = setup({ bucket: { ...baseBucket, type: "fixed", fixedPriceAmount: 0 } });
+    // switch the amount to a negative value
+    const amount = screen.getByDisplayValue("0");
+    fireEvent.change(amount, { target: { value: "-5" } });
+    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+    expect(onSave).not.toHaveBeenCalled();
+    expect(screen.getByText(/amount must be zero or greater/i)).toBeInTheDocument();
+  });
+
+  test("zero/negative FX override blocks save", () => {
+    const { onSave } = setup();
+    const fx = screen.getByLabelText(/manual fx rate/i);
+    fireEvent.change(fx, { target: { value: "0" } });
+    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+    expect(onSave).not.toHaveBeenCalled();
+    expect(screen.getByText(/fx rate must be greater than zero/i)).toBeInTheDocument();
+  });
+
   test("add role appends an allocation with empty hour maps", () => {
     const { onSave } = setup();
     fireEvent.change(screen.getByRole("combobox", { name: /add role/i }), {

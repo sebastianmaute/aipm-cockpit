@@ -217,6 +217,9 @@ const enUS = {
   budgetNoRolesLeft: "All roles are already allocated.",
   budgetNameRequired: "Name is required.",
   budgetDateRangeInvalid: "Start date must be on or before the end date.",
+  budgetSave: "Save",
+  budgetAmountInvalid: "Amount must be zero or greater.",
+  budgetFxOverrideInvalid: "FX rate must be greater than zero.",
 
   tabChat: "Chat",
   tabNewTask: "New task",

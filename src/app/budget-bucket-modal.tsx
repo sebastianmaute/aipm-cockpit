@@ -95,6 +95,14 @@ export function BudgetBucketModal({
       setError(t(lang, "budgetDateRangeInvalid"));
       return;
     }
+    if (draft.type === "fixed" && draft.fixedPriceAmount != null &&
+        (!Number.isFinite(draft.fixedPriceAmount) || draft.fixedPriceAmount < 0)) {
+      return setError(t(lang, "budgetAmountInvalid"));
+    }
+    if (draft.fxRateOverride != null &&
+        (!Number.isFinite(draft.fxRateOverride) || draft.fxRateOverride <= 0)) {
+      return setError(t(lang, "budgetFxOverrideInvalid"));
+    }
     onSave({ ...draft, localModifiedAt: new Date().toISOString() });
   };
 
@@ -267,6 +275,7 @@ export function BudgetBucketModal({
               min={0}
               step="0.0001"
               value={draft.fxRateOverride ?? ""}
+              aria-label={t(lang, "budgetFxOverride")}
               title={t(lang, "budgetFxOverrideHint")}
               onChange={(e) =>
                 setDraft((d) => ({
@@ -383,7 +392,7 @@ export function BudgetBucketModal({
             onClick={save}
             className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-AIPM-dark-blue/90"
           >
-            {t(lang, "raidSave")}
+            {t(lang, "budgetSave")}
           </button>
         </footer>
       </div>
