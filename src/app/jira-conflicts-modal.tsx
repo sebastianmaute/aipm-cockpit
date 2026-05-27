@@ -114,7 +114,7 @@ export function JiraConflictsModal({
     onResolve(Object.values(picks));
   }
 
-  const { offset, handleProps } = useDraggable(true);
+  const { offset, handleProps } = useDraggable(conflicts.length > 0);
   const { ref: panelRef } = useResizable("lop-app:conflicts-modal-size");
 
   return (

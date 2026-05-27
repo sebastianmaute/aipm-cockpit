@@ -237,10 +237,12 @@ function TaskRowImpl({
       </Td>
       {!hiddenCols.has("assignee") && (
         <Td title={`${t(lang, "assignee")}: ${task.assignee || "—"}`}>
-          {task.assignee && (
+          {task.assignee ? (
             <span className="rounded-md border border-transparent px-2 py-0.5 hover:border-AIPM-dark-blue hover:bg-zinc-50 dark:hover:bg-zinc-800">
               {task.assignee}
             </span>
+          ) : (
+            "—"
           )}
         </Td>
       )}
