@@ -8,6 +8,25 @@ Authoritative source for version + build date: [`src/app/version.ts`](src/app/ve
 This file is seeded from that module's milestone comment plus the
 post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-diff.txt).
 
+## [0.14.1] — 2026-05-27
+
+Global percent/hours utilization toggle in the resources planning header.
+
+### Added
+
+- **Global utilization-mode toggle.** A percent/hours segmented toggle in the
+  resource-planning panel header (alongside the existing month/week granularity
+  toggle) switches all resources between percent and hours mode in one click.
+  Entered values are converted between units per-period using working hours
+  (`convertUtilization` in `resource-capacity.ts`).
+
+### Changed
+
+- **Per-resource `onSetUtilizationMode` chain removed.** The never-used
+  per-resource mode handler (prop-drilled from ResourcesPanel through the
+  planning grid down to individual rows) has been deleted; the global header
+  toggle supersedes it.
+
 ## [0.14.0] "Atwood" — 2026-05-27
 
 Editable budget buckets: a draggable edit-bucket modal with a role picker,

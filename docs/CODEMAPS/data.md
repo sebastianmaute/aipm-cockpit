@@ -1,4 +1,4 @@
-<!-- Generated: 2026-05-27 | Files scanned: types.ts, storage.ts, sanitize.ts, raid.ts, activity-log.ts, contacts.ts, resource-foundation.ts, resource-capacity.ts, reminder-snooze.ts, use-settings.ts, jira-token-status.ts, duration.ts | Token estimate: ~1280 -->
+<!-- Generated: 2026-05-27 | Files scanned: types.ts, storage.ts, sanitize.ts, raid.ts, activity-log.ts, contacts.ts, resource-foundation.ts, resource-capacity.ts, reminder-snooze.ts, use-settings.ts, jira-token-status.ts, duration.ts | Token estimate: ~1290 -->
 
 # Data
 
