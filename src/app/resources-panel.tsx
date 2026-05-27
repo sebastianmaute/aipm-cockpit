@@ -75,6 +75,21 @@ interface Props {
   onOpenAddressBook?: () => void;
 }
 
+function GearIcon() {
+  return (
+    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-4 w-4">
+      <path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.53 1.53 0 01-2.29.95c-1.37-.84-2.94.73-2.1 2.1.54.88.07 2.04-.95 2.29-1.56.38-1.56 2.6 0 2.98.99.24 1.49 1.41.95 2.29-.84 1.37.73 2.94 2.1 2.1.88-.54 2.04-.07 2.29.95.38 1.56 2.6 1.56 2.98 0a1.53 1.53 0 012.29-.95c1.37.84 2.94-.73 2.1-2.1a1.53 1.53 0 01.95-2.29c1.56-.38 1.56-2.6 0-2.98a1.53 1.53 0 01-.95-2.29c.84-1.37-.73-2.94-2.1-2.1a1.53 1.53 0 01-2.29-.95zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
+    </svg>
+  );
+}
+function ReportIcon() {
+  return (
+    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-4 w-4">
+      <path d="M15.5 2A1.5 1.5 0 0117 3.5v13A1.5 1.5 0 0115.5 18h-11A1.5 1.5 0 013 16.5v-13A1.5 1.5 0 014.5 2h11zM7 14a1 1 0 10-2 0 1 1 0 002 0zm0-3.5a1 1 0 10-2 0 1 1 0 002 0zM14 6.5A.5.5 0 0013.5 6h-7a.5.5 0 000 1h7a.5.5 0 00.5-.5z" />
+    </svg>
+  );
+}
+
 type View = "directory" | "workload" | "calendar" | "planning";
 
 interface AssigneeRow {
@@ -223,16 +238,18 @@ function ResourcesPanelInner({
           type="button"
           onClick={onManageRoles}
           title={t(lang, "resourcesManageRolesHint")}
-          className="rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-xs font-medium text-AIPM-dark-grey shadow-sm hover:border-AIPM-dark-blue hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-AIPM-light-grey dark:hover:bg-zinc-800"
+          className="inline-flex items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-xs font-medium text-AIPM-dark-grey shadow-sm hover:border-AIPM-dark-blue hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-AIPM-light-grey dark:hover:bg-zinc-800"
         >
+          <GearIcon />
           {t(lang, "resourcesManageRoles")}
         </button>
         <button
           type="button"
           onClick={onOpenReport}
           title={t(lang, "resourcesOpenReportHint")}
-          className="rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-xs font-medium text-AIPM-dark-grey shadow-sm hover:border-AIPM-dark-blue hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-AIPM-light-grey dark:hover:bg-zinc-800"
+          className="inline-flex items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-xs font-medium text-AIPM-dark-grey shadow-sm hover:border-AIPM-dark-blue hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-AIPM-light-grey dark:hover:bg-zinc-800"
         >
+          <ReportIcon />
           {t(lang, "resourcesOpenReport")}
         </button>
         <button

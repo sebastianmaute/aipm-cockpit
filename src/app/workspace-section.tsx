@@ -86,6 +86,7 @@ export interface WorkspaceSectionProps {
   onAddResource: (seed?: Partial<Resource>) => void;
   onChangeBudgets: (next: BudgetBucket[]) => void;
   onRefreshFx: () => void;
+  fxLoading?: boolean;
 }
 
 export function WorkspaceSection({
@@ -121,6 +122,7 @@ export function WorkspaceSection({
   onAddResource,
   onChangeBudgets,
   onRefreshFx,
+  fxLoading = false,
 }: WorkspaceSectionProps) {
   const { settings, lang } = useSettings();
   const { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates } = useWorkspace();
@@ -210,18 +212,6 @@ export function WorkspaceSection({
             {t(lang, "tabResources")}
           </TabButton>
           <TabButton
-            active={activeTab === "activity"}
-            onClick={() => {
-              setActiveTab("activity");
-              if (workspaceCollapsed) setWorkspaceCollapsed(false);
-            }}
-            controls="panel-activity"
-            onPopout={() => openPopoutWindow("activity", settings.popout.reuseWindow)}
-            popoutLabel={t(lang, "popoutOpenInNewWindow")}
-          >
-            {t(lang, "tabActivity")}
-          </TabButton>
-          <TabButton
             active={activeTab === "budget"}
             onClick={() => {
               setActiveTab("budget");
@@ -232,6 +222,18 @@ export function WorkspaceSection({
             popoutLabel={t(lang, "popoutOpenInNewWindow")}
           >
             {t(lang, "tabBudget")}
+          </TabButton>
+          <TabButton
+            active={activeTab === "activity"}
+            onClick={() => {
+              setActiveTab("activity");
+              if (workspaceCollapsed) setWorkspaceCollapsed(false);
+            }}
+            controls="panel-activity"
+            onPopout={() => openPopoutWindow("activity", settings.popout.reuseWindow)}
+            popoutLabel={t(lang, "popoutOpenInNewWindow")}
+          >
+            {t(lang, "tabActivity")}
           </TabButton>
           {!workspaceCollapsed && (
             <button
@@ -426,6 +428,7 @@ export function WorkspaceSection({
               today={today}
               onChangeBuckets={onChangeBudgets}
               onRefreshFx={onRefreshFx}
+              fxLoading={fxLoading}
             />
           </div>
         )}

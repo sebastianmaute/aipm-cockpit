@@ -429,7 +429,7 @@ function TaskManagerInner() {
 
   const handleChangeBudgets = useCallback((next: BudgetBucket[]) => setBudgets(next), [setBudgets]);
   const cacheFxRates = useCallback((fx: import("./types").FxRates) => setFxRates(fx), [setFxRates]);
-  const { refresh: refreshFx } = useFxRates(cacheFxRates);
+  const { refresh: refreshFx, loading: fxLoading } = useFxRates(cacheFxRates);
 
   const editingTask =
     editingId !== null
@@ -535,6 +535,7 @@ function TaskManagerInner() {
         onAddResource={guardEdit(handleOpenAddResource)}
         onChangeBudgets={handleChangeBudgets}
         onRefreshFx={refreshFx}
+        fxLoading={fxLoading}
       />
 
       {!isPopout && (
