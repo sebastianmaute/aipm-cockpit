@@ -20,6 +20,8 @@ Effort progress bar and task-form/UI polish within the Bradbury milestone.
   displays the percentage when time spent exceeds the estimate; shows greyed
   when no estimate is set. Ratio derived from the new `effortProgress` helper
   in `duration.ts`.
+- **Keyboard-reorderable budget buckets.** The bucket drag handle is now a
+  focusable button; ArrowUp / ArrowDown reorder buckets without a mouse.
 
 ### Changed
 
