@@ -62,8 +62,23 @@ describe("Modal", () => {
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(onClose).not.toHaveBeenCalled();
 
-    await userEvent.click(screen.getByRole("dialog"));
+    const backdrop = screen.getByRole("dialog");
+    fireEvent.mouseDown(backdrop);
+    fireEvent.click(backdrop);
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  test("does not close when a press starts inside the panel and releases on the backdrop", () => {
+    const onClose = vi.fn();
+    render(
+      <Modal open onClose={onClose} ariaLabel="Test">
+        <div data-testid="panel"><button>inside</button></div>
+      </Modal>,
+    );
+    const backdrop = screen.getByRole("dialog");
+    fireEvent.mouseDown(screen.getByTestId("panel")); // press starts inside the panel (like grabbing a resize corner)
+    fireEvent.click(backdrop);                          // release/click resolves to the backdrop
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   test("focuses initialFocusRef on open", () => {

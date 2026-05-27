@@ -80,6 +80,7 @@ export function Modal({
   children,
 }: ModalProps) {
   const dialogRef = useRef<HTMLDivElement | null>(null);
+  const pressStartedOnBackdrop = useRef(false);
 
   // Focus management: save the previously-focused element, move focus into
   // the dialog after children mount, restore on close/unmount.
@@ -174,8 +175,12 @@ export function Modal({
       aria-label={ariaLabel}
       aria-labelledby={ariaLabelledby}
       tabIndex={-1}
+      onMouseDown={(e) => {
+        pressStartedOnBackdrop.current = e.target === e.currentTarget;
+      }}
       onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        if (e.target === e.currentTarget && pressStartedOnBackdrop.current) onClose();
+        pressStartedOnBackdrop.current = false;
       }}
       className={`fixed inset-0 flex ${
         align === "center" ? "items-center" : "items-start"
