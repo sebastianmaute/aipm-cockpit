@@ -519,12 +519,14 @@ export function GanttPanel({
   absences,
   onUpdateBar,
   onAddTask,
+  onEditTask,
 }: {
   lang: Lang;
   tasks: Task[];
   absences: readonly Absence[];
   onUpdateBar?: (edit: GanttBarEdit) => void;
   onAddTask?: () => void;
+  onEditTask?: (task: Task) => void;
 }) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const { ref: panelRef } = useResizable("lop-app:gantt-size");
@@ -1462,15 +1464,31 @@ export function GanttPanel({
                   <span className="font-mono text-AIPM-medium-grey">
                     #{task.id}
                   </span>
-                  <span
-                    className={`truncate ${
-                      isComplete
-                        ? "text-AIPM-medium-grey line-through"
-                        : "text-AIPM-dark-grey dark:text-AIPM-light-grey"
-                    }`}
-                  >
-                    {task.taskName}
-                  </span>
+                  {onEditTask ? (
+                    <button
+                      type="button"
+                      onClick={() => onEditTask(task)}
+                      onPointerDown={(e) => e.stopPropagation()}
+                      title={`${task.taskName} — ${t(lang, "clickToEdit")}`}
+                      className={`truncate rounded-md border border-transparent px-1 py-0.5 text-left hover:border-AIPM-dark-blue hover:bg-zinc-50 dark:hover:bg-zinc-800 ${
+                        isComplete
+                          ? "text-AIPM-medium-grey line-through"
+                          : "text-AIPM-dark-grey dark:text-AIPM-light-grey"
+                      }`}
+                    >
+                      {task.taskName}
+                    </button>
+                  ) : (
+                    <span
+                      className={`truncate ${
+                        isComplete
+                          ? "text-AIPM-medium-grey line-through"
+                          : "text-AIPM-dark-grey dark:text-AIPM-light-grey"
+                      }`}
+                    >
+                      {task.taskName}
+                    </span>
+                  )}
                 </div>
                 <div
                   className="relative"

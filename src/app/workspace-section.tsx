@@ -10,7 +10,7 @@ import { useFilters } from "./filters-context";
 import { TabButton, ResetSizeIcon } from "./task-manager-ui";
 import type { ToolDispatcher } from "./chat-tools";
 import type { ActivityEntry } from "./activity-log";
-import type { Absence, BudgetBucket, RaidItem, Resource, Shift } from "./types";
+import type { Absence, BudgetBucket, RaidItem, Resource, Shift, Task } from "./types";
 import { ResourceDirectory } from "./resource-directory";
 
 const ChatPanel = dynamic(
@@ -83,6 +83,7 @@ export interface WorkspaceSectionProps {
   onSetPlanWindow: (startDate: string, endDate: string) => void;
   onEditResource: (resource: Resource) => void;
   onAddResource: (seed?: Partial<Resource>) => void;
+  onEditTask?: (task: Task) => void;
   onChangeBudgets: (next: BudgetBucket[]) => void;
   onRefreshFx: () => void;
   fxLoading?: boolean;
@@ -118,6 +119,7 @@ export function WorkspaceSection({
   onSetPlanWindow,
   onEditResource,
   onAddResource,
+  onEditTask,
   onChangeBudgets,
   onRefreshFx,
   fxLoading = false,
@@ -325,6 +327,7 @@ export function WorkspaceSection({
                 handleCancelEdit();
                 setTaskModalOpen(true);
               }}
+              onEditTask={isPopout ? undefined : onEditTask}
             />
           </div>
         )}

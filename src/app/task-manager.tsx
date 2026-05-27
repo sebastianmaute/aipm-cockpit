@@ -531,6 +531,7 @@ function TaskManagerInner() {
         onSetPlanWindow={guardEdit(handleSetPlanWindow)}
         onEditResource={guardEdit(handleEditResource)}
         onAddResource={guardEdit(handleOpenAddResource)}
+        onEditTask={openEditModal}
         onChangeBudgets={handleChangeBudgets}
         onRefreshFx={refreshFx}
         fxLoading={fxLoading}
