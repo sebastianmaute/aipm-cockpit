@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
@@ -47,11 +47,38 @@ export function RolesModal({
   const [comboGrade, setComboGrade] = useState<number | "">("");
   const { offset, handleProps } = useDraggable(open);
 
-  if (!open) return null;
+  type SortKey = "discipline" | "grade" | "internal" | "external";
+  const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" } | null>(null);
+  function toggleSort(key: SortKey) {
+    setSort((s) => (s?.key === key ? { key, dir: s.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" }));
+  }
 
-  const sortedRoles = [...roles].sort((a, b) =>
-    roleLabel(a, disciplines, grades).localeCompare(roleLabel(b, disciplines, grades)),
-  );
+  const sortedRoles = useMemo(() => {
+    const arr = [...roles];
+    if (!sort) {
+      return arr.sort((a, b) =>
+        roleLabel(a, disciplines, grades).localeCompare(roleLabel(b, disciplines, grades)),
+      );
+    }
+    const val = (r: Role): string | number => {
+      switch (sort.key) {
+        case "discipline": return disciplines.find((d) => d.id === r.disciplineId)?.name ?? "";
+        case "grade": return grades.find((g) => g.id === r.gradeId)?.name ?? "";
+        case "internal": return r.internalRate ?? 0;
+        case "external": return r.externalRate ?? 0;
+      }
+    };
+    return arr.sort((a, b) => {
+      const av = val(a), bv = val(b);
+      const cmp =
+        typeof av === "number" && typeof bv === "number"
+          ? av - bv
+          : String(av).localeCompare(String(bv));
+      return sort.dir === "asc" ? cmp : -cmp;
+    });
+  }, [roles, disciplines, grades, sort]);
+
+  if (!open) return null;
 
   return (
     <Modal open onClose={onClose} ariaLabel={t(lang, "rolesManageTitle")} align="center" backdropClassName="bg-black/40" zIndex={50}>
@@ -77,10 +104,26 @@ export function RolesModal({
               <table className="w-full text-left text-sm">
                 <thead className="text-xs uppercase tracking-wide text-AIPM-medium-grey">
                   <tr>
-                    <th className="py-1">{t(lang, "rolesDiscipline")}</th>
-                    <th className="py-1">{t(lang, "rolesGrade")}</th>
-                    <th className="py-1 text-right">{t(lang, "rolesInternalRate")}</th>
-                    <th className="py-1 text-right">{t(lang, "rolesExternalRate")}</th>
+                    <th className="py-1">
+                      <button type="button" onClick={() => toggleSort("discipline")} className="inline-flex items-center gap-1 hover:text-AIPM-dark-blue">
+                        {t(lang, "rolesDiscipline")}{sort?.key === "discipline" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
+                      </button>
+                    </th>
+                    <th className="py-1">
+                      <button type="button" onClick={() => toggleSort("grade")} className="inline-flex items-center gap-1 hover:text-AIPM-dark-blue">
+                        {t(lang, "rolesGrade")}{sort?.key === "grade" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
+                      </button>
+                    </th>
+                    <th className="py-1 text-right">
+                      <button type="button" onClick={() => toggleSort("internal")} className="inline-flex items-center gap-1 hover:text-AIPM-dark-blue">
+                        {t(lang, "rolesInternalRate")}{sort?.key === "internal" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
+                      </button>
+                    </th>
+                    <th className="py-1 text-right">
+                      <button type="button" onClick={() => toggleSort("external")} className="inline-flex items-center gap-1 hover:text-AIPM-dark-blue">
+                        {t(lang, "rolesExternalRate")}{sort?.key === "external" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
+                      </button>
+                    </th>
                     <th className="py-1" />
                   </tr>
                 </thead>
