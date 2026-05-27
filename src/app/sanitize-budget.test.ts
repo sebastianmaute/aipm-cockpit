@@ -47,6 +47,46 @@ describe("sanitizeBudgetBucket", () => {
   });
 });
 
+describe("sanitizeBudgetBucket order field", () => {
+  const base = {
+    id: 1, name: "PAM", type: "tm", currency: "EUR",
+    startDate: "2026-01-01", endDate: "2026-06-30", status: "open",
+    allocations: [],
+  };
+
+  test("order: 3 (number) → kept as 3", () => {
+    expect(sanitizeBudgetBucket({ ...base, order: 3 })!.order).toBe(3);
+  });
+
+  test("order: 0 (number) → kept as 0 (valid non-negative integer)", () => {
+    expect(sanitizeBudgetBucket({ ...base, order: 0 })!.order).toBe(0);
+  });
+
+  test('order: "3" (string, as CSV decode yields) → kept as 3', () => {
+    expect(sanitizeBudgetBucket({ ...base, order: "3" })!.order).toBe(3);
+  });
+
+  test('order: "" (empty string from absent CSV cell) → undefined', () => {
+    expect(sanitizeBudgetBucket({ ...base, order: "" })!.order).toBeUndefined();
+  });
+
+  test("order: -1 → undefined (negative rejected)", () => {
+    expect(sanitizeBudgetBucket({ ...base, order: -1 })!.order).toBeUndefined();
+  });
+
+  test("order: 1.5 → undefined (non-integer rejected)", () => {
+    expect(sanitizeBudgetBucket({ ...base, order: 1.5 })!.order).toBeUndefined();
+  });
+
+  test("order absent → undefined", () => {
+    expect(sanitizeBudgetBucket({ ...base })!.order).toBeUndefined();
+  });
+
+  test("order: undefined → undefined", () => {
+    expect(sanitizeBudgetBucket({ ...base, order: undefined })!.order).toBeUndefined();
+  });
+});
+
 describe("encode/decode allocations round-trip", () => {
   test("round-trips", () => {
     const allocs: BucketAllocation[] = [

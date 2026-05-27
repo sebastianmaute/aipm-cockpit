@@ -116,7 +116,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
     const orderById = new Map(ids.map((id, idx) => [id, idx]));
     const ts = stamp();
     const next = buckets.map((b) => {
-      const newOrder = orderById.get(b.id) ?? 0;
+      const newOrder = orderById.get(b.id) ?? b.order ?? 0;
       if (b.order === newOrder) return b;
       return { ...b, order: newOrder, localModifiedAt: ts };
     });
