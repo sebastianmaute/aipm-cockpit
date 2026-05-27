@@ -36,7 +36,7 @@ export function ModalHeader({
   return (
     <header
       {...dragHandleProps}
-      className={`sticky top-0 z-10 flex shrink-0 items-center justify-between gap-4 border-b border-AIPM-light-grey bg-white px-6 py-4 dark:border-zinc-800 dark:bg-zinc-950 ${
+      className={`sticky top-0 z-10 flex shrink-0 items-center justify-between gap-4 border-b border-line bg-surface px-6 py-4 ${
         dragHandleProps ? "cursor-move touch-none select-none" : ""
       }`}
     >
@@ -52,7 +52,7 @@ export function ModalHeader({
           onClick={onClose}
           aria-label={t(lang, "alertModalClose")}
           title={t(lang, "alertModalClose")}
-          className="rounded-md p-2 text-AIPM-dark-grey hover:bg-AIPM-light-grey hover:text-AIPM-dark-blue dark:text-AIPM-medium-grey dark:hover:bg-zinc-800 dark:hover:text-AIPM-light-grey"
+          className="rounded-md p-2 text-AIPM-dark-grey hover:bg-surface-muted hover:text-AIPM-dark-blue dark:text-AIPM-medium-grey dark:hover:text-AIPM-light-grey"
         >
           <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-4 w-4">
             <path
