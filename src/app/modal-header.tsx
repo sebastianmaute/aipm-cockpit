@@ -13,13 +13,16 @@ interface DragHandleProps {
 interface ModalHeaderProps {
   lang: Lang;
   title: string;
+  /** If set, the parent dialog should use aria-labelledby={titleId} to label itself. */
   titleId?: string;
   onClose: () => void;
   /** Pointer handlers from useDraggable; the header acts as the drag handle. */
   dragHandleProps?: DragHandleProps;
-  /** When provided, a voice-command mic is shown and routes to this handler. */
-  onVoiceCommand?: (cmd: Command, originalText: string) => void;
-  onVoiceError?: (msg: string) => void;
+  /** When provided, a voice-command mic is shown. Both handlers are required as a pair. */
+  voice?: {
+    onCommand: (cmd: Command, originalText: string) => void;
+    onError: (msg: string) => void;
+  };
 }
 
 /** Stop a pointerdown on interactive controls from initiating a window drag. */
@@ -33,8 +36,7 @@ export function ModalHeader({
   titleId,
   onClose,
   dragHandleProps,
-  onVoiceCommand,
-  onVoiceError,
+  voice,
 }: ModalHeaderProps) {
   return (
     <header
@@ -47,12 +49,8 @@ export function ModalHeader({
         {title}
       </h2>
       <div className="flex items-center gap-1" onPointerDown={stopDrag}>
-        {onVoiceCommand && (
-          <VoiceCommandButton
-            lang={lang}
-            onCommand={onVoiceCommand}
-            onError={onVoiceError ?? (() => {})}
-          />
+        {voice && (
+          <VoiceCommandButton lang={lang} onCommand={voice.onCommand} onError={voice.onError} />
         )}
         <button
           type="button"
