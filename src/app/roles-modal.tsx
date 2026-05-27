@@ -73,6 +73,7 @@ export function RolesModal({
             {sortedRoles.length === 0 ? (
               <p className="text-sm text-AIPM-medium-grey">{t(lang, "rolesNoRoles")}</p>
             ) : (
+              <>
               <table className="w-full text-left text-sm">
                 <thead className="text-xs uppercase tracking-wide text-AIPM-medium-grey">
                   <tr>
@@ -106,8 +107,9 @@ export function RolesModal({
                   ))}
                 </tbody>
               </table>
+              <hr className="my-3 border-t border-zinc-200 dark:border-zinc-800" />
+              </>
             )}
-            <hr className="my-3 border-t border-zinc-200 dark:border-zinc-800" />
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <select value={comboDiscipline} onChange={(e) => setComboDiscipline(e.target.value ? Number(e.target.value) : "")}
                 className="rounded-md border border-zinc-300 px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900">
