@@ -738,6 +738,11 @@ export const de: Record<TranslationKey, string> = {
   resourcesMargin: "Marge",
   resourcesTotal: "Summe",
   resourcesAbsenceOverrideHint: "Abwesenheit Std (auto wenn leer)",
+  resourcesUtilizationHint: "Geplante Auslastung für diesen Zeitraum (Prozent oder Stunden, je nach Modus).",
+  resourcesCapacityDaysHint: "Gesamte geplante Kapazität in Personentagen über den Zeitraum.",
+  resourcesInternalCostHint: "Geplante Stunden × interner Satz, summiert über den Zeitraum.",
+  resourcesExternalCostHint: "Geplante Stunden × externer (abrechenbarer) Satz, summiert über den Zeitraum.",
+  resourcesMarginHint: "Externe Kosten minus interne Kosten (geplanter Deckungsbeitrag).",
 
   resourcesReportTitle: "Ressourcen-Bericht",
   resourcesReportTotalCapacity: "Gesamtkapazität",

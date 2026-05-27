@@ -720,6 +720,11 @@ const enUS = {
   resourcesMargin: "Margin",
   resourcesTotal: "Total",
   resourcesAbsenceOverrideHint: "Absence h (auto if blank)",
+  resourcesUtilizationHint: "Planned utilization for this period (percent or hours, per the mode).",
+  resourcesCapacityDaysHint: "Total planned capacity in person-days across the window.",
+  resourcesInternalCostHint: "Planned hours × internal rate, summed across the window.",
+  resourcesExternalCostHint: "Planned hours × external (billable) rate, summed across the window.",
+  resourcesMarginHint: "External cost minus internal cost (planned contribution).",
 
   resourcesReportTitle: "Resource report",
   resourcesReportTotalCapacity: "Total capacity",

@@ -313,10 +313,10 @@ function ResourcesPanelInner({
                   {periods.map((p) => (
                     <th key={p.key} className="px-2 py-1.5 text-right tabular-nums">{p.key}</th>
                   ))}
-                  <th className="px-2 py-1.5 text-right">{t(lang, "resourcesCapacityDays")}</th>
-                  <th className="px-2 py-1.5 text-right">{t(lang, "resourcesInternalCost")}</th>
-                  <th className="px-2 py-1.5 text-right">{t(lang, "resourcesExternalCost")}</th>
-                  <th className="px-2 py-1.5 text-right">{t(lang, "resourcesMargin")}</th>
+                  <th className="px-2 py-1.5 text-right" title={t(lang, "resourcesCapacityDaysHint")}>{t(lang, "resourcesCapacityDays")}</th>
+                  <th className="px-2 py-1.5 text-right" title={t(lang, "resourcesInternalCostHint")}>{t(lang, "resourcesInternalCost")}</th>
+                  <th className="px-2 py-1.5 text-right" title={t(lang, "resourcesExternalCostHint")}>{t(lang, "resourcesExternalCost")}</th>
+                  <th className="px-2 py-1.5 text-right" title={t(lang, "resourcesMarginHint")}>{t(lang, "resourcesMargin")}</th>
                 </tr>
               </thead>
               {(() => {
@@ -339,6 +339,7 @@ function ResourcesPanelInner({
                         <td key={p.key} className="px-1 py-1 text-right align-top">
                           <input type="number" min={0} step={r.utilizationMode === "percent" ? 5 : 1}
                             aria-label={`Utilization for ${resourceDisplayName(r)} in ${p.key}`}
+                            title={t(lang, "resourcesUtilizationHint")}
                             value={r.utilization[p.key] ?? ""}
                             onChange={(e) => onSetUtilization(r.id, p.key, Number(e.target.value) || 0)}
                             className="w-16 rounded border border-zinc-300 px-1 py-0.5 text-right tabular-nums dark:border-zinc-700 dark:bg-zinc-900" />
