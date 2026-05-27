@@ -5,6 +5,10 @@
 :root {
   --background: #ffffff;
   --foreground: #636362;
+  --surface: #ffffff;
+  --surface-muted: #e3e6e6;
+  --line: #e3e6e6;
+  --muted-foreground: #939598;
 
   /* Acme brand palette — only these colors are permitted */
   --AIPM-dark-grey: #636362;
@@ -21,6 +25,10 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-line: var(--line);
+  --color-muted-foreground: var(--muted-foreground);
   --font-sans: var(--font-titillium), "Segoe UI", Arial, sans-serif;
 
   --color-AIPM-dark-grey: var(--AIPM-dark-grey);
@@ -35,8 +43,11 @@
 }
 
 .dark {
-  --background: #0a0a0a;
+  --background: #0b0f12;
   --foreground: #e3e6e6;
+  --surface: #121619;
+  --surface-muted: #1b2024;
+  --line: #2b3137;
 }
 
 body {
