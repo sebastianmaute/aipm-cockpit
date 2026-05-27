@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   --background: #ffffff;
   --foreground: #636362;
@@ -32,11 +34,9 @@
   --color-AIPM-purple: var(--AIPM-purple);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #e3e6e6;
-  }
+.dark {
+  --background: #0a0a0a;
+  --foreground: #e3e6e6;
 }
 
 body {
