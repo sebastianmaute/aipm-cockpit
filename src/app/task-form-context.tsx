@@ -29,6 +29,9 @@ export function emptyForm() {
     group: "",
     labels: [] as string[],
     dependencies: [] as TaskDependency[],
+    // Optional Jira-style effort, canonical MINUTES. undefined = unset.
+    originalEstimateMinutes: undefined as number | undefined,
+    timeSpentMinutes: undefined as number | undefined,
     pushToJira: false,
     // Empty string = "Auto" (no override). Mapped to undefined on save.
     healthOverride: "" as "" | Health,

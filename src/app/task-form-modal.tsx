@@ -1,13 +1,14 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { type RefObject } from "react";
+import { type RefObject, useState } from "react";
 import { ComboInput } from "./combo-input";
 import { ModalHeader } from "./modal-header";
 import { useDraggable } from "./use-draggable";
 import { ContactInput } from "./contact-input";
 import type { listContacts } from "./contacts";
 import { DependenciesEditor } from "./dependencies-editor";
+import { formatDuration, parseDuration } from "./duration";
 import {
   computeTaskHealth,
   HEALTH_VALUES,
@@ -308,6 +309,24 @@ export function TaskFormModal({
             />
           </Field>
 
+          <EffortField
+            lang={lang}
+            label={t(lang, "taskOriginalEstimate")}
+            minutes={form.originalEstimateMinutes}
+            onChange={(minutes) =>
+              setForm((prev) => ({ ...prev, originalEstimateMinutes: minutes }))
+            }
+          />
+
+          <EffortField
+            lang={lang}
+            label={t(lang, "taskTimeSpent")}
+            minutes={form.timeSpentMinutes}
+            onChange={(minutes) =>
+              setForm((prev) => ({ ...prev, timeSpentMinutes: minutes }))
+            }
+          />
+
           <Field label={t(lang, "group")}>
             <ComboInput
               lang={lang}
@@ -484,6 +503,57 @@ export function TaskFormModal({
         </form>
       </div>
     </Modal>
+  );
+}
+
+// Effort field — a controlled text input that parses Jira-style "w/d/h/m"
+// into canonical minutes. Keeps a local string so the user can type freely
+// (and so an existing task renders as "2w 3d"). Empty → unset (undefined);
+// unparseable → keep the string, flag invalid, and DON'T write a value.
+function EffortField({
+  lang,
+  label,
+  minutes,
+  onChange,
+}: {
+  lang: Lang;
+  label: string;
+  minutes: number | undefined;
+  onChange: (minutes: number | undefined) => void;
+}) {
+  const [text, setText] = useState(() => formatDuration(minutes ?? 0));
+  const [invalid, setInvalid] = useState(false);
+
+  return (
+    <Field label={label}>
+      <input
+        type="text"
+        value={text}
+        onChange={(e) => {
+          const value = e.target.value;
+          setText(value);
+          if (value.trim() === "") {
+            setInvalid(false);
+            onChange(undefined);
+            return;
+          }
+          const mins = parseDuration(value);
+          if (mins === null) {
+            setInvalid(true);
+            return;
+          }
+          setInvalid(false);
+          onChange(mins);
+        }}
+        placeholder={t(lang, "taskEffortHint")}
+        className={inputClass}
+      />
+      {invalid && (
+        <p className="mt-1 text-xs text-AIPM-pink">
+          {t(lang, "taskEffortInvalid")}
+        </p>
+      )}
+    </Field>
   );
 }
 

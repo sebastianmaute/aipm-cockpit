@@ -124,6 +124,8 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
         labels: sanitizeLabels(form.labels),
         dependencies: cleanDependencies,
         healthOverride: form.healthOverride || undefined,
+        originalEstimateMinutes: form.originalEstimateMinutes,
+        timeSpentMinutes: form.timeSpentMinutes,
       };
 
       setContacts((prev) => upsertContact(prev, assignee, email));
@@ -203,6 +205,8 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
         group: task.group ?? "",
         labels: task.labels ?? [],
         dependencies: task.dependencies ?? [],
+        originalEstimateMinutes: task.originalEstimateMinutes,
+        timeSpentMinutes: task.timeSpentMinutes,
         pushToJira: false,
         healthOverride: task.healthOverride ?? "",
       });

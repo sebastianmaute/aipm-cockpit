@@ -30,6 +30,11 @@ export const de: Record<TranslationKey, string> = {
   blockers: "Blocker",
   notes: "Notizen",
 
+  taskOriginalEstimate: "Ursprüngliche Schätzung",
+  taskTimeSpent: "Aufgewandte Zeit",
+  taskEffortHint: "z. B. 2w 3d 4h",
+  taskEffortInvalid: "Format w/d/h/m verwenden, z. B. 2w 3d 4h",
+
   placeholderTaskName: "Was muss passieren?",
   placeholderAssignee: "Name oder E-Mail",
   placeholderEmail: "Optional – für Statusabfragen",

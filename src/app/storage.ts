@@ -17,6 +17,7 @@ import {
   sanitizeGrade,
   sanitizeGroup,
   sanitizeLabels,
+  sanitizeOptionalMinutes,
   sanitizePlan,
   sanitizeResource,
   sanitizeRole,
@@ -344,6 +345,8 @@ const CSV_COLUMNS: Array<keyof Task> = [
   "localModifiedAt",
   "healthOverride",
   "resourceId",
+  "originalEstimateMinutes",
+  "timeSpentMinutes",
 ];
 
 // Whitelist parser shared by CSV and Markdown deserialization. Anything that
@@ -1259,6 +1262,8 @@ function csvToTasks(csv: string): Task[] {
       localModifiedAt: obj.localModifiedAt || undefined,
       healthOverride: parseHealthOverride(obj.healthOverride),
       resourceId: Number(obj.resourceId) || undefined,
+      originalEstimateMinutes: sanitizeOptionalMinutes(obj.originalEstimateMinutes),
+      timeSpentMinutes: sanitizeOptionalMinutes(obj.timeSpentMinutes),
     });
   }
   // Final pass: now that we know every id that survived parsing, drop any
@@ -1292,6 +1297,8 @@ const MD_COLUMNS: Array<{ key: keyof Task; label: string }> = [
   { key: "localModifiedAt", label: "LocalModified" },
   { key: "healthOverride", label: "Health" },
   { key: "resourceId", label: "ResourceId" },
+  { key: "originalEstimateMinutes", label: "OrigEstimateMin" },
+  { key: "timeSpentMinutes", label: "TimeSpentMin" },
 ];
 
 function mdEscape(value: string): string {
@@ -1885,6 +1892,10 @@ function markdownToTasks(md: string): Task[] {
     else if (norm === "health" || norm === "healthoverride")
       colMap[idx] = "healthOverride";
     else if (norm === "resourceid") colMap[idx] = "resourceId";
+    else if (norm === "origestimatemin" || norm === "originalestimateminutes")
+      colMap[idx] = "originalEstimateMinutes";
+    else if (norm === "timespentmin" || norm === "timespentminutes")
+      colMap[idx] = "timeSpentMinutes";
   });
 
   const tasks: Task[] = [];
@@ -1922,6 +1933,8 @@ function markdownToTasks(md: string): Task[] {
       localModifiedAt: obj.localModifiedAt || undefined,
       healthOverride: parseHealthOverride(obj.healthOverride),
       resourceId: Number(obj.resourceId) || undefined,
+      originalEstimateMinutes: sanitizeOptionalMinutes(obj.originalEstimateMinutes),
+      timeSpentMinutes: sanitizeOptionalMinutes(obj.timeSpentMinutes),
     });
   }
   return dropDanglingDependencies(tasks);

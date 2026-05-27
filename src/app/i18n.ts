@@ -26,6 +26,11 @@ const enUS = {
   blockers: "Blockers",
   notes: "Notes",
 
+  taskOriginalEstimate: "Original estimate",
+  taskTimeSpent: "Time spent",
+  taskEffortHint: "e.g. 2w 3d 4h",
+  taskEffortInvalid: "Use w/d/h/m, e.g. 2w 3d 4h",
+
   placeholderTaskName: "What needs to happen?",
   placeholderAssignee: "Name or email",
   placeholderEmail: "Optional — used for status inquiries",

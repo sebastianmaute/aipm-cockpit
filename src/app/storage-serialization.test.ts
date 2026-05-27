@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import { migrateWorkspaceV5, emptyWorkspace, workspaceToCsv, csvToWorkspace, workspaceToMarkdown, markdownToWorkspace, type Workspace } from "./storage";
+import { migrateWorkspaceV5, emptyWorkspace, workspaceToCsv, csvToWorkspace, workspaceToMarkdown, markdownToWorkspace, workspaceToJson, jsonToWorkspace, type Workspace } from "./storage";
 import type { Task, Resource, Role, Discipline, Grade } from "./types";
 import { resourceDisplayName } from "./resource-foundation";
 
@@ -96,5 +96,41 @@ describe("resource address-book round-trip", () => {
     const legacy = "# RESOURCES\nid,name,email,roleId,utilizationMode,utilization,absenceOverride,active,localModifiedAt\n1,Sam Placeholder,m@x.com,,percent,,,,\n";
     const back = csvToWorkspace(legacy).resources.find((r) => r.id === 1);
     expect(back).toMatchObject({ firstName: "Fictional", lastName: "Jordan" });
+  });
+});
+
+describe("task effort fields round-trip (estimate/time-spent)", () => {
+  function effortWorkspace(): Workspace {
+    const t: Task = {
+      ...task(1, "Alex Example"),
+      originalEstimateMinutes: 2400, // 1w
+      timeSpentMinutes: 480, // 1d
+    };
+    return { ...emptyWorkspace(), tasks: [t] };
+  }
+
+  test("survive a JSON round-trip", () => {
+    const back = jsonToWorkspace(workspaceToJson(effortWorkspace())).tasks[0];
+    expect(back.originalEstimateMinutes).toBe(2400);
+    expect(back.timeSpentMinutes).toBe(480);
+  });
+
+  test("survive a CSV round-trip", () => {
+    const back = csvToWorkspace(workspaceToCsv(effortWorkspace())).tasks[0];
+    expect(back.originalEstimateMinutes).toBe(2400);
+    expect(back.timeSpentMinutes).toBe(480);
+  });
+
+  test("survive a Markdown round-trip", () => {
+    const back = markdownToWorkspace(workspaceToMarkdown(effortWorkspace())).tasks[0];
+    expect(back.originalEstimateMinutes).toBe(2400);
+    expect(back.timeSpentMinutes).toBe(480);
+  });
+
+  test("absent effort fields stay undefined (empty cell !== 0)", () => {
+    const ws = { ...emptyWorkspace(), tasks: [task(1, "Alex Example")] };
+    const back = csvToWorkspace(workspaceToCsv(ws)).tasks[0];
+    expect(back.originalEstimateMinutes).toBeUndefined();
+    expect(back.timeSpentMinutes).toBeUndefined();
   });
 });
