@@ -42,7 +42,7 @@ export function SegmentedControl<T extends string>({
       aria-label={ariaLabel}
       title={title}
       aria-disabled={disabled || undefined}
-      className={`inline-flex flex-wrap rounded-md border border-zinc-300 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900 ${
+      className={`inline-flex flex-wrap rounded-md border border-line bg-surface ${
         disabled ? "opacity-60" : ""
       } ${className}`}
     >
@@ -59,13 +59,13 @@ export function SegmentedControl<T extends string>({
             disabled={disabled}
             onClick={() => onChange(opt.value)}
             className={[
-              "px-3 py-1.5 text-sm font-medium focus:outline-none focus:relative focus:z-10 focus:ring-1 focus:ring-AIPM-dark-blue",
+              "px-3 py-1.5 text-sm font-medium focus:outline-none focus:relative focus:z-10 focus:ring-1 focus:ring-AIPM-green",
               first ? "rounded-l-md" : "",
               last ? "rounded-r-md" : "",
-              idx > 0 ? "border-l border-zinc-300 dark:border-zinc-700" : "",
+              idx > 0 ? "border-l border-line" : "",
               selected
                 ? "bg-AIPM-dark-blue text-white"
-                : "text-zinc-700 enabled:hover:bg-zinc-100 disabled:cursor-not-allowed dark:text-zinc-200 dark:enabled:hover:bg-zinc-800",
+                : "text-foreground enabled:hover:bg-surface-muted disabled:cursor-not-allowed",
             ]
               .filter(Boolean)
               .join(" ")}
