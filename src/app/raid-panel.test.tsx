@@ -4,6 +4,7 @@ import { render, screen, fireEvent, within } from "@testing-library/react";
 import { t } from "./i18n";
 import { RaidPanel } from "./raid-panel";
 import type { RaidPanelProps } from "./raid-panel";
+import type { RaidItem } from "./types";
 
 function makeProps(overrides: Partial<RaidPanelProps> = {}): RaidPanelProps {
   return {
@@ -20,6 +21,73 @@ function makeProps(overrides: Partial<RaidPanelProps> = {}): RaidPanelProps {
     ...overrides,
   };
 }
+
+// --- helpers ---------------------------------------------------------------
+
+function makeRaidItem(overrides: Partial<RaidItem> & Pick<RaidItem, "id" | "title" | "severity">): RaidItem {
+  return {
+    category: "R",
+    status: "Open",
+    raisedDate: "2026-05-22",
+    linkedTaskIds: [],
+    causedByRaidIds: [],
+    ...overrides,
+  };
+}
+
+/** Returns the text of every #id cell in document order. */
+function rowIds(container: HTMLElement): string[] {
+  return Array.from(container.querySelectorAll("td.font-mono.text-AIPM-medium-grey"))
+    .map((td) => td.textContent?.trim() ?? "")
+    .filter((text) => text.startsWith("#"));
+}
+
+// --- sort tests -----------------------------------------------------------
+
+describe("RaidPanel sortable column headers", () => {
+  const raidItems: RaidItem[] = [
+    makeRaidItem({ id: 1, title: "Alpha", severity: "Low" }),
+    makeRaidItem({ id: 2, title: "Beta",  severity: "High" }),
+    makeRaidItem({ id: 3, title: "Gamma", severity: "Critical" }),
+  ];
+
+  it("clicking Severity header once → ascending order (Low first, Critical last)", () => {
+    const { container } = render(<RaidPanel {...makeProps({ raid: raidItems })} />);
+    fireEvent.click(screen.getByRole("button", { name: /severity/i }));
+    const ids = rowIds(container);
+    expect(ids).toEqual(["#1", "#2", "#3"]); // Low(1) → High(2) → Critical(3)
+  });
+
+  it("clicking Severity header twice → descending order (Critical first, Low last)", () => {
+    const { container } = render(<RaidPanel {...makeProps({ raid: raidItems })} />);
+    const btn = screen.getByRole("button", { name: /severity/i });
+    fireEvent.click(btn);
+    fireEvent.click(btn);
+    const ids = rowIds(container);
+    expect(ids).toEqual(["#3", "#2", "#1"]); // Critical(3) → High(2) → Low(1)
+  });
+
+  it("clicking Severity header three times → back to default order (severity-rank, open-first)", () => {
+    const { container } = render(<RaidPanel {...makeProps({ raid: raidItems })} />);
+    const btn = screen.getByRole("button", { name: /severity/i });
+    fireEvent.click(btn);
+    fireEvent.click(btn);
+    fireEvent.click(btn);
+    // Default sort: open items first by severityRank (Critical=0, High=1, Low=3)
+    const ids = rowIds(container);
+    expect(ids).toEqual(["#3", "#2", "#1"]);
+  });
+
+  it("non-sortable headers (Linked Tasks, Caused By) have no sort button", () => {
+    render(<RaidPanel {...makeProps({ raid: raidItems })} />);
+    expect(
+      screen.queryByRole("button", { name: /linked tasks/i }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: /caused by/i }),
+    ).toBeNull();
+  });
+});
 
 describe("RaidPanel tooltips", () => {
   it("gives the RAID search box a descriptive tooltip", () => {

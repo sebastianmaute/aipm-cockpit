@@ -15,6 +15,7 @@ import { SegmentedControl } from "./segmented-control";
 import { type Lang, t, type TranslationKey } from "./i18n";
 import {
   buildRaidCausesIndex,
+  compareRaid,
   defaultStatusForCategory,
   isTerminalStatus,
   nextRaidId,
@@ -22,6 +23,7 @@ import {
   severityRag,
   statusOptionsFor,
   wouldCreateCycle,
+  type RaidSortKey,
 } from "./raid";
 import {
   RAID_CATEGORIES,
@@ -152,6 +154,9 @@ function RaidPanelInner({
     "All",
   );
   const [search, setSearch] = useState("");
+  const [sort, setSort] = useState<{ key: RaidSortKey; dir: "asc" | "desc" } | null>(null);
+  const toggleSort = (key: RaidSortKey) =>
+    setSort((s) => (s?.key !== key ? { key, dir: "asc" } : s.dir === "asc" ? { key, dir: "desc" } : null));
 
   // Modal: null = closed, otherwise we're editing a draft (which may or may
   // not already exist in `raid`). `isNew` distinguishes — needed because
@@ -204,19 +209,22 @@ function RaidPanelInner({
       return true;
     });
 
-    return filtered.slice().sort((a, b) => {
-      const aClosed = isTerminalStatus(a.status, a.category);
-      const bClosed = isTerminalStatus(b.status, b.category);
-      if (aClosed !== bClosed) return aClosed ? 1 : -1;
-      const sa = a.severity ? severityRank[a.severity] : 99;
-      const sb = b.severity ? severityRank[b.severity] : 99;
-      if (sa !== sb) return sa - sb;
-      const da = a.raisedDate ?? "";
-      const db = b.raisedDate ?? "";
-      if (da !== db) return da < db ? -1 : 1;
-      return a.id - b.id;
-    });
-  }, [raid, filterTaskId, categoryFilter, severityFilter, statusFilter, search]);
+    const ordered = sort
+      ? [...filtered].sort((a, b) => compareRaid(a, b, sort.key, sort.dir))
+      : filtered.slice().sort((a, b) => {
+          const aClosed = isTerminalStatus(a.status, a.category);
+          const bClosed = isTerminalStatus(b.status, b.category);
+          if (aClosed !== bClosed) return aClosed ? 1 : -1;
+          const sa = a.severity ? severityRank[a.severity] : 99;
+          const sb = b.severity ? severityRank[b.severity] : 99;
+          if (sa !== sb) return sa - sb;
+          const da = a.raisedDate ?? "";
+          const db = b.raisedDate ?? "";
+          if (da !== db) return da < db ? -1 : 1;
+          return a.id - b.id;
+        });
+    return ordered;
+  }, [raid, filterTaskId, categoryFilter, severityFilter, statusFilter, search, sort]);
 
   const effectiveCategory: RaidCategory =
     categoryFilter === "All" ? "R" : categoryFilter;
@@ -409,13 +417,41 @@ function RaidPanelInner({
         <table className="min-w-full text-left text-sm">
           <thead className="sticky top-0 z-10 bg-zinc-50 text-xs uppercase tracking-wide text-AIPM-medium-grey dark:bg-zinc-900">
             <tr>
-              <th className="px-3 py-2">#</th>
-              <th className="px-3 py-2">{t(lang, "raidCategory")}</th>
-              <th className="px-3 py-2">{t(lang, "raidTitle")}</th>
-              <th className="px-3 py-2">{t(lang, "raidSeverity")}</th>
-              <th className="px-3 py-2">{t(lang, "raidStatus")}</th>
-              <th className="px-3 py-2">{t(lang, "raidOwner")}</th>
-              <th className="px-3 py-2">{t(lang, "raidTargetDate")}</th>
+              <th className="px-3 py-2" aria-sort={sort?.key === "id" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
+                <button type="button" onClick={() => toggleSort("id")} className="inline-flex items-center gap-1 hover:text-AIPM-dark-blue dark:hover:text-AIPM-light-grey">
+                  #{sort?.key === "id" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
+                </button>
+              </th>
+              <th className="px-3 py-2" aria-sort={sort?.key === "category" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
+                <button type="button" onClick={() => toggleSort("category")} className="inline-flex items-center gap-1 hover:text-AIPM-dark-blue dark:hover:text-AIPM-light-grey">
+                  {t(lang, "raidCategory")}{sort?.key === "category" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
+                </button>
+              </th>
+              <th className="px-3 py-2" aria-sort={sort?.key === "title" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
+                <button type="button" onClick={() => toggleSort("title")} className="inline-flex items-center gap-1 hover:text-AIPM-dark-blue dark:hover:text-AIPM-light-grey">
+                  {t(lang, "raidTitle")}{sort?.key === "title" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
+                </button>
+              </th>
+              <th className="px-3 py-2" aria-sort={sort?.key === "severity" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
+                <button type="button" onClick={() => toggleSort("severity")} className="inline-flex items-center gap-1 hover:text-AIPM-dark-blue dark:hover:text-AIPM-light-grey">
+                  {t(lang, "raidSeverity")}{sort?.key === "severity" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
+                </button>
+              </th>
+              <th className="px-3 py-2" aria-sort={sort?.key === "status" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
+                <button type="button" onClick={() => toggleSort("status")} className="inline-flex items-center gap-1 hover:text-AIPM-dark-blue dark:hover:text-AIPM-light-grey">
+                  {t(lang, "raidStatus")}{sort?.key === "status" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
+                </button>
+              </th>
+              <th className="px-3 py-2" aria-sort={sort?.key === "owner" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
+                <button type="button" onClick={() => toggleSort("owner")} className="inline-flex items-center gap-1 hover:text-AIPM-dark-blue dark:hover:text-AIPM-light-grey">
+                  {t(lang, "raidOwner")}{sort?.key === "owner" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
+                </button>
+              </th>
+              <th className="px-3 py-2" aria-sort={sort?.key === "targetDate" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
+                <button type="button" onClick={() => toggleSort("targetDate")} className="inline-flex items-center gap-1 hover:text-AIPM-dark-blue dark:hover:text-AIPM-light-grey">
+                  {t(lang, "raidTargetDate")}{sort?.key === "targetDate" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
+                </button>
+              </th>
               <th className="px-3 py-2">{t(lang, "raidLinkedTasks")}</th>
               <th className="px-3 py-2">{t(lang, "raidCausedBy")}</th>
             </tr>
