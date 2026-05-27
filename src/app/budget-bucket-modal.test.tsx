@@ -90,6 +90,26 @@ describe("BudgetBucketModal", () => {
     expect(screen.getByText(/fx rate must be greater than zero/i)).toBeInTheDocument();
   });
 
+  test("remove role drops the allocation", () => {
+    const { onSave } = setup({
+      bucket: { ...baseBucket, allocations: [{ roleId: 3, resourceIds: [], budgetHours: {}, actualHours: {} }] },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /remove role/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+    expect((onSave.mock.calls[0][0] as BudgetBucket).allocations).toHaveLength(0);
+  });
+
+  test("toggling a resource updates the allocation's resourceIds", () => {
+    const resource = { id: 7, firstName: "Sam", lastName: "Lee", roleId: null, utilizationMode: "percent" as const, utilization: {} };
+    const { onSave } = setup({
+      bucket: { ...baseBucket, allocations: [{ roleId: 3, resourceIds: [], budgetHours: {}, actualHours: {} }] },
+      resources: [resource],
+    });
+    fireEvent.click(screen.getByRole("checkbox", { name: /sam lee/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+    expect((onSave.mock.calls[0][0] as BudgetBucket).allocations[0].resourceIds).toEqual([7]);
+  });
+
   test("add role appends an allocation with empty hour maps", () => {
     const { onSave } = setup();
     fireEvent.change(screen.getByRole("combobox", { name: /add role/i }), {

@@ -87,6 +87,7 @@ export function BudgetBucketModal({
     }));
 
   const save = () => {
+    setError(null);
     if (!draft.name.trim()) {
       setError(t(lang, "budgetNameRequired"));
       return;
@@ -272,7 +273,7 @@ export function BudgetBucketModal({
             <input
               className={inputClass}
               type="number"
-              min={0}
+              min="0.0001"
               step="0.0001"
               value={draft.fxRateOverride ?? ""}
               aria-label={t(lang, "budgetFxOverride")}
@@ -375,7 +376,7 @@ export function BudgetBucketModal({
           </div>
 
           {error && (
-            <p className="text-sm text-AIPM-pink sm:col-span-2">{error}</p>
+            <p role="alert" className="text-sm text-AIPM-pink sm:col-span-2">{error}</p>
           )}
         </div>
 
