@@ -32,7 +32,7 @@ export function ResourcesReportPanel({
 
   if (resources.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed border-AIPM-light-grey p-10 text-center text-sm text-muted-foreground border-line">
+      <div className="rounded-lg border border-dashed border-line p-10 text-center text-sm text-muted-foreground">
         {t(lang, "resourcesReportEmpty")}
       </div>
     );
@@ -100,7 +100,7 @@ function GroupSection({ title, rows, lang, days, money }: {
 
 function Tile({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-AIPM-light-grey bg-surface p-3 border-line bg-surface-muted">
+    <div className="rounded-lg border border-line bg-surface p-3">
       <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
       <p className="mt-1 text-xl font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey tabular-nums">{value}</p>
     </div>
