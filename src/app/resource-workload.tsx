@@ -40,9 +40,9 @@ export function ResourceWorkload({
   );
 
   return (
-    <div className="min-h-0 flex-1 overflow-auto rounded-md border border-zinc-200 dark:border-zinc-800">
+    <div className="min-h-0 flex-1 overflow-auto rounded-md border border-line">
       <table className="w-full text-left text-sm">
-        <thead className="sticky top-0 z-10 bg-zinc-50 text-xs uppercase tracking-wide text-zinc-500 shadow-sm dark:bg-zinc-900 dark:text-zinc-400">
+        <thead className="sticky top-0 z-10 bg-surface-muted text-xs uppercase tracking-wide text-muted-foreground">
           <tr>
             <th className="px-3 py-2 font-medium">{t(lang, "assignee")}</th>
             <th className="px-3 py-2 font-medium">{t(lang, "email")}</th>
@@ -60,30 +60,30 @@ export function ResourceWorkload({
             </th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
+        <tbody className="divide-y divide-line">
           {managed.map((row) => (
             <tr key={`res-${row.resource.id}`} className="align-top">
-              <td className="px-3 py-2 font-medium text-AIPM-dark-grey dark:text-AIPM-light-grey">
+              <td className="px-3 py-2 font-medium text-foreground">
                 <button
                   type="button"
                   onClick={() => onEditResource(row.resource)}
-                  className="rounded-md border border-transparent px-2 py-0.5 text-left font-medium text-AIPM-dark-grey shadow-sm hover:border-AIPM-dark-blue hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-AIPM-dark-blue dark:text-AIPM-light-grey dark:hover:bg-zinc-800"
+                  className="rounded-md border border-transparent px-2 py-0.5 text-left font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-AIPM-green"
                   title={row.display}
                 >
                   {row.display}
                 </button>
               </td>
-              <td className="px-3 py-2 text-AIPM-medium-grey">
+              <td className="px-3 py-2 text-muted-foreground">
                 {row.email || "—"}
               </td>
-              <td className="px-3 py-2 text-right tabular-nums text-AIPM-dark-grey dark:text-AIPM-light-grey">
+              <td className="px-3 py-2 text-right tabular-nums text-foreground">
                 {row.openCount}
               </td>
               <td
                 className={`px-3 py-2 text-right tabular-nums ${
                   row.overdueCount > 0
-                    ? "font-medium text-red-600 dark:text-red-400"
-                    : "text-AIPM-medium-grey"
+                    ? "font-medium text-AIPM-pink"
+                    : "text-muted-foreground"
                 }`}
               >
                 {row.overdueCount}
@@ -102,16 +102,16 @@ export function ResourceWorkload({
                       ? t(lang, "resourcesEditShift")
                       : t(lang, "resourcesDefaultShift")
                   }
-                  className={`rounded-md border border-transparent px-2 py-0.5 text-xs shadow-sm hover:border-AIPM-dark-blue hover:bg-zinc-50 dark:hover:bg-zinc-800 ${
+                  className={`rounded-md border border-transparent px-2 py-0.5 text-xs hover:border-AIPM-dark-blue hover:bg-surface-muted ${
                     row.shift
-                      ? "text-AIPM-dark-grey dark:text-AIPM-light-grey"
-                      : "text-AIPM-medium-grey italic"
+                      ? "text-foreground"
+                      : "text-muted-foreground italic"
                   }`}
                 >
                   {row.weeklyHours}
                 </button>
               </td>
-              <td className="px-3 py-2 text-AIPM-medium-grey">
+              <td className="px-3 py-2 text-muted-foreground">
                 {row.upcoming.length === 0 ? (
                   "—"
                 ) : (
@@ -122,10 +122,10 @@ export function ResourceWorkload({
                           type="button"
                           onClick={() => onEditAbsence(a)}
                           title={a.note ?? ""}
-                          className="inline-flex items-center gap-1 rounded-md border border-zinc-300 bg-white px-2 py-0.5 text-xs text-AIPM-dark-grey shadow-sm hover:border-AIPM-dark-blue hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-AIPM-light-grey dark:hover:bg-zinc-800"
+                          className="inline-flex items-center gap-1 rounded-md border border-line bg-surface px-2 py-0.5 text-xs text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted"
                         >
                           <span>{shortDateRange(a, lang)}</span>
-                          <span className="text-[10px] uppercase tracking-wide text-AIPM-medium-grey">
+                          <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
                             {a.type}
                           </span>
                         </button>
@@ -142,12 +142,12 @@ export function ResourceWorkload({
               <tr>
                 <td
                   colSpan={6}
-                  className="bg-zinc-50 px-3 py-1.5 dark:bg-zinc-900"
+                  className="bg-surface-muted px-3 py-1.5"
                 >
-                  <span className="font-semibold text-AIPM-dark-grey dark:text-AIPM-light-grey">
+                  <span className="font-semibold text-foreground">
                     {t(lang, "resourcesUnlinked")}
                   </span>
-                  <span className="ml-2 text-xs text-AIPM-medium-grey">
+                  <span className="ml-2 text-xs text-muted-foreground">
                     {t(lang, "resourcesUnlinkedHint")}
                   </span>
                 </td>
@@ -157,7 +157,7 @@ export function ResourceWorkload({
                   key={`unl-${row.display.toLowerCase()}`}
                   className="align-top"
                 >
-                  <td className="px-3 py-2 font-medium text-AIPM-dark-grey dark:text-AIPM-light-grey">
+                  <td className="px-3 py-2 font-medium text-foreground">
                     <span>{row.display}</span>
                     <button
                       type="button"
@@ -168,22 +168,22 @@ export function ResourceWorkload({
                           email: row.email || undefined,
                         })
                       }
-                      className="ml-2 rounded-md border border-zinc-300 bg-white px-2 py-0.5 text-xs font-normal text-AIPM-dark-grey shadow-sm hover:border-AIPM-dark-blue hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-AIPM-light-grey dark:hover:bg-zinc-800"
+                      className="ml-2 rounded-md border border-line bg-surface px-2 py-0.5 text-xs font-normal text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted"
                     >
                       {t(lang, "resourcesAddAsResource")}
                     </button>
                   </td>
-                  <td className="px-3 py-2 text-AIPM-medium-grey">
+                  <td className="px-3 py-2 text-muted-foreground">
                     {row.email || "—"}
                   </td>
-                  <td className="px-3 py-2 text-right tabular-nums text-AIPM-dark-grey dark:text-AIPM-light-grey">
+                  <td className="px-3 py-2 text-right tabular-nums text-foreground">
                     {row.openCount}
                   </td>
                   <td
                     className={`px-3 py-2 text-right tabular-nums ${
                       row.overdueCount > 0
-                        ? "font-medium text-red-600 dark:text-red-400"
-                        : "text-AIPM-medium-grey"
+                        ? "font-medium text-AIPM-pink"
+                        : "text-muted-foreground"
                     }`}
                   >
                     {row.overdueCount}
@@ -202,16 +202,16 @@ export function ResourceWorkload({
                           ? t(lang, "resourcesEditShift")
                           : t(lang, "resourcesDefaultShift")
                       }
-                      className={`rounded-md border border-transparent px-2 py-0.5 text-xs shadow-sm hover:border-AIPM-dark-blue hover:bg-zinc-50 dark:hover:bg-zinc-800 ${
+                      className={`rounded-md border border-transparent px-2 py-0.5 text-xs hover:border-AIPM-dark-blue hover:bg-surface-muted ${
                         row.shift
-                          ? "text-AIPM-dark-grey dark:text-AIPM-light-grey"
-                          : "text-AIPM-medium-grey italic"
+                          ? "text-foreground"
+                          : "text-muted-foreground italic"
                       }`}
                     >
                       {row.weeklyHours}
                     </button>
                   </td>
-                  <td className="px-3 py-2 text-AIPM-medium-grey">
+                  <td className="px-3 py-2 text-muted-foreground">
                     {row.upcoming.length === 0 ? (
                       "—"
                     ) : (
@@ -222,10 +222,10 @@ export function ResourceWorkload({
                               type="button"
                               onClick={() => onEditAbsence(a)}
                               title={a.note ?? ""}
-                              className="inline-flex items-center gap-1 rounded-md border border-zinc-300 bg-white px-2 py-0.5 text-xs text-AIPM-dark-grey shadow-sm hover:border-AIPM-dark-blue hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-AIPM-light-grey dark:hover:bg-zinc-800"
+                              className="inline-flex items-center gap-1 rounded-md border border-line bg-surface px-2 py-0.5 text-xs text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted"
                             >
                               <span>{shortDateRange(a, lang)}</span>
-                              <span className="text-[10px] uppercase tracking-wide text-AIPM-medium-grey">
+                              <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
                                 {a.type}
                               </span>
                             </button>
