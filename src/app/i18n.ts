@@ -26,6 +26,11 @@ const enUS = {
   blockers: "Blockers",
   notes: "Notes",
 
+  taskOriginalEstimate: "Original estimate",
+  taskTimeSpent: "Time spent",
+  taskEffortHint: "e.g. 2w 3d 4h",
+  taskEffortInvalid: "Use w/d/h/m, e.g. 2w 3d 4h",
+
   placeholderTaskName: "What needs to happen?",
   placeholderAssignee: "Name or email",
   placeholderEmail: "Optional — used for status inquiries",
@@ -68,6 +73,8 @@ const enUS = {
   colResetWidthsHint: "Reset all column widths back to their defaults.",
   colConfigTitle: "Configure columns",
   colStatus: "Status",
+  colEstimate: "Est.",
+  colSpent: "Spent",
   workspaceResizeHint:
     "Drag the bottom-right corner to resize this workspace pane.",
   workspaceCollapse: "Collapse workspace",
@@ -192,6 +199,9 @@ const enUS = {
   budgetProjectTotal: "Project total",
   budgetSpilloverIn: "Spilled in",
   budgetEndingSoon: "Budget bucket ending soon",
+  budgetRemoveBucket: "Remove bucket",
+  budgetRemoveBucketConfirm: "Remove this budget bucket? Calculations based on it will reset to 0.",
+  budgetReorderHandle: "Drag to reorder bucket",
 
   tabChat: "Chat",
   tabNewTask: "New task",
@@ -488,6 +498,7 @@ const enUS = {
   versionHighlightSecurity: "Per-request Content-Security-Policy nonce with strict script + style directives; no inline-script bypass.",
   versionHighlightPerformance: "Faster startup and lower memory use via lazy-loaded modules (DOCX/XLSX/PPTX export, German UI, holiday calendars) and IndexedDB record-level storage.",
   versionHighlightBudget: "Project budget planner — buckets, CCI, win/loss, multi-currency (ECB)",
+  versionHighlightPolish: "Draggable modals with in-modal voice, task effort tracking (w/d/h/m), removable & reorderable budget buckets, and resource-planning fixes.",
 
   group: "Group",
   labels: "Labels",
@@ -720,6 +731,11 @@ const enUS = {
   resourcesMargin: "Margin",
   resourcesTotal: "Total",
   resourcesAbsenceOverrideHint: "Absence h (auto if blank)",
+  resourcesUtilizationHint: "Planned utilization for this period (percent or hours, per the mode).",
+  resourcesCapacityDaysHint: "Total planned capacity in person-days across the window.",
+  resourcesInternalCostHint: "Planned hours × internal rate, summed across the window.",
+  resourcesExternalCostHint: "Planned hours × external (billable) rate, summed across the window.",
+  resourcesMarginHint: "External cost minus internal cost (planned contribution).",
 
   resourcesReportTitle: "Resource report",
   resourcesReportTotalCapacity: "Total capacity",

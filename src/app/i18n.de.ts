@@ -30,6 +30,11 @@ export const de: Record<TranslationKey, string> = {
   blockers: "Blocker",
   notes: "Notizen",
 
+  taskOriginalEstimate: "Ursprüngliche Schätzung",
+  taskTimeSpent: "Aufgewandte Zeit",
+  taskEffortHint: "z. B. 2w 3d 4h",
+  taskEffortInvalid: "Format w/d/h/m verwenden, z. B. 2w 3d 4h",
+
   placeholderTaskName: "Was muss passieren?",
   placeholderAssignee: "Name oder E-Mail",
   placeholderEmail: "Optional – für Statusabfragen",
@@ -73,6 +78,8 @@ export const de: Record<TranslationKey, string> = {
   colResetWidthsHint: "Alle Spaltenbreiten auf die Standardwerte zurücksetzen.",
   colConfigTitle: "Spalten konfigurieren",
   colStatus: "Status",
+  colEstimate: "Schätzung",
+  colSpent: "Aufgewandt",
   workspaceResizeHint:
     "Ziehe die untere rechte Ecke, um diesen Arbeitsbereich zu vergrößern.",
   workspaceCollapse: "Arbeitsbereich einklappen",
@@ -199,6 +206,9 @@ export const de: Record<TranslationKey, string> = {
   budgetProjectTotal: "Projektsumme",
   budgetSpilloverIn: "Übertrag",
   budgetEndingSoon: "Budget-Bucket endet bald",
+  budgetRemoveBucket: "Budget-Topf entfernen",
+  budgetRemoveBucketConfirm: "Diesen Budget-Topf entfernen? Berechnungen, die darauf basieren, werden auf 0 zurückgesetzt.",
+  budgetReorderHandle: "Zum Umsortieren ziehen",
 
   tabChat: "Chat",
   tabNewTask: "Neue Aufgabe",
@@ -503,6 +513,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightSecurity: "Content-Security-Policy mit Nonce pro Anfrage und strikten Script- + Style-Direktiven; kein Inline-Script-Bypass.",
   versionHighlightPerformance: "Schnellerer Start und geringerer Speicherverbrauch durch lazy geladene Module (DOCX/XLSX/PPTX-Export, deutsche UI, Feiertagskalender) und IndexedDB-Datensatzspeicher.",
   versionHighlightBudget: "Projektbudget-Planer — Buckets, CCI, Gewinn/Verlust, Mehrwährung (EZB)",
+  versionHighlightPolish: "Verschiebbare Dialoge mit Spracheingabe, Aufwands-Tracking (W/T/Std./Min.), entfernbare und umsortierbare Budget-Buckets sowie Korrekturen an der Ressourcenplanung.",
 
   group: "Gruppe",
   labels: "Labels",
@@ -738,6 +749,11 @@ export const de: Record<TranslationKey, string> = {
   resourcesMargin: "Marge",
   resourcesTotal: "Summe",
   resourcesAbsenceOverrideHint: "Abwesenheit Std (auto wenn leer)",
+  resourcesUtilizationHint: "Geplante Auslastung für diesen Zeitraum (Prozent oder Stunden, je nach Modus).",
+  resourcesCapacityDaysHint: "Gesamte geplante Kapazität in Personentagen über den Zeitraum.",
+  resourcesInternalCostHint: "Geplante Stunden × interner Satz, summiert über den Zeitraum.",
+  resourcesExternalCostHint: "Geplante Stunden × externer (abrechenbarer) Satz, summiert über den Zeitraum.",
+  resourcesMarginHint: "Externe Kosten minus interne Kosten (geplanter Deckungsbeitrag).",
 
   resourcesReportTitle: "Ressourcen-Bericht",
   resourcesReportTotalCapacity: "Gesamtkapazität",

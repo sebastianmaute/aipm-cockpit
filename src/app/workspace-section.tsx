@@ -10,7 +10,7 @@ import { useFilters } from "./filters-context";
 import { TabButton, ResetSizeIcon } from "./task-manager-ui";
 import type { ToolDispatcher } from "./chat-tools";
 import type { ActivityEntry } from "./activity-log";
-import type { Absence, BudgetBucket, PlanGranularity, RaidItem, Resource, Shift } from "./types";
+import type { Absence, BudgetBucket, RaidItem, Resource, Shift } from "./types";
 import { ResourceDirectory } from "./resource-directory";
 
 const ChatPanel = dynamic(
@@ -81,11 +81,11 @@ export interface WorkspaceSectionProps {
   onSetUtilizationMode: (resourceId: number, mode: "percent" | "hours") => void;
   onSetAbsenceOverride: (resourceId: number, periodKey: string, hours: number | null) => void;
   onSetPlanWindow: (startDate: string, endDate: string) => void;
-  onSetPlanGranularity: (granularity: PlanGranularity) => void;
   onEditResource: (resource: Resource) => void;
   onAddResource: (seed?: Partial<Resource>) => void;
   onChangeBudgets: (next: BudgetBucket[]) => void;
   onRefreshFx: () => void;
+  fxLoading?: boolean;
 }
 
 export function WorkspaceSection({
@@ -116,11 +116,11 @@ export function WorkspaceSection({
   onSetUtilizationMode,
   onSetAbsenceOverride,
   onSetPlanWindow,
-  onSetPlanGranularity,
   onEditResource,
   onAddResource,
   onChangeBudgets,
   onRefreshFx,
+  fxLoading = false,
 }: WorkspaceSectionProps) {
   const { settings, lang } = useSettings();
   const { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates } = useWorkspace();
@@ -210,18 +210,6 @@ export function WorkspaceSection({
             {t(lang, "tabResources")}
           </TabButton>
           <TabButton
-            active={activeTab === "activity"}
-            onClick={() => {
-              setActiveTab("activity");
-              if (workspaceCollapsed) setWorkspaceCollapsed(false);
-            }}
-            controls="panel-activity"
-            onPopout={() => openPopoutWindow("activity", settings.popout.reuseWindow)}
-            popoutLabel={t(lang, "popoutOpenInNewWindow")}
-          >
-            {t(lang, "tabActivity")}
-          </TabButton>
-          <TabButton
             active={activeTab === "budget"}
             onClick={() => {
               setActiveTab("budget");
@@ -232,6 +220,18 @@ export function WorkspaceSection({
             popoutLabel={t(lang, "popoutOpenInNewWindow")}
           >
             {t(lang, "tabBudget")}
+          </TabButton>
+          <TabButton
+            active={activeTab === "activity"}
+            onClick={() => {
+              setActiveTab("activity");
+              if (workspaceCollapsed) setWorkspaceCollapsed(false);
+            }}
+            controls="panel-activity"
+            onPopout={() => openPopoutWindow("activity", settings.popout.reuseWindow)}
+            popoutLabel={t(lang, "popoutOpenInNewWindow")}
+          >
+            {t(lang, "tabActivity")}
           </TabButton>
           {!workspaceCollapsed && (
             <button
@@ -377,7 +377,6 @@ export function WorkspaceSection({
               onSetUtilizationMode={onSetUtilizationMode}
               onSetAbsenceOverride={onSetAbsenceOverride}
               onSetPlanWindow={onSetPlanWindow}
-              onSetPlanGranularity={onSetPlanGranularity}
               onOpenReport={() => openPopoutWindow("resource-report", settings.popout.reuseWindow)}
               onOpenAddressBook={() => openPopoutWindow("address-book", settings.popout.reuseWindow)}
               onEditResource={onEditResource}
@@ -426,6 +425,7 @@ export function WorkspaceSection({
               today={today}
               onChangeBuckets={onChangeBudgets}
               onRefreshFx={onRefreshFx}
+              fxLoading={fxLoading}
             />
           </div>
         )}

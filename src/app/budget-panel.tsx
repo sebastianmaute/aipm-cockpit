@@ -1,5 +1,5 @@
 "use client";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { formatCurrency } from "./resource-cost";
 import { computeBudgetReport, bucketActivePeriods, type BucketReport, type CciValue } from "./budget-report";
@@ -22,6 +22,7 @@ export interface BudgetPanelProps {
   today: string;
   onChangeBuckets: (next: BudgetBucket[]) => void;
   onRefreshFx: () => void;
+  fxLoading?: boolean;
 }
 
 function localeFor(lang: Lang): string {
@@ -63,6 +64,8 @@ export function BudgetPanel(props: BudgetPanelProps) {
   const bucketById = useMemo(() => new Map(buckets.map((b) => [b.id, b])), [buckets]);
   const projCur = plan.currency || "EUR"; // project rollup is in the plan base currency (EUR)
 
+  const [dragId, setDragId] = useState<number | null>(null);
+
   const stamp = () => new Date().toISOString();
 
   const addBucket = () => {
@@ -71,6 +74,15 @@ export function BudgetPanel(props: BudgetPanelProps) {
 
   const updateBucket = (id: number, patch: Partial<BudgetBucket>) => {
     props.onChangeBuckets(buckets.map((b) => (b.id === id ? { ...b, ...patch, localModifiedAt: stamp() } : b)));
+  };
+
+  const removeBucket = (id: number) => {
+    if (!window.confirm(t(lang, "budgetRemoveBucketConfirm"))) return;
+    props.onChangeBuckets(
+      buckets
+        .filter((b) => b.id !== id)
+        .map((b) => (b.successorId === id ? { ...b, successorId: null, localModifiedAt: stamp() } : b)),
+    );
   };
 
   const setCell = (
@@ -88,6 +100,29 @@ export function BudgetPanel(props: BudgetPanelProps) {
     );
   };
 
+  // Reorder buckets: move `dragId` to where `targetId` currently sits, then
+  // reassign contiguous `order` (0,1,2,…). Only buckets whose order actually
+  // changes get a fresh `localModifiedAt` stamp.
+  const onDropOnBucket = (targetId: number) => {
+    if (dragId == null || dragId === targetId) return;
+    const ids = [...buckets]
+      .sort((a, b) => (a.order ?? a.id) - (b.order ?? b.id))
+      .map((b) => b.id);
+    const fromIdx = ids.indexOf(dragId);
+    const targetIdx = ids.indexOf(targetId);
+    if (fromIdx < 0 || targetIdx < 0) return;
+    ids.splice(fromIdx, 1);
+    ids.splice(targetIdx, 0, dragId);
+    const orderById = new Map(ids.map((id, idx) => [id, idx]));
+    const ts = stamp();
+    const next = buckets.map((b) => {
+      const newOrder = orderById.get(b.id) ?? b.order ?? 0;
+      if (b.order === newOrder) return b;
+      return { ...b, order: newOrder, localModifiedAt: ts };
+    });
+    props.onChangeBuckets(next);
+  };
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
@@ -101,8 +136,12 @@ export function BudgetPanel(props: BudgetPanelProps) {
         <button
           type="button"
           onClick={props.onRefreshFx}
-          className="rounded-md px-3 py-1.5 text-sm text-zinc-500 hover:text-AIPM-dark-blue dark:hover:text-AIPM-light-grey"
+          disabled={props.fxLoading}
+          className="inline-flex items-center gap-1.5 rounded-md border border-AIPM-dark-blue bg-white px-3 py-1.5 text-sm font-medium text-AIPM-dark-blue shadow-sm hover:bg-AIPM-light-grey disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-900 dark:hover:bg-zinc-800"
         >
+          <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className={`h-4 w-4 ${props.fxLoading ? "animate-spin" : ""}`}>
+            <path fillRule="evenodd" d="M15.312 11.424a5.5 5.5 0 01-9.201 2.466l-.312-.311h2.433a.75.75 0 000-1.5H3.989a.75.75 0 00-.75.75v4.242a.75.75 0 001.5 0v-2.43l.31.31a7 7 0 0011.712-3.138.75.75 0 00-1.449-.39zm1.23-3.723a.75.75 0 00.219-.53V2.929a.75.75 0 00-1.5 0V5.36l-.31-.31A7 7 0 003.239 8.188a.75.75 0 101.448.389A5.5 5.5 0 0113.89 6.11l.311.31h-2.432a.75.75 0 000 1.5h4.243a.75.75 0 00.53-.219z" clipRule="evenodd" />
+          </svg>
           {t(lang, "budgetFxRefresh")}
         </button>
       </div>
@@ -125,10 +164,32 @@ export function BudgetPanel(props: BudgetPanelProps) {
           // CCI amounts are EUR from the engine — convert to the bucket currency for display.
           const cci = (v: CciValue): CciValue => ({ amount: eurToCurrency(v.amount, bucket, fxRates), percent: v.percent });
           return (
-            <div key={br.bucketId} className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
+            <div
+              key={br.bucketId}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={() => onDropOnBucket(br.bucketId)}
+              className={`rounded-xl border p-4 dark:border-zinc-800 ${
+                dragId != null && dragId !== br.bucketId
+                  ? "border-AIPM-dark-blue/60"
+                  : "border-zinc-200"
+              }`}
+            >
               <div className="mb-2 flex items-center justify-between">
-                <div className="font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
-                  {br.name}{bucket.poNumber ? ` · ${bucket.poNumber}` : ""}
+                <div className="flex items-center gap-2">
+                  <span
+                    draggable
+                    onDragStart={() => setDragId(br.bucketId)}
+                    onDragEnd={() => setDragId(null)}
+                    role="button"
+                    aria-label={t(lang, "budgetReorderHandle")}
+                    title={t(lang, "budgetReorderHandle")}
+                    className="cursor-grab select-none text-zinc-400 hover:text-AIPM-dark-blue active:cursor-grabbing dark:hover:text-AIPM-light-grey"
+                  >
+                    ⠿
+                  </span>
+                  <span className="font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
+                    {br.name}{bucket.poNumber ? ` · ${bucket.poNumber}` : ""}
+                  </span>
                 </div>
                 <div className="text-xs text-zinc-500">
                   {t(lang, br.type === "fixed" ? "budgetTypeFixed" : "budgetTypeTm")} · {bucket.currency}
@@ -190,15 +251,25 @@ export function BudgetPanel(props: BudgetPanelProps) {
                   </tbody>
                 </table>
               </div>
-              <button
-                type="button"
-                onClick={() => updateBucket(bucket.id, bucket.status === "open"
-                  ? { status: "closed", closedDate: props.today }
-                  : { status: "open", closedDate: undefined })}
-                className="mt-2 text-xs text-zinc-500 hover:text-AIPM-dark-blue dark:hover:text-AIPM-light-grey"
-              >
-                {t(lang, bucket.status === "open" ? "budgetClose" : "budgetReopen")}
-              </button>
+              <div className="mt-2 flex items-center gap-4">
+                <button
+                  type="button"
+                  onClick={() => updateBucket(bucket.id, bucket.status === "open"
+                    ? { status: "closed", closedDate: props.today }
+                    : { status: "open", closedDate: undefined })}
+                  className="text-xs text-zinc-500 hover:text-AIPM-dark-blue dark:hover:text-AIPM-light-grey"
+                >
+                  {t(lang, bucket.status === "open" ? "budgetClose" : "budgetReopen")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => removeBucket(bucket.id)}
+                  title={t(lang, "budgetRemoveBucket")}
+                  className="text-xs text-zinc-500 hover:text-AIPM-pink dark:hover:text-AIPM-pink"
+                >
+                  {t(lang, "budgetRemoveBucket")}
+                </button>
+              </div>
             </div>
           );
         })}

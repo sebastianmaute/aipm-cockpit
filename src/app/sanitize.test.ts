@@ -8,6 +8,7 @@ import {
   parseDependenciesString,
   serializeDependencies,
   sanitizePlan,
+  sanitizeOptionalMinutes,
 } from "./sanitize";
 import {
   encodePeriodMap,
@@ -227,5 +228,47 @@ describe("sanitizeResource — birthday widened to MM-DD or YYYY-MM-DD", () => {
   });
   it("drops a malformed birthday", () => {
     expect(sanitizeResource({ id: 1, firstName: "A", lastName: "B", birthday: "nope" })?.birthday).toBeUndefined();
+  });
+});
+
+describe("sanitizeOptionalMinutes", () => {
+  test("3 (number) → 3", () => {
+    expect(sanitizeOptionalMinutes(3)).toBe(3);
+  });
+
+  test("0 (number) → 0  (zero is valid, must be kept)", () => {
+    expect(sanitizeOptionalMinutes(0)).toBe(0);
+  });
+
+  test('"3" (string, as CSV/MD decode yields) → 3', () => {
+    expect(sanitizeOptionalMinutes("3")).toBe(3);
+  });
+
+  test('"" (empty string) → undefined  (must NOT become 0)', () => {
+    expect(sanitizeOptionalMinutes("")).toBeUndefined();
+  });
+
+  test("null → undefined", () => {
+    expect(sanitizeOptionalMinutes(null)).toBeUndefined();
+  });
+
+  test("undefined → undefined", () => {
+    expect(sanitizeOptionalMinutes(undefined)).toBeUndefined();
+  });
+
+  test("-1 → undefined  (negative rejected)", () => {
+    expect(sanitizeOptionalMinutes(-1)).toBeUndefined();
+  });
+
+  test("1.5 → undefined  (non-integer rejected)", () => {
+    expect(sanitizeOptionalMinutes(1.5)).toBeUndefined();
+  });
+
+  test("NaN → undefined", () => {
+    expect(sanitizeOptionalMinutes(NaN)).toBeUndefined();
+  });
+
+  test('"abc" (non-numeric string) → undefined', () => {
+    expect(sanitizeOptionalMinutes("abc")).toBeUndefined();
   });
 });

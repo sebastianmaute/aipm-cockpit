@@ -1,3 +1,24 @@
+// 0.13.0 polishes the UI across modals, resources, budget, and tasks:
+//   - Draggable modal windows via a shared ModalHeader (use-draggable.ts).
+//     Voice commands are now available inside every modal through
+//     VoiceCommandContext (voice-command-context.tsx).
+//   - Tab order: Budget sits between Resources and Activity.
+//   - Assignee hover styling unified across Directory, Workload, and Task rows.
+//   - Resource planning: explanatory tooltips on rollup totals and the
+//     utilization input; the "weeks" view now derives week capacity from the
+//     month-level entry (read-only when granularity is month).
+//   - Roles & rates: sortable Discipline/Grade/Internal/External columns; a
+//     visual divider between the rate card and the add-combo row; Discipline
+//     and Grade selects show a "—" placeholder; Manage-roles and Report buttons
+//     gained leading icons.
+//   - Budget buckets: removable (calculations based on a removed bucket reset
+//     to 0) and reorderable by drag (persisted `order` field).
+//   - ECB "refresh rates" button restyled to match the Jira-sync button
+//     (spinner while loading).
+//   - Tasks: optional effort fields — Original estimate & Time spent — in
+//     weeks/days/hours/minutes (Jira basis: 1w=5d, 1d=8h). Hideable, sortable
+//     "Est." and "Spent" columns. New `duration.ts` helper: parse/format
+//     duration strings, round-trip with Jira minute values.
 // 0.12.0 adds a Project Budget Planner: named PO-line budget buckets (T&M or
 // fixed-price, in EUR/USD/GBP) that span roles via per-role allocations (each
 // naming a role + feeding resources + per-period budget/actual hours). Planned
@@ -178,8 +199,8 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.12.0";
-export const APP_BUILD_DATE = "2026-05-26";
+export const APP_VERSION = "0.13.0";
+export const APP_BUILD_DATE = "2026-05-27";
 export const APP_REPO_URL = "https://www.example.com";
 
 /** Translation keys for the high-level feature highlights shown in the
@@ -201,4 +222,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightSecurity",
   "versionHighlightPerformance",
   "versionHighlightBudget",
+  "versionHighlightPolish",
 ] as const;

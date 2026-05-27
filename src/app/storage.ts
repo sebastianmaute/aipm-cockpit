@@ -17,6 +17,7 @@ import {
   sanitizeGrade,
   sanitizeGroup,
   sanitizeLabels,
+  sanitizeOptionalMinutes,
   sanitizePlan,
   sanitizeResource,
   sanitizeRole,
@@ -344,6 +345,8 @@ const CSV_COLUMNS: Array<keyof Task> = [
   "localModifiedAt",
   "healthOverride",
   "resourceId",
+  "originalEstimateMinutes",
+  "timeSpentMinutes",
 ];
 
 // Whitelist parser shared by CSV and Markdown deserialization. Anything that
@@ -471,7 +474,7 @@ const REF_CSV_COLUMNS = ["id", "name", "localModifiedAt"] as const;
 const BUDGETS_CSV_COLUMNS = [
   "id", "name", "poNumber", "type", "currency", "fixedPriceAmount",
   "startDate", "endDate", "successorId", "status", "closedDate",
-  "fxRateOverride", "allocations", "localModifiedAt",
+  "fxRateOverride", "allocations", "localModifiedAt", "order",
 ] as const;
 
 const CSV_SECTION_BUDGETS = "# BUDGETS";
@@ -530,6 +533,7 @@ const BUDGETS_MD_COLUMNS: readonly { col: string; label: string }[] = [
   { col: "fxRateOverride", label: "FxOverride" },
   { col: "allocations", label: "Allocations" },
   { col: "localModifiedAt", label: "LocalModified" },
+  { col: "order", label: "Order" },
 ];
 
 const REF_MD_COLUMNS: readonly { col: string; label: string }[] = [
@@ -806,6 +810,7 @@ function budgetFieldToString(b: BudgetBucket, c: string): string {
     case "fxRateOverride": return b.fxRateOverride == null ? "" : String(b.fxRateOverride);
     case "allocations": return encodeAllocations(b.allocations);
     case "localModifiedAt": return b.localModifiedAt ?? "";
+    case "order": return b.order == null ? "" : String(b.order);
     default: return "";
   }
 }
@@ -1257,6 +1262,8 @@ function csvToTasks(csv: string): Task[] {
       localModifiedAt: obj.localModifiedAt || undefined,
       healthOverride: parseHealthOverride(obj.healthOverride),
       resourceId: Number(obj.resourceId) || undefined,
+      originalEstimateMinutes: sanitizeOptionalMinutes(obj.originalEstimateMinutes),
+      timeSpentMinutes: sanitizeOptionalMinutes(obj.timeSpentMinutes),
     });
   }
   // Final pass: now that we know every id that survived parsing, drop any
@@ -1290,6 +1297,8 @@ const MD_COLUMNS: Array<{ key: keyof Task; label: string }> = [
   { key: "localModifiedAt", label: "LocalModified" },
   { key: "healthOverride", label: "Health" },
   { key: "resourceId", label: "ResourceId" },
+  { key: "originalEstimateMinutes", label: "OrigEstimateMin" },
+  { key: "timeSpentMinutes", label: "TimeSpentMin" },
 ];
 
 function mdEscape(value: string): string {
@@ -1704,6 +1713,7 @@ function markdownToBudgets(md: string): BudgetBucket[] {
       else if (norm === "fxoverride" || norm === "fxrateoverride") mapped["fxRateOverride"] = val;
       else if (norm === "allocations") mapped["allocations"] = val;
       else if (norm === "localmodified" || norm === "localmodifiedat") mapped["localModifiedAt"] = val;
+      else if (norm === "order") mapped["order"] = val;
     }
     return sanitizeBudgetBucket(mapped);
   }).filter((b): b is BudgetBucket => b !== null);
@@ -1882,6 +1892,10 @@ function markdownToTasks(md: string): Task[] {
     else if (norm === "health" || norm === "healthoverride")
       colMap[idx] = "healthOverride";
     else if (norm === "resourceid") colMap[idx] = "resourceId";
+    else if (norm === "origestimatemin" || norm === "originalestimateminutes")
+      colMap[idx] = "originalEstimateMinutes";
+    else if (norm === "timespentmin" || norm === "timespentminutes")
+      colMap[idx] = "timeSpentMinutes";
   });
 
   const tasks: Task[] = [];
@@ -1919,6 +1933,8 @@ function markdownToTasks(md: string): Task[] {
       localModifiedAt: obj.localModifiedAt || undefined,
       healthOverride: parseHealthOverride(obj.healthOverride),
       resourceId: Number(obj.resourceId) || undefined,
+      originalEstimateMinutes: sanitizeOptionalMinutes(obj.originalEstimateMinutes),
+      timeSpentMinutes: sanitizeOptionalMinutes(obj.timeSpentMinutes),
     });
   }
   return dropDanglingDependencies(tasks);

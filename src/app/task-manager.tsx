@@ -43,6 +43,7 @@ import { useBirthdayAlerts } from "./use-birthday-alerts";
 import { useReminderSnooze } from "./use-reminder-snooze";
 import { makeEditGuard } from "./read-only-guard";
 import { ReadOnlyMirrorBanner } from "./read-only-mirror-banner";
+import { VoiceCommandProvider } from "./voice-command-context";
 
 // i18n key for each tab's label — used by both the tab strip and the
 // popout window's document.title. Adding a new tab requires a row here.
@@ -226,7 +227,6 @@ function TaskManagerInner() {
     handleSetUtilizationMode,
     handleSetAbsenceOverride,
     handleSetPlanWindow,
-    handleSetPlanGranularity,
     editingResource,
     handleOpenAddResource,
     handleEditResource,
@@ -428,7 +428,7 @@ function TaskManagerInner() {
 
   const handleChangeBudgets = useCallback((next: BudgetBucket[]) => setBudgets(next), [setBudgets]);
   const cacheFxRates = useCallback((fx: import("./types").FxRates) => setFxRates(fx), [setFxRates]);
-  const { refresh: refreshFx } = useFxRates(cacheFxRates);
+  const { refresh: refreshFx, loading: fxLoading } = useFxRates(cacheFxRates);
 
   const editingTask =
     editingId !== null
@@ -444,9 +444,15 @@ function TaskManagerInner() {
     showToast("info", t(lang, "popoutReadOnly")),
   );
 
+  const voiceHandlers = useMemo(
+    () => (isPopout ? null : { onCommand: handleCommand, onError: (msg: string) => showToast("error", msg) }),
+    [isPopout, handleCommand, showToast],
+  );
+
   if (!i18nReady) return null;
 
   return (
+    <VoiceCommandProvider value={voiceHandlers}>
     <div
       className={
         isPopout
@@ -523,11 +529,11 @@ function TaskManagerInner() {
         onSetUtilizationMode={guardEdit(handleSetUtilizationMode)}
         onSetAbsenceOverride={guardEdit(handleSetAbsenceOverride)}
         onSetPlanWindow={guardEdit(handleSetPlanWindow)}
-        onSetPlanGranularity={guardEdit(handleSetPlanGranularity)}
         onEditResource={guardEdit(handleEditResource)}
         onAddResource={guardEdit(handleOpenAddResource)}
         onChangeBudgets={handleChangeBudgets}
         onRefreshFx={refreshFx}
+        fxLoading={fxLoading}
       />
 
       {!isPopout && (
@@ -637,6 +643,7 @@ function TaskManagerInner() {
         toast={toast}
       />
     </div>
+    </VoiceCommandProvider>
   );
 }
 

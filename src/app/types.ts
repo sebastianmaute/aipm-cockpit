@@ -46,6 +46,11 @@ export type Task = {
   completedDate?: string;
   /** Total number of status-inquiry emails sent for this task. */
   inquiriesSent?: number;
+  /** Optional Jira-style effort estimate, stored canonically in MINUTES.
+   *  Entered in the form as "2w 3d 4h" (basis 1w=5d, 1d=8h, 1h=60m). */
+  originalEstimateMinutes?: number;
+  /** Optional time-spent so far, stored canonically in MINUTES (same basis). */
+  timeSpentMinutes?: number;
   /** Single optional category/project this task belongs to. */
   group?: string;
   /** Free-form tags for cross-cutting filtering. */
@@ -366,6 +371,9 @@ export type BudgetBucket = {
   /** Manual EUR → currency rate override; wins over cached ECB while present. */
   fxRateOverride?: number;
   allocations: BucketAllocation[];
+  /** Display/sort position among buckets (0-based, contiguous). Optional and
+   *  back-compatible — when absent the engine falls back to sorting by `id`. */
+  order?: number;
   localModifiedAt?: string;
 };
 

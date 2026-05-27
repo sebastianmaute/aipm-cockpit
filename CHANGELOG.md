@@ -8,6 +8,45 @@ Authoritative source for version + build date: [`src/app/version.ts`](src/app/ve
 This file is seeded from that module's milestone comment plus the
 post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-diff.txt).
 
+## [0.13.0] "Bradbury" — 2026-05-27
+
+UI polish batch: draggable modals with in-modal voice, task effort tracking,
+removable/reorderable budget buckets, resource-planning fixes, sortable roles
+columns, and a suite of small UX improvements across the app.
+
+### Added
+
+- **Draggable modal windows.** A shared `ModalHeader` component (`modal-header.tsx`)
+  provides a drag handle on every modal. Drag logic lives in `use-draggable.ts`.
+- **In-modal voice commands.** `VoiceCommandContext` (`voice-command-context.tsx`)
+  makes the voice dispatcher available inside modals, so every modal now
+  supports the same voice commands as the main view.
+- **Task effort fields.** Optional "Original estimate" and "Time spent" fields
+  on the task form, using `w/d/h/m` notation (Jira basis: 1w = 5d, 1d = 8h).
+  New `duration.ts` helper parses and formats duration strings and round-trips
+  with Jira minute values. "Est." and "Spent" columns in the tasks table are
+  hideable and sortable.
+- **Budget bucket removal.** Each bucket can now be deleted; any CCI/win-loss
+  calculations based on a removed bucket reset to 0.
+- **Budget bucket reorder.** Buckets support drag-to-reorder; the chosen order
+  is persisted via a new `order` field on `BudgetBucket`.
+
+### Changed
+
+- **Tab order.** Budget now sits between Resources and Activity.
+- **Assignee hover styling** unified across Directory, Workload, and Task views.
+- **Resource planning — week view from month entry.** The "weeks" view now
+  derives week capacity from the month-level entry (read-only when granularity
+  is set to month), fixing the previously empty weeks display.
+- **Resource planning — tooltips.** Explanatory tooltips added to rollup totals
+  and the utilization input.
+- **Roles & rates.** Discipline, Grade, Internal, and External columns are now
+  sortable. A visual divider separates the rate card from the add-combo row.
+  Discipline and Grade selects show a "—" placeholder. Manage-roles and Report
+  buttons gained leading icons.
+- **ECB "refresh rates" button** restyled to match the Jira-sync button, with a
+  spinner while the fetch is in progress.
+
 ## [0.12.0] "Huxley" — 2026-05-26
 
 Adds a project budget planner: named PO-line budget buckets (T&M or fixed-price)

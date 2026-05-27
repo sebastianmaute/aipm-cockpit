@@ -30,7 +30,6 @@ const baseProps = {
   onSetUtilizationMode: () => {},
   onSetAbsenceOverride: () => {},
   onSetPlanWindow: () => {},
-  onSetPlanGranularity: () => {},
   onEditResource: () => {},
   onAddResource: () => {},
 };
@@ -72,7 +71,7 @@ describe("ResourcesPanel", () => {
     const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };
     render(<ResourcesPanel {...baseProps} resources={resources} plan={plan}
       workdayHours={8} onSetUtilization={onSetUtilization} onSetUtilizationMode={() => {}}
-      onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} onSetPlanGranularity={() => {}} />);
+      onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
     fireEvent.click(screen.getByRole("radio", { name: "Planning" }));
     fireEvent.change(screen.getByLabelText("Utilization for Sample in 2026-02"), { target: { value: "80" } });
     expect(onSetUtilization).toHaveBeenCalledWith(1, "2026-02", 80);
@@ -83,7 +82,7 @@ describe("ResourcesPanel", () => {
     const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };
     render(<ResourcesPanel {...baseProps} resources={[]} plan={plan} workdayHours={8}
       onSetUtilization={() => {}} onSetUtilizationMode={() => {}} onSetAbsenceOverride={() => {}}
-      onSetPlanWindow={onSetPlanWindow} onSetPlanGranularity={() => {}} />);
+      onSetPlanWindow={onSetPlanWindow} />);
     fireEvent.click(screen.getByRole("radio", { name: "Planning" }));
     fireEvent.change(screen.getByLabelText("From"), { target: { value: "2026-01-01" } });
     expect(onSetPlanWindow).toHaveBeenCalledWith("2026-01-01", "2026-02-28");
@@ -103,7 +102,7 @@ describe("ResourcesPanel", () => {
     render(<ResourcesPanel {...baseProps} lang="en-US" resources={resources} roles={roles} plan={plan}
       workdayHours={8} holidaySet={new Set()}
       onSetUtilization={() => {}} onSetUtilizationMode={() => {}} onSetAbsenceOverride={() => {}}
-      onSetPlanWindow={() => {}} onSetPlanGranularity={() => {}} />);
+      onSetPlanWindow={() => {}} />);
     fireEvent.click(screen.getByRole("radio", { name: "Planning" }));
     // Feb 2026 = 20 workdays × 8h = 160h; 100% util; internal = 160 × 100 = $16,000
     // The value appears in both the data row and the footer total row.
@@ -116,7 +115,7 @@ describe("ResourcesPanel", () => {
     const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "USD" };
     render(<ResourcesPanel {...baseProps} lang="en-US" resources={resources} plan={plan} workdayHours={8}
       holidaySet={new Set()} onSetUtilization={() => {}} onSetUtilizationMode={() => {}}
-      onSetAbsenceOverride={onSetAbsenceOverride} onSetPlanWindow={() => {}} onSetPlanGranularity={() => {}} />);
+      onSetAbsenceOverride={onSetAbsenceOverride} onSetPlanWindow={() => {}} />);
     fireEvent.click(screen.getByRole("radio", { name: "Planning" }));
     fireEvent.change(screen.getByLabelText("Absence override for Sample in 2026-02"), { target: { value: "16" } });
     expect(onSetAbsenceOverride).toHaveBeenCalledWith(1, "2026-02", 16);
@@ -128,7 +127,7 @@ describe("ResourcesPanel", () => {
     const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "USD" };
     render(<ResourcesPanel {...baseProps} lang="en-US" resources={resources} plan={plan} workdayHours={8}
       holidaySet={new Set()} onSetUtilization={() => {}} onSetUtilizationMode={() => {}}
-      onSetAbsenceOverride={onSetAbsenceOverride} onSetPlanWindow={() => {}} onSetPlanGranularity={() => {}} />);
+      onSetAbsenceOverride={onSetAbsenceOverride} onSetPlanWindow={() => {}} />);
     fireEvent.click(screen.getByRole("radio", { name: "Planning" }));
     fireEvent.change(screen.getByLabelText("Absence override for Sample in 2026-02"), { target: { value: "" } });
     expect(onSetAbsenceOverride).toHaveBeenCalledWith(1, "2026-02", null);
@@ -142,12 +141,30 @@ describe("ResourcesPanel", () => {
     );
   });
 
+  test("does not write utilization when viewing a finer (derived) granularity", () => {
+    const onSetUtilization = vi.fn();
+    const resources = [{ id: 1, firstName: "Sample", lastName: "", roleId: null, utilizationMode: "percent" as const, utilization: { "2026-02": 80 } }];
+    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "USD" };
+    render(<ResourcesPanel {...baseProps} lang="en-US" resources={resources} plan={plan}
+      workdayHours={8} holidaySet={new Set()} onSetUtilization={onSetUtilization}
+      onSetUtilizationMode={() => {}} onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
+    // Enter planning view
+    fireEvent.click(screen.getByRole("radio", { name: "Planning" }));
+    // Switch the display granularity to "Weeks" — derived mode (plan stays at month)
+    fireEvent.click(screen.getByRole("radio", { name: "Weeks" }));
+    // First week of Feb 2026: 2026-W06 (Mon 2026-02-02 .. Sun 2026-02-08)
+    const utilInput = screen.getByLabelText("Utilization for Sample in 2026-W06");
+    fireEvent.change(utilInput, { target: { value: "55" } });
+    // The `if (!derived)` guard must prevent any write
+    expect(onSetUtilization).not.toHaveBeenCalled();
+  });
+
   test("planning view: rollup toggle reveals the non-canonical read-only table", () => {
     const resources = [{ id: 1, firstName: "Sample", lastName: "", roleId: null, utilizationMode: "percent" as const, utilization: { "2026-02": 100 } }];
     const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "USD" };
     render(<ResourcesPanel {...baseProps} lang="en-US" resources={resources} plan={plan} workdayHours={8}
       holidaySet={new Set()} onSetUtilization={() => {}} onSetUtilizationMode={() => {}}
-      onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} onSetPlanGranularity={() => {}} />);
+      onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
     fireEvent.click(screen.getByRole("radio", { name: "Planning" }));
     fireEvent.click(screen.getByRole("button", { name: "Show rollup" }));
     expect(screen.getByText("2026-W07")).toBeInTheDocument(); // Mon 2026-02-09 ISO week

@@ -3,6 +3,7 @@
 import { createContext, memo, useContext, type ReactNode } from "react";
 import { computeTaskHealth, formatHealthTooltip, healthDot, type TaskHealth } from "./health";
 import { priorityLabel, t, type Lang } from "./i18n";
+import { formatDuration } from "./duration";
 import { countByCategory } from "./raid";
 import { type Priority, type Task, type TaskDependency, type RaidItem } from "./types";
 
@@ -234,7 +235,17 @@ function TaskRowImpl({
           </div>
         )}
       </Td>
-      {!hiddenCols.has("assignee") && <Td title={`${t(lang, "assignee")}: ${task.assignee || "—"}`}>{task.assignee}</Td>}
+      {!hiddenCols.has("assignee") && (
+        <Td title={`${t(lang, "assignee")}: ${task.assignee || "—"}`}>
+          {task.assignee ? (
+            <span className="rounded-md border border-transparent px-2 py-0.5 hover:border-AIPM-dark-blue hover:bg-zinc-50 dark:hover:bg-zinc-800">
+              {task.assignee}
+            </span>
+          ) : (
+            "—"
+          )}
+        </Td>
+      )}
       {!hiddenCols.has("startDate") && (
         <Td className="whitespace-nowrap text-zinc-600 dark:text-zinc-400" title={`${t(lang, "startDate")}: ${task.startDate || "—"}`}>
           {task.startDate || "—"}
@@ -262,6 +273,16 @@ function TaskRowImpl({
       {!hiddenCols.has("depRelations") && (
         <Td className="text-zinc-600 dark:text-zinc-400">
           <DependencyChips deps={task.dependencies ?? []} />
+        </Td>
+      )}
+      {!hiddenCols.has("estimate") && (
+        <Td className="text-right font-mono text-zinc-600 dark:text-zinc-400">
+          {formatDuration(task.originalEstimateMinutes ?? 0) || "—"}
+        </Td>
+      )}
+      {!hiddenCols.has("spent") && (
+        <Td className="text-right font-mono text-zinc-600 dark:text-zinc-400">
+          {formatDuration(task.timeSpentMinutes ?? 0) || "—"}
         </Td>
       )}
       <Td>

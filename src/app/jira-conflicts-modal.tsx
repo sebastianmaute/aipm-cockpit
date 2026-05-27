@@ -4,6 +4,8 @@ import { useMemo, useState } from "react";
 import { type Lang, type TranslationKey, t } from "./i18n";
 import type { ConflictFieldKey, ConflictItem } from "./jira-api";
 import { Modal } from "./modal";
+import { ModalHeader } from "./modal-header";
+import { useDraggable } from "./use-draggable";
 import { useResizable } from "./use-resizable";
 
 export type ConflictResolution = {
@@ -112,43 +114,26 @@ export function JiraConflictsModal({
     onResolve(Object.values(picks));
   }
 
+  const { offset, handleProps } = useDraggable(conflicts.length > 0);
   const { ref: panelRef } = useResizable("lop-app:conflicts-modal-size");
 
   return (
     <Modal open onClose={onClose} ariaLabel={t(lang, "jiraConflictTitle")}>
       <div
         ref={panelRef}
+        data-modal-panel
+        style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}
         className="relative h-[680px] max-h-[95vh] min-h-[320px] w-[768px] min-w-[400px] max-w-[95vw] resize overflow-y-auto rounded-xl border border-AIPM-light-grey bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-950"
       >
-        <header className="sticky top-0 z-10 flex items-center justify-between gap-4 border-b border-AIPM-light-grey bg-white px-6 py-4 dark:border-zinc-800 dark:bg-zinc-950">
-          <div>
-            <h2 className="text-lg font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
-              {t(lang, "jiraConflictTitle")}
-            </h2>
-            <p className="mt-0.5 text-xs text-AIPM-dark-grey dark:text-AIPM-medium-grey">
-              {t(lang, "jiraConflictSubtitle", conflicts.length)}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label={t(lang, "alertModalClose")}
-            className="rounded-md p-2 text-AIPM-dark-grey hover:bg-AIPM-light-grey hover:text-AIPM-dark-blue dark:text-AIPM-medium-grey dark:hover:bg-zinc-800 dark:hover:text-AIPM-light-grey"
-          >
-            <svg
-              viewBox="0 0 20 20"
-              fill="currentColor"
-              aria-hidden="true"
-              className="h-4 w-4"
-            >
-              <path
-                fillRule="evenodd"
-                d="M4.28 4.28a.75.75 0 011.06 0L10 8.94l4.66-4.66a.75.75 0 111.06 1.06L11.06 10l4.66 4.66a.75.75 0 11-1.06 1.06L10 11.06l-4.66 4.66a.75.75 0 01-1.06-1.06L8.94 10 4.28 5.34a.75.75 0 010-1.06z"
-                clipRule="evenodd"
-              />
-            </svg>
-          </button>
-        </header>
+        <ModalHeader
+          lang={lang}
+          title={t(lang, "jiraConflictTitle")}
+          onClose={onClose}
+          dragHandleProps={handleProps}
+        />
+        <p className="bg-white px-6 pb-2 text-xs text-AIPM-dark-grey dark:bg-zinc-950 dark:text-AIPM-medium-grey">
+          {t(lang, "jiraConflictSubtitle", conflicts.length)}
+        </p>
 
         <div className="flex flex-wrap items-center gap-2 border-b border-AIPM-light-grey bg-AIPM-light-grey/40 px-6 py-2 text-xs dark:border-zinc-800 dark:bg-zinc-900">
           <span className="text-AIPM-medium-grey">

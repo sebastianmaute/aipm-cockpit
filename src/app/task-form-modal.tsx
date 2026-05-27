@@ -1,11 +1,14 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { type RefObject } from "react";
+import { type RefObject, useState } from "react";
 import { ComboInput } from "./combo-input";
+import { ModalHeader } from "./modal-header";
+import { useDraggable } from "./use-draggable";
 import { ContactInput } from "./contact-input";
 import type { listContacts } from "./contacts";
 import { DependenciesEditor } from "./dependencies-editor";
+import { formatDuration, parseDuration } from "./duration";
 import {
   computeTaskHealth,
   HEALTH_VALUES,
@@ -87,6 +90,7 @@ export function TaskFormModal({
 }: TaskFormModalProps) {
   const { form, setForm, editingId, taskModalOpen } = useTaskForm();
   const isEditing = editingId !== null;
+  const { offset, handleProps } = useDraggable(taskModalOpen);
   if (!taskModalOpen) return null;
 
   return (
@@ -100,35 +104,16 @@ export function TaskFormModal({
     >
       <div
         ref={modalRef}
+        data-modal-panel
+        style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}
         className="relative flex w-[700px] min-w-[460px] max-w-[95vw] resize flex-col overflow-hidden rounded-xl border border-AIPM-light-grey bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-950"
       >
-        <header className="sticky top-0 z-10 flex shrink-0 items-center justify-between gap-4 border-b border-AIPM-light-grey bg-white px-6 py-4 dark:border-zinc-800 dark:bg-zinc-950">
-          <h2 className="text-lg font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
-            {isEditing
-              ? t(lang, "tabEditTask", editingId!)
-              : t(lang, "tabNewTask")}
-          </h2>
-          <button
-            type="button"
-            onClick={onCancel}
-            aria-label={t(lang, "alertModalClose")}
-            title={t(lang, "alertModalClose")}
-            className="rounded-md p-2 text-AIPM-dark-grey hover:bg-AIPM-light-grey hover:text-AIPM-dark-blue dark:text-AIPM-medium-grey dark:hover:bg-zinc-800 dark:hover:text-AIPM-light-grey"
-          >
-            <svg
-              viewBox="0 0 20 20"
-              fill="currentColor"
-              aria-hidden="true"
-              className="h-4 w-4"
-            >
-              <path
-                fillRule="evenodd"
-                d="M4.28 4.28a.75.75 0 011.06 0L10 8.94l4.66-4.66a.75.75 0 111.06 1.06L11.06 10l4.66 4.66a.75.75 0 11-1.06 1.06L10 11.06l-4.66 4.66a.75.75 0 01-1.06-1.06L8.94 10 4.28 5.34a.75.75 0 010-1.06z"
-                clipRule="evenodd"
-              />
-            </svg>
-          </button>
-        </header>
+        <ModalHeader
+          lang={lang}
+          title={isEditing ? t(lang, "tabEditTask", editingId!) : t(lang, "tabNewTask")}
+          onClose={onCancel}
+          dragHandleProps={handleProps}
+        />
         <form
           onSubmit={onSubmit}
           className="min-h-0 flex-1 overflow-y-auto grid grid-cols-1 gap-4 p-6 sm:grid-cols-2"
@@ -324,6 +309,26 @@ export function TaskFormModal({
             />
           </Field>
 
+          <EffortField
+            key={`estimate-${editingId ?? "new"}`}
+            lang={lang}
+            label={t(lang, "taskOriginalEstimate")}
+            minutes={form.originalEstimateMinutes}
+            onChange={(minutes) =>
+              setForm((prev) => ({ ...prev, originalEstimateMinutes: minutes }))
+            }
+          />
+
+          <EffortField
+            key={`spent-${editingId ?? "new"}`}
+            lang={lang}
+            label={t(lang, "taskTimeSpent")}
+            minutes={form.timeSpentMinutes}
+            onChange={(minutes) =>
+              setForm((prev) => ({ ...prev, timeSpentMinutes: minutes }))
+            }
+          />
+
           <Field label={t(lang, "group")}>
             <ComboInput
               lang={lang}
@@ -500,6 +505,57 @@ export function TaskFormModal({
         </form>
       </div>
     </Modal>
+  );
+}
+
+// Effort field — a controlled text input that parses Jira-style "w/d/h/m"
+// into canonical minutes. Keeps a local string so the user can type freely
+// (and so an existing task renders as "2w 3d"). Empty → unset (undefined);
+// unparseable → keep the string, flag invalid, and DON'T write a value.
+function EffortField({
+  lang,
+  label,
+  minutes,
+  onChange,
+}: {
+  lang: Lang;
+  label: string;
+  minutes: number | undefined;
+  onChange: (minutes: number | undefined) => void;
+}) {
+  const [text, setText] = useState(() => formatDuration(minutes ?? 0));
+  const [invalid, setInvalid] = useState(false);
+
+  return (
+    <Field label={label}>
+      <input
+        type="text"
+        value={text}
+        onChange={(e) => {
+          const value = e.target.value;
+          setText(value);
+          if (value.trim() === "") {
+            setInvalid(false);
+            onChange(undefined);
+            return;
+          }
+          const mins = parseDuration(value);
+          if (mins === null) {
+            setInvalid(true);
+            return;
+          }
+          setInvalid(false);
+          onChange(mins);
+        }}
+        placeholder={t(lang, "taskEffortHint")}
+        className={inputClass}
+      />
+      {invalid && (
+        <p className="mt-1 text-xs text-AIPM-pink">
+          {t(lang, "taskEffortInvalid")}
+        </p>
+      )}
+    </Field>
   );
 }
 

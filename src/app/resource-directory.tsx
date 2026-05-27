@@ -25,14 +25,12 @@ interface Props {
 // Inline discipline + grade selects for a single directory row.
 // Mirrors the useState+useEffect re-sync pattern from the old ResourceRoleRow.
 function DirectoryRoleSelects({
-  lang,
   resource,
   roles,
   disciplines,
   grades,
   onAssignRole,
 }: {
-  lang: Lang;
   resource: Resource;
   roles: readonly Role[];
   disciplines: readonly Discipline[];
@@ -68,7 +66,7 @@ function DirectoryRoleSelects({
           }}
           className="rounded border border-zinc-300 px-1.5 py-0.5 text-xs dark:border-zinc-700 dark:bg-zinc-900"
         >
-          <option value="">{t(lang, "rolesDiscipline")}</option>
+          <option value="">—</option>
           {disciplines.map((d) => (
             <option key={d.id} value={d.id}>{d.name}</option>
           ))}
@@ -85,7 +83,7 @@ function DirectoryRoleSelects({
           }}
           className="rounded border border-zinc-300 px-1.5 py-0.5 text-xs dark:border-zinc-700 dark:bg-zinc-900"
         >
-          <option value="">{t(lang, "rolesGrade")}</option>
+          <option value="">—</option>
           {grades.map((g) => (
             <option key={g.id} value={g.id}>{g.name}</option>
           ))}
@@ -258,7 +256,6 @@ function ResourceDirectoryInner({
                     </button>
                   </td>
                   <DirectoryRoleSelects
-                    lang={lang}
                     resource={r}
                     roles={roles}
                     disciplines={disciplines}

@@ -214,7 +214,10 @@ export function computeBudgetReport(
   absences: readonly Absence[] = [],
 ): BudgetReport {
   const spill = computeSpillover(buckets, plan, roles, resources, workdayHours, holidaySet);
-  const reports = buckets.map((b) =>
+  // Spillover is built from `successorId` links and keyed by bucket id, so it
+  // is order-independent. Sorting a COPY only affects the produced report order.
+  const ordered = [...buckets].sort((a, b) => (a.order ?? a.id) - (b.order ?? b.id));
+  const reports = ordered.map((b) =>
     computeBucketReport(
       b, plan, roles, resources, workdayHours, holidaySet,
       spill.hours.get(b.id) ?? 0, spill.value.get(b.id) ?? 0, absences,

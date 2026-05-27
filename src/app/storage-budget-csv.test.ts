@@ -26,4 +26,18 @@ describe("budget CSV round-trip", () => {
     expect(back.budgets![0].allocations[0]).toEqual({ roleId: 3, resourceIds: [5, 7], budgetHours: { "2026-01": 40 }, actualHours: { "2026-01": 38 } });
     expect(back.fxRates?.rates.USD).toBe(1.08);
   });
+
+  test("bucket `order` survives CSV encode/decode", () => {
+    const ws = emptyWorkspace();
+    const wsWithOrder = {
+      ...ws,
+      budgets: [{
+        id: 1, name: "Ordered bucket", type: "tm" as const, currency: "EUR" as const,
+        startDate: "2026-01-01", endDate: "2026-06-30", status: "open" as const,
+        order: 3, allocations: [],
+      }],
+    };
+    const back = csvToWorkspace(workspaceToCsv(wsWithOrder));
+    expect(back.budgets![0].order).toBe(3);
+  });
 });

@@ -18,4 +18,17 @@ describe("budget Markdown round-trip", () => {
     expect(back.budgets![0].allocations[0].budgetHours).toEqual({ "2026-01": 40 });
     expect(back.fxRates?.rates.GBP).toBe(0.85);
   });
+
+  test("bucket `order` survives Markdown encode/decode", () => {
+    const ws = {
+      ...emptyWorkspace(),
+      budgets: [{
+        id: 1, name: "Ordered", type: "tm" as const, currency: "EUR" as const,
+        startDate: "2026-01-01", endDate: "2026-06-30", status: "open" as const,
+        order: 3, allocations: [],
+      }],
+    };
+    const back = markdownToWorkspace(workspaceToMarkdown(ws));
+    expect(back.budgets![0].order).toBe(3);
+  });
 });

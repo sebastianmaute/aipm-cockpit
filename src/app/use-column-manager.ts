@@ -27,6 +27,8 @@ export const DEFAULT_COL_WIDTHS: Record<string, number> = {
   blockers: 140,
   notes: 140,
   depRelations: 120,
+  estimate: 80,
+  spent: 80,
   actions: 60,
 };
 
@@ -60,7 +62,7 @@ export function useColumnManager(): {
         if (Array.isArray(parsed)) return new Set(parsed as string[]);
       }
     } catch { /* non-fatal */ }
-    return new Set();
+    return new Set<string>(["estimate", "spent"]);
   });
   const [colConfigOpen, setColConfigOpen] = useState(false);
   const colDragRef = useRef<{ col: string; startX: number; startW: number } | null>(null);

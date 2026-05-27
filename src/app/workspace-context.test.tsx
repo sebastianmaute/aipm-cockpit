@@ -113,6 +113,36 @@ describe("WorkspaceProvider", () => {
     ).toEqual(["Bravo", "Alpha"]);
   });
 
+  test("sorts by estimate and spent columns using minutes value", () => {
+    const { result } = renderHook(
+      () => ({ ws: useWorkspace(), filters: useFilters() }),
+      { wrapper },
+    );
+
+    act(() =>
+      result.current.ws.setTasks([
+        makeTask({ id: 1, originalEstimateMinutes: 120, timeSpentMinutes: 30 }),
+        makeTask({ id: 2, originalEstimateMinutes: 60,  timeSpentMinutes: 90 }),
+        makeTask({ id: 3, originalEstimateMinutes: undefined, timeSpentMinutes: undefined }),
+      ]),
+    );
+
+    // Sort by estimate asc → 0 (undefined→0), 60, 120
+    act(() => result.current.filters.setSortKey("estimate"));
+    expect(result.current.ws.filteredSortedTasks.map((t) => t.id)).toEqual([3, 2, 1]);
+
+    // Sort by estimate desc → 120, 60, 0
+    act(() => result.current.filters.setSortDir("desc"));
+    expect(result.current.ws.filteredSortedTasks.map((t) => t.id)).toEqual([1, 2, 3]);
+
+    // Sort by spent asc → 0 (undefined→0), 30, 90
+    act(() => {
+      result.current.filters.setSortKey("spent");
+      result.current.filters.setSortDir("asc");
+    });
+    expect(result.current.ws.filteredSortedTasks.map((t) => t.id)).toEqual([3, 1, 2]);
+  });
+
   test("exposes budgets and fxRates state", () => {
     const { result } = renderHook(() => useWorkspace(), { wrapper });
     expect(result.current.budgets).toEqual([]);

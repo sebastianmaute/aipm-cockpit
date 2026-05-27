@@ -19,7 +19,7 @@ import {
   Th,
 } from "./task-manager-ui";
 
-const ALL_TASK_COLS = ["sel","status","id","taskName","assignee","startDate","dueDate","lastUpdateDate","priority","blockers","notes","depRelations","actions"] as const;
+const ALL_TASK_COLS = ["sel","status","id","taskName","assignee","startDate","dueDate","lastUpdateDate","priority","blockers","notes","depRelations","estimate","spent","actions"] as const;
 
 const CONFIGURABLE_COLS: Array<{ key: string; labelKey: TranslationKey }> = [
   { key: "status",         labelKey: "colStatus" },
@@ -32,6 +32,8 @@ const CONFIGURABLE_COLS: Array<{ key: string; labelKey: TranslationKey }> = [
   { key: "blockers",       labelKey: "blockers" },
   { key: "notes",          labelKey: "notes" },
   { key: "depRelations",   labelKey: "depRelations" },
+  { key: "estimate",       labelKey: "taskOriginalEstimate" },
+  { key: "spent",          labelKey: "taskTimeSpent" },
 ];
 
 const inputClass =
@@ -476,6 +478,8 @@ export function TasksSection({
                 {!hiddenCols.has("blockers") && <Th onResize={(e) => startColResize("blockers", e)}>{t(lang, "blockers")}</Th>}
                 {!hiddenCols.has("notes") && <Th onResize={(e) => startColResize("notes", e)}>{t(lang, "notes")}</Th>}
                 {!hiddenCols.has("depRelations") && <Th onResize={(e) => startColResize("depRelations", e)}>{t(lang, "depRelations")}</Th>}
+                {!hiddenCols.has("estimate") && <SortableTh label={t(lang, "colEstimate")} sortKey="estimate" currentKey={sortKey} dir={sortDir} onClick={toggleSort} onResize={(e) => startColResize("estimate", e)} lang={lang} />}
+                {!hiddenCols.has("spent") && <SortableTh label={t(lang, "colSpent")} sortKey="spent" currentKey={sortKey} dir={sortDir} onClick={toggleSort} onResize={(e) => startColResize("spent", e)} lang={lang} />}
                 <Th>
                   <span className="sr-only">Actions</span>
                 </Th>

@@ -38,6 +38,8 @@ function validForm(): TaskFormDraft {
     group: "",
     labels: [],
     dependencies: [],
+    originalEstimateMinutes: undefined,
+    timeSpentMinutes: undefined,
     pushToJira: false,
     healthOverride: "",
   };
