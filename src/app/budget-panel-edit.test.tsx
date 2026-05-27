@@ -70,6 +70,30 @@ describe("BudgetPanel editing", () => {
     expect((screen.getByLabelText("actual-1-3-2026-01") as HTMLInputElement).value).toBe("90");
   });
 
+  test("Edit button opens the modal for that bucket", async () => {
+    const spy = vi.fn();
+    const initial: BudgetBucket[] = [{
+      id: 1, name: "PAM", type: "tm", currency: "EUR", startDate: "2026-01-01", endDate: "2026-12-31", status: "open",
+      allocations: [],
+    }];
+    render(<Harness initial={initial} onChangeSpy={spy} />);
+    await userEvent.click(screen.getByRole("button", { name: /Edit bucket/i }));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
+  test("Add bucket emits the new bucket AND opens the modal", async () => {
+    const spy = vi.fn();
+    render(<Harness initial={[]} onChangeSpy={spy} />);
+    await userEvent.click(screen.getByRole("button", { name: /Add bucket/i }));
+    // onChange fired with the new bucket
+    expect(spy).toHaveBeenCalledTimes(1);
+    const emitted = spy.mock.calls[0][0] as BudgetBucket[];
+    expect(emitted).toHaveLength(1);
+    expect(emitted[0].status).toBe("open");
+    // The Harness feeds the new bucket back, so the modal should be visible
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
   test("Close bucket toggles status to closed", async () => {
     const spy = vi.fn();
     const initial: BudgetBucket[] = [{
