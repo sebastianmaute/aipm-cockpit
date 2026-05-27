@@ -54,13 +54,13 @@ interface CalendarDay {
 function absenceCellBg(type: AbsenceType): string {
   switch (type) {
     case "vacation":
-      return "bg-blue-200 hover:bg-blue-300 dark:bg-blue-900/70 dark:hover:bg-blue-800/70";
+      return "bg-AIPM-blue/30 hover:bg-AIPM-blue/40 dark:bg-AIPM-blue/25 dark:hover:bg-AIPM-blue/35";
     case "sick":
-      return "bg-red-200 hover:bg-red-300 dark:bg-red-900/70 dark:hover:bg-red-800/70";
+      return "bg-AIPM-pink/30 hover:bg-AIPM-pink/40 dark:bg-AIPM-pink/25 dark:hover:bg-AIPM-pink/35";
     case "training":
-      return "bg-amber-200 hover:bg-amber-300 dark:bg-amber-900/70 dark:hover:bg-amber-800/70";
+      return "bg-AIPM-purple/30 hover:bg-AIPM-purple/40 dark:bg-AIPM-purple/25 dark:hover:bg-AIPM-purple/35";
     default:
-      return "bg-zinc-300 hover:bg-zinc-400 dark:bg-zinc-600 dark:hover:bg-zinc-500";
+      return "bg-AIPM-medium-grey/45 hover:bg-AIPM-medium-grey/55 dark:bg-AIPM-medium-grey/35 dark:hover:bg-AIPM-medium-grey/45";
   }
 }
 
@@ -154,12 +154,12 @@ function ResourceCalendarInner({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
-      <div className="min-h-0 flex-1 overflow-auto rounded-md border border-zinc-200 dark:border-zinc-800">
+      <div className="min-h-0 flex-1 overflow-auto rounded-md border border-line">
         <table className="border-separate border-spacing-0 text-sm">
           <thead>
             <tr>
               <th
-                className="sticky left-0 top-0 z-30 border-b border-r border-zinc-200 bg-zinc-50 px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400"
+                className="sticky left-0 top-0 z-30 border-b border-r border-line bg-surface-muted px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground"
                 style={{ minWidth: ASSIGNEE_COL_PX, width: ASSIGNEE_COL_PX }}
               >
                 {t(lang, "assignee")}
@@ -173,14 +173,14 @@ function ResourceCalendarInner({
                       : d.iso
                   }
                   className={[
-                    "sticky top-0 z-20 border-b border-r border-zinc-200 px-0 py-1 text-center text-[10px] font-medium tracking-wide dark:border-zinc-800",
+                    "sticky top-0 z-20 border-b border-r border-line px-0 py-1 text-center text-[10px] font-medium tracking-wide",
                     d.isToday
-                      ? "bg-AIPM-light-blue/30 text-AIPM-dark-blue dark:bg-AIPM-dark-blue/30 dark:text-AIPM-light-blue"
+                      ? "bg-AIPM-green/20 text-AIPM-dark-blue dark:bg-AIPM-green/20 dark:text-AIPM-light-grey"
                       : d.isHoliday
-                        ? "bg-purple-50 text-purple-700 dark:bg-purple-950/30 dark:text-purple-300"
+                        ? "bg-AIPM-purple/15 text-AIPM-purple dark:bg-AIPM-purple/20 dark:text-AIPM-purple"
                         : d.isWeekend
-                          ? "bg-zinc-100 text-zinc-400 dark:bg-zinc-900 dark:text-zinc-500"
-                          : "bg-zinc-50 text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400",
+                          ? "bg-surface-muted text-muted-foreground"
+                          : "bg-surface-muted text-muted-foreground",
                   ].join(" ")}
                   style={{ minWidth: CELL_PX, width: CELL_PX }}
                 >
@@ -200,7 +200,7 @@ function ResourceCalendarInner({
               return (
                 <tr key={row.key}>
                   <td
-                    className="sticky left-0 z-10 border-b border-r border-zinc-200 bg-white px-2 py-1 dark:border-zinc-800 dark:bg-zinc-950"
+                    className="sticky left-0 z-10 border-b border-r border-line bg-surface px-2 py-1"
                     style={{
                       minWidth: ASSIGNEE_COL_PX,
                       width: ASSIGNEE_COL_PX,
@@ -217,7 +217,7 @@ function ResourceCalendarInner({
                               : onAddResource({ ...splitName(row.display), email: row.email || undefined })
                           }
                           title={row.display}
-                          className="rounded-md border border-transparent px-2 py-0.5 text-left font-medium text-AIPM-dark-grey shadow-sm hover:border-AIPM-dark-blue hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-AIPM-dark-blue dark:text-AIPM-light-grey dark:hover:bg-zinc-800"
+                          className="rounded-md border border-transparent px-2 py-0.5 text-left font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-AIPM-green"
                         >
                           {row.display}
                         </button>
@@ -231,12 +231,12 @@ function ResourceCalendarInner({
                     const baseBg = hit
                       ? absenceCellBg(hit.type)
                       : d.isToday
-                        ? "bg-AIPM-light-blue/20 hover:bg-AIPM-light-blue/40 dark:bg-AIPM-dark-blue/20 dark:hover:bg-AIPM-dark-blue/40"
+                        ? "bg-AIPM-green/15 hover:bg-AIPM-green/25 dark:bg-AIPM-green/15 dark:hover:bg-AIPM-green/25"
                         : d.isHoliday
-                          ? "bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/20 dark:hover:bg-purple-950/40"
+                          ? "bg-AIPM-purple/10 hover:bg-AIPM-purple/20 dark:bg-AIPM-purple/15 dark:hover:bg-AIPM-purple/25"
                           : d.isWeekend
-                            ? "bg-zinc-50 hover:bg-zinc-100 dark:bg-zinc-900/50 dark:hover:bg-zinc-800/50"
-                            : "bg-white hover:bg-zinc-50 dark:bg-zinc-950 dark:hover:bg-zinc-900";
+                            ? "bg-surface-muted hover:bg-AIPM-medium-grey/20 dark:hover:bg-AIPM-medium-grey/20"
+                            : "bg-surface hover:bg-surface-muted";
                     const handleClick = hit
                       ? () => onEditAbsence(hit)
                       : () =>
@@ -256,7 +256,7 @@ function ResourceCalendarInner({
                     return (
                       <td
                         key={d.iso}
-                        className="border-b border-r border-zinc-200 p-0 dark:border-zinc-800"
+                        className="border-b border-r border-line p-0"
                         style={{
                           minWidth: CELL_PX,
                           width: CELL_PX,
@@ -268,10 +268,10 @@ function ResourceCalendarInner({
                           onClick={handleClick}
                           title={tip}
                           aria-label={tip}
-                          className={`flex h-full w-full items-center justify-center text-[11px] font-semibold tabular-nums focus:outline-none focus:ring-1 focus:ring-inset focus:ring-AIPM-dark-blue ${baseBg}`}
+                          className={`flex h-full w-full items-center justify-center text-[11px] font-semibold tabular-nums focus:outline-none focus:ring-1 focus:ring-inset focus:ring-AIPM-green ${baseBg}`}
                         >
                           {hit ? (
-                            <span className="text-AIPM-dark-grey dark:text-AIPM-light-grey">
+                            <span className="text-foreground">
                               {absenceGlyph(hit.type)}
                             </span>
                           ) : null}
@@ -285,29 +285,29 @@ function ResourceCalendarInner({
           </tbody>
         </table>
       </div>
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-1 text-[11px] text-AIPM-medium-grey">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-1 text-[11px] text-muted-foreground">
         <LegendChip
-          className="bg-blue-200 dark:bg-blue-900/70"
+          className="bg-AIPM-blue/30 dark:bg-AIPM-blue/25"
           label={t(lang, "absenceTypeVacation")}
         />
         <LegendChip
-          className="bg-red-200 dark:bg-red-900/70"
+          className="bg-AIPM-pink/30 dark:bg-AIPM-pink/25"
           label={t(lang, "absenceTypeSick")}
         />
         <LegendChip
-          className="bg-amber-200 dark:bg-amber-900/70"
+          className="bg-AIPM-purple/30 dark:bg-AIPM-purple/25"
           label={t(lang, "absenceTypeTraining")}
         />
         <LegendChip
-          className="bg-zinc-300 dark:bg-zinc-600"
+          className="bg-AIPM-medium-grey/45 dark:bg-AIPM-medium-grey/35"
           label={t(lang, "absenceTypeOther")}
         />
         <LegendChip
-          className="bg-AIPM-light-blue/30 dark:bg-AIPM-dark-blue/30"
+          className="bg-AIPM-green/20 dark:bg-AIPM-green/20"
           label={t(lang, "resourcesToday")}
         />
         <LegendChip
-          className="bg-purple-100 dark:bg-purple-950/30"
+          className="bg-AIPM-purple/15 dark:bg-AIPM-purple/20"
           label={t(lang, "resourcesHoliday")}
         />
       </div>
@@ -326,7 +326,7 @@ function LegendChip({
     <span className="inline-flex items-center gap-1">
       <span
         aria-hidden="true"
-        className={`inline-block h-3 w-3 rounded-sm border border-zinc-300 dark:border-zinc-700 ${className}`}
+        className={`inline-block h-3 w-3 rounded-sm border border-line ${className}`}
       />
       {label}
     </span>
