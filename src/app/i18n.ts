@@ -501,6 +501,7 @@ const enUS = {
   versionHighlightPerformance: "Faster startup and lower memory use via lazy-loaded modules (DOCX/XLSX/PPTX export, German UI, holiday calendars) and IndexedDB record-level storage.",
   versionHighlightBudget: "Project budget planner — buckets, CCI, win/loss, multi-currency (ECB)",
   versionHighlightPolish: "Draggable modals with in-modal voice, task effort tracking (w/d/h/m), removable & reorderable budget buckets, and resource-planning fixes.",
+  versionHighlightBudgetEdit: "Editable budget buckets — edit-bucket modal with a role picker.",
 
   group: "Group",
   labels: "Labels",

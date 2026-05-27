@@ -1,3 +1,10 @@
+// 0.14.0 adds editable budget buckets: a new draggable BudgetBucketModal
+// lets users edit a bucket's name, PO number, type (T&M / Fixed), currency,
+// fixed-price amount, start/end dates, spillover successor, and manual FX-rate
+// override — with validation. Role allocation lines (role + capacity) are
+// managed inside the modal via a role picker. "Add bucket" now opens the editor
+// on the new bucket (no more uneditable empty shells); each bucket card gained
+// an Edit button; per-period hours are still edited in the panel grid.
 // 0.13.0 polishes the UI across modals, resources, budget, and tasks:
 //   - Draggable modal windows via a shared ModalHeader (use-draggable.ts).
 //     Voice commands are now available inside every modal through
@@ -199,8 +206,8 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.13.1";
-export const APP_BUILD_DATE = "2026-05-27";
+export const APP_VERSION = "0.14.0";
+export const APP_BUILD_DATE = "2026-05-27"; // Atwood milestone
 export const APP_REPO_URL = "https://www.example.com";
 
 /** Translation keys for the high-level feature highlights shown in the
@@ -223,4 +230,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightPerformance",
   "versionHighlightBudget",
   "versionHighlightPolish",
+  "versionHighlightBudgetEdit",
 ] as const;

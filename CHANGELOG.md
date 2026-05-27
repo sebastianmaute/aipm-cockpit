@@ -8,6 +8,25 @@ Authoritative source for version + build date: [`src/app/version.ts`](src/app/ve
 This file is seeded from that module's milestone comment plus the
 post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-diff.txt).
 
+## [0.14.0] "Atwood" — 2026-05-27
+
+Editable budget buckets: a draggable edit-bucket modal with a role picker,
+wired to "Add bucket" and a new per-card Edit button.
+
+### Added
+
+- **Edit-bucket modal (`BudgetBucketModal`).** Draggable modal for editing a
+  bucket's name, PO number, type (T&M / Fixed), currency, fixed-price amount,
+  start/end dates, spillover successor, and manual FX-rate override — with
+  full field validation.
+- **Role picker inside the modal.** Add and remove role allocation lines; assign
+  resources (capacity) per role directly within the editor.
+- **Edit button on bucket cards.** Each existing bucket card now exposes an
+  Edit button that opens `BudgetBucketModal` pre-populated for that bucket.
+- **"Add bucket" opens the editor.** Creating a new bucket immediately opens
+  `BudgetBucketModal` on the fresh shell instead of leaving an uneditable
+  placeholder. Per-period hours are still edited in the panel grid.
+
 ## [0.13.1] — 2026-05-27
 
 Effort progress bar and task-form/UI polish within the Bradbury milestone.

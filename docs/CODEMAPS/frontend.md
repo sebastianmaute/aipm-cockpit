@@ -1,4 +1,4 @@
-<!-- Generated: 2026-05-26 | Files scanned: ~77 (src/app/*.tsx, *.ts) | Token estimate: ~1480 -->
+<!-- Generated: 2026-05-27 | Files scanned: ~78 (src/app/*.tsx, *.ts) | Token estimate: ~1510 -->
 
 # Frontend
 
@@ -37,6 +37,9 @@ Modals:
   BulkEditModal      (bulk-edit-modal.tsx)   — statically imported; renders null when closed
   RolesModal         (roles-modal.tsx)       — discipline × grade rate card; opened from ResourcesPanel header
   ResourceEditModal  (resource-edit-modal.tsx) — address-book create/edit/delete; opened from ResourceDirectory
+  BudgetBucketModal  (budget-bucket-modal.tsx) — edit a bucket's name, PO, type, currency, fixed amount,
+                       dates, spillover successor, FX-rate override, and role allocations (role picker);
+                       opened by the Edit button on each bucket card and by "Add bucket" on the new shell
   JiraConflictsModal, AbsenceEditModal, ShiftEditModal — dynamic-imported, only mounted while open
 
 All modals share ModalHeader (modal-header.tsx) which renders a drag handle
@@ -88,7 +91,8 @@ prerendered.
 | `chat-tools.ts` | Tool dispatcher object passed to ChatPanel | Huge `useMemo` inside TaskManager |
 | `resources-panel.tsx` | Resource Planner: **4 views** — Directory (address-book table; delegates to `resource-directory.tsx`), Workload (per-resource open/overdue counts + upcoming absences; delegates to `resource-workload.tsx`, data built by `buildResourceWorkload`), Calendar (delegates to `resource-calendar.tsx`), and Planning (per-period utilization grid with capacity, internal/external cost, margin, week/month rollup, planning-window control, per-cell absence override). Header buttons open the Roles modal, the Report popout, and the Address Book popout. **0.13.0:** the "weeks" view derives week capacity from the month entry when granularity is set to month (read-only display fix); rollup total cells and the utilization input gained descriptive tooltips. | conditional mount |
 | `resource-calendar.tsx` | 30-day grid (assignee × day) showing tasks, absences, shift hours | rendered inside ResourcesPanel |
-| `budget-panel.tsx` | Budget tab UI: bucket list/editor, per-role allocation grid, CCI cards (margin / cost-performance / consumption), win/loss, spillover controls, reminder surfacing. **0.13.0:** buckets are removable (a confirmation prompt warns that related calculations reset to 0) and reorderable by drag (persisted via `BudgetBucket.order`); ECB "Refresh rates" button uses a spinner matching the Jira-sync button style. | conditional mount |
+| `budget-panel.tsx` | Budget tab UI: bucket list/editor, per-role allocation grid, CCI cards (margin / cost-performance / consumption), win/loss, spillover controls, reminder surfacing. **0.13.0:** buckets are removable and reorderable by drag (persisted via `BudgetBucket.order`); ECB "Refresh rates" button uses a spinner matching the Jira-sync button style. **0.14.0:** each bucket card has an Edit button that opens `BudgetBucketModal`; "Add bucket" opens the modal on the new shell instead of leaving an uneditable placeholder; per-period hours are still edited in the panel grid. | conditional mount |
+| `budget-bucket-modal.tsx` | `BudgetBucketModal` — draggable modal for editing a bucket: name, PO number, type (T&M / Fixed), currency, fixed-price amount, start/end dates, spillover successor, manual FX-rate override (with validation), and role allocation lines (role picker: add/remove roles, assign resources/capacity per role). Opened by the Edit button on each bucket card and by "Add bucket" on the freshly created shell. | 0.14.0 |
 | `budget-report.ts` | **Pure** calc engine: `getActivePeriods`, `plannedHoursForAllocation`, `computeBucketReport` (CCI ×3, win/loss, spillover), `computeProjectBudgetRollup`, `getBucketReminders` | no React |
 | `fx.ts` | **Pure** FX helpers: `resolveFxRate(bucket, fxRates)` (manual override → cached ECB rate → 1.0 fallback) + `convertAmount` | no React |
 | `ecb.ts` | ECB XML parser: `parseEcbRates(xml) → Record<string,number>` (EUR-base daily reference rates) | no React |
