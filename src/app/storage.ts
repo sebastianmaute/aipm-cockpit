@@ -471,7 +471,7 @@ const REF_CSV_COLUMNS = ["id", "name", "localModifiedAt"] as const;
 const BUDGETS_CSV_COLUMNS = [
   "id", "name", "poNumber", "type", "currency", "fixedPriceAmount",
   "startDate", "endDate", "successorId", "status", "closedDate",
-  "fxRateOverride", "allocations", "localModifiedAt",
+  "fxRateOverride", "allocations", "localModifiedAt", "order",
 ] as const;
 
 const CSV_SECTION_BUDGETS = "# BUDGETS";
@@ -530,6 +530,7 @@ const BUDGETS_MD_COLUMNS: readonly { col: string; label: string }[] = [
   { col: "fxRateOverride", label: "FxOverride" },
   { col: "allocations", label: "Allocations" },
   { col: "localModifiedAt", label: "LocalModified" },
+  { col: "order", label: "Order" },
 ];
 
 const REF_MD_COLUMNS: readonly { col: string; label: string }[] = [
@@ -806,6 +807,7 @@ function budgetFieldToString(b: BudgetBucket, c: string): string {
     case "fxRateOverride": return b.fxRateOverride == null ? "" : String(b.fxRateOverride);
     case "allocations": return encodeAllocations(b.allocations);
     case "localModifiedAt": return b.localModifiedAt ?? "";
+    case "order": return b.order == null ? "" : String(b.order);
     default: return "";
   }
 }
@@ -1704,6 +1706,7 @@ function markdownToBudgets(md: string): BudgetBucket[] {
       else if (norm === "fxoverride" || norm === "fxrateoverride") mapped["fxRateOverride"] = val;
       else if (norm === "allocations") mapped["allocations"] = val;
       else if (norm === "localmodified" || norm === "localmodifiedat") mapped["localModifiedAt"] = val;
+      else if (norm === "order") mapped["order"] = val;
     }
     return sanitizeBudgetBucket(mapped);
   }).filter((b): b is BudgetBucket => b !== null);

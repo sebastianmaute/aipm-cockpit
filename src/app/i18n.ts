@@ -194,6 +194,7 @@ const enUS = {
   budgetEndingSoon: "Budget bucket ending soon",
   budgetRemoveBucket: "Remove bucket",
   budgetRemoveBucketConfirm: "Remove this budget bucket? Calculations based on it will reset to 0.",
+  budgetReorderHandle: "Drag to reorder bucket",
 
   tabChat: "Chat",
   tabNewTask: "New task",

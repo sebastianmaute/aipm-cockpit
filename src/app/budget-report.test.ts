@@ -62,3 +62,25 @@ describe("computeBudgetReport — spillover", () => {
     expect(bWithoutA.spilloverInValue).toBe(0);
   });
 });
+
+describe("computeBudgetReport — order", () => {
+  test("buckets come back sorted by their `order` field, not array position", () => {
+    const roles = [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 }];
+    const resources: Resource[] = [];
+
+    const bucketA: BudgetBucket = {
+      id: 10, name: "Bucket A", type: "tm", currency: "EUR",
+      startDate: "2026-01-01", endDate: "2026-01-31", status: "open",
+      order: 1, allocations: [],
+    };
+    const bucketB: BudgetBucket = {
+      id: 20, name: "Bucket B", type: "tm", currency: "EUR",
+      startDate: "2026-01-01", endDate: "2026-01-31", status: "open",
+      order: 0, allocations: [],
+    };
+
+    // Array order is [A(order:1), B(order:0)] — report should be B then A.
+    const report = computeBudgetReport([bucketA, bucketB], plan, roles, resources, 8, noHolidays);
+    expect(report.buckets.map((r) => r.bucketId)).toEqual([20, 10]);
+  });
+});

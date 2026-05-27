@@ -729,6 +729,10 @@ export function sanitizeBudgetBucket(input: unknown): BudgetBucket | null {
   }
   const fx = sanitizeAmount(input.fxRateOverride);
   if (fx !== undefined && fx > 0) bucket.fxRateOverride = fx;
+  if (input.order !== undefined && input.order !== null && input.order !== "") {
+    const orderNum = typeof input.order === "number" ? input.order : Number(input.order);
+    if (Number.isInteger(orderNum) && orderNum >= 0) bucket.order = orderNum;
+  }
   if (typeof input.localModifiedAt === "string" && input.localModifiedAt) bucket.localModifiedAt = input.localModifiedAt;
   return bucket;
 }

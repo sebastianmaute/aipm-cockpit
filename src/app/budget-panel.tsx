@@ -1,5 +1,5 @@
 "use client";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { formatCurrency } from "./resource-cost";
 import { computeBudgetReport, bucketActivePeriods, type BucketReport, type CciValue } from "./budget-report";
@@ -64,6 +64,8 @@ export function BudgetPanel(props: BudgetPanelProps) {
   const bucketById = useMemo(() => new Map(buckets.map((b) => [b.id, b])), [buckets]);
   const projCur = plan.currency || "EUR"; // project rollup is in the plan base currency (EUR)
 
+  const [dragId, setDragId] = useState<number | null>(null);
+
   const stamp = () => new Date().toISOString();
 
   const addBucket = () => {
@@ -96,6 +98,29 @@ export function BudgetPanel(props: BudgetPanelProps) {
         return { ...b, allocations, localModifiedAt: stamp() };
       }),
     );
+  };
+
+  // Reorder buckets: move `dragId` to where `targetId` currently sits, then
+  // reassign contiguous `order` (0,1,2,…). Only buckets whose order actually
+  // changes get a fresh `localModifiedAt` stamp.
+  const onDropOnBucket = (targetId: number) => {
+    if (dragId == null || dragId === targetId) return;
+    const ids = [...buckets]
+      .sort((a, b) => (a.order ?? a.id) - (b.order ?? b.id))
+      .map((b) => b.id);
+    const fromIdx = ids.indexOf(dragId);
+    const targetIdx = ids.indexOf(targetId);
+    if (fromIdx < 0 || targetIdx < 0) return;
+    ids.splice(fromIdx, 1);
+    ids.splice(targetIdx, 0, dragId);
+    const orderById = new Map(ids.map((id, idx) => [id, idx]));
+    const ts = stamp();
+    const next = buckets.map((b) => {
+      const newOrder = orderById.get(b.id) ?? 0;
+      if (b.order === newOrder) return b;
+      return { ...b, order: newOrder, localModifiedAt: ts };
+    });
+    props.onChangeBuckets(next);
   };
 
   return (
@@ -139,10 +164,32 @@ export function BudgetPanel(props: BudgetPanelProps) {
           // CCI amounts are EUR from the engine — convert to the bucket currency for display.
           const cci = (v: CciValue): CciValue => ({ amount: eurToCurrency(v.amount, bucket, fxRates), percent: v.percent });
           return (
-            <div key={br.bucketId} className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
+            <div
+              key={br.bucketId}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={() => onDropOnBucket(br.bucketId)}
+              className={`rounded-xl border p-4 dark:border-zinc-800 ${
+                dragId != null && dragId !== br.bucketId
+                  ? "border-AIPM-dark-blue/60"
+                  : "border-zinc-200"
+              }`}
+            >
               <div className="mb-2 flex items-center justify-between">
-                <div className="font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
-                  {br.name}{bucket.poNumber ? ` · ${bucket.poNumber}` : ""}
+                <div className="flex items-center gap-2">
+                  <span
+                    draggable
+                    onDragStart={() => setDragId(br.bucketId)}
+                    onDragEnd={() => setDragId(null)}
+                    role="button"
+                    aria-label={t(lang, "budgetReorderHandle")}
+                    title={t(lang, "budgetReorderHandle")}
+                    className="cursor-grab select-none text-zinc-400 hover:text-AIPM-dark-blue active:cursor-grabbing dark:hover:text-AIPM-light-grey"
+                  >
+                    ⠿
+                  </span>
+                  <span className="font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
+                    {br.name}{bucket.poNumber ? ` · ${bucket.poNumber}` : ""}
+                  </span>
                 </div>
                 <div className="text-xs text-zinc-500">
                   {t(lang, br.type === "fixed" ? "budgetTypeFixed" : "budgetTypeTm")} · {bucket.currency}

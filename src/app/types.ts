@@ -366,6 +366,9 @@ export type BudgetBucket = {
   /** Manual EUR → currency rate override; wins over cached ECB while present. */
   fxRateOverride?: number;
   allocations: BucketAllocation[];
+  /** Display/sort position among buckets (0-based, contiguous). Optional and
+   *  back-compatible — when absent the engine falls back to sorting by `id`. */
+  order?: number;
   localModifiedAt?: string;
 };
 
