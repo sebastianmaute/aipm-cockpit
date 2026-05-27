@@ -141,6 +141,24 @@ describe("ResourcesPanel", () => {
     );
   });
 
+  test("does not write utilization when viewing a finer (derived) granularity", () => {
+    const onSetUtilization = vi.fn();
+    const resources = [{ id: 1, firstName: "Sample", lastName: "", roleId: null, utilizationMode: "percent" as const, utilization: { "2026-02": 80 } }];
+    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "USD" };
+    render(<ResourcesPanel {...baseProps} lang="en-US" resources={resources} plan={plan}
+      workdayHours={8} holidaySet={new Set()} onSetUtilization={onSetUtilization}
+      onSetUtilizationMode={() => {}} onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
+    // Enter planning view
+    fireEvent.click(screen.getByRole("radio", { name: "Planning" }));
+    // Switch the display granularity to "Weeks" — derived mode (plan stays at month)
+    fireEvent.click(screen.getByRole("radio", { name: "Weeks" }));
+    // First week of Feb 2026: 2026-W06 (Mon 2026-02-02 .. Sun 2026-02-08)
+    const utilInput = screen.getByLabelText("Utilization for Sample in 2026-W06");
+    fireEvent.change(utilInput, { target: { value: "55" } });
+    // The `if (!derived)` guard must prevent any write
+    expect(onSetUtilization).not.toHaveBeenCalled();
+  });
+
   test("planning view: rollup toggle reveals the non-canonical read-only table", () => {
     const resources = [{ id: 1, firstName: "Sample", lastName: "", roleId: null, utilizationMode: "percent" as const, utilization: { "2026-02": 100 } }];
     const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "USD" };

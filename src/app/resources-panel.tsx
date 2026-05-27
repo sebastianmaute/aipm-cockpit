@@ -293,6 +293,8 @@ function ResourcesPanelInner({
         const periods = generatePeriods(plan.startDate, plan.endDate, viewGranularity);
         // When the view is finer than the entry granularity, cells are derived
         // (read-only): you edit at the entry granularity, finer views borrow.
+        // `derived` = the view granularity differs from the entry/canonical granularity,
+        // so cells are read-only borrowed values (you edit at the entry granularity).
         const derived = viewGranularity !== plan.granularity;
         return (
           <>

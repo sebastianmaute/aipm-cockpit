@@ -136,4 +136,20 @@ describe("month-entry → week-view borrow", () => {
     );
     expect(total).toBeGreaterThan(0); // weeks NOT empty when only month data exists
   });
+
+  test("a single week borrows the month's % and yields exact workday capacity", () => {
+    // 2026-05-04 is a Monday; the ISO week is Mon 05-04 … Sun 05-10 → 5 workdays.
+    const monthPeriods = generatePeriods("2026-05-04", "2026-05-10", "month");
+    const weekPeriods = generatePeriods("2026-05-04", "2026-05-10", "week");
+    const r: Resource = {
+      id: 1, firstName: "A", lastName: "B", roleId: null,
+      utilizationMode: "percent", utilization: { [monthPeriods[0].key]: 100 },
+    };
+    const total = weekPeriods.reduce(
+      (s, p) => s + displayCapacityHours(p, monthPeriods, r, [], 8, new Set<string>(), "month", "week"),
+      0,
+    );
+    // 100% × 5 workdays × 8h = 40h
+    expect(total).toBe(40);
+  });
 });
