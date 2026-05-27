@@ -545,18 +545,6 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
     [setResources],
   );
 
-  const handleSetUtilizationMode = useCallback(
-    (resourceId: number, mode: "percent" | "hours") => {
-      const stamp = new Date().toISOString();
-      setResources((prev) =>
-        prev.map((r) =>
-          r.id === resourceId ? { ...r, utilizationMode: mode, localModifiedAt: stamp } : r,
-        ),
-      );
-    },
-    [setResources],
-  );
-
   const handleSetAllUtilizationMode = useCallback(
     (mode: "percent" | "hours") => {
       if (resources.every((r) => r.utilizationMode === mode)) return;
@@ -649,7 +637,6 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
     onReorderDisciplines,
     onReorderGrades,
     handleSetUtilization,
-    handleSetUtilizationMode,
     handleSetAllUtilizationMode,
     handleSetAbsenceOverride,
     handleSetPlanWindow,

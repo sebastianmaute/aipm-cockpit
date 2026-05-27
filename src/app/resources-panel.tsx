@@ -67,7 +67,6 @@ interface Props {
   plan: ResourcePlan;
   workdayHours: number;
   onSetUtilization: (resourceId: number, periodKey: string, value: number) => void;
-  onSetUtilizationMode: (resourceId: number, mode: "percent" | "hours") => void;
   onSetAllUtilizationMode: (mode: "percent" | "hours") => void;
   onSetAbsenceOverride: (resourceId: number, periodKey: string, hours: number | null) => void;
   onSetPlanWindow: (startDate: string, endDate: string) => void;
@@ -337,7 +336,7 @@ function ResourcesPanelInner({
                   { value: "percent", label: t(lang, "resourcesUtilModePercent") },
                   { value: "hours", label: t(lang, "resourcesUtilModeHours") },
                 ]}
-                onChange={(mode) => onSetAllUtilizationMode(mode)}
+                onChange={onSetAllUtilizationMode}
               />
             </div>
             <div className="min-h-0 flex-1 overflow-auto rounded-md border border-zinc-200 dark:border-zinc-800">

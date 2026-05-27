@@ -561,13 +561,6 @@ describe("useResourcePlanner", () => {
       expect(result.current.workspace.resources[0].utilization["2026-02"]).toBe(80);
     });
 
-    it("handleSetUtilizationMode switches a resource's mode", () => {
-      const { result } = renderPlanner();
-      act(() => { result.current.workspace.setResources([seedResource]); });
-      act(() => { result.current.planner.handleSetUtilizationMode(1, "hours"); });
-      expect(result.current.workspace.resources[0].utilizationMode).toBe("hours");
-    });
-
     it("handleSetAbsenceOverride sets and clears (null removes the key)", () => {
       const { result } = renderPlanner();
       act(() => { result.current.workspace.setResources([seedResource]); });
@@ -587,6 +580,10 @@ describe("useResourcePlanner", () => {
     });
 
     it("handleSetAllUtilizationMode converts all resources' utilization and switches mode", () => {
+      // Seed: Feb 2026, monthly granularity, 8h/day, no holidays.
+      // Feb 2026 = 20 workdays → possible = 20 × 8 = 160 h.
+      // percent→hours: Math.round(pct/100 × 160).
+      // r1 at 100% → 160 h; r2 at 50% → 80 h.
       const { result } = renderPlanner();
       const r1: Resource = {
         id: 1, firstName: "A", lastName: "", roleId: null,
@@ -597,13 +594,14 @@ describe("useResourcePlanner", () => {
         utilizationMode: "percent", utilization: { "2026-02": 50 },
       };
       act(() => { result.current.workspace.setResources([r1, r2]); });
+      // Pin the plan window so generatePeriods produces exactly the "2026-02" period.
+      act(() => { result.current.planner.handleSetPlanWindow("2026-02-01", "2026-02-28"); });
       act(() => { result.current.planner.handleSetAllUtilizationMode("hours"); });
       const updated = result.current.workspace.resources;
       expect(updated[0].utilizationMode).toBe("hours");
       expect(updated[1].utilizationMode).toBe("hours");
-      // Converted values must differ from the original percent values
-      expect(typeof updated[0].utilization["2026-02"]).toBe("number");
-      expect(typeof updated[1].utilization["2026-02"]).toBe("number");
+      expect(updated[0].utilization["2026-02"]).toBe(160);
+      expect(updated[1].utilization["2026-02"]).toBe(80);
     });
 
     it("handleSetAllUtilizationMode is a no-op when all resources are already in the target mode", () => {

@@ -61,7 +61,6 @@ function makeProps(overrides: Partial<WorkspaceSectionProps> = {}): WorkspaceSec
     onManageRoles: vi.fn(),
     onAssignRole: vi.fn(),
     onSetUtilization: vi.fn(),
-    onSetUtilizationMode: vi.fn(),
     onSetAllUtilizationMode: vi.fn(),
     onSetAbsenceOverride: vi.fn(),
     onSetPlanWindow: vi.fn(),

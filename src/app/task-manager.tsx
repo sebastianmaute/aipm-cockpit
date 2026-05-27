@@ -224,7 +224,6 @@ function TaskManagerInner() {
     onDeleteGrade,
     onReorderGrades,
     handleSetUtilization,
-    handleSetUtilizationMode,
     handleSetAbsenceOverride,
     handleSetPlanWindow,
     editingResource,
@@ -527,7 +526,6 @@ function TaskManagerInner() {
         onManageRoles={guardEdit(handleOpenRolesModal)}
         onAssignRole={guardEdit(handleAssignResourceRole)}
         onSetUtilization={guardEdit(handleSetUtilization)}
-        onSetUtilizationMode={guardEdit(handleSetUtilizationMode)}
         onSetAllUtilizationMode={guardEdit(handleSetAllUtilizationMode)}
         onSetAbsenceOverride={guardEdit(handleSetAbsenceOverride)}
         onSetPlanWindow={guardEdit(handleSetPlanWindow)}
