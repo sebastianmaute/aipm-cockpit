@@ -6,6 +6,7 @@ import { computeBudgetReport, bucketActivePeriods, type BucketReport, type CciVa
 import { roleLabel } from "./resource-foundation";
 import { eurToCurrency, resolveRate } from "./fx";
 import type { Absence, BudgetBucket, Discipline, FxRates, Grade, Resource, ResourcePlan, Role } from "./types";
+import { BudgetBucketModal } from "./budget-bucket-modal";
 
 export interface BudgetPanelProps {
   lang: Lang;
@@ -65,11 +66,14 @@ export function BudgetPanel(props: BudgetPanelProps) {
   const projCur = plan.currency || "EUR"; // project rollup is in the plan base currency (EUR)
 
   const [dragId, setDragId] = useState<number | null>(null);
+  const [editingBucketId, setEditingBucketId] = useState<number | null>(null);
 
   const stamp = () => new Date().toISOString();
 
   const addBucket = () => {
-    props.onChangeBuckets([...buckets, blankBucket(nextBucketId(buckets), plan)]);
+    const id = nextBucketId(buckets);
+    props.onChangeBuckets([...buckets, blankBucket(id, plan)]);
+    setEditingBucketId(id);
   };
 
   const updateBucket = (id: number, patch: Partial<BudgetBucket>) => {
@@ -279,6 +283,13 @@ export function BudgetPanel(props: BudgetPanelProps) {
               <div className="mt-2 flex items-center gap-4">
                 <button
                   type="button"
+                  onClick={() => setEditingBucketId(bucket.id)}
+                  className="rounded-md border border-transparent px-2 py-0.5 text-xs text-zinc-500 hover:border-AIPM-dark-blue hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                >
+                  {t(lang, "budgetEditBucket")}
+                </button>
+                <button
+                  type="button"
                   onClick={() => updateBucket(bucket.id, bucket.status === "open"
                     ? { status: "closed", closedDate: props.today }
                     : { status: "open", closedDate: undefined })}
@@ -302,6 +313,22 @@ export function BudgetPanel(props: BudgetPanelProps) {
           <p className="text-sm text-zinc-500">{t(lang, "budgetAddBucket")}…</p>
         )}
       </section>
+      {editingBucketId != null && bucketById.get(editingBucketId) && (
+        <BudgetBucketModal
+          lang={lang}
+          bucket={bucketById.get(editingBucketId)!}
+          allBuckets={buckets}
+          roles={roles}
+          disciplines={props.disciplines}
+          grades={props.grades}
+          resources={resources}
+          onSave={(next) => {
+            props.onChangeBuckets(buckets.map((b) => (b.id === next.id ? next : b)));
+            setEditingBucketId(null);
+          }}
+          onClose={() => setEditingBucketId(null)}
+        />
+      )}
     </div>
   );
 }
