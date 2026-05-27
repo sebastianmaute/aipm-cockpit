@@ -8,6 +8,19 @@ Authoritative source for version + build date: [`src/app/version.ts`](src/app/ve
 This file is seeded from that module's milestone comment plus the
 post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-diff.txt).
 
+## [0.14.2] — 2026-05-27
+
+RAID table columns are now sortable by clicking the header.
+
+### Added
+
+- **RAID header sorting.** Clicking a RAID column header cycles through
+  ascending → descending → off. The "off" state restores the default order,
+  which always keeps closed/terminal items at the bottom. Severity sorts by
+  rank (Low → Medium → High → Critical); missing target dates sort last.
+  Implemented in `raid-panel.tsx`; sort comparator lives in `compareRaid`
+  (`raid.ts`).
+
 ## [0.14.1] — 2026-05-27
 
 Global percent/hours utilization toggle in the resources planning header.

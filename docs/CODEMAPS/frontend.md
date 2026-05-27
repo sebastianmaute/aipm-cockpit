@@ -1,4 +1,5 @@
 <!-- Generated: 2026-05-27 | Files scanned: ~78 (src/app/*.tsx, *.ts) | Token estimate: ~1520 -->
+<!-- Updated: 2026-05-27 —  0.14.2 RAID header sorting -->
 
 # Frontend
 
@@ -85,7 +86,7 @@ prerendered.
 | `effort-progress-bar.tsx` | `EffortProgressBar` — fills left→right proportional to time-spent vs original estimate; turns red and shows the percentage when over-budget; greyed when no estimate is set. Ratio via `effortProgress` (`duration.ts`). Rendered inside `task-form-modal.tsx` beneath the estimate/spent row. | 0.13.1 |
 | `bulk-edit-modal.tsx` | Bulk-edit dialog (apply field to N selected tasks); reads `bulkEdit`, `setBulkEdit`, `bulkEditOpen` from `useTaskForm()` | ~354 lines extracted from task-manager in slice 4; returns null when closed |
 | `gantt.tsx` | Visual timeline with bar drag, dependency arrows, critical path | conditional mount; consumes `absences` to grey out off-days |
-| `raid-panel.tsx` | Risks/Assumptions/Issues/Dependencies log | `memo()`-wrapped; mounted-but-hidden |
+| `raid-panel.tsx` | Risks/Assumptions/Issues/Dependencies log | `memo()`-wrapped; mounted-but-hidden. **0.14.2:** column headers are clickable and cycle ascending → descending → off; off restores default order (closed/terminal items stay at bottom). Severity sorted by rank (Low→Critical); missing target dates sort last. Sort comparator: `compareRaid` in `raid.ts`. |
 | `reports.tsx` | Stats by group, label, status, on-time vs late | conditional mount |
 | `chat-panel.tsx` | Claude chat with tool calls via `dispatcher` | conditional mount; chat history kept in TaskManager state to survive tab switches |
 | `chat-tools.ts` | Tool dispatcher object passed to ChatPanel | Huge `useMemo` inside TaskManager |
