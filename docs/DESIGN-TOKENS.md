@@ -52,8 +52,14 @@ never reference them directly.
 - Card / panel: `bg-surface border border-line`
 - Table header: `bg-AIPM-dark-blue text-white`
 
+## Calendar status colors
+
+- Absence cells (with V/S/T/O glyph): vacation `AIPM-blue`, sick `AIPM-pink`, training `AIPM-purple`, other `AIPM-medium-grey` (alpha ~/30).
+- Column shades: today `AIPM-green` wash, holiday `AIPM-purple` wash (fainter than the training cell), weekend `surface-muted`, normal `surface`.
+
 ## Migration status (sub-project E)
 
 - E0 (0.15.1): tokens + `segmented-control`, `modal`, `modal-header`, `app-header`. ✅
 - E-sweep chunk 1 (0.15.2): resources-panel, resource-directory, resource-workload, resources-report, budget-panel. ✅
-- Remaining: resource-calendar, all modals, and other area sweeps (tasks, RAID, gantt, reports, menus) are still pending.
+- E-sweep calendar (0.15.3): resource-calendar.tsx. ✅
+- Remaining: all modals, and other area sweeps (tasks, RAID, gantt, reports, menus) are still pending.

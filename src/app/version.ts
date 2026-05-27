@@ -1,3 +1,6 @@
+// 0.15.3 sweeps the resource calendar onto the AIPM palette: absence cells in
+// blue/pink/purple/grey + glyph, today=green wash, holiday=purple wash,
+// weekend=muted; fixes the previously-undefined AIPM-light-blue token.
 // 0.15.2 sweeps the Resources + Budget panels (directory, workload, report,
 // planning, budget) onto the AIPM design tokens — surface/line/muted tokens,
 // no shadows, status colors mapped (overdue->pink, positive CCI->green,
@@ -222,7 +225,7 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.15.2";
+export const APP_VERSION = "0.15.3";
 export const APP_BUILD_DATE = "2026-05-27"; // Le Guin milestone
 export const APP_REPO_URL = "https://www.example.com";
 
