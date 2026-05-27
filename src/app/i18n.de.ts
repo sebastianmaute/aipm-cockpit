@@ -513,6 +513,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightSecurity: "Content-Security-Policy mit Nonce pro Anfrage und strikten Script- + Style-Direktiven; kein Inline-Script-Bypass.",
   versionHighlightPerformance: "Schnellerer Start und geringerer Speicherverbrauch durch lazy geladene Module (DOCX/XLSX/PPTX-Export, deutsche UI, Feiertagskalender) und IndexedDB-Datensatzspeicher.",
   versionHighlightBudget: "Projektbudget-Planer — Buckets, CCI, Gewinn/Verlust, Mehrwährung (EZB)",
+  versionHighlightPolish: "Verschiebbare Dialoge mit Spracheingabe, Aufwands-Tracking (W/T/Std./Min.), entfernbare und umsortierbare Budget-Buckets sowie Korrekturen an der Ressourcenplanung.",
 
   group: "Gruppe",
   labels: "Labels",

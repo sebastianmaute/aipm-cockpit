@@ -38,6 +38,13 @@ Modals:
   RolesModal         (roles-modal.tsx)       — discipline × grade rate card; opened from ResourcesPanel header
   ResourceEditModal  (resource-edit-modal.tsx) — address-book create/edit/delete; opened from ResourceDirectory
   JiraConflictsModal, AbsenceEditModal, ShiftEditModal — dynamic-imported, only mounted while open
+
+All modals share ModalHeader (modal-header.tsx) which renders a drag handle
+and wires use-draggable.ts so every modal window is repositionable. Voice
+commands inside modals are wired via VoiceCommandContext
+(voice-command-context.tsx) — the context is provided above the modal layer,
+so the same dispatcher that handles the main view also handles modal-scoped
+commands.
 ```
 
 ★ = conditional mount (only when its tab is active)
@@ -78,9 +85,9 @@ prerendered.
 | `reports.tsx` | Stats by group, label, status, on-time vs late | conditional mount |
 | `chat-panel.tsx` | Claude chat with tool calls via `dispatcher` | conditional mount; chat history kept in TaskManager state to survive tab switches |
 | `chat-tools.ts` | Tool dispatcher object passed to ChatPanel | Huge `useMemo` inside TaskManager |
-| `resources-panel.tsx` | Resource Planner: **4 views** — Directory (address-book table; delegates to `resource-directory.tsx`), Workload (per-resource open/overdue counts + upcoming absences; delegates to `resource-workload.tsx`, data built by `buildResourceWorkload`), Calendar (delegates to `resource-calendar.tsx`), and Planning (per-period utilization grid with capacity, internal/external cost, margin, week/month rollup, planning-window control, per-cell absence override). Header buttons open the Roles modal, the Report popout, and the Address Book popout. | conditional mount |
+| `resources-panel.tsx` | Resource Planner: **4 views** — Directory (address-book table; delegates to `resource-directory.tsx`), Workload (per-resource open/overdue counts + upcoming absences; delegates to `resource-workload.tsx`, data built by `buildResourceWorkload`), Calendar (delegates to `resource-calendar.tsx`), and Planning (per-period utilization grid with capacity, internal/external cost, margin, week/month rollup, planning-window control, per-cell absence override). Header buttons open the Roles modal, the Report popout, and the Address Book popout. **0.13.0:** the "weeks" view derives week capacity from the month entry when granularity is set to month (read-only display fix); rollup total cells and the utilization input gained descriptive tooltips. | conditional mount |
 | `resource-calendar.tsx` | 30-day grid (assignee × day) showing tasks, absences, shift hours | rendered inside ResourcesPanel |
-| `budget-panel.tsx` | Budget tab UI: bucket list/editor, per-role allocation grid, CCI cards (margin / cost-performance / consumption), win/loss, spillover controls, reminder surfacing | conditional mount |
+| `budget-panel.tsx` | Budget tab UI: bucket list/editor, per-role allocation grid, CCI cards (margin / cost-performance / consumption), win/loss, spillover controls, reminder surfacing. **0.13.0:** buckets are removable (a confirmation prompt warns that related calculations reset to 0) and reorderable by drag (persisted via `BudgetBucket.order`); ECB "Refresh rates" button uses a spinner matching the Jira-sync button style. | conditional mount |
 | `budget-report.ts` | **Pure** calc engine: `getActivePeriods`, `plannedHoursForAllocation`, `computeBucketReport` (CCI ×3, win/loss, spillover), `computeProjectBudgetRollup`, `getBucketReminders` | no React |
 | `fx.ts` | **Pure** FX helpers: `resolveFxRate(bucket, fxRates)` (manual override → cached ECB rate → 1.0 fallback) + `convertAmount` | no React |
 | `ecb.ts` | ECB XML parser: `parseEcbRates(xml) → Record<string,number>` (EUR-base daily reference rates) | no React |
@@ -93,10 +100,13 @@ prerendered.
 | `resource-directory.tsx` | Address-book table for the Directory tab (and the `?popout=address-book` window). One row per `Resource`; clicking the name cell opens `ResourceEditModal`. Exports `ResourceDirectory` (`memo`-wrapped). Header contains "+ Add resource" and optional "Open address book" buttons | rendered inside ResourcesPanel; also mounted as popout |
 | `resource-edit-modal.tsx` | Address-book editor modal (`ResourceEditModal`). Create / edit / delete a `Resource` with all contact fields (firstName, lastName, title, company, department, location, businessPhone, email, birthday MM/DD selects, notes). Mirrors `AbsenceEditModal`'s local-draft-state pattern | opened from ResourceDirectory on name click, or "+ Add resource" |
 | `resource-workload-rows.ts` | **Pure** `buildResourceWorkload(resources, tasks, absences, shifts, today) → { managed: ManagedWorkloadRow[], unlinked: UnlinkedWorkloadRow[] }`. Managed rows are keyed to `Resource` entities (join by `resourceId` then case-folded display name); unlinked rows collect assignees with no matching resource | feeds `resource-workload.tsx` |
-| `roles-modal.tsx` | Discipline × grade rate card; add/rename disciplines & grades; on-demand `Role` creation | opened from ResourcesPanel header |
+| `roles-modal.tsx` | Discipline × grade rate card; add/rename disciplines & grades; on-demand `Role` creation. **0.13.0:** Discipline/Grade/Internal/External columns are sortable; a divider separates the rate card from the add-combo row; Discipline and Grade selects show a "—" placeholder; Manage-roles and Report buttons have leading icons. | opened from ResourcesPanel header |
 | `absence-edit-modal.tsx` | Add/edit Absence (vacation/sick/training/other) | dynamic-imported; opened on demand |
 | `shift-edit-modal.tsx` | Add/edit weekly working-hours pattern per assignee | dynamic-imported; opened on demand |
 | `activity-log-panel.tsx` | Sortable/filterable/searchable CRUD log (text, wildcard, regex search) | conditional mount; `memo()`-wrapped |
+| `modal-header.tsx` | `ModalHeader` — shared drag-handle header rendered at the top of every modal. Wires `use-draggable.ts` to make the modal window repositionable. | 0.13.0 |
+| `use-draggable.ts` | Custom hook `useDraggable(ref)` — attaches `pointerdown` drag logic to a handle element and updates a `{ x, y }` offset via CSS `transform`. Pure DOM, no state library. | 0.13.0 |
+| `voice-command-context.tsx` | `VoiceCommandContext` + `VoiceCommandProvider` — React context that exposes the voice dispatcher to the modal layer, enabling in-modal voice commands without prop-drilling through every modal. | 0.13.0 |
 | `segmented-control.tsx` | Reusable 2-segment toggle (used by ResourcesPanel). Accepts optional `title` prop forwarded to root element | |
 | `jira-settings.tsx` / `jira-conflicts-modal.tsx` / `jira-api.ts` | Jira UI + client. `jira-settings.tsx` includes a "Token expires on" date field; test-connection sets/clears `tokenInvalidAt`. `jira-api.ts` exports `JiraApiError` and `classifyJiraError(err): "auth"\|"network"\|"other"` | Calls `/api/jira/*`; `jira-api.ts` lazy-imported via `loadJiraApi()` |
 | `adf.ts` | Plain-text ↔ ADF conversion (extracted from `_helpers.ts`) | Shared between client paths and the Jira proxy routes |

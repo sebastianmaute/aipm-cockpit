@@ -498,6 +498,7 @@ const enUS = {
   versionHighlightSecurity: "Per-request Content-Security-Policy nonce with strict script + style directives; no inline-script bypass.",
   versionHighlightPerformance: "Faster startup and lower memory use via lazy-loaded modules (DOCX/XLSX/PPTX export, German UI, holiday calendars) and IndexedDB record-level storage.",
   versionHighlightBudget: "Project budget planner — buckets, CCI, win/loss, multi-currency (ECB)",
+  versionHighlightPolish: "Draggable modals with in-modal voice, task effort tracking (w/d/h/m), removable & reorderable budget buckets, and resource-planning fixes.",
 
   group: "Group",
   labels: "Labels",

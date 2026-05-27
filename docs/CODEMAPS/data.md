@@ -34,6 +34,8 @@ Task {
   healthOverride? "R" | "A" | "G"          (manual RAG override)
   resourceId?     number                   (Resource Planner v2: stable link;
                                             `assignee` remains display + fallback join)
+  originalEstimateMinutes? number          // 0.13.0 — effort tracking; Jira basis
+  timeSpentMinutes?        number          //   1w=5d=2400 min, 1d=8h=480 min
 }
 
 RaidItem {
@@ -149,6 +151,7 @@ BudgetBucket {
   closedDate?      "YYYY-MM-DD"
   fxRateOverride?  number                   // EUR→currency; overrides cached ECB while set
   allocations      BucketAllocation[]
+  order?           number                  // 0.13.0 — drag-reorder position (persisted)
   localModifiedAt? string
 }
 
@@ -308,6 +311,16 @@ covering task / raid / bulk / jira / absence / shift CRUD. Persisted to
 ("non-persistent, not written to file, just local storage"). Capped at
 `ACTIVITY_MAX_ENTRIES = 500`; oldest entries dropped on overflow. Render-time
 templating goes through `ACTIVITY_KIND_TO_KEY` → i18n.
+
+## Duration helper (`duration.ts`)
+
+`parseDuration(str) → number | null` — parses a `w/d/h/m` string (e.g.
+`"2w 3d 4h"`) into total minutes using the Jira basis (1w = 5d = 2 400 min,
+1d = 8h = 480 min, 1h = 60 min, 1m = 1 min). Returns `null` for empty /
+invalid input. `formatDuration(minutes) → string` — round-trips back to the
+shortest canonical representation (omits zero-valued units). Both functions
+are pure with no React dependency; used by the task form and sanitizer for
+`originalEstimateMinutes` / `timeSpentMinutes`.
 
 ## Contacts (`contacts.ts`)
 
