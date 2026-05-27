@@ -34,6 +34,8 @@ export const de: Record<TranslationKey, string> = {
   taskTimeSpent: "Aufgewandte Zeit",
   taskEffortHint: "z. B. 2w 3d 4h",
   taskEffortInvalid: "Format w/d/h/m verwenden, z. B. 2w 3d 4h",
+  taskEffortProgressLabel: "Aufgewandte Zeit gegenüber ursprünglicher Schätzung",
+  taskEffortNoEstimate: "Keine Schätzung gesetzt",
 
   placeholderTaskName: "Was muss passieren?",
   placeholderAssignee: "Name oder E-Mail",
