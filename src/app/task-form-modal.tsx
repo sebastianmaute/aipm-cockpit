@@ -310,6 +310,7 @@ export function TaskFormModal({
           </Field>
 
           <EffortField
+            key={`estimate-${editingId ?? "new"}`}
             lang={lang}
             label={t(lang, "taskOriginalEstimate")}
             minutes={form.originalEstimateMinutes}
@@ -319,6 +320,7 @@ export function TaskFormModal({
           />
 
           <EffortField
+            key={`spent-${editingId ?? "new"}`}
             lang={lang}
             label={t(lang, "taskTimeSpent")}
             minutes={form.timeSpentMinutes}
