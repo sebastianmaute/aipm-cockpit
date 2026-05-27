@@ -13,9 +13,9 @@ describe("useColumnManager", () => {
       expect(result.current.colWidths).toEqual(DEFAULT_COL_WIDTHS);
     });
 
-    it("hiddenCols is an empty Set initially", () => {
+    it("hiddenCols contains only the default-hidden effort columns initially", () => {
       const { result } = renderHook(() => useColumnManager());
-      expect(result.current.hiddenCols.size).toBe(0);
+      expect(result.current.hiddenCols).toEqual(new Set(["estimate", "spent"]));
     });
 
     it("colConfigOpen is false initially", () => {

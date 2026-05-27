@@ -3,6 +3,7 @@
 import { createContext, memo, useContext, type ReactNode } from "react";
 import { computeTaskHealth, formatHealthTooltip, healthDot, type TaskHealth } from "./health";
 import { priorityLabel, t, type Lang } from "./i18n";
+import { formatDuration } from "./duration";
 import { countByCategory } from "./raid";
 import { type Priority, type Task, type TaskDependency, type RaidItem } from "./types";
 
@@ -270,6 +271,16 @@ function TaskRowImpl({
       {!hiddenCols.has("depRelations") && (
         <Td className="text-zinc-600 dark:text-zinc-400">
           <DependencyChips deps={task.dependencies ?? []} />
+        </Td>
+      )}
+      {!hiddenCols.has("estimate") && (
+        <Td className="text-right font-mono text-zinc-600 dark:text-zinc-400">
+          {formatDuration(task.originalEstimateMinutes ?? 0) || "—"}
+        </Td>
+      )}
+      {!hiddenCols.has("spent") && (
+        <Td className="text-right font-mono text-zinc-600 dark:text-zinc-400">
+          {formatDuration(task.timeSpentMinutes ?? 0) || "—"}
         </Td>
       )}
       <Td>

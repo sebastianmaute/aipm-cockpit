@@ -78,6 +78,8 @@ export const de: Record<TranslationKey, string> = {
   colResetWidthsHint: "Alle Spaltenbreiten auf die Standardwerte zurücksetzen.",
   colConfigTitle: "Spalten konfigurieren",
   colStatus: "Status",
+  colEstimate: "Schätzung",
+  colSpent: "Aufgewandt",
   workspaceResizeHint:
     "Ziehe die untere rechte Ecke, um diesen Arbeitsbereich zu vergrößern.",
   workspaceCollapse: "Arbeitsbereich einklappen",

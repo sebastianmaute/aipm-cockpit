@@ -165,6 +165,10 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     return filtered.slice().sort((a, b) => {
       let cmp = 0;
       if (sortKey === "id") cmp = a.id - b.id;
+      else if (sortKey === "estimate")
+        cmp = (a.originalEstimateMinutes ?? 0) - (b.originalEstimateMinutes ?? 0);
+      else if (sortKey === "spent")
+        cmp = (a.timeSpentMinutes ?? 0) - (b.timeSpentMinutes ?? 0);
       else if (sortKey === "priority")
         cmp = PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority];
       else if (sortKey === "startDate") {

@@ -73,6 +73,8 @@ const enUS = {
   colResetWidthsHint: "Reset all column widths back to their defaults.",
   colConfigTitle: "Configure columns",
   colStatus: "Status",
+  colEstimate: "Est.",
+  colSpent: "Spent",
   workspaceResizeHint:
     "Drag the bottom-right corner to resize this workspace pane.",
   workspaceCollapse: "Collapse workspace",

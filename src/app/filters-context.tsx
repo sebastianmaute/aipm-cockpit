@@ -29,7 +29,9 @@ export type SortKey =
   | "startDate"
   | "dueDate"
   | "lastUpdateDate"
-  | "priority";
+  | "priority"
+  | "estimate"
+  | "spent";
 export type SortDir = "asc" | "desc";
 
 interface FiltersValue {
