@@ -12,7 +12,8 @@
 import { memo, useMemo } from "react";
 import { localeFor } from "./date-format";
 import { type Lang, t } from "./i18n";
-import type { Absence, AbsenceType } from "./types";
+import type { Absence, AbsenceType, Resource } from "./types";
+import { resourceDisplayName, splitName } from "./resource-foundation";
 
 interface CalendarAssignee {
   /** Case-folded join key used to look up matching absences. */
@@ -31,6 +32,9 @@ interface Props {
   holidaySet: ReadonlySet<string>;
   onAddAbsence: (seed?: Partial<Absence>) => void;
   onEditAbsence: (absence: Absence) => void;
+  resources: readonly Resource[];
+  onEditResource: (resource: Resource) => void;
+  onAddResource: (seed: Partial<Resource>) => void;
 }
 
 const CALENDAR_DAYS = 30;
@@ -94,6 +98,9 @@ function ResourceCalendarInner({
   holidaySet,
   onAddAbsence,
   onEditAbsence,
+  resources,
+  onEditResource,
+  onAddResource,
 }: Props) {
   const days = useMemo<CalendarDay[]>(() => {
     const out: CalendarDay[] = [];
@@ -136,6 +143,14 @@ function ResourceCalendarInner({
     }
     return m;
   }, [absences]);
+
+  // Case-folded display-name → Resource, matching how CalendarAssignee.key is
+  // built upstream (assignee.trim().toLowerCase()). Last-wins on name collision.
+  const resourceByKey = useMemo<Map<string, Resource>>(() => {
+    const m = new Map<string, Resource>();
+    for (const r of resources) m.set(resourceDisplayName(r).trim().toLowerCase(), r);
+    return m;
+  }, [resources]);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
@@ -185,13 +200,29 @@ function ResourceCalendarInner({
               return (
                 <tr key={row.key}>
                   <td
-                    className="sticky left-0 z-10 border-b border-r border-zinc-200 bg-white px-3 py-2 font-medium text-AIPM-dark-grey dark:border-zinc-800 dark:bg-zinc-950 dark:text-AIPM-light-grey"
+                    className="sticky left-0 z-10 border-b border-r border-zinc-200 bg-white px-2 py-1 dark:border-zinc-800 dark:bg-zinc-950"
                     style={{
                       minWidth: ASSIGNEE_COL_PX,
                       width: ASSIGNEE_COL_PX,
                     }}
                   >
-                    {row.display}
+                    {(() => {
+                      const res = resourceByKey.get(row.key);
+                      return (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            res
+                              ? onEditResource(res)
+                              : onAddResource({ ...splitName(row.display), email: row.email || undefined })
+                          }
+                          title={row.display}
+                          className="rounded-md border border-transparent px-2 py-0.5 text-left font-medium text-AIPM-dark-grey shadow-sm hover:border-AIPM-dark-blue hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-AIPM-dark-blue dark:text-AIPM-light-grey dark:hover:bg-zinc-800"
+                        >
+                          {row.display}
+                        </button>
+                      );
+                    })()}
                   </td>
                   {days.map((d) => {
                     const hit = rowAbs.find(

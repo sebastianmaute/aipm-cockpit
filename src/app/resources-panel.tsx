@@ -514,6 +514,9 @@ function ResourcesPanelInner({
           holidaySet={holidaySet}
           onAddAbsence={onAddAbsence}
           onEditAbsence={onEditAbsence}
+          resources={resources}
+          onEditResource={onEditResource}
+          onAddResource={onAddResource}
         />
       )}
     </section>

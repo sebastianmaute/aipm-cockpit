@@ -1,0 +1,47 @@
+import { describe, test, expect, vi } from "vitest";
+import { render, screen, fireEvent } from "@testing-library/react";
+import { ResourceCalendar } from "./resource-calendar";
+import type { Resource } from "./types";
+
+const Sample: Resource = { id: 1, firstName: "Sample", lastName: "Dummy", roleId: null, utilizationMode: "percent", utilization: {} };
+
+const baseProps = {
+  lang: "en-US" as const,
+  absences: [] as never[],
+  today: "2026-05-27",
+  holidaySet: new Set<string>(),
+  onAddAbsence: () => {},
+  onEditAbsence: () => {},
+  onEditResource: () => {},
+  onAddResource: () => {},
+};
+
+describe("ResourceCalendar assignee click", () => {
+  test("matched name opens the edit modal with that resource", () => {
+    const onEditResource = vi.fn();
+    render(
+      <ResourceCalendar
+        {...baseProps}
+        rows={[{ key: "Alex Example", display: "Alex Example", email: "" }]}
+        resources={[Sample]}
+        onEditResource={onEditResource}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Alex Example" }));
+    expect(onEditResource).toHaveBeenCalledWith(Sample);
+  });
+
+  test("unmatched name opens Add Resource prefilled from the display name", () => {
+    const onAddResource = vi.fn();
+    render(
+      <ResourceCalendar
+        {...baseProps}
+        rows={[{ key: "tom external", display: "Tom External", email: "tom@x.io" }]}
+        resources={[]}
+        onAddResource={onAddResource}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Tom External" }));
+    expect(onAddResource).toHaveBeenCalledWith({ firstName: "Tom", lastName: "External", email: "tom@x.io" });
+  });
+});
