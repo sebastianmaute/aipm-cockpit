@@ -240,6 +240,7 @@ legacy keys are removed.
 
 | Key | Shape |
 |---|---|
+| `lop-theme` | `"light"` \| `"dark"` \| `"system"` — persisted theme preference. Default `"system"` (absent = system). Read by the no-flash inline script in `layout.tsx` before hydration and by `use-theme.tsx` at runtime. Separate from the workspace `Settings` object. |
 | `lop-app:settings` | JSON envelope: `{ language, holidayCountries, ai, jira, notifications, storage }`. The `jira` sub-object (`JiraConfig`) now includes `tokenExpiresAt: string` (ISO date) and optional `tokenInvalidAt?: string` (ISO timestamp set when a connection test returns an auth error, cleared on success). The `notifications` sub-object: `{ reminderLeadDays: number, banner: { enabled }, toast: { enabled }, popup: { enabled }, birthday: { enabled } }`. |
 | `lop-app:reminder-snooze:due` | Epoch-ms timestamp (stored as decimal string) until which the due-date reminder banner is snoozed; absent or elapsed = not snoozed |
 | `lop-app:reminder-snooze:birthday` | Epoch-ms timestamp until which the birthday reminder banner is snoozed; absent or elapsed = not snoozed |

@@ -538,6 +538,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightBudget: "Projektbudget-Planer — Buckets, CCI, Gewinn/Verlust, Mehrwährung (EZB)",
   versionHighlightPolish: "Verschiebbare Dialoge mit Spracheingabe, Aufwands-Tracking (W/T/Std./Min.), entfernbare und umsortierbare Budget-Buckets sowie Korrekturen an der Ressourcenplanung.",
   versionHighlightBudgetEdit: "Bearbeitbare Budget-Buckets — Bucket-Editor-Dialog mit Rollen-Auswahl.",
+  versionHighlightTheme: "Helles / dunkles / systemgesteuertes Design mit Sofortladen und Umschalter in den Einstellungen.",
 
   group: "Gruppe",
   labels: "Labels",

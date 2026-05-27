@@ -1,3 +1,6 @@
+// 0.15.0 "Le Guin" adds a Light / Dark / System theme: a class-based dark mode
+// with a no-flash loader, persisted per device (localStorage "lop-theme"), and a
+// 3-way control in Settings. (Palette/shadow cleanup follows in a later release.)
 // 0.14.3 makes the assignee name clickable in the resources calendar and
 // planning grids: a matched name opens the resource edit modal; an unmatched
 // calendar name opens Add Resource prefilled — reusing the workload tab's
@@ -210,8 +213,8 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.14.3";
-export const APP_BUILD_DATE = "2026-05-27"; // Atwood milestone
+export const APP_VERSION = "0.15.0";
+export const APP_BUILD_DATE = "2026-05-27"; // Le Guin milestone
 export const APP_REPO_URL = "https://www.example.com";
 
 /** Translation keys for the high-level feature highlights shown in the
@@ -235,4 +238,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightBudget",
   "versionHighlightPolish",
   "versionHighlightBudgetEdit",
+  "versionHighlightTheme",
 ] as const;

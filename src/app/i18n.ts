@@ -523,6 +523,7 @@ const enUS = {
   versionHighlightBudget: "Project budget planner — buckets, CCI, win/loss, multi-currency (ECB)",
   versionHighlightPolish: "Draggable modals with in-modal voice, task effort tracking (w/d/h/m), removable & reorderable budget buckets, and resource-planning fixes.",
   versionHighlightBudgetEdit: "Editable budget buckets — edit-bucket modal with a role picker.",
+  versionHighlightTheme: "Light / Dark / System theme with a no-flash loader and a settings toggle.",
 
   group: "Group",
   labels: "Labels",

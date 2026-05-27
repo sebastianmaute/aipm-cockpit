@@ -1,5 +1,6 @@
 <!-- Generated: 2026-05-27 | Files scanned: ~78 (src/app/*.tsx, *.ts) | Token estimate: ~1520 -->
 <!-- Updated: 2026-05-27 —  0.14.2 RAID header sorting -->
+<!-- Updated: 2026-05-27 —  0.15.0 Light/Dark/System theme -->
 
 # Frontend
 
@@ -10,7 +11,7 @@ tabbed panels, two popout windows, and a network of inputs / menus.
 
 ```
 src/proxy.ts                 — middleware (per-request CSP nonce)
-src/app/layout.tsx           — root layout, security headers, globals.css
+src/app/layout.tsx           — root layout, security headers, globals.css. 0.15.0: inlines a no-flash <script> that reads lop-theme and sets .dark on <html> before React hydrates; wraps the tree in <ThemeProvider>
 └── src/app/page.tsx         — await connection(); renders <TaskManager />
     └── src/app/task-manager.tsx   (~550 lines after hook extractions; container for everything)
         ├── header (+ button → task modal, ExportMenu, HelpMenu,
@@ -116,7 +117,9 @@ prerendered.
 | `segmented-control.tsx` | Reusable 2-segment toggle (used by ResourcesPanel). Accepts optional `title` prop forwarded to root element | |
 | `jira-settings.tsx` / `jira-conflicts-modal.tsx` / `jira-api.ts` | Jira UI + client. `jira-settings.tsx` includes a "Token expires on" date field; test-connection sets/clears `tokenInvalidAt`. `jira-api.ts` exports `JiraApiError` and `classifyJiraError(err): "auth"\|"network"\|"other"` | Calls `/api/jira/*`; `jira-api.ts` lazy-imported via `loadJiraApi()` |
 | `adf.ts` | Plain-text ↔ ADF conversion (extracted from `_helpers.ts`) | Shared between client paths and the Jira proxy routes |
-| `settings-menu.tsx` | Language, holidays, AI, notifications, Jira, storage backend | |
+| `theme.ts` | **Pure** theme helpers: `resolveTheme(stored, systemDark) → "light"\|"dark"`, `readStoredTheme() → "light"\|"dark"\|"system"`. No React, no side-effects. | 0.15.0 |
+| `use-theme.tsx` | `ThemeProvider` + `useTheme()` — reads `lop-theme` from localStorage, watches `prefers-color-scheme`, toggles `.dark` on `<html>`, and exposes `{ theme, setTheme }`. Persists choice, follows system when set to `"system"`. | 0.15.0 |
+| `settings-menu.tsx` | Language, holidays, AI, notifications, Jira, storage backend. **0.15.0:** theme control (Light / Dark / System segmented toggle) added at the top of the Settings panel, wired to `useTheme()`. | |
 | `help-menu.tsx`, `version-menu.tsx` | Header dropdowns | |
 | `version.ts` | `APP_VERSION`, `APP_BUILD_DATE`, `APP_HIGHLIGHT_KEYS` (i18n keys for the Version popover) | |
 | `export-menu.tsx` | DOCX/XLSX/PPTX export trigger | `await import("./export-ooxml")` lazy |
