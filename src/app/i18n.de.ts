@@ -208,7 +208,7 @@ export const de: Record<TranslationKey, string> = {
   budgetEndingSoon: "Budget-Bucket endet bald",
   budgetRemoveBucket: "Budget-Topf entfernen",
   budgetRemoveBucketConfirm: "Diesen Budget-Topf entfernen? Berechnungen, die darauf basieren, werden auf 0 zurückgesetzt.",
-  budgetReorderHandle: "Zum Umsortieren ziehen",
+  budgetReorderHandle: "Topf umsortieren — ziehen oder mit den Pfeiltasten ↑/↓ verschieben",
 
   tabChat: "Chat",
   tabNewTask: "Neue Aufgabe",

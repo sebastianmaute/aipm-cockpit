@@ -100,27 +100,43 @@ export function BudgetPanel(props: BudgetPanelProps) {
     );
   };
 
-  // Reorder buckets: move `dragId` to where `targetId` currently sits, then
-  // reassign contiguous `order` (0,1,2,…). Only buckets whose order actually
-  // changes get a fresh `localModifiedAt` stamp.
+  const sortedBucketIds = () =>
+    [...buckets].sort((a, b) => (a.order ?? a.id) - (b.order ?? b.id)).map((b) => b.id);
+
+  // Reassign contiguous `order` (0,1,2,…) from an ordered id list. Only buckets
+  // whose order actually changes get a fresh `localModifiedAt` stamp.
+  const applyBucketOrder = (orderedIds: number[]) => {
+    const orderById = new Map(orderedIds.map((id, idx) => [id, idx]));
+    const ts = stamp();
+    props.onChangeBuckets(
+      buckets.map((b) => {
+        const newOrder = orderById.get(b.id) ?? b.order ?? 0;
+        return b.order === newOrder ? b : { ...b, order: newOrder, localModifiedAt: ts };
+      }),
+    );
+  };
+
+  // Pointer drop: move `dragId` to where `targetId` currently sits.
   const onDropOnBucket = (targetId: number) => {
     if (dragId == null || dragId === targetId) return;
-    const ids = [...buckets]
-      .sort((a, b) => (a.order ?? a.id) - (b.order ?? b.id))
-      .map((b) => b.id);
+    const ids = sortedBucketIds();
     const fromIdx = ids.indexOf(dragId);
     const targetIdx = ids.indexOf(targetId);
     if (fromIdx < 0 || targetIdx < 0) return;
     ids.splice(fromIdx, 1);
     ids.splice(targetIdx, 0, dragId);
-    const orderById = new Map(ids.map((id, idx) => [id, idx]));
-    const ts = stamp();
-    const next = buckets.map((b) => {
-      const newOrder = orderById.get(b.id) ?? b.order ?? 0;
-      if (b.order === newOrder) return b;
-      return { ...b, order: newOrder, localModifiedAt: ts };
-    });
-    props.onChangeBuckets(next);
+    applyBucketOrder(ids);
+  };
+
+  // Keyboard reorder: swap a bucket with its neighbour (delta -1 = up, +1 = down),
+  // so the drag handle's ArrowUp/ArrowDown lets keyboard users reorder too.
+  const moveBucket = (id: number, delta: number) => {
+    const ids = sortedBucketIds();
+    const i = ids.indexOf(id);
+    const j = i + delta;
+    if (i < 0 || j < 0 || j >= ids.length) return;
+    [ids[i], ids[j]] = [ids[j], ids[i]];
+    applyBucketOrder(ids);
   };
 
   return (
@@ -176,17 +192,26 @@ export function BudgetPanel(props: BudgetPanelProps) {
             >
               <div className="mb-2 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span
+                  <button
+                    type="button"
                     draggable
                     onDragStart={() => setDragId(br.bucketId)}
                     onDragEnd={() => setDragId(null)}
-                    role="button"
+                    onKeyDown={(e) => {
+                      if (e.key === "ArrowUp") {
+                        e.preventDefault();
+                        moveBucket(br.bucketId, -1);
+                      } else if (e.key === "ArrowDown") {
+                        e.preventDefault();
+                        moveBucket(br.bucketId, 1);
+                      }
+                    }}
                     aria-label={t(lang, "budgetReorderHandle")}
                     title={t(lang, "budgetReorderHandle")}
-                    className="cursor-grab select-none text-zinc-400 hover:text-AIPM-dark-blue active:cursor-grabbing dark:hover:text-AIPM-light-grey"
+                    className="cursor-grab select-none rounded leading-none text-zinc-400 hover:text-AIPM-dark-blue focus:outline-none focus-visible:ring-2 focus-visible:ring-AIPM-dark-blue active:cursor-grabbing dark:hover:text-AIPM-light-grey"
                   >
                     ⠿
-                  </span>
+                  </button>
                   <span className="font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
                     {br.name}{bucket.poNumber ? ` · ${bucket.poNumber}` : ""}
                   </span>

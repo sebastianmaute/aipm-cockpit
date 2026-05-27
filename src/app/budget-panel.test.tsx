@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { BudgetPanel } from "./budget-panel";
 import type { BudgetBucket, Role, ResourcePlan } from "./types";
 
@@ -25,5 +25,32 @@ describe("BudgetPanel", () => {
   test("lists each bucket by name", () => {
     render(<BudgetPanel {...props} />);
     expect(screen.getByText("PAM")).toBeInTheDocument();
+  });
+
+  const twoBuckets = (): BudgetBucket[] => [
+    { ...buckets[0], id: 1, name: "PAM", order: 0 },
+    {
+      id: 2, name: "DEV", type: "tm", currency: "EUR", startDate: "2026-01-01",
+      endDate: "2026-06-30", status: "open", order: 1, allocations: [],
+    },
+  ];
+
+  test("ArrowDown on a bucket's reorder handle moves it down (keyboard reorder)", () => {
+    const onChangeBuckets = vi.fn();
+    render(<BudgetPanel {...props} buckets={twoBuckets()} onChangeBuckets={onChangeBuckets} />);
+    const handles = screen.getAllByRole("button", { name: /reorder bucket/i });
+    fireEvent.keyDown(handles[0], { key: "ArrowDown" }); // move PAM (order 0) down
+    expect(onChangeBuckets).toHaveBeenCalledTimes(1);
+    const next = onChangeBuckets.mock.calls[0][0] as BudgetBucket[];
+    expect(next.find((b) => b.name === "PAM")!.order).toBe(1);
+    expect(next.find((b) => b.name === "DEV")!.order).toBe(0);
+  });
+
+  test("ArrowUp on the top bucket's handle is a no-op", () => {
+    const onChangeBuckets = vi.fn();
+    render(<BudgetPanel {...props} buckets={twoBuckets()} onChangeBuckets={onChangeBuckets} />);
+    const handles = screen.getAllByRole("button", { name: /reorder bucket/i });
+    fireEvent.keyDown(handles[0], { key: "ArrowUp" }); // already at top → no change
+    expect(onChangeBuckets).not.toHaveBeenCalled();
   });
 });
