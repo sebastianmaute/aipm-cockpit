@@ -185,4 +185,16 @@ describe("ResourcesPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "Show rollup" }));
     expect(screen.getByText("2026-W07")).toBeInTheDocument(); // Mon 2026-02-09 ISO week
   });
+
+  test("planning view: clicking a resource name calls onEditResource", () => {
+    const onEditResource = vi.fn();
+    const resources = [{ id: 1, firstName: "Sample", lastName: "Dummy", roleId: null, utilizationMode: "percent" as const, utilization: {} }];
+    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };
+    render(<ResourcesPanel {...baseProps} resources={resources} plan={plan} workdayHours={8}
+      onEditResource={onEditResource} onSetUtilization={() => {}}
+      onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
+    fireEvent.click(screen.getByRole("radio", { name: "Planning" }));
+    fireEvent.click(screen.getByRole("button", { name: "Alex Example" }));
+    expect(onEditResource).toHaveBeenCalledWith(resources[0]);
+  });
 });

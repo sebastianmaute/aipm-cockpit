@@ -368,7 +368,16 @@ function ResourcesPanelInner({
                   totals.margin += cost.margin;
                   return (
                     <tr key={r.id}>
-                      <td className="px-2 py-1 font-medium text-AIPM-dark-grey dark:text-AIPM-light-grey">{resourceDisplayName(r)}</td>
+                      <td className="px-2 py-1">
+                        <button
+                          type="button"
+                          onClick={() => onEditResource(r)}
+                          title={resourceDisplayName(r)}
+                          className="rounded-md border border-transparent px-2 py-0.5 text-left font-medium text-AIPM-dark-grey shadow-sm hover:border-AIPM-dark-blue hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-AIPM-dark-blue dark:text-AIPM-light-grey dark:hover:bg-zinc-800"
+                        >
+                          {resourceDisplayName(r)}
+                        </button>
+                      </td>
                       {periods.map((p) => {
                         // In a derived (finer) view, mirror the engine's borrow
                         // rule: show the containing canonical period's stored
