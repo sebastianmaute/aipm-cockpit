@@ -1,4 +1,4 @@
-<!-- Generated: 2026-05-26 | Files scanned: package.json, package-lock.json, vitest.config.ts, playwright.config.ts | Token estimate: ~700 | No new deps — read-only mirrors, tooltip parity, and Jira token expiry are all in-tree -->
+<!-- Generated: 2026-05-27 | Files scanned: package.json, package-lock.json, vitest.config.ts, playwright.config.ts | Token estimate: ~700 | No new deps — editable buckets, effort tracking, draggable modals, and Gantt name-click are all in-tree -->
 
 # Dependencies
 
@@ -32,7 +32,7 @@ Deliberately small surface. The runtime dep tree fits on one screen.
 | `@testing-library/user-event` | ^14 | Realistic user interaction simulation |
 | `@playwright/test` | ^1.49 | E2E runner (`playwright.config.ts`); Chromium-only by default |
 
-No runtime or dev deps changed in this update. Full suite: 389 tests across 54 files (0.10.0).
+No runtime or dev deps changed in this update (0.11.0 through 0.14.0). Test count grows with each release; see CHANGELOG for per-release totals.
 
 ## Notable transitive deps
 

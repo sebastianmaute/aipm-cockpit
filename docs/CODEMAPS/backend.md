@@ -1,4 +1,4 @@
-<!-- Generated: 2026-05-26 | Files scanned: src/proxy.ts + 10 (src/app/api/jira) | Token estimate: ~500 | No API route changes — token-expiry detection is client-side -->
+<!-- Generated: 2026-05-27 | Files scanned: src/proxy.ts + 10 (src/app/api/jira) | Token estimate: ~500 | No API route changes — editable buckets, effort tracking, draggable modals are all client-side -->
 
 # Backend
 

@@ -1,12 +1,12 @@
-<!-- Generated: 2026-05-26 | Files scanned: types.ts, storage.ts, sanitize.ts, raid.ts, activity-log.ts, contacts.ts, resource-foundation.ts, resource-capacity.ts, reminder-snooze.ts, use-settings.ts, jira-token-status.ts | Token estimate: ~1280 -->
+<!-- Generated: 2026-05-27 | Files scanned: types.ts, storage.ts, sanitize.ts, raid.ts, activity-log.ts, contacts.ts, resource-foundation.ts, resource-capacity.ts, reminder-snooze.ts, use-settings.ts, jira-token-status.ts, duration.ts | Token estimate: ~1280 -->
 
 # Data
 
-No database. All persistence is browser-local: IndexedDB (schema v5) for
+No database. All persistence is browser-local: IndexedDB (schema v6) for
 tasks / RAID / absences / shifts / resources / roles / disciplines / grades +
-a `resource-plan` kv singleton; localStorage for UI prefs and lightweight
-stores (settings, contacts, activity log); optional local file (CSV/MD/JSON)
-via the File System Access API.
+a `resource-plan` kv singleton + `budgets` + `fxRates`; localStorage for UI
+prefs and lightweight stores (settings, contacts, activity log); optional local
+file (CSV/MD/JSON) via the File System Access API.
 
 ## Core schemas (`src/app/types.ts`)
 

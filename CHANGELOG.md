@@ -26,6 +26,9 @@ wired to "Add bucket" and a new per-card Edit button.
 - **"Add bucket" opens the editor.** Creating a new bucket immediately opens
   `BudgetBucketModal` on the fresh shell instead of leaving an uneditable
   placeholder. Per-period hours are still edited in the panel grid.
+- **Gantt task-name → open editor.** Clicking a task's name label in the
+  Gantt chart opens the task editor modal for that task, consistent with
+  the task-list row hover behaviour.
 
 ## [0.13.1] — 2026-05-27
 
