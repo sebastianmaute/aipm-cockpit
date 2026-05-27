@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { parseDuration, formatDuration } from "./duration";
+import { parseDuration, formatDuration, effortProgress } from "./duration";
 
 describe("parseDuration (1w=5d, 1d=8h, 1h=60m)", () => {
   test("parses a single unit", () => {
@@ -32,5 +32,27 @@ describe("formatDuration", () => {
   test("round-trips parse∘format", () => {
     const m = parseDuration("1w 2d 3h 30m")!;
     expect(parseDuration(formatDuration(m))).toBe(m);
+  });
+});
+
+describe("effortProgress", () => {
+  test("no estimate (undefined or 0) → hasEstimate false, pct 0, not over", () => {
+    expect(effortProgress(undefined, 120)).toEqual({ hasEstimate: false, pct: 0, over: false });
+    expect(effortProgress(0, 120)).toEqual({ hasEstimate: false, pct: 0, over: false });
+  });
+  test("partial: spent below estimate", () => {
+    expect(effortProgress(480, 120)).toEqual({ hasEstimate: true, pct: 0.25, over: false });
+  });
+  test("spent unset with estimate set → pct 0", () => {
+    expect(effortProgress(480, undefined)).toEqual({ hasEstimate: true, pct: 0, over: false });
+  });
+  test("exactly equal → pct 1, not over", () => {
+    expect(effortProgress(480, 480)).toEqual({ hasEstimate: true, pct: 1, over: false });
+  });
+  test("overrun → pct > 1, over true", () => {
+    const r = effortProgress(480, 600);
+    expect(r.hasEstimate).toBe(true);
+    expect(r.over).toBe(true);
+    expect(r.pct).toBeCloseTo(1.25, 5);
   });
 });

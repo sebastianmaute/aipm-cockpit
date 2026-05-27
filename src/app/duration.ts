@@ -31,3 +31,18 @@ export function formatDuration(minutes: number): string {
   }
   return parts.join(" ");
 }
+
+export interface EffortProgress {
+  hasEstimate: boolean;
+  pct: number;
+  over: boolean;
+}
+
+/** Time-spent consumption of an estimate (both in minutes). pct is unclamped. */
+export function effortProgress(estimateMin?: number, spentMin?: number): EffortProgress {
+  const estimate = estimateMin ?? 0;
+  const spent = spentMin ?? 0;
+  if (estimate <= 0) return { hasEstimate: false, pct: 0, over: false };
+  const pct = spent / estimate;
+  return { hasEstimate: true, pct, over: pct > 1 };
+}
