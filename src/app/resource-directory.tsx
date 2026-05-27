@@ -180,13 +180,13 @@ function ResourceDirectoryInner({
           placeholder={t(lang, "directorySearchPlaceholder")}
           aria-label={t(lang, "directorySearchPlaceholder")}
           title={t(lang, "directorySearchHint")}
-          className="min-w-0 flex-1 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-AIPM-dark-grey placeholder:text-muted-foreground focus:border-AIPM-dark-blue focus:outline-none"
+          className="min-w-0 flex-1 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-AIPM-dark-blue focus:outline-none"
         />
         {onOpenAddressBook && (
           <button
             type="button"
             onClick={onOpenAddressBook}
-            className="shrink-0 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-AIPM-dark-grey hover:border-AIPM-dark-blue hover:bg-surface-muted"
+            className="shrink-0 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted"
           >
             {t(lang, "resourcesOpenAddressBook")}
           </button>
@@ -250,7 +250,7 @@ function ResourceDirectoryInner({
                     <button
                       type="button"
                       onClick={() => onEditResource(r)}
-                      className="rounded-md border border-transparent px-2 py-0.5 text-xs font-medium text-AIPM-dark-grey hover:border-AIPM-dark-blue hover:bg-surface-muted"
+                      className="rounded-md border border-transparent px-2 py-0.5 text-xs font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted"
                     >
                       {resourceDisplayName(r)}
                     </button>
