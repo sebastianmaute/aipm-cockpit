@@ -43,6 +43,7 @@ import { useBirthdayAlerts } from "./use-birthday-alerts";
 import { useReminderSnooze } from "./use-reminder-snooze";
 import { makeEditGuard } from "./read-only-guard";
 import { ReadOnlyMirrorBanner } from "./read-only-mirror-banner";
+import { VoiceCommandProvider } from "./voice-command-context";
 
 // i18n key for each tab's label — used by both the tab strip and the
 // popout window's document.title. Adding a new tab requires a row here.
@@ -447,6 +448,9 @@ function TaskManagerInner() {
   if (!i18nReady) return null;
 
   return (
+    <VoiceCommandProvider
+      value={isPopout ? null : { onCommand: handleCommand, onError: (msg) => showToast("error", msg) }}
+    >
     <div
       className={
         isPopout
@@ -637,6 +641,7 @@ function TaskManagerInner() {
         toast={toast}
       />
     </div>
+    </VoiceCommandProvider>
   );
 }
 

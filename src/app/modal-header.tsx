@@ -1,7 +1,7 @@
 "use client";
 
 import { type Lang, t } from "./i18n";
-import { type Command } from "./voice";
+import { useVoiceCommand } from "./voice-command-context";
 import { VoiceCommandButton } from "./voice-button";
 
 interface DragHandleProps {
@@ -18,11 +18,6 @@ interface ModalHeaderProps {
   onClose: () => void;
   /** Pointer handlers from useDraggable; the header acts as the drag handle. */
   dragHandleProps?: DragHandleProps;
-  /** When provided, a voice-command mic is shown. Both handlers are required as a pair. */
-  voice?: {
-    onCommand: (cmd: Command, originalText: string) => void;
-    onError: (msg: string) => void;
-  };
 }
 
 /** Stop a pointerdown on interactive controls from initiating a window drag. */
@@ -36,8 +31,8 @@ export function ModalHeader({
   titleId,
   onClose,
   dragHandleProps,
-  voice,
 }: ModalHeaderProps) {
+  const voice = useVoiceCommand();
   return (
     <header
       {...dragHandleProps}
