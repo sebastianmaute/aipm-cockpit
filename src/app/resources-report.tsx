@@ -32,7 +32,7 @@ export function ResourcesReportPanel({
 
   if (resources.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed border-AIPM-light-grey p-10 text-center text-sm text-AIPM-medium-grey dark:border-zinc-800">
+      <div className="rounded-lg border border-dashed border-AIPM-light-grey p-10 text-center text-sm text-muted-foreground border-line">
         {t(lang, "resourcesReportEmpty")}
       </div>
     );
@@ -40,7 +40,7 @@ export function ResourcesReportPanel({
 
   return (
     <div className="space-y-6">
-      <h2 className="text-lg font-medium text-zinc-900 dark:text-zinc-100">{t(lang, "resourcesReportTitle")}</h2>
+      <h2 className="text-lg font-medium text-foreground">{t(lang, "resourcesReportTitle")}</h2>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Tile label={t(lang, "resourcesReportTotalCapacity")} value={`${days(rep.totalCapacityHours)} d`} />
@@ -68,7 +68,7 @@ export function ResourcesReportPanel({
           {rep.perResource.map((r) => (
             <tr key={r.id}>
               <Td>{r.name}</Td>
-              <Td>{r.hasRole ? r.roleLabel : <span className="italic text-AIPM-medium-grey">{t(lang, "resourcesUnassignedRole")}</span>}</Td>
+              <Td>{r.hasRole ? r.roleLabel : <span className="italic text-muted-foreground">{t(lang, "resourcesUnassignedRole")}</span>}</Td>
               <TdR>{r.avgUtilization.toFixed(0)}</TdR>
               <TdR>{days(r.capacityHours)}</TdR>
               <TdR>{money(r.internal)}</TdR>
@@ -100,8 +100,8 @@ function GroupSection({ title, rows, lang, days, money }: {
 
 function Tile({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-AIPM-light-grey bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900">
-      <p className="text-xs uppercase tracking-wide text-AIPM-medium-grey">{label}</p>
+    <div className="rounded-lg border border-AIPM-light-grey bg-surface p-3 border-line bg-surface-muted">
+      <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
       <p className="mt-1 text-xl font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey tabular-nums">{value}</p>
     </div>
   );
@@ -118,12 +118,12 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 function Table({ head, children }: { head: string[]; children: React.ReactNode }) {
   return (
-    <div className="overflow-x-auto rounded-md border border-AIPM-light-grey dark:border-zinc-800">
+    <div className="overflow-x-auto rounded-md border border-AIPM-light-grey border-line">
       <table className="min-w-full text-left text-xs">
-        <thead className="bg-AIPM-light-grey/50 uppercase tracking-wide text-AIPM-dark-grey dark:bg-zinc-900 dark:text-AIPM-medium-grey">
+        <thead className="bg-AIPM-light-grey/50 uppercase tracking-wide text-foreground bg-surface-muted text-muted-foreground">
           <tr>{head.map((h, i) => <th key={i} className={`px-3 py-2 ${i === 0 ? "" : "text-right"}`}>{h}</th>)}</tr>
         </thead>
-        <tbody className="divide-y divide-AIPM-light-grey dark:divide-zinc-800">{children}</tbody>
+        <tbody className="divide-y divide-AIPM-light-grey divide-line">{children}</tbody>
       </table>
     </div>
   );
