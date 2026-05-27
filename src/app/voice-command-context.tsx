@@ -9,6 +9,7 @@ export interface VoiceCommandHandlers {
 }
 
 const VoiceCommandContext = createContext<VoiceCommandHandlers | null>(null);
+VoiceCommandContext.displayName = "VoiceCommandContext";
 
 export function VoiceCommandProvider({
   value,

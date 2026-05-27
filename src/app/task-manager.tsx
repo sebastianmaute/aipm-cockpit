@@ -445,12 +445,15 @@ function TaskManagerInner() {
     showToast("info", t(lang, "popoutReadOnly")),
   );
 
+  const voiceHandlers = useMemo(
+    () => (isPopout ? null : { onCommand: handleCommand, onError: (msg: string) => showToast("error", msg) }),
+    [isPopout, handleCommand, showToast],
+  );
+
   if (!i18nReady) return null;
 
   return (
-    <VoiceCommandProvider
-      value={isPopout ? null : { onCommand: handleCommand, onError: (msg) => showToast("error", msg) }}
-    >
+    <VoiceCommandProvider value={voiceHandlers}>
     <div
       className={
         isPopout
