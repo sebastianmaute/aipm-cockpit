@@ -8,6 +8,18 @@ Authoritative source for version + build date: [`src/app/version.ts`](src/app/ve
 This file is seeded from that module's milestone comment plus the
 post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-diff.txt).
 
+## [0.14.3] — 2026-05-27
+
+Assignee names in the resources calendar and planning grids are now clickable.
+
+### Added
+
+- **Clickable assignee names in Calendar and Planning.** Clicking an assignee
+  name in the resources **calendar** or **planning** grid opens the resource
+  edit modal directly (same hover style as the Directory and Workload tabs). In
+  the **calendar**, clicking a name that does not yet match a resource opens
+  **Add Resource** prefilled with that name (via `splitName`).
+
 ## [0.14.2] — 2026-05-27
 
 RAID table columns are now sortable by clicking the header.

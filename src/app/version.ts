@@ -1,3 +1,7 @@
+// 0.14.3 makes the assignee name clickable in the resources calendar and
+// planning grids: a matched name opens the resource edit modal; an unmatched
+// calendar name opens Add Resource prefilled — reusing the workload tab's
+// hover-button style.
 // 0.14.0 adds editable budget buckets: a new draggable BudgetBucketModal
 // lets users edit a bucket's name, PO number, type (T&M / Fixed), currency,
 // fixed-price amount, start/end dates, spillover successor, and manual FX-rate
@@ -206,7 +210,7 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.14.2";
+export const APP_VERSION = "0.14.3";
 export const APP_BUILD_DATE = "2026-05-27"; // Atwood milestone
 export const APP_REPO_URL = "https://www.example.com";
 
