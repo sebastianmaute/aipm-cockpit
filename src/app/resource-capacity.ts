@@ -147,6 +147,40 @@ export function periodCapacityHours(
 }
 
 /**
+ * Convert a utilization map between percent and hours, per period.
+ * `possible` = gross working hours (workdays × workdayHours, holidays excluded);
+ * absence is intentionally NOT subtracted (hours-mode subtracts it in its own
+ * capacity formula, so a net factor would double-count and not round-trip).
+ * Keys without a matching period are left unchanged. Same-mode returns input.
+ */
+export function convertUtilization(
+  util: Record<string, number>,
+  fromMode: "percent" | "hours",
+  toMode: "percent" | "hours",
+  periods: readonly Period[],
+  workdayHours: number,
+  holidaySet: ReadonlySet<string>,
+): Record<string, number> {
+  if (fromMode === toMode) return util;
+  const out: Record<string, number> = {};
+  for (const [key, value] of Object.entries(util)) {
+    const period = periods.find((p) => p.key === key);
+    if (!period) {
+      out[key] = value;
+      continue;
+    }
+    const possible = workdaysInRange(period.start, period.end, holidaySet) * workdayHours;
+    out[key] =
+      toMode === "hours"
+        ? Math.round((value / 100) * possible)
+        : possible > 0
+          ? Math.round((value / possible) * 100)
+          : 0;
+  }
+  return out;
+}
+
+/**
  * Capacity (hours) for a DISPLAY period, given the resource's CANONICAL periods.
  *   - display === canonical granularity → the period's own stored utilization.
  *   - coarse→fine (canonical month, display week): the fine period borrows the

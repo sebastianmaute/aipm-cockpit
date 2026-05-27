@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import { generatePeriods, workdaysInRange, absencesForResource, absenceWorkdays, periodCapacityHours, displayCapacityHours } from "./resource-capacity";
+import { generatePeriods, workdaysInRange, absencesForResource, absenceWorkdays, periodCapacityHours, displayCapacityHours, convertUtilization } from "./resource-capacity";
 import type { Absence, Resource } from "./types";
 import type { Period } from "./resource-capacity";
 
@@ -118,6 +118,37 @@ describe("displayCapacityHours rollup", () => {
     const feb: Period = { key: "2026-02", start: "2026-02-01", end: "2026-02-28" };
     // hours mode, no absence: 10 + 10 = 20
     expect(displayCapacityHours(feb, [w7, w8], rw, [], wh, new Set(), "week", "month")).toBe(20);
+  });
+});
+
+describe("convertUtilization", () => {
+  const noHolidays = new Set<string>();
+  const monthPeriods = generatePeriods("2026-05-01", "2026-05-31", "month"); // May 2026: 21 weekdays → 168h at 8h/day
+  const mKey = monthPeriods[0].key;
+
+  test("same mode returns the input unchanged", () => {
+    const u = { [mKey]: 100 };
+    expect(convertUtilization(u, "percent", "percent", monthPeriods, 8, noHolidays)).toBe(u);
+  });
+  test("percent → hours uses gross possible working hours", () => {
+    expect(convertUtilization({ [mKey]: 100 }, "percent", "hours", monthPeriods, 8, noHolidays)[mKey]).toBe(168);
+    expect(convertUtilization({ [mKey]: 50 }, "percent", "hours", monthPeriods, 8, noHolidays)[mKey]).toBe(84);
+  });
+  test("hours → percent divides by possible hours", () => {
+    expect(convertUtilization({ [mKey]: 84 }, "hours", "percent", monthPeriods, 8, noHolidays)[mKey]).toBe(50);
+  });
+  test("round-trips within rounding", () => {
+    const h = convertUtilization({ [mKey]: 80 }, "percent", "hours", monthPeriods, 8, noHolidays);
+    expect(convertUtilization(h, "hours", "percent", monthPeriods, 8, noHolidays)[mKey]).toBe(80);
+  });
+  test("zero-capacity period → 0 for hours→percent", () => {
+    // Manually construct a period covering only Sat–Sun (2026-05-02..2026-05-03) → 0 workdays
+    const weekend: Period[] = [{ key: "2026-W-weekend", start: "2026-05-02", end: "2026-05-03" }];
+    const wKey = weekend[0].key;
+    expect(convertUtilization({ [wKey]: 40 }, "hours", "percent", weekend, 8, noHolidays)[wKey]).toBe(0);
+  });
+  test("key with no matching period is left unchanged", () => {
+    expect(convertUtilization({ "1999-01": 73 }, "percent", "hours", monthPeriods, 8, noHolidays)["1999-01"]).toBe(73);
   });
 });
 
