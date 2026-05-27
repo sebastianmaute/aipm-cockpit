@@ -73,7 +73,7 @@ describe("RaidPanel sortable column headers", () => {
     fireEvent.click(btn);
     fireEvent.click(btn);
     fireEvent.click(btn);
-    // Default sort: open items first by severityRank (Critical=0, High=1, Low=3)
+    // Default sort: open items first by severityRank (Critical=0, High=1, Medium=2, Low=3)
     const ids = rowIds(container);
     expect(ids).toEqual(["#3", "#2", "#1"]);
   });

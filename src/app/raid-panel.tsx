@@ -418,7 +418,7 @@ function RaidPanelInner({
           <thead className="sticky top-0 z-10 bg-zinc-50 text-xs uppercase tracking-wide text-AIPM-medium-grey dark:bg-zinc-900">
             <tr>
               <th className="px-3 py-2" aria-sort={sort?.key === "id" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
-                <button type="button" onClick={() => toggleSort("id")} className="inline-flex items-center gap-1 hover:text-AIPM-dark-blue dark:hover:text-AIPM-light-grey">
+                <button type="button" onClick={() => toggleSort("id")} aria-label={t(lang, "id")} className="inline-flex items-center gap-1 hover:text-AIPM-dark-blue dark:hover:text-AIPM-light-grey">
                   #{sort?.key === "id" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
                 </button>
               </th>
