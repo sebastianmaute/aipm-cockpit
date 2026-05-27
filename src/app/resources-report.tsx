@@ -118,12 +118,12 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 function Table({ head, children }: { head: string[]; children: React.ReactNode }) {
   return (
-    <div className="overflow-x-auto rounded-md border border-AIPM-light-grey border-line">
+    <div className="overflow-x-auto rounded-md border border-line">
       <table className="min-w-full text-left text-xs">
-        <thead className="bg-AIPM-light-grey/50 uppercase tracking-wide text-foreground bg-surface-muted text-muted-foreground">
+        <thead className="bg-surface-muted uppercase tracking-wide text-muted-foreground">
           <tr>{head.map((h, i) => <th key={i} className={`px-3 py-2 ${i === 0 ? "" : "text-right"}`}>{h}</th>)}</tr>
         </thead>
-        <tbody className="divide-y divide-AIPM-light-grey divide-line">{children}</tbody>
+        <tbody className="divide-y divide-line">{children}</tbody>
       </table>
     </div>
   );
