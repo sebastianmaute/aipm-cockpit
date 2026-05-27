@@ -1,3 +1,7 @@
+// 0.15.2 sweeps the Resources + Budget panels (directory, workload, report,
+// planning, budget) onto the AIPM design tokens — surface/line/muted tokens,
+// no shadows, status colors mapped (overdue->pink, positive CCI->green,
+// absence override->purple). Calendar + modals follow.
 // 0.15.1 lays the AIPM design-token foundation: semantic surface tokens
 // (surface/muted/line/muted-foreground, light+dark) in globals.css, a
 // DESIGN-TOKENS.md mapping doc, and the shared primitives (segmented control,
@@ -218,7 +222,7 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.15.1";
+export const APP_VERSION = "0.15.2";
 export const APP_BUILD_DATE = "2026-05-27"; // Le Guin milestone
 export const APP_REPO_URL = "https://www.example.com";
 

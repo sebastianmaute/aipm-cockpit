@@ -55,4 +55,5 @@ never reference them directly.
 ## Migration status (sub-project E)
 
 - E0 (0.15.1): tokens + `segmented-control`, `modal`, `modal-header`, `app-header`. ✅
-- Remaining ~40 files: follow-on area sweeps apply this doc.
+- E-sweep chunk 1 (0.15.2): resources-panel, resource-directory, resource-workload, resources-report, budget-panel. ✅
+- Remaining: resource-calendar, all modals, and other area sweeps (tasks, RAID, gantt, reports, menus) are still pending.
