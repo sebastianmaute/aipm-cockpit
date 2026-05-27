@@ -10,7 +10,7 @@ import { useFilters } from "./filters-context";
 import { TabButton, ResetSizeIcon } from "./task-manager-ui";
 import type { ToolDispatcher } from "./chat-tools";
 import type { ActivityEntry } from "./activity-log";
-import type { Absence, BudgetBucket, PlanGranularity, RaidItem, Resource, Shift } from "./types";
+import type { Absence, BudgetBucket, RaidItem, Resource, Shift } from "./types";
 import { ResourceDirectory } from "./resource-directory";
 
 const ChatPanel = dynamic(
@@ -81,7 +81,6 @@ export interface WorkspaceSectionProps {
   onSetUtilizationMode: (resourceId: number, mode: "percent" | "hours") => void;
   onSetAbsenceOverride: (resourceId: number, periodKey: string, hours: number | null) => void;
   onSetPlanWindow: (startDate: string, endDate: string) => void;
-  onSetPlanGranularity: (granularity: PlanGranularity) => void;
   onEditResource: (resource: Resource) => void;
   onAddResource: (seed?: Partial<Resource>) => void;
   onChangeBudgets: (next: BudgetBucket[]) => void;
@@ -117,7 +116,6 @@ export function WorkspaceSection({
   onSetUtilizationMode,
   onSetAbsenceOverride,
   onSetPlanWindow,
-  onSetPlanGranularity,
   onEditResource,
   onAddResource,
   onChangeBudgets,
@@ -379,7 +377,6 @@ export function WorkspaceSection({
               onSetUtilizationMode={onSetUtilizationMode}
               onSetAbsenceOverride={onSetAbsenceOverride}
               onSetPlanWindow={onSetPlanWindow}
-              onSetPlanGranularity={onSetPlanGranularity}
               onOpenReport={() => openPopoutWindow("resource-report", settings.popout.reuseWindow)}
               onOpenAddressBook={() => openPopoutWindow("address-book", settings.popout.reuseWindow)}
               onEditResource={onEditResource}

@@ -120,3 +120,20 @@ describe("displayCapacityHours rollup", () => {
     expect(displayCapacityHours(feb, [w7, w8], rw, [], wh, new Set(), "week", "month")).toBe(20);
   });
 });
+
+describe("month-entry → week-view borrow", () => {
+  test("each week of a month inherits the month's utilization %", () => {
+    const monthPeriods = generatePeriods("2026-05-01", "2026-05-31", "month");
+    const weekPeriods = generatePeriods("2026-05-01", "2026-05-31", "week");
+    const r: Resource = {
+      id: 1, firstName: "A", lastName: "B", roleId: null,
+      utilizationMode: "percent", utilization: { [monthPeriods[0].key]: 100 },
+    };
+    const noHolidays = new Set<string>();
+    const total = weekPeriods.reduce(
+      (s, p) => s + displayCapacityHours(p, monthPeriods, r, [], 8, noHolidays, "month", "week"),
+      0,
+    );
+    expect(total).toBeGreaterThan(0); // weeks NOT empty when only month data exists
+  });
+});

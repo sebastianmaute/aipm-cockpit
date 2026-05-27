@@ -31,6 +31,7 @@ import {
   DEFAULT_WEEK_HOURS,
   type Discipline,
   type Grade,
+  type PlanGranularity,
   type Resource,
   type ResourcePlan,
   type Role,
@@ -69,7 +70,6 @@ interface Props {
   onSetUtilizationMode: (resourceId: number, mode: "percent" | "hours") => void;
   onSetAbsenceOverride: (resourceId: number, periodKey: string, hours: number | null) => void;
   onSetPlanWindow: (startDate: string, endDate: string) => void;
-  onSetPlanGranularity: (granularity: "week" | "month") => void;
   onEditResource: (resource: Resource) => void;
   onAddResource: (seed?: Partial<Resource>) => void;
   onOpenAddressBook?: () => void;
@@ -131,13 +131,24 @@ function ResourcesPanelInner({
   onSetUtilization,
   onSetAbsenceOverride,
   onSetPlanWindow,
-  onSetPlanGranularity,
   onEditResource,
   onAddResource,
   onOpenAddressBook,
 }: Props) {
   const [view, setView] = useState<View>("directory");
   const [showRollup, setShowRollup] = useState(false);
+  // View granularity controls how the planning grid is sliced for display.
+  // It is independent of the plan's CANONICAL (entry) granularity, where
+  // utilization is actually stored. Finer views derive from canonical data.
+  // When the plan's canonical granularity changes, reset the view to match —
+  // done during render (React's "adjusting state on prop change" pattern)
+  // rather than in an effect, to avoid cascading renders.
+  const [viewGranularity, setViewGranularity] = useState<PlanGranularity>(plan.granularity);
+  const [prevPlanGranularity, setPrevPlanGranularity] = useState<PlanGranularity>(plan.granularity);
+  if (prevPlanGranularity !== plan.granularity) {
+    setPrevPlanGranularity(plan.granularity);
+    setViewGranularity(plan.granularity);
+  }
 
   const rows = useMemo<AssigneeRow[]>(() => {
     const byKey = new Map<string, AssigneeRow>();
@@ -276,7 +287,13 @@ function ResourcesPanelInner({
         </div>
       )}
       {view === "planning" && (() => {
-        const periods = generatePeriods(plan.startDate, plan.endDate, plan.granularity);
+        // CANONICAL (entry) periods — where utilization is stored & edited.
+        const canonicalPeriods = generatePeriods(plan.startDate, plan.endDate, plan.granularity);
+        // VIEW periods — how the grid is currently sliced for display.
+        const periods = generatePeriods(plan.startDate, plan.endDate, viewGranularity);
+        // When the view is finer than the entry granularity, cells are derived
+        // (read-only): you edit at the entry granularity, finer views borrow.
+        const derived = viewGranularity !== plan.granularity;
         return (
           <>
             <div className="mb-2 flex flex-wrap items-center gap-3 text-xs">
@@ -295,14 +312,14 @@ function ResourcesPanelInner({
                   className="rounded border border-zinc-300 px-1.5 py-0.5 dark:border-zinc-700 dark:bg-zinc-900" />
               </label>
               <SegmentedControl<"week" | "month">
-                value={plan.granularity}
+                value={viewGranularity}
                 ariaLabel={t(lang, "resourcesViewPlanning")}
                 title={t(lang, "resourcesGranularityHint")}
                 options={[
                   { value: "month", label: t(lang, "resourcesGranularityMonth") },
                   { value: "week", label: t(lang, "resourcesGranularityWeek") },
                 ]}
-                onChange={onSetPlanGranularity}
+                onChange={setViewGranularity}
               />
             </div>
             <div className="min-h-0 flex-1 overflow-auto rounded-md border border-zinc-200 dark:border-zinc-800">
@@ -325,7 +342,7 @@ function ResourcesPanelInner({
                 const rowsJsx = resources.map((r) => {
                   const resAbs = absencesForResource(absences, r);
                   const totalHours = periods.reduce((sum, p) =>
-                    sum + displayCapacityHours(p, periods, r, resAbs, workdayHours, holidaySet, plan.granularity, plan.granularity), 0);
+                    sum + displayCapacityHours(p, canonicalPeriods, r, resAbs, workdayHours, holidaySet, plan.granularity, viewGranularity), 0);
                   const role = roles.find((x) => x.id === r.roleId);
                   const cost = periodCost(totalHours, role);
                   totals.days += totalHours / workdayHours;
@@ -335,23 +352,36 @@ function ResourcesPanelInner({
                   return (
                     <tr key={r.id}>
                       <td className="px-2 py-1 font-medium text-AIPM-dark-grey dark:text-AIPM-light-grey">{resourceDisplayName(r)}</td>
-                      {periods.map((p) => (
+                      {periods.map((p) => {
+                        // In a derived (finer) view, mirror the engine's borrow
+                        // rule: show the containing canonical period's stored
+                        // utilization; there is no fine-grained value to edit.
+                        const owner = derived
+                          ? canonicalPeriods.find((c) => c.start <= p.start && p.start <= c.end)
+                          : undefined;
+                        const cellValue = derived
+                          ? (owner ? (r.utilization[owner.key] ?? "") : "")
+                          : (r.utilization[p.key] ?? "");
+                        return (
                         <td key={p.key} className="px-1 py-1 text-right align-top">
                           <input type="number" min={0} step={r.utilizationMode === "percent" ? 5 : 1}
                             aria-label={`Utilization for ${resourceDisplayName(r)} in ${p.key}`}
                             title={t(lang, "resourcesUtilizationHint")}
-                            value={r.utilization[p.key] ?? ""}
-                            onChange={(e) => onSetUtilization(r.id, p.key, Number(e.target.value) || 0)}
-                            className="w-16 rounded border border-zinc-300 px-1 py-0.5 text-right tabular-nums dark:border-zinc-700 dark:bg-zinc-900" />
+                            value={cellValue}
+                            readOnly={derived}
+                            onChange={(e) => { if (!derived) onSetUtilization(r.id, p.key, Number(e.target.value) || 0); }}
+                            className={`w-16 rounded border border-zinc-300 px-1 py-0.5 text-right tabular-nums dark:border-zinc-700 dark:bg-zinc-900${derived ? " bg-zinc-100 opacity-60 dark:bg-zinc-800" : ""}`} />
                           <input type="number" min={0} step={1}
                             aria-label={`Absence override for ${resourceDisplayName(r)} in ${p.key}`}
                             title={t(lang, "resourcesAbsenceOverrideHint")}
-                            value={r.absenceOverride?.[p.key] ?? ""}
-                            placeholder={String(absenceWorkdays(resAbs, p.start, p.end, holidaySet) * workdayHours)}
-                            onChange={(e) => onSetAbsenceOverride(r.id, p.key, e.target.value === "" ? null : Number(e.target.value))}
-                            className="mt-0.5 w-16 rounded border border-amber-200 px-1 py-0.5 text-right text-[10px] tabular-nums text-amber-700 dark:border-amber-900/50 dark:bg-zinc-900 dark:text-amber-400" />
+                            value={derived ? "" : (r.absenceOverride?.[p.key] ?? "")}
+                            placeholder={derived ? "" : String(absenceWorkdays(resAbs, p.start, p.end, holidaySet) * workdayHours)}
+                            readOnly={derived}
+                            onChange={(e) => { if (!derived) onSetAbsenceOverride(r.id, p.key, e.target.value === "" ? null : Number(e.target.value)); }}
+                            className={`mt-0.5 w-16 rounded border border-amber-200 px-1 py-0.5 text-right text-[10px] tabular-nums text-amber-700 dark:border-amber-900/50 dark:bg-zinc-900 dark:text-amber-400${derived ? " bg-zinc-100 opacity-60 dark:bg-zinc-800" : ""}`} />
                         </td>
-                      ))}
+                        );
+                      })}
                       <td className="px-2 py-1 text-right tabular-nums font-medium">{(totalHours / workdayHours).toFixed(1)}</td>
                       <td className="px-2 py-1 text-right tabular-nums">{formatCurrency(cost.internal, plan.currency, loc)}</td>
                       <td className="px-2 py-1 text-right tabular-nums">{formatCurrency(cost.external, plan.currency, loc)}</td>
@@ -406,7 +436,7 @@ function ResourcesPanelInner({
                               <td className="px-2 py-1 font-medium text-AIPM-dark-grey dark:text-AIPM-light-grey">{resourceDisplayName(r)}</td>
                               {rollupPeriods.map((rp) => (
                                 <td key={rp.key} className="px-2 py-1 text-right tabular-nums text-AIPM-medium-grey">
-                                  {(displayCapacityHours(rp, periods, r, resAbs2, workdayHours, holidaySet, plan.granularity, other) / workdayHours).toFixed(1)}
+                                  {(displayCapacityHours(rp, canonicalPeriods, r, resAbs2, workdayHours, holidaySet, plan.granularity, other) / workdayHours).toFixed(1)}
                                 </td>
                               ))}
                             </tr>

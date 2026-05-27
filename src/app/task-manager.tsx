@@ -227,7 +227,6 @@ function TaskManagerInner() {
     handleSetUtilizationMode,
     handleSetAbsenceOverride,
     handleSetPlanWindow,
-    handleSetPlanGranularity,
     editingResource,
     handleOpenAddResource,
     handleEditResource,
@@ -530,7 +529,6 @@ function TaskManagerInner() {
         onSetUtilizationMode={guardEdit(handleSetUtilizationMode)}
         onSetAbsenceOverride={guardEdit(handleSetAbsenceOverride)}
         onSetPlanWindow={guardEdit(handleSetPlanWindow)}
-        onSetPlanGranularity={guardEdit(handleSetPlanGranularity)}
         onEditResource={guardEdit(handleEditResource)}
         onAddResource={guardEdit(handleOpenAddResource)}
         onChangeBudgets={handleChangeBudgets}
