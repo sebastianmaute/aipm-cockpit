@@ -8,6 +8,30 @@ Authoritative source for version + build date: [`src/app/version.ts`](src/app/ve
 This file is seeded from that module's milestone comment plus the
 post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-diff.txt).
 
+## [0.13.1] — 2026-05-27
+
+Effort progress bar and task-form/UI polish within the Bradbury milestone.
+
+### Added
+
+- **Effort progress bar.** `EffortProgressBar` (`effort-progress-bar.tsx`) renders
+  in the task editor (and wherever effort fields are visible). The bar fills
+  left→right proportionally to time-spent vs original estimate; turns red and
+  displays the percentage when time spent exceeds the estimate; shows greyed
+  when no estimate is set. Ratio derived from the new `effortProgress` helper
+  in `duration.ts`.
+
+### Changed
+
+- **Task form reflow.** Group field now sits beside the Last update date field.
+  Original estimate and Time spent share a single row; the effort progress bar
+  spans the full width beneath them.
+- **Task list hover.** The row highlight-hover now applies to the ID cell and
+  Task-name cell; the assignee column shows as plain text (no hover highlight).
+- **Budget UI.** "Add bucket" button style now matches the "Add task" button.
+  "Close" and "Remove" bucket buttons use the same highlight-hover style as
+  resource-assignee controls.
+
 ## [0.13.0] "Bradbury" — 2026-05-27
 
 UI polish batch: draggable modals with in-modal voice, task effort tracking,

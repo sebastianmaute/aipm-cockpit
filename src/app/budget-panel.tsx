@@ -145,9 +145,9 @@ export function BudgetPanel(props: BudgetPanelProps) {
         <button
           type="button"
           onClick={addBucket}
-          className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-AIPM-dark-blue shadow-sm hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-AIPM-light-grey dark:hover:bg-zinc-800"
+          className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-AIPM-dark-blue/90"
         >
-          {t(lang, "budgetAddBucket")}
+          + {t(lang, "budgetAddBucket")}
         </button>
         <button
           type="button"
@@ -282,7 +282,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
                   onClick={() => updateBucket(bucket.id, bucket.status === "open"
                     ? { status: "closed", closedDate: props.today }
                     : { status: "open", closedDate: undefined })}
-                  className="text-xs text-zinc-500 hover:text-AIPM-dark-blue dark:hover:text-AIPM-light-grey"
+                  className="rounded-md border border-transparent px-2 py-0.5 text-xs text-zinc-500 hover:border-AIPM-dark-blue hover:bg-zinc-50 dark:hover:bg-zinc-800"
                 >
                   {t(lang, bucket.status === "open" ? "budgetClose" : "budgetReopen")}
                 </button>
@@ -290,7 +290,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
                   type="button"
                   onClick={() => removeBucket(bucket.id)}
                   title={t(lang, "budgetRemoveBucket")}
-                  className="text-xs text-zinc-500 hover:text-AIPM-pink dark:hover:text-AIPM-pink"
+                  className="rounded-md border border-transparent px-2 py-0.5 text-xs text-zinc-500 hover:border-AIPM-dark-blue hover:bg-zinc-50 dark:hover:bg-zinc-800"
                 >
                   {t(lang, "budgetRemoveBucket")}
                 </button>

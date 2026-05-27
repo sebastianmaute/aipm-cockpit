@@ -30,6 +30,8 @@ const enUS = {
   taskTimeSpent: "Time spent",
   taskEffortHint: "e.g. 2w 3d 4h",
   taskEffortInvalid: "Use w/d/h/m, e.g. 2w 3d 4h",
+  taskEffortProgressLabel: "Time spent vs. original estimate",
+  taskEffortNoEstimate: "No estimate set",
 
   placeholderTaskName: "What needs to happen?",
   placeholderAssignee: "Name or email",

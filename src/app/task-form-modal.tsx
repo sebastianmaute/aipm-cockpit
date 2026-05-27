@@ -27,6 +27,7 @@ import {
   TEXTAREA_MAX,
   sanitizeVoiceTranscript,
 } from "./sanitize";
+import { EffortProgressBar } from "./effort-progress-bar";
 import { SegmentedControl } from "./segmented-control";
 import { useTaskForm } from "./task-form-context";
 import { PRIORITIES, type Absence, type Task } from "./types";
@@ -309,6 +310,17 @@ export function TaskFormModal({
             />
           </Field>
 
+          <Field label={t(lang, "group")}>
+            <ComboInput
+              lang={lang}
+              value={form.group}
+              suggestions={uniqueGroups}
+              onChange={(group) => setForm({ ...form, group })}
+              placeholder={t(lang, "placeholderGroup")}
+              maxLength={GROUP_MAX}
+            />
+          </Field>
+
           <EffortField
             key={`estimate-${editingId ?? "new"}`}
             lang={lang}
@@ -329,16 +341,11 @@ export function TaskFormModal({
             }
           />
 
-          <Field label={t(lang, "group")}>
-            <ComboInput
-              lang={lang}
-              value={form.group}
-              suggestions={uniqueGroups}
-              onChange={(group) => setForm({ ...form, group })}
-              placeholder={t(lang, "placeholderGroup")}
-              maxLength={GROUP_MAX}
-            />
-          </Field>
+          <EffortProgressBar
+            lang={lang}
+            estimateMin={form.originalEstimateMinutes}
+            spentMin={form.timeSpentMinutes}
+          />
 
           <Field label={t(lang, "labels")}>
             <LabelsInput

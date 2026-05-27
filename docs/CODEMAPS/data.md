@@ -320,7 +320,7 @@ templating goes through `ACTIVITY_KIND_TO_KEY` → i18n.
 invalid input. `formatDuration(minutes) → string` — round-trips back to the
 shortest canonical representation (omits zero-valued units). Both functions
 are pure with no React dependency; used by the task form and sanitizer for
-`originalEstimateMinutes` / `timeSpentMinutes`.
+`originalEstimateMinutes` / `timeSpentMinutes`. **0.13.1:** `effortProgress(spent, estimate) → number | null` — returns the spent-vs-estimate ratio (0..n, where >1 means over budget); returns `null` when estimate is absent or zero. Used by `EffortProgressBar`.
 
 ## Contacts (`contacts.ts`)
 

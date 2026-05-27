@@ -182,7 +182,7 @@ function TaskRowImpl({
           onClick={() => onEdit(task)}
           title={`#${task.id} — ${t(lang, "clickToEdit")}`}
           aria-label={`#${task.id} — ${t(lang, "clickToEdit")}`}
-          className="cursor-pointer rounded font-mono text-zinc-500 hover:text-AIPM-dark-blue hover:underline"
+          className="cursor-pointer rounded-md border border-transparent px-2 py-0.5 font-mono text-zinc-500 hover:border-AIPM-dark-blue hover:bg-zinc-50 dark:hover:bg-zinc-800"
         >#{task.id}</button>
         {(() => {
           if (!task.jiraKey || !jiraSiteUrl) return null;
@@ -215,7 +215,7 @@ function TaskRowImpl({
           type="button"
           onClick={() => onEdit(task)}
           title={`${task.taskName} — ${t(lang, "clickToEdit")}`}
-          className="cursor-pointer text-left font-medium hover:text-AIPM-dark-blue hover:underline"
+          className="cursor-pointer rounded-md border border-transparent px-2 py-0.5 text-left font-medium hover:border-AIPM-dark-blue hover:bg-zinc-50 dark:hover:bg-zinc-800"
         >{task.taskName}</button>
         {(task.group || (task.labels?.length ?? 0) > 0) && (
           <div className="mt-1 flex flex-wrap gap-1">
@@ -237,13 +237,7 @@ function TaskRowImpl({
       </Td>
       {!hiddenCols.has("assignee") && (
         <Td title={`${t(lang, "assignee")}: ${task.assignee || "—"}`}>
-          {task.assignee ? (
-            <span className="rounded-md border border-transparent px-2 py-0.5 hover:border-AIPM-dark-blue hover:bg-zinc-50 dark:hover:bg-zinc-800">
-              {task.assignee}
-            </span>
-          ) : (
-            "—"
-          )}
+          {task.assignee || "—"}
         </Td>
       )}
       {!hiddenCols.has("startDate") && (
