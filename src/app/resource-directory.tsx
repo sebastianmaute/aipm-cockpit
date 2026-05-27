@@ -193,7 +193,7 @@ function ResourceDirectoryInner({
         )}
       </div>
       {resources.length === 0 ? (
-        <div className="mt-3 flex-1 rounded-md border border-dashed border-line p-6 text-center text-sm text-AIPM-medium-grey">
+        <div className="mt-3 flex-1 rounded-md border border-dashed border-line p-6 text-center text-sm text-muted-foreground">
           {t(lang, "resourcesEmpty")}
         </div>
       ) : (
@@ -262,11 +262,11 @@ function ResourceDirectoryInner({
                     grades={grades}
                     onAssignRole={onAssignRole}
                   />
-                  <td className="px-3 py-2 text-AIPM-medium-grey" title={r.title ?? ""}>{r.title ?? "—"}</td>
-                  <td className="px-3 py-2 text-AIPM-medium-grey" title={r.department ?? ""}>{r.department ?? "—"}</td>
-                  <td className="px-3 py-2 text-AIPM-medium-grey" title={r.businessPhone ?? ""}>{r.businessPhone ?? "—"}</td>
-                  <td className="px-3 py-2 text-AIPM-medium-grey" title={r.email ?? ""}>{r.email ?? "—"}</td>
-                  <td className="px-3 py-2 text-AIPM-medium-grey" title={r.birthday ?? ""}>{r.birthday ?? "—"}</td>
+                  <td className="px-3 py-2 text-muted-foreground" title={r.title ?? ""}>{r.title ?? "—"}</td>
+                  <td className="px-3 py-2 text-muted-foreground" title={r.department ?? ""}>{r.department ?? "—"}</td>
+                  <td className="px-3 py-2 text-muted-foreground" title={r.businessPhone ?? ""}>{r.businessPhone ?? "—"}</td>
+                  <td className="px-3 py-2 text-muted-foreground" title={r.email ?? ""}>{r.email ?? "—"}</td>
+                  <td className="px-3 py-2 text-muted-foreground" title={r.birthday ?? ""}>{r.birthday ?? "—"}</td>
                 </tr>
               ))}
             </tbody>
