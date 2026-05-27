@@ -11,6 +11,12 @@ vi.mock("./storage-config", () => ({
   StorageConfigSection: () => null,
 }));
 
+const setTheme = vi.hoisted(() => vi.fn());
+vi.mock("./use-theme", () => ({
+  useTheme: () => ({ theme: "system" as const, setTheme }),
+  ThemeProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}));
+
 function makeSettings(overrides: Partial<Settings> = {}): Settings {
   return { ...defaultSettings, ...overrides };
 }
@@ -59,5 +65,15 @@ describe("SettingsMenu popout toggle", () => {
         popout: { reuseWindow: true },
       }),
     );
+  });
+});
+
+describe("SettingsMenu theme control", () => {
+  it("renders Light/Dark/System and selecting one calls setTheme", () => {
+    render(<SettingsMenu {...makeProps()} />);
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "settings") }));
+    expect(screen.getByRole("radio", { name: t("en-US", "themeSystem") })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("radio", { name: t("en-US", "themeDark") }));
+    expect(setTheme).toHaveBeenCalledWith("dark");
   });
 });

@@ -97,6 +97,11 @@ const enUS = {
   workDaysLeft: "{0} work days left",
 
   settings: "Settings",
+  theme: "Theme",
+  themeLight: "Light",
+  themeDark: "Dark",
+  themeSystem: "System",
+  themeHint: "Choose light, dark, or follow your system setting.",
   language: "Language",
   holidayCountries: "Holiday countries",
   selectCountry: "Select country…",

@@ -4,11 +4,14 @@ import { useEffect, useRef, useState } from "react";
 import { COUNTRIES } from "./holidays";
 import { type Lang, type TranslationKey, t } from "./i18n";
 import { JiraSettingsSection } from "./jira-settings";
+import { SegmentedControl } from "./segmented-control";
 import {
   type StorageConfig,
   defaultStorageConfig,
 } from "./storage";
 import { StorageConfigSection } from "./storage-config";
+import type { Theme } from "./theme";
+import { useTheme } from "./use-theme";
 
 type ChatModel =
   | "claude-sonnet-4-6"
@@ -126,6 +129,7 @@ export function SettingsMenu({
   const [pending, setPending] = useState("");
   const ref = useRef<HTMLDivElement>(null);
   const lang = settings.language;
+  const { theme, setTheme } = useTheme();
 
   useEffect(() => {
     if (!open) return;
@@ -203,6 +207,24 @@ export function SettingsMenu({
           <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
             {t(lang, "settings")}
           </h3>
+
+          <div className="mb-4">
+            <span className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              {t(lang, "theme")}
+            </span>
+            <SegmentedControl<Theme>
+              value={theme}
+              ariaLabel={t(lang, "theme")}
+              title={t(lang, "themeHint")}
+              className="w-full"
+              options={[
+                { value: "light", label: t(lang, "themeLight") },
+                { value: "dark", label: t(lang, "themeDark") },
+                { value: "system", label: t(lang, "themeSystem") },
+              ]}
+              onChange={setTheme}
+            />
+          </div>
 
           <label className="mb-4 block">
             <span className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">

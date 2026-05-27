@@ -102,6 +102,11 @@ export const de: Record<TranslationKey, string> = {
   workDaysLeft: "{0} Arbeitstage verbleibend",
 
   settings: "Einstellungen",
+  theme: "Darstellung",
+  themeLight: "Hell",
+  themeDark: "Dunkel",
+  themeSystem: "System",
+  themeHint: "Hell, dunkel oder der Systemeinstellung folgen.",
   language: "Sprache",
   holidayCountries: "Feiertagsländer",
   selectCountry: "Land auswählen…",
