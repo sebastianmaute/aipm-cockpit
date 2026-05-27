@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { nextRaidId } from "./raid";
 import { nextId } from "./resource-foundation";
+import { generatePeriods, convertUtilization } from "./resource-capacity";
 import { DEFAULT_WEEK_HOURS, type Absence, type RaidItem, type Resource, type Role, type Shift, type Task } from "./types";
 import type { ActivityKind } from "./activity-log";
 import { useWorkspace } from "./workspace-context";
@@ -38,6 +39,8 @@ export interface UseResourcePlannerArgs {
   lang: Lang;
   logActivity: (kind: ActivityKind, ...args: (string | number)[]) => void;
   showToast: (kind: "info" | "error", text: string) => void;
+  workdayHours: number;
+  holidaySet: ReadonlySet<string>;
 }
 
 export function useResourcePlanner(args: UseResourcePlannerArgs) {
@@ -58,8 +61,11 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
     setDisciplines,
     grades,
     setGrades,
+    plan,
     setPlan,
   } = useWorkspace();
+
+  const { workdayHours, holidaySet } = args;
 
   const langRef = useRef(args.lang);
   const logActivityRef = useRef(args.logActivity);
@@ -551,6 +557,27 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
     [setResources],
   );
 
+  const handleSetAllUtilizationMode = useCallback(
+    (mode: "percent" | "hours") => {
+      if (resources.every((r) => r.utilizationMode === mode)) return;
+      const periods = generatePeriods(plan.startDate, plan.endDate, plan.granularity);
+      const stamp = new Date().toISOString();
+      setResources((prev) =>
+        prev.map((r) =>
+          r.utilizationMode === mode
+            ? r
+            : {
+                ...r,
+                utilizationMode: mode,
+                utilization: convertUtilization(r.utilization, r.utilizationMode, mode, periods, workdayHours, holidaySet),
+                localModifiedAt: stamp,
+              },
+        ),
+      );
+    },
+    [resources, plan, workdayHours, holidaySet, setResources],
+  );
+
   const handleSetAbsenceOverride = useCallback(
     (resourceId: number, periodKey: string, hours: number | null) => {
       const stamp = new Date().toISOString();
@@ -623,6 +650,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
     onReorderGrades,
     handleSetUtilization,
     handleSetUtilizationMode,
+    handleSetAllUtilizationMode,
     handleSetAbsenceOverride,
     handleSetPlanWindow,
     handleSetPlanGranularity,

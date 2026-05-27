@@ -28,6 +28,7 @@ const baseProps = {
   workdayHours: 8,
   onSetUtilization: () => {},
   onSetUtilizationMode: () => {},
+  onSetAllUtilizationMode: () => {},
   onSetAbsenceOverride: () => {},
   onSetPlanWindow: () => {},
   onEditResource: () => {},
@@ -157,6 +158,22 @@ describe("ResourcesPanel", () => {
     fireEvent.change(utilInput, { target: { value: "55" } });
     // The `if (!derived)` guard must prevent any write
     expect(onSetUtilization).not.toHaveBeenCalled();
+  });
+
+  test("planning view: percent/hours toggle is present and calls onSetAllUtilizationMode", () => {
+    const onSetAllUtilizationMode = vi.fn();
+    const resources = [{ id: 1, firstName: "Sample", lastName: "", roleId: null, utilizationMode: "percent" as const, utilization: {} }];
+    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };
+    render(<ResourcesPanel {...baseProps} resources={resources} plan={plan} workdayHours={8}
+      onSetUtilization={() => {}} onSetUtilizationMode={() => {}}
+      onSetAllUtilizationMode={onSetAllUtilizationMode}
+      onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
+    fireEvent.click(screen.getByRole("radio", { name: "Planning" }));
+    // The % / h toggle should be present
+    expect(screen.getByRole("radio", { name: "Hours" })).toBeInTheDocument();
+    // Clicking "Hours" calls the handler
+    fireEvent.click(screen.getByRole("radio", { name: "Hours" }));
+    expect(onSetAllUtilizationMode).toHaveBeenCalledWith("hours");
   });
 
   test("planning view: rollup toggle reveals the non-canonical read-only table", () => {

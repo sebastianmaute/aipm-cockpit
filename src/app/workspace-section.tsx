@@ -79,6 +79,7 @@ export interface WorkspaceSectionProps {
   onAssignRole: (resourceId: number, disciplineId: number, gradeId: number) => void;
   onSetUtilization: (resourceId: number, periodKey: string, value: number) => void;
   onSetUtilizationMode: (resourceId: number, mode: "percent" | "hours") => void;
+  onSetAllUtilizationMode: (mode: "percent" | "hours") => void;
   onSetAbsenceOverride: (resourceId: number, periodKey: string, hours: number | null) => void;
   onSetPlanWindow: (startDate: string, endDate: string) => void;
   onEditResource: (resource: Resource) => void;
@@ -115,6 +116,7 @@ export function WorkspaceSection({
   onAssignRole,
   onSetUtilization,
   onSetUtilizationMode,
+  onSetAllUtilizationMode,
   onSetAbsenceOverride,
   onSetPlanWindow,
   onEditResource,
@@ -378,6 +380,7 @@ export function WorkspaceSection({
               workdayHours={settings.resources.workdayHours}
               onSetUtilization={onSetUtilization}
               onSetUtilizationMode={onSetUtilizationMode}
+              onSetAllUtilizationMode={onSetAllUtilizationMode}
               onSetAbsenceOverride={onSetAbsenceOverride}
               onSetPlanWindow={onSetPlanWindow}
               onOpenReport={() => openPopoutWindow("resource-report", settings.popout.reuseWindow)}

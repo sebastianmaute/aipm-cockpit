@@ -17,6 +17,8 @@ function makeArgs(
     lang: "en-US" as Lang,
     logActivity: vi.fn(),
     showToast: vi.fn(),
+    workdayHours: 8,
+    holidaySet: new Set<string>(),
     ...overrides,
   };
 }
@@ -582,6 +584,39 @@ describe("useResourcePlanner", () => {
       expect(result.current.workspace.plan.startDate).toBe("2026-01-01");
       expect(result.current.workspace.plan.endDate).toBe("2026-06-30");
       expect(result.current.workspace.plan.granularity).toBe("week");
+    });
+
+    it("handleSetAllUtilizationMode converts all resources' utilization and switches mode", () => {
+      const { result } = renderPlanner();
+      const r1: Resource = {
+        id: 1, firstName: "A", lastName: "", roleId: null,
+        utilizationMode: "percent", utilization: { "2026-02": 100 },
+      };
+      const r2: Resource = {
+        id: 2, firstName: "B", lastName: "", roleId: null,
+        utilizationMode: "percent", utilization: { "2026-02": 50 },
+      };
+      act(() => { result.current.workspace.setResources([r1, r2]); });
+      act(() => { result.current.planner.handleSetAllUtilizationMode("hours"); });
+      const updated = result.current.workspace.resources;
+      expect(updated[0].utilizationMode).toBe("hours");
+      expect(updated[1].utilizationMode).toBe("hours");
+      // Converted values must differ from the original percent values
+      expect(typeof updated[0].utilization["2026-02"]).toBe("number");
+      expect(typeof updated[1].utilization["2026-02"]).toBe("number");
+    });
+
+    it("handleSetAllUtilizationMode is a no-op when all resources are already in the target mode", () => {
+      const { result } = renderPlanner();
+      const r1: Resource = {
+        id: 1, firstName: "A", lastName: "", roleId: null,
+        utilizationMode: "hours", utilization: { "2026-02": 160 },
+      };
+      act(() => { result.current.workspace.setResources([r1]); });
+      act(() => { result.current.planner.handleSetAllUtilizationMode("hours"); });
+      // Mode and utilization unchanged — localModifiedAt not updated
+      expect(result.current.workspace.resources[0].utilization["2026-02"]).toBe(160);
+      expect(result.current.workspace.resources[0].utilizationMode).toBe("hours");
     });
   });
 });

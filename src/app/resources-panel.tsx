@@ -68,6 +68,7 @@ interface Props {
   workdayHours: number;
   onSetUtilization: (resourceId: number, periodKey: string, value: number) => void;
   onSetUtilizationMode: (resourceId: number, mode: "percent" | "hours") => void;
+  onSetAllUtilizationMode: (mode: "percent" | "hours") => void;
   onSetAbsenceOverride: (resourceId: number, periodKey: string, hours: number | null) => void;
   onSetPlanWindow: (startDate: string, endDate: string) => void;
   onEditResource: (resource: Resource) => void;
@@ -129,6 +130,7 @@ function ResourcesPanelInner({
   plan,
   workdayHours,
   onSetUtilization,
+  onSetAllUtilizationMode,
   onSetAbsenceOverride,
   onSetPlanWindow,
   onEditResource,
@@ -322,6 +324,20 @@ function ResourcesPanelInner({
                   { value: "week", label: t(lang, "resourcesGranularityWeek") },
                 ]}
                 onChange={setViewGranularity}
+              />
+              <SegmentedControl<"percent" | "hours">
+                value={
+                  resources.length > 0 && resources.every((r) => r.utilizationMode === resources[0].utilizationMode)
+                    ? resources[0].utilizationMode
+                    : "percent"
+                }
+                ariaLabel={t(lang, "resourcesUtilModeHint")}
+                title={t(lang, "resourcesUtilModeHint")}
+                options={[
+                  { value: "percent", label: t(lang, "resourcesUtilModePercent") },
+                  { value: "hours", label: t(lang, "resourcesUtilModeHours") },
+                ]}
+                onChange={(mode) => onSetAllUtilizationMode(mode)}
               />
             </div>
             <div className="min-h-0 flex-1 overflow-auto rounded-md border border-zinc-200 dark:border-zinc-800">

@@ -233,7 +233,8 @@ function TaskManagerInner() {
     handleSaveResource,
     handleDeleteResource,
     handleCloseResourceModal,
-  } = useResourcePlanner({ lang, logActivity, showToast });
+    handleSetAllUtilizationMode,
+  } = useResourcePlanner({ lang, logActivity, showToast, workdayHours: settings.resources.workdayHours, holidaySet });
 
   const [fillTaskAssigneeOnSave, setFillTaskAssigneeOnSave] = useState(false);
 
@@ -527,6 +528,7 @@ function TaskManagerInner() {
         onAssignRole={guardEdit(handleAssignResourceRole)}
         onSetUtilization={guardEdit(handleSetUtilization)}
         onSetUtilizationMode={guardEdit(handleSetUtilizationMode)}
+        onSetAllUtilizationMode={guardEdit(handleSetAllUtilizationMode)}
         onSetAbsenceOverride={guardEdit(handleSetAbsenceOverride)}
         onSetPlanWindow={guardEdit(handleSetPlanWindow)}
         onEditResource={guardEdit(handleEditResource)}
