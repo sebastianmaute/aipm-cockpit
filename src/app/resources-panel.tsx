@@ -223,10 +223,10 @@ function ResourcesPanelInner({
   // Header: title + (when there are rows) view-toggle + "+ Add absence".
   const renderHeader = (showToggle: boolean) => (
     <header className="mb-3 flex shrink-0 items-baseline justify-between gap-2">
-      <h2 className="text-lg font-medium text-zinc-900 dark:text-zinc-100">
+      <h2 className="text-lg font-medium text-foreground">
         {t(lang, "tabResources")}
         {rows.length > 0 && (
-          <span className="ml-2 text-sm font-normal text-AIPM-medium-grey">
+          <span className="ml-2 text-sm font-normal text-muted-foreground">
             {t(lang, "tasksCount", rows.length)}
           </span>
         )}
@@ -250,7 +250,7 @@ function ResourcesPanelInner({
           type="button"
           onClick={onManageRoles}
           title={t(lang, "resourcesManageRolesHint")}
-          className="inline-flex items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-xs font-medium text-AIPM-dark-grey shadow-sm hover:border-AIPM-dark-blue hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-AIPM-light-grey dark:hover:bg-zinc-800"
+          className="inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted dark:text-AIPM-light-grey"
         >
           <GearIcon />
           {t(lang, "resourcesManageRoles")}
@@ -259,7 +259,7 @@ function ResourcesPanelInner({
           type="button"
           onClick={onOpenReport}
           title={t(lang, "resourcesOpenReportHint")}
-          className="inline-flex items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-xs font-medium text-AIPM-dark-grey shadow-sm hover:border-AIPM-dark-blue hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-AIPM-light-grey dark:hover:bg-zinc-800"
+          className="inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted dark:text-AIPM-light-grey"
         >
           <ReportIcon />
           {t(lang, "resourcesOpenReport")}
@@ -268,7 +268,7 @@ function ResourcesPanelInner({
           type="button"
           onClick={() => onAddAbsence()}
           title={t(lang, "resourcesAddAbsenceHint")}
-          className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-AIPM-dark-blue/90"
+          className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90"
         >
           {t(lang, "resourcesAddAbsence")}
         </button>
@@ -280,10 +280,10 @@ function ResourcesPanelInner({
   const isEmpty = rows.length === 0 && resources.length === 0;
 
   return (
-    <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+    <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-line bg-surface p-4 dark:border-line">
       {renderHeader(showToggle)}
       {isEmpty && view !== "planning" && view !== "directory" && (
-        <div className="mt-3 flex-1 rounded-md border border-dashed border-zinc-300 p-6 text-center text-sm text-AIPM-medium-grey dark:border-zinc-800">
+        <div className="mt-3 flex-1 rounded-md border border-dashed border-line p-6 text-center text-sm text-muted-foreground">
           {t(lang, "resourcesEmpty")}
         </div>
       )}
@@ -305,14 +305,14 @@ function ResourcesPanelInner({
                 <input type="date" aria-label={t(lang, "resourcesPlanStart")} value={plan.startDate}
                   title={t(lang, "resourcesPlanStartHint")}
                   onChange={(e) => onSetPlanWindow(e.target.value, plan.endDate)}
-                  className="rounded border border-zinc-300 px-1.5 py-0.5 dark:border-zinc-700 dark:bg-zinc-900" />
+                  className="rounded border border-line px-1.5 py-0.5 dark:bg-surface" />
               </label>
               <label className="flex items-center gap-1">
                 <span>{t(lang, "resourcesPlanEnd")}</span>
                 <input type="date" aria-label={t(lang, "resourcesPlanEnd")} value={plan.endDate}
                   title={t(lang, "resourcesPlanEndHint")}
                   onChange={(e) => onSetPlanWindow(plan.startDate, e.target.value)}
-                  className="rounded border border-zinc-300 px-1.5 py-0.5 dark:border-zinc-700 dark:bg-zinc-900" />
+                  className="rounded border border-line px-1.5 py-0.5 dark:bg-surface" />
               </label>
               <SegmentedControl<"week" | "month">
                 value={viewGranularity}
@@ -339,9 +339,9 @@ function ResourcesPanelInner({
                 onChange={onSetAllUtilizationMode}
               />
             </div>
-            <div className="min-h-0 flex-1 overflow-auto rounded-md border border-zinc-200 dark:border-zinc-800">
+            <div className="min-h-0 flex-1 overflow-auto rounded-md border border-line">
             <table className="text-left text-xs">
-              <thead className="sticky top-0 bg-zinc-50 dark:bg-zinc-900">
+              <thead className="sticky top-0 bg-surface-muted">
                 <tr>
                   <th className="px-2 py-1.5 text-left">{t(lang, "assignee")}</th>
                   {periods.map((p) => (
@@ -373,7 +373,7 @@ function ResourcesPanelInner({
                           type="button"
                           onClick={() => onEditResource(r)}
                           title={resourceDisplayName(r)}
-                          className="rounded-md border border-transparent px-2 py-0.5 text-left font-medium text-AIPM-dark-grey shadow-sm hover:border-AIPM-dark-blue hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-AIPM-dark-blue dark:text-AIPM-light-grey dark:hover:bg-zinc-800"
+                          className="rounded-md border border-transparent px-2 py-0.5 text-left font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-AIPM-green dark:text-AIPM-light-grey"
                         >
                           {resourceDisplayName(r)}
                         </button>
@@ -396,7 +396,7 @@ function ResourcesPanelInner({
                             value={cellValue}
                             readOnly={derived}
                             onChange={(e) => { if (!derived) onSetUtilization(r.id, p.key, Number(e.target.value) || 0); }}
-                            className={`w-16 rounded border border-zinc-300 px-1 py-0.5 text-right tabular-nums dark:border-zinc-700 dark:bg-zinc-900${derived ? " bg-zinc-100 opacity-60 dark:bg-zinc-800" : ""}`} />
+                            className={`w-16 rounded border border-line px-1 py-0.5 text-right tabular-nums dark:bg-surface${derived ? " bg-surface-muted opacity-60" : ""}`} />
                           <input type="number" min={0} step={1}
                             aria-label={`Absence override for ${resourceDisplayName(r)} in ${p.key}`}
                             title={t(lang, "resourcesAbsenceOverrideHint")}
@@ -404,7 +404,7 @@ function ResourcesPanelInner({
                             placeholder={derived ? "" : String(absenceWorkdays(resAbs, p.start, p.end, holidaySet) * workdayHours)}
                             readOnly={derived}
                             onChange={(e) => { if (!derived) onSetAbsenceOverride(r.id, p.key, e.target.value === "" ? null : Number(e.target.value)); }}
-                            className={`mt-0.5 w-16 rounded border border-amber-200 px-1 py-0.5 text-right text-[10px] tabular-nums text-amber-700 dark:border-amber-900/50 dark:bg-zinc-900 dark:text-amber-400${derived ? " bg-zinc-100 opacity-60 dark:bg-zinc-800" : ""}`} />
+                            className={`mt-0.5 w-16 rounded border border-AIPM-purple/40 px-1 py-0.5 text-right text-[10px] tabular-nums text-AIPM-purple dark:border-AIPM-purple/50 dark:bg-surface dark:text-AIPM-purple${derived ? " bg-surface-muted opacity-60" : ""}`} />
                         </td>
                         );
                       })}
@@ -417,8 +417,8 @@ function ResourcesPanelInner({
                 });
                 return (
                   <>
-                    <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">{rowsJsx}</tbody>
-                    <tfoot className="border-t border-zinc-300 dark:border-zinc-700">
+                    <tbody className="divide-y divide-line">{rowsJsx}</tbody>
+                    <tfoot className="border-t border-line">
                       <tr className="font-semibold">
                         <td className="px-2 py-1.5">{t(lang, "resourcesTotal")}</td>
                         <td className="px-1 py-1.5" colSpan={periods.length} />
@@ -440,13 +440,13 @@ function ResourcesPanelInner({
               <div className="mt-3">
                 <button type="button" onClick={() => setShowRollup((v) => !v)}
                   title={t(lang, "resourcesRollupHint")}
-                  className="rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs font-medium text-AIPM-dark-grey shadow-sm hover:border-AIPM-dark-blue hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-AIPM-light-grey">
+                  className="rounded-md border border-line bg-surface px-2.5 py-1 text-xs font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted dark:text-AIPM-light-grey">
                   {showRollup ? t(lang, "resourcesRollupHide") : t(lang, "resourcesRollupShow")}
                 </button>
                 {showRollup && (
-                  <div className="mt-2 overflow-auto rounded-md border border-zinc-200 dark:border-zinc-800">
+                  <div className="mt-2 overflow-auto rounded-md border border-line">
                     <table className="text-left text-xs">
-                      <thead className="sticky top-0 bg-zinc-50 dark:bg-zinc-900">
+                      <thead className="sticky top-0 bg-surface-muted">
                         <tr>
                           <th className="px-2 py-1.5 text-left">{t(lang, "assignee")}</th>
                           {rollupPeriods.map((rp) => (
@@ -454,14 +454,14 @@ function ResourcesPanelInner({
                           ))}
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                      <tbody className="divide-y divide-line">
                         {resources.map((r) => {
                           const resAbs2 = absencesForResource(absences, r);
                           return (
                             <tr key={r.id}>
-                              <td className="px-2 py-1 font-medium text-AIPM-dark-grey dark:text-AIPM-light-grey">{resourceDisplayName(r)}</td>
+                              <td className="px-2 py-1 font-medium text-foreground dark:text-AIPM-light-grey">{resourceDisplayName(r)}</td>
                               {rollupPeriods.map((rp) => (
-                                <td key={rp.key} className="px-2 py-1 text-right tabular-nums text-AIPM-medium-grey">
+                                <td key={rp.key} className="px-2 py-1 text-right tabular-nums text-muted-foreground">
                                   {(displayCapacityHours(rp, canonicalPeriods, r, resAbs2, workdayHours, holidaySet, plan.granularity, other) / workdayHours).toFixed(1)}
                                 </td>
                               ))}
