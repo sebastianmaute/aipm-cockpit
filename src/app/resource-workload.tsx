@@ -67,7 +67,8 @@ export function ResourceWorkload({
                 <button
                   type="button"
                   onClick={() => onEditResource(row.resource)}
-                  className="rounded px-1 py-0.5 text-left hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-AIPM-dark-blue"
+                  className="rounded-md border border-transparent px-2 py-0.5 text-left font-medium text-AIPM-dark-grey shadow-sm hover:border-AIPM-dark-blue hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-AIPM-dark-blue dark:text-AIPM-light-grey dark:hover:bg-zinc-800"
+                  title={row.display}
                 >
                   {row.display}
                 </button>
