@@ -60,7 +60,7 @@ export function ResourceEditModal({
     setYearUnknown(!birthdayHasYear(resource?.birthday));
   }
 
-  const { offset, handleProps } = useDraggable(true);
+  const { offset, handleProps } = useDraggable(draft !== null);
 
   function update<K extends keyof Resource>(key: K, value: Resource[K]) {
     setDraft((prev) => (prev ? { ...prev, [key]: value } : prev));

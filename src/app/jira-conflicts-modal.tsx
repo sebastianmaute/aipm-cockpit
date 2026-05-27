@@ -131,7 +131,7 @@ export function JiraConflictsModal({
           onClose={onClose}
           dragHandleProps={handleProps}
         />
-        <p className="sticky top-[57px] z-10 bg-white px-6 pb-2 text-xs text-AIPM-dark-grey dark:bg-zinc-950 dark:text-AIPM-medium-grey">
+        <p className="bg-white px-6 pb-2 text-xs text-AIPM-dark-grey dark:bg-zinc-950 dark:text-AIPM-medium-grey">
           {t(lang, "jiraConflictSubtitle", conflicts.length)}
         </p>
 

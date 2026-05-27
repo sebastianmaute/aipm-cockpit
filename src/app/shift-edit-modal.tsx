@@ -85,7 +85,7 @@ export function ShiftEditModal({
     setError(null);
   }
 
-  const { offset, handleProps } = useDraggable(true);
+  const { offset, handleProps } = useDraggable(draft !== null);
 
   // Escape, focus management, and backdrop-click are owned by <Modal>.
 
