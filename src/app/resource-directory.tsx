@@ -64,7 +64,7 @@ function DirectoryRoleSelects({
             setDisc(v);
             if (v !== "" && grad !== "") onAssignRole(resource.id, v, Number(grad));
           }}
-          className="rounded border border-zinc-300 px-1.5 py-0.5 text-xs dark:border-zinc-700 dark:bg-zinc-900"
+          className="rounded border border-line bg-surface-muted px-1.5 py-0.5 text-xs"
         >
           <option value="">—</option>
           {disciplines.map((d) => (
@@ -81,7 +81,7 @@ function DirectoryRoleSelects({
             setGrad(v);
             if (disc !== "" && v !== "") onAssignRole(resource.id, Number(disc), v);
           }}
-          className="rounded border border-zinc-300 px-1.5 py-0.5 text-xs dark:border-zinc-700 dark:bg-zinc-900"
+          className="rounded border border-line bg-surface-muted px-1.5 py-0.5 text-xs"
         >
           <option value="">—</option>
           {grades.map((g) => (
@@ -169,7 +169,7 @@ function ResourceDirectoryInner({
         <button
           type="button"
           onClick={onAddResource}
-          className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-AIPM-dark-blue/90"
+          className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90"
         >
           {t(lang, "resourcesAddResource")}
         </button>
@@ -180,77 +180,77 @@ function ResourceDirectoryInner({
           placeholder={t(lang, "directorySearchPlaceholder")}
           aria-label={t(lang, "directorySearchPlaceholder")}
           title={t(lang, "directorySearchHint")}
-          className="min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-xs text-AIPM-dark-grey placeholder:text-zinc-400 focus:border-AIPM-dark-blue focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-AIPM-light-grey dark:placeholder:text-zinc-500"
+          className="min-w-0 flex-1 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-AIPM-dark-grey placeholder:text-muted-foreground focus:border-AIPM-dark-blue focus:outline-none"
         />
         {onOpenAddressBook && (
           <button
             type="button"
             onClick={onOpenAddressBook}
-            className="shrink-0 rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-xs font-medium text-AIPM-dark-grey shadow-sm hover:border-AIPM-dark-blue hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-AIPM-light-grey dark:hover:bg-zinc-800"
+            className="shrink-0 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-AIPM-dark-grey hover:border-AIPM-dark-blue hover:bg-surface-muted"
           >
             {t(lang, "resourcesOpenAddressBook")}
           </button>
         )}
       </div>
       {resources.length === 0 ? (
-        <div className="mt-3 flex-1 rounded-md border border-dashed border-zinc-300 p-6 text-center text-sm text-AIPM-medium-grey dark:border-zinc-800">
+        <div className="mt-3 flex-1 rounded-md border border-dashed border-line p-6 text-center text-sm text-AIPM-medium-grey">
           {t(lang, "resourcesEmpty")}
         </div>
       ) : (
-        <div className="min-h-0 flex-1 overflow-auto rounded-md border border-zinc-200 dark:border-zinc-800">
+        <div className="min-h-0 flex-1 overflow-auto rounded-md border border-line">
           <table className="w-full text-left text-sm">
-            <thead className="sticky top-0 z-10 bg-zinc-50 text-xs uppercase tracking-wide text-zinc-500 shadow-sm dark:bg-zinc-900 dark:text-zinc-400">
+            <thead className="sticky top-0 z-10 bg-surface-muted text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th className="px-3 py-2 font-medium">
-                  <button type="button" onClick={() => toggleSort("name")} aria-label={t(lang, "sortBy", t(lang, "assignee"))} title={t(lang, "sortBy", t(lang, "assignee"))} className="hover:text-zinc-800 dark:hover:text-zinc-200">
+                  <button type="button" onClick={() => toggleSort("name")} aria-label={t(lang, "sortBy", t(lang, "assignee"))} title={t(lang, "sortBy", t(lang, "assignee"))} className="hover:text-foreground">
                     {t(lang, "assignee")}{sortIndicator("name")}
                   </button>
                 </th>
                 <th className="px-3 py-2 font-medium">
-                  <button type="button" onClick={() => toggleSort("discipline")} aria-label={t(lang, "sortBy", t(lang, "rolesDiscipline"))} title={t(lang, "sortBy", t(lang, "rolesDiscipline"))} className="hover:text-zinc-800 dark:hover:text-zinc-200">
+                  <button type="button" onClick={() => toggleSort("discipline")} aria-label={t(lang, "sortBy", t(lang, "rolesDiscipline"))} title={t(lang, "sortBy", t(lang, "rolesDiscipline"))} className="hover:text-foreground">
                     {t(lang, "rolesDiscipline")}{sortIndicator("discipline")}
                   </button>
                 </th>
                 <th className="px-3 py-2 font-medium">
-                  <button type="button" onClick={() => toggleSort("grade")} aria-label={t(lang, "sortBy", t(lang, "rolesGrade"))} title={t(lang, "sortBy", t(lang, "rolesGrade"))} className="hover:text-zinc-800 dark:hover:text-zinc-200">
+                  <button type="button" onClick={() => toggleSort("grade")} aria-label={t(lang, "sortBy", t(lang, "rolesGrade"))} title={t(lang, "sortBy", t(lang, "rolesGrade"))} className="hover:text-foreground">
                     {t(lang, "rolesGrade")}{sortIndicator("grade")}
                   </button>
                 </th>
                 <th className="px-3 py-2 font-medium">
-                  <button type="button" onClick={() => toggleSort("title")} aria-label={t(lang, "sortBy", t(lang, "resourceColTitle"))} title={t(lang, "sortBy", t(lang, "resourceColTitle"))} className="hover:text-zinc-800 dark:hover:text-zinc-200">
+                  <button type="button" onClick={() => toggleSort("title")} aria-label={t(lang, "sortBy", t(lang, "resourceColTitle"))} title={t(lang, "sortBy", t(lang, "resourceColTitle"))} className="hover:text-foreground">
                     {t(lang, "resourceColTitle")}{sortIndicator("title")}
                   </button>
                 </th>
                 <th className="px-3 py-2 font-medium">
-                  <button type="button" onClick={() => toggleSort("department")} aria-label={t(lang, "sortBy", t(lang, "resourceColDepartment"))} title={t(lang, "sortBy", t(lang, "resourceColDepartment"))} className="hover:text-zinc-800 dark:hover:text-zinc-200">
+                  <button type="button" onClick={() => toggleSort("department")} aria-label={t(lang, "sortBy", t(lang, "resourceColDepartment"))} title={t(lang, "sortBy", t(lang, "resourceColDepartment"))} className="hover:text-foreground">
                     {t(lang, "resourceColDepartment")}{sortIndicator("department")}
                   </button>
                 </th>
                 <th className="px-3 py-2 font-medium">
-                  <button type="button" onClick={() => toggleSort("phone")} aria-label={t(lang, "sortBy", t(lang, "resourceColPhone"))} title={t(lang, "sortBy", t(lang, "resourceColPhone"))} className="hover:text-zinc-800 dark:hover:text-zinc-200">
+                  <button type="button" onClick={() => toggleSort("phone")} aria-label={t(lang, "sortBy", t(lang, "resourceColPhone"))} title={t(lang, "sortBy", t(lang, "resourceColPhone"))} className="hover:text-foreground">
                     {t(lang, "resourceColPhone")}{sortIndicator("phone")}
                   </button>
                 </th>
                 <th className="px-3 py-2 font-medium">
-                  <button type="button" onClick={() => toggleSort("email")} aria-label={t(lang, "sortBy", t(lang, "email"))} title={t(lang, "sortBy", t(lang, "email"))} className="hover:text-zinc-800 dark:hover:text-zinc-200">
+                  <button type="button" onClick={() => toggleSort("email")} aria-label={t(lang, "sortBy", t(lang, "email"))} title={t(lang, "sortBy", t(lang, "email"))} className="hover:text-foreground">
                     {t(lang, "email")}{sortIndicator("email")}
                   </button>
                 </th>
                 <th className="px-3 py-2 font-medium">
-                  <button type="button" onClick={() => toggleSort("birthday")} aria-label={t(lang, "sortBy", t(lang, "resourceColBirthday"))} title={t(lang, "sortBy", t(lang, "resourceColBirthday"))} className="hover:text-zinc-800 dark:hover:text-zinc-200">
+                  <button type="button" onClick={() => toggleSort("birthday")} aria-label={t(lang, "sortBy", t(lang, "resourceColBirthday"))} title={t(lang, "sortBy", t(lang, "resourceColBirthday"))} className="hover:text-foreground">
                     {t(lang, "resourceColBirthday")}{sortIndicator("birthday")}
                   </button>
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
+            <tbody className="divide-y divide-line">
               {rows.map((r) => (
                 <tr key={r.id} className="align-middle">
                   <td className="px-3 py-2">
                     <button
                       type="button"
                       onClick={() => onEditResource(r)}
-                      className="rounded-md border border-transparent px-2 py-0.5 text-xs font-medium text-AIPM-dark-grey shadow-sm hover:border-AIPM-dark-blue hover:bg-zinc-50 dark:text-AIPM-light-grey dark:hover:bg-zinc-800"
+                      className="rounded-md border border-transparent px-2 py-0.5 text-xs font-medium text-AIPM-dark-grey hover:border-AIPM-dark-blue hover:bg-surface-muted"
                     >
                       {resourceDisplayName(r)}
                     </button>
