@@ -79,6 +79,7 @@ prerendered.
 | File | Role | Notes |
 |---|---|---|
 | `task-form-modal.tsx` | Task create/edit form inside a `<Modal>`; reads `form`, `setForm`, `editingId`, `taskModalOpen` from `useTaskForm()` | ~491 lines extracted from task-manager in slice 4; returns null when closed |
+| `effort-progress-bar.tsx` | `EffortProgressBar` — fills left→right proportional to time-spent vs original estimate; turns red and shows the percentage when over-budget; greyed when no estimate is set. Ratio via `effortProgress` (`duration.ts`). Rendered inside `task-form-modal.tsx` beneath the estimate/spent row. | 0.13.1 |
 | `bulk-edit-modal.tsx` | Bulk-edit dialog (apply field to N selected tasks); reads `bulkEdit`, `setBulkEdit`, `bulkEditOpen` from `useTaskForm()` | ~354 lines extracted from task-manager in slice 4; returns null when closed |
 | `gantt.tsx` | Visual timeline with bar drag, dependency arrows, critical path | conditional mount; consumes `absences` to grey out off-days |
 | `raid-panel.tsx` | Risks/Assumptions/Issues/Dependencies log | `memo()`-wrapped; mounted-but-hidden |
