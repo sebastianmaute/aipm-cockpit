@@ -192,6 +192,8 @@ const enUS = {
   budgetProjectTotal: "Project total",
   budgetSpilloverIn: "Spilled in",
   budgetEndingSoon: "Budget bucket ending soon",
+  budgetRemoveBucket: "Remove bucket",
+  budgetRemoveBucketConfirm: "Remove this budget bucket? Calculations based on it will reset to 0.",
 
   tabChat: "Chat",
   tabNewTask: "New task",

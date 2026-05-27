@@ -199,6 +199,8 @@ export const de: Record<TranslationKey, string> = {
   budgetProjectTotal: "Projektsumme",
   budgetSpilloverIn: "Übertrag",
   budgetEndingSoon: "Budget-Bucket endet bald",
+  budgetRemoveBucket: "Budget-Topf entfernen",
+  budgetRemoveBucketConfirm: "Diesen Budget-Topf entfernen? Berechnungen, die darauf basieren, werden auf 0 zurückgesetzt.",
 
   tabChat: "Chat",
   tabNewTask: "Neue Aufgabe",

@@ -74,6 +74,15 @@ export function BudgetPanel(props: BudgetPanelProps) {
     props.onChangeBuckets(buckets.map((b) => (b.id === id ? { ...b, ...patch, localModifiedAt: stamp() } : b)));
   };
 
+  const removeBucket = (id: number) => {
+    if (!window.confirm(t(lang, "budgetRemoveBucketConfirm"))) return;
+    props.onChangeBuckets(
+      buckets
+        .filter((b) => b.id !== id)
+        .map((b) => (b.successorId === id ? { ...b, successorId: null, localModifiedAt: stamp() } : b)),
+    );
+  };
+
   const setCell = (
     bucketId: number, roleId: number, periodKey: string,
     field: "budgetHours" | "actualHours", value: number,
@@ -195,15 +204,25 @@ export function BudgetPanel(props: BudgetPanelProps) {
                   </tbody>
                 </table>
               </div>
-              <button
-                type="button"
-                onClick={() => updateBucket(bucket.id, bucket.status === "open"
-                  ? { status: "closed", closedDate: props.today }
-                  : { status: "open", closedDate: undefined })}
-                className="mt-2 text-xs text-zinc-500 hover:text-AIPM-dark-blue dark:hover:text-AIPM-light-grey"
-              >
-                {t(lang, bucket.status === "open" ? "budgetClose" : "budgetReopen")}
-              </button>
+              <div className="mt-2 flex items-center gap-4">
+                <button
+                  type="button"
+                  onClick={() => updateBucket(bucket.id, bucket.status === "open"
+                    ? { status: "closed", closedDate: props.today }
+                    : { status: "open", closedDate: undefined })}
+                  className="text-xs text-zinc-500 hover:text-AIPM-dark-blue dark:hover:text-AIPM-light-grey"
+                >
+                  {t(lang, bucket.status === "open" ? "budgetClose" : "budgetReopen")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => removeBucket(bucket.id)}
+                  title={t(lang, "budgetRemoveBucket")}
+                  className="text-xs text-zinc-500 hover:text-AIPM-pink dark:hover:text-AIPM-pink"
+                >
+                  {t(lang, "budgetRemoveBucket")}
+                </button>
+              </div>
             </div>
           );
         })}
