@@ -1,6 +1,7 @@
 <!-- Generated: 2026-05-27 | Files scanned: ~78 (src/app/*.tsx, *.ts) | Token estimate: ~1520 -->
 <!-- Updated: 2026-05-27 —  0.14.2 RAID header sorting -->
 <!-- Updated: 2026-05-27 —  0.15.0 Light/Dark/System theme -->
+<!-- Updated: 2026-05-27 —  0.15.1 AIPM semantic surface tokens in globals.css; DESIGN-TOKENS.md added -->
 
 # Frontend
 

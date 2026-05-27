@@ -1,3 +1,8 @@
+// 0.15.1 lays the AIPM design-token foundation: semantic surface tokens
+// (surface/muted/line/muted-foreground, light+dark) in globals.css, a
+// DESIGN-TOKENS.md mapping doc, and the shared primitives (segmented control,
+// modal header, app header) migrated to the palette (green accent, dark-blue
+// fills, no shadows). Full app sweep follows.
 // 0.15.0 "Le Guin" adds a Light / Dark / System theme: a class-based dark mode
 // with a no-flash loader, persisted per device (localStorage "lop-theme"), and a
 // 3-way control in Settings. (Palette/shadow cleanup follows in a later release.)
@@ -213,7 +218,7 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.15.0";
+export const APP_VERSION = "0.15.1";
 export const APP_BUILD_DATE = "2026-05-27"; // Le Guin milestone
 export const APP_REPO_URL = "https://www.example.com";
 
