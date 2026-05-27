@@ -7,6 +7,7 @@ import {
   ASSUMPTION_STATUSES,
   DEPENDENCY_STATUSES,
   ISSUE_STATUSES,
+  RAID_CATEGORIES,
   RISK_STATUSES,
   type RaidCategory,
   type RaidItem,
@@ -179,4 +180,70 @@ export function wouldCreateCycle(
     for (const p of parents) stack.push(p);
   }
   return false;
+}
+
+// ---------------------------------------------------------------------------
+// Column comparator — backs sortable RAID table headers.
+// ---------------------------------------------------------------------------
+
+export type RaidSortKey =
+  | "id"
+  | "category"
+  | "title"
+  | "severity"
+  | "status"
+  | "owner"
+  | "targetDate";
+
+const SEVERITY_RANK: Record<RaidSeverity, number> = {
+  Low: 1,
+  Medium: 2,
+  High: 3,
+  Critical: 4,
+};
+
+function raidSortValue(item: RaidItem, key: RaidSortKey): string | number {
+  switch (key) {
+    case "id":
+      return item.id;
+    case "category":
+      return RAID_CATEGORIES.indexOf(item.category);
+    case "severity":
+      return item.severity ? SEVERITY_RANK[item.severity] : 0;
+    case "status":
+      return item.status.toLowerCase();
+    case "title":
+      return item.title.toLowerCase();
+    case "owner":
+      return (item.owner ?? "").toLowerCase();
+    case "targetDate":
+      return item.targetDate ?? "";
+  }
+}
+
+/**
+ * Compare two RAID items by a column. Missing `targetDate` always sorts LAST,
+ * regardless of direction; other missing values use their natural low/empty order.
+ */
+export function compareRaid(
+  a: RaidItem,
+  b: RaidItem,
+  key: RaidSortKey,
+  dir: "asc" | "desc",
+): number {
+  if (key === "targetDate") {
+    const av = a.targetDate ?? "";
+    const bv = b.targetDate ?? "";
+    if (av === "" || bv === "") {
+      if (av === bv) return 0;
+      return av === "" ? 1 : -1;
+    }
+  }
+  const av = raidSortValue(a, key);
+  const bv = raidSortValue(b, key);
+  const cmp =
+    typeof av === "number" && typeof bv === "number"
+      ? av - bv
+      : String(av).localeCompare(String(bv));
+  return dir === "asc" ? cmp : -cmp;
 }

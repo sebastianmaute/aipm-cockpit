@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, test } from "vitest";
 import {
   riskSeverityFromMatrix,
   statusOptionsFor,
@@ -10,6 +10,8 @@ import {
   nextRaidId,
   buildRaidCausesIndex,
   wouldCreateCycle,
+  compareRaid,
+  type RaidSortKey,
 } from "./raid";
 import {
   ASSUMPTION_STATUSES,
@@ -496,5 +498,64 @@ describe("wouldCreateCycle", () => {
       makeItem({ id: 3, category: "A", causedByRaidIds: [2] }),
     ];
     expect(wouldCreateCycle(items, 1, 3)).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// compareRaid
+// ---------------------------------------------------------------------------
+function ri(over: Partial<import("./types").RaidItem>): import("./types").RaidItem {
+  return {
+    id: 1,
+    category: "R",
+    title: "t",
+    status: "Open",
+    linkedTaskIds: [],
+    causedByRaidIds: [],
+    raisedDate: "2026-01-01",
+    ...over,
+  };
+}
+
+describe("compareRaid", () => {
+  const sortBy = (items: import("./types").RaidItem[], key: RaidSortKey, dir: "asc" | "desc" = "asc") =>
+    [...items].sort((a, b) => compareRaid(a, b, key, dir));
+
+  test("severity by rank Low<Medium<High<Critical (missing lowest)", () => {
+    const items = [
+      ri({ id: 1, severity: "Critical" }),
+      ri({ id: 2, severity: "Low" }),
+      ri({ id: 3, severity: undefined }),
+      ri({ id: 4, severity: "High" }),
+    ];
+    expect(sortBy(items, "severity", "asc").map((i) => i.id)).toEqual([3, 2, 4, 1]);
+    expect(sortBy(items, "severity", "desc").map((i) => i.id)).toEqual([1, 4, 2, 3]);
+  });
+
+  test("category follows R→A→I→D", () => {
+    const items = [
+      ri({ id: 1, category: "D" }),
+      ri({ id: 2, category: "R" }),
+      ri({ id: 3, category: "I" }),
+      ri({ id: 4, category: "A" }),
+    ];
+    expect(sortBy(items, "category", "asc").map((i) => i.category)).toEqual(["R", "A", "I", "D"]);
+  });
+
+  test("id numeric, owner case-insensitive", () => {
+    expect(sortBy([ri({ id: 10 }), ri({ id: 2 })], "id").map((i) => i.id)).toEqual([2, 10]);
+    expect(
+      sortBy([ri({ id: 1, owner: "bob" }), ri({ id: 2, owner: "Alice" })], "owner").map((i) => i.id),
+    ).toEqual([2, 1]);
+  });
+
+  test("missing targetDate sorts LAST in both directions", () => {
+    const items = [
+      ri({ id: 1, targetDate: undefined }),
+      ri({ id: 2, targetDate: "2026-03-01" }),
+      ri({ id: 3, targetDate: "2026-01-01" }),
+    ];
+    expect(sortBy(items, "targetDate", "asc").map((i) => i.id)).toEqual([3, 2, 1]);
+    expect(sortBy(items, "targetDate", "desc").map((i) => i.id)).toEqual([2, 3, 1]);
   });
 });
