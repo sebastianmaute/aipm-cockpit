@@ -32,12 +32,12 @@ function localeFor(lang: Lang): string {
 
 function Cci({ label, value, currency, locale }: { label: string; value: CciValue; currency: string; locale: string }) {
   const pct = value.percent == null ? "—" : `${value.percent.toFixed(1)}%`;
-  const tone = value.amount >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-AIPM-pink";
+  const tone = value.amount >= 0 ? "text-AIPM-green" : "text-AIPM-pink";
   return (
-    <div className="rounded-lg border border-zinc-200 p-3 dark:border-zinc-800">
-      <div className="text-xs text-zinc-500">{label}</div>
+    <div className="rounded-lg border border-line p-3">
+      <div className="text-xs text-muted-foreground">{label}</div>
       <div className={`text-lg font-semibold ${tone}`}>{formatCurrency(value.amount, currency, locale)}</div>
-      <div className="text-xs text-zinc-500">{pct}</div>
+      <div className="text-xs text-muted-foreground">{pct}</div>
     </div>
   );
 }
@@ -149,7 +149,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
         <button
           type="button"
           onClick={addBucket}
-          className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-AIPM-dark-blue/90"
+          className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90"
         >
           + {t(lang, "budgetAddBucket")}
         </button>
@@ -157,7 +157,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
           type="button"
           onClick={props.onRefreshFx}
           disabled={props.fxLoading}
-          className="inline-flex items-center gap-1.5 rounded-md border border-AIPM-dark-blue bg-white px-3 py-1.5 text-sm font-medium text-AIPM-dark-blue shadow-sm hover:bg-AIPM-light-grey disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+          className="inline-flex items-center gap-1.5 rounded-md border border-AIPM-dark-blue bg-surface px-3 py-1.5 text-sm font-medium text-AIPM-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50"
         >
           <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className={`h-4 w-4 ${props.fxLoading ? "animate-spin" : ""}`}>
             <path fillRule="evenodd" d="M15.312 11.424a5.5 5.5 0 01-9.201 2.466l-.312-.311h2.433a.75.75 0 000-1.5H3.989a.75.75 0 00-.75.75v4.242a.75.75 0 001.5 0v-2.43l.31.31a7 7 0 0011.712-3.138.75.75 0 00-1.449-.39zm1.23-3.723a.75.75 0 00.219-.53V2.929a.75.75 0 00-1.5 0V5.36l-.31-.31A7 7 0 003.239 8.188a.75.75 0 101.448.389A5.5 5.5 0 0113.89 6.11l.311.31h-2.432a.75.75 0 000 1.5h4.243a.75.75 0 00.53-.219z" clipRule="evenodd" />
@@ -188,10 +188,10 @@ export function BudgetPanel(props: BudgetPanelProps) {
               key={br.bucketId}
               onDragOver={(e) => e.preventDefault()}
               onDrop={() => onDropOnBucket(br.bucketId)}
-              className={`rounded-xl border p-4 dark:border-zinc-800 ${
+              className={`rounded-xl border p-4 ${
                 dragId != null && dragId !== br.bucketId
                   ? "border-AIPM-dark-blue/60"
-                  : "border-zinc-200"
+                  : "border-line"
               }`}
             >
               <div className="mb-2 flex items-center justify-between">
@@ -212,7 +212,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
                     }}
                     aria-label={t(lang, "budgetReorderHandle")}
                     title={t(lang, "budgetReorderHandle")}
-                    className="cursor-grab select-none rounded leading-none text-zinc-400 hover:text-AIPM-dark-blue focus:outline-none focus-visible:ring-2 focus-visible:ring-AIPM-dark-blue active:cursor-grabbing dark:hover:text-AIPM-light-grey"
+                    className="cursor-grab select-none rounded leading-none text-muted-foreground hover:text-AIPM-dark-blue focus:outline-none focus-visible:ring-2 focus-visible:ring-AIPM-green active:cursor-grabbing dark:hover:text-AIPM-light-grey"
                   >
                     ⠿
                   </button>
@@ -220,19 +220,19 @@ export function BudgetPanel(props: BudgetPanelProps) {
                     {br.name}{bucket.poNumber ? ` · ${bucket.poNumber}` : ""}
                   </span>
                 </div>
-                <div className="text-xs text-zinc-500">
+                <div className="text-xs text-muted-foreground">
                   {t(lang, br.type === "fixed" ? "budgetTypeFixed" : "budgetTypeTm")} · {bucket.currency}
                   {rate !== 1 ? ` (×${rate})` : ""}
                 </div>
               </div>
               <div className="grid grid-cols-4 gap-2 text-sm">
-                <div><div className="text-xs text-zinc-500">{t(lang, "budgetBudgetHours")}</div>{br.budgetHours.toFixed(0)}</div>
-                <div><div className="text-xs text-zinc-500">{t(lang, "budgetPlanHours")}</div>{br.plannedHours.toFixed(0)}</div>
-                <div><div className="text-xs text-zinc-500">{t(lang, "budgetActualHours")}</div>{br.actualHours.toFixed(0)}</div>
-                <div><div className="text-xs text-zinc-500">{t(lang, "budgetWinLoss")}</div>{inCur(br.winLossValue)}</div>
+                <div><div className="text-xs text-muted-foreground">{t(lang, "budgetBudgetHours")}</div>{br.budgetHours.toFixed(0)}</div>
+                <div><div className="text-xs text-muted-foreground">{t(lang, "budgetPlanHours")}</div>{br.plannedHours.toFixed(0)}</div>
+                <div><div className="text-xs text-muted-foreground">{t(lang, "budgetActualHours")}</div>{br.actualHours.toFixed(0)}</div>
+                <div><div className="text-xs text-muted-foreground">{t(lang, "budgetWinLoss")}</div>{inCur(br.winLossValue)}</div>
               </div>
               {br.spilloverInHours !== 0 && (
-                <div className="mt-1 text-xs text-zinc-500">
+                <div className="mt-1 text-xs text-muted-foreground">
                   {t(lang, "budgetSpilloverIn")}: {br.spilloverInHours.toFixed(0)} h · {inCur(br.spilloverInValue)}
                 </div>
               )}
@@ -244,7 +244,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
               <div className="mt-3 overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead>
-                    <tr className="text-zinc-500">
+                    <tr className="text-muted-foreground">
                       <th className="px-2 py-1 text-left">{t(lang, "budgetRole")}</th>
                       {bucketActivePeriods(bucket, plan).map((p) => (
                         <th key={p.key} className="px-2 py-1 text-right">{p.key}</th>
@@ -253,7 +253,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
                   </thead>
                   <tbody>
                     {bucket.allocations.map((a) => (
-                      <tr key={a.roleId} className="border-t border-zinc-100 dark:border-zinc-800">
+                      <tr key={a.roleId} className="border-t border-line">
                         <td className="px-2 py-1">{roleLabel(roles.find((r) => r.id === a.roleId), props.disciplines, props.grades) || `#${a.roleId}`}</td>
                         {bucketActivePeriods(bucket, plan).map((p) => (
                           <td key={p.key} className="px-1 py-1">
@@ -263,14 +263,14 @@ export function BudgetPanel(props: BudgetPanelProps) {
                                 type="number"
                                 value={a.budgetHours[p.key] ?? ""}
                                 onChange={(e) => setCell(bucket.id, a.roleId, p.key, "budgetHours", Number(e.target.value) || 0)}
-                                className="w-16 rounded border border-zinc-200 bg-white px-1 text-right dark:border-zinc-700 dark:bg-zinc-900"
+                                className="w-16 rounded border border-line bg-surface px-1 text-right"
                               />
                               <input
                                 aria-label={`actual-${bucket.id}-${a.roleId}-${p.key}`}
                                 type="number"
                                 value={a.actualHours[p.key] ?? ""}
                                 onChange={(e) => setCell(bucket.id, a.roleId, p.key, "actualHours", Number(e.target.value) || 0)}
-                                className="w-16 rounded border border-zinc-200 bg-zinc-50 px-1 text-right dark:border-zinc-700 dark:bg-zinc-800"
+                                className="w-16 rounded border border-line bg-surface-muted px-1 text-right"
                               />
                             </div>
                           </td>
@@ -284,7 +284,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
                 <button
                   type="button"
                   onClick={() => setEditingBucketId(bucket.id)}
-                  className="rounded-md border border-transparent px-2 py-0.5 text-xs text-zinc-500 hover:border-AIPM-dark-blue hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                  className="rounded-md border border-transparent px-2 py-0.5 text-xs text-muted-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted"
                 >
                   {t(lang, "budgetEditBucket")}
                 </button>
@@ -293,7 +293,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
                   onClick={() => updateBucket(bucket.id, bucket.status === "open"
                     ? { status: "closed", closedDate: props.today }
                     : { status: "open", closedDate: undefined })}
-                  className="rounded-md border border-transparent px-2 py-0.5 text-xs text-zinc-500 hover:border-AIPM-dark-blue hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                  className="rounded-md border border-transparent px-2 py-0.5 text-xs text-muted-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted"
                 >
                   {t(lang, bucket.status === "open" ? "budgetClose" : "budgetReopen")}
                 </button>
@@ -301,7 +301,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
                   type="button"
                   onClick={() => removeBucket(bucket.id)}
                   title={t(lang, "budgetRemoveBucket")}
-                  className="rounded-md border border-transparent px-2 py-0.5 text-xs text-zinc-500 hover:border-AIPM-dark-blue hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                  className="rounded-md border border-transparent px-2 py-0.5 text-xs text-muted-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted"
                 >
                   {t(lang, "budgetRemoveBucket")}
                 </button>
@@ -310,7 +310,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
           );
         })}
         {report.buckets.length === 0 && (
-          <p className="text-sm text-zinc-500">{t(lang, "budgetAddBucket")}…</p>
+          <p className="text-sm text-muted-foreground">{t(lang, "budgetAddBucket")}…</p>
         )}
       </section>
       {editingBucketId != null && bucketById.get(editingBucketId) && (
