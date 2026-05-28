@@ -4,6 +4,15 @@
 // Microsoft Graph. Token acquisition is delegated to the caller (M1's
 // useMsAuth().acquireToken).
 
+import {
+  StorageNotReadyError,
+  csvToWorkspace,
+  emptyWorkspace,
+  workspaceToCsv,
+  type StorageBackend,
+  type Workspace,
+} from "./storage";
+
 export interface SpFileLocation {
   hostname: string;
   sitePath: string;
@@ -15,32 +24,8 @@ export interface SpFileLocation {
  *    https://<host>/sites/<site>/<library>/<path>/<file>
  *  Returns null on malformed input or unsupported URL shape
  *  (e.g. *-my.sharepoint.com OneDrive). */
-import {
-  StorageNotReadyError,
-  csvToWorkspace,
-  workspaceToCsv,
-  type StorageBackend,
-  type Workspace,
-} from "./storage";
 
 const GRAPH = "https://graph.microsoft.com/v1.0";
-
-const EMPTY_WORKSPACE: Workspace = {
-  tasks: [],
-  raid: [],
-  absences: [],
-  shifts: [],
-  resources: [],
-  roles: [],
-  disciplines: [],
-  grades: [],
-  plan: {
-    startDate: "2026-01-01",
-    endDate: "2026-12-31",
-    granularity: "month",
-    currency: "EUR",
-  },
-} as unknown as Workspace;
 
 function graphUrlFor(loc: SpFileLocation): string {
   return `${GRAPH}/sites/${loc.hostname}:${loc.sitePath}:/drive/root:/${loc.itemPath}:/content`;
@@ -69,11 +54,15 @@ export class SharePointBackend implements StorageBackend {
   }
 
   async isReady(): Promise<boolean> {
-    const token = await this.acquireToken(["Files.ReadWrite"]);
-    return !!token;
+    try {
+      const token = await this.acquireToken(["Files.ReadWrite"]);
+      return !!token;
+    } catch {
+      return false;
+    }
   }
 
-  async describe(): Promise<string | null> {
+  async describe(): Promise<string> {
     const filename =
       this.location.itemPath.split("/").pop() ?? this.location.itemPath;
     return `${filename} on ${this.location.sitePath}`;
@@ -91,7 +80,7 @@ export class SharePointBackend implements StorageBackend {
       method: "GET",
       headers: { Authorization: `Bearer ${token}` },
     });
-    if (res.status === 404) return EMPTY_WORKSPACE;
+    if (res.status === 404) return emptyWorkspace();
     if (res.status === 401) {
       throw new StorageNotReadyError(
         "Sign-in expired. Re-authenticate from Settings.",

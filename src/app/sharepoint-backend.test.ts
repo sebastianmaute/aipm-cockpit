@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { MockInstance, Mock } from "vitest";
 import { parseSharePointFileUrl } from "./sharepoint-backend";
 
 describe("parseSharePointFileUrl", () => {
@@ -127,13 +128,11 @@ const EMPTY_WORKSPACE: Workspace = {
     granularity: "month",
     currency: "EUR",
   },
-} as unknown as Workspace;
+};
 
 describe("SharePointBackend", () => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let fetchSpy: any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let acquireToken: any;
+  let fetchSpy: MockInstance;
+  let acquireToken: Mock;
 
   beforeEach(() => {
     fetchSpy = vi.spyOn(globalThis, "fetch");
@@ -166,6 +165,15 @@ describe("SharePointBackend", () => {
       acquireToken,
     );
     expect(await be.isReady()).toBe(true);
+  });
+
+  it("isReady returns false when acquireToken rejects", async () => {
+    acquireToken.mockRejectedValue(new Error("MSAL network error"));
+    const be = new SharePointBackend(
+      { kind: "sp-json", ...FAKE_LOCATION },
+      acquireToken,
+    );
+    expect(await be.isReady()).toBe(false);
   });
 
   it("load constructs correct Graph URL", async () => {
