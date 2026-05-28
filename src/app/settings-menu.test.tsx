@@ -88,6 +88,16 @@ describe("SettingsMenu theme control", () => {
 });
 
 describe("SettingsMenu — Integrations section", () => {
+  const m365EnabledIntegrations = {
+    m365: {
+      enabled: true,
+      sharepoint: false,
+      outlookContacts: false,
+      outlookCalendar: false,
+    },
+    turso: { enabled: false },
+  } as const;
+
   it("renders the M365 master toggle defaulting OFF", () => {
     render(<SettingsMenu {...makeProps()} />);
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "settings") }));
@@ -96,17 +106,7 @@ describe("SettingsMenu — Integrations section", () => {
   });
 
   it("renders Outlook sub-toggles disabled when M365 is enabled", () => {
-    const settings = makeSettings({
-      integrations: {
-        m365: {
-          enabled: true,
-          sharepoint: false,
-          outlookContacts: false,
-          outlookCalendar: false,
-        },
-        turso: { enabled: false },
-      },
-    });
+    const settings = makeSettings({ integrations: m365EnabledIntegrations });
     render(<SettingsMenu {...makeProps({ settings })} />);
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "settings") }));
     const tursoCheckbox = screen.getByRole("checkbox", { name: t("en-US", "integrationsTurso") });
@@ -114,17 +114,7 @@ describe("SettingsMenu — Integrations section", () => {
   });
 
   it("SharePoint sub-toggle is interactive (not disabled) when M365 enabled", () => {
-    const settings = makeSettings({
-      integrations: {
-        m365: {
-          enabled: true,
-          sharepoint: false,
-          outlookContacts: false,
-          outlookCalendar: false,
-        },
-        turso: { enabled: false },
-      },
-    });
+    const settings = makeSettings({ integrations: m365EnabledIntegrations });
     render(<SettingsMenu {...makeProps({ settings })} />);
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "settings") }));
     const sharepointCheckbox = screen.getByRole("checkbox", { name: t("en-US", "integrationsSharepoint") });
@@ -132,17 +122,7 @@ describe("SettingsMenu — Integrations section", () => {
   });
 
   it("Outlook contacts and calendar sub-toggles are still disabled (M3/M4 not yet shipped)", () => {
-    const settings = makeSettings({
-      integrations: {
-        m365: {
-          enabled: true,
-          sharepoint: false,
-          outlookContacts: false,
-          outlookCalendar: false,
-        },
-        turso: { enabled: false },
-      },
-    });
+    const settings = makeSettings({ integrations: m365EnabledIntegrations });
     render(<SettingsMenu {...makeProps({ settings })} />);
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "settings") }));
     const outlookContactsCheckbox = screen.getByRole("checkbox", { name: t("en-US", "integrationsOutlookContacts") });
@@ -153,23 +133,13 @@ describe("SettingsMenu — Integrations section", () => {
 
   it("toggling SharePoint persists settings.integrations.m365.sharepoint", () => {
     const onChange = vi.fn();
-    const settings = makeSettings({
-      integrations: {
-        m365: {
-          enabled: true,
-          sharepoint: false,
-          outlookContacts: false,
-          outlookCalendar: false,
-        },
-        turso: { enabled: false },
-      },
-    });
+    const settings = makeSettings({ integrations: m365EnabledIntegrations });
     render(<SettingsMenu {...makeProps({ settings, onChange })} />);
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "settings") }));
     const sharepointCheckbox = screen.getByRole("checkbox", { name: t("en-US", "integrationsSharepoint") });
     fireEvent.click(sharepointCheckbox);
     expect(onChange).toHaveBeenCalled();
     const lastCall = onChange.mock.calls[onChange.mock.calls.length - 1][0] as Settings;
-    expect(lastCall.integrations!.m365!.sharepoint).toBe(true);
+    expect(lastCall.integrations?.m365?.sharepoint).toBe(true);
   });
 });

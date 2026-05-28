@@ -661,15 +661,12 @@ export function SettingsMenu({
                 </div>
 
                 <fieldset className="mt-3 border-t border-line pt-2">
-                  <legend className="text-xs text-muted-foreground">
-                    {t(lang, "integrationsComingSoon")}
-                  </legend>
                   {(
                     [
-                      ["integrationsSharepoint", "sharepoint", false] as const,
-                      ["integrationsOutlookContacts", "outlookContacts", true] as const,
-                      ["integrationsOutlookCalendar", "outlookCalendar", true] as const,
-                    ]
+                      ["integrationsSharepoint", "sharepoint", false],
+                      ["integrationsOutlookContacts", "outlookContacts", true],
+                      ["integrationsOutlookCalendar", "outlookCalendar", true],
+                    ] as const
                   ).map(([labelKey, key, comingSoon]) => (
                     <label
                       key={labelKey}
@@ -685,8 +682,7 @@ export function SettingsMenu({
                             ? undefined
                             : (e) => updateM365({ [key]: e.target.checked })
                         }
-                        readOnly={comingSoon}
-                        className={`h-4 w-4 ${comingSoon ? "cursor-not-allowed" : ""}`}
+                        className={comingSoon ? "h-4 w-4 cursor-not-allowed" : "h-4 w-4"}
                       />
                       <span>{t(lang, labelKey)}</span>
                     </label>
