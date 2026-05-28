@@ -65,6 +65,8 @@ const enUS = {
 
   edit: "Edit",
   clear: "Clear",
+  print: "Print",
+  printHint: "Open the browser print dialog for an A4 handout",
   delete: "Delete",
   sendInquiry: "Send inquiry",
 
@@ -921,6 +923,7 @@ const enUS = {
   raidReportOpenReport: "Open RAID Report",
   raidReportOpenReportHint: "Open a steering-committee overview in a new window.",
   versionHighlightRaidReport: "RAID Report: a steering-committee overview of open risks, issues, assumptions and dependencies — with a drill-down to the full item list.",
+  versionHighlightPrintReports: "Reports, RAID Report and Resources Report now have a Print button — produces a clean A4-fitting handout via the browser's print dialog.",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;
