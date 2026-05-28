@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { workdaysUntil } from "./due-dates";
 import { useColumnResize } from "./use-column-resize";
 import { ColumnResizeHandle, ResetColWidthsButton } from "./task-manager-ui";
@@ -32,6 +32,15 @@ const REPORTS_BY_X_COL_WIDTHS = {
   inquiries: 90,
 } as const;
 type ReportsByXCol = keyof typeof REPORTS_BY_X_COL_WIDTHS;
+
+type SortDir = "asc" | "desc" | "off";
+
+type AssigneeSortKey = "assignee" | "total" | "open" | "overdue" | "onTime" | "late" | "inquiries";
+type AssigneeSort = { key: AssigneeSortKey; dir: SortDir };
+
+type GroupOrLabelSortKey = "name" | "total" | "open" | "completed" | "overdue" | "inquiries";
+type GroupOrLabelSort = { key: GroupOrLabelSortKey; dir: SortDir };
+
 import {
   computeGroupHealth,
   type GroupHealth,
@@ -680,6 +689,77 @@ function Tile({
       >
         {value}
       </p>
+    </div>
+  );
+}
+
+function compareStrOrNum(a: unknown, b: unknown): number {
+  if (typeof a === "number" && typeof b === "number") return a - b;
+  return String(a ?? "").localeCompare(String(b ?? ""));
+}
+
+function SortTh<TKey extends string>({
+  label,
+  k,
+  sortKey,
+  dir,
+  onClick,
+  align,
+}: {
+  label: string;
+  k: TKey;
+  sortKey: TKey;
+  dir: SortDir;
+  onClick: (k: TKey) => void;
+  align?: "left" | "right";
+}) {
+  const active = sortKey === k && dir !== "off";
+  const indicator = active ? (dir === "asc" ? " ↑" : " ↓") : "";
+  return (
+    <th className={`relative px-3 py-2 ${align === "right" ? "text-right" : ""}`}>
+      <button
+        type="button"
+        onClick={() => onClick(k)}
+        className={`inline-flex items-center gap-1 ${active ? "text-foreground" : ""} hover:text-foreground`}
+      >
+        {label}{indicator}
+      </button>
+    </th>
+  );
+}
+
+function TableFilter({
+  lang,
+  value,
+  onChange,
+  placeholderKey,
+}: {
+  lang: Lang;
+  value: string;
+  onChange: (v: string) => void;
+  placeholderKey: "reportsFilterAssignee" | "reportsFilterGroup" | "reportsFilterLabel";
+}) {
+  return (
+    <div className="mb-2 flex items-center gap-2">
+      <input
+        type="search"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={t(lang, placeholderKey)}
+        aria-label={t(lang, placeholderKey)}
+        className="min-w-0 flex-1 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-AIPM-dark-blue focus:outline-none"
+      />
+      {value && (
+        <button
+          type="button"
+          onClick={() => onChange("")}
+          aria-label={t(lang, "clear")}
+          title={t(lang, "clear")}
+          className="rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-muted-foreground hover:bg-surface-muted hover:text-foreground"
+        >
+          ×
+        </button>
+      )}
     </div>
   );
 }
