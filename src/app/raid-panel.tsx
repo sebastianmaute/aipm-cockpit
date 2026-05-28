@@ -36,6 +36,21 @@ import {
   type RiskScale,
   type Task,
 } from "./types";
+import { useColumnResize } from "./use-column-resize";
+import { ColumnResizeHandle, ResetColWidthsButton } from "./task-manager-ui";
+
+const RAID_COL_WIDTHS = {
+  id: 60,
+  category: 100,
+  title: 240,
+  severity: 90,
+  status: 110,
+  owner: 140,
+  targetDate: 110,
+  linkedTasks: 140,
+  causedBy: 140,
+} as const;
+type RaidCol = keyof typeof RAID_COL_WIDTHS;
 
 // --- Props ---------------------------------------------------------------
 
@@ -310,6 +325,12 @@ function RaidPanelInner({
     }
   }
 
+  const { colWidths, startColResize, resetColWidths } = useColumnResize<RaidCol>(
+    "raid",
+    RAID_COL_WIDTHS,
+  );
+  const startResize = startColResize as (col: string, e: React.MouseEvent) => void;
+
   const filtersActive =
     search.trim() !== "" ||
     categoryFilter !== "All" ||
@@ -399,6 +420,7 @@ function RaidPanelInner({
           {t(lang, "ganttResetFilters")}
         </button>
       )}
+      <ResetColWidthsButton onClick={resetColWidths} lang={lang} />
       <button
         type="button"
         onClick={() => openNew()}
@@ -417,43 +439,56 @@ function RaidPanelInner({
         <table className="min-w-full text-left text-sm">
           <thead className="sticky top-0 z-10 bg-surface-muted text-xs uppercase tracking-wide text-muted-foreground">
             <tr>
-              <th className="px-3 py-2" aria-sort={sort?.key === "id" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
+              <th className="relative px-3 py-2" style={{ width: colWidths.id, minWidth: colWidths.id }} aria-sort={sort?.key === "id" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
                 <button type="button" onClick={() => toggleSort("id")} aria-label={t(lang, "id")} className="inline-flex items-center gap-1 hover:text-AIPM-dark-blue dark:hover:text-AIPM-light-grey">
                   #{sort?.key === "id" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
                 </button>
+                <ColumnResizeHandle col="id" onMouseDown={startResize} />
               </th>
-              <th className="px-3 py-2" aria-sort={sort?.key === "category" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
+              <th className="relative px-3 py-2" style={{ width: colWidths.category, minWidth: colWidths.category }} aria-sort={sort?.key === "category" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
                 <button type="button" onClick={() => toggleSort("category")} className="inline-flex items-center gap-1 hover:text-AIPM-dark-blue dark:hover:text-AIPM-light-grey">
                   {t(lang, "raidCategory")}{sort?.key === "category" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
                 </button>
+                <ColumnResizeHandle col="category" onMouseDown={startResize} />
               </th>
-              <th className="px-3 py-2" aria-sort={sort?.key === "title" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
+              <th className="relative px-3 py-2" style={{ width: colWidths.title, minWidth: colWidths.title }} aria-sort={sort?.key === "title" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
                 <button type="button" onClick={() => toggleSort("title")} className="inline-flex items-center gap-1 hover:text-AIPM-dark-blue dark:hover:text-AIPM-light-grey">
                   {t(lang, "raidTitle")}{sort?.key === "title" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
                 </button>
+                <ColumnResizeHandle col="title" onMouseDown={startResize} />
               </th>
-              <th className="px-3 py-2" aria-sort={sort?.key === "severity" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
+              <th className="relative px-3 py-2" style={{ width: colWidths.severity, minWidth: colWidths.severity }} aria-sort={sort?.key === "severity" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
                 <button type="button" onClick={() => toggleSort("severity")} className="inline-flex items-center gap-1 hover:text-AIPM-dark-blue dark:hover:text-AIPM-light-grey">
                   {t(lang, "raidSeverity")}{sort?.key === "severity" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
                 </button>
+                <ColumnResizeHandle col="severity" onMouseDown={startResize} />
               </th>
-              <th className="px-3 py-2" aria-sort={sort?.key === "status" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
+              <th className="relative px-3 py-2" style={{ width: colWidths.status, minWidth: colWidths.status }} aria-sort={sort?.key === "status" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
                 <button type="button" onClick={() => toggleSort("status")} className="inline-flex items-center gap-1 hover:text-AIPM-dark-blue dark:hover:text-AIPM-light-grey">
                   {t(lang, "raidStatus")}{sort?.key === "status" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
                 </button>
+                <ColumnResizeHandle col="status" onMouseDown={startResize} />
               </th>
-              <th className="px-3 py-2" aria-sort={sort?.key === "owner" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
+              <th className="relative px-3 py-2" style={{ width: colWidths.owner, minWidth: colWidths.owner }} aria-sort={sort?.key === "owner" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
                 <button type="button" onClick={() => toggleSort("owner")} className="inline-flex items-center gap-1 hover:text-AIPM-dark-blue dark:hover:text-AIPM-light-grey">
                   {t(lang, "raidOwner")}{sort?.key === "owner" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
                 </button>
+                <ColumnResizeHandle col="owner" onMouseDown={startResize} />
               </th>
-              <th className="px-3 py-2" aria-sort={sort?.key === "targetDate" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
+              <th className="relative px-3 py-2" style={{ width: colWidths.targetDate, minWidth: colWidths.targetDate }} aria-sort={sort?.key === "targetDate" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
                 <button type="button" onClick={() => toggleSort("targetDate")} className="inline-flex items-center gap-1 hover:text-AIPM-dark-blue dark:hover:text-AIPM-light-grey">
                   {t(lang, "raidTargetDate")}{sort?.key === "targetDate" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
                 </button>
+                <ColumnResizeHandle col="targetDate" onMouseDown={startResize} />
               </th>
-              <th className="px-3 py-2">{t(lang, "raidLinkedTasks")}</th>
-              <th className="px-3 py-2">{t(lang, "raidCausedBy")}</th>
+              <th className="relative px-3 py-2" style={{ width: colWidths.linkedTasks, minWidth: colWidths.linkedTasks }}>
+                {t(lang, "raidLinkedTasks")}
+                <ColumnResizeHandle col="linkedTasks" onMouseDown={startResize} />
+              </th>
+              <th className="relative px-3 py-2" style={{ width: colWidths.causedBy, minWidth: colWidths.causedBy }}>
+                {t(lang, "raidCausedBy")}
+                <ColumnResizeHandle col="causedBy" onMouseDown={startResize} />
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
