@@ -133,7 +133,7 @@ export function AbsenceEditModal({
       <div
         data-modal-panel
         style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}
-        className="relative flex w-[560px] min-w-[320px] max-w-[95vw] flex-col overflow-hidden rounded-xl border border-AIPM-light-grey bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-950"
+        className="relative flex w-[560px] min-w-[320px] max-w-[95vw] flex-col overflow-hidden rounded-xl border border-line bg-surface"
       >
         <ModalHeader
           lang={lang}
@@ -147,7 +147,7 @@ export function AbsenceEditModal({
           className="grid grid-cols-1 gap-4 overflow-y-auto p-5 sm:grid-cols-2"
         >
           <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-            <span className="font-medium text-AIPM-dark-grey dark:text-AIPM-light-grey">
+            <span className="font-medium text-foreground">
               {t(lang, "absenceAssignee")} *
             </span>
             <input
@@ -167,7 +167,7 @@ export function AbsenceEditModal({
               }}
               list={DATALIST_ID}
               placeholder={t(lang, "absencePlaceholderAssignee")}
-              className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
+              className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
             />
             <datalist id={DATALIST_ID}>
               {datalistOptions.map((o) => (
@@ -179,7 +179,7 @@ export function AbsenceEditModal({
           </label>
 
           <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-            <span className="font-medium text-AIPM-dark-grey dark:text-AIPM-light-grey">
+            <span className="font-medium text-foreground">
               {t(lang, "absenceAssigneeEmail")}
             </span>
             <input
@@ -188,12 +188,12 @@ export function AbsenceEditModal({
               onChange={(e) =>
                 update("assigneeEmail", e.target.value || undefined)
               }
-              className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
+              className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
             />
           </label>
 
           <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-AIPM-dark-grey dark:text-AIPM-light-grey">
+            <span className="font-medium text-foreground">
               {t(lang, "absenceStart")} *
             </span>
             <input
@@ -201,12 +201,12 @@ export function AbsenceEditModal({
               required
               value={draft.startDate}
               onChange={(e) => update("startDate", e.target.value)}
-              className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
+              className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
             />
           </label>
 
           <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-AIPM-dark-grey dark:text-AIPM-light-grey">
+            <span className="font-medium text-foreground">
               {t(lang, "absenceEnd")} *
             </span>
             <input
@@ -214,12 +214,12 @@ export function AbsenceEditModal({
               required
               value={draft.endDate}
               onChange={(e) => update("endDate", e.target.value)}
-              className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
+              className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
             />
           </label>
 
           <div className="flex flex-col gap-1 text-sm sm:col-span-2">
-            <span className="font-medium text-AIPM-dark-grey dark:text-AIPM-light-grey">
+            <span className="font-medium text-foreground">
               {t(lang, "absenceType")}
             </span>
             <SegmentedControl<AbsenceType>
@@ -241,7 +241,7 @@ export function AbsenceEditModal({
           </div>
 
           <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-            <span className="font-medium text-AIPM-dark-grey dark:text-AIPM-light-grey">
+            <span className="font-medium text-foreground">
               {t(lang, "absenceNote")}
             </span>
             <textarea
@@ -251,23 +251,23 @@ export function AbsenceEditModal({
                 update("note", e.target.value || undefined)
               }
               placeholder={t(lang, "absencePlaceholderNote")}
-              className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
+              className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
             />
           </label>
 
           {error && (
-            <p className="sm:col-span-2 text-sm text-red-600 dark:text-red-400">
+            <p className="sm:col-span-2 text-sm text-AIPM-pink">
               {error}
             </p>
           )}
 
-          <footer className="flex items-center justify-between gap-2 border-t border-zinc-200 pt-3 sm:col-span-2 dark:border-zinc-800">
+          <footer className="flex items-center justify-between gap-2 border-t border-line pt-3 sm:col-span-2">
             <div>
               {!isNew && (
                 <button
                   type="button"
                   onClick={handleDeleteClick}
-                  className="rounded-md border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-700 shadow-sm hover:bg-red-50 dark:border-red-800 dark:bg-zinc-900 dark:text-red-400 dark:hover:bg-zinc-800"
+                  className="rounded-md border border-AIPM-pink/40 bg-surface px-3 py-1.5 text-sm font-medium text-AIPM-pink hover:bg-AIPM-pink/10 dark:border-AIPM-pink/50"
                 >
                   {t(lang, "delete")}
                 </button>
@@ -277,13 +277,13 @@ export function AbsenceEditModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 shadow-sm hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                className="rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted"
               >
                 {t(lang, "cancel")}
               </button>
               <button
                 type="submit"
-                className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-AIPM-dark-blue/90"
+                className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:bg-AIPM-dark-blue/90"
               >
                 {t(lang, "absenceSave")}
               </button>
