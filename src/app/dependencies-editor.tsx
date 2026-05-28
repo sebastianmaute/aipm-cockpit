@@ -143,7 +143,7 @@ export function DependenciesEditor({
             setPendingType(e.target.value as DependencyType)
           }
           aria-label={t(lang, "depType")}
-          className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-xs font-mono text-zinc-900 shadow-sm focus:border-AIPM-dark-blue focus:outline-none focus:ring-1 focus:ring-AIPM-dark-blue dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+          className="rounded-md border border-line bg-surface px-2 py-1.5 text-xs font-mono text-foreground focus:border-AIPM-dark-blue focus:outline-none focus:ring-1 focus:ring-AIPM-green"
         >
           {DEPENDENCY_TYPES.map((dt) => (
             <option key={dt} value={dt}>
@@ -157,7 +157,7 @@ export function DependenciesEditor({
             setPendingTaskId(e.target.value === "" ? "" : Number(e.target.value))
           }
           aria-label={t(lang, "depPickTask")}
-          className="min-w-[12rem] flex-1 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-xs text-zinc-900 shadow-sm focus:border-AIPM-dark-blue focus:outline-none focus:ring-1 focus:ring-AIPM-dark-blue dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+          className="min-w-[12rem] flex-1 rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-foreground focus:border-AIPM-dark-blue focus:outline-none focus:ring-1 focus:ring-AIPM-green"
         >
           <option value="">{t(lang, "depPickTaskPlaceholder")}</option>
           {eligibleTasks.map((task) => (
@@ -170,13 +170,13 @@ export function DependenciesEditor({
           type="button"
           onClick={add}
           disabled={pendingTaskId === ""}
-          className="rounded-md bg-AIPM-dark-blue px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-md bg-AIPM-dark-blue px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {t(lang, "depAdd")}
         </button>
       </div>
 
-      <p className="text-xs text-AIPM-medium-grey">
+      <p className="text-xs text-muted-foreground">
         {t(lang, "depHelp")}
       </p>
     </div>
