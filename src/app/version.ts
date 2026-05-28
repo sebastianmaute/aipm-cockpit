@@ -1,3 +1,7 @@
+// 0.19.0 makes the Reports popout's tables (By Assignee, By Group, By Label)
+// sortable + filterable — click any header to cycle asc/desc/off, type in the
+// search input above each table to narrow rows. Mirrors the steering-committee
+// interaction added to the RAID Report at 0.18.0.
 // 0.18.1 hides the read-only-mirror banner in report-style popouts
 // (resource-report, reports, raid-report) where it was redundant.
 // No change to editing popouts; reminder banners (Due / Birthday /
@@ -265,7 +269,7 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.18.1";
+export const APP_VERSION = "0.19.0";
 export const APP_BUILD_DATE = "2026-05-28"; // Jemisin milestone
 export const APP_REPO_URL = "https://www.example.com";
 
@@ -294,4 +298,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightPalette",
   "versionHighlightTableResize",
   "versionHighlightRaidReport",
+  "versionHighlightReportsSortFilter",
 ] as const;

@@ -8,6 +8,12 @@ Authoritative source for version + build date: [`src/app/version.ts`](src/app/ve
 This file is seeded from that module's milestone comment plus the
 post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-diff.txt).
 
+## [0.19.0] — 2026-05-28 "Jemisin"
+
+### Added
+- Reports popout: the By Assignee, By Group, and By Label tables are now sortable and filterable. Click any column header to cycle through ascending / descending / off. Type in the search input above each table to narrow rows (case-insensitive match on the name column); click × to clear. Default sort is by Total descending.
+- New version highlight: "Reports sort + filter" (`versionHighlightReportsSortFilter`) in both EN and DE.
+
 ## [0.18.1] — 2026-05-28
 
 ### Changed
