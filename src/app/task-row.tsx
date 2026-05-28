@@ -88,10 +88,10 @@ export function summarizeNote(
 }
 
 export const priorityStyle: Record<Priority, string> = {
-  Low: "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
-  Medium: "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300",
-  High: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300",
-  Urgent: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300",
+  Low: "bg-surface-muted text-muted-foreground",
+  Medium: "bg-AIPM-blue/15 text-AIPM-blue dark:bg-AIPM-blue/20",
+  High: "bg-AIPM-purple/15 text-AIPM-purple dark:bg-AIPM-purple/20",
+  Urgent: "bg-AIPM-pink/15 text-AIPM-pink dark:bg-AIPM-pink/20",
 };
 
 /**
@@ -156,7 +156,7 @@ function TaskRowImpl({
 
   return (
     <tr
-      className={`align-top ${isEditing ? "bg-amber-50 dark:bg-amber-950/20" : isSelected ? "bg-AIPM-light-grey dark:bg-zinc-900" : isComplete ? "opacity-60" : ""}`}
+      className={`align-top ${isEditing ? "bg-AIPM-purple/10 dark:bg-AIPM-purple/15" : isSelected ? "bg-surface-muted" : isComplete ? "opacity-60" : ""}`}
     >
       <Td>
         <input
@@ -164,7 +164,7 @@ function TaskRowImpl({
           checked={isSelected}
           onChange={() => onToggleSelect(task.id)}
           aria-label={t(lang, "selectRow", task.id)}
-          className="h-4 w-4 cursor-pointer rounded border-zinc-300 text-AIPM-dark-blue focus:ring-AIPM-dark-blue dark:border-zinc-600 dark:bg-zinc-800"
+          className="h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue focus:ring-AIPM-green dark:border-line"
         />
       </Td>
       {!hiddenCols.has("status") && (
@@ -176,13 +176,13 @@ function TaskRowImpl({
           )}
         </Td>
       )}
-      {!hiddenCols.has("id") && <Td className="font-mono text-zinc-500">
+      {!hiddenCols.has("id") && <Td className="font-mono text-muted-foreground">
         <button
           type="button"
           onClick={() => onEdit(task)}
           title={`#${task.id} — ${t(lang, "clickToEdit")}`}
           aria-label={`#${task.id} — ${t(lang, "clickToEdit")}`}
-          className="cursor-pointer rounded-md border border-transparent px-2 py-0.5 font-mono text-zinc-500 hover:border-AIPM-dark-blue hover:bg-zinc-50 dark:hover:bg-zinc-800"
+          className="cursor-pointer rounded-md border border-transparent px-2 py-0.5 font-mono text-muted-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted"
         >#{task.id}</button>
         {(() => {
           if (!task.jiraKey || !jiraSiteUrl) return null;
@@ -198,7 +198,7 @@ function TaskRowImpl({
                   ? `${task.jiraKey} (${task.jiraIssueType})`
                   : task.jiraKey
               }
-              className="ml-1 inline-block rounded bg-AIPM-light-grey px-1.5 py-0.5 text-[10px] font-medium text-AIPM-dark-blue no-underline hover:bg-AIPM-dark-blue hover:text-white dark:bg-zinc-800 dark:text-AIPM-blue dark:hover:bg-AIPM-dark-blue dark:hover:text-white"
+              className="ml-1 inline-block rounded bg-surface-muted px-1.5 py-0.5 text-[10px] font-medium text-AIPM-dark-blue no-underline hover:bg-AIPM-dark-blue hover:text-white dark:text-AIPM-blue dark:hover:bg-AIPM-dark-blue dark:hover:text-white"
             >
               {task.jiraKey}
             </a>
@@ -209,13 +209,13 @@ function TaskRowImpl({
         )}
       </Td>}
       <Td
-        className={`font-medium text-zinc-900 dark:text-zinc-100 ${isComplete ? "line-through" : ""}`}
+        className={`font-medium text-foreground ${isComplete ? "line-through" : ""}`}
       >
         <button
           type="button"
           onClick={() => onEdit(task)}
           title={`${task.taskName} — ${t(lang, "clickToEdit")}`}
-          className="cursor-pointer rounded-md border border-transparent px-2 py-0.5 text-left font-medium hover:border-AIPM-dark-blue hover:bg-zinc-50 dark:hover:bg-zinc-800"
+          className="cursor-pointer rounded-md border border-transparent px-2 py-0.5 text-left font-medium hover:border-AIPM-dark-blue hover:bg-surface-muted"
         >{task.taskName}</button>
         {(task.group || (task.labels?.length ?? 0) > 0) && (
           <div className="mt-1 flex flex-wrap gap-1">
@@ -227,7 +227,7 @@ function TaskRowImpl({
             {(task.labels ?? []).map((l) => (
               <span
                 key={l}
-                className="inline-flex rounded-full bg-AIPM-light-grey px-1.5 py-0.5 text-[10px] font-medium text-AIPM-dark-grey dark:bg-zinc-800 dark:text-AIPM-medium-grey"
+                className="inline-flex rounded-full bg-surface-muted px-1.5 py-0.5 text-[10px] font-medium text-foreground"
               >
                 {l}
               </span>
@@ -241,7 +241,7 @@ function TaskRowImpl({
         </Td>
       )}
       {!hiddenCols.has("startDate") && (
-        <Td className="whitespace-nowrap text-zinc-600 dark:text-zinc-400" title={`${t(lang, "startDate")}: ${task.startDate || "—"}`}>
+        <Td className="whitespace-nowrap text-muted-foreground" title={`${t(lang, "startDate")}: ${task.startDate || "—"}`}>
           {task.startDate || "—"}
         </Td>
       )}
@@ -255,27 +255,27 @@ function TaskRowImpl({
         </Td>
       )}
       {!hiddenCols.has("blockers") && (
-        <Td className="max-w-xs whitespace-pre-wrap text-zinc-600 dark:text-zinc-400">
+        <Td className="max-w-xs whitespace-pre-wrap text-muted-foreground">
           {task.blockers || "—"}
         </Td>
       )}
       {!hiddenCols.has("notes") && (
-        <Td className="max-w-xs text-zinc-600 dark:text-zinc-400">
+        <Td className="max-w-xs text-muted-foreground">
           <NotesCell notes={task.notes ?? ""} isExpanded={isExpanded} taskId={task.id} />
         </Td>
       )}
       {!hiddenCols.has("depRelations") && (
-        <Td className="text-zinc-600 dark:text-zinc-400">
+        <Td className="text-muted-foreground">
           <DependencyChips deps={task.dependencies ?? []} />
         </Td>
       )}
       {!hiddenCols.has("estimate") && (
-        <Td className="text-right font-mono text-zinc-600 dark:text-zinc-400">
+        <Td className="text-right font-mono text-muted-foreground">
           {formatDuration(task.originalEstimateMinutes ?? 0) || "—"}
         </Td>
       )}
       {!hiddenCols.has("spent") && (
-        <Td className="text-right font-mono text-zinc-600 dark:text-zinc-400">
+        <Td className="text-right font-mono text-muted-foreground">
           {formatDuration(task.timeSpentMinutes ?? 0) || "—"}
         </Td>
       )}
@@ -372,14 +372,14 @@ function TaskActionsImpl({ task, isPushing }: TaskActionsProps) {
         <button
           type="button"
           onClick={() => onEdit(task)}
-          className="text-xs font-medium text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-300"
+          className="text-xs font-medium text-foreground underline-offset-2 hover:underline"
         >
           {t(lang, "edit")}
         </button>
         <button
           type="button"
           onClick={() => onDelete(task.id)}
-          className="text-xs font-medium text-red-600 underline-offset-2 hover:underline dark:text-red-400"
+          className="text-xs font-medium text-AIPM-pink underline-offset-2 hover:underline"
         >
           {t(lang, "delete")}
         </button>
@@ -438,7 +438,7 @@ function RaidBadgeImpl({ taskId, refs }: RaidBadgeProps) {
       }}
       title={t(lang, "raidReferencedBy", refs.length)}
       aria-label={t(lang, "raidReferencedBy", refs.length)}
-      className="ml-1 inline-flex items-center rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800 hover:bg-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-amber-950/60"
+      className="ml-1 inline-flex items-center rounded bg-AIPM-purple/15 px-1.5 py-0.5 text-[10px] font-medium text-AIPM-purple hover:bg-AIPM-purple/25 dark:bg-AIPM-purple/20 dark:hover:bg-AIPM-purple/30"
     >
       {t(lang, "raidReferencedByMix", counts.R, counts.A, counts.I, counts.D)}
     </button>
