@@ -155,6 +155,23 @@ export function EraserIcon() {
   );
 }
 
+/** Drag handle on the right edge of a <th>. Host th MUST be `relative`. */
+export function ColumnResizeHandle({
+  col,
+  onMouseDown,
+}: {
+  col: string;
+  onMouseDown: (col: string, e: React.MouseEvent) => void;
+}) {
+  return (
+    <div
+      aria-hidden="true"
+      onMouseDown={(e) => onMouseDown(col, e)}
+      className="absolute right-0 top-0 h-full w-1 cursor-col-resize select-none hover:bg-AIPM-dark-blue/40 dark:hover:bg-AIPM-blue/40"
+    />
+  );
+}
+
 export function Th({
   children,
   onResize,
@@ -166,10 +183,7 @@ export function Th({
     <th className="relative px-4 py-2 font-medium">
       {children}
       {onResize && (
-        <div
-          onMouseDown={onResize}
-          className="absolute right-0 top-0 h-full w-1 cursor-col-resize select-none hover:bg-AIPM-dark-blue/40 dark:hover:bg-AIPM-blue/40"
-        />
+        <ColumnResizeHandle col="" onMouseDown={(_col, e) => onResize(e)} />
       )}
     </th>
   );
@@ -208,11 +222,28 @@ export function SortableTh({
         </span>
       </button>
       {onResize && (
-        <div
-          onMouseDown={onResize}
-          className="absolute right-0 top-0 h-full w-1 cursor-col-resize select-none hover:bg-AIPM-dark-blue/40 dark:hover:bg-AIPM-blue/40"
-        />
+        <ColumnResizeHandle col="" onMouseDown={(_col, e) => onResize(e)} />
       )}
     </th>
+  );
+}
+
+export function ResetColWidthsButton({
+  onClick,
+  lang,
+}: {
+  onClick: () => void;
+  lang: Lang;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={t(lang, "colResetWidthsHint")}
+      title={t(lang, "colResetWidthsHint")}
+      className="rounded-md border border-line bg-surface p-1.5 text-muted-foreground hover:bg-surface-muted hover:text-foreground"
+    >
+      <ResetColWidthsIcon />
+    </button>
   );
 }
