@@ -187,7 +187,7 @@ export function ColumnResizeHandle({
     <div
       aria-hidden="true"
       onMouseDown={(e) => onMouseDown(col, e)}
-      className="absolute right-0 top-0 h-full w-1 cursor-col-resize select-none hover:bg-AIPM-dark-blue/40 dark:hover:bg-AIPM-blue/40"
+      className="absolute right-0 top-0 h-full w-1 cursor-col-resize select-none hover:bg-AIPM-dark-blue/40 dark:hover:bg-AIPM-blue/40 print:hidden"
     />
   );
 }
