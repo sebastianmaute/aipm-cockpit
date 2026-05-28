@@ -93,12 +93,22 @@ export function StorageConfigSection({
     return "";
   }
 
+  const [prevConfig, setPrevConfig] = useState(config);
   const [spUrl, setSpUrl] = useState(spUrlForConfig());
   const [spUrlError, setSpUrlError] = useState<string | null>(null);
 
+  if (prevConfig !== config) {
+    setPrevConfig(config);
+    setSpUrl(spUrlForConfig());
+    setSpUrlError(null);
+  }
+
   function handleSpUrlBlur() {
     setSpUrlError(null);
-    if (!spUrl.trim()) return;
+    if (!spUrl.trim()) {
+      setSpUrl(spUrlForConfig());
+      return;
+    }
     const parsed = parseSharePointFileUrl(spUrl.trim());
     if (!parsed) {
       setSpUrlError(t(lang, "spStorageInvalidUrl"));
