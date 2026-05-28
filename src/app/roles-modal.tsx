@@ -85,7 +85,7 @@ export function RolesModal({
       <div
         data-modal-panel
         style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}
-        className="relative flex max-h-[90vh] w-[720px] min-w-[320px] max-w-[95vw] flex-col overflow-hidden rounded-xl border border-AIPM-light-grey bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-950"
+        className="relative flex max-h-[90vh] w-[720px] min-w-[320px] max-w-[95vw] flex-col overflow-hidden rounded-xl border border-line bg-surface"
       >
         <ModalHeader
           lang={lang}
@@ -98,11 +98,11 @@ export function RolesModal({
           <section>
             <h4 className="mb-2 text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">{t(lang, "rolesRateCard")}</h4>
             {sortedRoles.length === 0 ? (
-              <p className="text-sm text-AIPM-medium-grey">{t(lang, "rolesNoRoles")}</p>
+              <p className="text-sm text-muted-foreground">{t(lang, "rolesNoRoles")}</p>
             ) : (
               <>
               <table className="w-full text-left text-sm">
-                <thead className="text-xs uppercase tracking-wide text-AIPM-medium-grey">
+                <thead className="text-xs uppercase tracking-wide text-muted-foreground">
                   <tr>
                     <th className="py-1">
                       <button type="button" onClick={() => toggleSort("discipline")} className="inline-flex items-center gap-1 hover:text-AIPM-dark-blue">
@@ -127,7 +127,7 @@ export function RolesModal({
                     <th className="py-1" />
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                <tbody className="divide-y divide-line">
                   {sortedRoles.map((r) => (
                     <tr key={r.id}>
                       <td className="py-1.5">{disciplines.find((d) => d.id === r.disciplineId)?.name ?? "n/a"}</td>
@@ -135,32 +135,32 @@ export function RolesModal({
                       <td className="py-1.5 text-right">
                         <input type="number" min={0} step={1} value={r.internalRate}
                           onChange={(e) => onSaveRole({ ...r, internalRate: clampRate(e.target.value) })}
-                          className="w-24 rounded-md border border-zinc-300 px-2 py-1 text-right text-sm tabular-nums dark:border-zinc-700 dark:bg-zinc-900" />
+                          className="w-24 rounded-md border border-line px-2 py-1 text-right text-sm tabular-nums bg-surface-muted" />
                       </td>
                       <td className="py-1.5 text-right">
                         <input type="number" min={0} step={1} value={r.externalRate}
                           onChange={(e) => onSaveRole({ ...r, externalRate: clampRate(e.target.value) })}
-                          className="w-24 rounded-md border border-zinc-300 px-2 py-1 text-right text-sm tabular-nums dark:border-zinc-700 dark:bg-zinc-900" />
+                          className="w-24 rounded-md border border-line px-2 py-1 text-right text-sm tabular-nums bg-surface-muted" />
                       </td>
                       <td className="py-1.5 text-right">
                         <button type="button" onClick={() => onDeleteRole(r.id)} aria-label={t(lang, "delete")}
-                          className="rounded p-1 text-AIPM-medium-grey hover:bg-red-50 hover:text-red-600 dark:hover:bg-zinc-800">×</button>
+                          className="rounded p-1 text-muted-foreground hover:bg-AIPM-pink/10 hover:text-AIPM-pink">×</button>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-              <hr className="my-3 border-t border-zinc-200 dark:border-zinc-800" />
+              <hr className="my-3 border-t border-line" />
               </>
             )}
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <select value={comboDiscipline} onChange={(e) => setComboDiscipline(e.target.value ? Number(e.target.value) : "")}
-                className="rounded-md border border-zinc-300 px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900">
+                className="rounded-md border border-line px-2 py-1 text-sm bg-surface-muted">
                 <option value="">{t(lang, "rolesDiscipline")}</option>
                 {disciplines.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
               </select>
               <select value={comboGrade} onChange={(e) => setComboGrade(e.target.value ? Number(e.target.value) : "")}
-                className="rounded-md border border-zinc-300 px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900">
+                className="rounded-md border border-line px-2 py-1 text-sm bg-surface-muted">
                 <option value="">{t(lang, "rolesGrade")}</option>
                 {grades.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
               </select>
@@ -237,26 +237,26 @@ function RefList({
           >
             <span
               title={t(lang, "reorderHint")}
-              className="cursor-move select-none px-1 text-AIPM-medium-grey"
+              className="cursor-move select-none px-1 text-muted-foreground"
               aria-hidden={true}
             >≡</span>
             <input defaultValue={it.name}
               onBlur={(e) => { if (e.target.value.trim() && e.target.value.trim() !== it.name) onRename(it.id, e.target.value); }}
-              className="flex-1 rounded-md border border-zinc-200 px-2 py-1 text-sm dark:border-zinc-800 dark:bg-zinc-900" />
+              className="flex-1 rounded-md border border-line px-2 py-1 text-sm bg-surface-muted" />
             <button
               type="button"
               aria-label={t(lang, "delete")}
               onClick={() => {
                 if (window.confirm(t(lang, "rolesConfirmDeleteRef"))) onDelete(it.id);
               }}
-              className="rounded p-1 text-AIPM-medium-grey hover:bg-red-50 hover:text-red-600 dark:hover:bg-zinc-800"
+              className="rounded p-1 text-muted-foreground hover:bg-AIPM-pink/10 hover:text-AIPM-pink"
             >×</button>
           </li>
         ))}
       </ul>
       <div className="mt-2 flex items-center gap-2">
         <input value={addValue} onChange={(e) => setAddValue(e.target.value)} placeholder={addPlaceholder}
-          className="flex-1 rounded-md border border-zinc-300 px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900" />
+          className="flex-1 rounded-md border border-line px-2 py-1 text-sm bg-surface-muted" />
         <button type="button" onClick={onAdd} aria-label={addPlaceholder}
           className="rounded-md border border-AIPM-dark-blue px-3 py-1 text-sm font-medium text-AIPM-dark-blue hover:bg-AIPM-dark-blue/5">+</button>
       </div>
