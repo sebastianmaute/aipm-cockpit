@@ -38,7 +38,7 @@ export function VersionMenu({ lang }: { lang: Lang }) {
         aria-label={t(lang, "version")}
         aria-expanded={open}
         title={t(lang, "version")}
-        className="rounded-md p-2 text-AIPM-dark-grey hover:bg-AIPM-light-grey hover:text-AIPM-dark-blue focus:outline-none focus:ring-2 focus:ring-AIPM-dark-blue dark:text-AIPM-medium-grey dark:hover:bg-zinc-800 dark:hover:text-AIPM-light-grey"
+        className="rounded-md p-2 text-foreground hover:bg-surface-muted hover:text-AIPM-dark-blue focus:outline-none focus:ring-2 focus:ring-AIPM-green dark:text-muted-foreground dark:hover:text-AIPM-light-grey"
       >
         <svg
           viewBox="0 0 20 20"
@@ -58,9 +58,9 @@ export function VersionMenu({ lang }: { lang: Lang }) {
         <div
           role="dialog"
           aria-label={t(lang, "version")}
-          className="absolute right-0 top-full z-40 mt-2 max-h-[80vh] w-80 overflow-y-auto rounded-lg border border-zinc-200 bg-white p-4 shadow-lg dark:border-zinc-800 dark:bg-zinc-900"
+          className="absolute right-0 top-full z-40 mt-2 max-h-[80vh] w-80 overflow-y-auto rounded-lg border border-line bg-surface p-4"
         >
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-AIPM-medium-grey">
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             {t(lang, "version")}
           </h3>
           <p className="text-base font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
@@ -71,10 +71,10 @@ export function VersionMenu({ lang }: { lang: Lang }) {
             <Row term={t(lang, "versionBuild")} value={APP_BUILD_DATE} />
           </dl>
 
-          <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-AIPM-medium-grey">
+          <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             {t(lang, "versionHighlightsHeader")}
           </p>
-          <ul className="mt-1.5 space-y-1 text-xs text-AIPM-dark-grey dark:text-AIPM-medium-grey">
+          <ul className="mt-1.5 space-y-1 text-xs text-foreground">
             {APP_HIGHLIGHT_KEYS.map((k) => (
               <li key={k} className="flex gap-2">
                 <span aria-hidden className="mt-0.5 text-AIPM-green">
@@ -85,10 +85,10 @@ export function VersionMenu({ lang }: { lang: Lang }) {
             ))}
           </ul>
 
-          <p className="mt-4 text-xs text-AIPM-dark-grey dark:text-AIPM-medium-grey">
+          <p className="mt-4 text-xs text-foreground">
             {t(lang, "versionTechStack")}
           </p>
-          <div className="mt-4 border-t border-AIPM-light-grey pt-3 text-xs italic text-AIPM-medium-grey dark:border-zinc-800">
+          <div className="mt-4 border-t border-line pt-3 text-xs italic text-muted-foreground">
             <a
               href={APP_REPO_URL}
               target="_blank"
@@ -108,10 +108,10 @@ export function VersionMenu({ lang }: { lang: Lang }) {
 function Row({ term, value }: { term: string; value: string }) {
   return (
     <div className="flex items-baseline justify-between gap-3">
-      <dt className="text-xs uppercase tracking-wide text-AIPM-medium-grey">
+      <dt className="text-xs uppercase tracking-wide text-muted-foreground">
         {term}
       </dt>
-      <dd className="font-mono text-AIPM-dark-grey dark:text-AIPM-light-grey">
+      <dd className="font-mono text-foreground dark:text-AIPM-light-grey">
         {value}
       </dd>
     </div>
