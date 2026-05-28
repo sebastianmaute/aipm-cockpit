@@ -57,6 +57,12 @@ never reference them directly.
 - Absence cells (with V/S/T/O glyph): vacation `AIPM-blue`, sick `AIPM-pink`, training `AIPM-purple`, other `AIPM-medium-grey` (alpha ~/30).
 - Column shades: today `AIPM-green` wash, holiday `AIPM-purple` wash (fainter than the training cell), weekend `surface-muted`, normal `surface`.
 
+## RAID category & severity colors
+
+- **Categories (R/A/I/D)** — 4-state chips, all 4 palette hues: Risk=`AIPM-pink`, Action=`AIPM-blue`, Issue=`AIPM-purple`, Decision=`AIPM-green`. Chips render at `/15` alpha light, `/20` dark.
+- **Severity ramp (Low→Critical)** — 4-step cold→hot: Low=`AIPM-green`, Medium=`AIPM-blue`, High=`AIPM-purple`, Critical=`AIPM-pink`. Alpha escalates with severity (`/20` Low/Medium → `/25` High → `/30` Critical).
+- **RAG health dots (R/A/G)** — solid dots: R=`bg-AIPM-pink`, A=`bg-AIPM-purple`, G=`bg-AIPM-green` (same triple as the task-form-modal RAG indicator and the reports legend).
+
 ## Migration status (sub-project E)
 
 - E0 (0.15.1): tokens + `segmented-control`, `modal`, `modal-header`, `app-header`. ✅
@@ -64,4 +70,5 @@ never reference them directly.
 - E-sweep calendar (0.15.3): resource-calendar.tsx. ✅
 - E-sweep modals (0.15.4): resource-edit, shift-edit, absence-edit, roles, budget-bucket, task-form, jira-conflicts, bulk-edit. ✅
 - E-sweep tasks UI + inputs + reports (0.15.5): combo-input, contact-input, labels-input, dependencies-editor, task-manager-ui, tasks-section, reports, task-row. ✅
-- Remaining: other area sweeps (raid-panel, gantt, menus, chrome, misc) are still pending.
+- E-sweep raid-panel (0.15.6): raid-panel.tsx. ✅
+- Remaining: other area sweeps (gantt, menus, chrome, misc) are still pending.

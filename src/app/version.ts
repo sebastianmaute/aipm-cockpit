@@ -1,3 +1,7 @@
+// 0.15.6 sweeps the RAID panel onto the AIPM palette — surface tokens, no
+// shadows; R/A/I/D category chips in pink/blue/purple/green; severity ramp
+// (Low->Critical) in green/blue/purple/pink (cold->hot); RAG dots in
+// pink/purple/green; stale/aging chips in purple; error box in pink.
 // 0.15.5 sweeps the tasks UI + form inputs + reports onto the AIPM palette —
 // surface tokens, no shadows, task-row priority chips remapped (Medium=blue,
 // High=purple, Urgent=pink), reports RAG legend in pink/purple/green.
@@ -232,7 +236,7 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.15.5";
+export const APP_VERSION = "0.15.6";
 export const APP_BUILD_DATE = "2026-05-28"; // Le Guin milestone
 export const APP_REPO_URL = "https://www.example.com";
 
