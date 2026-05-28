@@ -167,6 +167,30 @@ export function RaidReportPanel({ lang, items, today }: Props) {
               </table>
             </div>
           </Section>
+          <Section title={t(lang, "raidReportByCategory")}>
+            <div className="overflow-x-auto rounded-md border border-line">
+              <table className="min-w-full text-left text-sm">
+                <thead className="sticky top-0 z-10 bg-surface-muted text-xs uppercase tracking-wide text-muted-foreground">
+                  <tr>
+                    <th className="px-3 py-2 font-medium">{t(lang, "raidReportByCategory")}</th>
+                    <th className="px-3 py-2 text-right font-medium">{t(lang, "raidReportColOpen")}</th>
+                    <th className="px-3 py-2 text-right font-medium">{t(lang, "raidReportColClosed")}</th>
+                    <th className="px-3 py-2 text-right font-medium">{t(lang, "raidReportColOverdue")}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-line">
+                  {rep.byCategory.map((row) => (
+                    <tr key={row.category}>
+                      <td className="px-3 py-2 font-medium text-foreground">{row.category}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{row.open}</td>
+                      <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">{row.closed}</td>
+                      <td className={`px-3 py-2 text-right tabular-nums ${row.overdue > 0 ? "text-AIPM-pink font-medium" : "text-muted-foreground"}`}>{row.overdue}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Section>
         </>
       )}
 
