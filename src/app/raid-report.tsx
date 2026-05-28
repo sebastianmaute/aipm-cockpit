@@ -87,6 +87,26 @@ export function RaidReportPanel({ lang, items, today }: Props) {
               </table>
             </div>
           </Section>
+          <Section title={t(lang, "raidReportByStatus")}>
+            <div className="overflow-x-auto rounded-md border border-line">
+              <table className="min-w-full text-left text-sm">
+                <thead className="sticky top-0 z-10 bg-surface-muted text-xs uppercase tracking-wide text-muted-foreground">
+                  <tr>
+                    <th className="px-3 py-2 font-medium">{t(lang, "raidReportByStatus")}</th>
+                    <th className="px-3 py-2 text-right font-medium">{t(lang, "raidReportColOpen")}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-line">
+                  {rep.byStatus.map((row) => (
+                    <tr key={row.status}>
+                      <td className="px-3 py-2 font-medium text-foreground">{row.status}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{row.count}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Section>
         </>
       )}
 
