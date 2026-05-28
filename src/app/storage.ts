@@ -1,3 +1,4 @@
+import { SharePointBackend } from "./sharepoint-backend";
 import { riskSeverityFromMatrix } from "./raid";
 import {
   backfillResources,
@@ -130,17 +131,15 @@ export type StorageConfig =
   | { kind: "local-md" }
   | {
       kind: "sp-json";
-      clientId: string;
-      tenantId: string;
-      siteUrl: string;
-      filePath: string;
+      hostname: string;
+      sitePath: string;
+      itemPath: string;
     }
   | {
       kind: "sp-csv";
-      clientId: string;
-      tenantId: string;
-      siteUrl: string;
-      filePath: string;
+      hostname: string;
+      sitePath: string;
+      itemPath: string;
     };
 
 export const defaultStorageConfig: StorageConfig = { kind: "browser" };
@@ -2415,33 +2414,16 @@ class LocalFileBackend implements StorageBackend {
   }
 }
 
-class SharePointBackend implements StorageBackend {
-  readonly kind: "sp-json" | "sp-csv";
-
-  constructor(kind: "sp-json" | "sp-csv") {
-    this.kind = kind;
-  }
-
-  async isReady(): Promise<boolean> {
-    return false;
-  }
-
-  async describe(): Promise<string> {
-    return "Coming soon";
-  }
-
-  async load(): Promise<Workspace> {
-    throw new StorageNotImplementedError("sharepoint-coming-soon");
-  }
-
-  async save(): Promise<void> {
-    throw new StorageNotImplementedError("sharepoint-coming-soon");
-  }
-}
-
 // --- Factory ---------------------------------------------------------------
 
-export function createBackend(config: StorageConfig): StorageBackend {
+export interface CreateBackendDeps {
+  acquireToken?: (scopes: readonly string[]) => Promise<string | null>;
+}
+
+export function createBackend(
+  config: StorageConfig,
+  deps: CreateBackendDeps = {},
+): StorageBackend {
   switch (config.kind) {
     case "browser":
       return new BrowserBackend();
@@ -2452,9 +2434,20 @@ export function createBackend(config: StorageConfig): StorageBackend {
     case "local-md":
       return new LocalFileBackend("local-md");
     case "sp-json":
-      return new SharePointBackend("sp-json");
-    case "sp-csv":
-      return new SharePointBackend("sp-csv");
+    case "sp-csv": {
+      if (!deps.acquireToken) {
+        throw new StorageNotReadyError("M365 sign-in required");
+      }
+      return new SharePointBackend(
+        {
+          kind: config.kind,
+          hostname: config.hostname,
+          sitePath: config.sitePath,
+          itemPath: config.itemPath,
+        },
+        deps.acquireToken,
+      );
+    }
   }
 }
 
