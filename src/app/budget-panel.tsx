@@ -7,6 +7,14 @@ import { roleLabel } from "./resource-foundation";
 import { eurToCurrency, resolveRate } from "./fx";
 import type { Absence, BudgetBucket, Discipline, FxRates, Grade, Resource, ResourcePlan, Role } from "./types";
 import { BudgetBucketModal } from "./budget-bucket-modal";
+import { useColumnResize } from "./use-column-resize";
+import { ColumnResizeHandle, ResetColWidthsButton } from "./task-manager-ui";
+
+const BUDGET_COL_WIDTHS = {
+  role: 160,
+  period: 100,
+} as const;
+type BudgetCol = keyof typeof BUDGET_COL_WIDTHS;
 
 export interface BudgetPanelProps {
   lang: Lang;
@@ -64,6 +72,12 @@ export function BudgetPanel(props: BudgetPanelProps) {
 
   const bucketById = useMemo(() => new Map(buckets.map((b) => [b.id, b])), [buckets]);
   const projCur = plan.currency || "EUR"; // project rollup is in the plan base currency (EUR)
+
+  const { colWidths, startColResize, resetColWidths } = useColumnResize<BudgetCol>(
+    "budget",
+    BUDGET_COL_WIDTHS,
+  );
+  const startResize = startColResize as (col: string, e: React.MouseEvent) => void;
 
   const [dragId, setDragId] = useState<number | null>(null);
   const [editingBucketId, setEditingBucketId] = useState<number | null>(null);
@@ -146,13 +160,16 @@ export function BudgetPanel(props: BudgetPanelProps) {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
-        <button
-          type="button"
-          onClick={addBucket}
-          className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90"
-        >
-          + {t(lang, "budgetAddBucket")}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={addBucket}
+            className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90"
+          >
+            + {t(lang, "budgetAddBucket")}
+          </button>
+          <ResetColWidthsButton onClick={resetColWidths} lang={lang} />
+        </div>
         <button
           type="button"
           onClick={props.onRefreshFx}
@@ -245,9 +262,22 @@ export function BudgetPanel(props: BudgetPanelProps) {
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="text-muted-foreground">
-                      <th className="px-2 py-1 text-left">{t(lang, "budgetRole")}</th>
+                      <th
+                        className="relative px-2 py-1 text-left font-medium"
+                        style={{ width: colWidths.role, minWidth: colWidths.role }}
+                      >
+                        {t(lang, "budgetRole")}
+                        <ColumnResizeHandle col="role" onMouseDown={startResize} />
+                      </th>
                       {bucketActivePeriods(bucket, plan).map((p) => (
-                        <th key={p.key} className="px-2 py-1 text-right">{p.key}</th>
+                        <th
+                          key={p.key}
+                          className="relative px-2 py-1 text-right"
+                          style={{ width: colWidths.period, minWidth: colWidths.period }}
+                        >
+                          {p.key}
+                          <ColumnResizeHandle col="period" onMouseDown={startResize} />
+                        </th>
                       ))}
                     </tr>
                   </thead>
