@@ -112,7 +112,7 @@ export function ResourceEditModal({
       <div
         data-modal-panel
         style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}
-        className="relative flex w-[560px] min-w-[320px] max-w-[95vw] flex-col overflow-hidden rounded-xl border border-AIPM-light-grey bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-950"
+        className="relative flex w-[560px] min-w-[320px] max-w-[95vw] flex-col overflow-hidden rounded-xl border border-line bg-surface"
       >
         <ModalHeader
           lang={lang}
@@ -127,85 +127,85 @@ export function ResourceEditModal({
         >
           {/* First name */}
           <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-AIPM-dark-grey dark:text-AIPM-light-grey">
+            <span className="font-medium text-foreground">
               {t(lang, "resourceFirstName")}
             </span>
             <input
               type="text"
               value={draft.firstName ?? ""}
               onChange={(e) => update("firstName", e.target.value)}
-              className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
+              className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
             />
           </label>
 
           {/* Last name */}
           <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-AIPM-dark-grey dark:text-AIPM-light-grey">
+            <span className="font-medium text-foreground">
               {t(lang, "resourceLastName")}
             </span>
             <input
               type="text"
               value={draft.lastName ?? ""}
               onChange={(e) => update("lastName", e.target.value)}
-              className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
+              className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
             />
           </label>
 
           {/* Job title */}
           <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-AIPM-dark-grey dark:text-AIPM-light-grey">
+            <span className="font-medium text-foreground">
               {t(lang, "resourceJobTitle")}
             </span>
             <input
               type="text"
               value={draft.title ?? ""}
               onChange={(e) => update("title", e.target.value || undefined)}
-              className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
+              className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
             />
           </label>
 
           {/* Company */}
           <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-AIPM-dark-grey dark:text-AIPM-light-grey">
+            <span className="font-medium text-foreground">
               {t(lang, "resourceCompany")}
             </span>
             <input
               type="text"
               value={draft.company ?? ""}
               onChange={(e) => update("company", e.target.value || undefined)}
-              className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
+              className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
             />
           </label>
 
           {/* Department */}
           <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-AIPM-dark-grey dark:text-AIPM-light-grey">
+            <span className="font-medium text-foreground">
               {t(lang, "resourceDepartment")}
             </span>
             <input
               type="text"
               value={draft.department ?? ""}
               onChange={(e) => update("department", e.target.value || undefined)}
-              className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
+              className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
             />
           </label>
 
           {/* Location */}
           <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-AIPM-dark-grey dark:text-AIPM-light-grey">
+            <span className="font-medium text-foreground">
               {t(lang, "resourceLocation")}
             </span>
             <input
               type="text"
               value={draft.location ?? ""}
               onChange={(e) => update("location", e.target.value || undefined)}
-              className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
+              className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
             />
           </label>
 
           {/* Business phone */}
           <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-AIPM-dark-grey dark:text-AIPM-light-grey">
+            <span className="font-medium text-foreground">
               {t(lang, "resourcePhone")}
             </span>
             <input
@@ -214,26 +214,26 @@ export function ResourceEditModal({
               onChange={(e) =>
                 update("businessPhone", e.target.value || undefined)
               }
-              className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
+              className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
             />
           </label>
 
           {/* Email */}
           <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-AIPM-dark-grey dark:text-AIPM-light-grey">
+            <span className="font-medium text-foreground">
               {t(lang, "resourceEmail")}
             </span>
             <input
               type="email"
               value={draft.email ?? ""}
               onChange={(e) => update("email", e.target.value || undefined)}
-              className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
+              className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
             />
           </label>
 
           {/* Birthday — native date picker with optional year */}
           <div className="flex flex-col gap-1 text-sm sm:col-span-2">
-            <span className="font-medium text-AIPM-dark-grey dark:text-AIPM-light-grey">
+            <span className="font-medium text-foreground">
               {t(lang, "resourceBirthday")}
             </span>
             <div className="flex flex-wrap items-center gap-3">
@@ -242,9 +242,9 @@ export function ResourceEditModal({
                 value={birthdayToInput(draft.birthday)}
                 onChange={(e) => update("birthday", inputToBirthday(e.target.value, yearUnknown))}
                 aria-label={t(lang, "resourceBirthday")}
-                className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
+                className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
               />
-              <label className="flex items-center gap-1.5 text-sm text-AIPM-dark-grey dark:text-AIPM-light-grey">
+              <label className="flex items-center gap-1.5 text-sm text-foreground">
                 <input
                   type="checkbox"
                   checked={yearUnknown}
@@ -267,30 +267,30 @@ export function ResourceEditModal({
 
           {/* Notes — full width textarea */}
           <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-            <span className="font-medium text-AIPM-dark-grey dark:text-AIPM-light-grey">
+            <span className="font-medium text-foreground">
               {t(lang, "resourceNotes")}
             </span>
             <textarea
               rows={3}
               value={draft.notes ?? ""}
               onChange={(e) => update("notes", e.target.value || undefined)}
-              className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
+              className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
             />
           </label>
 
           {error && (
-            <p className="text-sm text-red-600 sm:col-span-2 dark:text-red-400">
+            <p className="text-sm text-AIPM-pink sm:col-span-2">
               {error}
             </p>
           )}
 
-          <footer className="flex items-center justify-between gap-2 border-t border-zinc-200 pt-3 sm:col-span-2 dark:border-zinc-800">
+          <footer className="flex items-center justify-between gap-2 border-t border-line pt-3 sm:col-span-2">
             <div>
               {!isNew && (
                 <button
                   type="button"
                   onClick={handleDeleteClick}
-                  className="rounded-md border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-700 shadow-sm hover:bg-red-50 dark:border-red-800 dark:bg-zinc-900 dark:text-red-400 dark:hover:bg-zinc-800"
+                  className="rounded-md border border-AIPM-pink/40 bg-surface px-3 py-1.5 text-sm font-medium text-AIPM-pink hover:bg-AIPM-pink/10 dark:border-AIPM-pink/50"
                 >
                   {t(lang, "delete")}
                 </button>
@@ -300,13 +300,13 @@ export function ResourceEditModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 shadow-sm hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                className="rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted"
               >
                 {t(lang, "cancel")}
               </button>
               <button
                 type="submit"
-                className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-AIPM-dark-blue/90"
+                className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:bg-AIPM-dark-blue/90"
               >
                 {t(lang, "resourceSave")}
               </button>
