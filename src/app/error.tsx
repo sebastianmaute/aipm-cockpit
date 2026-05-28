@@ -31,17 +31,17 @@ export default function ErrorPage({ error, unstable_retry }: ErrorPageProps) {
       aria-live="assertive"
       className="flex min-h-[60vh] items-center justify-center p-8"
     >
-      <div className="w-full max-w-md rounded-xl border border-AIPM-light-grey bg-white p-6 text-center shadow-lg dark:border-zinc-800 dark:bg-zinc-950">
+      <div className="w-full max-w-md rounded-xl border border-line bg-surface p-6 text-center">
         <h2 className="text-lg font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
           Something went wrong
         </h2>
-        <p className="mt-2 text-sm text-AIPM-dark-grey dark:text-AIPM-medium-grey">
+        <p className="mt-2 text-sm text-foreground">
           An unexpected error interrupted this view. Your saved tasks are
           unaffected — they live in browser storage and the next load will
           pick them back up.
         </p>
         {error.digest && (
-          <p className="mt-3 font-mono text-xs text-AIPM-dark-grey/70 dark:text-AIPM-medium-grey/70">
+          <p className="mt-3 font-mono text-xs text-foreground/70">
             Reference: {error.digest}
           </p>
         )}
@@ -49,14 +49,14 @@ export default function ErrorPage({ error, unstable_retry }: ErrorPageProps) {
           <button
             type="button"
             onClick={() => unstable_retry()}
-            className="rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white hover:bg-AIPM-dark-blue/90 focus:outline-none focus:ring-2 focus:ring-AIPM-dark-blue focus:ring-offset-2 dark:focus:ring-offset-zinc-950"
+            className="rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white hover:bg-AIPM-dark-blue/90 focus:outline-none focus:ring-2 focus:ring-AIPM-green focus:ring-offset-2"
           >
             Try again
           </button>
           <button
             type="button"
             onClick={() => window.location.reload()}
-            className="rounded-md border border-AIPM-light-grey px-4 py-2 text-sm font-medium text-AIPM-dark-blue hover:bg-AIPM-light-grey/50 focus:outline-none focus:ring-2 focus:ring-AIPM-dark-blue focus:ring-offset-2 dark:border-zinc-700 dark:text-AIPM-light-grey dark:hover:bg-zinc-800 dark:focus:ring-offset-zinc-950"
+            className="rounded-md border border-line px-4 py-2 text-sm font-medium text-AIPM-dark-blue hover:bg-surface-muted focus:outline-none focus:ring-2 focus:ring-AIPM-green focus:ring-offset-2 dark:text-AIPM-light-grey"
           >
             Reload page
           </button>
