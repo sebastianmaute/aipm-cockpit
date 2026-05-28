@@ -253,10 +253,10 @@ function ChatPanelInner({
     <div className="flex h-full min-h-[300px] flex-col">
       <div
         ref={scrollerRef}
-        className="flex-1 overflow-y-auto rounded-md border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-900"
+        className="flex-1 overflow-y-auto rounded-md border border-line bg-surface-muted p-3"
       >
         {display.length === 0 ? (
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">
+          <p className="text-sm text-muted-foreground">
             {apiKeyMissing ? t(lang, "chatNoApiKey") : t(lang, "chatGreeting")}
           </p>
         ) : (
@@ -282,7 +282,7 @@ function ChatPanelInner({
                       dangerouslySetInnerHTML; everything goes through React
                       text nodes so HTML in a reply is escaped automatically.
                     */}
-                    <div className="max-w-[85%] rounded-lg bg-white px-3 py-2 text-sm text-zinc-800 shadow-sm dark:bg-zinc-800 dark:text-zinc-100">
+                    <div className="max-w-[85%] rounded-lg bg-surface px-3 py-2 text-sm text-foreground">
                       <Markdown text={item.text} />
                     </div>
                   </div>
@@ -300,7 +300,7 @@ function ChatPanelInner({
             ))}
             {busy && (
               <li className="flex justify-start">
-                <div className="rounded-lg bg-white px-3 py-2 text-sm italic text-zinc-500 shadow-sm dark:bg-zinc-800 dark:text-zinc-400">
+                <div className="rounded-lg bg-surface px-3 py-2 text-sm italic text-muted-foreground">
                   {t(lang, "chatThinking")}
                 </div>
               </li>
@@ -312,7 +312,7 @@ function ChatPanelInner({
       {error && (
         <p
           role="alert"
-          className="mt-2 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300"
+          className="mt-2 rounded-md bg-AIPM-pink/10 px-3 py-2 text-sm text-AIPM-pink dark:bg-AIPM-pink/15"
         >
           {error}
         </p>
@@ -328,14 +328,14 @@ function ChatPanelInner({
           onKeyDown={onKeyDown}
           placeholder={t(lang, "chatPlaceholder")}
           disabled={busy || apiKeyMissing}
-          className="min-w-0 flex-1 resize-none rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+          className="min-w-0 flex-1 resize-none rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none focus:ring-1 focus:ring-AIPM-green disabled:cursor-not-allowed disabled:opacity-50"
         />
         <div className="flex flex-col gap-2">
           <button
             type="button"
             onClick={sendMessage}
             disabled={busy || !input.trim() || apiKeyMissing}
-            className="rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white shadow-sm hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {t(lang, "chatSend")}
           </button>
@@ -343,7 +343,7 @@ function ChatPanelInner({
             type="button"
             onClick={clearChat}
             disabled={busy || display.length === 0}
-            className="rounded-md border border-zinc-300 bg-white px-4 py-2 text-xs font-medium text-zinc-700 shadow-sm hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+            className="rounded-md border border-line bg-surface px-4 py-2 text-xs font-medium text-foreground hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50"
           >
             {t(lang, "chatClear")}
           </button>
@@ -372,14 +372,14 @@ function ConsentScreen({
     "aiConsentBullet6",
   ];
   return (
-    <div className="rounded-lg border border-amber-300 bg-amber-50 p-5 dark:border-amber-700 dark:bg-amber-950/30">
-      <h3 className="text-base font-semibold text-amber-900 dark:text-amber-100">
+    <div className="rounded-lg border border-AIPM-purple/40 bg-AIPM-purple/10 p-5 dark:border-AIPM-purple/50 dark:bg-AIPM-purple/15">
+      <h3 className="text-base font-semibold text-AIPM-purple">
         {t(lang, "aiConsentTitle")}
       </h3>
-      <p className="mt-2 text-sm text-amber-900/80 dark:text-amber-100/80">
+      <p className="mt-2 text-sm text-AIPM-purple/80">
         {t(lang, "aiConsentNotAccepted")}
       </p>
-      <ul className="mt-3 space-y-2 text-sm text-amber-900 dark:text-amber-100">
+      <ul className="mt-3 space-y-2 text-sm text-AIPM-purple">
         {bullets.map((k) => (
           <li key={k} className="flex gap-2">
             <span aria-hidden className="mt-0.5">
@@ -394,17 +394,17 @@ function ConsentScreen({
           href={POLICY_URL}
           target="_blank"
           rel="noopener noreferrer"
-          className="font-medium text-amber-900 underline underline-offset-2 hover:text-amber-700 dark:text-amber-100 dark:hover:text-amber-200"
+          className="font-medium text-AIPM-purple underline underline-offset-2 hover:text-AIPM-purple/80"
         >
           {t(lang, "aiConsentPolicyLink")} ↗
         </a>
       </p>
-      <label className="mt-4 flex cursor-pointer items-start gap-2 text-sm text-amber-900 dark:text-amber-100">
+      <label className="mt-4 flex cursor-pointer items-start gap-2 text-sm text-AIPM-purple">
         <input
           type="checkbox"
           checked={policyAccepted}
           onChange={(e) => setPolicyAccepted(e.target.checked)}
-          className="mt-0.5 h-4 w-4 cursor-pointer rounded border-amber-400 text-amber-700 focus:ring-amber-500 dark:border-amber-600 dark:bg-amber-950"
+          className="mt-0.5 h-4 w-4 cursor-pointer rounded border-AIPM-purple/40 text-AIPM-purple focus:ring-AIPM-purple dark:border-AIPM-purple/50 dark:bg-AIPM-purple/15"
         />
         <span>{t(lang, "aiConsentPolicyCheckbox")}</span>
       </label>
@@ -413,7 +413,7 @@ function ConsentScreen({
           type="button"
           onClick={onAccept}
           disabled={!policyAccepted}
-          className="rounded-md bg-amber-700 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-amber-800 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-amber-600 dark:hover:bg-amber-500"
+          className="rounded-md bg-AIPM-purple px-4 py-2 text-sm font-medium text-white hover:bg-AIPM-purple/90 focus:outline-none focus:ring-2 focus:ring-AIPM-purple focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {t(lang, "aiConsentAccept")}
         </button>
@@ -443,8 +443,8 @@ function ToolBlock({
         onToggle={(e) => setOpen((e.currentTarget as HTMLDetailsElement).open)}
         className={`max-w-[85%] rounded-lg border px-3 py-2 text-xs ${
           error
-            ? "border-red-200 bg-red-50 text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200"
-            : "border-zinc-200 bg-white text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
+            ? "border-AIPM-pink/40 bg-AIPM-pink/10 text-AIPM-pink dark:border-AIPM-pink/50 dark:bg-AIPM-pink/15"
+            : "border-line bg-surface text-foreground"
         }`}
       >
         <summary className="cursor-pointer select-none font-mono">
@@ -452,10 +452,10 @@ function ToolBlock({
           {t(lang, "chatToolCall", name)}
         </summary>
         <div className="mt-2 space-y-1">
-          <pre className="overflow-x-auto whitespace-pre-wrap break-words rounded bg-zinc-100 p-2 font-mono text-[11px] dark:bg-zinc-800">
+          <pre className="overflow-x-auto whitespace-pre-wrap break-words rounded bg-surface-muted p-2 font-mono text-[11px]">
             {JSON.stringify(input, null, 2)}
           </pre>
-          <pre className="overflow-x-auto whitespace-pre-wrap break-words rounded bg-zinc-100 p-2 font-mono text-[11px] dark:bg-zinc-800">
+          <pre className="overflow-x-auto whitespace-pre-wrap break-words rounded bg-surface-muted p-2 font-mono text-[11px]">
             {result}
           </pre>
         </div>
