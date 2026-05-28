@@ -37,7 +37,7 @@ const CONFIGURABLE_COLS: Array<{ key: string; labelKey: TranslationKey }> = [
 ];
 
 const inputClass =
-  "w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100";
+  "w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none focus:ring-1 focus:ring-AIPM-green";
 
 export interface TasksSectionProps {
   lang: Lang;
@@ -200,7 +200,7 @@ export function TasksSection({
   return (
     <section
       ref={tableRef}
-      className="relative mb-10 flex h-[560px] min-h-[300px] min-w-[520px] resize flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950"
+      className="relative mb-10 flex h-[560px] min-h-[300px] min-w-[520px] resize flex-col overflow-hidden rounded-xl border border-line bg-surface p-6"
     >
       {/* shrink-0 wrapper keeps header, filters and bulk-edit from growing into the table area */}
       <div className="shrink-0">
@@ -213,7 +213,7 @@ export function TasksSection({
               aria-label={t(lang, "colConfigTitle")}
               title={t(lang, "colConfigTitle")}
               aria-expanded={colConfigOpen}
-              className="rounded-md p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:text-zinc-500 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
+              className="rounded-md p-1.5 text-muted-foreground hover:bg-surface-muted hover:text-muted-foreground"
             >
               <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-4 w-4">
                 <path fillRule="evenodd" d="M7.84 1.804A1 1 0 018.82 1h2.36a1 1 0 01.98.804l.25 1.252a6.013 6.013 0 011.317.757l1.198-.42a1 1 0 011.15.376l1.18 2.044a1 1 0 01-.205 1.274l-.96.836a6.02 6.02 0 010 1.514l.96.836a1 1 0 01.205 1.274l-1.18 2.044a1 1 0 01-1.15.376l-1.198-.42a6.014 6.014 0 01-1.317.757l-.25 1.252a1 1 0 01-.98.804H8.82a1 1 0 01-.98-.804l-.25-1.252a6.013 6.013 0 01-1.317-.757l-1.198.42a1 1 0 01-1.15-.376L2.745 13.3a1 1 0 01.205-1.274l.96-.836a6.023 6.023 0 010-1.514l-.96-.836a1 1 0 01-.205-1.274L3.925 5.52a1 1 0 011.15-.376l1.198.42a6.013 6.013 0 011.317-.757l.25-1.252zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
@@ -223,15 +223,15 @@ export function TasksSection({
               <div
                 role="dialog"
                 aria-label={t(lang, "colConfigTitle")}
-                className="absolute left-0 top-full z-40 mt-1 w-52 rounded-lg border border-zinc-200 bg-white p-3 shadow-lg dark:border-zinc-800 dark:bg-zinc-900"
+                className="absolute left-0 top-full z-40 mt-1 w-52 rounded-lg border border-line bg-surface p-3"
               >
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   {t(lang, "colConfigTitle")}
                 </p>
                 <ul className="space-y-1">
                   {CONFIGURABLE_COLS.map(({ key, labelKey }) => (
                     <li key={key}>
-                      <label className="flex cursor-pointer items-center gap-2 rounded px-1 py-0.5 text-sm text-zinc-700 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-800">
+                      <label className="flex cursor-pointer items-center gap-2 rounded px-1 py-0.5 text-sm text-foreground hover:bg-surface-muted">
                         <input
                           type="checkbox"
                           checked={!hiddenCols.has(key)}
@@ -242,7 +242,7 @@ export function TasksSection({
                               return next;
                             })
                           }
-                          className="h-3.5 w-3.5 rounded border-zinc-300 text-AIPM-dark-blue focus:ring-AIPM-dark-blue dark:border-zinc-600 dark:bg-zinc-800"
+                          className="h-3.5 w-3.5 rounded border-line text-AIPM-dark-blue focus:ring-AIPM-green"
                         />
                         {t(lang, labelKey)}
                       </label>
@@ -252,7 +252,7 @@ export function TasksSection({
               </div>
             )}
           </div>
-          <h2 className="text-lg font-medium text-zinc-900 dark:text-zinc-100">
+          <h2 className="text-lg font-medium text-foreground">
             {t(lang, "tasks")}{" "}
             {filteredSortedTasks.length !== tasks.length
               ? t(lang, "tasksCountFiltered", filteredSortedTasks.length, tasks.length)
@@ -268,7 +268,7 @@ export function TasksSection({
             }}
             aria-label={t(lang, "addTaskButton")}
             title={t(lang, "addTaskButton")}
-            className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-AIPM-dark-blue/90"
+            className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90"
           >
             + {t(lang, "addTaskButton")}
           </button>
@@ -282,7 +282,7 @@ export function TasksSection({
                   ? t(lang, "jiraSync")
                   : t(lang, "jiraSyncNoScope")
               }
-              className="inline-flex items-center gap-1.5 rounded-md border border-AIPM-dark-blue bg-white px-3 py-1.5 text-sm font-medium text-AIPM-dark-blue shadow-sm hover:bg-AIPM-light-grey disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+              className="inline-flex items-center gap-1.5 rounded-md border border-AIPM-dark-blue bg-surface px-3 py-1.5 text-sm font-medium text-AIPM-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50"
             >
               <svg
                 viewBox="0 0 20 20"
@@ -304,7 +304,7 @@ export function TasksSection({
             onClick={resetTableSize}
             aria-label={t(lang, "tableResetSizeHint")}
             title={t(lang, "tableResetSizeHint")}
-            className="rounded-md border border-zinc-300 bg-white p-1.5 text-zinc-500 shadow-sm hover:bg-zinc-50 hover:text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+            className="rounded-md border border-line bg-surface p-1.5 text-muted-foreground hover:bg-surface-muted hover:text-foreground"
           >
             <ResetSizeIcon />
           </button>
@@ -313,7 +313,7 @@ export function TasksSection({
             onClick={resetColWidths}
             aria-label={t(lang, "colResetWidthsHint")}
             title={t(lang, "colResetWidthsHint")}
-            className="rounded-md border border-zinc-300 bg-white p-1.5 text-zinc-500 shadow-sm hover:bg-zinc-50 hover:text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+            className="rounded-md border border-line bg-surface p-1.5 text-muted-foreground hover:bg-surface-muted hover:text-foreground"
           >
             <ResetColWidthsIcon />
           </button>
@@ -323,7 +323,7 @@ export function TasksSection({
             disabled={tasks.length === 0}
             aria-label={t(lang, "clearAll")}
             title={t(lang, "clearAll")}
-            className="rounded-md border border-zinc-300 bg-white p-1.5 text-zinc-500 shadow-sm hover:bg-zinc-50 hover:text-zinc-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+            className="rounded-md border border-line bg-surface p-1.5 text-muted-foreground hover:bg-surface-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
           >
             <EraserIcon />
           </button>
@@ -397,7 +397,7 @@ export function TasksSection({
       </div>
 
       {selectedIds.size > 0 && (
-        <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-AIPM-medium-grey/40 bg-AIPM-light-grey p-3 dark:border-zinc-700 dark:bg-zinc-900">
+        <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-line bg-surface-muted p-3">
           <span className="text-sm font-medium text-AIPM-dark-blue dark:text-AIPM-light-grey">
             {t(lang, "selectionCount", selectedIds.size)}
           </span>
@@ -405,7 +405,7 @@ export function TasksSection({
             <button
               type="button"
               onClick={handleBulkSendInquiry}
-              className="rounded-md bg-AIPM-green px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:opacity-90"
+              className="rounded-md bg-AIPM-green px-3 py-1.5 text-sm font-medium text-white hover:opacity-90"
             >
               {t(lang, "bulkSendInquiries")}
             </button>
@@ -413,14 +413,14 @@ export function TasksSection({
               type="button"
               onClick={() => setBulkEditOpen((o) => !o)}
               aria-pressed={bulkEditOpen}
-              className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 shadow-sm hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              className="rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted"
             >
               {t(lang, "bulkEdit")}
             </button>
             <button
               type="button"
               onClick={clearSelection}
-              className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 shadow-sm hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              className="rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted"
             >
               {t(lang, "clearSelection")}
             </button>
@@ -442,11 +442,11 @@ export function TasksSection({
       </div>{/* end shrink-0 */}
 
       <div
-        className="min-h-0 flex-1 w-full overflow-auto rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950"
+        className="min-h-0 flex-1 w-full overflow-auto rounded-xl border border-line bg-surface"
       >
         <RowContextProvider value={rowContextValue}>
           <table
-            className="divide-y divide-zinc-200 text-left text-sm dark:divide-zinc-800"
+            className="divide-y divide-line text-left text-sm"
             style={{ tableLayout: "fixed", width: "max-content", minWidth: "100%" }}
           >
             <colgroup>
@@ -456,7 +456,7 @@ export function TasksSection({
                   <col key={col} style={{ width: colWidths[col] ?? DEFAULT_COL_WIDTHS[col] }} />
                 ))}
             </colgroup>
-            <thead className="sticky top-0 z-10 bg-zinc-50 text-xs uppercase tracking-wide text-zinc-500 shadow-sm dark:bg-zinc-900 dark:text-zinc-400">
+            <thead className="sticky top-0 z-10 bg-surface-muted text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
                 <Th onResize={(e) => startColResize("sel", e)}>
                   <input
@@ -464,7 +464,7 @@ export function TasksSection({
                     checked={allVisibleSelected}
                     onChange={toggleSelectAllVisible}
                     aria-label={t(lang, "selectAllVisible")}
-                    className="h-4 w-4 cursor-pointer rounded border-zinc-300 text-AIPM-dark-blue focus:ring-AIPM-dark-blue dark:border-zinc-600 dark:bg-zinc-800"
+                    className="h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue focus:ring-AIPM-green"
                   />
                 </Th>
                 {!hiddenCols.has("status") && <Th onResize={(e) => startColResize("status", e)}><span className="sr-only">Status</span></Th>}
@@ -485,17 +485,17 @@ export function TasksSection({
                 </Th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
+            <tbody className="divide-y divide-line">
               {tasks.length === 0 && (
                 <tr>
-                  <td colSpan={visibleColumnCount} className="p-10 text-center text-sm text-zinc-500 dark:text-zinc-400">
+                  <td colSpan={visibleColumnCount} className="p-10 text-center text-sm text-muted-foreground">
                     {t(lang, "noTasks")}
                   </td>
                 </tr>
               )}
               {tasks.length > 0 && filteredSortedTasks.length === 0 && (
                 <tr>
-                  <td colSpan={visibleColumnCount} className="p-10 text-center text-sm text-zinc-500 dark:text-zinc-400">
+                  <td colSpan={visibleColumnCount} className="p-10 text-center text-sm text-muted-foreground">
                     {t(lang, "noTasksFiltered")}
                   </td>
                 </tr>
@@ -517,7 +517,7 @@ export function TasksSection({
                     type="button"
                     onClick={() => { handleCancelEdit(); setTaskModalOpen(true); }}
                     aria-label={t(lang, "addTask")}
-                    className="group flex w-full cursor-pointer items-center gap-2 border-b border-dashed border-zinc-200 px-3 py-1.5 text-sm text-zinc-400 hover:bg-AIPM-dark-blue/5 hover:text-AIPM-dark-blue dark:border-zinc-700 dark:hover:bg-white/5"
+                    className="group flex w-full cursor-pointer items-center gap-2 border-b border-dashed border-line px-3 py-1.5 text-sm text-muted-foreground hover:bg-AIPM-dark-blue/5 hover:text-AIPM-dark-blue dark:hover:bg-white/5"
                   >
                     <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-3.5 w-3.5 opacity-50 group-hover:opacity-100">
                       <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
@@ -531,7 +531,7 @@ export function TasksSection({
         </RowContextProvider>
       </div>
       <span aria-hidden={true} title={t(lang, "tableResizeHint")}
-        className="pointer-events-none absolute bottom-1 right-1 select-none text-zinc-300 dark:text-zinc-600">⠿</span>
+        className="pointer-events-none absolute bottom-1 right-1 select-none text-muted-foreground">⠿</span>
     </section>
   );
 }
