@@ -16,7 +16,7 @@ import type { JiraTokenAlert } from "./jira-token-status";
 
 const categoryStyle: Record<AlertCategory, string> = {
   overdue: "bg-AIPM-pink text-white",
-  today: "bg-amber-500 text-white",
+  today: "bg-AIPM-green text-white",
   soon: "bg-AIPM-green text-white",
 };
 
@@ -42,16 +42,16 @@ export function dueAlertsToastText(items: AlertableTask[], lang: Lang): string {
 function SnoozeMenu({ lang, onSnooze }: { lang: Lang; onSnooze: (ms: number) => void }) {
   return (
     <details className="relative">
-      <summary className="cursor-pointer list-none rounded-md border border-AIPM-medium-grey/40 bg-white px-3 py-1.5 text-xs font-medium text-AIPM-dark-grey hover:bg-AIPM-light-grey dark:border-zinc-700 dark:bg-zinc-900 dark:text-AIPM-medium-grey">
+      <summary className="cursor-pointer list-none rounded-md border border-AIPM-medium-grey/40 bg-surface px-3 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted dark:border-line">
         {t(lang, "reminderSnooze")} ▾
       </summary>
-      <div className="absolute right-0 z-10 mt-1 flex flex-col rounded-md border border-zinc-200 bg-white py-1 shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
+      <div className="absolute right-0 z-10 mt-1 flex flex-col rounded-md border border-line bg-surface py-1">
         <button type="button" onClick={() => onSnooze(SNOOZE_1H)}
-          className="whitespace-nowrap px-3 py-1.5 text-left text-xs text-AIPM-dark-grey hover:bg-AIPM-light-grey dark:text-AIPM-light-grey dark:hover:bg-zinc-800">
+          className="whitespace-nowrap px-3 py-1.5 text-left text-xs text-foreground hover:bg-surface-muted">
           {t(lang, "reminderSnooze1h")}
         </button>
         <button type="button" onClick={() => onSnooze(SNOOZE_1D)}
-          className="whitespace-nowrap px-3 py-1.5 text-left text-xs text-AIPM-dark-grey hover:bg-AIPM-light-grey dark:text-AIPM-light-grey dark:hover:bg-zinc-800">
+          className="whitespace-nowrap px-3 py-1.5 text-left text-xs text-foreground hover:bg-surface-muted">
           {t(lang, "reminderSnooze1d")}
         </button>
       </div>
@@ -87,7 +87,7 @@ export function DueBanner({
         <p className="text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
           {t(lang, "alertBannerTitle", items.length)}
         </p>
-        <p className="text-xs text-AIPM-dark-grey dark:text-AIPM-medium-grey">
+        <p className="text-xs text-muted-foreground">
           {summary}
         </p>
       </div>
@@ -95,7 +95,7 @@ export function DueBanner({
         <button
           type="button"
           onClick={onOpenList}
-          className="rounded-md bg-AIPM-dark-blue px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:opacity-90"
+          className="rounded-md bg-AIPM-dark-blue px-3 py-1.5 text-xs font-medium text-white hover:opacity-90"
         >
           {t(lang, "alertBannerOpen")}
         </button>
@@ -104,7 +104,7 @@ export function DueBanner({
           type="button"
           onClick={onDismiss}
           aria-label={t(lang, "alertBannerDismiss")}
-          className="rounded-md border border-AIPM-medium-grey/40 bg-white px-3 py-1.5 text-xs font-medium text-AIPM-dark-grey hover:bg-AIPM-light-grey dark:border-zinc-700 dark:bg-zinc-900 dark:text-AIPM-medium-grey"
+          className="rounded-md border border-AIPM-medium-grey/40 bg-surface px-3 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted"
         >
           {t(lang, "alertBannerDismiss")}
         </button>
@@ -130,12 +130,12 @@ export function BirthdayBanner({
       <span aria-hidden className="text-lg">🎂</span>
       <div className="min-w-0 flex-1">
         <p className="text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">{t(lang, "birthdayBannerTitle", items.length)}</p>
-        <p className="text-xs text-AIPM-dark-grey dark:text-AIPM-medium-grey">{summary}</p>
+        <p className="text-xs text-muted-foreground">{summary}</p>
       </div>
       <div className="flex gap-2">
         <SnoozeMenu lang={lang} onSnooze={onSnooze} />
         <button type="button" onClick={onDismiss} aria-label={t(lang, "alertBannerDismiss")}
-          className="rounded-md border border-AIPM-medium-grey/40 bg-white px-3 py-1.5 text-xs font-medium text-AIPM-dark-grey hover:bg-AIPM-light-grey dark:border-zinc-700 dark:bg-zinc-900 dark:text-AIPM-medium-grey">
+          className="rounded-md border border-AIPM-medium-grey/40 bg-surface px-3 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted">
           {t(lang, "alertBannerDismiss")}
         </button>
       </div>
@@ -160,7 +160,7 @@ export function JiraTokenBanner({
       <div className="flex gap-2">
         <SnoozeMenu lang={lang} onSnooze={onSnooze} />
         <button type="button" onClick={onDismiss} aria-label={t(lang, "alertBannerDismiss")}
-          className="rounded-md border border-AIPM-medium-grey/40 bg-white px-3 py-1.5 text-xs font-medium text-AIPM-dark-grey hover:bg-AIPM-light-grey dark:border-zinc-700 dark:bg-zinc-900 dark:text-AIPM-medium-grey">
+          className="rounded-md border border-AIPM-medium-grey/40 bg-surface px-3 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted">
           {t(lang, "alertBannerDismiss")}
         </button>
       </div>
@@ -187,14 +187,14 @@ export function DueDatesModal({
     <Modal open onClose={onClose} ariaLabel={t(lang, "alertModalTitle")}>
       <div
         ref={panelRef}
-        className="relative h-[640px] max-h-[95vh] min-h-[300px] w-[640px] min-w-[320px] max-w-[95vw] resize overflow-y-auto rounded-xl border border-AIPM-light-grey bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-950"
+        className="relative h-[640px] max-h-[95vh] min-h-[300px] w-[640px] min-w-[320px] max-w-[95vw] resize overflow-y-auto rounded-xl border border-line bg-surface"
       >
-        <header className="sticky top-0 flex items-center justify-between gap-4 border-b border-AIPM-light-grey bg-white px-6 py-4 dark:border-zinc-800 dark:bg-zinc-950">
+        <header className="sticky top-0 flex items-center justify-between gap-4 border-b border-line bg-surface px-6 py-4">
           <div>
             <h2 className="text-lg font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
               {t(lang, "alertModalTitle")}
             </h2>
-            <p className="mt-0.5 text-xs text-AIPM-dark-grey dark:text-AIPM-medium-grey">
+            <p className="mt-0.5 text-xs text-muted-foreground">
               {summarySentence(items, lang)}
             </p>
           </div>
@@ -202,7 +202,7 @@ export function DueDatesModal({
             type="button"
             onClick={onClose}
             aria-label={t(lang, "alertModalClose")}
-            className="rounded-md p-2 text-AIPM-dark-grey hover:bg-AIPM-light-grey hover:text-AIPM-dark-blue dark:text-AIPM-medium-grey dark:hover:bg-zinc-800 dark:hover:text-AIPM-light-grey"
+            className="rounded-md p-2 text-foreground hover:bg-surface-muted hover:text-AIPM-dark-blue"
           >
             <svg
               viewBox="0 0 20 20"
@@ -220,11 +220,11 @@ export function DueDatesModal({
         </header>
 
         {items.length === 0 ? (
-          <p className="p-6 text-sm text-AIPM-medium-grey">
+          <p className="p-6 text-sm text-muted-foreground">
             {t(lang, "alertModalNone")}
           </p>
         ) : (
-          <ul className="divide-y divide-AIPM-light-grey dark:divide-zinc-800">
+          <ul className="divide-y divide-line">
             {items.map((item) => (
               <li key={item.task.id} className="px-6 py-3">
                 <div className="flex items-start gap-3">
@@ -235,12 +235,12 @@ export function DueDatesModal({
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="font-medium text-AIPM-dark-blue dark:text-AIPM-light-grey">
-                      <span className="font-mono text-xs text-AIPM-medium-grey">
+                      <span className="font-mono text-xs text-muted-foreground">
                         #{item.task.id}
                       </span>{" "}
                       {item.task.taskName}
                     </p>
-                    <p className="text-xs text-AIPM-dark-grey dark:text-AIPM-medium-grey">
+                    <p className="text-xs text-muted-foreground">
                       {t(lang, "assignee")}: {item.task.assignee} ·{" "}
                       {t(lang, "due")}: {item.task.dueDate}
                       {item.category === "soon" && (
