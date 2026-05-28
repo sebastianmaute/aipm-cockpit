@@ -293,6 +293,8 @@ export function ReportsPanel({
   const inquiryStartResize = inquiry.startColResize as (col: string, e: React.MouseEvent) => void;
   const assigneeStartResize = assignee.startColResize as (col: string, e: React.MouseEvent) => void;
   const byXStartResize = byX.startColResize as (col: string, e: React.MouseEvent) => void;
+  const [assigneeSort, setAssigneeSort] = useState<AssigneeSort>({ key: "total", dir: "desc" });
+  const [assigneeFilter, setAssigneeFilter] = useState("");
   const resetAllReports = () => {
     inquiry.resetColWidths();
     assignee.resetColWidths();
@@ -500,65 +502,16 @@ export function ReportsPanel({
       </Section>
 
       <Section title={t(lang, "reportsByAssignee")}>
-        <div className="overflow-x-auto rounded-md border border-line">
-          <table className="min-w-full text-left text-xs">
-            <thead className="bg-surface-muted text-foreground uppercase tracking-wide">
-              <tr>
-                <th className="relative px-3 py-2" style={{ width: assignee.colWidths.assignee, minWidth: assignee.colWidths.assignee }}>
-                  {t(lang, "assignee")}
-                  <ColumnResizeHandle col="assignee" onMouseDown={assigneeStartResize} />
-                </th>
-                <th className="relative px-3 py-2 text-right" style={{ width: assignee.colWidths.total, minWidth: assignee.colWidths.total }}>
-                  {t(lang, "reportsTotal")}
-                  <ColumnResizeHandle col="total" onMouseDown={assigneeStartResize} />
-                </th>
-                <th className="relative px-3 py-2 text-right" style={{ width: assignee.colWidths.open, minWidth: assignee.colWidths.open }}>
-                  {t(lang, "reportsOpen")}
-                  <ColumnResizeHandle col="open" onMouseDown={assigneeStartResize} />
-                </th>
-                <th className="relative px-3 py-2 text-right" style={{ width: assignee.colWidths.overdue, minWidth: assignee.colWidths.overdue }}>
-                  {t(lang, "reportsOverdue")}
-                  <ColumnResizeHandle col="overdue" onMouseDown={assigneeStartResize} />
-                </th>
-                <th className="relative px-3 py-2 text-right" style={{ width: assignee.colWidths.onTime, minWidth: assignee.colWidths.onTime }}>
-                  {t(lang, "reportsCompletedOnTime")}
-                  <ColumnResizeHandle col="onTime" onMouseDown={assigneeStartResize} />
-                </th>
-                <th className="relative px-3 py-2 text-right" style={{ width: assignee.colWidths.late, minWidth: assignee.colWidths.late }}>
-                  {t(lang, "reportsCompletedLate")}
-                  <ColumnResizeHandle col="late" onMouseDown={assigneeStartResize} />
-                </th>
-                <th className="relative px-3 py-2 text-right" style={{ width: assignee.colWidths.inquiries, minWidth: assignee.colWidths.inquiries }}>
-                  {t(lang, "reportsInquiriesCol")}
-                  <ColumnResizeHandle col="inquiries" onMouseDown={assigneeStartResize} />
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {stats.byAssignee.map((row) => (
-                <tr key={row.name}>
-                  <td className="px-3 py-2 font-medium text-AIPM-dark-blue dark:text-AIPM-light-grey">
-                    {row.name}
-                  </td>
-                  <td className="px-3 py-2 text-right">{row.total}</td>
-                  <td className="px-3 py-2 text-right">{row.open}</td>
-                  <td
-                    className={`px-3 py-2 text-right ${row.overdue > 0 ? "text-AIPM-pink font-semibold" : ""}`}
-                  >
-                    {row.overdue}
-                  </td>
-                  <td className="px-3 py-2 text-right text-AIPM-green">
-                    {row.onTime}
-                  </td>
-                  <td className="px-3 py-2 text-right text-AIPM-pink">
-                    {row.late}
-                  </td>
-                  <td className="px-3 py-2 text-right">{row.inquiries}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <AssigneeTable
+          rows={stats.byAssignee}
+          lang={lang}
+          colWidths={assignee.colWidths}
+          onStartResize={assigneeStartResize}
+          sort={assigneeSort}
+          setSort={setAssigneeSort}
+          filter={assigneeFilter}
+          setFilter={setAssigneeFilter}
+        />
       </Section>
 
       <Section title={t(lang, "reportsByPriority")}>
