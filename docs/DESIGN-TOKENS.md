@@ -62,4 +62,5 @@ never reference them directly.
 - E0 (0.15.1): tokens + `segmented-control`, `modal`, `modal-header`, `app-header`. ✅
 - E-sweep chunk 1 (0.15.2): resources-panel, resource-directory, resource-workload, resources-report, budget-panel. ✅
 - E-sweep calendar (0.15.3): resource-calendar.tsx. ✅
-- Remaining: all modals, and other area sweeps (tasks, RAID, gantt, reports, menus) are still pending.
+- E-sweep modals (0.15.4): resource-edit, shift-edit, absence-edit, roles, budget-bucket, task-form, jira-conflicts, bulk-edit. ✅
+- Remaining: other area sweeps (tasks, RAID, gantt, reports, menus, chrome, misc) are still pending.

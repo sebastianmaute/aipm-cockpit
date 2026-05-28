@@ -1,3 +1,7 @@
+// 0.15.4 sweeps the modal layer (resource/shift/absence edit, roles,
+// budget-bucket, task form, jira conflicts, bulk edit) onto the AIPM palette —
+// surface tokens, no shadows, destructive actions in pink, RAG status in
+// pink/purple/green.
 // 0.15.3 sweeps the resource calendar onto the AIPM palette: absence cells in
 // blue/pink/purple/grey + glyph, today=green wash, holiday=purple wash,
 // weekend=muted; fixes the previously-undefined AIPM-light-blue token.
@@ -225,8 +229,8 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.15.3";
-export const APP_BUILD_DATE = "2026-05-27"; // Le Guin milestone
+export const APP_VERSION = "0.15.4";
+export const APP_BUILD_DATE = "2026-05-28"; // Le Guin milestone
 export const APP_REPO_URL = "https://www.example.com";
 
 /** Translation keys for the high-level feature highlights shown in the
