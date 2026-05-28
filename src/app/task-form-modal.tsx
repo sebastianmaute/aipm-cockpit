@@ -42,7 +42,7 @@ const InlineMicButton = dynamic(
 // Same compact input class the rest of the form uses. Declared here to avoid
 // a circular import back into task-manager.tsx.
 const inputClass =
-  "w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100";
+  "w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none focus:ring-1 focus:ring-AIPM-green dark:border-line dark:bg-surface dark:text-foreground";
 
 export interface TaskFormModalProps {
   lang: Lang;
@@ -107,7 +107,7 @@ export function TaskFormModal({
         ref={modalRef}
         data-modal-panel
         style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}
-        className="relative flex w-[700px] min-w-[460px] max-w-[95vw] resize flex-col overflow-hidden rounded-xl border border-AIPM-light-grey bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-950"
+        className="relative flex w-[700px] min-w-[460px] max-w-[95vw] resize flex-col overflow-hidden rounded-xl border border-line bg-surface dark:border-line dark:bg-surface"
       >
         <ModalHeader
           lang={lang}
@@ -124,7 +124,7 @@ export function TaskFormModal({
               type="text"
               value={`#${isEditing ? editingId : nextId}`}
               readOnly
-              className="w-full cursor-not-allowed rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400"
+              className="w-full cursor-not-allowed rounded-md border border-line bg-surface-muted px-3 py-2 text-sm text-muted-foreground dark:border-line dark:bg-surface-muted dark:text-muted-foreground"
             />
           </Field>
 
@@ -214,13 +214,13 @@ export function TaskFormModal({
                 disabled={editingIsJiraLinked}
                 aria-label={t(lang, "taskAddAssigneeToAddressBook")}
                 title={t(lang, "taskAddAssigneeToAddressBook")}
-                className="shrink-0 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-AIPM-dark-grey shadow-sm hover:border-AIPM-dark-blue hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-AIPM-light-grey dark:hover:bg-zinc-800"
+                className="shrink-0 rounded-md border border-line bg-surface px-3 py-2 text-sm font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 dark:border-line dark:bg-surface dark:text-foreground dark:hover:bg-surface-muted"
               >
                 +
               </button>
             </div>
             {editingIsJiraLinked && (
-              <p className="mt-1 text-xs italic text-AIPM-medium-grey">
+              <p className="mt-1 text-xs italic text-muted-foreground">
                 🔒 {t(lang, "jiraManagedHint")}
               </p>
             )}
@@ -249,7 +249,7 @@ export function TaskFormModal({
               }
               className={inputClass}
             />
-            <p className="mt-1 text-xs text-AIPM-medium-grey">
+            <p className="mt-1 text-xs text-muted-foreground">
               {t(lang, "startDateHint")}
             </p>
           </Field>
@@ -282,7 +282,7 @@ export function TaskFormModal({
                   {hits.map((a) => (
                     <p
                       key={a.id}
-                      className="text-xs text-amber-700 dark:text-amber-400"
+                      className="text-xs text-AIPM-purple"
                     >
                       {t(
                         lang,
@@ -407,11 +407,11 @@ export function TaskFormModal({
               const chipBase =
                 "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium focus:outline-none focus:ring-1";
               const chipInactive =
-                "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800";
+                "border-line bg-surface text-foreground hover:bg-surface-muted dark:border-line dark:bg-surface dark:text-foreground dark:hover:bg-surface-muted";
               const chipActive: Record<Health, string> = {
-                R: "border-red-500 bg-red-50 text-red-700 dark:border-red-500 dark:bg-red-950/40 dark:text-red-300",
-                A: "border-amber-500 bg-amber-50 text-amber-800 dark:border-amber-500 dark:bg-amber-950/40 dark:text-amber-200",
-                G: "border-emerald-500 bg-emerald-50 text-emerald-800 dark:border-emerald-500 dark:bg-emerald-950/40 dark:text-emerald-200",
+                R: "border-AIPM-pink bg-AIPM-pink/10 text-AIPM-pink dark:border-AIPM-pink dark:bg-AIPM-pink/15",
+                A: "border-AIPM-purple bg-AIPM-purple/10 text-AIPM-purple dark:border-AIPM-purple dark:bg-AIPM-purple/15",
+                G: "border-AIPM-green bg-AIPM-green/10 text-AIPM-green dark:border-AIPM-green dark:bg-AIPM-green/15",
               };
               return (
                 <div className="flex flex-wrap items-center gap-2">
@@ -421,7 +421,7 @@ export function TaskFormModal({
                     aria-pressed={form.healthOverride === ""}
                     className={`${chipBase} ${
                       form.healthOverride === ""
-                        ? "border-AIPM-dark-blue bg-AIPM-light-grey text-AIPM-dark-blue dark:border-AIPM-blue dark:bg-zinc-800 dark:text-AIPM-light-grey"
+                        ? "border-AIPM-dark-blue bg-surface-muted text-AIPM-dark-blue dark:border-AIPM-blue dark:bg-surface-muted dark:text-AIPM-light-grey"
                         : chipInactive
                     }`}
                   >
@@ -463,7 +463,7 @@ export function TaskFormModal({
           {error && (
             <p
               role="alert"
-              className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300 sm:col-span-2"
+              className="rounded-md bg-AIPM-pink/10 px-3 py-2 text-sm text-AIPM-pink dark:bg-AIPM-pink/15 sm:col-span-2"
             >
               {error}
             </p>
@@ -472,14 +472,14 @@ export function TaskFormModal({
           {!isEditing &&
             jiraEnabled &&
             jiraProjectKey && (
-              <label className="flex items-center gap-2 text-sm text-AIPM-dark-grey sm:col-span-2 dark:text-AIPM-light-grey">
+              <label className="flex items-center gap-2 text-sm text-foreground sm:col-span-2">
                 <input
                   type="checkbox"
                   checked={form.pushToJira}
                   onChange={(e) =>
                     setForm({ ...form, pushToJira: e.target.checked })
                   }
-                  className="h-4 w-4 cursor-pointer rounded border-zinc-300 text-AIPM-dark-blue focus:ring-AIPM-dark-blue dark:border-zinc-600 dark:bg-zinc-800"
+                  className="h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue focus:ring-AIPM-green dark:border-line dark:bg-surface-muted"
                 />
                 <span>
                   {t(
@@ -497,14 +497,14 @@ export function TaskFormModal({
               <button
                 type="button"
                 onClick={onCancel}
-                className="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 shadow-sm hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                className="rounded-md border border-line bg-surface px-4 py-2 text-sm font-medium text-foreground hover:bg-surface-muted dark:border-line dark:bg-surface dark:text-foreground dark:hover:bg-surface-muted"
               >
                 {t(lang, "cancel")}
               </button>
             )}
             <button
               type="submit"
-              className="rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white shadow-sm hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-AIPM-dark-blue focus:ring-offset-2"
+              className="rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-AIPM-dark-blue focus:ring-offset-2"
             >
               {isEditing ? t(lang, "updateTask") : t(lang, "addTask")}
             </button>
@@ -580,9 +580,9 @@ function Field({
 }) {
   return (
     <label className={`block ${className ?? ""}`}>
-      <span className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+      <span className="mb-1 block text-sm font-medium text-foreground">
         {label}
-        {required && <span className="ml-0.5 text-red-500">*</span>}
+        {required && <span className="ml-0.5 text-AIPM-pink">*</span>}
       </span>
       {children}
     </label>
