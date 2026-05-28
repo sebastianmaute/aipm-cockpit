@@ -100,10 +100,10 @@ export function VoiceCommandButton({
           : t(lang, "voiceUnsupported")
       }
       disabled={!supported}
-      className={`rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-zinc-500 disabled:cursor-not-allowed disabled:opacity-50 ${
+      className={`rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-AIPM-green disabled:cursor-not-allowed disabled:opacity-50 ${
         listening
-          ? "animate-pulse bg-red-100 text-red-600 dark:bg-red-950/40 dark:text-red-400"
-          : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+          ? "animate-pulse bg-AIPM-pink/15 text-AIPM-pink dark:bg-AIPM-pink/20"
+          : "text-muted-foreground hover:bg-surface-muted hover:text-foreground"
       }`}
     >
       <MicIcon />
@@ -184,8 +184,8 @@ export function InlineMicButton({
       }
       className={`absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-1 ${
         listening
-          ? "animate-pulse text-red-600 dark:text-red-400"
-          : "text-zinc-400 hover:text-zinc-700 dark:text-zinc-500 dark:hover:text-zinc-300"
+          ? "animate-pulse text-AIPM-pink"
+          : "text-muted-foreground hover:text-foreground"
       }`}
     >
       <MicIcon className="h-4 w-4" />
