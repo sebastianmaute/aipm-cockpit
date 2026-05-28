@@ -1,3 +1,7 @@
+// 0.22.0 implements the SharePoint storage backend (sp-json / sp-csv) — store
+// the workspace as a single JSON or CSV file in a SharePoint Sites library via
+// Microsoft Graph. Reuses M1's MSAL foundation; paste the file URL in Storage
+// Configuration after enabling SharePoint in Settings → Integrations.
 // 0.21.0 lays the Microsoft 365 integration foundation — an Integrations
 // panel in Settings, a Sign in with Microsoft button gated behind a master
 // toggle that defaults OFF, and the lazy-loaded MSAL bundle that future
@@ -280,7 +284,7 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.21.0";
+export const APP_VERSION = "0.22.0";
 export const APP_BUILD_DATE = "2026-05-28"; // Jemisin milestone
 export const APP_REPO_URL = "https://www.example.com";
 
@@ -312,4 +316,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightReportsSortFilter",
   "versionHighlightPrintReports",
   "versionHighlightM365Auth",
+  "versionHighlightSharepointStorage",
 ] as const;

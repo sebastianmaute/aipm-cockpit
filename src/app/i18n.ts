@@ -130,8 +130,18 @@ const enUS = {
   storageLocalJson: "Local JSON file",
   storageLocalCsv: "Local CSV file",
   storageLocalMd: "Local Markdown file",
-  storageSpJson: "SharePoint Online (JSON)",
-  storageSpCsv: "SharePoint Online (CSV)",
+  storageSpJson: "SharePoint JSON",
+  storageSpCsv: "SharePoint CSV",
+  spStorageHint: "Paste the full URL of the SharePoint file you want to use.",
+  spStorageUrlPlaceholder: "https://your-tenant.sharepoint.com/sites/.../workspace.json",
+  spStorageUrlLabel: "SharePoint file URL",
+  spStorageNeedsM365: "Enable Microsoft 365 in Settings → Integrations first.",
+  spStorageNeedsSignIn: "Sign in to Microsoft to use SharePoint storage.",
+  spStorageNeedsToggle: "Enable SharePoint storage in Settings → Integrations first.",
+  spStorageInvalidUrl: "Could not parse this URL. Use the full SharePoint file URL.",
+  spStorageDescribe: "{filename} on {sitePath}",
+  spStoragePermissionDenied: "Permission denied. The signed-in user lacks access to this file.",
+  spStorageSignInExpired: "Sign-in expired. Re-authenticate from Settings.",
   comingSoon: "coming soon",
   storageFsaUnsupported:
     "This browser doesn't support direct file access. Use Chrome, Edge, or Opera.",
@@ -943,6 +953,7 @@ const enUS = {
   integrationsTurso: "Turso storage backend",
   integrationsComingSoon: "Available in 0.22.0+",
   versionHighlightM365Auth: "Microsoft 365 integration foundation: sign in with your work account to unlock upcoming SharePoint, Outlook contacts, and calendar features. All integrations default to OFF.",
+  versionHighlightSharepointStorage: "SharePoint storage backend: save your workspace as a JSON or CSV file in a SharePoint Sites library — paste the file URL in Storage Configuration after enabling SharePoint in Settings → Integrations.",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;

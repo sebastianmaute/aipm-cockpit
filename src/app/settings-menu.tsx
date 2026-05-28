@@ -576,6 +576,8 @@ export function SettingsMenu({
             onPickFile={onPickStorageFile}
             onOpenFile={onOpenStorageFile}
             onGrantWrite={onGrantStorageWrite}
+            m365Enabled={settings.integrations?.m365?.enabled ?? false}
+            sharepointEnabled={settings.integrations?.m365?.sharepoint ?? false}
           />
 
           <hr className="my-4 border-line" />
@@ -661,27 +663,28 @@ export function SettingsMenu({
                 </div>
 
                 <fieldset className="mt-3 border-t border-line pt-2">
-                  <legend className="text-xs text-muted-foreground">
-                    {t(lang, "integrationsComingSoon")}
-                  </legend>
                   {(
                     [
-                      ["integrationsSharepoint"],
-                      ["integrationsOutlookContacts"],
-                      ["integrationsOutlookCalendar"],
+                      ["integrationsSharepoint", "sharepoint", false],
+                      ["integrationsOutlookContacts", "outlookContacts", true],
+                      ["integrationsOutlookCalendar", "outlookCalendar", true],
                     ] as const
-                  ).map(([labelKey]) => (
+                  ).map(([labelKey, key, comingSoon]) => (
                     <label
                       key={labelKey}
-                      className="mt-1 flex items-center gap-2 text-sm text-muted-foreground"
-                      title={t(lang, "integrationsComingSoon")}
+                      className={`mt-1 flex items-center gap-2 text-sm ${comingSoon ? "text-muted-foreground" : "text-foreground"}`}
+                      title={comingSoon ? t(lang, "integrationsComingSoon") : undefined}
                     >
                       <input
                         type="checkbox"
-                        disabled
-                        checked={false}
-                        className="h-4 w-4 cursor-not-allowed"
-                        readOnly
+                        disabled={comingSoon}
+                        checked={comingSoon ? false : m365[key]}
+                        onChange={
+                          comingSoon
+                            ? undefined
+                            : (e) => updateM365({ [key]: e.target.checked })
+                        }
+                        className={comingSoon ? "h-4 w-4 cursor-not-allowed" : "h-4 w-4"}
                       />
                       <span>{t(lang, labelKey)}</span>
                     </label>

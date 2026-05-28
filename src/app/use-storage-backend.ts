@@ -12,6 +12,7 @@ import {
   pickFileForBackend,
   requestWriteAccessForBackend,
 } from "./storage";
+import { useMsAuth } from "./use-ms-auth";
 import { useWorkspace } from "./workspace-context";
 
 export interface UseStorageBackendArgs {
@@ -49,10 +50,13 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   useEffect(() => { langRef.current = args.lang; }, [args.lang]);
   useEffect(() => { settingsRef.current = args.settings; }, [args.settings]);
 
+  const m365Enabled = args.settings.integrations?.m365?.enabled ?? false;
+  const auth = useMsAuth(m365Enabled);
+
   // Backend instance — memoised on storageConfig identity
   const backend = useMemo(
-    () => createBackend(args.settings.storageConfig),
-    [args.settings.storageConfig],
+    () => createBackend(args.settings.storageConfig, { acquireToken: auth.acquireToken }),
+    [args.settings.storageConfig, auth.acquireToken],
   );
 
   // Storage status
