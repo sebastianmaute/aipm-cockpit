@@ -2,7 +2,7 @@
 
 import { type Dispatch, type SetStateAction, useEffect, useState } from "react";
 import { type Lang, loadI18n, migrateLang } from "./i18n";
-import { defaultSettings, type Settings } from "./settings-menu";
+import { defaultSettings, sanitizeIntegrations, type Settings } from "./settings-menu";
 import { isPlainObject } from "./sanitize";
 
 const SETTINGS_KEY = "lop-app:settings";
@@ -67,6 +67,7 @@ export function useSettings(): {
                   (v): v is string => typeof v === "string",
                 )
               : defaultSettings.holidayCountries,
+            integrations: sanitizeIntegrations(parsed.integrations),
           };
           Promise.resolve().then(() => {
             if (!cancelled) setSettings(merged);

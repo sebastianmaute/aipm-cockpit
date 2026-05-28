@@ -12,6 +12,7 @@ import {
 import { StorageConfigSection } from "./storage-config";
 import type { Theme } from "./theme";
 import { useTheme } from "./use-theme";
+import { useMsAuth } from "./use-ms-auth";
 
 type ChatModel =
   | "claude-sonnet-4-6"
@@ -86,6 +87,60 @@ export const defaultJiraConfig: JiraConfig = {
   tokenExpiresAt: "",
 };
 
+export type M365IntegrationsSettings = {
+  enabled: boolean;
+  clientId?: string;
+  tenantId?: string;
+  sharepoint: boolean;
+  outlookContacts: boolean;
+  outlookCalendar: boolean;
+};
+
+export type TursoIntegrationsSettings = {
+  enabled: boolean;
+};
+
+export type IntegrationsSettings = {
+  m365?: M365IntegrationsSettings;
+  turso?: TursoIntegrationsSettings;
+};
+
+export const defaultM365Integrations: M365IntegrationsSettings = {
+  enabled: false,
+  sharepoint: false,
+  outlookContacts: false,
+  outlookCalendar: false,
+};
+
+export const defaultTursoIntegrations: TursoIntegrationsSettings = {
+  enabled: false,
+};
+
+export const defaultIntegrations: IntegrationsSettings = {
+  m365: defaultM365Integrations,
+  turso: defaultTursoIntegrations,
+};
+
+export function sanitizeIntegrations(raw: unknown): IntegrationsSettings {
+  if (!raw || typeof raw !== "object") return { ...defaultIntegrations };
+  const obj = raw as Record<string, unknown>;
+  const m365Raw = obj.m365 as Record<string, unknown> | undefined;
+  const tursoRaw = obj.turso as Record<string, unknown> | undefined;
+  return {
+    m365: {
+      enabled: typeof m365Raw?.enabled === "boolean" ? m365Raw.enabled : false,
+      clientId: typeof m365Raw?.clientId === "string" ? m365Raw.clientId : undefined,
+      tenantId: typeof m365Raw?.tenantId === "string" ? m365Raw.tenantId : undefined,
+      sharepoint: typeof m365Raw?.sharepoint === "boolean" ? m365Raw.sharepoint : false,
+      outlookContacts: typeof m365Raw?.outlookContacts === "boolean" ? m365Raw.outlookContacts : false,
+      outlookCalendar: typeof m365Raw?.outlookCalendar === "boolean" ? m365Raw.outlookCalendar : false,
+    },
+    turso: {
+      enabled: typeof tursoRaw?.enabled === "boolean" ? tursoRaw.enabled : false,
+    },
+  };
+}
+
 export type Settings = {
   language: Lang;
   holidayCountries: string[];
@@ -95,6 +150,7 @@ export type Settings = {
   jira: JiraConfig;
   popout: { reuseWindow: boolean };
   resources: { workdayHours: number };
+  integrations?: IntegrationsSettings;
 };
 
 export const defaultSettings: Settings = {
@@ -106,6 +162,7 @@ export const defaultSettings: Settings = {
   jira: defaultJiraConfig,
   popout: { reuseWindow: false },
   resources: { workdayHours: 8 },
+  integrations: defaultIntegrations,
 };
 
 export function SettingsMenu({
@@ -130,6 +187,23 @@ export function SettingsMenu({
   const ref = useRef<HTMLDivElement>(null);
   const lang = settings.language;
   const { theme, setTheme } = useTheme();
+
+  const integrations = settings.integrations ?? defaultIntegrations;
+  const m365 = integrations.m365 ?? defaultM365Integrations;
+  const turso = integrations.turso ?? defaultTursoIntegrations;
+  const auth = useMsAuth(m365.enabled);
+  const envClientIdSet = !!process.env.NEXT_PUBLIC_MSAL_CLIENT_ID;
+  const envTenantIdSet = !!process.env.NEXT_PUBLIC_MSAL_TENANT_ID;
+
+  function updateM365(patch: Partial<M365IntegrationsSettings>) {
+    onChange({
+      ...settings,
+      integrations: {
+        ...integrations,
+        m365: { ...m365, ...patch },
+      },
+    });
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -503,6 +577,133 @@ export function SettingsMenu({
             onOpenFile={onOpenStorageFile}
             onGrantWrite={onGrantStorageWrite}
           />
+
+          <hr className="my-4 border-line" />
+
+          <div className="rounded-md border border-line bg-surface p-3">
+            <h3 className="mb-2 text-sm font-semibold text-foreground">
+              {t(lang, "integrations")}
+            </h3>
+
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={m365.enabled}
+                onChange={(e) => updateM365({ enabled: e.target.checked })}
+                className="h-4 w-4"
+              />
+              <span>{t(lang, "integrationsM365")}</span>
+            </label>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {t(lang, "integrationsM365Hint")}
+            </p>
+
+            {m365.enabled && (
+              <div className="mt-3 space-y-2 border-l-2 border-line pl-3">
+                {!envClientIdSet && (
+                  <label className="block text-xs">
+                    <span className="text-muted-foreground">
+                      {t(lang, "integrationsM365ClientId")}
+                    </span>
+                    <input
+                      type="text"
+                      value={m365.clientId ?? ""}
+                      onChange={(e) => updateM365({ clientId: e.target.value })}
+                      placeholder={t(lang, "integrationsM365ClientIdPlaceholder")}
+                      className="mt-1 w-full rounded border border-line bg-surface px-2 py-1 text-foreground"
+                    />
+                  </label>
+                )}
+                {!envTenantIdSet && (
+                  <label className="block text-xs">
+                    <span className="text-muted-foreground">
+                      {t(lang, "integrationsM365TenantId")}
+                    </span>
+                    <input
+                      type="text"
+                      value={m365.tenantId ?? ""}
+                      onChange={(e) => updateM365({ tenantId: e.target.value })}
+                      placeholder={t(lang, "integrationsM365TenantIdPlaceholder")}
+                      className="mt-1 w-full rounded border border-line bg-surface px-2 py-1 text-foreground"
+                    />
+                  </label>
+                )}
+
+                <div className="flex items-center gap-2">
+                  {auth.account ? (
+                    <>
+                      <span className="text-xs text-foreground">
+                        {t(lang, "integrationsM365SignedInAs")} {auth.account.username}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => { void auth.signOut(); }}
+                        className="rounded border border-line bg-surface px-2 py-1 text-xs hover:bg-surface-muted"
+                      >
+                        {t(lang, "integrationsM365SignOut")}
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => { void auth.signIn(); }}
+                      disabled={!envClientIdSet && !m365.clientId}
+                      title={
+                        !envClientIdSet && !m365.clientId
+                          ? t(lang, "integrationsM365NeedsConfig")
+                          : undefined
+                      }
+                      className="rounded border border-AIPM-dark-blue bg-AIPM-dark-blue px-2 py-1 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {t(lang, "integrationsM365SignIn")}
+                    </button>
+                  )}
+                </div>
+
+                <fieldset className="mt-3 border-t border-line pt-2">
+                  <legend className="text-xs text-muted-foreground">
+                    {t(lang, "integrationsComingSoon")}
+                  </legend>
+                  {(
+                    [
+                      ["integrationsSharepoint"],
+                      ["integrationsOutlookContacts"],
+                      ["integrationsOutlookCalendar"],
+                    ] as const
+                  ).map(([labelKey]) => (
+                    <label
+                      key={labelKey}
+                      className="mt-1 flex items-center gap-2 text-sm text-muted-foreground"
+                      title={t(lang, "integrationsComingSoon")}
+                    >
+                      <input
+                        type="checkbox"
+                        disabled
+                        checked={false}
+                        className="h-4 w-4 cursor-not-allowed"
+                        readOnly
+                      />
+                      <span>{t(lang, labelKey)}</span>
+                    </label>
+                  ))}
+                </fieldset>
+              </div>
+            )}
+
+            <label
+              className="mt-3 flex items-center gap-2 text-sm text-muted-foreground"
+              title={t(lang, "integrationsComingSoon")}
+            >
+              <input
+                type="checkbox"
+                disabled
+                checked={turso.enabled}
+                readOnly
+                className="h-4 w-4 cursor-not-allowed"
+              />
+              <span>{t(lang, "integrationsTurso")}</span>
+            </label>
+          </div>
         </div>
       )}
     </div>

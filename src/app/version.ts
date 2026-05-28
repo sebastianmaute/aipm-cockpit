@@ -1,3 +1,9 @@
+// 0.21.0 lays the Microsoft 365 integration foundation — an Integrations
+// panel in Settings, a Sign in with Microsoft button gated behind a master
+// toggle that defaults OFF, and the lazy-loaded MSAL bundle that future
+// SharePoint storage, Outlook contacts, and Outlook calendar features
+// (0.22.0+) will build on. The MSAL bundle is NEVER loaded at cold start
+// when integrations are off.
 // 0.20.0 adds a Print button to Reports, RAID Report, and Resources Report
 // popouts. The button opens the browser's print dialog with the report body
 // laid out for DIN A4 — toolbars, toggles, and the print button itself are
@@ -274,7 +280,7 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.20.0";
+export const APP_VERSION = "0.21.0";
 export const APP_BUILD_DATE = "2026-05-28"; // Jemisin milestone
 export const APP_REPO_URL = "https://www.example.com";
 
@@ -305,4 +311,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightRaidReport",
   "versionHighlightReportsSortFilter",
   "versionHighlightPrintReports",
+  "versionHighlightM365Auth",
 ] as const;

@@ -33,6 +33,7 @@
     "docs:scripts:check": "Verify AUTO-GENERATED scripts tables are in sync; exit non-zero on drift (CI mode)"
   },
   "dependencies": {
+    "@azure/msal-browser": "^4.30.0",
     "date-holidays": "^3.28.0",
     "next": "16.2.6",
     "react": "19.2.4",
@@ -58,5 +59,10 @@
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^3.0.0"
+  },
+  "allowScripts": {
+    "esbuild@0.27.7": true,
+    "sharp@0.34.5": true,
+    "unrs-resolver@1.11.1": true
   }
 }

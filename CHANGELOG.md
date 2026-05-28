@@ -8,6 +8,13 @@ Authoritative source for version + build date: [`src/app/version.ts`](src/app/ve
 This file is seeded from that module's milestone comment plus the
 post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-diff.txt).
 
+## [0.21.0] — 2026-05-28 "Jemisin"
+
+### Added
+- Microsoft 365 integration foundation: a new Integrations section in Settings with a "Sign in with Microsoft" button gated behind a master toggle (defaults OFF). When the toggle is OFF, the `@azure/msal-browser` bundle is not loaded — zero cold-start cost. Configuration resolves from `NEXT_PUBLIC_MSAL_CLIENT_ID` / `NEXT_PUBLIC_MSAL_TENANT_ID` env vars first, then falls back to Client ID / Tenant inputs in the panel. Sub-toggles for SharePoint storage, Outlook contacts, and Outlook calendar render disabled with "Available in 0.22.0+" — they will be wired in subsequent minor releases.
+- A Turso storage-backend toggle is present in the Integrations panel (disabled, "Available in 0.22.0+") — the Turso backend itself is the T1 sub-project, tracked separately.
+- New version highlight: "Microsoft 365 auth foundation" (`versionHighlightM365Auth`) in both EN and DE.
+
 ## [0.20.0] — 2026-05-28 "Jemisin"
 
 ### Added

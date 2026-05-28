@@ -10,6 +10,15 @@ vi.mock("./jira-settings", () => ({
 vi.mock("./storage-config", () => ({
   StorageConfigSection: () => null,
 }));
+vi.mock("./use-ms-auth", () => ({
+  useMsAuth: () => ({
+    account: null,
+    ready: true,
+    signIn: vi.fn(),
+    signOut: vi.fn(),
+    acquireToken: async () => null,
+  }),
+}));
 
 const setTheme = vi.hoisted(() => vi.fn());
 vi.mock("./use-theme", () => ({
@@ -75,5 +84,34 @@ describe("SettingsMenu theme control", () => {
     expect(screen.getByRole("radio", { name: t("en-US", "themeSystem") })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("radio", { name: t("en-US", "themeDark") }));
     expect(setTheme).toHaveBeenCalledWith("dark");
+  });
+});
+
+describe("SettingsMenu — Integrations section", () => {
+  it("renders the M365 master toggle defaulting OFF", () => {
+    render(<SettingsMenu {...makeProps()} />);
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "settings") }));
+    const checkbox = screen.getByRole("checkbox", { name: t("en-US", "integrationsM365") });
+    expect(checkbox).not.toBeChecked();
+  });
+
+  it("renders sub-toggles disabled when M365 is enabled", () => {
+    const settings = makeSettings({
+      integrations: {
+        m365: {
+          enabled: true,
+          sharepoint: false,
+          outlookContacts: false,
+          outlookCalendar: false,
+        },
+        turso: { enabled: false },
+      },
+    });
+    render(<SettingsMenu {...makeProps({ settings })} />);
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "settings") }));
+    const sharepointCheckbox = screen.getByRole("checkbox", { name: t("en-US", "integrationsSharepoint") });
+    expect(sharepointCheckbox).toBeDisabled();
+    const tursoCheckbox = screen.getByRole("checkbox", { name: t("en-US", "integrationsTurso") });
+    expect(tursoCheckbox).toBeDisabled();
   });
 });
