@@ -539,6 +539,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightPolish: "Verschiebbare Dialoge mit Spracheingabe, Aufwands-Tracking (W/T/Std./Min.), entfernbare und umsortierbare Budget-Buckets sowie Korrekturen an der Ressourcenplanung.",
   versionHighlightBudgetEdit: "Bearbeitbare Budget-Buckets — Bucket-Editor-Dialog mit Rollen-Auswahl.",
   versionHighlightTheme: "Helles / dunkles / systemgesteuertes Design mit Sofortladen und Umschalter in den Einstellungen.",
+  versionHighlightPalette: "Vollständige AIPM-Palette: Surface-Tokens (hell/dunkel), grüner Akzent, dunkelblaue Füllungen, keine Schatten oder Verläufe.",
 
   group: "Gruppe",
   labels: "Labels",

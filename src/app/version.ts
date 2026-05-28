@@ -1,3 +1,7 @@
+// 0.16.0 "Butler" closes out sub-project E (the AIPM palette rollout) — the
+// final 16 menus + chrome + misc files migrated to surface tokens, the green
+// accent, dark-blue fills, and no shadows or gradients. The AIPM design system
+// now covers the entire app.
 // 0.15.7 sweeps the Gantt onto the AIPM palette — surface tokens, no shadows;
 // High-severity icon fills purple to complete the priority ramp; absence
 // column tints (vacation=blue, sick=pink, training=purple) at /20 alpha;
@@ -240,8 +244,8 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.15.7";
-export const APP_BUILD_DATE = "2026-05-28"; // Le Guin milestone
+export const APP_VERSION = "0.16.0";
+export const APP_BUILD_DATE = "2026-05-28"; // Butler milestone
 export const APP_REPO_URL = "https://www.example.com";
 
 /** Translation keys for the high-level feature highlights shown in the
@@ -266,4 +270,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightPolish",
   "versionHighlightBudgetEdit",
   "versionHighlightTheme",
+  "versionHighlightPalette",
 ] as const;
