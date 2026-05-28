@@ -155,6 +155,26 @@ export function EraserIcon() {
   );
 }
 
+export function PrinterIcon() {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className="h-4 w-4"
+    >
+      <rect x="5" y="2.5" width="10" height="5" />
+      <rect x="3" y="7.5" width="14" height="7" rx="1" />
+      <rect x="5" y="11" width="10" height="6.5" />
+      <line x1="5" y1="13" x2="15" y2="13" />
+    </svg>
+  );
+}
+
 /** Drag handle on the right edge of a <th>. Host th MUST be `relative`. */
 export function ColumnResizeHandle({
   col,
@@ -244,6 +264,27 @@ export function ResetColWidthsButton({
       className="rounded-md border border-line bg-surface p-1.5 text-muted-foreground hover:bg-surface-muted hover:text-foreground"
     >
       <ResetColWidthsIcon />
+    </button>
+  );
+}
+
+export function PrintButton({
+  onClick,
+  lang,
+}: {
+  onClick?: () => void;
+  lang: Lang;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick ?? (() => window.print())}
+      aria-label={t(lang, "printHint")}
+      title={t(lang, "printHint")}
+      className="inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted print:hidden"
+    >
+      <PrinterIcon />
+      {t(lang, "print")}
     </button>
   );
 }
