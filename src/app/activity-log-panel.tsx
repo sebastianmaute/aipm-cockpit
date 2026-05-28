@@ -26,6 +26,15 @@ import {
 import { localeFor } from "./date-format";
 import { type Lang, t } from "./i18n";
 import { SegmentedControl } from "./segmented-control";
+import { useColumnResize } from "./use-column-resize";
+import { ColumnResizeHandle, ResetColWidthsButton } from "./task-manager-ui";
+
+const ACTIVITY_LOG_COL_WIDTHS = {
+  timestamp: 160,
+  kind: 110,
+  message: 320,
+} as const;
+type ActivityLogCol = keyof typeof ACTIVITY_LOG_COL_WIDTHS;
 
 interface Props {
   lang: Lang;
@@ -87,6 +96,12 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
   const [groupFilter, setGroupFilter] = useState<GroupFilter>("all");
   const [sortKey, setSortKey] = useState<SortKey>("timestamp");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+
+  const { colWidths, startColResize, resetColWidths } = useColumnResize<ActivityLogCol>(
+    "activityLog",
+    ACTIVITY_LOG_COL_WIDTHS,
+  );
+  const startResize = startColResize as (col: string, e: React.MouseEvent) => void;
 
   // Precompute the rendered message and the group once per entries/lang
   // change so the filter+sort passes below don't redo i18n interpolation
@@ -156,6 +171,7 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
               : t(lang, "tasksCountFiltered", visible.length, entries.length)}
           </span>
         </h2>
+        <ResetColWidthsButton onClick={resetColWidths} lang={lang} />
         {entries.length > 0 && (
           <button
             type="button"
@@ -229,7 +245,10 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
           <table className="w-full text-left text-sm">
             <thead className="sticky top-0 z-10 bg-surface-muted text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
-                <th className="px-3 py-2 font-medium">
+                <th
+                  className="relative px-3 py-2 font-medium"
+                  style={{ width: colWidths.timestamp, minWidth: colWidths.timestamp }}
+                >
                   <button
                     type="button"
                     onClick={() => toggleSort("timestamp")}
@@ -239,8 +258,12 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
                     {t(lang, "activityHeaderWhen")}
                     {sortIndicator("timestamp")}
                   </button>
+                  <ColumnResizeHandle col="timestamp" onMouseDown={startResize} />
                 </th>
-                <th className="px-3 py-2 font-medium">
+                <th
+                  className="relative px-3 py-2 font-medium"
+                  style={{ width: colWidths.kind, minWidth: colWidths.kind }}
+                >
                   <button
                     type="button"
                     onClick={() => toggleSort("kind")}
@@ -250,8 +273,12 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
                     {t(lang, "activityHeaderKind")}
                     {sortIndicator("kind")}
                   </button>
+                  <ColumnResizeHandle col="kind" onMouseDown={startResize} />
                 </th>
-                <th className="px-3 py-2 font-medium">
+                <th
+                  className="relative px-3 py-2 font-medium"
+                  style={{ width: colWidths.message, minWidth: colWidths.message }}
+                >
                   <button
                     type="button"
                     onClick={() => toggleSort("message")}
@@ -261,6 +288,7 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
                     {t(lang, "activityHeaderMessage")}
                     {sortIndicator("message")}
                   </button>
+                  <ColumnResizeHandle col="message" onMouseDown={startResize} />
                 </th>
               </tr>
             </thead>
