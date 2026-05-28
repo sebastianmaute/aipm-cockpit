@@ -53,6 +53,40 @@ export function RaidReportPanel({ lang, items, today }: Props) {
             <Tile label={t(lang, "raidReportOpenIssues")} value={String(rep.tiles.openI)} />
             <Tile label={t(lang, "raidReportOpenDependencies")} value={String(rep.tiles.openD)} />
           </div>
+          <Section title={t(lang, "raidReportBySeverity")}>
+            <div className="overflow-x-auto rounded-md border border-line">
+              <table className="min-w-full text-left text-sm">
+                <thead className="sticky top-0 z-10 bg-surface-muted text-xs uppercase tracking-wide text-muted-foreground">
+                  <tr>
+                    <th className="px-3 py-2 font-medium">{t(lang, "raidReportBySeverity")}</th>
+                    <th className="px-3 py-2 text-right font-medium">{t(lang, "raidCategoryRisk")}</th>
+                    <th className="px-3 py-2 text-right font-medium">{t(lang, "raidCategoryAssumption")}</th>
+                    <th className="px-3 py-2 text-right font-medium">{t(lang, "raidCategoryIssue")}</th>
+                    <th className="px-3 py-2 text-right font-medium">{t(lang, "raidCategoryDependency")}</th>
+                    <th className="px-3 py-2 text-right font-medium">{t(lang, "raidReportColTotal")}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-line">
+                  {rep.bySeverity.map((row) => (
+                    <tr key={row.severity}>
+                      <td className="px-3 py-2 font-medium text-foreground">
+                        {row.severity === "Unrated" ? (
+                          <span className="italic text-muted-foreground">{t(lang, "raidReportSeverityUnrated")}</span>
+                        ) : (
+                          row.severity
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums">{row.risks}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{row.assumptions}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{row.issues}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{row.dependencies}</td>
+                      <td className="px-3 py-2 text-right tabular-nums font-medium">{row.total}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Section>
         </>
       )}
 
