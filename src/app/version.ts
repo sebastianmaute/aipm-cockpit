@@ -1,3 +1,6 @@
+// 0.17.0 "Jemisin" adds column resize to every table in the app — drag the
+// right edge of any header; the Reset button restores defaults. Also doubles
+// the task form modal's default height (h-[900px], still user-resizable).
 // 0.16.2 widens the main app shell cap from max-w-6xl (1152px) to 1536px so
 // the layout uses more of the available viewport on large displays. One
 // className edit in task-manager.tsx; no behavior or markup change.
@@ -250,8 +253,8 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.16.2";
-export const APP_BUILD_DATE = "2026-05-28"; // Butler milestone
+export const APP_VERSION = "0.17.0";
+export const APP_BUILD_DATE = "2026-05-28"; // Jemisin milestone
 export const APP_REPO_URL = "https://www.example.com";
 
 /** Translation keys for the high-level feature highlights shown in the
@@ -277,4 +280,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightBudgetEdit",
   "versionHighlightTheme",
   "versionHighlightPalette",
+  "versionHighlightTableResize",
 ] as const;
