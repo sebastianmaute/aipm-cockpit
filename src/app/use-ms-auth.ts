@@ -1,7 +1,7 @@
 // src/app/use-ms-auth.ts
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { AccountInfo, PublicClientApplication } from "@azure/msal-browser";
 import { getMsalConfig } from "./msal-config";
 
@@ -87,7 +87,7 @@ export function useMsAuth(enabled: boolean): UseMsAuthResult {
     setAccount(null);
   }
 
-  async function acquireToken(scopes: readonly string[]): Promise<string | null> {
+  const acquireToken = useCallback(async (scopes: readonly string[]): Promise<string | null> => {
     const pca = await getPca();
     const current = pca.getAllAccounts()[0];
     if (!current) return null;
@@ -96,7 +96,7 @@ export function useMsAuth(enabled: boolean): UseMsAuthResult {
       account: current,
     });
     return result.accessToken;
-  }
+  }, []);
 
   return { account, ready, signIn, signOut, acquireToken };
 }

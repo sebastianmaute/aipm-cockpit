@@ -2435,9 +2435,7 @@ export function createBackend(
       return new LocalFileBackend("local-md");
     case "sp-json":
     case "sp-csv": {
-      if (!deps.acquireToken) {
-        throw new StorageNotReadyError("M365 sign-in required");
-      }
+      const acquireToken = deps.acquireToken ?? (async () => null);
       return new SharePointBackend(
         {
           kind: config.kind,
@@ -2445,7 +2443,7 @@ export function createBackend(
           sitePath: config.sitePath,
           itemPath: config.itemPath,
         },
-        deps.acquireToken,
+        acquireToken,
       );
     }
   }
