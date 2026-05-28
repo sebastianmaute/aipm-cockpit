@@ -250,7 +250,7 @@ function ResourceDirectoryInner({
                     <button
                       type="button"
                       onClick={() => onEditResource(r)}
-                      className="rounded-md border border-transparent px-2 py-0.5 text-xs font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted"
+                      className="rounded-md border border-transparent px-2 py-0.5 font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted"
                     >
                       {resourceDisplayName(r)}
                     </button>
