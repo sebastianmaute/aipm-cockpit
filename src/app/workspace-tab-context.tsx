@@ -2,7 +2,7 @@
 import React, { createContext, useContext, useState } from "react";
 import { type PopoutTab, readPopoutTabFromUrl } from "./broadcast-sync";
 
-export type TopTab = "chat" | "reports" | "gantt" | "raid" | "resources" | "activity" | "resource-report" | "address-book" | "budget";
+export type TopTab = "chat" | "reports" | "gantt" | "raid" | "resources" | "activity" | "resource-report" | "raid-report" | "address-book" | "budget";
 
 interface WorkspaceTabContextValue {
   activeTab: TopTab;

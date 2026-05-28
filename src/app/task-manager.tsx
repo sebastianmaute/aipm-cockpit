@@ -55,6 +55,7 @@ const TAB_LABEL_KEYS: Record<TopTab, TranslationKey> = {
   resources: "tabResources",
   activity: "tabActivity",
   "resource-report": "resourcesReportTitle",
+  "raid-report": "raidReportTitle",
   "address-book": "resourcesAddressBookTitle",
   budget: "tabBudget",
 };

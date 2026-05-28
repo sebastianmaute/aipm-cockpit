@@ -1,3 +1,7 @@
+// 0.18.0 adds the RAID Report — a steering-committee popout opened from the
+// RAID panel showing tile counts per category plus six summary tables
+// (severity, status, owner, top 10, category, aging) and a drill-down to a
+// full read-only sortable item table.
 // 0.17.1 fixes the Gantt's initial scroll position — when the chart opens,
 // today's date is centered in the viewport so past/future tasks are equally
 // accessible. Single useLayoutEffect on mount; user's manual scrolling is
@@ -257,7 +261,7 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.17.1";
+export const APP_VERSION = "0.18.0";
 export const APP_BUILD_DATE = "2026-05-28"; // Jemisin milestone
 export const APP_REPO_URL = "https://www.example.com";
 
@@ -285,4 +289,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightTheme",
   "versionHighlightPalette",
   "versionHighlightTableResize",
+  "versionHighlightRaidReport",
 ] as const;

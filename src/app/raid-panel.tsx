@@ -75,6 +75,8 @@ export type RaidPanelProps = {
   /** Open the task edit modal for the given task id (used by linked-task
    *  chip clicks). */
   onJumpToTask: (taskId: number) => void;
+  /** Opens the RAID report popout window. */
+  onOpenReport?: () => void;
 };
 
 // --- Color palette -------------------------------------------------------
@@ -158,6 +160,7 @@ function RaidPanelInner({
   onDelete,
   onCreateMitigationTask,
   onJumpToTask,
+  onOpenReport,
 }: RaidPanelProps) {
   const [categoryFilter, setCategoryFilter] = useState<"All" | RaidCategory>(
     "All",
@@ -421,6 +424,17 @@ function RaidPanelInner({
         </button>
       )}
       <ResetColWidthsButton onClick={resetColWidths} lang={lang} />
+      {onOpenReport && (
+        <button
+          type="button"
+          onClick={onOpenReport}
+          aria-label={t(lang, "raidReportOpenReportHint")}
+          title={t(lang, "raidReportOpenReportHint")}
+          className="inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted dark:text-AIPM-light-grey"
+        >
+          {t(lang, "raidReportOpenReport")}
+        </button>
+      )}
       <button
         type="button"
         onClick={() => openNew()}

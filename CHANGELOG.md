@@ -8,6 +8,12 @@ Authoritative source for version + build date: [`src/app/version.ts`](src/app/ve
 This file is seeded from that module's milestone comment plus the
 post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-diff.txt).
 
+## [0.18.0] — 2026-05-28 "Jemisin"
+
+### Added
+- RAID Report: a steering-committee popout opened from the RAID panel's "Open RAID Report" button. Shows four headline tiles (open counts per RAID category) and six summary tables (By Severity, By Status, By Owner, Top 10 Open, By Category, By Aging). A Summary / Full Detail toggle at the top of the report drills down to a full read-only sortable item table.
+- New version highlight: "RAID Report" (`versionHighlightRaidReport`) in both EN and DE.
+
 ## [0.17.1] — 2026-05-28
 
 ### Fixed
