@@ -11,6 +11,6 @@ describe("SortableTh", () => {
     );
     const btn = screen.getByRole("button", { name: /task/i });
     expect(btn).toHaveAttribute("title", "Sort by Task");
-    expect(btn.className).toContain("hover:text-zinc-800");
+    expect(btn.className).toContain("hover:text-foreground");
   });
 });

@@ -22,7 +22,7 @@ export function TabButton({
   // border-b-2 indicator spans both the label and the popout icon.
   const colorClass = active
     ? "border-AIPM-green text-AIPM-dark-blue dark:border-AIPM-green dark:text-AIPM-light-grey"
-    : "border-transparent text-AIPM-medium-grey hover:text-AIPM-dark-blue dark:text-zinc-400 dark:hover:text-zinc-200";
+    : "border-transparent text-muted-foreground hover:text-AIPM-dark-blue";
   return (
     <div
       className={`-mb-px inline-flex items-stretch rounded-t-md border-b-2 transition-colors ${colorClass}`}
@@ -200,7 +200,7 @@ export function SortableTh({
         type="button"
         onClick={() => onClick(sortKey)}
         title={t(lang, "sortBy", label)}
-        className={`inline-flex items-center gap-1 uppercase tracking-wide hover:text-zinc-800 dark:hover:text-zinc-200 ${isActive ? "text-zinc-900 dark:text-zinc-100" : ""}`}
+        className={`inline-flex items-center gap-1 uppercase tracking-wide hover:text-foreground ${isActive ? "text-foreground" : ""}`}
       >
         {label}
         <span aria-hidden className="text-[0.65rem]">
