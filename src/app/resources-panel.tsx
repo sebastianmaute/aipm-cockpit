@@ -40,6 +40,24 @@ import {
   type WeekHours,
 } from "./types";
 import { resourceDisplayName } from "./resource-foundation";
+import { useColumnResize } from "./use-column-resize";
+import { ColumnResizeHandle, ResetColWidthsButton } from "./task-manager-ui";
+
+const PLANNING_COL_WIDTHS = {
+  assignee: 160,
+  period: 100,
+  capacityDays: 110,
+  internalCost: 120,
+  externalCost: 120,
+  margin: 100,
+} as const;
+type PlanningCol = keyof typeof PLANNING_COL_WIDTHS;
+
+const ROLLUP_COL_WIDTHS = {
+  assignee: 160,
+  period: 100,
+} as const;
+type RollupCol = keyof typeof ROLLUP_COL_WIDTHS;
 
 interface Props {
   lang: Lang;
@@ -136,6 +154,15 @@ function ResourcesPanelInner({
   onAddResource,
   onOpenAddressBook,
 }: Props) {
+  const planning = useColumnResize<PlanningCol>("planning", PLANNING_COL_WIDTHS);
+  const rollup = useColumnResize<RollupCol>("rollup", ROLLUP_COL_WIDTHS);
+  const planningStartResize = planning.startColResize as (col: string, e: React.MouseEvent) => void;
+  const rollupStartResize = rollup.startColResize as (col: string, e: React.MouseEvent) => void;
+  const resetPlanningAndRollup = () => {
+    planning.resetColWidths();
+    rollup.resetColWidths();
+  };
+
   const [view, setView] = useState<View>("directory");
   const [showRollup, setShowRollup] = useState(false);
   // View granularity controls how the planning grid is sliced for display.
@@ -246,6 +273,9 @@ function ResourcesPanelInner({
             onChange={(v) => setView(v)}
           />
         )}
+        {view === "planning" && (
+          <ResetColWidthsButton onClick={resetPlanningAndRollup} lang={lang} />
+        )}
         <button
           type="button"
           onClick={onManageRoles}
@@ -343,14 +373,55 @@ function ResourcesPanelInner({
             <table className="w-full text-left text-sm">
               <thead className="sticky top-0 z-10 bg-surface-muted text-xs uppercase tracking-wide text-muted-foreground">
                 <tr>
-                  <th className="px-3 py-2 font-medium">{t(lang, "assignee")}</th>
+                  <th
+                    className="relative px-3 py-2 font-medium"
+                    style={{ width: planning.colWidths.assignee, minWidth: planning.colWidths.assignee }}
+                  >
+                    {t(lang, "assignee")}
+                    <ColumnResizeHandle col="assignee" onMouseDown={planningStartResize} />
+                  </th>
                   {periods.map((p) => (
-                    <th key={p.key} className="px-3 py-2 text-right font-medium tabular-nums">{p.key}</th>
+                    <th
+                      key={p.key}
+                      className="relative px-3 py-2 text-right font-medium tabular-nums"
+                      style={{ width: planning.colWidths.period, minWidth: planning.colWidths.period }}
+                    >
+                      {p.key}
+                      <ColumnResizeHandle col="period" onMouseDown={planningStartResize} />
+                    </th>
                   ))}
-                  <th className="px-3 py-2 text-right font-medium" title={t(lang, "resourcesCapacityDaysHint")}>{t(lang, "resourcesCapacityDays")}</th>
-                  <th className="px-3 py-2 text-right font-medium" title={t(lang, "resourcesInternalCostHint")}>{t(lang, "resourcesInternalCost")}</th>
-                  <th className="px-3 py-2 text-right font-medium" title={t(lang, "resourcesExternalCostHint")}>{t(lang, "resourcesExternalCost")}</th>
-                  <th className="px-3 py-2 text-right font-medium" title={t(lang, "resourcesMarginHint")}>{t(lang, "resourcesMargin")}</th>
+                  <th
+                    className="relative px-3 py-2 text-right font-medium"
+                    style={{ width: planning.colWidths.capacityDays, minWidth: planning.colWidths.capacityDays }}
+                    title={t(lang, "resourcesCapacityDaysHint")}
+                  >
+                    {t(lang, "resourcesCapacityDays")}
+                    <ColumnResizeHandle col="capacityDays" onMouseDown={planningStartResize} />
+                  </th>
+                  <th
+                    className="relative px-3 py-2 text-right font-medium"
+                    style={{ width: planning.colWidths.internalCost, minWidth: planning.colWidths.internalCost }}
+                    title={t(lang, "resourcesInternalCostHint")}
+                  >
+                    {t(lang, "resourcesInternalCost")}
+                    <ColumnResizeHandle col="internalCost" onMouseDown={planningStartResize} />
+                  </th>
+                  <th
+                    className="relative px-3 py-2 text-right font-medium"
+                    style={{ width: planning.colWidths.externalCost, minWidth: planning.colWidths.externalCost }}
+                    title={t(lang, "resourcesExternalCostHint")}
+                  >
+                    {t(lang, "resourcesExternalCost")}
+                    <ColumnResizeHandle col="externalCost" onMouseDown={planningStartResize} />
+                  </th>
+                  <th
+                    className="relative px-3 py-2 text-right font-medium"
+                    style={{ width: planning.colWidths.margin, minWidth: planning.colWidths.margin }}
+                    title={t(lang, "resourcesMarginHint")}
+                  >
+                    {t(lang, "resourcesMargin")}
+                    <ColumnResizeHandle col="margin" onMouseDown={planningStartResize} />
+                  </th>
                 </tr>
               </thead>
               {(() => {
@@ -448,9 +519,22 @@ function ResourcesPanelInner({
                     <table className="w-full text-left text-sm">
                       <thead className="sticky top-0 z-10 bg-surface-muted text-xs uppercase tracking-wide text-muted-foreground">
                         <tr>
-                          <th className="px-3 py-2 font-medium">{t(lang, "assignee")}</th>
+                          <th
+                            className="relative px-3 py-2 font-medium"
+                            style={{ width: rollup.colWidths.assignee, minWidth: rollup.colWidths.assignee }}
+                          >
+                            {t(lang, "assignee")}
+                            <ColumnResizeHandle col="assignee" onMouseDown={rollupStartResize} />
+                          </th>
                           {rollupPeriods.map((rp) => (
-                            <th key={rp.key} className="px-3 py-2 text-right font-medium tabular-nums">{rp.key}</th>
+                            <th
+                              key={rp.key}
+                              className="relative px-3 py-2 text-right font-medium tabular-nums"
+                              style={{ width: rollup.colWidths.period, minWidth: rollup.colWidths.period }}
+                            >
+                              {rp.key}
+                              <ColumnResizeHandle col="period" onMouseDown={rollupStartResize} />
+                            </th>
                           ))}
                         </tr>
                       </thead>
