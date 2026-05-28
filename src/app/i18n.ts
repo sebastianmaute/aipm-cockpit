@@ -924,6 +924,25 @@ const enUS = {
   raidReportOpenReportHint: "Open a steering-committee overview in a new window.",
   versionHighlightRaidReport: "RAID Report: a steering-committee overview of open risks, issues, assumptions and dependencies — with a drill-down to the full item list.",
   versionHighlightPrintReports: "Reports, RAID Report and Resources Report now have a Print button — produces a clean A4-fitting handout via the browser's print dialog.",
+
+  integrations: "Integrations",
+  integrationsM365: "Microsoft 365 integration",
+  integrationsM365Hint: "Sign in with Microsoft to enable SharePoint, Outlook contacts, and calendar features.",
+  integrationsM365ClientId: "Azure AD Client ID",
+  integrationsM365TenantId: "Tenant ID",
+  integrationsM365ClientIdPlaceholder: "e.g. a1b2c3d4-…-f4",
+  integrationsM365TenantIdPlaceholder: "common, organizations, or tenant GUID",
+  integrationsM365SignIn: "Sign in with Microsoft",
+  integrationsM365SignedInAs: "Signed in as",
+  integrationsM365SignOut: "Sign out",
+  integrationsM365NeedsConfig: "Enter Client ID to sign in.",
+  integrationsM365SignInFailed: "Sign-in failed. Check console for details.",
+  integrationsSharepoint: "SharePoint storage",
+  integrationsOutlookContacts: "Outlook contacts",
+  integrationsOutlookCalendar: "Outlook calendar",
+  integrationsTurso: "Turso storage backend",
+  integrationsComingSoon: "Available in 0.22.0+",
+  versionHighlightM365Auth: "Microsoft 365 integration foundation: sign in with your work account to unlock upcoming SharePoint, Outlook contacts, and calendar features. All integrations default to OFF.",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;
