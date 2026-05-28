@@ -7,6 +7,16 @@ import { ModalHeader } from "./modal-header";
 import { roleLabel } from "./resource-foundation";
 import type { Discipline, Grade, Role } from "./types";
 import { useDraggable } from "./use-draggable";
+import { useColumnResize } from "./use-column-resize";
+import { ColumnResizeHandle } from "./task-manager-ui";
+
+const ROLES_COL_WIDTHS = {
+  discipline: 160,
+  grade: 120,
+  internal: 120,
+  external: 120,
+} as const;
+type RolesCol = keyof typeof ROLES_COL_WIDTHS;
 
 interface Props {
   lang: Lang;
@@ -45,6 +55,12 @@ export function RolesModal({
   const [newGrade, setNewGrade] = useState("");
   const [comboDiscipline, setComboDiscipline] = useState<number | "">("");
   const [comboGrade, setComboGrade] = useState<number | "">("");
+  const { colWidths, startColResize } = useColumnResize<RolesCol>(
+    "roles",
+    ROLES_COL_WIDTHS,
+  );
+  const startResize = startColResize as (col: string, e: React.MouseEvent) => void;
+
   const { offset, handleProps } = useDraggable(open);
 
   type SortKey = "discipline" | "grade" | "internal" | "external";
@@ -104,25 +120,29 @@ export function RolesModal({
               <table className="w-full text-left text-sm">
                 <thead className="text-xs uppercase tracking-wide text-muted-foreground">
                   <tr>
-                    <th className="py-1">
+                    <th className="relative py-1" style={{ width: colWidths.discipline, minWidth: colWidths.discipline }}>
                       <button type="button" onClick={() => toggleSort("discipline")} className="inline-flex items-center gap-1 hover:text-AIPM-dark-blue">
                         {t(lang, "rolesDiscipline")}{sort?.key === "discipline" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
                       </button>
+                      <ColumnResizeHandle col="discipline" onMouseDown={startResize} />
                     </th>
-                    <th className="py-1">
+                    <th className="relative py-1" style={{ width: colWidths.grade, minWidth: colWidths.grade }}>
                       <button type="button" onClick={() => toggleSort("grade")} className="inline-flex items-center gap-1 hover:text-AIPM-dark-blue">
                         {t(lang, "rolesGrade")}{sort?.key === "grade" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
                       </button>
+                      <ColumnResizeHandle col="grade" onMouseDown={startResize} />
                     </th>
-                    <th className="py-1 text-right">
+                    <th className="relative py-1 text-right" style={{ width: colWidths.internal, minWidth: colWidths.internal }}>
                       <button type="button" onClick={() => toggleSort("internal")} className="inline-flex items-center gap-1 hover:text-AIPM-dark-blue">
                         {t(lang, "rolesInternalRate")}{sort?.key === "internal" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
                       </button>
+                      <ColumnResizeHandle col="internal" onMouseDown={startResize} />
                     </th>
-                    <th className="py-1 text-right">
+                    <th className="relative py-1 text-right" style={{ width: colWidths.external, minWidth: colWidths.external }}>
                       <button type="button" onClick={() => toggleSort("external")} className="inline-flex items-center gap-1 hover:text-AIPM-dark-blue">
                         {t(lang, "rolesExternalRate")}{sort?.key === "external" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
                       </button>
+                      <ColumnResizeHandle col="external" onMouseDown={startResize} />
                     </th>
                     <th className="py-1" />
                   </tr>

@@ -7,6 +7,15 @@ import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
 import { useDraggable } from "./use-draggable";
 import { useResizable } from "./use-resizable";
+import { useColumnResize } from "./use-column-resize";
+import { ColumnResizeHandle } from "./task-manager-ui";
+
+const JIRA_CONFLICTS_COL_WIDTHS = {
+  field: 128,
+  local: 200,
+  remote: 200,
+} as const;
+type JiraConflictsCol = keyof typeof JIRA_CONFLICTS_COL_WIDTHS;
 
 export type ConflictResolution = {
   taskId: number;
@@ -114,6 +123,12 @@ export function JiraConflictsModal({
     onResolve(Object.values(picks));
   }
 
+  const { colWidths, startColResize } = useColumnResize<JiraConflictsCol>(
+    "jiraConflicts",
+    JIRA_CONFLICTS_COL_WIDTHS,
+  );
+  const startResize = startColResize as (col: string, e: React.MouseEvent) => void;
+
   const { offset, handleProps } = useDraggable(conflicts.length > 0);
   const { ref: panelRef } = useResizable("lop-app:conflicts-modal-size");
 
@@ -174,14 +189,17 @@ export function JiraConflictsModal({
               <table className="w-full text-xs">
                 <thead className="text-muted-foreground">
                   <tr>
-                    <th className="w-32 px-2 py-1 text-left font-medium">
+                    <th className="relative px-2 py-1 text-left font-medium" style={{ width: colWidths.field, minWidth: colWidths.field }}>
                       {t(lang, "jiraConflictField")}
+                      <ColumnResizeHandle col="field" onMouseDown={startResize} />
                     </th>
-                    <th className="px-2 py-1 text-left font-medium">
+                    <th className="relative px-2 py-1 text-left font-medium" style={{ width: colWidths.local, minWidth: colWidths.local }}>
                       {t(lang, "jiraConflictLocal")}
+                      <ColumnResizeHandle col="local" onMouseDown={startResize} />
                     </th>
-                    <th className="px-2 py-1 text-left font-medium">
+                    <th className="relative px-2 py-1 text-left font-medium" style={{ width: colWidths.remote, minWidth: colWidths.remote }}>
                       {t(lang, "jiraConflictRemote")}
+                      <ColumnResizeHandle col="remote" onMouseDown={startResize} />
                     </th>
                   </tr>
                 </thead>

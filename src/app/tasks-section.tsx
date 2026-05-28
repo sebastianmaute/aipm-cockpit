@@ -13,7 +13,7 @@ import { RowContextProvider, TaskRow, type RowContextValue } from "./task-row";
 import { DEFAULT_COL_WIDTHS } from "./use-column-manager";
 import {
   EraserIcon,
-  ResetColWidthsIcon,
+  ResetColWidthsButton,
   ResetSizeIcon,
   SortableTh,
   Th,
@@ -308,15 +308,7 @@ export function TasksSection({
           >
             <ResetSizeIcon />
           </button>
-          <button
-            type="button"
-            onClick={resetColWidths}
-            aria-label={t(lang, "colResetWidthsHint")}
-            title={t(lang, "colResetWidthsHint")}
-            className="rounded-md border border-line bg-surface p-1.5 text-muted-foreground hover:bg-surface-muted hover:text-foreground"
-          >
-            <ResetColWidthsIcon />
-          </button>
+          <ResetColWidthsButton onClick={resetColWidths} lang={lang} />
           <button
             type="button"
             onClick={handleClearAll}

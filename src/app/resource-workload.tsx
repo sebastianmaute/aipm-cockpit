@@ -5,6 +5,18 @@ import { shortDateRange } from "./date-format";
 import { type Lang, t } from "./i18n";
 import { buildResourceWorkload } from "./resource-workload-rows";
 import type { Absence, Resource, Shift, Task } from "./types";
+import { useColumnResize } from "./use-column-resize";
+import { ColumnResizeHandle, ResetColWidthsButton } from "./task-manager-ui";
+
+const WORKLOAD_COL_WIDTHS = {
+  assignee: 160,
+  email: 180,
+  openTasks: 110,
+  overdue: 110,
+  weeklyHours: 120,
+  upcoming: 200,
+} as const;
+type WorkloadCol = keyof typeof WORKLOAD_COL_WIDTHS;
 
 interface Props {
   lang: Lang;
@@ -39,24 +51,44 @@ export function ResourceWorkload({
     [resources, tasks, absences, shifts, today],
   );
 
+  const { colWidths, startColResize: _startColResize, resetColWidths } = useColumnResize<WorkloadCol>(
+    "workload",
+    WORKLOAD_COL_WIDTHS,
+  );
+  const startColResize = _startColResize as (col: string, e: React.MouseEvent) => void;
+
   return (
-    <div className="min-h-0 flex-1 overflow-auto rounded-md border border-line">
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="mb-2 flex shrink-0 items-center justify-end">
+        <ResetColWidthsButton onClick={resetColWidths} lang={lang} />
+      </div>
+      <div className="min-h-0 flex-1 overflow-auto rounded-md border border-line">
       <table className="w-full text-left text-sm">
         <thead className="sticky top-0 z-10 bg-surface-muted text-xs uppercase tracking-wide text-muted-foreground">
           <tr>
-            <th className="px-3 py-2 font-medium">{t(lang, "assignee")}</th>
-            <th className="px-3 py-2 font-medium">{t(lang, "email")}</th>
-            <th className="px-3 py-2 font-medium text-right">
+            <th className="relative px-3 py-2 font-medium" style={{ width: colWidths.assignee, minWidth: colWidths.assignee }}>
+              {t(lang, "assignee")}
+              <ColumnResizeHandle col="assignee" onMouseDown={startColResize} />
+            </th>
+            <th className="relative px-3 py-2 font-medium" style={{ width: colWidths.email, minWidth: colWidths.email }}>
+              {t(lang, "email")}
+              <ColumnResizeHandle col="email" onMouseDown={startColResize} />
+            </th>
+            <th className="relative px-3 py-2 font-medium text-right" style={{ width: colWidths.openTasks, minWidth: colWidths.openTasks }}>
               {t(lang, "resourcesOpenTasks")}
+              <ColumnResizeHandle col="openTasks" onMouseDown={startColResize} />
             </th>
-            <th className="px-3 py-2 font-medium text-right">
+            <th className="relative px-3 py-2 font-medium text-right" style={{ width: colWidths.overdue, minWidth: colWidths.overdue }}>
               {t(lang, "resourcesOverdueTasks")}
+              <ColumnResizeHandle col="overdue" onMouseDown={startColResize} />
             </th>
-            <th className="px-3 py-2 font-medium text-right">
+            <th className="relative px-3 py-2 font-medium text-right" style={{ width: colWidths.weeklyHours, minWidth: colWidths.weeklyHours }}>
               {t(lang, "resourcesWeeklyHours")}
+              <ColumnResizeHandle col="weeklyHours" onMouseDown={startColResize} />
             </th>
-            <th className="px-3 py-2 font-medium">
+            <th className="relative px-3 py-2 font-medium" style={{ width: colWidths.upcoming, minWidth: colWidths.upcoming }}>
               {t(lang, "resourcesUpcomingAbsences")}
+              <ColumnResizeHandle col="upcoming" onMouseDown={startColResize} />
             </th>
           </tr>
         </thead>
@@ -240,6 +272,7 @@ export function ResourceWorkload({
           )}
         </tbody>
       </table>
+    </div>
     </div>
   );
 }

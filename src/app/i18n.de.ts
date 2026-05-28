@@ -540,6 +540,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightBudgetEdit: "Bearbeitbare Budget-Buckets — Bucket-Editor-Dialog mit Rollen-Auswahl.",
   versionHighlightTheme: "Helles / dunkles / systemgesteuertes Design mit Sofortladen und Umschalter in den Einstellungen.",
   versionHighlightPalette: "Vollständige AIPM-Palette: Surface-Tokens (hell/dunkel), grüner Akzent, dunkelblaue Füllungen, keine Schatten oder Verläufe.",
+  versionHighlightTableResize: "Spaltenbreiten in allen Tabellen anpassbar — am rechten Rand jedes Spaltenkopfes ziehen; die Reset-Schaltfläche stellt die Standardwerte wieder her.",
 
   group: "Gruppe",
   labels: "Labels",

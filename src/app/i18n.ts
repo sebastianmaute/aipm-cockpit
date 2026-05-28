@@ -525,6 +525,7 @@ const enUS = {
   versionHighlightBudgetEdit: "Editable budget buckets — edit-bucket modal with a role picker.",
   versionHighlightTheme: "Light / Dark / System theme with a no-flash loader and a settings toggle.",
   versionHighlightPalette: "Full AIPM palette rollout: surface tokens (light/dark), green accent, dark-blue fills, no shadows or gradients.",
+  versionHighlightTableResize: "Column widths now resizable in every table — drag the right edge of any header; the Reset button restores defaults.",
 
   group: "Group",
   labels: "Labels",

@@ -2,6 +2,36 @@
 
 import { useMemo } from "react";
 import { workdaysUntil } from "./due-dates";
+import { useColumnResize } from "./use-column-resize";
+import { ColumnResizeHandle, ResetColWidthsButton } from "./task-manager-ui";
+
+const REPORTS_INQUIRY_COL_WIDTHS = {
+  id: 60,
+  task: 260,
+  count: 90,
+} as const;
+type ReportsInquiryCol = keyof typeof REPORTS_INQUIRY_COL_WIDTHS;
+
+const REPORTS_ASSIGNEE_COL_WIDTHS = {
+  assignee: 160,
+  total: 90,
+  open: 90,
+  overdue: 90,
+  onTime: 90,
+  late: 90,
+  inquiries: 90,
+} as const;
+type ReportsAssigneeCol = keyof typeof REPORTS_ASSIGNEE_COL_WIDTHS;
+
+const REPORTS_BY_X_COL_WIDTHS = {
+  label: 180,
+  total: 90,
+  open: 90,
+  completed: 90,
+  overdue: 90,
+  inquiries: 90,
+} as const;
+type ReportsByXCol = keyof typeof REPORTS_BY_X_COL_WIDTHS;
 import {
   computeGroupHealth,
   type GroupHealth,
@@ -248,6 +278,18 @@ export function ReportsPanel({
     return rows;
   }, [tasks, today, holidaySet, lang]);
 
+  const inquiry = useColumnResize<ReportsInquiryCol>("reportsInquiry", REPORTS_INQUIRY_COL_WIDTHS);
+  const assignee = useColumnResize<ReportsAssigneeCol>("reportsAssignee", REPORTS_ASSIGNEE_COL_WIDTHS);
+  const byX = useColumnResize<ReportsByXCol>("reportsByX", REPORTS_BY_X_COL_WIDTHS);
+  const inquiryStartResize = inquiry.startColResize as (col: string, e: React.MouseEvent) => void;
+  const assigneeStartResize = assignee.startColResize as (col: string, e: React.MouseEvent) => void;
+  const byXStartResize = byX.startColResize as (col: string, e: React.MouseEvent) => void;
+  const resetAllReports = () => {
+    inquiry.resetColWidths();
+    assignee.resetColWidths();
+    byX.resetColWidths();
+  };
+
   if (stats.total === 0) {
     return (
       <div className="rounded-lg border border-dashed border-line p-10 text-center text-sm text-muted-foreground">
@@ -287,6 +329,9 @@ export function ReportsPanel({
 
   return (
     <div className="space-y-6">
+      <div className="flex items-center justify-end">
+        <ResetColWidthsButton onClick={resetAllReports} lang={lang} />
+      </div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Tile label={t(lang, "reportsTotal")} value={stats.total} />
         <Tile label={t(lang, "reportsOpen")} value={stats.open} />
@@ -413,10 +458,17 @@ export function ReportsPanel({
             <table className="min-w-full text-left text-xs">
               <thead className="bg-surface-muted text-foreground uppercase tracking-wide">
                 <tr>
-                  <th className="px-3 py-2">#</th>
-                  <th className="px-3 py-2">{t(lang, "task")}</th>
-                  <th className="px-3 py-2 text-right">
+                  <th className="relative px-3 py-2" style={{ width: inquiry.colWidths.id, minWidth: inquiry.colWidths.id }}>
+                    #
+                    <ColumnResizeHandle col="id" onMouseDown={inquiryStartResize} />
+                  </th>
+                  <th className="relative px-3 py-2" style={{ width: inquiry.colWidths.task, minWidth: inquiry.colWidths.task }}>
+                    {t(lang, "task")}
+                    <ColumnResizeHandle col="task" onMouseDown={inquiryStartResize} />
+                  </th>
+                  <th className="relative px-3 py-2 text-right" style={{ width: inquiry.colWidths.count, minWidth: inquiry.colWidths.count }}>
                     {t(lang, "reportsInquiriesCol")}
+                    <ColumnResizeHandle col="count" onMouseDown={inquiryStartResize} />
                   </th>
                 </tr>
               </thead>
@@ -443,24 +495,33 @@ export function ReportsPanel({
           <table className="min-w-full text-left text-xs">
             <thead className="bg-surface-muted text-foreground uppercase tracking-wide">
               <tr>
-                <th className="px-3 py-2">{t(lang, "assignee")}</th>
-                <th className="px-3 py-2 text-right">
+                <th className="relative px-3 py-2" style={{ width: assignee.colWidths.assignee, minWidth: assignee.colWidths.assignee }}>
+                  {t(lang, "assignee")}
+                  <ColumnResizeHandle col="assignee" onMouseDown={assigneeStartResize} />
+                </th>
+                <th className="relative px-3 py-2 text-right" style={{ width: assignee.colWidths.total, minWidth: assignee.colWidths.total }}>
                   {t(lang, "reportsTotal")}
+                  <ColumnResizeHandle col="total" onMouseDown={assigneeStartResize} />
                 </th>
-                <th className="px-3 py-2 text-right">
+                <th className="relative px-3 py-2 text-right" style={{ width: assignee.colWidths.open, minWidth: assignee.colWidths.open }}>
                   {t(lang, "reportsOpen")}
+                  <ColumnResizeHandle col="open" onMouseDown={assigneeStartResize} />
                 </th>
-                <th className="px-3 py-2 text-right">
+                <th className="relative px-3 py-2 text-right" style={{ width: assignee.colWidths.overdue, minWidth: assignee.colWidths.overdue }}>
                   {t(lang, "reportsOverdue")}
+                  <ColumnResizeHandle col="overdue" onMouseDown={assigneeStartResize} />
                 </th>
-                <th className="px-3 py-2 text-right">
+                <th className="relative px-3 py-2 text-right" style={{ width: assignee.colWidths.onTime, minWidth: assignee.colWidths.onTime }}>
                   {t(lang, "reportsCompletedOnTime")}
+                  <ColumnResizeHandle col="onTime" onMouseDown={assigneeStartResize} />
                 </th>
-                <th className="px-3 py-2 text-right">
+                <th className="relative px-3 py-2 text-right" style={{ width: assignee.colWidths.late, minWidth: assignee.colWidths.late }}>
                   {t(lang, "reportsCompletedLate")}
+                  <ColumnResizeHandle col="late" onMouseDown={assigneeStartResize} />
                 </th>
-                <th className="px-3 py-2 text-right">
+                <th className="relative px-3 py-2 text-right" style={{ width: assignee.colWidths.inquiries, minWidth: assignee.colWidths.inquiries }}>
                   {t(lang, "reportsInquiriesCol")}
+                  <ColumnResizeHandle col="inquiries" onMouseDown={assigneeStartResize} />
                 </th>
               </tr>
             </thead>
@@ -505,6 +566,8 @@ export function ReportsPanel({
           lang={lang}
           headerKey="group"
           emptyKey="reportsNoGroups"
+          colWidths={byX.colWidths}
+          onStartResize={byXStartResize}
         />
       </Section>
 
@@ -514,6 +577,8 @@ export function ReportsPanel({
           lang={lang}
           headerKey="labels"
           emptyKey="reportsNoLabels"
+          colWidths={byX.colWidths}
+          onStartResize={byXStartResize}
         />
       </Section>
     </div>
@@ -525,11 +590,15 @@ function GroupOrLabelTable({
   lang,
   headerKey,
   emptyKey,
+  colWidths,
+  onStartResize,
 }: {
   rows: GroupOrLabelRow[];
   lang: Lang;
   headerKey: "group" | "labels";
   emptyKey: "reportsNoGroups" | "reportsNoLabels";
+  colWidths: Record<string, number>;
+  onStartResize: (col: string, e: React.MouseEvent) => void;
 }) {
   if (rows.length === 0) {
     return (
@@ -541,17 +610,29 @@ function GroupOrLabelTable({
       <table className="min-w-full text-left text-xs">
         <thead className="bg-surface-muted text-foreground uppercase tracking-wide">
           <tr>
-            <th className="px-3 py-2">{t(lang, headerKey)}</th>
-            <th className="px-3 py-2 text-right">{t(lang, "reportsTotal")}</th>
-            <th className="px-3 py-2 text-right">{t(lang, "reportsOpen")}</th>
-            <th className="px-3 py-2 text-right">
+            <th className="relative px-3 py-2" style={{ width: colWidths.label, minWidth: colWidths.label }}>
+              {t(lang, headerKey)}
+              <ColumnResizeHandle col="label" onMouseDown={onStartResize} />
+            </th>
+            <th className="relative px-3 py-2 text-right" style={{ width: colWidths.total, minWidth: colWidths.total }}>
+              {t(lang, "reportsTotal")}
+              <ColumnResizeHandle col="total" onMouseDown={onStartResize} />
+            </th>
+            <th className="relative px-3 py-2 text-right" style={{ width: colWidths.open, minWidth: colWidths.open }}>
+              {t(lang, "reportsOpen")}
+              <ColumnResizeHandle col="open" onMouseDown={onStartResize} />
+            </th>
+            <th className="relative px-3 py-2 text-right" style={{ width: colWidths.completed, minWidth: colWidths.completed }}>
               {t(lang, "reportsCompleted")}
+              <ColumnResizeHandle col="completed" onMouseDown={onStartResize} />
             </th>
-            <th className="px-3 py-2 text-right">
+            <th className="relative px-3 py-2 text-right" style={{ width: colWidths.overdue, minWidth: colWidths.overdue }}>
               {t(lang, "reportsOverdue")}
+              <ColumnResizeHandle col="overdue" onMouseDown={onStartResize} />
             </th>
-            <th className="px-3 py-2 text-right">
+            <th className="relative px-3 py-2 text-right" style={{ width: colWidths.inquiries, minWidth: colWidths.inquiries }}>
               {t(lang, "reportsInquiriesCol")}
+              <ColumnResizeHandle col="inquiries" onMouseDown={onStartResize} />
             </th>
           </tr>
         </thead>
