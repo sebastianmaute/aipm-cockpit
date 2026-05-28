@@ -111,7 +111,7 @@ export function LabelsInput({
   return (
     <div ref={rootRef} className="relative">
       <div
-        className={`flex min-h-[2.5rem] flex-wrap items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-2 py-1.5 pr-9 text-sm shadow-sm focus-within:border-zinc-500 focus-within:ring-1 focus-within:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 ${
+        className={`flex min-h-[2.5rem] flex-wrap items-center gap-1.5 rounded-md border border-line bg-surface px-2 py-1.5 pr-9 text-sm focus-within:border-line focus-within:ring-1 focus-within:ring-AIPM-green ${
           disabled ? "cursor-not-allowed opacity-50" : ""
         }`}
         onClick={() => !disabled && inputRef.current?.focus()}
@@ -119,7 +119,7 @@ export function LabelsInput({
         {value.map((label, idx) => (
           <span
             key={`${label}-${idx}`}
-            className="inline-flex items-center gap-1 rounded-full bg-AIPM-light-grey px-2 py-0.5 text-xs font-medium text-AIPM-dark-blue dark:bg-zinc-800 dark:text-AIPM-light-grey"
+            className="inline-flex items-center gap-1 rounded-full bg-surface-muted px-2 py-0.5 text-xs font-medium text-AIPM-dark-blue dark:text-AIPM-light-grey"
           >
             {label}
             {!disabled && (
@@ -130,7 +130,7 @@ export function LabelsInput({
                   removeAt(idx);
                 }}
                 aria-label={`${t(lang, "remove")} ${label}`}
-                className="-mr-1 rounded-full text-AIPM-medium-grey hover:text-AIPM-pink"
+                className="-mr-1 rounded-full text-muted-foreground hover:text-AIPM-pink"
               >
                 <svg
                   viewBox="0 0 20 20"
@@ -167,7 +167,7 @@ export function LabelsInput({
                 : ""
           }
           disabled={disabled || atCap}
-          className="min-w-[6rem] flex-1 border-0 bg-transparent p-0 text-sm text-zinc-900 outline-none focus:ring-0 disabled:cursor-not-allowed dark:text-zinc-100"
+          className="min-w-[6rem] flex-1 border-0 bg-transparent p-0 text-sm text-foreground outline-none focus:ring-0 disabled:cursor-not-allowed"
         />
       </div>
       <button
@@ -180,7 +180,7 @@ export function LabelsInput({
         aria-label={t(lang, "comboToggle")}
         tabIndex={-1}
         disabled={disabled || atCap}
-        className="absolute inset-y-0 right-0 flex items-center px-2 text-AIPM-medium-grey hover:text-AIPM-dark-blue disabled:cursor-not-allowed disabled:opacity-50"
+        className="absolute inset-y-0 right-0 flex items-center px-2 text-muted-foreground hover:text-AIPM-dark-blue disabled:cursor-not-allowed disabled:opacity-50"
       >
         <svg
           viewBox="0 0 20 20"
@@ -199,7 +199,7 @@ export function LabelsInput({
       {open && !disabled && totalItems > 0 && (
         <ul
           role="listbox"
-          className="absolute z-30 mt-1 max-h-56 w-full overflow-y-auto rounded-md border border-zinc-200 bg-white text-sm shadow-lg dark:border-zinc-700 dark:bg-zinc-900"
+          className="absolute z-30 mt-1 max-h-56 w-full overflow-y-auto rounded-md border border-line bg-surface text-sm"
         >
           {filtered.map((s, idx) => (
             <li key={s} role="option" aria-selected={idx === highlight}>
@@ -209,8 +209,8 @@ export function LabelsInput({
                 onClick={() => commit(s)}
                 className={`block w-full cursor-pointer px-3 py-1.5 text-left ${
                   idx === highlight
-                    ? "bg-AIPM-light-grey text-AIPM-dark-blue dark:bg-zinc-800"
-                    : "text-AIPM-dark-grey hover:bg-AIPM-light-grey dark:text-AIPM-light-grey dark:hover:bg-zinc-800"
+                    ? "bg-surface-muted text-AIPM-dark-blue"
+                    : "text-foreground hover:bg-surface-muted"
                 }`}
               >
                 {s}
@@ -221,7 +221,7 @@ export function LabelsInput({
             <li
               role="option"
               aria-selected={highlight === filtered.length}
-              className="border-t border-zinc-200 dark:border-zinc-700"
+              className="border-t border-line"
             >
               <button
                 type="button"
