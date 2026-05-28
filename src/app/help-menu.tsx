@@ -207,7 +207,7 @@ export function HelpMenu({ lang }: { lang: Lang }) {
         aria-label={t(lang, "help")}
         aria-expanded={open}
         title={t(lang, "help")}
-        className="rounded-md p-2 text-AIPM-dark-grey hover:bg-AIPM-light-grey hover:text-AIPM-dark-blue focus:outline-none focus:ring-2 focus:ring-AIPM-dark-blue dark:text-AIPM-medium-grey dark:hover:bg-zinc-800 dark:hover:text-AIPM-light-grey"
+        className="rounded-md p-2 text-foreground hover:bg-surface-muted hover:text-AIPM-dark-blue focus:outline-none focus:ring-2 focus:ring-AIPM-green dark:text-muted-foreground dark:hover:text-AIPM-light-grey"
       >
         <svg
           viewBox="0 0 20 20"
@@ -234,20 +234,20 @@ export function HelpMenu({ lang }: { lang: Lang }) {
             maxWidth: "100vw",
             maxHeight: `calc(100vh - ${2 * VIEWPORT_PADDING}px)`,
           }}
-          className="fixed z-50 flex h-[480px] min-h-72 w-[560px] min-w-[420px] flex-col overflow-auto resize rounded-lg border border-zinc-200 bg-white shadow-xl dark:border-zinc-800 dark:bg-zinc-900"
+          className="fixed z-50 flex h-[480px] min-h-72 w-[560px] min-w-[420px] flex-col overflow-auto resize rounded-lg border border-line bg-surface"
         >
           <div
             onMouseDown={onTitleBarMouseDown}
-            className="flex shrink-0 cursor-move select-none items-center justify-between border-b border-zinc-200 px-4 py-2 dark:border-zinc-800"
+            className="flex shrink-0 cursor-move select-none items-center justify-between border-b border-line px-4 py-2"
           >
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-AIPM-medium-grey">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               {t(lang, "help")}
             </h3>
             <button
               type="button"
               onClick={() => setOpen(false)}
               aria-label="Close"
-              className="rounded p-1 text-AIPM-dark-grey hover:bg-AIPM-light-grey hover:text-AIPM-dark-blue dark:text-AIPM-medium-grey dark:hover:bg-zinc-800 dark:hover:text-AIPM-light-grey"
+              className="rounded p-1 text-foreground hover:bg-surface-muted hover:text-AIPM-dark-blue dark:text-muted-foreground dark:hover:text-AIPM-light-grey"
             >
               <svg
                 viewBox="0 0 20 20"
@@ -260,7 +260,7 @@ export function HelpMenu({ lang }: { lang: Lang }) {
             </button>
           </div>
 
-          <p className="shrink-0 border-b border-AIPM-light-grey px-4 py-2 text-xs text-AIPM-dark-grey dark:border-zinc-800 dark:text-AIPM-medium-grey">
+          <p className="shrink-0 border-b border-line px-4 py-2 text-xs text-foreground">
             {t(lang, "helpIntro")}
           </p>
 
@@ -269,7 +269,7 @@ export function HelpMenu({ lang }: { lang: Lang }) {
               role="tablist"
               aria-orientation="vertical"
               aria-label={t(lang, "help")}
-              className="w-40 shrink-0 overflow-y-auto border-r border-AIPM-light-grey py-2 dark:border-zinc-800"
+              className="w-40 shrink-0 overflow-y-auto border-r border-line py-2"
             >
               {SECTIONS.map((s, i) => {
                 const isActive = i === activeIdx;
@@ -289,8 +289,8 @@ export function HelpMenu({ lang }: { lang: Lang }) {
                     onKeyDown={onTabKeyDown}
                     className={
                       isActive
-                        ? "block w-full border-l-2 border-AIPM-dark-blue bg-AIPM-light-grey/60 px-3 py-1.5 text-left text-xs font-semibold text-AIPM-dark-blue dark:bg-zinc-800 dark:text-AIPM-light-grey"
-                        : "block w-full border-l-2 border-transparent px-3 py-1.5 text-left text-xs text-AIPM-dark-grey hover:bg-AIPM-light-grey/40 hover:text-AIPM-dark-blue dark:text-AIPM-medium-grey dark:hover:bg-zinc-800 dark:hover:text-AIPM-light-grey"
+                        ? "block w-full border-l-2 border-AIPM-dark-blue bg-surface-muted px-3 py-1.5 text-left text-xs font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey"
+                        : "block w-full border-l-2 border-transparent px-3 py-1.5 text-left text-xs text-foreground hover:bg-surface-muted hover:text-AIPM-dark-blue dark:text-muted-foreground dark:hover:text-AIPM-light-grey"
                     }
                   >
                     {t(lang, s.titleKey)}
@@ -309,13 +309,13 @@ export function HelpMenu({ lang }: { lang: Lang }) {
               <p className="text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
                 {t(lang, SECTIONS[activeIdx].titleKey)}
               </p>
-              <p className="mt-2 whitespace-pre-line text-xs leading-relaxed text-AIPM-dark-grey dark:text-AIPM-medium-grey">
+              <p className="mt-2 whitespace-pre-line text-xs leading-relaxed text-foreground">
                 {t(lang, SECTIONS[activeIdx].bodyKey)}
               </p>
             </div>
           </div>
 
-          <div className="shrink-0 border-t border-AIPM-light-grey px-4 py-2 dark:border-zinc-800">
+          <div className="shrink-0 border-t border-line px-4 py-2">
             <a
               href={POLICY_URL}
               target="_blank"
