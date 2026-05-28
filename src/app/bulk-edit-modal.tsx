@@ -15,7 +15,7 @@ import { PRIORITIES, type Priority } from "./types";
 // Same compact input class the rest of the form uses. Duplicated here to
 // avoid a circular import back into task-manager.tsx.
 const inputClass =
-  "w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100";
+  "w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none focus:ring-1 focus:ring-AIPM-green";
 
 export interface BulkEditModalProps {
   lang: Lang;
@@ -43,8 +43,8 @@ export function BulkEditModal({
   if (selectedIds.size === 0) return null;
 
   return (
-    <div className="mb-4 rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-      <h3 className="mb-4 text-lg font-medium text-zinc-900 dark:text-zinc-100">
+    <div className="mb-4 rounded-xl border border-line bg-surface p-6">
+      <h3 className="mb-4 text-lg font-medium text-foreground">
         {selectedIds.size === 1
           ? t(lang, "bulkEditTitleOne")
           : t(lang, "bulkEditTitleMany", selectedIds.size)}
@@ -163,7 +163,7 @@ export function BulkEditModal({
             className={`${inputClass} disabled:opacity-50`}
           />
           {selectedJiraCount > 0 && (
-            <p className="mt-1 text-xs italic text-AIPM-medium-grey">
+            <p className="mt-1 text-xs italic text-muted-foreground">
               🔒 {t(lang, "jiraBulkAssigneeBlocked", selectedJiraCount)}
             </p>
           )}
@@ -298,14 +298,14 @@ export function BulkEditModal({
         <button
           type="button"
           onClick={onCancel}
-          className="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 shadow-sm hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          className="rounded-md border border-line bg-surface px-4 py-2 text-sm font-medium text-foreground hover:bg-surface-muted"
         >
           {t(lang, "cancel")}
         </button>
         <button
           type="button"
           onClick={onApply}
-          className="rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white shadow-sm hover:opacity-90"
+          className="rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90"
         >
           {selectedIds.size === 1
             ? t(lang, "bulkApplyOne")
@@ -337,12 +337,12 @@ function BulkEditFieldRow({
         type="checkbox"
         checked={enabled}
         onChange={onToggle}
-        className="mt-2 h-4 w-4 cursor-pointer rounded border-zinc-300 text-AIPM-dark-blue focus:ring-AIPM-dark-blue dark:border-zinc-600 dark:bg-zinc-800"
+        className="mt-2 h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue focus:ring-AIPM-green"
       />
       <div className="min-w-0 flex-1">
         <label
           htmlFor={id}
-          className="mb-1 block cursor-pointer text-sm font-medium text-zinc-700 dark:text-zinc-300"
+          className="mb-1 block cursor-pointer text-sm font-medium text-foreground"
         >
           {label}
         </label>
