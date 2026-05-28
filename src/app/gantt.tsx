@@ -25,7 +25,7 @@
 // Nothing here is animated; this is a static, scrollable readout you can
 // glance at. For dynamic editing, the user goes back to the tasks list.
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { isPlainObject } from "./sanitize";
 import { useResizable } from "./use-resizable";
@@ -529,6 +529,7 @@ export function GanttPanel({
   onEditTask?: (task: Task) => void;
 }) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
+  const didInitialScroll = useRef(false);
   const { ref: panelRef } = useResizable("lop-app:gantt-size");
 
   // --- prefs: sort + filters + custom order, persisted in localStorage ---
@@ -982,6 +983,21 @@ export function GanttPanel({
   const todayOffsetPx =
     LEFT_GUTTER_PX + diffDays(range.min, today) * DAY_WIDTH_PX;
   const timelineWidthPx = range.days * DAY_WIDTH_PX;
+
+  // On mount (and on the first render where layout is meaningful), scroll
+  // the chart so today sits in the viewport's horizontal center. Latched so
+  // the user's manual scroll position is preserved on later renders.
+  useLayoutEffect(() => {
+    if (didInitialScroll.current) return;
+    const el = wrapperRef.current;
+    if (!el || todayOffsetPx <= 0) return;
+    const target = todayOffsetPx - el.clientWidth / 2;
+    el.scrollLeft = Math.max(
+      0,
+      Math.min(el.scrollWidth - el.clientWidth, target),
+    );
+    didInitialScroll.current = true;
+  }, [todayOffsetPx]);
   const chartWidthPx = LEFT_GUTTER_PX + timelineWidthPx;
   const rowsCount = layout.placeable.length;
 
