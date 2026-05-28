@@ -145,14 +145,14 @@ export function ContactInput({
         aria-expanded={open}
         aria-controls="contact-listbox"
         aria-autocomplete="list"
-        className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm focus:border-AIPM-dark-blue focus:outline-none focus:ring-1 focus:ring-AIPM-dark-blue disabled:cursor-not-allowed disabled:bg-AIPM-light-grey disabled:text-AIPM-medium-grey dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+        className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-AIPM-dark-blue focus:outline-none focus:ring-1 focus:ring-AIPM-green disabled:cursor-not-allowed disabled:bg-surface-muted disabled:text-muted-foreground"
       />
 
       {open && filtered.length > 0 && (
         <ul
           id="contact-listbox"
           role="listbox"
-          className="absolute left-0 right-0 z-30 mt-1 max-h-64 overflow-y-auto rounded-md border border-zinc-200 bg-white shadow-lg dark:border-zinc-800 dark:bg-zinc-900"
+          className="absolute left-0 right-0 z-30 mt-1 max-h-64 overflow-y-auto rounded-md border border-line bg-surface"
         >
           {filtered.map((c, idx) => {
             const active = idx === highlight;
@@ -163,8 +163,8 @@ export function ContactInput({
                 aria-selected={active}
                 className={`flex items-center justify-between gap-2 px-3 py-1.5 text-sm ${
                   active
-                    ? "bg-AIPM-light-grey dark:bg-zinc-800"
-                    : "hover:bg-AIPM-light-grey/60 dark:hover:bg-zinc-800/60"
+                    ? "bg-surface-muted"
+                    : "hover:bg-surface-muted"
                 }`}
                 onMouseEnter={() => setHighlight(idx)}
               >
@@ -178,11 +178,11 @@ export function ContactInput({
                   }}
                   className="flex min-w-0 flex-1 flex-col items-start text-left"
                 >
-                  <span className="truncate font-medium text-zinc-900 dark:text-zinc-100">
+                  <span className="truncate font-medium text-foreground">
                     {c.name}
                   </span>
                   {c.email && (
-                    <span className="truncate text-xs text-AIPM-medium-grey">
+                    <span className="truncate text-xs text-muted-foreground">
                       {c.email}
                     </span>
                   )}
@@ -195,7 +195,7 @@ export function ContactInput({
                   }}
                   aria-label={t(lang, "contactsRemove")}
                   title={t(lang, "contactsRemove")}
-                  className="shrink-0 rounded p-1 text-AIPM-medium-grey hover:bg-AIPM-pink/10 hover:text-AIPM-pink"
+                  className="shrink-0 rounded p-1 text-muted-foreground hover:bg-AIPM-pink/10 hover:text-AIPM-pink"
                 >
                   <svg
                     viewBox="0 0 20 20"
