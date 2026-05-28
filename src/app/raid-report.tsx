@@ -191,6 +191,26 @@ export function RaidReportPanel({ lang, items, today }: Props) {
               </table>
             </div>
           </Section>
+          <Section title={t(lang, "raidReportByAging")}>
+            <div className="overflow-x-auto rounded-md border border-line">
+              <table className="min-w-full text-left text-sm">
+                <thead className="sticky top-0 z-10 bg-surface-muted text-xs uppercase tracking-wide text-muted-foreground">
+                  <tr>
+                    <th className="px-3 py-2 font-medium">{t(lang, "raidReportByAging")}</th>
+                    <th className="px-3 py-2 text-right font-medium">{t(lang, "raidReportColOpen")}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-line">
+                  {rep.byAging.map((row) => (
+                    <tr key={row.bucket}>
+                      <td className="px-3 py-2 font-medium text-foreground">{agingLabel(lang, row.bucket)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{row.open}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Section>
         </>
       )}
 
@@ -230,6 +250,15 @@ function ownerCell(lang: Lang, owner: string) {
     return <span className="italic text-muted-foreground">{t(lang, "raidReportUnassigned")}</span>;
   }
   return owner;
+}
+
+function agingLabel(lang: Lang, bucket: "le30" | "31_60" | "61_90" | "gt90"): string {
+  switch (bucket) {
+    case "le30": return t(lang, "raidReportAgingLE30");
+    case "31_60": return t(lang, "raidReportAging31_60");
+    case "61_90": return t(lang, "raidReportAging61_90");
+    case "gt90": return t(lang, "raidReportAgingGT90");
+  }
 }
 
 export { Section, ownerCell };
