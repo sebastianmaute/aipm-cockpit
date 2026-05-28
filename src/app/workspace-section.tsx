@@ -134,10 +134,10 @@ export function WorkspaceSection({
       ref={workspaceRef}
       className={
         isPopout
-          ? "flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950"
+          ? "flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-xl border border-line bg-surface p-6"
           : workspaceCollapsed
-          ? "mb-10 flex w-full flex-col rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950"
-          : "relative mb-10 flex h-[560px] min-h-[420px] w-full min-w-[520px] resize flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950"
+          ? "mb-10 flex w-full flex-col rounded-xl border border-line bg-surface p-6"
+          : "relative mb-10 flex h-[560px] min-h-[420px] w-full min-w-[520px] resize flex-col overflow-hidden rounded-xl border border-line bg-surface p-6"
       }
     >
       {!isPopout && (
@@ -147,7 +147,7 @@ export function WorkspaceSection({
           className={
             workspaceCollapsed
               ? "-mx-2 -mt-2 flex shrink-0 items-end gap-1 px-2"
-              : "-mx-2 -mt-2 flex shrink-0 items-end gap-1 border-b border-zinc-200 px-2 dark:border-zinc-800"
+              : "-mx-2 -mt-2 flex shrink-0 items-end gap-1 border-b border-line px-2"
           }
         >
           <TabButton
@@ -241,7 +241,7 @@ export function WorkspaceSection({
               onClick={resetWorkspaceSize}
               aria-label={t(lang, "tableResetSizeHint")}
               title={t(lang, "tableResetSizeHint")}
-              className="ml-auto mb-1 rounded-md border border-zinc-300 bg-white p-1.5 text-zinc-500 shadow-sm hover:bg-zinc-50 hover:text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+              className="ml-auto mb-1 rounded-md border border-line bg-surface p-1.5 text-muted-foreground hover:bg-surface-muted hover:text-foreground"
             >
               <ResetSizeIcon />
             </button>
@@ -258,8 +258,8 @@ export function WorkspaceSection({
             }
             className={
               workspaceCollapsed
-                ? "ml-auto mb-1 rounded-md p-1.5 text-AIPM-dark-grey hover:bg-AIPM-light-grey hover:text-AIPM-dark-blue dark:text-AIPM-medium-grey dark:hover:bg-zinc-800 dark:hover:text-AIPM-light-grey"
-                : "mb-1 rounded-md p-1.5 text-AIPM-dark-grey hover:bg-AIPM-light-grey hover:text-AIPM-dark-blue dark:text-AIPM-medium-grey dark:hover:bg-zinc-800 dark:hover:text-AIPM-light-grey"
+                ? "ml-auto mb-1 rounded-md p-1.5 text-foreground hover:bg-surface-muted hover:text-AIPM-dark-blue"
+                : "mb-1 rounded-md p-1.5 text-foreground hover:bg-surface-muted hover:text-AIPM-dark-blue"
             }
           >
             <svg
@@ -452,7 +452,7 @@ export function WorkspaceSection({
         <span
           aria-hidden={true}
           title={t(lang, "workspaceResizeHint")}
-          className="pointer-events-none absolute bottom-1 right-1 select-none text-zinc-300 dark:text-zinc-600"
+          className="pointer-events-none absolute bottom-1 right-1 select-none text-muted-foreground"
         >
           ⠿
         </span>

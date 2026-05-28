@@ -20,7 +20,7 @@ import {
 } from "./settings-menu";
 
 const inputClass =
-  "w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100";
+  "w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none focus:ring-1 focus:ring-AIPM-green disabled:cursor-not-allowed disabled:opacity-50";
 
 type Status =
   | { kind: "idle" }
@@ -172,11 +172,11 @@ export function JiraSettingsSection({
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-between text-sm font-medium text-zinc-700 hover:text-AIPM-dark-blue dark:text-zinc-300"
+        className="flex w-full items-center justify-between text-sm font-medium text-foreground hover:text-AIPM-dark-blue"
         aria-expanded={open}
       >
         <span>{t(lang, "jiraIntegration")}</span>
-        <span className="flex items-center gap-2 text-xs text-AIPM-medium-grey">
+        <span className="flex items-center gap-2 text-xs text-muted-foreground">
           {config.enabled
             ? t(lang, "jiraStatusOn")
             : t(lang, "jiraStatusOff")}
@@ -196,9 +196,9 @@ export function JiraSettingsSection({
               type="checkbox"
               checked={config.enabled}
               onChange={(e) => update("enabled", e.target.checked)}
-              className="h-4 w-4 cursor-pointer rounded border-zinc-300 text-AIPM-dark-blue focus:ring-AIPM-dark-blue dark:border-zinc-600 dark:bg-zinc-800"
+              className="h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue focus:ring-AIPM-green"
             />
-            <span className="text-zinc-700 dark:text-zinc-300">
+            <span className="text-foreground">
               {t(lang, "jiraEnable")}
             </span>
           </label>
@@ -208,7 +208,7 @@ export function JiraSettingsSection({
             className="space-y-2 disabled:opacity-50"
           >
             <label className="block">
-              <span className="mb-1 block text-xs text-AIPM-medium-grey">
+              <span className="mb-1 block text-xs text-muted-foreground">
                 {t(lang, "jiraSiteUrl")}
               </span>
               <input
@@ -238,7 +238,7 @@ export function JiraSettingsSection({
               />
             </label>
             <label className="block">
-              <span className="mb-1 block text-xs text-AIPM-medium-grey">
+              <span className="mb-1 block text-xs text-muted-foreground">
                 {t(lang, "jiraEmail")}
               </span>
               <input
@@ -249,7 +249,7 @@ export function JiraSettingsSection({
               />
             </label>
             <label className="block">
-              <span className="mb-1 block text-xs text-AIPM-medium-grey">
+              <span className="mb-1 block text-xs text-muted-foreground">
                 {t(lang, "jiraApiToken")}
               </span>
               <input
@@ -270,7 +270,7 @@ export function JiraSettingsSection({
               </a>
             </label>
             <label className="block">
-              <span className="mb-1 block text-xs text-AIPM-medium-grey">
+              <span className="mb-1 block text-xs text-muted-foreground">
                 {t(lang, "jiraTokenExpires")}
               </span>
               <input
@@ -279,7 +279,7 @@ export function JiraSettingsSection({
                 value={config.tokenExpiresAt ?? ""}
                 onChange={(e) => onChange({ ...config, tokenExpiresAt: e.target.value })}
               />
-              <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{t(lang, "jiraTokenExpiresHint")}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{t(lang, "jiraTokenExpiresHint")}</p>
             </label>
 
             <div className="flex items-center gap-2">
@@ -287,7 +287,7 @@ export function JiraSettingsSection({
                 type="button"
                 onClick={handleTest}
                 disabled={!credsReady || status.kind === "loading"}
-                className="rounded-md bg-AIPM-dark-blue px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-md bg-AIPM-dark-blue px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {status.kind === "loading"
                   ? status.label
@@ -307,7 +307,7 @@ export function JiraSettingsSection({
 
             {projects.length > 0 && (
               <label className="block">
-                <span className="mb-1 block text-xs text-AIPM-medium-grey">
+                <span className="mb-1 block text-xs text-muted-foreground">
                   {t(lang, "jiraProject")}
                 </span>
                 <select
@@ -335,14 +335,14 @@ export function JiraSettingsSection({
             )}
 
             {config.projectKey && projectName && projects.length === 0 && (
-              <p className="text-xs text-AIPM-medium-grey">
+              <p className="text-xs text-muted-foreground">
                 {t(lang, "jiraCurrentProject", projectName, config.projectKey)}
               </p>
             )}
 
             {issueTypes.length > 0 && (
               <div>
-                <span className="mb-1 block text-xs text-AIPM-medium-grey">
+                <span className="mb-1 block text-xs text-muted-foreground">
                   {t(lang, "jiraIssueTypes")}
                 </span>
                 <ul className="grid grid-cols-2 gap-1">
@@ -350,12 +350,12 @@ export function JiraSettingsSection({
                     .filter((it) => !it.subtask)
                     .map((it) => (
                       <li key={it.id}>
-                        <label className="flex items-center gap-2 text-xs text-zinc-700 dark:text-zinc-300">
+                        <label className="flex items-center gap-2 text-xs text-foreground">
                           <input
                             type="checkbox"
                             checked={config.issueTypes.includes(it.name)}
                             onChange={() => toggleIssueType(it.name)}
-                            className="h-4 w-4 cursor-pointer rounded border-zinc-300 text-AIPM-dark-blue focus:ring-AIPM-dark-blue dark:border-zinc-600 dark:bg-zinc-800"
+                            className="h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue focus:ring-AIPM-green"
                           />
                           {it.name}
                         </label>
@@ -366,7 +366,7 @@ export function JiraSettingsSection({
             )}
 
             <div>
-              <span className="mb-1 block text-xs text-AIPM-medium-grey">
+              <span className="mb-1 block text-xs text-muted-foreground">
                 {t(lang, "jiraAssignee")}
               </span>
               <div className="flex flex-wrap gap-3 text-xs">
@@ -379,9 +379,9 @@ export function JiraSettingsSection({
                       name="jira-assignee-mode"
                       checked={config.assigneeMode === mode}
                       onChange={() => update("assigneeMode", mode)}
-                      className="h-3 w-3 cursor-pointer text-AIPM-dark-blue focus:ring-AIPM-dark-blue"
+                      className="h-3 w-3 cursor-pointer text-AIPM-dark-blue focus:ring-AIPM-green"
                     />
-                    <span className="text-zinc-700 dark:text-zinc-300">
+                    <span className="text-foreground">
                       {t(lang, `jiraAssignee_${mode}`)}
                     </span>
                   </label>
@@ -398,7 +398,7 @@ export function JiraSettingsSection({
                     className={inputClass}
                   />
                   {config.assigneeDisplayName && (
-                    <p className="text-xs text-AIPM-dark-grey dark:text-AIPM-medium-grey">
+                    <p className="text-xs text-foreground">
                       ✓{" "}
                       {t(
                         lang,
@@ -408,11 +408,11 @@ export function JiraSettingsSection({
                     </p>
                   )}
                   {userResults.length > 0 && (
-                    <ul className="max-h-40 overflow-y-auto rounded-md border border-zinc-200 dark:border-zinc-700">
+                    <ul className="max-h-40 overflow-y-auto rounded-md border border-line">
                       {userResults.map((u) => (
                         <li
                           key={u.accountId}
-                          className="border-b border-zinc-100 last:border-b-0 dark:border-zinc-800"
+                          className="border-b border-line last:border-b-0"
                         >
                           <button
                             type="button"
@@ -425,13 +425,13 @@ export function JiraSettingsSection({
                             }
                             className={`block w-full px-3 py-1.5 text-left text-xs ${
                               config.assigneeAccountId === u.accountId
-                                ? "bg-AIPM-light-grey text-AIPM-dark-blue dark:bg-zinc-800"
-                                : "text-AIPM-dark-grey hover:bg-AIPM-light-grey dark:text-AIPM-light-grey dark:hover:bg-zinc-800"
+                                ? "bg-surface-muted text-AIPM-dark-blue"
+                                : "text-foreground hover:bg-surface-muted"
                             }`}
                           >
                             {u.displayName}
                             {u.emailAddress && (
-                              <span className="ml-2 text-AIPM-medium-grey">
+                              <span className="ml-2 text-muted-foreground">
                                 {u.emailAddress}
                               </span>
                             )}
@@ -453,7 +453,7 @@ export function JiraSettingsSection({
             </button>
           </fieldset>
 
-          <p className="text-xs text-AIPM-medium-grey">
+          <p className="text-xs text-muted-foreground">
             {t(lang, "jiraNote")}
           </p>
         </div>

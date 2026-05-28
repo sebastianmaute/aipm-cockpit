@@ -134,7 +134,7 @@ function parseInline(input: string): ReactNode[] {
         out.push(
           <code
             key={nextKey()}
-            className="rounded bg-zinc-200 px-1 py-0.5 font-mono text-xs text-zinc-900 dark:bg-zinc-700 dark:text-zinc-100"
+            className="rounded bg-surface-muted px-1 py-0.5 font-mono text-xs text-foreground"
           >
             {input.slice(i + 1, end)}
           </code>,

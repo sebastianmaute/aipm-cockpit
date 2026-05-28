@@ -182,7 +182,7 @@ export function SettingsMenu({
         onClick={() => setOpen((o) => !o)}
         aria-label={t(lang, "settings")}
         aria-expanded={open}
-        className="rounded-md p-2 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-500 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+        className="rounded-md p-2 text-muted-foreground hover:bg-surface-muted hover:text-foreground focus:outline-none focus:ring-2 focus:ring-AIPM-green"
       >
         <svg
           viewBox="0 0 20 20"
@@ -202,14 +202,14 @@ export function SettingsMenu({
         <div
           role="dialog"
           aria-label={t(lang, "settings")}
-          className="absolute right-0 top-full z-20 mt-2 max-h-[80vh] w-80 overflow-y-auto rounded-lg border border-zinc-200 bg-white p-4 shadow-lg dark:border-zinc-800 dark:bg-zinc-900"
+          className="absolute right-0 top-full z-20 mt-2 max-h-[80vh] w-80 overflow-y-auto rounded-lg border border-line bg-surface p-4"
         >
-          <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+          <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             {t(lang, "settings")}
           </h3>
 
           <div className="mb-4">
-            <span className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            <span className="mb-1 block text-sm font-medium text-foreground">
               {t(lang, "theme")}
             </span>
             <SegmentedControl<Theme>
@@ -227,7 +227,7 @@ export function SettingsMenu({
           </div>
 
           <label className="mb-4 block">
-            <span className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            <span className="mb-1 block text-sm font-medium text-foreground">
               {t(lang, "language")}
             </span>
             <select
@@ -235,7 +235,7 @@ export function SettingsMenu({
               onChange={(e) =>
                 onChange({ ...settings, language: e.target.value as Lang })
               }
-              className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+              className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none focus:ring-1 focus:ring-AIPM-green"
             >
               <option value="en-US">English (US)</option>
               <option value="en-GB">English (UK)</option>
@@ -244,14 +244,14 @@ export function SettingsMenu({
           </label>
 
           <div>
-            <span className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            <span className="mb-1 block text-sm font-medium text-foreground">
               {t(lang, "holidayCountries")}
             </span>
             <div className="flex gap-2">
               <select
                 value={pending}
                 onChange={(e) => setPending(e.target.value)}
-                className="min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+                className="min-w-0 flex-1 rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none focus:ring-1 focus:ring-AIPM-green"
               >
                 <option value="">{t(lang, "selectCountry")}</option>
                 {available.map((c) => (
@@ -264,14 +264,14 @@ export function SettingsMenu({
                 type="button"
                 onClick={addCountry}
                 disabled={!pending}
-                className="shrink-0 rounded-md bg-AIPM-dark-blue px-3 py-2 text-sm font-medium text-white shadow-sm hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                className="shrink-0 rounded-md bg-AIPM-dark-blue px-3 py-2 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {t(lang, "add")}
               </button>
             </div>
 
             {settings.holidayCountries.length === 0 ? (
-              <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+              <p className="mt-2 text-xs text-muted-foreground">
                 {t(lang, "noCountriesSelected")}
               </p>
             ) : (
@@ -279,16 +279,16 @@ export function SettingsMenu({
                 {settings.holidayCountries.map((code) => (
                   <li
                     key={code}
-                    className="flex items-center justify-between rounded-md bg-zinc-50 px-3 py-1.5 text-sm dark:bg-zinc-800"
+                    className="flex items-center justify-between rounded-md bg-surface-muted px-3 py-1.5 text-sm"
                   >
-                    <span className="text-zinc-800 dark:text-zinc-100">
+                    <span className="text-foreground">
                       {countryName(code)}
                     </span>
                     <button
                       type="button"
                       onClick={() => removeCountry(code)}
                       aria-label={`${t(lang, "remove")} ${countryName(code)}`}
-                      className="text-zinc-500 hover:text-red-600 dark:text-zinc-400 dark:hover:text-red-400"
+                      className="text-muted-foreground hover:text-AIPM-pink"
                     >
                       <svg
                         viewBox="0 0 20 20"
@@ -309,21 +309,21 @@ export function SettingsMenu({
             )}
           </div>
 
-          <hr className="my-4 border-zinc-200 dark:border-zinc-800" />
+          <hr className="my-4 border-line" />
 
           <div className="mb-4">
-            <span className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            <span className="mb-1 block text-sm font-medium text-foreground">
               {t(lang, "notifications")}
             </span>
-            <p className="mb-2 text-xs text-zinc-500 dark:text-zinc-400">
+            <p className="mb-2 text-xs text-muted-foreground">
               {t(lang, "notificationsHint")}
             </p>
-            <label className="mb-2 flex items-center justify-between gap-2 text-sm text-zinc-700 dark:text-zinc-300">
+            <label className="mb-2 flex items-center justify-between gap-2 text-sm text-foreground">
               {t(lang, "reminderLeadDays")}
               <input type="number" min={0} max={365}
                 value={settings.notifications.reminderLeadDays}
                 onChange={(e) => onChange({ ...settings, notifications: { ...settings.notifications, reminderLeadDays: Math.max(0, Math.min(365, Math.round(Number(e.target.value) || 0))) } })}
-                className="w-20 rounded-md border border-zinc-300 px-2 py-1 text-right tabular-nums dark:border-zinc-700 dark:bg-zinc-900" />
+                className="w-20 rounded-md border border-line px-2 py-1 text-right tabular-nums" />
             </label>
             <NotificationRow
               labelKey="notifBanner"
@@ -358,7 +358,7 @@ export function SettingsMenu({
                 })
               }
             />
-            <div className="mt-2 flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
+            <div className="mt-2 flex items-center gap-2 text-sm text-foreground">
               <label className="flex items-center gap-2">
                 <input type="checkbox" checked={settings.notifications.birthday.enabled}
                   onChange={(e) => onChange({ ...settings, notifications: { ...settings.notifications, birthday: { enabled: e.target.checked } } })} />
@@ -367,7 +367,7 @@ export function SettingsMenu({
             </div>
           </div>
 
-          <hr className="my-4 border-zinc-200 dark:border-zinc-800" />
+          <hr className="my-4 border-line" />
 
           <div className="mb-4">
             <label className="flex cursor-pointer items-center gap-2">
@@ -380,19 +380,19 @@ export function SettingsMenu({
                     popout: { ...settings.popout, reuseWindow: e.target.checked },
                   })
                 }
-                className="h-4 w-4 cursor-pointer rounded border-zinc-300 text-AIPM-dark-blue focus:ring-AIPM-dark-blue dark:border-zinc-600 dark:bg-zinc-800"
+                className="h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue focus:ring-AIPM-green"
               />
-              <span className="text-sm text-zinc-700 dark:text-zinc-300">
+              <span className="text-sm text-foreground">
                 {t(lang, "popoutReuseWindow")}
               </span>
             </label>
           </div>
 
-          <hr className="my-4 border-zinc-200 dark:border-zinc-800" />
+          <hr className="my-4 border-line" />
 
           <div className="mb-4">
             <label className="flex items-center justify-between gap-2">
-              <span className="text-sm text-AIPM-dark-grey dark:text-AIPM-light-grey">
+              <span className="text-sm text-foreground">
                 {t(lang, "resourcesWorkdayHours")}
               </span>
               <input
@@ -402,19 +402,19 @@ export function SettingsMenu({
                   const n = Math.min(24, Math.max(1, Number(e.target.value) || 8));
                   onChange({ ...settings, resources: { ...settings.resources, workdayHours: n } });
                 }}
-                className="w-20 rounded-md border border-zinc-300 px-2 py-1 text-sm dark:border-zinc-600 dark:bg-zinc-800"
+                className="w-20 rounded-md border border-line px-2 py-1 text-sm"
               />
             </label>
           </div>
 
-          <hr className="my-4 border-zinc-200 dark:border-zinc-800" />
+          <hr className="my-4 border-line" />
 
           <div className="mb-4">
-            <span className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            <span className="mb-1 block text-sm font-medium text-foreground">
               {t(lang, "aiAssistant")}
             </span>
             <label className="mt-2 block">
-              <span className="mb-1 block text-xs text-zinc-600 dark:text-zinc-400">
+              <span className="mb-1 block text-xs text-muted-foreground">
                 {t(lang, "aiApiKey")}
               </span>
               <input
@@ -428,11 +428,11 @@ export function SettingsMenu({
                   })
                 }
                 placeholder={t(lang, "aiApiKeyPlaceholder")}
-                className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+                className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none focus:ring-1 focus:ring-AIPM-green"
               />
             </label>
             <label className="mt-2 block">
-              <span className="mb-1 block text-xs text-zinc-600 dark:text-zinc-400">
+              <span className="mb-1 block text-xs text-muted-foreground">
                 {t(lang, "aiModel")}
               </span>
               <select
@@ -446,7 +446,7 @@ export function SettingsMenu({
                     },
                   })
                 }
-                className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+                className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none focus:ring-1 focus:ring-AIPM-green"
               >
                 <option value="claude-sonnet-4-6">Claude Sonnet 4.6</option>
                 <option value="claude-opus-4-7">Claude Opus 4.7</option>
@@ -455,11 +455,11 @@ export function SettingsMenu({
                 </option>
               </select>
             </label>
-            <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+            <p className="mt-2 text-xs text-muted-foreground">
               {t(lang, "aiApiKeyHint")}
             </p>
             {settings.ai.consentAccepted ? (
-              <p className="mt-2 flex items-center justify-between gap-2 text-xs text-zinc-600 dark:text-zinc-400">
+              <p className="mt-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">
                 <span>✓ {t(lang, "aiConsentGranted")}</span>
                 <button
                   type="button"
@@ -469,19 +469,19 @@ export function SettingsMenu({
                       ai: { ...settings.ai, consentAccepted: false },
                     })
                   }
-                  className="text-xs font-medium text-red-600 underline-offset-2 hover:underline dark:text-red-400"
+                  className="text-xs font-medium text-AIPM-pink underline-offset-2 hover:underline"
                 >
                   {t(lang, "aiConsentRevoke")}
                 </button>
               </p>
             ) : (
-              <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">
+              <p className="mt-2 text-xs text-AIPM-purple">
                 {t(lang, "aiConsentRequired")}
               </p>
             )}
           </div>
 
-          <hr className="my-4 border-zinc-200 dark:border-zinc-800" />
+          <hr className="my-4 border-line" />
 
           <JiraSettingsSection
             lang={lang}
@@ -489,7 +489,7 @@ export function SettingsMenu({
             onChange={(jira) => onChange({ ...settings, jira })}
           />
 
-          <hr className="my-4 border-zinc-200 dark:border-zinc-800" />
+          <hr className="my-4 border-line" />
 
           <StorageConfigSection
             lang={lang}
@@ -527,9 +527,9 @@ function NotificationRow({
           type="checkbox"
           checked={config.enabled}
           onChange={(e) => onChange({ enabled: e.target.checked })}
-          className="h-4 w-4 cursor-pointer rounded border-zinc-300 text-AIPM-dark-blue focus:ring-AIPM-dark-blue dark:border-zinc-600 dark:bg-zinc-800"
+          className="h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue focus:ring-AIPM-green"
         />
-        <span className="text-zinc-700 dark:text-zinc-300">
+        <span className="text-foreground">
           {t(lang, labelKey)}
         </span>
       </label>

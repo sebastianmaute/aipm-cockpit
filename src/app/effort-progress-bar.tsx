@@ -23,7 +23,7 @@ export function EffortProgressBar({ lang, estimateMin, spentMin }: EffortProgres
         aria-valuemax={100}
         aria-valuenow={hasEstimate ? Math.min(labelPct, 100) : 0}
         className={`h-2.5 w-full overflow-hidden rounded-full ${
-          hasEstimate ? "bg-zinc-200 dark:bg-zinc-800" : "bg-zinc-100 opacity-60 dark:bg-zinc-800/50"
+          hasEstimate ? "bg-surface-muted" : "bg-surface-muted opacity-60"
         }`}
       >
         {hasEstimate && (
@@ -33,7 +33,7 @@ export function EffortProgressBar({ lang, estimateMin, spentMin }: EffortProgres
           />
         )}
       </div>
-      <p className={`mt-1 text-xs ${over ? "text-AIPM-pink" : "text-AIPM-medium-grey"}`}>
+      <p className={`mt-1 text-xs ${over ? "text-AIPM-pink" : "text-muted-foreground"}`}>
         {hasEstimate
           ? `${formatDuration(spentMin ?? 0) || "0m"} / ${formatDuration(estimateMin ?? 0)} · ${labelPct}%`
           : t(lang, "taskEffortNoEstimate")}

@@ -72,4 +72,5 @@ never reference them directly.
 - E-sweep tasks UI + inputs + reports (0.15.5): combo-input, contact-input, labels-input, dependencies-editor, task-manager-ui, tasks-section, reports, task-row. ✅
 - E-sweep raid-panel (0.15.6): raid-panel.tsx. ✅
 - E-sweep gantt (0.15.7): gantt.tsx. ✅
-- Remaining: menus + chrome + misc (final sweep, will bump minor to ~0.16.0 with the `versionHighlightPalette` headline).
+- E-sweep menus + chrome + misc (0.16.0 "Butler"): settings-menu, jira-settings, storage-config, export-menu, help-menu, version-menu, notifications, chat-panel, activity-log-panel, effort-progress-bar, error, markdown, page, voice-button, workspace-section, read-only-mirror-banner. ✅
+✅ **Sub-project E complete (0.16.0 "Butler") — the AIPM design system now covers the whole app.**
