@@ -4,7 +4,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { type Lang, t } from "./i18n";
 
 const baseInputClass =
-  "w-full rounded-md border border-zinc-300 bg-white pl-3 pr-10 py-2 text-sm text-zinc-900 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100";
+  "w-full rounded-md border border-line bg-surface pl-3 pr-10 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-AIPM-green disabled:cursor-not-allowed disabled:opacity-50";
 
 /**
  * Single-value combobox: shows existing suggestions in a dropdown but also accepts
@@ -130,7 +130,7 @@ export function ComboInput({
         }}
         aria-label={t(lang, "comboToggle")}
         tabIndex={-1}
-        className="absolute inset-y-0 right-0 flex items-center px-2 text-AIPM-medium-grey hover:text-AIPM-dark-blue disabled:cursor-not-allowed"
+        className="absolute inset-y-0 right-0 flex items-center px-2 text-muted-foreground hover:text-AIPM-dark-blue disabled:cursor-not-allowed"
         disabled={disabled}
       >
         <svg
@@ -151,7 +151,7 @@ export function ComboInput({
         <ul
           id={listId}
           role="listbox"
-          className="absolute z-30 mt-1 max-h-56 w-full overflow-y-auto rounded-md border border-zinc-200 bg-white text-sm shadow-lg dark:border-zinc-700 dark:bg-zinc-900"
+          className="absolute z-30 mt-1 max-h-56 w-full overflow-y-auto rounded-md border border-line bg-surface text-sm"
         >
           {filtered.map((s, idx) => (
             <li key={s} role="option" aria-selected={idx === highlight}>
@@ -161,8 +161,8 @@ export function ComboInput({
                 onClick={() => commit(s)}
                 className={`block w-full cursor-pointer px-3 py-1.5 text-left ${
                   idx === highlight
-                    ? "bg-AIPM-light-grey text-AIPM-dark-blue dark:bg-zinc-800"
-                    : "text-AIPM-dark-grey hover:bg-AIPM-light-grey dark:text-AIPM-light-grey dark:hover:bg-zinc-800"
+                    ? "bg-surface-muted text-AIPM-dark-blue"
+                    : "text-foreground hover:bg-surface-muted"
                 }`}
               >
                 {s}
@@ -173,7 +173,7 @@ export function ComboInput({
             <li
               role="option"
               aria-selected={highlight === filtered.length}
-              className="border-t border-zinc-200 dark:border-zinc-700"
+              className="border-t border-line"
             >
               <button
                 type="button"
