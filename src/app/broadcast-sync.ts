@@ -106,6 +106,7 @@ export const POPOUT_TABS = [
   "resources",
   "activity",
   "resource-report",
+  "raid-report",
   "address-book",
   "budget",
 ] as const;

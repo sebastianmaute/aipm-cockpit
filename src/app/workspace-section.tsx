@@ -41,6 +41,10 @@ const ResourcesReportPanel = dynamic(
   () => import("./resources-report").then((m) => m.ResourcesReportPanel),
   { ssr: false },
 );
+const RaidReportPanel = dynamic(
+  () => import("./raid-report-panel").then((m) => m.RaidReportPanel),
+  { ssr: false },
+);
 const BudgetPanel = dynamic(
   () => import("./budget-panel").then((m) => m.BudgetPanel),
   { ssr: false },
@@ -349,6 +353,7 @@ export function WorkspaceSection({
             onDelete={handleDeleteRaidItem}
             onCreateMitigationTask={handleCreateMitigationTaskFromRaid}
             onJumpToTask={handleJumpToTaskFromRaid}
+            onOpenReport={() => openPopoutWindow("raid-report", settings.popout.reuseWindow)}
           />
         </div>
 
@@ -408,6 +413,12 @@ export function WorkspaceSection({
               lang={lang} resources={resources} roles={roles} disciplines={disciplines}
               grades={grades} plan={plan} absences={absences} holidaySet={holidaySet}
               workdayHours={settings.resources.workdayHours} />
+          </div>
+        )}
+
+        {activeTab === "raid-report" && (
+          <div id="panel-raid-report" role="tabpanel" className="min-h-0 flex-1 overflow-y-auto pt-4">
+            <RaidReportPanel lang={lang} items={raid} today={today} />
           </div>
         )}
 
