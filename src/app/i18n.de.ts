@@ -68,6 +68,7 @@ export const de: Record<TranslationKey, string> = {
   lastUpdate: "Letzte Aktualisierung",
 
   edit: "Bearbeiten",
+  clear: "Leeren",
   delete: "Löschen",
   sendInquiry: "Anfrage senden",
 
@@ -466,6 +467,12 @@ export const de: Record<TranslationKey, string> = {
   reportsInquiriesCol: "Abfragen",
   reportsByAssignee: "Nach Zugewiesenem",
   reportsByPriority: "Nach Priorität",
+  reportsFilterAssignee: "Assignees filtern…",
+  reportsFilterGroup: "Gruppen filtern…",
+  reportsFilterLabel: "Labels filtern…",
+  reportsNoMatches: "Keine Treffer für den aktuellen Filter.",
+  versionHighlightReportsSortFilter:
+    "Reports-Tabellen (Nach Assignee, Nach Gruppe, Nach Label) sind sortier- und filterbar — Spaltenkopf zum Sortieren klicken, Filtertext eingeben, um Zeilen einzugrenzen.",
 
   help: "Hilfe",
   helpIntro:

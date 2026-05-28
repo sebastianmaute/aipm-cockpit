@@ -64,6 +64,7 @@ const enUS = {
   lastUpdate: "Last update",
 
   edit: "Edit",
+  clear: "Clear",
   delete: "Delete",
   sendInquiry: "Send inquiry",
 
@@ -451,6 +452,12 @@ const enUS = {
   reportsInquiriesCol: "Inquiries",
   reportsByAssignee: "By assignee",
   reportsByPriority: "By priority",
+  reportsFilterAssignee: "Filter assignees…",
+  reportsFilterGroup: "Filter groups…",
+  reportsFilterLabel: "Filter labels…",
+  reportsNoMatches: "No matches for current filter.",
+  versionHighlightReportsSortFilter:
+    "Reports tables (By Assignee, By Group, By Label) are now sortable and filterable — click any header to sort, type in the search box to narrow rows.",
 
   help: "Help",
   helpIntro:
