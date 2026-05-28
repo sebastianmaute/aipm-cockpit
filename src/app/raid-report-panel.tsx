@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { SegmentedControl } from "./segmented-control";
 import { type Lang, t } from "./i18n";
+import { PrintButton } from "./task-manager-ui";
 import {
   UNASSIGNED_OWNER,
   computeRaidReport,
@@ -34,15 +35,18 @@ export function RaidReportPanel({ lang, items, today }: Props) {
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-lg font-medium text-foreground">{t(lang, "raidReportTitle")}</h2>
-        <SegmentedControl<View>
-          value={view}
-          ariaLabel={t(lang, "raidReportTitle")}
-          options={[
-            { value: "summary", label: t(lang, "raidReportSummary") },
-            { value: "full", label: t(lang, "raidReportFullDetail") },
-          ]}
-          onChange={(v) => setView(v)}
-        />
+        <div className="flex items-center gap-3 print:hidden">
+          <SegmentedControl<View>
+            value={view}
+            ariaLabel={t(lang, "raidReportTitle")}
+            options={[
+              { value: "summary", label: t(lang, "raidReportSummary") },
+              { value: "full", label: t(lang, "raidReportFullDetail") },
+            ]}
+            onChange={(v) => setView(v)}
+          />
+          <PrintButton lang={lang} />
+        </div>
       </div>
 
       {view === "summary" && (
