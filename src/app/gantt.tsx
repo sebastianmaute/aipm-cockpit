@@ -141,7 +141,7 @@ const BAR_VPADDING_PX = (ROW_HEIGHT_PX - BAR_HEIGHT_PX) / 2;
 const priorityFillClass: Record<Priority, string> = {
   Low: "fill-AIPM-medium-grey",
   Medium: "fill-AIPM-blue",
-  High: "fill-amber-500",
+  High: "fill-AIPM-purple",
   Urgent: "fill-AIPM-pink",
 };
 
@@ -503,13 +503,13 @@ export type GanttBarEdit = {
 function absenceBandBg(type: AbsenceType): string {
   switch (type) {
     case "vacation":
-      return "bg-blue-200/40 dark:bg-blue-900/30";
+      return "bg-AIPM-blue/20 dark:bg-AIPM-blue/25";
     case "sick":
-      return "bg-red-200/40 dark:bg-red-900/30";
+      return "bg-AIPM-pink/20 dark:bg-AIPM-pink/25";
     case "training":
-      return "bg-amber-200/40 dark:bg-amber-900/30";
+      return "bg-AIPM-purple/20 dark:bg-AIPM-purple/25";
     default:
-      return "bg-zinc-300/40 dark:bg-zinc-600/30";
+      return "bg-surface-muted";
   }
 }
 
@@ -1024,7 +1024,7 @@ export function GanttPanel({
         placeholder={t(lang, "searchPlaceholder")}
         aria-label={t(lang, "searchPlaceholder")}
         title={t(lang, "ganttSearchHint")}
-        className="min-w-[12rem] flex-1 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-900 shadow-sm focus:border-AIPM-dark-blue focus:outline-none focus:ring-1 focus:ring-AIPM-dark-blue dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+        className="min-w-[12rem] flex-1 rounded-md border border-line bg-surface px-3 py-1.5 text-sm text-foreground focus:border-AIPM-dark-blue focus:outline-none focus:ring-1 focus:ring-AIPM-green"
       />
       <select
         value={prefs.status}
@@ -1033,7 +1033,7 @@ export function GanttPanel({
         }
         aria-label={t(lang, "ganttFilterStatus")}
         title={t(lang, "ganttStatusFilterHint")}
-        className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm text-zinc-900 shadow-sm focus:border-AIPM-dark-blue focus:outline-none focus:ring-1 focus:ring-AIPM-dark-blue dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+        className="rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-foreground focus:border-AIPM-dark-blue focus:outline-none focus:ring-1 focus:ring-AIPM-green"
       >
         <option value="all">{t(lang, "ganttStatusAll")}</option>
         <option value="open">{t(lang, "ganttStatusOpen")}</option>
@@ -1047,7 +1047,7 @@ export function GanttPanel({
         }
         aria-label={t(lang, "allPriorities")}
         title={t(lang, "priorityFilterHint")}
-        className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm text-zinc-900 shadow-sm focus:border-AIPM-dark-blue focus:outline-none focus:ring-1 focus:ring-AIPM-dark-blue dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+        className="rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-foreground focus:border-AIPM-dark-blue focus:outline-none focus:ring-1 focus:ring-AIPM-green"
       >
         <option value="All">{t(lang, "allPriorities")}</option>
         {PRIORITIES.map((p) => (
@@ -1061,7 +1061,7 @@ export function GanttPanel({
         onChange={(e) => setAssigneeFilter(e.target.value)}
         aria-label={t(lang, "allAssignees")}
         title={t(lang, "assigneeFilterHint")}
-        className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm text-zinc-900 shadow-sm focus:border-AIPM-dark-blue focus:outline-none focus:ring-1 focus:ring-AIPM-dark-blue dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+        className="rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-foreground focus:border-AIPM-dark-blue focus:outline-none focus:ring-1 focus:ring-AIPM-green"
       >
         <option value="All">{t(lang, "allAssignees")}</option>
         {assigneeOptions.map((a) => (
@@ -1070,14 +1070,14 @@ export function GanttPanel({
           </option>
         ))}
       </select>
-      <label className="flex items-center gap-1 text-xs text-AIPM-medium-grey">
+      <label className="flex items-center gap-1 text-xs text-muted-foreground">
         <span className="hidden sm:inline">{t(lang, "ganttSortLabel")}</span>
         <select
           value={prefs.sort}
           onChange={(e) => setSort(e.target.value as GanttSort)}
           aria-label={t(lang, "ganttSortLabel")}
           title={t(lang, "ganttSortHint")}
-          className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm text-zinc-900 shadow-sm focus:border-AIPM-dark-blue focus:outline-none focus:ring-1 focus:ring-AIPM-dark-blue dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+          className="rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-foreground focus:border-AIPM-dark-blue focus:outline-none focus:ring-1 focus:ring-AIPM-green"
         >
           <option value="auto">{t(lang, "ganttSortAuto")}</option>
           <option value="due">{t(lang, "ganttSortDue")}</option>
@@ -1093,7 +1093,7 @@ export function GanttPanel({
           type="button"
           onClick={resetFilters}
           title={t(lang, "resetFiltersHint")}
-          className="rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-xs font-medium text-zinc-700 shadow-sm hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          className="rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted"
         >
           {t(lang, "ganttResetFilters")}
         </button>
@@ -1103,10 +1103,10 @@ export function GanttPanel({
         onClick={toggleCriticalPath}
         aria-pressed={prefs.showCriticalPath}
         title={t(lang, "ganttCriticalPathHint")}
-        className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium shadow-sm focus:outline-none focus:ring-1 ${
+        className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium focus:outline-none focus:ring-1 ${
           prefs.showCriticalPath
-            ? "border-red-500 bg-red-50 text-red-700 hover:bg-red-100 focus:ring-red-500 dark:border-red-500 dark:bg-red-950/40 dark:text-red-300 dark:hover:bg-red-950/60"
-            : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 focus:ring-AIPM-dark-blue dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+            ? "border-AIPM-pink bg-AIPM-pink/10 text-AIPM-pink hover:bg-AIPM-pink/20 focus:ring-AIPM-pink dark:border-AIPM-pink dark:bg-AIPM-pink/15"
+            : "border-line bg-surface text-foreground hover:bg-surface-muted focus:ring-AIPM-green"
         }`}
       >
         {/* Diverging-paths glyph — two lines branching from a common origin. */}
@@ -1132,7 +1132,7 @@ export function GanttPanel({
           onClick={onAddTask}
           aria-label={t(lang, "addTaskButton")}
           title={t(lang, "addTaskButton")}
-          className="ml-auto rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-AIPM-dark-blue/90"
+          className="ml-auto rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90"
         >
           + {t(lang, "addTaskButton")}
         </button>
@@ -1144,7 +1144,7 @@ export function GanttPanel({
     return (
       <div className="flex h-full min-h-[300px] flex-col">
         {toolbar}
-        <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-AIPM-light-grey p-10 text-center text-sm text-AIPM-medium-grey dark:border-zinc-800">
+        <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-line p-10 text-center text-sm text-muted-foreground">
           <span>
             {filtersActive ? t(lang, "ganttNoMatches") : t(lang, "ganttEmpty")}
           </span>
@@ -1167,20 +1167,20 @@ export function GanttPanel({
       {toolbar}
       <div
         ref={panelRef}
-        className="min-h-[240px] w-full min-w-[480px] flex-1 resize overflow-auto rounded-md border border-zinc-200 dark:border-zinc-800"
+        className="min-h-[240px] w-full min-w-[480px] flex-1 resize overflow-auto rounded-md border border-line"
       >
       <div
         ref={wrapperRef}
         style={{ width: chartWidthPx, minWidth: "100%" }}
-        className="relative bg-white dark:bg-zinc-950"
+        className="relative bg-surface"
       >
         {/* --- top header rows: months + days -------------------------- */}
         <div
-          className="sticky top-0 z-20 flex border-b border-zinc-200 bg-zinc-50 text-xs dark:border-zinc-800 dark:bg-zinc-900"
+          className="sticky top-0 z-20 flex border-b border-line bg-surface-muted text-xs"
           style={{ height: HEADER_HEIGHT_PX }}
         >
           <div
-            className="sticky left-0 z-30 flex shrink-0 items-center border-r border-zinc-200 bg-zinc-50 px-3 font-medium uppercase tracking-wide text-AIPM-medium-grey dark:border-zinc-800 dark:bg-zinc-900"
+            className="sticky left-0 z-30 flex shrink-0 items-center border-r border-line bg-surface-muted px-3 font-medium uppercase tracking-wide text-muted-foreground"
             style={{ width: LEFT_GUTTER_PX }}
           >
             {t(lang, "task")}
@@ -1190,13 +1190,13 @@ export function GanttPanel({
             style={{ width: timelineWidthPx }}
           >
             <div
-              className="flex border-b border-zinc-200 dark:border-zinc-800"
+              className="flex border-b border-line"
               style={{ height: HEADER_ROW_HEIGHT_PX }}
             >
               {monthGroups.map((g, i) => (
                 <div
                   key={i}
-                  className="flex items-center justify-center border-r border-zinc-200 px-1 text-[11px] font-semibold text-AIPM-dark-blue dark:border-zinc-800 dark:text-AIPM-light-grey"
+                  className="flex items-center justify-center border-r border-line px-1 text-[11px] font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey"
                   style={{ width: g.widthPx }}
                   title={g.label}
                 >
@@ -1219,8 +1219,8 @@ export function GanttPanel({
                       isToday
                         ? "border-AIPM-dark-blue bg-AIPM-dark-blue/10 font-semibold text-AIPM-dark-blue"
                         : isWeekend
-                          ? "border-zinc-200 bg-zinc-100/60 text-AIPM-medium-grey dark:border-zinc-800 dark:bg-zinc-900/60"
-                          : "border-zinc-200 text-AIPM-medium-grey dark:border-zinc-800"
+                          ? "border-line bg-surface-muted/60 text-muted-foreground"
+                          : "border-line text-muted-foreground"
                     }`}
                     style={{ width: DAY_WIDTH_PX }}
                   >
@@ -1420,7 +1420,7 @@ export function GanttPanel({
                   setDraggingId(null);
                   setDropTargetId(null);
                 }}
-                className={`relative flex border-b border-zinc-100 dark:border-zinc-900 ${
+                className={`relative flex border-b border-line ${
                   isDragging ? "opacity-40" : ""
                 }`}
                 style={{ height: ROW_HEIGHT_PX }}
@@ -1436,13 +1436,13 @@ export function GanttPanel({
                   />
                 )}
                 <div
-                  className="sticky left-0 z-10 flex shrink-0 items-center gap-1.5 truncate border-r border-zinc-200 bg-white pr-3 text-xs dark:border-zinc-800 dark:bg-zinc-950"
+                  className="sticky left-0 z-10 flex shrink-0 items-center gap-1.5 truncate border-r border-line bg-surface pr-3 text-xs"
                   style={{ width: LEFT_GUTTER_PX }}
                   title={task.taskName}
                 >
                   <span
                     aria-hidden
-                    className="cursor-grab text-AIPM-medium-grey hover:text-AIPM-dark-blue active:cursor-grabbing"
+                    className="cursor-grab text-muted-foreground hover:text-AIPM-dark-blue active:cursor-grabbing"
                     title={t(lang, "ganttDragHint")}
                   >
                     {/* Grip icon — 6 dots in a 2×3 arrangement, matching
@@ -1461,7 +1461,7 @@ export function GanttPanel({
                       <circle cx="13" cy="15" r="1.4" />
                     </svg>
                   </span>
-                  <span className="font-mono text-AIPM-medium-grey">
+                  <span className="font-mono text-muted-foreground">
                     #{task.id}
                   </span>
                   {onEditTask ? (
@@ -1470,10 +1470,10 @@ export function GanttPanel({
                       onClick={() => onEditTask(task)}
                       onPointerDown={(e) => e.stopPropagation()}
                       title={`${task.taskName} — ${t(lang, "clickToEdit")}`}
-                      className={`truncate rounded-md border border-transparent px-1 py-0.5 text-left hover:border-AIPM-dark-blue hover:bg-zinc-50 dark:hover:bg-zinc-800 ${
+                      className={`truncate rounded-md border border-transparent px-1 py-0.5 text-left hover:border-AIPM-dark-blue hover:bg-surface-muted ${
                         isComplete
-                          ? "text-AIPM-medium-grey line-through"
-                          : "text-AIPM-dark-grey dark:text-AIPM-light-grey"
+                          ? "text-muted-foreground line-through"
+                          : "text-foreground"
                       }`}
                     >
                       {task.taskName}
@@ -1482,8 +1482,8 @@ export function GanttPanel({
                     <span
                       className={`truncate ${
                         isComplete
-                          ? "text-AIPM-medium-grey line-through"
-                          : "text-AIPM-dark-grey dark:text-AIPM-light-grey"
+                          ? "text-muted-foreground line-through"
+                          : "text-foreground"
                       }`}
                     >
                       {task.taskName}
@@ -1591,7 +1591,7 @@ export function GanttPanel({
                           isComplete
                             ? "opacity-50"
                             : critical.criticalTasks.has(task.id)
-                              ? "ring-2 ring-red-500"
+                              ? "ring-2 ring-AIPM-pink"
                               : isOverdue
                                 ? "ring-2 ring-AIPM-pink/70"
                                 : ""
@@ -1692,12 +1692,12 @@ export function GanttPanel({
                   onAddTask();
                 }
               }}
-              className="group relative flex cursor-pointer border-b border-dashed border-zinc-200 hover:bg-AIPM-dark-blue/5 dark:border-zinc-800 dark:hover:bg-AIPM-blue/10"
+              className="group relative flex cursor-pointer border-b border-dashed border-line hover:bg-surface-muted"
               style={{ height: ROW_HEIGHT_PX }}
               aria-label={t(lang, "addTaskButton")}
             >
               <div
-                className="sticky left-0 z-10 flex shrink-0 items-center gap-1.5 border-r border-zinc-200 bg-white px-3 text-xs text-AIPM-medium-grey group-hover:text-AIPM-dark-blue dark:border-zinc-800 dark:bg-zinc-950 dark:group-hover:text-AIPM-blue"
+                className="sticky left-0 z-10 flex shrink-0 items-center gap-1.5 border-r border-line bg-surface px-3 text-xs text-muted-foreground group-hover:text-AIPM-dark-blue"
                 style={{ width: LEFT_GUTTER_PX }}
               >
                 <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-3.5 w-3.5 shrink-0">
@@ -1712,7 +1712,7 @@ export function GanttPanel({
 
         {/* --- Footer with the date range so it's visible without hover -- */}
         <div
-          className="sticky bottom-0 flex items-center justify-end gap-2 border-t border-zinc-200 bg-zinc-50 px-3 py-1 text-[11px] text-AIPM-medium-grey dark:border-zinc-800 dark:bg-zinc-900"
+          className="sticky bottom-0 flex items-center justify-end gap-2 border-t border-line bg-surface-muted px-3 py-1 text-[11px] text-muted-foreground"
           style={{ minHeight: 22 }}
         >
           <span>
