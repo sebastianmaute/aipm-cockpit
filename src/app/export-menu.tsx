@@ -92,7 +92,7 @@ export function ExportMenu({
         aria-label={t(lang, "exportTitle")}
         aria-expanded={open}
         title={t(lang, "exportTitle")}
-        className="rounded-md p-2 text-AIPM-dark-grey hover:bg-AIPM-light-grey hover:text-AIPM-dark-blue focus:outline-none focus:ring-2 focus:ring-AIPM-dark-blue dark:text-AIPM-medium-grey dark:hover:bg-zinc-800 dark:hover:text-AIPM-light-grey"
+        className="rounded-md p-2 text-foreground hover:bg-surface-muted hover:text-AIPM-dark-blue focus:outline-none focus:ring-2 focus:ring-AIPM-green dark:text-muted-foreground dark:hover:text-AIPM-light-grey"
       >
         <svg
           viewBox="0 0 20 20"
@@ -113,12 +113,12 @@ export function ExportMenu({
         <div
           role="dialog"
           aria-label={t(lang, "exportTitle")}
-          className="absolute right-0 top-full z-20 mt-2 w-72 overflow-y-auto rounded-lg border border-zinc-200 bg-white p-3 shadow-lg dark:border-zinc-800 dark:bg-zinc-900"
+          className="absolute right-0 top-full z-20 mt-2 w-72 overflow-y-auto rounded-lg border border-line bg-surface p-3"
         >
-          <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-AIPM-medium-grey">
+          <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             {t(lang, "exportTitle")}
           </h3>
-          <p className="mb-2 text-xs text-AIPM-dark-grey dark:text-AIPM-medium-grey">
+          <p className="mb-2 text-xs text-foreground">
             {t(lang, "exportSubtitle", tasks.length)}
           </p>
           <ul className="space-y-1">
@@ -127,12 +127,12 @@ export function ExportMenu({
                 <button
                   type="button"
                   onClick={() => pick(o.format)}
-                  className="flex w-full flex-col items-start gap-0.5 rounded-md px-2.5 py-2 text-left text-sm hover:bg-AIPM-light-grey dark:hover:bg-zinc-800"
+                  className="flex w-full flex-col items-start gap-0.5 rounded-md px-2.5 py-2 text-left text-sm hover:bg-surface-muted"
                 >
                   <span className="font-medium text-AIPM-dark-blue dark:text-AIPM-light-grey">
                     {t(lang, o.labelKey)}
                   </span>
-                  <span className="text-xs text-AIPM-medium-grey">
+                  <span className="text-xs text-muted-foreground">
                     {t(lang, o.hintKey)}
                   </span>
                 </button>
