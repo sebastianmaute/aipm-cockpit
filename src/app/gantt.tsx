@@ -985,11 +985,14 @@ export function GanttPanel({
   const timelineWidthPx = range.days * DAY_WIDTH_PX;
 
   // On mount (and on the first render where layout is meaningful), scroll
-  // the chart so today sits in the viewport's horizontal center. Latched so
-  // the user's manual scroll position is preserved on later renders.
+  // the chart so today sits in the viewport's horizontal center. Targets
+  // panelRef (the outer overflow-auto container — the only scrollable
+  // element); wrapperRef is the inner, non-scrolling chart canvas.
+  // Latched so the user's manual scroll position is preserved on later
+  // renders.
   useLayoutEffect(() => {
     if (didInitialScroll.current) return;
-    const el = wrapperRef.current;
+    const el = panelRef.current;
     if (!el || todayOffsetPx <= 0) return;
     const target = todayOffsetPx - el.clientWidth / 2;
     el.scrollLeft = Math.max(
@@ -997,7 +1000,7 @@ export function GanttPanel({
       Math.min(el.scrollWidth - el.clientWidth, target),
     );
     didInitialScroll.current = true;
-  }, [todayOffsetPx]);
+  }, [panelRef, todayOffsetPx]);
   const chartWidthPx = LEFT_GUTTER_PX + timelineWidthPx;
   const rowsCount = layout.placeable.length;
 

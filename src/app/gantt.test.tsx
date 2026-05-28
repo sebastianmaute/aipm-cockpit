@@ -62,8 +62,10 @@ describe("GanttPanel scroll-to-today", () => {
     try {
       const { container } = render(<GanttPanel {...BASE_PROPS} />);
 
-      // wrapperRef targets the inner div (relative bg-surface).
-      const wrapper = container.querySelector("div.relative.bg-surface") as HTMLDivElement | null;
+      // The scroll target is the outer overflow-auto panel (panelRef from
+      // useResizable). Use min-w-[480px] to disambiguate from any inner
+      // overflow-auto regions.
+      const wrapper = container.querySelector("div.overflow-auto.min-w-\\[480px\\]") as HTMLDivElement | null;
       expect(wrapper).not.toBeNull();
       if (!wrapper) return;
 
@@ -86,7 +88,7 @@ describe("GanttPanel scroll-to-today", () => {
     try {
       const { container, rerender } = render(<GanttPanel {...BASE_PROPS} />);
 
-      const wrapper = container.querySelector("div.relative.bg-surface") as HTMLDivElement | null;
+      const wrapper = container.querySelector("div.overflow-auto.min-w-\\[480px\\]") as HTMLDivElement | null;
       expect(wrapper).not.toBeNull();
       if (!wrapper) return;
 
