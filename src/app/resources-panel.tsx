@@ -340,17 +340,17 @@ function ResourcesPanelInner({
               />
             </div>
             <div className="min-h-0 flex-1 overflow-auto rounded-md border border-line">
-            <table className="text-left text-xs">
-              <thead className="sticky top-0 bg-surface-muted">
+            <table className="w-full text-left text-sm">
+              <thead className="sticky top-0 z-10 bg-surface-muted text-xs uppercase tracking-wide text-muted-foreground">
                 <tr>
-                  <th className="px-2 py-1.5 text-left">{t(lang, "assignee")}</th>
+                  <th className="px-3 py-2 font-medium">{t(lang, "assignee")}</th>
                   {periods.map((p) => (
-                    <th key={p.key} className="px-2 py-1.5 text-right tabular-nums">{p.key}</th>
+                    <th key={p.key} className="px-3 py-2 text-right font-medium tabular-nums">{p.key}</th>
                   ))}
-                  <th className="px-2 py-1.5 text-right" title={t(lang, "resourcesCapacityDaysHint")}>{t(lang, "resourcesCapacityDays")}</th>
-                  <th className="px-2 py-1.5 text-right" title={t(lang, "resourcesInternalCostHint")}>{t(lang, "resourcesInternalCost")}</th>
-                  <th className="px-2 py-1.5 text-right" title={t(lang, "resourcesExternalCostHint")}>{t(lang, "resourcesExternalCost")}</th>
-                  <th className="px-2 py-1.5 text-right" title={t(lang, "resourcesMarginHint")}>{t(lang, "resourcesMargin")}</th>
+                  <th className="px-3 py-2 text-right font-medium" title={t(lang, "resourcesCapacityDaysHint")}>{t(lang, "resourcesCapacityDays")}</th>
+                  <th className="px-3 py-2 text-right font-medium" title={t(lang, "resourcesInternalCostHint")}>{t(lang, "resourcesInternalCost")}</th>
+                  <th className="px-3 py-2 text-right font-medium" title={t(lang, "resourcesExternalCostHint")}>{t(lang, "resourcesExternalCost")}</th>
+                  <th className="px-3 py-2 text-right font-medium" title={t(lang, "resourcesMarginHint")}>{t(lang, "resourcesMargin")}</th>
                 </tr>
               </thead>
               {(() => {
@@ -368,7 +368,7 @@ function ResourcesPanelInner({
                   totals.margin += cost.margin;
                   return (
                     <tr key={r.id}>
-                      <td className="px-2 py-1">
+                      <td className="px-3 py-2">
                         <button
                           type="button"
                           onClick={() => onEditResource(r)}
@@ -389,7 +389,7 @@ function ResourcesPanelInner({
                           ? (owner ? (r.utilization[owner.key] ?? "") : "")
                           : (r.utilization[p.key] ?? "");
                         return (
-                        <td key={p.key} className="px-1 py-1 text-right align-top">
+                        <td key={p.key} className="px-3 py-2 text-right align-top">
                           <input type="number" min={0} step={r.utilizationMode === "percent" ? 5 : 1}
                             aria-label={`Utilization for ${resourceDisplayName(r)} in ${p.key}`}
                             title={t(lang, "resourcesUtilizationHint")}
@@ -408,10 +408,10 @@ function ResourcesPanelInner({
                         </td>
                         );
                       })}
-                      <td className="px-2 py-1 text-right tabular-nums font-medium">{(totalHours / workdayHours).toFixed(1)}</td>
-                      <td className="px-2 py-1 text-right tabular-nums">{formatCurrency(cost.internal, plan.currency, loc)}</td>
-                      <td className="px-2 py-1 text-right tabular-nums">{formatCurrency(cost.external, plan.currency, loc)}</td>
-                      <td className="px-2 py-1 text-right tabular-nums">{formatCurrency(cost.margin, plan.currency, loc)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums font-medium">{(totalHours / workdayHours).toFixed(1)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{formatCurrency(cost.internal, plan.currency, loc)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{formatCurrency(cost.external, plan.currency, loc)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{formatCurrency(cost.margin, plan.currency, loc)}</td>
                     </tr>
                   );
                 });
@@ -420,12 +420,12 @@ function ResourcesPanelInner({
                     <tbody className="divide-y divide-line">{rowsJsx}</tbody>
                     <tfoot className="border-t border-line">
                       <tr className="font-semibold">
-                        <td className="px-2 py-1.5">{t(lang, "resourcesTotal")}</td>
-                        <td className="px-1 py-1.5" colSpan={periods.length} />
-                        <td className="px-2 py-1.5 text-right tabular-nums">{totals.days.toFixed(1)}</td>
-                        <td className="px-2 py-1.5 text-right tabular-nums">{formatCurrency(totals.internal, plan.currency, loc)}</td>
-                        <td className="px-2 py-1.5 text-right tabular-nums">{formatCurrency(totals.external, plan.currency, loc)}</td>
-                        <td className="px-2 py-1.5 text-right tabular-nums">{formatCurrency(totals.margin, plan.currency, loc)}</td>
+                        <td className="px-3 py-2">{t(lang, "resourcesTotal")}</td>
+                        <td className="px-3 py-2" colSpan={periods.length} />
+                        <td className="px-3 py-2 text-right tabular-nums">{totals.days.toFixed(1)}</td>
+                        <td className="px-3 py-2 text-right tabular-nums">{formatCurrency(totals.internal, plan.currency, loc)}</td>
+                        <td className="px-3 py-2 text-right tabular-nums">{formatCurrency(totals.external, plan.currency, loc)}</td>
+                        <td className="px-3 py-2 text-right tabular-nums">{formatCurrency(totals.margin, plan.currency, loc)}</td>
                       </tr>
                     </tfoot>
                   </>
