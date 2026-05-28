@@ -239,10 +239,104 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-// Filled in by Task 9.
+type DetailSortKey = "id" | "category" | "title" | "severity" | "status" | "owner" | "raisedDate" | "targetDate" | "ageDays" | "linkedTaskCount";
+type DetailSortDir = "asc" | "desc" | "off";
+
 function FullDetail({ lang, rows }: { lang: Lang; rows: RaidReport["fullDetail"] }) {
-  void lang; void rows;
-  return null;
+  const [sortKey, setSortKey] = useState<DetailSortKey>("category");
+  const [sortDir, setSortDir] = useState<DetailSortDir>("asc");
+
+  function clickHeader(k: DetailSortKey) {
+    if (k !== sortKey) {
+      setSortKey(k);
+      setSortDir("asc");
+      return;
+    }
+    setSortDir((d) => (d === "asc" ? "desc" : d === "desc" ? "off" : "asc"));
+  }
+
+  const sorted = useMemo(() => {
+    if (sortDir === "off") return rows;
+    const cmp = (a: RaidReport["fullDetail"][number], b: RaidReport["fullDetail"][number]): number => {
+      const av = (a[sortKey] ?? "") as string | number;
+      const bv = (b[sortKey] ?? "") as string | number;
+      if (av === bv) return a.id - b.id;
+      return av < bv ? -1 : 1;
+    };
+    const arr = rows.slice().sort(cmp);
+    if (sortDir === "desc") arr.reverse();
+    return arr;
+  }, [rows, sortKey, sortDir]);
+
+  function indicator(k: DetailSortKey) {
+    if (sortKey !== k || sortDir === "off") return "";
+    return sortDir === "asc" ? " ↑" : " ↓";
+  }
+
+  return (
+    <div className="overflow-x-auto rounded-md border border-line">
+      <table className="min-w-full text-left text-sm">
+        <thead className="sticky top-0 z-10 bg-surface-muted text-xs uppercase tracking-wide text-muted-foreground">
+          <tr>
+            <SortTh label={t(lang, "id")} k="id" sortKey={sortKey} dir={sortDir} onClick={clickHeader} indicator={indicator("id")} />
+            <SortTh label={t(lang, "raidCategory")} k="category" sortKey={sortKey} dir={sortDir} onClick={clickHeader} indicator={indicator("category")} />
+            <SortTh label={t(lang, "raidTitle")} k="title" sortKey={sortKey} dir={sortDir} onClick={clickHeader} indicator={indicator("title")} />
+            <SortTh label={t(lang, "raidSeverity")} k="severity" sortKey={sortKey} dir={sortDir} onClick={clickHeader} indicator={indicator("severity")} />
+            <SortTh label={t(lang, "raidStatus")} k="status" sortKey={sortKey} dir={sortDir} onClick={clickHeader} indicator={indicator("status")} />
+            <SortTh label={t(lang, "raidOwner")} k="owner" sortKey={sortKey} dir={sortDir} onClick={clickHeader} indicator={indicator("owner")} />
+            <SortTh label={t(lang, "raidReportColRaised")} k="raisedDate" sortKey={sortKey} dir={sortDir} onClick={clickHeader} indicator={indicator("raisedDate")} />
+            <SortTh label={t(lang, "raidReportColTarget")} k="targetDate" sortKey={sortKey} dir={sortDir} onClick={clickHeader} indicator={indicator("targetDate")} />
+            <SortTh label={t(lang, "raidReportColAge")} k="ageDays" sortKey={sortKey} dir={sortDir} onClick={clickHeader} indicator={indicator("ageDays")} />
+            <SortTh label={t(lang, "raidReportColLinkedTasks")} k="linkedTaskCount" sortKey={sortKey} dir={sortDir} onClick={clickHeader} indicator={indicator("linkedTaskCount")} />
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-line">
+          {sorted.map((r) => (
+            <tr key={r.id}>
+              <td className="px-3 py-2 text-muted-foreground tabular-nums">{r.id}</td>
+              <td className="px-3 py-2">{r.category}</td>
+              <td className="px-3 py-2 text-foreground">
+                <span className="block max-w-[60ch] truncate" title={r.title}>{r.title}</span>
+              </td>
+              <td className="px-3 py-2 text-muted-foreground">{r.severity ?? ""}</td>
+              <td className="px-3 py-2 text-muted-foreground">{r.status}</td>
+              <td className="px-3 py-2">{ownerCell(lang, r.owner)}</td>
+              <td className="px-3 py-2 text-muted-foreground tabular-nums">{r.raisedDate}</td>
+              <td className={`px-3 py-2 tabular-nums ${r.overdue ? "text-AIPM-pink font-medium" : "text-muted-foreground"}`}>
+                {r.targetDate ?? "—"}
+              </td>
+              <td className="px-3 py-2 text-right tabular-nums">{r.ageDays}</td>
+              <td className="px-3 py-2 text-right tabular-nums">{r.linkedTaskCount}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function SortTh({
+  label, k, sortKey, dir, onClick, indicator,
+}: {
+  label: string;
+  k: DetailSortKey;
+  sortKey: DetailSortKey;
+  dir: DetailSortDir;
+  onClick: (k: DetailSortKey) => void;
+  indicator: string;
+}) {
+  const active = sortKey === k && dir !== "off";
+  return (
+    <th className="px-3 py-2 font-medium">
+      <button
+        type="button"
+        onClick={() => onClick(k)}
+        className={`inline-flex items-center gap-1 ${active ? "text-foreground" : ""} hover:text-foreground`}
+      >
+        {label}{indicator}
+      </button>
+    </th>
+  );
 }
 
 function ownerCell(lang: Lang, owner: string) {
