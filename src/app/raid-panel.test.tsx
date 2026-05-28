@@ -37,7 +37,7 @@ function makeRaidItem(overrides: Partial<RaidItem> & Pick<RaidItem, "id" | "titl
 
 /** Returns the text of every #id cell in document order. */
 function rowIds(container: HTMLElement): string[] {
-  return Array.from(container.querySelectorAll("td.font-mono.text-AIPM-medium-grey"))
+  return Array.from(container.querySelectorAll("td.font-mono.text-muted-foreground"))
     .map((td) => td.textContent?.trim() ?? "")
     .filter((text) => text.startsWith("#"));
 }

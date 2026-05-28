@@ -65,16 +65,16 @@ export type RaidPanelProps = {
 // --- Color palette -------------------------------------------------------
 
 const categoryPillClass: Record<RaidCategory, string> = {
-  R: "bg-red-100 text-red-800 dark:bg-red-950/40 dark:text-red-300",
-  A: "bg-sky-100 text-sky-800 dark:bg-sky-950/40 dark:text-sky-300",
-  I: "bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300",
-  D: "bg-violet-100 text-violet-800 dark:bg-violet-950/40 dark:text-violet-300",
+  R: "bg-AIPM-pink/15 text-AIPM-pink dark:bg-AIPM-pink/20",
+  A: "bg-AIPM-blue/15 text-AIPM-blue dark:bg-AIPM-blue/20",
+  I: "bg-AIPM-purple/15 text-AIPM-purple dark:bg-AIPM-purple/20",
+  D: "bg-AIPM-green/15 text-AIPM-green dark:bg-AIPM-green/20",
 };
 
 const severityDotClass: Record<"R" | "A" | "G", string> = {
-  R: "bg-red-500",
-  A: "bg-amber-500",
-  G: "bg-emerald-500",
+  R: "bg-AIPM-pink",
+  A: "bg-AIPM-purple",
+  G: "bg-AIPM-green",
 };
 
 const severityRank: Record<RaidSeverity, number> = {
@@ -326,7 +326,7 @@ function RaidPanelInner({
         placeholder={t(lang, "raidSearchPlaceholder")}
         aria-label={t(lang, "raidSearchPlaceholder")}
         title={t(lang, "raidSearchHint")}
-        className="min-w-[12rem] flex-1 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-900 shadow-sm focus:border-AIPM-dark-blue focus:outline-none focus:ring-1 focus:ring-AIPM-dark-blue dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+        className="min-w-[12rem] flex-1 rounded-md border border-line bg-surface px-3 py-1.5 text-sm text-foreground focus:border-AIPM-dark-blue focus:outline-none focus:ring-1 focus:ring-AIPM-green"
       />
       <select
         value={categoryFilter}
@@ -335,7 +335,7 @@ function RaidPanelInner({
         }
         aria-label={t(lang, "raidCategory")}
         title={t(lang, "raidCategoryFilterHint")}
-        className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm text-zinc-900 shadow-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+        className="rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-foreground"
       >
         <option value="All">{t(lang, "raidCategoryAll")}</option>
         {RAID_CATEGORIES.map((c) => (
@@ -351,7 +351,7 @@ function RaidPanelInner({
         }
         aria-label={t(lang, "raidSeverity")}
         title={t(lang, "raidSeverityFilterHint")}
-        className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm text-zinc-900 shadow-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+        className="rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-foreground"
       >
         <option value="All">{t(lang, "raidSeverityAll")}</option>
         {RAID_SEVERITIES.map((s) => (
@@ -367,7 +367,7 @@ function RaidPanelInner({
         }
         aria-label={t(lang, "raidStatus")}
         title={t(lang, "raidStatusFilterHint")}
-        className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm text-zinc-900 shadow-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+        className="rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-foreground"
       >
         <option value="All">{t(lang, "raidStatusAll")}</option>
         <option value="Open">{t(lang, "raidStatusOpen")}</option>
@@ -378,7 +378,7 @@ function RaidPanelInner({
           type="button"
           onClick={onClearTaskFilter}
           title={t(lang, "ganttResetFilters")}
-          className="rounded-md border border-amber-400 bg-amber-50 px-2.5 py-1.5 text-xs font-medium text-amber-800 hover:bg-amber-100 dark:border-amber-500 dark:bg-amber-950/40 dark:text-amber-300"
+          className="rounded-md border border-AIPM-purple/40 bg-AIPM-purple/10 px-2.5 py-1.5 text-xs font-medium text-AIPM-purple hover:bg-AIPM-purple/20 dark:border-AIPM-purple/50 dark:bg-AIPM-purple/15"
         >
           #{filterTaskId} ×
         </button>
@@ -394,7 +394,7 @@ function RaidPanelInner({
             onClearTaskFilter();
           }}
           title={t(lang, "resetFiltersHint")}
-          className="rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-xs font-medium text-zinc-700 shadow-sm hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          className="rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted"
         >
           {t(lang, "ganttResetFilters")}
         </button>
@@ -402,7 +402,7 @@ function RaidPanelInner({
       <button
         type="button"
         onClick={() => openNew()}
-        className="ml-auto rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-AIPM-dark-blue/90"
+        className="ml-auto rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90"
       >
         {t(lang, "raidAddItem")}
       </button>
@@ -413,9 +413,9 @@ function RaidPanelInner({
     <div className="flex h-full min-h-[300px] flex-col">
       {toolbar}
 
-      <div className="min-h-[240px] flex-1 overflow-auto rounded-md border border-zinc-200 dark:border-zinc-800">
+      <div className="min-h-[240px] flex-1 overflow-auto rounded-md border border-line">
         <table className="min-w-full text-left text-sm">
-          <thead className="sticky top-0 z-10 bg-zinc-50 text-xs uppercase tracking-wide text-AIPM-medium-grey dark:bg-zinc-900">
+          <thead className="sticky top-0 z-10 bg-surface-muted text-xs uppercase tracking-wide text-muted-foreground">
             <tr>
               <th className="px-3 py-2" aria-sort={sort?.key === "id" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
                 <button type="button" onClick={() => toggleSort("id")} aria-label={t(lang, "id")} className="inline-flex items-center gap-1 hover:text-AIPM-dark-blue dark:hover:text-AIPM-light-grey">
@@ -456,17 +456,17 @@ function RaidPanelInner({
               <th className="px-3 py-2">{t(lang, "raidCausedBy")}</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
+          <tbody className="divide-y divide-line">
             {raid.length === 0 && (
               <tr>
-                <td colSpan={9} className="p-10 text-center text-sm text-AIPM-medium-grey dark:text-zinc-400">
+                <td colSpan={9} className="p-10 text-center text-sm text-muted-foreground">
                   {t(lang, "raidEmpty")}
                 </td>
               </tr>
             )}
             {raid.length > 0 && visible.length === 0 && (
               <tr>
-                <td colSpan={9} className="p-10 text-center text-sm text-AIPM-medium-grey dark:text-zinc-400">
+                <td colSpan={9} className="p-10 text-center text-sm text-muted-foreground">
                   {t(lang, "raidNoMatches")}
                 </td>
               </tr>
@@ -478,11 +478,11 @@ function RaidPanelInner({
                 <tr
                   key={item.id}
                   onClick={() => openEdit(item)}
-                  className={`cursor-pointer align-top hover:bg-AIPM-light-grey/40 dark:hover:bg-zinc-900 ${
+                  className={`cursor-pointer align-top hover:bg-surface-muted ${
                     terminal ? "opacity-60" : ""
                   }`}
                 >
-                  <td className="px-3 py-2 font-mono text-AIPM-medium-grey">
+                  <td className="px-3 py-2 font-mono text-muted-foreground">
                     #{item.id}
                   </td>
                   <td className="px-3 py-2">
@@ -493,7 +493,7 @@ function RaidPanelInner({
                       {item.category}
                     </span>
                   </td>
-                  <td className="px-3 py-2 font-medium text-zinc-900 dark:text-zinc-100">
+                  <td className="px-3 py-2 font-medium text-foreground">
                     {item.title}
                   </td>
                   <td className="px-3 py-2">
@@ -510,18 +510,18 @@ function RaidPanelInner({
                       </span>
                     </span>
                   </td>
-                  <td className="px-3 py-2 text-zinc-700 dark:text-zinc-300">
+                  <td className="px-3 py-2 text-foreground">
                     {statusLabel(item.status, lang)}
                   </td>
-                  <td className="px-3 py-2 text-zinc-700 dark:text-zinc-300">
+                  <td className="px-3 py-2 text-foreground">
                     {item.owner ?? ""}
                   </td>
-                  <td className="px-3 py-2 font-mono text-xs text-AIPM-medium-grey">
+                  <td className="px-3 py-2 font-mono text-xs text-muted-foreground">
                     {item.targetDate ?? ""}
                   </td>
                   <td className="px-3 py-2">
                     {item.linkedTaskIds.length === 0 ? (
-                      <span className="text-AIPM-medium-grey">—</span>
+                      <span className="text-muted-foreground">—</span>
                     ) : (
                       <span className="flex flex-wrap gap-1">
                         {item.linkedTaskIds.map((tid) => {
@@ -535,7 +535,7 @@ function RaidPanelInner({
                                 onJumpToTask(tid);
                               }}
                               title={tk?.taskName ?? `#${tid}`}
-                              className="inline-flex rounded bg-AIPM-light-grey px-1.5 py-0.5 font-mono text-[10px] text-AIPM-dark-blue hover:bg-AIPM-dark-blue hover:text-white dark:bg-zinc-800 dark:text-AIPM-blue"
+                              className="inline-flex rounded bg-surface-muted px-1.5 py-0.5 font-mono text-[10px] text-AIPM-dark-blue hover:bg-AIPM-dark-blue hover:text-white"
                             >
                               #{tid}
                             </button>
@@ -549,7 +549,7 @@ function RaidPanelInner({
                       const parentIds = item.causedByRaidIds ?? [];
                       const children = causesIndex.get(item.id) ?? [];
                       if (parentIds.length === 0 && children.length === 0) {
-                        return <span className="text-AIPM-medium-grey">—</span>;
+                        return <span className="text-muted-foreground">—</span>;
                       }
                       return (
                         <span className="flex flex-wrap items-center gap-1">
@@ -564,7 +564,7 @@ function RaidPanelInner({
                                   if (parent) openEdit(parent);
                                 }}
                                 title={parent?.title ?? `RAID #${pid}`}
-                                className="inline-flex items-center gap-1 rounded bg-AIPM-light-grey px-1.5 py-0.5 font-mono text-[10px] text-AIPM-dark-blue hover:bg-AIPM-dark-blue hover:text-white dark:bg-zinc-800 dark:text-AIPM-blue"
+                                className="inline-flex items-center gap-1 rounded bg-surface-muted px-1.5 py-0.5 font-mono text-[10px] text-AIPM-dark-blue hover:bg-AIPM-dark-blue hover:text-white"
                               >
                                 ↩ #{pid}
                               </button>
@@ -573,7 +573,7 @@ function RaidPanelInner({
                           {children.length > 0 && (
                             <span
                               title={t(lang, "raidCausedThisCount", children.length)}
-                              className="inline-flex items-center rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
+                              className="inline-flex items-center rounded bg-AIPM-purple/15 px-1.5 py-0.5 text-[10px] font-medium text-AIPM-purple dark:bg-AIPM-purple/20"
                             >
                               → {children.length}
                             </span>
@@ -591,7 +591,7 @@ function RaidPanelInner({
                   type="button"
                   onClick={() => openNew(effectiveCategory)}
                   aria-label={t(lang, "raidAddItem")}
-                  className="group flex w-full cursor-pointer items-center gap-2 border-b border-dashed border-zinc-200 px-3 py-1.5 text-sm text-zinc-400 hover:bg-AIPM-dark-blue/5 hover:text-AIPM-dark-blue dark:border-zinc-700 dark:hover:bg-white/5"
+                  className="group flex w-full cursor-pointer items-center gap-2 border-b border-dashed border-line px-3 py-1.5 text-sm text-muted-foreground hover:bg-AIPM-dark-blue/5 hover:text-AIPM-dark-blue"
                 >
                   <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-3.5 w-3.5 opacity-50 group-hover:opacity-100">
                     <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
@@ -795,9 +795,9 @@ function RaidEditModal({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="relative flex w-[720px] min-w-[460px] max-w-[95vw] flex-col overflow-hidden rounded-xl border border-AIPM-light-grey bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-950"
+        className="relative flex w-[720px] min-w-[460px] max-w-[95vw] flex-col overflow-hidden rounded-xl border border-line bg-surface"
       >
-        <header className="sticky top-0 z-10 flex shrink-0 items-center justify-between gap-4 border-b border-AIPM-light-grey bg-white px-6 py-4 dark:border-zinc-800 dark:bg-zinc-950">
+        <header className="sticky top-0 z-10 flex shrink-0 items-center justify-between gap-4 border-b border-line bg-surface px-6 py-4">
           <h2 className="text-lg font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
             {isNew ? t(lang, "raidNewItem") : t(lang, "raidEditItem", draft.id)}
           </h2>
@@ -805,7 +805,7 @@ function RaidEditModal({
             type="button"
             onClick={onCancel}
             aria-label={t(lang, "cancel")}
-            className="rounded-md p-2 text-AIPM-dark-grey hover:bg-AIPM-light-grey hover:text-AIPM-dark-blue dark:text-AIPM-medium-grey dark:hover:bg-zinc-800"
+            className="rounded-md p-2 text-foreground hover:bg-surface-muted hover:text-AIPM-dark-blue"
           >
             <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-4 w-4">
               <path
@@ -820,7 +820,7 @@ function RaidEditModal({
         <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-4 overflow-y-auto p-6 sm:grid-cols-2">
           <div className="flex flex-col gap-1 text-sm">
             <label className="flex flex-col gap-1">
-              <span className="font-medium text-AIPM-dark-grey dark:text-AIPM-light-grey">
+              <span className="font-medium text-foreground">
                 {t(lang, "raidCategory")}
               </span>
               <SegmentedControl<RaidCategory>
@@ -872,20 +872,20 @@ function RaidEditModal({
               <button
                 type="button"
                 onClick={() => setCategoryUnlocked(true)}
-                className="self-start text-[11px] font-medium text-AIPM-medium-grey underline-offset-2 hover:text-AIPM-dark-blue hover:underline"
+                className="self-start text-[11px] font-medium text-muted-foreground underline-offset-2 hover:text-AIPM-dark-blue hover:underline"
               >
                 {t(lang, "raidAdvancedChangeCategory")}
               </button>
             )}
             {!isNew && categoryUnlocked && (
-              <span className="text-[11px] italic text-amber-700 dark:text-amber-400">
+              <span className="text-[11px] italic text-AIPM-purple">
                 {t(lang, "raidCategoryChangedWarning")}
               </span>
             )}
           </div>
 
           <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-AIPM-dark-grey dark:text-AIPM-light-grey">
+            <span className="font-medium text-foreground">
               {t(lang, "raidStatus")}
             </span>
             <SegmentedControl<RaidStatus>
@@ -901,7 +901,7 @@ function RaidEditModal({
           </label>
 
           <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-            <span className="font-medium text-AIPM-dark-grey dark:text-AIPM-light-grey">
+            <span className="font-medium text-foreground">
               {t(lang, "raidTitle")} *
             </span>
             <input
@@ -911,12 +911,12 @@ function RaidEditModal({
               onChange={(e) => onChange({ ...draft, title: e.target.value })}
               placeholder={t(lang, "raidPlaceholderTitle")}
               title={t(lang, "raidFieldTitleHint")}
-              className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
+              className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
             />
           </label>
 
           <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-            <span className="font-medium text-AIPM-dark-grey dark:text-AIPM-light-grey">
+            <span className="font-medium text-foreground">
               {t(lang, "raidDescription")}
             </span>
             <textarea
@@ -927,17 +927,17 @@ function RaidEditModal({
               }
               placeholder={t(lang, "raidPlaceholderDescription")}
               title={t(lang, "raidFieldDescriptionHint")}
-              className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
+              className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
             />
           </label>
 
           {draft.category === "R" ? (
             <div className="sm:col-span-2" title={t(lang, "raidFieldRiskMatrixHint")}>
               <div className="mb-2 flex items-baseline justify-between gap-2">
-                <span className="text-sm font-medium text-AIPM-dark-grey dark:text-AIPM-light-grey">
+                <span className="text-sm font-medium text-foreground">
                   {t(lang, "raidRiskMatrix")}
                 </span>
-                <span className="text-xs text-AIPM-medium-grey">
+                <span className="text-xs text-muted-foreground">
                   {draft.probability && draft.impact
                     ? `${draft.probability} × ${draft.impact} = ${draft.probability * draft.impact} → ${draft.severity ? severityLabel(draft.severity, lang) : ""}`
                     : ""}
@@ -952,7 +952,7 @@ function RaidEditModal({
             </div>
           ) : (
             <label className="flex flex-col gap-1 text-sm">
-              <span className="font-medium text-AIPM-dark-grey dark:text-AIPM-light-grey">
+              <span className="font-medium text-foreground">
                 {t(lang, "raidSeverity")}
               </span>
               <SegmentedControl<RaidSeverity>
@@ -969,7 +969,7 @@ function RaidEditModal({
           )}
 
           <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-AIPM-dark-grey dark:text-AIPM-light-grey">
+            <span className="font-medium text-foreground">
               {t(lang, "raidOwner")}
             </span>
             <input
@@ -979,12 +979,12 @@ function RaidEditModal({
                 onChange({ ...draft, owner: e.target.value || undefined })
               }
               title={t(lang, "raidFieldOwnerHint")}
-              className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
+              className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
             />
           </label>
 
           <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-AIPM-dark-grey dark:text-AIPM-light-grey">
+            <span className="font-medium text-foreground">
               {t(lang, "email")}
             </span>
             <input
@@ -994,12 +994,12 @@ function RaidEditModal({
                 onChange({ ...draft, ownerEmail: e.target.value || undefined })
               }
               title={t(lang, "raidFieldOwnerEmailHint")}
-              className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
+              className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
             />
           </label>
 
           <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-AIPM-dark-grey dark:text-AIPM-light-grey">
+            <span className="font-medium text-foreground">
               {t(lang, "raidRaisedDate")}
             </span>
             <input
@@ -1007,12 +1007,12 @@ function RaidEditModal({
               value={draft.raisedDate}
               onChange={(e) => onChange({ ...draft, raisedDate: e.target.value })}
               title={t(lang, "raidFieldRaisedDateHint")}
-              className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
+              className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
             />
           </label>
 
           <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-AIPM-dark-grey dark:text-AIPM-light-grey">
+            <span className="font-medium text-foreground">
               {t(lang, "raidTargetDate")}
             </span>
             <input
@@ -1022,12 +1022,12 @@ function RaidEditModal({
                 onChange({ ...draft, targetDate: e.target.value || undefined })
               }
               title={t(lang, "raidFieldTargetDateHint")}
-              className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
+              className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
             />
           </label>
 
           <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-            <span className="font-medium text-AIPM-dark-grey dark:text-AIPM-light-grey">
+            <span className="font-medium text-foreground">
               {t(lang, "raidMitigation")}
             </span>
             <textarea
@@ -1038,13 +1038,13 @@ function RaidEditModal({
               }
               placeholder={t(lang, "raidPlaceholderMitigation")}
               title={t(lang, "raidFieldMitigationHint")}
-              className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
+              className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
             />
           </label>
 
           <div className="sm:col-span-2">
             <div className="mb-2 flex items-center justify-between gap-2">
-              <span className="text-sm font-medium text-AIPM-dark-grey dark:text-AIPM-light-grey">
+              <span className="text-sm font-medium text-foreground">
                 {t(lang, "raidLinkedTasks")}
               </span>
               <button
@@ -1052,21 +1052,21 @@ function RaidEditModal({
                 onClick={onCreateMitigationTask}
                 disabled={isNew}
                 title={t(lang, "raidCreateMitigationTaskHint")}
-                className="rounded-md border border-AIPM-dark-blue bg-white px-2 py-1 text-xs font-medium text-AIPM-dark-blue hover:bg-AIPM-light-grey disabled:cursor-not-allowed disabled:opacity-50 dark:border-AIPM-blue dark:bg-zinc-900 dark:text-AIPM-blue"
+                className="rounded-md border border-AIPM-dark-blue bg-surface px-2 py-1 text-xs font-medium text-AIPM-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 dark:border-AIPM-blue dark:text-AIPM-blue"
               >
                 {t(lang, "raidCreateMitigationTask")}
               </button>
             </div>
             <div className="mb-2 flex flex-wrap gap-1.5">
               {draft.linkedTaskIds.length === 0 && (
-                <span className="text-xs italic text-AIPM-medium-grey">—</span>
+                <span className="text-xs italic text-muted-foreground">—</span>
               )}
               {draft.linkedTaskIds.map((tid) => {
                 const tk = tasks.find((task) => task.id === tid);
                 return (
                   <span
                     key={tid}
-                    className="inline-flex items-center gap-1 rounded bg-AIPM-light-grey px-2 py-0.5 text-xs text-AIPM-dark-grey dark:bg-zinc-800 dark:text-AIPM-light-grey"
+                    className="inline-flex items-center gap-1 rounded bg-surface-muted px-2 py-0.5 text-xs text-foreground"
                   >
                     <span className="font-mono">#{tid}</span>
                     <span className="max-w-[200px] truncate">
@@ -1077,7 +1077,7 @@ function RaidEditModal({
                       onClick={() => removeLinked(tid)}
                       aria-label={t(lang, "raidUnlinkTask")}
                       title={t(lang, "raidUnlinkTask")}
-                      className="text-AIPM-medium-grey hover:text-AIPM-pink"
+                      className="text-muted-foreground hover:text-AIPM-pink"
                     >
                       ×
                     </button>
@@ -1092,18 +1092,18 @@ function RaidEditModal({
                 onChange={(e) => setTaskPickerQuery(e.target.value)}
                 placeholder={t(lang, "raidLinkPickerPlaceholder")}
                 title={t(lang, "raidFieldLinkedTasksHint")}
-                className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
+                className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm"
               />
               {taskPickerQuery.trim() !== "" && availableTasks.length > 0 && (
-                <ul className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md border border-zinc-200 bg-white shadow-lg dark:border-zinc-800 dark:bg-zinc-950">
+                <ul className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md border border-line bg-surface">
                   {availableTasks.map((tk) => (
                     <li key={tk.id}>
                       <button
                         type="button"
                         onClick={() => addLinked(tk.id)}
-                        className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-AIPM-light-grey dark:hover:bg-zinc-800"
+                        className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-surface-muted"
                       >
-                        <span className="font-mono text-xs text-AIPM-medium-grey">
+                        <span className="font-mono text-xs text-muted-foreground">
                           #{tk.id}
                         </span>
                         <span className="truncate">{tk.taskName}</span>
@@ -1118,18 +1118,18 @@ function RaidEditModal({
           {/* Caused by ----------------------------------------------- */}
           <div className="sm:col-span-2">
             <div className="mb-2 flex items-center justify-between gap-2">
-              <span className="text-sm font-medium text-AIPM-dark-grey dark:text-AIPM-light-grey">
+              <span className="text-sm font-medium text-foreground">
                 {t(lang, "raidCausedBy")}
               </span>
             </div>
             <div className="mb-2 flex flex-wrap items-center gap-1.5">
               {parentItems.length === 0 && (
-                <span className="text-xs italic text-AIPM-medium-grey">—</span>
+                <span className="text-xs italic text-muted-foreground">—</span>
               )}
               {parentItems.map((p) => (
                 <span
                   key={p.id}
-                  className="inline-flex items-center gap-1 rounded bg-AIPM-light-grey px-2 py-0.5 text-xs text-AIPM-dark-grey dark:bg-zinc-800 dark:text-AIPM-light-grey"
+                  className="inline-flex items-center gap-1 rounded bg-surface-muted px-2 py-0.5 text-xs text-foreground"
                 >
                   <button
                     type="button"
@@ -1147,7 +1147,7 @@ function RaidEditModal({
                     onClick={() => removeCausedBy(p.id)}
                     aria-label={t(lang, "raidCausedByClear")}
                     title={t(lang, "raidCausedByClear")}
-                    className="text-AIPM-medium-grey hover:text-AIPM-pink"
+                    className="text-muted-foreground hover:text-AIPM-pink"
                   >
                     ×
                   </button>
@@ -1161,18 +1161,18 @@ function RaidEditModal({
                 onChange={(e) => setCausePickerQuery(e.target.value)}
                 placeholder={t(lang, "raidCausedByPlaceholder")}
                 title={t(lang, "raidFieldCausedByHint")}
-                className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
+                className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm"
               />
               {causePickerQuery.trim() !== "" && availableCauses.length > 0 && (
-                <ul className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md border border-zinc-200 bg-white shadow-lg dark:border-zinc-800 dark:bg-zinc-950">
+                <ul className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md border border-line bg-surface">
                   {availableCauses.map((r) => (
                     <li key={r.id}>
                       <button
                         type="button"
                         onClick={() => addCausedBy(r.id)}
-                        className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-AIPM-light-grey dark:hover:bg-zinc-800"
+                        className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-surface-muted"
                       >
-                        <span className="font-mono text-xs text-AIPM-medium-grey">
+                        <span className="font-mono text-xs text-muted-foreground">
                           {r.category}#{r.id}
                         </span>
                         <span className="truncate">{r.title}</span>
@@ -1188,7 +1188,7 @@ function RaidEditModal({
               editing the child. Only shown for saved items with children. */}
           {!isNew && causedChildren.length > 0 && (
             <div className="sm:col-span-2">
-              <span className="mb-2 block text-sm font-medium text-AIPM-dark-grey dark:text-AIPM-light-grey">
+              <span className="mb-2 block text-sm font-medium text-foreground">
                 {t(lang, "raidCausedThis")}
               </span>
               <div className="flex flex-wrap gap-1.5">
@@ -1198,7 +1198,7 @@ function RaidEditModal({
                     type="button"
                     onClick={() => onJumpToRaid(c.id)}
                     title={c.title}
-                    className="inline-flex items-center gap-1 rounded bg-amber-50 px-2 py-0.5 text-xs text-amber-800 hover:bg-amber-100 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-amber-950/60"
+                    className="inline-flex items-center gap-1 rounded bg-AIPM-purple/10 px-2 py-0.5 text-xs text-AIPM-purple hover:bg-AIPM-purple/20 dark:bg-AIPM-purple/15 dark:hover:bg-AIPM-purple/25"
                   >
                     <span className="font-mono">{c.category}#{c.id}</span>
                     <span className="max-w-[220px] truncate">{c.title}</span>
@@ -1211,7 +1211,7 @@ function RaidEditModal({
           {error && (
             <p
               role="alert"
-              className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300 sm:col-span-2"
+              className="rounded-md bg-AIPM-pink/10 px-3 py-2 text-sm text-AIPM-pink dark:bg-AIPM-pink/15 sm:col-span-2"
             >
               {error}
             </p>
@@ -1225,7 +1225,7 @@ function RaidEditModal({
               }}
               disabled={isNew}
               title={t(lang, "raidFieldDeleteHint")}
-              className="rounded-md border border-AIPM-pink/40 bg-white px-3 py-2 text-sm font-medium text-AIPM-pink hover:bg-AIPM-pink/10 disabled:cursor-not-allowed disabled:opacity-50 dark:border-AIPM-pink/40 dark:bg-zinc-900"
+              className="rounded-md border border-AIPM-pink/40 bg-surface px-3 py-2 text-sm font-medium text-AIPM-pink hover:bg-AIPM-pink/10 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {t(lang, "raidDelete")}
             </button>
@@ -1233,13 +1233,13 @@ function RaidEditModal({
               <button
                 type="button"
                 onClick={onCancel}
-                className="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 shadow-sm hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
+                className="rounded-md border border-line bg-surface px-4 py-2 text-sm font-medium text-foreground hover:bg-surface-muted"
               >
                 {t(lang, "cancel")}
               </button>
               <button
                 type="submit"
-                className="rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white shadow-sm hover:opacity-90"
+                className="rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90"
               >
                 {t(lang, "raidSave")}
               </button>
@@ -1267,12 +1267,12 @@ function RiskMatrix({
   function cellColor(p: RiskScale, i: RiskScale): string {
     const score = p * i;
     if (score <= 5)
-      return "bg-emerald-200 hover:bg-emerald-300 dark:bg-emerald-900/50 dark:hover:bg-emerald-900";
+      return "bg-AIPM-green/20 hover:bg-AIPM-green/30 dark:bg-AIPM-green/20 dark:hover:bg-AIPM-green/30";
     if (score <= 10)
-      return "bg-amber-200 hover:bg-amber-300 dark:bg-amber-900/50 dark:hover:bg-amber-900";
+      return "bg-AIPM-blue/20 hover:bg-AIPM-blue/30 dark:bg-AIPM-blue/20 dark:hover:bg-AIPM-blue/30";
     if (score <= 15)
-      return "bg-orange-300 hover:bg-orange-400 dark:bg-orange-900/60 dark:hover:bg-orange-900";
-    return "bg-red-400 hover:bg-red-500 dark:bg-red-900/70 dark:hover:bg-red-900";
+      return "bg-AIPM-purple/25 hover:bg-AIPM-purple/35 dark:bg-AIPM-purple/25 dark:hover:bg-AIPM-purple/35";
+    return "bg-AIPM-pink/30 hover:bg-AIPM-pink/40 dark:bg-AIPM-pink/30 dark:hover:bg-AIPM-pink/40";
   }
 
   return (
@@ -1283,14 +1283,14 @@ function RiskMatrix({
           (5 at the top, 1 at the bottom). */}
       <div className="flex w-4 items-center justify-center">
         <span
-          className="whitespace-nowrap text-[10px] text-AIPM-medium-grey"
+          className="whitespace-nowrap text-[10px] text-muted-foreground"
           style={{ transform: "rotate(-90deg)" }}
         >
           ← {t(lang, "raidProbability")} →
         </span>
       </div>
       <div className="inline-block">
-      <div className="mb-1 grid grid-cols-[auto_repeat(5,2rem)] gap-0.5 text-[10px] text-AIPM-medium-grey">
+      <div className="mb-1 grid grid-cols-[auto_repeat(5,2rem)] gap-0.5 text-[10px] text-muted-foreground">
         <span />
         {RISK_SCALES.map((i) => (
           <span key={`imp-${i}`} className="text-center">
@@ -1306,7 +1306,7 @@ function RiskMatrix({
           key={`row-${p}`}
           className="grid grid-cols-[auto_repeat(5,2rem)] gap-0.5"
         >
-          <span className="self-center pr-1 text-[10px] text-AIPM-medium-grey">
+          <span className="self-center pr-1 text-[10px] text-muted-foreground">
             {p}
           </span>
           {RISK_SCALES.map((i) => {
@@ -1317,8 +1317,8 @@ function RiskMatrix({
                 type="button"
                 onClick={() => onPick(p, i)}
                 aria-label={`${t(lang, "raidProbability")} ${p}, ${t(lang, "raidImpact")} ${i}`}
-                className={`h-8 w-8 rounded text-[10px] font-medium text-zinc-800 dark:text-zinc-100 ${cellColor(p, i)} ${
-                  isSelected ? "ring-2 ring-AIPM-dark-blue ring-offset-1" : ""
+                className={`h-8 w-8 rounded text-[10px] font-medium text-foreground ${cellColor(p, i)} ${
+                  isSelected ? "ring-2 ring-AIPM-green ring-offset-1" : ""
                 }`}
               >
                 {p * i}
@@ -1329,7 +1329,7 @@ function RiskMatrix({
       ))}
       <div className="mt-1 grid grid-cols-[auto_repeat(5,2rem)] gap-0.5">
         <span />
-        <span className="col-span-5 text-center text-[10px] text-AIPM-medium-grey">
+        <span className="col-span-5 text-center text-[10px] text-muted-foreground">
           ← {t(lang, "raidImpact")} →
         </span>
       </div>
