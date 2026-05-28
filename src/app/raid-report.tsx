@@ -135,6 +135,38 @@ export function RaidReportPanel({ lang, items, today }: Props) {
               </table>
             </div>
           </Section>
+          <Section title={t(lang, "raidReportTopOpen")}>
+            <div className="overflow-x-auto rounded-md border border-line">
+              <table className="min-w-full text-left text-sm">
+                <thead className="sticky top-0 z-10 bg-surface-muted text-xs uppercase tracking-wide text-muted-foreground">
+                  <tr>
+                    <th className="px-3 py-2 font-medium">{t(lang, "id")}</th>
+                    <th className="px-3 py-2 font-medium">{t(lang, "raidCategory")}</th>
+                    <th className="px-3 py-2 font-medium">{t(lang, "raidTitle")}</th>
+                    <th className="px-3 py-2 font-medium">{t(lang, "raidSeverity")}</th>
+                    <th className="px-3 py-2 font-medium">{t(lang, "raidOwner")}</th>
+                    <th className="px-3 py-2 text-right font-medium">{t(lang, "raidReportColAge")}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-line">
+                  {rep.topOpen.map((row) => (
+                    <tr key={row.id}>
+                      <td className="px-3 py-2 text-muted-foreground tabular-nums">{row.id}</td>
+                      <td className="px-3 py-2">{row.category}</td>
+                      <td className="px-3 py-2 text-foreground">
+                        <span className="block max-w-[40ch] truncate" title={row.title}>{row.title}</span>
+                      </td>
+                      <td className="px-3 py-2 text-muted-foreground">{row.severity ?? ""}</td>
+                      <td className="px-3 py-2">{ownerCell(lang, row.owner)}</td>
+                      <td className={`px-3 py-2 text-right tabular-nums ${row.overdue ? "text-AIPM-pink font-medium" : "text-muted-foreground"}`}>
+                        {row.ageDays}d
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Section>
         </>
       )}
 
