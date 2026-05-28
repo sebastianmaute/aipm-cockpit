@@ -19,3 +19,12 @@ test("renders total internal cost and the resource row", () => {
   expect(screen.getByText("Sample")).toBeInTheDocument();
   expect(screen.getAllByText("Developer Senior").length).toBeGreaterThan(0);
 });
+
+test("renders a Print button", () => {
+  render(
+    <ResourcesReportPanel lang="en-US" resources={resources} roles={roles}
+      disciplines={disciplines} grades={grades} plan={plan} absences={[]}
+      holidaySet={new Set()} workdayHours={8} />,
+  );
+  expect(screen.getByRole("button", { name: /print/i })).toBeInTheDocument();
+});
