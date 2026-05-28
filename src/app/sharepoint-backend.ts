@@ -26,7 +26,7 @@ export function parseSharePointFileUrl(url: string): SpFileLocation | null {
   if (!parsed.hostname.endsWith(".sharepoint.com")) return null;
   // Exclude OneDrive for Business: hostnames like contoso-my.sharepoint.com.
   const hostLocal = parsed.hostname.replace(/\.sharepoint\.com$/, "");
-  if (hostLocal.endsWith("-my")) return null;
+  if (hostLocal === "my" || hostLocal.endsWith("-my")) return null;
 
   if (parsed.pathname.endsWith("/")) return null;
   const segments = parsed.pathname.split("/").filter((s) => s !== "");
@@ -36,7 +36,6 @@ export function parseSharePointFileUrl(url: string): SpFileLocation | null {
   const decoded = segments.map((s) => decodeURIComponent(s));
   const sitePath = `/${decoded[0]}/${decoded[1]}`;
   const itemSegs = decoded.slice(2);
-  if (itemSegs.length === 0) return null;
   const itemPath = itemSegs.join("/");
 
   return {

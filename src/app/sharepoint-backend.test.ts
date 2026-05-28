@@ -93,4 +93,12 @@ describe("parseSharePointFileUrl", () => {
       parseSharePointFileUrl("https://contoso.sharepoint.com/sites/A"),
     ).toBeNull();
   });
+
+  it("rejects bare my.sharepoint.com OneDrive hostname", () => {
+    expect(
+      parseSharePointFileUrl(
+        "https://my.sharepoint.com/personal/user_contoso_com/Documents/file.json",
+      ),
+    ).toBeNull();
+  });
 });
