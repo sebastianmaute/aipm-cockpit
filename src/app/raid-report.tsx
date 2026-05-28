@@ -107,6 +107,34 @@ export function RaidReportPanel({ lang, items, today }: Props) {
               </table>
             </div>
           </Section>
+          <Section title={t(lang, "raidReportByOwner")}>
+            <div className="overflow-x-auto rounded-md border border-line">
+              <table className="min-w-full text-left text-sm">
+                <thead className="sticky top-0 z-10 bg-surface-muted text-xs uppercase tracking-wide text-muted-foreground">
+                  <tr>
+                    <th className="px-3 py-2 font-medium">{t(lang, "raidReportByOwner")}</th>
+                    <th className="px-3 py-2 text-right font-medium">{t(lang, "raidCategoryRisk")}</th>
+                    <th className="px-3 py-2 text-right font-medium">{t(lang, "raidCategoryAssumption")}</th>
+                    <th className="px-3 py-2 text-right font-medium">{t(lang, "raidCategoryIssue")}</th>
+                    <th className="px-3 py-2 text-right font-medium">{t(lang, "raidCategoryDependency")}</th>
+                    <th className="px-3 py-2 text-right font-medium">{t(lang, "raidReportColTotal")}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-line">
+                  {rep.byOwner.map((row) => (
+                    <tr key={row.owner}>
+                      <td className="px-3 py-2 font-medium text-foreground">{ownerCell(lang, row.owner)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{row.openR}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{row.openA}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{row.openI}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{row.openD}</td>
+                      <td className="px-3 py-2 text-right tabular-nums font-medium">{row.total}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Section>
         </>
       )}
 
