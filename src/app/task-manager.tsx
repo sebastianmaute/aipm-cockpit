@@ -41,6 +41,7 @@ import { WorkspaceSection } from "./workspace-section";
 import { getUpcomingBirthdays } from "./birthdays";
 import { useBirthdayAlerts } from "./use-birthday-alerts";
 import { useReminderSnooze } from "./use-reminder-snooze";
+import { isReportPopoutTab } from "./broadcast-sync";
 import { makeEditGuard } from "./read-only-guard";
 import { ReadOnlyMirrorBanner } from "./read-only-mirror-banner";
 import { VoiceCommandProvider } from "./voice-command-context";
@@ -461,7 +462,7 @@ function TaskManagerInner() {
           : "mx-auto w-full max-w-[1536px] p-6 sm:p-10"
       }
     >
-      {isPopout && <ReadOnlyMirrorBanner lang={lang} />}
+      {isPopout && !isReportPopoutTab(activeTab) && <ReadOnlyMirrorBanner lang={lang} />}
       {!isPopout && (
         <AppHeader
           handleCancelEdit={handleCancelEdit}
