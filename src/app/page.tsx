@@ -8,7 +8,7 @@ export default async function Home() {
   // at build time, and every script/style would fail the CSP check at runtime.
   await connection();
   return (
-    <main className="flex flex-1 flex-col bg-zinc-50 dark:bg-black">
+    <main className="flex flex-1 flex-col bg-surface-muted dark:bg-black">
       <TaskManager />
     </main>
   );
