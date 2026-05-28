@@ -445,12 +445,12 @@ function ResourcesPanelInner({
                 </button>
                 {showRollup && (
                   <div className="mt-2 overflow-auto rounded-md border border-line">
-                    <table className="text-left text-xs">
-                      <thead className="sticky top-0 bg-surface-muted">
+                    <table className="w-full text-left text-sm">
+                      <thead className="sticky top-0 z-10 bg-surface-muted text-xs uppercase tracking-wide text-muted-foreground">
                         <tr>
-                          <th className="px-2 py-1.5 text-left">{t(lang, "assignee")}</th>
+                          <th className="px-3 py-2 font-medium">{t(lang, "assignee")}</th>
                           {rollupPeriods.map((rp) => (
-                            <th key={rp.key} className="px-2 py-1.5 text-right tabular-nums">{rp.key}</th>
+                            <th key={rp.key} className="px-3 py-2 text-right font-medium tabular-nums">{rp.key}</th>
                           ))}
                         </tr>
                       </thead>
@@ -459,9 +459,9 @@ function ResourcesPanelInner({
                           const resAbs2 = absencesForResource(absences, r);
                           return (
                             <tr key={r.id}>
-                              <td className="px-2 py-1 font-medium text-foreground dark:text-AIPM-light-grey">{resourceDisplayName(r)}</td>
+                              <td className="px-3 py-2 font-medium text-foreground">{resourceDisplayName(r)}</td>
                               {rollupPeriods.map((rp) => (
-                                <td key={rp.key} className="px-2 py-1 text-right tabular-nums text-muted-foreground">
+                                <td key={rp.key} className="px-3 py-2 text-right tabular-nums text-muted-foreground">
                                   {(displayCapacityHours(rp, canonicalPeriods, r, resAbs2, workdayHours, holidaySet, plan.granularity, other) / workdayHours).toFixed(1)}
                                 </td>
                               ))}
