@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { workdaysUntil } from "./due-dates";
 import { useColumnResize } from "./use-column-resize";
-import { ColumnResizeHandle, ResetColWidthsButton } from "./task-manager-ui";
+import { ColumnResizeHandle, PrintButton, ResetColWidthsButton } from "./task-manager-ui";
 
 const REPORTS_INQUIRY_COL_WIDTHS = {
   id: 60,
@@ -344,7 +344,8 @@ export function ReportsPanel({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-end">
+      <div className="flex items-center justify-end print:hidden">
+        <PrintButton lang={lang} />
         <ResetColWidthsButton onClick={resetAllReports} lang={lang} />
       </div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -873,7 +874,7 @@ function TableFilter({
   placeholderKey: "reportsFilterAssignee" | "reportsFilterGroup" | "reportsFilterLabel";
 }) {
   return (
-    <div className="mb-2 flex items-center gap-2">
+    <div className="mb-2 flex items-center gap-2 print:hidden">
       <input
         type="search"
         value={value}
