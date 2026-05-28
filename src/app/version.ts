@@ -1,3 +1,6 @@
+// 0.16.1 unifies the Resources panel's Directory, Planning (+ Rollup), and
+// Resources Report tables to the Workload tab's table chrome — sticky
+// uppercase header, consistent padding, text-sm density. Class strings only.
 // 0.16.0 "Butler" closes out sub-project E (the AIPM palette rollout) — the
 // final 16 menus + chrome + misc files migrated to surface tokens, the green
 // accent, dark-blue fills, and no shadows or gradients. The AIPM design system
@@ -244,7 +247,7 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.16.0";
+export const APP_VERSION = "0.16.1";
 export const APP_BUILD_DATE = "2026-05-28"; // Butler milestone
 export const APP_REPO_URL = "https://www.example.com";
 

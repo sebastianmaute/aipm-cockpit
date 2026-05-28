@@ -119,9 +119,9 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function Table({ head, children }: { head: string[]; children: React.ReactNode }) {
   return (
     <div className="overflow-x-auto rounded-md border border-line">
-      <table className="min-w-full text-left text-xs">
-        <thead className="bg-surface-muted uppercase tracking-wide text-muted-foreground">
-          <tr>{head.map((h, i) => <th key={i} className={`px-3 py-2 ${i === 0 ? "" : "text-right"}`}>{h}</th>)}</tr>
+      <table className="min-w-full text-left text-sm">
+        <thead className="sticky top-0 z-10 bg-surface-muted text-xs uppercase tracking-wide text-muted-foreground">
+          <tr>{head.map((h, i) => <th key={i} className={`px-3 py-2 font-medium ${i === 0 ? "" : "text-right"}`}>{h}</th>)}</tr>
         </thead>
         <tbody className="divide-y divide-line">{children}</tbody>
       </table>
@@ -130,7 +130,7 @@ function Table({ head, children }: { head: string[]; children: React.ReactNode }
 }
 
 function Td({ children }: { children: React.ReactNode }) {
-  return <td className="px-3 py-2 font-medium text-AIPM-dark-blue dark:text-AIPM-light-grey">{children}</td>;
+  return <td className="px-3 py-2 font-medium text-foreground">{children}</td>;
 }
 function TdR({ children }: { children: React.ReactNode }) {
   return <td className="px-3 py-2 text-right tabular-nums">{children}</td>;
