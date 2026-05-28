@@ -123,7 +123,7 @@ export function JiraConflictsModal({
         ref={panelRef}
         data-modal-panel
         style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}
-        className="relative h-[680px] max-h-[95vh] min-h-[320px] w-[768px] min-w-[400px] max-w-[95vw] resize overflow-y-auto rounded-xl border border-AIPM-light-grey bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-950"
+        className="relative h-[680px] max-h-[95vh] min-h-[320px] w-[768px] min-w-[400px] max-w-[95vw] resize overflow-y-auto rounded-xl border border-line bg-surface"
       >
         <ModalHeader
           lang={lang}
@@ -131,48 +131,48 @@ export function JiraConflictsModal({
           onClose={onClose}
           dragHandleProps={handleProps}
         />
-        <p className="bg-white px-6 pb-2 text-xs text-AIPM-dark-grey dark:bg-zinc-950 dark:text-AIPM-medium-grey">
+        <p className="bg-surface px-6 pb-2 text-xs text-foreground dark:text-muted-foreground">
           {t(lang, "jiraConflictSubtitle", conflicts.length)}
         </p>
 
-        <div className="flex flex-wrap items-center gap-2 border-b border-AIPM-light-grey bg-AIPM-light-grey/40 px-6 py-2 text-xs dark:border-zinc-800 dark:bg-zinc-900">
-          <span className="text-AIPM-medium-grey">
+        <div className="flex flex-wrap items-center gap-2 border-b border-line bg-surface-muted px-6 py-2 text-xs">
+          <span className="text-muted-foreground">
             {t(lang, "jiraConflictQuickPicks")}
           </span>
           <button
             type="button"
             onClick={() => applyAll("local")}
-            className="rounded-md border border-AIPM-medium-grey/30 bg-white px-2 py-1 font-medium text-AIPM-dark-blue hover:bg-AIPM-light-grey dark:bg-zinc-900 dark:hover:bg-zinc-800"
+            className="rounded-md border border-AIPM-medium-grey/30 bg-surface px-2 py-1 font-medium text-AIPM-dark-blue hover:bg-surface-muted"
           >
             {t(lang, "jiraConflictAllLocal")}
           </button>
           <button
             type="button"
             onClick={() => applyAll("remote")}
-            className="rounded-md border border-AIPM-medium-grey/30 bg-white px-2 py-1 font-medium text-AIPM-dark-blue hover:bg-AIPM-light-grey dark:bg-zinc-900 dark:hover:bg-zinc-800"
+            className="rounded-md border border-AIPM-medium-grey/30 bg-surface px-2 py-1 font-medium text-AIPM-dark-blue hover:bg-surface-muted"
           >
             {t(lang, "jiraConflictAllRemote")}
           </button>
         </div>
 
-        <ul className="divide-y divide-AIPM-light-grey dark:divide-zinc-800">
+        <ul className="divide-y divide-line">
           {conflicts.map((c) => (
             <li key={c.taskId} className="px-6 py-4">
               <div className="mb-2 flex flex-wrap items-baseline gap-2">
-                <span className="font-mono text-xs text-AIPM-medium-grey">
+                <span className="font-mono text-xs text-muted-foreground">
                   #{c.taskId}
                 </span>
-                <span className="rounded bg-AIPM-light-grey px-1.5 py-0.5 text-[10px] font-medium text-AIPM-dark-blue dark:bg-zinc-800">
+                <span className="rounded bg-surface-muted px-1.5 py-0.5 text-[10px] font-medium text-AIPM-dark-blue">
                   {c.jiraKey}
                 </span>
                 {c.jiraIssueType && (
-                  <span className="text-[10px] uppercase tracking-wide text-AIPM-medium-grey">
+                  <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
                     {c.jiraIssueType}
                   </span>
                 )}
               </div>
               <table className="w-full text-xs">
-                <thead className="text-AIPM-medium-grey">
+                <thead className="text-muted-foreground">
                   <tr>
                     <th className="w-32 px-2 py-1 text-left font-medium">
                       {t(lang, "jiraConflictField")}
@@ -192,12 +192,12 @@ export function JiraConflictsModal({
                     return (
                       <tr
                         key={f.key}
-                        className="border-t border-AIPM-light-grey/50 dark:border-zinc-800"
+                        className="border-t border-line"
                       >
-                        <td className="px-2 py-2 align-top font-medium text-AIPM-dark-grey dark:text-AIPM-light-grey">
+                        <td className="px-2 py-2 align-top font-medium text-foreground">
                           {t(lang, fieldLabelKey[f.key])}
                           {lockedRemote && (
-                            <span className="ml-1 text-AIPM-medium-grey">
+                            <span className="ml-1 text-muted-foreground">
                               🔒
                             </span>
                           )}
@@ -214,7 +214,7 @@ export function JiraConflictsModal({
                               disabled={lockedRemote}
                               className="mt-0.5"
                             />
-                            <span className="whitespace-pre-wrap break-words text-AIPM-dark-grey dark:text-AIPM-light-grey">
+                            <span className="whitespace-pre-wrap break-words text-foreground">
                               {fmt(f.localValue)}
                             </span>
                           </label>
@@ -230,7 +230,7 @@ export function JiraConflictsModal({
                               }
                               className="mt-0.5"
                             />
-                            <span className="whitespace-pre-wrap break-words text-AIPM-dark-grey dark:text-AIPM-light-grey">
+                            <span className="whitespace-pre-wrap break-words text-foreground">
                               {fmt(f.remoteValue)}
                             </span>
                           </label>
@@ -244,18 +244,18 @@ export function JiraConflictsModal({
           ))}
         </ul>
 
-        <footer className="sticky bottom-0 flex items-center justify-end gap-2 border-t border-AIPM-light-grey bg-white px-6 py-3 dark:border-zinc-800 dark:bg-zinc-950">
+        <footer className="sticky bottom-0 flex items-center justify-end gap-2 border-t border-line bg-surface px-6 py-3">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+            className="rounded-md border border-line bg-surface px-4 py-2 text-sm font-medium text-foreground hover:bg-surface-muted"
           >
             {t(lang, "jiraConflictDefer")}
           </button>
           <button
             type="button"
             onClick={handleResolve}
-            className="rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white shadow-sm hover:opacity-90"
+            className="rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90"
           >
             {t(lang, "jiraConflictApply")}
           </button>
