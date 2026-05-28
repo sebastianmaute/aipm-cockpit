@@ -86,6 +86,60 @@ export const defaultJiraConfig: JiraConfig = {
   tokenExpiresAt: "",
 };
 
+export type M365IntegrationsSettings = {
+  enabled: boolean;
+  clientId?: string;
+  tenantId?: string;
+  sharepoint: boolean;
+  outlookContacts: boolean;
+  outlookCalendar: boolean;
+};
+
+export type TursoIntegrationsSettings = {
+  enabled: boolean;
+};
+
+export type IntegrationsSettings = {
+  m365?: M365IntegrationsSettings;
+  turso?: TursoIntegrationsSettings;
+};
+
+export const defaultM365Integrations: M365IntegrationsSettings = {
+  enabled: false,
+  sharepoint: false,
+  outlookContacts: false,
+  outlookCalendar: false,
+};
+
+export const defaultTursoIntegrations: TursoIntegrationsSettings = {
+  enabled: false,
+};
+
+export const defaultIntegrations: IntegrationsSettings = {
+  m365: defaultM365Integrations,
+  turso: defaultTursoIntegrations,
+};
+
+export function sanitizeIntegrations(raw: unknown): IntegrationsSettings {
+  if (!raw || typeof raw !== "object") return { ...defaultIntegrations };
+  const obj = raw as Record<string, unknown>;
+  const m365Raw = obj.m365 as Record<string, unknown> | undefined;
+  const tursoRaw = obj.turso as Record<string, unknown> | undefined;
+  return {
+    m365: {
+      enabled: typeof m365Raw?.enabled === "boolean" ? m365Raw.enabled : false,
+      clientId: typeof m365Raw?.clientId === "string" ? m365Raw.clientId : undefined,
+      tenantId: typeof m365Raw?.tenantId === "string" ? m365Raw.tenantId : undefined,
+      sharepoint: typeof m365Raw?.sharepoint === "boolean" ? m365Raw.sharepoint : false,
+      outlookContacts: typeof m365Raw?.outlookContacts === "boolean" ? m365Raw.outlookContacts : false,
+      outlookCalendar: typeof m365Raw?.outlookCalendar === "boolean" ? m365Raw.outlookCalendar : false,
+    },
+    turso: {
+      enabled: typeof tursoRaw?.enabled === "boolean" ? tursoRaw.enabled : false,
+    },
+  };
+}
+
 export type Settings = {
   language: Lang;
   holidayCountries: string[];
@@ -95,6 +149,7 @@ export type Settings = {
   jira: JiraConfig;
   popout: { reuseWindow: boolean };
   resources: { workdayHours: number };
+  integrations?: IntegrationsSettings;
 };
 
 export const defaultSettings: Settings = {
@@ -106,6 +161,7 @@ export const defaultSettings: Settings = {
   jira: defaultJiraConfig,
   popout: { reuseWindow: false },
   resources: { workdayHours: 8 },
+  integrations: defaultIntegrations,
 };
 
 export function SettingsMenu({
