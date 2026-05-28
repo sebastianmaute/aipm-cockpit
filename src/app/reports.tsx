@@ -670,6 +670,124 @@ function GroupOrLabelTable({
   );
 }
 
+function AssigneeTable({
+  rows,
+  lang,
+  colWidths,
+  onStartResize,
+  sort,
+  setSort,
+  filter,
+  setFilter,
+}: {
+  rows: Stats["byAssignee"];
+  lang: Lang;
+  colWidths: Record<ReportsAssigneeCol, number>;
+  onStartResize: (col: string, e: React.MouseEvent) => void;
+  sort: AssigneeSort;
+  setSort: (s: AssigneeSort) => void;
+  filter: string;
+  setFilter: (v: string) => void;
+}) {
+  const filtered = useMemo(() => {
+    const q = filter.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter((r) => r.name.toLowerCase().includes(q));
+  }, [rows, filter]);
+
+  const sorted = useMemo(() => {
+    if (sort.dir === "off") return filtered;
+    const k = sort.key;
+    const arr = filtered.slice().sort((a, b) => {
+      const av = k === "assignee" ? a.name : (a[k as Exclude<AssigneeSortKey, "assignee">] ?? 0);
+      const bv = k === "assignee" ? b.name : (b[k as Exclude<AssigneeSortKey, "assignee">] ?? 0);
+      const c = compareStrOrNum(av, bv);
+      return c !== 0 ? c : a.name.localeCompare(b.name);
+    });
+    if (sort.dir === "desc") arr.reverse();
+    return arr;
+  }, [filtered, sort]);
+
+  function click(k: AssigneeSortKey) {
+    if (k !== sort.key) {
+      setSort({ key: k, dir: "asc" });
+      return;
+    }
+    setSort({ key: sort.key, dir: sort.dir === "asc" ? "desc" : sort.dir === "desc" ? "off" : "asc" });
+  }
+
+  return (
+    <div>
+      {rows.length > 0 && (
+        <TableFilter lang={lang} value={filter} onChange={setFilter} placeholderKey="reportsFilterAssignee" />
+      )}
+      <div className="overflow-x-auto rounded-md border border-line">
+        <table className="min-w-full text-left text-xs">
+          <thead className="bg-surface-muted text-foreground uppercase tracking-wide">
+            <tr>
+              <th className="relative px-3 py-2" style={{ width: colWidths.assignee, minWidth: colWidths.assignee }}>
+                <button
+                  type="button"
+                  onClick={() => click("assignee")}
+                  className={`inline-flex items-center gap-1 ${sort.key === "assignee" && sort.dir !== "off" ? "text-foreground" : ""} hover:text-foreground`}
+                >
+                  {t(lang, "assignee")}{sort.key === "assignee" && sort.dir !== "off" ? (sort.dir === "asc" ? " ↑" : " ↓") : ""}
+                </button>
+                <ColumnResizeHandle col="assignee" onMouseDown={onStartResize} />
+              </th>
+              {(["total", "open", "overdue", "onTime", "late", "inquiries"] as const).map((k) => {
+                const labelKey = {
+                  total: "reportsTotal",
+                  open: "reportsOpen",
+                  overdue: "reportsOverdue",
+                  onTime: "reportsCompletedOnTime",
+                  late: "reportsCompletedLate",
+                  inquiries: "reportsInquiriesCol",
+                } as const;
+                const active = sort.key === k && sort.dir !== "off";
+                const indicator = active ? (sort.dir === "asc" ? " ↑" : " ↓") : "";
+                return (
+                  <th key={k} className="relative px-3 py-2 text-right" style={{ width: colWidths[k], minWidth: colWidths[k] }}>
+                    <button
+                      type="button"
+                      onClick={() => click(k)}
+                      className={`inline-flex items-center gap-1 ${active ? "text-foreground" : ""} hover:text-foreground`}
+                    >
+                      {t(lang, labelKey[k])}{indicator}
+                    </button>
+                    <ColumnResizeHandle col={k} onMouseDown={onStartResize} />
+                  </th>
+                );
+              })}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-line">
+            {sorted.length === 0 && filter !== "" ? (
+              <tr>
+                <td colSpan={7} className="px-3 py-3 text-center text-xs text-muted-foreground">
+                  {t(lang, "reportsNoMatches")}
+                </td>
+              </tr>
+            ) : (
+              sorted.map((row) => (
+                <tr key={row.name}>
+                  <td className="px-3 py-2 font-medium text-AIPM-dark-blue dark:text-AIPM-light-grey">{row.name}</td>
+                  <td className="px-3 py-2 text-right">{row.total}</td>
+                  <td className="px-3 py-2 text-right">{row.open}</td>
+                  <td className={`px-3 py-2 text-right ${row.overdue > 0 ? "text-AIPM-pink font-semibold" : ""}`}>{row.overdue}</td>
+                  <td className="px-3 py-2 text-right text-AIPM-green">{row.onTime}</td>
+                  <td className="px-3 py-2 text-right text-AIPM-pink">{row.late}</td>
+                  <td className="px-3 py-2 text-right">{row.inquiries}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 function Tile({
   label,
   value,
