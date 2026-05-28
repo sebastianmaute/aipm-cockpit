@@ -295,6 +295,10 @@ export function ReportsPanel({
   const byXStartResize = byX.startColResize as (col: string, e: React.MouseEvent) => void;
   const [assigneeSort, setAssigneeSort] = useState<AssigneeSort>({ key: "total", dir: "desc" });
   const [assigneeFilter, setAssigneeFilter] = useState("");
+  const [groupSort, setGroupSort] = useState<GroupOrLabelSort>({ key: "total", dir: "desc" });
+  const [groupFilter, setGroupFilter] = useState("");
+  const [labelSort, setLabelSort] = useState<GroupOrLabelSort>({ key: "total", dir: "desc" });
+  const [labelFilter, setLabelFilter] = useState("");
   const resetAllReports = () => {
     inquiry.resetColWidths();
     assignee.resetColWidths();
@@ -530,6 +534,11 @@ export function ReportsPanel({
           emptyKey="reportsNoGroups"
           colWidths={byX.colWidths}
           onStartResize={byXStartResize}
+          sort={groupSort}
+          setSort={setGroupSort}
+          filter={groupFilter}
+          setFilter={setGroupFilter}
+          filterPlaceholderKey="reportsFilterGroup"
         />
       </Section>
 
@@ -541,6 +550,11 @@ export function ReportsPanel({
           emptyKey="reportsNoLabels"
           colWidths={byX.colWidths}
           onStartResize={byXStartResize}
+          sort={labelSort}
+          setSort={setLabelSort}
+          filter={labelFilter}
+          setFilter={setLabelFilter}
+          filterPlaceholderKey="reportsFilterLabel"
         />
       </Section>
     </div>
@@ -554,6 +568,11 @@ function GroupOrLabelTable({
   emptyKey,
   colWidths,
   onStartResize,
+  sort,
+  setSort,
+  filter,
+  setFilter,
+  filterPlaceholderKey,
 }: {
   rows: GroupOrLabelRow[];
   lang: Lang;
@@ -561,64 +580,107 @@ function GroupOrLabelTable({
   emptyKey: "reportsNoGroups" | "reportsNoLabels";
   colWidths: Record<string, number>;
   onStartResize: (col: string, e: React.MouseEvent) => void;
+  sort: GroupOrLabelSort;
+  setSort: (s: GroupOrLabelSort) => void;
+  filter: string;
+  setFilter: (v: string) => void;
+  filterPlaceholderKey: "reportsFilterGroup" | "reportsFilterLabel";
 }) {
-  if (rows.length === 0) {
-    return (
-      <p className="text-sm text-muted-foreground">{t(lang, emptyKey)}</p>
-    );
+  const filtered = useMemo(() => {
+    const q = filter.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter((r) => r.name.toLowerCase().includes(q));
+  }, [rows, filter]);
+
+  const sorted = useMemo(() => {
+    if (sort.dir === "off") return filtered;
+    const k = sort.key;
+    const arr = filtered.slice().sort((a, b) => {
+      const av = k === "name" ? a.name : (a[k as Exclude<GroupOrLabelSortKey, "name">] ?? 0);
+      const bv = k === "name" ? b.name : (b[k as Exclude<GroupOrLabelSortKey, "name">] ?? 0);
+      const c = compareStrOrNum(av, bv);
+      return c !== 0 ? c : a.name.localeCompare(b.name);
+    });
+    if (sort.dir === "desc") arr.reverse();
+    return arr;
+  }, [filtered, sort]);
+
+  function click(k: GroupOrLabelSortKey) {
+    if (k !== sort.key) {
+      setSort({ key: k, dir: "asc" });
+      return;
+    }
+    setSort({ key: sort.key, dir: sort.dir === "asc" ? "desc" : sort.dir === "desc" ? "off" : "asc" });
   }
+
+  if (rows.length === 0) {
+    return <p className="text-sm text-muted-foreground">{t(lang, emptyKey)}</p>;
+  }
+
   return (
-    <div className="overflow-x-auto rounded-md border border-line">
-      <table className="min-w-full text-left text-xs">
-        <thead className="bg-surface-muted text-foreground uppercase tracking-wide">
-          <tr>
-            <th className="relative px-3 py-2" style={{ width: colWidths.label, minWidth: colWidths.label }}>
-              {t(lang, headerKey)}
-              <ColumnResizeHandle col="label" onMouseDown={onStartResize} />
-            </th>
-            <th className="relative px-3 py-2 text-right" style={{ width: colWidths.total, minWidth: colWidths.total }}>
-              {t(lang, "reportsTotal")}
-              <ColumnResizeHandle col="total" onMouseDown={onStartResize} />
-            </th>
-            <th className="relative px-3 py-2 text-right" style={{ width: colWidths.open, minWidth: colWidths.open }}>
-              {t(lang, "reportsOpen")}
-              <ColumnResizeHandle col="open" onMouseDown={onStartResize} />
-            </th>
-            <th className="relative px-3 py-2 text-right" style={{ width: colWidths.completed, minWidth: colWidths.completed }}>
-              {t(lang, "reportsCompleted")}
-              <ColumnResizeHandle col="completed" onMouseDown={onStartResize} />
-            </th>
-            <th className="relative px-3 py-2 text-right" style={{ width: colWidths.overdue, minWidth: colWidths.overdue }}>
-              {t(lang, "reportsOverdue")}
-              <ColumnResizeHandle col="overdue" onMouseDown={onStartResize} />
-            </th>
-            <th className="relative px-3 py-2 text-right" style={{ width: colWidths.inquiries, minWidth: colWidths.inquiries }}>
-              {t(lang, "reportsInquiriesCol")}
-              <ColumnResizeHandle col="inquiries" onMouseDown={onStartResize} />
-            </th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-line">
-          {rows.map((row) => (
-            <tr key={row.name}>
-              <td className="px-3 py-2 font-medium text-AIPM-dark-blue dark:text-AIPM-light-grey">
-                {row.name}
-              </td>
-              <td className="px-3 py-2 text-right">{row.total}</td>
-              <td className="px-3 py-2 text-right">{row.open}</td>
-              <td className="px-3 py-2 text-right text-AIPM-green">
-                {row.completed}
-              </td>
-              <td
-                className={`px-3 py-2 text-right ${row.overdue > 0 ? "text-AIPM-pink font-semibold" : ""}`}
-              >
-                {row.overdue}
-              </td>
-              <td className="px-3 py-2 text-right">{row.inquiries}</td>
+    <div>
+      <TableFilter lang={lang} value={filter} onChange={setFilter} placeholderKey={filterPlaceholderKey} />
+      <div className="overflow-x-auto rounded-md border border-line">
+        <table className="min-w-full text-left text-xs">
+          <thead className="bg-surface-muted text-foreground uppercase tracking-wide">
+            <tr>
+              <th className="relative px-3 py-2" style={{ width: colWidths.label, minWidth: colWidths.label }}>
+                <button
+                  type="button"
+                  onClick={() => click("name")}
+                  className={`inline-flex items-center gap-1 ${sort.key === "name" && sort.dir !== "off" ? "text-foreground" : ""} hover:text-foreground`}
+                >
+                  {t(lang, headerKey)}{sort.key === "name" && sort.dir !== "off" ? (sort.dir === "asc" ? " ↑" : " ↓") : ""}
+                </button>
+                <ColumnResizeHandle col="label" onMouseDown={onStartResize} />
+              </th>
+              {(["total", "open", "completed", "overdue", "inquiries"] as const).map((k) => {
+                const labelKey = {
+                  total: "reportsTotal",
+                  open: "reportsOpen",
+                  completed: "reportsCompleted",
+                  overdue: "reportsOverdue",
+                  inquiries: "reportsInquiriesCol",
+                } as const;
+                const active = sort.key === k && sort.dir !== "off";
+                const indicator = active ? (sort.dir === "asc" ? " ↑" : " ↓") : "";
+                return (
+                  <th key={k} className="relative px-3 py-2 text-right" style={{ width: colWidths[k], minWidth: colWidths[k] }}>
+                    <button
+                      type="button"
+                      onClick={() => click(k)}
+                      className={`inline-flex items-center gap-1 ${active ? "text-foreground" : ""} hover:text-foreground`}
+                    >
+                      {t(lang, labelKey[k])}{indicator}
+                    </button>
+                    <ColumnResizeHandle col={k} onMouseDown={onStartResize} />
+                  </th>
+                );
+              })}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody className="divide-y divide-line">
+            {sorted.length === 0 && filter !== "" ? (
+              <tr>
+                <td colSpan={6} className="px-3 py-3 text-center text-xs text-muted-foreground">
+                  {t(lang, "reportsNoMatches")}
+                </td>
+              </tr>
+            ) : (
+              sorted.map((row) => (
+                <tr key={row.name}>
+                  <td className="px-3 py-2 font-medium text-AIPM-dark-blue dark:text-AIPM-light-grey">{row.name}</td>
+                  <td className="px-3 py-2 text-right">{row.total}</td>
+                  <td className="px-3 py-2 text-right">{row.open}</td>
+                  <td className="px-3 py-2 text-right text-AIPM-green">{row.completed}</td>
+                  <td className={`px-3 py-2 text-right ${row.overdue > 0 ? "text-AIPM-pink font-semibold" : ""}`}>{row.overdue}</td>
+                  <td className="px-3 py-2 text-right">{row.inquiries}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
