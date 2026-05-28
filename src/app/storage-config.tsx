@@ -79,13 +79,13 @@ export function StorageConfigSection({
 
   return (
     <div>
-      <span className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+      <span className="mb-1 block text-sm font-medium text-foreground">
         {t(lang, "storage")}
       </span>
       <select
         value={config.kind}
         onChange={(e) => handleKindChange(e.target.value as StorageKind)}
-        className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+        className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none focus:ring-1 focus:ring-AIPM-green"
       >
         {STORAGE_OPTIONS.map((o) => (
           <option key={o.kind} value={o.kind} disabled={o.comingSoon}>
@@ -96,7 +96,7 @@ export function StorageConfigSection({
       </select>
 
       {config.kind === "browser" && (
-        <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+        <p className="mt-2 text-xs text-muted-foreground">
           {t(lang, "storageBrowserHint")}
         </p>
       )}
@@ -104,22 +104,22 @@ export function StorageConfigSection({
       {isLocal && (
         <div className="mt-2 space-y-2">
           {!fsaSupported ? (
-            <p className="text-xs text-amber-700 dark:text-amber-400">
+            <p className="text-xs text-AIPM-purple">
               {t(lang, "storageFsaUnsupported")}
             </p>
           ) : (
             <>
               {description ? (
-                <p className="text-xs text-zinc-600 dark:text-zinc-400">
+                <p className="text-xs text-muted-foreground">
                   ✓ {description}
                   {!ready && (
-                    <span className="ml-1 text-amber-700 dark:text-amber-400">
+                    <span className="ml-1 text-AIPM-purple">
                       ({t(lang, "storagePermissionNeeded")})
                     </span>
                   )}
                 </p>
               ) : (
-                <p className="text-xs text-amber-700 dark:text-amber-400">
+                <p className="text-xs text-AIPM-purple">
                   {t(lang, "storagePickFilePrompt")}
                 </p>
               )}
@@ -128,7 +128,7 @@ export function StorageConfigSection({
                   type="button"
                   onClick={() => runPicker("save")}
                   disabled={picking !== null}
-                  className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 shadow-sm hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                  className="rounded-md border border-line bg-surface px-3 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {description
                     ? t(lang, "storageChangeFile")
@@ -138,7 +138,7 @@ export function StorageConfigSection({
                   type="button"
                   onClick={() => runPicker("open")}
                   disabled={picking !== null}
-                  className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 shadow-sm hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                  className="rounded-md border border-line bg-surface px-3 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {t(lang, "storageOpenFile")}
                 </button>
@@ -147,14 +147,14 @@ export function StorageConfigSection({
                     type="button"
                     onClick={() => runPicker("grant")}
                     disabled={picking !== null}
-                    className="rounded-md bg-AIPM-dark-blue px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="rounded-md bg-AIPM-dark-blue px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {t(lang, "storageGrantWrite")}
                   </button>
                 )}
               </div>
               {error && (
-                <p className="text-xs text-red-600 dark:text-red-400">
+                <p className="text-xs text-AIPM-pink">
                   {error}
                 </p>
               )}
@@ -164,7 +164,7 @@ export function StorageConfigSection({
       )}
 
       {isSp && (
-        <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">
+        <p className="mt-2 text-xs text-AIPM-purple">
           {t(lang, "storageSpComingSoon")}
         </p>
       )}
