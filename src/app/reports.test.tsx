@@ -138,4 +138,9 @@ describe("ReportsPanel — sort + filter", () => {
     expect(groupNames).toContain("Backend");
     expect(groupNames).toContain("Frontend");
   });
+
+  it("renders a Print button in the header", () => {
+    renderReports(tasks);
+    expect(screen.getByRole("button", { name: /print/i })).toBeInTheDocument();
+  });
 });

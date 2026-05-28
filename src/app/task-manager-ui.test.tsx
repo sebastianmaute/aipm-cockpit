@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { SortableTh } from "./task-manager-ui";
+import userEvent from "@testing-library/user-event";
+import { SortableTh, PrintButton } from "./task-manager-ui";
 
 describe("SortableTh", () => {
   it("shows a 'Sort by <label>' tooltip and the resources-matching hover class", () => {
@@ -12,5 +13,32 @@ describe("SortableTh", () => {
     const btn = screen.getByRole("button", { name: /task/i });
     expect(btn).toHaveAttribute("title", "Sort by Task");
     expect(btn.className).toContain("hover:text-foreground");
+  });
+});
+
+describe("PrintButton", () => {
+  it("renders the Print label", () => {
+    render(<PrintButton lang="en-US" />);
+    expect(screen.getByRole("button", { name: /print/i })).toBeInTheDocument();
+  });
+
+  it("calls a passed onClick when clicked", async () => {
+    const user = userEvent.setup();
+    const onClick = vi.fn();
+    render(<PrintButton lang="en-US" onClick={onClick} />);
+    await user.click(screen.getByRole("button", { name: /print/i }));
+    expect(onClick).toHaveBeenCalledTimes(1);
+  });
+
+  it("falls back to window.print when no onClick is passed", async () => {
+    const user = userEvent.setup();
+    const printSpy = vi.spyOn(window, "print").mockImplementation(() => {});
+    try {
+      render(<PrintButton lang="en-US" />);
+      await user.click(screen.getByRole("button", { name: /print/i }));
+      expect(printSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      printSpy.mockRestore();
+    }
   });
 });

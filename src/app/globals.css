@@ -55,3 +55,34 @@ body {
   color: var(--foreground);
   font-family: var(--font-titillium), "Segoe UI", Arial, sans-serif;
 }
+
+/* Print: DIN A4 page, strip surface chrome, preserve semantic accents.
+   See docs/superpowers/specs/2026-05-28-print-reports-design.md. */
+@media print {
+  @page {
+    size: A4;
+    margin: 1.5cm;
+  }
+
+  body {
+    background: white !important;
+    color: black !important;
+  }
+
+  /* Sticky thead is meaningless on paper */
+  .sticky {
+    position: static !important;
+  }
+
+  /* Strip surface-token backgrounds (waste ink); preserve semantic colors */
+  [class*="bg-surface"] { background: white !important; }
+  [class*="bg-surface-muted"] { background: #f5f5f5 !important; }
+  [class*="border-line"] { border-color: #d1d5db !important; }
+
+  /* Page-break hygiene */
+  tr { page-break-inside: avoid; }
+  thead { display: table-header-group; }
+
+  /* Belt-and-braces: hide column-resize handles even if their print:hidden gets dropped */
+  [aria-hidden="true"].cursor-col-resize { display: none !important; }
+}

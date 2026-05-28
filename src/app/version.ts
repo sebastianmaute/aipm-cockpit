@@ -1,3 +1,8 @@
+// 0.20.0 adds a Print button to Reports, RAID Report, and Resources Report
+// popouts. The button opens the browser's print dialog with the report body
+// laid out for DIN A4 — toolbars, toggles, and the print button itself are
+// hidden via @media print, surface-token backgrounds strip to white for ink
+// efficiency, and semantic accent colors (pink/green/dark-blue) are preserved.
 // 0.19.0 makes the Reports popout's tables (By Assignee, By Group, By Label)
 // sortable + filterable — click any header to cycle asc/desc/off, type in the
 // search input above each table to narrow rows. Mirrors the steering-committee
@@ -269,7 +274,7 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.19.0";
+export const APP_VERSION = "0.20.0";
 export const APP_BUILD_DATE = "2026-05-28"; // Jemisin milestone
 export const APP_REPO_URL = "https://www.example.com";
 
@@ -299,4 +304,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightTableResize",
   "versionHighlightRaidReport",
   "versionHighlightReportsSortFilter",
+  "versionHighlightPrintReports",
 ] as const;

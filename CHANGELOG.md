@@ -8,6 +8,12 @@ Authoritative source for version + build date: [`src/app/version.ts`](src/app/ve
 This file is seeded from that module's milestone comment plus the
 post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-diff.txt).
 
+## [0.20.0] — 2026-05-28 "Jemisin"
+
+### Added
+- Print button on Reports, RAID Report, and Resources Report popouts. Click to open the browser's print dialog with the report body laid out for DIN A4. Toolbars, toggles, filter inputs, and the print button itself are hidden via @media print; surface-token backgrounds strip to white for ink efficiency; semantic accent colors (overdue=pink, completed=green, tile values=dark-blue) survive the strip.
+- New version highlight: "Print on reports" (`versionHighlightPrintReports`) in both EN and DE.
+
 ## [0.19.0] — 2026-05-28 "Jemisin"
 
 ### Added

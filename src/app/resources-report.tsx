@@ -7,7 +7,7 @@ import { computeResourceReport, type ReportGroupRow } from "./resource-report";
 import { formatCurrency } from "./resource-cost";
 import type { Absence, Discipline, Grade, Resource, ResourcePlan, Role } from "./types";
 import { useColumnResize } from "./use-column-resize";
-import { ColumnResizeHandle } from "./task-manager-ui";
+import { ColumnResizeHandle, PrintButton } from "./task-manager-ui";
 
 const RES_REPORT_BY_PERIOD_WIDTHS = {
   label: 100, days: 110, internal: 110, external: 110, margin: 110,
@@ -73,6 +73,9 @@ export function ResourcesReportPanel({
 
   return (
     <div className="space-y-6">
+      <div className="flex items-center justify-end print:hidden">
+        <PrintButton lang={lang} />
+      </div>
       <h2 className="text-lg font-medium text-foreground">{t(lang, "resourcesReportTitle")}</h2>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

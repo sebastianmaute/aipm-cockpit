@@ -69,6 +69,8 @@ export const de: Record<TranslationKey, string> = {
 
   edit: "Bearbeiten",
   clear: "Leeren",
+  print: "Drucken",
+  printHint: "Browser-Druckdialog für ein A4-Handout öffnen",
   delete: "Löschen",
   sendInquiry: "Anfrage senden",
 
@@ -939,4 +941,5 @@ export const de: Record<TranslationKey, string> = {
   raidReportOpenReport: "RAID-Report öffnen",
   raidReportOpenReportHint: "Eine Steuerungskreis-Übersicht in einem neuen Fenster öffnen.",
   versionHighlightRaidReport: "RAID-Report: Steuerungskreis-Übersicht über offene Risiken, Issues, Annahmen und Abhängigkeiten — mit Drill-Down zur vollständigen Item-Liste.",
+  versionHighlightPrintReports: "Reports, RAID-Report und Resources-Report haben jetzt eine Drucken-Schaltfläche — erzeugt ein sauberes A4-Handout über den Browser-Druckdialog.",
 };
