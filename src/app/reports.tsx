@@ -250,7 +250,7 @@ export function ReportsPanel({
 
   if (stats.total === 0) {
     return (
-      <div className="rounded-lg border border-dashed border-AIPM-light-grey p-10 text-center text-sm text-AIPM-medium-grey dark:border-zinc-800">
+      <div className="rounded-lg border border-dashed border-line p-10 text-center text-sm text-muted-foreground">
         {t(lang, "reportsEmpty")}
       </div>
     );
@@ -259,9 +259,9 @@ export function ReportsPanel({
   const completedTotal = stats.completedOnTime + stats.completedLate;
 
   const groupDotClass: Record<Health, string> = {
-    R: "bg-red-500",
-    A: "bg-amber-500",
-    G: "bg-emerald-500",
+    R: "bg-AIPM-pink",
+    A: "bg-AIPM-purple",
+    G: "bg-AIPM-green",
   };
 
   // Stable mapping from internal driver token to i18n key so the steering
@@ -306,7 +306,7 @@ export function ReportsPanel({
           {groupHealth.map((row) => (
             <div
               key={row.name}
-              className="flex items-start gap-3 rounded-lg border border-AIPM-light-grey bg-white p-3 dark:border-zinc-800 dark:bg-zinc-950"
+              className="flex items-start gap-3 rounded-lg border border-line bg-surface p-3"
             >
               <span
                 aria-hidden
@@ -316,14 +316,14 @@ export function ReportsPanel({
                 <div
                   className={`truncate text-sm font-medium ${
                     row.isUngrouped
-                      ? "italic text-AIPM-medium-grey"
-                      : "text-AIPM-dark-grey dark:text-AIPM-light-grey"
+                      ? "italic text-muted-foreground"
+                      : "text-foreground"
                   }`}
                   title={row.name}
                 >
                   {row.name}
                 </div>
-                <div className="mt-0.5 text-[11px] text-AIPM-medium-grey">
+                <div className="mt-0.5 text-[11px] text-muted-foreground">
                   {t(
                     lang,
                     "reportsGroupCounts",
@@ -333,7 +333,7 @@ export function ReportsPanel({
                   )}
                 </div>
                 {row.health.drivers.length > 0 && (
-                  <div className="mt-1 text-[11px] text-AIPM-dark-grey dark:text-AIPM-light-grey">
+                  <div className="mt-1 text-[11px] text-foreground">
                     {row.health.drivers
                       .map((d) => t(lang, driverKey[d]))
                       .join(", ")}
@@ -355,7 +355,7 @@ export function ReportsPanel({
             },
             {
               value: stats.openByStatus.yellow,
-              color: "bg-amber-500",
+              color: "bg-AIPM-purple",
               label: t(lang, "reportsDueSoon"),
             },
             {
@@ -371,7 +371,7 @@ export function ReportsPanel({
 
       <Section title={t(lang, "reportsCompletionOutcomes")}>
         {completedTotal === 0 ? (
-          <p className="text-sm text-AIPM-medium-grey">
+          <p className="text-sm text-muted-foreground">
             {t(lang, "reportsNoCompletions")}
           </p>
         ) : (
@@ -409,9 +409,9 @@ export function ReportsPanel({
           />
         </div>
         {stats.topInquiries.length > 0 && (
-          <div className="mt-3 overflow-x-auto rounded-md border border-AIPM-light-grey dark:border-zinc-800">
+          <div className="mt-3 overflow-x-auto rounded-md border border-line">
             <table className="min-w-full text-left text-xs">
-              <thead className="bg-AIPM-light-grey/50 text-AIPM-dark-grey uppercase tracking-wide dark:bg-zinc-900 dark:text-AIPM-medium-grey">
+              <thead className="bg-surface-muted text-foreground uppercase tracking-wide">
                 <tr>
                   <th className="px-3 py-2">#</th>
                   <th className="px-3 py-2">{t(lang, "task")}</th>
@@ -420,10 +420,10 @@ export function ReportsPanel({
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-AIPM-light-grey dark:divide-zinc-800">
+              <tbody className="divide-y divide-line">
                 {stats.topInquiries.map((row) => (
                   <tr key={row.id}>
-                    <td className="px-3 py-2 font-mono text-AIPM-medium-grey">
+                    <td className="px-3 py-2 font-mono text-muted-foreground">
                       #{row.id}
                     </td>
                     <td className="px-3 py-2">{row.taskName}</td>
@@ -439,9 +439,9 @@ export function ReportsPanel({
       </Section>
 
       <Section title={t(lang, "reportsByAssignee")}>
-        <div className="overflow-x-auto rounded-md border border-AIPM-light-grey dark:border-zinc-800">
+        <div className="overflow-x-auto rounded-md border border-line">
           <table className="min-w-full text-left text-xs">
-            <thead className="bg-AIPM-light-grey/50 text-AIPM-dark-grey uppercase tracking-wide dark:bg-zinc-900 dark:text-AIPM-medium-grey">
+            <thead className="bg-surface-muted text-foreground uppercase tracking-wide">
               <tr>
                 <th className="px-3 py-2">{t(lang, "assignee")}</th>
                 <th className="px-3 py-2 text-right">
@@ -464,7 +464,7 @@ export function ReportsPanel({
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-AIPM-light-grey dark:divide-zinc-800">
+            <tbody className="divide-y divide-line">
               {stats.byAssignee.map((row) => (
                 <tr key={row.name}>
                   <td className="px-3 py-2 font-medium text-AIPM-dark-blue dark:text-AIPM-light-grey">
@@ -533,13 +533,13 @@ function GroupOrLabelTable({
 }) {
   if (rows.length === 0) {
     return (
-      <p className="text-sm text-AIPM-medium-grey">{t(lang, emptyKey)}</p>
+      <p className="text-sm text-muted-foreground">{t(lang, emptyKey)}</p>
     );
   }
   return (
-    <div className="overflow-x-auto rounded-md border border-AIPM-light-grey dark:border-zinc-800">
+    <div className="overflow-x-auto rounded-md border border-line">
       <table className="min-w-full text-left text-xs">
-        <thead className="bg-AIPM-light-grey/50 text-AIPM-dark-grey uppercase tracking-wide dark:bg-zinc-900 dark:text-AIPM-medium-grey">
+        <thead className="bg-surface-muted text-foreground uppercase tracking-wide">
           <tr>
             <th className="px-3 py-2">{t(lang, headerKey)}</th>
             <th className="px-3 py-2 text-right">{t(lang, "reportsTotal")}</th>
@@ -555,7 +555,7 @@ function GroupOrLabelTable({
             </th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-AIPM-light-grey dark:divide-zinc-800">
+        <tbody className="divide-y divide-line">
           {rows.map((row) => (
             <tr key={row.name}>
               <td className="px-3 py-2 font-medium text-AIPM-dark-blue dark:text-AIPM-light-grey">
@@ -590,8 +590,8 @@ function Tile({
   danger?: boolean;
 }) {
   return (
-    <div className="rounded-lg border border-AIPM-light-grey bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900">
-      <p className="text-xs uppercase tracking-wide text-AIPM-medium-grey">
+    <div className="rounded-lg border border-line bg-surface p-3">
+      <p className="text-xs uppercase tracking-wide text-muted-foreground">
         {label}
       </p>
       <p
@@ -631,14 +631,14 @@ function StackedBar({
 }) {
   if (total === 0) {
     return (
-      <p className="text-sm text-AIPM-medium-grey">
+      <p className="text-sm text-muted-foreground">
         {emptyText ?? "—"}
       </p>
     );
   }
   return (
     <div>
-      <div className="flex h-3 w-full overflow-hidden rounded-full bg-AIPM-light-grey dark:bg-zinc-800">
+      <div className="flex h-3 w-full overflow-hidden rounded-full bg-surface-muted">
         {segments.map((s, i) =>
           s.value > 0 ? (
             <div
@@ -650,7 +650,7 @@ function StackedBar({
           ) : null,
         )}
       </div>
-      <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-AIPM-dark-grey dark:text-AIPM-medium-grey">
+      <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
         {segments.map((s, i) => (
           <li key={i} className="flex items-center gap-1.5">
             <span
