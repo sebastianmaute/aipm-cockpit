@@ -31,7 +31,7 @@ interface BudgetBucketModalProps {
 }
 
 const inputClass =
-  "w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900";
+  "w-full rounded-md border border-line bg-surface px-3 py-2 text-sm";
 
 export function BudgetBucketModal({
   lang,
@@ -119,7 +119,7 @@ export function BudgetBucketModal({
       <div
         data-modal-panel
         style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}
-        className="relative flex w-[640px] min-w-[460px] max-w-[95vw] resize flex-col overflow-hidden rounded-xl border border-AIPM-light-grey bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-950"
+        className="relative flex w-[640px] min-w-[460px] max-w-[95vw] resize flex-col overflow-hidden rounded-xl border border-line bg-surface"
       >
         <ModalHeader
           lang={lang}
@@ -288,7 +288,7 @@ export function BudgetBucketModal({
                 }))
               }
             />
-            <span className="text-xs text-AIPM-medium-grey">
+            <span className="text-xs text-muted-foreground">
               {t(lang, "budgetFxOverrideHint")}
             </span>
           </label>
@@ -300,7 +300,7 @@ export function BudgetBucketModal({
             {draft.allocations.map((a) => (
               <div
                 key={a.roleId}
-                className="rounded-md border border-zinc-200 p-2 dark:border-zinc-800"
+                className="rounded-md border border-line p-2"
               >
                 <div className="flex items-center justify-between">
                   <span className="font-medium">
@@ -313,7 +313,7 @@ export function BudgetBucketModal({
                   <button
                     type="button"
                     onClick={() => removeRole(a.roleId)}
-                    className="rounded-md border border-transparent px-2 py-0.5 text-xs text-zinc-500 hover:border-AIPM-dark-blue hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                    className="rounded-md border border-transparent px-2 py-0.5 text-xs text-muted-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted"
                   >
                     {t(lang, "budgetRemoveRole")}
                   </button>
@@ -321,7 +321,7 @@ export function BudgetBucketModal({
 
                 {resources.length > 0 && (
                   <div className="mt-1">
-                    <div className="text-xs text-AIPM-medium-grey">
+                    <div className="text-xs text-muted-foreground">
                       {t(lang, "budgetResources")}
                     </div>
                     <div className="flex flex-wrap gap-2">
@@ -368,7 +368,7 @@ export function BudgetBucketModal({
                 type="button"
                 onClick={addRole}
                 disabled={roleToAdd === ""}
-                className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-AIPM-dark-blue/90 disabled:opacity-50"
+                className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90 disabled:opacity-50"
               >
                 + {t(lang, "budgetAddRole")}
               </button>
@@ -380,18 +380,18 @@ export function BudgetBucketModal({
           )}
         </div>
 
-        <footer className="flex shrink-0 justify-end gap-2 border-t border-AIPM-light-grey px-6 py-4 dark:border-zinc-800">
+        <footer className="flex shrink-0 justify-end gap-2 border-t border-line px-6 py-4">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-AIPM-dark-grey shadow-sm hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-AIPM-light-grey dark:hover:bg-zinc-800"
+            className="rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted"
           >
             {t(lang, "cancel")}
           </button>
           <button
             type="button"
             onClick={save}
-            className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-AIPM-dark-blue/90"
+            className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:bg-AIPM-dark-blue/90"
           >
             {t(lang, "budgetSave")}
           </button>
