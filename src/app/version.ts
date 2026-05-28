@@ -1,3 +1,6 @@
+// 0.16.2 widens the main app shell cap from max-w-6xl (1152px) to 1536px so
+// the layout uses more of the available viewport on large displays. One
+// className edit in task-manager.tsx; no behavior or markup change.
 // 0.16.1 unifies the Resources panel's Directory, Planning (+ Rollup), and
 // Resources Report tables to the Workload tab's table chrome — sticky
 // uppercase header, consistent padding, text-sm density. Class strings only.
@@ -247,7 +250,7 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.16.1";
+export const APP_VERSION = "0.16.2";
 export const APP_BUILD_DATE = "2026-05-28"; // Butler milestone
 export const APP_REPO_URL = "https://www.example.com";
 

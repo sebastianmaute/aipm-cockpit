@@ -457,7 +457,7 @@ function TaskManagerInner() {
       className={
         isPopout
           ? "flex flex-1 flex-col p-4"
-          : "mx-auto w-full max-w-6xl p-6 sm:p-10"
+          : "mx-auto w-full max-w-[1536px] p-6 sm:p-10"
       }
     >
       {isPopout && <ReadOnlyMirrorBanner lang={lang} />}
