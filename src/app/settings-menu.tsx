@@ -666,22 +666,27 @@ export function SettingsMenu({
                   </legend>
                   {(
                     [
-                      ["integrationsSharepoint"],
-                      ["integrationsOutlookContacts"],
-                      ["integrationsOutlookCalendar"],
-                    ] as const
-                  ).map(([labelKey]) => (
+                      ["integrationsSharepoint", "sharepoint", false] as const,
+                      ["integrationsOutlookContacts", "outlookContacts", true] as const,
+                      ["integrationsOutlookCalendar", "outlookCalendar", true] as const,
+                    ]
+                  ).map(([labelKey, key, comingSoon]) => (
                     <label
                       key={labelKey}
-                      className="mt-1 flex items-center gap-2 text-sm text-muted-foreground"
-                      title={t(lang, "integrationsComingSoon")}
+                      className={`mt-1 flex items-center gap-2 text-sm ${comingSoon ? "text-muted-foreground" : "text-foreground"}`}
+                      title={comingSoon ? t(lang, "integrationsComingSoon") : undefined}
                     >
                       <input
                         type="checkbox"
-                        disabled
-                        checked={false}
-                        className="h-4 w-4 cursor-not-allowed"
-                        readOnly
+                        disabled={comingSoon}
+                        checked={comingSoon ? false : m365[key]}
+                        onChange={
+                          comingSoon
+                            ? undefined
+                            : (e) => updateM365({ [key]: e.target.checked })
+                        }
+                        readOnly={comingSoon}
+                        className={`h-4 w-4 ${comingSoon ? "cursor-not-allowed" : ""}`}
                       />
                       <span>{t(lang, labelKey)}</span>
                     </label>
