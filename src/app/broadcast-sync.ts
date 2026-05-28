@@ -112,6 +112,22 @@ export const POPOUT_TABS = [
 ] as const;
 export type PopoutTab = (typeof POPOUT_TABS)[number];
 
+/** Subset of POPOUT_TABS that are read-only "report" surfaces. Used by the
+ *  task-manager shell to skip the read-only-mirror banner in popouts where
+ *  the banner would be redundant (reports are read-only by their nature). */
+export const REPORT_POPOUT_TABS: readonly PopoutTab[] = [
+  "resource-report",
+  "reports",
+  "raid-report",
+] as const;
+
+/** True for the three report-style popout tabs; false for editing popouts
+ *  and `null`. */
+export function isReportPopoutTab(tab: PopoutTab | null): boolean {
+  if (tab === null) return false;
+  return (REPORT_POPOUT_TABS as readonly string[]).includes(tab);
+}
+
 // Single-slot ref. reuseWindow mode focuses this regardless of which tab opened it.
 let _popoutWindowRef: Window | null = null;
 

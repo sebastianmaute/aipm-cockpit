@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook } from "@testing-library/react";
-import { useBroadcastSync } from "./broadcast-sync";
+import { useBroadcastSync, isReportPopoutTab, REPORT_POPOUT_TABS } from "./broadcast-sync";
 
 // Records every postMessage so we can assert what a window broadcasts.
 const posted: unknown[] = [];
@@ -119,5 +119,31 @@ describe("openPopoutWindow", () => {
     openPopoutWindow("reports", false);
     expect(mockOpen).toHaveBeenCalledTimes(2);
     mockOpen.mockRestore();
+  });
+});
+
+describe("isReportPopoutTab", () => {
+  it("returns true for the three report-style popout tabs", () => {
+    expect(isReportPopoutTab("resource-report")).toBe(true);
+    expect(isReportPopoutTab("reports")).toBe(true);
+    expect(isReportPopoutTab("raid-report")).toBe(true);
+  });
+
+  it("returns false for editing popout tabs", () => {
+    expect(isReportPopoutTab("raid")).toBe(false);
+    expect(isReportPopoutTab("gantt")).toBe(false);
+    expect(isReportPopoutTab("resources")).toBe(false);
+    expect(isReportPopoutTab("activity")).toBe(false);
+    expect(isReportPopoutTab("chat")).toBe(false);
+    expect(isReportPopoutTab("budget")).toBe(false);
+    expect(isReportPopoutTab("address-book")).toBe(false);
+  });
+
+  it("returns false for null (no popout)", () => {
+    expect(isReportPopoutTab(null)).toBe(false);
+  });
+
+  it("REPORT_POPOUT_TABS contains exactly the three report tabs", () => {
+    expect(REPORT_POPOUT_TABS).toEqual(["resource-report", "reports", "raid-report"]);
   });
 });
