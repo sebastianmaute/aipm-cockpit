@@ -576,6 +576,8 @@ export function SettingsMenu({
             onPickFile={onPickStorageFile}
             onOpenFile={onOpenStorageFile}
             onGrantWrite={onGrantStorageWrite}
+            m365Enabled={settings.integrations?.m365?.enabled ?? false}
+            sharepointEnabled={settings.integrations?.m365?.sharepoint ?? false}
           />
 
           <hr className="my-4 border-line" />
