@@ -1,3 +1,7 @@
+// 0.15.7 sweeps the Gantt onto the AIPM palette — surface tokens, no shadows;
+// High-severity icon fills purple to complete the priority ramp; absence
+// column tints (vacation=blue, sick=pink, training=purple) at /20 alpha;
+// overdue ring + destructive button in pink.
 // 0.15.6 sweeps the RAID panel onto the AIPM palette — surface tokens, no
 // shadows; R/A/I/D category chips in pink/blue/purple/green; severity ramp
 // (Low->Critical) in green/blue/purple/pink (cold->hot); RAG dots in
@@ -236,7 +240,7 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.15.6";
+export const APP_VERSION = "0.15.7";
 export const APP_BUILD_DATE = "2026-05-28"; // Le Guin milestone
 export const APP_REPO_URL = "https://www.example.com";
 

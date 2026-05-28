@@ -71,4 +71,5 @@ never reference them directly.
 - E-sweep modals (0.15.4): resource-edit, shift-edit, absence-edit, roles, budget-bucket, task-form, jira-conflicts, bulk-edit. ✅
 - E-sweep tasks UI + inputs + reports (0.15.5): combo-input, contact-input, labels-input, dependencies-editor, task-manager-ui, tasks-section, reports, task-row. ✅
 - E-sweep raid-panel (0.15.6): raid-panel.tsx. ✅
-- Remaining: other area sweeps (gantt, menus, chrome, misc) are still pending.
+- E-sweep gantt (0.15.7): gantt.tsx. ✅
+- Remaining: menus + chrome + misc (final sweep, will bump minor to ~0.16.0 with the `versionHighlightPalette` headline).
