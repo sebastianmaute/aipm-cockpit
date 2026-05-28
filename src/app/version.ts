@@ -1,3 +1,6 @@
+// 0.15.5 sweeps the tasks UI + form inputs + reports onto the AIPM palette —
+// surface tokens, no shadows, task-row priority chips remapped (Medium=blue,
+// High=purple, Urgent=pink), reports RAG legend in pink/purple/green.
 // 0.15.4 sweeps the modal layer (resource/shift/absence edit, roles,
 // budget-bucket, task form, jira conflicts, bulk edit) onto the AIPM palette —
 // surface tokens, no shadows, destructive actions in pink, RAG status in
@@ -229,7 +232,7 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.15.4";
+export const APP_VERSION = "0.15.5";
 export const APP_BUILD_DATE = "2026-05-28"; // Le Guin milestone
 export const APP_REPO_URL = "https://www.example.com";
 

@@ -63,4 +63,5 @@ never reference them directly.
 - E-sweep chunk 1 (0.15.2): resources-panel, resource-directory, resource-workload, resources-report, budget-panel. ✅
 - E-sweep calendar (0.15.3): resource-calendar.tsx. ✅
 - E-sweep modals (0.15.4): resource-edit, shift-edit, absence-edit, roles, budget-bucket, task-form, jira-conflicts, bulk-edit. ✅
-- Remaining: other area sweeps (tasks, RAID, gantt, reports, menus, chrome, misc) are still pending.
+- E-sweep tasks UI + inputs + reports (0.15.5): combo-input, contact-input, labels-input, dependencies-editor, task-manager-ui, tasks-section, reports, task-row. ✅
+- Remaining: other area sweeps (raid-panel, gantt, menus, chrome, misc) are still pending.
