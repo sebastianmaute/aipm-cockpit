@@ -1,3 +1,7 @@
+// 0.17.1 fixes the Gantt's initial scroll position — when the chart opens,
+// today's date is centered in the viewport so past/future tasks are equally
+// accessible. Single useLayoutEffect on mount; user's manual scrolling is
+// preserved on subsequent renders.
 // 0.17.0 "Jemisin" adds column resize to every table in the app — drag the
 // right edge of any header; the Reset button restores defaults. Also doubles
 // the task form modal's default height (h-[900px], still user-resizable).
@@ -253,7 +257,7 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.17.0";
+export const APP_VERSION = "0.17.1";
 export const APP_BUILD_DATE = "2026-05-28"; // Jemisin milestone
 export const APP_REPO_URL = "https://www.example.com";
 
