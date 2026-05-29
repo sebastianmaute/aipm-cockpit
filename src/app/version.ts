@@ -1,3 +1,8 @@
+// 0.23.0 adds Outlook contacts import (M3) — sign in with Microsoft, then
+// pull your personal Outlook contacts (Graph /me/contacts) into both the
+// resource directory and the assignee address book. Preview-and-pick dialog
+// opened from the Resources › Directory toolbar; existing contacts (matched
+// by email) are updated, new ones added. Reuses M1's MSAL foundation.
 // 0.22.0 implements the SharePoint storage backend (sp-json / sp-csv) — store
 // the workspace as a single JSON or CSV file in a SharePoint Sites library via
 // Microsoft Graph. Reuses M1's MSAL foundation; paste the file URL in Storage
@@ -284,8 +289,8 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.22.0";
-export const APP_BUILD_DATE = "2026-05-28"; // Jemisin milestone
+export const APP_VERSION = "0.23.0";
+export const APP_BUILD_DATE = "2026-05-29"; // Jemisin milestone
 export const APP_REPO_URL = "https://www.example.com";
 
 /** Translation keys for the high-level feature highlights shown in the
@@ -317,4 +322,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightPrintReports",
   "versionHighlightM365Auth",
   "versionHighlightSharepointStorage",
+  "versionHighlightOutlookContacts",
 ] as const;
