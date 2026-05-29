@@ -29,6 +29,7 @@ export interface AppHeaderProps {
   onPickStorageFile: () => Promise<void>;
   onOpenStorageFile: () => Promise<void>;
   onGrantStorageWrite: () => Promise<void>;
+  onRequestStorageSwitch: (kind: import("./storage").StorageKind) => void;
 }
 
 export function AppHeader({
@@ -44,6 +45,7 @@ export function AppHeader({
   onPickStorageFile,
   onOpenStorageFile,
   onGrantStorageWrite,
+  onRequestStorageSwitch,
 }: AppHeaderProps) {
   const { settings, setSettings, lang } = useSettings();
   const { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates } = useWorkspace();
@@ -132,6 +134,7 @@ export function AppHeader({
             onPickStorageFile={onPickStorageFile}
             onOpenStorageFile={onOpenStorageFile}
             onGrantStorageWrite={onGrantStorageWrite}
+            onRequestStorageSwitch={onRequestStorageSwitch}
           />
         </div>
       </div>

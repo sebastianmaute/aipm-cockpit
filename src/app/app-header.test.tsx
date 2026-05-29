@@ -39,6 +39,7 @@ function makeProps(overrides: Partial<AppHeaderProps> = {}): AppHeaderProps {
     onPickStorageFile: vi.fn().mockResolvedValue(undefined),
     onOpenStorageFile: vi.fn().mockResolvedValue(undefined),
     onGrantStorageWrite: vi.fn().mockResolvedValue(undefined),
+    onRequestStorageSwitch: vi.fn(),
     ...overrides,
   };
 }

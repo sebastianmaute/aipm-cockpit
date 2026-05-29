@@ -618,6 +618,7 @@ function TaskManagerInner() {
           onPickStorageFile={onPickStorageFile}
           onOpenStorageFile={onOpenStorageFile}
           onGrantStorageWrite={onGrantWriteAccess}
+          onRequestStorageSwitch={onRequestStorageSwitch}
         />
       )}
 
