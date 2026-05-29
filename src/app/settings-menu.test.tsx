@@ -105,12 +105,23 @@ describe("SettingsMenu — Integrations section", () => {
     expect(checkbox).not.toBeChecked();
   });
 
-  it("renders Outlook sub-toggles disabled when M365 is enabled", () => {
-    const settings = makeSettings({ integrations: m365EnabledIntegrations });
+  it("Turso toggle is interactive and persists integrations.turso.enabled", () => {
+    const onChange = vi.fn();
+    render(<SettingsMenu {...makeProps({ onChange })} />);
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "settings") }));
+    const turso = screen.getByRole("checkbox", { name: t("en-US", "integrationsTurso") });
+    expect(turso).not.toBeDisabled();
+    fireEvent.click(turso);
+    const lastCall = onChange.mock.calls[onChange.mock.calls.length - 1][0] as Settings;
+    expect(lastCall.integrations?.turso?.enabled).toBe(true);
+  });
+
+  it("shows Turso URL + token inputs when enabled", () => {
+    const settings = makeSettings({ integrations: { turso: { enabled: true } } });
     render(<SettingsMenu {...makeProps({ settings })} />);
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "settings") }));
-    const tursoCheckbox = screen.getByRole("checkbox", { name: t("en-US", "integrationsTurso") });
-    expect(tursoCheckbox).toBeDisabled();
+    expect(screen.getByPlaceholderText(t("en-US", "integrationsTursoUrlPlaceholder"))).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(t("en-US", "integrationsTursoTokenPlaceholder"))).toBeInTheDocument();
   });
 
   it("SharePoint sub-toggle is interactive (not disabled) when M365 enabled", () => {

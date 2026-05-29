@@ -21,6 +21,7 @@ type Props = {
   onGrantWrite: () => Promise<void>;
   m365Enabled: boolean;
   sharepointEnabled: boolean;
+  tursoEnabled: boolean;
 };
 
 const STORAGE_OPTIONS: Array<{
@@ -34,6 +35,7 @@ const STORAGE_OPTIONS: Array<{
   { kind: "local-md", labelKey: "storageLocalMd" },
   { kind: "sp-json", labelKey: "storageSpJson" },
   { kind: "sp-csv", labelKey: "storageSpCsv" },
+  { kind: "turso", labelKey: "storageTurso" },
 ];
 
 export function StorageConfigSection({
@@ -47,6 +49,7 @@ export function StorageConfigSection({
   onGrantWrite,
   m365Enabled,
   sharepointEnabled,
+  tursoEnabled,
 }: Props) {
   const [picking, setPicking] = useState<"save" | "open" | "grant" | null>(
     null,
@@ -82,6 +85,7 @@ export function StorageConfigSection({
     config.kind === "local-csv" ||
     config.kind === "local-md";
   const isSp = config.kind === "sp-json" || config.kind === "sp-csv";
+  const isTurso = config.kind === "turso";
 
   const auth = useMsAuth(m365Enabled);
   const spGateOk = m365Enabled && sharepointEnabled;
@@ -131,9 +135,11 @@ export function StorageConfigSection({
       >
         {STORAGE_OPTIONS.map((o) => {
           const isSpKind = o.kind === "sp-json" || o.kind === "sp-csv";
+          const isTursoKind = o.kind === "turso";
           const disabled =
             o.comingSoon ||
-            (isSpKind && !(m365Enabled && sharepointEnabled));
+            (isSpKind && !(m365Enabled && sharepointEnabled)) ||
+            (isTursoKind && !tursoEnabled);
           return (
             <option key={o.kind} value={o.kind} disabled={disabled}>
               {t(lang, o.labelKey)}
@@ -252,6 +258,16 @@ export function StorageConfigSection({
             <p className="text-xs text-AIPM-pink">{spUrlError}</p>
           )}
         </div>
+      )}
+
+      {isTurso && !tursoEnabled && (
+        <p className="mt-2 text-xs text-AIPM-pink">{t(lang, "storageTursoNeedsToggle")}</p>
+      )}
+      {isTurso && tursoEnabled && !ready && (
+        <p className="mt-2 text-xs text-AIPM-pink">{t(lang, "storageTursoNeedsConfig")}</p>
+      )}
+      {isTurso && tursoEnabled && ready && description && (
+        <p className="mt-2 text-xs text-muted-foreground">✓ {description}</p>
       )}
     </div>
   );

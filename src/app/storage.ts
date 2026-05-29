@@ -1,4 +1,6 @@
 import { SharePointBackend } from "./sharepoint-backend";
+import { TursoBackend } from "./turso-backend";
+import type { TursoConfig } from "./turso-config";
 import { riskSeverityFromMatrix } from "./raid";
 import {
   backfillResources,
@@ -120,7 +122,8 @@ export type StorageKind =
   | "local-csv"
   | "local-md"
   | "sp-json"
-  | "sp-csv";
+  | "sp-csv"
+  | "turso";
 
 type LocalKind = "local-json" | "local-csv" | "local-md";
 
@@ -140,7 +143,8 @@ export type StorageConfig =
       hostname: string;
       sitePath: string;
       itemPath: string;
-    };
+    }
+  | { kind: "turso" };
 
 export const defaultStorageConfig: StorageConfig = { kind: "browser" };
 
@@ -2421,6 +2425,7 @@ export interface CreateBackendDeps {
     scopes: readonly string[],
     options?: { interactive?: boolean },
   ) => Promise<string | null>;
+  tursoConfig?: TursoConfig | null;
 }
 
 export function createBackend(
@@ -2449,6 +2454,8 @@ export function createBackend(
         acquireToken,
       );
     }
+    case "turso":
+      return new TursoBackend(deps.tursoConfig ?? null);
   }
 }
 

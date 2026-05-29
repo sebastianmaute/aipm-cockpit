@@ -1,3 +1,8 @@
+// 0.25.0 adds a Turso (libSQL) storage backend — store the whole workspace as a
+// single JSON blob row in a Turso database via the HTTP pipeline API. Enable
+// Turso in Settings → Integrations, add the database URL + auth token (or set
+// NEXT_PUBLIC_TURSO_* env vars), then pick "Turso database" in Storage
+// Configuration. Completes the original Microsoft 365 + Turso request.
 // 0.24.0 adds Outlook calendar import (M4) — sign in with Microsoft, then pull
 // time-away events (all-day + Out-of-Office) from your Outlook calendar into the
 // resource calendar as absences. Preview-and-pick dialog from Resources ›
@@ -300,7 +305,7 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.24.0";
+export const APP_VERSION = "0.25.0";
 export const APP_BUILD_DATE = "2026-05-29"; // Jemisin milestone
 export const APP_REPO_URL = "https://www.example.com";
 
@@ -335,4 +340,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightSharepointStorage",
   "versionHighlightOutlookContacts",
   "versionHighlightOutlookCalendar",
+  "versionHighlightTursoStorage",
 ] as const;

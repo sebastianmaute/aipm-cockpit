@@ -984,11 +984,17 @@ export const de: Record<TranslationKey, string> = {
   integrationsOutlookContacts: "Outlook-Kontakte",
   integrationsOutlookCalendar: "Outlook-Kalender",
   integrationsTurso: "Turso-Speicher",
+  integrationsTursoHint: "Speichern Sie Ihren Workspace in einer Turso-(libSQL-)Datenbank. Das Auth-Token wird in diesem Browser gespeichert – verwenden Sie ein eingeschränktes Token.",
+  integrationsTursoUrl: "Datenbank-URL",
+  integrationsTursoUrlPlaceholder: "libsql://ihre-db.turso.io",
+  integrationsTursoToken: "Auth-Token",
+  integrationsTursoTokenPlaceholder: "Turso-Datenbank-Token",
   integrationsComingSoon: "Verfügbar ab 0.22.0",
   versionHighlightM365Auth: "Microsoft-365-Grundlage: Mit dem Arbeitskonto anmelden, um künftige SharePoint-, Outlook-Kontakte- und Kalender-Funktionen freizuschalten. Alle Integrationen sind standardmäßig deaktiviert.",
   versionHighlightSharepointStorage: "SharePoint-Speicher: Arbeitsbereich als JSON- oder CSV-Datei in einer SharePoint-Sites-Bibliothek speichern — Datei-URL in der Speicherkonfiguration einfügen, nachdem SharePoint in Einstellungen → Integrationen aktiviert wurde.",
   versionHighlightOutlookContacts: "Outlook-Kontakte importieren: mit Microsoft anmelden und Kontakte aus dem Reiter „Ressourcen” ins Ressourcenverzeichnis und in die Zuständigen-Vorschläge übernehmen.",
   versionHighlightOutlookCalendar: "Abwesenheits-Termine aus dem Outlook-Kalender importieren: mit Microsoft anmelden und ganztägige sowie Abwesenheits-Termine unter Ressourcen › Kalender in den Ressourcenkalender übernehmen.",
+  versionHighlightTursoStorage: "Workspace in einer Turso-(libSQL-)Datenbank speichern: Turso in den Einstellungen aktivieren, Datenbank-URL + Token hinzufügen und in der Speicherkonfiguration „Turso“ auswählen.",
 
   outlookCalImportTitle: "Outlook-Kalender importieren",
   outlookCalImportLoading: "Termine werden geladen…",
@@ -1004,4 +1010,8 @@ export const de: Record<TranslationKey, string> = {
   outlookCalImportedN: "{0} Abwesenheiten importiert",
   outlookCalendarPermissionDenied: "Kalenderzugriff wurde verweigert. Bitte Microsoft-Berechtigungen prüfen.",
   outlookCalendarFetchFailed: "Kalendertermine konnten nicht abgerufen werden. Bitte erneut versuchen.",
+
+  storageTurso: "Turso-Datenbank",
+  storageTursoNeedsToggle: "Turso unter Einstellungen → Integrationen aktivieren.",
+  storageTursoNeedsConfig: "Turso-URL und -Token in den Einstellungen eingeben.",
 };

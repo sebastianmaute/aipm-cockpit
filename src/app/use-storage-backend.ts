@@ -12,6 +12,7 @@ import {
   pickFileForBackend,
   requestWriteAccessForBackend,
 } from "./storage";
+import { getTursoConfig } from "./turso-config";
 import { useMsAuth } from "./use-ms-auth";
 import { useWorkspace } from "./workspace-context";
 
@@ -54,10 +55,21 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   const auth = useMsAuth(m365Enabled);
 
   // Backend instance — memoised on storageConfig identity
-  const backend = useMemo(
-    () => createBackend(args.settings.storageConfig, { acquireToken: auth.acquireToken }),
-    [args.settings.storageConfig, auth.acquireToken],
-  );
+  const backend = useMemo(() => {
+    const tursoConfig = getTursoConfig(
+      args.settings.integrations?.turso?.databaseUrl,
+      args.settings.integrations?.turso?.authToken,
+    );
+    return createBackend(args.settings.storageConfig, {
+      acquireToken: auth.acquireToken,
+      tursoConfig,
+    });
+  }, [
+    args.settings.storageConfig,
+    auth.acquireToken,
+    args.settings.integrations?.turso?.databaseUrl,
+    args.settings.integrations?.turso?.authToken,
+  ]);
 
   // Storage status
   const [storageReady, setStorageReady] = useState(false);

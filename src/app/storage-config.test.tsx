@@ -1,7 +1,8 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { StorageConfigSection } from "./storage-config";
+import { t } from "./i18n";
 
 vi.mock("./use-ms-auth", () => ({
   useMsAuth: (enabled: boolean) => ({
@@ -16,6 +17,23 @@ vi.mock("./use-ms-auth", () => ({
 const noop = vi.fn();
 const noopAsync = async () => {};
 
+function baseProps(overrides: Partial<React.ComponentProps<typeof StorageConfigSection>> = {}): React.ComponentProps<typeof StorageConfigSection> {
+  return {
+    lang: "en-US",
+    config: { kind: "browser" },
+    onChange: noop,
+    description: null,
+    ready: false,
+    onPickFile: noopAsync,
+    onOpenFile: noopAsync,
+    onGrantWrite: noopAsync,
+    m365Enabled: false,
+    sharepointEnabled: false,
+    tursoEnabled: false,
+    ...overrides,
+  };
+}
+
 describe("StorageConfigSection — SharePoint gating", () => {
   beforeEach(() => {
     noop.mockClear();
@@ -29,6 +47,7 @@ describe("StorageConfigSection — SharePoint gating", () => {
         onChange={noop}
         m365Enabled={false}
         sharepointEnabled={false}
+        tursoEnabled={false}
         description={null}
         ready={false}
         onPickFile={noopAsync}
@@ -47,6 +66,7 @@ describe("StorageConfigSection — SharePoint gating", () => {
         onChange={noop}
         m365Enabled={true}
         sharepointEnabled={true}
+        tursoEnabled={false}
         description={null}
         ready={false}
         onPickFile={noopAsync}
@@ -67,6 +87,7 @@ describe("StorageConfigSection — SharePoint gating", () => {
         onChange={onChange}
         m365Enabled={true}
         sharepointEnabled={true}
+        tursoEnabled={false}
         description={null}
         ready={false}
         onPickFile={noopAsync}
@@ -92,6 +113,7 @@ describe("StorageConfigSection — SharePoint gating", () => {
         onChange={onChange}
         m365Enabled={true}
         sharepointEnabled={true}
+        tursoEnabled={false}
         description={null}
         ready={false}
         onPickFile={noopAsync}
@@ -109,5 +131,26 @@ describe("StorageConfigSection — SharePoint gating", () => {
       sitePath: "/sites/Alpha",
       itemPath: "Shared Documents/workspace.json",
     });
+  });
+});
+
+describe("StorageConfigSection — Turso gating", () => {
+  beforeEach(() => {
+    noop.mockClear();
+  });
+
+  it("Turso option is disabled until tursoEnabled", () => {
+    const onChange = vi.fn();
+    const { rerender } = render(<StorageConfigSection {...baseProps({ onChange, tursoEnabled: false })} />);
+    expect((screen.getByRole("option", { name: t("en-US", "storageTurso") }) as HTMLOptionElement).disabled).toBe(true);
+    rerender(<StorageConfigSection {...baseProps({ onChange, tursoEnabled: true })} />);
+    expect((screen.getByRole("option", { name: t("en-US", "storageTurso") }) as HTMLOptionElement).disabled).toBe(false);
+  });
+
+  it("selecting Turso sets config kind turso", () => {
+    const onChange = vi.fn();
+    render(<StorageConfigSection {...baseProps({ onChange, tursoEnabled: true })} />);
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "turso" } });
+    expect(onChange).toHaveBeenCalledWith({ kind: "turso" });
   });
 });

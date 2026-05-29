@@ -966,11 +966,17 @@ const enUS = {
   integrationsOutlookContacts: "Outlook contacts",
   integrationsOutlookCalendar: "Outlook calendar",
   integrationsTurso: "Turso storage backend",
+  integrationsTursoHint: "Store your workspace in a Turso (libSQL) database. The auth token is stored in this browser — use a scoped token.",
+  integrationsTursoUrl: "Database URL",
+  integrationsTursoUrlPlaceholder: "libsql://your-db.turso.io",
+  integrationsTursoToken: "Auth token",
+  integrationsTursoTokenPlaceholder: "Turso database token",
   integrationsComingSoon: "Available in 0.22.0+",
   versionHighlightM365Auth: "Microsoft 365 integration foundation: sign in with your work account to unlock upcoming SharePoint, Outlook contacts, and calendar features. All integrations default to OFF.",
   versionHighlightSharepointStorage: "SharePoint storage backend: save your workspace as a JSON or CSV file in a SharePoint Sites library — paste the file URL in Storage Configuration after enabling SharePoint in Settings → Integrations.",
   versionHighlightOutlookContacts: "Import your Outlook contacts: sign in with Microsoft, then pull contacts into your resource directory and assignee suggestions from the Resources tab.",
   versionHighlightOutlookCalendar: "Import time-away events from your Outlook calendar as absences: sign in with Microsoft, then pull all-day and Out-of-Office events into the resource calendar from Resources › Calendar.",
+  versionHighlightTursoStorage: "Store your workspace in a Turso (libSQL) database: enable Turso in Settings, add your database URL + token, then pick Turso in Storage Configuration.",
 
   outlookCalImportTitle: "Import Outlook calendar",
   outlookCalImportLoading: "Loading events…",
@@ -986,6 +992,10 @@ const enUS = {
   outlookCalImportedN: "Imported {0} absences",
   outlookCalendarPermissionDenied: "Calendar access was denied. Please check your Microsoft permissions.",
   outlookCalendarFetchFailed: "Failed to fetch calendar events. Please try again.",
+
+  storageTurso: "Turso database",
+  storageTursoNeedsToggle: "Enable Turso in Settings → Integrations.",
+  storageTursoNeedsConfig: "Enter the Turso URL and token in Settings.",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;
