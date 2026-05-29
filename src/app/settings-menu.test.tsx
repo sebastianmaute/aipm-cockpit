@@ -191,4 +191,11 @@ describe("SettingsMenu — Integrations section", () => {
     expect(link).toHaveAttribute("target", "_blank");
     expect(link.getAttribute("rel") ?? "").toContain("noopener");
   });
+
+  it("renders InfoTooltip help affordances in the Settings menu", () => {
+    render(<SettingsMenu {...makeProps()} />);
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "settings") }));
+    expect(screen.getByRole("button", { name: /display language/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /connect external services/i })).toBeInTheDocument();
+  });
 });

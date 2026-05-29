@@ -8,6 +8,7 @@ import {
   isFileSystemAccessSupported,
 } from "./storage";
 import { useMsAuth } from "./use-ms-auth";
+import { InfoTooltip } from "./info-tooltip";
 import { parseSharePointFileUrl } from "./sharepoint-backend";
 
 type Props = {
@@ -127,8 +128,9 @@ export function StorageConfigSection({
 
   return (
     <div>
-      <span className="mb-1 block text-sm font-medium text-foreground">
+      <span className="mb-1 flex items-center gap-1 text-sm font-medium text-foreground">
         {t(lang, "storage")}
+        <InfoTooltip text={t(lang, "storageTooltip")} />
       </span>
       <select
         value={config.kind}
