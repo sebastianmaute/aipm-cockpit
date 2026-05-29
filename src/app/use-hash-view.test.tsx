@@ -1,6 +1,6 @@
 import { renderHook, act } from "@testing-library/react";
 import { useLayoutEffect, type ReactNode } from "react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { WorkspaceTabProvider, useWorkspaceTab } from "./workspace-tab-context";
 import { useHashView } from "./use-hash-view";
 
@@ -51,7 +51,17 @@ describe("useHashView", () => {
       },
       { wrapper },
     );
+    // Flush the write useEffect that responds to the setActiveTab("raid") above.
     act(() => {});
     expect(window.location.hash).toBe("#raid");
+  });
+
+  it("removes the hashchange listener on unmount", () => {
+    window.location.hash = "";
+    const removeSpy = vi.spyOn(window, "removeEventListener");
+    const { unmount } = renderHook(() => useHashView(), { wrapper });
+    unmount();
+    expect(removeSpy).toHaveBeenCalledWith("hashchange", expect.any(Function));
+    removeSpy.mockRestore();
   });
 });

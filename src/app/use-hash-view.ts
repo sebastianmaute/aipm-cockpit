@@ -28,7 +28,7 @@ export function useHashView(): void {
 
   // View change: write the hash (skip the reserved full-page edit view).
   useEffect(() => {
-    if (isPopout || activeTab === "edit") return;
+    if (typeof window === "undefined" || isPopout || activeTab === "edit") return;
     const next = `#${viewToSlug(activeTab)}`;
     if (window.location.hash !== next) window.location.hash = next;
   }, [isPopout, activeTab]);
