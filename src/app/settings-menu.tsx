@@ -14,6 +14,7 @@ import { StorageConfigSection } from "./storage-config";
 import type { Theme } from "./theme";
 import { useTheme } from "./use-theme";
 import { useMsAuth } from "./use-ms-auth";
+import { InfoTooltip } from "./info-tooltip";
 
 type ChatModel =
   | "claude-sonnet-4-6"
@@ -299,8 +300,9 @@ export function SettingsMenu({
           </h3>
 
           <div className="mb-4">
-            <span className="mb-1 block text-sm font-medium text-foreground">
+            <span className="mb-1 flex items-center gap-1 text-sm font-medium text-foreground">
               {t(lang, "theme")}
+              <InfoTooltip text={t(lang, "themeTooltip")} />
             </span>
             <SegmentedControl<Theme>
               value={theme}
@@ -317,8 +319,9 @@ export function SettingsMenu({
           </div>
 
           <label className="mb-4 block">
-            <span className="mb-1 block text-sm font-medium text-foreground">
+            <span className="mb-1 flex items-center gap-1 text-sm font-medium text-foreground">
               {t(lang, "language")}
+              <InfoTooltip text={t(lang, "languageTooltip")} />
             </span>
             <select
               value={settings.language}
@@ -334,8 +337,9 @@ export function SettingsMenu({
           </label>
 
           <div>
-            <span className="mb-1 block text-sm font-medium text-foreground">
+            <span className="mb-1 flex items-center gap-1 text-sm font-medium text-foreground">
               {t(lang, "holidayCountries")}
+              <InfoTooltip text={t(lang, "holidayCountriesTooltip")} />
             </span>
             <div className="flex gap-2">
               <select
@@ -402,14 +406,18 @@ export function SettingsMenu({
           <hr className="my-4 border-line" />
 
           <div className="mb-4">
-            <span className="mb-1 block text-sm font-medium text-foreground">
+            <span className="mb-1 flex items-center gap-1 text-sm font-medium text-foreground">
               {t(lang, "notifications")}
+              <InfoTooltip text={t(lang, "notificationsTooltip")} />
             </span>
             <p className="mb-2 text-xs text-muted-foreground">
               {t(lang, "notificationsHint")}
             </p>
             <label className="mb-2 flex items-center justify-between gap-2 text-sm text-foreground">
-              {t(lang, "reminderLeadDays")}
+              <span className="inline-flex items-center gap-1">
+                {t(lang, "reminderLeadDays")}
+                <InfoTooltip text={t(lang, "reminderLeadDaysTooltip")} />
+              </span>
               <input type="number" min={0} max={365}
                 value={settings.notifications.reminderLeadDays}
                 onChange={(e) => onChange({ ...settings, notifications: { ...settings.notifications, reminderLeadDays: Math.max(0, Math.min(365, Math.round(Number(e.target.value) || 0))) } })}
@@ -454,36 +462,41 @@ export function SettingsMenu({
                   onChange={(e) => onChange({ ...settings, notifications: { ...settings.notifications, birthday: { enabled: e.target.checked } } })} />
                 {t(lang, "notifBirthday")}
               </label>
+              <InfoTooltip text={t(lang, "notifBirthdayTooltip")} />
             </div>
           </div>
 
           <hr className="my-4 border-line" />
 
           <div className="mb-4">
-            <label className="flex cursor-pointer items-center gap-2">
-              <input
-                type="checkbox"
-                checked={settings.popout.reuseWindow}
-                onChange={(e) =>
-                  onChange({
-                    ...settings,
-                    popout: { ...settings.popout, reuseWindow: e.target.checked },
-                  })
-                }
-                className="h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue focus:ring-AIPM-green"
-              />
-              <span className="text-sm text-foreground">
-                {t(lang, "popoutReuseWindow")}
-              </span>
-            </label>
+            <div className="flex items-center gap-1">
+              <label className="flex cursor-pointer items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={settings.popout.reuseWindow}
+                  onChange={(e) =>
+                    onChange({
+                      ...settings,
+                      popout: { ...settings.popout, reuseWindow: e.target.checked },
+                    })
+                  }
+                  className="h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue focus:ring-AIPM-green"
+                />
+                <span className="text-sm text-foreground">
+                  {t(lang, "popoutReuseWindow")}
+                </span>
+              </label>
+              <InfoTooltip text={t(lang, "popoutReuseWindowTooltip")} />
+            </div>
           </div>
 
           <hr className="my-4 border-line" />
 
           <div className="mb-4">
             <label className="flex items-center justify-between gap-2">
-              <span className="text-sm text-foreground">
+              <span className="inline-flex items-center gap-1 text-sm text-foreground">
                 {t(lang, "resourcesWorkdayHours")}
+                <InfoTooltip text={t(lang, "resourcesWorkdayHoursTooltip")} />
               </span>
               <input
                 type="number" min={1} max={24} step={0.5}
@@ -500,12 +513,14 @@ export function SettingsMenu({
           <hr className="my-4 border-line" />
 
           <div className="mb-4">
-            <span className="mb-1 block text-sm font-medium text-foreground">
+            <span className="mb-1 flex items-center gap-1 text-sm font-medium text-foreground">
               {t(lang, "aiAssistant")}
+              <InfoTooltip text={t(lang, "aiAssistantTooltip")} />
             </span>
             <label className="mt-2 block">
-              <span className="mb-1 block text-xs text-muted-foreground">
+              <span className="mb-1 flex items-center gap-1 text-xs text-muted-foreground">
                 {t(lang, "aiApiKey")}
+                <InfoTooltip text={t(lang, "aiApiKeyTooltip")} />
               </span>
               <input
                 type="password"
@@ -522,8 +537,9 @@ export function SettingsMenu({
               />
             </label>
             <label className="mt-2 block">
-              <span className="mb-1 block text-xs text-muted-foreground">
+              <span className="mb-1 flex items-center gap-1 text-xs text-muted-foreground">
                 {t(lang, "aiModel")}
+                <InfoTooltip text={t(lang, "aiModelTooltip")} />
               </span>
               <select
                 value={settings.ai.model}
@@ -601,19 +617,23 @@ export function SettingsMenu({
           <hr className="my-4 border-line" />
 
           <div className="rounded-md border border-line bg-surface p-3">
-            <h3 className="mb-2 text-sm font-semibold text-foreground">
-              {t(lang, "integrations")}
-            </h3>
+            <div className="mb-2 flex items-center gap-1">
+              <h3 className="text-sm font-semibold text-foreground">{t(lang, "integrations")}</h3>
+              <InfoTooltip text={t(lang, "integrationsTooltip")} />
+            </div>
 
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={m365.enabled}
-                onChange={(e) => updateM365({ enabled: e.target.checked })}
-                className="h-4 w-4"
-              />
-              <span>{t(lang, "integrationsM365")}</span>
-            </label>
+            <div className="flex items-center gap-1">
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={m365.enabled}
+                  onChange={(e) => updateM365({ enabled: e.target.checked })}
+                  className="h-4 w-4"
+                />
+                <span>{t(lang, "integrationsM365")}</span>
+              </label>
+              <InfoTooltip text={t(lang, "integrationsM365Tooltip")} />
+            </div>
             <p className="mt-1 text-xs text-muted-foreground">
               {t(lang, "integrationsM365Hint")}
             </p>
@@ -622,8 +642,9 @@ export function SettingsMenu({
               <div className="mt-3 space-y-2 border-l-2 border-line pl-3">
                 {!envClientIdSet && (
                   <label className="block text-xs">
-                    <span className="text-muted-foreground">
+                    <span className="inline-flex items-center gap-1 text-muted-foreground">
                       {t(lang, "integrationsM365ClientId")}
+                      <InfoTooltip text={t(lang, "integrationsM365ClientIdTooltip")} />
                     </span>
                     <input
                       type="text"
@@ -636,8 +657,9 @@ export function SettingsMenu({
                 )}
                 {!envTenantIdSet && (
                   <label className="block text-xs">
-                    <span className="text-muted-foreground">
+                    <span className="inline-flex items-center gap-1 text-muted-foreground">
                       {t(lang, "integrationsM365TenantId")}
+                      <InfoTooltip text={t(lang, "integrationsM365TenantIdTooltip")} />
                     </span>
                     <input
                       type="text"
@@ -683,52 +705,70 @@ export function SettingsMenu({
                 <fieldset className="mt-3 border-t border-line pt-2">
                   {(
                     [
-                      ["integrationsSharepoint", "sharepoint", false],
-                      ["integrationsOutlookContacts", "outlookContacts", false],
-                      ["integrationsOutlookCalendar", "outlookCalendar", false],
+                      ["integrationsSharepoint", "sharepoint", false, "integrationsSharepointTooltip"],
+                      ["integrationsOutlookContacts", "outlookContacts", false, "integrationsOutlookContactsTooltip"],
+                      ["integrationsOutlookCalendar", "outlookCalendar", false, "integrationsOutlookCalendarTooltip"],
                     ] as const
-                  ).map(([labelKey, key, comingSoon]) => (
-                    <label
-                      key={labelKey}
-                      className={`mt-1 flex items-center gap-2 text-sm ${comingSoon ? "text-muted-foreground" : "text-foreground"}`}
-                      title={comingSoon ? t(lang, "integrationsComingSoon") : undefined}
-                    >
-                      <input
-                        type="checkbox"
-                        disabled={comingSoon}
-                        checked={comingSoon ? false : m365[key]}
-                        onChange={
-                          comingSoon
-                            ? undefined
-                            : (e) => updateM365({ [key]: e.target.checked })
-                        }
-                        className={comingSoon ? "h-4 w-4 cursor-not-allowed" : "h-4 w-4"}
-                      />
-                      <span>{t(lang, labelKey)}</span>
-                    </label>
+                  ).map(([labelKey, key, comingSoon, tooltipKey]) => (
+                    <div key={labelKey} className="mt-1 flex items-center gap-1">
+                      <label
+                        className={`flex items-center gap-2 text-sm ${comingSoon ? "text-muted-foreground" : "text-foreground"}`}
+                        title={comingSoon ? t(lang, "integrationsComingSoon") : undefined}
+                      >
+                        <input
+                          type="checkbox"
+                          disabled={comingSoon}
+                          checked={comingSoon ? false : m365[key]}
+                          onChange={
+                            comingSoon
+                              ? undefined
+                              : (e) => updateM365({ [key]: e.target.checked })
+                          }
+                          className={comingSoon ? "h-4 w-4 cursor-not-allowed" : "h-4 w-4"}
+                        />
+                        <span>{t(lang, labelKey)}</span>
+                      </label>
+                      <InfoTooltip text={t(lang, tooltipKey)} />
+                    </div>
                   ))}
                 </fieldset>
               </div>
             )}
 
-            <label className="mt-3 flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={turso.enabled}
-                onChange={(e) => updateTurso({ enabled: e.target.checked })}
-                className="h-4 w-4"
-              />
-              <span>{t(lang, "integrationsTurso")}</span>
-            </label>
+            <div className="mt-3 flex items-center gap-1">
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={turso.enabled}
+                  onChange={(e) => updateTurso({ enabled: e.target.checked })}
+                  className="h-4 w-4"
+                />
+                <span>{t(lang, "integrationsTurso")}</span>
+              </label>
+              <InfoTooltip text={t(lang, "integrationsTursoTooltip")} />
+            </div>
             <p className="mt-1 text-xs text-muted-foreground">
               {t(lang, "integrationsTursoHint")}
+            </p>
+            <p className="mt-1 text-xs">
+              <a
+                href="https://turso.tech/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-AIPM-dark-blue underline hover:opacity-80"
+              >
+                {t(lang, "integrationsTursoLearnMore")}
+              </a>
             </p>
 
             {turso.enabled && (
               <div className="mt-2 space-y-2 border-l-2 border-line pl-3">
                 {!envTursoUrlSet && (
                   <label className="block text-xs">
-                    <span className="text-muted-foreground">{t(lang, "integrationsTursoUrl")}</span>
+                    <span className="inline-flex items-center gap-1 text-muted-foreground">
+                      {t(lang, "integrationsTursoUrl")}
+                      <InfoTooltip text={t(lang, "integrationsTursoUrlTooltip")} />
+                    </span>
                     <input
                       type="text"
                       value={turso.databaseUrl ?? ""}
@@ -740,7 +780,10 @@ export function SettingsMenu({
                 )}
                 {!envTursoTokenSet && (
                   <label className="block text-xs">
-                    <span className="text-muted-foreground">{t(lang, "integrationsTursoToken")}</span>
+                    <span className="inline-flex items-center gap-1 text-muted-foreground">
+                      {t(lang, "integrationsTursoToken")}
+                      <InfoTooltip text={t(lang, "integrationsTursoTokenTooltip")} />
+                    </span>
                     <input
                       type="password"
                       value={turso.authToken ?? ""}

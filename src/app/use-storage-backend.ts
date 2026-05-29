@@ -135,9 +135,13 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         if (cancelled) return;
         if (err instanceof StorageNotReadyError) {
           if (settingsRef.current.storageConfig.kind !== "browser") {
-            const key = (err as StorageNotReadyError).hint === "local-file-permission-needed"
-              ? "storagePermissionGestureNeeded"
-              : "storageNotReady";
+            const hint = (err as StorageNotReadyError).hint;
+            const key =
+              hint === "local-file-permission-needed"
+                ? "storagePermissionGestureNeeded"
+                : hint === "storage-unreachable"
+                  ? "storageUnreachable"
+                  : "storageNotReady";
             args.showToast("error", t(langRef.current, key));
           }
         } else if (!(err instanceof StorageNotImplementedError)) {
@@ -291,7 +295,12 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       if (/abort/i.test(msg) || /user activation/i.test(msg)) return;
       if (err instanceof StorageNotReadyError) {
         const hint = (err as StorageNotReadyError).hint;
-        const key = hint === "local-file-permission-needed" ? "storagePermissionGestureNeeded" : "storageNotReady";
+        const key =
+          hint === "local-file-permission-needed"
+            ? "storagePermissionGestureNeeded"
+            : hint === "storage-unreachable"
+              ? "storageUnreachable"
+              : "storageNotReady";
         args.showToast("error", t(langRef.current, key));
       } else {
         // StorageNotImplementedError also surfaces here — user confirmed a
