@@ -28,9 +28,13 @@ interface PipelineStmt {
   sql: string;
   args?: TextArg[];
 }
+interface Cell {
+  type?: string;
+  value?: unknown;
+}
 interface PipelineResult {
   type: "ok" | "error";
-  response?: { type: string; result?: { rows?: { value?: unknown }[][] } };
+  response?: { type: string; result?: { rows?: Cell[][] } };
   error?: { message?: string };
 }
 
@@ -82,8 +86,11 @@ export class TursoBackend implements StorageBackend {
     if (!res.ok) {
       throw new Error(`Turso returned ${res.status}. Try again later.`);
     }
-    const body = (await res.json()) as { results?: PipelineResult[] };
-    const results = body.results ?? [];
+    const raw: unknown = await res.json();
+    if (!raw || typeof raw !== "object" || !("results" in raw)) {
+      throw new Error("Turso returned an unexpected response shape.");
+    }
+    const results = (raw as { results?: PipelineResult[] }).results ?? [];
     for (const r of results) {
       if (r.type === "error") {
         throw new Error(`Turso error: ${r.error?.message ?? "unknown"}`);
@@ -94,6 +101,9 @@ export class TursoBackend implements StorageBackend {
 
   async load(): Promise<Workspace> {
     const results = await this.runPipeline([{ sql: TABLE_DDL }, { sql: SELECT_SQL }]);
+    if (results.length < 2) {
+      throw new Error("Turso pipeline returned fewer results than expected.");
+    }
     // results[0] = DDL, results[1] = SELECT.
     const text = firstRowText(results, 1);
     if (text === null) return emptyWorkspace();

@@ -74,4 +74,12 @@ describe("TursoBackend", () => {
     await expect(new TursoBackend(null).load()).rejects.toBeInstanceOf(StorageNotReadyError);
     expect(fetchSpy).not.toHaveBeenCalled();
   });
+
+  it("load sends CREATE TABLE as the first statement", async () => {
+    fetchSpy.mockResolvedValueOnce(jsonRes({ results: [execOk([]), execOk([]), closeOk] }));
+    await new TursoBackend(CONFIG).load();
+    const body = JSON.parse((fetchSpy.mock.calls[0][1] as RequestInit).body as string);
+    expect(body.requests[0].stmt.sql).toContain("CREATE TABLE IF NOT EXISTS workspace");
+    expect(body.requests[1].stmt.sql).toContain("SELECT data FROM workspace");
+  });
 });
