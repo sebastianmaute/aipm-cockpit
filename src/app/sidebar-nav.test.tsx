@@ -25,4 +25,10 @@ describe("SidebarNav", () => {
     render(<SidebarNav lang="en-US" activeView="resources" onNavigate={() => {}} />);
     expect(screen.getByRole("button", { name: "Address Book" })).toBeTruthy();
   });
+
+  it("reveals sibling child items when a child is the active view", () => {
+    render(<SidebarNav lang="en-US" activeView="address-book" onNavigate={() => {}} />);
+    expect(screen.getByRole("button", { name: "Address Book" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Resource report" })).toBeTruthy();
+  });
 });

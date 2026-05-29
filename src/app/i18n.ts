@@ -1039,6 +1039,7 @@ const enUS = {
   navGroupPlan: "PLAN",
   navGroupRegisters: "REGISTERS",
   navGroupSystem: "SYSTEM",
+  navPrimaryLabel: "Primary",
   navOpenPoints: "Open Points",
   layout: "Layout",
   layoutModern: "Modern",

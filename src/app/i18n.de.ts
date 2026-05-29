@@ -1057,6 +1057,7 @@ export const de: Record<TranslationKey, string> = {
   navGroupPlan: "PLANUNG",
   navGroupRegisters: "REGISTER",
   navGroupSystem: "SYSTEM",
+  navPrimaryLabel: "Hauptnavigation",
   navOpenPoints: "Offene Punkte",
   layout: "Layout",
   layoutModern: "Modern",
