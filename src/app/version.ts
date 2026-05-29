@@ -1,3 +1,9 @@
+// 0.26.0 reworks the Turso storage backend to a proper relational (hybrid)
+// schema — one table per entity (tasks, raid, absences, shifts, resources,
+// roles, disciplines, grades, budget_buckets, plan, fx_rates) with nested
+// fields kept as encoded TEXT columns — instead of a single JSON blob.
+// Existing single-blob Turso databases (0.25.x) are imported automatically on
+// first load. Verified against a local tursodb (--sync-server).
 // 0.25.1 lets the Turso backend talk to a local / self-hosted tursodb, not just
 // Turso Cloud: the config resolver now accepts a plaintext http:// URL for
 // loopback hosts (localhost / 127.0.0.1) and treats the auth token as optional
@@ -311,7 +317,7 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.25.1";
+export const APP_VERSION = "0.26.0";
 export const APP_BUILD_DATE = "2026-05-29"; // Jemisin milestone
 export const APP_REPO_URL = "https://www.example.com";
 
@@ -347,4 +353,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightOutlookContacts",
   "versionHighlightOutlookCalendar",
   "versionHighlightTursoStorage",
+  "versionHighlightTursoRelational",
 ] as const;

@@ -977,6 +977,7 @@ const enUS = {
   versionHighlightOutlookContacts: "Import your Outlook contacts: sign in with Microsoft, then pull contacts into your resource directory and assignee suggestions from the Resources tab.",
   versionHighlightOutlookCalendar: "Import time-away events from your Outlook calendar as absences: sign in with Microsoft, then pull all-day and Out-of-Office events into the resource calendar from Resources › Calendar.",
   versionHighlightTursoStorage: "Store your workspace in a Turso (libSQL) database: enable Turso in Settings, add your database URL + token, then pick Turso in Storage Configuration.",
+  versionHighlightTursoRelational: "Turso storage now uses a proper relational schema (one table per entity) instead of a single JSON blob — your workspace is queryable in SQL. Existing single-blob databases are imported automatically.",
 
   outlookCalImportTitle: "Import Outlook calendar",
   outlookCalImportLoading: "Loading events…",
