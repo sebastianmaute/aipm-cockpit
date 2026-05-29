@@ -59,6 +59,7 @@ export interface WorkspaceSectionProps {
   setWorkspaceCollapsed: React.Dispatch<React.SetStateAction<boolean>>;
   dispatcher: ToolDispatcher;
   handleAcceptAiConsent: () => void;
+  fullBleed?: boolean;
   handleGanttBarUpdate: (edit: {
     taskId: number;
     startDate: string;
@@ -131,6 +132,7 @@ export function WorkspaceSection({
   onChangeBudgets,
   onRefreshFx,
   fxLoading = false,
+  fullBleed = false,
 }: WorkspaceSectionProps) {
   const { settings, lang } = useSettings();
   const { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates } = useWorkspace();
@@ -141,14 +143,16 @@ export function WorkspaceSection({
     <section
       ref={workspaceRef}
       className={
-        isPopout
+        fullBleed
+          ? "flex min-h-0 w-full flex-1 flex-col overflow-hidden bg-surface"
+          : isPopout
           ? "flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-xl border border-line bg-surface p-6"
           : workspaceCollapsed
           ? "mb-10 flex w-full flex-col rounded-xl border border-line bg-surface p-6"
           : "relative mb-10 flex h-[560px] min-h-[420px] w-full min-w-[520px] resize flex-col overflow-hidden rounded-xl border border-line bg-surface p-6"
       }
     >
-      {!isPopout && (
+      {!isPopout && !fullBleed && (
         <div
           role="tablist"
           aria-label="Workspace tabs"
@@ -288,7 +292,7 @@ export function WorkspaceSection({
 
       <div
         id="workspace-panels"
-        hidden={!isPopout && workspaceCollapsed}
+        hidden={!isPopout && !fullBleed && workspaceCollapsed}
         className="flex min-h-0 flex-1 flex-col"
       >
         <div
@@ -465,7 +469,7 @@ export function WorkspaceSection({
           </div>
         )}
       </div>
-      {!isPopout && !workspaceCollapsed && (
+      {!isPopout && !fullBleed && !workspaceCollapsed && (
         <span
           aria-hidden={true}
           title={t(lang, "workspaceResizeHint")}

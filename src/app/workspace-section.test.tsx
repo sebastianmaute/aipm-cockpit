@@ -115,4 +115,9 @@ describe("WorkspaceSection", () => {
     fireEvent.click(raidTabBtn!);
     expect(handleClearRaidTaskFilter).toHaveBeenCalledTimes(1);
   });
+
+  it("hides the tab strip in fullBleed mode", () => {
+    render(<WorkspaceSection {...makeProps({ fullBleed: true } as Partial<WorkspaceSectionProps>)} />, { wrapper: Wrapper });
+    expect(screen.queryByRole("tablist", { name: "Workspace tabs" })).toBeNull();
+  });
 });
