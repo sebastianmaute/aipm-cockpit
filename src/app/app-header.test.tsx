@@ -10,22 +10,6 @@ import { defaultSettings } from "./settings-menu";
 import type { AlertableTask } from "./due-dates";
 import type { Task } from "./types";
 
-vi.mock("./use-settings", () => ({
-  useSettings: vi.fn(() => ({
-    settings: {
-      lang: "en-US",
-      jira: { enabled: false, siteUrl: "", email: "", apiToken: "", projectKey: "", issueTypes: [] },
-      ai: { consentAccepted: false, provider: "none" },
-      notifications: { reminderLeadDays: 7, banner: { enabled: false }, popup: { enabled: false } },
-      holidayCountries: [],
-    },
-    setSettings: vi.fn(),
-    hydrated: true,
-    i18nReady: true,
-    lang: "en-US" as const,
-  })),
-}));
-
 function makeProps(overrides: Partial<AppHeaderProps> = {}): AppHeaderProps {
   return {
     handleCancelEdit: vi.fn(),
