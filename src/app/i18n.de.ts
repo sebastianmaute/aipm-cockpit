@@ -999,6 +999,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightTursoStorage: "Workspace in einer Turso-(libSQL-)Datenbank speichern: Turso in den Einstellungen aktivieren, Datenbank-URL + Token hinzufügen und in der Speicherkonfiguration „Turso” auswählen.",
   versionHighlightTursoRelational: "Der Turso-Speicher nutzt jetzt ein echtes relationales Schema (eine Tabelle pro Entität) statt eines einzelnen JSON-Blobs – Ihr Workspace ist in SQL abfragbar. Bestehende Einzel-Blob-Datenbanken werden automatisch importiert.",
   versionHighlightStorageConvert: "Beim Wechsel des Speicherformats werden jetzt Ihre aktuellen Daten konvertiert und in das neue Format (JSON, CSV, Markdown, SharePoint oder Turso) geschrieben – nach einer Bestätigung – statt vorhandene Daten zu laden.",
+  versionHighlightStorageUnreachable: "Der Wechsel zu einem nicht laufenden Turso-Backend zeigt jetzt eine klare Meldung 'Speicher nicht erreichbar' und behält Ihre Daten; die Turso-Einstellungen enthalten einen turso.tech-Link, und jedes Einstellungsfeld hat jetzt einen Hover-Tooltip.",
 
   outlookCalImportTitle: "Outlook-Kalender importieren",
   outlookCalImportLoading: "Termine werden geladen…",

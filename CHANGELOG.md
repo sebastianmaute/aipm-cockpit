@@ -8,6 +8,15 @@ Authoritative source for version + build date: [`src/app/version.ts`](src/app/ve
 This file is seeded from that module's milestone comment plus the
 post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-diff.txt).
 
+## [0.28.0] — 2026-05-29 "Jemisin"
+
+### Added
+- Link to turso.tech in the Turso storage configuration section.
+- Mouseover help tooltips on every field in the Settings menu (storage, integrations, Jira, AI, notifications, and more).
+
+### Changed
+- Switching to a Turso backend when the server is down or the database is unreachable now shows a clear "storage unreachable — is the server running?" message instead of a raw network error. The switch is aborted and your current data is preserved (no switch, no data loss). A reachable but empty database is still initialized automatically.
+
 ## [0.27.0] — 2026-05-29 "Jemisin"
 
 ### Changed

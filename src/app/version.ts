@@ -1,3 +1,10 @@
+// 0.28.0 improves Turso network-failure UX: switching to a Turso backend when
+// the server is down or the database is unreachable now shows a clear
+// "storage unreachable — is the server running?" toast; the switch is aborted
+// and current data is preserved (no switch, no data loss). A reachable but
+// empty database is still initialized automatically. Also: a turso.tech link
+// in the Turso configuration section and mouseover help tooltips on every
+// field in the Settings menu.
 // 0.27.0 converts the live workspace when you switch storage format: instead
 // of loading whatever was already in the target backend, the app serialises
 // your current data and writes it to the newly-chosen backend (JSON, CSV,
@@ -323,7 +330,7 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.27.0";
+export const APP_VERSION = "0.28.0";
 export const APP_BUILD_DATE = "2026-05-29"; // Jemisin milestone
 export const APP_REPO_URL = "https://www.example.com";
 
@@ -361,4 +368,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightTursoStorage",
   "versionHighlightTursoRelational",
   "versionHighlightStorageConvert",
+  "versionHighlightStorageUnreachable",
 ] as const;
