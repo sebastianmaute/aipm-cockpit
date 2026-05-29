@@ -1038,7 +1038,7 @@ export const de: Record<TranslationKey, string> = {
   integrationsM365TenantIdTooltip: "Ihre Azure-Verzeichnis-(Mandanten-)ID oder 'common' für mehrere Mandanten.",
   integrationsSharepointTooltip: "Workspace in einer SharePoint-Dokumentbibliothek speichern.",
   integrationsOutlookContactsTooltip: "Kontakte aus Outlook in das Ressourcenverzeichnis importieren.",
-  integrationsOutlookCalendarTooltip: "Kalender-Abwesenheiten in Ihre Abwesenheiten importieren.",
+  integrationsOutlookCalendarTooltip: "Abwesenheits- und Außer-Haus-Termine aus Ihrem Outlook-Kalender in Ihre Abwesenheiten importieren.",
   integrationsTursoTooltip: "Workspace in einer Turso-(libSQL-)Datenbank speichern.",
   integrationsTursoUrlTooltip: "Ihre Turso-Datenbank-URL (libsql://, https:// oder http:// für einen lokalen Server).",
   integrationsTursoTokenTooltip: "Auth-Token für die Turso-Datenbank. Für einen lokalen Server ohne Token leer lassen.",

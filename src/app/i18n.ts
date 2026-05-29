@@ -1020,7 +1020,7 @@ const enUS = {
   integrationsM365TenantIdTooltip: "Your Azure directory (tenant) ID, or 'common' for multi-tenant.",
   integrationsSharepointTooltip: "Store your workspace in a SharePoint document library.",
   integrationsOutlookContactsTooltip: "Import contacts from Outlook into your resource directory.",
-  integrationsOutlookCalendarTooltip: "Import calendar time-away into your absences.",
+  integrationsOutlookCalendarTooltip: "Import out-of-office and time-away events from your Outlook calendar into your absences.",
   integrationsTursoTooltip: "Store your workspace in a Turso (libSQL) database.",
   integrationsTursoUrlTooltip: "Your Turso database URL (libsql://, https://, or http:// for a local server).",
   integrationsTursoTokenTooltip: "Auth token for the Turso database. Leave empty for a local token-less server.",

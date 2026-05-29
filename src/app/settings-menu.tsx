@@ -617,12 +617,10 @@ export function SettingsMenu({
           <hr className="my-4 border-line" />
 
           <div className="rounded-md border border-line bg-surface p-3">
-            <h3 className="mb-2 text-sm font-semibold text-foreground">
-              <span className="inline-flex items-center gap-1">
-                {t(lang, "integrations")}
-                <InfoTooltip text={t(lang, "integrationsTooltip")} />
-              </span>
-            </h3>
+            <div className="mb-2 flex items-center gap-1">
+              <h3 className="text-sm font-semibold text-foreground">{t(lang, "integrations")}</h3>
+              <InfoTooltip text={t(lang, "integrationsTooltip")} />
+            </div>
 
             <div className="flex items-center gap-1">
               <label className="flex items-center gap-2 text-sm">
@@ -707,11 +705,11 @@ export function SettingsMenu({
                 <fieldset className="mt-3 border-t border-line pt-2">
                   {(
                     [
-                      ["integrationsSharepoint", "sharepoint", false],
-                      ["integrationsOutlookContacts", "outlookContacts", false],
-                      ["integrationsOutlookCalendar", "outlookCalendar", false],
+                      ["integrationsSharepoint", "sharepoint", false, "integrationsSharepointTooltip"],
+                      ["integrationsOutlookContacts", "outlookContacts", false, "integrationsOutlookContactsTooltip"],
+                      ["integrationsOutlookCalendar", "outlookCalendar", false, "integrationsOutlookCalendarTooltip"],
                     ] as const
-                  ).map(([labelKey, key, comingSoon]) => (
+                  ).map(([labelKey, key, comingSoon, tooltipKey]) => (
                     <div key={labelKey} className="mt-1 flex items-center gap-1">
                       <label
                         className={`flex items-center gap-2 text-sm ${comingSoon ? "text-muted-foreground" : "text-foreground"}`}
@@ -730,7 +728,7 @@ export function SettingsMenu({
                         />
                         <span>{t(lang, labelKey)}</span>
                       </label>
-                      <InfoTooltip text={t(lang, `${labelKey}Tooltip` as TranslationKey)} />
+                      <InfoTooltip text={t(lang, tooltipKey)} />
                     </div>
                   ))}
                 </fieldset>
