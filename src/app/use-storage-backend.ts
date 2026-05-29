@@ -18,7 +18,7 @@ import { getTursoConfig } from "./turso-config";
 import { useMsAuth } from "./use-ms-auth";
 import { useWorkspace } from "./workspace-context";
 
-// FIX 3: Hoisted to module scope — static map, no per-render allocation
+// Hoisted to module scope — static map, no per-render allocation
 const STORAGE_LABEL_KEYS: Record<StorageKind, Parameters<typeof t>[1]> = {
   browser: "storageBrowser",
   "local-json": "storageLocalJson",
@@ -253,9 +253,12 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     }
   }
 
-  // FIX 4: Reads the current workspace via render-scope closure — same pattern
+  // Reads the current workspace via render-scope closure — same pattern
   // as onPickStorageFile/onOpenStorageFile. Must NOT be memoized by consumers,
-  // or it would capture a stale snapshot of tasks/raid/etc.
+  // or it would capture a stale snapshot of tasks/raid/etc. The same applies
+  // to args.setStorageConfig and args.showToast, which are also read from the
+  // live args closure — memoizing this handler would capture stale versions of
+  // those callbacks too.
   async function onRequestStorageSwitch(newKind: StorageKind): Promise<void> {
     if (args.isPopout) return;
     const current = settingsRef.current.storageConfig;

@@ -427,7 +427,7 @@ describe("useStorageBackend — onRequestStorageSwitch", () => {
 
     expect(targetSave).toHaveBeenCalledTimes(1);
     expect(setStorageConfig).toHaveBeenCalledWith({ kind: "turso" });
-    // FIX 6a: success path must also fire the "converted" info toast
+    // success path must also fire the "converted" info toast
     expect(showToast).toHaveBeenCalledWith("info", expect.any(String));
   });
 
@@ -562,5 +562,21 @@ describe("useStorageBackend — onRequestStorageSwitch", () => {
 
     expect(setStorageConfig).not.toHaveBeenCalled();
     expect(showToast).toHaveBeenCalledWith("error", expect.any(String));
+  });
+
+  it("isPopout=true → no-op (no confirm shown, no config change)", async () => {
+    createBackendMock.mockReturnValue(mockBackend);
+
+    const confirmSpy = vi.spyOn(window, "confirm");
+
+    const { result } = renderBackend(makeArgs({ isPopout: true, setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+
+    await act(async () => {
+      await result.current.onRequestStorageSwitch("turso");
+    });
+
+    expect(confirmSpy).not.toHaveBeenCalled();
+    expect(setStorageConfig).not.toHaveBeenCalled();
   });
 });
