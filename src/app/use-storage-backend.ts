@@ -18,6 +18,17 @@ import { getTursoConfig } from "./turso-config";
 import { useMsAuth } from "./use-ms-auth";
 import { useWorkspace } from "./workspace-context";
 
+// FIX 3: Hoisted to module scope — static map, no per-render allocation
+const STORAGE_LABEL_KEYS: Record<StorageKind, Parameters<typeof t>[1]> = {
+  browser: "storageBrowser",
+  "local-json": "storageLocalJson",
+  "local-csv": "storageLocalCsv",
+  "local-md": "storageLocalMd",
+  "sp-json": "storageSpJson",
+  "sp-csv": "storageSpCsv",
+  turso: "storageTurso",
+};
+
 export interface UseStorageBackendArgs {
   settings: Settings;
   lang: Lang;
@@ -242,16 +253,9 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     }
   }
 
-  const STORAGE_LABEL_KEYS: Record<StorageKind, Parameters<typeof t>[1]> = {
-    browser: "storageBrowser",
-    "local-json": "storageLocalJson",
-    "local-csv": "storageLocalCsv",
-    "local-md": "storageLocalMd",
-    "sp-json": "storageSpJson",
-    "sp-csv": "storageSpCsv",
-    turso: "storageTurso",
-  };
-
+  // FIX 4: Reads the current workspace via render-scope closure — same pattern
+  // as onPickStorageFile/onOpenStorageFile. Must NOT be memoized by consumers,
+  // or it would capture a stale snapshot of tasks/raid/etc.
   async function onRequestStorageSwitch(newKind: StorageKind): Promise<void> {
     if (args.isPopout) return;
     const current = settingsRef.current.storageConfig;
@@ -259,6 +263,9 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     const newConfig: StorageConfig =
       (newKind === "sp-json" || newKind === "sp-csv") && (current.kind === "sp-json" || current.kind === "sp-csv")
         ? { ...current, kind: newKind }
+        // Cast is safe: browser/local-*/turso variants carry no required fields
+        // beyond `kind`; only sp-* needs hostname/sitePath/itemPath, handled by
+        // the spread branch above.
         : ({ kind: newKind } as StorageConfig);
     const label = t(langRef.current, STORAGE_LABEL_KEYS[newKind]);
     if (!window.confirm(t(langRef.current, "storageConvertConfirm", tasks.length, label))) return;
@@ -275,7 +282,6 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       await target.save({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates });
       suppressNextLoadRef.current = true;
       args.setStorageConfig(newConfig);
-      await refreshBackendStatus();
       args.showToast("info", t(langRef.current, "storageConvertedToast", label));
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -284,7 +290,9 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         const hint = (err as StorageNotReadyError).hint;
         const key = hint === "local-file-permission-needed" ? "storagePermissionGestureNeeded" : "storageNotReady";
         args.showToast("error", t(langRef.current, key));
-      } else if (!(err instanceof StorageNotImplementedError)) {
+      } else {
+        // StorageNotImplementedError also surfaces here — user confirmed a
+        // conversion write, so silent failure is wrong.
         args.showToast("error", t(langRef.current, "storageSaveFailed", msg));
       }
     }
