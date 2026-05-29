@@ -564,6 +564,23 @@ describe("useStorageBackend — onRequestStorageSwitch", () => {
     expect(showToast).toHaveBeenCalledWith("error", expect.any(String));
   });
 
+  it("onRequestStorageSwitch: unreachable Turso → storageUnreachable toast, no switch", async () => {
+    const { StorageNotReadyError } = await import("./storage");
+    createBackendMock.mockReturnValue({
+      kind: "turso", load: vi.fn(),
+      save: vi.fn().mockRejectedValue(new StorageNotReadyError("storage-unreachable")),
+      isReady: vi.fn().mockResolvedValue(true), describe: vi.fn().mockResolvedValue(null),
+    });
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    const { result } = renderBackend(makeArgs({ setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => {
+      await result.current.onRequestStorageSwitch("turso");
+    });
+    expect(showToast).toHaveBeenCalledWith("error", expect.stringContaining("unreachable"));
+    expect(setStorageConfig).not.toHaveBeenCalled();
+  });
+
   it("isPopout=true → no-op (no confirm shown, no config change)", async () => {
     createBackendMock.mockReturnValue(mockBackend);
 

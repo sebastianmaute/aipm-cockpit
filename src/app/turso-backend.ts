@@ -62,14 +62,21 @@ export class TursoBackend implements StorageBackend {
     if (this.config.authToken) {
       headers.Authorization = `Bearer ${this.config.authToken}`;
     }
-    const res = await fetch(`${this.config.httpUrl}/v2/pipeline`, {
-      method: "POST",
-      headers,
-      // No trailing { type: "close" } frame: the classic Hrana endpoint
-      // auto-closes a baton-less stream, and newer engines (local tursodb)
-      // reject the "close" request variant outright.
-      body: JSON.stringify({ requests: stmts.map(execute) }),
-    });
+    let res: Response;
+    try {
+      res = await fetch(`${this.config.httpUrl}/v2/pipeline`, {
+        method: "POST",
+        headers,
+        // No trailing { type: "close" } frame: the classic Hrana endpoint
+        // auto-closes a baton-less stream, and newer engines (local tursodb)
+        // reject the "close" request variant outright.
+        body: JSON.stringify({ requests: stmts.map(execute) }),
+      });
+    } catch {
+      // Network-level failure: server down, connection refused, DNS failure, or
+      // an unreachable/non-existent host. Surface a clear "unreachable" hint.
+      throw new StorageNotReadyError("storage-unreachable");
+    }
     if (res.status === 401) {
       throw new StorageNotReadyError("Turso auth token rejected. Check the token in Settings.");
     }

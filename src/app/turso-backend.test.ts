@@ -116,4 +116,10 @@ describe("TursoBackend", () => {
     expect(sqls[0]).toContain("CREATE TABLE IF NOT EXISTS");
     expect(sqls.some((s) => s.startsWith("SELECT * FROM tasks"))).toBe(true);
   });
+
+  it("maps a fetch network rejection to StorageNotReadyError('storage-unreachable')", async () => {
+    const backend = new TursoBackend({ httpUrl: "http://127.0.0.1:8080", authToken: "" });
+    vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    await expect(backend.save(emptyWorkspace())).rejects.toMatchObject({ hint: "storage-unreachable" });
+  });
 });

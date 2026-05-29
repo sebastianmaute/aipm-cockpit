@@ -159,6 +159,7 @@ const enUS = {
   storageLoadFailed: "Couldn't load tasks: {0}",
   storageSaveFailed: "Couldn't save tasks: {0}",
   storageNotReady: "Storage isn't configured yet — pick a file in Settings.",
+  storageUnreachable: "Storage unreachable — is the server running?",
   storagePermissionGestureNeeded:
     "Write access not granted yet. Open Settings and click \"Grant write access\" to allow saving.",
   storageGrantWrite: "Grant write access",

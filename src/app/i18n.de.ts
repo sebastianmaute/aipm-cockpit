@@ -166,6 +166,7 @@ export const de: Record<TranslationKey, string> = {
   storageSaveFailed: "Aufgaben konnten nicht gespeichert werden: {0}",
   storageNotReady:
     "Speicher noch nicht konfiguriert – bitte in den Einstellungen eine Datei wählen.",
+  storageUnreachable: "Speicher nicht erreichbar — läuft der Server?",
   storagePermissionGestureNeeded:
     "Schreibzugriff noch nicht erteilt. Öffnen Sie die Einstellungen und klicken Sie \"Schreibzugriff erlauben\".",
   storageGrantWrite: "Schreibzugriff erlauben",
