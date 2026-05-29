@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { getAlertableTasks } from "./due-dates";
 import { getBucketReminders } from "./budget-report";
-import { type TranslationKey, t } from "./i18n";
+import { t } from "./i18n";
 import { useChatDispatcher } from "./use-chat-dispatcher";
 import { useActivityLog } from "./use-activity-log";
 import { useDueAlerts } from "./use-due-alerts";
@@ -33,7 +34,7 @@ import {
 } from "./task-form-context";
 import { TasksSection } from "./tasks-section";
 import { useResizable } from "./use-resizable";
-import { WorkspaceTabProvider, useWorkspaceTab, type TopTab } from "./workspace-tab-context";
+import { WorkspaceTabProvider, useWorkspaceTab } from "./workspace-tab-context";
 import { AppHeader } from "./app-header";
 import { BirthdayBanner, DueBanner, JiraTokenBanner } from "./notifications";
 import { getJiraTokenAlert } from "./jira-token-status";
@@ -42,6 +43,15 @@ import { getUpcomingBirthdays } from "./birthdays";
 import { useBirthdayAlerts } from "./use-birthday-alerts";
 import { useReminderSnooze } from "./use-reminder-snooze";
 import { isReportPopoutTab } from "./broadcast-sync";
+import { AppShell } from "./app-shell";
+import { ModernShell } from "./modern-shell";
+import { useHashView } from "./use-hash-view";
+import { navLabelKey } from "./nav-config";
+import { APP_VERSION } from "./version";
+import { ExportMenu } from "./export-menu";
+import { HelpMenu } from "./help-menu";
+import { VersionMenu } from "./version-menu";
+import { SettingsMenu } from "./settings-menu";
 import { makeEditGuard } from "./read-only-guard";
 import { ReadOnlyMirrorBanner } from "./read-only-mirror-banner";
 import { VoiceCommandProvider } from "./voice-command-context";
@@ -56,20 +66,12 @@ import { dedupeKey, type OutlookEvent, type AbsenceImportTarget } from "./outloo
 import { isoAddDays } from "./due-dates";
 import type { AbsenceType } from "./types";
 
-// i18n key for each tab's label — used by both the tab strip and the
-// popout window's document.title. Adding a new tab requires a row here.
-const TAB_LABEL_KEYS: Record<TopTab, TranslationKey> = {
-  chat: "tabChat",
-  reports: "tabReports",
-  gantt: "tabGantt",
-  raid: "tabRaid",
-  resources: "tabResources",
-  activity: "tabActivity",
-  "resource-report": "resourcesReportTitle",
-  "raid-report": "raidReportTitle",
-  "address-book": "resourcesAddressBookTitle",
-  budget: "tabBudget",
-};
+// Lazy-loaded like in app-header.tsx — the speech-recognition bundle is only
+// fetched client-side when the button mounts.
+const VoiceCommandButton = dynamic(
+  () => import("./voice-button").then((m) => m.VoiceCommandButton),
+  { ssr: false },
+);
 
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
@@ -94,7 +96,8 @@ function TaskManagerInner() {
     resetColWidths,
     startColResize,
   } = useColumnManager();
-  const { isPopout, activeTab } = useWorkspaceTab();
+  const { isPopout, activeTab, setActiveTab } = useWorkspaceTab();
+  useHashView();
   const { setRaidFilterTaskId } = useFilters();
   // Tasks data + derivations owned by WorkspaceProvider (Slice 2 of the
   // task-manager decomposition; see
@@ -116,6 +119,8 @@ function TaskManagerInner() {
     setBudgets,
     setFxRates,
     budgets,
+    plan,
+    fxRates,
   } = useWorkspace();
 
   const { setContacts, contactsList, handleRemoveContact } =
@@ -155,7 +160,7 @@ function TaskManagerInner() {
   // `?popout=<tab>` is present, so it never overwrites the main title.
   useEffect(() => {
     if (!isPopout) return;
-    document.title = `${t(lang, TAB_LABEL_KEYS[activeTab as TopTab])} — ${t(lang, "appTitle")}`;
+    document.title = `${t(lang, navLabelKey(activeTab))} — ${t(lang, "appTitle")}`;
   }, [isPopout, activeTab, lang]);
 
   const { holidaySet } = useHolidaySet({
@@ -594,147 +599,126 @@ function TaskManagerInner() {
 
   if (!i18nReady) return null;
 
-  return (
-    <VoiceCommandProvider value={voiceHandlers}>
-    <div
-      className={
-        isPopout
-          ? "flex flex-1 flex-col p-4"
-          : "mx-auto w-full max-w-[1536px] p-6 sm:p-10"
-      }
-    >
-      {isPopout && !isReportPopoutTab(activeTab as TopTab) && <ReadOnlyMirrorBanner lang={lang} />}
-      {!isPopout && (
-        <AppHeader
-          handleCancelEdit={handleCancelEdit}
-          setTaskModalOpen={setTaskModalOpen}
-          bannerItems={bannerItems}
-          setBannerDismissed={setBannerDismissed}
-          setDueModalOpen={setDueModalOpen}
-          showToast={showToast}
-          handleCommand={handleCommand}
-          storageDescription={storageDescription}
-          storageReady={storageReady}
-          onPickStorageFile={onPickStorageFile}
-          onOpenStorageFile={onOpenStorageFile}
-          onGrantStorageWrite={onGrantWriteAccess}
-          onRequestStorageSwitch={onRequestStorageSwitch}
-        />
-      )}
+  // Shared props for WorkspaceSection. Spread into both the classic (no
+  // fullBleed) and modern (fullBleed) renders so the long prop list lives once.
+  const workspaceProps = {
+    today,
+    holidaySet,
+    workspaceRef,
+    resetWorkspaceSize,
+    workspaceCollapsed,
+    setWorkspaceCollapsed,
+    dispatcher,
+    handleAcceptAiConsent,
+    handleGanttBarUpdate: guardEdit(handleGanttBarUpdate),
+    handleCancelEdit,
+    setTaskModalOpen,
+    handleClearRaidTaskFilter,
+    handleSaveRaidItem: guardEdit(handleSaveRaidItem),
+    handleDeleteRaidItem: guardEdit(handleDeleteRaidItem),
+    handleCreateMitigationTaskFromRaid: guardEdit(handleCreateMitigationTaskFromRaid),
+    handleJumpToTaskFromRaid,
+    activityLog,
+    handleClearActivityLog: guardEdit(handleClearActivityLog),
+    handleOpenAddAbsence: guardEdit(handleOpenAddAbsence),
+    handleEditAbsence: guardEdit(handleEditAbsence),
+    handleOpenShiftEditor: guardEdit(handleOpenShiftEditor),
+    onManageRoles: guardEdit(handleOpenRolesModal),
+    onAssignRole: guardEdit(handleAssignResourceRole),
+    onSetUtilization: guardEdit(handleSetUtilization),
+    onSetAllUtilizationMode: guardEdit(handleSetAllUtilizationMode),
+    onSetAbsenceOverride: guardEdit(handleSetAbsenceOverride),
+    onSetPlanWindow: guardEdit(handleSetPlanWindow),
+    onEditResource: guardEdit(handleEditResource),
+    onAddResource: guardEdit(handleOpenAddResource),
+    onImportOutlook:
+      outlookContactsEnabled && msAuth.account && !importLoading
+        ? guardEdit(() => { void handleOpenOutlookImport(); })
+        : undefined,
+    onImportOutlookCalendar:
+      outlookCalendarEnabled && msAuth.account
+        ? guardEdit(() => { void handleOpenCalendarImport(); })
+        : undefined,
+    onEditTask: openEditModal,
+    onChangeBudgets: handleChangeBudgets,
+    onRefreshFx: refreshFx,
+    fxLoading,
+  };
 
-      {!isPopout && !bannerDismissed && !dueSnooze.isSnoozed && (
-        <DueBanner
-          items={bannerItems}
-          lang={lang}
-          onOpenList={() => setDueModalOpen(true)}
-          onDismiss={() => setBannerDismissed(true)}
-          onSnooze={dueSnooze.snooze}
-        />
-      )}
+  const workspaceEl = <WorkspaceSection {...workspaceProps} />;
+  const workspaceFullBleedEl = <WorkspaceSection {...workspaceProps} fullBleed />;
 
-      {!isPopout && !birthdaySnooze.isSnoozed && !birthdayDismissed && birthdayItems.length > 0 && (
-        <BirthdayBanner items={birthdayItems} lang={lang} onDismiss={() => setBirthdayDismissed(true)} onSnooze={birthdaySnooze.snooze} />
-      )}
+  const tasksSectionEl = (
+    <TasksSection
+      lang={lang}
+      today={today}
+      jiraSiteUrl={settings.jira.siteUrl}
+      onToggleSelect={onToggleSelect}
+      onToggleNoteExpanded={onToggleNoteExpanded}
+      onJumpToRaid={onJumpToRaid}
+      onToggleComplete={onToggleComplete}
+      onSendInquiry={onSendInquiry}
+      onPushToJira={onPushToJira}
+      onEdit={onEdit}
+      onDelete={onDelete}
+      hiddenCols={hiddenCols}
+      setHiddenCols={setHiddenCols}
+      colWidths={colWidths}
+      colConfigOpen={colConfigOpen}
+      setColConfigOpen={setColConfigOpen}
+      colConfigRef={colConfigRef}
+      startColResize={startColResize}
+      resetColWidths={resetColWidths}
+      tableRef={tableRef}
+      resetTableSize={resetTableSize}
+      expandedNotes={expandedNotes}
+      pushingIds={pushingIds}
+      raidByTask={raidByTask}
+      jiraEnabled={settings.jira.enabled}
+      jiraSyncing={jiraSyncing}
+      jiraProjectKey={settings.jira.projectKey}
+      handleJiraSync={handleJiraSync}
+      handleCancelEdit={handleCancelEdit}
+      setTaskModalOpen={setTaskModalOpen}
+      handleClearAll={handleClearAll}
+      selectedIds={selectedIds}
+      allVisibleSelected={allVisibleSelected}
+      selectedJiraCount={selectedJiraCount}
+      toggleSelectAllVisible={toggleSelectAllVisible}
+      clearSelection={clearSelection}
+      handleBulkSendInquiry={handleBulkSendInquiry}
+      applyBulkEdit={applyBulkEdit}
+      cancelBulkEdit={cancelBulkEdit}
+    />
+  );
 
-      {!isPopout && jiraTokenAlert && !jiraTokenSnooze.isSnoozed && !jiraTokenDismissed && (
-        <JiraTokenBanner
-          alert={jiraTokenAlert}
-          lang={lang}
-          onSnooze={jiraTokenSnooze.snooze}
-          onDismiss={() => setJiraTokenDismissed(true)}
-        />
-      )}
-
-      <WorkspaceSection
-        today={today}
-        holidaySet={holidaySet}
-        workspaceRef={workspaceRef}
-        resetWorkspaceSize={resetWorkspaceSize}
-        workspaceCollapsed={workspaceCollapsed}
-        setWorkspaceCollapsed={setWorkspaceCollapsed}
-        dispatcher={dispatcher}
-        handleAcceptAiConsent={handleAcceptAiConsent}
-        handleGanttBarUpdate={guardEdit(handleGanttBarUpdate)}
-        handleCancelEdit={handleCancelEdit}
-        setTaskModalOpen={setTaskModalOpen}
-        handleClearRaidTaskFilter={handleClearRaidTaskFilter}
-        handleSaveRaidItem={guardEdit(handleSaveRaidItem)}
-        handleDeleteRaidItem={guardEdit(handleDeleteRaidItem)}
-        handleCreateMitigationTaskFromRaid={guardEdit(handleCreateMitigationTaskFromRaid)}
-        handleJumpToTaskFromRaid={handleJumpToTaskFromRaid}
-        activityLog={activityLog}
-        handleClearActivityLog={guardEdit(handleClearActivityLog)}
-        handleOpenAddAbsence={guardEdit(handleOpenAddAbsence)}
-        handleEditAbsence={guardEdit(handleEditAbsence)}
-        handleOpenShiftEditor={guardEdit(handleOpenShiftEditor)}
-        onManageRoles={guardEdit(handleOpenRolesModal)}
-        onAssignRole={guardEdit(handleAssignResourceRole)}
-        onSetUtilization={guardEdit(handleSetUtilization)}
-        onSetAllUtilizationMode={guardEdit(handleSetAllUtilizationMode)}
-        onSetAbsenceOverride={guardEdit(handleSetAbsenceOverride)}
-        onSetPlanWindow={guardEdit(handleSetPlanWindow)}
-        onEditResource={guardEdit(handleEditResource)}
-        onAddResource={guardEdit(handleOpenAddResource)}
-        onImportOutlook={
-          outlookContactsEnabled && msAuth.account && !importLoading
-            ? guardEdit(() => { void handleOpenOutlookImport(); })
-            : undefined
-        }
-        onImportOutlookCalendar={
-          outlookCalendarEnabled && msAuth.account
-            ? guardEdit(() => { void handleOpenCalendarImport(); })
-            : undefined
-        }
-        onEditTask={openEditModal}
-        onChangeBudgets={handleChangeBudgets}
-        onRefreshFx={refreshFx}
-        fxLoading={fxLoading}
+  // The action-cluster menus that AppHeader renders in classic mode. Reused by
+  // the modern TopBar (which renders the + and bell buttons itself).
+  const topBarMenus = (
+    <>
+      <VoiceCommandButton
+        lang={lang}
+        onCommand={handleCommand}
+        onError={(msg) => showToast("error", msg)}
       />
+      <ExportMenu lang={lang} tasks={tasks} raid={raid} absences={absences} shifts={shifts} resources={resources} roles={roles} disciplines={disciplines} grades={grades} plan={plan} budgets={budgets} fxRates={fxRates} />
+      <HelpMenu lang={lang} />
+      <VersionMenu lang={lang} />
+      <SettingsMenu
+        settings={settings}
+        onChange={setSettings}
+        storageDescription={storageDescription}
+        storageReady={storageReady}
+        onPickStorageFile={onPickStorageFile}
+        onOpenStorageFile={onOpenStorageFile}
+        onGrantStorageWrite={onGrantWriteAccess}
+        onRequestStorageSwitch={onRequestStorageSwitch}
+      />
+    </>
+  );
 
-      {!isPopout && (
-        <TasksSection
-          lang={lang}
-          today={today}
-          jiraSiteUrl={settings.jira.siteUrl}
-          onToggleSelect={onToggleSelect}
-          onToggleNoteExpanded={onToggleNoteExpanded}
-          onJumpToRaid={onJumpToRaid}
-          onToggleComplete={onToggleComplete}
-          onSendInquiry={onSendInquiry}
-          onPushToJira={onPushToJira}
-          onEdit={onEdit}
-          onDelete={onDelete}
-          hiddenCols={hiddenCols}
-          setHiddenCols={setHiddenCols}
-          colWidths={colWidths}
-          colConfigOpen={colConfigOpen}
-          setColConfigOpen={setColConfigOpen}
-          colConfigRef={colConfigRef}
-          startColResize={startColResize}
-          resetColWidths={resetColWidths}
-          tableRef={tableRef}
-          resetTableSize={resetTableSize}
-          expandedNotes={expandedNotes}
-          pushingIds={pushingIds}
-          raidByTask={raidByTask}
-          jiraEnabled={settings.jira.enabled}
-          jiraSyncing={jiraSyncing}
-          jiraProjectKey={settings.jira.projectKey}
-          handleJiraSync={handleJiraSync}
-          handleCancelEdit={handleCancelEdit}
-          setTaskModalOpen={setTaskModalOpen}
-          handleClearAll={handleClearAll}
-          selectedIds={selectedIds}
-          allVisibleSelected={allVisibleSelected}
-          selectedJiraCount={selectedJiraCount}
-          toggleSelectAllVisible={toggleSelectAllVisible}
-          clearSelection={clearSelection}
-          handleBulkSendInquiry={handleBulkSendInquiry}
-          applyBulkEdit={applyBulkEdit}
-          cancelBulkEdit={cancelBulkEdit}
-        />
-      )}
-
+  const modalsBlock = (
+    <>
       <OutlookImportModal
         lang={lang}
         open={importOpen}
@@ -818,7 +802,94 @@ function TaskManagerInner() {
         onCloseRolesModal={handleCloseRolesModal}
         toast={toast}
       />
+    </>
+  );
+
+  // The existing tree. Its root className already branches on isPopout, so this
+  // single definition serves both the classic main window AND every popout.
+  const legacyTree = (
+    <div
+      className={
+        isPopout
+          ? "flex flex-1 flex-col p-4"
+          : "mx-auto w-full max-w-[1536px] p-6 sm:p-10"
+      }
+    >
+      {isPopout && !isReportPopoutTab(activeTab) && <ReadOnlyMirrorBanner lang={lang} />}
+      {!isPopout && (
+        <AppHeader
+          handleCancelEdit={handleCancelEdit}
+          setTaskModalOpen={setTaskModalOpen}
+          bannerItems={bannerItems}
+          setBannerDismissed={setBannerDismissed}
+          setDueModalOpen={setDueModalOpen}
+          showToast={showToast}
+          handleCommand={handleCommand}
+          storageDescription={storageDescription}
+          storageReady={storageReady}
+          onPickStorageFile={onPickStorageFile}
+          onOpenStorageFile={onOpenStorageFile}
+          onGrantStorageWrite={onGrantWriteAccess}
+          onRequestStorageSwitch={onRequestStorageSwitch}
+        />
+      )}
+
+      {!isPopout && !bannerDismissed && !dueSnooze.isSnoozed && (
+        <DueBanner
+          items={bannerItems}
+          lang={lang}
+          onOpenList={() => setDueModalOpen(true)}
+          onDismiss={() => setBannerDismissed(true)}
+          onSnooze={dueSnooze.snooze}
+        />
+      )}
+
+      {!isPopout && !birthdaySnooze.isSnoozed && !birthdayDismissed && birthdayItems.length > 0 && (
+        <BirthdayBanner items={birthdayItems} lang={lang} onDismiss={() => setBirthdayDismissed(true)} onSnooze={birthdaySnooze.snooze} />
+      )}
+
+      {!isPopout && jiraTokenAlert && !jiraTokenSnooze.isSnoozed && !jiraTokenDismissed && (
+        <JiraTokenBanner
+          alert={jiraTokenAlert}
+          lang={lang}
+          onSnooze={jiraTokenSnooze.snooze}
+          onDismiss={() => setJiraTokenDismissed(true)}
+        />
+      )}
+
+      {workspaceEl}
+
+      {!isPopout && tasksSectionEl}
+
+      {modalsBlock}
     </div>
+  );
+
+  const modernTree = (
+    <>
+      <ModernShell
+        lang={lang}
+        activeView={activeTab}
+        onNavigate={(v) => setActiveTab(v)}
+        version={APP_VERSION}
+        bannerCount={bannerItems.length}
+        onNewTask={() => { handleCancelEdit(); setTaskModalOpen(true); }}
+        onShowAlerts={() => { setBannerDismissed(false); setDueModalOpen(true); }}
+        topBarMenus={topBarMenus}
+        sidebarFooter={null}
+        tasksSection={tasksSectionEl}
+        workspace={workspaceFullBleedEl}
+      />
+      {modalsBlock}
+    </>
+  );
+
+  if (isPopout) {
+    return <VoiceCommandProvider value={voiceHandlers}>{legacyTree}</VoiceCommandProvider>;
+  }
+  return (
+    <VoiceCommandProvider value={voiceHandlers}>
+      <AppShell layout={settings.layout} classic={legacyTree} modern={modernTree} />
     </VoiceCommandProvider>
   );
 }

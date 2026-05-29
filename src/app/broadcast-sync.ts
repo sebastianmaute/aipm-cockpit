@@ -16,6 +16,7 @@
 //   used by popout/mirror windows to stay in sync without pushing state back.
 
 import { useEffect, useRef } from "react";
+import type { AppView } from "./nav-config";
 
 const CHANNEL_NAME = "lop-app:sync";
 
@@ -122,8 +123,9 @@ export const REPORT_POPOUT_TABS: readonly PopoutTab[] = [
 ] as const;
 
 /** True for the three report-style popout tabs; false for editing popouts
- *  and `null`. */
-export function isReportPopoutTab(tab: PopoutTab | null): boolean {
+ *  and `null`. Accepts any AppView (the runtime `.includes` check is safe for
+ *  the wider union). */
+export function isReportPopoutTab(tab: AppView | null): boolean {
   if (tab === null) return false;
   return (REPORT_POPOUT_TABS as readonly string[]).includes(tab);
 }
