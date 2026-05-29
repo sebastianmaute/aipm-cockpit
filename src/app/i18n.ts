@@ -981,6 +981,10 @@ const enUS = {
   outlookCalImportConfirm: "Import ({0})",
   outlookCalImportCancel: "Cancel",
   outlookCalImportType: "Type",
+  outlookCalImportButton: "Import from Outlook",
+  outlookCalImportedN: "Imported {0} absences",
+  outlookCalendarPermissionDenied: "Calendar access was denied. Please check your Microsoft permissions.",
+  outlookCalendarFetchFailed: "Failed to fetch calendar events. Please try again.",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;

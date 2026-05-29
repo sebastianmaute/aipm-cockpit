@@ -88,6 +88,7 @@ export interface WorkspaceSectionProps {
   onEditResource: (resource: Resource) => void;
   onAddResource: (seed?: Partial<Resource>) => void;
   onImportOutlook?: () => void;
+  onImportOutlookCalendar?: () => void;
   onEditTask?: (task: Task) => void;
   onChangeBudgets: (next: BudgetBucket[]) => void;
   onRefreshFx: () => void;
@@ -125,6 +126,7 @@ export function WorkspaceSection({
   onEditResource,
   onAddResource,
   onImportOutlook,
+  onImportOutlookCalendar,
   onEditTask,
   onChangeBudgets,
   onRefreshFx,
@@ -390,6 +392,7 @@ export function WorkspaceSection({
               onOpenReport={() => openPopoutWindow("resource-report", settings.popout.reuseWindow)}
               onOpenAddressBook={() => openPopoutWindow("address-book", settings.popout.reuseWindow)}
               onImportOutlook={onImportOutlook}
+              onImportOutlookCalendar={onImportOutlookCalendar}
               onEditResource={onEditResource}
               onAddResource={onAddResource}
             />

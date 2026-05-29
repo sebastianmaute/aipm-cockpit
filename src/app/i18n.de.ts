@@ -999,4 +999,8 @@ export const de: Record<TranslationKey, string> = {
   outlookCalImportConfirm: "Importieren ({0})",
   outlookCalImportCancel: "Abbrechen",
   outlookCalImportType: "Typ",
+  outlookCalImportButton: "Aus Outlook importieren",
+  outlookCalImportedN: "{0} Abwesenheiten importiert",
+  outlookCalendarPermissionDenied: "Kalenderzugriff wurde verweigert. Bitte Microsoft-Berechtigungen prüfen.",
+  outlookCalendarFetchFailed: "Kalendertermine konnten nicht abgerufen werden. Bitte erneut versuchen.",
 };
