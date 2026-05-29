@@ -55,3 +55,10 @@ next-env.d.ts
 
 # local sample / pattern artifacts (not part of the repo)
 /docs/patterns/
+
+# local Turso tooling + databases (downloaded binaries / local data — not part of the repo)
+/tursodb.exe
+/turso_cli-installer.ps1
+*.db
+*.db-shm
+*.db-wal
