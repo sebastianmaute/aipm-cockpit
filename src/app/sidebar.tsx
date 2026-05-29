@@ -36,11 +36,12 @@ export function Sidebar({
         <button
           type="button"
           onClick={onToggleCollapsed}
+          aria-expanded={!collapsed}
           aria-label={collapsed ? t(lang, "sidebarExpand") : t(lang, "sidebarCollapse")}
           title={collapsed ? t(lang, "sidebarExpand") : t(lang, "sidebarCollapse")}
           className="rounded-md p-1.5 text-AIPM-light-grey hover:bg-AIPM-white/10 hover:text-AIPM-white focus:outline-none focus:ring-2 focus:ring-AIPM-green"
         >
-          <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-4 w-4">
+          <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className={`h-4 w-4 transition-transform ${collapsed ? "rotate-180" : ""}`}>
             <path fillRule="evenodd" d="M12.78 5.22a.75.75 0 010 1.06L9.06 10l3.72 3.72a.75.75 0 11-1.06 1.06l-4.25-4.25a.75.75 0 010-1.06l4.25-4.25a.75.75 0 011.06 0z" clipRule="evenodd" />
           </svg>
         </button>

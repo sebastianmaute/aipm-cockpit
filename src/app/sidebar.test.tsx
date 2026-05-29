@@ -24,4 +24,9 @@ describe("Sidebar", () => {
     fireEvent.click(screen.getByRole("button", { name: "Collapse sidebar" }));
     expect(onToggleCollapsed).toHaveBeenCalled();
   });
+
+  it("hides the brand subtitle when collapsed", () => {
+    render(<Sidebar {...base} collapsed={true} />);
+    expect(screen.queryByText("LIST OF OPEN POINTS")).toBeNull();
+  });
 });
