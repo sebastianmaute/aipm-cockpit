@@ -46,6 +46,16 @@ describe("OutlookImportModal", () => {
     screen.getAllByRole("checkbox").forEach((b) => expect(b).not.toBeChecked());
   });
 
+  it("resets selection when the contacts prop is replaced", () => {
+    const newContacts: OutlookContact[] = [
+      { sourceId: "3", firstName: "Carol", lastName: "", displayName: "Carol", email: "carol@x.com" },
+    ];
+    const { rerender } = render(<OutlookImportModal {...base()} />);
+    fireEvent.click(screen.getByLabelText(/Ann New/i)); // uncheck one on the old list
+    rerender(<OutlookImportModal {...base({ contacts: newContacts })} />);
+    screen.getAllByRole("checkbox").forEach((b) => expect(b).toBeChecked());
+  });
+
   it("renders loading, empty, and error states", () => {
     const { rerender } = render(<OutlookImportModal {...base({ loading: true })} />);
     expect(screen.getByText(/Loading contacts/i)).toBeInTheDocument();

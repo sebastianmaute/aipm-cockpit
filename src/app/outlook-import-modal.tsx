@@ -40,7 +40,7 @@ export function OutlookImportModal({
   }
 
   const selectedCount = checked.size;
-  const allChecked = contacts.length > 0 && selectedCount === contacts.length;
+  const allChecked = contacts.length > 0 && contacts.every((c) => checked.has(c.sourceId));
 
   function toggle(id: string) {
     setChecked((prev) => {
