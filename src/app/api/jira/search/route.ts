@@ -1,9 +1,8 @@
 import {
   callJira,
   forwardJsonResponse,
-  parseCreds,
+  parseJiraRequest,
 } from "../_helpers";
-import { rateLimit } from "../_rate-limit";
 
 export const runtime = "nodejs";
 
@@ -11,20 +10,10 @@ export const runtime = "nodejs";
 // path is being deprecated). Pagination is intentionally one-shot for now —
 // up to 100 issues per click. Add nextPageToken handling when needed.
 export async function POST(request: Request) {
-  const limited = rateLimit(request);
-  if (limited) return limited;
-
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return Response.json({ error: "invalid-json" }, { status: 400 });
-  }
-  const creds = parseCreds(body);
-  if (!creds) {
-    return Response.json({ error: "missing-credentials" }, { status: 400 });
-  }
-  const b = body as Record<string, unknown>;
+  const parsed = await parseJiraRequest(request);
+  if ("error" in parsed) return parsed.error;
+  const { creds } = parsed;
+  const b = parsed.body;
   const jql = typeof b.jql === "string" ? b.jql.trim() : "";
   if (!jql) {
     return Response.json({ error: "missing-jql" }, { status: 400 });

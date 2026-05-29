@@ -1,10 +1,9 @@
 import {
   callJira,
   forwardJsonResponse,
-  parseCreds,
+  parseJiraRequest,
   sanitizeIssueFields,
 } from "../_helpers";
-import { rateLimit } from "../_rate-limit";
 
 export const runtime = "nodejs";
 
@@ -13,20 +12,10 @@ export const runtime = "nodejs";
 // the Jira `fields` payload (summary, description as ADF, priority, labels,
 // duedate); we just attach project + issuetype + Basic auth and forward.
 export async function POST(request: Request) {
-  const limited = rateLimit(request);
-  if (limited) return limited;
-
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return Response.json({ error: "invalid-json" }, { status: 400 });
-  }
-  const creds = parseCreds(body);
-  if (!creds) {
-    return Response.json({ error: "missing-credentials" }, { status: 400 });
-  }
-  const b = body as Record<string, unknown>;
+  const parsed = await parseJiraRequest(request);
+  if ("error" in parsed) return parsed.error;
+  const { creds } = parsed;
+  const b = parsed.body;
   const projectKey =
     typeof b.projectKey === "string" ? b.projectKey.trim() : "";
   const issueType =

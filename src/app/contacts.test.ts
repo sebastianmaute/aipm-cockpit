@@ -7,7 +7,6 @@ import {
   removeContact,
   seedContactsFromTasks,
   listContacts,
-  type Contact,
   type ContactsMap,
 } from "./contacts";
 import type { Task } from "./types";

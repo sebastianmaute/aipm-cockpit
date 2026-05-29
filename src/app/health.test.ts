@@ -5,12 +5,9 @@ import {
   healthColorName,
   formatHealthTooltip,
   healthDot,
-  type Health,
   type TaskHealth,
-  type GroupHealth,
 } from "./health";
 import type { Task } from "./types";
-import * as i18n from "./i18n";
 
 // Mock the i18n module
 vi.mock("./i18n", () => ({

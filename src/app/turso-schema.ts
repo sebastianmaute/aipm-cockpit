@@ -20,7 +20,7 @@ import type {
   Task, RaidItem, Absence, Shift, Resource, Role, Discipline, Grade, BudgetBucket,
 } from "./types";
 
-export interface SqlArg { type: "text" | "integer" | "null"; value?: string }
+interface SqlArg { type: "text" | "integer" | "null"; value?: string }
 export interface SqlStmt { sql: string; args?: SqlArg[] }
 export interface PipelineResultLike {
   type: "ok" | "error";
@@ -43,7 +43,7 @@ const anyToRow = (r: unknown, c: string) =>
 // Heterogeneous registry: each spec's wsKey MUST point to a `T[]` field on
 // Workspace (enforced structurally by spec<T>() before the union-erasing cast
 // below). rowsToWorkspace assigns the sanitized T[] back to ws[wsKey].
-export const ENTITY_SPECS: EntitySpec<unknown>[] = [
+const ENTITY_SPECS: EntitySpec<unknown>[] = [
   spec<Task>({ table: "tasks", wsKey: "tasks", columns: CSV_COLUMNS, get: (w) => w.tasks, toRow: fieldToString as unknown as (e: Task, col: string) => string, fromObj: buildTaskFromObj }),
   spec<RaidItem>({ table: "raid", wsKey: "raid", columns: RAID_CSV_COLUMNS, get: (w) => w.raid, toRow: raidFieldToString as unknown as (e: RaidItem, col: string) => string, fromObj: buildRaidItemFromObj }),
   spec<Absence>({ table: "absences", wsKey: "absences", columns: ABSENCES_CSV_COLUMNS, get: (w) => w.absences, toRow: absenceFieldToString as unknown as (e: Absence, col: string) => string, fromObj: sanitizeAbsence }),
@@ -74,12 +74,6 @@ export const TABLE_NAMES: readonly string[] = [...ENTITY_SPECS.map((s) => s.tabl
 export function selectStatements(): SqlStmt[] {
   return TABLE_NAMES.map((t) => ({ sql: `SELECT * FROM ${t}` }));
 }
-
-// Re-export internal pieces Tasks 3 & 4 build on (kept module-local until then).
-export { PLAN_COLUMNS, FX_COLUMNS };
-
-// Re-export workspace utilities used by downstream tasks.
-export { decodeRatesMap, emptyWorkspace, migrateWorkspaceV6, sanitizeFxRates, sanitizePlan };
 
 function rowObjects(res: PipelineResultLike | undefined): Record<string, string>[] {
   const names = (res?.response?.result?.cols ?? []).map((c) => c?.name ?? "");

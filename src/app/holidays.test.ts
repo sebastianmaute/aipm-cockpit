@@ -96,7 +96,6 @@ describe("holidaysForCountries", () => {
   });
 
   test("handles multiple years with multiple countries", async () => {
-    const currentYear = new Date().getUTCFullYear();
     const result = await holidaysForCountries(["DE", "GB"], 1);
     // Should span 2+ years with holidays from both countries
     expect(result.size).toBeGreaterThan(0);

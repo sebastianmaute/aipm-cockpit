@@ -155,7 +155,7 @@ export function EraserIcon() {
   );
 }
 
-export function PrinterIcon() {
+function PrinterIcon() {
   return (
     <svg
       viewBox="0 0 20 20"

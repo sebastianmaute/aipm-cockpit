@@ -433,18 +433,6 @@ describe("wouldCreateCycle", () => {
   });
 
   it("returns true for a direct 2-node cycle (A→B, proposing B→A)", () => {
-    // item 2 is caused by item 1 (1 is parent of 2).
-    // Now we want to add item 2 as parent of item 1 — direct cycle.
-    const items = [
-      makeItem({ id: 1, category: "R", causedByRaidIds: [2] }),
-      makeItem({ id: 2, category: "I", causedByRaidIds: [] }),
-    ];
-    // proposedParentId=2, childId=1; walking from 2 we find 2 has no parents,
-    // but the check is whether the ancestor closure of proposedParent includes childId.
-    // item 1's causedByRaidIds=[2] means 1's parent is 2; proposedParent=2, child=1.
-    // Walk from 2: parents of 2 = [] → no cycle. Re-read: we're asking
-    // "would adding 2 as parent of 1 create a cycle?" — 1 currently has parent 2,
-    // so walking ancestors of 2: none → returns false. That is correct — no current cycle.
     // For a real cycle: item 1 caused by 2, item 2 caused by 1.
     const cyclic = [
       makeItem({ id: 1, category: "R", causedByRaidIds: [] }),

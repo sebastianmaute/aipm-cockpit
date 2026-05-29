@@ -3,6 +3,8 @@
 // user's behalf. Credentials are sent by the client in each request body — they
 // are never persisted server-side.
 
+import { rateLimit } from "./_rate-limit";
+
 export type Creds = {
   siteUrl: string;
   email: string;
@@ -19,11 +21,46 @@ export function parseCreds(body: unknown): Creds | null {
   return { siteUrl, email, apiToken };
 }
 
+export type JiraRequest = { creds: Creds; body: Record<string, unknown> };
+
+/**
+ * Shared entry point for every /api/jira/* route: applies rate limiting, parses
+ * the JSON body, and extracts credentials. Returns a ready-to-return error
+ * Response on any failure, or the parsed creds + body on success. This keeps the
+ * rate-limit + body-parse + credential-validation logic in one place rather than
+ * duplicated across every route handler.
+ */
+export async function parseJiraRequest(
+  request: Request,
+): Promise<{ error: Response } | JiraRequest> {
+  const limited = rateLimit(request);
+  if (limited) return { error: limited };
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return { error: Response.json({ error: "invalid-json" }, { status: 400 }) };
+  }
+  const creds = parseCreds(body);
+  if (!creds) {
+    return { error: Response.json({ error: "missing-credentials" }, { status: 400 }) };
+  }
+  return { creds, body: body as Record<string, unknown> };
+}
+
 function isPrivateHost(hostname: string): boolean {
   // Strip IPv6 brackets (e.g. "[::1]" → "::1").
   const h = hostname.startsWith("[") ? hostname.slice(1, -1) : hostname;
-  if (h === "localhost" || h === "::1" || h === "0.0.0.0") return true;
-  const parts = h.split(".").map(Number);
+  const lower = h.toLowerCase();
+  if (lower === "localhost" || lower === "::1" || lower === "::" || lower === "0.0.0.0")
+    return true;
+  // IPv6 unique-local (fc00::/7) and link-local (fe80::/10) — internal-only ranges.
+  if (/^f[cd][0-9a-f]*:/.test(lower)) return true;
+  if (/^fe[89ab][0-9a-f]*:/.test(lower)) return true;
+  // IPv4-mapped IPv6 (e.g. "::ffff:10.0.0.1") — re-check the embedded IPv4.
+  const ipv4 = lower.startsWith("::ffff:") ? lower.slice(7) : h;
+  const parts = ipv4.split(".").map(Number);
   if (parts.length !== 4 || parts.some((p) => !Number.isInteger(p) || p < 0 || p > 255))
     return false;
   const [a, b] = parts;
@@ -35,7 +72,7 @@ function isPrivateHost(hostname: string): boolean {
   if (a === 172 && b >= 16 && b <= 31) return true;
   // 192.168.0.0/16 — private
   if (a === 192 && b === 168) return true;
-  // 169.254.0.0/16 — link-local / AWS EC2 instance metadata
+  // 169.254.0.0/16 — link-local / cloud instance metadata (e.g. 169.254.169.254)
   if (a === 169 && b === 254) return true;
   return false;
 }
@@ -43,7 +80,9 @@ function isPrivateHost(hostname: string): boolean {
 function normalizeSiteUrl(siteUrl: string): string | null {
   try {
     const u = new URL(siteUrl);
-    if (u.protocol !== "https:" && u.protocol !== "http:") return null;
+    // Atlassian Cloud is always HTTPS. Rejecting plaintext avoids sending Basic
+    // credentials in the clear and removes the http:// SSRF path to internal services.
+    if (u.protocol !== "https:") return null;
     if (isPrivateHost(u.hostname)) return null;
     // Strip trailing slash and anything past the origin.
     return `${u.protocol}//${u.host}`;

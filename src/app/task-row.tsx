@@ -55,7 +55,7 @@ export function useTaskRowContext(): RowContextValue {
 // without importing from `./types` separately.
 export type { RaidItem };
 
-export const NOTES_COLLAPSED_MAX = 50;
+const NOTES_COLLAPSED_MAX = 50;
 
 /**
  * Produce a one-line summary of a note for the collapsed Notes cell.
@@ -67,7 +67,7 @@ export const NOTES_COLLAPSED_MAX = 50;
  *   3. Otherwise, cut at the last whitespace ≤ maxLen so we never split mid-word.
  *      Fall back to a hard slice only when the first word itself is too long.
  */
-export function summarizeNote(
+function summarizeNote(
   notes: string,
   maxLen: number,
 ): { text: string; truncated: boolean } {
@@ -87,7 +87,7 @@ export function summarizeNote(
   return { text: firstLine.slice(0, cut).trimEnd(), truncated: true };
 }
 
-export const priorityStyle: Record<Priority, string> = {
+const priorityStyle: Record<Priority, string> = {
   Low: "bg-surface-muted text-muted-foreground",
   Medium: "bg-AIPM-blue/15 text-AIPM-blue dark:bg-AIPM-blue/20",
   High: "bg-AIPM-purple/15 text-AIPM-purple dark:bg-AIPM-purple/20",
@@ -99,7 +99,7 @@ export const priorityStyle: Record<Priority, string> = {
  * Without this guard, a user-supplied siteUrl like "javascript:..." would
  * render as an executable href.
  */
-export function safeJiraIssueHref(siteUrl: string, key: string): string | null {
+function safeJiraIssueHref(siteUrl: string, key: string): string | null {
   try {
     const u = new URL(siteUrl);
     if (u.protocol !== "https:" && u.protocol !== "http:") return null;
@@ -419,7 +419,7 @@ function DependencyChipsImpl({ deps }: DependencyChipsProps) {
   );
 }
 
-export const DependencyChips = memo(DependencyChipsImpl);
+const DependencyChips = memo(DependencyChipsImpl);
 
 interface RaidBadgeProps {
   taskId: number;
@@ -445,4 +445,4 @@ function RaidBadgeImpl({ taskId, refs }: RaidBadgeProps) {
   );
 }
 
-export const RaidBadge = memo(RaidBadgeImpl);
+const RaidBadge = memo(RaidBadgeImpl);

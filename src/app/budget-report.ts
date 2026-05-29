@@ -36,7 +36,7 @@ export function allocationPlannedHours(
 }
 
 /** Sum a periodKey -> number map over a set of period keys (or all when omitted). */
-export function sumPeriodMap(map: Record<string, number>, keys?: readonly string[]): number {
+function sumPeriodMap(map: Record<string, number>, keys?: readonly string[]): number {
   if (!keys) return Object.values(map).reduce((a, b) => a + b, 0);
   let s = 0;
   for (const k of keys) s += map[k] ?? 0;
@@ -44,7 +44,7 @@ export function sumPeriodMap(map: Record<string, number>, keys?: readonly string
 }
 
 /** Resolve the Role for an allocation. */
-export function roleFor(roleId: number, roles: readonly Role[]): Role | undefined {
+function roleFor(roleId: number, roles: readonly Role[]): Role | undefined {
   return roles.find((r) => r.id === roleId);
 }
 

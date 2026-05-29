@@ -1,9 +1,8 @@
 import {
   callJira,
   forwardJsonResponse,
-  parseCreds,
+  parseJiraRequest,
 } from "../_helpers";
-import { rateLimit } from "../_rate-limit";
 
 export const runtime = "nodejs";
 
@@ -17,20 +16,10 @@ type Transition = {
 // or "new"). Each Jira project has bespoke workflow transitions, so we GET the
 // available ones and pick the first that lands in the requested category.
 export async function POST(request: Request) {
-  const limited = rateLimit(request);
-  if (limited) return limited;
-
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return Response.json({ error: "invalid-json" }, { status: 400 });
-  }
-  const creds = parseCreds(body);
-  if (!creds) {
-    return Response.json({ error: "missing-credentials" }, { status: 400 });
-  }
-  const b = body as Record<string, unknown>;
+  const parsed = await parseJiraRequest(request);
+  if ("error" in parsed) return parsed.error;
+  const { creds } = parsed;
+  const b = parsed.body;
   const key = typeof b.key === "string" ? b.key.trim() : "";
   if (!key || !/^[A-Z][A-Z0-9_]+-\d+$/i.test(key)) {
     return Response.json({ error: "missing-or-bad-key" }, { status: 400 });

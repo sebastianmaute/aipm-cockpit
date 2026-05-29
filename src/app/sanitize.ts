@@ -480,7 +480,7 @@ function coercePeriodMap(input: unknown, clampMax: number): Record<string, numbe
   return out;
 }
 
-export function sanitizeUtilizationMode(s: unknown): UtilizationMode {
+function sanitizeUtilizationMode(s: unknown): UtilizationMode {
   return s === "hours" ? "hours" : "percent";
 }
 

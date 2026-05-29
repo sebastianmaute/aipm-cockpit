@@ -1,7 +1,7 @@
 /** Jira-style working-time basis. */
-export const MINUTES_PER_HOUR = 60;
-export const HOURS_PER_DAY = 8;
-export const DAYS_PER_WEEK = 5;
+const MINUTES_PER_HOUR = 60;
+const HOURS_PER_DAY = 8;
+const DAYS_PER_WEEK = 5;
 
 const MIN_PER_DAY = HOURS_PER_DAY * MINUTES_PER_HOUR;
 const MIN_PER_WEEK = DAYS_PER_WEEK * MIN_PER_DAY;
