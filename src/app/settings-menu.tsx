@@ -723,6 +723,16 @@ export function SettingsMenu({
             <p className="mt-1 text-xs text-muted-foreground">
               {t(lang, "integrationsTursoHint")}
             </p>
+            <p className="mt-1 text-xs">
+              <a
+                href="https://turso.tech/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-AIPM-dark-blue underline hover:opacity-80"
+              >
+                {t(lang, "integrationsTursoLearnMore")}
+              </a>
+            </p>
 
             {turso.enabled && (
               <div className="mt-2 space-y-2 border-l-2 border-line pl-3">

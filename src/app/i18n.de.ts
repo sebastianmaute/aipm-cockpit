@@ -990,6 +990,7 @@ export const de: Record<TranslationKey, string> = {
   integrationsTursoUrlPlaceholder: "libsql://ihre-db.turso.io",
   integrationsTursoToken: "Auth-Token",
   integrationsTursoTokenPlaceholder: "Turso-Datenbank-Token",
+  integrationsTursoLearnMore: "Mehr über Turso erfahren ↗",
   integrationsComingSoon: "Verfügbar ab 0.22.0",
   versionHighlightM365Auth: "Microsoft-365-Grundlage: Mit dem Arbeitskonto anmelden, um künftige SharePoint-, Outlook-Kontakte- und Kalender-Funktionen freizuschalten. Alle Integrationen sind standardmäßig deaktiviert.",
   versionHighlightSharepointStorage: "SharePoint-Speicher: Arbeitsbereich als JSON- oder CSV-Datei in einer SharePoint-Sites-Bibliothek speichern — Datei-URL in der Speicherkonfiguration einfügen, nachdem SharePoint in Einstellungen → Integrationen aktiviert wurde.",

@@ -182,4 +182,13 @@ describe("SettingsMenu — Integrations section", () => {
     const lastCall = onChange.mock.calls[onChange.mock.calls.length - 1][0] as Settings;
     expect(lastCall.integrations?.m365?.sharepoint).toBe(true);
   });
+
+  it("renders a turso.tech link in the Turso integrations section", () => {
+    render(<SettingsMenu {...makeProps()} />);
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "settings") }));
+    const link = screen.getByRole("link", { name: t("en-US", "integrationsTursoLearnMore") });
+    expect(link).toHaveAttribute("href", "https://turso.tech/");
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link.getAttribute("rel") ?? "").toContain("noopener");
+  });
 });

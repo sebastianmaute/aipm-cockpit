@@ -972,6 +972,7 @@ const enUS = {
   integrationsTursoUrlPlaceholder: "libsql://your-db.turso.io",
   integrationsTursoToken: "Auth token",
   integrationsTursoTokenPlaceholder: "Turso database token",
+  integrationsTursoLearnMore: "Learn more about Turso ↗",
   integrationsComingSoon: "Available in 0.22.0+",
   versionHighlightM365Auth: "Microsoft 365 integration foundation: sign in with your work account to unlock upcoming SharePoint, Outlook contacts, and calendar features. All integrations default to OFF.",
   versionHighlightSharepointStorage: "SharePoint storage backend: save your workspace as a JSON or CSV file in a SharePoint Sites library — paste the file URL in Storage Configuration after enabling SharePoint in Settings → Integrations.",
