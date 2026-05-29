@@ -1,4 +1,4 @@
-<!-- Generated: 2026-05-27 | Files scanned: package.json, package-lock.json, vitest.config.ts, playwright.config.ts | Token estimate: ~700 | No new deps — editable buckets, effort tracking, draggable modals, and Gantt name-click are all in-tree -->
+<!-- Generated: 2026-05-29 | Files scanned: package.json, package-lock.json, vitest.config.ts, playwright.config.ts | Token estimate: ~700 | New dep: @azure/msal-browser (0.21.0 for M365 auth); Turso uses raw fetch -->
 
 # Dependencies
 
@@ -11,6 +11,7 @@ Deliberately small surface. The runtime dep tree fits on one screen.
 | `next` | 16.2.6 | App framework, dev runtime, route handlers, middleware (`src/proxy.ts`) |
 | `react` | 19.2.4 | UI |
 | `react-dom` | 19.2.4 | UI |
+| `@azure/msal-browser` | ^4.30.0 | **0.21.0+:** Microsoft Entra browser authentication (PKCE flow). **Lazy-imported** via `use-ms-auth.ts` only when M365 toggle is enabled in Settings → Integrations |
 | `date-holidays` | ^3.28.0 | Computed working-day filtering. **Lazy-imported** via `src/app/holidays.ts` only when ≥1 country is selected |
 
 ## Direct dev deps (`package.json` — devDependencies)
@@ -105,5 +106,6 @@ These were considered or asked about but **are not in the dep tree**:
 | `style-loader` / `mini-css-extract-plugin` | Next handles CSS internally. Not present, not needed. See the `lop-app-css-hmr-investigation` memory for the question that surfaced this. |
 | `@tanstack/react-virtual` / virtualization libs | Task table not virtualized (high-risk refactor; see memory-optimization notes). |
 | State stores (zustand / jotai / redux-toolkit) | Single god-component owns state; `tasksRef` mirroring discussed as future cleanup. |
-| `@azure/msal-browser` / `@microsoft/microsoft-graph-client` | SharePoint integration not implemented yet — backend stubs only. Will be required when `sp-json`/`sp-csv` are wired up. |
+| `@microsoft/microsoft-graph-client` | Direct Graph calls made via native `fetch` in `sharepoint-backend.ts` and Outlook hooks; no need for a client library wrapper. |
+| `@libsql/client` | Turso integration (0.25.0) uses raw HTTP `/v2/pipeline` API via `fetch`; no need for the SDK. |
 | `jszip` / `pako` | OOXML export uses the in-tree `zip.ts` STORE-method writer; no DEFLATE. |

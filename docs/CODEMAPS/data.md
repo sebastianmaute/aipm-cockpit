@@ -1,4 +1,4 @@
-<!-- Generated: 2026-05-27 | Files scanned: types.ts, storage.ts, sanitize.ts, raid.ts, activity-log.ts, contacts.ts, resource-foundation.ts, resource-capacity.ts, reminder-snooze.ts, use-settings.ts, jira-token-status.ts, duration.ts | Token estimate: ~1290 -->
+<!-- Generated: 2026-05-29 | Files scanned: types.ts, storage.ts, sanitize.ts, raid.ts, activity-log.ts, contacts.ts, resource-foundation.ts, resource-capacity.ts, reminder-snooze.ts, use-settings.ts, jira-token-status.ts, duration.ts + new: msal-config.ts, turso-config.ts | Token estimate: ~1290 -->
 
 # Data
 
@@ -186,6 +186,25 @@ type Workspace = {
   budgets?: BudgetBucket[];                 // schema v6; optional for compat
   fxRates?: FxRates | null;                // schema v6; optional for compat
 };
+
+type StorageKind =
+  | "browser"
+  | "local-json" | "local-csv" | "local-md"
+  | "sp-json" | "sp-csv"                   // 0.22.0: SharePoint backends
+  | "turso";                                // 0.25.0: Turso database backend
+
+type StorageConfig =
+  | { kind: "browser" }
+  | { kind: "local-json" | "local-csv" | "local-md" }
+  | { kind: "sp-json" | "sp-csv"; hostname, sitePath, itemPath }
+  | { kind: "turso" };
+
+type CreateBackendDeps = {
+  acquireToken?: (scopes: string[], options?: {interactive?: boolean}) => Promise<string>;
+  tursoConfig?: { databaseUrl?: string; authToken?: string };
+  // ... Jira + other deps
+};
+
 const SCHEMA_VERSION = 6;
 ```
 
@@ -241,7 +260,7 @@ legacy keys are removed.
 | Key | Shape |
 |---|---|
 | `lop-theme` | `"light"` \| `"dark"` \| `"system"` — persisted theme preference. Default `"system"` (absent = system). Read by the no-flash inline script in `layout.tsx` before hydration and by `use-theme.tsx` at runtime. Separate from the workspace `Settings` object. |
-| `lop-app:settings` | JSON envelope: `{ language, holidayCountries, ai, jira, notifications, storage }`. The `jira` sub-object (`JiraConfig`) now includes `tokenExpiresAt: string` (ISO date) and optional `tokenInvalidAt?: string` (ISO timestamp set when a connection test returns an auth error, cleared on success). The `notifications` sub-object: `{ reminderLeadDays: number, banner: { enabled }, toast: { enabled }, popup: { enabled }, birthday: { enabled } }`. |
+| `lop-app:settings` | JSON envelope: `{ language, holidayCountries, ai, jira, notifications, storage, integrations? }`. The `jira` sub-object includes `tokenExpiresAt` + `tokenInvalidAt`. **0.21.0+** `integrations` sub-object: `{ m365Enabled: boolean, m365ClientId?: string, m365TenantId?: string, tursoEnabled: boolean, tursoDbUrl?: string, tursoAuthToken?: string }` (Settings → Integrations inputs); overridden by `NEXT_PUBLIC_*` env vars. The `notifications` sub-object: `{ reminderLeadDays, banner: {enabled}, toast: {enabled}, popup: {enabled}, birthday: {enabled} }`. |
 | `lop-app:reminder-snooze:due` | Epoch-ms timestamp (stored as decimal string) until which the due-date reminder banner is snoozed; absent or elapsed = not snoozed |
 | `lop-app:reminder-snooze:birthday` | Epoch-ms timestamp until which the birthday reminder banner is snoozed; absent or elapsed = not snoozed |
 | `lop-app:reminder-snooze:jiraToken` | Epoch-ms timestamp until which the Jira token expiry banner is snoozed; absent or elapsed = not snoozed |
@@ -257,7 +276,7 @@ legacy keys are removed.
 ## File-backend formats
 
 `LocalFileBackend` reads/writes one of three formats; round-trips lossless
-inside the supported field set. Each path runs `migrateWorkspaceV5` on parse
+inside the supported field set. Each path runs `migrateWorkspaceV5` + `migrateWorkspaceV6` on parse
 so older files self-heal.
 
 | Kind | Sections |
@@ -270,9 +289,22 @@ The `utilization` and `absenceOverride` maps serialize into a single
 encoded cell each via `encodePeriodMap` / `decodePeriodMap` — format
 `"YYYY-MM=80|2026-W07=12"` (period keys validated by `PERIOD_KEY_RE`).
 
-SharePoint backends (`sp-json`, `sp-csv`) are declared in `StorageConfig` but
-not yet implemented — the factory returns a `SharePointBackend` stub whose
-`load`/`save` throw `StorageNotImplementedError`.
+## SharePoint & Turso backends (0.22.0+, 0.25.0+)
+
+**SharePoint** (`sp-json`, `sp-csv`):
+- Implemented in `sharepoint-backend.ts`
+- Stores entire Workspace as a single JSON/CSV blob in a SharePoint Sites document library
+- Calls `parseSharePointFileUrl(url)` to extract site path and item path from the file URL
+- Requires MSAL sign-in; acquires Graph token with `Sites.ReadWrite.All` scope
+- Reads/writes via Graph `/me/drive/items/{itemId}/content` endpoints
+
+**Turso** (`turso`):
+- Implemented in `turso-backend.ts`
+- Stores entire Workspace as a single JSON blob in a Turso table row
+- Calls Turso HTTP `/v2/pipeline` API (raw fetch, no `@libsql/client` dependency)
+- EXECUTE statement for write, SELECT for read
+- Configured via Settings → Integrations or `NEXT_PUBLIC_TURSO_DATABASE_URL` / `NEXT_PUBLIC_TURSO_AUTH_TOKEN` env vars
+- Recommend scoped Turso tokens (minimal permissions)
 
 ## Sanitization (`sanitize.ts`)
 

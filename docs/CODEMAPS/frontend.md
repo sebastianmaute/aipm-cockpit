@@ -1,7 +1,8 @@
-<!-- Generated: 2026-05-27 | Files scanned: ~78 (src/app/*.tsx, *.ts) | Token estimate: ~1520 -->
+<!-- Generated: 2026-05-29 | Files scanned: ~78 (src/app/*.tsx, *.ts) + new: msal-config, use-ms-auth, sharepoint-backend, outlook-{contacts,calendar}, turso-{config,backend} | Token estimate: ~1520 -->
 <!-- Updated: 2026-05-27 —  0.14.2 RAID header sorting -->
 <!-- Updated: 2026-05-27 —  0.15.0 Light/Dark/System theme -->
 <!-- Updated: 2026-05-27 —  0.15.1 AIPM semantic surface tokens in globals.css; DESIGN-TOKENS.md added -->
+<!-- Updated: 2026-05-29 —  0.21.0–0.25.0 M365/Outlook/Turso integrations; Settings → Integrations UI -->
 
 # Frontend
 
@@ -120,7 +121,7 @@ prerendered.
 | `adf.ts` | Plain-text ↔ ADF conversion (extracted from `_helpers.ts`) | Shared between client paths and the Jira proxy routes |
 | `theme.ts` | **Pure** theme helpers: `resolveTheme(stored, systemDark) → "light"\|"dark"`, `readStoredTheme() → "light"\|"dark"\|"system"`. No React, no side-effects. | 0.15.0 |
 | `use-theme.tsx` | `ThemeProvider` + `useTheme()` — reads `lop-theme` from localStorage, watches `prefers-color-scheme`, toggles `.dark` on `<html>`, and exposes `{ theme, setTheme }`. Persists choice, follows system when set to `"system"`. | 0.15.0 |
-| `settings-menu.tsx` | Language, holidays, AI, notifications, Jira, storage backend. **0.15.0:** theme control (Light / Dark / System segmented toggle) added at the top of the Settings panel, wired to `useTheme()`. | |
+| `settings-menu.tsx` | Language, holidays, AI, notifications, Jira, storage backend. **0.15.0:** theme control (Light / Dark / System segmented toggle) added at the top of the Settings panel, wired to `useTheme()`. **0.21.0+:** Integrations section with M365 master toggle (default OFF) + sub-toggles for SharePoint/Outlook contacts/Outlook calendar; Turso toggle + Database URL / Auth Token inputs; all feed into config resolvers (`msal-config.ts`, `turso-config.ts`). | |
 | `help-menu.tsx`, `version-menu.tsx` | Header dropdowns | |
 | `version.ts` | `APP_VERSION`, `APP_BUILD_DATE`, `APP_HIGHLIGHT_KEYS` (i18n keys for the Version popover) | |
 | `export-menu.tsx` | DOCX/XLSX/PPTX export trigger | `await import("./export-ooxml")` lazy |
@@ -135,7 +136,18 @@ prerendered.
 | `use-reminder-snooze.ts` | `useReminderSnooze(kind: ReminderKind) → { isSnoozed, snoozedUntil, snooze(durationMs), clear }`. Schedules a one-shot `setTimeout` to auto-reshow the banner when the snooze elapses, without requiring a reload | client hook |
 | `birthdays.ts` | `getUpcomingBirthdays(resources, today, leadDays, holidays, absences) → UpcomingBirthday[]`. Year-wrap aware (birthday on Jan 2, today Dec 30 → next occurrence is in 3 days). Trigger is working-day-shifted via `shiftToWorkingDay`. Sorted by `daysUntil` asc. `UpcomingBirthday = { resource: Resource; daysUntil: number }` | pure |
 | `date-format.ts` | Shared date-formatting helpers. `localeFor(lang) → string`, `shortDateRange(absence, lang) → string`, `formatExpiryDate(isoDate, lang) → string` (Jira token expiry display) | pure |
-| `storage-config.tsx` | File-backend / SharePoint picker UI | SharePoint options are flagged `comingSoon` |
+| `msal-config.ts` | **0.21.0:** MSAL configuration; `resolveMsalConfig() → { clientId?, tenantId? }`; resolves from `NEXT_PUBLIC_MSAL_CLIENT_ID` / `NEXT_PUBLIC_MSAL_TENANT_ID` env vars or Settings → Integrations M365 inputs | pure |
+| `use-ms-auth.ts` | **0.21.0:** `useMsAuth() → { isReady, getToken, acquireToken(scopes, options?) }`; lazy-loads `@azure/msal-browser` via `PublicClientApplication`; handles background readiness probes + interactive consent fallback (0.23.1) | client hook |
+| `sharepoint-backend.ts` | **0.22.0:** `SharePointBackend` class; `parseSharePointFileUrl(url) → {hostname, sitePath, itemPath}`; calls Graph `/me/drive/items/...` to load/save workspace JSON/CSV blob | implements `StorageBackend` |
+| `outlook-contacts.ts` | **0.23.0:** `importOutlookContacts(token, limit?) → Contact[]`; calls Graph `/me/contacts`, maps to `{ firstName, lastName, email, company? }` | pure |
+| `use-outlook-contacts.ts` | **0.23.0:** `useOutlookContacts() → { contacts, isLoading, error, refetch }`; wires `acquireToken("Contacts.Read")` + `importOutlookContacts` | client hook |
+| `outlook-import-modal.tsx` | **0.23.0:** Preview-and-pick dialog for Outlook contacts; shows contact table with checkboxes + merge/create buttons; updates existing by email | modal component |
+| `outlook-calendar.ts` | **0.24.0:** `importOutlookCalendar(token, startDate, endDate) → Absence[]`; calls Graph `/me/calendarView`, filters all-day + Out-of-Office events, maps to Absences with inferred type ("vacation" for all-day, "other" for OOO) | pure |
+| `use-outlook-calendar.ts` | **0.24.0:** `useOutlookCalendar() → { events, isLoading, error }`; wires `acquireToken("Calendars.Read")` + `importOutlookCalendar` | client hook |
+| `outlook-calendar-import-modal.tsx` | **0.24.0:** Preview-and-pick dialog for Outlook calendar time-away events; shows event table with per-row absence-type selector ("vacation", "sick", "training", "other") + create buttons | modal component |
+| `turso-config.ts` | **0.25.0:** Turso configuration; `resolveTursoConfig() → { databaseUrl?, authToken? }`; resolves from `NEXT_PUBLIC_TURSO_DATABASE_URL` / `NEXT_PUBLIC_TURSO_AUTH_TOKEN` env vars or Settings → Integrations inputs | pure |
+| `turso-backend.ts` | **0.25.0:** `TursoBackend` class; calls Turso HTTP `/v2/pipeline` API (raw fetch, no `@libsql/client`); stores entire `Workspace` as single JSON blob in a row; EXECUTE statement for write, SELECT for read | implements `StorageBackend` |
+| `storage-config.tsx` | File-backend / SharePoint / Turso picker UI; SharePoint and Turso options gate on `useMsAuth().isReady()` and `tursoConfig` readiness respectively; copy-URL-to-clipboard helper for SharePoint file URL | |
 | `use-resizable.ts` | Custom hook for corner-drag resize with localStorage persistence | |
 | `read-only-guard.ts` | `makeEditGuard(isReadOnly, notify)` — wraps a commit handler to no-op (with a toast) when `isReadOnly` is true; preserves the handler's return value | pure; no React |
 | `read-only-mirror-banner.tsx` | `ReadOnlyMirrorBanner` — shown inside popout windows to indicate read-only mirror state | rendered by task-manager in popouts |
@@ -147,6 +159,8 @@ prerendered.
 |---|---|---|
 | Tab first opened | `chat-panel`, `gantt`, `reports`, `raid-panel`, `resources-panel`, `activity-log-panel`, `resources-report` (all via `next/dynamic`) | varies |
 | `?popout=address-book` opened | `resource-directory` (address-book popout window, live-synced via `BroadcastChannel`) | small |
+| M365 toggle enabled first time | `@azure/msal-browser` (via `use-ms-auth.ts`) | ~50 KB |
+| Outlook contacts/calendar import opened | `outlook-import-modal.tsx`, `outlook-calendar-import-modal.tsx` + hooks | small |
 | Jira config first used | `jira-api.ts` (~400 LOC) | ~10 KB |
 | User picks DOCX/XLSX/PPTX export | `export-ooxml.ts` (~1,300 lines, plus `zip.ts`) | ~45 KB |
 | Active language is `de` | `i18n.de.ts` (~700 keys) | ~20 KB |

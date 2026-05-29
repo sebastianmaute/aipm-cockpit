@@ -3,7 +3,7 @@
 [![Pipeline Status](https://gitlab.example.com/example-group/public-collab/lop-app/badges/main/pipeline.svg)](https://gitlab.example.com/example-group/public-collab/lop-app/-/commits/main)
 [![coverage](https://gitlab.example.com/example-group/public-collab/lop-app/badges/main/coverage.svg)](https://gitlab.example.com/example-group/public-collab/lop-app/-/commits/main)
 
-**v0.14.0** — AI-assisted project-status tracker for Acme project leads. Manage open points, track accountability, plan resource capacity & cost, keep an address book of the team, and draft status-inquiry emails — all in the browser, no backend required.
+**v0.25.0** — AI-assisted project-status tracker for Acme project leads. Manage open points, track accountability, plan resource capacity & cost, keep an address book of the team, and draft status-inquiry emails — all in the browser, no backend required. Integrates with Microsoft 365 (Outlook contacts/calendar, SharePoint storage) and Turso database backends.
 
 ## What It Does
 
@@ -40,6 +40,9 @@ All data is stored locally by default — no backend account required.
 | Activity log | Browser-local chronological record of task / RAID / absence / shift CRUD with text / wildcard / regex search |
 | Contacts | Assignee address book — persists across task deletion and Jira sync churn; auto-suggests on task forms |
 | Jira sync | Pull from and push to a Jira Cloud project (bidirectional, with conflict resolution); optional API-token-expiry reminder, and clear messages when the token is expired/invalid or Jira is unreachable |
+| Microsoft 365 sign-in | MSAL browser PKCE sign-in with lazily-loaded consent flow; master toggle in Settings → Integrations (default OFF) |
+| Outlook contacts import | Import personal contacts from Outlook (Graph `/me/contacts`) into the Resource Directory and assignee address book via a preview-and-pick dialog; updates existing by email |
+| Outlook calendar import | Import time-away events (all-day, Out-of-Office) from Outlook (Graph `/me/calendarView`) as Absences via a preview-and-pick dialog with per-row absence-type selector |
 | Draggable modals | Every modal window (task editor, budget editor, role manager, resource editor, …) is repositionable by dragging its title bar |
 | Pop-out windows | Open Chat, Gantt, RAID, Resources, Activity, or the address book in their own window — read-only mirror views synced live from the main window |
 | Export | CSV, Markdown, PDF (print), DOCX, XLSX, PPTX |
@@ -65,9 +68,10 @@ The app persists tasks in one of several backends, switchable in Settings:
 
 | Backend | Description |
 |---------|-------------|
-| Browser (default) | `IndexedDB` (schema v5) for tasks, RAID, absences, resources, roles, disciplines, grades, and the resource plan (record-level writes, legacy `localStorage` data migrates on first load); `localStorage` for settings — zero setup, survives page refresh |
+| Browser (default) | `IndexedDB` (schema v6) for tasks, RAID, absences, resources, roles, disciplines, grades, and the resource plan (record-level writes, legacy `localStorage` data migrates on first load); `localStorage` for settings — zero setup, survives page refresh |
 | Local JSON / CSV / Markdown | File System Access API — reads and writes a local file you pick |
-| SharePoint JSON / CSV | Coming soon |
+| SharePoint JSON / CSV | Store workspace as a single JSON or CSV blob in a SharePoint Sites document library via Microsoft Graph; requires M365 sign-in (configure in Settings → Integrations; paste the file URL in Storage Configuration) |
+| Turso (libSQL) | Store workspace as a single JSON blob via Turso's HTTP `/v2/pipeline` API; configure in Settings → Integrations (Database URL + Auth token) or via `NEXT_PUBLIC_TURSO_DATABASE_URL` / `NEXT_PUBLIC_TURSO_AUTH_TOKEN` env vars |
 
 The Jira integration stores credentials (site URL, email, API token) in `localStorage`. They are never sent to any server other than your own Atlassian domain via the local proxy routes below.
 
@@ -121,4 +125,27 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
-No environment variables are required. The Claude API key and Jira credentials are entered in the in-app Settings panel and stored in `localStorage`.
+### Environment Variables (optional)
+
+No environment variables are **required** — all integrations work via in-app Settings. However, you may set these optional **build-time** variables to pre-configure integrations:
+
+| Variable | Purpose |
+|----------|---------|
+| `NEXT_PUBLIC_MSAL_CLIENT_ID` | Microsoft Entra app client ID (overrides Settings → Integrations input) |
+| `NEXT_PUBLIC_MSAL_TENANT_ID` | Microsoft Entra tenant ID (overrides Settings → Integrations input) |
+| `NEXT_PUBLIC_TURSO_DATABASE_URL` | Turso database URL (overrides Settings → Integrations input) |
+| `NEXT_PUBLIC_TURSO_AUTH_TOKEN` | Turso auth token (overrides Settings → Integrations input); **recommend a scoped token** |
+
+The Claude API key and Jira credentials are entered in the in-app Settings panel and stored in `localStorage`.
+
+### Microsoft 365 Integration
+
+To enable Microsoft 365 features (Outlook contacts/calendar import, SharePoint storage):
+
+1. Register an app in [Microsoft Entra admin center](https://entra.microsoft.com/).
+2. Create a single-page application (SPA) with redirect URI `http://localhost:3000` (dev) or your production URL.
+3. Grant API permissions: `Contacts.Read`, `Calendars.Read`, `Sites.ReadWrite.All` (or scoped equivalently).
+4. Copy the **Client ID** and **Tenant ID** into Settings → Integrations, or set env vars above.
+5. The app uses MSAL in the browser for PKCE sign-in (no backend token exchange needed).
+
+**Security note**: Turso auth tokens live in the browser (localStorage or as `NEXT_PUBLIC_*` env vars, which are **not secret**). Use a Turso token scoped to the minimum required database and operations; rotate if exposed.

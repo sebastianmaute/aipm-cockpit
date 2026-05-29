@@ -1,4 +1,4 @@
-<!-- Generated: 2026-05-27 | Files scanned: ~80 source files | Token estimate: ~820 -->
+<!-- Generated: 2026-05-29 | Files scanned: ~80 source files | Token estimate: ~820 | Updated for 0.21.0–0.25.0: M365/Outlook/Turso integrations -->
 
 # Architecture
 
@@ -56,7 +56,8 @@ frontend/backend repos.
 | Next runtime → `api.atlassian.com` | Public Atlassian REST | Basic auth from forwarded body |
 | Browser → `api.anthropic.com` | Direct (user-supplied API key in localStorage) | Bearer key on each call |
 | Browser → File System Access API | Local disk | OS picker grant |
-| Browser → SharePoint (`sp-json`/`sp-csv`) | **Not yet implemented** — factory returns a stub backend whose `load`/`save` throw `StorageNotImplementedError("sharepoint-coming-soon")` | Planned: MSAL |
+| Browser → Microsoft Graph (`graph.microsoft.com`) | Outlook contacts/calendar import; SharePoint storage | MSAL-acquired access token (Bearer), stored in browser localStorage or env var |
+| Browser → Turso HTTP API (`api.turso.io`) | Workspace storage via `/v2/pipeline` | Bearer auth token (env var or Settings); **recommend scoped token** |
 
 ## Top-level data flow
 

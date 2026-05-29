@@ -118,16 +118,58 @@ warn users to re-import from an export.
 
 ## Secrets
 
-The repo contains **no production secrets**. Two credential paths:
+The repo contains **no production secrets**. Multiple credential paths, all browser-local:
 
 | Credential | Stored | Sent to | Rotation path |
 |---|---|---|---|
 | Anthropic API key | Browser `localStorage` (per-user) | `api.anthropic.com` (direct from browser) | User edits Settings → AI |
 | Jira site URL + email + API token | Browser `localStorage` (per-user) | Forwarded to Atlassian via `/api/jira/*` route handlers; **never persisted server-side** | User edits Settings → Jira |
+| **Microsoft Entra (M365)** Client ID + Tenant ID | Browser `localStorage` or `NEXT_PUBLIC_*` env vars | `login.microsoftonline.com` via MSAL (browser) for OAuth consent; issued token sent to `graph.microsoft.com` | Stored in Settings → Integrations or env vars; token is short-lived (refresh token managed by MSAL) |
+| **Turso** Database URL + Auth Token | Browser `localStorage` or `NEXT_PUBLIC_*` env vars | `api.turso.io` (direct from browser) | Stored in Settings → Integrations or env vars; **recommend scoped token with minimal permissions** |
+
+**Important:** The `NEXT_PUBLIC_*` env vars are **build-time public** — they are inlined into the JavaScript bundle and visible in the browser. Use them only for non-secret client-side config (e.g., Entra Client ID). The Turso auth token should **not** be exposed as a build-time env var in public deployments — use Settings inputs instead, or a scoped token if env var is unavoidable.
 
 If a deployment-host compromise is suspected, **no server-side secret needs
 rotation** because the server holds none. Users may want to rotate their own
 Atlassian tokens and Anthropic keys defensively.
+
+## Setup & Integration Configuration
+
+### Environment variables (build-time, optional)
+
+Set these at build time to pre-configure integrations (all can be overridden in-app via Settings → Integrations):
+
+```bash
+# Microsoft Entra (for M365 features)
+NEXT_PUBLIC_MSAL_CLIENT_ID=<your-app-client-id>
+NEXT_PUBLIC_MSAL_TENANT_ID=<your-tenant-id>
+
+# Turso (libSQL database backend)
+NEXT_PUBLIC_TURSO_DATABASE_URL=<libsql://...>
+NEXT_PUBLIC_TURSO_AUTH_TOKEN=<your-scoped-token>
+```
+
+**Note:** `NEXT_PUBLIC_*` variables are embedded in the bundle. Use them only for public config like Entra Client ID. For Turso, prefer the in-app Settings inputs over env vars.
+
+### Microsoft 365 integration setup
+
+To enable Outlook contacts/calendar import and SharePoint storage:
+
+1. Register an app in [Microsoft Entra admin center](https://entra.microsoft.com/).
+2. Create a Single-Page Application (SPA) with:
+   - Redirect URI: `http://localhost:3000` (dev) or your production URL
+   - API permissions: `Contacts.Read`, `Calendars.Read`, `Sites.ReadWrite.All`
+3. Copy **Client ID** and **Tenant ID** into Settings → Integrations, or set env vars above.
+4. The app authenticates via MSAL in the browser using PKCE (no backend token exchange).
+
+### Turso integration setup
+
+To enable Turso as a storage backend:
+
+1. Create a database at [Turso console](https://console.turso.io/).
+2. Generate an **auth token** with minimal permissions (scoped to the database if possible).
+3. Enter the **Database URL** and **Auth token** in Settings → Integrations, or set env vars above.
+4. The app calls Turso's HTTP `/v2/pipeline` API directly from the browser.
 
 ## Common issues
 
@@ -157,10 +199,21 @@ rate-limited. Users must regenerate at
 <https://console.anthropic.com/settings/keys>. The server does not see this
 traffic, so server-side logs will be silent.
 
+### "Outlook import fails with 401 / permission error"
+Cause: M365 toggle is OFF, invalid M365 credentials, or insufficient Graph scopes. 
+Fix: Open Settings → Integrations, enable the M365 master toggle, enter valid Entra Client ID / Tenant ID, and ensure the Entra app has `Contacts.Read` and `Calendars.Read` scopes granted.
+
+### "SharePoint storage shows 'not ready' or 'coming soon'"
+Cause: M365 toggle is OFF or integration is not set up.
+Fix: Same as Outlook import — enable M365 in Settings → Integrations and configure Entra app credentials.
+
+### "Turso storage fails to connect"
+Cause: Database URL is malformed, auth token is invalid, or scoped to a different database.
+Fix: Verify the Database URL and Auth token in Settings → Integrations. Test the credentials in Turso console. Ensure the token has read/write permission on the target database.
+
 ### "Local file storage doesn't work in Firefox / Safari"
 The File System Access API is Chromium-only. Users on Firefox or Safari
-should keep the default IndexedDB backend; SharePoint backends are listed as
-"coming soon" in the UI but not implemented.
+should use the default IndexedDB backend, Turso (if configured), or export/import manually.
 
 ### "Tasks disappeared on the user's machine"
 Most likely causes, in order:

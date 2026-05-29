@@ -1,4 +1,4 @@
-<!-- Generated: 2026-05-27 | Files scanned: src/proxy.ts + 10 (src/app/api/jira) | Token estimate: ~500 | No API route changes — editable buckets, effort tracking, draggable modals are all client-side -->
+<!-- Generated: 2026-05-29 | Files scanned: src/proxy.ts + 10 (src/app/api/jira) | Token estimate: ~500 | Updated for 0.21.0–0.25.0: M365 config resolvers, storage backends (SharePoint, Turso) are client-side -->
 
 # Backend
 
@@ -65,10 +65,31 @@ project root other than `src/proxy.ts`, and that middleware excludes
 - No `cookie-parser`, no session store, no database client.
 - Pure-Node only; runs equally on Node 20+ or edge runtimes.
 
+## Storage backends (client-side)
+
+The browser chooses a storage backend via Settings → Integrations. All backends live in the client (next/dynamic, `ssr: false`). New in 0.21.0–0.25.0:
+
+| Backend | File(s) | How |
+|---------|---------|-----|
+| Browser (IndexedDB) | `storage.ts` (BrowserBackend) | Default; record-level IDB writes |
+| Local JSON/CSV/Markdown | `storage.ts` (LocalFileBackend) | File System Access API; round-trips via `migrateWorkspaceV5/V6` |
+| **SharePoint JSON/CSV** (0.22.0) | `sharepoint-backend.ts` (SharePointBackend) | Stores workspace blob to SharePoint Sites library via `graph.microsoft.com /me/drive/items/...`; requires MSAL token (M365 toggle in Settings) |
+| **Turso** (0.25.0) | `turso-backend.ts` (TursoBackend) | Stores workspace as single JSON blob via Turso HTTP `/v2/pipeline` API; no `@libsql/client` dep, raw fetch; configured in Settings → Integrations or `NEXT_PUBLIC_TURSO_*` env vars |
+
+All backends implement the `StorageBackend` interface: `load(): Promise<Workspace>`, `save(workspace): Promise<void>`, `isReady(): Promise<boolean>`.
+
+## Configuration resolution (client-side, 0.21.0+)
+
+`msal-config.ts` — resolves Microsoft Entra credentials from `NEXT_PUBLIC_MSAL_CLIENT_ID` / `NEXT_PUBLIC_MSAL_TENANT_ID` env vars or Settings → Integrations inputs (fallback order: env → Settings → undefined).
+
+`turso-config.ts` — resolves Turso database URL + auth token from `NEXT_PUBLIC_TURSO_DATABASE_URL` / `NEXT_PUBLIC_TURSO_AUTH_TOKEN` env vars or Settings → Integrations inputs.
+
+Both are client-side only; no server-side validation.
+
 ## What this layer does *not* do
 
 - Does not store any user data.
 - Does not authenticate end users (the browser is the trust boundary).
 - Does not transform Jira responses beyond JSON parsing + ADF conversion.
 - Does not handle WebSocket / SSE traffic.
-- Does not yet talk to SharePoint — the `sp-json`/`sp-csv` storage backends are stub classes that throw `StorageNotImplementedError("sharepoint-coming-soon")`.
+- Does not proxy Microsoft Graph or Turso calls — browser makes them directly with MSAL tokens / Turso auth tokens.
