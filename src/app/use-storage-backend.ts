@@ -5,6 +5,8 @@ import { useBroadcastSync } from "./broadcast-sync";
 import { type Lang, t } from "./i18n";
 import type { Settings } from "./settings-menu";
 import {
+  type StorageConfig,
+  type StorageKind,
   StorageNotImplementedError,
   StorageNotReadyError,
   createBackend,
@@ -28,6 +30,7 @@ export interface UseStorageBackendArgs {
   activityLog: ActivityEntry[];
   setActivityLog: React.Dispatch<React.SetStateAction<ActivityEntry[]>>;
   showToast: (kind: "info" | "error", text: string) => void;
+  setStorageConfig: (config: StorageConfig) => void;
 }
 
 export function useStorageBackend(args: UseStorageBackendArgs) {
@@ -77,6 +80,8 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
 
   // Suppresses the save effect that fires immediately after a load
   const suppressNextSaveRef = useRef(false);
+  // Suppresses the load effect that fires after onRequestStorageSwitch sets new config
+  const suppressNextLoadRef = useRef(false);
 
   const refreshBackendStatus = async () => {
     try {
@@ -94,6 +99,11 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     if (!args.hydrated) return;
     let cancelled = false;
     (async () => {
+      if (suppressNextLoadRef.current) {
+        suppressNextLoadRef.current = false;
+        await refreshBackendStatus();
+        return;
+      }
       try {
         const workspace = await backend.load();
         if (cancelled) return;
@@ -232,11 +242,60 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     }
   }
 
+  const STORAGE_LABEL_KEYS: Record<StorageKind, Parameters<typeof t>[1]> = {
+    browser: "storageBrowser",
+    "local-json": "storageLocalJson",
+    "local-csv": "storageLocalCsv",
+    "local-md": "storageLocalMd",
+    "sp-json": "storageSpJson",
+    "sp-csv": "storageSpCsv",
+    turso: "storageTurso",
+  };
+
+  async function onRequestStorageSwitch(newKind: StorageKind): Promise<void> {
+    if (args.isPopout) return;
+    const current = settingsRef.current.storageConfig;
+    if (newKind === current.kind) return;
+    const newConfig: StorageConfig =
+      (newKind === "sp-json" || newKind === "sp-csv") && (current.kind === "sp-json" || current.kind === "sp-csv")
+        ? { ...current, kind: newKind }
+        : ({ kind: newKind } as StorageConfig);
+    const label = t(langRef.current, STORAGE_LABEL_KEYS[newKind]);
+    if (!window.confirm(t(langRef.current, "storageConvertConfirm", tasks.length, label))) return;
+    const target = createBackend(newConfig, {
+      acquireToken: auth.acquireToken,
+      tursoConfig: getTursoConfig(
+        settingsRef.current.integrations?.turso?.databaseUrl,
+        settingsRef.current.integrations?.turso?.authToken,
+      ),
+    });
+    try {
+      const pick = pickFileForBackend(target);
+      if (pick) await pick;
+      await target.save({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates });
+      suppressNextLoadRef.current = true;
+      args.setStorageConfig(newConfig);
+      await refreshBackendStatus();
+      args.showToast("info", t(langRef.current, "storageConvertedToast", label));
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (/abort/i.test(msg) || /user activation/i.test(msg)) return;
+      if (err instanceof StorageNotReadyError) {
+        const hint = (err as StorageNotReadyError).hint;
+        const key = hint === "local-file-permission-needed" ? "storagePermissionGestureNeeded" : "storageNotReady";
+        args.showToast("error", t(langRef.current, key));
+      } else if (!(err instanceof StorageNotImplementedError)) {
+        args.showToast("error", t(langRef.current, "storageSaveFailed", msg));
+      }
+    }
+  }
+
   return {
     storageDescription,
     storageReady,
     onPickStorageFile,
     onGrantWriteAccess,
     onOpenStorageFile,
+    onRequestStorageSwitch,
   };
 }

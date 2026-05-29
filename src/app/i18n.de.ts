@@ -1015,4 +1015,6 @@ export const de: Record<TranslationKey, string> = {
   storageTurso: "Turso-Datenbank",
   storageTursoNeedsToggle: "Turso unter Einstellungen → Integrationen aktivieren.",
   storageTursoNeedsConfig: "Turso-URL und -Token in den Einstellungen eingeben.",
+  storageConvertConfirm: "Aktuellen Workspace ({0} Aufgaben) nach {1} konvertieren und in diesen Speicher schreiben? Vorhandene Daten dort werden überschrieben.",
+  storageConvertedToast: "Konvertiert und zu {0} gewechselt.",
 };

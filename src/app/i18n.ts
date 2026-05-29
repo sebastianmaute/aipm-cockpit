@@ -997,6 +997,8 @@ const enUS = {
   storageTurso: "Turso database",
   storageTursoNeedsToggle: "Enable Turso in Settings → Integrations.",
   storageTursoNeedsConfig: "Enter the Turso URL and token in Settings.",
+  storageConvertConfirm: "Convert your current workspace ({0} tasks) to {1} and write it to this storage, overwriting any data already there?",
+  storageConvertedToast: "Converted and switched to {0}.",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;
