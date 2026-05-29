@@ -943,6 +943,12 @@ const enUS = {
   outlookImportSelectedN: "{0} selected",
   outlookImportConfirm: "Import ({0})",
   outlookImportCancel: "Cancel",
+  outlookImportButton: "Import from Outlook",
+  outlookImportedN: "Imported {0} contacts",
+  outlookSignInRequired: "Sign in with Microsoft to import Outlook contacts.",
+  outlookSignInExpired: "Microsoft session expired. Please sign in again.",
+  outlookPermissionDenied: "Permission denied. Grant Contacts.Read in Azure AD.",
+  outlookFetchFailed: "Failed to fetch Outlook contacts. Please try again.",
 
   integrations: "Integrations",
   integrationsM365: "Microsoft 365 integration",

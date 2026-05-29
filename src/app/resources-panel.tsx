@@ -91,6 +91,7 @@ interface Props {
   onEditResource: (resource: Resource) => void;
   onAddResource: (seed?: Partial<Resource>) => void;
   onOpenAddressBook?: () => void;
+  onImportOutlook?: () => void;
 }
 
 function GearIcon() {
@@ -153,6 +154,7 @@ function ResourcesPanelInner({
   onEditResource,
   onAddResource,
   onOpenAddressBook,
+  onImportOutlook,
 }: Props) {
   const planning = useColumnResize<PlanningCol>("planning", PLANNING_COL_WIDTHS);
   const rollup = useColumnResize<RollupCol>("rollup", ROLLUP_COL_WIDTHS);
@@ -573,6 +575,7 @@ function ResourcesPanelInner({
           onEditResource={onEditResource}
           onAddResource={onAddResource}
           onOpenAddressBook={onOpenAddressBook}
+          onImportOutlook={onImportOutlook}
         />
       )}
       {view === "workload" && !isEmpty && (

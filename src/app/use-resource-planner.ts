@@ -7,6 +7,7 @@ import { generatePeriods, convertUtilization } from "./resource-capacity";
 import { DEFAULT_WEEK_HOURS, type Absence, type RaidItem, type Resource, type Role, type Shift, type Task } from "./types";
 import type { ActivityKind } from "./activity-log";
 import { useWorkspace } from "./workspace-context";
+import { mergeImportedResources, type OutlookContact } from "./outlook-contacts";
 
 function isoToday(): string {
   return new Date().toISOString().slice(0, 10);
@@ -335,6 +336,14 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
     [setResources],
   );
 
+  const handleImportResources = useCallback(
+    (selected: readonly OutlookContact[]): void => {
+      if (selected.length === 0) return;
+      setResources((prev) => mergeImportedResources(prev, selected));
+    },
+    [setResources],
+  );
+
   const [rolesModalOpen, setRolesModalOpen] = useState(false);
   const handleOpenRolesModal = useCallback(() => setRolesModalOpen(true), []);
   const handleCloseRolesModal = useCallback(() => setRolesModalOpen(false), []);
@@ -608,6 +617,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
     handleCloseResourceModal,
     handleSaveResource,
     handleDeleteResource,
+    handleImportResources,
     handleSaveRaidItem,
     handleDeleteRaidItem,
     handleOpenAddAbsence,

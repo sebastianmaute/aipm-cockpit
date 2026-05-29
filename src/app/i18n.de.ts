@@ -961,6 +961,12 @@ export const de: Record<TranslationKey, string> = {
   outlookImportSelectedN: "{0} ausgewählt",
   outlookImportConfirm: "Importieren ({0})",
   outlookImportCancel: "Abbrechen",
+  outlookImportButton: "Aus Outlook importieren",
+  outlookImportedN: "{0} Kontakte importiert",
+  outlookSignInRequired: "Mit Microsoft anmelden, um Outlook-Kontakte zu importieren.",
+  outlookSignInExpired: "Microsoft-Sitzung abgelaufen. Bitte erneut anmelden.",
+  outlookPermissionDenied: "Zugriff verweigert. Contacts.Read in Azure AD erteilen.",
+  outlookFetchFailed: "Outlook-Kontakte konnten nicht abgerufen werden. Bitte erneut versuchen.",
 
   integrations: "Integrationen",
   integrationsM365: "Microsoft-365-Integration",
