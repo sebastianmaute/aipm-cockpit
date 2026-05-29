@@ -26,6 +26,8 @@ export function ModernShell({
   collapsed = false, onToggleCollapsed = () => {},
 }: ModernShellProps) {
   const title = t(lang, navLabelKey(activeView));
+  // Phase 1: open-points shows the LOP table; every other view shows the workspace.
+  // Phase 2: the "edit" view will need its own slot rather than falling through to workspace.
   const content = activeView === "open-points" ? tasksSection : workspace;
   return (
     <div className="flex h-screen w-screen overflow-hidden">

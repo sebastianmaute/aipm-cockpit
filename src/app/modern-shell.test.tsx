@@ -46,4 +46,11 @@ describe("ModernShell", () => {
     setup({ activeView: "gantt" });
     expect(screen.getByRole("heading", { name: "Gantt" })).toBeTruthy();
   });
+
+  it("wires onNewTask to the top-bar new-task button", () => {
+    const onNewTask = vi.fn();
+    setup({ onNewTask });
+    fireEvent.click(screen.getByRole("button", { name: "New task" }));
+    expect(onNewTask).toHaveBeenCalled();
+  });
 });
