@@ -14,6 +14,7 @@ type Props = {
   lang: Lang;
   config: StorageConfig;
   onChange: (config: StorageConfig) => void;
+  onRequestSwitch: (kind: StorageKind) => void;
   description: string | null;
   ready: boolean;
   onPickFile: () => Promise<void>;
@@ -42,6 +43,7 @@ export function StorageConfigSection({
   lang,
   config,
   onChange,
+  onRequestSwitch,
   description,
   ready,
   onPickFile,
@@ -59,7 +61,7 @@ export function StorageConfigSection({
 
   function handleKindChange(newKind: StorageKind) {
     setError(null);
-    onChange({ kind: newKind } as StorageConfig);
+    onRequestSwitch(newKind);
   }
 
   async function runPicker(mode: "save" | "open" | "grant") {

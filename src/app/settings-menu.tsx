@@ -584,6 +584,7 @@ export function SettingsMenu({
             onChange={(storageConfig) =>
               onChange({ ...settings, storageConfig })
             }
+            onRequestSwitch={() => {}}
             description={storageDescription}
             ready={storageReady}
             onPickFile={onPickStorageFile}

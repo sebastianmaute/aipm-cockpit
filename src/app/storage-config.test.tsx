@@ -22,6 +22,7 @@ function baseProps(overrides: Partial<React.ComponentProps<typeof StorageConfigS
     lang: "en-US",
     config: { kind: "browser" },
     onChange: noop,
+    onRequestSwitch: noop,
     description: null,
     ready: false,
     onPickFile: noopAsync,
@@ -45,6 +46,7 @@ describe("StorageConfigSection — SharePoint gating", () => {
         lang="en-US"
         config={{ kind: "sp-json", hostname: "x", sitePath: "/sites/a", itemPath: "f" }}
         onChange={noop}
+        onRequestSwitch={noop}
         m365Enabled={false}
         sharepointEnabled={false}
         tursoEnabled={false}
@@ -64,6 +66,7 @@ describe("StorageConfigSection — SharePoint gating", () => {
         lang="en-US"
         config={{ kind: "sp-json", hostname: "x.sharepoint.com", sitePath: "/sites/a", itemPath: "f.json" }}
         onChange={noop}
+        onRequestSwitch={noop}
         m365Enabled={true}
         sharepointEnabled={true}
         tursoEnabled={false}
@@ -85,6 +88,7 @@ describe("StorageConfigSection — SharePoint gating", () => {
         lang="en-US"
         config={{ kind: "sp-json", hostname: "x.sharepoint.com", sitePath: "/sites/a", itemPath: "f.json" }}
         onChange={onChange}
+        onRequestSwitch={noop}
         m365Enabled={true}
         sharepointEnabled={true}
         tursoEnabled={false}
@@ -111,6 +115,7 @@ describe("StorageConfigSection — SharePoint gating", () => {
         lang="en-US"
         config={{ kind: "sp-json", hostname: "old.sharepoint.com", sitePath: "/sites/old", itemPath: "old.json" }}
         onChange={onChange}
+        onRequestSwitch={noop}
         m365Enabled={true}
         sharepointEnabled={true}
         tursoEnabled={false}
@@ -141,16 +146,52 @@ describe("StorageConfigSection — Turso gating", () => {
 
   it("Turso option is disabled until tursoEnabled", () => {
     const onChange = vi.fn();
-    const { rerender } = render(<StorageConfigSection {...baseProps({ onChange, tursoEnabled: false })} />);
+    const onRequestSwitch = vi.fn();
+    const { rerender } = render(<StorageConfigSection {...baseProps({ onChange, onRequestSwitch, tursoEnabled: false })} />);
     expect((screen.getByRole("option", { name: t("en-US", "storageTurso") }) as HTMLOptionElement).disabled).toBe(true);
-    rerender(<StorageConfigSection {...baseProps({ onChange, tursoEnabled: true })} />);
+    rerender(<StorageConfigSection {...baseProps({ onChange, onRequestSwitch, tursoEnabled: true })} />);
     expect((screen.getByRole("option", { name: t("en-US", "storageTurso") }) as HTMLOptionElement).disabled).toBe(false);
   });
 
-  it("selecting Turso sets config kind turso", () => {
+  it("selecting Turso calls onRequestSwitch, not onChange", () => {
     const onChange = vi.fn();
-    render(<StorageConfigSection {...baseProps({ onChange, tursoEnabled: true })} />);
+    const onRequestSwitch = vi.fn();
+    render(<StorageConfigSection {...baseProps({ onChange, onRequestSwitch, tursoEnabled: true })} />);
     fireEvent.change(screen.getByRole("combobox"), { target: { value: "turso" } });
-    expect(onChange).toHaveBeenCalledWith({ kind: "turso" });
+    expect(onRequestSwitch).toHaveBeenCalledWith("turso");
+    expect(onChange).not.toHaveBeenCalledWith(expect.objectContaining({ kind: "turso" }));
+  });
+});
+
+describe("StorageConfigSection — kind select routing", () => {
+  it("changing the storage kind select calls onRequestSwitch(newKind), NOT onChange with {kind}", () => {
+    const onChange = vi.fn();
+    const onRequestSwitch = vi.fn();
+    render(
+      <StorageConfigSection
+        {...baseProps({ onChange, onRequestSwitch, config: { kind: "browser" } })}
+      />,
+    );
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "local-json" } });
+    expect(onRequestSwitch).toHaveBeenCalledTimes(1);
+    expect(onRequestSwitch).toHaveBeenCalledWith("local-json");
+    expect(onChange).not.toHaveBeenCalledWith(expect.objectContaining({ kind: expect.any(String) }));
+  });
+
+  it("the kind select is controlled by config.kind", () => {
+    const onChange = vi.fn();
+    const onRequestSwitch = vi.fn();
+    render(
+      <StorageConfigSection
+        {...baseProps({ onChange, onRequestSwitch, config: { kind: "local-json" } })}
+      />,
+    );
+    const select = screen.getByRole("combobox") as HTMLSelectElement;
+    // reflects config.kind
+    expect(select.value).toBe("local-json");
+    // firing a change does NOT mutate the displayed value without parent re-render
+    fireEvent.change(select, { target: { value: "browser" } });
+    // value stays — controlled, parent hasn't updated config
+    expect(select.value).toBe("local-json");
   });
 });
