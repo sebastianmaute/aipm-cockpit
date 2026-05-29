@@ -4,7 +4,7 @@ import { de } from "./i18n.de";
 
 const NEW_KEYS: TranslationKey[] = [
   "navGroupOverview", "navGroupPlan", "navGroupRegisters", "navGroupSystem",
-  "navOpenPoints", "navSettings",
+  "navOpenPoints",
   "layout", "layoutModern", "layoutClassic", "layoutTooltip",
   "sidebarBrandSubtitle", "sidebarCollapse", "sidebarExpand",
 ];

@@ -1040,7 +1040,6 @@ const enUS = {
   navGroupRegisters: "REGISTERS",
   navGroupSystem: "SYSTEM",
   navOpenPoints: "Open Points",
-  navSettings: "Settings",
   layout: "Layout",
   layoutModern: "Modern",
   layoutClassic: "Classic",
