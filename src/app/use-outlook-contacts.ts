@@ -70,7 +70,11 @@ export function useOutlookContacts(
         const mapped = mapGraphContact(raw, index++);
         if (mapped) out.push(mapped);
       }
-      url = page["@odata.nextLink"];
+      const next = page["@odata.nextLink"];
+      if (next && !next.startsWith("https://graph.microsoft.com/")) {
+        throw new Error("outlookFetchFailed");
+      }
+      url = next;
     }
     return out;
   }, [acquireToken]);

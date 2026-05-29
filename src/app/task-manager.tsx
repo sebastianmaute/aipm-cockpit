@@ -602,7 +602,7 @@ function TaskManagerInner() {
         onAddResource={guardEdit(handleOpenAddResource)}
         onImportOutlook={
           outlookContactsEnabled && msAuth.account && !importLoading
-            ? () => { void handleOpenOutlookImport(); }
+            ? guardEdit(() => { void handleOpenOutlookImport(); })
             : undefined
         }
         onEditTask={openEditModal}

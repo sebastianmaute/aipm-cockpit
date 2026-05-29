@@ -90,4 +90,13 @@ describe("useOutlookContacts", () => {
     await expect(result.current.fetchContacts()).rejects.toThrow("outlookSignInExpired");
     expect(fetchSpy).not.toHaveBeenCalled();
   });
+
+  it("rejects an @odata.nextLink pointing off the Graph origin", async () => {
+    const acquireToken = vi.fn().mockResolvedValue("tok");
+    fetchSpy.mockResolvedValueOnce(
+      jsonRes({ value: [], "@odata.nextLink": "https://evil.example.com/steal" }),
+    );
+    const { result } = renderHook(() => useOutlookContacts(acquireToken));
+    await expect(result.current.fetchContacts()).rejects.toThrow("outlookFetchFailed");
+  });
 });

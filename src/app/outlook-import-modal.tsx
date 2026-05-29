@@ -52,8 +52,8 @@ export function OutlookImportModal({
   }
 
   function toggleAll() {
-    setChecked((prev) =>
-      prev.size === contacts.length ? new Set() : new Set(contacts.map((c) => c.sourceId)),
+    setChecked(() =>
+      allChecked ? new Set() : new Set(contacts.map((c) => c.sourceId)),
     );
   }
 
