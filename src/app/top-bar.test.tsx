@@ -16,15 +16,20 @@ describe("TopBar", () => {
     expect(screen.getByRole("heading", { name: "Gantt" })).toBeTruthy();
   });
 
-  it("calls onNewTask when the add button is clicked", () => {
+  it("calls onNewTask when the new-task button is clicked", () => {
     const onNewTask = vi.fn();
     render(<TopBar {...base} onNewTask={onNewTask} />);
-    fireEvent.click(screen.getByRole("button", { name: "Add task" }));
+    fireEvent.click(screen.getByRole("button", { name: "New task" }));
     expect(onNewTask).toHaveBeenCalled();
   });
 
   it("shows the alert badge count when > 0", () => {
     render(<TopBar {...base} bannerCount={3} />);
     expect(screen.getByText("3")).toBeTruthy();
+  });
+
+  it("hides the alert badge when bannerCount is 0", () => {
+    render(<TopBar {...base} />);
+    expect(screen.queryByText("0")).toBeNull();
   });
 });

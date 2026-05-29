@@ -21,8 +21,7 @@ export function TopBar({ lang, title, bannerCount, onNewTask, onShowAlerts, chil
         <button
           type="button"
           onClick={onNewTask}
-          aria-label={t(lang, "addTask")}
-          title={t(lang, "addTask")}
+          title={t(lang, "newTask")}
           className="rounded-md bg-AIPM-green px-3 py-1.5 text-sm font-semibold text-AIPM-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-AIPM-green"
         >
           {t(lang, "newTask")}
