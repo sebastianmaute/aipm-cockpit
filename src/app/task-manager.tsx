@@ -155,7 +155,7 @@ function TaskManagerInner() {
   // `?popout=<tab>` is present, so it never overwrites the main title.
   useEffect(() => {
     if (!isPopout) return;
-    document.title = `${t(lang, TAB_LABEL_KEYS[activeTab])} — ${t(lang, "appTitle")}`;
+    document.title = `${t(lang, TAB_LABEL_KEYS[activeTab as TopTab])} — ${t(lang, "appTitle")}`;
   }, [isPopout, activeTab, lang]);
 
   const { holidaySet } = useHolidaySet({
@@ -603,7 +603,7 @@ function TaskManagerInner() {
           : "mx-auto w-full max-w-[1536px] p-6 sm:p-10"
       }
     >
-      {isPopout && !isReportPopoutTab(activeTab) && <ReadOnlyMirrorBanner lang={lang} />}
+      {isPopout && !isReportPopoutTab(activeTab as TopTab) && <ReadOnlyMirrorBanner lang={lang} />}
       {!isPopout && (
         <AppHeader
           handleCancelEdit={handleCancelEdit}
