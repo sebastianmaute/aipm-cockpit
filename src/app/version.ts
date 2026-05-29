@@ -1,3 +1,11 @@
+// 0.29.0 "Okorafor" adds a modern left-sidebar layout as the new default: a
+// Dark-Blue sidebar with grouped, nested navigation (Open Points, Chat, Gantt,
+// Resources + Address Book/Resource Report, Budget, RAID + RAID Report, Reports,
+// Activity, Settings), a top bar with the view title and actions, and a
+// full-viewport content area showing one view at a time. The previous layout is
+// preserved as a toggleable "Classic mode" (Settings -> Layout). URL-hash
+// deep-linking (#gantt, #raid, ...) and back/forward navigation. Phase 1 of the
+// redesign (chrome only; full-page edit view and table restyle follow).
 // 0.28.1 is an internal security + code-quality pass with no user-facing
 // behavior change: the Jira proxy now rejects plaintext http:// site URLs
 // (HTTPS only, so Basic credentials are never sent in the clear) and blocks
@@ -338,7 +346,7 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.28.1";
+export const APP_VERSION = "0.29.0";
 export const APP_BUILD_DATE = "2026-05-29"; // Chambers milestone
 export const APP_REPO_URL = "https://www.example.com";
 
@@ -377,4 +385,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightTursoRelational",
   "versionHighlightStorageConvert",
   "versionHighlightStorageUnreachable",
+  "versionHighlightModernLayout",
 ] as const;

@@ -320,6 +320,24 @@ export function SettingsMenu({
             />
           </div>
 
+          <div className="mb-4">
+            <span className="mb-1 flex items-center gap-1 text-sm font-medium text-foreground">
+              {t(lang, "layout")}
+              <InfoTooltip text={t(lang, "layoutTooltip")} />
+            </span>
+            <SegmentedControl<"modern" | "classic">
+              value={settings.layout}
+              ariaLabel={t(lang, "layout")}
+              title={t(lang, "layoutTooltip")}
+              className="w-full"
+              options={[
+                { value: "modern", label: t(lang, "layoutModern") },
+                { value: "classic", label: t(lang, "layoutClassic") },
+              ]}
+              onChange={(v) => onChange({ ...settings, layout: v })}
+            />
+          </div>
+
           <label className="mb-4 block">
             <span className="mb-1 flex items-center gap-1 text-sm font-medium text-foreground">
               {t(lang, "language")}

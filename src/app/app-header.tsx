@@ -1,15 +1,14 @@
 "use client";
 import dynamic from "next/dynamic";
 import type React from "react";
-import { t } from "./i18n";
+import { type Lang, t } from "./i18n";
 import { type Command } from "./voice";
 import { type AlertableTask } from "./due-dates";
 import { type StorageKind } from "./storage";
 import { ExportMenu } from "./export-menu";
 import { HelpMenu } from "./help-menu";
 import { VersionMenu } from "./version-menu";
-import { SettingsMenu } from "./settings-menu";
-import { useSettings } from "./use-settings";
+import { SettingsMenu, type Settings } from "./settings-menu";
 import { useWorkspace } from "./workspace-context";
 
 const VoiceCommandButton = dynamic(
@@ -31,6 +30,9 @@ export interface AppHeaderProps {
   onOpenStorageFile: () => Promise<void>;
   onGrantStorageWrite: () => Promise<void>;
   onRequestStorageSwitch: (kind: StorageKind) => void;
+  settings: Settings;
+  setSettings: React.Dispatch<React.SetStateAction<Settings>>;
+  lang: Lang;
 }
 
 export function AppHeader({
@@ -47,8 +49,10 @@ export function AppHeader({
   onOpenStorageFile,
   onGrantStorageWrite,
   onRequestStorageSwitch,
+  settings,
+  setSettings,
+  lang,
 }: AppHeaderProps) {
-  const { settings, setSettings, lang } = useSettings();
   const { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates } = useWorkspace();
 
   return (

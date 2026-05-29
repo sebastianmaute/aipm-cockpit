@@ -6,6 +6,7 @@ import { WorkspaceTabProvider } from "./workspace-tab-context";
 import { WorkspaceProvider } from "./workspace-context";
 import { AppHeader } from "./app-header";
 import type { AppHeaderProps } from "./app-header";
+import { defaultSettings } from "./settings-menu";
 import type { AlertableTask } from "./due-dates";
 import type { Task } from "./types";
 
@@ -40,6 +41,9 @@ function makeProps(overrides: Partial<AppHeaderProps> = {}): AppHeaderProps {
     onOpenStorageFile: vi.fn().mockResolvedValue(undefined),
     onGrantStorageWrite: vi.fn().mockResolvedValue(undefined),
     onRequestStorageSwitch: vi.fn(),
+    settings: defaultSettings,
+    setSettings: () => {},
+    lang: "en-US",
     ...overrides,
   };
 }

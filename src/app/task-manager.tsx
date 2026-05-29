@@ -831,6 +831,9 @@ function TaskManagerInner() {
           onOpenStorageFile={onOpenStorageFile}
           onGrantStorageWrite={onGrantWriteAccess}
           onRequestStorageSwitch={onRequestStorageSwitch}
+          settings={settings}
+          setSettings={setSettings}
+          lang={lang}
         />
       )}
 

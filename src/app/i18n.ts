@@ -982,6 +982,7 @@ const enUS = {
   versionHighlightTursoRelational: "Turso storage now uses a proper relational schema (one table per entity) instead of a single JSON blob — your workspace is queryable in SQL. Existing single-blob databases are imported automatically.",
   versionHighlightStorageConvert: "Switching storage format now converts your current data and writes it to the new format (JSON, CSV, Markdown, SharePoint, or Turso) — after a confirmation — instead of loading whatever was there.",
   versionHighlightStorageUnreachable: "Switching to a Turso backend that's down now shows a clear 'storage unreachable' message and keeps your data; the Turso settings include a turso.tech link, and every Settings field now has a hover tooltip.",
+  versionHighlightModernLayout: "Modern sidebar layout (toggleable Classic mode)",
 
   outlookCalImportTitle: "Import Outlook calendar",
   outlookCalImportLoading: "Loading events…",
