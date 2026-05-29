@@ -194,8 +194,8 @@ function TaskManagerInner() {
       setSettings((s) => ({ ...s, jira: { ...s.jira, tokenInvalidAt: ok ? undefined : new Date().toISOString() } })),
   });
 
-  const { storageDescription, storageReady, onPickStorageFile, onGrantWriteAccess, onOpenStorageFile } =
-    useStorageBackend({ settings, lang, hydrated, isPopout, activityLog, setActivityLog, showToast });
+  const { storageDescription, storageReady, onPickStorageFile, onGrantWriteAccess, onOpenStorageFile, onRequestStorageSwitch } =
+    useStorageBackend({ settings, lang, hydrated, isPopout, activityLog, setActivityLog, showToast, setStorageConfig: (storageConfig) => setSettings((s) => ({ ...s, storageConfig })) });
 
   // Reverse-lookup index for the "referenced by N RAID items" badge on
   // each task row. Map<taskId, RaidItem[]>. O(R) on every raid update,
@@ -618,6 +618,7 @@ function TaskManagerInner() {
           onPickStorageFile={onPickStorageFile}
           onOpenStorageFile={onOpenStorageFile}
           onGrantStorageWrite={onGrantWriteAccess}
+          onRequestStorageSwitch={onRequestStorageSwitch}
         />
       )}
 

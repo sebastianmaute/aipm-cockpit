@@ -47,15 +47,18 @@ const mockBackend = {
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 const showToast = vi.fn();
 
+const setStorageConfigGlobal = vi.fn();
+
 function makeArgs(overrides: Partial<Parameters<typeof useStorageBackend>[0]> = {}): Parameters<typeof useStorageBackend>[0] {
   return {
-    settings: { storageConfig: { kind: "file" } } as unknown as Settings,
+    settings: { storageConfig: { kind: "browser" } } as unknown as Settings,
     lang: "en-US" as Lang,
     hydrated: true,
     isPopout: false,
     activityLog: [] as ActivityEntry[],
     setActivityLog: vi.fn(),
     showToast,
+    setStorageConfig: setStorageConfigGlobal,
     ...overrides,
   };
 }
@@ -135,7 +138,7 @@ describe("useStorageBackend — load effect", () => {
     mockBackend.isReady.mockResolvedValueOnce(false);
     mockBackend.describe.mockResolvedValueOnce(null);
 
-    renderBackend();
+    renderBackend(makeArgs({ settings: { storageConfig: { kind: "local-json" } } as unknown as Settings }));
     await act(async () => { await Promise.resolve(); });
 
     expect(showToast).toHaveBeenCalledWith("error", expect.any(String));
@@ -364,5 +367,216 @@ describe("useStorageBackend — broadcast send gating", () => {
     for (const call of calls) {
       expect(call[3]).toBe(false);
     }
+  });
+});
+
+// ── helpers for onRequestStorageSwitch tests ─────────────────────────────────
+function emptyWorkspace() {
+  return {
+    tasks: [], raid: [], absences: [], shifts: [],
+    resources: [], roles: [], disciplines: [], grades: [],
+    plan: { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month", currency: "EUR" },
+    budgets: [], fxRates: null,
+  };
+}
+
+describe("useStorageBackend — onRequestStorageSwitch", () => {
+  const createBackendMock = storageMod.createBackend as ReturnType<typeof vi.fn>;
+  let setStorageConfig: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+    setStorageConfig = vi.fn();
+    // Default main backend (kind="browser")
+    mockBackend.load.mockResolvedValue(emptyWorkspace());
+    mockBackend.isReady.mockResolvedValue(true);
+    mockBackend.describe.mockResolvedValue("Browser");
+    createBackendMock.mockReturnValue(mockBackend);
+    // pickFileForBackend returns null (non-local backends in these tests)
+    (storageMod.pickFileForBackend as ReturnType<typeof vi.fn>).mockReturnValue(null);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it("confirm=true writes current workspace to new backend + commits config + shows info toast", async () => {
+    const targetSave = vi.fn().mockResolvedValue(undefined);
+    const targetBackend = {
+      kind: "turso",
+      load: vi.fn().mockResolvedValue(emptyWorkspace()),
+      save: targetSave,
+      isReady: vi.fn().mockResolvedValue(true),
+      describe: vi.fn().mockResolvedValue("Turso: x"),
+    };
+    // First call returns main backend (browser), subsequent call returns target
+    createBackendMock
+      .mockReturnValueOnce(mockBackend)
+      .mockReturnValueOnce(targetBackend);
+
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+
+    const { result } = renderBackend(makeArgs({ setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+
+    await act(async () => {
+      await result.current.onRequestStorageSwitch("turso");
+    });
+
+    expect(targetSave).toHaveBeenCalledTimes(1);
+    expect(setStorageConfig).toHaveBeenCalledWith({ kind: "turso" });
+    // success path must also fire the "converted" info toast
+    expect(showToast).toHaveBeenCalledWith("info", expect.any(String));
+  });
+
+  it("suppress-load: after a successful switch backend.load is NOT called when the load effect re-runs with the suppress flag set", async () => {
+    const targetSave = vi.fn().mockResolvedValue(undefined);
+    // A second backend that would be created once setStorageConfig triggers a
+    // re-render and the backend memo rebuilds.
+    const targetBackend = {
+      kind: "turso",
+      load: vi.fn().mockResolvedValue(emptyWorkspace()),
+      save: targetSave,
+      isReady: vi.fn().mockResolvedValue(true),
+      describe: vi.fn().mockResolvedValue("Turso: x"),
+    };
+
+    // First createBackend call → main (browser) backend
+    // Second call → target backend (produced inside onRequestStorageSwitch)
+    // Third call → new memo backend after setStorageConfig re-render
+    createBackendMock
+      .mockReturnValueOnce(mockBackend)   // initial memo
+      .mockReturnValueOnce(targetBackend) // created inside onRequestStorageSwitch
+      .mockReturnValueOnce(targetBackend); // memo rebuilds after setStorageConfig
+
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+
+    // Use a mutable ref so the probe always sees the latest args, allowing
+    // rerender() to pass a new storageConfig to the hook without needing a
+    // new hook function reference.
+    const argsRef = {
+      current: makeArgs({ setStorageConfig }),
+    };
+    const { result, rerender } = renderHook(
+      () => {
+        const backend = useStorageBackend(argsRef.current);
+        const { tasks, raid, absences, shifts, setTasks } = useWorkspace();
+        return { ...backend, tasks, raid, absences, shifts, setTasks };
+      },
+      { wrapper: ({ children }) => <TestProviders>{children}</TestProviders> },
+    );
+
+    // Let initial load complete
+    await act(async () => { await Promise.resolve(); });
+    mockBackend.load.mockClear();
+    targetBackend.load.mockClear();
+
+    // Perform the switch — sets suppressNextLoadRef = true, then calls
+    // setStorageConfig (our vi.fn mock).
+    await act(async () => {
+      await result.current.onRequestStorageSwitch("turso");
+    });
+
+    // Simulate the config-change re-render: update argsRef with the new
+    // storageConfig so the backend memo invalidates and the load effect re-runs.
+    argsRef.current = makeArgs({
+      setStorageConfig,
+      settings: { storageConfig: { kind: "turso" } } as unknown as Settings,
+    });
+    await act(async () => {
+      rerender();
+    });
+    await act(async () => { await Promise.resolve(); });
+
+    // The load effect ran with the new backend but suppressNextLoadRef was true,
+    // so targetBackend.load must NOT have been called.
+    expect(targetBackend.load).not.toHaveBeenCalled();
+    // Status refresh DOES run (isReady/describe) to update storageReady/storageDescription.
+    expect(targetBackend.isReady).toHaveBeenCalled();
+  });
+
+  it("confirm=false → no save, no config change", async () => {
+    const targetSave = vi.fn().mockResolvedValue(undefined);
+    const targetBackend = {
+      kind: "turso",
+      load: vi.fn(),
+      save: targetSave,
+      isReady: vi.fn().mockResolvedValue(true),
+      describe: vi.fn().mockResolvedValue(null),
+    };
+    createBackendMock
+      .mockReturnValueOnce(mockBackend)
+      .mockReturnValueOnce(targetBackend);
+
+    vi.spyOn(window, "confirm").mockReturnValue(false);
+
+    const { result } = renderBackend(makeArgs({ setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+
+    await act(async () => {
+      await result.current.onRequestStorageSwitch("turso");
+    });
+
+    expect(setStorageConfig).not.toHaveBeenCalled();
+    expect(targetSave).not.toHaveBeenCalled();
+  });
+
+  it("same kind → no-op (no confirm shown)", async () => {
+    createBackendMock.mockReturnValue(mockBackend);
+
+    const confirmSpy = vi.spyOn(window, "confirm");
+
+    const { result } = renderBackend(makeArgs({ setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+
+    await act(async () => {
+      await result.current.onRequestStorageSwitch("browser");
+    });
+
+    expect(confirmSpy).not.toHaveBeenCalled();
+    expect(setStorageConfig).not.toHaveBeenCalled();
+  });
+
+  it("write failure → no config change + error toast", async () => {
+    const targetBackend = {
+      kind: "turso",
+      load: vi.fn(),
+      save: vi.fn().mockRejectedValue(new Error("boom")),
+      isReady: vi.fn().mockResolvedValue(true),
+      describe: vi.fn().mockResolvedValue(null),
+    };
+    createBackendMock
+      .mockReturnValueOnce(mockBackend)
+      .mockReturnValueOnce(targetBackend);
+
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+
+    const { result } = renderBackend(makeArgs({ setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+
+    await act(async () => {
+      await result.current.onRequestStorageSwitch("turso");
+    });
+
+    expect(setStorageConfig).not.toHaveBeenCalled();
+    expect(showToast).toHaveBeenCalledWith("error", expect.any(String));
+  });
+
+  it("isPopout=true → no-op (no confirm shown, no config change)", async () => {
+    createBackendMock.mockReturnValue(mockBackend);
+
+    const confirmSpy = vi.spyOn(window, "confirm");
+
+    const { result } = renderBackend(makeArgs({ isPopout: true, setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+
+    await act(async () => {
+      await result.current.onRequestStorageSwitch("turso");
+    });
+
+    expect(confirmSpy).not.toHaveBeenCalled();
+    expect(setStorageConfig).not.toHaveBeenCalled();
   });
 });

@@ -7,6 +7,7 @@ import { JiraSettingsSection } from "./jira-settings";
 import { SegmentedControl } from "./segmented-control";
 import {
   type StorageConfig,
+  type StorageKind,
   defaultStorageConfig,
 } from "./storage";
 import { StorageConfigSection } from "./storage-config";
@@ -177,6 +178,7 @@ export function SettingsMenu({
   onPickStorageFile,
   onOpenStorageFile,
   onGrantStorageWrite,
+  onRequestStorageSwitch,
 }: {
   settings: Settings;
   onChange: (s: Settings) => void;
@@ -185,6 +187,7 @@ export function SettingsMenu({
   onPickStorageFile: () => Promise<void>;
   onOpenStorageFile: () => Promise<void>;
   onGrantStorageWrite: () => Promise<void>;
+  onRequestStorageSwitch: (kind: StorageKind) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState("");
@@ -584,6 +587,7 @@ export function SettingsMenu({
             onChange={(storageConfig) =>
               onChange({ ...settings, storageConfig })
             }
+            onRequestSwitch={onRequestStorageSwitch}
             description={storageDescription}
             ready={storageReady}
             onPickFile={onPickStorageFile}

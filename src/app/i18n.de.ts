@@ -996,6 +996,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightOutlookCalendar: "Abwesenheits-Termine aus dem Outlook-Kalender importieren: mit Microsoft anmelden und ganztägige sowie Abwesenheits-Termine unter Ressourcen › Kalender in den Ressourcenkalender übernehmen.",
   versionHighlightTursoStorage: "Workspace in einer Turso-(libSQL-)Datenbank speichern: Turso in den Einstellungen aktivieren, Datenbank-URL + Token hinzufügen und in der Speicherkonfiguration „Turso” auswählen.",
   versionHighlightTursoRelational: "Der Turso-Speicher nutzt jetzt ein echtes relationales Schema (eine Tabelle pro Entität) statt eines einzelnen JSON-Blobs – Ihr Workspace ist in SQL abfragbar. Bestehende Einzel-Blob-Datenbanken werden automatisch importiert.",
+  versionHighlightStorageConvert: "Beim Wechsel des Speicherformats werden jetzt Ihre aktuellen Daten konvertiert und in das neue Format (JSON, CSV, Markdown, SharePoint oder Turso) geschrieben – nach einer Bestätigung – statt vorhandene Daten zu laden.",
 
   outlookCalImportTitle: "Outlook-Kalender importieren",
   outlookCalImportLoading: "Termine werden geladen…",
@@ -1015,4 +1016,6 @@ export const de: Record<TranslationKey, string> = {
   storageTurso: "Turso-Datenbank",
   storageTursoNeedsToggle: "Turso unter Einstellungen → Integrationen aktivieren.",
   storageTursoNeedsConfig: "Turso-URL und -Token in den Einstellungen eingeben.",
+  storageConvertConfirm: "Aktuellen Workspace ({0} Aufgaben) nach {1} konvertieren und in diesen Speicher schreiben? Vorhandene Daten dort werden überschrieben.",
+  storageConvertedToast: "Konvertiert und zu {0} gewechselt.",
 };
