@@ -1025,6 +1025,14 @@ const enUS = {
   integrationsTursoUrlTooltip: "Your Turso database URL (libsql://, https://, or http:// for a local server).",
   integrationsTursoTokenTooltip: "Auth token for the Turso database. Leave empty for a local token-less server.",
   storageTooltip: "Where your workspace is saved. Switching converts your current data and writes it to the new backend.",
+
+  jiraEnableTooltip: "Connect a Jira project to sync tasks.",
+  jiraSiteUrlTooltip: "Your Jira site URL, e.g. https://your-company.atlassian.net.",
+  jiraEmailTooltip: "The email address of your Atlassian account.",
+  jiraApiTokenTooltip: "An Atlassian API token. Stored locally in this browser only.",
+  jiraProjectTooltip: "Which Jira project to sync with.",
+  jiraIssueTypesTooltip: "Which Jira issue types to import as tasks.",
+  jiraAssigneeTooltip: "Default assignee mapping for synced issues.",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { type Lang, t } from "./i18n";
+import { InfoTooltip } from "./info-tooltip";
 import {
   type JiraIssueType,
   type JiraProject,
@@ -191,25 +192,29 @@ export function JiraSettingsSection({
 
       {open && (
         <div className="mt-3 space-y-3">
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={config.enabled}
-              onChange={(e) => update("enabled", e.target.checked)}
-              className="h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue focus:ring-AIPM-green"
-            />
-            <span className="text-foreground">
-              {t(lang, "jiraEnable")}
-            </span>
-          </label>
+          <div className="flex items-center gap-1">
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={config.enabled}
+                onChange={(e) => update("enabled", e.target.checked)}
+                className="h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue focus:ring-AIPM-green"
+              />
+              <span className="text-foreground">
+                {t(lang, "jiraEnable")}
+              </span>
+            </label>
+            <InfoTooltip text={t(lang, "jiraEnableTooltip")} />
+          </div>
 
           <fieldset
             disabled={!config.enabled}
             className="space-y-2 disabled:opacity-50"
           >
             <label className="block">
-              <span className="mb-1 block text-xs text-muted-foreground">
+              <span className="mb-1 flex items-center gap-1 text-xs text-muted-foreground">
                 {t(lang, "jiraSiteUrl")}
+                <InfoTooltip text={t(lang, "jiraSiteUrlTooltip")} />
               </span>
               <input
                 type="url"
@@ -238,8 +243,9 @@ export function JiraSettingsSection({
               />
             </label>
             <label className="block">
-              <span className="mb-1 block text-xs text-muted-foreground">
+              <span className="mb-1 flex items-center gap-1 text-xs text-muted-foreground">
                 {t(lang, "jiraEmail")}
+                <InfoTooltip text={t(lang, "jiraEmailTooltip")} />
               </span>
               <input
                 type="email"
@@ -249,8 +255,9 @@ export function JiraSettingsSection({
               />
             </label>
             <label className="block">
-              <span className="mb-1 block text-xs text-muted-foreground">
+              <span className="mb-1 flex items-center gap-1 text-xs text-muted-foreground">
                 {t(lang, "jiraApiToken")}
+                <InfoTooltip text={t(lang, "jiraApiTokenTooltip")} />
               </span>
               <input
                 type="password"
@@ -307,8 +314,9 @@ export function JiraSettingsSection({
 
             {projects.length > 0 && (
               <label className="block">
-                <span className="mb-1 block text-xs text-muted-foreground">
+                <span className="mb-1 flex items-center gap-1 text-xs text-muted-foreground">
                   {t(lang, "jiraProject")}
+                  <InfoTooltip text={t(lang, "jiraProjectTooltip")} />
                 </span>
                 <select
                   value={config.projectKey}
@@ -342,8 +350,9 @@ export function JiraSettingsSection({
 
             {issueTypes.length > 0 && (
               <div>
-                <span className="mb-1 block text-xs text-muted-foreground">
+                <span className="mb-1 flex items-center gap-1 text-xs text-muted-foreground">
                   {t(lang, "jiraIssueTypes")}
+                  <InfoTooltip text={t(lang, "jiraIssueTypesTooltip")} />
                 </span>
                 <ul className="grid grid-cols-2 gap-1">
                   {issueTypes
@@ -366,8 +375,9 @@ export function JiraSettingsSection({
             )}
 
             <div>
-              <span className="mb-1 block text-xs text-muted-foreground">
+              <span className="mb-1 flex items-center gap-1 text-xs text-muted-foreground">
                 {t(lang, "jiraAssignee")}
+                <InfoTooltip text={t(lang, "jiraAssigneeTooltip")} />
               </span>
               <div className="flex flex-wrap gap-3 text-xs">
                 {(

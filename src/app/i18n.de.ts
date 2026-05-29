@@ -1043,4 +1043,12 @@ export const de: Record<TranslationKey, string> = {
   integrationsTursoUrlTooltip: "Ihre Turso-Datenbank-URL (libsql://, https:// oder http:// für einen lokalen Server).",
   integrationsTursoTokenTooltip: "Auth-Token für die Turso-Datenbank. Für einen lokalen Server ohne Token leer lassen.",
   storageTooltip: "Wo Ihr Workspace gespeichert wird. Beim Wechsel werden Ihre aktuellen Daten konvertiert und in den neuen Speicher geschrieben.",
+
+  jiraEnableTooltip: "Jira-Projekt verbinden, um Aufgaben zu synchronisieren.",
+  jiraSiteUrlTooltip: "Ihre Jira-Site-URL, z. B. https://ihre-firma.atlassian.net.",
+  jiraEmailTooltip: "Die E-Mail-Adresse Ihres Atlassian-Kontos.",
+  jiraApiTokenTooltip: "Ein Atlassian-API-Token. Wird nur lokal in diesem Browser gespeichert.",
+  jiraProjectTooltip: "Mit welchem Jira-Projekt synchronisiert wird.",
+  jiraIssueTypesTooltip: "Welche Jira-Vorgangstypen als Aufgaben importiert werden.",
+  jiraAssigneeTooltip: "Standard-Zuweisungszuordnung für synchronisierte Vorgänge.",
 };
