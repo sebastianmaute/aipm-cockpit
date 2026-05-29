@@ -991,6 +991,10 @@ const enUS = {
   outlookCalImportedN: "Imported {0} absences",
   outlookCalendarPermissionDenied: "Calendar access was denied. Please check your Microsoft permissions.",
   outlookCalendarFetchFailed: "Failed to fetch calendar events. Please try again.",
+
+  storageTurso: "Turso database",
+  storageTursoNeedsToggle: "Enable Turso in Settings → Integrations.",
+  storageTursoNeedsConfig: "Enter the Turso URL and token in Settings.",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;

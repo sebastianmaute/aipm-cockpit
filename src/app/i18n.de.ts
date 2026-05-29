@@ -1009,4 +1009,8 @@ export const de: Record<TranslationKey, string> = {
   outlookCalImportedN: "{0} Abwesenheiten importiert",
   outlookCalendarPermissionDenied: "Kalenderzugriff wurde verweigert. Bitte Microsoft-Berechtigungen prüfen.",
   outlookCalendarFetchFailed: "Kalendertermine konnten nicht abgerufen werden. Bitte erneut versuchen.",
+
+  storageTurso: "Turso-Datenbank",
+  storageTursoNeedsToggle: "Turso unter Einstellungen → Integrationen aktivieren.",
+  storageTursoNeedsConfig: "Turso-URL und -Token in den Einstellungen eingeben.",
 };
