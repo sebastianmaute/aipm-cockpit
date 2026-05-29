@@ -1034,6 +1034,20 @@ const enUS = {
   jiraProjectTooltip: "Which Jira project to sync with.",
   jiraIssueTypesTooltip: "Which Jira issue types to import as tasks.",
   jiraAssigneeTooltip: "Default assignee mapping for synced issues.",
+
+  navGroupOverview: "OVERVIEW",
+  navGroupPlan: "PLAN",
+  navGroupRegisters: "REGISTERS",
+  navGroupSystem: "SYSTEM",
+  navOpenPoints: "Open Points",
+  navSettings: "Settings",
+  layout: "Layout",
+  layoutModern: "Modern",
+  layoutClassic: "Classic",
+  layoutTooltip: "Switch between the new sidebar layout and the classic layout.",
+  sidebarBrandSubtitle: "LIST OF OPEN POINTS",
+  sidebarCollapse: "Collapse sidebar",
+  sidebarExpand: "Expand sidebar",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;

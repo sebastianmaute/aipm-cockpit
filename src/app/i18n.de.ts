@@ -1052,4 +1052,18 @@ export const de: Record<TranslationKey, string> = {
   jiraProjectTooltip: "Mit welchem Jira-Projekt synchronisiert wird.",
   jiraIssueTypesTooltip: "Welche Jira-Vorgangstypen als Aufgaben importiert werden.",
   jiraAssigneeTooltip: "Standard-Zuweisungszuordnung für synchronisierte Vorgänge.",
+
+  navGroupOverview: "ÜBERSICHT",
+  navGroupPlan: "PLANUNG",
+  navGroupRegisters: "REGISTER",
+  navGroupSystem: "SYSTEM",
+  navOpenPoints: "Offene Punkte",
+  navSettings: "Einstellungen",
+  layout: "Layout",
+  layoutModern: "Modern",
+  layoutClassic: "Klassisch",
+  layoutTooltip: "Wechselt zwischen dem neuen Seitenleisten-Layout und dem klassischen Layout.",
+  sidebarBrandSubtitle: "LISTE OFFENER PUNKTE",
+  sidebarCollapse: "Seitenleiste einklappen",
+  sidebarExpand: "Seitenleiste ausklappen",
 };
