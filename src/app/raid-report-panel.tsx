@@ -58,19 +58,18 @@ export function RaidReportPanel({ lang, items, today }: Props) {
             <Tile label={t(lang, "raidReportOpenDependencies")} value={String(rep.tiles.openD)} />
           </div>
           <Section title={t(lang, "raidReportBySeverity")}>
-            <div className="overflow-x-auto rounded-md border border-line">
-              <table className="min-w-full text-left text-sm">
-                <thead className="sticky top-0 z-10 bg-surface-muted text-xs uppercase tracking-wide text-muted-foreground">
-                  <tr>
+            <ReportTableShell
+              head={
+                <>
                     <th className="px-3 py-2 font-medium">{t(lang, "raidReportBySeverity")}</th>
                     <th className="px-3 py-2 text-right font-medium">{t(lang, "raidCategoryRisk")}</th>
                     <th className="px-3 py-2 text-right font-medium">{t(lang, "raidCategoryAssumption")}</th>
                     <th className="px-3 py-2 text-right font-medium">{t(lang, "raidCategoryIssue")}</th>
                     <th className="px-3 py-2 text-right font-medium">{t(lang, "raidCategoryDependency")}</th>
                     <th className="px-3 py-2 text-right font-medium">{t(lang, "raidReportColTotal")}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-line">
+                </>
+              }
+            >
                   {rep.bySeverity.map((row) => (
                     <tr key={row.severity}>
                       <td className="px-3 py-2 font-medium text-foreground">
@@ -87,44 +86,38 @@ export function RaidReportPanel({ lang, items, today }: Props) {
                       <td className="px-3 py-2 text-right tabular-nums font-medium">{row.total}</td>
                     </tr>
                   ))}
-                </tbody>
-              </table>
-            </div>
+            </ReportTableShell>
           </Section>
           <Section title={t(lang, "raidReportByStatus")}>
-            <div className="overflow-x-auto rounded-md border border-line">
-              <table className="min-w-full text-left text-sm">
-                <thead className="sticky top-0 z-10 bg-surface-muted text-xs uppercase tracking-wide text-muted-foreground">
-                  <tr>
+            <ReportTableShell
+              head={
+                <>
                     <th className="px-3 py-2 font-medium">{t(lang, "raidReportByStatus")}</th>
                     <th className="px-3 py-2 text-right font-medium">{t(lang, "raidReportColOpen")}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-line">
+                </>
+              }
+            >
                   {rep.byStatus.map((row) => (
                     <tr key={row.status}>
                       <td className="px-3 py-2 font-medium text-foreground">{row.status}</td>
                       <td className="px-3 py-2 text-right tabular-nums">{row.count}</td>
                     </tr>
                   ))}
-                </tbody>
-              </table>
-            </div>
+            </ReportTableShell>
           </Section>
           <Section title={t(lang, "raidReportByOwner")}>
-            <div className="overflow-x-auto rounded-md border border-line">
-              <table className="min-w-full text-left text-sm">
-                <thead className="sticky top-0 z-10 bg-surface-muted text-xs uppercase tracking-wide text-muted-foreground">
-                  <tr>
+            <ReportTableShell
+              head={
+                <>
                     <th className="px-3 py-2 font-medium">{t(lang, "raidReportByOwner")}</th>
                     <th className="px-3 py-2 text-right font-medium">{t(lang, "raidCategoryRisk")}</th>
                     <th className="px-3 py-2 text-right font-medium">{t(lang, "raidCategoryAssumption")}</th>
                     <th className="px-3 py-2 text-right font-medium">{t(lang, "raidCategoryIssue")}</th>
                     <th className="px-3 py-2 text-right font-medium">{t(lang, "raidCategoryDependency")}</th>
                     <th className="px-3 py-2 text-right font-medium">{t(lang, "raidReportColTotal")}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-line">
+                </>
+              }
+            >
                   {rep.byOwner.map((row) => (
                     <tr key={row.owner}>
                       <td className="px-3 py-2 font-medium text-foreground">{ownerCell(lang, row.owner)}</td>
@@ -135,24 +128,21 @@ export function RaidReportPanel({ lang, items, today }: Props) {
                       <td className="px-3 py-2 text-right tabular-nums font-medium">{row.total}</td>
                     </tr>
                   ))}
-                </tbody>
-              </table>
-            </div>
+            </ReportTableShell>
           </Section>
           <Section title={t(lang, "raidReportTopOpen")}>
-            <div className="overflow-x-auto rounded-md border border-line">
-              <table className="min-w-full text-left text-sm">
-                <thead className="sticky top-0 z-10 bg-surface-muted text-xs uppercase tracking-wide text-muted-foreground">
-                  <tr>
+            <ReportTableShell
+              head={
+                <>
                     <th className="px-3 py-2 font-medium">{t(lang, "id")}</th>
                     <th className="px-3 py-2 font-medium">{t(lang, "raidCategory")}</th>
                     <th className="px-3 py-2 font-medium">{t(lang, "raidTitle")}</th>
                     <th className="px-3 py-2 font-medium">{t(lang, "raidSeverity")}</th>
                     <th className="px-3 py-2 font-medium">{t(lang, "raidOwner")}</th>
                     <th className="px-3 py-2 text-right font-medium">{t(lang, "raidReportColAge")}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-line">
+                </>
+              }
+            >
                   {rep.topOpen.map((row) => (
                     <tr key={row.id}>
                       <td className="px-3 py-2 text-muted-foreground tabular-nums">{row.id}</td>
@@ -167,22 +157,19 @@ export function RaidReportPanel({ lang, items, today }: Props) {
                       </td>
                     </tr>
                   ))}
-                </tbody>
-              </table>
-            </div>
+            </ReportTableShell>
           </Section>
           <Section title={t(lang, "raidReportByCategory")}>
-            <div className="overflow-x-auto rounded-md border border-line">
-              <table className="min-w-full text-left text-sm">
-                <thead className="sticky top-0 z-10 bg-surface-muted text-xs uppercase tracking-wide text-muted-foreground">
-                  <tr>
+            <ReportTableShell
+              head={
+                <>
                     <th className="px-3 py-2 font-medium">{t(lang, "raidReportByCategory")}</th>
                     <th className="px-3 py-2 text-right font-medium">{t(lang, "raidReportColOpen")}</th>
                     <th className="px-3 py-2 text-right font-medium">{t(lang, "raidReportColClosed")}</th>
                     <th className="px-3 py-2 text-right font-medium">{t(lang, "raidReportColOverdue")}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-line">
+                </>
+              }
+            >
                   {rep.byCategory.map((row) => (
                     <tr key={row.category}>
                       <td className="px-3 py-2 font-medium text-foreground">{row.category}</td>
@@ -191,29 +178,24 @@ export function RaidReportPanel({ lang, items, today }: Props) {
                       <td className={`px-3 py-2 text-right tabular-nums ${row.overdue > 0 ? "text-AIPM-pink font-medium" : "text-muted-foreground"}`}>{row.overdue}</td>
                     </tr>
                   ))}
-                </tbody>
-              </table>
-            </div>
+            </ReportTableShell>
           </Section>
           <Section title={t(lang, "raidReportByAging")}>
-            <div className="overflow-x-auto rounded-md border border-line">
-              <table className="min-w-full text-left text-sm">
-                <thead className="sticky top-0 z-10 bg-surface-muted text-xs uppercase tracking-wide text-muted-foreground">
-                  <tr>
+            <ReportTableShell
+              head={
+                <>
                     <th className="px-3 py-2 font-medium">{t(lang, "raidReportByAging")}</th>
                     <th className="px-3 py-2 text-right font-medium">{t(lang, "raidReportColOpen")}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-line">
+                </>
+              }
+            >
                   {rep.byAging.map((row) => (
                     <tr key={row.bucket}>
                       <td className="px-3 py-2 font-medium text-foreground">{agingLabel(lang, row.bucket)}</td>
                       <td className="px-3 py-2 text-right tabular-nums">{row.open}</td>
                     </tr>
                   ))}
-                </tbody>
-              </table>
-            </div>
+            </ReportTableShell>
           </Section>
         </>
       )}
@@ -239,6 +221,30 @@ function Section({ title, children }: { title: string; children: React.ReactNode
     <div>
       <h3 className="mb-2 text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">{title}</h3>
       {children}
+    </div>
+  );
+}
+
+/**
+ * Scrollable bordered table shell with the standard sticky header styling used
+ * by every summary section. `head` is the `<tr>`'s header cells; `children` are
+ * the `<tbody>` rows.
+ */
+function ReportTableShell({
+  head,
+  children,
+}: {
+  head: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="overflow-x-auto rounded-md border border-line">
+      <table className="min-w-full text-left text-sm">
+        <thead className="sticky top-0 z-10 bg-surface-muted text-xs uppercase tracking-wide text-muted-foreground">
+          <tr>{head}</tr>
+        </thead>
+        <tbody className="divide-y divide-line">{children}</tbody>
+      </table>
     </div>
   );
 }

@@ -9,10 +9,11 @@
 // HTML5 datalist autocomplete of known assignees so the user can either
 // pick an existing person or type a new one.
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { type Lang, t } from "./i18n";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
+import { AssigneeField, ModalEditFooter } from "./modal-edit-fields";
 import { SegmentedControl } from "./segmented-control";
 import { useDraggable } from "./use-draggable";
 import { ABSENCE_TYPES, type Absence, type AbsenceType } from "./types";
@@ -58,22 +59,6 @@ export function AbsenceEditModal({
   }
 
   // Escape, focus management, and backdrop-click are owned by <Modal>.
-
-  const datalistOptions = useMemo(() => {
-    // Deduplicate by case-folded name; keep the first observed casing.
-    const seen = new Set<string>();
-    const out: { name: string; email?: string }[] = [];
-    for (const a of knownAssignees) {
-      const name = a.name.trim();
-      if (!name) continue;
-      const key = name.toLowerCase();
-      if (seen.has(key)) continue;
-      seen.add(key);
-      out.push({ name, email: a.email });
-    }
-    out.sort((a, b) => a.name.localeCompare(b.name));
-    return out;
-  }, [knownAssignees]);
 
   function update<K extends keyof Absence>(key: K, value: Absence[K]) {
     setDraft((prev) => (prev ? { ...prev, [key]: value } : prev));
@@ -146,51 +131,17 @@ export function AbsenceEditModal({
           onSubmit={handleSubmit}
           className="grid grid-cols-1 gap-4 overflow-y-auto p-5 sm:grid-cols-2"
         >
-          <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-            <span className="font-medium text-foreground">
-              {t(lang, "absenceAssignee")} *
-            </span>
-            <input
-              type="text"
-              required
-              value={draft.assignee}
-              onChange={(e) => {
-                const name = e.target.value;
-                update("assignee", name);
-                // Auto-fill email when the typed name matches a known one.
-                const match = datalistOptions.find(
-                  (o) => o.name.toLowerCase() === name.trim().toLowerCase(),
-                );
-                if (match?.email && !draft.assigneeEmail) {
-                  update("assigneeEmail", match.email);
-                }
-              }}
-              list={DATALIST_ID}
-              placeholder={t(lang, "absencePlaceholderAssignee")}
-              className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
-            />
-            <datalist id={DATALIST_ID}>
-              {datalistOptions.map((o) => (
-                <option key={o.name} value={o.name}>
-                  {o.email ?? ""}
-                </option>
-              ))}
-            </datalist>
-          </label>
-
-          <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-            <span className="font-medium text-foreground">
-              {t(lang, "absenceAssigneeEmail")}
-            </span>
-            <input
-              type="email"
-              value={draft.assigneeEmail ?? ""}
-              onChange={(e) =>
-                update("assigneeEmail", e.target.value || undefined)
-              }
-              className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
-            />
-          </label>
+          <AssigneeField
+            datalistId={DATALIST_ID}
+            assignee={draft.assignee}
+            assigneeEmail={draft.assigneeEmail}
+            knownAssignees={knownAssignees}
+            onAssigneeChange={(name) => update("assignee", name)}
+            onEmailChange={(email) => update("assigneeEmail", email)}
+            assigneeLabel={t(lang, "absenceAssignee")}
+            assigneeEmailLabel={t(lang, "absenceAssigneeEmail")}
+            assigneePlaceholder={t(lang, "absencePlaceholderAssignee")}
+          />
 
           <label className="flex flex-col gap-1 text-sm">
             <span className="font-medium text-foreground">
@@ -261,34 +212,13 @@ export function AbsenceEditModal({
             </p>
           )}
 
-          <footer className="flex items-center justify-between gap-2 border-t border-line pt-3 sm:col-span-2">
-            <div>
-              {!isNew && (
-                <button
-                  type="button"
-                  onClick={handleDeleteClick}
-                  className="rounded-md border border-AIPM-pink/40 bg-surface px-3 py-1.5 text-sm font-medium text-AIPM-pink hover:bg-AIPM-pink/10 dark:border-AIPM-pink/50"
-                >
-                  {t(lang, "delete")}
-                </button>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={onClose}
-                className="rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted"
-              >
-                {t(lang, "cancel")}
-              </button>
-              <button
-                type="submit"
-                className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:bg-AIPM-dark-blue/90"
-              >
-                {t(lang, "absenceSave")}
-              </button>
-            </div>
-          </footer>
+          <ModalEditFooter
+            lang={lang}
+            isNew={isNew}
+            onDelete={handleDeleteClick}
+            onClose={onClose}
+            saveLabel={t(lang, "absenceSave")}
+          />
         </form>
       </div>
     </Modal>

@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useId } from "react";
 import { type Lang, t } from "./i18n";
+import { ComboboxChevron, ComboboxOptions, useCombobox } from "./combobox-shared";
 
 const baseInputClass =
   "w-full rounded-md border border-line bg-surface pl-3 pr-10 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-AIPM-green disabled:cursor-not-allowed disabled:opacity-50";
@@ -28,30 +29,6 @@ export function ComboInput({
   disabled?: boolean;
   lang: Lang;
 }) {
-  const [open, setOpen] = useState(false);
-  const [highlight, setHighlight] = useState(-1);
-  const [prevValue, setPrevValue] = useState(value);
-  const [prevOpen, setPrevOpen] = useState(open);
-  const rootRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const listId = useId();
-
-  if (prevValue !== value || prevOpen !== open) {
-    setPrevValue(value);
-    setPrevOpen(open);
-    setHighlight(-1);
-  }
-
-  useEffect(() => {
-    if (!open) return;
-    function onMouseDown(e: MouseEvent) {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node))
-        setOpen(false);
-    }
-    document.addEventListener("mousedown", onMouseDown);
-    return () => document.removeEventListener("mousedown", onMouseDown);
-  }, [open]);
-
   const trimmed = value.trim();
   const lower = trimmed.toLowerCase();
   const filtered = suggestions.filter(
@@ -61,26 +38,23 @@ export function ComboInput({
   const showAddNew = trimmed.length > 0 && !exactMatch;
   const totalItems = filtered.length + (showAddNew ? 1 : 0);
 
+  const { open, setOpen, highlight, rootRef, inputRef, moveHighlight } =
+    useCombobox(value, totalItems);
+  const listId = useId();
+
   function commit(v: string) {
     onChange(v);
     setOpen(false);
-    setHighlight(-1);
   }
 
   function onKey(e: React.KeyboardEvent<HTMLInputElement>) {
     if (disabled) return;
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      setOpen(true);
-      setHighlight((i) =>
-        totalItems === 0 ? -1 : i + 1 >= totalItems ? 0 : i + 1,
-      );
+      moveHighlight(1);
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
-      setOpen(true);
-      setHighlight((i) =>
-        totalItems === 0 ? -1 : i <= 0 ? totalItems - 1 : i - 1,
-      );
+      moveHighlight(-1);
     } else if (e.key === "Enter") {
       if (open && highlight >= 0 && highlight < filtered.length) {
         e.preventDefault();
@@ -121,75 +95,28 @@ export function ComboInput({
         onKeyDown={onKey}
         className={baseInputClass}
       />
-      <button
-        type="button"
-        onClick={() => {
+      <ComboboxChevron
+        open={open}
+        disabled={disabled}
+        lang={lang}
+        onToggle={() => {
           if (disabled) return;
           setOpen((o) => !o);
           inputRef.current?.focus();
         }}
-        aria-label={t(lang, "comboToggle")}
-        tabIndex={-1}
         className="absolute inset-y-0 right-0 flex items-center px-2 text-muted-foreground hover:text-AIPM-dark-blue disabled:cursor-not-allowed"
-        disabled={disabled}
-      >
-        <svg
-          viewBox="0 0 20 20"
-          fill="currentColor"
-          aria-hidden="true"
-          className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`}
-        >
-          <path
-            fillRule="evenodd"
-            d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
-            clipRule="evenodd"
-          />
-        </svg>
-      </button>
+      />
 
       {open && totalItems > 0 && (
-        <ul
-          id={listId}
-          role="listbox"
-          className="absolute z-30 mt-1 max-h-56 w-full overflow-y-auto rounded-md border border-line bg-surface text-sm"
-        >
-          {filtered.map((s, idx) => (
-            <li key={s} role="option" aria-selected={idx === highlight}>
-              <button
-                type="button"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => commit(s)}
-                className={`block w-full cursor-pointer px-3 py-1.5 text-left ${
-                  idx === highlight
-                    ? "bg-surface-muted text-AIPM-dark-blue"
-                    : "text-foreground hover:bg-surface-muted"
-                }`}
-              >
-                {s}
-              </button>
-            </li>
-          ))}
-          {showAddNew && (
-            <li
-              role="option"
-              aria-selected={highlight === filtered.length}
-              className="border-t border-line"
-            >
-              <button
-                type="button"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => commit(trimmed)}
-                className={`block w-full cursor-pointer px-3 py-1.5 text-left italic ${
-                  highlight === filtered.length
-                    ? "bg-AIPM-green/20 text-AIPM-dark-blue dark:bg-AIPM-green/30"
-                    : "text-AIPM-dark-blue hover:bg-AIPM-green/10 dark:text-AIPM-light-grey"
-                }`}
-              >
-                + {t(lang, "comboAddNew", trimmed)}
-              </button>
-            </li>
-          )}
-        </ul>
+        <ComboboxOptions
+          listId={listId}
+          filtered={filtered}
+          highlight={highlight}
+          showAddNew={showAddNew}
+          addNewLabel={t(lang, "comboAddNew", trimmed)}
+          onSelect={commit}
+          onAddNew={() => commit(trimmed)}
+        />
       )}
     </div>
   );

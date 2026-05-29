@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { workdaysUntil } from "./due-dates";
 import { useColumnResize } from "./use-column-resize";
 import { ColumnResizeHandle, PrintButton, ResetColWidthsButton } from "./task-manager-ui";
@@ -562,6 +562,45 @@ export function ReportsPanel({
   );
 }
 
+/**
+ * Shared filter + sort + sort-cycle logic for the report tables. The only thing
+ * that differs between tables is how a row + sort key map to a comparable value,
+ * which the caller supplies via a (memoized) `getValue`.
+ */
+function useSortableFilter<Row extends { name: string }, Key extends string>(
+  rows: readonly Row[],
+  sort: { key: Key; dir: SortDir },
+  setSort: (s: { key: Key; dir: SortDir }) => void,
+  filter: string,
+  getValue: (row: Row, key: Key) => string | number,
+) {
+  const filtered = useMemo(() => {
+    const q = filter.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter((r) => r.name.toLowerCase().includes(q));
+  }, [rows, filter]);
+
+  const sorted = useMemo(() => {
+    if (sort.dir === "off") return filtered;
+    const arr = filtered.slice().sort((a, b) => {
+      const c = compareStrOrNum(getValue(a, sort.key), getValue(b, sort.key));
+      return c !== 0 ? c : a.name.localeCompare(b.name);
+    });
+    if (sort.dir === "desc") arr.reverse();
+    return arr;
+  }, [filtered, sort, getValue]);
+
+  function click(k: Key) {
+    if (k !== sort.key) {
+      setSort({ key: k, dir: "asc" });
+      return;
+    }
+    setSort({ key: sort.key, dir: sort.dir === "asc" ? "desc" : sort.dir === "desc" ? "off" : "asc" });
+  }
+
+  return { sorted, click };
+}
+
 function GroupOrLabelTable({
   rows,
   lang,
@@ -587,32 +626,12 @@ function GroupOrLabelTable({
   setFilter: (v: string) => void;
   filterPlaceholderKey: "reportsFilterGroup" | "reportsFilterLabel";
 }) {
-  const filtered = useMemo(() => {
-    const q = filter.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter((r) => r.name.toLowerCase().includes(q));
-  }, [rows, filter]);
-
-  const sorted = useMemo(() => {
-    if (sort.dir === "off") return filtered;
-    const k = sort.key;
-    const arr = filtered.slice().sort((a, b) => {
-      const av = k === "name" ? a.name : (a[k as Exclude<GroupOrLabelSortKey, "name">] ?? 0);
-      const bv = k === "name" ? b.name : (b[k as Exclude<GroupOrLabelSortKey, "name">] ?? 0);
-      const c = compareStrOrNum(av, bv);
-      return c !== 0 ? c : a.name.localeCompare(b.name);
-    });
-    if (sort.dir === "desc") arr.reverse();
-    return arr;
-  }, [filtered, sort]);
-
-  function click(k: GroupOrLabelSortKey) {
-    if (k !== sort.key) {
-      setSort({ key: k, dir: "asc" });
-      return;
-    }
-    setSort({ key: sort.key, dir: sort.dir === "asc" ? "desc" : sort.dir === "desc" ? "off" : "asc" });
-  }
+  const getValue = useCallback(
+    (r: GroupOrLabelRow, k: GroupOrLabelSortKey): string | number =>
+      k === "name" ? r.name : (r[k as Exclude<GroupOrLabelSortKey, "name">] ?? 0),
+    [],
+  );
+  const { sorted, click } = useSortableFilter(rows, sort, setSort, filter, getValue);
 
   if (rows.length === 0) {
     return <p className="text-sm text-muted-foreground">{t(lang, emptyKey)}</p>;
@@ -705,32 +724,12 @@ function AssigneeTable({
   filter: string;
   setFilter: (v: string) => void;
 }) {
-  const filtered = useMemo(() => {
-    const q = filter.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter((r) => r.name.toLowerCase().includes(q));
-  }, [rows, filter]);
-
-  const sorted = useMemo(() => {
-    if (sort.dir === "off") return filtered;
-    const k = sort.key;
-    const arr = filtered.slice().sort((a, b) => {
-      const av = k === "assignee" ? a.name : (a[k as Exclude<AssigneeSortKey, "assignee">] ?? 0);
-      const bv = k === "assignee" ? b.name : (b[k as Exclude<AssigneeSortKey, "assignee">] ?? 0);
-      const c = compareStrOrNum(av, bv);
-      return c !== 0 ? c : a.name.localeCompare(b.name);
-    });
-    if (sort.dir === "desc") arr.reverse();
-    return arr;
-  }, [filtered, sort]);
-
-  function click(k: AssigneeSortKey) {
-    if (k !== sort.key) {
-      setSort({ key: k, dir: "asc" });
-      return;
-    }
-    setSort({ key: sort.key, dir: sort.dir === "asc" ? "desc" : sort.dir === "desc" ? "off" : "asc" });
-  }
+  const getValue = useCallback(
+    (r: Stats["byAssignee"][number], k: AssigneeSortKey): string | number =>
+      k === "assignee" ? r.name : (r[k as Exclude<AssigneeSortKey, "assignee">] ?? 0),
+    [],
+  );
+  const { sorted, click } = useSortableFilter(rows, sort, setSort, filter, getValue);
 
   return (
     <div>
@@ -830,36 +829,6 @@ function Tile({
 function compareStrOrNum(a: unknown, b: unknown): number {
   if (typeof a === "number" && typeof b === "number") return a - b;
   return String(a ?? "").localeCompare(String(b ?? ""));
-}
-
-function SortTh<TKey extends string>({
-  label,
-  k,
-  sortKey,
-  dir,
-  onClick,
-  align,
-}: {
-  label: string;
-  k: TKey;
-  sortKey: TKey;
-  dir: SortDir;
-  onClick: (k: TKey) => void;
-  align?: "left" | "right";
-}) {
-  const active = sortKey === k && dir !== "off";
-  const indicator = active ? (dir === "asc" ? " ↑" : " ↓") : "";
-  return (
-    <th className={`relative px-3 py-2 ${align === "right" ? "text-right" : ""}`}>
-      <button
-        type="button"
-        onClick={() => onClick(k)}
-        className={`inline-flex items-center gap-1 ${active ? "text-foreground" : ""} hover:text-foreground`}
-      >
-        {label}{indicator}
-      </button>
-    </th>
-  );
 }
 
 function TableFilter({

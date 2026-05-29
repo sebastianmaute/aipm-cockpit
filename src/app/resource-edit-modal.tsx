@@ -9,6 +9,7 @@ import { useState } from "react";
 import { type Lang, t } from "./i18n";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
+import { ModalEditFooter } from "./modal-edit-fields";
 import type { Resource } from "./types";
 import { useDraggable } from "./use-draggable";
 import { birthdayHasYear, birthdayMonthDay } from "./birthdays";
@@ -284,34 +285,13 @@ export function ResourceEditModal({
             </p>
           )}
 
-          <footer className="flex items-center justify-between gap-2 border-t border-line pt-3 sm:col-span-2">
-            <div>
-              {!isNew && (
-                <button
-                  type="button"
-                  onClick={handleDeleteClick}
-                  className="rounded-md border border-AIPM-pink/40 bg-surface px-3 py-1.5 text-sm font-medium text-AIPM-pink hover:bg-AIPM-pink/10 dark:border-AIPM-pink/50"
-                >
-                  {t(lang, "delete")}
-                </button>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={onClose}
-                className="rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted"
-              >
-                {t(lang, "cancel")}
-              </button>
-              <button
-                type="submit"
-                className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:bg-AIPM-dark-blue/90"
-              >
-                {t(lang, "resourceSave")}
-              </button>
-            </div>
-          </footer>
+          <ModalEditFooter
+            lang={lang}
+            isNew={isNew}
+            onDelete={handleDeleteClick}
+            onClose={onClose}
+            saveLabel={t(lang, "resourceSave")}
+          />
         </form>
       </div>
     </Modal>
