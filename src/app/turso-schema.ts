@@ -76,3 +76,36 @@ export { PLAN_COLUMNS, FX_COLUMNS };
 
 // Re-export workspace utilities used by downstream tasks.
 export { decodeRatesMap, emptyWorkspace, migrateWorkspaceV6, sanitizeFxRates, sanitizePlan };
+
+const SCHEMA_VERSION = "6";
+
+function insertStmt(table: string, columns: readonly string[], values: string[]): SqlStmt {
+  const colList = columns.map((c) => `"${c}"`).join(", ");
+  const placeholders = columns.map(() => "?").join(", ");
+  return {
+    sql: `INSERT INTO ${table} (${colList}) VALUES (${placeholders})`,
+    args: columns.map((c, i) => (c === "id" ? { type: "integer", value: values[i] } : { type: "text", value: values[i] })),
+  };
+}
+
+/** Ordered statements that OVERWRITE the whole workspace, transactionally. */
+export function workspaceToStatements(ws: Workspace): SqlStmt[] {
+  const out: SqlStmt[] = [{ sql: "BEGIN" }];
+  for (const ddl of SCHEMA_DDL) out.push({ sql: ddl });
+  for (const name of TABLE_NAMES) out.push({ sql: `DELETE FROM ${name}` });
+  for (const s of ENTITY_SPECS) {
+    for (const e of s.get(ws)) {
+      out.push(insertStmt(s.table, s.columns, s.columns.map((c) => s.toRow(e, c))));
+    }
+  }
+  const p = ws.plan;
+  out.push(insertStmt("plan", ["id", ...PLAN_COLUMNS], ["1", p.startDate, p.endDate, p.granularity, p.currency]));
+  if (ws.fxRates) {
+    const fx = ws.fxRates;
+    const rates = Object.entries(fx.rates).map(([k, v]) => `${k}=${v}`).join("|");
+    out.push(insertStmt("fx_rates", ["id", ...FX_COLUMNS], ["1", fx.base, fx.date, fx.fetchedAt, rates]));
+  }
+  out.push({ sql: `INSERT INTO meta (key, value) VALUES ('schema_version', ?)`, args: [{ type: "text", value: SCHEMA_VERSION }] });
+  out.push({ sql: "COMMIT" });
+  return out;
+}
