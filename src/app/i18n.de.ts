@@ -988,4 +988,15 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightM365Auth: "Microsoft-365-Grundlage: Mit dem Arbeitskonto anmelden, um künftige SharePoint-, Outlook-Kontakte- und Kalender-Funktionen freizuschalten. Alle Integrationen sind standardmäßig deaktiviert.",
   versionHighlightSharepointStorage: "SharePoint-Speicher: Arbeitsbereich als JSON- oder CSV-Datei in einer SharePoint-Sites-Bibliothek speichern — Datei-URL in der Speicherkonfiguration einfügen, nachdem SharePoint in Einstellungen → Integrationen aktiviert wurde.",
   versionHighlightOutlookContacts: "Outlook-Kontakte importieren: mit Microsoft anmelden und Kontakte aus dem Reiter „Ressourcen“ ins Ressourcenverzeichnis und in die Zuständigen-Vorschläge übernehmen.",
+
+  outlookCalImportTitle: "Outlook-Kalender importieren",
+  outlookCalImportLoading: "Termine werden geladen…",
+  outlookCalImportEmpty: "Keine Abwesenheits-Termine gefunden.",
+  outlookCalImportExisting: "bereits im Kalender",
+  outlookCalImportNoSubject: "(kein Betreff)",
+  outlookCalImportSelectAll: "Alle auswählen",
+  outlookCalImportSelectedN: "{0} ausgewählt",
+  outlookCalImportConfirm: "Importieren ({0})",
+  outlookCalImportCancel: "Abbrechen",
+  outlookCalImportType: "Typ",
 };

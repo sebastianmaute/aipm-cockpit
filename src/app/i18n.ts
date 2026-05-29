@@ -970,6 +970,17 @@ const enUS = {
   versionHighlightM365Auth: "Microsoft 365 integration foundation: sign in with your work account to unlock upcoming SharePoint, Outlook contacts, and calendar features. All integrations default to OFF.",
   versionHighlightSharepointStorage: "SharePoint storage backend: save your workspace as a JSON or CSV file in a SharePoint Sites library — paste the file URL in Storage Configuration after enabling SharePoint in Settings → Integrations.",
   versionHighlightOutlookContacts: "Import your Outlook contacts: sign in with Microsoft, then pull contacts into your resource directory and assignee suggestions from the Resources tab.",
+
+  outlookCalImportTitle: "Import Outlook calendar",
+  outlookCalImportLoading: "Loading events…",
+  outlookCalImportEmpty: "No time-away events found.",
+  outlookCalImportExisting: "already in calendar",
+  outlookCalImportNoSubject: "(no subject)",
+  outlookCalImportSelectAll: "Select all",
+  outlookCalImportSelectedN: "{0} selected",
+  outlookCalImportConfirm: "Import ({0})",
+  outlookCalImportCancel: "Cancel",
+  outlookCalImportType: "Type",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;
