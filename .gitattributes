@@ -1,0 +1,9 @@
+# Line-ending policy
+#
+# scripts/sync-script-docs.mjs generates Markdown with LF line endings, and
+# `docs:scripts:check` (run in `prebuild`) compares that generated output
+# against the working copy. On Windows, core.autocrlf=true checks Markdown out
+# as CRLF, so the verifier reports a false "out of sync". Pinning Markdown to
+# LF keeps the working copy, the committed blob, and the generator in agreement
+# on every platform.
+*.md text eol=lf

@@ -1,4 +1,5 @@
 <!-- Generated: 2026-05-29 | Files scanned: src/proxy.ts + 10 (src/app/api/jira) | Token estimate: ~500 | Updated for 0.21.0–0.25.0: M365 config resolvers, storage backends (SharePoint, Turso) are client-side -->
+<!-- Updated: 2026-05-29 — refactor: all Jira routes share `parseJiraRequest`; SSRF hardening — `normalizeSiteUrl` is HTTPS-only + `isPrivateHost` blocks IPv6 ULA/link-local + IPv4-mapped -->
 
 # Backend
 
@@ -45,14 +46,15 @@ response.
 
 ## Shared helpers (not routes)
 
-- `src/app/api/jira/_helpers.ts` — credential validation, Basic-auth header builder, common error translation. ADF (Atlassian Document Format) ↔ plain-text conversion now lives in `src/app/adf.ts` (shared with client-side import/export paths).
+- `src/app/api/jira/_helpers.ts` — credential validation, Basic-auth header builder, common error translation, and `parseJiraRequest(request)`: the shared route entry point that runs the rate-limit check, parses the JSON body, and extracts credentials, returning either a ready-to-send error `Response` or `{ creds, body }`. Every route calls it instead of repeating that boilerplate. Outbound site URLs are normalised by `normalizeSiteUrl`: **HTTPS only** — plaintext `http://` is rejected so Basic credentials are never sent in the clear — and `isPrivateHost` rejects loopback / RFC-1918 / link-local plus IPv6 unique-local (`fc00::/7`), IPv6 link-local (`fe80::/10`), and IPv4-mapped (`::ffff:`) addresses (SSRF guard). ADF (Atlassian Document Format) ↔ plain-text conversion now lives in `src/app/adf.ts` (shared with client-side import/export paths).
 - `src/app/api/jira/_rate-limit.ts` — per-IP / per-credentials rate-limit using an in-memory token bucket. Resets on server restart (acceptable for current scale).
 
 ## Per-route flow
 
 ```
-request → parse JSON body → validate creds → rate-limit check
-       → fetch atlassian REST → translate errors → response JSON
+request → parseJiraRequest (rate-limit check → parse JSON body → validate creds)
+       → callJira (normalize + SSRF-check site URL → fetch atlassian REST)
+       → translate errors → response JSON
 ```
 
 Each `route.ts` runs independently — no shared middleware chain at the
