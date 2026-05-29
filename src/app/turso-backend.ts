@@ -83,8 +83,7 @@ export class TursoBackend implements StorageBackend {
     const results = (raw as { results?: PipelineResultLike[] }).results ?? [];
     for (const r of results) {
       if (r.type === "error") {
-        const msg = (r as { error?: { message?: string } }).error?.message ?? "unknown";
-        throw new Error(`Turso error: ${msg}`);
+        throw new Error(`Turso error: ${r.error?.message ?? "unknown"}`);
       }
     }
     return results;

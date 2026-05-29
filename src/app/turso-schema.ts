@@ -25,6 +25,7 @@ export interface SqlStmt { sql: string; args?: SqlArg[] }
 export interface PipelineResultLike {
   type: "ok" | "error";
   response?: { type: string; result?: { cols?: { name?: string }[]; rows?: { value?: unknown }[][] } };
+  error?: { message?: string };
 }
 
 interface EntitySpec<T> {
