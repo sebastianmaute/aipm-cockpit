@@ -133,7 +133,7 @@ export function mergeImportedResources(
   for (const c of selected) {
     const e = normEmail(c.email);
     if (e && indexByEmail.has(e)) {
-      const i = indexByEmail.get(e) as number;
+      const i = indexByEmail.get(e)!;
       const prev = result[i];
       result[i] = {
         ...prev,
