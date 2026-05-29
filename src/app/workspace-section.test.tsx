@@ -117,7 +117,8 @@ describe("WorkspaceSection", () => {
   });
 
   it("hides the tab strip in fullBleed mode", () => {
-    render(<WorkspaceSection {...makeProps({ fullBleed: true } as Partial<WorkspaceSectionProps>)} />, { wrapper: Wrapper });
+    render(<WorkspaceSection {...makeProps({ fullBleed: true })} />, { wrapper: Wrapper });
     expect(screen.queryByRole("tablist", { name: "Workspace tabs" })).toBeNull();
+    expect(document.getElementById("workspace-panels")).not.toHaveAttribute("hidden");
   });
 });
