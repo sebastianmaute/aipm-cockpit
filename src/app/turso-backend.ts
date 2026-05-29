@@ -1,49 +1,35 @@
 // src/app/turso-backend.ts
 //
-// Turso (libSQL) storage backend. Stores the whole Workspace as a single
-// JSON blob row (id=1) via Turso's HTTP pipeline API. Token is delegated
-// via the resolved TursoConfig (env-or-settings). Last-write-wins.
+// Turso (libSQL) storage backend. Stores the workspace relationally via
+// Turso's HTTP pipeline API. Token is delegated via the resolved TursoConfig
+// (env-or-settings). Last-write-wins; save() wraps the overwrite in a
+// BEGIN/COMMIT transaction.
+//
+// turso-schema.ts imports heavily from storage.ts. To avoid the circular
+// dependency  storage → turso-backend → turso-schema → storage  the schema
+// module is imported dynamically inside load() / save() (called only at
+// runtime, never at module-init time). The type-only imports below are erased
+// at compile time and do not create a runtime cycle.
 
 import {
   StorageNotReadyError,
   emptyWorkspace,
   jsonToWorkspace,
-  workspaceToJson,
   type StorageBackend,
   type Workspace,
 } from "./storage";
+import type { PipelineResultLike, SqlStmt } from "./turso-schema";
 import type { TursoConfig } from "./turso-config";
 
-const TABLE_DDL =
-  "CREATE TABLE IF NOT EXISTS workspace (id INTEGER PRIMARY KEY, data TEXT NOT NULL)";
-const SELECT_SQL = "SELECT data FROM workspace WHERE id = 1";
-const UPSERT_SQL =
-  "INSERT INTO workspace (id, data) VALUES (1, ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data";
+const OLD_BLOB_DDL = "CREATE TABLE IF NOT EXISTS workspace (id INTEGER PRIMARY KEY, data TEXT NOT NULL)";
+const OLD_BLOB_SELECT = "SELECT data FROM workspace WHERE id = 1";
 
-interface TextArg {
-  type: "text";
-  value: string;
-}
-interface PipelineStmt {
-  sql: string;
-  args?: TextArg[];
-}
-interface Cell {
-  type?: string;
-  value?: unknown;
-}
-interface PipelineResult {
-  type: "ok" | "error";
-  response?: { type: string; result?: { rows?: Cell[][] } };
-  error?: { message?: string };
-}
-
-function execute(stmt: PipelineStmt) {
+function execute(stmt: SqlStmt) {
   return { type: "execute" as const, stmt };
 }
 
 /** Defensively read results[i].response.result.rows[0][0].value as a string. */
-function firstRowText(results: PipelineResult[], i: number): string | null {
+function firstRowText(results: PipelineResultLike[], i: number): string | null {
   const cell = results[i]?.response?.result?.rows?.[0]?.[0];
   return cell && typeof cell.value === "string" ? cell.value : null;
 }
@@ -66,7 +52,7 @@ export class TursoBackend implements StorageBackend {
     }
   }
 
-  private async runPipeline(stmts: PipelineStmt[]): Promise<PipelineResult[]> {
+  private async runPipeline(stmts: SqlStmt[]): Promise<PipelineResultLike[]> {
     if (!this.config) {
       throw new StorageNotReadyError("Configure the Turso URL and token in Settings.");
     }
@@ -94,30 +80,44 @@ export class TursoBackend implements StorageBackend {
     if (!raw || typeof raw !== "object" || !("results" in raw)) {
       throw new Error("Turso returned an unexpected response shape.");
     }
-    const results = (raw as { results?: PipelineResult[] }).results ?? [];
+    const results = (raw as { results?: PipelineResultLike[] }).results ?? [];
     for (const r of results) {
       if (r.type === "error") {
-        throw new Error(`Turso error: ${r.error?.message ?? "unknown"}`);
+        const msg = (r as { error?: { message?: string } }).error?.message ?? "unknown";
+        throw new Error(`Turso error: ${msg}`);
       }
     }
     return results;
   }
 
   async load(): Promise<Workspace> {
-    const results = await this.runPipeline([{ sql: TABLE_DDL }, { sql: SELECT_SQL }]);
-    if (results.length < 2) {
-      throw new Error("Turso pipeline returned fewer results than expected.");
+    // Dynamic import breaks the storage → turso-backend → turso-schema → storage cycle.
+    const { SCHEMA_DDL, TABLE_NAMES, selectStatements, rowsToWorkspace } =
+      await import("./turso-schema");
+
+    const stmts: SqlStmt[] = [
+      ...SCHEMA_DDL.map((sql) => ({ sql })),
+      { sql: OLD_BLOB_DDL },
+      ...selectStatements(),
+      { sql: OLD_BLOB_SELECT },
+    ];
+    const results = await this.runPipeline(stmts);
+    const ddlCount = SCHEMA_DDL.length + 1; // schema DDL + old-blob DDL
+    const selectCount = TABLE_NAMES.length;
+    const relational = results.slice(ddlCount, ddlCount + selectCount);
+    const blobResult = results[ddlCount + selectCount];
+    const isEmpty = relational.every((r) => (r?.response?.result?.rows?.length ?? 0) === 0);
+    if (isEmpty) {
+      const blob = firstRowText([blobResult], 0);
+      if (typeof blob === "string" && blob.length > 0) return jsonToWorkspace(blob);
+      return emptyWorkspace();
     }
-    // results[0] = DDL, results[1] = SELECT.
-    const text = firstRowText(results, 1);
-    if (text === null) return emptyWorkspace();
-    return jsonToWorkspace(text);
+    return rowsToWorkspace(relational);
   }
 
   async save(workspace: Workspace): Promise<void> {
-    await this.runPipeline([
-      { sql: TABLE_DDL },
-      { sql: UPSERT_SQL, args: [{ type: "text", value: workspaceToJson(workspace) }] },
-    ]);
+    // Dynamic import breaks the storage → turso-backend → turso-schema → storage cycle.
+    const { workspaceToStatements } = await import("./turso-schema");
+    await this.runPipeline(workspaceToStatements(workspace));
   }
 }
