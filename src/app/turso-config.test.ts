@@ -37,4 +37,10 @@ describe("getTursoConfig", () => {
     expect(getTursoConfig("http://insecure.example", "tok")).toBeNull();
     expect(getTursoConfig("not a url", "tok")).toBeNull();
   });
+
+  it("rejects empty-host and non-https schemes", () => {
+    expect(getTursoConfig("https://", "tok")).toBeNull();
+    expect(getTursoConfig("libsql://", "tok")).toBeNull();
+    expect(getTursoConfig("ftp://x.turso.io", "tok")).toBeNull();
+  });
 });

@@ -25,7 +25,8 @@ function toHttpUrl(raw: string): string | null {
     return null;
   }
   if (parsed.protocol !== "https:") return null;
-  return parsed.origin.replace(/\/+$/, "");
+  if (!parsed.hostname) return null; // e.g. "https://" parses but has no host (origin === "null")
+  return parsed.origin;
 }
 
 export function getTursoConfig(
