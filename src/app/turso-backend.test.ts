@@ -1,17 +1,14 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { TursoBackend } from "./turso-backend";
-import { StorageNotReadyError, emptyWorkspace, jsonToWorkspace, workspaceToJson } from "./storage";
+import { StorageNotReadyError, emptyWorkspace, workspaceToJson } from "./storage";
 import type { TursoConfig } from "./turso-config";
+import { SCHEMA_DDL, TABLE_NAMES } from "./turso-schema";
 
 const CONFIG: TursoConfig = { httpUrl: "https://db.turso.io", authToken: "tok" };
 
 function jsonRes(body: unknown, status = 200): Response {
   return { ok: status >= 200 && status < 300, status, json: async () => body } as unknown as Response;
 }
-function execOk(rows: unknown[][]): unknown {
-  return { type: "ok", response: { type: "execute", result: { cols: [], rows } } };
-}
-const closeOk = { type: "ok", response: { type: "close" } };
 
 describe("TursoBackend", () => {
   let fetchSpy: ReturnType<typeof vi.fn>;
@@ -23,46 +20,66 @@ describe("TursoBackend", () => {
     vi.unstubAllGlobals();
   });
 
+  const okExec = (cols: string[] = [], rows: { value: string }[][] = []) =>
+    ({ type: "ok", response: { type: "execute", result: { cols: cols.map((name) => ({ name })), rows } } });
+  const minimalTask = { id: 1, taskName: "T", assignee: "", assigneeEmail: "", dueDate: "2026-06-01", lastUpdateDate: "2026-06-01", priority: "Medium", blockers: "", notes: "" };
+
+  /** Build a full set of mock results for a load() call (ddls + selects + blob probe). */
+  function makeLoadResults(selectOverrides: Partial<Record<string, ReturnType<typeof okExec>>> = {}, blobResult = okExec()) {
+    const ddlCount = SCHEMA_DDL.length + 1;
+    const ddls = Array(ddlCount).fill(okExec());
+    const selects = TABLE_NAMES.map((t) => selectOverrides[t] ?? okExec());
+    return [...ddls, ...selects, blobResult];
+  }
+
   it("isReady reflects config presence", async () => {
     expect(await new TursoBackend(null).isReady()).toBe(false);
     expect(await new TursoBackend(CONFIG).isReady()).toBe(true);
   });
 
-  it("load on an empty DB returns emptyWorkspace", async () => {
-    fetchSpy.mockResolvedValueOnce(jsonRes({ results: [execOk([]), execOk([]), closeOk] }));
-    const ws = await new TursoBackend(CONFIG).load();
-    expect(ws).toEqual(emptyWorkspace());
-  });
-
-  it("load round-trips a stored blob", async () => {
-    const stored = workspaceToJson(emptyWorkspace());
-    fetchSpy.mockResolvedValueOnce(
-      jsonRes({ results: [execOk([]), execOk([[{ type: "text", value: stored }]]), closeOk] }),
-    );
-    const ws = await new TursoBackend(CONFIG).load();
-    expect(ws).toEqual(jsonToWorkspace(stored));
-  });
-
-  it("save posts the table DDL + upsert with the JSON arg, Bearer header, /v2/pipeline URL", async () => {
-    fetchSpy.mockResolvedValueOnce(jsonRes({ results: [execOk([]), execOk([]), closeOk] }));
+  it("save issues a BEGIN…COMMIT relational overwrite pipeline", async () => {
+    fetchSpy.mockResolvedValueOnce(jsonRes({ results: [okExec()] }));
     const ws = emptyWorkspace();
+    ws.tasks = [minimalTask as never];
     await new TursoBackend(CONFIG).save(ws);
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
-    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe("https://db.turso.io/v2/pipeline");
-    expect((init.headers as Record<string, string>).Authorization).toBe("Bearer tok");
-    const body = JSON.parse(init.body as string);
-    const sqls = body.requests.filter((r: { type: string }) => r.type === "execute").map((r: { stmt: { sql: string } }) => r.stmt.sql);
-    expect(sqls.some((s: string) => s.includes("CREATE TABLE IF NOT EXISTS workspace"))).toBe(true);
-    expect(sqls.some((s: string) => s.includes("INSERT INTO workspace"))).toBe(true);
-    const upsert = body.requests.find((r: { type: string; stmt?: { sql: string } }) => r.stmt?.sql?.includes("INSERT INTO workspace"));
-    expect(upsert.stmt.args).toEqual([{ type: "text", value: workspaceToJson(ws) }]);
-    // No trailing "close" frame — newer engines (local tursodb) reject it.
-    expect(body.requests.every((r: { type: string }) => r.type === "execute")).toBe(true);
+    const sqls = JSON.parse((fetchSpy.mock.calls[0][1] as RequestInit).body as string).requests.map((r: { stmt?: { sql: string } }) => r.stmt?.sql);
+    expect(sqls[0]).toBe("BEGIN");
+    expect(sqls).toContain("DELETE FROM tasks");
+    expect(sqls.some((s: string) => s?.startsWith("INSERT INTO tasks"))).toBe(true);
+    expect(sqls[sqls.length - 1]).toBe("COMMIT");
+  });
+
+  it("load assembles a workspace from relational SELECT results", async () => {
+    const taskCols = ["id", "taskName", "assignee", "assigneeEmail", "dueDate", "lastUpdateDate", "priority", "blockers", "notes"];
+    const taskRow = [{ value: "1" }, { value: "T" }, { value: "" }, { value: "" }, { value: "2026-06-01" }, { value: "2026-06-01" }, { value: "Medium" }, { value: "" }, { value: "" }];
+    const results = makeLoadResults({ tasks: okExec(taskCols, [taskRow]) });
+    fetchSpy.mockResolvedValueOnce(jsonRes({ results }));
+    const ws = await new TursoBackend(CONFIG).load();
+    expect(ws.tasks).toHaveLength(1);
+    expect(ws.tasks[0].id).toBe(1);
+  });
+
+  it("imports an old single-blob workspace when relational tables are empty", async () => {
+    const w = emptyWorkspace();
+    w.tasks = [{ ...minimalTask, id: 9, taskName: "Old" } as never];
+    const blob = workspaceToJson(w);
+    const blobProbe = okExec(["data"], [[{ value: blob }]]);
+    const results = makeLoadResults({}, blobProbe);
+    fetchSpy.mockResolvedValueOnce(jsonRes({ results }));
+    const ws = await new TursoBackend(CONFIG).load();
+    expect(ws.tasks).toHaveLength(1);
+    expect(ws.tasks[0].taskName).toBe("Old");
+  });
+
+  it("returns emptyWorkspace when relational tables AND old blob are empty", async () => {
+    const results = makeLoadResults();
+    fetchSpy.mockResolvedValueOnce(jsonRes({ results }));
+    const ws = await new TursoBackend(CONFIG).load();
+    expect(ws.tasks).toEqual([]);
   });
 
   it("omits the Authorization header for a token-less loopback config", async () => {
-    fetchSpy.mockResolvedValueOnce(jsonRes({ results: [execOk([]), execOk([])] }));
+    fetchSpy.mockResolvedValueOnce(jsonRes({ results: makeLoadResults() }));
     await new TursoBackend({ httpUrl: "http://127.0.0.1:8080", authToken: "" }).load();
     const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
     expect(url).toBe("http://127.0.0.1:8080/v2/pipeline");
@@ -70,7 +87,7 @@ describe("TursoBackend", () => {
   });
 
   it("sends the Authorization header when a token is configured", async () => {
-    fetchSpy.mockResolvedValueOnce(jsonRes({ results: [execOk([]), execOk([])] }));
+    fetchSpy.mockResolvedValueOnce(jsonRes({ results: makeLoadResults() }));
     await new TursoBackend(CONFIG).load();
     const init = fetchSpy.mock.calls[0][1] as RequestInit;
     expect((init.headers as Record<string, string>).Authorization).toBe("Bearer tok");
@@ -91,11 +108,12 @@ describe("TursoBackend", () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
-  it("load sends CREATE TABLE as the first statement", async () => {
-    fetchSpy.mockResolvedValueOnce(jsonRes({ results: [execOk([]), execOk([]), closeOk] }));
+  it("load sends schema DDL statements before SELECT statements", async () => {
+    fetchSpy.mockResolvedValueOnce(jsonRes({ results: makeLoadResults() }));
     await new TursoBackend(CONFIG).load();
     const body = JSON.parse((fetchSpy.mock.calls[0][1] as RequestInit).body as string);
-    expect(body.requests[0].stmt.sql).toContain("CREATE TABLE IF NOT EXISTS workspace");
-    expect(body.requests[1].stmt.sql).toContain("SELECT data FROM workspace");
+    const sqls: string[] = body.requests.map((r: { stmt?: { sql: string } }) => r.stmt?.sql ?? "");
+    expect(sqls[0]).toContain("CREATE TABLE IF NOT EXISTS");
+    expect(sqls.some((s) => s.startsWith("SELECT * FROM tasks"))).toBe(true);
   });
 });

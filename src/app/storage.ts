@@ -326,7 +326,7 @@ async function idbBulkUpdate<T extends { id: number }>(
 
 // --- CSV serialization -----------------------------------------------------
 
-const CSV_COLUMNS: Array<keyof Task> = [
+export const CSV_COLUMNS: Array<keyof Task> = [
   "id",
   "taskName",
   "assignee",
@@ -364,7 +364,7 @@ function parseHealthOverride(s: string | undefined): "R" | "A" | "G" | undefined
 // Columns persisted for RAID items in CSV and Markdown. Order matches the
 // header row emitted by the encoder; the decoder reads by column name so
 // reordering files by hand still works.
-const RAID_CSV_COLUMNS: Array<keyof RaidItem> = [
+export const RAID_CSV_COLUMNS: Array<keyof RaidItem> = [
   "id",
   "category",
   "title",
@@ -407,7 +407,7 @@ const RAID_MD_COLUMNS: Array<{ key: keyof RaidItem; label: string }> = [
 // Columns persisted for Absence items in CSV and Markdown. Order matches
 // the header row emitted by the encoder; the decoder reads by column name
 // so reordering files by hand still works.
-const ABSENCES_CSV_COLUMNS: Array<keyof Absence> = [
+export const ABSENCES_CSV_COLUMNS: Array<keyof Absence> = [
   "id",
   "assignee",
   "assigneeEmail",
@@ -434,7 +434,7 @@ const ABSENCES_MD_COLUMNS: Array<{ key: keyof Absence; label: string }> = [
 // Columns persisted for Shift items in CSV and Markdown. Per-weekday hours
 // are flattened into 7 columns (Sun..Sat) so spreadsheets can show them
 // side-by-side. Order matches the header row emitted by the encoder.
-const SHIFTS_CSV_COLUMNS: readonly string[] = [
+export const SHIFTS_CSV_COLUMNS: readonly string[] = [
   "id",
   "assignee",
   "assigneeEmail",
@@ -466,15 +466,15 @@ const SHIFTS_MD_COLUMNS: readonly { col: string; label: string }[] = [
 
 // --- Resource Planner v2 CSV column definitions ----------------------------
 
-const RESOURCES_CSV_COLUMNS = [
+export const RESOURCES_CSV_COLUMNS = [
   "id", "firstName", "lastName", "title", "businessPhone", "location",
   "department", "email", "company", "birthday", "notes",
   "roleId", "utilizationMode", "utilization", "absenceOverride", "active", "localModifiedAt",
 ] as const;
-const ROLES_CSV_COLUMNS = ["id", "disciplineId", "gradeId", "internalRate", "externalRate", "localModifiedAt"] as const;
-const REF_CSV_COLUMNS = ["id", "name", "localModifiedAt"] as const;
+export const ROLES_CSV_COLUMNS = ["id", "disciplineId", "gradeId", "internalRate", "externalRate", "localModifiedAt"] as const;
+export const REF_CSV_COLUMNS = ["id", "name", "localModifiedAt"] as const;
 
-const BUDGETS_CSV_COLUMNS = [
+export const BUDGETS_CSV_COLUMNS = [
   "id", "name", "poNumber", "type", "currency", "fixedPriceAmount",
   "startDate", "endDate", "successorId", "status", "closedDate",
   "fxRateOverride", "allocations", "localModifiedAt", "order",
@@ -545,7 +545,7 @@ const REF_MD_COLUMNS: readonly { col: string; label: string }[] = [
   { col: "localModifiedAt", label: "LocalModified" },
 ];
 
-function shiftFieldToString(s: Shift, col: string): string {
+export function shiftFieldToString(s: Shift, col: string): string {
   switch (col) {
     case "id":
       return String(s.id);
@@ -617,7 +617,7 @@ function parseLinkedTaskIds(s: string | undefined): number[] {
     .filter((n) => Number.isFinite(n) && n > 0);
 }
 
-function raidFieldToString(r: RaidItem, c: keyof RaidItem): string {
+export function raidFieldToString(r: RaidItem, c: keyof RaidItem): string {
   if (c === "linkedTaskIds")
     return Array.isArray(r.linkedTaskIds) ? r.linkedTaskIds.join("|") : "";
   if (c === "causedByRaidIds")
@@ -636,7 +636,7 @@ function raidFieldToString(r: RaidItem, c: keyof RaidItem): string {
  * probability/impact when both are present — protects against stale values
  * in hand-edited files.
  */
-function buildRaidItemFromObj(obj: Record<string, string>): RaidItem | null {
+export function buildRaidItemFromObj(obj: Record<string, string>): RaidItem | null {
   const id = Number(obj.id);
   if (!Number.isFinite(id) || id <= 0) return null;
   const category = parseRaidCategory(obj.category);
@@ -709,7 +709,7 @@ function csvEscape(value: string): string {
   return value;
 }
 
-function fieldToString(t: Task, c: keyof Task): string {
+export function fieldToString(t: Task, c: keyof Task): string {
   if (c === "labels") return Array.isArray(t.labels) ? t.labels.join("|") : "";
   if (c === "dependencies") return serializeDependencies(t.dependencies);
   return String(t[c] ?? "");
@@ -733,7 +733,7 @@ function raidToCsv(raid: readonly RaidItem[]): string {
   return lines.join("\r\n");
 }
 
-function absenceFieldToString(a: Absence, c: keyof Absence): string {
+export function absenceFieldToString(a: Absence, c: keyof Absence): string {
   return String(a[c] ?? "");
 }
 
@@ -763,7 +763,7 @@ function shiftsToCsv(shifts: readonly Shift[]): string {
 
 // --- Resource CSV encoders -------------------------------------------------
 
-function resourceFieldToString(r: Resource, c: string): string {
+export function resourceFieldToString(r: Resource, c: string): string {
   switch (c) {
     case "id": return String(r.id);
     case "firstName": return r.firstName;
@@ -797,7 +797,7 @@ function resourcesToCsv(rs: readonly Resource[]): string {
   );
 }
 
-function budgetFieldToString(b: BudgetBucket, c: string): string {
+export function budgetFieldToString(b: BudgetBucket, c: string): string {
   switch (c) {
     case "id": return String(b.id);
     case "name": return b.name;
@@ -1087,7 +1087,7 @@ function csvToBudgets(csv: string): BudgetBucket[] {
   return csvRowsToObjects(csv).map((o) => sanitizeBudgetBucket(o)).filter((b): b is BudgetBucket => b !== null);
 }
 
-function decodeRatesMap(s: string): Record<string, number> {
+export function decodeRatesMap(s: string): Record<string, number> {
   const out: Record<string, number> = {};
   for (const part of s.split("|")) {
     const eq = part.indexOf("=");
@@ -1225,6 +1225,42 @@ export function csvToWorkspace(csv: string): Workspace {
   return migrateWorkspaceV6(ws);
 }
 
+/**
+ * Builds a Task from a header→value object produced by the CSV / MD parsers.
+ * Returns null if the row lacks a valid positive integer id.
+ * Mirrors the shape of buildRaidItemFromObj for the Task entity.
+ */
+export function buildTaskFromObj(obj: Record<string, string>): Task | null {
+  const id = Number(obj.id);
+  if (!Number.isFinite(id) || id <= 0) return null;
+  const inq = Number(obj.inquiriesSent);
+  return {
+    id,
+    taskName: obj.taskName ?? "",
+    assignee: obj.assignee ?? "",
+    assigneeEmail: obj.assigneeEmail ?? "",
+    startDate: obj.startDate || undefined,
+    dueDate: obj.dueDate ?? "",
+    lastUpdateDate: obj.lastUpdateDate ?? "",
+    priority: ((obj.priority as Priority) || "Medium") as Priority,
+    blockers: obj.blockers ?? "",
+    notes: obj.notes ?? "",
+    completedDate: obj.completedDate || undefined,
+    inquiriesSent: Number.isFinite(inq) && inq > 0 ? inq : 0,
+    group: sanitizeGroup(obj.group),
+    labels: sanitizeLabels(obj.labels),
+    dependencies: parseDependenciesString(obj.dependencies),
+    jiraKey: obj.jiraKey || undefined,
+    jiraIssueType: obj.jiraIssueType || undefined,
+    lastSyncedAt: obj.lastSyncedAt || undefined,
+    localModifiedAt: obj.localModifiedAt || undefined,
+    healthOverride: parseHealthOverride(obj.healthOverride),
+    resourceId: Number(obj.resourceId) || undefined,
+    originalEstimateMinutes: sanitizeOptionalMinutes(obj.originalEstimateMinutes),
+    timeSpentMinutes: sanitizeOptionalMinutes(obj.timeSpentMinutes),
+  };
+}
+
 function csvToTasks(csv: string): Task[] {
   // Tolerate an optional leading "# TASKS" marker — files written by
   // `workspaceToCsv` always carry one, even when raid is empty.
@@ -1240,34 +1276,8 @@ function csvToTasks(csv: string): Task[] {
     headers.forEach((h, idx) => {
       obj[h] = row[idx] ?? "";
     });
-    const id = Number(obj.id);
-    if (!Number.isFinite(id) || id <= 0) continue;
-    const inq = Number(obj.inquiriesSent);
-    tasks.push({
-      id,
-      taskName: obj.taskName ?? "",
-      assignee: obj.assignee ?? "",
-      assigneeEmail: obj.assigneeEmail ?? "",
-      startDate: obj.startDate || undefined,
-      dueDate: obj.dueDate ?? "",
-      lastUpdateDate: obj.lastUpdateDate ?? "",
-      priority: ((obj.priority as Priority) || "Medium") as Priority,
-      blockers: obj.blockers ?? "",
-      notes: obj.notes ?? "",
-      completedDate: obj.completedDate || undefined,
-      inquiriesSent: Number.isFinite(inq) && inq > 0 ? inq : 0,
-      group: sanitizeGroup(obj.group),
-      labels: sanitizeLabels(obj.labels),
-      dependencies: parseDependenciesString(obj.dependencies),
-      jiraKey: obj.jiraKey || undefined,
-      jiraIssueType: obj.jiraIssueType || undefined,
-      lastSyncedAt: obj.lastSyncedAt || undefined,
-      localModifiedAt: obj.localModifiedAt || undefined,
-      healthOverride: parseHealthOverride(obj.healthOverride),
-      resourceId: Number(obj.resourceId) || undefined,
-      originalEstimateMinutes: sanitizeOptionalMinutes(obj.originalEstimateMinutes),
-      timeSpentMinutes: sanitizeOptionalMinutes(obj.timeSpentMinutes),
-    });
+    const task = buildTaskFromObj(obj);
+    if (task) tasks.push(task);
   }
   // Final pass: now that we know every id that survived parsing, drop any
   // dependency entries that point at missing or self ids. Older CSV files
