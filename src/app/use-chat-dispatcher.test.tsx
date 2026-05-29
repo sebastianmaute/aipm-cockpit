@@ -41,6 +41,7 @@ function makeSettings(): Settings {
     },
     popout: { reuseWindow: false },
     resources: { workdayHours: 8 },
+    layout: "modern",
   };
 }
 

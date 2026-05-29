@@ -1,7 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 import { defaultSettings } from "./settings-menu";
-import { useSettings } from "./use-settings";
+import { coerceLayout, useSettings } from "./use-settings";
 
 const SETTINGS_KEY = "lop-app:settings";
 
@@ -65,5 +65,18 @@ describe("useSettings", () => {
       };
       expect(stored.language).toBe("en-GB");
     });
+  });
+});
+
+describe("layout setting", () => {
+  it("defaults to modern", () => {
+    expect(defaultSettings.layout).toBe("modern");
+  });
+
+  it("coerceLayout keeps valid values and falls back to modern", () => {
+    expect(coerceLayout("classic")).toBe("classic");
+    expect(coerceLayout("modern")).toBe("modern");
+    expect(coerceLayout("bogus")).toBe("modern");
+    expect(coerceLayout(undefined)).toBe("modern");
   });
 });

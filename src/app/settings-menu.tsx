@@ -156,6 +156,7 @@ export type Settings = {
   jira: JiraConfig;
   popout: { reuseWindow: boolean };
   resources: { workdayHours: number };
+  layout: "modern" | "classic";
   integrations?: IntegrationsSettings;
 };
 
@@ -168,6 +169,7 @@ export const defaultSettings: Settings = {
   jira: defaultJiraConfig,
   popout: { reuseWindow: false },
   resources: { workdayHours: 8 },
+  layout: "modern",
   integrations: defaultIntegrations,
 };
 

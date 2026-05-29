@@ -53,6 +53,7 @@ function makeSettings(overrides: {
     },
     popout: { reuseWindow: false },
     resources: { workdayHours: 8 },
+    layout: "modern",
   };
 }
 

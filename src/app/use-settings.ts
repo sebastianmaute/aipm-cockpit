@@ -18,6 +18,10 @@ function migrateNotifications(raw: unknown): Settings["notifications"] {
   };
 }
 
+export function coerceLayout(value: unknown): "modern" | "classic" {
+  return value === "classic" ? "classic" : "modern";
+}
+
 export function useSettings(): {
   settings: Settings;
   setSettings: Dispatch<SetStateAction<Settings>>;
@@ -62,6 +66,7 @@ export function useSettings(): {
               ...defaultSettings.resources,
               ...(isPlainObject(parsed.resources) ? parsed.resources : {}),
             },
+            layout: coerceLayout((parsed as Record<string, unknown>).layout),
             holidayCountries: Array.isArray(parsed.holidayCountries)
               ? (parsed.holidayCountries as unknown[]).filter(
                   (v): v is string => typeof v === "string",
