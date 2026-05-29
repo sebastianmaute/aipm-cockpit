@@ -1,6 +1,21 @@
 import { describe, it, expect } from "vitest";
-import { SCHEMA_DDL, TABLE_NAMES, selectStatements, workspaceToStatements } from "./turso-schema";
+import { SCHEMA_DDL, TABLE_NAMES, selectStatements, workspaceToStatements, rowsToWorkspace, type PipelineResultLike } from "./turso-schema";
 import { emptyWorkspace } from "./storage";
+
+function resultsFromStatements(stmts: { sql: string; args?: { value?: string }[] }[]): PipelineResultLike[] {
+  const byTable: Record<string, { cols: string[]; rows: { value: string }[][] }> = {};
+  for (const s of stmts) {
+    const m = /^INSERT INTO (\w+) \(([^)]+)\) VALUES/.exec(s.sql);
+    if (!m) continue;
+    const table = m[1];
+    const cols = m[2].split(", ").map((c) => c.replace(/"/g, ""));
+    (byTable[table] ??= { cols, rows: [] }).rows.push((s.args ?? []).map((a) => ({ value: a.value ?? "" })));
+  }
+  return TABLE_NAMES.map((t) => ({
+    type: "ok",
+    response: { type: "execute", result: { cols: (byTable[t]?.cols ?? []).map((name) => ({ name })), rows: byTable[t]?.rows ?? [] } },
+  }));
+}
 
 describe("turso-schema DDL", () => {
   it("creates a table per entity + plan, fx_rates, meta", () => {
@@ -12,6 +27,28 @@ describe("turso-schema DDL", () => {
   });
   it("selectStatements is one SELECT per table in TABLE_NAMES order", () => {
     expect(selectStatements().map((s) => s.sql)).toEqual(TABLE_NAMES.map((t) => `SELECT * FROM ${t}`));
+  });
+});
+
+describe("rowsToWorkspace", () => {
+  it("round-trips a non-trivial workspace (statements → results → workspace)", () => {
+    const ws = emptyWorkspace();
+    ws.tasks = [{ id: 1, taskName: "T", assignee: "Al", assigneeEmail: "", dueDate: "2026-06-01", lastUpdateDate: "2026-06-01", priority: "Medium", blockers: "", notes: "", labels: ["x"], dependencies: [] } as never];
+    ws.resources = [{ id: 5, firstName: "Al", lastName: "B", roleId: null, utilizationMode: "percent", utilization: { "2026-02": 100 } } as never];
+    const out = rowsToWorkspace(resultsFromStatements(workspaceToStatements(ws)));
+    expect(out.tasks).toHaveLength(1);
+    expect(out.tasks[0].id).toBe(1);
+    expect(out.tasks[0].labels).toEqual(["x"]);
+    expect(out.resources).toHaveLength(1);
+    expect(out.resources[0].utilization).toEqual({ "2026-02": 100 });
+    expect(out.plan).toBeTruthy();
+  });
+
+  it("empty results → emptyWorkspace", () => {
+    const empties: PipelineResultLike[] = selectStatements().map(() => ({ type: "ok", response: { type: "execute", result: { cols: [], rows: [] } } }));
+    const out = rowsToWorkspace(empties);
+    expect(out.tasks).toEqual([]);
+    expect(out.resources).toEqual([]);
   });
 });
 

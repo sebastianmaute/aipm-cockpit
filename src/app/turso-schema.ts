@@ -77,6 +77,40 @@ export { PLAN_COLUMNS, FX_COLUMNS };
 // Re-export workspace utilities used by downstream tasks.
 export { decodeRatesMap, emptyWorkspace, migrateWorkspaceV6, sanitizeFxRates, sanitizePlan };
 
+function rowObjects(res: PipelineResultLike | undefined): Record<string, string>[] {
+  const names = (res?.response?.result?.cols ?? []).map((c) => c?.name ?? "");
+  const rows = res?.response?.result?.rows ?? [];
+  return rows.map((row) => {
+    const obj: Record<string, string> = {};
+    names.forEach((n, i) => {
+      const cell = row[i];
+      obj[n] = cell == null || cell.value == null ? "" : String(cell.value);
+    });
+    return obj;
+  });
+}
+
+/** Assemble a Workspace from selectStatements() results (TABLE_NAMES order). */
+export function rowsToWorkspace(results: PipelineResultLike[]): Workspace {
+  const byTable = new Map<string, PipelineResultLike>();
+  TABLE_NAMES.forEach((t, i) => byTable.set(t, results[i]));
+
+  const ws = emptyWorkspace();
+  for (const s of ENTITY_SPECS) {
+    const items = rowObjects(byTable.get(s.table))
+      .map((o) => s.fromObj(o))
+      .filter((x): x is NonNullable<typeof x> => x !== null);
+    (ws[s.wsKey] as unknown) = items;
+  }
+  const planRow = rowObjects(byTable.get("plan"))[0];
+  if (planRow) ws.plan = sanitizePlan(planRow, new Date().toISOString().slice(0, 10));
+  const fxRow = rowObjects(byTable.get("fx_rates"))[0];
+  if (fxRow) {
+    ws.fxRates = sanitizeFxRates({ base: fxRow.base, date: fxRow.date, fetchedAt: fxRow.fetchedAt, rates: decodeRatesMap(fxRow.rates ?? "") });
+  }
+  return migrateWorkspaceV6(ws);
+}
+
 const SCHEMA_VERSION = "6";
 
 function insertStmt(table: string, columns: readonly string[], values: string[]): SqlStmt {
