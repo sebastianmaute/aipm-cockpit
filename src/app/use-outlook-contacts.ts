@@ -30,12 +30,17 @@ export interface UseOutlookContactsResult {
 }
 
 export function useOutlookContacts(
-  acquireToken: (scopes: readonly string[]) => Promise<string | null>,
+  acquireToken: (
+    scopes: readonly string[],
+    options?: { interactive?: boolean },
+  ) => Promise<string | null>,
 ): UseOutlookContactsResult {
   const fetchContacts = useCallback(async (): Promise<OutlookContact[]> => {
     let token: string | null;
     try {
-      token = await acquireToken(["Contacts.Read"]);
+      // Interactive: importing is an explicit user action, so first-time
+      // consent for Contacts.Read may surface an interactive popup.
+      token = await acquireToken(["Contacts.Read"], { interactive: true });
     } catch {
       // MSAL silent-token failure (e.g. InteractionRequiredAuthError):
       // the session/consent needs interactive renewal.
