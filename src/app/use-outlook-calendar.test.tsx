@@ -49,6 +49,8 @@ describe("useOutlookCalendar", () => {
       Authorization: "Bearer tok",
       Prefer: 'outlook.timezone="UTC"',
     });
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect(fetchSpy.mock.calls[1][0]).toBe("https://graph.microsoft.com/v1.0/me/calendarView?$skip=100");
   });
 
   it("throws outlookSignInRequired when token is null", async () => {

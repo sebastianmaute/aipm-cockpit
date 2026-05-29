@@ -19,9 +19,9 @@ interface GraphPage {
 }
 
 export interface UseOutlookCalendarResult {
-  /** Fetch + normalize time-away events in `window`. Throws an Error whose
+  /** Fetch + normalize time-away events in `range`. Throws an Error whose
    *  message is an i18n key for the caller to translate. */
-  fetchEvents: (window: CalendarWindow) => Promise<OutlookEvent[]>;
+  fetchEvents: (range: CalendarWindow) => Promise<OutlookEvent[]>;
 }
 
 export function useOutlookCalendar(
@@ -30,7 +30,7 @@ export function useOutlookCalendar(
     options?: { interactive?: boolean },
   ) => Promise<string | null>,
 ): UseOutlookCalendarResult {
-  const fetchEvents = useCallback(async (window: CalendarWindow): Promise<OutlookEvent[]> => {
+  const fetchEvents = useCallback(async (range: CalendarWindow): Promise<OutlookEvent[]> => {
     let token: string | null;
     try {
       // Interactive: importing is an explicit user action, so first-time
@@ -42,8 +42,8 @@ export function useOutlookCalendar(
     if (!token) throw new Error("outlookSignInRequired");
 
     const params = new URLSearchParams({
-      startDateTime: window.startDateTime,
-      endDateTime: window.endDateTime,
+      startDateTime: range.startDateTime,
+      endDateTime: range.endDateTime,
       $select: SELECT,
       $top: "100",
       $orderby: "start/dateTime",
