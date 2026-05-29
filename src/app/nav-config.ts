@@ -72,20 +72,20 @@ const LABEL_KEYS: Record<Exclude<AppView, "edit">, TranslationKey> = {
   settings: "settings",
 };
 
-export function navLabelKey(view: AppView): TranslationKey {
-  return LABEL_KEYS[view as Exclude<AppView, "edit">] ?? "navOpenPoints";
-}
+const ALL_NAV_VIEWS: AppView[] = NAV_GROUPS.flatMap((g) =>
+  g.items.flatMap((item) => [item.view, ...(item.children ?? []).map((c) => c.view)]),
+);
 
 /** Flat list of all views that appear in the sidebar (excludes "edit"). */
 export function allNavViews(): AppView[] {
-  const out: AppView[] = [];
-  for (const g of NAV_GROUPS) {
-    for (const item of g.items) {
-      out.push(item.view);
-      for (const child of item.children ?? []) out.push(child.view);
-    }
-  }
-  return out;
+  return ALL_NAV_VIEWS;
+}
+
+export function navLabelKey(view: AppView): TranslationKey {
+  // The "edit" view (Phase 2 full-page editor) has no sidebar label and never
+  // appears in NAV_GROUPS; give it a harmless valid key rather than masking it.
+  if (view === "edit") return "navOpenPoints";
+  return LABEL_KEYS[view];
 }
 
 export function viewToSlug(view: AppView): string {

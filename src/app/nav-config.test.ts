@@ -29,4 +29,9 @@ describe("nav-config", () => {
       }
     }
   });
+
+  it("excludes the edit view from nav and labels it harmlessly", () => {
+    expect(allNavViews()).not.toContain("edit");
+    expect(navLabelKey("edit")).toBeTruthy();
+  });
 });
