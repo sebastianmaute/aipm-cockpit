@@ -1,3 +1,9 @@
+// 0.27.0 converts the live workspace when you switch storage format: instead
+// of loading whatever was already in the target backend, the app serialises
+// your current data and writes it to the newly-chosen backend (JSON, CSV,
+// Markdown, SharePoint, or Turso) after a window.confirm — overwriting the
+// target. Startup load and the explicit "open file" action are unchanged.
+// All formats remain two-way; no new dependencies.
 // 0.26.0 reworks the Turso storage backend to a proper relational (hybrid)
 // schema — one table per entity (tasks, raid, absences, shifts, resources,
 // roles, disciplines, grades, budget_buckets, plan, fx_rates) with nested
@@ -317,7 +323,7 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.26.0";
+export const APP_VERSION = "0.27.0";
 export const APP_BUILD_DATE = "2026-05-29"; // Jemisin milestone
 export const APP_REPO_URL = "https://www.example.com";
 
@@ -354,4 +360,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightOutlookCalendar",
   "versionHighlightTursoStorage",
   "versionHighlightTursoRelational",
+  "versionHighlightStorageConvert",
 ] as const;

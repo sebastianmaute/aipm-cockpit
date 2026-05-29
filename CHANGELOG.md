@@ -8,6 +8,11 @@ Authoritative source for version + build date: [`src/app/version.ts`](src/app/ve
 This file is seeded from that module's milestone comment plus the
 post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-diff.txt).
 
+## [0.27.0] — 2026-05-29 "Jemisin"
+
+### Changed
+- **Switching the storage format now converts and writes your workspace.** Instead of loading whatever was already in the target backend, the app serialises your current workspace and writes it to the newly-chosen format (JSON, CSV, Markdown, SharePoint, or Turso) after a confirmation dialog — overwriting the target. Startup load and the explicit "open file" action are unchanged; all formats remain fully two-way. No new dependencies.
+
 ## [0.26.0] — 2026-05-29 "Jemisin"
 
 ### Changed
