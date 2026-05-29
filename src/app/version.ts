@@ -1,3 +1,9 @@
+// 0.25.1 lets the Turso backend talk to a local / self-hosted tursodb, not just
+// Turso Cloud: the config resolver now accepts a plaintext http:// URL for
+// loopback hosts (localhost / 127.0.0.1) and treats the auth token as optional
+// there, and the backend drops the trailing pipeline "close" frame (newer
+// engines reject it) and only sends the Authorization header when a token is
+// set. Remote endpoints still require https + a token (no token over plaintext).
 // 0.25.0 adds a Turso (libSQL) storage backend — store the whole workspace as a
 // single JSON blob row in a Turso database via the HTTP pipeline API. Enable
 // Turso in Settings → Integrations, add the database URL + auth token (or set
@@ -305,7 +311,7 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.25.0";
+export const APP_VERSION = "0.25.1";
 export const APP_BUILD_DATE = "2026-05-29"; // Jemisin milestone
 export const APP_REPO_URL = "https://www.example.com";
 

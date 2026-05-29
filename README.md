@@ -71,7 +71,7 @@ The app persists tasks in one of several backends, switchable in Settings:
 | Browser (default) | `IndexedDB` (schema v6) for tasks, RAID, absences, resources, roles, disciplines, grades, and the resource plan (record-level writes, legacy `localStorage` data migrates on first load); `localStorage` for settings — zero setup, survives page refresh |
 | Local JSON / CSV / Markdown | File System Access API — reads and writes a local file you pick |
 | SharePoint JSON / CSV | Store workspace as a single JSON or CSV blob in a SharePoint Sites document library via Microsoft Graph; requires M365 sign-in (configure in Settings → Integrations; paste the file URL in Storage Configuration) |
-| Turso (libSQL) | Store workspace as a single JSON blob via Turso's HTTP `/v2/pipeline` API; configure in Settings → Integrations (Database URL + Auth token) or via `NEXT_PUBLIC_TURSO_DATABASE_URL` / `NEXT_PUBLIC_TURSO_AUTH_TOKEN` env vars |
+| Turso (libSQL) | Store workspace as a single JSON blob via the libSQL HTTP `/v2/pipeline` API; configure in Settings → Integrations (Database URL + Auth token) or via `NEXT_PUBLIC_TURSO_DATABASE_URL` / `NEXT_PUBLIC_TURSO_AUTH_TOKEN` env vars. Works with **Turso Cloud** (`libsql://…` URL + token) and a **local / self-hosted `tursodb`** — run `tursodb mydb.db --sync-server 127.0.0.1:8080` and set the URL to `http://127.0.0.1:8080` with the token blank (plaintext `http://` is permitted only for loopback hosts) |
 
 The Jira integration stores credentials (site URL, email, API token) in `localStorage`. They are never sent to any server other than your own Atlassian domain via the local proxy routes below.
 

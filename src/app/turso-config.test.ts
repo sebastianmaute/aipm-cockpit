@@ -43,4 +43,29 @@ describe("getTursoConfig", () => {
     expect(getTursoConfig("libsql://", "tok")).toBeNull();
     expect(getTursoConfig("ftp://x.turso.io", "tok")).toBeNull();
   });
+
+  it("allows plaintext http only for loopback hosts (local tursodb), token optional", () => {
+    expect(getTursoConfig("http://127.0.0.1:8080", "")).toEqual({
+      httpUrl: "http://127.0.0.1:8080",
+      authToken: "",
+    });
+    expect(getTursoConfig("http://localhost:8080")).toEqual({
+      httpUrl: "http://localhost:8080",
+      authToken: "",
+    });
+    // A token is still accepted (and forwarded) for a local server if provided.
+    expect(getTursoConfig("http://localhost:9000", "local-tok")).toEqual({
+      httpUrl: "http://localhost:9000",
+      authToken: "local-tok",
+    });
+  });
+
+  it("rejects plaintext http for non-loopback hosts", () => {
+    expect(getTursoConfig("http://db.example.com", "tok")).toBeNull();
+  });
+
+  it("still requires a token for remote https / libsql endpoints", () => {
+    expect(getTursoConfig("https://x.turso.io")).toBeNull();
+    expect(getTursoConfig("libsql://x.turso.io")).toBeNull();
+  });
 });
