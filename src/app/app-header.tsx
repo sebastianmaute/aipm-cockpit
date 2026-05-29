@@ -4,6 +4,7 @@ import type React from "react";
 import { t } from "./i18n";
 import { type Command } from "./voice";
 import { type AlertableTask } from "./due-dates";
+import { type StorageKind } from "./storage";
 import { ExportMenu } from "./export-menu";
 import { HelpMenu } from "./help-menu";
 import { VersionMenu } from "./version-menu";
@@ -29,7 +30,7 @@ export interface AppHeaderProps {
   onPickStorageFile: () => Promise<void>;
   onOpenStorageFile: () => Promise<void>;
   onGrantStorageWrite: () => Promise<void>;
-  onRequestStorageSwitch: (kind: import("./storage").StorageKind) => void;
+  onRequestStorageSwitch: (kind: StorageKind) => void;
 }
 
 export function AppHeader({
