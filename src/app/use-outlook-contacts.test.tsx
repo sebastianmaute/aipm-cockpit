@@ -68,4 +68,19 @@ describe("useOutlookContacts", () => {
       await expect(result.current.fetchContacts()).rejects.toThrow(key);
     }
   });
+
+  it("requests the Contacts.Read scope", async () => {
+    const acquireToken = vi.fn().mockResolvedValue("tok");
+    fetchSpy.mockResolvedValueOnce(jsonRes({ value: [] }));
+    const { result } = renderHook(() => useOutlookContacts(acquireToken));
+    await result.current.fetchContacts();
+    expect(acquireToken).toHaveBeenCalledWith(["Contacts.Read"]);
+  });
+
+  it("maps a network rejection to outlookFetchFailed", async () => {
+    const acquireToken = vi.fn().mockResolvedValue("tok");
+    fetchSpy.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    const { result } = renderHook(() => useOutlookContacts(acquireToken));
+    await expect(result.current.fetchContacts()).rejects.toThrow("outlookFetchFailed");
+  });
 });

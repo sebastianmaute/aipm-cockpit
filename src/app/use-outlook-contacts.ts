@@ -13,6 +13,10 @@ const SELECT =
   "id,displayName,givenName,surname,emailAddresses,jobTitle,department,companyName,businessPhones,mobilePhone,officeLocation,birthday";
 const FIRST_URL = `${GRAPH}/me/contacts?$top=100&$select=${SELECT}`;
 
+// Safety cap against a runaway @odata.nextLink chain. 100 pages × 100 = 10k
+// contacts — far above any realistic personal address book.
+const MAX_PAGES = 100;
+
 interface GraphPage {
   value?: GraphContact[];
   "@odata.nextLink"?: string;
@@ -35,14 +39,26 @@ export function useOutlookContacts(
     const out: OutlookContact[] = [];
     let url: string | undefined = FIRST_URL;
     let index = 0;
+    let pages = 0;
     while (url) {
-      const res = await fetch(url, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      if (++pages > MAX_PAGES) throw new Error("outlookFetchFailed");
+      let res: Response;
+      try {
+        res = await fetch(url, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      } catch {
+        throw new Error("outlookFetchFailed");
+      }
       if (res.status === 401) throw new Error("outlookSignInExpired");
       if (res.status === 403) throw new Error("outlookPermissionDenied");
       if (!res.ok) throw new Error("outlookFetchFailed");
-      const page = (await res.json()) as GraphPage;
+      let page: GraphPage;
+      try {
+        page = (await res.json()) as GraphPage;
+      } catch {
+        throw new Error("outlookFetchFailed");
+      }
       for (const raw of page.value ?? []) {
         const mapped = mapGraphContact(raw, index++);
         if (mapped) out.push(mapped);
