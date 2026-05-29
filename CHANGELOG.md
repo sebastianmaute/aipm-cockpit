@@ -8,7 +8,7 @@ Authoritative source for version + build date: [`src/app/version.ts`](src/app/ve
 This file is seeded from that module's milestone comment plus the
 post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-diff.txt).
 
-## [0.28.1] — 2026-05-29 "Jemisin"
+## [0.28.1] — 2026-05-29
 
 ### Security
 - **Jira proxy SSRF hardening.** The server-side Jira proxy (`/api/jira/*`) now accepts HTTPS site URLs only — plaintext `http://` is rejected (Atlassian Cloud is always HTTPS, and this guarantees Basic credentials are never sent in the clear) — and the private-host filter now also blocks IPv6 unique-local (`fc00::/7`), IPv6 link-local (`fe80::/10`), and IPv4-mapped (`::ffff:`) addresses.
@@ -16,7 +16,7 @@ post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-
 ### Changed
 - **Internal code-quality pass — no user-facing behavior change.** De-duplicated the eight `/api/jira/*` route handlers behind a shared `parseJiraRequest` entry point; extracted shared UI (`combobox-shared.tsx` for the combo/labels inputs, `modal-edit-fields.tsx` for the absence/shift/resource editors, plus a `ReportTableShell` wrapper and a `useSortableFilter` hook for the report tables); removed dead code and unnecessary exports; fixed lint warnings; and added test coverage for the RAID report panel.
 
-## [0.28.0] — 2026-05-29 "Jemisin"
+## [0.28.0] — 2026-05-29 "Chambers"
 
 ### Added
 - Link to turso.tech in the Turso storage configuration section.
@@ -25,22 +25,22 @@ post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-
 ### Changed
 - Switching to a Turso backend when the server is down or the database is unreachable now shows a clear "storage unreachable — is the server running?" message instead of a raw network error. The switch is aborted and your current data is preserved (no switch, no data loss). A reachable but empty database is still initialized automatically.
 
-## [0.27.0] — 2026-05-29 "Jemisin"
+## [0.27.0] — 2026-05-29 "Wells"
 
 ### Changed
 - **Switching the storage format now converts and writes your workspace.** Instead of loading whatever was already in the target backend, the app serialises your current workspace and writes it to the newly-chosen format (JSON, CSV, Markdown, SharePoint, or Turso) after a confirmation dialog — overwriting the target. Startup load and the explicit "open file" action are unchanged; all formats remain fully two-way. No new dependencies.
 
-## [0.26.0] — 2026-05-29 "Jemisin"
+## [0.26.0] — 2026-05-29 "Leckie"
 
 ### Changed
 - **Turso storage is now relational.** The Turso backend stores your workspace across per-entity tables (tasks, raid, absences, shifts, resources, roles, disciplines, grades, budget_buckets, plan, fx_rates) — scalar fields as columns, nested fields (task dependencies/labels, resource utilization, budget allocations, fx rates) as encoded TEXT columns — instead of a single JSON blob, so it's queryable in SQL. Existing single-blob Turso databases (0.25.x) are imported automatically on first load. Works with Turso Cloud and a local/self-hosted `tursodb`.
 
-## [0.25.1] — 2026-05-29 "Jemisin"
+## [0.25.1] — 2026-05-29
 
 ### Changed
 - **Turso backend now works with a local / self-hosted `tursodb`, not just Turso Cloud.** The config resolver accepts a plaintext `http://` URL for loopback hosts (`localhost` / `127.0.0.1`) and treats the auth token as optional there; the backend omits the trailing pipeline `close` frame (newer libSQL engines reject it) and only sends the `Authorization` header when a token is configured. Remote endpoints still require `https` + a token — a Bearer token is never sent over plaintext to a non-loopback host. Run e.g. `tursodb mydb.db --sync-server 127.0.0.1:8080`, then set the Turso URL to `http://127.0.0.1:8080` (token blank) in Settings → Integrations.
 
-## [0.25.0] — 2026-05-29 "Jemisin"
+## [0.25.0] — 2026-05-29 "Okorafor"
 
 ### Added
 - **Turso storage backend (T1).** A new **Turso database** option in Storage Configuration stores your entire workspace as a single JSON row in a Turso (libSQL) database via the HTTP pipeline API. Enable Turso in Settings → Integrations and add your database URL + auth token (or set `NEXT_PUBLIC_TURSO_DATABASE_URL` / `NEXT_PUBLIC_TURSO_AUTH_TOKEN`). The token is stored in the browser — use a scoped token.
@@ -48,7 +48,7 @@ post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-
 ### Changed
 - The **Turso** sub-toggle in Settings → Integrations is now interactive — **the original Microsoft 365 + Turso request is now complete** (M365 auth, SharePoint storage, Outlook contacts, Outlook calendar, Turso storage).
 
-## [0.24.0] — 2026-05-29 "Jemisin"
+## [0.24.0] — 2026-05-29 "Hopkinson"
 
 ### Added
 - **Outlook calendar import (M4).** With Microsoft 365 enabled and signed in, an **Import from Outlook** button on Resources › Calendar fetches your time-away events (all-day and Out-of-Office) from your Outlook calendar (Microsoft Graph `/me/calendarView`, `Calendars.Read`). A preview dialog lets you pick events and set each one's absence type (vacation / sick / training / other); selected events become absences on the resource calendar, attributed to your account. Events already present (matched by date range) are skipped.
@@ -56,12 +56,12 @@ post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-
 ### Changed
 - The **Outlook calendar** sub-toggle in Settings → Integrations is now interactive — **all Microsoft 365 integrations (auth, SharePoint storage, Outlook contacts, Outlook calendar) are now live.**
 
-## [0.23.1] — 2026-05-29 "Jemisin"
+## [0.23.1] — 2026-05-29
 
 ### Fixed
 - **Microsoft 365 incremental consent.** Acquiring a Graph token for a scope you haven't consented to yet (e.g. `Contacts.Read` on first Outlook import, or `Files.ReadWrite` on first SharePoint save) previously failed silently. `useMsAuth.acquireToken` now accepts an opt-in `{ interactive: true }` and falls back to an interactive consent popup when the silent attempt fails. The Outlook contacts import and SharePoint load/save opt in; background readiness probes stay silent, so they never trigger an unexpected popup.
 
-## [0.23.0] — 2026-05-29 "Jemisin"
+## [0.23.0] — 2026-05-29 "Bujold"
 
 ### Added
 - **Outlook contacts import (M3).** With Microsoft 365 enabled and signed in, an **Import from Outlook** button in Resources › Directory fetches your personal Outlook contacts (Microsoft Graph `/me/contacts`, `Contacts.Read`). A preview dialog lets you pick which to import; selected contacts populate the rich resource directory (name, email, title, department, phone, company, location, birthday) and seed the assignee address book.
@@ -70,7 +70,7 @@ post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-
 ### Changed
 - The **Outlook contacts** sub-toggle in Settings → Integrations is now interactive (was gated "Available in 0.22.0+"). Outlook calendar remains gated for a future release.
 
-## [0.22.0] — 2026-05-28 "Jemisin"
+## [0.22.0] — 2026-05-28 "Willis"
 
 ### Added
 - SharePoint storage backend: store your workspace as a single JSON or CSV file in a SharePoint Sites library via Microsoft Graph. Enable SharePoint in Settings → Integrations (the sub-toggle is now interactive), then in Storage Configuration pick "SharePoint JSON" or "SharePoint CSV" and paste the SharePoint file URL. First save creates the file; concurrent edits use last-write-wins (no ETag tracking). Reuses M1's MSAL foundation; sign-in is gated behind the M365 master toggle and triggers an incremental-consent popup for `Files.ReadWrite` on first SharePoint access.
@@ -79,20 +79,20 @@ post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-
 ### Changed
 - `StorageConfig` for `sp-json` / `sp-csv` no longer carries per-config `clientId` / `tenantId` — MSAL config is centralized at the M1 foundation. New shape: `{ kind, hostname, sitePath, itemPath }`. Existing settings without sp-* StorageConfig are unaffected.
 
-## [0.21.0] — 2026-05-28 "Jemisin"
+## [0.21.0] — 2026-05-28 "Cherryh"
 
 ### Added
 - Microsoft 365 integration foundation: a new Integrations section in Settings with a "Sign in with Microsoft" button gated behind a master toggle (defaults OFF). When the toggle is OFF, the `@azure/msal-browser` bundle is not loaded — zero cold-start cost. Configuration resolves from `NEXT_PUBLIC_MSAL_CLIENT_ID` / `NEXT_PUBLIC_MSAL_TENANT_ID` env vars first, then falls back to Client ID / Tenant inputs in the panel. Sub-toggles for SharePoint storage, Outlook contacts, and Outlook calendar render disabled with "Available in 0.22.0+" — they will be wired in subsequent minor releases.
 - A Turso storage-backend toggle is present in the Integrations panel (disabled, "Available in 0.22.0+") — the Turso backend itself is the T1 sub-project, tracked separately.
 - New version highlight: "Microsoft 365 auth foundation" (`versionHighlightM365Auth`) in both EN and DE.
 
-## [0.20.0] — 2026-05-28 "Jemisin"
+## [0.20.0] — 2026-05-28 "Tiptree"
 
 ### Added
 - Print button on Reports, RAID Report, and Resources Report popouts. Click to open the browser's print dialog with the report body laid out for DIN A4. Toolbars, toggles, filter inputs, and the print button itself are hidden via @media print; surface-token backgrounds strip to white for ink efficiency; semantic accent colors (overdue=pink, completed=green, tile values=dark-blue) survive the strip.
 - New version highlight: "Print on reports" (`versionHighlightPrintReports`) in both EN and DE.
 
-## [0.19.0] — 2026-05-28 "Jemisin"
+## [0.19.0] — 2026-05-28 "Russ"
 
 ### Added
 - Reports popout: the By Assignee, By Group, and By Label tables are now sortable and filterable. Click any column header to cycle through ascending / descending / off. Type in the search input above each table to narrow rows (case-insensitive match on the name column); click × to clear. Default sort is by Total descending.
@@ -103,7 +103,7 @@ post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-
 ### Changed
 - Report popouts (Resources Report, Reports, RAID Report) no longer show the read-only-mirror banner — these views are read-only by their nature and the banner was redundant. Editing popouts still show it as before. Confirmed that due-task / birthday / Jira-token reminder banners remain hidden in every popout.
 
-## [0.18.0] — 2026-05-28 "Jemisin"
+## [0.18.0] — 2026-05-28 "Shelley"
 
 ### Added
 - RAID Report: a steering-committee popout opened from the RAID panel's "Open RAID Report" button. Shows four headline tiles (open counts per RAID category) and six summary tables (By Severity, By Status, By Owner, Top 10 Open, By Category, By Aging). A Summary / Full Detail toggle at the top of the report drills down to a full read-only sortable item table.
