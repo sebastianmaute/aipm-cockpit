@@ -121,14 +121,31 @@ describe("SettingsMenu — Integrations section", () => {
     expect(sharepointCheckbox).not.toBeDisabled();
   });
 
-  it("Outlook contacts and calendar sub-toggles are still disabled (M3/M4 not yet shipped)", () => {
+  it("Outlook contacts sub-toggle is interactive (M3 shipped)", () => {
     const settings = makeSettings({ integrations: m365EnabledIntegrations });
     render(<SettingsMenu {...makeProps({ settings })} />);
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "settings") }));
     const outlookContactsCheckbox = screen.getByRole("checkbox", { name: t("en-US", "integrationsOutlookContacts") });
-    expect(outlookContactsCheckbox).toBeDisabled();
+    expect(outlookContactsCheckbox).not.toBeDisabled();
+  });
+
+  it("Outlook calendar sub-toggle is still disabled (M4 not yet shipped)", () => {
+    const settings = makeSettings({ integrations: m365EnabledIntegrations });
+    render(<SettingsMenu {...makeProps({ settings })} />);
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "settings") }));
     const outlookCalendarCheckbox = screen.getByRole("checkbox", { name: t("en-US", "integrationsOutlookCalendar") });
     expect(outlookCalendarCheckbox).toBeDisabled();
+  });
+
+  it("toggling Outlook contacts persists settings.integrations.m365.outlookContacts", () => {
+    const onChange = vi.fn();
+    const settings = makeSettings({ integrations: m365EnabledIntegrations });
+    render(<SettingsMenu {...makeProps({ settings, onChange })} />);
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "settings") }));
+    fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "integrationsOutlookContacts") }));
+    expect(onChange).toHaveBeenCalled();
+    const lastCall = onChange.mock.calls[onChange.mock.calls.length - 1][0] as Settings;
+    expect(lastCall.integrations?.m365?.outlookContacts).toBe(true);
   });
 
   it("toggling SharePoint persists settings.integrations.m365.sharepoint", () => {

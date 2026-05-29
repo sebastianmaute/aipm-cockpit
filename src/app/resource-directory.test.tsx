@@ -2,6 +2,7 @@ import { render, screen, fireEvent, within } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { ResourceDirectory } from "./resource-directory";
 import type { Resource } from "./types";
+import { t } from "./i18n";
 
 const rs: Resource[] = [{ id: 1, firstName: "Sample", lastName: "Dummy", title: "Architect", roleId: null, utilizationMode: "percent", utilization: {} }];
 
@@ -74,5 +75,21 @@ describe("ResourceDirectory", () => {
       "title",
       "Filter the directory to people whose name, title, department, or email match your text.",
     );
+  });
+
+  it("renders Import from Outlook only when onImportOutlook is provided", () => {
+    const onImport = vi.fn();
+    const { rerender } = render(
+      <ResourceDirectory lang="en-US" resources={rs} roles={[]} disciplines={[]} grades={[]}
+        onAssignRole={vi.fn()} onEditResource={vi.fn()} onAddResource={vi.fn()} />,
+    );
+    expect(screen.queryByRole("button", { name: t("en-US", "outlookImportButton") })).toBeNull();
+    rerender(
+      <ResourceDirectory lang="en-US" resources={rs} roles={[]} disciplines={[]} grades={[]}
+        onAssignRole={vi.fn()} onEditResource={vi.fn()} onAddResource={vi.fn()} onImportOutlook={onImport} />,
+    );
+    const btn = screen.getByRole("button", { name: t("en-US", "outlookImportButton") });
+    fireEvent.click(btn);
+    expect(onImport).toHaveBeenCalled();
   });
 });

@@ -34,6 +34,7 @@ interface Props {
   onEditResource: (resource: Resource) => void;
   onAddResource: () => void;
   onOpenAddressBook?: () => void;
+  onImportOutlook?: () => void;
 }
 
 // Inline discipline + grade selects for a single directory row.
@@ -119,6 +120,7 @@ function ResourceDirectoryInner({
   onEditResource,
   onAddResource,
   onOpenAddressBook,
+  onImportOutlook,
 }: Props) {
   const { colWidths, startColResize: _startColResize, resetColWidths } = useColumnResize<DirectoryCol>(
     "directory",
@@ -209,6 +211,15 @@ function ResourceDirectoryInner({
             className="shrink-0 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted"
           >
             {t(lang, "resourcesOpenAddressBook")}
+          </button>
+        )}
+        {onImportOutlook && (
+          <button
+            type="button"
+            onClick={onImportOutlook}
+            className="shrink-0 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted"
+          >
+            {t(lang, "outlookImportButton")}
           </button>
         )}
       </div>

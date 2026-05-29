@@ -953,6 +953,21 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightRaidReport: "RAID-Report: Steuerungskreis-Übersicht über offene Risiken, Issues, Annahmen und Abhängigkeiten — mit Drill-Down zur vollständigen Item-Liste.",
   versionHighlightPrintReports: "Reports, RAID-Report und Resources-Report haben jetzt eine Drucken-Schaltfläche — erzeugt ein sauberes A4-Handout über den Browser-Druckdialog.",
 
+  outlookImportTitle: "Outlook-Kontakte importieren",
+  outlookImportLoading: "Kontakte werden geladen…",
+  outlookImportEmpty: "Keine Outlook-Kontakte gefunden.",
+  outlookImportExisting: "bereits im Verzeichnis · wird aktualisiert",
+  outlookImportSelectAll: "Alle auswählen",
+  outlookImportSelectedN: "{0} ausgewählt",
+  outlookImportConfirm: "Importieren ({0})",
+  outlookImportCancel: "Abbrechen",
+  outlookImportButton: "Aus Outlook importieren",
+  outlookImportedN: "{0} Kontakte importiert",
+  outlookSignInRequired: "Mit Microsoft anmelden, um Outlook-Kontakte zu importieren.",
+  outlookSignInExpired: "Microsoft-Sitzung abgelaufen. Bitte erneut anmelden.",
+  outlookPermissionDenied: "Zugriff verweigert. Contacts.Read in Azure AD erteilen.",
+  outlookFetchFailed: "Outlook-Kontakte konnten nicht abgerufen werden. Bitte erneut versuchen.",
+
   integrations: "Integrationen",
   integrationsM365: "Microsoft-365-Integration",
   integrationsM365Hint: "Mit Microsoft anmelden, um SharePoint-, Kontakte- und Kalender-Funktionen zu aktivieren.",
@@ -972,4 +987,5 @@ export const de: Record<TranslationKey, string> = {
   integrationsComingSoon: "Verfügbar ab 0.22.0",
   versionHighlightM365Auth: "Microsoft-365-Grundlage: Mit dem Arbeitskonto anmelden, um künftige SharePoint-, Outlook-Kontakte- und Kalender-Funktionen freizuschalten. Alle Integrationen sind standardmäßig deaktiviert.",
   versionHighlightSharepointStorage: "SharePoint-Speicher: Arbeitsbereich als JSON- oder CSV-Datei in einer SharePoint-Sites-Bibliothek speichern — Datei-URL in der Speicherkonfiguration einfügen, nachdem SharePoint in Einstellungen → Integrationen aktiviert wurde.",
+  versionHighlightOutlookContacts: "Outlook-Kontakte importieren: mit Microsoft anmelden und Kontakte aus dem Reiter „Ressourcen“ ins Ressourcenverzeichnis und in die Zuständigen-Vorschläge übernehmen.",
 };

@@ -45,6 +45,11 @@ import { isReportPopoutTab } from "./broadcast-sync";
 import { makeEditGuard } from "./read-only-guard";
 import { ReadOnlyMirrorBanner } from "./read-only-mirror-banner";
 import { VoiceCommandProvider } from "./voice-command-context";
+import { useMsAuth } from "./use-ms-auth";
+import { useOutlookContacts } from "./use-outlook-contacts";
+import { OutlookImportModal } from "./outlook-import-modal";
+import { contactsFromImported, type OutlookContact } from "./outlook-contacts";
+import { upsertContact } from "./contacts";
 
 // i18n key for each tab's label — used by both the tab strip and the
 // popout window's document.title. Adding a new tab requires a row here.
@@ -233,6 +238,7 @@ function TaskManagerInner() {
     handleEditResource,
     handleSaveResource,
     handleDeleteResource,
+    handleImportResources,
     handleCloseResourceModal,
     handleSetAllUtilizationMode,
   } = useResourcePlanner({ lang, logActivity, showToast, workdayHours: settings.resources.workdayHours, holidaySet });
@@ -257,6 +263,67 @@ function TaskManagerInner() {
     handleCloseResourceModal();
     setFillTaskAssigneeOnSave(false);
   }, [handleCloseResourceModal]);
+
+  const m365Enabled = settings.integrations?.m365?.enabled ?? false;
+  const outlookContactsEnabled =
+    m365Enabled && (settings.integrations?.m365?.outlookContacts ?? false);
+  const msAuth = useMsAuth(m365Enabled);
+  const { fetchContacts: fetchOutlookContacts } = useOutlookContacts(msAuth.acquireToken);
+
+  const [importOpen, setImportOpen] = useState(false);
+  const [importLoading, setImportLoading] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importContacts, setImportContacts] = useState<OutlookContact[]>([]);
+
+  const handleOpenOutlookImport = useCallback(async () => {
+    const knownKeys = [
+      "outlookSignInRequired",
+      "outlookSignInExpired",
+      "outlookPermissionDenied",
+      "outlookFetchFailed",
+    ] as const;
+    setImportOpen(true);
+    setImportError(null);
+    setImportContacts([]);
+    setImportLoading(true);
+    try {
+      const fetched = await fetchOutlookContacts();
+      setImportContacts(fetched);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "";
+      const key = (knownKeys as readonly string[]).includes(msg)
+        ? (msg as (typeof knownKeys)[number])
+        : "outlookFetchFailed";
+      setImportError(t(lang, key));
+    } finally {
+      setImportLoading(false);
+    }
+  }, [fetchOutlookContacts, lang]);
+
+  const existingResourceEmails = useMemo(
+    () =>
+      new Set(
+        resources
+          .map((r) => (r.email ?? "").trim().toLowerCase())
+          .filter((e) => e !== ""),
+      ),
+    [resources],
+  );
+
+  const handleConfirmOutlookImport = useCallback(
+    (selected: OutlookContact[]) => {
+      handleImportResources(selected);
+      setContacts((prev) =>
+        contactsFromImported(selected).reduce(
+          (acc, c) => upsertContact(acc, c.name, c.email),
+          prev,
+        ),
+      );
+      setImportOpen(false);
+      showToast("info", t(lang, "outlookImportedN", selected.length));
+    },
+    [handleImportResources, setContacts, showToast, lang],
+  );
 
   const tasksRef = useRef(tasks);
   useEffect(() => {
@@ -533,6 +600,11 @@ function TaskManagerInner() {
         onSetPlanWindow={guardEdit(handleSetPlanWindow)}
         onEditResource={guardEdit(handleEditResource)}
         onAddResource={guardEdit(handleOpenAddResource)}
+        onImportOutlook={
+          outlookContactsEnabled && msAuth.account && !importLoading
+            ? guardEdit(() => { void handleOpenOutlookImport(); })
+            : undefined
+        }
         onEditTask={openEditModal}
         onChangeBudgets={handleChangeBudgets}
         onRefreshFx={refreshFx}
@@ -583,6 +655,16 @@ function TaskManagerInner() {
         />
       )}
 
+      <OutlookImportModal
+        lang={lang}
+        open={importOpen}
+        loading={importLoading}
+        error={importError}
+        contacts={importContacts}
+        existingEmails={existingResourceEmails}
+        onConfirm={handleConfirmOutlookImport}
+        onClose={() => setImportOpen(false)}
+      />
       <AppModals
         lang={lang}
         isPopout={isPopout}

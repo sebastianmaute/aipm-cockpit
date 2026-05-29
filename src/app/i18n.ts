@@ -935,6 +935,21 @@ const enUS = {
   versionHighlightRaidReport: "RAID Report: a steering-committee overview of open risks, issues, assumptions and dependencies — with a drill-down to the full item list.",
   versionHighlightPrintReports: "Reports, RAID Report and Resources Report now have a Print button — produces a clean A4-fitting handout via the browser's print dialog.",
 
+  outlookImportTitle: "Import Outlook contacts",
+  outlookImportLoading: "Loading contacts…",
+  outlookImportEmpty: "No Outlook contacts found.",
+  outlookImportExisting: "already in directory · will update",
+  outlookImportSelectAll: "Select all",
+  outlookImportSelectedN: "{0} selected",
+  outlookImportConfirm: "Import ({0})",
+  outlookImportCancel: "Cancel",
+  outlookImportButton: "Import from Outlook",
+  outlookImportedN: "Imported {0} contacts",
+  outlookSignInRequired: "Sign in with Microsoft to import Outlook contacts.",
+  outlookSignInExpired: "Microsoft session expired. Please sign in again.",
+  outlookPermissionDenied: "Permission denied. Grant Contacts.Read in Azure AD.",
+  outlookFetchFailed: "Failed to fetch Outlook contacts. Please try again.",
+
   integrations: "Integrations",
   integrationsM365: "Microsoft 365 integration",
   integrationsM365Hint: "Sign in with Microsoft to enable SharePoint, Outlook contacts, and calendar features.",
@@ -954,6 +969,7 @@ const enUS = {
   integrationsComingSoon: "Available in 0.22.0+",
   versionHighlightM365Auth: "Microsoft 365 integration foundation: sign in with your work account to unlock upcoming SharePoint, Outlook contacts, and calendar features. All integrations default to OFF.",
   versionHighlightSharepointStorage: "SharePoint storage backend: save your workspace as a JSON or CSV file in a SharePoint Sites library — paste the file URL in Storage Configuration after enabling SharePoint in Settings → Integrations.",
+  versionHighlightOutlookContacts: "Import your Outlook contacts: sign in with Microsoft, then pull contacts into your resource directory and assignee suggestions from the Resources tab.",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;
