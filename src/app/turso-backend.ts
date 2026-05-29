@@ -70,15 +70,19 @@ export class TursoBackend implements StorageBackend {
     if (!this.config) {
       throw new StorageNotReadyError("Configure the Turso URL and token in Settings.");
     }
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    // Only authenticate when a token is configured — a loopback (local) tursodb
+    // typically needs none.
+    if (this.config.authToken) {
+      headers.Authorization = `Bearer ${this.config.authToken}`;
+    }
     const res = await fetch(`${this.config.httpUrl}/v2/pipeline`, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${this.config.authToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        requests: [...stmts.map(execute), { type: "close" }],
-      }),
+      headers,
+      // No trailing { type: "close" } frame: the classic Hrana endpoint
+      // auto-closes a baton-less stream, and newer engines (local tursodb)
+      // reject the "close" request variant outright.
+      body: JSON.stringify({ requests: stmts.map(execute) }),
     });
     if (res.status === 401) {
       throw new StorageNotReadyError("Turso auth token rejected. Check the token in Settings.");

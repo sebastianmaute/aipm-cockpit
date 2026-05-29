@@ -6,14 +6,30 @@
 // or the URL is unusable — the storage layer surfaces "not ready".
 
 export interface TursoConfig {
-  /** HTTPS pipeline base, e.g. "https://db.turso.io" (no trailing slash). */
+  /** Pipeline base, e.g. "https://db.turso.io" (no trailing slash). May be an
+   *  "http://" loopback origin for a local/self-hosted tursodb. */
   httpUrl: string;
+  /** May be empty for a loopback (local) server that requires no auth. */
   authToken: string;
 }
 
-/** Normalize a Turso DB URL to its HTTPS pipeline base.
- *  libsql:// → https://, https:// passthrough, trailing slash stripped;
- *  any other scheme / unparseable input → null. */
+/** Loopback hosts that may be reached over plaintext http (local tursodb).
+ *  `new URL(...).hostname` is already lowercased by the WHATWG parser, so only
+ *  lowercase entries are needed here (e.g. "http://LOCALHOST" → "localhost"). */
+function isLoopbackHost(hostname: string): boolean {
+  return (
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname === "[::1]" ||
+    hostname === "::1"
+  );
+}
+
+/** Normalize a Turso DB URL to its pipeline base.
+ *  libsql:// → https://, https:// passthrough; plaintext http:// is allowed
+ *  ONLY for loopback hosts (local/self-hosted tursodb) so a Bearer token is
+ *  never sent over plaintext to a remote host. Trailing slash stripped;
+ *  any other scheme / non-loopback http / unparseable input → null. */
 function toHttpUrl(raw: string): string | null {
   // Replace libsql:// before parsing — Node's URL rejects protocol mutation
   // for non-standard schemes (origin stays null after reassignment).
@@ -24,9 +40,10 @@ function toHttpUrl(raw: string): string | null {
   } catch {
     return null;
   }
-  if (parsed.protocol !== "https:") return null;
   if (!parsed.hostname) return null; // e.g. "https://" parses but has no host (origin === "null")
-  return parsed.origin;
+  if (parsed.protocol === "https:") return parsed.origin;
+  if (parsed.protocol === "http:" && isLoopbackHost(parsed.hostname)) return parsed.origin;
+  return null;
 }
 
 export function getTursoConfig(
@@ -37,8 +54,11 @@ export function getTursoConfig(
   const envToken = process.env.NEXT_PUBLIC_TURSO_AUTH_TOKEN;
   const rawUrl = (envUrl && envUrl !== "" ? envUrl : settingsUrl) ?? "";
   const authToken = (envToken && envToken !== "" ? envToken : settingsToken) ?? "";
-  if (!rawUrl || !authToken) return null;
+  if (!rawUrl) return null;
   const httpUrl = toHttpUrl(rawUrl);
   if (!httpUrl) return null;
+  // Remote (https) endpoints require a token; loopback http (local tursodb)
+  // may be token-less.
+  if (httpUrl.startsWith("https://") && !authToken) return null;
   return { httpUrl, authToken };
 }

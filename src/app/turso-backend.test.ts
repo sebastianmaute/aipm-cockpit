@@ -57,7 +57,23 @@ describe("TursoBackend", () => {
     expect(sqls.some((s: string) => s.includes("INSERT INTO workspace"))).toBe(true);
     const upsert = body.requests.find((r: { type: string; stmt?: { sql: string } }) => r.stmt?.sql?.includes("INSERT INTO workspace"));
     expect(upsert.stmt.args).toEqual([{ type: "text", value: workspaceToJson(ws) }]);
-    expect(body.requests.some((r: { type: string }) => r.type === "close")).toBe(true);
+    // No trailing "close" frame — newer engines (local tursodb) reject it.
+    expect(body.requests.every((r: { type: string }) => r.type === "execute")).toBe(true);
+  });
+
+  it("omits the Authorization header for a token-less loopback config", async () => {
+    fetchSpy.mockResolvedValueOnce(jsonRes({ results: [execOk([]), execOk([])] }));
+    await new TursoBackend({ httpUrl: "http://127.0.0.1:8080", authToken: "" }).load();
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("http://127.0.0.1:8080/v2/pipeline");
+    expect((init.headers as Record<string, string>).Authorization).toBeUndefined();
+  });
+
+  it("sends the Authorization header when a token is configured", async () => {
+    fetchSpy.mockResolvedValueOnce(jsonRes({ results: [execOk([]), execOk([])] }));
+    await new TursoBackend(CONFIG).load();
+    const init = fetchSpy.mock.calls[0][1] as RequestInit;
+    expect((init.headers as Record<string, string>).Authorization).toBe("Bearer tok");
   });
 
   it("maps 401 to StorageNotReadyError", async () => {
