@@ -7,7 +7,7 @@ describe("InfoTooltip", () => {
     render(<InfoTooltip text="Where your workspace is saved." />);
     const trigger = screen.getByRole("button", { name: "Where your workspace is saved." });
     expect(trigger).toBeInTheDocument();
-    expect(screen.getByRole("tooltip")).toHaveTextContent("Where your workspace is saved.");
+    expect(screen.getByText("Where your workspace is saved.")).toBeInTheDocument();
   });
 
   it("uses an explicit label when provided", () => {

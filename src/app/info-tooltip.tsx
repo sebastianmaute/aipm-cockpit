@@ -20,7 +20,7 @@ export function InfoTooltip({ text, label }: InfoTooltipProps) {
         i
       </button>
       <span
-        role="tooltip"
+        aria-hidden="true"
         className="pointer-events-none absolute left-1/2 top-full z-50 mt-1 w-max max-w-[16rem] -translate-x-1/2 rounded-md border border-line bg-surface px-2 py-1 text-xs font-normal text-foreground opacity-0 shadow-md transition-opacity duration-100 group-hover:opacity-100 group-focus-within:opacity-100"
       >
         {text}
