@@ -50,6 +50,11 @@ import { useOutlookContacts } from "./use-outlook-contacts";
 import { OutlookImportModal } from "./outlook-import-modal";
 import { contactsFromImported, type OutlookContact } from "./outlook-contacts";
 import { upsertContact } from "./contacts";
+import { useOutlookCalendar } from "./use-outlook-calendar";
+import { OutlookCalendarImportModal } from "./outlook-calendar-import-modal";
+import { dedupeKey, type OutlookEvent, type AbsenceImportTarget } from "./outlook-calendar";
+import { isoAddDays } from "./due-dates";
+import type { AbsenceType } from "./types";
 
 // i18n key for each tab's label — used by both the tab strip and the
 // popout window's document.title. Adding a new tab requires a row here.
@@ -239,6 +244,7 @@ function TaskManagerInner() {
     handleSaveResource,
     handleDeleteResource,
     handleImportResources,
+    handleImportAbsences,
     handleCloseResourceModal,
     handleSetAllUtilizationMode,
   } = useResourcePlanner({ lang, logActivity, showToast, workdayHours: settings.resources.workdayHours, holidaySet });
@@ -323,6 +329,74 @@ function TaskManagerInner() {
       showToast("info", t(lang, "outlookImportedN", selected.length));
     },
     [handleImportResources, setContacts, showToast, lang],
+  );
+
+  const outlookCalendarEnabled =
+    m365Enabled && (settings.integrations?.m365?.outlookCalendar ?? false);
+  const { fetchEvents: fetchOutlookEvents } = useOutlookCalendar(msAuth.acquireToken);
+
+  const [calImportOpen, setCalImportOpen] = useState(false);
+  const [calImportLoading, setCalImportLoading] = useState(false);
+  const [calImportError, setCalImportError] = useState<string | null>(null);
+  const [calImportEvents, setCalImportEvents] = useState<OutlookEvent[]>([]);
+
+  const calendarTarget = useMemo<AbsenceImportTarget>(() => {
+    const email = (msAuth.account?.username ?? "").trim();
+    const lower = email.toLowerCase();
+    const match = email
+      ? resources.find((r) => (r.email ?? "").trim().toLowerCase() === lower)
+      : undefined;
+    return {
+      assignee: match ? resourceDisplayName(match) : (msAuth.account?.name ?? email),
+      assigneeEmail: email || undefined,
+      resourceId: match?.id,
+    };
+  }, [msAuth.account, resources]);
+
+  const calendarExistingKeys = useMemo(() => {
+    const key = calendarTarget.assignee.trim().toLowerCase();
+    return new Set(
+      absences
+        .filter((a) => a.assignee.trim().toLowerCase() === key)
+        .map((a) => dedupeKey(a.assignee, a.startDate, a.endDate)),
+    );
+  }, [absences, calendarTarget.assignee]);
+
+  const handleOpenCalendarImport = useCallback(async () => {
+    const knownKeys = [
+      "outlookSignInRequired",
+      "outlookSignInExpired",
+      "outlookCalendarPermissionDenied",
+      "outlookCalendarFetchFailed",
+    ] as const;
+    setCalImportOpen(true);
+    setCalImportError(null);
+    setCalImportEvents([]);
+    setCalImportLoading(true);
+    try {
+      const events = await fetchOutlookEvents({
+        startDateTime: `${isoAddDays(today, -30)}T00:00:00Z`,
+        endDateTime: `${isoAddDays(today, 180)}T00:00:00Z`,
+      });
+      setCalImportEvents(events);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "";
+      const key = (knownKeys as readonly string[]).includes(msg)
+        ? (msg as (typeof knownKeys)[number])
+        : "outlookCalendarFetchFailed";
+      setCalImportError(t(lang, key));
+    } finally {
+      setCalImportLoading(false);
+    }
+  }, [fetchOutlookEvents, today, lang]);
+
+  const handleConfirmCalendarImport = useCallback(
+    (rows: { event: OutlookEvent; type: AbsenceType }[]) => {
+      handleImportAbsences(rows, calendarTarget);
+      setCalImportOpen(false);
+      showToast("info", t(lang, "outlookCalImportedN", rows.length));
+    },
+    [handleImportAbsences, calendarTarget, showToast, lang],
   );
 
   const tasksRef = useRef(tasks);
@@ -605,6 +679,11 @@ function TaskManagerInner() {
             ? guardEdit(() => { void handleOpenOutlookImport(); })
             : undefined
         }
+        onImportOutlookCalendar={
+          outlookCalendarEnabled && msAuth.account
+            ? guardEdit(() => { void handleOpenCalendarImport(); })
+            : undefined
+        }
         onEditTask={openEditModal}
         onChangeBudgets={handleChangeBudgets}
         onRefreshFx={refreshFx}
@@ -664,6 +743,17 @@ function TaskManagerInner() {
         existingEmails={existingResourceEmails}
         onConfirm={handleConfirmOutlookImport}
         onClose={() => setImportOpen(false)}
+      />
+      <OutlookCalendarImportModal
+        lang={lang}
+        open={calImportOpen}
+        loading={calImportLoading}
+        error={calImportError}
+        events={calImportEvents}
+        targetAssignee={calendarTarget.assignee}
+        existingKeys={calendarExistingKeys}
+        onConfirm={handleConfirmCalendarImport}
+        onClose={() => setCalImportOpen(false)}
       />
       <AppModals
         lang={lang}

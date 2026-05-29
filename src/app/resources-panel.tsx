@@ -92,6 +92,7 @@ interface Props {
   onAddResource: (seed?: Partial<Resource>) => void;
   onOpenAddressBook?: () => void;
   onImportOutlook?: () => void;
+  onImportOutlookCalendar?: () => void;
 }
 
 function GearIcon() {
@@ -155,6 +156,7 @@ function ResourcesPanelInner({
   onAddResource,
   onOpenAddressBook,
   onImportOutlook,
+  onImportOutlookCalendar,
 }: Props) {
   const planning = useColumnResize<PlanningCol>("planning", PLANNING_COL_WIDTHS);
   const rollup = useColumnResize<RollupCol>("rollup", ROLLUP_COL_WIDTHS);
@@ -304,6 +306,15 @@ function ResourcesPanelInner({
         >
           {t(lang, "resourcesAddAbsence")}
         </button>
+        {view === "calendar" && onImportOutlookCalendar && (
+          <button
+            type="button"
+            onClick={onImportOutlookCalendar}
+            className="rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted dark:text-AIPM-light-grey"
+          >
+            {t(lang, "outlookCalImportButton")}
+          </button>
+        )}
       </div>
     </header>
   );

@@ -8,6 +8,8 @@ import { DEFAULT_WEEK_HOURS, type Absence, type RaidItem, type Resource, type Ro
 import type { ActivityKind } from "./activity-log";
 import { useWorkspace } from "./workspace-context";
 import { mergeImportedResources, type OutlookContact } from "./outlook-contacts";
+import { eventsToAbsences, type AbsenceImportTarget, type OutlookEvent } from "./outlook-calendar";
+import type { AbsenceType } from "./types";
 
 function isoToday(): string {
   return new Date().toISOString().slice(0, 10);
@@ -179,6 +181,18 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
       setEditingAbsence({ absence: draft, isNew: true });
     },
     [absences],
+  );
+
+  const handleImportAbsences = useCallback(
+    (
+      rows: readonly { event: OutlookEvent; type: AbsenceType }[],
+      target: AbsenceImportTarget,
+    ): void => {
+      if (rows.length === 0) return;
+      const stamp = new Date().toISOString();
+      setAbsences((prev) => eventsToAbsences(rows, prev, target, stamp));
+    },
+    [setAbsences],
   );
 
   const handleEditAbsence = useCallback((absence: Absence) => {
@@ -621,6 +635,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
     handleSaveRaidItem,
     handleDeleteRaidItem,
     handleOpenAddAbsence,
+    handleImportAbsences,
     handleEditAbsence,
     handleCloseAbsenceModal,
     handleSaveAbsence,
