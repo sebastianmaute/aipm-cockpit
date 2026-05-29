@@ -994,6 +994,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightSharepointStorage: "SharePoint-Speicher: Arbeitsbereich als JSON- oder CSV-Datei in einer SharePoint-Sites-Bibliothek speichern — Datei-URL in der Speicherkonfiguration einfügen, nachdem SharePoint in Einstellungen → Integrationen aktiviert wurde.",
   versionHighlightOutlookContacts: "Outlook-Kontakte importieren: mit Microsoft anmelden und Kontakte aus dem Reiter „Ressourcen” ins Ressourcenverzeichnis und in die Zuständigen-Vorschläge übernehmen.",
   versionHighlightOutlookCalendar: "Abwesenheits-Termine aus dem Outlook-Kalender importieren: mit Microsoft anmelden und ganztägige sowie Abwesenheits-Termine unter Ressourcen › Kalender in den Ressourcenkalender übernehmen.",
+  versionHighlightTursoStorage: "Workspace in einer Turso-(libSQL-)Datenbank speichern: Turso in den Einstellungen aktivieren, Datenbank-URL + Token hinzufügen und in der Speicherkonfiguration „Turso“ auswählen.",
 
   outlookCalImportTitle: "Outlook-Kalender importieren",
   outlookCalImportLoading: "Termine werden geladen…",

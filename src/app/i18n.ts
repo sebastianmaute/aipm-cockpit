@@ -976,6 +976,7 @@ const enUS = {
   versionHighlightSharepointStorage: "SharePoint storage backend: save your workspace as a JSON or CSV file in a SharePoint Sites library — paste the file URL in Storage Configuration after enabling SharePoint in Settings → Integrations.",
   versionHighlightOutlookContacts: "Import your Outlook contacts: sign in with Microsoft, then pull contacts into your resource directory and assignee suggestions from the Resources tab.",
   versionHighlightOutlookCalendar: "Import time-away events from your Outlook calendar as absences: sign in with Microsoft, then pull all-day and Out-of-Office events into the resource calendar from Resources › Calendar.",
+  versionHighlightTursoStorage: "Store your workspace in a Turso (libSQL) database: enable Turso in Settings, add your database URL + token, then pick Turso in Storage Configuration.",
 
   outlookCalImportTitle: "Import Outlook calendar",
   outlookCalImportLoading: "Loading events…",
