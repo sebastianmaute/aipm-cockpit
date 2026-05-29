@@ -2417,7 +2417,10 @@ class LocalFileBackend implements StorageBackend {
 // --- Factory ---------------------------------------------------------------
 
 export interface CreateBackendDeps {
-  acquireToken?: (scopes: readonly string[]) => Promise<string | null>;
+  acquireToken?: (
+    scopes: readonly string[],
+    options?: { interactive?: boolean },
+  ) => Promise<string | null>;
 }
 
 export function createBackend(

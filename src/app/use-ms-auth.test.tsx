@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const loginPopupMock = vi.fn();
 const logoutPopupMock = vi.fn();
 const acquireTokenSilentMock = vi.fn();
+const acquireTokenPopupMock = vi.fn();
 const getAllAccountsMock = vi.fn();
 const initializeMock = vi.fn();
 
@@ -14,6 +15,7 @@ vi.mock("@azure/msal-browser", () => ({
     loginPopup: loginPopupMock,
     logoutPopup: logoutPopupMock,
     acquireTokenSilent: acquireTokenSilentMock,
+    acquireTokenPopup: acquireTokenPopupMock,
   })),
 }));
 
@@ -29,6 +31,7 @@ describe("useMsAuth", () => {
     loginPopupMock.mockReset();
     logoutPopupMock.mockReset();
     acquireTokenSilentMock.mockReset();
+    acquireTokenPopupMock.mockReset();
     getAllAccountsMock.mockReset();
     initializeMock.mockReset();
     initializeMock.mockResolvedValue(undefined);
@@ -101,5 +104,40 @@ describe("useMsAuth", () => {
       scopes: ["Files.ReadWrite"],
       account: FAKE_ACCOUNT,
     });
+  });
+
+  it("propagates the silent error and does NOT pop up when interactive is not requested", async () => {
+    getAllAccountsMock.mockReturnValue([FAKE_ACCOUNT]);
+    acquireTokenSilentMock.mockRejectedValue(new Error("interaction_required"));
+    const { result } = renderHook(() => useMsAuth(true));
+    await waitFor(() => expect(result.current.account).toEqual(FAKE_ACCOUNT));
+    await expect(result.current.acquireToken(["Contacts.Read"])).rejects.toThrow(
+      "interaction_required",
+    );
+    expect(acquireTokenPopupMock).not.toHaveBeenCalled();
+  });
+
+  it("falls back to an interactive popup when interactive is requested and silent fails", async () => {
+    getAllAccountsMock.mockReturnValue([FAKE_ACCOUNT]);
+    acquireTokenSilentMock.mockRejectedValue(new Error("consent_required"));
+    acquireTokenPopupMock.mockResolvedValue({ accessToken: "popup-token" });
+    const { result } = renderHook(() => useMsAuth(true));
+    await waitFor(() => expect(result.current.account).toEqual(FAKE_ACCOUNT));
+    const token = await result.current.acquireToken(["Contacts.Read"], { interactive: true });
+    expect(token).toBe("popup-token");
+    expect(acquireTokenPopupMock).toHaveBeenCalledWith({
+      scopes: ["Contacts.Read"],
+      account: FAKE_ACCOUNT,
+    });
+  });
+
+  it("does not pop up when silent succeeds even if interactive is allowed", async () => {
+    getAllAccountsMock.mockReturnValue([FAKE_ACCOUNT]);
+    acquireTokenSilentMock.mockResolvedValue({ accessToken: "silent-token" });
+    const { result } = renderHook(() => useMsAuth(true));
+    await waitFor(() => expect(result.current.account).toEqual(FAKE_ACCOUNT));
+    const token = await result.current.acquireToken(["Contacts.Read"], { interactive: true });
+    expect(token).toBe("silent-token");
+    expect(acquireTokenPopupMock).not.toHaveBeenCalled();
   });
 });

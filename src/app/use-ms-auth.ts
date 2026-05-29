@@ -43,7 +43,10 @@ export interface UseMsAuthResult {
   ready: boolean;
   signIn: () => Promise<void>;
   signOut: () => Promise<void>;
-  acquireToken: (scopes: readonly string[]) => Promise<string | null>;
+  acquireToken: (
+    scopes: readonly string[],
+    options?: { interactive?: boolean },
+  ) => Promise<string | null>;
 }
 
 export function useMsAuth(enabled: boolean): UseMsAuthResult {
@@ -87,15 +90,32 @@ export function useMsAuth(enabled: boolean): UseMsAuthResult {
     setAccount(null);
   }
 
-  const acquireToken = useCallback(async (scopes: readonly string[]): Promise<string | null> => {
+  const acquireToken = useCallback(async (
+    scopes: readonly string[],
+    options?: { interactive?: boolean },
+  ): Promise<string | null> => {
     const pca = await getPca();
     const current = pca.getAllAccounts()[0];
     if (!current) return null;
-    const result = await pca.acquireTokenSilent({
-      scopes: scopes as string[],
-      account: current,
-    });
-    return result.accessToken;
+    try {
+      const result = await pca.acquireTokenSilent({
+        scopes: scopes as string[],
+        account: current,
+      });
+      return result.accessToken;
+    } catch (err) {
+      // Silent acquisition fails when a scope hasn't been consented yet
+      // (incremental consent) or the session needs interactive renewal.
+      // Only callers that opt into interactivity get a popup — background
+      // probes (e.g. SharePointBackend.isReady) keep the silent contract so
+      // they never trigger a surprise consent dialog.
+      if (!options?.interactive) throw err;
+      const result = await pca.acquireTokenPopup({
+        scopes: scopes as string[],
+        account: current,
+      });
+      return result.accessToken;
+    }
   }, []);
 
   return { account, ready, signIn, signOut, acquireToken };

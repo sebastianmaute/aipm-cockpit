@@ -38,11 +38,17 @@ export type SpStorageConfig =
 export class SharePointBackend implements StorageBackend {
   readonly kind: "sp-json" | "sp-csv";
   private location: SpFileLocation;
-  private acquireToken: (scopes: readonly string[]) => Promise<string | null>;
+  private acquireToken: (
+    scopes: readonly string[],
+    options?: { interactive?: boolean },
+  ) => Promise<string | null>;
 
   constructor(
     config: SpStorageConfig,
-    acquireToken: (scopes: readonly string[]) => Promise<string | null>,
+    acquireToken: (
+      scopes: readonly string[],
+      options?: { interactive?: boolean },
+    ) => Promise<string | null>,
   ) {
     this.kind = config.kind;
     this.location = {
@@ -69,7 +75,9 @@ export class SharePointBackend implements StorageBackend {
   }
 
   private async getToken(): Promise<string> {
-    const token = await this.acquireToken(["Files.ReadWrite"]);
+    // Interactive: a load/save is an explicit user action, so first-time
+    // consent for Files.ReadWrite may surface a popup. (isReady stays silent.)
+    const token = await this.acquireToken(["Files.ReadWrite"], { interactive: true });
     if (!token) throw new StorageNotReadyError("Sign in to Microsoft first");
     return token;
   }
