@@ -666,7 +666,7 @@ export function SettingsMenu({
                   {(
                     [
                       ["integrationsSharepoint", "sharepoint", false],
-                      ["integrationsOutlookContacts", "outlookContacts", true],
+                      ["integrationsOutlookContacts", "outlookContacts", false],
                       ["integrationsOutlookCalendar", "outlookCalendar", true],
                     ] as const
                   ).map(([labelKey, key, comingSoon]) => (
