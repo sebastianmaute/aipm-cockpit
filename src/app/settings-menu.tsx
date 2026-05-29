@@ -98,6 +98,8 @@ export type M365IntegrationsSettings = {
 
 export type TursoIntegrationsSettings = {
   enabled: boolean;
+  databaseUrl?: string;
+  authToken?: string;
 };
 
 export type IntegrationsSettings = {
@@ -137,6 +139,8 @@ export function sanitizeIntegrations(raw: unknown): IntegrationsSettings {
     },
     turso: {
       enabled: typeof tursoRaw?.enabled === "boolean" ? tursoRaw.enabled : false,
+      databaseUrl: typeof tursoRaw?.databaseUrl === "string" ? tursoRaw.databaseUrl : undefined,
+      authToken: typeof tursoRaw?.authToken === "string" ? tursoRaw.authToken : undefined,
     },
   };
 }
@@ -194,6 +198,15 @@ export function SettingsMenu({
   const auth = useMsAuth(m365.enabled);
   const envClientIdSet = !!process.env.NEXT_PUBLIC_MSAL_CLIENT_ID;
   const envTenantIdSet = !!process.env.NEXT_PUBLIC_MSAL_TENANT_ID;
+  const envTursoUrlSet = !!process.env.NEXT_PUBLIC_TURSO_DATABASE_URL;
+  const envTursoTokenSet = !!process.env.NEXT_PUBLIC_TURSO_AUTH_TOKEN;
+
+  function updateTurso(patch: Partial<TursoIntegrationsSettings>) {
+    onChange({
+      ...settings,
+      integrations: { ...integrations, turso: { ...turso, ...patch } },
+    });
+  }
 
   function updateM365(patch: Partial<M365IntegrationsSettings>) {
     onChange({
@@ -578,6 +591,7 @@ export function SettingsMenu({
             onGrantWrite={onGrantStorageWrite}
             m365Enabled={settings.integrations?.m365?.enabled ?? false}
             sharepointEnabled={settings.integrations?.m365?.sharepoint ?? false}
+            tursoEnabled={settings.integrations?.turso?.enabled ?? false}
           />
 
           <hr className="my-4 border-line" />
@@ -693,19 +707,47 @@ export function SettingsMenu({
               </div>
             )}
 
-            <label
-              className="mt-3 flex items-center gap-2 text-sm text-muted-foreground"
-              title={t(lang, "integrationsComingSoon")}
-            >
+            <label className="mt-3 flex items-center gap-2 text-sm">
               <input
                 type="checkbox"
-                disabled
                 checked={turso.enabled}
-                readOnly
-                className="h-4 w-4 cursor-not-allowed"
+                onChange={(e) => updateTurso({ enabled: e.target.checked })}
+                className="h-4 w-4"
               />
               <span>{t(lang, "integrationsTurso")}</span>
             </label>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {t(lang, "integrationsTursoHint")}
+            </p>
+
+            {turso.enabled && (
+              <div className="mt-2 space-y-2 border-l-2 border-line pl-3">
+                {!envTursoUrlSet && (
+                  <label className="block text-xs">
+                    <span className="text-muted-foreground">{t(lang, "integrationsTursoUrl")}</span>
+                    <input
+                      type="text"
+                      value={turso.databaseUrl ?? ""}
+                      onChange={(e) => updateTurso({ databaseUrl: e.target.value })}
+                      placeholder={t(lang, "integrationsTursoUrlPlaceholder")}
+                      className="mt-1 w-full rounded border border-line bg-surface px-2 py-1 text-foreground"
+                    />
+                  </label>
+                )}
+                {!envTursoTokenSet && (
+                  <label className="block text-xs">
+                    <span className="text-muted-foreground">{t(lang, "integrationsTursoToken")}</span>
+                    <input
+                      type="password"
+                      value={turso.authToken ?? ""}
+                      onChange={(e) => updateTurso({ authToken: e.target.value })}
+                      placeholder={t(lang, "integrationsTursoTokenPlaceholder")}
+                      className="mt-1 w-full rounded border border-line bg-surface px-2 py-1 text-foreground"
+                    />
+                  </label>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}

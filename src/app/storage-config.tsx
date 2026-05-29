@@ -21,6 +21,7 @@ type Props = {
   onGrantWrite: () => Promise<void>;
   m365Enabled: boolean;
   sharepointEnabled: boolean;
+  tursoEnabled: boolean;
 };
 
 const STORAGE_OPTIONS: Array<{
@@ -47,6 +48,7 @@ export function StorageConfigSection({
   onGrantWrite,
   m365Enabled,
   sharepointEnabled,
+  tursoEnabled,
 }: Props) {
   const [picking, setPicking] = useState<"save" | "open" | "grant" | null>(
     null,
