@@ -1,3 +1,11 @@
+// 0.28.1 is an internal security + code-quality pass with no user-facing
+// behavior change: the Jira proxy now rejects plaintext http:// site URLs
+// (HTTPS only, so Basic credentials are never sent in the clear) and blocks
+// IPv6 unique-local / link-local / IPv4-mapped private hosts (SSRF hardening);
+// the eight /api/jira/* routes share a parseJiraRequest entry point; shared UI
+// was extracted (combobox-shared, modal-edit-fields, a report-table shell, and
+// a useSortableFilter hook); dead code and unnecessary exports were removed;
+// and the RAID report panel gained test coverage.
 // 0.28.0 improves Turso network-failure UX: switching to a Turso backend when
 // the server is down or the database is unreachable now shows a clear
 // "storage unreachable — is the server running?" toast; the switch is aborted
@@ -330,7 +338,7 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.28.0";
+export const APP_VERSION = "0.28.1";
 export const APP_BUILD_DATE = "2026-05-29"; // Jemisin milestone
 export const APP_REPO_URL = "https://www.example.com";
 
