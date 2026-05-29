@@ -33,7 +33,14 @@ export function useOutlookContacts(
   acquireToken: (scopes: readonly string[]) => Promise<string | null>,
 ): UseOutlookContactsResult {
   const fetchContacts = useCallback(async (): Promise<OutlookContact[]> => {
-    const token = await acquireToken(["Contacts.Read"]);
+    let token: string | null;
+    try {
+      token = await acquireToken(["Contacts.Read"]);
+    } catch {
+      // MSAL silent-token failure (e.g. InteractionRequiredAuthError):
+      // the session/consent needs interactive renewal.
+      throw new Error("outlookSignInExpired");
+    }
     if (!token) throw new Error("outlookSignInRequired");
 
     const out: OutlookContact[] = [];

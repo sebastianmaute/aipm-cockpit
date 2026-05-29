@@ -83,4 +83,11 @@ describe("useOutlookContacts", () => {
     const { result } = renderHook(() => useOutlookContacts(acquireToken));
     await expect(result.current.fetchContacts()).rejects.toThrow("outlookFetchFailed");
   });
+
+  it("maps a thrown acquireToken (interaction required) to outlookSignInExpired", async () => {
+    const acquireToken = vi.fn().mockRejectedValue(new Error("interaction_required"));
+    const { result } = renderHook(() => useOutlookContacts(acquireToken));
+    await expect(result.current.fetchContacts()).rejects.toThrow("outlookSignInExpired");
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
 });

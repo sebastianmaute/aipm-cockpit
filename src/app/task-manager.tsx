@@ -601,7 +601,7 @@ function TaskManagerInner() {
         onEditResource={guardEdit(handleEditResource)}
         onAddResource={guardEdit(handleOpenAddResource)}
         onImportOutlook={
-          outlookContactsEnabled && msAuth.account
+          outlookContactsEnabled && msAuth.account && !importLoading
             ? () => { void handleOpenOutlookImport(); }
             : undefined
         }
