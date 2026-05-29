@@ -28,7 +28,9 @@ export interface OutlookEvent {
   showAs: string;
 }
 
-/** Time-away = an all-day block or an explicit Out-of-Office event. */
+/** Time-away = an all-day block or an explicit Out-of-Office event. Graph's
+ *  other `showAs` values (busy/tentative/free/workingElsewhere) are NOT
+ *  treated as absences — only all-day and "oof" represent being away. */
 export function isTimeAway(raw: GraphEvent): boolean {
   return raw.isAllDay === true || raw.showAs === "oof";
 }

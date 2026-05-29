@@ -74,6 +74,14 @@ describe("mapGraphEvent", () => {
     expect(m.sourceId).toBe("event-7");
     expect(m.subject).toBe("");
   });
+  it("handles all-day exclusive-end across a year boundary", () => {
+    const m = mapGraphEvent(
+      { id: "ny", start: { dateTime: "2026-12-31T00:00:00" }, end: { dateTime: "2027-01-01T00:00:00" }, isAllDay: true, showAs: "oof" },
+      0,
+    )!;
+    expect(m.startDate).toBe("2026-12-31");
+    expect(m.endDate).toBe("2026-12-31"); // exclusive end 2027-01-01 → inclusive 2026-12-31
+  });
 });
 
 describe("dedupeKey", () => {
@@ -131,5 +139,12 @@ describe("eventsToAbsences", () => {
   it("omits note when subject is blank", () => {
     const out = eventsToAbsences([{ event: { ...ev, subject: "" }, type: "other" }], [], target, STAMP);
     expect(out[0].note).toBeUndefined();
+  });
+  it("dedups when the existing absence has mixed-case assignee", () => {
+    const existing: Absence[] = [
+      { id: 1, assignee: "Alex Doe", startDate: "2026-06-01", endDate: "2026-06-03", type: "vacation" },
+    ];
+    const out = eventsToAbsences([{ event: ev, type: "vacation" }], existing, target, STAMP);
+    expect(out).toHaveLength(1); // duplicate skipped despite case difference
   });
 });
