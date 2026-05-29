@@ -347,7 +347,7 @@
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
 export const APP_VERSION = "0.29.0";
-export const APP_BUILD_DATE = "2026-05-29"; // Chambers milestone
+export const APP_BUILD_DATE = "2026-05-29"; // Okorafor milestone
 export const APP_REPO_URL = "https://www.example.com";
 
 /** Translation keys for the high-level feature highlights shown in the

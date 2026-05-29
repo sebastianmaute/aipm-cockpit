@@ -23,4 +23,40 @@ describe("SettingsMenu layout control", () => {
     fireEvent.click(screen.getByRole("radio", { name: "Classic" }));
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ layout: "classic" }));
   });
+
+  it("shows the panel when controlled open=true without clicking the trigger", () => {
+    render(
+      <SettingsMenu
+        settings={defaultSettings}
+        onChange={() => {}}
+        storageDescription={null}
+        storageReady
+        onPickStorageFile={asyncNoop}
+        onOpenStorageFile={asyncNoop}
+        onGrantStorageWrite={asyncNoop}
+        onRequestStorageSwitch={() => {}}
+        open
+        onOpenChange={() => {}}
+      />,
+    );
+    expect(screen.getByRole("radio", { name: "Classic" })).toBeInTheDocument();
+  });
+
+  it("hides the panel when controlled open=false", () => {
+    render(
+      <SettingsMenu
+        settings={defaultSettings}
+        onChange={() => {}}
+        storageDescription={null}
+        storageReady
+        onPickStorageFile={asyncNoop}
+        onOpenStorageFile={asyncNoop}
+        onGrantStorageWrite={asyncNoop}
+        onRequestStorageSwitch={() => {}}
+        open={false}
+        onOpenChange={() => {}}
+      />,
+    );
+    expect(screen.queryByRole("radio", { name: "Classic" })).not.toBeInTheDocument();
+  });
 });

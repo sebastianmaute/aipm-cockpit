@@ -56,6 +56,15 @@ describe("useHashView", () => {
     expect(window.location.hash).toBe("#raid");
   });
 
+  it("does nothing when disabled", () => {
+    window.location.hash = "";
+    const { result } = renderHook(
+      () => { useHashView(false); return useWorkspaceTab(); },
+      { wrapper },
+    );
+    expect(result.current.activeTab).toBe("chat");
+  });
+
   it("removes the hashchange listener on unmount", () => {
     window.location.hash = "";
     const removeSpy = vi.spyOn(window, "removeEventListener");

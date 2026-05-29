@@ -97,7 +97,16 @@ function TaskManagerInner() {
     startColResize,
   } = useColumnManager();
   const { isPopout, activeTab, setActiveTab } = useWorkspaceTab();
-  useHashView();
+  useHashView(settings.layout === "modern");
+  // Classic mode has no panel for the modern-only views; fall back to chat.
+  useEffect(() => {
+    if (
+      settings.layout === "classic" &&
+      (activeTab === "open-points" || activeTab === "settings" || activeTab === "edit")
+    ) {
+      setActiveTab("chat");
+    }
+  }, [settings.layout, activeTab, setActiveTab]);
   const { setRaidFilterTaskId } = useFilters();
   // Tasks data + derivations owned by WorkspaceProvider (Slice 2 of the
   // task-manager decomposition; see
@@ -178,6 +187,7 @@ function TaskManagerInner() {
   const birthdaySnooze = useReminderSnooze("birthday");
   const jiraTokenSnooze = useReminderSnooze("jiraToken");
   const [jiraTokenDismissed, setJiraTokenDismissed] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const jiraTokenAlert = useMemo(
     () => getJiraTokenAlert(settings.jira, today, settings.notifications.reminderLeadDays),
     [settings.jira, today, settings.notifications.reminderLeadDays],
@@ -713,6 +723,8 @@ function TaskManagerInner() {
         onOpenStorageFile={onOpenStorageFile}
         onGrantStorageWrite={onGrantWriteAccess}
         onRequestStorageSwitch={onRequestStorageSwitch}
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
       />
     </>
   );
@@ -873,7 +885,10 @@ function TaskManagerInner() {
       <ModernShell
         lang={lang}
         activeView={activeTab}
-        onNavigate={(v) => setActiveTab(v)}
+        onNavigate={(v) => {
+          if (v === "settings") { setSettingsOpen(true); return; }
+          setActiveTab(v);
+        }}
         version={APP_VERSION}
         bannerCount={bannerItems.length}
         onNewTask={() => { handleCancelEdit(); setTaskModalOpen(true); }}

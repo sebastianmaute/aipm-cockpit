@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { COUNTRIES } from "./holidays";
 import { type Lang, type TranslationKey, t } from "./i18n";
 import { JiraSettingsSection } from "./jira-settings";
@@ -182,6 +182,8 @@ export function SettingsMenu({
   onOpenStorageFile,
   onGrantStorageWrite,
   onRequestStorageSwitch,
+  open: controlledOpen,
+  onOpenChange,
 }: {
   settings: Settings;
   onChange: (s: Settings) => void;
@@ -191,8 +193,18 @@ export function SettingsMenu({
   onOpenStorageFile: () => Promise<void>;
   onGrantStorageWrite: () => Promise<void>;
   onRequestStorageSwitch: (kind: StorageKind) => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = controlledOpen ?? internalOpen;
+  const setOpen = useCallback(
+    (next: boolean) => {
+      if (onOpenChange) onOpenChange(next);
+      else setInternalOpen(next);
+    },
+    [onOpenChange],
+  );
   const [pending, setPending] = useState("");
   const ref = useRef<HTMLDivElement>(null);
   const lang = settings.language;
@@ -240,7 +252,7 @@ export function SettingsMenu({
       document.removeEventListener("mousedown", onMouseDown);
       document.removeEventListener("keydown", onKey);
     };
-  }, [open]);
+  }, [open, setOpen]);
 
   const countryName = (code: string) => {
     const c = COUNTRIES.find((c) => c.code === code);
@@ -272,7 +284,7 @@ export function SettingsMenu({
     <div ref={ref} className="relative">
       <button
         type="button"
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => setOpen(!open)}
         aria-label={t(lang, "settings")}
         aria-expanded={open}
         className="rounded-md p-2 text-muted-foreground hover:bg-surface-muted hover:text-foreground focus:outline-none focus:ring-2 focus:ring-AIPM-green"
