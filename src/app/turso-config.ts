@@ -13,7 +13,9 @@ export interface TursoConfig {
   authToken: string;
 }
 
-/** Loopback hosts that may be reached over plaintext http (local tursodb). */
+/** Loopback hosts that may be reached over plaintext http (local tursodb).
+ *  `new URL(...).hostname` is already lowercased by the WHATWG parser, so only
+ *  lowercase entries are needed here (e.g. "http://LOCALHOST" → "localhost"). */
 function isLoopbackHost(hostname: string): boolean {
   return (
     hostname === "localhost" ||

@@ -60,8 +60,18 @@ describe("getTursoConfig", () => {
     });
   });
 
-  it("rejects plaintext http for non-loopback hosts", () => {
+  it("rejects plaintext http for non-loopback hosts (incl. loopback-lookalikes)", () => {
     expect(getTursoConfig("http://db.example.com", "tok")).toBeNull();
+    expect(getTursoConfig("http://127.0.0.1.evil.com", "tok")).toBeNull();
+    expect(getTursoConfig("http://localhost.evil.com", "tok")).toBeNull();
+    expect(getTursoConfig("http://localhost.", "tok")).toBeNull();
+  });
+
+  it("treats an uppercased loopback host as loopback (URL lowercases the hostname)", () => {
+    expect(getTursoConfig("http://LOCALHOST:8080", "")).toEqual({
+      httpUrl: "http://localhost:8080",
+      authToken: "",
+    });
   });
 
   it("still requires a token for remote https / libsql endpoints", () => {
