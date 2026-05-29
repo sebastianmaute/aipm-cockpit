@@ -935,6 +935,15 @@ const enUS = {
   versionHighlightRaidReport: "RAID Report: a steering-committee overview of open risks, issues, assumptions and dependencies — with a drill-down to the full item list.",
   versionHighlightPrintReports: "Reports, RAID Report and Resources Report now have a Print button — produces a clean A4-fitting handout via the browser's print dialog.",
 
+  outlookImportTitle: "Import Outlook contacts",
+  outlookImportLoading: "Loading contacts…",
+  outlookImportEmpty: "No Outlook contacts found.",
+  outlookImportExisting: "already in directory · will update",
+  outlookImportSelectAll: "Select all",
+  outlookImportSelectedN: "{0} selected",
+  outlookImportConfirm: "Import ({0})",
+  outlookImportCancel: "Cancel",
+
   integrations: "Integrations",
   integrationsM365: "Microsoft 365 integration",
   integrationsM365Hint: "Sign in with Microsoft to enable SharePoint, Outlook contacts, and calendar features.",
