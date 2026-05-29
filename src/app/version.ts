@@ -1,3 +1,8 @@
+// 0.24.0 adds Outlook calendar import (M4) — sign in with Microsoft, then pull
+// time-away events (all-day + Out-of-Office) from your Outlook calendar into the
+// resource calendar as absences. Preview-and-pick dialog from Resources ›
+// Calendar with a per-row absence-type selector. Completes the M365 integration
+// suite (auth, SharePoint storage, Outlook contacts, Outlook calendar).
 // 0.23.1 hardens the MSAL token flow shared by the M365 integrations: when a
 // caller explicitly opts into interactivity (Outlook contacts import, SharePoint
 // load/save), a silent-token failure now falls back to an interactive consent
@@ -295,7 +300,7 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.23.1";
+export const APP_VERSION = "0.24.0";
 export const APP_BUILD_DATE = "2026-05-29"; // Jemisin milestone
 export const APP_REPO_URL = "https://www.example.com";
 
@@ -329,4 +334,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightM365Auth",
   "versionHighlightSharepointStorage",
   "versionHighlightOutlookContacts",
+  "versionHighlightOutlookCalendar",
 ] as const;
