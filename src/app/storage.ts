@@ -120,7 +120,8 @@ export type StorageKind =
   | "local-csv"
   | "local-md"
   | "sp-json"
-  | "sp-csv";
+  | "sp-csv"
+  | "turso";
 
 type LocalKind = "local-json" | "local-csv" | "local-md";
 
