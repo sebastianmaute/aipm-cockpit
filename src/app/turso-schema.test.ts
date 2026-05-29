@@ -35,12 +35,17 @@ describe("rowsToWorkspace", () => {
     const ws = emptyWorkspace();
     ws.tasks = [{ id: 1, taskName: "T", assignee: "Al", assigneeEmail: "", dueDate: "2026-06-01", lastUpdateDate: "2026-06-01", priority: "Medium", blockers: "", notes: "", labels: ["x"], dependencies: [] } as never];
     ws.resources = [{ id: 5, firstName: "Al", lastName: "B", roleId: null, utilizationMode: "percent", utilization: { "2026-02": 100 } } as never];
+    ws.raid = [{ id: 2, category: "R", title: "Risk", status: "Open", raisedDate: "2026-06-01", linkedTaskIds: [], severity: "Low", probability: "Low", impact: "Low" } as never];
+    ws.fxRates = { base: "EUR", date: "2026-05-29", fetchedAt: "2026-05-29T00:00:00.000Z", rates: { EUR: 1, USD: 1.08 } } as never;
     const out = rowsToWorkspace(resultsFromStatements(workspaceToStatements(ws)));
     expect(out.tasks).toHaveLength(1);
     expect(out.tasks[0].id).toBe(1);
     expect(out.tasks[0].labels).toEqual(["x"]);
-    expect(out.resources).toHaveLength(1);
     expect(out.resources[0].utilization).toEqual({ "2026-02": 100 });
+    expect(out.raid).toHaveLength(1);
+    expect(out.raid[0].id).toBe(2);
+    expect(out.fxRates?.base).toBe("EUR");
+    expect(out.fxRates?.rates.USD).toBeCloseTo(1.08);
     expect(out.plan).toBeTruthy();
   });
 

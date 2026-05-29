@@ -39,6 +39,9 @@ function spec<T>(s: EntitySpec<T>): EntitySpec<T> { return s; }
 const anyToRow = (r: unknown, c: string) =>
   String((r as Record<string, unknown>)[c] ?? "");
 
+// Heterogeneous registry: each spec's wsKey MUST point to a `T[]` field on
+// Workspace (enforced structurally by spec<T>() before the union-erasing cast
+// below). rowsToWorkspace assigns the sanitized T[] back to ws[wsKey].
 export const ENTITY_SPECS: EntitySpec<unknown>[] = [
   spec<Task>({ table: "tasks", wsKey: "tasks", columns: CSV_COLUMNS, get: (w) => w.tasks, toRow: fieldToString as unknown as (e: Task, col: string) => string, fromObj: buildTaskFromObj }),
   spec<RaidItem>({ table: "raid", wsKey: "raid", columns: RAID_CSV_COLUMNS, get: (w) => w.raid, toRow: raidFieldToString as unknown as (e: RaidItem, col: string) => string, fromObj: buildRaidItemFromObj }),
@@ -92,6 +95,9 @@ function rowObjects(res: PipelineResultLike | undefined): Record<string, string>
 
 /** Assemble a Workspace from selectStatements() results (TABLE_NAMES order). */
 export function rowsToWorkspace(results: PipelineResultLike[]): Workspace {
+  if (results.length < TABLE_NAMES.length) {
+    throw new Error(`rowsToWorkspace: expected at least ${TABLE_NAMES.length} results, got ${results.length}`);
+  }
   const byTable = new Map<string, PipelineResultLike>();
   TABLE_NAMES.forEach((t, i) => byTable.set(t, results[i]));
 
