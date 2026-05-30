@@ -218,6 +218,29 @@ describe("TaskRow zebra striping", () => {
     const tr = container.querySelector("tbody tr");
     expect(tr?.className).not.toContain("bg-surface-muted/40");
   });
+
+  test("editing state wins over striping (no stripe on an editing row)", () => {
+    const ctx = makeContext();
+    const { container } = render(
+      rowWrapper({
+        context: ctx,
+        children: (
+          <TaskRow
+            task={makeTask({ id: 4 })}
+            isSelected={false}
+            isEditing
+            isExpanded={false}
+            isPushing={false}
+            raidRefs={undefined}
+            isStriped
+          />
+        ),
+      }),
+    );
+    const tr = container.querySelector("tbody tr");
+    expect(tr?.className).toContain("bg-AIPM-purple/10");
+    expect(tr?.className).not.toContain("bg-surface-muted/40");
+  });
 });
 
 describe("useTaskRowContext", () => {

@@ -156,6 +156,9 @@ function TaskRowImpl({
     ? t(lang, "completedOn", task.completedDate!)
     : formatHealthTooltip(health, lang);
 
+  // Precedence: editing > selected > completed > zebra stripe. The selected
+  // branch intentionally drops the stripe — full-opacity bg-surface-muted
+  // already covers the /40 tint.
   const stateClass = isEditing
     ? "bg-AIPM-purple/10 dark:bg-AIPM-purple/15"
     : isSelected
