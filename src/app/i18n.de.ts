@@ -20,6 +20,7 @@ export const de: Record<TranslationKey, string> = {
   id: "ID",
   priority: "Priorität",
   taskName: "Aufgabenname",
+  taskEditDetailsHeading: "Aufgabendetails",
   assignee: "Zugewiesen an",
   email: "E-Mail",
   startDate: "Startdatum",

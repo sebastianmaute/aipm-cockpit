@@ -16,6 +16,7 @@ const enUS = {
   id: "ID",
   priority: "Priority",
   taskName: "Task name",
+  taskEditDetailsHeading: "Task details",
   assignee: "Assignee",
   email: "Email",
   startDate: "Start date",
