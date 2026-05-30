@@ -1,11 +1,9 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { useRef } from "react";
 import { TestProviders } from "./test-providers";
 import { TaskFormFields } from "./task-form-fields";
 
 function Harness() {
-  const ref = useRef<HTMLDivElement | null>(null);
   return (
     <form aria-label="form">
       <TaskFormFields
