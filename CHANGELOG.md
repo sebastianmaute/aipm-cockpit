@@ -8,6 +8,17 @@ Authoritative source for version + build date: [`src/app/version.ts`](src/app/ve
 This file is seeded from that module's milestone comment plus the
 post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-diff.txt).
 
+## [0.32.1] — 2026-05-30
+
+### Fixed
+- The responsive sidebar no longer flashes its expanded state for a frame on narrow viewports before collapsing — the media-query hook now reads the match during render (via `useSyncExternalStore`) instead of correcting it in an effect after the first paint.
+
+### Changed
+- All Microsoft 365 sign-in consumers (Settings, the sidebar footer, storage configuration, and the storage backend) now share a single session store, so signing in or out anywhere updates everywhere immediately and MSAL initializes only once. No change to the sign-in flow itself.
+
+### Internal
+- The shell palette guard now also rejects off-palette gradient color-stop utilities (`from-`/`to-`/`via-[#hex]`), and gained self-tests for its detection patterns.
+
 ## [0.32.0] — 2026-05-30 "Jemisin"
 
 ### Added

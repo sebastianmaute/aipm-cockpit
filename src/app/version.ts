@@ -1,3 +1,11 @@
+// 0.32.1 is an internal quality pass with one user-facing fix and no new
+// feature surface: the responsive sidebar no longer flashes its expanded state
+// for a frame on narrow viewports before collapsing (useMediaQuery now reads
+// the match live via useSyncExternalStore instead of correcting in an effect);
+// all useMsAuth consumers (settings, sidebar footer, storage config, storage
+// backend) share one session store, so a Microsoft sign-in/out anywhere now
+// propagates live everywhere and MSAL initializes once; and the shell palette
+// guard also rejects off-palette gradient color-stops (from-/to-/via-[#hex]).
 // 0.32.0 "Jemisin" is Phase 4 of the modern layout: responsive shell polish.
 // The sidebar gains a collapsible icon rail that auto-collapses on narrow
 // screens (with a persisted collapse preference) and a top-bar menu button to
@@ -365,8 +373,8 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.32.0";
-export const APP_BUILD_DATE = "2026-05-30"; // Jemisin milestone
+export const APP_VERSION = "0.32.1";
+export const APP_BUILD_DATE = "2026-05-30"; // Jemisin point release
 export const APP_REPO_URL = "https://www.example.com";
 
 /** Translation keys for the high-level feature highlights shown in the
