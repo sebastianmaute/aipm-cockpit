@@ -1056,6 +1056,14 @@ const enUS = {
   sidebarMenuButton: "Open navigation menu",
   sidebarSignOut: "Sign out",
   skipToContent: "Skip to content",
+  settingsSectionAppearance: "Appearance",
+  settingsSectionLocalization: "Language & Holidays",
+  settingsSectionGeneral: "General",
+  settingsSectionNotifications: "Notifications",
+  settingsSectionAi: "AI Assistant",
+  settingsSectionJira: "Jira",
+  settingsSectionStorage: "Storage",
+  settingsSectionIntegrations: "Integrations",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;

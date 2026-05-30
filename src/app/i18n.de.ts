@@ -1074,4 +1074,12 @@ export const de: Record<TranslationKey, string> = {
   sidebarMenuButton: "Navigationsmenü öffnen",
   sidebarSignOut: "Abmelden",
   skipToContent: "Zum Inhalt springen",
+  settingsSectionAppearance: "Darstellung",
+  settingsSectionLocalization: "Sprache & Feiertage",
+  settingsSectionGeneral: "Allgemein",
+  settingsSectionNotifications: "Benachrichtigungen",
+  settingsSectionAi: "KI-Assistent",
+  settingsSectionJira: "Jira",
+  settingsSectionStorage: "Speicher",
+  settingsSectionIntegrations: "Integrationen",
 };

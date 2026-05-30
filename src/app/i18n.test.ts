@@ -17,3 +17,15 @@ describe("modern-layout i18n keys", () => {
     for (const k of NEW_KEYS) expect(de[k]).toBeTruthy();
   });
 });
+
+describe("settings-section rail labels", () => {
+  it("exposes the 8 settings section labels in en-US", () => {
+    for (const k of [
+      "settingsSectionAppearance","settingsSectionLocalization","settingsSectionGeneral",
+      "settingsSectionNotifications","settingsSectionAi","settingsSectionJira",
+      "settingsSectionStorage","settingsSectionIntegrations",
+    ] as const) {
+      expect(t("en-US", k)).toBeTruthy();
+    }
+  });
+});
