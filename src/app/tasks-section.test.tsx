@@ -176,6 +176,15 @@ describe("TasksSection", () => {
     expect(container.querySelector("table")).toBeInTheDocument();
   });
 
+  it("renders a Dark-Blue sticky table header", () => {
+    const task = { id: 1, taskName: "T1" };
+    stubWorkspace([task], [task]);
+    const { container } = render(<TasksSection {...makeProps()} />);
+    const thead = container.querySelector("thead");
+    expect(thead?.className).toContain("bg-AIPM-dark-blue");
+    expect(thead?.className).not.toContain("bg-surface-muted");
+  });
+
   it("inline add row is present when tasks list is non-empty", () => {
     const task = { id: 1, taskName: "T1" };
     stubWorkspace([task], [task]);

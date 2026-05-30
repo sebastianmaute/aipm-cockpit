@@ -11,6 +11,7 @@ import { useTaskForm } from "./task-form-context";
 import { BulkEditModal } from "./bulk-edit-modal";
 import { RowContextProvider, TaskRow, type RowContextValue } from "./task-row";
 import { DEFAULT_COL_WIDTHS } from "./use-column-manager";
+import { TABLE_HEAD_CLASS } from "./table-styles";
 import {
   EraserIcon,
   ResetColWidthsButton,
@@ -448,7 +449,7 @@ export function TasksSection({
                   <col key={col} style={{ width: colWidths[col] ?? DEFAULT_COL_WIDTHS[col] }} />
                 ))}
             </colgroup>
-            <thead className="sticky top-0 z-10 bg-surface-muted text-xs uppercase tracking-wide text-muted-foreground">
+            <thead className={TABLE_HEAD_CLASS}>
               <tr>
                 <Th onResize={(e) => startColResize("sel", e)}>
                   <input
