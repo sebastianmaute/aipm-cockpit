@@ -493,7 +493,7 @@ export function TasksSection({
                   </td>
                 </tr>
               )}
-              {filteredSortedTasks.map((task) => (
+              {filteredSortedTasks.map((task, i) => (
                 <TaskRow
                   key={task.id}
                   task={task}
@@ -502,6 +502,7 @@ export function TasksSection({
                   isExpanded={expandedNotes.has(task.id)}
                   isPushing={pushingIds.has(task.id)}
                   raidRefs={raidByTask.get(task.id)}
+                  isStriped={i % 2 === 1}
                 />
               ))}
               <tr>

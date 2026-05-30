@@ -174,6 +174,52 @@ describe("TaskRow", () => {
   });
 });
 
+describe("TaskRow zebra striping", () => {
+  test("striped row carries the alternating background", () => {
+    const ctx = makeContext();
+    const { container } = render(
+      rowWrapper({
+        context: ctx,
+        children: (
+          <TaskRow
+            task={makeTask({ id: 2 })}
+            isSelected={false}
+            isEditing={false}
+            isExpanded={false}
+            isPushing={false}
+            raidRefs={undefined}
+            isStriped
+          />
+        ),
+      }),
+    );
+    const tr = container.querySelector("tbody tr");
+    expect(tr?.className).toContain("bg-surface-muted/40");
+  });
+
+  test("unstriped default row has no alternating background", () => {
+    const ctx = makeContext();
+    const { container } = render(
+      rowWrapper({
+        context: ctx,
+        children: (
+          <TaskRow
+            task={makeTask({ id: 3 })}
+            isSelected={false}
+            isEditing={false}
+            isExpanded={false}
+            isPushing={false}
+            raidRefs={undefined}
+            isStriped={false}
+          />
+        ),
+      }),
+    );
+    const tr = container.querySelector("tbody tr");
+    expect(tr?.className).not.toContain("bg-surface-muted/40");
+  });
+});
+
 describe("useTaskRowContext", () => {
   test("throws a documented error when used outside RowContext.Provider", () => {
     const original = console.error;

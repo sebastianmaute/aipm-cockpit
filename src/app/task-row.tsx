@@ -128,6 +128,7 @@ interface TaskRowProps {
   isExpanded: boolean;
   isPushing: boolean;
   raidRefs: RaidItem[] | undefined;
+  isStriped?: boolean;
 }
 
 function TaskRowImpl({
@@ -137,6 +138,7 @@ function TaskRowImpl({
   isExpanded,
   isPushing,
   raidRefs,
+  isStriped = false,
 }: TaskRowProps) {
   const {
     lang,
@@ -154,10 +156,18 @@ function TaskRowImpl({
     ? t(lang, "completedOn", task.completedDate!)
     : formatHealthTooltip(health, lang);
 
+  const stateClass = isEditing
+    ? "bg-AIPM-purple/10 dark:bg-AIPM-purple/15"
+    : isSelected
+      ? "bg-surface-muted"
+      : isComplete
+        ? `opacity-60${isStriped ? " bg-surface-muted/40" : ""}`
+        : isStriped
+          ? "bg-surface-muted/40"
+          : "";
+
   return (
-    <tr
-      className={`align-top ${isEditing ? "bg-AIPM-purple/10 dark:bg-AIPM-purple/15" : isSelected ? "bg-surface-muted" : isComplete ? "opacity-60" : ""}`}
-    >
+    <tr className={`align-top ${stateClass}`}>
       <Td>
         <input
           type="checkbox"
