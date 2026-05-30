@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { SegmentedControl } from "./segmented-control";
+import { TABLE_HEAD_CLASS } from "./table-styles";
 import { type Lang, t } from "./i18n";
 import { PrintButton } from "./task-manager-ui";
 import {
@@ -240,7 +241,7 @@ function ReportTableShell({
   return (
     <div className="overflow-x-auto rounded-md border border-line">
       <table className="min-w-full text-left text-sm">
-        <thead className="sticky top-0 z-10 bg-surface-muted text-xs uppercase tracking-wide text-muted-foreground">
+        <thead className={TABLE_HEAD_CLASS}>
           <tr>{head}</tr>
         </thead>
         <tbody className="divide-y divide-line">{children}</tbody>
@@ -286,7 +287,7 @@ function FullDetail({ lang, rows }: { lang: Lang; rows: RaidReport["fullDetail"]
   return (
     <div className="overflow-x-auto rounded-md border border-line">
       <table className="min-w-full text-left text-sm">
-        <thead className="sticky top-0 z-10 bg-surface-muted text-xs uppercase tracking-wide text-muted-foreground">
+        <thead className={TABLE_HEAD_CLASS}>
           <tr>
             <SortTh label={t(lang, "id")} k="id" sortKey={sortKey} dir={sortDir} onClick={clickHeader} indicator={indicator("id")} />
             <SortTh label={t(lang, "raidCategory")} k="category" sortKey={sortKey} dir={sortDir} onClick={clickHeader} indicator={indicator("category")} />
@@ -341,7 +342,7 @@ function SortTh({
       <button
         type="button"
         onClick={() => onClick(k)}
-        className={`inline-flex items-center gap-1 ${active ? "text-foreground" : ""} hover:text-foreground`}
+        className={`inline-flex items-center gap-1 ${active ? "text-AIPM-green" : ""} hover:text-AIPM-green`}
       >
         {label}{indicator}
       </button>

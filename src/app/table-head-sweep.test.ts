@@ -7,7 +7,7 @@ const LEGACY_HEAD =
   "bg-surface-muted text-xs uppercase tracking-wide text-muted-foreground";
 
 // Files swept so far. Grown in Tasks 5 and 6.
-const SWEPT_FILES = ["tasks-section.tsx"];
+const SWEPT_FILES = ["tasks-section.tsx", "raid-panel.tsx", "raid-report-panel.tsx"];
 
 describe("table header sweep", () => {
   // Fail loudly (not with an opaque ENOENT) if the cwd-based path assumption
