@@ -53,8 +53,8 @@ import { APP_VERSION } from "./version";
 import { ExportMenu } from "./export-menu";
 import { HelpMenu } from "./help-menu";
 import { VersionMenu } from "./version-menu";
-import { SettingsMenu } from "./settings-menu";
 import { makeEditGuard } from "./read-only-guard";
+import { SettingsView } from "./settings-view";
 import { ReadOnlyMirrorBanner } from "./read-only-mirror-banner";
 import { VoiceCommandProvider } from "./voice-command-context";
 import { useMsAuth } from "./use-ms-auth";
@@ -211,7 +211,6 @@ function TaskManagerInner() {
   const birthdaySnooze = useReminderSnooze("birthday");
   const jiraTokenSnooze = useReminderSnooze("jiraToken");
   const [jiraTokenDismissed, setJiraTokenDismissed] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const jiraTokenAlert = useMemo(
     () => getJiraTokenAlert(settings.jira, today, settings.notifications.reminderLeadDays),
     [settings.jira, today, settings.notifications.reminderLeadDays],
@@ -773,6 +772,20 @@ function TaskManagerInner() {
     />
   );
 
+  const settingsViewEl = (
+    <SettingsView
+      lang={lang}
+      settings={settings}
+      onChange={setSettings}
+      storageDescription={storageDescription}
+      storageReady={storageReady}
+      onPickStorageFile={onPickStorageFile}
+      onOpenStorageFile={onOpenStorageFile}
+      onGrantStorageWrite={onGrantWriteAccess}
+      onRequestStorageSwitch={onRequestStorageSwitch}
+    />
+  );
+
   // The action-cluster menus that AppHeader renders in classic mode. Reused by
   // the modern TopBar (which renders the + and bell buttons itself).
   const topBarMenus = (
@@ -785,18 +798,6 @@ function TaskManagerInner() {
       <ExportMenu lang={lang} tasks={tasks} raid={raid} absences={absences} shifts={shifts} resources={resources} roles={roles} disciplines={disciplines} grades={grades} plan={plan} budgets={budgets} fxRates={fxRates} />
       <HelpMenu lang={lang} />
       <VersionMenu lang={lang} />
-      <SettingsMenu
-        settings={settings}
-        onChange={setSettings}
-        storageDescription={storageDescription}
-        storageReady={storageReady}
-        onPickStorageFile={onPickStorageFile}
-        onOpenStorageFile={onOpenStorageFile}
-        onGrantStorageWrite={onGrantWriteAccess}
-        onRequestStorageSwitch={onRequestStorageSwitch}
-        open={settingsOpen}
-        onOpenChange={setSettingsOpen}
-      />
     </>
   );
 
@@ -957,10 +958,7 @@ function TaskManagerInner() {
       <ModernShell
         lang={lang}
         activeView={activeTab}
-        onNavigate={(v) => {
-          if (v === "settings") { setSettingsOpen(true); return; }
-          setActiveTab(v);
-        }}
+        onNavigate={(v) => setActiveTab(v)}
         version={APP_VERSION}
         bannerCount={bannerItems.length}
         onNewTask={() => { handleCancelEdit(); setTaskModalOpen(true); }}
@@ -986,6 +984,7 @@ function TaskManagerInner() {
         editView={editViewEl}
         editTitle={editTitle}
         editActions={editActions}
+        settingsView={settingsViewEl}
       />
       {modalsBlock}
     </>
