@@ -117,6 +117,18 @@ describe("AppModals", () => {
     expect(screen.getByTestId("task-form-modal")).toBeInTheDocument();
   });
 
+  it("hides the task form modal when showTaskFormModal is false", () => {
+    stubTaskForm();
+    render(<AppModals {...makeProps()} showTaskFormModal={false} />);
+    expect(screen.queryByTestId("task-form-modal")).toBeNull();
+  });
+
+  it("shows the task form modal by default", () => {
+    stubTaskForm();
+    render(<AppModals {...makeProps()} />);
+    expect(screen.getByTestId("task-form-modal")).toBeInTheDocument();
+  });
+
   it("shows DueDatesModal when dueModalOpen is true", () => {
     stubTaskForm();
     render(<AppModals {...makeProps()} dueModalOpen={true} />);

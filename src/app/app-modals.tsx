@@ -19,6 +19,10 @@ export interface AppModalsProps {
   lang: Lang;
   isPopout: boolean;
 
+  /** When false, the task form modal is not rendered (modern mode uses the
+   *  full-page edit view instead). Defaults to true. */
+  showTaskFormModal?: boolean;
+
   // Due-dates modal
   dueModalOpen: boolean;
   dueModalItems: AlertableTask[];
@@ -97,6 +101,7 @@ export interface AppModalsProps {
 export function AppModals({
   lang,
   isPopout,
+  showTaskFormModal = true,
   dueModalOpen,
   dueModalItems,
   onSelectDueTask,
@@ -158,28 +163,30 @@ export function AppModals({
 }: AppModalsProps) {
   return (
     <>
-      <TaskFormModal
-        lang={lang}
-        today={today}
-        nextId={nextId}
-        contactsList={contactsList}
-        absences={absences}
-        tasksForDeps={tasksForDeps}
-        uniqueGroups={uniqueGroups}
-        uniqueLabels={uniqueLabels}
-        editingIsJiraLinked={editingIsJiraLinked}
-        jiraEnabled={jiraEnabled}
-        error={error}
-        holidaySet={holidaySet}
-        jiraProjectKey={jiraProjectKey}
-        jiraDefaultIssueType={jiraDefaultIssueType}
-        modalRef={modalRef}
-        onAddAssigneeToAddressBook={onAddAssigneeToAddressBook}
-        onSubmit={handleSubmit}
-        onCancel={handleCancelEdit}
-        onRemoveContact={handleRemoveContact}
-        onShowToast={showToast}
-      />
+      {showTaskFormModal && (
+        <TaskFormModal
+          lang={lang}
+          today={today}
+          nextId={nextId}
+          contactsList={contactsList}
+          absences={absences}
+          tasksForDeps={tasksForDeps}
+          uniqueGroups={uniqueGroups}
+          uniqueLabels={uniqueLabels}
+          editingIsJiraLinked={editingIsJiraLinked}
+          jiraEnabled={jiraEnabled}
+          error={error}
+          holidaySet={holidaySet}
+          jiraProjectKey={jiraProjectKey}
+          jiraDefaultIssueType={jiraDefaultIssueType}
+          modalRef={modalRef}
+          onAddAssigneeToAddressBook={onAddAssigneeToAddressBook}
+          onSubmit={handleSubmit}
+          onCancel={handleCancelEdit}
+          onRemoveContact={handleRemoveContact}
+          onShowToast={showToast}
+        />
+      )}
 
       {dueModalOpen && (
         <DueDatesModal
