@@ -32,4 +32,19 @@ describe("TopBar", () => {
     render(<TopBar {...base} />);
     expect(screen.queryByText("0")).toBeNull();
   });
+
+  it("renders primaryAction in place of the default New-task button", () => {
+    render(
+      <TopBar
+        lang="en-US"
+        title="Editing task #5"
+        bannerCount={0}
+        onNewTask={() => {}}
+        onShowAlerts={() => {}}
+        primaryAction={<button type="button">Save changes</button>}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "Save changes" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "New task" })).toBeNull();
+  });
 });

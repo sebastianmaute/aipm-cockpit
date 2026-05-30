@@ -7,25 +7,29 @@ interface TopBarProps {
   bannerCount: number;
   onNewTask: () => void;
   onShowAlerts: () => void;
+  /** When set, replaces the default New-task button (e.g. Save/Cancel while editing). */
+  primaryAction?: React.ReactNode;
   /** Menu components (Export/Help/Version/Settings/Voice) rendered as-is. */
   children?: React.ReactNode;
 }
 
-export function TopBar({ lang, title, bannerCount, onNewTask, onShowAlerts, children }: TopBarProps) {
+export function TopBar({ lang, title, bannerCount, onNewTask, onShowAlerts, primaryAction, children }: TopBarProps) {
   return (
     <header className="flex items-center justify-between gap-4 border-b border-line bg-surface px-6 py-3">
       <h1 className="text-xl font-semibold tracking-tight text-AIPM-dark-blue dark:text-AIPM-light-grey">
         {title}
       </h1>
       <div className="flex items-center gap-1">
-        <button
-          type="button"
-          onClick={onNewTask}
-          title={t(lang, "newTask")}
-          className="rounded-md bg-AIPM-green px-3 py-1.5 text-sm font-semibold text-AIPM-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-AIPM-green"
-        >
-          {t(lang, "newTask")}
-        </button>
+        {primaryAction ?? (
+          <button
+            type="button"
+            onClick={onNewTask}
+            title={t(lang, "newTask")}
+            className="rounded-md bg-AIPM-green px-3 py-1.5 text-sm font-semibold text-AIPM-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-AIPM-green"
+          >
+            {t(lang, "newTask")}
+          </button>
+        )}
         <button
           type="button"
           onClick={onShowAlerts}
