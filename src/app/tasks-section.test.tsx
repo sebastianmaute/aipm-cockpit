@@ -181,8 +181,9 @@ describe("TasksSection", () => {
     stubWorkspace([task], [task]);
     const { container } = render(<TasksSection {...makeProps()} />);
     const thead = container.querySelector("thead");
-    expect(thead?.className).toContain("bg-AIPM-dark-blue");
-    expect(thead?.className).not.toContain("bg-surface-muted");
+    expect(thead).not.toBeNull();
+    expect(thead!.className).toContain("bg-AIPM-dark-blue");
+    expect(thead!.className).not.toContain("bg-surface-muted");
   });
 
   it("inline add row is present when tasks list is non-empty", () => {

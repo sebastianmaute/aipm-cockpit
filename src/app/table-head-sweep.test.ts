@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 // The exact legacy header string every swept <thead> used before Phase 3.
@@ -10,6 +10,12 @@ const LEGACY_HEAD =
 const SWEPT_FILES = ["tasks-section.tsx"];
 
 describe("table header sweep", () => {
+  // Fail loudly (not with an opaque ENOENT) if the cwd-based path assumption
+  // ever breaks — e.g. vitest invoked from a subdirectory.
+  it("resolves the source directory from the vitest root", () => {
+    expect(existsSync(join(process.cwd(), "src/app"))).toBe(true);
+  });
+
   for (const file of SWEPT_FILES) {
     it(`${file} uses TABLE_HEAD_CLASS, not the legacy muted header`, () => {
       // Resolve from the vitest root (process.cwd()). Using import.meta.url
