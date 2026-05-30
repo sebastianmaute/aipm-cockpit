@@ -5,173 +5,45 @@ import { COUNTRIES } from "./holidays";
 import { type Lang, type TranslationKey, t } from "./i18n";
 import { JiraSettingsSection } from "./jira-settings";
 import { SegmentedControl } from "./segmented-control";
-import {
-  type StorageConfig,
-  type StorageKind,
-  defaultStorageConfig,
-} from "./storage";
+import { type StorageKind } from "./storage";
 import { StorageConfigSection } from "./storage-config";
 import type { Theme } from "./theme";
 import { useTheme } from "./use-theme";
 import { useMsAuth } from "./use-ms-auth";
 import { InfoTooltip } from "./info-tooltip";
+import {
+  type Settings,
+  type TursoIntegrationsSettings,
+  type M365IntegrationsSettings,
+  type ChatModel,
+  type ChannelConfig,
+  defaultIntegrations,
+  defaultM365Integrations,
+  defaultTursoIntegrations,
+} from "./settings-types";
 
-type ChatModel =
-  | "claude-sonnet-4-6"
-  | "claude-opus-4-7"
-  | "claude-haiku-4-5-20251001";
-
-export type AiConfig = {
-  apiKey: string;
-  model: ChatModel;
-  consentAccepted: boolean;
-};
-
-const defaultAiConfig: AiConfig = {
-  apiKey: "",
-  model: "claude-sonnet-4-6",
-  consentAccepted: false,
-};
-
-type ChannelConfig = { enabled: boolean };
-
-type NotificationsConfig = {
-  reminderLeadDays: number;
-  banner: ChannelConfig;
-  toast: ChannelConfig;
-  popup: ChannelConfig;
-  birthday: ChannelConfig;
-};
-
-const defaultNotificationsConfig: NotificationsConfig = {
-  reminderLeadDays: 7,
-  banner: { enabled: true },
-  toast: { enabled: true },
-  popup: { enabled: true },
-  birthday: { enabled: true },
-};
-
-export type JiraAssigneeMode = "currentUser" | "any" | "specific";
-
-export type JiraConfig = {
-  enabled: boolean;
-  /** e.g. "https://acme.atlassian.net" — no trailing slash */
-  siteUrl: string;
-  email: string;
-  apiToken: string;
-  /** e.g. "LOP" */
-  projectKey: string;
-  /** Display name of the project (cached for UI). */
-  projectName: string;
-  /** Selected issue types by name, e.g. ["Task", "Story", "Bug"]. */
-  issueTypes: string[];
-  assigneeMode: JiraAssigneeMode;
-  /** Used when assigneeMode === "specific". Jira's stable accountId. */
-  assigneeAccountId: string;
-  assigneeDisplayName: string;
-  /** Optional ISO date "YYYY-MM-DD" the user records from Atlassian; "" = unknown/never. Drives proactive warnings. */
-  tokenExpiresAt: string;
-  /** ISO timestamp set when a Jira call returns 401/403; cleared on the next successful sync/test. Drives the reactive "rejected" state. */
-  tokenInvalidAt?: string;
-};
-
-export const defaultJiraConfig: JiraConfig = {
-  enabled: false,
-  siteUrl: "",
-  email: "",
-  apiToken: "",
-  projectKey: "",
-  projectName: "",
-  issueTypes: [],
-  assigneeMode: "currentUser",
-  assigneeAccountId: "",
-  assigneeDisplayName: "",
-  tokenExpiresAt: "",
-};
-
-export type M365IntegrationsSettings = {
-  enabled: boolean;
-  clientId?: string;
-  tenantId?: string;
-  sharepoint: boolean;
-  outlookContacts: boolean;
-  outlookCalendar: boolean;
-};
-
-export type TursoIntegrationsSettings = {
-  enabled: boolean;
-  databaseUrl?: string;
-  authToken?: string;
-};
-
-export type IntegrationsSettings = {
-  m365?: M365IntegrationsSettings;
-  turso?: TursoIntegrationsSettings;
-};
-
-export const defaultM365Integrations: M365IntegrationsSettings = {
-  enabled: false,
-  sharepoint: false,
-  outlookContacts: false,
-  outlookCalendar: false,
-};
-
-export const defaultTursoIntegrations: TursoIntegrationsSettings = {
-  enabled: false,
-};
-
-export const defaultIntegrations: IntegrationsSettings = {
-  m365: defaultM365Integrations,
-  turso: defaultTursoIntegrations,
-};
-
-export function sanitizeIntegrations(raw: unknown): IntegrationsSettings {
-  if (!raw || typeof raw !== "object") return { ...defaultIntegrations };
-  const obj = raw as Record<string, unknown>;
-  const m365Raw = obj.m365 as Record<string, unknown> | undefined;
-  const tursoRaw = obj.turso as Record<string, unknown> | undefined;
-  return {
-    m365: {
-      enabled: typeof m365Raw?.enabled === "boolean" ? m365Raw.enabled : false,
-      clientId: typeof m365Raw?.clientId === "string" ? m365Raw.clientId : undefined,
-      tenantId: typeof m365Raw?.tenantId === "string" ? m365Raw.tenantId : undefined,
-      sharepoint: typeof m365Raw?.sharepoint === "boolean" ? m365Raw.sharepoint : false,
-      outlookContacts: typeof m365Raw?.outlookContacts === "boolean" ? m365Raw.outlookContacts : false,
-      outlookCalendar: typeof m365Raw?.outlookCalendar === "boolean" ? m365Raw.outlookCalendar : false,
-    },
-    turso: {
-      enabled: typeof tursoRaw?.enabled === "boolean" ? tursoRaw.enabled : false,
-      databaseUrl: typeof tursoRaw?.databaseUrl === "string" ? tursoRaw.databaseUrl : undefined,
-      authToken: typeof tursoRaw?.authToken === "string" ? tursoRaw.authToken : undefined,
-    },
-  };
-}
-
-export type Settings = {
-  language: Lang;
-  holidayCountries: string[];
-  storageConfig: StorageConfig;
-  ai: AiConfig;
-  notifications: NotificationsConfig;
-  jira: JiraConfig;
-  popout: { reuseWindow: boolean };
-  resources: { workdayHours: number };
-  layout: "modern" | "classic";
-  integrations?: IntegrationsSettings;
-};
-
-export const defaultSettings: Settings = {
-  language: "en-US",
-  holidayCountries: [],
-  storageConfig: defaultStorageConfig,
-  ai: defaultAiConfig,
-  notifications: defaultNotificationsConfig,
-  jira: defaultJiraConfig,
-  popout: { reuseWindow: false },
-  resources: { workdayHours: 8 },
-  layout: "modern",
-  integrations: defaultIntegrations,
-};
+export {
+  defaultAiConfig,
+  defaultNotificationsConfig,
+  defaultJiraConfig,
+  defaultM365Integrations,
+  defaultTursoIntegrations,
+  defaultIntegrations,
+  sanitizeIntegrations,
+  defaultSettings,
+} from "./settings-types";
+export type {
+  ChatModel,
+  AiConfig,
+  ChannelConfig,
+  NotificationsConfig,
+  JiraAssigneeMode,
+  JiraConfig,
+  M365IntegrationsSettings,
+  TursoIntegrationsSettings,
+  IntegrationsSettings,
+  Settings,
+} from "./settings-types";
 
 export function SettingsMenu({
   settings,
