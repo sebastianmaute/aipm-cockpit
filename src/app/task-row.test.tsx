@@ -241,6 +241,29 @@ describe("TaskRow zebra striping", () => {
     expect(tr?.className).toContain("bg-AIPM-purple/10");
     expect(tr?.className).not.toContain("bg-surface-muted/40");
   });
+
+  test("completed striped row composes the dim and the stripe tint", () => {
+    const ctx = makeContext();
+    const { container } = render(
+      rowWrapper({
+        context: ctx,
+        children: (
+          <TaskRow
+            task={makeTask({ id: 5, completedDate: "2026-05-20" })}
+            isSelected={false}
+            isEditing={false}
+            isExpanded={false}
+            isPushing={false}
+            raidRefs={undefined}
+            isStriped
+          />
+        ),
+      }),
+    );
+    const tr = container.querySelector("tbody tr");
+    expect(tr?.className).toContain("opacity-60");
+    expect(tr?.className).toContain("bg-surface-muted/40");
+  });
 });
 
 describe("useTaskRowContext", () => {
