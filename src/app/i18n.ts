@@ -985,6 +985,7 @@ const enUS = {
   versionHighlightStorageUnreachable: "Switching to a Turso backend that's down now shows a clear 'storage unreachable' message and keeps your data; the Turso settings include a turso.tech link, and every Settings field now has a hover tooltip.",
   versionHighlightModernLayout: "Modern sidebar layout (toggleable Classic mode)",
   versionHighlightFullPageEdit: "Full-page task editor in the modern layout — open a task or click New task to edit it full-screen; Classic mode keeps the dialog.",
+  versionHighlightTableRestyle: "Table restyle — Dark-Blue headers across the data tables, zebra rows on the LOP list",
 
   outlookCalImportTitle: "Import Outlook calendar",
   outlookCalImportLoading: "Loading events…",

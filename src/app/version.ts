@@ -1,3 +1,9 @@
+// 0.31.0 "Leckie" is Phase 3 of the modern layout: a table restyle. Every
+// primary data table (Open Points, RAID + RAID Report, Activity, Resource
+// Directory/Workload/Planning/Rollup, Resources Report) now has a Dark-Blue
+// header row with white labels, sourced from one shared TABLE_HEAD_CLASS; the
+// LOP list also gains Light-Grey zebra striping. Status badges were already on
+// the AIPM palette and are unchanged. Header sort-buttons hover green.
 // 0.30.0 "Liu" adds Phase 2 of the modern layout: a full-page task editor.
 // In the modern layout, opening a task (or clicking "New task") now opens a
 // full-viewport edit view styled in the AIPM palette (Dark-Blue section heading,
@@ -352,8 +358,8 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.30.0";
-export const APP_BUILD_DATE = "2026-05-29"; // Liu milestone
+export const APP_VERSION = "0.31.0";
+export const APP_BUILD_DATE = "2026-05-30"; // Leckie milestone
 export const APP_REPO_URL = "https://www.example.com";
 
 /** Translation keys for the high-level feature highlights shown in the
@@ -393,4 +399,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightStorageUnreachable",
   "versionHighlightModernLayout",
   "versionHighlightFullPageEdit",
+  "versionHighlightTableRestyle",
 ] as const;
