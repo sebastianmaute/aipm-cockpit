@@ -1,4 +1,4 @@
-import { renderHook, act } from "@testing-library/react";
+import { renderHook, render, act } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { useMediaQuery } from "./use-media-query";
 
@@ -42,5 +42,20 @@ describe("useMediaQuery", () => {
       listeners.forEach((l) => l());
     });
     expect(result.current).toBe(true);
+  });
+
+  it("reports the match on the very first render (no false→true flash)", () => {
+    // A flash happens when the hook returns the SSR default (false) on the
+    // first paint and only corrects after an effect. Record every render-phase
+    // value: a flash-free hook reads the live value synchronously, so the first
+    // recorded value is already correct.
+    currentMatches = true;
+    const seen: boolean[] = [];
+    function Probe() {
+      seen.push(useMediaQuery("(max-width: 1023px)"));
+      return null;
+    }
+    render(<Probe />);
+    expect(seen[0]).toBe(true);
   });
 });

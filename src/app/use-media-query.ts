@@ -1,21 +1,34 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 
 /**
- * Subscribe to a CSS media query. Returns `false` during SSR and the first
- * client render (avoids hydration mismatch), then the live match after mount.
+ * Subscribe to a CSS media query.
+ *
+ * Uses `useSyncExternalStore` so the live match is read during render rather
+ * than corrected in an effect after the first paint. This removes the
+ * one-frame "flash" where a responsive default (e.g. the collapsed sidebar)
+ * briefly renders in its wrong state on narrow viewports, and avoids any
+ * hydration-mismatch warning: the server snapshot is a stable `false`, and the
+ * client reconciles to the real value as part of hydration.
  */
 export function useMediaQuery(query: string): boolean {
-  const [matches, setMatches] = useState(false);
+  const subscribe = useCallback(
+    (onChange: () => void) => {
+      if (typeof window === "undefined" || !window.matchMedia) return () => {};
+      const mql = window.matchMedia(query);
+      mql.addEventListener("change", onChange);
+      return () => mql.removeEventListener("change", onChange);
+    },
+    [query],
+  );
 
-  useEffect(() => {
-    if (typeof window === "undefined" || !window.matchMedia) return;
-    const mql = window.matchMedia(query);
-    const update = () => setMatches(mql.matches);
-    update();
-    mql.addEventListener("change", update);
-    return () => mql.removeEventListener("change", update);
+  const getSnapshot = useCallback(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return false;
+    return window.matchMedia(query).matches;
   }, [query]);
 
-  return matches;
+  // Server render (and hydration baseline) always reports no match.
+  const getServerSnapshot = () => false;
+
+  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }
