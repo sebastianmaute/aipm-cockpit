@@ -90,3 +90,14 @@ describe("ModernShell", () => {
     expect(onToggleCollapsed).toHaveBeenCalled();
   });
 });
+
+describe("ModernShell settings slot", () => {
+  it("renders settingsView in main when activeView === 'settings'", () => {
+    setup({
+      activeView: "settings",
+      settingsView: <div>settings-page</div>,
+    });
+    expect(screen.getByText("settings-page")).toBeInTheDocument();
+    expect(screen.queryByTestId("workspace")).toBeNull();
+  });
+});

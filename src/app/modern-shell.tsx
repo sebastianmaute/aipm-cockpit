@@ -20,6 +20,8 @@ interface ModernShellProps {
   editView?: React.ReactNode;
   editTitle?: string;
   editActions?: React.ReactNode;
+  /** Phase 4B: full-page Settings, shown when activeView === "settings". */
+  settingsView?: React.ReactNode;
   collapsed?: boolean;
   onToggleCollapsed?: () => void;
 }
@@ -28,15 +30,19 @@ export function ModernShell({
   lang, activeView, onNavigate, version, bannerCount, onNewTask, onShowAlerts,
   topBarMenus, sidebarFooter, tasksSection, workspace,
   editView = null, editTitle = "", editActions = null,
+  settingsView = null,
   collapsed = false, onToggleCollapsed = () => {},
 }: ModernShellProps) {
   const isEditing = activeView === "edit";
+  const isSettings = activeView === "settings";
   const title = isEditing ? editTitle : t(lang, navLabelKey(activeView));
   const content = isEditing
     ? editView
-    : activeView === "open-points"
-      ? tasksSection
-      : workspace;
+    : isSettings
+      ? settingsView
+      : activeView === "open-points"
+        ? tasksSection
+        : workspace;
   return (
     <div className="flex h-screen w-screen overflow-hidden">
       <a
