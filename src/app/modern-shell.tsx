@@ -22,6 +22,8 @@ interface ModernShellProps {
   editActions?: React.ReactNode;
   /** Phase 4B: full-page Settings, shown when activeView === "settings". */
   settingsView?: React.ReactNode;
+  /** Phase 4C: reminder banners rendered at the top of <main>. */
+  banners?: React.ReactNode;
   collapsed?: boolean;
   onToggleCollapsed?: () => void;
 }
@@ -31,6 +33,7 @@ export function ModernShell({
   topBarMenus, sidebarFooter, tasksSection, workspace,
   editView = null, editTitle = "", editActions = null,
   settingsView = null,
+  banners = null,
   collapsed = false, onToggleCollapsed = () => {},
 }: ModernShellProps) {
   const isEditing = activeView === "edit";
@@ -73,6 +76,7 @@ export function ModernShell({
           {topBarMenus}
         </TopBar>
         <main id="main-content" className="min-h-0 flex-1 overflow-auto bg-surface-muted p-6 dark:bg-black">
+          {banners}
           {content}
         </main>
       </div>
