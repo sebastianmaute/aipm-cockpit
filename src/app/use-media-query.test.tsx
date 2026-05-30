@@ -10,7 +10,11 @@ beforeEach(() => {
   currentMatches = false;
   // jsdom has no matchMedia — install a controllable mock (mirrors use-theme.test.tsx).
   window.matchMedia = vi.fn().mockImplementation((query: string) => ({
-    matches: currentMatches,
+    // A real MediaQueryList.matches is live, not a snapshot — use a getter so it
+    // reflects the controllable `currentMatches` at read time.
+    get matches() {
+      return currentMatches;
+    },
     media: query,
     addEventListener: (_: string, cb: () => void) => listeners.push(cb),
     removeEventListener: (_: string, cb: () => void) => {
