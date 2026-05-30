@@ -8,6 +8,19 @@ Authoritative source for version + build date: [`src/app/version.ts`](src/app/ve
 This file is seeded from that module's milestone comment plus the
 post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-diff.txt).
 
+## [0.33.0] — 2026-05-30 "Butler"
+
+### Added
+- Full-page Settings view in the modern layout, with a left section rail (Appearance, Language & Holidays, General, Notifications, AI Assistant, Jira, Storage, Integrations).
+
+### Changed
+- Modern-layout Settings is now reached via the sidebar "Settings" item, which opens the full-page view; the gear-icon Settings popover has been removed from the modern top bar. The Classic layout is unchanged and keeps its gear popover.
+- Settings sections are now shared components under `settings-sections/`, consumed by both the classic popover and the new full-page view (single source of truth).
+
+### Internal
+- Extracted `Settings` types/defaults into `settings-types.ts` (re-exported from `settings-menu.tsx`).
+- Added an import-parity guard test ensuring the popover sources every section from `settings-sections/`.
+
 ## [0.32.1] — 2026-05-30
 
 ### Fixed

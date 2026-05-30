@@ -1,3 +1,15 @@
+// 0.33.0 "Butler" is Phase 4 Workstream B of the modern layout: a full-page
+// Settings view. In the modern layout, the sidebar "Settings" item now opens a
+// dedicated full-viewport Settings page with a left section rail (Appearance,
+// Language & Holidays, General, Notifications, AI Assistant, Jira, Storage,
+// Integrations). All settings sections have been extracted into shared
+// components under settings-sections/ and are consumed by both the classic
+// gear-icon popover and the new full-page view (single source of truth). The
+// gear-icon Settings popover has been removed from the modern top bar; the
+// classic layout is unchanged and keeps its popover. Settings types and
+// defaults are extracted into settings-types.ts (re-exported from
+// settings-menu.tsx). An import-parity guard test ensures the popover sources
+// every section from settings-sections/.
 // 0.32.1 is an internal quality pass with one user-facing fix and no new
 // feature surface: the responsive sidebar no longer flashes its expanded state
 // for a frame on narrow viewports before collapsing (useMediaQuery now reads
@@ -373,8 +385,8 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.32.1";
-export const APP_BUILD_DATE = "2026-05-30"; // Jemisin point release
+export const APP_VERSION = "0.33.0";
+export const APP_BUILD_DATE = "2026-05-30"; // Butler
 export const APP_REPO_URL = "https://www.example.com";
 
 /** Translation keys for the high-level feature highlights shown in the
