@@ -31,4 +31,25 @@ describe("SidebarNav", () => {
     expect(screen.getByRole("button", { name: "Address Book" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Resource report" })).toBeTruthy();
   });
+
+  it("collapsed rail shows icon-only buttons that keep an accessible name", () => {
+    render(
+      <SidebarNav lang="en-US" activeView="open-points" onNavigate={() => {}} collapsed />,
+    );
+    // Group header text is hidden when collapsed.
+    expect(screen.queryByText("OVERVIEW")).toBeNull();
+    // The item keeps its accessible name via aria-label even with no visible text.
+    const gantt = screen.getByRole("button", { name: "Gantt" });
+    expect(gantt.getAttribute("aria-label")).toBe("Gantt");
+    expect(gantt.querySelector("svg")).not.toBeNull();
+  });
+
+  it("expanded items render both an icon and the visible label", () => {
+    render(
+      <SidebarNav lang="en-US" activeView="open-points" onNavigate={() => {}} />,
+    );
+    const gantt = screen.getByRole("button", { name: "Gantt" });
+    expect(gantt.querySelector("svg")).not.toBeNull();
+    expect(gantt.textContent).toContain("Gantt");
+  });
 });

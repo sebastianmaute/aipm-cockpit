@@ -1,13 +1,14 @@
 "use client";
 import { type Lang, t } from "./i18n";
 import { NAV_GROUPS, navLabelKey, type AppView, type NavItem } from "./nav-config";
+import { NavIcon } from "./nav-icons";
 
 interface SidebarNavProps {
   lang: Lang;
   activeView: AppView;
   onNavigate: (view: AppView) => void;
-  // Phase 1: hides group headers only; item labels still render.
-  // TODO Phase 2: icon-only rail (hide label text, show icons) when collapsed.
+  // When collapsed the sidebar is an icon-only rail: group headers and child
+  // lists are hidden and item labels move to aria-label/title.
   collapsed?: boolean;
 }
 
@@ -16,10 +17,13 @@ function isParentActive(item: NavItem, active: AppView): boolean {
   return (item.children ?? []).some((c) => c.view === active);
 }
 
-function navItemClass(active: boolean, indent: "root" | "child"): string {
-  const base =
-    "flex w-full items-center gap-2 border-l-2 text-left text-sm transition-colors ";
-  const spacing = indent === "root" ? "px-4 py-2 " : "py-1.5 pl-9 pr-4 ";
+function navItemClass(active: boolean, indent: "root" | "child", collapsed: boolean): string {
+  const base = "flex w-full items-center gap-2 border-l-2 text-left text-sm transition-colors ";
+  const spacing = collapsed
+    ? "justify-center px-0 py-2 "
+    : indent === "root"
+      ? "px-4 py-2 "
+      : "py-1.5 pl-9 pr-4 ";
   const inactiveText = indent === "root" ? "text-AIPM-light-grey" : "text-AIPM-medium-grey";
   const state = active
     ? "border-AIPM-green bg-AIPM-green/15 font-semibold text-AIPM-white"
@@ -40,6 +44,7 @@ export function SidebarNav({ lang, activeView, onNavigate, collapsed = false }: 
           <ul role="list">
             {group.items.map((item) => {
               const active = activeView === item.view;
+              const label = t(lang, navLabelKey(item.view));
               const showChildren = !collapsed && !!item.children?.length && isParentActive(item, activeView);
               return (
                 <li key={item.view}>
@@ -47,9 +52,12 @@ export function SidebarNav({ lang, activeView, onNavigate, collapsed = false }: 
                     type="button"
                     onClick={() => onNavigate(item.view)}
                     aria-current={active ? "page" : undefined}
-                    className={navItemClass(active, "root")}
+                    aria-label={collapsed ? label : undefined}
+                    title={collapsed ? label : undefined}
+                    className={navItemClass(active, "root", collapsed)}
                   >
-                    {t(lang, navLabelKey(item.view))}
+                    <NavIcon view={item.view} />
+                    {!collapsed && <span>{label}</span>}
                   </button>
                   {showChildren && (
                     <ul role="list">
@@ -61,9 +69,10 @@ export function SidebarNav({ lang, activeView, onNavigate, collapsed = false }: 
                               type="button"
                               onClick={() => onNavigate(child.view)}
                               aria-current={childActive ? "page" : undefined}
-                              className={navItemClass(childActive, "child")}
+                              className={navItemClass(childActive, "child", false)}
                             >
-                              {t(lang, navLabelKey(child.view))}
+                              <NavIcon view={child.view} />
+                              <span>{t(lang, navLabelKey(child.view))}</span>
                             </button>
                           </li>
                         );
