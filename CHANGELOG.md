@@ -8,6 +8,16 @@ Authoritative source for version + build date: [`src/app/version.ts`](src/app/ve
 This file is seeded from that module's milestone comment plus the
 post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-diff.txt).
 
+## [0.32.0] — 2026-05-30 "Jemisin"
+
+### Added
+- Responsive sidebar: a collapsible **icon rail** that auto-collapses on narrow screens, a top-bar menu button, and a persisted collapse preference.
+- Sidebar footer with the theme toggle, storage status, and M365 account / sign-out.
+- Accessibility: a skip-to-content link and a labelled `#main-content` landmark in the modern shell.
+
+### Fixed
+- The sidebar collapse button is no longer a no-op — it is now wired through the modern shell.
+
 ## [0.31.0] — 2026-05-30 "Leckie"
 
 ### Changed

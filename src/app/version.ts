@@ -1,3 +1,10 @@
+// 0.32.0 "Jemisin" is Phase 4 of the modern layout: responsive shell polish.
+// The sidebar gains a collapsible icon rail that auto-collapses on narrow
+// screens (with a persisted collapse preference) and a top-bar menu button to
+// toggle it; the previously-inert collapse button is now wired through the
+// modern shell. The sidebar footer is fuller — theme toggle, storage status,
+// and the M365 account / sign-out. Accessibility: a skip-to-content link and a
+// labelled #main-content landmark in the modern shell.
 // 0.31.0 "Leckie" is Phase 3 of the modern layout: a table restyle. Every
 // primary data table (Open Points, RAID + RAID Report, Activity, Resource
 // Directory/Workload/Planning/Rollup, Resources Report) now has a Dark-Blue
@@ -358,8 +365,8 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.31.0";
-export const APP_BUILD_DATE = "2026-05-30"; // Leckie milestone
+export const APP_VERSION = "0.32.0";
+export const APP_BUILD_DATE = "2026-05-30"; // Jemisin milestone
 export const APP_REPO_URL = "https://www.example.com";
 
 /** Translation keys for the high-level feature highlights shown in the
@@ -400,4 +407,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightModernLayout",
   "versionHighlightFullPageEdit",
   "versionHighlightTableRestyle",
+  "versionHighlightSidebarPolish",
 ] as const;

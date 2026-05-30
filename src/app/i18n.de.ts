@@ -1004,6 +1004,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightModernLayout: "Modernes Seitenleisten-Layout (umschaltbarer klassischer Modus)",
   versionHighlightFullPageEdit: "Ganzseitiger Aufgabeneditor im modernen Layout — Aufgabe öffnen oder „Neue Aufgabe” klicken, um sie im Vollbild zu bearbeiten; der Klassik-Modus behält den Dialog.",
   versionHighlightTableRestyle: "Tabellen-Redesign — dunkelblaue Kopfzeilen in den Datentabellen, Zebrazeilen in der LOP-Liste",
+  versionHighlightSidebarPolish: "Responsive Seitenleiste — einklappbare Icon-Leiste, barrierefreie Navigation (Sprunglink, Menü-Button) und eine umfassendere Fußzeile",
 
   outlookCalImportTitle: "Outlook-Kalender importieren",
   outlookCalImportLoading: "Termine werden geladen…",
