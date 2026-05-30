@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, expect, it, beforeEach } from "vitest";
 import TaskManager from "./task-manager";
 
@@ -43,6 +43,8 @@ describe("TaskManager shell selection", () => {
     expect(await screen.findByRole("heading", { name: /task details/i })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     // Back on Open Points (the origin view): the edit heading is gone.
-    expect(screen.queryByRole("heading", { name: /task details/i })).toBeNull();
+    await waitFor(() =>
+      expect(screen.queryByRole("heading", { name: /task details/i })).toBeNull(),
+    );
   });
 });
