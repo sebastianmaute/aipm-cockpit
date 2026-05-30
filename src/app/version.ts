@@ -1,4 +1,4 @@
-// 0.33.0 "Butler" is Phase 4 Workstream B of the modern layout: a full-page
+// 0.33.0 "Wells" is Phase 4 Workstream B of the modern layout: a full-page
 // Settings view. In the modern layout, the sidebar "Settings" item now opens a
 // dedicated full-viewport Settings page with a left section rail (Appearance,
 // Language & Holidays, General, Notifications, AI Assistant, Jira, Storage,
@@ -386,7 +386,7 @@
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
 export const APP_VERSION = "0.33.0";
-export const APP_BUILD_DATE = "2026-05-30"; // Butler
+export const APP_BUILD_DATE = "2026-05-30"; // Wells
 export const APP_REPO_URL = "https://www.example.com";
 
 /** Translation keys for the high-level feature highlights shown in the

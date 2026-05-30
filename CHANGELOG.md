@@ -8,7 +8,7 @@ Authoritative source for version + build date: [`src/app/version.ts`](src/app/ve
 This file is seeded from that module's milestone comment plus the
 post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-diff.txt).
 
-## [0.33.0] — 2026-05-30 "Butler"
+## [0.33.0] — 2026-05-30 "Wells"
 
 ### Added
 - Full-page Settings view in the modern layout, with a left section rail (Appearance, Language & Holidays, General, Notifications, AI Assistant, Jira, Storage, Integrations).
