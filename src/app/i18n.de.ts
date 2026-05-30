@@ -1071,5 +1071,6 @@ export const de: Record<TranslationKey, string> = {
   sidebarCollapse: "Seitenleiste einklappen",
   sidebarExpand: "Seitenleiste ausklappen",
   sidebarMenuButton: "Navigationsmenü öffnen",
+  sidebarSignOut: "Abmelden",
   skipToContent: "Zum Inhalt springen",
 };

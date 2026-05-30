@@ -1053,6 +1053,7 @@ const enUS = {
   sidebarCollapse: "Collapse sidebar",
   sidebarExpand: "Expand sidebar",
   sidebarMenuButton: "Open navigation menu",
+  sidebarSignOut: "Sign out",
   skipToContent: "Skip to content",
 } as const;
 

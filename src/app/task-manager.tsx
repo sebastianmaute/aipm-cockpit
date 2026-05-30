@@ -58,6 +58,8 @@ import { makeEditGuard } from "./read-only-guard";
 import { ReadOnlyMirrorBanner } from "./read-only-mirror-banner";
 import { VoiceCommandProvider } from "./voice-command-context";
 import { useMsAuth } from "./use-ms-auth";
+import { SidebarFooter } from "./sidebar-footer";
+import { useSidebarCollapsed } from "./use-sidebar-collapsed";
 import { useOutlookContacts } from "./use-outlook-contacts";
 import { OutlookImportModal } from "./outlook-import-modal";
 import { contactsFromImported, type OutlookContact } from "./outlook-contacts";
@@ -88,6 +90,7 @@ function TaskManagerInner() {
   const { toast, showToast } = useToast();
 
   const { workspaceCollapsed, setWorkspaceCollapsed } = useWorkspaceCollapsed();
+  const { collapsed: sidebarCollapsed, toggle: toggleSidebar } = useSidebarCollapsed();
   const {
     colWidths,
     hiddenCols,
@@ -963,7 +966,21 @@ function TaskManagerInner() {
         onNewTask={() => { handleCancelEdit(); setTaskModalOpen(true); }}
         onShowAlerts={() => { setBannerDismissed(false); setDueModalOpen(true); }}
         topBarMenus={topBarMenus}
-        sidebarFooter={null}
+        collapsed={sidebarCollapsed}
+        onToggleCollapsed={toggleSidebar}
+        sidebarFooter={
+          <SidebarFooter
+            lang={lang}
+            collapsed={sidebarCollapsed}
+            storageDescription={storageDescription}
+            storageReady={storageReady}
+            isSignedIn={msAuth.account != null}
+            accountName={msAuth.account?.username ?? null}
+            onSignOut={() => {
+              void msAuth.signOut();
+            }}
+          />
+        }
         tasksSection={tasksSectionEl}
         workspace={workspaceFullBleedEl}
         editView={editViewEl}
