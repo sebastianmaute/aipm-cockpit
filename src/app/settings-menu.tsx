@@ -4,13 +4,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { COUNTRIES } from "./holidays";
 import { type Lang, type TranslationKey, t } from "./i18n";
 import { JiraSettingsSection } from "./jira-settings";
-import { SegmentedControl } from "./segmented-control";
 import { type StorageKind } from "./storage";
 import { StorageConfigSection } from "./storage-config";
-import type { Theme } from "./theme";
-import { useTheme } from "./use-theme";
 import { useMsAuth } from "./use-ms-auth";
 import { InfoTooltip } from "./info-tooltip";
+import { AppearanceSection } from "./settings-sections/appearance-section";
 import {
   type Settings,
   type TursoIntegrationsSettings,
@@ -80,7 +78,6 @@ export function SettingsMenu({
   const [pending, setPending] = useState("");
   const ref = useRef<HTMLDivElement>(null);
   const lang = settings.language;
-  const { theme, setTheme } = useTheme();
 
   const integrations = settings.integrations ?? defaultIntegrations;
   const m365 = integrations.m365 ?? defaultM365Integrations;
@@ -185,42 +182,7 @@ export function SettingsMenu({
             {t(lang, "settings")}
           </h3>
 
-          <div className="mb-4">
-            <span className="mb-1 flex items-center gap-1 text-sm font-medium text-foreground">
-              {t(lang, "theme")}
-              <InfoTooltip text={t(lang, "themeTooltip")} />
-            </span>
-            <SegmentedControl<Theme>
-              value={theme}
-              ariaLabel={t(lang, "theme")}
-              title={t(lang, "themeHint")}
-              className="w-full"
-              options={[
-                { value: "light", label: t(lang, "themeLight") },
-                { value: "dark", label: t(lang, "themeDark") },
-                { value: "system", label: t(lang, "themeSystem") },
-              ]}
-              onChange={setTheme}
-            />
-          </div>
-
-          <div className="mb-4">
-            <span className="mb-1 flex items-center gap-1 text-sm font-medium text-foreground">
-              {t(lang, "layout")}
-              <InfoTooltip text={t(lang, "layoutTooltip")} />
-            </span>
-            <SegmentedControl<"modern" | "classic">
-              value={settings.layout}
-              ariaLabel={t(lang, "layout")}
-              title={t(lang, "layoutTooltip")}
-              className="w-full"
-              options={[
-                { value: "modern", label: t(lang, "layoutModern") },
-                { value: "classic", label: t(lang, "layoutClassic") },
-              ]}
-              onChange={(v) => onChange({ ...settings, layout: v })}
-            />
-          </div>
+          <AppearanceSection lang={lang} settings={settings} onChange={onChange} />
 
           <label className="mb-4 block">
             <span className="mb-1 flex items-center gap-1 text-sm font-medium text-foreground">
