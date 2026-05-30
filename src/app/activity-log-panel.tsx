@@ -28,6 +28,7 @@ import { type Lang, t } from "./i18n";
 import { SegmentedControl } from "./segmented-control";
 import { useColumnResize } from "./use-column-resize";
 import { ColumnResizeHandle, ResetColWidthsButton } from "./task-manager-ui";
+import { TABLE_HEAD_CLASS } from "./table-styles";
 
 const ACTIVITY_LOG_COL_WIDTHS = {
   timestamp: 160,
@@ -243,7 +244,7 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
       ) : (
         <div className="min-h-0 flex-1 overflow-auto rounded-md border border-line">
           <table className="w-full text-left text-sm">
-            <thead className="sticky top-0 z-10 bg-surface-muted text-xs uppercase tracking-wide text-muted-foreground">
+            <thead className={TABLE_HEAD_CLASS}>
               <tr>
                 <th
                   className="relative px-3 py-2 font-medium"
@@ -253,7 +254,7 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
                     type="button"
                     onClick={() => toggleSort("timestamp")}
                     title={t(lang, "sortBy", t(lang, "activityHeaderWhen"))}
-                    className="cursor-pointer select-none text-left text-xs uppercase tracking-wide hover:text-AIPM-dark-blue dark:hover:text-AIPM-light-grey"
+                    className="cursor-pointer select-none text-left text-xs uppercase tracking-wide hover:text-AIPM-green"
                   >
                     {t(lang, "activityHeaderWhen")}
                     {sortIndicator("timestamp")}
@@ -268,7 +269,7 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
                     type="button"
                     onClick={() => toggleSort("kind")}
                     title={t(lang, "sortBy", t(lang, "activityHeaderKind"))}
-                    className="cursor-pointer select-none text-left text-xs uppercase tracking-wide hover:text-AIPM-dark-blue dark:hover:text-AIPM-light-grey"
+                    className="cursor-pointer select-none text-left text-xs uppercase tracking-wide hover:text-AIPM-green"
                   >
                     {t(lang, "activityHeaderKind")}
                     {sortIndicator("kind")}
@@ -283,7 +284,7 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
                     type="button"
                     onClick={() => toggleSort("message")}
                     title={t(lang, "sortBy", t(lang, "activityHeaderMessage"))}
-                    className="cursor-pointer select-none text-left text-xs uppercase tracking-wide hover:text-AIPM-dark-blue dark:hover:text-AIPM-light-grey"
+                    className="cursor-pointer select-none text-left text-xs uppercase tracking-wide hover:text-AIPM-green"
                   >
                     {t(lang, "activityHeaderMessage")}
                     {sortIndicator("message")}

@@ -11,6 +11,7 @@ import { resourceDisplayName } from "./resource-foundation";
 import type { Discipline, Grade, Resource, Role } from "./types";
 import { useColumnResize } from "./use-column-resize";
 import { ColumnResizeHandle, ResetColWidthsButton } from "./task-manager-ui";
+import { TABLE_HEAD_CLASS } from "./table-styles";
 
 const DIRECTORY_COL_WIDTHS = {
   name: 180,
@@ -230,52 +231,52 @@ function ResourceDirectoryInner({
       ) : (
         <div className="min-h-0 flex-1 overflow-auto rounded-md border border-line">
           <table className="w-full text-left text-sm">
-            <thead className="sticky top-0 z-10 bg-surface-muted text-xs uppercase tracking-wide text-muted-foreground">
+            <thead className={TABLE_HEAD_CLASS}>
               <tr>
                 <th className="relative px-3 py-2 font-medium" style={{ width: colWidths.name, minWidth: colWidths.name }}>
-                  <button type="button" onClick={() => toggleSort("name")} aria-label={t(lang, "sortBy", t(lang, "assignee"))} title={t(lang, "sortBy", t(lang, "assignee"))} className="hover:text-foreground">
+                  <button type="button" onClick={() => toggleSort("name")} aria-label={t(lang, "sortBy", t(lang, "assignee"))} title={t(lang, "sortBy", t(lang, "assignee"))} className="hover:text-AIPM-green">
                     {t(lang, "assignee")}{sortIndicator("name")}
                   </button>
                   <ColumnResizeHandle col="name" onMouseDown={startColResize} />
                 </th>
                 <th className="relative px-3 py-2 font-medium" style={{ width: colWidths.discipline, minWidth: colWidths.discipline }}>
-                  <button type="button" onClick={() => toggleSort("discipline")} aria-label={t(lang, "sortBy", t(lang, "rolesDiscipline"))} title={t(lang, "sortBy", t(lang, "rolesDiscipline"))} className="hover:text-foreground">
+                  <button type="button" onClick={() => toggleSort("discipline")} aria-label={t(lang, "sortBy", t(lang, "rolesDiscipline"))} title={t(lang, "sortBy", t(lang, "rolesDiscipline"))} className="hover:text-AIPM-green">
                     {t(lang, "rolesDiscipline")}{sortIndicator("discipline")}
                   </button>
                   <ColumnResizeHandle col="discipline" onMouseDown={startColResize} />
                 </th>
                 <th className="relative px-3 py-2 font-medium" style={{ width: colWidths.grade, minWidth: colWidths.grade }}>
-                  <button type="button" onClick={() => toggleSort("grade")} aria-label={t(lang, "sortBy", t(lang, "rolesGrade"))} title={t(lang, "sortBy", t(lang, "rolesGrade"))} className="hover:text-foreground">
+                  <button type="button" onClick={() => toggleSort("grade")} aria-label={t(lang, "sortBy", t(lang, "rolesGrade"))} title={t(lang, "sortBy", t(lang, "rolesGrade"))} className="hover:text-AIPM-green">
                     {t(lang, "rolesGrade")}{sortIndicator("grade")}
                   </button>
                   <ColumnResizeHandle col="grade" onMouseDown={startColResize} />
                 </th>
                 <th className="relative px-3 py-2 font-medium" style={{ width: colWidths.title, minWidth: colWidths.title }}>
-                  <button type="button" onClick={() => toggleSort("title")} aria-label={t(lang, "sortBy", t(lang, "resourceColTitle"))} title={t(lang, "sortBy", t(lang, "resourceColTitle"))} className="hover:text-foreground">
+                  <button type="button" onClick={() => toggleSort("title")} aria-label={t(lang, "sortBy", t(lang, "resourceColTitle"))} title={t(lang, "sortBy", t(lang, "resourceColTitle"))} className="hover:text-AIPM-green">
                     {t(lang, "resourceColTitle")}{sortIndicator("title")}
                   </button>
                   <ColumnResizeHandle col="title" onMouseDown={startColResize} />
                 </th>
                 <th className="relative px-3 py-2 font-medium" style={{ width: colWidths.department, minWidth: colWidths.department }}>
-                  <button type="button" onClick={() => toggleSort("department")} aria-label={t(lang, "sortBy", t(lang, "resourceColDepartment"))} title={t(lang, "sortBy", t(lang, "resourceColDepartment"))} className="hover:text-foreground">
+                  <button type="button" onClick={() => toggleSort("department")} aria-label={t(lang, "sortBy", t(lang, "resourceColDepartment"))} title={t(lang, "sortBy", t(lang, "resourceColDepartment"))} className="hover:text-AIPM-green">
                     {t(lang, "resourceColDepartment")}{sortIndicator("department")}
                   </button>
                   <ColumnResizeHandle col="department" onMouseDown={startColResize} />
                 </th>
                 <th className="relative px-3 py-2 font-medium" style={{ width: colWidths.phone, minWidth: colWidths.phone }}>
-                  <button type="button" onClick={() => toggleSort("phone")} aria-label={t(lang, "sortBy", t(lang, "resourceColPhone"))} title={t(lang, "sortBy", t(lang, "resourceColPhone"))} className="hover:text-foreground">
+                  <button type="button" onClick={() => toggleSort("phone")} aria-label={t(lang, "sortBy", t(lang, "resourceColPhone"))} title={t(lang, "sortBy", t(lang, "resourceColPhone"))} className="hover:text-AIPM-green">
                     {t(lang, "resourceColPhone")}{sortIndicator("phone")}
                   </button>
                   <ColumnResizeHandle col="phone" onMouseDown={startColResize} />
                 </th>
                 <th className="relative px-3 py-2 font-medium" style={{ width: colWidths.email, minWidth: colWidths.email }}>
-                  <button type="button" onClick={() => toggleSort("email")} aria-label={t(lang, "sortBy", t(lang, "email"))} title={t(lang, "sortBy", t(lang, "email"))} className="hover:text-foreground">
+                  <button type="button" onClick={() => toggleSort("email")} aria-label={t(lang, "sortBy", t(lang, "email"))} title={t(lang, "sortBy", t(lang, "email"))} className="hover:text-AIPM-green">
                     {t(lang, "email")}{sortIndicator("email")}
                   </button>
                   <ColumnResizeHandle col="email" onMouseDown={startColResize} />
                 </th>
                 <th className="relative px-3 py-2 font-medium" style={{ width: colWidths.birthday, minWidth: colWidths.birthday }}>
-                  <button type="button" onClick={() => toggleSort("birthday")} aria-label={t(lang, "sortBy", t(lang, "resourceColBirthday"))} title={t(lang, "sortBy", t(lang, "resourceColBirthday"))} className="hover:text-foreground">
+                  <button type="button" onClick={() => toggleSort("birthday")} aria-label={t(lang, "sortBy", t(lang, "resourceColBirthday"))} title={t(lang, "sortBy", t(lang, "resourceColBirthday"))} className="hover:text-AIPM-green">
                     {t(lang, "resourceColBirthday")}{sortIndicator("birthday")}
                   </button>
                   <ColumnResizeHandle col="birthday" onMouseDown={startColResize} />

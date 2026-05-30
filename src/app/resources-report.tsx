@@ -8,6 +8,7 @@ import { formatCurrency } from "./resource-cost";
 import type { Absence, Discipline, Grade, Resource, ResourcePlan, Role } from "./types";
 import { useColumnResize } from "./use-column-resize";
 import { ColumnResizeHandle, PrintButton } from "./task-manager-ui";
+import { TABLE_HEAD_CLASS } from "./table-styles";
 
 const RES_REPORT_BY_PERIOD_WIDTHS = {
   label: 100, days: 110, internal: 110, external: 110, margin: 110,
@@ -220,7 +221,7 @@ function Table<TId extends string>({
   return (
     <div className="overflow-x-auto rounded-md border border-line">
       <table className="min-w-full text-left text-sm">
-        <thead className="sticky top-0 z-10 bg-surface-muted text-xs uppercase tracking-wide text-muted-foreground">
+        <thead className={TABLE_HEAD_CLASS}>
           <tr>
             {head.map((h, i) => (
               <th

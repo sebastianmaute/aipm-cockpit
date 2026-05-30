@@ -7,6 +7,7 @@ import { buildResourceWorkload } from "./resource-workload-rows";
 import type { Absence, Resource, Shift, Task } from "./types";
 import { useColumnResize } from "./use-column-resize";
 import { ColumnResizeHandle, ResetColWidthsButton } from "./task-manager-ui";
+import { TABLE_HEAD_CLASS } from "./table-styles";
 
 const WORKLOAD_COL_WIDTHS = {
   assignee: 160,
@@ -64,7 +65,7 @@ export function ResourceWorkload({
       </div>
       <div className="min-h-0 flex-1 overflow-auto rounded-md border border-line">
       <table className="w-full text-left text-sm">
-        <thead className="sticky top-0 z-10 bg-surface-muted text-xs uppercase tracking-wide text-muted-foreground">
+        <thead className={TABLE_HEAD_CLASS}>
           <tr>
             <th className="relative px-3 py-2 font-medium" style={{ width: colWidths.assignee, minWidth: colWidths.assignee }}>
               {t(lang, "assignee")}
