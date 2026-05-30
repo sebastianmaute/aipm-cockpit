@@ -1052,6 +1052,8 @@ const enUS = {
   sidebarBrandSubtitle: "LIST OF OPEN POINTS",
   sidebarCollapse: "Collapse sidebar",
   sidebarExpand: "Expand sidebar",
+  sidebarMenuButton: "Open navigation menu",
+  skipToContent: "Skip to content",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;

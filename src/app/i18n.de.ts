@@ -1070,4 +1070,6 @@ export const de: Record<TranslationKey, string> = {
   sidebarBrandSubtitle: "LISTE OFFENER PUNKTE",
   sidebarCollapse: "Seitenleiste einklappen",
   sidebarExpand: "Seitenleiste ausklappen",
+  sidebarMenuButton: "Navigationsmenü öffnen",
+  skipToContent: "Zum Inhalt springen",
 };

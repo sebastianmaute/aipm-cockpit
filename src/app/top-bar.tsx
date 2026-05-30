@@ -9,16 +9,33 @@ interface TopBarProps {
   onShowAlerts: () => void;
   /** When set, replaces the default New-task button (e.g. Save/Cancel while editing). */
   primaryAction?: React.ReactNode;
+  /** When set, renders a leading menu button that toggles the sidebar. */
+  onToggleSidebar?: () => void;
   /** Menu components (Export/Help/Version/Settings/Voice) rendered as-is. */
   children?: React.ReactNode;
 }
 
-export function TopBar({ lang, title, bannerCount, onNewTask, onShowAlerts, primaryAction, children }: TopBarProps) {
+export function TopBar({ lang, title, bannerCount, onNewTask, onShowAlerts, primaryAction, onToggleSidebar, children }: TopBarProps) {
   return (
     <header className="flex items-center justify-between gap-4 border-b border-line bg-surface px-6 py-3">
-      <h1 className="text-xl font-semibold tracking-tight text-AIPM-dark-blue dark:text-AIPM-light-grey">
-        {title}
-      </h1>
+      <div className="flex min-w-0 items-center gap-3">
+        {onToggleSidebar && (
+          <button
+            type="button"
+            onClick={onToggleSidebar}
+            aria-label={t(lang, "sidebarMenuButton")}
+            title={t(lang, "sidebarMenuButton")}
+            className="rounded-md p-2 text-AIPM-dark-grey hover:bg-surface-muted hover:text-AIPM-dark-blue focus:outline-none focus:ring-2 focus:ring-AIPM-green dark:text-AIPM-medium-grey dark:hover:text-AIPM-light-grey"
+          >
+            <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-5 w-5">
+              <path fillRule="evenodd" d="M3 5.5A.75.75 0 013.75 4.75h12.5a.75.75 0 010 1.5H3.75A.75.75 0 013 5.5zm0 4.5a.75.75 0 01.75-.75h12.5a.75.75 0 010 1.5H3.75A.75.75 0 013 10zm0 4.5a.75.75 0 01.75-.75h12.5a.75.75 0 010 1.5H3.75A.75.75 0 013 14.5z" clipRule="evenodd" />
+            </svg>
+          </button>
+        )}
+        <h1 className="truncate text-xl font-semibold tracking-tight text-AIPM-dark-blue dark:text-AIPM-light-grey">
+          {title}
+        </h1>
+      </div>
       <div className="flex items-center gap-1">
         {primaryAction ?? (
           <button

@@ -69,4 +69,24 @@ describe("ModernShell", () => {
     // The default New-task button is replaced by the edit actions.
     expect(screen.queryByRole("button", { name: "New task" })).toBeNull();
   });
+
+  it("forwards collapsed to the sidebar (brand subtitle hidden, expand button shown)", () => {
+    setup({ collapsed: true });
+    expect(screen.queryByText("List of Open Points")).toBeNull();
+    expect(screen.getByRole("button", { name: "Expand sidebar" })).toBeTruthy();
+  });
+
+  it("renders a skip-to-content link targeting the main region", () => {
+    setup();
+    const link = screen.getByRole("link", { name: "Skip to content" });
+    expect(link.getAttribute("href")).toBe("#main-content");
+    expect(document.getElementById("main-content")).not.toBeNull();
+  });
+
+  it("calls onToggleCollapsed when the sidebar collapse button is clicked", () => {
+    const onToggleCollapsed = vi.fn();
+    setup({ collapsed: false, onToggleCollapsed });
+    fireEvent.click(screen.getByRole("button", { name: "Collapse sidebar" }));
+    expect(onToggleCollapsed).toHaveBeenCalled();
+  });
 });

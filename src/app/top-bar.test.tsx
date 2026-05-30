@@ -33,6 +33,18 @@ describe("TopBar", () => {
     expect(screen.queryByText("0")).toBeNull();
   });
 
+  it("renders a menu button that calls onToggleSidebar when provided", () => {
+    const onToggleSidebar = vi.fn();
+    render(<TopBar {...base} onToggleSidebar={onToggleSidebar} />);
+    fireEvent.click(screen.getByRole("button", { name: "Open navigation menu" }));
+    expect(onToggleSidebar).toHaveBeenCalled();
+  });
+
+  it("omits the menu button when onToggleSidebar is not provided", () => {
+    render(<TopBar {...base} />);
+    expect(screen.queryByRole("button", { name: "Open navigation menu" })).toBeNull();
+  });
+
   it("renders primaryAction in place of the default New-task button", () => {
     render(
       <TopBar

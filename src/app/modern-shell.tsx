@@ -39,6 +39,12 @@ export function ModernShell({
       : workspace;
   return (
     <div className="flex h-screen w-screen overflow-hidden">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-md focus:bg-AIPM-green focus:px-3 focus:py-1.5 focus:text-sm focus:font-semibold focus:text-AIPM-white"
+      >
+        {t(lang, "skipToContent")}
+      </a>
       <Sidebar
         lang={lang}
         activeView={activeView}
@@ -56,10 +62,11 @@ export function ModernShell({
           onNewTask={onNewTask}
           onShowAlerts={onShowAlerts}
           primaryAction={isEditing ? editActions : undefined}
+          onToggleSidebar={onToggleCollapsed}
         >
           {topBarMenus}
         </TopBar>
-        <main className="min-h-0 flex-1 overflow-auto bg-surface-muted p-6 dark:bg-black">
+        <main id="main-content" className="min-h-0 flex-1 overflow-auto bg-surface-muted p-6 dark:bg-black">
           {content}
         </main>
       </div>
