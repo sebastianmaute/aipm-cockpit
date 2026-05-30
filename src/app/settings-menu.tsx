@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { type Lang, t } from "./i18n";
+import { t } from "./i18n";
 import { JiraSettingsSection } from "./jira-settings";
 import { type StorageKind } from "./storage";
 import { StorageConfigSection } from "./storage-config";
