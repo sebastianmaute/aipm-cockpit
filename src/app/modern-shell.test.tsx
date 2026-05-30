@@ -53,4 +53,20 @@ describe("ModernShell", () => {
     fireEvent.click(screen.getByRole("button", { name: "New task" }));
     expect(onNewTask).toHaveBeenCalled();
   });
+
+  it("shows the edit view, edit title, and edit actions for the edit view", () => {
+    setup({
+      activeView: "edit",
+      editView: <div data-testid="edit" />,
+      editTitle: "Editing task #5",
+      editActions: <button type="button">Save changes</button>,
+    });
+    expect(screen.getByTestId("edit")).toBeTruthy();
+    expect(screen.queryByTestId("tasks")).toBeNull();
+    expect(screen.queryByTestId("workspace")).toBeNull();
+    expect(screen.getByRole("heading", { name: "Editing task #5" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Save changes" })).toBeTruthy();
+    // The default New-task button is replaced by the edit actions.
+    expect(screen.queryByRole("button", { name: "New task" })).toBeNull();
+  });
 });

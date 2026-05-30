@@ -16,6 +16,10 @@ interface ModernShellProps {
   sidebarFooter: React.ReactNode;
   tasksSection: React.ReactNode;
   workspace: React.ReactNode;
+  /** Phase 2: full-page task editor, shown when activeView === "edit". */
+  editView?: React.ReactNode;
+  editTitle?: string;
+  editActions?: React.ReactNode;
   collapsed?: boolean;
   onToggleCollapsed?: () => void;
 }
@@ -23,12 +27,16 @@ interface ModernShellProps {
 export function ModernShell({
   lang, activeView, onNavigate, version, bannerCount, onNewTask, onShowAlerts,
   topBarMenus, sidebarFooter, tasksSection, workspace,
+  editView = null, editTitle = "", editActions = null,
   collapsed = false, onToggleCollapsed = () => {},
 }: ModernShellProps) {
-  const title = t(lang, navLabelKey(activeView));
-  // Phase 1: open-points shows the LOP table; every other view shows the workspace.
-  // Phase 2: the "edit" view will need its own slot rather than falling through to workspace.
-  const content = activeView === "open-points" ? tasksSection : workspace;
+  const isEditing = activeView === "edit";
+  const title = isEditing ? editTitle : t(lang, navLabelKey(activeView));
+  const content = isEditing
+    ? editView
+    : activeView === "open-points"
+      ? tasksSection
+      : workspace;
   return (
     <div className="flex h-screen w-screen overflow-hidden">
       <Sidebar
@@ -47,6 +55,7 @@ export function ModernShell({
           bannerCount={bannerCount}
           onNewTask={onNewTask}
           onShowAlerts={onShowAlerts}
+          primaryAction={isEditing ? editActions : undefined}
         >
           {topBarMenus}
         </TopBar>
