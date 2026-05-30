@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import dynamic from "next/dynamic";
 import { getAlertableTasks } from "./due-dates";
 import { getBucketReminders } from "./budget-report";
 import { t } from "./i18n";
@@ -50,9 +49,7 @@ import { navLabelKey } from "./nav-config";
 import type { AppView } from "./nav-config";
 import { TaskEditView, TASK_EDIT_FORM_ID } from "./task-edit-view";
 import { APP_VERSION } from "./version";
-import { ExportMenu } from "./export-menu";
-import { HelpMenu } from "./help-menu";
-import { VersionMenu } from "./version-menu";
+import { ActionMenus } from "./action-menus";
 import { makeEditGuard } from "./read-only-guard";
 import { SettingsView } from "./settings-view";
 import { ReadOnlyMirrorBanner } from "./read-only-mirror-banner";
@@ -69,13 +66,6 @@ import { OutlookCalendarImportModal } from "./outlook-calendar-import-modal";
 import { dedupeKey, type OutlookEvent, type AbsenceImportTarget } from "./outlook-calendar";
 import { isoAddDays } from "./due-dates";
 import type { AbsenceType } from "./types";
-
-// Lazy-loaded like in app-header.tsx — the speech-recognition bundle is only
-// fetched client-side when the button mounts.
-const VoiceCommandButton = dynamic(
-  () => import("./voice-button").then((m) => m.VoiceCommandButton),
-  { ssr: false },
-);
 
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
@@ -786,19 +776,15 @@ function TaskManagerInner() {
     />
   );
 
-  // The action-cluster menus that AppHeader renders in classic mode. Reused by
-  // the modern TopBar (which renders the + and bell buttons itself).
+  // The action-cluster menus (Voice/Export/Help/Version) shared with the classic
+  // AppHeader via ActionMenus. The modern TopBar renders the + and bell buttons
+  // itself; this fills its trailing `children` slot.
   const topBarMenus = (
-    <>
-      <VoiceCommandButton
-        lang={lang}
-        onCommand={handleCommand}
-        onError={(msg) => showToast("error", msg)}
-      />
-      <ExportMenu lang={lang} tasks={tasks} raid={raid} absences={absences} shifts={shifts} resources={resources} roles={roles} disciplines={disciplines} grades={grades} plan={plan} budgets={budgets} fxRates={fxRates} />
-      <HelpMenu lang={lang} />
-      <VersionMenu lang={lang} />
-    </>
+    <ActionMenus
+      lang={lang}
+      onCommand={handleCommand}
+      onVoiceError={(msg) => showToast("error", msg)}
+    />
   );
 
   const modalsBlock = (
