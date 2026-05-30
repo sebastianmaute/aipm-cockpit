@@ -1,20 +1,11 @@
 "use client";
-import dynamic from "next/dynamic";
 import type React from "react";
 import { type Lang, t } from "./i18n";
 import { type Command } from "./voice";
 import { type AlertableTask } from "./due-dates";
 import { type StorageKind } from "./storage";
-import { ExportMenu } from "./export-menu";
-import { HelpMenu } from "./help-menu";
-import { VersionMenu } from "./version-menu";
 import { SettingsMenu, type Settings } from "./settings-menu";
-import { useWorkspace } from "./workspace-context";
-
-const VoiceCommandButton = dynamic(
-  () => import("./voice-button").then((m) => m.VoiceCommandButton),
-  { ssr: false },
-);
+import { ActionMenus } from "./action-menus";
 
 export interface AppHeaderProps {
   handleCancelEdit: () => void;
@@ -56,8 +47,6 @@ export function AppHeader({
   setSettings,
   lang,
 }: AppHeaderProps) {
-  const { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates } = useWorkspace();
-
   return (
     <header className="mb-8 flex items-start justify-between gap-4">
       <div>
@@ -76,11 +65,6 @@ export function AppHeader({
           className="h-7 w-auto"
         />
         <div className="flex items-center gap-1">
-          <VoiceCommandButton
-            lang={lang}
-            onCommand={handleCommand}
-            onError={(msg) => showToast("error", msg)}
-          />
           <button
             type="button"
             onClick={() => {
@@ -131,9 +115,11 @@ export function AppHeader({
               </span>
             )}
           </button>
-          <ExportMenu lang={lang} tasks={tasks} raid={raid} absences={absences} shifts={shifts} resources={resources} roles={roles} disciplines={disciplines} grades={grades} plan={plan} budgets={budgets} fxRates={fxRates} />
-          <HelpMenu lang={lang} />
-          <VersionMenu lang={lang} />
+          <ActionMenus
+            lang={lang}
+            onCommand={handleCommand}
+            onVoiceError={(msg) => showToast("error", msg)}
+          />
           <SettingsMenu
             settings={settings}
             onChange={setSettings}
