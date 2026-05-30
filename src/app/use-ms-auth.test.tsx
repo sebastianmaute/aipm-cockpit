@@ -140,4 +140,37 @@ describe("useMsAuth", () => {
     expect(token).toBe("silent-token");
     expect(acquireTokenPopupMock).not.toHaveBeenCalled();
   });
+
+  it("shares one session across all hook instances (single source of truth)", async () => {
+    getAllAccountsMock.mockReturnValue([FAKE_ACCOUNT]);
+    logoutPopupMock.mockResolvedValue(undefined);
+
+    // Two independent consumers (mirrors settings-menu + sidebar-footer).
+    const a = renderHook(() => useMsAuth(true));
+    const b = renderHook(() => useMsAuth(true));
+
+    await waitFor(() => expect(a.result.current.account).toEqual(FAKE_ACCOUNT));
+    // Both instances see the same cached account from one MSAL init.
+    expect(b.result.current.account).toEqual(FAKE_ACCOUNT);
+    expect(initializeMock).toHaveBeenCalledTimes(1);
+
+    // Signing out from one instance propagates to the other.
+    await act(async () => {
+      await b.result.current.signOut();
+    });
+    expect(b.result.current.account).toBeNull();
+    expect(a.result.current.account).toBeNull();
+  });
+
+  it("keeps the session ready while any consumer is still enabled", async () => {
+    getAllAccountsMock.mockReturnValue([FAKE_ACCOUNT]);
+    const a = renderHook(({ on }) => useMsAuth(on), { initialProps: { on: true } });
+    const b = renderHook(() => useMsAuth(true));
+    await waitFor(() => expect(a.result.current.ready).toBe(true));
+
+    // One consumer disables; the other still holds the session open.
+    a.rerender({ on: false });
+    expect(b.result.current.ready).toBe(true);
+    expect(b.result.current.account).toEqual(FAKE_ACCOUNT);
+  });
 });
