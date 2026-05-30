@@ -8,6 +8,11 @@ Authoritative source for version + build date: [`src/app/version.ts`](src/app/ve
 This file is seeded from that module's milestone comment plus the
 post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-diff.txt).
 
+## [0.30.0] — 2026-05-29 "Liu"
+
+### Added
+- **Full-page task editor (modern layout).** Opening a task — or clicking **New task** — now opens a full-viewport edit view instead of the overlay dialog: a Dark-Blue section heading, a two-column field grid in the AIPM palette, and **Save** (green) / **Cancel** in the top bar. The editor reuses the same fields, state, and validation as before, and returns you to the view you came from on save or cancel. **Classic mode** and all pop-out windows keep the dialog. This is Phase 2 of the sidebar-layout redesign (a table restyle follows).
+
 ## [0.29.0] — 2026-05-29 "Okorafor"
 
 ### Added

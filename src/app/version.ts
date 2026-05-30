@@ -1,3 +1,9 @@
+// 0.30.0 "Liu" adds Phase 2 of the modern layout: a full-page task editor.
+// In the modern layout, opening a task (or clicking "New task") now opens a
+// full-viewport edit view styled in the AIPM palette (Dark-Blue section heading,
+// two-column field grid) with Save (green) / Cancel in the top bar, instead of
+// the overlay dialog. The editor reuses the exact same fields, state, and
+// validation as before; Classic mode and all popouts keep the dialog.
 // 0.29.0 "Okorafor" adds a modern left-sidebar layout as the new default: a
 // Dark-Blue sidebar with grouped, nested navigation (Open Points, Chat, Gantt,
 // Resources + Address Book/Resource Report, Budget, RAID + RAID Report, Reports,
@@ -346,8 +352,8 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.29.0";
-export const APP_BUILD_DATE = "2026-05-29"; // Okorafor milestone
+export const APP_VERSION = "0.30.0";
+export const APP_BUILD_DATE = "2026-05-29"; // Liu milestone
 export const APP_REPO_URL = "https://www.example.com";
 
 /** Translation keys for the high-level feature highlights shown in the
@@ -386,4 +392,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightStorageConvert",
   "versionHighlightStorageUnreachable",
   "versionHighlightModernLayout",
+  "versionHighlightFullPageEdit",
 ] as const;
