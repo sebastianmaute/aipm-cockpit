@@ -187,7 +187,7 @@ export function ColumnResizeHandle({
     <div
       aria-hidden="true"
       onMouseDown={(e) => onMouseDown(col, e)}
-      className="absolute right-0 top-0 h-full w-1 cursor-col-resize select-none hover:bg-AIPM-dark-blue/40 dark:hover:bg-AIPM-blue/40 print:hidden"
+      className="absolute right-0 top-0 h-full w-1 cursor-col-resize select-none hover:bg-white/30 print:hidden"
     />
   );
 }
@@ -234,7 +234,7 @@ export function SortableTh({
         type="button"
         onClick={() => onClick(sortKey)}
         title={t(lang, "sortBy", label)}
-        className={`inline-flex items-center gap-1 uppercase tracking-wide hover:text-foreground ${isActive ? "text-foreground" : ""}`}
+        className={`inline-flex items-center gap-1 uppercase tracking-wide hover:text-AIPM-green ${isActive ? "text-AIPM-green" : ""}`}
       >
         {label}
         <span aria-hidden className="text-[0.65rem]">
