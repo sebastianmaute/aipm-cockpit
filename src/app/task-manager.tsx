@@ -47,6 +47,8 @@ import { AppShell } from "./app-shell";
 import { ModernShell } from "./modern-shell";
 import { useHashView } from "./use-hash-view";
 import { navLabelKey } from "./nav-config";
+import type { AppView } from "./nav-config";
+import { TaskEditView, TASK_EDIT_FORM_ID } from "./task-edit-view";
 import { APP_VERSION } from "./version";
 import { ExportMenu } from "./export-menu";
 import { HelpMenu } from "./help-menu";
@@ -145,8 +147,27 @@ function TaskManagerInner() {
     setForm,
     editingId,
     setEditingId,
+    taskModalOpen,
     setTaskModalOpen,
   } = useTaskForm();
+
+  // Phase 2: in the modern main window the task editor is a full-page "edit"
+  // view, not the overlay modal. `taskModalOpen` stays the single "editor open"
+  // signal (set by every entry point, cleared by handleSubmit on success and by
+  // handleCancelEdit); this effect mirrors it into navigation, remembering the
+  // origin view so Save/Cancel return there. Classic mode and popouts keep the
+  // modal and are unaffected (the effect is gated on `useEditView`).
+  const useEditView = settings.layout === "modern" && !isPopout;
+  const editorReturnRef = useRef<AppView>("open-points");
+  useEffect(() => {
+    if (!useEditView) return;
+    if (taskModalOpen && activeTab !== "edit") {
+      editorReturnRef.current = activeTab;
+      setActiveTab("edit");
+    } else if (!taskModalOpen && activeTab === "edit") {
+      setActiveTab(editorReturnRef.current);
+    }
+  }, [useEditView, taskModalOpen, activeTab, setActiveTab]);
 
   // Populated after useBulkOperations is called below; onDelete calls through
   // this ref so it doesn't depend on deselectId being defined first.
@@ -702,6 +723,53 @@ function TaskManagerInner() {
     />
   );
 
+  // Phase 2 full-page editor (modern). Reuses the same fields/validation as the
+  // modal; submit goes through the existing handleSubmit.
+  const editTitle =
+    editingId !== null ? t(lang, "tabEditTask", editingId) : t(lang, "tabNewTask");
+
+  const editActions = (
+    <>
+      <button
+        type="button"
+        onClick={handleCancelEdit}
+        className="rounded-md border border-line bg-surface px-4 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted dark:border-line dark:bg-surface dark:text-foreground dark:hover:bg-surface-muted"
+      >
+        {t(lang, "cancel")}
+      </button>
+      <button
+        type="submit"
+        form={TASK_EDIT_FORM_ID}
+        className="rounded-md bg-AIPM-green px-4 py-1.5 text-sm font-semibold text-AIPM-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-AIPM-green"
+      >
+        {editingId !== null ? t(lang, "updateTask") : t(lang, "addTask")}
+      </button>
+    </>
+  );
+
+  const editViewEl = (
+    <TaskEditView
+      lang={lang}
+      today={today}
+      nextId={nextId}
+      contactsList={contactsList}
+      absences={absences}
+      tasksForDeps={tasks}
+      uniqueGroups={uniqueGroups}
+      uniqueLabels={uniqueLabels}
+      editingIsJiraLinked={editingIsJiraLinked}
+      jiraEnabled={settings.jira.enabled}
+      error={error}
+      holidaySet={holidaySet}
+      jiraProjectKey={settings.jira.projectKey}
+      jiraDefaultIssueType={settings.jira.issueTypes[0]}
+      onSubmit={handleSubmit}
+      onRemoveContact={handleRemoveContact}
+      onShowToast={showToast}
+      onAddAssigneeToAddressBook={handleAddAssigneeToAddressBook}
+    />
+  );
+
   // The action-cluster menus that AppHeader renders in classic mode. Reused by
   // the modern TopBar (which renders the + and bell buttons itself).
   const topBarMenus = (
@@ -755,6 +823,7 @@ function TaskManagerInner() {
       <AppModals
         lang={lang}
         isPopout={isPopout}
+        showTaskFormModal={!useEditView}
         dueModalOpen={dueModalOpen}
         dueModalItems={dueModalItems}
         onSelectDueTask={onSelectDueTask}
@@ -897,6 +966,9 @@ function TaskManagerInner() {
         sidebarFooter={null}
         tasksSection={tasksSectionEl}
         workspace={workspaceFullBleedEl}
+        editView={editViewEl}
+        editTitle={editTitle}
+        editActions={editActions}
       />
       {modalsBlock}
     </>
