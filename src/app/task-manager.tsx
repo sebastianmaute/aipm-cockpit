@@ -907,43 +907,56 @@ function TaskManagerInner() {
 
   // The existing tree. Its root className already branches on isPopout, so this
   // single definition serves both the classic main window AND every popout.
-  const legacyTree = (
-    <div
-      className={
-        isPopout
-          ? "flex flex-1 flex-col p-4"
-          : "mx-auto w-full max-w-[1536px] p-6 sm:p-10"
-      }
-    >
-      {isPopout && !isReportPopoutTab(activeTab) && <ReadOnlyMirrorBanner lang={lang} />}
-      {!isPopout && (
-        <AppHeader
-          handleCancelEdit={handleCancelEdit}
-          setTaskModalOpen={setTaskModalOpen}
-          bannerItems={bannerItems}
-          setBannerDismissed={setBannerDismissed}
-          setDueModalOpen={setDueModalOpen}
-          showToast={showToast}
-          handleCommand={handleCommand}
-          storageDescription={storageDescription}
-          storageReady={storageReady}
-          onPickStorageFile={onPickStorageFile}
-          onOpenStorageFile={onOpenStorageFile}
-          onGrantStorageWrite={onGrantWriteAccess}
-          onRequestStorageSwitch={onRequestStorageSwitch}
-          settings={settings}
-          setSettings={setSettings}
-          lang={lang}
-        />
-      )}
+  const appHeaderEl = (
+    <AppHeader
+      handleCancelEdit={handleCancelEdit}
+      setTaskModalOpen={setTaskModalOpen}
+      bannerItems={bannerItems}
+      setBannerDismissed={setBannerDismissed}
+      setDueModalOpen={setDueModalOpen}
+      showToast={showToast}
+      handleCommand={handleCommand}
+      storageDescription={storageDescription}
+      storageReady={storageReady}
+      onPickStorageFile={onPickStorageFile}
+      onOpenStorageFile={onOpenStorageFile}
+      onGrantStorageWrite={onGrantWriteAccess}
+      onRequestStorageSwitch={onRequestStorageSwitch}
+      settings={settings}
+      setSettings={setSettings}
+      lang={lang}
+    />
+  );
 
+  // Popout windows keep the simple scrolling flow. The classic main window is a
+  // viewport-height flex column: the header pins at the top, only the content
+  // region (workspace + tasks) scrolls, and the footer (last child of
+  // modalsBlock) stays visible at the bottom without scrolling the whole page.
+  const legacyTree = isPopout ? (
+    <div className="flex flex-1 flex-col p-4">
+      {!isReportPopoutTab(activeTab) && <ReadOnlyMirrorBanner lang={lang} />}
       {bannersEl}
-
       {workspaceEl}
-
-      {!isPopout && tasksSectionEl}
-
       {modalsBlock}
+    </div>
+  ) : (
+    <div className="flex h-screen flex-col">
+      <div className="mx-auto w-full max-w-[1536px] shrink-0 px-6 pt-6 sm:px-10 sm:pt-10">
+        {appHeaderEl}
+      </div>
+      <div className="min-h-0 flex-1 overflow-auto">
+        <div className="mx-auto w-full max-w-[1536px] px-6 pb-6 sm:px-10 sm:pb-10">
+          {bannersEl}
+          {workspaceEl}
+          {tasksSectionEl}
+        </div>
+      </div>
+      {/* Footer lives at the end of modalsBlock; the max-w wrapper restores its
+          horizontal framing now that it sits outside the scroll region. Fixed
+          modals/toast inside are unaffected by this plain wrapper. */}
+      <div className="mx-auto w-full max-w-[1536px] shrink-0 px-6 sm:px-10">
+        {modalsBlock}
+      </div>
     </div>
   );
 

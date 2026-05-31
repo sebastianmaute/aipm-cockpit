@@ -24,6 +24,16 @@ describe("TaskManager shell selection", () => {
     expect(screen.queryByText("LIST OF OPEN POINTS")).toBeNull();
   });
 
+  it("classic layout fits the viewport with a pinned footer (non-popout)", async () => {
+    setLayout("classic");
+    const { container } = render(<TaskManager />);
+    await screen.findAllByRole("button", { name: "Add task" });
+    const root = container.firstElementChild as HTMLElement;
+    expect(root.className).toContain("h-screen");
+    expect(root.className).toContain("flex");
+    expect(root.className).toContain("flex-col");
+  });
+
   it("opens the full-page edit view (not the modal) when New task is clicked in modern mode", async () => {
     render(<TaskManager />); // modern is the default layout
     // The modern top bar's New-task button.
