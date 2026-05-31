@@ -10,6 +10,7 @@ import { birthdayMonthDay } from "./birthdays";
 import { resourceDisplayName } from "./resource-foundation";
 import type { Discipline, Grade, Resource, Role } from "./types";
 import { useColumnResize } from "./use-column-resize";
+import { INNER_TABLE_CLASS } from "./view-styles";
 import { ColumnResizeHandle, ResetColWidthsButton } from "./task-manager-ui";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 
@@ -229,7 +230,7 @@ function ResourceDirectoryInner({
           {t(lang, "resourcesEmpty")}
         </div>
       ) : (
-        <div className="min-h-0 flex-1 overflow-auto rounded-md border border-line">
+        <div className={INNER_TABLE_CLASS}>
           <table className="w-full text-left text-sm">
             <thead className={TABLE_HEAD_CLASS}>
               <tr>

@@ -6,6 +6,7 @@ import { type Lang, t } from "./i18n";
 import { buildResourceWorkload } from "./resource-workload-rows";
 import type { Absence, Resource, Shift, Task } from "./types";
 import { useColumnResize } from "./use-column-resize";
+import { INNER_TABLE_CLASS } from "./view-styles";
 import { ColumnResizeHandle, ResetColWidthsButton } from "./task-manager-ui";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 
@@ -63,7 +64,7 @@ export function ResourceWorkload({
       <div className="mb-2 flex shrink-0 items-center justify-end">
         <ResetColWidthsButton onClick={resetColWidths} lang={lang} />
       </div>
-      <div className="min-h-0 flex-1 overflow-auto rounded-md border border-line">
+      <div className={INNER_TABLE_CLASS}>
       <table className="w-full text-left text-sm">
         <thead className={TABLE_HEAD_CLASS}>
           <tr>

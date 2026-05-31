@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 import { workdaysUntil } from "./due-dates";
 import { useColumnResize } from "./use-column-resize";
 import { ColumnResizeHandle, PrintButton, ResetColWidthsButton } from "./task-manager-ui";
+import { VIEW_PANE_CLASS } from "./view-styles";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 
 const REPORTS_INQUIRY_COL_WIDTHS = {
@@ -344,7 +345,7 @@ export function ReportsPanel({
   };
 
   return (
-    <div className="space-y-6">
+    <div className={`${VIEW_PANE_CLASS} space-y-6 p-6`}>
       <div className="flex items-center justify-end print:hidden">
         <PrintButton lang={lang} />
         <ResetColWidthsButton onClick={resetAllReports} lang={lang} />

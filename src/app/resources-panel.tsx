@@ -22,6 +22,7 @@ import { localeFor } from "./date-format";
 import { type Lang, t } from "./i18n";
 import { ResourceCalendar } from "./resource-calendar";
 import { ResourceDirectory } from "./resource-directory";
+import { INNER_TABLE_CLASS } from "./view-styles";
 import { ResourceWorkload } from "./resource-workload";
 import { SegmentedControl } from "./segmented-control";
 import { generatePeriods, displayCapacityHours, absencesForResource, absenceWorkdays } from "./resource-capacity";
@@ -383,7 +384,7 @@ function ResourcesPanelInner({
                 onChange={onSetAllUtilizationMode}
               />
             </div>
-            <div className="min-h-0 flex-1 overflow-auto rounded-md border border-line">
+            <div className={INNER_TABLE_CLASS}>
             <table className="w-full text-left text-sm">
               <thead className={TABLE_HEAD_CLASS}>
                 <tr>

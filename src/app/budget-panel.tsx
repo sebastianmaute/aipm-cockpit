@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { formatCurrency } from "./resource-cost";
 import { computeBudgetReport, bucketActivePeriods, type BucketReport, type CciValue } from "./budget-report";
+import { VIEW_PANE_CLASS } from "./view-styles";
 import { roleLabel } from "./resource-foundation";
 import { eurToCurrency, resolveRate } from "./fx";
 import type { Absence, BudgetBucket, Discipline, FxRates, Grade, Resource, ResourcePlan, Role } from "./types";
@@ -159,7 +160,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
   };
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className={`${VIEW_PANE_CLASS} flex flex-col gap-6 p-6`}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <button

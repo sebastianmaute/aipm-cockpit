@@ -4,6 +4,7 @@ import { memo, useEffect, useRef, useState } from "react";
 import { TOOL_DEFS, type ToolDispatcher, runTool } from "./chat-tools";
 import { type Lang, type TranslationKey, t } from "./i18n";
 import { Markdown } from "./markdown";
+import { VIEW_PANE_CLASS } from "./view-styles";
 import { CHAT_MESSAGE_MAX } from "./sanitize";
 import type { AiConfig } from "./settings-menu";
 
@@ -250,7 +251,7 @@ function ChatPanelInner({
     // which is the actual resizable surface). `min-h-[300px]` keeps the chat
     // usable if the section is shrunk; otherwise the chat tracks the
     // section's current height.
-    <div className="flex h-full min-h-[300px] flex-col">
+    <div className={`flex h-full min-h-[300px] flex-col ${VIEW_PANE_CLASS} p-6`}>
       <div
         ref={scrollerRef}
         className="flex-1 overflow-y-auto rounded-md border border-line bg-surface-muted p-3"
