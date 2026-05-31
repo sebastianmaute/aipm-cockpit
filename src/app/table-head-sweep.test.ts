@@ -21,6 +21,7 @@ const SWEPT_FILES = [
   "resource-workload.tsx",
   "resources-panel.tsx",
   "resources-report.tsx",
+  "jira-conflicts-modal.tsx",
 ];
 
 describe("table header sweep", () => {
