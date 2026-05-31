@@ -10,6 +10,7 @@ import {
   useSortableFilter,
   TableFilter,
   ReportCard,
+  SortHeaderButton,
   type SortDir,
 } from "./report-table";
 import {
@@ -608,13 +609,12 @@ function GroupOrLabelTable({
           <thead className={TABLE_HEAD_CLASS}>
             <tr>
               <th className="relative px-3 py-2" style={{ width: colWidths.label, minWidth: colWidths.label }}>
-                <button
-                  type="button"
+                <SortHeaderButton
+                  label={t(lang, headerKey)}
+                  active={sort.key === "name" && sort.dir !== "off"}
+                  dir={sort.dir}
                   onClick={() => click("name")}
-                  className={`inline-flex items-center gap-1 ${sort.key === "name" && sort.dir !== "off" ? "text-AIPM-green" : ""} hover:text-AIPM-green`}
-                >
-                  {t(lang, headerKey)}{sort.key === "name" && sort.dir !== "off" ? (sort.dir === "asc" ? " ↑" : " ↓") : ""}
-                </button>
+                />
                 <ColumnResizeHandle col="label" onMouseDown={onStartResize} />
               </th>
               {(["total", "open", "completed", "overdue", "inquiries"] as const).map((k) => {
@@ -626,16 +626,14 @@ function GroupOrLabelTable({
                   inquiries: "reportsInquiriesCol",
                 } as const;
                 const active = sort.key === k && sort.dir !== "off";
-                const indicator = active ? (sort.dir === "asc" ? " ↑" : " ↓") : "";
                 return (
                   <th key={k} className="relative px-3 py-2 text-right" style={{ width: colWidths[k], minWidth: colWidths[k] }}>
-                    <button
-                      type="button"
+                    <SortHeaderButton
+                      label={t(lang, labelKey[k])}
+                      active={active}
+                      dir={sort.dir}
                       onClick={() => click(k)}
-                      className={`inline-flex items-center gap-1 ${active ? "text-AIPM-green" : ""} hover:text-AIPM-green`}
-                    >
-                      {t(lang, labelKey[k])}{indicator}
-                    </button>
+                    />
                     <ColumnResizeHandle col={k} onMouseDown={onStartResize} />
                   </th>
                 );
@@ -704,13 +702,12 @@ function AssigneeTable({
           <thead className={TABLE_HEAD_CLASS}>
             <tr>
               <th className="relative px-3 py-2" style={{ width: colWidths.assignee, minWidth: colWidths.assignee }}>
-                <button
-                  type="button"
+                <SortHeaderButton
+                  label={t(lang, "assignee")}
+                  active={sort.key === "assignee" && sort.dir !== "off"}
+                  dir={sort.dir}
                   onClick={() => click("assignee")}
-                  className={`inline-flex items-center gap-1 ${sort.key === "assignee" && sort.dir !== "off" ? "text-AIPM-green" : ""} hover:text-AIPM-green`}
-                >
-                  {t(lang, "assignee")}{sort.key === "assignee" && sort.dir !== "off" ? (sort.dir === "asc" ? " ↑" : " ↓") : ""}
-                </button>
+                />
                 <ColumnResizeHandle col="assignee" onMouseDown={onStartResize} />
               </th>
               {(["total", "open", "overdue", "onTime", "late", "inquiries"] as const).map((k) => {
@@ -723,16 +720,14 @@ function AssigneeTable({
                   inquiries: "reportsInquiriesCol",
                 } as const;
                 const active = sort.key === k && sort.dir !== "off";
-                const indicator = active ? (sort.dir === "asc" ? " ↑" : " ↓") : "";
                 return (
                   <th key={k} className="relative px-3 py-2 text-right" style={{ width: colWidths[k], minWidth: colWidths[k] }}>
-                    <button
-                      type="button"
+                    <SortHeaderButton
+                      label={t(lang, labelKey[k])}
+                      active={active}
+                      dir={sort.dir}
                       onClick={() => click(k)}
-                      className={`inline-flex items-center gap-1 ${active ? "text-AIPM-green" : ""} hover:text-AIPM-green`}
-                    >
-                      {t(lang, labelKey[k])}{indicator}
-                    </button>
+                    />
                     <ColumnResizeHandle col={k} onMouseDown={onStartResize} />
                   </th>
                 );

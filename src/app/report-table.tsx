@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { type Lang, t } from "./i18n";
 import {
   PrintButton,
@@ -47,16 +47,19 @@ export function useSortableFilter<Row extends { name: string }, Key extends stri
     return arr;
   }, [filtered, sort, getValue]);
 
-  function click(k: Key) {
-    if (k !== sort.key) {
-      setSort({ key: k, dir: "asc" });
-      return;
-    }
-    setSort({
-      key: sort.key,
-      dir: sort.dir === "asc" ? "desc" : sort.dir === "desc" ? "off" : "asc",
-    });
-  }
+  const click = useCallback(
+    (k: Key) => {
+      if (k !== sort.key) {
+        setSort({ key: k, dir: "asc" });
+        return;
+      }
+      setSort({
+        key: sort.key,
+        dir: sort.dir === "asc" ? "desc" : sort.dir === "desc" ? "off" : "asc",
+      });
+    },
+    [sort.key, sort.dir, setSort],
+  );
 
   return { sorted, click };
 }
