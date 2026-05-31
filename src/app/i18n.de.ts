@@ -967,7 +967,7 @@ export const de: Record<TranslationKey, string> = {
   outlookImportSelectedN: "{0} ausgewählt",
   outlookImportConfirm: "Importieren ({0})",
   outlookImportCancel: "Abbrechen",
-  outlookImportButton: "Aus Outlook importieren",
+  outlookImportButton: "Mit Outlook synchronisieren",
   outlookImportedN: "{0} Kontakte importiert",
   outlookSignInRequired: "Mit Microsoft anmelden, um Outlook-Kontakte zu importieren.",
   outlookSignInExpired: "Microsoft-Sitzung abgelaufen. Bitte erneut anmelden.",

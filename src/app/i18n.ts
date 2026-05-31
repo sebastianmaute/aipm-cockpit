@@ -949,7 +949,7 @@ const enUS = {
   outlookImportSelectedN: "{0} selected",
   outlookImportConfirm: "Import ({0})",
   outlookImportCancel: "Cancel",
-  outlookImportButton: "Import from Outlook",
+  outlookImportButton: "Sync with Outlook",
   outlookImportedN: "Imported {0} contacts",
   outlookSignInRequired: "Sign in with Microsoft to import Outlook contacts.",
   outlookSignInExpired: "Microsoft session expired. Please sign in again.",
