@@ -1,3 +1,14 @@
+// 0.37.2 introduces property-based testing with fast-check (new dev dependency,
+// no runtime/prod impact). Eight co-located *.property.test.ts suites assert
+// invariants over generated inputs for the pure-logic layer: duration parse/
+// format round-trips, FX conversion round-trips & rate positivity, resource-
+// capacity period generation & bounds, due-date working-day math, the sanitize
+// boundary guards (length caps, idempotence, encode/decode round-trips), the
+// RAID comparator (antisymmetry, total order, monotonic severity), resource-cost
+// identities, and date-format locale/formatting. The sweep documented one
+// boundary finding: sanitizeNonNegInt/sanitizeOptionalMinutes throw on Symbols
+// and null-prototype objects, which the JSON/CSV input path cannot produce — so
+// the property is scoped to the realistic JSON-value domain. No source changes.
 // 0.37.1 is a documentation refresh with no runtime behavior change: the
 // README is brought up to the modern-layout era (version line + a Layout &
 // theme entry and scoped-printing note in the feature table), the five
@@ -425,8 +436,8 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.37.1";
-export const APP_BUILD_DATE = "2026-05-31"; // Kowal (0.37.1 docs refresh)
+export const APP_VERSION = "0.37.2";
+export const APP_BUILD_DATE = "2026-05-31"; // Kowal (0.37.2 property tests)
 export const APP_REPO_URL = "https://www.example.com";
 
 /** Translation keys for the high-level feature highlights shown in the

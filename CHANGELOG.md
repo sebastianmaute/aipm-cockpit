@@ -8,6 +8,15 @@ Authoritative source for version + build date: [`src/app/version.ts`](src/app/ve
 This file is seeded from that module's milestone comment plus the
 post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-diff.txt).
 
+## [0.37.2] — 2026-05-31
+
+### Testing
+- Added **property-based testing** with [fast-check](https://github.com/dubzzz/fast-check) (new dev dependency; no runtime impact).
+- Eight co-located `*.property.test.ts` suites assert invariants over generated inputs for the pure-logic layer: `duration` (parse/format round-trip), `fx` (conversion round-trip, rate positivity, monotonicity), `resource-capacity` (period ordering, workday bounds, non-negative capacity), `due-dates` (working-day math, alert sorting), `sanitize` (length caps, idempotence, encode/decode round-trips, label dedup), `raid` (comparator antisymmetry & total order, monotonic severity, counts), `resource-cost` (cost identities, no-throw formatting), and `date-format` (locale mapping, verbatim fallback).
+- Documented one boundary finding: `sanitizeNonNegInt` / `sanitizeOptionalMinutes` throw on `Symbol`s and null-prototype objects, which the JSON/CSV input path cannot produce — the property is scoped to the realistic JSON-value domain rather than hardening the function out of scope.
+
+_No runtime/behavior changes._
+
 ## [0.37.1] — 2026-05-31
 
 ### Documentation
