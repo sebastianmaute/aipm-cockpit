@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 import { workdaysUntil } from "./due-dates";
 import { useColumnResize } from "./use-column-resize";
 import { ColumnResizeHandle, PrintButton, ResetColWidthsButton } from "./task-manager-ui";
+import { TABLE_HEAD_CLASS } from "./table-styles";
 
 const REPORTS_INQUIRY_COL_WIDTHS = {
   id: 60,
@@ -472,7 +473,7 @@ export function ReportsPanel({
         {stats.topInquiries.length > 0 && (
           <div className="mt-3 overflow-x-auto rounded-md border border-line">
             <table className="min-w-full text-left text-xs">
-              <thead className="bg-surface-muted text-foreground uppercase tracking-wide">
+              <thead className={TABLE_HEAD_CLASS}>
                 <tr>
                   <th className="relative px-3 py-2" style={{ width: inquiry.colWidths.id, minWidth: inquiry.colWidths.id }}>
                     #
@@ -642,13 +643,13 @@ function GroupOrLabelTable({
       <TableFilter lang={lang} value={filter} onChange={setFilter} placeholderKey={filterPlaceholderKey} />
       <div className="overflow-x-auto rounded-md border border-line">
         <table className="min-w-full text-left text-xs">
-          <thead className="bg-surface-muted text-foreground uppercase tracking-wide">
+          <thead className={TABLE_HEAD_CLASS}>
             <tr>
               <th className="relative px-3 py-2" style={{ width: colWidths.label, minWidth: colWidths.label }}>
                 <button
                   type="button"
                   onClick={() => click("name")}
-                  className={`inline-flex items-center gap-1 ${sort.key === "name" && sort.dir !== "off" ? "text-foreground" : ""} hover:text-foreground`}
+                  className={`inline-flex items-center gap-1 ${sort.key === "name" && sort.dir !== "off" ? "text-AIPM-green" : ""} hover:text-AIPM-green`}
                 >
                   {t(lang, headerKey)}{sort.key === "name" && sort.dir !== "off" ? (sort.dir === "asc" ? " ↑" : " ↓") : ""}
                 </button>
@@ -669,7 +670,7 @@ function GroupOrLabelTable({
                     <button
                       type="button"
                       onClick={() => click(k)}
-                      className={`inline-flex items-center gap-1 ${active ? "text-foreground" : ""} hover:text-foreground`}
+                      className={`inline-flex items-center gap-1 ${active ? "text-AIPM-green" : ""} hover:text-AIPM-green`}
                     >
                       {t(lang, labelKey[k])}{indicator}
                     </button>
@@ -738,13 +739,13 @@ function AssigneeTable({
       )}
       <div className="overflow-x-auto rounded-md border border-line">
         <table className="min-w-full text-left text-xs">
-          <thead className="bg-surface-muted text-foreground uppercase tracking-wide">
+          <thead className={TABLE_HEAD_CLASS}>
             <tr>
               <th className="relative px-3 py-2" style={{ width: colWidths.assignee, minWidth: colWidths.assignee }}>
                 <button
                   type="button"
                   onClick={() => click("assignee")}
-                  className={`inline-flex items-center gap-1 ${sort.key === "assignee" && sort.dir !== "off" ? "text-foreground" : ""} hover:text-foreground`}
+                  className={`inline-flex items-center gap-1 ${sort.key === "assignee" && sort.dir !== "off" ? "text-AIPM-green" : ""} hover:text-AIPM-green`}
                 >
                   {t(lang, "assignee")}{sort.key === "assignee" && sort.dir !== "off" ? (sort.dir === "asc" ? " ↑" : " ↓") : ""}
                 </button>
@@ -766,7 +767,7 @@ function AssigneeTable({
                     <button
                       type="button"
                       onClick={() => click(k)}
-                      className={`inline-flex items-center gap-1 ${active ? "text-foreground" : ""} hover:text-foreground`}
+                      className={`inline-flex items-center gap-1 ${active ? "text-AIPM-green" : ""} hover:text-AIPM-green`}
                     >
                       {t(lang, labelKey[k])}{indicator}
                     </button>
