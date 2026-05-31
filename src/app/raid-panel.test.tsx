@@ -1,5 +1,7 @@
 import React from "react";
-import { describe, it, expect, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { describe, it, expect, vi, test } from "vitest";
 import { render, screen, fireEvent, within } from "@testing-library/react";
 import { t } from "./i18n";
 import { RaidPanel } from "./raid-panel";
@@ -150,4 +152,16 @@ describe("RaidPanel inline add row", () => {
     });
     expect(checkedRadio).toHaveTextContent(t("en-US", "raidCategoryA"));
   });
+});
+
+test("raid toolbar: add-item precedes search; no open-report button", () => {
+  const src = readFileSync(join(__dirname, "raid-panel.tsx"), "utf8");
+  const addIdx = src.indexOf("openNew()");
+  const searchIdx = src.indexOf('type="search"');
+  expect(addIdx).toBeGreaterThan(-1);
+  expect(addIdx).toBeLessThan(searchIdx);
+  expect(src).not.toMatch(/raidReportOpenReport\b/);
+});
+test("raid pane uses VIEW_PANE_RESIZABLE_CLASS", () => {
+  expect(readFileSync(join(__dirname, "raid-panel.tsx"), "utf8")).toMatch(/VIEW_PANE_RESIZABLE_CLASS/);
 });

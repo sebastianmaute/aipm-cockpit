@@ -372,7 +372,6 @@ export function WorkspaceSection({
             onDelete={handleDeleteRaidItem}
             onCreateMitigationTask={handleCreateMitigationTaskFromRaid}
             onJumpToTask={handleJumpToTaskFromRaid}
-            onOpenReport={() => openPopoutWindow("raid-report", settings.popout.reuseWindow)}
           />
         </div>
 
