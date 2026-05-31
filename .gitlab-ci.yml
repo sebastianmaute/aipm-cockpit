@@ -73,8 +73,8 @@ build:
     paths: [.next/]
     expire_in: 1h
 
-# E2E is the slowest job, so it runs on the default branch (main) only — not on
-# every merge request — to keep MR pipelines fast.
+# E2E runs on merge requests and the default branch (main). It's the slowest
+# job, so it gates MRs at the cost of a longer MR pipeline.
 e2e:
   stage: e2e
   # Keep this tag in lockstep with @playwright/test in package-lock.json. The
@@ -84,6 +84,7 @@ e2e:
   needs: [build]
   dependencies: []                       # fresh install — don't reuse glibc-mismatched modules
   rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
   script:
     - npm ci
