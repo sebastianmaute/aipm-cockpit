@@ -1,5 +1,7 @@
 import React from "react";
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, test, expect, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { render, act } from "@testing-library/react";
 import { GanttPanel } from "./gantt";
 import type { Task } from "./types";
@@ -120,4 +122,19 @@ describe("GanttPanel scroll-to-today", () => {
       scrollWidthSpy.mockRestore();
     }
   });
+});
+
+// ---------- source-scan tests (Task 6: toolbar ordering + pane resize) ------
+
+test("gantt toolbar: + Add Task markup precedes the search input", () => {
+  const src = readFileSync(join(__dirname, "gantt.tsx"), "utf8");
+  const addIdx = src.indexOf("onClick={onAddTask}");
+  const searchIdx = src.indexOf('type="search"');
+  expect(addIdx).toBeGreaterThan(-1);
+  expect(addIdx).toBeLessThan(searchIdx);
+});
+
+test("gantt pane uses VIEW_PANE_RESIZABLE_CLASS", () => {
+  const src = readFileSync(join(__dirname, "gantt.tsx"), "utf8");
+  expect(src).toMatch(/VIEW_PANE_RESIZABLE_CLASS/);
 });
