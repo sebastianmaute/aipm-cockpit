@@ -101,3 +101,26 @@ describe("ModernShell settings slot", () => {
     expect(screen.queryByTestId("workspace")).toBeNull();
   });
 });
+
+describe("ModernShell banners slot", () => {
+  it("renders banners at the top of the main content region", () => {
+    setup({ banners: <div data-testid="banners" /> });
+    const main = document.getElementById("main-content");
+    const banners = screen.getByTestId("banners");
+    expect(banners).toBeInTheDocument();
+    expect(main?.contains(banners)).toBe(true);
+    // Banners come before the view content in DOM order.
+    const tasks = screen.getByTestId("tasks");
+    expect(banners.compareDocumentPosition(tasks) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("renders banners on the edit view too (all views)", () => {
+    setup({
+      activeView: "edit",
+      editView: <div data-testid="edit" />,
+      editTitle: "Editing task #1",
+      banners: <div data-testid="banners" />,
+    });
+    expect(screen.getByTestId("banners")).toBeInTheDocument();
+  });
+});
