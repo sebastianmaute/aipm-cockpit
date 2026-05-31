@@ -787,6 +787,34 @@ function TaskManagerInner() {
     />
   );
 
+  // The Due / Birthday / Jira-token reminder banners, shared by the classic tree
+  // (rendered after AppHeader) and the modern tree (ModernShell `banners` slot).
+  // Gates kept verbatim — popouts (`!isPopout`) still suppress all three.
+  const bannersEl = (
+    <>
+      {!isPopout && !bannerDismissed && !dueSnooze.isSnoozed && (
+        <DueBanner
+          items={bannerItems}
+          lang={lang}
+          onOpenList={() => setDueModalOpen(true)}
+          onDismiss={() => setBannerDismissed(true)}
+          onSnooze={dueSnooze.snooze}
+        />
+      )}
+      {!isPopout && !birthdaySnooze.isSnoozed && !birthdayDismissed && birthdayItems.length > 0 && (
+        <BirthdayBanner items={birthdayItems} lang={lang} onDismiss={() => setBirthdayDismissed(true)} onSnooze={birthdaySnooze.snooze} />
+      )}
+      {!isPopout && jiraTokenAlert && !jiraTokenSnooze.isSnoozed && !jiraTokenDismissed && (
+        <JiraTokenBanner
+          alert={jiraTokenAlert}
+          lang={lang}
+          onSnooze={jiraTokenSnooze.snooze}
+          onDismiss={() => setJiraTokenDismissed(true)}
+        />
+      )}
+    </>
+  );
+
   const modalsBlock = (
     <>
       <OutlookImportModal
@@ -908,28 +936,7 @@ function TaskManagerInner() {
         />
       )}
 
-      {!isPopout && !bannerDismissed && !dueSnooze.isSnoozed && (
-        <DueBanner
-          items={bannerItems}
-          lang={lang}
-          onOpenList={() => setDueModalOpen(true)}
-          onDismiss={() => setBannerDismissed(true)}
-          onSnooze={dueSnooze.snooze}
-        />
-      )}
-
-      {!isPopout && !birthdaySnooze.isSnoozed && !birthdayDismissed && birthdayItems.length > 0 && (
-        <BirthdayBanner items={birthdayItems} lang={lang} onDismiss={() => setBirthdayDismissed(true)} onSnooze={birthdaySnooze.snooze} />
-      )}
-
-      {!isPopout && jiraTokenAlert && !jiraTokenSnooze.isSnoozed && !jiraTokenDismissed && (
-        <JiraTokenBanner
-          alert={jiraTokenAlert}
-          lang={lang}
-          onSnooze={jiraTokenSnooze.snooze}
-          onDismiss={() => setJiraTokenDismissed(true)}
-        />
-      )}
+      {bannersEl}
 
       {workspaceEl}
 
@@ -971,6 +978,7 @@ function TaskManagerInner() {
         editTitle={editTitle}
         editActions={editActions}
         settingsView={settingsViewEl}
+        banners={bannersEl}
       />
       {modalsBlock}
     </>
