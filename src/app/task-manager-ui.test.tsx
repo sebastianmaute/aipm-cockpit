@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { SortableTh, PrintButton } from "./task-manager-ui";
+import { SortableTh, PrintButton, ResizeCornerHint, ResetSizeButton } from "./task-manager-ui";
 
 describe("SortableTh", () => {
   it("shows a 'Sort by <label>' tooltip and a green hover for the Dark-Blue header", () => {
@@ -41,5 +41,36 @@ describe("PrintButton", () => {
     } finally {
       printSpy.mockRestore();
     }
+  });
+});
+
+describe("ResizeCornerHint", () => {
+  it("renders the inert braille corner glyph", () => {
+    const { container } = render(<ResizeCornerHint lang="en-US" />);
+    expect(container.textContent).toContain("⠿");
+  });
+
+  it("sets aria-hidden and uses the tableResizeHint translation", () => {
+    const { container } = render(<ResizeCornerHint lang="en-US" />);
+    const span = container.querySelector("span");
+    expect(span).toHaveAttribute("aria-hidden", "true");
+    expect(span).toHaveAttribute("title", "Drag the bottom-right corner to resize the table.");
+  });
+});
+
+describe("ResetSizeButton", () => {
+  it("calls onClick when clicked", async () => {
+    const user = userEvent.setup();
+    const onClick = vi.fn();
+    render(<ResetSizeButton onClick={onClick} lang="en-US" />);
+    await user.click(screen.getByRole("button"));
+    expect(onClick).toHaveBeenCalledTimes(1);
+  });
+
+  it("has correct aria-label and title from tableResetSizeHint", () => {
+    render(<ResetSizeButton onClick={vi.fn()} lang="en-US" />);
+    const button = screen.getByRole("button");
+    expect(button).toHaveAttribute("aria-label", "Reset back to the default size.");
+    expect(button).toHaveAttribute("title", "Reset back to the default size.");
   });
 });
