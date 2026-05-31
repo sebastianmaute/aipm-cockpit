@@ -27,9 +27,10 @@ import { localeFor } from "./date-format";
 import { type Lang, t } from "./i18n";
 import { SegmentedControl } from "./segmented-control";
 import { useColumnResize } from "./use-column-resize";
-import { ColumnResizeHandle, PrintButton, ResetColWidthsButton } from "./task-manager-ui";
+import { useResizable } from "./use-resizable";
+import { ColumnResizeHandle, PrintButton, ResetColWidthsButton, ResetSizeButton, ResizeCornerHint } from "./task-manager-ui";
 import { TABLE_HEAD_CLASS } from "./table-styles";
-import { VIEW_PANE_FILL_CLASS } from "./view-styles";
+import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 
 const ACTIVITY_LOG_COL_WIDTHS = {
   timestamp: 160,
@@ -105,6 +106,8 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
   );
   const startResize = startColResize as (col: string, e: React.MouseEvent) => void;
 
+  const { ref: actRef, reset: resetActSize } = useResizable("lop-app:activity-size");
+
   // Precompute the rendered message and the group once per entries/lang
   // change so the filter+sort passes below don't redo i18n interpolation
   // on every keystroke.
@@ -163,7 +166,7 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
   }
 
   return (
-    <section className={`print-root ${VIEW_PANE_FILL_CLASS}`}>
+    <section ref={actRef} className={`print-root ${VIEW_PANE_RESIZABLE_CLASS}`}>
       <header className="mb-3 flex shrink-0 flex-wrap items-center gap-2">
         <h2 className="mr-auto text-lg font-medium text-foreground">
           {t(lang, "tabActivity")}{" "}
@@ -175,6 +178,7 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
         </h2>
         <PrintButton lang={lang} />
         <ResetColWidthsButton onClick={resetColWidths} lang={lang} />
+        <ResetSizeButton onClick={resetActSize} lang={lang} />
         {entries.length > 0 && (
           <button
             type="button"
@@ -315,6 +319,7 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
           </table>
         </div>
       )}
+      <ResizeCornerHint lang={lang} />
     </section>
   );
 }

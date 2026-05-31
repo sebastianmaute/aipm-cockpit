@@ -9,11 +9,12 @@ const ROOT = join(process.cwd(), "src", "app");
 // view reads identically to the Open Points (tasks) pane.
 // NOTE: tasks-section.tsx is omitted here — it uses VIEW_PANE_RESIZABLE_CLASS
 // in the modern (fillHeight) branch to restore drag-resize capability.
+// NOTE: activity-log-panel.tsx is omitted here — it uses VIEW_PANE_RESIZABLE_CLASS
+// to support drag-resize (Task 8).
 const FILL_FILES = [
   "chat-panel.tsx",
   "raid-panel.tsx",
   "resources-panel.tsx",
-  "activity-log-panel.tsx",
   "gantt.tsx",
 ];
 
@@ -76,5 +77,10 @@ describe("view-pane sweep", () => {
   it("tasks-section modern (fillHeight) branch is resizable", () => {
     const src = readFileSync(join(__dirname, "tasks-section.tsx"), "utf8");
     expect(src).toMatch(/fillHeight\s*\?\s*VIEW_PANE_RESIZABLE_CLASS/);
+  });
+
+  it("activity-log-panel is resizable", () => {
+    const src = readFileSync(join(__dirname, "activity-log-panel.tsx"), "utf8");
+    expect(src).toMatch(/VIEW_PANE_RESIZABLE_CLASS/);
   });
 });
