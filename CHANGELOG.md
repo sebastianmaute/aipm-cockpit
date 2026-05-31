@@ -8,6 +8,11 @@ Authoritative source for version + build date: [`src/app/version.ts`](src/app/ve
 This file is seeded from that module's milestone comment plus the
 post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-diff.txt).
 
+## [0.36.0] — 2026-05-31 "Hurley"
+
+### Changed
+- The task form (both the modern full-page edit view and the classic modal dialog) now presents its fields in 5 stacked, numbered sections — Details, Scheduling, Effort & Classification, Relationships, Status & Notes — instead of one long list. Same fields, same validation; just grouped for easier scanning.
+
 ## [0.35.0] — 2026-05-31 "Muir"
 
 ### Changed

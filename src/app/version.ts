@@ -1,3 +1,8 @@
+// 0.36.0 "Hurley" splits the task form into 5 stacked, numbered sections
+// (Details · Scheduling · Effort & Classification · Relationships · Status &
+// Notes), defined once in the shared TaskFormFields so BOTH the modern full-page
+// edit view and the classic modal render them identically. No fields added or
+// reordered across groups; validation, Save/Cancel, and form wiring unchanged.
 // 0.35.0 "Muir" is Phase 4 Workstream D of the modern layout: the divergent-
 // table sweep. The five tables that still carried bespoke <thead> markup
 // (Reports ×3, the Roles modal, the Budget panel, the Jira-conflicts modal, and
@@ -401,8 +406,8 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.35.0";
-export const APP_BUILD_DATE = "2026-05-31"; // Muir
+export const APP_VERSION = "0.36.0";
+export const APP_BUILD_DATE = "2026-05-31"; // Hurley
 export const APP_REPO_URL = "https://www.example.com";
 
 /** Translation keys for the high-level feature highlights shown in the
