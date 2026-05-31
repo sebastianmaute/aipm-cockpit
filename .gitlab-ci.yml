@@ -2,29 +2,90 @@ stages:
   - install
   - quality
   - build
-  - test
+  - e2e
 
 default:
-  image: node:20-alpine
+  image: node:20-bookworm-slim          # glibc, compatible with the Playwright image
   cache:
     key:
-      files:
-        - package-lock.json
-    paths:
-      - node_modules/
-      - .npm/
-      - .next/cache/
+      files: [package-lock.json]
+    paths: [.npm/]
+    policy: pull
+
+# Run on merge requests, the default branch, and tags — but avoid duplicate
+# branch+MR pipelines.
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_TAG
 
 variables:
-  NODE_ENV: "production"
   npm_config_cache: "$CI_PROJECT_DIR/.npm"
   NEXT_TELEMETRY_DISABLED: "1"
+  # NOTE: do NOT set NODE_ENV=production here — it strips devDependencies
+  # (vitest, eslint, typescript, @playwright/test) and breaks every other job.
 
 install:
   stage: install
+  cache:
+    key:
+      files: [package-lock.json]
+    paths: [.npm/]
+    policy: pull-push                    # this job populates the cache
   script:
     - npm ci
   artifacts:
-    paths:
-      - node_modules/
+    paths: [node_modules/]
     expire_in: 1h
+
+lint:
+  stage: quality
+  needs: [install]
+  script:
+    - npm run lint
+
+typecheck:
+  stage: quality
+  needs: [install]
+  script:
+    - npx tsc --noEmit
+
+unit-tests:
+  stage: quality
+  needs: [install]
+  script:
+    - npm run test:coverage -- --reporter=default --reporter=junit --outputFile=junit.xml
+  coverage: '/All files\s+\|\s+([\d.]+)/'
+  artifacts:
+    when: always
+    reports:
+      junit: junit.xml
+    paths: [coverage/]
+    expire_in: 1 week
+
+build:
+  stage: build
+  needs: [install]
+  script:
+    - npm run build                      # also runs the prebuild docs-sync check
+  artifacts:
+    paths: [.next/]
+    expire_in: 1h
+
+# E2E is the slowest job, so it runs on the default branch (main) only — not on
+# every merge request — to keep MR pipelines fast.
+e2e:
+  stage: e2e
+  image: mcr.microsoft.com/playwright:v1.49.0-jammy   # match @playwright/test
+  needs: [build]
+  dependencies: []                       # fresh install — don't reuse glibc-mismatched modules
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  script:
+    - npm ci
+    - npm run e2e
+  artifacts:
+    when: always
+    paths: [playwright-report/]
+    expire_in: 1 week

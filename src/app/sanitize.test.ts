@@ -9,6 +9,11 @@ import {
   serializeDependencies,
   sanitizePlan,
   sanitizeOptionalMinutes,
+  sanitizeNonNegInt,
+  sanitizeAbsence,
+  sanitizeShift,
+  sanitizeBudgetBucket,
+  sanitizeFxRates,
 } from "./sanitize";
 import {
   encodePeriodMap,
@@ -271,4 +276,39 @@ describe("sanitizeOptionalMinutes", () => {
   test('"abc" (non-numeric string) → undefined', () => {
     expect(sanitizeOptionalMinutes("abc")).toBeUndefined();
   });
+});
+
+// Regression: adversarial JSON objects whose toString/valueOf own-key is a
+// non-function make Number(x)/String(x) throw "Cannot convert object to
+// primitive value". These are producible via JSON.parse (file import / chat
+// tools / CSV-decoded JSON), so no sanitizer may throw on them. Found by the
+// fast-check property suite on a CI seed; pinned here deterministically.
+describe("numeric coercion never throws on adversarial JSON objects", () => {
+  const HOSTILE: unknown[] = [
+    { toString: null },
+    { valueOf: null },
+    { toString: null, valueOf: null },
+  ];
+
+  for (const obj of HOSTILE) {
+    const label = JSON.stringify(obj);
+
+    test(`sanitizeNonNegInt(${label}) → 0`, () => {
+      expect(sanitizeNonNegInt(obj)).toBe(0);
+    });
+
+    test(`sanitizeOptionalMinutes(${label}) → undefined`, () => {
+      expect(sanitizeOptionalMinutes(obj)).toBeUndefined();
+    });
+
+    test(`record sanitizers tolerate id=${label} (no throw)`, () => {
+      // id coerces to NaN → these reject with null rather than throwing.
+      expect(() => sanitizeAbsence({ id: obj, assignee: "x", startDate: "2026-01-01", endDate: "2026-01-02" })).not.toThrow();
+      expect(() => sanitizeShift({ id: obj, assignee: "x" })).not.toThrow();
+      expect(() => sanitizeResource({ id: obj, firstName: "A" })).not.toThrow();
+      expect(() => sanitizeRole({ id: obj, disciplineId: 1, gradeId: 1 })).not.toThrow();
+      expect(() => sanitizeBudgetBucket({ id: obj, name: "B" })).not.toThrow();
+      expect(() => sanitizeFxRates({ base: "EUR", date: "2026-01-01", fetchedAt: "x", rates: { USD: obj } })).not.toThrow();
+    });
+  }
 });
