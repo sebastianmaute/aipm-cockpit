@@ -92,6 +92,7 @@ export function SettingsView(props: SettingsViewProps) {
             lang={lang}
             config={settings.jira}
             onChange={(jira) => onChange({ ...settings, jira })}
+            alwaysOpen
           />
         )}
         {active === "storage" && (

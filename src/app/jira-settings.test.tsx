@@ -37,3 +37,34 @@ describe("JiraSettingsSection — InfoTooltip affordances", () => {
     ).toBeInTheDocument();
   });
 });
+
+describe("JiraSettingsSection — alwaysOpen", () => {
+  it("with alwaysOpen, the body is visible and no collapse toggle renders", () => {
+    render(
+      <JiraSettingsSection
+        lang="en-US"
+        config={defaultJiraConfig}
+        onChange={vi.fn()}
+        alwaysOpen
+      />,
+    );
+    // Body is shown without any click.
+    expect(
+      screen.getByRole("button", { name: /connect a jira project to sync tasks/i }),
+    ).toBeInTheDocument();
+    // The collapse/expand toggle is gone.
+    expect(
+      screen.queryByRole("button", { name: /jira integration/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("without alwaysOpen, the section starts collapsed behind the toggle", () => {
+    renderSection();
+    expect(
+      screen.getByRole("button", { name: /jira integration/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /connect a jira project to sync tasks/i }),
+    ).not.toBeInTheDocument();
+  });
+});

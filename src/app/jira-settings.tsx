@@ -33,12 +33,17 @@ export function JiraSettingsSection({
   lang,
   config,
   onChange,
+  alwaysOpen = false,
 }: {
   lang: Lang;
   config: JiraConfig;
   onChange: (next: JiraConfig) => void;
+  /** Modern settings view already scopes to one section, so the collapsible
+   *  toggle is redundant there — render the body always-expanded with no toggle. */
+  alwaysOpen?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const isOpen = alwaysOpen || open;
   const [status, setStatus] = useState<Status>({ kind: "idle" });
   const [projects, setProjects] = useState<JiraProject[]>([]);
   const [issueTypes, setIssueTypes] = useState<JiraIssueType[]>([]);
@@ -170,27 +175,29 @@ export function JiraSettingsSection({
 
   return (
     <div className="mb-4">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-between text-sm font-medium text-foreground hover:text-AIPM-dark-blue"
-        aria-expanded={open}
-      >
-        <span>{t(lang, "jiraIntegration")}</span>
-        <span className="flex items-center gap-2 text-xs text-muted-foreground">
-          {config.enabled
-            ? t(lang, "jiraStatusOn")
-            : t(lang, "jiraStatusOff")}
-          <span
-            aria-hidden
-            className={`transition-transform ${open ? "rotate-90" : ""}`}
-          >
-            ▸
+      {!alwaysOpen && (
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          className="flex w-full items-center justify-between text-sm font-medium text-foreground hover:text-AIPM-dark-blue"
+          aria-expanded={open}
+        >
+          <span>{t(lang, "jiraIntegration")}</span>
+          <span className="flex items-center gap-2 text-xs text-muted-foreground">
+            {config.enabled
+              ? t(lang, "jiraStatusOn")
+              : t(lang, "jiraStatusOff")}
+            <span
+              aria-hidden
+              className={`transition-transform ${open ? "rotate-90" : ""}`}
+            >
+              ▸
+            </span>
           </span>
-        </span>
-      </button>
+        </button>
+      )}
 
-      {open && (
+      {isOpen && (
         <div className="mt-3 space-y-3">
           <div className="flex items-center gap-1">
             <label className="flex items-center gap-2 text-sm">
