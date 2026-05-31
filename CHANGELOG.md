@@ -8,6 +8,14 @@ Authoritative source for version + build date: [`src/app/version.ts`](src/app/ve
 This file is seeded from that module's milestone comment plus the
 post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-diff.txt).
 
+## [0.34.0] — 2026-05-30 "Novik"
+
+### Added
+- The modern layout now shows the Due, Birthday, and Jira-token reminder banners at the top of the content area (previously only the Classic layout showed them).
+
+### Internal
+- Extracted the shared header action cluster (Voice, Export, Help, Version) into a single `ActionMenus` component used by both the Classic header and the modern top bar, with a sweep test that guards against the two drifting apart. In the Classic header the Voice button now sits alongside Export/Help/Version (a minor reorder); behavior is unchanged.
+
 ## [0.33.0] — 2026-05-30 "Wells"
 
 ### Added

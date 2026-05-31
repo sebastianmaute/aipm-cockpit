@@ -1,3 +1,10 @@
+// 0.34.0 "Novik" is Phase 4 Workstream C of the modern layout: shell DRY +
+// banner parity. The header action cluster (Voice, Export, Help, Version) is now
+// one shared ActionMenus component consumed by both the classic header and the
+// modern top bar (a sweep test guards against drift). The modern layout now also
+// shows the Due / Birthday / Jira-token reminder banners — previously only the
+// classic layout did — rendered at the top of the content area on every view via
+// a new ModernShell `banners` slot. No new user-facing settings or strings.
 // 0.33.0 "Wells" is Phase 4 Workstream B of the modern layout: a full-page
 // Settings view. In the modern layout, the sidebar "Settings" item now opens a
 // dedicated full-viewport Settings page with a left section rail (Appearance,
@@ -385,8 +392,8 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.33.0";
-export const APP_BUILD_DATE = "2026-05-30"; // Wells
+export const APP_VERSION = "0.34.0";
+export const APP_BUILD_DATE = "2026-05-30"; // Novik
 export const APP_REPO_URL = "https://www.example.com";
 
 /** Translation keys for the high-level feature highlights shown in the
