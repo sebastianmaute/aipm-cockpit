@@ -50,6 +50,25 @@ export function isValidEmail(s: string): boolean {
 
 // --- Generic helpers -------------------------------------------------------
 
+/**
+ * Safe numeric coercion for untrusted input. Only primitives are coerced;
+ * objects, arrays, and symbols become NaN so callers fall back to their
+ * "invalid" branch.
+ *
+ * Why not just `Number(x)`: a JSON object whose `toString`/`valueOf` own-key is
+ * a non-function (e.g. `JSON.parse('{"toString":null}')`) makes `Number(x)` AND
+ * `String(x)` THROW "Cannot convert object to primitive value". Since these
+ * sanitizers guard the file-import / chat-tool / CSV boundary — all of which can
+ * deliver such objects — every coercion of untrusted data must go through here.
+ */
+function toNumber(n: unknown): number {
+  return typeof n === "number"
+    ? n
+    : typeof n === "string" || typeof n === "boolean"
+      ? Number(n)
+      : NaN;
+}
+
 function clipText(s: unknown, max: number): string {
   if (typeof s !== "string") return "";
   return s.length > max ? s.slice(0, max) : s;
@@ -112,7 +131,7 @@ export function sanitizePriority(p: unknown, fallback: Priority = "Medium"): Pri
 }
 
 export function sanitizeNonNegInt(n: unknown): number {
-  const num = typeof n === "number" ? n : Number(n);
+  const num = toNumber(n);
   if (!Number.isFinite(num) || num < 0) return 0;
   return Math.floor(num);
 }
@@ -130,7 +149,7 @@ export function isPlainObject(v: unknown): v is Record<string, unknown> {
  */
 export function sanitizeOptionalMinutes(n: unknown): number | undefined {
   if (n === undefined || n === null || n === "") return undefined;
-  const num = typeof n === "number" ? n : Number(n);
+  const num = toNumber(n);
   if (!Number.isInteger(num) || num < 0) return undefined;
   return num;
 }
@@ -326,7 +345,7 @@ function sanitizeAbsenceNote(s: unknown): string {
 export function sanitizeAbsence(input: unknown): Absence | null {
   if (!input || typeof input !== "object") return null;
   const raw = input as Partial<Record<keyof Absence, unknown>>;
-  const id = Number(raw.id);
+  const id = toNumber(raw.id);
   if (!Number.isFinite(id) || id <= 0) return null;
   const assignee = sanitizeAssignee(raw.assignee);
   if (!assignee) return null;
@@ -351,14 +370,14 @@ export function sanitizeAbsence(input: unknown): Absence | null {
       typeof raw.localModifiedAt === "string"
         ? raw.localModifiedAt
         : undefined,
-    resourceId: Number(raw.resourceId) || undefined,
+    resourceId: toNumber(raw.resourceId) || undefined,
   };
 }
 
 // --- Shift sanitizers ------------------------------------------------------
 
 function clampHour(n: unknown): number {
-  const num = typeof n === "number" ? n : Number(n);
+  const num = toNumber(n);
   if (!Number.isFinite(num) || num < 0) return 0;
   if (num > MAX_HOURS_PER_DAY) return MAX_HOURS_PER_DAY;
   // Round to one decimal so spreadsheets don't introduce floating-point noise.
@@ -405,7 +424,7 @@ export function sanitizeShift(input: unknown): Shift | null {
   if (!input || typeof input !== "object") return null;
   const raw = input as Partial<Record<keyof Shift, unknown>> &
     Record<string, unknown>;
-  const id = Number(raw.id);
+  const id = toNumber(raw.id);
   if (!Number.isFinite(id) || id <= 0) return null;
   const assignee = sanitizeAssignee(raw.assignee);
   if (!assignee) return null;
@@ -473,7 +492,7 @@ function coercePeriodMap(input: unknown, clampMax: number): Record<string, numbe
   const out: Record<string, number> = {};
   for (const [k, v] of Object.entries(raw)) {
     if (!PERIOD_KEY_RE.test(k)) continue;
-    const n = typeof v === "number" ? v : Number(v);
+    const n = toNumber(v);
     if (!Number.isFinite(n)) continue;
     out[k] = Math.min(clampMax, Math.max(0, n));
   }
@@ -514,7 +533,7 @@ export function sanitizeBirthday(v: unknown): string | undefined {
 
 export function sanitizeResource(input: unknown): Resource | null {
   if (!isPlainObject(input)) return null;
-  const id = Number(input.id);
+  const id = toNumber(input.id);
   if (!Number.isFinite(id) || id <= 0) return null;
 
   // Prefer explicit firstName/lastName; fall back to splitting a legacy `name`.
@@ -528,7 +547,7 @@ export function sanitizeResource(input: unknown): Resource | null {
   if (!firstName && !lastName) return null;
 
   const mode = sanitizeUtilizationMode(input.utilizationMode);
-  const roleIdNum = Number(input.roleId);
+  const roleIdNum = toNumber(input.roleId);
   const roleId = Number.isFinite(roleIdNum) && roleIdNum > 0 ? roleIdNum : null;
   const utilization = coercePeriodMap(input.utilization, mode === "percent" ? 100 : HOURS_MAP_MAX);
   const overrideRaw = coercePeriodMap(input.absenceOverride, HOURS_MAP_MAX);
@@ -560,16 +579,16 @@ export function sanitizeResource(input: unknown): Resource | null {
 }
 
 function sanitizeRate(n: unknown): number {
-  const num = typeof n === "number" ? n : Number(n);
+  const num = toNumber(n);
   if (!Number.isFinite(num) || num < 0) return 0;
   return Math.round(num * 100) / 100;
 }
 
 export function sanitizeRole(input: unknown): Role | null {
   if (!isPlainObject(input)) return null;
-  const id = Number(input.id);
-  const disciplineId = Number(input.disciplineId);
-  const gradeId = Number(input.gradeId);
+  const id = toNumber(input.id);
+  const disciplineId = toNumber(input.disciplineId);
+  const gradeId = toNumber(input.gradeId);
   if (![id, disciplineId, gradeId].every((n) => Number.isFinite(n) && n > 0)) return null;
   const role: Role = {
     id,
@@ -586,7 +605,7 @@ function sanitizeNamedRef<T extends { id: number; name: string; localModifiedAt?
   input: unknown,
 ): T | null {
   if (!isPlainObject(input)) return null;
-  const id = Number(input.id);
+  const id = toNumber(input.id);
   if (!Number.isFinite(id) || id <= 0) return null;
   const name = sanitizeText(input.name, GROUP_MAX);
   if (!name) return null;
@@ -639,7 +658,7 @@ const AMOUNT_MAX = 1_000_000_000;
 const BUDGET_TYPE_SET: ReadonlySet<BudgetType> = new Set(BUDGET_TYPES);
 
 function sanitizeAmount(n: unknown): number | undefined {
-  const num = typeof n === "number" ? n : Number(n);
+  const num = toNumber(n);
   if (!Number.isFinite(num) || num < 0) return undefined;
   return Math.min(AMOUNT_MAX, Math.round(num * 100) / 100);
 }
@@ -652,7 +671,7 @@ function sanitizeIdList(input: unknown): number[] {
   const out: number[] = [];
   const seen = new Set<number>();
   for (const item of arr) {
-    const n = typeof item === "number" ? item : Number(String(item).trim());
+    const n = typeof item === "string" ? Number(item.trim()) : toNumber(item);
     if (Number.isFinite(n) && n > 0 && !seen.has(n)) { seen.add(n); out.push(n); }
   }
   return out;
@@ -690,7 +709,7 @@ export function decodeAllocations(s: unknown): BucketAllocation[] {
 
 function sanitizeAllocation(input: unknown): BucketAllocation | null {
   if (!isPlainObject(input)) return null;
-  const roleId = Number(input.roleId);
+  const roleId = toNumber(input.roleId);
   if (!Number.isFinite(roleId) || roleId <= 0) return null;
   return {
     roleId,
@@ -708,7 +727,7 @@ function sanitizeAllocations(input: unknown): BucketAllocation[] {
 
 export function sanitizeBudgetBucket(input: unknown): BudgetBucket | null {
   if (!isPlainObject(input)) return null;
-  const id = Number(input.id);
+  const id = toNumber(input.id);
   if (!Number.isFinite(id) || id <= 0) return null;
   const name = sanitizeText(input.name, BUDGET_NAME_MAX);
   if (!name) return null;
@@ -735,7 +754,7 @@ export function sanitizeBudgetBucket(input: unknown): BudgetBucket | null {
     const amt = sanitizeAmount(input.fixedPriceAmount);
     if (amt !== undefined) bucket.fixedPriceAmount = amt;
   }
-  const succ = Number(input.successorId);
+  const succ = toNumber(input.successorId);
   if (Number.isFinite(succ) && succ > 0 && succ !== id) bucket.successorId = succ;
   if (status === "closed") {
     const cd = sanitizeIsoDate(input.closedDate);
@@ -744,7 +763,7 @@ export function sanitizeBudgetBucket(input: unknown): BudgetBucket | null {
   const fx = sanitizeAmount(input.fxRateOverride);
   if (fx !== undefined && fx > 0) bucket.fxRateOverride = fx;
   if (input.order !== undefined && input.order !== null && input.order !== "") {
-    const orderNum = typeof input.order === "number" ? input.order : Number(input.order);
+    const orderNum = toNumber(input.order);
     if (Number.isInteger(orderNum) && orderNum >= 0) bucket.order = orderNum;
   }
   if (typeof input.localModifiedAt === "string" && input.localModifiedAt) bucket.localModifiedAt = input.localModifiedAt;
@@ -761,7 +780,7 @@ export function sanitizeFxRates(input: unknown): FxRates | null {
   const ratesIn = isPlainObject(input.rates) ? input.rates : {};
   const rates: Record<string, number> = {};
   for (const code of SUPPORTED_CURRENCIES) {
-    const n = Number((ratesIn as Record<string, unknown>)[code]);
+    const n = toNumber((ratesIn as Record<string, unknown>)[code]);
     if (Number.isFinite(n) && n > 0) rates[code] = Math.round(n * 1e6) / 1e6;
   }
   rates.EUR = 1;
