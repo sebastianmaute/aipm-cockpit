@@ -8,6 +8,20 @@ Authoritative source for version + build date: [`src/app/version.ts`](src/app/ve
 This file is seeded from that module's milestone comment plus the
 post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-diff.txt).
 
+## [0.37.0] — 2026-05-31 "Kowal"
+
+### Fixed
+- The Gantt **export** dropdown is no longer painted over by the sticky date row — it now stacks above the frozen header (`z-40`).
+
+### Changed
+- **Open Points (modern):** the task table now fills the available height instead of sitting in a fixed-height, manually resizable box.
+- **Classic layout:** the page is now a viewport-height column — only the content area scrolls and the footer stays visible at the bottom (no more scrolling the whole document to reach it).
+- **Pane consistency:** Reports, RAID, Budget, and Chat now share the same bordered surface card as the Open Points pane, and the Resources sub-tables match the main table styling. Gantt stays full-bleed by design.
+- **Printing:** printing a report (Reports, RAID Report, Resources Report) or the Activity log now prints just that view — the sidebar, top bar, banners, and other panes are hidden. The Activity pane also gains a **Print** button.
+- **Settings (modern):** the Jira section is always expanded in the full-page Settings view (the redundant collapse toggle is gone).
+- **Address book:** the Outlook contacts import button is renamed **“Sync with Outlook”** (EN) / **„Mit Outlook synchronisieren“** (DE).
+- The sidebar version line now reads **“Version x.y.z”**.
+
 ## [0.36.0] — 2026-05-31 "Hurley"
 
 ### Changed

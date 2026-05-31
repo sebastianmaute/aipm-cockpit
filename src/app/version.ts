@@ -1,3 +1,16 @@
+// 0.37.0 "Kowal" is a UI polish batch (spec groups A–G). A: the Gantt export
+// dropdown now stacks above the sticky date row (z-40). B: the modern Open
+// Points table fills the available height instead of a fixed resizable box, and
+// the classic layout is a viewport-height flex column so its footer is always
+// visible (only the content scrolls). C: paneless views (Reports, RAID, Budget,
+// Chat) are unified onto a shared VIEW_PANE_CLASS card and the resources inner
+// tables onto INNER_TABLE_CLASS (a sweep guard prevents drift); Gantt stays
+// full-bleed by design. D: report/activity printing is scoped to a .print-root
+// node so a single view prints cleanly, and the Activity pane gains a Print
+// button. E: the Jira section is always expanded (no collapse toggle) in the
+// modern full-page Settings view. F: the Outlook contacts import button in the
+// address book is renamed "Sync with Outlook" (EN/DE). G: the sidebar version
+// line is prefixed with the "Version" label. No new dependencies.
 // 0.36.0 "Hurley" splits the task form into 5 stacked, numbered sections
 // (Details · Scheduling · Effort & Classification · Relationships · Status &
 // Notes), defined once in the shared TaskFormFields so BOTH the modern full-page
@@ -406,8 +419,8 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.36.0";
-export const APP_BUILD_DATE = "2026-05-31"; // Hurley
+export const APP_VERSION = "0.37.0";
+export const APP_BUILD_DATE = "2026-05-31"; // Kowal
 export const APP_REPO_URL = "https://www.example.com";
 
 /** Translation keys for the high-level feature highlights shown in the
