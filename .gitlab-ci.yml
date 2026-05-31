@@ -77,13 +77,17 @@ build:
 # every merge request — to keep MR pipelines fast.
 e2e:
   stage: e2e
-  image: mcr.microsoft.com/playwright:v1.49.0-jammy   # match @playwright/test
+  # Keep this tag in lockstep with @playwright/test in package-lock.json. The
+  # `npx playwright install` below is a safety net: if the resolved client ever
+  # drifts from the image, it downloads the matching browser instead of failing.
+  image: mcr.microsoft.com/playwright:v1.60.0-jammy
   needs: [build]
   dependencies: []                       # fresh install — don't reuse glibc-mismatched modules
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
   script:
     - npm ci
+    - npx playwright install chromium     # ensure the browser matches the installed client
     - npm run e2e
   artifacts:
     when: always
