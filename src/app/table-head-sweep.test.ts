@@ -25,6 +25,7 @@ const SWEPT_FILES = [
   "roles-modal.tsx",
   "budget-panel.tsx",
   "reports.tsx",
+  "resource-calendar.tsx",
 ];
 
 describe("table header sweep", () => {

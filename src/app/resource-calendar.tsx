@@ -14,6 +14,7 @@ import { localeFor } from "./date-format";
 import { type Lang, t } from "./i18n";
 import type { Absence, AbsenceType, Resource } from "./types";
 import { resourceDisplayName, splitName } from "./resource-foundation";
+import { TABLE_HEAD_CLASS } from "./table-styles";
 
 interface CalendarAssignee {
   /** Case-folded join key used to look up matching absences. */
@@ -156,10 +157,10 @@ function ResourceCalendarInner({
     <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
       <div className="min-h-0 flex-1 overflow-auto rounded-md border border-line">
         <table className="border-separate border-spacing-0 text-sm">
-          <thead>
+          <thead className={TABLE_HEAD_CLASS}>
             <tr>
               <th
-                className="sticky left-0 top-0 z-30 border-b border-r border-line bg-surface-muted px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground"
+                className="sticky left-0 top-0 z-30 border-b border-r border-line bg-AIPM-dark-blue px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-white"
                 style={{ minWidth: ASSIGNEE_COL_PX, width: ASSIGNEE_COL_PX }}
               >
                 {t(lang, "assignee")}
@@ -179,8 +180,8 @@ function ResourceCalendarInner({
                       : d.isHoliday
                         ? "bg-AIPM-purple/15 text-AIPM-purple dark:bg-AIPM-purple/20 dark:text-AIPM-purple"
                         : d.isWeekend
-                          ? "bg-surface-muted text-muted-foreground"
-                          : "bg-surface-muted text-muted-foreground",
+                          ? "bg-AIPM-dark-blue text-white"
+                          : "bg-AIPM-dark-blue text-white",
                   ].join(" ")}
                   style={{ minWidth: CELL_PX, width: CELL_PX }}
                 >
