@@ -123,8 +123,6 @@ function TaskManagerInner() {
     setBudgets,
     setFxRates,
     budgets,
-    plan,
-    fxRates,
   } = useWorkspace();
 
   const { setContacts, contactsList, handleRemoveContact } =

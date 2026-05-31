@@ -42,7 +42,7 @@ describe("useHashView", () => {
 
   it("writes the hash when the view changes", () => {
     window.location.hash = "";
-    const { result } = renderHook(
+    renderHook(
       () => {
         useHashView();
         const ctx = useWorkspaceTab();
