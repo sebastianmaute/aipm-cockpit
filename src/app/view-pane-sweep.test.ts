@@ -18,7 +18,9 @@ const FILL_FILES = [
 
 // Content-flow views that scroll as a whole. They keep VIEW_PANE_CLASS but must
 // add min-h-full so the card fills the viewport when content is short (no void).
-const CONTENT_FILES = ["reports.tsx", "budget-panel.tsx"];
+// NOTE: reports.tsx was removed here — it now wraps content in ReportCard from
+// report-table.tsx which carries VIEW_PANE_RESIZABLE_CLASS instead.
+const CONTENT_FILES = ["budget-panel.tsx"];
 
 // Forbidden: a divergent rounded-md inset card on the resources inner tables.
 const INNER_FILES = [
@@ -61,5 +63,12 @@ describe("view-pane sweep", () => {
     const src = readFileSync(join(ROOT, "view-styles.ts"), "utf8");
     expect(src).toMatch(/export const VIEW_PANE_RESIZABLE_CLASS\b/);
     expect(src).toMatch(/VIEW_PANE_FILL_CLASS \+ " resize min-h-\[300px\] min-w-\[480px\]"/);
+  });
+
+  it("report files import the shared report-table kit", () => {
+    for (const f of ["reports.tsx"]) {
+      const src = readFileSync(join(ROOT, f), "utf8");
+      expect(src, f).toMatch(/from "\.\/report-table"/);
+    }
   });
 });

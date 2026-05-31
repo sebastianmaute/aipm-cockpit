@@ -3,9 +3,23 @@
 import { useCallback, useMemo, useState } from "react";
 import { workdaysUntil } from "./due-dates";
 import { useColumnResize } from "./use-column-resize";
-import { ColumnResizeHandle, PrintButton, ResetColWidthsButton } from "./task-manager-ui";
-import { VIEW_PANE_CLASS } from "./view-styles";
+import { useResizable } from "./use-resizable";
+import { ColumnResizeHandle } from "./task-manager-ui";
 import { TABLE_HEAD_CLASS } from "./table-styles";
+import {
+  useSortableFilter,
+  TableFilter,
+  ReportCard,
+  type SortDir,
+} from "./report-table";
+import {
+  computeGroupHealth,
+  type GroupHealth,
+  type Health,
+  type HealthDriver,
+} from "./health";
+import { type Lang, t } from "./i18n";
+import { type Priority, PRIORITIES, type Task } from "./types";
 
 const REPORTS_INQUIRY_COL_WIDTHS = {
   id: 60,
@@ -35,22 +49,11 @@ const REPORTS_BY_X_COL_WIDTHS = {
 } as const;
 type ReportsByXCol = keyof typeof REPORTS_BY_X_COL_WIDTHS;
 
-type SortDir = "asc" | "desc" | "off";
-
 type AssigneeSortKey = "assignee" | "total" | "open" | "overdue" | "onTime" | "late" | "inquiries";
 type AssigneeSort = { key: AssigneeSortKey; dir: SortDir };
 
 type GroupOrLabelSortKey = "name" | "total" | "open" | "completed" | "overdue" | "inquiries";
 type GroupOrLabelSort = { key: GroupOrLabelSortKey; dir: SortDir };
-
-import {
-  computeGroupHealth,
-  type GroupHealth,
-  type Health,
-  type HealthDriver,
-} from "./health";
-import { type Lang, t } from "./i18n";
-import { type Priority, PRIORITIES, type Task } from "./types";
 
 type GroupOrLabelRow = {
   name: string;
@@ -306,6 +309,7 @@ export function ReportsPanel({
     assignee.resetColWidths();
     byX.resetColWidths();
   };
+  const { ref: reportsRef, reset: resetReportsSize } = useResizable("lop-app:reports-size");
 
   if (stats.total === 0) {
     return (
@@ -345,11 +349,7 @@ export function ReportsPanel({
   };
 
   return (
-    <div className={`print-root ${VIEW_PANE_CLASS} min-h-full space-y-6 p-6`}>
-      <div className="flex items-center justify-end print:hidden">
-        <PrintButton lang={lang} />
-        <ResetColWidthsButton onClick={resetAllReports} lang={lang} />
-      </div>
+    <ReportCard lang={lang} sizeRef={reportsRef} onResetSize={resetReportsSize} onResetCols={resetAllReports}>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Tile label={t(lang, "reportsTotal")} value={stats.total} />
         <Tile label={t(lang, "reportsOpen")} value={stats.open} />
@@ -560,47 +560,8 @@ export function ReportsPanel({
           filterPlaceholderKey="reportsFilterLabel"
         />
       </Section>
-    </div>
+    </ReportCard>
   );
-}
-
-/**
- * Shared filter + sort + sort-cycle logic for the report tables. The only thing
- * that differs between tables is how a row + sort key map to a comparable value,
- * which the caller supplies via a (memoized) `getValue`.
- */
-function useSortableFilter<Row extends { name: string }, Key extends string>(
-  rows: readonly Row[],
-  sort: { key: Key; dir: SortDir },
-  setSort: (s: { key: Key; dir: SortDir }) => void,
-  filter: string,
-  getValue: (row: Row, key: Key) => string | number,
-) {
-  const filtered = useMemo(() => {
-    const q = filter.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter((r) => r.name.toLowerCase().includes(q));
-  }, [rows, filter]);
-
-  const sorted = useMemo(() => {
-    if (sort.dir === "off") return filtered;
-    const arr = filtered.slice().sort((a, b) => {
-      const c = compareStrOrNum(getValue(a, sort.key), getValue(b, sort.key));
-      return c !== 0 ? c : a.name.localeCompare(b.name);
-    });
-    if (sort.dir === "desc") arr.reverse();
-    return arr;
-  }, [filtered, sort, getValue]);
-
-  function click(k: Key) {
-    if (k !== sort.key) {
-      setSort({ key: k, dir: "asc" });
-      return;
-    }
-    setSort({ key: sort.key, dir: sort.dir === "asc" ? "desc" : sort.dir === "desc" ? "off" : "asc" });
-  }
-
-  return { sorted, click };
 }
 
 function GroupOrLabelTable({
@@ -824,47 +785,6 @@ function Tile({
       >
         {value}
       </p>
-    </div>
-  );
-}
-
-function compareStrOrNum(a: unknown, b: unknown): number {
-  if (typeof a === "number" && typeof b === "number") return a - b;
-  return String(a ?? "").localeCompare(String(b ?? ""));
-}
-
-function TableFilter({
-  lang,
-  value,
-  onChange,
-  placeholderKey,
-}: {
-  lang: Lang;
-  value: string;
-  onChange: (v: string) => void;
-  placeholderKey: "reportsFilterAssignee" | "reportsFilterGroup" | "reportsFilterLabel";
-}) {
-  return (
-    <div className="mb-2 flex items-center gap-2 print:hidden">
-      <input
-        type="search"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={t(lang, placeholderKey)}
-        aria-label={t(lang, placeholderKey)}
-        className="min-w-0 flex-1 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-AIPM-dark-blue focus:outline-none"
-      />
-      {value && (
-        <button
-          type="button"
-          onClick={() => onChange("")}
-          aria-label={t(lang, "clear")}
-          title={t(lang, "clear")}
-          className="rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-muted-foreground hover:bg-surface-muted hover:text-foreground"
-        >
-          ×
-        </button>
-      )}
     </div>
   );
 }
