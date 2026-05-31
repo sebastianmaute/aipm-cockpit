@@ -53,7 +53,7 @@ export function Sidebar({
 
       <div className="border-t border-AIPM-white/10 px-4 py-3 text-xs text-AIPM-medium-grey">
         {footer}
-        {!collapsed && <p className="mt-2">{version}</p>}
+        {!collapsed && <p className="mt-2">{t(lang, "versionVersion")} {version}</p>}
       </div>
     </aside>
   );

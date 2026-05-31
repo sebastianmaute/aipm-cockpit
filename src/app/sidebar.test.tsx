@@ -12,10 +12,10 @@ describe("Sidebar", () => {
     version: "v0.29.0",
   };
 
-  it("renders the brand subtitle and version", () => {
+  it("renders the brand subtitle and version with the Version label", () => {
     render(<Sidebar {...base} />);
     expect(screen.getByText("LIST OF OPEN POINTS")).toBeTruthy();
-    expect(screen.getByText("v0.29.0")).toBeTruthy();
+    expect(screen.getByText("Version v0.29.0")).toBeTruthy();
   });
 
   it("toggles collapse when the collapse button is clicked", () => {
