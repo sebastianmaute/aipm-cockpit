@@ -97,6 +97,15 @@ describe("TaskFormModal", () => {
     fireEvent.submit(form!);
     expect(props.onSubmit).toHaveBeenCalledTimes(1);
   });
+
+  test("renders all 5 numbered section headings (parity with edit view)", () => {
+    render(<TaskFormModal {...defaultProps()} />);
+    expect(screen.getByText("1. Details")).toBeInTheDocument();
+    expect(screen.getByText("2. Scheduling")).toBeInTheDocument();
+    expect(screen.getByText("3. Effort & Classification")).toBeInTheDocument();
+    expect(screen.getByText("4. Relationships")).toBeInTheDocument();
+    expect(screen.getByText("5. Status & Notes")).toBeInTheDocument();
+  });
 });
 
 describe("TaskFormModal — add-to-address-book button", () => {

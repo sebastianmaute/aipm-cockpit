@@ -33,9 +33,9 @@ function setup(over: Partial<React.ComponentProps<typeof TaskEditView>> = {}) {
 }
 
 describe("TaskEditView", () => {
-  it("renders a numbered Dark-Blue section heading", () => {
+  it("renders the numbered Details section heading", () => {
     setup();
-    expect(screen.getByRole("heading", { name: /task details/i })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "1. Details" })).toBeTruthy();
   });
 
   it("renders the shared task fields inside a form with the shared id", () => {

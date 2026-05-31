@@ -85,379 +85,389 @@ export function TaskFormFields({
 
   return (
     <>
-      <Field label={t(lang, "id")}>
-        <input
-          type="text"
-          value={`#${isEditing ? editingId : nextId}`}
-          readOnly
-          className="w-full cursor-not-allowed rounded-md border border-line bg-surface-muted px-3 py-2 text-sm text-muted-foreground dark:border-line dark:bg-surface-muted dark:text-muted-foreground"
-        />
-      </Field>
-
-      <Field label={t(lang, "priority")}>
-        <SegmentedControl
-          value={form.priority}
-          ariaLabel={t(lang, "priority")}
-          options={PRIORITIES.map((p) => ({
-            value: p,
-            label: priorityLabel(lang, p),
-          }))}
-          onChange={(p) => setForm({ ...form, priority: p })}
-        />
-      </Field>
-
-      <Field
-        label={t(lang, "taskName")}
-        required
-        className="sm:col-span-2"
-      >
-        <div className="relative">
+      <TaskFormSection index={1} title={t(lang, "taskFormSectionDetails")}>
+        <Field label={t(lang, "id")}>
           <input
             type="text"
-            required
-            maxLength={TASK_NAME_MAX}
-            value={form.taskName}
-            onChange={(e) => setForm({ ...form, taskName: e.target.value })}
-            placeholder={t(lang, "placeholderTaskName")}
-            className={`${inputClass} pr-10`}
+            value={`#${isEditing ? editingId : nextId}`}
+            readOnly
+            className="w-full cursor-not-allowed rounded-md border border-line bg-surface-muted px-3 py-2 text-sm text-muted-foreground dark:border-line dark:bg-surface-muted dark:text-muted-foreground"
           />
-          <InlineMicButton
-            lang={lang}
-            onTranscript={(text) => {
-              const clean = sanitizeVoiceTranscript(text);
-              setForm((prev) => ({
-                ...prev,
-                taskName: (prev.taskName
-                  ? `${prev.taskName} ${clean}`
-                  : clean
-                ).slice(0, TASK_NAME_MAX),
-              }));
-            }}
-            onError={(msg) => onShowToast("error", msg)}
-          />
-        </div>
-      </Field>
+        </Field>
 
-      <Field label={t(lang, "assignee")} required>
-        {/*
-          ContactInput renders a text input + autocomplete popover of
-          previously-used (assignee, email) pairs. Picking a suggestion
-          fills BOTH the assignee field and the email field in one go.
-          Typing freely is still allowed; the suggestion is just a
-          convenience. Each row carries its own × to remove it from the
-          persisted address book.
-        */}
-        <div className="flex items-start gap-2">
-          <div className="min-w-0 flex-1">
-            <ContactInput
+        <Field label={t(lang, "priority")}>
+          <SegmentedControl
+            value={form.priority}
+            ariaLabel={t(lang, "priority")}
+            options={PRIORITIES.map((p) => ({
+              value: p,
+              label: priorityLabel(lang, p),
+            }))}
+            onChange={(p) => setForm({ ...form, priority: p })}
+          />
+        </Field>
+
+        <Field
+          label={t(lang, "taskName")}
+          required
+          className="sm:col-span-2"
+        >
+          <div className="relative">
+            <input
+              type="text"
+              required
+              maxLength={TASK_NAME_MAX}
+              value={form.taskName}
+              onChange={(e) => setForm({ ...form, taskName: e.target.value })}
+              placeholder={t(lang, "placeholderTaskName")}
+              className={`${inputClass} pr-10`}
+            />
+            <InlineMicButton
               lang={lang}
-              value={form.assignee}
-              contacts={contactsList}
-              onChangeName={(name) =>
-                setForm((prev) => ({ ...prev, assignee: name }))
-              }
-              onChangePair={(name, email) =>
+              onTranscript={(text) => {
+                const clean = sanitizeVoiceTranscript(text);
                 setForm((prev) => ({
                   ...prev,
-                  assignee: name,
-                  assigneeEmail: email,
-                }))
-              }
-              onRemoveContact={onRemoveContact}
-              placeholder={t(lang, "placeholderAssignee")}
-              maxLength={ASSIGNEE_MAX}
-              disabled={editingIsJiraLinked}
-              title={
-                editingIsJiraLinked ? t(lang, "jiraManagedHint") : undefined
-              }
+                  taskName: (prev.taskName
+                    ? `${prev.taskName} ${clean}`
+                    : clean
+                  ).slice(0, TASK_NAME_MAX),
+                }));
+              }}
+              onError={(msg) => onShowToast("error", msg)}
             />
           </div>
-          <button
-            type="button"
-            onClick={() =>
-              onAddAssigneeToAddressBook(form.assignee, form.assigneeEmail)
-            }
-            disabled={editingIsJiraLinked}
-            aria-label={t(lang, "taskAddAssigneeToAddressBook")}
-            title={t(lang, "taskAddAssigneeToAddressBook")}
-            className="shrink-0 rounded-md border border-line bg-surface px-3 py-2 text-sm font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 dark:border-line dark:bg-surface dark:text-foreground dark:hover:bg-surface-muted"
-          >
-            +
-          </button>
-        </div>
-        {editingIsJiraLinked && (
-          <p className="mt-1 text-xs italic text-muted-foreground">
-            🔒 {t(lang, "jiraManagedHint")}
-          </p>
-        )}
-      </Field>
+        </Field>
 
-      <Field label={t(lang, "email")}>
-        <input
-          type="email"
-          maxLength={EMAIL_MAX}
-          value={form.assigneeEmail}
-          onChange={(e) =>
-            setForm({ ...form, assigneeEmail: e.target.value })
-          }
-          placeholder={t(lang, "placeholderEmail")}
-          className={inputClass}
-        />
-      </Field>
-
-      <Field label={t(lang, "startDate")}>
-        <input
-          type="date"
-          max={form.dueDate || undefined}
-          value={form.startDate}
-          onChange={(e) =>
-            setForm({ ...form, startDate: e.target.value })
-          }
-          className={inputClass}
-        />
-        <p className="mt-1 text-xs text-muted-foreground">
-          {t(lang, "startDateHint")}
-        </p>
-      </Field>
-
-      <Field label={t(lang, "dueDate")} required>
-        <input
-          type="date"
-          required
-          min={today}
-          value={form.dueDate}
-          onChange={(e) => setForm({ ...form, dueDate: e.target.value })}
-          className={inputClass}
-        />
-        {(() => {
-          // Phase 5 — non-blocking absence warning: when the due date
-          // falls inside any absence for the form's assignee, show a
-          // hint. Multiple overlaps render as one line each.
-          const assigneeKey = form.assignee.trim().toLowerCase();
-          const due = form.dueDate.trim();
-          if (!assigneeKey || !due) return null;
-          const hits = absences.filter(
-            (a) =>
-              a.assignee.trim().toLowerCase() === assigneeKey &&
-              due >= a.startDate &&
-              due <= a.endDate,
-          );
-          if (hits.length === 0) return null;
-          return (
-            <div className="mt-1 space-y-0.5">
-              {hits.map((a) => (
-                <p
-                  key={a.id}
-                  className="text-xs text-AIPM-purple"
-                >
-                  {t(
-                    lang,
-                    "taskDueDateAbsenceWarning",
-                    a.assignee,
-                    a.type,
-                    a.startDate,
-                    a.endDate,
-                  )}
-                </p>
-              ))}
+        <Field label={t(lang, "assignee")} required>
+          {/*
+            ContactInput renders a text input + autocomplete popover of
+            previously-used (assignee, email) pairs. Picking a suggestion
+            fills BOTH the assignee field and the email field in one go.
+            Typing freely is still allowed; the suggestion is just a
+            convenience. Each row carries its own × to remove it from the
+            persisted address book.
+          */}
+          <div className="flex items-start gap-2">
+            <div className="min-w-0 flex-1">
+              <ContactInput
+                lang={lang}
+                value={form.assignee}
+                contacts={contactsList}
+                onChangeName={(name) =>
+                  setForm((prev) => ({ ...prev, assignee: name }))
+                }
+                onChangePair={(name, email) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    assignee: name,
+                    assigneeEmail: email,
+                  }))
+                }
+                onRemoveContact={onRemoveContact}
+                placeholder={t(lang, "placeholderAssignee")}
+                maxLength={ASSIGNEE_MAX}
+                disabled={editingIsJiraLinked}
+                title={
+                  editingIsJiraLinked ? t(lang, "jiraManagedHint") : undefined
+                }
+              />
             </div>
-          );
-        })()}
-      </Field>
+            <button
+              type="button"
+              onClick={() =>
+                onAddAssigneeToAddressBook(form.assignee, form.assigneeEmail)
+              }
+              disabled={editingIsJiraLinked}
+              aria-label={t(lang, "taskAddAssigneeToAddressBook")}
+              title={t(lang, "taskAddAssigneeToAddressBook")}
+              className="shrink-0 rounded-md border border-line bg-surface px-3 py-2 text-sm font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 dark:border-line dark:bg-surface dark:text-foreground dark:hover:bg-surface-muted"
+            >
+              +
+            </button>
+          </div>
+          {editingIsJiraLinked && (
+            <p className="mt-1 text-xs italic text-muted-foreground">
+              🔒 {t(lang, "jiraManagedHint")}
+            </p>
+          )}
+        </Field>
 
-      <Field label={t(lang, "lastUpdateDate")}>
-        <input
-          type="date"
-          value={form.lastUpdateDate}
-          onChange={(e) =>
-            setForm({ ...form, lastUpdateDate: e.target.value })
+        <Field label={t(lang, "email")}>
+          <input
+            type="email"
+            maxLength={EMAIL_MAX}
+            value={form.assigneeEmail}
+            onChange={(e) =>
+              setForm({ ...form, assigneeEmail: e.target.value })
+            }
+            placeholder={t(lang, "placeholderEmail")}
+            className={inputClass}
+          />
+        </Field>
+      </TaskFormSection>
+
+      <TaskFormSection index={2} title={t(lang, "taskFormSectionScheduling")}>
+        <Field label={t(lang, "startDate")}>
+          <input
+            type="date"
+            max={form.dueDate || undefined}
+            value={form.startDate}
+            onChange={(e) =>
+              setForm({ ...form, startDate: e.target.value })
+            }
+            className={inputClass}
+          />
+          <p className="mt-1 text-xs text-muted-foreground">
+            {t(lang, "startDateHint")}
+          </p>
+        </Field>
+
+        <Field label={t(lang, "dueDate")} required>
+          <input
+            type="date"
+            required
+            min={today}
+            value={form.dueDate}
+            onChange={(e) => setForm({ ...form, dueDate: e.target.value })}
+            className={inputClass}
+          />
+          {(() => {
+            // Phase 5 — non-blocking absence warning: when the due date
+            // falls inside any absence for the form's assignee, show a
+            // hint. Multiple overlaps render as one line each.
+            const assigneeKey = form.assignee.trim().toLowerCase();
+            const due = form.dueDate.trim();
+            if (!assigneeKey || !due) return null;
+            const hits = absences.filter(
+              (a) =>
+                a.assignee.trim().toLowerCase() === assigneeKey &&
+                due >= a.startDate &&
+                due <= a.endDate,
+            );
+            if (hits.length === 0) return null;
+            return (
+              <div className="mt-1 space-y-0.5">
+                {hits.map((a) => (
+                  <p
+                    key={a.id}
+                    className="text-xs text-AIPM-purple"
+                  >
+                    {t(
+                      lang,
+                      "taskDueDateAbsenceWarning",
+                      a.assignee,
+                      a.type,
+                      a.startDate,
+                      a.endDate,
+                    )}
+                  </p>
+                ))}
+              </div>
+            );
+          })()}
+        </Field>
+
+        <Field label={t(lang, "lastUpdateDate")}>
+          <input
+            type="date"
+            value={form.lastUpdateDate}
+            onChange={(e) =>
+              setForm({ ...form, lastUpdateDate: e.target.value })
+            }
+            className={inputClass}
+          />
+        </Field>
+      </TaskFormSection>
+
+      <TaskFormSection index={3} title={t(lang, "taskFormSectionEffort")}>
+        <Field label={t(lang, "group")}>
+          <ComboInput
+            lang={lang}
+            value={form.group}
+            suggestions={uniqueGroups}
+            onChange={(group) => setForm({ ...form, group })}
+            placeholder={t(lang, "placeholderGroup")}
+            maxLength={GROUP_MAX}
+          />
+        </Field>
+
+        <EffortField
+          key={`estimate-${editingId ?? "new"}`}
+          lang={lang}
+          label={t(lang, "taskOriginalEstimate")}
+          minutes={form.originalEstimateMinutes}
+          onChange={(minutes) =>
+            setForm((prev) => ({ ...prev, originalEstimateMinutes: minutes }))
           }
-          className={inputClass}
         />
-      </Field>
 
-      <Field label={t(lang, "group")}>
-        <ComboInput
+        <EffortField
+          key={`spent-${editingId ?? "new"}`}
           lang={lang}
-          value={form.group}
-          suggestions={uniqueGroups}
-          onChange={(group) => setForm({ ...form, group })}
-          placeholder={t(lang, "placeholderGroup")}
-          maxLength={GROUP_MAX}
-        />
-      </Field>
-
-      <EffortField
-        key={`estimate-${editingId ?? "new"}`}
-        lang={lang}
-        label={t(lang, "taskOriginalEstimate")}
-        minutes={form.originalEstimateMinutes}
-        onChange={(minutes) =>
-          setForm((prev) => ({ ...prev, originalEstimateMinutes: minutes }))
-        }
-      />
-
-      <EffortField
-        key={`spent-${editingId ?? "new"}`}
-        lang={lang}
-        label={t(lang, "taskTimeSpent")}
-        minutes={form.timeSpentMinutes}
-        onChange={(minutes) =>
-          setForm((prev) => ({ ...prev, timeSpentMinutes: minutes }))
-        }
-      />
-
-      <EffortProgressBar
-        lang={lang}
-        estimateMin={form.originalEstimateMinutes}
-        spentMin={form.timeSpentMinutes}
-      />
-
-      <Field label={t(lang, "labels")}>
-        <LabelsInput
-          lang={lang}
-          value={form.labels}
-          suggestions={uniqueLabels}
-          onChange={(labels) => setForm({ ...form, labels })}
-        />
-      </Field>
-
-      <Field label={t(lang, "depDependencies")} className="sm:col-span-2">
-        <DependenciesEditor
-          lang={lang}
-          value={form.dependencies}
-          allTasks={tasksForDeps}
-          ownTaskId={editingId}
-          onChange={(dependencies) =>
-            setForm((prev) => ({ ...prev, dependencies }))
+          label={t(lang, "taskTimeSpent")}
+          minutes={form.timeSpentMinutes}
+          onChange={(minutes) =>
+            setForm((prev) => ({ ...prev, timeSpentMinutes: minutes }))
           }
         />
-      </Field>
 
-      <Field label={t(lang, "blockers")} className="sm:col-span-2">
-        <textarea
-          rows={2}
-          maxLength={TEXTAREA_MAX}
-          value={form.blockers}
-          onChange={(e) => setForm({ ...form, blockers: e.target.value })}
-          placeholder={t(lang, "placeholderBlockers")}
-          className={inputClass}
+        <EffortProgressBar
+          lang={lang}
+          estimateMin={form.originalEstimateMinutes}
+          spentMin={form.timeSpentMinutes}
         />
-      </Field>
 
-      <Field label={t(lang, "health")} className="sm:col-span-2">
-        {(() => {
-          // Show what the auto-rule would say so the user can decide
-          // whether to override it. Recomputed each render — cheap.
-          const previewTask: Task = {
-            id: editingId ?? 0,
-            taskName: form.taskName,
-            assignee: form.assignee,
-            assigneeEmail: form.assigneeEmail,
-            startDate: form.startDate || undefined,
-            dueDate: form.dueDate,
-            lastUpdateDate: form.lastUpdateDate,
-            priority: form.priority,
-            blockers: form.blockers,
-            notes: form.notes,
-            group: form.group,
-            labels: form.labels,
-            dependencies: form.dependencies,
-          };
-          const autoHealth = computeTaskHealth(previewTask, today, holidaySet);
-          const autoLabel = t(
-            lang,
-            "healthAutoCurrent",
-            healthColorName(autoHealth.color, lang),
-          );
-          const chipBase =
-            "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium focus:outline-none focus:ring-1";
-          const chipInactive =
-            "border-line bg-surface text-foreground hover:bg-surface-muted dark:border-line dark:bg-surface dark:text-foreground dark:hover:bg-surface-muted";
-          const chipActive: Record<Health, string> = {
-            R: "border-AIPM-pink bg-AIPM-pink/10 text-AIPM-pink dark:border-AIPM-pink dark:bg-AIPM-pink/15",
-            A: "border-AIPM-purple bg-AIPM-purple/10 text-AIPM-purple dark:border-AIPM-purple dark:bg-AIPM-purple/15",
-            G: "border-AIPM-green bg-AIPM-green/10 text-AIPM-green dark:border-AIPM-green dark:bg-AIPM-green/15",
-          };
-          return (
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setForm({ ...form, healthOverride: "" })}
-                aria-pressed={form.healthOverride === ""}
-                className={`${chipBase} ${
-                  form.healthOverride === ""
-                    ? "border-AIPM-dark-blue bg-surface-muted text-AIPM-dark-blue dark:border-AIPM-blue dark:bg-surface-muted dark:text-AIPM-light-grey"
-                    : chipInactive
-                }`}
-              >
-                {autoLabel}
-              </button>
-              {HEALTH_VALUES.map((h) => (
+        <Field label={t(lang, "labels")}>
+          <LabelsInput
+            lang={lang}
+            value={form.labels}
+            suggestions={uniqueLabels}
+            onChange={(labels) => setForm({ ...form, labels })}
+          />
+        </Field>
+      </TaskFormSection>
+
+      <TaskFormSection index={4} title={t(lang, "taskFormSectionRelationships")}>
+        <Field label={t(lang, "depDependencies")} className="sm:col-span-2">
+          <DependenciesEditor
+            lang={lang}
+            value={form.dependencies}
+            allTasks={tasksForDeps}
+            ownTaskId={editingId}
+            onChange={(dependencies) =>
+              setForm((prev) => ({ ...prev, dependencies }))
+            }
+          />
+        </Field>
+
+        <Field label={t(lang, "blockers")} className="sm:col-span-2">
+          <textarea
+            rows={2}
+            maxLength={TEXTAREA_MAX}
+            value={form.blockers}
+            onChange={(e) => setForm({ ...form, blockers: e.target.value })}
+            placeholder={t(lang, "placeholderBlockers")}
+            className={inputClass}
+          />
+        </Field>
+      </TaskFormSection>
+
+      <TaskFormSection index={5} title={t(lang, "taskFormSectionStatus")}>
+        <Field label={t(lang, "health")} className="sm:col-span-2">
+          {(() => {
+            // Show what the auto-rule would say so the user can decide
+            // whether to override it. Recomputed each render — cheap.
+            const previewTask: Task = {
+              id: editingId ?? 0,
+              taskName: form.taskName,
+              assignee: form.assignee,
+              assigneeEmail: form.assigneeEmail,
+              startDate: form.startDate || undefined,
+              dueDate: form.dueDate,
+              lastUpdateDate: form.lastUpdateDate,
+              priority: form.priority,
+              blockers: form.blockers,
+              notes: form.notes,
+              group: form.group,
+              labels: form.labels,
+              dependencies: form.dependencies,
+            };
+            const autoHealth = computeTaskHealth(previewTask, today, holidaySet);
+            const autoLabel = t(
+              lang,
+              "healthAutoCurrent",
+              healthColorName(autoHealth.color, lang),
+            );
+            const chipBase =
+              "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium focus:outline-none focus:ring-1";
+            const chipInactive =
+              "border-line bg-surface text-foreground hover:bg-surface-muted dark:border-line dark:bg-surface dark:text-foreground dark:hover:bg-surface-muted";
+            const chipActive: Record<Health, string> = {
+              R: "border-AIPM-pink bg-AIPM-pink/10 text-AIPM-pink dark:border-AIPM-pink dark:bg-AIPM-pink/15",
+              A: "border-AIPM-purple bg-AIPM-purple/10 text-AIPM-purple dark:border-AIPM-purple dark:bg-AIPM-purple/15",
+              G: "border-AIPM-green bg-AIPM-green/10 text-AIPM-green dark:border-AIPM-green dark:bg-AIPM-green/15",
+            };
+            return (
+              <div className="flex flex-wrap items-center gap-2">
                 <button
-                  key={h}
                   type="button"
-                  onClick={() => setForm({ ...form, healthOverride: h })}
-                  aria-pressed={form.healthOverride === h}
+                  onClick={() => setForm({ ...form, healthOverride: "" })}
+                  aria-pressed={form.healthOverride === ""}
                   className={`${chipBase} ${
-                    form.healthOverride === h ? chipActive[h] : chipInactive
+                    form.healthOverride === ""
+                      ? "border-AIPM-dark-blue bg-surface-muted text-AIPM-dark-blue dark:border-AIPM-blue dark:bg-surface-muted dark:text-AIPM-light-grey"
+                      : chipInactive
                   }`}
                 >
-                  <span
-                    aria-hidden
-                    className={`inline-block h-2 w-2 rounded-full ${healthDot[h]}`}
-                  />
-                  {healthColorName(h, lang)}
+                  {autoLabel}
                 </button>
-              ))}
-            </div>
-          );
-        })()}
-      </Field>
+                {HEALTH_VALUES.map((h) => (
+                  <button
+                    key={h}
+                    type="button"
+                    onClick={() => setForm({ ...form, healthOverride: h })}
+                    aria-pressed={form.healthOverride === h}
+                    className={`${chipBase} ${
+                      form.healthOverride === h ? chipActive[h] : chipInactive
+                    }`}
+                  >
+                    <span
+                      aria-hidden
+                      className={`inline-block h-2 w-2 rounded-full ${healthDot[h]}`}
+                    />
+                    {healthColorName(h, lang)}
+                  </button>
+                ))}
+              </div>
+            );
+          })()}
+        </Field>
 
-      <Field label={t(lang, "notes")} className="sm:col-span-2">
-        <textarea
-          rows={3}
-          maxLength={TEXTAREA_MAX}
-          value={form.notes}
-          onChange={(e) => setForm({ ...form, notes: e.target.value })}
-          placeholder={t(lang, "placeholderNotes")}
-          className={inputClass}
-        />
-      </Field>
+        <Field label={t(lang, "notes")} className="sm:col-span-2">
+          <textarea
+            rows={3}
+            maxLength={TEXTAREA_MAX}
+            value={form.notes}
+            onChange={(e) => setForm({ ...form, notes: e.target.value })}
+            placeholder={t(lang, "placeholderNotes")}
+            className={inputClass}
+          />
+        </Field>
 
-      {error && (
-        <p
-          role="alert"
-          className="rounded-md bg-AIPM-pink/10 px-3 py-2 text-sm text-AIPM-pink dark:bg-AIPM-pink/15 sm:col-span-2"
-        >
-          {error}
-        </p>
-      )}
-
-      {!isEditing &&
-        jiraEnabled &&
-        jiraProjectKey && (
-          <label className="flex items-center gap-2 text-sm text-foreground sm:col-span-2">
-            <input
-              type="checkbox"
-              checked={form.pushToJira}
-              onChange={(e) =>
-                setForm({ ...form, pushToJira: e.target.checked })
-              }
-              className="h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue focus:ring-AIPM-green dark:border-line dark:bg-surface-muted"
-            />
-            <span>
-              {t(
-                lang,
-                "jiraCreateOnSubmit",
-                jiraProjectKey,
-                // Inlined: same as jira-api's defaultIssueTypeForCreate.
-                jiraDefaultIssueType ?? "Task",
-              )}
-            </span>
-          </label>
+        {error && (
+          <p
+            role="alert"
+            className="rounded-md bg-AIPM-pink/10 px-3 py-2 text-sm text-AIPM-pink dark:bg-AIPM-pink/15 sm:col-span-2"
+          >
+            {error}
+          </p>
         )}
+
+        {!isEditing &&
+          jiraEnabled &&
+          jiraProjectKey && (
+            <label className="flex items-center gap-2 text-sm text-foreground sm:col-span-2">
+              <input
+                type="checkbox"
+                checked={form.pushToJira}
+                onChange={(e) =>
+                  setForm({ ...form, pushToJira: e.target.checked })
+                }
+                className="h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue focus:ring-AIPM-green dark:border-line dark:bg-surface-muted"
+              />
+              <span>
+                {t(
+                  lang,
+                  "jiraCreateOnSubmit",
+                  jiraProjectKey,
+                  // Inlined: same as jira-api's defaultIssueTypeForCreate.
+                  jiraDefaultIssueType ?? "Task",
+                )}
+              </span>
+            </label>
+          )}
+      </TaskFormSection>
     </>
   );
 }
@@ -510,6 +520,27 @@ function EffortField({
         </p>
       )}
     </Field>
+  );
+}
+
+// One titled, numbered section of the task form. Owns its own two-column grid so
+// fields with `sm:col-span-2` keep spanning. Heading uses the AIPM dark-blue token.
+export function TaskFormSection({
+  index,
+  title,
+  children,
+}: {
+  index: number;
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section>
+      <h3 className="mb-3 border-b border-line pb-2 text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
+        {index}. {title}
+      </h3>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">{children}</div>
+    </section>
   );
 }
 

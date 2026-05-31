@@ -37,6 +37,22 @@ describe("TaskFormFields", () => {
     expect(screen.getByText("Due date")).toBeTruthy();
   });
 
+  it("renders all 5 numbered section headings", () => {
+    render(<Harness />, { wrapper: TestProviders });
+    expect(screen.getByText("1. Details")).toBeTruthy();
+    expect(screen.getByText("2. Scheduling")).toBeTruthy();
+    expect(screen.getByText("3. Effort & Classification")).toBeTruthy();
+    expect(screen.getByText("4. Relationships")).toBeTruthy();
+    expect(screen.getByText("5. Status & Notes")).toBeTruthy();
+  });
+
+  it("places the Due date field within the Scheduling section", () => {
+    render(<Harness />, { wrapper: TestProviders });
+    const section = screen.getByText("2. Scheduling").closest("section");
+    expect(section).not.toBeNull();
+    expect(section!.textContent).toContain("Due date");
+  });
+
   it("shows the error message when provided", () => {
     function ErrHarness() {
       return (

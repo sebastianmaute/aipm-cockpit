@@ -83,7 +83,7 @@ export function TaskFormModal({
         />
         <form
           onSubmit={onSubmit}
-          className="min-h-0 flex-1 overflow-y-auto grid grid-cols-1 gap-4 p-6 sm:grid-cols-2"
+          className="min-h-0 flex-1 overflow-y-auto space-y-6 p-6"
         >
           <TaskFormFields
             lang={lang}
@@ -104,7 +104,7 @@ export function TaskFormModal({
             onShowToast={onShowToast}
             onAddAssigneeToAddressBook={onAddAssigneeToAddressBook}
           />
-          <div className="flex justify-end gap-2 sm:col-span-2">
+          <div className="flex justify-end gap-2">
             {isEditing && (
               <button
                 type="button"
