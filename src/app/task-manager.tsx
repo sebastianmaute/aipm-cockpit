@@ -675,6 +675,7 @@ function TaskManagerInner() {
     <TasksSection
       lang={lang}
       today={today}
+      fillHeight={settings.layout === "modern"}
       jiraSiteUrl={settings.jira.siteUrl}
       onToggleSelect={onToggleSelect}
       onToggleNoteExpanded={onToggleNoteExpanded}

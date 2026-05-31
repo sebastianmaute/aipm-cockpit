@@ -43,6 +43,9 @@ const inputClass =
 export interface TasksSectionProps {
   lang: Lang;
   today: string;
+  /** When set, the pane fills its parent (modern full-height layout) instead of
+   *  rendering as a fixed-height, user-resizable box (classic layout). */
+  fillHeight?: boolean;
   // Row-context data not already in props
   jiraSiteUrl: string;
   // Row-context callbacks — assembled into rowContextValue useMemo internally
@@ -93,6 +96,7 @@ export interface TasksSectionProps {
 export function TasksSection({
   lang,
   today,
+  fillHeight,
   jiraSiteUrl,
   onToggleSelect,
   onToggleNoteExpanded,
@@ -201,7 +205,11 @@ export function TasksSection({
   return (
     <section
       ref={tableRef}
-      className="relative mb-10 flex h-[560px] min-h-[300px] min-w-[520px] resize flex-col overflow-hidden rounded-xl border border-line bg-surface p-6"
+      className={
+        fillHeight
+          ? "relative mb-10 flex h-full min-h-0 min-w-[520px] flex-col overflow-hidden rounded-xl border border-line bg-surface p-6"
+          : "relative mb-10 flex h-[560px] min-h-[300px] min-w-[520px] resize flex-col overflow-hidden rounded-xl border border-line bg-surface p-6"
+      }
     >
       {/* shrink-0 wrapper keeps header, filters and bulk-edit from growing into the table area */}
       <div className="shrink-0">
