@@ -73,7 +73,7 @@ export function ResourcesReportPanel({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="print-root space-y-6">
       <div className="flex items-center justify-end print:hidden">
         <PrintButton lang={lang} />
       </div>

@@ -61,6 +61,11 @@ describe("RaidReportPanel", () => {
     expect(screen.getByText("Server capacity risk")).toBeInTheDocument();
   });
 
+  it("marks the report root as a print-root for scoped printing", () => {
+    const { container } = render(<RaidReportPanel lang="en-US" items={items} today={TODAY} />);
+    expect((container.firstElementChild as HTMLElement).className).toContain("print-root");
+  });
+
   it("switching to Full Detail shows a single table listing every item", () => {
     render(<RaidReportPanel lang="en-US" items={items} today={TODAY} />);
 

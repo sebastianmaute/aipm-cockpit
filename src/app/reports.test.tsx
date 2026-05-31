@@ -58,6 +58,11 @@ describe("ReportsPanel — sort + filter", () => {
     makeTask({ id: 4, assignee: "Carl", group: "Backend", labels: ["urgent"] }),
   ];
 
+  it("marks the report root as a print-root for scoped printing", () => {
+    const { container } = renderReports(tasks);
+    expect((container.firstElementChild as HTMLElement).className).toContain("print-root");
+  });
+
   it("By Assignee renders rows with default total-desc sort", () => {
     renderReports(tasks);
     const section = sectionByTitle(/By Assignee/i);

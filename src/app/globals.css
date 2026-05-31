@@ -69,6 +69,14 @@ body {
     color: black !important;
   }
 
+  /* Scope printing to the report/activity node only — hide everything else
+     (sidebar, top bar, banners, other panes) so a single view prints cleanly.
+     Visibility and background are independent, so this coexists with the
+     ink-strip rules below. */
+  body * { visibility: hidden; }
+  .print-root, .print-root * { visibility: visible; }
+  .print-root { position: absolute; inset: 0; width: 100%; }
+
   /* Sticky thead is meaningless on paper */
   .sticky {
     position: static !important;

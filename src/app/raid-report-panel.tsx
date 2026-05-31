@@ -33,7 +33,7 @@ export function RaidReportPanel({ lang, items, today }: Props) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="print-root space-y-6">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-lg font-medium text-foreground">{t(lang, "raidReportTitle")}</h2>
         <div className="flex items-center gap-3 print:hidden">

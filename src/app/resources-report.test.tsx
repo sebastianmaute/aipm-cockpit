@@ -20,6 +20,15 @@ test("renders total internal cost and the resource row", () => {
   expect(screen.getAllByText("Developer Senior").length).toBeGreaterThan(0);
 });
 
+test("marks the report root as a print-root for scoped printing", () => {
+  const { container } = render(
+    <ResourcesReportPanel lang="en-US" resources={resources} roles={roles}
+      disciplines={disciplines} grades={grades} plan={plan} absences={[]}
+      holidaySet={new Set()} workdayHours={8} />,
+  );
+  expect((container.firstElementChild as HTMLElement).className).toContain("print-root");
+});
+
 test("renders a Print button", () => {
   render(
     <ResourcesReportPanel lang="en-US" resources={resources} roles={roles}
