@@ -29,7 +29,7 @@ describe("TaskManager shell selection", () => {
     // The modern top bar's New-task button.
     fireEvent.click(await screen.findByRole("button", { name: "New task" }));
     // Full-page edit view appears…
-    expect(await screen.findByRole("heading", { name: /task details/i })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "1. Details" })).toBeTruthy();
     // …and the dialog modal does NOT.
     expect(screen.queryByRole("dialog", { name: /new task/i })).toBeNull();
     // Top bar now shows Save (Add task) + Cancel instead of New task.
@@ -40,11 +40,11 @@ describe("TaskManager shell selection", () => {
   it("returns to the previous view when the edit is cancelled", async () => {
     render(<TaskManager />);
     fireEvent.click(await screen.findByRole("button", { name: "New task" }));
-    expect(await screen.findByRole("heading", { name: /task details/i })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "1. Details" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     // Back on Open Points (the origin view): the edit heading is gone.
     await waitFor(() =>
-      expect(screen.queryByRole("heading", { name: /task details/i })).toBeNull(),
+      expect(screen.queryByRole("heading", { name: "1. Details" })).toBeNull(),
     );
   });
 });
