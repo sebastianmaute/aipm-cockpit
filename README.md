@@ -3,7 +3,9 @@
 [![Pipeline Status](https://gitlab.example.com/example-group/public-collab/lop-app/badges/main/pipeline.svg)](https://gitlab.example.com/example-group/public-collab/lop-app/-/commits/main)
 [![coverage](https://gitlab.example.com/example-group/public-collab/lop-app/badges/main/coverage.svg)](https://gitlab.example.com/example-group/public-collab/lop-app/-/commits/main)
 
-**v0.28.1** — AI-assisted project-status tracker for Acme project leads. Manage open points, track accountability, plan resource capacity & cost, keep an address book of the team, and draft status-inquiry emails — all in the browser, no backend required. Integrates with Microsoft 365 (Outlook contacts/calendar, SharePoint storage) and Turso database backends.
+**v0.37.1** — AI-assisted project-status tracker for Acme project leads. Manage open points, track accountability, plan resource capacity & cost, keep an address book of the team, and draft status-inquiry emails — all in the browser, no backend required. Integrates with Microsoft 365 (Outlook contacts/calendar, SharePoint storage) and Turso database backends.
+
+The app ships a **modern sidebar layout** by default — a Dark-Blue left rail with grouped navigation, a top bar, full-viewport single-view content, full-page task editor and Settings pages, and a Light / Dark / System theme — with the original single-scroll **Classic mode** kept as a toggle (Settings → Appearance → Layout).
 
 ## What It Does
 
@@ -47,6 +49,8 @@ All data is stored locally by default — no backend account required.
 | Pop-out windows | Open Chat, Gantt, RAID, Resources, Activity, or the address book in their own window — read-only mirror views synced live from the main window |
 | Export | CSV, Markdown, PDF (print), DOCX, XLSX, PPTX |
 | Localization | English (US / UK) and German |
+| Layout & theme | Modern Dark-Blue sidebar layout (default) with grouped navigation, full-viewport single-view content, a full-page task editor (5 stacked sections) and full-page Settings; a single-page **Classic mode** toggle (Settings → Appearance → Layout); Light / Dark / System theme on the AIPM brand palette; URL-hash deep-linking (`#gantt`, `#raid`, …) |
+| Printing | Scoped print — printing a report (Reports, RAID Report, Resources Report) or the Activity log prints just that view (sidebar, top bar, banners, and other panes are hidden) on A4 |
 
 ## Screenshots
 

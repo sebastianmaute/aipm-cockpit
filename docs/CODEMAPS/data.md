@@ -1,4 +1,4 @@
-<!-- Generated: 2026-05-29 | Files scanned: types.ts, storage.ts, sanitize.ts, raid.ts, activity-log.ts, contacts.ts, resource-foundation.ts, resource-capacity.ts, reminder-snooze.ts, use-settings.ts, jira-token-status.ts, duration.ts + new: msal-config.ts, turso-config.ts | Token estimate: ~1290 -->
+<!-- Generated: 2026-05-31 | Files scanned: types.ts, storage.ts, sanitize.ts, raid.ts, activity-log.ts, contacts.ts, resource-foundation.ts, resource-capacity.ts, reminder-snooze.ts, use-settings.ts, jira-token-status.ts, duration.ts + msal-config.ts, turso-config.ts | Token estimate: ~1300 | Updated for 0.29.0–0.37.1: no data schema changes; storage backends remain client-side -->
 
 # Data
 
@@ -183,7 +183,7 @@ type Workspace = {
   disciplines: Discipline[];
   grades: Grade[];
   plan: ResourcePlan;                       // singleton
-  budgets?: BudgetBucket[];                 // schema v6; optional for compat
+  budgets?: BucketBucket[];                 // schema v6; optional for compat
   fxRates?: FxRates | null;                // schema v6; optional for compat
 };
 
@@ -260,13 +260,14 @@ legacy keys are removed.
 | Key | Shape |
 |---|---|
 | `lop-theme` | `"light"` \| `"dark"` \| `"system"` — persisted theme preference. Default `"system"` (absent = system). Read by the no-flash inline script in `layout.tsx` before hydration and by `use-theme.tsx` at runtime. Separate from the workspace `Settings` object. |
-| `lop-app:settings` | JSON envelope: `{ language, holidayCountries, ai, jira, notifications, storage, integrations? }`. The `jira` sub-object includes `tokenExpiresAt` + `tokenInvalidAt`. **0.21.0+** `integrations` sub-object: `{ m365Enabled: boolean, m365ClientId?: string, m365TenantId?: string, tursoEnabled: boolean, tursoDbUrl?: string, tursoAuthToken?: string }` (Settings → Integrations inputs); overridden by `NEXT_PUBLIC_*` env vars. The `notifications` sub-object: `{ reminderLeadDays, banner: {enabled}, toast: {enabled}, popup: {enabled}, birthday: {enabled} }`. |
+| `lop-app:settings` | JSON envelope: `{ language, holidayCountries, ai, jira, notifications, storage, integrations?, layout? }`. The `layout` field: `"modern" \| "classic"` (default modern). The `jira` sub-object includes `tokenExpiresAt` + `tokenInvalidAt`. **0.21.0+** `integrations` sub-object: `{ m365Enabled: boolean, m365ClientId?: string, m365TenantId?: string, tursoEnabled: boolean, tursoDbUrl?: string, tursoAuthToken?: string }` (Settings → Integrations inputs); overridden by `NEXT_PUBLIC_*` env vars. The `notifications` sub-object: `{ reminderLeadDays, banner: {enabled}, toast: {enabled}, popup: {enabled}, birthday: {enabled} }`. |
 | `lop-app:reminder-snooze:due` | Epoch-ms timestamp (stored as decimal string) until which the due-date reminder banner is snoozed; absent or elapsed = not snoozed |
 | `lop-app:reminder-snooze:birthday` | Epoch-ms timestamp until which the birthday reminder banner is snoozed; absent or elapsed = not snoozed |
 | `lop-app:reminder-snooze:jiraToken` | Epoch-ms timestamp until which the Jira token expiry banner is snoozed; absent or elapsed = not snoozed |
 | `lop-app:contacts` | `Record<normalizedName, { name, email }>`, capped at 500 entries |
 | `lop-app:activity-log` | `ActivityEntry[]`, capped at 500 (oldest dropped on overflow) |
 | `lop-app:workspace-collapsed` | `"1"` or absent |
+| `lop-app:sidebar-collapsed` | `"1"` or absent (modern mode only; v0.29.0+) |
 | `lop-app:col-widths` | `Record<string, number>` (debounced 250 ms) |
 | `lop-app:hidden-cols` | `string[]` |
 | `lop-app:task-table-size`, `lop-app:workspace-size`, `lop-app:task-modal-size`, `lop-app:gantt-size`, `lop-app:conflicts-modal-size`, `lop-app:due-modal-size`, `lop-app:help-size`, `lop-app:help-pos` | Resizable element sizes / positions |

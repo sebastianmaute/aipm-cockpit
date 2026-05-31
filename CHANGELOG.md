@@ -8,6 +8,15 @@ Authoritative source for version + build date: [`src/app/version.ts`](src/app/ve
 This file is seeded from that module's milestone comment plus the
 post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-diff.txt).
 
+## [0.37.1] — 2026-05-31
+
+### Documentation
+- README updated to the modern-layout era (version line; new **Layout & theme** and **Printing** rows in the feature table).
+- Regenerated the five `docs/CODEMAPS/*` architecture maps for 0.29.0–0.37.1 (modern sidebar shell, full-page edit/Settings views, shared style constants, scoped printing).
+- In-app **Help** gains a “Layout & theme” section (modern sidebar vs Classic mode, theme, URL-hash deep-linking) — EN + DE.
+
+_No runtime/behavior changes._
+
 ## [0.37.0] — 2026-05-31 "Kowal"
 
 ### Fixed

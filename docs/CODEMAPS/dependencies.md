@@ -1,4 +1,4 @@
-<!-- Generated: 2026-05-29 | Files scanned: package.json, package-lock.json, vitest.config.ts, playwright.config.ts | Token estimate: ~700 | New dep: @azure/msal-browser (0.21.0 for M365 auth); Turso uses raw fetch -->
+<!-- Generated: 2026-05-31 | Files scanned: package.json, package-lock.json, vitest.config.ts, playwright.config.ts | Token estimate: ~700 | Updated for 0.29.0–0.37.1: no dependency changes -->
 
 # Dependencies
 
@@ -33,7 +33,7 @@ Deliberately small surface. The runtime dep tree fits on one screen.
 | `@testing-library/user-event` | ^14 | Realistic user interaction simulation |
 | `@playwright/test` | ^1.49 | E2E runner (`playwright.config.ts`); Chromium-only by default |
 
-No runtime or dev deps changed in this update (0.11.0 through 0.14.0). Test count grows with each release; see CHANGELOG for per-release totals.
+No runtime or dev deps changed in this update (0.11.0 through 0.37.1). Test count grows with each release; see CHANGELOG for per-release totals.
 
 ## Notable transitive deps
 
@@ -58,7 +58,8 @@ state → never loaded.
 |---|---|---|
 | `api.anthropic.com` | Browser (direct) | User-supplied API key in `localStorage`; called from `chat-panel.tsx`. Whitelisted in `connect-src` of the CSP. |
 | `api.atlassian.com` | Server (`/api/jira/*` proxy) | Credentials forwarded per-request in POST body; never stored server-side |
-| SharePoint Online | **Not yet wired** | `sp-json` / `sp-csv` `StorageConfig` variants resolve to a stub `SharePointBackend` that throws `StorageNotImplementedError("sharepoint-coming-soon")`. UI flags them as "Coming soon" |
+| `graph.microsoft.com` | Browser (direct, v0.21.0+) | MSAL token in Bearer header; called from sharepoint-backend, outlook-contacts, outlook-calendar hooks |
+| `api.turso.io` | Browser (direct, v0.25.0+) | Turso auth token in Bearer header; called from turso-backend via HTTP `/v2/pipeline` API |
 
 No analytics, no observability backend, no error tracker, no CDN, no payment
 processor. Self-contained.
@@ -103,8 +104,8 @@ These were considered or asked about but **are not in the dep tree**:
 | Package | Why not |
 |---|---|
 | `moment` / `dayjs` / `date-fns` / `luxon` (direct) | We don't do date math; the codebase uses ISO `YYYY-MM-DD` strings + native `Date`. Moment is transitive via `date-holidays`, not direct. |
-| `style-loader` / `mini-css-extract-plugin` | Next handles CSS internally. Not present, not needed. See the `lop-app-css-hmr-investigation` memory for the question that surfaced this. |
-| `@tanstack/react-virtual` / virtualization libs | Task table not virtualized (high-risk refactor; see memory-optimization notes). |
+| `style-loader` / `mini-css-extract-plugin` | Next handles CSS internally. Not present, not needed. |
+| `@tanstack/react-virtual` / virtualization libs | Task table not virtualized (high-risk refactor). |
 | State stores (zustand / jotai / redux-toolkit) | Single god-component owns state; `tasksRef` mirroring discussed as future cleanup. |
 | `@microsoft/microsoft-graph-client` | Direct Graph calls made via native `fetch` in `sharepoint-backend.ts` and Outlook hooks; no need for a client library wrapper. |
 | `@libsql/client` | Turso integration (0.25.0) uses raw HTTP `/v2/pipeline` API via `fetch`; no need for the SDK. |

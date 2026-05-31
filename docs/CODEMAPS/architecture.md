@@ -1,4 +1,4 @@
-<!-- Generated: 2026-05-29 | Files scanned: ~80 source files | Token estimate: ~820 | Updated for 0.21.0–0.25.0: M365/Outlook/Turso integrations -->
+<!-- Generated: 2026-05-31 | Files scanned: ~100 source files | Token estimate: ~850 | Updated for 0.29.0–0.37.1: modern sidebar layout + polish -->
 
 # Architecture
 
@@ -47,6 +47,13 @@ frontend/backend repos.
 - `src/app/layout.tsx` — root layout, self-hosted Titillium Web via `next/font/google`, globals.css. Static security headers (`X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`) come from `next.config.ts:headers()`.
 - `src/app/page.tsx` — calls `await connection()` to opt the route into dynamic rendering (so the CSP nonce matches at SSR time), then renders `<TaskManager />`.
 - `src/app/task-manager.tsx` — orchestrator (~550 lines after hook extractions); owns all client state and mounts child panels.
+
+## Layout modes (settings.layout)
+
+- **modern** (default, v0.29.0+): `<ModernShell>` with dark-blue sidebar, top bar, centered content pane, full-page editor & settings views. Sidebar responsive collapse on mobile via `useMediaQuery` + `useSidebarCollapsed`.
+- **classic** (legacy toggle): pre-v0.29.0 layout with horizontal AppHeader, left-side task table, floating right-side workspace panels.
+
+The `app-shell.tsx` router picks between them at runtime based on `settings.layout`.
 
 ## Service boundaries
 

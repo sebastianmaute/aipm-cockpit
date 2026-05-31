@@ -1,3 +1,9 @@
+// 0.37.1 is a documentation refresh with no runtime behavior change: the
+// README is brought up to the modern-layout era (version line + a Layout &
+// theme entry and scoped-printing note in the feature table), the five
+// docs/CODEMAPS/* architecture maps are regenerated for 0.29.0–0.37.1, and the
+// in-app Help gains a "Layout & theme" section (modern sidebar vs Classic mode,
+// theme, URL-hash deep-linking) — EN + DE. No source/logic changes.
 // 0.37.0 "Kowal" is a UI polish batch (spec groups A–G). A: the Gantt export
 // dropdown now stacks above the sticky date row (z-40). B: the modern Open
 // Points table fills the available height instead of a fixed resizable box, and
@@ -419,8 +425,8 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.37.0";
-export const APP_BUILD_DATE = "2026-05-31"; // Kowal
+export const APP_VERSION = "0.37.1";
+export const APP_BUILD_DATE = "2026-05-31"; // Kowal (0.37.1 docs refresh)
 export const APP_REPO_URL = "https://www.example.com";
 
 /** Translation keys for the high-level feature highlights shown in the

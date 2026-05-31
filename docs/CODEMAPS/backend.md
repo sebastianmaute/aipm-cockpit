@@ -1,5 +1,4 @@
-<!-- Generated: 2026-05-29 | Files scanned: src/proxy.ts + 10 (src/app/api/jira) | Token estimate: ~500 | Updated for 0.21.0–0.25.0: M365 config resolvers, storage backends (SharePoint, Turso) are client-side -->
-<!-- Updated: 2026-05-29 — refactor: all Jira routes share `parseJiraRequest`; SSRF hardening — `normalizeSiteUrl` is HTTPS-only + `isPrivateHost` blocks IPv6 ULA/link-local + IPv4-mapped -->
+<!-- Generated: 2026-05-31 | Files scanned: src/proxy.ts + 10 (src/app/api/jira) | Token estimate: ~500 | Updated for 0.29.0–0.37.1: no backend changes; storage backends remain client-side -->
 
 # Backend
 

@@ -1,58 +1,71 @@
-<!-- Generated: 2026-05-29 | Files scanned: ~78 (src/app/*.tsx, *.ts) + new: msal-config, use-ms-auth, sharepoint-backend, outlook-{contacts,calendar}, turso-{config,backend} | Token estimate: ~1520 -->
-<!-- Updated: 2026-05-27 —  0.14.2 RAID header sorting -->
-<!-- Updated: 2026-05-27 —  0.15.0 Light/Dark/System theme -->
-<!-- Updated: 2026-05-27 —  0.15.1 AIPM semantic surface tokens in globals.css; DESIGN-TOKENS.md added -->
-<!-- Updated: 2026-05-29 —  0.21.0–0.25.0 M365/Outlook/Turso integrations; Settings → Integrations UI -->
-<!-- Updated: 2026-05-29 —  refactor/cleanup: shared combobox-shared.tsx + modal-edit-fields.tsx; reports useSortableFilter + raid-report ReportTableShell de-dup; dead-code/over-export removal; raid-report-panel.test.tsx added -->
+<!-- Generated: 2026-05-31 | Files scanned: ~120 (src/app/*.tsx, *.ts, settings-sections/) | Token estimate: ~1600 | Updated for 0.29.0–0.37.1: modern sidebar layout + polish -->
 
 # Frontend
 
-Single-page Next.js App Router client. One route, one god-component, six
-tabbed panels, two popout windows, and a network of inputs / menus.
+Single-page Next.js App Router client. One route, multiple layout modes
+(modern sidebar / classic), full-page views, tabbed panels, and popout windows.
 
-## Page tree
+## Page tree (modern layout)
 
 ```
 src/proxy.ts                 — middleware (per-request CSP nonce)
-src/app/layout.tsx           — root layout, security headers, globals.css. 0.15.0: inlines a no-flash <script> that reads lop-theme and sets .dark on <html> before React hydrates; wraps the tree in <ThemeProvider>
+src/app/layout.tsx           — root layout, security headers, globals.css,
+                               no-flash theme script, <ThemeProvider>
 └── src/app/page.tsx         — await connection(); renders <TaskManager />
-    └── src/app/task-manager.tsx   (~550 lines after hook extractions; container for everything)
-        ├── header (+ button → task modal, ExportMenu, HelpMenu,
-        │           VersionMenu, SettingsMenu, VoiceCommandButton)
-        ├── banner / due-modal / jira-token-banner  (notifications.tsx)
-        ├── workspace section (resizable, collapsible) — 6 tabs + 2 popout-only (read-only mirrors)
-        │   ├── tab strip (chat | reports | gantt | raid | budget | resources | activity)
-        │   ├── ChatPanel          (chat-panel.tsx)        — mounted; hidden when off
-        │   ├── ReportsPanel       (reports.tsx)           — conditional mount  ★
-        │   ├── GanttPanel         (gantt.tsx)             — conditional mount  ★
-        │   ├── RaidPanel          (raid-panel.tsx)        — mounted; hidden when off  ✚
-        │   ├── ResourcesPanel     (resources-panel.tsx)   — conditional mount  ★
-        │   ├── BudgetPanel        (budget-panel.tsx)      — conditional mount  ★
-        │   ├── ActivityLogPanel   (activity-log-panel.tsx)— conditional mount  ★
-        │   ├── ResourcesReportPanel (resources-report.tsx)— popout-only via ?popout=resource-report  ★
-        │   └── ResourceDirectory  (resource-directory.tsx)— popout-only via ?popout=address-book  ★
-        └── tasks table (always mounted)
-            ├── filters / sort / bulk-edit bar
-            ├── colgroup / sticky thead
-            ├── tbody (non-virtualized; full render of filteredSortedTasks)
-            └── per-row actions (mark complete, send inquiry, Jira push…)
-
-Modals:
-  TaskFormModal      (task-form-modal.tsx)   — statically imported; renders null when closed
-  BulkEditModal      (bulk-edit-modal.tsx)   — statically imported; renders null when closed
-  RolesModal         (roles-modal.tsx)       — discipline × grade rate card; opened from ResourcesPanel header
-  ResourceEditModal  (resource-edit-modal.tsx) — address-book create/edit/delete; opened from ResourceDirectory
-  BudgetBucketModal  (budget-bucket-modal.tsx) — edit a bucket's name, PO, type, currency, fixed amount,
-                       dates, spillover successor, FX-rate override, and role allocations (role picker);
-                       opened by the Edit button on each bucket card and by "Add bucket" on the new shell
-  JiraConflictsModal, AbsenceEditModal, ShiftEditModal — dynamic-imported, only mounted while open
-
-All modals share ModalHeader (modal-header.tsx) which renders a drag handle
-and wires use-draggable.ts so every modal window is repositionable. Voice
-commands inside modals are wired via VoiceCommandContext
-(voice-command-context.tsx) — the context is provided above the modal layer,
-so the same dispatcher that handles the main view also handles modal-scoped
-commands.
+    └── src/app/task-manager.tsx   (~550 lines after hook extractions; god-component)
+        ├── modern shell (v0.29.0+; default)
+        │   └── src/app/modern-shell.tsx
+        │       ├── src/app/sidebar.tsx (dark-blue, collapsible)
+        │       │   └── src/app/sidebar-nav.tsx (nav groups)
+        │       │       └── src/app/nav-icons.tsx (icon + label pairs)
+        │       ├── src/app/top-bar.tsx (title + New task + Alerts + menus)
+        │       │   └── src/app/action-menus.tsx (Voice·Export·Help·Version cluster)
+        │       └── <main> (single active view + banners)
+        │           ├── TaskEditView (full-page task editor; Phase 2)
+        │           ├── SettingsView (full-page Settings; Phase 4B)
+        │           ├── Open Points tab (task table + workspace section tabs)
+        │           └── Workspace section (6 main tabs + 2 popout-only)
+        │
+        ├── classic shell (legacy; v0.28.0 and earlier)
+        │   └── src/app/classic-shell.tsx [not current focus]
+        │
+        ├── TaskManager state & UI layers
+        │   ├── task-manager-ui.tsx — render logic split out
+        │   ├── task-form-context.tsx — form state (useTaskForm hook)
+        │   ├── filters-context.tsx — search + column visibility state
+        │   ├── workspace-tab-context.tsx — active tab + view (useWorkspaceTab)
+        │   ├── workspace-context.tsx — workspace data (WorkspaceProvider)
+        │   └── use-hash-view.ts — URL hash ↔ active view two-way sync
+        │
+        ├── Workspace section (6 main tabs + popouts)
+        │   ├── workspace-section.tsx — tab strip + conditional mount
+        │   ├── ChatPanel (chat-panel.tsx) — mounted; hidden when off
+        │   ├── ReportsPanel (reports.tsx) — conditional mount ★
+        │   ├── GanttPanel (gantt.tsx) — conditional mount ★
+        │   ├── RaidPanel (raid-panel.tsx) — mounted; hidden when off ✚
+        │   ├── ResourcesPanel (resources-panel.tsx) — conditional mount ★
+        │   ├── BudgetPanel (budget-panel.tsx) — conditional mount ★
+        │   ├── ActivityLogPanel (activity-log-panel.tsx) — conditional mount ★
+        │   ├── ResourcesReportPanel (resources-report.tsx) — popout-only ★
+        │   └── ResourceDirectory (resource-directory.tsx) — popout-only ★
+        │
+        ├── Open Points tab (task table)
+        │   ├── task-manager-ui.tsx — table header + row loop
+        │   ├── task-row.tsx — one row + inline actions
+        │   ├── filters-context.tsx — search input, column visibility, bulk-edit bar
+        │   └── filters (search, status, assignee, labels, group, health)
+        │
+        └── Modals (all scoped to task-manager state)
+            ├── app-modals.tsx — modal wrapper (stacked z-index)
+            ├── TaskEditView (Phase 2; in <main>, not a modal)
+            ├── SettingsView (Phase 4B; in <main>, not a modal)
+            ├── TaskFormModal (task-form-modal.tsx) — statically imported; null when closed
+            ├── BulkEditModal (bulk-edit-modal.tsx) — statically imported; null when closed
+            ├── RolesModal (roles-modal.tsx) — discipline × grade rate card
+            ├── ResourceEditModal (resource-edit-modal.tsx) — address-book create/edit/delete
+            ├── BudgetBucketModal (budget-bucket-modal.tsx) — edit bucket + allocations
+            ├── JiraConflictsModal, AbsenceEditModal, ShiftEditModal — dynamic-imported
+            └── All modals share ModalHeader (modal-header.tsx) + use-draggable.ts
 ```
 
 ★ = conditional mount (only when its tab is active)
@@ -62,6 +75,12 @@ All workspace panels are loaded via `next/dynamic({ ssr: false })` —
 browser-only APIs (window, IndexedDB, Web Speech, FS Access) cannot be
 prerendered.
 
+## Responsive layout (modern mode)
+
+- **Desktop** — Sidebar always visible (w-64), toggle button in top bar
+- **Tablet/mobile** — Sidebar collapse via `useMediaQuery('(max-width: 768px)')` + `useSidebarCollapsed()` hook stores preference in `lop-app:sidebar-collapsed`
+- **Sidebar** — w-64 expanded, w-16 collapsed; animated transition; footer shrinks/expands
+
 ## State (all in TaskManager)
 
 | State slice | Notes |
@@ -69,93 +88,148 @@ prerendered.
 | `tasks: Task[]`, `raid: RaidItem[]`, `absences: Absence[]`, `shifts: Shift[]`, `resources: Resource[]`, `roles: Role[]`, `disciplines: Discipline[]`, `grades: Grade[]`, `plan: ResourcePlan` | Persisted via `StorageBackend.save()` (debounced 500 ms); record-level diff per IDB store; `plan` is a kv singleton. Lives in `WorkspaceContext` |
 | `rolesModalOpen` | Roles & rates manager modal open/close (see `use-resource-planner.ts`) |
 | `tasksRef.current` | Hand-mirrored copy of `tasks` for stable closures in `dispatcher` |
-| `settings: Settings` | Language, holiday countries, Jira, AI, notifications. Persisted to `localStorage` (`SETTINGS_KEY`) |
+| `settings: Settings` | Language, holiday countries, Jira, AI, notifications. Persisted to `localStorage` (`SETTINGS_KEY`); **layout** field: `"modern" \| "classic"` |
 | `contacts: ContactsMap` | Assignee↔email address book; persisted to `lop-app:contacts` |
 | `activityLog: ActivityEntry[]` | Up to 500 most recent CRUD events; persisted to `lop-app:activity-log` |
 | `colWidths`, `hiddenCols` | UI table prefs in `localStorage` (colWidths debounced 250 ms) |
 | `search` + `searchDebounced` + `taskSearchIndex` | 150 ms search debounce + precomputed lowercase index |
 | `selectedIds`, `bulkEdit`, `expandedNotes` | Per-session UI only |
-| `activeTab` | `"chat"` \| `"reports"` \| `"gantt"` \| `"raid"` \| `"budget"` \| `"resources"` \| `"activity"` \| `"resource-report"` \| `"address-book"` (last two are popout-only) |
+| `activeTab` | `"open-points"` \| `"chat"` \| `"reports"` \| `"gantt"` \| `"raid"` \| `"budget"` \| `"resources"` \| `"activity"` \| `"resource-report"` \| `"address-book"` \| `"edit"` (last two in popouts or main); synced to URL hash via `useHashView` |
 | `budgets: BudgetBucket[]`, `fxRates: FxRates \| null` | Persisted via `StorageBackend.save()`; lives in `WorkspaceContext`; `fxRates` refreshed on demand via `useFxRates` (Refresh ECB rates button) |
 | `dueSnooze` / `birthdaySnooze` / `jiraTokenSnooze` | `useReminderSnooze("due")` / `useReminderSnooze("birthday")` / `useReminderSnooze("jiraToken")` — each yields `{ isSnoozed, snoozedUntil, snooze, clear }`; banners are gated on `!isSnoozed` |
 | `raidFilterTaskId` | Cross-tab nav: jump from a task row to RAID pre-filtered for that task |
 | `workspaceCollapsed`, `taskModalOpen`, `absenceDraft`, `shiftDraft` | Modal / collapse state |
 | `hydrated`, `i18nReady` | Render gates; `i18nReady=false` returns null until lang dict loads |
 
-## Child component map
+## Key components
 
 | File | Role | Notes |
 |---|---|---|
-| `task-form-modal.tsx` | Task create/edit form inside a `<Modal>`; reads `form`, `setForm`, `editingId`, `taskModalOpen` from `useTaskForm()` | ~491 lines extracted from task-manager in slice 4; returns null when closed |
-| `effort-progress-bar.tsx` | `EffortProgressBar` — fills left→right proportional to time-spent vs original estimate; turns red and shows the percentage when over-budget; greyed when no estimate is set. Ratio via `effortProgress` (`duration.ts`). Rendered inside `task-form-modal.tsx` beneath the estimate/spent row. | 0.13.1 |
-| `bulk-edit-modal.tsx` | Bulk-edit dialog (apply field to N selected tasks); reads `bulkEdit`, `setBulkEdit`, `bulkEditOpen` from `useTaskForm()` | ~354 lines extracted from task-manager in slice 4; returns null when closed |
-| `gantt.tsx` | Visual timeline with bar drag, dependency arrows, critical path | conditional mount; consumes `absences` to grey out off-days |
-| `raid-panel.tsx` | Risks/Assumptions/Issues/Dependencies log | `memo()`-wrapped; mounted-but-hidden. **0.14.2:** column headers are clickable and cycle ascending → descending → off; off restores default order (closed/terminal items stay at bottom). Severity sorted by rank (Low→Critical); missing target dates sort last. Sort comparator: `compareRaid` in `raid.ts`. |
-| `reports.tsx` | Stats by group, label, status, on-time vs late. `GroupOrLabelTable` + `AssigneeTable` share filter / sort / sort-cycle logic via the local `useSortableFilter(rows, sort, setSort, filter, getValue)` hook — each table supplies a `useCallback`-stable `getValue` so the memo deps stay honest (no `eslint-disable`). | conditional mount |
-| `raid-report-panel.tsx` | `RaidReportPanel` — RAID report. Summary view: tiles + six By-X tables that all share the local `ReportTableShell` wrapper; Full Detail: one sortable table. Covered by `raid-report-panel.test.tsx`. | dynamic-imported via `workspace-section.tsx` (RAID report view) |
-| `chat-panel.tsx` | Claude chat with tool calls via `dispatcher` | conditional mount; chat history kept in TaskManager state to survive tab switches |
-| `chat-tools.ts` | Tool dispatcher object passed to ChatPanel | Huge `useMemo` inside TaskManager |
-| `resources-panel.tsx` | Resource Planner: **4 views** — Directory (address-book table; delegates to `resource-directory.tsx`), Workload (per-resource open/overdue counts + upcoming absences; delegates to `resource-workload.tsx`, data built by `buildResourceWorkload`), Calendar (delegates to `resource-calendar.tsx`), and Planning (per-period utilization grid with capacity, internal/external cost, margin, week/month rollup, planning-window control, per-cell absence override). Header buttons open the Roles modal, the Report popout, and the Address Book popout. **0.13.0:** the "weeks" view derives week capacity from the month entry when granularity is set to month (read-only display fix); rollup total cells and the utilization input gained descriptive tooltips. **0.14.1:** planning header gained a percent/hours segmented toggle (next to month/week) wired to `onSetAllUtilizationMode`; switches all resources between modes and converts entered values via `convertUtilization`. The never-used per-resource `onSetUtilizationMode` prop chain was removed. **0.14.3:** assignee names in the Planning grid are clickable (same hover style as Directory/Workload) — calls `onEditResource`. | conditional mount |
-| `resource-calendar.tsx` | 30-day grid (assignee × day) showing tasks, absences, shift hours. **0.14.3:** assignee names are clickable — a matched name calls `onEditResource`; an unmatched name calls `onAddResource` prefilled via `splitName` (same hover style as Directory/Workload). | rendered inside ResourcesPanel |
-| `budget-panel.tsx` | Budget tab UI: bucket list/editor, per-role allocation grid, CCI cards (margin / cost-performance / consumption), win/loss, spillover controls, reminder surfacing. **0.13.0:** buckets are removable and reorderable by drag (persisted via `BudgetBucket.order`); ECB "Refresh rates" button uses a spinner matching the Jira-sync button style. **0.14.0:** each bucket card has an Edit button that opens `BudgetBucketModal`; "Add bucket" opens the modal on the new shell instead of leaving an uneditable placeholder; per-period hours are still edited in the panel grid. | conditional mount |
-| `budget-bucket-modal.tsx` | `BudgetBucketModal` — draggable modal for editing a bucket: name, PO number, type (T&M / Fixed), currency, fixed-price amount, start/end dates, spillover successor, manual FX-rate override (with validation), and role allocation lines (role picker: add/remove roles, assign resources/capacity per role). Opened by the Edit button on each bucket card and by "Add bucket" on the freshly created shell. | 0.14.0 |
-| `budget-report.ts` | **Pure** calc engine: `getActivePeriods`, `plannedHoursForAllocation`, `computeBucketReport` (CCI ×3, win/loss, spillover), `computeProjectBudgetRollup`, `getBucketReminders` | no React |
-| `fx.ts` | **Pure** FX helpers: `resolveFxRate(bucket, fxRates)` (manual override → cached ECB rate → 1.0 fallback) + `convertAmount` | no React |
-| `ecb.ts` | ECB XML parser: `parseEcbRates(xml) → Record<string,number>` (EUR-base daily reference rates) | no React |
-| `use-fx-rates.ts` | `useFxRates(workspace) → { rates, refresh }` — fetches `/api/ecb`, caches in workspace `fxRates`; stale-while-revalidate | client hook |
-| `resource-capacity.ts` | **Pure** capacity engine: `generatePeriods`, `workdaysInRange`, `absencesForResource`, `absenceWorkdays`, `periodCapacityHours` (percent/hours modes, override absences), `displayCapacityHours` (read-only week↔month rollup), `convertUtilization` (percent↔hours per-period conversion) | Unit-tested against Excel golden fixtures |
-| `resource-cost.ts` | **Pure** cost layer: `periodCost(hours, role)` = `{ internal, external, margin }`; `formatCurrency(amount, currency, locale)` with Intl + fallback | |
-| `resource-foundation.ts` | **Pure** helpers: `seedDisciplines`/`seedGrades`, `defaultResourcePlan`, `backfillResources` (one-time assignee → resource migration), `nextId`, `findRoleByCombo`, `roleLabel` | |
-| `resource-report.ts` | **Pure** aggregation: `computeResourceReport(...) → { totals, perPeriod, perDiscipline, perGrade, perCombo, perResource }`. Unassigned resources counted in capacity, excluded from breakdowns/cost | Feeds the report panel |
-| `resources-report.tsx` | Read-only resources report (Tile / Section / Table) — summary tiles + per-period / per-discipline / per-grade / per-combo / per-resource breakdowns. Opens as a popout window | dynamic-imported when `?popout=resource-report` |
-| `resource-directory.tsx` | Address-book table for the Directory tab (and the `?popout=address-book` window). One row per `Resource`; clicking the name cell opens `ResourceEditModal`. Exports `ResourceDirectory` (`memo`-wrapped). Header contains "+ Add resource" and optional "Open address book" buttons | rendered inside ResourcesPanel; also mounted as popout |
-| `resource-edit-modal.tsx` | Address-book editor modal (`ResourceEditModal`). Create / edit / delete a `Resource` with all contact fields (firstName, lastName, title, company, department, location, businessPhone, email, birthday MM/DD selects, notes). Mirrors `AbsenceEditModal`'s local-draft-state pattern; footer (Delete/Cancel/Save) via shared `ModalEditFooter` (`modal-edit-fields.tsx`) | opened from ResourceDirectory on name click, or "+ Add resource" |
-| `resource-workload-rows.ts` | **Pure** `buildResourceWorkload(resources, tasks, absences, shifts, today) → { managed: ManagedWorkloadRow[], unlinked: UnlinkedWorkloadRow[] }`. Managed rows are keyed to `Resource` entities (join by `resourceId` then case-folded display name); unlinked rows collect assignees with no matching resource | feeds `resource-workload.tsx` |
-| `roles-modal.tsx` | Discipline × grade rate card; add/rename disciplines & grades; on-demand `Role` creation. **0.13.0:** Discipline/Grade/Internal/External columns are sortable; a divider separates the rate card from the add-combo row; Discipline and Grade selects show a "—" placeholder; Manage-roles and Report buttons have leading icons. | opened from ResourcesPanel header |
-| `absence-edit-modal.tsx` | Add/edit Absence (vacation/sick/training/other). Uses shared `AssigneeField` + `ModalEditFooter` (`modal-edit-fields.tsx`) | dynamic-imported; opened on demand |
-| `shift-edit-modal.tsx` | Add/edit weekly working-hours pattern per assignee. Uses shared `AssigneeField` + `ModalEditFooter` (`modal-edit-fields.tsx`) | dynamic-imported; opened on demand |
-| `activity-log-panel.tsx` | Sortable/filterable/searchable CRUD log (text, wildcard, regex search) | conditional mount; `memo()`-wrapped |
-| `modal-header.tsx` | `ModalHeader` — shared drag-handle header rendered at the top of every modal. Wires `use-draggable.ts` to make the modal window repositionable. | 0.13.0 |
-| `use-draggable.ts` | Custom hook `useDraggable(ref)` — attaches `pointerdown` drag logic to a handle element and updates a `{ x, y }` offset via CSS `transform`. Pure DOM, no state library. | 0.13.0 |
-| `voice-command-context.tsx` | `VoiceCommandContext` + `VoiceCommandProvider` — React context that exposes the voice dispatcher to the modal layer, enabling in-modal voice commands without prop-drilling through every modal. | 0.13.0 |
-| `segmented-control.tsx` | Reusable 2-segment toggle (used by ResourcesPanel). Accepts optional `title` prop forwarded to root element | |
-| `jira-settings.tsx` / `jira-conflicts-modal.tsx` / `jira-api.ts` | Jira UI + client. `jira-settings.tsx` includes a "Token expires on" date field; test-connection sets/clears `tokenInvalidAt`. `jira-api.ts` exports `JiraApiError` and `classifyJiraError(err): "auth"\|"network"\|"other"` | Calls `/api/jira/*`; `jira-api.ts` lazy-imported via `loadJiraApi()` |
-| `adf.ts` | Plain-text ↔ ADF conversion (extracted from `_helpers.ts`) | Shared between client paths and the Jira proxy routes |
-| `theme.ts` | **Pure** theme helpers: `resolveTheme(stored, systemDark) → "light"\|"dark"`, `readStoredTheme() → "light"\|"dark"\|"system"`. No React, no side-effects. | 0.15.0 |
-| `use-theme.tsx` | `ThemeProvider` + `useTheme()` — reads `lop-theme` from localStorage, watches `prefers-color-scheme`, toggles `.dark` on `<html>`, and exposes `{ theme, setTheme }`. Persists choice, follows system when set to `"system"`. | 0.15.0 |
-| `settings-menu.tsx` | Language, holidays, AI, notifications, Jira, storage backend. **0.15.0:** theme control (Light / Dark / System segmented toggle) added at the top of the Settings panel, wired to `useTheme()`. **0.21.0+:** Integrations section with M365 master toggle (default OFF) + sub-toggles for SharePoint/Outlook contacts/Outlook calendar; Turso toggle + Database URL / Auth Token inputs; all feed into config resolvers (`msal-config.ts`, `turso-config.ts`). | |
-| `help-menu.tsx`, `version-menu.tsx` | Header dropdowns | |
-| `version.ts` | `APP_VERSION`, `APP_BUILD_DATE`, `APP_HIGHLIGHT_KEYS` (i18n keys for the Version popover) | |
-| `export-menu.tsx` | DOCX/XLSX/PPTX export trigger | `await import("./export-ooxml")` lazy |
-| `zip.ts` | Hand-rolled STORE-method ZIP writer used by OOXML export | Pulled out of `export-ooxml.ts` |
-| `voice.ts` + `voice-button.tsx` | Web Speech API integration | Browser support varies |
+| **Layout & Navigation** | | |
+| `app-shell.tsx` | Routes between modern & classic based on `settings.layout` | ~12 lines; simple conditional |
+| `modern-shell.tsx` | Modern layout shell: sidebar + top-bar + main pane + banners | Accepts slots for `editView`, `settingsView`, `workspace`, `tasksSection`, `topBarMenus`, `sidebarFooter` |
+| `sidebar.tsx` | Dark-blue sidebar with logo, nav, collapse toggle, footer | Responsive w-64 / w-16 |
+| `sidebar-nav.tsx` | Nav groups (Overview / Plan / Registers / System) + items | Renders icon + label pairs via nav-icons |
+| `sidebar-footer.tsx` | Version + theme toggle in sidebar footer | Small slot |
+| `top-bar.tsx` | Title + New task button + Alerts bell + menu cluster | Optional sidebar toggle button in `onToggleSidebar` prop |
+| `nav-config.ts` | `AppView` union, `NAV_GROUPS`, slug↔view mapping | Pure config; no React |
+| `nav-icons.tsx` | SVG icon map by `AppView` + Label lookup | icon(view) → JSX |
+| `use-hash-view.ts` | Two-way sync: URL hash ↔ active view (modern mode only) | Listens to hashchange; updates hash on view change (skips "edit" view) |
+| `use-media-query.ts` | `useMediaQuery(query) → boolean` for responsive breakpoints | |
+| `use-sidebar-collapsed.ts` | `useSidebarCollapsed() → [collapsed, toggle]` persisted to localStorage | |
+| **Views** | | |
+| `task-edit-view.tsx` | Full-page task editor in `<main>` when `activeView === "edit"` | Reuses `TaskFormFields` (Phase 2) |
+| `settings-view.tsx` | Full-page Settings in `<main>` when `activeView === "settings"` | Left nav rail (8 sections) + right panel (Phase 4B) |
+| `settings-sections/appearance-section.tsx` | Theme selector (Light / Dark / System) | Wired to `useTheme()` |
+| `settings-sections/localization-section.tsx` | Language + holiday countries | |
+| `settings-sections/general-section.tsx` | General app settings | |
+| `settings-sections/notifications-section.tsx` | Reminder preferences | |
+| `settings-sections/ai-section.tsx` | Claude API key + model selection | |
+| `settings-sections/jira-settings.tsx` | Jira URL / email / API token + test-connection | |
+| `settings-sections/storage-config.tsx` | Backend picker (Browser / Local / SharePoint / Turso) | |
+| `settings-sections/integrations-section.tsx` | M365 + Turso toggles + settings | |
+| **Task Editor** | | |
+| `task-form-modal.tsx` | Task create/edit modal (classic mode); returns null when closed | ~491 lines extracted from task-manager |
+| `task-form-fields.tsx` | Shared form fields (5 sections via `TaskFormSection`) + validation | Consumed by both TaskFormModal and TaskEditView |
+| `task-form-context.tsx` | `useTaskForm() → { form, setForm, editingId, taskModalOpen, ... }` | Manages form draft state |
+| `task-row.tsx` | One row in the table; inline actions (complete, inquiry, Jira, etc.) | Memo-wrapped |
+| **Shared Components** | | |
+| `task-manager-ui.tsx` | Render logic: header + banner area + main content split | Extracted from task-manager to keep god-component readable |
+| `app-modals.tsx` | Modal stacking container; renders all open modals in z-order | |
+| `action-menus.tsx` | Shared Voice·Export·Help·Version menu cluster | Consumed by both classic & modern |
+| `modal-header.tsx` | Shared drag-handle header for all modals | Wires `use-draggable.ts` |
+| `use-draggable.ts` | `useDraggable(ref)` for repositionable modals | Pure DOM, no state library |
+| `voice-command-context.tsx` | Context for in-modal voice command dispatch | |
+| `segmented-control.tsx` | 2-segment toggle (used by ResourcesPanel, theme selector) | |
+| `info-tooltip.tsx` | Accessible tooltip with icon | |
+| `modal.tsx` | Styled `<Modal>` wrapper with backdrop + animations | |
+| **Inputs & Forms** | | |
+| `labels-input.tsx` | Typed-list input for task labels | |
+| `combo-input.tsx` | Combobox for groups, priority, health override | |
+| `contact-input.tsx` | Assignee name + email + datalist autocomplete | Survives task deletion via contacts.ts |
+| `combobox-shared.tsx` | Shared combobox plumbing: `useCombobox` hook + UI components | Extracted refactor |
+| `modal-edit-fields.tsx` | Shared modal edit pieces: `AssigneeField` + `ModalEditFooter` | Used by absence/shift/resource edit modals |
 | `dependencies-editor.tsx` | FS/SS/FF/SF predecessor picker with cycle detection | |
-| `labels-input.tsx`, `combo-input.tsx`, `contact-input.tsx` | Typed-list and combobox inputs. `LabelsInput` + `ComboInput` share open/highlight state, outside-click-to-close, arrow navigation, and the chevron + dropdown markup via `combobox-shared.tsx` | |
-| `combobox-shared.tsx` | Shared combobox plumbing: `useCombobox(resetKey, totalItems)` hook (open/highlight state, outside-click-to-close, `moveHighlight` arrow nav) + `ComboboxChevron` and `ComboboxOptions` presentational components. Consumed by `combo-input.tsx` and `labels-input.tsx` | extracted refactor |
-| `modal-edit-fields.tsx` | Shared edit-modal pieces: `AssigneeField` (assignee name + email + datalist autocomplete with name dedupe & email auto-fill) and `ModalEditFooter` (Delete/Cancel/Save). Used by `absence-edit-modal.tsx` + `shift-edit-modal.tsx` (both pieces) and `resource-edit-modal.tsx` (footer) | extracted refactor |
-| `contacts.ts` | Persisted address book (`lop-app:contacts`); feeds ContactInput suggestions | Survives task deletion and Jira churn |
+| **Budget Panel** | | |
+| `budget-panel.tsx` | Budget tab UI: bucket list/editor, allocations, CCI cards | |
+| `budget-bucket-modal.tsx` | Modal for editing a bucket: name, PO, type, currency, dates, allocations | |
+| `budget-report.ts` | Pure calc engine: CCI ×3, spillover, project rollup | No React |
+| `fx.ts` | Pure FX helpers: `resolveFxRate`, `convertAmount` | No React |
+| `ecb.ts` | ECB XML parser: `parseEcbRates` | No React |
+| `use-fx-rates.ts` | `useFxRates(workspace) → { rates, refresh }` — fetches `/api/ecb` | Client hook |
+| **Resources Panel** | | |
+| `resources-panel.tsx` | 4 views: Directory, Workload, Calendar, Planning | |
+| `resource-directory.tsx` | Address-book table; can open as popout | |
+| `resource-calendar.tsx` | 30-day grid (assignee × day) showing tasks/absences/shifts | |
+| `resource-capacity.ts` | Pure capacity engine: periods, workdays, capacity calculations | No React; unit-tested |
+| `resource-cost.ts` | Pure cost layer: `periodCost`, `formatCurrency` | No React |
+| `resource-foundation.ts` | Pure helpers: `seedDisciplines`, `defaultResourcePlan`, etc. | No React |
+| `resource-report.ts` | Pure aggregation: `computeResourceReport` | No React |
+| `resources-report.tsx` | Read-only resources report; popout window | |
+| `resource-edit-modal.tsx` | Address-book editor modal | |
+| `resource-workload-rows.ts` | Pure `buildResourceWorkload` engine | No React |
+| `roles-modal.tsx` | Discipline × grade rate card | Opened from ResourcesPanel header |
+| `use-resource-planner.ts` | Resource planner state hook | |
+| **RAID & Reports** | | |
+| `raid-panel.tsx` | RAID log; **0.14.2:** sortable columns + severity ranking | Memo-wrapped |
+| `raid-report-panel.tsx` | RAID report (summary tiles + 6 By-X tables) | |
+| `reports.tsx` | Stats by group, label, status, on-time vs late | Conditional mount |
+| `raid.ts` | Pure RAID helpers: severity matrix, status options, cycle detection | No React |
+| **Chat & Voice** | | |
+| `chat-panel.tsx` | Claude chat with tool calls via `dispatcher` | Conditional mount; history in TaskManager |
+| `chat-tools.ts` | Tool dispatcher object; CRUD on tasks/RAID | Huge `useMemo` in TaskManager |
+| `use-chat-dispatcher.ts` | Hook wrapping chat tools | |
+| `voice-button.tsx` + `voice.ts` | Web Speech API integration | Lazy-imported |
+| **Activity & Notifications** | | |
+| `activity-log-panel.tsx` | Sortable/filterable/searchable CRUD log | Conditional mount |
+| `notifications.tsx` | `DueBanner`, `BirthdayBanner`, `JiraTokenBanner` + toast/popup | |
+| `reminder-snooze.ts` | localStorage-backed snooze store | Pure; no React |
+| `use-reminder-snooze.ts` | `useReminderSnooze(kind) → { isSnoozed, snooze, clear }` | Client hook |
+| `birthdays.ts` | `getUpcomingBirthdays` pure engine | No React |
+| **Integrations** | | |
+| `jira-settings.tsx` | Jira URL / email / token input + test-connection | |
+| `jira-api.ts` | Jira client; `JiraApiError` + `classifyJiraError` | Lazy-imported |
+| `jira-conflicts-modal.tsx` | Sync conflict resolution UI | Dynamic-imported |
+| `adf.ts` | Plain-text ↔ ADF conversion | Shared with server routes |
+| `msal-config.ts` | MSAL configuration resolver (M365) | Pure; 0.21.0+ |
+| `use-ms-auth.ts` | `useMsAuth() → { isReady, getToken, acquireToken }` | Client hook; lazy-loads msal-browser |
+| `sharepoint-backend.ts` | SharePoint storage backend (0.22.0) | Implements `StorageBackend` |
+| `outlook-contacts.ts` | `importOutlookContacts(token, limit?) → Contact[]` | Pure; 0.23.0+ |
+| `use-outlook-contacts.ts` | `useOutlookContacts() → { contacts, isLoading, error }` | Client hook |
+| `outlook-import-modal.tsx` | Preview-and-pick dialog for Outlook contacts | Modal component; 0.23.0+ |
+| `outlook-calendar.ts` | `importOutlookCalendar(token, startDate, endDate) → Absence[]` | Pure; 0.24.0+ |
+| `use-outlook-calendar.ts` | `useOutlookCalendar() → { events, isLoading, error }` | Client hook; 0.24.0+ |
+| `outlook-calendar-import-modal.tsx` | Preview-and-pick dialog for Outlook calendar | Modal component; 0.24.0+ |
+| `turso-config.ts` | Turso configuration resolver | Pure; 0.25.0+ |
+| `turso-backend.ts` | Turso HTTP `/v2/pipeline` storage backend | Implements `StorageBackend`; 0.25.0+ |
+| `storage-config.tsx` | Backend picker UI; gates on auth readiness | |
+| **Theme & UI Tokens** | | |
+| `theme.ts` | Pure helpers: `resolveTheme`, `readStoredTheme` | 0.15.0+; no React |
+| `use-theme.tsx` | `ThemeProvider` + `useTheme() → { theme, setTheme }` | 0.15.0+; reads `lop-theme` from localStorage |
+| `globals.css` | AIPM 9-color palette tokens + Tailwind / print rules | Dark-blue sidebar, light/dark theme, `.print-root` scoping |
+| `table-styles.ts` | `TABLE_HEAD_CLASS` Dark-Blue headers + LOP zebra | Shared constant (0.31.0+) |
+| `view-styles.ts` | `VIEW_PANE_CLASS`, `INNER_TABLE_CLASS` pane chrome | Shared constants |
+| **Utilities** | | |
+| `date-format.ts` | `localeFor(lang)`, `shortDateRange`, `formatExpiryDate` | Pure |
+| `duration.ts` | `parseDuration`, `formatDuration`, `effortProgress` | Pure; Jira basis (1w=5d=2400m) |
+| `contacts.ts` | localStorage address book; `Contact`, `ContactsMap` | Survives task deletion |
+| `activity-log.ts` | localStorage CRUD audit log; `ActivityEntry`, `ActivityKind` | Capped 500 entries |
+| `use-resizable.ts` | Corner-drag resize hook with localStorage persistence | |
+| `read-only-guard.ts` | `makeEditGuard(isReadOnly, notify)` for popout mirrors | Pure |
+| `read-only-mirror-banner.tsx` | Read-only state banner shown in popouts | |
+| `jira-token-status.ts` | `getJiraTokenAlert(jira, today, leadDays)` alert derivation | Pure |
+| `use-settings.ts` | Settings context hook (separate from workspace) | |
+| `use-bulk-operations.ts` | Bulk-edit operations (e.g. apply field to selected) | |
 | `markdown.tsx` | Renders chat / report markdown safely | |
-| `notifications.tsx` | `DueBanner`, `BirthdayBanner`, `JiraTokenBanner` — each embeds a `SnoozeMenu` and accepts an `onSnooze: (ms: number) => void` prop. `JiraTokenBanner` covers expiring/expired/invalid token states with snooze + dismiss. Banners gated on `!isSnoozed` in TaskManager. Also: toast, popup alerts | |
-| `reminder-snooze.ts` | localStorage-backed snooze store. `ReminderKind = "due" \| "birthday" \| "jiraToken"`. Key pattern: `lop-app:reminder-snooze:<kind>` (epoch-ms). Exports `getSnoozedUntil`, `setSnoozedUntil`, `clearSnooze`, `SNOOZE_1H` (3 600 000 ms), `SNOOZE_1D` (86 400 000 ms). Elapsed snoozes are cleared on read | pure; no React |
-| `use-reminder-snooze.ts` | `useReminderSnooze(kind: ReminderKind) → { isSnoozed, snoozedUntil, snooze(durationMs), clear }`. Schedules a one-shot `setTimeout` to auto-reshow the banner when the snooze elapses, without requiring a reload | client hook |
-| `birthdays.ts` | `getUpcomingBirthdays(resources, today, leadDays, holidays, absences) → UpcomingBirthday[]`. Year-wrap aware (birthday on Jan 2, today Dec 30 → next occurrence is in 3 days). Trigger is working-day-shifted via `shiftToWorkingDay`. Sorted by `daysUntil` asc. `UpcomingBirthday = { resource: Resource; daysUntil: number }` | pure |
-| `date-format.ts` | Shared date-formatting helpers. `localeFor(lang) → string`, `shortDateRange(absence, lang) → string`, `formatExpiryDate(isoDate, lang) → string` (Jira token expiry display) | pure |
-| `msal-config.ts` | **0.21.0:** MSAL configuration; `resolveMsalConfig() → { clientId?, tenantId? }`; resolves from `NEXT_PUBLIC_MSAL_CLIENT_ID` / `NEXT_PUBLIC_MSAL_TENANT_ID` env vars or Settings → Integrations M365 inputs | pure |
-| `use-ms-auth.ts` | **0.21.0:** `useMsAuth() → { isReady, getToken, acquireToken(scopes, options?) }`; lazy-loads `@azure/msal-browser` via `PublicClientApplication`; handles background readiness probes + interactive consent fallback (0.23.1) | client hook |
-| `sharepoint-backend.ts` | **0.22.0:** `SharePointBackend` class; `parseSharePointFileUrl(url) → {hostname, sitePath, itemPath}`; calls Graph `/me/drive/items/...` to load/save workspace JSON/CSV blob | implements `StorageBackend` |
-| `outlook-contacts.ts` | **0.23.0:** `importOutlookContacts(token, limit?) → Contact[]`; calls Graph `/me/contacts`, maps to `{ firstName, lastName, email, company? }` | pure |
-| `use-outlook-contacts.ts` | **0.23.0:** `useOutlookContacts() → { contacts, isLoading, error, refetch }`; wires `acquireToken("Contacts.Read")` + `importOutlookContacts` | client hook |
-| `outlook-import-modal.tsx` | **0.23.0:** Preview-and-pick dialog for Outlook contacts; shows contact table with checkboxes + merge/create buttons; updates existing by email | modal component |
-| `outlook-calendar.ts` | **0.24.0:** `importOutlookCalendar(token, startDate, endDate) → Absence[]`; calls Graph `/me/calendarView`, filters all-day + Out-of-Office events, maps to Absences with inferred type ("vacation" for all-day, "other" for OOO) | pure |
-| `use-outlook-calendar.ts` | **0.24.0:** `useOutlookCalendar() → { events, isLoading, error }`; wires `acquireToken("Calendars.Read")` + `importOutlookCalendar` | client hook |
-| `outlook-calendar-import-modal.tsx` | **0.24.0:** Preview-and-pick dialog for Outlook calendar time-away events; shows event table with per-row absence-type selector ("vacation", "sick", "training", "other") + create buttons | modal component |
-| `turso-config.ts` | **0.25.0:** Turso configuration; `resolveTursoConfig() → { databaseUrl?, authToken? }`; resolves from `NEXT_PUBLIC_TURSO_DATABASE_URL` / `NEXT_PUBLIC_TURSO_AUTH_TOKEN` env vars or Settings → Integrations inputs | pure |
-| `turso-backend.ts` | **0.25.0:** `TursoBackend` class; calls Turso HTTP `/v2/pipeline` API (raw fetch, no `@libsql/client`); stores entire `Workspace` as single JSON blob in a row; EXECUTE statement for write, SELECT for read | implements `StorageBackend` |
-| `storage-config.tsx` | File-backend / SharePoint / Turso picker UI; SharePoint and Turso options gate on `useMsAuth().isReady()` and `tursoConfig` readiness respectively; copy-URL-to-clipboard helper for SharePoint file URL | |
-| `use-resizable.ts` | Custom hook for corner-drag resize with localStorage persistence | |
-| `read-only-guard.ts` | `makeEditGuard(isReadOnly, notify)` — wraps a commit handler to no-op (with a toast) when `isReadOnly` is true; preserves the handler's return value | pure; no React |
-| `read-only-mirror-banner.tsx` | `ReadOnlyMirrorBanner` — shown inside popout windows to indicate read-only mirror state | rendered by task-manager in popouts |
-| `jira-token-status.ts` | `getJiraTokenAlert(jira, today, leadDays) → { kind: "invalid"\|"expired"\|"expiring"\|null, daysUntil? }` — client-side derivation of Jira token alert state | pure; no React |
+| `export.ts`, `export-ooxml.ts` | Export engines (CSV/MD/JSON/DOCX/XLSX/PPTX) | Lazy-imported |
+| `zip.ts` | Hand-rolled STORE-method ZIP writer | No external dep |
+| `sanitize.ts` | Input validation for all inbound fields | Pure |
+| `health.ts` | RAG status computation + color helpers | Pure |
+| `due-dates.ts` | Due-date sorting + alertable task logic | Pure |
+| `settings-types.ts` | `Settings` shape re-exported from settings-menu | Shared type |
+| `types.ts` | `Task`, `RaidItem`, `Absence`, `Resource`, `Role`, etc. | Core data schemas |
+| `storage.ts` | `StorageBackend` interface + IDB/File/SharePoint/Turso impls | ~1500 LOC |
+| `i18n.ts` | Translation keys + function; lazy-loads `i18n.de.ts` | ~700 keys |
 
 ## Lazy-loaded modules
 
@@ -177,3 +251,5 @@ prerendered.
 App Router with a single visible page (`/`). API routes under `/api/jira/*`
 (see [backend.md](backend.md)) and `GET /api/ecb` (ECB FX rates proxy, cached).
 Middleware `src/proxy.ts` runs on every HTML response.
+URL hash (`#gantt`, `#raid`, etc.) drives the active view in modern mode via
+`useHashView` (two-way sync).

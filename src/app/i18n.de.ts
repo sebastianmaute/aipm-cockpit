@@ -495,6 +495,9 @@ export const de: Record<TranslationKey, string> = {
   help: "Hilfe",
   helpIntro:
     "Der List of Open Points Tracker erfasst offene Projektpunkte, versendet Statusabfragen, zeigt anstehende Fälligkeiten und synchronisiert auf Wunsch bidirektional mit Jira.",
+  helpSecLayoutTitle: "Layout & Design",
+  helpSecLayoutBody:
+    "Die App startet standardmäßig im modernen Layout: eine dunkelblaue Seitenleiste links mit gruppierter Navigation (Offene Punkte, Chat, Gantt, Ressourcen, Budget, RAID, Berichte, Aktivität, Einstellungen), eine Kopfleiste mit Titel und Aktionen sowie ein bildschirmfüllender Bereich, der jeweils eine Ansicht zeigt. Aufgaben und Einstellungen öffnen sich als ganze Seite statt als Popover; die Seitenleiste klappt auf schmalen Bildschirmen (und per Menüknopf in der Kopfleiste) zu einer Symbolleiste zusammen. Der URL-Anker verlinkt jede Ansicht direkt (#gantt, #raid, …), sodass Vor / Zurück und Lesezeichen funktionieren.\nLieber die ursprüngliche, durchgehend scrollende Seite? Wechseln Sie unter Einstellungen → Darstellung → Layout in den klassischen Modus — er behält die umrahmten Arbeitsbereich-Tabs und die Kopfzeile, die in den übrigen Hilfeabschnitten beschrieben sind.\nDesign: Hell, Dunkel oder System (folgt dem Betriebssystem) unter Einstellungen → Darstellung; die Farben bleiben in beiden Fällen in der AIPM-Markenpalette.",
   helpSecAddTitle: "Aufgaben anlegen & bearbeiten",
   helpSecAddBody:
     "Auf das +-Symbol im Header klicken, um den Dialog \"Neue Aufgabe\" zu öffnen. Beim Klick auf \"Bearbeiten\" einer Zeile öffnet sich derselbe Dialog vorbefüllt. Pflichtfelder: Aufgabenname, Zugewiesener, Fälligkeit. Optional: E-Mail, Gruppe, Labels, Blocker, Notizen. Das + neben dem Zugewiesenen fügt diese Person in einem Schritt zum Adressbuch hinzu und übernimmt sie als Zugewiesenen. Alternativ im Chat-Tab Claude bitten (z. B. \"neue Aufgabe Deck prüfen, fällig Freitag\").",

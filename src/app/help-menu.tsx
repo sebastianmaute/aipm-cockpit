@@ -18,6 +18,7 @@ const SECTIONS: Array<{
   titleKey: TranslationKey;
   bodyKey: TranslationKey;
 }> = [
+  { titleKey: "helpSecLayoutTitle", bodyKey: "helpSecLayoutBody" },
   { titleKey: "helpSecAddTitle", bodyKey: "helpSecAddBody" },
   { titleKey: "helpSecWorkspaceTitle", bodyKey: "helpSecWorkspaceBody" },
   { titleKey: "helpSecTabsTitle", bodyKey: "helpSecTabsBody" },

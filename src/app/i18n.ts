@@ -480,6 +480,9 @@ const enUS = {
   help: "Help",
   helpIntro:
     "List of Open Points Tracker captures open project items, sends status inquiries, surfaces upcoming due dates, and (optionally) syncs both ways with Jira.",
+  helpSecLayoutTitle: "Layout & theme",
+  helpSecLayoutBody:
+    "The app ships a modern layout by default: a Dark-Blue left sidebar with grouped navigation (Open Points, Chat, Gantt, Resources, Budget, RAID, Reports, Activity, Settings), a top bar with the view title and actions, and a full-viewport content area showing one view at a time. Opening a task or Settings fills the page instead of a popover; the sidebar collapses to an icon rail on narrow screens (and on demand via the top-bar menu button). The URL hash deep-links each view (#gantt, #raid, …) so back / forward and bookmarks work.\nPrefer the original single-scroll page? Switch to Classic mode in Settings → Appearance → Layout — it keeps the boxed workspace tabs and header described in the other help sections.\nTheme: choose Light, Dark, or System (follows your OS) in Settings → Appearance; colors stay on the AIPM brand palette either way.",
   helpSecAddTitle: "Adding & editing tasks",
   helpSecAddBody:
     "Click the + button in the header to open the New task modal. The same modal opens — pre-filled — when you click Edit on a row. Required fields: Task name, Assignee, Due date. Optional: Email, Group, Labels, Blockers, Notes. The + beside the Assignee adds that person to the address book and fills the assignee in one step. You can also ask Claude in the Chat tab (e.g. \"add a task to review the deck due Friday\").",
