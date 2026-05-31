@@ -251,6 +251,7 @@ export const de: Record<TranslationKey, string> = {
   budgetSave: "Speichern",
   budgetAmountInvalid: "Betrag muss null oder größer sein.",
   budgetFxOverrideInvalid: "Wechselkurs muss größer als null sein.",
+  budgetBucketsCount: "{0} Buckets",
 
   tabChat: "Chat",
   tabNewTask: "Neue Aufgabe",

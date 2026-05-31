@@ -244,6 +244,7 @@ const enUS = {
   budgetSave: "Save",
   budgetAmountInvalid: "Amount must be zero or greater.",
   budgetFxOverrideInvalid: "FX rate must be greater than zero.",
+  budgetBucketsCount: "{0} buckets",
 
   tabChat: "Chat",
   tabNewTask: "New task",
