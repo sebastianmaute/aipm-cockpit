@@ -9,6 +9,7 @@ import type { Absence, BudgetBucket, Discipline, FxRates, Grade, Resource, Resou
 import { BudgetBucketModal } from "./budget-bucket-modal";
 import { useColumnResize } from "./use-column-resize";
 import { ColumnResizeHandle, ResetColWidthsButton } from "./task-manager-ui";
+import { TABLE_HEAD_CLASS } from "./table-styles";
 
 const BUDGET_COL_WIDTHS = {
   role: 160,
@@ -260,8 +261,8 @@ export function BudgetPanel(props: BudgetPanelProps) {
               </div>
               <div className="mt-3 overflow-x-auto">
                 <table className="w-full text-xs">
-                  <thead>
-                    <tr className="text-muted-foreground">
+                  <thead className={TABLE_HEAD_CLASS}>
+                    <tr>
                       <th
                         className="relative px-2 py-1 text-left font-medium"
                         style={{ width: colWidths.role, minWidth: colWidths.role }}
