@@ -8,6 +8,14 @@ Authoritative source for version + build date: [`src/app/version.ts`](src/app/ve
 This file is seeded from that module's milestone comment plus the
 post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-diff.txt).
 
+## [0.35.0] — 2026-05-31 "Muir"
+
+### Changed
+- All remaining data-table headers (Reports ×3, Roles modal, Budget panel, Jira-conflicts modal, Resource calendar) now use the shared Dark-Blue `TABLE_HEAD_CLASS`, completing the Phase 3/4 header sweep. In-header sort buttons use the green accent hover; the resource-calendar frozen corner and default day cells paint dark blue with white text (today/holiday tints preserved).
+
+### Internal
+- Generalized the `table-head-sweep` guard to a `FORBIDDEN_HEADS` list and added the five swept files, so these headers cannot drift back to bespoke styling.
+
 ## [0.34.0] — 2026-05-30 "Novik"
 
 ### Added

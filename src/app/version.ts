@@ -1,3 +1,12 @@
+// 0.35.0 "Muir" is Phase 4 Workstream D of the modern layout: the divergent-
+// table sweep. The five tables that still carried bespoke <thead> markup
+// (Reports ×3, the Roles modal, the Budget panel, the Jira-conflicts modal, and
+// the Resource calendar) now use the shared Dark-Blue TABLE_HEAD_CLASS, finishing
+// the Phase 3/4 header unification. In-header sort buttons hover green; the
+// resource calendar's frozen top-left corner and its default/weekend day cells
+// paint dark blue with white text (today=green and holiday=purple tints kept).
+// The table-head sweep guard was generalized to a FORBIDDEN_HEADS list and the
+// five files added to SWEPT_FILES so they cannot drift back. No new strings.
 // 0.34.0 "Novik" is Phase 4 Workstream C of the modern layout: shell DRY +
 // banner parity. The header action cluster (Voice, Export, Help, Version) is now
 // one shared ActionMenus component consumed by both the classic header and the
@@ -392,8 +401,8 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.34.0";
-export const APP_BUILD_DATE = "2026-05-30"; // Novik
+export const APP_VERSION = "0.35.0";
+export const APP_BUILD_DATE = "2026-05-31"; // Muir
 export const APP_REPO_URL = "https://www.example.com";
 
 /** Translation keys for the high-level feature highlights shown in the
