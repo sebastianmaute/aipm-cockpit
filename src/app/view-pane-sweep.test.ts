@@ -56,4 +56,10 @@ describe("view-pane sweep", () => {
       expect(src).toContain("INNER_TABLE_CLASS");
     });
   }
+
+  it("view-styles exports VIEW_PANE_RESIZABLE_CLASS with resize + min bounds", () => {
+    const src = readFileSync(join(ROOT, "view-styles.ts"), "utf8");
+    expect(src).toMatch(/export const VIEW_PANE_RESIZABLE_CLASS\b/);
+    expect(src).toMatch(/VIEW_PANE_FILL_CLASS \+ " resize min-h-\[300px\] min-w-\[480px\]"/);
+  });
 });

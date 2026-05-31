@@ -14,3 +14,8 @@ export const VIEW_PANE_FILL_CLASS =
  *  rounded-md inset card). */
 export const INNER_TABLE_CLASS =
   "min-h-0 flex-1 overflow-auto rounded-xl border border-line bg-surface";
+
+/** Full-height pane card that is ALSO user-resizable: fills by default, but the
+ *  bottom-right corner drags to a custom size (persisted via useResizable). */
+export const VIEW_PANE_RESIZABLE_CLASS =
+  VIEW_PANE_FILL_CLASS + " resize min-h-[300px] min-w-[480px]";
