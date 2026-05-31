@@ -160,7 +160,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
   };
 
   return (
-    <div className={`${VIEW_PANE_CLASS} flex flex-col gap-6 p-6`}>
+    <div className={`${VIEW_PANE_CLASS} flex min-h-full flex-col gap-6 p-6`}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <button

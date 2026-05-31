@@ -121,4 +121,27 @@ describe("WorkspaceSection", () => {
     expect(screen.queryByRole("tablist", { name: "Workspace tabs" })).toBeNull();
     expect(document.getElementById("workspace-panels")).not.toHaveAttribute("hidden");
   });
+
+  it("fills the viewport in fullBleed mode (h-full, not collapsing flex-1)", () => {
+    // Under the modern shell's block <main>, flex-1 is a no-op and the section
+    // collapses to content height. h-full makes it fill, matching the Tasks pane.
+    const { container } = render(<WorkspaceSection {...makeProps({ fullBleed: true })} />, {
+      wrapper: Wrapper,
+    });
+    const section = container.querySelector("section");
+    expect(section?.className).toContain("h-full");
+    expect(section?.className).not.toContain("flex-1");
+  });
+
+  it("drops the pt-4 panel offset in fullBleed mode", () => {
+    render(<WorkspaceSection {...makeProps({ fullBleed: true })} />, { wrapper: Wrapper });
+    const panelChat = document.getElementById("panel-chat");
+    expect(panelChat?.className).not.toContain("pt-4");
+  });
+
+  it("keeps the pt-4 panel offset in classic mode (clears the tab strip)", () => {
+    render(<WorkspaceSection {...makeProps()} />, { wrapper: Wrapper });
+    const panelChat = document.getElementById("panel-chat");
+    expect(panelChat?.className).toContain("pt-4");
+  });
 });

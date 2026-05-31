@@ -28,6 +28,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { isPlainObject } from "./sanitize";
+import { VIEW_PANE_FILL_CLASS } from "./view-styles";
 import { useResizable } from "./use-resizable";
 import { PRIORITIES, type Absence, type AbsenceType, type DependencyType, type Priority, type Task } from "./types";
 
@@ -1161,7 +1162,7 @@ export function GanttPanel({
 
   if (rowsCount === 0) {
     return (
-      <div className="flex h-full min-h-[300px] flex-col">
+      <div className={VIEW_PANE_FILL_CLASS}>
         {toolbar}
         <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-line p-10 text-center text-sm text-muted-foreground">
           <span>
@@ -1182,7 +1183,7 @@ export function GanttPanel({
   }
 
   return (
-    <div className="flex h-full min-h-[300px] flex-col">
+    <div className={VIEW_PANE_FILL_CLASS}>
       {toolbar}
       <div
         ref={panelRef}

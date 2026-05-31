@@ -29,6 +29,7 @@ import { SegmentedControl } from "./segmented-control";
 import { useColumnResize } from "./use-column-resize";
 import { ColumnResizeHandle, PrintButton, ResetColWidthsButton } from "./task-manager-ui";
 import { TABLE_HEAD_CLASS } from "./table-styles";
+import { VIEW_PANE_FILL_CLASS } from "./view-styles";
 
 const ACTIVITY_LOG_COL_WIDTHS = {
   timestamp: 160,
@@ -162,7 +163,7 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
   }
 
   return (
-    <section className="print-root flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-line bg-surface p-4">
+    <section className={`print-root ${VIEW_PANE_FILL_CLASS}`}>
       <header className="mb-3 flex shrink-0 flex-wrap items-center gap-2">
         <h2 className="mr-auto text-lg font-medium text-foreground">
           {t(lang, "tabActivity")}{" "}

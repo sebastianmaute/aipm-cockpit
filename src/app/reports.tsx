@@ -345,7 +345,7 @@ export function ReportsPanel({
   };
 
   return (
-    <div className={`print-root ${VIEW_PANE_CLASS} space-y-6 p-6`}>
+    <div className={`print-root ${VIEW_PANE_CLASS} min-h-full space-y-6 p-6`}>
       <div className="flex items-center justify-end print:hidden">
         <PrintButton lang={lang} />
         <ResetColWidthsButton onClick={resetAllReports} lang={lang} />

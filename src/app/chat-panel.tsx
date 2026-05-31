@@ -4,7 +4,7 @@ import { memo, useEffect, useRef, useState } from "react";
 import { TOOL_DEFS, type ToolDispatcher, runTool } from "./chat-tools";
 import { type Lang, type TranslationKey, t } from "./i18n";
 import { Markdown } from "./markdown";
-import { VIEW_PANE_CLASS } from "./view-styles";
+import { VIEW_PANE_FILL_CLASS } from "./view-styles";
 import { CHAT_MESSAGE_MAX } from "./sanitize";
 import type { AiConfig } from "./settings-menu";
 
@@ -247,11 +247,9 @@ function ChatPanelInner({
   const apiKeyMissing = !ai.apiKey.trim();
 
   return (
-    // Fills the height made available by the parent (the workspace section,
-    // which is the actual resizable surface). `min-h-[300px]` keeps the chat
-    // usable if the section is shrunk; otherwise the chat tracks the
-    // section's current height.
-    <div className={`flex h-full min-h-[300px] flex-col ${VIEW_PANE_CLASS} p-6`}>
+    // The shared full-height pane card: fills the height made available by the
+    // parent and clips so the message scroller (flex-1) owns the overflow.
+    <div className={VIEW_PANE_FILL_CLASS}>
       <div
         ref={scrollerRef}
         className="flex-1 overflow-y-auto rounded-md border border-line bg-surface-muted p-3"

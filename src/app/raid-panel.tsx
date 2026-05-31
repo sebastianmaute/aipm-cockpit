@@ -13,7 +13,7 @@
 import { memo, useEffect, useMemo, useState } from "react";
 import { SegmentedControl } from "./segmented-control";
 import { TABLE_HEAD_CLASS } from "./table-styles";
-import { VIEW_PANE_CLASS } from "./view-styles";
+import { VIEW_PANE_FILL_CLASS } from "./view-styles";
 import { type Lang, t, type TranslationKey } from "./i18n";
 import {
   buildRaidCausesIndex,
@@ -448,7 +448,7 @@ function RaidPanelInner({
   );
 
   return (
-    <div className={`flex h-full min-h-0 flex-col overflow-hidden ${VIEW_PANE_CLASS} p-4`}>
+    <div className={VIEW_PANE_FILL_CLASS}>
       {toolbar}
 
       <div className="min-h-[240px] flex-1 overflow-auto rounded-md border border-line">

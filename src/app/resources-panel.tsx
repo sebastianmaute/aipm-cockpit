@@ -22,7 +22,7 @@ import { localeFor } from "./date-format";
 import { type Lang, t } from "./i18n";
 import { ResourceCalendar } from "./resource-calendar";
 import { ResourceDirectory } from "./resource-directory";
-import { INNER_TABLE_CLASS } from "./view-styles";
+import { INNER_TABLE_CLASS, VIEW_PANE_FILL_CLASS } from "./view-styles";
 import { ResourceWorkload } from "./resource-workload";
 import { SegmentedControl } from "./segmented-control";
 import { generatePeriods, displayCapacityHours, absencesForResource, absenceWorkdays } from "./resource-capacity";
@@ -325,7 +325,7 @@ function ResourcesPanelInner({
   const isEmpty = rows.length === 0 && resources.length === 0;
 
   return (
-    <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-line bg-surface p-4 dark:border-line">
+    <section className={VIEW_PANE_FILL_CLASS}>
       {renderHeader(showToggle)}
       {isEmpty && view !== "planning" && view !== "directory" && (
         <div className="mt-3 flex-1 rounded-md border border-dashed border-line p-6 text-center text-sm text-muted-foreground">
