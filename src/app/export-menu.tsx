@@ -113,7 +113,7 @@ export function ExportMenu({
         <div
           role="dialog"
           aria-label={t(lang, "exportTitle")}
-          className="absolute right-0 top-full z-20 mt-2 w-72 overflow-y-auto rounded-lg border border-line bg-surface p-3"
+          className="absolute right-0 top-full z-40 mt-2 w-72 overflow-y-auto rounded-lg border border-line bg-surface p-3"
         >
           <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             {t(lang, "exportTitle")}
