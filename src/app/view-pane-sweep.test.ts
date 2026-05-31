@@ -7,8 +7,9 @@ const ROOT = join(process.cwd(), "src", "app");
 // Primary views that fill the viewport with their own internal scroll region.
 // They must source the full-height pane card from VIEW_PANE_FILL_CLASS so every
 // view reads identically to the Open Points (tasks) pane.
+// NOTE: tasks-section.tsx is omitted here — it uses VIEW_PANE_RESIZABLE_CLASS
+// in the modern (fillHeight) branch to restore drag-resize capability.
 const FILL_FILES = [
-  "tasks-section.tsx",
   "chat-panel.tsx",
   "raid-panel.tsx",
   "resources-panel.tsx",
@@ -70,5 +71,10 @@ describe("view-pane sweep", () => {
       const src = readFileSync(join(ROOT, f), "utf8");
       expect(src, f).toMatch(/from "\.\/report-table"/);
     }
+  });
+
+  it("tasks-section modern (fillHeight) branch is resizable", () => {
+    const src = readFileSync(join(__dirname, "tasks-section.tsx"), "utf8");
+    expect(src).toMatch(/fillHeight\s*\?\s*VIEW_PANE_RESIZABLE_CLASS/);
   });
 });

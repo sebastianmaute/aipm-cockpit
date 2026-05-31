@@ -211,13 +211,13 @@ describe("TasksSection", () => {
     expect(setTaskModalOpen).toHaveBeenCalledWith(true);
   });
 
-  it("fills available height (no fixed/resizable box) when fillHeight is set", () => {
+  it("fills available height and is resizable when fillHeight is set", () => {
     const task = { id: 1, taskName: "T1" };
     stubWorkspace([task], [task]);
     const { container } = render(<TasksSection {...makeProps()} fillHeight />);
     const section = container.querySelector("section");
     expect(section?.className).toContain("h-full");
-    expect(section?.className).not.toContain("resize");
+    expect(section?.className).toContain("resize");
     expect(section?.className).not.toContain("h-[560px]");
   });
 
