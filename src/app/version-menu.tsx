@@ -6,7 +6,7 @@ import {
   APP_BUILD_DATE,
   APP_HIGHLIGHT_KEYS,
   APP_REPO_URL,
-  APP_VERSION,
+  APP_VERSION_LABEL,
 } from "./version";
 
 export function VersionMenu({ lang }: { lang: Lang }) {
@@ -67,7 +67,7 @@ export function VersionMenu({ lang }: { lang: Lang }) {
             {t(lang, "appTitle")}
           </p>
           <dl className="mt-2 space-y-1 text-sm">
-            <Row term={t(lang, "versionVersion")} value={APP_VERSION} />
+            <Row term={t(lang, "versionVersion")} value={APP_VERSION_LABEL} />
             <Row term={t(lang, "versionBuild")} value={APP_BUILD_DATE} />
           </dl>
 

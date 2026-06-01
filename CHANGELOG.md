@@ -8,6 +8,13 @@ Authoritative source for version + build date: [`src/app/version.ts`](src/app/ve
 This file is seeded from that module's milestone comment plus the
 post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-diff.txt).
 
+## [0.38.6] — 2026-06-01
+
+### Changed
+- **Milestone codename shown in the UI:** the version now reads `0.38.6 "Chambers"` in the sidebar footer and the Version popover. Patch releases inherit their minor version's codename (the whole 0.38.x line is "Chambers").
+- **Version highlights refreshed:** added a highlight summarizing the 0.38.3–0.38.5 UI-consistency work (uniform header spacing, control sizing, and dialog buttons/headers).
+- **Docs:** README version line and the CODEMAPS stamps refreshed to 0.38.6.
+
 ## [0.38.5] — 2026-06-01
 
 ### Changed
