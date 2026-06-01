@@ -10,7 +10,7 @@
 //
 // Phase 3 of the Resource Planner (see docs/RESOURCE-PLANNER-PLAN.md).
 
-import { memo, useMemo } from "react";
+import { memo, useLayoutEffect, useMemo, useRef } from "react";
 import { localeFor } from "./date-format";
 import { type Lang, t } from "./i18n";
 import type { Absence, AbsenceType, Resource } from "./types";
@@ -133,6 +133,22 @@ function ResourceCalendarInner({
     return out;
   }, [startDate, endDate, today, holidaySet, lang]);
 
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+
+  // Index of today's column within the window (−1 when today is out of range).
+  const todayIndex = useMemo(() => days.findIndex((d) => d.isToday), [days]);
+
+  // On open and whenever the window changes, scroll today to the horizontal
+  // centre (Gantt-style). No-op when today is outside the window. Manual
+  // scrolling within an unchanged window is preserved (deps are the window).
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (!el || todayIndex < 0) return;
+    const todayCentre = ASSIGNEE_COL_PX + todayIndex * CELL_PX + CELL_PX / 2;
+    const target = todayCentre - el.clientWidth / 2;
+    el.scrollLeft = Math.max(0, Math.min(el.scrollWidth - el.clientWidth, target));
+  }, [todayIndex, startDate, endDate]);
+
   // Group absences by case-folded assignee key once per absences change so
   // per-cell lookup is O(absences-for-this-row) rather than O(absences-total).
   const absencesByKey = useMemo<Map<string, Absence[]>>(() => {
@@ -157,7 +173,7 @@ function ResourceCalendarInner({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
-      <div className="min-h-0 flex-1 overflow-auto rounded-md border border-line">
+      <div ref={scrollRef} data-calendar-scroll className="min-h-0 flex-1 overflow-auto rounded-md border border-line">
         <table className="border-separate border-spacing-0 text-sm">
           <thead className={TABLE_HEAD_CLASS}>
             <tr>

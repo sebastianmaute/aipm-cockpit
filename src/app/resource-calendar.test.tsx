@@ -69,3 +69,25 @@ it("renders past and future day columns for the given window", () => {
   expect(screen.getAllByTitle(/2026-06-20/).length).toBeGreaterThan(0);
   expect(screen.getByTitle(/2026-06-15 \(/)).toBeTruthy();
 });
+
+it("scroll-centers today when the window includes it", () => {
+  const { container } = render(
+    <ResourceCalendar
+      lang="en-US"
+      rows={[{ key: "a", display: "Aria", email: "" }]}
+      absences={[]}
+      today="2026-06-15"
+      holidaySet={new Set()}
+      onAddAbsence={() => {}}
+      onEditAbsence={() => {}}
+      resources={[]}
+      onEditResource={() => {}}
+      onAddResource={() => {}}
+      startDate="2026-06-01"
+      endDate="2026-06-30"
+    />,
+  );
+  const scroller = container.querySelector("[data-calendar-scroll]") as HTMLElement;
+  expect(scroller).toBeTruthy();
+  expect(typeof scroller.scrollLeft).toBe("number");
+});
