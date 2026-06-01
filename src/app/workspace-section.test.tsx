@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import { describe, expect, it, test, vi } from "vitest";
 import type React from "react";
 import { WorkspaceProvider } from "./workspace-context";
@@ -21,6 +21,8 @@ vi.mock("./use-settings", () => ({
       jira: { enabled: false, siteUrl: "", email: "", apiToken: "", projectKey: "", issueTypes: [] },
       notifications: { reminderLeadDays: 7, banner: { enabled: false }, popup: { enabled: false } },
       holidayCountries: [],
+      resources: { workdayHours: 8 },
+      popout: { reuseWindow: false },
     },
     setSettings: vi.fn(),
     hydrated: true,
@@ -152,5 +154,27 @@ describe("WorkspaceSection", () => {
     expect(src).toMatch(/manageRolesView/);
     expect(src).not.toMatch(/panel-address-book/);
     expect(src).not.toMatch(/panel-resource-report/);
+  });
+
+  test("classic: a secondary sub-tab row appears for Resources and navigates to a sub-view", () => {
+    // Classic mode: non-popout, fullBleed=false (defaults) → primary tablist renders
+    render(<WorkspaceSection {...makeProps()} />, { wrapper: Wrapper });
+
+    // No sub-tab row while Chat is the active tab
+    expect(screen.queryByRole("tablist", { name: /sub-tabs/i })).toBeNull();
+
+    // Click the primary Resources tab to activate it
+    fireEvent.click(screen.getByRole("tab", { name: /resources/i }));
+
+    // The secondary sub-tab row should now be visible
+    const subRow = screen.getByRole("tablist", { name: /sub-tabs/i });
+
+    // Directory and Manage roles are sub-tabs under Resources
+    expect(within(subRow).getByRole("tab", { name: /directory/i })).toBeInTheDocument();
+    expect(within(subRow).getByRole("tab", { name: /manage roles/i })).toBeInTheDocument();
+
+    // Clicking Directory navigates to the directory panel
+    fireEvent.click(within(subRow).getByRole("tab", { name: /directory/i }));
+    expect(document.getElementById("panel-directory")).toBeTruthy();
   });
 });
