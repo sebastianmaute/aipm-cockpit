@@ -17,7 +17,8 @@
 // first observed original casing.
 
 import { memo, useMemo, useState } from "react";
-import { localeFor } from "./date-format";
+import { localeFor, shortDateRangeIso } from "./date-format";
+import { type CalendarMode, monthWindow, resolveWindow, stepAnchor } from "./calendar-window";
 import { type Lang, t } from "./i18n";
 import { ResourceCalendar } from "./resource-calendar";
 import { INNER_TABLE_CLASS, VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
@@ -149,6 +150,21 @@ function ResourcesPanelInner({
   // rather than in an effect, to avoid cascading renders.
   const [viewGranularity, setViewGranularity] = useState<PlanGranularity>(plan.granularity);
   const [prevPlanGranularity, setPrevPlanGranularity] = useState<PlanGranularity>(plan.granularity);
+
+  const [calendarMode, setCalendarMode] = useState<CalendarMode>("month");
+  const [calendarAnchor, setCalendarAnchor] = useState<string>(today);
+  const [calendarFrom, setCalendarFrom] = useState<string>(() => monthWindow(today).startDate);
+  const [calendarTo, setCalendarTo] = useState<string>(() => monthWindow(today).endDate);
+  const calendarWin = resolveWindow(calendarMode, calendarAnchor, calendarFrom, calendarTo);
+
+  const handleCalendarMode = (mode: CalendarMode) => {
+    if (mode === "custom") {
+      setCalendarFrom(calendarWin.startDate);
+      setCalendarTo(calendarWin.endDate);
+    }
+    setCalendarMode(mode);
+  };
+
   if (prevPlanGranularity !== plan.granularity) {
     setPrevPlanGranularity(plan.granularity);
     setViewGranularity(plan.granularity);
@@ -526,18 +542,95 @@ function ResourcesPanelInner({
         />
       )}
       {view === "calendar" && (
-        <ResourceCalendar
-          lang={lang}
-          rows={rows}
-          absences={absences}
-          today={today}
-          holidaySet={holidaySet}
-          onAddAbsence={onAddAbsence}
-          onEditAbsence={onEditAbsence}
-          resources={resources}
-          onEditResource={onEditResource}
-          onAddResource={onAddResource}
-        />
+        <>
+          <div className="mb-2 flex flex-wrap items-center gap-2 text-xs">
+            <SegmentedControl<CalendarMode>
+              value={calendarMode}
+              ariaLabel={t(lang, "resourcesViewCalendar")}
+              title={t(lang, "resourcesViewCalendar")}
+              options={[
+                { value: "month", label: t(lang, "resourcesGranularityMonth") },
+                { value: "week", label: t(lang, "resourcesGranularityWeek") },
+                { value: "custom", label: t(lang, "calendarModeCustom") },
+              ]}
+              onChange={handleCalendarMode}
+            />
+            {calendarMode !== "custom" && (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  aria-label={t(lang, "calendarPrev")}
+                  title={t(lang, "calendarPrev")}
+                  onClick={() => setCalendarAnchor((a) => stepAnchor(a, calendarMode === "week" ? "week" : "month", -1))}
+                  className="rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted"
+                >
+                  ◀
+                </button>
+                <span className="min-w-[8rem] text-center font-medium text-foreground tabular-nums">
+                  {calendarMode === "week"
+                    ? shortDateRangeIso(calendarWin.startDate, calendarWin.endDate, lang)
+                    : new Date(`${calendarWin.startDate}T00:00:00Z`).toLocaleDateString(localeFor(lang), { month: "long", year: "numeric", timeZone: "UTC" })}
+                </span>
+                <button
+                  type="button"
+                  aria-label={t(lang, "calendarNext")}
+                  title={t(lang, "calendarNext")}
+                  onClick={() => setCalendarAnchor((a) => stepAnchor(a, calendarMode === "week" ? "week" : "month", 1))}
+                  className="rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted"
+                >
+                  ▶
+                </button>
+                <button
+                  type="button"
+                  aria-label={t(lang, "calendarToday")}
+                  title={t(lang, "calendarToday")}
+                  onClick={() => setCalendarAnchor(today)}
+                  className="rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted"
+                >
+                  {t(lang, "calendarToday")}
+                </button>
+              </div>
+            )}
+            {calendarMode === "custom" && (
+              <div className="flex items-center gap-2">
+                <label className="flex items-center gap-1">
+                  <span>{t(lang, "calendarFrom")}</span>
+                  <input
+                    type="date"
+                    aria-label={t(lang, "calendarFrom")}
+                    value={calendarFrom}
+                    onChange={(e) => setCalendarFrom(e.target.value)}
+                    className="rounded border border-line px-2 py-1.5 text-sm dark:bg-surface"
+                  />
+                </label>
+                <label className="flex items-center gap-1">
+                  <span>{t(lang, "calendarTo")}</span>
+                  <input
+                    type="date"
+                    aria-label={t(lang, "calendarTo")}
+                    value={calendarTo}
+                    onChange={(e) => setCalendarTo(e.target.value)}
+                    className="rounded border border-line px-2 py-1.5 text-sm dark:bg-surface"
+                  />
+                </label>
+              </div>
+            )}
+          </div>
+          <ResourceCalendar
+            lang={lang}
+            rows={rows}
+            absences={absences}
+            today={today}
+            holidaySet={holidaySet}
+            onAddAbsence={onAddAbsence}
+            onEditAbsence={onEditAbsence}
+            resources={resources}
+            onEditResource={onEditResource}
+            onAddResource={onAddResource}
+            startDate={calendarWin.startDate}
+            endDate={calendarWin.endDate}
+          />
+        </>
       )}
       <ResizeCornerHint lang={lang} />
     </section>

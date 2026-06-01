@@ -1,4 +1,4 @@
-import { describe, test, expect, vi } from "vitest";
+import { describe, test, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { ResourceCalendar } from "./resource-calendar";
 import type { Resource } from "./types";
@@ -14,6 +14,8 @@ const baseProps = {
   onEditAbsence: () => {},
   onEditResource: () => {},
   onAddResource: () => {},
+  startDate: "2026-05-27",
+  endDate: "2026-06-25",
 };
 
 describe("ResourceCalendar assignee click", () => {
@@ -44,4 +46,48 @@ describe("ResourceCalendar assignee click", () => {
     fireEvent.click(screen.getByRole("button", { name: "Tom External" }));
     expect(onAddResource).toHaveBeenCalledWith({ firstName: "Tom", lastName: "External", email: "tom@x.io" });
   });
+});
+
+it("renders past and future day columns for the given window", () => {
+  render(
+    <ResourceCalendar
+      lang="en-US"
+      rows={[{ key: "a", display: "Aria", email: "" }]}
+      absences={[]}
+      today="2026-06-15"
+      holidaySet={new Set()}
+      onAddAbsence={() => {}}
+      onEditAbsence={() => {}}
+      resources={[]}
+      onEditResource={() => {}}
+      onAddResource={() => {}}
+      startDate="2026-06-10"
+      endDate="2026-06-20"
+    />,
+  );
+  expect(screen.getAllByTitle(/2026-06-10/).length).toBeGreaterThan(0);
+  expect(screen.getAllByTitle(/2026-06-20/).length).toBeGreaterThan(0);
+  expect(screen.getByTitle(/2026-06-15 \(/)).toBeTruthy();
+});
+
+it("scroll-centers today when the window includes it", () => {
+  const { container } = render(
+    <ResourceCalendar
+      lang="en-US"
+      rows={[{ key: "a", display: "Aria", email: "" }]}
+      absences={[]}
+      today="2026-06-15"
+      holidaySet={new Set()}
+      onAddAbsence={() => {}}
+      onEditAbsence={() => {}}
+      resources={[]}
+      onEditResource={() => {}}
+      onAddResource={() => {}}
+      startDate="2026-06-01"
+      endDate="2026-06-30"
+    />,
+  );
+  const scroller = container.querySelector("[data-calendar-scroll]") as HTMLElement;
+  expect(scroller).toBeTruthy();
+  expect(typeof scroller.scrollLeft).toBe("number");
 });

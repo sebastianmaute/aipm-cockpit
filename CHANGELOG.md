@@ -8,6 +8,11 @@ Authoritative source for version + build date: [`src/app/version.ts`](src/app/ve
 This file is seeded from that module's milestone comment plus the
 post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-diff.txt).
 
+## [0.39.0] — 2026-06-01 "Tchaikovsky"
+
+### Added
+- **Resource Calendar date range:** the calendar now has **Month / Week / Custom** views with **◀ / Today / ▶** navigation and **From / To** date pickers (Custom mode). It renders an arbitrary date window — showing **past as well as future dates** — and, like the Gantt, **scroll-centers today** when it opens (re-anchoring to today on every open). Month mode opens on the current month; Prev/Next step by month or week.
+
 ## [0.38.7] — 2026-06-01
 
 ### Fixed

@@ -1,7 +1,8 @@
 "use client";
 
-// Resource calendar grid — 30-day view, rows are assignees, columns are
-// consecutive dates starting from today. Cells are color-coded by absence
+// Resource calendar grid — renders day columns over an explicit [startDate, endDate]
+// window passed by the parent. Rows are assignees, columns are consecutive dates.
+// Cells are color-coded by absence
 // type. Weekend and public-holiday columns get muted shading; today's
 // column is highlighted. Clicking an empty cell opens the absence modal
 // pre-filled with the row's assignee and that date; clicking an absence
@@ -9,7 +10,7 @@
 //
 // Phase 3 of the Resource Planner (see docs/RESOURCE-PLANNER-PLAN.md).
 
-import { memo, useMemo } from "react";
+import { memo, useLayoutEffect, useMemo, useRef } from "react";
 import { localeFor } from "./date-format";
 import { type Lang, t } from "./i18n";
 import type { Absence, AbsenceType, Resource } from "./types";
@@ -36,9 +37,11 @@ interface Props {
   resources: readonly Resource[];
   onEditResource: (resource: Resource) => void;
   onAddResource: (seed: Partial<Resource>) => void;
+  /** Inclusive ISO window the grid renders, resolved by the parent. */
+  startDate: string;
+  endDate: string;
 }
 
-const CALENDAR_DAYS = 30;
 const CELL_PX = 36;
 const ASSIGNEE_COL_PX = 180;
 
@@ -102,26 +105,25 @@ function ResourceCalendarInner({
   resources,
   onEditResource,
   onAddResource,
+  startDate,
+  endDate,
 }: Props) {
   const days = useMemo<CalendarDay[]>(() => {
     const out: CalendarDay[] = [];
-    const start = new Date(today);
-    if (Number.isNaN(start.valueOf())) return out;
+    const start = new Date(`${startDate}T00:00:00Z`);
+    const end = new Date(`${endDate}T00:00:00Z`);
+    if (Number.isNaN(start.valueOf()) || Number.isNaN(end.valueOf()) || end < start) return out;
     const loc = localeFor(lang);
     let prevMonth = -1;
-    for (let i = 0; i < CALENDAR_DAYS; i++) {
-      const d = new Date(start);
-      d.setUTCDate(d.getUTCDate() + i);
+    for (let d = new Date(start); d <= end; d.setUTCDate(d.getUTCDate() + 1)) {
       const iso = d.toISOString().slice(0, 10);
       const dow = d.getUTCDay();
       const month = d.getUTCMonth();
-      const monthChange = i === 0 || month !== prevMonth;
+      const monthChange = out.length === 0 || month !== prevMonth;
       out.push({
         iso,
         dayOfMonth: d.getUTCDate(),
-        monthLabel: monthChange
-          ? d.toLocaleDateString(loc, { month: "short" })
-          : "",
+        monthLabel: monthChange ? d.toLocaleDateString(loc, { month: "short" }) : "",
         isWeekend: dow === 0 || dow === 6,
         isHoliday: holidaySet.has(iso),
         isToday: iso === today,
@@ -129,7 +131,23 @@ function ResourceCalendarInner({
       prevMonth = month;
     }
     return out;
-  }, [today, holidaySet, lang]);
+  }, [startDate, endDate, today, holidaySet, lang]);
+
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+
+  // Index of today's column within the window (−1 when today is out of range).
+  const todayIndex = useMemo(() => days.findIndex((d) => d.isToday), [days]);
+
+  // On open, scroll today to the horizontal centre (Gantt-style). No-op when
+  // today is outside the window. Re-runs on window change and on today-index
+  // change (so a midnight rollover also re-centres).
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (!el || todayIndex < 0) return;
+    const todayCentre = ASSIGNEE_COL_PX + todayIndex * CELL_PX + CELL_PX / 2;
+    const target = todayCentre - el.clientWidth / 2;
+    el.scrollLeft = Math.max(0, Math.min(el.scrollWidth - el.clientWidth, target));
+  }, [todayIndex, startDate, endDate]);
 
   // Group absences by case-folded assignee key once per absences change so
   // per-cell lookup is O(absences-for-this-row) rather than O(absences-total).
@@ -155,7 +173,7 @@ function ResourceCalendarInner({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
-      <div className="min-h-0 flex-1 overflow-auto rounded-md border border-line">
+      <div ref={scrollRef} data-calendar-scroll className="min-h-0 flex-1 overflow-auto rounded-md border border-line">
         <table className="border-separate border-spacing-0 text-sm">
           <thead className={TABLE_HEAD_CLASS}>
             <tr>

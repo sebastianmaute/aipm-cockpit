@@ -1,3 +1,13 @@
+// 0.39.0 "Tchaikovsky" makes the Resource Calendar's visible range selectable.
+// A control row (Month / Week / Custom + ◀ / Today / ▶, with From/To date
+// pickers in Custom mode) replaces the fixed 30-days-from-today grid: the
+// calendar now renders an arbitrary inclusive [start,end] window, so PAST as
+// well as future dates show. Like the Gantt, it scroll-centers today when it
+// opens (and whenever the window changes), and always re-anchors to today on
+// open (the window is not persisted). Month mode opens on the current month;
+// Prev/Next step by month or week; Today re-centers. New pure helper
+// `calendar-window.ts` (month/week/custom bounds, ±step, ~370-day clamp). Six
+// new EN+DE strings; no new dependencies.
 // 0.38.7 finishes the consistency work with two layout fixes. (1) The Gantt and
 // RAID toolbars: their native <select> filters carried a ~35px min-height, so
 // those toolbars were 5px taller than every other view's 30px header, pushing
@@ -511,13 +521,13 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.38.7";
-export const APP_BUILD_DATE = "2026-06-01"; // 0.38.7 gantt/raid toolbar height + sidebar bottom-align
+export const APP_VERSION = "0.39.0";
+export const APP_BUILD_DATE = "2026-06-01"; // 0.39.0 selectable resource-calendar date range
 /** Minor-series milestone codename (sci-fi/fantasy author names). The whole
- *  0.38.x line is "Chambers" (Becky Chambers); patch releases inherit their
- *  minor version's codename rather than getting their own. */
-export const APP_MILESTONE = "Chambers";
-/** Version with its milestone codename for UI display, e.g. `0.38.6 "Chambers"`. */
+ *  0.39.x line is "Tchaikovsky" (Adrian Tchaikovsky); patch releases inherit
+ *  their minor version's codename rather than getting their own. */
+export const APP_MILESTONE = "Tchaikovsky";
+/** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
 
