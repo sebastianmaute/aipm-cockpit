@@ -1,3 +1,14 @@
+// 0.38.3 is a UI-polish point release unifying primary-view header spacing.
+// Every primary pane now shares the same "from the top" rhythm: a ~30px header
+// row followed by an 8px (mb-2) gap. Resources (Workload/Calendar/Planning):
+// the header is items-center (was items-baseline) so the title and the reset
+// buttons share a vertical centre, and the button cluster gap is gap-2 (was
+// gap-3) to match the Directory toolbar. Budget: its header gained the missing
+// mb-2 bottom margin, and the "Refresh ECB rates" button is text-xs to match the
+// adjacent "Add bucket" button (header back to 30px). Gantt: the toolbar uses
+// mb-2 (was pb-2) like every other pane, and its search + filter selects are
+// text-xs (was text-sm) so the toolbar matches the standard control height. No
+// new strings, no new dependencies.
 // 0.38.2 is a UI-polish point release. Resources → Workload: the reset buttons
 // now share one header line (column-resize lifted into ResourcesPanel) instead
 // of stacking. Resources → Planning: the date pickers match the segmented-
@@ -464,8 +475,8 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.38.2";
-export const APP_BUILD_DATE = "2026-06-01"; // 0.38.2 resources/report UI polish
+export const APP_VERSION = "0.38.3";
+export const APP_BUILD_DATE = "2026-06-01"; // 0.38.3 primary-view header spacing unification
 export const APP_REPO_URL = "https://www.example.com";
 
 /** Translation keys for the high-level feature highlights shown in the

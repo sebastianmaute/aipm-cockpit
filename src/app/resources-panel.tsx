@@ -225,7 +225,7 @@ function ResourcesPanelInner({
 
   // Header: title + count; planning-only ResetColWidths; calendar-only Outlook import; always ResetSize.
   const renderHeader = () => (
-    <header className="mb-3 flex shrink-0 items-baseline justify-between gap-2">
+    <header className="mb-2 flex shrink-0 items-center justify-between gap-2">
       <h2 className="text-lg font-medium text-foreground">
         {t(lang, "tabResources")}
         {rows.length > 0 && (
@@ -234,7 +234,7 @@ function ResourcesPanelInner({
           </span>
         )}
       </h2>
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2">
         {(view === "planning" || view === "workload") && (
           <ResetColWidthsButton
             onClick={view === "planning" ? resetPlanningAndRollup : workload.resetColWidths}

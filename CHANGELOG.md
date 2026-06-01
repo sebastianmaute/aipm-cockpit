@@ -8,6 +8,14 @@ Authoritative source for version + build date: [`src/app/version.ts`](src/app/ve
 This file is seeded from that module's milestone comment plus the
 post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-diff.txt).
 
+## [0.38.3] — 2026-06-01
+
+### Changed
+- **Consistent header spacing across primary views:** every primary pane now uses the same top rhythm — a ~30px header row followed by an 8px gap before its content.
+- **Resources (Workload / Calendar / Planning):** the header is vertically centred (was baseline-aligned), so the "Resources" title and the reset buttons line up; the reset-button cluster uses the same 8px spacing as the Directory toolbar.
+- **Budget:** the header gained the missing bottom margin so the cards no longer butt against it, and the "Refresh ECB rates" button matches the size of the adjacent "Add bucket" button.
+- **Gantt:** the toolbar's search field and filter dropdowns adopt the standard control height (matching the rest of the app), so the chart starts at the same offset as other views.
+
 ## [0.38.2] — 2026-06-01
 
 ### Changed
