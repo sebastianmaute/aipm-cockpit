@@ -8,6 +8,12 @@ Authoritative source for version + build date: [`src/app/version.ts`](src/app/ve
 This file is seeded from that module's milestone comment plus the
 post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-diff.txt).
 
+## [0.38.7] — 2026-06-01
+
+### Fixed
+- **Gantt & RAID top spacing:** the filter dropdowns no longer make those toolbars taller than other views, so the Gantt chart and RAID table start at the same offset from the top as every other window.
+- **Sidebar alignment:** the navigation sidebar now ends level with the bottom of the content window instead of extending below it.
+
 ## [0.38.6] — 2026-06-01
 
 ### Changed

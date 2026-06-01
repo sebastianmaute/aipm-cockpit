@@ -1,3 +1,11 @@
+// 0.38.7 finishes the consistency work with two layout fixes. (1) The Gantt and
+// RAID toolbars: their native <select> filters carried a ~35px min-height, so
+// those toolbars were 5px taller than every other view's 30px header, pushing
+// the chart/table down. The selects are now pinned to h-[30px], so the Gantt
+// chart starts at the same offset (63px from the pane) as all other windows.
+// (2) The modern sidebar bottom-aligns with the content card: the shell carries
+// the 24px bottom inset (matching the card's) so the sidebar no longer extends
+// past the bottom of the content window. No new strings; no new dependencies.
 // 0.38.6 surfaces the minor-series milestone codename in the UI: the version
 // now reads `0.38.6 "Chambers"` in the sidebar footer and the Version popover
 // (previously the codename lived only in these release notes; patch releases
@@ -503,8 +511,8 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.38.6";
-export const APP_BUILD_DATE = "2026-06-01"; // 0.38.6 milestone codename in UI + highlights refresh
+export const APP_VERSION = "0.38.7";
+export const APP_BUILD_DATE = "2026-06-01"; // 0.38.7 gantt/raid toolbar height + sidebar bottom-align
 /** Minor-series milestone codename (sci-fi/fantasy author names). The whole
  *  0.38.x line is "Chambers" (Becky Chambers); patch releases inherit their
  *  minor version's codename rather than getting their own. */

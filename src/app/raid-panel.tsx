@@ -367,7 +367,7 @@ function RaidPanelInner({
         }
         aria-label={t(lang, "raidCategory")}
         title={t(lang, "raidCategoryFilterHint")}
-        className="rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-foreground"
+        className="h-[30px] rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-foreground"
       >
         <option value="All">{t(lang, "raidCategoryAll")}</option>
         {RAID_CATEGORIES.map((c) => (
@@ -383,7 +383,7 @@ function RaidPanelInner({
         }
         aria-label={t(lang, "raidSeverity")}
         title={t(lang, "raidSeverityFilterHint")}
-        className="rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-foreground"
+        className="h-[30px] rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-foreground"
       >
         <option value="All">{t(lang, "raidSeverityAll")}</option>
         {RAID_SEVERITIES.map((s) => (
@@ -399,7 +399,7 @@ function RaidPanelInner({
         }
         aria-label={t(lang, "raidStatus")}
         title={t(lang, "raidStatusFilterHint")}
-        className="rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-foreground"
+        className="h-[30px] rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-foreground"
       >
         <option value="All">{t(lang, "raidStatusAll")}</option>
         <option value="Open">{t(lang, "raidStatusOpen")}</option>
