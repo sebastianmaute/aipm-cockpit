@@ -508,18 +508,6 @@ const enUS = {
   reportsFilterGroup: "Filter groups…",
   reportsFilterLabel: "Filter labels…",
   reportsNoMatches: "No matches for current filter.",
-  reportsBudget: "Budget",
-  reportsBudgetAllBuckets: "All buckets",
-  reportsBudgetFilterBucket: "Bucket",
-  reportsBudgetMinTotal: "Min total budget",
-  reportsBudgetTotal: "Total budget",
-  reportsBudgetUsed: "Used",
-  reportsBudgetFree: "Free",
-  reportsBudgetHours: "Budget (h)",
-  reportsBudgetBucketCol: "Bucket",
-  reportsBudgetPlanHours: "Plan (h)",
-  reportsBudgetUsedHours: "Used (h)",
-  reportsBudgetBudgetEur: "Budget (EUR)",
   versionHighlightReportsSortFilter:
     "Reports tables (By Assignee, By Group, By Label) are now sortable and filterable — click any header to sort, type in the search box to narrow rows.",
 

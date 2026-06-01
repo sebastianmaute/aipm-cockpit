@@ -523,18 +523,6 @@ export const de: Record<TranslationKey, string> = {
   reportsFilterGroup: "Gruppen filtern…",
   reportsFilterLabel: "Labels filtern…",
   reportsNoMatches: "Keine Treffer für den aktuellen Filter.",
-  reportsBudget: "Budget",
-  reportsBudgetAllBuckets: "Alle Buckets",
-  reportsBudgetFilterBucket: "Bucket",
-  reportsBudgetMinTotal: "Min. Gesamtbudget",
-  reportsBudgetTotal: "Gesamtbudget",
-  reportsBudgetUsed: "Verbraucht",
-  reportsBudgetFree: "Frei",
-  reportsBudgetHours: "Budget (h)",
-  reportsBudgetBucketCol: "Bucket",
-  reportsBudgetPlanHours: "Plan (h)",
-  reportsBudgetUsedHours: "Verbraucht (h)",
-  reportsBudgetBudgetEur: "Budget (EUR)",
   versionHighlightReportsSortFilter:
     "Reports-Tabellen (Nach Assignee, Nach Gruppe, Nach Label) sind sortier- und filterbar — Spaltenkopf zum Sortieren klicken, Filtertext eingeben, um Zeilen einzugrenzen.",
 
