@@ -1,3 +1,13 @@
+// 0.38.4 extends the 0.38.3 header-spacing unification to the views it missed,
+// after a full audit of every primary section. Header bottom-margins are now
+// uniformly mb-2: Open Points (was mb-4), Reports/RAID Report/Resource Report
+// (ReportCard, was mb-4), Activity (header + filter row, was mb-3), and Manage
+// Roles (was mb-3). The RAID toolbar — previously the pre-0.38.3 Gantt style —
+// now uses mb-2 (was pb-2) with its search + filter selects at text-xs (was
+// text-sm), so it matches the Gantt toolbar exactly. Activity's search input is
+// text-xs too. The Open Points "Jira sync" button matches Budget's "Refresh ECB
+// rates" button (px-2.5 py-1.5 text-xs, was px-3/text-sm). Planning's control
+// row uses gap-2 (was gap-3). Class-string changes only; no new strings or deps.
 // 0.38.3 is a UI-polish point release unifying primary-view header spacing.
 // Every primary pane now shares the same "from the top" rhythm: a ~30px header
 // row followed by an 8px (mb-2) gap. Resources (Workload/Calendar/Planning):
@@ -475,8 +485,8 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.38.3";
-export const APP_BUILD_DATE = "2026-06-01"; // 0.38.3 primary-view header spacing unification
+export const APP_VERSION = "0.38.4";
+export const APP_BUILD_DATE = "2026-06-01"; // 0.38.4 header-spacing unification — remaining views + RAID toolbar
 export const APP_REPO_URL = "https://www.example.com";
 
 /** Translation keys for the high-level feature highlights shown in the

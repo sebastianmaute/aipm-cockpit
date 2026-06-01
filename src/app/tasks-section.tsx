@@ -215,7 +215,7 @@ export function TasksSection({
     >
       {/* shrink-0 wrapper keeps header, filters and bulk-edit from growing into the table area */}
       <div className="shrink-0">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <div ref={colConfigRef} className="relative">
             <button
@@ -293,7 +293,7 @@ export function TasksSection({
                   ? t(lang, "jiraSync")
                   : t(lang, "jiraSyncNoScope")
               }
-              className="inline-flex items-center gap-1.5 rounded-md border border-AIPM-dark-blue bg-surface px-3 py-1.5 text-sm font-medium text-AIPM-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-md border border-AIPM-dark-blue bg-surface px-2.5 py-1.5 text-xs font-medium text-AIPM-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50"
             >
               <svg
                 viewBox="0 0 20 20"

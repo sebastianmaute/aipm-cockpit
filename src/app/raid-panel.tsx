@@ -343,7 +343,7 @@ function RaidPanelInner({
     filterTaskId !== null;
 
   const toolbar = (
-    <div className="flex shrink-0 flex-wrap items-center gap-2 pb-2">
+    <div className="mb-2 flex shrink-0 flex-wrap items-center gap-2">
       <button
         type="button"
         onClick={() => openNew()}
@@ -358,7 +358,7 @@ function RaidPanelInner({
         placeholder={t(lang, "raidSearchPlaceholder")}
         aria-label={t(lang, "raidSearchPlaceholder")}
         title={t(lang, "raidSearchHint")}
-        className="min-w-[12rem] flex-1 rounded-md border border-line bg-surface px-3 py-1.5 text-sm text-foreground focus:border-AIPM-dark-blue focus:outline-none focus:ring-1 focus:ring-AIPM-green"
+        className="min-w-[12rem] flex-1 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-foreground focus:border-AIPM-dark-blue focus:outline-none focus:ring-1 focus:ring-AIPM-green"
       />
       <select
         value={categoryFilter}
@@ -367,7 +367,7 @@ function RaidPanelInner({
         }
         aria-label={t(lang, "raidCategory")}
         title={t(lang, "raidCategoryFilterHint")}
-        className="rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-foreground"
+        className="rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-foreground"
       >
         <option value="All">{t(lang, "raidCategoryAll")}</option>
         {RAID_CATEGORIES.map((c) => (
@@ -383,7 +383,7 @@ function RaidPanelInner({
         }
         aria-label={t(lang, "raidSeverity")}
         title={t(lang, "raidSeverityFilterHint")}
-        className="rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-foreground"
+        className="rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-foreground"
       >
         <option value="All">{t(lang, "raidSeverityAll")}</option>
         {RAID_SEVERITIES.map((s) => (
@@ -399,7 +399,7 @@ function RaidPanelInner({
         }
         aria-label={t(lang, "raidStatus")}
         title={t(lang, "raidStatusFilterHint")}
-        className="rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-foreground"
+        className="rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-foreground"
       >
         <option value="All">{t(lang, "raidStatusAll")}</option>
         <option value="Open">{t(lang, "raidStatusOpen")}</option>

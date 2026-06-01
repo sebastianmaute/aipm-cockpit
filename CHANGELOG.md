@@ -8,6 +8,15 @@ Authoritative source for version + build date: [`src/app/version.ts`](src/app/ve
 This file is seeded from that module's milestone comment plus the
 post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-diff.txt).
 
+## [0.38.4] — 2026-06-01
+
+### Changed
+- **Header spacing unified across the remaining views** (follow-up to 0.38.3, after a full audit): Open Points, Reports / RAID Report / Resource Report, Activity, and Manage Roles now use the same header-to-content gap as every other view.
+- **RAID toolbar** now matches the Gantt toolbar exactly — same control height (search field and filter dropdowns) and the same spacing below the toolbar.
+- **Activity** search field adopts the standard control height.
+- **Open Points** "Jira sync" button matches the size of Budget's "Refresh ECB rates" button.
+- **Planning** control row (date pickers + granularity/mode toggles) uses the standard control spacing.
+
 ## [0.38.3] — 2026-06-01
 
 ### Changed

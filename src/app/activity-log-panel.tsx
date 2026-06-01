@@ -167,7 +167,7 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
 
   return (
     <section ref={actRef} className={`print-root ${VIEW_PANE_RESIZABLE_CLASS}`}>
-      <header className="mb-3 flex shrink-0 flex-wrap items-center gap-2">
+      <header className="mb-2 flex shrink-0 flex-wrap items-center gap-2">
         <h2 className="mr-auto text-lg font-medium text-foreground">
           {t(lang, "tabActivity")}{" "}
           <span className="text-sm font-normal text-muted-foreground">
@@ -191,7 +191,7 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
         )}
       </header>
 
-      <div className="mb-3 flex shrink-0 flex-wrap items-center gap-2">
+      <div className="mb-2 flex shrink-0 flex-wrap items-center gap-2">
         <div className="relative min-w-[14rem] flex-1">
           <input
             type="search"
@@ -201,7 +201,7 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
             aria-label={t(lang, "activitySearchPlaceholder")}
             title={t(lang, "activitySearchHint")}
             aria-invalid={matcher?.invalid ? true : undefined}
-            className={`w-full rounded-md border bg-surface px-3 py-1.5 text-sm focus:outline-none focus:ring-1 ${
+            className={`w-full rounded-md border bg-surface px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 ${
               matcher?.invalid
                 ? "border-AIPM-pink focus:border-AIPM-pink focus:ring-AIPM-pink"
                 : "border-line focus:border-AIPM-dark-blue focus:ring-AIPM-green"
