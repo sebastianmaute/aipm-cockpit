@@ -25,6 +25,8 @@ import {
   type BucketStatus,
   type FxRates,
   BUDGET_TYPES,
+  PLANNING_MODES,
+  type PlanningMode,
   SUPPORTED_CURRENCIES,
   isBudgetCurrency,
 } from "./types";
@@ -815,7 +817,8 @@ export function sanitizeBudgetBucket(input: unknown): BudgetBucket | null {
     const orderNum = toNumber(input.order);
     if (Number.isInteger(orderNum) && orderNum >= 0) bucket.order = orderNum;
   }
-  if (input.planningMode === "blended") bucket.planningMode = "blended";
+  if (typeof input.planningMode === "string" && (PLANNING_MODES as readonly string[]).includes(input.planningMode))
+    bucket.planningMode = input.planningMode as PlanningMode;
   const disc = sanitizeDisciplineAllocations(input.disciplineAllocations);
   if (disc.length > 0) bucket.disciplineAllocations = disc;
   const ri = sanitizeAmount(input.rateOverrideInternal); if (ri !== undefined) bucket.rateOverrideInternal = ri;

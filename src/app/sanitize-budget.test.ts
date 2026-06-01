@@ -112,6 +112,10 @@ describe("sanitizeBudgetBucket blended-mode fields", () => {
     expect(b.rateOverrideExternal).toBe(200);
   });
 
+  test("round-trips an explicit detailed planningMode", () => {
+    expect(sanitizeBudgetBucket({ ...blendedBase, planningMode: "detailed" })!.planningMode).toBe("detailed");
+  });
+
   test("detailed bucket (no planningMode) leaves blended fields undefined", () => {
     const b = sanitizeBudgetBucket({
       id: 1, name: "PAM", type: "tm", currency: "EUR",
@@ -124,7 +128,7 @@ describe("sanitizeBudgetBucket blended-mode fields", () => {
   });
 
   test("parses disciplineAllocations from an encoded string (CSV/MD path)", () => {
-    const enc = encodeDisciplineAllocations(blendedBase.disciplineAllocations as never);
+    const enc = encodeDisciplineAllocations(blendedBase.disciplineAllocations as DisciplineAllocation[]);
     const b = sanitizeBudgetBucket({ ...blendedBase, disciplineAllocations: enc })!;
     expect(b.planningMode).toBe("blended");
     expect(b.disciplineAllocations).toEqual([
