@@ -1,7 +1,8 @@
 "use client";
 
-// Resource calendar grid — 30-day view, rows are assignees, columns are
-// consecutive dates starting from today. Cells are color-coded by absence
+// Resource calendar grid — renders day columns over an explicit [startDate, endDate]
+// window passed by the parent. Rows are assignees, columns are consecutive dates.
+// Cells are color-coded by absence
 // type. Weekend and public-holiday columns get muted shading; today's
 // column is highlighted. Clicking an empty cell opens the absence modal
 // pre-filled with the row's assignee and that date; clicking an absence
@@ -36,9 +37,11 @@ interface Props {
   resources: readonly Resource[];
   onEditResource: (resource: Resource) => void;
   onAddResource: (seed: Partial<Resource>) => void;
+  /** Inclusive ISO window the grid renders, resolved by the parent. */
+  startDate: string;
+  endDate: string;
 }
 
-const CALENDAR_DAYS = 30;
 const CELL_PX = 36;
 const ASSIGNEE_COL_PX = 180;
 
@@ -102,26 +105,25 @@ function ResourceCalendarInner({
   resources,
   onEditResource,
   onAddResource,
+  startDate,
+  endDate,
 }: Props) {
   const days = useMemo<CalendarDay[]>(() => {
     const out: CalendarDay[] = [];
-    const start = new Date(today);
-    if (Number.isNaN(start.valueOf())) return out;
+    const start = new Date(`${startDate}T00:00:00Z`);
+    const end = new Date(`${endDate}T00:00:00Z`);
+    if (Number.isNaN(start.valueOf()) || Number.isNaN(end.valueOf()) || end < start) return out;
     const loc = localeFor(lang);
     let prevMonth = -1;
-    for (let i = 0; i < CALENDAR_DAYS; i++) {
-      const d = new Date(start);
-      d.setUTCDate(d.getUTCDate() + i);
+    for (let d = new Date(start); d <= end; d.setUTCDate(d.getUTCDate() + 1)) {
       const iso = d.toISOString().slice(0, 10);
       const dow = d.getUTCDay();
       const month = d.getUTCMonth();
-      const monthChange = i === 0 || month !== prevMonth;
+      const monthChange = out.length === 0 || month !== prevMonth;
       out.push({
         iso,
         dayOfMonth: d.getUTCDate(),
-        monthLabel: monthChange
-          ? d.toLocaleDateString(loc, { month: "short" })
-          : "",
+        monthLabel: monthChange ? d.toLocaleDateString(loc, { month: "short" }) : "",
         isWeekend: dow === 0 || dow === 6,
         isHoliday: holidaySet.has(iso),
         isToday: iso === today,
@@ -129,7 +131,7 @@ function ResourceCalendarInner({
       prevMonth = month;
     }
     return out;
-  }, [today, holidaySet, lang]);
+  }, [startDate, endDate, today, holidaySet, lang]);
 
   // Group absences by case-folded assignee key once per absences change so
   // per-cell lookup is O(absences-for-this-row) rather than O(absences-total).

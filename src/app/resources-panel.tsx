@@ -537,6 +537,12 @@ function ResourcesPanelInner({
           resources={resources}
           onEditResource={onEditResource}
           onAddResource={onAddResource}
+          startDate={today}
+          endDate={(() => {
+            const d = new Date(`${today}T00:00:00Z`);
+            d.setUTCDate(d.getUTCDate() + 29);
+            return d.toISOString().slice(0, 10);
+          })()}
         />
       )}
       <ResizeCornerHint lang={lang} />
