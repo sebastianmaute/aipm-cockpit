@@ -1,3 +1,7 @@
+// 0.41.1 makes the Budget panel's empty-state "+ Add bucket…" prompt a real
+// button: with no buckets, clicking it now creates a bucket and opens the
+// editor modal (previously it was inert text). Inherits the 0.41.x "Okorafor"
+// milestone. No other behavior change.
 // 0.41.0 "Okorafor" adds a dedicated Budget Report. A new "Budget Report"
 // sub-menu under Budget (mirroring RAID -> RAID Report) shows the current
 // budget calculations across all buckets — role rates, blended discipline
@@ -537,8 +541,8 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.41.0";
-export const APP_BUILD_DATE = "2026-06-01"; // 0.41.0 dedicated Budget Report view
+export const APP_VERSION = "0.41.1";
+export const APP_BUILD_DATE = "2026-06-01"; // 0.41.1 clickable Budget empty-state add-bucket prompt
 /** Minor-series milestone codename (sci-fi/fantasy author names). The whole
  *  0.39.x line is "Tchaikovsky" (Adrian Tchaikovsky); patch releases inherit
  *  their minor version's codename rather than getting their own. */
