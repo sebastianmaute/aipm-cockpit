@@ -8,6 +8,11 @@ Authoritative source for version + build date: [`src/app/version.ts`](src/app/ve
 This file is seeded from that module's milestone comment plus the
 post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-diff.txt).
 
+## [0.38.1] — 2026-06-01
+
+### Changed
+- **Classic layout:** the primary tab strip now exposes a secondary sub-tab row (Resources sub-views: Directory, Workload, Calendar, Planning, Manage Roles; and RAID Report), matching modern sidebar navigation.
+
 ## [0.38.0] — 2026-06-01 "Chambers"
 
 ### Added

@@ -1,3 +1,8 @@
+// 0.38.1 is a classic-layout follow-up: the classic tab strip gains a secondary
+// sub-tab row (driven by nav-config's subTabsFor) so Classic mode can reach the
+// Resources sub-views (Directory/Workload/Calendar/Planning/Manage Roles) and
+// the RAID Report that the modern sidebar already exposes; modern layout
+// unchanged. No new strings.
 // 0.38.0 "Chambers" is a comprehensive resize + resources-nav + report-parity
 // batch (groups A–G). A–C: every primary pane (Open Points, Chat, Gantt, RAID,
 // Resources views, Budget, Activity, Reports, and the RAID/Resource reports) is
@@ -451,7 +456,7 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.38.0";
+export const APP_VERSION = "0.38.1";
 export const APP_BUILD_DATE = "2026-06-01"; // Chambers (0.38.0 resize + resources nav + report parity)
 export const APP_REPO_URL = "https://www.example.com";
 
