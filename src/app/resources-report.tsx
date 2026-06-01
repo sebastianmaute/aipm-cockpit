@@ -71,6 +71,7 @@ interface Props {
   absences: readonly Absence[];
   holidaySet: ReadonlySet<string>;
   workdayHours: number;
+  embedded?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -78,7 +79,7 @@ interface Props {
 // ---------------------------------------------------------------------------
 
 export function ResourcesReportPanel({
-  lang, resources, roles, disciplines, grades, plan, absences, holidaySet, workdayHours,
+  lang, resources, roles, disciplines, grades, plan, absences, holidaySet, workdayHours, embedded = false,
 }: Props) {
   const rep = useMemo(
     () => computeResourceReport(resources, roles, disciplines, grades, plan, absences, holidaySet, workdayHours),
@@ -112,8 +113,8 @@ export function ResourcesReportPanel({
     );
   }
 
-  return (
-    <ReportCard lang={lang} sizeRef={ref} onResetSize={reset} onResetCols={resetAllCols} title={t(lang, "resourcesReportTitle")}>
+  const content = (
+    <>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Tile label={t(lang, "resourcesReportTotalCapacity")} value={`${days(rep.totalCapacityHours)} d`} />
         <Tile label={t(lang, "resourcesInternalCost")} value={money(rep.totalInternal)} />
@@ -169,6 +170,14 @@ export function ResourcesReportPanel({
         days={days}
         money={money}
       />
+    </>
+  );
+
+  if (embedded) return <div className="space-y-6">{content}</div>;
+
+  return (
+    <ReportCard lang={lang} sizeRef={ref} onResetSize={reset} onResetCols={resetAllCols} title={t(lang, "resourcesReportTitle")}>
+      {content}
     </ReportCard>
   );
 }

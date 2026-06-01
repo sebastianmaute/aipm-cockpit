@@ -67,4 +67,11 @@ describe("BudgetReportPanel", () => {
     renderPanel({ buckets: [] });
     expect(screen.getByText(/no budget buckets yet/i)).toBeInTheDocument();
   });
+
+  it("embedded mode renders content without the ReportCard print button", () => {
+    renderPanel({ embedded: true });
+    expect(screen.getByText(/project total/i)).toBeInTheDocument();
+    expect(screen.getByText("Alpha")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /print/i })).toBeNull();
+  });
 });
