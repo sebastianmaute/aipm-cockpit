@@ -28,8 +28,6 @@ import { periodCost, formatCurrency } from "./resource-cost";
 import {
   type Absence,
   DEFAULT_WEEK_HOURS,
-  type Discipline,
-  type Grade,
   type PlanGranularity,
   type Resource,
   type ResourcePlan,
@@ -79,9 +77,6 @@ interface Props {
     assignee: { display: string; email: string },
   ) => void;
   roles: readonly Role[];
-  disciplines: readonly Discipline[];
-  grades: readonly Grade[];
-  onAssignRole: (resourceId: number, disciplineId: number, gradeId: number) => void;
   plan: ResourcePlan;
   workdayHours: number;
   onSetUtilization: (resourceId: number, periodKey: string, value: number) => void;
