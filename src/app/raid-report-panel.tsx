@@ -9,6 +9,8 @@ import { useColumnResize } from "./use-column-resize";
 import { useResizable } from "./use-resizable";
 import {
   ReportCard,
+  Section,
+  Tile,
   TableFilter,
   SortHeaderButton,
   useSortableFilter,
@@ -670,24 +672,6 @@ function DetailTable({ lang, rows, colResize }: { lang: Lang; rows: RaidReport["
 // Shared sub-components
 // ---------------------------------------------------------------------------
 
-function Tile({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-lg border border-line bg-surface p-3">
-      <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="mt-1 text-xl font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey tabular-nums">{value}</p>
-    </div>
-  );
-}
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <h3 className="mb-2 text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">{title}</h3>
-      {children}
-    </div>
-  );
-}
-
 function ownerCell(lang: Lang, owner: string) {
   if (owner === UNASSIGNED_OWNER) {
     return <span className="italic text-muted-foreground">{t(lang, "raidReportUnassigned")}</span>;
@@ -704,4 +688,4 @@ function agingLabel(lang: Lang, bucket: "le30" | "31_60" | "61_90" | "gt90"): st
   }
 }
 
-export { Section, ownerCell };
+export { ownerCell };

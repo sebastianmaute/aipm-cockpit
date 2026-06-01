@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { BudgetReportPanel } from "./budget-report-panel";
 import type { BudgetBucket, ResourcePlan, Role } from "./types";
@@ -56,8 +56,9 @@ describe("BudgetReportPanel", () => {
     renderPanel();
     const input = screen.getByPlaceholderText(/filter buckets/i);
     await user.type(input, "alpha");
-    const tbody = document.querySelector("table tbody") as HTMLElement;
-    const names = Array.from(tbody.querySelectorAll("tr")).map((tr) => (tr.querySelector("td") as HTMLElement)?.textContent ?? "");
+    const table = within(screen.getByRole("table"));
+    const rows = table.getAllByRole("row").slice(1); // skip header row
+    const names = rows.map((tr) => (tr.querySelector("td") as HTMLElement)?.textContent ?? "");
     expect(names).toContain("Alpha");
     expect(names).not.toContain("Beta");
   });

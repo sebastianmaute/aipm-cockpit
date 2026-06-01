@@ -8,12 +8,13 @@ import { useColumnResize } from "./use-column-resize";
 import { useResizable } from "./use-resizable";
 import {
   ReportCard,
+  Section,
+  Tile,
   TableFilter,
   SortHeaderButton,
   useSortableFilter,
   type SortDir,
 } from "./report-table";
-import { Section } from "./raid-report-panel";
 import { computeBudgetReport, type BucketReport, type CciValue } from "./budget-report";
 import { formatCurrency } from "./resource-cost";
 import { resolveRate } from "./fx";
@@ -45,18 +46,10 @@ function localeFor(lang: Lang): string {
   return lang === "de" ? "de-DE" : lang === "en-GB" ? "en-GB" : "en-US";
 }
 
-function Tile({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-lg border border-line bg-surface p-3">
-      <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="mt-1 text-xl font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey tabular-nums">{value}</p>
-    </div>
-  );
-}
-
 export function BudgetReportPanel({
   lang, buckets, plan, roles, resources, absences, holidaySet, workdayHours, fxRates,
 }: Props) {
+  // Hooks are called unconditionally before the empty-state early return (rules of hooks).
   const report = useMemo(
     () => computeBudgetReport(buckets, plan, roles, resources, workdayHours, holidaySet, absences),
     [buckets, plan, roles, resources, workdayHours, holidaySet, absences],
@@ -131,6 +124,7 @@ function BucketDetailTable({
       rows.map((r) => {
         const b = bucketById.get(r.bucketId);
         const blended = b?.planningMode === "blended";
+        // Amounts are already EUR (the engine's base); the FX rate is shown for context only, not used to convert.
         const rate = b ? resolveRate(b, fxRates) : 1;
         return {
           ...r,
@@ -165,20 +159,23 @@ function BucketDetailTable({
   const w = colResize.colWidths;
   const sr = colResize.startColResize as (col: string, e: React.MouseEvent) => void;
 
-  const cols: { key: DetailSortKey; col: DetailCol; label: string; align: "left" | "right" }[] = [
-    { key: "name", col: "bucket", label: t(lang, "budgetReportByBucket"), align: "left" },
-    { key: "mode", col: "mode", label: t(lang, "budgetReportColMode"), align: "left" },
-    { key: "type", col: "type", label: t(lang, "budgetType"), align: "left" },
-    { key: "status", col: "status", label: t(lang, "budgetReportColStatus"), align: "left" },
-    { key: "currency", col: "currency", label: t(lang, "budgetCurrency"), align: "left" },
-    { key: "budgetH", col: "budgetH", label: t(lang, "budgetBudgetHours"), align: "right" },
-    { key: "planH", col: "planH", label: t(lang, "budgetPlanHours"), align: "right" },
-    { key: "actualH", col: "actualH", label: t(lang, "budgetActualHours"), align: "right" },
-    { key: "budgetEur", col: "budgetEur", label: t(lang, "budgetReportColBudgetEur"), align: "right" },
-    { key: "consumedEur", col: "consumedEur", label: t(lang, "budgetReportColConsumed"), align: "right" },
-    { key: "margin", col: "margin", label: t(lang, "budgetReportColMargin"), align: "right" },
-    { key: "winLoss", col: "winLoss", label: t(lang, "budgetReportColWinLoss"), align: "right" },
-  ];
+  const cols: { key: DetailSortKey; col: DetailCol; label: string; align: "left" | "right" }[] = useMemo(
+    () => [
+      { key: "name", col: "bucket", label: t(lang, "budgetReportByBucket"), align: "left" },
+      { key: "mode", col: "mode", label: t(lang, "budgetReportColMode"), align: "left" },
+      { key: "type", col: "type", label: t(lang, "budgetType"), align: "left" },
+      { key: "status", col: "status", label: t(lang, "budgetReportColStatus"), align: "left" },
+      { key: "currency", col: "currency", label: t(lang, "budgetCurrency"), align: "left" },
+      { key: "budgetH", col: "budgetH", label: t(lang, "budgetBudgetHours"), align: "right" },
+      { key: "planH", col: "planH", label: t(lang, "budgetPlanHours"), align: "right" },
+      { key: "actualH", col: "actualH", label: t(lang, "budgetActualHours"), align: "right" },
+      { key: "budgetEur", col: "budgetEur", label: t(lang, "budgetReportColBudgetEur"), align: "right" },
+      { key: "consumedEur", col: "consumedEur", label: t(lang, "budgetReportColConsumed"), align: "right" },
+      { key: "margin", col: "margin", label: t(lang, "budgetReportColMargin"), align: "right" },
+      { key: "winLoss", col: "winLoss", label: t(lang, "budgetReportColWinLoss"), align: "right" },
+    ],
+    [lang],
+  );
 
   return (
     <Section title={t(lang, "budgetReportByBucket")}>
