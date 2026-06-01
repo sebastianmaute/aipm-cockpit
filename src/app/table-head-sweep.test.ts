@@ -22,7 +22,7 @@ const SWEPT_FILES = [
   "resources-panel.tsx",
   "resources-report.tsx",
   "jira-conflicts-modal.tsx",
-  "roles-modal.tsx",
+  "roles-editor.tsx",
   "budget-panel.tsx",
   "reports.tsx",
   "resource-calendar.tsx",

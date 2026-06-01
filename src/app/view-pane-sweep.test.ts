@@ -4,25 +4,20 @@ import { join } from "node:path";
 
 const ROOT = join(process.cwd(), "src", "app");
 
-// Primary views that fill the viewport with their own internal scroll region.
-// They must source the full-height pane card from VIEW_PANE_FILL_CLASS so every
-// view reads identically to the Open Points (tasks) pane.
-// NOTE: tasks-section.tsx is omitted here — it uses VIEW_PANE_RESIZABLE_CLASS
-// in the modern (fillHeight) branch to restore drag-resize capability.
-// NOTE: activity-log-panel.tsx is omitted here — it uses VIEW_PANE_RESIZABLE_CLASS
-// to support drag-resize (Task 8).
-const FILL_FILES = [
-  "chat-panel.tsx",
+// Every primary view now fills the viewport AND is drag-resizable: it sources the
+// shared VIEW_PANE_RESIZABLE_CLASS (= VIEW_PANE_FILL_CLASS + resize) so each view
+// reads identically to the Open Points (tasks) pane.
+// NOTE: tasks-section.tsx (fillHeight ternary) and activity-log-panel.tsx have
+// their own dedicated assertions below. reports.tsx / raid-report / resources-
+// report wrap content in ReportCard (report-table.tsx), which carries the class.
+// chat-panel.tsx is the one exception — it uses a bespoke centered half-size
+// card (CHAT_PANE_CLASS) that is still drag-resizable; asserted separately below.
+const RESIZABLE_FILES = [
   "raid-panel.tsx",
   "resources-panel.tsx",
   "gantt.tsx",
+  "budget-panel.tsx",
 ];
-
-// Content-flow views that scroll as a whole. They keep VIEW_PANE_CLASS but must
-// add min-h-full so the card fills the viewport when content is short (no void).
-// NOTE: reports.tsx was removed here — it now wraps content in ReportCard from
-// report-table.tsx which carries VIEW_PANE_RESIZABLE_CLASS instead.
-const CONTENT_FILES = ["budget-panel.tsx"];
 
 // Forbidden: a divergent rounded-md inset card on the resources inner tables.
 const INNER_FILES = [
@@ -39,18 +34,10 @@ describe("view-pane sweep", () => {
     expect(src).toContain("INNER_TABLE_CLASS");
   });
 
-  for (const f of FILL_FILES) {
-    it(`${f} uses VIEW_PANE_FILL_CLASS`, () => {
+  for (const f of RESIZABLE_FILES) {
+    it(`${f} uses VIEW_PANE_RESIZABLE_CLASS`, () => {
       const src = readFileSync(join(ROOT, f), "utf8");
-      expect(src).toContain("VIEW_PANE_FILL_CLASS");
-    });
-  }
-
-  for (const f of CONTENT_FILES) {
-    it(`${f} fills via VIEW_PANE_CLASS + min-h-full`, () => {
-      const src = readFileSync(join(ROOT, f), "utf8");
-      expect(src).toContain("VIEW_PANE_CLASS");
-      expect(src).toContain("min-h-full");
+      expect(src).toContain("VIEW_PANE_RESIZABLE_CLASS");
     });
   }
 
@@ -82,5 +69,11 @@ describe("view-pane sweep", () => {
   it("activity-log-panel is resizable", () => {
     const src = readFileSync(join(__dirname, "activity-log-panel.tsx"), "utf8");
     expect(src).toMatch(/VIEW_PANE_RESIZABLE_CLASS/);
+  });
+
+  it("chat-panel is a bespoke centered half-size resizable card", () => {
+    const src = readFileSync(join(__dirname, "chat-panel.tsx"), "utf8");
+    expect(src).toContain("CHAT_PANE_CLASS");
+    expect(src).toMatch(/\bresize\b/);
   });
 });
