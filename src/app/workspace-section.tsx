@@ -80,7 +80,7 @@ export interface WorkspaceSectionProps {
     existingShift: Shift | null,
     assignee: { display: string; email: string },
   ) => void;
-  onManageRoles: () => void;
+  manageRolesView?: React.ReactNode;
   onAssignRole: (resourceId: number, disciplineId: number, gradeId: number) => void;
   onSetUtilization: (resourceId: number, periodKey: string, value: number) => void;
   onSetAllUtilizationMode: (mode: "percent" | "hours") => void;
@@ -118,7 +118,7 @@ export function WorkspaceSection({
   handleOpenAddAbsence,
   handleEditAbsence,
   handleOpenShiftEditor,
-  onManageRoles,
+  manageRolesView,
   onAssignRole,
   onSetUtilization,
   onSetAllUtilizationMode,
@@ -381,7 +381,49 @@ export function WorkspaceSection({
             role="tabpanel"
             className={panelClass}
           >
+            <ResourcesReportPanel
+              lang={lang}
+              resources={resources}
+              roles={roles}
+              disciplines={disciplines}
+              grades={grades}
+              plan={plan}
+              absences={absences}
+              holidaySet={holidaySet}
+              workdayHours={settings.resources.workdayHours}
+            />
+          </div>
+        )}
+
+        {activeTab === "directory" && (
+          <div
+            id="panel-directory"
+            role="tabpanel"
+            className={panelClass}
+          >
+            <ResourceDirectory
+              lang={lang}
+              resources={resources}
+              roles={roles}
+              disciplines={disciplines}
+              grades={grades}
+              onAssignRole={onAssignRole}
+              onEditResource={onEditResource}
+              onAddResource={onAddResource}
+              onAddAbsence={handleOpenAddAbsence}
+              onImportOutlook={onImportOutlook}
+            />
+          </div>
+        )}
+
+        {(activeTab === "workload" || activeTab === "calendar" || activeTab === "planning") && (
+          <div
+            id="panel-resources-view"
+            role="tabpanel"
+            className={panelClass}
+          >
             <ResourcesPanel
+              view={activeTab}
               lang={lang}
               tasks={tasks}
               absences={absences}
@@ -393,23 +435,22 @@ export function WorkspaceSection({
               onEditAbsence={handleEditAbsence}
               onEditShift={handleOpenShiftEditor}
               roles={roles}
-              disciplines={disciplines}
-              grades={grades}
-              onManageRoles={onManageRoles}
-              onAssignRole={onAssignRole}
               plan={plan}
               workdayHours={settings.resources.workdayHours}
               onSetUtilization={onSetUtilization}
               onSetAllUtilizationMode={onSetAllUtilizationMode}
               onSetAbsenceOverride={onSetAbsenceOverride}
               onSetPlanWindow={onSetPlanWindow}
-              onOpenReport={() => openPopoutWindow("resource-report", settings.popout.reuseWindow)}
-              onOpenAddressBook={() => openPopoutWindow("address-book", settings.popout.reuseWindow)}
-              onImportOutlook={onImportOutlook}
-              onImportOutlookCalendar={onImportOutlookCalendar}
               onEditResource={onEditResource}
               onAddResource={onAddResource}
+              onImportOutlookCalendar={onImportOutlookCalendar}
             />
+          </div>
+        )}
+
+        {activeTab === "manage-roles" && (
+          <div id="panel-manage-roles" role="tabpanel" className={panelClass}>
+            {manageRolesView}
           </div>
         )}
 
@@ -424,15 +465,6 @@ export function WorkspaceSection({
               entries={activityLog}
               onClear={handleClearActivityLog}
             />
-          </div>
-        )}
-
-        {activeTab === "resource-report" && (
-          <div id="panel-resource-report" role="tabpanel" className={panelScrollClass}>
-            <ResourcesReportPanel
-              lang={lang} resources={resources} roles={roles} disciplines={disciplines}
-              grades={grades} plan={plan} absences={absences} holidaySet={holidaySet}
-              workdayHours={settings.resources.workdayHours} />
           </div>
         )}
 
@@ -464,20 +496,6 @@ export function WorkspaceSection({
           </div>
         )}
 
-        {activeTab === "address-book" && (
-          <div id="panel-address-book" role="tabpanel" className={panelScrollClass}>
-            <ResourceDirectory
-              lang={lang}
-              resources={resources}
-              roles={roles}
-              disciplines={disciplines}
-              grades={grades}
-              onAssignRole={onAssignRole}
-              onEditResource={onEditResource}
-              onAddResource={onAddResource}
-            />
-          </div>
-        )}
       </div>
       {!isPopout && !fullBleed && !workspaceCollapsed && (
         <span

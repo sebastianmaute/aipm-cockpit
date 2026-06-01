@@ -123,8 +123,7 @@ describe("openPopoutWindow", () => {
 });
 
 describe("isReportPopoutTab", () => {
-  it("returns true for the three report-style popout tabs", () => {
-    expect(isReportPopoutTab("resource-report")).toBe(true);
+  it("returns true for the report-style popout tabs", () => {
     expect(isReportPopoutTab("reports")).toBe(true);
     expect(isReportPopoutTab("raid-report")).toBe(true);
   });
@@ -136,7 +135,7 @@ describe("isReportPopoutTab", () => {
     expect(isReportPopoutTab("activity")).toBe(false);
     expect(isReportPopoutTab("chat")).toBe(false);
     expect(isReportPopoutTab("budget")).toBe(false);
-    expect(isReportPopoutTab("address-book")).toBe(false);
+    expect(isReportPopoutTab("directory")).toBe(false);
   });
 
   it("returns false for null (no popout)", () => {

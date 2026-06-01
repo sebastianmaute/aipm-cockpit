@@ -35,7 +35,7 @@ interface Props {
   onAssignRole: (resourceId: number, disciplineId: number, gradeId: number) => void;
   onEditResource: (resource: Resource) => void;
   onAddResource: () => void;
-  onOpenAddressBook?: () => void;
+  onAddAbsence: () => void;
   onImportOutlook?: () => void;
 }
 
@@ -121,7 +121,7 @@ function ResourceDirectoryInner({
   onAssignRole,
   onEditResource,
   onAddResource,
-  onOpenAddressBook,
+  onAddAbsence,
   onImportOutlook,
 }: Props) {
   const { colWidths, startColResize: _startColResize, resetColWidths } = useColumnResize<DirectoryCol>(
@@ -196,6 +196,13 @@ function ResourceDirectoryInner({
         >
           {t(lang, "resourcesAddResource")}
         </button>
+        <button
+          type="button"
+          onClick={onAddAbsence}
+          className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90"
+        >
+          {t(lang, "resourcesAddAbsence")}
+        </button>
         <input
           type="search"
           value={filter}
@@ -205,16 +212,6 @@ function ResourceDirectoryInner({
           title={t(lang, "directorySearchHint")}
           className="min-w-0 flex-1 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-AIPM-dark-blue focus:outline-none"
         />
-        <ResetColWidthsButton onClick={resetColWidths} lang={lang} />
-        {onOpenAddressBook && (
-          <button
-            type="button"
-            onClick={onOpenAddressBook}
-            className="shrink-0 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted"
-          >
-            {t(lang, "resourcesOpenAddressBook")}
-          </button>
-        )}
         {onImportOutlook && (
           <button
             type="button"
@@ -224,6 +221,7 @@ function ResourceDirectoryInner({
             {t(lang, "outlookImportButton")}
           </button>
         )}
+        <ResetColWidthsButton onClick={resetColWidths} lang={lang} />
       </div>
       {resources.length === 0 ? (
         <div className="mt-3 flex-1 rounded-md border border-dashed border-line p-6 text-center text-sm text-muted-foreground">

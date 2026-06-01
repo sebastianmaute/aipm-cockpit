@@ -1,5 +1,7 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, test, vi } from "vitest";
 import type React from "react";
 import { WorkspaceProvider } from "./workspace-context";
 import { WorkspaceTabProvider } from "./workspace-tab-context";
@@ -58,7 +60,6 @@ function makeProps(overrides: Partial<WorkspaceSectionProps> = {}): WorkspaceSec
     handleOpenAddAbsence: vi.fn(),
     handleEditAbsence: vi.fn() as (absence: Absence) => void,
     handleOpenShiftEditor: vi.fn() as (existingShift: Shift | null, assignee: { display: string; email: string }) => void,
-    onManageRoles: vi.fn(),
     onAssignRole: vi.fn(),
     onSetUtilization: vi.fn(),
     onSetAllUtilizationMode: vi.fn(),
@@ -143,5 +144,13 @@ describe("WorkspaceSection", () => {
     render(<WorkspaceSection {...makeProps()} />, { wrapper: Wrapper });
     const panelChat = document.getElementById("panel-chat");
     expect(panelChat?.className).toContain("pt-4");
+  });
+
+  test("resources view renders the resource report; manage-roles renders the slot; no address-book/resource-report panels", () => {
+    const src = readFileSync(join(__dirname, "workspace-section.tsx"), "utf8");
+    expect(src).toMatch(/ResourcesReportPanel/);
+    expect(src).toMatch(/manageRolesView/);
+    expect(src).not.toMatch(/panel-address-book/);
+    expect(src).not.toMatch(/panel-resource-report/);
   });
 });

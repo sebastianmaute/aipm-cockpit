@@ -23,13 +23,13 @@ describe("SidebarNav", () => {
 
   it("reveals child items when a parent is active", () => {
     render(<SidebarNav lang="en-US" activeView="resources" onNavigate={() => {}} />);
-    expect(screen.getByRole("button", { name: "Address Book" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Directory" })).toBeTruthy();
   });
 
   it("reveals sibling child items when a child is the active view", () => {
-    render(<SidebarNav lang="en-US" activeView="address-book" onNavigate={() => {}} />);
-    expect(screen.getByRole("button", { name: "Address Book" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Resource report" })).toBeTruthy();
+    render(<SidebarNav lang="en-US" activeView="directory" onNavigate={() => {}} />);
+    expect(screen.getByRole("button", { name: "Directory" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Workload" })).toBeTruthy();
   });
 
   it("collapsed rail shows icon-only buttons that keep an accessible name", () => {
