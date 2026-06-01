@@ -11,6 +11,7 @@ import {
 import {
   dropDanglingDependencies,
   encodeAllocations,
+  encodeDisciplineAllocations,
   encodePeriodMap,
   parseDependenciesString,
   sanitizeAbsence,
@@ -478,6 +479,7 @@ export const BUDGETS_CSV_COLUMNS = [
   "id", "name", "poNumber", "type", "currency", "fixedPriceAmount",
   "startDate", "endDate", "successorId", "status", "closedDate",
   "fxRateOverride", "allocations", "localModifiedAt", "order",
+  "planningMode", "disciplineAllocations", "rateOverrideInternal", "rateOverrideExternal",
 ] as const;
 
 const CSV_SECTION_BUDGETS = "# BUDGETS";
@@ -537,6 +539,10 @@ const BUDGETS_MD_COLUMNS: readonly { col: string; label: string }[] = [
   { col: "allocations", label: "Allocations" },
   { col: "localModifiedAt", label: "LocalModified" },
   { col: "order", label: "Order" },
+  { col: "planningMode", label: "PlanningMode" },
+  { col: "disciplineAllocations", label: "DisciplineAllocations" },
+  { col: "rateOverrideInternal", label: "RateOverrideInternal" },
+  { col: "rateOverrideExternal", label: "RateOverrideExternal" },
 ];
 
 const REF_MD_COLUMNS: readonly { col: string; label: string }[] = [
@@ -814,6 +820,10 @@ export function budgetFieldToString(b: BudgetBucket, c: string): string {
     case "allocations": return encodeAllocations(b.allocations);
     case "localModifiedAt": return b.localModifiedAt ?? "";
     case "order": return b.order == null ? "" : String(b.order);
+    case "planningMode": return b.planningMode ?? "";
+    case "disciplineAllocations": return encodeDisciplineAllocations(b.disciplineAllocations);
+    case "rateOverrideInternal": return b.rateOverrideInternal == null ? "" : String(b.rateOverrideInternal);
+    case "rateOverrideExternal": return b.rateOverrideExternal == null ? "" : String(b.rateOverrideExternal);
     default: return "";
   }
 }
@@ -1727,6 +1737,10 @@ function markdownToBudgets(md: string): BudgetBucket[] {
       else if (norm === "allocations") mapped["allocations"] = val;
       else if (norm === "localmodified" || norm === "localmodifiedat") mapped["localModifiedAt"] = val;
       else if (norm === "order") mapped["order"] = val;
+      else if (norm === "planningmode") mapped["planningMode"] = val;
+      else if (norm === "disciplineallocations") mapped["disciplineAllocations"] = val;
+      else if (norm === "rateoverrideinternal") mapped["rateOverrideInternal"] = val;
+      else if (norm === "rateoverrideexternal") mapped["rateOverrideExternal"] = val;
     }
     return sanitizeBudgetBucket(mapped);
   }).filter((b): b is BudgetBucket => b !== null);

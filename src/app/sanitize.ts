@@ -20,6 +20,7 @@ import {
   type UtilizationMode,
   type BudgetBucket,
   type BucketAllocation,
+  type DisciplineAllocation,
   type BudgetType,
   type BucketStatus,
   type FxRates,
@@ -725,6 +726,54 @@ function sanitizeAllocations(input: unknown): BucketAllocation[] {
   return input.map(sanitizeAllocation).filter((a): a is BucketAllocation => a !== null);
 }
 
+// Discipline-allocation text encoding (blended mode). Mirrors encodeAllocations
+// but keyed by disciplineId. One allocation =
+//   disciplineId ; resourceIds(.-joined) ; budgetHours(periodmap) ; actualHours(periodmap)
+export function encodeDisciplineAllocations(allocs: readonly DisciplineAllocation[] | undefined): string {
+  if (!Array.isArray(allocs) || allocs.length === 0) return "";
+  return allocs
+    .map((a) =>
+      [a.disciplineId, a.resourceIds.join("."), encodePeriodMap(a.budgetHours), encodePeriodMap(a.actualHours)].join(";"),
+    )
+    .join("~");
+}
+
+export function decodeDisciplineAllocations(s: unknown): DisciplineAllocation[] {
+  if (typeof s !== "string" || !s) return [];
+  const out: DisciplineAllocation[] = [];
+  for (const part of s.split("~")) {
+    if (!part.trim()) continue;
+    const [idStr = "", idsStr = "", budgetStr = "", actualStr = ""] = part.split(";");
+    const disciplineId = Number(idStr);
+    if (!Number.isFinite(disciplineId) || disciplineId <= 0) continue;
+    out.push({
+      disciplineId,
+      resourceIds: sanitizeIdList(idsStr),
+      budgetHours: decodePeriodMap(budgetStr),
+      actualHours: decodePeriodMap(actualStr),
+    });
+  }
+  return out;
+}
+
+function sanitizeDisciplineAllocation(input: unknown): DisciplineAllocation | null {
+  if (!isPlainObject(input)) return null;
+  const disciplineId = toNumber(input.disciplineId);
+  if (!Number.isFinite(disciplineId) || disciplineId <= 0) return null;
+  return {
+    disciplineId,
+    resourceIds: sanitizeIdList(input.resourceIds),
+    budgetHours: coercePeriodMap(input.budgetHours, HOURS_MAP_MAX),
+    actualHours: coercePeriodMap(input.actualHours, HOURS_MAP_MAX),
+  };
+}
+
+function sanitizeDisciplineAllocations(input: unknown): DisciplineAllocation[] {
+  if (typeof input === "string") return decodeDisciplineAllocations(input);
+  if (!Array.isArray(input)) return [];
+  return input.map(sanitizeDisciplineAllocation).filter((a): a is DisciplineAllocation => a !== null);
+}
+
 export function sanitizeBudgetBucket(input: unknown): BudgetBucket | null {
   if (!isPlainObject(input)) return null;
   const id = toNumber(input.id);
@@ -766,6 +815,11 @@ export function sanitizeBudgetBucket(input: unknown): BudgetBucket | null {
     const orderNum = toNumber(input.order);
     if (Number.isInteger(orderNum) && orderNum >= 0) bucket.order = orderNum;
   }
+  if (input.planningMode === "blended") bucket.planningMode = "blended";
+  const disc = sanitizeDisciplineAllocations(input.disciplineAllocations);
+  if (disc.length > 0) bucket.disciplineAllocations = disc;
+  const ri = sanitizeAmount(input.rateOverrideInternal); if (ri !== undefined) bucket.rateOverrideInternal = ri;
+  const re = sanitizeAmount(input.rateOverrideExternal); if (re !== undefined) bucket.rateOverrideExternal = re;
   if (typeof input.localModifiedAt === "string" && input.localModifiedAt) bucket.localModifiedAt = input.localModifiedAt;
   return bucket;
 }
