@@ -357,8 +357,6 @@ export function WorkspaceSection({
               buckets={budgets}
               plan={plan}
               roles={roles}
-              disciplines={disciplines}
-              grades={grades}
               resources={resources}
               absences={absences}
               workdayHours={settings.resources.workdayHours}

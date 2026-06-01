@@ -161,14 +161,12 @@ const budgetBuckets: BudgetBucket[] = [
 ];
 
 function budgetRowNames(): string[] {
-  // The budget section is the last <table>; scope to its body rows so the
-  // bucket-filter <option> list (which always lists every bucket) is ignored.
-  const tables = document.querySelectorAll("table");
-  const tbody = tables[tables.length - 1]?.querySelector("tbody");
-  if (!tbody) return [];
-  return Array.from(tbody.querySelectorAll("tr")).map(
-    (tr) => (tr.querySelector("td") as HTMLElement | null)?.textContent?.trim() ?? "",
-  );
+  // Scope to the Budget section's body rows so the bucket-filter <option> list
+  // (which always lists every bucket) is ignored. The section heading is an
+  // <h3> with the exact text "Budget"; anchor on it to avoid matching other
+  // elements whose text merely contains "Budget".
+  const section = sectionByTitle(/^Budget$/i);
+  return rowNamesIn(section);
 }
 
 function renderWithBudget() {
@@ -181,8 +179,6 @@ function renderWithBudget() {
       buckets={budgetBuckets}
       plan={budgetPlan}
       roles={budgetRoles}
-      disciplines={[{ id: 1, name: "Consulting" }]}
-      grades={[{ id: 1, name: "Junior" }]}
       resources={[] as Resource[]}
       absences={[]}
       workdayHours={8}
@@ -194,7 +190,9 @@ describe("ReportsPanel — budget section", () => {
   it("shows a row per bucket and a total budget rollup", () => {
     renderWithBudget();
     expect(budgetRowNames()).toEqual(["Alpha", "Beta"]);
-    // total budget = 100*150 + 10*150 = 16500
+    // 16,500 is the AGGREGATE total budget rollup (Alpha 100*150 = 15,000 +
+    // Beta 10*150 = 1,500); the individual per-bucket budget values are 15,000
+    // and 1,500 respectively.
     expect(screen.getByText(/16,500|16\.500|€16,500|16,500\.00/)).toBeInTheDocument();
   });
 
