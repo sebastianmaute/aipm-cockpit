@@ -508,6 +508,9 @@ const enUS = {
   reportsFilterGroup: "Filter groups…",
   reportsFilterLabel: "Filter labels…",
   reportsNoMatches: "No matches for current filter.",
+  reportsAddReport: "Add report",
+  reportsRemoveReport: "Remove report",
+  reportsAddReportNone: "All reports added",
   versionHighlightReportsSortFilter:
     "Reports tables (By Assignee, By Group, By Label) are now sortable and filterable — click any header to sort, type in the search box to narrow rows.",
 

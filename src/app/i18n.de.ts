@@ -523,6 +523,9 @@ export const de: Record<TranslationKey, string> = {
   reportsFilterGroup: "Gruppen filtern…",
   reportsFilterLabel: "Labels filtern…",
   reportsNoMatches: "Keine Treffer für den aktuellen Filter.",
+  reportsAddReport: "Bericht hinzufügen",
+  reportsRemoveReport: "Bericht entfernen",
+  reportsAddReportNone: "Alle Berichte hinzugefügt",
   versionHighlightReportsSortFilter:
     "Reports-Tabellen (Nach Assignee, Nach Gruppe, Nach Label) sind sortier- und filterbar — Spaltenkopf zum Sortieren klicken, Filtertext eingeben, um Zeilen einzugrenzen.",
 
