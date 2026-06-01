@@ -143,12 +143,8 @@ export function ReportCard({
 }) {
   return (
     <div ref={sizeRef} className={`print-root ${VIEW_PANE_RESIZABLE_CLASS}`}>
-      <div className="mb-4 flex shrink-0 items-center justify-between gap-2">
-        {title ? (
-          <h2 className="text-lg font-medium text-foreground">{title}</h2>
-        ) : (
-          <span />
-        )}
+      <div className={`mb-4 flex shrink-0 items-center gap-2 ${title ? "justify-between" : "justify-end"}`}>
+        {title && <h2 className="text-lg font-medium text-foreground">{title}</h2>}
         <div className="flex items-center gap-2 print:hidden">
           {toolbarExtra}
           <PrintButton lang={lang} />
