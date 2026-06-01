@@ -1,3 +1,18 @@
+// 0.38.0 "Chambers" is a comprehensive resize + resources-nav + report-parity
+// batch (groups A–G). A–C: every primary pane (Open Points, Chat, Gantt, RAID,
+// Resources views, Budget, Activity, Reports, and the RAID/Resource reports) is
+// now drag-resizable — fill-height by default, drag the corner handle to resize,
+// Reset-size button to restore; a shared VIEW_PANE_RESIZABLE_CLASS + useResizable
+// hook back every panel; Chat is centred as a half-size card. D: the Budget pane
+// gains a bucket-count heading row with right-aligned action buttons. E: the
+// Gantt and RAID toolbars now place their add-button before the search field.
+// F: RAID loses its in-panel "open report" button (the report is reachable from
+// the sidebar). G: the Resources sidebar item now navigates to the Resource
+// Report; its sub-menu is restructured — Directory (formerly Address Book),
+// Workload, Calendar, Planning, and Manage Roles (now a full page, not a modal);
+// the standalone Resource Report sub-menu entry was removed. The RAID and
+// Resource reports adopt the Reports layout: sortable/filterable/column-resizable
+// tables via a shared report-table kit. No new dependencies.
 // 0.37.2 introduces property-based testing with fast-check (new dev dependency,
 // no runtime/prod impact). Eight co-located *.property.test.ts suites assert
 // invariants over generated inputs for the pure-logic layer: duration parse/
@@ -436,8 +451,8 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.37.2";
-export const APP_BUILD_DATE = "2026-05-31"; // Kowal (0.37.2 property tests)
+export const APP_VERSION = "0.38.0";
+export const APP_BUILD_DATE = "2026-06-01"; // Chambers (0.38.0 resize + resources nav + report parity)
 export const APP_REPO_URL = "https://www.example.com";
 
 /** Translation keys for the high-level feature highlights shown in the
@@ -479,4 +494,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightFullPageEdit",
   "versionHighlightTableRestyle",
   "versionHighlightSidebarPolish",
+  "versionHighlightPaneResize",
 ] as const;

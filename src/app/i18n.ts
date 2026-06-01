@@ -997,6 +997,7 @@ const enUS = {
   versionHighlightFullPageEdit: "Full-page task editor in the modern layout — open a task or click New task to edit it full-screen; Classic mode keeps the dialog.",
   versionHighlightTableRestyle: "Table restyle — Dark-Blue headers across the data tables, zebra rows on the LOP list",
   versionHighlightSidebarPolish: "Responsive sidebar — collapsible icon rail, accessible navigation (skip link, menu button), and a fuller sidebar footer",
+  versionHighlightPaneResize: "Resizable panes & restructured Resources nav",
 
   outlookCalImportTitle: "Import Outlook calendar",
   outlookCalImportLoading: "Loading events…",

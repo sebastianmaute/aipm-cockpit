@@ -8,6 +8,18 @@ Authoritative source for version + build date: [`src/app/version.ts`](src/app/ve
 This file is seeded from that module's milestone comment plus the
 post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-diff.txt).
 
+## [0.38.0] — 2026-06-01 "Chambers"
+
+### Added
+- **Resizable panes:** every primary view (Open Points, Chat, Gantt, RAID, Resources views, Budget, Activity, Reports, and the RAID/Resource reports) is now drag-resizable — views fill the available height by default, a corner handle lets you drag to any size, and a Reset-size button restores the default. Backed by a shared `VIEW_PANE_RESIZABLE_CLASS` + `useResizable` hook. Chat is presented as a centred half-size card.
+- **Budget pane:** a bucket-count heading row with right-aligned action buttons.
+
+### Changed
+- **Gantt + RAID toolbars:** the add-button now appears before the search field.
+- **RAID panel:** the in-panel "open report" button has been removed; the RAID Report is reachable via the sidebar.
+- **Resources navigation restructured:** the Resources sidebar item now navigates directly to the Resource Report. Its sub-menu holds: Directory (formerly Address Book), Workload, Calendar, Planning, and Manage Roles (now a full page, not a modal). The standalone Resource Report sub-menu entry was removed.
+- **RAID Report + Resource Report** adopt the Reports pane layout with sortable, filterable, column-resizable tables via a shared report-table kit.
+
 ## [0.37.2] — 2026-05-31
 
 ### Testing
