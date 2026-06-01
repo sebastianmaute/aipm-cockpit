@@ -73,7 +73,7 @@ export function TableFilter({
   lang: Lang;
   value: string;
   onChange: (v: string) => void;
-  placeholderKey: "reportsFilterAssignee" | "reportsFilterGroup" | "reportsFilterLabel";
+  placeholderKey: "reportsFilterAssignee" | "reportsFilterGroup" | "reportsFilterLabel" | "raidReportFilterOwner" | "raidReportFilterDetail";
 }) {
   return (
     <div className="mb-2 flex items-center gap-2 print:hidden">

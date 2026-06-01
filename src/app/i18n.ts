@@ -939,6 +939,8 @@ const enUS = {
   raidReportAging31_60: "31–60 days",
   raidReportAging61_90: "61–90 days",
   raidReportAgingGT90: "> 90 days",
+  raidReportFilterOwner: "Filter owners…",
+  raidReportFilterDetail: "Filter items…",
   raidReportEmpty: "No RAID items yet. Add some in the RAID panel.",
   raidReportOpenReport: "Open RAID Report",
   raidReportOpenReportHint: "Open a steering-committee overview in a new window.",

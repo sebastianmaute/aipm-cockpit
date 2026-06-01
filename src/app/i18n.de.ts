@@ -957,6 +957,8 @@ export const de: Record<TranslationKey, string> = {
   raidReportAging31_60: "31–60 Tage",
   raidReportAging61_90: "61–90 Tage",
   raidReportAgingGT90: "> 90 Tage",
+  raidReportFilterOwner: "Owner filtern…",
+  raidReportFilterDetail: "Items filtern…",
   raidReportEmpty: "Noch keine RAID-Einträge. Über das RAID-Panel hinzufügen.",
   raidReportOpenReport: "RAID-Report öffnen",
   raidReportOpenReportHint: "Eine Steuerungskreis-Übersicht in einem neuen Fenster öffnen.",

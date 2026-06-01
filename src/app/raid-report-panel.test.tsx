@@ -87,3 +87,45 @@ describe("RaidReportPanel", () => {
     expect(screen.getByText("Server capacity risk")).toBeInTheDocument();
   });
 });
+
+describe("RaidReportPanel — resizable card, filters, resize handles", () => {
+  const sampleItems: RaidItem[] = [
+    {
+      id: 1,
+      category: "R",
+      title: "Server may fail",
+      severity: "High",
+      status: "Open",
+      owner: "Alice",
+      raisedDate: "2026-01-01",
+      linkedTaskIds: [],
+      causedByRaidIds: [],
+    },
+  ];
+
+  it("raid report uses a resizable ReportCard with a filter input and resize handles", () => {
+    const { container } = render(
+      <RaidReportPanel lang="en-US" items={sampleItems} today="2026-05-31" />,
+    );
+    // ReportCard wraps content in print-root + VIEW_PANE_RESIZABLE_CLASS which includes "resize"
+    expect(container.querySelector(".print-root.resize")).toBeTruthy();
+    // At least one ColumnResizeHandle (absolute right-0 top-0 cursor-col-resize div) exists
+    expect(
+      container.querySelector(".cursor-col-resize"),
+    ).toBeTruthy();
+    // At least one filter search input (summary owner/detail tables)
+    expect(
+      container.querySelector("input[type='search']"),
+    ).toBeTruthy();
+  });
+
+  it("Full Detail view also shows a filter input and resize handles", () => {
+    const { container } = render(
+      <RaidReportPanel lang="en-US" items={sampleItems} today="2026-05-31" />,
+    );
+    // Switch to full detail
+    fireEvent.click(screen.getByRole("radio", { name: "Full Detail" }));
+    expect(container.querySelector(".cursor-col-resize")).toBeTruthy();
+    expect(container.querySelector("input[type='search']")).toBeTruthy();
+  });
+});
