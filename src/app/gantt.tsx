@@ -28,7 +28,9 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { isPlainObject } from "./sanitize";
+import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { useResizable } from "./use-resizable";
+import { ResetSizeButton, ResizeCornerHint } from "./task-manager-ui";
 import { PRIORITIES, type Absence, type AbsenceType, type DependencyType, type Priority, type Task } from "./types";
 
 // --- preferences ----------------------------------------------------------
@@ -529,8 +531,9 @@ export function GanttPanel({
   onEditTask?: (task: Task) => void;
 }) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
   const didInitialScroll = useRef(false);
-  const { ref: panelRef } = useResizable("lop-app:gantt-size");
+  const { ref: ganttRef, reset: resetGanttSize } = useResizable("lop-app:gantt-size");
 
   // --- prefs: sort + filters + custom order, persisted in localStorage ---
   const [prefs, setPrefs] = useState<GanttPrefs>(DEFAULT_PREFS);
@@ -986,13 +989,13 @@ export function GanttPanel({
 
   // On mount (and on the first render where layout is meaningful), scroll
   // the chart so today sits in the viewport's horizontal center. Targets
-  // panelRef (the outer overflow-auto container — the only scrollable
-  // element); wrapperRef is the inner, non-scrolling chart canvas.
+  // scrollRef (the inner overflow-auto container); ganttRef is the outer
+  // resizable pane root.
   // Latched so the user's manual scroll position is preserved on later
   // renders.
   useLayoutEffect(() => {
     if (didInitialScroll.current) return;
-    const el = panelRef.current;
+    const el = scrollRef.current;
     if (!el || todayOffsetPx <= 0) return;
     const target = todayOffsetPx - el.clientWidth / 2;
     el.scrollLeft = Math.max(
@@ -1000,7 +1003,7 @@ export function GanttPanel({
       Math.min(el.scrollWidth - el.clientWidth, target),
     );
     didInitialScroll.current = true;
-  }, [panelRef, todayOffsetPx]);
+  }, [scrollRef, todayOffsetPx]);
   const chartWidthPx = LEFT_GUTTER_PX + timelineWidthPx;
   const rowsCount = layout.placeable.length;
 
@@ -1036,6 +1039,17 @@ export function GanttPanel({
 
   const toolbar = (
     <div className="flex shrink-0 flex-wrap items-center gap-2 pb-2">
+      {onAddTask && (
+        <button
+          type="button"
+          onClick={onAddTask}
+          aria-label={t(lang, "addTaskButton")}
+          title={t(lang, "addTaskButton")}
+          className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90"
+        >
+          + {t(lang, "addTaskButton")}
+        </button>
+      )}
       <input
         type="search"
         value={prefs.search}
@@ -1145,23 +1159,13 @@ export function GanttPanel({
         </svg>
         <span>{t(lang, "ganttCriticalPath")}</span>
       </button>
-      {onAddTask && (
-        <button
-          type="button"
-          onClick={onAddTask}
-          aria-label={t(lang, "addTaskButton")}
-          title={t(lang, "addTaskButton")}
-          className="ml-auto rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90"
-        >
-          + {t(lang, "addTaskButton")}
-        </button>
-      )}
+      <ResetSizeButton onClick={resetGanttSize} lang={lang} />
     </div>
   );
 
   if (rowsCount === 0) {
     return (
-      <div className="flex h-full min-h-[300px] flex-col">
+      <div ref={ganttRef} className={VIEW_PANE_RESIZABLE_CLASS}>
         {toolbar}
         <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-line p-10 text-center text-sm text-muted-foreground">
           <span>
@@ -1177,16 +1181,17 @@ export function GanttPanel({
             </button>
           )}
         </div>
+        <ResizeCornerHint lang={lang} />
       </div>
     );
   }
 
   return (
-    <div className="flex h-full min-h-[300px] flex-col">
+    <div ref={ganttRef} className={VIEW_PANE_RESIZABLE_CLASS}>
       {toolbar}
       <div
-        ref={panelRef}
-        className="min-h-[240px] w-full min-w-[480px] flex-1 resize overflow-auto rounded-md border border-line"
+        ref={scrollRef}
+        className="min-h-[240px] w-full min-w-[480px] flex-1 overflow-auto rounded-md border border-line"
       >
       <div
         ref={wrapperRef}
@@ -1740,6 +1745,7 @@ export function GanttPanel({
         </div>
       </div>
       </div>
+      <ResizeCornerHint lang={lang} />
     </div>
   );
 }

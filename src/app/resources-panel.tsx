@@ -1,11 +1,10 @@
 "use client";
 
-// Resource Planner panel — view shell hosting four tabs.
+// Resource Planner panel — view shell hosting workload / calendar / planning.
 //
-// Four views, switchable via a single SegmentedControl in the header:
-//   - "directory" — address-book table (one row per Resource); the name opens
-//                   the edit modal, discipline/grade are inline selects.
-//                   Rendered by the sibling <ResourceDirectory /> component.
+// The active view is passed in as a `view` prop (driven by workspace-section).
+// Directory is no longer owned by this panel — it lives in its own view.
+//
 //   - "workload"  — per-assignee stats table (open/overdue counts + upcoming
 //                   absences), aggregated from tasks/absences/shifts.
 //   - "calendar"  — 30-day grid (rows × days). Rendered by <ResourceCalendar />.
@@ -21,8 +20,7 @@ import { memo, useMemo, useState } from "react";
 import { localeFor } from "./date-format";
 import { type Lang, t } from "./i18n";
 import { ResourceCalendar } from "./resource-calendar";
-import { ResourceDirectory } from "./resource-directory";
-import { INNER_TABLE_CLASS } from "./view-styles";
+import { INNER_TABLE_CLASS, VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { ResourceWorkload } from "./resource-workload";
 import { SegmentedControl } from "./segmented-control";
 import { generatePeriods, displayCapacityHours, absencesForResource, absenceWorkdays } from "./resource-capacity";
@@ -30,8 +28,6 @@ import { periodCost, formatCurrency } from "./resource-cost";
 import {
   type Absence,
   DEFAULT_WEEK_HOURS,
-  type Discipline,
-  type Grade,
   type PlanGranularity,
   type Resource,
   type ResourcePlan,
@@ -42,8 +38,9 @@ import {
 } from "./types";
 import { resourceDisplayName } from "./resource-foundation";
 import { useColumnResize } from "./use-column-resize";
-import { ColumnResizeHandle, ResetColWidthsButton } from "./task-manager-ui";
+import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton, ResizeCornerHint } from "./task-manager-ui";
 import { TABLE_HEAD_CLASS } from "./table-styles";
+import { useResizable } from "./use-resizable";
 
 const PLANNING_COL_WIDTHS = {
   assignee: 160,
@@ -63,6 +60,7 @@ type RollupCol = keyof typeof ROLLUP_COL_WIDTHS;
 
 interface Props {
   lang: Lang;
+  view: "workload" | "calendar" | "planning";
   tasks: readonly Task[];
   absences: readonly Absence[];
   shifts: readonly Shift[];
@@ -79,11 +77,6 @@ interface Props {
     assignee: { display: string; email: string },
   ) => void;
   roles: readonly Role[];
-  disciplines: readonly Discipline[];
-  grades: readonly Grade[];
-  onManageRoles: () => void;
-  onOpenReport: () => void;
-  onAssignRole: (resourceId: number, disciplineId: number, gradeId: number) => void;
   plan: ResourcePlan;
   workdayHours: number;
   onSetUtilization: (resourceId: number, periodKey: string, value: number) => void;
@@ -92,29 +85,10 @@ interface Props {
   onSetPlanWindow: (startDate: string, endDate: string) => void;
   onEditResource: (resource: Resource) => void;
   onAddResource: (seed?: Partial<Resource>) => void;
-  onOpenAddressBook?: () => void;
-  onImportOutlook?: () => void;
   onImportOutlookCalendar?: () => void;
 }
 
-function GearIcon() {
-  return (
-    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-4 w-4">
-      <path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.53 1.53 0 01-2.29.95c-1.37-.84-2.94.73-2.1 2.1.54.88.07 2.04-.95 2.29-1.56.38-1.56 2.6 0 2.98.99.24 1.49 1.41.95 2.29-.84 1.37.73 2.94 2.1 2.1.88-.54 2.04-.07 2.29.95.38 1.56 2.6 1.56 2.98 0a1.53 1.53 0 012.29-.95c1.37.84 2.94-.73 2.1-2.1a1.53 1.53 0 01.95-2.29c1.56-.38 1.56-2.6 0-2.98a1.53 1.53 0 01-.95-2.29c.84-1.37-.73-2.94-2.1-2.1a1.53 1.53 0 01-2.29-.95zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
-    </svg>
-  );
-}
-function ReportIcon() {
-  return (
-    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-4 w-4">
-      <path d="M15.5 2A1.5 1.5 0 0117 3.5v13A1.5 1.5 0 0115.5 18h-11A1.5 1.5 0 013 16.5v-13A1.5 1.5 0 014.5 2h11zM7 14a1 1 0 10-2 0 1 1 0 002 0zm0-3.5a1 1 0 10-2 0 1 1 0 002 0zM14 6.5A.5.5 0 0013.5 6h-7a.5.5 0 000 1h7a.5.5 0 00.5-.5z" />
-    </svg>
-  );
-}
-
-type View = "directory" | "workload" | "calendar" | "planning";
-
-interface AssigneeRow {
+type AssigneeRow = {
   key: string;          // case-folded join key
   display: string;      // first observed original casing
   email: string;        // first non-empty email observed
@@ -123,7 +97,7 @@ interface AssigneeRow {
   upcoming: Absence[];  // sorted by startDate asc, within 60-day window
   shift: Shift | null;  // matching shift (case-folded join), or null = default
   weeklyHours: number;  // sum of hoursPerWeekday — uses DEFAULT_WEEK_HOURS when shift is null
-}
+};
 
 function sumHours(h: WeekHours): number {
   return h.reduce((a, b) => a + (b || 0), 0);
@@ -133,6 +107,7 @@ const DEFAULT_WEEKLY_HOURS_TOTAL = sumHours(DEFAULT_WEEK_HOURS);
 
 function ResourcesPanelInner({
   lang,
+  view,
   tasks,
   absences,
   shifts,
@@ -143,11 +118,6 @@ function ResourcesPanelInner({
   onEditAbsence,
   onEditShift,
   roles,
-  disciplines,
-  grades,
-  onManageRoles,
-  onOpenReport,
-  onAssignRole,
   plan,
   workdayHours,
   onSetUtilization,
@@ -156,8 +126,6 @@ function ResourcesPanelInner({
   onSetPlanWindow,
   onEditResource,
   onAddResource,
-  onOpenAddressBook,
-  onImportOutlook,
   onImportOutlookCalendar,
 }: Props) {
   const planning = useColumnResize<PlanningCol>("planning", PLANNING_COL_WIDTHS);
@@ -169,7 +137,8 @@ function ResourcesPanelInner({
     rollup.resetColWidths();
   };
 
-  const [view, setView] = useState<View>("directory");
+  const { ref: resRef, reset: resetResSize } = useResizable(`lop-app:${view}-size`);
+
   const [showRollup, setShowRollup] = useState(false);
   // View granularity controls how the planning grid is sliced for display.
   // It is independent of the plan's CANONICAL (entry) granularity, where
@@ -253,8 +222,8 @@ function ResourcesPanelInner({
     );
   }, [tasks, absences, shifts, today]);
 
-  // Header: title + (when there are rows) view-toggle + "+ Add absence".
-  const renderHeader = (showToggle: boolean) => (
+  // Header: title + count; planning-only ResetColWidths; calendar-only Outlook import; always ResetSize.
+  const renderHeader = () => (
     <header className="mb-3 flex shrink-0 items-baseline justify-between gap-2">
       <h2 className="text-lg font-medium text-foreground">
         {t(lang, "tabResources")}
@@ -265,49 +234,9 @@ function ResourcesPanelInner({
         )}
       </h2>
       <div className="flex items-center gap-3">
-        {showToggle && (
-          <SegmentedControl<View>
-            value={view}
-            ariaLabel={t(lang, "tabResources")}
-            title={t(lang, "resourcesViewHint")}
-            options={[
-              { value: "directory", label: t(lang, "resourcesViewDirectory") },
-              { value: "workload", label: t(lang, "resourcesViewWorkload") },
-              { value: "calendar", label: t(lang, "resourcesViewCalendar") },
-              { value: "planning", label: t(lang, "resourcesViewPlanning") },
-            ]}
-            onChange={(v) => setView(v)}
-          />
-        )}
         {view === "planning" && (
           <ResetColWidthsButton onClick={resetPlanningAndRollup} lang={lang} />
         )}
-        <button
-          type="button"
-          onClick={onManageRoles}
-          title={t(lang, "resourcesManageRolesHint")}
-          className="inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted dark:text-AIPM-light-grey"
-        >
-          <GearIcon />
-          {t(lang, "resourcesManageRoles")}
-        </button>
-        <button
-          type="button"
-          onClick={onOpenReport}
-          title={t(lang, "resourcesOpenReportHint")}
-          className="inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted dark:text-AIPM-light-grey"
-        >
-          <ReportIcon />
-          {t(lang, "resourcesOpenReport")}
-        </button>
-        <button
-          type="button"
-          onClick={() => onAddAbsence()}
-          title={t(lang, "resourcesAddAbsenceHint")}
-          className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90"
-        >
-          {t(lang, "resourcesAddAbsence")}
-        </button>
         {view === "calendar" && onImportOutlookCalendar && (
           <button
             type="button"
@@ -317,17 +246,17 @@ function ResourcesPanelInner({
             {t(lang, "outlookCalImportButton")}
           </button>
         )}
+        <ResetSizeButton onClick={resetResSize} lang={lang} />
       </div>
     </header>
   );
 
-  const showToggle = true;
   const isEmpty = rows.length === 0 && resources.length === 0;
 
   return (
-    <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-line bg-surface p-4 dark:border-line">
-      {renderHeader(showToggle)}
-      {isEmpty && view !== "planning" && view !== "directory" && (
+    <section ref={resRef} className={VIEW_PANE_RESIZABLE_CLASS}>
+      {renderHeader()}
+      {isEmpty && view !== "planning" && (
         <div className="mt-3 flex-1 rounded-md border border-dashed border-line p-6 text-center text-sm text-muted-foreground">
           {t(lang, "resourcesEmpty")}
         </div>
@@ -577,20 +506,6 @@ function ResourcesPanelInner({
           </>
         );
       })()}
-      {view === "directory" && (
-        <ResourceDirectory
-          lang={lang}
-          resources={resources}
-          roles={roles}
-          disciplines={disciplines}
-          grades={grades}
-          onAssignRole={onAssignRole}
-          onEditResource={onEditResource}
-          onAddResource={onAddResource}
-          onOpenAddressBook={onOpenAddressBook}
-          onImportOutlook={onImportOutlook}
-        />
-      )}
       {view === "workload" && !isEmpty && (
         <ResourceWorkload
           lang={lang}
@@ -619,6 +534,7 @@ function ResourcesPanelInner({
           onAddResource={onAddResource}
         />
       )}
+      <ResizeCornerHint lang={lang} />
     </section>
   );
 }

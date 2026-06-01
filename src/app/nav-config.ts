@@ -8,8 +8,11 @@ export type AppView =
   | "chat"
   | "gantt"
   | "resources"
-  | "address-book"
-  | "resource-report"
+  | "directory"
+  | "workload"
+  | "calendar"
+  | "planning"
+  | "manage-roles"
   | "budget"
   | "raid"
   | "raid-report"
@@ -39,7 +42,13 @@ export const NAV_GROUPS: NavGroup[] = [
       { view: "gantt" },
       {
         view: "resources",
-        children: [{ view: "address-book" }, { view: "resource-report" }],
+        children: [
+          { view: "directory" },
+          { view: "workload" },
+          { view: "calendar" },
+          { view: "planning" },
+          { view: "manage-roles" },
+        ],
       },
       { view: "budget" },
     ],
@@ -62,8 +71,11 @@ const LABEL_KEYS: Record<Exclude<AppView, "edit">, TranslationKey> = {
   chat: "tabChat",
   gantt: "tabGantt",
   resources: "tabResources",
-  "address-book": "resourcesAddressBookTitle",
-  "resource-report": "resourcesReportTitle",
+  directory: "resourcesViewDirectory",
+  workload: "resourcesViewWorkload",
+  calendar: "resourcesViewCalendar",
+  planning: "resourcesViewPlanning",
+  "manage-roles": "resourcesManageRoles",
   budget: "tabBudget",
   raid: "tabRaid",
   "raid-report": "raidReportTitle",
@@ -93,6 +105,8 @@ export function viewToSlug(view: AppView): string {
 }
 
 export function slugToView(slug: string): AppView {
+  if (slug === "address-book") return "directory";
+  if (slug === "resource-report") return "resources";
   const found = allNavViews().find((v) => viewToSlug(v) === slug);
   return found ?? "open-points";
 }

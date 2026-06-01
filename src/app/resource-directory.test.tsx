@@ -19,6 +19,7 @@ const common = {
   onAssignRole: vi.fn(),
   onEditResource: vi.fn(),
   onAddResource: vi.fn(),
+  onAddAbsence: vi.fn(),
 };
 
 describe("ResourceDirectory", () => {
@@ -26,23 +27,21 @@ describe("ResourceDirectory", () => {
 
   it("fires onEditResource when the name is clicked", () => {
     const onEdit = vi.fn();
-    render(<ResourceDirectory lang="en-US" resources={rs} roles={[]} disciplines={[]} grades={[]} onAssignRole={vi.fn()} onEditResource={onEdit} onAddResource={vi.fn()} />);
+    render(<ResourceDirectory lang="en-US" resources={rs} roles={[]} disciplines={[]} grades={[]} onAssignRole={vi.fn()} onEditResource={onEdit} onAddResource={vi.fn()} onAddAbsence={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name: "Alex Example" }));
     expect(onEdit).toHaveBeenCalledWith(rs[0]);
   });
   it("fires onAddResource from the add button", () => {
     const onAdd = vi.fn();
-    render(<ResourceDirectory lang="en-US" resources={rs} roles={[]} disciplines={[]} grades={[]} onAssignRole={vi.fn()} onEditResource={vi.fn()} onAddResource={onAdd} />);
+    render(<ResourceDirectory lang="en-US" resources={rs} roles={[]} disciplines={[]} grades={[]} onAssignRole={vi.fn()} onEditResource={vi.fn()} onAddResource={onAdd} onAddAbsence={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name: /add resource/i }));
     expect(onAdd).toHaveBeenCalled();
   });
-  it("renders Open address book button only when the handler is provided", () => {
-    const onOpen = vi.fn();
-    const { rerender } = render(<ResourceDirectory lang="en-US" resources={rs} roles={[]} disciplines={[]} grades={[]} onAssignRole={vi.fn()} onEditResource={vi.fn()} onAddResource={vi.fn()} />);
-    expect(screen.queryByRole("button", { name: /open address book/i })).toBeNull();
-    rerender(<ResourceDirectory lang="en-US" resources={rs} roles={[]} disciplines={[]} grades={[]} onAssignRole={vi.fn()} onEditResource={vi.fn()} onAddResource={vi.fn()} onOpenAddressBook={onOpen} />);
-    fireEvent.click(screen.getByRole("button", { name: /open address book/i }));
-    expect(onOpen).toHaveBeenCalled();
+  it("fires onAddAbsence from the Add Absence button", () => {
+    const onAdd = vi.fn();
+    render(<ResourceDirectory lang="en-US" resources={rs} roles={[]} disciplines={[]} grades={[]} onAssignRole={vi.fn()} onEditResource={vi.fn()} onAddResource={vi.fn()} onAddAbsence={onAdd} />);
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "resourcesAddAbsence") }));
+    expect(onAdd).toHaveBeenCalled();
   });
 
   it("filters rows by the search box", () => {
@@ -81,12 +80,12 @@ describe("ResourceDirectory", () => {
     const onImport = vi.fn();
     const { rerender } = render(
       <ResourceDirectory lang="en-US" resources={rs} roles={[]} disciplines={[]} grades={[]}
-        onAssignRole={vi.fn()} onEditResource={vi.fn()} onAddResource={vi.fn()} />,
+        onAssignRole={vi.fn()} onEditResource={vi.fn()} onAddResource={vi.fn()} onAddAbsence={vi.fn()} />,
     );
     expect(screen.queryByRole("button", { name: t("en-US", "outlookImportButton") })).toBeNull();
     rerender(
       <ResourceDirectory lang="en-US" resources={rs} roles={[]} disciplines={[]} grades={[]}
-        onAssignRole={vi.fn()} onEditResource={vi.fn()} onAddResource={vi.fn()} onImportOutlook={onImport} />,
+        onAssignRole={vi.fn()} onEditResource={vi.fn()} onAddResource={vi.fn()} onAddAbsence={vi.fn()} onImportOutlook={onImport} />,
     );
     const btn = screen.getByRole("button", { name: t("en-US", "outlookImportButton") });
     fireEvent.click(btn);

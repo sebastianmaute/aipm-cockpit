@@ -6,14 +6,13 @@ import { TaskFormModal } from "./task-form-modal";
 import { JiraConflictsModal } from "./jira-conflicts-modal";
 import { AbsenceEditModal } from "./absence-edit-modal";
 import { ShiftEditModal } from "./shift-edit-modal";
-import { RolesModal } from "./roles-modal";
 import { ResourceEditModal } from "./resource-edit-modal";
 import type { listContacts } from "./contacts";
 import type { AlertableTask } from "./due-dates";
 import type { Lang } from "./i18n";
 import type { ConflictItem } from "./jira-api";
 import type { ConflictResolution } from "./jira-conflicts-modal";
-import type { Absence, Discipline, Grade, Resource, Role, Shift, Task } from "./types";
+import type { Absence, Resource, Shift, Task } from "./types";
 
 export interface AppModalsProps {
   lang: Lang;
@@ -76,24 +75,6 @@ export interface AppModalsProps {
   onDeleteResource: (id: number) => void;
   onCloseResourceModal: () => void;
 
-  // Roles modal
-  rolesModalOpen: boolean;
-  roles: Role[];
-  disciplines: Discipline[];
-  grades: Grade[];
-  onSaveRole: (role: Role) => void;
-  onDeleteRole: (id: number) => void;
-  onResolveOrCreateRole: (disciplineId: number, gradeId: number) => number;
-  onAddDiscipline: (name: string) => number | null;
-  onRenameDiscipline: (id: number, name: string) => void;
-  onDeleteDiscipline: (id: number) => void;
-  onReorderDisciplines: (ids: number[]) => void;
-  onAddGrade: (name: string) => number | null;
-  onRenameGrade: (id: number, name: string) => void;
-  onDeleteGrade: (id: number) => void;
-  onReorderGrades: (ids: number[]) => void;
-  onCloseRolesModal: () => void;
-
   // Toast
   toast: { kind: "info" | "error"; text: string } | null;
 }
@@ -143,22 +124,6 @@ export function AppModals({
   onSaveResource,
   onDeleteResource,
   onCloseResourceModal,
-  rolesModalOpen,
-  roles,
-  disciplines,
-  grades,
-  onSaveRole,
-  onDeleteRole,
-  onResolveOrCreateRole,
-  onAddDiscipline,
-  onRenameDiscipline,
-  onDeleteDiscipline,
-  onReorderDisciplines,
-  onAddGrade,
-  onRenameGrade,
-  onDeleteGrade,
-  onReorderGrades,
-  onCloseRolesModal,
   toast,
 }: AppModalsProps) {
   return (
@@ -241,26 +206,6 @@ export function AppModals({
           onClose={onCloseResourceModal}
         />
       )}
-
-      <RolesModal
-        lang={lang}
-        open={rolesModalOpen}
-        roles={roles}
-        disciplines={disciplines}
-        grades={grades}
-        onSaveRole={onSaveRole}
-        onDeleteRole={onDeleteRole}
-        onResolveOrCreateRole={onResolveOrCreateRole}
-        onAddDiscipline={onAddDiscipline}
-        onRenameDiscipline={onRenameDiscipline}
-        onDeleteDiscipline={onDeleteDiscipline}
-        onReorderDisciplines={onReorderDisciplines}
-        onAddGrade={onAddGrade}
-        onRenameGrade={onRenameGrade}
-        onDeleteGrade={onDeleteGrade}
-        onReorderGrades={onReorderGrades}
-        onClose={onCloseRolesModal}
-      />
 
       {!isPopout && (
         <footer className="mt-12 flex items-center justify-between gap-4 border-t border-AIPM-light-grey pt-6 text-xs text-AIPM-medium-grey dark:border-zinc-800">

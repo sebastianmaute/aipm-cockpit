@@ -1,9 +1,9 @@
 "use client";
 import React, { createContext, useContext, useState } from "react";
 import { type PopoutTab, readPopoutTabFromUrl } from "./broadcast-sync";
-import { type AppView } from "./nav-config";
+import { type AppView, slugToView } from "./nav-config";
 
-export type TopTab = "chat" | "reports" | "gantt" | "raid" | "resources" | "activity" | "resource-report" | "raid-report" | "address-book" | "budget";
+export type TopTab = "chat" | "reports" | "gantt" | "raid" | "resources" | "directory" | "workload" | "calendar" | "planning" | "manage-roles" | "activity" | "raid-report" | "budget";
 
 interface WorkspaceTabContextValue {
   activeTab: AppView;
@@ -16,7 +16,10 @@ const WorkspaceTabContext = createContext<WorkspaceTabContextValue | null>(null)
 export function WorkspaceTabProvider({ children }: { children: React.ReactNode }) {
   const [popoutTab] = useState<PopoutTab | null>(() => readPopoutTabFromUrl());
   const isPopout = popoutTab !== null;
-  const [activeTab, setActiveTab] = useState<AppView>(popoutTab ?? "chat");
+  // `popoutTab` may still carry legacy popout slugs (`resource-report`,
+  // `address-book`) that map onto the resources/directory views; route them
+  // through slugToView so the initial AppView is always a valid view.
+  const [activeTab, setActiveTab] = useState<AppView>(popoutTab ? slugToView(popoutTab) : "chat");
   return (
     <WorkspaceTabContext.Provider value={{ activeTab, setActiveTab, isPopout }}>
       {children}

@@ -12,9 +12,11 @@ import { BulkEditModal } from "./bulk-edit-modal";
 import { RowContextProvider, TaskRow, type RowContextValue } from "./task-row";
 import { DEFAULT_COL_WIDTHS } from "./use-column-manager";
 import { TABLE_HEAD_CLASS } from "./table-styles";
+import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import {
   EraserIcon,
   ResetColWidthsButton,
+  ResizeCornerHint,
   ResetSizeIcon,
   SortableTh,
   Th,
@@ -207,7 +209,7 @@ export function TasksSection({
       ref={tableRef}
       className={
         fillHeight
-          ? "relative mb-10 flex h-full min-h-0 min-w-[520px] flex-col overflow-hidden rounded-xl border border-line bg-surface p-6"
+          ? VIEW_PANE_RESIZABLE_CLASS
           : "relative mb-10 flex h-[560px] min-h-[300px] min-w-[520px] resize flex-col overflow-hidden rounded-xl border border-line bg-surface p-6"
       }
     >
@@ -532,8 +534,7 @@ export function TasksSection({
           </table>
         </RowContextProvider>
       </div>
-      <span aria-hidden={true} title={t(lang, "tableResizeHint")}
-        className="pointer-events-none absolute bottom-1 right-1 select-none text-muted-foreground">⠿</span>
+      <ResizeCornerHint lang={lang} />
     </section>
   );
 }

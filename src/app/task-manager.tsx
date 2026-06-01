@@ -38,6 +38,7 @@ import { AppHeader } from "./app-header";
 import { BirthdayBanner, DueBanner, JiraTokenBanner } from "./notifications";
 import { getJiraTokenAlert } from "./jira-token-status";
 import { WorkspaceSection } from "./workspace-section";
+import { RolesPanel } from "./roles-panel";
 import { getUpcomingBirthdays } from "./birthdays";
 import { useBirthdayAlerts } from "./use-birthday-alerts";
 import { useReminderSnooze } from "./use-reminder-snooze";
@@ -246,9 +247,6 @@ function TaskManagerInner() {
     handleSaveShift,
     handleDeleteShift,
     handleCreateMitigationTaskFromRaid,
-    rolesModalOpen,
-    handleOpenRolesModal,
-    handleCloseRolesModal,
     handleSaveRole,
     handleDeleteRole,
     resolveOrCreateRole,
@@ -644,7 +642,25 @@ function TaskManagerInner() {
     handleOpenAddAbsence: guardEdit(handleOpenAddAbsence),
     handleEditAbsence: guardEdit(handleEditAbsence),
     handleOpenShiftEditor: guardEdit(handleOpenShiftEditor),
-    onManageRoles: guardEdit(handleOpenRolesModal),
+    manageRolesView: (
+      <RolesPanel
+        lang={lang}
+        roles={roles}
+        disciplines={disciplines}
+        grades={grades}
+        onSaveRole={handleSaveRole}
+        onDeleteRole={handleDeleteRole}
+        onResolveOrCreateRole={resolveOrCreateRole}
+        onAddDiscipline={handleAddDiscipline}
+        onRenameDiscipline={handleRenameDiscipline}
+        onDeleteDiscipline={onDeleteDiscipline}
+        onReorderDisciplines={onReorderDisciplines}
+        onAddGrade={handleAddGrade}
+        onRenameGrade={handleRenameGrade}
+        onDeleteGrade={onDeleteGrade}
+        onReorderGrades={onReorderGrades}
+      />
+    ),
     onAssignRole: guardEdit(handleAssignResourceRole),
     onSetUtilization: guardEdit(handleSetUtilization),
     onSetAllUtilizationMode: guardEdit(handleSetAllUtilizationMode),
@@ -882,22 +898,6 @@ function TaskManagerInner() {
         onSaveResource={handleSaveResourceFromAnywhere}
         onDeleteResource={handleDeleteResource}
         onCloseResourceModal={handleCloseResourceFromAnywhere}
-        rolesModalOpen={rolesModalOpen}
-        roles={roles}
-        disciplines={disciplines}
-        grades={grades}
-        onSaveRole={handleSaveRole}
-        onDeleteRole={handleDeleteRole}
-        onResolveOrCreateRole={resolveOrCreateRole}
-        onAddDiscipline={handleAddDiscipline}
-        onRenameDiscipline={handleRenameDiscipline}
-        onDeleteDiscipline={onDeleteDiscipline}
-        onReorderDisciplines={onReorderDisciplines}
-        onAddGrade={handleAddGrade}
-        onRenameGrade={handleRenameGrade}
-        onDeleteGrade={onDeleteGrade}
-        onReorderGrades={onReorderGrades}
-        onCloseRolesModal={handleCloseRolesModal}
         toast={toast}
       />
     </>

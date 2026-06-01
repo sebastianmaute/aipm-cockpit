@@ -3,14 +3,15 @@ import { useMemo, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { formatCurrency } from "./resource-cost";
 import { computeBudgetReport, bucketActivePeriods, type BucketReport, type CciValue } from "./budget-report";
-import { VIEW_PANE_CLASS } from "./view-styles";
+import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { roleLabel } from "./resource-foundation";
 import { eurToCurrency, resolveRate } from "./fx";
 import type { Absence, BudgetBucket, Discipline, FxRates, Grade, Resource, ResourcePlan, Role } from "./types";
 import { BudgetBucketModal } from "./budget-bucket-modal";
 import { useColumnResize } from "./use-column-resize";
-import { ColumnResizeHandle, ResetColWidthsButton } from "./task-manager-ui";
+import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton, ResizeCornerHint } from "./task-manager-ui";
 import { TABLE_HEAD_CLASS } from "./table-styles";
+import { useResizable } from "./use-resizable";
 
 const BUDGET_COL_WIDTHS = {
   role: 160,
@@ -80,6 +81,8 @@ export function BudgetPanel(props: BudgetPanelProps) {
     BUDGET_COL_WIDTHS,
   );
   const startResize = startColResize as (col: string, e: React.MouseEvent) => void;
+
+  const { ref: budgetRef, reset: resetBudgetSize } = useResizable("lop-app:budget-size");
 
   const [dragId, setDragId] = useState<number | null>(null);
   const [editingBucketId, setEditingBucketId] = useState<number | null>(null);
@@ -160,8 +163,14 @@ export function BudgetPanel(props: BudgetPanelProps) {
   };
 
   return (
-    <div className={`${VIEW_PANE_CLASS} flex flex-col gap-6 p-6`}>
-      <div className="flex items-center justify-between">
+    <div ref={budgetRef} className={VIEW_PANE_RESIZABLE_CLASS}>
+      <div className="flex shrink-0 items-center justify-between">
+        <h2 className="text-lg font-medium text-foreground">
+          {t(lang, "tabBudget")}{" "}
+          <span className="text-sm font-normal text-muted-foreground">
+            {t(lang, "budgetBucketsCount", report.buckets.length)}
+          </span>
+        </h2>
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -170,20 +179,22 @@ export function BudgetPanel(props: BudgetPanelProps) {
           >
             + {t(lang, "budgetAddBucket")}
           </button>
+          <button
+            type="button"
+            onClick={props.onRefreshFx}
+            disabled={props.fxLoading}
+            className="inline-flex items-center gap-1.5 rounded-md border border-AIPM-dark-blue bg-surface px-3 py-1.5 text-sm font-medium text-AIPM-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className={`h-4 w-4 ${props.fxLoading ? "animate-spin" : ""}`}>
+              <path fillRule="evenodd" d="M15.312 11.424a5.5 5.5 0 01-9.201 2.466l-.312-.311h2.433a.75.75 0 000-1.5H3.989a.75.75 0 00-.75.75v4.242a.75.75 0 001.5 0v-2.43l.31.31a7 7 0 0011.712-3.138.75.75 0 00-1.449-.39zm1.23-3.723a.75.75 0 00.219-.53V2.929a.75.75 0 00-1.5 0V5.36l-.31-.31A7 7 0 003.239 8.188a.75.75 0 101.448.389A5.5 5.5 0 0113.89 6.11l.311.31h-2.432a.75.75 0 000 1.5h4.243a.75.75 0 00.53-.219z" clipRule="evenodd" />
+            </svg>
+            {t(lang, "budgetFxRefresh")}
+          </button>
           <ResetColWidthsButton onClick={resetColWidths} lang={lang} />
+          <ResetSizeButton onClick={resetBudgetSize} lang={lang} />
         </div>
-        <button
-          type="button"
-          onClick={props.onRefreshFx}
-          disabled={props.fxLoading}
-          className="inline-flex items-center gap-1.5 rounded-md border border-AIPM-dark-blue bg-surface px-3 py-1.5 text-sm font-medium text-AIPM-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className={`h-4 w-4 ${props.fxLoading ? "animate-spin" : ""}`}>
-            <path fillRule="evenodd" d="M15.312 11.424a5.5 5.5 0 01-9.201 2.466l-.312-.311h2.433a.75.75 0 000-1.5H3.989a.75.75 0 00-.75.75v4.242a.75.75 0 001.5 0v-2.43l.31.31a7 7 0 0011.712-3.138.75.75 0 00-1.449-.39zm1.23-3.723a.75.75 0 00.219-.53V2.929a.75.75 0 00-1.5 0V5.36l-.31-.31A7 7 0 003.239 8.188a.75.75 0 101.448.389A5.5 5.5 0 0113.89 6.11l.311.31h-2.432a.75.75 0 000 1.5h4.243a.75.75 0 00.53-.219z" clipRule="evenodd" />
-          </svg>
-          {t(lang, "budgetFxRefresh")}
-        </button>
       </div>
+      <div className="min-h-0 flex-1 space-y-6 overflow-y-auto">
       <section>
         <h2 className="mb-2 text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
           {t(lang, "budgetTitle")} — {t(lang, "budgetProjectTotal")}
@@ -361,6 +372,8 @@ export function BudgetPanel(props: BudgetPanelProps) {
           onClose={() => setEditingBucketId(null)}
         />
       )}
+      </div>
+      <ResizeCornerHint lang={lang} />
     </div>
   );
 }

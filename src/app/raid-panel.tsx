@@ -13,7 +13,6 @@
 import { memo, useEffect, useMemo, useState } from "react";
 import { SegmentedControl } from "./segmented-control";
 import { TABLE_HEAD_CLASS } from "./table-styles";
-import { VIEW_PANE_CLASS } from "./view-styles";
 import { type Lang, t, type TranslationKey } from "./i18n";
 import {
   buildRaidCausesIndex,
@@ -39,7 +38,9 @@ import {
   type Task,
 } from "./types";
 import { useColumnResize } from "./use-column-resize";
-import { ColumnResizeHandle, ResetColWidthsButton } from "./task-manager-ui";
+import { useResizable } from "./use-resizable";
+import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
+import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton, ResizeCornerHint } from "./task-manager-ui";
 
 const RAID_COL_WIDTHS = {
   id: 60,
@@ -77,8 +78,6 @@ export type RaidPanelProps = {
   /** Open the task edit modal for the given task id (used by linked-task
    *  chip clicks). */
   onJumpToTask: (taskId: number) => void;
-  /** Opens the RAID report popout window. */
-  onOpenReport?: () => void;
 };
 
 // --- Color palette -------------------------------------------------------
@@ -162,7 +161,6 @@ function RaidPanelInner({
   onDelete,
   onCreateMitigationTask,
   onJumpToTask,
-  onOpenReport,
 }: RaidPanelProps) {
   const [categoryFilter, setCategoryFilter] = useState<"All" | RaidCategory>(
     "All",
@@ -335,6 +333,7 @@ function RaidPanelInner({
     RAID_COL_WIDTHS,
   );
   const startResize = startColResize as (col: string, e: React.MouseEvent) => void;
+  const { ref: raidRef, reset: resetRaidSize } = useResizable("lop-app:raid-size");
 
   const filtersActive =
     search.trim() !== "" ||
@@ -345,6 +344,13 @@ function RaidPanelInner({
 
   const toolbar = (
     <div className="flex shrink-0 flex-wrap items-center gap-2 pb-2">
+      <button
+        type="button"
+        onClick={() => openNew()}
+        className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90"
+      >
+        {t(lang, "raidAddItem")}
+      </button>
       <input
         type="search"
         value={search}
@@ -426,29 +432,12 @@ function RaidPanelInner({
         </button>
       )}
       <ResetColWidthsButton onClick={resetColWidths} lang={lang} />
-      {onOpenReport && (
-        <button
-          type="button"
-          onClick={onOpenReport}
-          aria-label={t(lang, "raidReportOpenReportHint")}
-          title={t(lang, "raidReportOpenReportHint")}
-          className="inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted dark:text-AIPM-light-grey"
-        >
-          {t(lang, "raidReportOpenReport")}
-        </button>
-      )}
-      <button
-        type="button"
-        onClick={() => openNew()}
-        className="ml-auto rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90"
-      >
-        {t(lang, "raidAddItem")}
-      </button>
+      <ResetSizeButton onClick={resetRaidSize} lang={lang} />
     </div>
   );
 
   return (
-    <div className={`flex h-full min-h-0 flex-col overflow-hidden ${VIEW_PANE_CLASS} p-4`}>
+    <div ref={raidRef} className={VIEW_PANE_RESIZABLE_CLASS}>
       {toolbar}
 
       <div className="min-h-[240px] flex-1 overflow-auto rounded-md border border-line">
@@ -677,6 +666,7 @@ function RaidPanelInner({
           }}
         />
       )}
+      <ResizeCornerHint lang={lang} />
     </div>
   );
 }

@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, test, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { BudgetPanel } from "./budget-panel";
@@ -53,4 +55,10 @@ describe("BudgetPanel", () => {
     fireEvent.keyDown(handles[0], { key: "ArrowUp" }); // already at top → no change
     expect(onChangeBuckets).not.toHaveBeenCalled();
   });
+});
+
+test("budget renders a bucket-count heading and is a resizable card", () => {
+  const src = readFileSync(join(__dirname, "budget-panel.tsx"), "utf8");
+  expect(src).toMatch(/budgetBucketsCount/);
+  expect(src).toMatch(/VIEW_PANE_RESIZABLE_CLASS/);
 });

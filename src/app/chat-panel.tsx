@@ -4,9 +4,10 @@ import { memo, useEffect, useRef, useState } from "react";
 import { TOOL_DEFS, type ToolDispatcher, runTool } from "./chat-tools";
 import { type Lang, type TranslationKey, t } from "./i18n";
 import { Markdown } from "./markdown";
-import { VIEW_PANE_CLASS } from "./view-styles";
 import { CHAT_MESSAGE_MAX } from "./sanitize";
 import type { AiConfig } from "./settings-menu";
+import { useResizable } from "./use-resizable";
+import { ResizeCornerHint, ResetSizeButton } from "./task-manager-ui";
 
 type TextBlock = { type: "text"; text: string };
 type ToolUseBlock = {
@@ -99,6 +100,11 @@ function stringifyResult(value: unknown): string {
   }
 }
 
+// Half the content area, centered horizontally, top-anchored, scales with % so
+// it shrinks on smaller screens. Drag the corner to a custom size.
+const CHAT_PANE_CLASS =
+  "relative mx-auto flex h-[50%] max-h-full min-h-[360px] w-[50%] min-w-[420px] flex-col overflow-hidden rounded-xl border border-line bg-surface p-6 resize";
+
 function ChatPanelImpl({
   lang,
   ai,
@@ -140,6 +146,7 @@ function ChatPanelInner({
   const [error, setError] = useState<string | null>(null);
   const scrollerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const { ref: chatRef, reset: resetChatSize } = useResizable("lop-app:chat-size");
 
   useEffect(() => {
     if (!scrollerRef.current) return;
@@ -247,11 +254,9 @@ function ChatPanelInner({
   const apiKeyMissing = !ai.apiKey.trim();
 
   return (
-    // Fills the height made available by the parent (the workspace section,
-    // which is the actual resizable surface). `min-h-[300px]` keeps the chat
-    // usable if the section is shrunk; otherwise the chat tracks the
-    // section's current height.
-    <div className={`flex h-full min-h-[300px] flex-col ${VIEW_PANE_CLASS} p-6`}>
+    // Centered half-size card, top-anchored. The corner drags to a custom size
+    // (persisted via useResizable); ResetSizeButton restores the default.
+    <div ref={chatRef} className={CHAT_PANE_CLASS}>
       <div
         ref={scrollerRef}
         className="flex-1 overflow-y-auto rounded-md border border-line bg-surface-muted p-3"
@@ -332,6 +337,7 @@ function ChatPanelInner({
           className="min-w-0 flex-1 resize-none rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none focus:ring-1 focus:ring-AIPM-green disabled:cursor-not-allowed disabled:opacity-50"
         />
         <div className="flex flex-col gap-2">
+          <ResetSizeButton onClick={resetChatSize} lang={lang} />
           <button
             type="button"
             onClick={sendMessage}
@@ -350,6 +356,7 @@ function ChatPanelInner({
           </button>
         </div>
       </div>
+      <ResizeCornerHint lang={lang} />
     </div>
   );
 }

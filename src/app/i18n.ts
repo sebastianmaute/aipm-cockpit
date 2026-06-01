@@ -244,6 +244,7 @@ const enUS = {
   budgetSave: "Save",
   budgetAmountInvalid: "Amount must be zero or greater.",
   budgetFxOverrideInvalid: "FX rate must be greater than zero.",
+  budgetBucketsCount: "{0} buckets",
 
   tabChat: "Chat",
   tabNewTask: "New task",
@@ -938,6 +939,8 @@ const enUS = {
   raidReportAging31_60: "31–60 days",
   raidReportAging61_90: "61–90 days",
   raidReportAgingGT90: "> 90 days",
+  raidReportFilterOwner: "Filter owners…",
+  raidReportFilterDetail: "Filter items…",
   raidReportEmpty: "No RAID items yet. Add some in the RAID panel.",
   raidReportOpenReport: "Open RAID Report",
   raidReportOpenReportHint: "Open a steering-committee overview in a new window.",
@@ -994,6 +997,7 @@ const enUS = {
   versionHighlightFullPageEdit: "Full-page task editor in the modern layout — open a task or click New task to edit it full-screen; Classic mode keeps the dialog.",
   versionHighlightTableRestyle: "Table restyle — Dark-Blue headers across the data tables, zebra rows on the LOP list",
   versionHighlightSidebarPolish: "Responsive sidebar — collapsible icon rail, accessible navigation (skip link, menu button), and a fuller sidebar footer",
+  versionHighlightPaneResize: "Resizable panes & restructured Resources nav",
 
   outlookCalImportTitle: "Import Outlook calendar",
   outlookCalImportLoading: "Loading events…",

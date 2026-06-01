@@ -10,8 +10,9 @@ import { birthdayMonthDay } from "./birthdays";
 import { resourceDisplayName } from "./resource-foundation";
 import type { Discipline, Grade, Resource, Role } from "./types";
 import { useColumnResize } from "./use-column-resize";
-import { INNER_TABLE_CLASS } from "./view-styles";
-import { ColumnResizeHandle, ResetColWidthsButton } from "./task-manager-ui";
+import { useResizable } from "./use-resizable";
+import { INNER_TABLE_CLASS, VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
+import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton, ResizeCornerHint } from "./task-manager-ui";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 
 const DIRECTORY_COL_WIDTHS = {
@@ -35,7 +36,7 @@ interface Props {
   onAssignRole: (resourceId: number, disciplineId: number, gradeId: number) => void;
   onEditResource: (resource: Resource) => void;
   onAddResource: () => void;
-  onOpenAddressBook?: () => void;
+  onAddAbsence: () => void;
   onImportOutlook?: () => void;
 }
 
@@ -121,9 +122,10 @@ function ResourceDirectoryInner({
   onAssignRole,
   onEditResource,
   onAddResource,
-  onOpenAddressBook,
+  onAddAbsence,
   onImportOutlook,
 }: Props) {
+  const { ref: dirRef, reset: resetDirSize } = useResizable("lop-app:directory-size");
   const { colWidths, startColResize: _startColResize, resetColWidths } = useColumnResize<DirectoryCol>(
     "directory",
     DIRECTORY_COL_WIDTHS,
@@ -187,7 +189,7 @@ function ResourceDirectoryInner({
     sortKey === key ? (sortDir === "asc" ? " ▲" : " ▼") : "";
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+    <div ref={dirRef} className={VIEW_PANE_RESIZABLE_CLASS}>
       <div className="mb-2 flex shrink-0 items-center gap-2">
         <button
           type="button"
@@ -195,6 +197,13 @@ function ResourceDirectoryInner({
           className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90"
         >
           {t(lang, "resourcesAddResource")}
+        </button>
+        <button
+          type="button"
+          onClick={onAddAbsence}
+          className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90"
+        >
+          {t(lang, "resourcesAddAbsence")}
         </button>
         <input
           type="search"
@@ -205,16 +214,6 @@ function ResourceDirectoryInner({
           title={t(lang, "directorySearchHint")}
           className="min-w-0 flex-1 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-AIPM-dark-blue focus:outline-none"
         />
-        <ResetColWidthsButton onClick={resetColWidths} lang={lang} />
-        {onOpenAddressBook && (
-          <button
-            type="button"
-            onClick={onOpenAddressBook}
-            className="shrink-0 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted"
-          >
-            {t(lang, "resourcesOpenAddressBook")}
-          </button>
-        )}
         {onImportOutlook && (
           <button
             type="button"
@@ -224,6 +223,8 @@ function ResourceDirectoryInner({
             {t(lang, "outlookImportButton")}
           </button>
         )}
+        <ResetColWidthsButton onClick={resetColWidths} lang={lang} />
+        <ResetSizeButton onClick={resetDirSize} lang={lang} />
       </div>
       {resources.length === 0 ? (
         <div className="mt-3 flex-1 rounded-md border border-dashed border-line p-6 text-center text-sm text-muted-foreground">
@@ -314,6 +315,7 @@ function ResourceDirectoryInner({
           </table>
         </div>
       )}
+      <ResizeCornerHint lang={lang} />
     </div>
   );
 }

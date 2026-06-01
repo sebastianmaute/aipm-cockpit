@@ -80,7 +80,7 @@ export interface WorkspaceSectionProps {
     existingShift: Shift | null,
     assignee: { display: string; email: string },
   ) => void;
-  onManageRoles: () => void;
+  manageRolesView?: React.ReactNode;
   onAssignRole: (resourceId: number, disciplineId: number, gradeId: number) => void;
   onSetUtilization: (resourceId: number, periodKey: string, value: number) => void;
   onSetAllUtilizationMode: (mode: "percent" | "hours") => void;
@@ -118,7 +118,7 @@ export function WorkspaceSection({
   handleOpenAddAbsence,
   handleEditAbsence,
   handleOpenShiftEditor,
-  onManageRoles,
+  manageRolesView,
   onAssignRole,
   onSetUtilization,
   onSetAllUtilizationMode,
@@ -139,12 +139,23 @@ export function WorkspaceSection({
   const { activeTab, setActiveTab, isPopout } = useWorkspaceTab();
   const { raidFilterTaskId } = useFilters();
 
+  // Panel wrappers. The pt-4 offset clears the tab strip in classic/popout mode;
+  // in fullBleed the strip is hidden, so we drop it to align the per-view card
+  // with the modern shell's inset edge (matching the Tasks pane exactly).
+  const panelClass = fullBleed ? "min-h-0 flex-1" : "min-h-0 flex-1 pt-4";
+  const panelScrollClass = fullBleed
+    ? "min-h-0 flex-1 overflow-y-auto"
+    : "min-h-0 flex-1 overflow-y-auto pt-4";
+
   return (
     <section
       ref={workspaceRef}
       className={
         fullBleed
-          ? "flex min-h-0 w-full flex-1 flex-col overflow-hidden bg-surface"
+          ? // Sizing-only transparent container. The per-view card is the only
+            // surface (matching the Tasks pane). h-full fills the modern shell's
+            // block <main>; flex-1 would be a no-op here and collapse to content.
+            "flex h-full min-h-0 w-full flex-col overflow-hidden"
           : isPopout
           ? "flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-xl border border-line bg-surface p-6"
           : workspaceCollapsed
@@ -299,7 +310,7 @@ export function WorkspaceSection({
           id="panel-chat"
           role="tabpanel"
           hidden={activeTab !== "chat"}
-          className="min-h-0 flex-1 pt-4"
+          className={panelClass}
         >
           <ChatPanel
             lang={lang}
@@ -313,7 +324,7 @@ export function WorkspaceSection({
           <div
             id="panel-reports"
             role="tabpanel"
-            className="min-h-0 flex-1 overflow-y-auto pt-4"
+            className={panelScrollClass}
           >
             <ReportsPanel
               tasks={tasks}
@@ -328,7 +339,7 @@ export function WorkspaceSection({
           <div
             id="panel-gantt"
             role="tabpanel"
-            className="min-h-0 flex-1 pt-4"
+            className={panelClass}
           >
             <GanttPanel
               lang={lang}
@@ -348,7 +359,7 @@ export function WorkspaceSection({
           id="panel-raid"
           role="tabpanel"
           hidden={activeTab !== "raid"}
-          className="min-h-0 flex-1 pt-4"
+          className={panelClass}
         >
           <RaidPanel
             lang={lang}
@@ -361,7 +372,6 @@ export function WorkspaceSection({
             onDelete={handleDeleteRaidItem}
             onCreateMitigationTask={handleCreateMitigationTaskFromRaid}
             onJumpToTask={handleJumpToTaskFromRaid}
-            onOpenReport={() => openPopoutWindow("raid-report", settings.popout.reuseWindow)}
           />
         </div>
 
@@ -369,9 +379,51 @@ export function WorkspaceSection({
           <div
             id="panel-resources"
             role="tabpanel"
-            className="min-h-0 flex-1 pt-4"
+            className={panelClass}
+          >
+            <ResourcesReportPanel
+              lang={lang}
+              resources={resources}
+              roles={roles}
+              disciplines={disciplines}
+              grades={grades}
+              plan={plan}
+              absences={absences}
+              holidaySet={holidaySet}
+              workdayHours={settings.resources.workdayHours}
+            />
+          </div>
+        )}
+
+        {activeTab === "directory" && (
+          <div
+            id="panel-directory"
+            role="tabpanel"
+            className={panelClass}
+          >
+            <ResourceDirectory
+              lang={lang}
+              resources={resources}
+              roles={roles}
+              disciplines={disciplines}
+              grades={grades}
+              onAssignRole={onAssignRole}
+              onEditResource={onEditResource}
+              onAddResource={onAddResource}
+              onAddAbsence={handleOpenAddAbsence}
+              onImportOutlook={onImportOutlook}
+            />
+          </div>
+        )}
+
+        {(activeTab === "workload" || activeTab === "calendar" || activeTab === "planning") && (
+          <div
+            id="panel-resources-view"
+            role="tabpanel"
+            className={panelClass}
           >
             <ResourcesPanel
+              view={activeTab}
               lang={lang}
               tasks={tasks}
               absences={absences}
@@ -383,23 +435,22 @@ export function WorkspaceSection({
               onEditAbsence={handleEditAbsence}
               onEditShift={handleOpenShiftEditor}
               roles={roles}
-              disciplines={disciplines}
-              grades={grades}
-              onManageRoles={onManageRoles}
-              onAssignRole={onAssignRole}
               plan={plan}
               workdayHours={settings.resources.workdayHours}
               onSetUtilization={onSetUtilization}
               onSetAllUtilizationMode={onSetAllUtilizationMode}
               onSetAbsenceOverride={onSetAbsenceOverride}
               onSetPlanWindow={onSetPlanWindow}
-              onOpenReport={() => openPopoutWindow("resource-report", settings.popout.reuseWindow)}
-              onOpenAddressBook={() => openPopoutWindow("address-book", settings.popout.reuseWindow)}
-              onImportOutlook={onImportOutlook}
-              onImportOutlookCalendar={onImportOutlookCalendar}
               onEditResource={onEditResource}
               onAddResource={onAddResource}
+              onImportOutlookCalendar={onImportOutlookCalendar}
             />
+          </div>
+        )}
+
+        {activeTab === "manage-roles" && (
+          <div id="panel-manage-roles" role="tabpanel" className={panelClass}>
+            {manageRolesView}
           </div>
         )}
 
@@ -407,7 +458,7 @@ export function WorkspaceSection({
           <div
             id="panel-activity"
             role="tabpanel"
-            className="min-h-0 flex-1 pt-4"
+            className={panelClass}
           >
             <ActivityLogPanel
               lang={lang}
@@ -417,23 +468,14 @@ export function WorkspaceSection({
           </div>
         )}
 
-        {activeTab === "resource-report" && (
-          <div id="panel-resource-report" role="tabpanel" className="min-h-0 flex-1 overflow-y-auto pt-4">
-            <ResourcesReportPanel
-              lang={lang} resources={resources} roles={roles} disciplines={disciplines}
-              grades={grades} plan={plan} absences={absences} holidaySet={holidaySet}
-              workdayHours={settings.resources.workdayHours} />
-          </div>
-        )}
-
         {activeTab === "raid-report" && (
-          <div id="panel-raid-report" role="tabpanel" className="min-h-0 flex-1 overflow-y-auto pt-4">
+          <div id="panel-raid-report" role="tabpanel" className={panelScrollClass}>
             <RaidReportPanel lang={lang} items={raid} today={today} />
           </div>
         )}
 
         {activeTab === "budget" && (
-          <div id="panel-budget" role="tabpanel" className="min-h-0 flex-1 overflow-y-auto pt-4">
+          <div id="panel-budget" role="tabpanel" className={panelScrollClass}>
             <BudgetPanel
               lang={lang}
               buckets={budgets}
@@ -454,20 +496,6 @@ export function WorkspaceSection({
           </div>
         )}
 
-        {activeTab === "address-book" && (
-          <div id="panel-address-book" role="tabpanel" className="min-h-0 flex-1 overflow-y-auto pt-4">
-            <ResourceDirectory
-              lang={lang}
-              resources={resources}
-              roles={roles}
-              disciplines={disciplines}
-              grades={grades}
-              onAssignRole={onAssignRole}
-              onEditResource={onEditResource}
-              onAddResource={onAddResource}
-            />
-          </div>
-        )}
       </div>
       {!isPopout && !fullBleed && !workspaceCollapsed && (
         <span

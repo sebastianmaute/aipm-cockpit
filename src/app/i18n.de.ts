@@ -251,6 +251,7 @@ export const de: Record<TranslationKey, string> = {
   budgetSave: "Speichern",
   budgetAmountInvalid: "Betrag muss null oder größer sein.",
   budgetFxOverrideInvalid: "Wechselkurs muss größer als null sein.",
+  budgetBucketsCount: "{0} Buckets",
 
   tabChat: "Chat",
   tabNewTask: "Neue Aufgabe",
@@ -956,6 +957,8 @@ export const de: Record<TranslationKey, string> = {
   raidReportAging31_60: "31–60 Tage",
   raidReportAging61_90: "61–90 Tage",
   raidReportAgingGT90: "> 90 Tage",
+  raidReportFilterOwner: "Owner filtern…",
+  raidReportFilterDetail: "Items filtern…",
   raidReportEmpty: "Noch keine RAID-Einträge. Über das RAID-Panel hinzufügen.",
   raidReportOpenReport: "RAID-Report öffnen",
   raidReportOpenReportHint: "Eine Steuerungskreis-Übersicht in einem neuen Fenster öffnen.",
@@ -1012,6 +1015,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightFullPageEdit: "Ganzseitiger Aufgabeneditor im modernen Layout — Aufgabe öffnen oder „Neue Aufgabe” klicken, um sie im Vollbild zu bearbeiten; der Klassik-Modus behält den Dialog.",
   versionHighlightTableRestyle: "Tabellen-Redesign — dunkelblaue Kopfzeilen in den Datentabellen, Zebrazeilen in der LOP-Liste",
   versionHighlightSidebarPolish: "Responsive Seitenleiste — einklappbare Icon-Leiste, barrierefreie Navigation (Sprunglink, Menü-Button) und eine umfassendere Fußzeile",
+  versionHighlightPaneResize: "Größenveränderbare Bereiche & neue Ressourcen-Navigation",
 
   outlookCalImportTitle: "Outlook-Kalender importieren",
   outlookCalImportLoading: "Termine werden geladen…",
