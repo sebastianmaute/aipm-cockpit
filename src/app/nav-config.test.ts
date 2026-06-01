@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  NAV_GROUPS, viewToSlug, slugToView, navLabelKey, allNavViews,
+  NAV_GROUPS, viewToSlug, slugToView, navLabelKey, allNavViews, subTabsFor,
   type AppView,
 } from "./nav-config";
 
@@ -46,5 +46,16 @@ describe("nav-config", () => {
     expect(slugToView("address-book")).toBe("directory");
     expect(slugToView("resource-report")).toBe("resources");
     expect(slugToView("totally-unknown")).toBe("open-points");
+  });
+
+  it("subTabsFor returns the containing section's children for a parent or child view", () => {
+    const resKids = subTabsFor("resources").map((c) => c.view);
+    expect(resKids).toEqual(["directory", "workload", "calendar", "planning", "manage-roles"]);
+    expect(subTabsFor("planning").map((c) => c.view)).toEqual(resKids);
+    expect(subTabsFor("raid").map((c) => c.view)).toEqual(["raid-report"]);
+    expect(subTabsFor("raid-report").map((c) => c.view)).toEqual(["raid-report"]);
+    expect(subTabsFor("chat")).toEqual([]);
+    expect(subTabsFor("budget")).toEqual([]);
+    expect(subTabsFor("open-points")).toEqual([]);
   });
 });

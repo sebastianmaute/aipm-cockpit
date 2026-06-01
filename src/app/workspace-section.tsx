@@ -8,6 +8,7 @@ import { useWorkspace } from "./workspace-context";
 import { useWorkspaceTab } from "./workspace-tab-context";
 import { useFilters } from "./filters-context";
 import { TabButton, ResetSizeIcon } from "./task-manager-ui";
+import { navLabelKey, subTabsFor } from "./nav-config";
 import type { ToolDispatcher } from "./chat-tools";
 import type { ActivityEntry } from "./activity-log";
 import type { Absence, BudgetBucket, RaidItem, Resource, Shift, Task } from "./types";
@@ -298,6 +299,28 @@ export function WorkspaceSection({
               />
             </svg>
           </button>
+        </div>
+      )}
+
+      {!isPopout && !fullBleed && subTabsFor(activeTab).length > 0 && (
+        <div
+          role="tablist"
+          aria-label="Workspace sub-tabs"
+          className="mb-2 flex flex-wrap items-center gap-1 border-b border-line pb-1"
+        >
+          {subTabsFor(activeTab).map((child) => (
+            <TabButton
+              key={child.view}
+              active={activeTab === child.view}
+              onClick={() => {
+                setActiveTab(child.view);
+                if (workspaceCollapsed) setWorkspaceCollapsed(false);
+              }}
+              controls={`panel-${child.view}`}
+            >
+              {t(lang, navLabelKey(child.view))}
+            </TabButton>
+          ))}
         </div>
       )}
 

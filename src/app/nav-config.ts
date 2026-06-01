@@ -93,6 +93,20 @@ export function allNavViews(): AppView[] {
   return ALL_NAV_VIEWS;
 }
 
+/** The sub-tab children of the nav section that contains `view` (matched as the
+ *  section's own view OR one of its children). Empty when the section has no
+ *  children. Drives the classic layout's secondary sub-tab row. */
+export function subTabsFor(view: AppView): readonly { view: AppView }[] {
+  for (const group of NAV_GROUPS) {
+    for (const item of group.items) {
+      const contains =
+        item.view === view || (item.children ?? []).some((c) => c.view === view);
+      if (contains) return item.children ?? [];
+    }
+  }
+  return [];
+}
+
 export function navLabelKey(view: AppView): TranslationKey {
   // The "edit" view (Phase 2 full-page editor) has no sidebar label and never
   // appears in NAV_GROUPS; give it a harmless valid key rather than masking it.
