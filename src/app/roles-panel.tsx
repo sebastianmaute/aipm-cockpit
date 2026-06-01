@@ -10,7 +10,7 @@ export function RolesPanel(props: RolesEditorProps) {
   const { ref, reset } = useResizable("lop-app:manage-roles-size");
   return (
     <section ref={ref} className={CENTERED_HALF_PANE_CLASS}>
-      <header className="mb-3 flex shrink-0 items-center justify-between gap-2">
+      <header className="mb-2 flex shrink-0 items-center justify-between gap-2">
         <h2 className="text-lg font-medium text-foreground">{t(props.lang, "resourcesManageRoles")}</h2>
         <ResetSizeButton onClick={reset} lang={props.lang} />
       </header>

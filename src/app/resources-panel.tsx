@@ -277,7 +277,7 @@ function ResourcesPanelInner({
         const derived = viewGranularity !== plan.granularity;
         return (
           <>
-            <div className="mb-2 flex flex-wrap items-center gap-3 text-xs">
+            <div className="mb-2 flex flex-wrap items-center gap-2 text-xs">
               <label className="flex items-center gap-1">
                 <span>{t(lang, "resourcesPlanStart")}</span>
                 <input type="date" aria-label={t(lang, "resourcesPlanStart")} value={plan.startDate}
