@@ -55,6 +55,12 @@ describe("stepAnchor", () => {
     expect(stepAnchor("2026-06-15", "week", 1)).toBe("2026-06-22");
     expect(stepAnchor("2026-06-15", "week", -1)).toBe("2026-06-08");
   });
+  it("clamps month-end anchors instead of overflowing", () => {
+    expect(stepAnchor("2026-01-31", "month", 1)).toBe("2026-02-28");
+    expect(stepAnchor("2028-01-31", "month", 1)).toBe("2028-02-29");
+    expect(stepAnchor("2026-03-31", "month", -1)).toBe("2026-02-28");
+    expect(stepAnchor("2026-12-31", "month", 1)).toBe("2027-01-31");
+  });
 });
 
 describe("resolveWindow", () => {

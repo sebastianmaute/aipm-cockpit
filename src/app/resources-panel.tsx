@@ -156,6 +156,15 @@ function ResourcesPanelInner({
   const [calendarFrom, setCalendarFrom] = useState<string>(() => monthWindow(today).startDate);
   const [calendarTo, setCalendarTo] = useState<string>(() => monthWindow(today).endDate);
   const calendarWin = resolveWindow(calendarMode, calendarAnchor, calendarFrom, calendarTo);
+
+  const handleCalendarMode = (mode: CalendarMode) => {
+    if (mode === "custom") {
+      setCalendarFrom(calendarWin.startDate);
+      setCalendarTo(calendarWin.endDate);
+    }
+    setCalendarMode(mode);
+  };
+
   if (prevPlanGranularity !== plan.granularity) {
     setPrevPlanGranularity(plan.granularity);
     setViewGranularity(plan.granularity);
@@ -544,7 +553,7 @@ function ResourcesPanelInner({
                 { value: "week", label: t(lang, "resourcesGranularityWeek") },
                 { value: "custom", label: t(lang, "calendarModeCustom") },
               ]}
-              onChange={setCalendarMode}
+              onChange={handleCalendarMode}
             />
             {calendarMode !== "custom" && (
               <div className="flex items-center gap-2">
@@ -573,6 +582,8 @@ function ResourcesPanelInner({
                 </button>
                 <button
                   type="button"
+                  aria-label={t(lang, "calendarToday")}
+                  title={t(lang, "calendarToday")}
                   onClick={() => setCalendarAnchor(today)}
                   className="rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted"
                 >

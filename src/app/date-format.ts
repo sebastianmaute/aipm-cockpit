@@ -24,7 +24,13 @@ export function shortDateRange(a: Absence, lang: Lang): string {
 
 /** Compact range string for two ISO date strings, e.g. "Jun 10–Jun 16". */
 export function shortDateRangeIso(startIso: string, endIso: string, lang: Lang): string {
-  return shortDateRange({ startDate: startIso, endDate: endIso } as Absence, lang);
+  const loc = localeFor(lang);
+  const fmt: Intl.DateTimeFormatOptions = { month: "short", day: "2-digit", timeZone: "UTC" };
+  const start = new Date(`${startIso}T00:00:00Z`);
+  const end = new Date(`${endIso}T00:00:00Z`);
+  if (Number.isNaN(start.valueOf()) || Number.isNaN(end.valueOf())) return `${startIso}–${endIso}`;
+  if (startIso === endIso) return start.toLocaleDateString(loc, fmt);
+  return `${start.toLocaleDateString(loc, fmt)}–${end.toLocaleDateString(loc, fmt)}`;
 }
 
 /** Formats a "YYYY-MM-DD" date for display in the active language; returns the input if unparseable. */

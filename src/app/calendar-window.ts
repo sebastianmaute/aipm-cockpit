@@ -65,9 +65,18 @@ export function customWindow(fromIso: string, toIso: string): CalendarWindow {
 export function stepAnchor(anchorIso: string, unit: "month" | "week", dir: -1 | 1): string {
   const d = parseUtc(anchorIso);
   if (!d) return anchorIso;
-  if (unit === "month") d.setUTCMonth(d.getUTCMonth() + dir);
-  else d.setUTCDate(d.getUTCDate() + dir * 7);
-  return iso(d);
+  if (unit === "week") {
+    d.setUTCDate(d.getUTCDate() + dir * 7);
+    return iso(d);
+  }
+  // Month: clamp the day to the target month's length so a month-end anchor
+  // (e.g. Jan 31) doesn't overflow into the following month.
+  const target = d.getUTCMonth() + dir;
+  const year = d.getUTCFullYear() + Math.floor(target / 12);
+  const month = ((target % 12) + 12) % 12;
+  const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+  const day = Math.min(d.getUTCDate(), lastDay);
+  return iso(new Date(Date.UTC(year, month, day)));
 }
 
 /** Resolve the active window from the current control state. */

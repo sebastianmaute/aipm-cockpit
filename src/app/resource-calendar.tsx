@@ -138,9 +138,9 @@ function ResourceCalendarInner({
   // Index of today's column within the window (−1 when today is out of range).
   const todayIndex = useMemo(() => days.findIndex((d) => d.isToday), [days]);
 
-  // On open and whenever the window changes, scroll today to the horizontal
-  // centre (Gantt-style). No-op when today is outside the window. Manual
-  // scrolling within an unchanged window is preserved (deps are the window).
+  // On open, scroll today to the horizontal centre (Gantt-style). No-op when
+  // today is outside the window. Re-runs on window change and on today-index
+  // change (so a midnight rollover also re-centres).
   useLayoutEffect(() => {
     const el = scrollRef.current;
     if (!el || todayIndex < 0) return;
