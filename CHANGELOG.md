@@ -8,6 +8,12 @@ Authoritative source for version + build date: [`src/app/version.ts`](src/app/ve
 This file is seeded from that module's milestone comment plus the
 post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-diff.txt).
 
+## [0.38.5] — 2026-06-01
+
+### Changed
+- **Modal/dialog buttons unified:** the Bulk Edit, Jira Conflicts, and RAID edit dialogs now use the same compact footer buttons (size + bordered Save with the standard hover) as the task/resource/shift/absence/budget/Outlook dialogs — and as primary buttons elsewhere in the app.
+- **Dialog headers unified:** the two Outlook import dialogs and the Due-Dates dialog now match the shared modal header (sticky, correct layering and background) used by the other dialogs.
+
 ## [0.38.4] — 2026-06-01
 
 ### Changed

@@ -1,3 +1,14 @@
+// 0.38.5 unifies the modal/dialog system after an audit (the deliberately
+// separate counterpart to the 0.38.3/0.38.4 view sweep). Footer action buttons
+// are now one convention everywhere: the three "big" dialogs (Bulk Edit, Jira
+// Conflicts, RAID edit) move from px-4 py-2 + borderless Save (hover:opacity-90)
+// to the compact px-3 py-1.5 used by the task/resource/shift/absence/budget/
+// outlook dialogs, with the Save button bordered + hover:bg-AIPM-dark-blue/90 to
+// match every primary button app-wide. Hand-rolled dialog headers are aligned to
+// the shared ModalHeader's classes: the two Outlook import dialogs gain
+// sticky top-0 z-10 / bg-surface / gap-4, and the Due-Dates dialog gains z-10 /
+// shrink-0. Field inputs and the shared Modal shell were already uniform. Class-
+// string changes only; no new strings or dependencies.
 // 0.38.4 extends the 0.38.3 header-spacing unification to the views it missed,
 // after a full audit of every primary section. Header bottom-margins are now
 // uniformly mb-2: Open Points (was mb-4), Reports/RAID Report/Resource Report
@@ -485,8 +496,8 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.38.4";
-export const APP_BUILD_DATE = "2026-06-01"; // 0.38.4 header-spacing unification — remaining views + RAID toolbar
+export const APP_VERSION = "0.38.5";
+export const APP_BUILD_DATE = "2026-06-01"; // 0.38.5 modal/dialog button + header unification
 export const APP_REPO_URL = "https://www.example.com";
 
 /** Translation keys for the high-level feature highlights shown in the
