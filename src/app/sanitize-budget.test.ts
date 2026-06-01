@@ -4,8 +4,10 @@ import {
   sanitizeFxRates,
   encodeAllocations,
   decodeAllocations,
+  encodeDisciplineAllocations,
+  decodeDisciplineAllocations,
 } from "./sanitize";
-import type { BucketAllocation } from "./types";
+import type { BucketAllocation, DisciplineAllocation } from "./types";
 
 describe("sanitizeBudgetBucket", () => {
   const base = {
@@ -84,6 +86,64 @@ describe("sanitizeBudgetBucket order field", () => {
 
   test("order: undefined → undefined", () => {
     expect(sanitizeBudgetBucket({ ...base, order: undefined })!.order).toBeUndefined();
+  });
+});
+
+describe("sanitizeBudgetBucket blended-mode fields", () => {
+  const blendedBase = {
+    id: 1, name: "PAM", type: "tm", currency: "EUR",
+    startDate: "2026-01-01", endDate: "2026-06-30", status: "open",
+    allocations: [],
+    planningMode: "blended",
+    disciplineAllocations: [
+      { disciplineId: 2, resourceIds: [5], budgetHours: { "2026-01": 30 }, actualHours: {} },
+    ],
+    rateOverrideInternal: 90,
+    rateOverrideExternal: 200,
+  };
+
+  test("round-trips planningMode, disciplineAllocations, and rate overrides", () => {
+    const b = sanitizeBudgetBucket(blendedBase)!;
+    expect(b.planningMode).toBe("blended");
+    expect(b.disciplineAllocations).toEqual([
+      { disciplineId: 2, resourceIds: [5], budgetHours: { "2026-01": 30 }, actualHours: {} },
+    ]);
+    expect(b.rateOverrideInternal).toBe(90);
+    expect(b.rateOverrideExternal).toBe(200);
+  });
+
+  test("round-trips an explicit detailed planningMode", () => {
+    expect(sanitizeBudgetBucket({ ...blendedBase, planningMode: "detailed" })!.planningMode).toBe("detailed");
+  });
+
+  test("detailed bucket (no planningMode) leaves blended fields undefined", () => {
+    const b = sanitizeBudgetBucket({
+      id: 1, name: "PAM", type: "tm", currency: "EUR",
+      startDate: "2026-01-01", endDate: "2026-06-30", status: "open", allocations: [],
+    })!;
+    expect(b.planningMode).toBeUndefined();
+    expect(b.disciplineAllocations).toBeUndefined();
+    expect(b.rateOverrideInternal).toBeUndefined();
+    expect(b.rateOverrideExternal).toBeUndefined();
+  });
+
+  test("parses disciplineAllocations from an encoded string (CSV/MD path)", () => {
+    const enc = encodeDisciplineAllocations(blendedBase.disciplineAllocations as DisciplineAllocation[]);
+    const b = sanitizeBudgetBucket({ ...blendedBase, disciplineAllocations: enc })!;
+    expect(b.planningMode).toBe("blended");
+    expect(b.disciplineAllocations).toEqual([
+      { disciplineId: 2, resourceIds: [5], budgetHours: { "2026-01": 30 }, actualHours: {} },
+    ]);
+  });
+});
+
+describe("encode/decode disciplineAllocations round-trip", () => {
+  test("round-trips", () => {
+    const allocs: DisciplineAllocation[] = [
+      { disciplineId: 2, resourceIds: [5, 7], budgetHours: { "2026-01": 30, "2026-02": 10 }, actualHours: { "2026-01": 28 } },
+      { disciplineId: 4, resourceIds: [], budgetHours: {}, actualHours: {} },
+    ];
+    expect(decodeDisciplineAllocations(encodeDisciplineAllocations(allocs))).toEqual(allocs);
   });
 });
 

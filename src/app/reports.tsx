@@ -20,7 +20,10 @@ import {
   type HealthDriver,
 } from "./health";
 import { type Lang, t } from "./i18n";
+import { computeBudgetReport } from "./budget-report";
+import { formatCurrency } from "./resource-cost";
 import { type Priority, PRIORITIES, type Task } from "./types";
+import type { Absence, BudgetBucket, Resource, ResourcePlan, Role } from "./types";
 
 const REPORTS_INQUIRY_COL_WIDTHS = {
   id: 60,
@@ -248,11 +251,23 @@ export function ReportsPanel({
   today,
   holidaySet,
   lang,
+  buckets = [],
+  plan,
+  roles = [],
+  resources = [],
+  absences = [],
+  workdayHours = 8,
 }: {
   tasks: Task[];
   today: string;
   holidaySet: Set<string>;
   lang: Lang;
+  buckets?: BudgetBucket[];
+  plan?: ResourcePlan;
+  roles?: Role[];
+  resources?: Resource[];
+  absences?: Absence[];
+  workdayHours?: number;
 }) {
   const stats = useMemo(
     () => computeStats(tasks, today, holidaySet),
@@ -561,7 +576,123 @@ export function ReportsPanel({
           filterPlaceholderKey="reportsFilterLabel"
         />
       </Section>
+
+      {plan && buckets.length > 0 && (
+        <BudgetSection
+          buckets={buckets}
+          plan={plan}
+          roles={roles}
+          resources={resources}
+          absences={absences}
+          workdayHours={workdayHours}
+          holidaySet={holidaySet}
+          lang={lang}
+        />
+      )}
     </ReportCard>
+  );
+}
+
+function BudgetSection({
+  buckets,
+  plan,
+  roles,
+  resources,
+  absences,
+  workdayHours,
+  holidaySet,
+  lang,
+}: {
+  buckets: BudgetBucket[];
+  plan: ResourcePlan;
+  roles: Role[];
+  resources: Resource[];
+  absences: Absence[];
+  workdayHours: number;
+  holidaySet: Set<string>;
+  lang: Lang;
+}) {
+  const [bucketFilter, setBucketFilter] = useState<string>("");
+  const [minTotal, setMinTotal] = useState<string>("");
+  const budgetRows = useMemo(
+    () => computeBudgetReport(buckets, plan, roles, resources, workdayHours, holidaySet, absences).buckets,
+    [buckets, plan, roles, resources, workdayHours, holidaySet, absences],
+  );
+  const min = minTotal === "" ? 0 : Math.max(0, Number(minTotal) || 0);
+  const filtered = budgetRows.filter(
+    (r) => (bucketFilter === "" || String(r.bucketId) === bucketFilter) && r.budgetValue >= min,
+  );
+  const sum = (sel: (r: typeof filtered[number]) => number) => filtered.reduce((acc, r) => acc + sel(r), 0);
+  const locale = lang === "de" ? "de-DE" : lang === "en-GB" ? "en-GB" : "en-US";
+  const money = (n: number) => formatCurrency(n, "EUR", locale);
+  const totalBudget = sum((r) => r.budgetValue);
+  const totalUsed = sum((r) => r.consumedValue);
+  const totalHours = sum((r) => r.budgetHours);
+  return (
+    <Section title={t(lang, "reportsBudget")}>
+      <div className="mb-3 flex flex-wrap items-end gap-3">
+        <label className="flex flex-col gap-1 text-xs">
+          <span className="text-muted-foreground">{t(lang, "reportsBudgetFilterBucket")}</span>
+          <select
+            className="rounded-md border border-line bg-surface px-2 py-1.5 text-xs"
+            value={bucketFilter}
+            onChange={(e) => setBucketFilter(e.target.value)}
+            aria-label={t(lang, "reportsBudgetFilterBucket")}
+          >
+            <option value="">{t(lang, "reportsBudgetAllBuckets")}</option>
+            {budgetRows.map((r) => (
+              <option key={r.bucketId} value={String(r.bucketId)}>{r.name}</option>
+            ))}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1 text-xs">
+          <span className="text-muted-foreground">{t(lang, "reportsBudgetMinTotal")}</span>
+          <input
+            type="number"
+            min={0}
+            className="w-32 rounded-md border border-line bg-surface px-2 py-1.5 text-xs"
+            value={minTotal}
+            onChange={(e) => setMinTotal(e.target.value)}
+            aria-label={t(lang, "reportsBudgetMinTotal")}
+          />
+        </label>
+      </div>
+      <div className="mb-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Tile label={t(lang, "reportsBudgetTotal")} value={money(totalBudget)} />
+        <Tile label={t(lang, "reportsBudgetUsed")} value={money(totalUsed)} />
+        <Tile label={t(lang, "reportsBudgetFree")} value={money(totalBudget - totalUsed)} />
+        <Tile label={t(lang, "reportsBudgetHours")} value={totalHours.toFixed(0)} />
+      </div>
+      <div className="overflow-x-auto rounded-md border border-line">
+        <table className="min-w-full text-left text-xs">
+          <thead className={TABLE_HEAD_CLASS}>
+            <tr>
+              <th className="px-3 py-2">{t(lang, "reportsBudgetBucketCol")}</th>
+              <th className="px-3 py-2 text-right">{t(lang, "reportsBudgetHours")}</th>
+              <th className="px-3 py-2 text-right">{t(lang, "reportsBudgetBudgetEur")}</th>
+              <th className="px-3 py-2 text-right">{t(lang, "reportsBudgetUsedHours")}</th>
+              <th className="px-3 py-2 text-right">{t(lang, "reportsBudgetPlanHours")}</th>
+              <th className="px-3 py-2 text-right">{t(lang, "reportsBudgetFree")}</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-line">
+            {filtered.length === 0 ? (
+              <tr><td colSpan={6} className="px-3 py-3 text-center text-muted-foreground">{t(lang, "reportsNoMatches")}</td></tr>
+            ) : filtered.map((r) => (
+              <tr key={r.bucketId}>
+                <td className="px-3 py-2 font-medium text-AIPM-dark-blue dark:text-AIPM-light-grey">{r.name}</td>
+                <td className="px-3 py-2 text-right">{r.budgetHours.toFixed(0)}</td>
+                <td className="px-3 py-2 text-right">{money(r.budgetValue)}</td>
+                <td className="px-3 py-2 text-right">{r.actualHours.toFixed(0)}</td>
+                <td className="px-3 py-2 text-right">{r.plannedHours.toFixed(0)}</td>
+                {/* Free budget = budget value minus consumed (same basis for T&M and fixed-price) */}
+                <td className="px-3 py-2 text-right">{money(r.budgetValue - r.consumedValue)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Section>
   );
 }
 

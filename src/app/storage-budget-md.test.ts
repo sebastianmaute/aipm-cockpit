@@ -31,4 +31,25 @@ describe("budget Markdown round-trip", () => {
     const back = markdownToWorkspace(workspaceToMarkdown(ws));
     expect(back.budgets![0].order).toBe(3);
   });
+
+  test("blended planningMode, disciplineAllocations, and rate overrides survive Markdown encode/decode", () => {
+    const ws = {
+      ...emptyWorkspace(),
+      budgets: [{
+        id: 1, name: "Blended", type: "tm" as const, currency: "EUR" as const,
+        startDate: "2026-01-01", endDate: "2026-06-30", status: "open" as const,
+        planningMode: "blended" as const,
+        disciplineAllocations: [{ disciplineId: 2, resourceIds: [5, 7], budgetHours: { "2026-01": 30 }, actualHours: { "2026-01": 28 } }],
+        rateOverrideInternal: 90, rateOverrideExternal: 200,
+        allocations: [],
+      }],
+    };
+    const back = markdownToWorkspace(workspaceToMarkdown(ws));
+    expect(back.budgets![0].planningMode).toBe("blended");
+    expect(back.budgets![0].disciplineAllocations).toEqual([
+      { disciplineId: 2, resourceIds: [5, 7], budgetHours: { "2026-01": 30 }, actualHours: { "2026-01": 28 } },
+    ]);
+    expect(back.budgets![0].rateOverrideInternal).toBe(90);
+    expect(back.budgets![0].rateOverrideExternal).toBe(200);
+  });
 });

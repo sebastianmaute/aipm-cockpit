@@ -354,6 +354,12 @@ export function WorkspaceSection({
               today={today}
               holidaySet={holidaySet}
               lang={lang}
+              buckets={budgets}
+              plan={plan}
+              roles={roles}
+              resources={resources}
+              absences={absences}
+              workdayHours={settings.resources.workdayHours}
             />
           </div>
         )}

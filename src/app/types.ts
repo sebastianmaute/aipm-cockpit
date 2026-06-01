@@ -354,6 +354,21 @@ export type BucketAllocation = {
   actualHours: Record<string, number>;
 };
 
+export const PLANNING_MODES = ["detailed", "blended"] as const;
+/** "detailed" = per-role (discipline×grade) allocations; "blended" = per-discipline
+ *  allocations using the mixed average rate of that discipline's grades. */
+export type PlanningMode = (typeof PLANNING_MODES)[number];
+
+/** One discipline line within a blended-mode bucket. `resourceIds` feed the PLAN
+ *  (their capacity), exactly like BucketAllocation; budget/actual hours are
+ *  periodKey → hours maps aligned to the plan. */
+export type DisciplineAllocation = {
+  disciplineId: number;
+  resourceIds: number[];
+  budgetHours: Record<string, number>;
+  actualHours: Record<string, number>;
+};
+
 export type BudgetBucket = {
   id: number;
   name: string;
@@ -370,6 +385,14 @@ export type BudgetBucket = {
   closedDate?: string;
   /** Manual EUR → currency rate override; wins over cached ECB while present. */
   fxRateOverride?: number;
+  /** Planning granularity. Absent ⇒ "detailed" (back-compat for existing buckets). */
+  planningMode?: PlanningMode;
+  /** Per-discipline allocations; consulted only when planningMode === "blended". */
+  disciplineAllocations?: DisciplineAllocation[];
+  /** Per-bucket rate overrides (plan currency, per hour). When finite and >= 0,
+   *  override the role/blended rate for ALL rows in this bucket. */
+  rateOverrideInternal?: number;
+  rateOverrideExternal?: number;
   allocations: BucketAllocation[];
   /** Display/sort position among buckets (0-based, contiguous). Optional and
    *  back-compatible — when absent the engine falls back to sorting by `id`. */
