@@ -8,6 +8,14 @@ Authoritative source for version + build date: [`src/app/version.ts`](src/app/ve
 This file is seeded from that module's milestone comment plus the
 post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-diff.txt).
 
+## [0.38.2] — 2026-06-01
+
+### Changed
+- **Resources → Workload:** the Reset-column-widths and Reset-size buttons now sit on one header line instead of stacking vertically.
+- **Resources → Planning:** the From/To date pickers match the height of the granularity/mode controls.
+- **Resources → Manage Roles:** the rate-card table is styled like the Directory/Workload tables; the panel is centred and half-size like Chat.
+- **RAID Report, Reports, Resource Report:** each card shows a left-aligned heading on the same line as its toolbar buttons.
+
 ## [0.38.1] — 2026-06-01
 
 ### Changed

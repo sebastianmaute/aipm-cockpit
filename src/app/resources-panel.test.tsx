@@ -147,6 +147,22 @@ describe("ResourcesPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "Alex Example" }));
     expect(onEditResource).toHaveBeenCalledWith(resources[0]);
   });
+
+  test("workload header shows reset-cols and reset-size together (one toolbar, not stacked)", () => {
+    render(<ResourcesPanel {...baseProps} view="workload" />);
+    // Exactly one reset-column-widths control, now lifted into the panel header
+    expect(screen.getAllByRole("button", { name: /reset all column widths/i })).toHaveLength(1);
+    expect(screen.getByRole("button", { name: /reset back to the default size/i })).toBeInTheDocument();
+  });
+
+  test("planning date inputs use the taller py-1.5 control height", () => {
+    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };
+    render(<ResourcesPanel {...baseProps} view="planning" resources={[]} plan={plan} workdayHours={8}
+      onSetUtilization={() => {}} onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
+    const from = screen.getByLabelText("From");
+    expect(from.className).toContain("py-1.5");
+    expect(from.className).toContain("text-sm");
+  });
 });
 
 test("resources-panel: no view SegmentedControl, no roles/report/add-absence buttons; resizable", () => {

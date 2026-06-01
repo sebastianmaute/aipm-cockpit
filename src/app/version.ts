@@ -1,3 +1,11 @@
+// 0.38.2 is a UI-polish point release. Resources → Workload: the reset buttons
+// now share one header line (column-resize lifted into ResourcesPanel) instead
+// of stacking. Resources → Planning: the date pickers match the segmented-
+// control height. Resources → Manage Roles: the rate-card table uses the same
+// scroll-card + cell styling as the Directory/Workload tables, and the panel is
+// centred + half-size like Chat (shared CENTERED_HALF_PANE_CLASS). RAID Report,
+// Reports, and Resource Report show a left-aligned heading on the toolbar line
+// (a ReportCard title slot). No new strings, no new dependencies.
 // 0.38.1 is a classic-layout follow-up: the classic tab strip gains a secondary
 // sub-tab row (driven by nav-config's subTabsFor) so Classic mode can reach the
 // Resources sub-views (Directory/Workload/Calendar/Planning/Manage Roles) and
@@ -456,8 +464,8 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.38.1";
-export const APP_BUILD_DATE = "2026-06-01"; // Chambers (0.38.0 resize + resources nav + report parity)
+export const APP_VERSION = "0.38.2";
+export const APP_BUILD_DATE = "2026-06-01"; // 0.38.2 resources/report UI polish
 export const APP_REPO_URL = "https://www.example.com";
 
 /** Translation keys for the high-level feature highlights shown in the

@@ -167,9 +167,8 @@ export function RaidReportPanel({ lang, items, today }: Props) {
       onResetSize={reset}
       onResetCols={resetAllCols}
       toolbarExtra={viewToggle}
+      title={t(lang, "raidReportTitle")}
     >
-      <h2 className="text-lg font-medium text-foreground">{t(lang, "raidReportTitle")}</h2>
-
       {view === "summary" && (
         <>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

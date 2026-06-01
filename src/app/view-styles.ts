@@ -19,3 +19,9 @@ export const INNER_TABLE_CLASS =
  *  bottom-right corner drags to a custom size (persisted via useResizable). */
 export const VIEW_PANE_RESIZABLE_CLASS =
   VIEW_PANE_FILL_CLASS + " resize min-h-[300px] min-w-[480px]";
+
+/** Centered, half-viewport pane card that is ALSO user-resizable: horizontally
+ *  centered (mx-auto), top-anchored, half width/height with min bounds, drag the
+ *  corner for a custom size. Shared by Chat and Manage Roles. */
+export const CENTERED_HALF_PANE_CLASS =
+  "relative mx-auto flex h-[50%] max-h-full min-h-[360px] w-[50%] min-w-[420px] flex-col overflow-hidden rounded-xl border border-line bg-surface p-6 resize";

@@ -113,9 +113,7 @@ export function ResourcesReportPanel({
   }
 
   return (
-    <ReportCard lang={lang} sizeRef={ref} onResetSize={reset} onResetCols={resetAllCols}>
-      <h2 className="text-lg font-medium text-foreground">{t(lang, "resourcesReportTitle")}</h2>
-
+    <ReportCard lang={lang} sizeRef={ref} onResetSize={reset} onResetCols={resetAllCols} title={t(lang, "resourcesReportTitle")}>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Tile label={t(lang, "resourcesReportTotalCapacity")} value={`${days(rep.totalCapacityHours)} d`} />
         <Tile label={t(lang, "resourcesInternalCost")} value={money(rep.totalInternal)} />

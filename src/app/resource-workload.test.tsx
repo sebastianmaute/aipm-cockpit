@@ -1,12 +1,18 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
-import { ResourceWorkload } from "./resource-workload";
+import { ResourceWorkload, WORKLOAD_COL_WIDTHS } from "./resource-workload";
 import type { Resource, Task } from "./types";
 
 const r: Resource = { id: 1, firstName: "Sample", lastName: "Dummy", roleId: null, utilizationMode: "percent", utilization: {} };
+const colResize = {
+  colWidths: { ...WORKLOAD_COL_WIDTHS },
+  startColResize: () => {},
+  resetColWidths: () => {},
+};
 const baseProps = {
   lang: "en-US" as const, resources: [r], absences: [], shifts: [], today: "2026-06-01",
   onEditResource: vi.fn(), onAddResource: vi.fn(), onEditAbsence: vi.fn(), onEditShift: vi.fn(),
+  colResize,
 };
 
 describe("ResourceWorkload", () => {
@@ -24,5 +30,10 @@ describe("ResourceWorkload", () => {
     expect(screen.getByText("Bob Lee")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /add as resource/i }));
     expect(onAddResource).toHaveBeenCalledWith(expect.objectContaining({ firstName: "Bob", lastName: "Lee", email: "bob@x.com" }));
+  });
+
+  it("no longer renders its own reset-column-widths button (moved to the panel header)", () => {
+    render(<ResourceWorkload {...baseProps} tasks={[]} />);
+    expect(screen.queryByRole("button", { name: /reset all column widths/i })).toBeNull();
   });
 });

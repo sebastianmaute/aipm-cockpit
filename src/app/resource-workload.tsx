@@ -5,12 +5,11 @@ import { shortDateRange } from "./date-format";
 import { type Lang, t } from "./i18n";
 import { buildResourceWorkload } from "./resource-workload-rows";
 import type { Absence, Resource, Shift, Task } from "./types";
-import { useColumnResize } from "./use-column-resize";
 import { INNER_TABLE_CLASS } from "./view-styles";
-import { ColumnResizeHandle, ResetColWidthsButton } from "./task-manager-ui";
+import { ColumnResizeHandle } from "./task-manager-ui";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 
-const WORKLOAD_COL_WIDTHS = {
+export const WORKLOAD_COL_WIDTHS = {
   assignee: 160,
   email: 180,
   openTasks: 110,
@@ -18,7 +17,7 @@ const WORKLOAD_COL_WIDTHS = {
   weeklyHours: 120,
   upcoming: 200,
 } as const;
-type WorkloadCol = keyof typeof WORKLOAD_COL_WIDTHS;
+export type WorkloadCol = keyof typeof WORKLOAD_COL_WIDTHS;
 
 interface Props {
   lang: Lang;
@@ -34,6 +33,11 @@ interface Props {
     existing: Shift | null,
     assignee: { display: string; email: string },
   ) => void;
+  colResize: {
+    colWidths: Record<WorkloadCol, number>;
+    startColResize: (col: WorkloadCol, e: React.MouseEvent) => void;
+    resetColWidths: () => void;
+  };
 }
 
 export function ResourceWorkload({
@@ -47,23 +51,18 @@ export function ResourceWorkload({
   onAddResource,
   onEditAbsence,
   onEditShift,
+  colResize,
 }: Props) {
   const { managed, unlinked } = useMemo(
     () => buildResourceWorkload(resources, tasks, absences, shifts, today),
     [resources, tasks, absences, shifts, today],
   );
 
-  const { colWidths, startColResize: _startColResize, resetColWidths } = useColumnResize<WorkloadCol>(
-    "workload",
-    WORKLOAD_COL_WIDTHS,
-  );
-  const startColResize = _startColResize as (col: string, e: React.MouseEvent) => void;
+  const { colWidths } = colResize;
+  const startColResize = colResize.startColResize as (col: string, e: React.MouseEvent) => void;
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="mb-2 flex shrink-0 items-center justify-end">
-        <ResetColWidthsButton onClick={resetColWidths} lang={lang} />
-      </div>
       <div className={INNER_TABLE_CLASS}>
       <table className="w-full text-left text-sm">
         <thead className={TABLE_HEAD_CLASS}>
