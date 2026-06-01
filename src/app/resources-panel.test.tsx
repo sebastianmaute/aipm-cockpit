@@ -22,9 +22,6 @@ const baseProps = {
   onEditAbsence: () => {},
   onEditShift: () => {},
   roles: [] as never[],
-  disciplines: [] as never[],
-  grades: [] as never[],
-  onAssignRole: () => {},
   plan: { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" },
   workdayHours: 8,
   onSetUtilization: () => {},
@@ -36,14 +33,10 @@ const baseProps = {
 };
 
 describe("ResourcesPanel", () => {
-  test("choosing a discipline then grade assigns the role", () => {
-    const onAssignRole = vi.fn();
-    // Directory view is no longer in this panel — onAssignRole is still a prop
-    // (forwarded to workspace-section's directory view). Verify prop is accepted.
-    render(<ResourcesPanel {...baseProps} view="workload" resources={[]}
-      disciplines={[{ id: 2, name: "Developer" }]} grades={[{ id: 3, name: "Senior" }]}
-      onAssignRole={onAssignRole} />);
-    // workload view with no resources shows empty state — panel renders without error
+  test("workload view renders the resources heading", () => {
+    // Role assignment (discipline/grade) moved out of this panel to the Directory
+    // view; the panel is now a prop-driven workload/calendar/planning host.
+    render(<ResourcesPanel {...baseProps} view="workload" resources={[]} />);
     expect(screen.getByRole("heading", { name: /resources/i })).toBeInTheDocument();
   });
 
