@@ -1039,6 +1039,7 @@ const enUS = {
   versionHighlightPaneResize: "Resizable panes & restructured Resources nav",
   versionHighlightConsistency: "Consistent UI — uniform header spacing, control sizing, and dialog buttons/headers across every view",
   versionHighlightBudgetModes: "Plan budgets per discipline (blended rate) or per role, with per-bucket rate overrides and a filterable budget report.",
+  versionHighlightBudgetReport: "A dedicated Budget Report (under Budget) shows current budget calculations across all buckets, rates, and factors.",
 
   outlookCalImportTitle: "Import Outlook calendar",
   outlookCalImportLoading: "Loading events…",

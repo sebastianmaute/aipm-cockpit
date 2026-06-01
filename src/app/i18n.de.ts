@@ -1057,6 +1057,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightPaneResize: "Größenveränderbare Bereiche & neue Ressourcen-Navigation",
   versionHighlightConsistency: "Einheitliche Oberfläche — gleichmäßige Kopfzeilen-Abstände, Steuerelement-Größen und Dialog-Schaltflächen und -Kopfzeilen in allen Ansichten",
   versionHighlightBudgetModes: "Budgets je Disziplin (Mischsatz) oder je Rolle planen, mit Satz-Overrides je Bucket und einem filterbaren Budgetbericht.",
+  versionHighlightBudgetReport: "Ein eigener Budgetbericht (unter Budget) zeigt die aktuellen Budgetberechnungen über alle Buckets, Sätze und Faktoren.",
 
   outlookCalImportTitle: "Outlook-Kalender importieren",
   outlookCalImportLoading: "Termine werden geladen…",
