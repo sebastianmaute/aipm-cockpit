@@ -7,6 +7,7 @@ import type { Discipline, Grade, Role } from "./types";
 import { useColumnResize } from "./use-column-resize";
 import { ColumnResizeHandle } from "./task-manager-ui";
 import { TABLE_HEAD_CLASS } from "./table-styles";
+import { INNER_TABLE_CLASS } from "./view-styles";
 
 export const ROLES_COL_WIDTHS = {
   discipline: 160,
@@ -95,52 +96,53 @@ export function RolesEditor({
           <p className="text-sm text-muted-foreground">{t(lang, "rolesNoRoles")}</p>
         ) : (
           <>
+          <div className={INNER_TABLE_CLASS}>
           <table className="w-full text-left text-sm">
             <thead className={TABLE_HEAD_CLASS}>
               <tr>
-                <th className="relative py-1" style={{ width: colWidths.discipline, minWidth: colWidths.discipline }}>
+                <th className="relative px-3 py-2 font-medium" style={{ width: colWidths.discipline, minWidth: colWidths.discipline }}>
                   <button type="button" onClick={() => toggleSort("discipline")} className="inline-flex items-center gap-1 hover:text-AIPM-green">
                     {t(lang, "rolesDiscipline")}{sort?.key === "discipline" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
                   </button>
                   <ColumnResizeHandle col="discipline" onMouseDown={startResize} />
                 </th>
-                <th className="relative py-1" style={{ width: colWidths.grade, minWidth: colWidths.grade }}>
+                <th className="relative px-3 py-2 font-medium" style={{ width: colWidths.grade, minWidth: colWidths.grade }}>
                   <button type="button" onClick={() => toggleSort("grade")} className="inline-flex items-center gap-1 hover:text-AIPM-green">
                     {t(lang, "rolesGrade")}{sort?.key === "grade" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
                   </button>
                   <ColumnResizeHandle col="grade" onMouseDown={startResize} />
                 </th>
-                <th className="relative py-1 text-right" style={{ width: colWidths.internal, minWidth: colWidths.internal }}>
+                <th className="relative px-3 py-2 text-right font-medium" style={{ width: colWidths.internal, minWidth: colWidths.internal }}>
                   <button type="button" onClick={() => toggleSort("internal")} className="inline-flex items-center gap-1 hover:text-AIPM-green">
                     {t(lang, "rolesInternalRate")}{sort?.key === "internal" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
                   </button>
                   <ColumnResizeHandle col="internal" onMouseDown={startResize} />
                 </th>
-                <th className="relative py-1 text-right" style={{ width: colWidths.external, minWidth: colWidths.external }}>
+                <th className="relative px-3 py-2 text-right font-medium" style={{ width: colWidths.external, minWidth: colWidths.external }}>
                   <button type="button" onClick={() => toggleSort("external")} className="inline-flex items-center gap-1 hover:text-AIPM-green">
                     {t(lang, "rolesExternalRate")}{sort?.key === "external" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
                   </button>
                   <ColumnResizeHandle col="external" onMouseDown={startResize} />
                 </th>
-                <th className="py-1" />
+                <th className="px-3 py-2" />
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
               {sortedRoles.map((r) => (
                 <tr key={r.id}>
-                  <td className="py-1.5">{disciplines.find((d) => d.id === r.disciplineId)?.name ?? "n/a"}</td>
-                  <td className="py-1.5">{grades.find((g) => g.id === r.gradeId)?.name ?? "n/a"}</td>
-                  <td className="py-1.5 text-right">
+                  <td className="px-3 py-2">{disciplines.find((d) => d.id === r.disciplineId)?.name ?? "n/a"}</td>
+                  <td className="px-3 py-2">{grades.find((g) => g.id === r.gradeId)?.name ?? "n/a"}</td>
+                  <td className="px-3 py-2 text-right">
                     <input type="number" min={0} step={1} value={r.internalRate}
                       onChange={(e) => onSaveRole({ ...r, internalRate: clampRate(e.target.value) })}
                       className="w-24 rounded-md border border-line px-2 py-1 text-right text-sm tabular-nums bg-surface-muted" />
                   </td>
-                  <td className="py-1.5 text-right">
+                  <td className="px-3 py-2 text-right">
                     <input type="number" min={0} step={1} value={r.externalRate}
                       onChange={(e) => onSaveRole({ ...r, externalRate: clampRate(e.target.value) })}
                       className="w-24 rounded-md border border-line px-2 py-1 text-right text-sm tabular-nums bg-surface-muted" />
                   </td>
-                  <td className="py-1.5 text-right">
+                  <td className="px-3 py-2 text-right">
                     <button type="button" onClick={() => onDeleteRole(r.id)} aria-label={t(lang, "delete")}
                       className="rounded p-1 text-muted-foreground hover:bg-AIPM-pink/10 hover:text-AIPM-pink">×</button>
                   </td>
@@ -148,6 +150,7 @@ export function RolesEditor({
               ))}
             </tbody>
           </table>
+          </div>
           <hr className="my-3 border-t border-line" />
           </>
         )}
