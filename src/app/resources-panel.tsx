@@ -283,14 +283,14 @@ function ResourcesPanelInner({
                 <input type="date" aria-label={t(lang, "resourcesPlanStart")} value={plan.startDate}
                   title={t(lang, "resourcesPlanStartHint")}
                   onChange={(e) => onSetPlanWindow(e.target.value, plan.endDate)}
-                  className="rounded border border-line px-1.5 py-0.5 dark:bg-surface" />
+                  className="rounded border border-line px-2 py-1.5 text-sm dark:bg-surface" />
               </label>
               <label className="flex items-center gap-1">
                 <span>{t(lang, "resourcesPlanEnd")}</span>
                 <input type="date" aria-label={t(lang, "resourcesPlanEnd")} value={plan.endDate}
                   title={t(lang, "resourcesPlanEndHint")}
                   onChange={(e) => onSetPlanWindow(plan.startDate, e.target.value)}
-                  className="rounded border border-line px-1.5 py-0.5 dark:bg-surface" />
+                  className="rounded border border-line px-2 py-1.5 text-sm dark:bg-surface" />
               </label>
               <SegmentedControl<"week" | "month">
                 value={viewGranularity}
