@@ -92,7 +92,7 @@ export function OutlookCalendarImportModal({
   return (
     <Modal open={open} onClose={onClose} ariaLabel={t(lang, "outlookCalImportTitle")} align="center" zIndex={50}>
       <div className="flex max-h-[80vh] w-full max-w-xl flex-col overflow-hidden rounded-xl border border-line bg-surface">
-        <header className="flex shrink-0 items-center justify-between border-b border-line px-6 py-4">
+        <header className="sticky top-0 z-10 flex shrink-0 items-center justify-between gap-4 border-b border-line bg-surface px-6 py-4">
           <h2 className="text-lg font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
             {t(lang, "outlookCalImportTitle")}
           </h2>

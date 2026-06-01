@@ -189,7 +189,7 @@ export function DueDatesModal({
         ref={panelRef}
         className="relative h-[640px] max-h-[95vh] min-h-[300px] w-[640px] min-w-[320px] max-w-[95vw] resize overflow-y-auto rounded-xl border border-line bg-surface"
       >
-        <header className="sticky top-0 flex items-center justify-between gap-4 border-b border-line bg-surface px-6 py-4">
+        <header className="sticky top-0 z-10 flex shrink-0 items-center justify-between gap-4 border-b border-line bg-surface px-6 py-4">
           <div>
             <h2 className="text-lg font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
               {t(lang, "alertModalTitle")}
