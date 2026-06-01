@@ -76,4 +76,10 @@ describe("view-pane sweep", () => {
     expect(src).toContain("CHAT_PANE_CLASS");
     expect(src).toMatch(/\bresize\b/);
   });
+
+  it("resource-directory is resizable", () => {
+    const src = readFileSync(join(__dirname, "resource-directory.tsx"), "utf8");
+    expect(src).toMatch(/VIEW_PANE_RESIZABLE_CLASS/);
+    expect(src).toMatch(/lop-app:directory-size/);
+  });
 });

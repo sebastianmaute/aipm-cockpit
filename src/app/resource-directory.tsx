@@ -10,8 +10,9 @@ import { birthdayMonthDay } from "./birthdays";
 import { resourceDisplayName } from "./resource-foundation";
 import type { Discipline, Grade, Resource, Role } from "./types";
 import { useColumnResize } from "./use-column-resize";
-import { INNER_TABLE_CLASS } from "./view-styles";
-import { ColumnResizeHandle, ResetColWidthsButton } from "./task-manager-ui";
+import { useResizable } from "./use-resizable";
+import { INNER_TABLE_CLASS, VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
+import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton, ResizeCornerHint } from "./task-manager-ui";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 
 const DIRECTORY_COL_WIDTHS = {
@@ -124,6 +125,7 @@ function ResourceDirectoryInner({
   onAddAbsence,
   onImportOutlook,
 }: Props) {
+  const { ref: dirRef, reset: resetDirSize } = useResizable("lop-app:directory-size");
   const { colWidths, startColResize: _startColResize, resetColWidths } = useColumnResize<DirectoryCol>(
     "directory",
     DIRECTORY_COL_WIDTHS,
@@ -187,7 +189,7 @@ function ResourceDirectoryInner({
     sortKey === key ? (sortDir === "asc" ? " ▲" : " ▼") : "";
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+    <div ref={dirRef} className={VIEW_PANE_RESIZABLE_CLASS}>
       <div className="mb-2 flex shrink-0 items-center gap-2">
         <button
           type="button"
@@ -222,6 +224,7 @@ function ResourceDirectoryInner({
           </button>
         )}
         <ResetColWidthsButton onClick={resetColWidths} lang={lang} />
+        <ResetSizeButton onClick={resetDirSize} lang={lang} />
       </div>
       {resources.length === 0 ? (
         <div className="mt-3 flex-1 rounded-md border border-dashed border-line p-6 text-center text-sm text-muted-foreground">
@@ -312,6 +315,7 @@ function ResourceDirectoryInner({
           </table>
         </div>
       )}
+      <ResizeCornerHint lang={lang} />
     </div>
   );
 }
