@@ -142,7 +142,7 @@ describe("isReportPopoutTab", () => {
     expect(isReportPopoutTab(null)).toBe(false);
   });
 
-  it("REPORT_POPOUT_TABS contains exactly the three report tabs", () => {
-    expect(REPORT_POPOUT_TABS).toEqual(["resource-report", "reports", "raid-report"]);
+  it("REPORT_POPOUT_TABS contains exactly the report tabs", () => {
+    expect(REPORT_POPOUT_TABS).toEqual(["resource-report", "reports", "raid-report", "budget-report"]);
   });
 });
