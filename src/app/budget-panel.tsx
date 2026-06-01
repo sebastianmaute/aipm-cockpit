@@ -19,6 +19,46 @@ const BUDGET_COL_WIDTHS = {
 } as const;
 type BudgetCol = keyof typeof BUDGET_COL_WIDTHS;
 
+function HoursCell({
+  ariaPrefix, budget, actual, onBudget, onActual, hLabel, budgetHint, actualHint,
+}: {
+  ariaPrefix: string;
+  budget: number | undefined;
+  actual: number | undefined;
+  onBudget: (v: number) => void;
+  onActual: (v: number) => void;
+  hLabel: string;
+  budgetHint: string;
+  actualHint: string;
+}) {
+  return (
+    <div className="flex flex-col gap-0.5">
+      <div className="flex items-center gap-1">
+        <input
+          aria-label={`budget-${ariaPrefix}`}
+          title={budgetHint}
+          type="number"
+          value={budget ?? ""}
+          onChange={(e) => onBudget(Number(e.target.value) || 0)}
+          className="w-16 rounded border border-line bg-surface px-1 text-right"
+        />
+        <span className="text-[10px] text-muted-foreground">{hLabel}</span>
+      </div>
+      <div className="flex items-center gap-1">
+        <input
+          aria-label={`actual-${ariaPrefix}`}
+          title={actualHint}
+          type="number"
+          value={actual ?? ""}
+          onChange={(e) => onActual(Number(e.target.value) || 0)}
+          className="w-16 rounded border border-line bg-surface-muted px-1 text-right"
+        />
+        <span className="text-[10px] text-muted-foreground">{hLabel}</span>
+      </div>
+    </div>
+  );
+}
+
 export interface BudgetPanelProps {
   lang: Lang;
   buckets: BudgetBucket[];
@@ -123,6 +163,21 @@ export function BudgetPanel(props: BudgetPanelProps) {
     );
   };
 
+  const setDisciplineCell = (
+    bucketId: number, disciplineId: number, periodKey: string,
+    field: "budgetHours" | "actualHours", value: number,
+  ) => {
+    props.onChangeBuckets(
+      buckets.map((b) => {
+        if (b.id !== bucketId) return b;
+        const disciplineAllocations = (b.disciplineAllocations ?? []).map((a) =>
+          a.disciplineId === disciplineId ? { ...a, [field]: { ...a[field], [periodKey]: value } } : a,
+        );
+        return { ...b, disciplineAllocations, localModifiedAt: stamp() };
+      }),
+    );
+  };
+
   const sortedBucketIds = () =>
     [...buckets].sort((a, b) => (a.order ?? a.id) - (b.order ?? b.id)).map((b) => b.id);
 
@@ -209,6 +264,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
       <section className="flex flex-col gap-3">
         {report.buckets.map((br: BucketReport) => {
           const bucket = bucketById.get(br.bucketId)!;
+          const isBlended = bucket.planningMode === "blended";
           const rate = resolveRate(bucket, fxRates);
           const inCur = (eur: number) => formatCurrency(eurToCurrency(eur, bucket, fxRates), bucket.currency, locale);
           // CCI amounts are EUR from the engine — convert to the bucket currency for display.
@@ -253,6 +309,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
                 <div className="text-xs text-muted-foreground">
                   {t(lang, br.type === "fixed" ? "budgetTypeFixed" : "budgetTypeTm")} · {bucket.currency}
                   {rate !== 1 ? ` (×${rate})` : ""}
+                  {" · "}{t(lang, isBlended ? "budgetModeBlended" : "budgetModeDetailed")}
                 </div>
               </div>
               <div className="grid grid-cols-4 gap-2 text-sm">
@@ -279,7 +336,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
                         className="relative px-2 py-1 text-left font-medium"
                         style={{ width: colWidths.role, minWidth: colWidths.role }}
                       >
-                        {t(lang, "budgetRole")}
+                        {t(lang, isBlended ? "budgetModeBlended" : "budgetRole")}
                         <ColumnResizeHandle col="role" onMouseDown={startResize} />
                       </th>
                       {bucketActivePeriods(bucket, plan).map((p) => (
@@ -295,27 +352,40 @@ export function BudgetPanel(props: BudgetPanelProps) {
                     </tr>
                   </thead>
                   <tbody>
-                    {bucket.allocations.map((a) => (
+                    {!isBlended && bucket.allocations.map((a) => (
                       <tr key={a.roleId} className="border-t border-line">
                         <td className="px-2 py-1">{roleLabel(roles.find((r) => r.id === a.roleId), props.disciplines, props.grades) || `#${a.roleId}`}</td>
                         {bucketActivePeriods(bucket, plan).map((p) => (
                           <td key={p.key} className="px-1 py-1">
-                            <div className="flex flex-col gap-0.5">
-                              <input
-                                aria-label={`budget-${bucket.id}-${a.roleId}-${p.key}`}
-                                type="number"
-                                value={a.budgetHours[p.key] ?? ""}
-                                onChange={(e) => setCell(bucket.id, a.roleId, p.key, "budgetHours", Number(e.target.value) || 0)}
-                                className="w-16 rounded border border-line bg-surface px-1 text-right"
-                              />
-                              <input
-                                aria-label={`actual-${bucket.id}-${a.roleId}-${p.key}`}
-                                type="number"
-                                value={a.actualHours[p.key] ?? ""}
-                                onChange={(e) => setCell(bucket.id, a.roleId, p.key, "actualHours", Number(e.target.value) || 0)}
-                                className="w-16 rounded border border-line bg-surface-muted px-1 text-right"
-                              />
-                            </div>
+                            <HoursCell
+                              ariaPrefix={`${bucket.id}-${a.roleId}-${p.key}`}
+                              budget={a.budgetHours[p.key]}
+                              actual={a.actualHours[p.key]}
+                              onBudget={(v) => setCell(bucket.id, a.roleId, p.key, "budgetHours", v)}
+                              onActual={(v) => setCell(bucket.id, a.roleId, p.key, "actualHours", v)}
+                              hLabel={t(lang, "budgetUnitHours")}
+                              budgetHint={t(lang, "budgetBudgetHoursHint")}
+                              actualHint={t(lang, "budgetActualHoursHint")}
+                            />
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                    {isBlended && (bucket.disciplineAllocations ?? []).map((a) => (
+                      <tr key={a.disciplineId} className="border-t border-line">
+                        <td className="px-2 py-1">{props.disciplines.find((d) => d.id === a.disciplineId)?.name || `#${a.disciplineId}`}</td>
+                        {bucketActivePeriods(bucket, plan).map((p) => (
+                          <td key={p.key} className="px-1 py-1">
+                            <HoursCell
+                              ariaPrefix={`${bucket.id}-d${a.disciplineId}-${p.key}`}
+                              budget={a.budgetHours[p.key]}
+                              actual={a.actualHours[p.key]}
+                              onBudget={(v) => setDisciplineCell(bucket.id, a.disciplineId, p.key, "budgetHours", v)}
+                              onActual={(v) => setDisciplineCell(bucket.id, a.disciplineId, p.key, "actualHours", v)}
+                              hLabel={t(lang, "budgetUnitHours")}
+                              budgetHint={t(lang, "budgetBudgetHoursHint")}
+                              actualHint={t(lang, "budgetActualHoursHint")}
+                            />
                           </td>
                         ))}
                       </tr>

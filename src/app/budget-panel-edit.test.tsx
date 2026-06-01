@@ -106,4 +106,19 @@ describe("BudgetPanel editing", () => {
     expect(last[0].status).toBe("closed");
     expect(last[0].closedDate).toBe("2026-02-01");
   });
+
+  test("blended bucket renders discipline rows and edits a discipline cell", () => {
+    const spy = vi.fn();
+    const initial: BudgetBucket[] = [{
+      id: 1, name: "Blend", type: "tm", currency: "EUR",
+      startDate: "2026-01-01", endDate: "2026-01-31", status: "open",
+      planningMode: "blended", allocations: [],
+      disciplineAllocations: [{ disciplineId: 1, resourceIds: [], budgetHours: {}, actualHours: {} }],
+    }];
+    render(<Harness initial={initial} onChangeSpy={spy} />);
+    const input = screen.getByLabelText("budget-1-d1-2026-01") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "50" } });
+    const last = spy.mock.calls.at(-1)![0] as BudgetBucket[];
+    expect(last[0].disciplineAllocations![0].budgetHours["2026-01"]).toBe(50);
+  });
 });
