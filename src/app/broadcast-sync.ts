@@ -110,6 +110,7 @@ export const POPOUT_TABS = [
   "raid-report",
   "address-book",
   "budget",
+  "budget-report",
 ] as const;
 export type PopoutTab = (typeof POPOUT_TABS)[number];
 
@@ -120,6 +121,7 @@ export const REPORT_POPOUT_TABS: readonly PopoutTab[] = [
   "resource-report",
   "reports",
   "raid-report",
+  "budget-report",
 ] as const;
 
 /** True for the three report-style popout tabs; false for editing popouts

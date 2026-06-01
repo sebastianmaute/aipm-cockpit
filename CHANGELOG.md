@@ -8,6 +8,14 @@ Authoritative source for version + build date: [`src/app/version.ts`](src/app/ve
 This file is seeded from that module's milestone comment plus the
 post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-diff.txt).
 
+## [0.41.0] — 2026-06-01 "Okorafor"
+
+### Added
+- **Budget Report:** a dedicated, read-only report under Budget -> Budget Report. Shows the project-level CCI rollup (contribution margin, cost performance, consumption) and a sortable per-bucket detail table (mode, type, status, currency/FX, budget/plan/actual hours, budget/consumed EUR, margin, win/loss) across all buckets. Printable via the report card.
+
+### Changed
+- Budget reporting moved out of the task Reports view (added in 0.40.0) into the dedicated Budget Report.
+
 ## [0.40.0] — 2026-06-01 "Leckie"
 
 ### Added

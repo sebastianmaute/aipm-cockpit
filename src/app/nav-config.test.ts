@@ -55,7 +55,13 @@ describe("nav-config", () => {
     expect(subTabsFor("raid").map((c) => c.view)).toEqual(["raid-report"]);
     expect(subTabsFor("raid-report").map((c) => c.view)).toEqual(["raid-report"]);
     expect(subTabsFor("chat")).toEqual([]);
-    expect(subTabsFor("budget")).toEqual([]);
     expect(subTabsFor("open-points")).toEqual([]);
+  });
+
+  it("exposes budget-report as a child of budget", () => {
+    expect(subTabsFor("budget")).toEqual([{ view: "budget-report" }]);
+    expect(subTabsFor("budget-report")).toEqual([{ view: "budget-report" }]);
+    expect(allNavViews()).toContain("budget-report");
+    expect(navLabelKey("budget-report")).toBe("budgetReportTitle");
   });
 });

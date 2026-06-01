@@ -1,3 +1,10 @@
+// 0.41.0 "Okorafor" adds a dedicated Budget Report. A new "Budget Report"
+// sub-menu under Budget (mirroring RAID -> RAID Report) shows the current
+// budget calculations across all buckets — role rates, blended discipline
+// rates, per-bucket overrides, FX, and spillover — as a printable report with a
+// project-level CCI rollup and a sortable per-bucket detail table (all figures
+// in EUR). The budget block added to the task Reports view in 0.40.0 is removed
+// and folded into this dedicated report. No budget-engine change.
 // 0.40.0 "Leckie" adds per-bucket budget planning modes. A "Detailed budget
 // planning" toggle switches a bucket between per-role allocations (detailed,
 // the prior behavior) and per-discipline allocations that use the average
@@ -530,12 +537,12 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.40.0";
-export const APP_BUILD_DATE = "2026-06-01"; // 0.40.0 per-bucket budget planning modes
+export const APP_VERSION = "0.41.0";
+export const APP_BUILD_DATE = "2026-06-01"; // 0.41.0 dedicated Budget Report view
 /** Minor-series milestone codename (sci-fi/fantasy author names). The whole
  *  0.39.x line is "Tchaikovsky" (Adrian Tchaikovsky); patch releases inherit
  *  their minor version's codename rather than getting their own. */
-export const APP_MILESTONE = "Leckie";
+export const APP_MILESTONE = "Okorafor";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -582,4 +589,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightPaneResize",
   "versionHighlightConsistency",
   "versionHighlightBudgetModes",
+  "versionHighlightBudgetReport",
 ] as const;

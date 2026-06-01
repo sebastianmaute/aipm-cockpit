@@ -14,6 +14,7 @@ export type AppView =
   | "planning"
   | "manage-roles"
   | "budget"
+  | "budget-report"
   | "raid"
   | "raid-report"
   | "reports"
@@ -50,7 +51,7 @@ export const NAV_GROUPS: NavGroup[] = [
           { view: "manage-roles" },
         ],
       },
-      { view: "budget" },
+      { view: "budget", children: [{ view: "budget-report" }] },
     ],
   },
   {
@@ -77,6 +78,7 @@ const LABEL_KEYS: Record<Exclude<AppView, "edit">, TranslationKey> = {
   planning: "resourcesViewPlanning",
   "manage-roles": "resourcesManageRoles",
   budget: "tabBudget",
+  "budget-report": "budgetReportTitle",
   raid: "tabRaid",
   "raid-report": "raidReportTitle",
   reports: "tabReports",

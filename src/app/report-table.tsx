@@ -73,7 +73,7 @@ export function TableFilter({
   lang: Lang;
   value: string;
   onChange: (v: string) => void;
-  placeholderKey: "reportsFilterAssignee" | "reportsFilterGroup" | "reportsFilterLabel" | "raidReportFilterOwner" | "raidReportFilterDetail";
+  placeholderKey: "reportsFilterAssignee" | "reportsFilterGroup" | "reportsFilterLabel" | "raidReportFilterOwner" | "raidReportFilterDetail" | "budgetReportFilterBucket";
 }) {
   return (
     <div className="mb-2 flex items-center gap-2 print:hidden">
@@ -121,6 +121,24 @@ export function SortHeaderButton({
       {label}
       {indicator}
     </button>
+  );
+}
+
+export function Tile({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-line bg-surface p-3">
+      <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="mt-1 text-xl font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey tabular-nums">{value}</p>
+    </div>
+  );
+}
+
+export function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <h3 className="mb-2 text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">{title}</h3>
+      {children}
+    </div>
   );
 }
 
