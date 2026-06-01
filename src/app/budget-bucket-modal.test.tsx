@@ -182,7 +182,7 @@ describe("BudgetBucketModal", () => {
     fireEvent.click(screen.getByRole("button", { name: /detailed budget planning/i }));
     fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
     const saved = onSave.mock.calls[0][0] as BudgetBucket;
-    expect(saved.planningMode ?? "detailed").toBe("detailed");
+    expect(saved.planningMode).toBe("detailed");
     expect(saved.allocations[0].budgetHours).toEqual({ "2026-01": 40 });
     confirmSpy.mockRestore();
   });

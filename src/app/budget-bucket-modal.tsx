@@ -89,6 +89,21 @@ export function BudgetBucketModal({
       ),
     }));
 
+  const toggleDisciplineResource = (disciplineId: number, resourceId: number) =>
+    setDraft((d) => ({
+      ...d,
+      disciplineAllocations: (d.disciplineAllocations ?? []).map((a) =>
+        a.disciplineId !== disciplineId
+          ? a
+          : {
+              ...a,
+              resourceIds: a.resourceIds.includes(resourceId)
+                ? a.resourceIds.filter((rid) => rid !== resourceId)
+                : [...a.resourceIds, resourceId],
+            },
+      ),
+    }));
+
   const isBlended = draft.planningMode === "blended";
   const hasDetailedHours = draft.allocations.some(
     (a) => Object.keys(a.budgetHours).length > 0 || Object.keys(a.actualHours).length > 0,
@@ -510,21 +525,7 @@ export function BudgetBucketModal({
                             <input
                               type="checkbox"
                               checked={a.resourceIds.includes(r.id)}
-                              onChange={() =>
-                                setDraft((d) => ({
-                                  ...d,
-                                  disciplineAllocations: (d.disciplineAllocations ?? []).map((x) =>
-                                    x.disciplineId !== a.disciplineId
-                                      ? x
-                                      : {
-                                          ...x,
-                                          resourceIds: x.resourceIds.includes(r.id)
-                                            ? x.resourceIds.filter((rid) => rid !== r.id)
-                                            : [...x.resourceIds, r.id],
-                                        },
-                                  ),
-                                }))
-                              }
+                              onChange={() => toggleDisciplineResource(a.disciplineId, r.id)}
                             />
                             {resourceDisplayName(r)}
                           </label>
