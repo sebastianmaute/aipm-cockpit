@@ -49,7 +49,7 @@ import { useHashView } from "./use-hash-view";
 import { navLabelKey } from "./nav-config";
 import type { AppView } from "./nav-config";
 import { TaskEditView, TASK_EDIT_FORM_ID } from "./task-edit-view";
-import { APP_VERSION } from "./version";
+import { APP_VERSION_LABEL } from "./version";
 import { ActionMenus } from "./action-menus";
 import { makeEditGuard } from "./read-only-guard";
 import { SettingsView } from "./settings-view";
@@ -964,7 +964,7 @@ function TaskManagerInner() {
         lang={lang}
         activeView={activeTab}
         onNavigate={(v) => setActiveTab(v)}
-        version={APP_VERSION}
+        version={APP_VERSION_LABEL}
         bannerCount={bannerItems.length}
         onNewTask={() => { handleCancelEdit(); setTaskModalOpen(true); }}
         onShowAlerts={() => { setBannerDismissed(false); setDueModalOpen(true); }}

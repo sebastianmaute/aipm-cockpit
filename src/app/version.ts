@@ -1,3 +1,10 @@
+// 0.38.6 surfaces the minor-series milestone codename in the UI: the version
+// now reads `0.38.6 "Chambers"` in the sidebar footer and the Version popover
+// (previously the codename lived only in these release notes; patch releases
+// inherit their minor's name). Adds a versionHighlightConsistency highlight
+// summarizing the 0.38.3–0.38.5 UI-consistency sweep (uniform header spacing,
+// control sizing, and dialog buttons/headers). Docs (README + CODEMAPS stamps)
+// refreshed to 0.38.6. No new strings beyond the one highlight; no new deps.
 // 0.38.5 unifies the modal/dialog system after an audit (the deliberately
 // separate counterpart to the 0.38.3/0.38.4 view sweep). Footer action buttons
 // are now one convention everywhere: the three "big" dialogs (Bulk Edit, Jira
@@ -496,8 +503,14 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.38.5";
-export const APP_BUILD_DATE = "2026-06-01"; // 0.38.5 modal/dialog button + header unification
+export const APP_VERSION = "0.38.6";
+export const APP_BUILD_DATE = "2026-06-01"; // 0.38.6 milestone codename in UI + highlights refresh
+/** Minor-series milestone codename (sci-fi/fantasy author names). The whole
+ *  0.38.x line is "Chambers" (Becky Chambers); patch releases inherit their
+ *  minor version's codename rather than getting their own. */
+export const APP_MILESTONE = "Chambers";
+/** Version with its milestone codename for UI display, e.g. `0.38.6 "Chambers"`. */
+export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
 
 /** Translation keys for the high-level feature highlights shown in the
@@ -540,4 +553,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightTableRestyle",
   "versionHighlightSidebarPolish",
   "versionHighlightPaneResize",
+  "versionHighlightConsistency",
 ] as const;

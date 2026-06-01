@@ -1,4 +1,4 @@
-<!-- Generated: 2026-05-31 | Files scanned: package.json, package-lock.json, vitest.config.ts, playwright.config.ts | Token estimate: ~700 | Updated for 0.29.0–0.37.1: no dependency changes -->
+<!-- Generated: 2026-05-31 | Files scanned: package.json, package-lock.json, vitest.config.ts, playwright.config.ts | Token estimate: ~700 | Updated for 0.29.0–0.38.6: no dependency changes -->
 
 # Dependencies
 

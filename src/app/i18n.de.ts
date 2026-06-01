@@ -1016,6 +1016,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightTableRestyle: "Tabellen-Redesign — dunkelblaue Kopfzeilen in den Datentabellen, Zebrazeilen in der LOP-Liste",
   versionHighlightSidebarPolish: "Responsive Seitenleiste — einklappbare Icon-Leiste, barrierefreie Navigation (Sprunglink, Menü-Button) und eine umfassendere Fußzeile",
   versionHighlightPaneResize: "Größenveränderbare Bereiche & neue Ressourcen-Navigation",
+  versionHighlightConsistency: "Einheitliche Oberfläche — gleichmäßige Kopfzeilen-Abstände, Steuerelement-Größen und Dialog-Schaltflächen und -Kopfzeilen in allen Ansichten",
 
   outlookCalImportTitle: "Outlook-Kalender importieren",
   outlookCalImportLoading: "Termine werden geladen…",

@@ -998,6 +998,7 @@ const enUS = {
   versionHighlightTableRestyle: "Table restyle — Dark-Blue headers across the data tables, zebra rows on the LOP list",
   versionHighlightSidebarPolish: "Responsive sidebar — collapsible icon rail, accessible navigation (skip link, menu button), and a fuller sidebar footer",
   versionHighlightPaneResize: "Resizable panes & restructured Resources nav",
+  versionHighlightConsistency: "Consistent UI — uniform header spacing, control sizing, and dialog buttons/headers across every view",
 
   outlookCalImportTitle: "Import Outlook calendar",
   outlookCalImportLoading: "Loading events…",
