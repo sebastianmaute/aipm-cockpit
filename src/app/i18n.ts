@@ -1035,6 +1035,7 @@ const enUS = {
   versionHighlightSidebarPolish: "Responsive sidebar — collapsible icon rail, accessible navigation (skip link, menu button), and a fuller sidebar footer",
   versionHighlightPaneResize: "Resizable panes & restructured Resources nav",
   versionHighlightConsistency: "Consistent UI — uniform header spacing, control sizing, and dialog buttons/headers across every view",
+  versionHighlightBudgetModes: "Plan budgets per discipline (blended rate) or per role, with per-bucket rate overrides and a filterable budget report.",
 
   outlookCalImportTitle: "Import Outlook calendar",
   outlookCalImportLoading: "Loading events…",

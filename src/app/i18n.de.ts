@@ -1053,6 +1053,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightSidebarPolish: "Responsive Seitenleiste — einklappbare Icon-Leiste, barrierefreie Navigation (Sprunglink, Menü-Button) und eine umfassendere Fußzeile",
   versionHighlightPaneResize: "Größenveränderbare Bereiche & neue Ressourcen-Navigation",
   versionHighlightConsistency: "Einheitliche Oberfläche — gleichmäßige Kopfzeilen-Abstände, Steuerelement-Größen und Dialog-Schaltflächen und -Kopfzeilen in allen Ansichten",
+  versionHighlightBudgetModes: "Budgets je Disziplin (Mischsatz) oder je Rolle planen, mit Satz-Overrides je Bucket und einem filterbaren Budgetbericht.",
 
   outlookCalImportTitle: "Outlook-Kalender importieren",
   outlookCalImportLoading: "Termine werden geladen…",

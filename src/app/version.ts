@@ -1,3 +1,12 @@
+// 0.40.0 "Leckie" adds per-bucket budget planning modes. A "Detailed budget
+// planning" toggle switches a bucket between per-role allocations (detailed,
+// the prior behavior) and per-discipline allocations that use the average
+// (blended) rate of that discipline's grades. Buckets gain optional internal/
+// external rate overrides (applied to every line). Entry fields show a unit
+// suffix and tooltip; switching off detailed planning warns before discarding
+// per-role hours. The Reports view gains a Budget section filterable by bucket
+// and by minimum total budget, with total/used/free rollups. New pure module
+// budget-rates.ts; the new fields round-trip through all storage backends.
 // 0.39.0 "Tchaikovsky" makes the Resource Calendar's visible range selectable.
 // A control row (Month / Week / Custom + ◀ / Today / ▶, with From/To date
 // pickers in Custom mode) replaces the fixed 30-days-from-today grid: the
@@ -521,12 +530,12 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.39.0";
-export const APP_BUILD_DATE = "2026-06-01"; // 0.39.0 selectable resource-calendar date range
+export const APP_VERSION = "0.40.0";
+export const APP_BUILD_DATE = "2026-06-01"; // 0.40.0 per-bucket budget planning modes
 /** Minor-series milestone codename (sci-fi/fantasy author names). The whole
  *  0.39.x line is "Tchaikovsky" (Adrian Tchaikovsky); patch releases inherit
  *  their minor version's codename rather than getting their own. */
-export const APP_MILESTONE = "Tchaikovsky";
+export const APP_MILESTONE = "Leckie";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -572,4 +581,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightSidebarPolish",
   "versionHighlightPaneResize",
   "versionHighlightConsistency",
+  "versionHighlightBudgetModes",
 ] as const;

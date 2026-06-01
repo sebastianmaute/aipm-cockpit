@@ -8,6 +8,16 @@ Authoritative source for version + build date: [`src/app/version.ts`](src/app/ve
 This file is seeded from that module's milestone comment plus the
 post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-diff.txt).
 
+## [0.40.0] — 2026-06-01 "Leckie"
+
+### Added
+- **Budget planning modes:** each bucket has a "Detailed budget planning" toggle. On = plan per role (discipline x grade); off = plan per discipline using the blended average rate of that discipline's grades.
+- **Per-bucket rate overrides:** optional internal/external rates that override the role/blended rate for every line in the bucket.
+- **Reports → Budget section:** filter by bucket and by minimum total budget, with total / used / free / hours rollups and a per-bucket table.
+
+### Changed
+- Budget entry fields now show a unit suffix (h) and explanatory tooltips. Switching a bucket off detailed planning warns before discarding the per-role hours.
+
 ## [0.39.0] — 2026-06-01 "Tchaikovsky"
 
 ### Added
