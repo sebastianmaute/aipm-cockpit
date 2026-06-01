@@ -12,7 +12,9 @@ import {
   type BudgetBucket,
   type BudgetCurrency,
   type Discipline,
+  type DisciplineAllocation,
   type Grade,
+  type PlanningMode,
   type Resource,
   type Role,
 } from "./types";
@@ -47,6 +49,7 @@ export function BudgetBucketModal({
   const [draft, setDraft] = useState<BudgetBucket>(bucket);
   const [error, setError] = useState<string | null>(null);
   const [roleToAdd, setRoleToAdd] = useState<string>("");
+  const [disciplineToAdd, setDisciplineToAdd] = useState<string>("");
   const { offset, handleProps } = useDraggable(true);
 
   const allocatedRoleIds = new Set(draft.allocations.map((a) => a.roleId));
@@ -86,6 +89,47 @@ export function BudgetBucketModal({
       ),
     }));
 
+  const isBlended = draft.planningMode === "blended";
+  const hasDetailedHours = draft.allocations.some(
+    (a) => Object.keys(a.budgetHours).length > 0 || Object.keys(a.actualHours).length > 0,
+  );
+
+  const togglePlanningMode = () => {
+    if (!isBlended) {
+      if (hasDetailedHours && !window.confirm(t(lang, "budgetSwitchToBlendedWarn"))) return;
+      setDraft((d) => ({
+        ...d,
+        planningMode: "blended" as PlanningMode,
+        allocations: d.allocations.map((a) => ({ ...a, budgetHours: {}, actualHours: {} })),
+        disciplineAllocations: d.disciplineAllocations ?? [],
+      }));
+    } else {
+      setDraft((d) => ({ ...d, planningMode: "detailed" as PlanningMode }));
+    }
+  };
+
+  const allocatedDisciplineIds = new Set((draft.disciplineAllocations ?? []).map((a) => a.disciplineId));
+  const addableDisciplines = disciplines.filter((x) => !allocatedDisciplineIds.has(x.id));
+
+  const addDiscipline = () => {
+    const id = Number(disciplineToAdd);
+    if (!id || allocatedDisciplineIds.has(id)) return;
+    setDraft((d) => ({
+      ...d,
+      disciplineAllocations: [
+        ...(d.disciplineAllocations ?? []),
+        { disciplineId: id, resourceIds: [], budgetHours: {}, actualHours: {} } satisfies DisciplineAllocation,
+      ],
+    }));
+    setDisciplineToAdd("");
+  };
+
+  const removeDiscipline = (disciplineId: number) =>
+    setDraft((d) => ({
+      ...d,
+      disciplineAllocations: (d.disciplineAllocations ?? []).filter((a) => a.disciplineId !== disciplineId),
+    }));
+
   const save = () => {
     setError(null);
     if (!draft.name.trim()) {
@@ -103,6 +147,10 @@ export function BudgetBucketModal({
     if (draft.fxRateOverride != null &&
         (!Number.isFinite(draft.fxRateOverride) || draft.fxRateOverride <= 0)) {
       return setError(t(lang, "budgetFxOverrideInvalid"));
+    }
+    const badOverride = (v: number | undefined) => v != null && (!Number.isFinite(v) || v < 0);
+    if (badOverride(draft.rateOverrideInternal) || badOverride(draft.rateOverrideExternal)) {
+      return setError(t(lang, "budgetRateOverrideInvalid"));
     }
     onSave({ ...draft, localModifiedAt: new Date().toISOString() });
   };
@@ -293,7 +341,66 @@ export function BudgetBucketModal({
             </span>
           </label>
 
-          {/* Role allocations */}
+          {/* Detailed planning toggle */}
+          <div className="flex flex-col gap-1 text-sm sm:col-span-2">
+            <span>{t(lang, "budgetDetailedPlanning")}</span>
+            <button
+              type="button"
+              onClick={togglePlanningMode}
+              aria-pressed={!isBlended}
+              aria-label={t(lang, "budgetDetailedPlanning")}
+              title={t(lang, "budgetDetailedPlanningHint")}
+              className={`w-fit rounded-md border px-3 py-1.5 text-xs font-medium ${
+                !isBlended
+                  ? "border-AIPM-dark-blue bg-AIPM-dark-blue text-white"
+                  : "border-line bg-surface text-foreground hover:bg-surface-muted"
+              }`}
+            >
+              {t(lang, !isBlended ? "budgetModeDetailed" : "budgetModeBlended")}
+            </button>
+            <span className="text-xs text-muted-foreground">{t(lang, "budgetDetailedPlanningHint")}</span>
+          </div>
+
+          {/* Rate overrides */}
+          <label className="flex flex-col gap-1 text-sm">
+            <span>{t(lang, "budgetRateOverrideInternal")}</span>
+            <div className="flex items-center gap-1">
+              <input
+                className={inputClass}
+                type="number"
+                min={0}
+                step="0.01"
+                aria-label={t(lang, "budgetRateOverrideInternal")}
+                title={t(lang, "budgetRateOverrideHint")}
+                value={draft.rateOverrideInternal ?? ""}
+                onChange={(e) =>
+                  setDraft((d) => ({ ...d, rateOverrideInternal: e.target.value === "" ? undefined : Number(e.target.value) }))
+                }
+              />
+              <span className="text-xs text-muted-foreground">{t(lang, "budgetUnitPerHour")}</span>
+            </div>
+          </label>
+          <label className="flex flex-col gap-1 text-sm">
+            <span>{t(lang, "budgetRateOverrideExternal")}</span>
+            <div className="flex items-center gap-1">
+              <input
+                className={inputClass}
+                type="number"
+                min={0}
+                step="0.01"
+                aria-label={t(lang, "budgetRateOverrideExternal")}
+                title={t(lang, "budgetRateOverrideHint")}
+                value={draft.rateOverrideExternal ?? ""}
+                onChange={(e) =>
+                  setDraft((d) => ({ ...d, rateOverrideExternal: e.target.value === "" ? undefined : Number(e.target.value) }))
+                }
+              />
+              <span className="text-xs text-muted-foreground">{t(lang, "budgetUnitPerHour")}</span>
+            </div>
+          </label>
+
+          {/* Role allocations (detailed mode) */}
+          {!isBlended && (
           <div className="flex flex-col gap-2 text-sm sm:col-span-2">
             <span className="font-medium">{t(lang, "budgetAllocations")}</span>
 
@@ -374,6 +481,83 @@ export function BudgetBucketModal({
               </button>
             </div>
           </div>
+          )}
+
+          {/* Discipline allocations (blended mode) */}
+          {isBlended && (
+            <div className="flex flex-col gap-2 text-sm sm:col-span-2">
+              <span className="font-medium">{t(lang, "budgetModeBlended")}</span>
+              {(draft.disciplineAllocations ?? []).map((a) => (
+                <div key={a.disciplineId} className="rounded-md border border-line p-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium">
+                      {disciplines.find((x) => x.id === a.disciplineId)?.name ?? `#${a.disciplineId}`}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => removeDiscipline(a.disciplineId)}
+                      className="rounded-md border border-transparent px-2 py-0.5 text-xs text-muted-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted"
+                    >
+                      {t(lang, "budgetRemoveDiscipline")}
+                    </button>
+                  </div>
+                  {resources.length > 0 && (
+                    <div className="mt-1">
+                      <div className="text-xs text-muted-foreground">{t(lang, "budgetResources")}</div>
+                      <div className="flex flex-wrap gap-2">
+                        {resources.map((r) => (
+                          <label key={r.id} className="flex items-center gap-1 text-xs">
+                            <input
+                              type="checkbox"
+                              checked={a.resourceIds.includes(r.id)}
+                              onChange={() =>
+                                setDraft((d) => ({
+                                  ...d,
+                                  disciplineAllocations: (d.disciplineAllocations ?? []).map((x) =>
+                                    x.disciplineId !== a.disciplineId
+                                      ? x
+                                      : {
+                                          ...x,
+                                          resourceIds: x.resourceIds.includes(r.id)
+                                            ? x.resourceIds.filter((rid) => rid !== r.id)
+                                            : [...x.resourceIds, r.id],
+                                        },
+                                  ),
+                                }))
+                              }
+                            />
+                            {resourceDisplayName(r)}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+              <div className="flex items-center gap-2">
+                <select
+                  className={`${inputClass} flex-1`}
+                  value={disciplineToAdd}
+                  onChange={(e) => setDisciplineToAdd(e.target.value)}
+                  disabled={addableDisciplines.length === 0}
+                  aria-label={t(lang, "budgetAddDiscipline")}
+                >
+                  <option value="">{addableDisciplines.length === 0 ? t(lang, "budgetNoDisciplinesLeft") : "—"}</option>
+                  {addableDisciplines.map((x) => (
+                    <option key={x.id} value={x.id}>{x.name}</option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={addDiscipline}
+                  disabled={disciplineToAdd === ""}
+                  className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90 disabled:opacity-50"
+                >
+                  + {t(lang, "budgetAddDiscipline")}
+                </button>
+              </div>
+            </div>
+          )}
 
           {error && (
             <p role="alert" className="text-sm text-AIPM-pink sm:col-span-2">{error}</p>

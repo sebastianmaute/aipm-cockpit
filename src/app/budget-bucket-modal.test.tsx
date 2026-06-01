@@ -8,6 +8,11 @@ const roles: Role[] = [
   { id: 4, disciplineId: 1, gradeId: 2, internalRate: 120, externalRate: 180 },
 ];
 
+const disciplines = [
+  { id: 1, name: "Consulting" },
+  { id: 2, name: "Development" },
+];
+
 const baseBucket: BudgetBucket = {
   id: 1,
   name: "PAM",
@@ -127,5 +132,66 @@ describe("BudgetBucketModal", () => {
       budgetHours: {},
       actualHours: {},
     });
+  });
+
+  test("blended bucket shows discipline rows and can add one", () => {
+    const { onSave } = setup({
+      disciplines,
+      bucket: { ...baseBucket, planningMode: "blended", disciplineAllocations: [] },
+    });
+    fireEvent.change(screen.getByRole("combobox", { name: /add discipline/i }), {
+      target: { value: "2" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /\+ add discipline/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+    const saved = onSave.mock.calls[0][0] as BudgetBucket;
+    expect(saved.disciplineAllocations).toEqual([
+      { disciplineId: 2, resourceIds: [], budgetHours: {}, actualHours: {} },
+    ]);
+  });
+
+  test("turning off detailed planning with entered hours warns and clears them on confirm", () => {
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const { onSave } = setup({
+      disciplines,
+      bucket: {
+        ...baseBucket,
+        planningMode: "detailed",
+        allocations: [{ roleId: 3, resourceIds: [], budgetHours: { "2026-01": 40 }, actualHours: {} }],
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /detailed budget planning/i }));
+    expect(confirmSpy).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+    const saved = onSave.mock.calls[0][0] as BudgetBucket;
+    expect(saved.planningMode).toBe("blended");
+    expect(saved.allocations[0].budgetHours).toEqual({});
+    confirmSpy.mockRestore();
+  });
+
+  test("cancelling the warning keeps detailed mode and hours", () => {
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+    const { onSave } = setup({
+      disciplines,
+      bucket: {
+        ...baseBucket,
+        planningMode: "detailed",
+        allocations: [{ roleId: 3, resourceIds: [], budgetHours: { "2026-01": 40 }, actualHours: {} }],
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /detailed budget planning/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+    const saved = onSave.mock.calls[0][0] as BudgetBucket;
+    expect(saved.planningMode ?? "detailed").toBe("detailed");
+    expect(saved.allocations[0].budgetHours).toEqual({ "2026-01": 40 });
+    confirmSpy.mockRestore();
+  });
+
+  test("negative internal rate override blocks save", () => {
+    const { onSave } = setup({ disciplines });
+    fireEvent.change(screen.getByLabelText(/internal rate override/i), { target: { value: "-1" } });
+    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+    expect(onSave).not.toHaveBeenCalled();
+    expect(screen.getByText(/zero or greater/i)).toBeInTheDocument();
   });
 });
