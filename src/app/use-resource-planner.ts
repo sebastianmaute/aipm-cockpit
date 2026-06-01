@@ -358,10 +358,6 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
     [setResources],
   );
 
-  const [rolesModalOpen, setRolesModalOpen] = useState(false);
-  const handleOpenRolesModal = useCallback(() => setRolesModalOpen(true), []);
-  const handleCloseRolesModal = useCallback(() => setRolesModalOpen(false), []);
-
   const resolveOrCreateRole = useCallback(
     (disciplineId: number, gradeId: number): number => {
       const existing = roles.find(
@@ -645,9 +641,6 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
     handleSaveShift,
     handleDeleteShift,
     handleCreateMitigationTaskFromRaid,
-    rolesModalOpen,
-    handleOpenRolesModal,
-    handleCloseRolesModal,
     resolveOrCreateRole,
     handleSaveRole,
     handleDeleteRole,

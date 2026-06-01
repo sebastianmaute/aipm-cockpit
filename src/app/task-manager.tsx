@@ -247,8 +247,6 @@ function TaskManagerInner() {
     handleSaveShift,
     handleDeleteShift,
     handleCreateMitigationTaskFromRaid,
-    rolesModalOpen,
-    handleCloseRolesModal,
     handleSaveRole,
     handleDeleteRole,
     resolveOrCreateRole,
@@ -900,22 +898,6 @@ function TaskManagerInner() {
         onSaveResource={handleSaveResourceFromAnywhere}
         onDeleteResource={handleDeleteResource}
         onCloseResourceModal={handleCloseResourceFromAnywhere}
-        rolesModalOpen={rolesModalOpen}
-        roles={roles}
-        disciplines={disciplines}
-        grades={grades}
-        onSaveRole={handleSaveRole}
-        onDeleteRole={handleDeleteRole}
-        onResolveOrCreateRole={resolveOrCreateRole}
-        onAddDiscipline={handleAddDiscipline}
-        onRenameDiscipline={handleRenameDiscipline}
-        onDeleteDiscipline={onDeleteDiscipline}
-        onReorderDisciplines={onReorderDisciplines}
-        onAddGrade={handleAddGrade}
-        onRenameGrade={handleRenameGrade}
-        onDeleteGrade={onDeleteGrade}
-        onReorderGrades={onReorderGrades}
-        onCloseRolesModal={handleCloseRolesModal}
         toast={toast}
       />
     </>

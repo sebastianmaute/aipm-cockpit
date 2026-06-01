@@ -329,26 +329,6 @@ describe("useResourcePlanner", () => {
     });
   });
 
-  describe("roles modal", () => {
-    it("rolesModalOpen is false initially", () => {
-      const { result } = renderPlanner();
-      expect(result.current.planner.rolesModalOpen).toBe(false);
-    });
-
-    it("handleOpenRolesModal sets rolesModalOpen to true", () => {
-      const { result } = renderPlanner();
-      act(() => { result.current.planner.handleOpenRolesModal(); });
-      expect(result.current.planner.rolesModalOpen).toBe(true);
-    });
-
-    it("handleCloseRolesModal sets rolesModalOpen to false", () => {
-      const { result } = renderPlanner();
-      act(() => { result.current.planner.handleOpenRolesModal(); });
-      act(() => { result.current.planner.handleCloseRolesModal(); });
-      expect(result.current.planner.rolesModalOpen).toBe(false);
-    });
-  });
-
   describe("role CRUD", () => {
     it("resolveOrCreateRole creates a role once, then is idempotent", () => {
       const { result } = renderPlanner();
