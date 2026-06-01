@@ -55,7 +55,7 @@ describe("view-pane sweep", () => {
   });
 
   it("report files import the shared report-table kit", () => {
-    for (const f of ["reports.tsx", "raid-report-panel.tsx"]) {
+    for (const f of ["reports.tsx", "raid-report-panel.tsx", "resources-report.tsx"]) {
       const src = readFileSync(join(ROOT, f), "utf8");
       expect(src, f).toMatch(/from "\.\/report-table"/);
     }

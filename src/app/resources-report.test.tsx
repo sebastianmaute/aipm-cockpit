@@ -26,7 +26,8 @@ test("marks the report root as a print-root for scoped printing", () => {
       disciplines={disciplines} grades={grades} plan={plan} absences={[]}
       holidaySet={new Set()} workdayHours={8} />,
   );
-  expect((container.firstElementChild as HTMLElement).className).toContain("print-root");
+  // ReportCard wraps in a div with both print-root and the resizable class
+  expect(container.querySelector(".print-root")).toBeTruthy();
 });
 
 test("renders a Print button", () => {
@@ -36,4 +37,18 @@ test("renders a Print button", () => {
       holidaySet={new Set()} workdayHours={8} />,
   );
   expect(screen.getByRole("button", { name: /print/i })).toBeInTheDocument();
+});
+
+test("resource report uses a resizable ReportCard with sort buttons, a filter input, and resize handles", () => {
+  const { container } = render(
+    <ResourcesReportPanel lang="en-US" resources={resources} roles={roles}
+      disciplines={disciplines} grades={grades} plan={plan} absences={[]}
+      holidaySet={new Set()} workdayHours={8} />,
+  );
+  // ReportCard emits a div with both print-root AND the resize class
+  expect(container.querySelector(".print-root.resize")).toBeTruthy();
+  // ColumnResizeHandle emits cursor-col-resize handles
+  expect(container.querySelector(".cursor-col-resize")).toBeTruthy();
+  // TableFilter emits an input[type=search]
+  expect(container.querySelector("input[type='search']")).toBeTruthy();
 });
