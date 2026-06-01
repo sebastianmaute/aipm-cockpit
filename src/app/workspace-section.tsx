@@ -50,6 +50,10 @@ const BudgetPanel = dynamic(
   () => import("./budget-panel").then((m) => m.BudgetPanel),
   { ssr: false },
 );
+const BudgetReportPanel = dynamic(
+  () => import("./budget-report-panel").then((m) => m.BudgetReportPanel),
+  { ssr: false },
+);
 
 export interface WorkspaceSectionProps {
   today: string;
@@ -521,6 +525,22 @@ export function WorkspaceSection({
               onChangeBuckets={onChangeBudgets}
               onRefreshFx={onRefreshFx}
               fxLoading={fxLoading}
+            />
+          </div>
+        )}
+
+        {activeTab === "budget-report" && (
+          <div id="panel-budget-report" role="tabpanel" className={panelScrollClass}>
+            <BudgetReportPanel
+              lang={lang}
+              buckets={budgets}
+              plan={plan}
+              roles={roles}
+              resources={resources}
+              absences={absences}
+              holidaySet={holidaySet}
+              workdayHours={settings.resources.workdayHours}
+              fxRates={fxRates}
             />
           </div>
         )}
