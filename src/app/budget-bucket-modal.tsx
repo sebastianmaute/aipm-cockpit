@@ -108,6 +108,9 @@ export function BudgetBucketModal({
   const hasDetailedHours = draft.allocations.some(
     (a) => Object.keys(a.budgetHours).length > 0 || Object.keys(a.actualHours).length > 0,
   );
+  const hasBlendedHours = (draft.disciplineAllocations ?? []).some(
+    (a) => Object.keys(a.budgetHours).length > 0 || Object.keys(a.actualHours).length > 0,
+  );
 
   const togglePlanningMode = () => {
     if (!isBlended) {
@@ -119,7 +122,12 @@ export function BudgetBucketModal({
         disciplineAllocations: d.disciplineAllocations ?? [],
       }));
     } else {
-      setDraft((d) => ({ ...d, planningMode: "detailed" as PlanningMode }));
+      if (hasBlendedHours && !window.confirm(t(lang, "budgetSwitchToDetailedWarn"))) return;
+      setDraft((d) => ({
+        ...d,
+        planningMode: "detailed" as PlanningMode,
+        disciplineAllocations: (d.disciplineAllocations ?? []).map((a) => ({ ...a, budgetHours: {}, actualHours: {} })),
+      }));
     }
   };
 

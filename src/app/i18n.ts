@@ -251,9 +251,10 @@ const enUS = {
   budgetModeBlended: "Blended",
   budgetDiscipline: "Discipline",
   budgetSwitchToBlendedWarn: "Switching off detailed planning discards the hours entered per role for this bucket. Continue?",
+  budgetSwitchToDetailedWarn: "Switching on detailed planning discards the hours entered per discipline for this bucket. Continue?",
   budgetRateOverrideInternal: "Internal rate override",
   budgetRateOverrideExternal: "External rate override",
-  budgetRateOverrideHint: "Overrides the role or blended rate for every line in this bucket. Leave blank to use the computed rate.",
+  budgetRateOverrideHint: "Overrides the role or blended rate for every line in this bucket. Leave blank to use the computed rate. Values are in EUR.",
   budgetRateOverrideInvalid: "Rate overrides must be zero or greater.",
   budgetUnitHours: "h",
   budgetUnitPerHour: "EUR/h",
@@ -504,7 +505,6 @@ const enUS = {
   reportsBudgetPlanHours: "Plan (h)",
   reportsBudgetUsedHours: "Used (h)",
   reportsBudgetBudgetEur: "Budget (EUR)",
-  reportsBudgetEmpty: "No budget buckets yet.",
   versionHighlightReportsSortFilter:
     "Reports tables (By Assignee, By Group, By Label) are now sortable and filterable — click any header to sort, type in the search box to narrow rows.",
 

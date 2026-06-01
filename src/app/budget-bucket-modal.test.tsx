@@ -187,6 +187,45 @@ describe("BudgetBucketModal", () => {
     confirmSpy.mockRestore();
   });
 
+  test("turning ON detailed planning with entered discipline hours warns and clears them on confirm", () => {
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const { onSave } = setup({
+      disciplines,
+      bucket: {
+        ...baseBucket,
+        planningMode: "blended",
+        allocations: [],
+        disciplineAllocations: [{ disciplineId: 1, resourceIds: [], budgetHours: { "2026-01": 20 }, actualHours: {} }],
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /detailed budget planning/i }));
+    expect(confirmSpy).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+    const saved = onSave.mock.calls[0][0] as BudgetBucket;
+    expect(saved.planningMode).toBe("detailed");
+    expect(saved.disciplineAllocations![0].budgetHours).toEqual({});
+    confirmSpy.mockRestore();
+  });
+
+  test("cancelling the switch-to-detailed warning keeps blended mode and discipline hours", () => {
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+    const { onSave } = setup({
+      disciplines,
+      bucket: {
+        ...baseBucket,
+        planningMode: "blended",
+        allocations: [],
+        disciplineAllocations: [{ disciplineId: 1, resourceIds: [], budgetHours: { "2026-01": 20 }, actualHours: {} }],
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /detailed budget planning/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+    const saved = onSave.mock.calls[0][0] as BudgetBucket;
+    expect(saved.planningMode).toBe("blended");
+    expect(saved.disciplineAllocations![0].budgetHours).toEqual({ "2026-01": 20 });
+    confirmSpy.mockRestore();
+  });
+
   test("negative internal rate override blocks save", () => {
     const { onSave } = setup({ disciplines });
     fireEvent.change(screen.getByLabelText(/internal rate override/i), { target: { value: "-1" } });

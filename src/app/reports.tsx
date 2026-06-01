@@ -641,7 +641,7 @@ function BudgetSection({
           >
             <option value="">{t(lang, "reportsBudgetAllBuckets")}</option>
             {budgetRows.map((r) => (
-              <option key={r.bucketId} value={r.bucketId}>{r.name}</option>
+              <option key={r.bucketId} value={String(r.bucketId)}>{r.name}</option>
             ))}
           </select>
         </label>
