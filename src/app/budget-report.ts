@@ -2,9 +2,10 @@ import {
   absencesForResource, displayCapacityHours, generatePeriods, type Period,
 } from "./resource-capacity";
 import type {
-  Absence, BudgetBucket, BucketAllocation, PlanGranularity,
+  Absence, BudgetBucket, PlanGranularity,
   Resource, ResourcePlan, Role,
 } from "./types";
+import { blendedDisciplineRate, effectiveRates, type RatePair } from "./budget-rates";
 
 /** Plan periods whose start falls within the bucket's [startDate,endDate]. */
 export function bucketActivePeriods(bucket: Pick<BudgetBucket, "startDate" | "endDate">, plan: ResourcePlan): Period[] {
@@ -15,7 +16,7 @@ export function bucketActivePeriods(bucket: Pick<BudgetBucket, "startDate" | "en
 
 /** Planned hours for one allocation in one period = sum of capacity of its resources. */
 export function allocationPlannedHours(
-  alloc: BucketAllocation,
+  alloc: { resourceIds: readonly number[] },
   period: Period,
   canonicalPeriods: readonly Period[],
   resources: readonly Resource[],
@@ -83,6 +84,35 @@ function pct(numerator: number, denominator: number): number | null {
   return (numerator / denominator) * 100;
 }
 
+type RateRow = {
+  rates: RatePair;
+  budgetHours: Record<string, number>;
+  actualHours: Record<string, number>;
+  resourceIds: number[];
+};
+
+/** Uniform rate-bearing rows for a bucket: from disciplineAllocations (blended)
+ *  or allocations (detailed). Each row's rate honors the per-bucket override. */
+function bucketRateRows(bucket: BudgetBucket, roles: readonly Role[]): RateRow[] {
+  if (bucket.planningMode === "blended") {
+    return (bucket.disciplineAllocations ?? []).map((a) => ({
+      rates: effectiveRates(bucket, blendedDisciplineRate(a.disciplineId, roles)),
+      budgetHours: a.budgetHours,
+      actualHours: a.actualHours,
+      resourceIds: a.resourceIds,
+    }));
+  }
+  return bucket.allocations.map((a) => {
+    const role = roleFor(a.roleId, roles);
+    return {
+      rates: effectiveRates(bucket, { internal: role?.internalRate ?? 0, external: role?.externalRate ?? 0 }),
+      budgetHours: a.budgetHours,
+      actualHours: a.actualHours,
+      resourceIds: a.resourceIds,
+    };
+  });
+}
+
 /**
  * Compute a single bucket's report. All money is in EUR (role rates are EUR).
  * `spilloverInHours`/`spilloverInValue` are the remaining budget rolled in
@@ -110,12 +140,11 @@ export function computeBucketReport(
   let budgetValueExternal = 0;
   let budgetCost = 0;
 
-  for (const alloc of bucket.allocations) {
-    const role = roleFor(alloc.roleId, roles);
-    const internal = role?.internalRate ?? 0;
-    const external = role?.externalRate ?? 0;
-    const aBudget = sumPeriodMap(alloc.budgetHours, keys);
-    const aActual = sumPeriodMap(alloc.actualHours, keys);
+  const rows = bucketRateRows(bucket, roles);
+  for (const row of rows) {
+    const { internal, external } = row.rates;
+    const aBudget = sumPeriodMap(row.budgetHours, keys);
+    const aActual = sumPeriodMap(row.actualHours, keys);
     budgetHours += aBudget;
     actualHours += aActual;
     cost += aActual * internal;
@@ -123,7 +152,7 @@ export function computeBucketReport(
     budgetValueExternal += aBudget * external;
     budgetCost += aBudget * internal;
     for (const p of periods) {
-      plannedHours += allocationPlannedHours(alloc, p, periods, resources, workdayHours, holidaySet, plan.granularity, absences);
+      plannedHours += allocationPlannedHours(row, p, periods, resources, workdayHours, holidaySet, plan.granularity, absences);
     }
   }
 
