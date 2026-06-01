@@ -1038,7 +1038,7 @@ export function GanttPanel({
     prefs.assignee !== "All";
 
   const toolbar = (
-    <div className="flex shrink-0 flex-wrap items-center gap-2 pb-2">
+    <div className="mb-2 flex shrink-0 flex-wrap items-center gap-2">
       {onAddTask && (
         <button
           type="button"
@@ -1057,7 +1057,7 @@ export function GanttPanel({
         placeholder={t(lang, "searchPlaceholder")}
         aria-label={t(lang, "searchPlaceholder")}
         title={t(lang, "ganttSearchHint")}
-        className="min-w-[12rem] flex-1 rounded-md border border-line bg-surface px-3 py-1.5 text-sm text-foreground focus:border-AIPM-dark-blue focus:outline-none focus:ring-1 focus:ring-AIPM-green"
+        className="min-w-[12rem] flex-1 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-foreground focus:border-AIPM-dark-blue focus:outline-none focus:ring-1 focus:ring-AIPM-green"
       />
       <select
         value={prefs.status}
@@ -1066,7 +1066,7 @@ export function GanttPanel({
         }
         aria-label={t(lang, "ganttFilterStatus")}
         title={t(lang, "ganttStatusFilterHint")}
-        className="rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-foreground focus:border-AIPM-dark-blue focus:outline-none focus:ring-1 focus:ring-AIPM-green"
+        className="rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-foreground focus:border-AIPM-dark-blue focus:outline-none focus:ring-1 focus:ring-AIPM-green"
       >
         <option value="all">{t(lang, "ganttStatusAll")}</option>
         <option value="open">{t(lang, "ganttStatusOpen")}</option>
@@ -1080,7 +1080,7 @@ export function GanttPanel({
         }
         aria-label={t(lang, "allPriorities")}
         title={t(lang, "priorityFilterHint")}
-        className="rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-foreground focus:border-AIPM-dark-blue focus:outline-none focus:ring-1 focus:ring-AIPM-green"
+        className="rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-foreground focus:border-AIPM-dark-blue focus:outline-none focus:ring-1 focus:ring-AIPM-green"
       >
         <option value="All">{t(lang, "allPriorities")}</option>
         {PRIORITIES.map((p) => (
@@ -1094,7 +1094,7 @@ export function GanttPanel({
         onChange={(e) => setAssigneeFilter(e.target.value)}
         aria-label={t(lang, "allAssignees")}
         title={t(lang, "assigneeFilterHint")}
-        className="rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-foreground focus:border-AIPM-dark-blue focus:outline-none focus:ring-1 focus:ring-AIPM-green"
+        className="rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-foreground focus:border-AIPM-dark-blue focus:outline-none focus:ring-1 focus:ring-AIPM-green"
       >
         <option value="All">{t(lang, "allAssignees")}</option>
         {assigneeOptions.map((a) => (
@@ -1110,7 +1110,7 @@ export function GanttPanel({
           onChange={(e) => setSort(e.target.value as GanttSort)}
           aria-label={t(lang, "ganttSortLabel")}
           title={t(lang, "ganttSortHint")}
-          className="rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-foreground focus:border-AIPM-dark-blue focus:outline-none focus:ring-1 focus:ring-AIPM-green"
+          className="rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-foreground focus:border-AIPM-dark-blue focus:outline-none focus:ring-1 focus:ring-AIPM-green"
         >
           <option value="auto">{t(lang, "ganttSortAuto")}</option>
           <option value="due">{t(lang, "ganttSortDue")}</option>
