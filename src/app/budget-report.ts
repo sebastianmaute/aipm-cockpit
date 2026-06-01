@@ -88,7 +88,7 @@ type RateRow = {
   rates: RatePair;
   budgetHours: Record<string, number>;
   actualHours: Record<string, number>;
-  resourceIds: number[];
+  resourceIds: readonly number[];
 };
 
 /** Uniform rate-bearing rows for a bucket: from disciplineAllocations (blended)

@@ -38,6 +38,24 @@ describe("computeBucketReport — blended (discipline-only)", () => {
     expect(rep.cost).toBe(80 * 90);
     expect(rep.revenue).toBe(80 * 200);
   });
+
+  test("discipline with no matching roles yields zero rates (documents known fallback)", () => {
+    const b: BudgetBucket = { ...blendedBucket(), disciplineAllocations: [
+      { disciplineId: 99, resourceIds: [], budgetHours: { "2026-01": 100 }, actualHours: { "2026-01": 50 } },
+    ]};
+    const rep = computeBucketReport(b, plan, roles, resources, 8, noHolidays);
+    expect(rep.cost).toBe(0);
+    expect(rep.revenue).toBe(0);
+  });
+
+  test("blended bucket with no discipline allocations yields zero totals", () => {
+    const b: BudgetBucket = { ...blendedBucket(), disciplineAllocations: [] };
+    const rep = computeBucketReport(b, plan, roles, resources, 8, noHolidays);
+    expect(rep.budgetHours).toBe(0);
+    expect(rep.actualHours).toBe(0);
+    expect(rep.cost).toBe(0);
+    expect(rep.revenue).toBe(0);
+  });
 });
 
 describe("computeBucketReport — override in detailed mode", () => {
