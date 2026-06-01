@@ -8,6 +8,7 @@ import { CHAT_MESSAGE_MAX } from "./sanitize";
 import type { AiConfig } from "./settings-menu";
 import { useResizable } from "./use-resizable";
 import { ResizeCornerHint, ResetSizeButton } from "./task-manager-ui";
+import { CENTERED_HALF_PANE_CLASS } from "./view-styles";
 
 type TextBlock = { type: "text"; text: string };
 type ToolUseBlock = {
@@ -100,10 +101,8 @@ function stringifyResult(value: unknown): string {
   }
 }
 
-// Half the content area, centered horizontally, top-anchored, scales with % so
-// it shrinks on smaller screens. Drag the corner to a custom size.
-const CHAT_PANE_CLASS =
-  "relative mx-auto flex h-[50%] max-h-full min-h-[360px] w-[50%] min-w-[420px] flex-col overflow-hidden rounded-xl border border-line bg-surface p-6 resize";
+// Centered half-size, drag-to-resize. Shared with Manage Roles via view-styles.
+const CHAT_PANE_CLASS = CENTERED_HALF_PANE_CLASS;
 
 function ChatPanelImpl({
   lang,
