@@ -21,7 +21,7 @@ import { localeFor } from "./date-format";
 import { type Lang, t } from "./i18n";
 import { ResourceCalendar } from "./resource-calendar";
 import { INNER_TABLE_CLASS, VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
-import { ResourceWorkload } from "./resource-workload";
+import { ResourceWorkload, WORKLOAD_COL_WIDTHS, type WorkloadCol } from "./resource-workload";
 import { SegmentedControl } from "./segmented-control";
 import { generatePeriods, displayCapacityHours, absencesForResource, absenceWorkdays } from "./resource-capacity";
 import { periodCost, formatCurrency } from "./resource-cost";
@@ -130,6 +130,7 @@ function ResourcesPanelInner({
 }: Props) {
   const planning = useColumnResize<PlanningCol>("planning", PLANNING_COL_WIDTHS);
   const rollup = useColumnResize<RollupCol>("rollup", ROLLUP_COL_WIDTHS);
+  const workload = useColumnResize<WorkloadCol>("workload", WORKLOAD_COL_WIDTHS);
   const planningStartResize = planning.startColResize as (col: string, e: React.MouseEvent) => void;
   const rollupStartResize = rollup.startColResize as (col: string, e: React.MouseEvent) => void;
   const resetPlanningAndRollup = () => {
@@ -234,8 +235,11 @@ function ResourcesPanelInner({
         )}
       </h2>
       <div className="flex items-center gap-3">
-        {view === "planning" && (
-          <ResetColWidthsButton onClick={resetPlanningAndRollup} lang={lang} />
+        {(view === "planning" || view === "workload") && (
+          <ResetColWidthsButton
+            onClick={view === "planning" ? resetPlanningAndRollup : workload.resetColWidths}
+            lang={lang}
+          />
         )}
         {view === "calendar" && onImportOutlookCalendar && (
           <button
@@ -518,6 +522,7 @@ function ResourcesPanelInner({
           onAddResource={onAddResource}
           onEditAbsence={onEditAbsence}
           onEditShift={onEditShift}
+          colResize={workload}
         />
       )}
       {view === "calendar" && (
