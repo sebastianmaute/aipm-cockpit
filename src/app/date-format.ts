@@ -22,6 +22,11 @@ export function shortDateRange(a: Absence, lang: Lang): string {
   return `${start.toLocaleDateString(loc, fmt)}–${end.toLocaleDateString(loc, fmt)}`;
 }
 
+/** Compact range string for two ISO date strings, e.g. "Jun 10–Jun 16". */
+export function shortDateRangeIso(startIso: string, endIso: string, lang: Lang): string {
+  return shortDateRange({ startDate: startIso, endDate: endIso } as Absence, lang);
+}
+
 /** Formats a "YYYY-MM-DD" date for display in the active language; returns the input if unparseable. */
 export function formatExpiryDate(isoDate: string, lang: Lang): string {
   const d = new Date(`${isoDate}T12:00:00`);
