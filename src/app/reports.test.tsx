@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ReportsPanel } from "./reports";
 import type { Task } from "./types";
+import type { BudgetBucket, ResourcePlan, Role, Resource } from "./types";
 
 const TODAY = "2026-05-28";
 
@@ -147,5 +148,59 @@ describe("ReportsPanel — sort + filter", () => {
   it("renders a Print button in the header", () => {
     renderReports(tasks);
     expect(screen.getByRole("button", { name: /print/i })).toBeInTheDocument();
+  });
+});
+
+const budgetPlan: ResourcePlan = { startDate: "2026-01-01", endDate: "2026-01-31", granularity: "month", currency: "EUR" };
+const budgetRoles: Role[] = [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 }];
+const budgetBuckets: BudgetBucket[] = [
+  { id: 1, name: "Alpha", type: "tm", currency: "EUR", startDate: "2026-01-01", endDate: "2026-01-31", status: "open",
+    allocations: [{ roleId: 1, resourceIds: [], budgetHours: { "2026-01": 100 }, actualHours: { "2026-01": 40 } }] },
+  { id: 2, name: "Beta", type: "tm", currency: "EUR", startDate: "2026-01-01", endDate: "2026-01-31", status: "open",
+    allocations: [{ roleId: 1, resourceIds: [], budgetHours: { "2026-01": 10 }, actualHours: { "2026-01": 0 } }] },
+];
+
+function budgetRowNames(): string[] {
+  // The budget section is the last <table>; scope to its body rows so the
+  // bucket-filter <option> list (which always lists every bucket) is ignored.
+  const tables = document.querySelectorAll("table");
+  const tbody = tables[tables.length - 1]?.querySelector("tbody");
+  if (!tbody) return [];
+  return Array.from(tbody.querySelectorAll("tr")).map(
+    (tr) => (tr.querySelector("td") as HTMLElement | null)?.textContent?.trim() ?? "",
+  );
+}
+
+function renderWithBudget() {
+  return render(
+    <ReportsPanel
+      tasks={[makeTask({ id: 1, assignee: "A" })]}
+      today={TODAY}
+      holidaySet={new Set()}
+      lang="en-US"
+      buckets={budgetBuckets}
+      plan={budgetPlan}
+      roles={budgetRoles}
+      disciplines={[{ id: 1, name: "Consulting" }]}
+      grades={[{ id: 1, name: "Junior" }]}
+      resources={[] as Resource[]}
+      absences={[]}
+      workdayHours={8}
+    />,
+  );
+}
+
+describe("ReportsPanel — budget section", () => {
+  it("shows a row per bucket and a total budget rollup", () => {
+    renderWithBudget();
+    expect(budgetRowNames()).toEqual(["Alpha", "Beta"]);
+    // total budget = 100*150 + 10*150 = 16500
+    expect(screen.getByText(/16,500|16\.500|€16,500|16,500\.00/)).toBeInTheDocument();
+  });
+
+  it("min total-budget filter drops small buckets", () => {
+    renderWithBudget();
+    fireEvent.change(screen.getByLabelText(/min total budget/i), { target: { value: "5000" } });
+    expect(budgetRowNames()).toEqual(["Alpha"]); // 15000 >= 5000; Beta 1500 < 5000 dropped
   });
 });
