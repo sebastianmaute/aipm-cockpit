@@ -266,6 +266,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
           const bucket = bucketById.get(br.bucketId)!;
           const isBlended = bucket.planningMode === "blended";
           const rate = resolveRate(bucket, fxRates);
+          const periods = bucketActivePeriods(bucket, plan);
           const inCur = (eur: number) => formatCurrency(eurToCurrency(eur, bucket, fxRates), bucket.currency, locale);
           // CCI amounts are EUR from the engine — convert to the bucket currency for display.
           const cci = (v: CciValue): CciValue => ({ amount: eurToCurrency(v.amount, bucket, fxRates), percent: v.percent });
@@ -336,10 +337,10 @@ export function BudgetPanel(props: BudgetPanelProps) {
                         className="relative px-2 py-1 text-left font-medium"
                         style={{ width: colWidths.role, minWidth: colWidths.role }}
                       >
-                        {t(lang, isBlended ? "budgetModeBlended" : "budgetRole")}
+                        {t(lang, isBlended ? "budgetDiscipline" : "budgetRole")}
                         <ColumnResizeHandle col="role" onMouseDown={startResize} />
                       </th>
-                      {bucketActivePeriods(bucket, plan).map((p) => (
+                      {periods.map((p) => (
                         <th
                           key={p.key}
                           className="relative px-2 py-1 text-right"
@@ -355,7 +356,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
                     {!isBlended && bucket.allocations.map((a) => (
                       <tr key={a.roleId} className="border-t border-line">
                         <td className="px-2 py-1">{roleLabel(roles.find((r) => r.id === a.roleId), props.disciplines, props.grades) || `#${a.roleId}`}</td>
-                        {bucketActivePeriods(bucket, plan).map((p) => (
+                        {periods.map((p) => (
                           <td key={p.key} className="px-1 py-1">
                             <HoursCell
                               ariaPrefix={`${bucket.id}-${a.roleId}-${p.key}`}
@@ -374,7 +375,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
                     {isBlended && (bucket.disciplineAllocations ?? []).map((a) => (
                       <tr key={a.disciplineId} className="border-t border-line">
                         <td className="px-2 py-1">{props.disciplines.find((d) => d.id === a.disciplineId)?.name || `#${a.disciplineId}`}</td>
-                        {bucketActivePeriods(bucket, plan).map((p) => (
+                        {periods.map((p) => (
                           <td key={p.key} className="px-1 py-1">
                             <HoursCell
                               ariaPrefix={`${bucket.id}-d${a.disciplineId}-${p.key}`}

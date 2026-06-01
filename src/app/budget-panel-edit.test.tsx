@@ -121,4 +121,19 @@ describe("BudgetPanel editing", () => {
     const last = spy.mock.calls.at(-1)![0] as BudgetBucket[];
     expect(last[0].disciplineAllocations![0].budgetHours["2026-01"]).toBe(50);
   });
+
+  test("editing a blended discipline actual-hours cell emits the update", () => {
+    const spy = vi.fn();
+    const initial: BudgetBucket[] = [{
+      id: 1, name: "Blend", type: "tm", currency: "EUR",
+      startDate: "2026-01-01", endDate: "2026-01-31", status: "open",
+      planningMode: "blended", allocations: [],
+      disciplineAllocations: [{ disciplineId: 1, resourceIds: [], budgetHours: {}, actualHours: {} }],
+    }];
+    render(<Harness initial={initial} onChangeSpy={spy} />);
+    const input = screen.getByLabelText("actual-1-d1-2026-01") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "30" } });
+    const last = spy.mock.calls.at(-1)![0] as BudgetBucket[];
+    expect(last[0].disciplineAllocations![0].actualHours["2026-01"]).toBe(30);
+  });
 });

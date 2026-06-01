@@ -249,6 +249,7 @@ const enUS = {
   budgetDetailedPlanningHint: "On: plan per role (discipline and grade). Off: plan per discipline using the average rate of that discipline's grades.",
   budgetModeDetailed: "Detailed",
   budgetModeBlended: "Blended",
+  budgetDiscipline: "Discipline",
   budgetSwitchToBlendedWarn: "Switching off detailed planning discards the hours entered per role for this bucket. Continue?",
   budgetRateOverrideInternal: "Internal rate override",
   budgetRateOverrideExternal: "External rate override",

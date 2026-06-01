@@ -256,6 +256,7 @@ export const de: Record<TranslationKey, string> = {
   budgetDetailedPlanningHint: "An: Planung je Rolle (Disziplin und Stufe). Aus: Planung je Disziplin mit dem Durchschnittssatz der Stufen dieser Disziplin.",
   budgetModeDetailed: "Detailliert",
   budgetModeBlended: "Gemischt",
+  budgetDiscipline: "Disziplin",
   budgetSwitchToBlendedWarn: "Beim Abschalten der detaillierten Planung gehen die je Rolle erfassten Stunden dieses Buckets verloren. Fortfahren?",
   budgetRateOverrideInternal: "Interner Satz (Override)",
   budgetRateOverrideExternal: "Externer Satz (Override)",
