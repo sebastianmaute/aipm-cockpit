@@ -41,6 +41,26 @@ describe("DashboardPanel", () => {
     );
     expect(container).toBeTruthy();
   });
+
+  it("renders lettered RAG badges on the status pills", () => {
+    render(
+      <DashboardPanel
+        lang="en-US"
+        tasks={[]}
+        raid={[]}
+        budgets={[]}
+        plan={plan}
+        roles={[]}
+        resources={[]}
+        absences={[]}
+        holidaySet={new Set<string>()}
+        workdayHours={8}
+        today="2026-06-02"
+      />,
+      { wrapper },
+    );
+    expect(screen.getAllByText(/^[RAG]$/).length).toBeGreaterThan(0);
+  });
 });
 
 describe("RegistersBand link styling", () => {
