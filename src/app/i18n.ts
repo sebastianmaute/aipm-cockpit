@@ -1049,6 +1049,8 @@ const enUS = {
   versionHighlightBudgetReport: "A dedicated Budget Report (under Budget) shows current budget calculations across all buckets, rates, and factors.",
   versionHighlightComposableReports: "Add the RAID, Budget, and Resource reports into the Reports view and print them together in landscape.",
   versionHighlightDashboard: "Project-health dashboard (RAG status report)",
+  versionHighlightMilestones: "Milestones (Gantt diamonds + at-risk tracking)",
+  versionHighlightEarnedValue: "Earned value: SPI / CPI / variances",
 
   outlookCalImportTitle: "Import Outlook calendar",
   outlookCalImportLoading: "Loading events…",

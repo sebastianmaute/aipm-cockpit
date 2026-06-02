@@ -8,6 +8,16 @@ Authoritative source for version + build date: [`src/app/version.ts`](src/app/ve
 This file is seeded from that module's milestone comment plus the
 post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-diff.txt).
 
+## [0.45.0] — 2026-06-02 "Robinson"
+
+### Added
+- **Earned Value (EVM):** task-effort SPI/CPI plus PV/EV/AC and schedule/cost variances, derived from task estimates, completion, and time spent. PV = estimate of tasks due by today, EV = estimate of completed tasks, AC = time spent; shown in hours with an optional EUR overlay (mean role internal rate). SPI/CPI tiles on the dashboard budget-burn band; the full table in the Budget Report. Informational only; no new persisted state.
+
+## [0.44.0] — 2026-06-02 "Bujold"
+
+### Added
+- **Milestones:** zero-duration key dates distinct from tasks — name, date, optional description, manual achieved sign-off, and linked tasks. Diamond rows on the Gantt with linked-task connector edges and an at-risk ring; a dedicated Milestones view; a dashboard Milestones subsection that folds overdue/at-risk/due-soon into the computed Schedule RAG. Round-trips through JSON/CSV/Markdown/Turso.
+
 ## [0.43.0] — 2026-06-02 "Cherryh"
 
 ### Added

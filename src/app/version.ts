@@ -1,3 +1,19 @@
+// 0.45.0 "Robinson" adds task-effort Earned Value (EVM). A new pure evm.ts
+// computes PV (estimate of tasks due by today), EV (estimate of completed
+// tasks), and AC (time spent) from existing task data, deriving SPI=EV/PV,
+// CPI=EV/AC, and the SV/CV variances (in hours, with an optional EUR overlay
+// via the mean role internal rate). SPI/CPI tiles appear on the dashboard
+// budget-burn band; the full PV/EV/AC/SPI/CPI/SV/CV table (hours + EUR) shows
+// in the Budget Report. Informational only (no RAG change); purely derived —
+// no new persisted state. Completes the 3-feature PM roadmap.
+// 0.44.0 "Bujold" adds Milestones — zero-duration key dates distinct from
+// tasks (name, date, optional description, manual achieved sign-off, and
+// linked tasks). A new Workspace.milestones[] round-trips through every
+// storage backend. Milestones render as diamond rows on the Gantt with
+// linked-task connector edges and an at-risk ring (a linked task finishing
+// after the milestone date); a dedicated Milestones view (Plan group) lists
+// and edits them; the dashboard gains a Milestones subsection and folds an
+// overdue/at-risk/due-soon contribution into the computed Schedule RAG.
 // 0.43.0 "Cherryh" adds a consolidated Project-Health Dashboard — a single view
 // (first in the Overview nav) that doubles as a live cockpit and a printable
 // status report. Header shows overall RAG plus Schedule / Budget / Scope
@@ -568,12 +584,12 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.43.0";
-export const APP_BUILD_DATE = "2026-06-02"; // 0.43.0 project-health dashboard
+export const APP_VERSION = "0.45.0";
+export const APP_BUILD_DATE = "2026-06-02"; // 0.45.0 earned value (SPI/CPI)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The whole
  *  0.39.x line is "Tchaikovsky" (Adrian Tchaikovsky); patch releases inherit
  *  their minor version's codename rather than getting their own. */
-export const APP_MILESTONE = "Cherryh";
+export const APP_MILESTONE = "Robinson";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -623,4 +639,6 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightBudgetReport",
   "versionHighlightComposableReports",
   "versionHighlightDashboard",
+  "versionHighlightMilestones",
+  "versionHighlightEarnedValue",
 ] as const;
