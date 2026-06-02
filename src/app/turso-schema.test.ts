@@ -92,4 +92,18 @@ describe("Turso project_status", () => {
     expect(metaInsert).toBeDefined();
     expect(JSON.parse(metaInsert!.args![1].value!)).toEqual(ws.status);
   });
+
+  test("full round-trip restores project status via rowsToWorkspace", () => {
+    const ws = {
+      ...emptyWorkspace(),
+      status: {
+        ragOverride: "A" as const,
+        scheduleOverride: "R" as const,
+        narrative: "watch the risk",
+        narrativeUpdatedAt: "2026-06-02T10:00:00.000Z",
+      },
+    };
+    const back = rowsToWorkspace(resultsFromStatements(workspaceToStatements(ws)));
+    expect(back.status).toEqual(ws.status);
+  });
 });
