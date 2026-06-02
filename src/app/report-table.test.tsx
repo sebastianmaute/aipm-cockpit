@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { useRef } from "react";
-import { ReportCard } from "./report-table";
+import { ReportCard, Section, Tile } from "./report-table";
 
 function Harness() {
   const ref = useRef<HTMLDivElement | null>(null);
@@ -48,5 +48,23 @@ describe("ReportCard", () => {
     }
     render(<H />);
     expect(screen.queryByRole("heading")).toBeNull();
+  });
+});
+
+describe("Section boxed variant", () => {
+  test("adds the outline box classes when boxed", () => {
+    const { container } = render(<Section title="T" boxed>x</Section>);
+    expect((container.firstChild as HTMLElement).className).toContain("border-line");
+  });
+  test("has no box by default", () => {
+    const { container } = render(<Section title="T">x</Section>);
+    expect((container.firstChild as HTMLElement).className).not.toContain("border-line");
+  });
+});
+
+describe("Tile rag slot", () => {
+  test("renders the rag node when provided", () => {
+    render(<Tile label="L" value="V" rag={<span>RAGBADGE</span>} />);
+    expect(screen.getByText("RAGBADGE")).toBeTruthy();
   });
 });
