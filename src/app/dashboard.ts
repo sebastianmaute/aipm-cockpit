@@ -5,7 +5,7 @@ import { computeGroupHealth, type Health } from "./health";
 import { computeBudgetReport, type CciValue, type ProjectReport } from "./budget-report";
 import { isTerminalStatus, riskSeverityFromMatrix } from "./raid";
 import { workdaysUntil } from "./due-dates";
-import { partitionMilestones, milestoneScheduleContribution } from "./milestones";
+import { partitionMilestones } from "./milestones";
 import type {
   Absence, BudgetBucket, Milestone, ProjectStatus, RaidItem, RaidSeverity,
   Resource, ResourcePlan, Role, Task,
@@ -196,12 +196,13 @@ export function computeDashboard(input: DashboardInput, opts: DashboardOptions =
   const overallComputed = computeGroupHealth(input.tasks, today, holidaySet).color;
   const tasksById = new Map(input.tasks.map((t) => [t.id, t] as const));
   const taskSchedule = computeScheduleStatus(input.tasks, today, holidaySet, dueSoonWorkdays);
-  const msContribution = milestoneScheduleContribution(input.milestones, tasksById, today, holidaySet, dueSoonWorkdays);
+  const ms = partitionMilestones(input.milestones, tasksById, today, holidaySet, dueSoonWorkdays);
+  const msContribution: "R" | "A" | null =
+    ms.overdue.length > 0 ? "R" : ms.atRisk.length > 0 || ms.dueSoon.length > 0 ? "A" : null;
   const scheduleComputed: Health =
     taskSchedule === "R" || msContribution === "R" ? "R"
     : taskSchedule === "A" || msContribution === "A" ? "A"
     : "G";
-  const ms = partitionMilestones(input.milestones, tasksById, today, holidaySet, dueSoonWorkdays);
 
   const project: ProjectReport | null = input.budgets.length > 0
     ? computeBudgetReport(input.budgets, input.plan, input.roles, input.resources, input.workdayHours, holidaySet, input.absences).project

@@ -168,6 +168,12 @@ describe("computeDashboard", () => {
     expect(m.scope.effective).toBe("A");
     expect(m.narrative).toEqual({ text: "hi", updatedAt: "2026-06-02T00:00:00.000Z" });
   });
+  it("an at-risk/due-soon milestone drives the Schedule RAG to Amber", () => {
+    const milestones = [{ id: 1, name: "soon", date: "2026-06-03", linkedTaskIds: [] }]; // due-soon vs today 2026-06-02
+    const m = computeDashboard(baseInput({ milestones }));
+    expect(m.dueSoonMilestones.map((x) => x.id)).toEqual([1]);
+    expect(m.schedule.computed).toBe("A");
+  });
   it("partitions milestones and folds them into the Schedule RAG", () => {
     const milestones: Milestone[] = [
       { id: 1, name: "late", date: "2026-05-01", linkedTaskIds: [] },   // overdue (today is 2026-06-02 in baseInput)
