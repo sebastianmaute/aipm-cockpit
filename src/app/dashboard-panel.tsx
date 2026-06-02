@@ -187,6 +187,14 @@ export function DashboardPanel(props: DashboardPanelProps) {
             ) : (
               <p className="text-sm text-muted-foreground">{t(lang, "dashboardNoBudget")}</p>
             )}
+            {model.evm.coverage.withEstimate > 0 ? (
+              <div className="mt-2 flex flex-wrap gap-2">
+                <Tile label={t(lang, "evmSpi")} value={model.evm.spi != null ? model.evm.spi.toFixed(2) : "—"} />
+                <Tile label={t(lang, "evmCpi")} value={model.evm.cpi != null ? model.evm.cpi.toFixed(2) : "—"} />
+              </div>
+            ) : (
+              <p className="mt-2 text-sm text-muted-foreground">{t(lang, "evmNoEstimates")}</p>
+            )}
           </Section>
         </div>
 
