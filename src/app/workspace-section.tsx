@@ -13,6 +13,7 @@ import type { ToolDispatcher } from "./chat-tools";
 import type { ActivityEntry } from "./activity-log";
 import type { Absence, BudgetBucket, RaidItem, Resource, Shift, Task } from "./types";
 import { ResourceDirectory } from "./resource-directory";
+import { DashboardPanel } from "./dashboard-panel";
 
 const ChatPanel = dynamic(
   () => import("./chat-panel").then((m) => m.ChatPanel),
@@ -547,6 +548,24 @@ export function WorkspaceSection({
               holidaySet={holidaySet}
               workdayHours={settings.resources.workdayHours}
               fxRates={fxRates}
+            />
+          </div>
+        )}
+
+        {activeTab === "dashboard" && (
+          <div id="panel-dashboard" role="tabpanel" className={panelScrollClass}>
+            <DashboardPanel
+              lang={lang}
+              tasks={tasks}
+              raid={raid}
+              budgets={budgets}
+              plan={plan}
+              roles={roles}
+              resources={resources}
+              absences={absences}
+              holidaySet={holidaySet}
+              workdayHours={settings.resources.workdayHours}
+              today={today}
             />
           </div>
         )}
