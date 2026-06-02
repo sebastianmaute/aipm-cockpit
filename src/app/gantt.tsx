@@ -1244,7 +1244,7 @@ export function GanttPanel({
     </div>
   );
 
-  if (rowsCount === 0) {
+  if (rowsCount === 0 && sortedMilestones.length === 0) {
     return (
       <div ref={ganttRef} className={VIEW_PANE_RESIZABLE_CLASS}>
         {toolbar}

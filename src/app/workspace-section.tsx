@@ -10,7 +10,7 @@ import { useFilters } from "./filters-context";
 import { TabButton, ResetSizeIcon } from "./task-manager-ui";
 import { navLabelKey, subTabsFor } from "./nav-config";
 import type { ToolDispatcher } from "./chat-tools";
-import type { ActivityEntry } from "./activity-log";
+import type { ActivityEntry, ActivityKind } from "./activity-log";
 import type { Absence, BudgetBucket, RaidItem, Resource, Shift, Task } from "./types";
 import { ResourceDirectory } from "./resource-directory";
 import { DashboardPanel } from "./dashboard-panel";
@@ -80,6 +80,7 @@ export interface WorkspaceSectionProps {
   handleCreateMitigationTaskFromRaid: (raidId: number) => number | null | undefined;
   handleJumpToTaskFromRaid: (taskId: number) => void;
   activityLog: ActivityEntry[];
+  logActivity: (kind: ActivityKind, ...args: (string | number)[]) => void;
   handleClearActivityLog: () => void;
   handleOpenAddAbsence: () => void;
   handleEditAbsence: (absence: Absence) => void;
@@ -121,6 +122,7 @@ export function WorkspaceSection({
   handleCreateMitigationTaskFromRaid,
   handleJumpToTaskFromRaid,
   activityLog,
+  logActivity,
   handleClearActivityLog,
   handleOpenAddAbsence,
   handleEditAbsence,
@@ -558,7 +560,7 @@ export function WorkspaceSection({
 
         {activeTab === "milestones" && (
           <div id="panel-milestones" role="tabpanel" className={panelScrollClass}>
-            <MilestonesPanel lang={lang} today={today} holidaySet={holidaySet} />
+            <MilestonesPanel lang={lang} today={today} holidaySet={holidaySet} logActivity={logActivity} />
           </div>
         )}
 

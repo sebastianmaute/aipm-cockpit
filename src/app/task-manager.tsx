@@ -638,6 +638,7 @@ function TaskManagerInner() {
     handleCreateMitigationTaskFromRaid: guardEdit(handleCreateMitigationTaskFromRaid),
     handleJumpToTaskFromRaid,
     activityLog,
+    logActivity,
     handleClearActivityLog: guardEdit(handleClearActivityLog),
     handleOpenAddAbsence: guardEdit(handleOpenAddAbsence),
     handleEditAbsence: guardEdit(handleEditAbsence),

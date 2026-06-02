@@ -10,6 +10,7 @@ import {
   type MilestoneStatus,
 } from "./milestones";
 import { type Lang, t } from "./i18n";
+import type { ActivityKind } from "./activity-log";
 import type { Milestone } from "./types";
 
 const STATUS_KEY: Record<
@@ -31,10 +32,12 @@ export function MilestonesPanel({
   lang,
   today,
   holidaySet,
+  logActivity,
 }: {
   lang: Lang;
   today: string;
   holidaySet: ReadonlySet<string>;
+  logActivity?: (kind: ActivityKind, ...args: (string | number)[]) => void;
 }) {
   const { milestones, setMilestones, tasks } = useWorkspace();
   const sizeRef = useRef<HTMLDivElement | null>(null);
@@ -54,16 +57,23 @@ export function MilestonesPanel({
   }
 
   function save(next: Milestone) {
+    const creating = !milestones.some((m) => m.id === next.id);
     setMilestones((prev) =>
       prev.some((m) => m.id === next.id)
         ? prev.map((m) => (m.id === next.id ? next : m))
         : [...prev, next],
     );
+    if (creating) {
+      logActivity?.("milestone.created", next.id, next.name);
+    } else {
+      logActivity?.("milestone.updated", next.id);
+    }
     setEditing(null);
   }
 
   function del(id: number) {
     setMilestones((prev) => prev.filter((m) => m.id !== id));
+    logActivity?.("milestone.deleted", id);
     setEditing(null);
   }
 
