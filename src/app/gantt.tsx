@@ -1071,6 +1071,10 @@ export function GanttPanel({
   }, [scrollRef, todayOffsetPx]);
   const chartWidthPx = LEFT_GUTTER_PX + timelineWidthPx;
   const rowsCount = layout.placeable.length;
+  // Total rows rendered in the chart body: task rows first, then one row per
+  // sorted milestone. The dependency-edge overlay must span all of them so
+  // linked-task -> milestone connectors aren't clipped at the task-row edge.
+  const totalRowsCount = rowsCount + sortedMilestones.length;
 
   // Pre-compute month spans for the top header row.
   const monthGroups = useMemo(() => {
@@ -1356,8 +1360,8 @@ export function GanttPanel({
             aria-hidden
             className="pointer-events-none absolute left-0 top-0 z-0"
             width={chartWidthPx}
-            height={rowsCount * ROW_HEIGHT_PX}
-            viewBox={`0 0 ${chartWidthPx} ${rowsCount * ROW_HEIGHT_PX}`}
+            height={totalRowsCount * ROW_HEIGHT_PX}
+            viewBox={`0 0 ${chartWidthPx} ${totalRowsCount * ROW_HEIGHT_PX}`}
           >
             <defs>
               <marker
@@ -1452,6 +1456,47 @@ export function GanttPanel({
                     markerEnd={
                       isCritical ? "url(#gantt-arrow-critical)" : "url(#gantt-arrow)"
                     }
+                  />
+                );
+              });
+            })}
+            {/* Linked-task -> milestone connectors. Informational only:
+                a faint, thin line from each linked task's bar end to its
+                milestone diamond. Deliberately NOT the critical-path red —
+                a muted grey dash (lighter than the non-critical dependency
+                edge) so it reads as context, not a schedule driver.
+                Linked tasks with no bar (deleted/filtered) are skipped. */}
+            {sortedMilestones.flatMap((m, mIdx) => {
+              const md = parseISO(m.date);
+              if (!md) return [];
+              const milestoneX =
+                LEFT_GUTTER_PX + diffDays(range.min, md) * DAY_WIDTH_PX;
+              const milestoneYMid =
+                (rowsCount + mIdx) * ROW_HEIGHT_PX + ROW_HEIGHT_PX / 2;
+              return (m.linkedTaskIds ?? []).flatMap((taskId) => {
+                const bar = layout.bars.get(taskId);
+                if (!bar) return [];
+                const taskRowIdx = layout.placeable.findIndex(
+                  (p) => p.id === taskId,
+                );
+                if (taskRowIdx < 0) return [];
+                const taskEndX =
+                  LEFT_GUTTER_PX +
+                  (diffDays(range.min, bar.end) + 1) * DAY_WIDTH_PX;
+                const taskYMid =
+                  taskRowIdx * ROW_HEIGHT_PX + ROW_HEIGHT_PX / 2;
+                const midX = (taskEndX + milestoneX) / 2;
+                const path = `M ${taskEndX} ${taskYMid} C ${midX} ${taskYMid}, ${midX} ${milestoneYMid}, ${milestoneX} ${milestoneYMid}`;
+                return (
+                  <path
+                    key={`m-${m.id}-link-${taskId}`}
+                    d={path}
+                    data-milestone-connector
+                    stroke="rgb(99, 99, 98)"
+                    strokeOpacity={0.35}
+                    strokeWidth={1}
+                    strokeDasharray="3 3"
+                    fill="none"
                   />
                 );
               });
