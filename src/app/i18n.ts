@@ -799,6 +799,9 @@ const enUS = {
   activityShiftCreated: "Shift #{0} created for {1}",
   activityShiftUpdated: "Shift #{0} updated for {1}",
   activityShiftDeleted: "Shift #{0} deleted for {1}",
+  activityMilestoneCreated: "Created milestone #{0} – {1}",
+  activityMilestoneUpdated: "Updated milestone #{0}",
+  activityMilestoneDeleted: "Deleted milestone #{0}",
   taskDueDateAbsenceWarning:
     "Note: {0} is on {1} from {2} to {3}.",
   resourcesWorkdayHours: "Hours per work day",

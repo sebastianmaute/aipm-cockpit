@@ -18,6 +18,7 @@ import {
   type Discipline,
   type FxRates,
   type Grade,
+  type Milestone,
   type ProjectStatus,
   type RaidItem,
   type Resource,
@@ -61,6 +62,8 @@ interface WorkspaceValue {
   setFxRates: Dispatch<SetStateAction<FxRates | null>>;
   status: ProjectStatus;
   setStatus: Dispatch<SetStateAction<ProjectStatus>>;
+  milestones: Milestone[];
+  setMilestones: Dispatch<SetStateAction<Milestone[]>>;
 }
 
 const WorkspaceContext = createContext<WorkspaceValue | undefined>(undefined);
@@ -78,6 +81,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [budgets, setBudgets] = useState<BudgetBucket[]>([]);
   const [fxRates, setFxRates] = useState<FxRates | null>(null);
   const [status, setStatus] = useState<ProjectStatus>({});
+  const [milestones, setMilestones] = useState<Milestone[]>([]);
   const {
     searchDebounced,
     priorityFilter,
@@ -225,6 +229,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     budgets, setBudgets,
     fxRates, setFxRates,
     status, setStatus,
+    milestones, setMilestones,
   };
 
   return (

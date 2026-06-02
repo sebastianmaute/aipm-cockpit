@@ -28,7 +28,10 @@ export type ActivityKind =
   | "absence.deleted"
   | "shift.created"
   | "shift.updated"
-  | "shift.deleted";
+  | "shift.deleted"
+  | "milestone.created"
+  | "milestone.updated"
+  | "milestone.deleted";
 
 export interface ActivityEntry {
   /** Monotonic id within the current log; not a timestamp. Used as a React key. */
@@ -64,6 +67,9 @@ export const ACTIVITY_KIND_TO_KEY: Record<ActivityKind, TranslationKey> = {
   "shift.created": "activityShiftCreated",
   "shift.updated": "activityShiftUpdated",
   "shift.deleted": "activityShiftDeleted",
+  "milestone.created": "activityMilestoneCreated",
+  "milestone.updated": "activityMilestoneUpdated",
+  "milestone.deleted": "activityMilestoneDeleted",
 };
 
 const ACTIVITY_KINDS: ReadonlySet<ActivityKind> = new Set(

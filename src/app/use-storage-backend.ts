@@ -58,6 +58,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     budgets, setBudgets,
     fxRates, setFxRates,
     status, setStatus,
+    milestones, setMilestones,
   } = useWorkspace();
 
   // Reactive refs — synced via useEffect so effects don't re-register on every render
@@ -131,6 +132,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         setBudgets(workspace.budgets ?? []);
         setFxRates(workspace.fxRates ?? null);
         setStatus(workspace.status ?? {});
+        setMilestones(workspace.milestones ?? []);
         suppressNextSaveRef.current = true;
         await refreshBackendStatus();
       } catch (err) {
@@ -173,7 +175,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       return;
     }
     const timer = setTimeout(() => {
-      backend.save({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status }).catch((err) => {
+      backend.save({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, milestones }).catch((err) => {
         if (err instanceof StorageNotReadyError) {
           const hint = (err as StorageNotReadyError).hint;
           const key =
@@ -188,7 +190,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     }, 500);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, args.hydrated, args.isPopout, backend]);
+  }, [tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, milestones, args.hydrated, args.isPopout, backend]);
 
   const canSend = !args.isPopout;
   useBroadcastSync("tasks", tasks, setTasks, canSend);
@@ -207,7 +209,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     if (!promise) return;
     await promise;
     try {
-      await backend.save({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status });
+      await backend.save({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, milestones });
       await refreshBackendStatus();
       args.showToast("info", t(langRef.current, "storageSwitchedToast"));
     } catch (err) {
@@ -288,7 +290,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     try {
       const pick = pickFileForBackend(target);
       if (pick) await pick;
-      await target.save({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status });
+      await target.save({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, milestones });
       suppressNextLoadRef.current = true;
       args.setStorageConfig(newConfig);
       args.showToast("info", t(langRef.current, "storageConvertedToast", label));

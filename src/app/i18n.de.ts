@@ -817,6 +817,9 @@ export const de: Record<TranslationKey, string> = {
   activityShiftCreated: "Schicht #{0} für {1} erstellt",
   activityShiftUpdated: "Schicht #{0} für {1} aktualisiert",
   activityShiftDeleted: "Schicht #{0} für {1} gelöscht",
+  activityMilestoneCreated: "Meilenstein #{0} erstellt – {1}",
+  activityMilestoneUpdated: "Meilenstein #{0} aktualisiert",
+  activityMilestoneDeleted: "Meilenstein #{0} gelöscht",
   taskDueDateAbsenceWarning:
     "Hinweis: {0} ist von {2} bis {3} ({1}).",
   resourcesWorkdayHours: "Stunden pro Arbeitstag",
