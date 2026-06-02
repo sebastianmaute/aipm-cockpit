@@ -10,11 +10,12 @@ interface SidebarProps {
   collapsed: boolean;
   onToggleCollapsed: () => void;
   version: string;
+  onShowVersion?: () => void;
   footer?: React.ReactNode;
 }
 
 export function Sidebar({
-  lang, activeView, onNavigate, collapsed, onToggleCollapsed, version, footer,
+  lang, activeView, onNavigate, collapsed, onToggleCollapsed, version, onShowVersion, footer,
 }: SidebarProps) {
   return (
     <aside
@@ -53,7 +54,16 @@ export function Sidebar({
 
       <div className="border-t border-AIPM-white/10 px-4 py-3 text-xs text-AIPM-medium-grey">
         {footer}
-        {!collapsed && <p className="mt-2">{t(lang, "versionVersion")} {version}</p>}
+        {!collapsed && (
+          <button
+            type="button"
+            onClick={onShowVersion}
+            title={t(lang, "versionHistory")}
+            className="mt-2 block w-full rounded text-left text-AIPM-medium-grey hover:text-AIPM-light-grey focus:outline-none focus:ring-2 focus:ring-AIPM-green"
+          >
+            {t(lang, "versionVersion")} {version}
+          </button>
+        )}
       </div>
     </aside>
   );

@@ -567,6 +567,8 @@ const enUS = {
 
   version: "Version",
   versionVersion: "Version",
+  versionHistory: "Version history",
+  versionLicense: "License",
   versionBuild: "Build",
   versionTechStack:
     "Built with Next.js, React, Tailwind CSS, and Titillium Web. Runs entirely client-side; no app backend.",

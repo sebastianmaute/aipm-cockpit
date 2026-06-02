@@ -594,6 +594,11 @@ export const APP_MILESTONE = "Robinson";
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
 
+/** Open-source license (SPDX id) and its canonical reference URL, shown in the
+ *  Settings footer and the Help panel. Mirrors package.json `license`. */
+export const APP_LICENSE = "Apache-2.0";
+export const APP_LICENSE_URL = "https://opensource.org/license/Apache-2.0";
+
 /** Translation keys for the high-level feature highlights shown in the
  *  Version popover. Update both EN and DE in i18n.ts when you add to this. */
 export const APP_HIGHLIGHT_KEYS = [

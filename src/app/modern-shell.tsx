@@ -1,7 +1,9 @@
 "use client";
+import { useState } from "react";
 import { type Lang, t } from "./i18n";
 import { Sidebar } from "./sidebar";
 import { TopBar } from "./top-bar";
+import { VersionInfoModal } from "./version-info";
 import { navLabelKey, type AppView } from "./nav-config";
 
 interface ModernShellProps {
@@ -36,6 +38,7 @@ export function ModernShell({
   banners = null,
   collapsed = false, onToggleCollapsed = () => {},
 }: ModernShellProps) {
+  const [versionOpen, setVersionOpen] = useState(false);
   const isEditing = activeView === "edit";
   const isSettings = activeView === "settings";
   const title = isEditing ? editTitle : t(lang, navLabelKey(activeView));
@@ -61,6 +64,7 @@ export function ModernShell({
         collapsed={collapsed}
         onToggleCollapsed={onToggleCollapsed}
         version={version}
+        onShowVersion={() => setVersionOpen(true)}
         footer={sidebarFooter}
       />
       <div className="flex min-w-0 flex-1 flex-col">
@@ -80,6 +84,7 @@ export function ModernShell({
           {content}
         </main>
       </div>
+      <VersionInfoModal lang={lang} open={versionOpen} onClose={() => setVersionOpen(false)} />
     </div>
   );
 }

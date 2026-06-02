@@ -582,6 +582,8 @@ export const de: Record<TranslationKey, string> = {
 
   version: "Version",
   versionVersion: "Version",
+  versionHistory: "Versionsverlauf",
+  versionLicense: "Lizenz",
   versionBuild: "Build",
   versionTechStack:
     "Entwickelt mit Next.js, React, Tailwind CSS und Titillium Web. Läuft komplett im Browser; kein App-Backend.",

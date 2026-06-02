@@ -3,8 +3,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { type Lang, type TranslationKey, t } from "./i18n";
 import { useResizable } from "./use-resizable";
+import { APP_LICENSE_URL } from "./version";
 
 const POLICY_URL = "https://wiki.example.com/wiki/x/ewB2bwE";
+const LICENSE_URL = APP_LICENSE_URL;
 const STORAGE_KEY_POS = "lop-app:help-pos";
 const STORAGE_KEY_SIZE = "lop-app:help-size";
 
@@ -88,14 +90,14 @@ export function HelpMenu({ lang }: { lang: Lang }) {
 
   // Restore saved position on first open; default to near top-right with
   // a VIEWPORT_PADDING-px gutter from top + bottom of the viewport.
-  // w-[560px] / h-[480px] are the class-based defaults below; the fallback
+  // w-[1120px] / h-[960px] are the class-based defaults below; the fallback
   // numbers here are used only on the very first render before the element
   // has measured itself.
   useEffect(() => {
     if (!open || pos !== null) return;
     const el = panelRef.current;
-    const panelW = el?.offsetWidth ?? 560;
-    const panelH = el?.offsetHeight ?? 480;
+    const panelW = el?.offsetWidth ?? 1120;
+    const panelH = el?.offsetHeight ?? 960;
     const saved = loadPos();
     const initial = clampPos(
       saved ?? {
@@ -235,7 +237,7 @@ export function HelpMenu({ lang }: { lang: Lang }) {
             maxWidth: "100vw",
             maxHeight: `calc(100vh - ${2 * VIEWPORT_PADDING}px)`,
           }}
-          className="fixed z-50 flex h-[480px] min-h-72 w-[560px] min-w-[420px] flex-col overflow-auto resize rounded-lg border border-line bg-surface"
+          className="fixed z-50 flex h-[960px] min-h-72 w-[1120px] min-w-[420px] flex-col overflow-auto resize rounded-lg border border-line bg-surface"
         >
           <div
             onMouseDown={onTitleBarMouseDown}
@@ -316,7 +318,7 @@ export function HelpMenu({ lang }: { lang: Lang }) {
             </div>
           </div>
 
-          <div className="shrink-0 border-t border-line px-4 py-2">
+          <div className="flex shrink-0 items-center justify-between gap-4 border-t border-line px-4 py-2">
             <a
               href={POLICY_URL}
               target="_blank"
@@ -324,6 +326,14 @@ export function HelpMenu({ lang }: { lang: Lang }) {
               className="text-xs font-medium text-AIPM-dark-blue underline-offset-2 hover:underline dark:text-AIPM-blue"
             >
               {t(lang, "helpPolicyLink")} ↗
+            </a>
+            <a
+              href={LICENSE_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs font-medium text-AIPM-dark-blue underline-offset-2 hover:underline dark:text-AIPM-blue"
+            >
+              {t(lang, "versionLicense")} ↗
             </a>
           </div>
         </div>
