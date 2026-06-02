@@ -40,10 +40,16 @@ describe("GET /api/ecb", () => {
     expect((await res.json()).error).toMatch(/parse/i);
   });
 
-  test("returns 502 when the fetch throws", async () => {
+  test("returns 502 with a generic message when the fetch throws, leaking no detail", async () => {
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     mockFetch(async () => { throw new Error("network down"); });
     const res = await GET();
     expect(res.status).toBe(502);
-    expect((await res.json()).error).toMatch(/network down/);
+    // Client sees a generic message — the internal error text must NOT leak.
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toBe("ECB fetch failed");
+    expect(body.error).not.toMatch(/network down/);
+    // The detail is preserved server-side for diagnostics.
+    expect(errSpy).toHaveBeenCalledWith("ECB fetch failed:", expect.any(Error));
   });
 });

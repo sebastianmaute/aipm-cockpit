@@ -15,7 +15,6 @@ import { ModalHeader } from "./modal-header";
 import { AssigneeField, ModalEditFooter } from "./modal-edit-fields";
 import { useDraggable } from "./use-draggable";
 import {
-  DEFAULT_WEEK_HOURS,
   MAX_HOURS_PER_DAY,
   type Shift,
   type WeekHours,
@@ -246,15 +245,4 @@ export function ShiftEditModal({
       </div>
     </Modal>
   );
-}
-
-/** Helper for callers that need a default empty shift to seed the modal. */
-export function emptyShiftDraft(id: number): Shift {
-  return {
-    id,
-    assignee: "",
-    assigneeEmail: undefined,
-    hoursPerWeekday: DEFAULT_WEEK_HOURS,
-    note: undefined,
-  };
 }
