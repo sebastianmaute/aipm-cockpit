@@ -80,7 +80,7 @@ function makeTask(overrides: Partial<Task> = {}): Task {
 // ── Composite probe hook so we can inspect workspace tasks ───────────────────
 function makeProbe(
   overrideSettings = baseSettings,
-  overrides: { today?: string; onJiraAuthResult?: ReturnType<typeof vi.fn> } = {},
+  overrides: { today?: string; onJiraAuthResult?: ReturnType<typeof vi.fn<(ok: boolean) => void>> } = {},
 ) {
   return function useProbe() {
     const sync = useJiraSync({
@@ -100,7 +100,7 @@ function makeProbe(
 function renderSync(
   initialTasks: Task[] = [],
   overrideSettings = baseSettings,
-  overrides: { today?: string; onJiraAuthResult?: ReturnType<typeof vi.fn> } = {},
+  overrides: { today?: string; onJiraAuthResult?: ReturnType<typeof vi.fn<(ok: boolean) => void>> } = {},
 ) {
   return renderHook(makeProbe(overrideSettings, overrides), {
     wrapper: ({ children }) => (
@@ -375,7 +375,7 @@ describe("useJiraSync — preflight, classified failures, flag sync", () => {
   beforeEach(() => { vi.clearAllMocks(); });
 
   it("preflight expired: does not call searchAllIssues and shows info toast when tokenExpiresAt is in the past", async () => {
-    const onJiraAuthResult = vi.fn();
+    const onJiraAuthResult = vi.fn<(ok: boolean) => void>();
     const expiredSettings = {
       jira: {
         ...baseSettings.jira,
@@ -395,7 +395,7 @@ describe("useJiraSync — preflight, classified failures, flag sync", () => {
   });
 
   it("401 → calls onJiraAuthResult(false) and shows info toast", async () => {
-    const onJiraAuthResult = vi.fn();
+    const onJiraAuthResult = vi.fn<(ok: boolean) => void>();
 
     (jiraApi.buildJql as ReturnType<typeof vi.fn>).mockReturnValueOnce("project = TEST");
     (jiraApi.searchAllIssues as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
@@ -411,7 +411,7 @@ describe("useJiraSync — preflight, classified failures, flag sync", () => {
   });
 
   it("success → calls onJiraAuthResult(true)", async () => {
-    const onJiraAuthResult = vi.fn();
+    const onJiraAuthResult = vi.fn<(ok: boolean) => void>();
 
     (jiraApi.buildJql as ReturnType<typeof vi.fn>).mockReturnValueOnce("project = TEST");
     (jiraApi.searchAllIssues as ReturnType<typeof vi.fn>).mockResolvedValueOnce([]);
