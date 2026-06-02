@@ -10,7 +10,7 @@ import {
   RESOURCES_CSV_COLUMNS, ROLES_CSV_COLUMNS, REF_CSV_COLUMNS, BUDGETS_CSV_COLUMNS,
   fieldToString, raidFieldToString, absenceFieldToString, shiftFieldToString,
   resourceFieldToString, budgetFieldToString, buildTaskFromObj, buildRaidItemFromObj,
-  decodeRatesMap, emptyWorkspace, migrateWorkspaceV6, type Workspace,
+  decodeRatesMap, emptyWorkspace, migrateWorkspaceV6, sanitizeProjectStatus, type Workspace,
 } from "./storage";
 import {
   sanitizeResource, sanitizeRole, sanitizeBudgetBucket, sanitizeDiscipline,
@@ -109,6 +109,14 @@ export function rowsToWorkspace(results: PipelineResultLike[]): Workspace {
   if (fxRow) {
     ws.fxRates = sanitizeFxRates({ base: fxRow.base, date: fxRow.date, fetchedAt: fxRow.fetchedAt, rates: decodeRatesMap(fxRow.rates ?? "") });
   }
+  const statusRow = rowObjects(byTable.get("meta")).find((r) => r.key === "project_status");
+  if (statusRow?.value) {
+    try {
+      ws.status = sanitizeProjectStatus(JSON.parse(statusRow.value));
+    } catch {
+      // malformed — leave the emptyWorkspace() default
+    }
+  }
   return migrateWorkspaceV6(ws);
 }
 
@@ -141,6 +149,13 @@ export function workspaceToStatements(ws: Workspace): SqlStmt[] {
     out.push(insertStmt("fx_rates", ["id", ...FX_COLUMNS], ["1", fx.base, fx.date, fx.fetchedAt, rates]));
   }
   out.push({ sql: `INSERT INTO meta (key, value) VALUES ('schema_version', ?)`, args: [{ type: "text", value: SCHEMA_VERSION }] });
+  out.push({
+    sql: `INSERT INTO meta (key, value) VALUES (?, ?)`,
+    args: [
+      { type: "text", value: "project_status" },
+      { type: "text", value: JSON.stringify(ws.status ?? {}) },
+    ],
+  });
   out.push({ sql: "COMMIT" });
   return out;
 }
