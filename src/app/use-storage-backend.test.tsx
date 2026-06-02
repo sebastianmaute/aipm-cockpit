@@ -4,6 +4,7 @@ import type { ActivityEntry } from "./activity-log";
 import type { Settings } from "./settings-menu";
 import type { Lang } from "./i18n";
 import type { Task } from "./types";
+import type { StorageConfig } from "./storage";
 import { useStorageBackend } from "./use-storage-backend";
 import { useBroadcastSync } from "./broadcast-sync";
 import { useWorkspace } from "./workspace-context";
@@ -382,12 +383,15 @@ function emptyWorkspace() {
 
 describe("useStorageBackend — onRequestStorageSwitch", () => {
   const createBackendMock = storageMod.createBackend as ReturnType<typeof vi.fn>;
-  let setStorageConfig: ReturnType<typeof vi.fn>;
+  // vitest 4 types a bare vi.fn() as Mock<Procedure | Constructable>, which is
+  // not assignable to the hook's setStorageConfig prop. Type the mock to the
+  // prop's signature so Mock<T> stays assignable to T.
+  let setStorageConfig: ReturnType<typeof vi.fn<(config: StorageConfig) => void>>;
 
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useFakeTimers();
-    setStorageConfig = vi.fn();
+    setStorageConfig = vi.fn<(config: StorageConfig) => void>();
     // Default main backend (kind="browser")
     mockBackend.load.mockResolvedValue(emptyWorkspace());
     mockBackend.isReady.mockResolvedValue(true);

@@ -9,14 +9,20 @@ const getAllAccountsMock = vi.fn();
 const initializeMock = vi.fn();
 
 vi.mock("@azure/msal-browser", () => ({
-  PublicClientApplication: vi.fn().mockImplementation(() => ({
-    initialize: initializeMock,
-    getAllAccounts: getAllAccountsMock,
-    loginPopup: loginPopupMock,
-    logoutPopup: logoutPopupMock,
-    acquireTokenSilent: acquireTokenSilentMock,
-    acquireTokenPopup: acquireTokenPopupMock,
-  })),
+  // Regular `function` (not an arrow): the hook calls `new PublicClientApplication()`,
+  // and under vitest 4 a mock used as a constructor must be function/class — an
+  // arrow can't construct, so its returned object would be dropped. A constructor
+  // that returns an object has that object used as the instance (JS `new` semantics).
+  PublicClientApplication: vi.fn().mockImplementation(function () {
+    return {
+      initialize: initializeMock,
+      getAllAccounts: getAllAccountsMock,
+      loginPopup: loginPopupMock,
+      logoutPopup: logoutPopupMock,
+      acquireTokenSilent: acquireTokenSilentMock,
+      acquireTokenPopup: acquireTokenPopupMock,
+    };
+  }),
 }));
 
 import { __pcaPromiseForTests, __resetPcaForTests, useMsAuth } from "./use-ms-auth";
