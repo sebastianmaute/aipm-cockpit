@@ -103,6 +103,14 @@ describe("selectTopRaid", () => {
     const items = Array.from({ length: 8 }, (_, i) => raid({ id: i + 1, severity: "High" }));
     expect(selectTopRaid(items, 5)).toHaveLength(5);
   });
+  it("breaks severity ties by most-recently-raised first", () => {
+    const items = [
+      raid({ id: 1, severity: "High", raisedDate: "2026-01-01" }),
+      raid({ id: 2, severity: "High", raisedDate: "2026-03-01" }),
+      raid({ id: 3, severity: "High", raisedDate: "2026-02-01" }),
+    ];
+    expect(selectTopRaid(items).map((r) => r.id)).toEqual([2, 3, 1]);
+  });
 });
 
 describe("partitionUpcoming", () => {

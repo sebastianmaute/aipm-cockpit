@@ -27,7 +27,10 @@ export type DashboardProgress = {
   counts: Record<Health, number>;
 };
 
-/** % complete (completedDate-based) + R/A/G health counts. */
+/** % complete (completedDate-based) + R/A/G health counts from
+ *  computeGroupHealth. Note: completed tasks are counted in BOTH `completed`
+ *  and `counts.G` (computeGroupHealth colors a completed task Green), so
+ *  `counts.G` includes done items, not just active on-track ones. */
 export function computeDashboardProgress(
   tasks: readonly Task[],
   todayISO: string,
@@ -54,6 +57,8 @@ export function computeScheduleStatus(
   for (const t of tasks) {
     if (t.completedDate || !t.dueDate) continue;
     if (t.dueDate < todayISO) { overdue++; continue; }
+    // workdaysUntil returns 0 for a same-day (or past) dueDate, so a task due
+    // today counts as due-soon here (it already failed the overdue check above).
     if (workdaysUntil(t.dueDate, todayISO, hs) <= dueSoonWorkdays) dueSoon++;
   }
   return overdue > 0 ? "R" : dueSoon > 0 ? "A" : "G";
@@ -82,7 +87,7 @@ function effectiveSeverity(item: RaidItem): RaidSeverity | undefined {
 }
 
 /** Open RAID items, sorted by severity (Critical->Low, unknown last), tie-broken
- *  by raisedDate then id, capped at `limit`. */
+ *  by most-recently-raised first, then id, capped at `limit`. */
 export function selectTopRaid(
   raid: readonly RaidItem[],
   limit: number = DASHBOARD_DEFAULTS.topRaid,
@@ -93,7 +98,7 @@ export function selectTopRaid(
       const sev = effectiveSeverity(r);
       return { r, rank: sev ? SEVERITY_RANK[sev] : 0 };
     })
-    .sort((a, b) => b.rank - a.rank || a.r.raisedDate.localeCompare(b.r.raisedDate) || a.r.id - b.r.id)
+    .sort((a, b) => b.rank - a.rank || b.r.raisedDate.localeCompare(a.r.raisedDate) || a.r.id - b.r.id)
     .slice(0, limit)
     .map((x) => x.r);
 }
@@ -120,7 +125,9 @@ export function partitionUpcoming(
   return { overdue, dueSoon };
 }
 
-/** Last `limit` activity entries, newest first. */
+/** Last `limit` activity entries, newest first. Assumes `entries` is in
+ *  chronological (oldest-first) order, which is the contract of
+ *  loadActivityLog() / appendActivity (they append to the end). */
 export function recentActivity(
   entries: readonly ActivityEntry[],
   limit: number = DASHBOARD_DEFAULTS.recentActivity,
