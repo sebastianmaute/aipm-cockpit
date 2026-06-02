@@ -137,6 +137,16 @@ describe("callJira — SSRF / URL hardening", () => {
     // ::ffff:a00:1. The guard must decode the hex form, not let it through.
     ["IPv4-mapped IPv6 to private (hex form)", "https://[::ffff:a00:1]"],
     ["garbage url", "not-a-url"],
+    // Allowlist: only *.atlassian.net is permitted, so any other public host —
+    // even one outside every private range — is rejected. This is what closes
+    // the DNS-resolves-to-internal-IP SSRF vector that IP-literal checks miss.
+    ["public non-Atlassian host", "https://example.com"],
+    ["public IP not on the allowlist (8.8.8.8)", "https://8.8.8.8"],
+    ["public IP just outside the private range (172.15)", "https://172.15.0.1"],
+    // Lookalikes that must NOT satisfy the suffix match.
+    ["Atlassian lookalike domain", "https://evil-atlassian.net"],
+    ["atlassian.net as a non-suffix label", "https://atlassian.net.attacker.com"],
+    ["atlassian.net embedded mid-host", "https://atlassian.net.evil.example"],
   ])("blocks %s without fetching", async (_label, url) => {
     const res = await callWith(url);
     expect(res.status).toBe(400);
@@ -144,9 +154,10 @@ describe("callJira — SSRF / URL hardening", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("allows a public host in the 172.15 range (just outside private 172.16-31)", async () => {
-    await callWith("https://172.15.0.1");
-    expect(fetchMock).toHaveBeenCalledOnce();
+  it("allows Atlassian Cloud subdomains and the bare apex", async () => {
+    await callWith("https://team.atlassian.net");
+    await callWith("https://atlassian.net");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it("fetches a public https host with auth + accept headers and a normalized origin", async () => {
@@ -167,11 +178,6 @@ describe("callJira — SSRF / URL hardening", () => {
     await callJira(CREDS, "/x", { method: "POST", body: JSON.stringify({ a: 1 }) });
     const headers = fetchMock.mock.calls[0][1].headers as Record<string, string>;
     expect(headers["Content-Type"]).toBe("application/json");
-  });
-
-  it("allows a public IPv4 that is not in any private range", async () => {
-    await callWith("https://8.8.8.8");
-    expect(fetchMock).toHaveBeenCalledOnce();
   });
 });
 

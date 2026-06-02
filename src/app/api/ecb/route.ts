@@ -19,6 +19,9 @@ export async function GET() {
     }
     return Response.json(fx, { headers: { "Cache-Control": "public, max-age=3600" } });
   } catch (err) {
-    return Response.json({ error: `ECB fetch failed: ${String(err)}` }, { status: 502 });
+    // Log the detail server-side; return a generic message so internal error
+    // text (hostnames, stack frames) never reaches the client.
+    console.error("ECB fetch failed:", err);
+    return Response.json({ error: "ECB fetch failed" }, { status: 502 });
   }
 }

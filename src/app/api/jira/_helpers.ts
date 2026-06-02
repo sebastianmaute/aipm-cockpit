@@ -106,12 +106,29 @@ function isPrivateHost(hostname: string): boolean {
   return false;
 }
 
+// Every Atlassian Cloud site lives under *.atlassian.net. Allowlisting that
+// suffix is the strongest SSRF defense available here: the IP-literal checks in
+// isPrivateHost can't catch a DNS hostname that *resolves* to an internal IP
+// (e.g. a name with a valid cert whose A-record points at 169.254.169.254),
+// but an allowlist sidesteps resolution entirely — only Atlassian's own domain
+// is reachable, so no attacker-controlled host can be targeted at all.
+function isAllowedJiraHost(hostname: string): boolean {
+  const h = hostname.toLowerCase();
+  // The leading dot in the suffix is load-bearing: it rejects lookalikes such
+  // as "evil-atlassian.net" and "atlassian.net.attacker.com" while accepting
+  // the bare apex and any real "<site>.atlassian.net" subdomain.
+  return h === "atlassian.net" || h.endsWith(".atlassian.net");
+}
+
 function normalizeSiteUrl(siteUrl: string): string | null {
   try {
     const u = new URL(siteUrl);
     // Atlassian Cloud is always HTTPS. Rejecting plaintext avoids sending Basic
     // credentials in the clear and removes the http:// SSRF path to internal services.
     if (u.protocol !== "https:") return null;
+    // Allowlist the Atlassian Cloud domain. isPrivateHost is kept as
+    // defense-in-depth (cheap, and a guard if the allowlist is ever widened).
+    if (!isAllowedJiraHost(u.hostname)) return null;
     if (isPrivateHost(u.hostname)) return null;
     // Strip trailing slash and anything past the origin.
     return `${u.protocol}//${u.host}`;
