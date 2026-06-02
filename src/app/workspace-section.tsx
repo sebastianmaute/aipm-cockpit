@@ -14,6 +14,7 @@ import type { ActivityEntry } from "./activity-log";
 import type { Absence, BudgetBucket, RaidItem, Resource, Shift, Task } from "./types";
 import { ResourceDirectory } from "./resource-directory";
 import { DashboardPanel } from "./dashboard-panel";
+import { MilestonesPanel } from "./milestones-panel";
 
 const ChatPanel = dynamic(
   () => import("./chat-panel").then((m) => m.ChatPanel),
@@ -141,7 +142,7 @@ export function WorkspaceSection({
   fullBleed = false,
 }: WorkspaceSectionProps) {
   const { settings, setSettings, lang } = useSettings();
-  const { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates } = useWorkspace();
+  const { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, milestones } = useWorkspace();
   const { activeTab, setActiveTab, isPopout } = useWorkspaceTab();
   const { raidFilterTaskId } = useFilters();
 
@@ -385,12 +386,15 @@ export function WorkspaceSection({
               lang={lang}
               tasks={tasks}
               absences={absences}
+              milestones={milestones}
               onUpdateBar={handleGanttBarUpdate}
               onAddTask={isPopout ? undefined : () => {
                 handleCancelEdit();
                 setTaskModalOpen(true);
               }}
               onEditTask={isPopout ? undefined : onEditTask}
+              onAddMilestone={() => setActiveTab("milestones")}
+              onEditMilestone={() => setActiveTab("milestones")}
             />
           </div>
         )}
@@ -552,6 +556,12 @@ export function WorkspaceSection({
           </div>
         )}
 
+        {activeTab === "milestones" && (
+          <div id="panel-milestones" role="tabpanel" className={panelScrollClass}>
+            <MilestonesPanel lang={lang} today={today} holidaySet={holidaySet} />
+          </div>
+        )}
+
         {activeTab === "dashboard" && (
           <div id="panel-dashboard" role="tabpanel" className={panelScrollClass}>
             <DashboardPanel
@@ -566,6 +576,7 @@ export function WorkspaceSection({
               holidaySet={holidaySet}
               workdayHours={settings.resources.workdayHours}
               today={today}
+              milestones={milestones}
               onOpenRaid={() => {
                 setActiveTab("raid");
                 handleClearRaidTaskFilter();
@@ -575,6 +586,7 @@ export function WorkspaceSection({
                 const task = tasks.find((t) => t.id === id);
                 if (task) onEditTask(task);
               } : undefined}
+              onOpenMilestone={() => setActiveTab("milestones")}
             />
           </div>
         )}
