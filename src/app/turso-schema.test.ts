@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, test, expect } from "vitest";
 import { SCHEMA_DDL, TABLE_NAMES, selectStatements, workspaceToStatements, rowsToWorkspace, type PipelineResultLike } from "./turso-schema";
 import { emptyWorkspace } from "./storage";
 
@@ -79,5 +79,39 @@ describe("workspaceToStatements", () => {
     expect(stmt.args?.length).toBe(colCount);
     const idArg = stmt.args?.[0];
     expect(idArg).toEqual({ type: "integer", value: "7" });
+  });
+});
+
+describe("milestones round-trip", () => {
+  test("full round-trip restores milestones", () => {
+    const ws = { ...emptyWorkspace(), milestones: [{ id: 1, name: "Go-live", date: "2026-08-01", linkedTaskIds: [2, 3] }] };
+    const back = rowsToWorkspace(resultsFromStatements(workspaceToStatements(ws)));
+    expect(back.milestones).toEqual(ws.milestones);
+  });
+});
+
+describe("Turso project_status", () => {
+  test("workspaceToStatements writes status as a project_status meta row", () => {
+    const ws = { ...emptyWorkspace(), status: { ragOverride: "R" as const, narrative: "x" } };
+    const stmts = workspaceToStatements(ws);
+    const metaInsert = stmts.find(
+      (s) => s.sql.includes("INSERT INTO meta") && s.args?.length === 2 && s.args[0].value === "project_status",
+    );
+    expect(metaInsert).toBeDefined();
+    expect(JSON.parse(metaInsert!.args![1].value!)).toEqual(ws.status);
+  });
+
+  test("full round-trip restores project status via rowsToWorkspace", () => {
+    const ws = {
+      ...emptyWorkspace(),
+      status: {
+        ragOverride: "A" as const,
+        scheduleOverride: "R" as const,
+        narrative: "watch the risk",
+        narrativeUpdatedAt: "2026-06-02T10:00:00.000Z",
+      },
+    };
+    const back = rowsToWorkspace(resultsFromStatements(workspaceToStatements(ws)));
+    expect(back.status).toEqual(ws.status);
   });
 });

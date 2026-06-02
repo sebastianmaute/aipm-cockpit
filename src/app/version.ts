@@ -1,3 +1,31 @@
+// 0.45.0 "Robinson" adds task-effort Earned Value (EVM). A new pure evm.ts
+// computes PV (estimate of tasks due by today), EV (estimate of completed
+// tasks), and AC (time spent) from existing task data, deriving SPI=EV/PV,
+// CPI=EV/AC, and the SV/CV variances (in hours, with an optional EUR overlay
+// via the mean role internal rate). SPI/CPI tiles appear on the dashboard
+// budget-burn band; the full PV/EV/AC/SPI/CPI/SV/CV table (hours + EUR) shows
+// in the Budget Report. Informational only (no RAG change); purely derived —
+// no new persisted state. Completes the 3-feature PM roadmap.
+// 0.44.0 "Bujold" adds Milestones — zero-duration key dates distinct from
+// tasks (name, date, optional description, manual achieved sign-off, and
+// linked tasks). A new Workspace.milestones[] round-trips through every
+// storage backend. Milestones render as diamond rows on the Gantt with
+// linked-task connector edges and an at-risk ring (a linked task finishing
+// after the milestone date); a dedicated Milestones view (Plan group) lists
+// and edits them; the dashboard gains a Milestones subsection and folds an
+// overdue/at-risk/due-soon contribution into the computed Schedule RAG.
+// 0.43.0 "Cherryh" adds a consolidated Project-Health Dashboard — a single view
+// (first in the Overview nav) that doubles as a live cockpit and a printable
+// status report. Header shows overall RAG plus Schedule / Budget / Scope
+// sub-status (computed, with manual override via inline selects); then a PM
+// status narrative (commits on blur), % complete + R/A/G health counts, budget
+// burn, top open RAID items, upcoming/overdue dates, and recent activity —
+// rendered inside the shared ReportCard print card. A new persisted
+// Workspace.status (ProjectStatus: four RAG overrides + narrative) round-trips
+// through JSON / CSV / Markdown / Turso behind one sanitizer; pure aggregation
+// lives in dashboard.ts (computeDashboard). RAID rows link to the register and
+// task rows open the editor. First of a 3-feature PM roadmap (Milestones and
+// Earned Value / SPI-CPI follow).
 // 0.42.2 fixes a budget cost/revenue bug: buckets loaded from the CSV/Markdown/
 // Turso backends with empty rate-override cells parsed those as a literal 0,
 // which applied a spurious EUR0/hour override and zeroed their cost & revenue.
@@ -556,12 +584,12 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.42.2";
-export const APP_BUILD_DATE = "2026-06-02"; // 0.42.2 empty rate-override cells no longer zero budget cost/revenue
+export const APP_VERSION = "0.45.0";
+export const APP_BUILD_DATE = "2026-06-02"; // 0.45.0 earned value (SPI/CPI)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The whole
  *  0.39.x line is "Tchaikovsky" (Adrian Tchaikovsky); patch releases inherit
  *  their minor version's codename rather than getting their own. */
-export const APP_MILESTONE = "Le Guin";
+export const APP_MILESTONE = "Robinson";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -610,4 +638,7 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightBudgetModes",
   "versionHighlightBudgetReport",
   "versionHighlightComposableReports",
+  "versionHighlightDashboard",
+  "versionHighlightMilestones",
+  "versionHighlightEarnedValue",
 ] as const;

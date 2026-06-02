@@ -30,6 +30,8 @@ function renderPanel(over: Partial<React.ComponentProps<typeof BudgetReportPanel
       holidaySet={new Set<string>()}
       workdayHours={8}
       fxRates={null}
+      tasks={[]}
+      today="2026-06-02"
       {...over}
     />,
   );

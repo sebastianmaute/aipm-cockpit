@@ -52,6 +52,7 @@ next-env.d.ts
 
 # skills
 /docs/superpowers/*
+/.superpowers/
 
 # local sample / pattern artifacts (not part of the repo)
 /docs/patterns/

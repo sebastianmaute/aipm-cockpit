@@ -10,9 +10,11 @@ import { useFilters } from "./filters-context";
 import { TabButton, ResetSizeIcon } from "./task-manager-ui";
 import { navLabelKey, subTabsFor } from "./nav-config";
 import type { ToolDispatcher } from "./chat-tools";
-import type { ActivityEntry } from "./activity-log";
+import type { ActivityEntry, ActivityKind } from "./activity-log";
 import type { Absence, BudgetBucket, RaidItem, Resource, Shift, Task } from "./types";
 import { ResourceDirectory } from "./resource-directory";
+import { DashboardPanel } from "./dashboard-panel";
+import { MilestonesPanel } from "./milestones-panel";
 
 const ChatPanel = dynamic(
   () => import("./chat-panel").then((m) => m.ChatPanel),
@@ -78,6 +80,7 @@ export interface WorkspaceSectionProps {
   handleCreateMitigationTaskFromRaid: (raidId: number) => number | null | undefined;
   handleJumpToTaskFromRaid: (taskId: number) => void;
   activityLog: ActivityEntry[];
+  logActivity: (kind: ActivityKind, ...args: (string | number)[]) => void;
   handleClearActivityLog: () => void;
   handleOpenAddAbsence: () => void;
   handleEditAbsence: (absence: Absence) => void;
@@ -119,6 +122,7 @@ export function WorkspaceSection({
   handleCreateMitigationTaskFromRaid,
   handleJumpToTaskFromRaid,
   activityLog,
+  logActivity,
   handleClearActivityLog,
   handleOpenAddAbsence,
   handleEditAbsence,
@@ -140,7 +144,7 @@ export function WorkspaceSection({
   fullBleed = false,
 }: WorkspaceSectionProps) {
   const { settings, setSettings, lang } = useSettings();
-  const { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates } = useWorkspace();
+  const { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, milestones } = useWorkspace();
   const { activeTab, setActiveTab, isPopout } = useWorkspaceTab();
   const { raidFilterTaskId } = useFilters();
 
@@ -384,12 +388,15 @@ export function WorkspaceSection({
               lang={lang}
               tasks={tasks}
               absences={absences}
+              milestones={milestones}
               onUpdateBar={handleGanttBarUpdate}
               onAddTask={isPopout ? undefined : () => {
                 handleCancelEdit();
                 setTaskModalOpen(true);
               }}
               onEditTask={isPopout ? undefined : onEditTask}
+              onAddMilestone={() => setActiveTab("milestones")}
+              onEditMilestone={() => setActiveTab("milestones")}
             />
           </div>
         )}
@@ -547,6 +554,43 @@ export function WorkspaceSection({
               holidaySet={holidaySet}
               workdayHours={settings.resources.workdayHours}
               fxRates={fxRates}
+              tasks={tasks}
+              today={today}
+            />
+          </div>
+        )}
+
+        {activeTab === "milestones" && (
+          <div id="panel-milestones" role="tabpanel" className={panelScrollClass}>
+            <MilestonesPanel lang={lang} today={today} holidaySet={holidaySet} logActivity={logActivity} />
+          </div>
+        )}
+
+        {activeTab === "dashboard" && (
+          <div id="panel-dashboard" role="tabpanel" className={panelScrollClass}>
+            <DashboardPanel
+              lang={lang}
+              tasks={tasks}
+              raid={raid}
+              budgets={budgets}
+              plan={plan}
+              roles={roles}
+              resources={resources}
+              absences={absences}
+              holidaySet={holidaySet}
+              workdayHours={settings.resources.workdayHours}
+              today={today}
+              milestones={milestones}
+              onOpenRaid={() => {
+                setActiveTab("raid");
+                handleClearRaidTaskFilter();
+                if (workspaceCollapsed) setWorkspaceCollapsed(false);
+              }}
+              onOpenTask={onEditTask ? (id) => {
+                const task = tasks.find((t) => t.id === id);
+                if (task) onEditTask(task);
+              } : undefined}
+              onOpenMilestone={() => setActiveTab("milestones")}
             />
           </div>
         )}

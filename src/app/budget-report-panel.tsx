@@ -16,9 +16,10 @@ import {
   type SortDir,
 } from "./report-table";
 import { computeBudgetReport, type BucketReport, type CciValue } from "./budget-report";
+import { computeEvm, projectBlendedInternalRate } from "./evm";
 import { formatCurrency } from "./resource-cost";
 import { resolveRate } from "./fx";
-import type { Absence, BudgetBucket, FxRates, ResourcePlan, Resource, Role } from "./types";
+import type { Absence, BudgetBucket, FxRates, ResourcePlan, Resource, Role, Task } from "./types";
 
 const DETAIL_COL_WIDTHS = {
   bucket: 160, mode: 90, type: 80, status: 80, currency: 110,
@@ -40,6 +41,8 @@ interface Props {
   holidaySet: Set<string>;
   workdayHours: number;
   fxRates: FxRates | null;
+  tasks: Task[];
+  today: string;
   embedded?: boolean;
 }
 
@@ -48,12 +51,16 @@ function localeFor(lang: Lang): string {
 }
 
 export function BudgetReportPanel({
-  lang, buckets, plan, roles, resources, absences, holidaySet, workdayHours, fxRates, embedded = false,
+  lang, buckets, plan, roles, resources, absences, holidaySet, workdayHours, fxRates, tasks, today, embedded = false,
 }: Props) {
   // Hooks are called unconditionally before the empty-state early return (rules of hooks).
   const report = useMemo(
     () => computeBudgetReport(buckets, plan, roles, resources, workdayHours, holidaySet, absences),
     [buckets, plan, roles, resources, workdayHours, holidaySet, absences],
+  );
+  const evm = useMemo(
+    () => computeEvm(tasks, today, { blendedRate: projectBlendedInternalRate(roles) }),
+    [tasks, today, roles],
   );
   const bucketById = useMemo(() => new Map(buckets.map((b) => [b.id, b])), [buckets]);
   const { ref, reset } = useResizable("lop-app:budget-report-size");
@@ -85,6 +92,25 @@ export function BudgetReportPanel({
           <Tile label={t(lang, "budgetCciCpi")} value={`${money(proj.costPerformance.amount)} (${pct(proj.costPerformance)})`} />
           <Tile label={t(lang, "budgetCciConsumption")} value={`${money(proj.consumption.amount)} (${pct(proj.consumption)})`} />
         </div>
+      </Section>
+
+      <Section title={t(lang, "evmTitle")}>
+        {evm.coverage.withEstimate === 0 ? (
+          <p className="text-sm text-muted-foreground">{t(lang, "evmNoEstimates")}</p>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <Tile label={t(lang, "evmPv")} value={`${Math.round(evm.pv)}h${evm.money ? ` (${money(evm.money.pv)})` : ""}`} />
+              <Tile label={t(lang, "evmEv")} value={`${Math.round(evm.ev)}h${evm.money ? ` (${money(evm.money.ev)})` : ""}`} />
+              <Tile label={t(lang, "evmAc")} value={`${Math.round(evm.ac)}h${evm.money ? ` (${money(evm.money.ac)})` : ""}`} />
+              <Tile label={t(lang, "evmSpi")} value={evm.spi != null ? evm.spi.toFixed(2) : "—"} />
+              <Tile label={t(lang, "evmCpi")} value={evm.cpi != null ? evm.cpi.toFixed(2) : "—"} />
+              <Tile label={t(lang, "evmSv")} value={`${Math.round(evm.sv)}h${evm.money ? ` (${money(evm.money.sv)})` : ""}`} />
+              <Tile label={t(lang, "evmCv")} value={`${Math.round(evm.cv)}h${evm.money ? ` (${money(evm.money.cv)})` : ""}`} />
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">{t(lang, "evmCoverage", String(evm.coverage.withEstimate), String(evm.coverage.total))}</p>
+          </>
+        )}
       </Section>
 
       <BucketDetailTable

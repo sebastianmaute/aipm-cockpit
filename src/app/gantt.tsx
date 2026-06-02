@@ -31,7 +31,8 @@ import { isPlainObject } from "./sanitize";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { useResizable } from "./use-resizable";
 import { ResetSizeButton, ResizeCornerHint } from "./task-manager-ui";
-import { PRIORITIES, type Absence, type AbsenceType, type DependencyType, type Priority, type Task } from "./types";
+import { PRIORITIES, type Absence, type AbsenceType, type DependencyType, type Milestone, type Priority, type Task } from "./types";
+import { isAchieved, milestoneStatus, MILESTONE_DUE_SOON_WORKDAYS, sortMilestones } from "./milestones";
 
 // --- preferences ----------------------------------------------------------
 
@@ -138,6 +139,14 @@ const HEADER_HEIGHT_PX = HEADER_ROW_HEIGHT_PX * 2;
 const LEFT_GUTTER_PX = 240; // task-name column width
 const BAR_HEIGHT_PX = 18;
 const BAR_VPADDING_PX = (ROW_HEIGHT_PX - BAR_HEIGHT_PX) / 2;
+// Size of the chart-scale timeline diamond. The gutter uses a fixed 16-viewBox
+// icon (intentionally small/independent of chart scale) — see comment below.
+const MILESTONE_DIAMOND_PX = 14;
+const EDGE_STROKE_MUTED = "rgb(99, 99, 98)";
+
+// Milestone status math takes a holiday set; the Gantt has no holiday data
+// of its own, so we pass a shared empty set rather than allocating per row.
+const EMPTY_HOLIDAY_SET: ReadonlySet<string> = new Set<string>();
 
 // Priority → bar fill class. Matches the priority pill colors elsewhere.
 const priorityFillClass: Record<Priority, string> = {
@@ -182,6 +191,14 @@ function fmtMonth(d: Date, lang: Lang): string {
 
 function fmtDay(d: Date): string {
   return String(d.getUTCDate());
+}
+
+/** YYYY-MM-DD (UTC) for a Date — pure, no mutation of the input. */
+function toISODay(d: Date): string {
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(d.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
 function fmtFull(d: Date, lang: Lang): string {
@@ -515,20 +532,37 @@ function absenceBandBg(type: AbsenceType): string {
   }
 }
 
+/** Shared visual props for both milestone diamond <rect>s (gutter + timeline).
+ *  emerald mirrors healthDot.G (bg-emerald-500 RAG-green in health.ts);
+ *  at-risk gets the AIPM pink ring (same token as overdue bars). */
+function milestoneDiamondProps(achieved: boolean, atRisk: boolean) {
+  return {
+    className: achieved ? "fill-emerald-500/50" : "fill-emerald-500",
+    stroke: atRisk ? "var(--AIPM-pink)" : "none",
+    strokeWidth: atRisk ? 2 : 0,
+  } as const;
+}
+
 export function GanttPanel({
   lang,
   tasks,
   absences,
+  milestones = [],
   onUpdateBar,
   onAddTask,
   onEditTask,
+  onAddMilestone,
+  onEditMilestone,
 }: {
   lang: Lang;
   tasks: Task[];
   absences: readonly Absence[];
+  milestones?: readonly Milestone[];
   onUpdateBar?: (edit: GanttBarEdit) => void;
   onAddTask?: () => void;
   onEditTask?: (task: Task) => void;
+  onAddMilestone?: () => void;
+  onEditMilestone?: (m: Milestone) => void;
 }) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -558,6 +592,24 @@ export function GanttPanel({
   // evaluated once per render — server / client first paint produce the
   // same value as long as they fall on the same UTC day.
   const today = todayUTC();
+  // YYYY-MM-DD form of the chart's "today", for milestone status math.
+  // Computed from a fresh todayUTC() rather than the `today` const above so
+  // the React Compiler doesn't treat the shared `today` as passed-and-mutable
+  // (which would bail out the component's manual memoization).
+  const todayISO = toISODay(todayUTC());
+
+  // Task lookup for milestone at-risk computation (linked-task end vs. date).
+  const tasksById = useMemo(() => {
+    const m = new Map<number, Task>();
+    for (const t of tasks) m.set(t.id, t);
+    return m;
+  }, [tasks]);
+
+  // Milestones sorted by date then id — the vertical order of their rows.
+  const sortedMilestones = useMemo(
+    () => sortMilestones(milestones),
+    [milestones],
+  );
 
   // --- bar derivation (unchanged): two passes over the full task list ---
   // We always compute bars for ALL tasks (not just the visible ones) so
@@ -967,6 +1019,20 @@ export function GanttPanel({
       if (bar.start.getTime() < min.getTime()) min = bar.start;
       if (bar.end.getTime() > max.getTime()) max = bar.end;
     }
+    // Fold milestone dates into the range so their diamonds are never
+    // clipped. An empty milestones list leaves min/max untouched.
+    for (const m of milestones) {
+      const d = parseISO(m.date);
+      if (!d) continue;
+      if (!initialized) {
+        min = d;
+        max = d;
+        initialized = true;
+        continue;
+      }
+      if (d.getTime() < min.getTime()) min = d;
+      if (d.getTime() > max.getTime()) max = d;
+    }
     if (!initialized) {
       min = addDays(today, -7);
       max = addDays(today, 14);
@@ -981,7 +1047,7 @@ export function GanttPanel({
     }
     const days = Math.max(1, diffDays(min, max) + 1);
     return { min, max, days };
-  }, [layout.bars]);
+  }, [layout.bars, milestones]);
 
   const todayOffsetPx =
     LEFT_GUTTER_PX + diffDays(range.min, today) * DAY_WIDTH_PX;
@@ -1006,6 +1072,10 @@ export function GanttPanel({
   }, [scrollRef, todayOffsetPx]);
   const chartWidthPx = LEFT_GUTTER_PX + timelineWidthPx;
   const rowsCount = layout.placeable.length;
+  // Total rows rendered in the chart body: task rows first, then one row per
+  // sorted milestone. The dependency-edge overlay must span all of them so
+  // linked-task -> milestone connectors aren't clipped at the task-row edge.
+  const totalRowsCount = rowsCount + sortedMilestones.length;
 
   // Pre-compute month spans for the top header row.
   const monthGroups = useMemo(() => {
@@ -1048,6 +1118,17 @@ export function GanttPanel({
           className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90"
         >
           + {t(lang, "addTaskButton")}
+        </button>
+      )}
+      {onAddMilestone && (
+        <button
+          type="button"
+          onClick={onAddMilestone}
+          aria-label={t(lang, "ganttAddMilestone")}
+          title={t(lang, "ganttAddMilestone")}
+          className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90"
+        >
+          + {t(lang, "ganttAddMilestone")}
         </button>
       )}
       <input
@@ -1163,7 +1244,7 @@ export function GanttPanel({
     </div>
   );
 
-  if (rowsCount === 0) {
+  if (rowsCount === 0 && sortedMilestones.length === 0) {
     return (
       <div ref={ganttRef} className={VIEW_PANE_RESIZABLE_CLASS}>
         {toolbar}
@@ -1268,7 +1349,7 @@ export function GanttPanel({
               style={{
                 left: todayOffsetPx,
                 top: 0,
-                height: rowsCount * ROW_HEIGHT_PX,
+                height: totalRowsCount * ROW_HEIGHT_PX,
               }}
               title={t(lang, "ganttToday")}
             />
@@ -1280,8 +1361,8 @@ export function GanttPanel({
             aria-hidden
             className="pointer-events-none absolute left-0 top-0 z-0"
             width={chartWidthPx}
-            height={rowsCount * ROW_HEIGHT_PX}
-            viewBox={`0 0 ${chartWidthPx} ${rowsCount * ROW_HEIGHT_PX}`}
+            height={totalRowsCount * ROW_HEIGHT_PX}
+            viewBox={`0 0 ${chartWidthPx} ${totalRowsCount * ROW_HEIGHT_PX}`}
           >
             <defs>
               <marker
@@ -1292,7 +1373,7 @@ export function GanttPanel({
                 markerWidth="6"
                 markerHeight="6"
                 orient="auto-start-reverse"
-                fill="rgb(99, 99, 98)"
+                fill={EDGE_STROKE_MUTED}
               >
                 <path d="M 0 0 L 10 5 L 0 10 z" />
               </marker>
@@ -1369,13 +1450,54 @@ export function GanttPanel({
                   <path
                     key={`${task.id}-${depIdx}`}
                     d={path}
-                    stroke={isCritical ? "rgb(220, 38, 38)" : "rgb(99, 99, 98)"}
+                    stroke={isCritical ? "rgb(220, 38, 38)" : EDGE_STROKE_MUTED}
                     strokeOpacity={isCritical ? 0.85 : 0.45}
                     strokeWidth={isCritical ? 2 : 1.25}
                     fill="none"
                     markerEnd={
                       isCritical ? "url(#gantt-arrow-critical)" : "url(#gantt-arrow)"
                     }
+                  />
+                );
+              });
+            })}
+            {/* Linked-task -> milestone connectors. Informational only:
+                a faint, thin line from each linked task's bar end to its
+                milestone diamond. Deliberately NOT the critical-path red —
+                a muted grey dash (lighter than the non-critical dependency
+                edge) so it reads as context, not a schedule driver.
+                Linked tasks with no bar (deleted/filtered) are skipped. */}
+            {sortedMilestones.flatMap((m, mIdx) => {
+              const md = parseISO(m.date);
+              if (!md) return [];
+              const milestoneX =
+                LEFT_GUTTER_PX + diffDays(range.min, md) * DAY_WIDTH_PX;
+              const milestoneYMid =
+                (rowsCount + mIdx) * ROW_HEIGHT_PX + ROW_HEIGHT_PX / 2;
+              return (m.linkedTaskIds ?? []).flatMap((taskId) => {
+                const bar = layout.bars.get(taskId);
+                if (!bar) return [];
+                const taskRowIdx = layout.placeable.findIndex(
+                  (p) => p.id === taskId,
+                );
+                if (taskRowIdx < 0) return [];
+                const taskEndX =
+                  LEFT_GUTTER_PX +
+                  (diffDays(range.min, bar.end) + 1) * DAY_WIDTH_PX;
+                const taskYMid =
+                  taskRowIdx * ROW_HEIGHT_PX + ROW_HEIGHT_PX / 2;
+                const midX = (taskEndX + milestoneX) / 2;
+                const path = `M ${taskEndX} ${taskYMid} C ${midX} ${taskYMid}, ${midX} ${milestoneYMid}, ${milestoneX} ${milestoneYMid}`;
+                return (
+                  <path
+                    key={`m-${m.id}-link-${taskId}`}
+                    d={path}
+                    data-milestone-connector
+                    stroke={EDGE_STROKE_MUTED}
+                    strokeOpacity={0.35}
+                    strokeWidth={1}
+                    strokeDasharray="3 3"
+                    fill="none"
                   />
                 );
               });
@@ -1700,6 +1822,99 @@ export function GanttPanel({
                       </div>
                     );
                   })()}
+                </div>
+              </div>
+            );
+          })}
+
+          {/* --- milestone rows: a diamond at each milestone's date ------
+              Separate from the task rows above; not part of the
+              critical-path / dependency math. Sorted by date then id. */}
+          {sortedMilestones.map((m) => {
+            const md = parseISO(m.date);
+            if (!md) return null;
+            const mx = diffDays(range.min, md) * DAY_WIDTH_PX;
+            const mstatus = milestoneStatus(
+              m,
+              tasksById,
+              todayISO,
+              EMPTY_HOLIDAY_SET,
+              MILESTONE_DUE_SOON_WORKDAYS,
+            );
+            const achieved = isAchieved(m);
+            const atRisk = mstatus === "at-risk";
+            return (
+              <div
+                key={`m-${m.id}`}
+                role="row"
+                className="relative flex border-b border-line"
+                style={{ height: ROW_HEIGHT_PX }}
+              >
+                <div
+                  className="sticky left-0 z-10 flex shrink-0 items-center gap-1.5 truncate border-r border-line bg-surface pr-3 text-xs"
+                  style={{ width: LEFT_GUTTER_PX }}
+                  title={`${m.name} · ${m.date}`}
+                >
+                  {/* Gutter diamond icon — intentionally fixed 16-viewBox size,
+                      independent of chart scale (icon, not a chart element). */}
+                  <svg
+                    viewBox="0 0 16 16"
+                    aria-hidden="true"
+                    className="ml-2 h-3 w-3 shrink-0"
+                  >
+                    <rect
+                      x={2}
+                      y={2}
+                      width={12}
+                      height={12}
+                      transform="rotate(45 8 8)"
+                      {...milestoneDiamondProps(achieved, atRisk)}
+                    />
+                  </svg>
+                  {onEditMilestone ? (
+                    <button
+                      type="button"
+                      onClick={() => onEditMilestone(m)}
+                      title={`${m.name} · ${m.date} — ${t(lang, "clickToEdit")}`}
+                      className={`truncate rounded-md border border-transparent px-1 py-0.5 text-left hover:border-AIPM-dark-blue hover:bg-surface-muted ${
+                        achieved
+                          ? "text-muted-foreground line-through"
+                          : "text-foreground"
+                      }`}
+                    >
+                      {m.name}
+                    </button>
+                  ) : (
+                    <span
+                      className={`truncate ${
+                        achieved
+                          ? "text-muted-foreground line-through"
+                          : "text-foreground"
+                      }`}
+                    >
+                      {m.name}
+                    </span>
+                  )}
+                </div>
+                <div
+                  className="relative"
+                  style={{ width: timelineWidthPx, height: ROW_HEIGHT_PX }}
+                  title={`${m.name} · ${m.date}`}
+                >
+                  <svg
+                    className="h-full w-full overflow-visible"
+                    viewBox={`0 0 ${timelineWidthPx} ${ROW_HEIGHT_PX}`}
+                    preserveAspectRatio="none"
+                  >
+                    <rect
+                      x={mx - MILESTONE_DIAMOND_PX / 2}
+                      y={(ROW_HEIGHT_PX - MILESTONE_DIAMOND_PX) / 2}
+                      width={MILESTONE_DIAMOND_PX}
+                      height={MILESTONE_DIAMOND_PX}
+                      transform={`rotate(45 ${mx} ${ROW_HEIGHT_PX / 2})`}
+                      {...milestoneDiamondProps(achieved, atRisk)}
+                    />
+                  </svg>
                 </div>
               </div>
             );

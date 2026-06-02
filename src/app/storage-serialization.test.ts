@@ -1,5 +1,6 @@
 import { describe, test, expect } from "vitest";
-import { migrateWorkspaceV5, emptyWorkspace, workspaceToCsv, csvToWorkspace, workspaceToMarkdown, markdownToWorkspace, workspaceToJson, jsonToWorkspace, type Workspace } from "./storage";
+import { migrateWorkspaceV5, migrateWorkspaceV6, emptyWorkspace, workspaceToCsv, csvToWorkspace, workspaceToMarkdown, markdownToWorkspace, workspaceToJson, jsonToWorkspace, sanitizeProjectStatus, type Workspace } from "./storage";
+import { sanitizeMilestone } from "./sanitize";
 import type { Task, Resource, Role, Discipline, Grade } from "./types";
 import { resourceDisplayName } from "./resource-foundation";
 
@@ -133,4 +134,109 @@ describe("task effort fields round-trip (estimate/time-spent)", () => {
     expect(back.originalEstimateMinutes).toBeUndefined();
     expect(back.timeSpentMinutes).toBeUndefined();
   });
+});
+
+describe("ProjectStatus defaults", () => {
+  test("emptyWorkspace seeds an empty status object", () => {
+    expect(emptyWorkspace().status).toEqual({});
+  });
+
+  test("migrateWorkspaceV6 backfills a missing status to {}", () => {
+    const ws = { ...emptyWorkspace() };
+    delete (ws as { status?: unknown }).status;
+    expect(migrateWorkspaceV6(ws as typeof ws & { status?: never }).status).toEqual({});
+  });
+});
+
+test("JSON round-trip preserves project status", () => {
+  const ws = {
+    ...emptyWorkspace(),
+    status: { ragOverride: "A" as const, narrative: "On track, one risk to watch.", narrativeUpdatedAt: "2026-06-02T10:00:00.000Z" },
+  };
+  const back = jsonToWorkspace(workspaceToJson(ws));
+  expect(back.status).toEqual(ws.status);
+});
+
+test("sanitizeProjectStatus rejects malformed input and whitelists known fields", () => {
+  expect(sanitizeProjectStatus(null)).toEqual({});
+  expect(sanitizeProjectStatus(42)).toEqual({});
+  expect(sanitizeProjectStatus(["R"])).toEqual({});
+  expect(sanitizeProjectStatus({ ragOverride: "X", junk: 1 })).toEqual({});
+  expect(sanitizeProjectStatus({ narrative: 5 })).toEqual({});
+  expect(sanitizeProjectStatus({ ragOverride: "G", narrative: "ok" })).toEqual({ ragOverride: "G", narrative: "ok" });
+});
+
+test("CSV round-trip preserves project status", () => {
+  const ws = {
+    ...emptyWorkspace(),
+    status: { ragOverride: "R" as const, scopeOverride: "A" as const, narrative: "Scope creep, see note: \"phase 2\".", narrativeUpdatedAt: "2026-06-02T10:00:00.000Z" },
+  };
+  const back = csvToWorkspace(workspaceToCsv(ws));
+  expect(back.status).toEqual(ws.status);
+});
+
+test("Markdown round-trip preserves project status", () => {
+  const ws = {
+    ...emptyWorkspace(),
+    status: {
+      ragOverride: "R" as const,
+      scheduleOverride: "A" as const,
+      budgetOverride: "G" as const,
+      scopeOverride: "A" as const,
+      narrative: "Note: budget tightening, phase 2 at risk.",
+      narrativeUpdatedAt: "2026-06-02T10:00:00.000Z",
+    },
+  };
+  const back = markdownToWorkspace(workspaceToMarkdown(ws));
+  expect(back.status).toEqual(ws.status);
+});
+
+test("JSON round-trip preserves milestones", () => {
+  const ws = {
+    ...emptyWorkspace(),
+    milestones: [{ id: 1, name: "Go-live", date: "2026-08-01", description: "launch", linkedTaskIds: [2, 3] }],
+  };
+  const back = jsonToWorkspace(workspaceToJson(ws));
+  expect(back.milestones).toEqual(ws.milestones);
+});
+
+describe("Milestone defaults + sanitize", () => {
+  test("emptyWorkspace seeds an empty milestones array", () => {
+    expect(emptyWorkspace().milestones).toEqual([]);
+  });
+  test("migrateWorkspaceV6 backfills a missing milestones to []", () => {
+    const ws = { ...emptyWorkspace() };
+    delete (ws as { milestones?: unknown }).milestones;
+    expect(migrateWorkspaceV6(ws as typeof ws).milestones).toEqual([]);
+  });
+  test("sanitizeMilestone rejects junk and keeps valid fields", () => {
+    expect(sanitizeMilestone(null)).toBeNull();
+    expect(sanitizeMilestone({ id: 0, name: "x", date: "2026-01-01" })).toBeNull(); // id<=0
+    expect(sanitizeMilestone({ id: 1, name: "", date: "2026-01-01" })).toBeNull();  // empty name
+    expect(sanitizeMilestone({ id: 1, name: "Go-live", date: "" })).toBeNull();     // empty date
+    expect(
+      sanitizeMilestone({ id: 2, name: "Go-live", date: "2026-08-01", description: "d", achievedDate: "2026-07-30", linkedTaskIds: [3, "4", -1, "x"], localModifiedAt: "2026-06-02T00:00:00.000Z" }),
+    ).toEqual({ id: 2, name: "Go-live", date: "2026-08-01", description: "d", achievedDate: "2026-07-30", linkedTaskIds: [3, 4], localModifiedAt: "2026-06-02T00:00:00.000Z" });
+  });
+  test("sanitizeMilestone rejects an invalid date", () => {
+    expect(sanitizeMilestone({ id: 1, name: "x", date: "not-a-date" })).toBeNull();
+  });
+});
+
+test("CSV round-trip preserves milestones (incl. linked ids + comma in description)", () => {
+  const ws = {
+    ...emptyWorkspace(),
+    milestones: [{ id: 5, name: "Phase 1, sign-off", date: "2026-08-12", description: "gate, review", achievedDate: "2026-08-13", linkedTaskIds: [7, 9], localModifiedAt: "2026-06-02T00:00:00.000Z" }],
+  };
+  const back = csvToWorkspace(workspaceToCsv(ws));
+  expect(back.milestones).toEqual(ws.milestones);
+});
+
+test("Markdown round-trip preserves milestones", () => {
+  const ws = {
+    ...emptyWorkspace(),
+    milestones: [{ id: 1, name: "Go-live", date: "2026-08-01", linkedTaskIds: [2] }],
+  };
+  const back = markdownToWorkspace(workspaceToMarkdown(ws));
+  expect(back.milestones).toEqual(ws.milestones);
 });

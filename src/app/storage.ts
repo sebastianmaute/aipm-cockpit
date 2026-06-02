@@ -21,6 +21,7 @@ import {
   sanitizeGrade,
   sanitizeGroup,
   sanitizeLabels,
+  sanitizeMilestone,
   sanitizeOptionalMinutes,
   sanitizePlan,
   sanitizeResource,
@@ -34,7 +35,9 @@ import {
   type Discipline,
   type FxRates,
   type Grade,
+  type Milestone,
   type Priority,
+  type ProjectStatus,
   type RaidCategory,
   type RaidItem,
   type RaidSeverity,
@@ -66,6 +69,11 @@ export type Workspace = {
   budgets?: BudgetBucket[];
   /** Cached ECB rate table; null/absent until first fetched. */
   fxRates?: FxRates | null;
+  /** Project-level RAG overrides + PM narrative for the dashboard. Optional so
+   *  older saved files still type-check; every load path defaults to {}. */
+  status?: ProjectStatus;
+  /** Project milestones (key dates). Optional for back-compat; load paths default to []. */
+  milestones?: Milestone[];
 };
 
 const SCHEMA_VERSION = 6;
@@ -78,6 +86,8 @@ export function emptyWorkspace(): Workspace {
     plan: defaultResourcePlan(new Date().toISOString().slice(0, 10)),
     budgets: [],
     fxRates: null,
+    status: {},
+    milestones: [],
   };
 }
 
@@ -111,8 +121,12 @@ export function migrateWorkspaceV6(ws: Workspace): Workspace {
   const base = migrateWorkspaceV5(ws);
   const budgets = Array.isArray(base.budgets) ? base.budgets : [];
   const fxRates = base.fxRates ?? null;
-  if (budgets === base.budgets && fxRates === base.fxRates) return base;
-  return { ...base, budgets, fxRates };
+  const status = base.status && typeof base.status === "object" ? base.status : {};
+  const milestones = Array.isArray(base.milestones) ? base.milestones : [];
+  if (budgets === base.budgets && fxRates === base.fxRates && status === base.status && milestones === base.milestones) {
+    return base;
+  }
+  return { ...base, budgets, fxRates, status, milestones };
 }
 
 // --- Storage configuration -------------------------------------------------
@@ -475,6 +489,10 @@ export const RESOURCES_CSV_COLUMNS = [
 export const ROLES_CSV_COLUMNS = ["id", "disciplineId", "gradeId", "internalRate", "externalRate", "localModifiedAt"] as const;
 export const REF_CSV_COLUMNS = ["id", "name", "localModifiedAt"] as const;
 
+export const MILESTONES_CSV_COLUMNS: Array<keyof Milestone> = [
+  "id", "name", "date", "description", "achievedDate", "linkedTaskIds", "localModifiedAt",
+];
+
 export const BUDGETS_CSV_COLUMNS = [
   "id", "name", "poNumber", "type", "currency", "fixedPriceAmount",
   "startDate", "endDate", "successorId", "status", "closedDate",
@@ -484,6 +502,7 @@ export const BUDGETS_CSV_COLUMNS = [
 
 const CSV_SECTION_BUDGETS = "# BUDGETS";
 const CSV_SECTION_FXRATES = "# FXRATES";
+const CSV_SECTION_MILESTONES = "# MILESTONES";
 
 // Section markers for the new entity sections in multi-section CSV files.
 const CSV_SECTION_RESOURCES = "# RESOURCES";
@@ -491,6 +510,7 @@ const CSV_SECTION_ROLES = "# ROLES";
 const CSV_SECTION_DISCIPLINES = "# DISCIPLINES";
 const CSV_SECTION_GRADES = "# GRADES";
 const CSV_SECTION_PLAN = "# PLAN";
+const CSV_SECTION_STATUS = "# PROJECT STATUS";
 
 // --- Resource Planner v2 Markdown column definitions -----------------------
 
@@ -703,6 +723,25 @@ export function buildRaidItemFromObj(obj: Record<string, string>): RaidItem | nu
   };
 }
 
+export function milestoneFieldToString(m: Milestone, c: keyof Milestone): string {
+  if (c === "linkedTaskIds") return Array.isArray(m.linkedTaskIds) ? m.linkedTaskIds.join("|") : "";
+  return String(m[c] ?? "");
+}
+
+export function buildMilestoneFromObj(obj: Record<string, string>): Milestone | null {
+  const id = Math.floor(Number(obj.id));
+  if (!Number.isFinite(id) || id <= 0) return null;
+  const name = (obj.name?.trim() ?? "").slice(0, 200);
+  if (!name) return null;
+  const date = obj.date?.trim() ?? "";
+  if (!date) return null;
+  const m: Milestone = { id, name, date, linkedTaskIds: parseLinkedTaskIds(obj.linkedTaskIds) };
+  if (obj.description) m.description = obj.description;
+  if (obj.achievedDate) m.achievedDate = obj.achievedDate;
+  if (obj.localModifiedAt) m.localModifiedAt = obj.localModifiedAt;
+  return m;
+}
+
 function csvEscape(value: string): string {
   if (
     value.includes(",") ||
@@ -734,6 +773,16 @@ function raidToCsv(raid: readonly RaidItem[]): string {
   for (const r of raid) {
     lines.push(
       RAID_CSV_COLUMNS.map((c) => csvEscape(raidFieldToString(r, c))).join(","),
+    );
+  }
+  return lines.join("\r\n");
+}
+
+function milestonesToCsv(milestones: readonly Milestone[]): string {
+  const lines: string[] = [MILESTONES_CSV_COLUMNS.join(",")];
+  for (const m of milestones) {
+    lines.push(
+      MILESTONES_CSV_COLUMNS.map((c) => csvEscape(milestoneFieldToString(m, c))).join(","),
     );
   }
   return lines.join("\r\n");
@@ -871,10 +920,29 @@ export function workspaceToJson(ws: Workspace): string {
       tasks: ws.tasks, raid: ws.raid, absences: ws.absences, shifts: ws.shifts,
       resources: ws.resources, roles: ws.roles, disciplines: ws.disciplines,
       grades: ws.grades, plan: ws.plan, budgets: ws.budgets ?? [], fxRates: ws.fxRates ?? null,
+      status: ws.status ?? {},
+      milestones: ws.milestones ?? [],
     },
     null,
     2,
   );
+}
+
+/** Defensive: whitelist the six known ProjectStatus fields from untrusted JSON. */
+export function sanitizeProjectStatus(raw: unknown): ProjectStatus {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const r = raw as Record<string, unknown>;
+  const rag = (v: unknown): "R" | "A" | "G" | undefined =>
+    v === "R" || v === "A" || v === "G" ? v : undefined;
+  const str = (v: unknown): string | undefined => (typeof v === "string" ? v : undefined);
+  const out: ProjectStatus = {};
+  const ragOverride = rag(r.ragOverride); if (ragOverride) out.ragOverride = ragOverride;
+  const scheduleOverride = rag(r.scheduleOverride); if (scheduleOverride) out.scheduleOverride = scheduleOverride;
+  const budgetOverride = rag(r.budgetOverride); if (budgetOverride) out.budgetOverride = budgetOverride;
+  const scopeOverride = rag(r.scopeOverride); if (scopeOverride) out.scopeOverride = scopeOverride;
+  const narrative = str(r.narrative); if (narrative) out.narrative = narrative;
+  const narrativeUpdatedAt = str(r.narrativeUpdatedAt); if (narrativeUpdatedAt) out.narrativeUpdatedAt = narrativeUpdatedAt;
+  return out;
 }
 
 /** Parse a JSON envelope back to a workspace. Tolerates legacy files (pre-v6)
@@ -898,11 +966,59 @@ export function jsonToWorkspace(text: string): Workspace {
       plan: sanitizePlan(p.plan ?? {}, new Date().toISOString().slice(0, 10)),
       budgets: ((p.budgets as unknown[]) ?? []).map((b) => sanitizeBudgetBucket(b)).filter((b): b is BudgetBucket => b !== null),
       fxRates: sanitizeFxRates(p.fxRates),
+      status: sanitizeProjectStatus(p.status),
+      milestones: ((p.milestones as unknown[]) ?? []).map((m) => sanitizeMilestone(m)).filter((m): m is Milestone => m !== null),
     };
     return migrateWorkspaceV6(raw);
   } catch {
     return emptyWorkspace();
   }
+}
+
+// --- Project Status CSV encoder / decoder ------------------------------------
+
+const STATUS_FIELDS: readonly (keyof ProjectStatus)[] = [
+  "ragOverride", "scheduleOverride", "budgetOverride", "scopeOverride",
+  "narrative", "narrativeUpdatedAt",
+];
+
+export function statusToCsv(status: ProjectStatus): string {
+  const rows: string[] = ["field,value"];
+  for (const f of STATUS_FIELDS) {
+    const v = status[f];
+    if (v != null && v !== "") rows.push(`${f},${csvEscape(String(v))}`);
+  }
+  return rows.join("\r\n");
+}
+
+/** Serializes status as "## Project Status" + "- field: value" bullets. The
+ *  narrative is a single list item; embedded newlines are not preserved. */
+export function statusToMarkdown(status: ProjectStatus): string {
+  const lines = ["## Project Status", ""];
+  for (const f of STATUS_FIELDS) {
+    const v = status[f];
+    if (v != null && v !== "") lines.push(`- ${f}: ${String(v)}`);
+  }
+  return lines.join("\n") + "\n";
+}
+
+export function markdownToStatus(md: string): ProjectStatus {
+  const map: Record<string, string> = {};
+  for (const line of md.split(/\r?\n/)) {
+    const m = /^- (\w+):\s*(.*)$/.exec(line.trim());
+    if (m) map[m[1]] = m[2].trim();
+  }
+  return sanitizeProjectStatus(map);
+}
+
+export function csvToStatus(text: string): ProjectStatus {
+  const rows = parseCsv(text).filter((r) => r.length >= 2 && r[0] && !r[0].startsWith("#"));
+  const map: Record<string, string> = {};
+  for (const [k, v] of rows) {
+    if (k === "field") continue; // header row
+    map[k] = v;
+  }
+  return sanitizeProjectStatus(map);
 }
 
 /** Multi-section CSV: tasks then (optionally) raid, absences, and shifts,
@@ -926,6 +1042,12 @@ export function workspaceToCsv(ws: Workspace): string {
   if (ws.resources.length > 0) parts.push("", CSV_SECTION_RESOURCES, resourcesToCsv(ws.resources));
   if ((ws.budgets ?? []).length > 0) parts.push("", CSV_SECTION_BUDGETS, budgetsToCsv(ws.budgets ?? []));
   if (ws.fxRates) parts.push("", fxRatesToCsvLine(ws.fxRates));
+  if (ws.status && Object.keys(ws.status).length > 0) {
+    parts.push("", CSV_SECTION_STATUS, statusToCsv(ws.status));
+  }
+  if ((ws.milestones ?? []).length > 0) {
+    parts.push("", CSV_SECTION_MILESTONES, milestonesToCsv(ws.milestones ?? []));
+  }
   parts.push("", planToCsvLine(ws.plan));
   return parts.join("\r\n");
 }
@@ -1006,9 +1128,11 @@ function splitCsvSections(csv: string): {
   planText: string;
   budgetsText: string;
   fxRatesText: string;
+  statusText: string;
+  milestonesText: string;
 } {
   const lines = csv.split(/\r?\n/);
-  let mode: "tasks" | "raid" | "absences" | "shifts" | "resources" | "roles" | "disciplines" | "grades" | "plan" | "budgets" | "fxrates" | null = null;
+  let mode: "tasks" | "raid" | "absences" | "shifts" | "resources" | "roles" | "disciplines" | "grades" | "plan" | "budgets" | "fxrates" | "status" | "milestones" | null = null;
   const tasksLines: string[] = [];
   const raidLines: string[] = [];
   const absencesLines: string[] = [];
@@ -1020,6 +1144,8 @@ function splitCsvSections(csv: string): {
   const planLines: string[] = [];
   const budgetsLines: string[] = [];
   const fxRatesLines: string[] = [];
+  const statusLines: string[] = [];
+  const milestonesLines: string[] = [];
   for (const line of lines) {
     const trimmed = line.trimStart();
     if (trimmed.startsWith(CSV_SECTION_BUDGETS)) { mode = "budgets"; continue; }
@@ -1033,6 +1159,8 @@ function splitCsvSections(csv: string): {
     if (trimmed.startsWith(CSV_SECTION_RAID)) { mode = "raid"; continue; }
     if (trimmed.startsWith(CSV_SECTION_ABSENCES)) { mode = "absences"; continue; }
     if (trimmed.startsWith(CSV_SECTION_SHIFTS)) { mode = "shifts"; continue; }
+    if (trimmed.startsWith(CSV_SECTION_STATUS)) { mode = "status"; continue; }
+    if (trimmed.startsWith(CSV_SECTION_MILESTONES)) { mode = "milestones"; continue; }
     if (mode === "resources") resourcesLines.push(line);
     else if (mode === "roles") rolesLines.push(line);
     else if (mode === "disciplines") disciplinesLines.push(line);
@@ -1044,6 +1172,8 @@ function splitCsvSections(csv: string): {
     else if (mode === "tasks") tasksLines.push(line);
     else if (mode === "budgets") budgetsLines.push(line);
     else if (mode === "fxrates") fxRatesLines.push(line);
+    else if (mode === "status") statusLines.push(line);
+    else if (mode === "milestones") milestonesLines.push(line);
     // (else: line before the first marker — drop it.)
   }
   return {
@@ -1058,6 +1188,8 @@ function splitCsvSections(csv: string): {
     planText: planLines.join("\r\n"),
     budgetsText: budgetsLines.join("\r\n"),
     fxRatesText: fxRatesLines.join("\r\n"),
+    statusText: statusLines.join("\r\n"),
+    milestonesText: milestonesLines.join("\r\n"),
   };
 }
 
@@ -1188,6 +1320,30 @@ function csvToShifts(csv: string): Shift[] {
   return items;
 }
 
+function csvToMilestones(csv: string): Milestone[] {
+  const rows = parseCsv(csv);
+  if (rows.length === 0) return [];
+  let headerIdx = -1;
+  for (let i = 0; i < rows.length; i++) {
+    if (rows[i].length > 0 && rows[i][0].trim() !== "" && !rows[i][0].startsWith("#")) {
+      headerIdx = i;
+      break;
+    }
+  }
+  if (headerIdx < 0) return [];
+  const headers = rows[headerIdx];
+  const items: Milestone[] = [];
+  for (let i = headerIdx + 1; i < rows.length; i++) {
+    const row = rows[i];
+    if (row.length === 1 && row[0] === "") continue;
+    const obj: Record<string, string> = {};
+    headers.forEach((h, idx) => { obj[h] = rows[i][idx] ?? ""; });
+    const item = buildMilestoneFromObj(obj);
+    if (item) items.push(item);
+  }
+  return items;
+}
+
 function csvToRaid(csv: string): RaidItem[] {
   const rows = parseCsv(csv);
   if (rows.length === 0) return [];
@@ -1231,6 +1387,8 @@ export function csvToWorkspace(csv: string): Workspace {
     plan: (s.planText.trim() && parsePlanLine(s.planText)) || defaultResourcePlan(new Date().toISOString().slice(0, 10)),
     budgets: s.budgetsText.trim() ? csvToBudgets(s.budgetsText) : [],
     fxRates: s.fxRatesText.trim() ? parseFxRatesLine(s.fxRatesText.split(/\r?\n/).find((l) => l.trim() && !l.startsWith("#")) ?? "") : null,
+    status: s.statusText.trim() ? csvToStatus(s.statusText) : {},
+    milestones: s.milestonesText.trim() ? csvToMilestones(s.milestonesText) : [],
   };
   return migrateWorkspaceV6(ws);
 }
@@ -1426,6 +1584,46 @@ function budgetsToMarkdown(bs: readonly BudgetBucket[]): string {
   return lines.join("\n") + "\n";
 }
 
+const MILESTONES_MD_COLUMNS: Array<{ key: keyof Milestone; label: string }> = [
+  { key: "id", label: "ID" },
+  { key: "name", label: "Name" },
+  { key: "date", label: "Date" },
+  { key: "description", label: "Description" },
+  { key: "achievedDate", label: "Achieved" },
+  { key: "linkedTaskIds", label: "LinkedTasks" },
+  { key: "localModifiedAt", label: "LocalModified" },
+];
+
+function milestonesToMarkdown(milestones: readonly Milestone[]): string {
+  const header = `| ${MILESTONES_MD_COLUMNS.map((c) => c.label).join(" | ")} |`;
+  const sep = `| ${MILESTONES_MD_COLUMNS.map(() => "---").join(" | ")} |`;
+  const lines = ["## Milestones", "", header, sep];
+  for (const m of milestones) {
+    const row = MILESTONES_MD_COLUMNS.map((c) =>
+      mdEscape(milestoneFieldToString(m, c.key)),
+    ).join(" | ");
+    lines.push(`| ${row} |`);
+  }
+  return lines.join("\n") + "\n";
+}
+
+function markdownToMilestones(md: string): Milestone[] {
+  return markdownTableToObjects(md).map((row) => {
+    const mapped: Record<string, string> = {};
+    for (const [label, val] of Object.entries(row)) {
+      const norm = label.toLowerCase().replace(/\s+/g, "");
+      if (norm === "id") mapped["id"] = val;
+      else if (norm === "name") mapped["name"] = val;
+      else if (norm === "date") mapped["date"] = val;
+      else if (norm === "description") mapped["description"] = val;
+      else if (norm === "achieved" || norm === "achieveddate") mapped["achievedDate"] = val;
+      else if (norm === "linkedtasks" || norm === "linkedtaskids") mapped["linkedTaskIds"] = val;
+      else if (norm === "localmodified" || norm === "localmodifiedat") mapped["localModifiedAt"] = val;
+    }
+    return buildMilestoneFromObj(mapped);
+  }).filter((m): m is Milestone => m !== null);
+}
+
 function fxRatesToMarkdown(fx: FxRates): string {
   return `## FX Rates\n\n${fx.base},${fx.date},${fx.fetchedAt},${encodeRatesMap(fx.rates)}\n`;
 }
@@ -1457,6 +1655,8 @@ export function workspaceToMarkdown(ws: Workspace): string {
   if (ws.resources.length > 0) out += "\n" + resourcesToMarkdown(ws.resources);
   if ((ws.budgets ?? []).length > 0) out += "\n" + budgetsToMarkdown(ws.budgets ?? []);
   if (ws.fxRates) out += "\n" + fxRatesToMarkdown(ws.fxRates);
+  if (ws.status && Object.keys(ws.status).length > 0) out += "\n" + statusToMarkdown(ws.status);
+  if ((ws.milestones ?? []).length > 0) out += "\n" + milestonesToMarkdown(ws.milestones ?? []);
   out += "\n" + planToMarkdown(ws.plan);
   return out;
 }
@@ -1503,6 +1703,8 @@ function splitMarkdownSections(md: string): {
   planMd: string;
   budgetsMd: string;
   fxRatesMd: string;
+  statusMd: string;
+  milestonesMd: string;
 } {
   const lines = md.split(/\r?\n/);
   const tasksLines: string[] = [];
@@ -1516,6 +1718,8 @@ function splitMarkdownSections(md: string): {
   const planLines: string[] = [];
   const budgetsLines: string[] = [];
   const fxRatesLines: string[] = [];
+  const statusLines: string[] = [];
+  const milestonesLines: string[] = [];
   let target = tasksLines;
   for (const line of lines) {
     const trimmed = line.trim();
@@ -1530,6 +1734,8 @@ function splitMarkdownSections(md: string): {
     if (/^##\s+Plan\b/i.test(trimmed)) { target = planLines; continue; }
     if (/^#\s+Budgets\b/i.test(trimmed)) { target = budgetsLines; target.push(line); continue; }
     if (/^##\s+FX\s+Rates\b/i.test(trimmed)) { target = fxRatesLines; continue; }
+    if (/^##\s+Project\s+Status\b/i.test(trimmed)) { target = statusLines; continue; }
+    if (/^##\s+Milestones\b/i.test(trimmed)) { target = milestonesLines; continue; }
     target.push(line);
   }
   return {
@@ -1544,6 +1750,8 @@ function splitMarkdownSections(md: string): {
     planMd: planLines.join("\n"),
     budgetsMd: budgetsLines.join("\n"),
     fxRatesMd: fxRatesLines.join("\n"),
+    statusMd: statusLines.join("\n"),
+    milestonesMd: milestonesLines.join("\n"),
   };
 }
 
@@ -1866,6 +2074,8 @@ export function markdownToWorkspace(md: string): Workspace {
     plan: (s.planMd.trim() && parsePlanMarkdown(s.planMd)) || defaultResourcePlan(new Date().toISOString().slice(0, 10)),
     budgets: s.budgetsMd.trim() ? markdownToBudgets(s.budgetsMd) : [],
     fxRates: s.fxRatesMd.trim() ? parseFxRatesMarkdown(s.fxRatesMd) : null,
+    status: s.statusMd.trim() ? markdownToStatus(s.statusMd) : {},
+    milestones: s.milestonesMd.trim() ? markdownToMilestones(s.milestonesMd) : [],
   };
   return migrateWorkspaceV6(ws);
 }
