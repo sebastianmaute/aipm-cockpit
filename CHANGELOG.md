@@ -8,6 +8,16 @@ Authoritative source for version + build date: [`src/app/version.ts`](src/app/ve
 This file is seeded from that module's milestone comment plus the
 post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-diff.txt).
 
+## [0.46.0] — 2026-06-02 "Banks"
+
+### Changed
+- **EVM folded into the dashboard RAGs:** the Schedule RAG now folds in SPI and the Budget RAG folds in CPI, worst-of with the existing task / milestone / budget signals. An index below 0.8 is Red, below 0.9 Amber; a manual override still wins. CPI can surface a Budget RAG even when no budget buckets are configured. (Completes the EVM follow-up deferred in 0.45.0.)
+- **Help window opens at double its previous size** (still draggable and resizable; on-screen caps unchanged).
+
+### Added
+- **Clickable version history:** the sidebar version line is now a button that opens a version-history modal (the same panel as the Version popover).
+- **Settings footer:** the full-page Settings view shows a version-history link and an **Apache-2.0** license link (→ opensource.org); the license link is also added to the Help footer.
+
 ## [0.45.0] — 2026-06-02 "Robinson"
 
 ### Added

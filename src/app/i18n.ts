@@ -1053,6 +1053,7 @@ const enUS = {
   versionHighlightDashboard: "Project-health dashboard (RAG status report)",
   versionHighlightMilestones: "Milestones (Gantt diamonds + at-risk tracking)",
   versionHighlightEarnedValue: "Earned value: SPI / CPI / variances",
+  versionHighlightEvmRag: "Dashboard RAGs fold in SPI / CPI thresholds",
 
   outlookCalImportTitle: "Import Outlook calendar",
   outlookCalImportLoading: "Loading events…",

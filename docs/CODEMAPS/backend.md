@@ -1,4 +1,4 @@
-<!-- Generated: 2026-05-31 | Files scanned: src/proxy.ts + 10 (src/app/api/jira) | Token estimate: ~500 | Updated for 0.29.0–0.42.0: no backend changes; storage backends remain client-side -->
+<!-- Generated: 2026-05-31 | Files scanned: src/proxy.ts + 10 (src/app/api/jira) | Token estimate: ~500 | Updated for 0.29.0–0.46.0: no backend changes; storage backends remain client-side + dashboard/milestones/EVM (pure logic) -->
 
 # Backend
 

@@ -1,4 +1,4 @@
-<!-- Generated: 2026-05-31 | Files scanned: types.ts, storage.ts, sanitize.ts, raid.ts, activity-log.ts, contacts.ts, resource-foundation.ts, resource-capacity.ts, reminder-snooze.ts, use-settings.ts, jira-token-status.ts, duration.ts + msal-config.ts, turso-config.ts | Token estimate: ~1300 | Updated for 0.29.0–0.42.0: no data schema changes; storage backends remain client-side -->
+<!-- Generated: 2026-05-31 | Files scanned: types.ts, storage.ts, sanitize.ts, raid.ts, activity-log.ts, contacts.ts, resource-foundation.ts, resource-capacity.ts, reminder-snooze.ts, use-settings.ts, jira-token-status.ts, duration.ts + msal-config.ts, turso-config.ts | Token estimate: ~1300 | Updated for 0.29.0–0.46.0: ProjectStatus + Milestone[] persisted (v6 additive, no schema bump) -->
 
 # Data
 
@@ -168,6 +168,25 @@ FxRates {                                   // one cached table per workspace
   fetchedAt       string                    // ISO timestamp of the fetch
   rates           Record<string, number>    // currency code → units per 1 EUR
 }
+
+ProjectStatus {                              // 0.43.0: per-workspace PM health override
+  overall         "R" | "A" | "G"           // Red/Amber/Green override; null = auto from Schedule
+  schedule        "R" | "A" | "G"           // Folded into Schedule RAG (from milestones + EVM SPI)
+  budget          "R" | "A" | "G"           // Folded into Budget RAG (from EVM CPI)
+  scope           "R" | "A" | "G"           // User-set scope health
+  narrative?      string                    // Free-text PM summary
+  narrativeUpdatedAt? ISO 8601 timestamp
+}
+
+Milestone {                                  // 0.44.0: project milestone with earned value
+  id              number
+  name            string
+  date            "YYYY-MM-DD"              // planned milestone date
+  description?    string
+  achievedDate?   "YYYY-MM-DD"              // null = not yet achieved
+  linkedTaskIds   number[]                  // tasks that feed this milestone
+  localModifiedAt? ISO 8601 timestamp
+}
 ```
 
 ## Workspace envelope (`storage.ts`)
@@ -185,6 +204,8 @@ type Workspace = {
   plan: ResourcePlan;                       // singleton
   budgets?: BucketBucket[];                 // schema v6; optional for compat
   fxRates?: FxRates | null;                // schema v6; optional for compat
+  status?: ProjectStatus;                   // 0.43.0+; optional for compat
+  milestones?: Milestone[];                 // 0.44.0+; optional for compat
 };
 
 type StorageKind =
@@ -216,6 +237,8 @@ Re-running over a populated workspace is a no-op (reference equality).
 
 `migrateWorkspaceV6(ws)` is **idempotent**: ensures `budgets: []` and
 `fxRates: undefined` exist when absent. Safe to run over a v5 or v6 workspace.
+Backfill for `status` (0.43.0+) and `milestones` (0.44.0+) is additive — old
+workspaces auto-populate these as empty/null when first loaded and persisted.
 
 ## IndexedDB layout (`storage.ts`)
 
@@ -223,6 +246,7 @@ Re-running over a populated workspace is a no-op (reference equality).
 Database: lop-app  (version 6)
 ├── object store "kv"           (v1)  — FsHandle + "resource-plan" singleton
 │                                       + "budgets" array + "fxRates" object (v6)
+│                                       + "status" object (0.43.0+) + "milestones" array (0.44.0+)
 ├── object store "tasks"        (v2)  — keyPath: "id", value: Task
 ├── object store "raid"         (v2)  — keyPath: "id", value: RaidItem
 ├── object store "absences"     (v3)  — keyPath: "id", value: Absence
@@ -282,9 +306,9 @@ so older files self-heal.
 
 | Kind | Sections |
 |---|---|
-| JSON | `{ schemaVersion: 6, tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates }` |
-| CSV  | `# TASKS` + `# RAID` + `# ABSENCES` + `# SHIFTS` + `# DISCIPLINES` + `# GRADES` + `# ROLES` + `# RESOURCES` + `# PLAN` + `# BUDGETS` + `# FX_RATES`, RFC-style escaping |
-| Markdown | `# LOP Tasks` + `# RAID Log` + `# Absences` + `# Shifts` + `# Disciplines` + `# Grades` + `# Roles` + `# Resources` + `# Plan` + `# Budgets` + `# FX Rates` H1s, each with a pipe table |
+| JSON | `{ schemaVersion: 6, tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, milestones }` |
+| CSV  | `# TASKS` + `# RAID` + `# ABSENCES` + `# SHIFTS` + `# DISCIPLINES` + `# GRADES` + `# ROLES` + `# RESOURCES` + `# PLAN` + `# BUDGETS` + `# FX_RATES` + `# PROJECT STATUS` + `# MILESTONES`, RFC-style escaping |
+| Markdown | `# LOP Tasks` + `# RAID Log` + `# Absences` + `# Shifts` + `# Disciplines` + `# Grades` + `# Roles` + `# Resources` + `# Plan` + `# Budgets` + `# FX Rates` H1s + `## Project Status` (field bullets) + `## Milestones` (pipe table) H2s |
 
 The `utilization` and `absenceOverride` maps serialize into a single
 encoded cell each via `encodePeriodMap` / `decodePeriodMap` — format

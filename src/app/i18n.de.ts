@@ -1071,6 +1071,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightDashboard: "Projekt-Status-Dashboard (RAG-Statusbericht)",
   versionHighlightMilestones: "Meilensteine (Gantt-Rauten + Risikoverfolgung)",
   versionHighlightEarnedValue: "Earned Value: SPI / CPI / Abweichungen",
+  versionHighlightEvmRag: "Dashboard-RAGs berücksichtigen SPI-/CPI-Schwellen",
 
   outlookCalImportTitle: "Outlook-Kalender importieren",
   outlookCalImportLoading: "Termine werden geladen…",

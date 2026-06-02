@@ -1,3 +1,13 @@
+// 0.46.0 "Banks" closes the deferred EVM follow-up and polishes the chrome.
+// The dashboard Schedule and Budget RAGs now fold in the Earned Value indices:
+// SPI feeds Schedule and CPI feeds Budget (worst-of with the existing task /
+// milestone / budget signals; an index below 0.8 is Red, below 0.9 Amber, and
+// a manual override still wins). CPI can surface a Budget RAG even when no
+// budget buckets are configured. UI: the sidebar version line is now clickable
+// and opens a version-history modal (shared with the Version popover); the Help
+// window opens at double its previous size; and the full-page Settings view
+// gains a footer with a version-history link and an Apache-2.0 license link
+// (also added to the Help footer). Docs + package.json version refreshed.
 // 0.45.0 "Robinson" adds task-effort Earned Value (EVM). A new pure evm.ts
 // computes PV (estimate of tasks due by today), EV (estimate of completed
 // tasks), and AC (time spent) from existing task data, deriving SPI=EV/PV,
@@ -584,12 +594,12 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.45.0";
-export const APP_BUILD_DATE = "2026-06-02"; // 0.45.0 earned value (SPI/CPI)
+export const APP_VERSION = "0.46.0";
+export const APP_BUILD_DATE = "2026-06-02"; // 0.46.0 EVM->RAG + chrome polish
 /** Minor-series milestone codename (sci-fi/fantasy author names). The whole
  *  0.39.x line is "Tchaikovsky" (Adrian Tchaikovsky); patch releases inherit
  *  their minor version's codename rather than getting their own. */
-export const APP_MILESTONE = "Robinson";
+export const APP_MILESTONE = "Banks";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -646,4 +656,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightDashboard",
   "versionHighlightMilestones",
   "versionHighlightEarnedValue",
+  "versionHighlightEvmRag",
 ] as const;

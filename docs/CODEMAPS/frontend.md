@@ -1,4 +1,4 @@
-<!-- Generated: 2026-05-31 | Files scanned: ~120 (src/app/*.tsx, *.ts, settings-sections/) | Token estimate: ~1600 | Updated for 0.29.0–0.42.0: modern sidebar layout + UI-consistency sweep -->
+<!-- Generated: 2026-05-31 | Files scanned: ~120 (src/app/*.tsx, *.ts, settings-sections/) | Token estimate: ~1600 | Updated for 0.29.0–0.46.0: modern sidebar layout + UI-consistency sweep + Health Dashboard + Milestones + Earned Value -->
 
 # Frontend
 
@@ -37,9 +37,11 @@ src/app/layout.tsx           — root layout, security headers, globals.css,
         │   ├── workspace-context.tsx — workspace data (WorkspaceProvider)
         │   └── use-hash-view.ts — URL hash ↔ active view two-way sync
         │
-        ├── Workspace section (6 main tabs + popouts)
+        ├── Workspace section (9 main tabs + popouts)
         │   ├── workspace-section.tsx — tab strip + conditional mount
         │   ├── ChatPanel (chat-panel.tsx) — mounted; hidden when off
+        │   ├── DashboardPanel (dashboard-panel.tsx) — conditional mount ★ (0.43.0+)
+        │   ├── MilestonesPanel (milestones-panel.tsx) — conditional mount ★ (0.44.0+)
         │   ├── ReportsPanel (reports.tsx) — conditional mount ★
         │   ├── GanttPanel (gantt.tsx) — conditional mount ★
         │   ├── RaidPanel (raid-panel.tsx) — mounted; hidden when off ✚
@@ -94,7 +96,7 @@ prerendered.
 | `colWidths`, `hiddenCols` | UI table prefs in `localStorage` (colWidths debounced 250 ms) |
 | `search` + `searchDebounced` + `taskSearchIndex` | 150 ms search debounce + precomputed lowercase index |
 | `selectedIds`, `bulkEdit`, `expandedNotes` | Per-session UI only |
-| `activeTab` | `"open-points"` \| `"chat"` \| `"reports"` \| `"gantt"` \| `"raid"` \| `"budget"` \| `"resources"` \| `"activity"` \| `"resource-report"` \| `"address-book"` \| `"edit"` (last two in popouts or main); synced to URL hash via `useHashView` |
+| `activeTab` | `"open-points"` \| `"chat"` \| `"dashboard"` \| `"milestones"` \| `"reports"` \| `"gantt"` \| `"raid"` \| `"budget"` \| `"resources"` \| `"activity"` \| `"resource-report"` \| `"address-book"` \| `"edit"` (last two in popouts or main); synced to URL hash via `useHashView` |
 | `budgets: BudgetBucket[]`, `fxRates: FxRates \| null` | Persisted via `StorageBackend.save()`; lives in `WorkspaceContext`; `fxRates` refreshed on demand via `useFxRates` (Refresh ECB rates button) |
 | `dueSnooze` / `birthdaySnooze` / `jiraTokenSnooze` | `useReminderSnooze("due")` / `useReminderSnooze("birthday")` / `useReminderSnooze("jiraToken")` — each yields `{ isSnoozed, snoozedUntil, snooze, clear }`; banners are gated on `!isSnoozed` |
 | `raidFilterTaskId` | Cross-tab nav: jump from a task row to RAID pre-filtered for that task |
@@ -209,6 +211,15 @@ prerendered.
 | `globals.css` | AIPM 9-color palette tokens + Tailwind / print rules | Dark-blue sidebar, light/dark theme, `.print-root` scoping |
 | `table-styles.ts` | `TABLE_HEAD_CLASS` Dark-Blue headers + LOP zebra | Shared constant (0.31.0+) |
 | `view-styles.ts` | `VIEW_PANE_CLASS`, `INNER_TABLE_CLASS` pane chrome | Shared constants |
+| **Dashboard & Milestones** | | |
+| `dashboard.ts` | `computeDashboard(workspace, today) → HealthModel` with overall/schedule/budget/scope RAG + milestone contribution + EVM SPI/CPI folds | Pure; 0.43.0+ |
+| `milestones.ts` | `milestoneStatus(m, tasks, today)`, `partitionMilestones(milestones, tasks)` for on-track/at-risk/delayed bucketing | Pure; 0.44.0+ |
+| `evm.ts` | `computeEvm(tasks, plan) → { SPI, CPI, SV, CV, ... }` Earned Value metrics; folds Schedule/Budget RAG calculations | Pure; 0.45.0+ |
+| `dashboard-panel.tsx` | Health Dashboard view: health cards, milestone timeline, EVM charts | Conditional mount; 0.43.0+ |
+| `dashboard-sections/` | Reusable dashboard subsections (HealthCard, MilestoneTimeline, EVMChart) | Components; 0.43.0+ |
+| `milestones-panel.tsx` | Milestones view: list, add, edit, link to tasks | Conditional mount; 0.44.0+ |
+| `milestone-edit-modal.tsx` | Modal editor for milestone name/date/description/linkedTaskIds | Component; 0.44.0+ |
+| `version-info.tsx` | VersionInfo body + VersionInfoModal (reused by Version popover, sidebar version line, Settings footer) | Component; 0.46.0+ |
 | **Utilities** | | |
 | `date-format.ts` | `localeFor(lang)`, `shortDateRange`, `formatExpiryDate` | Pure |
 | `duration.ts` | `parseDuration`, `formatDuration`, `effortProgress` | Pure; Jira basis (1w=5d=2400m) |

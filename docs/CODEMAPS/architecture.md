@@ -1,4 +1,4 @@
-<!-- Generated: 2026-05-31 | Files scanned: ~100 source files | Token estimate: ~850 | Updated for 0.29.0–0.42.0: modern sidebar layout + UI-consistency sweep -->
+<!-- Generated: 2026-05-31 | Files scanned: ~100 source files | Token estimate: ~850 | Updated for 0.29.0–0.46.0: modern sidebar layout + UI-consistency sweep + Health Dashboard + Milestones + Earned Value -->
 
 # Architecture
 
@@ -95,6 +95,9 @@ Pop-out windows (`?popout=resource-report`, `?popout=address-book`) are separate
 - **Health / due-dates** — `health.ts` + `due-dates.ts` compute RAG status and alertable lists from `Task[] × today × holidaySet`. `due-dates.ts` also exports `shiftToWorkingDay` (shifts a date earlier past weekends, holidays, and absence days) and `absenceDayMap` (builds a per-assignee set of absent ISO dates) used by both due-date and birthday reminder logic.
 - **Reminders & snooze** — `getAlertableTasks` (due-dates.ts) and `getUpcomingBirthdays` (birthdays.ts) each apply `shiftToWorkingDay` so triggers never fall on non-working days. Reminder banners (`DueBanner`, `BirthdayBanner`, `JiraTokenBanner` in notifications.tsx) accept an `onSnooze` prop wired to `useReminderSnooze` in TaskManager; snooze state is persisted per-kind via `reminder-snooze.ts` (`ReminderKind = "due" | "birthday" | "jiraToken"`). The hook auto-clears state after the snooze elapses.
 - **Budget planner** — `budget-report.ts` (pure engine: CCI ×3, spillover, project rollup, reminders) + `budget-panel.tsx` (Budget tab) + `fx.ts` + `ecb.ts` + `use-fx-rates.ts` + `api/ecb/route.ts` (ECB FX). `budgets`/`fxRates` added to `Workspace` (schema v6, optional); full CSV/MD/JSON/IDB round-trip.
+- **Project Health Dashboard** — `dashboard.ts` (pure engine: consolidates milestones + EVM SPI/CPI into overall/schedule/budget/scope RAG) + `dashboard-panel.tsx` (Dashboard tab, 0.43.0+) + `dashboard-sections/` (subsections). `status` added to `Workspace` (0.43.0+, optional).
+- **Milestones** — `milestones.ts` (pure engine: status + bucketing) + `milestones-panel.tsx` (Milestones tab, 0.44.0+) + `milestone-edit-modal.tsx`. `milestones[]` added to `Workspace` (0.44.0+, optional); Gantt integrates milestone diamond rows.
+- **Earned Value Management** — `evm.ts` (pure engine: task-effort PV/EV/AC → SPI/CPI/SV/CV, 0.45.0+). EVM metrics fold into Dashboard + Schedule/Budget RAGs.
 - **Export** — `export.ts` + `export-ooxml.ts` (lazy-imported for DOCX/XLSX/PPTX) + `export-menu.tsx` + `zip.ts` (hand-rolled STORE-method ZIP writer; no DEFLATE).
 - **Voice commands** — Web Speech API via `voice.ts` + `voice-button.tsx`.
 - **Activity log** — `activity-log.ts` + `activity-log-panel.tsx`; chronological CRUD record persisted to `lop-app:activity-log` (capped 500 entries), never written to exports. "Clear log" is gated behind `window.confirm` (matches `handleClearAll` / `handleDelete` precedent).
