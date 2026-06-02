@@ -222,3 +222,12 @@ describe("Milestone defaults + sanitize", () => {
     expect(sanitizeMilestone({ id: 1, name: "x", date: "not-a-date" })).toBeNull();
   });
 });
+
+test("CSV round-trip preserves milestones (incl. linked ids + comma in description)", () => {
+  const ws = {
+    ...emptyWorkspace(),
+    milestones: [{ id: 5, name: "Phase 1, sign-off", date: "2026-08-12", description: "gate, review", achievedDate: "2026-08-13", linkedTaskIds: [7, 9], localModifiedAt: "2026-06-02T00:00:00.000Z" }],
+  };
+  const back = csvToWorkspace(workspaceToCsv(ws));
+  expect(back.milestones).toEqual(ws.milestones);
+});

@@ -489,6 +489,10 @@ export const RESOURCES_CSV_COLUMNS = [
 export const ROLES_CSV_COLUMNS = ["id", "disciplineId", "gradeId", "internalRate", "externalRate", "localModifiedAt"] as const;
 export const REF_CSV_COLUMNS = ["id", "name", "localModifiedAt"] as const;
 
+export const MILESTONES_CSV_COLUMNS: Array<keyof Milestone> = [
+  "id", "name", "date", "description", "achievedDate", "linkedTaskIds", "localModifiedAt",
+];
+
 export const BUDGETS_CSV_COLUMNS = [
   "id", "name", "poNumber", "type", "currency", "fixedPriceAmount",
   "startDate", "endDate", "successorId", "status", "closedDate",
@@ -498,6 +502,7 @@ export const BUDGETS_CSV_COLUMNS = [
 
 const CSV_SECTION_BUDGETS = "# BUDGETS";
 const CSV_SECTION_FXRATES = "# FXRATES";
+const CSV_SECTION_MILESTONES = "# MILESTONES";
 
 // Section markers for the new entity sections in multi-section CSV files.
 const CSV_SECTION_RESOURCES = "# RESOURCES";
@@ -718,6 +723,25 @@ export function buildRaidItemFromObj(obj: Record<string, string>): RaidItem | nu
   };
 }
 
+export function milestoneFieldToString(m: Milestone, c: keyof Milestone): string {
+  if (c === "linkedTaskIds") return Array.isArray(m.linkedTaskIds) ? m.linkedTaskIds.join("|") : "";
+  return String(m[c] ?? "");
+}
+
+export function buildMilestoneFromObj(obj: Record<string, string>): Milestone | null {
+  const id = Number(obj.id);
+  if (!Number.isFinite(id) || id <= 0) return null;
+  const name = obj.name?.trim() ?? "";
+  if (!name) return null;
+  const date = obj.date?.trim() ?? "";
+  if (!date) return null;
+  const m: Milestone = { id, name, date, linkedTaskIds: parseLinkedTaskIds(obj.linkedTaskIds) };
+  if (obj.description) m.description = obj.description;
+  if (obj.achievedDate) m.achievedDate = obj.achievedDate;
+  if (obj.localModifiedAt) m.localModifiedAt = obj.localModifiedAt;
+  return m;
+}
+
 function csvEscape(value: string): string {
   if (
     value.includes(",") ||
@@ -749,6 +773,16 @@ function raidToCsv(raid: readonly RaidItem[]): string {
   for (const r of raid) {
     lines.push(
       RAID_CSV_COLUMNS.map((c) => csvEscape(raidFieldToString(r, c))).join(","),
+    );
+  }
+  return lines.join("\r\n");
+}
+
+function milestonesToCsv(milestones: readonly Milestone[]): string {
+  const lines: string[] = [MILESTONES_CSV_COLUMNS.join(",")];
+  for (const m of milestones) {
+    lines.push(
+      MILESTONES_CSV_COLUMNS.map((c) => csvEscape(milestoneFieldToString(m, c))).join(","),
     );
   }
   return lines.join("\r\n");
@@ -1011,6 +1045,9 @@ export function workspaceToCsv(ws: Workspace): string {
   if (ws.status && Object.keys(ws.status).length > 0) {
     parts.push("", CSV_SECTION_STATUS, statusToCsv(ws.status));
   }
+  if ((ws.milestones ?? []).length > 0) {
+    parts.push("", CSV_SECTION_MILESTONES, milestonesToCsv(ws.milestones ?? []));
+  }
   parts.push("", planToCsvLine(ws.plan));
   return parts.join("\r\n");
 }
@@ -1092,9 +1129,10 @@ function splitCsvSections(csv: string): {
   budgetsText: string;
   fxRatesText: string;
   statusText: string;
+  milestonesText: string;
 } {
   const lines = csv.split(/\r?\n/);
-  let mode: "tasks" | "raid" | "absences" | "shifts" | "resources" | "roles" | "disciplines" | "grades" | "plan" | "budgets" | "fxrates" | "status" | null = null;
+  let mode: "tasks" | "raid" | "absences" | "shifts" | "resources" | "roles" | "disciplines" | "grades" | "plan" | "budgets" | "fxrates" | "status" | "milestones" | null = null;
   const tasksLines: string[] = [];
   const raidLines: string[] = [];
   const absencesLines: string[] = [];
@@ -1107,6 +1145,7 @@ function splitCsvSections(csv: string): {
   const budgetsLines: string[] = [];
   const fxRatesLines: string[] = [];
   const statusLines: string[] = [];
+  const milestonesLines: string[] = [];
   for (const line of lines) {
     const trimmed = line.trimStart();
     if (trimmed.startsWith(CSV_SECTION_BUDGETS)) { mode = "budgets"; continue; }
@@ -1121,6 +1160,7 @@ function splitCsvSections(csv: string): {
     if (trimmed.startsWith(CSV_SECTION_ABSENCES)) { mode = "absences"; continue; }
     if (trimmed.startsWith(CSV_SECTION_SHIFTS)) { mode = "shifts"; continue; }
     if (trimmed.startsWith(CSV_SECTION_STATUS)) { mode = "status"; continue; }
+    if (trimmed.startsWith(CSV_SECTION_MILESTONES)) { mode = "milestones"; continue; }
     if (mode === "resources") resourcesLines.push(line);
     else if (mode === "roles") rolesLines.push(line);
     else if (mode === "disciplines") disciplinesLines.push(line);
@@ -1133,6 +1173,7 @@ function splitCsvSections(csv: string): {
     else if (mode === "budgets") budgetsLines.push(line);
     else if (mode === "fxrates") fxRatesLines.push(line);
     else if (mode === "status") statusLines.push(line);
+    else if (mode === "milestones") milestonesLines.push(line);
     // (else: line before the first marker — drop it.)
   }
   return {
@@ -1148,6 +1189,7 @@ function splitCsvSections(csv: string): {
     budgetsText: budgetsLines.join("\r\n"),
     fxRatesText: fxRatesLines.join("\r\n"),
     statusText: statusLines.join("\r\n"),
+    milestonesText: milestonesLines.join("\r\n"),
   };
 }
 
@@ -1278,6 +1320,30 @@ function csvToShifts(csv: string): Shift[] {
   return items;
 }
 
+function csvToMilestones(csv: string): Milestone[] {
+  const rows = parseCsv(csv);
+  if (rows.length === 0) return [];
+  let headerIdx = -1;
+  for (let i = 0; i < rows.length; i++) {
+    if (rows[i].length > 0 && rows[i][0].trim() !== "" && !rows[i][0].startsWith("#")) {
+      headerIdx = i;
+      break;
+    }
+  }
+  if (headerIdx < 0) return [];
+  const headers = rows[headerIdx];
+  const items: Milestone[] = [];
+  for (let i = headerIdx + 1; i < rows.length; i++) {
+    const row = rows[i];
+    if (row.length === 1 && row[0] === "") continue;
+    const obj: Record<string, string> = {};
+    headers.forEach((h, idx) => { obj[h] = rows[i][idx] ?? ""; });
+    const item = buildMilestoneFromObj(obj);
+    if (item) items.push(item);
+  }
+  return items;
+}
+
 function csvToRaid(csv: string): RaidItem[] {
   const rows = parseCsv(csv);
   if (rows.length === 0) return [];
@@ -1322,6 +1388,7 @@ export function csvToWorkspace(csv: string): Workspace {
     budgets: s.budgetsText.trim() ? csvToBudgets(s.budgetsText) : [],
     fxRates: s.fxRatesText.trim() ? parseFxRatesLine(s.fxRatesText.split(/\r?\n/).find((l) => l.trim() && !l.startsWith("#")) ?? "") : null,
     status: s.statusText.trim() ? csvToStatus(s.statusText) : {},
+    milestones: s.milestonesText.trim() ? csvToMilestones(s.milestonesText) : [],
   };
   return migrateWorkspaceV6(ws);
 }
