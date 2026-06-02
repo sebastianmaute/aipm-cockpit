@@ -16,6 +16,11 @@ describe("ReportCard", () => {
     expect(container.textContent).toContain("⠿");
   });
 
+  test("opts into landscape printing via .print-landscape on the card root", () => {
+    const { container } = render(<Harness />);
+    expect(container.querySelector(".print-root.print-landscape")).toBeTruthy();
+  });
+
   test("renders a left-aligned heading when title is given, outside the print-hidden toolbar", () => {
     function H() {
       const ref = useRef<HTMLDivElement | null>(null);

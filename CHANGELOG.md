@@ -8,6 +8,11 @@ Authoritative source for version + build date: [`src/app/version.ts`](src/app/ve
 This file is seeded from that module's milestone comment plus the
 post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-diff.txt).
 
+## [0.42.1] — 2026-06-02
+
+### Fixed
+- Print orientation is now per-view: reports print A4 landscape, while the Activity Log (and other non-report views) print portrait again. (0.42.0 had made all in-app printing landscape.)
+
 ## [0.42.0] — 2026-06-02 "Le Guin"
 
 ### Added

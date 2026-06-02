@@ -24,6 +24,8 @@ describe("ActivityLogPanel", () => {
       <ActivityLogPanel lang="en-US" entries={entries} onClear={() => {}} />,
     );
     expect((container.firstElementChild as HTMLElement).className).toContain("print-root");
+    // Activity Log prints portrait — it must NOT opt into the reports' landscape page.
+    expect((container.firstElementChild as HTMLElement).className).not.toContain("print-landscape");
   });
 
   it("renders a print button in the header", () => {
