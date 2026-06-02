@@ -248,6 +248,9 @@ function exportPdf(tasks: Task[], raid: readonly RaidItem[] = []): void {
     // opening the print dialog; otherwise some browsers print blank.
     window.addEventListener("load", () => {
       setTimeout(() => {
+        // Best-effort: focus + print can throw if the popup was blocked or
+        // closed before this fires. Nothing to recover — the user can print
+        // manually — so the failure is intentionally swallowed.
         try { window.focus(); window.print(); } catch (e) {}
       }, 80);
     });

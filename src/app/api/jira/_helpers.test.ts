@@ -179,6 +179,17 @@ describe("callJira — SSRF / URL hardening", () => {
     const headers = fetchMock.mock.calls[0][1].headers as Record<string, string>;
     expect(headers["Content-Type"]).toBe("application/json");
   });
+
+  it("returns a 502 envelope (not an unhandled throw) when the upstream fetch fails", async () => {
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    fetchMock.mockRejectedValueOnce(new Error("ECONNREFUSED"));
+    const res = await callWith("https://acme.atlassian.net");
+    expect(res.status).toBe(502);
+    await expect(res.json()).resolves.toEqual({ error: "upstream-unreachable" });
+    // Detail is logged server-side, never returned to the client.
+    expect(errSpy).toHaveBeenCalledWith("Jira upstream fetch failed:", expect.any(Error));
+    errSpy.mockRestore();
+  });
 });
 
 describe("parseJiraRequest", () => {

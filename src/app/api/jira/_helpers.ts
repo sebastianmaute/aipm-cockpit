@@ -154,18 +154,29 @@ export async function callJira(
     ) as unknown as Response;
   }
   const url = base + path;
-  const upstream = await fetch(url, {
-    ...init,
-    headers: {
-      Authorization: basicAuth(creds.email, creds.apiToken),
-      Accept: "application/json",
-      ...(init?.body ? { "Content-Type": "application/json" } : {}),
-      ...(init?.headers ?? {}),
-    },
-    // Server-to-server, no credentials/cookies.
-    cache: "no-store",
-  });
-  return upstream;
+  try {
+    return await fetch(url, {
+      ...init,
+      headers: {
+        Authorization: basicAuth(creds.email, creds.apiToken),
+        Accept: "application/json",
+        ...(init?.body ? { "Content-Type": "application/json" } : {}),
+        ...(init?.headers ?? {}),
+      },
+      // Server-to-server, no credentials/cookies.
+      cache: "no-store",
+    });
+  } catch (err) {
+    // Network-level failure before any response (DNS, connection refused, TLS,
+    // timeout). Log the detail server-side and hand the client the app's error
+    // envelope with a 502 — a structured response the client already classifies
+    // as "network" — rather than letting the rejection surface as a generic 500.
+    console.error("Jira upstream fetch failed:", err);
+    return Response.json(
+      { error: "upstream-unreachable" },
+      { status: 502 },
+    ) as unknown as Response;
+  }
 }
 
 // Jira priority names accepted on the write path (maps to the app's 4 levels).
