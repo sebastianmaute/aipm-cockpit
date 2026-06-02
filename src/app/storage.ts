@@ -1584,6 +1584,46 @@ function budgetsToMarkdown(bs: readonly BudgetBucket[]): string {
   return lines.join("\n") + "\n";
 }
 
+const MILESTONES_MD_COLUMNS: Array<{ key: keyof Milestone; label: string }> = [
+  { key: "id", label: "ID" },
+  { key: "name", label: "Name" },
+  { key: "date", label: "Date" },
+  { key: "description", label: "Description" },
+  { key: "achievedDate", label: "Achieved" },
+  { key: "linkedTaskIds", label: "LinkedTasks" },
+  { key: "localModifiedAt", label: "LocalModified" },
+];
+
+function milestonesToMarkdown(milestones: readonly Milestone[]): string {
+  const header = `| ${MILESTONES_MD_COLUMNS.map((c) => c.label).join(" | ")} |`;
+  const sep = `| ${MILESTONES_MD_COLUMNS.map(() => "---").join(" | ")} |`;
+  const lines = ["## Milestones", "", header, sep];
+  for (const m of milestones) {
+    const row = MILESTONES_MD_COLUMNS.map((c) =>
+      mdEscape(milestoneFieldToString(m, c.key)),
+    ).join(" | ");
+    lines.push(`| ${row} |`);
+  }
+  return lines.join("\n") + "\n";
+}
+
+function markdownToMilestones(md: string): Milestone[] {
+  return markdownTableToObjects(md).map((row) => {
+    const mapped: Record<string, string> = {};
+    for (const [label, val] of Object.entries(row)) {
+      const norm = label.toLowerCase().replace(/\s+/g, "");
+      if (norm === "id") mapped["id"] = val;
+      else if (norm === "name") mapped["name"] = val;
+      else if (norm === "date") mapped["date"] = val;
+      else if (norm === "description") mapped["description"] = val;
+      else if (norm === "achieved" || norm === "achieveddate") mapped["achievedDate"] = val;
+      else if (norm === "linkedtasks" || norm === "linkedtaskids") mapped["linkedTaskIds"] = val;
+      else if (norm === "localmodified" || norm === "localmodifiedat") mapped["localModifiedAt"] = val;
+    }
+    return buildMilestoneFromObj(mapped);
+  }).filter((m): m is Milestone => m !== null);
+}
+
 function fxRatesToMarkdown(fx: FxRates): string {
   return `## FX Rates\n\n${fx.base},${fx.date},${fx.fetchedAt},${encodeRatesMap(fx.rates)}\n`;
 }
@@ -1616,6 +1656,7 @@ export function workspaceToMarkdown(ws: Workspace): string {
   if ((ws.budgets ?? []).length > 0) out += "\n" + budgetsToMarkdown(ws.budgets ?? []);
   if (ws.fxRates) out += "\n" + fxRatesToMarkdown(ws.fxRates);
   if (ws.status && Object.keys(ws.status).length > 0) out += "\n" + statusToMarkdown(ws.status);
+  if ((ws.milestones ?? []).length > 0) out += "\n" + milestonesToMarkdown(ws.milestones ?? []);
   out += "\n" + planToMarkdown(ws.plan);
   return out;
 }
@@ -1663,6 +1704,7 @@ function splitMarkdownSections(md: string): {
   budgetsMd: string;
   fxRatesMd: string;
   statusMd: string;
+  milestonesMd: string;
 } {
   const lines = md.split(/\r?\n/);
   const tasksLines: string[] = [];
@@ -1677,6 +1719,7 @@ function splitMarkdownSections(md: string): {
   const budgetsLines: string[] = [];
   const fxRatesLines: string[] = [];
   const statusLines: string[] = [];
+  const milestonesLines: string[] = [];
   let target = tasksLines;
   for (const line of lines) {
     const trimmed = line.trim();
@@ -1692,6 +1735,7 @@ function splitMarkdownSections(md: string): {
     if (/^#\s+Budgets\b/i.test(trimmed)) { target = budgetsLines; target.push(line); continue; }
     if (/^##\s+FX\s+Rates\b/i.test(trimmed)) { target = fxRatesLines; continue; }
     if (/^##\s+Project\s+Status\b/i.test(trimmed)) { target = statusLines; continue; }
+    if (/^##\s+Milestones\b/i.test(trimmed)) { target = milestonesLines; continue; }
     target.push(line);
   }
   return {
@@ -1707,6 +1751,7 @@ function splitMarkdownSections(md: string): {
     budgetsMd: budgetsLines.join("\n"),
     fxRatesMd: fxRatesLines.join("\n"),
     statusMd: statusLines.join("\n"),
+    milestonesMd: milestonesLines.join("\n"),
   };
 }
 
@@ -2030,6 +2075,7 @@ export function markdownToWorkspace(md: string): Workspace {
     budgets: s.budgetsMd.trim() ? markdownToBudgets(s.budgetsMd) : [],
     fxRates: s.fxRatesMd.trim() ? parseFxRatesMarkdown(s.fxRatesMd) : null,
     status: s.statusMd.trim() ? markdownToStatus(s.statusMd) : {},
+    milestones: s.milestonesMd.trim() ? markdownToMilestones(s.milestonesMd) : [],
   };
   return migrateWorkspaceV6(ws);
 }

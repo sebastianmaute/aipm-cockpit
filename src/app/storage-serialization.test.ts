@@ -231,3 +231,12 @@ test("CSV round-trip preserves milestones (incl. linked ids + comma in descripti
   const back = csvToWorkspace(workspaceToCsv(ws));
   expect(back.milestones).toEqual(ws.milestones);
 });
+
+test("Markdown round-trip preserves milestones", () => {
+  const ws = {
+    ...emptyWorkspace(),
+    milestones: [{ id: 1, name: "Go-live", date: "2026-08-01", linkedTaskIds: [2] }],
+  };
+  const back = markdownToWorkspace(workspaceToMarkdown(ws));
+  expect(back.milestones).toEqual(ws.milestones);
+});
