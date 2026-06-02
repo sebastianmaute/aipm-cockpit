@@ -176,6 +176,19 @@ export type RaidItem = {
   causedByRaidIds: number[];
 };
 
+/** Project-level status overrides + PM narrative for the health dashboard.
+ *  RAG fields use the same "R" | "A" | "G" literal as Task.healthOverride to
+ *  avoid a circular import with health.ts. Absent override = use the computed
+ *  value. */
+export type ProjectStatus = {
+  ragOverride?: "R" | "A" | "G";
+  scheduleOverride?: "R" | "A" | "G";
+  budgetOverride?: "R" | "A" | "G";
+  scopeOverride?: "R" | "A" | "G";
+  narrative?: string;
+  narrativeUpdatedAt?: string; // ISO 8601
+};
+
 // ----------------------------------------------------------------------------
 // Absences — Resource Planner v1.
 //

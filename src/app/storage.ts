@@ -35,6 +35,7 @@ import {
   type FxRates,
   type Grade,
   type Priority,
+  type ProjectStatus,
   type RaidCategory,
   type RaidItem,
   type RaidSeverity,
@@ -66,6 +67,9 @@ export type Workspace = {
   budgets?: BudgetBucket[];
   /** Cached ECB rate table; null/absent until first fetched. */
   fxRates?: FxRates | null;
+  /** Project-level RAG overrides + PM narrative for the dashboard. Optional so
+   *  older saved files still type-check; every load path defaults to {}. */
+  status?: ProjectStatus;
 };
 
 const SCHEMA_VERSION = 6;
@@ -78,6 +82,7 @@ export function emptyWorkspace(): Workspace {
     plan: defaultResourcePlan(new Date().toISOString().slice(0, 10)),
     budgets: [],
     fxRates: null,
+    status: {},
   };
 }
 
@@ -111,8 +116,11 @@ export function migrateWorkspaceV6(ws: Workspace): Workspace {
   const base = migrateWorkspaceV5(ws);
   const budgets = Array.isArray(base.budgets) ? base.budgets : [];
   const fxRates = base.fxRates ?? null;
-  if (budgets === base.budgets && fxRates === base.fxRates) return base;
-  return { ...base, budgets, fxRates };
+  const status = base.status && typeof base.status === "object" ? base.status : {};
+  if (budgets === base.budgets && fxRates === base.fxRates && status === base.status) {
+    return base;
+  }
+  return { ...base, budgets, fxRates, status };
 }
 
 // --- Storage configuration -------------------------------------------------

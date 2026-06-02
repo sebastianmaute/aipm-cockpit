@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import { migrateWorkspaceV5, emptyWorkspace, workspaceToCsv, csvToWorkspace, workspaceToMarkdown, markdownToWorkspace, workspaceToJson, jsonToWorkspace, type Workspace } from "./storage";
+import { migrateWorkspaceV5, migrateWorkspaceV6, emptyWorkspace, workspaceToCsv, csvToWorkspace, workspaceToMarkdown, markdownToWorkspace, workspaceToJson, jsonToWorkspace, type Workspace } from "./storage";
 import type { Task, Resource, Role, Discipline, Grade } from "./types";
 import { resourceDisplayName } from "./resource-foundation";
 
@@ -132,5 +132,17 @@ describe("task effort fields round-trip (estimate/time-spent)", () => {
     const back = csvToWorkspace(workspaceToCsv(ws)).tasks[0];
     expect(back.originalEstimateMinutes).toBeUndefined();
     expect(back.timeSpentMinutes).toBeUndefined();
+  });
+});
+
+describe("ProjectStatus defaults", () => {
+  test("emptyWorkspace seeds an empty status object", () => {
+    expect(emptyWorkspace().status).toEqual({});
+  });
+
+  test("migrateWorkspaceV6 backfills a missing status to {}", () => {
+    const ws = { ...emptyWorkspace() };
+    delete (ws as { status?: unknown }).status;
+    expect(migrateWorkspaceV6(ws as typeof ws & { status?: never }).status).toEqual({});
   });
 });
