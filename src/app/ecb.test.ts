@@ -22,4 +22,22 @@ describe("parseEcbDailyXml", () => {
   test("returns null on malformed XML", () => {
     expect(parseEcbDailyXml("<nope/>", "x")).toBeNull();
   });
+
+  test("returns null when no time attribute is present", () => {
+    const noTime = `<Cube><Cube><Cube currency='USD' rate='1.08'/></Cube></Cube>`;
+    expect(parseEcbDailyXml(noTime, "x")).toBeNull();
+  });
+
+  test("drops a zero or non-positive rate but still returns EUR=1", () => {
+    const xml = `<Cube time='2026-05-26'><Cube currency='USD' rate='0'/></Cube>`;
+    const fx = parseEcbDailyXml(xml, "x")!;
+    expect(fx).not.toBeNull();
+    expect(fx.rates).toEqual({ EUR: 1 }); // USD dropped (rate not > 0)
+  });
+
+  test("excludes unsupported currencies while keeping EUR=1", () => {
+    const xml = `<Cube time='2026-05-26'><Cube currency='JPY' rate='168.2'/></Cube>`;
+    const fx = parseEcbDailyXml(xml, "x")!;
+    expect(fx.rates).toEqual({ EUR: 1 });
+  });
 });
