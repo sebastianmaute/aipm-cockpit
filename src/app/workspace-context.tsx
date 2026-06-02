@@ -18,6 +18,7 @@ import {
   type Discipline,
   type FxRates,
   type Grade,
+  type ProjectStatus,
   type RaidItem,
   type Resource,
   type ResourcePlan,
@@ -58,6 +59,8 @@ interface WorkspaceValue {
   setBudgets: Dispatch<SetStateAction<BudgetBucket[]>>;
   fxRates: FxRates | null;
   setFxRates: Dispatch<SetStateAction<FxRates | null>>;
+  status: ProjectStatus;
+  setStatus: Dispatch<SetStateAction<ProjectStatus>>;
 }
 
 const WorkspaceContext = createContext<WorkspaceValue | undefined>(undefined);
@@ -74,6 +77,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [plan, setPlan] = useState<ResourcePlan>(() => defaultResourcePlan(new Date().toISOString().slice(0, 10)));
   const [budgets, setBudgets] = useState<BudgetBucket[]>([]);
   const [fxRates, setFxRates] = useState<FxRates | null>(null);
+  const [status, setStatus] = useState<ProjectStatus>({});
   const {
     searchDebounced,
     priorityFilter,
@@ -220,6 +224,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     setPlan,
     budgets, setBudgets,
     fxRates, setFxRates,
+    status, setStatus,
   };
 
   return (
