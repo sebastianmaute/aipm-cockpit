@@ -89,6 +89,7 @@ describe("RaidReportPanel", () => {
 
   it("embedded mode shows summary content and no toggle or print button", () => {
     render(<RaidReportPanel lang="en-US" items={items} today={TODAY} embedded />);
+    expect(screen.getAllByRole("table").length).toBeGreaterThan(0); // summary tables render
     expect(screen.queryByRole("button", { name: /print/i })).toBeNull();
     expect(screen.queryByRole("button", { name: /full detail/i })).toBeNull();
   });

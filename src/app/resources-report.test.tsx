@@ -46,6 +46,7 @@ test("embedded mode renders content without a print button", () => {
       grades={grades} plan={plan} absences={[]} holidaySet={new Set()} workdayHours={8} embedded
     />,
   );
+  expect(screen.getByText("Sample")).toBeInTheDocument(); // resource row renders
   expect(screen.queryByRole("button", { name: /print/i })).toBeNull();
 });
 
