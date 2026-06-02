@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { render, act } from "@testing-library/react";
 import { GanttPanel } from "./gantt";
-import type { Task } from "./types";
+import type { Milestone, Task } from "./types";
 
 // useResizable reads/writes localStorage — mock it so tests run in JSDOM.
 vi.mock("./use-resizable", () => ({
@@ -121,6 +121,28 @@ describe("GanttPanel scroll-to-today", () => {
       clientWidthSpy.mockRestore();
       scrollWidthSpy.mockRestore();
     }
+  });
+});
+
+// ---------- milestone rows -------------------------------------------------
+
+describe("GanttPanel milestones", () => {
+  it("renders a milestone row with one task without crashing", () => {
+    const milestones: Milestone[] = [
+      {
+        id: 100,
+        name: "Beta",
+        date: dayPlus(10),
+        linkedTaskIds: [],
+      },
+    ];
+    const { container, getByText } = render(
+      <GanttPanel {...BASE_PROPS} milestones={milestones} />,
+    );
+    // The milestone name appears in the left gutter.
+    expect(getByText("Beta")).toBeTruthy();
+    // The diamond is an SVG rotated rect — at least one exists in the chart.
+    expect(container.querySelector('rect[transform^="rotate(45"]')).not.toBeNull();
   });
 });
 
