@@ -1123,8 +1123,6 @@ const enUS = {
   dashboardDueSoon: "Due soon",
   dashboardRecentActivity: "Recent activity",
   dashboardEmpty: "No tasks yet.",
-  dashboardOverride: "Override",
-  dashboardUseComputed: "Use computed",
   dashboardComputedHint: "Computed: {0}",
   dashboardScopeUnset: "Not set",
   layout: "Layout",

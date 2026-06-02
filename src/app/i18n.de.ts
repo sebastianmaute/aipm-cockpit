@@ -1141,8 +1141,6 @@ export const de: Record<TranslationKey, string> = {
   dashboardDueSoon: "Bald fällig",
   dashboardRecentActivity: "Letzte Aktivität",
   dashboardEmpty: "Noch keine Aufgaben.",
-  dashboardOverride: "Überschreiben",
-  dashboardUseComputed: "Berechneten Wert verwenden",
   dashboardComputedHint: "Berechnet: {0}",
   dashboardScopeUnset: "Nicht gesetzt",
   layout: "Layout",
