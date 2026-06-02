@@ -173,3 +173,12 @@ test("CSV round-trip preserves project status", () => {
   const back = csvToWorkspace(workspaceToCsv(ws));
   expect(back.status).toEqual(ws.status);
 });
+
+test("Markdown round-trip preserves project status", () => {
+  const ws = {
+    ...emptyWorkspace(),
+    status: { budgetOverride: "A" as const, narrative: "Budget tightening.", narrativeUpdatedAt: "2026-06-02T10:00:00.000Z" },
+  };
+  const back = markdownToWorkspace(workspaceToMarkdown(ws));
+  expect(back.status).toEqual(ws.status);
+});

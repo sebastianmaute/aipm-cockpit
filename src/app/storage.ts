@@ -949,6 +949,24 @@ export function statusToCsv(status: ProjectStatus): string {
   return rows.join("\r\n");
 }
 
+export function statusToMarkdown(status: ProjectStatus): string {
+  const lines = ["## Project Status", ""];
+  for (const f of STATUS_FIELDS) {
+    const v = status[f];
+    if (v != null && v !== "") lines.push(`- ${f}: ${String(v)}`);
+  }
+  return lines.join("\n") + "\n";
+}
+
+export function markdownToStatus(md: string): ProjectStatus {
+  const map: Record<string, string> = {};
+  for (const line of md.split(/\r?\n/)) {
+    const m = /^- (\w+):\s?(.*)$/.exec(line.trim());
+    if (m) map[m[1]] = m[2];
+  }
+  return sanitizeProjectStatus(map);
+}
+
 export function csvToStatus(text: string): ProjectStatus {
   const rows = parseCsv(text).filter((r) => r.length >= 2 && r[0] && !r[0].startsWith("#"));
   const map: Record<string, string> = {};
@@ -1520,6 +1538,7 @@ export function workspaceToMarkdown(ws: Workspace): string {
   if (ws.resources.length > 0) out += "\n" + resourcesToMarkdown(ws.resources);
   if ((ws.budgets ?? []).length > 0) out += "\n" + budgetsToMarkdown(ws.budgets ?? []);
   if (ws.fxRates) out += "\n" + fxRatesToMarkdown(ws.fxRates);
+  if (ws.status && Object.keys(ws.status).length > 0) out += "\n" + statusToMarkdown(ws.status);
   out += "\n" + planToMarkdown(ws.plan);
   return out;
 }
@@ -1566,6 +1585,7 @@ function splitMarkdownSections(md: string): {
   planMd: string;
   budgetsMd: string;
   fxRatesMd: string;
+  statusMd: string;
 } {
   const lines = md.split(/\r?\n/);
   const tasksLines: string[] = [];
@@ -1579,6 +1599,7 @@ function splitMarkdownSections(md: string): {
   const planLines: string[] = [];
   const budgetsLines: string[] = [];
   const fxRatesLines: string[] = [];
+  const statusLines: string[] = [];
   let target = tasksLines;
   for (const line of lines) {
     const trimmed = line.trim();
@@ -1593,6 +1614,7 @@ function splitMarkdownSections(md: string): {
     if (/^##\s+Plan\b/i.test(trimmed)) { target = planLines; continue; }
     if (/^#\s+Budgets\b/i.test(trimmed)) { target = budgetsLines; target.push(line); continue; }
     if (/^##\s+FX\s+Rates\b/i.test(trimmed)) { target = fxRatesLines; continue; }
+    if (/^##\s+Project\s+Status\b/i.test(trimmed)) { target = statusLines; continue; }
     target.push(line);
   }
   return {
@@ -1607,6 +1629,7 @@ function splitMarkdownSections(md: string): {
     planMd: planLines.join("\n"),
     budgetsMd: budgetsLines.join("\n"),
     fxRatesMd: fxRatesLines.join("\n"),
+    statusMd: statusLines.join("\n"),
   };
 }
 
@@ -1929,6 +1952,7 @@ export function markdownToWorkspace(md: string): Workspace {
     plan: (s.planMd.trim() && parsePlanMarkdown(s.planMd)) || defaultResourcePlan(new Date().toISOString().slice(0, 10)),
     budgets: s.budgetsMd.trim() ? markdownToBudgets(s.budgetsMd) : [],
     fxRates: s.fxRatesMd.trim() ? parseFxRatesMarkdown(s.fxRatesMd) : null,
+    status: s.statusMd && s.statusMd.trim() ? markdownToStatus(s.statusMd) : {},
   };
   return migrateWorkspaceV6(ws);
 }
