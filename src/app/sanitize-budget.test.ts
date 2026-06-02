@@ -148,6 +148,59 @@ describe("sanitizeBudgetBucket blended-mode fields", () => {
   });
 });
 
+describe("sanitizeAmount boundaries (via fixedPriceAmount)", () => {
+  // sanitizeAmount is private; fixedPriceAmount on a fixed bucket exercises it
+  // directly. This is the field whose empty-cell handling regressed once.
+  const fixedBase = {
+    id: 1, name: "FX", type: "fixed", currency: "EUR",
+    startDate: "2026-01-01", endDate: "2026-06-30", status: "open",
+    allocations: [],
+  };
+  const amount = (fixedPriceAmount: unknown) =>
+    sanitizeBudgetBucket({ ...fixedBase, fixedPriceAmount })!.fixedPriceAmount;
+
+  test("clamps to AMOUNT_MAX (1e9)", () => {
+    expect(amount(1_000_000_001)).toBe(1_000_000_000);
+  });
+  test("rejects a negative amount (→ absent, not 0)", () => {
+    expect(amount(-5)).toBeUndefined();
+  });
+  test("rejects NaN and Infinity (→ absent)", () => {
+    expect(amount(Number.NaN)).toBeUndefined();
+    expect(amount(Number.POSITIVE_INFINITY)).toBeUndefined();
+  });
+  test("empty / whitespace string is absent, not 0", () => {
+    expect(amount("")).toBeUndefined();
+    expect(amount("   ")).toBeUndefined();
+  });
+  test("explicit zero is preserved (number and string)", () => {
+    expect(amount(0)).toBe(0);
+    expect(amount("0")).toBe(0);
+  });
+  test("rounds to two decimal places", () => {
+    expect(amount(1.239)).toBe(1.24);
+    expect(amount(1.231)).toBe(1.23);
+  });
+  test("parses a numeric string (CSV/MD cell)", () => {
+    expect(amount("80000")).toBe(80000);
+  });
+});
+
+describe("sanitizeBudgetBucket fxRateOverride >0 asymmetry", () => {
+  // fxRateOverride uses a `>0` gate (a zero FX rate is meaningless), UNLIKE the
+  // internal/external rate overrides where zero is a valid non-billable rate.
+  const base = {
+    id: 1, name: "PAM", type: "tm", currency: "EUR",
+    startDate: "2026-01-01", endDate: "2026-06-30", status: "open", allocations: [],
+  };
+  test("a positive fxRateOverride is kept", () => {
+    expect(sanitizeBudgetBucket({ ...base, fxRateOverride: 1.09 })!.fxRateOverride).toBe(1.09);
+  });
+  test("a zero fxRateOverride is dropped", () => {
+    expect(sanitizeBudgetBucket({ ...base, fxRateOverride: 0 })!.fxRateOverride).toBeUndefined();
+  });
+});
+
 describe("encode/decode disciplineAllocations round-trip", () => {
   test("round-trips", () => {
     const allocs: DisciplineAllocation[] = [

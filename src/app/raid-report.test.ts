@@ -171,6 +171,34 @@ describe("computeRaidReport", () => {
     ], TODAY);
     expect(r.fullDetail.map((row) => row.id)).toEqual([1, 5, 2, 3, 4]);
   });
+
+  it("clamps age to 0 when raisedDate is in the future", () => {
+    const r = computeRaidReport([item({ id: 1, raisedDate: addDays(TODAY, 5) })], TODAY);
+    expect(r.fullDetail[0].ageDays).toBe(0);
+  });
+
+  it("a closed item with a past target date is NOT overdue", () => {
+    const r = computeRaidReport([
+      item({ id: 1, category: "R", status: "Closed", targetDate: "2026-05-20" }),
+    ], TODAY);
+    expect(r.fullDetail[0].overdue).toBe(false);
+    expect(r.byCategory.find((row) => row.category === "R")!.overdue).toBe(0);
+  });
+
+  it("byOwner excludes closed items (only open work surfaces an owner)", () => {
+    const r = computeRaidReport([
+      item({ id: 1, category: "R", status: "Closed", owner: "Dana" }),
+    ], TODAY);
+    expect(r.byOwner).toEqual([]);
+  });
+
+  it("a 'Mitigated' risk counts as closed (terminal-status set for R)", () => {
+    const r = computeRaidReport([
+      item({ id: 1, category: "R", status: "Mitigated" }),
+    ], TODAY);
+    expect(r.tiles.openR).toBe(0);
+    expect(r.byCategory.find((row) => row.category === "R")!.closed).toBe(1);
+  });
 });
 
 function addDays(iso: string, n: number): string {

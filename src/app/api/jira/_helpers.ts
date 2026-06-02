@@ -49,6 +49,23 @@ export async function parseJiraRequest(
   return { creds, body: body as Record<string, unknown> };
 }
 
+/**
+ * Recover the embedded IPv4 from an IPv4-mapped IPv6 suffix (the part after
+ * "::ffff:"). The input may be dotted-decimal ("10.0.0.1") OR — because the URL
+ * parser canonicalizes mapped addresses to hex — two hex groups ("a00:1").
+ * Returns null when the suffix can't be decoded, so callers can fail closed.
+ */
+function mappedIpv4ToDotted(suffix: string): string | null {
+  if (suffix.includes(".")) return suffix;
+  const groups = suffix.split(":");
+  if (groups.length !== 2) return null;
+  const hi = Number.parseInt(groups[0], 16);
+  const lo = Number.parseInt(groups[1], 16);
+  if (!Number.isInteger(hi) || !Number.isInteger(lo)) return null;
+  if (hi < 0 || hi > 0xffff || lo < 0 || lo > 0xffff) return null;
+  return `${(hi >> 8) & 0xff}.${hi & 0xff}.${(lo >> 8) & 0xff}.${lo & 0xff}`;
+}
+
 function isPrivateHost(hostname: string): boolean {
   // Strip IPv6 brackets (e.g. "[::1]" → "::1").
   const h = hostname.startsWith("[") ? hostname.slice(1, -1) : hostname;
@@ -58,8 +75,20 @@ function isPrivateHost(hostname: string): boolean {
   // IPv6 unique-local (fc00::/7) and link-local (fe80::/10) — internal-only ranges.
   if (/^f[cd][0-9a-f]*:/.test(lower)) return true;
   if (/^fe[89ab][0-9a-f]*:/.test(lower)) return true;
-  // IPv4-mapped IPv6 (e.g. "::ffff:10.0.0.1") — re-check the embedded IPv4.
-  const ipv4 = lower.startsWith("::ffff:") ? lower.slice(7) : h;
+  // NAT64 well-known prefix (64:ff9b::/96, RFC 6052) embeds an IPv4 address in
+  // its low 32 bits and can reach internal IPv4 hosts where NAT64 is deployed.
+  // No legitimate Atlassian Cloud site is a NAT64 literal — block the prefix.
+  if (/^64:ff9b:/.test(lower)) return true;
+  // IPv4-mapped IPv6 (e.g. "::ffff:10.0.0.1", which the URL parser canonicalizes
+  // to hex "::ffff:a00:1") — recover the embedded IPv4 and re-check it. A mapped
+  // address we cannot decode is treated as private (fail closed) — a legitimate
+  // Atlassian Cloud site is always a DNS hostname, never an IP literal.
+  let ipv4 = h;
+  if (lower.startsWith("::ffff:")) {
+    const mapped = mappedIpv4ToDotted(lower.slice(7));
+    if (mapped === null) return true;
+    ipv4 = mapped;
+  }
   const parts = ipv4.split(".").map(Number);
   if (parts.length !== 4 || parts.some((p) => !Number.isInteger(p) || p < 0 || p > 255))
     return false;
