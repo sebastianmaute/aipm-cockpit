@@ -31,10 +31,6 @@ interface Props {
   onClose: () => void;
 }
 
-function isoToday(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
 const DATALIST_ID = "absence-assignee-options";
 
 export function AbsenceEditModal({
@@ -223,18 +219,4 @@ export function AbsenceEditModal({
       </div>
     </Modal>
   );
-}
-
-/** Helper for callers that need a default empty absence to seed the modal. */
-export function emptyAbsenceDraft(id: number): Absence {
-  const today = isoToday();
-  return {
-    id,
-    assignee: "",
-    assigneeEmail: undefined,
-    startDate: today,
-    endDate: today,
-    type: "vacation",
-    note: undefined,
-  };
 }
