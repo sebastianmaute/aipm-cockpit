@@ -83,7 +83,9 @@ export function MilestoneEditModal({
 
   function handleDeleteClick() {
     if (!draft) return;
-    onDelete(draft.id);
+    if (window.confirm(t(lang, "milestoneDeleteConfirm"))) {
+      onDelete(draft.id);
+    }
   }
 
   const { offset, handleProps } = useDraggable(draft !== null);

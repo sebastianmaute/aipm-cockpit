@@ -1141,6 +1141,7 @@ const enUS = {
   milestoneLinkedTasks: "Linked tasks",
   milestoneSave: "Save milestone",
   milestoneErrorRequired: "Name and date are required.",
+  milestoneDeleteConfirm: "Delete this milestone?",
   milestoneStatusAchieved: "Achieved",
   milestoneStatusOverdue: "Overdue",
   milestoneStatusAtRisk: "At risk",
