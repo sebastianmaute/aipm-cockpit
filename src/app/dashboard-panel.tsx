@@ -3,12 +3,11 @@
 import { useMemo, useRef, useState } from "react";
 import { ReportCard, Section, Tile } from "./report-table";
 import { computeDashboard } from "./dashboard";
-import { HealthPill } from "./dashboard-sections/health-pill";
 import { RegistersBand } from "./dashboard-sections/registers-band";
 import { useWorkspace } from "./workspace-context";
 import { loadActivityLog, type ActivityEntry } from "./activity-log";
 import { type Lang, t } from "./i18n";
-import { healthColorName } from "./health";
+import { healthColorName, type Health } from "./health";
 import type { Absence, BudgetBucket, RaidItem, ResourcePlan, Resource, Role, Task } from "./types";
 
 interface DashboardPanelProps {
@@ -23,6 +22,32 @@ interface DashboardPanelProps {
   holidaySet: ReadonlySet<string>;
   workdayHours: number;
   today: string;
+}
+
+function OverrideSelect({
+  lang, label, value, computed, onChange,
+}: {
+  lang: Lang;
+  label: string;
+  value: "R" | "A" | "G" | undefined;
+  computed: Health | null;
+  onChange: (v: "R" | "A" | "G" | undefined) => void;
+}) {
+  return (
+    <label className="inline-flex items-center gap-1.5 text-sm">
+      <span className="font-medium">{label}</span>
+      <select
+        className="rounded border border-line bg-surface px-1.5 py-0.5 text-sm"
+        value={value ?? ""}
+        onChange={(e) => onChange((e.target.value || undefined) as "R" | "A" | "G" | undefined)}
+      >
+        <option value="">{computed ? t(lang, "dashboardComputedHint", healthColorName(computed, lang)) : t(lang, "dashboardScopeUnset")}</option>
+        <option value="R">{healthColorName("R", lang)}</option>
+        <option value="A">{healthColorName("A", lang)}</option>
+        <option value="G">{healthColorName("G", lang)}</option>
+      </select>
+    </label>
+  );
 }
 
 export function DashboardPanel(props: DashboardPanelProps) {
@@ -56,8 +81,22 @@ export function DashboardPanel(props: DashboardPanelProps) {
     ],
   );
 
-  const onNarrative = (text: string) =>
-    setStatus((s) => ({ ...s, narrative: text, narrativeUpdatedAt: new Date().toISOString() }));
+  // Derived-state pattern: track the last stored value we seeded from so we can
+  // reset the draft when an external workspace reload changes status.narrative.
+  const [prevStoredNarrative, setPrevStoredNarrative] = useState(status.narrative ?? "");
+  const [draftNarrative, setDraftNarrative] = useState(status.narrative ?? "");
+
+  const storedNarrative = status.narrative ?? "";
+  if (storedNarrative !== prevStoredNarrative) {
+    setPrevStoredNarrative(storedNarrative);
+    setDraftNarrative(storedNarrative);
+  }
+
+  const commitNarrative = () => {
+    const trimmed = draftNarrative.trim();
+    if (trimmed === (status.narrative ?? "")) return;
+    setStatus((s) => ({ ...s, narrative: trimmed, narrativeUpdatedAt: new Date().toISOString() }));
+  };
 
   return (
     <ReportCard lang={lang} sizeRef={sizeRef} onResetSize={() => undefined} title={t(lang, "navDashboard")}>
@@ -65,11 +104,36 @@ export function DashboardPanel(props: DashboardPanelProps) {
         {/* Overall band */}
         <div className="flex flex-wrap items-center gap-4 rounded-lg border border-line bg-surface p-4">
           <div className="text-2xl font-bold">
-            {healthColorName(model.overall.effective, lang)}
+            {t(lang, "dashboardOverall")}: {healthColorName(model.overall.effective, lang)}
           </div>
-          <HealthPill value={model.schedule.effective} label={t(lang, "dashboardSubSchedule")} lang={lang} />
-          <HealthPill value={model.budget.effective} label={t(lang, "dashboardSubBudget")} lang={lang} />
-          <HealthPill value={model.scope.effective} label={t(lang, "dashboardSubScope")} lang={lang} />
+          <OverrideSelect
+            lang={lang}
+            label={t(lang, "dashboardOverall")}
+            value={status.ragOverride}
+            computed={model.overall.computed}
+            onChange={(v) => setStatus((s) => ({ ...s, ragOverride: v }))}
+          />
+          <OverrideSelect
+            lang={lang}
+            label={t(lang, "dashboardSubSchedule")}
+            value={status.scheduleOverride}
+            computed={model.schedule.computed}
+            onChange={(v) => setStatus((s) => ({ ...s, scheduleOverride: v }))}
+          />
+          <OverrideSelect
+            lang={lang}
+            label={t(lang, "dashboardSubBudget")}
+            value={status.budgetOverride}
+            computed={model.budget.computed}
+            onChange={(v) => setStatus((s) => ({ ...s, budgetOverride: v }))}
+          />
+          <OverrideSelect
+            lang={lang}
+            label={t(lang, "dashboardSubScope")}
+            value={status.scopeOverride}
+            computed={null}
+            onChange={(v) => setStatus((s) => ({ ...s, scopeOverride: v }))}
+          />
           <span className="ml-auto text-sm text-muted-foreground">
             {t(lang, "dashboardReportDate", today)}
           </span>
@@ -80,12 +144,13 @@ export function DashboardPanel(props: DashboardPanelProps) {
           <textarea
             className="min-h-24 w-full rounded-md border border-line bg-surface p-2 text-sm"
             placeholder={t(lang, "dashboardNarrativePlaceholder")}
-            value={model.narrative.text}
-            onChange={(e) => onNarrative(e.target.value)}
+            value={draftNarrative}
+            onChange={(e) => setDraftNarrative(e.target.value)}
+            onBlur={commitNarrative}
           />
-          {model.narrative.updatedAt ? (
+          {status.narrativeUpdatedAt ? (
             <p className="mt-1 text-xs text-muted-foreground">
-              {t(lang, "dashboardNarrativeUpdated", model.narrative.updatedAt.slice(0, 10))}
+              {t(lang, "dashboardNarrativeUpdated", status.narrativeUpdatedAt.slice(0, 10))}
             </p>
           ) : null}
         </Section>
