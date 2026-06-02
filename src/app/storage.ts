@@ -879,10 +879,28 @@ export function workspaceToJson(ws: Workspace): string {
       tasks: ws.tasks, raid: ws.raid, absences: ws.absences, shifts: ws.shifts,
       resources: ws.resources, roles: ws.roles, disciplines: ws.disciplines,
       grades: ws.grades, plan: ws.plan, budgets: ws.budgets ?? [], fxRates: ws.fxRates ?? null,
+      status: ws.status ?? {},
     },
     null,
     2,
   );
+}
+
+/** Defensive: accept only known RAG/narrative fields from untrusted JSON. */
+export function sanitizeProjectStatus(raw: unknown): ProjectStatus {
+  if (!raw || typeof raw !== "object") return {};
+  const r = raw as Record<string, unknown>;
+  const rag = (v: unknown): "R" | "A" | "G" | undefined =>
+    v === "R" || v === "A" || v === "G" ? v : undefined;
+  const str = (v: unknown): string | undefined => (typeof v === "string" ? v : undefined);
+  const out: ProjectStatus = {};
+  if (rag(r.ragOverride)) out.ragOverride = rag(r.ragOverride);
+  if (rag(r.scheduleOverride)) out.scheduleOverride = rag(r.scheduleOverride);
+  if (rag(r.budgetOverride)) out.budgetOverride = rag(r.budgetOverride);
+  if (rag(r.scopeOverride)) out.scopeOverride = rag(r.scopeOverride);
+  if (str(r.narrative)) out.narrative = str(r.narrative);
+  if (str(r.narrativeUpdatedAt)) out.narrativeUpdatedAt = str(r.narrativeUpdatedAt);
+  return out;
 }
 
 /** Parse a JSON envelope back to a workspace. Tolerates legacy files (pre-v6)
@@ -906,6 +924,7 @@ export function jsonToWorkspace(text: string): Workspace {
       plan: sanitizePlan(p.plan ?? {}, new Date().toISOString().slice(0, 10)),
       budgets: ((p.budgets as unknown[]) ?? []).map((b) => sanitizeBudgetBucket(b)).filter((b): b is BudgetBucket => b !== null),
       fxRates: sanitizeFxRates(p.fxRates),
+      status: sanitizeProjectStatus(p.status),
     };
     return migrateWorkspaceV6(raw);
   } catch {

@@ -146,3 +146,12 @@ describe("ProjectStatus defaults", () => {
     expect(migrateWorkspaceV6(ws as typeof ws & { status?: never }).status).toEqual({});
   });
 });
+
+test("JSON round-trip preserves project status", () => {
+  const ws = {
+    ...emptyWorkspace(),
+    status: { ragOverride: "A" as const, narrative: "On track, one risk to watch.", narrativeUpdatedAt: "2026-06-02T10:00:00.000Z" },
+  };
+  const back = jsonToWorkspace(workspaceToJson(ws));
+  expect(back.status).toEqual(ws.status);
+});
