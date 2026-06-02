@@ -256,3 +256,30 @@ describe("computeDashboard", () => {
     expect(m.budget.overridden).toBe(true);
   });
 });
+
+describe("computeDashboard burndown", () => {
+  function dashInput(over: Partial<DashboardInput> = {}): DashboardInput {
+    return {
+      tasks: [], raid: [], budgets: [],
+      plan: { startDate: "2026-01-01", endDate: "2026-03-31", granularity: "month", currency: "EUR", rows: [] } as unknown as DashboardInput["plan"],
+      roles: [], resources: [], absences: [],
+      workdayHours: 8, holidaySet: holidays,
+      status: {} as DashboardInput["status"], activity: [], today, milestones: [],
+      ...over,
+    };
+  }
+  it("is null when there are no budgets", () => {
+    expect(computeDashboard(dashInput()).burndown).toBeNull();
+  });
+  it("is a series when budgets exist", () => {
+    const budgets = [{
+      id: 1, name: "B", type: "tm", currency: "EUR",
+      startDate: "2026-01-01", endDate: "2026-03-31", status: "open",
+      allocations: [{ roleId: 1, resourceIds: [], budgetHours: { "2026-01": 100 }, actualHours: {} }],
+    }] as unknown as DashboardInput["budgets"];
+    const roles = [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 200 }] as unknown as DashboardInput["roles"];
+    const model = computeDashboard(dashInput({ budgets, roles }));
+    expect(model.burndown).not.toBeNull();
+    expect(model.burndown!.totalBudgetHours).toBe(100);
+  });
+});
