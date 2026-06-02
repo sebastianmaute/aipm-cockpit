@@ -1808,7 +1808,7 @@ export function GanttPanel({
                       height={12}
                       transform="rotate(45 8 8)"
                       className={achieved ? "fill-emerald-500/50" : "fill-emerald-500"}
-                      stroke={atRisk ? "#ec4899" : "none"}
+                      stroke={atRisk ? "var(--AIPM-pink)" : "none"}
                       strokeWidth={atRisk ? 2 : 0}
                     />
                   </svg>
@@ -1854,7 +1854,7 @@ export function GanttPanel({
                       height={14}
                       transform={`rotate(45 ${mx} ${ROW_HEIGHT_PX / 2})`}
                       className={achieved ? "fill-emerald-500/50" : "fill-emerald-500"}
-                      stroke={atRisk ? "#ec4899" : "none"}
+                      stroke={atRisk ? "var(--AIPM-pink)" : "none"}
                       strokeWidth={atRisk ? 2 : 0}
                     />
                   </svg>
