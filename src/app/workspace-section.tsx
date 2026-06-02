@@ -554,6 +554,8 @@ export function WorkspaceSection({
               holidaySet={holidaySet}
               workdayHours={settings.resources.workdayHours}
               fxRates={fxRates}
+              tasks={tasks}
+              today={today}
             />
           </div>
         )}
