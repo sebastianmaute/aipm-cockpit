@@ -609,7 +609,9 @@ export function ReportsPanel({
 
       {extraReports.map((id) => {
         const meta = ADDABLE_REPORTS.find((r) => r.id === id);
-        if (!meta) return null;
+        const body = meta ? renderEmbedded(id) : null;
+        if (!meta || !body) return null;
+        const removeLabel = `${t(lang, "reportsRemoveReport")}: ${t(lang, meta.titleKey)}`;
         return (
           <div key={id}>
             <div className="mb-2 flex items-center justify-between gap-2 border-t border-line pt-4">
@@ -617,14 +619,14 @@ export function ReportsPanel({
               <button
                 type="button"
                 onClick={() => onChangeExtraReports?.(extraReports.filter((x) => x !== id))}
-                aria-label={t(lang, "reportsRemoveReport")}
-                title={t(lang, "reportsRemoveReport")}
+                aria-label={removeLabel}
+                title={removeLabel}
                 className="rounded-md border border-transparent px-2 py-0.5 text-xs text-muted-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted print:hidden"
               >
                 ×
               </button>
             </div>
-            {renderEmbedded(id)}
+            {body}
           </div>
         );
       })}

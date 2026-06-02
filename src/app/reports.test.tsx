@@ -3,6 +3,7 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ReportsPanel } from "./reports";
 import type { BudgetBucket, ResourcePlan, Role, Task } from "./types";
+import type { AddableReportId } from "./addable-reports";
 
 const TODAY = "2026-05-28";
 
@@ -157,7 +158,7 @@ const brBuckets: BudgetBucket[] = [
     allocations: [{ roleId: 1, resourceIds: [], budgetHours: { "2026-01": 100 }, actualHours: { "2026-01": 40 } }] },
 ];
 
-function renderComposed(extraReports: string[], onChange = vi.fn()) {
+function renderComposed(extraReports: AddableReportId[], onChange = vi.fn()) {
   render(
     <ReportsPanel
       tasks={[makeTask({ id: 1, assignee: "A" })]}
@@ -174,7 +175,7 @@ function renderComposed(extraReports: string[], onChange = vi.fn()) {
       workdayHours={8}
       fxRates={null}
       raid={[]}
-      extraReports={extraReports as never}
+      extraReports={extraReports}
       onChangeExtraReports={onChange}
     />,
   );
