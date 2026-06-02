@@ -202,6 +202,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   useBroadcastSync("disciplines", disciplines, setDisciplines, canSend);
   useBroadcastSync("grades", grades, setGrades, canSend);
   useBroadcastSync("budgets", budgets, setBudgets, canSend);
+  useBroadcastSync("milestones", milestones, setMilestones, canSend);
   useBroadcastSync("activityLog", args.activityLog, args.setActivityLog, canSend);
 
   async function onPickStorageFile() {
