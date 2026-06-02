@@ -46,6 +46,14 @@ describe("milestoneStatus precedence", () => {
     expect(milestoneStatus(ms({ date: "2026-06-03" }), byId(), today, holidays)).toBe("due-soon");
     expect(milestoneStatus(ms({ date: "2026-12-01" }), byId(), today, holidays)).toBe("on-track");
   });
+
+  it("returns overdue (not at-risk) when a past milestone also has a late linked task", () => {
+    expect(milestoneStatus(
+      ms({ date: "2026-05-01", linkedTaskIds: [10] }),
+      byId(task({ id: 10, dueDate: "2026-05-15" })), // linked task also past the milestone date
+      today, holidays,
+    )).toBe("overdue");
+  });
 });
 
 describe("sortMilestones", () => {

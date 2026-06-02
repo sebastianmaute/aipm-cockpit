@@ -30,6 +30,8 @@ export function milestoneStatus(
   leadWorkdays: number = MILESTONE_DUE_SOON_WORKDAYS,
 ): MilestoneStatus {
   if (m.achievedDate) return "achieved";
+  // A milestone dated today is NOT overdue yet — it falls through to due-soon
+  // (0 workdays away). Matches the task overdue convention in dashboard.ts.
   if (m.date < todayISO) return "overdue";
   if (isAtRisk(m, tasksById)) return "at-risk";
   const hs = holidaySet instanceof Set ? holidaySet : new Set<string>(holidaySet);
