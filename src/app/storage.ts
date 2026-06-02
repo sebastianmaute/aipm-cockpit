@@ -21,7 +21,6 @@ import {
   sanitizeGrade,
   sanitizeGroup,
   sanitizeLabels,
-  sanitizeMilestone,
   sanitizeOptionalMinutes,
   sanitizePlan,
   sanitizeResource,
@@ -29,7 +28,6 @@ import {
   sanitizeShift,
   serializeDependencies,
 } from "./sanitize";
-export { sanitizeMilestone } from "./sanitize";
 import {
   type Absence,
   type BudgetBucket,

@@ -1,5 +1,6 @@
 import { describe, test, expect } from "vitest";
-import { migrateWorkspaceV5, migrateWorkspaceV6, emptyWorkspace, workspaceToCsv, csvToWorkspace, workspaceToMarkdown, markdownToWorkspace, workspaceToJson, jsonToWorkspace, sanitizeProjectStatus, sanitizeMilestone, type Workspace } from "./storage";
+import { migrateWorkspaceV5, migrateWorkspaceV6, emptyWorkspace, workspaceToCsv, csvToWorkspace, workspaceToMarkdown, markdownToWorkspace, workspaceToJson, jsonToWorkspace, sanitizeProjectStatus, type Workspace } from "./storage";
+import { sanitizeMilestone } from "./sanitize";
 import type { Task, Resource, Role, Discipline, Grade } from "./types";
 import { resourceDisplayName } from "./resource-foundation";
 
@@ -207,5 +208,8 @@ describe("Milestone defaults + sanitize", () => {
     expect(
       sanitizeMilestone({ id: 2, name: "Go-live", date: "2026-08-01", description: "d", achievedDate: "2026-07-30", linkedTaskIds: [3, "4", -1, "x"], localModifiedAt: "2026-06-02T00:00:00.000Z" }),
     ).toEqual({ id: 2, name: "Go-live", date: "2026-08-01", description: "d", achievedDate: "2026-07-30", linkedTaskIds: [3, 4], localModifiedAt: "2026-06-02T00:00:00.000Z" });
+  });
+  test("sanitizeMilestone rejects an invalid date", () => {
+    expect(sanitizeMilestone({ id: 1, name: "x", date: "not-a-date" })).toBeNull();
   });
 });
