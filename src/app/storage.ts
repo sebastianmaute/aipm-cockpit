@@ -499,6 +499,7 @@ const CSV_SECTION_ROLES = "# ROLES";
 const CSV_SECTION_DISCIPLINES = "# DISCIPLINES";
 const CSV_SECTION_GRADES = "# GRADES";
 const CSV_SECTION_PLAN = "# PLAN";
+const CSV_SECTION_STATUS = "# PROJECT STATUS";
 
 // --- Resource Planner v2 Markdown column definitions -----------------------
 
@@ -932,6 +933,32 @@ export function jsonToWorkspace(text: string): Workspace {
   }
 }
 
+// --- Project Status CSV encoder / decoder ------------------------------------
+
+const STATUS_FIELDS: readonly (keyof ProjectStatus)[] = [
+  "ragOverride", "scheduleOverride", "budgetOverride", "scopeOverride",
+  "narrative", "narrativeUpdatedAt",
+];
+
+export function statusToCsv(status: ProjectStatus): string {
+  const rows: string[] = ["field,value"];
+  for (const f of STATUS_FIELDS) {
+    const v = status[f];
+    if (v != null && v !== "") rows.push(`${f},${csvEscape(String(v))}`);
+  }
+  return rows.join("\r\n");
+}
+
+export function csvToStatus(text: string): ProjectStatus {
+  const rows = parseCsv(text).filter((r) => r.length >= 2 && r[0] && !r[0].startsWith("#"));
+  const map: Record<string, string> = {};
+  for (const [k, v] of rows) {
+    if (k === "field") continue; // header row
+    map[k] = v;
+  }
+  return sanitizeProjectStatus(map);
+}
+
 /** Multi-section CSV: tasks then (optionally) raid, absences, and shifts,
  *  separated by marker lines. Used by file backends for round-trip;
  *  `tasksToCsv` remains the marker-less variant that the Export menu uses
@@ -953,6 +980,9 @@ export function workspaceToCsv(ws: Workspace): string {
   if (ws.resources.length > 0) parts.push("", CSV_SECTION_RESOURCES, resourcesToCsv(ws.resources));
   if ((ws.budgets ?? []).length > 0) parts.push("", CSV_SECTION_BUDGETS, budgetsToCsv(ws.budgets ?? []));
   if (ws.fxRates) parts.push("", fxRatesToCsvLine(ws.fxRates));
+  if (ws.status && Object.keys(ws.status).length > 0) {
+    parts.push("", CSV_SECTION_STATUS, statusToCsv(ws.status));
+  }
   parts.push("", planToCsvLine(ws.plan));
   return parts.join("\r\n");
 }
@@ -1033,9 +1063,10 @@ function splitCsvSections(csv: string): {
   planText: string;
   budgetsText: string;
   fxRatesText: string;
+  statusText: string;
 } {
   const lines = csv.split(/\r?\n/);
-  let mode: "tasks" | "raid" | "absences" | "shifts" | "resources" | "roles" | "disciplines" | "grades" | "plan" | "budgets" | "fxrates" | null = null;
+  let mode: "tasks" | "raid" | "absences" | "shifts" | "resources" | "roles" | "disciplines" | "grades" | "plan" | "budgets" | "fxrates" | "status" | null = null;
   const tasksLines: string[] = [];
   const raidLines: string[] = [];
   const absencesLines: string[] = [];
@@ -1047,6 +1078,7 @@ function splitCsvSections(csv: string): {
   const planLines: string[] = [];
   const budgetsLines: string[] = [];
   const fxRatesLines: string[] = [];
+  const statusLines: string[] = [];
   for (const line of lines) {
     const trimmed = line.trimStart();
     if (trimmed.startsWith(CSV_SECTION_BUDGETS)) { mode = "budgets"; continue; }
@@ -1060,6 +1092,7 @@ function splitCsvSections(csv: string): {
     if (trimmed.startsWith(CSV_SECTION_RAID)) { mode = "raid"; continue; }
     if (trimmed.startsWith(CSV_SECTION_ABSENCES)) { mode = "absences"; continue; }
     if (trimmed.startsWith(CSV_SECTION_SHIFTS)) { mode = "shifts"; continue; }
+    if (trimmed.startsWith(CSV_SECTION_STATUS)) { mode = "status"; continue; }
     if (mode === "resources") resourcesLines.push(line);
     else if (mode === "roles") rolesLines.push(line);
     else if (mode === "disciplines") disciplinesLines.push(line);
@@ -1071,6 +1104,7 @@ function splitCsvSections(csv: string): {
     else if (mode === "tasks") tasksLines.push(line);
     else if (mode === "budgets") budgetsLines.push(line);
     else if (mode === "fxrates") fxRatesLines.push(line);
+    else if (mode === "status") statusLines.push(line);
     // (else: line before the first marker — drop it.)
   }
   return {
@@ -1085,6 +1119,7 @@ function splitCsvSections(csv: string): {
     planText: planLines.join("\r\n"),
     budgetsText: budgetsLines.join("\r\n"),
     fxRatesText: fxRatesLines.join("\r\n"),
+    statusText: statusLines.join("\r\n"),
   };
 }
 
@@ -1258,6 +1293,7 @@ export function csvToWorkspace(csv: string): Workspace {
     plan: (s.planText.trim() && parsePlanLine(s.planText)) || defaultResourcePlan(new Date().toISOString().slice(0, 10)),
     budgets: s.budgetsText.trim() ? csvToBudgets(s.budgetsText) : [],
     fxRates: s.fxRatesText.trim() ? parseFxRatesLine(s.fxRatesText.split(/\r?\n/).find((l) => l.trim() && !l.startsWith("#")) ?? "") : null,
+    status: s.statusText.trim() ? csvToStatus(s.statusText) : {},
   };
   return migrateWorkspaceV6(ws);
 }

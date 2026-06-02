@@ -164,3 +164,12 @@ test("sanitizeProjectStatus rejects malformed input and whitelists known fields"
   expect(sanitizeProjectStatus({ narrative: 5 })).toEqual({});
   expect(sanitizeProjectStatus({ ragOverride: "G", narrative: "ok" })).toEqual({ ragOverride: "G", narrative: "ok" });
 });
+
+test("CSV round-trip preserves project status", () => {
+  const ws = {
+    ...emptyWorkspace(),
+    status: { ragOverride: "R" as const, scopeOverride: "A" as const, narrative: "Scope creep, see note: \"phase 2\".", narrativeUpdatedAt: "2026-06-02T10:00:00.000Z" },
+  };
+  const back = csvToWorkspace(workspaceToCsv(ws));
+  expect(back.status).toEqual(ws.status);
+});
