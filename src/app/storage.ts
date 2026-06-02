@@ -729,9 +729,9 @@ export function milestoneFieldToString(m: Milestone, c: keyof Milestone): string
 }
 
 export function buildMilestoneFromObj(obj: Record<string, string>): Milestone | null {
-  const id = Number(obj.id);
+  const id = Math.floor(Number(obj.id));
   if (!Number.isFinite(id) || id <= 0) return null;
-  const name = obj.name?.trim() ?? "";
+  const name = (obj.name?.trim() ?? "").slice(0, 200);
   if (!name) return null;
   const date = obj.date?.trim() ?? "";
   if (!date) return null;

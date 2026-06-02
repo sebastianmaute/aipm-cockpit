@@ -1,7 +1,12 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { ReportCard } from "./report-table";
+import { useCallback, useRef, useState } from "react";
+import {
+  ReportCard,
+  SortHeaderButton,
+  useSortableFilter,
+  type SortDir,
+} from "./report-table";
 import { MilestoneEditModal } from "./milestone-edit-modal";
 import { useWorkspace } from "./workspace-context";
 import {
@@ -43,9 +48,25 @@ export function MilestonesPanel({
   const sizeRef = useRef<HTMLDivElement | null>(null);
   const [editing, setEditing] = useState<Milestone | null>(null);
   const [isNew, setIsNew] = useState(false);
+  const [sort, setSort] = useState<{ key: "name" | "date"; dir: SortDir }>({
+    key: "date",
+    dir: "asc",
+  });
+
+  const getValue = useCallback(
+    (m: Milestone, key: "name" | "date") => (key === "name" ? m.name : m.date),
+    [],
+  );
+
+  const { sorted, click } = useSortableFilter(
+    sortMilestones(milestones),
+    sort,
+    setSort,
+    "",
+    getValue,
+  );
 
   const tasksById = new Map(tasks.map((tk) => [tk.id, tk] as const));
-  const rows = sortMilestones(milestones);
 
   function nextId() {
     return milestones.reduce((m, x) => Math.max(m, x.id), 0) + 1;
@@ -103,7 +124,7 @@ export function MilestonesPanel({
         </button>
       }
     >
-      {rows.length === 0 ? (
+      {sorted.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           {t(lang, "milestonesEmpty")}
         </p>
@@ -111,14 +132,28 @@ export function MilestonesPanel({
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-xs uppercase text-muted-foreground">
-              <th className="py-1">{t(lang, "milestonesColName")}</th>
-              <th>{t(lang, "milestonesColDate")}</th>
+              <th className="py-1">
+                <SortHeaderButton
+                  label={t(lang, "milestonesColName")}
+                  active={sort.key === "name"}
+                  dir={sort.dir}
+                  onClick={() => click("name")}
+                />
+              </th>
+              <th>
+                <SortHeaderButton
+                  label={t(lang, "milestonesColDate")}
+                  active={sort.key === "date"}
+                  dir={sort.dir}
+                  onClick={() => click("date")}
+                />
+              </th>
               <th>{t(lang, "milestonesColStatus")}</th>
               <th></th>
             </tr>
           </thead>
           <tbody>
-            {rows.map((m) => {
+            {sorted.map((m) => {
               const s = milestoneStatus(m, tasksById, today, holidaySet);
               return (
                 <tr key={m.id} className="border-t border-line">
@@ -136,7 +171,7 @@ export function MilestonesPanel({
                   </td>
                   <td>{m.date}</td>
                   <td>
-                    {s === "at-risk" ? "⚠ " : ""}
+                    {s === "achieved" ? "✓ " : s === "at-risk" ? "⚠ " : ""}
                     {t(lang, STATUS_KEY[s])}
                   </td>
                   <td>
