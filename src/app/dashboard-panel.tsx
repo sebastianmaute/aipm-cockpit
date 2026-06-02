@@ -8,7 +8,7 @@ import { useWorkspace } from "./workspace-context";
 import { loadActivityLog, type ActivityEntry } from "./activity-log";
 import { type Lang, t } from "./i18n";
 import { healthColorName, type Health } from "./health";
-import type { Absence, BudgetBucket, RaidItem, ResourcePlan, Resource, Role, Task } from "./types";
+import type { Absence, BudgetBucket, Milestone, RaidItem, ResourcePlan, Resource, Role, Task } from "./types";
 
 interface DashboardPanelProps {
   lang: Lang;
@@ -22,8 +22,10 @@ interface DashboardPanelProps {
   holidaySet: ReadonlySet<string>;
   workdayHours: number;
   today: string;
+  milestones?: Milestone[];
   onOpenRaid?: (id: number) => void;
   onOpenTask?: (id: number) => void;
+  onOpenMilestone?: () => void;
 }
 
 function OverrideSelect({
@@ -74,12 +76,13 @@ export function DashboardPanel(props: DashboardPanelProps) {
         status,
         activity,
         today,
-        milestones: [], // TODO: wire real milestones in a later task
+        milestones: props.milestones ?? [],
       }),
     [
       props.tasks, props.raid, props.budgets, props.plan,
       props.roles, props.resources, props.absences,
       props.workdayHours, props.holidaySet,
+      props.milestones,
       status, activity, today,
     ],
   );
@@ -188,7 +191,18 @@ export function DashboardPanel(props: DashboardPanelProps) {
         </div>
 
         {/* RAID + upcoming tasks */}
-        <RegistersBand lang={lang} topRaid={model.topRaid} overdue={model.overdue} dueSoon={model.dueSoon} onOpenRaid={onOpenRaid} onOpenTask={onOpenTask} />
+        <RegistersBand
+          lang={lang}
+          topRaid={model.topRaid}
+          overdue={model.overdue}
+          dueSoon={model.dueSoon}
+          onOpenRaid={onOpenRaid}
+          onOpenTask={onOpenTask}
+          overdueMilestones={model.overdueMilestones}
+          atRiskMilestones={model.atRiskMilestones}
+          dueSoonMilestones={model.dueSoonMilestones}
+          onOpenMilestone={props.onOpenMilestone}
+        />
 
         {/* Recent activity */}
         <Section title={t(lang, "dashboardRecentActivity")}>
