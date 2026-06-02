@@ -139,6 +139,9 @@ const HEADER_HEIGHT_PX = HEADER_ROW_HEIGHT_PX * 2;
 const LEFT_GUTTER_PX = 240; // task-name column width
 const BAR_HEIGHT_PX = 18;
 const BAR_VPADDING_PX = (ROW_HEIGHT_PX - BAR_HEIGHT_PX) / 2;
+// Size of the chart-scale timeline diamond. The gutter uses a fixed 16-viewBox
+// icon (intentionally small/independent of chart scale) — see comment below.
+const MILESTONE_DIAMOND_PX = 14;
 
 // Milestone status math takes a holiday set; the Gantt has no holiday data
 // of its own, so we pass a shared empty set rather than allocating per row.
@@ -526,6 +529,17 @@ function absenceBandBg(type: AbsenceType): string {
     default:
       return "bg-surface-muted";
   }
+}
+
+/** Shared visual props for both milestone diamond <rect>s (gutter + timeline).
+ *  emerald mirrors healthDot.G (bg-emerald-500 RAG-green in health.ts);
+ *  at-risk gets the AIPM pink ring (same token as overdue bars). */
+function milestoneDiamondProps(achieved: boolean, atRisk: boolean) {
+  return {
+    className: achieved ? "fill-emerald-500/50" : "fill-emerald-500",
+    stroke: atRisk ? "var(--AIPM-pink)" : "none",
+    strokeWidth: atRisk ? 2 : 0,
+  } as const;
 }
 
 export function GanttPanel({
@@ -1795,7 +1809,8 @@ export function GanttPanel({
                   style={{ width: LEFT_GUTTER_PX }}
                   title={`${m.name} · ${m.date}`}
                 >
-                  {/* Diamond glyph mirroring the timeline marker. */}
+                  {/* Gutter diamond icon — intentionally fixed 16-viewBox size,
+                      independent of chart scale (icon, not a chart element). */}
                   <svg
                     viewBox="0 0 16 16"
                     aria-hidden="true"
@@ -1807,9 +1822,7 @@ export function GanttPanel({
                       width={12}
                       height={12}
                       transform="rotate(45 8 8)"
-                      className={achieved ? "fill-emerald-500/50" : "fill-emerald-500"}
-                      stroke={atRisk ? "var(--AIPM-pink)" : "none"}
-                      strokeWidth={atRisk ? 2 : 0}
+                      {...milestoneDiamondProps(achieved, atRisk)}
                     />
                   </svg>
                   {onEditMilestone ? (
@@ -1848,14 +1861,12 @@ export function GanttPanel({
                     preserveAspectRatio="none"
                   >
                     <rect
-                      x={mx - 7}
-                      y={(ROW_HEIGHT_PX - 14) / 2}
-                      width={14}
-                      height={14}
+                      x={mx - MILESTONE_DIAMOND_PX / 2}
+                      y={(ROW_HEIGHT_PX - MILESTONE_DIAMOND_PX) / 2}
+                      width={MILESTONE_DIAMOND_PX}
+                      height={MILESTONE_DIAMOND_PX}
                       transform={`rotate(45 ${mx} ${ROW_HEIGHT_PX / 2})`}
-                      className={achieved ? "fill-emerald-500/50" : "fill-emerald-500"}
-                      stroke={atRisk ? "var(--AIPM-pink)" : "none"}
-                      strokeWidth={atRisk ? 2 : 0}
+                      {...milestoneDiamondProps(achieved, atRisk)}
                     />
                   </svg>
                 </div>
