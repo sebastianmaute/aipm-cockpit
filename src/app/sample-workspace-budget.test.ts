@@ -40,11 +40,10 @@ describe("sample-workspace budgets", () => {
     expect(b.status).toBe("closed");
     expect(b.successorId).toBe(1);
   });
-  test("computeBudgetReport yields non-zero project rollup", () => {
+  test("computeBudgetReport yields a realistic project rollup (cost from role rates, not zeroed)", () => {
     const rep = computeBudgetReport(ws.budgets!, ws.plan, ws.roles, ws.resources, 8, new Set<string>(), ws.absences);
-    expect(rep.project.budgetHours).toBeGreaterThan(0);
-    expect(rep.project.actualHours).toBeGreaterThan(0);
-    expect(rep.project.revenue).toBeGreaterThan(0);
-    expect(rep.project.cost).toBeGreaterThan(0);
+    expect(rep.project.actualHours).toBeGreaterThan(1000);
+    expect(rep.project.cost).toBeGreaterThan(80000);   // would be ~9000 if empty overrides zeroed the rates
+    expect(rep.project.revenue).toBeGreaterThan(80000);
   });
 });

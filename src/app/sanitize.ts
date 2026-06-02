@@ -661,6 +661,7 @@ const AMOUNT_MAX = 1_000_000_000;
 const BUDGET_TYPE_SET: ReadonlySet<BudgetType> = new Set(BUDGET_TYPES);
 
 function sanitizeAmount(n: unknown): number | undefined {
+  if (typeof n === "string" && n.trim() === "") return undefined; // empty CSV/MD cell = absent, not 0
   const num = toNumber(n);
   if (!Number.isFinite(num) || num < 0) return undefined;
   return Math.min(AMOUNT_MAX, Math.round(num * 100) / 100);

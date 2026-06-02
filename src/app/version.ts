@@ -1,3 +1,9 @@
+// 0.42.2 fixes a budget cost/revenue bug: buckets loaded from the CSV/Markdown/
+// Turso backends with empty rate-override cells parsed those as a literal 0,
+// which applied a spurious EUR0/hour override and zeroed their cost & revenue.
+// Empty override cells are now treated as absent (an explicit 0 is still a valid
+// non-billable override). Also seeds sample-workspace.md with five budget
+// buckets (detailed/blended/override/fixed/spillover). Inherits "Le Guin".
 // 0.42.1 scopes print orientation: reports (the shared ReportCard print-root)
 // print A4 landscape via a named `@page landscape` + a `.print-landscape` class,
 // while the default `@page` is portrait so the Activity Log (and any other
@@ -550,8 +556,8 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.42.1";
-export const APP_BUILD_DATE = "2026-06-02"; // 0.42.1 scope print orientation: reports landscape, others portrait
+export const APP_VERSION = "0.42.2";
+export const APP_BUILD_DATE = "2026-06-02"; // 0.42.2 empty rate-override cells no longer zero budget cost/revenue
 /** Minor-series milestone codename (sci-fi/fantasy author names). The whole
  *  0.39.x line is "Tchaikovsky" (Adrian Tchaikovsky); patch releases inherit
  *  their minor version's codename rather than getting their own. */
