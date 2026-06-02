@@ -49,8 +49,8 @@ export function SettingsView(props: SettingsViewProps) {
   const [showVersion, setShowVersion] = useState(false);
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
-      <div className="flex flex-col gap-6 md:flex-row">
+    <>
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 md:flex-row">
       <nav
         aria-label={t(lang, "settings")}
         className="flex shrink-0 flex-row flex-wrap gap-1 md:w-56 md:flex-col"
@@ -119,29 +119,29 @@ export function SettingsView(props: SettingsViewProps) {
           <IntegrationsSection lang={lang} settings={settings} onChange={onChange} />
         )}
       </section>
-      </div>
-
-      <footer className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 border-t border-line pt-4 text-xs text-muted-foreground">
-        <button
-          type="button"
-          onClick={() => setShowVersion(true)}
-          title={t(lang, "versionHistory")}
-          className="font-medium text-AIPM-dark-blue underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-AIPM-green dark:text-AIPM-blue"
-        >
-          {t(lang, "versionVersion")} {APP_VERSION_LABEL}
-        </button>
-        <span aria-hidden>·</span>
-        <a
-          href={APP_LICENSE_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="font-medium text-AIPM-dark-blue underline-offset-2 hover:underline dark:text-AIPM-blue"
-        >
-          {t(lang, "versionLicense")}: {APP_LICENSE} ↗
-        </a>
-      </footer>
-
-      <VersionInfoModal lang={lang} open={showVersion} onClose={() => setShowVersion(false)} />
     </div>
+
+    <footer className="mx-auto mt-6 flex w-full max-w-5xl flex-wrap items-center justify-center gap-x-3 gap-y-1 border-t border-line pt-4 text-xs text-muted-foreground">
+      <button
+        type="button"
+        onClick={() => setShowVersion(true)}
+        title={t(lang, "versionHistory")}
+        className="font-medium text-AIPM-dark-blue underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-AIPM-green dark:text-AIPM-blue"
+      >
+        {t(lang, "versionVersion")} {APP_VERSION_LABEL}
+      </button>
+      <span aria-hidden>·</span>
+      <a
+        href={APP_LICENSE_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="font-medium text-AIPM-dark-blue underline-offset-2 hover:underline dark:text-AIPM-blue"
+      >
+        {t(lang, "versionLicense")}: {APP_LICENSE} ↗
+      </a>
+    </footer>
+
+    <VersionInfoModal lang={lang} open={showVersion} onClose={() => setShowVersion(false)} />
+    </>
   );
 }

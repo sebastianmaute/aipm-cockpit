@@ -28,7 +28,9 @@ export const EVM_INDEX_AMBER = 0.9;
 export const EVM_INDEX_RED = 0.8;
 
 /** Health contribution from an EVM index (SPI or CPI): Red below 0.8, Amber
- *  below 0.9, else null (healthy or undefined ⇒ no contribution). */
+ *  below 0.9, else null (healthy or undefined ⇒ no contribution). Callers pass
+ *  a finite positive index or null (computeEvm yields null, never NaN, for a
+ *  zero divisor); a non-finite value falls through to null (healthy). */
 export function evmIndexHealth(index: number | null): "R" | "A" | null {
   if (index === null) return null;
   if (index < EVM_INDEX_RED) return "R";
@@ -179,6 +181,7 @@ export type DashboardBurn = {
 export type DashboardModel = {
   overall: { computed: Health; effective: Health; overridden: boolean };
   schedule: { computed: Health; effective: Health; overridden: boolean };
+  // computed/effective are null when there is neither a budget nor CPI data.
   budget: { computed: SubStatus; effective: SubStatus; overridden: boolean };
   scope: { effective: SubStatus };
   progress: DashboardProgress;
@@ -232,7 +235,9 @@ export function computeDashboard(input: DashboardInput, opts: DashboardOptions =
   const ms = partitionMilestones(input.milestones, tasksById, today, holidaySet, dueSoonWorkdays);
   const msContribution: "R" | "A" | null =
     ms.overdue.length > 0 ? "R" : ms.atRisk.length > 0 || ms.dueSoon.length > 0 ? "A" : null;
-  // SPI feeds the Schedule RAG (worst-of with tasks + milestones).
+  // SPI feeds the Schedule RAG (worst-of with tasks + milestones). taskSchedule
+  // is always non-null, so the `?? "G"` is a type-level coercion (SubStatus ->
+  // Health), not a runtime fallback.
   const scheduleComputed: Health =
     worstHealth(taskSchedule, msContribution, evmIndexHealth(evm.spi)) ?? "G";
 

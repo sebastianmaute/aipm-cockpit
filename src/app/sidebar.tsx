@@ -10,7 +10,7 @@ interface SidebarProps {
   collapsed: boolean;
   onToggleCollapsed: () => void;
   version: string;
-  onShowVersion?: () => void;
+  onShowVersion: () => void;
   footer?: React.ReactNode;
 }
 

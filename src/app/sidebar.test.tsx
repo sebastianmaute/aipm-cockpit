@@ -10,12 +10,20 @@ describe("Sidebar", () => {
     collapsed: false,
     onToggleCollapsed: () => {},
     version: "v0.29.0",
+    onShowVersion: () => {},
   };
 
   it("renders the brand subtitle and version with the Version label", () => {
     render(<Sidebar {...base} />);
     expect(screen.getByText("LIST OF OPEN POINTS")).toBeTruthy();
     expect(screen.getByText("Version v0.29.0")).toBeTruthy();
+  });
+
+  it("fires onShowVersion when the version line is clicked", () => {
+    const onShowVersion = vi.fn();
+    render(<Sidebar {...base} onShowVersion={onShowVersion} />);
+    fireEvent.click(screen.getByText("Version v0.29.0"));
+    expect(onShowVersion).toHaveBeenCalledTimes(1);
   });
 
   it("toggles collapse when the collapse button is clicked", () => {

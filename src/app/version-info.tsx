@@ -4,8 +4,8 @@
 // the action menus) and the VersionInfoModal (opened from the sidebar version
 // line and the Settings footer). Single source of truth for the "about" panel.
 
-import { useEffect } from "react";
 import { type Lang, t } from "./i18n";
+import { Modal } from "./modal";
 import {
   APP_BUILD_DATE,
   APP_HIGHLIGHT_KEYS,
@@ -14,7 +14,8 @@ import {
 } from "./version";
 
 /** Centered modal wrapping VersionInfo, opened from the sidebar version line
- *  and the Settings footer. Controlled: parent owns the open boolean. */
+ *  and the Settings footer. Controlled: parent owns the open boolean. Delegates
+ *  focus trap / restore, Escape, and backdrop dismissal to the shared Modal. */
 export function VersionInfoModal({
   lang,
   open,
@@ -24,28 +25,9 @@ export function VersionInfoModal({
   open: boolean;
   onClose: () => void;
 }) {
-  useEffect(() => {
-    if (!open) return;
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
-
-  if (!open) return null;
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-      onMouseDown={onClose}
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label={t(lang, "version")}
-        onMouseDown={(e) => e.stopPropagation()}
-        className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-lg border border-line bg-surface p-4"
-      >
+    <Modal open={open} onClose={onClose} ariaLabel={t(lang, "version")} align="center" zIndex={50}>
+      <div className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-lg border border-line bg-surface p-4">
         <div className="mb-2 flex items-center justify-between">
           <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             {t(lang, "version")}
@@ -53,7 +35,7 @@ export function VersionInfoModal({
           <button
             type="button"
             onClick={onClose}
-            aria-label="Close"
+            aria-label={t(lang, "alertModalClose")}
             className="rounded p-1 text-foreground hover:bg-surface-muted hover:text-AIPM-dark-blue dark:text-muted-foreground dark:hover:text-AIPM-light-grey"
           >
             <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-4 w-4">
@@ -63,7 +45,7 @@ export function VersionInfoModal({
         </div>
         <VersionInfo lang={lang} />
       </div>
-    </div>
+    </Modal>
   );
 }
 

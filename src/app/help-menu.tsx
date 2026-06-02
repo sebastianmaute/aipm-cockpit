@@ -6,7 +6,6 @@ import { useResizable } from "./use-resizable";
 import { APP_LICENSE_URL } from "./version";
 
 const POLICY_URL = "https://wiki.example.com/wiki/x/ewB2bwE";
-const LICENSE_URL = APP_LICENSE_URL;
 const STORAGE_KEY_POS = "lop-app:help-pos";
 const STORAGE_KEY_SIZE = "lop-app:help-size";
 
@@ -328,7 +327,7 @@ export function HelpMenu({ lang }: { lang: Lang }) {
               {t(lang, "helpPolicyLink")} ↗
             </a>
             <a
-              href={LICENSE_URL}
+              href={APP_LICENSE_URL}
               target="_blank"
               rel="noopener noreferrer"
               className="text-xs font-medium text-AIPM-dark-blue underline-offset-2 hover:underline dark:text-AIPM-blue"
