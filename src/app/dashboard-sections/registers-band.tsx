@@ -2,6 +2,21 @@ import { Section } from "../report-table";
 import { type Lang, t } from "../i18n";
 import type { RaidItem, Task } from "../types";
 
+function RaidItemContent({ r }: { r: RaidItem }) {
+  return (
+    <>
+      <span className="font-medium">{r.category}</span> · {r.title}
+      {r.severity ? (
+        <span className="text-muted-foreground"> ({r.severity})</span>
+      ) : null}
+    </>
+  );
+}
+
+function TaskItemContent({ tk }: { tk: Task }) {
+  return <>{tk.dueDate} · {tk.taskName}</>;
+}
+
 export function RegistersBand({
   lang,
   topRaid,
@@ -26,16 +41,17 @@ export function RegistersBand({
           <ul className="space-y-1 text-sm">
             {topRaid.map((r) => (
               <li key={r.id}>
-                <button
-                  type="button"
-                  className="text-left hover:underline"
-                  onClick={() => onOpenRaid?.(r.id)}
-                >
-                  <span className="font-medium">{r.category}</span> · {r.title}
-                  {r.severity ? (
-                    <span className="text-muted-foreground"> ({r.severity})</span>
-                  ) : null}
-                </button>
+                {onOpenRaid ? (
+                  <button
+                    type="button"
+                    className="text-left hover:underline"
+                    onClick={() => onOpenRaid(r.id)}
+                  >
+                    <RaidItemContent r={r} />
+                  </button>
+                ) : (
+                  <span><RaidItemContent r={r} /></span>
+                )}
               </li>
             ))}
           </ul>
@@ -48,13 +64,17 @@ export function RegistersBand({
         <ul className="mb-3 space-y-1 text-sm">
           {overdue.map((tk) => (
             <li key={tk.id}>
-              <button
-                type="button"
-                className="text-left hover:underline"
-                onClick={() => onOpenTask?.(tk.id)}
-              >
-                {tk.dueDate} · {tk.taskName}
-              </button>
+              {onOpenTask ? (
+                <button
+                  type="button"
+                  className="text-left hover:underline"
+                  onClick={() => onOpenTask(tk.id)}
+                >
+                  <TaskItemContent tk={tk} />
+                </button>
+              ) : (
+                <span><TaskItemContent tk={tk} /></span>
+              )}
             </li>
           ))}
           {overdue.length === 0 ? (
@@ -67,13 +87,17 @@ export function RegistersBand({
         <ul className="space-y-1 text-sm">
           {dueSoon.map((tk) => (
             <li key={tk.id}>
-              <button
-                type="button"
-                className="text-left hover:underline"
-                onClick={() => onOpenTask?.(tk.id)}
-              >
-                {tk.dueDate} · {tk.taskName}
-              </button>
+              {onOpenTask ? (
+                <button
+                  type="button"
+                  className="text-left hover:underline"
+                  onClick={() => onOpenTask(tk.id)}
+                >
+                  <TaskItemContent tk={tk} />
+                </button>
+              ) : (
+                <span><TaskItemContent tk={tk} /></span>
+              )}
             </li>
           ))}
           {dueSoon.length === 0 ? (

@@ -22,6 +22,8 @@ interface DashboardPanelProps {
   holidaySet: ReadonlySet<string>;
   workdayHours: number;
   today: string;
+  onOpenRaid?: (id: number) => void;
+  onOpenTask?: (id: number) => void;
 }
 
 function OverrideSelect({
@@ -51,7 +53,7 @@ function OverrideSelect({
 }
 
 export function DashboardPanel(props: DashboardPanelProps) {
-  const { lang, today } = props;
+  const { lang, today, onOpenRaid, onOpenTask } = props;
   const { status, setStatus } = useWorkspace();
   const sizeRef = useRef<HTMLDivElement | null>(null);
 
@@ -185,7 +187,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
         </div>
 
         {/* RAID + upcoming tasks */}
-        <RegistersBand lang={lang} topRaid={model.topRaid} overdue={model.overdue} dueSoon={model.dueSoon} />
+        <RegistersBand lang={lang} topRaid={model.topRaid} overdue={model.overdue} dueSoon={model.dueSoon} onOpenRaid={onOpenRaid} onOpenTask={onOpenTask} />
 
         {/* Recent activity */}
         <Section title={t(lang, "dashboardRecentActivity")}>

@@ -566,6 +566,15 @@ export function WorkspaceSection({
               holidaySet={holidaySet}
               workdayHours={settings.resources.workdayHours}
               today={today}
+              onOpenRaid={() => {
+                setActiveTab("raid");
+                handleClearRaidTaskFilter();
+                if (workspaceCollapsed) setWorkspaceCollapsed(false);
+              }}
+              onOpenTask={onEditTask ? (id) => {
+                const task = tasks.find((t) => t.id === id);
+                if (task) onEditTask(task);
+              } : undefined}
             />
           </div>
         )}
