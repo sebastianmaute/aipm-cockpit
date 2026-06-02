@@ -22,6 +22,35 @@ export const DASHBOARD_DEFAULTS = {
   budgetAmberRatio: 0.9,
 } as const;
 
+/** EVM index (SPI/CPI) thresholds for the dashboard RAGs: an index of 1.0 is
+ *  on plan, lower means behind schedule / over cost. Below RED is serious. */
+export const EVM_INDEX_AMBER = 0.9;
+export const EVM_INDEX_RED = 0.8;
+
+/** Health contribution from an EVM index (SPI or CPI): Red below 0.8, Amber
+ *  below 0.9, else null (healthy or undefined ⇒ no contribution). */
+export function evmIndexHealth(index: number | null): "R" | "A" | null {
+  if (index === null) return null;
+  if (index < EVM_INDEX_RED) return "R";
+  if (index < EVM_INDEX_AMBER) return "A";
+  return null;
+}
+
+const HEALTH_RANK: Record<Health, number> = { R: 3, A: 2, G: 1 };
+
+/** Worst-of combine over health signals: returns the most severe present
+ *  (R > A > G), or null when every signal is absent (null). */
+function worstHealth(...signals: SubStatus[]): SubStatus {
+  let best: SubStatus = null;
+  let bestRank = 0;
+  for (const s of signals) {
+    if (s === null) continue;
+    const rank = HEALTH_RANK[s];
+    if (rank > bestRank) { bestRank = rank; best = s; }
+  }
+  return best;
+}
+
 export type DashboardProgress = {
   total: number;
   completed: number;
@@ -197,19 +226,22 @@ export function computeDashboard(input: DashboardInput, opts: DashboardOptions =
 
   const overallComputed = computeGroupHealth(input.tasks, today, holidaySet).color;
   const tasksById = new Map(input.tasks.map((t) => [t.id, t] as const));
+  const evm = computeEvm(input.tasks, today, { blendedRate: projectBlendedInternalRate(input.roles) });
+
   const taskSchedule = computeScheduleStatus(input.tasks, today, holidaySet, dueSoonWorkdays);
   const ms = partitionMilestones(input.milestones, tasksById, today, holidaySet, dueSoonWorkdays);
   const msContribution: "R" | "A" | null =
     ms.overdue.length > 0 ? "R" : ms.atRisk.length > 0 || ms.dueSoon.length > 0 ? "A" : null;
+  // SPI feeds the Schedule RAG (worst-of with tasks + milestones).
   const scheduleComputed: Health =
-    taskSchedule === "R" || msContribution === "R" ? "R"
-    : taskSchedule === "A" || msContribution === "A" ? "A"
-    : "G";
+    worstHealth(taskSchedule, msContribution, evmIndexHealth(evm.spi)) ?? "G";
 
   const project: ProjectReport | null = input.budgets.length > 0
     ? computeBudgetReport(input.budgets, input.plan, input.roles, input.resources, input.workdayHours, holidaySet, input.absences).project
     : null;
-  const budgetComputed = computeBudgetStatus(project, amberRatio);
+  // CPI feeds the Budget RAG (worst-of with the budget-bucket status); it can
+  // surface a Budget RAG even when no buckets are configured.
+  const budgetComputed = worstHealth(computeBudgetStatus(project, amberRatio), evmIndexHealth(evm.cpi));
   const burn: DashboardBurn | null = project
     ? {
         budgetValue: project.budgetValue, consumedValue: project.consumedValue,
@@ -219,8 +251,6 @@ export function computeDashboard(input: DashboardInput, opts: DashboardOptions =
     : null;
 
   const { overdue, dueSoon } = partitionUpcoming(input.tasks, today, holidaySet, dueSoonWorkdays);
-
-  const evm = computeEvm(input.tasks, today, { blendedRate: projectBlendedInternalRate(input.roles) });
 
   return {
     overall: { computed: overallComputed, effective: status.ragOverride ?? overallComputed, overridden: !!status.ragOverride },

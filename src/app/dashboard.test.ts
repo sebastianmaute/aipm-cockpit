@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   computeDashboardProgress, computeScheduleStatus, computeBudgetStatus,
   selectTopRaid, partitionUpcoming, recentActivity, computeDashboard,
+  evmIndexHealth,
   type DashboardInput,
 } from "./dashboard";
 import type { ProjectReport } from "./budget-report";
@@ -81,6 +82,24 @@ describe("computeBudgetStatus", () => {
   });
   it("is Red when over budget", () => {
     expect(computeBudgetStatus(project(100, 101))).toBe("R");
+  });
+});
+
+describe("evmIndexHealth", () => {
+  it("returns null for an undefined index", () => {
+    expect(evmIndexHealth(null)).toBeNull();
+  });
+  it("returns null when healthy (>= 0.9)", () => {
+    expect(evmIndexHealth(1)).toBeNull();
+    expect(evmIndexHealth(0.9)).toBeNull();
+  });
+  it("returns Amber below 0.9 and at/above 0.8", () => {
+    expect(evmIndexHealth(0.89)).toBe("A");
+    expect(evmIndexHealth(0.8)).toBe("A");
+  });
+  it("returns Red below 0.8", () => {
+    expect(evmIndexHealth(0.79)).toBe("R");
+    expect(evmIndexHealth(0)).toBe("R");
   });
 });
 
@@ -195,5 +214,45 @@ describe("computeDashboard", () => {
     expect(m.evm.ac).toBe(45);
     expect(m.evm.coverage).toEqual({ withEstimate: 2, total: 2 });
     expect(m.evm.money).toBeNull();
+  });
+  it("folds a low SPI into the Schedule RAG (escalates Amber to Red)", () => {
+    // task 1: 80h done today (PV 80, EV 80). task 2: 40h due today, open
+    // (PV +40, due-soon -> taskSchedule Amber). SPI = 80/120 = 0.667 -> Red.
+    const tasks = [
+      task({ id: 1, originalEstimateMinutes: 4800, dueDate: today, completedDate: today }),
+      task({ id: 2, originalEstimateMinutes: 2400, dueDate: today }),
+    ];
+    const m = computeDashboard(baseInput({ tasks }));
+    expect(m.evm.spi).toBeCloseTo(0.667, 2);
+    expect(m.schedule.computed).toBe("R");
+  });
+  it("folds a low CPI into the Budget RAG even with no budget buckets", () => {
+    // 80h earned, 100h spent -> CPI 0.8 -> Amber; no budgets configured.
+    const tasks = [
+      task({ id: 1, originalEstimateMinutes: 4800, dueDate: "2026-05-01", completedDate: "2026-04-30", timeSpentMinutes: 6000 }),
+    ];
+    const m = computeDashboard(baseInput({ tasks }));
+    expect(m.evm.cpi).toBeCloseTo(0.8, 5);
+    expect(m.budget.computed).toBe("A");
+    expect(m.budget.effective).toBe("A");
+  });
+  it("leaves the RAGs unchanged when EVM indices are healthy", () => {
+    const tasks = [
+      task({ id: 1, originalEstimateMinutes: 4800, dueDate: "2026-05-01", completedDate: "2026-04-30", timeSpentMinutes: 4800 }),
+    ];
+    const m = computeDashboard(baseInput({ tasks }));
+    expect(m.evm.spi).toBe(1);
+    expect(m.evm.cpi).toBe(1);
+    expect(m.schedule.computed).toBe("G");
+    expect(m.budget.computed).toBeNull();
+  });
+  it("lets a manual Budget override win over a low CPI", () => {
+    const tasks = [
+      task({ id: 1, originalEstimateMinutes: 4800, dueDate: "2026-05-01", completedDate: "2026-04-30", timeSpentMinutes: 6000 }),
+    ];
+    const m = computeDashboard(baseInput({ tasks, status: { budgetOverride: "G" } }));
+    expect(m.budget.computed).toBe("A");
+    expect(m.budget.effective).toBe("G");
+    expect(m.budget.overridden).toBe(true);
   });
 });
