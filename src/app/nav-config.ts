@@ -5,6 +5,7 @@ import type { TranslationKey } from "./i18n";
 // (full-page task editor) and intentionally has no nav entry yet.
 export type AppView =
   | "open-points"
+  | "dashboard"
   | "chat"
   | "gantt"
   | "resources"
@@ -35,7 +36,7 @@ export interface NavGroup {
 export const NAV_GROUPS: NavGroup[] = [
   {
     labelKey: "navGroupOverview",
-    items: [{ view: "open-points" }, { view: "chat" }],
+    items: [{ view: "dashboard" }, { view: "open-points" }, { view: "chat" }],
   },
   {
     labelKey: "navGroupPlan",
@@ -68,6 +69,7 @@ export const NAV_GROUPS: NavGroup[] = [
 ];
 
 const LABEL_KEYS: Record<Exclude<AppView, "edit">, TranslationKey> = {
+  dashboard: "navDashboard",
   "open-points": "navOpenPoints",
   chat: "tabChat",
   gantt: "tabGantt",

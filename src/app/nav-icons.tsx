@@ -10,6 +10,8 @@ interface NavIconProps {
 // collapsed), so every glyph is aria-hidden.
 const ICON_PATHS: Record<AppView, string> = {
   "open-points": "M9 5h11M9 12h11M9 19h11M4 5h.01M4 12h.01M4 19h.01",
+  // dashboard: gauge / speedometer
+  dashboard: "M12 2a10 10 0 0 1 10 10M12 2a10 10 0 0 0-10 10M12 12l4.5-4.5M12 12m-1 0a1 1 0 1 0 2 0 1 1 0 0 0-2 0M5.6 18.4A9.97 9.97 0 0 1 2 12M18.4 18.4A9.97 9.97 0 0 0 22 12",
   chat: "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z",
   gantt: "M5 6h9M5 12h13M5 18h6M3 4v16",
   resources: "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75",
