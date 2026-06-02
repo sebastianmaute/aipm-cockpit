@@ -14,7 +14,7 @@ export const COST_PERF_RED = 80;
 export const COST_PERF_AMBER = 90;
 
 /** Over-budget ratio health. Green below 90% of budget, Amber from 90% up to and
- *  including 100%, Red above 100%. null when there is no budget to compare against. */
+ *  including 100%, Red above 100%. null when there is no budget to compare against (budget is zero, negative, or non-finite). */
 export function ratioHealth(actual: number, budget: number): Health | null {
   if (!(budget > 0)) return null;
   const r = actual / budget;
@@ -39,7 +39,9 @@ export function costPerformanceHealth(percent: number | null): Health | null {
   return "G";
 }
 
-/** Win/Loss health mirrors the consumption ratio (the two are inverse). */
+/** Win/Loss health mirrors the consumption ratio (the two are inverse). Pass the
+ *  raw `consumedValue` and `budgetValue` amounts — NOT the precomputed
+ *  `winLossValue` difference from budget-report.ts. */
 export function winLossHealth(consumedValue: number, budgetValue: number): Health | null {
   return ratioHealth(consumedValue, budgetValue);
 }

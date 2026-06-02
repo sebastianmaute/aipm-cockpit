@@ -42,6 +42,7 @@ describe("costPerformanceHealth (percent = budgetCost/cost*100; R <80, A <90, G 
 
 describe("winLossHealth (mirrors consumption ratio)", () => {
   it("is Red when consumed exceeds budget", () => { expect(winLossHealth(110, 100)).toBe("R"); });
+  it("is Amber in the 90-100% consumption band", () => { expect(winLossHealth(95, 100)).toBe("A"); });
   it("is Green when comfortably under", () => { expect(winLossHealth(50, 100)).toBe("G"); });
   it("is null when no budget", () => { expect(winLossHealth(50, 0)).toBeNull(); });
 });
