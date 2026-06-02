@@ -886,20 +886,20 @@ export function workspaceToJson(ws: Workspace): string {
   );
 }
 
-/** Defensive: accept only known RAG/narrative fields from untrusted JSON. */
+/** Defensive: whitelist the six known ProjectStatus fields from untrusted JSON. */
 export function sanitizeProjectStatus(raw: unknown): ProjectStatus {
-  if (!raw || typeof raw !== "object") return {};
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
   const r = raw as Record<string, unknown>;
   const rag = (v: unknown): "R" | "A" | "G" | undefined =>
     v === "R" || v === "A" || v === "G" ? v : undefined;
   const str = (v: unknown): string | undefined => (typeof v === "string" ? v : undefined);
   const out: ProjectStatus = {};
-  if (rag(r.ragOverride)) out.ragOverride = rag(r.ragOverride);
-  if (rag(r.scheduleOverride)) out.scheduleOverride = rag(r.scheduleOverride);
-  if (rag(r.budgetOverride)) out.budgetOverride = rag(r.budgetOverride);
-  if (rag(r.scopeOverride)) out.scopeOverride = rag(r.scopeOverride);
-  if (str(r.narrative)) out.narrative = str(r.narrative);
-  if (str(r.narrativeUpdatedAt)) out.narrativeUpdatedAt = str(r.narrativeUpdatedAt);
+  const ragOverride = rag(r.ragOverride); if (ragOverride) out.ragOverride = ragOverride;
+  const scheduleOverride = rag(r.scheduleOverride); if (scheduleOverride) out.scheduleOverride = scheduleOverride;
+  const budgetOverride = rag(r.budgetOverride); if (budgetOverride) out.budgetOverride = budgetOverride;
+  const scopeOverride = rag(r.scopeOverride); if (scopeOverride) out.scopeOverride = scopeOverride;
+  const narrative = str(r.narrative); if (narrative) out.narrative = narrative;
+  const narrativeUpdatedAt = str(r.narrativeUpdatedAt); if (narrativeUpdatedAt) out.narrativeUpdatedAt = narrativeUpdatedAt;
   return out;
 }
 

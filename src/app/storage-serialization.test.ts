@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import { migrateWorkspaceV5, migrateWorkspaceV6, emptyWorkspace, workspaceToCsv, csvToWorkspace, workspaceToMarkdown, markdownToWorkspace, workspaceToJson, jsonToWorkspace, type Workspace } from "./storage";
+import { migrateWorkspaceV5, migrateWorkspaceV6, emptyWorkspace, workspaceToCsv, csvToWorkspace, workspaceToMarkdown, markdownToWorkspace, workspaceToJson, jsonToWorkspace, sanitizeProjectStatus, type Workspace } from "./storage";
 import type { Task, Resource, Role, Discipline, Grade } from "./types";
 import { resourceDisplayName } from "./resource-foundation";
 
@@ -154,4 +154,13 @@ test("JSON round-trip preserves project status", () => {
   };
   const back = jsonToWorkspace(workspaceToJson(ws));
   expect(back.status).toEqual(ws.status);
+});
+
+test("sanitizeProjectStatus rejects malformed input and whitelists known fields", () => {
+  expect(sanitizeProjectStatus(null)).toEqual({});
+  expect(sanitizeProjectStatus(42)).toEqual({});
+  expect(sanitizeProjectStatus(["R"])).toEqual({});
+  expect(sanitizeProjectStatus({ ragOverride: "X", junk: 1 })).toEqual({});
+  expect(sanitizeProjectStatus({ narrative: 5 })).toEqual({});
+  expect(sanitizeProjectStatus({ ragOverride: "G", narrative: "ok" })).toEqual({ ragOverride: "G", narrative: "ok" });
 });
