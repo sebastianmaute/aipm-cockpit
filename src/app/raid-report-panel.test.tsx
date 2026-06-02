@@ -86,6 +86,13 @@ describe("RaidReportPanel", () => {
     fireEvent.click(titleHeader);
     expect(screen.getByText("Server capacity risk")).toBeInTheDocument();
   });
+
+  it("embedded mode shows summary content and no toggle or print button", () => {
+    render(<RaidReportPanel lang="en-US" items={items} today={TODAY} embedded />);
+    expect(screen.getAllByRole("table").length).toBeGreaterThan(0); // summary tables render
+    expect(screen.queryByRole("button", { name: /print/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /full detail/i })).toBeNull();
+  });
 });
 
 describe("RaidReportPanel — resizable card, filters, resize handles", () => {

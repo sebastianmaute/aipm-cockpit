@@ -40,6 +40,7 @@ interface Props {
   holidaySet: Set<string>;
   workdayHours: number;
   fxRates: FxRates | null;
+  embedded?: boolean;
 }
 
 function localeFor(lang: Lang): string {
@@ -47,7 +48,7 @@ function localeFor(lang: Lang): string {
 }
 
 export function BudgetReportPanel({
-  lang, buckets, plan, roles, resources, absences, holidaySet, workdayHours, fxRates,
+  lang, buckets, plan, roles, resources, absences, holidaySet, workdayHours, fxRates, embedded = false,
 }: Props) {
   // Hooks are called unconditionally before the empty-state early return (rules of hooks).
   const report = useMemo(
@@ -71,14 +72,8 @@ export function BudgetReportPanel({
   const pct = (v: CciValue) => (v.percent == null ? "—" : `${v.percent.toFixed(1)}%`);
   const proj = report.project;
 
-  return (
-    <ReportCard
-      lang={lang}
-      sizeRef={ref}
-      onResetSize={reset}
-      onResetCols={detail.resetColWidths}
-      title={t(lang, "budgetReportTitle")}
-    >
+  const content = (
+    <>
       <Section title={t(lang, "budgetReportProjectTotal")}>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Tile label={t(lang, "budgetBudgetHours")} value={proj.budgetHours.toFixed(0)} />
@@ -100,6 +95,20 @@ export function BudgetReportPanel({
         colResize={detail}
         money={money}
       />
+    </>
+  );
+
+  if (embedded) return <div className="space-y-6">{content}</div>;
+
+  return (
+    <ReportCard
+      lang={lang}
+      sizeRef={ref}
+      onResetSize={reset}
+      onResetCols={detail.resetColWidths}
+      title={t(lang, "budgetReportTitle")}
+    >
+      {content}
     </ReportCard>
   );
 }

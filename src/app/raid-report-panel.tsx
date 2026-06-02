@@ -112,11 +112,12 @@ interface Props {
   lang: Lang;
   items: readonly RaidItem[];
   today: string;
+  embedded?: boolean;
 }
 
 type View = "summary" | "full";
 
-export function RaidReportPanel({ lang, items, today }: Props) {
+export function RaidReportPanel({ lang, items, today, embedded = false }: Props) {
   const rep: RaidReport = useMemo(() => computeRaidReport(items, today), [items, today]);
   const [view, setView] = useState<View>("summary");
 
@@ -150,6 +151,36 @@ export function RaidReportPanel({ lang, items, today }: Props) {
     );
   }
 
+  const effectiveView: View = embedded ? "summary" : view;
+
+  const content = (
+    <>
+      {effectiveView === "summary" && (
+        <>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <Tile label={t(lang, "raidReportOpenRisks")} value={String(rep.tiles.openR)} />
+            <Tile label={t(lang, "raidReportOpenAssumptions")} value={String(rep.tiles.openA)} />
+            <Tile label={t(lang, "raidReportOpenIssues")} value={String(rep.tiles.openI)} />
+            <Tile label={t(lang, "raidReportOpenDependencies")} value={String(rep.tiles.openD)} />
+          </div>
+
+          <SeverityTable lang={lang} rows={rep.bySeverity} colResize={severity} />
+          <StatusTable lang={lang} rows={rep.byStatus} colResize={status} />
+          <OwnerTable lang={lang} rows={rep.byOwner} colResize={owner} />
+          <TopOpenTable lang={lang} rows={rep.topOpen} colResize={topOpen} />
+          <CategoryTable lang={lang} rows={rep.byCategory} colResize={category} />
+          <AgingTable lang={lang} rows={rep.byAging} colResize={aging} />
+        </>
+      )}
+
+      {effectiveView === "full" && (
+        <DetailTable lang={lang} rows={rep.fullDetail} colResize={detail} />
+      )}
+    </>
+  );
+
+  if (embedded) return <div className="space-y-6">{content}</div>;
+
   const viewToggle = (
     <SegmentedControl<View>
       value={view}
@@ -171,27 +202,7 @@ export function RaidReportPanel({ lang, items, today }: Props) {
       toolbarExtra={viewToggle}
       title={t(lang, "raidReportTitle")}
     >
-      {view === "summary" && (
-        <>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Tile label={t(lang, "raidReportOpenRisks")} value={String(rep.tiles.openR)} />
-            <Tile label={t(lang, "raidReportOpenAssumptions")} value={String(rep.tiles.openA)} />
-            <Tile label={t(lang, "raidReportOpenIssues")} value={String(rep.tiles.openI)} />
-            <Tile label={t(lang, "raidReportOpenDependencies")} value={String(rep.tiles.openD)} />
-          </div>
-
-          <SeverityTable lang={lang} rows={rep.bySeverity} colResize={severity} />
-          <StatusTable lang={lang} rows={rep.byStatus} colResize={status} />
-          <OwnerTable lang={lang} rows={rep.byOwner} colResize={owner} />
-          <TopOpenTable lang={lang} rows={rep.topOpen} colResize={topOpen} />
-          <CategoryTable lang={lang} rows={rep.byCategory} colResize={category} />
-          <AgingTable lang={lang} rows={rep.byAging} colResize={aging} />
-        </>
-      )}
-
-      {view === "full" && (
-        <DetailTable lang={lang} rows={rep.fullDetail} colResize={detail} />
-      )}
+      {content}
     </ReportCard>
   );
 }

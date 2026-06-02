@@ -139,7 +139,7 @@ export function WorkspaceSection({
   fxLoading = false,
   fullBleed = false,
 }: WorkspaceSectionProps) {
-  const { settings, lang } = useSettings();
+  const { settings, setSettings, lang } = useSettings();
   const { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates } = useWorkspace();
   const { activeTab, setActiveTab, isPopout } = useWorkspaceTab();
   const { raidFilterTaskId } = useFilters();
@@ -358,6 +358,18 @@ export function WorkspaceSection({
               today={today}
               holidaySet={holidaySet}
               lang={lang}
+              raid={raid}
+              buckets={budgets}
+              plan={plan}
+              roles={roles}
+              disciplines={disciplines}
+              grades={grades}
+              resources={resources}
+              absences={absences}
+              workdayHours={settings.resources.workdayHours}
+              fxRates={fxRates}
+              extraReports={settings.reports?.extra ?? []}
+              onChangeExtraReports={(next) => setSettings((s) => ({ ...s, reports: { ...s.reports, extra: next } }))}
             />
           </div>
         )}

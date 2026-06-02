@@ -1,3 +1,12 @@
+// 0.42.0 "Le Guin" makes the Reports view composable: an "+ Add report" control
+// appends the RAID, Budget, and Resource reports below the task analytics, each
+// removable, the chosen set persisted in settings — all inside one print card.
+// In-app printing now defaults to A4 landscape. (Folds in the 0.41.1 fix: the
+// Budget empty-state "+ Add bucket…" prompt is now a real button.)
+// 0.41.1 makes the Budget panel's empty-state "+ Add bucket…" prompt a real
+// button: with no buckets, clicking it now creates a bucket and opens the
+// editor modal (previously it was inert text). Inherits the 0.41.x "Okorafor"
+// milestone. No other behavior change.
 // 0.41.0 "Okorafor" adds a dedicated Budget Report. A new "Budget Report"
 // sub-menu under Budget (mirroring RAID -> RAID Report) shows the current
 // budget calculations across all buckets — role rates, blended discipline
@@ -537,12 +546,12 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.41.0";
-export const APP_BUILD_DATE = "2026-06-01"; // 0.41.0 dedicated Budget Report view
+export const APP_VERSION = "0.42.0";
+export const APP_BUILD_DATE = "2026-06-02"; // 0.42.0 composable reports + landscape print
 /** Minor-series milestone codename (sci-fi/fantasy author names). The whole
  *  0.39.x line is "Tchaikovsky" (Adrian Tchaikovsky); patch releases inherit
  *  their minor version's codename rather than getting their own. */
-export const APP_MILESTONE = "Okorafor";
+export const APP_MILESTONE = "Le Guin";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -590,4 +599,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightConsistency",
   "versionHighlightBudgetModes",
   "versionHighlightBudgetReport",
+  "versionHighlightComposableReports",
 ] as const;

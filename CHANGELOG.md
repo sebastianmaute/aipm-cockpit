@@ -8,6 +8,19 @@ Authoritative source for version + build date: [`src/app/version.ts`](src/app/ve
 This file is seeded from that module's milestone comment plus the
 post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-diff.txt).
 
+## [0.42.0] — 2026-06-02 "Le Guin"
+
+### Added
+- **Composable Reports:** the Reports view has an "+ Add report" control that appends the RAID Report, Budget Report, and/or Resource Report below the task analytics. Each is removable, the selection persists, and the whole view prints as one document.
+
+### Changed
+- In-app printing now defaults to A4 landscape (matching the PDF export).
+
+## [0.41.1] — 2026-06-01
+
+### Fixed
+- Budget panel: the empty-state "+ Add bucket…" prompt (shown when no buckets exist) is now a real button — clicking it creates a bucket and opens the editor modal. Previously it was inert text.
+
 ## [0.41.0] — 2026-06-01 "Okorafor"
 
 ### Added

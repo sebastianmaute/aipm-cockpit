@@ -21,6 +21,13 @@ import {
 } from "./health";
 import { type Lang, t } from "./i18n";
 import { type Priority, PRIORITIES, type Task } from "./types";
+import { RaidReportPanel } from "./raid-report-panel";
+import { BudgetReportPanel } from "./budget-report-panel";
+import { ResourcesReportPanel } from "./resources-report";
+import { ADDABLE_REPORTS, type AddableReportId } from "./addable-reports";
+import type {
+  Absence, BudgetBucket, Discipline, FxRates, Grade, RaidItem, Resource, ResourcePlan, Role,
+} from "./types";
 
 const REPORTS_INQUIRY_COL_WIDTHS = {
   id: 60,
@@ -244,15 +251,27 @@ function computeStats(
 }
 
 export function ReportsPanel({
-  tasks,
-  today,
-  holidaySet,
-  lang,
+  tasks, today, holidaySet, lang,
+  raid = [], buckets = [], plan, roles = [], disciplines = [], grades = [],
+  resources = [], absences = [], workdayHours = 8, fxRates = null,
+  extraReports = [], onChangeExtraReports,
 }: {
   tasks: Task[];
   today: string;
   holidaySet: Set<string>;
   lang: Lang;
+  raid?: RaidItem[];
+  buckets?: BudgetBucket[];
+  plan?: ResourcePlan;
+  roles?: Role[];
+  disciplines?: Discipline[];
+  grades?: Grade[];
+  resources?: Resource[];
+  absences?: Absence[];
+  workdayHours?: number;
+  fxRates?: FxRates | null;
+  extraReports?: AddableReportId[];
+  onChangeExtraReports?: (next: AddableReportId[]) => void;
 }) {
   const stats = useMemo(
     () => computeStats(tasks, today, holidaySet),
@@ -349,8 +368,34 @@ export function ReportsPanel({
     onTrack: "healthDriverOnTrack",
   };
 
+  const remainingReports = ADDABLE_REPORTS.filter((r) => !extraReports.includes(r.id));
+  const addReportControl = (
+    <select
+      aria-label={t(lang, "reportsAddReport")}
+      value=""
+      disabled={remainingReports.length === 0}
+      onChange={(e) => {
+        const id = e.target.value as AddableReportId;
+        if (id) onChangeExtraReports?.([...extraReports, id]);
+      }}
+      className="rounded-md border border-line bg-surface px-2 py-1.5 text-xs disabled:opacity-50"
+    >
+      <option value="">{remainingReports.length === 0 ? t(lang, "reportsAddReportNone") : `+ ${t(lang, "reportsAddReport")}`}</option>
+      {remainingReports.map((r) => (
+        <option key={r.id} value={r.id}>{t(lang, r.titleKey)}</option>
+      ))}
+    </select>
+  );
+
+  const renderEmbedded = (id: AddableReportId) => {
+    if (id === "raid-report") return <RaidReportPanel embedded lang={lang} items={raid} today={today} />;
+    if (id === "budget-report") return plan ? <BudgetReportPanel embedded lang={lang} buckets={buckets} plan={plan} roles={roles} resources={resources} absences={absences} holidaySet={holidaySet} workdayHours={workdayHours} fxRates={fxRates} /> : null;
+    if (id === "resource-report") return plan ? <ResourcesReportPanel embedded lang={lang} resources={resources} roles={roles} disciplines={disciplines} grades={grades} plan={plan} absences={absences} holidaySet={holidaySet} workdayHours={workdayHours} /> : null;
+    return null;
+  };
+
   return (
-    <ReportCard lang={lang} sizeRef={reportsRef} onResetSize={resetReportsSize} onResetCols={resetAllReports} title={t(lang, "tabReports")}>
+    <ReportCard lang={lang} sizeRef={reportsRef} onResetSize={resetReportsSize} onResetCols={resetAllReports} toolbarExtra={addReportControl} title={t(lang, "tabReports")}>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Tile label={t(lang, "reportsTotal")} value={stats.total} />
         <Tile label={t(lang, "reportsOpen")} value={stats.open} />
@@ -561,6 +606,30 @@ export function ReportsPanel({
           filterPlaceholderKey="reportsFilterLabel"
         />
       </Section>
+
+      {extraReports.map((id) => {
+        const meta = ADDABLE_REPORTS.find((r) => r.id === id);
+        const body = meta ? renderEmbedded(id) : null;
+        if (!meta || !body) return null;
+        const removeLabel = `${t(lang, "reportsRemoveReport")}: ${t(lang, meta.titleKey)}`;
+        return (
+          <div key={id}>
+            <div className="mb-2 flex items-center justify-between gap-2 border-t border-line pt-4">
+              <h3 className="text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">{t(lang, meta.titleKey)}</h3>
+              <button
+                type="button"
+                onClick={() => onChangeExtraReports?.(extraReports.filter((x) => x !== id))}
+                aria-label={removeLabel}
+                title={removeLabel}
+                className="rounded-md border border-transparent px-2 py-0.5 text-xs text-muted-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted print:hidden"
+              >
+                ×
+              </button>
+            </div>
+            {body}
+          </div>
+        );
+      })}
 
     </ReportCard>
   );

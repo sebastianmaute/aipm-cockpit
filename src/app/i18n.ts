@@ -508,6 +508,9 @@ const enUS = {
   reportsFilterGroup: "Filter groups…",
   reportsFilterLabel: "Filter labels…",
   reportsNoMatches: "No matches for current filter.",
+  reportsAddReport: "Add report",
+  reportsRemoveReport: "Remove report",
+  reportsAddReportNone: "All reports added",
   versionHighlightReportsSortFilter:
     "Reports tables (By Assignee, By Group, By Label) are now sortable and filterable — click any header to sort, type in the search box to narrow rows.",
 
@@ -1040,6 +1043,7 @@ const enUS = {
   versionHighlightConsistency: "Consistent UI — uniform header spacing, control sizing, and dialog buttons/headers across every view",
   versionHighlightBudgetModes: "Plan budgets per discipline (blended rate) or per role, with per-bucket rate overrides and a filterable budget report.",
   versionHighlightBudgetReport: "A dedicated Budget Report (under Budget) shows current budget calculations across all buckets, rates, and factors.",
+  versionHighlightComposableReports: "Add the RAID, Budget, and Resource reports into the Reports view and print them together in landscape.",
 
   outlookCalImportTitle: "Import Outlook calendar",
   outlookCalImportLoading: "Loading events…",

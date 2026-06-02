@@ -46,11 +46,23 @@ describe("BudgetPanel editing", () => {
   test("Add bucket emits a new open bucket", async () => {
     const spy = vi.fn();
     render(<Harness initial={[]} onChangeSpy={spy} />);
-    await userEvent.click(screen.getByRole("button", { name: /Add bucket/i }));
+    // Header button is exactly "+ Add bucket" (the empty-state prompt is "+ Add bucket…").
+    await userEvent.click(screen.getByRole("button", { name: /^\+ Add bucket$/i }));
     expect(spy).toHaveBeenCalledTimes(1);
     const next = spy.mock.calls[0][0] as BudgetBucket[];
     expect(next).toHaveLength(1);
     expect(next[0].status).toBe("open");
+  });
+
+  test("empty-state add-bucket prompt is clickable and opens the modal", async () => {
+    const spy = vi.fn();
+    render(<Harness initial={[]} onChangeSpy={spy} />);
+    await userEvent.click(screen.getByRole("button", { name: /^\+ Add bucket…$/i }));
+    expect(spy).toHaveBeenCalledTimes(1);
+    const emitted = spy.mock.calls[0][0] as BudgetBucket[];
+    expect(emitted).toHaveLength(1);
+    expect(emitted[0].status).toBe("open");
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
   });
 
   test("editing an actual-hours cell emits the updated bucket", () => {
@@ -84,7 +96,7 @@ describe("BudgetPanel editing", () => {
   test("Add bucket emits the new bucket AND opens the modal", async () => {
     const spy = vi.fn();
     render(<Harness initial={[]} onChangeSpy={spy} />);
-    await userEvent.click(screen.getByRole("button", { name: /Add bucket/i }));
+    await userEvent.click(screen.getByRole("button", { name: /^\+ Add bucket$/i }));
     // onChange fired with the new bucket
     expect(spy).toHaveBeenCalledTimes(1);
     const emitted = spy.mock.calls[0][0] as BudgetBucket[];

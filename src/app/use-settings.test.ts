@@ -51,6 +51,19 @@ describe("useSettings", () => {
       await act(async () => {});
       expect(result.current.settings.language).toBe("en-GB");
     });
+
+    it("sanitizes persisted reports.extra (drops junk + dups) on load", async () => {
+      localStorage.setItem(
+        SETTINGS_KEY,
+        JSON.stringify({
+          ...defaultSettings,
+          reports: { extra: ["budget-report", "nope", "budget-report"] },
+        }),
+      );
+      const { result } = renderHook(() => useSettings());
+      await act(async () => {});
+      expect(result.current.settings.reports?.extra).toEqual(["budget-report"]);
+    });
   });
 
   describe("persistence", () => {

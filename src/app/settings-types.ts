@@ -1,4 +1,5 @@
 // src/app/settings-types.ts
+import type { AddableReportId } from "./addable-reports";
 import type { Lang } from "./i18n";
 import {
   type StorageConfig,
@@ -146,6 +147,7 @@ export type Settings = {
   popout: { reuseWindow: boolean };
   resources: { workdayHours: number };
   layout: "modern" | "classic";
+  reports?: { extra: AddableReportId[] };
   integrations?: IntegrationsSettings;
 };
 
@@ -159,5 +161,6 @@ export const defaultSettings: Settings = {
   popout: { reuseWindow: false },
   resources: { workdayHours: 8 },
   layout: "modern",
+  reports: { extra: [] },
   integrations: defaultIntegrations,
 };

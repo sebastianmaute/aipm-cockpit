@@ -1,8 +1,9 @@
-import { describe, expect, it } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ReportsPanel } from "./reports";
-import type { Task } from "./types";
+import type { BudgetBucket, ResourcePlan, Role, Task } from "./types";
+import type { AddableReportId } from "./addable-reports";
 
 const TODAY = "2026-05-28";
 
@@ -147,5 +148,54 @@ describe("ReportsPanel — sort + filter", () => {
   it("renders a Print button in the header", () => {
     renderReports(tasks);
     expect(screen.getByRole("button", { name: /print/i })).toBeInTheDocument();
+  });
+});
+
+const brPlan: ResourcePlan = { startDate: "2026-01-01", endDate: "2026-01-31", granularity: "month", currency: "EUR" };
+const brRoles: Role[] = [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 }];
+const brBuckets: BudgetBucket[] = [
+  { id: 1, name: "Alpha", type: "tm", currency: "EUR", startDate: "2026-01-01", endDate: "2026-01-31", status: "open",
+    allocations: [{ roleId: 1, resourceIds: [], budgetHours: { "2026-01": 100 }, actualHours: { "2026-01": 40 } }] },
+];
+
+function renderComposed(extraReports: AddableReportId[], onChange = vi.fn()) {
+  render(
+    <ReportsPanel
+      tasks={[makeTask({ id: 1, assignee: "A" })]}
+      today={TODAY}
+      holidaySet={new Set()}
+      lang="en-US"
+      buckets={brBuckets}
+      plan={brPlan}
+      roles={brRoles}
+      disciplines={[{ id: 1, name: "Consulting" }]}
+      grades={[{ id: 1, name: "Junior" }]}
+      resources={[]}
+      absences={[]}
+      workdayHours={8}
+      fxRates={null}
+      raid={[]}
+      extraReports={extraReports}
+      onChangeExtraReports={onChange}
+    />,
+  );
+  return onChange;
+}
+
+describe("ReportsPanel — composed reports", () => {
+  it("renders an appended report's content when in extraReports", () => {
+    renderComposed(["budget-report"]);
+    expect(screen.getByText(/project total/i)).toBeInTheDocument(); // Budget report body
+    expect(screen.getByText("Alpha")).toBeInTheDocument();
+  });
+  it("the add-report select appends a chosen report", () => {
+    const onChange = renderComposed([]);
+    fireEvent.change(screen.getByLabelText(/add report/i), { target: { value: "budget-report" } });
+    expect(onChange).toHaveBeenCalledWith(["budget-report"]);
+  });
+  it("a report's remove button removes it", () => {
+    const onChange = renderComposed(["budget-report"]);
+    fireEvent.click(screen.getByRole("button", { name: /remove report/i }));
+    expect(onChange).toHaveBeenCalledWith([]);
   });
 });

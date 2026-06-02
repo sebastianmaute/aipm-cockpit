@@ -39,6 +39,17 @@ test("renders a Print button", () => {
   expect(screen.getByRole("button", { name: /print/i })).toBeInTheDocument();
 });
 
+test("embedded mode renders content without a print button", () => {
+  render(
+    <ResourcesReportPanel
+      lang="en-US" resources={resources} roles={roles} disciplines={disciplines}
+      grades={grades} plan={plan} absences={[]} holidaySet={new Set()} workdayHours={8} embedded
+    />,
+  );
+  expect(screen.getByText("Sample")).toBeInTheDocument(); // resource row renders
+  expect(screen.queryByRole("button", { name: /print/i })).toBeNull();
+});
+
 test("resource report uses a resizable ReportCard with sort buttons, a filter input, and resize handles", () => {
   const { container } = render(
     <ResourcesReportPanel lang="en-US" resources={resources} roles={roles}

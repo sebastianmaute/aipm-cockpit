@@ -523,6 +523,9 @@ export const de: Record<TranslationKey, string> = {
   reportsFilterGroup: "Gruppen filtern…",
   reportsFilterLabel: "Labels filtern…",
   reportsNoMatches: "Keine Treffer für den aktuellen Filter.",
+  reportsAddReport: "Bericht hinzufügen",
+  reportsRemoveReport: "Bericht entfernen",
+  reportsAddReportNone: "Alle Berichte hinzugefügt",
   versionHighlightReportsSortFilter:
     "Reports-Tabellen (Nach Assignee, Nach Gruppe, Nach Label) sind sortier- und filterbar — Spaltenkopf zum Sortieren klicken, Filtertext eingeben, um Zeilen einzugrenzen.",
 
@@ -1058,6 +1061,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightConsistency: "Einheitliche Oberfläche — gleichmäßige Kopfzeilen-Abstände, Steuerelement-Größen und Dialog-Schaltflächen und -Kopfzeilen in allen Ansichten",
   versionHighlightBudgetModes: "Budgets je Disziplin (Mischsatz) oder je Rolle planen, mit Satz-Overrides je Bucket und einem filterbaren Budgetbericht.",
   versionHighlightBudgetReport: "Ein eigener Budgetbericht (unter Budget) zeigt die aktuellen Budgetberechnungen über alle Buckets, Sätze und Faktoren.",
+  versionHighlightComposableReports: "RAID-, Budget- und Ressourcenberichte in die Berichtsansicht aufnehmen und zusammen im Querformat drucken.",
 
   outlookCalImportTitle: "Outlook-Kalender importieren",
   outlookCalImportLoading: "Termine werden geladen…",

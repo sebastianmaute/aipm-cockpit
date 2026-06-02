@@ -424,7 +424,13 @@ export function BudgetPanel(props: BudgetPanelProps) {
           );
         })}
         {report.buckets.length === 0 && (
-          <p className="text-sm text-muted-foreground">{t(lang, "budgetAddBucket")}…</p>
+          <button
+            type="button"
+            onClick={addBucket}
+            className="w-full rounded-lg border border-dashed border-line p-6 text-center text-sm text-muted-foreground hover:border-AIPM-dark-blue hover:text-AIPM-dark-blue dark:hover:text-AIPM-light-grey"
+          >
+            + {t(lang, "budgetAddBucket")}…
+          </button>
         )}
       </section>
       {editingBucketId != null && bucketById.get(editingBucketId) && (

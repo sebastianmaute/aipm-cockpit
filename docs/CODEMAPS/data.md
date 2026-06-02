@@ -1,4 +1,4 @@
-<!-- Generated: 2026-05-31 | Files scanned: types.ts, storage.ts, sanitize.ts, raid.ts, activity-log.ts, contacts.ts, resource-foundation.ts, resource-capacity.ts, reminder-snooze.ts, use-settings.ts, jira-token-status.ts, duration.ts + msal-config.ts, turso-config.ts | Token estimate: ~1300 | Updated for 0.29.0–0.41.0: no data schema changes; storage backends remain client-side -->
+<!-- Generated: 2026-05-31 | Files scanned: types.ts, storage.ts, sanitize.ts, raid.ts, activity-log.ts, contacts.ts, resource-foundation.ts, resource-capacity.ts, reminder-snooze.ts, use-settings.ts, jira-token-status.ts, duration.ts + msal-config.ts, turso-config.ts | Token estimate: ~1300 | Updated for 0.29.0–0.42.0: no data schema changes; storage backends remain client-side -->
 
 # Data
 
