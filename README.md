@@ -3,7 +3,7 @@
 [![Pipeline Status](https://gitlab.example.com/example-group/public-collab/lop-app/badges/main/pipeline.svg)](https://gitlab.example.com/example-group/public-collab/lop-app/-/commits/main)
 [![coverage](https://gitlab.example.com/example-group/public-collab/lop-app/badges/main/coverage.svg)](https://gitlab.example.com/example-group/public-collab/lop-app/-/commits/main)
 
-**v0.41.0 "Okorafor"** — AI-assisted project-status tracker for Acme project leads. Manage open points, track accountability, plan resource capacity & cost, keep an address book of the team, and draft status-inquiry emails — all in the browser, no backend required. Integrates with Microsoft 365 (Outlook contacts/calendar, SharePoint storage) and Turso database backends.
+**v0.42.0 "Le Guin"** — AI-assisted project-status tracker for Acme project leads. Manage open points, track accountability, plan resource capacity & cost, keep an address book of the team, and draft status-inquiry emails — all in the browser, no backend required. Integrates with Microsoft 365 (Outlook contacts/calendar, SharePoint storage) and Turso database backends.
 
 The app ships a **modern sidebar layout** by default — a Dark-Blue left rail with grouped navigation, a top bar, full-viewport single-view content, full-page task editor and Settings pages, and a Light / Dark / System theme — with the original single-scroll **Classic mode** kept as a toggle (Settings → Appearance → Layout).
 

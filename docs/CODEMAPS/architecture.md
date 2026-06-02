@@ -1,4 +1,4 @@
-<!-- Generated: 2026-05-31 | Files scanned: ~100 source files | Token estimate: ~850 | Updated for 0.29.0–0.41.0: modern sidebar layout + UI-consistency sweep -->
+<!-- Generated: 2026-05-31 | Files scanned: ~100 source files | Token estimate: ~850 | Updated for 0.29.0–0.42.0: modern sidebar layout + UI-consistency sweep -->
 
 # Architecture
 
