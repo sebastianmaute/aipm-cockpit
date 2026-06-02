@@ -1,3 +1,15 @@
+// 0.43.0 "Cherryh" adds a consolidated Project-Health Dashboard — a single view
+// (first in the Overview nav) that doubles as a live cockpit and a printable
+// status report. Header shows overall RAG plus Schedule / Budget / Scope
+// sub-status (computed, with manual override via inline selects); then a PM
+// status narrative (commits on blur), % complete + R/A/G health counts, budget
+// burn, top open RAID items, upcoming/overdue dates, and recent activity —
+// rendered inside the shared ReportCard print card. A new persisted
+// Workspace.status (ProjectStatus: four RAG overrides + narrative) round-trips
+// through JSON / CSV / Markdown / Turso behind one sanitizer; pure aggregation
+// lives in dashboard.ts (computeDashboard). RAID rows link to the register and
+// task rows open the editor. First of a 3-feature PM roadmap (Milestones and
+// Earned Value / SPI-CPI follow).
 // 0.42.2 fixes a budget cost/revenue bug: buckets loaded from the CSV/Markdown/
 // Turso backends with empty rate-override cells parsed those as a literal 0,
 // which applied a spurious EUR0/hour override and zeroed their cost & revenue.
@@ -556,12 +568,12 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.42.2";
-export const APP_BUILD_DATE = "2026-06-02"; // 0.42.2 empty rate-override cells no longer zero budget cost/revenue
+export const APP_VERSION = "0.43.0";
+export const APP_BUILD_DATE = "2026-06-02"; // 0.43.0 project-health dashboard
 /** Minor-series milestone codename (sci-fi/fantasy author names). The whole
  *  0.39.x line is "Tchaikovsky" (Adrian Tchaikovsky); patch releases inherit
  *  their minor version's codename rather than getting their own. */
-export const APP_MILESTONE = "Le Guin";
+export const APP_MILESTONE = "Cherryh";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -610,4 +622,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightBudgetModes",
   "versionHighlightBudgetReport",
   "versionHighlightComposableReports",
+  "versionHighlightDashboard",
 ] as const;

@@ -1044,6 +1044,7 @@ const enUS = {
   versionHighlightBudgetModes: "Plan budgets per discipline (blended rate) or per role, with per-bucket rate overrides and a filterable budget report.",
   versionHighlightBudgetReport: "A dedicated Budget Report (under Budget) shows current budget calculations across all buckets, rates, and factors.",
   versionHighlightComposableReports: "Add the RAID, Budget, and Resource reports into the Reports view and print them together in landscape.",
+  versionHighlightDashboard: "Project-health dashboard (RAG status report)",
 
   outlookCalImportTitle: "Import Outlook calendar",
   outlookCalImportLoading: "Loading events…",

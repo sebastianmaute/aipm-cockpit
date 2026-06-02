@@ -1062,6 +1062,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightBudgetModes: "Budgets je Disziplin (Mischsatz) oder je Rolle planen, mit Satz-Overrides je Bucket und einem filterbaren Budgetbericht.",
   versionHighlightBudgetReport: "Ein eigener Budgetbericht (unter Budget) zeigt die aktuellen Budgetberechnungen über alle Buckets, Sätze und Faktoren.",
   versionHighlightComposableReports: "RAID-, Budget- und Ressourcenberichte in die Berichtsansicht aufnehmen und zusammen im Querformat drucken.",
+  versionHighlightDashboard: "Projekt-Status-Dashboard (RAG-Statusbericht)",
 
   outlookCalImportTitle: "Outlook-Kalender importieren",
   outlookCalImportLoading: "Termine werden geladen…",

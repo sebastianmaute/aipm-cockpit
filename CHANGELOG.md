@@ -8,6 +8,12 @@ Authoritative source for version + build date: [`src/app/version.ts`](src/app/ve
 This file is seeded from that module's milestone comment plus the
 post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-diff.txt).
 
+## [0.43.0] — 2026-06-02 "Cherryh"
+
+### Added
+- **Project-Health Dashboard:** a consolidated view — first in the Overview nav — that works as both a live cockpit and a printable status report. Shows overall RAG plus Schedule / Budget / Scope sub-status (computed, with inline manual override), a PM status narrative, % complete + R/A/G task-health counts, budget burn, top open RAID items, upcoming/overdue dates, and recent activity, all inside the shared report/print card. RAID rows link to the RAID register; task rows open the editor.
+- **Persisted project status:** a new `Workspace.status` (`ProjectStatus`: RAG overrides for overall/schedule/budget/scope + a PM narrative) that round-trips through every storage backend (JSON, CSV, Markdown, Turso).
+
 ## [0.42.2] — 2026-06-02
 
 ### Fixed
