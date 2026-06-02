@@ -142,6 +142,7 @@ const BAR_VPADDING_PX = (ROW_HEIGHT_PX - BAR_HEIGHT_PX) / 2;
 // Size of the chart-scale timeline diamond. The gutter uses a fixed 16-viewBox
 // icon (intentionally small/independent of chart scale) — see comment below.
 const MILESTONE_DIAMOND_PX = 14;
+const EDGE_STROKE_MUTED = "rgb(99, 99, 98)";
 
 // Milestone status math takes a holiday set; the Gantt has no holiday data
 // of its own, so we pass a shared empty set rather than allocating per row.
@@ -1348,7 +1349,7 @@ export function GanttPanel({
               style={{
                 left: todayOffsetPx,
                 top: 0,
-                height: rowsCount * ROW_HEIGHT_PX,
+                height: totalRowsCount * ROW_HEIGHT_PX,
               }}
               title={t(lang, "ganttToday")}
             />
@@ -1372,7 +1373,7 @@ export function GanttPanel({
                 markerWidth="6"
                 markerHeight="6"
                 orient="auto-start-reverse"
-                fill="rgb(99, 99, 98)"
+                fill={EDGE_STROKE_MUTED}
               >
                 <path d="M 0 0 L 10 5 L 0 10 z" />
               </marker>
@@ -1449,7 +1450,7 @@ export function GanttPanel({
                   <path
                     key={`${task.id}-${depIdx}`}
                     d={path}
-                    stroke={isCritical ? "rgb(220, 38, 38)" : "rgb(99, 99, 98)"}
+                    stroke={isCritical ? "rgb(220, 38, 38)" : EDGE_STROKE_MUTED}
                     strokeOpacity={isCritical ? 0.85 : 0.45}
                     strokeWidth={isCritical ? 2 : 1.25}
                     fill="none"
@@ -1492,7 +1493,7 @@ export function GanttPanel({
                     key={`m-${m.id}-link-${taskId}`}
                     d={path}
                     data-milestone-connector
-                    stroke="rgb(99, 99, 98)"
+                    stroke={EDGE_STROKE_MUTED}
                     strokeOpacity={0.35}
                     strokeWidth={1}
                     strokeDasharray="3 3"
