@@ -51,4 +51,17 @@ describe("computeBurndownSeries", () => {
     expect(s.plannedRemainingValue).toEqual([40000, 20000, 0]);
     expect(s.actualRemainingValue).toEqual([36000, 18000, null]);
   });
+
+  it("marks every period null when today is before the plan start", () => {
+    const s = computeBurndownSeries([bucket()], plan, roles, "2025-12-01");
+    expect(s.todayIndex).toBe(-1);
+    expect(s.actualRemainingHours).toEqual([null, null, null]);
+  });
+
+  it("has no null when today is on or after the plan end", () => {
+    const s = computeBurndownSeries([bucket()], plan, roles, "2026-03-31");
+    expect(s.todayIndex).toBe(2);
+    // cumulative actual 120,210,210 -> remaining 180,90,90
+    expect(s.actualRemainingHours).toEqual([180, 90, 90]);
+  });
 });

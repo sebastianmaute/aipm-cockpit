@@ -8,19 +8,23 @@ import { bucketRateRows } from "./budget-report";
 import type { BudgetBucket, ResourcePlan, Role } from "./types";
 
 export type BurndownSeries = {
-  periods: string[];
+  periods: readonly string[];
   /** totalBudget - cumulative budgeted, per period (the planned glide-path). */
-  plannedRemainingHours: number[];
-  plannedRemainingValue: number[];
-  /** totalBudget - cumulative actual, defined only up to todayIndex; null after. */
-  actualRemainingHours: (number | null)[];
-  actualRemainingValue: (number | null)[];
+  plannedRemainingHours: readonly number[];
+  plannedRemainingValue: readonly number[];
+  /** totalBudget - cumulative actual, defined only up to todayIndex; null after.
+   *  May be negative when actuals exceed the total budget (over-budget). */
+  actualRemainingHours: readonly (number | null)[];
+  actualRemainingValue: readonly (number | null)[];
   /** Index of the last period whose start is on or before `today`; -1 if all future. */
   todayIndex: number;
   totalBudgetHours: number;
   totalBudgetValue: number;
 };
 
+/** Derives per-period planned vs actual remaining hours and € across all buckets
+ *  for the burn-down charts. `today` is an ISO date string (YYYY-MM-DD); actual
+ *  remaining is defined only up to the period containing today. */
 export function computeBurndownSeries(
   buckets: readonly BudgetBucket[],
   plan: ResourcePlan,
