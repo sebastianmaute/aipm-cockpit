@@ -82,6 +82,14 @@ describe("workspaceToStatements", () => {
   });
 });
 
+describe("milestones round-trip", () => {
+  test("full round-trip restores milestones", () => {
+    const ws = { ...emptyWorkspace(), milestones: [{ id: 1, name: "Go-live", date: "2026-08-01", linkedTaskIds: [2, 3] }] };
+    const back = rowsToWorkspace(resultsFromStatements(workspaceToStatements(ws)));
+    expect(back.milestones).toEqual(ws.milestones);
+  });
+});
+
 describe("Turso project_status", () => {
   test("workspaceToStatements writes status as a project_status meta row", () => {
     const ws = { ...emptyWorkspace(), status: { ragOverride: "R" as const, narrative: "x" } };

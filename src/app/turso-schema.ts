@@ -8,8 +8,10 @@
 import {
   CSV_COLUMNS, RAID_CSV_COLUMNS, ABSENCES_CSV_COLUMNS, SHIFTS_CSV_COLUMNS,
   RESOURCES_CSV_COLUMNS, ROLES_CSV_COLUMNS, REF_CSV_COLUMNS, BUDGETS_CSV_COLUMNS,
+  MILESTONES_CSV_COLUMNS,
   fieldToString, raidFieldToString, absenceFieldToString, shiftFieldToString,
-  resourceFieldToString, budgetFieldToString, buildTaskFromObj, buildRaidItemFromObj,
+  resourceFieldToString, budgetFieldToString, milestoneFieldToString, buildTaskFromObj, buildRaidItemFromObj,
+  buildMilestoneFromObj,
   decodeRatesMap, emptyWorkspace, migrateWorkspaceV6, sanitizeProjectStatus, type Workspace,
 } from "./storage";
 import {
@@ -17,7 +19,7 @@ import {
   sanitizeGrade, sanitizeAbsence, sanitizeShift, sanitizeFxRates, sanitizePlan,
 } from "./sanitize";
 import type {
-  Task, RaidItem, Absence, Shift, Resource, Role, Discipline, Grade, BudgetBucket,
+  Task, RaidItem, Absence, Shift, Resource, Role, Discipline, Grade, BudgetBucket, Milestone,
 } from "./types";
 
 interface SqlArg { type: "text" | "integer" | "null"; value?: string }
@@ -53,6 +55,7 @@ const ENTITY_SPECS: EntitySpec<unknown>[] = [
   spec<Discipline>({ table: "disciplines", wsKey: "disciplines", columns: REF_CSV_COLUMNS, get: (w) => w.disciplines, toRow: anyToRow as (e: Discipline, col: string) => string, fromObj: sanitizeDiscipline }),
   spec<Grade>({ table: "grades", wsKey: "grades", columns: REF_CSV_COLUMNS, get: (w) => w.grades, toRow: anyToRow as (e: Grade, col: string) => string, fromObj: sanitizeGrade }),
   spec<BudgetBucket>({ table: "budget_buckets", wsKey: "budgets", columns: BUDGETS_CSV_COLUMNS, get: (w) => w.budgets ?? [], toRow: budgetFieldToString, fromObj: sanitizeBudgetBucket }),
+  spec<Milestone>({ table: "milestones", wsKey: "milestones", columns: MILESTONES_CSV_COLUMNS, get: (w) => w.milestones ?? [], toRow: milestoneFieldToString as unknown as (e: Milestone, col: string) => string, fromObj: buildMilestoneFromObj }),
 ] as unknown as EntitySpec<unknown>[];
 
 const PLAN_COLUMNS = ["startDate", "endDate", "granularity", "currency"] as const;
