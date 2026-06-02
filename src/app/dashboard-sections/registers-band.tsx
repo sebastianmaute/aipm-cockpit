@@ -2,6 +2,9 @@ import { Section } from "../report-table";
 import { type Lang, t } from "../i18n";
 import type { Milestone, RaidItem, Task } from "../types";
 
+const LINK_CLASS =
+  "rounded-md border border-transparent px-2 py-0.5 text-left text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted";
+
 function RaidItemContent({ r }: { r: RaidItem }) {
   return (
     <>
@@ -43,7 +46,7 @@ export function RegistersBand({
   return (
     <div className="space-y-4">
       <div className="grid gap-4 md:grid-cols-2">
-        <Section title={t(lang, "dashboardTopRaid")}>
+        <Section title={t(lang, "dashboardTopRaid")} boxed>
           {topRaid.length === 0 ? (
             <p className="text-sm text-muted-foreground">{t(lang, "dashboardEmpty")}</p>
           ) : (
@@ -53,7 +56,7 @@ export function RegistersBand({
                   {onOpenRaid ? (
                     <button
                       type="button"
-                      className="text-left hover:underline"
+                      className={LINK_CLASS}
                       onClick={() => onOpenRaid(r.id)}
                     >
                       <RaidItemContent r={r} />
@@ -66,7 +69,7 @@ export function RegistersBand({
             </ul>
           )}
         </Section>
-        <Section title={t(lang, "dashboardUpcoming")}>
+        <Section title={t(lang, "dashboardUpcoming")} boxed>
           <p className="mb-1 text-xs font-semibold uppercase text-muted-foreground">
             {t(lang, "dashboardOverdue")}
           </p>
@@ -76,7 +79,7 @@ export function RegistersBand({
                 {onOpenTask ? (
                   <button
                     type="button"
-                    className="text-left hover:underline"
+                    className={LINK_CLASS}
                     onClick={() => onOpenTask(tk.id)}
                   >
                     <TaskItemContent tk={tk} />
@@ -99,7 +102,7 @@ export function RegistersBand({
                 {onOpenTask ? (
                   <button
                     type="button"
-                    className="text-left hover:underline"
+                    className={LINK_CLASS}
                     onClick={() => onOpenTask(tk.id)}
                   >
                     <TaskItemContent tk={tk} />
@@ -115,7 +118,7 @@ export function RegistersBand({
           </ul>
         </Section>
       </div>
-      <Section title={t(lang, "dashboardMilestones")}>
+      <Section title={t(lang, "dashboardMilestones")} boxed>
         {overdueMilestones.length + atRiskMilestones.length + dueSoonMilestones.length === 0 ? (
           <p className="text-sm text-muted-foreground">—</p>
         ) : (
@@ -123,7 +126,7 @@ export function RegistersBand({
             {[...overdueMilestones, ...atRiskMilestones, ...dueSoonMilestones].map((m) => (
               <li key={m.id}>
                 {onOpenMilestone ? (
-                  <button type="button" className="text-left hover:underline" onClick={() => onOpenMilestone()}>
+                  <button type="button" className={LINK_CLASS} onClick={() => onOpenMilestone()}>
                     {atRiskMilestones.includes(m) ? "⚠ " : ""}{m.name} · {m.date}
                   </button>
                 ) : (
