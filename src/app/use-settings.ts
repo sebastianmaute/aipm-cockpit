@@ -3,6 +3,7 @@
 import { type Dispatch, type SetStateAction, useEffect, useState } from "react";
 import { type Lang, loadI18n, migrateLang } from "./i18n";
 import { defaultSettings, sanitizeIntegrations, type Settings } from "./settings-menu";
+import { sanitizeExtraReports } from "./addable-reports";
 import { isPlainObject } from "./sanitize";
 
 const SETTINGS_KEY = "lop-app:settings";
@@ -72,6 +73,11 @@ export function useSettings(): {
                   (v): v is string => typeof v === "string",
                 )
               : defaultSettings.holidayCountries,
+            reports: {
+              extra: sanitizeExtraReports(
+                isPlainObject(parsed.reports) ? (parsed.reports as { extra?: unknown }).extra : undefined,
+              ),
+            },
             integrations: sanitizeIntegrations(parsed.integrations),
           };
           Promise.resolve().then(() => {
