@@ -135,6 +135,17 @@ describe("sanitizeBudgetBucket blended-mode fields", () => {
       { disciplineId: 2, resourceIds: [5], budgetHours: { "2026-01": 30 }, actualHours: {} },
     ]);
   });
+
+  test("empty-string rate-override cells parse as absent (not 0)", () => {
+    const b = sanitizeBudgetBucket({ ...blendedBase, rateOverrideInternal: "", rateOverrideExternal: "  " })!;
+    expect(b.rateOverrideInternal).toBeUndefined();
+    expect(b.rateOverrideExternal).toBeUndefined();
+  });
+
+  test("explicit zero rate-override is preserved (valid non-billable rate)", () => {
+    expect(sanitizeBudgetBucket({ ...blendedBase, rateOverrideInternal: 0 })!.rateOverrideInternal).toBe(0);
+    expect(sanitizeBudgetBucket({ ...blendedBase, rateOverrideInternal: "0" })!.rateOverrideInternal).toBe(0);
+  });
 });
 
 describe("encode/decode disciplineAllocations round-trip", () => {

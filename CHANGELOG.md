@@ -8,6 +8,14 @@ Authoritative source for version + build date: [`src/app/version.ts`](src/app/ve
 This file is seeded from that module's milestone comment plus the
 post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-diff.txt).
 
+## [0.42.2] — 2026-06-02
+
+### Fixed
+- Budget cost/revenue were zeroed for buckets loaded from the CSV/Markdown/Turso backends when their per-bucket rate-override cells were empty (an empty cell was parsed as a literal `0/h` override). Empty override cells are now treated as absent; an explicit `0` remains a valid non-billable override.
+
+### Added
+- The sample workspace now ships five budget buckets demonstrating detailed and blended planning, per-bucket rate overrides, fixed-price, and closed-with-successor spillover.
+
 ## [0.42.1] — 2026-06-02
 
 ### Fixed
