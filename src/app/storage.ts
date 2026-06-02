@@ -949,6 +949,8 @@ export function statusToCsv(status: ProjectStatus): string {
   return rows.join("\r\n");
 }
 
+/** Serializes status as "## Project Status" + "- field: value" bullets. The
+ *  narrative is a single list item; embedded newlines are not preserved. */
 export function statusToMarkdown(status: ProjectStatus): string {
   const lines = ["## Project Status", ""];
   for (const f of STATUS_FIELDS) {
@@ -961,8 +963,8 @@ export function statusToMarkdown(status: ProjectStatus): string {
 export function markdownToStatus(md: string): ProjectStatus {
   const map: Record<string, string> = {};
   for (const line of md.split(/\r?\n/)) {
-    const m = /^- (\w+):\s?(.*)$/.exec(line.trim());
-    if (m) map[m[1]] = m[2];
+    const m = /^- (\w+):\s*(.*)$/.exec(line.trim());
+    if (m) map[m[1]] = m[2].trim();
   }
   return sanitizeProjectStatus(map);
 }
@@ -1952,7 +1954,7 @@ export function markdownToWorkspace(md: string): Workspace {
     plan: (s.planMd.trim() && parsePlanMarkdown(s.planMd)) || defaultResourcePlan(new Date().toISOString().slice(0, 10)),
     budgets: s.budgetsMd.trim() ? markdownToBudgets(s.budgetsMd) : [],
     fxRates: s.fxRatesMd.trim() ? parseFxRatesMarkdown(s.fxRatesMd) : null,
-    status: s.statusMd && s.statusMd.trim() ? markdownToStatus(s.statusMd) : {},
+    status: s.statusMd.trim() ? markdownToStatus(s.statusMd) : {},
   };
   return migrateWorkspaceV6(ws);
 }
