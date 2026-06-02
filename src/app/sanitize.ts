@@ -6,6 +6,7 @@ import {
   DEPENDENCY_TYPES,
   type DependencyType,
   MAX_HOURS_PER_DAY,
+  type Milestone,
   type PlanGranularity,
   type Priority,
   type ResourcePlan,
@@ -843,4 +844,26 @@ export function sanitizeFxRates(input: unknown): FxRates | null {
   }
   rates.EUR = 1;
   return { base: "EUR", date, fetchedAt, rates };
+}
+
+/** Accept only well-formed milestones from untrusted JSON. id>0, name+date
+ *  required; linkedTaskIds reduced to positive finite ints. */
+export function sanitizeMilestone(input: unknown): Milestone | null {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return null;
+  const o = input as Record<string, unknown>;
+  const id = typeof o.id === "number" ? o.id : Number(o.id);
+  if (!Number.isFinite(id) || id <= 0) return null;
+  const name = typeof o.name === "string" ? o.name.trim() : "";
+  if (!name) return null;
+  const date = typeof o.date === "string" ? o.date.trim() : "";
+  if (!date) return null;
+  const linkedTaskIds = Array.isArray(o.linkedTaskIds)
+    ? o.linkedTaskIds.map((n) => Number(n)).filter((n) => Number.isFinite(n) && n > 0)
+    : [];
+  const str = (v: unknown): string | undefined => (typeof v === "string" && v.trim() ? v.trim() : undefined);
+  const m: Milestone = { id: Math.floor(id), name, date, linkedTaskIds };
+  const description = str(o.description); if (description) m.description = description;
+  const achievedDate = str(o.achievedDate); if (achievedDate) m.achievedDate = achievedDate;
+  const localModifiedAt = str(o.localModifiedAt); if (localModifiedAt) m.localModifiedAt = localModifiedAt;
+  return m;
 }

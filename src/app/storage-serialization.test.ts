@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import { migrateWorkspaceV5, migrateWorkspaceV6, emptyWorkspace, workspaceToCsv, csvToWorkspace, workspaceToMarkdown, markdownToWorkspace, workspaceToJson, jsonToWorkspace, sanitizeProjectStatus, type Workspace } from "./storage";
+import { migrateWorkspaceV5, migrateWorkspaceV6, emptyWorkspace, workspaceToCsv, csvToWorkspace, workspaceToMarkdown, markdownToWorkspace, workspaceToJson, jsonToWorkspace, sanitizeProjectStatus, sanitizeMilestone, type Workspace } from "./storage";
 import type { Task, Resource, Role, Discipline, Grade } from "./types";
 import { resourceDisplayName } from "./resource-foundation";
 
@@ -188,4 +188,24 @@ test("Markdown round-trip preserves project status", () => {
   };
   const back = markdownToWorkspace(workspaceToMarkdown(ws));
   expect(back.status).toEqual(ws.status);
+});
+
+describe("Milestone defaults + sanitize", () => {
+  test("emptyWorkspace seeds an empty milestones array", () => {
+    expect(emptyWorkspace().milestones).toEqual([]);
+  });
+  test("migrateWorkspaceV6 backfills a missing milestones to []", () => {
+    const ws = { ...emptyWorkspace() };
+    delete (ws as { milestones?: unknown }).milestones;
+    expect(migrateWorkspaceV6(ws as typeof ws).milestones).toEqual([]);
+  });
+  test("sanitizeMilestone rejects junk and keeps valid fields", () => {
+    expect(sanitizeMilestone(null)).toBeNull();
+    expect(sanitizeMilestone({ id: 0, name: "x", date: "2026-01-01" })).toBeNull(); // id<=0
+    expect(sanitizeMilestone({ id: 1, name: "", date: "2026-01-01" })).toBeNull();  // empty name
+    expect(sanitizeMilestone({ id: 1, name: "Go-live", date: "" })).toBeNull();     // empty date
+    expect(
+      sanitizeMilestone({ id: 2, name: "Go-live", date: "2026-08-01", description: "d", achievedDate: "2026-07-30", linkedTaskIds: [3, "4", -1, "x"], localModifiedAt: "2026-06-02T00:00:00.000Z" }),
+    ).toEqual({ id: 2, name: "Go-live", date: "2026-08-01", description: "d", achievedDate: "2026-07-30", linkedTaskIds: [3, 4], localModifiedAt: "2026-06-02T00:00:00.000Z" });
+  });
 });

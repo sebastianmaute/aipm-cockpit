@@ -176,6 +176,19 @@ export type RaidItem = {
   causedByRaidIds: number[];
 };
 
+/** A zero-duration key date, distinct from a task. `achievedDate` is a manual
+ *  sign-off (absent = pending). `linkedTaskIds` are the tasks that gate it —
+ *  they drive the Gantt edges and the "at risk" signal. */
+export type Milestone = {
+  id: number;
+  name: string;
+  date: string;            // YYYY-MM-DD target
+  description?: string;
+  achievedDate?: string;   // YYYY-MM-DD manual sign-off
+  linkedTaskIds: number[];
+  localModifiedAt?: string;
+};
+
 /** Project-level status overrides + PM narrative for the health dashboard.
  *  RAG fields use the same "R" | "A" | "G" literal as Task.healthOverride to
  *  avoid a circular import with health.ts. Absent override = use the computed

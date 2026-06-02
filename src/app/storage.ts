@@ -21,6 +21,7 @@ import {
   sanitizeGrade,
   sanitizeGroup,
   sanitizeLabels,
+  sanitizeMilestone,
   sanitizeOptionalMinutes,
   sanitizePlan,
   sanitizeResource,
@@ -28,12 +29,14 @@ import {
   sanitizeShift,
   serializeDependencies,
 } from "./sanitize";
+export { sanitizeMilestone } from "./sanitize";
 import {
   type Absence,
   type BudgetBucket,
   type Discipline,
   type FxRates,
   type Grade,
+  type Milestone,
   type Priority,
   type ProjectStatus,
   type RaidCategory,
@@ -70,6 +73,8 @@ export type Workspace = {
   /** Project-level RAG overrides + PM narrative for the dashboard. Optional so
    *  older saved files still type-check; every load path defaults to {}. */
   status?: ProjectStatus;
+  /** Project milestones (key dates). Optional for back-compat; load paths default to []. */
+  milestones?: Milestone[];
 };
 
 const SCHEMA_VERSION = 6;
@@ -83,6 +88,7 @@ export function emptyWorkspace(): Workspace {
     budgets: [],
     fxRates: null,
     status: {},
+    milestones: [],
   };
 }
 
@@ -117,10 +123,11 @@ export function migrateWorkspaceV6(ws: Workspace): Workspace {
   const budgets = Array.isArray(base.budgets) ? base.budgets : [];
   const fxRates = base.fxRates ?? null;
   const status = base.status && typeof base.status === "object" ? base.status : {};
-  if (budgets === base.budgets && fxRates === base.fxRates && status === base.status) {
+  const milestones = Array.isArray(base.milestones) ? base.milestones : [];
+  if (budgets === base.budgets && fxRates === base.fxRates && status === base.status && milestones === base.milestones) {
     return base;
   }
-  return { ...base, budgets, fxRates, status };
+  return { ...base, budgets, fxRates, status, milestones };
 }
 
 // --- Storage configuration -------------------------------------------------
