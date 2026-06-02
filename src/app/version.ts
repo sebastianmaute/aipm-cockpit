@@ -1,3 +1,7 @@
+// 0.42.1 scopes print orientation: reports (the shared ReportCard print-root)
+// print A4 landscape via a named `@page landscape` + a `.print-landscape` class,
+// while the default `@page` is portrait so the Activity Log (and any other
+// print-root) prints portrait again. Inherits the 0.42.x "Le Guin" milestone.
 // 0.42.0 "Le Guin" makes the Reports view composable: an "+ Add report" control
 // appends the RAID, Budget, and Resource reports below the task analytics, each
 // removable, the chosen set persisted in settings — all inside one print card.
@@ -546,8 +550,8 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.42.0";
-export const APP_BUILD_DATE = "2026-06-02"; // 0.42.0 composable reports + landscape print
+export const APP_VERSION = "0.42.1";
+export const APP_BUILD_DATE = "2026-06-02"; // 0.42.1 scope print orientation: reports landscape, others portrait
 /** Minor-series milestone codename (sci-fi/fantasy author names). The whole
  *  0.39.x line is "Tchaikovsky" (Adrian Tchaikovsky); patch releases inherit
  *  their minor version's codename rather than getting their own. */

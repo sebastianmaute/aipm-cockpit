@@ -59,9 +59,19 @@ body {
 /* Print: DIN A4 page, strip surface chrome, preserve semantic accents.
    See docs/superpowers/specs/2026-05-28-print-reports-design.md. */
 @media print {
+  /* Default page is portrait — Activity Log and any other print-root. */
   @page {
+    size: A4;
+    margin: 1.5cm;
+  }
+  /* Reports opt into landscape (wide tables) via `.print-landscape` on their
+     ReportCard root, which selects this named page. */
+  @page landscape {
     size: A4 landscape;
     margin: 1.5cm;
+  }
+  .print-landscape {
+    page: landscape;
   }
 
   body {
