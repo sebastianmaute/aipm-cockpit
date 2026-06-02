@@ -74,6 +74,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
         status,
         activity,
         today,
+        milestones: [], // TODO: wire real milestones in a later task
       }),
     [
       props.tasks, props.raid, props.budgets, props.plan,

@@ -5,8 +5,9 @@ import { computeGroupHealth, type Health } from "./health";
 import { computeBudgetReport, type CciValue, type ProjectReport } from "./budget-report";
 import { isTerminalStatus, riskSeverityFromMatrix } from "./raid";
 import { workdaysUntil } from "./due-dates";
+import { partitionMilestones, milestoneScheduleContribution } from "./milestones";
 import type {
-  Absence, BudgetBucket, ProjectStatus, RaidItem, RaidSeverity,
+  Absence, BudgetBucket, Milestone, ProjectStatus, RaidItem, RaidSeverity,
   Resource, ResourcePlan, Role, Task,
 } from "./types";
 import type { ActivityEntry } from "./activity-log";
@@ -155,6 +156,9 @@ export type DashboardModel = {
   topRaid: RaidItem[];
   overdue: Task[];
   dueSoon: Task[];
+  overdueMilestones: Milestone[];
+  atRiskMilestones: Milestone[];
+  dueSoonMilestones: Milestone[];
   recentActivity: ActivityEntry[];
   narrative: { text: string; updatedAt?: string };
 };
@@ -172,6 +176,7 @@ export interface DashboardInput {
   status: ProjectStatus;
   activity: readonly ActivityEntry[];
   today: string;
+  milestones: readonly Milestone[];
 }
 
 export interface DashboardOptions {
@@ -189,7 +194,14 @@ export function computeDashboard(input: DashboardInput, opts: DashboardOptions =
   const { status, today, holidaySet } = input;
 
   const overallComputed = computeGroupHealth(input.tasks, today, holidaySet).color;
-  const scheduleComputed = computeScheduleStatus(input.tasks, today, holidaySet, dueSoonWorkdays);
+  const tasksById = new Map(input.tasks.map((t) => [t.id, t] as const));
+  const taskSchedule = computeScheduleStatus(input.tasks, today, holidaySet, dueSoonWorkdays);
+  const msContribution = milestoneScheduleContribution(input.milestones, tasksById, today, holidaySet, dueSoonWorkdays);
+  const scheduleComputed: Health =
+    taskSchedule === "R" || msContribution === "R" ? "R"
+    : taskSchedule === "A" || msContribution === "A" ? "A"
+    : "G";
+  const ms = partitionMilestones(input.milestones, tasksById, today, holidaySet, dueSoonWorkdays);
 
   const project: ProjectReport | null = input.budgets.length > 0
     ? computeBudgetReport(input.budgets, input.plan, input.roles, input.resources, input.workdayHours, holidaySet, input.absences).project
@@ -215,6 +227,9 @@ export function computeDashboard(input: DashboardInput, opts: DashboardOptions =
     topRaid: selectTopRaid(input.raid, topRaidN),
     overdue,
     dueSoon,
+    overdueMilestones: ms.overdue,
+    atRiskMilestones: ms.atRisk,
+    dueSoonMilestones: ms.dueSoon,
     recentActivity: recentActivity(input.activity, recentN),
     narrative: { text: status.narrative ?? "", updatedAt: status.narrativeUpdatedAt },
   };

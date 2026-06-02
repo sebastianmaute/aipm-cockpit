@@ -5,7 +5,7 @@ import {
   type DashboardInput,
 } from "./dashboard";
 import type { ProjectReport } from "./budget-report";
-import type { Task, RaidItem } from "./types";
+import type { Task, RaidItem, Milestone } from "./types";
 import type { ActivityEntry } from "./activity-log";
 
 function task(o: Partial<Task> = {}): Task {
@@ -143,6 +143,7 @@ describe("computeDashboard", () => {
       tasks: [], raid: [], budgets: [], plan: { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month", currency: "EUR" },
       roles: [], resources: [], absences: [], workdayHours: 8,
       holidaySet: new Set<string>(), status: {}, activity: [], today: "2026-06-02",
+      milestones: [],
       ...over,
     };
   }
@@ -166,5 +167,15 @@ describe("computeDashboard", () => {
     const m = computeDashboard(baseInput({ status: { scopeOverride: "A", narrative: "hi", narrativeUpdatedAt: "2026-06-02T00:00:00.000Z" } }));
     expect(m.scope.effective).toBe("A");
     expect(m.narrative).toEqual({ text: "hi", updatedAt: "2026-06-02T00:00:00.000Z" });
+  });
+  it("partitions milestones and folds them into the Schedule RAG", () => {
+    const milestones: Milestone[] = [
+      { id: 1, name: "late", date: "2026-05-01", linkedTaskIds: [] },   // overdue (today is 2026-06-02 in baseInput)
+      { id: 2, name: "soon", date: "2026-06-03", linkedTaskIds: [] },   // due-soon
+    ];
+    const m = computeDashboard(baseInput({ milestones }));
+    expect(m.overdueMilestones.map((x) => x.id)).toEqual([1]);
+    expect(m.dueSoonMilestones.map((x) => x.id)).toEqual([2]);
+    expect(m.schedule.computed).toBe("R"); // overdue milestone drives Red
   });
 });
