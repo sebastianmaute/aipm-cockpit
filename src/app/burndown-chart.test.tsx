@@ -24,6 +24,18 @@ describe("BurndownCharts", () => {
     const { container } = render(<BurndownCharts series={series} lang="en-US" />);
     expect(container.querySelectorAll("svg").length).toBe(2);
   });
+  it("draws the actual line pink when the latest actual remaining is negative (over budget)", () => {
+    const over: BurndownSeries = {
+      ...series,
+      actualRemainingHours: [180, -40, null],
+      actualRemainingValue: [36000, -8000, null],
+    };
+    const { container } = render(<BurndownCharts series={over} lang="en-US" />);
+    const pink = container.querySelectorAll("polyline.stroke-AIPM-pink");
+    const green = container.querySelectorAll("polyline.stroke-AIPM-green");
+    expect(pink.length).toBe(2); // both actual lines pink
+    expect(green.length).toBe(0);
+  });
   it("shows the no-data hint when total budget is zero", () => {
     const empty: BurndownSeries = {
       ...series, totalBudgetHours: 0, totalBudgetValue: 0,

@@ -14,6 +14,9 @@ function yAt(v: number, max: number): number {
   const clamped = Math.max(0, v);
   return PAD_T + (1 - clamped / max) * PLOT_H;
 }
+// Builds an SVG polyline point string, omitting null entries. Assumes nulls
+// only appear at the tail (future periods, where actual is unknown); a null in
+// the middle would visually bridge the gap with a straight segment.
 function points(vals: readonly (number | null)[], max: number, n: number): string {
   return vals
     .map((v, i) => (v === null ? null : `${xAt(i, n).toFixed(1)},${yAt(v, max).toFixed(1)}`))
