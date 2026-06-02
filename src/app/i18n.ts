@@ -1171,6 +1171,16 @@ const enUS = {
   settingsSectionJira: "Jira",
   settingsSectionStorage: "Storage",
   settingsSectionIntegrations: "Integrations",
+  evmTitle: "Earned value",
+  evmPv: "Planned (PV)",
+  evmEv: "Earned (EV)",
+  evmAc: "Actual (AC)",
+  evmSpi: "SPI",
+  evmCpi: "CPI",
+  evmSv: "Schedule var. (SV)",
+  evmCv: "Cost var. (CV)",
+  evmNoEstimates: "No task estimates yet.",
+  evmCoverage: "{0} of {1} tasks have estimates",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;
