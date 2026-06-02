@@ -191,6 +191,15 @@ test("Markdown round-trip preserves project status", () => {
   expect(back.status).toEqual(ws.status);
 });
 
+test("JSON round-trip preserves milestones", () => {
+  const ws = {
+    ...emptyWorkspace(),
+    milestones: [{ id: 1, name: "Go-live", date: "2026-08-01", description: "launch", linkedTaskIds: [2, 3] }],
+  };
+  const back = jsonToWorkspace(workspaceToJson(ws));
+  expect(back.milestones).toEqual(ws.milestones);
+});
+
 describe("Milestone defaults + sanitize", () => {
   test("emptyWorkspace seeds an empty milestones array", () => {
     expect(emptyWorkspace().milestones).toEqual([]);

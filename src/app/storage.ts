@@ -21,6 +21,7 @@ import {
   sanitizeGrade,
   sanitizeGroup,
   sanitizeLabels,
+  sanitizeMilestone,
   sanitizeOptionalMinutes,
   sanitizePlan,
   sanitizeResource,
@@ -886,6 +887,7 @@ export function workspaceToJson(ws: Workspace): string {
       resources: ws.resources, roles: ws.roles, disciplines: ws.disciplines,
       grades: ws.grades, plan: ws.plan, budgets: ws.budgets ?? [], fxRates: ws.fxRates ?? null,
       status: ws.status ?? {},
+      milestones: ws.milestones ?? [],
     },
     null,
     2,
@@ -931,6 +933,7 @@ export function jsonToWorkspace(text: string): Workspace {
       budgets: ((p.budgets as unknown[]) ?? []).map((b) => sanitizeBudgetBucket(b)).filter((b): b is BudgetBucket => b !== null),
       fxRates: sanitizeFxRates(p.fxRates),
       status: sanitizeProjectStatus(p.status),
+      milestones: ((p.milestones as unknown[]) ?? []).map((m) => sanitizeMilestone(m)).filter((m): m is Milestone => m !== null),
     };
     return migrateWorkspaceV6(raw);
   } catch {
