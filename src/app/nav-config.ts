@@ -8,6 +8,7 @@ export type AppView =
   | "dashboard"
   | "chat"
   | "gantt"
+  | "milestones"
   | "resources"
   | "directory"
   | "workload"
@@ -42,6 +43,7 @@ export const NAV_GROUPS: NavGroup[] = [
     labelKey: "navGroupPlan",
     items: [
       { view: "gantt" },
+      { view: "milestones" },
       {
         view: "resources",
         children: [
@@ -73,6 +75,7 @@ const LABEL_KEYS: Record<Exclude<AppView, "edit">, TranslationKey> = {
   "open-points": "navOpenPoints",
   chat: "tabChat",
   gantt: "tabGantt",
+  milestones: "navMilestones",
   resources: "tabResources",
   directory: "resourcesViewDirectory",
   workload: "resourcesViewWorkload",

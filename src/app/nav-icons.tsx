@@ -14,6 +14,7 @@ const ICON_PATHS: Record<AppView, string> = {
   dashboard: "M12 2a10 10 0 0 1 10 10M12 2a10 10 0 0 0-10 10M12 12l4.5-4.5M12 12m-1 0a1 1 0 1 0 2 0 1 1 0 0 0-2 0M5.6 18.4A9.97 9.97 0 0 1 2 12M18.4 18.4A9.97 9.97 0 0 0 22 12",
   chat: "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z",
   gantt: "M5 6h9M5 12h13M5 18h6M3 4v16",
+  milestones: "M12 3l7 9-7 9-7-9 7-9z",
   resources: "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75",
   // directory: reuses the former address-book glyph (contacts card)
   directory: "M20 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14M4 8h2M4 12h2M4 16h2M13 11a2 2 0 1 0 0-4 2 2 0 0 0 0 4M16 17a3 3 0 0 0-6 0",
