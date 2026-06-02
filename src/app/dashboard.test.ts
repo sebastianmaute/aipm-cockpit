@@ -184,4 +184,16 @@ describe("computeDashboard", () => {
     expect(m.dueSoonMilestones.map((x) => x.id)).toEqual([2]);
     expect(m.schedule.computed).toBe("R"); // overdue milestone drives Red
   });
+  it("computes EVM from task estimates (independent of budgets)", () => {
+    const tasks = [
+      task({ id: 1, originalEstimateMinutes: 2400, dueDate: "2026-05-01", completedDate: "2026-04-30", timeSpentMinutes: 2700 }),
+      task({ id: 2, originalEstimateMinutes: 1200, dueDate: "2026-12-01" }),
+    ];
+    const m = computeDashboard(baseInput({ tasks }));
+    expect(m.evm.pv).toBe(40);
+    expect(m.evm.ev).toBe(40);
+    expect(m.evm.ac).toBe(45);
+    expect(m.evm.coverage).toEqual({ withEstimate: 2, total: 2 });
+    expect(m.evm.money).toBeNull();
+  });
 });

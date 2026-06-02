@@ -6,6 +6,7 @@ import { computeBudgetReport, type CciValue, type ProjectReport } from "./budget
 import { isTerminalStatus, riskSeverityFromMatrix } from "./raid";
 import { workdaysUntil } from "./due-dates";
 import { partitionMilestones } from "./milestones";
+import { computeEvm, projectBlendedInternalRate, type EvmMetrics } from "./evm";
 import type {
   Absence, BudgetBucket, Milestone, ProjectStatus, RaidItem, RaidSeverity,
   Resource, ResourcePlan, Role, Task,
@@ -153,6 +154,7 @@ export type DashboardModel = {
   scope: { effective: SubStatus };
   progress: DashboardProgress;
   burn: DashboardBurn | null;
+  evm: EvmMetrics;
   topRaid: RaidItem[];
   overdue: Task[];
   dueSoon: Task[];
@@ -218,6 +220,8 @@ export function computeDashboard(input: DashboardInput, opts: DashboardOptions =
 
   const { overdue, dueSoon } = partitionUpcoming(input.tasks, today, holidaySet, dueSoonWorkdays);
 
+  const evm = computeEvm(input.tasks, today, { blendedRate: projectBlendedInternalRate(input.roles) });
+
   return {
     overall: { computed: overallComputed, effective: status.ragOverride ?? overallComputed, overridden: !!status.ragOverride },
     schedule: { computed: scheduleComputed, effective: status.scheduleOverride ?? scheduleComputed, overridden: !!status.scheduleOverride },
@@ -225,6 +229,7 @@ export function computeDashboard(input: DashboardInput, opts: DashboardOptions =
     scope: { effective: status.scopeOverride ?? null },
     progress: computeDashboardProgress(input.tasks, today, holidaySet),
     burn,
+    evm,
     topRaid: selectTopRaid(input.raid, topRaidN),
     overdue,
     dueSoon,
