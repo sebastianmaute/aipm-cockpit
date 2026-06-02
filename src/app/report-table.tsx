@@ -128,10 +128,10 @@ export function Tile({ label, value, rag }: { label: string; value: string; rag?
   return (
     <div className="rounded-lg border border-line bg-surface p-3">
       <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="mt-1 flex items-center justify-between gap-1.5 text-xl font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey tabular-nums">
+      <div className="mt-1 flex items-center justify-between gap-1.5 text-xl font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey tabular-nums">
         <span>{value}</span>
         {rag}
-      </p>
+      </div>
     </div>
   );
 }
