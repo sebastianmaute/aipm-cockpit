@@ -8,6 +8,16 @@ Authoritative source for version + build date: [`src/app/version.ts`](src/app/ve
 This file is seeded from that module's milestone comment plus the
 post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-diff.txt).
 
+## [0.49.0] — 2026-06-03 "Le Guin"
+
+Baseline + variance / burn-down trends. Turso-only periodic KPI snapshots
+captured into append-only tables (separate from the workspace save cycle) power a
+new Trends view: baseline-vs-current variance, KPI trend charts, and a snapshot
+list. Auto-capture once per cadence bucket (weekly default; daily/monthly) plus a
+manual capture button; re-baselineable. Switching away from Turso warns that
+recording stops (data retained, resumes on return); recording gaps are
+highlighted.
+
 ## [0.48.0] — 2026-06-03 "Tchaikovsky"
 
 ### Added

@@ -1,3 +1,17 @@
+// 0.49.0 "Le Guin" adds Baseline + Variance / Burn-down Trends. When the active
+// storage backend is Turso, the app captures periodic KPI snapshots (remaining
+// hours/cost, % complete, forecast end date, SPI/CPI, the four RAGs, and the
+// per-period burn-down series) into dedicated append-only Turso tables, separate
+// from the workspace save cycle. A new Trends view (Overview group) shows a
+// baseline-vs-current variance table, KPI trend charts, and the snapshot list;
+// the baseline defaults to the first snapshot and can be re-flagged. Capture is
+// automatic once per cadence bucket (weekly default; daily/monthly configurable)
+// plus a manual "Capture snapshot now" button. Switching away from Turso warns
+// that recording stops but is retained, and resumes on switch back; missing
+// cadence buckets render as highlighted gaps. New pure modules: turso-pipeline.ts
+// (shared HTTP runner), snapshot.ts, snapshot-schema.ts (append-only tables,
+// disjoint from the workspace TABLE_NAMES), snapshot-store.ts; the use-snapshots
+// hook and trend-chart.tsx / trends-panel.tsx UI.
 // 0.48.0 "Tchaikovsky" is a UI-refinements batch. Burn-down charts gain
 // currency symbol + axis tick labels (hours / EUR). The dashboard prints
 // with print-safe RAG colors, colorized Overall health text, Progress and
@@ -619,12 +633,12 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.48.0";
-export const APP_BUILD_DATE = "2026-06-03"; // 0.48.0 UI refinements batch
+export const APP_VERSION = "0.49.0";
+export const APP_BUILD_DATE = "2026-06-03"; // 0.49.0 baseline/variance trends
 /** Minor-series milestone codename (sci-fi/fantasy author names). The whole
- *  0.48.x line is "Tchaikovsky" (Adrian Tchaikovsky); patch releases inherit
+ *  0.49.x line is "Le Guin" (Ursula K. Le Guin); patch releases inherit
  *  their minor version's codename rather than getting their own. */
-export const APP_MILESTONE = "Tchaikovsky";
+export const APP_MILESTONE = "Le Guin";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -684,4 +698,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightEvmRag",
   "versionHighlightBudgetRag",
   "versionHighlightUiRefinements",
+  "versionHighlightTrends",
 ] as const;

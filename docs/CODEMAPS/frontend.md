@@ -1,4 +1,4 @@
-<!-- Generated: 2026-06-03 | Files scanned: ~120 (src/app/*.tsx, *.ts, settings-sections/) | Token estimate: ~1600 | Updated for 0.29.0–0.48.0: modern sidebar layout + UI-consistency sweep + Health Dashboard + Milestones + Earned Value + budget/dashboard RAG + burn-down + UI refinements -->
+<!-- Generated: 2026-06-03 | Files scanned: ~120 (src/app/*.tsx, *.ts, settings-sections/) | Token estimate: ~1600 | Updated for 0.29.0–0.49.0: modern sidebar layout + UI-consistency sweep + Health Dashboard + Milestones + Earned Value + budget/dashboard RAG + burn-down + UI refinements + baseline/variance trends -->
 
 # Frontend
 
@@ -96,7 +96,7 @@ prerendered.
 | `colWidths`, `hiddenCols` | UI table prefs in `localStorage` (colWidths debounced 250 ms) |
 | `search` + `searchDebounced` + `taskSearchIndex` | 150 ms search debounce + precomputed lowercase index |
 | `selectedIds`, `bulkEdit`, `expandedNotes` | Per-session UI only |
-| `activeTab` | `"open-points"` \| `"chat"` \| `"dashboard"` \| `"milestones"` \| `"reports"` \| `"gantt"` \| `"raid"` \| `"budget"` \| `"resources"` \| `"activity"` \| `"resource-report"` \| `"address-book"` \| `"edit"` (last two in popouts or main); synced to URL hash via `useHashView` |
+| `activeTab` | `"open-points"` \| `"chat"` \| `"dashboard"` \| `"trends"` \| `"milestones"` \| `"reports"` \| `"gantt"` \| `"raid"` \| `"budget"` \| `"resources"` \| `"activity"` \| `"resource-report"` \| `"address-book"` \| `"edit"` (last two in popouts or main); synced to URL hash via `useHashView` |
 | `budgets: BudgetBucket[]`, `fxRates: FxRates \| null` | Persisted via `StorageBackend.save()`; lives in `WorkspaceContext`; `fxRates` refreshed on demand via `useFxRates` (Refresh ECB rates button) |
 | `dueSnooze` / `birthdaySnooze` / `jiraTokenSnooze` | `useReminderSnooze("due")` / `useReminderSnooze("birthday")` / `useReminderSnooze("jiraToken")` — each yields `{ isSnoozed, snoozedUntil, snooze, clear }`; banners are gated on `!isSnoozed` |
 | `raidFilterTaskId` | Cross-tab nav: jump from a task row to RAID pre-filtered for that task |
@@ -223,6 +223,14 @@ prerendered.
 | `version-info.tsx` | VersionInfo body + VersionInfoModal (reused by Version popover, sidebar version line, Settings footer) | Component; 0.46.0+ |
 | `rag-badge.tsx` | `RagBadge` — lettered R/A/G badge pill shared by dashboard pills, budget bucket metrics, and the Budget Report status column | Component; 0.47.0+ |
 | `burndown-chart.tsx` | `BurndownCharts` — dependency-free SVG twin remaining-hours + remaining-EUR burn-down charts; currency symbol + axis tick labels (0.48.0+); consumed by dashboard and Budget Report | Component; 0.47.0+ |
+| **Baseline / Variance Trends** | | |
+| `turso-pipeline.ts` | Shared Turso `/v2/pipeline` HTTP runner (`runTursoPipeline`) extracted from turso-backend; reused by the snapshot store | Pure; 0.49.0+ |
+| `snapshot.ts` | Pure snapshot domain: `bucketKey`, `expectedBuckets`/`detectGaps`, `forecastEndDate`, `buildSnapshot`, `computeVariance` | Pure; 0.49.0+ |
+| `snapshot-schema.ts` | Append-only snapshot Turso table DDL (disjoint from the workspace `TABLE_NAMES`) | Pure; 0.49.0+ |
+| `snapshot-store.ts` | Append-only snapshot read/write over `runTursoPipeline` (separate from the workspace save cycle) | 0.49.0+ |
+| `use-snapshots.ts` | `useSnapshots()` hook — load/capture snapshots, baseline flag, cadence auto-capture | Client hook; 0.49.0+ |
+| `trend-chart.tsx` | Dependency-free SVG KPI trend chart (per-period series with gap markers) | Component; 0.49.0+ |
+| `trends-panel.tsx` | Trends view (Overview group): baseline-vs-current variance table, KPI trend charts, snapshot list + manual capture | Conditional mount; 0.49.0+ |
 | **Utilities** | | |
 | `date-format.ts` | `localeFor(lang)`, `shortDateRange`, `formatExpiryDate` | Pure |
 | `duration.ts` | `parseDuration`, `formatDuration`, `effortProgress` | Pure; Jira basis (1w=5d=2400m) |
