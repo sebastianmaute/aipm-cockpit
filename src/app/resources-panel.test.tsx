@@ -163,6 +163,18 @@ describe("ResourcesPanel", () => {
     expect(from.className).toContain("py-1.5");
     expect(from.className).toContain("text-sm");
   });
+
+  test("shows a margin RAG badge in the planning grid", () => {
+    // Resource with a role that has externalRate > 0 so margin renders
+    const roles = [{ id: 7, disciplineId: 1, gradeId: 1, internalRate: 80, externalRate: 100 }];
+    const resources = [{ id: 1, firstName: "Sample", lastName: "Dummy", roleId: 7, utilizationMode: "percent" as const, utilization: { "2026-02": 100 } }];
+    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };
+    render(<ResourcesPanel {...baseProps} view="planning" lang="en-US" resources={resources} roles={roles} plan={plan}
+      workdayHours={8} holidaySet={new Set()}
+      onSetUtilization={() => {}} onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
+    // RagBadge renders R, A, or G as visible text in the margin column
+    expect(screen.getAllByText(/^[RAG]$/).length).toBeGreaterThan(0);
+  });
 });
 
 test("resources-panel: no view SegmentedControl, no roles/report/add-absence buttons; resizable", () => {

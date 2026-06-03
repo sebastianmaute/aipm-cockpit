@@ -42,6 +42,8 @@ import { useColumnResize } from "./use-column-resize";
 import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton, ResizeCornerHint } from "./task-manager-ui";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import { useResizable } from "./use-resizable";
+import { RagBadge } from "./rag-badge";
+import { marginAmountHealth } from "./budget-health";
 
 const PLANNING_COL_WIDTHS = {
   assignee: 160,
@@ -446,7 +448,12 @@ function ResourcesPanelInner({
                       <td className="px-3 py-2 text-right tabular-nums font-medium">{(totalHours / workdayHours).toFixed(1)}</td>
                       <td className="px-3 py-2 text-right tabular-nums">{formatCurrency(cost.internal, plan.currency, loc)}</td>
                       <td className="px-3 py-2 text-right tabular-nums">{formatCurrency(cost.external, plan.currency, loc)}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{formatCurrency(cost.margin, plan.currency, loc)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">
+                        <span className="inline-flex items-center justify-end gap-1.5">
+                          {formatCurrency(cost.margin, plan.currency, loc)}
+                          <RagBadge value={marginAmountHealth(cost.margin, cost.external)} lang={lang} title={t(lang, "resourcesMargin")} />
+                        </span>
+                      </td>
                     </tr>
                   );
                 });
@@ -460,7 +467,12 @@ function ResourcesPanelInner({
                         <td className="px-3 py-2 text-right tabular-nums">{totals.days.toFixed(1)}</td>
                         <td className="px-3 py-2 text-right tabular-nums">{formatCurrency(totals.internal, plan.currency, loc)}</td>
                         <td className="px-3 py-2 text-right tabular-nums">{formatCurrency(totals.external, plan.currency, loc)}</td>
-                        <td className="px-3 py-2 text-right tabular-nums">{formatCurrency(totals.margin, plan.currency, loc)}</td>
+                        <td className="px-3 py-2 text-right tabular-nums">
+                          <span className="inline-flex items-center justify-end gap-1.5">
+                            {formatCurrency(totals.margin, plan.currency, loc)}
+                            <RagBadge value={marginAmountHealth(totals.margin, totals.external)} lang={lang} title={t(lang, "resourcesMargin")} />
+                          </span>
+                        </td>
                       </tr>
                     </tfoot>
                   </>
