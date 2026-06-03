@@ -263,7 +263,12 @@ function BucketDetailTable({
                   <td className="px-3 py-2 text-muted-foreground">{r.currencyLabel}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{r.budgetHours.toFixed(0)}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{r.plannedHours.toFixed(0)}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{r.actualHours.toFixed(0)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">
+                    <span className="inline-flex items-center justify-end gap-1.5">
+                      {r.actualHours.toFixed(0)}
+                      <RagBadge value={ratioHealth(r.actualHours, r.budgetHours)} lang={lang} title={t(lang, "budgetActualHours")} />
+                    </span>
+                  </td>
                   <td className="px-3 py-2 text-right tabular-nums">{money(r.budgetValue)}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{money(r.consumedValue)}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{r.marginPct == null ? "—" : `${r.marginPct.toFixed(1)}%`}</td>
