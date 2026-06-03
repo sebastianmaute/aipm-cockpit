@@ -15,6 +15,7 @@ import {
   PRIORITY_RANK,
   type Absence,
   type BudgetBucket,
+  type ChangeItem,
   type Discipline,
   type FxRates,
   type Grade,
@@ -64,6 +65,8 @@ interface WorkspaceValue {
   setStatus: Dispatch<SetStateAction<ProjectStatus>>;
   milestones: Milestone[];
   setMilestones: Dispatch<SetStateAction<Milestone[]>>;
+  changes: ChangeItem[];
+  setChanges: Dispatch<SetStateAction<ChangeItem[]>>;
 }
 
 const WorkspaceContext = createContext<WorkspaceValue | undefined>(undefined);
@@ -82,6 +85,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [fxRates, setFxRates] = useState<FxRates | null>(null);
   const [status, setStatus] = useState<ProjectStatus>({});
   const [milestones, setMilestones] = useState<Milestone[]>([]);
+  const [changes, setChanges] = useState<ChangeItem[]>([]);
   const {
     searchDebounced,
     priorityFilter,
@@ -230,6 +234,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     fxRates, setFxRates,
     status, setStatus,
     milestones, setMilestones,
+    changes, setChanges,
   };
 
   return (

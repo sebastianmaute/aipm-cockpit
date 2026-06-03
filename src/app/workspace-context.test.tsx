@@ -151,6 +151,12 @@ describe("WorkspaceProvider", () => {
     expect(result.current.budgets).toHaveLength(1);
   });
 
+  test("provides changes state defaulting to []", () => {
+    const { result } = renderHook(() => useWorkspace(), { wrapper });
+    expect(result.current.changes).toEqual([]);
+    expect(typeof result.current.setChanges).toBe("function");
+  });
+
   test("useWorkspace() outside a WorkspaceProvider throws a documented error", () => {
     // React logs the rendering error to console.error in dev; silence it
     // so the test output stays clean. Restore after to avoid hiding
