@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bucketKey, buildSnapshot, detectGaps, expectedBuckets, forecastEndDate } from "./snapshot";
+import { bucketKey, buildSnapshot, computeVariance, detectGaps, expectedBuckets, forecastEndDate } from "./snapshot";
 import type { SnapshotRecord } from "./snapshot";
 import type { DashboardModel } from "./dashboard";
 
@@ -129,5 +129,39 @@ describe("buildSnapshot", () => {
     expect(rec.remainingHours).toBeNull();
     expect(rec.remainingCost).toBeNull();
     expect(rec.series).toEqual([]);
+  });
+});
+
+function recWith(over: Partial<SnapshotRecord>): SnapshotRecord {
+  return {
+    id: "x", capturedAt: "x", bucket: "b", cadence: "weekly", trigger: "manual",
+    isBaseline: false, remainingHours: 0, remainingCost: 0, pctComplete: 0,
+    forecastEndDate: "2026-07-31", planEndDate: "2026-07-31", spi: null, cpi: null,
+    overallRag: "", scheduleRag: "", budgetRag: "", scopeRag: "",
+    currency: "EUR", milestones: [], series: [], ...over,
+  };
+}
+
+describe("computeVariance", () => {
+  it("flags a later forecast end as Red (schedule slip)", () => {
+    const baseline = recWith({ forecastEndDate: "2026-07-31" });
+    const current = recWith({ forecastEndDate: "2026-09-15" });
+    const rows = computeVariance(baseline, current);
+    const slip = rows.find((r) => r.key === "forecastEndDate");
+    expect(slip?.deltaDays).toBe(46);
+    expect(slip?.health).toBe("R");
+  });
+  it("flags higher remaining cost as Amber, lower as Green", () => {
+    const worse = computeVariance(recWith({ remainingCost: 100 }), recWith({ remainingCost: 150 }));
+    expect(worse.find((r) => r.key === "remainingCost")?.health).toBe("A");
+    const better = computeVariance(recWith({ remainingCost: 100 }), recWith({ remainingCost: 80 }));
+    expect(better.find((r) => r.key === "remainingCost")?.health).toBe("G");
+  });
+  it("returns a null baseline when baseline is null", () => {
+    const rows = computeVariance(null, recWith({ pctComplete: 40 }));
+    const pct = rows.find((r) => r.key === "pctComplete");
+    expect(pct?.baseline).toBeNull();
+    expect(pct?.current).toBe(40);
+    expect(pct?.health).toBeNull();
   });
 });
