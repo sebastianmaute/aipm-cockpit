@@ -8,18 +8,18 @@
 import {
   CSV_COLUMNS, RAID_CSV_COLUMNS, ABSENCES_CSV_COLUMNS, SHIFTS_CSV_COLUMNS,
   RESOURCES_CSV_COLUMNS, ROLES_CSV_COLUMNS, REF_CSV_COLUMNS, BUDGETS_CSV_COLUMNS,
-  MILESTONES_CSV_COLUMNS,
+  MILESTONES_CSV_COLUMNS, CHANGES_CSV_COLUMNS,
   fieldToString, raidFieldToString, absenceFieldToString, shiftFieldToString,
   resourceFieldToString, budgetFieldToString, milestoneFieldToString, buildTaskFromObj, buildRaidItemFromObj,
-  buildMilestoneFromObj,
-  decodeRatesMap, emptyWorkspace, migrateWorkspaceV6, sanitizeProjectStatus, type Workspace,
+  buildMilestoneFromObj, changeFieldToString, buildChangeFromObj,
+  decodeRatesMap, emptyWorkspace, migrateWorkspaceV7, sanitizeProjectStatus, type Workspace,
 } from "./storage";
 import {
   sanitizeResource, sanitizeRole, sanitizeBudgetBucket, sanitizeDiscipline,
   sanitizeGrade, sanitizeAbsence, sanitizeShift, sanitizeFxRates, sanitizePlan,
 } from "./sanitize";
 import type {
-  Task, RaidItem, Absence, Shift, Resource, Role, Discipline, Grade, BudgetBucket, Milestone,
+  Task, RaidItem, Absence, Shift, Resource, Role, Discipline, Grade, BudgetBucket, Milestone, ChangeItem,
 } from "./types";
 
 interface SqlArg { type: "text" | "integer" | "null"; value?: string }
@@ -56,6 +56,7 @@ const ENTITY_SPECS: EntitySpec<unknown>[] = [
   spec<Grade>({ table: "grades", wsKey: "grades", columns: REF_CSV_COLUMNS, get: (w) => w.grades, toRow: anyToRow as (e: Grade, col: string) => string, fromObj: sanitizeGrade }),
   spec<BudgetBucket>({ table: "budget_buckets", wsKey: "budgets", columns: BUDGETS_CSV_COLUMNS, get: (w) => w.budgets ?? [], toRow: budgetFieldToString, fromObj: sanitizeBudgetBucket }),
   spec<Milestone>({ table: "milestones", wsKey: "milestones", columns: MILESTONES_CSV_COLUMNS, get: (w) => w.milestones ?? [], toRow: milestoneFieldToString as unknown as (e: Milestone, col: string) => string, fromObj: buildMilestoneFromObj }),
+  spec<ChangeItem>({ table: "changes", wsKey: "changes", columns: CHANGES_CSV_COLUMNS, get: (w) => w.changes ?? [], toRow: changeFieldToString as unknown as (e: ChangeItem, col: string) => string, fromObj: buildChangeFromObj }),
 ] as unknown as EntitySpec<unknown>[];
 
 const PLAN_COLUMNS = ["startDate", "endDate", "granularity", "currency"] as const;
@@ -120,10 +121,10 @@ export function rowsToWorkspace(results: PipelineResultLike[]): Workspace {
       // malformed — leave the emptyWorkspace() default
     }
   }
-  return migrateWorkspaceV6(ws);
+  return migrateWorkspaceV7(ws);
 }
 
-const SCHEMA_VERSION = "6";
+const SCHEMA_VERSION = "7";
 
 function insertStmt(table: string, columns: readonly string[], values: string[]): SqlStmt {
   const colList = columns.map((c) => `"${c}"`).join(", ");
