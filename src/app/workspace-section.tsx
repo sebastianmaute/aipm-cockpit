@@ -14,7 +14,7 @@ import { DEFAULT_EXTRA_REPORTS } from "./addable-reports";
 import type { ToolDispatcher } from "./chat-tools";
 import type { UseSnapshotsResult } from "./use-snapshots";
 import type { ActivityEntry, ActivityKind } from "./activity-log";
-import type { Absence, BudgetBucket, RaidItem, Resource, Shift, Task } from "./types";
+import type { Absence, BudgetBucket, ChangeItem, RaidItem, Resource, Shift, Task } from "./types";
 import { ResourceDirectory } from "./resource-directory";
 import { DashboardPanel } from "./dashboard-panel";
 import { MilestonesPanel } from "./milestones-panel";
@@ -51,6 +51,14 @@ const RaidReportPanel = dynamic(
   () => import("./raid-report-panel").then((m) => m.RaidReportPanel),
   { ssr: false },
 );
+const ChangePanel = dynamic(
+  () => import("./change-panel").then((m) => m.ChangePanel),
+  { ssr: false },
+);
+const ChangeReportPanel = dynamic(
+  () => import("./change-report-panel").then((m) => m.ChangeReportPanel),
+  { ssr: false },
+);
 const BudgetPanel = dynamic(
   () => import("./budget-panel").then((m) => m.BudgetPanel),
   { ssr: false },
@@ -84,6 +92,9 @@ export interface WorkspaceSectionProps {
   handleClearRaidTaskFilter: () => void;
   handleSaveRaidItem: (item: RaidItem) => void;
   handleDeleteRaidItem: (id: number) => void;
+  changes: ChangeItem[];
+  handleSaveChange: (item: ChangeItem) => void;
+  handleDeleteChange: (id: number) => void;
   handleCreateMitigationTaskFromRaid: (raidId: number) => number | null | undefined;
   handleJumpToTaskFromRaid: (taskId: number) => void;
   activityLog: ActivityEntry[];
@@ -127,6 +138,9 @@ export function WorkspaceSection({
   handleClearRaidTaskFilter,
   handleSaveRaidItem,
   handleDeleteRaidItem,
+  changes,
+  handleSaveChange,
+  handleDeleteChange,
   handleCreateMitigationTaskFromRaid,
   handleJumpToTaskFromRaid,
   activityLog,
@@ -532,6 +546,26 @@ export function WorkspaceSection({
           </div>
         )}
 
+        {activeTab === "changes" && (
+          <div id="panel-changes" role="tabpanel" className={panelClass}>
+            <ChangePanel
+              lang={lang}
+              tasks={tasks}
+              raid={raid}
+              changes={changes}
+              today={today}
+              onSave={handleSaveChange}
+              onDelete={handleDeleteChange}
+            />
+          </div>
+        )}
+
+        {activeTab === "change-report" && (
+          <div id="panel-change-report" role="tabpanel" className={panelScrollClass}>
+            <ChangeReportPanel lang={lang} items={changes} today={today} />
+          </div>
+        )}
+
         {activeTab === "budget" && (
           <div id="panel-budget" role="tabpanel" className={panelScrollClass}>
             <BudgetPanel
@@ -590,6 +624,7 @@ export function WorkspaceSection({
               lang={lang}
               tasks={tasks}
               raid={raid}
+              changes={changes}
               budgets={budgets}
               plan={plan}
               roles={roles}

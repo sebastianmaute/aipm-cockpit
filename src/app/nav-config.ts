@@ -20,6 +20,8 @@ export type AppView =
   | "budget-report"
   | "raid"
   | "raid-report"
+  | "changes"
+  | "change-report"
   | "reports"
   | "activity"
   | "settings"
@@ -62,6 +64,7 @@ export const NAV_GROUPS: NavGroup[] = [
     labelKey: "navGroupRegisters",
     items: [
       { view: "raid", children: [{ view: "raid-report" }] },
+      { view: "changes", children: [{ view: "change-report" }] },
       { view: "reports" },
     ],
   },
@@ -88,6 +91,8 @@ const LABEL_KEYS: Record<Exclude<AppView, "edit">, TranslationKey> = {
   "budget-report": "budgetReportTitle",
   raid: "tabRaid",
   "raid-report": "raidReportTitle",
+  changes: "navChanges",
+  "change-report": "changeReportTitle",
   reports: "tabReports",
   activity: "tabActivity",
   settings: "settings",

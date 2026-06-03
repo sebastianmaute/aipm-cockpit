@@ -27,6 +27,7 @@ import { splitName, resourceDisplayName } from "./resource-foundation";
 import { buildRaidByTaskIndex } from "./raid";
 import { FiltersProvider, useFilters } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
+import { useChangeLog } from "./use-change-log";
 import {
   TaskFormProvider,
   useTaskForm,
@@ -131,6 +132,7 @@ function TaskManagerInner() {
     plan,
     status,
     milestones,
+    changes,
   } = useWorkspace();
 
   const { setContacts, contactsList, handleRemoveContact } =
@@ -225,6 +227,7 @@ function TaskManagerInner() {
         activity: activityLog,
         today,
         milestones,
+        changes,
       });
       return {
         model,
@@ -321,6 +324,11 @@ function TaskManagerInner() {
     handleCloseResourceModal,
     handleSetAllUtilizationMode,
   } = useResourcePlanner({ lang, logActivity, showToast, workdayHours: settings.resources.workdayHours, holidaySet });
+
+  // Change Log CRUD. The hook reads/writes `changes` via WorkspaceProvider;
+  // change activity-logging is intentionally out of scope (logActivity here is
+  // kind-keyed, not free-text), so no logActivity is passed.
+  const { handleSaveChange, handleDeleteChange } = useChangeLog({ today });
 
   const [fillTaskAssigneeOnSave, setFillTaskAssigneeOnSave] = useState(false);
 
@@ -684,6 +692,9 @@ function TaskManagerInner() {
     handleClearRaidTaskFilter,
     handleSaveRaidItem: guardEdit(handleSaveRaidItem),
     handleDeleteRaidItem: guardEdit(handleDeleteRaidItem),
+    changes,
+    handleSaveChange: guardEdit(handleSaveChange),
+    handleDeleteChange: guardEdit(handleDeleteChange),
     handleCreateMitigationTaskFromRaid: guardEdit(handleCreateMitigationTaskFromRaid),
     handleJumpToTaskFromRaid,
     activityLog,
