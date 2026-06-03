@@ -1206,6 +1206,8 @@ const enUS = {
   trendsRequireTurso: "Trends require the Turso backend. Choose Turso in Settings -> Storage to record snapshots.",
   trendsNoSnapshots: "No snapshots yet. The first one is captured automatically, or use Capture snapshot now.",
   trendsNotEnough: "Not enough snapshots yet to draw a trend.",
+  trendsGapOne: "{0} gap",
+  trendsGapMany: "{0} gaps",
   trendsCaptureNow: "Capture snapshot now",
   trendsSetBaseline: "Set as baseline",
   trendsDeleteSnapshot: "Delete",

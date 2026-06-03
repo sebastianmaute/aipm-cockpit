@@ -21,11 +21,12 @@ function yAt(v: number, min: number, max: number): number {
 }
 
 export function TrendChart({
-  caption, points, gapCount = 0, emptyLabel, format = (v: number) => String(Math.round(v)),
+  caption, points, gapCount = 0, gapLabel, emptyLabel, format = (v: number) => String(Math.round(v)),
 }: {
   caption: string;
   points: readonly TrendPoint[];
   gapCount?: number;
+  gapLabel?: string;
   emptyLabel?: ReactNode;
   format?: (v: number) => string;
 }) {
@@ -53,7 +54,7 @@ export function TrendChart({
   return (
     <div className="min-w-[240px] flex-1">
       <div className="mb-1 text-xs uppercase tracking-wide text-muted-foreground">
-        {caption}{gapCount > 0 ? ` · ${gapCount} gap${gapCount === 1 ? "" : "s"}` : ""}
+        {caption}{gapLabel ? ` · ${gapLabel}` : gapCount > 0 ? ` · ${gapCount} gap${gapCount === 1 ? "" : "s"}` : ""}
       </div>
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label={caption}>
         <line x1={PAD_L} y1={PAD_T} x2={PAD_L} y2={baseY} className="stroke-line" strokeWidth={1} />

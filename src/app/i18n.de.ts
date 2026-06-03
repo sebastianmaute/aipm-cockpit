@@ -1224,6 +1224,8 @@ export const de: Record<TranslationKey, string> = {
   trendsRequireTurso: "Trends erfordern das Turso-Backend. Waehlen Sie Turso unter Einstellungen -> Speicher, um Snapshots aufzuzeichnen.",
   trendsNoSnapshots: "Noch keine Snapshots. Der erste wird automatisch erfasst, oder nutzen Sie Snapshot jetzt erfassen.",
   trendsNotEnough: "Noch nicht genuegend Snapshots fuer einen Trend.",
+  trendsGapOne: "{0} Luecke",
+  trendsGapMany: "{0} Luecken",
   trendsCaptureNow: "Snapshot jetzt erfassen",
   trendsSetBaseline: "Als Baseline festlegen",
   trendsDeleteSnapshot: "Loeschen",
