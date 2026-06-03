@@ -238,6 +238,9 @@ const IDB_GRADES_STORE = "grades";
 const KV_PLAN_KEY = "resource-plan";
 const IDB_BUDGETS_STORE = "budgets";
 const KV_FXRATES_KEY = "fx-rates";
+const KV_STATUS_KEY = "project-status";
+const KV_MILESTONES_KEY = "milestones";
+const KV_CHANGES_KEY = "changes";
 
 function openIdb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -2529,6 +2532,9 @@ class BrowserBackend implements StorageBackend {
     let plan: ResourcePlan = defaultResourcePlan(new Date().toISOString().slice(0, 10));
     let budgets: BudgetBucket[] = [];
     let fxRates: FxRates | null = null;
+    let status: ProjectStatus = {};
+    let milestones: Milestone[] = [];
+    let changes: ChangeItem[] = [];
     try {
       tasks = await idbGetAll<Task>(IDB_TASKS_STORE);
       raid = await idbGetAll<RaidItem>(IDB_RAID_STORE);
@@ -2541,6 +2547,9 @@ class BrowserBackend implements StorageBackend {
       plan = (await idbGet<ResourcePlan>(KV_PLAN_KEY)) ?? plan;
       budgets = await idbGetAll<BudgetBucket>(IDB_BUDGETS_STORE);
       fxRates = (await idbGet<FxRates>(KV_FXRATES_KEY)) ?? null;
+      status = (await idbGet<ProjectStatus>(KV_STATUS_KEY)) ?? {};
+      milestones = (await idbGet<Milestone[]>(KV_MILESTONES_KEY)) ?? [];
+      changes = (await idbGet<ChangeItem[]>(KV_CHANGES_KEY)) ?? [];
     } catch {
       // IDB unavailable or upgrade failed. Fall through — the legacy
       // migration block below will still try localStorage, and if that's
@@ -2555,7 +2564,7 @@ class BrowserBackend implements StorageBackend {
       // from the (possibly successful) idbGetAll attempts above.
     }
 
-    const raw: Workspace = { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates };
+    const raw: Workspace = { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, milestones, changes };
     const ws = migrateWorkspaceV7(raw);
 
     try {
@@ -2665,6 +2674,9 @@ class BrowserBackend implements StorageBackend {
     const budgetDelta = this.diff(this.budgetsBaseline, ws.budgets ?? []);
     await idbBulkUpdate(IDB_BUDGETS_STORE, budgetDelta.puts, budgetDelta.deletes);
     await idbSet(KV_FXRATES_KEY, ws.fxRates ?? null);
+    await idbSet(KV_STATUS_KEY, ws.status ?? {});
+    await idbSet(KV_MILESTONES_KEY, ws.milestones ?? []);
+    await idbSet(KV_CHANGES_KEY, ws.changes ?? []);
 
     // Refresh baselines so the next save's diff is computed against what's
     // actually in IDB. Rebuilding the maps is O(N) but only runs after a
