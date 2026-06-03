@@ -30,6 +30,11 @@ import {
   type PlanningMode,
   SUPPORTED_CURRENCIES,
   isBudgetCurrency,
+  CHANGE_TYPES,
+  CHANGE_STATUSES,
+  type ChangeItem,
+  type ChangeType,
+  type ChangeStatus,
 } from "./types";
 import { defaultResourcePlan, splitName } from "./resource-foundation";
 
@@ -668,7 +673,7 @@ function sanitizeAmount(n: unknown): number | undefined {
   return Math.min(AMOUNT_MAX, Math.round(num * 100) / 100);
 }
 
-function sanitizeIdList(input: unknown): number[] {
+export function sanitizeIdList(input: unknown): number[] {
   let arr: unknown[];
   if (Array.isArray(input)) arr = input;
   else if (typeof input === "string") arr = input.split(".");
@@ -868,4 +873,44 @@ export function sanitizeMilestone(input: unknown): Milestone | null {
   const localModifiedAt = sanitizeText(o.localModifiedAt, TEXTAREA_MAX);
   if (localModifiedAt) m.localModifiedAt = localModifiedAt;
   return m;
+}
+
+// --- Change-log sanitizer --------------------------------------------------
+
+const CHANGE_TYPE_SET = new Set<string>(CHANGE_TYPES);
+const CHANGE_STATUS_SET = new Set<string>(CHANGE_STATUSES);
+const CHANGE_IMPACT_SET = new Set<string>(["Low", "Medium", "High", "Critical"]);
+
+/** Accept only well-formed change items from untrusted JSON. id>0 + title required. */
+export function sanitizeChangeItem(input: unknown): ChangeItem | null {
+  if (!isPlainObject(input)) return null;
+  const o = input;
+  const id = toNumber(o.id);
+  if (!Number.isFinite(id) || id <= 0) return null;
+  const title = sanitizeText(o.title, BUDGET_NAME_MAX);
+  if (!title) return null;
+
+  const type = (typeof o.type === "string" && CHANGE_TYPE_SET.has(o.type)) ? (o.type as ChangeType) : "Other";
+  const status = (typeof o.status === "string" && CHANGE_STATUS_SET.has(o.status)) ? (o.status as ChangeStatus) : "Proposed";
+
+  const item: ChangeItem = {
+    id: Math.floor(id),
+    title,
+    description: sanitizeText(o.description, TEXTAREA_MAX),
+    type,
+    status,
+    raisedDate: sanitizeIsoDate(o.raisedDate),
+    linkedTaskIds: sanitizeIdList(o.linkedTaskIds),
+    linkedRaidIds: sanitizeIdList(o.linkedRaidIds),
+  };
+  if (typeof o.impact === "string" && CHANGE_IMPACT_SET.has(o.impact)) item.impact = o.impact as ChangeItem["impact"];
+  const impactDesc = sanitizeText(o.impactDescription, TEXTAREA_MAX); if (impactDesc) item.impactDescription = impactDesc;
+  const days = toNumber(o.scheduleImpactDays); if (Number.isFinite(days) && days >= 0) item.scheduleImpactDays = days;
+  const cost = toNumber(o.costImpact); if (Number.isFinite(cost) && cost >= 0) item.costImpact = cost;
+  const reqBy = sanitizeText(o.requestedBy, BUDGET_NAME_MAX); if (reqBy) item.requestedBy = reqBy;
+  const decBy = sanitizeText(o.decisionBy, BUDGET_NAME_MAX); if (decBy) item.decisionBy = decBy;
+  const decDate = sanitizeIsoDate(o.decisionDate); if (decDate) item.decisionDate = decDate;
+  const notes = sanitizeText(o.resolutionNotes, TEXTAREA_MAX); if (notes) item.resolutionNotes = notes;
+  const lma = sanitizeText(o.localModifiedAt, TEXTAREA_MAX); if (lma) item.localModifiedAt = lma;
+  return item;
 }
