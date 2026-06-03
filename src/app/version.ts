@@ -1,3 +1,7 @@
+// 0.49.1 polishes the Trends feature: the burn-down/KPI trend-chart gap-count
+// caption is now localized (EN/DE) instead of English-only, and the Turso
+// integration settings show a warning when snapshot recording is enabled but no
+// Turso database URL is configured (auto-capture would otherwise fail silently).
 // 0.49.0 "Le Guin" adds Baseline + Variance / Burn-down Trends. When the active
 // storage backend is Turso, the app captures periodic KPI snapshots (remaining
 // hours/cost, % complete, forecast end date, SPI/CPI, the four RAGs, and the
@@ -633,8 +637,8 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.49.0";
-export const APP_BUILD_DATE = "2026-06-03"; // 0.49.0 baseline/variance trends
+export const APP_VERSION = "0.49.1";
+export const APP_BUILD_DATE = "2026-06-03"; // 0.49.1 trends polish
 /** Minor-series milestone codename (sci-fi/fantasy author names). The whole
  *  0.49.x line is "Le Guin" (Ursula K. Le Guin); patch releases inherit
  *  their minor version's codename rather than getting their own. */
