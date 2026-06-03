@@ -6,7 +6,7 @@ import {
   type DashboardInput,
 } from "./dashboard";
 import type { ProjectReport } from "./budget-report";
-import type { Task, RaidItem, Milestone } from "./types";
+import type { Task, RaidItem, Milestone, ChangeItem } from "./types";
 import type { ActivityEntry } from "./activity-log";
 
 function task(o: Partial<Task> = {}): Task {
@@ -162,7 +162,7 @@ describe("computeDashboard", () => {
       tasks: [], raid: [], budgets: [], plan: { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month", currency: "EUR" },
       roles: [], resources: [], absences: [], workdayHours: 8,
       holidaySet: new Set<string>(), status: {}, activity: [], today: "2026-06-02",
-      milestones: [],
+      milestones: [], changes: [],
       ...over,
     };
   }
@@ -257,6 +257,47 @@ describe("computeDashboard", () => {
   });
 });
 
+describe("dashboard scope signal from changes", () => {
+  function baseInput(over: Partial<DashboardInput> = {}): DashboardInput {
+    return {
+      tasks: [], raid: [], budgets: [], plan: { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month", currency: "EUR" },
+      roles: [], resources: [], absences: [], workdayHours: 8,
+      holidaySet: new Set<string>(), status: {}, activity: [], today: "2026-06-02",
+      milestones: [], changes: [],
+      ...over,
+    };
+  }
+  function changeItem(over: Partial<ChangeItem> = {}): ChangeItem {
+    return {
+      id: 1, title: "c", description: "", type: "Scope", status: "Proposed",
+      raisedDate: "2026-06-01", linkedTaskIds: [], linkedRaidIds: [], ...over,
+    };
+  }
+  it("Amber scope when 1..4 pending changes", () => {
+    const model = computeDashboard(baseInput({ changes: [changeItem({})] }));
+    expect(model.scope.computed).toBe("A");
+    expect(model.scope.effective).toBe("A");
+  });
+  it("Red scope at >=5 pending", () => {
+    const changes = Array.from({ length: 5 }, (_, i) => changeItem({ id: i + 1 }));
+    expect(computeDashboard(baseInput({ changes })).scope.computed).toBe("R");
+  });
+  it("manual scopeOverride wins", () => {
+    const model = computeDashboard(baseInput({ changes: [changeItem({})], status: { scopeOverride: "G" } }));
+    expect(model.scope.effective).toBe("G");
+    expect(model.scope.overridden).toBe(true);
+  });
+  it("changes summary counts pending/approved/implemented", () => {
+    const changes = [
+      changeItem({ id: 1, status: "Proposed" }),
+      changeItem({ id: 2, status: "Approved" }),
+      changeItem({ id: 3, status: "Implemented" }),
+    ];
+    const m = computeDashboard(baseInput({ changes }));
+    expect(m.changes).toMatchObject({ pending: 1, approved: 1, implemented: 1, total: 3 });
+  });
+});
+
 describe("computeDashboard burndown", () => {
   function dashInput(over: Partial<DashboardInput> = {}): DashboardInput {
     return {
@@ -264,7 +305,7 @@ describe("computeDashboard burndown", () => {
       plan: { startDate: "2026-01-01", endDate: "2026-03-31", granularity: "month", currency: "EUR", rows: [] } as unknown as DashboardInput["plan"],
       roles: [], resources: [], absences: [],
       workdayHours: 8, holidaySet: holidays,
-      status: {} as DashboardInput["status"], activity: [], today, milestones: [],
+      status: {} as DashboardInput["status"], activity: [], today, milestones: [], changes: [],
       ...over,
     };
   }
