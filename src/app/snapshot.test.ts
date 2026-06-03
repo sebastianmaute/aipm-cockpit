@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { bucketKey, detectGaps, expectedBuckets } from "./snapshot";
+import { bucketKey, buildSnapshot, detectGaps, expectedBuckets, forecastEndDate } from "./snapshot";
 import type { SnapshotRecord } from "./snapshot";
+import type { DashboardModel } from "./dashboard";
 
 function snap(capturedAt: string, bucket: string): SnapshotRecord {
   return {
@@ -54,5 +55,79 @@ describe("detectGaps", () => {
   });
   it("returns [] for an empty history", () => {
     expect(detectGaps([], "weekly", new Date("2026-06-15T00:00:00Z"))).toEqual([]);
+  });
+});
+
+const baseTask = {
+  taskName: "t", assignee: "", assigneeEmail: "", dueDate: "", lastUpdateDate: "",
+  priority: "Medium" as const, blockers: "", notes: "",
+};
+
+describe("forecastEndDate", () => {
+  it("is the latest incomplete task dueDate when it slips past the plan end", () => {
+    const tasks = [
+      { ...baseTask, id: 1, dueDate: "2026-07-01" },
+      { ...baseTask, id: 2, dueDate: "2026-09-15" },
+      { ...baseTask, id: 3, dueDate: "2026-12-31", completedDate: "2026-06-01" }, // completed -> ignored
+    ];
+    expect(forecastEndDate(tasks, [], new Map(), "2026-08-01")).toBe("2026-09-15");
+  });
+  it("falls back to the plan end date when nothing slips", () => {
+    const tasks = [{ ...baseTask, id: 1, dueDate: "2026-05-01" }];
+    expect(forecastEndDate(tasks, [], new Map(), "2026-08-01")).toBe("2026-08-01");
+  });
+});
+
+describe("buildSnapshot", () => {
+  const model = {
+    overall: { computed: "G", effective: "A", overridden: true },
+    schedule: { computed: "R", effective: "R", overridden: false },
+    budget: { computed: "A", effective: "A", overridden: false },
+    scope: { effective: null },
+    progress: { total: 4, completed: 1, percent: 25, counts: { R: 1, A: 1, G: 2 } },
+    burn: null,
+    burndown: {
+      periods: ["2026-06", "2026-07"],
+      plannedRemainingHours: [50, 0], plannedRemainingValue: [5000, 0],
+      actualRemainingHours: [60, null], actualRemainingValue: [6000, null],
+      todayIndex: 0, totalBudgetHours: 100, totalBudgetValue: 10000,
+    },
+    evm: { pv: 0, ev: 0, ac: 0, spi: 0.8, cpi: 1.1, sv: 0, cv: 0, money: null, coverage: { withEstimate: 0, total: 0 } },
+    topRaid: [], overdue: [], dueSoon: [],
+    overdueMilestones: [], atRiskMilestones: [], dueSoonMilestones: [],
+    recentActivity: [], narrative: { text: "" },
+  } as unknown as DashboardModel;
+
+  it("captures effective RAGs, %complete, EVM indices, currency, and the last actual remaining", () => {
+    const rec = buildSnapshot({
+      model, tasks: [], milestones: [], planEndDate: "2026-07-31", currency: "EUR",
+      capturedAt: "2026-06-03T09:00:00.000Z", cadence: "weekly", trigger: "manual",
+    });
+    expect(rec.id).toBe("2026-06-03T09:00:00.000Z");
+    expect(rec.bucket).toBe("2026-W23");
+    expect(rec.trigger).toBe("manual");
+    expect(rec.pctComplete).toBe(25);
+    expect(rec.overallRag).toBe("A"); // effective, not computed
+    expect(rec.scheduleRag).toBe("R");
+    expect(rec.scopeRag).toBe("");    // null -> ""
+    expect(rec.spi).toBe(0.8);
+    expect(rec.cpi).toBe(1.1);
+    expect(rec.currency).toBe("EUR");
+    expect(rec.remainingHours).toBe(60); // last non-null actualRemainingHours
+    expect(rec.remainingCost).toBe(6000);
+    expect(rec.series).toHaveLength(2);
+    expect(rec.series[0]).toEqual({ period: "2026-06", plannedHours: 50, actualHours: 60, plannedCost: 5000, actualCost: 6000 });
+    expect(rec.series[1].actualHours).toBeNull();
+  });
+
+  it("yields null remaining + empty series when there is no burndown", () => {
+    const rec = buildSnapshot({
+      model: { ...model, burndown: null } as DashboardModel, tasks: [], milestones: [],
+      planEndDate: "2026-07-31", currency: "USD",
+      capturedAt: "2026-06-03T09:00:00.000Z", cadence: "weekly", trigger: "auto",
+    });
+    expect(rec.remainingHours).toBeNull();
+    expect(rec.remainingCost).toBeNull();
+    expect(rec.series).toEqual([]);
   });
 });

@@ -121,3 +121,98 @@ export function detectGaps(
   const have = new Set(snapshots.map((s) => s.bucket));
   return expectedBuckets(first, today, cadence).filter((b) => !have.has(b));
 }
+
+function lastNonNull(values: readonly (number | null)[]): number | null {
+  for (let i = values.length - 1; i >= 0; i--) {
+    if (values[i] !== null) return values[i];
+  }
+  return null;
+}
+
+/** Latest effective end for a milestone: max of its target date and any linked
+ *  task's effective end (completedDate || dueDate). */
+function milestoneForecast(m: Milestone, tasksById: ReadonlyMap<number, Task>): string {
+  let latest = m.date;
+  for (const id of m.linkedTaskIds) {
+    const t = tasksById.get(id);
+    if (!t) continue;
+    const end = t.completedDate || t.dueDate;
+    if (end && end > latest) latest = end;
+  }
+  return latest;
+}
+
+/** Project forecast finish: the latest effective end across incomplete tasks and
+ *  unachieved milestones, never earlier than `planEndDate`. */
+export function forecastEndDate(
+  tasks: readonly Task[],
+  milestones: readonly Milestone[],
+  tasksById: ReadonlyMap<number, Task>,
+  planEndDate: string,
+): string {
+  let latest = planEndDate;
+  for (const t of tasks) {
+    if (t.completedDate) continue;
+    if (t.dueDate && t.dueDate > latest) latest = t.dueDate;
+  }
+  for (const m of milestones) {
+    if (m.achievedDate) continue;
+    const f = milestoneForecast(m, tasksById);
+    if (f > latest) latest = f;
+  }
+  return latest;
+}
+
+export interface BuildSnapshotInput {
+  model: DashboardModel;
+  tasks: readonly Task[];
+  milestones: readonly Milestone[];
+  planEndDate: string;
+  currency: string;
+  capturedAt: string;       // ISO ms timestamp; also used as the record id
+  cadence: SnapshotCadence;
+  trigger: SnapshotTrigger;
+}
+
+const ragOrEmpty = (h: Health | null): Health | "" => h ?? "";
+
+/** Assemble a SnapshotRecord from an already-computed DashboardModel + context.
+ *  Pure: the caller supplies `capturedAt` (no implicit clock). */
+export function buildSnapshot(input: BuildSnapshotInput): SnapshotRecord {
+  const { model, tasks, milestones, planEndDate, currency, capturedAt, cadence, trigger } = input;
+  const tasksById = new Map(tasks.map((t) => [t.id, t] as const));
+  const bd = model.burndown;
+  const series: SnapshotSeriesPoint[] = bd
+    ? bd.periods.map((period, i) => ({
+        period,
+        plannedHours: bd.plannedRemainingHours[i] ?? 0,
+        actualHours: bd.actualRemainingHours[i] ?? null,
+        plannedCost: bd.plannedRemainingValue[i] ?? 0,
+        actualCost: bd.actualRemainingValue[i] ?? null,
+      }))
+    : [];
+  return {
+    id: capturedAt,
+    capturedAt,
+    bucket: bucketKey(new Date(capturedAt), cadence),
+    cadence,
+    trigger,
+    isBaseline: false,
+    remainingHours: bd ? lastNonNull(bd.actualRemainingHours) : null,
+    remainingCost: bd ? lastNonNull(bd.actualRemainingValue) : null,
+    pctComplete: model.progress.percent,
+    forecastEndDate: forecastEndDate(tasks, milestones, tasksById, planEndDate),
+    planEndDate,
+    spi: model.evm.spi,
+    cpi: model.evm.cpi,
+    overallRag: ragOrEmpty(model.overall.effective),
+    scheduleRag: ragOrEmpty(model.schedule.effective),
+    budgetRag: ragOrEmpty(model.budget.effective),
+    scopeRag: ragOrEmpty(model.scope.effective),
+    currency,
+    milestones: milestones.map((m) => ({
+      id: m.id, name: m.name, target: m.date, forecast: milestoneForecast(m, tasksById),
+    })),
+    series,
+  };
+}
