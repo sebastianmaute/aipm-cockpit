@@ -16,6 +16,7 @@ import {
   parseDependenciesString,
   sanitizeAbsence,
   sanitizeBudgetBucket,
+  sanitizeChangeItem,
   sanitizeDiscipline,
   sanitizeFxRates,
   sanitizeGrade,
@@ -32,6 +33,7 @@ import {
 import {
   type Absence,
   type BudgetBucket,
+  type ChangeItem,
   type Discipline,
   type FxRates,
   type Grade,
@@ -74,9 +76,11 @@ export type Workspace = {
   status?: ProjectStatus;
   /** Project milestones (key dates). Optional for back-compat; load paths default to []. */
   milestones?: Milestone[];
+  /** Change-control register. Optional for back-compat; load paths default to []. */
+  changes?: ChangeItem[];
 };
 
-const SCHEMA_VERSION = 6;
+const SCHEMA_VERSION = 7;
 
 /** A blank workspace with a default plan anchored to today. */
 export function emptyWorkspace(): Workspace {
@@ -88,6 +92,7 @@ export function emptyWorkspace(): Workspace {
     fxRates: null,
     status: {},
     milestones: [],
+    changes: [],
   };
 }
 
@@ -127,6 +132,17 @@ export function migrateWorkspaceV6(ws: Workspace): Workspace {
     return base;
   }
   return { ...base, budgets, fxRates, status, milestones };
+}
+
+/**
+ * v7 migration: ensures the change-control register exists. Runs after v6.
+ * Idempotent — reuses arrays/values unchanged.
+ */
+export function migrateWorkspaceV7(ws: Workspace): Workspace {
+  const base = migrateWorkspaceV6(ws);
+  const changes = Array.isArray(base.changes) ? base.changes : [];
+  if (changes === base.changes) return base;
+  return { ...base, changes };
 }
 
 // --- Storage configuration -------------------------------------------------
@@ -222,6 +238,9 @@ const IDB_GRADES_STORE = "grades";
 const KV_PLAN_KEY = "resource-plan";
 const IDB_BUDGETS_STORE = "budgets";
 const KV_FXRATES_KEY = "fx-rates";
+const KV_STATUS_KEY = "project-status";
+const KV_MILESTONES_KEY = "milestones";
+const KV_CHANGES_KEY = "changes";
 
 function openIdb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -503,6 +522,7 @@ export const BUDGETS_CSV_COLUMNS = [
 const CSV_SECTION_BUDGETS = "# BUDGETS";
 const CSV_SECTION_FXRATES = "# FXRATES";
 const CSV_SECTION_MILESTONES = "# MILESTONES";
+const CSV_SECTION_CHANGES = "# CHANGES";
 
 // Section markers for the new entity sections in multi-section CSV files.
 const CSV_SECTION_RESOURCES = "# RESOURCES";
@@ -742,6 +762,30 @@ export function buildMilestoneFromObj(obj: Record<string, string>): Milestone | 
   return m;
 }
 
+export const CHANGES_CSV_COLUMNS: Array<keyof ChangeItem> = [
+  "id", "title", "description", "type", "status", "impact", "impactDescription", "scheduleImpactDays",
+  "costImpact", "requestedBy", "raisedDate", "decisionBy", "decisionDate", "resolutionNotes",
+  "linkedTaskIds", "linkedRaidIds", "localModifiedAt",
+];
+
+export function changeFieldToString(c: ChangeItem, col: keyof ChangeItem): string {
+  if (col === "linkedTaskIds") return Array.isArray(c.linkedTaskIds) ? c.linkedTaskIds.join("|") : "";
+  if (col === "linkedRaidIds") return Array.isArray(c.linkedRaidIds) ? c.linkedRaidIds.join("|") : "";
+  const v = c[col];
+  return v === undefined || v === null ? "" : String(v);
+}
+
+export function buildChangeFromObj(obj: Record<string, string>): ChangeItem | null {
+  return sanitizeChangeItem({
+    ...obj,
+    id: obj.id ? Number(obj.id) : undefined,
+    scheduleImpactDays: obj.scheduleImpactDays ? Number(obj.scheduleImpactDays) : undefined,
+    costImpact: obj.costImpact ? Number(obj.costImpact) : undefined,
+    linkedTaskIds: parseLinkedTaskIds(obj.linkedTaskIds),
+    linkedRaidIds: parseLinkedTaskIds(obj.linkedRaidIds),
+  });
+}
+
 function csvEscape(value: string): string {
   if (
     value.includes(",") ||
@@ -783,6 +827,16 @@ function milestonesToCsv(milestones: readonly Milestone[]): string {
   for (const m of milestones) {
     lines.push(
       MILESTONES_CSV_COLUMNS.map((c) => csvEscape(milestoneFieldToString(m, c))).join(","),
+    );
+  }
+  return lines.join("\r\n");
+}
+
+function changesToCsv(changes: readonly ChangeItem[]): string {
+  const lines: string[] = [CHANGES_CSV_COLUMNS.join(",")];
+  for (const c of changes) {
+    lines.push(
+      CHANGES_CSV_COLUMNS.map((col) => csvEscape(changeFieldToString(c, col))).join(","),
     );
   }
   return lines.join("\r\n");
@@ -922,6 +976,7 @@ export function workspaceToJson(ws: Workspace): string {
       grades: ws.grades, plan: ws.plan, budgets: ws.budgets ?? [], fxRates: ws.fxRates ?? null,
       status: ws.status ?? {},
       milestones: ws.milestones ?? [],
+      changes: ws.changes ?? [],
     },
     null,
     2,
@@ -968,8 +1023,9 @@ export function jsonToWorkspace(text: string): Workspace {
       fxRates: sanitizeFxRates(p.fxRates),
       status: sanitizeProjectStatus(p.status),
       milestones: ((p.milestones as unknown[]) ?? []).map((m) => sanitizeMilestone(m)).filter((m): m is Milestone => m !== null),
+      changes: ((p.changes as unknown[]) ?? []).map((c) => sanitizeChangeItem(c)).filter((c): c is ChangeItem => c !== null),
     };
-    return migrateWorkspaceV6(raw);
+    return migrateWorkspaceV7(raw);
   } catch {
     return emptyWorkspace();
   }
@@ -1047,6 +1103,9 @@ export function workspaceToCsv(ws: Workspace): string {
   }
   if ((ws.milestones ?? []).length > 0) {
     parts.push("", CSV_SECTION_MILESTONES, milestonesToCsv(ws.milestones ?? []));
+  }
+  if ((ws.changes ?? []).length > 0) {
+    parts.push("", CSV_SECTION_CHANGES, changesToCsv(ws.changes ?? []));
   }
   parts.push("", planToCsvLine(ws.plan));
   return parts.join("\r\n");
@@ -1130,9 +1189,10 @@ function splitCsvSections(csv: string): {
   fxRatesText: string;
   statusText: string;
   milestonesText: string;
+  changesText: string;
 } {
   const lines = csv.split(/\r?\n/);
-  let mode: "tasks" | "raid" | "absences" | "shifts" | "resources" | "roles" | "disciplines" | "grades" | "plan" | "budgets" | "fxrates" | "status" | "milestones" | null = null;
+  let mode: "tasks" | "raid" | "absences" | "shifts" | "resources" | "roles" | "disciplines" | "grades" | "plan" | "budgets" | "fxrates" | "status" | "milestones" | "changes" | null = null;
   const tasksLines: string[] = [];
   const raidLines: string[] = [];
   const absencesLines: string[] = [];
@@ -1146,6 +1206,7 @@ function splitCsvSections(csv: string): {
   const fxRatesLines: string[] = [];
   const statusLines: string[] = [];
   const milestonesLines: string[] = [];
+  const changesLines: string[] = [];
   for (const line of lines) {
     const trimmed = line.trimStart();
     if (trimmed.startsWith(CSV_SECTION_BUDGETS)) { mode = "budgets"; continue; }
@@ -1161,6 +1222,7 @@ function splitCsvSections(csv: string): {
     if (trimmed.startsWith(CSV_SECTION_SHIFTS)) { mode = "shifts"; continue; }
     if (trimmed.startsWith(CSV_SECTION_STATUS)) { mode = "status"; continue; }
     if (trimmed.startsWith(CSV_SECTION_MILESTONES)) { mode = "milestones"; continue; }
+    if (trimmed.startsWith(CSV_SECTION_CHANGES)) { mode = "changes"; continue; }
     if (mode === "resources") resourcesLines.push(line);
     else if (mode === "roles") rolesLines.push(line);
     else if (mode === "disciplines") disciplinesLines.push(line);
@@ -1174,6 +1236,7 @@ function splitCsvSections(csv: string): {
     else if (mode === "fxrates") fxRatesLines.push(line);
     else if (mode === "status") statusLines.push(line);
     else if (mode === "milestones") milestonesLines.push(line);
+    else if (mode === "changes") changesLines.push(line);
     // (else: line before the first marker — drop it.)
   }
   return {
@@ -1190,6 +1253,7 @@ function splitCsvSections(csv: string): {
     fxRatesText: fxRatesLines.join("\r\n"),
     statusText: statusLines.join("\r\n"),
     milestonesText: milestonesLines.join("\r\n"),
+    changesText: changesLines.join("\r\n"),
   };
 }
 
@@ -1344,6 +1408,30 @@ function csvToMilestones(csv: string): Milestone[] {
   return items;
 }
 
+function csvToChanges(csv: string): ChangeItem[] {
+  const rows = parseCsv(csv);
+  if (rows.length === 0) return [];
+  let headerIdx = -1;
+  for (let i = 0; i < rows.length; i++) {
+    if (rows[i].length > 0 && rows[i][0].trim() !== "" && !rows[i][0].startsWith("#")) {
+      headerIdx = i;
+      break;
+    }
+  }
+  if (headerIdx < 0) return [];
+  const headers = rows[headerIdx];
+  const items: ChangeItem[] = [];
+  for (let i = headerIdx + 1; i < rows.length; i++) {
+    const row = rows[i];
+    if (row.length === 1 && row[0] === "") continue;
+    const obj: Record<string, string> = {};
+    headers.forEach((h, idx) => { obj[h] = rows[i][idx] ?? ""; });
+    const item = buildChangeFromObj(obj);
+    if (item) items.push(item);
+  }
+  return items;
+}
+
 function csvToRaid(csv: string): RaidItem[] {
   const rows = parseCsv(csv);
   if (rows.length === 0) return [];
@@ -1389,8 +1477,9 @@ export function csvToWorkspace(csv: string): Workspace {
     fxRates: s.fxRatesText.trim() ? parseFxRatesLine(s.fxRatesText.split(/\r?\n/).find((l) => l.trim() && !l.startsWith("#")) ?? "") : null,
     status: s.statusText.trim() ? csvToStatus(s.statusText) : {},
     milestones: s.milestonesText.trim() ? csvToMilestones(s.milestonesText) : [],
+    changes: s.changesText.trim() ? csvToChanges(s.changesText) : [],
   };
-  return migrateWorkspaceV6(ws);
+  return migrateWorkspaceV7(ws);
 }
 
 /**
@@ -1624,6 +1713,66 @@ function markdownToMilestones(md: string): Milestone[] {
   }).filter((m): m is Milestone => m !== null);
 }
 
+const CHANGES_MD_COLUMNS: readonly { key: keyof ChangeItem; label: string }[] = [
+  { key: "id", label: "ID" },
+  { key: "title", label: "Title" },
+  { key: "description", label: "Description" },
+  { key: "type", label: "Type" },
+  { key: "status", label: "Status" },
+  { key: "impact", label: "Impact" },
+  { key: "impactDescription", label: "ImpactDescription" },
+  { key: "scheduleImpactDays", label: "ScheduleImpactDays" },
+  { key: "costImpact", label: "CostImpact" },
+  { key: "requestedBy", label: "RequestedBy" },
+  { key: "raisedDate", label: "RaisedDate" },
+  { key: "decisionBy", label: "DecisionBy" },
+  { key: "decisionDate", label: "DecisionDate" },
+  { key: "resolutionNotes", label: "ResolutionNotes" },
+  { key: "linkedTaskIds", label: "LinkedTasks" },
+  { key: "linkedRaidIds", label: "LinkedRaid" },
+  { key: "localModifiedAt", label: "LocalModified" },
+];
+
+function changesToMarkdown(changes: readonly ChangeItem[]): string {
+  const header = `| ${CHANGES_MD_COLUMNS.map((c) => c.label).join(" | ")} |`;
+  const sep = `| ${CHANGES_MD_COLUMNS.map(() => "---").join(" | ")} |`;
+  const lines = ["## Changes", "", header, sep];
+  for (const c of changes) {
+    const row = CHANGES_MD_COLUMNS.map((col) =>
+      mdEscape(changeFieldToString(c, col.key)),
+    ).join(" | ");
+    lines.push(`| ${row} |`);
+  }
+  return lines.join("\n") + "\n";
+}
+
+function markdownToChanges(md: string): ChangeItem[] {
+  return markdownTableToObjects(md).map((row) => {
+    const mapped: Record<string, string> = {};
+    for (const [label, val] of Object.entries(row)) {
+      const norm = label.toLowerCase().replace(/\s+/g, "");
+      if (norm === "id") mapped["id"] = val;
+      else if (norm === "title") mapped["title"] = val;
+      else if (norm === "description") mapped["description"] = val;
+      else if (norm === "type") mapped["type"] = val;
+      else if (norm === "status") mapped["status"] = val;
+      else if (norm === "impact") mapped["impact"] = val;
+      else if (norm === "impactdescription") mapped["impactDescription"] = val;
+      else if (norm === "scheduleimpactdays") mapped["scheduleImpactDays"] = val;
+      else if (norm === "costimpact") mapped["costImpact"] = val;
+      else if (norm === "requestedby") mapped["requestedBy"] = val;
+      else if (norm === "raiseddate") mapped["raisedDate"] = val;
+      else if (norm === "decisionby") mapped["decisionBy"] = val;
+      else if (norm === "decisiondate") mapped["decisionDate"] = val;
+      else if (norm === "resolutionnotes") mapped["resolutionNotes"] = val;
+      else if (norm === "linkedtasks" || norm === "linkedtaskids") mapped["linkedTaskIds"] = val;
+      else if (norm === "linkedraid" || norm === "linkedraidids") mapped["linkedRaidIds"] = val;
+      else if (norm === "localmodified" || norm === "localmodifiedat") mapped["localModifiedAt"] = val;
+    }
+    return buildChangeFromObj(mapped);
+  }).filter((c): c is ChangeItem => c !== null);
+}
+
 function fxRatesToMarkdown(fx: FxRates): string {
   return `## FX Rates\n\n${fx.base},${fx.date},${fx.fetchedAt},${encodeRatesMap(fx.rates)}\n`;
 }
@@ -1657,6 +1806,7 @@ export function workspaceToMarkdown(ws: Workspace): string {
   if (ws.fxRates) out += "\n" + fxRatesToMarkdown(ws.fxRates);
   if (ws.status && Object.keys(ws.status).length > 0) out += "\n" + statusToMarkdown(ws.status);
   if ((ws.milestones ?? []).length > 0) out += "\n" + milestonesToMarkdown(ws.milestones ?? []);
+  if ((ws.changes ?? []).length > 0) out += "\n" + changesToMarkdown(ws.changes ?? []);
   out += "\n" + planToMarkdown(ws.plan);
   return out;
 }
@@ -1705,6 +1855,7 @@ function splitMarkdownSections(md: string): {
   fxRatesMd: string;
   statusMd: string;
   milestonesMd: string;
+  changesMd: string;
 } {
   const lines = md.split(/\r?\n/);
   const tasksLines: string[] = [];
@@ -1720,6 +1871,7 @@ function splitMarkdownSections(md: string): {
   const fxRatesLines: string[] = [];
   const statusLines: string[] = [];
   const milestonesLines: string[] = [];
+  const changesLines: string[] = [];
   let target = tasksLines;
   for (const line of lines) {
     const trimmed = line.trim();
@@ -1736,6 +1888,7 @@ function splitMarkdownSections(md: string): {
     if (/^##\s+FX\s+Rates\b/i.test(trimmed)) { target = fxRatesLines; continue; }
     if (/^##\s+Project\s+Status\b/i.test(trimmed)) { target = statusLines; continue; }
     if (/^##\s+Milestones\b/i.test(trimmed)) { target = milestonesLines; continue; }
+    if (/^##\s+Changes\b/i.test(trimmed)) { target = changesLines; continue; }
     target.push(line);
   }
   return {
@@ -1752,6 +1905,7 @@ function splitMarkdownSections(md: string): {
     fxRatesMd: fxRatesLines.join("\n"),
     statusMd: statusLines.join("\n"),
     milestonesMd: milestonesLines.join("\n"),
+    changesMd: changesLines.join("\n"),
   };
 }
 
@@ -2076,8 +2230,9 @@ export function markdownToWorkspace(md: string): Workspace {
     fxRates: s.fxRatesMd.trim() ? parseFxRatesMarkdown(s.fxRatesMd) : null,
     status: s.statusMd.trim() ? markdownToStatus(s.statusMd) : {},
     milestones: s.milestonesMd.trim() ? markdownToMilestones(s.milestonesMd) : [],
+    changes: s.changesMd.trim() ? markdownToChanges(s.changesMd) : [],
   };
-  return migrateWorkspaceV6(ws);
+  return migrateWorkspaceV7(ws);
 }
 
 function markdownToTasks(md: string): Task[] {
@@ -2377,6 +2532,9 @@ class BrowserBackend implements StorageBackend {
     let plan: ResourcePlan = defaultResourcePlan(new Date().toISOString().slice(0, 10));
     let budgets: BudgetBucket[] = [];
     let fxRates: FxRates | null = null;
+    let status: ProjectStatus = {};
+    let milestones: Milestone[] = [];
+    let changes: ChangeItem[] = [];
     try {
       tasks = await idbGetAll<Task>(IDB_TASKS_STORE);
       raid = await idbGetAll<RaidItem>(IDB_RAID_STORE);
@@ -2389,6 +2547,9 @@ class BrowserBackend implements StorageBackend {
       plan = (await idbGet<ResourcePlan>(KV_PLAN_KEY)) ?? plan;
       budgets = await idbGetAll<BudgetBucket>(IDB_BUDGETS_STORE);
       fxRates = (await idbGet<FxRates>(KV_FXRATES_KEY)) ?? null;
+      status = (await idbGet<ProjectStatus>(KV_STATUS_KEY)) ?? {};
+      milestones = (await idbGet<Milestone[]>(KV_MILESTONES_KEY)) ?? [];
+      changes = (await idbGet<ChangeItem[]>(KV_CHANGES_KEY)) ?? [];
     } catch {
       // IDB unavailable or upgrade failed. Fall through — the legacy
       // migration block below will still try localStorage, and if that's
@@ -2403,8 +2564,8 @@ class BrowserBackend implements StorageBackend {
       // from the (possibly successful) idbGetAll attempts above.
     }
 
-    const raw: Workspace = { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates };
-    const ws = migrateWorkspaceV6(raw);
+    const raw: Workspace = { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, milestones, changes };
+    const ws = migrateWorkspaceV7(raw);
 
     try {
       if (ws.resources !== raw.resources) await idbBulkUpdate(IDB_RESOURCES_STORE, ws.resources, []);
@@ -2513,6 +2674,9 @@ class BrowserBackend implements StorageBackend {
     const budgetDelta = this.diff(this.budgetsBaseline, ws.budgets ?? []);
     await idbBulkUpdate(IDB_BUDGETS_STORE, budgetDelta.puts, budgetDelta.deletes);
     await idbSet(KV_FXRATES_KEY, ws.fxRates ?? null);
+    await idbSet(KV_STATUS_KEY, ws.status ?? {});
+    await idbSet(KV_MILESTONES_KEY, ws.milestones ?? []);
+    await idbSet(KV_CHANGES_KEY, ws.changes ?? []);
 
     // Refresh baselines so the next save's diff is computed against what's
     // actually in IDB. Rebuilding the maps is O(N) but only runs after a

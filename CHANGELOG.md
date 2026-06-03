@@ -8,6 +8,15 @@ Authoritative source for version + build date: [`src/app/version.ts`](src/app/ve
 This file is seeded from that module's milestone comment plus the
 post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-diff.txt).
 
+## [0.50.0] — 2026-06-03 "Sanderson"
+
+Change-control Log: a RAID-sibling register of change requests with a type,
+6-state approval workflow, impact rating (+ optional schedule/cost), requestor/
+approver, and links to tasks and RAID items. Sortable/filterable panel, draggable
+edit modal, printable Change Report, and a Changes nav entry. New Workspace.changes
+entity round-trips through every backend (schema v7). The dashboard gains its first
+computed Scope RAG (from the pending-change backlog) plus a Changes subsection.
+
 ## [0.49.1] — 2026-06-03 "Le Guin"
 
 Trends polish: the trend-chart gap-count caption is now localized (EN/DE), and

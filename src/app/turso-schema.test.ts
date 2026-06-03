@@ -115,3 +115,12 @@ describe("Turso project_status", () => {
     expect(back.status).toEqual(ws.status);
   });
 });
+
+describe("changes turso table", () => {
+  it("registers a 'changes' table", () => {
+    expect(TABLE_NAMES).toContain("changes");
+  });
+  it("emits CREATE TABLE for changes", () => {
+    expect(SCHEMA_DDL.some((d) => /CREATE TABLE IF NOT EXISTS changes \(/.test(d))).toBe(true);
+  });
+});

@@ -128,6 +128,7 @@ function makeProps(): TasksSectionProps {
     expandedNotes: new Set(),
     pushingIds: new Set(),
     raidByTask: new Map(),
+    changeByTask: new Map(),
     // jira
     jiraEnabled: false,
     jiraSyncing: false,

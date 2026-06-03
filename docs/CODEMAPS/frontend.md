@@ -1,4 +1,4 @@
-<!-- Generated: 2026-06-03 | Files scanned: ~120 (src/app/*.tsx, *.ts, settings-sections/) | Token estimate: ~1600 | Updated for 0.29.0–0.49.0: modern sidebar layout + UI-consistency sweep + Health Dashboard + Milestones + Earned Value + budget/dashboard RAG + burn-down + UI refinements + baseline/variance trends -->
+<!-- Generated: 2026-06-03 | Files scanned: ~120 (src/app/*.tsx, *.ts, settings-sections/) | Token estimate: ~1600 | Updated for 0.29.0–0.50.0: modern sidebar layout + UI-consistency sweep + Health Dashboard + Milestones + Earned Value + budget/dashboard RAG + burn-down + UI refinements + baseline/variance trends + change-control Log -->
 
 # Frontend
 
@@ -96,7 +96,7 @@ prerendered.
 | `colWidths`, `hiddenCols` | UI table prefs in `localStorage` (colWidths debounced 250 ms) |
 | `search` + `searchDebounced` + `taskSearchIndex` | 150 ms search debounce + precomputed lowercase index |
 | `selectedIds`, `bulkEdit`, `expandedNotes` | Per-session UI only |
-| `activeTab` | `"open-points"` \| `"chat"` \| `"dashboard"` \| `"trends"` \| `"milestones"` \| `"reports"` \| `"gantt"` \| `"raid"` \| `"budget"` \| `"resources"` \| `"activity"` \| `"resource-report"` \| `"address-book"` \| `"edit"` (last two in popouts or main); synced to URL hash via `useHashView` |
+| `activeTab` | `"open-points"` \| `"chat"` \| `"dashboard"` \| `"trends"` \| `"milestones"` \| `"reports"` \| `"gantt"` \| `"raid"` \| `"changes"` \| `"change-report"` \| `"budget"` \| `"resources"` \| `"activity"` \| `"resource-report"` \| `"address-book"` \| `"edit"` (last two in popouts or main); synced to URL hash via `useHashView` |
 | `budgets: BudgetBucket[]`, `fxRates: FxRates \| null` | Persisted via `StorageBackend.save()`; lives in `WorkspaceContext`; `fxRates` refreshed on demand via `useFxRates` (Refresh ECB rates button) |
 | `dueSnooze` / `birthdaySnooze` / `jiraTokenSnooze` | `useReminderSnooze("due")` / `useReminderSnooze("birthday")` / `useReminderSnooze("jiraToken")` — each yields `{ isSnoozed, snoozedUntil, snooze, clear }`; banners are gated on `!isSnoozed` |
 | `raidFilterTaskId` | Cross-tab nav: jump from a task row to RAID pre-filtered for that task |
@@ -178,6 +178,12 @@ prerendered.
 | `raid-report-panel.tsx` | RAID report (summary tiles + 6 By-X tables) | |
 | `reports.tsx` | Stats by group, label, status, on-time vs late; RAID + Budget reports present by default (0.48.0+) | Conditional mount |
 | `raid.ts` | Pure RAID helpers: severity matrix, status options, cycle detection | No React |
+| **Change Log** | | |
+| `change-log.ts` | Pure change-control engine: `ChangeItem`/type/status enums, predicates, id/index helpers, `compareChange` comparator, `computeScopeStatus`, `selectTopChanges` | No React; 0.50.0+ |
+| `change-panel.tsx` | Change Log view: sortable/filterable register table + add/edit wiring; feeds the `changes`/`change-report` AppView (Registers group) | Conditional mount; 0.50.0+ |
+| `change-edit-modal.tsx` | Draggable modal editor for a ChangeItem (type, workflow status, impact, schedule/cost, requestor/approver, decision date, task/RAID link pickers) | Component; 0.50.0+ |
+| `change-report-panel.tsx` | Printable Change Report (summary tiles + By-X tables over the change register) | Conditional mount; 0.50.0+ |
+| `use-change-log.ts` | `useChangeLog()` hook — change CRUD over WorkspaceContext | Client hook; 0.50.0+ |
 | **Chat & Voice** | | |
 | `chat-panel.tsx` | Claude chat with tool calls via `dispatcher` | Conditional mount; history in TaskManager |
 | `chat-tools.ts` | Tool dispatcher object; CRUD on tasks/RAID | Huge `useMemo` in TaskManager |
@@ -213,7 +219,7 @@ prerendered.
 | `table-styles.ts` | `TABLE_HEAD_CLASS` Dark-Blue headers + LOP zebra | Shared constant (0.31.0+) |
 | `view-styles.ts` | `VIEW_PANE_CLASS`, `INNER_TABLE_CLASS` pane chrome | Shared constants |
 | **Dashboard & Milestones** | | |
-| `dashboard.ts` | `computeDashboard(workspace, today) → HealthModel` with overall/schedule/budget/scope RAG + milestone contribution + EVM SPI/CPI folds | Pure; 0.43.0+ |
+| `dashboard.ts` | `computeDashboard(workspace, today) → HealthModel` with overall/schedule/budget/scope RAG + milestone contribution + EVM SPI/CPI folds; **0.50.0:** Scope RAG now computed from the pending-change backlog (`computeScopeStatus`) + a Changes subsection | Pure; 0.43.0+ |
 | `milestones.ts` | `milestoneStatus(m, tasks, today)`, `partitionMilestones(milestones, tasks)` for on-track/at-risk/delayed bucketing | Pure; 0.44.0+ |
 | `evm.ts` | `computeEvm(tasks, plan) → { SPI, CPI, SV, CV, ... }` Earned Value metrics; folds Schedule/Budget RAG calculations | Pure; 0.45.0+ |
 | `dashboard-panel.tsx` | Health Dashboard view: health cards, milestone timeline, EVM charts | Conditional mount; 0.43.0+ |

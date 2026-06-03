@@ -6,9 +6,10 @@ import { computeDashboard } from "./dashboard";
 import { RegistersBand } from "./dashboard-sections/registers-band";
 import { useWorkspace } from "./workspace-context";
 import { loadActivityLog, type ActivityEntry } from "./activity-log";
-import { type Lang, t, localeFor } from "./i18n";
+import { type Lang, t, localeFor, type TranslationKey } from "./i18n";
 import { healthColorName, healthText, type Health } from "./health";
-import type { Absence, BudgetBucket, Milestone, RaidItem, ResourcePlan, Resource, Role, Task } from "./types";
+import { changeImpactRag } from "./change-log";
+import type { Absence, BudgetBucket, ChangeItem, ChangeStatus, Milestone, RaidItem, ResourcePlan, Resource, Role, Task } from "./types";
 import { formatCurrency } from "./resource-cost";
 import { RagBadge } from "./rag-badge";
 import { BurndownCharts } from "./burndown-chart";
@@ -26,10 +27,20 @@ interface DashboardPanelProps {
   workdayHours: number;
   today: string;
   milestones?: Milestone[];
+  changes?: ChangeItem[];
   onOpenRaid?: (id: number) => void;
   onOpenTask?: (id: number) => void;
   onOpenMilestone?: () => void;
 }
+
+const CHANGE_STATUS_KEY: Record<ChangeStatus, TranslationKey> = {
+  Proposed: "changeStatusProposed",
+  "Under Review": "changeStatusUnderReview",
+  Approved: "changeStatusApproved",
+  Rejected: "changeStatusRejected",
+  Implemented: "changeStatusImplemented",
+  Deferred: "changeStatusDeferred",
+};
 
 function OverrideSelect({
   lang, label, value, computed, effective, onChange,
@@ -88,12 +99,13 @@ export function DashboardPanel(props: DashboardPanelProps) {
         activity,
         today,
         milestones: props.milestones ?? [],
+        changes: props.changes ?? [],
       }),
     [
       props.tasks, props.raid, props.budgets, props.plan,
       props.roles, props.resources, props.absences,
       props.workdayHours, props.holidaySet,
-      props.milestones,
+      props.milestones, props.changes,
       status, activity, today,
     ],
   );
@@ -242,6 +254,27 @@ export function DashboardPanel(props: DashboardPanelProps) {
           dueSoonMilestones={model.dueSoonMilestones}
           onOpenMilestone={props.onOpenMilestone}
         />
+
+        {/* Changes */}
+        <Section title={t(lang, "dashboardChangesHeading")} boxed>
+          <p className="mb-1 text-xs font-semibold uppercase text-muted-foreground">
+            {t(lang, "dashboardChangesPending", String(model.changes.pending))}
+          </p>
+          {model.topChanges.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{t(lang, "dashboardChangesEmpty")}</p>
+          ) : (
+            <ul className="space-y-1 text-sm">
+              {model.topChanges.map((c) => (
+                <li key={c.id} className="flex items-center gap-2">
+                  <RagBadge value={changeImpactRag(c.impact)} lang={lang} />
+                  <span className="text-muted-foreground">#{c.id}</span>
+                  <span className="font-medium">{c.title}</span>
+                  <span className="text-muted-foreground">· {t(lang, CHANGE_STATUS_KEY[c.status])}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Section>
 
         {/* Recent activity */}
         <Section title={t(lang, "dashboardRecentActivity")} boxed>

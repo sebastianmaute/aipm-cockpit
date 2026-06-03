@@ -189,6 +189,40 @@ export type Milestone = {
   localModifiedAt?: string;
 };
 
+// ----------------------------------------------------------------------------
+// Change control register — tracks change requests through their lifecycle.
+
+export const CHANGE_TYPES = ["Scope", "Schedule", "Cost", "Quality", "Other"] as const;
+export type ChangeType = (typeof CHANGE_TYPES)[number];
+
+export const CHANGE_STATUSES = [
+  "Proposed", "Under Review", "Approved", "Rejected", "Implemented", "Deferred",
+] as const;
+export type ChangeStatus = (typeof CHANGE_STATUSES)[number];
+
+/** Impact rating reuses the RAID severity scale + its RAG palette. */
+export type ChangeImpact = RaidSeverity;
+
+export type ChangeItem = {
+  id: number;
+  title: string;
+  description: string;
+  type: ChangeType;
+  status: ChangeStatus;
+  impact?: ChangeImpact;
+  impactDescription?: string;
+  scheduleImpactDays?: number;
+  costImpact?: number;
+  requestedBy?: string;
+  raisedDate: string;          // YYYY-MM-DD
+  decisionBy?: string;
+  decisionDate?: string;       // YYYY-MM-DD; auto-filled when status leaves the pending set
+  resolutionNotes?: string;
+  linkedTaskIds: number[];
+  linkedRaidIds: number[];
+  localModifiedAt?: string;
+};
+
 /** Project-level status overrides + PM narrative for the health dashboard.
  *  RAG fields use the same "R" | "A" | "G" literal as Task.healthOverride to
  *  avoid a circular import with health.ts. Absent override = use the computed

@@ -64,6 +64,18 @@ describe("nav-config", () => {
     expect(allNavViews()).toContain("budget-report");
     expect(navLabelKey("budget-report")).toBe("budgetReportTitle");
   });
+
+  it("includes changes + change-report in nav", () => {
+    expect(allNavViews()).toContain("changes");
+    expect(allNavViews()).toContain("change-report");
+  });
+
+  it("exposes change-report as a child of changes with label keys", () => {
+    expect(subTabsFor("changes")).toEqual([{ view: "change-report" }]);
+    expect(subTabsFor("change-report")).toEqual([{ view: "change-report" }]);
+    expect(navLabelKey("changes")).toBe("navChanges");
+    expect(navLabelKey("change-report")).toBe("changeReportTitle");
+  });
 });
 
 describe("trends nav", () => {

@@ -1,3 +1,15 @@
+// 0.50.0 "Sanderson" adds a change-control Log: a RAID-sibling register of change
+// requests. Each ChangeItem carries a type (Scope/Schedule/Cost/Quality/Other), a
+// 6-state workflow (Proposed/Under Review/Approved/Rejected/Implemented/Deferred),
+// an impact rating (reusing the RAID severity scale) with optional schedule-day and
+// cost figures, requestor/approver + auto-filled decision date, and links to both
+// tasks and RAID items. A sortable/filterable panel + draggable edit modal, a
+// printable Change Report, and a Changes nav entry (Registers group) join the
+// register; the new Workspace.changes entity round-trips through every backend
+// (schema v7 additive migration). The dashboard gains its first computed Scope
+// signal (Amber with any pending change, Red at a backlog threshold; manual
+// override still wins) plus a Changes subsection. New modules: change-log.ts,
+// change-panel.tsx, change-edit-modal.tsx, change-report-panel.tsx, use-change-log.ts.
 // 0.49.1 polishes the Trends feature: the burn-down/KPI trend-chart gap-count
 // caption is now localized (EN/DE) instead of English-only, and the Turso
 // integration settings show a warning when snapshot recording is enabled but no
@@ -637,12 +649,12 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.49.1";
-export const APP_BUILD_DATE = "2026-06-03"; // 0.49.1 trends polish
+export const APP_VERSION = "0.50.0";
+export const APP_BUILD_DATE = "2026-06-03"; // 0.50.0 change-control log
 /** Minor-series milestone codename (sci-fi/fantasy author names). The whole
- *  0.49.x line is "Le Guin" (Ursula K. Le Guin); patch releases inherit
+ *  0.50.x line is "Sanderson" (Brandon Sanderson); patch releases inherit
  *  their minor version's codename rather than getting their own. */
-export const APP_MILESTONE = "Le Guin";
+export const APP_MILESTONE = "Sanderson";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -703,4 +715,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightBudgetRag",
   "versionHighlightUiRefinements",
   "versionHighlightTrends",
+  "versionHighlightChangeLog",
 ] as const;

@@ -8,8 +8,9 @@ import { workdaysUntil } from "./due-dates";
 import { partitionMilestones } from "./milestones";
 import { computeEvm, projectBlendedInternalRate, type EvmMetrics } from "./evm";
 import { computeBurndownSeries, type BurndownSeries } from "./budget-burndown";
+import { computeScopeStatus, countByStatus, isPendingChange, selectTopChanges, SCOPE_PENDING_RED } from "./change-log";
 import type {
-  Absence, BudgetBucket, Milestone, ProjectStatus, RaidItem, RaidSeverity,
+  Absence, BudgetBucket, ChangeItem, Milestone, ProjectStatus, RaidItem, RaidSeverity,
   Resource, ResourcePlan, Role, Task,
 } from "./types";
 import type { ActivityEntry } from "./activity-log";
@@ -184,7 +185,9 @@ export type DashboardModel = {
   schedule: { computed: Health; effective: Health; overridden: boolean };
   // computed/effective are null when there is neither a budget nor CPI data.
   budget: { computed: SubStatus; effective: SubStatus; overridden: boolean };
-  scope: { effective: SubStatus };
+  scope: { computed: SubStatus; effective: SubStatus; overridden: boolean };
+  changes: { pending: number; approved: number; implemented: number; total: number };
+  topChanges: ChangeItem[];
   progress: DashboardProgress;
   burn: DashboardBurn | null;
   burndown: BurndownSeries | null;
@@ -213,6 +216,7 @@ export interface DashboardInput {
   activity: readonly ActivityEntry[];
   today: string;
   milestones: readonly Milestone[];
+  changes: readonly ChangeItem[];
 }
 
 export interface DashboardOptions {
@@ -261,13 +265,24 @@ export function computeDashboard(input: DashboardInput, opts: DashboardOptions =
       ? computeBurndownSeries(input.budgets, input.plan, input.roles, today)
       : null;
 
+  const scopeComputed = computeScopeStatus(input.changes, SCOPE_PENDING_RED);
+  const changeStatusCounts = countByStatus(input.changes);
+  const changesSummary = {
+    pending: input.changes.filter((c) => isPendingChange(c.status)).length,
+    approved: changeStatusCounts.Approved,
+    implemented: changeStatusCounts.Implemented,
+    total: input.changes.length,
+  };
+
   const { overdue, dueSoon } = partitionUpcoming(input.tasks, today, holidaySet, dueSoonWorkdays);
 
   return {
     overall: { computed: overallComputed, effective: status.ragOverride ?? overallComputed, overridden: !!status.ragOverride },
     schedule: { computed: scheduleComputed, effective: status.scheduleOverride ?? scheduleComputed, overridden: !!status.scheduleOverride },
     budget: { computed: budgetComputed, effective: status.budgetOverride ?? budgetComputed, overridden: !!status.budgetOverride },
-    scope: { effective: status.scopeOverride ?? null },
+    scope: { computed: scopeComputed, effective: status.scopeOverride ?? scopeComputed, overridden: !!status.scopeOverride },
+    changes: changesSummary,
+    topChanges: selectTopChanges(input.changes, topRaidN),
     progress: computeDashboardProgress(input.tasks, today, holidaySet),
     burn,
     burndown,
