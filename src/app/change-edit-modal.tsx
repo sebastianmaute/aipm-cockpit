@@ -484,8 +484,8 @@ export function ChangeEditModal({
                     <button
                       type="button"
                       onClick={() => removeLinkedRaid(rid)}
-                      aria-label={t(lang, "raidUnlinkTask")}
-                      title={t(lang, "raidUnlinkTask")}
+                      aria-label={t(lang, "changeUnlinkRaid")}
+                      title={t(lang, "changeUnlinkRaid")}
                       className="text-muted-foreground hover:text-AIPM-pink"
                     >
                       ×

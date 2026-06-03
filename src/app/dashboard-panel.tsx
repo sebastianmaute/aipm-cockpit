@@ -261,7 +261,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
             {t(lang, "dashboardChangesPending", String(model.changes.pending))}
           </p>
           {model.topChanges.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t(lang, "dashboardEmpty")}</p>
+            <p className="text-sm text-muted-foreground">{t(lang, "dashboardChangesEmpty")}</p>
           ) : (
             <ul className="space-y-1 text-sm">
               {model.topChanges.map((c) => (
