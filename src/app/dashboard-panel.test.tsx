@@ -114,6 +114,35 @@ describe("DashboardPanel captions and thresholds", () => {
   });
 });
 
+describe("DashboardPanel Changes subsection", () => {
+  it("renders a Changes subsection with the pending count", () => {
+    render(
+      <DashboardPanel
+        lang="en-US"
+        tasks={[]}
+        raid={[]}
+        budgets={[]}
+        plan={plan}
+        roles={[]}
+        resources={[]}
+        absences={[]}
+        holidaySet={new Set<string>()}
+        workdayHours={8}
+        today="2026-06-02"
+        changes={[
+          {
+            id: 1, title: "Add module", description: "", type: "Scope", status: "Proposed",
+            impact: "High", raisedDate: "2026-05-01", linkedTaskIds: [], linkedRaidIds: [],
+          },
+        ]}
+      />,
+      { wrapper },
+    );
+    expect(screen.getByText(/changes/i)).toBeTruthy();
+    expect(screen.getByText(/1 pending/i)).toBeTruthy();
+  });
+});
+
 describe("RegistersBand link styling", () => {
   it("uses the directory hover affordance, not underline", () => {
     render(
