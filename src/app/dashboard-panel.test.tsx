@@ -63,6 +63,41 @@ describe("DashboardPanel", () => {
   });
 });
 
+describe("DashboardPanel captions and thresholds", () => {
+  function renderDashboard() {
+    render(
+      <DashboardPanel
+        lang="en-US"
+        tasks={[
+          { id: 1, title: "Done task", status: "Done", health: "G", linkedRaidIds: [], subtaskIds: [], parentId: null, assigneeIds: [] } as never,
+        ]}
+        raid={[]}
+        budgets={[]}
+        plan={plan}
+        roles={[]}
+        resources={[]}
+        absences={[]}
+        holidaySet={new Set<string>()}
+        workdayHours={8}
+        today="2026-06-02"
+      />,
+      { wrapper },
+    );
+  }
+
+  it("colourises the Overall status text and shows captions + thresholds", () => {
+    renderDashboard();
+    expect(screen.getByText(/Amber ≥ 90%/)).toBeInTheDocument();
+    expect(screen.getByText(/Tasks completed vs total/)).toBeInTheDocument();
+    expect(screen.getByText(/burn-down shows remaining budget/)).toBeInTheDocument();
+    const overallSpans = screen.getAllByText(/^(Green|Amber|Red)$/).filter(
+      (el) => el.className && /text-AIPM-(green|purple|pink)/.test(el.className),
+    );
+    expect(overallSpans.length).toBeGreaterThan(0);
+    expect(overallSpans[0].className).toMatch(/text-AIPM-(green|purple|pink)/);
+  });
+});
+
 describe("RegistersBand link styling", () => {
   it("uses the directory hover affordance, not underline", () => {
     render(
