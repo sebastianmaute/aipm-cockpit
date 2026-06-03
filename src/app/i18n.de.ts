@@ -532,6 +532,8 @@ export const de: Record<TranslationKey, string> = {
   reportsFilterAssignee: "Assignees filtern…",
   reportsFilterGroup: "Gruppen filtern…",
   reportsFilterLabel: "Labels filtern…",
+  planningFilterResource: "Ressourcen filtern…",
+  budgetRoleFilter: "Rolle / Disziplin filtern…",
   reportsNoMatches: "Keine Treffer für den aktuellen Filter.",
   reportsAddReport: "Bericht hinzufügen",
   reportsRemoveReport: "Bericht entfernen",

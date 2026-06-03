@@ -7,6 +7,7 @@ import type { Resource } from "./types";
 
 const resources: Resource[] = [
   { id: 1, firstName: "Sample", lastName: "Dummy", roleId: null, utilizationMode: "percent", utilization: {} },
+  { id: 2, firstName: "Mateo", lastName: "Rossi", roleId: null, utilizationMode: "percent", utilization: {} },
 ];
 
 const baseProps = {
@@ -162,6 +163,15 @@ describe("ResourcesPanel", () => {
     const from = screen.getByLabelText("From");
     expect(from.className).toContain("py-1.5");
     expect(from.className).toContain("text-sm");
+  });
+
+  test("planning grid filters resources by name", () => {
+    render(<ResourcesPanel {...baseProps} view="planning" />); // baseProps has 2 named resources
+    const input = screen.getByPlaceholderText(/filter resources/i);
+    const before = screen.getAllByRole("row").length;
+    // "Sample" matches exactly one of the two display names (Alex Example)
+    fireEvent.change(input, { target: { value: "Sample" } });
+    expect(screen.getAllByRole("row").length).toBeLessThan(before);
   });
 
   test("shows a margin RAG badge in the planning grid", () => {

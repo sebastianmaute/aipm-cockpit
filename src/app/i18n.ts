@@ -517,6 +517,8 @@ const enUS = {
   reportsFilterAssignee: "Filter assignees…",
   reportsFilterGroup: "Filter groups…",
   reportsFilterLabel: "Filter labels…",
+  planningFilterResource: "Filter resources…",
+  budgetRoleFilter: "Filter role / discipline…",
   reportsNoMatches: "No matches for current filter.",
   reportsAddReport: "Add report",
   reportsRemoveReport: "Remove report",
