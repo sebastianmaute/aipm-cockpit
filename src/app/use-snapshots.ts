@@ -50,6 +50,9 @@ export function useSnapshots(args: UseSnapshotsArgs): UseSnapshotsResult {
   const ctxRef = useRef(args.buildContext);
   const errRef = useRef(args.onError);
   const cfgRef = useRef(tursoConfig);
+  // Bumped by every user mutation. A load in flight that sees this change
+  // between its start and completion must NOT clobber state with stale history.
+  const opSeqRef = useRef(0);
   useEffect(() => { ctxRef.current = args.buildContext; }, [args.buildContext]);
   useEffect(() => { errRef.current = args.onError; }, [args.onError]);
   useEffect(() => { cfgRef.current = tursoConfig; }, [tursoConfig]);
@@ -69,16 +72,18 @@ export function useSnapshots(args: UseSnapshotsArgs): UseSnapshotsResult {
   useEffect(() => {
     if (!active) return;
     let cancelled = false;
+    const startSeq = opSeqRef.current;
+    const stale = () => cancelled || opSeqRef.current !== startSeq;
     (async () => {
       try {
         const history = await loadSnapshots(cfgRef.current);
-        if (cancelled) return;
+        if (stale()) return;
         const hasCurrent = history.some((s) => s.bucket === currentBucket);
         if (!hasCurrent) {
           const isFirstEver = history.length === 0;
           const rec = makeRecord("auto", isFirstEver, currentBucket);
           await storeAppend(cfgRef.current, rec);
-          if (cancelled) return;
+          if (stale()) return;
           setSnapshots([...history, rec]);
         } else {
           setSnapshots(history);
@@ -93,6 +98,7 @@ export function useSnapshots(args: UseSnapshotsArgs): UseSnapshotsResult {
 
   const captureNow = useCallback(async () => {
     if (!active) return;
+    opSeqRef.current += 1;
     setBusy(true);
     try {
       const isFirstEver = snapshots.length === 0;
@@ -108,6 +114,7 @@ export function useSnapshots(args: UseSnapshotsArgs): UseSnapshotsResult {
 
   const setBaseline = useCallback(async (id: string) => {
     if (!active) return;
+    opSeqRef.current += 1;
     setBusy(true);
     try {
       await storeSetBaseline(cfgRef.current, id);
@@ -121,6 +128,7 @@ export function useSnapshots(args: UseSnapshotsArgs): UseSnapshotsResult {
 
   const deleteSnapshot = useCallback(async (id: string) => {
     if (!active) return;
+    opSeqRef.current += 1;
     setBusy(true);
     try {
       await storeDelete(cfgRef.current, id);

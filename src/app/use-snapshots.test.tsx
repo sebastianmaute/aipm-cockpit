@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { useSnapshots } from "./use-snapshots";
 import * as store from "./snapshot-store";
 import type { SnapshotRecord } from "./snapshot";
@@ -76,5 +76,46 @@ describe("useSnapshots", () => {
     expect(manual.bucket).toBe("2026-W24");            // gate-consistent (from today)
     expect(manual.id).not.toBe("2026-06-10T09:00:00.000Z"); // real wall clock, not `today`
     expect(manual.id).toBe(manual.capturedAt);          // id === capturedAt invariant
+  });
+
+  it("a manual capture during an in-flight load is not clobbered by the load result", async () => {
+    let resolveLoad!: (v: SnapshotRecord[]) => void;
+    const loadPromise = new Promise<SnapshotRecord[]>((r) => { resolveLoad = r; });
+    vi.spyOn(store, "loadSnapshots").mockReturnValue(loadPromise);
+    vi.spyOn(store, "appendSnapshot").mockResolvedValue();
+    const { result } = renderHook(() => useSnapshots(baseArgs));
+    // Load is in flight (unresolved). Fire a manual capture.
+    await act(async () => { await result.current.captureNow(); });
+    expect(result.current.snapshots.some((s) => s.trigger === "manual")).toBe(true);
+    // Resolve the load with history lacking the manual record; it must NOT clobber.
+    resolveLoad([rec("2026-06-10T00:00:00.000Z", "2026-W24", true)]);
+    await waitFor(() => expect(store.loadSnapshots).toHaveBeenCalled());
+    expect(result.current.snapshots.some((s) => s.trigger === "manual")).toBe(true);
+  });
+
+  it("setBaseline flips the flag and deleteSnapshot removes by id", async () => {
+    vi.spyOn(store, "loadSnapshots").mockResolvedValue([rec("2026-06-10T00:00:00.000Z", "2026-W24", true)]);
+    vi.spyOn(store, "appendSnapshot").mockResolvedValue();
+    const sb = vi.spyOn(store, "setBaseline").mockResolvedValue();
+    const del = vi.spyOn(store, "deleteSnapshot").mockResolvedValue();
+    const { result } = renderHook(() => useSnapshots(baseArgs));
+    await waitFor(() => expect(result.current.snapshots.length).toBe(1));
+    const id = result.current.snapshots[0].id;
+    await act(async () => { await result.current.setBaseline(id); });
+    expect(sb).toHaveBeenCalledWith(baseArgs.tursoConfig, id);
+    expect(result.current.snapshots[0].isBaseline).toBe(true);
+    await act(async () => { await result.current.deleteSnapshot(id); });
+    expect(del).toHaveBeenCalledWith(baseArgs.tursoConfig, id);
+    expect(result.current.snapshots).toHaveLength(0);
+  });
+
+  it("routes a manual-capture store error to onError", async () => {
+    vi.spyOn(store, "loadSnapshots").mockResolvedValue([rec("2026-06-10T00:00:00.000Z", "2026-W24", true)]);
+    vi.spyOn(store, "appendSnapshot").mockRejectedValue(new Error("boom"));
+    const onError = vi.fn();
+    const { result } = renderHook(() => useSnapshots({ ...baseArgs, onError }));
+    await waitFor(() => expect(store.loadSnapshots).toHaveBeenCalled());
+    await act(async () => { await result.current.captureNow(); });
+    expect(onError).toHaveBeenCalled();
   });
 });
