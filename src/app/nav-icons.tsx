@@ -12,6 +12,8 @@ const ICON_PATHS: Record<AppView, string> = {
   "open-points": "M9 5h11M9 12h11M9 19h11M4 5h.01M4 12h.01M4 19h.01",
   // dashboard: gauge / speedometer
   dashboard: "M12 2a10 10 0 0 1 10 10M12 2a10 10 0 0 0-10 10M12 12l4.5-4.5M12 12m-1 0a1 1 0 1 0 2 0 1 1 0 0 0-2 0M5.6 18.4A9.97 9.97 0 0 1 2 12M18.4 18.4A9.97 9.97 0 0 0 22 12",
+  // trends: line chart trending up
+  trends: "M3 3v18h18M7 14l3-3 3 4 5-6",
   chat: "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z",
   gantt: "M5 6h9M5 12h13M5 18h6M3 4v16",
   milestones: "M12 3l7 9-7 9-7-9 7-9z",

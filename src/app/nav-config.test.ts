@@ -65,3 +65,12 @@ describe("nav-config", () => {
     expect(navLabelKey("budget-report")).toBe("budgetReportTitle");
   });
 });
+
+describe("trends nav", () => {
+  it("includes trends in the Overview group", () => {
+    expect(allNavViews()).toContain("trends");
+  });
+  it("maps trends to its label key", () => {
+    expect(navLabelKey("trends")).toBe("navTrends");
+  });
+});

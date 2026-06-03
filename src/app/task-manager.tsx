@@ -48,6 +48,10 @@ import { ModernShell } from "./modern-shell";
 import { useHashView } from "./use-hash-view";
 import { navLabelKey } from "./nav-config";
 import type { AppView } from "./nav-config";
+import { useSnapshots } from "./use-snapshots";
+import { computeDashboard } from "./dashboard";
+import { getTursoConfig } from "./turso-config";
+import { defaultSnapshotSettings } from "./settings-types";
 import { TaskEditView, TASK_EDIT_FORM_ID } from "./task-edit-view";
 import { APP_VERSION_LABEL } from "./version";
 import { ActionMenus } from "./action-menus";
@@ -124,6 +128,9 @@ function TaskManagerInner() {
     setBudgets,
     setFxRates,
     budgets,
+    plan,
+    status,
+    milestones,
   } = useWorkspace();
 
   const { setContacts, contactsList, handleRemoveContact } =
@@ -188,6 +195,48 @@ function TaskManagerInner() {
   const { holidaySet } = useHolidaySet({
     holidayCountries: settings.holidayCountries,
   });
+
+  // Baseline/variance trend snapshots. Active only on a Turso backend in the
+  // main window with recording enabled; the hook is a no-op otherwise.
+  const snapshotsCfg = settings.snapshots ?? defaultSnapshotSettings;
+  const trendsActive =
+    settings.storageConfig.kind === "turso" && !isPopout && snapshotsCfg.enabled;
+  const tursoConfig = getTursoConfig(
+    settings.integrations?.turso?.databaseUrl,
+    settings.integrations?.turso?.authToken,
+  );
+  const snapshots = useSnapshots({
+    active: trendsActive,
+    cadence: snapshotsCfg.cadence,
+    tursoConfig,
+    today: new Date(),
+    buildContext: () => {
+      const model = computeDashboard({
+        tasks,
+        raid,
+        budgets,
+        plan,
+        roles,
+        resources,
+        absences,
+        workdayHours: settings.resources.workdayHours,
+        holidaySet,
+        status,
+        activity: activityLog,
+        today,
+        milestones,
+      });
+      return {
+        model,
+        tasks,
+        milestones,
+        planEndDate: plan.endDate,
+        currency: plan.currency || "EUR",
+      };
+    },
+    onError: (err) => showToast("error", t(lang, "storageSaveFailed", String(err))),
+  });
+  const trends = { ...snapshots, active: trendsActive };
 
   const { bannerDismissed, setBannerDismissed, dueModalOpen, setDueModalOpen } =
     useDueAlerts({ hydrated, tasks, holidaySet, absences, settings, today, showToast });
@@ -681,6 +730,7 @@ function TaskManagerInner() {
     onChangeBudgets: handleChangeBudgets,
     onRefreshFx: refreshFx,
     fxLoading,
+    trends,
   };
 
   const workspaceEl = <WorkspaceSection {...workspaceProps} />;
