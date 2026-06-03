@@ -11,6 +11,8 @@ function xAt(i: number, n: number): number {
 }
 function yAt(v: number, max: number): number {
   if (max <= 0) return PAD_T + PLOT_H;
+  // Negative remaining (actuals over budget) is floored to the baseline here;
+  // the actual line is coloured pink via the `over` flag to signal it.
   const clamped = Math.max(0, v);
   return PAD_T + (1 - clamped / max) * PLOT_H;
 }
@@ -63,9 +65,25 @@ export function BurndownCharts({ series, lang }: { series: BurndownSeries; lang:
   const lastActualH = [...series.actualRemainingHours].reverse().find((v) => v !== null) ?? null;
   const lastActualV = [...series.actualRemainingValue].reverse().find((v) => v !== null) ?? null;
   return (
-    <div className="flex flex-wrap gap-4">
-      <Chart caption={t(lang, "burndownHoursRemaining")} planned={series.plannedRemainingHours} actual={series.actualRemainingHours} max={series.totalBudgetHours} todayIndex={series.todayIndex} n={n} over={lastActualH !== null && lastActualH < 0} />
-      <Chart caption={t(lang, "burndownBudgetRemaining")} planned={series.plannedRemainingValue} actual={series.actualRemainingValue} max={series.totalBudgetValue} todayIndex={series.todayIndex} n={n} over={lastActualV !== null && lastActualV < 0} />
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-4">
+        <Chart caption={t(lang, "burndownHoursRemaining")} planned={series.plannedRemainingHours} actual={series.actualRemainingHours} max={series.totalBudgetHours} todayIndex={series.todayIndex} n={n} over={lastActualH !== null && lastActualH < 0} />
+        <Chart caption={t(lang, "burndownBudgetRemaining")} planned={series.plannedRemainingValue} actual={series.actualRemainingValue} max={series.totalBudgetValue} todayIndex={series.todayIndex} n={n} over={lastActualV !== null && lastActualV < 0} />
+      </div>
+      <div className="flex flex-wrap items-center gap-4 text-[11px] text-muted-foreground">
+        <span className="inline-flex items-center gap-1.5">
+          <svg width="22" height="6" aria-hidden="true"><line x1="0" y1="3" x2="22" y2="3" className="stroke-muted-foreground" strokeWidth={2} strokeDasharray="5 4" /></svg>
+          {t(lang, "burndownPlanned")}
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <svg width="22" height="6" aria-hidden="true"><line x1="0" y1="3" x2="22" y2="3" className="stroke-AIPM-green" strokeWidth={2.5} /></svg>
+          {t(lang, "burndownActual")}
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <svg width="6" height="14" aria-hidden="true"><line x1="3" y1="0" x2="3" y2="14" className="stroke-AIPM-dark-blue" strokeWidth={1} strokeDasharray="3 3" /></svg>
+          {t(lang, "burndownToday")}
+        </span>
+      </div>
     </div>
   );
 }

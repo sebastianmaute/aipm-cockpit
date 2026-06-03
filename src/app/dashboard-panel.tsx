@@ -6,16 +6,12 @@ import { computeDashboard } from "./dashboard";
 import { RegistersBand } from "./dashboard-sections/registers-band";
 import { useWorkspace } from "./workspace-context";
 import { loadActivityLog, type ActivityEntry } from "./activity-log";
-import { type Lang, t } from "./i18n";
+import { type Lang, t, localeFor } from "./i18n";
 import { healthColorName, type Health } from "./health";
 import type { Absence, BudgetBucket, Milestone, RaidItem, ResourcePlan, Resource, Role, Task } from "./types";
 import { formatCurrency } from "./resource-cost";
 import { RagBadge } from "./rag-badge";
 import { BurndownCharts } from "./burndown-chart";
-
-function localeFor(lang: Lang): string {
-  return lang === "de" ? "de-DE" : lang === "en-GB" ? "en-GB" : "en-US";
-}
 
 interface DashboardPanelProps {
   lang: Lang;

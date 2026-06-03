@@ -20,9 +20,10 @@ describe("BurndownCharts", () => {
     expect(screen.getByText("Hours remaining")).toBeTruthy();
     expect(screen.getByText("Budget remaining")).toBeTruthy();
   });
-  it("renders two svg elements", () => {
+  it("renders two chart svg elements", () => {
     const { container } = render(<BurndownCharts series={series} lang="en-US" />);
-    expect(container.querySelectorAll("svg").length).toBe(2);
+    // The legend adds 3 aria-hidden inline SVGs; only the two Chart SVGs carry role="img".
+    expect(container.querySelectorAll("svg[role='img']").length).toBe(2);
   });
   it("draws the actual line pink when the latest actual remaining is negative (over budget)", () => {
     const over: BurndownSeries = {

@@ -1252,3 +1252,8 @@ export function migrateLang(value: unknown): Lang {
 export function priorityLabel(lang: Lang, p: Priority): string {
   return t(lang, `priority${p}` as TranslationKey);
 }
+
+/** Intl locale string for a UI language (currency/number/date formatting). */
+export function localeFor(lang: Lang): string {
+  return lang === "de" ? "de-DE" : lang === "en-GB" ? "en-GB" : "en-US";
+}

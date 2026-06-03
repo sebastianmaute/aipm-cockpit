@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import { type Lang, t } from "./i18n";
+import { type Lang, t, localeFor } from "./i18n";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import { ColumnResizeHandle } from "./task-manager-ui";
 import { useColumnResize } from "./use-column-resize";
@@ -48,10 +48,6 @@ interface Props {
   tasks: Task[];
   today: string;
   embedded?: boolean;
-}
-
-function localeFor(lang: Lang): string {
-  return lang === "de" ? "de-DE" : lang === "en-GB" ? "en-GB" : "en-US";
 }
 
 export function BudgetReportPanel({

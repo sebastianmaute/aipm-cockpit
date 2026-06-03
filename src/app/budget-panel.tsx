@@ -1,6 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
-import { type Lang, t } from "./i18n";
+import { type Lang, t, localeFor } from "./i18n";
 import { formatCurrency } from "./resource-cost";
 import { computeBudgetReport, bucketActivePeriods, type BucketReport, type CciValue } from "./budget-report";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
@@ -83,10 +83,6 @@ export interface BudgetPanelProps {
   onChangeBuckets: (next: BudgetBucket[]) => void;
   onRefreshFx: () => void;
   fxLoading?: boolean;
-}
-
-function localeFor(lang: Lang): string {
-  return lang === "de" ? "de-DE" : lang === "en-GB" ? "en-GB" : "en-US";
 }
 
 function Cci({ label, value, currency, locale, lang, rag }: { label: string; value: CciValue; currency: string; locale: string; lang: Lang; rag?: Health | null }) {
