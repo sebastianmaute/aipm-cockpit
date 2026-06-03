@@ -45,3 +45,13 @@ export function costPerformanceHealth(percent: number | null): Health | null {
 export function winLossHealth(consumedValue: number, budgetValue: number): Health | null {
   return ratioHealth(consumedValue, budgetValue);
 }
+
+/**
+ * Margin RAG from an absolute margin amount + external (revenue) amount.
+ * percent = margin / external * 100; null when external <= 0 (no revenue base).
+ * Bands match marginHealth: G >= 15, A 0-15, R < 0.
+ */
+export function marginAmountHealth(margin: number, external: number): Health | null {
+  if (!(external > 0) || !Number.isFinite(margin)) return null;
+  return marginHealth((margin / external) * 100);
+}

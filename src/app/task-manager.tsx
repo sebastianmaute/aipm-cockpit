@@ -775,6 +775,7 @@ function TaskManagerInner() {
       onRemoveContact={handleRemoveContact}
       onShowToast={showToast}
       onAddAssigneeToAddressBook={handleAddAssigneeToAddressBook}
+      footer={editActions}
     />
   );
 

@@ -50,6 +50,16 @@ test("embedded mode renders content without a print button", () => {
   expect(screen.queryByRole("button", { name: /print/i })).toBeNull();
 });
 
+test("shows a margin RAG badge in the by-period table", () => {
+  // role has externalRate > internalRate so margin > 0, external > 0 → green RAG
+  render(
+    <ResourcesReportPanel lang="en-US" resources={resources} roles={roles}
+      disciplines={disciplines} grades={grades} plan={plan} absences={[]}
+      holidaySet={new Set()} workdayHours={8} />,
+  );
+  expect(screen.getAllByText(/^[RAG]$/).length).toBeGreaterThan(0);
+});
+
 test("resource report uses a resizable ReportCard with sort buttons, a filter input, and resize handles", () => {
   const { container } = render(
     <ResourcesReportPanel lang="en-US" resources={resources} roles={roles}

@@ -42,8 +42,8 @@ describe("TaskManager shell selection", () => {
     expect(await screen.findByRole("heading", { name: "1. Details" })).toBeTruthy();
     // …and the dialog modal does NOT.
     expect(screen.queryByRole("dialog", { name: /new task/i })).toBeNull();
-    // Top bar now shows Save (Add task) + Cancel instead of New task.
-    expect(screen.getByRole("button", { name: "Add task" })).toBeTruthy();
+    // Top bar + footer both show Save (Add task) + Cancel instead of New task.
+    expect(screen.getAllByRole("button", { name: "Add task" }).length).toBeGreaterThan(0);
     expect(screen.queryByRole("button", { name: "New task" })).toBeNull();
   });
 
@@ -51,7 +51,7 @@ describe("TaskManager shell selection", () => {
     render(<TaskManager />);
     fireEvent.click(await screen.findByRole("button", { name: "New task" }));
     expect(await screen.findByRole("heading", { name: "1. Details" })).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "Cancel" })[0]);
     // Back on Open Points (the origin view): the edit heading is gone.
     await waitFor(() =>
       expect(screen.queryByRole("heading", { name: "1. Details" })).toBeNull(),

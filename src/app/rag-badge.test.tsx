@@ -18,4 +18,10 @@ describe("RagBadge", () => {
     render(<RagBadge value="G" lang="en-US" title="Consumption: Green" />);
     expect(screen.getByText("G").getAttribute("aria-label")).toBe("Consumption: Green");
   });
+  it("carries print-color-adjust so the dot colour survives printing", () => {
+    const { getByText } = render(<RagBadge value="R" lang="en-US" />);
+    const badge = getByText("R");
+    expect(badge.className).toContain("[print-color-adjust:exact]");
+    expect(badge.className).toContain("[-webkit-print-color-adjust:exact]");
+  });
 });

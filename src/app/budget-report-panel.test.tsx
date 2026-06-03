@@ -16,6 +16,9 @@ const buckets: BudgetBucket[] = [
     disciplineAllocations: [{ disciplineId: 1, resourceIds: [], budgetHours: { "2026-01": 100 }, actualHours: { "2026-01": 80 } }] },
   { id: 2, name: "Beta", type: "tm", currency: "EUR", startDate: "2026-01-01", endDate: "2026-01-31", status: "closed",
     allocations: [{ roleId: 1, resourceIds: [], budgetHours: { "2026-01": 50 }, actualHours: { "2026-01": 50 } }] },
+  // Gamma: actualHours (120) > budgetHours (80) → R on both leading status (consumed > budget) and Actual (h) cell
+  { id: 3, name: "Gamma", type: "tm", currency: "EUR", startDate: "2026-01-01", endDate: "2026-01-31", status: "open",
+    allocations: [{ roleId: 1, resourceIds: [], budgetHours: { "2026-01": 80 }, actualHours: { "2026-01": 120 } }] },
 ];
 
 function renderPanel(over: Partial<React.ComponentProps<typeof BudgetReportPanel>> = {}) {
@@ -40,17 +43,19 @@ function renderPanel(over: Partial<React.ComponentProps<typeof BudgetReportPanel
 describe("BudgetReportPanel", () => {
   it("shows the project rollup (revenue + cost in EUR)", () => {
     renderPanel();
-    // revenue = 80*180 + 50*150 = 21900 ; cost = 80*120 + 50*100 = 14600
-    expect(screen.getByText(/€?21,900|21\.900/)).toBeInTheDocument();
-    expect(screen.getByText(/€?14,600|14\.600/)).toBeInTheDocument();
+    // revenue = 80*180 + 50*150 + 120*150 = 39900 ; cost = 80*120 + 50*100 + 120*100 = 26600
+    expect(screen.getByText(/€?39,900|39\.900/)).toBeInTheDocument();
+    expect(screen.getByText(/€?26,600|26\.600/)).toBeInTheDocument();
   });
 
   it("lists a row per bucket with its planning mode", () => {
     renderPanel();
     expect(screen.getByText("Alpha")).toBeInTheDocument();
     expect(screen.getByText("Beta")).toBeInTheDocument();
+    expect(screen.getByText("Gamma")).toBeInTheDocument();
     expect(screen.getByText("Blended")).toBeInTheDocument();
-    expect(screen.getByText("Detailed")).toBeInTheDocument();
+    // Beta and Gamma are both Detailed; getAllByText handles multiple matches
+    expect(screen.getAllByText("Detailed").length).toBeGreaterThanOrEqual(2);
   });
 
   it("filters the bucket table by name", async () => {
@@ -81,5 +86,15 @@ describe("BudgetReportPanel", () => {
     renderPanel();
     expect(screen.getByText("Burn-down")).toBeTruthy();
     expect(screen.getByText("Hours remaining")).toBeTruthy();
+  });
+
+  it("shows a RAG badge on the Actual (h) cell judged vs budget hours", () => {
+    // Gamma bucket: actualHours (120) > budgetHours (80) → R on the Actual (h) cell.
+    // The Gamma row also has R on the leading status cell (consumedValue > budgetValue).
+    // Scope the assertion to the Gamma row so it cannot become vacuous from unrelated R badges.
+    renderPanel();
+    const gammaRow = screen.getByText("Gamma").closest("tr")!;
+    // Leading status (consumed > budget) + Actual (h) cell (actualHours > budgetHours) = ≥2 R badges.
+    expect(within(gammaRow).getAllByText("R").length).toBeGreaterThanOrEqual(2);
   });
 });

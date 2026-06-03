@@ -13,6 +13,7 @@ import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton, ResizeCorner
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import { useResizable } from "./use-resizable";
 import { RagBadge } from "./rag-badge";
+import { TableFilter, SortHeaderButton, nextSortDir, type SortDir } from "./report-table";
 import { ratioHealth, marginHealth, costPerformanceHealth, winLossHealth } from "./budget-health";
 import type { Health } from "./health";
 
@@ -24,6 +25,23 @@ type BudgetCol = keyof typeof BUDGET_COL_WIDTHS;
 
 function sumPeriods(hours: Record<string, number>, periods: { key: string }[]): number {
   return periods.reduce((s, p) => s + (hours[p.key] ?? 0), 0);
+}
+
+function filterSortAllocations<T>(
+  allocs: readonly T[],
+  nameOf: (a: T) => string,
+  filter: string,
+  dir: SortDir,
+): T[] {
+  const q = filter.trim().toLowerCase();
+  let rows = q ? allocs.filter((a) => nameOf(a).toLowerCase().includes(q)) : allocs.slice();
+  if (dir !== "off") {
+    rows = rows.slice().sort((a, b) => {
+      const c = nameOf(a).localeCompare(nameOf(b));
+      return dir === "desc" ? -c : c;
+    });
+  }
+  return rows;
 }
 
 function HoursCell({
@@ -133,6 +151,8 @@ export function BudgetPanel(props: BudgetPanelProps) {
 
   const [dragId, setDragId] = useState<number | null>(null);
   const [editingBucketId, setEditingBucketId] = useState<number | null>(null);
+  const [roleFilter, setRoleFilter] = useState("");
+  const [roleSort, setRoleSort] = useState<SortDir>("off");
 
   const stamp = () => new Date().toISOString();
 
@@ -269,6 +289,9 @@ export function BudgetPanel(props: BudgetPanelProps) {
       </section>
 
       <section className="flex flex-col gap-3">
+        {report.buckets.length > 0 && (
+          <TableFilter lang={lang} value={roleFilter} onChange={setRoleFilter} placeholderKey="budgetRoleFilter" />
+        )}
         {report.buckets.map((br: BucketReport) => {
           const bucket = bucketById.get(br.bucketId)!;
           const isBlended = bucket.planningMode === "blended";
@@ -277,6 +300,16 @@ export function BudgetPanel(props: BudgetPanelProps) {
           const inCur = (eur: number) => formatCurrency(eurToCurrency(eur, bucket, fxRates), bucket.currency, locale);
           // CCI amounts are EUR from the engine — convert to the bucket currency for display.
           const cci = (v: CciValue): CciValue => ({ amount: eurToCurrency(v.amount, bucket, fxRates), percent: v.percent });
+          const detailedRows = filterSortAllocations(
+            bucket.allocations,
+            (a) => roleLabel(roles.find((r) => r.id === a.roleId), props.disciplines, props.grades) || `#${a.roleId}`,
+            roleFilter, roleSort,
+          );
+          const blendedRows = filterSortAllocations(
+            bucket.disciplineAllocations ?? [],
+            (a) => props.disciplines.find((d) => d.id === a.disciplineId)?.name || `#${a.disciplineId}`,
+            roleFilter, roleSort,
+          );
           return (
             <div
               key={br.bucketId}
@@ -345,7 +378,12 @@ export function BudgetPanel(props: BudgetPanelProps) {
                         className="relative px-2 py-1 text-left font-medium"
                         style={{ width: colWidths.role, minWidth: colWidths.role }}
                       >
-                        {t(lang, isBlended ? "budgetDiscipline" : "budgetRole")}
+                        <SortHeaderButton
+                          label={t(lang, isBlended ? "budgetDiscipline" : "budgetRole")}
+                          active={roleSort !== "off"}
+                          dir={roleSort}
+                          onClick={() => setRoleSort((d) => nextSortDir(d))}
+                        />
                         <ColumnResizeHandle col="role" onMouseDown={startResize} />
                       </th>
                       {periods.map((p) => (
@@ -361,7 +399,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
                     </tr>
                   </thead>
                   <tbody>
-                    {!isBlended && bucket.allocations.map((a) => {
+                    {!isBlended && detailedRows.map((a) => {
                       const totBudget = sumPeriods(a.budgetHours, periods);
                       const totActual = sumPeriods(a.actualHours, periods);
                       return (
@@ -385,7 +423,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
                       </tr>
                       );
                     })}
-                    {isBlended && (bucket.disciplineAllocations ?? []).map((a) => {
+                    {isBlended && blendedRows.map((a) => {
                       const totBudget = sumPeriods(a.budgetHours, periods);
                       const totActual = sumPeriods(a.actualHours, periods);
                       return (

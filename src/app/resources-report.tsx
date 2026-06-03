@@ -17,6 +17,8 @@ import {
   useSortableFilter,
   type SortDir,
 } from "./report-table";
+import { RagBadge } from "./rag-badge";
+import { marginAmountHealth } from "./budget-health";
 
 // ---------------------------------------------------------------------------
 // Column-width default maps
@@ -243,7 +245,12 @@ function ByPeriodTable({ lang, rows, colResize, days, money }: {
                 <td className="px-3 py-2 text-right tabular-nums">{days(p.capacityHours)}</td>
                 <td className="px-3 py-2 text-right tabular-nums">{money(p.internal)}</td>
                 <td className="px-3 py-2 text-right tabular-nums">{money(p.external)}</td>
-                <td className="px-3 py-2 text-right tabular-nums">{money(p.margin)}</td>
+                <td className="px-3 py-2 text-right tabular-nums">
+                  <span className="inline-flex items-center justify-end gap-1.5">
+                    {money(p.margin)}
+                    <RagBadge value={marginAmountHealth(p.margin, p.external)} lang={lang} title={t(lang, "resourcesMargin")} />
+                  </span>
+                </td>
               </tr>
             ))}
           </tbody>

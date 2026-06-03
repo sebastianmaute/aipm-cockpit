@@ -161,6 +161,6 @@ export const defaultSettings: Settings = {
   popout: { reuseWindow: false },
   resources: { workdayHours: 8 },
   layout: "modern",
-  reports: { extra: [] },
+  reports: { extra: ["raid-report", "budget-report"] },
   integrations: defaultIntegrations,
 };

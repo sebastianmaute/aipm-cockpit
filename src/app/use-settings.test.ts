@@ -64,6 +64,44 @@ describe("useSettings", () => {
       await act(async () => {});
       expect(result.current.settings.reports?.extra).toEqual(["budget-report"]);
     });
+
+    it("preserves an explicitly emptied reports.extra (removal sticks)", async () => {
+      localStorage.setItem(
+        SETTINGS_KEY,
+        JSON.stringify({ ...defaultSettings, reports: { extra: [] } }),
+      );
+      const { result } = renderHook(() => useSettings());
+      await act(async () => {});
+      expect(result.current.settings.reports?.extra).toEqual([]);
+    });
+
+    it("legacy settings without a reports key fall back to the default reports", async () => {
+      // Persisted blob from before the `reports` key existed.
+      const legacy: Record<string, unknown> = { ...defaultSettings };
+      delete legacy.reports;
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(legacy));
+      const { result } = renderHook(() => useSettings());
+      await act(async () => {});
+      expect(result.current.settings.reports?.extra).toEqual([
+        "raid-report",
+        "budget-report",
+      ]);
+    });
+  });
+
+  describe("default reports (real default path)", () => {
+    it("defaultSettings.reports.extra is RAID + Budget", () => {
+      expect(defaultSettings.reports?.extra).toEqual(["raid-report", "budget-report"]);
+    });
+
+    it("a fresh install (empty storage) yields the default RAID + Budget reports", async () => {
+      const { result } = renderHook(() => useSettings());
+      await act(async () => {});
+      expect(result.current.settings.reports?.extra).toEqual([
+        "raid-report",
+        "budget-report",
+      ]);
+    });
   });
 
   describe("persistence", () => {

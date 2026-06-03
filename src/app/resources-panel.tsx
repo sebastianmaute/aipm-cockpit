@@ -16,7 +16,7 @@
 // name so "Alex Example" and "Alex Example" land in the same row; display uses the
 // first observed original casing.
 
-import { memo, useMemo, useState } from "react";
+import { memo, useCallback, useMemo, useState } from "react";
 import { localeFor, shortDateRangeIso } from "./date-format";
 import { type CalendarMode, monthWindow, resolveWindow, stepAnchor } from "./calendar-window";
 import { type Lang, t } from "./i18n";
@@ -42,6 +42,9 @@ import { useColumnResize } from "./use-column-resize";
 import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton, ResizeCornerHint } from "./task-manager-ui";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import { useResizable } from "./use-resizable";
+import { RagBadge } from "./rag-badge";
+import { marginAmountHealth } from "./budget-health";
+import { useSortableFilter, TableFilter, SortHeaderButton, type SortDir } from "./report-table";
 
 const PLANNING_COL_WIDTHS = {
   assignee: 160,
@@ -52,6 +55,7 @@ const PLANNING_COL_WIDTHS = {
   margin: 100,
 } as const;
 type PlanningCol = keyof typeof PLANNING_COL_WIDTHS;
+type PlanSortKey = "assignee" | "capacityDays" | "internalCost" | "externalCost" | "margin";
 
 const ROLLUP_COL_WIDTHS = {
   assignee: 160,
@@ -239,6 +243,35 @@ function ResourcesPanelInner({
     );
   }, [tasks, absences, shifts, today]);
 
+  // Planning grid: name filter + sortable cost/capacity headers. Hooks MUST run
+  // unconditionally here (never inside the `view === "planning"` IIFE) to keep
+  // the hook order stable across views.
+  const [planFilter, setPlanFilter] = useState("");
+  const [planSort, setPlanSort] = useState<{ key: PlanSortKey; dir: SortDir }>({ key: "assignee", dir: "asc" });
+  const planRows = useMemo(() => {
+    const canonicalPeriods = generatePeriods(plan.startDate, plan.endDate, plan.granularity);
+    const periods = generatePeriods(plan.startDate, plan.endDate, viewGranularity);
+    return resources.map((r) => {
+      const resAbs = absencesForResource(absences, r);
+      const totalHours = periods.reduce((sum, p) =>
+        sum + displayCapacityHours(p, canonicalPeriods, r, resAbs, workdayHours, holidaySet, plan.granularity, viewGranularity), 0);
+      const role = roles.find((x) => x.id === r.roleId);
+      const cost = periodCost(totalHours, role);
+      return { resource: r, name: resourceDisplayName(r), totalHours, cost, capacityDays: totalHours / workdayHours, internalCost: cost.internal, externalCost: cost.external, margin: cost.margin };
+    });
+  }, [resources, absences, roles, plan.startDate, plan.endDate, plan.granularity, viewGranularity, workdayHours, holidaySet]);
+  const getPlanValue = useCallback((row: typeof planRows[number], k: PlanSortKey): string | number => {
+    const values: Record<PlanSortKey, string | number> = {
+      assignee: row.name,
+      capacityDays: row.capacityDays,
+      internalCost: row.internalCost,
+      externalCost: row.externalCost,
+      margin: row.margin,
+    };
+    return values[k];
+  }, []);
+  const { sorted: planSorted, click: planClick } = useSortableFilter(planRows, planSort, setPlanSort, planFilter, getPlanValue);
+
   // Header: title + count; planning-only ResetColWidths; calendar-only Outlook import; always ResetSize.
   const renderHeader = () => (
     <header className="mb-2 flex shrink-0 items-center justify-between gap-2">
@@ -333,6 +366,7 @@ function ResourcesPanelInner({
                 onChange={onSetAllUtilizationMode}
               />
             </div>
+            <TableFilter lang={lang} value={planFilter} onChange={setPlanFilter} placeholderKey="planningFilterResource" />
             <div className={INNER_TABLE_CLASS}>
             <table className="w-full text-left text-sm">
               <thead className={TABLE_HEAD_CLASS}>
@@ -341,7 +375,7 @@ function ResourcesPanelInner({
                     className="relative px-3 py-2 font-medium"
                     style={{ width: planning.colWidths.assignee, minWidth: planning.colWidths.assignee }}
                   >
-                    {t(lang, "assignee")}
+                    <SortHeaderButton label={t(lang, "assignee")} active={planSort.key === "assignee" && planSort.dir !== "off"} dir={planSort.dir} onClick={() => planClick("assignee")} />
                     <ColumnResizeHandle col="assignee" onMouseDown={planningStartResize} />
                   </th>
                   {periods.map((p) => (
@@ -359,7 +393,7 @@ function ResourcesPanelInner({
                     style={{ width: planning.colWidths.capacityDays, minWidth: planning.colWidths.capacityDays }}
                     title={t(lang, "resourcesCapacityDaysHint")}
                   >
-                    {t(lang, "resourcesCapacityDays")}
+                    <SortHeaderButton label={t(lang, "resourcesCapacityDays")} active={planSort.key === "capacityDays" && planSort.dir !== "off"} dir={planSort.dir} onClick={() => planClick("capacityDays")} />
                     <ColumnResizeHandle col="capacityDays" onMouseDown={planningStartResize} />
                   </th>
                   <th
@@ -367,7 +401,7 @@ function ResourcesPanelInner({
                     style={{ width: planning.colWidths.internalCost, minWidth: planning.colWidths.internalCost }}
                     title={t(lang, "resourcesInternalCostHint")}
                   >
-                    {t(lang, "resourcesInternalCost")}
+                    <SortHeaderButton label={t(lang, "resourcesInternalCost")} active={planSort.key === "internalCost" && planSort.dir !== "off"} dir={planSort.dir} onClick={() => planClick("internalCost")} />
                     <ColumnResizeHandle col="internalCost" onMouseDown={planningStartResize} />
                   </th>
                   <th
@@ -375,7 +409,7 @@ function ResourcesPanelInner({
                     style={{ width: planning.colWidths.externalCost, minWidth: planning.colWidths.externalCost }}
                     title={t(lang, "resourcesExternalCostHint")}
                   >
-                    {t(lang, "resourcesExternalCost")}
+                    <SortHeaderButton label={t(lang, "resourcesExternalCost")} active={planSort.key === "externalCost" && planSort.dir !== "off"} dir={planSort.dir} onClick={() => planClick("externalCost")} />
                     <ColumnResizeHandle col="externalCost" onMouseDown={planningStartResize} />
                   </th>
                   <th
@@ -383,24 +417,24 @@ function ResourcesPanelInner({
                     style={{ width: planning.colWidths.margin, minWidth: planning.colWidths.margin }}
                     title={t(lang, "resourcesMarginHint")}
                   >
-                    {t(lang, "resourcesMargin")}
+                    <SortHeaderButton label={t(lang, "resourcesMargin")} active={planSort.key === "margin" && planSort.dir !== "off"} dir={planSort.dir} onClick={() => planClick("margin")} />
                     <ColumnResizeHandle col="margin" onMouseDown={planningStartResize} />
                   </th>
                 </tr>
               </thead>
               {(() => {
                 const loc = localeFor(lang);
-                const totals = { days: 0, internal: 0, external: 0, margin: 0 };
-                const rowsJsx = resources.map((r) => {
+                const totals = planSorted.reduce((acc, row) => ({
+                  days: acc.days + row.capacityDays,
+                  internal: acc.internal + row.internalCost,
+                  external: acc.external + row.externalCost,
+                  margin: acc.margin + row.margin,
+                }), { days: 0, internal: 0, external: 0, margin: 0 });
+                const rowsJsx = planSorted.map((row) => {
+                  const r = row.resource;
+                  const cost = row.cost;
+                  const totalHours = row.totalHours;
                   const resAbs = absencesForResource(absences, r);
-                  const totalHours = periods.reduce((sum, p) =>
-                    sum + displayCapacityHours(p, canonicalPeriods, r, resAbs, workdayHours, holidaySet, plan.granularity, viewGranularity), 0);
-                  const role = roles.find((x) => x.id === r.roleId);
-                  const cost = periodCost(totalHours, role);
-                  totals.days += totalHours / workdayHours;
-                  totals.internal += cost.internal;
-                  totals.external += cost.external;
-                  totals.margin += cost.margin;
                   return (
                     <tr key={r.id}>
                       <td className="px-3 py-2">
@@ -446,7 +480,12 @@ function ResourcesPanelInner({
                       <td className="px-3 py-2 text-right tabular-nums font-medium">{(totalHours / workdayHours).toFixed(1)}</td>
                       <td className="px-3 py-2 text-right tabular-nums">{formatCurrency(cost.internal, plan.currency, loc)}</td>
                       <td className="px-3 py-2 text-right tabular-nums">{formatCurrency(cost.external, plan.currency, loc)}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{formatCurrency(cost.margin, plan.currency, loc)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">
+                        <span className="inline-flex items-center justify-end gap-1.5">
+                          {formatCurrency(cost.margin, plan.currency, loc)}
+                          <RagBadge value={marginAmountHealth(cost.margin, cost.external)} lang={lang} title={t(lang, "resourcesMargin")} />
+                        </span>
+                      </td>
                     </tr>
                   );
                 });
@@ -460,7 +499,12 @@ function ResourcesPanelInner({
                         <td className="px-3 py-2 text-right tabular-nums">{totals.days.toFixed(1)}</td>
                         <td className="px-3 py-2 text-right tabular-nums">{formatCurrency(totals.internal, plan.currency, loc)}</td>
                         <td className="px-3 py-2 text-right tabular-nums">{formatCurrency(totals.external, plan.currency, loc)}</td>
-                        <td className="px-3 py-2 text-right tabular-nums">{formatCurrency(totals.margin, plan.currency, loc)}</td>
+                        <td className="px-3 py-2 text-right tabular-nums">
+                          <span className="inline-flex items-center justify-end gap-1.5">
+                            {formatCurrency(totals.margin, plan.currency, loc)}
+                            <RagBadge value={marginAmountHealth(totals.margin, totals.external)} lang={lang} title={t(lang, "resourcesMargin")} />
+                          </span>
+                        </td>
                       </tr>
                     </tfoot>
                   </>
@@ -613,6 +657,19 @@ function ResourcesPanelInner({
                     className="rounded border border-line px-2 py-1.5 text-sm dark:bg-surface"
                   />
                 </label>
+                <button
+                  type="button"
+                  aria-label={t(lang, "calendarToday")}
+                  title={t(lang, "calendarToday")}
+                  onClick={() => {
+                    const w = monthWindow(today);
+                    setCalendarFrom(w.startDate);
+                    setCalendarTo(w.endDate);
+                  }}
+                  className="rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted"
+                >
+                  {t(lang, "calendarToday")}
+                </button>
               </div>
             )}
           </div>

@@ -1,4 +1,4 @@
-<!-- Generated: 2026-05-31 | Files scanned: ~120 (src/app/*.tsx, *.ts, settings-sections/) | Token estimate: ~1600 | Updated for 0.29.0–0.47.0: modern sidebar layout + UI-consistency sweep + Health Dashboard + Milestones + Earned Value + budget/dashboard RAG + burn-down -->
+<!-- Generated: 2026-06-03 | Files scanned: ~120 (src/app/*.tsx, *.ts, settings-sections/) | Token estimate: ~1600 | Updated for 0.29.0–0.48.0: modern sidebar layout + UI-consistency sweep + Health Dashboard + Milestones + Earned Value + budget/dashboard RAG + burn-down + UI refinements -->
 
 # Frontend
 
@@ -156,6 +156,7 @@ prerendered.
 | `budget-panel.tsx` | Budget tab UI: bucket list/editor, allocations, CCI cards | |
 | `budget-bucket-modal.tsx` | Modal for editing a bucket: name, PO, type, currency, dates, allocations | |
 | `budget-report.ts` | Pure calc engine: CCI ×3, spillover, project rollup | No React |
+| `budget-health.ts` | Pure RAG helpers for budget surfaces; gains `marginAmountHealth` (margin RAG, 0.48.0+) | No React; 0.47.0+ |
 | `fx.ts` | Pure FX helpers: `resolveFxRate`, `convertAmount` | No React |
 | `ecb.ts` | ECB XML parser: `parseEcbRates` | No React |
 | `use-fx-rates.ts` | `useFxRates(workspace) → { rates, refresh }` — fetches `/api/ecb` | Client hook |
@@ -175,7 +176,7 @@ prerendered.
 | **RAID & Reports** | | |
 | `raid-panel.tsx` | RAID log; **0.14.2:** sortable columns + severity ranking | Memo-wrapped |
 | `raid-report-panel.tsx` | RAID report (summary tiles + 6 By-X tables) | |
-| `reports.tsx` | Stats by group, label, status, on-time vs late | Conditional mount |
+| `reports.tsx` | Stats by group, label, status, on-time vs late; RAID + Budget reports present by default (0.48.0+) | Conditional mount |
 | `raid.ts` | Pure RAID helpers: severity matrix, status options, cycle detection | No React |
 | **Chat & Voice** | | |
 | `chat-panel.tsx` | Claude chat with tool calls via `dispatcher` | Conditional mount; history in TaskManager |
@@ -221,7 +222,7 @@ prerendered.
 | `milestone-edit-modal.tsx` | Modal editor for milestone name/date/description/linkedTaskIds | Component; 0.44.0+ |
 | `version-info.tsx` | VersionInfo body + VersionInfoModal (reused by Version popover, sidebar version line, Settings footer) | Component; 0.46.0+ |
 | `rag-badge.tsx` | `RagBadge` — lettered R/A/G badge pill shared by dashboard pills, budget bucket metrics, and the Budget Report status column | Component; 0.47.0+ |
-| `burndown-chart.tsx` | `BurndownCharts` — dependency-free SVG twin remaining-hours + remaining-EUR burn-down charts; consumed by dashboard and Budget Report | Component; 0.47.0+ |
+| `burndown-chart.tsx` | `BurndownCharts` — dependency-free SVG twin remaining-hours + remaining-EUR burn-down charts; currency symbol + axis tick labels (0.48.0+); consumed by dashboard and Budget Report | Component; 0.47.0+ |
 | **Utilities** | | |
 | `date-format.ts` | `localeFor(lang)`, `shortDateRange`, `formatExpiryDate` | Pure |
 | `duration.ts` | `parseDuration`, `formatDuration`, `effortProgress` | Pure; Jira basis (1w=5d=2400m) |
@@ -237,7 +238,7 @@ prerendered.
 | `export.ts`, `export-ooxml.ts` | Export engines (CSV/MD/JSON/DOCX/XLSX/PPTX) | Lazy-imported |
 | `zip.ts` | Hand-rolled STORE-method ZIP writer | No external dep |
 | `sanitize.ts` | Input validation for all inbound fields | Pure |
-| `health.ts` | RAG status computation + color helpers | Pure |
+| `health.ts` | RAG status computation + color helpers; gains `healthText` (colorized overall text, 0.48.0+) | Pure |
 | `due-dates.ts` | Due-date sorting + alertable task logic | Pure |
 | `settings-types.ts` | `Settings` shape re-exported from settings-menu | Shared type |
 | `types.ts` | `Task`, `RaidItem`, `Absence`, `Resource`, `Role`, etc. | Core data schemas |

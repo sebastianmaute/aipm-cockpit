@@ -7,7 +7,7 @@ import { RegistersBand } from "./dashboard-sections/registers-band";
 import { useWorkspace } from "./workspace-context";
 import { loadActivityLog, type ActivityEntry } from "./activity-log";
 import { type Lang, t, localeFor } from "./i18n";
-import { healthColorName, type Health } from "./health";
+import { healthColorName, healthText, type Health } from "./health";
 import type { Absence, BudgetBucket, Milestone, RaidItem, ResourcePlan, Resource, Role, Task } from "./types";
 import { formatCurrency } from "./resource-cost";
 import { RagBadge } from "./rag-badge";
@@ -122,7 +122,10 @@ export function DashboardPanel(props: DashboardPanelProps) {
         <div className="flex flex-wrap items-center gap-4 rounded-lg border border-line bg-surface p-4">
           <div className="flex items-center gap-2 text-2xl font-bold">
             <RagBadge value={model.overall.effective} lang={lang} />
-            {t(lang, "dashboardOverall")}: {healthColorName(model.overall.effective, lang)}
+            {t(lang, "dashboardOverall")}:{" "}
+            <span className={model.overall.effective ? healthText[model.overall.effective] : ""}>
+              {healthColorName(model.overall.effective, lang)}
+            </span>
           </div>
           <OverrideSelect
             lang={lang}
@@ -159,6 +162,9 @@ export function DashboardPanel(props: DashboardPanelProps) {
           <span className="ml-auto text-sm text-muted-foreground">
             {t(lang, "dashboardReportDate", today)}
           </span>
+          <p className="basis-full text-xs text-muted-foreground">
+            {t(lang, "dashboardRagThresholds")}
+          </p>
         </div>
 
         {/* Narrative */}
@@ -187,6 +193,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
               />
               <Tile label="R / A / G" value={`${model.progress.counts.R} / ${model.progress.counts.A} / ${model.progress.counts.G}`} />
             </div>
+            <p className="mt-2 text-xs text-muted-foreground">{t(lang, "dashboardProgressCaption")}</p>
           </Section>
           <Section title={t(lang, "dashboardBudgetBurn")}>
             {model.burn ? (
@@ -213,8 +220,11 @@ export function DashboardPanel(props: DashboardPanelProps) {
             )}
             {model.burndown ? (
               <div className="mt-3">
-                <BurndownCharts series={model.burndown} lang={lang} />
+                <BurndownCharts series={model.burndown} lang={lang} currency={props.plan.currency || "EUR"} />
               </div>
+            ) : null}
+            {model.burn ? (
+              <p className="mt-2 text-xs text-muted-foreground">{t(lang, "dashboardBurnCaption")}</p>
             ) : null}
           </Section>
         </div>

@@ -108,6 +108,19 @@ describe("TaskFormModal", () => {
   });
 });
 
+describe("TaskFormModal — cancel in create mode", () => {
+  beforeEach(() => {
+    stubTaskForm();
+  });
+
+  it("shows Cancel in create mode too", () => {
+    // editingId is null in stubTaskForm, so isEditing=false
+    render(<TaskFormModal {...defaultProps()} />);
+    expect(screen.getByRole("button", { name: /cancel|abbrechen/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /add task|aufgabe hinzuf/i })).toBeInTheDocument();
+  });
+});
+
 describe("TaskFormModal — add-to-address-book button", () => {
   beforeEach(() => {
     stubTaskForm();

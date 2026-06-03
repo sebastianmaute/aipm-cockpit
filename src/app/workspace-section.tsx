@@ -1,6 +1,7 @@
 "use client";
 import dynamic from "next/dynamic";
 import type React from "react";
+import { useState } from "react";
 import { t } from "./i18n";
 import { openPopoutWindow } from "./broadcast-sync";
 import { useSettings } from "./use-settings";
@@ -9,6 +10,7 @@ import { useWorkspaceTab } from "./workspace-tab-context";
 import { useFilters } from "./filters-context";
 import { TabButton, ResetSizeIcon } from "./task-manager-ui";
 import { navLabelKey, subTabsFor } from "./nav-config";
+import { DEFAULT_EXTRA_REPORTS } from "./addable-reports";
 import type { ToolDispatcher } from "./chat-tools";
 import type { ActivityEntry, ActivityKind } from "./activity-log";
 import type { Absence, BudgetBucket, RaidItem, Resource, Shift, Task } from "./types";
@@ -147,6 +149,9 @@ export function WorkspaceSection({
   const { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, milestones } = useWorkspace();
   const { activeTab, setActiveTab, isPopout } = useWorkspaceTab();
   const { raidFilterTaskId } = useFilters();
+  // One-way signal: incrementing this opens the milestone create modal on the
+  // Milestones tab (Gantt "Add milestone" parity with Add task).
+  const [milestoneCreateNonce, setMilestoneCreateNonce] = useState(0);
 
   // Panel wrappers. The pt-4 offset clears the tab strip in classic/popout mode;
   // in fullBleed the strip is hidden, so we drop it to align the per-view card
@@ -372,7 +377,7 @@ export function WorkspaceSection({
               absences={absences}
               workdayHours={settings.resources.workdayHours}
               fxRates={fxRates}
-              extraReports={settings.reports?.extra ?? []}
+              extraReports={settings.reports?.extra ?? DEFAULT_EXTRA_REPORTS}
               onChangeExtraReports={(next) => setSettings((s) => ({ ...s, reports: { ...s.reports, extra: next } }))}
             />
           </div>
@@ -395,7 +400,7 @@ export function WorkspaceSection({
                 setTaskModalOpen(true);
               }}
               onEditTask={isPopout ? undefined : onEditTask}
-              onAddMilestone={() => setActiveTab("milestones")}
+              onAddMilestone={() => { setActiveTab("milestones"); setMilestoneCreateNonce((n) => n + 1); }}
               onEditMilestone={() => setActiveTab("milestones")}
             />
           </div>
@@ -562,7 +567,13 @@ export function WorkspaceSection({
 
         {activeTab === "milestones" && (
           <div id="panel-milestones" role="tabpanel" className={panelScrollClass}>
-            <MilestonesPanel lang={lang} today={today} holidaySet={holidaySet} logActivity={logActivity} />
+            <MilestonesPanel
+              lang={lang}
+              today={today}
+              holidaySet={holidaySet}
+              logActivity={logActivity}
+              openCreateNonce={milestoneCreateNonce}
+            />
           </div>
         )}
 

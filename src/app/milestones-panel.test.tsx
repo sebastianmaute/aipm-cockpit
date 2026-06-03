@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { type ReactNode } from "react";
 import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider } from "./workspace-context";
@@ -17,6 +17,12 @@ function wrapper({ children }: { children: ReactNode }) {
     </FiltersProvider>
   );
 }
+
+const baseProps = {
+  lang: "en-US" as const,
+  today: "2026-06-02",
+  holidaySet: new Set<string>(),
+};
 
 describe("MilestonesPanel", () => {
   it("renders empty milestones without crashing", () => {
@@ -42,5 +48,15 @@ describe("MilestonesPanel", () => {
     );
     // The milestonesEmpty i18n key should be visible
     expect(getByText("No milestones yet.")).toBeTruthy();
+  });
+
+  it("opens the create modal when openCreateNonce increments, not on mount", () => {
+    const { rerender } = render(
+      <MilestonesPanel {...baseProps} openCreateNonce={0} />,
+      { wrapper },
+    );
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    rerender(<MilestonesPanel {...baseProps} openCreateNonce={1} />);
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
   });
 });

@@ -7,6 +7,7 @@ import type { Resource } from "./types";
 
 const resources: Resource[] = [
   { id: 1, firstName: "Sample", lastName: "Dummy", roleId: null, utilizationMode: "percent", utilization: {} },
+  { id: 2, firstName: "Mateo", lastName: "Rossi", roleId: null, utilizationMode: "percent", utilization: {} },
 ];
 
 const baseProps = {
@@ -163,6 +164,39 @@ describe("ResourcesPanel", () => {
     expect(from.className).toContain("py-1.5");
     expect(from.className).toContain("text-sm");
   });
+
+  test("planning grid filters resources by name", () => {
+    render(<ResourcesPanel {...baseProps} view="planning" />); // baseProps has 2 named resources
+    const input = screen.getByPlaceholderText(/filter resources/i);
+    const before = screen.getAllByRole("row").length;
+    // "Sample" matches exactly one of the two display names (Alex Example)
+    fireEvent.change(input, { target: { value: "Sample" } });
+    expect(screen.getAllByRole("row").length).toBeLessThan(before);
+    expect(screen.getByText(/Alex Example/)).toBeInTheDocument();
+    expect(screen.queryByText(/Mateo Rossi/)).not.toBeInTheDocument();
+  });
+
+  test("shows a margin RAG badge in the planning grid", () => {
+    // Resource with a role that has externalRate > 0 so margin renders
+    const roles = [{ id: 7, disciplineId: 1, gradeId: 1, internalRate: 80, externalRate: 100 }];
+    const resources = [{ id: 1, firstName: "Sample", lastName: "Dummy", roleId: 7, utilizationMode: "percent" as const, utilization: { "2026-02": 100 } }];
+    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };
+    render(<ResourcesPanel {...baseProps} view="planning" lang="en-US" resources={resources} roles={roles} plan={plan}
+      workdayHours={8} holidaySet={new Set()}
+      onSetUtilization={() => {}} onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
+    // RagBadge renders R, A, or G as visible text in the margin column
+    expect(screen.getAllByText(/^[RAG]$/).length).toBeGreaterThan(0);
+  });
+});
+
+test("custom calendar view has a Today button that resets to the current month", () => {
+  render(<ResourcesPanel {...baseProps} view="calendar" today="2026-06-15" />);
+  // Switch to custom mode via the SegmentedControl option labelled "Custom"
+  fireEvent.click(screen.getByRole("radio", { name: /custom/i }));
+  const todayBtn = screen.getByRole("button", { name: /today|heute/i });
+  fireEvent.click(todayBtn);
+  const from = screen.getByLabelText(/from|von/i) as HTMLInputElement;
+  expect(from.value).toBe("2026-06-01");
 });
 
 test("resources-panel: no view SegmentedControl, no roles/report/add-absence buttons; resizable", () => {
