@@ -177,6 +177,16 @@ describe("ResourcesPanel", () => {
   });
 });
 
+test("custom calendar view has a Today button that resets to the current month", () => {
+  render(<ResourcesPanel {...baseProps} view="calendar" today="2026-06-15" />);
+  // Switch to custom mode via the SegmentedControl option labelled "Custom"
+  fireEvent.click(screen.getByRole("radio", { name: /custom/i }));
+  const todayBtn = screen.getByRole("button", { name: /today|heute/i });
+  fireEvent.click(todayBtn);
+  const from = screen.getByLabelText(/from|von/i) as HTMLInputElement;
+  expect(from.value).toBe("2026-06-01");
+});
+
 test("resources-panel: no view SegmentedControl, no roles/report/add-absence buttons; resizable", () => {
   const src = readFileSync(join(__dirname, "resources-panel.tsx"), "utf8");
   expect(src).not.toMatch(/onManageRoles/);

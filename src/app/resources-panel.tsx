@@ -625,6 +625,19 @@ function ResourcesPanelInner({
                     className="rounded border border-line px-2 py-1.5 text-sm dark:bg-surface"
                   />
                 </label>
+                <button
+                  type="button"
+                  aria-label={t(lang, "calendarToday")}
+                  title={t(lang, "calendarToday")}
+                  onClick={() => {
+                    const w = monthWindow(today);
+                    setCalendarFrom(w.startDate);
+                    setCalendarTo(w.endDate);
+                  }}
+                  className="rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted"
+                >
+                  {t(lang, "calendarToday")}
+                </button>
               </div>
             )}
           </div>
