@@ -68,8 +68,8 @@ function makeArgs(overrides: Partial<Parameters<typeof useStorageBackend>[0]> = 
 function makeProbe(args: Parameters<typeof useStorageBackend>[0]) {
   return function useProbe() {
     const backend = useStorageBackend(args);
-    const { tasks, raid, absences, shifts, setTasks } = useWorkspace();
-    return { ...backend, tasks, raid, absences, shifts, setTasks };
+    const { tasks, raid, absences, shifts, setTasks, changes, setChanges } = useWorkspace();
+    return { ...backend, tasks, raid, absences, shifts, setTasks, changes, setChanges };
   };
 }
 
@@ -368,6 +368,65 @@ describe("useStorageBackend — broadcast send gating", () => {
     for (const call of calls) {
       expect(call[3]).toBe(false);
     }
+  });
+});
+
+// ── Change Log persistence bridge (regression: changes must round-trip) ───────
+// These exercise the REAL bridge wiring in useStorageBackend — the save effect's
+// backend.save() payload, the load effect's setChanges, and the broadcast call.
+// Without forwarding `changes` through that bridge the Change Log register
+// vanished on reload; these tests fail without that wiring.
+describe("useStorageBackend — Change Log persistence", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+    (storageMod.createBackend as ReturnType<typeof vi.fn>).mockReturnValue(mockBackend);
+    mockBackend.load.mockResolvedValue({ tasks: [], raid: [], absences: [], shifts: [] });
+    mockBackend.isReady.mockResolvedValue(true);
+    mockBackend.describe.mockResolvedValue(null);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("forwards `changes` to backend.save() (save→reload round-trip survives)", async () => {
+    const { result } = renderBackend();
+    // Load completes → suppressNextSaveRef = true
+    await act(async () => { await Promise.resolve(); });
+    // First debounce cycle: suppress fires and clears
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    mockBackend.save.mockClear();
+
+    // Add a change to the register, then let the debounced save fire
+    await act(async () => {
+      result.current.setChanges([{ id: 7, title: "Widen scope" } as never]);
+    });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+
+    expect(mockBackend.save).toHaveBeenCalledWith(
+      expect.objectContaining({ changes: [expect.objectContaining({ id: 7, title: "Widen scope" })] }),
+    );
+  });
+
+  it("applies workspace.changes from backend.load() into workspace state", async () => {
+    mockBackend.load.mockResolvedValueOnce({
+      tasks: [], raid: [], absences: [], shifts: [],
+      changes: [{ id: 42, title: "Loaded change" }],
+    });
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+
+    expect(result.current.changes).toHaveLength(1);
+    expect(result.current.changes[0]?.id).toBe(42);
+  });
+
+  it("registers a `changes` broadcast-sync channel", () => {
+    renderBackend();
+    const kinds = (useBroadcastSync as ReturnType<typeof vi.fn>).mock.calls.map((c) => c[0]);
+    expect(kinds).toContain("changes");
   });
 });
 
