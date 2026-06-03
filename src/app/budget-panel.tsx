@@ -1,6 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
-import { type Lang, t } from "./i18n";
+import { type Lang, t, localeFor } from "./i18n";
 import { formatCurrency } from "./resource-cost";
 import { computeBudgetReport, bucketActivePeriods, type BucketReport, type CciValue } from "./budget-report";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
@@ -12,6 +12,9 @@ import { useColumnResize } from "./use-column-resize";
 import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton, ResizeCornerHint } from "./task-manager-ui";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import { useResizable } from "./use-resizable";
+import { RagBadge } from "./rag-badge";
+import { ratioHealth, marginHealth, costPerformanceHealth, winLossHealth } from "./budget-health";
+import type { Health } from "./health";
 
 const BUDGET_COL_WIDTHS = {
   role: 160,
@@ -19,21 +22,26 @@ const BUDGET_COL_WIDTHS = {
 } as const;
 type BudgetCol = keyof typeof BUDGET_COL_WIDTHS;
 
+function sumPeriods(hours: Record<string, number>, periods: { key: string }[]): number {
+  return periods.reduce((s, p) => s + (hours[p.key] ?? 0), 0);
+}
+
 function HoursCell({
-  ariaPrefix, budget, actual, onBudget, onActual, hLabel, budgetHint, actualHint,
+  ariaPrefix, budget, actual, onBudget, onActual, budgetHint, actualHint, lang,
 }: {
   ariaPrefix: string;
   budget: number | undefined;
   actual: number | undefined;
   onBudget: (v: number) => void;
   onActual: (v: number) => void;
-  hLabel: string;
   budgetHint: string;
   actualHint: string;
+  lang: Lang;
 }) {
   return (
     <div className="flex flex-col gap-0.5">
       <div className="flex items-center gap-1">
+        <span className="w-10 text-[10px] text-muted-foreground">{t(lang, "budgetCellPlan")}</span>
         <input
           aria-label={`budget-${ariaPrefix}`}
           title={budgetHint}
@@ -42,9 +50,9 @@ function HoursCell({
           onChange={(e) => onBudget(Number(e.target.value) || 0)}
           className="w-16 rounded border border-line bg-surface px-1 text-right"
         />
-        <span className="text-[10px] text-muted-foreground">{hLabel}</span>
       </div>
       <div className="flex items-center gap-1">
+        <span className="w-10 text-[10px] text-muted-foreground">{t(lang, "budgetCellActual")}</span>
         <input
           aria-label={`actual-${ariaPrefix}`}
           title={actualHint}
@@ -53,7 +61,7 @@ function HoursCell({
           onChange={(e) => onActual(Number(e.target.value) || 0)}
           className="w-16 rounded border border-line bg-surface-muted px-1 text-right"
         />
-        <span className="text-[10px] text-muted-foreground">{hLabel}</span>
+        <RagBadge value={ratioHealth(actual ?? 0, budget ?? 0)} lang={lang} />
       </div>
     </div>
   );
@@ -77,16 +85,15 @@ export interface BudgetPanelProps {
   fxLoading?: boolean;
 }
 
-function localeFor(lang: Lang): string {
-  return lang === "de" ? "de-DE" : lang === "en-GB" ? "en-GB" : "en-US";
-}
-
-function Cci({ label, value, currency, locale }: { label: string; value: CciValue; currency: string; locale: string }) {
+function Cci({ label, value, currency, locale, lang, rag }: { label: string; value: CciValue; currency: string; locale: string; lang: Lang; rag?: Health | null }) {
   const pct = value.percent == null ? "—" : `${value.percent.toFixed(1)}%`;
   const tone = value.amount >= 0 ? "text-AIPM-green" : "text-AIPM-pink";
   return (
     <div className="rounded-lg border border-line p-3">
-      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className="flex items-center justify-between text-xs text-muted-foreground">
+        <span>{label}</span>
+        {rag !== undefined ? <RagBadge value={rag} lang={lang} title={label} /> : null}
+      </div>
       <div className={`text-lg font-semibold ${tone}`}>{formatCurrency(value.amount, currency, locale)}</div>
       <div className="text-xs text-muted-foreground">{pct}</div>
     </div>
@@ -255,9 +262,9 @@ export function BudgetPanel(props: BudgetPanelProps) {
           {t(lang, "budgetTitle")} — {t(lang, "budgetProjectTotal")}
         </h2>
         <div className="grid grid-cols-3 gap-3">
-          <Cci label={t(lang, "budgetCciMargin")} value={report.project.contributionMargin} currency={projCur} locale={locale} />
-          <Cci label={t(lang, "budgetCciCpi")} value={report.project.costPerformance} currency={projCur} locale={locale} />
-          <Cci label={t(lang, "budgetCciConsumption")} value={report.project.consumption} currency={projCur} locale={locale} />
+          <Cci label={t(lang, "budgetCciMargin")} value={report.project.contributionMargin} currency={projCur} locale={locale} lang={lang} rag={marginHealth(report.project.contributionMargin.percent)} />
+          <Cci label={t(lang, "budgetCciCpi")} value={report.project.costPerformance} currency={projCur} locale={locale} lang={lang} rag={costPerformanceHealth(report.project.costPerformance.percent)} />
+          <Cci label={t(lang, "budgetCciConsumption")} value={report.project.consumption} currency={projCur} locale={locale} lang={lang} rag={ratioHealth(report.project.consumedValue, report.project.budgetValue)} />
         </div>
       </section>
 
@@ -315,9 +322,9 @@ export function BudgetPanel(props: BudgetPanelProps) {
               </div>
               <div className="grid grid-cols-4 gap-2 text-sm">
                 <div><div className="text-xs text-muted-foreground">{t(lang, "budgetBudgetHours")}</div>{br.budgetHours.toFixed(0)}</div>
-                <div><div className="text-xs text-muted-foreground">{t(lang, "budgetPlanHours")}</div>{br.plannedHours.toFixed(0)}</div>
-                <div><div className="text-xs text-muted-foreground">{t(lang, "budgetActualHours")}</div>{br.actualHours.toFixed(0)}</div>
-                <div><div className="text-xs text-muted-foreground">{t(lang, "budgetWinLoss")}</div>{inCur(br.winLossValue)}</div>
+                <div><div className="text-xs text-muted-foreground">{t(lang, "budgetPlanHours")}</div><span className="inline-flex items-center gap-1.5">{br.plannedHours.toFixed(0)}<RagBadge value={ratioHealth(br.plannedHours, br.budgetHours)} lang={lang} title={t(lang, "budgetPlanHours")} /></span></div>
+                <div><div className="text-xs text-muted-foreground">{t(lang, "budgetActualHours")}</div><span className="inline-flex items-center gap-1.5">{br.actualHours.toFixed(0)}<RagBadge value={ratioHealth(br.actualHours, br.budgetHours)} lang={lang} title={t(lang, "budgetActualHours")} /></span></div>
+                <div><div className="text-xs text-muted-foreground">{t(lang, "budgetWinLoss")}</div><span className="inline-flex items-center gap-1.5">{inCur(br.winLossValue)}<RagBadge value={winLossHealth(br.consumedValue, br.budgetValue)} lang={lang} title={t(lang, "budgetWinLoss")} /></span></div>
               </div>
               {br.spilloverInHours !== 0 && (
                 <div className="mt-1 text-xs text-muted-foreground">
@@ -325,14 +332,15 @@ export function BudgetPanel(props: BudgetPanelProps) {
                 </div>
               )}
               <div className="mt-3 grid grid-cols-3 gap-3">
-                <Cci label={t(lang, "budgetCciMargin")} value={cci(br.contributionMargin)} currency={bucket.currency} locale={locale} />
-                <Cci label={t(lang, "budgetCciCpi")} value={cci(br.costPerformance)} currency={bucket.currency} locale={locale} />
-                <Cci label={t(lang, "budgetCciConsumption")} value={cci(br.consumption)} currency={bucket.currency} locale={locale} />
+                <Cci label={t(lang, "budgetCciMargin")} value={cci(br.contributionMargin)} currency={bucket.currency} locale={locale} lang={lang} rag={marginHealth(br.contributionMargin.percent)} />
+                <Cci label={t(lang, "budgetCciCpi")} value={cci(br.costPerformance)} currency={bucket.currency} locale={locale} lang={lang} rag={costPerformanceHealth(br.costPerformance.percent)} />
+                <Cci label={t(lang, "budgetCciConsumption")} value={cci(br.consumption)} currency={bucket.currency} locale={locale} lang={lang} rag={ratioHealth(br.consumedValue, br.budgetValue)} />
               </div>
               <div className="mt-3 overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead className={TABLE_HEAD_CLASS}>
                     <tr>
+                      <th className="px-1 py-1 text-left font-medium" style={{ width: 28, minWidth: 28 }}>{t(lang, "budgetRoleStatus")}</th>
                       <th
                         className="relative px-2 py-1 text-left font-medium"
                         style={{ width: colWidths.role, minWidth: colWidths.role }}
@@ -353,8 +361,12 @@ export function BudgetPanel(props: BudgetPanelProps) {
                     </tr>
                   </thead>
                   <tbody>
-                    {!isBlended && bucket.allocations.map((a) => (
+                    {!isBlended && bucket.allocations.map((a) => {
+                      const totBudget = sumPeriods(a.budgetHours, periods);
+                      const totActual = sumPeriods(a.actualHours, periods);
+                      return (
                       <tr key={a.roleId} className="border-t border-line">
+                        <td className="px-1 py-1"><RagBadge value={ratioHealth(totActual, totBudget)} lang={lang} title={t(lang, "budgetRoleStatus")} /></td>
                         <td className="px-2 py-1">{roleLabel(roles.find((r) => r.id === a.roleId), props.disciplines, props.grades) || `#${a.roleId}`}</td>
                         {periods.map((p) => (
                           <td key={p.key} className="px-1 py-1">
@@ -364,16 +376,21 @@ export function BudgetPanel(props: BudgetPanelProps) {
                               actual={a.actualHours[p.key]}
                               onBudget={(v) => setCell(bucket.id, a.roleId, p.key, "budgetHours", v)}
                               onActual={(v) => setCell(bucket.id, a.roleId, p.key, "actualHours", v)}
-                              hLabel={t(lang, "budgetUnitHours")}
                               budgetHint={t(lang, "budgetBudgetHoursHint")}
                               actualHint={t(lang, "budgetActualHoursHint")}
+                              lang={lang}
                             />
                           </td>
                         ))}
                       </tr>
-                    ))}
-                    {isBlended && (bucket.disciplineAllocations ?? []).map((a) => (
+                      );
+                    })}
+                    {isBlended && (bucket.disciplineAllocations ?? []).map((a) => {
+                      const totBudget = sumPeriods(a.budgetHours, periods);
+                      const totActual = sumPeriods(a.actualHours, periods);
+                      return (
                       <tr key={a.disciplineId} className="border-t border-line">
+                        <td className="px-1 py-1"><RagBadge value={ratioHealth(totActual, totBudget)} lang={lang} title={t(lang, "budgetRoleStatus")} /></td>
                         <td className="px-2 py-1">{props.disciplines.find((d) => d.id === a.disciplineId)?.name || `#${a.disciplineId}`}</td>
                         {periods.map((p) => (
                           <td key={p.key} className="px-1 py-1">
@@ -383,14 +400,15 @@ export function BudgetPanel(props: BudgetPanelProps) {
                               actual={a.actualHours[p.key]}
                               onBudget={(v) => setDisciplineCell(bucket.id, a.disciplineId, p.key, "budgetHours", v)}
                               onActual={(v) => setDisciplineCell(bucket.id, a.disciplineId, p.key, "actualHours", v)}
-                              hLabel={t(lang, "budgetUnitHours")}
                               budgetHint={t(lang, "budgetBudgetHoursHint")}
                               actualHint={t(lang, "budgetActualHoursHint")}
+                              lang={lang}
                             />
                           </td>
                         ))}
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

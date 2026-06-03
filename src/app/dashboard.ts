@@ -7,6 +7,7 @@ import { isTerminalStatus, riskSeverityFromMatrix } from "./raid";
 import { workdaysUntil } from "./due-dates";
 import { partitionMilestones } from "./milestones";
 import { computeEvm, projectBlendedInternalRate, type EvmMetrics } from "./evm";
+import { computeBurndownSeries, type BurndownSeries } from "./budget-burndown";
 import type {
   Absence, BudgetBucket, Milestone, ProjectStatus, RaidItem, RaidSeverity,
   Resource, ResourcePlan, Role, Task,
@@ -186,6 +187,7 @@ export type DashboardModel = {
   scope: { effective: SubStatus };
   progress: DashboardProgress;
   burn: DashboardBurn | null;
+  burndown: BurndownSeries | null;
   evm: EvmMetrics;
   topRaid: RaidItem[];
   overdue: Task[];
@@ -254,6 +256,10 @@ export function computeDashboard(input: DashboardInput, opts: DashboardOptions =
         cost: project.cost, costPerformance: project.costPerformance, consumption: project.consumption,
       }
     : null;
+  const burndown: BurndownSeries | null =
+    input.budgets.length > 0
+      ? computeBurndownSeries(input.budgets, input.plan, input.roles, today)
+      : null;
 
   const { overdue, dueSoon } = partitionUpcoming(input.tasks, today, holidaySet, dueSoonWorkdays);
 
@@ -264,6 +270,7 @@ export function computeDashboard(input: DashboardInput, opts: DashboardOptions =
     scope: { effective: status.scopeOverride ?? null },
     progress: computeDashboardProgress(input.tasks, today, holidaySet),
     burn,
+    burndown,
     evm,
     topRaid: selectTopRaid(input.raid, topRaidN),
     overdue,

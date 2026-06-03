@@ -60,7 +60,7 @@ describe("BudgetReportPanel", () => {
     await user.type(input, "alpha");
     const table = within(screen.getByRole("table"));
     const rows = table.getAllByRole("row").slice(1); // skip header row
-    const names = rows.map((tr) => (tr.querySelector("td") as HTMLElement)?.textContent ?? "");
+    const names = rows.map((tr) => (tr.querySelectorAll("td")[1] as HTMLElement)?.textContent ?? "");
     expect(names).toContain("Alpha");
     expect(names).not.toContain("Beta");
   });
@@ -75,5 +75,11 @@ describe("BudgetReportPanel", () => {
     expect(screen.getByText(/project total/i)).toBeInTheDocument();
     expect(screen.getByText("Alpha")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /print/i })).toBeNull();
+  });
+
+  it("renders the burn-down section with both chart captions", () => {
+    renderPanel();
+    expect(screen.getByText("Burn-down")).toBeTruthy();
+    expect(screen.getByText("Hours remaining")).toBeTruthy();
   });
 });

@@ -84,7 +84,7 @@ function pct(numerator: number, denominator: number): number | null {
   return (numerator / denominator) * 100;
 }
 
-type RateRow = {
+export type RateRow = {
   rates: RatePair;
   budgetHours: Record<string, number>;
   actualHours: Record<string, number>;
@@ -93,7 +93,7 @@ type RateRow = {
 
 /** Uniform rate-bearing rows for a bucket: from disciplineAllocations (blended)
  *  or allocations (detailed). Each row's rate honors the per-bucket override. */
-function bucketRateRows(bucket: BudgetBucket, roles: readonly Role[]): RateRow[] {
+export function bucketRateRows(bucket: BudgetBucket, roles: readonly Role[]): RateRow[] {
   if (bucket.planningMode === "blended") {
     return (bucket.disciplineAllocations ?? []).map((a) => ({
       rates: effectiveRates(bucket, blendedDisciplineRate(a.disciplineId, roles)),

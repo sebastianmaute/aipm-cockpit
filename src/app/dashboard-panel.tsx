@@ -6,9 +6,12 @@ import { computeDashboard } from "./dashboard";
 import { RegistersBand } from "./dashboard-sections/registers-band";
 import { useWorkspace } from "./workspace-context";
 import { loadActivityLog, type ActivityEntry } from "./activity-log";
-import { type Lang, t } from "./i18n";
+import { type Lang, t, localeFor } from "./i18n";
 import { healthColorName, type Health } from "./health";
 import type { Absence, BudgetBucket, Milestone, RaidItem, ResourcePlan, Resource, Role, Task } from "./types";
+import { formatCurrency } from "./resource-cost";
+import { RagBadge } from "./rag-badge";
+import { BurndownCharts } from "./burndown-chart";
 
 interface DashboardPanelProps {
   lang: Lang;
@@ -29,19 +32,21 @@ interface DashboardPanelProps {
 }
 
 function OverrideSelect({
-  lang, label, value, computed, onChange,
+  lang, label, value, computed, effective, onChange,
 }: {
   lang: Lang;
   label: string;
   value: "R" | "A" | "G" | undefined;
   computed: Health | null;
+  effective: Health | null;
   onChange: (v: "R" | "A" | "G" | undefined) => void;
 }) {
   return (
     <label className="inline-flex items-center gap-1.5 text-sm">
+      <RagBadge value={effective} lang={lang} title={`${label}: ${effective ? healthColorName(effective, lang) : "—"}`} />
       <span className="font-medium">{label}</span>
       <select
-        className="rounded border border-line bg-surface px-1.5 py-0.5 text-sm"
+        className="rounded border border-line bg-surface px-1.5 py-0.5 text-sm print:hidden"
         value={value ?? ""}
         onChange={(e) => onChange((e.target.value || undefined) as "R" | "A" | "G" | undefined)}
       >
@@ -50,6 +55,9 @@ function OverrideSelect({
         <option value="A">{healthColorName("A", lang)}</option>
         <option value="G">{healthColorName("G", lang)}</option>
       </select>
+      <span className="hidden text-muted-foreground print:inline">
+        {effective ? healthColorName(effective, lang) : "—"}
+      </span>
     </label>
   );
 }
@@ -58,6 +66,9 @@ export function DashboardPanel(props: DashboardPanelProps) {
   const { lang, today, onOpenRaid, onOpenTask } = props;
   const { status, setStatus } = useWorkspace();
   const sizeRef = useRef<HTMLDivElement | null>(null);
+
+  const locale = localeFor(lang);
+  const money = (n: number) => formatCurrency(n, props.plan.currency || "EUR", locale);
 
   const [activity] = useState<ActivityEntry[]>(() => loadActivityLog());
 
@@ -109,7 +120,8 @@ export function DashboardPanel(props: DashboardPanelProps) {
       <div className="space-y-4">
         {/* Overall band */}
         <div className="flex flex-wrap items-center gap-4 rounded-lg border border-line bg-surface p-4">
-          <div className="text-2xl font-bold">
+          <div className="flex items-center gap-2 text-2xl font-bold">
+            <RagBadge value={model.overall.effective} lang={lang} />
             {t(lang, "dashboardOverall")}: {healthColorName(model.overall.effective, lang)}
           </div>
           <OverrideSelect
@@ -117,6 +129,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
             label={t(lang, "dashboardOverall")}
             value={status.ragOverride}
             computed={model.overall.computed}
+            effective={model.overall.effective}
             onChange={(v) => setStatus((s) => ({ ...s, ragOverride: v }))}
           />
           <OverrideSelect
@@ -124,6 +137,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
             label={t(lang, "dashboardSubSchedule")}
             value={status.scheduleOverride}
             computed={model.schedule.computed}
+            effective={model.schedule.effective}
             onChange={(v) => setStatus((s) => ({ ...s, scheduleOverride: v }))}
           />
           <OverrideSelect
@@ -131,6 +145,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
             label={t(lang, "dashboardSubBudget")}
             value={status.budgetOverride}
             computed={model.budget.computed}
+            effective={model.budget.effective}
             onChange={(v) => setStatus((s) => ({ ...s, budgetOverride: v }))}
           />
           <OverrideSelect
@@ -138,6 +153,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
             label={t(lang, "dashboardSubScope")}
             value={status.scopeOverride}
             computed={null}
+            effective={model.scope.effective}
             onChange={(v) => setStatus((s) => ({ ...s, scopeOverride: v }))}
           />
           <span className="ml-auto text-sm text-muted-foreground">
@@ -177,7 +193,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
               <div className="flex flex-wrap gap-2">
                 <Tile
                   label={t(lang, "dashboardSubBudget")}
-                  value={`${Math.round(model.burn.consumedValue)} / ${Math.round(model.burn.budgetValue)}`}
+                  value={`${money(model.burn.consumedValue)} / ${money(model.burn.budgetValue)}`}
                 />
                 <Tile
                   label="h"
@@ -195,6 +211,11 @@ export function DashboardPanel(props: DashboardPanelProps) {
             ) : (
               <p className="mt-2 text-sm text-muted-foreground">{t(lang, "evmNoEstimates")}</p>
             )}
+            {model.burndown ? (
+              <div className="mt-3">
+                <BurndownCharts series={model.burndown} lang={lang} />
+              </div>
+            ) : null}
           </Section>
         </div>
 
@@ -213,7 +234,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
         />
 
         {/* Recent activity */}
-        <Section title={t(lang, "dashboardRecentActivity")}>
+        <Section title={t(lang, "dashboardRecentActivity")} boxed>
           {model.recentActivity.length === 0 ? (
             <p className="text-sm text-muted-foreground">{t(lang, "dashboardEmpty")}</p>
           ) : (

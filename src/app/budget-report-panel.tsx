@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import { type Lang, t } from "./i18n";
+import { type Lang, t, localeFor } from "./i18n";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import { ColumnResizeHandle } from "./task-manager-ui";
 import { useColumnResize } from "./use-column-resize";
@@ -20,6 +20,10 @@ import { computeEvm, projectBlendedInternalRate } from "./evm";
 import { formatCurrency } from "./resource-cost";
 import { resolveRate } from "./fx";
 import type { Absence, BudgetBucket, FxRates, ResourcePlan, Resource, Role, Task } from "./types";
+import { RagBadge } from "./rag-badge";
+import { ratioHealth, marginHealth, costPerformanceHealth } from "./budget-health";
+import { computeBurndownSeries } from "./budget-burndown";
+import { BurndownCharts } from "./burndown-chart";
 
 const DETAIL_COL_WIDTHS = {
   bucket: 160, mode: 90, type: 80, status: 80, currency: 110,
@@ -46,10 +50,6 @@ interface Props {
   embedded?: boolean;
 }
 
-function localeFor(lang: Lang): string {
-  return lang === "de" ? "de-DE" : lang === "en-GB" ? "en-GB" : "en-US";
-}
-
 export function BudgetReportPanel({
   lang, buckets, plan, roles, resources, absences, holidaySet, workdayHours, fxRates, tasks, today, embedded = false,
 }: Props) {
@@ -63,6 +63,10 @@ export function BudgetReportPanel({
     [tasks, today, roles],
   );
   const bucketById = useMemo(() => new Map(buckets.map((b) => [b.id, b])), [buckets]);
+  const burndown = useMemo(
+    () => computeBurndownSeries(buckets, plan, roles, today),
+    [buckets, plan, roles, today],
+  );
   const { ref, reset } = useResizable("lop-app:budget-report-size");
   const detail = useColumnResize<DetailCol>("budgetReportDetail", DETAIL_COL_WIDTHS);
 
@@ -88,9 +92,9 @@ export function BudgetReportPanel({
           <Tile label={t(lang, "budgetActualHours")} value={proj.actualHours.toFixed(0)} />
           <Tile label={t(lang, "budgetReportRevenue")} value={money(proj.revenue)} />
           <Tile label={t(lang, "budgetReportCost")} value={money(proj.cost)} />
-          <Tile label={t(lang, "budgetCciMargin")} value={`${money(proj.contributionMargin.amount)} (${pct(proj.contributionMargin)})`} />
-          <Tile label={t(lang, "budgetCciCpi")} value={`${money(proj.costPerformance.amount)} (${pct(proj.costPerformance)})`} />
-          <Tile label={t(lang, "budgetCciConsumption")} value={`${money(proj.consumption.amount)} (${pct(proj.consumption)})`} />
+          <Tile label={t(lang, "budgetCciMargin")} value={`${money(proj.contributionMargin.amount)} (${pct(proj.contributionMargin)})`} rag={<RagBadge value={marginHealth(proj.contributionMargin.percent)} lang={lang} title={t(lang, "budgetCciMargin")} />} />
+          <Tile label={t(lang, "budgetCciCpi")} value={`${money(proj.costPerformance.amount)} (${pct(proj.costPerformance)})`} rag={<RagBadge value={costPerformanceHealth(proj.costPerformance.percent)} lang={lang} title={t(lang, "budgetCciCpi")} />} />
+          <Tile label={t(lang, "budgetCciConsumption")} value={`${money(proj.consumption.amount)} (${pct(proj.consumption)})`} rag={<RagBadge value={ratioHealth(proj.consumedValue, proj.budgetValue)} lang={lang} title={t(lang, "budgetCciConsumption")} />} />
         </div>
       </Section>
 
@@ -111,6 +115,10 @@ export function BudgetReportPanel({
             <p className="mt-1 text-xs text-muted-foreground">{t(lang, "evmCoverage", String(evm.coverage.withEstimate), String(evm.coverage.total))}</p>
           </>
         )}
+      </Section>
+
+      <Section title={t(lang, "budgetBurndownTitle")}>
+        <BurndownCharts series={burndown} lang={lang} />
       </Section>
 
       <BucketDetailTable
@@ -219,6 +227,7 @@ function BucketDetailTable({
         <table className="min-w-full text-left text-sm">
           <thead className={TABLE_HEAD_CLASS}>
             <tr>
+              <th className="px-2 py-2 text-left font-medium" style={{ width: 32, minWidth: 32 }}>{t(lang, "budgetRoleStatus")}</th>
               {cols.map((c) => (
                 <th
                   key={c.col}
@@ -239,13 +248,14 @@ function BucketDetailTable({
           <tbody className="divide-y divide-line">
             {sorted.length === 0 && filter !== "" ? (
               <tr>
-                <td colSpan={cols.length} className="px-3 py-3 text-center text-xs text-muted-foreground">
+                <td colSpan={cols.length + 1} className="px-3 py-3 text-center text-xs text-muted-foreground">
                   {t(lang, "reportsNoMatches")}
                 </td>
               </tr>
             ) : (
               sorted.map((r) => (
                 <tr key={r.bucketId}>
+                  <td className="px-2 py-2"><RagBadge value={ratioHealth(r.consumedValue, r.budgetValue)} lang={lang} title={t(lang, "budgetRoleStatus")} /></td>
                   <td className="px-3 py-2 font-medium text-AIPM-dark-blue dark:text-AIPM-light-grey">{r.name}</td>
                   <td className="px-3 py-2">{r.modeLabel}</td>
                   <td className="px-3 py-2 text-muted-foreground">{r.typeLabel}</td>

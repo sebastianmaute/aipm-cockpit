@@ -62,3 +62,13 @@ test("budget renders a bucket-count heading and is a resizable card", () => {
   expect(src).toMatch(/budgetBucketsCount/);
   expect(src).toMatch(/VIEW_PANE_RESIZABLE_CLASS/);
 });
+
+test("over-budget allocation row shows a Red RAG badge", () => {
+  const overBudgetBuckets: BudgetBucket[] = [{
+    id: 1, name: "PAM", type: "tm", currency: "EUR", startDate: "2026-01-01", endDate: "2026-06-30", status: "open",
+    allocations: [{ roleId: 3, resourceIds: [], budgetHours: { "2026-01": 100 }, actualHours: { "2026-01": 120 } }],
+  }];
+  render(<BudgetPanel {...props} buckets={overBudgetBuckets} />);
+  // actual (120) exceeds budget (100) → Red badge rendered with aria-label "Red"
+  expect(screen.getAllByLabelText("Red").length).toBeGreaterThan(0);
+});

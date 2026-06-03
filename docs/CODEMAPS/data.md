@@ -1,4 +1,4 @@
-<!-- Generated: 2026-05-31 | Files scanned: types.ts, storage.ts, sanitize.ts, raid.ts, activity-log.ts, contacts.ts, resource-foundation.ts, resource-capacity.ts, reminder-snooze.ts, use-settings.ts, jira-token-status.ts, duration.ts + msal-config.ts, turso-config.ts | Token estimate: ~1300 | Updated for 0.29.0–0.46.0: ProjectStatus + Milestone[] persisted (v6 additive, no schema bump) -->
+<!-- Generated: 2026-05-31 | Files scanned: types.ts, storage.ts, sanitize.ts, raid.ts, activity-log.ts, contacts.ts, resource-foundation.ts, resource-capacity.ts, reminder-snooze.ts, use-settings.ts, jira-token-status.ts, duration.ts + msal-config.ts, turso-config.ts | Token estimate: ~1300 | Updated for 0.29.0–0.47.0: ProjectStatus + Milestone[] persisted (v6 additive, no schema bump); budget-health + budget-burndown pure modules -->
 
 # Data
 
@@ -379,6 +379,21 @@ invalid input. `formatDuration(minutes) → string` — round-trips back to the
 shortest canonical representation (omits zero-valued units). Both functions
 are pure with no React dependency; used by the task form and sanitizer for
 `originalEstimateMinutes` / `timeSpentMinutes`. **0.13.1:** `effortProgress(spent, estimate) → number | null` — returns the spent-vs-estimate ratio (0..n, where >1 means over budget); returns `null` when estimate is absent or zero. Used by `EffortProgressBar`.
+
+## Budget health (`budget-health.ts`)
+
+Pure RAG-threshold module (0.47.0+). `bucketHealthRag(report)` maps a bucket's
+consumption ratio (Amber ≥90 %, Red >100 %), cost-performance index (CPI bands
+0.8/0.9 matching EVM), and contribution margin (Green ≥15 %, Red <0) to
+`"R" | "A" | "G"`. No React dependency; used by `budget-panel.tsx` and
+`budget-report-panel.tsx`.
+
+## Budget burn-down (`budget-burndown.ts`)
+
+Pure series module (0.47.0+). `buildBurndownSeries(report, fxRates)` derives
+per-period remaining hours and EUR across all open buckets, producing two
+`BurndownPoint[]` arrays (hours + currency) for the SVG `BurndownCharts`
+component. No React dependency.
 
 ## Contacts (`contacts.ts`)
 

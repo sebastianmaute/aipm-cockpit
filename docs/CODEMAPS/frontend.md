@@ -1,4 +1,4 @@
-<!-- Generated: 2026-05-31 | Files scanned: ~120 (src/app/*.tsx, *.ts, settings-sections/) | Token estimate: ~1600 | Updated for 0.29.0–0.46.0: modern sidebar layout + UI-consistency sweep + Health Dashboard + Milestones + Earned Value -->
+<!-- Generated: 2026-05-31 | Files scanned: ~120 (src/app/*.tsx, *.ts, settings-sections/) | Token estimate: ~1600 | Updated for 0.29.0–0.47.0: modern sidebar layout + UI-consistency sweep + Health Dashboard + Milestones + Earned Value + budget/dashboard RAG + burn-down -->
 
 # Frontend
 
@@ -220,6 +220,8 @@ prerendered.
 | `milestones-panel.tsx` | Milestones view: list, add, edit, link to tasks | Conditional mount; 0.44.0+ |
 | `milestone-edit-modal.tsx` | Modal editor for milestone name/date/description/linkedTaskIds | Component; 0.44.0+ |
 | `version-info.tsx` | VersionInfo body + VersionInfoModal (reused by Version popover, sidebar version line, Settings footer) | Component; 0.46.0+ |
+| `rag-badge.tsx` | `RagBadge` — lettered R/A/G badge pill shared by dashboard pills, budget bucket metrics, and the Budget Report status column | Component; 0.47.0+ |
+| `burndown-chart.tsx` | `BurndownCharts` — dependency-free SVG twin remaining-hours + remaining-EUR burn-down charts; consumed by dashboard and Budget Report | Component; 0.47.0+ |
 | **Utilities** | | |
 | `date-format.ts` | `localeFor(lang)`, `shortDateRange`, `formatExpiryDate` | Pure |
 | `duration.ts` | `parseDuration`, `formatDuration`, `effortProgress` | Pure; Jira basis (1w=5d=2400m) |
