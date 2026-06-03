@@ -183,6 +183,12 @@ function renderComposed(extraReports: AddableReportId[], onChange = vi.fn()) {
 }
 
 describe("ReportsPanel — composed reports", () => {
+  it("renders RAID and Budget reports when both are in extraReports", () => {
+    renderComposed(["raid-report", "budget-report"]);
+    expect(screen.getByText(/raid report/i)).toBeInTheDocument();
+    expect(screen.getByText(/budget report/i)).toBeInTheDocument();
+  });
+
   it("renders an appended report's content when in extraReports", () => {
     renderComposed(["budget-report"]);
     expect(screen.getByText(/project total/i)).toBeInTheDocument(); // Budget report body

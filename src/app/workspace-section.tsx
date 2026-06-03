@@ -372,7 +372,7 @@ export function WorkspaceSection({
               absences={absences}
               workdayHours={settings.resources.workdayHours}
               fxRates={fxRates}
-              extraReports={settings.reports?.extra ?? []}
+              extraReports={settings.reports?.extra ?? ["raid-report", "budget-report"]}
               onChangeExtraReports={(next) => setSettings((s) => ({ ...s, reports: { ...s.reports, extra: next } }))}
             />
           </div>
