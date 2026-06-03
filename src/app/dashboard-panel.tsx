@@ -213,7 +213,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
             )}
             {model.burndown ? (
               <div className="mt-3">
-                <BurndownCharts series={model.burndown} lang={lang} />
+                <BurndownCharts series={model.burndown} lang={lang} currency={props.plan.currency || "EUR"} />
               </div>
             ) : null}
           </Section>

@@ -118,7 +118,7 @@ export function BudgetReportPanel({
       </Section>
 
       <Section title={t(lang, "budgetBurndownTitle")}>
-        <BurndownCharts series={burndown} lang={lang} />
+        <BurndownCharts series={burndown} lang={lang} currency={plan.currency} />
       </Section>
 
       <BucketDetailTable

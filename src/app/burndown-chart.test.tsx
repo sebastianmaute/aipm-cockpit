@@ -16,12 +16,12 @@ const series: BurndownSeries = {
 
 describe("BurndownCharts", () => {
   it("renders both chart captions", () => {
-    render(<BurndownCharts series={series} lang="en-US" />);
+    render(<BurndownCharts series={series} lang="en-US" currency="EUR" />);
     expect(screen.getByText("Hours remaining")).toBeTruthy();
     expect(screen.getByText("Budget remaining")).toBeTruthy();
   });
   it("renders two chart svg elements", () => {
-    const { container } = render(<BurndownCharts series={series} lang="en-US" />);
+    const { container } = render(<BurndownCharts series={series} lang="en-US" currency="EUR" />);
     // The legend adds 3 aria-hidden inline SVGs; only the two Chart SVGs carry role="img".
     expect(container.querySelectorAll("svg[role='img']").length).toBe(2);
   });
@@ -31,7 +31,7 @@ describe("BurndownCharts", () => {
       actualRemainingHours: [180, -40, null],
       actualRemainingValue: [36000, -8000, null],
     };
-    const { container } = render(<BurndownCharts series={over} lang="en-US" />);
+    const { container } = render(<BurndownCharts series={over} lang="en-US" currency="EUR" />);
     const pink = container.querySelectorAll("polyline.stroke-AIPM-pink");
     const green = container.querySelectorAll("polyline.stroke-AIPM-green");
     expect(pink.length).toBe(2); // both actual lines pink
@@ -43,7 +43,27 @@ describe("BurndownCharts", () => {
       plannedRemainingHours: [0, 0, 0], plannedRemainingValue: [0, 0, 0],
       actualRemainingHours: [0, 0, null], actualRemainingValue: [0, 0, null],
     };
-    render(<BurndownCharts series={empty} lang="en-US" />);
+    render(<BurndownCharts series={empty} lang="en-US" currency="EUR" />);
     expect(screen.getByText("No budget configured")).toBeTruthy();
   });
+});
+
+const SERIES: BurndownSeries = {
+  periods: ["2026-01", "2026-02", "2026-03"],
+  plannedRemainingHours: [100, 50, 0],
+  actualRemainingHours: [100, 60, null],
+  plannedRemainingValue: [10000, 5000, 0],
+  actualRemainingValue: [10000, 6000, null],
+  todayIndex: 1,
+  totalBudgetHours: 100,
+  totalBudgetValue: 10000,
+};
+
+it("labels the hours axis with the max value and a period date", () => {
+  const { getAllByText } = render(
+    <BurndownCharts series={SERIES} lang="en-US" currency="EUR" />,
+  );
+  expect(getAllByText("100h").length).toBeGreaterThan(0);
+  expect(getAllByText("2026-01").length).toBeGreaterThan(0);
+  expect(getAllByText("2026-03").length).toBeGreaterThan(0);
 });
