@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
-  buildChangeByTaskIndex, changeImpactRag, compareChange, countByStatus, countByType,
+  buildChangeByTaskIndex, changeImpactRag, compareChange, computeScopeStatus, countByStatus, countByType,
   defaultChangeStatus, isPendingChange, isTerminalChangeStatus, nextChangeId,
+  SCOPE_PENDING_RED, selectTopChanges,
   type ChangeSortKey,
 } from "./change-log";
 import type { ChangeItem } from "./types";
@@ -68,5 +69,30 @@ describe("compareChange", () => {
   it("puts a missing decisionDate LAST regardless of direction", () => {
     expect(sorted("decisionDate", "asc").map((x) => x.id)).toEqual([1, 2]);
     expect(sorted("decisionDate", "desc").map((x) => x.id)).toEqual([1, 2]);
+  });
+});
+
+describe("computeScopeStatus", () => {
+  it("null when no pending changes", () => {
+    expect(computeScopeStatus([ci({ status: "Approved" })])).toBeNull();
+  });
+  it("Amber with 1..4 pending", () => {
+    expect(computeScopeStatus([ci({ status: "Proposed" })])).toBe("A");
+  });
+  it("Red at the threshold", () => {
+    const pend = Array.from({ length: SCOPE_PENDING_RED }, (_, i) => ci({ id: i + 1, status: "Under Review" }));
+    expect(computeScopeStatus(pend)).toBe("R");
+  });
+});
+
+describe("selectTopChanges", () => {
+  it("returns pending only, highest impact first, capped", () => {
+    const items = [
+      ci({ id: 1, status: "Proposed", impact: "Low" }),
+      ci({ id: 2, status: "Under Review", impact: "Critical" }),
+      ci({ id: 3, status: "Approved", impact: "Critical" }), // not pending -> excluded
+    ];
+    const top = selectTopChanges(items, 5);
+    expect(top.map((c) => c.id)).toEqual([2, 1]);
   });
 });

@@ -87,3 +87,27 @@ export function compareChange(a: ChangeItem, b: ChangeItem, key: ChangeSortKey, 
   const cmp = typeof av === "number" && typeof bv === "number" ? av - bv : String(av).localeCompare(String(bv));
   return dir === "asc" ? cmp : -cmp;
 }
+
+/** Pending-change backlog at/above this count drives the dashboard Scope RAG to Red. */
+export const SCOPE_PENDING_RED = 5;
+
+/** Computed Scope RAG from the pending-change backlog. null when none pending. */
+export function computeScopeStatus(
+  changes: readonly ChangeItem[],
+  redThreshold: number = SCOPE_PENDING_RED,
+): Health | null {
+  const pending = changes.filter((c) => isPendingChange(c.status)).length;
+  if (pending === 0) return null;
+  if (pending >= redThreshold) return "R";
+  return "A";
+}
+
+/** Pending changes, highest impact first (tie-break most-recently-raised, then id), capped. */
+export function selectTopChanges(changes: readonly ChangeItem[], limit: number): ChangeItem[] {
+  return changes
+    .filter((c) => isPendingChange(c.status))
+    .map((c) => ({ c, rank: c.impact ? IMPACT_RANK[c.impact] : 0 }))
+    .sort((a, b) => b.rank - a.rank || b.c.raisedDate.localeCompare(a.c.raisedDate) || a.c.id - b.c.id)
+    .slice(0, limit)
+    .map((x) => x.c);
+}
