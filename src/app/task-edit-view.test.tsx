@@ -33,6 +33,34 @@ function setup(over: Partial<React.ComponentProps<typeof TaskEditView>> = {}) {
 }
 
 describe("TaskEditView", () => {
+  it("renders a footer slot at the bottom of the form", () => {
+    render(
+      <TaskEditView
+        lang="en-US"
+        today="2026-05-29"
+        nextId={7}
+        contactsList={[]}
+        absences={[]}
+        tasksForDeps={[]}
+        uniqueGroups={[]}
+        uniqueLabels={[]}
+        editingIsJiraLinked={false}
+        jiraEnabled={false}
+        error={null}
+        holidaySet={new Set()}
+        jiraProjectKey={undefined}
+        jiraDefaultIssueType={undefined}
+        onSubmit={() => {}}
+        onRemoveContact={vi.fn()}
+        onShowToast={vi.fn()}
+        onAddAssigneeToAddressBook={vi.fn()}
+        footer={<button type="button">FOOTER-CANCEL</button>}
+      />,
+      { wrapper: TestProviders },
+    );
+    expect(screen.getByText("FOOTER-CANCEL")).toBeInTheDocument();
+  });
+
   it("renders the numbered Details section heading", () => {
     setup();
     expect(screen.getByRole("heading", { name: "1. Details" })).toBeTruthy();
