@@ -1066,6 +1066,7 @@ const enUS = {
   versionHighlightEarnedValue: "Earned value: SPI / CPI / variances",
   versionHighlightEvmRag: "Dashboard RAGs fold in SPI / CPI thresholds",
   versionHighlightBudgetRag: "Budget & dashboard RAG status + burn-down charts",
+  versionHighlightUiRefinements: "Burn-down axes, dashboard RAG legend, margin/actual RAG, planning & budget filtering, default reports",
 
   outlookCalImportTitle: "Import Outlook calendar",
   outlookCalImportLoading: "Loading events…",

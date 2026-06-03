@@ -8,6 +8,26 @@ Authoritative source for version + build date: [`src/app/version.ts`](src/app/ve
 This file is seeded from that module's milestone comment plus the
 post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-diff.txt).
 
+## [0.48.0] — 2026-06-03 "Tchaikovsky"
+
+### Added
+- Burn-down charts: currency symbol and axis tick labels (hours / EUR scale).
+- Dashboard print enhancements: print-safe RAG colors, colorized Overall health
+  text, Progress and Budget section captions, and a RAG thresholds legend on
+  every print card.
+- Margin RAG in the Planning view and the Resource Report.
+- Resource Calendar: custom Today highlight color.
+- Planning table: filter and sort toolbar.
+- Budget panel: role and discipline filter/sort controls.
+- Budget Report: Actual(h) RAG column.
+
+### Changed
+- RAID and Budget reports are now present by default in the Reports view
+  (no "+ Add report" step required).
+- Both task editors (full-page and modal) gain Cancel + Add/Save buttons in
+  the top action bar.
+- Gantt Add-milestone button opens the milestone create form directly.
+
 ## [0.47.0] — 2026-06-03 "Reynolds"
 
 ### Added

@@ -1084,6 +1084,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightEarnedValue: "Earned Value: SPI / CPI / Abweichungen",
   versionHighlightEvmRag: "Dashboard-RAGs berücksichtigen SPI-/CPI-Schwellen",
   versionHighlightBudgetRag: "Budget-/Dashboard-RAG-Status + Burn-down-Diagramme",
+  versionHighlightUiRefinements: "Burn-down-Achsen, Dashboard-RAG-Legende, Margen-/Ist-RAG, Planungs- & Budgetfilter, Standardberichte",
 
   outlookCalImportTitle: "Outlook-Kalender importieren",
   outlookCalImportLoading: "Termine werden geladen…",
