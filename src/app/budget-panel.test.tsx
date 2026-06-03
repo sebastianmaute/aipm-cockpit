@@ -57,6 +57,38 @@ describe("BudgetPanel", () => {
   });
 });
 
+test("filters the bucket role table by role name", () => {
+  // Two detailed role allocations whose roleLabel() names resolve distinctly.
+  const filterRoles: Role[] = [
+    { id: 3, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 },
+    { id: 4, disciplineId: 2, gradeId: 2, internalRate: 110, externalRate: 160 },
+  ];
+  const disciplines = [
+    { id: 1, name: "Backend" },
+    { id: 2, name: "Frontend" },
+  ];
+  const grades = [
+    { id: 1, name: "Senior" },
+    { id: 2, name: "Junior" },
+  ];
+  const filterBuckets: BudgetBucket[] = [{
+    id: 1, name: "PAM", type: "tm", currency: "EUR", startDate: "2026-01-01", endDate: "2026-06-30", status: "open",
+    allocations: [
+      { roleId: 3, resourceIds: [], budgetHours: { "2026-01": 100 }, actualHours: { "2026-01": 80 } },
+      { roleId: 4, resourceIds: [], budgetHours: { "2026-01": 50 }, actualHours: { "2026-01": 40 } },
+    ],
+  }];
+  render(<BudgetPanel {...props} roles={filterRoles} disciplines={disciplines} grades={grades} buckets={filterBuckets} />);
+  // Both role names resolve and render before filtering.
+  expect(screen.getByText("Backend Senior")).toBeInTheDocument();
+  expect(screen.getByText("Frontend Junior")).toBeInTheDocument();
+  const input = screen.getByPlaceholderText(/filter role|rolle.*filtern/i);
+  fireEvent.change(input, { target: { value: "Frontend" } });
+  // Filtering to "Frontend" hides the Backend row.
+  expect(screen.queryByText("Backend Senior")).not.toBeInTheDocument();
+  expect(screen.getByText("Frontend Junior")).toBeInTheDocument();
+});
+
 test("budget renders a bucket-count heading and is a resizable card", () => {
   const src = readFileSync(join(__dirname, "budget-panel.tsx"), "utf8");
   expect(src).toMatch(/budgetBucketsCount/);
