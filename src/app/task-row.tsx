@@ -5,7 +5,7 @@ import { computeTaskHealth, formatHealthTooltip, healthDot, type TaskHealth } fr
 import { priorityLabel, t, type Lang } from "./i18n";
 import { formatDuration } from "./duration";
 import { countByCategory } from "./raid";
-import { type Priority, type Task, type TaskDependency, type RaidItem } from "./types";
+import { type ChangeItem, type Priority, type Task, type TaskDependency, type RaidItem } from "./types";
 
 export interface RowContextValue {
   lang: Lang;
@@ -128,6 +128,7 @@ interface TaskRowProps {
   isExpanded: boolean;
   isPushing: boolean;
   raidRefs: RaidItem[] | undefined;
+  changeRefs?: ChangeItem[];
   isStriped?: boolean;
 }
 
@@ -138,6 +139,7 @@ function TaskRowImpl({
   isExpanded,
   isPushing,
   raidRefs,
+  changeRefs,
   isStriped = false,
 }: TaskRowProps) {
   const {
@@ -219,6 +221,15 @@ function TaskRowImpl({
         })()}
         {raidRefs && raidRefs.length > 0 && (
           <RaidBadge taskId={task.id} refs={raidRefs} />
+        )}
+        {changeRefs && changeRefs.length > 0 && (
+          <span
+            title={t(lang, "taskRowChangesBadge", changeRefs.length)}
+            aria-label={t(lang, "taskRowChangesBadge", changeRefs.length)}
+            className="ml-1 inline-flex items-center rounded bg-AIPM-blue/15 px-1.5 py-0.5 text-[10px] font-medium text-AIPM-blue dark:bg-AIPM-blue/20"
+          >
+            {t(lang, "taskRowChangesBadge", changeRefs.length)}
+          </span>
         )}
       </Td>}
       <Td

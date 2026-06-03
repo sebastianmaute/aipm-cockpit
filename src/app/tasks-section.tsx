@@ -2,7 +2,7 @@
 import type React from "react";
 import { useMemo } from "react";
 import { type Lang, type TranslationKey, priorityLabel, t } from "./i18n";
-import { PRIORITIES, type Priority, type RaidItem, type Task } from "./types";
+import { PRIORITIES, type ChangeItem, type Priority, type RaidItem, type Task } from "./types";
 import { useSettings } from "./use-settings";
 import { useHolidaySet } from "./use-holiday-set";
 import { type SortKey, useFilters } from "./filters-context";
@@ -75,6 +75,7 @@ export interface TasksSectionProps {
   expandedNotes: Set<number>;
   pushingIds: Set<number>;
   raidByTask: Map<number, RaidItem[]>;
+  changeByTask: Map<number, ChangeItem[]>;
   // jira
   jiraEnabled: boolean;
   jiraSyncing: boolean;
@@ -121,6 +122,7 @@ export function TasksSection({
   expandedNotes,
   pushingIds,
   raidByTask,
+  changeByTask,
   jiraEnabled,
   jiraSyncing,
   jiraProjectKey,
@@ -512,6 +514,7 @@ export function TasksSection({
                   isExpanded={expandedNotes.has(task.id)}
                   isPushing={pushingIds.has(task.id)}
                   raidRefs={raidByTask.get(task.id)}
+                  changeRefs={changeByTask.get(task.id)}
                   isStriped={i % 2 === 1}
                 />
               ))}

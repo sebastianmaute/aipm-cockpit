@@ -25,6 +25,7 @@ import { type Resource, type BudgetBucket } from "./types";
 import { useFxRates } from "./use-fx-rates";
 import { splitName, resourceDisplayName } from "./resource-foundation";
 import { buildRaidByTaskIndex } from "./raid";
+import { buildChangeByTaskIndex } from "./change-log";
 import { FiltersProvider, useFilters } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { useChangeLog } from "./use-change-log";
@@ -281,6 +282,8 @@ function TaskManagerInner() {
   // then O(1) per row. Empty when `raid` is empty — the per-row check
   // bails out fast.
   const raidByTask = useMemo(() => buildRaidByTaskIndex(raid), [raid]);
+  // Same index, mirrored for the read-only "N changes" task-row badge.
+  const changeByTask = useMemo(() => buildChangeByTaskIndex(changes), [changes]);
 
   const nextId = tasks.length > 0 ? Math.max(...tasks.map((row) => row.id)) + 1 : 1;
 
@@ -774,6 +777,7 @@ function TaskManagerInner() {
       expandedNotes={expandedNotes}
       pushingIds={pushingIds}
       raidByTask={raidByTask}
+      changeByTask={changeByTask}
       jiraEnabled={settings.jira.enabled}
       jiraSyncing={jiraSyncing}
       jiraProjectKey={settings.jira.projectKey}

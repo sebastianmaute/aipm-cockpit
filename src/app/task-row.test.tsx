@@ -9,7 +9,7 @@ import {
   useTaskRowContext,
   type RowContextValue,
 } from "./task-row";
-import { type Task } from "./types";
+import { type ChangeItem, type Task } from "./types";
 
 function makeTask(overrides: Partial<Task> = {}): Task {
   return {
@@ -25,6 +25,20 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     group: "",
     labels: [],
     dependencies: [],
+    ...overrides,
+  };
+}
+
+function makeChange(overrides: Partial<ChangeItem> = {}): ChangeItem {
+  return {
+    id: 1,
+    title: "Sample change",
+    description: "",
+    type: "Scope",
+    status: "Proposed",
+    raisedDate: "2026-05-18",
+    linkedTaskIds: [],
+    linkedRaidIds: [],
     ...overrides,
   };
 }
@@ -377,6 +391,71 @@ describe("TaskRow click-to-edit", () => {
     );
     fireEvent.click(getByRole("button", { name: /review the deck/i }));
     expect(onEdit).toHaveBeenCalledWith(expect.objectContaining({ id: 7 }));
+  });
+});
+
+describe("TaskRow changes badge", () => {
+  test("shows a changes badge when changeRefs is non-empty", () => {
+    const ctx = makeContext();
+    const { getByText } = render(
+      rowWrapper({
+        context: ctx,
+        children: (
+          <TaskRow
+            task={makeTask({ id: 8 })}
+            isSelected={false}
+            isEditing={false}
+            isExpanded={false}
+            isPushing={false}
+            raidRefs={undefined}
+            changeRefs={[makeChange({ id: 1 }), makeChange({ id: 2 })]}
+          />
+        ),
+      }),
+    );
+    // taskRowChangesBadge EN value is "{0} changes" → "2 changes".
+    expect(getByText("2 changes")).toBeTruthy();
+  });
+
+  test("renders no changes badge when changeRefs is empty", () => {
+    const ctx = makeContext();
+    const { queryByText } = render(
+      rowWrapper({
+        context: ctx,
+        children: (
+          <TaskRow
+            task={makeTask({ id: 9 })}
+            isSelected={false}
+            isEditing={false}
+            isExpanded={false}
+            isPushing={false}
+            raidRefs={undefined}
+            changeRefs={[]}
+          />
+        ),
+      }),
+    );
+    expect(queryByText(/changes$/)).toBeNull();
+  });
+
+  test("renders no changes badge when changeRefs is undefined", () => {
+    const ctx = makeContext();
+    const { queryByText } = render(
+      rowWrapper({
+        context: ctx,
+        children: (
+          <TaskRow
+            task={makeTask({ id: 10 })}
+            isSelected={false}
+            isEditing={false}
+            isExpanded={false}
+            isPushing={false}
+            raidRefs={undefined}
+          />
+        ),
+      }),
+    );
+    expect(queryByText(/changes$/)).toBeNull();
   });
 });
 
