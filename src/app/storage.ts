@@ -32,6 +32,7 @@ import {
 import {
   type Absence,
   type BudgetBucket,
+  type ChangeItem,
   type Discipline,
   type FxRates,
   type Grade,
@@ -74,9 +75,11 @@ export type Workspace = {
   status?: ProjectStatus;
   /** Project milestones (key dates). Optional for back-compat; load paths default to []. */
   milestones?: Milestone[];
+  /** Change-control register. Optional for back-compat; load paths default to []. */
+  changes?: ChangeItem[];
 };
 
-const SCHEMA_VERSION = 6;
+const SCHEMA_VERSION = 7;
 
 /** A blank workspace with a default plan anchored to today. */
 export function emptyWorkspace(): Workspace {
@@ -88,6 +91,7 @@ export function emptyWorkspace(): Workspace {
     fxRates: null,
     status: {},
     milestones: [],
+    changes: [],
   };
 }
 
@@ -127,6 +131,17 @@ export function migrateWorkspaceV6(ws: Workspace): Workspace {
     return base;
   }
   return { ...base, budgets, fxRates, status, milestones };
+}
+
+/**
+ * v7 migration: ensures the change-control register exists. Runs after v6.
+ * Idempotent — reuses arrays/values unchanged.
+ */
+export function migrateWorkspaceV7(ws: Workspace): Workspace {
+  const base = migrateWorkspaceV6(ws);
+  const changes = Array.isArray(base.changes) ? base.changes : [];
+  if (changes === base.changes) return base;
+  return { ...base, changes };
 }
 
 // --- Storage configuration -------------------------------------------------
@@ -969,7 +984,7 @@ export function jsonToWorkspace(text: string): Workspace {
       status: sanitizeProjectStatus(p.status),
       milestones: ((p.milestones as unknown[]) ?? []).map((m) => sanitizeMilestone(m)).filter((m): m is Milestone => m !== null),
     };
-    return migrateWorkspaceV6(raw);
+    return migrateWorkspaceV7(raw);
   } catch {
     return emptyWorkspace();
   }
@@ -1390,7 +1405,7 @@ export function csvToWorkspace(csv: string): Workspace {
     status: s.statusText.trim() ? csvToStatus(s.statusText) : {},
     milestones: s.milestonesText.trim() ? csvToMilestones(s.milestonesText) : [],
   };
-  return migrateWorkspaceV6(ws);
+  return migrateWorkspaceV7(ws);
 }
 
 /**
@@ -2077,7 +2092,7 @@ export function markdownToWorkspace(md: string): Workspace {
     status: s.statusMd.trim() ? markdownToStatus(s.statusMd) : {},
     milestones: s.milestonesMd.trim() ? markdownToMilestones(s.milestonesMd) : [],
   };
-  return migrateWorkspaceV6(ws);
+  return migrateWorkspaceV7(ws);
 }
 
 function markdownToTasks(md: string): Task[] {
@@ -2404,7 +2419,7 @@ class BrowserBackend implements StorageBackend {
     }
 
     const raw: Workspace = { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates };
-    const ws = migrateWorkspaceV6(raw);
+    const ws = migrateWorkspaceV7(raw);
 
     try {
       if (ws.resources !== raw.resources) await idbBulkUpdate(IDB_RESOURCES_STORE, ws.resources, []);
