@@ -90,10 +90,11 @@ describe("BudgetReportPanel", () => {
 
   it("shows a RAG badge on the Actual (h) cell judged vs budget hours", () => {
     // Gamma bucket: actualHours (120) > budgetHours (80) → R on the Actual (h) cell.
-    // Pre-existing R badges: leading status (Gamma consumedValue > budgetValue) + project
-    // Consumption tile (project-level ratio > 1). Adding the Actual (h) badge makes it >=3.
+    // The Gamma row also has R on the leading status cell (consumedValue > budgetValue).
+    // Scope the assertion to the Gamma row so it cannot become vacuous from unrelated R badges.
     renderPanel();
-    const reds = screen.getAllByText("R");
-    expect(reds.length).toBeGreaterThanOrEqual(3);
+    const gammaRow = screen.getByText("Gamma").closest("tr")!;
+    // Leading status (consumed > budget) + Actual (h) cell (actualHours > budgetHours) = ≥2 R badges.
+    expect(within(gammaRow).getAllByText("R").length).toBeGreaterThanOrEqual(2);
   });
 });
