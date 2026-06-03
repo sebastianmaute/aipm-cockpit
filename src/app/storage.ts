@@ -16,6 +16,7 @@ import {
   parseDependenciesString,
   sanitizeAbsence,
   sanitizeBudgetBucket,
+  sanitizeChangeItem,
   sanitizeDiscipline,
   sanitizeFxRates,
   sanitizeGrade,
@@ -757,6 +758,30 @@ export function buildMilestoneFromObj(obj: Record<string, string>): Milestone | 
   return m;
 }
 
+export const CHANGES_CSV_COLUMNS: Array<keyof ChangeItem> = [
+  "id", "title", "description", "type", "status", "impact", "impactDescription", "scheduleImpactDays",
+  "costImpact", "requestedBy", "raisedDate", "decisionBy", "decisionDate", "resolutionNotes",
+  "linkedTaskIds", "linkedRaidIds", "localModifiedAt",
+];
+
+export function changeFieldToString(c: ChangeItem, col: keyof ChangeItem): string {
+  if (col === "linkedTaskIds") return Array.isArray(c.linkedTaskIds) ? c.linkedTaskIds.join("|") : "";
+  if (col === "linkedRaidIds") return Array.isArray(c.linkedRaidIds) ? c.linkedRaidIds.join("|") : "";
+  const v = c[col];
+  return v === undefined || v === null ? "" : String(v);
+}
+
+export function buildChangeFromObj(obj: Record<string, string>): ChangeItem | null {
+  return sanitizeChangeItem({
+    ...obj,
+    id: obj.id ? Number(obj.id) : undefined,
+    scheduleImpactDays: obj.scheduleImpactDays ? Number(obj.scheduleImpactDays) : undefined,
+    costImpact: obj.costImpact ? Number(obj.costImpact) : undefined,
+    linkedTaskIds: parseLinkedTaskIds(obj.linkedTaskIds),
+    linkedRaidIds: parseLinkedTaskIds(obj.linkedRaidIds),
+  });
+}
+
 function csvEscape(value: string): string {
   if (
     value.includes(",") ||
@@ -937,6 +962,7 @@ export function workspaceToJson(ws: Workspace): string {
       grades: ws.grades, plan: ws.plan, budgets: ws.budgets ?? [], fxRates: ws.fxRates ?? null,
       status: ws.status ?? {},
       milestones: ws.milestones ?? [],
+      changes: ws.changes ?? [],
     },
     null,
     2,
@@ -983,6 +1009,7 @@ export function jsonToWorkspace(text: string): Workspace {
       fxRates: sanitizeFxRates(p.fxRates),
       status: sanitizeProjectStatus(p.status),
       milestones: ((p.milestones as unknown[]) ?? []).map((m) => sanitizeMilestone(m)).filter((m): m is Milestone => m !== null),
+      changes: ((p.changes as unknown[]) ?? []).map((c) => sanitizeChangeItem(c)).filter((c): c is ChangeItem => c !== null),
     };
     return migrateWorkspaceV7(raw);
   } catch {
