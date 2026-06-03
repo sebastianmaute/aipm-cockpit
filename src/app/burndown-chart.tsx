@@ -49,7 +49,7 @@ function Chart({
   const todayX = todayIndex >= 0 ? xAt(todayIndex, n) : null;
   const fmt = (v: number) =>
     unit === "currency" ? formatCurrency(v, currency, locale) : `${Math.round(v)}h`;
-  const yTicks = [0, max / 2, max];
+  const yTicks = max > 0 ? [0, max / 2, max] : [];
   const xTicks = xTickIndices(n, todayIndex);
   return (
     <div className="min-w-[240px] flex-1">
@@ -57,8 +57,8 @@ function Chart({
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label={caption}>
         <line x1={PAD_L} y1={PAD_T} x2={PAD_L} y2={baseY} className="stroke-line" strokeWidth={1} />
         <line x1={PAD_L} y1={baseY} x2={W - PAD_R} y2={baseY} className="stroke-line" strokeWidth={1} />
-        {yTicks.map((v, i) => (
-          <text key={i} x={PAD_L - 4} y={yAt(v, max) + 3} textAnchor="end" className="fill-muted-foreground text-[8px] tabular-nums" aria-hidden="true">
+        {yTicks.map((v) => (
+          <text key={v} x={PAD_L - 4} y={yAt(v, max) + 3} textAnchor="end" className="fill-muted-foreground text-[8px] tabular-nums" aria-hidden="true">
             {fmt(v)}
           </text>
         ))}

@@ -46,24 +46,24 @@ describe("BurndownCharts", () => {
     render(<BurndownCharts series={empty} lang="en-US" currency="EUR" />);
     expect(screen.getByText("No budget configured")).toBeTruthy();
   });
-});
 
-const SERIES: BurndownSeries = {
-  periods: ["2026-01", "2026-02", "2026-03"],
-  plannedRemainingHours: [100, 50, 0],
-  actualRemainingHours: [100, 60, null],
-  plannedRemainingValue: [10000, 5000, 0],
-  actualRemainingValue: [10000, 6000, null],
-  todayIndex: 1,
-  totalBudgetHours: 100,
-  totalBudgetValue: 10000,
-};
-
-it("labels the hours axis with the max value and a period date", () => {
-  const { getAllByText } = render(
-    <BurndownCharts series={SERIES} lang="en-US" currency="EUR" />,
-  );
-  expect(getAllByText("100h").length).toBeGreaterThan(0);
-  expect(getAllByText("2026-01").length).toBeGreaterThan(0);
-  expect(getAllByText("2026-03").length).toBeGreaterThan(0);
+  it("labels the hours axis with the max value and a period date", () => {
+    const SERIES: BurndownSeries = {
+      periods: ["2026-01", "2026-02", "2026-03"],
+      plannedRemainingHours: [100, 50, 0],
+      actualRemainingHours: [100, 60, null],
+      plannedRemainingValue: [10000, 5000, 0],
+      actualRemainingValue: [10000, 6000, null],
+      todayIndex: 1,
+      totalBudgetHours: 100,
+      totalBudgetValue: 10000,
+    };
+    const { getAllByText } = render(
+      <BurndownCharts series={SERIES} lang="en-US" currency="EUR" />,
+    );
+    expect(getAllByText("100h").length).toBeGreaterThan(0);
+    expect(getAllByText("2026-01").length).toBeGreaterThan(0);
+    expect(getAllByText("2026-03").length).toBeGreaterThan(0);
+    expect(getAllByText(/10,000/).length).toBeGreaterThan(0);
+  });
 });
