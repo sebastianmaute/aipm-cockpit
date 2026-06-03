@@ -22,6 +22,10 @@ const BUDGET_COL_WIDTHS = {
 } as const;
 type BudgetCol = keyof typeof BUDGET_COL_WIDTHS;
 
+function sumPeriods(hours: Record<string, number>, periods: { key: string }[]): number {
+  return periods.reduce((s, p) => s + (hours[p.key] ?? 0), 0);
+}
+
 function HoursCell({
   ariaPrefix, budget, actual, onBudget, onActual, budgetHint, actualHint, lang,
 }: {
@@ -362,8 +366,8 @@ export function BudgetPanel(props: BudgetPanelProps) {
                   </thead>
                   <tbody>
                     {!isBlended && bucket.allocations.map((a) => {
-                      const totBudget = periods.reduce((s, p) => s + (a.budgetHours[p.key] ?? 0), 0);
-                      const totActual = periods.reduce((s, p) => s + (a.actualHours[p.key] ?? 0), 0);
+                      const totBudget = sumPeriods(a.budgetHours, periods);
+                      const totActual = sumPeriods(a.actualHours, periods);
                       return (
                       <tr key={a.roleId} className="border-t border-line">
                         <td className="px-1 py-1"><RagBadge value={ratioHealth(totActual, totBudget)} lang={lang} title={t(lang, "budgetRoleStatus")} /></td>
@@ -386,8 +390,8 @@ export function BudgetPanel(props: BudgetPanelProps) {
                       );
                     })}
                     {isBlended && (bucket.disciplineAllocations ?? []).map((a) => {
-                      const totBudget = periods.reduce((s, p) => s + (a.budgetHours[p.key] ?? 0), 0);
-                      const totActual = periods.reduce((s, p) => s + (a.actualHours[p.key] ?? 0), 0);
+                      const totBudget = sumPeriods(a.budgetHours, periods);
+                      const totActual = sumPeriods(a.actualHours, periods);
                       return (
                       <tr key={a.disciplineId} className="border-t border-line">
                         <td className="px-1 py-1"><RagBadge value={ratioHealth(totActual, totBudget)} lang={lang} title={t(lang, "budgetRoleStatus")} /></td>

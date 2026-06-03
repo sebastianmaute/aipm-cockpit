@@ -69,6 +69,6 @@ test("over-budget allocation row shows a Red RAG badge", () => {
     allocations: [{ roleId: 3, resourceIds: [], budgetHours: { "2026-01": 100 }, actualHours: { "2026-01": 120 } }],
   }];
   render(<BudgetPanel {...props} buckets={overBudgetBuckets} />);
-  // actual (120) exceeds budget (100) → Red badge rendered as "R"
-  expect(screen.getAllByText("R").length).toBeGreaterThan(0);
+  // actual (120) exceeds budget (100) → Red badge rendered with aria-label "Red"
+  expect(screen.getAllByLabelText("Red").length).toBeGreaterThan(0);
 });
