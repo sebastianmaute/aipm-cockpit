@@ -172,6 +172,8 @@ describe("ResourcesPanel", () => {
     // "Sample" matches exactly one of the two display names (Alex Example)
     fireEvent.change(input, { target: { value: "Sample" } });
     expect(screen.getAllByRole("row").length).toBeLessThan(before);
+    expect(screen.getByText(/Alex Example/)).toBeInTheDocument();
+    expect(screen.queryByText(/Mateo Rossi/)).not.toBeInTheDocument();
   });
 
   test("shows a margin RAG badge in the planning grid", () => {

@@ -59,6 +59,8 @@ describe("TaskEditView", () => {
       { wrapper: TestProviders },
     );
     expect(screen.getByText("FOOTER-CANCEL")).toBeInTheDocument();
+    const footerEl = screen.getByText("FOOTER-CANCEL");
+    expect(footerEl.closest("form")).not.toBeNull();
   });
 
   it("renders the numbered Details section heading", () => {

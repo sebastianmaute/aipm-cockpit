@@ -567,7 +567,13 @@ export function WorkspaceSection({
 
         {activeTab === "milestones" && (
           <div id="panel-milestones" role="tabpanel" className={panelScrollClass}>
-            <MilestonesPanel lang={lang} today={today} holidaySet={holidaySet} logActivity={logActivity} openCreateNonce={milestoneCreateNonce} />
+            <MilestonesPanel
+              lang={lang}
+              today={today}
+              holidaySet={holidaySet}
+              logActivity={logActivity}
+              openCreateNonce={milestoneCreateNonce}
+            />
           </div>
         )}
 

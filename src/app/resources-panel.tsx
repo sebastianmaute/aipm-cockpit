@@ -260,8 +260,16 @@ function ResourcesPanelInner({
       return { resource: r, name: resourceDisplayName(r), totalHours, cost, capacityDays: totalHours / workdayHours, internalCost: cost.internal, externalCost: cost.external, margin: cost.margin };
     });
   }, [resources, absences, roles, plan.startDate, plan.endDate, plan.granularity, viewGranularity, workdayHours, holidaySet]);
-  const getPlanValue = useCallback((row: typeof planRows[number], k: PlanSortKey): string | number =>
-    k === "assignee" ? row.name : k === "capacityDays" ? row.capacityDays : k === "internalCost" ? row.internalCost : k === "externalCost" ? row.externalCost : row.margin, []);
+  const getPlanValue = useCallback((row: typeof planRows[number], k: PlanSortKey): string | number => {
+    const values: Record<PlanSortKey, string | number> = {
+      assignee: row.name,
+      capacityDays: row.capacityDays,
+      internalCost: row.internalCost,
+      externalCost: row.externalCost,
+      margin: row.margin,
+    };
+    return values[k];
+  }, []);
   const { sorted: planSorted, click: planClick } = useSortableFilter(planRows, planSort, setPlanSort, planFilter, getPlanValue);
 
   // Header: title + count; planning-only ResetColWidths; calendar-only Outlook import; always ResetSize.
