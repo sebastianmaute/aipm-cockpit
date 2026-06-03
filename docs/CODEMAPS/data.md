@@ -1,4 +1,4 @@
-<!-- Generated: 2026-05-31 | Files scanned: types.ts, storage.ts, sanitize.ts, raid.ts, activity-log.ts, contacts.ts, resource-foundation.ts, resource-capacity.ts, reminder-snooze.ts, use-settings.ts, jira-token-status.ts, duration.ts + msal-config.ts, turso-config.ts | Token estimate: ~1300 | Updated for 0.29.0–0.47.0: ProjectStatus + Milestone[] persisted (v6 additive, no schema bump); budget-health + budget-burndown pure modules -->
+<!-- Generated: 2026-05-31 | Files scanned: types.ts, storage.ts, sanitize.ts, raid.ts, activity-log.ts, contacts.ts, resource-foundation.ts, resource-capacity.ts, reminder-snooze.ts, use-settings.ts, jira-token-status.ts, duration.ts + msal-config.ts, turso-config.ts | Token estimate: ~1300 | Updated for 0.29.0–0.50.0: ProjectStatus + Milestone[] persisted (v6 additive, no schema bump); budget-health + budget-burndown pure modules; ChangeItem[] change-control register persisted (schema v7 additive) -->
 
 # Data
 
@@ -187,6 +187,27 @@ Milestone {                                  // 0.44.0: project milestone with e
   linkedTaskIds   number[]                  // tasks that feed this milestone
   localModifiedAt? ISO 8601 timestamp
 }
+
+// Change-control register — schema v7 -------------------------------------
+ChangeItem {                                 // 0.50.0: RAID-sibling change request
+  id                number
+  title             string
+  description       string
+  type              "Scope" | "Schedule" | "Cost" | "Quality" | "Other"
+  status            "Proposed" | "Under Review" | "Approved" | "Rejected" | "Implemented" | "Deferred"
+  impact?           RiskScale                 // reuses the RAID severity scale + RAG palette
+  impactDescription? string
+  scheduleImpactDays? number                  // optional schedule impact (± days)
+  costImpact?       number                    // optional cost impact
+  requestedBy?      string                    // requestor
+  raisedDate        "YYYY-MM-DD"
+  decisionBy?       string                    // approver
+  decisionDate?     "YYYY-MM-DD"             // auto-filled when status leaves the pending set
+  resolutionNotes?  string
+  linkedTaskIds     number[]                  // linked tasks
+  linkedRaidIds     number[]                  // linked RAID items
+  localModifiedAt?  ISO 8601 timestamp
+}
 ```
 
 ## Workspace envelope (`storage.ts`)
@@ -206,6 +227,7 @@ type Workspace = {
   fxRates?: FxRates | null;                // schema v6; optional for compat
   status?: ProjectStatus;                   // 0.43.0+; optional for compat
   milestones?: Milestone[];                 // 0.44.0+; optional for compat
+  changes?: ChangeItem[];                   // schema v7 (0.50.0+); optional for compat
 };
 
 type StorageKind =
@@ -240,6 +262,12 @@ Re-running over a populated workspace is a no-op (reference equality).
 Backfill for `status` (0.43.0+) and `milestones` (0.44.0+) is additive — old
 workspaces auto-populate these as empty/null when first loaded and persisted.
 
+`migrateWorkspaceV7(ws)` (schema v7, 0.50.0+) runs `migrateWorkspaceV6` first,
+then ensures `changes: []` exists when absent (idempotent — a no-op via
+reference equality when already present). `SCHEMA_VERSION` is now `7`; all
+load paths (JSON / CSV / Markdown / Turso) run it on parse so old workspaces
+auto-populate an empty change register.
+
 ## IndexedDB layout (`storage.ts`)
 
 ```
@@ -247,6 +275,7 @@ Database: lop-app  (version 6)
 ├── object store "kv"           (v1)  — FsHandle + "resource-plan" singleton
 │                                       + "budgets" array + "fxRates" object (v6)
 │                                       + "status" object (0.43.0+) + "milestones" array (0.44.0+)
+│                                       + "changes" array (schema v7, 0.50.0+)
 ├── object store "tasks"        (v2)  — keyPath: "id", value: Task
 ├── object store "raid"         (v2)  — keyPath: "id", value: RaidItem
 ├── object store "absences"     (v3)  — keyPath: "id", value: Absence
@@ -301,14 +330,14 @@ legacy keys are removed.
 ## File-backend formats
 
 `LocalFileBackend` reads/writes one of three formats; round-trips lossless
-inside the supported field set. Each path runs `migrateWorkspaceV5` + `migrateWorkspaceV6` on parse
-so older files self-heal.
+inside the supported field set. Each path runs `migrateWorkspaceV7` on parse
+(which chains `migrateWorkspaceV6` → `migrateWorkspaceV5`) so older files self-heal.
 
 | Kind | Sections |
 |---|---|
-| JSON | `{ schemaVersion: 6, tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, milestones }` |
-| CSV  | `# TASKS` + `# RAID` + `# ABSENCES` + `# SHIFTS` + `# DISCIPLINES` + `# GRADES` + `# ROLES` + `# RESOURCES` + `# PLAN` + `# BUDGETS` + `# FX_RATES` + `# PROJECT STATUS` + `# MILESTONES`, RFC-style escaping |
-| Markdown | `# LOP Tasks` + `# RAID Log` + `# Absences` + `# Shifts` + `# Disciplines` + `# Grades` + `# Roles` + `# Resources` + `# Plan` + `# Budgets` + `# FX Rates` H1s + `## Project Status` (field bullets) + `## Milestones` (pipe table) H2s |
+| JSON | `{ schemaVersion: 7, tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, milestones, changes }` |
+| CSV  | `# TASKS` + `# RAID` + `# ABSENCES` + `# SHIFTS` + `# DISCIPLINES` + `# GRADES` + `# ROLES` + `# RESOURCES` + `# PLAN` + `# BUDGETS` + `# FX_RATES` + `# PROJECT STATUS` + `# MILESTONES` + `# CHANGES`, RFC-style escaping |
+| Markdown | `# LOP Tasks` + `# RAID Log` + `# Absences` + `# Shifts` + `# Disciplines` + `# Grades` + `# Roles` + `# Resources` + `# Plan` + `# Budgets` + `# FX Rates` H1s + `## Project Status` (field bullets) + `## Milestones` (pipe table) + `## Changes` (pipe table) H2s |
 
 The `utilization` and `absenceOverride` maps serialize into a single
 encoded cell each via `encodePeriodMap` / `decodePeriodMap` — format
