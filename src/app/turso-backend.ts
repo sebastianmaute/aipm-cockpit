@@ -12,21 +12,17 @@
 // at compile time and do not create a runtime cycle.
 
 import {
-  StorageNotReadyError,
   emptyWorkspace,
   jsonToWorkspace,
   type StorageBackend,
   type Workspace,
 } from "./storage";
+import { runTursoPipeline } from "./turso-pipeline";
 import type { PipelineResultLike, SqlStmt } from "./turso-schema";
 import type { TursoConfig } from "./turso-config";
 
 const OLD_BLOB_DDL = "CREATE TABLE IF NOT EXISTS workspace (id INTEGER PRIMARY KEY, data TEXT NOT NULL)";
 const OLD_BLOB_SELECT = "SELECT data FROM workspace WHERE id = 1";
-
-function execute(stmt: SqlStmt) {
-  return { type: "execute" as const, stmt };
-}
 
 /** Defensively read results[i].response.result.rows[0][0].value as a string. */
 function firstRowText(results: PipelineResultLike[], i: number): string | null {
@@ -52,50 +48,6 @@ export class TursoBackend implements StorageBackend {
     }
   }
 
-  private async runPipeline(stmts: SqlStmt[]): Promise<PipelineResultLike[]> {
-    if (!this.config) {
-      throw new StorageNotReadyError("Configure the Turso URL and token in Settings.");
-    }
-    const headers: Record<string, string> = { "Content-Type": "application/json" };
-    // Only authenticate when a token is configured — a loopback (local) tursodb
-    // typically needs none.
-    if (this.config.authToken) {
-      headers.Authorization = `Bearer ${this.config.authToken}`;
-    }
-    let res: Response;
-    try {
-      res = await fetch(`${this.config.httpUrl}/v2/pipeline`, {
-        method: "POST",
-        headers,
-        // No trailing { type: "close" } frame: the classic Hrana endpoint
-        // auto-closes a baton-less stream, and newer engines (local tursodb)
-        // reject the "close" request variant outright.
-        body: JSON.stringify({ requests: stmts.map(execute) }),
-      });
-    } catch {
-      // Network-level failure: server down, connection refused, DNS failure, or
-      // an unreachable/non-existent host. Surface a clear "unreachable" hint.
-      throw new StorageNotReadyError("storage-unreachable");
-    }
-    if (res.status === 401) {
-      throw new StorageNotReadyError("Turso auth token rejected. Check the token in Settings.");
-    }
-    if (!res.ok) {
-      throw new Error(`Turso returned ${res.status}. Try again later.`);
-    }
-    const raw: unknown = await res.json();
-    if (!raw || typeof raw !== "object" || !("results" in raw)) {
-      throw new Error("Turso returned an unexpected response shape.");
-    }
-    const results = (raw as { results?: PipelineResultLike[] }).results ?? [];
-    for (const r of results) {
-      if (r.type === "error") {
-        throw new Error(`Turso error: ${r.error?.message ?? "unknown"}`);
-      }
-    }
-    return results;
-  }
-
   async load(): Promise<Workspace> {
     // Dynamic import breaks the storage → turso-backend → turso-schema → storage cycle.
     const { SCHEMA_DDL, TABLE_NAMES, selectStatements, rowsToWorkspace } =
@@ -107,7 +59,7 @@ export class TursoBackend implements StorageBackend {
       ...selectStatements(),
       { sql: OLD_BLOB_SELECT },
     ];
-    const results = await this.runPipeline(stmts);
+    const results = await runTursoPipeline(this.config, stmts);
     const ddlCount = SCHEMA_DDL.length + 1; // schema DDL + old-blob DDL
     const selectCount = TABLE_NAMES.length;
     const relational = results.slice(ddlCount, ddlCount + selectCount);
@@ -124,6 +76,6 @@ export class TursoBackend implements StorageBackend {
   async save(workspace: Workspace): Promise<void> {
     // Dynamic import breaks the storage → turso-backend → turso-schema → storage cycle.
     const { workspaceToStatements } = await import("./turso-schema");
-    await this.runPipeline(workspaceToStatements(workspace));
+    await runTursoPipeline(this.config, workspaceToStatements(workspace));
   }
 }

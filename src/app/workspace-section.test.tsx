@@ -72,6 +72,18 @@ function makeProps(overrides: Partial<WorkspaceSectionProps> = {}): WorkspaceSec
     onAddResource: vi.fn(),
     onChangeBudgets: vi.fn(),
     onRefreshFx: vi.fn(),
+    trends: {
+      active: false,
+      snapshots: [],
+      baseline: null,
+      latest: null,
+      variance: [],
+      gaps: [],
+      busy: false,
+      captureNow: vi.fn(async () => {}),
+      setBaseline: vi.fn(async () => {}),
+      deleteSnapshot: vi.fn(async () => {}),
+    },
     ...overrides,
   };
 }

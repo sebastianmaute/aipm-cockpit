@@ -12,6 +12,7 @@ import { TabButton, ResetSizeIcon } from "./task-manager-ui";
 import { navLabelKey, subTabsFor } from "./nav-config";
 import { DEFAULT_EXTRA_REPORTS } from "./addable-reports";
 import type { ToolDispatcher } from "./chat-tools";
+import type { UseSnapshotsResult } from "./use-snapshots";
 import type { ActivityEntry, ActivityKind } from "./activity-log";
 import type { Absence, BudgetBucket, RaidItem, Resource, Shift, Task } from "./types";
 import { ResourceDirectory } from "./resource-directory";
@@ -56,6 +57,10 @@ const BudgetPanel = dynamic(
 );
 const BudgetReportPanel = dynamic(
   () => import("./budget-report-panel").then((m) => m.BudgetReportPanel),
+  { ssr: false },
+);
+const TrendsPanel = dynamic(
+  () => import("./trends-panel").then((m) => m.TrendsPanel),
   { ssr: false },
 );
 
@@ -104,6 +109,7 @@ export interface WorkspaceSectionProps {
   onChangeBudgets: (next: BudgetBucket[]) => void;
   onRefreshFx: () => void;
   fxLoading?: boolean;
+  trends: UseSnapshotsResult & { active: boolean };
 }
 
 export function WorkspaceSection({
@@ -144,6 +150,7 @@ export function WorkspaceSection({
   onRefreshFx,
   fxLoading = false,
   fullBleed = false,
+  trends,
 }: WorkspaceSectionProps) {
   const { settings, setSettings, lang } = useSettings();
   const { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, milestones } = useWorkspace();
@@ -602,6 +609,24 @@ export function WorkspaceSection({
                 if (task) onEditTask(task);
               } : undefined}
               onOpenMilestone={() => setActiveTab("milestones")}
+            />
+          </div>
+        )}
+
+        {activeTab === "trends" && (
+          <div id="panel-trends" role="tabpanel" className={panelScrollClass}>
+            <TrendsPanel
+              lang={lang}
+              active={trends.active}
+              snapshots={trends.snapshots}
+              baseline={trends.baseline}
+              latest={trends.latest}
+              variance={trends.variance}
+              gaps={trends.gaps}
+              busy={trends.busy}
+              captureNow={trends.captureNow}
+              setBaseline={trends.setBaseline}
+              deleteSnapshot={trends.deleteSnapshot}
             />
           </div>
         )}

@@ -6,6 +6,7 @@ import type { TranslationKey } from "./i18n";
 export type AppView =
   | "open-points"
   | "dashboard"
+  | "trends"
   | "chat"
   | "gantt"
   | "milestones"
@@ -37,7 +38,7 @@ export interface NavGroup {
 export const NAV_GROUPS: NavGroup[] = [
   {
     labelKey: "navGroupOverview",
-    items: [{ view: "dashboard" }, { view: "open-points" }, { view: "chat" }],
+    items: [{ view: "dashboard" }, { view: "trends" }, { view: "open-points" }, { view: "chat" }],
   },
   {
     labelKey: "navGroupPlan",
@@ -72,6 +73,7 @@ export const NAV_GROUPS: NavGroup[] = [
 
 const LABEL_KEYS: Record<Exclude<AppView, "edit">, TranslationKey> = {
   dashboard: "navDashboard",
+  trends: "navTrends",
   "open-points": "navOpenPoints",
   chat: "tabChat",
   gantt: "tabGantt",

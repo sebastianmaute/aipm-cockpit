@@ -1,6 +1,7 @@
 // src/app/settings-types.ts
 import type { AddableReportId } from "./addable-reports";
 import type { Lang } from "./i18n";
+import type { SnapshotCadence } from "./snapshot";
 import {
   type StorageConfig,
   defaultStorageConfig,
@@ -137,6 +138,31 @@ export function sanitizeIntegrations(raw: unknown): IntegrationsSettings {
   };
 }
 
+export type SnapshotSettings = {
+  enabled: boolean;
+  cadence: SnapshotCadence;
+};
+
+export const defaultSnapshotSettings: SnapshotSettings = {
+  enabled: true,
+  cadence: "weekly",
+};
+
+const SNAPSHOT_CADENCES: readonly SnapshotCadence[] = ["weekly", "daily", "monthly"];
+
+/** Unset -> default (fresh copy); otherwise coerce to a valid SnapshotSettings. */
+export function resolveSnapshotSettings(raw: unknown): SnapshotSettings {
+  if (!raw || typeof raw !== "object") return { ...defaultSnapshotSettings };
+  const obj = raw as Record<string, unknown>;
+  const cadence = SNAPSHOT_CADENCES.includes(obj.cadence as SnapshotCadence)
+    ? (obj.cadence as SnapshotCadence)
+    : "weekly";
+  return {
+    enabled: typeof obj.enabled === "boolean" ? obj.enabled : true,
+    cadence,
+  };
+}
+
 export type Settings = {
   language: Lang;
   holidayCountries: string[];
@@ -149,6 +175,7 @@ export type Settings = {
   layout: "modern" | "classic";
   reports?: { extra: AddableReportId[] };
   integrations?: IntegrationsSettings;
+  snapshots?: SnapshotSettings;
 };
 
 export const defaultSettings: Settings = {
@@ -163,4 +190,5 @@ export const defaultSettings: Settings = {
   layout: "modern",
   reports: { extra: ["raid-report", "budget-report"] },
   integrations: defaultIntegrations,
+  snapshots: defaultSnapshotSettings,
 };

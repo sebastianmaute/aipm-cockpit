@@ -3,7 +3,7 @@
 [![Pipeline Status](https://gitlab.example.com/example-group/public-collab/lop-app/badges/main/pipeline.svg)](https://gitlab.example.com/example-group/public-collab/lop-app/-/commits/main)
 [![coverage](https://gitlab.example.com/example-group/public-collab/lop-app/badges/main/coverage.svg)](https://gitlab.example.com/example-group/public-collab/lop-app/-/commits/main)
 
-**v0.48.0 "Tchaikovsky"** — AI-assisted project-status tracker for Acme project leads. Manage open points, track accountability, plan resource capacity & cost, keep an address book of the team, and draft status-inquiry emails — all in the browser, no backend required. Includes a consolidated project-health **Dashboard** (RAG status with lettered badges + burn-down charts with axis labels, milestones, and Earned Value SPI/CPI that feed the Schedule/Budget RAGs), **Milestones**, and **Earned Value** reporting. Planning and budget tables gain filter/sort controls; RAID and Budget reports are present by default. Integrates with Microsoft 365 (Outlook contacts/calendar, SharePoint storage) and Turso database backends.
+**v0.49.0 "Le Guin"** — AI-assisted project-status tracker for Acme project leads. Manage open points, track accountability, plan resource capacity & cost, keep an address book of the team, and draft status-inquiry emails — all in the browser, no backend required. Includes a consolidated project-health **Dashboard** (RAG status with lettered badges + burn-down charts with axis labels, milestones, and Earned Value SPI/CPI that feed the Schedule/Budget RAGs), **Milestones**, and **Earned Value** reporting. Planning and budget tables gain filter/sort controls; RAID and Budget reports are present by default. Integrates with Microsoft 365 (Outlook contacts/calendar, SharePoint storage) and Turso database backends.
 
 The app ships a **modern sidebar layout** by default — a Dark-Blue left rail with grouped navigation, a top bar, full-viewport single-view content, full-page task editor and Settings pages, and a Light / Dark / System theme — with the original single-scroll **Classic mode** kept as a toggle (Settings → Appearance → Layout).
 
@@ -51,6 +51,7 @@ All data is stored locally by default — no backend account required.
 | Localization | English (US / UK) and German |
 | Layout & theme | Modern Dark-Blue sidebar layout (default) with grouped navigation, full-viewport single-view content, a full-page task editor (5 stacked sections) and full-page Settings; a single-page **Classic mode** toggle (Settings → Appearance → Layout); Light / Dark / System theme on the AIPM brand palette; URL-hash deep-linking (`#gantt`, `#raid`, …) |
 | Printing | Scoped print — printing a report (Reports, RAID Report, Resources Report) or the Activity log prints just that view (sidebar, top bar, banners, and other panes are hidden) on A4 |
+| Baseline / variance trends (Turso) | When the active backend is Turso, periodic KPI snapshots (remaining hours/cost, % complete, forecast end, SPI/CPI, RAGs, burn-down series) are captured into append-only Turso tables; a Trends view shows baseline-vs-current variance, KPI trend charts, and the snapshot list — auto-captured once per cadence bucket (weekly default; daily/monthly) plus a manual capture button, re-baselineable, with highlighted recording gaps |
 
 ## Screenshots
 
