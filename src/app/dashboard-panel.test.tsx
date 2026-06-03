@@ -63,6 +63,14 @@ describe("DashboardPanel", () => {
   });
 });
 
+const minimalBudget = [
+  {
+    id: 1, name: "Test PO", type: "tm" as const, currency: "EUR" as const,
+    startDate: "2026-01-01", endDate: "2026-12-31", status: "open" as const,
+    allocations: [],
+  },
+];
+
 describe("DashboardPanel captions and thresholds", () => {
   function renderDashboard() {
     render(
@@ -72,7 +80,7 @@ describe("DashboardPanel captions and thresholds", () => {
           { id: 1, title: "Done task", status: "Done", health: "G", linkedRaidIds: [], subtaskIds: [], parentId: null, assigneeIds: [] } as never,
         ]}
         raid={[]}
-        budgets={[]}
+        budgets={minimalBudget as never}
         plan={plan}
         roles={[]}
         resources={[]}
@@ -85,16 +93,24 @@ describe("DashboardPanel captions and thresholds", () => {
     );
   }
 
-  it("colourises the Overall status text and shows captions + thresholds", () => {
+  it("renders the RAG thresholds legend in the Overall band", () => {
     renderDashboard();
     expect(screen.getByText(/Amber ≥ 90%/)).toBeInTheDocument();
+  });
+
+  it("renders the progress and burn captions", () => {
+    renderDashboard();
     expect(screen.getByText(/Tasks completed vs total/)).toBeInTheDocument();
     expect(screen.getByText(/burn-down shows remaining budget/)).toBeInTheDocument();
-    const overallSpans = screen.getAllByText(/^(Green|Amber|Red)$/).filter(
-      (el) => el.className && /text-AIPM-(green|purple|pink)/.test(el.className),
+  });
+
+  it("applies the AIPM colour class to the overall status word", () => {
+    renderDashboard();
+    const overallSpans = screen.getAllByText(/^(Green|Amber|Red)$/).filter((el) =>
+      /text-AIPM-(green|purple|pink)/.test(el.className),
     );
     expect(overallSpans.length).toBeGreaterThan(0);
-    expect(overallSpans[0].className).toMatch(/text-AIPM-(green|purple|pink)/);
+    expect(overallSpans[0].className).toMatch(/text-AIPM-green/);
   });
 });
 
