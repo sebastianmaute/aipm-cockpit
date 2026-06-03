@@ -10,6 +10,7 @@ import { useWorkspaceTab } from "./workspace-tab-context";
 import { useFilters } from "./filters-context";
 import { TabButton, ResetSizeIcon } from "./task-manager-ui";
 import { navLabelKey, subTabsFor } from "./nav-config";
+import { DEFAULT_EXTRA_REPORTS } from "./addable-reports";
 import type { ToolDispatcher } from "./chat-tools";
 import type { ActivityEntry, ActivityKind } from "./activity-log";
 import type { Absence, BudgetBucket, RaidItem, Resource, Shift, Task } from "./types";
@@ -376,7 +377,7 @@ export function WorkspaceSection({
               absences={absences}
               workdayHours={settings.resources.workdayHours}
               fxRates={fxRates}
-              extraReports={settings.reports?.extra ?? ["raid-report", "budget-report"]}
+              extraReports={settings.reports?.extra ?? DEFAULT_EXTRA_REPORTS}
               onChangeExtraReports={(next) => setSettings((s) => ({ ...s, reports: { ...s.reports, extra: next } }))}
             />
           </div>

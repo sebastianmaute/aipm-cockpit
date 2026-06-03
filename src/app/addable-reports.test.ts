@@ -1,5 +1,10 @@
 import { describe, expect, test } from "vitest";
-import { ADDABLE_REPORTS, sanitizeExtraReports } from "./addable-reports";
+import {
+  ADDABLE_REPORTS,
+  DEFAULT_EXTRA_REPORTS,
+  resolveExtraReports,
+  sanitizeExtraReports,
+} from "./addable-reports";
 
 describe("addable-reports", () => {
   test("registry has the three reports in canonical order", () => {
@@ -24,5 +29,27 @@ describe("addable-reports", () => {
       expect(r.id).toBeTruthy();
       expect(r.titleKey).toBeTruthy();
     }
+  });
+
+  describe("resolveExtraReports (load path)", () => {
+    test("DEFAULT_EXTRA_REPORTS is RAID + Budget", () => {
+      expect(DEFAULT_EXTRA_REPORTS).toEqual(["raid-report", "budget-report"]);
+    });
+    test("undefined (never set / legacy) resolves to the defaults", () => {
+      expect(resolveExtraReports(undefined)).toEqual(["raid-report", "budget-report"]);
+    });
+    test("returns a fresh copy of the defaults (not the shared array)", () => {
+      expect(resolveExtraReports(undefined)).not.toBe(DEFAULT_EXTRA_REPORTS);
+    });
+    test("explicit empty array stays empty (removal is preserved)", () => {
+      expect(resolveExtraReports([])).toEqual([]);
+    });
+    test("a stored subset is preserved and not re-padded with defaults", () => {
+      expect(resolveExtraReports(["raid-report"])).toEqual(["raid-report"]);
+    });
+    test("non-array, non-undefined values sanitize to []", () => {
+      expect(resolveExtraReports(null)).toEqual([]);
+      expect(resolveExtraReports("raid-report")).toEqual([]);
+    });
   });
 });
