@@ -54,11 +54,16 @@ export function useSnapshots(args: UseSnapshotsArgs): UseSnapshotsResult {
   useEffect(() => { errRef.current = args.onError; }, [args.onError]);
   useEffect(() => { cfgRef.current = tursoConfig; }, [tursoConfig]);
 
-  const makeRecord = useCallback((trigger: SnapshotTrigger, isBaseline: boolean): SnapshotRecord => {
-    const capturedAt = today.toISOString();
-    const ctx = ctxRef.current();
-    return { ...buildSnapshot({ ...ctx, capturedAt, cadence, trigger }), isBaseline };
-  }, [cadence, today]);
+  const makeRecord = useCallback(
+    (trigger: SnapshotTrigger, isBaseline: boolean, bucket: string): SnapshotRecord => {
+      const capturedAt = new Date().toISOString();
+      const ctx = ctxRef.current();
+      return { ...buildSnapshot({ ...ctx, capturedAt, cadence, trigger }), bucket, isBaseline };
+    },
+    [cadence],
+  );
+
+  const currentBucket = bucketKey(today, cadence);
 
   // Load history; auto-capture once per bucket when enabled.
   useEffect(() => {
@@ -68,11 +73,10 @@ export function useSnapshots(args: UseSnapshotsArgs): UseSnapshotsResult {
       try {
         const history = await loadSnapshots(cfgRef.current);
         if (cancelled) return;
-        const currentBucket = bucketKey(today, cadence);
         const hasCurrent = history.some((s) => s.bucket === currentBucket);
         if (!hasCurrent) {
           const isFirstEver = history.length === 0;
-          const rec = makeRecord("auto", isFirstEver);
+          const rec = makeRecord("auto", isFirstEver, currentBucket);
           await storeAppend(cfgRef.current, rec);
           if (cancelled) return;
           setSnapshots([...history, rec]);
@@ -85,14 +89,14 @@ export function useSnapshots(args: UseSnapshotsArgs): UseSnapshotsResult {
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, cadence, today.getTime()]);
+  }, [active, cadence, currentBucket]);
 
   const captureNow = useCallback(async () => {
     if (!active) return;
     setBusy(true);
     try {
       const isFirstEver = snapshots.length === 0;
-      const rec = makeRecord("manual", isFirstEver);
+      const rec = makeRecord("manual", isFirstEver, currentBucket);
       await storeAppend(cfgRef.current, rec);
       setSnapshots((prev) => [...prev, rec]);
     } catch (err) {
@@ -100,7 +104,7 @@ export function useSnapshots(args: UseSnapshotsArgs): UseSnapshotsResult {
     } finally {
       setBusy(false);
     }
-  }, [active, snapshots.length, makeRecord]);
+  }, [active, snapshots.length, makeRecord, currentBucket]);
 
   const setBaseline = useCallback(async (id: string) => {
     if (!active) return;

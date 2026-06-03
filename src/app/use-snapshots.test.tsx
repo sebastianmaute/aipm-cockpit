@@ -63,4 +63,18 @@ describe("useSnapshots", () => {
     await waitFor(() => expect(result.current.baseline?.bucket).toBe("2026-W22"));
     expect(result.current.gaps).toContain("2026-W23");
   });
+
+  it("captureNow stamps a real-clock id but the current bucket", async () => {
+    vi.spyOn(store, "loadSnapshots").mockResolvedValue([rec("2026-06-10T00:00:00.000Z", "2026-W24", true)]);
+    const append = vi.spyOn(store, "appendSnapshot").mockResolvedValue();
+    const { result } = renderHook(() => useSnapshots(baseArgs));
+    await waitFor(() => expect(store.loadSnapshots).toHaveBeenCalled());
+    await result.current.captureNow();
+    expect(append).toHaveBeenCalledTimes(1); // only the manual one (bucket already present -> no auto)
+    const manual = append.mock.calls[0][1];
+    expect(manual.trigger).toBe("manual");
+    expect(manual.bucket).toBe("2026-W24");            // gate-consistent (from today)
+    expect(manual.id).not.toBe("2026-06-10T09:00:00.000Z"); // real wall clock, not `today`
+    expect(manual.id).toBe(manual.capturedAt);          // id === capturedAt invariant
+  });
 });
