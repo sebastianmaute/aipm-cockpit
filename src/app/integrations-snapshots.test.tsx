@@ -11,6 +11,18 @@ describe("IntegrationsSection snapshot controls", () => {
     expect(getByLabelText(/Snapshot cadence/i)).toBeTruthy();
   });
 
+  it("warns when recording is enabled but no Turso URL is configured", () => {
+    const settings = { ...defaultSettings, integrations: { ...defaultSettings.integrations, turso: { enabled: true } }, snapshots: { enabled: true, cadence: "weekly" as const } };
+    const { getByText } = render(<IntegrationsSection lang="en-US" settings={settings} onChange={() => {}} />);
+    expect(getByText(/no Turso database URL is set/i)).toBeTruthy();
+  });
+
+  it("does NOT warn when a Turso URL is configured", () => {
+    const settings = { ...defaultSettings, integrations: { ...defaultSettings.integrations, turso: { enabled: true, databaseUrl: "https://db.example.com" } }, snapshots: { enabled: true, cadence: "weekly" as const } };
+    const { queryByText } = render(<IntegrationsSection lang="en-US" settings={settings} onChange={() => {}} />);
+    expect(queryByText(/no Turso database URL is set/i)).toBeNull();
+  });
+
   it("updates cadence via onChange", () => {
     const onChange = vi.fn();
     const settings = { ...defaultSettings, integrations: { ...defaultSettings.integrations, turso: { enabled: true } } };

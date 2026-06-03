@@ -255,6 +255,9 @@ export function IntegrationsSection({ lang, settings, onChange }: IntegrationsSe
                 <option value="monthly">{t(lang, "snapshotCadenceMonthly")}</option>
               </select>
             </label>
+            {snapshots.enabled && !(envTursoUrlSet || turso.databaseUrl) && (
+              <p className="mt-1 text-xs text-AIPM-pink">{t(lang, "snapshotConfigIncomplete")}</p>
+            )}
           </div>
         </div>
       )}
