@@ -280,7 +280,9 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         // the spread branch above.
         : ({ kind: newKind } as StorageConfig);
     const label = t(langRef.current, STORAGE_LABEL_KEYS[newKind]);
-    if (!window.confirm(t(langRef.current, "storageConvertConfirm", tasks.length, label))) return;
+    const leavingTurso = current.kind === "turso" && newKind !== "turso";
+    const confirmKey = leavingTurso ? "storageTursoLeaveWarn" : "storageConvertConfirm";
+    if (!window.confirm(t(langRef.current, confirmKey, tasks.length, label))) return;
     const target = createBackend(newConfig, {
       acquireToken: auth.acquireToken,
       tursoConfig: getTursoConfig(

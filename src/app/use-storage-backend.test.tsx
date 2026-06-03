@@ -585,6 +585,85 @@ describe("useStorageBackend — onRequestStorageSwitch", () => {
     expect(setStorageConfig).not.toHaveBeenCalled();
   });
 
+  it("warns (recording stops) and aborts when leaving Turso and the user cancels", async () => {
+    const targetBackend = {
+      kind: "browser",
+      load: vi.fn(),
+      save: vi.fn().mockResolvedValue(undefined),
+      isReady: vi.fn().mockResolvedValue(true),
+      describe: vi.fn().mockResolvedValue(null),
+    };
+    createBackendMock
+      .mockReturnValueOnce(mockBackend)
+      .mockReturnValueOnce(targetBackend);
+
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+
+    const { result } = renderBackend(
+      makeArgs({ setStorageConfig, settings: { storageConfig: { kind: "turso" } } as unknown as Settings }),
+    );
+    await act(async () => { await Promise.resolve(); });
+
+    await act(async () => {
+      await result.current.onRequestStorageSwitch("browser");
+    });
+
+    expect(confirmSpy).toHaveBeenCalledWith(expect.stringMatching(/recording/i));
+    expect(setStorageConfig).not.toHaveBeenCalled();
+  });
+
+  it("proceeds with the switch when the user confirms leaving Turso", async () => {
+    const targetBackend = {
+      kind: "browser",
+      load: vi.fn().mockResolvedValue(emptyWorkspace()),
+      save: vi.fn().mockResolvedValue(undefined),
+      isReady: vi.fn().mockResolvedValue(true),
+      describe: vi.fn().mockResolvedValue("Browser"),
+    };
+    // Use mockReturnValue (not Once) so the switch reaches a working backend
+    // regardless of how many createBackend calls the mount/load effect consumes.
+    createBackendMock.mockReturnValue(targetBackend);
+
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+
+    const { result } = renderBackend(
+      makeArgs({ setStorageConfig, settings: { storageConfig: { kind: "turso" } } as unknown as Settings }),
+    );
+    await act(async () => { await Promise.resolve(); });
+
+    await act(async () => {
+      await result.current.onRequestStorageSwitch("browser");
+    });
+
+    expect(setStorageConfig).toHaveBeenCalledWith(expect.objectContaining({ kind: "browser" }));
+  });
+
+  it("uses the generic convert-confirm for a non-Turso source switch", async () => {
+    const targetBackend = {
+      kind: "local-json",
+      load: vi.fn(),
+      save: vi.fn().mockResolvedValue(undefined),
+      isReady: vi.fn().mockResolvedValue(true),
+      describe: vi.fn().mockResolvedValue(null),
+    };
+    createBackendMock
+      .mockReturnValueOnce(mockBackend)
+      .mockReturnValueOnce(targetBackend);
+
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+
+    const { result } = renderBackend(
+      makeArgs({ setStorageConfig, settings: { storageConfig: { kind: "browser" } } as unknown as Settings }),
+    );
+    await act(async () => { await Promise.resolve(); });
+
+    await act(async () => {
+      await result.current.onRequestStorageSwitch("local-json");
+    });
+
+    expect(confirmSpy).toHaveBeenCalledWith(expect.not.stringMatching(/recording/i));
+  });
+
   it("isPopout=true → no-op (no confirm shown, no config change)", async () => {
     createBackendMock.mockReturnValue(mockBackend);
 
