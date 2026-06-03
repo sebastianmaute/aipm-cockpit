@@ -19,6 +19,11 @@ export function compareStrOrNum(a: unknown, b: unknown): number {
   return String(a ?? "").localeCompare(String(b ?? ""));
 }
 
+/** Cycle a sort direction on repeated header clicks: asc -> desc -> off -> asc. */
+export function nextSortDir(dir: SortDir): SortDir {
+  return dir === "asc" ? "desc" : dir === "desc" ? "off" : "asc";
+}
+
 /**
  * Shared filter + sort + sort-cycle logic for the report tables. The only thing
  * that differs between tables is how a row + sort key map to a comparable value,
@@ -53,10 +58,7 @@ export function useSortableFilter<Row extends { name: string }, Key extends stri
         setSort({ key: k, dir: "asc" });
         return;
       }
-      setSort({
-        key: sort.key,
-        dir: sort.dir === "asc" ? "desc" : sort.dir === "desc" ? "off" : "asc",
-      });
+      setSort({ key: sort.key, dir: nextSortDir(sort.dir) });
     },
     [sort.key, sort.dir, setSort],
   );

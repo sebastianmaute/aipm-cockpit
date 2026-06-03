@@ -13,7 +13,7 @@ import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton, ResizeCorner
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import { useResizable } from "./use-resizable";
 import { RagBadge } from "./rag-badge";
-import { TableFilter, SortHeaderButton, type SortDir } from "./report-table";
+import { TableFilter, SortHeaderButton, nextSortDir, type SortDir } from "./report-table";
 import { ratioHealth, marginHealth, costPerformanceHealth, winLossHealth } from "./budget-health";
 import type { Health } from "./health";
 
@@ -27,19 +27,18 @@ function sumPeriods(hours: Record<string, number>, periods: { key: string }[]): 
   return periods.reduce((s, p) => s + (hours[p.key] ?? 0), 0);
 }
 
-function filterSortAllocations<T extends { budgetHours: Record<string, number>; actualHours: Record<string, number> }>(
+function filterSortAllocations<T>(
   allocs: readonly T[],
   nameOf: (a: T) => string,
-  totalOf: (a: T) => number,
   filter: string,
-  sort: { key: "name" | "total"; dir: SortDir },
+  dir: SortDir,
 ): T[] {
   const q = filter.trim().toLowerCase();
   let rows = q ? allocs.filter((a) => nameOf(a).toLowerCase().includes(q)) : allocs.slice();
-  if (sort.dir !== "off") {
+  if (dir !== "off") {
     rows = rows.slice().sort((a, b) => {
-      const c = sort.key === "name" ? nameOf(a).localeCompare(nameOf(b)) : totalOf(a) - totalOf(b);
-      return sort.dir === "desc" ? -c : c;
+      const c = nameOf(a).localeCompare(nameOf(b));
+      return dir === "desc" ? -c : c;
     });
   }
   return rows;
@@ -153,7 +152,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
   const [dragId, setDragId] = useState<number | null>(null);
   const [editingBucketId, setEditingBucketId] = useState<number | null>(null);
   const [roleFilter, setRoleFilter] = useState("");
-  const [roleSort, setRoleSort] = useState<{ key: "name" | "total"; dir: SortDir }>({ key: "name", dir: "off" });
+  const [roleSort, setRoleSort] = useState<SortDir>("off");
 
   const stamp = () => new Date().toISOString();
 
@@ -304,13 +303,11 @@ export function BudgetPanel(props: BudgetPanelProps) {
           const detailedRows = filterSortAllocations(
             bucket.allocations,
             (a) => roleLabel(roles.find((r) => r.id === a.roleId), props.disciplines, props.grades) || `#${a.roleId}`,
-            (a) => sumPeriods(a.actualHours, periods),
             roleFilter, roleSort,
           );
           const blendedRows = filterSortAllocations(
             bucket.disciplineAllocations ?? [],
             (a) => props.disciplines.find((d) => d.id === a.disciplineId)?.name || `#${a.disciplineId}`,
-            (a) => sumPeriods(a.actualHours, periods),
             roleFilter, roleSort,
           );
           return (
@@ -383,9 +380,9 @@ export function BudgetPanel(props: BudgetPanelProps) {
                       >
                         <SortHeaderButton
                           label={t(lang, isBlended ? "budgetDiscipline" : "budgetRole")}
-                          active={roleSort.key === "name" && roleSort.dir !== "off"}
-                          dir={roleSort.dir}
-                          onClick={() => setRoleSort((s) => ({ key: "name", dir: s.key === "name" ? (s.dir === "asc" ? "desc" : s.dir === "desc" ? "off" : "asc") : "asc" }))}
+                          active={roleSort !== "off"}
+                          dir={roleSort}
+                          onClick={() => setRoleSort((d) => nextSortDir(d))}
                         />
                         <ColumnResizeHandle col="role" onMouseDown={startResize} />
                       </th>
