@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   SNAPSHOT_DDL, SNAPSHOT_TABLE_NAMES, appendStatements, deleteStatements,
-  rowsToSnapshots, setBaselineStatements, snapshotSelectStatements,
+  rowsToSnapshots, setBaselineStatements,
 } from "./snapshot-schema";
 import { TABLE_NAMES } from "./turso-schema";
 import type { PipelineResultLike } from "./turso-schema";
