@@ -1302,6 +1302,7 @@ export const de: Record<TranslationKey, string> = {
   changeReportByImpact: "Nach Auswirkung",
   changeReportByRequestor: "Nach Antragsteller",
   changeReportTopPending: "Wichtigste ausstehende",
+  changeReportCount: "Anzahl",
   dashboardChangesHeading: "Aenderungen",
   dashboardChangesPending: "{0} ausstehend",
   taskRowChangesBadge: "{0} Aenderungen",

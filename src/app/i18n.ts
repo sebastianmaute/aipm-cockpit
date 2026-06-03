@@ -1284,6 +1284,7 @@ const enUS = {
   changeReportByImpact: "By Impact",
   changeReportByRequestor: "By Requestor",
   changeReportTopPending: "Top Pending",
+  changeReportCount: "Count",
   dashboardChangesHeading: "Changes",
   dashboardChangesPending: "{0} pending",
   taskRowChangesBadge: "{0} changes",
