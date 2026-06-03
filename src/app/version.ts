@@ -1,3 +1,16 @@
+// 0.47.0 "Reynolds" adds RAG status across the budget surfaces and dashboard,
+// plus a burn-down chart. A new pure budget-health.ts maps consumption / plan-
+// and actual-hours (Amber >=90%, Red >100% of budget), cost performance (the
+// EVM 0.8/0.9 index bands), and contribution margin (Green >=15%, Red <0) to
+// Red/Amber/Green. budget-burndown.ts derives per-period remaining hours and
+// EUR; a dependency-free SVG BurndownCharts renders twin remaining charts on
+// the dashboard and in the Budget Report. The dashboard pills gain lettered
+// RAG badges (and print as a static value + badge instead of dropdowns), the
+// budget-burn tiles show the currency symbol, the register/activity sections
+// are boxed, and clickable links use the directory hover. The budget panel
+// shows RAG on every bucket metric, labels the Plan/Actual grid cells, and
+// adds a per-cell and per-role RAG; the Budget Report gains RAG tiles and a
+// status column.
 // 0.46.0 "Banks" closes the deferred EVM follow-up and polishes the chrome.
 // The dashboard Schedule and Budget RAGs now fold in the Earned Value indices:
 // SPI feeds Schedule and CPI feeds Budget (worst-of with the existing task /
@@ -594,12 +607,12 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.46.0";
-export const APP_BUILD_DATE = "2026-06-02"; // 0.46.0 EVM->RAG + chrome polish
+export const APP_VERSION = "0.47.0";
+export const APP_BUILD_DATE = "2026-06-03"; // 0.47.0 budget+dashboard RAG + burn-down
 /** Minor-series milestone codename (sci-fi/fantasy author names). The whole
  *  0.39.x line is "Tchaikovsky" (Adrian Tchaikovsky); patch releases inherit
  *  their minor version's codename rather than getting their own. */
-export const APP_MILESTONE = "Banks";
+export const APP_MILESTONE = "Reynolds";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -657,4 +670,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightMilestones",
   "versionHighlightEarnedValue",
   "versionHighlightEvmRag",
+  "versionHighlightBudgetRag",
 ] as const;

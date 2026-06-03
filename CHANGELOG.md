@@ -8,6 +8,21 @@ Authoritative source for version + build date: [`src/app/version.ts`](src/app/ve
 This file is seeded from that module's milestone comment plus the
 post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-diff.txt).
 
+## [0.47.0] — 2026-06-03 "Reynolds"
+
+### Added
+- RAG status across the budget panel (bucket metrics + per-cell and per-role
+  status in the allocation grid), the Budget Report (CCI tiles + status column),
+  and the dashboard pills — a shared lettered RAG badge.
+- Twin burn-down charts (hours + €) on the dashboard and in the Budget Report,
+  rendered as dependency-free SVG.
+
+### Changed
+- Dashboard prints the status overrides as a static value + RAG badge instead of
+  dropdowns; budget-burn tiles show the currency symbol; the Top RAID / Upcoming
+  & Overdue / Milestones / Recent activity sections are boxed; clickable links
+  use the resources-directory hover affordance.
+
 ## [0.46.0] — 2026-06-02 "Banks"
 
 ### Changed
