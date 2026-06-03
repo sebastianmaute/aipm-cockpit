@@ -76,3 +76,48 @@ export function bucketKey(date: Date, cadence: SnapshotCadence): string {
   const { year, week } = isoWeek(date);
   return `${year}-W${pad2(week)}`;
 }
+
+function startOfBucket(date: Date, cadence: SnapshotCadence): Date {
+  const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  if (cadence === "daily") return d;
+  if (cadence === "monthly") return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
+  // weekly: step back to Monday
+  const day = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() - (day - 1));
+  return d;
+}
+
+function advance(date: Date, cadence: SnapshotCadence): Date {
+  const d = new Date(date);
+  if (cadence === "daily") d.setUTCDate(d.getUTCDate() + 1);
+  else if (cadence === "weekly") d.setUTCDate(d.getUTCDate() + 7);
+  else d.setUTCMonth(d.getUTCMonth() + 1);
+  return d;
+}
+
+/** Inclusive list of cadence bucket keys from `from` to `to`. Empty if to < from. */
+export function expectedBuckets(from: Date, to: Date, cadence: SnapshotCadence): string[] {
+  const out: string[] = [];
+  let cursor = startOfBucket(from, cadence);
+  const end = startOfBucket(to, cadence);
+  // Guard against pathological inputs: cap at 1000 buckets.
+  for (let i = 0; cursor.getTime() <= end.getTime() && i < 1000; i++) {
+    out.push(bucketKey(cursor, cadence));
+    cursor = advance(cursor, cadence);
+  }
+  return out;
+}
+
+/** Expected buckets between the earliest snapshot and `today` that have no
+ *  snapshot. Empty when there are no snapshots. */
+export function detectGaps(
+  snapshots: readonly SnapshotRecord[],
+  cadence: SnapshotCadence,
+  today: Date,
+): string[] {
+  if (snapshots.length === 0) return [];
+  const sorted = [...snapshots].sort((a, b) => a.capturedAt.localeCompare(b.capturedAt));
+  const first = new Date(sorted[0].capturedAt);
+  const have = new Set(snapshots.map((s) => s.bucket));
+  return expectedBuckets(first, today, cadence).filter((b) => !have.has(b));
+}
