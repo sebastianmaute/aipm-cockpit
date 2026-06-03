@@ -52,6 +52,6 @@ export function winLossHealth(consumedValue: number, budgetValue: number): Healt
  * Bands match marginHealth: G >= 15, A 0-15, R < 0.
  */
 export function marginAmountHealth(margin: number, external: number): Health | null {
-  if (!(external > 0)) return null;
+  if (!(external > 0) || !Number.isFinite(margin)) return null;
   return marginHealth((margin / external) * 100);
 }

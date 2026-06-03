@@ -63,4 +63,7 @@ describe("marginAmountHealth", () => {
   it("is Red below 0", () => {
     expect(marginAmountHealth(-0.1, 100)).toBe("R");
   });
+  it("returns null when margin is NaN", () => {
+    expect(marginAmountHealth(NaN, 100)).toBeNull();
+  });
 });

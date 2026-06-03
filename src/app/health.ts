@@ -190,9 +190,9 @@ export const healthDot: Record<Health, string> = {
 };
 
 /**
- * Tailwind text-colour class for a RAG value, brand palette (matches the
- * Reports group dots). Used to tint inline status text, e.g. the dashboard
- * "Overall: Green" label.
+ * Tailwind text-colour class for a RAG value, AIPM brand palette. Used to tint
+ * inline status text, e.g. the dashboard "Overall: Green" label. Distinct from
+ * healthDot, which uses semantic Tailwind colours for the dot fill.
  */
 export const healthText: Record<Health, string> = {
   R: "text-AIPM-pink",
