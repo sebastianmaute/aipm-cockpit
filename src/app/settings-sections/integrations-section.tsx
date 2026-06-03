@@ -5,10 +5,13 @@ import {
   type M365IntegrationsSettings,
   type TursoIntegrationsSettings,
   type Settings,
+  type SnapshotSettings,
   defaultIntegrations,
   defaultM365Integrations,
   defaultTursoIntegrations,
+  defaultSnapshotSettings,
 } from "../settings-types";
+import type { SnapshotCadence } from "../snapshot";
 import { useMsAuth } from "../use-ms-auth";
 import { InfoTooltip } from "../info-tooltip";
 
@@ -33,6 +36,11 @@ export function IntegrationsSection({ lang, settings, onChange }: IntegrationsSe
       ...settings,
       integrations: { ...integrations, turso: { ...turso, ...patch } },
     });
+  }
+
+  const snapshots = settings.snapshots ?? defaultSnapshotSettings;
+  function updateSnapshots(patch: Partial<SnapshotSettings>) {
+    onChange({ ...settings, snapshots: { ...snapshots, ...patch } });
   }
 
   function updateM365(patch: Partial<M365IntegrationsSettings>) {
@@ -223,6 +231,31 @@ export function IntegrationsSection({ lang, settings, onChange }: IntegrationsSe
               />
             </label>
           )}
+          <div className="mt-2 border-t border-line pt-2">
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={snapshots.enabled}
+                onChange={(e) => updateSnapshots({ enabled: e.target.checked })}
+                className="h-4 w-4"
+              />
+              <span>{t(lang, "snapshotRecordingLabel")}</span>
+            </label>
+            <p className="mt-1 text-xs text-muted-foreground">{t(lang, "snapshotNeedsTurso")}</p>
+            <label className="mt-2 block text-xs">
+              <span className="text-muted-foreground">{t(lang, "snapshotCadenceLabel")}</span>
+              <select
+                aria-label={t(lang, "snapshotCadenceLabel")}
+                value={snapshots.cadence}
+                onChange={(e) => updateSnapshots({ cadence: e.target.value as SnapshotCadence })}
+                className="mt-1 w-full rounded border border-line bg-surface px-2 py-1 text-foreground"
+              >
+                <option value="weekly">{t(lang, "snapshotCadenceWeekly")}</option>
+                <option value="daily">{t(lang, "snapshotCadenceDaily")}</option>
+                <option value="monthly">{t(lang, "snapshotCadenceMonthly")}</option>
+              </select>
+            </label>
+          </div>
         </div>
       )}
     </div>
