@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
-  ratioHealth, marginHealth, costPerformanceHealth, winLossHealth,
+  ratioHealth, marginHealth, costPerformanceHealth, winLossHealth, marginAmountHealth,
 } from "./budget-health";
 
 describe("ratioHealth (over-budget bands: G <90%, A 90-100%, R >100%)", () => {
@@ -45,4 +45,22 @@ describe("winLossHealth (mirrors consumption ratio)", () => {
   it("is Amber in the 90-100% consumption band", () => { expect(winLossHealth(95, 100)).toBe("A"); });
   it("is Green when comfortably under", () => { expect(winLossHealth(50, 100)).toBe("G"); });
   it("is null when no budget", () => { expect(winLossHealth(50, 0)).toBeNull(); });
+});
+
+describe("marginAmountHealth", () => {
+  it("returns null when external revenue is zero or negative", () => {
+    expect(marginAmountHealth(50, 0)).toBeNull();
+    expect(marginAmountHealth(50, -10)).toBeNull();
+  });
+  it("is Green at >=15% margin", () => {
+    expect(marginAmountHealth(15, 100)).toBe("G"); // 15%
+    expect(marginAmountHealth(30, 100)).toBe("G");
+  });
+  it("is Amber between 0 and 15%", () => {
+    expect(marginAmountHealth(14.9, 100)).toBe("A");
+    expect(marginAmountHealth(0, 100)).toBe("A");
+  });
+  it("is Red below 0", () => {
+    expect(marginAmountHealth(-0.1, 100)).toBe("R");
+  });
 });
