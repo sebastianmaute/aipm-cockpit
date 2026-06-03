@@ -1224,6 +1224,8 @@ export const de: Record<TranslationKey, string> = {
   trendsRequireTurso: "Trends erfordern das Turso-Backend. Waehlen Sie Turso unter Einstellungen -> Speicher, um Snapshots aufzuzeichnen.",
   trendsNoSnapshots: "Noch keine Snapshots. Der erste wird automatisch erfasst, oder nutzen Sie Snapshot jetzt erfassen.",
   trendsNotEnough: "Noch nicht genuegend Snapshots fuer einen Trend.",
+  trendsGapOne: "{0} Luecke",
+  trendsGapMany: "{0} Luecken",
   trendsCaptureNow: "Snapshot jetzt erfassen",
   trendsSetBaseline: "Als Baseline festlegen",
   trendsDeleteSnapshot: "Loeschen",
@@ -1252,6 +1254,7 @@ export const de: Record<TranslationKey, string> = {
   snapshotCadenceDaily: "Taeglich",
   snapshotCadenceMonthly: "Monatlich",
   snapshotNeedsTurso: "Die Aufzeichnung laeuft nur, solange das Turso-Backend aktiv ist.",
+  snapshotConfigIncomplete: "Aufzeichnung ist aktiv, aber es ist noch keine Turso-Datenbank-URL gesetzt - es werden keine Snapshots erfasst, bis sie konfiguriert ist.",
   storageTursoLeaveWarn: "Die Snapshot-Trendaufzeichnung funktioniert nur mit dem Turso-Backend. Der Wechsel zu {1} stoppt die Aufzeichnung (Ihre {0} Eintraege werden weiterhin konvertiert). Ihre aufgezeichneten Snapshots bleiben in Turso erhalten und die Aufzeichnung wird beim Zurueckwechseln fortgesetzt. Fortfahren?",
   versionHighlightTrends: "Baseline + Varianz / Burn-down-Trends - periodische Turso-Snapshots zeigen Verzug ueber die Zeit",
 };

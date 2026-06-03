@@ -83,6 +83,7 @@ export function TrendsPanel(props: TrendsPanelProps) {
   const gapSet = new Set(gaps);
   const locale = localeFor(lang);
   const currency = props.latest?.currency || "EUR";
+  const gapLabel = gaps.length > 0 ? t(lang, gaps.length === 1 ? "trendsGapOne" : "trendsGapMany", gaps.length) : undefined;
 
   return (
     <div className={VIEW_PANE_CLASS}>
@@ -135,19 +136,19 @@ export function TrendsPanel(props: TrendsPanelProps) {
           </div>
 
           <div className="flex flex-wrap gap-4">
-            <TrendChart caption={t(lang, "trendKpiRemainingHours")} gapCount={gaps.length}
+            <TrendChart caption={t(lang, "trendKpiRemainingHours")} gapCount={gaps.length} gapLabel={gapLabel}
               emptyLabel={t(lang, "trendsNotEnough")}
               points={trendPoints(snapshots, gapSet, (s) => s.remainingHours)}
               format={(v) => `${Math.round(v)}h`} />
-            <TrendChart caption={t(lang, "trendKpiRemainingCost")} gapCount={gaps.length}
+            <TrendChart caption={t(lang, "trendKpiRemainingCost")} gapCount={gaps.length} gapLabel={gapLabel}
               emptyLabel={t(lang, "trendsNotEnough")}
               points={trendPoints(snapshots, gapSet, (s) => s.remainingCost)}
               format={(v) => formatCurrency(v, currency, locale)} />
-            <TrendChart caption={t(lang, "trendKpiSpi")} gapCount={gaps.length}
+            <TrendChart caption={t(lang, "trendKpiSpi")} gapCount={gaps.length} gapLabel={gapLabel}
               emptyLabel={t(lang, "trendsNotEnough")}
               points={trendPoints(snapshots, gapSet, (s) => s.spi)}
               format={(v) => v.toFixed(2)} />
-            <TrendChart caption={t(lang, "trendKpiCpi")} gapCount={gaps.length}
+            <TrendChart caption={t(lang, "trendKpiCpi")} gapCount={gaps.length} gapLabel={gapLabel}
               emptyLabel={t(lang, "trendsNotEnough")}
               points={trendPoints(snapshots, gapSet, (s) => s.cpi)}
               format={(v) => v.toFixed(2)} />

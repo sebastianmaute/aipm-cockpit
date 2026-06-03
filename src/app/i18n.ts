@@ -1206,6 +1206,8 @@ const enUS = {
   trendsRequireTurso: "Trends require the Turso backend. Choose Turso in Settings -> Storage to record snapshots.",
   trendsNoSnapshots: "No snapshots yet. The first one is captured automatically, or use Capture snapshot now.",
   trendsNotEnough: "Not enough snapshots yet to draw a trend.",
+  trendsGapOne: "{0} gap",
+  trendsGapMany: "{0} gaps",
   trendsCaptureNow: "Capture snapshot now",
   trendsSetBaseline: "Set as baseline",
   trendsDeleteSnapshot: "Delete",
@@ -1234,6 +1236,7 @@ const enUS = {
   snapshotCadenceDaily: "Daily",
   snapshotCadenceMonthly: "Monthly",
   snapshotNeedsTurso: "Recording only runs while the Turso backend is active.",
+  snapshotConfigIncomplete: "Recording is on, but no Turso database URL is set yet - no snapshots will be captured until it is configured.",
   storageTursoLeaveWarn: "Snapshot trend recording only works on the Turso backend. Switching to {1} stops recording (your {0} items are still converted). Your recorded snapshots are kept in Turso and recording resumes when you switch back. Continue?",
   versionHighlightTrends: "Baseline + variance / burn-down trends - periodic Turso snapshots show slippage over time",
 } as const;

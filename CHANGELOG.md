@@ -8,6 +8,12 @@ Authoritative source for version + build date: [`src/app/version.ts`](src/app/ve
 This file is seeded from that module's milestone comment plus the
 post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-diff.txt).
 
+## [0.49.1] — 2026-06-03 "Le Guin"
+
+Trends polish: the trend-chart gap-count caption is now localized (EN/DE), and
+the Turso integration settings warn when snapshot recording is enabled but no
+Turso database URL is configured.
+
 ## [0.49.0] — 2026-06-03 "Le Guin"
 
 Baseline + variance / burn-down trends. Turso-only periodic KPI snapshots

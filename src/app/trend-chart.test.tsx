@@ -24,6 +24,17 @@ describe("TrendChart", () => {
     expect(getByText(/1 gap/i)).toBeTruthy();
   });
 
+  it("prefers an explicit localized gapLabel over the English gapCount suffix", () => {
+    const { getByText, queryByText } = render(
+      <TrendChart caption="Remaining hours" points={[
+        { label: "W22", value: 100, gapBefore: false },
+        { label: "W24", value: 80, gapBefore: true },
+      ]} gapCount={1} gapLabel="2 Luecken" />,
+    );
+    expect(getByText(/2 Luecken/)).toBeTruthy();
+    expect(queryByText(/1 gap\b/)).toBeNull();
+  });
+
   it("renders an empty-state note when there are fewer than 2 points", () => {
     const { getByText } = render(<TrendChart caption="x" points={[{ label: "W1", value: 1, gapBefore: false }]} emptyLabel="Not enough data" />);
     expect(getByText("Not enough data")).toBeTruthy();
