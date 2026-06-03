@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ReportCard,
   SortHeaderButton,
@@ -38,11 +38,13 @@ export function MilestonesPanel({
   today,
   holidaySet,
   logActivity,
+  openCreateNonce,
 }: {
   lang: Lang;
   today: string;
   holidaySet: ReadonlySet<string>;
   logActivity?: (kind: ActivityKind, ...args: (string | number)[]) => void;
+  openCreateNonce?: number;
 }) {
   const { milestones, setMilestones, tasks } = useWorkspace();
   const sizeRef = useRef<HTMLDivElement | null>(null);
@@ -76,6 +78,21 @@ export function MilestonesPanel({
     setIsNew(true);
     setEditing({ id: nextId(), name: "", date: today, linkedTaskIds: [] });
   }
+
+  // One-way signal from the parent (Gantt "Add milestone"): when the nonce
+  // changes to a positive value, open the create modal. Crucially does NOT
+  // auto-open on initial mount (the ref seeds from the first prop value).
+  const prevNonceRef = useRef(openCreateNonce ?? 0);
+  useEffect(() => {
+    const next = openCreateNonce ?? 0;
+    if (next !== prevNonceRef.current) {
+      prevNonceRef.current = next;
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: a one-way parent signal must open the modal on a nonce transition, not at render time
+      if (next > 0) openNew();
+    }
+    // openNew is a stable hoisted declaration; depend only on the nonce.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openCreateNonce]);
 
   function save(next: Milestone) {
     const creating = !milestones.some((m) => m.id === next.id);
