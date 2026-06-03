@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
-  buildChangeByTaskIndex, changeImpactRag, countByStatus, countByType,
+  buildChangeByTaskIndex, changeImpactRag, compareChange, countByStatus, countByType,
   defaultChangeStatus, isPendingChange, isTerminalChangeStatus, nextChangeId,
+  type ChangeSortKey,
 } from "./change-log";
 import type { ChangeItem } from "./types";
 
@@ -51,5 +52,21 @@ describe("change-log helpers", () => {
     const idx = buildChangeByTaskIndex([a, b]);
     expect(idx.get(10)).toHaveLength(1);
     expect(idx.get(20)).toHaveLength(2);
+  });
+});
+
+describe("compareChange", () => {
+  const a = ci({ id: 1, title: "alpha", type: "Scope", impact: "Low", status: "Proposed", requestedBy: "Ann", raisedDate: "2026-06-01", decisionDate: "2026-06-05" });
+  const b = ci({ id: 2, title: "beta", type: "Cost", impact: "Critical", status: "Approved", requestedBy: "Bob", raisedDate: "2026-06-02" });
+  const sorted = (key: ChangeSortKey, dir: "asc" | "desc") => [a, b].slice().sort((x, y) => compareChange(x, y, key, dir));
+  it("sorts by impact rank ascending (Low < Critical)", () => {
+    expect(sorted("impact", "asc").map((x) => x.id)).toEqual([1, 2]);
+  });
+  it("sorts by title descending", () => {
+    expect(sorted("title", "desc").map((x) => x.id)).toEqual([2, 1]);
+  });
+  it("puts a missing decisionDate LAST regardless of direction", () => {
+    expect(sorted("decisionDate", "asc").map((x) => x.id)).toEqual([1, 2]);
+    expect(sorted("decisionDate", "desc").map((x) => x.id)).toEqual([1, 2]);
   });
 });

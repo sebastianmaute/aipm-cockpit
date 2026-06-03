@@ -55,3 +55,35 @@ export function buildChangeByTaskIndex(items: readonly ChangeItem[]): Map<number
   }
   return idx;
 }
+
+export type ChangeSortKey =
+  | "id" | "type" | "title" | "impact" | "status" | "requestedBy" | "raisedDate" | "decisionDate";
+
+const IMPACT_RANK: Record<ChangeImpact, number> = { Low: 1, Medium: 2, High: 3, Critical: 4 };
+
+function changeSortValue(item: ChangeItem, key: ChangeSortKey): string | number {
+  switch (key) {
+    case "id": return item.id;
+    case "type": return CHANGE_TYPES.indexOf(item.type);
+    case "title": return item.title.toLowerCase();
+    case "impact": return item.impact ? IMPACT_RANK[item.impact] : 0;
+    case "status": return CHANGE_STATUSES.indexOf(item.status);
+    case "requestedBy": return (item.requestedBy ?? "").toLowerCase();
+    case "raisedDate": return item.raisedDate ?? "";
+    case "decisionDate": return item.decisionDate ?? "";
+  }
+}
+
+/** Compare two change items by a column. Missing decisionDate always sorts LAST. */
+export function compareChange(a: ChangeItem, b: ChangeItem, key: ChangeSortKey, dir: "asc" | "desc"): number {
+  if (key === "decisionDate") {
+    const av = a.decisionDate ?? "", bv = b.decisionDate ?? "";
+    if (av === "" || bv === "") {
+      if (av === bv) return 0;
+      return av === "" ? 1 : -1;
+    }
+  }
+  const av = changeSortValue(a, key), bv = changeSortValue(b, key);
+  const cmp = typeof av === "number" && typeof bv === "number" ? av - bv : String(av).localeCompare(String(bv));
+  return dir === "asc" ? cmp : -cmp;
+}
