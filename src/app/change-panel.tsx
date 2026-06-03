@@ -7,7 +7,6 @@
 // callback props — the parent owns the canonical `changes` array.
 
 import { memo, useMemo, useState } from "react";
-import { flushSync } from "react-dom";
 import { ChangeEditModal } from "./change-edit-modal";
 import {
   changeImpactRag,
@@ -161,16 +160,12 @@ function ChangePanelInner({
   }
 
   function openEdit(item: ChangeItem) {
-    // flushSync so the editor mounts in the same tick as the click — keeps the
-    // open synchronous for click handlers (and deterministic under test).
-    flushSync(() => {
-      setDraft({
-        ...item,
-        linkedTaskIds: [...item.linkedTaskIds],
-        linkedRaidIds: [...item.linkedRaidIds],
-      });
-      setIsNew(false);
+    setDraft({
+      ...item,
+      linkedTaskIds: [...item.linkedTaskIds],
+      linkedRaidIds: [...item.linkedRaidIds],
     });
+    setIsNew(false);
   }
 
   function closeModal() {

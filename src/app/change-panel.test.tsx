@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { render } from "@testing-library/react";
+import { fireEvent, render } from "@testing-library/react";
 import { ChangePanel } from "./change-panel";
 import type { ChangeItem } from "./types";
 
@@ -24,7 +24,7 @@ describe("ChangePanel", () => {
   });
   it("opens the editor when a row is clicked", () => {
     const { getByText, getByDisplayValue } = render(<ChangePanel {...base} />);
-    getByText("Alpha scope").click();
+    fireEvent.click(getByText("Alpha scope"));
     expect(getByDisplayValue("Alpha scope")).toBeTruthy();
   });
 });
