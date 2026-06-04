@@ -27,4 +27,13 @@ describe("StakeholderReportPanel", () => {
     render(<StakeholderReportPanel embedded lang="en-US" stakeholders={[]} milestones={milestones} />);
     expect(screen.getByText(/no stakeholders/i)).toBeInTheDocument();
   });
+  it("flags a milestone with no Accountable in RACI coverage", () => {
+    const ms = [{ id: 9, name: "Closeout", date: "2026-12-01", linkedTaskIds: [] }];
+    const sh = [
+      { id: 1, name: "Elena", category: "Sponsor", influence: "High", interest: "High", raci: { "9": "C" } },
+    ] as Stakeholder[];
+    render(<StakeholderReportPanel embedded lang="en-US" stakeholders={sh} milestones={ms} />);
+    const row = screen.getByText("Closeout").closest("tr")!;
+    expect(within(row).getByText(/no accountable/i)).toBeInTheDocument();
+  });
 });
