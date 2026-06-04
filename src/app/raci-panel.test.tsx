@@ -25,4 +25,8 @@ describe("RaciPanel", () => {
     render(<RaciPanel lang="en-US" stakeholders={stakeholders} milestones={[]} onSave={vi.fn()} />);
     expect(screen.getByText(/add milestones/i)).toBeInTheDocument();
   });
+  it("renders a reset-size button (resizable pane)", () => {
+    render(<RaciPanel lang="en-US" stakeholders={stakeholders} milestones={milestones} onSave={vi.fn()} />);
+    expect(screen.getByRole("button", { name: /reset back to the default size/i })).toBeInTheDocument();
+  });
 });

@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { TABLE_HEAD_CLASS } from "./table-styles";
-import { VIEW_PANE_CLASS } from "./view-styles";
+import { VIEW_PANE_CLASS, VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { type Lang, t } from "./i18n";
 import {
   buildRaciMatrix,
@@ -11,6 +11,8 @@ import {
   setRaciRole,
 } from "./stakeholders";
 import { RACI_ROLES, type RaciRole, type Stakeholder, type Milestone } from "./types";
+import { useResizable } from "./use-resizable";
+import { ResetSizeButton, ResizeCornerHint } from "./task-manager-ui";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -40,7 +42,9 @@ export function RaciPanel({ lang, stakeholders, milestones, onSave }: RaciPanelP
     return m;
   }, [stakeholders]);
 
-  // Empty states
+  const { ref: paneRef, reset: resetPaneSize } = useResizable("lop-app:raci-size");
+
+  // Empty states — no resize affordance needed
   if (milestones.length === 0) {
     return (
       <div className={`${VIEW_PANE_CLASS} p-10 text-center text-sm text-muted-foreground`}>
@@ -58,12 +62,16 @@ export function RaciPanel({ lang, stakeholders, milestones, onSave }: RaciPanelP
   }
 
   return (
-    <div className={`${VIEW_PANE_CLASS} p-6 print-root`}>
-      <h2 className="mb-4 text-base font-semibold text-foreground">
-        {t(lang, "stakeholderRaciTitle")}
-      </h2>
+    <div ref={paneRef} className={`${VIEW_PANE_RESIZABLE_CLASS} print-root`}>
+      <div className="mb-2 flex shrink-0 flex-wrap items-center gap-2">
+        <h2 className="text-base font-semibold text-foreground">
+          {t(lang, "stakeholderRaciTitle")}
+        </h2>
+        <span className="ml-auto" />
+        <ResetSizeButton onClick={resetPaneSize} lang={lang} />
+      </div>
 
-      <div className="overflow-x-auto rounded-md border border-line">
+      <div className="min-h-0 flex-1 overflow-auto rounded-md border border-line">
         <table className="min-w-full text-left text-sm">
           <thead className={TABLE_HEAD_CLASS}>
             <tr>
@@ -129,7 +137,8 @@ export function RaciPanel({ lang, stakeholders, milestones, onSave }: RaciPanelP
         </table>
       </div>
 
-      <p className="mt-3 text-xs text-muted-foreground">{t(lang, "raciLegend")}</p>
+      <p className="mt-3 shrink-0 text-xs text-muted-foreground">{t(lang, "raciLegend")}</p>
+      <ResizeCornerHint lang={lang} />
     </div>
   );
 }
