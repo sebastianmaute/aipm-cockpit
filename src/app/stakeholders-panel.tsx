@@ -161,8 +161,6 @@ function StakeholdersPanelInner({
 
   const toolbar = (
     <div className="mb-2 flex shrink-0 flex-wrap items-center gap-2">
-      {/* aria-label provides the accessible name so getByRole("button",{name:/add stakeholder/i}) works;
-          visible text is "+" so getByText(/add stakeholder/i) only finds the modal <h2> when open. */}
       <button
         type="button"
         onClick={openNew}
@@ -170,7 +168,7 @@ function StakeholdersPanelInner({
         title={t(lang, "stakeholdersAdd")}
         className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90"
       >
-        +
+        + {t(lang, "stakeholdersAdd")}
       </button>
       <input
         type="search"
