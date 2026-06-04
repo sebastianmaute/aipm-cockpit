@@ -5,7 +5,7 @@ import "fake-indexeddb/auto";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { IDBFactory } from "fake-indexeddb";
 import { createBackend, emptyWorkspace } from "./storage";
-import type { ChangeItem, Milestone, ProjectStatus } from "./types";
+import type { ChangeItem, Milestone, ProjectStatus, Stakeholder } from "./types";
 
 const change: ChangeItem = {
   id: 1, title: "Widen scope", description: "add module", type: "Scope", status: "Approved",
@@ -17,6 +17,11 @@ const milestone: Milestone = {
   id: 2, name: "Go live", date: "2026-12-01", linkedTaskIds: [5],
 };
 const status: ProjectStatus = { ragOverride: "R", narrative: "x" };
+const stakeholder: Stakeholder = {
+  id: 3, name: "Dana", organization: "Acme", category: "Sponsor",
+  influence: "High", interest: "High", raci: { "2": "A" },
+  localModifiedAt: "2026-06-09T10:00:00.000Z",
+};
 
 describe("BrowserBackend KV persistence", () => {
   beforeEach(() => {
@@ -27,8 +32,8 @@ describe("BrowserBackend KV persistence", () => {
     globalThis.indexedDB = new IDBFactory();
   });
 
-  it("round-trips changes, milestones, and status across a fresh load", async () => {
-    const ws = { ...emptyWorkspace(), changes: [change], milestones: [milestone], status };
+  it("round-trips changes, milestones, status, and stakeholders across a fresh load", async () => {
+    const ws = { ...emptyWorkspace(), changes: [change], milestones: [milestone], status, stakeholders: [stakeholder] };
 
     await createBackend({ kind: "browser" }).save(ws);
 
@@ -38,5 +43,7 @@ describe("BrowserBackend KV persistence", () => {
     expect(loaded.milestones).toHaveLength(1);
     expect(loaded.milestones?.[0]).toMatchObject({ id: 2, name: "Go live" });
     expect(loaded.status).toMatchObject({ ragOverride: "R", narrative: "x" });
+    expect(loaded.stakeholders).toHaveLength(1);
+    expect(loaded.stakeholders?.[0]).toMatchObject({ id: 3, name: "Dana", category: "Sponsor", raci: { "2": "A" } });
   });
 });

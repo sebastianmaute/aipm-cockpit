@@ -26,6 +26,7 @@ import {
   type ResourcePlan,
   type Role,
   type Shift,
+  type Stakeholder,
   type Task,
 } from "./types";
 
@@ -67,6 +68,9 @@ interface WorkspaceValue {
   setMilestones: Dispatch<SetStateAction<Milestone[]>>;
   changes: ChangeItem[];
   setChanges: Dispatch<SetStateAction<ChangeItem[]>>;
+
+  stakeholders: Stakeholder[];
+  setStakeholders: Dispatch<SetStateAction<Stakeholder[]>>;
 }
 
 const WorkspaceContext = createContext<WorkspaceValue | undefined>(undefined);
@@ -86,6 +90,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<ProjectStatus>({});
   const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [changes, setChanges] = useState<ChangeItem[]>([]);
+  const [stakeholders, setStakeholders] = useState<Stakeholder[]>([]);
   const {
     searchDebounced,
     priorityFilter,
@@ -235,6 +240,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     status, setStatus,
     milestones, setMilestones,
     changes, setChanges,
+    stakeholders, setStakeholders,
   };
 
   return (

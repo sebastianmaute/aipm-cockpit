@@ -254,6 +254,7 @@ const KV_FXRATES_KEY = "fx-rates";
 const KV_STATUS_KEY = "project-status";
 const KV_MILESTONES_KEY = "milestones";
 const KV_CHANGES_KEY = "changes";
+const KV_STAKEHOLDERS_KEY = "stakeholders";
 
 function openIdb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -2671,6 +2672,7 @@ class BrowserBackend implements StorageBackend {
     let status: ProjectStatus = {};
     let milestones: Milestone[] = [];
     let changes: ChangeItem[] = [];
+    let stakeholders: Stakeholder[] = [];
     try {
       tasks = await idbGetAll<Task>(IDB_TASKS_STORE);
       raid = await idbGetAll<RaidItem>(IDB_RAID_STORE);
@@ -2686,6 +2688,7 @@ class BrowserBackend implements StorageBackend {
       status = (await idbGet<ProjectStatus>(KV_STATUS_KEY)) ?? {};
       milestones = (await idbGet<Milestone[]>(KV_MILESTONES_KEY)) ?? [];
       changes = (await idbGet<ChangeItem[]>(KV_CHANGES_KEY)) ?? [];
+      stakeholders = (await idbGet<Stakeholder[]>(KV_STAKEHOLDERS_KEY)) ?? [];
     } catch {
       // IDB unavailable or upgrade failed. Fall through — the legacy
       // migration block below will still try localStorage, and if that's
@@ -2700,7 +2703,7 @@ class BrowserBackend implements StorageBackend {
       // from the (possibly successful) idbGetAll attempts above.
     }
 
-    const raw: Workspace = { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, milestones, changes };
+    const raw: Workspace = { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, milestones, changes, stakeholders };
     const ws = migrateWorkspaceV8(raw);
 
     try {
@@ -2813,6 +2816,7 @@ class BrowserBackend implements StorageBackend {
     await idbSet(KV_STATUS_KEY, ws.status ?? {});
     await idbSet(KV_MILESTONES_KEY, ws.milestones ?? []);
     await idbSet(KV_CHANGES_KEY, ws.changes ?? []);
+    await idbSet(KV_STAKEHOLDERS_KEY, ws.stakeholders ?? []);
 
     // Refresh baselines so the next save's diff is computed against what's
     // actually in IDB. Rebuilding the maps is O(N) but only runs after a
