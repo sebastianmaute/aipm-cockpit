@@ -145,3 +145,21 @@ export function slugToView(slug: string): AppView {
   const found = allNavViews().find((v) => viewToSlug(v) === slug);
   return found ?? "open-points";
 }
+
+/** Parse a URL hash into a view + optional trailing numeric item id.
+ *  Forms: "#raid" -> {view:"raid", itemId:null}; "#raid/123" -> {itemId:123}. */
+export function parseHash(raw: string): { view: AppView; itemId: number | null } {
+  const stripped = raw.replace(/^#/, "");
+  const slash = stripped.indexOf("/");
+  const slug = slash === -1 ? stripped : stripped.slice(0, slash);
+  const idPart = slash === -1 ? "" : stripped.slice(slash + 1);
+  const view = slugToView(slug);
+  const itemId = /^\d+$/.test(idPart) ? Number(idPart) : null;
+  return { view, itemId };
+}
+
+/** Build a hash for a view, with an optional item id suffix. */
+export function buildHash(view: AppView, itemId?: number | null): string {
+  const slug = viewToSlug(view);
+  return itemId != null ? `#${slug}/${itemId}` : `#${slug}`;
+}

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   NAV_GROUPS, viewToSlug, slugToView, navLabelKey, allNavViews, subTabsFor,
+  parseHash, buildHash,
   type AppView,
 } from "./nav-config";
 
@@ -95,5 +96,25 @@ describe("stakeholders nav", () => {
     expect(views).toContain("stakeholder-map");
     expect(subTabsFor("stakeholders").map((c) => c.view)).toEqual(["raci", "stakeholder-map"]);
     expect(navLabelKey("stakeholders")).toBe("navStakeholders");
+  });
+});
+
+describe("parseHash / buildHash", () => {
+  it("parses a bare view slug", () => {
+    expect(parseHash("#raid")).toEqual({ view: "raid", itemId: null });
+  });
+  it("parses a view slug with an item id", () => {
+    expect(parseHash("#raid/123")).toEqual({ view: "raid", itemId: 123 });
+  });
+  it("ignores a non-numeric id", () => {
+    expect(parseHash("#raid/abc")).toEqual({ view: "raid", itemId: null });
+  });
+  it("falls back to open-points for unknown views", () => {
+    expect(parseHash("")).toEqual({ view: "open-points", itemId: null });
+  });
+  it("builds both forms", () => {
+    expect(buildHash("raid")).toBe("#raid");
+    expect(buildHash("raid", 123)).toBe("#raid/123");
+    expect(buildHash("raid", null)).toBe("#raid");
   });
 });
