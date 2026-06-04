@@ -49,7 +49,7 @@ export function RegistersBand({
 }) {
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className={`grid gap-4 ${showRaid ? "md:grid-cols-2" : "md:grid-cols-1"}`}>
         {showRaid && (
           <Section title={t(lang, "dashboardTopRaid")} boxed>
             {topRaid.length === 0 ? (

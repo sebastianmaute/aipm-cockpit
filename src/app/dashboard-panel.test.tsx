@@ -7,6 +7,7 @@ import { WorkspaceProvider } from "./workspace-context";
 import { DashboardPanel } from "./dashboard-panel";
 import { RegistersBand } from "./dashboard-sections/registers-band";
 import { healthText } from "./health";
+import type { RaidItem, Milestone, ChangeItem } from "./types";
 
 vi.mock("./activity-log", async (orig) => ({
   ...(await orig<typeof import("./activity-log")>()),
@@ -295,7 +296,7 @@ const fullProps = {
   tasks: [],
   raid: [
     { id: 1, category: "R", title: "A risk", status: "Open", linkedTaskIds: [], raisedDate: "2026-01-01", causedByRaidIds: [] },
-  ] as never[],
+  ] as RaidItem[],
   budgets: minimalBudget as never[],
   plan,
   roles: [],
@@ -305,14 +306,14 @@ const fullProps = {
   workdayHours: 8,
   today: "2026-06-02",
   milestones: [
-    { id: 1, name: "Go-Live", date: "2026-06-01", status: "At Risk", linkedTaskIds: [], linkedRaidIds: [] },
-  ] as never[],
+    { id: 1, name: "Go-Live", date: "2026-06-01", linkedTaskIds: [] },
+  ] as Milestone[],
   changes: [
     {
       id: 1, title: "Scope change", description: "", type: "Scope", status: "Proposed",
       impact: "High", raisedDate: "2026-05-01", linkedTaskIds: [], linkedRaidIds: [],
     },
-  ] as never[],
+  ] as ChangeItem[],
 };
 
 describe("DashboardPanel module visibility gates (Task 8)", () => {
@@ -334,6 +335,7 @@ describe("DashboardPanel module visibility gates (Task 8)", () => {
   it("hides RAID section when showRaid is false", () => {
     render(<DashboardPanel {...fullProps} showRaid={false} />, { wrapper });
     expect(screen.queryByText("Top open RAID")).toBeNull();
+    expect(screen.queryByText("A risk")).toBeNull();
   });
 
   it("hides Milestones section when showMilestones is false", () => {
