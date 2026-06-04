@@ -208,7 +208,7 @@ function ChangePanelInner({
         onClick={openNew}
         className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90"
       >
-        {t(lang, "changesAdd")}
+        + {t(lang, "changesAdd")}
       </button>
       <input
         type="search"
