@@ -100,7 +100,7 @@ function TaskManagerInner() {
     resetColWidths,
     startColResize,
   } = useColumnManager();
-  const { isPopout, activeTab, setActiveTab } = useWorkspaceTab();
+  const { isPopout, activeTab, setActiveTab, requestOpen } = useWorkspaceTab();
   useHashView(settings.layout === "modern");
   // Classic mode has no panel for the modern-only views; fall back to chat.
   useEffect(() => {
@@ -660,11 +660,7 @@ function TaskManagerInner() {
     [tasks, setDueModalOpen, openEditModal],
   );
 
-  const onSelectRaidReview = useCallback(() => {
-    setActiveTab("raid");
-    handleClearRaidTaskFilter();
-    setWorkspaceCollapsed((prev) => (prev ? false : prev));
-  }, [setActiveTab, handleClearRaidTaskFilter, setWorkspaceCollapsed]);
+  const openRaidItem = useCallback((id: number) => requestOpen("raid", id), [requestOpen]);
 
   const dispatcher = useChatDispatcher({
     settings,
@@ -1009,7 +1005,7 @@ function TaskManagerInner() {
           items={raidReviewItems}
           lang={lang}
           onClose={() => setRaidReviewModalOpen(false)}
-          onSelectRaid={() => { setRaidReviewModalOpen(false); onSelectRaidReview(); }}
+          onSelectRaid={(id) => { setRaidReviewModalOpen(false); openRaidItem(id); }}
         />
       )}
     </>
