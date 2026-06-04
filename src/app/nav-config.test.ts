@@ -132,6 +132,8 @@ describe("filterNavGroups", () => {
     expect(views).not.toContain("raid");
     // The "Plan" group has no core items, so it disappears entirely.
     expect(groups.some((g) => g.labelKey === "navGroupPlan")).toBe(false);
+    const openPoints = groups.flatMap((g) => g.items).find((i) => i.view === "open-points");
+    expect(openPoints?.children).toBeUndefined();
   });
 
   it("enabling a module restores its parent and children", () => {

@@ -124,7 +124,9 @@ export function filterNavGroups(features: readonly FeatureModuleId[]): NavGroup[
       .filter((item) => isViewEnabled(item.view, features))
       .map((item) => ({
         ...item,
-        children: (item.children ?? []).filter((c) => isViewEnabled(c.view, features)),
+        children: item.children
+          ? item.children.filter((c) => isViewEnabled(c.view, features))
+          : undefined,
       })),
   })).filter((group) => group.items.length > 0);
 }
