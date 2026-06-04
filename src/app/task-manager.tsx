@@ -225,7 +225,8 @@ function TaskManagerInner() {
   // main window with recording enabled; the hook is a no-op otherwise.
   const snapshotsCfg = settings.snapshots ?? defaultSnapshotSettings;
   const trendsActive =
-    settings.storageConfig.kind === "turso" && !isPopout && snapshotsCfg.enabled;
+    settings.storageConfig.kind === "turso" && !isPopout && snapshotsCfg.enabled &&
+    isModuleEnabled("trends", settings.features);
   const tursoConfig = getTursoConfig(
     settings.integrations?.turso?.databaseUrl,
     settings.integrations?.turso?.authToken,
@@ -265,7 +266,7 @@ function TaskManagerInner() {
   const trends = { ...snapshots, active: trendsActive };
 
   const { bannerDismissed, setBannerDismissed, dueModalOpen, setDueModalOpen, raidReviewModalOpen, setRaidReviewModalOpen } =
-    useDueAlerts({ hydrated, tasks, holidaySet, absences, settings, today, showToast, raid });
+    useDueAlerts({ hydrated, tasks, holidaySet, absences, settings, today, showToast, raid, raidEnabled: isModuleEnabled("raid", settings.features) });
 
   const { birthdayDismissed, setBirthdayDismissed } = useBirthdayAlerts({
     hydrated, resources, today, settings, holidaySet, absences, showToast,
@@ -619,10 +620,10 @@ function TaskManagerInner() {
   );
 
   const raidReviewItems = useMemo(
-    () => settings.notifications.raidReview.enabled
+    () => isModuleEnabled("raid", settings.features) && settings.notifications.raidReview.enabled
       ? getRaidReviewItems(raid, today, settings.notifications.raidReviewIntervalDays)
       : [],
-    [raid, today, settings.notifications.raidReview, settings.notifications.raidReviewIntervalDays],
+    [raid, today, settings.notifications.raidReview, settings.notifications.raidReviewIntervalDays, settings.features],
   );
 
   const dueModalItems = useMemo(() => {
