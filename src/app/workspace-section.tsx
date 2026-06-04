@@ -591,7 +591,6 @@ export function WorkspaceSection({
               stakeholders={stakeholders}
               resources={resources}
               milestones={milestones}
-              today={today}
               onSave={handleSaveStakeholder}
               onDelete={handleDeleteStakeholder}
             />

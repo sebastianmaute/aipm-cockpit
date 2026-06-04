@@ -11,7 +11,6 @@ import { compareStakeholder, nextStakeholderId, type StakeholderSortKey } from "
 import { type Lang, t, type TranslationKey } from "./i18n";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import {
-  STAKEHOLDER_CATEGORIES,
   type InfluenceInterest,
   type Milestone,
   type Resource,
@@ -45,7 +44,6 @@ export interface StakeholdersPanelProps {
   stakeholders: readonly Stakeholder[];
   resources: readonly Resource[];
   milestones: readonly Milestone[];
-  today: string;
   onSave: (item: Stakeholder) => void;
   onDelete: (id: number) => void;
 }
@@ -90,7 +88,6 @@ function StakeholdersPanelInner({
   stakeholders,
   resources,
   milestones,
-  today,
   onSave,
   onDelete,
 }: StakeholdersPanelProps) {

@@ -10,7 +10,7 @@ const items: Stakeholder[] = [
 
 function setup() {
   const props = {
-    lang: "en-US" as const, stakeholders: items, resources: [], milestones: [], today: "2026-06-04",
+    lang: "en-US" as const, stakeholders: items, resources: [], milestones: [],
     onSave: vi.fn(), onDelete: vi.fn(),
   };
   render(<StakeholdersPanel {...props} />);
