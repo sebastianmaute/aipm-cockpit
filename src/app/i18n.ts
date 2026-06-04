@@ -1342,6 +1342,7 @@ const enUS = {
   helpSearchPlaceholder: "Search help",
   helpSearchNoResults: "No help topics match your search.",
   dashboardStatusSave: "Save",
+  dashboardStatusClear: "Clear",
   notifRaidReview: "RAID review reminders",
   notifRaidReviewTooltip: "Nudge when RAID items are past their target date or have not been reviewed within the interval.",
   raidReviewIntervalDays: "RAID review interval (days)",

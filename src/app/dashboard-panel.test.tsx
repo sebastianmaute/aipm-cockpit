@@ -219,6 +219,58 @@ describe("DashboardPanel RAG polish (Task 3)", () => {
   });
 });
 
+describe("DashboardPanel status narrative Clear button", () => {
+  it("Clear empties and persists the status narrative", async () => {
+    const user = userEvent.setup();
+    render(
+      <DashboardPanel
+        lang="en-US"
+        tasks={[]}
+        raid={[]}
+        budgets={[]}
+        plan={plan}
+        roles={[]}
+        resources={[]}
+        absences={[]}
+        holidaySet={new Set<string>()}
+        workdayHours={8}
+        today="2026-06-02"
+      />,
+      { wrapper },
+    );
+    // Seed a non-empty narrative via the textarea + Save
+    const textarea = screen.getByRole("textbox");
+    await user.type(textarea, "Some narrative text");
+    await user.click(screen.getByRole("button", { name: /save/i }));
+    // Now the Clear button should be enabled (narrative is non-empty)
+    const clearBtn = screen.getByRole("button", { name: /clear/i });
+    expect(clearBtn).not.toBeDisabled();
+    await user.click(clearBtn);
+    expect((screen.getByRole("textbox") as HTMLTextAreaElement).value).toBe("");
+  });
+
+  it("Clear is disabled when the narrative is already empty", () => {
+    render(
+      <DashboardPanel
+        lang="en-US"
+        tasks={[]}
+        raid={[]}
+        budgets={[]}
+        plan={plan}
+        roles={[]}
+        resources={[]}
+        absences={[]}
+        holidaySet={new Set<string>()}
+        workdayHours={8}
+        today="2026-06-02"
+      />,
+      { wrapper },
+    );
+    const clearBtn = screen.getByRole("button", { name: /clear/i });
+    expect(clearBtn).toBeDisabled();
+  });
+});
+
 describe("RegistersBand link styling", () => {
   it("uses the directory hover affordance, not underline", () => {
     render(

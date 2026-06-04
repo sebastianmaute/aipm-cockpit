@@ -1360,6 +1360,7 @@ export const de: Record<TranslationKey, string> = {
   helpSearchPlaceholder: "Hilfe durchsuchen",
   helpSearchNoResults: "Keine Hilfethemen passen zur Suche.",
   dashboardStatusSave: "Speichern",
+  dashboardStatusClear: "Leeren",
   notifRaidReview: "RAID-Pruefungserinnerungen",
   notifRaidReviewTooltip: "Hinweis, wenn RAID-Eintraege ihr Zieldatum ueberschritten haben oder nicht innerhalb des Intervalls geprueft wurden.",
   raidReviewIntervalDays: "RAID-Pruefintervall (Tage)",
