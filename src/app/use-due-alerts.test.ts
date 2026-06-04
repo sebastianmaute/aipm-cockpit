@@ -207,9 +207,6 @@ describe("useDueAlerts", () => {
       await Promise.resolve();
     });
     expect(result.current.raidReviewModalOpen).toBe(false);
-    expect(showToast).not.toHaveBeenCalledWith(
-      "info",
-      expect.stringMatching(/RAID review due/i)
-    );
+    expect(showToast).not.toHaveBeenCalled();
   });
 });

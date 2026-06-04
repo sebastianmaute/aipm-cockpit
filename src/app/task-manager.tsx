@@ -265,8 +265,10 @@ function TaskManagerInner() {
   });
   const trends = { ...snapshots, active: trendsActive };
 
+  const raidEnabled = isModuleEnabled("raid", settings.features);
+
   const { bannerDismissed, setBannerDismissed, dueModalOpen, setDueModalOpen, raidReviewModalOpen, setRaidReviewModalOpen } =
-    useDueAlerts({ hydrated, tasks, holidaySet, absences, settings, today, showToast, raid, raidEnabled: isModuleEnabled("raid", settings.features) });
+    useDueAlerts({ hydrated, tasks, holidaySet, absences, settings, today, showToast, raid, raidEnabled });
 
   const { birthdayDismissed, setBirthdayDismissed } = useBirthdayAlerts({
     hydrated, resources, today, settings, holidaySet, absences, showToast,
@@ -620,10 +622,10 @@ function TaskManagerInner() {
   );
 
   const raidReviewItems = useMemo(
-    () => isModuleEnabled("raid", settings.features) && settings.notifications.raidReview.enabled
+    () => raidEnabled && settings.notifications.raidReview.enabled
       ? getRaidReviewItems(raid, today, settings.notifications.raidReviewIntervalDays)
       : [],
-    [raid, today, settings.notifications.raidReview, settings.notifications.raidReviewIntervalDays, settings.features],
+    [raidEnabled, raid, today, settings.notifications.raidReview, settings.notifications.raidReviewIntervalDays],
   );
 
   const dueModalItems = useMemo(() => {
