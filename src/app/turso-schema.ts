@@ -8,18 +8,19 @@
 import {
   CSV_COLUMNS, RAID_CSV_COLUMNS, ABSENCES_CSV_COLUMNS, SHIFTS_CSV_COLUMNS,
   RESOURCES_CSV_COLUMNS, ROLES_CSV_COLUMNS, REF_CSV_COLUMNS, BUDGETS_CSV_COLUMNS,
-  MILESTONES_CSV_COLUMNS, CHANGES_CSV_COLUMNS,
+  MILESTONES_CSV_COLUMNS, CHANGES_CSV_COLUMNS, STAKEHOLDERS_CSV_COLUMNS,
   fieldToString, raidFieldToString, absenceFieldToString, shiftFieldToString,
   resourceFieldToString, budgetFieldToString, milestoneFieldToString, buildTaskFromObj, buildRaidItemFromObj,
   buildMilestoneFromObj, changeFieldToString, buildChangeFromObj,
-  decodeRatesMap, emptyWorkspace, migrateWorkspaceV7, sanitizeProjectStatus, type Workspace,
+  stakeholderFieldToString, buildStakeholderFromObj,
+  decodeRatesMap, emptyWorkspace, migrateWorkspaceV8, sanitizeProjectStatus, type Workspace,
 } from "./storage";
 import {
   sanitizeResource, sanitizeRole, sanitizeBudgetBucket, sanitizeDiscipline,
   sanitizeGrade, sanitizeAbsence, sanitizeShift, sanitizeFxRates, sanitizePlan,
 } from "./sanitize";
 import type {
-  Task, RaidItem, Absence, Shift, Resource, Role, Discipline, Grade, BudgetBucket, Milestone, ChangeItem,
+  Task, RaidItem, Absence, Shift, Resource, Role, Discipline, Grade, BudgetBucket, Milestone, ChangeItem, Stakeholder,
 } from "./types";
 
 interface SqlArg { type: "text" | "integer" | "null"; value?: string }
@@ -57,6 +58,7 @@ const ENTITY_SPECS: EntitySpec<unknown>[] = [
   spec<BudgetBucket>({ table: "budget_buckets", wsKey: "budgets", columns: BUDGETS_CSV_COLUMNS, get: (w) => w.budgets ?? [], toRow: budgetFieldToString, fromObj: sanitizeBudgetBucket }),
   spec<Milestone>({ table: "milestones", wsKey: "milestones", columns: MILESTONES_CSV_COLUMNS, get: (w) => w.milestones ?? [], toRow: milestoneFieldToString as unknown as (e: Milestone, col: string) => string, fromObj: buildMilestoneFromObj }),
   spec<ChangeItem>({ table: "changes", wsKey: "changes", columns: CHANGES_CSV_COLUMNS, get: (w) => w.changes ?? [], toRow: changeFieldToString as unknown as (e: ChangeItem, col: string) => string, fromObj: buildChangeFromObj }),
+  spec<Stakeholder>({ table: "stakeholders", wsKey: "stakeholders", columns: STAKEHOLDERS_CSV_COLUMNS, get: (w) => w.stakeholders ?? [], toRow: stakeholderFieldToString as unknown as (e: Stakeholder, col: string) => string, fromObj: buildStakeholderFromObj }),
 ] as unknown as EntitySpec<unknown>[];
 
 const PLAN_COLUMNS = ["startDate", "endDate", "granularity", "currency"] as const;
@@ -121,7 +123,7 @@ export function rowsToWorkspace(results: PipelineResultLike[]): Workspace {
       // malformed — leave the emptyWorkspace() default
     }
   }
-  return migrateWorkspaceV7(ws);
+  return migrateWorkspaceV8(ws);
 }
 
 const SCHEMA_VERSION = "7";

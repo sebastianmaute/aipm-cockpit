@@ -124,3 +124,25 @@ describe("changes turso table", () => {
     expect(SCHEMA_DDL.some((d) => /CREATE TABLE IF NOT EXISTS changes \(/.test(d))).toBe(true);
   });
 });
+
+describe("stakeholders turso table", () => {
+  it("registers a 'stakeholders' table in TABLE_NAMES", () => {
+    expect(TABLE_NAMES).toContain("stakeholders");
+  });
+
+  it("full round-trip restores stakeholders", () => {
+    const sample = {
+      id: 1, name: "Sponsor Sam", organization: "Acme", title: "VP",
+      email: "sam@acme.test", category: "Sponsor", influence: "High",
+      interest: "Medium", notes: "key approver", resourceId: 4,
+      raci: { "10": "A", "12": "C" }, localModifiedAt: "2026-06-04T00:00:00.000Z",
+    };
+    const ws = { ...emptyWorkspace(), stakeholders: [sample as never] };
+    const back = rowsToWorkspace(resultsFromStatements(workspaceToStatements(ws)));
+    expect(back.stakeholders).toHaveLength(1);
+    expect(back.stakeholders![0].id).toBe(1);
+    expect(back.stakeholders![0].name).toBe("Sponsor Sam");
+    expect(back.stakeholders![0].raci).toEqual({ "10": "A", "12": "C" });
+    expect(back.stakeholders![0].resourceId).toBe(4);
+  });
+});
