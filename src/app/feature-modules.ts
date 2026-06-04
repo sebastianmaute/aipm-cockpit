@@ -17,7 +17,7 @@ export interface FeatureModule {
   id: FeatureModuleId;
   labelKey: TranslationKey;
   /** Parent view + every child view this module owns. The parent view id equals the module id. */
-  views: AppView[];
+  views: readonly AppView[];
   /** The addable report this module unlocks, if any. */
   report?: AddableReportId;
 }
@@ -66,7 +66,8 @@ const VIEW_TO_MODULE = new Map<AppView, FeatureModuleId>(
   FEATURE_MODULES.flatMap((m) => m.views.map((v) => [v, m.id] as const)),
 );
 
-/** undefined (legacy, no key) -> all modules; arrays kept (incl. []), filtered to valid ids in registry order. */
+/** undefined (legacy, no key) -> all modules; a non-array (junk) -> []; arrays kept
+ *  (incl. []), filtered to valid ids only, unique, in registry order. */
 export function sanitizeFeatures(raw: unknown): FeatureModuleId[] {
   if (raw === undefined) return [...ALL_MODULE_IDS];
   if (!Array.isArray(raw)) return [];
@@ -94,6 +95,9 @@ export function isViewEnabled(view: AppView, features: readonly FeatureModuleId[
   return features.includes(mod);
 }
 
+/** Views to render in navigation: core sidebar views (excluding the non-navigable
+ *  `edit` full-page editor and `settings`, which are reached by other means) plus
+ *  every enabled module's views. */
 export function enabledNavViews(features: readonly FeatureModuleId[]): AppView[] {
   const core = CORE_VIEWS.filter((v) => v !== "edit" && v !== "settings");
   const moduleViews = features.flatMap((id) => MODULE_BY_ID.get(id)?.views ?? []);

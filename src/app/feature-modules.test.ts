@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { AppView } from "./nav-config";
 import {
   ALL_MODULE_IDS,
   CORE_VIEWS,
@@ -8,6 +9,7 @@ import {
   isModuleEnabled,
   isViewEnabled,
   moduleForView,
+  reportForModule,
   sanitizeFeatures,
   visibleReports,
 } from "./feature-modules";
@@ -19,7 +21,7 @@ describe("feature-modules registry", () => {
   });
 
   it("every module's parent view appears in its views list", () => {
-    for (const m of FEATURE_MODULES) expect(m.views).toContain(m.id as never);
+    for (const m of FEATURE_MODULES) expect(m.views).toContain(m.id as AppView);
   });
 });
 
@@ -76,6 +78,15 @@ describe("isModuleEnabled / moduleForView / enabledNavViews", () => {
     expect(views).toContain("budget");
     expect(views).toContain("budget-report");
     expect(views).not.toContain("raid");
+    expect(views).not.toContain("edit");
+    expect(views).not.toContain("settings");
+  });
+});
+
+describe("reportForModule", () => {
+  it("returns the module's report id or null", () => {
+    expect(reportForModule("budget")).toBe("budget-report");
+    expect(reportForModule("gantt")).toBeNull();
   });
 });
 
