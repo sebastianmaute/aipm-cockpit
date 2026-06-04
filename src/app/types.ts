@@ -223,6 +223,42 @@ export type ChangeItem = {
   localModifiedAt?: string;
 };
 
+// ----------------------------------------------------------------------------
+// Stakeholder register + RACI.
+//
+// A first-class workspace entity (sibling to RaidItem / ChangeItem). Optional
+// `resourceId` links an internal stakeholder to a Resource. RACI assignments
+// are embedded as a per-milestone map (milestoneId -> letter), serialized the
+// same way Resource.utilization is (no second entity).
+
+export const RACI_ROLES = ["R", "A", "C", "I"] as const; // Responsible / Accountable / Consulted / Informed
+export type RaciRole = (typeof RACI_ROLES)[number];
+
+export const STAKEHOLDER_CATEGORIES = [
+  "Internal", "Customer", "Vendor", "Sponsor", "Regulator", "Other",
+] as const;
+export type StakeholderCategory = (typeof STAKEHOLDER_CATEGORIES)[number];
+
+export type InfluenceInterest = "Low" | "Medium" | "High";
+export const INFLUENCE_INTEREST_LEVELS: InfluenceInterest[] = ["Low", "Medium", "High"];
+
+export type Stakeholder = {
+  id: number;
+  name: string;
+  organization?: string;
+  title?: string;
+  email?: string;
+  category: StakeholderCategory;
+  influence: InfluenceInterest;
+  interest: InfluenceInterest;
+  notes?: string;
+  /** Optional FK -> Resource.id; null/absent for purely-external stakeholders. */
+  resourceId?: number | null;
+  /** milestoneId (string key) -> RACI letter. Sparse; orphan keys filtered at render. */
+  raci: Record<string, RaciRole>;
+  localModifiedAt?: string;
+};
+
 /** Project-level status overrides + PM narrative for the health dashboard.
  *  RAG fields use the same "R" | "A" | "G" literal as Task.healthOverride to
  *  avoid a circular import with health.ts. Absent override = use the computed
