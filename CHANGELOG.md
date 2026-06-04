@@ -8,6 +8,20 @@ Authoritative source for version + build date: [`src/app/version.ts`](src/app/ve
 This file is seeded from that module's milestone comment plus the
 post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-diff.txt).
 
+## [0.54.0] — 2026-06-04 "Herbert"
+
+### Added
+- **Simple / Modular / Advanced mode** via Settings → Mode: per-module checkboxes, Simple and Advanced presets, and a derived mode badge showing the current state.
+- Explicit **Save & reload** triggers a full page reload so navigation and automation settle on the new feature set.
+- **Disabled modules retain data** but pause automation: RAID-review alerts and Turso snapshot capture are suppressed while the relevant module is off.
+- Dashboard hides its top-band **Budget and Scope pills** and module-specific sections when the corresponding module is disabled.
+- Gantt hides **milestone overlays** when the Milestones module is off.
+- Change editor hides the **Change → RAID link** control when the RAID module is off.
+- **Reports picker and report cards** respect the enabled module set (disabled-module reports are excluded).
+- Navigation gated in both the **modern sidebar** and the **classic tab strip**.
+- Default mode is **Advanced** (all modules on); legacy settings migrate automatically to all-on.
+- New pure module `feature-modules.ts` (module registry + helpers) and `settings-sections/mode-section.tsx` (Mode settings UI).
+
 ## [0.53.0] — 2026-06-04 "Asimov"
 
 ### Added

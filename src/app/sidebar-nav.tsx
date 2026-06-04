@@ -1,6 +1,6 @@
 "use client";
 import { type Lang, t } from "./i18n";
-import { NAV_GROUPS, navLabelKey, type AppView, type NavItem } from "./nav-config";
+import { NAV_GROUPS, navLabelKey, type AppView, type NavGroup, type NavItem } from "./nav-config";
 import { NavIcon } from "./nav-icons";
 
 interface SidebarNavProps {
@@ -10,6 +10,8 @@ interface SidebarNavProps {
   // When collapsed the sidebar is an icon-only rail: group headers and child
   // lists are hidden and item labels move to aria-label/title.
   collapsed?: boolean;
+  /** Override the default NAV_GROUPS with a pre-filtered list. */
+  navGroups?: NavGroup[];
 }
 
 function isParentActive(item: NavItem, active: AppView): boolean {
@@ -31,10 +33,10 @@ function navItemClass(active: boolean, indent: "root" | "child", collapsed: bool
   return base + spacing + state;
 }
 
-export function SidebarNav({ lang, activeView, onNavigate, collapsed = false }: SidebarNavProps) {
+export function SidebarNav({ lang, activeView, onNavigate, collapsed = false, navGroups }: SidebarNavProps) {
   return (
     <nav aria-label={t(lang, "navPrimaryLabel")} className="flex flex-col gap-4 py-2">
-      {NAV_GROUPS.map((group) => (
+      {(navGroups ?? NAV_GROUPS).map((group) => (
         <div key={group.labelKey}>
           {!collapsed && (
             <p className="px-4 pb-1 text-[11px] font-semibold uppercase tracking-wider text-AIPM-medium-grey">

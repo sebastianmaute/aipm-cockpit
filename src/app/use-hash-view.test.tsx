@@ -87,4 +87,42 @@ describe("useHashView", () => {
     expect(screen.getByTestId("tab")).toHaveTextContent("raid");
     expect(seen.at(-1)).toEqual({ view: "raid", id: 123 });
   });
+
+  it("ignores a hash pointing at a disabled-module view", () => {
+    window.location.hash = "#raid/123";
+    // features list excludes "raid" — the hook must not navigate to it
+    const features: import("./feature-modules").FeatureModuleId[] = [];
+    const seen: Array<string> = [];
+    function Probe() {
+      useHashView(true, features);
+      const { activeTab } = useWorkspaceTab();
+      seen.push(activeTab);
+      return <span data-testid="tab">{activeTab}</span>;
+    }
+    render(<WorkspaceTabProvider><Probe /></WorkspaceTabProvider>);
+    // activeTab must never have been set to "raid"
+    expect(seen.every((t) => t !== "raid")).toBe(true);
+    // pendingOpen must not contain a raid deep-link
+    const { result } = renderHook(
+      () => { useHashView(true, features); return useWorkspaceTab(); },
+      { wrapper },
+    );
+    expect(result.current.activeTab).not.toBe("raid");
+    expect(result.current.pendingOpen).toBeNull();
+  });
+
+  it("navigates to a view when its module is enabled", () => {
+    window.location.hash = "#raid/123";
+    const features: import("./feature-modules").FeatureModuleId[] = ["raid"];
+    const seen: Array<{ view: string; id: number } | null> = [];
+    function Probe() {
+      useHashView(true, features);
+      const { activeTab, pendingOpen } = useWorkspaceTab();
+      seen.push(pendingOpen);
+      return <span data-testid="tab2">{activeTab}</span>;
+    }
+    render(<WorkspaceTabProvider><Probe /></WorkspaceTabProvider>);
+    expect(screen.getByTestId("tab2")).toHaveTextContent("raid");
+    expect(seen.at(-1)).toEqual({ view: "raid", id: 123 });
+  });
 });

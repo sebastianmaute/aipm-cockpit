@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { ReportsPanel } from "./reports";
 import type { BudgetBucket, ResourcePlan, Role, Task } from "./types";
 import type { AddableReportId } from "./addable-reports";
+import { ALL_MODULE_IDS, type FeatureModuleId } from "./feature-modules";
 
 const TODAY = "2026-05-28";
 
@@ -158,7 +159,11 @@ const brBuckets: BudgetBucket[] = [
     allocations: [{ roleId: 1, resourceIds: [], budgetHours: { "2026-01": 100 }, actualHours: { "2026-01": 40 } }] },
 ];
 
-function renderComposed(extraReports: AddableReportId[], onChange = vi.fn()) {
+function renderComposed(
+  extraReports: AddableReportId[],
+  onChange = vi.fn(),
+  features?: FeatureModuleId[],
+) {
   render(
     <ReportsPanel
       tasks={[makeTask({ id: 1, assignee: "A" })]}
@@ -177,6 +182,7 @@ function renderComposed(extraReports: AddableReportId[], onChange = vi.fn()) {
       raid={[]}
       extraReports={extraReports}
       onChangeExtraReports={onChange}
+      features={features}
     />,
   );
   return onChange;
@@ -217,5 +223,55 @@ describe("ReportsPanel — composed reports", () => {
   it("renders the Stakeholder report when added", () => {
     renderComposed(["stakeholder-report"]);
     expect(screen.getByRole("heading", { name: /stakeholder report/i })).toBeInTheDocument();
+  });
+});
+
+describe("ReportsPanel — module gating", () => {
+  it("omits a stored extra report whose module is disabled", () => {
+    const featuresWithout = ALL_MODULE_IDS.filter((m) => m !== "stakeholders");
+    render(
+      <ReportsPanel
+        tasks={[makeTask({ id: 1, assignee: "A" })]}
+        today={TODAY}
+        holidaySet={new Set()}
+        lang="en-US"
+        raid={[]}
+        stakeholders={[]}
+        milestones={[]}
+        extraReports={["stakeholder-report"]}
+        features={featuresWithout}
+      />,
+    );
+    expect(screen.queryByRole("heading", { name: /stakeholder report/i })).toBeNull();
+  });
+
+  it("shows a stored extra report when its module is enabled", () => {
+    render(
+      <ReportsPanel
+        tasks={[makeTask({ id: 1, assignee: "A" })]}
+        today={TODAY}
+        holidaySet={new Set()}
+        lang="en-US"
+        raid={[]}
+        stakeholders={[]}
+        milestones={[]}
+        extraReports={["stakeholder-report"]}
+        features={[...ALL_MODULE_IDS]}
+      />,
+    );
+    expect(screen.getByRole("heading", { name: /stakeholder report/i })).toBeInTheDocument();
+  });
+
+  it("add-report picker does NOT offer a disabled-module report as an option", () => {
+    const featuresWithout = ALL_MODULE_IDS.filter((m) => m !== "stakeholders");
+    renderComposed([], vi.fn(), featuresWithout);
+    const picker = screen.getByRole("combobox", { name: /add report/i });
+    expect(within(picker).queryByRole("option", { name: /stakeholder report/i })).toBeNull();
+  });
+
+  it("add-report picker DOES offer the report when its module is enabled", () => {
+    renderComposed([], vi.fn(), [...ALL_MODULE_IDS]);
+    const picker = screen.getByRole("combobox", { name: /add report/i });
+    expect(within(picker).getByRole("option", { name: /stakeholder report/i })).toBeInTheDocument();
   });
 });

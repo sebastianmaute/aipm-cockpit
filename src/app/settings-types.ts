@@ -1,5 +1,7 @@
 // src/app/settings-types.ts
 import type { AddableReportId } from "./addable-reports";
+import type { FeatureModuleId } from "./feature-modules";
+import { ALL_MODULE_IDS } from "./feature-modules";
 import type { Lang } from "./i18n";
 import type { SnapshotCadence } from "./snapshot";
 import {
@@ -180,6 +182,7 @@ export type Settings = {
   reports?: { extra: AddableReportId[] };
   integrations?: IntegrationsSettings;
   snapshots?: SnapshotSettings;
+  features: FeatureModuleId[];
 };
 
 export const defaultSettings: Settings = {
@@ -195,4 +198,5 @@ export const defaultSettings: Settings = {
   reports: { extra: ["raid-report", "budget-report"] },
   integrations: defaultIntegrations,
   snapshots: defaultSnapshotSettings,
+  features: [...ALL_MODULE_IDS],
 };

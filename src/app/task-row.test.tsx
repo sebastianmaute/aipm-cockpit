@@ -9,7 +9,7 @@ import {
   useTaskRowContext,
   type RowContextValue,
 } from "./task-row";
-import { type ChangeItem, type Task } from "./types";
+import { type ChangeItem, type RaidItem, type Task } from "./types";
 
 function makeTask(overrides: Partial<Task> = {}): Task {
   return {
@@ -489,5 +489,110 @@ describe("TaskActions", () => {
     fireEvent.click(getByText("Delete"));
     expect(ctx.onDelete).toHaveBeenCalledTimes(1);
     expect(ctx.onDelete).toHaveBeenCalledWith(99);
+  });
+});
+
+function makeRaidItem(overrides: Partial<RaidItem> = {}): RaidItem {
+  return {
+    id: 1,
+    category: "R",
+    title: "Sample risk",
+    description: "",
+    status: "Open",
+    severity: "Medium",
+    owner: "",
+    raisedDate: "2026-05-18",
+    linkedTaskIds: [],
+    causedByRaidIds: [],
+    ...overrides,
+  };
+}
+
+describe("TaskRow RAID badge", () => {
+  test("shows the RAID badge when raidRefs is non-empty", () => {
+    const ctx = makeContext();
+    const { getByRole } = render(
+      rowWrapper({
+        context: ctx,
+        children: (
+          <TaskRow
+            task={makeTask({ id: 11 })}
+            isSelected={false}
+            isEditing={false}
+            isExpanded={false}
+            isPushing={false}
+            raidRefs={[makeRaidItem({ id: 1 }), makeRaidItem({ id: 2 })]}
+          />
+        ),
+      }),
+    );
+    // RaidBadge renders a button with aria-label matching "raidReferencedBy"
+    // i18n key — EN value is "{0} RAID item(s) reference this task".
+    expect(getByRole("button", { name: /raid item/i })).toBeTruthy();
+  });
+
+  test("renders no RAID badge when raidRefs is undefined (module disabled path)", () => {
+    // task-manager passes raidRefs={undefined} (via an empty Map) when the
+    // raid module is disabled — verify the badge is absent at the row level.
+    const ctx = makeContext();
+    const { queryByRole } = render(
+      rowWrapper({
+        context: ctx,
+        children: (
+          <TaskRow
+            task={makeTask({ id: 12 })}
+            isSelected={false}
+            isEditing={false}
+            isExpanded={false}
+            isPushing={false}
+            raidRefs={undefined}
+          />
+        ),
+      }),
+    );
+    expect(queryByRole("button", { name: /raid item/i })).toBeNull();
+  });
+
+  test("renders no RAID badge when raidRefs is an empty array (module disabled path)", () => {
+    // An empty Map in task-manager produces raidRefs=[] per-row — same result.
+    const ctx = makeContext();
+    const { queryByRole } = render(
+      rowWrapper({
+        context: ctx,
+        children: (
+          <TaskRow
+            task={makeTask({ id: 13 })}
+            isSelected={false}
+            isEditing={false}
+            isExpanded={false}
+            isPushing={false}
+            raidRefs={[]}
+          />
+        ),
+      }),
+    );
+    expect(queryByRole("button", { name: /raid item/i })).toBeNull();
+  });
+
+  test("clicking the RAID badge calls onJumpToRaid with the task id", () => {
+    const onJumpToRaid = vi.fn();
+    const ctx = makeContext({ onJumpToRaid });
+    const { getByRole } = render(
+      rowWrapper({
+        context: ctx,
+        children: (
+          <TaskRow
+            task={makeTask({ id: 14 })}
+            isSelected={false}
+            isEditing={false}
+            isExpanded={false}
+            isPushing={false}
+            raidRefs={[makeRaidItem({ id: 1 })]}
+          />
+        ),
+      }),
+    );
+    fireEvent.click(getByRole("button", { name: /raid item/i }));
+    expect(onJumpToRaid).toHaveBeenCalledWith(14);
   });
 });

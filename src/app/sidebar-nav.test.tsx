@@ -1,6 +1,7 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { SidebarNav } from "./sidebar-nav";
+import { filterNavGroups } from "./nav-config";
 
 describe("SidebarNav", () => {
   it("renders group headers and a top-level item", () => {
@@ -51,5 +52,18 @@ describe("SidebarNav", () => {
     const gantt = screen.getByRole("button", { name: "Gantt" });
     expect(gantt.querySelector("svg")).not.toBeNull();
     expect(gantt.textContent).toContain("Gantt");
+  });
+
+  it("renders only the provided (filtered) groups", () => {
+    render(
+      <SidebarNav
+        lang="en-US"
+        activeView="open-points"
+        onNavigate={() => {}}
+        navGroups={filterNavGroups([])}
+      />,
+    );
+    expect(screen.getByRole("button", { name: /Chat/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^RAID$/i })).toBeNull();
   });
 });

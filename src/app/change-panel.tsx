@@ -54,6 +54,8 @@ export type ChangePanelProps = {
   today: string;
   onSave: (item: ChangeItem) => void;
   onDelete: (id: number) => void;
+  /** When false, the RAID-link editor is hidden in the edit modal. Default true. */
+  raidEnabled?: boolean;
 };
 
 // --- Color palette -------------------------------------------------------
@@ -111,6 +113,7 @@ function ChangePanelInner({
   today,
   onSave,
   onDelete,
+  raidEnabled = true,
 }: ChangePanelProps) {
   const [typeFilter, setTypeFilter] = useState<"All" | ChangeType>("All");
   const [statusFilter, setStatusFilter] = useState<"All" | ChangeStatus>("All");
@@ -379,6 +382,7 @@ function ChangePanelInner({
           raid={raid}
           draft={draft}
           isNew={isNew}
+          raidEnabled={raidEnabled}
           onChange={setDraft}
           onApplyStatus={(s) =>
             setDraft((d) => (d ? applyChangeStatus(d, s, today) : d))

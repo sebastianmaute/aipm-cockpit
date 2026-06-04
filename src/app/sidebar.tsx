@@ -1,7 +1,7 @@
 "use client";
 import { type Lang, t } from "./i18n";
 import { SidebarNav } from "./sidebar-nav";
-import type { AppView } from "./nav-config";
+import type { AppView, NavGroup } from "./nav-config";
 
 interface SidebarProps {
   lang: Lang;
@@ -12,10 +12,11 @@ interface SidebarProps {
   version: string;
   onShowVersion: () => void;
   footer?: React.ReactNode;
+  navGroups?: NavGroup[];
 }
 
 export function Sidebar({
-  lang, activeView, onNavigate, collapsed, onToggleCollapsed, version, onShowVersion, footer,
+  lang, activeView, onNavigate, collapsed, onToggleCollapsed, version, onShowVersion, footer, navGroups,
 }: SidebarProps) {
   return (
     <aside
@@ -49,7 +50,7 @@ export function Sidebar({
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <SidebarNav lang={lang} activeView={activeView} onNavigate={onNavigate} collapsed={collapsed} />
+        <SidebarNav lang={lang} activeView={activeView} onNavigate={onNavigate} collapsed={collapsed} navGroups={navGroups} />
       </div>
 
       <div className="border-t border-AIPM-white/10 px-4 py-3 text-xs text-AIPM-medium-grey">

@@ -23,6 +23,7 @@ export interface UseDueAlertsArgs {
   settings: Settings;
   today: string;
   showToast: (kind: "info" | "error", text: string) => void;
+  raidEnabled: boolean;
 }
 
 export function useDueAlerts({
@@ -34,6 +35,7 @@ export function useDueAlerts({
   settings,
   today,
   showToast,
+  raidEnabled,
 }: UseDueAlertsArgs): {
   bannerDismissed: boolean;
   setBannerDismissed: Dispatch<SetStateAction<boolean>>;
@@ -113,7 +115,7 @@ export function useDueAlerts({
     const rrSnoozeUntil = getSnoozedUntil("raidReview");
     const rrSnoozed = rrSnoozeUntil != null && Date.now() < rrSnoozeUntil;
     const notifCfg = settingsRef.current.notifications;
-    const reviewItems = notifCfg.raidReview.enabled && !rrSnoozed
+    const reviewItems = raidEnabled && notifCfg.raidReview.enabled && !rrSnoozed
       ? getRaidReviewItems(raidRef.current, todayRef.current, notifCfg.raidReviewIntervalDays)
       : [];
     void Promise.resolve().then(() => {
@@ -122,7 +124,7 @@ export function useDueAlerts({
       }
       if (reviewItems.length > 0 && notifCfg.popup.enabled) setRaidReviewModalOpen(true);
     });
-  }, [hydrated, tasks, raid, showToast]);
+  }, [hydrated, tasks, raid, showToast, raidEnabled]);
 
   return {
     bannerDismissed,

@@ -8,7 +8,8 @@ import { useChatDispatcher } from "./use-chat-dispatcher";
 import { useActivityLog } from "./use-activity-log";
 import { useDueAlerts } from "./use-due-alerts";
 import { useToast } from "./use-toast";
-import { useSettings } from "./use-settings";
+import { useSettings, writeSettings } from "./use-settings";
+import { isViewEnabled, isModuleEnabled, type FeatureModuleId } from "./feature-modules";
 import { useJiraSync } from "./use-jira-sync";
 import { useStorageBackend } from "./use-storage-backend";
 import { useResourcePlanner } from "./use-resource-planner";
@@ -21,7 +22,7 @@ import { useTaskRowHandlers } from "./use-task-row-handlers";
 import { useTaskSubmit } from "./use-task-submit";
 import { useGanttHandlers } from "./use-gantt-handlers";
 import { AppModals } from "./app-modals";
-import { type Resource, type BudgetBucket } from "./types";
+import { type Resource, type BudgetBucket, type RaidItem, type ChangeItem } from "./types";
 import { useFxRates } from "./use-fx-rates";
 import { splitName, resourceDisplayName } from "./resource-foundation";
 import { buildRaidByTaskIndex } from "./raid";
@@ -50,7 +51,7 @@ import { isReportPopoutTab } from "./broadcast-sync";
 import { AppShell } from "./app-shell";
 import { ModernShell } from "./modern-shell";
 import { useHashView } from "./use-hash-view";
-import { navLabelKey } from "./nav-config";
+import { navLabelKey, filterNavGroups } from "./nav-config";
 import type { AppView } from "./nav-config";
 import { useSnapshots } from "./use-snapshots";
 import { computeDashboard } from "./dashboard";
@@ -101,7 +102,7 @@ function TaskManagerInner() {
     startColResize,
   } = useColumnManager();
   const { isPopout, activeTab, setActiveTab, requestOpen } = useWorkspaceTab();
-  useHashView(settings.layout === "modern");
+  useHashView(settings.layout === "modern", settings.features);
   // Classic mode has no panel for the modern-only views; fall back to chat.
   useEffect(() => {
     if (
@@ -111,6 +112,25 @@ function TaskManagerInner() {
       setActiveTab("chat");
     }
   }, [settings.layout, activeTab, setActiveTab]);
+
+  // If the active view belongs to a disabled module (e.g. after a Save+reload
+  // into Simple mode, or a stale hash), redirect to a still-enabled view.
+  // In classic layout, fall back to "chat" instead of "open-points" to avoid a
+  // double-hop (open-points → chat) caused by the classic-fallback effect above.
+  useEffect(() => {
+    if (isViewEnabled(activeTab, settings.features)) return;
+    const fallback = (isPopout || settings.layout === "classic") ? "chat" : "open-points";
+    setActiveTab(isModuleEnabled("dashboard", settings.features) ? "dashboard" : fallback);
+  }, [activeTab, settings.features, settings.layout, isPopout, setActiveTab]);
+
+  const handleCommitFeatures = useCallback(
+    (features: FeatureModuleId[]) => {
+      writeSettings({ ...settings, features });
+      window.location.reload();
+    },
+    [settings],
+  );
+
   const { setRaidFilterTaskId } = useFilters();
   // Tasks data + derivations owned by WorkspaceProvider (Slice 2 of the
   // task-manager decomposition; see
@@ -205,7 +225,8 @@ function TaskManagerInner() {
   // main window with recording enabled; the hook is a no-op otherwise.
   const snapshotsCfg = settings.snapshots ?? defaultSnapshotSettings;
   const trendsActive =
-    settings.storageConfig.kind === "turso" && !isPopout && snapshotsCfg.enabled;
+    settings.storageConfig.kind === "turso" && !isPopout && snapshotsCfg.enabled &&
+    isModuleEnabled("trends", settings.features);
   const tursoConfig = getTursoConfig(
     settings.integrations?.turso?.databaseUrl,
     settings.integrations?.turso?.authToken,
@@ -244,8 +265,11 @@ function TaskManagerInner() {
   });
   const trends = { ...snapshots, active: trendsActive };
 
+  const raidEnabled = isModuleEnabled("raid", settings.features);
+  const changesEnabled = isModuleEnabled("changes", settings.features);
+
   const { bannerDismissed, setBannerDismissed, dueModalOpen, setDueModalOpen, raidReviewModalOpen, setRaidReviewModalOpen } =
-    useDueAlerts({ hydrated, tasks, holidaySet, absences, settings, today, showToast, raid });
+    useDueAlerts({ hydrated, tasks, holidaySet, absences, settings, today, showToast, raid, raidEnabled });
 
   const { birthdayDismissed, setBirthdayDismissed } = useBirthdayAlerts({
     hydrated, resources, today, settings, holidaySet, absences, showToast,
@@ -284,10 +308,18 @@ function TaskManagerInner() {
   // Reverse-lookup index for the "referenced by N RAID items" badge on
   // each task row. Map<taskId, RaidItem[]>. O(R) on every raid update,
   // then O(1) per row. Empty when `raid` is empty — the per-row check
-  // bails out fast.
-  const raidByTask = useMemo(() => buildRaidByTaskIndex(raid), [raid]);
+  // bails out fast. Returns an empty map when the RAID module is disabled
+  // so the badge is never rendered and the click-to-jump dead-end is avoided.
+  const raidByTask = useMemo(
+    () => (raidEnabled ? buildRaidByTaskIndex(raid) : new Map<number, RaidItem[]>()),
+    [raid, raidEnabled],
+  );
   // Same index, mirrored for the read-only "N changes" task-row badge.
-  const changeByTask = useMemo(() => buildChangeByTaskIndex(changes), [changes]);
+  // Returns an empty map when the changes module is disabled.
+  const changeByTask = useMemo(
+    () => (changesEnabled ? buildChangeByTaskIndex(changes) : new Map<number, ChangeItem[]>()),
+    [changes, changesEnabled],
+  );
 
   const nextId = tasks.length > 0 ? Math.max(...tasks.map((row) => row.id)) + 1 : 1;
 
@@ -599,10 +631,10 @@ function TaskManagerInner() {
   );
 
   const raidReviewItems = useMemo(
-    () => settings.notifications.raidReview.enabled
+    () => raidEnabled && settings.notifications.raidReview.enabled
       ? getRaidReviewItems(raid, today, settings.notifications.raidReviewIntervalDays)
       : [],
-    [raid, today, settings.notifications.raidReview, settings.notifications.raidReviewIntervalDays],
+    [raidEnabled, raid, today, settings.notifications.raidReview, settings.notifications.raidReviewIntervalDays],
   );
 
   const dueModalItems = useMemo(() => {
@@ -690,6 +722,11 @@ function TaskManagerInner() {
   // AFTER every hook so the rules-of-hooks invariant holds.
   const guardEdit = makeEditGuard(isPopout, () =>
     showToast("info", t(lang, "popoutReadOnly")),
+  );
+
+  const filteredNavGroups = useMemo(
+    () => filterNavGroups(settings.features),
+    [settings.features],
   );
 
   const voiceHandlers = useMemo(
@@ -873,6 +910,7 @@ function TaskManagerInner() {
       lang={lang}
       settings={settings}
       onChange={setSettings}
+      onCommitFeatures={handleCommitFeatures}
       storageDescription={storageDescription}
       storageReady={storageReady}
       onPickStorageFile={onPickStorageFile}
@@ -1099,6 +1137,7 @@ function TaskManagerInner() {
         editActions={editActions}
         settingsView={settingsViewEl}
         banners={bannersEl}
+        navGroups={filteredNavGroups}
       />
       {modalsBlock}
     </>

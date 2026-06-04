@@ -5,9 +5,15 @@ import { type Lang, loadI18n, migrateLang } from "./i18n";
 import { defaultSettings, sanitizeIntegrations, type Settings } from "./settings-menu";
 import { resolveSnapshotSettings } from "./settings-types";
 import { resolveExtraReports } from "./addable-reports";
+import { sanitizeFeatures } from "./feature-modules";
 import { isPlainObject } from "./sanitize";
 
-const SETTINGS_KEY = "lop-app:settings";
+export const SETTINGS_KEY = "lop-app:settings";
+
+/** Synchronously write settings to localStorage. */
+export function writeSettings(settings: Settings): void {
+  window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+}
 
 function migrateNotifications(raw: unknown): Settings["notifications"] {
   const p = (isPlainObject(raw) ? raw : {}) as Record<string, unknown>;
@@ -85,6 +91,7 @@ export function useSettings(): {
             },
             integrations: sanitizeIntegrations(parsed.integrations),
             snapshots: resolveSnapshotSettings(parsed.snapshots),
+            features: sanitizeFeatures((parsed as Record<string, unknown>).features),
           };
           Promise.resolve().then(() => {
             if (!cancelled) setSettings(merged);

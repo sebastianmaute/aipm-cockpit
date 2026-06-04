@@ -7,6 +7,7 @@ import { WorkspaceProvider } from "./workspace-context";
 import { DashboardPanel } from "./dashboard-panel";
 import { RegistersBand } from "./dashboard-sections/registers-band";
 import { healthText } from "./health";
+import type { RaidItem, Milestone, ChangeItem } from "./types";
 
 vi.mock("./activity-log", async (orig) => ({
   ...(await orig<typeof import("./activity-log")>()),
@@ -285,5 +286,114 @@ describe("RegistersBand link styling", () => {
     const btn = screen.getByRole("button", { name: /risk/ });
     expect(btn.className).toContain("hover:bg-surface-muted");
     expect(btn.className).not.toContain("hover:underline");
+  });
+});
+
+// ─── Task 8: showBudget / showMilestones / showRaid / showChanges gates ───────
+
+const fullProps = {
+  lang: "en-US" as const,
+  tasks: [],
+  raid: [
+    { id: 1, category: "R", title: "A risk", status: "Open", linkedTaskIds: [], raisedDate: "2026-01-01", causedByRaidIds: [] },
+  ] as RaidItem[],
+  budgets: minimalBudget as never[],
+  plan,
+  roles: [],
+  resources: [],
+  absences: [],
+  holidaySet: new Set<string>(),
+  workdayHours: 8,
+  today: "2026-06-02",
+  milestones: [
+    { id: 1, name: "Go-Live", date: "2026-06-01", linkedTaskIds: [] },
+  ] as Milestone[],
+  changes: [
+    {
+      id: 1, title: "Scope change", description: "", type: "Scope", status: "Proposed",
+      impact: "High", raisedDate: "2026-05-01", linkedTaskIds: [], linkedRaidIds: [],
+    },
+  ] as ChangeItem[],
+};
+
+describe("DashboardPanel module visibility gates (Task 8)", () => {
+  it("shows Budget burn section and RAID section when all flags are true (baseline)", () => {
+    render(<DashboardPanel {...fullProps} />, { wrapper });
+    expect(screen.getByText("Budget burn")).toBeInTheDocument();
+    expect(screen.getByText("Top open RAID")).toBeInTheDocument();
+    expect(screen.getByText("Milestones")).toBeInTheDocument();
+    expect(screen.getByText("Changes")).toBeInTheDocument();
+  });
+
+  it("hides Budget burn section and EVM when showBudget is false", () => {
+    render(<DashboardPanel {...fullProps} showBudget={false} />, { wrapper });
+    expect(screen.queryByText("Budget burn")).toBeNull();
+    expect(screen.queryByText("SPI")).toBeNull();
+    expect(screen.queryByText("CPI")).toBeNull();
+  });
+
+  it("hides RAID section when showRaid is false", () => {
+    render(<DashboardPanel {...fullProps} showRaid={false} />, { wrapper });
+    expect(screen.queryByText("Top open RAID")).toBeNull();
+    expect(screen.queryByText("A risk")).toBeNull();
+  });
+
+  it("hides Milestones section when showMilestones is false", () => {
+    render(<DashboardPanel {...fullProps} showMilestones={false} />, { wrapper });
+    expect(screen.queryByText("Milestones")).toBeNull();
+  });
+
+  it("hides Changes section when showChanges is false", () => {
+    render(<DashboardPanel {...fullProps} showChanges={false} />, { wrapper });
+    expect(screen.queryByText("Changes")).toBeNull();
+  });
+
+  it("still renders overall RAG and progress when all module flags are false", () => {
+    render(
+      <DashboardPanel {...fullProps} showBudget={false} showRaid={false} showMilestones={false} showChanges={false} />,
+      { wrapper },
+    );
+    // Always-on sections must still render
+    expect(screen.getByText("Overall")).toBeInTheDocument();
+    expect(screen.getByText("Progress")).toBeInTheDocument();
+  });
+});
+
+// ─── Top-band Budget/Scope pill gating (review fix) ──────────────────────────
+
+// Tasks with originalEstimate ensure the budget model would compute a
+// non-null budget health if not gated — making the gate the only reason
+// the pill is absent.
+const tasksWithEstimates = [
+  {
+    id: 1, title: "Task A", status: "Open", health: "G",
+    originalEstimate: 40, remainingEstimate: 20,
+    linkedRaidIds: [], subtaskIds: [], parentId: null, assigneeIds: [],
+  },
+] as never[];
+
+const propsWithEstimates = {
+  ...fullProps,
+  tasks: tasksWithEstimates,
+};
+
+describe("DashboardPanel top-band Budget/Scope pill gating", () => {
+  it("shows both Budget and Scope pills in the top band when all flags are true (baseline)", () => {
+    render(<DashboardPanel {...propsWithEstimates} />, { wrapper });
+    // Both pill labels must appear (at least one instance each)
+    expect(screen.queryAllByText("Budget").length).toBeGreaterThan(0);
+    expect(screen.queryAllByText("Scope").length).toBeGreaterThan(0);
+  });
+
+  it("hides the Budget top-band pill when showBudget is false", () => {
+    render(<DashboardPanel {...propsWithEstimates} showBudget={false} />, { wrapper });
+    // The entire showBudget-gated subtree (pill + burn section) is gone,
+    // so "Budget" must not appear anywhere in the document.
+    expect(screen.queryAllByText("Budget").length).toBe(0);
+  });
+
+  it("hides the Scope top-band pill when showChanges is false", () => {
+    render(<DashboardPanel {...propsWithEstimates} showChanges={false} />, { wrapper });
+    expect(screen.queryAllByText("Scope").length).toBe(0);
   });
 });

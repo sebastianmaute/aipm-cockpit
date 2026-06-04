@@ -1,3 +1,16 @@
+// 0.54.0 "Herbert" ships Simple / Modular / Advanced mode. A new Settings →
+// Mode section lets users pare the app down to Tasks, Chat, and Reports
+// (Simple preset) and re-enable individual modules via per-module checkboxes
+// (Modular), or keep everything on (Advanced). Explicit Save triggers a page
+// reload so nav and automation settle on the new feature set. Disabled modules
+// retain all data but pause automation: RAID-review alerts and Turso snapshot
+// capture stop; the dashboard hides its top-band Budget and Scope pills and any
+// section whose data source is off; the Gantt hides milestone overlays; the
+// Change → RAID link control disappears from the change editor; the Reports
+// picker and report cards respect the enabled set. Navigation is gated in both
+// the modern sidebar and the classic tab strip. The default mode is Advanced
+// (all modules on) and legacy settings migrate automatically. New modules:
+// feature-modules.ts, settings-sections/mode-section.tsx.
 // 0.53.0 "Asimov" is a stakeholder + UI refinement batch. A new addable
 // Stakeholder report (summary tiles, influence/interest quadrant grid, RACI
 // coverage with missing/multiple-Accountable warnings, and a register table)
@@ -675,12 +688,12 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.53.0";
-export const APP_BUILD_DATE = "2026-06-04"; // 0.53.0 Stakeholder report + influence/interest matrix + UI batch
+export const APP_VERSION = "0.54.0";
+export const APP_BUILD_DATE = "2026-06-04"; // 0.54.0 Simple/Modular/Advanced mode
 /** Minor-series milestone codename (sci-fi/fantasy author names). The whole
- *  0.53.x line is "Asimov" (Isaac Asimov); patch releases inherit
+ *  0.54.x line is "Herbert" (Frank Herbert); patch releases inherit
  *  their minor version's codename rather than getting their own. */
-export const APP_MILESTONE = "Asimov";
+export const APP_MILESTONE = "Herbert";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -745,4 +758,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightRaidReview",
   "versionHighlightStakeholders",
   "versionHighlightStakeholderReport",
+  "versionHighlightModes",
 ] as const;

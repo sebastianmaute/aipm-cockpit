@@ -1195,6 +1195,18 @@ const enUS = {
   settingsSectionJira: "Jira",
   settingsSectionStorage: "Storage",
   settingsSectionIntegrations: "Integrations",
+  settingsSectionMode: "Mode",
+  modeSimple: "Simple",
+  modeModular: "Modular",
+  modeAdvanced: "Advanced",
+  modeBadgeLabel: "Current mode",
+  modePresetSimple: "Simple",
+  modePresetAdvanced: "Advanced",
+  modeModulesHeading: "Functions",
+  modeIntro: "Simple mode shows only Tasks, Chat and Reports. Turn functions on to build a Modular setup; with all on you are in Advanced mode.",
+  modeRetentionNote: "Existing data is kept and reappears when you re-enable a function.",
+  modeSave: "Save & reload",
+  modeDiscard: "Discard",
   evmTitle: "Earned value",
   evmPv: "Planned (PV)",
   evmEv: "Earned (EV)",
@@ -1360,6 +1372,7 @@ const enUS = {
   raidReviewReasonStale: "Needs review",
   raidReviewLastTouched: "Last touched",
   versionHighlightRaidReview: "RAID review reminders flag overdue & stale items; RAG polish on the dashboard and budget report.",
+  versionHighlightModes: "Simple / Modular / Advanced mode: pare the app to Tasks, Chat & Reports and re-enable functions as needed.",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;

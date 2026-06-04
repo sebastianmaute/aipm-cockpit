@@ -3,6 +3,7 @@ import { describe, expect, it, test, vi } from "vitest";
 import { useDueAlerts } from "./use-due-alerts";
 import type { Settings } from "./settings-menu";
 import type { RaidItem, Task } from "./types";
+import { ALL_MODULE_IDS } from "./feature-modules";
 
 const TODAY = "2030-01-15";
 
@@ -56,6 +57,7 @@ function makeSettings(overrides: {
     popout: { reuseWindow: false },
     resources: { workdayHours: 8 },
     layout: "modern",
+    features: [...ALL_MODULE_IDS],
   };
 }
 
@@ -72,6 +74,7 @@ describe("useDueAlerts", () => {
         settings: makeSettings(),
         today: TODAY,
         showToast,
+        raidEnabled: true,
       })
     );
     expect(result.current.bannerDismissed).toBe(false);
@@ -90,6 +93,7 @@ describe("useDueAlerts", () => {
         settings: makeSettings({ toastEnabled: true, popupEnabled: true }),
         today: TODAY,
         showToast,
+        raidEnabled: true,
       })
     );
     expect(showToast).not.toHaveBeenCalled();
@@ -108,6 +112,7 @@ describe("useDueAlerts", () => {
         settings: makeSettings({ toastEnabled: true }),
         today: TODAY,
         showToast,
+        raidEnabled: true,
       })
     );
     // Flush microtasks so the deferred setState inside void Promise.resolve().then() executes
@@ -130,6 +135,7 @@ describe("useDueAlerts", () => {
         settings: makeSettings({ popupEnabled: true }),
         today: TODAY,
         showToast,
+        raidEnabled: true,
       })
     );
     // Flush microtasks so the deferred setState inside void Promise.resolve().then() executes
@@ -162,6 +168,7 @@ describe("useDueAlerts", () => {
         settings: makeSettings({ toastEnabled: true }),
         today: "2026-06-04",
         showToast,
+        raidEnabled: true,
       })
     );
     await waitFor(() =>
@@ -170,5 +177,38 @@ describe("useDueAlerts", () => {
         expect.stringMatching(/RAID review due/i)
       )
     );
+  });
+
+  test("does not open the RAID-review modal when the raid module is disabled", async () => {
+    const showToast = vi.fn();
+    const raid: RaidItem[] = [
+      {
+        id: 1,
+        category: "R",
+        title: "Risk",
+        status: "Open",
+        linkedTaskIds: [],
+        causedByRaidIds: [],
+        raisedDate: "2026-01-01",
+      },
+    ];
+    const { result } = renderHook(() =>
+      useDueAlerts({
+        hydrated: true,
+        tasks: [],
+        holidaySet: new Set(),
+        absences: [],
+        raid,
+        settings: makeSettings({ toastEnabled: true, popupEnabled: true }),
+        today: "2026-06-04",
+        showToast,
+        raidEnabled: false,
+      })
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(result.current.raidReviewModalOpen).toBe(false);
+    expect(showToast).not.toHaveBeenCalled();
   });
 });

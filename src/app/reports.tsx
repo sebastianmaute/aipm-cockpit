@@ -26,6 +26,7 @@ import { BudgetReportPanel } from "./budget-report-panel";
 import { ResourcesReportPanel } from "./resources-report";
 import { StakeholderReportPanel } from "./stakeholder-report-panel";
 import { ADDABLE_REPORTS, type AddableReportId } from "./addable-reports";
+import { visibleReports, type FeatureModuleId, ALL_MODULE_IDS } from "./feature-modules";
 import type {
   Absence, BudgetBucket, Discipline, FxRates, Grade, Milestone, RaidItem, Resource, ResourcePlan, Role, Stakeholder,
 } from "./types";
@@ -257,6 +258,7 @@ export function ReportsPanel({
   resources = [], absences = [], workdayHours = 8, fxRates = null,
   extraReports = [], onChangeExtraReports,
   stakeholders = [], milestones = [],
+  features = [...ALL_MODULE_IDS],
 }: {
   tasks: Task[];
   today: string;
@@ -276,6 +278,7 @@ export function ReportsPanel({
   onChangeExtraReports?: (next: AddableReportId[]) => void;
   stakeholders?: Stakeholder[];
   milestones?: Milestone[];
+  features?: FeatureModuleId[];
 }) {
   const stats = useMemo(
     () => computeStats(tasks, today, holidaySet),
@@ -372,7 +375,11 @@ export function ReportsPanel({
     onTrack: "healthDriverOnTrack",
   };
 
-  const remainingReports = ADDABLE_REPORTS.filter((r) => !extraReports.includes(r.id));
+  const visibleExtra = visibleReports(extraReports, features);
+  const enabledReportIds = new Set(visibleReports(ADDABLE_REPORTS.map((r) => r.id), features));
+  const remainingReports = ADDABLE_REPORTS.filter(
+    (r) => !extraReports.includes(r.id) && enabledReportIds.has(r.id),
+  );
   const addReportControl = (
     <select
       aria-label={t(lang, "reportsAddReport")}
@@ -630,7 +637,7 @@ export function ReportsPanel({
         />
       </Section>
 
-      {extraReports.map((id) => {
+      {visibleExtra.map((id) => {
         const meta = ADDABLE_REPORTS.find((r) => r.id === id);
         const body = meta ? renderEmbedded(id) : null;
         if (!meta || !body) return null;
