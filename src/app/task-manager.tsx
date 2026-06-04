@@ -712,6 +712,11 @@ function TaskManagerInner() {
     showToast("info", t(lang, "popoutReadOnly")),
   );
 
+  const filteredNavGroups = useMemo(
+    () => filterNavGroups(settings.features),
+    [settings.features],
+  );
+
   const voiceHandlers = useMemo(
     () => (isPopout ? null : { onCommand: handleCommand, onError: (msg: string) => showToast("error", msg) }),
     [isPopout, handleCommand, showToast],
@@ -1120,7 +1125,7 @@ function TaskManagerInner() {
         editActions={editActions}
         settingsView={settingsViewEl}
         banners={bannersEl}
-        navGroups={filterNavGroups(settings.features)}
+        navGroups={filteredNavGroups}
       />
       {modalsBlock}
     </>

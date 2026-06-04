@@ -8,6 +8,7 @@ import { WorkspaceTabProvider } from "./workspace-tab-context";
 import { FiltersProvider } from "./filters-context";
 import { WorkspaceSection } from "./workspace-section";
 import type { WorkspaceSectionProps } from "./workspace-section";
+import { useSettings } from "./use-settings";
 import { createRef } from "react";
 import type { ToolDispatcher } from "./chat-tools";
 import type { ActivityEntry } from "./activity-log";
@@ -196,5 +197,37 @@ describe("WorkspaceSection", () => {
     // Clicking Directory navigates to the directory panel
     fireEvent.click(within(subRow).getByRole("tab", { name: /directory/i }));
     expect(document.getElementById("panel-directory")).toBeTruthy();
+  });
+
+  it("omits Gantt (and RAID/Resources/Budget) tab buttons when those modules are disabled", () => {
+    vi.mocked(useSettings).mockReturnValueOnce({
+      settings: {
+        lang: "en-US",
+        ai: { consentAccepted: false, provider: "none" },
+        jira: { enabled: false, siteUrl: "", email: "", apiToken: "", projectKey: "", issueTypes: [] },
+        notifications: { reminderLeadDays: 7, banner: { enabled: false }, popup: { enabled: false } },
+        holidayCountries: [],
+        resources: { workdayHours: 8 },
+        popout: { reuseWindow: false },
+        // Only chat/reports/activity remain; all gated modules disabled
+        features: [],
+      },
+      setSettings: vi.fn(),
+      hydrated: true,
+      i18nReady: true,
+      lang: "en-US" as const,
+    });
+
+    render(<WorkspaceSection {...makeProps()} />, { wrapper: Wrapper });
+
+    // Ungated tabs always present
+    expect(screen.getByRole("tab", { name: /chat/i })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /reports/i })).toBeInTheDocument();
+
+    // Module-gated tabs must be absent
+    expect(screen.queryByRole("tab", { name: /^gantt$/i })).toBeNull();
+    expect(screen.queryByRole("tab", { name: /^raid$/i })).toBeNull();
+    expect(screen.queryByRole("tab", { name: /^resources$/i })).toBeNull();
+    expect(screen.queryByRole("tab", { name: /^budget$/i })).toBeNull();
   });
 });

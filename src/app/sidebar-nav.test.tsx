@@ -53,17 +53,17 @@ describe("SidebarNav", () => {
     expect(gantt.querySelector("svg")).not.toBeNull();
     expect(gantt.textContent).toContain("Gantt");
   });
-});
 
-it("renders only the provided (filtered) groups", () => {
-  render(
-    <SidebarNav
-      lang="en-US"
-      activeView="open-points"
-      onNavigate={() => {}}
-      navGroups={filterNavGroups([])}
-    />,
-  );
-  expect(screen.getByRole("button", { name: /Chat/i })).toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: /^RAID$/i })).toBeNull();
+  it("renders only the provided (filtered) groups", () => {
+    render(
+      <SidebarNav
+        lang="en-US"
+        activeView="open-points"
+        onNavigate={() => {}}
+        navGroups={filterNavGroups([])}
+      />,
+    );
+    expect(screen.getByRole("button", { name: /Chat/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^RAID$/i })).toBeNull();
+  });
 });

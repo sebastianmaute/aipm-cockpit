@@ -193,6 +193,7 @@ export function WorkspaceSection({
   // One-way signal: incrementing this opens the milestone create modal on the
   // Milestones tab (Gantt "Add milestone" parity with Add task).
   const [milestoneCreateNonce, setMilestoneCreateNonce] = useState(0);
+  const subTabs = subTabsFor(activeTab, features);
 
   // Panel wrappers. The pt-4 offset clears the tab strip in classic/popout mode;
   // in fullBleed the strip is hidden, so we drop it to align the per-view card
@@ -364,13 +365,13 @@ export function WorkspaceSection({
         </div>
       )}
 
-      {!isPopout && !fullBleed && subTabsFor(activeTab, features).length > 0 && (
+      {!isPopout && !fullBleed && subTabs.length > 0 && (
         <div
           role="tablist"
           aria-label="Workspace sub-tabs"
           className="mb-2 flex flex-wrap items-center gap-1 border-b border-line pb-1"
         >
-          {subTabsFor(activeTab, features).map((child) => (
+          {subTabs.map((child) => (
             <TabButton
               key={child.view}
               active={activeTab === child.view}
