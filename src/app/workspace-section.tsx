@@ -10,6 +10,7 @@ import { useWorkspaceTab } from "./workspace-tab-context";
 import { useFilters } from "./filters-context";
 import { TabButton, ResetSizeIcon } from "./task-manager-ui";
 import { navLabelKey, subTabsFor } from "./nav-config";
+import { isModuleEnabled } from "./feature-modules";
 import { DEFAULT_EXTRA_REPORTS } from "./addable-reports";
 import type { ToolDispatcher } from "./chat-tools";
 import type { UseSnapshotsResult } from "./use-snapshots";
@@ -185,6 +186,7 @@ export function WorkspaceSection({
   trends,
 }: WorkspaceSectionProps) {
   const { settings, setSettings, lang } = useSettings();
+  const features = settings.features;
   const { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, milestones } = useWorkspace();
   const { activeTab, setActiveTab, isPopout } = useWorkspaceTab();
   const { raidFilterTaskId } = useFilters();
@@ -250,55 +252,63 @@ export function WorkspaceSection({
           >
             {t(lang, "tabReports")}
           </TabButton>
-          <TabButton
-            active={activeTab === "gantt"}
-            onClick={() => {
-              setActiveTab("gantt");
-              if (workspaceCollapsed) setWorkspaceCollapsed(false);
-            }}
-            controls="panel-gantt"
-            onPopout={() => openPopoutWindow("gantt", settings.popout.reuseWindow)}
-            popoutLabel={t(lang, "popoutOpenInNewWindow")}
-          >
-            {t(lang, "tabGantt")}
-          </TabButton>
-          <TabButton
-            active={activeTab === "raid"}
-            onClick={() => {
-              setActiveTab("raid");
-              handleClearRaidTaskFilter();
-              if (workspaceCollapsed) setWorkspaceCollapsed(false);
-            }}
-            controls="panel-raid"
-            onPopout={() => openPopoutWindow("raid", settings.popout.reuseWindow)}
-            popoutLabel={t(lang, "popoutOpenInNewWindow")}
-          >
-            {t(lang, "tabRaid")}
-          </TabButton>
-          <TabButton
-            active={activeTab === "resources"}
-            onClick={() => {
-              setActiveTab("resources");
-              if (workspaceCollapsed) setWorkspaceCollapsed(false);
-            }}
-            controls="panel-resources"
-            onPopout={() => openPopoutWindow("resources", settings.popout.reuseWindow)}
-            popoutLabel={t(lang, "popoutOpenInNewWindow")}
-          >
-            {t(lang, "tabResources")}
-          </TabButton>
-          <TabButton
-            active={activeTab === "budget"}
-            onClick={() => {
-              setActiveTab("budget");
-              if (workspaceCollapsed) setWorkspaceCollapsed(false);
-            }}
-            controls="panel-budget"
-            onPopout={() => openPopoutWindow("budget", settings.popout.reuseWindow)}
-            popoutLabel={t(lang, "popoutOpenInNewWindow")}
-          >
-            {t(lang, "tabBudget")}
-          </TabButton>
+          {isModuleEnabled("gantt", features) && (
+            <TabButton
+              active={activeTab === "gantt"}
+              onClick={() => {
+                setActiveTab("gantt");
+                if (workspaceCollapsed) setWorkspaceCollapsed(false);
+              }}
+              controls="panel-gantt"
+              onPopout={() => openPopoutWindow("gantt", settings.popout.reuseWindow)}
+              popoutLabel={t(lang, "popoutOpenInNewWindow")}
+            >
+              {t(lang, "tabGantt")}
+            </TabButton>
+          )}
+          {isModuleEnabled("raid", features) && (
+            <TabButton
+              active={activeTab === "raid"}
+              onClick={() => {
+                setActiveTab("raid");
+                handleClearRaidTaskFilter();
+                if (workspaceCollapsed) setWorkspaceCollapsed(false);
+              }}
+              controls="panel-raid"
+              onPopout={() => openPopoutWindow("raid", settings.popout.reuseWindow)}
+              popoutLabel={t(lang, "popoutOpenInNewWindow")}
+            >
+              {t(lang, "tabRaid")}
+            </TabButton>
+          )}
+          {isModuleEnabled("resources", features) && (
+            <TabButton
+              active={activeTab === "resources"}
+              onClick={() => {
+                setActiveTab("resources");
+                if (workspaceCollapsed) setWorkspaceCollapsed(false);
+              }}
+              controls="panel-resources"
+              onPopout={() => openPopoutWindow("resources", settings.popout.reuseWindow)}
+              popoutLabel={t(lang, "popoutOpenInNewWindow")}
+            >
+              {t(lang, "tabResources")}
+            </TabButton>
+          )}
+          {isModuleEnabled("budget", features) && (
+            <TabButton
+              active={activeTab === "budget"}
+              onClick={() => {
+                setActiveTab("budget");
+                if (workspaceCollapsed) setWorkspaceCollapsed(false);
+              }}
+              controls="panel-budget"
+              onPopout={() => openPopoutWindow("budget", settings.popout.reuseWindow)}
+              popoutLabel={t(lang, "popoutOpenInNewWindow")}
+            >
+              {t(lang, "tabBudget")}
+            </TabButton>
+          )}
           <TabButton
             active={activeTab === "activity"}
             onClick={() => {
@@ -354,13 +364,13 @@ export function WorkspaceSection({
         </div>
       )}
 
-      {!isPopout && !fullBleed && subTabsFor(activeTab).length > 0 && (
+      {!isPopout && !fullBleed && subTabsFor(activeTab, features).length > 0 && (
         <div
           role="tablist"
           aria-label="Workspace sub-tabs"
           className="mb-2 flex flex-wrap items-center gap-1 border-b border-line pb-1"
         >
-          {subTabsFor(activeTab).map((child) => (
+          {subTabsFor(activeTab, features).map((child) => (
             <TabButton
               key={child.view}
               active={activeTab === child.view}

@@ -51,7 +51,7 @@ import { isReportPopoutTab } from "./broadcast-sync";
 import { AppShell } from "./app-shell";
 import { ModernShell } from "./modern-shell";
 import { useHashView } from "./use-hash-view";
-import { navLabelKey } from "./nav-config";
+import { navLabelKey, filterNavGroups } from "./nav-config";
 import type { AppView } from "./nav-config";
 import { useSnapshots } from "./use-snapshots";
 import { computeDashboard } from "./dashboard";
@@ -1120,6 +1120,7 @@ function TaskManagerInner() {
         editActions={editActions}
         settingsView={settingsViewEl}
         banners={bannersEl}
+        navGroups={filterNavGroups(settings.features)}
       />
       {modalsBlock}
     </>

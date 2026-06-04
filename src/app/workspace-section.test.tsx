@@ -23,6 +23,7 @@ vi.mock("./use-settings", () => ({
       holidayCountries: [],
       resources: { workdayHours: 8 },
       popout: { reuseWindow: false },
+      features: ["dashboard", "trends", "gantt", "milestones", "resources", "budget", "raid", "changes", "stakeholders"],
     },
     setSettings: vi.fn(),
     hydrated: true,

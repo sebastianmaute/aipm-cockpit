@@ -4,7 +4,7 @@ import { type Lang, t } from "./i18n";
 import { Sidebar } from "./sidebar";
 import { TopBar } from "./top-bar";
 import { VersionInfoModal } from "./version-info";
-import { navLabelKey, type AppView } from "./nav-config";
+import { navLabelKey, type AppView, type NavGroup } from "./nav-config";
 
 interface ModernShellProps {
   lang: Lang;
@@ -28,6 +28,7 @@ interface ModernShellProps {
   banners?: React.ReactNode;
   collapsed?: boolean;
   onToggleCollapsed?: () => void;
+  navGroups?: NavGroup[];
 }
 
 export function ModernShell({
@@ -37,6 +38,7 @@ export function ModernShell({
   settingsView = null,
   banners = null,
   collapsed = false, onToggleCollapsed = () => {},
+  navGroups,
 }: ModernShellProps) {
   const [versionOpen, setVersionOpen] = useState(false);
   const isEditing = activeView === "edit";
@@ -66,6 +68,7 @@ export function ModernShell({
         version={version}
         onShowVersion={() => setVersionOpen(true)}
         footer={sidebarFooter}
+        navGroups={navGroups}
       />
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar
