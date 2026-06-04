@@ -1,4 +1,5 @@
 import type { TranslationKey } from "./i18n";
+import { isViewEnabled, type FeatureModuleId } from "./feature-modules";
 
 // Superset of the workspace/popout TopTab union. "open-points", "settings"
 // and "edit" are main-window-only views. "edit" is reserved for Phase 2
@@ -114,15 +115,36 @@ export function allNavViews(): AppView[] {
   return ALL_NAV_VIEWS;
 }
 
+/** NAV_GROUPS pruned to enabled views: disabled items and children removed,
+ *  and any group left with no items dropped. Core views always survive. */
+export function filterNavGroups(features: readonly FeatureModuleId[]): NavGroup[] {
+  return NAV_GROUPS.map((group) => ({
+    ...group,
+    items: group.items
+      .filter((item) => isViewEnabled(item.view, features))
+      .map((item) => ({
+        ...item,
+        children: (item.children ?? []).filter((c) => isViewEnabled(c.view, features)),
+      })),
+  })).filter((group) => group.items.length > 0);
+}
+
 /** The sub-tab children of the nav section that contains `view` (matched as the
  *  section's own view OR one of its children). Empty when the section has no
- *  children. Drives the classic layout's secondary sub-tab row. */
-export function subTabsFor(view: AppView): readonly { view: AppView }[] {
+ *  children. Drives the classic layout's secondary sub-tab row.
+ *  When `features` is supplied, children are filtered to enabled views only. */
+export function subTabsFor(
+  view: AppView,
+  features?: readonly FeatureModuleId[],
+): readonly { view: AppView }[] {
   for (const group of NAV_GROUPS) {
     for (const item of group.items) {
       const contains =
         item.view === view || (item.children ?? []).some((c) => c.view === view);
-      if (contains) return item.children ?? [];
+      if (contains) {
+        const children = item.children ?? [];
+        return features ? children.filter((c) => isViewEnabled(c.view, features)) : children;
+      }
     }
   }
   return [];

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   NAV_GROUPS, viewToSlug, slugToView, navLabelKey, allNavViews, subTabsFor,
+  filterNavGroups,
   parseHash, buildHash,
   type AppView,
 } from "./nav-config";
@@ -116,5 +117,37 @@ describe("parseHash / buildHash", () => {
     expect(buildHash("raid")).toBe("#raid");
     expect(buildHash("raid", 123)).toBe("#raid/123");
     expect(buildHash("raid", null)).toBe("#raid");
+  });
+});
+
+describe("filterNavGroups", () => {
+  it("Simple mode keeps only core items and drops empty groups", () => {
+    const groups = filterNavGroups([]);
+    const views = groups.flatMap((g) => g.items.map((i) => i.view));
+    expect(views).toContain("open-points");
+    expect(views).toContain("chat");
+    expect(views).toContain("reports");
+    expect(views).toContain("activity");
+    expect(views).not.toContain("gantt");
+    expect(views).not.toContain("raid");
+    // The "Plan" group has no core items, so it disappears entirely.
+    expect(groups.some((g) => g.labelKey === "navGroupPlan")).toBe(false);
+  });
+
+  it("enabling a module restores its parent and children", () => {
+    const groups = filterNavGroups(["stakeholders"]);
+    const item = groups.flatMap((g) => g.items).find((i) => i.view === "stakeholders");
+    expect(item).toBeTruthy();
+    expect((item?.children ?? []).map((c) => c.view)).toEqual(["raci", "stakeholder-map"]);
+  });
+});
+
+describe("subTabsFor with features", () => {
+  it("filters children to enabled modules", () => {
+    expect(subTabsFor("resources", []).length).toBe(0);
+    expect(subTabsFor("resources", ["resources"]).length).toBeGreaterThan(0);
+  });
+  it("is unchanged when no features arg is supplied", () => {
+    expect(subTabsFor("resources").length).toBeGreaterThan(0);
   });
 });
