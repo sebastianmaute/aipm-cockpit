@@ -2,9 +2,14 @@ import { describe, expect, it } from "vitest";
 import { isViewEnabled, isModuleEnabled, type FeatureModuleId } from "./feature-modules";
 import type { AppView } from "./nav-config";
 
-function redirectTarget(active: AppView, features: FeatureModuleId[]): AppView {
+function redirectTarget(
+  active: AppView,
+  features: FeatureModuleId[],
+  layout: "modern" | "classic" = "modern",
+): AppView {
   if (isViewEnabled(active, features)) return active;
-  return isModuleEnabled("dashboard", features) ? "dashboard" : "open-points";
+  const fallback = layout === "classic" ? "chat" : "open-points";
+  return isModuleEnabled("dashboard", features) ? "dashboard" : fallback;
 }
 
 describe("disabled-view redirect rule", () => {
@@ -16,5 +21,8 @@ describe("disabled-view redirect rule", () => {
   });
   it("falls back to open-points when dashboard is also off", () => {
     expect(redirectTarget("raid", [])).toBe("open-points");
+  });
+  it("falls back to chat in classic layout when dashboard is off", () => {
+    expect(redirectTarget("raid", [], "classic")).toBe("chat");
   });
 });

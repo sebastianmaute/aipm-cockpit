@@ -115,10 +115,13 @@ function TaskManagerInner() {
 
   // If the active view belongs to a disabled module (e.g. after a Save+reload
   // into Simple mode, or a stale hash), redirect to a still-enabled view.
+  // In classic layout, fall back to "chat" instead of "open-points" to avoid a
+  // double-hop (open-points → chat) caused by the classic-fallback effect above.
   useEffect(() => {
     if (isViewEnabled(activeTab, settings.features)) return;
-    setActiveTab(isModuleEnabled("dashboard", settings.features) ? "dashboard" : "open-points");
-  }, [activeTab, settings.features, setActiveTab]);
+    const fallback = settings.layout === "classic" ? "chat" : "open-points";
+    setActiveTab(isModuleEnabled("dashboard", settings.features) ? "dashboard" : fallback);
+  }, [activeTab, settings.features, settings.layout, setActiveTab]);
 
   const handleCommitFeatures = useCallback(
     (features: FeatureModuleId[]) => {
