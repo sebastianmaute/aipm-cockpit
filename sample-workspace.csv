@@ -81,3 +81,18 @@ id,firstName,lastName,title,businessPhone,location,department,email,company,birt
 
 # PLAN
 2026-04-01,2026-07-31,month,EUR
+# MILESTONES
+id,name,date,description,achievedDate,linkedTaskIds,localModifiedAt
+1,Design Sign-off,2026-04-20,,,,
+2,Go-Live,2026-09-01,,,,
+3,Hypercare Exit,2026-12-15,,,,
+
+# STAKEHOLDERS
+id,name,organization,title,email,category,influence,interest,notes,resourceId,raci,localModifiedAt
+1,Elena Fischer,Acme,,,Sponsor,High,High,,,1=A|2=A|3=C,
+2,Sam Placeholder,Acme,,,Internal,High,Medium,,2,1=R|2=A|3=R,
+3,Taylor Specimen,Acme,,,Internal,Medium,High,,3,1=C|2=R|3=I,
+4,David Okoro,Acme Corp,,,Customer,Medium,Medium,,,1=I|2=C|3=C,
+5,Morgan Standin,InfoSec Authority,,,Regulator,High,Low,,4,1=I|2=I|3=C,
+6,Lena Vogt,CloudVendor GmbH,,,Vendor,Low,Low,,,,
+7,Sam Rivera,Community Forum,,,Other,Low,High,,,1=I|2=I|3=R,
