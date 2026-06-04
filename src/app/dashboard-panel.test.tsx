@@ -287,3 +287,72 @@ describe("RegistersBand link styling", () => {
     expect(btn.className).not.toContain("hover:underline");
   });
 });
+
+// ─── Task 8: showBudget / showMilestones / showRaid / showChanges gates ───────
+
+const fullProps = {
+  lang: "en-US" as const,
+  tasks: [],
+  raid: [
+    { id: 1, category: "R", title: "A risk", status: "Open", linkedTaskIds: [], raisedDate: "2026-01-01", causedByRaidIds: [] },
+  ] as never[],
+  budgets: minimalBudget as never[],
+  plan,
+  roles: [],
+  resources: [],
+  absences: [],
+  holidaySet: new Set<string>(),
+  workdayHours: 8,
+  today: "2026-06-02",
+  milestones: [
+    { id: 1, name: "Go-Live", date: "2026-06-01", status: "At Risk", linkedTaskIds: [], linkedRaidIds: [] },
+  ] as never[],
+  changes: [
+    {
+      id: 1, title: "Scope change", description: "", type: "Scope", status: "Proposed",
+      impact: "High", raisedDate: "2026-05-01", linkedTaskIds: [], linkedRaidIds: [],
+    },
+  ] as never[],
+};
+
+describe("DashboardPanel module visibility gates (Task 8)", () => {
+  it("shows Budget burn section and RAID section when all flags are true (baseline)", () => {
+    render(<DashboardPanel {...fullProps} />, { wrapper });
+    expect(screen.getByText("Budget burn")).toBeInTheDocument();
+    expect(screen.getByText("Top open RAID")).toBeInTheDocument();
+    expect(screen.getByText("Milestones")).toBeInTheDocument();
+    expect(screen.getByText("Changes")).toBeInTheDocument();
+  });
+
+  it("hides Budget burn section and EVM when showBudget is false", () => {
+    render(<DashboardPanel {...fullProps} showBudget={false} />, { wrapper });
+    expect(screen.queryByText("Budget burn")).toBeNull();
+    expect(screen.queryByText("SPI")).toBeNull();
+    expect(screen.queryByText("CPI")).toBeNull();
+  });
+
+  it("hides RAID section when showRaid is false", () => {
+    render(<DashboardPanel {...fullProps} showRaid={false} />, { wrapper });
+    expect(screen.queryByText("Top open RAID")).toBeNull();
+  });
+
+  it("hides Milestones section when showMilestones is false", () => {
+    render(<DashboardPanel {...fullProps} showMilestones={false} />, { wrapper });
+    expect(screen.queryByText("Milestones")).toBeNull();
+  });
+
+  it("hides Changes section when showChanges is false", () => {
+    render(<DashboardPanel {...fullProps} showChanges={false} />, { wrapper });
+    expect(screen.queryByText("Changes")).toBeNull();
+  });
+
+  it("still renders overall RAG and progress when all module flags are false", () => {
+    render(
+      <DashboardPanel {...fullProps} showBudget={false} showRaid={false} showMilestones={false} showChanges={false} />,
+      { wrapper },
+    );
+    // Always-on sections must still render
+    expect(screen.getByText("Overall")).toBeInTheDocument();
+    expect(screen.getByText("Progress")).toBeInTheDocument();
+  });
+});

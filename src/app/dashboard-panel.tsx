@@ -32,6 +32,10 @@ interface DashboardPanelProps {
   onOpenRaid?: (id: number) => void;
   onOpenTask?: (id: number) => void;
   onOpenMilestone?: () => void;
+  showRaid?: boolean;
+  showBudget?: boolean;
+  showMilestones?: boolean;
+  showChanges?: boolean;
 }
 
 const CHANGE_STATUS_KEY: Record<ChangeStatus, TranslationKey> = {
@@ -76,6 +80,7 @@ function OverrideSelect({
 
 export function DashboardPanel(props: DashboardPanelProps) {
   const { lang, today, onOpenRaid, onOpenTask } = props;
+  const { showRaid = true, showBudget = true, showMilestones = true, showChanges = true } = props;
   const { status, setStatus } = useWorkspace();
   const sizeRef = useRef<HTMLDivElement | null>(null);
 
@@ -88,8 +93,8 @@ export function DashboardPanel(props: DashboardPanelProps) {
     () =>
       computeDashboard({
         tasks: props.tasks,
-        raid: props.raid,
-        budgets: props.budgets,
+        raid: showRaid ? props.raid : [],
+        budgets: showBudget ? props.budgets : [],
         plan: props.plan,
         roles: props.roles,
         resources: props.resources,
@@ -99,14 +104,15 @@ export function DashboardPanel(props: DashboardPanelProps) {
         status,
         activity,
         today,
-        milestones: props.milestones ?? [],
-        changes: props.changes ?? [],
+        milestones: showMilestones ? (props.milestones ?? []) : [],
+        changes: showChanges ? (props.changes ?? []) : [],
       }),
     [
       props.tasks, props.raid, props.budgets, props.plan,
       props.roles, props.resources, props.absences,
       props.workdayHours, props.holidaySet,
       props.milestones, props.changes,
+      showRaid, showBudget, showMilestones, showChanges,
       status, activity, today,
     ],
   );
@@ -247,43 +253,45 @@ export function DashboardPanel(props: DashboardPanelProps) {
             </div>
             <p className="mt-2 text-xs text-muted-foreground">{t(lang, "dashboardProgressCaption")}</p>
           </Section>
-          <Section title={t(lang, "dashboardBudgetBurn")} boxed>
-            {model.burn ? (
-              <div className="flex flex-wrap gap-2">
-                <Tile
-                  label={t(lang, "dashboardSubBudget")}
-                  value={`${money(model.burn.consumedValue)} / ${money(model.burn.budgetValue)}`}
-                  rag={<RagBadge value={ratioHealth(model.burn.consumedValue, model.burn.budgetValue)} lang={lang} title={t(lang, "dashboardSubBudget")} />}
-                />
-                <Tile
-                  label="h"
-                  value={`${Math.round(model.burn.actualHours)} / ${Math.round(model.burn.budgetHours)}`}
-                  rag={<RagBadge value={ratioHealth(model.burn.actualHours, model.burn.budgetHours)} lang={lang} title="h" />}
-                />
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">{t(lang, "dashboardNoBudget")}</p>
-            )}
-            {model.evm.coverage.withEstimate > 0 ? (
-              <div className="mt-2 flex flex-wrap gap-2">
-                <Tile label={t(lang, "evmSpi")} value={model.evm.spi != null ? model.evm.spi.toFixed(2) : "—"} />
-                <Tile label={t(lang, "evmCpi")} value={model.evm.cpi != null ? model.evm.cpi.toFixed(2) : "—"} />
-              </div>
-            ) : (
-              <p className="mt-2 text-sm text-muted-foreground">{t(lang, "evmNoEstimates")}</p>
-            )}
-            {model.burndown ? (
-              <div className="mt-3">
-                <BurndownCharts series={model.burndown} lang={lang} currency={props.plan.currency || "EUR"} />
-              </div>
-            ) : null}
-            {model.burn ? (
-              <p className="mt-2 text-xs text-muted-foreground">{t(lang, "dashboardBurnCaption")}</p>
-            ) : null}
-          </Section>
+          {showBudget && (
+            <Section title={t(lang, "dashboardBudgetBurn")} boxed>
+              {model.burn ? (
+                <div className="flex flex-wrap gap-2">
+                  <Tile
+                    label={t(lang, "dashboardSubBudget")}
+                    value={`${money(model.burn.consumedValue)} / ${money(model.burn.budgetValue)}`}
+                    rag={<RagBadge value={ratioHealth(model.burn.consumedValue, model.burn.budgetValue)} lang={lang} title={t(lang, "dashboardSubBudget")} />}
+                  />
+                  <Tile
+                    label="h"
+                    value={`${Math.round(model.burn.actualHours)} / ${Math.round(model.burn.budgetHours)}`}
+                    rag={<RagBadge value={ratioHealth(model.burn.actualHours, model.burn.budgetHours)} lang={lang} title="h" />}
+                  />
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">{t(lang, "dashboardNoBudget")}</p>
+              )}
+              {model.evm.coverage.withEstimate > 0 ? (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <Tile label={t(lang, "evmSpi")} value={model.evm.spi != null ? model.evm.spi.toFixed(2) : "—"} />
+                  <Tile label={t(lang, "evmCpi")} value={model.evm.cpi != null ? model.evm.cpi.toFixed(2) : "—"} />
+                </div>
+              ) : (
+                <p className="mt-2 text-sm text-muted-foreground">{t(lang, "evmNoEstimates")}</p>
+              )}
+              {model.burndown ? (
+                <div className="mt-3">
+                  <BurndownCharts series={model.burndown} lang={lang} currency={props.plan.currency || "EUR"} />
+                </div>
+              ) : null}
+              {model.burn ? (
+                <p className="mt-2 text-xs text-muted-foreground">{t(lang, "dashboardBurnCaption")}</p>
+              ) : null}
+            </Section>
+          )}
         </div>
 
-        {/* RAID + upcoming tasks */}
+        {/* RAID + upcoming tasks + Milestones */}
         <RegistersBand
           lang={lang}
           topRaid={model.topRaid}
@@ -295,28 +303,32 @@ export function DashboardPanel(props: DashboardPanelProps) {
           atRiskMilestones={model.atRiskMilestones}
           dueSoonMilestones={model.dueSoonMilestones}
           onOpenMilestone={props.onOpenMilestone}
+          showRaid={showRaid}
+          showMilestones={showMilestones}
         />
 
         {/* Changes */}
-        <Section title={t(lang, "dashboardChangesHeading")} boxed>
-          <p className="mb-1 text-xs font-semibold uppercase text-muted-foreground">
-            {t(lang, "dashboardChangesPending", String(model.changes.pending))}
-          </p>
-          {model.topChanges.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t(lang, "dashboardChangesEmpty")}</p>
-          ) : (
-            <ul className="space-y-1 text-sm">
-              {model.topChanges.map((c) => (
-                <li key={c.id} className="flex items-center gap-2">
-                  <RagBadge value={changeImpactRag(c.impact)} lang={lang} />
-                  <span className="text-muted-foreground">#{c.id}</span>
-                  <span className="font-medium">{c.title}</span>
-                  <span className="text-muted-foreground">· {t(lang, CHANGE_STATUS_KEY[c.status])}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Section>
+        {showChanges && (
+          <Section title={t(lang, "dashboardChangesHeading")} boxed>
+            <p className="mb-1 text-xs font-semibold uppercase text-muted-foreground">
+              {t(lang, "dashboardChangesPending", String(model.changes.pending))}
+            </p>
+            {model.topChanges.length === 0 ? (
+              <p className="text-sm text-muted-foreground">{t(lang, "dashboardChangesEmpty")}</p>
+            ) : (
+              <ul className="space-y-1 text-sm">
+                {model.topChanges.map((c) => (
+                  <li key={c.id} className="flex items-center gap-2">
+                    <RagBadge value={changeImpactRag(c.impact)} lang={lang} />
+                    <span className="text-muted-foreground">#{c.id}</span>
+                    <span className="font-medium">{c.title}</span>
+                    <span className="text-muted-foreground">· {t(lang, CHANGE_STATUS_KEY[c.status])}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Section>
+        )}
 
         {/* Recent activity */}
         <Section title={t(lang, "dashboardRecentActivity")} boxed>

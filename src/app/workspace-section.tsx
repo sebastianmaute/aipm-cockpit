@@ -705,6 +705,10 @@ export function WorkspaceSection({
                 if (task) onEditTask(task);
               } : undefined}
               onOpenMilestone={() => setActiveTab("milestones")}
+              showRaid={isModuleEnabled("raid", settings.features)}
+              showBudget={isModuleEnabled("budget", settings.features)}
+              showMilestones={isModuleEnabled("milestones", settings.features)}
+              showChanges={isModuleEnabled("changes", settings.features)}
             />
           </div>
         )}

@@ -31,6 +31,8 @@ export function RegistersBand({
   atRiskMilestones,
   dueSoonMilestones,
   onOpenMilestone,
+  showRaid = true,
+  showMilestones = true,
 }: {
   lang: Lang;
   topRaid: RaidItem[];
@@ -42,33 +44,37 @@ export function RegistersBand({
   atRiskMilestones: Milestone[];
   dueSoonMilestones: Milestone[];
   onOpenMilestone?: () => void;
+  showRaid?: boolean;
+  showMilestones?: boolean;
 }) {
   return (
     <div className="space-y-4">
       <div className="grid gap-4 md:grid-cols-2">
-        <Section title={t(lang, "dashboardTopRaid")} boxed>
-          {topRaid.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t(lang, "dashboardEmpty")}</p>
-          ) : (
-            <ul className="space-y-1 text-sm">
-              {topRaid.map((r) => (
-                <li key={r.id}>
-                  {onOpenRaid ? (
-                    <button
-                      type="button"
-                      className={LINK_CLASS}
-                      onClick={() => onOpenRaid(r.id)}
-                    >
-                      <RaidItemContent r={r} />
-                    </button>
-                  ) : (
-                    <span><RaidItemContent r={r} /></span>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-        </Section>
+        {showRaid && (
+          <Section title={t(lang, "dashboardTopRaid")} boxed>
+            {topRaid.length === 0 ? (
+              <p className="text-sm text-muted-foreground">{t(lang, "dashboardEmpty")}</p>
+            ) : (
+              <ul className="space-y-1 text-sm">
+                {topRaid.map((r) => (
+                  <li key={r.id}>
+                    {onOpenRaid ? (
+                      <button
+                        type="button"
+                        className={LINK_CLASS}
+                        onClick={() => onOpenRaid(r.id)}
+                      >
+                        <RaidItemContent r={r} />
+                      </button>
+                    ) : (
+                      <span><RaidItemContent r={r} /></span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Section>
+        )}
         <Section title={t(lang, "dashboardUpcoming")} boxed>
           <p className="mb-1 text-xs font-semibold uppercase text-muted-foreground">
             {t(lang, "dashboardOverdue")}
@@ -118,25 +124,27 @@ export function RegistersBand({
           </ul>
         </Section>
       </div>
-      <Section title={t(lang, "dashboardMilestones")} boxed>
-        {overdueMilestones.length + atRiskMilestones.length + dueSoonMilestones.length === 0 ? (
-          <p className="text-sm text-muted-foreground">—</p>
-        ) : (
-          <ul className="space-y-1 text-sm">
-            {[...overdueMilestones, ...atRiskMilestones, ...dueSoonMilestones].map((m) => (
-              <li key={m.id}>
-                {onOpenMilestone ? (
-                  <button type="button" className={LINK_CLASS} onClick={() => onOpenMilestone()}>
-                    {atRiskMilestones.includes(m) ? "⚠ " : ""}{m.name} · {m.date}
-                  </button>
-                ) : (
-                  <span>{atRiskMilestones.includes(m) ? "⚠ " : ""}{m.name} · {m.date}</span>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-      </Section>
+      {showMilestones && (
+        <Section title={t(lang, "dashboardMilestones")} boxed>
+          {overdueMilestones.length + atRiskMilestones.length + dueSoonMilestones.length === 0 ? (
+            <p className="text-sm text-muted-foreground">—</p>
+          ) : (
+            <ul className="space-y-1 text-sm">
+              {[...overdueMilestones, ...atRiskMilestones, ...dueSoonMilestones].map((m) => (
+                <li key={m.id}>
+                  {onOpenMilestone ? (
+                    <button type="button" className={LINK_CLASS} onClick={() => onOpenMilestone()}>
+                      {atRiskMilestones.includes(m) ? "⚠ " : ""}{m.name} · {m.date}
+                    </button>
+                  ) : (
+                    <span>{atRiskMilestones.includes(m) ? "⚠ " : ""}{m.name} · {m.date}</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </Section>
+      )}
     </div>
   );
 }
