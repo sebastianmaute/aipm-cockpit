@@ -102,7 +102,7 @@ function TaskManagerInner() {
     startColResize,
   } = useColumnManager();
   const { isPopout, activeTab, setActiveTab, requestOpen } = useWorkspaceTab();
-  useHashView(settings.layout === "modern");
+  useHashView(settings.layout === "modern", settings.features);
   // Classic mode has no panel for the modern-only views; fall back to chat.
   useEffect(() => {
     if (
@@ -119,9 +119,9 @@ function TaskManagerInner() {
   // double-hop (open-points → chat) caused by the classic-fallback effect above.
   useEffect(() => {
     if (isViewEnabled(activeTab, settings.features)) return;
-    const fallback = settings.layout === "classic" ? "chat" : "open-points";
+    const fallback = (isPopout || settings.layout === "classic") ? "chat" : "open-points";
     setActiveTab(isModuleEnabled("dashboard", settings.features) ? "dashboard" : fallback);
-  }, [activeTab, settings.features, settings.layout, setActiveTab]);
+  }, [activeTab, settings.features, settings.layout, isPopout, setActiveTab]);
 
   const handleCommitFeatures = useCallback(
     (features: FeatureModuleId[]) => {

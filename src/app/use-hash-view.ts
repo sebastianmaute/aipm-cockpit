@@ -2,6 +2,7 @@
 import { useEffect, useLayoutEffect } from "react";
 import { useWorkspaceTab } from "./workspace-tab-context";
 import { buildHash, parseHash } from "./nav-config";
+import { isViewEnabled, type FeatureModuleId } from "./feature-modules";
 
 function currentHash(): string {
   if (typeof window === "undefined") return "";
@@ -16,8 +17,11 @@ function currentHash(): string {
  * differs, so an existing `#raid/123` is preserved while the user stays on RAID.
  *
  * `enabled` gates the whole sync — pass false in Classic mode.
+ * `features` gates navigation to disabled-module views — if the hash points at
+ * a view whose module is off, the hash is ignored (the redirect effect keeps
+ * the user on a valid view and will rewrite the hash).
  */
-export function useHashView(enabled: boolean = true): void {
+export function useHashView(enabled: boolean = true, features?: readonly FeatureModuleId[]): void {
   const { activeTab, setActiveTab, isPopout, requestOpen } = useWorkspaceTab();
 
   // Mount + back/forward: hash drives the view (and any deep-linked item).
@@ -25,13 +29,14 @@ export function useHashView(enabled: boolean = true): void {
     if (!enabled || isPopout) return;
     const apply = () => {
       const { view, itemId } = parseHash(currentHash());
+      if (features && !isViewEnabled(view, features)) return; // disabled target: ignore the hash
       setActiveTab(view);
       if (itemId != null) requestOpen(view, itemId);
     };
     apply();
     window.addEventListener("hashchange", apply);
     return () => window.removeEventListener("hashchange", apply);
-  }, [enabled, isPopout, setActiveTab, requestOpen]);
+  }, [enabled, isPopout, features, setActiveTab, requestOpen]);
 
   // View change: write the hash, but only when the BASE view differs — so an
   // existing "#raid/123" is not clobbered while we stay on RAID. Skip "edit".
