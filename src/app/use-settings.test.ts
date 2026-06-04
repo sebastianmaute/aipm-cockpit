@@ -1,10 +1,9 @@
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
+import { ALL_MODULE_IDS } from "./feature-modules";
 import { defaultSettings } from "./settings-menu";
 import { defaultNotificationsConfig } from "./settings-types";
-import { coerceLayout, useSettings } from "./use-settings";
-
-const SETTINGS_KEY = "lop-app:settings";
+import { coerceLayout, SETTINGS_KEY, useSettings, writeSettings } from "./use-settings";
 
 beforeEach(() => {
   localStorage.clear();
@@ -177,5 +176,18 @@ describe("layout setting", () => {
     expect(coerceLayout("modern")).toBe("modern");
     expect(coerceLayout("bogus")).toBe("modern");
     expect(coerceLayout(undefined)).toBe("modern");
+  });
+});
+
+describe("features persistence", () => {
+  it("defaultSettings enables all modules (Advanced)", () => {
+    expect(defaultSettings.features).toEqual([...ALL_MODULE_IDS]);
+  });
+
+  it("writeSettings round-trips the features array to localStorage", () => {
+    writeSettings({ ...defaultSettings, features: ["raid", "budget"] });
+    const raw = window.localStorage.getItem(SETTINGS_KEY);
+    expect(raw).toBeTruthy();
+    expect(JSON.parse(raw as string).features).toEqual(["raid", "budget"]);
   });
 });
