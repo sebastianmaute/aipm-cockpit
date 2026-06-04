@@ -22,7 +22,7 @@ import { useTaskRowHandlers } from "./use-task-row-handlers";
 import { useTaskSubmit } from "./use-task-submit";
 import { useGanttHandlers } from "./use-gantt-handlers";
 import { AppModals } from "./app-modals";
-import { type Resource, type BudgetBucket } from "./types";
+import { type Resource, type BudgetBucket, type RaidItem, type ChangeItem } from "./types";
 import { useFxRates } from "./use-fx-rates";
 import { splitName, resourceDisplayName } from "./resource-foundation";
 import { buildRaidByTaskIndex } from "./raid";
@@ -266,6 +266,7 @@ function TaskManagerInner() {
   const trends = { ...snapshots, active: trendsActive };
 
   const raidEnabled = isModuleEnabled("raid", settings.features);
+  const changesEnabled = isModuleEnabled("changes", settings.features);
 
   const { bannerDismissed, setBannerDismissed, dueModalOpen, setDueModalOpen, raidReviewModalOpen, setRaidReviewModalOpen } =
     useDueAlerts({ hydrated, tasks, holidaySet, absences, settings, today, showToast, raid, raidEnabled });
@@ -307,10 +308,18 @@ function TaskManagerInner() {
   // Reverse-lookup index for the "referenced by N RAID items" badge on
   // each task row. Map<taskId, RaidItem[]>. O(R) on every raid update,
   // then O(1) per row. Empty when `raid` is empty — the per-row check
-  // bails out fast.
-  const raidByTask = useMemo(() => buildRaidByTaskIndex(raid), [raid]);
+  // bails out fast. Returns an empty map when the RAID module is disabled
+  // so the badge is never rendered and the click-to-jump dead-end is avoided.
+  const raidByTask = useMemo(
+    () => (raidEnabled ? buildRaidByTaskIndex(raid) : new Map<number, RaidItem[]>()),
+    [raid, raidEnabled],
+  );
   // Same index, mirrored for the read-only "N changes" task-row badge.
-  const changeByTask = useMemo(() => buildChangeByTaskIndex(changes), [changes]);
+  // Returns an empty map when the changes module is disabled.
+  const changeByTask = useMemo(
+    () => (changesEnabled ? buildChangeByTaskIndex(changes) : new Map<number, ChangeItem[]>()),
+    [changes, changesEnabled],
+  );
 
   const nextId = tasks.length > 0 ? Math.max(...tasks.map((row) => row.id)) + 1 : 1;
 
