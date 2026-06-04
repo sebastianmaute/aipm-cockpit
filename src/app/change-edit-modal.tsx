@@ -30,6 +30,8 @@ export interface ChangeEditModalProps {
   raid: readonly RaidItem[];
   draft: ChangeItem;
   isNew: boolean;
+  /** When false, the Linked RAID items editor is hidden. Default true. */
+  raidEnabled?: boolean;
   onChange: (next: ChangeItem) => void;
   onApplyStatus: (status: ChangeStatus) => void;
   onSave: () => void;
@@ -69,6 +71,7 @@ export function ChangeEditModal({
   raid,
   draft,
   isNew,
+  raidEnabled = true,
   onChange,
   onApplyStatus,
   onSave,
@@ -462,7 +465,7 @@ export function ChangeEditModal({
           </div>
 
           {/* Linked RAID items ---------------------------------------- */}
-          <div className="sm:col-span-2">
+          {raidEnabled && <div className="sm:col-span-2">
             <span className="mb-2 block text-sm font-medium text-foreground">
               {t(lang, "changeFieldLinkedRaid")}
             </span>
@@ -521,7 +524,7 @@ export function ChangeEditModal({
                 </ul>
               )}
             </div>
-          </div>
+          </div>}
 
           {error && (
             <p

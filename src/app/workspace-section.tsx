@@ -431,6 +431,7 @@ export function WorkspaceSection({
               onChangeExtraReports={(next) => setSettings((s) => ({ ...s, reports: { ...s.reports, extra: next } }))}
               stakeholders={stakeholders}
               milestones={milestones}
+              features={settings.features}
             />
           </div>
         )}
@@ -445,15 +446,19 @@ export function WorkspaceSection({
               lang={lang}
               tasks={tasks}
               absences={absences}
-              milestones={milestones}
+              milestones={isModuleEnabled("milestones", settings.features) ? milestones : []}
               onUpdateBar={handleGanttBarUpdate}
               onAddTask={isPopout ? undefined : () => {
                 handleCancelEdit();
                 setTaskModalOpen(true);
               }}
               onEditTask={isPopout ? undefined : onEditTask}
-              onAddMilestone={() => { setActiveTab("milestones"); setMilestoneCreateNonce((n) => n + 1); }}
-              onEditMilestone={() => setActiveTab("milestones")}
+              onAddMilestone={isModuleEnabled("milestones", settings.features)
+                ? () => { setActiveTab("milestones"); setMilestoneCreateNonce((n) => n + 1); }
+                : undefined}
+              onEditMilestone={isModuleEnabled("milestones", settings.features)
+                ? () => setActiveTab("milestones")
+                : undefined}
             />
           </div>
         )}
@@ -582,11 +587,12 @@ export function WorkspaceSection({
             <ChangePanel
               lang={lang}
               tasks={tasks}
-              raid={raid}
+              raid={isModuleEnabled("raid", settings.features) ? raid : []}
               changes={changes}
               today={today}
               onSave={handleSaveChange}
               onDelete={handleDeleteChange}
+              raidEnabled={isModuleEnabled("raid", settings.features)}
             />
           </div>
         )}

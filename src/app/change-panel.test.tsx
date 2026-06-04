@@ -28,3 +28,17 @@ describe("ChangePanel", () => {
     expect(getByDisplayValue("Alpha scope")).toBeTruthy();
   });
 });
+
+describe("ChangePanel — raidEnabled", () => {
+  it("hides the RAID link control when raidEnabled is false", () => {
+    const { getByText, queryByText } = render(<ChangePanel {...base} raidEnabled={false} />);
+    fireEvent.click(getByText("Alpha scope"));
+    expect(queryByText("Linked RAID items")).toBeNull();
+  });
+
+  it("shows the RAID link control when raidEnabled is true (default)", () => {
+    const { getByText } = render(<ChangePanel {...base} />);
+    fireEvent.click(getByText("Alpha scope"));
+    expect(getByText("Linked RAID items")).toBeTruthy();
+  });
+});

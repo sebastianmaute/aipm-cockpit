@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { ReportsPanel } from "./reports";
 import type { BudgetBucket, ResourcePlan, Role, Task } from "./types";
 import type { AddableReportId } from "./addable-reports";
+import { ALL_MODULE_IDS } from "./feature-modules";
 
 const TODAY = "2026-05-28";
 
@@ -216,6 +217,43 @@ describe("ReportsPanel — composed reports", () => {
   });
   it("renders the Stakeholder report when added", () => {
     renderComposed(["stakeholder-report"]);
+    expect(screen.getByRole("heading", { name: /stakeholder report/i })).toBeInTheDocument();
+  });
+});
+
+describe("ReportsPanel — module gating", () => {
+  it("omits a stored extra report whose module is disabled", () => {
+    const featuresWithout = ALL_MODULE_IDS.filter((m) => m !== "stakeholders");
+    render(
+      <ReportsPanel
+        tasks={[makeTask({ id: 1, assignee: "A" })]}
+        today={TODAY}
+        holidaySet={new Set()}
+        lang="en-US"
+        raid={[]}
+        stakeholders={[]}
+        milestones={[]}
+        extraReports={["stakeholder-report"]}
+        features={featuresWithout}
+      />,
+    );
+    expect(screen.queryByRole("heading", { name: /stakeholder report/i })).toBeNull();
+  });
+
+  it("shows a stored extra report when its module is enabled", () => {
+    render(
+      <ReportsPanel
+        tasks={[makeTask({ id: 1, assignee: "A" })]}
+        today={TODAY}
+        holidaySet={new Set()}
+        lang="en-US"
+        raid={[]}
+        stakeholders={[]}
+        milestones={[]}
+        extraReports={["stakeholder-report"]}
+        features={[...ALL_MODULE_IDS]}
+      />,
+    );
     expect(screen.getByRole("heading", { name: /stakeholder report/i })).toBeInTheDocument();
   });
 });
