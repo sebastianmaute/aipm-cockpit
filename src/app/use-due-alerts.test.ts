@@ -1,8 +1,8 @@
-import { act, renderHook } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { act, renderHook, waitFor } from "@testing-library/react";
+import { describe, expect, it, test, vi } from "vitest";
 import { useDueAlerts } from "./use-due-alerts";
 import type { Settings } from "./settings-menu";
-import type { Task } from "./types";
+import type { RaidItem, Task } from "./types";
 
 const TODAY = "2030-01-15";
 
@@ -68,6 +68,7 @@ describe("useDueAlerts", () => {
         tasks: [],
         holidaySet: new Set(),
         absences: [],
+        raid: [],
         settings: makeSettings(),
         today: TODAY,
         showToast,
@@ -85,6 +86,7 @@ describe("useDueAlerts", () => {
         tasks: [OVERDUE_TASK],
         holidaySet: new Set(),
         absences: [],
+        raid: [],
         settings: makeSettings({ toastEnabled: true, popupEnabled: true }),
         today: TODAY,
         showToast,
@@ -102,6 +104,7 @@ describe("useDueAlerts", () => {
         tasks: [OVERDUE_TASK],
         holidaySet: new Set(),
         absences: [],
+        raid: [],
         settings: makeSettings({ toastEnabled: true }),
         today: TODAY,
         showToast,
@@ -123,6 +126,7 @@ describe("useDueAlerts", () => {
         tasks: [OVERDUE_TASK],
         holidaySet: new Set(),
         absences: [],
+        raid: [],
         settings: makeSettings({ popupEnabled: true }),
         today: TODAY,
         showToast,
@@ -133,5 +137,38 @@ describe("useDueAlerts", () => {
       await Promise.resolve();
     });
     expect(result.current.dueModalOpen).toBe(true);
+  });
+
+  test("fires a RAID-review toast once per session when items exist and toast channel on", async () => {
+    const showToast = vi.fn();
+    const raid: RaidItem[] = [
+      {
+        id: 1,
+        category: "R",
+        title: "Risk",
+        status: "Open",
+        linkedTaskIds: [],
+        causedByRaidIds: [],
+        raisedDate: "2026-01-01",
+      },
+    ];
+    renderHook(() =>
+      useDueAlerts({
+        hydrated: true,
+        tasks: [],
+        holidaySet: new Set(),
+        absences: [],
+        raid,
+        settings: makeSettings({ toastEnabled: true }),
+        today: "2026-06-04",
+        showToast,
+      })
+    );
+    await waitFor(() =>
+      expect(showToast).toHaveBeenCalledWith(
+        "info",
+        expect.stringMatching(/RAID review due/i)
+      )
+    );
   });
 });
