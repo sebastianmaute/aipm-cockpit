@@ -341,13 +341,13 @@ export function HelpMenu({ lang }: { lang: Lang }) {
                     ).map((seg, k) =>
                       seg.match ? (
                         <mark
-                          key={k}
+                          key={`${k}-${seg.match}`}
                           className="bg-AIPM-green/30 text-foreground"
                         >
                           {seg.text}
                         </mark>
                       ) : (
-                        <span key={k}>{seg.text}</span>
+                        <span key={`${k}-${seg.match}`}>{seg.text}</span>
                       ),
                     )}
                   </p>
@@ -358,13 +358,13 @@ export function HelpMenu({ lang }: { lang: Lang }) {
                     ).map((seg, k) =>
                       seg.match ? (
                         <mark
-                          key={k}
+                          key={`${k}-${seg.match}`}
                           className="bg-AIPM-green/30 text-foreground"
                         >
                           {seg.text}
                         </mark>
                       ) : (
-                        <span key={k}>{seg.text}</span>
+                        <span key={`${k}-${seg.match}`}>{seg.text}</span>
                       ),
                     )}
                   </p>

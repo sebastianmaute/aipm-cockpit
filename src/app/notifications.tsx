@@ -351,7 +351,9 @@ export function RaidReviewModal({
   items: RaidReviewItem[];
   lang: Lang;
   onClose: () => void;
-  onSelectRaid?: (id: number) => void;
+  // The action navigates to the RAID register (no open-by-id entry point
+  // exists app-wide); intentionally takes no id so the contract matches behavior.
+  onSelectRaid?: () => void;
 }) {
   const { ref: panelRef } = useResizable("lop-app:raid-review-modal-size");
   return (
@@ -417,7 +419,7 @@ export function RaidReviewModal({
                   {onSelectRaid && (
                     <button
                       type="button"
-                      onClick={() => onSelectRaid(item.id)}
+                      onClick={() => onSelectRaid()}
                       className="shrink-0 text-xs font-medium text-AIPM-dark-blue underline-offset-2 hover:underline dark:text-AIPM-blue"
                     >
                       {t(lang, "edit")}
