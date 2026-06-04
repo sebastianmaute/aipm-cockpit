@@ -1357,6 +1357,7 @@ export const de: Record<TranslationKey, string> = {
   stakeholdersDelete: "Stakeholder loeschen",
   stakeholderConfirmDelete: "Diesen Stakeholder loeschen?",
   versionHighlightStakeholders: "Stakeholder-Register mit RACI-Matrix und Einfluss-/Interessenraster",
+  versionHighlightStakeholderReport: "Stakeholder-Bericht + Klick-Matrix fuer Einfluss/Interesse",
 
   helpSearchPlaceholder: "Hilfe durchsuchen",
   helpSearchNoResults: "Keine Hilfethemen passen zur Suche.",

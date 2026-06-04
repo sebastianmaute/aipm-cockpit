@@ -1,3 +1,15 @@
+// 0.53.0 "Asimov" is a stakeholder + UI refinement batch. A new addable
+// Stakeholder report (summary tiles, influence/interest quadrant grid, RACI
+// coverage with missing/multiple-Accountable warnings, and a register table)
+// joins the Reports view. The stakeholder editor replaces the influence and
+// interest dropdowns with a single clickable 3x3 matrix (X=interest,
+// Y=influence) adapted from the RAID risk matrix — one click sets both. The
+// RACI matrix and influence/interest map are now drag-resizable panes; the
+// dashboard status summary gains a Clear button (clears + persists empty); the
+// Change Log and Stakeholder add buttons are prefixed/labelled "+". The sample
+// workspace now seeds milestones, stakeholders, and RACI so every stakeholder
+// view is demonstrable out of the box. New modules: influence-interest-matrix.tsx,
+// stakeholder-report-panel.tsx.
 // 0.51.0 "Pratchett" adds RAID review reminders and a RAG/UI polish batch.
 // A new pure raid-review.ts flags active RAID items overdue for review — past
 // their target date or not reviewed within a configurable interval (a new
@@ -663,12 +675,12 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.52.0";
-export const APP_BUILD_DATE = "2026-06-04"; // 0.52.0 Stakeholder register + RACI + RAID deep-linking
+export const APP_VERSION = "0.53.0";
+export const APP_BUILD_DATE = "2026-06-04"; // 0.53.0 Stakeholder report + influence/interest matrix + UI batch
 /** Minor-series milestone codename (sci-fi/fantasy author names). The whole
- *  0.52.x line is "Scalzi" (John Scalzi); patch releases inherit
+ *  0.53.x line is "Asimov" (Isaac Asimov); patch releases inherit
  *  their minor version's codename rather than getting their own. */
-export const APP_MILESTONE = "Scalzi";
+export const APP_MILESTONE = "Asimov";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -732,4 +744,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightChangeLog",
   "versionHighlightRaidReview",
   "versionHighlightStakeholders",
+  "versionHighlightStakeholderReport",
 ] as const;

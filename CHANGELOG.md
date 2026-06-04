@@ -8,6 +8,18 @@ Authoritative source for version + build date: [`src/app/version.ts`](src/app/ve
 This file is seeded from that module's milestone comment plus the
 post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-diff.txt).
 
+## [0.53.0] — 2026-06-04 "Asimov"
+
+### Added
+- Addable **Stakeholder report** in the Reports view (summary tiles, influence/interest quadrant grid, RACI coverage with missing/multiple-Accountable warnings, register table).
+- Influence/Interest **3×3 click-matrix** in the stakeholder editor (replaces the two dropdowns; one click sets both axes).
+- **Clear** button on the dashboard status summary (clears and persists an empty narrative).
+- Sample workspace now seeds milestones, stakeholders, and RACI data.
+
+### Changed
+- RACI matrix and influence/interest map are now resizable panes.
+- "+" prefix on the Change Log add button; "+ Add stakeholder" label on the register add button.
+
 ## [0.52.0] — 2026-06-04 "Scalzi"
 
 ### Added

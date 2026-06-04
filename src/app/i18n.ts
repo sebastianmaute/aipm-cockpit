@@ -1339,6 +1339,7 @@ const enUS = {
   stakeholdersDelete: "Delete stakeholder",
   stakeholderConfirmDelete: "Delete this stakeholder?",
   versionHighlightStakeholders: "Stakeholder register with RACI matrix and influence/interest grid",
+  versionHighlightStakeholderReport: "Stakeholder report + a click-matrix for influence/interest",
 
   helpSearchPlaceholder: "Search help",
   helpSearchNoResults: "No help topics match your search.",

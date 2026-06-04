@@ -1,4 +1,4 @@
-<!-- Generated: 2026-06-03 | Files scanned: ~120 (src/app/*.tsx, *.ts, settings-sections/) | Token estimate: ~1600 | Updated for 0.29.0–0.50.0: modern sidebar layout + UI-consistency sweep + Health Dashboard + Milestones + Earned Value + budget/dashboard RAG + burn-down + UI refinements + baseline/variance trends + change-control Log -->
+<!-- Generated: 2026-06-04 | Files scanned: ~122 (src/app/*.tsx, *.ts, settings-sections/) | Token estimate: ~1650 | Updated for 0.29.0–0.53.0: modern sidebar layout + UI-consistency sweep + Health Dashboard + Milestones + Earned Value + budget/dashboard RAG + burn-down + UI refinements + baseline/variance trends + change-control Log + stakeholder report + influence/interest matrix -->
 
 # Frontend
 
@@ -191,6 +191,8 @@ prerendered.
 | `stakeholder-map-panel.tsx` | Influence/Interest grid: 2-D scatter plot with colour-coded quadrants (Manage Closely / Keep Satisfied / Keep Informed / Monitor); `stakeholder-map` AppView (Registers group) | Conditional mount; 0.52.0+ |
 | `stakeholder-edit-modal.tsx` | Draggable modal editor for a Stakeholder (name, role, org, contact, engagement, influence/interest scores, Resource link) | Component; 0.52.0+ |
 | `use-stakeholders.ts` | `useStakeholders()` hook — stakeholder + RACI CRUD over WorkspaceContext | Client hook; 0.52.0+ |
+| `influence-interest-matrix.tsx` | Clickable 3×3 influence/interest grid used by the stakeholder editor (replaces the two dropdowns; one click sets both axes) | Component; 0.53.0+ |
+| `stakeholder-report-panel.tsx` | Read-only stakeholder report (summary tiles, quadrant grid, RACI coverage with missing/multiple-Accountable warnings, register table), embedded in Reports | Conditional mount; 0.53.0+ |
 | **Chat & Voice** | | |
 | `chat-panel.tsx` | Claude chat with tool calls via `dispatcher` | Conditional mount; history in TaskManager |
 | `chat-tools.ts` | Tool dispatcher object; CRUD on tasks/RAID | Huge `useMemo` in TaskManager |
