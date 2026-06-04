@@ -7,6 +7,7 @@ import { t } from "./i18n";
 import { RaidPanel } from "./raid-panel";
 import type { RaidPanelProps } from "./raid-panel";
 import type { RaidItem } from "./types";
+import { WorkspaceTabProvider, useWorkspaceTab } from "./workspace-tab-context";
 
 function makeProps(overrides: Partial<RaidPanelProps> = {}): RaidPanelProps {
   return {
@@ -25,6 +26,16 @@ function makeProps(overrides: Partial<RaidPanelProps> = {}): RaidPanelProps {
 }
 
 // --- helpers ---------------------------------------------------------------
+
+// RaidPanel consumes the workspace-tab context (for deep-link open), so every
+// render must be wrapped in WorkspaceTabProvider — exactly as the real app does.
+function renderPanel(props: RaidPanelProps) {
+  return render(
+    <WorkspaceTabProvider>
+      <RaidPanel {...props} />
+    </WorkspaceTabProvider>,
+  );
+}
 
 function makeRaidItem(overrides: Partial<RaidItem> & Pick<RaidItem, "id" | "title" | "severity">): RaidItem {
   return {
@@ -54,14 +65,14 @@ describe("RaidPanel sortable column headers", () => {
   ];
 
   it("clicking Severity header once → ascending order (Low first, Critical last)", () => {
-    const { container } = render(<RaidPanel {...makeProps({ raid: raidItems })} />);
+    const { container } = renderPanel(makeProps({ raid: raidItems }));
     fireEvent.click(screen.getByRole("button", { name: /severity/i }));
     const ids = rowIds(container);
     expect(ids).toEqual(["#1", "#2", "#3"]); // Low(1) → High(2) → Critical(3)
   });
 
   it("clicking Severity header twice → descending order (Critical first, Low last)", () => {
-    const { container } = render(<RaidPanel {...makeProps({ raid: raidItems })} />);
+    const { container } = renderPanel(makeProps({ raid: raidItems }));
     const btn = screen.getByRole("button", { name: /severity/i });
     fireEvent.click(btn);
     fireEvent.click(btn);
@@ -70,7 +81,7 @@ describe("RaidPanel sortable column headers", () => {
   });
 
   it("clicking Severity header three times → back to default order (severity-rank, open-first)", () => {
-    const { container } = render(<RaidPanel {...makeProps({ raid: raidItems })} />);
+    const { container } = renderPanel(makeProps({ raid: raidItems }));
     const btn = screen.getByRole("button", { name: /severity/i });
     fireEvent.click(btn);
     fireEvent.click(btn);
@@ -81,7 +92,7 @@ describe("RaidPanel sortable column headers", () => {
   });
 
   it("non-sortable headers (Linked Tasks, Caused By) have no sort button", () => {
-    render(<RaidPanel {...makeProps({ raid: raidItems })} />);
+    renderPanel(makeProps({ raid: raidItems }));
     expect(
       screen.queryByRole("button", { name: /linked tasks/i }),
     ).toBeNull();
@@ -93,7 +104,7 @@ describe("RaidPanel sortable column headers", () => {
 
 describe("RaidPanel tooltips", () => {
   it("gives the RAID search box a descriptive tooltip", () => {
-    render(<RaidPanel {...makeProps()} />);
+    renderPanel(makeProps());
     expect(screen.getByPlaceholderText(/search title, owner/i)).toHaveAttribute(
       "title",
       "Filter the register to items whose title, owner, or description match your text.",
@@ -103,7 +114,7 @@ describe("RaidPanel tooltips", () => {
 
 describe("RaidPanel inline add row", () => {
   it("inline add row is present when RAID list is empty", () => {
-    render(<RaidPanel {...makeProps()} />);
+    renderPanel(makeProps());
     const addBtns = screen.getAllByRole("button", { name: t("en-US", "raidAddItem") });
     expect(addBtns.length).toBeGreaterThanOrEqual(1);
   });
@@ -115,13 +126,13 @@ describe("RaidPanel inline add row", () => {
       raisedDate: "2026-05-22", linkedTaskIds: [],
       causedByRaidIds: [],
     };
-    render(<RaidPanel {...makeProps({ raid: [item] })} />);
+    renderPanel(makeProps({ raid: [item] }));
     const addBtns = screen.getAllByRole("button", { name: t("en-US", "raidAddItem") });
     expect(addBtns.length).toBeGreaterThanOrEqual(1);
   });
 
   it("clicking inline add row when category filter is 'All' opens modal with category R", () => {
-    render(<RaidPanel {...makeProps()} />);
+    renderPanel(makeProps());
     const addBtns = screen.getAllByRole("button", { name: t("en-US", "raidAddItem") });
     fireEvent.click(addBtns[addBtns.length - 1]);
     // The Category radiogroup is inside the modal. We scope with `within` to
@@ -139,7 +150,7 @@ describe("RaidPanel inline add row", () => {
   });
 
   it("clicking inline add row when category filter is 'A' opens modal with category A", () => {
-    render(<RaidPanel {...makeProps()} />);
+    renderPanel(makeProps());
     const categorySelect = screen.getByDisplayValue(t("en-US", "raidCategoryAll"));
     fireEvent.change(categorySelect, { target: { value: "A" } });
     const addBtns = screen.getAllByRole("button", { name: t("en-US", "raidAddItem") });
@@ -151,6 +162,44 @@ describe("RaidPanel inline add row", () => {
       checked: true,
     });
     expect(checkedRadio).toHaveTextContent(t("en-US", "raidCategoryA"));
+  });
+});
+
+describe("RaidPanel deep-link open", () => {
+  it("opens the edit modal for a pending deep-linked RAID item, then clears it", () => {
+    const raid: RaidItem[] = [
+      makeRaidItem({ id: 5, title: "Deep linked risk", severity: "High" }),
+    ];
+    let pendingAfter: unknown = "unset";
+    function Trigger() {
+      const { requestOpen, pendingOpen } = useWorkspaceTab();
+      pendingAfter = pendingOpen;
+      return (
+        <button type="button" onClick={() => requestOpen("raid", 5)}>
+          go
+        </button>
+      );
+    }
+    render(
+      <WorkspaceTabProvider>
+        <Trigger />
+        <RaidPanel {...makeProps({ raid })} />
+      </WorkspaceTabProvider>,
+    );
+
+    // Modal closed initially.
+    expect(screen.queryByRole("dialog", { name: t("en-US", "raidEditItem", 5) })).toBeNull();
+
+    fireEvent.click(screen.getByText("go"));
+
+    // The edit modal for item #5 is now open.
+    expect(
+      screen.getByRole("dialog", { name: t("en-US", "raidEditItem", 5) }),
+    ).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Deep linked risk")).toBeInTheDocument();
+
+    // pendingOpen has been cleared.
+    expect(pendingAfter).toBeNull();
   });
 });
 

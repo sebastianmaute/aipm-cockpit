@@ -29,6 +29,7 @@ import { buildChangeByTaskIndex } from "./change-log";
 import { FiltersProvider, useFilters } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { useChangeLog } from "./use-change-log";
+import { useStakeholders } from "./use-stakeholders";
 import {
   TaskFormProvider,
   useTaskForm,
@@ -99,7 +100,7 @@ function TaskManagerInner() {
     resetColWidths,
     startColResize,
   } = useColumnManager();
-  const { isPopout, activeTab, setActiveTab } = useWorkspaceTab();
+  const { isPopout, activeTab, setActiveTab, requestOpen } = useWorkspaceTab();
   useHashView(settings.layout === "modern");
   // Classic mode has no panel for the modern-only views; fall back to chat.
   useEffect(() => {
@@ -335,6 +336,14 @@ function TaskManagerInner() {
   // change activity-logging is intentionally out of scope (logActivity here is
   // kind-keyed, not free-text), so no logActivity is passed.
   const { handleSaveChange, handleDeleteChange } = useChangeLog({ today });
+
+  // Stakeholder register / RACI / map CRUD. Mirrors the Change Log: the hook
+  // reads/writes `stakeholders` via WorkspaceProvider; the three panels source
+  // `resources`/`milestones` from context inside WorkspaceSection. As with
+  // useChangeLog, no logActivity is passed — task-manager's logActivity is
+  // kind-keyed (ActivityKind), not the free-text summary the hook expects.
+  const { stakeholders, handleSaveStakeholder, handleDeleteStakeholder } =
+    useStakeholders({ today });
 
   const [fillTaskAssigneeOnSave, setFillTaskAssigneeOnSave] = useState(false);
 
@@ -651,11 +660,7 @@ function TaskManagerInner() {
     [tasks, setDueModalOpen, openEditModal],
   );
 
-  const onSelectRaidReview = useCallback(() => {
-    setActiveTab("raid");
-    handleClearRaidTaskFilter();
-    setWorkspaceCollapsed((prev) => (prev ? false : prev));
-  }, [setActiveTab, handleClearRaidTaskFilter, setWorkspaceCollapsed]);
+  const openRaidItem = useCallback((id: number) => requestOpen("raid", id), [requestOpen]);
 
   const dispatcher = useChatDispatcher({
     settings,
@@ -714,6 +719,9 @@ function TaskManagerInner() {
     changes,
     handleSaveChange: guardEdit(handleSaveChange),
     handleDeleteChange: guardEdit(handleDeleteChange),
+    stakeholders,
+    handleSaveStakeholder: guardEdit(handleSaveStakeholder),
+    handleDeleteStakeholder: guardEdit(handleDeleteStakeholder),
     handleCreateMitigationTaskFromRaid: guardEdit(handleCreateMitigationTaskFromRaid),
     handleJumpToTaskFromRaid,
     activityLog,
@@ -997,7 +1005,7 @@ function TaskManagerInner() {
           items={raidReviewItems}
           lang={lang}
           onClose={() => setRaidReviewModalOpen(false)}
-          onSelectRaid={() => { setRaidReviewModalOpen(false); onSelectRaidReview(); }}
+          onSelectRaid={(id) => { setRaidReviewModalOpen(false); openRaidItem(id); }}
         />
       )}
     </>

@@ -35,6 +35,12 @@ import {
   type ChangeItem,
   type ChangeType,
   type ChangeStatus,
+  STAKEHOLDER_CATEGORIES,
+  RACI_ROLES,
+  type Stakeholder,
+  type RaciRole,
+  type StakeholderCategory,
+  type InfluenceInterest,
 } from "./types";
 import { defaultResourcePlan, splitName } from "./resource-foundation";
 
@@ -911,6 +917,82 @@ export function sanitizeChangeItem(input: unknown): ChangeItem | null {
   const decBy = sanitizeText(o.decisionBy, BUDGET_NAME_MAX); if (decBy) item.decisionBy = decBy;
   const decDate = sanitizeIsoDate(o.decisionDate); if (decDate) item.decisionDate = decDate;
   const notes = sanitizeText(o.resolutionNotes, TEXTAREA_MAX); if (notes) item.resolutionNotes = notes;
+  const lma = sanitizeText(o.localModifiedAt, TEXTAREA_MAX); if (lma) item.localModifiedAt = lma;
+  return item;
+}
+
+// --- Stakeholder + RACI ----------------------------------------------------
+
+const STAKEHOLDER_CATEGORY_SET = new Set<string>(STAKEHOLDER_CATEGORIES);
+const INFLUENCE_INTEREST_SET = new Set<string>(["Low", "Medium", "High"]);
+const RACI_SET = new Set<string>(RACI_ROLES);
+const RACI_KEY_RE = /^\d+$/;
+
+/** Encode a RACI map "milestoneId=letter|…"; drops malformed entries. */
+export function encodeRaciMap(map: Record<string, RaciRole> | undefined): string {
+  if (!map) return "";
+  return Object.entries(map)
+    .filter(([k, v]) => RACI_KEY_RE.test(k) && RACI_SET.has(v))
+    .map(([k, v]) => `${k}=${v}`)
+    .join("|");
+}
+
+/** Decode "k=v|k=v" back to a RACI map; drops malformed keys/letters. */
+export function decodeRaciMap(s: unknown): Record<string, RaciRole> {
+  if (typeof s !== "string" || !s) return {};
+  const out: Record<string, RaciRole> = {};
+  for (const part of s.split("|")) {
+    const eq = part.indexOf("=");
+    if (eq <= 0) continue;
+    const key = part.slice(0, eq).trim();
+    const val = part.slice(eq + 1).trim();
+    if (RACI_KEY_RE.test(key) && RACI_SET.has(val)) out[key] = val as RaciRole;
+  }
+  return out;
+}
+
+function coerceRaciMap(input: unknown): Record<string, RaciRole> {
+  if (typeof input === "string") return decodeRaciMap(input);
+  if (!isPlainObject(input)) return {};
+  const out: Record<string, RaciRole> = {};
+  for (const [k, v] of Object.entries(input)) {
+    if (RACI_KEY_RE.test(k) && typeof v === "string" && RACI_SET.has(v)) {
+      out[k] = v as RaciRole;
+    }
+  }
+  return out;
+}
+
+/** Accept only well-formed stakeholders from untrusted JSON. id>0 + name required. */
+export function sanitizeStakeholder(input: unknown): Stakeholder | null {
+  if (!isPlainObject(input)) return null;
+  const o = input;
+  const id = toNumber(o.id);
+  if (!Number.isFinite(id) || id <= 0) return null;
+  const name = sanitizeText(o.name, BUDGET_NAME_MAX);
+  if (!name) return null;
+
+  const category = (typeof o.category === "string" && STAKEHOLDER_CATEGORY_SET.has(o.category))
+    ? (o.category as StakeholderCategory) : "Other";
+  const influence = (typeof o.influence === "string" && INFLUENCE_INTEREST_SET.has(o.influence))
+    ? (o.influence as InfluenceInterest) : "Medium";
+  const interest = (typeof o.interest === "string" && INFLUENCE_INTEREST_SET.has(o.interest))
+    ? (o.interest as InfluenceInterest) : "Medium";
+
+  const item: Stakeholder = {
+    id: Math.floor(id),
+    name,
+    category,
+    influence,
+    interest,
+    raci: coerceRaciMap(o.raci),
+  };
+  const org = sanitizeText(o.organization, BUDGET_NAME_MAX); if (org) item.organization = org;
+  const title = sanitizeText(o.title, BUDGET_NAME_MAX); if (title) item.title = title;
+  const email = sanitizeText(o.email, BUDGET_NAME_MAX); if (email) item.email = email;
+  const notes = sanitizeText(o.notes, TEXTAREA_MAX); if (notes) item.notes = notes;
+  const rid = toNumber(o.resourceId);
+  if (Number.isFinite(rid) && rid > 0) item.resourceId = Math.floor(rid);
   const lma = sanitizeText(o.localModifiedAt, TEXTAREA_MAX); if (lma) item.localModifiedAt = lma;
   return item;
 }

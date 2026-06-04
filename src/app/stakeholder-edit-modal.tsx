@@ -1,0 +1,358 @@
+"use client";
+
+// Stakeholder edit modal — create / edit / delete a Stakeholder with embedded
+// RACI-by-milestone sub-section. Mirrors ChangeEditModal's structure (sticky/
+// draggable header, two-column grid form, validation error alert, Delete-left /
+// Cancel+Save-right footer). Built as a standalone component using the shared
+// Modal + ModalHeader + useDraggable, like change-edit-modal.tsx.
+
+import { useEffect, useState } from "react";
+import { type Lang, t, type TranslationKey } from "./i18n";
+import { Modal } from "./modal";
+import { ModalHeader } from "./modal-header";
+import {
+  RACI_ROLES,
+  STAKEHOLDER_CATEGORIES,
+  INFLUENCE_INTEREST_LEVELS,
+  type InfluenceInterest,
+  type Milestone,
+  type RaciRole,
+  type Resource,
+  type Stakeholder,
+  type StakeholderCategory,
+} from "./types";
+import { useDraggable } from "./use-draggable";
+import { setRaciRole } from "./stakeholders";
+import { resourceDisplayName } from "./resource-foundation";
+
+export interface StakeholderEditModalProps {
+  lang: Lang;
+  draft: Stakeholder;
+  isNew: boolean;
+  milestones: readonly Milestone[];
+  resources: readonly Resource[];
+  onChange: (next: Stakeholder) => void;
+  onSave: () => void;
+  onCancel: () => void;
+  onDelete: () => void;
+}
+
+const CATEGORY_LABEL_KEYS: Record<StakeholderCategory, TranslationKey> = {
+  Internal: "stakeholderCategoryInternal",
+  Customer: "stakeholderCategoryCustomer",
+  Vendor: "stakeholderCategoryVendor",
+  Sponsor: "stakeholderCategorySponsor",
+  Regulator: "stakeholderCategoryRegulator",
+  Other: "stakeholderCategoryOther",
+};
+
+const LEVEL_LABEL_KEYS: Record<InfluenceInterest, TranslationKey> = {
+  Low: "levelLow",
+  Medium: "levelMedium",
+  High: "levelHigh",
+};
+
+const RACI_LABEL_KEYS: Record<RaciRole, TranslationKey> = {
+  R: "raciRoleR",
+  A: "raciRoleA",
+  C: "raciRoleC",
+  I: "raciRoleI",
+};
+
+const INPUT_CLASS = "rounded-md border border-line bg-surface px-3 py-2 text-sm";
+
+export function StakeholderEditModal({
+  lang,
+  draft,
+  isNew,
+  milestones,
+  resources,
+  onChange,
+  onSave,
+  onCancel,
+  onDelete,
+}: StakeholderEditModalProps) {
+  const [error, setError] = useState<string | null>(null);
+
+  const { offset, handleProps } = useDraggable(true);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onCancel();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onCancel]);
+
+  function update<K extends keyof Stakeholder>(key: K, value: Stakeholder[K]) {
+    setError(null);
+    onChange({ ...draft, [key]: value });
+  }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!draft.name.trim()) {
+      setError(t(lang, "raidErrorTitleRequired"));
+      return;
+    }
+    setError(null);
+    onSave();
+  }
+
+  const title = isNew ? t(lang, "stakeholdersAdd") : t(lang, "navStakeholders");
+  const saveDisabled = !draft.name.trim();
+
+  return (
+    <Modal
+      open
+      onClose={onCancel}
+      ariaLabel={title}
+      align="center"
+      backdropClassName="bg-AIPM-dark-blue/40"
+      zIndex={50}
+    >
+      <div
+        data-modal-panel
+        style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}
+        className="relative flex w-[720px] min-w-[460px] max-w-[95vw] flex-col overflow-hidden rounded-xl border border-line bg-surface"
+      >
+        <ModalHeader
+          lang={lang}
+          title={title}
+          onClose={onCancel}
+          dragHandleProps={handleProps}
+        />
+
+        <form
+          onSubmit={handleSubmit}
+          className="grid grid-cols-1 gap-4 overflow-y-auto p-6 sm:grid-cols-2"
+        >
+          {/* Name */}
+          <label className="flex flex-col gap-1 text-sm sm:col-span-2">
+            <span className="font-medium text-foreground">
+              {t(lang, "stakeholderFieldName")} *
+            </span>
+            <input
+              type="text"
+              required
+              value={draft.name}
+              onChange={(e) => update("name", e.target.value)}
+              className={INPUT_CLASS}
+            />
+          </label>
+
+          {/* Organization */}
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="font-medium text-foreground">
+              {t(lang, "stakeholderFieldOrganization")}
+            </span>
+            <input
+              type="text"
+              value={draft.organization ?? ""}
+              onChange={(e) => update("organization", e.target.value || undefined)}
+              className={INPUT_CLASS}
+            />
+          </label>
+
+          {/* Title */}
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="font-medium text-foreground">
+              {t(lang, "stakeholderFieldTitle")}
+            </span>
+            <input
+              type="text"
+              value={draft.title ?? ""}
+              onChange={(e) => update("title", e.target.value || undefined)}
+              className={INPUT_CLASS}
+            />
+          </label>
+
+          {/* Email */}
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="font-medium text-foreground">
+              {t(lang, "stakeholderFieldEmail")}
+            </span>
+            <input
+              type="text"
+              value={draft.email ?? ""}
+              onChange={(e) => update("email", e.target.value || undefined)}
+              className={INPUT_CLASS}
+            />
+          </label>
+
+          {/* Category */}
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="font-medium text-foreground">
+              {t(lang, "stakeholderFieldCategory")}
+            </span>
+            <select
+              aria-label={t(lang, "stakeholderFieldCategory")}
+              value={draft.category}
+              onChange={(e) => update("category", e.target.value as StakeholderCategory)}
+              className={INPUT_CLASS}
+            >
+              {STAKEHOLDER_CATEGORIES.map((cat) => (
+                <option key={cat} value={cat}>
+                  {t(lang, CATEGORY_LABEL_KEYS[cat])}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          {/* Influence */}
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="font-medium text-foreground">
+              {t(lang, "stakeholderFieldInfluence")}
+            </span>
+            <select
+              aria-label={t(lang, "stakeholderFieldInfluence")}
+              value={draft.influence}
+              onChange={(e) => update("influence", e.target.value as InfluenceInterest)}
+              className={INPUT_CLASS}
+            >
+              {INFLUENCE_INTEREST_LEVELS.map((lvl) => (
+                <option key={lvl} value={lvl}>
+                  {t(lang, LEVEL_LABEL_KEYS[lvl])}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          {/* Interest */}
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="font-medium text-foreground">
+              {t(lang, "stakeholderFieldInterest")}
+            </span>
+            <select
+              aria-label={t(lang, "stakeholderFieldInterest")}
+              value={draft.interest}
+              onChange={(e) => update("interest", e.target.value as InfluenceInterest)}
+              className={INPUT_CLASS}
+            >
+              {INFLUENCE_INTEREST_LEVELS.map((lvl) => (
+                <option key={lvl} value={lvl}>
+                  {t(lang, LEVEL_LABEL_KEYS[lvl])}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          {/* Notes */}
+          <label className="flex flex-col gap-1 text-sm sm:col-span-2">
+            <span className="font-medium text-foreground">
+              {t(lang, "stakeholderFieldNotes")}
+            </span>
+            <textarea
+              rows={2}
+              value={draft.notes ?? ""}
+              onChange={(e) => update("notes", e.target.value || undefined)}
+              className={INPUT_CLASS}
+            />
+          </label>
+
+          {/* Linked resource */}
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="font-medium text-foreground">
+              {t(lang, "stakeholderFieldResource")}
+            </span>
+            <select
+              aria-label={t(lang, "stakeholderFieldResource")}
+              value={draft.resourceId ?? ""}
+              onChange={(e) => {
+                const val = e.target.value;
+                update("resourceId", val === "" ? undefined : Number(val));
+              }}
+              className={INPUT_CLASS}
+            >
+              <option value="">{t(lang, "stakeholderResourceNone")}</option>
+              {resources.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {resourceDisplayName(r)}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          {/* RACI by milestone */}
+          <div className="sm:col-span-2">
+            <span className="mb-2 block text-sm font-medium text-foreground">
+              {t(lang, "raciSectionTitle")}
+            </span>
+            {milestones.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                {t(lang, "raciNoMilestones")}
+              </p>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {milestones.map((m) => (
+                  <div key={m.id} className="flex items-center gap-3 text-sm">
+                    <span className="w-40 truncate text-foreground">{m.name}</span>
+                    <select
+                      aria-label={`${m.name} (RACI)`}
+                      value={draft.raci[String(m.id)] ?? ""}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        onChange(
+                          setRaciRole(draft, m.id, val === "" ? null : (val as RaciRole)),
+                        );
+                      }}
+                      className={INPUT_CLASS}
+                    >
+                      <option value="">{t(lang, "raciNone")}</option>
+                      {RACI_ROLES.map((role) => (
+                        <option key={role} value={role}>
+                          {t(lang, RACI_LABEL_KEYS[role])}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {error && (
+            <p
+              role="alert"
+              className="rounded-md bg-AIPM-pink/10 px-3 py-2 text-sm text-AIPM-pink dark:bg-AIPM-pink/15 sm:col-span-2"
+            >
+              {error}
+            </p>
+          )}
+
+          <footer className="flex items-center justify-between gap-2 border-t border-line pt-3 sm:col-span-2">
+            <div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (window.confirm(t(lang, "stakeholderConfirmDelete"))) onDelete();
+                }}
+                disabled={isNew}
+                aria-label={t(lang, "stakeholdersDelete")}
+                className="rounded-md border border-AIPM-pink/40 bg-surface px-3 py-1.5 text-sm font-medium text-AIPM-pink hover:bg-AIPM-pink/10 disabled:cursor-not-allowed disabled:opacity-50 dark:border-AIPM-pink/50"
+              >
+                {t(lang, "delete")}
+              </button>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={onCancel}
+                className="rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted"
+              >
+                {t(lang, "cancel")}
+              </button>
+              <button
+                type="submit"
+                disabled={saveDisabled}
+                className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:bg-AIPM-dark-blue/90 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {t(lang, "raidSave")}
+              </button>
+            </div>
+          </footer>
+        </form>
+      </div>
+    </Modal>
+  );
+}

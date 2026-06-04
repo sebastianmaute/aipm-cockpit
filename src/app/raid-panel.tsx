@@ -10,8 +10,9 @@
 // All state mutations go through callback props — the parent (TaskManager)
 // owns the canonical `raid` array and persists it via the storage backend.
 
-import { memo, useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { SegmentedControl } from "./segmented-control";
+import { useWorkspaceTab } from "./workspace-tab-context";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import { type Lang, t, type TranslationKey } from "./i18n";
 import {
@@ -268,14 +269,29 @@ function RaidPanelInner({
     setIsNew(true);
   }
 
-  function openEdit(item: RaidItem) {
+  const openEdit = useCallback((item: RaidItem) => {
     setDraft({
       ...item,
       linkedTaskIds: [...item.linkedTaskIds],
       causedByRaidIds: [...item.causedByRaidIds],
     });
     setIsNew(false);
-  }
+  }, []);
+
+  // Deep-link: when the workspace requests opening a specific RAID item, open
+  // its edit modal once and immediately clear the pending request so it does
+  // not re-fire on subsequent renders.
+  const { pendingOpen, clearPendingOpen } = useWorkspaceTab();
+  useEffect(() => {
+    if (pendingOpen?.view !== "raid") return;
+    const item = raidById.get(pendingOpen.id);
+    // Skip when this item's editor is already open — a self-induced hashchange
+    // (requestOpen writes the hash) can re-fire pendingOpen; reopening would
+    // clobber an in-progress edit of the same item.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: a one-way deep-link signal must open the edit modal on a pendingOpen transition, not at render time
+    if (item && draft?.id !== item.id) openEdit(item);
+    clearPendingOpen();
+  }, [pendingOpen, raidById, clearPendingOpen, openEdit, draft]);
 
   function closeModal() {
     setDraft(null);

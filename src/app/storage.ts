@@ -28,6 +28,9 @@ import {
   sanitizeResource,
   sanitizeRole,
   sanitizeShift,
+  sanitizeStakeholder,
+  encodeRaciMap,
+  decodeRaciMap,
   serializeDependencies,
 } from "./sanitize";
 import {
@@ -49,6 +52,7 @@ import {
   type RiskScale,
   type Role,
   type Shift,
+  type Stakeholder,
   type Task,
 } from "./types";
 
@@ -78,9 +82,11 @@ export type Workspace = {
   milestones?: Milestone[];
   /** Change-control register. Optional for back-compat; load paths default to []. */
   changes?: ChangeItem[];
+  /** Stakeholder register (incl. per-milestone RACI map). Optional for back-compat; load paths default to []. */
+  stakeholders?: Stakeholder[];
 };
 
-const SCHEMA_VERSION = 7;
+const SCHEMA_VERSION = 8;
 
 /** A blank workspace with a default plan anchored to today. */
 export function emptyWorkspace(): Workspace {
@@ -93,6 +99,7 @@ export function emptyWorkspace(): Workspace {
     status: {},
     milestones: [],
     changes: [],
+    stakeholders: [],
   };
 }
 
@@ -143,6 +150,12 @@ export function migrateWorkspaceV7(ws: Workspace): Workspace {
   const changes = Array.isArray(base.changes) ? base.changes : [];
   if (changes === base.changes) return base;
   return { ...base, changes };
+}
+
+/** v8: ensure the stakeholders array exists. Runs after v7. Idempotent. */
+export function migrateWorkspaceV8(ws: Workspace): Workspace {
+  const base = migrateWorkspaceV7(ws);
+  return base.stakeholders ? base : { ...base, stakeholders: [] };
 }
 
 // --- Storage configuration -------------------------------------------------
@@ -241,6 +254,7 @@ const KV_FXRATES_KEY = "fx-rates";
 const KV_STATUS_KEY = "project-status";
 const KV_MILESTONES_KEY = "milestones";
 const KV_CHANGES_KEY = "changes";
+const KV_STAKEHOLDERS_KEY = "stakeholders";
 
 function openIdb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -523,6 +537,7 @@ const CSV_SECTION_BUDGETS = "# BUDGETS";
 const CSV_SECTION_FXRATES = "# FXRATES";
 const CSV_SECTION_MILESTONES = "# MILESTONES";
 const CSV_SECTION_CHANGES = "# CHANGES";
+const CSV_SECTION_STAKEHOLDERS = "# STAKEHOLDERS";
 
 // Section markers for the new entity sections in multi-section CSV files.
 const CSV_SECTION_RESOURCES = "# RESOURCES";
@@ -786,6 +801,27 @@ export function buildChangeFromObj(obj: Record<string, string>): ChangeItem | nu
   });
 }
 
+export const STAKEHOLDERS_CSV_COLUMNS: Array<keyof Stakeholder> = [
+  "id", "name", "organization", "title", "email", "category",
+  "influence", "interest", "notes", "resourceId", "raci", "localModifiedAt",
+];
+
+export function stakeholderFieldToString(s: Stakeholder, col: keyof Stakeholder): string {
+  if (col === "raci") return encodeRaciMap(s.raci);
+  if (col === "resourceId") return s.resourceId == null ? "" : String(s.resourceId);
+  const v = s[col];
+  return v === undefined || v === null ? "" : String(v);
+}
+
+export function buildStakeholderFromObj(obj: Record<string, string>): Stakeholder | null {
+  return sanitizeStakeholder({
+    ...obj,
+    id: obj.id ? Number(obj.id) : undefined,
+    resourceId: obj.resourceId ? Number(obj.resourceId) : null,
+    raci: decodeRaciMap(obj.raci),
+  });
+}
+
 function csvEscape(value: string): string {
   if (
     value.includes(",") ||
@@ -837,6 +873,16 @@ function changesToCsv(changes: readonly ChangeItem[]): string {
   for (const c of changes) {
     lines.push(
       CHANGES_CSV_COLUMNS.map((col) => csvEscape(changeFieldToString(c, col))).join(","),
+    );
+  }
+  return lines.join("\r\n");
+}
+
+export function stakeholdersToCsv(stakeholders: readonly Stakeholder[]): string {
+  const lines: string[] = [STAKEHOLDERS_CSV_COLUMNS.join(",")];
+  for (const s of stakeholders) {
+    lines.push(
+      STAKEHOLDERS_CSV_COLUMNS.map((col) => csvEscape(stakeholderFieldToString(s, col))).join(","),
     );
   }
   return lines.join("\r\n");
@@ -977,6 +1023,7 @@ export function workspaceToJson(ws: Workspace): string {
       status: ws.status ?? {},
       milestones: ws.milestones ?? [],
       changes: ws.changes ?? [],
+      stakeholders: ws.stakeholders ?? [],
     },
     null,
     2,
@@ -1024,8 +1071,9 @@ export function jsonToWorkspace(text: string): Workspace {
       status: sanitizeProjectStatus(p.status),
       milestones: ((p.milestones as unknown[]) ?? []).map((m) => sanitizeMilestone(m)).filter((m): m is Milestone => m !== null),
       changes: ((p.changes as unknown[]) ?? []).map((c) => sanitizeChangeItem(c)).filter((c): c is ChangeItem => c !== null),
+      stakeholders: ((p.stakeholders as unknown[]) ?? []).map((s) => sanitizeStakeholder(s)).filter((s): s is Stakeholder => s !== null),
     };
-    return migrateWorkspaceV7(raw);
+    return migrateWorkspaceV8(raw);
   } catch {
     return emptyWorkspace();
   }
@@ -1106,6 +1154,9 @@ export function workspaceToCsv(ws: Workspace): string {
   }
   if ((ws.changes ?? []).length > 0) {
     parts.push("", CSV_SECTION_CHANGES, changesToCsv(ws.changes ?? []));
+  }
+  if ((ws.stakeholders ?? []).length > 0) {
+    parts.push("", CSV_SECTION_STAKEHOLDERS, stakeholdersToCsv(ws.stakeholders ?? []));
   }
   parts.push("", planToCsvLine(ws.plan));
   return parts.join("\r\n");
@@ -1190,9 +1241,10 @@ function splitCsvSections(csv: string): {
   statusText: string;
   milestonesText: string;
   changesText: string;
+  stakeholdersText: string;
 } {
   const lines = csv.split(/\r?\n/);
-  let mode: "tasks" | "raid" | "absences" | "shifts" | "resources" | "roles" | "disciplines" | "grades" | "plan" | "budgets" | "fxrates" | "status" | "milestones" | "changes" | null = null;
+  let mode: "tasks" | "raid" | "absences" | "shifts" | "resources" | "roles" | "disciplines" | "grades" | "plan" | "budgets" | "fxrates" | "status" | "milestones" | "changes" | "stakeholders" | null = null;
   const tasksLines: string[] = [];
   const raidLines: string[] = [];
   const absencesLines: string[] = [];
@@ -1207,6 +1259,7 @@ function splitCsvSections(csv: string): {
   const statusLines: string[] = [];
   const milestonesLines: string[] = [];
   const changesLines: string[] = [];
+  const stakeholdersLines: string[] = [];
   for (const line of lines) {
     const trimmed = line.trimStart();
     if (trimmed.startsWith(CSV_SECTION_BUDGETS)) { mode = "budgets"; continue; }
@@ -1223,6 +1276,7 @@ function splitCsvSections(csv: string): {
     if (trimmed.startsWith(CSV_SECTION_STATUS)) { mode = "status"; continue; }
     if (trimmed.startsWith(CSV_SECTION_MILESTONES)) { mode = "milestones"; continue; }
     if (trimmed.startsWith(CSV_SECTION_CHANGES)) { mode = "changes"; continue; }
+    if (trimmed.startsWith(CSV_SECTION_STAKEHOLDERS)) { mode = "stakeholders"; continue; }
     if (mode === "resources") resourcesLines.push(line);
     else if (mode === "roles") rolesLines.push(line);
     else if (mode === "disciplines") disciplinesLines.push(line);
@@ -1237,6 +1291,7 @@ function splitCsvSections(csv: string): {
     else if (mode === "status") statusLines.push(line);
     else if (mode === "milestones") milestonesLines.push(line);
     else if (mode === "changes") changesLines.push(line);
+    else if (mode === "stakeholders") stakeholdersLines.push(line);
     // (else: line before the first marker — drop it.)
   }
   return {
@@ -1254,6 +1309,7 @@ function splitCsvSections(csv: string): {
     statusText: statusLines.join("\r\n"),
     milestonesText: milestonesLines.join("\r\n"),
     changesText: changesLines.join("\r\n"),
+    stakeholdersText: stakeholdersLines.join("\r\n"),
   };
 }
 
@@ -1432,6 +1488,30 @@ function csvToChanges(csv: string): ChangeItem[] {
   return items;
 }
 
+export function csvToStakeholders(csv: string): Stakeholder[] {
+  const rows = parseCsv(csv);
+  if (rows.length === 0) return [];
+  let headerIdx = -1;
+  for (let i = 0; i < rows.length; i++) {
+    if (rows[i].length > 0 && rows[i][0].trim() !== "" && !rows[i][0].startsWith("#")) {
+      headerIdx = i;
+      break;
+    }
+  }
+  if (headerIdx < 0) return [];
+  const headers = rows[headerIdx];
+  const items: Stakeholder[] = [];
+  for (let i = headerIdx + 1; i < rows.length; i++) {
+    const row = rows[i];
+    if (row.length === 1 && row[0] === "") continue;
+    const obj: Record<string, string> = {};
+    headers.forEach((h, idx) => { obj[h] = rows[i][idx] ?? ""; });
+    const item = buildStakeholderFromObj(obj);
+    if (item) items.push(item);
+  }
+  return items;
+}
+
 function csvToRaid(csv: string): RaidItem[] {
   const rows = parseCsv(csv);
   if (rows.length === 0) return [];
@@ -1478,8 +1558,9 @@ export function csvToWorkspace(csv: string): Workspace {
     status: s.statusText.trim() ? csvToStatus(s.statusText) : {},
     milestones: s.milestonesText.trim() ? csvToMilestones(s.milestonesText) : [],
     changes: s.changesText.trim() ? csvToChanges(s.changesText) : [],
+    stakeholders: s.stakeholdersText.trim() ? csvToStakeholders(s.stakeholdersText) : [],
   };
-  return migrateWorkspaceV7(ws);
+  return migrateWorkspaceV8(ws);
 }
 
 /**
@@ -1773,6 +1854,56 @@ function markdownToChanges(md: string): ChangeItem[] {
   }).filter((c): c is ChangeItem => c !== null);
 }
 
+const STAKEHOLDERS_MD_COLUMNS: readonly { key: keyof Stakeholder; label: string }[] = [
+  { key: "id", label: "ID" },
+  { key: "name", label: "Name" },
+  { key: "organization", label: "Organization" },
+  { key: "title", label: "Title" },
+  { key: "email", label: "Email" },
+  { key: "category", label: "Category" },
+  { key: "influence", label: "Influence" },
+  { key: "interest", label: "Interest" },
+  { key: "notes", label: "Notes" },
+  { key: "resourceId", label: "ResourceId" },
+  { key: "raci", label: "RACI" },
+  { key: "localModifiedAt", label: "LocalModified" },
+];
+
+function stakeholdersToMarkdown(stakeholders: readonly Stakeholder[]): string {
+  const header = `| ${STAKEHOLDERS_MD_COLUMNS.map((c) => c.label).join(" | ")} |`;
+  const sep = `| ${STAKEHOLDERS_MD_COLUMNS.map(() => "---").join(" | ")} |`;
+  const lines = ["## Stakeholders", "", header, sep];
+  for (const s of stakeholders) {
+    const row = STAKEHOLDERS_MD_COLUMNS.map((col) =>
+      mdEscape(stakeholderFieldToString(s, col.key)),
+    ).join(" | ");
+    lines.push(`| ${row} |`);
+  }
+  return lines.join("\n") + "\n";
+}
+
+function markdownToStakeholders(md: string): Stakeholder[] {
+  return markdownTableToObjects(md).map((row) => {
+    const mapped: Record<string, string> = {};
+    for (const [label, val] of Object.entries(row)) {
+      const norm = label.toLowerCase().replace(/\s+/g, "");
+      if (norm === "id") mapped["id"] = val;
+      else if (norm === "name") mapped["name"] = val;
+      else if (norm === "organization") mapped["organization"] = val;
+      else if (norm === "title") mapped["title"] = val;
+      else if (norm === "email") mapped["email"] = val;
+      else if (norm === "category") mapped["category"] = val;
+      else if (norm === "influence") mapped["influence"] = val;
+      else if (norm === "interest") mapped["interest"] = val;
+      else if (norm === "notes") mapped["notes"] = val;
+      else if (norm === "resourceid") mapped["resourceId"] = val;
+      else if (norm === "raci") mapped["raci"] = val;
+      else if (norm === "localmodified" || norm === "localmodifiedat") mapped["localModifiedAt"] = val;
+    }
+    return buildStakeholderFromObj(mapped);
+  }).filter((s): s is Stakeholder => s !== null);
+}
+
 function fxRatesToMarkdown(fx: FxRates): string {
   return `## FX Rates\n\n${fx.base},${fx.date},${fx.fetchedAt},${encodeRatesMap(fx.rates)}\n`;
 }
@@ -1807,6 +1938,7 @@ export function workspaceToMarkdown(ws: Workspace): string {
   if (ws.status && Object.keys(ws.status).length > 0) out += "\n" + statusToMarkdown(ws.status);
   if ((ws.milestones ?? []).length > 0) out += "\n" + milestonesToMarkdown(ws.milestones ?? []);
   if ((ws.changes ?? []).length > 0) out += "\n" + changesToMarkdown(ws.changes ?? []);
+  if ((ws.stakeholders ?? []).length > 0) out += "\n" + stakeholdersToMarkdown(ws.stakeholders ?? []);
   out += "\n" + planToMarkdown(ws.plan);
   return out;
 }
@@ -1856,6 +1988,7 @@ function splitMarkdownSections(md: string): {
   statusMd: string;
   milestonesMd: string;
   changesMd: string;
+  stakeholdersMd: string;
 } {
   const lines = md.split(/\r?\n/);
   const tasksLines: string[] = [];
@@ -1872,6 +2005,7 @@ function splitMarkdownSections(md: string): {
   const statusLines: string[] = [];
   const milestonesLines: string[] = [];
   const changesLines: string[] = [];
+  const stakeholdersLines: string[] = [];
   let target = tasksLines;
   for (const line of lines) {
     const trimmed = line.trim();
@@ -1889,6 +2023,7 @@ function splitMarkdownSections(md: string): {
     if (/^##\s+Project\s+Status\b/i.test(trimmed)) { target = statusLines; continue; }
     if (/^##\s+Milestones\b/i.test(trimmed)) { target = milestonesLines; continue; }
     if (/^##\s+Changes\b/i.test(trimmed)) { target = changesLines; continue; }
+    if (/^##\s+Stakeholders\b/i.test(trimmed)) { target = stakeholdersLines; continue; }
     target.push(line);
   }
   return {
@@ -1906,6 +2041,7 @@ function splitMarkdownSections(md: string): {
     statusMd: statusLines.join("\n"),
     milestonesMd: milestonesLines.join("\n"),
     changesMd: changesLines.join("\n"),
+    stakeholdersMd: stakeholdersLines.join("\n"),
   };
 }
 
@@ -2231,8 +2367,9 @@ export function markdownToWorkspace(md: string): Workspace {
     status: s.statusMd.trim() ? markdownToStatus(s.statusMd) : {},
     milestones: s.milestonesMd.trim() ? markdownToMilestones(s.milestonesMd) : [],
     changes: s.changesMd.trim() ? markdownToChanges(s.changesMd) : [],
+    stakeholders: s.stakeholdersMd.trim() ? markdownToStakeholders(s.stakeholdersMd) : [],
   };
-  return migrateWorkspaceV7(ws);
+  return migrateWorkspaceV8(ws);
 }
 
 function markdownToTasks(md: string): Task[] {
@@ -2535,6 +2672,7 @@ class BrowserBackend implements StorageBackend {
     let status: ProjectStatus = {};
     let milestones: Milestone[] = [];
     let changes: ChangeItem[] = [];
+    let stakeholders: Stakeholder[] = [];
     try {
       tasks = await idbGetAll<Task>(IDB_TASKS_STORE);
       raid = await idbGetAll<RaidItem>(IDB_RAID_STORE);
@@ -2550,6 +2688,7 @@ class BrowserBackend implements StorageBackend {
       status = (await idbGet<ProjectStatus>(KV_STATUS_KEY)) ?? {};
       milestones = (await idbGet<Milestone[]>(KV_MILESTONES_KEY)) ?? [];
       changes = (await idbGet<ChangeItem[]>(KV_CHANGES_KEY)) ?? [];
+      stakeholders = (await idbGet<Stakeholder[]>(KV_STAKEHOLDERS_KEY)) ?? [];
     } catch {
       // IDB unavailable or upgrade failed. Fall through — the legacy
       // migration block below will still try localStorage, and if that's
@@ -2564,8 +2703,8 @@ class BrowserBackend implements StorageBackend {
       // from the (possibly successful) idbGetAll attempts above.
     }
 
-    const raw: Workspace = { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, milestones, changes };
-    const ws = migrateWorkspaceV7(raw);
+    const raw: Workspace = { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, milestones, changes, stakeholders };
+    const ws = migrateWorkspaceV8(raw);
 
     try {
       if (ws.resources !== raw.resources) await idbBulkUpdate(IDB_RESOURCES_STORE, ws.resources, []);
@@ -2677,6 +2816,7 @@ class BrowserBackend implements StorageBackend {
     await idbSet(KV_STATUS_KEY, ws.status ?? {});
     await idbSet(KV_MILESTONES_KEY, ws.milestones ?? []);
     await idbSet(KV_CHANGES_KEY, ws.changes ?? []);
+    await idbSet(KV_STAKEHOLDERS_KEY, ws.stakeholders ?? []);
 
     // Refresh baselines so the next save's diff is computed against what's
     // actually in IDB. Rebuilding the maps is O(N) but only runs after a

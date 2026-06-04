@@ -8,6 +8,27 @@ Authoritative source for version + build date: [`src/app/version.ts`](src/app/ve
 This file is seeded from that module's milestone comment plus the
 post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-diff.txt).
 
+## [0.52.0] — 2026-06-04 "Scalzi"
+
+### Added
+- **Stakeholder register:** a new workspace entity (`Stakeholder`) with name,
+  role, organisation, contact details, engagement level, influence/interest
+  scores, and optional link to a Resource. Sortable/filterable panel,
+  draggable edit modal, and a Stakeholders nav entry (Registers group). Rounds
+  trips through every backend (schema v8 additive migration).
+- **RACI matrix:** milestone-scoped responsibility matrix (Responsible /
+  Accountable / Consulted / Informed) per stakeholder, rendered as a
+  scrollable grid with soft warnings when a milestone has zero or more than
+  one Accountable assignment.
+- **Influence / Interest (power/interest) grid:** 2-D scatter plot placing each
+  stakeholder by influence and interest score with colour-coded quadrants
+  (Manage Closely / Keep Satisfied / Keep Informed / Monitor).
+- **True RAID deep-linking:** the URL hash grammar is extended to
+  `#<view>/<id>` — navigating to `#raid/<id>` opens the RAID register and
+  immediately scrolls to / highlights the specified item. The RAID-review
+  reminder modal now opens the exact overdue item rather than just navigating
+  to the register.
+
 ## [0.51.0] — 2026-06-04 "Pratchett"
 
 ### Added

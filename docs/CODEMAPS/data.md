@@ -188,6 +188,28 @@ Milestone {                                  // 0.44.0: project milestone with e
   localModifiedAt? ISO 8601 timestamp
 }
 
+// Stakeholder register — schema v8 ----------------------------------------
+Stakeholder {                                // 0.52.0: project stakeholder entity
+  id                number
+  name              string
+  role?             string                   // job title / project role
+  organisation?     string
+  email?            string
+  phone?            string
+  engagementLevel   "Unaware" | "Resistant" | "Neutral" | "Supportive" | "Leading"
+  influence         1..5                     // power/influence score
+  interest          1..5                     // interest/salience score
+  notes?            string
+  resourceId?       number | null            // optional FK → Resource.id
+  localModifiedAt?  ISO 8601 timestamp
+}
+
+RaciEntry {                                  // 0.52.0: one cell in the RACI matrix
+  stakeholderId     number                   // FK → Stakeholder.id
+  milestoneId       number                   // FK → Milestone.id
+  role              "R" | "A" | "C" | "I"   // Responsible / Accountable / Consulted / Informed
+}
+
 // Change-control register — schema v7 -------------------------------------
 ChangeItem {                                 // 0.50.0: RAID-sibling change request
   id                number
@@ -228,6 +250,7 @@ type Workspace = {
   status?: ProjectStatus;                   // 0.43.0+; optional for compat
   milestones?: Milestone[];                 // 0.44.0+; optional for compat
   changes?: ChangeItem[];                   // schema v7 (0.50.0+); optional for compat
+  stakeholders?: Stakeholder[];             // schema v8 (0.52.0+); optional for compat
 };
 
 type StorageKind =
@@ -268,6 +291,13 @@ reference equality when already present). `SCHEMA_VERSION` is now `7`; all
 load paths (JSON / CSV / Markdown / Turso) run it on parse so old workspaces
 auto-populate an empty change register.
 
+`migrateWorkspaceV8(ws)` (schema v8, 0.52.0+) runs `migrateWorkspaceV7` first,
+then ensures `stakeholders: []` exists when absent (idempotent). `SCHEMA_VERSION`
+is now `8`; all load paths run it on parse so old workspaces auto-populate an
+empty stakeholder register. The Turso backend gains a `stakeholders` table
+(columns: id, name, role, organisation, email, phone, engagementLevel, influence,
+interest, notes, resourceId, localModifiedAt) added by an additive migration.
+
 ## IndexedDB layout (`storage.ts`)
 
 ```
@@ -276,6 +306,7 @@ Database: lop-app  (version 6)
 │                                       + "budgets" array + "fxRates" object (v6)
 │                                       + "status" object (0.43.0+) + "milestones" array (0.44.0+)
 │                                       + "changes" array (schema v7, 0.50.0+)
+│                                       + "stakeholders" array (schema v8, 0.52.0+)
 ├── object store "tasks"        (v2)  — keyPath: "id", value: Task
 ├── object store "raid"         (v2)  — keyPath: "id", value: RaidItem
 ├── object store "absences"     (v3)  — keyPath: "id", value: Absence

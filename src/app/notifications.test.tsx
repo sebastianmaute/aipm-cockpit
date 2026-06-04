@@ -1,6 +1,6 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { BirthdayBanner, DueBanner, JiraTokenBanner, RaidReviewBanner, raidReviewToastText } from "./notifications";
+import { BirthdayBanner, DueBanner, JiraTokenBanner, RaidReviewBanner, RaidReviewModal, raidReviewToastText } from "./notifications";
 import { getRaidReviewItems } from "./raid-review";
 import { SNOOZE_1H, SNOOZE_1D } from "./reminder-snooze";
 import type { UpcomingBirthday } from "./birthdays";
@@ -162,5 +162,12 @@ describe("RaidReview notifications", () => {
   it("RaidReviewBanner renders nothing when empty", () => {
     const { container } = render(<RaidReviewBanner items={[]} lang="en-US" onOpenList={() => {}} onDismiss={() => {}} onSnooze={() => {}} />);
     expect(container).toBeEmptyDOMElement();
+  });
+
+  it("RaidReviewModal calls onSelectRaid with the item id", () => {
+    const onSelectRaid = vi.fn();
+    render(<RaidReviewModal items={items} lang="en-US" onClose={() => {}} onSelectRaid={onSelectRaid} />);
+    fireEvent.click(screen.getByRole("button", { name: /edit/i }));
+    expect(onSelectRaid).toHaveBeenCalledWith(1);
   });
 });

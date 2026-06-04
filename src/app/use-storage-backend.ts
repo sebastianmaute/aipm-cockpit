@@ -60,6 +60,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     status, setStatus,
     milestones, setMilestones,
     changes, setChanges,
+    stakeholders, setStakeholders,
   } = useWorkspace();
 
   // Reactive refs — synced via useEffect so effects don't re-register on every render
@@ -135,6 +136,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         setStatus(workspace.status ?? {});
         setMilestones(workspace.milestones ?? []);
         setChanges(workspace.changes ?? []);
+        setStakeholders(workspace.stakeholders ?? []);
         suppressNextSaveRef.current = true;
         await refreshBackendStatus();
       } catch (err) {
@@ -177,7 +179,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       return;
     }
     const timer = setTimeout(() => {
-      backend.save({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, milestones, changes }).catch((err) => {
+      backend.save({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, milestones, changes, stakeholders }).catch((err) => {
         if (err instanceof StorageNotReadyError) {
           const hint = (err as StorageNotReadyError).hint;
           const key =
@@ -192,7 +194,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     }, 500);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, milestones, changes, args.hydrated, args.isPopout, backend]);
+  }, [tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, milestones, changes, stakeholders, args.hydrated, args.isPopout, backend]);
 
   const canSend = !args.isPopout;
   useBroadcastSync("tasks", tasks, setTasks, canSend);
@@ -206,6 +208,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   useBroadcastSync("budgets", budgets, setBudgets, canSend);
   useBroadcastSync("milestones", milestones, setMilestones, canSend);
   useBroadcastSync("changes", changes, setChanges, canSend);
+  useBroadcastSync("stakeholders", stakeholders, setStakeholders, canSend);
   useBroadcastSync("activityLog", args.activityLog, args.setActivityLog, canSend);
 
   async function onPickStorageFile() {
@@ -213,7 +216,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     if (!promise) return;
     await promise;
     try {
-      await backend.save({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, milestones, changes });
+      await backend.save({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, milestones, changes, stakeholders });
       await refreshBackendStatus();
       args.showToast("info", t(langRef.current, "storageSwitchedToast"));
     } catch (err) {
