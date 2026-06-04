@@ -1,6 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 import { defaultSettings } from "./settings-menu";
+import { defaultNotificationsConfig } from "./settings-types";
 import { coerceLayout, useSettings } from "./use-settings";
 
 const SETTINGS_KEY = "lop-app:settings";
@@ -116,6 +117,53 @@ describe("useSettings", () => {
       };
       expect(stored.language).toBe("en-GB");
     });
+  });
+});
+
+describe("notifications defaults", () => {
+  it("notifications defaults include RAID review enabled with a 14-day interval", () => {
+    expect(defaultNotificationsConfig.raidReview).toEqual({ enabled: true });
+    expect(defaultNotificationsConfig.raidReviewIntervalDays).toBe(14);
+  });
+
+  it("legacy notifications (no RAID review keys) backfill to enabled + 14 days", async () => {
+    const legacy: Record<string, unknown> = {
+      ...defaultSettings,
+      notifications: {
+        reminderLeadDays: 7,
+        banner: { enabled: true },
+        toast: { enabled: true },
+        popup: { enabled: true },
+        birthday: { enabled: true },
+      },
+    };
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(legacy));
+    const { result } = renderHook(() => useSettings());
+    await act(async () => {});
+    expect(result.current.settings.notifications.raidReview).toEqual({
+      enabled: true,
+    });
+    expect(result.current.settings.notifications.raidReviewIntervalDays).toBe(14);
+  });
+
+  it("preserves a disabled RAID review channel + custom interval on load", async () => {
+    localStorage.setItem(
+      SETTINGS_KEY,
+      JSON.stringify({
+        ...defaultSettings,
+        notifications: {
+          ...defaultNotificationsConfig,
+          raidReview: { enabled: false },
+          raidReviewIntervalDays: 30,
+        },
+      }),
+    );
+    const { result } = renderHook(() => useSettings());
+    await act(async () => {});
+    expect(result.current.settings.notifications.raidReview).toEqual({
+      enabled: false,
+    });
+    expect(result.current.settings.notifications.raidReviewIntervalDays).toBe(30);
   });
 });
 

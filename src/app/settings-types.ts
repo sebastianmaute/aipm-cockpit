@@ -32,6 +32,8 @@ export type NotificationsConfig = {
   toast: ChannelConfig;
   popup: ChannelConfig;
   birthday: ChannelConfig;
+  raidReview: ChannelConfig;
+  raidReviewIntervalDays: number;
 };
 
 export const defaultNotificationsConfig: NotificationsConfig = {
@@ -40,6 +42,8 @@ export const defaultNotificationsConfig: NotificationsConfig = {
   toast: { enabled: true },
   popup: { enabled: true },
   birthday: { enabled: true },
+  raidReview: { enabled: true },
+  raidReviewIntervalDays: 14,
 };
 
 export type JiraAssigneeMode = "currentUser" | "any" | "specific";

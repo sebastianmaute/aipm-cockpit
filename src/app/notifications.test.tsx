@@ -1,9 +1,10 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { BirthdayBanner, DueBanner, JiraTokenBanner } from "./notifications";
+import { BirthdayBanner, DueBanner, JiraTokenBanner, RaidReviewBanner, raidReviewToastText } from "./notifications";
+import { getRaidReviewItems } from "./raid-review";
 import { SNOOZE_1H, SNOOZE_1D } from "./reminder-snooze";
 import type { UpcomingBirthday } from "./birthdays";
-import type { Resource, Task } from "./types";
+import type { RaidItem, Resource, Task } from "./types";
 import type { AlertableTask } from "./due-dates";
 import type { JiraTokenAlert } from "./jira-token-status";
 
@@ -139,5 +140,27 @@ describe("JiraTokenBanner", () => {
       />,
     );
     expect(screen.getByText(/expires in 4 day/i)).toBeInTheDocument();
+  });
+});
+
+function raid(p: Partial<RaidItem>): RaidItem {
+  return { id: 1, category: "R", title: "T", status: "Open", linkedTaskIds: [], causedByRaidIds: [], raisedDate: "2026-01-01", ...p };
+}
+
+describe("RaidReview notifications", () => {
+  const items = getRaidReviewItems([raid({ id: 1, targetDate: "2026-01-01", title: "Server risk" })], "2026-06-04", 14);
+
+  it("raidReviewToastText summarizes counts", () => {
+    expect(raidReviewToastText(items, "en-US")).toMatch(/past target/i);
+  });
+
+  it("RaidReviewBanner shows the count", () => {
+    render(<RaidReviewBanner items={items} lang="en-US" onOpenList={() => {}} onDismiss={() => {}} onSnooze={() => {}} />);
+    expect(screen.getByText(/1 RAID items need review/i)).toBeInTheDocument();
+  });
+
+  it("RaidReviewBanner renders nothing when empty", () => {
+    const { container } = render(<RaidReviewBanner items={[]} lang="en-US" onOpenList={() => {}} onDismiss={() => {}} onSnooze={() => {}} />);
+    expect(container).toBeEmptyDOMElement();
   });
 });

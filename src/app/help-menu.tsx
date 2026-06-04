@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { matchesQuery, highlightSegments } from "./help-search";
 import { type Lang, type TranslationKey, t } from "./i18n";
 import { useResizable } from "./use-resizable";
 import { APP_LICENSE_URL } from "./version";
@@ -78,6 +79,7 @@ export function HelpMenu({ lang }: { lang: Lang }) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<Pos | null>(null);
   const [activeIdx, setActiveIdx] = useState(0);
+  const [query, setQuery] = useState("");
   const { ref: panelRef } = useResizable(STORAGE_KEY_SIZE);
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const dragRef = useRef<{
@@ -125,36 +127,36 @@ export function HelpMenu({ lang }: { lang: Lang }) {
     return () => document.removeEventListener("keydown", onKey);
   }, [open]);
 
-  // Move focus to the newly-active tab when the user navigates the tablist
-  // with the keyboard. Skipped on mouse clicks (focus follows naturally).
-  const focusTab = useCallback((idx: number) => {
-    tabRefs.current[idx]?.focus();
-  }, []);
-
   const onTabKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLButtonElement>) => {
-      const len = SECTIONS.length;
+      const order = SECTIONS.map((s, i) => ({ s, i }))
+        .filter(({ s }) =>
+          matchesQuery(t(lang, s.titleKey), t(lang, s.bodyKey), query),
+        )
+        .map(({ i }) => i);
+      if (order.length === 0) return;
+      const cur = Math.max(0, order.indexOf(activeIdx));
+      let nextPos = cur;
       if (e.key === "ArrowDown") {
         e.preventDefault();
-        const next = (activeIdx + 1) % len;
-        setActiveIdx(next);
-        focusTab(next);
+        nextPos = (cur + 1) % order.length;
       } else if (e.key === "ArrowUp") {
         e.preventDefault();
-        const next = (activeIdx - 1 + len) % len;
-        setActiveIdx(next);
-        focusTab(next);
+        nextPos = (cur - 1 + order.length) % order.length;
       } else if (e.key === "Home") {
         e.preventDefault();
-        setActiveIdx(0);
-        focusTab(0);
+        nextPos = 0;
       } else if (e.key === "End") {
         e.preventDefault();
-        setActiveIdx(len - 1);
-        focusTab(len - 1);
+        nextPos = order.length - 1;
+      } else {
+        return;
       }
+      const idx = order[nextPos];
+      setActiveIdx(idx);
+      tabRefs.current[idx]?.focus();
     },
-    [activeIdx, focusTab],
+    [activeIdx, lang, query],
   );
 
   const onTitleBarMouseDown = useCallback(
@@ -200,6 +202,12 @@ export function HelpMenu({ lang }: { lang: Lang }) {
     },
     [pos, panelRef],
   );
+
+  const filtered = SECTIONS.map((s, i) => ({ s, i })).filter(({ s }) =>
+    matchesQuery(t(lang, s.titleKey), t(lang, s.bodyKey), query),
+  );
+  const activeInFiltered = filtered.some(({ i }) => i === activeIdx);
+  const effectiveIdx = activeInFiltered ? activeIdx : (filtered[0]?.i ?? -1);
 
   return (
     <div>
@@ -267,53 +275,101 @@ export function HelpMenu({ lang }: { lang: Lang }) {
           </p>
 
           <div className="flex min-h-0 flex-1">
-            <div
-              role="tablist"
-              aria-orientation="vertical"
-              aria-label={t(lang, "help")}
-              className="w-40 shrink-0 overflow-y-auto border-r border-line py-2"
-            >
-              {SECTIONS.map((s, i) => {
-                const isActive = i === activeIdx;
-                return (
-                  <button
-                    key={s.titleKey}
-                    ref={(el) => {
-                      tabRefs.current[i] = el;
-                    }}
-                    type="button"
-                    role="tab"
-                    id={`help-tab-${i}`}
-                    aria-selected={isActive}
-                    aria-controls={`help-panel-${i}`}
-                    tabIndex={isActive ? 0 : -1}
-                    onClick={() => setActiveIdx(i)}
-                    onKeyDown={onTabKeyDown}
-                    className={
-                      isActive
-                        ? "block w-full border-l-2 border-AIPM-dark-blue bg-surface-muted px-3 py-1.5 text-left text-xs font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey"
-                        : "block w-full border-l-2 border-transparent px-3 py-1.5 text-left text-xs text-foreground hover:bg-surface-muted hover:text-AIPM-dark-blue dark:text-muted-foreground dark:hover:text-AIPM-light-grey"
-                    }
-                  >
-                    {t(lang, s.titleKey)}
-                  </button>
-                );
-              })}
+            <div className="flex w-40 shrink-0 flex-col border-r border-line">
+              <div className="shrink-0 border-b border-line p-2">
+                <input
+                  type="search"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder={t(lang, "helpSearchPlaceholder")}
+                  aria-label={t(lang, "helpSearchPlaceholder")}
+                  className="w-full rounded-md border border-line bg-surface px-2 py-1 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-AIPM-green"
+                />
+              </div>
+              <div
+                role="tablist"
+                aria-orientation="vertical"
+                aria-label={t(lang, "help")}
+                className="min-h-0 flex-1 overflow-y-auto py-2"
+              >
+                {filtered.map(({ s, i }) => {
+                  const isActive = i === effectiveIdx;
+                  return (
+                    <button
+                      key={s.titleKey}
+                      ref={(el) => {
+                        tabRefs.current[i] = el;
+                      }}
+                      type="button"
+                      role="tab"
+                      id={`help-tab-${i}`}
+                      aria-selected={isActive}
+                      aria-controls={`help-panel-${i}`}
+                      tabIndex={isActive ? 0 : -1}
+                      onClick={() => setActiveIdx(i)}
+                      onKeyDown={onTabKeyDown}
+                      className={
+                        isActive
+                          ? "block w-full border-l-2 border-AIPM-dark-blue bg-surface-muted px-3 py-1.5 text-left text-xs font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey"
+                          : "block w-full border-l-2 border-transparent px-3 py-1.5 text-left text-xs text-foreground hover:bg-surface-muted hover:text-AIPM-dark-blue dark:text-muted-foreground dark:hover:text-AIPM-light-grey"
+                      }
+                    >
+                      {t(lang, s.titleKey)}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             <div
               role="tabpanel"
-              id={`help-panel-${activeIdx}`}
-              aria-labelledby={`help-tab-${activeIdx}`}
+              id={`help-panel-${effectiveIdx}`}
+              aria-labelledby={`help-tab-${effectiveIdx}`}
               tabIndex={0}
               className="min-w-0 flex-1 overflow-y-auto p-4"
             >
-              <p className="text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
-                {t(lang, SECTIONS[activeIdx].titleKey)}
-              </p>
-              <p className="mt-2 whitespace-pre-line text-xs leading-relaxed text-foreground">
-                {t(lang, SECTIONS[activeIdx].bodyKey)}
-              </p>
+              {effectiveIdx === -1 ? (
+                <p className="text-sm text-muted-foreground">
+                  {t(lang, "helpSearchNoResults")}
+                </p>
+              ) : (
+                <>
+                  <p className="text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
+                    {highlightSegments(
+                      t(lang, SECTIONS[effectiveIdx].titleKey),
+                      query,
+                    ).map((seg, k) =>
+                      seg.match ? (
+                        <mark
+                          key={`${k}-${seg.match}`}
+                          className="bg-AIPM-green/30 text-foreground"
+                        >
+                          {seg.text}
+                        </mark>
+                      ) : (
+                        <span key={`${k}-${seg.match}`}>{seg.text}</span>
+                      ),
+                    )}
+                  </p>
+                  <p className="mt-2 whitespace-pre-line text-xs leading-relaxed text-foreground">
+                    {highlightSegments(
+                      t(lang, SECTIONS[effectiveIdx].bodyKey),
+                      query,
+                    ).map((seg, k) =>
+                      seg.match ? (
+                        <mark
+                          key={`${k}-${seg.match}`}
+                          className="bg-AIPM-green/30 text-foreground"
+                        >
+                          {seg.text}
+                        </mark>
+                      ) : (
+                        <span key={`${k}-${seg.match}`}>{seg.text}</span>
+                      ),
+                    )}
+                  </p>
+                </>
+              )}
             </div>
           </div>
 

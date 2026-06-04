@@ -37,7 +37,8 @@ import { TasksSection } from "./tasks-section";
 import { useResizable } from "./use-resizable";
 import { WorkspaceTabProvider, useWorkspaceTab } from "./workspace-tab-context";
 import { AppHeader } from "./app-header";
-import { BirthdayBanner, DueBanner, JiraTokenBanner } from "./notifications";
+import { BirthdayBanner, DueBanner, JiraTokenBanner, RaidReviewBanner, RaidReviewModal } from "./notifications";
+import { getRaidReviewItems } from "./raid-review";
 import { getJiraTokenAlert } from "./jira-token-status";
 import { WorkspaceSection } from "./workspace-section";
 import { RolesPanel } from "./roles-panel";
@@ -242,8 +243,8 @@ function TaskManagerInner() {
   });
   const trends = { ...snapshots, active: trendsActive };
 
-  const { bannerDismissed, setBannerDismissed, dueModalOpen, setDueModalOpen } =
-    useDueAlerts({ hydrated, tasks, holidaySet, absences, settings, today, showToast });
+  const { bannerDismissed, setBannerDismissed, dueModalOpen, setDueModalOpen, raidReviewModalOpen, setRaidReviewModalOpen } =
+    useDueAlerts({ hydrated, tasks, holidaySet, absences, settings, today, showToast, raid });
 
   const { birthdayDismissed, setBirthdayDismissed } = useBirthdayAlerts({
     hydrated, resources, today, settings, holidaySet, absences, showToast,
@@ -252,6 +253,8 @@ function TaskManagerInner() {
   const dueSnooze = useReminderSnooze("due");
   const birthdaySnooze = useReminderSnooze("birthday");
   const jiraTokenSnooze = useReminderSnooze("jiraToken");
+  const raidReviewSnooze = useReminderSnooze("raidReview");
+  const [raidReviewDismissed, setRaidReviewDismissed] = useState(false);
   const [jiraTokenDismissed, setJiraTokenDismissed] = useState(false);
   const jiraTokenAlert = useMemo(
     () => getJiraTokenAlert(settings.jira, today, settings.notifications.reminderLeadDays),
@@ -586,6 +589,13 @@ function TaskManagerInner() {
     [resources, settings.notifications.reminderLeadDays, settings.notifications.birthday, today, holidaySet, absences],
   );
 
+  const raidReviewItems = useMemo(
+    () => settings.notifications.raidReview.enabled
+      ? getRaidReviewItems(raid, today, settings.notifications.raidReviewIntervalDays)
+      : [],
+    [raid, today, settings.notifications.raidReview, settings.notifications.raidReviewIntervalDays],
+  );
+
   const dueModalItems = useMemo(() => {
     return getAlertableTasks(tasks, settings.notifications.reminderLeadDays, today, holidaySet, absences);
   }, [tasks, settings.notifications.reminderLeadDays, today, holidaySet, absences]);
@@ -640,6 +650,12 @@ function TaskManagerInner() {
     },
     [tasks, setDueModalOpen, openEditModal],
   );
+
+  const onSelectRaidReview = useCallback(() => {
+    setActiveTab("raid");
+    handleClearRaidTaskFilter();
+    setWorkspaceCollapsed((prev) => (prev ? false : prev));
+  }, [setActiveTab, handleClearRaidTaskFilter, setWorkspaceCollapsed]);
 
   const dispatcher = useChatDispatcher({
     settings,
@@ -894,6 +910,15 @@ function TaskManagerInner() {
           onDismiss={() => setJiraTokenDismissed(true)}
         />
       )}
+      {!isPopout && !raidReviewSnooze.isSnoozed && !raidReviewDismissed && raidReviewItems.length > 0 && (
+        <RaidReviewBanner
+          items={raidReviewItems}
+          lang={lang}
+          onOpenList={() => setRaidReviewModalOpen(true)}
+          onDismiss={() => setRaidReviewDismissed(true)}
+          onSnooze={raidReviewSnooze.snooze}
+        />
+      )}
     </>
   );
 
@@ -967,6 +992,14 @@ function TaskManagerInner() {
         onCloseResourceModal={handleCloseResourceFromAnywhere}
         toast={toast}
       />
+      {raidReviewModalOpen && (
+        <RaidReviewModal
+          items={raidReviewItems}
+          lang={lang}
+          onClose={() => setRaidReviewModalOpen(false)}
+          onSelectRaid={() => { setRaidReviewModalOpen(false); onSelectRaidReview(); }}
+        />
+      )}
     </>
   );
 

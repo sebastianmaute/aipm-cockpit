@@ -387,6 +387,24 @@ export function ReportsPanel({
     </select>
   );
 
+  const removeReportControl = extraReports.length > 0 ? (
+    <select
+      aria-label={t(lang, "reportsRemoveReport")}
+      value=""
+      onChange={(e) => {
+        const id = e.target.value as AddableReportId;
+        if (id) onChangeExtraReports?.(extraReports.filter((x) => x !== id));
+      }}
+      className="rounded-md border border-line bg-surface px-2 py-1.5 text-xs"
+    >
+      <option value="">{`− ${t(lang, "reportsRemoveReport")}`}</option>
+      {extraReports.map((id) => {
+        const meta = ADDABLE_REPORTS.find((r) => r.id === id);
+        return meta ? <option key={id} value={id}>{t(lang, meta.titleKey)}</option> : null;
+      })}
+    </select>
+  ) : null;
+
   const renderEmbedded = (id: AddableReportId) => {
     if (id === "raid-report") return <RaidReportPanel embedded lang={lang} items={raid} today={today} />;
     if (id === "budget-report") return plan ? <BudgetReportPanel embedded lang={lang} buckets={buckets} plan={plan} roles={roles} resources={resources} absences={absences} holidaySet={holidaySet} workdayHours={workdayHours} fxRates={fxRates} tasks={tasks} today={today} /> : null;
@@ -395,7 +413,7 @@ export function ReportsPanel({
   };
 
   return (
-    <ReportCard lang={lang} sizeRef={reportsRef} onResetSize={resetReportsSize} onResetCols={resetAllReports} toolbarExtra={addReportControl} title={t(lang, "tabReports")}>
+    <ReportCard lang={lang} sizeRef={reportsRef} onResetSize={resetReportsSize} onResetCols={resetAllReports} toolbarExtra={<>{addReportControl}{removeReportControl}</>} title={t(lang, "tabReports")}>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Tile label={t(lang, "reportsTotal")} value={stats.total} />
         <Tile label={t(lang, "reportsOpen")} value={stats.open} />

@@ -1,10 +1,12 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { type ReactNode } from "react";
 import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider } from "./workspace-context";
 import { DashboardPanel } from "./dashboard-panel";
 import { RegistersBand } from "./dashboard-sections/registers-band";
+import { healthText } from "./health";
 
 vi.mock("./activity-log", async (orig) => ({
   ...(await orig<typeof import("./activity-log")>()),
@@ -140,6 +142,80 @@ describe("DashboardPanel Changes subsection", () => {
     );
     expect(screen.getByText(/changes/i)).toBeTruthy();
     expect(screen.getByText(/1 pending/i)).toBeTruthy();
+  });
+});
+
+describe("DashboardPanel RAG polish (Task 3)", () => {
+  it("colorizes the R / A / G counts with the AIPM health text classes", () => {
+    render(
+      <DashboardPanel
+        lang="en-US"
+        tasks={[
+          // Overdue → Red open task so the R count is at least 1.
+          { id: 1, title: "Overdue", status: "Open", dueDate: "2026-01-01", linkedRaidIds: [], subtaskIds: [], parentId: null, assigneeIds: [] } as never,
+        ]}
+        raid={[]}
+        budgets={[]}
+        plan={plan}
+        roles={[]}
+        resources={[]}
+        absences={[]}
+        holidaySet={new Set<string>()}
+        workdayHours={8}
+        today="2026-06-02"
+      />,
+      { wrapper },
+    );
+    const redCount = screen.getByText("1", { selector: `span.${healthText.R.replace(/\s+/g, ".")}` });
+    expect(redCount).toBeInTheDocument();
+    expect(redCount.className).toContain("text-AIPM-pink");
+  });
+
+  it("wraps the Progress section in a boxed rounded-lg card", () => {
+    render(
+      <DashboardPanel
+        lang="en-US"
+        tasks={[
+          { id: 1, title: "Done task", status: "Done", health: "G", linkedRaidIds: [], subtaskIds: [], parentId: null, assigneeIds: [] } as never,
+        ]}
+        raid={[]}
+        budgets={minimalBudget as never}
+        plan={plan}
+        roles={[]}
+        resources={[]}
+        absences={[]}
+        holidaySet={new Set<string>()}
+        workdayHours={8}
+        today="2026-06-02"
+      />,
+      { wrapper },
+    );
+    const heading = screen.getByText("Progress");
+    expect(heading.closest("div.rounded-lg")).not.toBeNull();
+  });
+
+  it("commits the narrative via the Save button and shows the updated label", async () => {
+    const user = userEvent.setup();
+    render(
+      <DashboardPanel
+        lang="en-US"
+        tasks={[]}
+        raid={[]}
+        budgets={minimalBudget as never}
+        plan={plan}
+        roles={[]}
+        resources={[]}
+        absences={[]}
+        holidaySet={new Set<string>()}
+        workdayHours={8}
+        today="2026-06-02"
+      />,
+      { wrapper },
+    );
+    const textarea = screen.getByPlaceholderText(/Summarize the current status/i);
+    await user.type(textarea, "All good this week");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(screen.getByText(/Updated/)).toBeInTheDocument();
   });
 });
 

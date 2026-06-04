@@ -8,6 +8,7 @@ import { useWorkspace } from "./workspace-context";
 import { loadActivityLog, type ActivityEntry } from "./activity-log";
 import { type Lang, t, localeFor, type TranslationKey } from "./i18n";
 import { healthColorName, healthText, type Health } from "./health";
+import { ratioHealth } from "./budget-health";
 import { changeImpactRag } from "./change-log";
 import type { Absence, BudgetBucket, ChangeItem, ChangeStatus, Milestone, RaidItem, ResourcePlan, Resource, Role, Task } from "./types";
 import { formatCurrency } from "./resource-cost";
@@ -188,35 +189,58 @@ export function DashboardPanel(props: DashboardPanelProps) {
             onChange={(e) => setDraftNarrative(e.target.value)}
             onBlur={commitNarrative}
           />
-          {status.narrativeUpdatedAt ? (
-            <p className="mt-1 text-xs text-muted-foreground">
-              {t(lang, "dashboardNarrativeUpdated", status.narrativeUpdatedAt.slice(0, 10))}
-            </p>
-          ) : null}
+          <div className="mt-1 flex items-center justify-between gap-2">
+            <span className="text-xs text-muted-foreground">
+              {status.narrativeUpdatedAt
+                ? t(lang, "dashboardNarrativeUpdated", status.narrativeUpdatedAt.slice(0, 10))
+                : ""}
+            </span>
+            <button
+              type="button"
+              onClick={commitNarrative}
+              disabled={draftNarrative.trim() === (status.narrative ?? "")}
+              className="rounded-md bg-AIPM-dark-blue px-3 py-1 text-xs font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 print:hidden"
+            >
+              {t(lang, "dashboardStatusSave")}
+            </button>
+          </div>
         </Section>
 
         {/* Progress + Budget burn */}
         <div className="grid gap-4 md:grid-cols-2">
-          <Section title={t(lang, "dashboardProgress")}>
+          <Section title={t(lang, "dashboardProgress")} boxed>
             <div className="flex flex-wrap gap-2">
               <Tile
                 label={t(lang, "dashboardPercentComplete", String(model.progress.percent))}
                 value={t(lang, "dashboardCompletedOf", String(model.progress.completed), String(model.progress.total))}
               />
-              <Tile label="R / A / G" value={`${model.progress.counts.R} / ${model.progress.counts.A} / ${model.progress.counts.G}`} />
+              <Tile
+                label="R / A / G"
+                value={
+                  <span>
+                    <span className={healthText.R}>{model.progress.counts.R}</span>
+                    {" / "}
+                    <span className={healthText.A}>{model.progress.counts.A}</span>
+                    {" / "}
+                    <span className={healthText.G}>{model.progress.counts.G}</span>
+                  </span>
+                }
+              />
             </div>
             <p className="mt-2 text-xs text-muted-foreground">{t(lang, "dashboardProgressCaption")}</p>
           </Section>
-          <Section title={t(lang, "dashboardBudgetBurn")}>
+          <Section title={t(lang, "dashboardBudgetBurn")} boxed>
             {model.burn ? (
               <div className="flex flex-wrap gap-2">
                 <Tile
                   label={t(lang, "dashboardSubBudget")}
                   value={`${money(model.burn.consumedValue)} / ${money(model.burn.budgetValue)}`}
+                  rag={<RagBadge value={ratioHealth(model.burn.consumedValue, model.burn.budgetValue)} lang={lang} title={t(lang, "dashboardSubBudget")} />}
                 />
                 <Tile
                   label="h"
                   value={`${Math.round(model.burn.actualHours)} / ${Math.round(model.burn.budgetHours)}`}
+                  rag={<RagBadge value={ratioHealth(model.burn.actualHours, model.burn.budgetHours)} lang={lang} title="h" />}
                 />
               </div>
             ) : (

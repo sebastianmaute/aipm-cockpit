@@ -68,3 +68,8 @@ describe("Tile rag slot", () => {
     expect(screen.getByText("RAGBADGE")).toBeTruthy();
   });
 });
+
+test("Tile renders a ReactNode value", () => {
+  render(<Tile label="Split" value={<span data-testid="node">1 / 2 / 3</span>} />);
+  expect(screen.getByTestId("node")).toHaveTextContent("1 / 2 / 3");
+});

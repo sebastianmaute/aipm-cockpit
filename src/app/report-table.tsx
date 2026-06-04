@@ -126,7 +126,7 @@ export function SortHeaderButton({
   );
 }
 
-export function Tile({ label, value, rag }: { label: string; value: string; rag?: React.ReactNode }) {
+export function Tile({ label, value, rag }: { label: string; value: React.ReactNode; rag?: React.ReactNode }) {
   return (
     <div className="rounded-lg border border-line bg-surface p-3">
       <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>

@@ -97,4 +97,20 @@ describe("BudgetReportPanel", () => {
     // Leading status (consumed > budget) + Actual (h) cell (actualHours > budgetHours) = ≥2 R badges.
     expect(within(gammaRow).getAllByText("R").length).toBeGreaterThanOrEqual(2);
   });
+
+  it("renders the burn-down caption beneath the chart", () => {
+    renderPanel();
+    expect(screen.getByText(/burn-down shows remaining budget/i)).toBeTruthy();
+  });
+
+  it("carries RAG badges on the project-total Plan (h), Actual (h) and Revenue tiles", () => {
+    renderPanel();
+    // Scope to the project-total Section so the detail table's Actual (h) badge does not collide.
+    // Section renders <div><h3>{title}</h3>{children}</div>, so the heading's parent div is the scope.
+    const total = screen.getByText(/project total/i).parentElement!;
+    const totalScope = within(total);
+    expect(totalScope.getByTitle("Plan (h)")).toBeInTheDocument();
+    expect(totalScope.getByTitle("Actual (h)")).toBeInTheDocument();
+    expect(totalScope.getByTitle("Revenue")).toBeInTheDocument();
+  });
 });

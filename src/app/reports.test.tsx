@@ -185,8 +185,8 @@ function renderComposed(extraReports: AddableReportId[], onChange = vi.fn()) {
 describe("ReportsPanel — composed reports", () => {
   it("renders RAID and Budget reports when both are in extraReports", () => {
     renderComposed(["raid-report", "budget-report"]);
-    expect(screen.getByText(/raid report/i)).toBeInTheDocument();
-    expect(screen.getByText(/budget report/i)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /raid report/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /budget report/i })).toBeInTheDocument();
   });
 
   it("renders an appended report's content when in extraReports", () => {
@@ -203,5 +203,15 @@ describe("ReportsPanel — composed reports", () => {
     const onChange = renderComposed(["budget-report"]);
     fireEvent.click(screen.getByRole("button", { name: /remove report/i }));
     expect(onChange).toHaveBeenCalledWith([]);
+  });
+  it("the remove-report select removes a chosen report", async () => {
+    const user = userEvent.setup();
+    const onChange = renderComposed(["raid-report", "budget-report"]);
+    await user.selectOptions(screen.getByLabelText("Remove report"), "raid-report");
+    expect(onChange).toHaveBeenCalledWith(["budget-report"]);
+  });
+  it("the remove-report select is absent when there are no added reports", () => {
+    renderComposed([]);
+    expect(screen.queryByLabelText("Remove report")).toBeNull();
   });
 });

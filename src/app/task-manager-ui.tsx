@@ -307,9 +307,11 @@ export function ResizeCornerHint({ lang }: { lang: Lang }) {
 export function ResetSizeButton({
   onClick,
   lang,
+  className,
 }: {
   onClick: () => void;
   lang: Lang;
+  className?: string;
 }) {
   return (
     <button
@@ -317,7 +319,7 @@ export function ResetSizeButton({
       onClick={onClick}
       aria-label={t(lang, "tableResetSizeHint")}
       title={t(lang, "tableResetSizeHint")}
-      className="rounded-md border border-line bg-surface p-1.5 text-muted-foreground hover:bg-surface-muted hover:text-foreground"
+      className={`rounded-md border border-line bg-surface p-1.5 text-muted-foreground hover:bg-surface-muted hover:text-foreground ${className ?? ""}`}
     >
       <ResetSizeIcon />
     </button>
