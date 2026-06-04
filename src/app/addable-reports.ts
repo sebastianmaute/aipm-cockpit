@@ -5,6 +5,7 @@ export const ADDABLE_REPORTS = [
   { id: "raid-report", titleKey: "raidReportTitle" },
   { id: "budget-report", titleKey: "budgetReportTitle" },
   { id: "resource-report", titleKey: "resourcesReportTitle" },
+  { id: "stakeholder-report", titleKey: "stakeholderReportTitle" },
 ] as const satisfies ReadonlyArray<{ id: string; titleKey: TranslationKey }>;
 
 export type AddableReportId = (typeof ADDABLE_REPORTS)[number]["id"];

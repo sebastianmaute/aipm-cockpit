@@ -973,6 +973,7 @@ const enUS = {
   raidCategoryDependency: "Dependencies",
 
   raidReportTitle: "RAID Report",
+  stakeholderReportTitle: "Stakeholder Report",
   raidReportSummary: "Summary",
   raidReportFullDetail: "Full Detail",
   raidReportOpenRisks: "Open Risks",

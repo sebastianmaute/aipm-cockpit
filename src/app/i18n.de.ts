@@ -991,6 +991,7 @@ export const de: Record<TranslationKey, string> = {
   raidCategoryDependency: "Abhängigkeiten",
 
   raidReportTitle: "RAID-Report",
+  stakeholderReportTitle: "Stakeholder-Bericht",
   raidReportSummary: "Übersicht",
   raidReportFullDetail: "Volldetail",
   raidReportOpenRisks: "Offene Risiken",
