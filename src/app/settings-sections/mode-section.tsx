@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { type Lang, t } from "../i18n";
 import type { Settings } from "../settings-types";
 import {
@@ -13,6 +13,7 @@ import {
 interface ModeSectionProps {
   lang: Lang;
   settings: Settings;
+  /** Called only on explicit Save; the parent persists features and triggers a page reload. */
   onCommitFeatures: (features: FeatureModuleId[]) => void;
 }
 
@@ -34,10 +35,7 @@ export function ModeSection({ lang, settings, onCommitFeatures }: ModeSectionPro
 
   const mode = deriveMode(draft);
   const dirty = !sameSet(draft, saved);
-  const orderedDraft = useMemo(
-    () => ALL_MODULE_IDS.filter((id) => draft.includes(id)),
-    [draft],
-  );
+  // One-directional: warn only when the draft drops a saved module (not when adding).
   const removesModules = saved.some((id) => !draft.includes(id));
 
   const toggle = (id: FeatureModuleId) =>
@@ -65,6 +63,7 @@ export function ModeSection({ lang, settings, onCommitFeatures }: ModeSectionPro
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
+          aria-label="Apply Simple preset"
           onClick={() => setDraft([])}
           className="rounded-md border border-line px-3 py-1.5 text-sm hover:bg-surface-muted"
         >
@@ -72,6 +71,7 @@ export function ModeSection({ lang, settings, onCommitFeatures }: ModeSectionPro
         </button>
         <button
           type="button"
+          aria-label="Apply Advanced preset"
           onClick={() => setDraft([...ALL_MODULE_IDS])}
           className="rounded-md border border-line px-3 py-1.5 text-sm hover:bg-surface-muted"
         >
@@ -89,7 +89,6 @@ export function ModeSection({ lang, settings, onCommitFeatures }: ModeSectionPro
               type="checkbox"
               checked={draft.includes(m.id)}
               onChange={() => toggle(m.id)}
-              aria-label={t(lang, m.labelKey)}
               className="h-4 w-4 accent-AIPM-green"
             />
             <span>{t(lang, m.labelKey)}</span>
@@ -107,7 +106,7 @@ export function ModeSection({ lang, settings, onCommitFeatures }: ModeSectionPro
         <button
           type="button"
           disabled={!dirty}
-          onClick={() => onCommitFeatures(orderedDraft)}
+          onClick={() => onCommitFeatures(ALL_MODULE_IDS.filter((id) => draft.includes(id)))}
           className="rounded-md bg-AIPM-green px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
         >
           {t(lang, "modeSave")}

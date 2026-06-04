@@ -24,7 +24,7 @@ describe("ModeSection", () => {
     const { onCommit } = setup([...ALL_MODULE_IDS]);
     const save = screen.getByRole("button", { name: "Save & reload" });
     expect(save).toBeDisabled();
-    fireEvent.click(screen.getByRole("button", { name: "Simple" })); // draft -> []
+    fireEvent.click(screen.getByRole("button", { name: "Apply Simple preset" })); // draft -> []
     expect(save).toBeEnabled();
     fireEvent.click(save);
     expect(onCommit).toHaveBeenCalledWith([]);
@@ -37,12 +37,19 @@ describe("ModeSection", () => {
     const committed = onCommit.mock.calls[0][0] as string[];
     expect(committed).not.toContain("raid");
     expect(committed.length).toBe(ALL_MODULE_IDS.length - 1);
+    expect(committed).toEqual(ALL_MODULE_IDS.filter((id) => id !== "raid"));
   });
 
   it("Discard resets the draft to saved (Save disabled again)", () => {
     setup([...ALL_MODULE_IDS]);
-    fireEvent.click(screen.getByRole("button", { name: "Simple" }));
+    fireEvent.click(screen.getByRole("button", { name: "Apply Simple preset" }));
     fireEvent.click(screen.getByRole("button", { name: "Discard" }));
     expect(screen.getByRole("button", { name: "Save & reload" })).toBeDisabled();
+  });
+
+  it("badge shows Modular when one module is unchecked", () => {
+    setup([...ALL_MODULE_IDS]);
+    fireEvent.click(screen.getByRole("checkbox", { name: "RAID" }));
+    expect(screen.getByTestId("mode-badge")).toHaveTextContent("Modular");
   });
 });
