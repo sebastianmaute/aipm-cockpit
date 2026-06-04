@@ -202,13 +202,15 @@ describe("WorkspaceSection", () => {
   it("omits Gantt (and RAID/Resources/Budget) tab buttons when those modules are disabled", () => {
     vi.mocked(useSettings).mockReturnValueOnce({
       settings: {
-        lang: "en-US",
-        ai: { consentAccepted: false, provider: "none" },
-        jira: { enabled: false, siteUrl: "", email: "", apiToken: "", projectKey: "", issueTypes: [] },
-        notifications: { reminderLeadDays: 7, banner: { enabled: false }, popup: { enabled: false } },
+        language: "en-US",
+        ai: { consentAccepted: false, apiKey: "", model: "claude-sonnet-4-6" },
+        jira: { enabled: false, siteUrl: "", email: "", apiToken: "", projectKey: "", projectName: "", issueTypes: [], assigneeMode: "currentUser", assigneeAccountId: "", assigneeDisplayName: "", tokenExpiresAt: "" },
+        notifications: { reminderLeadDays: 7, banner: { enabled: false }, popup: { enabled: false }, toast: { enabled: false }, birthday: { enabled: false }, raidReview: { enabled: false }, raidReviewIntervalDays: 14 },
         holidayCountries: [],
         resources: { workdayHours: 8 },
         popout: { reuseWindow: false },
+        storageConfig: { kind: "browser" as const },
+        layout: "modern" as const,
         // Only chat/reports/activity remain; all gated modules disabled
         features: [],
       },

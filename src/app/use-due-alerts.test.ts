@@ -3,6 +3,7 @@ import { describe, expect, it, test, vi } from "vitest";
 import { useDueAlerts } from "./use-due-alerts";
 import type { Settings } from "./settings-menu";
 import type { RaidItem, Task } from "./types";
+import { ALL_MODULE_IDS } from "./feature-modules";
 
 const TODAY = "2030-01-15";
 
@@ -56,6 +57,7 @@ function makeSettings(overrides: {
     popout: { reuseWindow: false },
     resources: { workdayHours: 8 },
     layout: "modern",
+    features: [...ALL_MODULE_IDS],
   };
 }
 

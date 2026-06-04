@@ -1390,4 +1390,5 @@ export const de: Record<TranslationKey, string> = {
   modeRetentionNote: "Vorhandene Daten bleiben erhalten und erscheinen wieder, sobald Sie eine Funktion erneut aktivieren.",
   modeSave: "Speichern & neu laden",
   modeDiscard: "Verwerfen",
+  versionHighlightModes: "Einfach- / Modular- / Erweitert-Modus: App auf Aufgaben, Chat und Berichte reduzieren und Funktionen nach Bedarf wieder aktivieren.",
 };

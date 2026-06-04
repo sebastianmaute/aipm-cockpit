@@ -7,6 +7,7 @@ import { type Settings } from "./settings-menu";
 import { type StorageConfig } from "./storage";
 import { useTaskForm } from "./task-form-context";
 import { type Task } from "./types";
+import { ALL_MODULE_IDS } from "./feature-modules";
 
 function makeSettings(): Settings {
   const storageConfig: StorageConfig = { kind: "browser" };
@@ -44,6 +45,7 @@ function makeSettings(): Settings {
     popout: { reuseWindow: false },
     resources: { workdayHours: 8 },
     layout: "modern",
+    features: [...ALL_MODULE_IDS],
   };
 }
 

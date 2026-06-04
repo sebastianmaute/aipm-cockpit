@@ -1372,6 +1372,7 @@ const enUS = {
   raidReviewReasonStale: "Needs review",
   raidReviewLastTouched: "Last touched",
   versionHighlightRaidReview: "RAID review reminders flag overdue & stale items; RAG polish on the dashboard and budget report.",
+  versionHighlightModes: "Simple / Modular / Advanced mode: pare the app to Tasks, Chat & Reports and re-enable functions as needed.",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;

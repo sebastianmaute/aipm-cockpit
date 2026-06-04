@@ -1,4 +1,4 @@
-<!-- Generated: 2026-06-04 | Files scanned: ~122 (src/app/*.tsx, *.ts, settings-sections/) | Token estimate: ~1650 | Updated for 0.29.0–0.53.0: modern sidebar layout + UI-consistency sweep + Health Dashboard + Milestones + Earned Value + budget/dashboard RAG + burn-down + UI refinements + baseline/variance trends + change-control Log + stakeholder report + influence/interest matrix -->
+<!-- Generated: 2026-06-04 | Files scanned: ~124 (src/app/*.tsx, *.ts, settings-sections/) | Token estimate: ~1680 | Updated for 0.29.0–0.54.0: modern sidebar layout + UI-consistency sweep + Health Dashboard + Milestones + Earned Value + budget/dashboard RAG + burn-down + UI refinements + baseline/variance trends + change-control Log + stakeholder report + influence/interest matrix + Simple/Modular/Advanced mode -->
 
 # Frontend
 
@@ -130,6 +130,7 @@ prerendered.
 | `settings-sections/jira-settings.tsx` | Jira URL / email / API token + test-connection | |
 | `settings-sections/storage-config.tsx` | Backend picker (Browser / Local / SharePoint / Turso) | |
 | `settings-sections/integrations-section.tsx` | M365 + Turso toggles + settings | |
+| `settings-sections/mode-section.tsx` | Simple / Modular / Advanced mode selector: preset buttons, per-module checkboxes, derived mode badge, Save & reload | `Settings.features` gates nav/automation/reports by mode; 0.54.0+ |
 | **Task Editor** | | |
 | `task-form-modal.tsx` | Task create/edit modal (classic mode); returns null when closed | ~491 lines extracted from task-manager |
 | `task-form-fields.tsx` | Shared form fields (5 sections via `TaskFormSection`) + validation | Consumed by both TaskFormModal and TaskEditView |
@@ -265,6 +266,7 @@ prerendered.
 | `sanitize.ts` | Input validation for all inbound fields | Pure |
 | `health.ts` | RAG status computation + color helpers; gains `healthText` (colorized overall text, 0.48.0+) | Pure |
 | `due-dates.ts` | Due-date sorting + alertable task logic | Pure |
+| `feature-modules.ts` | Module registry (`FEATURE_MODULES`, `FeatureModuleId`), `defaultFeatures()`, `resolveMode()`, `isModuleEnabled()` helpers | Pure; `Settings.features` map gates nav/automation/reports by mode; 0.54.0+ |
 | `settings-types.ts` | `Settings` shape re-exported from settings-menu | Shared type |
 | `types.ts` | `Task`, `RaidItem`, `Absence`, `Resource`, `Role`, etc. | Core data schemas |
 | `storage.ts` | `StorageBackend` interface + IDB/File/SharePoint/Turso impls | ~1500 LOC |
