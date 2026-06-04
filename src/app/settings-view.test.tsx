@@ -22,6 +22,7 @@ function makeProps(overrides = {}) {
     lang: "en-US" as const,
     settings: defaultSettings,
     onChange: vi.fn(),
+    onCommitFeatures: vi.fn(),
     storageDescription: null,
     storageReady: false,
     onPickStorageFile: vi.fn().mockResolvedValue(undefined),
@@ -33,8 +34,15 @@ function makeProps(overrides = {}) {
 }
 
 describe("SettingsView", () => {
-  it("defaults to the Appearance section", () => {
+  it("shows the Mode section by default with a Mode rail entry", () => {
     render(<SettingsView {...makeProps()} />);
+    expect(screen.getByRole("button", { name: "Mode" })).toBeInTheDocument();
+    expect(screen.getByText(/Current mode/)).toBeInTheDocument();
+  });
+
+  it("clicking Appearance rail entry shows the Appearance section", () => {
+    render(<SettingsView {...makeProps()} />);
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "settingsSectionAppearance") }));
     expect(screen.getByRole("radio", { name: t("en-US", "themeSystem") })).toBeInTheDocument();
   });
 

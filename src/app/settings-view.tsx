@@ -13,13 +13,16 @@ import { GeneralSection } from "./settings-sections/general-section";
 import { NotificationsSection } from "./settings-sections/notifications-section";
 import { AiSection } from "./settings-sections/ai-section";
 import { IntegrationsSection } from "./settings-sections/integrations-section";
+import { ModeSection } from "./settings-sections/mode-section";
 import { JiraSettingsSection } from "./jira-settings";
 import { StorageConfigSection } from "./storage-config";
+import type { FeatureModuleId } from "./feature-modules";
 
 interface SettingsViewProps {
   lang: Lang;
   settings: Settings;
   onChange: (s: Settings) => void;
+  onCommitFeatures: (features: FeatureModuleId[]) => void;
   storageDescription: string | null;
   storageReady: boolean;
   onPickStorageFile: () => Promise<void>;
@@ -29,10 +32,11 @@ interface SettingsViewProps {
 }
 
 type SectionId =
-  | "appearance" | "localization" | "general" | "notifications"
+  | "mode" | "appearance" | "localization" | "general" | "notifications"
   | "ai" | "jira" | "storage" | "integrations";
 
 const RAIL: { id: SectionId; labelKey: TranslationKey }[] = [
+  { id: "mode", labelKey: "settingsSectionMode" },
   { id: "appearance", labelKey: "settingsSectionAppearance" },
   { id: "localization", labelKey: "settingsSectionLocalization" },
   { id: "general", labelKey: "settingsSectionGeneral" },
@@ -45,7 +49,7 @@ const RAIL: { id: SectionId; labelKey: TranslationKey }[] = [
 
 export function SettingsView(props: SettingsViewProps) {
   const { lang, settings, onChange } = props;
-  const [active, setActive] = useState<SectionId>("appearance");
+  const [active, setActive] = useState<SectionId>("mode");
   const [showVersion, setShowVersion] = useState(false);
 
   return (
@@ -76,6 +80,9 @@ export function SettingsView(props: SettingsViewProps) {
       </nav>
 
       <section className="min-w-0 flex-1 rounded-lg border border-line bg-surface p-6">
+        {active === "mode" && (
+          <ModeSection lang={lang} settings={settings} onCommitFeatures={props.onCommitFeatures} />
+        )}
         {active === "appearance" && (
           <AppearanceSection lang={lang} settings={settings} onChange={onChange} />
         )}

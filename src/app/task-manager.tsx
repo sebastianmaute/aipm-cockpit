@@ -8,7 +8,8 @@ import { useChatDispatcher } from "./use-chat-dispatcher";
 import { useActivityLog } from "./use-activity-log";
 import { useDueAlerts } from "./use-due-alerts";
 import { useToast } from "./use-toast";
-import { useSettings } from "./use-settings";
+import { useSettings, writeSettings } from "./use-settings";
+import { isViewEnabled, isModuleEnabled, type FeatureModuleId } from "./feature-modules";
 import { useJiraSync } from "./use-jira-sync";
 import { useStorageBackend } from "./use-storage-backend";
 import { useResourcePlanner } from "./use-resource-planner";
@@ -111,6 +112,22 @@ function TaskManagerInner() {
       setActiveTab("chat");
     }
   }, [settings.layout, activeTab, setActiveTab]);
+
+  // If the active view belongs to a disabled module (e.g. after a Save+reload
+  // into Simple mode, or a stale hash), redirect to a still-enabled view.
+  useEffect(() => {
+    if (isViewEnabled(activeTab, settings.features)) return;
+    setActiveTab(isModuleEnabled("dashboard", settings.features) ? "dashboard" : "open-points");
+  }, [activeTab, settings.features, setActiveTab]);
+
+  const handleCommitFeatures = useCallback(
+    (features: FeatureModuleId[]) => {
+      writeSettings({ ...settings, features });
+      window.location.reload();
+    },
+    [settings],
+  );
+
   const { setRaidFilterTaskId } = useFilters();
   // Tasks data + derivations owned by WorkspaceProvider (Slice 2 of the
   // task-manager decomposition; see
@@ -873,6 +890,7 @@ function TaskManagerInner() {
       lang={lang}
       settings={settings}
       onChange={setSettings}
+      onCommitFeatures={handleCommitFeatures}
       storageDescription={storageDescription}
       storageReady={storageReady}
       onPickStorageFile={onPickStorageFile}
