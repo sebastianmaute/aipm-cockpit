@@ -13,7 +13,6 @@ import { ModalHeader } from "./modal-header";
 import {
   RACI_ROLES,
   STAKEHOLDER_CATEGORIES,
-  INFLUENCE_INTEREST_LEVELS,
   type InfluenceInterest,
   type Milestone,
   type RaciRole,
@@ -21,6 +20,7 @@ import {
   type Stakeholder,
   type StakeholderCategory,
 } from "./types";
+import { InfluenceInterestMatrix } from "./influence-interest-matrix";
 import { useDraggable } from "./use-draggable";
 import { setRaciRole } from "./stakeholders";
 import { resourceDisplayName } from "./resource-foundation";
@@ -199,43 +199,23 @@ export function StakeholderEditModal({
             </select>
           </label>
 
-          {/* Influence */}
-          <label className="flex flex-col gap-1 text-sm">
+          {/* Influence / Interest matrix — one click sets both */}
+          <div className="flex flex-col gap-1 text-sm sm:col-span-2">
             <span className="font-medium text-foreground">
-              {t(lang, "stakeholderFieldInfluence")}
+              {t(lang, "stakeholderFieldInfluence")} / {t(lang, "stakeholderFieldInterest")}
             </span>
-            <select
-              aria-label={t(lang, "stakeholderFieldInfluence")}
-              value={draft.influence}
-              onChange={(e) => update("influence", e.target.value as InfluenceInterest)}
-              className={INPUT_CLASS}
-            >
-              {INFLUENCE_INTEREST_LEVELS.map((lvl) => (
-                <option key={lvl} value={lvl}>
-                  {t(lang, LEVEL_LABEL_KEYS[lvl])}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          {/* Interest */}
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-foreground">
-              {t(lang, "stakeholderFieldInterest")}
+            <InfluenceInterestMatrix
+              lang={lang}
+              influence={draft.influence}
+              interest={draft.interest}
+              onPick={(influence, interest) => onChange({ ...draft, influence, interest })}
+            />
+            <span className="text-xs text-muted-foreground">
+              {t(lang, "stakeholderFieldInfluence")}: {t(lang, LEVEL_LABEL_KEYS[draft.influence])}
+              {" · "}
+              {t(lang, "stakeholderFieldInterest")}: {t(lang, LEVEL_LABEL_KEYS[draft.interest])}
             </span>
-            <select
-              aria-label={t(lang, "stakeholderFieldInterest")}
-              value={draft.interest}
-              onChange={(e) => update("interest", e.target.value as InfluenceInterest)}
-              className={INPUT_CLASS}
-            >
-              {INFLUENCE_INTEREST_LEVELS.map((lvl) => (
-                <option key={lvl} value={lvl}>
-                  {t(lang, LEVEL_LABEL_KEYS[lvl])}
-                </option>
-              ))}
-            </select>
-          </label>
+          </div>
 
           {/* Notes */}
           <label className="flex flex-col gap-1 text-sm sm:col-span-2">

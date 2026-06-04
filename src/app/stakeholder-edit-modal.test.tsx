@@ -28,4 +28,9 @@ describe("StakeholderEditModal", () => {
     fireEvent.change(screen.getByLabelText("Go-Live (RACI)"), { target: { value: "A" } });
     expect(p.onChange).toHaveBeenCalledWith(expect.objectContaining({ raci: { "10": "A" } }));
   });
+  it("picks influence and interest together from the matrix", () => {
+    const p = setup({ draft: { ...draft, influence: "Low", interest: "Low" } });
+    fireEvent.click(screen.getByRole("button", { name: /influence high.*interest high/i }));
+    expect(p.onChange).toHaveBeenCalledWith(expect.objectContaining({ influence: "High", interest: "High" }));
+  });
 });
