@@ -88,9 +88,12 @@ export function BudgetReportPanel({
       <Section title={t(lang, "budgetReportProjectTotal")}>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Tile label={t(lang, "budgetBudgetHours")} value={proj.budgetHours.toFixed(0)} />
-          <Tile label={t(lang, "budgetPlanHours")} value={proj.plannedHours.toFixed(0)} />
-          <Tile label={t(lang, "budgetActualHours")} value={proj.actualHours.toFixed(0)} />
-          <Tile label={t(lang, "budgetReportRevenue")} value={money(proj.revenue)} />
+          <Tile label={t(lang, "budgetPlanHours")} value={proj.plannedHours.toFixed(0)}
+            rag={<RagBadge value={ratioHealth(proj.plannedHours, proj.budgetHours)} lang={lang} title={t(lang, "budgetPlanHours")} />} />
+          <Tile label={t(lang, "budgetActualHours")} value={proj.actualHours.toFixed(0)}
+            rag={<RagBadge value={ratioHealth(proj.actualHours, proj.budgetHours)} lang={lang} title={t(lang, "budgetActualHours")} />} />
+          <Tile label={t(lang, "budgetReportRevenue")} value={money(proj.revenue)}
+            rag={<RagBadge value={marginHealth(proj.contributionMargin.percent)} lang={lang} title={t(lang, "budgetReportRevenue")} />} />
           <Tile label={t(lang, "budgetReportCost")} value={money(proj.cost)} />
           <Tile label={t(lang, "budgetCciMargin")} value={`${money(proj.contributionMargin.amount)} (${pct(proj.contributionMargin)})`} rag={<RagBadge value={marginHealth(proj.contributionMargin.percent)} lang={lang} title={t(lang, "budgetCciMargin")} />} />
           <Tile label={t(lang, "budgetCciCpi")} value={`${money(proj.costPerformance.amount)} (${pct(proj.costPerformance)})`} rag={<RagBadge value={costPerformanceHealth(proj.costPerformance.percent)} lang={lang} title={t(lang, "budgetCciCpi")} />} />
@@ -119,6 +122,7 @@ export function BudgetReportPanel({
 
       <Section title={t(lang, "budgetBurndownTitle")}>
         <BurndownCharts series={burndown} lang={lang} currency={plan.currency || "EUR"} />
+        <p className="mt-2 text-xs text-muted-foreground">{t(lang, "dashboardBurnCaption")}</p>
       </Section>
 
       <BucketDetailTable
