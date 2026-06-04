@@ -8,6 +8,26 @@ Authoritative source for version + build date: [`src/app/version.ts`](src/app/ve
 This file is seeded from that module's milestone comment plus the
 post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-diff.txt).
 
+## [0.51.0] — 2026-06-04 "Pratchett"
+
+### Added
+- RAID review reminders: a banner / modal / once-per-load toast nudge for active
+  RAID items past their target date or not reviewed within a configurable
+  interval (new Notifications setting, default on, 14-day interval).
+- Budget Report: a burn-down caption plus RAG bubbles on the Plan(h), Actual(h),
+  and Revenue figures.
+- Help: full-text search with section filtering, match highlighting, and
+  jump-to-first-match.
+
+### Changed
+- Dashboard RAG polish: colorized R/A/G counts, RAG bubbles on the budget-burn
+  tiles, boxed Progress + Budget-burn sections, and an explicit Save button +
+  last-updated label on the status summary.
+- Reports: an added report can now be removed via a dropdown (alongside the
+  × button).
+- Chat: the reset-size button moves left (centered) and the input height matches
+  the Send / Clear button stack.
+
 ## [0.50.0] — 2026-06-03 "Sanderson"
 
 Change-control Log: a RAID-sibling register of change requests with a type,

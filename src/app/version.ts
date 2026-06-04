@@ -1,3 +1,17 @@
+// 0.51.0 "Pratchett" adds RAID review reminders and a RAG/UI polish batch.
+// A new pure raid-review.ts flags active RAID items overdue for review — past
+// their target date or not reviewed within a configurable interval (a new
+// Notifications setting, default on, 14-day interval) — surfaced via a banner,
+// modal, and once-per-load toast nudge. Dashboard RAG polish: colorized R/A/G
+// counts, RAG bubbles on the budget-burn tiles, boxed Progress + Budget-burn
+// sections, and an explicit Save button + last-updated label on the status
+// summary. The Budget Report gains a burn-down caption plus RAG bubbles on the
+// Plan(h) / Actual(h) / Revenue figures. Reports can now remove an added report
+// via a dropdown (alongside the × button). Chat: the reset-size button moves
+// left (centered) and the input height matches the Send/Clear button stack.
+// Help gains full-text search with section filtering, match highlighting, and
+// jump-to-first-match (new pure help-search.ts). New modules: raid-review.ts,
+// help-search.ts.
 // 0.50.0 "Sanderson" adds a change-control Log: a RAID-sibling register of change
 // requests. Each ChangeItem carries a type (Scope/Schedule/Cost/Quality/Other), a
 // 6-state workflow (Proposed/Under Review/Approved/Rejected/Implemented/Deferred),
@@ -649,12 +663,12 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.50.0";
-export const APP_BUILD_DATE = "2026-06-03"; // 0.50.0 change-control log
+export const APP_VERSION = "0.51.0";
+export const APP_BUILD_DATE = "2026-06-04"; // 0.51.0 RAID review reminders + RAG/UI polish
 /** Minor-series milestone codename (sci-fi/fantasy author names). The whole
- *  0.50.x line is "Sanderson" (Brandon Sanderson); patch releases inherit
+ *  0.51.x line is "Pratchett" (Terry Pratchett); patch releases inherit
  *  their minor version's codename rather than getting their own. */
-export const APP_MILESTONE = "Sanderson";
+export const APP_MILESTONE = "Pratchett";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -716,4 +730,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightUiRefinements",
   "versionHighlightTrends",
   "versionHighlightChangeLog",
+  "versionHighlightRaidReview",
 ] as const;

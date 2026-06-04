@@ -424,6 +424,13 @@ per-period remaining hours and EUR across all open buckets, producing two
 `BurndownPoint[]` arrays (hours + currency) for the SVG `BurndownCharts`
 component. No React dependency.
 
+## RAID review reminders (`raid-review.ts`)
+
+Pure logic (0.51.0+) flagging active RAID items overdue for review — past their
+`targetDate` or not reviewed within the configured interval (`reviewIntervalDays`,
+default 14) measured against `localModifiedAt`. No React dependency; feeds the
+RAID review banner / modal / toast nudge.
+
 ## Contacts (`contacts.ts`)
 
 `Contact { name, email }` keyed by `normalizedName` (trimmed lowercase) in a

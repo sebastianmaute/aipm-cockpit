@@ -192,6 +192,7 @@ prerendered.
 | **Activity & Notifications** | | |
 | `activity-log-panel.tsx` | Sortable/filterable/searchable CRUD log | Conditional mount |
 | `notifications.tsx` | `DueBanner`, `BirthdayBanner`, `JiraTokenBanner` + toast/popup | |
+| `raid-review.ts` | Pure logic flagging active RAID items overdue for review (past target date or stale beyond the configured interval) | No React; 0.51.0+ |
 | `reminder-snooze.ts` | localStorage-backed snooze store | Pure; no React |
 | `use-reminder-snooze.ts` | `useReminderSnooze(kind) → { isSnoozed, snooze, clear }` | Client hook |
 | `birthdays.ts` | `getUpcomingBirthdays` pure engine | No React |
@@ -249,6 +250,7 @@ prerendered.
 | `use-settings.ts` | Settings context hook (separate from workspace) | |
 | `use-bulk-operations.ts` | Bulk-edit operations (e.g. apply field to selected) | |
 | `markdown.tsx` | Renders chat / report markdown safely | |
+| `help-search.ts` | Pure helpers for the Help full-text search (section matching + match-highlight segmentation) | Pure; 0.51.0+ |
 | `export.ts`, `export-ooxml.ts` | Export engines (CSV/MD/JSON/DOCX/XLSX/PPTX) | Lazy-imported |
 | `zip.ts` | Hand-rolled STORE-method ZIP writer | No external dep |
 | `sanitize.ts` | Input validation for all inbound fields | Pure |
