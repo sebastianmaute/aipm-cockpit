@@ -86,3 +86,14 @@ describe("trends nav", () => {
     expect(navLabelKey("trends")).toBe("navTrends");
   });
 });
+
+describe("stakeholders nav", () => {
+  it("includes the stakeholders register and its sub-views", () => {
+    const views = allNavViews();
+    expect(views).toContain("stakeholders");
+    expect(views).toContain("raci");
+    expect(views).toContain("stakeholder-map");
+    expect(subTabsFor("stakeholders").map((c) => c.view)).toEqual(["raci", "stakeholder-map"]);
+    expect(navLabelKey("stakeholders")).toBe("navStakeholders");
+  });
+});
