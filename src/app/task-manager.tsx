@@ -29,6 +29,7 @@ import { buildChangeByTaskIndex } from "./change-log";
 import { FiltersProvider, useFilters } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { useChangeLog } from "./use-change-log";
+import { useStakeholders } from "./use-stakeholders";
 import {
   TaskFormProvider,
   useTaskForm,
@@ -335,6 +336,14 @@ function TaskManagerInner() {
   // change activity-logging is intentionally out of scope (logActivity here is
   // kind-keyed, not free-text), so no logActivity is passed.
   const { handleSaveChange, handleDeleteChange } = useChangeLog({ today });
+
+  // Stakeholder register / RACI / map CRUD. Mirrors the Change Log: the hook
+  // reads/writes `stakeholders` via WorkspaceProvider; the three panels source
+  // `resources`/`milestones` from context inside WorkspaceSection. As with
+  // useChangeLog, no logActivity is passed — task-manager's logActivity is
+  // kind-keyed (ActivityKind), not the free-text summary the hook expects.
+  const { stakeholders, handleSaveStakeholder, handleDeleteStakeholder } =
+    useStakeholders({ today });
 
   const [fillTaskAssigneeOnSave, setFillTaskAssigneeOnSave] = useState(false);
 
@@ -714,6 +723,9 @@ function TaskManagerInner() {
     changes,
     handleSaveChange: guardEdit(handleSaveChange),
     handleDeleteChange: guardEdit(handleDeleteChange),
+    stakeholders,
+    handleSaveStakeholder: guardEdit(handleSaveStakeholder),
+    handleDeleteStakeholder: guardEdit(handleDeleteStakeholder),
     handleCreateMitigationTaskFromRaid: guardEdit(handleCreateMitigationTaskFromRaid),
     handleJumpToTaskFromRaid,
     activityLog,

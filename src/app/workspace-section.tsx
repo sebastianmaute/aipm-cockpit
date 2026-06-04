@@ -14,7 +14,7 @@ import { DEFAULT_EXTRA_REPORTS } from "./addable-reports";
 import type { ToolDispatcher } from "./chat-tools";
 import type { UseSnapshotsResult } from "./use-snapshots";
 import type { ActivityEntry, ActivityKind } from "./activity-log";
-import type { Absence, BudgetBucket, ChangeItem, RaidItem, Resource, Shift, Task } from "./types";
+import type { Absence, BudgetBucket, ChangeItem, RaidItem, Resource, Shift, Stakeholder, Task } from "./types";
 import { ResourceDirectory } from "./resource-directory";
 import { DashboardPanel } from "./dashboard-panel";
 import { MilestonesPanel } from "./milestones-panel";
@@ -59,6 +59,18 @@ const ChangeReportPanel = dynamic(
   () => import("./change-report-panel").then((m) => m.ChangeReportPanel),
   { ssr: false },
 );
+const StakeholdersPanel = dynamic(
+  () => import("./stakeholders-panel").then((m) => m.StakeholdersPanel),
+  { ssr: false },
+);
+const RaciPanel = dynamic(
+  () => import("./raci-panel").then((m) => m.RaciPanel),
+  { ssr: false },
+);
+const StakeholderMapPanel = dynamic(
+  () => import("./stakeholder-map-panel").then((m) => m.StakeholderMapPanel),
+  { ssr: false },
+);
 const BudgetPanel = dynamic(
   () => import("./budget-panel").then((m) => m.BudgetPanel),
   { ssr: false },
@@ -95,6 +107,9 @@ export interface WorkspaceSectionProps {
   changes: ChangeItem[];
   handleSaveChange: (item: ChangeItem) => void;
   handleDeleteChange: (id: number) => void;
+  stakeholders: Stakeholder[];
+  handleSaveStakeholder: (item: Stakeholder) => void;
+  handleDeleteStakeholder: (id: number) => void;
   handleCreateMitigationTaskFromRaid: (raidId: number) => number | null | undefined;
   handleJumpToTaskFromRaid: (taskId: number) => void;
   activityLog: ActivityEntry[];
@@ -141,6 +156,9 @@ export function WorkspaceSection({
   changes,
   handleSaveChange,
   handleDeleteChange,
+  stakeholders,
+  handleSaveStakeholder,
+  handleDeleteStakeholder,
   handleCreateMitigationTaskFromRaid,
   handleJumpToTaskFromRaid,
   activityLog,
@@ -563,6 +581,37 @@ export function WorkspaceSection({
         {activeTab === "change-report" && (
           <div id="panel-change-report" role="tabpanel" className={panelScrollClass}>
             <ChangeReportPanel lang={lang} items={changes} today={today} />
+          </div>
+        )}
+
+        {activeTab === "stakeholders" && (
+          <div id="panel-stakeholders" role="tabpanel" className={panelClass}>
+            <StakeholdersPanel
+              lang={lang}
+              stakeholders={stakeholders}
+              resources={resources}
+              milestones={milestones}
+              today={today}
+              onSave={handleSaveStakeholder}
+              onDelete={handleDeleteStakeholder}
+            />
+          </div>
+        )}
+
+        {activeTab === "raci" && (
+          <div id="panel-raci" role="tabpanel" className={panelClass}>
+            <RaciPanel
+              lang={lang}
+              stakeholders={stakeholders}
+              milestones={milestones}
+              onSave={handleSaveStakeholder}
+            />
+          </div>
+        )}
+
+        {activeTab === "stakeholder-map" && (
+          <div id="panel-stakeholder-map" role="tabpanel" className={panelClass}>
+            <StakeholderMapPanel lang={lang} stakeholders={stakeholders} />
           </div>
         )}
 
