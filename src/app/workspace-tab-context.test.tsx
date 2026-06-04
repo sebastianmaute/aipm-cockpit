@@ -1,4 +1,4 @@
-import { renderHook } from "@testing-library/react";
+import { act, renderHook } from "@testing-library/react";
 import { useLayoutEffect, type ReactNode } from "react";
 import { describe, expect, it } from "vitest";
 import { WorkspaceTabProvider, useWorkspaceTab } from "./workspace-tab-context";
@@ -6,6 +6,17 @@ import { WorkspaceTabProvider, useWorkspaceTab } from "./workspace-tab-context";
 function wrapper({ children }: { children: ReactNode }) {
   return <WorkspaceTabProvider>{children}</WorkspaceTabProvider>;
 }
+
+describe("pendingOpen", () => {
+  it("requestOpen sets the active tab and pending target; clear resets it", () => {
+    const { result } = renderHook(() => useWorkspaceTab(), { wrapper });
+    act(() => result.current.requestOpen("raid", 42));
+    expect(result.current.activeTab).toBe("raid");
+    expect(result.current.pendingOpen).toEqual({ view: "raid", id: 42 });
+    act(() => result.current.clearPendingOpen());
+    expect(result.current.pendingOpen).toBeNull();
+  });
+});
 
 describe("WorkspaceTabContext", () => {
   it("default activeTab is 'chat' and isPopout is false", () => {
