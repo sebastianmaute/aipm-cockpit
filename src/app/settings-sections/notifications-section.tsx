@@ -71,6 +71,31 @@ export function NotificationsSection({ lang, settings, onChange }: Notifications
         </label>
         <InfoTooltip text={t(lang, "notifBirthdayTooltip")} />
       </div>
+      <div className="mt-2 flex items-center gap-2 text-sm text-foreground">
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={settings.notifications.raidReview.enabled}
+            onChange={(e) => onChange({ ...settings, notifications: { ...settings.notifications, raidReview: { enabled: e.target.checked } } })}
+            className="h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue focus:ring-AIPM-green"
+          />
+          {t(lang, "notifRaidReview")}
+        </label>
+        <InfoTooltip text={t(lang, "notifRaidReviewTooltip")} />
+      </div>
+      <label className="mt-2 flex items-center justify-between gap-2 text-sm text-foreground">
+        <span className="inline-flex items-center gap-1">
+          {t(lang, "raidReviewIntervalDays")}
+          <InfoTooltip text={t(lang, "raidReviewIntervalDaysTooltip")} />
+        </span>
+        <input
+          type="number" min={1} max={365}
+          aria-label={t(lang, "raidReviewIntervalDays")}
+          value={settings.notifications.raidReviewIntervalDays}
+          onChange={(e) => onChange({ ...settings, notifications: { ...settings.notifications, raidReviewIntervalDays: Math.max(1, Math.min(365, Math.round(Number(e.target.value) || 14))) } })}
+          className="w-20 rounded-md border border-line px-2 py-1 text-right tabular-nums"
+        />
+      </label>
     </div>
   );
 }
