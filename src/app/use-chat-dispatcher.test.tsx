@@ -25,6 +25,8 @@ function makeSettings(): Settings {
       toast: { enabled: true },
       popup: { enabled: true },
       birthday: { enabled: false },
+      raidReview: { enabled: true },
+      raidReviewIntervalDays: 14,
     },
     jira: {
       enabled: false,

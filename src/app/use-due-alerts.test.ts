@@ -37,6 +37,8 @@ function makeSettings(overrides: {
       toast: { enabled: overrides.toastEnabled ?? false },
       popup: { enabled: overrides.popupEnabled ?? false },
       birthday: { enabled: false },
+      raidReview: { enabled: true },
+      raidReviewIntervalDays: 14,
     },
     jira: {
       enabled: false,

@@ -14,9 +14,13 @@ function migrateNotifications(raw: unknown): Settings["notifications"] {
   const pick = (v: unknown) => (isPlainObject(v) ? (v as Record<string, unknown>) : {});
   const ch = (v: unknown) => ({ enabled: isPlainObject(v) ? (v as { enabled?: unknown }).enabled !== false : true });
   const lead = Number(p.reminderLeadDays ?? pick(p.birthday).leadDays ?? pick(p.banner).thresholdWorkDays);
+  const raidInterval = Math.round(Number(p.raidReviewIntervalDays));
   return {
     reminderLeadDays: Number.isFinite(lead) && lead >= 0 ? lead : 7,
     banner: ch(p.banner), toast: ch(p.toast), popup: ch(p.popup), birthday: ch(p.birthday),
+    raidReview: ch(p.raidReview),
+    raidReviewIntervalDays:
+      Number.isFinite(raidInterval) && raidInterval >= 1 ? Math.min(365, raidInterval) : 14,
   };
 }
 
