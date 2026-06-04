@@ -1297,6 +1297,7 @@ const enUS = {
   stakeholderMapTitle: "Influence / Interest",
   stakeholdersAdd: "Add stakeholder",
   stakeholdersEmpty: "No stakeholders yet.",
+  stakeholdersNoResults: "No stakeholders match your search.",
   stakeholderFieldName: "Name",
   stakeholderFieldOrganization: "Organization",
   stakeholderFieldTitle: "Title / role",

@@ -288,7 +288,7 @@ export function StakeholderEditModal({
                   <div key={m.id} className="flex items-center gap-3 text-sm">
                     <span className="w-40 truncate text-foreground">{m.name}</span>
                     <select
-                      aria-label={m.name}
+                      aria-label={`${m.name} (RACI)`}
                       value={draft.raci[String(m.id)] ?? ""}
                       onChange={(e) => {
                         const val = e.target.value;

@@ -285,10 +285,13 @@ function RaidPanelInner({
   useEffect(() => {
     if (pendingOpen?.view !== "raid") return;
     const item = raidById.get(pendingOpen.id);
+    // Skip when this item's editor is already open — a self-induced hashchange
+    // (requestOpen writes the hash) can re-fire pendingOpen; reopening would
+    // clobber an in-progress edit of the same item.
     // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: a one-way deep-link signal must open the edit modal on a pendingOpen transition, not at render time
-    if (item) openEdit(item);
+    if (item && draft?.id !== item.id) openEdit(item);
     clearPendingOpen();
-  }, [pendingOpen, raidById, clearPendingOpen, openEdit]);
+  }, [pendingOpen, raidById, clearPendingOpen, openEdit, draft]);
 
   function closeModal() {
     setDraft(null);

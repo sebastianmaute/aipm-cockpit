@@ -313,7 +313,7 @@ function StakeholdersPanelInner({
             {stakeholders.length > 0 && visible.length === 0 && (
               <tr>
                 <td colSpan={8} className="p-10 text-center text-sm text-muted-foreground">
-                  {t(lang, "stakeholdersEmpty")}
+                  {t(lang, "stakeholdersNoResults")}
                 </td>
               </tr>
             )}

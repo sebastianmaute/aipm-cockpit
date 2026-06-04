@@ -25,7 +25,7 @@ describe("StakeholderEditModal", () => {
   });
   it("edits a RACI cell for a milestone", () => {
     const p = setup();
-    fireEvent.change(screen.getByLabelText("Go-Live"), { target: { value: "A" } });
+    fireEvent.change(screen.getByLabelText("Go-Live (RACI)"), { target: { value: "A" } });
     expect(p.onChange).toHaveBeenCalledWith(expect.objectContaining({ raci: { "10": "A" } }));
   });
 });
