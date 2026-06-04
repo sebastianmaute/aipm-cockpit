@@ -376,8 +376,9 @@ export function ReportsPanel({
   };
 
   const visibleExtra = visibleReports(extraReports, features);
+  const enabledReportIds = new Set(visibleReports(ADDABLE_REPORTS.map((r) => r.id), features));
   const remainingReports = ADDABLE_REPORTS.filter(
-    (r) => !extraReports.includes(r.id) && visibleReports([r.id], features).length > 0,
+    (r) => !extraReports.includes(r.id) && enabledReportIds.has(r.id),
   );
   const addReportControl = (
     <select

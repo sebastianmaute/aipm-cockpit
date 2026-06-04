@@ -194,6 +194,8 @@ export function WorkspaceSection({
   // Milestones tab (Gantt "Add milestone" parity with Add task).
   const [milestoneCreateNonce, setMilestoneCreateNonce] = useState(0);
   const subTabs = subTabsFor(activeTab, features);
+  const milestonesEnabled = isModuleEnabled("milestones", features);
+  const raidEnabledForChanges = isModuleEnabled("raid", features);
 
   // Panel wrappers. The pt-4 offset clears the tab strip in classic/popout mode;
   // in fullBleed the strip is hidden, so we drop it to align the per-view card
@@ -446,17 +448,17 @@ export function WorkspaceSection({
               lang={lang}
               tasks={tasks}
               absences={absences}
-              milestones={isModuleEnabled("milestones", settings.features) ? milestones : []}
+              milestones={milestonesEnabled ? milestones : []}
               onUpdateBar={handleGanttBarUpdate}
               onAddTask={isPopout ? undefined : () => {
                 handleCancelEdit();
                 setTaskModalOpen(true);
               }}
               onEditTask={isPopout ? undefined : onEditTask}
-              onAddMilestone={isModuleEnabled("milestones", settings.features)
+              onAddMilestone={milestonesEnabled
                 ? () => { setActiveTab("milestones"); setMilestoneCreateNonce((n) => n + 1); }
                 : undefined}
-              onEditMilestone={isModuleEnabled("milestones", settings.features)
+              onEditMilestone={milestonesEnabled
                 ? () => setActiveTab("milestones")
                 : undefined}
             />
@@ -587,12 +589,12 @@ export function WorkspaceSection({
             <ChangePanel
               lang={lang}
               tasks={tasks}
-              raid={isModuleEnabled("raid", settings.features) ? raid : []}
+              raid={raidEnabledForChanges ? raid : []}
               changes={changes}
               today={today}
               onSave={handleSaveChange}
               onDelete={handleDeleteChange}
-              raidEnabled={isModuleEnabled("raid", settings.features)}
+              raidEnabled={raidEnabledForChanges}
             />
           </div>
         )}
