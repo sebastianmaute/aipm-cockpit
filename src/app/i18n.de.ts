@@ -991,6 +991,7 @@ export const de: Record<TranslationKey, string> = {
   raidCategoryDependency: "Abhängigkeiten",
 
   raidReportTitle: "RAID-Report",
+  stakeholderReportTitle: "Stakeholder-Bericht",
   raidReportSummary: "Übersicht",
   raidReportFullDetail: "Volldetail",
   raidReportOpenRisks: "Offene Risiken",
@@ -1356,10 +1357,12 @@ export const de: Record<TranslationKey, string> = {
   stakeholdersDelete: "Stakeholder loeschen",
   stakeholderConfirmDelete: "Diesen Stakeholder loeschen?",
   versionHighlightStakeholders: "Stakeholder-Register mit RACI-Matrix und Einfluss-/Interessenraster",
+  versionHighlightStakeholderReport: "Stakeholder-Bericht + Klick-Matrix fuer Einfluss/Interesse",
 
   helpSearchPlaceholder: "Hilfe durchsuchen",
   helpSearchNoResults: "Keine Hilfethemen passen zur Suche.",
   dashboardStatusSave: "Speichern",
+  dashboardStatusClear: "Leeren",
   notifRaidReview: "RAID-Pruefungserinnerungen",
   notifRaidReviewTooltip: "Hinweis, wenn RAID-Eintraege ihr Zieldatum ueberschritten haben oder nicht innerhalb des Intervalls geprueft wurden.",
   raidReviewIntervalDays: "RAID-Pruefintervall (Tage)",

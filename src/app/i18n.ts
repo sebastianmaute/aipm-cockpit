@@ -973,6 +973,7 @@ const enUS = {
   raidCategoryDependency: "Dependencies",
 
   raidReportTitle: "RAID Report",
+  stakeholderReportTitle: "Stakeholder Report",
   raidReportSummary: "Summary",
   raidReportFullDetail: "Full Detail",
   raidReportOpenRisks: "Open Risks",
@@ -1338,10 +1339,12 @@ const enUS = {
   stakeholdersDelete: "Delete stakeholder",
   stakeholderConfirmDelete: "Delete this stakeholder?",
   versionHighlightStakeholders: "Stakeholder register with RACI matrix and influence/interest grid",
+  versionHighlightStakeholderReport: "Stakeholder report + a click-matrix for influence/interest",
 
   helpSearchPlaceholder: "Search help",
   helpSearchNoResults: "No help topics match your search.",
   dashboardStatusSave: "Save",
+  dashboardStatusClear: "Clear",
   notifRaidReview: "RAID review reminders",
   notifRaidReviewTooltip: "Nudge when RAID items are past their target date or have not been reviewed within the interval.",
   raidReviewIntervalDays: "RAID review interval (days)",

@@ -24,9 +24,10 @@ import { type Priority, PRIORITIES, type Task } from "./types";
 import { RaidReportPanel } from "./raid-report-panel";
 import { BudgetReportPanel } from "./budget-report-panel";
 import { ResourcesReportPanel } from "./resources-report";
+import { StakeholderReportPanel } from "./stakeholder-report-panel";
 import { ADDABLE_REPORTS, type AddableReportId } from "./addable-reports";
 import type {
-  Absence, BudgetBucket, Discipline, FxRates, Grade, RaidItem, Resource, ResourcePlan, Role,
+  Absence, BudgetBucket, Discipline, FxRates, Grade, Milestone, RaidItem, Resource, ResourcePlan, Role, Stakeholder,
 } from "./types";
 
 const REPORTS_INQUIRY_COL_WIDTHS = {
@@ -255,6 +256,7 @@ export function ReportsPanel({
   raid = [], buckets = [], plan, roles = [], disciplines = [], grades = [],
   resources = [], absences = [], workdayHours = 8, fxRates = null,
   extraReports = [], onChangeExtraReports,
+  stakeholders = [], milestones = [],
 }: {
   tasks: Task[];
   today: string;
@@ -272,6 +274,8 @@ export function ReportsPanel({
   fxRates?: FxRates | null;
   extraReports?: AddableReportId[];
   onChangeExtraReports?: (next: AddableReportId[]) => void;
+  stakeholders?: Stakeholder[];
+  milestones?: Milestone[];
 }) {
   const stats = useMemo(
     () => computeStats(tasks, today, holidaySet),
@@ -409,6 +413,7 @@ export function ReportsPanel({
     if (id === "raid-report") return <RaidReportPanel embedded lang={lang} items={raid} today={today} />;
     if (id === "budget-report") return plan ? <BudgetReportPanel embedded lang={lang} buckets={buckets} plan={plan} roles={roles} resources={resources} absences={absences} holidaySet={holidaySet} workdayHours={workdayHours} fxRates={fxRates} tasks={tasks} today={today} /> : null;
     if (id === "resource-report") return plan ? <ResourcesReportPanel embedded lang={lang} resources={resources} roles={roles} disciplines={disciplines} grades={grades} plan={plan} absences={absences} holidaySet={holidaySet} workdayHours={workdayHours} /> : null;
+    if (id === "stakeholder-report") return <StakeholderReportPanel embedded lang={lang} stakeholders={stakeholders} milestones={milestones} />;
     return null;
   };
 

@@ -7,8 +7,8 @@ import {
 } from "./addable-reports";
 
 describe("addable-reports", () => {
-  test("registry has the three reports in canonical order", () => {
-    expect(ADDABLE_REPORTS.map((r) => r.id)).toEqual(["raid-report", "budget-report", "resource-report"]);
+  test("registry has the four reports in canonical order", () => {
+    expect(ADDABLE_REPORTS.map((r) => r.id)).toEqual(["raid-report", "budget-report", "resource-report", "stakeholder-report"]);
   });
   test("sanitizeExtraReports keeps valid ids in canonical order, drops junk + dups", () => {
     expect(sanitizeExtraReports(["budget-report", "raid-report", "budget-report", "nope"]))

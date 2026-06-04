@@ -26,6 +26,6 @@ describe("StakeholdersPanel", () => {
   it("opens the add modal", () => {
     setup();
     fireEvent.click(screen.getByRole("button", { name: /add stakeholder/i }));
-    expect(screen.getByText(/add stakeholder/i)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /add stakeholder/i })).toBeInTheDocument();
   });
 });

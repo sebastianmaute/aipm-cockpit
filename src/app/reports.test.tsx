@@ -214,4 +214,8 @@ describe("ReportsPanel — composed reports", () => {
     renderComposed([]);
     expect(screen.queryByLabelText("Remove report")).toBeNull();
   });
+  it("renders the Stakeholder report when added", () => {
+    renderComposed(["stakeholder-report"]);
+    expect(screen.getByRole("heading", { name: /stakeholder report/i })).toBeInTheDocument();
+  });
 });

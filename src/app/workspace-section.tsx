@@ -418,6 +418,8 @@ export function WorkspaceSection({
               fxRates={fxRates}
               extraReports={settings.reports?.extra ?? DEFAULT_EXTRA_REPORTS}
               onChangeExtraReports={(next) => setSettings((s) => ({ ...s, reports: { ...s.reports, extra: next } }))}
+              stakeholders={stakeholders}
+              milestones={milestones}
             />
           </div>
         )}

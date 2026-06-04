@@ -128,6 +128,13 @@ export function DashboardPanel(props: DashboardPanelProps) {
     setStatus((s) => ({ ...s, narrative: trimmed, narrativeUpdatedAt: new Date().toISOString() }));
   };
 
+  const clearNarrative = () => {
+    setDraftNarrative("");
+    if ((status.narrative ?? "") !== "") {
+      setStatus((s) => ({ ...s, narrative: "", narrativeUpdatedAt: new Date().toISOString() }));
+    }
+  };
+
   return (
     <ReportCard lang={lang} sizeRef={sizeRef} onResetSize={() => undefined} title={t(lang, "navDashboard")}>
       <div className="space-y-4">
@@ -195,14 +202,25 @@ export function DashboardPanel(props: DashboardPanelProps) {
                 ? t(lang, "dashboardNarrativeUpdated", status.narrativeUpdatedAt.slice(0, 10))
                 : ""}
             </span>
-            <button
-              type="button"
-              onClick={commitNarrative}
-              disabled={draftNarrative.trim() === (status.narrative ?? "")}
-              className="rounded-md bg-AIPM-dark-blue px-3 py-1 text-xs font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 print:hidden"
-            >
-              {t(lang, "dashboardStatusSave")}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={commitNarrative}
+                disabled={draftNarrative.trim() === (status.narrative ?? "")}
+                className="rounded-md bg-AIPM-dark-blue px-3 py-1 text-xs font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 print:hidden"
+              >
+                {t(lang, "dashboardStatusSave")}
+              </button>
+              <button
+                type="button"
+                onClick={clearNarrative}
+                onMouseDown={(e) => e.preventDefault()}
+                disabled={(status.narrative ?? "") === "" && draftNarrative === ""}
+                className="rounded-md border border-line bg-surface px-3 py-1 text-xs font-medium text-foreground hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 print:hidden"
+              >
+                {t(lang, "dashboardStatusClear")}
+              </button>
+            </div>
           </div>
         </Section>
 

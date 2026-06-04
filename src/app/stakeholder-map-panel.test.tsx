@@ -20,4 +20,8 @@ describe("StakeholderMapPanel", () => {
     render(<StakeholderMapPanel lang="en-US" stakeholders={[]} />);
     expect(screen.getByText(/no stakeholders to plot/i)).toBeInTheDocument();
   });
+  it("renders a reset-size button (resizable pane)", () => {
+    render(<StakeholderMapPanel lang="en-US" stakeholders={items} />);
+    expect(screen.getByRole("button", { name: /reset back to the default size/i })).toBeInTheDocument();
+  });
 });
