@@ -356,3 +356,42 @@ describe("DashboardPanel module visibility gates (Task 8)", () => {
     expect(screen.getByText("Progress")).toBeInTheDocument();
   });
 });
+
+// ─── Top-band Budget/Scope pill gating (review fix) ──────────────────────────
+
+// Tasks with originalEstimate ensure the budget model would compute a
+// non-null budget health if not gated — making the gate the only reason
+// the pill is absent.
+const tasksWithEstimates = [
+  {
+    id: 1, title: "Task A", status: "Open", health: "G",
+    originalEstimate: 40, remainingEstimate: 20,
+    linkedRaidIds: [], subtaskIds: [], parentId: null, assigneeIds: [],
+  },
+] as never[];
+
+const propsWithEstimates = {
+  ...fullProps,
+  tasks: tasksWithEstimates,
+};
+
+describe("DashboardPanel top-band Budget/Scope pill gating", () => {
+  it("shows both Budget and Scope pills in the top band when all flags are true (baseline)", () => {
+    render(<DashboardPanel {...propsWithEstimates} />, { wrapper });
+    // Both pill labels must appear (at least one instance each)
+    expect(screen.queryAllByText("Budget").length).toBeGreaterThan(0);
+    expect(screen.queryAllByText("Scope").length).toBeGreaterThan(0);
+  });
+
+  it("hides the Budget top-band pill when showBudget is false", () => {
+    render(<DashboardPanel {...propsWithEstimates} showBudget={false} />, { wrapper });
+    // The entire showBudget-gated subtree (pill + burn section) is gone,
+    // so "Budget" must not appear anywhere in the document.
+    expect(screen.queryAllByText("Budget").length).toBe(0);
+  });
+
+  it("hides the Scope top-band pill when showChanges is false", () => {
+    render(<DashboardPanel {...propsWithEstimates} showChanges={false} />, { wrapper });
+    expect(screen.queryAllByText("Scope").length).toBe(0);
+  });
+});

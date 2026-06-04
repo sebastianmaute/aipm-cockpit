@@ -169,22 +169,26 @@ export function DashboardPanel(props: DashboardPanelProps) {
             effective={model.schedule.effective}
             onChange={(v) => setStatus((s) => ({ ...s, scheduleOverride: v }))}
           />
-          <OverrideSelect
-            lang={lang}
-            label={t(lang, "dashboardSubBudget")}
-            value={status.budgetOverride}
-            computed={model.budget.computed}
-            effective={model.budget.effective}
-            onChange={(v) => setStatus((s) => ({ ...s, budgetOverride: v }))}
-          />
-          <OverrideSelect
-            lang={lang}
-            label={t(lang, "dashboardSubScope")}
-            value={status.scopeOverride}
-            computed={null}
-            effective={model.scope.effective}
-            onChange={(v) => setStatus((s) => ({ ...s, scopeOverride: v }))}
-          />
+          {showBudget && (
+            <OverrideSelect
+              lang={lang}
+              label={t(lang, "dashboardSubBudget")}
+              value={status.budgetOverride}
+              computed={model.budget.computed}
+              effective={model.budget.effective}
+              onChange={(v) => setStatus((s) => ({ ...s, budgetOverride: v }))}
+            />
+          )}
+          {showChanges && (
+            <OverrideSelect
+              lang={lang}
+              label={t(lang, "dashboardSubScope")}
+              value={status.scopeOverride}
+              computed={null}
+              effective={model.scope.effective}
+              onChange={(v) => setStatus((s) => ({ ...s, scopeOverride: v }))}
+            />
+          )}
           <span className="ml-auto text-sm text-muted-foreground">
             {t(lang, "dashboardReportDate", today)}
           </span>
