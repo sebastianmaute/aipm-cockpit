@@ -1,4 +1,4 @@
-import { renderHook, act } from "@testing-library/react";
+import { renderHook, act, render, screen } from "@testing-library/react";
 import { useLayoutEffect, type ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { WorkspaceTabProvider, useWorkspaceTab } from "./workspace-tab-context";
@@ -72,5 +72,19 @@ describe("useHashView", () => {
     unmount();
     expect(removeSpy).toHaveBeenCalledWith("hashchange", expect.any(Function));
     removeSpy.mockRestore();
+  });
+
+  it("opens a deep-linked RAID item from #raid/123 on mount", () => {
+    window.location.hash = "#raid/123";
+    const seen: Array<{ view: string; id: number } | null> = [];
+    function Probe() {
+      useHashView(true);
+      const { activeTab, pendingOpen } = useWorkspaceTab();
+      seen.push(pendingOpen);
+      return <span data-testid="tab">{activeTab}</span>;
+    }
+    render(<WorkspaceTabProvider><Probe /></WorkspaceTabProvider>);
+    expect(screen.getByTestId("tab")).toHaveTextContent("raid");
+    expect(seen.at(-1)).toEqual({ view: "raid", id: 123 });
   });
 });
