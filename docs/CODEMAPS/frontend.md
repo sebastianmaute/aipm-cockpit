@@ -116,7 +116,7 @@ prerendered.
 | `top-bar.tsx` | Title + New task button + Alerts bell + menu cluster | Optional sidebar toggle button in `onToggleSidebar` prop |
 | `nav-config.ts` | `AppView` union, `NAV_GROUPS`, slug↔view mapping | Pure config; no React |
 | `nav-icons.tsx` | SVG icon map by `AppView` + Label lookup | icon(view) → JSX |
-| `use-hash-view.ts` | Two-way sync: URL hash ↔ active view (modern mode only) | Listens to hashchange; updates hash on view change (skips "edit" view) |
+| `use-hash-view.ts` | Two-way sync: URL hash ↔ active view (modern mode only). Hash grammar: `#<view>` navigates to a view; `#<view>/<id>` additionally queues a consume-once open of that item (e.g. `#raid/42` opens the RAID register and highlights item 42). | Listens to hashchange; updates hash on view change (skips "edit" view) |
 | `use-media-query.ts` | `useMediaQuery(query) → boolean` for responsive breakpoints | |
 | `use-sidebar-collapsed.ts` | `useSidebarCollapsed() → [collapsed, toggle]` persisted to localStorage | |
 | **Views** | | |
@@ -184,6 +184,13 @@ prerendered.
 | `change-edit-modal.tsx` | Draggable modal editor for a ChangeItem (type, workflow status, impact, schedule/cost, requestor/approver, decision date, task/RAID link pickers) | Component; 0.50.0+ |
 | `change-report-panel.tsx` | Printable Change Report (summary tiles + By-X tables over the change register) | Conditional mount; 0.50.0+ |
 | `use-change-log.ts` | `useChangeLog()` hook — change CRUD over WorkspaceContext | Client hook; 0.50.0+ |
+| **Stakeholders** | | |
+| `stakeholders.ts` | Pure stakeholder engine: `Stakeholder`/`RaciEntry` types, engagement/influence/interest enums, id helpers, `computeRaciWarnings` (zero/multiple Accountable per milestone) | No React; 0.52.0+ |
+| `stakeholders-panel.tsx` | Stakeholder register view: sortable/filterable table + add/edit wiring; `stakeholders` AppView (Registers group) | Conditional mount; 0.52.0+ |
+| `raci-panel.tsx` | RACI matrix: stakeholder × milestone grid (R/A/C/I cells) with Accountable-count soft warnings; `raci` AppView (Registers group) | Conditional mount; 0.52.0+ |
+| `stakeholder-map-panel.tsx` | Influence/Interest grid: 2-D scatter plot with colour-coded quadrants (Manage Closely / Keep Satisfied / Keep Informed / Monitor); `stakeholder-map` AppView (Registers group) | Conditional mount; 0.52.0+ |
+| `stakeholder-edit-modal.tsx` | Draggable modal editor for a Stakeholder (name, role, org, contact, engagement, influence/interest scores, Resource link) | Component; 0.52.0+ |
+| `use-stakeholders.ts` | `useStakeholders()` hook — stakeholder + RACI CRUD over WorkspaceContext | Client hook; 0.52.0+ |
 | **Chat & Voice** | | |
 | `chat-panel.tsx` | Claude chat with tool calls via `dispatcher` | Conditional mount; history in TaskManager |
 | `chat-tools.ts` | Tool dispatcher object; CRUD on tasks/RAID | Huge `useMemo` in TaskManager |

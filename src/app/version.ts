@@ -663,12 +663,12 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.51.0";
-export const APP_BUILD_DATE = "2026-06-04"; // 0.51.0 RAID review reminders + RAG/UI polish
+export const APP_VERSION = "0.52.0";
+export const APP_BUILD_DATE = "2026-06-04"; // 0.52.0 Stakeholder register + RACI + RAID deep-linking
 /** Minor-series milestone codename (sci-fi/fantasy author names). The whole
- *  0.51.x line is "Pratchett" (Terry Pratchett); patch releases inherit
+ *  0.52.x line is "Scalzi" (John Scalzi); patch releases inherit
  *  their minor version's codename rather than getting their own. */
-export const APP_MILESTONE = "Pratchett";
+export const APP_MILESTONE = "Scalzi";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -731,4 +731,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightTrends",
   "versionHighlightChangeLog",
   "versionHighlightRaidReview",
+  "versionHighlightStakeholders",
 ] as const;
