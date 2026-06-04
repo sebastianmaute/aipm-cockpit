@@ -87,6 +87,15 @@ describe("useSettings", () => {
         "budget-report",
       ]);
     });
+
+    it("legacy settings without a features key hydrate to all modules enabled", async () => {
+      // Persisted blob from before the `features` key existed (e.g. language-only blob).
+      const legacy: Record<string, unknown> = { language: "en-US" };
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(legacy));
+      const { result } = renderHook(() => useSettings());
+      await act(async () => {});
+      expect(result.current.settings.features).toEqual([...ALL_MODULE_IDS]);
+    });
   });
 
   describe("default reports (real default path)", () => {

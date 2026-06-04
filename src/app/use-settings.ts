@@ -10,7 +10,7 @@ import { isPlainObject } from "./sanitize";
 
 export const SETTINGS_KEY = "lop-app:settings";
 
-/** Synchronously persist settings (used by the explicit save+reload mode commit). */
+/** Synchronously write settings to localStorage. */
 export function writeSettings(settings: Settings): void {
   window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
 }
