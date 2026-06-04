@@ -214,6 +214,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
               <button
                 type="button"
                 onClick={clearNarrative}
+                onMouseDown={(e) => e.preventDefault()}
                 disabled={(status.narrative ?? "") === "" && draftNarrative === ""}
                 className="rounded-md border border-line bg-surface px-3 py-1 text-xs font-medium text-foreground hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 print:hidden"
               >

@@ -146,7 +146,7 @@ export function StakeholderReportPanel({
                 <thead className={TABLE_HEAD_CLASS}>
                   <tr>
                     <th className="px-3 py-2 font-medium">
-                      {t(lang, "navStakeholders")}
+                      {t(lang, "navMilestones")}
                     </th>
                     <th className="px-3 py-2 font-medium text-right">A</th>
                     <th className="px-3 py-2 font-medium">&nbsp;</th>

@@ -42,7 +42,7 @@ export function InfluenceInterestMatrix({ lang, influence, interest, onPick }: I
     <div className="inline-flex items-stretch gap-1">
       <div className="flex w-4 items-center justify-center">
         <span className="whitespace-nowrap text-[10px] text-muted-foreground" style={{ transform: "rotate(-90deg)" }}>
-          &larr; {influenceLabel} &rarr;
+          {influenceLabel} &uarr;
         </span>
       </div>
       <div className="inline-block">
@@ -70,7 +70,7 @@ export function InfluenceInterestMatrix({ lang, influence, interest, onPick }: I
         <div className="mt-1 grid grid-cols-[auto_repeat(3,3.5rem)] gap-0.5">
           <span style={{ width: "3rem" }} />
           <span className="col-span-3 text-center text-[10px] text-muted-foreground">
-            &larr; {interestLabel} &rarr;
+            {interestLabel} &rarr;
           </span>
         </div>
       </div>
