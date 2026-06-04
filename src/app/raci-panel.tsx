@@ -67,7 +67,7 @@ export function RaciPanel({ lang, stakeholders, milestones, onSave }: RaciPanelP
         <table className="min-w-full text-left text-sm">
           <thead className={TABLE_HEAD_CLASS}>
             <tr>
-              <th className="px-3 py-2 font-medium">Milestone</th>
+              <th className="px-3 py-2 font-medium">{t(lang, "navMilestones")}</th>
               {stakeholders.map((s) => (
                 <th key={s.id} className="px-3 py-2 font-medium">
                   {s.name}
