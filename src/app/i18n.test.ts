@@ -29,3 +29,13 @@ describe("settings-section rail labels", () => {
     }
   });
 });
+
+describe("RACI legend", () => {
+  it("RACI legend uses the parenthesized-initial style", () => {
+    expect(t("en-US", "raciLegend")).toBe(
+      "(R)esponsible, (A)ccountable, (C)onsulted, (I)nformed",
+    );
+    expect(t("de", "raciLegend")).toContain("(R)");
+    expect(t("de", "raciLegend")).toContain("(A)");
+  });
+});

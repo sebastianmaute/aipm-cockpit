@@ -1336,7 +1336,7 @@ const enUS = {
   raciRoleA: "Accountable",
   raciRoleC: "Consulted",
   raciRoleI: "Informed",
-  raciLegend: "R Responsible, A Accountable, C Consulted, I Informed",
+  raciLegend: "(R)esponsible, (A)ccountable, (C)onsulted, (I)nformed",
   raciAccountableMissing: "No Accountable",
   raciAccountableMultiple: "Multiple Accountable",
   raciNoMilestones: "Add milestones to build the RACI matrix.",

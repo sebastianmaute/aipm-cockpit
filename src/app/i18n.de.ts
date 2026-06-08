@@ -1342,7 +1342,7 @@ export const de: Record<TranslationKey, string> = {
   raciRoleA: "Rechenschaftspflichtig",
   raciRoleC: "Konsultiert",
   raciRoleI: "Informiert",
-  raciLegend: "R Verantwortlich, A Rechenschaftspflichtig, C Konsultiert, I Informiert",
+  raciLegend: "(R) Verantwortlich, (A) Rechenschaftspflichtig, (C) Konsultiert, (I) Informiert",
   raciAccountableMissing: "Kein Rechenschaftspflichtiger",
   raciAccountableMultiple: "Mehrere Rechenschaftspflichtige",
   raciNoMilestones: "Meilensteine hinzufügen, um die RACI-Matrix aufzubauen.",
