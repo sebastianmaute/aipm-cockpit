@@ -6,8 +6,12 @@ import { render, screen, fireEvent, within } from "@testing-library/react";
 import { t } from "./i18n";
 import { RaidPanel } from "./raid-panel";
 import type { RaidPanelProps } from "./raid-panel";
-import type { RaidItem } from "./types";
+import type { RaidItem, Stakeholder } from "./types";
 import { WorkspaceTabProvider, useWorkspaceTab } from "./workspace-tab-context";
+
+function sh(id: number, name: string): Stakeholder {
+  return { id, name, category: "Internal", influence: "Medium", interest: "Medium", raci: {} };
+}
 
 function makeProps(overrides: Partial<RaidPanelProps> = {}): RaidPanelProps {
   return {
@@ -202,6 +206,25 @@ describe("RaidPanel deep-link open", () => {
 
     // pendingOpen has been cleared.
     expect(pendingAfter).toBeNull();
+  });
+});
+
+describe("RaidPanel — stakeholders", () => {
+  it("edits linked stakeholders when the stakeholders module is enabled", () => {
+    const onSave = vi.fn();
+    const raid: RaidItem[] = [makeRaidItem({ id: 1, title: "Risk one", severity: "High" })];
+    renderPanel(makeProps({ raid, onSave, stakeholdersEnabled: true, stakeholders: [sh(3, "Dana"), sh(7, "Lee")] }));
+    fireEvent.click(screen.getByText("Risk one"));
+    fireEvent.click(screen.getByLabelText("Dana"));
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "raidSave") }));
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ stakeholderIds: [3] }));
+  });
+
+  it("hides the stakeholder picker when the module is disabled", () => {
+    const raid: RaidItem[] = [makeRaidItem({ id: 1, title: "Risk one", severity: "High" })];
+    renderPanel(makeProps({ raid, stakeholdersEnabled: false, stakeholders: [sh(3, "Dana")] }));
+    fireEvent.click(screen.getByText("Risk one"));
+    expect(screen.queryByText(t("en-US", "fieldStakeholders"))).not.toBeInTheDocument();
   });
 });
 

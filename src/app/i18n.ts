@@ -1290,6 +1290,7 @@ const enUS = {
   changeFieldResolution: "Resolution / rationale",
   changeFieldLinkedTasks: "Linked tasks",
   changeFieldLinkedRaid: "Linked RAID items",
+  fieldStakeholders: "Stakeholders",
   changeFilterSearch: "Search changes...",
   changeFilterTypeAll: "All types",
   changeFilterStatusAll: "All statuses",

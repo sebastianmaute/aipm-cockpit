@@ -36,6 +36,7 @@ import {
   type RaidSeverity,
   type RaidStatus,
   type RiskScale,
+  type Stakeholder,
   type Task,
 } from "./types";
 import { useColumnResize } from "./use-column-resize";
@@ -62,6 +63,10 @@ export type RaidPanelProps = {
   lang: Lang;
   tasks: Task[];
   raid: RaidItem[];
+  /** When false, the Stakeholders picker in the edit modal is hidden. Default true. */
+  stakeholdersEnabled?: boolean;
+  /** Selectable stakeholders for the picker; empty when the module is off. */
+  stakeholders?: Stakeholder[];
   /** YYYY-MM-DD; used for default `raisedDate` and "closed today" autofill. */
   today: string;
   /** When non-null, only items linking to this task id are shown. The task
@@ -155,6 +160,8 @@ function RaidPanelInner({
   lang,
   tasks,
   raid,
+  stakeholdersEnabled = true,
+  stakeholders = [],
   today,
   filterTaskId,
   onClearTaskFilter,
@@ -667,6 +674,8 @@ function RaidPanelInner({
           lang={lang}
           tasks={tasks}
           raid={raid}
+          stakeholdersEnabled={stakeholdersEnabled}
+          stakeholders={stakeholders}
           draft={draft}
           isNew={isNew}
           onChange={setDraft}
@@ -695,6 +704,8 @@ type RaidEditModalProps = {
   lang: Lang;
   tasks: Task[];
   raid: readonly RaidItem[];
+  stakeholdersEnabled: boolean;
+  stakeholders: readonly Stakeholder[];
   draft: RaidItem;
   isNew: boolean;
   onChange: (next: RaidItem) => void;
@@ -713,6 +724,8 @@ function RaidEditModal({
   lang,
   tasks,
   raid,
+  stakeholdersEnabled,
+  stakeholders,
   draft,
   isNew,
   onChange,
@@ -840,6 +853,14 @@ function RaidEditModal({
       ...draft,
       causedByRaidIds: draft.causedByRaidIds.filter((id) => id !== parentId),
     });
+  }
+
+  function toggleStakeholder(stakeholderId: number) {
+    const ids = draft.stakeholderIds ?? [];
+    const next = ids.includes(stakeholderId)
+      ? ids.filter((id) => id !== stakeholderId)
+      : [...ids, stakeholderId];
+    onChange({ ...draft, stakeholderIds: next });
   }
 
   return (
@@ -1264,6 +1285,36 @@ function RaidEditModal({
                   </button>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Stakeholders ------------------------------------------- */}
+          {stakeholdersEnabled && (
+            <div className="sm:col-span-2">
+              <span className="mb-2 block text-sm font-medium text-foreground">
+                {t(lang, "fieldStakeholders")}
+              </span>
+              {stakeholders.length === 0 ? (
+                <span className="text-xs italic text-muted-foreground">—</span>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {stakeholders.map((sh) => (
+                    <label
+                      key={sh.id}
+                      className="inline-flex items-center gap-1.5 rounded border border-line bg-surface px-2 py-1 text-xs text-foreground"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={(draft.stakeholderIds ?? []).includes(sh.id)}
+                        onChange={() => toggleStakeholder(sh.id)}
+                        aria-label={sh.name}
+                        className="accent-AIPM-green"
+                      />
+                      <span className="max-w-[200px] truncate">{sh.name}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 

@@ -1296,6 +1296,7 @@ export const de: Record<TranslationKey, string> = {
   changeFieldResolution: "Lösung / Begruendung",
   changeFieldLinkedTasks: "Verknüpfte Aufgaben",
   changeFieldLinkedRaid: "Verknüpfte RAID-Einträge",
+  fieldStakeholders: "Stakeholder",
   changeFilterSearch: "Änderungen suchen...",
   changeFilterTypeAll: "Alle Typen",
   changeFilterStatusAll: "Alle Status",

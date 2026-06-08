@@ -25,6 +25,7 @@ import {
   type ChangeStatus,
   type ChangeType,
   type RaidItem,
+  type Stakeholder,
   type Task,
 } from "./types";
 import { useColumnResize } from "./use-column-resize";
@@ -56,6 +57,10 @@ export type ChangePanelProps = {
   onDelete: (id: number) => void;
   /** When false, the RAID-link editor is hidden in the edit modal. Default true. */
   raidEnabled?: boolean;
+  /** When false, the Stakeholders picker is hidden in the edit modal. Default true. */
+  stakeholdersEnabled?: boolean;
+  /** Selectable stakeholders for the picker; empty when the module is off. */
+  stakeholders?: Stakeholder[];
 };
 
 // --- Color palette -------------------------------------------------------
@@ -114,6 +119,8 @@ function ChangePanelInner({
   onSave,
   onDelete,
   raidEnabled = true,
+  stakeholdersEnabled = true,
+  stakeholders = [],
 }: ChangePanelProps) {
   const [typeFilter, setTypeFilter] = useState<"All" | ChangeType>("All");
   const [statusFilter, setStatusFilter] = useState<"All" | ChangeStatus>("All");
@@ -385,6 +392,8 @@ function ChangePanelInner({
           draft={draft}
           isNew={isNew}
           raidEnabled={raidEnabled}
+          stakeholdersEnabled={stakeholdersEnabled}
+          stakeholders={stakeholders}
           onChange={setDraft}
           onApplyStatus={(s) =>
             setDraft((d) => (d ? applyChangeStatus(d, s, today) : d))
