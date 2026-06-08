@@ -199,20 +199,15 @@ export function DashboardPanel(props: DashboardPanelProps) {
 
         {/* Narrative */}
         <Section title={t(lang, "dashboardStatusSummary")}>
-          <textarea
-            className="min-h-24 w-full rounded-md border border-line bg-surface p-2 text-sm"
-            placeholder={t(lang, "dashboardNarrativePlaceholder")}
-            value={draftNarrative}
-            onChange={(e) => setDraftNarrative(e.target.value)}
-            onBlur={commitNarrative}
-          />
-          <div className="mt-1 flex items-center justify-between gap-2">
-            <span className="text-xs text-muted-foreground">
-              {status.narrativeUpdatedAt
-                ? t(lang, "dashboardNarrativeUpdated", status.narrativeUpdatedAt.slice(0, 10))
-                : ""}
-            </span>
-            <div className="flex items-center gap-2">
+          <div className="flex items-stretch gap-2">
+            <textarea
+              className="min-h-24 min-w-0 flex-1 resize-none rounded-md border border-line bg-surface p-2 text-sm"
+              placeholder={t(lang, "dashboardNarrativePlaceholder")}
+              value={draftNarrative}
+              onChange={(e) => setDraftNarrative(e.target.value)}
+              onBlur={commitNarrative}
+            />
+            <div className="flex flex-col gap-2">
               <button
                 type="button"
                 onClick={commitNarrative}
@@ -232,6 +227,11 @@ export function DashboardPanel(props: DashboardPanelProps) {
               </button>
             </div>
           </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {status.narrativeUpdatedAt
+              ? t(lang, "dashboardNarrativeUpdated", status.narrativeUpdatedAt.slice(0, 10))
+              : ""}
+          </p>
         </Section>
 
         {/* Progress + Budget burn */}

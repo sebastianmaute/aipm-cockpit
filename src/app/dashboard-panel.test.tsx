@@ -220,6 +220,36 @@ describe("DashboardPanel RAG polish (Task 3)", () => {
   });
 });
 
+describe("DashboardPanel status narrative layout (Task 2)", () => {
+  it("places Save and Clear in a right-hand column beside the textarea", () => {
+    const { wrapper: w } = (() => ({ wrapper }))();
+    render(
+      <DashboardPanel
+        lang="en-US"
+        tasks={[
+          { id: 1, title: "Done task", status: "Done", health: "G", linkedRaidIds: [], subtaskIds: [], parentId: null, assigneeIds: [] } as never,
+        ]}
+        raid={[]}
+        budgets={minimalBudget as never}
+        plan={plan}
+        roles={[]}
+        resources={[]}
+        absences={[]}
+        holidaySet={new Set<string>()}
+        workdayHours={8}
+        today="2026-06-02"
+      />,
+      { wrapper: w },
+    );
+    const save = screen.getByRole("button", { name: /save/i });
+    const clear = screen.getByRole("button", { name: /clear/i });
+    const col = save.parentElement!;
+    expect(col).toBe(clear.parentElement);
+    expect(col.className).toContain("flex-col");
+    expect(col.parentElement!.className).toContain("items-stretch");
+  });
+});
+
 describe("DashboardPanel status narrative Clear button", () => {
   it("Clear empties and persists the status narrative", async () => {
     const user = userEvent.setup();
