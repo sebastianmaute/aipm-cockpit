@@ -29,7 +29,7 @@ function setup() {
   return props;
 }
 
-function renderStakeholders(overrides: Partial<Parameters<typeof setup>[0]> & { stakeholders: Stakeholder[] }) {
+function renderStakeholders(overrides: { stakeholders: Stakeholder[] }) {
   const props = {
     lang: "en-US" as const, resources: [], milestones: [],
     onSave: vi.fn(), onDelete: vi.fn(),
