@@ -64,6 +64,26 @@ export function partitionMilestones(
   return { overdue, atRisk, dueSoon };
 }
 
+export type MilestoneFilterStatus = "all" | "pending" | "achieved" | "overdue";
+
+export function filterMilestones(
+  milestones: readonly Milestone[],
+  opts: { query: string; status: MilestoneFilterStatus; today: string },
+): Milestone[] {
+  const q = opts.query.trim().toLowerCase();
+  return milestones.filter((m) => {
+    if (q && !m.name.toLowerCase().includes(q)) return false;
+    const achieved = !!m.achievedDate;
+    const overdue = !achieved && m.date < opts.today;
+    switch (opts.status) {
+      case "achieved": return achieved;
+      case "overdue": return overdue;
+      case "pending": return !achieved && !overdue;
+      case "all": default: return true;
+    }
+  });
+}
+
 /** Schedule RAG contribution: overdue->R, at-risk/due-soon->A, else null. */
 export function milestoneScheduleContribution(
   milestones: readonly Milestone[],
