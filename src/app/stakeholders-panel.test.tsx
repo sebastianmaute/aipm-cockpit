@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { StakeholdersPanel } from "./stakeholders-panel";
+import { t } from "./i18n";
 import type { Stakeholder } from "./types";
 
 const items: Stakeholder[] = [
@@ -48,6 +49,13 @@ describe("StakeholdersPanel", () => {
     setup();
     fireEvent.click(screen.getByRole("button", { name: /add stakeholder/i }));
     expect(screen.getByRole("heading", { name: /add stakeholder/i })).toBeInTheDocument();
+  });
+  it("level chips carry dark-mode variants for legibility", () => {
+    renderStakeholders({ stakeholders: [sampleStakeholder({ name: "Test", influence: "High", interest: "Medium" })] });
+    const high = screen.getByText(t("en-US", "levelHigh")).closest("span")!;
+    const med = screen.getByText(t("en-US", "levelMedium")).closest("span")!;
+    expect(high.className).toContain("dark:");
+    expect(med.className).toContain("dark:");
   });
   it("opens the editor from a workload-style name button, not a whole-row hover", () => {
     renderStakeholders({ stakeholders: [sampleStakeholder({ name: "Dana" })] });

@@ -44,13 +44,13 @@ const QUADRANTS: QuadrantConfig[] = [
     id: "keep-satisfied",
     testId: "quadrant-keep-satisfied",
     labelKey: "quadrantKeepSatisfied",
-    tintClass: "bg-AIPM-green/10",
+    tintClass: "bg-AIPM-green/10 dark:bg-AIPM-green/15",
   },
   {
     id: "manage-closely",
     testId: "quadrant-manage-closely",
     labelKey: "quadrantManageClosely",
-    tintClass: "bg-AIPM-green/20",
+    tintClass: "bg-AIPM-green/20 dark:bg-AIPM-green/25",
   },
   {
     id: "monitor",
@@ -62,7 +62,7 @@ const QUADRANTS: QuadrantConfig[] = [
     id: "keep-informed",
     testId: "quadrant-keep-informed",
     labelKey: "quadrantKeepInformed",
-    tintClass: "bg-AIPM-light-grey/20",
+    tintClass: "bg-AIPM-light-grey/20 dark:bg-AIPM-medium-grey/25",
   },
 ];
 

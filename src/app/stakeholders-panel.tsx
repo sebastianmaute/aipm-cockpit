@@ -66,9 +66,9 @@ const LEVEL_KEY: Record<InfluenceInterest, TranslationKey> = {
 };
 
 const LEVEL_CHIP: Record<InfluenceInterest, string> = {
-  Low: "bg-AIPM-light-grey/40 text-foreground",
-  Medium: "bg-AIPM-purple/20 text-AIPM-purple",
-  High: "bg-AIPM-green/20 text-AIPM-dark-blue",
+  Low: "bg-AIPM-light-grey/40 text-foreground dark:bg-AIPM-medium-grey/30 dark:text-AIPM-light-grey",
+  Medium: "bg-AIPM-purple/20 text-AIPM-purple dark:bg-AIPM-purple/25 dark:text-AIPM-light-grey",
+  High: "bg-AIPM-green/20 text-AIPM-dark-blue dark:bg-AIPM-green/25 dark:text-AIPM-light-grey",
 };
 
 function Chip({ label, className }: { label: string; className?: string }) {
