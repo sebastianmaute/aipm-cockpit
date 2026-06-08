@@ -3,7 +3,7 @@ import { type Priority } from "./types";
 export type Lang = "en-US" | "en-GB" | "de";
 
 const enUS = {
-  appTitle: "List of Open Points Tracker",
+  appTitle: "Project Management Tracker",
   appSubtitle: "Capture open project items. Stored locally in this browser.",
 
   newTask: "New task",
@@ -529,7 +529,7 @@ const enUS = {
 
   help: "Help",
   helpIntro:
-    "List of Open Points Tracker captures open project items, sends status inquiries, surfaces upcoming due dates, and (optionally) syncs both ways with Jira.",
+    "Project Management Tracker captures open project items, sends status inquiries, surfaces upcoming due dates, and (optionally) syncs both ways with Jira.",
   helpSecLayoutTitle: "Layout & theme",
   helpSecLayoutBody:
     "The app ships a modern layout by default: a Dark-Blue left sidebar with grouped navigation (Open Points, Chat, Gantt, Resources, Budget, RAID, Reports, Activity, Settings), a top bar with the view title and actions, and a full-viewport content area showing one view at a time. Opening a task or Settings fills the page instead of a popover; the sidebar collapses to an icon rail on narrow screens (and on demand via the top-bar menu button). The URL hash deep-links each view (#gantt, #raid, …) so back / forward and bookmarks work.\nPrefer the original single-scroll page? Switch to Classic mode in Settings → Appearance → Layout — it keeps the boxed workspace tabs and header described in the other help sections.\nTheme: choose Light, Dark, or System (follows your OS) in Settings → Appearance; colors stay on the AIPM brand palette either way.",
@@ -1177,11 +1177,17 @@ const enUS = {
   milestonesColDate: "Date",
   milestonesColStatus: "Status",
   milestonesMarkAchieved: "Mark achieved",
+  milestonesFilterName: "Filter by name",
+  milestonesFilterStatus: "Filter by status",
+  milestonesFilterAll: "All",
+  milestonesFilterPending: "Pending",
+  milestonesFilterAchieved: "Achieved",
+  milestonesFilterOverdue: "Overdue",
   layout: "Layout",
   layoutModern: "Modern",
   layoutClassic: "Classic",
   layoutTooltip: "Switch between the new sidebar layout and the classic layout.",
-  sidebarBrandSubtitle: "LIST OF OPEN POINTS",
+  sidebarBrandSubtitle: "PROJECT MANAGEMENT TRACKER",
   sidebarCollapse: "Collapse sidebar",
   sidebarExpand: "Expand sidebar",
   sidebarMenuButton: "Open navigation menu",
@@ -1284,6 +1290,7 @@ const enUS = {
   changeFieldResolution: "Resolution / rationale",
   changeFieldLinkedTasks: "Linked tasks",
   changeFieldLinkedRaid: "Linked RAID items",
+  fieldStakeholders: "Stakeholders",
   changeFilterSearch: "Search changes...",
   changeFilterTypeAll: "All types",
   changeFilterStatusAll: "All statuses",
@@ -1336,7 +1343,7 @@ const enUS = {
   raciRoleA: "Accountable",
   raciRoleC: "Consulted",
   raciRoleI: "Informed",
-  raciLegend: "R Responsible, A Accountable, C Consulted, I Informed",
+  raciLegend: "(R)esponsible, (A)ccountable, (C)onsulted, (I)nformed",
   raciAccountableMissing: "No Accountable",
   raciAccountableMultiple: "Multiple Accountable",
   raciNoMilestones: "Add milestones to build the RACI matrix.",
@@ -1371,8 +1378,22 @@ const enUS = {
   raidReviewReasonOverdue: "Past target",
   raidReviewReasonStale: "Needs review",
   raidReviewLastTouched: "Last touched",
+  notifStakeholderComms: "Stakeholder communication reminders",
+  notifStakeholderCommsTooltip: "Nudge to update key stakeholders about milestones, RAID items and changes linked to them.",
+  stakeholderCommsToast: "{0} stakeholders need an update",
+  stakeholderCommsBannerAria: "Stakeholder communication reminders",
+  stakeholderCommsBannerTitle: "{0} stakeholders need an update",
+  stakeholderCommsBannerHint: "{0} items to communicate",
+  stakeholderCommsModalTitle: "Stakeholders to update",
+  stakeholderCommsModalNone: "No stakeholder updates are due.",
+  stakeholderCommsMilestoneDue: "Milestone due soon",
+  stakeholderCommsMilestoneOverdue: "Milestone overdue",
+  stakeholderCommsRaidSevere: "Significant RAID item",
+  stakeholderCommsRaidOverdue: "RAID item past target",
+  stakeholderCommsChangePending: "Change awaiting decision",
   versionHighlightRaidReview: "RAID review reminders flag overdue & stale items; RAG polish on the dashboard and budget report.",
   versionHighlightModes: "Simple / Modular / Advanced mode: pare the app to Tasks, Chat & Reports and re-enable functions as needed.",
+  versionHighlightClarke: "Stakeholder communication reminders nudge you to engage key stakeholders before milestones, RAID items, and changes.",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;

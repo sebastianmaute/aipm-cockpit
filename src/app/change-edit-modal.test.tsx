@@ -1,13 +1,24 @@
 import { describe, expect, it, vi } from "vitest";
-import { render } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { ChangeEditModal } from "./change-edit-modal";
-import type { ChangeItem } from "./types";
+import { t } from "./i18n";
+import type { ChangeItem, Stakeholder } from "./types";
 
-const draft: ChangeItem = { id: 1, title: "Widen scope", description: "", type: "Scope", status: "Proposed", raisedDate: "2026-06-01", linkedTaskIds: [], linkedRaidIds: [] };
+const draft: ChangeItem = { id: 1, title: "Widen scope", description: "", type: "Scope", status: "Proposed", raisedDate: "2026-06-01", linkedTaskIds: [], linkedRaidIds: [], stakeholderIds: [] };
 const base = {
   lang: "en-US" as const, tasks: [], raid: [], draft, isNew: false,
   onChange: vi.fn(), onApplyStatus: vi.fn(), onSave: vi.fn(), onCancel: vi.fn(), onDelete: vi.fn(),
 };
+
+function change(over: Partial<ChangeItem> = {}): ChangeItem {
+  return { ...draft, ...over };
+}
+function s(id: number, name: string): Stakeholder {
+  return { id, name, category: "Internal", influence: "Medium", interest: "Medium", raci: {} };
+}
+function renderModal(over: Partial<React.ComponentProps<typeof ChangeEditModal>> = {}) {
+  return render(<ChangeEditModal {...base} {...over} />);
+}
 
 describe("ChangeEditModal", () => {
   it("renders the title field, a type select, and a status select", () => {
@@ -31,5 +42,18 @@ describe("ChangeEditModal", () => {
     getByRole("button", { name: /cancel/i }).click();
     expect(onSave).toHaveBeenCalled();
     expect(onCancel).toHaveBeenCalled();
+  });
+});
+
+describe("ChangeEditModal — stakeholders", () => {
+  it("edits linked stakeholders when stakeholders module is enabled", () => {
+    const onChange = vi.fn();
+    renderModal({ stakeholdersEnabled: true, stakeholders: [s(3, "Dana"), s(7, "Lee")], draft: change({ stakeholderIds: [] }), onChange });
+    fireEvent.click(screen.getByLabelText("Dana"));
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ stakeholderIds: [3] }));
+  });
+  it("hides the stakeholder picker when the module is disabled", () => {
+    renderModal({ stakeholdersEnabled: false, stakeholders: [s(3, "Dana")], draft: change({ stakeholderIds: [] }) });
+    expect(screen.queryByText(t("en-US", "fieldStakeholders"))).not.toBeInTheDocument();
   });
 });

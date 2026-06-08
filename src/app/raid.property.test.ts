@@ -29,6 +29,7 @@ const raidItemArb: fc.Arbitrary<RaidItem> = fc.record({
   linkedTaskIds: fc.array(fc.integer({ min: 1, max: 500 }), { maxLength: 5 }),
   raisedDate: isoDateArb,
   causedByRaidIds: fc.constant<number[]>([]),
+  stakeholderIds: fc.constant<number[]>([]),
 });
 
 const sortKeyArb = fc.constantFrom<RaidSortKey>(

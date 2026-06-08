@@ -144,7 +144,7 @@ describe("JiraTokenBanner", () => {
 });
 
 function raid(p: Partial<RaidItem>): RaidItem {
-  return { id: 1, category: "R", title: "T", status: "Open", linkedTaskIds: [], causedByRaidIds: [], raisedDate: "2026-01-01", ...p };
+  return { id: 1, category: "R", title: "T", status: "Open", linkedTaskIds: [], causedByRaidIds: [], stakeholderIds: [], raisedDate: "2026-01-01", ...p };
 }
 
 describe("RaidReview notifications", () => {

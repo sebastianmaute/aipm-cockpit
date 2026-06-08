@@ -86,7 +86,7 @@ export type Workspace = {
   stakeholders?: Stakeholder[];
 };
 
-const SCHEMA_VERSION = 8;
+const SCHEMA_VERSION = 9;
 
 /** A blank workspace with a default plan anchored to today. */
 export function emptyWorkspace(): Workspace {
@@ -430,6 +430,7 @@ export const RAID_CSV_COLUMNS: Array<keyof RaidItem> = [
   "closedDate",
   "localModifiedAt",
   "causedByRaidIds",
+  "stakeholderIds",
 ];
 
 const RAID_MD_COLUMNS: Array<{ key: keyof RaidItem; label: string }> = [
@@ -450,6 +451,7 @@ const RAID_MD_COLUMNS: Array<{ key: keyof RaidItem; label: string }> = [
   { key: "closedDate", label: "Closed" },
   { key: "localModifiedAt", label: "LocalModified" },
   { key: "causedByRaidIds", label: "CausedByIds" },
+  { key: "stakeholderIds", label: "StakeholderIds" },
 ];
 
 // Columns persisted for Absence items in CSV and Markdown. Order matches
@@ -685,6 +687,8 @@ export function raidFieldToString(r: RaidItem, c: keyof RaidItem): string {
     return Array.isArray(r.causedByRaidIds)
       ? r.causedByRaidIds.join("|")
       : "";
+  if (c === "stakeholderIds")
+    return Array.isArray(r.stakeholderIds) ? r.stakeholderIds.join("|") : "";
   return String(r[c] ?? "");
 }
 
@@ -755,6 +759,7 @@ export function buildRaidItemFromObj(obj: Record<string, string>): RaidItem | nu
     closedDate: obj.closedDate || undefined,
     localModifiedAt: obj.localModifiedAt || undefined,
     causedByRaidIds,
+    stakeholderIds: parseLinkedTaskIds(obj.stakeholderIds),
   };
 }
 
@@ -780,12 +785,13 @@ export function buildMilestoneFromObj(obj: Record<string, string>): Milestone | 
 export const CHANGES_CSV_COLUMNS: Array<keyof ChangeItem> = [
   "id", "title", "description", "type", "status", "impact", "impactDescription", "scheduleImpactDays",
   "costImpact", "requestedBy", "raisedDate", "decisionBy", "decisionDate", "resolutionNotes",
-  "linkedTaskIds", "linkedRaidIds", "localModifiedAt",
+  "linkedTaskIds", "linkedRaidIds", "stakeholderIds", "localModifiedAt",
 ];
 
 export function changeFieldToString(c: ChangeItem, col: keyof ChangeItem): string {
   if (col === "linkedTaskIds") return Array.isArray(c.linkedTaskIds) ? c.linkedTaskIds.join("|") : "";
   if (col === "linkedRaidIds") return Array.isArray(c.linkedRaidIds) ? c.linkedRaidIds.join("|") : "";
+  if (col === "stakeholderIds") return Array.isArray(c.stakeholderIds) ? c.stakeholderIds.join("|") : "";
   const v = c[col];
   return v === undefined || v === null ? "" : String(v);
 }
@@ -798,6 +804,7 @@ export function buildChangeFromObj(obj: Record<string, string>): ChangeItem | nu
     costImpact: obj.costImpact ? Number(obj.costImpact) : undefined,
     linkedTaskIds: parseLinkedTaskIds(obj.linkedTaskIds),
     linkedRaidIds: parseLinkedTaskIds(obj.linkedRaidIds),
+    stakeholderIds: parseLinkedTaskIds(obj.stakeholderIds),
   });
 }
 
@@ -1811,6 +1818,7 @@ const CHANGES_MD_COLUMNS: readonly { key: keyof ChangeItem; label: string }[] = 
   { key: "resolutionNotes", label: "ResolutionNotes" },
   { key: "linkedTaskIds", label: "LinkedTasks" },
   { key: "linkedRaidIds", label: "LinkedRaid" },
+  { key: "stakeholderIds", label: "StakeholderIds" },
   { key: "localModifiedAt", label: "LocalModified" },
 ];
 
@@ -1848,6 +1856,7 @@ function markdownToChanges(md: string): ChangeItem[] {
       else if (norm === "resolutionnotes") mapped["resolutionNotes"] = val;
       else if (norm === "linkedtasks" || norm === "linkedtaskids") mapped["linkedTaskIds"] = val;
       else if (norm === "linkedraid" || norm === "linkedraidids") mapped["linkedRaidIds"] = val;
+      else if (norm === "stakeholderids" || norm === "stakeholders") mapped["stakeholderIds"] = val;
       else if (norm === "localmodified" || norm === "localmodifiedat") mapped["localModifiedAt"] = val;
     }
     return buildChangeFromObj(mapped);
@@ -2331,6 +2340,8 @@ function markdownToRaid(md: string): RaidItem[] {
       norm === "causedbyraidid"
     )
       colMap[idx] = "causedByRaidIds";
+    else if (norm === "stakeholderids" || norm === "stakeholders")
+      colMap[idx] = "stakeholderIds";
   });
 
   const items: RaidItem[] = [];

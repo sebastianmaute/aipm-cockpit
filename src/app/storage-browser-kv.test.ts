@@ -11,7 +11,7 @@ const change: ChangeItem = {
   id: 1, title: "Widen scope", description: "add module", type: "Scope", status: "Approved",
   impact: "High", impactDescription: "2 sprints", scheduleImpactDays: 10, costImpact: 5000,
   requestedBy: "Ann", raisedDate: "2026-06-01", decisionBy: "Bob", decisionDate: "2026-06-09",
-  resolutionNotes: "ok", linkedTaskIds: [3, 4], linkedRaidIds: [7], localModifiedAt: "2026-06-09T10:00:00.000Z",
+  resolutionNotes: "ok", linkedTaskIds: [3, 4], linkedRaidIds: [7], stakeholderIds: [], localModifiedAt: "2026-06-09T10:00:00.000Z",
 };
 const milestone: Milestone = {
   id: 2, name: "Go live", date: "2026-12-01", linkedTaskIds: [5],

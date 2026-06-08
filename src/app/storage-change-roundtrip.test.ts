@@ -6,7 +6,7 @@ const change: ChangeItem = {
   id: 1, title: "Widen scope", description: "add module", type: "Scope", status: "Approved",
   impact: "High", impactDescription: "2 sprints", scheduleImpactDays: 10, costImpact: 5000,
   requestedBy: "Ann", raisedDate: "2026-06-01", decisionBy: "Bob", decisionDate: "2026-06-09",
-  resolutionNotes: "ok", linkedTaskIds: [3, 4], linkedRaidIds: [7], localModifiedAt: "2026-06-09T10:00:00.000Z",
+  resolutionNotes: "ok", linkedTaskIds: [3, 4], linkedRaidIds: [7], stakeholderIds: [3], localModifiedAt: "2026-06-09T10:00:00.000Z",
 };
 
 describe("changes JSON round-trip", () => {
@@ -14,7 +14,11 @@ describe("changes JSON round-trip", () => {
     const ws = { ...emptyWorkspace(), changes: [change] };
     const back = jsonToWorkspace(workspaceToJson(ws));
     expect(back.changes).toHaveLength(1);
-    expect(back.changes?.[0]).toMatchObject({ id: 1, type: "Scope", status: "Approved", impact: "High", linkedTaskIds: [3, 4], linkedRaidIds: [7] });
+    expect(back.changes?.[0]).toMatchObject({ id: 1, type: "Scope", status: "Approved", impact: "High", linkedTaskIds: [3, 4], linkedRaidIds: [7], stakeholderIds: [3] });
+  });
+  it("defaults missing ChangeItem.stakeholderIds to [] on JSON load", () => {
+    const json = JSON.stringify({ ...emptyWorkspace(), changes: [{ id: 9, title: "legacy", raisedDate: "2026-06-01" }] });
+    expect(jsonToWorkspace(json).changes?.[0].stakeholderIds).toEqual([]);
   });
   it("drops malformed change rows on load", () => {
     const json = JSON.stringify({ ...emptyWorkspace(), changes: [{ title: "no id" }, change] });
@@ -27,7 +31,7 @@ describe("change CSV column encode/decode", () => {
     expect(CHANGES_CSV_COLUMNS).toEqual([
       "id","title","description","type","status","impact","impactDescription","scheduleImpactDays",
       "costImpact","requestedBy","raisedDate","decisionBy","decisionDate","resolutionNotes",
-      "linkedTaskIds","linkedRaidIds","localModifiedAt",
+      "linkedTaskIds","linkedRaidIds","stakeholderIds","localModifiedAt",
     ]);
   });
   it("changeFieldToString encodes id-lists pipe-joined; buildChangeFromObj round-trips", () => {
@@ -35,7 +39,12 @@ describe("change CSV column encode/decode", () => {
     for (const c of CHANGES_CSV_COLUMNS) obj[c] = changeFieldToString(change, c);
     expect(obj.linkedTaskIds).toBe("3|4");
     expect(obj.linkedRaidIds).toBe("7");
+    expect(obj.stakeholderIds).toBe("3");
     const back = buildChangeFromObj(obj);
-    expect(back).toMatchObject({ id: 1, title: "Widen scope", type: "Scope", status: "Approved", linkedTaskIds: [3, 4], linkedRaidIds: [7] });
+    expect(back).toMatchObject({ id: 1, title: "Widen scope", type: "Scope", status: "Approved", linkedTaskIds: [3, 4], linkedRaidIds: [7], stakeholderIds: [3] });
+  });
+  it("buildChangeFromObj defaults missing stakeholderIds to []", () => {
+    const back = buildChangeFromObj({ id: "5", title: "no stk", type: "Other", status: "Proposed", raisedDate: "2026-06-01" });
+    expect(back?.stakeholderIds).toEqual([]);
   });
 });

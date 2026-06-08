@@ -10,6 +10,7 @@ function setup(over: Partial<React.ComponentProps<typeof ModernShell>> = {}) {
       activeView="open-points"
       onNavigate={onNavigate}
       version="v0.29.0"
+      mode="advanced"
       bannerCount={0}
       onNewTask={() => {}}
       onShowAlerts={() => {}}

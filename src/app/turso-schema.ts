@@ -126,7 +126,7 @@ export function rowsToWorkspace(results: PipelineResultLike[]): Workspace {
   return migrateWorkspaceV8(ws);
 }
 
-const SCHEMA_VERSION = "8";
+const SCHEMA_VERSION = "9";
 
 function insertStmt(table: string, columns: readonly string[], values: string[]): SqlStmt {
   const colList = columns.map((c) => `"${c}"`).join(", ");

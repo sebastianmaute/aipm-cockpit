@@ -9,9 +9,7 @@ import { useMemo } from "react";
 import { quadrantFor, type StakeholderQuadrant } from "./stakeholders";
 import { type Lang, t } from "./i18n";
 import type { Stakeholder } from "./types";
-import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
-import { useResizable } from "./use-resizable";
-import { ResetSizeButton, ResizeCornerHint } from "./task-manager-ui";
+import { CENTERED_HALF_PANE_CLASS } from "./view-styles";
 
 // --- Props ------------------------------------------------------------------
 
@@ -44,13 +42,13 @@ const QUADRANTS: QuadrantConfig[] = [
     id: "keep-satisfied",
     testId: "quadrant-keep-satisfied",
     labelKey: "quadrantKeepSatisfied",
-    tintClass: "bg-AIPM-green/10",
+    tintClass: "bg-AIPM-green/10 dark:bg-AIPM-green/15",
   },
   {
     id: "manage-closely",
     testId: "quadrant-manage-closely",
     labelKey: "quadrantManageClosely",
-    tintClass: "bg-AIPM-green/20",
+    tintClass: "bg-AIPM-green/20 dark:bg-AIPM-green/25",
   },
   {
     id: "monitor",
@@ -62,7 +60,7 @@ const QUADRANTS: QuadrantConfig[] = [
     id: "keep-informed",
     testId: "quadrant-keep-informed",
     labelKey: "quadrantKeepInformed",
-    tintClass: "bg-AIPM-light-grey/20",
+    tintClass: "bg-AIPM-light-grey/20 dark:bg-AIPM-medium-grey/25",
   },
 ];
 
@@ -83,17 +81,13 @@ export function StakeholderMapPanel({ lang, stakeholders }: StakeholderMapPanelP
     return map;
   }, [stakeholders]);
 
-  const { ref: paneRef, reset: resetPaneSize } = useResizable("lop-app:stakeholder-map-size");
-
   return (
-    <div ref={paneRef} className={VIEW_PANE_RESIZABLE_CLASS}>
-      {/* Toolbar: title + reset button */}
+    <div data-testid="stakeholder-map-pane" className={CENTERED_HALF_PANE_CLASS}>
+      {/* Toolbar: title */}
       <div className="mb-2 flex shrink-0 flex-wrap items-center gap-2">
         <h2 className="text-sm font-semibold text-AIPM-dark-blue">
           {t(lang, "stakeholderMapTitle")}
         </h2>
-        <span className="ml-auto" />
-        <ResetSizeButton onClick={resetPaneSize} lang={lang} />
       </div>
 
       {stakeholders.length === 0 ? (
@@ -145,7 +139,6 @@ export function StakeholderMapPanel({ lang, stakeholders }: StakeholderMapPanelP
           </div>
         </div>
       )}
-      <ResizeCornerHint lang={lang} />
     </div>
   );
 }

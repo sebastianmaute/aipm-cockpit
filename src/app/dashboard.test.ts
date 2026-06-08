@@ -19,7 +19,7 @@ function task(o: Partial<Task> = {}): Task {
 function raid(o: Partial<RaidItem> = {}): RaidItem {
   return {
     id: 1, category: "R", title: "risk", status: "Open",
-    linkedTaskIds: [], raisedDate: "2026-01-01", causedByRaidIds: [], ...o,
+    linkedTaskIds: [], raisedDate: "2026-01-01", causedByRaidIds: [], stakeholderIds: [], ...o,
   };
 }
 function project(budgetValue: number, consumedValue: number): ProjectReport {
@@ -270,7 +270,7 @@ describe("dashboard scope signal from changes", () => {
   function changeItem(over: Partial<ChangeItem> = {}): ChangeItem {
     return {
       id: 1, title: "c", description: "", type: "Scope", status: "Proposed",
-      raisedDate: "2026-06-01", linkedTaskIds: [], linkedRaidIds: [], ...over,
+      raisedDate: "2026-06-01", linkedTaskIds: [], linkedRaidIds: [], stakeholderIds: [], ...over,
     };
   }
   it("Amber scope when 1..4 pending changes", () => {

@@ -3,7 +3,7 @@ import { applyChangeStatus } from "./use-change-log";
 import type { ChangeItem } from "./types";
 
 function ci(over: Partial<ChangeItem> = {}): ChangeItem {
-  return { id: 1, title: "t", description: "", type: "Scope", status: "Proposed", raisedDate: "2026-06-01", linkedTaskIds: [], linkedRaidIds: [], ...over };
+  return { id: 1, title: "t", description: "", type: "Scope", status: "Proposed", raisedDate: "2026-06-01", linkedTaskIds: [], linkedRaidIds: [], stakeholderIds: [], ...over };
 }
 
 describe("applyChangeStatus", () => {

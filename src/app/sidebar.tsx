@@ -2,6 +2,13 @@
 import { type Lang, t } from "./i18n";
 import { SidebarNav } from "./sidebar-nav";
 import type { AppView, NavGroup } from "./nav-config";
+import { type AppMode } from "./feature-modules";
+
+const SIDEBAR_MODE_LABEL: Record<AppMode, "modeSimple" | "modeModular" | "modeAdvanced"> = {
+  simple: "modeSimple",
+  modular: "modeModular",
+  advanced: "modeAdvanced",
+};
 
 interface SidebarProps {
   lang: Lang;
@@ -11,12 +18,13 @@ interface SidebarProps {
   onToggleCollapsed: () => void;
   version: string;
   onShowVersion: () => void;
+  mode: AppMode;
   footer?: React.ReactNode;
   navGroups?: NavGroup[];
 }
 
 export function Sidebar({
-  lang, activeView, onNavigate, collapsed, onToggleCollapsed, version, onShowVersion, footer, navGroups,
+  lang, activeView, onNavigate, collapsed, onToggleCollapsed, version, onShowVersion, mode, footer, navGroups,
 }: SidebarProps) {
   return (
     <aside
@@ -55,6 +63,14 @@ export function Sidebar({
 
       <div className="border-t border-AIPM-white/10 px-4 py-3 text-xs text-AIPM-medium-grey">
         {footer}
+        {!collapsed && (
+          <span
+            data-testid="sidebar-mode-badge"
+            className="mb-2 inline-block rounded-full bg-AIPM-green/15 px-2.5 py-0.5 text-[11px] font-semibold text-AIPM-light-grey"
+          >
+            {t(lang, SIDEBAR_MODE_LABEL[mode])}
+          </span>
+        )}
         {!collapsed && (
           <button
             type="button"

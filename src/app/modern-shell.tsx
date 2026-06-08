@@ -5,12 +5,14 @@ import { Sidebar } from "./sidebar";
 import { TopBar } from "./top-bar";
 import { VersionInfoModal } from "./version-info";
 import { navLabelKey, type AppView, type NavGroup } from "./nav-config";
+import { type AppMode } from "./feature-modules";
 
 interface ModernShellProps {
   lang: Lang;
   activeView: AppView;
   onNavigate: (view: AppView) => void;
   version: string;
+  mode: AppMode;
   bannerCount: number;
   onNewTask: () => void;
   onShowAlerts: () => void;
@@ -32,7 +34,7 @@ interface ModernShellProps {
 }
 
 export function ModernShell({
-  lang, activeView, onNavigate, version, bannerCount, onNewTask, onShowAlerts,
+  lang, activeView, onNavigate, version, mode, bannerCount, onNewTask, onShowAlerts,
   topBarMenus, sidebarFooter, tasksSection, workspace,
   editView = null, editTitle = "", editActions = null,
   settingsView = null,
@@ -67,6 +69,7 @@ export function ModernShell({
         onToggleCollapsed={onToggleCollapsed}
         version={version}
         onShowVersion={() => setVersionOpen(true)}
+        mode={mode}
         footer={sidebarFooter}
         navGroups={navGroups}
       />

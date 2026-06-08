@@ -908,6 +908,7 @@ export function sanitizeChangeItem(input: unknown): ChangeItem | null {
     raisedDate: sanitizeIsoDate(o.raisedDate),
     linkedTaskIds: sanitizeIdList(o.linkedTaskIds),
     linkedRaidIds: sanitizeIdList(o.linkedRaidIds),
+    stakeholderIds: sanitizeIdList(o.stakeholderIds),
   };
   if (typeof o.impact === "string" && CHANGE_IMPACT_SET.has(o.impact)) item.impact = o.impact as ChangeItem["impact"];
   const impactDesc = sanitizeText(o.impactDescription, TEXTAREA_MAX); if (impactDesc) item.impactDescription = impactDesc;

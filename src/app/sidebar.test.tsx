@@ -1,6 +1,7 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { Sidebar } from "./sidebar";
+import { t } from "./i18n";
 
 describe("Sidebar", () => {
   const base = {
@@ -11,11 +12,12 @@ describe("Sidebar", () => {
     onToggleCollapsed: () => {},
     version: "v0.29.0",
     onShowVersion: () => {},
+    mode: "advanced" as const,
   };
 
   it("renders the brand subtitle and version with the Version label", () => {
     render(<Sidebar {...base} />);
-    expect(screen.getByText("LIST OF OPEN POINTS")).toBeTruthy();
+    expect(screen.getByText("PROJECT MANAGEMENT TRACKER")).toBeTruthy();
     expect(screen.getByText("Version v0.29.0")).toBeTruthy();
   });
 
@@ -35,6 +37,16 @@ describe("Sidebar", () => {
 
   it("hides the brand subtitle when collapsed", () => {
     render(<Sidebar {...base} collapsed={true} />);
-    expect(screen.queryByText("LIST OF OPEN POINTS")).toBeNull();
+    expect(screen.queryByText("PROJECT MANAGEMENT TRACKER")).toBeNull();
+  });
+
+  it("shows the current mode pill in the sidebar footer when expanded", () => {
+    render(<Sidebar {...base} mode="modular" collapsed={false} />);
+    expect(screen.getByTestId("sidebar-mode-badge")).toHaveTextContent(t("en-US", "modeModular"));
+  });
+
+  it("hides the mode pill when collapsed to the icon rail", () => {
+    render(<Sidebar {...base} mode="advanced" collapsed={true} />);
+    expect(screen.queryByTestId("sidebar-mode-badge")).not.toBeInTheDocument();
   });
 });

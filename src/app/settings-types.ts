@@ -36,6 +36,7 @@ export type NotificationsConfig = {
   birthday: ChannelConfig;
   raidReview: ChannelConfig;
   raidReviewIntervalDays: number;
+  stakeholderComms: ChannelConfig;
 };
 
 export const defaultNotificationsConfig: NotificationsConfig = {
@@ -46,6 +47,7 @@ export const defaultNotificationsConfig: NotificationsConfig = {
   birthday: { enabled: true },
   raidReview: { enabled: true },
   raidReviewIntervalDays: 14,
+  stakeholderComms: { enabled: true },
 };
 
 export type JiraAssigneeMode = "currentUser" | "any" | "specific";

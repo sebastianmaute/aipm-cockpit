@@ -196,6 +196,7 @@ export function WorkspaceSection({
   const subTabs = subTabsFor(activeTab, features);
   const milestonesEnabled = isModuleEnabled("milestones", features);
   const raidEnabledForChanges = isModuleEnabled("raid", features);
+  const stakeholdersEnabled = isModuleEnabled("stakeholders", features);
 
   // Panel wrappers. The pt-4 offset clears the tab strip in classic/popout mode;
   // in fullBleed the strip is hidden, so we drop it to align the per-view card
@@ -475,6 +476,8 @@ export function WorkspaceSection({
             lang={lang}
             tasks={tasks}
             raid={raid}
+            stakeholdersEnabled={stakeholdersEnabled}
+            stakeholders={stakeholders}
             today={today}
             filterTaskId={raidFilterTaskId}
             onClearTaskFilter={handleClearRaidTaskFilter}
@@ -595,6 +598,8 @@ export function WorkspaceSection({
               onSave={handleSaveChange}
               onDelete={handleDeleteChange}
               raidEnabled={raidEnabledForChanges}
+              stakeholdersEnabled={stakeholdersEnabled}
+              stakeholders={stakeholders}
             />
           </div>
         )}

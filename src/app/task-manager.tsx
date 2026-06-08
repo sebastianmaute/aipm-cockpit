@@ -9,7 +9,7 @@ import { useActivityLog } from "./use-activity-log";
 import { useDueAlerts } from "./use-due-alerts";
 import { useToast } from "./use-toast";
 import { useSettings, writeSettings } from "./use-settings";
-import { isViewEnabled, isModuleEnabled, type FeatureModuleId } from "./feature-modules";
+import { isViewEnabled, isModuleEnabled, deriveMode, type FeatureModuleId } from "./feature-modules";
 import { useJiraSync } from "./use-jira-sync";
 import { useStorageBackend } from "./use-storage-backend";
 import { useResourcePlanner } from "./use-resource-planner";
@@ -39,8 +39,9 @@ import { TasksSection } from "./tasks-section";
 import { useResizable } from "./use-resizable";
 import { WorkspaceTabProvider, useWorkspaceTab } from "./workspace-tab-context";
 import { AppHeader } from "./app-header";
-import { BirthdayBanner, DueBanner, JiraTokenBanner, RaidReviewBanner, RaidReviewModal } from "./notifications";
+import { BirthdayBanner, DueBanner, JiraTokenBanner, RaidReviewBanner, RaidReviewModal, StakeholderCommsBanner, StakeholderCommsModal } from "./notifications";
 import { getRaidReviewItems } from "./raid-review";
+import { useStakeholderComms } from "./use-stakeholder-comms";
 import { getJiraTokenAlert } from "./jira-token-status";
 import { WorkspaceSection } from "./workspace-section";
 import { RolesPanel } from "./roles-panel";
@@ -267,6 +268,8 @@ function TaskManagerInner() {
 
   const raidEnabled = isModuleEnabled("raid", settings.features);
   const changesEnabled = isModuleEnabled("changes", settings.features);
+  const stakeholdersEnabled = isModuleEnabled("stakeholders", settings.features);
+  const milestonesEnabled = isModuleEnabled("milestones", settings.features);
 
   const { bannerDismissed, setBannerDismissed, dueModalOpen, setDueModalOpen, raidReviewModalOpen, setRaidReviewModalOpen } =
     useDueAlerts({ hydrated, tasks, holidaySet, absences, settings, today, showToast, raid, raidEnabled });
@@ -280,6 +283,7 @@ function TaskManagerInner() {
   const jiraTokenSnooze = useReminderSnooze("jiraToken");
   const raidReviewSnooze = useReminderSnooze("raidReview");
   const [raidReviewDismissed, setRaidReviewDismissed] = useState(false);
+  const stakeholderCommsSnooze = useReminderSnooze("stakeholderComms");
   const [jiraTokenDismissed, setJiraTokenDismissed] = useState(false);
   const jiraTokenAlert = useMemo(
     () => getJiraTokenAlert(settings.jira, today, settings.notifications.reminderLeadDays),
@@ -376,6 +380,20 @@ function TaskManagerInner() {
   // kind-keyed (ActivityKind), not the free-text summary the hook expects.
   const { stakeholders, handleSaveStakeholder, handleDeleteStakeholder } =
     useStakeholders({ today });
+
+  // Stakeholder-comms reminder (mirrors the RAID-review reminder wiring above):
+  // mode-gated via `flags`, surfaced as a banner + modal in the shared slots.
+  const comms = useStakeholderComms({
+    hydrated,
+    today,
+    showToast,
+    stakeholders,
+    milestones,
+    raid,
+    changes,
+    settings,
+    flags: { stakeholdersEnabled, milestonesEnabled, raidEnabled, changesEnabled },
+  });
 
   const [fillTaskAssigneeOnSave, setFillTaskAssigneeOnSave] = useState(false);
 
@@ -729,6 +747,8 @@ function TaskManagerInner() {
     [settings.features],
   );
 
+  const appMode = useMemo(() => deriveMode(settings.features), [settings.features]);
+
   const voiceHandlers = useMemo(
     () => (isPopout ? null : { onCommand: handleCommand, onError: (msg: string) => showToast("error", msg) }),
     [isPopout, handleCommand, showToast],
@@ -965,6 +985,15 @@ function TaskManagerInner() {
           onSnooze={raidReviewSnooze.snooze}
         />
       )}
+      {!isPopout && stakeholdersEnabled && !stakeholderCommsSnooze.isSnoozed && !comms.bannerDismissed && comms.items.length > 0 && (
+        <StakeholderCommsBanner
+          items={comms.items}
+          lang={lang}
+          onOpenList={() => comms.setReviewModalOpen(true)}
+          onDismiss={() => comms.setBannerDismissed(true)}
+          onSnooze={stakeholderCommsSnooze.snooze}
+        />
+      )}
     </>
   );
 
@@ -1046,6 +1075,13 @@ function TaskManagerInner() {
           onSelectRaid={(id) => { setRaidReviewModalOpen(false); openRaidItem(id); }}
         />
       )}
+      {stakeholdersEnabled && comms.reviewModalOpen && (
+        <StakeholderCommsModal
+          items={comms.items}
+          lang={lang}
+          onClose={() => comms.setReviewModalOpen(false)}
+        />
+      )}
     </>
   );
 
@@ -1111,6 +1147,7 @@ function TaskManagerInner() {
         activeView={activeTab}
         onNavigate={(v) => setActiveTab(v)}
         version={APP_VERSION_LABEL}
+        mode={appMode}
         bannerCount={bannerItems.length}
         onNewTask={() => { handleCancelEdit(); setTaskModalOpen(true); }}
         onShowAlerts={() => { setBannerDismissed(false); setDueModalOpen(true); }}

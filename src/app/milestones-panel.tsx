@@ -10,13 +10,19 @@ import {
 import { MilestoneEditModal } from "./milestone-edit-modal";
 import { useWorkspace } from "./workspace-context";
 import {
+  filterMilestones,
   milestoneStatus,
-  sortMilestones,
+  type MilestoneFilterStatus,
   type MilestoneStatus,
 } from "./milestones";
 import { type Lang, t } from "./i18n";
+import { useColumnResize } from "./use-column-resize";
+import { ColumnResizeHandle } from "./task-manager-ui";
 import type { ActivityKind } from "./activity-log";
 import type { Milestone } from "./types";
+
+const MILESTONE_COL_WIDTHS = { name: 220, date: 130, status: 140, achieved: 130 } as const;
+type MilestoneCol = keyof typeof MILESTONE_COL_WIDTHS;
 
 const STATUS_KEY: Record<
   MilestoneStatus,
@@ -50,6 +56,8 @@ export function MilestonesPanel({
   const sizeRef = useRef<HTMLDivElement | null>(null);
   const [editing, setEditing] = useState<Milestone | null>(null);
   const [isNew, setIsNew] = useState(false);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<MilestoneFilterStatus>("all");
   const [sort, setSort] = useState<{ key: "name" | "date"; dir: SortDir }>({
     key: "date",
     dir: "asc",
@@ -60,13 +68,23 @@ export function MilestonesPanel({
     [],
   );
 
+  const filtered = filterMilestones(milestones, {
+    query: search,
+    status: statusFilter,
+    today,
+  });
+
   const { sorted, click } = useSortableFilter(
-    sortMilestones(milestones),
+    filtered,
     sort,
     setSort,
     "",
     getValue,
   );
+
+  const { colWidths, startColResize, resetColWidths } =
+    useColumnResize<MilestoneCol>("milestone", MILESTONE_COL_WIDTHS);
+  const startResize = startColResize as (col: string, e: React.MouseEvent) => void;
 
   const tasksById = new Map(tasks.map((tk) => [tk.id, tk] as const));
 
@@ -130,15 +148,37 @@ export function MilestonesPanel({
       lang={lang}
       sizeRef={sizeRef}
       onResetSize={() => undefined}
+      onResetCols={resetColWidths}
       title={t(lang, "milestonesTitle")}
       toolbarExtra={
-        <button
-          type="button"
-          onClick={openNew}
-          className="rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium hover:border-AIPM-dark-blue"
-        >
-          + {t(lang, "milestoneNew")}
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={openNew}
+            className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90"
+          >
+            + {t(lang, "milestoneNew")}
+          </button>
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={t(lang, "milestonesFilterName")}
+            aria-label={t(lang, "milestonesFilterName")}
+            className="min-w-[10rem] rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-foreground focus:border-AIPM-dark-blue focus:outline-none focus:ring-1 focus:ring-AIPM-green"
+          />
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as MilestoneFilterStatus)}
+            aria-label={t(lang, "milestonesFilterStatus")}
+            className="rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-foreground focus:border-AIPM-dark-blue focus:outline-none focus:ring-1 focus:ring-AIPM-green"
+          >
+            <option value="all">{t(lang, "milestonesFilterAll")}</option>
+            <option value="pending">{t(lang, "milestonesFilterPending")}</option>
+            <option value="achieved">{t(lang, "milestonesFilterAchieved")}</option>
+            <option value="overdue">{t(lang, "milestonesFilterOverdue")}</option>
+          </select>
+        </div>
       }
     >
       {sorted.length === 0 ? (
@@ -149,24 +189,43 @@ export function MilestonesPanel({
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-xs uppercase text-muted-foreground">
-              <th className="py-1">
+              <th
+                className="relative py-1"
+                style={{ width: colWidths.name, minWidth: colWidths.name }}
+              >
                 <SortHeaderButton
                   label={t(lang, "milestonesColName")}
                   active={sort.key === "name"}
                   dir={sort.dir}
                   onClick={() => click("name")}
                 />
+                <ColumnResizeHandle col="name" onMouseDown={startResize} />
               </th>
-              <th>
+              <th
+                className="relative"
+                style={{ width: colWidths.date, minWidth: colWidths.date }}
+              >
                 <SortHeaderButton
                   label={t(lang, "milestonesColDate")}
                   active={sort.key === "date"}
                   dir={sort.dir}
                   onClick={() => click("date")}
                 />
+                <ColumnResizeHandle col="date" onMouseDown={startResize} />
               </th>
-              <th>{t(lang, "milestonesColStatus")}</th>
-              <th></th>
+              <th
+                className="relative"
+                style={{ width: colWidths.status, minWidth: colWidths.status }}
+              >
+                {t(lang, "milestonesColStatus")}
+                <ColumnResizeHandle col="status" onMouseDown={startResize} />
+              </th>
+              <th
+                className="relative"
+                style={{ width: colWidths.achieved, minWidth: colWidths.achieved }}
+              >
+                <ColumnResizeHandle col="achieved" onMouseDown={startResize} />
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -174,10 +233,11 @@ export function MilestonesPanel({
               const s = milestoneStatus(m, tasksById, today, holidaySet);
               return (
                 <tr key={m.id} className="border-t border-line">
-                  <td className="py-1">
+                  <td className="py-1" style={{ width: colWidths.name }}>
                     <button
                       type="button"
-                      className="hover:underline"
+                      title={m.name}
+                      className="rounded-md border border-transparent px-2 py-0.5 text-left font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-AIPM-green"
                       onClick={() => {
                         setIsNew(false);
                         setEditing(m);

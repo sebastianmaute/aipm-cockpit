@@ -40,6 +40,7 @@ function makeSettings(overrides: {
       birthday: { enabled: false },
       raidReview: { enabled: true },
       raidReviewIntervalDays: 14,
+      stakeholderComms: { enabled: true },
     },
     jira: {
       enabled: false,
@@ -155,6 +156,7 @@ describe("useDueAlerts", () => {
         status: "Open",
         linkedTaskIds: [],
         causedByRaidIds: [],
+        stakeholderIds: [],
         raisedDate: "2026-01-01",
       },
     ];
@@ -189,6 +191,7 @@ describe("useDueAlerts", () => {
         status: "Open",
         linkedTaskIds: [],
         causedByRaidIds: [],
+        stakeholderIds: [],
         raisedDate: "2026-01-01",
       },
     ];

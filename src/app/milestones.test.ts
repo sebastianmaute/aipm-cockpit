@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   isAchieved, isAtRisk, milestoneStatus, sortMilestones,
   partitionMilestones, milestoneScheduleContribution,
+  filterMilestones,
 } from "./milestones";
 import type { Milestone, Task } from "./types";
 
@@ -85,5 +86,32 @@ describe("milestoneScheduleContribution", () => {
     expect(milestoneScheduleContribution([ms({ date: "2026-06-03" })], byId(), today, holidays)).toBe("A");
     expect(milestoneScheduleContribution([ms({ date: "2026-12-01" })], byId(), today, holidays)).toBeNull();
     expect(milestoneScheduleContribution([], byId(), today, holidays)).toBeNull();
+  });
+});
+
+const mk = (over: Partial<Milestone> & Pick<Milestone, "id" | "name" | "date">): Milestone =>
+  ({ linkedTaskIds: [], ...over });
+
+describe("filterMilestones", () => {
+  const filterToday = "2026-06-05";
+  const a = mk({ id: 1, name: "Alpha kickoff", date: "2026-06-10" });            // pending, future
+  const b = mk({ id: 2, name: "Beta gate", date: "2026-06-01" });                // overdue
+  const c = mk({ id: 3, name: "Gamma review", date: "2026-05-01", achievedDate: "2026-05-02" }); // achieved
+  const all = [a, b, c];
+
+  it("filters by name query (case-insensitive)", () => {
+    expect(filterMilestones(all, { query: "beta", status: "all", today: filterToday }).map((m) => m.id)).toEqual([2]);
+  });
+  it("status=pending = unachieved & not overdue", () => {
+    expect(filterMilestones(all, { query: "", status: "pending", today: filterToday }).map((m) => m.id)).toEqual([1]);
+  });
+  it("status=overdue = unachieved with date < today", () => {
+    expect(filterMilestones(all, { query: "", status: "overdue", today: filterToday }).map((m) => m.id)).toEqual([2]);
+  });
+  it("status=achieved = has achievedDate", () => {
+    expect(filterMilestones(all, { query: "", status: "achieved", today: filterToday }).map((m) => m.id)).toEqual([3]);
+  });
+  it("status=all returns everything", () => {
+    expect(filterMilestones(all, { query: "", status: "all", today: filterToday }).map((m) => m.id).sort()).toEqual([1, 2, 3]);
   });
 });

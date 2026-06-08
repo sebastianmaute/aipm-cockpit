@@ -107,6 +107,7 @@ describe("RaidReportPanel — resizable card, filters, resize handles", () => {
       raisedDate: "2026-01-01",
       linkedTaskIds: [],
       causedByRaidIds: [],
+      stakeholderIds: [],
     },
   ];
 

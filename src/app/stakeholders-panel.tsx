@@ -66,9 +66,9 @@ const LEVEL_KEY: Record<InfluenceInterest, TranslationKey> = {
 };
 
 const LEVEL_CHIP: Record<InfluenceInterest, string> = {
-  Low: "bg-AIPM-light-grey/40 text-foreground",
-  Medium: "bg-AIPM-purple/20 text-AIPM-purple",
-  High: "bg-AIPM-green/20 text-AIPM-dark-blue",
+  Low: "bg-AIPM-light-grey/40 text-foreground dark:bg-AIPM-medium-grey/30 dark:text-AIPM-light-grey",
+  Medium: "bg-AIPM-purple/20 text-AIPM-purple dark:bg-AIPM-purple/25 dark:text-AIPM-light-grey",
+  High: "bg-AIPM-green/20 text-AIPM-dark-blue dark:bg-AIPM-green/25 dark:text-AIPM-light-grey",
 };
 
 function Chip({ label, className }: { label: string; className?: string }) {
@@ -320,10 +320,18 @@ function StakeholdersPanelInner({
               return (
                 <tr
                   key={item.id}
-                  onClick={() => openEdit(item)}
-                  className="cursor-pointer align-top hover:bg-surface-muted"
+                  className="align-top"
                 >
-                  <td className="px-3 py-2 font-medium text-foreground">{item.name}</td>
+                  <td className="px-3 py-2">
+                    <button
+                      type="button"
+                      onClick={() => openEdit(item)}
+                      title={item.name}
+                      className="rounded-md border border-transparent px-2 py-0.5 text-left font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-AIPM-green"
+                    >
+                      {item.name}
+                    </button>
+                  </td>
                   <td className="px-3 py-2 text-foreground">{item.organization ?? ""}</td>
                   <td className="px-3 py-2 text-foreground">{item.title ?? ""}</td>
                   <td className="px-3 py-2">

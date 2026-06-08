@@ -126,6 +126,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
           mitigation: undefined,
           linkedTaskIds: [],
           causedByRaidIds: [item.id],
+          stakeholderIds: [],
           raisedDate: today,
           targetDate: item.targetDate,
           localModifiedAt: stamp,

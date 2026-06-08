@@ -20,6 +20,7 @@ import {
   type ChangeStatus,
   type ChangeType,
   type RaidItem,
+  type Stakeholder,
   type Task,
 } from "./types";
 import { useDraggable } from "./use-draggable";
@@ -32,6 +33,10 @@ export interface ChangeEditModalProps {
   isNew: boolean;
   /** When false, the Linked RAID items editor is hidden. Default true. */
   raidEnabled?: boolean;
+  /** When false, the Stakeholders picker is hidden. Default true. */
+  stakeholdersEnabled?: boolean;
+  /** Selectable stakeholders for the picker; empty when the module is off. */
+  stakeholders?: readonly Stakeholder[];
   onChange: (next: ChangeItem) => void;
   onApplyStatus: (status: ChangeStatus) => void;
   onSave: () => void;
@@ -72,6 +77,8 @@ export function ChangeEditModal({
   draft,
   isNew,
   raidEnabled = true,
+  stakeholdersEnabled = true,
+  stakeholders = [],
   onChange,
   onApplyStatus,
   onSave,
@@ -157,6 +164,14 @@ export function ChangeEditModal({
       ...draft,
       linkedRaidIds: draft.linkedRaidIds.filter((id) => id !== raidId),
     });
+  }
+
+  function toggleStakeholder(stakeholderId: number) {
+    const ids = draft.stakeholderIds ?? [];
+    const next = ids.includes(stakeholderId)
+      ? ids.filter((id) => id !== stakeholderId)
+      : [...ids, stakeholderId];
+    onChange({ ...draft, stakeholderIds: next });
   }
 
   function parseNumber(value: string): number | undefined {
@@ -525,6 +540,36 @@ export function ChangeEditModal({
               )}
             </div>
           </div>}
+
+          {/* Stakeholders ------------------------------------------- */}
+          {stakeholdersEnabled && (
+            <div className="sm:col-span-2">
+              <span className="mb-2 block text-sm font-medium text-foreground">
+                {t(lang, "fieldStakeholders")}
+              </span>
+              {stakeholders.length === 0 ? (
+                <span className="text-xs italic text-muted-foreground">—</span>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {stakeholders.map((sh) => (
+                    <label
+                      key={sh.id}
+                      className="inline-flex items-center gap-1.5 rounded border border-line bg-surface px-2 py-1 text-xs text-foreground"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={(draft.stakeholderIds ?? []).includes(sh.id)}
+                        onChange={() => toggleStakeholder(sh.id)}
+                        aria-label={sh.name}
+                        className="accent-AIPM-green"
+                      />
+                      <span className="max-w-[200px] truncate">{sh.name}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {error && (
             <p
