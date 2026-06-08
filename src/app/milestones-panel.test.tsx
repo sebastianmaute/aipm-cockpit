@@ -1,9 +1,11 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
-import { type ReactNode } from "react";
+import { render, screen, fireEvent } from "@testing-library/react";
+import { useEffect, type ReactNode } from "react";
 import { FiltersProvider } from "./filters-context";
-import { WorkspaceProvider } from "./workspace-context";
+import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { MilestonesPanel } from "./milestones-panel";
+import { t } from "./i18n";
+import type { Milestone } from "./types";
 
 vi.mock("./activity-log", async (orig) => ({
   ...(await orig<typeof import("./activity-log")>()),
@@ -23,6 +25,44 @@ const baseProps = {
   today: "2026-06-02",
   holidaySet: new Set<string>(),
 };
+
+// --- Test helpers -----------------------------------------------------------
+
+/** Milestone factory — produces a valid Milestone with sensible defaults. */
+function m(name: string, date: string, extra: Partial<Milestone> = {}): Milestone {
+  return { id: extra.id ?? Math.abs(hashId(name)), name, date, linkedTaskIds: [], ...extra };
+}
+
+function hashId(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+  return h || 1;
+}
+
+/** Seeds the workspace with milestones via the real setter on mount. */
+function Seed({ milestones }: { milestones: readonly Milestone[] }) {
+  const { setMilestones } = useWorkspace();
+  useEffect(() => {
+    setMilestones([...milestones]);
+  }, [milestones, setMilestones]);
+  return null;
+}
+
+function renderMilestones({
+  milestones = [],
+  today = "2026-06-02",
+}: {
+  milestones?: readonly Milestone[];
+  today?: string;
+} = {}) {
+  return render(
+    <>
+      <Seed milestones={milestones} />
+      <MilestonesPanel lang="en-US" today={today} holidaySet={new Set()} />
+    </>,
+    { wrapper },
+  );
+}
 
 describe("MilestonesPanel", () => {
   it("renders empty milestones without crashing", () => {
@@ -58,5 +98,46 @@ describe("MilestonesPanel", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     rerender(<MilestonesPanel {...baseProps} openCreateNonce={1} />);
     expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
+  it("renders the New milestone button at the left, styled like Gantt (solid dark-blue)", () => {
+    renderMilestones({ milestones: [] });
+    const btn = screen.getByRole("button", { name: /new milestone/i });
+    expect(btn.className).toContain("bg-AIPM-dark-blue");
+    expect(btn.className).toContain("text-white");
+  });
+
+  it("filters milestones by name search", () => {
+    renderMilestones({ milestones: [m("Alpha", "2026-06-10"), m("Beta", "2026-06-11")] });
+    fireEvent.change(
+      screen.getByPlaceholderText(t("en-US", "milestonesFilterName")),
+      { target: { value: "alpha" } },
+    );
+    expect(screen.getByText("Alpha")).toBeInTheDocument();
+    expect(screen.queryByText("Beta")).not.toBeInTheDocument();
+  });
+
+  it("filters milestones by status", () => {
+    renderMilestones({
+      today: "2026-06-05",
+      milestones: [m("Future", "2026-06-10"), m("Late", "2026-06-01")],
+    });
+    fireEvent.change(
+      screen.getByLabelText(t("en-US", "milestonesFilterStatus")),
+      { target: { value: "overdue" } },
+    );
+    expect(screen.getByText("Late")).toBeInTheDocument();
+    expect(screen.queryByText("Future")).not.toBeInTheDocument();
+  });
+
+  it("name button uses the workload hover style", () => {
+    renderMilestones({ milestones: [m("Alpha", "2026-06-10")] });
+    const btn = screen.getByRole("button", { name: "Alpha" });
+    expect(btn.className).toContain("hover:border-AIPM-dark-blue");
+  });
+
+  it("renders resizable column headers", () => {
+    const { container } = renderMilestones({ milestones: [m("Alpha", "2026-06-10")] });
+    expect(container.querySelectorAll(".cursor-col-resize").length).toBeGreaterThan(0);
   });
 });
