@@ -141,7 +141,7 @@ function raidReminders(
   const out: StakeholderCommsReminder[] = [];
   const minRank = policy.minRaidSeverity ? SEVERITY_RANK[policy.minRaidSeverity] : Infinity;
   for (const r of raid) {
-    if (!r.stakeholderIds.includes(s.id)) continue;
+    if (!(r.stakeholderIds ?? []).includes(s.id)) continue;
     if (RAID_TERMINAL.has(r.status)) continue;
     const sevRank = r.severity ? SEVERITY_RANK[r.severity] : 0;
     const overdue = !!r.targetDate && r.targetDate < today;
@@ -168,7 +168,7 @@ function changeReminders(
 ): StakeholderCommsReminder[] {
   const out: StakeholderCommsReminder[] = [];
   for (const c of changes) {
-    if (!c.stakeholderIds.includes(s.id)) continue;
+    if (!(c.stakeholderIds ?? []).includes(s.id)) continue;
     if (!isPendingChange(c.status)) continue;
     out.push({
       stakeholderId: s.id,

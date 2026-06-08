@@ -262,6 +262,28 @@ describe("getStakeholderCommsItems", () => {
     expect(result).toEqual([]);
   });
 
+  it("tolerates legacy RAID/Change items whose stakeholderIds field is undefined", () => {
+    // Pre-0.55.0 records loaded raw from the JSON or IndexedDB backend have no
+    // stakeholderIds field. The engine must treat a missing field as [] rather
+    // than crash on `.includes()`.
+    const s = stake({ id: 1, name: "Alice", influence: "High", interest: "High" });
+    const legacyRaid = raidItem({ id: 5, title: "Legacy risk", severity: "Critical" });
+    const legacyChange = change({ id: 4, title: "Legacy change", status: "Proposed" });
+    // Simulate the un-sanitized legacy shape (field absent at runtime).
+    (legacyRaid as { stakeholderIds?: number[] }).stakeholderIds = undefined;
+    (legacyChange as { stakeholderIds?: number[] }).stakeholderIds = undefined;
+    const result = getStakeholderCommsItems({
+      stakeholders: [s],
+      milestones: [],
+      raid: [legacyRaid],
+      changes: [legacyChange],
+      today: TODAY,
+      flags: ALL_ON,
+    });
+    // No stakeholder is linked (field absent) -> no reminders, and no throw.
+    expect(result).toEqual([]);
+  });
+
   it("does not remind about an achieved (signed-off) milestone", () => {
     const s = stake({ id: 1, name: "Alice", influence: "High", interest: "High", raci: { "1": "A" } });
     const result = getStakeholderCommsItems({
