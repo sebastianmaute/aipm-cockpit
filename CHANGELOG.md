@@ -1,12 +1,31 @@
 # Changelog
 
-All notable changes to **List of Open Points Tracker** are recorded here.
+All notable changes to **Project Management Tracker** are recorded here.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/);
 versioning follows [Semantic Versioning](https://semver.org/).
 
 Authoritative source for version + build date: [`src/app/version.ts`](src/app/version.ts).
 This file is seeded from that module's milestone comment plus the
 post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-diff.txt).
+
+## [0.55.0] — 2026-06-08 "Clarke"
+
+### Added
+- **Stakeholder communication reminders:** a new pure `stakeholder-comms.ts` engine derives "reach out" nudges from a quadrant engagement policy — manage-closely (High influence / High interest) stakeholders are flagged ahead of due-soon milestones, open RAID items, and pending changes they are linked to.
+- Reminders surface as a **banner**, a **review modal**, and a **once-per-load toast**, with a **Notifications settings toggle** (default on) and persisted **snooze** (mirrors the RAID-review reminder infra).
+- **`stakeholderIds`** optional link field on `RaidItem` and `ChangeItem`, with a mode-gated stakeholder **multi-select** in both the RAID and Change editors (round-trips through every serializer; schema bump).
+- **Milestones panel upgrade:** resizable columns, name + status filters, a Gantt-style left **add** button, and Resources-Workload row hover (new pure `filterMilestones` helper + status classification in `milestones.ts`).
+- **Sidebar mode pill** showing the current Simple / Modular / Advanced mode next to the version line.
+- **i18n encoding guard test** (`i18n-encoding.test.ts`): asserts the DE bundle uses literal UTF-8 umlauts (no mojibake, no `\uXXXX` escapes, no ASCII-substituted umlauts).
+
+### Changed
+- **Rebrand** "List of Open Points" → **"Project Management Tracker"** (EN + DE).
+- Dashboard **Save / Clear** buttons move beside the status text in the chat-input button layout.
+- Stakeholder register gains a **dark-mode color scheme**; the influence/interest matrix is sized like the chat pane; the RACI legend is restyled.
+- DE i18n bundle **umlaut audit** — literal UTF-8 throughout.
+
+### Notes
+- Every comms source is **silent** when its module (stakeholders / milestones / RAID / changes) is disabled, per the Simple/Modular/Advanced mode contract.
 
 ## [0.54.0] — 2026-06-04 "Herbert"
 

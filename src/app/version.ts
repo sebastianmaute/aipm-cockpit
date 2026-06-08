@@ -1,3 +1,19 @@
+// 0.55.0 "Clarke" is a UI-refinement batch plus stakeholder communication
+// reminders. UI: the i18n DE bundle is audited for literal-UTF-8 umlauts (a new
+// encoding guard test); the dashboard Save/Clear buttons move beside the status
+// text in the chat-input layout; the RACI legend is restyled; the app is rebranded
+// "Project Management Tracker"; the stakeholder register gains Resources-Workload
+// row hover, a dark-mode palette, and a chat-sized influence/interest matrix; the
+// Milestones panel gains resizable columns, name+status filters, a Gantt-style add
+// button, and workload hover (new pure filterMilestones helper); and the sidebar
+// shows a current-mode pill. Stakeholder comms: RaidItem and ChangeItem gain an
+// optional stakeholderIds link (mode-gated multi-select in both editors); a new
+// pure stakeholder-comms.ts engine derives "reach out" reminders from a quadrant
+// engagement policy (manage-closely stakeholders before due-soon milestones, open
+// RAID items, and pending changes), surfaced via a banner, modal, once-per-load
+// toast, and a Notifications settings toggle with snooze. Every comms source is
+// silent when its module (stakeholders / milestones / RAID / changes) is off. New
+// modules: stakeholder-comms.ts, use-stakeholder-comms.ts, milestones.ts helper.
 // 0.54.0 "Herbert" ships Simple / Modular / Advanced mode. A new Settings →
 // Mode section lets users pare the app down to Tasks, Chat, and Reports
 // (Simple preset) and re-enable individual modules via per-module checkboxes
@@ -688,12 +704,12 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.54.0";
-export const APP_BUILD_DATE = "2026-06-04"; // 0.54.0 Simple/Modular/Advanced mode
+export const APP_VERSION = "0.55.0";
+export const APP_BUILD_DATE = "2026-06-08"; // 0.55.0 UI batch + stakeholder comms reminders
 /** Minor-series milestone codename (sci-fi/fantasy author names). The whole
- *  0.54.x line is "Herbert" (Frank Herbert); patch releases inherit
+ *  0.55.x line is "Clarke" (Arthur C. Clarke); patch releases inherit
  *  their minor version's codename rather than getting their own. */
-export const APP_MILESTONE = "Herbert";
+export const APP_MILESTONE = "Clarke";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -759,4 +775,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightStakeholders",
   "versionHighlightStakeholderReport",
   "versionHighlightModes",
+  "versionHighlightClarke",
 ] as const;

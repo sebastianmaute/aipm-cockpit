@@ -1,4 +1,4 @@
-<!-- Generated: 2026-06-04 | Files scanned: ~124 (src/app/*.tsx, *.ts, settings-sections/) | Token estimate: ~1680 | Updated for 0.29.0–0.54.0: modern sidebar layout + UI-consistency sweep + Health Dashboard + Milestones + Earned Value + budget/dashboard RAG + burn-down + UI refinements + baseline/variance trends + change-control Log + stakeholder report + influence/interest matrix + Simple/Modular/Advanced mode -->
+<!-- Generated: 2026-06-04 | Files scanned: ~124 (src/app/*.tsx, *.ts, settings-sections/) | Token estimate: ~1680 | Updated for 0.29.0–0.55.0: modern sidebar layout + UI-consistency sweep + Health Dashboard + Milestones + Earned Value + budget/dashboard RAG + burn-down + UI refinements + baseline/variance trends + change-control Log + stakeholder report + influence/interest matrix + Simple/Modular/Advanced mode + stakeholder communication reminders -->
 
 # Frontend
 
@@ -194,6 +194,9 @@ prerendered.
 | `use-stakeholders.ts` | `useStakeholders()` hook — stakeholder + RACI CRUD over WorkspaceContext | Client hook; 0.52.0+ |
 | `influence-interest-matrix.tsx` | Clickable 3×3 influence/interest grid used by the stakeholder editor (replaces the two dropdowns; one click sets both axes) | Component; 0.53.0+ |
 | `stakeholder-report-panel.tsx` | Read-only stakeholder report (summary tiles, quadrant grid, RACI coverage with missing/multiple-Accountable warnings, register table), embedded in Reports | Conditional mount; 0.53.0+ |
+| `stakeholder-comms.ts` | Pure communication-reminder engine: quadrant engagement policy → "reach out" items for manage-closely stakeholders ahead of due-soon milestones, open RAID items, and pending changes (via `stakeholderIds` links) | No React; 0.55.0+ |
+| `use-stakeholder-comms.ts` | `useStakeholderComms()` hook — computes comms reminder items + banner/modal state, mode-gated by stakeholders/milestones/RAID/changes flags | Client hook; 0.55.0+ |
+| `milestones.ts` | Pure milestone helpers: `filterMilestones` (name + status filter) + milestone status classification | No React; 0.55.0+ |
 | **Chat & Voice** | | |
 | `chat-panel.tsx` | Claude chat with tool calls via `dispatcher` | Conditional mount; history in TaskManager |
 | `chat-tools.ts` | Tool dispatcher object; CRUD on tasks/RAID | Huge `useMemo` in TaskManager |

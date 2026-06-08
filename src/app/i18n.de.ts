@@ -1411,4 +1411,5 @@ export const de: Record<TranslationKey, string> = {
   modeSave: "Speichern & neu laden",
   modeDiscard: "Verwerfen",
   versionHighlightModes: "Einfach- / Modular- / Erweitert-Modus: App auf Aufgaben, Chat und Berichte reduzieren und Funktionen nach Bedarf wieder aktivieren.",
+  versionHighlightClarke: "Stakeholder-Kommunikationserinnerungen weisen darauf hin, wichtige Stakeholder vor Meilensteinen, RAID-Einträgen und Änderungen einzubinden.",
 };
