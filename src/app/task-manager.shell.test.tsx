@@ -11,7 +11,7 @@ describe("TaskManager shell selection", () => {
 
   it("renders the sidebar brand in modern mode (default)", async () => {
     render(<TaskManager />);
-    expect(await screen.findByText("LIST OF OPEN POINTS")).toBeTruthy();
+    expect(await screen.findByText("PROJECT MANAGEMENT TRACKER")).toBeTruthy();
   });
 
   it("renders the classic layout (no sidebar brand) in classic mode", async () => {
@@ -21,7 +21,7 @@ describe("TaskManager shell selection", () => {
     // (gantt) renders its own, so there are several — assert at least one and
     // that the modern sidebar brand is absent.
     expect((await screen.findAllByRole("button", { name: "Add task" })).length).toBeGreaterThan(0);
-    expect(screen.queryByText("LIST OF OPEN POINTS")).toBeNull();
+    expect(screen.queryByText("PROJECT MANAGEMENT TRACKER")).toBeNull();
   });
 
   it("classic layout fits the viewport with a pinned footer (non-popout)", async () => {
