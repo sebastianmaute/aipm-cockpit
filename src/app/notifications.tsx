@@ -461,6 +461,7 @@ export function StakeholderCommsBanner({
   return (
     <div
       role="region"
+      data-testid="stakeholder-comms-banner"
       aria-label={t(lang, "stakeholderCommsBannerAria")}
       className="mb-6 flex flex-wrap items-center gap-3 rounded-lg border border-AIPM-green/40 bg-AIPM-green/10 px-4 py-3 dark:border-AIPM-green/60 dark:bg-AIPM-green/15"
     >
