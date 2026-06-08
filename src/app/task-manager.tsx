@@ -9,7 +9,7 @@ import { useActivityLog } from "./use-activity-log";
 import { useDueAlerts } from "./use-due-alerts";
 import { useToast } from "./use-toast";
 import { useSettings, writeSettings } from "./use-settings";
-import { isViewEnabled, isModuleEnabled, type FeatureModuleId } from "./feature-modules";
+import { isViewEnabled, isModuleEnabled, deriveMode, type FeatureModuleId } from "./feature-modules";
 import { useJiraSync } from "./use-jira-sync";
 import { useStorageBackend } from "./use-storage-backend";
 import { useResourcePlanner } from "./use-resource-planner";
@@ -729,6 +729,8 @@ function TaskManagerInner() {
     [settings.features],
   );
 
+  const appMode = useMemo(() => deriveMode(settings.features), [settings.features]);
+
   const voiceHandlers = useMemo(
     () => (isPopout ? null : { onCommand: handleCommand, onError: (msg: string) => showToast("error", msg) }),
     [isPopout, handleCommand, showToast],
@@ -1111,6 +1113,7 @@ function TaskManagerInner() {
         activeView={activeTab}
         onNavigate={(v) => setActiveTab(v)}
         version={APP_VERSION_LABEL}
+        mode={appMode}
         bannerCount={bannerItems.length}
         onNewTask={() => { handleCancelEdit(); setTaskModalOpen(true); }}
         onShowAlerts={() => { setBannerDismissed(false); setDueModalOpen(true); }}
