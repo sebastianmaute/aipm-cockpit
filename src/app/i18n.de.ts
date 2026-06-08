@@ -7,7 +7,7 @@
 import type { TranslationKey } from "./i18n";
 
 export const de: Record<TranslationKey, string> = {
-  appTitle: "List of Open Points Tracker",
+  appTitle: "Project Management Tracker",
   appSubtitle: "Erfassen Sie offene Projektpunkte. Lokal in diesem Browser gespeichert.",
 
   newTask: "Neue Aufgabe",
@@ -544,7 +544,7 @@ export const de: Record<TranslationKey, string> = {
 
   help: "Hilfe",
   helpIntro:
-    "Der List of Open Points Tracker erfasst offene Projektpunkte, versendet Statusabfragen, zeigt anstehende Fälligkeiten und synchronisiert auf Wunsch bidirektional mit Jira.",
+    "Der Project Management Tracker erfasst offene Projektpunkte, versendet Statusabfragen, zeigt anstehende Fälligkeiten und synchronisiert auf Wunsch bidirektional mit Jira.",
   helpSecLayoutTitle: "Layout & Design",
   helpSecLayoutBody:
     "Die App startet standardmäßig im modernen Layout: eine dunkelblaue Seitenleiste links mit gruppierter Navigation (Offene Punkte, Chat, Gantt, Ressourcen, Budget, RAID, Berichte, Aktivität, Einstellungen), eine Kopfleiste mit Titel und Aktionen sowie ein bildschirmfüllender Bereich, der jeweils eine Ansicht zeigt. Aufgaben und Einstellungen öffnen sich als ganze Seite statt als Popover; die Seitenleiste klappt auf schmalen Bildschirmen (und per Menüknopf in der Kopfleiste) zu einer Symbolleiste zusammen. Der URL-Anker verlinkt jede Ansicht direkt (#gantt, #raid, …), sodass Vor / Zurück und Lesezeichen funktionieren.\nLieber die ursprüngliche, durchgehend scrollende Seite? Wechseln Sie unter Einstellungen → Darstellung → Layout in den klassischen Modus — er behält die umrahmten Arbeitsbereich-Tabs und die Kopfzeile, die in den übrigen Hilfeabschnitten beschrieben sind.\nDesign: Hell, Dunkel oder System (folgt dem Betriebssystem) unter Einstellungen → Darstellung; die Farben bleiben in beiden Fällen in der AIPM-Markenpalette.",
@@ -1199,7 +1199,7 @@ export const de: Record<TranslationKey, string> = {
   layoutModern: "Modern",
   layoutClassic: "Klassisch",
   layoutTooltip: "Wechselt zwischen dem neuen Seitenleisten-Layout und dem klassischen Layout.",
-  sidebarBrandSubtitle: "LISTE OFFENER PUNKTE",
+  sidebarBrandSubtitle: "PROJECT MANAGEMENT TRACKER",
   sidebarCollapse: "Seitenleiste einklappen",
   sidebarExpand: "Seitenleiste ausklappen",
   sidebarMenuButton: "Navigationsmenü öffnen",

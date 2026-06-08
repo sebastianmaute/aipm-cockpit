@@ -39,3 +39,19 @@ describe("RACI legend", () => {
     expect(t("de", "raciLegend")).toContain("(A)");
   });
 });
+
+describe("brand name", () => {
+  it("uses the Project Management Tracker brand name", () => {
+    expect(t("en-US", "appTitle")).toBe("Project Management Tracker");
+    expect(t("en-US", "sidebarBrandSubtitle")).toBe("PROJECT MANAGEMENT TRACKER");
+    expect(t("de", "appTitle")).toBe("Project Management Tracker");
+    expect(t("de", "sidebarBrandSubtitle")).toBe("PROJECT MANAGEMENT TRACKER");
+  });
+
+  it("has no remaining 'List of Open Points' brand strings", () => {
+    for (const lang of ["en-US", "en-GB", "de"] as const) {
+      expect(t(lang, "appTitle")).not.toMatch(/list of open points/i);
+      expect(t(lang, "appSubtitle")).not.toMatch(/list of open points/i);
+    }
+  });
+});
