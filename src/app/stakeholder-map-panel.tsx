@@ -9,9 +9,7 @@ import { useMemo } from "react";
 import { quadrantFor, type StakeholderQuadrant } from "./stakeholders";
 import { type Lang, t } from "./i18n";
 import type { Stakeholder } from "./types";
-import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
-import { useResizable } from "./use-resizable";
-import { ResetSizeButton, ResizeCornerHint } from "./task-manager-ui";
+import { CENTERED_HALF_PANE_CLASS } from "./view-styles";
 
 // --- Props ------------------------------------------------------------------
 
@@ -83,17 +81,13 @@ export function StakeholderMapPanel({ lang, stakeholders }: StakeholderMapPanelP
     return map;
   }, [stakeholders]);
 
-  const { ref: paneRef, reset: resetPaneSize } = useResizable("lop-app:stakeholder-map-size");
-
   return (
-    <div ref={paneRef} className={VIEW_PANE_RESIZABLE_CLASS}>
-      {/* Toolbar: title + reset button */}
+    <div data-testid="stakeholder-map-pane" className={CENTERED_HALF_PANE_CLASS}>
+      {/* Toolbar: title */}
       <div className="mb-2 flex shrink-0 flex-wrap items-center gap-2">
         <h2 className="text-sm font-semibold text-AIPM-dark-blue">
           {t(lang, "stakeholderMapTitle")}
         </h2>
-        <span className="ml-auto" />
-        <ResetSizeButton onClick={resetPaneSize} lang={lang} />
       </div>
 
       {stakeholders.length === 0 ? (
@@ -145,7 +139,6 @@ export function StakeholderMapPanel({ lang, stakeholders }: StakeholderMapPanelP
           </div>
         </div>
       )}
-      <ResizeCornerHint lang={lang} />
     </div>
   );
 }

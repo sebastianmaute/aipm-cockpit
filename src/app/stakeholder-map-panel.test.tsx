@@ -20,8 +20,10 @@ describe("StakeholderMapPanel", () => {
     render(<StakeholderMapPanel lang="en-US" stakeholders={[]} />);
     expect(screen.getByText(/no stakeholders to plot/i)).toBeInTheDocument();
   });
-  it("renders a reset-size button (resizable pane)", () => {
-    render(<StakeholderMapPanel lang="en-US" stakeholders={items} />);
-    expect(screen.getByRole("button", { name: /reset back to the default size/i })).toBeInTheDocument();
+  it("renders the map in the centered half-size pane (chat sizing)", () => {
+    const { container } = render(<StakeholderMapPanel lang="en-US" stakeholders={[]} />);
+    const pane = container.querySelector("[data-testid='stakeholder-map-pane']")!;
+    expect(pane.className).toContain("mx-auto"); // centered
+    expect(pane.className).toContain("w-[50%]");
   });
 });
