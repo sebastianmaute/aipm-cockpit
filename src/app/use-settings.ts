@@ -27,6 +27,7 @@ function migrateNotifications(raw: unknown): Settings["notifications"] {
     raidReview: ch(p.raidReview),
     raidReviewIntervalDays:
       Number.isFinite(raidInterval) && raidInterval >= 1 ? Math.min(365, raidInterval) : 14,
+    stakeholderComms: ch(p.stakeholderComms),
   };
 }
 

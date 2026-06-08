@@ -5,8 +5,9 @@ import {
   type AlertableTask,
   summarizeAlerts,
 } from "./due-dates";
-import { type Lang, t } from "./i18n";
+import { type Lang, type TranslationKey, t } from "./i18n";
 import { type RaidReviewItem, summarizeRaidReview } from "./raid-review";
+import type { StakeholderCommsReminder } from "./stakeholder-comms";
 import { SNOOZE_1H, SNOOZE_1D } from "./reminder-snooze";
 import { Modal } from "./modal";
 import { useResizable } from "./use-resizable";
@@ -425,6 +426,151 @@ export function RaidReviewModal({
                     </button>
                   )}
                 </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </Modal>
+  );
+}
+
+export function stakeholderCommsToastText(
+  items: StakeholderCommsReminder[],
+  lang: Lang,
+): string {
+  const stakeholders = new Set(items.map((i) => i.stakeholderId)).size;
+  return t(lang, "stakeholderCommsToast", stakeholders);
+}
+
+export function StakeholderCommsBanner({
+  items,
+  lang,
+  onOpenList,
+  onDismiss,
+  onSnooze,
+}: {
+  items: StakeholderCommsReminder[];
+  lang: Lang;
+  onOpenList: () => void;
+  onDismiss: () => void;
+  onSnooze: (ms: number) => void;
+}) {
+  if (items.length === 0) return null;
+  const stakeholders = new Set(items.map((i) => i.stakeholderId)).size;
+  return (
+    <div
+      role="region"
+      aria-label={t(lang, "stakeholderCommsBannerAria")}
+      className="mb-6 flex flex-wrap items-center gap-3 rounded-lg border border-AIPM-green/40 bg-AIPM-green/10 px-4 py-3 dark:border-AIPM-green/60 dark:bg-AIPM-green/15"
+    >
+      <span aria-hidden className="text-lg">
+        💬
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
+          {t(lang, "stakeholderCommsBannerTitle", stakeholders)}
+        </p>
+        <p className="text-xs text-muted-foreground">
+          {t(lang, "stakeholderCommsBannerHint", items.length)}
+        </p>
+      </div>
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={onOpenList}
+          className="rounded-md bg-AIPM-dark-blue px-3 py-1.5 text-xs font-medium text-white hover:opacity-90"
+        >
+          {t(lang, "alertBannerOpen")}
+        </button>
+        <SnoozeMenu lang={lang} onSnooze={onSnooze} />
+        <button
+          type="button"
+          onClick={onDismiss}
+          aria-label={t(lang, "alertBannerDismiss")}
+          className="rounded-md border border-AIPM-medium-grey/40 bg-surface px-3 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted"
+        >
+          {t(lang, "alertBannerDismiss")}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+const COMMS_REASON_KEYS: Record<string, TranslationKey> = {
+  stakeholderCommsMilestoneDue: "stakeholderCommsMilestoneDue",
+  stakeholderCommsMilestoneOverdue: "stakeholderCommsMilestoneOverdue",
+  stakeholderCommsRaidSevere: "stakeholderCommsRaidSevere",
+  stakeholderCommsRaidOverdue: "stakeholderCommsRaidOverdue",
+  stakeholderCommsChangePending: "stakeholderCommsChangePending",
+};
+
+function commsReasonLabel(reasonKey: string, lang: Lang): string {
+  const key = COMMS_REASON_KEYS[reasonKey];
+  return key ? t(lang, key) : reasonKey;
+}
+
+export function StakeholderCommsModal({
+  items,
+  lang,
+  onClose,
+}: {
+  items: StakeholderCommsReminder[];
+  lang: Lang;
+  onClose: () => void;
+}) {
+  const { ref: panelRef } = useResizable("lop-app:stakeholder-comms-modal-size");
+  const stakeholders = new Set(items.map((i) => i.stakeholderId)).size;
+  return (
+    <Modal open onClose={onClose} ariaLabel={t(lang, "stakeholderCommsModalTitle")}>
+      <div
+        ref={panelRef}
+        className="relative h-[640px] max-h-[95vh] min-h-[300px] w-[640px] min-w-[320px] max-w-[95vw] resize overflow-y-auto rounded-xl border border-line bg-surface"
+      >
+        <header className="sticky top-0 z-10 flex shrink-0 items-center justify-between gap-4 border-b border-line bg-surface px-6 py-4">
+          <div>
+            <h2 className="text-lg font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
+              {t(lang, "stakeholderCommsModalTitle")}
+            </h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {t(lang, "stakeholderCommsBannerTitle", stakeholders)}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label={t(lang, "alertModalClose")}
+            className="rounded-md p-2 text-foreground hover:bg-surface-muted hover:text-AIPM-dark-blue"
+          >
+            <svg
+              viewBox="0 0 20 20"
+              fill="currentColor"
+              aria-hidden="true"
+              className="h-4 w-4"
+            >
+              <path
+                fillRule="evenodd"
+                d="M4.28 4.28a.75.75 0 011.06 0L10 8.94l4.66-4.66a.75.75 0 111.06 1.06L11.06 10l4.66 4.66a.75.75 0 11-1.06 1.06L10 11.06l-4.66 4.66a.75.75 0 01-1.06-1.06L8.94 10 4.28 5.34a.75.75 0 010-1.06z"
+                clipRule="evenodd"
+              />
+            </svg>
+          </button>
+        </header>
+
+        {items.length === 0 ? (
+          <p className="p-6 text-sm text-muted-foreground">
+            {t(lang, "stakeholderCommsModalNone")}
+          </p>
+        ) : (
+          <ul className="divide-y divide-line">
+            {items.map((item) => (
+              <li key={`${item.stakeholderId}-${item.itemKind}-${item.itemId}`} className="px-6 py-3">
+                <p className="font-medium text-AIPM-dark-blue dark:text-AIPM-light-grey">
+                  {item.stakeholderName}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {item.itemTitle} · {commsReasonLabel(item.reasonKey, lang)}
+                </p>
               </li>
             ))}
           </ul>

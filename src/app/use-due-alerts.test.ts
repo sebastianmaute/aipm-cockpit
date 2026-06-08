@@ -40,6 +40,7 @@ function makeSettings(overrides: {
       birthday: { enabled: false },
       raidReview: { enabled: true },
       raidReviewIntervalDays: 14,
+      stakeholderComms: { enabled: true },
     },
     jira: {
       enabled: false,
