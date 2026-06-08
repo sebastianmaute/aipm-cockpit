@@ -264,6 +264,7 @@ function RaidPanelInner({
       status: defaultStatusForCategory(category),
       linkedTaskIds: [],
       causedByRaidIds: [],
+      stakeholderIds: [],
       raisedDate: today,
     });
     setIsNew(true);
@@ -274,6 +275,7 @@ function RaidPanelInner({
       ...item,
       linkedTaskIds: [...item.linkedTaskIds],
       causedByRaidIds: [...item.causedByRaidIds],
+      stakeholderIds: [...(item.stakeholderIds ?? [])],
     });
     setIsNew(false);
   }, []);

@@ -158,6 +158,7 @@ function ChangePanelInner({
       raisedDate: today,
       linkedTaskIds: [],
       linkedRaidIds: [],
+      stakeholderIds: [],
     });
     setIsNew(true);
   }
@@ -167,6 +168,7 @@ function ChangePanelInner({
       ...item,
       linkedTaskIds: [...item.linkedTaskIds],
       linkedRaidIds: [...item.linkedRaidIds],
+      stakeholderIds: [...(item.stakeholderIds ?? [])],
     });
     setIsNew(false);
   }

@@ -155,6 +155,7 @@ describe("useDueAlerts", () => {
         status: "Open",
         linkedTaskIds: [],
         causedByRaidIds: [],
+        stakeholderIds: [],
         raisedDate: "2026-01-01",
       },
     ];
@@ -189,6 +190,7 @@ describe("useDueAlerts", () => {
         status: "Open",
         linkedTaskIds: [],
         causedByRaidIds: [],
+        stakeholderIds: [],
         raisedDate: "2026-01-01",
       },
     ];

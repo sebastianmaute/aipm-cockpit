@@ -174,6 +174,9 @@ export type RaidItem = {
    *  saves used the singular `causedByRaidId`; storage.ts migrates them on
    *  parse and emits the plural form going forward. */
   causedByRaidIds: number[];
+  /** Stakeholders explicitly associated with this item (FK -> Stakeholder.id).
+   *  Drives the communication-reminder engine. Always an array; defaults to []. */
+  stakeholderIds: number[];
 };
 
 /** A zero-duration key date, distinct from a task. `achievedDate` is a manual
@@ -220,6 +223,9 @@ export type ChangeItem = {
   resolutionNotes?: string;
   linkedTaskIds: number[];
   linkedRaidIds: number[];
+  /** Stakeholders explicitly associated with this item (FK -> Stakeholder.id).
+   *  Drives the communication-reminder engine. Always an array; defaults to []. */
+  stakeholderIds: number[];
   localModifiedAt?: string;
 };
 

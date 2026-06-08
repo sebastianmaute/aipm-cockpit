@@ -39,6 +39,7 @@ function makeChange(overrides: Partial<ChangeItem> = {}): ChangeItem {
     raisedDate: "2026-05-18",
     linkedTaskIds: [],
     linkedRaidIds: [],
+    stakeholderIds: [],
     ...overrides,
   };
 }
@@ -504,6 +505,7 @@ function makeRaidItem(overrides: Partial<RaidItem> = {}): RaidItem {
     raisedDate: "2026-05-18",
     linkedTaskIds: [],
     causedByRaidIds: [],
+    stakeholderIds: [],
     ...overrides,
   };
 }

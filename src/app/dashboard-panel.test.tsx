@@ -135,7 +135,7 @@ describe("DashboardPanel Changes subsection", () => {
         changes={[
           {
             id: 1, title: "Add module", description: "", type: "Scope", status: "Proposed",
-            impact: "High", raisedDate: "2026-05-01", linkedTaskIds: [], linkedRaidIds: [],
+            impact: "High", raisedDate: "2026-05-01", linkedTaskIds: [], linkedRaidIds: [], stakeholderIds: [],
           },
         ]}
       />,
@@ -325,7 +325,7 @@ const fullProps = {
   lang: "en-US" as const,
   tasks: [],
   raid: [
-    { id: 1, category: "R", title: "A risk", status: "Open", linkedTaskIds: [], raisedDate: "2026-01-01", causedByRaidIds: [] },
+    { id: 1, category: "R", title: "A risk", status: "Open", linkedTaskIds: [], raisedDate: "2026-01-01", causedByRaidIds: [], stakeholderIds: [] },
   ] as RaidItem[],
   budgets: minimalBudget as never[],
   plan,
@@ -341,7 +341,7 @@ const fullProps = {
   changes: [
     {
       id: 1, title: "Scope change", description: "", type: "Scope", status: "Proposed",
-      impact: "High", raisedDate: "2026-05-01", linkedTaskIds: [], linkedRaidIds: [],
+      impact: "High", raisedDate: "2026-05-01", linkedTaskIds: [], linkedRaidIds: [], stakeholderIds: [],
     },
   ] as ChangeItem[],
 };

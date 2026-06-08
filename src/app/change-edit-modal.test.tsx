@@ -3,7 +3,7 @@ import { render } from "@testing-library/react";
 import { ChangeEditModal } from "./change-edit-modal";
 import type { ChangeItem } from "./types";
 
-const draft: ChangeItem = { id: 1, title: "Widen scope", description: "", type: "Scope", status: "Proposed", raisedDate: "2026-06-01", linkedTaskIds: [], linkedRaidIds: [] };
+const draft: ChangeItem = { id: 1, title: "Widen scope", description: "", type: "Scope", status: "Proposed", raisedDate: "2026-06-01", linkedTaskIds: [], linkedRaidIds: [], stakeholderIds: [] };
 const base = {
   lang: "en-US" as const, tasks: [], raid: [], draft, isNew: false,
   onChange: vi.fn(), onApplyStatus: vi.fn(), onSave: vi.fn(), onCancel: vi.fn(), onDelete: vi.fn(),

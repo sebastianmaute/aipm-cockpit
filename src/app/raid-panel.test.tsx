@@ -44,6 +44,7 @@ function makeRaidItem(overrides: Partial<RaidItem> & Pick<RaidItem, "id" | "titl
     raisedDate: "2026-05-22",
     linkedTaskIds: [],
     causedByRaidIds: [],
+    stakeholderIds: [],
     ...overrides,
   };
 }
@@ -125,6 +126,7 @@ describe("RaidPanel inline add row", () => {
       severity: "Medium" as const, status: "Open" as const,
       raisedDate: "2026-05-22", linkedTaskIds: [],
       causedByRaidIds: [],
+      stakeholderIds: [],
     };
     renderPanel(makeProps({ raid: [item] }));
     const addBtns = screen.getAllByRole("button", { name: t("en-US", "raidAddItem") });

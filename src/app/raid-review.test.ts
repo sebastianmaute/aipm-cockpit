@@ -5,7 +5,7 @@ import type { RaidItem } from "./types";
 function raid(partial: Partial<RaidItem>): RaidItem {
   return {
     id: 1, category: "R", title: "x", status: "Open",
-    linkedTaskIds: [], causedByRaidIds: [], raisedDate: "2026-01-01",
+    linkedTaskIds: [], causedByRaidIds: [], stakeholderIds: [], raisedDate: "2026-01-01",
     ...partial,
   };
 }

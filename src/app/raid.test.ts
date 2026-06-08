@@ -30,6 +30,7 @@ function makeItem(overrides: Partial<RaidItem> & Pick<RaidItem, "id" | "category
     status: "Open",
     linkedTaskIds: [],
     causedByRaidIds: [],
+    stakeholderIds: [],
     raisedDate: "2025-01-01",
     ...overrides,
   };
@@ -500,6 +501,7 @@ function ri(over: Partial<import("./types").RaidItem>): import("./types").RaidIt
     status: "Open",
     linkedTaskIds: [],
     causedByRaidIds: [],
+    stakeholderIds: [],
     raisedDate: "2026-01-01",
     ...over,
   };
