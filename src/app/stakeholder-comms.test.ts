@@ -340,6 +340,31 @@ describe("getStakeholderCommsItems", () => {
       });
       expect(result).toEqual([]);
     });
+
+    it("partial override (missing quadrant) falls back to default lead days, not undefined-suppressed", () => {
+      // keep-satisfied default leadDays = 7; milestone 5 days out should trigger it.
+      // The partial override only provides manage-closely; keep-satisfied is absent.
+      // Before the fix, leadDaysByQuadrant[quadrant] === undefined → policy.leadDays = undefined
+      // → dayDiff(...) <= undefined → always false → reminder silently suppressed (bug).
+      // After the fix, the ?? fallback reinstates basePolicy.leadDays (7) → reminder fires.
+      const s = stake({ id: 1, name: "Sam", influence: "High", interest: "Low", raci: { "1": "R" } });
+      const result = getStakeholderCommsItems({
+        stakeholders: [s],
+        milestones: [milestone({ id: 1, name: "Upcoming", date: "2026-06-13" })], // 5 days out
+        raid: [],
+        changes: [],
+        today: TODAY,
+        flags: ALL_ON,
+        // Partial: only manage-closely supplied; keep-satisfied key absent.
+        leadDaysByQuadrant: { "manage-closely": 30 } as unknown as Record<string, number> as never,
+      });
+      expect(result).toHaveLength(1);
+      expect(result[0]).toMatchObject({
+        quadrant: "keep-satisfied",
+        itemId: 1,
+        reasonKey: "stakeholderCommsMilestoneDue",
+      });
+    });
   });
 
   it("sorts by priority desc then stakeholder name", () => {

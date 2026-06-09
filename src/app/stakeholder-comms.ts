@@ -194,7 +194,7 @@ export function getStakeholderCommsItems(args: CommsArgs): StakeholderCommsRemin
     const quadrant = quadrantFor(s);
     const basePolicy = POLICY[quadrant];
     const policy: QuadrantPolicy = leadDaysByQuadrant
-      ? { ...basePolicy, leadDays: leadDaysByQuadrant[quadrant] }
+      ? { ...basePolicy, leadDays: leadDaysByQuadrant[quadrant] ?? basePolicy.leadDays }
       : basePolicy;
 
     if (flags.milestonesEnabled && hasSource(policy, "milestone")) {
