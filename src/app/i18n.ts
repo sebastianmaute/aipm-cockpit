@@ -1430,6 +1430,20 @@ const enUS = {
   fieldAdjustedMin: "adjusted to min {0}",
   fieldCharsRemoved: "removed: {0}",
   fieldsAdjusted: "Saved — {0} field(s) adjusted to fit limits",
+
+  settingsSectionInformationFlows: "Information flows",
+  infoFlowsIntro: "A read-only overview of the app's interfaces, integrations, and data sources.",
+  infoFlowsDiagramAriaLabel: "Information flows: browser PWA connected to local storage, Turso cloud DB, Jira, Microsoft 365, and the Anthropic API.",
+  infoFlowsLegendLocalLabel: "Local storage",
+  infoFlowsLegendLocalDesc: "Browser IndexedDB and localStorage — default offline-first storage.",
+  infoFlowsLegendTursoLabel: "Turso (libSQL)",
+  infoFlowsLegendTursoDesc: "Optional cloud database for multi-device sync and snapshot trends.",
+  infoFlowsLegendJiraLabel: "Jira",
+  infoFlowsLegendJiraDesc: "Issue tracker accessed via the app's /api/jira server-side proxy.",
+  infoFlowsLegendM365Label: "Microsoft 365",
+  infoFlowsLegendM365Desc: "Graph API + MSAL login — SharePoint files, contacts, and calendar.",
+  infoFlowsLegendAnthropicLabel: "Anthropic API",
+  infoFlowsLegendAnthropicDesc: "Claude AI model powering the built-in Assistant chat.",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;

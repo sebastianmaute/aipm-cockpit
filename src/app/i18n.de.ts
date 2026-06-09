@@ -1448,4 +1448,18 @@ export const de: Record<TranslationKey, string> = {
   fieldAdjustedMin: "auf Minimum {0} angepasst",
   fieldCharsRemoved: "entfernt: {0}",
   fieldsAdjusted: "Gespeichert — {0} Feld(er) auf Grenzwerte angepasst",
+
+  settingsSectionInformationFlows: "Informationsflüsse",
+  infoFlowsIntro: "Eine schreibgeschützte Übersicht der Schnittstellen, Integrationen und Datenquellen der App.",
+  infoFlowsDiagramAriaLabel: "Informationsflüsse: Browser-PWA verbunden mit lokalem Speicher, Turso-Cloud-DB, Jira, Microsoft 365 und der Anthropic-API.",
+  infoFlowsLegendLocalLabel: "Lokaler Speicher",
+  infoFlowsLegendLocalDesc: "Browser IndexedDB und localStorage — Standard-Offline-Speicher.",
+  infoFlowsLegendTursoLabel: "Turso (libSQL)",
+  infoFlowsLegendTursoDesc: "Optionale Cloud-Datenbank für geräteübergreifende Synchronisation und Snapshot-Trends.",
+  infoFlowsLegendJiraLabel: "Jira",
+  infoFlowsLegendJiraDesc: "Issue-Tracker, erreichbar über den serverseitigen Proxy /api/jira der App.",
+  infoFlowsLegendM365Label: "Microsoft 365",
+  infoFlowsLegendM365Desc: "Graph-API + MSAL-Login — SharePoint-Dateien, Kontakte und Kalender.",
+  infoFlowsLegendAnthropicLabel: "Anthropic-API",
+  infoFlowsLegendAnthropicDesc: "Claude-KI-Modell für den integrierten Assistenten-Chat.",
 };
