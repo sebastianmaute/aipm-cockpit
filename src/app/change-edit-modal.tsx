@@ -26,9 +26,8 @@ import {
 import { useDraggable } from "./use-draggable";
 import { CharCounter, FieldNotice, useAdjustmentTracker } from "./field-feedback";
 import { describeTextCap, describeClamp } from "./sanitize-report";
-import { TASK_NAME_MAX, TEXTAREA_MAX, ASSIGNEE_MAX } from "./sanitize";
-
-const AMOUNT_MAX = 1_000_000_000;
+import { TASK_NAME_MAX, TEXTAREA_MAX, ASSIGNEE_MAX, AMOUNT_MAX } from "./sanitize";
+import { useToastContext } from "./toast-context";
 
 export interface ChangeEditModalProps {
   lang: Lang;
@@ -47,7 +46,6 @@ export interface ChangeEditModalProps {
   onSave: () => void;
   onCancel: () => void;
   onDelete: () => void;
-  onShowToast?: (kind: "info" | "error", msg: string) => void;
 }
 
 const TYPE_LABEL_KEYS: Record<ChangeType, TranslationKey> = {
@@ -90,8 +88,8 @@ export function ChangeEditModal({
   onSave,
   onCancel,
   onDelete,
-  onShowToast,
 }: ChangeEditModalProps) {
+  const showToast = useToastContext();
   const [error, setError] = useState<string | null>(null);
   const [taskPickerQuery, setTaskPickerQuery] = useState("");
   const [raidPickerQuery, setRaidPickerQuery] = useState("");
@@ -152,7 +150,7 @@ export function ChangeEditModal({
     adj.track(describeTextCap(draft.description ?? "", TEXTAREA_MAX));
     adj.track(describeTextCap(draft.requestedBy ?? "", ASSIGNEE_MAX));
     adj.track(describeTextCap(draft.decisionBy ?? "", ASSIGNEE_MAX));
-    if (adj.count() > 0) onShowToast?.("info", t(lang, "fieldsAdjusted", adj.count()));
+    if (adj.count() > 0) showToast("info", t(lang, "fieldsAdjusted", adj.count()));
     onSave();
   }
 

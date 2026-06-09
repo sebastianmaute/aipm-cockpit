@@ -29,6 +29,7 @@ import { buildRaidByTaskIndex } from "./raid";
 import { buildChangeByTaskIndex } from "./change-log";
 import { FiltersProvider, useFilters } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
+import { ToastProvider } from "./toast-context";
 import { useChangeLog } from "./use-change-log";
 import { useStakeholders } from "./use-stakeholders";
 import {
@@ -1181,12 +1182,18 @@ function TaskManagerInner() {
   );
 
   if (isPopout) {
-    return <VoiceCommandProvider value={voiceHandlers}>{legacyTree}</VoiceCommandProvider>;
+    return (
+      <ToastProvider value={showToast}>
+        <VoiceCommandProvider value={voiceHandlers}>{legacyTree}</VoiceCommandProvider>
+      </ToastProvider>
+    );
   }
   return (
-    <VoiceCommandProvider value={voiceHandlers}>
-      <AppShell layout={settings.layout} classic={legacyTree} modern={modernTree} />
-    </VoiceCommandProvider>
+    <ToastProvider value={showToast}>
+      <VoiceCommandProvider value={voiceHandlers}>
+        <AppShell layout={settings.layout} classic={legacyTree} modern={modernTree} />
+      </VoiceCommandProvider>
+    </ToastProvider>
   );
 }
 
