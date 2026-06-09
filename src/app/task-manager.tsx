@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createSettingsLogger, SETTINGS_LOG_DEBOUNCE_MS } from "./settings-log";
 import { getAlertableTasks } from "./due-dates";
 import { getBucketReminders } from "./budget-report";
 import { t } from "./i18n";
@@ -696,6 +697,28 @@ function TaskManagerInner() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bucketReminderKey]);
+
+  // Log a coarse, debounced "settings.updated" activity entry on every
+  // user-driven settings change. Guards:
+  //   1. Pre-hydration: `hydrated` is false until localStorage is loaded;
+  //      the effect skips all runs while false.
+  //   2. Initial mount: even after hydration the very first run reflects the
+  //      loaded value (not a user edit), so `settingsInitialRef` suppresses it.
+  //   3. Secrets: `logActivity("settings.updated")` emits no field values.
+  const settingsLoggerRef = useRef(
+    createSettingsLogger(() => logActivity("settings.updated"), SETTINGS_LOG_DEBOUNCE_MS),
+  );
+  const settingsInitialRef = useRef(true);
+  useEffect(() => {
+    if (!hydrated) return;
+    if (settingsInitialRef.current) {
+      settingsInitialRef.current = false;
+      return;
+    }
+    const logger = settingsLoggerRef.current;
+    logger.notifyChange();
+    return () => logger.cancel();
+  }, [settings, hydrated]);
 
   const absenceKnownAssignees = useMemo(
     () => [
