@@ -19,6 +19,8 @@ import {
   type Shift,
   type WeekHours,
 } from "./types";
+import { FieldNotice } from "./field-feedback";
+import { describeClamp } from "./sanitize-report";
 
 interface Props {
   lang: Lang;
@@ -57,13 +59,6 @@ const DAY_KEYS: ReadonlyArray<
   "shiftDaySat",
 ];
 
-function clampOnInput(raw: string): number {
-  const n = Number(raw);
-  if (!Number.isFinite(n)) return 0;
-  if (n < 0) return 0;
-  if (n > MAX_HOURS_PER_DAY) return MAX_HOURS_PER_DAY;
-  return Math.round(n * 10) / 10;
-}
 
 export function ShiftEditModal({
   lang,
@@ -78,6 +73,7 @@ export function ShiftEditModal({
   const [prevShift, setPrevShift] = useState(shift);
   const [draft, setDraft] = useState<Shift | null>(shift);
   const [error, setError] = useState<string | null>(null);
+  const [hourNotice, setHourNotice] = useState<Record<number, string>>({});
 
   if (prevShift !== shift) {
     setPrevShift(shift);
@@ -200,10 +196,22 @@ export function ShiftEditModal({
                     step={0.5}
                     value={draft.hoursPerWeekday[idx] ?? 0}
                     onChange={(e) =>
-                      updateHour(idx, clampOnInput(e.target.value))
+                      updateHour(idx, Number(e.target.value))
                     }
+                    onBlur={(e) => {
+                      const r = describeClamp(e.target.value, { min: 0, max: MAX_HOURS_PER_DAY, round: 1 });
+                      updateHour(idx, r.value ?? 0);
+                      const adj = r.adjustment?.kind === "clamped" ? r.adjustment : null;
+                      setHourNotice((n) => ({
+                        ...n,
+                        [idx]: adj
+                          ? t(lang, adj.bound === "max" ? "fieldAdjustedMax" : "fieldAdjustedMin", adj.to)
+                          : "",
+                      }));
+                    }}
                     className="w-full rounded-md border border-line bg-surface px-1 py-1 text-center text-sm tabular-nums"
                   />
+                  <FieldNotice>{hourNotice[idx]}</FieldNotice>
                 </label>
               ))}
             </div>
