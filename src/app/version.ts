@@ -1,3 +1,14 @@
+// 0.56.0 "Bradbury" surfaces silent input sanitization so users can see when
+// their entries are adjusted to fit storage limits. Character counters appear
+// on capped text fields across the task, RAID, change, budget, stakeholder,
+// and resource editors as entries approach the character cap (hidden below ~80%,
+// turning warning-colored at the limit). On-blur clamp notices appear on numeric
+// fields — shift hours, change schedule-days/cost, and budget fixed amount +
+// rate/FX overrides — when a value was adjusted to its min/max. A label strip
+// notice fires when separator characters are removed. A save-time toast
+// summarizes how many fields were adjusted. New pure modules: sanitize-report.ts
+// (adjustment descriptors), field-feedback.tsx (CharCounter, FieldNotice,
+// useAdjustmentTracker), and toast-context.tsx (shared toast access for editors).
 // 0.55.0 "Clarke" is a UI-refinement batch plus stakeholder communication
 // reminders. UI: the i18n DE bundle is audited for literal-UTF-8 umlauts (a new
 // encoding guard test); the dashboard Save/Clear buttons move beside the status
@@ -704,12 +715,12 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.55.0";
-export const APP_BUILD_DATE = "2026-06-08"; // 0.55.0 UI batch + stakeholder comms reminders
+export const APP_VERSION = "0.56.0";
+export const APP_BUILD_DATE = "2026-06-09"; // 0.56.0 input sanitization feedback
 /** Minor-series milestone codename (sci-fi/fantasy author names). The whole
- *  0.55.x line is "Clarke" (Arthur C. Clarke); patch releases inherit
+ *  0.56.x line is "Bradbury" (Ray Bradbury); patch releases inherit
  *  their minor version's codename rather than getting their own. */
-export const APP_MILESTONE = "Clarke";
+export const APP_MILESTONE = "Bradbury";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -776,4 +787,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightStakeholderReport",
   "versionHighlightModes",
   "versionHighlightClarke",
+  "versionHighlightFieldFeedback",
 ] as const;

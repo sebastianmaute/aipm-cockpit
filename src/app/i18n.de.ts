@@ -1412,6 +1412,7 @@ export const de: Record<TranslationKey, string> = {
   modeDiscard: "Verwerfen",
   versionHighlightModes: "Einfach- / Modular- / Erweitert-Modus: App auf Aufgaben, Chat und Berichte reduzieren und Funktionen nach Bedarf wieder aktivieren.",
   versionHighlightClarke: "Stakeholder-Kommunikationserinnerungen weisen darauf hin, wichtige Stakeholder vor Meilensteinen, RAID-Einträgen und Änderungen einzubinden.",
+  versionHighlightFieldFeedback: "Eingabe-Feedback: Zeichenzähler, Anpassungshinweise und eine Zusammenfassung beim Speichern, wenn Eingaben auf Grenzwerte angepasst wurden.",
   fieldCounter: "{0} / {1}",
   fieldTrimmedToFit: "auf Maximallänge gekürzt",
   fieldAdjustedMax: "auf Maximum {0} angepasst",

@@ -8,6 +8,20 @@ Authoritative source for version + build date: [`src/app/version.ts`](src/app/ve
 This file is seeded from that module's milestone comment plus the
 post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-diff.txt).
 
+## [0.56.0] — 2026-06-09 "Bradbury"
+
+### Added
+- **Input sanitization feedback** so silent input transformations are now visible:
+  - **Character counters** appear on capped text fields as they approach the limit (hidden below ~80%, turning warning-colored at the cap) across the task, RAID, change, budget, stakeholder, and resource editors.
+  - **On-blur clamp notices** on numeric fields (shift hours, change schedule-days/cost, budget fixed amount + rate/FX overrides) show when a value was adjusted to its min/max.
+  - **Label strip notice** when separator characters are removed from a label.
+  - **Save-time toast** summarizing how many fields were adjusted to fit limits.
+- New modules: pure `sanitize-report.ts` (describes text-cap / clamp / label-strip adjustments), `field-feedback.tsx` (`CharCounter`, `FieldNotice`, `useAdjustmentTracker`), and `toast-context.tsx` (shared toast access for editors).
+
+### Changed
+- Capped text inputs no longer hard-stop at the limit via the browser `maxLength`; instead the counter shows the overflow and the value is trimmed on blur (storage-layer sanitizers remain the final guard).
+- `BUDGET_NAME_MAX`, `PO_NUMBER_MAX`, `AMOUNT_MAX` are now exported from `sanitize.ts`.
+
 ## [0.55.0] — 2026-06-08 "Clarke"
 
 ### Added

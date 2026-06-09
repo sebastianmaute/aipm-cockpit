@@ -1394,6 +1394,7 @@ const enUS = {
   versionHighlightRaidReview: "RAID review reminders flag overdue & stale items; RAG polish on the dashboard and budget report.",
   versionHighlightModes: "Simple / Modular / Advanced mode: pare the app to Tasks, Chat & Reports and re-enable functions as needed.",
   versionHighlightClarke: "Stakeholder communication reminders nudge you to engage key stakeholders before milestones, RAID items, and changes.",
+  versionHighlightFieldFeedback: "Input feedback: character counters, clamp notices, and a save-time summary when entries are adjusted to fit limits.",
   fieldCounter: "{0} / {1}",
   fieldTrimmedToFit: "trimmed to fit",
   fieldAdjustedMax: "adjusted to max {0}",
