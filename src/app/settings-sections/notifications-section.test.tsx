@@ -59,12 +59,13 @@ describe("useGlobalLeadDays toggle", () => {
     render(
       <NotificationsSection lang="en-US" settings={defaultSettings} onChange={vi.fn()} />,
     );
-    // All spinbuttons labelled with notifLeadDaysPerReminder should be disabled
+    // Only banner, toast, popup, birthday have lead-days inputs (raidReview and
+    // stakeholderComms use interval/quadrant-policy respectively — no lead-days input)
     const perReminderLabel = t("en-US", "notifLeadDaysPerReminder");
     const inputs = screen
       .getAllByRole("spinbutton")
       .filter((el) => el.getAttribute("aria-label") === perReminderLabel);
-    expect(inputs.length).toBeGreaterThan(0);
+    expect(inputs).toHaveLength(4);
     inputs.forEach((el) => expect(el).toBeDisabled());
   });
 
@@ -78,7 +79,7 @@ describe("useGlobalLeadDays toggle", () => {
     const inputs = screen
       .getAllByRole("spinbutton")
       .filter((el) => el.getAttribute("aria-label") === perReminderLabel);
-    expect(inputs.length).toBeGreaterThan(0);
+    expect(inputs).toHaveLength(4);
     inputs.forEach((el) => expect(el).not.toBeDisabled());
   });
 

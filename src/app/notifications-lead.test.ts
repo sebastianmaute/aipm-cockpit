@@ -51,11 +51,7 @@ describe("effectiveLeadDays", () => {
       useGlobalLeadDays: true,
       reminderLeadDays: 10,
       birthday: { enabled: true, leadDays: 2 },
-      raidReview: { enabled: true, leadDays: 5 },
-      stakeholderComms: { enabled: true, leadDays: 1 },
     });
     expect(effectiveLeadDays(cfg, "birthday")).toBe(10);
-    expect(effectiveLeadDays(cfg, "raidReview")).toBe(10);
-    expect(effectiveLeadDays(cfg, "stakeholderComms")).toBe(10);
   });
 });

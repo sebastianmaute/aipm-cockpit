@@ -1,13 +1,7 @@
 // src/app/notifications-lead.ts
 import type { NotificationsConfig } from "./settings-types";
 
-type LeadChannel =
-  | "banner"
-  | "toast"
-  | "popup"
-  | "birthday"
-  | "raidReview"
-  | "stakeholderComms";
+type LeadChannel = "banner" | "toast" | "popup" | "birthday";
 
 export function effectiveLeadDays(
   cfg: NotificationsConfig,

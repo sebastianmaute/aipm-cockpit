@@ -105,7 +105,7 @@ export function NotificationsSection({ lang, settings, onChange }: Notifications
         onChange={(c) => patchNotif({ birthday: c })}
       />
 
-      {/* RAID review */}
+      {/* RAID review — uses raidReviewIntervalDays, not a per-reminder lead-days */}
       <NotificationRow
         labelKey="notifRaidReview"
         lang={lang}
@@ -113,6 +113,7 @@ export function NotificationsSection({ lang, settings, onChange }: Notifications
         useGlobalLeadDays={notifications.useGlobalLeadDays}
         perReminderLabel={t(lang, "notifLeadDaysPerReminder")}
         tooltipKey="notifRaidReviewTooltip"
+        showLeadDays={false}
         onChange={(c) => patchNotif({ raidReview: c })}
       />
 
@@ -140,7 +141,7 @@ export function NotificationsSection({ lang, settings, onChange }: Notifications
         />
       </label>
 
-      {/* Stakeholder comms */}
+      {/* Stakeholder comms — uses hardcoded per-quadrant policy (14/7/7/3 days), not a per-reminder lead-days */}
       <NotificationRow
         labelKey="notifStakeholderComms"
         lang={lang}
@@ -148,6 +149,7 @@ export function NotificationsSection({ lang, settings, onChange }: Notifications
         useGlobalLeadDays={notifications.useGlobalLeadDays}
         perReminderLabel={t(lang, "notifLeadDaysPerReminder")}
         tooltipKey="notifStakeholderCommsTooltip"
+        showLeadDays={false}
         onChange={(c) => patchNotif({ stakeholderComms: c })}
       />
 
@@ -176,6 +178,9 @@ interface NotificationRowProps {
   useGlobalLeadDays: boolean;
   perReminderLabel: string;
   tooltipKey?: TranslationKey;
+  /** Whether to render the per-reminder lead-days numeric input. Defaults to true.
+   *  Set to false for channels that don't use lead-days (raidReview, stakeholderComms). */
+  showLeadDays?: boolean;
   onChange: (c: ChannelConfig) => void;
 }
 
@@ -186,6 +191,7 @@ function NotificationRow({
   useGlobalLeadDays,
   perReminderLabel,
   tooltipKey,
+  showLeadDays = true,
   onChange,
 }: NotificationRowProps) {
   const label = t(lang, labelKey);
@@ -214,17 +220,19 @@ function NotificationRow({
         </label>
         {tooltipKey && <InfoTooltip text={t(lang, tooltipKey)} />}
       </div>
-      <input
-        type="number"
-        min={0}
-        max={365}
-        aria-label={perReminderLabel}
-        disabled={useGlobalLeadDays}
-        value={config.leadDays ?? ""}
-        placeholder={useGlobalLeadDays ? "—" : ""}
-        onChange={(e) => handleLeadDaysChange(e.target.value)}
-        className="w-16 rounded-md border border-line px-2 py-1 text-right tabular-nums disabled:cursor-not-allowed disabled:opacity-40"
-      />
+      {showLeadDays && (
+        <input
+          type="number"
+          min={0}
+          max={365}
+          aria-label={perReminderLabel}
+          disabled={useGlobalLeadDays}
+          value={config.leadDays ?? ""}
+          placeholder={useGlobalLeadDays ? "—" : ""}
+          onChange={(e) => handleLeadDaysChange(e.target.value)}
+          className="w-16 rounded-md border border-line px-2 py-1 text-right tabular-nums disabled:cursor-not-allowed disabled:opacity-40"
+        />
+      )}
     </div>
   );
 }
