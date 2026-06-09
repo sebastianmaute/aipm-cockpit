@@ -19,6 +19,10 @@ import {
   type Role,
 } from "./types";
 import { roleLabel, resourceDisplayName } from "./resource-foundation";
+import { CharCounter, FieldNotice, useAdjustmentTracker } from "./field-feedback";
+import { describeTextCap, describeClamp } from "./sanitize-report";
+import { BUDGET_NAME_MAX, PO_NUMBER_MAX, AMOUNT_MAX } from "./sanitize";
+import { useToastContext } from "./toast-context";
 
 interface BudgetBucketModalProps {
   lang: Lang;
@@ -50,7 +54,10 @@ export function BudgetBucketModal({
   const [error, setError] = useState<string | null>(null);
   const [roleToAdd, setRoleToAdd] = useState<string>("");
   const [disciplineToAdd, setDisciplineToAdd] = useState<string>("");
+  const [notice, setNotice] = useState<Record<string, string>>({});
   const { offset, handleProps } = useDraggable(true);
+  const showToast = useToastContext();
+  const adj = useAdjustmentTracker();
 
   const allocatedRoleIds = new Set(draft.allocations.map((a) => a.roleId));
   const addableRoles = roles.filter((r) => !allocatedRoleIds.has(r.id));
@@ -175,7 +182,13 @@ export function BudgetBucketModal({
     if (badOverride(draft.rateOverrideInternal) || badOverride(draft.rateOverrideExternal)) {
       return setError(t(lang, "budgetRateOverrideInvalid"));
     }
-    onSave({ ...draft, localModifiedAt: new Date().toISOString() });
+    adj.reset();
+    const savedName = adj.track(describeTextCap(draft.name, BUDGET_NAME_MAX)).trim();
+    const savedPoNumber = draft.poNumber != null
+      ? adj.track(describeTextCap(draft.poNumber, PO_NUMBER_MAX)).trim() || undefined
+      : undefined;
+    if (adj.count() > 0) showToast("info", t(lang, "fieldsAdjusted", adj.count()));
+    onSave({ ...draft, name: savedName, poNumber: savedPoNumber, localModifiedAt: new Date().toISOString() });
   };
 
   const isFixed = draft.type === "fixed";
@@ -206,10 +219,15 @@ export function BudgetBucketModal({
             <input
               className={inputClass}
               value={draft.name}
+              aria-describedby="bucket-name-counter"
               onChange={(e) =>
                 setDraft((d) => ({ ...d, name: e.target.value }))
               }
+              onBlur={(e) =>
+                setDraft((d) => ({ ...d, name: describeTextCap(e.target.value, BUDGET_NAME_MAX).value.trim() }))
+              }
             />
+            <CharCounter value={draft.name} max={BUDGET_NAME_MAX} id="bucket-name-counter" lang={lang} />
           </label>
 
           {/* PO number */}
@@ -218,13 +236,21 @@ export function BudgetBucketModal({
             <input
               className={inputClass}
               value={draft.poNumber ?? ""}
+              aria-describedby="bucket-po-counter"
               onChange={(e) =>
                 setDraft((d) => ({
                   ...d,
                   poNumber: e.target.value || undefined,
                 }))
               }
+              onBlur={(e) =>
+                setDraft((d) => ({
+                  ...d,
+                  poNumber: describeTextCap(e.target.value, PO_NUMBER_MAX).value.trim() || undefined,
+                }))
+              }
             />
+            <CharCounter value={draft.poNumber ?? ""} max={PO_NUMBER_MAX} id="bucket-po-counter" lang={lang} />
           </label>
 
           {/* Type */}
@@ -283,7 +309,19 @@ export function BudgetBucketModal({
                         : Number(e.target.value),
                   }))
                 }
+                onBlur={(e) => {
+                  const r = describeClamp(e.target.value, { min: 0, max: AMOUNT_MAX, round: 2 });
+                  setDraft((d) => ({ ...d, fixedPriceAmount: r.value }));
+                  const adj = r.adjustment?.kind === "clamped" ? r.adjustment : null;
+                  setNotice((n) => ({
+                    ...n,
+                    fixedPriceAmount: adj
+                      ? t(lang, adj.bound === "max" ? "fieldAdjustedMax" : "fieldAdjustedMin", adj.to)
+                      : "",
+                  }));
+                }}
               />
+              <FieldNotice>{notice.fixedPriceAmount}</FieldNotice>
             </label>
           )}
 
@@ -358,7 +396,19 @@ export function BudgetBucketModal({
                       : Number(e.target.value),
                 }))
               }
+              onBlur={(e) => {
+                const r = describeClamp(e.target.value, { min: 0, max: AMOUNT_MAX, round: 2 });
+                setDraft((d) => ({ ...d, fxRateOverride: r.value }));
+                const clamped = r.adjustment?.kind === "clamped" ? r.adjustment : null;
+                setNotice((n) => ({
+                  ...n,
+                  fxRateOverride: clamped
+                    ? t(lang, clamped.bound === "max" ? "fieldAdjustedMax" : "fieldAdjustedMin", clamped.to)
+                    : "",
+                }));
+              }}
             />
+            <FieldNotice>{notice.fxRateOverride}</FieldNotice>
             <span className="text-xs text-muted-foreground">
               {t(lang, "budgetFxOverrideHint")}
             </span>
@@ -399,9 +449,21 @@ export function BudgetBucketModal({
                 onChange={(e) =>
                   setDraft((d) => ({ ...d, rateOverrideInternal: e.target.value === "" ? undefined : Number(e.target.value) }))
                 }
+                onBlur={(e) => {
+                  const r = describeClamp(e.target.value, { min: 0, max: AMOUNT_MAX, round: 2 });
+                  setDraft((d) => ({ ...d, rateOverrideInternal: r.value }));
+                  const clamped = r.adjustment?.kind === "clamped" ? r.adjustment : null;
+                  setNotice((n) => ({
+                    ...n,
+                    rateOverrideInternal: clamped
+                      ? t(lang, clamped.bound === "max" ? "fieldAdjustedMax" : "fieldAdjustedMin", clamped.to)
+                      : "",
+                  }));
+                }}
               />
               <span className="text-xs text-muted-foreground">{t(lang, "budgetUnitPerHour")}</span>
             </div>
+            <FieldNotice>{notice.rateOverrideInternal}</FieldNotice>
           </label>
           <label className="flex flex-col gap-1 text-sm">
             <span>{t(lang, "budgetRateOverrideExternal")}</span>
@@ -417,9 +479,21 @@ export function BudgetBucketModal({
                 onChange={(e) =>
                   setDraft((d) => ({ ...d, rateOverrideExternal: e.target.value === "" ? undefined : Number(e.target.value) }))
                 }
+                onBlur={(e) => {
+                  const r = describeClamp(e.target.value, { min: 0, max: AMOUNT_MAX, round: 2 });
+                  setDraft((d) => ({ ...d, rateOverrideExternal: r.value }));
+                  const clamped = r.adjustment?.kind === "clamped" ? r.adjustment : null;
+                  setNotice((n) => ({
+                    ...n,
+                    rateOverrideExternal: clamped
+                      ? t(lang, clamped.bound === "max" ? "fieldAdjustedMax" : "fieldAdjustedMin", clamped.to)
+                      : "",
+                  }));
+                }}
               />
               <span className="text-xs text-muted-foreground">{t(lang, "budgetUnitPerHour")}</span>
             </div>
+            <FieldNotice>{notice.rateOverrideExternal}</FieldNotice>
           </label>
 
           {/* Role allocations (detailed mode) */}
