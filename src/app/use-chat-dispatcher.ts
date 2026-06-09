@@ -8,7 +8,7 @@ import {
   type Dispatch,
   type SetStateAction,
 } from "react";
-import { type Filters, type ToolDispatcher } from "./chat-tools";
+import { type Filters, type ToolDispatcher, toRaidSummary, toChangeSummary, toMilestoneSummary } from "./chat-tools";
 import { greetingName } from "./contacts";
 import { useFilters } from "./filters-context";
 import { t } from "./i18n";
@@ -41,7 +41,7 @@ export interface ChatDispatcherArgs {
 }
 
 export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
-  const { tasks, setTasks } = useWorkspace();
+  const { tasks, setTasks, raid, changes, milestones } = useWorkspace();
   const { editingId, setEditingId, setForm } = useTaskForm();
   const {
     setSearch,
@@ -59,6 +59,9 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   const settingsRef = useRef(args.settings);
   const todayRef = useRef(args.today);
   const editingIdRef = useRef(editingId);
+  const raidRef = useRef(raid);
+  const changesRef = useRef(changes);
+  const milestonesRef = useRef(milestones);
   useEffect(() => {
     tasksRef.current = tasks;
   }, [tasks]);
@@ -71,6 +74,15 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   useEffect(() => {
     editingIdRef.current = editingId;
   }, [editingId]);
+  useEffect(() => {
+    raidRef.current = raid;
+  }, [raid]);
+  useEffect(() => {
+    changesRef.current = changes;
+  }, [changes]);
+  useEffect(() => {
+    milestonesRef.current = milestones;
+  }, [milestones]);
 
   // Helpers live inside the hook — they're not consumed anywhere else.
   // Stubbed for now; filled in by later tasks.
@@ -287,6 +299,9 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
       setFilters: applyFilters,
       setLanguage: (l) =>
         args.setSettings((s) => ({ ...s, language: l })),
+      listRaid: () => raidRef.current.map(toRaidSummary),
+      listChanges: () => changesRef.current.map(toChangeSummary),
+      listMilestones: () => milestonesRef.current.map(toMilestoneSummary),
       getSnapshot: () => {
         const tasks = tasksRef.current;
         const groups = new Set<string>();

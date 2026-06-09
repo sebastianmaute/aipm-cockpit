@@ -320,6 +320,12 @@ const enUS = {
   chatError: "Chat failed: {0}",
   chatGreeting:
     "I can list, add, update, delete tasks and send inquiries. Try \"show overdue tasks\" or \"add a task to review the pricing deck due Friday\".",
+  chatPromptUpdate: "Give me an update",
+  chatPromptUpdateBody:
+    "Call list_tasks, list_raid, list_changes, and list_milestones. Then rank every actionable item by urgency and impact: overdue tasks, open high-severity RAID items, pending or under-review change requests, and overdue milestones come first. For each item state its id, title/name, status, due date where relevant, and the single most important next action the project lead should take. Group by category (Tasks / RAID / Changes / Milestones) and finish with a one-sentence overall project-health summary.",
+  chatPromptOverdue: "Show overdue tasks",
+  chatPromptAtRisk: "What's at risk?",
+  chatPromptStatusUpdate: "Draft a status update for stakeholders",
 
   aiConsentTitle: "Enable Claude chat?",
   aiConsentBullet1:

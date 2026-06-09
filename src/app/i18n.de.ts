@@ -327,6 +327,12 @@ export const de: Record<TranslationKey, string> = {
   chatError: "Chat fehlgeschlagen: {0}",
   chatGreeting:
     "Ich kann Aufgaben anzeigen, anlegen, ändern, löschen und Anfragen senden. Probieren Sie \"zeige überfällige Aufgaben\" oder \"neue Aufgabe Pricing-Deck prüfen, fällig Freitag\".",
+  chatPromptUpdate: "Statusübersicht",
+  chatPromptUpdateBody:
+    "Rufe list_tasks, list_raid, list_changes und list_milestones auf. Ranke dann alle offenen Punkte nach Dringlichkeit und Auswirkung: überfällige Aufgaben, offene RAID-Einträge mit hohem Schweregrad, ausstehende oder in Prüfung befindliche Änderungsanträge und überfällige Meilensteine zuerst. Nenne für jeden Punkt ID, Titel/Name, Status, Fälligkeitsdatum (falls vorhanden) und die wichtigste nächste Maßnahme. Gruppiere nach Kategorie (Aufgaben / RAID / Änderungen / Meilensteine) und schließe mit einer Satz-Zusammenfassung des Projektgesundheitszustands ab.",
+  chatPromptOverdue: "Überfällige Aufgaben anzeigen",
+  chatPromptAtRisk: "Was ist gefährdet?",
+  chatPromptStatusUpdate: "Statusbericht für Stakeholder erstellen",
 
   aiConsentTitle: "Claude-Chat aktivieren?",
   aiConsentBullet1:

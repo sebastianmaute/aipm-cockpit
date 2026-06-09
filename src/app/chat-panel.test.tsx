@@ -1,5 +1,5 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { ChatPanel } from "./chat-panel";
@@ -128,6 +128,81 @@ describe("Stop button", () => {
     );
     // No error alert.
     expect(screen.queryByRole("alert")).toBeNull();
+  });
+});
+
+describe("suggested prompt chips", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  function renderEmpty() {
+    render(
+      <ChatPanel
+        lang="en-US"
+        ai={AI_WITH_KEY}
+        dispatcher={makeDispatcher()}
+        onAcceptConsent={vi.fn()}
+      />,
+    );
+  }
+
+  it("renders the suggested-prompt chip list when the conversation is empty", () => {
+    renderEmpty();
+    // The <ul aria-label="Suggested prompts"> is the landmark for the chips.
+    expect(screen.getByRole("list", { name: "Suggested prompts" })).toBeInTheDocument();
+  });
+
+  it("renders a 'Give me an update' chip", () => {
+    renderEmpty();
+    expect(
+      screen.getByRole("button", { name: "Give me an update" }),
+    ).toBeInTheDocument();
+  });
+
+  it("renders all four chips", () => {
+    renderEmpty();
+    expect(screen.getByRole("button", { name: "Give me an update" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Show overdue tasks" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "What's at risk?" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Draft a status update for stakeholders" })).toBeInTheDocument();
+  });
+
+  it("clicking 'Give me an update' fills the textarea with the directive prompt body", () => {
+    renderEmpty();
+    fireEvent.click(screen.getByRole("button", { name: "Give me an update" }));
+    const textarea = screen.getByPlaceholderText("Ask Claude about your tasks…") as HTMLTextAreaElement;
+    expect(textarea.value).toMatch(/list_tasks/);
+    expect(textarea.value).toMatch(/list_raid/);
+    expect(textarea.value).toMatch(/list_changes/);
+    expect(textarea.value).toMatch(/list_milestones/);
+  });
+
+  it("clicking 'Show overdue tasks' fills the textarea with that text", () => {
+    renderEmpty();
+    fireEvent.click(screen.getByRole("button", { name: "Show overdue tasks" }));
+    const textarea = screen.getByPlaceholderText("Ask Claude about your tasks…") as HTMLTextAreaElement;
+    expect(textarea.value).toBe("Show overdue tasks");
+  });
+
+  it("chips are hidden after the first message is sent (while busy)", async () => {
+    let rejectFetch!: (reason: unknown) => void;
+    const pending = new Promise<Response>((_res, rej) => { rejectFetch = rej; });
+    vi.spyOn(globalThis, "fetch").mockReturnValue(pending);
+
+    renderEmpty();
+    const textarea = screen.getByPlaceholderText("Ask Claude about your tasks…");
+    fireEvent.change(textarea, { target: { value: "hello" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Stop" })).toBeInTheDocument(),
+    );
+    expect(screen.queryByRole("list", { name: "Suggested prompts" })).toBeNull();
+
+    // clean up
+    const abortError = Object.assign(new Error("Aborted"), { name: "AbortError" });
+    rejectFetch(abortError);
   });
 });
 

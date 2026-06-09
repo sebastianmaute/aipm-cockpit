@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { runTool, type ToolDispatcher, type Filters } from "./chat-tools";
-import { type Task } from "./types";
+import { runTool, TOOL_DEFS, type ToolDispatcher, type Filters } from "./chat-tools";
+import { type Task, type RaidItem, type ChangeItem, type Milestone } from "./types";
 
 function makeTask(over: Partial<Task> = {}): Task {
   return {
@@ -25,6 +25,48 @@ function makeTask(over: Partial<Task> = {}): Task {
  * defaults. Tests override individual returns as needed. runTool only ever
  * touches the dispatcher through this interface, so this is a complete double.
  */
+function makeRaidItem(over: Partial<RaidItem> = {}): RaidItem {
+  return {
+    id: 10,
+    category: "R",
+    title: "Budget overrun risk",
+    status: "Open",
+    severity: "High",
+    owner: "Alice",
+    stakeholderIds: [1, 2],
+    linkedTaskIds: [],
+    raisedDate: "2026-05-01",
+    causedByRaidIds: [],
+    ...over,
+  } as RaidItem;
+}
+
+function makeChangeItem(over: Partial<ChangeItem> = {}): ChangeItem {
+  return {
+    id: 20,
+    title: "Scope expansion",
+    description: "Add new module",
+    type: "Scope",
+    status: "Proposed",
+    impact: "High",
+    raisedDate: "2026-05-10",
+    linkedTaskIds: [],
+    linkedRaidIds: [],
+    stakeholderIds: [3],
+    ...over,
+  } as ChangeItem;
+}
+
+function makeMilestone(over: Partial<Milestone> = {}): Milestone {
+  return {
+    id: 30,
+    name: "Phase 1 complete",
+    date: "2026-07-01",
+    linkedTaskIds: [],
+    ...over,
+  } as Milestone;
+}
+
 function makeDispatcher(over: Partial<ToolDispatcher> = {}): ToolDispatcher {
   return {
     listTasks: vi.fn(() => [makeTask()]),
@@ -38,6 +80,18 @@ function makeDispatcher(over: Partial<ToolDispatcher> = {}): ToolDispatcher {
     sendInquiry: vi.fn(() => ({ sent: true })),
     setFilters: vi.fn(),
     setLanguage: vi.fn(),
+    listRaid: vi.fn(() => [makeRaidItem()].map((r) => ({
+      id: r.id, category: r.category, title: r.title, status: r.status,
+      severity: r.severity, owner: r.owner, stakeholderIds: r.stakeholderIds ?? [],
+    }))),
+    listChanges: vi.fn(() => [makeChangeItem()].map((c) => ({
+      id: c.id, title: c.title, status: c.status,
+      impact: c.impact, decisionDate: c.decisionDate,
+      stakeholderIds: c.stakeholderIds ?? [],
+    }))),
+    listMilestones: vi.fn(() => [makeMilestone()].map((m) => ({
+      id: m.id, name: m.name, date: m.date, achievedDate: m.achievedDate,
+    }))),
     getSnapshot: vi.fn(() => ({
       today: "2026-06-02",
       language: "en-US" as const,
@@ -312,5 +366,109 @@ describe("runTool — get_app_state and edge cases", () => {
     expect(await runTool(d, "list_tasks", null)).toEqual([makeTask()]);
     // get_task with no usable input → id is NaN → validation error.
     await expect(runTool(d, "get_task", null)).rejects.toThrow("id must be a number");
+  });
+});
+
+describe("TOOL_DEFS — new read-only tools are registered", () => {
+  it("list_raid, list_changes, list_milestones appear in TOOL_DEFS", () => {
+    const names = TOOL_DEFS.map((t) => t.name);
+    expect(names).toContain("list_raid");
+    expect(names).toContain("list_changes");
+    expect(names).toContain("list_milestones");
+  });
+
+  it("each new tool has an empty-object input_schema (read-only, no params)", () => {
+    for (const toolName of ["list_raid", "list_changes", "list_milestones"]) {
+      const def = TOOL_DEFS.find((t) => t.name === toolName);
+      expect(def).toBeDefined();
+      expect(def!.input_schema).toEqual({ type: "object", properties: {} });
+    }
+  });
+});
+
+describe("runTool — list_raid", () => {
+  it("returns projected RAID summaries from the dispatcher", async () => {
+    const d = makeDispatcher();
+    const result = await runTool(d, "list_raid", {});
+    expect(d.listRaid).toHaveBeenCalledOnce();
+    expect(result).toEqual([
+      {
+        id: 10,
+        category: "R",
+        title: "Budget overrun risk",
+        status: "Open",
+        severity: "High",
+        owner: "Alice",
+        stakeholderIds: [1, 2],
+      },
+    ]);
+  });
+
+  it("returns an empty array when there are no RAID items", async () => {
+    const d = makeDispatcher({ listRaid: vi.fn(() => []) });
+    expect(await runTool(d, "list_raid", {})).toEqual([]);
+  });
+
+  it("does not crash on legacy RAID items with undefined stakeholderIds", async () => {
+    const legacy = makeRaidItem({ stakeholderIds: undefined as unknown as number[] });
+    const d = makeDispatcher({
+      listRaid: vi.fn(() => [{ ...legacy, stakeholderIds: legacy.stakeholderIds ?? [] }]),
+    });
+    const [item] = (await runTool(d, "list_raid", {})) as { stakeholderIds: number[] }[];
+    expect(item.stakeholderIds).toEqual([]);
+  });
+});
+
+describe("runTool — list_changes", () => {
+  it("returns projected change summaries from the dispatcher", async () => {
+    const d = makeDispatcher();
+    const result = await runTool(d, "list_changes", {});
+    expect(d.listChanges).toHaveBeenCalledOnce();
+    expect(result).toEqual([
+      {
+        id: 20,
+        title: "Scope expansion",
+        status: "Proposed",
+        impact: "High",
+        decisionDate: undefined,
+        stakeholderIds: [3],
+      },
+    ]);
+  });
+
+  it("does not crash on legacy change items with undefined stakeholderIds", async () => {
+    const legacy = makeChangeItem({ stakeholderIds: undefined as unknown as number[] });
+    const d = makeDispatcher({
+      listChanges: vi.fn(() => [{ ...legacy, stakeholderIds: legacy.stakeholderIds ?? [] }]),
+    });
+    const [item] = (await runTool(d, "list_changes", {})) as { stakeholderIds: number[] }[];
+    expect(item.stakeholderIds).toEqual([]);
+  });
+});
+
+describe("runTool — list_milestones", () => {
+  it("returns projected milestone summaries from the dispatcher", async () => {
+    const d = makeDispatcher();
+    const result = await runTool(d, "list_milestones", {});
+    expect(d.listMilestones).toHaveBeenCalledOnce();
+    expect(result).toEqual([
+      {
+        id: 30,
+        name: "Phase 1 complete",
+        date: "2026-07-01",
+        achievedDate: undefined,
+      },
+    ]);
+  });
+
+  it("includes achievedDate when signed off", async () => {
+    const achieved = makeMilestone({ achievedDate: "2026-06-28" });
+    const d = makeDispatcher({
+      listMilestones: vi.fn(() => [
+        { id: achieved.id, name: achieved.name, date: achieved.date, achievedDate: achieved.achievedDate },
+      ]),
+    });
+    const [item] = (await runTool(d, "list_milestones", {})) as { achievedDate?: string }[];
+    expect(item.achievedDate).toBe("2026-06-28");
   });
 });

@@ -3,6 +3,15 @@
 import { memo, useEffect, useRef, useState } from "react";
 import { TOOL_DEFS, type ToolDispatcher, runTool } from "./chat-tools";
 import { type Lang, type TranslationKey, t } from "./i18n";
+
+type PromptChip = { labelKey: TranslationKey; bodyKey: TranslationKey };
+
+const PROMPT_CHIPS: PromptChip[] = [
+  { labelKey: "chatPromptUpdate", bodyKey: "chatPromptUpdateBody" },
+  { labelKey: "chatPromptOverdue", bodyKey: "chatPromptOverdue" },
+  { labelKey: "chatPromptAtRisk", bodyKey: "chatPromptAtRisk" },
+  { labelKey: "chatPromptStatusUpdate", bodyKey: "chatPromptStatusUpdate" },
+];
 import { Markdown } from "./markdown";
 import { CHAT_MESSAGE_MAX } from "./sanitize";
 import type { AiConfig } from "./settings-menu";
@@ -323,9 +332,26 @@ function ChatPanelInner({
         className="flex-1 overflow-y-auto rounded-md border border-line bg-surface-muted p-3"
       >
         {display.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            {apiKeyMissing ? t(lang, "chatNoApiKey") : t(lang, "chatGreeting")}
-          </p>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              {apiKeyMissing ? t(lang, "chatNoApiKey") : t(lang, "chatGreeting")}
+            </p>
+            {!apiKeyMissing && (
+              <ul className="flex flex-wrap gap-2 list-none p-0 m-0" aria-label="Suggested prompts">
+                {PROMPT_CHIPS.map((chip) => (
+                  <li key={chip.labelKey}>
+                    <button
+                      type="button"
+                      onClick={() => setInput(t(lang, chip.bodyKey))}
+                      className="rounded-full border border-AIPM-dark-blue/40 bg-surface px-3 py-1 text-xs font-medium text-AIPM-dark-blue hover:bg-AIPM-dark-blue/10 focus:outline-none focus:ring-2 focus:ring-AIPM-dark-blue/50 dark:border-AIPM-dark-blue/60 dark:text-AIPM-dark-blue dark:hover:bg-AIPM-dark-blue/20"
+                    >
+                      {t(lang, chip.labelKey)}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         ) : (
           <ul className="space-y-3">
             {display.map((item, idx) => (
