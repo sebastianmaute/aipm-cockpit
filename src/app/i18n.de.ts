@@ -48,7 +48,9 @@ export const de: Record<TranslationKey, string> = {
   placeholderBlockers: "Was verhindert den Fortschritt?",
   placeholderNotes: "Sonstiges Erwähnenswertes",
 
-  errorRequired: "Aufgabenname, Zugewiesen an und Fälligkeitsdatum sind erforderlich.",
+  errorTaskNameRequired: "Aufgabenname ist erforderlich.",
+  errorAssigneeRequired: "Zugewiesen an ist erforderlich.",
+  errorDueDateRequired: "Fälligkeitsdatum ist erforderlich.",
   errorPastDate: "Fälligkeitsdatum muss heute oder später sein.",
   errorInvalidEmail: "Das sieht nicht nach einer gültigen E-Mail-Adresse aus.",
 

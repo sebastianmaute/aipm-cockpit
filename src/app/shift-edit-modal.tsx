@@ -8,7 +8,7 @@
 //
 // Phase 4 of the Resource Planner. See docs/RESOURCE-PLANNER-PLAN.md.
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
@@ -74,6 +74,7 @@ export function ShiftEditModal({
   const [draft, setDraft] = useState<Shift | null>(shift);
   const [error, setError] = useState<string | null>(null);
   const [hourNotice, setHourNotice] = useState<Record<number, string>>({});
+  const dayNoticeBase = useId();
 
   if (prevShift !== shift) {
     setPrevShift(shift);
@@ -184,7 +185,10 @@ export function ShiftEditModal({
               {t(lang, "shiftHoursPerDay")}
             </span>
             <div className="grid grid-cols-7 gap-2">
-              {DAY_KEYS.map((labelKey, idx) => (
+              {DAY_KEYS.map((labelKey, idx) => {
+                const rowNoticeId = `${dayNoticeBase}-${idx}`;
+                const hasNotice = Boolean(hourNotice[idx]);
+                return (
                 <label key={labelKey} className="flex flex-col gap-1">
                   <span className="text-center text-[10px] uppercase tracking-wide text-muted-foreground">
                     {t(lang, labelKey)}
@@ -195,6 +199,8 @@ export function ShiftEditModal({
                     max={MAX_HOURS_PER_DAY}
                     step={0.5}
                     value={draft.hoursPerWeekday[idx] ?? 0}
+                    aria-invalid={hasNotice || undefined}
+                    aria-describedby={hasNotice ? rowNoticeId : undefined}
                     onChange={(e) =>
                       updateHour(idx, Number(e.target.value))
                     }
@@ -211,9 +217,10 @@ export function ShiftEditModal({
                     }}
                     className="w-full rounded-md border border-line bg-surface px-1 py-1 text-center text-sm tabular-nums"
                   />
-                  <FieldNotice>{hourNotice[idx]}</FieldNotice>
+                  <FieldNotice id={rowNoticeId}>{hourNotice[idx]}</FieldNotice>
                 </label>
-              ))}
+                );
+              })}
             </div>
             <span className="mt-1 text-[11px] text-muted-foreground">
               {t(lang, "resourcesWeeklyHours")}:{" "}

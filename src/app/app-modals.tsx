@@ -3,6 +3,7 @@
 import React, { type RefObject } from "react";
 import { DueDatesModal } from "./notifications";
 import { TaskFormModal } from "./task-form-modal";
+import { type TaskFieldErrors } from "./task-validation";
 import { JiraConflictsModal } from "./jira-conflicts-modal";
 import { AbsenceEditModal } from "./absence-edit-modal";
 import { ShiftEditModal } from "./shift-edit-modal";
@@ -59,7 +60,9 @@ export interface AppModalsProps {
   uniqueLabels: string[];
   editingIsJiraLinked: boolean;
   jiraEnabled: boolean;
-  error: string | null;
+  fieldErrors: TaskFieldErrors;
+  submitted: boolean;
+  saveDisabled: boolean;
   holidaySet: Set<string>;
   jiraProjectKey: string | undefined;
   jiraDefaultIssueType: string | undefined;
@@ -110,7 +113,9 @@ export function AppModals({
   uniqueLabels,
   editingIsJiraLinked,
   jiraEnabled,
-  error,
+  fieldErrors,
+  submitted,
+  saveDisabled,
   holidaySet,
   jiraProjectKey,
   jiraDefaultIssueType,
@@ -140,7 +145,9 @@ export function AppModals({
           uniqueLabels={uniqueLabels}
           editingIsJiraLinked={editingIsJiraLinked}
           jiraEnabled={jiraEnabled}
-          error={error}
+          fieldErrors={fieldErrors}
+          submitted={submitted}
+          saveDisabled={saveDisabled}
           holidaySet={holidaySet}
           jiraProjectKey={jiraProjectKey}
           jiraDefaultIssueType={jiraDefaultIssueType}

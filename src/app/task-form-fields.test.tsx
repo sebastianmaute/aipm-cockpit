@@ -17,7 +17,8 @@ function Harness() {
         uniqueLabels={[]}
         editingIsJiraLinked={false}
         jiraEnabled={false}
-        error={null}
+        fieldErrors={{}}
+        submitted={false}
         holidaySet={new Set()}
         jiraProjectKey={undefined}
         jiraDefaultIssueType={undefined}
@@ -53,14 +54,15 @@ describe("TaskFormFields", () => {
     expect(section!.textContent).toContain("Due date");
   });
 
-  it("shows the error message when provided", () => {
+  it("shows a per-field error (role=alert) when a field error is set and submitted", () => {
     function ErrHarness() {
       return (
         <form aria-label="form">
           <TaskFormFields
             lang="en-US" today="2026-05-29" nextId={1} contactsList={[]}
             absences={[]} tasksForDeps={[]} uniqueGroups={[]} uniqueLabels={[]}
-            editingIsJiraLinked={false} jiraEnabled={false} error="Boom"
+            editingIsJiraLinked={false} jiraEnabled={false}
+            fieldErrors={{ taskName: "errorTaskNameRequired" }} submitted
             holidaySet={new Set()} jiraProjectKey={undefined} jiraDefaultIssueType={undefined}
             onRemoveContact={vi.fn()} onShowToast={vi.fn()} onAddAssigneeToAddressBook={vi.fn()}
           />
@@ -68,6 +70,6 @@ describe("TaskFormFields", () => {
       );
     }
     render(<ErrHarness />, { wrapper: TestProviders });
-    expect(screen.getByRole("alert").textContent).toContain("Boom");
+    expect(screen.getByRole("alert").textContent).toContain("Task name is required");
   });
 });

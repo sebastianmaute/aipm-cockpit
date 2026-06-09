@@ -299,7 +299,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     try {
       const pick = pickFileForBackend(target);
       if (pick) await pick;
-      await target.save({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, milestones, changes });
+      await target.save({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, milestones, changes, stakeholders });
       suppressNextLoadRef.current = true;
       args.setStorageConfig(newConfig);
       args.showToast("info", t(langRef.current, "storageConvertedToast", label));

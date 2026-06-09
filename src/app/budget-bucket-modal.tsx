@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
@@ -58,6 +58,10 @@ export function BudgetBucketModal({
   const { offset, handleProps } = useDraggable(true);
   const showToast = useToastContext();
   const adj = useAdjustmentTracker();
+  const fixedPriceNoticeId = useId();
+  const fxNoticeId = useId();
+  const rateIntNoticeId = useId();
+  const rateExtNoticeId = useId();
 
   const allocatedRoleIds = new Set(draft.allocations.map((a) => a.roleId));
   const addableRoles = roles.filter((r) => !allocatedRoleIds.has(r.id));
@@ -300,6 +304,8 @@ export function BudgetBucketModal({
                 type="number"
                 min={0}
                 value={draft.fixedPriceAmount ?? ""}
+                aria-invalid={!!notice.fixedPriceAmount || undefined}
+                aria-describedby={notice.fixedPriceAmount ? fixedPriceNoticeId : undefined}
                 onChange={(e) =>
                   setDraft((d) => ({
                     ...d,
@@ -321,7 +327,7 @@ export function BudgetBucketModal({
                   }));
                 }}
               />
-              <FieldNotice>{notice.fixedPriceAmount}</FieldNotice>
+              <FieldNotice id={fixedPriceNoticeId}>{notice.fixedPriceAmount}</FieldNotice>
             </label>
           )}
 
@@ -386,6 +392,8 @@ export function BudgetBucketModal({
               step="0.0001"
               value={draft.fxRateOverride ?? ""}
               aria-label={t(lang, "budgetFxOverride")}
+              aria-invalid={!!notice.fxRateOverride || undefined}
+              aria-describedby={notice.fxRateOverride ? fxNoticeId : undefined}
               title={t(lang, "budgetFxOverrideHint")}
               onChange={(e) =>
                 setDraft((d) => ({
@@ -408,7 +416,7 @@ export function BudgetBucketModal({
                 }));
               }}
             />
-            <FieldNotice>{notice.fxRateOverride}</FieldNotice>
+            <FieldNotice id={fxNoticeId}>{notice.fxRateOverride}</FieldNotice>
             <span className="text-xs text-muted-foreground">
               {t(lang, "budgetFxOverrideHint")}
             </span>
@@ -444,6 +452,8 @@ export function BudgetBucketModal({
                 min={0}
                 step="0.01"
                 aria-label={t(lang, "budgetRateOverrideInternal")}
+                aria-invalid={!!notice.rateOverrideInternal || undefined}
+                aria-describedby={notice.rateOverrideInternal ? rateIntNoticeId : undefined}
                 title={t(lang, "budgetRateOverrideHint")}
                 value={draft.rateOverrideInternal ?? ""}
                 onChange={(e) =>
@@ -463,7 +473,7 @@ export function BudgetBucketModal({
               />
               <span className="text-xs text-muted-foreground">{t(lang, "budgetUnitPerHour")}</span>
             </div>
-            <FieldNotice>{notice.rateOverrideInternal}</FieldNotice>
+            <FieldNotice id={rateIntNoticeId}>{notice.rateOverrideInternal}</FieldNotice>
           </label>
           <label className="flex flex-col gap-1 text-sm">
             <span>{t(lang, "budgetRateOverrideExternal")}</span>
@@ -474,6 +484,8 @@ export function BudgetBucketModal({
                 min={0}
                 step="0.01"
                 aria-label={t(lang, "budgetRateOverrideExternal")}
+                aria-invalid={!!notice.rateOverrideExternal || undefined}
+                aria-describedby={notice.rateOverrideExternal ? rateExtNoticeId : undefined}
                 title={t(lang, "budgetRateOverrideHint")}
                 value={draft.rateOverrideExternal ?? ""}
                 onChange={(e) =>
@@ -493,7 +505,7 @@ export function BudgetBucketModal({
               />
               <span className="text-xs text-muted-foreground">{t(lang, "budgetUnitPerHour")}</span>
             </div>
-            <FieldNotice>{notice.rateOverrideExternal}</FieldNotice>
+            <FieldNotice id={rateExtNoticeId}>{notice.rateOverrideExternal}</FieldNotice>
           </label>
 
           {/* Role allocations (detailed mode) */}

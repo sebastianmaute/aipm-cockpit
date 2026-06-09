@@ -6,9 +6,19 @@ import { useAdjustmentTracker } from "./field-feedback";
 import type { Report } from "./sanitize-report";
 
 describe("CharCounter", () => {
-  it("renders nothing below 80% of the cap", () => {
+  it("renders nothing below 80% of the cap when no id is given", () => {
     const { container } = render(<CharCounter value={"x".repeat(70)} max={100} lang="en-US" />);
     expect(container).toBeEmptyDOMElement();
+  });
+
+  it("keeps the id present (hidden, empty) below 80% so aria-describedby never dangles", () => {
+    const { container } = render(
+      <CharCounter value={"x".repeat(70)} max={100} id="my-counter" lang="en-US" />,
+    );
+    const el = container.querySelector("#my-counter");
+    expect(el).not.toBeNull();
+    expect(el).toHaveAttribute("hidden");
+    expect(el?.textContent).toBe("");
   });
 
   it("shows count / max at >=80% of the cap", () => {

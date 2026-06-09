@@ -1,5 +1,6 @@
 "use client";
 
+import { cloneElement, isValidElement, type ReactElement } from "react";
 import { ComboInput } from "./combo-input";
 import { type Lang, priorityLabel, t } from "./i18n";
 import { LabelsInput } from "./labels-input";
@@ -346,7 +347,16 @@ function BulkEditFieldRow({
         >
           {label}
         </label>
-        {children}
+        {/* The visible label is bound to the enable checkbox (htmlFor=id), so
+            give the field control its own accessible name. Native elements
+            (input/select/textarea) accept aria-label; custom children keep
+            their own labelling. */}
+        {isValidElement(children) && typeof children.type === "string"
+          ? cloneElement(children as ReactElement<{ "aria-label"?: string }>, {
+              "aria-label":
+                (children.props as { "aria-label"?: string })["aria-label"] ?? label,
+            })
+          : children}
       </div>
     </div>
   );

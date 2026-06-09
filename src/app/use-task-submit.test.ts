@@ -71,17 +71,21 @@ function makeArgs(overrides: Partial<Parameters<typeof useTaskSubmit>[0]> = {}) 
 }
 
 describe("useTaskSubmit", () => {
-  it("error is null initially", () => {
+  it("is not disabled and has no field errors for a valid initial form", () => {
     const { result } = renderHook(() => useTaskSubmit(makeArgs()));
-    expect(result.current.error).toBeNull();
+    expect(result.current.saveDisabled).toBe(false);
+    expect(result.current.fieldErrors).toEqual({});
   });
 
-  it("handleSubmit sets error when required fields are missing", () => {
+  it("flags the missing field and blocks submit when a required field is empty", () => {
+    const setTasks = vi.fn();
     const { result } = renderHook(() =>
-      useTaskSubmit(makeArgs({ form: { ...validForm(), taskName: "" } })),
+      useTaskSubmit(makeArgs({ setTasks, form: { ...validForm(), taskName: "" } })),
     );
+    expect(result.current.saveDisabled).toBe(true);
+    expect(result.current.fieldErrors.taskName).toBe("errorTaskNameRequired");
     act(() => result.current.handleSubmit(fakeSubmitEvent()));
-    expect(result.current.error).not.toBeNull();
+    expect(setTasks).not.toHaveBeenCalled();
   });
 
   it("handleSubmit calls setTasks on valid new-task submission", () => {
@@ -102,6 +106,27 @@ describe("useTaskSubmit", () => {
     expect(setEditingId).toHaveBeenCalledWith(null);
   });
 
+  it("clears submitted when reopening for edit (next form starts quiet)", () => {
+    const { result } = renderHook(() =>
+      useTaskSubmit(makeArgs({ form: { ...validForm(), taskName: "" } })),
+    );
+    // A blocked submit flips submitted true so all field errors reveal.
+    act(() => result.current.handleSubmit(fakeSubmitEvent()));
+    expect(result.current.submitted).toBe(true);
+    act(() => result.current.openEditModal(makeTask()));
+    expect(result.current.submitted).toBe(false);
+  });
+
+  it("clears submitted on cancel", () => {
+    const { result } = renderHook(() =>
+      useTaskSubmit(makeArgs({ form: { ...validForm(), taskName: "" } })),
+    );
+    act(() => result.current.handleSubmit(fakeSubmitEvent()));
+    expect(result.current.submitted).toBe(true);
+    act(() => result.current.handleCancelEdit());
+    expect(result.current.submitted).toBe(false);
+  });
+
   it("openEditModal calls setEditingId with the task id", () => {
     const setEditingId = vi.fn();
     const task = makeTask();
@@ -119,8 +144,8 @@ describe("useTaskSubmit — validation guards", () => {
     const { result } = renderHook(() =>
       useTaskSubmit(makeArgs({ setTasks, form: { ...validForm(), dueDate: "2029-12-31" } })),
     );
+    expect(result.current.fieldErrors.dueDate).toBe("errorPastDate");
     act(() => result.current.handleSubmit(fakeSubmitEvent()));
-    expect(result.current.error).not.toBeNull();
     expect(setTasks).not.toHaveBeenCalled();
   });
 
@@ -129,8 +154,8 @@ describe("useTaskSubmit — validation guards", () => {
     const { result } = renderHook(() =>
       useTaskSubmit(makeArgs({ setTasks, form: { ...validForm(), assigneeEmail: "not-an-email" } })),
     );
+    expect(result.current.fieldErrors.assigneeEmail).toBe("errorInvalidEmail");
     act(() => result.current.handleSubmit(fakeSubmitEvent()));
-    expect(result.current.error).not.toBeNull();
     expect(setTasks).not.toHaveBeenCalled();
   });
 

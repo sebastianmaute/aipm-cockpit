@@ -1,13 +1,13 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { ComboInput } from "./combo-input";
 import { ContactInput } from "./contact-input";
 import type { listContacts } from "./contacts";
 import { DependenciesEditor } from "./dependencies-editor";
 import { formatDuration, parseDuration } from "./duration";
-import { CharCounter, FieldNotice } from "./field-feedback";
+import { CharCounter, FieldError, FieldNotice } from "./field-feedback";
 import {
   computeTaskHealth,
   HEALTH_VALUES,
@@ -29,6 +29,7 @@ import { describeTextCap } from "./sanitize-report";
 import { EffortProgressBar } from "./effort-progress-bar";
 import { SegmentedControl } from "./segmented-control";
 import { useTaskForm } from "./task-form-context";
+import { type TaskErrorField, type TaskFieldErrors } from "./task-validation";
 import { PRIORITIES, type Absence, type Task } from "./types";
 
 // voice-button is lazy-loaded — it transitively pulls the Web Speech API
@@ -54,7 +55,8 @@ export interface TaskFormFieldsProps {
   uniqueLabels: string[];
   editingIsJiraLinked: boolean;
   jiraEnabled: boolean;
-  error: string | null;
+  fieldErrors: TaskFieldErrors;
+  submitted: boolean;
   holidaySet: Set<string>;
   jiraProjectKey: string | undefined;
   jiraDefaultIssueType: string | undefined;
@@ -74,7 +76,8 @@ export function TaskFormFields({
   uniqueLabels,
   editingIsJiraLinked,
   jiraEnabled,
-  error,
+  fieldErrors,
+  submitted,
   holidaySet,
   jiraProjectKey,
   jiraDefaultIssueType,
@@ -84,6 +87,29 @@ export function TaskFormFields({
 }: TaskFormFieldsProps) {
   const { form, setForm, editingId } = useTaskForm();
   const isEditing = editingId !== null;
+
+  // A field's error shows once it's been blurred (touched) or a submit was
+  // attempted — a pristine form stays quiet. Reset when switching tasks via the
+  // "adjust state during render" pattern (same idiom as contact-input.tsx) — an
+  // effect would trip react-hooks/set-state-in-effect.
+  const [touched, setTouched] = useState<Set<TaskErrorField>>(() => new Set());
+  const [prevEditingId, setPrevEditingId] = useState(editingId);
+  if (prevEditingId !== editingId) {
+    setPrevEditingId(editingId);
+    setTouched(new Set());
+  }
+  const markTouched = (field: TaskErrorField) =>
+    setTouched((prev) => (prev.has(field) ? prev : new Set(prev).add(field)));
+  const errorFor = (field: TaskErrorField): string | null => {
+    const key = fieldErrors[field];
+    if (!key || !(submitted || touched.has(field))) return null;
+    return t(lang, key);
+  };
+  /** aria-describedby: the field's base id(s) plus its error id when shown.
+   *  `base` is optional — dueDate has no CharCounter, so it passes none and is
+   *  described only by its error id (when active). */
+  const describedBy = (field: TaskErrorField, base?: string): string | undefined =>
+    [base, errorFor(field) ? `${field}-error` : ""].filter(Boolean).join(" ") || undefined;
 
   return (
     <>
@@ -120,11 +146,13 @@ export function TaskFormFields({
               required
               value={form.taskName}
               onChange={(e) => setForm({ ...form, taskName: e.target.value })}
-              onBlur={(e) =>
-                setForm({ ...form, taskName: describeTextCap(e.target.value, TASK_NAME_MAX).value.trim() })
-              }
+              onBlur={(e) => {
+                setForm({ ...form, taskName: describeTextCap(e.target.value, TASK_NAME_MAX).value.trim() });
+                markTouched("taskName");
+              }}
               placeholder={t(lang, "placeholderTaskName")}
-              aria-describedby="taskName-counter"
+              aria-invalid={errorFor("taskName") ? true : undefined}
+              aria-describedby={describedBy("taskName", "taskName-counter")}
               className={`${inputClass} pr-10`}
             />
             <InlineMicButton
@@ -143,6 +171,7 @@ export function TaskFormFields({
             />
           </div>
           <CharCounter value={form.taskName} max={TASK_NAME_MAX} id="taskName-counter" lang={lang} />
+          <FieldError id="taskName-error">{errorFor("taskName")}</FieldError>
         </Field>
 
         <Field label={t(lang, "assignee")} required>
@@ -171,10 +200,13 @@ export function TaskFormFields({
                   }))
                 }
                 onRemoveContact={onRemoveContact}
-                onBlur={(e) =>
-                  setForm((prev) => ({ ...prev, assignee: describeTextCap(e.target.value, ASSIGNEE_MAX).value.trim() }))
-                }
-                aria-describedby="assignee-counter"
+                onBlur={(e) => {
+                  setForm((prev) => ({ ...prev, assignee: describeTextCap(e.target.value, ASSIGNEE_MAX).value.trim() }));
+                  markTouched("assignee");
+                }}
+                aria-invalid={errorFor("assignee") ? true : undefined}
+                aria-describedby={describedBy("assignee", "assignee-counter")}
+                aria-required
                 placeholder={t(lang, "placeholderAssignee")}
                 disabled={editingIsJiraLinked}
                 title={
@@ -196,6 +228,7 @@ export function TaskFormFields({
             </button>
           </div>
           <CharCounter value={form.assignee} max={ASSIGNEE_MAX} id="assignee-counter" lang={lang} />
+          <FieldError id="assignee-error">{errorFor("assignee")}</FieldError>
           {editingIsJiraLinked && (
             <p className="mt-1 text-xs italic text-muted-foreground">
               🔒 {t(lang, "jiraManagedHint")}
@@ -210,14 +243,17 @@ export function TaskFormFields({
             onChange={(e) =>
               setForm({ ...form, assigneeEmail: e.target.value })
             }
-            onBlur={(e) =>
-              setForm({ ...form, assigneeEmail: describeTextCap(e.target.value, EMAIL_MAX).value.trim() })
-            }
+            onBlur={(e) => {
+              setForm({ ...form, assigneeEmail: describeTextCap(e.target.value, EMAIL_MAX).value.trim() });
+              markTouched("assigneeEmail");
+            }}
             placeholder={t(lang, "placeholderEmail")}
-            aria-describedby="email-counter"
+            aria-invalid={errorFor("assigneeEmail") ? true : undefined}
+            aria-describedby={describedBy("assigneeEmail", "email-counter")}
             className={inputClass}
           />
           <CharCounter value={form.assigneeEmail} max={EMAIL_MAX} id="email-counter" lang={lang} />
+          <FieldError id="assigneeEmail-error">{errorFor("assigneeEmail")}</FieldError>
         </Field>
       </TaskFormSection>
 
@@ -230,9 +266,10 @@ export function TaskFormFields({
             onChange={(e) =>
               setForm({ ...form, startDate: e.target.value })
             }
+            aria-describedby="startDate-hint"
             className={inputClass}
           />
-          <p className="mt-1 text-xs text-muted-foreground">
+          <p id="startDate-hint" className="mt-1 text-xs text-muted-foreground">
             {t(lang, "startDateHint")}
           </p>
         </Field>
@@ -244,8 +281,12 @@ export function TaskFormFields({
             min={today}
             value={form.dueDate}
             onChange={(e) => setForm({ ...form, dueDate: e.target.value })}
+            onBlur={() => markTouched("dueDate")}
+            aria-invalid={errorFor("dueDate") ? true : undefined}
+            aria-describedby={describedBy("dueDate")}
             className={inputClass}
           />
+          <FieldError id="dueDate-error">{errorFor("dueDate")}</FieldError>
           {(() => {
             // Phase 5 — non-blocking absence warning: when the due date
             // falls inside any absence for the form's assignee, show a
@@ -461,15 +502,6 @@ export function TaskFormFields({
           <CharCounter value={form.notes} max={TEXTAREA_MAX} id="notes-counter" lang={lang} />
         </Field>
 
-        {error && (
-          <p
-            role="alert"
-            className="rounded-md bg-AIPM-pink/10 px-3 py-2 text-sm text-AIPM-pink dark:bg-AIPM-pink/15 sm:col-span-2"
-          >
-            {error}
-          </p>
-        )}
-
         {!isEditing &&
           jiraEnabled &&
           jiraProjectKey && (
@@ -515,6 +547,7 @@ function EffortField({
 }) {
   const [text, setText] = useState(() => formatDuration(minutes ?? 0));
   const [invalid, setInvalid] = useState(false);
+  const noticeId = useId();
 
   return (
     <Field label={label}>
@@ -538,9 +571,11 @@ function EffortField({
           onChange(mins);
         }}
         placeholder={t(lang, "taskEffortHint")}
+        aria-invalid={invalid || undefined}
+        aria-describedby={invalid ? noticeId : undefined}
         className={inputClass}
       />
-      {invalid && <FieldNotice>{t(lang, "taskEffortInvalid")}</FieldNotice>}
+      {invalid && <FieldNotice id={noticeId}>{t(lang, "taskEffortInvalid")}</FieldNotice>}
     </Field>
   );
 }
