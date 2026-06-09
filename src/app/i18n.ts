@@ -1431,6 +1431,13 @@ const enUS = {
   fieldCharsRemoved: "removed: {0}",
   fieldsAdjusted: "Saved — {0} field(s) adjusted to fit limits",
 
+  usage80Toast: "You've used 80% of your token budget",
+  aiUsageSession: "Current session",
+  aiUsageWeek: "Current week (all models)",
+  aiUsageResetAt: "Resets {0}",
+  aiSessionCap: "Session token cap",
+  aiWeeklyCap: "Weekly token cap",
+
   settingsSectionInformationFlows: "Information flows",
   infoFlowsIntro: "A read-only overview of the app's interfaces, integrations, and data sources.",
   infoFlowsDiagramAriaLabel: "Information flows: browser PWA connected to local storage, Turso cloud DB, Jira, Microsoft 365, and the Anthropic API.",

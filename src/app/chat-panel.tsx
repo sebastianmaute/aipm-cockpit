@@ -6,7 +6,7 @@ import { type Lang, type TranslationKey, t } from "./i18n";
 import { Markdown } from "./markdown";
 import { CHAT_MESSAGE_MAX } from "./sanitize";
 import type { AiConfig } from "./settings-menu";
-import { useAiUsage } from "./use-ai-usage";
+import { useAiUsageContext } from "./ai-usage-context";
 import { useResizable } from "./use-resizable";
 import { ResizeCornerHint, ResetSizeButton } from "./task-manager-ui";
 import { CENTERED_HALF_PANE_CLASS } from "./view-styles";
@@ -155,7 +155,7 @@ function ChatPanelInner({
   const scrollerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const { ref: chatRef, reset: resetChatSize } = useResizable("lop-app:chat-size");
-  const { record: recordUsage } = useAiUsage();
+  const { record: recordUsage } = useAiUsageContext();
 
   useEffect(() => {
     if (!scrollerRef.current) return;

@@ -1449,6 +1449,13 @@ export const de: Record<TranslationKey, string> = {
   fieldCharsRemoved: "entfernt: {0}",
   fieldsAdjusted: "Gespeichert — {0} Feld(er) auf Grenzwerte angepasst",
 
+  usage80Toast: "Sie haben 80 % Ihres Token-Budgets verbraucht",
+  aiUsageSession: "Aktuelle Sitzung",
+  aiUsageWeek: "Aktuelle Woche (alle Modelle)",
+  aiUsageResetAt: "Zurückgesetzt {0}",
+  aiSessionCap: "Sitzungs-Token-Limit",
+  aiWeeklyCap: "Wöchentliches Token-Limit",
+
   settingsSectionInformationFlows: "Informationsflüsse",
   infoFlowsIntro: "Eine schreibgeschützte Übersicht der Schnittstellen, Integrationen und Datenquellen der App.",
   infoFlowsDiagramAriaLabel: "Informationsflüsse: Browser-PWA verbunden mit lokalem Speicher, Turso-Cloud-DB, Jira, Microsoft 365 und der Anthropic-API.",

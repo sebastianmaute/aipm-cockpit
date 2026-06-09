@@ -2,7 +2,9 @@
 
 import { type Lang, t } from "../i18n";
 import type { ChatModel, Settings } from "../settings-types";
+import { DEFAULT_SESSION_TOKEN_CAP, DEFAULT_WEEKLY_TOKEN_CAP } from "../settings-types";
 import { InfoTooltip } from "../info-tooltip";
+import { AiUsagePanel } from "./ai-usage-panel";
 
 interface AiSectionProps {
   lang: Lang;
@@ -10,7 +12,40 @@ interface AiSectionProps {
   onChange: (s: Settings) => void;
 }
 
+function CapInput({
+  label,
+  value,
+  defaultValue,
+  onChange,
+}: {
+  label: string;
+  value: number | undefined;
+  defaultValue: number;
+  onChange: (n: number) => void;
+}) {
+  const displayed = value != null && value > 0 ? value : defaultValue;
+  return (
+    <label className="mt-2 block">
+      <span className="mb-1 block text-xs text-muted-foreground">{label}</span>
+      <input
+        type="number"
+        min={1}
+        step={1}
+        value={displayed}
+        onChange={(e) => {
+          const n = parseInt(e.target.value, 10);
+          onChange(Number.isFinite(n) && n > 0 ? n : defaultValue);
+        }}
+        className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none focus:ring-1 focus:ring-AIPM-green"
+      />
+    </label>
+  );
+}
+
 export function AiSection({ lang, settings, onChange }: AiSectionProps) {
+  const sessionCap = settings.ai.sessionTokenCap ?? DEFAULT_SESSION_TOKEN_CAP;
+  const weeklyCap = settings.ai.weeklyTokenCap ?? DEFAULT_WEEKLY_TOKEN_CAP;
+
   return (
     <div className="mb-4">
       <span className="mb-1 flex items-center gap-1 text-sm font-medium text-foreground">
@@ -85,6 +120,27 @@ export function AiSection({ lang, settings, onChange }: AiSectionProps) {
           {t(lang, "aiConsentRequired")}
         </p>
       )}
+
+      {/* Token cap inputs */}
+      <CapInput
+        label={t(lang, "aiSessionCap")}
+        value={settings.ai.sessionTokenCap}
+        defaultValue={DEFAULT_SESSION_TOKEN_CAP}
+        onChange={(n) =>
+          onChange({ ...settings, ai: { ...settings.ai, sessionTokenCap: n } })
+        }
+      />
+      <CapInput
+        label={t(lang, "aiWeeklyCap")}
+        value={settings.ai.weeklyTokenCap}
+        defaultValue={DEFAULT_WEEKLY_TOKEN_CAP}
+        onChange={(n) =>
+          onChange({ ...settings, ai: { ...settings.ai, weeklyTokenCap: n } })
+        }
+      />
+
+      {/* Live usage bars — sourced from AiUsageProvider */}
+      <AiUsagePanel lang={lang} sessionCap={sessionCap} weeklyCap={weeklyCap} />
     </div>
   );
 }

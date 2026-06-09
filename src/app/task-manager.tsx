@@ -69,6 +69,7 @@ import { makeEditGuard } from "./read-only-guard";
 import { SettingsView } from "./settings-view";
 import { ReadOnlyMirrorBanner } from "./read-only-mirror-banner";
 import { VoiceCommandProvider } from "./voice-command-context";
+import { AiUsageProvider } from "./ai-usage-context";
 import { useMsAuth } from "./use-ms-auth";
 import { SidebarFooter } from "./sidebar-footer";
 import { useSidebarCollapsed } from "./use-sidebar-collapsed";
@@ -1243,17 +1244,21 @@ function TaskManagerInner() {
 
   if (isPopout) {
     return (
-      <ToastProvider value={showToast}>
-        <VoiceCommandProvider value={voiceHandlers}>{legacyTree}</VoiceCommandProvider>
-      </ToastProvider>
+      <AiUsageProvider lang={lang} ai={settings.ai} showToast={showToast}>
+        <ToastProvider value={showToast}>
+          <VoiceCommandProvider value={voiceHandlers}>{legacyTree}</VoiceCommandProvider>
+        </ToastProvider>
+      </AiUsageProvider>
     );
   }
   return (
-    <ToastProvider value={showToast}>
-      <VoiceCommandProvider value={voiceHandlers}>
-        <AppShell layout={settings.layout} classic={legacyTree} modern={modernTree} />
-      </VoiceCommandProvider>
-    </ToastProvider>
+    <AiUsageProvider lang={lang} ai={settings.ai} showToast={showToast}>
+      <ToastProvider value={showToast}>
+        <VoiceCommandProvider value={voiceHandlers}>
+          <AppShell layout={settings.layout} classic={legacyTree} modern={modernTree} />
+        </VoiceCommandProvider>
+      </ToastProvider>
+    </AiUsageProvider>
   );
 }
 
