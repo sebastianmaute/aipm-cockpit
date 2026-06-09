@@ -90,10 +90,21 @@ function todayISO() {
 // TaskManagerInner consumes the FiltersProvider context. The default
 // export below wraps this in <FiltersProvider> so useFilters() works.
 function TaskManagerInner() {
-  const { settings, setSettings, hydrated, i18nReady, lang } = useSettings();
+  const { settings, setSettings, hydrated, i18nReady, lang, toastFirstJustMigrated } = useSettings();
   const { activityLog, setActivityLog, logActivity, handleClearActivityLog } =
     useActivityLog({ lang });
   const { toast, showToast } = useToast();
+
+  // Fire a one-time info toast when the toast-first migration flipped on this
+  // load (existing user upgrading from pre-0.57 defaults). The ref ensures it
+  // fires exactly once per mount even across re-renders, and never for fresh
+  // installs or already-migrated users (toastFirstJustMigrated is false then).
+  const migrationToastFiredRef = useRef(false);
+  useEffect(() => {
+    if (!toastFirstJustMigrated || !i18nReady || migrationToastFiredRef.current) return;
+    migrationToastFiredRef.current = true;
+    showToast("info", t(lang, "toastFirstMigrationNotice"));
+  }, [toastFirstJustMigrated, i18nReady, lang, showToast]);
 
   const { workspaceCollapsed, setWorkspaceCollapsed } = useWorkspaceCollapsed();
   const { collapsed: sidebarCollapsed, toggle: toggleSidebar } = useSidebarCollapsed();

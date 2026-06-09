@@ -218,6 +218,7 @@ describe("WorkspaceSection", () => {
       hydrated: true,
       i18nReady: true,
       lang: "en-US" as const,
+      toastFirstJustMigrated: false,
     });
 
     render(<WorkspaceSection {...makeProps()} />, { wrapper: Wrapper });

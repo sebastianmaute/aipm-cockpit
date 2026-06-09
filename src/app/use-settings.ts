@@ -78,10 +78,12 @@ export function useSettings(): {
   hydrated: boolean;
   i18nReady: boolean;
   lang: Lang;
+  toastFirstJustMigrated: boolean;
 } {
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [hydrated, setHydrated] = useState(false);
   const [i18nReady, setI18nReady] = useState(false);
+  const [toastFirstJustMigrated, setToastFirstJustMigrated] = useState(false);
 
   // Load settings from localStorage once on mount; lift hydrated + i18nReady gates.
   useEffect(() => {
@@ -92,6 +94,12 @@ export function useSettings(): {
       if (settingsRaw) {
         const parsed = JSON.parse(settingsRaw);
         if (isPlainObject(parsed)) {
+          // Detect whether the toast-first migration will fire on this load:
+          // settingsRaw exists (existing user) and toastFirstMigrated is not yet set.
+          const didMigrate =
+            (parsed as Record<string, unknown>).notifications == null ||
+            ((parsed as Record<string, unknown>).notifications as Record<string, unknown>)
+              .toastFirstMigrated !== true;
           resolvedLang = migrateLang(
             (parsed as Record<string, unknown>).language,
           );
@@ -130,7 +138,10 @@ export function useSettings(): {
             export: sanitizeExportConfig((parsed as Record<string, unknown>).export),
           };
           Promise.resolve().then(() => {
-            if (!cancelled) setSettings(merged);
+            if (!cancelled) {
+              setSettings(merged);
+              if (didMigrate) setToastFirstJustMigrated(true);
+            }
           });
         }
       }
@@ -162,5 +173,5 @@ export function useSettings(): {
 
   const lang = settings.language;
 
-  return { settings, setSettings, hydrated, i18nReady, lang };
+  return { settings, setSettings, hydrated, i18nReady, lang, toastFirstJustMigrated };
 }

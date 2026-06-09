@@ -165,6 +165,8 @@ const enUS = {
   storageSwitchedToast: "Storage backend switched.",
   storageLoadFailed: "Couldn't load tasks: {0}",
   storageSaveFailed: "Couldn't save tasks: {0}",
+  toastFirstMigrationNotice:
+    "Notification defaults updated: reminders now appear as toasts. Banners and pop-ups are off — change this in Settings → Notifications.",
   storageNotReady: "Storage isn't configured yet — pick a file in Settings.",
   storageUnreachable: "Storage unreachable — is the server running?",
   storageUnreachableBanner:

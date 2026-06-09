@@ -461,6 +461,112 @@ describe("notifications migration — useGlobalLeadDays + jiraTokenError", () =>
   });
 });
 
+describe("notifications migration — toast-first: per-channel leadDays preserved during flip", () => {
+  it("banner.leadDays:5 is preserved even though banner.enabled is flipped to false", async () => {
+    const legacy: Record<string, unknown> = {
+      ...defaultSettings,
+      notifications: {
+        reminderLeadDays: 7,
+        useGlobalLeadDays: true,
+        banner: { enabled: true, leadDays: 5 },
+        toast: { enabled: false },
+        popup: { enabled: true },
+        birthday: { enabled: true },
+        raidReview: { enabled: true },
+        raidReviewIntervalDays: 14,
+        stakeholderComms: { enabled: true },
+        stakeholderCommsLeadDays: { "manage-closely": 14, "keep-satisfied": 7, "keep-informed": 7, monitor: 3 },
+        jiraTokenError: { enabled: true },
+        // toastFirstMigrated absent — pre-0.57 persisted config
+      },
+    };
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(legacy));
+    const { result } = renderHook(() => useSettings());
+    await act(async () => {});
+    expect(result.current.settings.notifications.banner.enabled).toBe(false);
+    expect(result.current.settings.notifications.banner.leadDays).toBe(5);
+  });
+
+  it("popup.leadDays:3 is preserved even though popup.enabled is flipped to false", async () => {
+    const legacy: Record<string, unknown> = {
+      ...defaultSettings,
+      notifications: {
+        reminderLeadDays: 7,
+        useGlobalLeadDays: true,
+        banner: { enabled: true },
+        toast: { enabled: false },
+        popup: { enabled: true, leadDays: 3 },
+        birthday: { enabled: true },
+        raidReview: { enabled: true },
+        raidReviewIntervalDays: 14,
+        stakeholderComms: { enabled: true },
+        stakeholderCommsLeadDays: { "manage-closely": 14, "keep-satisfied": 7, "keep-informed": 7, monitor: 3 },
+        jiraTokenError: { enabled: true },
+        // toastFirstMigrated absent
+      },
+    };
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(legacy));
+    const { result } = renderHook(() => useSettings());
+    await act(async () => {});
+    expect(result.current.settings.notifications.popup.enabled).toBe(false);
+    expect(result.current.settings.notifications.popup.leadDays).toBe(3);
+  });
+});
+
+describe("notifications migration — no notifications key at all", () => {
+  it("blob with no notifications key fires migration → banner=false, popup=false, toast=true, flag=true", async () => {
+    // Simulate a very old persisted blob that predates the notifications key entirely.
+    const legacy: Record<string, unknown> = { ...defaultSettings };
+    delete (legacy as Record<string, unknown>).notifications;
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(legacy));
+    const { result } = renderHook(() => useSettings());
+    await act(async () => {});
+    const n = result.current.settings.notifications;
+    expect(n.banner.enabled).toBe(false);
+    expect(n.popup.enabled).toBe(false);
+    expect(n.toast.enabled).toBe(true);
+    expect(n.toastFirstMigrated).toBe(true);
+  });
+});
+
+describe("useSettings — toastFirstJustMigrated signal", () => {
+  it("is true when loading a legacy blob (no toastFirstMigrated)", async () => {
+    const legacy: Record<string, unknown> = {
+      ...defaultSettings,
+      notifications: {
+        ...defaultNotificationsConfig,
+        toastFirstMigrated: undefined,
+      },
+    };
+    // Delete the flag so it's truly absent
+    delete (legacy.notifications as Record<string, unknown>).toastFirstMigrated;
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(legacy));
+    const { result } = renderHook(() => useSettings());
+    await act(async () => {});
+    expect(result.current.toastFirstJustMigrated).toBe(true);
+  });
+
+  it("is false when loading an already-migrated blob (toastFirstMigrated=true)", async () => {
+    localStorage.setItem(
+      SETTINGS_KEY,
+      JSON.stringify({
+        ...defaultSettings,
+        notifications: { ...defaultNotificationsConfig, toastFirstMigrated: true },
+      }),
+    );
+    const { result } = renderHook(() => useSettings());
+    await act(async () => {});
+    expect(result.current.toastFirstJustMigrated).toBe(false);
+  });
+
+  it("is false for a fresh install (empty localStorage)", async () => {
+    // localStorage is cleared in beforeEach — no stored blob at all.
+    const { result } = renderHook(() => useSettings());
+    await act(async () => {});
+    expect(result.current.toastFirstJustMigrated).toBe(false);
+  });
+});
+
 describe("notifications migration — toast-first one-time migration", () => {
   it("defaultNotificationsConfig.toastFirstMigrated is true (fresh installs skip migration)", () => {
     expect(defaultNotificationsConfig.toastFirstMigrated).toBe(true);
