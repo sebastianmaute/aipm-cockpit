@@ -509,3 +509,53 @@ export type FxRates = {
   fetchedAt: string; // ISO timestamp of the fetch
   rates: Record<string, number>; // currency code → units per 1 EUR
 };
+
+// ----------------------------------------------------------------------------
+// Project metadata — top-level descriptor for the project this workspace tracks.
+
+export type IdentityType = "B2E" | "B2B" | "B2C" | "NHI";
+export type Deployment = "Cloud" | "On-premise" | "Hybrid";
+export type RegulatoryRequirement =
+  | "Not applicable"
+  | "GDPR / data protection regulation"
+  | "DORA" | "MaRisk" | "BAIT" | "NIS2" | "HIPAA" | "SOX"
+  | "EU AI Act"
+  | "Export control / sanctions compliance";
+
+export type ContactPerson = {
+  name: string;
+  email: string;
+  /** true = copied from the address book; false = manual, never synced back. */
+  synced: boolean;
+};
+
+export type ProjectMeta = {
+  // Identity
+  name: string;
+  code: string;
+  description?: string;
+  // People — internal group
+  sponsor?: string;
+  projectManager: string;
+  keyStakeholdersInternal: string[];
+  keyStakeholdersExternal: string[];
+  // Customer group
+  customer: string;
+  naceSection: string;            // NACE section letter, e.g. "C"
+  identityTypes: IdentityType[];
+  identityCount?: number;
+  products: string;
+  platform?: string;
+  deployment: Deployment;
+  startDate: string;              // ISO YYYY-MM-DD
+  endDate: string;                // ISO YYYY-MM-DD
+  profitCenter: string;
+  quotes?: string;
+  salesforceUrl?: string;
+  sharepointUrl?: string;
+  confluenceUrl?: string;
+  contactPersons: ContactPerson[];
+  docRepoLocation?: string;
+  regulatory: RegulatoryRequirement[];
+  notes?: string;
+};
