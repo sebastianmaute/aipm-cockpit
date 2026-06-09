@@ -13,6 +13,10 @@ import { ModalEditFooter } from "./modal-edit-fields";
 import type { Resource } from "./types";
 import { useDraggable } from "./use-draggable";
 import { birthdayHasYear, birthdayMonthDay } from "./birthdays";
+import { CharCounter, useAdjustmentTracker } from "./field-feedback";
+import { describeTextCap } from "./sanitize-report";
+import { ASSIGNEE_MAX, EMAIL_MAX } from "./sanitize";
+import { useToastContext } from "./toast-context";
 
 interface Props {
   lang: Lang;
@@ -61,6 +65,9 @@ export function ResourceEditModal({
     setYearUnknown(!birthdayHasYear(resource?.birthday));
   }
 
+  const showToast = useToastContext();
+  const adj = useAdjustmentTracker();
+
   const { offset, handleProps } = useDraggable(draft !== null);
 
   function update<K extends keyof Resource>(key: K, value: Resource[K]) {
@@ -71,12 +78,14 @@ export function ResourceEditModal({
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!draft) return;
-    const firstName = (draft.firstName ?? "").trim();
-    const lastName = (draft.lastName ?? "").trim();
+    adj.reset();
+    const firstName = adj.track(describeTextCap((draft.firstName ?? "").trim(), ASSIGNEE_MAX));
+    const lastName = adj.track(describeTextCap((draft.lastName ?? "").trim(), ASSIGNEE_MAX));
     if (!firstName && !lastName) {
       setError(t(lang, "resourceErrorName"));
       return;
     }
+    const email = adj.track(describeTextCap((draft.email ?? "").trim(), EMAIL_MAX)) || undefined;
     const clean: Resource = {
       ...draft,
       firstName,
@@ -86,9 +95,10 @@ export function ResourceEditModal({
       department: draft.department?.trim() || undefined,
       location: draft.location?.trim() || undefined,
       businessPhone: draft.businessPhone?.trim() || undefined,
-      email: draft.email?.trim() || undefined,
+      email,
       notes: draft.notes?.trim() || undefined,
     };
+    if (adj.count() > 0) showToast("info", t(lang, "fieldsAdjusted", adj.count()));
     onSave(clean);
   }
 
@@ -135,8 +145,11 @@ export function ResourceEditModal({
               type="text"
               value={draft.firstName ?? ""}
               onChange={(e) => update("firstName", e.target.value)}
+              onBlur={(e) => update("firstName", describeTextCap(e.target.value, ASSIGNEE_MAX).value.trim())}
+              aria-describedby="resource-firstName-counter"
               className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
             />
+            <CharCounter value={draft.firstName ?? ""} max={ASSIGNEE_MAX} id="resource-firstName-counter" lang={lang} />
           </label>
 
           {/* Last name */}
@@ -148,8 +161,11 @@ export function ResourceEditModal({
               type="text"
               value={draft.lastName ?? ""}
               onChange={(e) => update("lastName", e.target.value)}
+              onBlur={(e) => update("lastName", describeTextCap(e.target.value, ASSIGNEE_MAX).value.trim())}
+              aria-describedby="resource-lastName-counter"
               className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
             />
+            <CharCounter value={draft.lastName ?? ""} max={ASSIGNEE_MAX} id="resource-lastName-counter" lang={lang} />
           </label>
 
           {/* Job title */}
@@ -228,8 +244,14 @@ export function ResourceEditModal({
               type="email"
               value={draft.email ?? ""}
               onChange={(e) => update("email", e.target.value || undefined)}
+              onBlur={(e) => {
+                const trimmed = describeTextCap(e.target.value, EMAIL_MAX).value.trim();
+                update("email", trimmed || undefined);
+              }}
+              aria-describedby="resource-email-counter"
               className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
             />
+            <CharCounter value={draft.email ?? ""} max={EMAIL_MAX} id="resource-email-counter" lang={lang} />
           </label>
 
           {/* Birthday — native date picker with optional year */}
