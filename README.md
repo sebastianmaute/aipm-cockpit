@@ -87,8 +87,9 @@ The repo ships a complete demo dataset:
 
 | File | Description |
 |------|-------------|
-| `sample-workspace.csv` / `.md` / `.json` | Full demo workspace (tasks, RAID, milestones, stakeholders + RACI, change-log, budgets, resources) — all generated from one canonical source via `npx vite-node scripts/generate-sample-workspace.ts` |
-| `sample-workspace.sqlite3` | The same workspace pre-loaded into a Turso-compatible SQLite database (schema v9). Import it with the Turso CLI: `turso db create lop-demo --from-file sample-workspace.sqlite3`, then point the app at that database's URL + token in Settings → Integrations / Storage Configuration. |
+| `sample-workspace.md` / `.csv` | Hand-curated demo workspace (tasks, RAID, milestones, stakeholders + RACI, budgets, resources). The `.md` is the source of truth (the `.csv` is partial — no budgets, by format design). |
+| `sample-workspace.json` | Complete demo workspace generated from the `.md` (adds a demo change-log + RAID→stakeholder links) via `npx vite-node scripts/generate-sample-workspace.ts`. |
+| `sample-workspace.sqlite3` | The same complete workspace as a Turso-compatible SQLite database (schema v9). Import it with the Turso CLI: `turso db create lop-demo --from-file sample-workspace.sqlite3`, then point the app at that database's URL + token in Settings → Integrations / Storage Configuration. |
 
 The Jira integration stores credentials (site URL, email, API token) in `localStorage`. They are never sent to any server other than your own Atlassian domain via the local proxy routes below.
 

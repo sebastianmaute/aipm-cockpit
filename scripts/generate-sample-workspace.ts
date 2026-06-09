@@ -1,15 +1,20 @@
 /**
  * generate-sample-workspace.ts
  *
- * Builds the single canonical sample Workspace and emits all four formats:
- *   sample-workspace.json   — new; complete (tasks, raid, milestones, stakeholders, budgets, changes, …)
- *   sample-workspace.md     — re-emitted from the same in-memory workspace
- *   sample-workspace.csv    — partial by format design (no budgets; that is expected)
+ * Source of truth: the hand-curated `sample-workspace.md` (human-editable master;
+ * it carries the full budget detail incl. blended discipline allocations). This
+ * script parses it, enriches it with a demo change-log + RAID→stakeholder links,
+ * and emits the two COMPLETE, faithfully-round-tripping formats:
+ *   sample-workspace.json    — complete workspace (all entities + enrichment)
  *   sample-workspace.sqlite3 — Turso-importable; schema v9; built via node:sqlite
+ *
+ * It deliberately does NOT overwrite sample-workspace.md / .csv: workspaceToMarkdown
+ * does not `\|`-escape the pipe-delimited blended-budget cell, so re-emitting the MD
+ * would corrupt the blended bucket on re-parse. Those two stay hand-curated; JSON +
+ * sqlite3 are the generated complete exports (and the place the demo change-log lives).
  *
  * Run with:
  *   npx vite-node scripts/generate-sample-workspace.ts
- *
  * Verify round-trips + sqlite integrity:
  *   VERIFY=1 npx vite-node scripts/generate-sample-workspace.ts
  */
@@ -21,11 +26,8 @@ import { fileURLToPath } from "node:url";
 
 import {
   markdownToWorkspace,
-  workspaceToMarkdown,
-  workspaceToCsv,
   workspaceToJson,
   jsonToWorkspace,
-  csvToWorkspace,
 } from "../src/app/storage";
 import { workspaceToStatements, TABLE_NAMES } from "../src/app/turso-schema";
 import type { ChangeItem, RaidItem } from "../src/app/types";
@@ -148,18 +150,10 @@ const enrichedWs = {
 // ---------------------------------------------------------------------------
 
 const jsonPath    = join(ROOT, "sample-workspace.json");
-const mdPath      = join(ROOT, "sample-workspace.md");
-const csvPath     = join(ROOT, "sample-workspace.csv");
 const sqlitePath  = join(ROOT, "sample-workspace.sqlite3");
 
-// JSON — new canonical complete file
+// JSON — complete workspace (the canonical generated export, incl. enrichment)
 writeFileSync(jsonPath, workspaceToJson(enrichedWs), "utf8");
-
-// Markdown — re-emit from in-memory workspace
-writeFileSync(mdPath, workspaceToMarkdown(enrichedWs), "utf8");
-
-// CSV — partial by format design (no budgets; that's expected)
-writeFileSync(csvPath, workspaceToCsv(enrichedWs), "utf8");
 
 // SQLite — build fresh, replay workspaceToStatements
 if (existsSync(sqlitePath)) unlinkSync(sqlitePath);
@@ -215,9 +209,8 @@ console.log(`  grades:       ${enrichedWs.grades.length}`);
 
 console.log("\nFiles written:");
 console.log(`  ${jsonPath}`);
-console.log(`  ${mdPath}`);
-console.log(`  ${csvPath}`);
 console.log(`  ${sqlitePath}`);
+console.log("  (sample-workspace.md / .csv are hand-curated — not overwritten)");
 
 console.log("\nSQLite row counts per table:");
 for (const [table, count] of Object.entries(tableCounts)) {
@@ -235,22 +228,11 @@ if (process.env["VERIFY"] === "1") {
   console.log(`JSON re-parse:  tasks=${jsonBack.tasks.length}, raid=${jsonBack.raid.length}, changes=${(jsonBack.changes ?? []).length}, stakeholders=${(jsonBack.stakeholders ?? []).length}, budgets=${(jsonBack.budgets ?? []).length}`);
   if ((jsonBack.changes ?? []).length !== 2) throw new Error("JSON round-trip: expected 2 changes");
   if ((jsonBack.budgets ?? []).length !== 5) throw new Error("JSON round-trip: expected 5 budgets");
-
-  // Markdown round-trip
-  const mdBack = markdownToWorkspace(readFileSync(mdPath, "utf8"));
-  console.log(`MD  re-parse:   tasks=${mdBack.tasks.length}, raid=${mdBack.raid.length}, changes=${(mdBack.changes ?? []).length}, stakeholders=${(mdBack.stakeholders ?? []).length}, budgets=${(mdBack.budgets ?? []).length}`);
-  if ((mdBack.changes ?? []).length !== 2) throw new Error("MD round-trip: expected 2 changes");
-  if ((mdBack.budgets ?? []).length !== 5) throw new Error("MD round-trip: expected 5 budgets");
-
-  // CSV round-trip (budgets absent by design; check raid has stakeholderIds)
-  const csvBack = csvToWorkspace(readFileSync(csvPath, "utf8"));
-  console.log(`CSV re-parse:   tasks=${csvBack.tasks.length}, raid=${csvBack.raid.length}, changes=${(csvBack.changes ?? []).length}, stakeholders=${(csvBack.stakeholders ?? []).length}`);
-  const raidItem2 = csvBack.raid.find((r) => r.id === 2);
-  if (!raidItem2) throw new Error("CSV round-trip: RAID item 2 missing");
-  if (!raidItem2.stakeholderIds.includes(1) || !raidItem2.stakeholderIds.includes(6)) {
-    throw new Error(`CSV round-trip: RAID item 2 stakeholderIds wrong: ${JSON.stringify(raidItem2.stakeholderIds)}`);
+  const jsonRaid2 = jsonBack.raid.find((r) => r.id === 2);
+  if (!jsonRaid2 || !jsonRaid2.stakeholderIds.includes(1) || !jsonRaid2.stakeholderIds.includes(6)) {
+    throw new Error(`JSON round-trip: RAID item 2 stakeholderIds wrong: ${JSON.stringify(jsonRaid2?.stakeholderIds)}`);
   }
-  console.log(`  RAID #2 stakeholderIds: [${raidItem2.stakeholderIds.join(", ")}]  ✓`);
+  console.log(`  RAID #2 stakeholderIds: [${jsonRaid2.stakeholderIds.join(", ")}]  ✓`);
 
   // SQLite verification
   const dbVerify = new DatabaseSync(sqlitePath);
