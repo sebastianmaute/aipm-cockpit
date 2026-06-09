@@ -418,7 +418,7 @@ describe("notifications migration — useGlobalLeadDays + jiraTokenError", () =>
     expect(result.current.settings.notifications.jiraTokenError).toEqual({ enabled: true });
   });
 
-  it("explicit legacy banner:{enabled:true} is PRESERVED (not flipped to new default false)", async () => {
+  it("legacy banner:{enabled:true} WITHOUT toastFirstMigrated is FLIPPED to false by one-time migration", async () => {
     const legacy: Record<string, unknown> = {
       ...defaultSettings,
       notifications: {
@@ -430,15 +430,16 @@ describe("notifications migration — useGlobalLeadDays + jiraTokenError", () =>
         raidReview: { enabled: true },
         raidReviewIntervalDays: 14,
         stakeholderComms: { enabled: true },
+        // toastFirstMigrated deliberately absent — pre-0.57 persisted config
       },
     };
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(legacy));
     const { result } = renderHook(() => useSettings());
     await act(async () => {});
-    expect(result.current.settings.notifications.banner.enabled).toBe(true);
+    expect(result.current.settings.notifications.banner.enabled).toBe(false);
   });
 
-  it("explicit legacy popup:{enabled:true} is PRESERVED (not flipped to new default false)", async () => {
+  it("legacy popup:{enabled:true} WITHOUT toastFirstMigrated is FLIPPED to false by one-time migration", async () => {
     const legacy: Record<string, unknown> = {
       ...defaultSettings,
       notifications: {
@@ -450,11 +451,109 @@ describe("notifications migration — useGlobalLeadDays + jiraTokenError", () =>
         raidReview: { enabled: true },
         raidReviewIntervalDays: 14,
         stakeholderComms: { enabled: true },
+        // toastFirstMigrated deliberately absent — pre-0.57 persisted config
       },
     };
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(legacy));
     const { result } = renderHook(() => useSettings());
     await act(async () => {});
-    expect(result.current.settings.notifications.popup.enabled).toBe(true);
+    expect(result.current.settings.notifications.popup.enabled).toBe(false);
+  });
+});
+
+describe("notifications migration — toast-first one-time migration", () => {
+  it("defaultNotificationsConfig.toastFirstMigrated is true (fresh installs skip migration)", () => {
+    expect(defaultNotificationsConfig.toastFirstMigrated).toBe(true);
+  });
+
+  it("legacy config without toastFirstMigrated flips banner=false, popup=false, toast=true and sets flag", async () => {
+    const legacy: Record<string, unknown> = {
+      ...defaultSettings,
+      notifications: {
+        reminderLeadDays: 7,
+        useGlobalLeadDays: true,
+        banner: { enabled: true },
+        toast: { enabled: false },
+        popup: { enabled: true },
+        birthday: { enabled: true },
+        raidReview: { enabled: true },
+        raidReviewIntervalDays: 14,
+        stakeholderComms: { enabled: true },
+        stakeholderCommsLeadDays: { "manage-closely": 14, "keep-satisfied": 7, "keep-informed": 7, monitor: 3 },
+        jiraTokenError: { enabled: true },
+        // toastFirstMigrated absent — pre-0.57 persisted config
+      },
+    };
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(legacy));
+    const { result } = renderHook(() => useSettings());
+    await act(async () => {});
+    const n = result.current.settings.notifications;
+    expect(n.banner.enabled).toBe(false);
+    expect(n.popup.enabled).toBe(false);
+    expect(n.toast.enabled).toBe(true);
+    expect(n.toastFirstMigrated).toBe(true);
+  });
+
+  it("migration preserves other fields: birthday disabled, custom reminderLeadDays, stakeholderComms enabled", async () => {
+    const legacy: Record<string, unknown> = {
+      ...defaultSettings,
+      notifications: {
+        reminderLeadDays: 21,
+        useGlobalLeadDays: false,
+        banner: { enabled: true },
+        toast: { enabled: false },
+        popup: { enabled: true },
+        birthday: { enabled: false },
+        raidReview: { enabled: true },
+        raidReviewIntervalDays: 30,
+        stakeholderComms: { enabled: true },
+        stakeholderCommsLeadDays: { "manage-closely": 14, "keep-satisfied": 7, "keep-informed": 7, monitor: 3 },
+        jiraTokenError: { enabled: true },
+        // toastFirstMigrated absent
+      },
+    };
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(legacy));
+    const { result } = renderHook(() => useSettings());
+    await act(async () => {});
+    const n = result.current.settings.notifications;
+    // migration flipped these three
+    expect(n.banner.enabled).toBe(false);
+    expect(n.popup.enabled).toBe(false);
+    expect(n.toast.enabled).toBe(true);
+    // everything else preserved
+    expect(n.reminderLeadDays).toBe(21);
+    expect(n.useGlobalLeadDays).toBe(false);
+    expect(n.birthday.enabled).toBe(false);
+    expect(n.raidReviewIntervalDays).toBe(30);
+    expect(n.stakeholderComms.enabled).toBe(true);
+    expect(n.toastFirstMigrated).toBe(true);
+  });
+
+  it("already-migrated config (toastFirstMigrated=true) does NOT re-flip banner/popup/toast", async () => {
+    const persisted: Record<string, unknown> = {
+      ...defaultSettings,
+      notifications: {
+        reminderLeadDays: 7,
+        useGlobalLeadDays: true,
+        banner: { enabled: true },
+        toast: { enabled: false },
+        popup: { enabled: true },
+        birthday: { enabled: true },
+        raidReview: { enabled: true },
+        raidReviewIntervalDays: 14,
+        stakeholderComms: { enabled: true },
+        stakeholderCommsLeadDays: { "manage-closely": 14, "keep-satisfied": 7, "keep-informed": 7, monitor: 3 },
+        jiraTokenError: { enabled: true },
+        toastFirstMigrated: true, // already migrated — user manually re-enabled banner/popup
+      },
+    };
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(persisted));
+    const { result } = renderHook(() => useSettings());
+    await act(async () => {});
+    const n = result.current.settings.notifications;
+    expect(n.banner.enabled).toBe(true);
+    expect(n.popup.enabled).toBe(true);
+    expect(n.toast.enabled).toBe(false);
+    expect(n.toastFirstMigrated).toBe(true);
   });
 });

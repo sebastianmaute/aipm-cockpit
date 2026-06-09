@@ -46,16 +46,25 @@ function migrateNotifications(raw: unknown): Settings["notifications"] {
       Number.isFinite(n) && n >= 0 ? Math.min(365, Math.round(n)) : defaultNotificationsConfig.stakeholderCommsLeadDays[q];
   }
 
+  const alreadyMigrated = p.toastFirstMigrated === true;
+  const banner = ch(p.banner);
+  const popup = ch(p.popup);
+  const toast = ch(p.toast);
+
   return {
     reminderLeadDays: Number.isFinite(lead) && lead >= 0 ? lead : 7,
     useGlobalLeadDays: typeof p.useGlobalLeadDays === "boolean" ? p.useGlobalLeadDays : true,
-    banner: ch(p.banner), toast: ch(p.toast), popup: ch(p.popup), birthday: ch(p.birthday),
+    banner: alreadyMigrated ? banner : { ...banner, enabled: false },
+    toast: alreadyMigrated ? toast : { ...toast, enabled: true },
+    popup: alreadyMigrated ? popup : { ...popup, enabled: false },
+    birthday: ch(p.birthday),
     raidReview: ch(p.raidReview),
     raidReviewIntervalDays:
       Number.isFinite(raidInterval) && raidInterval >= 1 ? Math.min(365, raidInterval) : 14,
     stakeholderComms: ch(p.stakeholderComms),
     stakeholderCommsLeadDays,
     jiraTokenError: ch(p.jiraTokenError),
+    toastFirstMigrated: true,
   };
 }
 
