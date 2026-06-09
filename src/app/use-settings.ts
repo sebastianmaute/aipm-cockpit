@@ -3,7 +3,7 @@
 import { type Dispatch, type SetStateAction, useEffect, useState } from "react";
 import { type Lang, loadI18n, migrateLang } from "./i18n";
 import { defaultSettings, sanitizeIntegrations, type Settings } from "./settings-menu";
-import { resolveSnapshotSettings, sanitizeAiConfig } from "./settings-types";
+import { resolveSnapshotSettings, sanitizeAiConfig, sanitizeExportConfig } from "./settings-types";
 import { resolveExtraReports } from "./addable-reports";
 import { sanitizeFeatures } from "./feature-modules";
 import { isPlainObject } from "./sanitize";
@@ -92,6 +92,7 @@ export function useSettings(): {
             integrations: sanitizeIntegrations(parsed.integrations),
             snapshots: resolveSnapshotSettings(parsed.snapshots),
             features: sanitizeFeatures((parsed as Record<string, unknown>).features),
+            export: sanitizeExportConfig((parsed as Record<string, unknown>).export),
           };
           Promise.resolve().then(() => {
             if (!cancelled) setSettings(merged);

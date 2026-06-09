@@ -180,6 +180,28 @@ export function sanitizeIntegrations(raw: unknown): IntegrationsSettings {
   };
 }
 
+export const EXPORT_SECTION_KEYS = [
+  "tasks", "raid", "changes", "milestones", "stakeholders",
+  "budgets", "resources", "roles", "absences", "shifts", "status",
+] as const;
+export type ExportSectionKey = (typeof EXPORT_SECTION_KEYS)[number];
+export type ExportConfig = Record<ExportSectionKey, boolean>;
+
+export const defaultExportConfig: ExportConfig = {
+  tasks: true,  raid: true,
+  changes: false, milestones: false, stakeholders: false, budgets: false,
+  resources: false, roles: false, absences: false, shifts: false, status: false,
+};
+
+export function sanitizeExportConfig(raw: unknown): ExportConfig {
+  const obj = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const result = {} as Record<ExportSectionKey, boolean>;
+  for (const key of EXPORT_SECTION_KEYS) {
+    result[key] = typeof obj[key] === "boolean" ? (obj[key] as boolean) : defaultExportConfig[key];
+  }
+  return result;
+}
+
 export type SnapshotSettings = {
   enabled: boolean;
   cadence: SnapshotCadence;
@@ -219,6 +241,7 @@ export type Settings = {
   integrations?: IntegrationsSettings;
   snapshots?: SnapshotSettings;
   features: FeatureModuleId[];
+  export?: ExportConfig;
 };
 
 export const defaultSettings: Settings = {
@@ -235,4 +258,5 @@ export const defaultSettings: Settings = {
   integrations: defaultIntegrations,
   snapshots: defaultSnapshotSettings,
   features: [...ALL_MODULE_IDS],
+  export: defaultExportConfig,
 };
