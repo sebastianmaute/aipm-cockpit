@@ -43,6 +43,10 @@ import { useColumnResize } from "./use-column-resize";
 import { useResizable } from "./use-resizable";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton, ResizeCornerHint } from "./task-manager-ui";
+import { CharCounter, useAdjustmentTracker } from "./field-feedback";
+import { describeTextCap } from "./sanitize-report";
+import { TASK_NAME_MAX, TEXTAREA_MAX, ASSIGNEE_MAX } from "./sanitize";
+import { useToastContext } from "./toast-context";
 
 const RAID_COL_WIDTHS = {
   id: 60,
@@ -737,6 +741,8 @@ function RaidEditModal({
   onCreateMitigationTask,
   onJumpToRaid,
 }: RaidEditModalProps) {
+  const showToast = useToastContext();
+  const adj = useAdjustmentTracker();
   const [error, setError] = useState<string | null>(null);
   const [taskPickerQuery, setTaskPickerQuery] = useState("");
   const [causePickerQuery, setCausePickerQuery] = useState("");
@@ -814,6 +820,12 @@ function RaidEditModal({
       return;
     }
     setError(null);
+    adj.reset();
+    adj.track(describeTextCap(draft.title, TASK_NAME_MAX));
+    adj.track(describeTextCap(draft.description ?? "", TEXTAREA_MAX));
+    adj.track(describeTextCap(draft.owner ?? "", ASSIGNEE_MAX));
+    adj.track(describeTextCap(draft.mitigation ?? "", TEXTAREA_MAX));
+    if (adj.count() > 0) showToast("info", t(lang, "fieldsAdjusted", adj.count()));
     onSave();
   }
 
@@ -989,10 +1001,13 @@ function RaidEditModal({
               required
               value={draft.title}
               onChange={(e) => onChange({ ...draft, title: e.target.value })}
+              onBlur={(e) => onChange({ ...draft, title: describeTextCap(e.target.value, TASK_NAME_MAX).value.trim() })}
               placeholder={t(lang, "raidPlaceholderTitle")}
               title={t(lang, "raidFieldTitleHint")}
+              aria-describedby="raid-title-counter"
               className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
             />
+            <CharCounter value={draft.title} max={TASK_NAME_MAX} id="raid-title-counter" lang={lang} />
           </label>
 
           <label className="flex flex-col gap-1 text-sm sm:col-span-2">
@@ -1005,10 +1020,13 @@ function RaidEditModal({
               onChange={(e) =>
                 onChange({ ...draft, description: e.target.value || undefined })
               }
+              onBlur={(e) => onChange({ ...draft, description: describeTextCap(e.target.value, TEXTAREA_MAX).value || undefined })}
               placeholder={t(lang, "raidPlaceholderDescription")}
               title={t(lang, "raidFieldDescriptionHint")}
+              aria-describedby="raid-description-counter"
               className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
             />
+            <CharCounter value={draft.description ?? ""} max={TEXTAREA_MAX} id="raid-description-counter" lang={lang} />
           </label>
 
           {draft.category === "R" ? (
@@ -1058,9 +1076,15 @@ function RaidEditModal({
               onChange={(e) =>
                 onChange({ ...draft, owner: e.target.value || undefined })
               }
+              onBlur={(e) => {
+                const trimmed = describeTextCap(e.target.value, ASSIGNEE_MAX).value.trim();
+                onChange({ ...draft, owner: trimmed || undefined });
+              }}
               title={t(lang, "raidFieldOwnerHint")}
+              aria-describedby="raid-owner-counter"
               className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
             />
+            <CharCounter value={draft.owner ?? ""} max={ASSIGNEE_MAX} id="raid-owner-counter" lang={lang} />
           </label>
 
           <label className="flex flex-col gap-1 text-sm">
@@ -1116,10 +1140,13 @@ function RaidEditModal({
               onChange={(e) =>
                 onChange({ ...draft, mitigation: e.target.value || undefined })
               }
+              onBlur={(e) => onChange({ ...draft, mitigation: describeTextCap(e.target.value, TEXTAREA_MAX).value || undefined })}
               placeholder={t(lang, "raidPlaceholderMitigation")}
               title={t(lang, "raidFieldMitigationHint")}
+              aria-describedby="raid-mitigation-counter"
               className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
             />
+            <CharCounter value={draft.mitigation ?? ""} max={TEXTAREA_MAX} id="raid-mitigation-counter" lang={lang} />
           </label>
 
           <div className="sm:col-span-2">

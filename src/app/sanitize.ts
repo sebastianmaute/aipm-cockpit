@@ -667,9 +667,9 @@ export function sanitizePlan(input: unknown, today: string): ResourcePlan {
 
 // --- Budget planner sanitizers ---------------------------------------------
 
-const BUDGET_NAME_MAX = 200;
-const PO_NUMBER_MAX = 64;
-const AMOUNT_MAX = 1_000_000_000;
+export const BUDGET_NAME_MAX = 200;
+export const PO_NUMBER_MAX = 64;
+export const AMOUNT_MAX = 1_000_000_000;
 const BUDGET_TYPE_SET: ReadonlySet<BudgetType> = new Set(BUDGET_TYPES);
 
 function sanitizeAmount(n: unknown): number | undefined {

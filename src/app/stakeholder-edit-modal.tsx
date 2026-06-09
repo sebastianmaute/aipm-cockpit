@@ -24,6 +24,10 @@ import { InfluenceInterestMatrix } from "./influence-interest-matrix";
 import { useDraggable } from "./use-draggable";
 import { setRaciRole } from "./stakeholders";
 import { resourceDisplayName } from "./resource-foundation";
+import { CharCounter, useAdjustmentTracker } from "./field-feedback";
+import { describeTextCap } from "./sanitize-report";
+import { BUDGET_NAME_MAX, TEXTAREA_MAX } from "./sanitize";
+import { useToastContext } from "./toast-context";
 
 export interface StakeholderEditModalProps {
   lang: Lang;
@@ -73,6 +77,8 @@ export function StakeholderEditModal({
   onDelete,
 }: StakeholderEditModalProps) {
   const [error, setError] = useState<string | null>(null);
+  const showToast = useToastContext();
+  const adj = useAdjustmentTracker();
 
   const { offset, handleProps } = useDraggable(true);
 
@@ -96,6 +102,13 @@ export function StakeholderEditModal({
       return;
     }
     setError(null);
+    adj.reset();
+    adj.track(describeTextCap(draft.name, BUDGET_NAME_MAX));
+    adj.track(describeTextCap(draft.organization ?? "", BUDGET_NAME_MAX));
+    adj.track(describeTextCap(draft.title ?? "", BUDGET_NAME_MAX));
+    adj.track(describeTextCap(draft.email ?? "", BUDGET_NAME_MAX));
+    adj.track(describeTextCap(draft.notes ?? "", TEXTAREA_MAX));
+    if (adj.count() > 0) showToast("info", t(lang, "fieldsAdjusted", adj.count()));
     onSave();
   }
 
@@ -137,8 +150,11 @@ export function StakeholderEditModal({
               required
               value={draft.name}
               onChange={(e) => update("name", e.target.value)}
+              onBlur={(e) => update("name", describeTextCap(e.target.value, BUDGET_NAME_MAX).value.trim())}
+              aria-describedby="stakeholder-name-counter"
               className={INPUT_CLASS}
             />
+            <CharCounter value={draft.name} max={BUDGET_NAME_MAX} id="stakeholder-name-counter" lang={lang} />
           </label>
 
           {/* Organization */}
@@ -150,8 +166,14 @@ export function StakeholderEditModal({
               type="text"
               value={draft.organization ?? ""}
               onChange={(e) => update("organization", e.target.value || undefined)}
+              onBlur={(e) => {
+                const trimmed = describeTextCap(e.target.value, BUDGET_NAME_MAX).value.trim();
+                update("organization", trimmed || undefined);
+              }}
+              aria-describedby="stakeholder-organization-counter"
               className={INPUT_CLASS}
             />
+            <CharCounter value={draft.organization ?? ""} max={BUDGET_NAME_MAX} id="stakeholder-organization-counter" lang={lang} />
           </label>
 
           {/* Title */}
@@ -163,8 +185,14 @@ export function StakeholderEditModal({
               type="text"
               value={draft.title ?? ""}
               onChange={(e) => update("title", e.target.value || undefined)}
+              onBlur={(e) => {
+                const trimmed = describeTextCap(e.target.value, BUDGET_NAME_MAX).value.trim();
+                update("title", trimmed || undefined);
+              }}
+              aria-describedby="stakeholder-title-counter"
               className={INPUT_CLASS}
             />
+            <CharCounter value={draft.title ?? ""} max={BUDGET_NAME_MAX} id="stakeholder-title-counter" lang={lang} />
           </label>
 
           {/* Email */}
@@ -176,8 +204,14 @@ export function StakeholderEditModal({
               type="text"
               value={draft.email ?? ""}
               onChange={(e) => update("email", e.target.value || undefined)}
+              onBlur={(e) => {
+                const trimmed = describeTextCap(e.target.value, BUDGET_NAME_MAX).value.trim();
+                update("email", trimmed || undefined);
+              }}
+              aria-describedby="stakeholder-email-counter"
               className={INPUT_CLASS}
             />
+            <CharCounter value={draft.email ?? ""} max={BUDGET_NAME_MAX} id="stakeholder-email-counter" lang={lang} />
           </label>
 
           {/* Category */}
@@ -226,8 +260,14 @@ export function StakeholderEditModal({
               rows={2}
               value={draft.notes ?? ""}
               onChange={(e) => update("notes", e.target.value || undefined)}
+              onBlur={(e) => {
+                const capped = describeTextCap(e.target.value, TEXTAREA_MAX).value;
+                update("notes", capped || undefined);
+              }}
+              aria-describedby="stakeholder-notes-counter"
               className={INPUT_CLASS}
             />
+            <CharCounter value={draft.notes ?? ""} max={TEXTAREA_MAX} id="stakeholder-notes-counter" lang={lang} />
           </label>
 
           {/* Linked resource */}

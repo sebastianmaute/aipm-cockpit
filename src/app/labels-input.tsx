@@ -1,12 +1,15 @@
 "use client";
 
 import { useState } from "react";
+import type React from "react";
+import { FieldNotice } from "./field-feedback";
 import { type Lang, t } from "./i18n";
 import {
   LABELS_MAX_COUNT,
   LABEL_MAX,
   sanitizeLabel,
 } from "./sanitize";
+import { describeLabelStrip } from "./sanitize-report";
 import { ComboboxChevron, ComboboxOptions, useCombobox } from "./combobox-shared";
 
 export function LabelsInput({
@@ -23,6 +26,7 @@ export function LabelsInput({
   lang: Lang;
 }) {
   const [draft, setDraft] = useState("");
+  const [stripNotice, setStripNotice] = useState<string | null>(null);
 
   const atCap = value.length >= LABELS_MAX_COUNT;
   const lower = draft.trim().toLowerCase();
@@ -42,7 +46,8 @@ export function LabelsInput({
     useCombobox(draft, totalItems);
 
   function commit(raw: string) {
-    const clean = sanitizeLabel(raw);
+    const report = describeLabelStrip(raw);
+    const clean = sanitizeLabel(report.value);
     if (!clean) return;
     if (value.length >= LABELS_MAX_COUNT) return;
     if (value.some((v) => v.toLowerCase() === clean.toLowerCase())) {
@@ -51,6 +56,11 @@ export function LabelsInput({
     }
     onChange([...value, clean]);
     setDraft("");
+    if (report.adjustment !== null && report.adjustment.kind === "stripped") {
+      setStripNotice(t(lang, "fieldCharsRemoved", report.adjustment.chars.join(" ")));
+    } else {
+      setStripNotice(null);
+    }
   }
 
   function removeAt(idx: number) {
@@ -85,6 +95,7 @@ export function LabelsInput({
   }
 
   return (
+    <>
     <div ref={rootRef} className="relative">
       <div
         className={`flex min-h-[2.5rem] flex-wrap items-center gap-1.5 rounded-md border border-line bg-surface px-2 py-1.5 pr-9 text-sm focus-within:border-line focus-within:ring-1 focus-within:ring-AIPM-green ${
@@ -169,5 +180,7 @@ export function LabelsInput({
         />
       )}
     </div>
+    {stripNotice && <FieldNotice>{stripNotice}</FieldNotice>}
+    </>
   );
 }

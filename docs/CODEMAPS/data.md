@@ -1,4 +1,4 @@
-<!-- Generated: 2026-05-31 | Files scanned: types.ts, storage.ts, sanitize.ts, raid.ts, activity-log.ts, contacts.ts, resource-foundation.ts, resource-capacity.ts, reminder-snooze.ts, use-settings.ts, jira-token-status.ts, duration.ts + msal-config.ts, turso-config.ts | Token estimate: ~1300 | Updated for 0.29.0–0.50.0: ProjectStatus + Milestone[] persisted (v6 additive, no schema bump); budget-health + budget-burndown pure modules; ChangeItem[] change-control register persisted (schema v7 additive) -->
+<!-- Generated: 2026-06-09 | Files scanned: types.ts, storage.ts, sanitize.ts, raid.ts, activity-log.ts, contacts.ts, resource-foundation.ts, resource-capacity.ts, reminder-snooze.ts, use-settings.ts, jira-token-status.ts, duration.ts + msal-config.ts, turso-config.ts | Token estimate: ~1300 | Updated for 0.29.0–0.56.0: ProjectStatus + Milestone[] persisted (v6 additive, no schema bump); budget-health + budget-burndown pure modules; ChangeItem[] change-control register persisted (schema v7 additive); sample-workspace.json + sample-workspace.sqlite3 generated from the curated .md (Turso import) -->
 
 # Data
 
@@ -468,3 +468,21 @@ RAID review banner / modal / toast nudge.
 `ContactsMap`. Capped at `CONTACTS_MAX = 500`. Persisted to `lop-app:contacts`
 independently of the tasks list so suggestions survive task deletion, Clear
 All, and Jira sync churn.
+
+## Sample workspace
+
+| File | Description |
+|---|---|
+| `sample-workspace.md` | Hand-curated master (Markdown pipe-table, all entities incl. blended budgets) — the source of truth |
+| `sample-workspace.csv` | Hand-curated CSV companion (partial by format design: no budgets/changes) |
+| `sample-workspace.json` | Generated full JSON envelope (`schemaVersion: 9`, all entities + demo enrichment) |
+| `sample-workspace.sqlite3` | Generated SQLite database mirroring the Turso relational schema (schema v9); import with `turso db create lop-demo --from-file sample-workspace.sqlite3` |
+
+`scripts/generate-sample-workspace.ts` parses the curated `sample-workspace.md`,
+enriches it with a demo change-log + RAID→stakeholder links, and emits the two
+COMPLETE, faithfully-round-tripping formats (`.json` + `.sqlite3`) via
+`npx vite-node scripts/generate-sample-workspace.ts`. It does NOT overwrite the
+`.md`/`.csv` masters: `workspaceToMarkdown` does not `\|`-escape the pipe-delimited
+blended-budget cell, so re-emitting the MD would corrupt the blended bucket. The
+dataset includes tasks, RAID items with `stakeholderIds` links, milestones,
+stakeholders with RACI assignments, change-log entries, budget buckets, and resources.

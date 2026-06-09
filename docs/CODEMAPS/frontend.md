@@ -1,4 +1,4 @@
-<!-- Generated: 2026-06-04 | Files scanned: ~124 (src/app/*.tsx, *.ts, settings-sections/) | Token estimate: ~1680 | Updated for 0.29.0–0.55.0: modern sidebar layout + UI-consistency sweep + Health Dashboard + Milestones + Earned Value + budget/dashboard RAG + burn-down + UI refinements + baseline/variance trends + change-control Log + stakeholder report + influence/interest matrix + Simple/Modular/Advanced mode + stakeholder communication reminders -->
+<!-- Generated: 2026-06-09 | Files scanned: ~127 (src/app/*.tsx, *.ts, settings-sections/) | Token estimate: ~1710 | Updated for 0.29.0–0.56.0: modern sidebar layout + UI-consistency sweep + Health Dashboard + Milestones + Earned Value + budget/dashboard RAG + burn-down + UI refinements + baseline/variance trends + change-control Log + stakeholder report + influence/interest matrix + Simple/Modular/Advanced mode + stakeholder communication reminders + input sanitization feedback -->
 
 # Frontend
 
@@ -197,6 +197,10 @@ prerendered.
 | `stakeholder-comms.ts` | Pure communication-reminder engine: quadrant engagement policy → "reach out" items for manage-closely stakeholders ahead of due-soon milestones, open RAID items, and pending changes (via `stakeholderIds` links) | No React; 0.55.0+ |
 | `use-stakeholder-comms.ts` | `useStakeholderComms()` hook — computes comms reminder items + banner/modal state, mode-gated by stakeholders/milestones/RAID/changes flags | Client hook; 0.55.0+ |
 | `milestones.ts` | Pure milestone helpers: `filterMilestones` (name + status filter) + milestone status classification | No React; 0.55.0+ |
+| **Input Feedback** | | |
+| `sanitize-report.ts` | Pure adjustment-descriptor module: `TextCapAdjustment`, `ClampAdjustment`, `LabelStripAdjustment` — describes what sanitize.ts changed so editors can surface it | No React; 0.56.0+ |
+| `field-feedback.tsx` | `CharCounter` (approaches-cap counter badge), `FieldNotice` (inline on-blur notice), `useAdjustmentTracker` (accumulates per-save adjustment list for the toast) | Components + hook; 0.56.0+ |
+| `toast-context.tsx` | `ToastContext` + `useToast()` — shared imperative toast access so editor modals can fire the save-time "fields adjusted" toast without prop-drilling | Context; 0.56.0+ |
 | **Chat & Voice** | | |
 | `chat-panel.tsx` | Claude chat with tool calls via `dispatcher` | Conditional mount; history in TaskManager |
 | `chat-tools.ts` | Tool dispatcher object; CRUD on tasks/RAID | Huge `useMemo` in TaskManager |

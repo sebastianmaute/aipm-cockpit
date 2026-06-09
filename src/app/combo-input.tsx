@@ -1,6 +1,7 @@
 "use client";
 
 import { useId } from "react";
+import type React from "react";
 import { type Lang, t } from "./i18n";
 import { ComboboxChevron, ComboboxOptions, useCombobox } from "./combobox-shared";
 
@@ -20,6 +21,8 @@ export function ComboInput({
   maxLength,
   disabled,
   lang,
+  onBlur,
+  "aria-describedby": ariaDescribedBy,
 }: {
   value: string;
   suggestions: string[];
@@ -28,6 +31,8 @@ export function ComboInput({
   maxLength?: number;
   disabled?: boolean;
   lang: Lang;
+  onBlur?: React.FocusEventHandler<HTMLInputElement>;
+  "aria-describedby"?: string;
 }) {
   const trimmed = value.trim();
   const lower = trimmed.toLowerCase();
@@ -87,12 +92,14 @@ export function ComboInput({
         maxLength={maxLength}
         placeholder={placeholder}
         disabled={disabled}
+        aria-describedby={ariaDescribedBy}
         onChange={(e) => {
           onChange(e.target.value);
           setOpen(true);
         }}
         onFocus={() => !disabled && setOpen(true)}
         onKeyDown={onKey}
+        onBlur={onBlur}
         className={baseInputClass}
       />
       <ComboboxChevron

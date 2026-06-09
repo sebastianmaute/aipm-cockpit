@@ -583,10 +583,13 @@ export const de: Record<TranslationKey, string> = {
     "Einstellungen → Jira: Atlassian-URL, E-Mail und API-Token hinterlegen, Projekt + Vorgangstypen auswählen, Bereich für Zugewiesene wählen. Der Sync-Button neben der Aufgabenliste zieht Remote-Änderungen, schreibt lokale Anpassungen zurück und sammelt echte Konflikte in einem Review-Dialog je Aufgabe. Über \"An Jira übertragen\" (Zeilenaktion) oder die Checkbox \"Auch in Jira anlegen\" im Aufgabendialog wird ein neues Issue erstellt. Notizen ↔ Jira-Beschreibung sind verlustbehaftet – Rich-Text wird beim Sync zu Klartext. Jira-verwaltete Felder (Zugewiesener, Wiedereröffnen) sind in der App gesperrt. Tragen Sie das Ablaufdatum Ihres Tokens unter \"Token läuft ab am\" ein, um vor dem Ablauf (und danach) eine Erinnerung zu erhalten; erkennt ein Sync ein abgelaufenes oder ungültiges Token oder ist Jira nicht erreichbar, erscheint eine klare, handlungsleitende Meldung statt eines generischen Fehlers.",
   helpSecStorageTitle: "Speicherort",
   helpSecStorageBody:
-    "Aufgaben liegen standardmäßig in der IndexedDB des Browsers (Datensatz-Updates; alte localStorage-Daten werden beim ersten Laden automatisch migriert). In den Einstellungen → Speicher auf eine lokale JSON-, CSV- oder Markdown-Datei umstellen (Chrome / Edge / Opera). Der Browser fragt beim ersten Speichern nach Schreibrechten; falls verweigert, in den Einstellungen \"Schreibzugriff erteilen\" klicken. SharePoint-Backends folgen.",
+    "Aufgaben liegen standardmäßig in der IndexedDB des Browsers (Datensatz-Updates; alte localStorage-Daten werden beim ersten Laden automatisch migriert). In den Einstellungen → Speicher auf eine lokale JSON-, CSV- oder Markdown-Datei umstellen (Chrome / Edge / Opera). Der Browser fragt beim ersten Speichern nach Schreibrechten; falls verweigert, in den Einstellungen \"Schreibzugriff erteilen\" klicken. SharePoint-Backends folgen. Die mitgelieferte sample-workspace.sqlite3 lässt sich direkt in eine Turso-Datenbank importieren (z. B. per Turso-CLI: turso db create lop-demo --from-file sample-workspace.sqlite3); anschließend die Datenbank-URL und den Token unter Einstellungen → Integrationen eintragen.",
   helpSecAiTitle: "KI-Chat",
   helpSecAiBody:
     "API-Schlüssel unter Einstellungen → KI hinterlegen und im Chat-Tab die Einwilligung akzeptieren. Nachrichten und Aufgabendaten werden direkt aus dem Browser an api.anthropic.com gesendet – die KI-Nutzungsrichtlinie der Acme gilt. Der Schlüssel liegt im localStorage dieses Browsers. Claude kann Aufgaben über Tool-Calls auflisten, anlegen, ändern und löschen.",
+  helpSecInputFeedbackTitle: "Eingabe-Feedback",
+  helpSecInputFeedbackBody:
+    "Textfelder mit Zeichenbegrenzung zeigen einen Live-Zähler, sobald Sie sich dem Limit nähern – er erscheint erst ab etwa 80 % Füllstand und wechselt bei Erreichen der Grenze die Farbe. Numerische Felder (Schichtstunden, Änderungs-Terminauswirkung/-Kosten, Budgetbeträge und Satz-Overrides) werden beim Verlassen des Feldes automatisch auf den erlaubten Bereich begrenzt; ein Hinweis erscheint, wenn der Wert angepasst wurde. Enthält ein Label Trennzeichen, die entfernt werden müssen, erscheint ein Hinweis neben dem Feld. Beim Speichern eines Eintrags werden gekürtzte oder begrenzte Felder in einem kurzen Toast zusammengefasst.",
   helpSecKeysTitle: "Tastatur & Shortcuts",
   helpSecKeysBody:
     "Esc – aktuell geöffneten Dialog, Pop-up oder Aufgaben-Formular schließen.\nEnter im Chat – Nachricht senden. Shift+Enter – Zeilenumbruch.\n+-Symbol im Header – Dialog \"Neue Aufgabe\" öffnen.\nPfeil in der Workspace-Tableiste – Bereich ein-/ausklappen.\nKlick auf einen Tab bei eingeklapptem Bereich – klappt automatisch aus.",
@@ -1412,4 +1415,11 @@ export const de: Record<TranslationKey, string> = {
   modeDiscard: "Verwerfen",
   versionHighlightModes: "Einfach- / Modular- / Erweitert-Modus: App auf Aufgaben, Chat und Berichte reduzieren und Funktionen nach Bedarf wieder aktivieren.",
   versionHighlightClarke: "Stakeholder-Kommunikationserinnerungen weisen darauf hin, wichtige Stakeholder vor Meilensteinen, RAID-Einträgen und Änderungen einzubinden.",
+  versionHighlightFieldFeedback: "Eingabe-Feedback: Zeichenzähler, Anpassungshinweise und eine Zusammenfassung beim Speichern, wenn Eingaben auf Grenzwerte angepasst wurden.",
+  fieldCounter: "{0} / {1}",
+  fieldTrimmedToFit: "auf Maximallänge gekürzt",
+  fieldAdjustedMax: "auf Maximum {0} angepasst",
+  fieldAdjustedMin: "auf Minimum {0} angepasst",
+  fieldCharsRemoved: "entfernt: {0}",
+  fieldsAdjusted: "Gespeichert — {0} Feld(er) auf Grenzwerte angepasst",
 };
