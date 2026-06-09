@@ -118,7 +118,6 @@ export function TaskFormFields({
             <input
               type="text"
               required
-              aria-required="true"
               value={form.taskName}
               onChange={(e) => setForm({ ...form, taskName: e.target.value })}
               onBlur={(e) =>
@@ -172,8 +171,11 @@ export function TaskFormFields({
                   }))
                 }
                 onRemoveContact={onRemoveContact}
+                onBlur={(e) =>
+                  setForm((prev) => ({ ...prev, assignee: describeTextCap(e.target.value, ASSIGNEE_MAX).value.trim() }))
+                }
+                aria-describedby="assignee-counter"
                 placeholder={t(lang, "placeholderAssignee")}
-                maxLength={ASSIGNEE_MAX}
                 disabled={editingIsJiraLinked}
                 title={
                   editingIsJiraLinked ? t(lang, "jiraManagedHint") : undefined
@@ -299,8 +301,11 @@ export function TaskFormFields({
             value={form.group}
             suggestions={uniqueGroups}
             onChange={(group) => setForm({ ...form, group })}
+            onBlur={(e) =>
+              setForm((prev) => ({ ...prev, group: describeTextCap(e.target.value, GROUP_MAX).value.trim() }))
+            }
+            aria-describedby="group-counter"
             placeholder={t(lang, "placeholderGroup")}
-            maxLength={GROUP_MAX}
           />
           <CharCounter value={form.group} max={GROUP_MAX} id="group-counter" lang={lang} />
         </Field>

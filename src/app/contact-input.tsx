@@ -15,6 +15,7 @@
 // substring match on name + email.
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import type React from "react";
 import type { Contact } from "./contacts";
 import { type Lang, t } from "./i18n";
 
@@ -29,6 +30,8 @@ export function ContactInput({
   maxLength,
   disabled,
   title,
+  onBlur,
+  "aria-describedby": ariaDescribedBy,
 }: {
   lang: Lang;
   /** The current assignee name (for the underlying text input). */
@@ -48,6 +51,8 @@ export function ContactInput({
   maxLength?: number;
   disabled?: boolean;
   title?: string;
+  onBlur?: React.FocusEventHandler<HTMLInputElement>;
+  "aria-describedby"?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [highlight, setHighlight] = useState(0);
@@ -137,10 +142,12 @@ export function ContactInput({
           if (contacts.length > 0) setOpen(true);
         }}
         onKeyDown={onKeyDown}
+        onBlur={onBlur}
         placeholder={placeholder}
         maxLength={maxLength}
         disabled={disabled}
         title={title}
+        aria-describedby={ariaDescribedBy}
         role="combobox"
         aria-expanded={open}
         aria-controls="contact-listbox"

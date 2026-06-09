@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useMemo, useRef } from "react";
 import type { ReactNode } from "react";
 import { type Lang, t } from "./i18n";
 import type { Report } from "./sanitize-report";
@@ -48,7 +48,7 @@ export function FieldNotice({ id, children }: FieldNoticeProps) {
  */
 export function useAdjustmentTracker() {
   const adjusted = useRef(0);
-  return {
+  return useMemo(() => ({
     track<T>(report: Report<T>): T {
       if (report.adjustment !== null) adjusted.current += 1;
       return report.value;
@@ -57,5 +57,5 @@ export function useAdjustmentTracker() {
     reset: () => {
       adjusted.current = 0;
     },
-  };
+  }), []);
 }

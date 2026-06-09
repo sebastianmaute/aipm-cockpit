@@ -79,6 +79,7 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
       setError(null);
       adj.reset();
 
+      // Safety net: fields are normally already trimmed on blur, but we re-cap here at submit time in case blur was skipped.
       const taskName = sanitizeTaskName(adj.track(describeTextCap(form.taskName, TASK_NAME_MAX)));
       const assignee = sanitizeAssignee(adj.track(describeTextCap(form.assignee, ASSIGNEE_MAX)));
       const dueDate = sanitizeIsoDate(form.dueDate);

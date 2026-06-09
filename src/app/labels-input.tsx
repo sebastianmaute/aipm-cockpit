@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import type React from "react";
 import { FieldNotice } from "./field-feedback";
 import { type Lang, t } from "./i18n";
 import {
