@@ -206,6 +206,67 @@ describe("custom ExportConfig Markdown", () => {
 });
 
 // ---------------------------------------------------------------------------
+// 5. tasks:false — tasks section absent; raid:true — RAID section present
+// ---------------------------------------------------------------------------
+
+describe("tasks:false CSV — tasks section absent, RAID present", () => {
+  const cfg: ExportConfig = { ...defaultExportConfig, tasks: false, raid: true };
+
+  it("does NOT contain # TASKS header", () => {
+    const csv = workspaceToCsv(richWorkspace(), cfg);
+    expect(csv).not.toContain("# TASKS");
+  });
+
+  it("does NOT round-trip tasks", () => {
+    const back = csvToWorkspace(workspaceToCsv(richWorkspace(), cfg));
+    expect(back.tasks).toHaveLength(0);
+  });
+
+  it("DOES contain # RAID header (raid:true)", () => {
+    const csv = workspaceToCsv(richWorkspace(), cfg);
+    expect(csv).toContain("# RAID");
+  });
+
+  it("DOES round-trip RAID items", () => {
+    const back = csvToWorkspace(workspaceToCsv(richWorkspace(), cfg));
+    expect(back.raid).toHaveLength(1);
+    expect(back.raid[0].title).toBe("Budget risk");
+  });
+});
+
+describe("tasks:false Markdown — tasks section absent, RAID present", () => {
+  const cfg: ExportConfig = { ...defaultExportConfig, tasks: false, raid: true };
+
+  it("does NOT contain # LOP Tasks heading", () => {
+    const md = workspaceToMarkdown(richWorkspace(), cfg);
+    expect(md).not.toContain("# LOP Tasks");
+  });
+
+  it("DOES contain # RAID Log heading (raid:true)", () => {
+    const md = workspaceToMarkdown(richWorkspace(), cfg);
+    expect(md).toContain("# RAID Log");
+  });
+
+  it("DOES round-trip RAID items", () => {
+    const back = markdownToWorkspace(workspaceToMarkdown(richWorkspace(), cfg));
+    expect(back.raid).toHaveLength(1);
+    expect(back.raid[0].title).toBe("Budget risk");
+  });
+});
+
+describe("no-config (undefined) — tasks ALWAYS emitted (round-trip unchanged)", () => {
+  it("CSV contains # TASKS with no config", () => {
+    const csv = workspaceToCsv(richWorkspace()); // no config
+    expect(csv).toContain("# TASKS");
+  });
+
+  it("Markdown contains # LOP Tasks with no config", () => {
+    const md = workspaceToMarkdown(richWorkspace()); // no config
+    expect(md).toContain("# LOP Tasks");
+  });
+});
+
+// ---------------------------------------------------------------------------
 // 4. Markdown |‑escaping preserved when config is supplied
 // ---------------------------------------------------------------------------
 

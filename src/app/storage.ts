@@ -1147,38 +1147,29 @@ export function workspaceToCsv(ws: Workspace, config?: ExportConfig): string {
   const enabled = (key: (typeof EXPORT_SECTION_KEYS)[number]) =>
     config === undefined || config[key];
 
-  const parts: string[] = [CSV_SECTION_TASKS, tasksToCsv(ws.tasks)];
-  if (enabled("raid") && ws.raid.length > 0) {
-    parts.push("", CSV_SECTION_RAID, raidToCsv(ws.raid));
-  }
-  if (enabled("absences") && ws.absences.length > 0) {
-    parts.push("", CSV_SECTION_ABSENCES, absencesToCsv(ws.absences));
-  }
-  if (enabled("shifts") && ws.shifts.length > 0) {
-    parts.push("", CSV_SECTION_SHIFTS, shiftsToCsv(ws.shifts));
-  }
+  const parts: string[] = [];
+  const csvPush = (...items: string[]) => {
+    if (parts.length > 0) parts.push("");
+    parts.push(...items);
+  };
+  if (!config || config.tasks) csvPush(CSV_SECTION_TASKS, tasksToCsv(ws.tasks));
+  if (enabled("raid") && ws.raid.length > 0) csvPush(CSV_SECTION_RAID, raidToCsv(ws.raid));
+  if (enabled("absences") && ws.absences.length > 0) csvPush(CSV_SECTION_ABSENCES, absencesToCsv(ws.absences));
+  if (enabled("shifts") && ws.shifts.length > 0) csvPush(CSV_SECTION_SHIFTS, shiftsToCsv(ws.shifts));
   if (config === undefined) {
     // Storage-only sections — omitted from document exports.
-    if (ws.disciplines.length > 0) parts.push("", CSV_SECTION_DISCIPLINES, refsToCsv(ws.disciplines));
-    if (ws.grades.length > 0) parts.push("", CSV_SECTION_GRADES, refsToCsv(ws.grades));
+    if (ws.disciplines.length > 0) csvPush(CSV_SECTION_DISCIPLINES, refsToCsv(ws.disciplines));
+    if (ws.grades.length > 0) csvPush(CSV_SECTION_GRADES, refsToCsv(ws.grades));
   }
-  if (enabled("roles") && ws.roles.length > 0) parts.push("", CSV_SECTION_ROLES, rolesToCsv(ws.roles));
-  if (enabled("resources") && ws.resources.length > 0) parts.push("", CSV_SECTION_RESOURCES, resourcesToCsv(ws.resources));
-  if (enabled("budgets") && (ws.budgets ?? []).length > 0) parts.push("", CSV_SECTION_BUDGETS, budgetsToCsv(ws.budgets ?? []));
-  if (config === undefined && ws.fxRates) parts.push("", fxRatesToCsvLine(ws.fxRates));
-  if (enabled("status") && ws.status && Object.keys(ws.status).length > 0) {
-    parts.push("", CSV_SECTION_STATUS, statusToCsv(ws.status));
-  }
-  if (enabled("milestones") && (ws.milestones ?? []).length > 0) {
-    parts.push("", CSV_SECTION_MILESTONES, milestonesToCsv(ws.milestones ?? []));
-  }
-  if (enabled("changes") && (ws.changes ?? []).length > 0) {
-    parts.push("", CSV_SECTION_CHANGES, changesToCsv(ws.changes ?? []));
-  }
-  if (enabled("stakeholders") && (ws.stakeholders ?? []).length > 0) {
-    parts.push("", CSV_SECTION_STAKEHOLDERS, stakeholdersToCsv(ws.stakeholders ?? []));
-  }
-  if (config === undefined) parts.push("", planToCsvLine(ws.plan));
+  if (enabled("roles") && ws.roles.length > 0) csvPush(CSV_SECTION_ROLES, rolesToCsv(ws.roles));
+  if (enabled("resources") && ws.resources.length > 0) csvPush(CSV_SECTION_RESOURCES, resourcesToCsv(ws.resources));
+  if (enabled("budgets") && (ws.budgets ?? []).length > 0) csvPush(CSV_SECTION_BUDGETS, budgetsToCsv(ws.budgets ?? []));
+  if (config === undefined && ws.fxRates) csvPush(fxRatesToCsvLine(ws.fxRates));
+  if (enabled("status") && ws.status && Object.keys(ws.status).length > 0) csvPush(CSV_SECTION_STATUS, statusToCsv(ws.status));
+  if (enabled("milestones") && (ws.milestones ?? []).length > 0) csvPush(CSV_SECTION_MILESTONES, milestonesToCsv(ws.milestones ?? []));
+  if (enabled("changes") && (ws.changes ?? []).length > 0) csvPush(CSV_SECTION_CHANGES, changesToCsv(ws.changes ?? []));
+  if (enabled("stakeholders") && (ws.stakeholders ?? []).length > 0) csvPush(CSV_SECTION_STAKEHOLDERS, stakeholdersToCsv(ws.stakeholders ?? []));
+  if (config === undefined) csvPush(planToCsvLine(ws.plan));
   return parts.join("\r\n");
 }
 
@@ -1955,24 +1946,26 @@ export function workspaceToMarkdown(ws: Workspace, config?: ExportConfig): strin
   const enabled = (key: (typeof EXPORT_SECTION_KEYS)[number]) =>
     config === undefined || config[key];
 
-  let out = tasksToMarkdown(ws.tasks);
-  if (enabled("raid") && ws.raid.length > 0) out += "\n" + raidToMarkdown(ws.raid);
-  if (enabled("absences") && ws.absences.length > 0) out += "\n" + absencesToMarkdown(ws.absences);
-  if (enabled("shifts") && ws.shifts.length > 0) out += "\n" + shiftsToMarkdown(ws.shifts);
+  const mdParts: string[] = [];
+  if (!config || config.tasks) mdParts.push(tasksToMarkdown(ws.tasks));
+  if (enabled("raid") && ws.raid.length > 0) mdParts.push(raidToMarkdown(ws.raid));
+  if (enabled("absences") && ws.absences.length > 0) mdParts.push(absencesToMarkdown(ws.absences));
+  if (enabled("shifts") && ws.shifts.length > 0) mdParts.push(shiftsToMarkdown(ws.shifts));
   if (config === undefined) {
     // Storage-only sections — omitted from document exports.
-    if (ws.disciplines.length > 0) out += "\n" + refsToMarkdown("Disciplines", ws.disciplines);
-    if (ws.grades.length > 0) out += "\n" + refsToMarkdown("Grades", ws.grades);
+    if (ws.disciplines.length > 0) mdParts.push(refsToMarkdown("Disciplines", ws.disciplines));
+    if (ws.grades.length > 0) mdParts.push(refsToMarkdown("Grades", ws.grades));
   }
-  if (enabled("roles") && ws.roles.length > 0) out += "\n" + rolesToMarkdown(ws.roles);
-  if (enabled("resources") && ws.resources.length > 0) out += "\n" + resourcesToMarkdown(ws.resources);
-  if (enabled("budgets") && (ws.budgets ?? []).length > 0) out += "\n" + budgetsToMarkdown(ws.budgets ?? []);
-  if (config === undefined && ws.fxRates) out += "\n" + fxRatesToMarkdown(ws.fxRates);
-  if (enabled("status") && ws.status && Object.keys(ws.status).length > 0) out += "\n" + statusToMarkdown(ws.status);
-  if (enabled("milestones") && (ws.milestones ?? []).length > 0) out += "\n" + milestonesToMarkdown(ws.milestones ?? []);
-  if (enabled("changes") && (ws.changes ?? []).length > 0) out += "\n" + changesToMarkdown(ws.changes ?? []);
-  if (enabled("stakeholders") && (ws.stakeholders ?? []).length > 0) out += "\n" + stakeholdersToMarkdown(ws.stakeholders ?? []);
-  if (config === undefined) out += "\n" + planToMarkdown(ws.plan);
+  if (enabled("roles") && ws.roles.length > 0) mdParts.push(rolesToMarkdown(ws.roles));
+  if (enabled("resources") && ws.resources.length > 0) mdParts.push(resourcesToMarkdown(ws.resources));
+  if (enabled("budgets") && (ws.budgets ?? []).length > 0) mdParts.push(budgetsToMarkdown(ws.budgets ?? []));
+  if (config === undefined && ws.fxRates) mdParts.push(fxRatesToMarkdown(ws.fxRates));
+  if (enabled("status") && ws.status && Object.keys(ws.status).length > 0) mdParts.push(statusToMarkdown(ws.status));
+  if (enabled("milestones") && (ws.milestones ?? []).length > 0) mdParts.push(milestonesToMarkdown(ws.milestones ?? []));
+  if (enabled("changes") && (ws.changes ?? []).length > 0) mdParts.push(changesToMarkdown(ws.changes ?? []));
+  if (enabled("stakeholders") && (ws.stakeholders ?? []).length > 0) mdParts.push(stakeholdersToMarkdown(ws.stakeholders ?? []));
+  if (config === undefined) mdParts.push(planToMarkdown(ws.plan));
+  const out = mdParts.join("\n");
   return out;
 }
 
