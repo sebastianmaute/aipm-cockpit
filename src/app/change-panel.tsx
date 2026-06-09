@@ -54,7 +54,7 @@ export type ChangePanelProps = {
   /** YYYY-MM-DD; default `raisedDate` for new drafts + decisionDate autofill. */
   today: string;
   onSave: (item: ChangeItem) => void;
-  onDelete: (id: number) => void;
+  onDelete: (id: number, title: string) => void;
   /** When false, the RAID-link editor is hidden in the edit modal. Default true. */
   raidEnabled?: boolean;
   /** When false, the Stakeholders picker is hidden in the edit modal. Default true. */
@@ -194,7 +194,7 @@ function ChangePanelInner({
 
   function commitDelete() {
     if (!draft) return;
-    if (!isNew) onDelete(draft.id);
+    if (!isNew) onDelete(draft.id, draft.title);
     closeModal();
   }
 

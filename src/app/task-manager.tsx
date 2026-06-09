@@ -397,16 +397,12 @@ function TaskManagerInner() {
     handleSetAllUtilizationMode,
   } = useResourcePlanner({ lang, logActivity, showToast, workdayHours: settings.resources.workdayHours, holidaySet });
 
-  // Change Log CRUD. The hook reads/writes `changes` via WorkspaceProvider;
-  // change activity-logging is intentionally out of scope (logActivity here is
-  // kind-keyed, not free-text), so no logActivity is passed.
-  const { handleSaveChange, handleDeleteChange } = useChangeLog({ today });
+  // Change Log CRUD. The hook reads/writes `changes` via WorkspaceProvider.
+  const { handleSaveChange, handleDeleteChange } = useChangeLog({ today, logActivity });
 
-  // Stakeholder register / RACI / map CRUD. Mirrors the Change Log: the hook
-  // reads/writes `stakeholders` via WorkspaceProvider; the three panels source
-  // `resources`/`milestones` from context inside WorkspaceSection. As with
-  // useChangeLog, no logActivity is passed — task-manager's logActivity is
-  // kind-keyed (ActivityKind), not the free-text summary the hook expects.
+  // Stakeholder register / RACI / map CRUD. The hook reads/writes `stakeholders`
+  // via WorkspaceProvider; the three panels source `resources`/`milestones` from
+  // context inside WorkspaceSection.
   const { stakeholders, handleSaveStakeholder, handleDeleteStakeholder } =
     useStakeholders({ today });
 
