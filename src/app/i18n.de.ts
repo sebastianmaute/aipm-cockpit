@@ -320,6 +320,8 @@ export const de: Record<TranslationKey, string> = {
   chatNoApiKey:
     "API-Schlüssel in den Einstellungen hinterlegen, um den Chat zu nutzen.",
   chatClear: "Chat leeren",
+  chatStop: "Stopp",
+  chatStopped: "Abgebrochen",
   chatToolCall: "Werkzeug verwendet: {0}",
   chatToolError: "Werkzeugfehler",
   chatError: "Chat fehlgeschlagen: {0}",

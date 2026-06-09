@@ -68,6 +68,7 @@ async function callClaude(
   model: string,
   system: string,
   messages: ApiMessage[],
+  signal?: AbortSignal,
 ): Promise<{
   content: ContentBlock[];
   stop_reason: string;
@@ -88,6 +89,7 @@ async function callClaude(
       messages,
       tools: TOOL_DEFS,
     }),
+    signal,
   });
   if (!res.ok) {
     const text = await res.text();
@@ -154,6 +156,8 @@ function ChatPanelInner({
   const [error, setError] = useState<string | null>(null);
   const scrollerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const cancelledRef = useRef(false);
   const { ref: chatRef, reset: resetChatSize } = useResizable("lop-app:chat-size");
   const { record: recordUsage } = useAiUsageContext();
 
@@ -172,6 +176,9 @@ function ChatPanelInner({
     setError(null);
     setInput("");
     setBusy(true);
+    cancelledRef.current = false;
+    const controller = new AbortController();
+    abortRef.current = controller;
 
     const newHistory: ApiMessage[] = [
       ...history,
@@ -191,7 +198,14 @@ function ChatPanelInner({
       // Tool-use loop: keep round-tripping until Claude stops calling tools.
       // Capped to avoid runaway loops.
       for (let turn = 0; turn < 8; turn++) {
-        const response = await callClaude(ai.apiKey, ai.model, system, messages);
+        if (cancelledRef.current) break;
+        const response = await callClaude(
+          ai.apiKey,
+          ai.model,
+          system,
+          messages,
+          controller.signal,
+        );
         totalInput += response.usage.input_tokens;
         totalOutput += response.usage.output_tokens;
 
@@ -209,6 +223,8 @@ function ChatPanelInner({
         }
 
         if (response.stop_reason !== "tool_use") break;
+
+        if (cancelledRef.current) break;
 
         const results: ToolResultBlock[] = [];
         for (const block of response.content) {
@@ -243,18 +259,44 @@ function ChatPanelInner({
         messages.push({ role: "user", content: results });
       }
 
-      // Record summed token usage for the entire send (all turns combined).
-      recordUsage({ input: totalInput, output: totalOutput });
+      if (cancelledRef.current) {
+        // Stopped by the user — append a neutral note, no error state.
+        setDisplay((prev) => [
+          ...prev,
+          { kind: "assistant", text: t(lang, "chatStopped") },
+        ]);
+      } else {
+        // Record summed token usage for the entire send (all turns combined).
+        // Skipped on cancel — no complete turn to bill.
+        recordUsage({ input: totalInput, output: totalOutput });
+      }
 
       setHistory(messages);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setError(t(lang, "chatError", msg));
+      // AbortError is raised by fetch when the controller fires — treat as
+      // a user-initiated stop, not a real error. Check .name directly because
+      // DOMException may not be instanceof Error across jsdom/Node boundaries.
+      const errName = err instanceof Error ? err.name : (err as { name?: string }).name;
+      if (errName === "AbortError") {
+        setDisplay((prev) => [
+          ...prev,
+          { kind: "assistant", text: t(lang, "chatStopped") },
+        ]);
+      } else {
+        const msg = err instanceof Error ? err.message : String(err);
+        setError(t(lang, "chatError", msg));
+      }
     } finally {
+      abortRef.current = null;
       setBusy(false);
       // Refocus the input after the round-trip resolves.
       inputRef.current?.focus();
     }
+  }
+
+  function stopChat() {
+    cancelledRef.current = true;
+    abortRef.current?.abort();
   }
 
   function clearChat() {
@@ -361,14 +403,25 @@ function ChatPanelInner({
           className="min-w-0 flex-1 self-stretch resize-none rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none focus:ring-1 focus:ring-AIPM-green disabled:cursor-not-allowed disabled:opacity-50"
         />
         <div className="flex flex-col gap-2">
-          <button
-            type="button"
-            onClick={sendMessage}
-            disabled={busy || !input.trim() || apiKeyMissing}
-            className="rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {t(lang, "chatSend")}
-          </button>
+          {busy ? (
+            <button
+              type="button"
+              onClick={stopChat}
+              aria-label={t(lang, "chatStop")}
+              className="rounded-md bg-AIPM-pink px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+            >
+              {t(lang, "chatStop")}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={sendMessage}
+              disabled={!input.trim() || apiKeyMissing}
+              className="rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {t(lang, "chatSend")}
+            </button>
+          )}
           <button
             type="button"
             onClick={clearChat}

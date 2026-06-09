@@ -1,5 +1,5 @@
-import { render, screen } from "@testing-library/react";
-import { describe, it, expect, vi } from "vitest";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { ChatPanel } from "./chat-panel";
@@ -33,6 +33,103 @@ function makeDispatcher(): ToolDispatcher {
     })),
   } as unknown as ToolDispatcher;
 }
+
+// ---------------------------------------------------------------------------
+// Shared AI config for tests that need a real API key
+// ---------------------------------------------------------------------------
+const AI_WITH_KEY = {
+  ...defaultAiConfig,
+  consentAccepted: true,
+  apiKey: "sk-test",
+};
+
+// ---------------------------------------------------------------------------
+// Stop-button tests
+// ---------------------------------------------------------------------------
+describe("Stop button", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  function setupNeverResolvingFetch() {
+    // Returns a fetch mock that stays pending until rejectWithAbort() is called.
+    // The caller clicks Stop first (setting cancelledRef + calling controller.abort),
+    // then calls rejectWithAbort() to simulate the in-flight fetch rejecting.
+    let rejectFetch!: (reason: unknown) => void;
+    const pending = new Promise<Response>((_res, rej) => {
+      rejectFetch = rej;
+    });
+    vi.spyOn(globalThis, "fetch").mockReturnValue(pending);
+    const abortError = Object.assign(new Error("Aborted"), { name: "AbortError" });
+    return () => rejectFetch(abortError);
+  }
+
+  it("shows Stop while busy and re-enables Send after Stop is clicked", async () => {
+    const rejectWithAbort = setupNeverResolvingFetch();
+
+    render(
+      <ChatPanel
+        lang="en-US"
+        ai={AI_WITH_KEY}
+        dispatcher={makeDispatcher()}
+        onAcceptConsent={vi.fn()}
+      />,
+    );
+
+    // Type something and send.
+    const textarea = screen.getByPlaceholderText("Ask Claude about your tasks…");
+    fireEvent.change(textarea, { target: { value: "list tasks" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    // While busy: Stop button must be present, Send must be gone.
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Stop" })).toBeInTheDocument(),
+    );
+    expect(screen.queryByRole("button", { name: "Send" })).toBeNull();
+
+    // Click Stop first (sets cancelledRef.current = true), then reject fetch.
+    fireEvent.click(screen.getByRole("button", { name: "Stop" }));
+    rejectWithAbort();
+
+    // After abort resolves: Send is back, no error alert shown.
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Send" })).toBeInTheDocument(),
+    );
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("shows 'Stopped' note in chat after Stop, not an error", async () => {
+    const rejectWithAbort = setupNeverResolvingFetch();
+
+    render(
+      <ChatPanel
+        lang="en-US"
+        ai={AI_WITH_KEY}
+        dispatcher={makeDispatcher()}
+        onAcceptConsent={vi.fn()}
+      />,
+    );
+
+    const textarea = screen.getByPlaceholderText("Ask Claude about your tasks…");
+    fireEvent.change(textarea, { target: { value: "list tasks" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Stop" })).toBeInTheDocument(),
+    );
+
+    // Click Stop first, then simulate the in-flight fetch rejecting.
+    fireEvent.click(screen.getByRole("button", { name: "Stop" }));
+    rejectWithAbort();
+
+    // "Stopped" note appears in the conversation area.
+    await waitFor(() =>
+      expect(screen.getByText("Stopped")).toBeInTheDocument(),
+    );
+    // No error alert.
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+});
 
 describe("chat panel layout", () => {
   it("chat root is the centered half-size resizable card, not the plain fill card", () => {

@@ -313,6 +313,8 @@ const enUS = {
   chatNoApiKey:
     "Add your Anthropic API key in Settings to start chatting.",
   chatClear: "Clear chat",
+  chatStop: "Stop",
+  chatStopped: "Stopped",
   chatToolCall: "Used {0}",
   chatToolError: "Tool error",
   chatError: "Chat failed: {0}",
