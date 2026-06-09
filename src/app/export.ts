@@ -217,27 +217,20 @@ function exportPdf(ws: Workspace, cfg: ExportConfig, lang: Lang): void {
 // --- Public entry point --------------------------------------------------
 
 /**
- * Export the workspace (tasks + RAID items) in the requested format.
+ * Export the workspace in the requested format.
  *
  * For all formats except `"pdf"`, this triggers a browser download via a
  * hidden anchor. For `"pdf"`, this opens a print-styled HTML in a new tab
  * and immediately invokes `window.print()` — the user finalizes the export
  * by choosing "Save as PDF" in the browser's native print dialog.
  *
- * Empty workspaces are still exportable; you get a file with just the
- * header row (CSV/XLSX), an empty table (DOCX), the title slide (PPTX), or
- * a "No tasks to export." page (PDF/MD).
+ * Which sections appear is controlled by `exportConfig` (defaults to
+ * `defaultExportConfig` which enables tasks + RAID). Sections that are
+ * enabled in the config but whose workspace array is empty are omitted.
  *
- * RAID items appear as:
- *   • CSV/MD — a second `# RAID` / `# RAID Log` section in the same file
- *     (round-trips through the storage layer).
- *   • PDF — a "RAID Log" table after the tasks table.
- *   • DOCX — a "RAID Log" heading + table after the tasks table.
- *   • XLSX — a second worksheet named "RAID Log".
- *   • PPTX — a section-divider slide + one slide per item (capped at 50).
- *
- * When the workspace has no RAID items, the output is byte-equivalent to
- * the pre-RAID tasks-only export.
+ * For DOCX/XLSX/PPTX the section list is computed once via
+ * `buildExportSections` and passed to all three builders so there is no
+ * duplication of the projection logic.
  */
 export async function exportWorkspace(
   ws: Workspace,
@@ -257,17 +250,19 @@ export async function exportWorkspace(
   } else if (format === "md") {
     blob = new Blob([workspaceToMarkdown(ws, cfg)], { type: MIME.md });
   } else {
-    // OOXML builders live in a separate ~45 KB module. Loaded on demand so it
-    // stays out of the initial bundle and the live heap until the user
-    // actually picks docx/xlsx/pptx. The dynamic import is cached after the
-    // first call, so repeat clicks have no re-fetch cost.
+    // OOXML builders live in a separate module. Loaded on demand so it stays
+    // out of the initial bundle. The dynamic import is cached after the first
+    // call, so repeat clicks have no re-fetch cost.
+    //
+    // Sections are computed once here and shared across all three builders.
     const { buildDocx, buildPptx, buildXlsx } = await import("./export-ooxml");
+    const sections = buildExportSections(ws, cfg, lang);
     if (format === "docx") {
-      blob = buildDocx(ws.tasks, ws.raid);
+      blob = buildDocx(sections);
     } else if (format === "xlsx") {
-      blob = buildXlsx(ws.tasks, ws.raid);
+      blob = buildXlsx(sections);
     } else {
-      blob = buildPptx(ws.tasks, ws.raid);
+      blob = buildPptx(sections);
     }
   }
   triggerDownload(defaultFilename(format), blob);
