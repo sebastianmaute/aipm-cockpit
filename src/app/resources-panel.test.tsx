@@ -205,3 +205,17 @@ test("resources-panel: no view SegmentedControl, no roles/report/add-absence but
   expect(src).not.toMatch(/onOpenReport/);
   expect(src).toMatch(/VIEW_PANE_RESIZABLE_CLASS/);
 });
+
+test("calendar view root uses CENTERED_HALF_PANE_CLASS (mx-auto, h-[50%], w-[50%])", () => {
+  const { container } = render(<ResourcesPanel {...baseProps} view="calendar" today="2026-06-15" />);
+  const root = container.firstElementChild as HTMLElement;
+  expect(root.className).toContain("mx-auto");
+  expect(root.className).toContain("h-[50%]");
+  expect(root.className).toContain("w-[50%]");
+});
+
+test("workload view root does NOT use the centered half-pane class", () => {
+  const { container } = render(<ResourcesPanel {...baseProps} view="workload" />);
+  const root = container.firstElementChild as HTMLElement;
+  expect(root.className).not.toContain("mx-auto");
+});

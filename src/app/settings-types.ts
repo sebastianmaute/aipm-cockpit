@@ -1,5 +1,6 @@
 // src/app/settings-types.ts
 import type { AddableReportId } from "./addable-reports";
+import type { StakeholderQuadrant } from "./stakeholders";
 import type { FeatureModuleId } from "./feature-modules";
 import { ALL_MODULE_IDS } from "./feature-modules";
 import type { Lang } from "./i18n";
@@ -14,22 +15,53 @@ export type ChatModel =
   | "claude-opus-4-7"
   | "claude-haiku-4-5-20251001";
 
+export const DEFAULT_SESSION_TOKEN_CAP = 200_000;
+export const DEFAULT_WEEKLY_TOKEN_CAP = 2_000_000;
+
 export type AiConfig = {
   apiKey: string;
   model: ChatModel;
   consentAccepted: boolean;
+  sessionTokenCap?: number;
+  weeklyTokenCap?: number;
 };
 
 export const defaultAiConfig: AiConfig = {
   apiKey: "",
   model: "claude-sonnet-4-6",
   consentAccepted: false,
+  sessionTokenCap: DEFAULT_SESSION_TOKEN_CAP,
+  weeklyTokenCap: DEFAULT_WEEKLY_TOKEN_CAP,
 };
 
-export type ChannelConfig = { enabled: boolean };
+export function sanitizeAiConfig(raw: unknown): AiConfig {
+  const obj = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const coerceCap = (v: unknown, def: number): number => {
+    const n = Number(v);
+    return Number.isFinite(n) && n > 0 ? Math.round(n) : def;
+  };
+  const MODELS: readonly ChatModel[] = [
+    "claude-sonnet-4-6",
+    "claude-opus-4-7",
+    "claude-haiku-4-5-20251001",
+  ];
+  const model: ChatModel = MODELS.includes(obj.model as ChatModel)
+    ? (obj.model as ChatModel)
+    : defaultAiConfig.model;
+  return {
+    apiKey: typeof obj.apiKey === "string" ? obj.apiKey : "",
+    model,
+    consentAccepted: obj.consentAccepted === true,
+    sessionTokenCap: coerceCap(obj.sessionTokenCap, DEFAULT_SESSION_TOKEN_CAP),
+    weeklyTokenCap: coerceCap(obj.weeklyTokenCap, DEFAULT_WEEKLY_TOKEN_CAP),
+  };
+}
+
+export type ChannelConfig = { enabled: boolean; leadDays?: number };
 
 export type NotificationsConfig = {
   reminderLeadDays: number;
+  useGlobalLeadDays: boolean;
   banner: ChannelConfig;
   toast: ChannelConfig;
   popup: ChannelConfig;
@@ -37,17 +69,27 @@ export type NotificationsConfig = {
   raidReview: ChannelConfig;
   raidReviewIntervalDays: number;
   stakeholderComms: ChannelConfig;
+  stakeholderCommsLeadDays: Record<StakeholderQuadrant, number>;
+  jiraTokenError: ChannelConfig;
 };
 
 export const defaultNotificationsConfig: NotificationsConfig = {
   reminderLeadDays: 7,
-  banner: { enabled: true },
+  useGlobalLeadDays: true,
+  banner: { enabled: false },
   toast: { enabled: true },
-  popup: { enabled: true },
+  popup: { enabled: false },
   birthday: { enabled: true },
   raidReview: { enabled: true },
   raidReviewIntervalDays: 14,
   stakeholderComms: { enabled: true },
+  stakeholderCommsLeadDays: {
+    "manage-closely": 14,
+    "keep-satisfied": 7,
+    "keep-informed": 7,
+    monitor: 3,
+  },
+  jiraTokenError: { enabled: true },
 };
 
 export type JiraAssigneeMode = "currentUser" | "any" | "specific";
@@ -146,6 +188,28 @@ export function sanitizeIntegrations(raw: unknown): IntegrationsSettings {
   };
 }
 
+export const EXPORT_SECTION_KEYS = [
+  "tasks", "raid", "changes", "milestones", "stakeholders",
+  "budgets", "resources", "roles", "absences", "shifts", "status",
+] as const;
+export type ExportSectionKey = (typeof EXPORT_SECTION_KEYS)[number];
+export type ExportConfig = Record<ExportSectionKey, boolean>;
+
+export const defaultExportConfig: ExportConfig = {
+  tasks: true,  raid: true,
+  changes: false, milestones: false, stakeholders: false, budgets: false,
+  resources: false, roles: false, absences: false, shifts: false, status: false,
+};
+
+export function sanitizeExportConfig(raw: unknown): ExportConfig {
+  const obj = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const result = {} as Record<ExportSectionKey, boolean>;
+  for (const key of EXPORT_SECTION_KEYS) {
+    result[key] = typeof obj[key] === "boolean" ? (obj[key] as boolean) : defaultExportConfig[key];
+  }
+  return result;
+}
+
 export type SnapshotSettings = {
   enabled: boolean;
   cadence: SnapshotCadence;
@@ -185,6 +249,7 @@ export type Settings = {
   integrations?: IntegrationsSettings;
   snapshots?: SnapshotSettings;
   features: FeatureModuleId[];
+  export?: ExportConfig;
 };
 
 export const defaultSettings: Settings = {
@@ -201,4 +266,5 @@ export const defaultSettings: Settings = {
   integrations: defaultIntegrations,
   snapshots: defaultSnapshotSettings,
   features: [...ALL_MODULE_IDS],
+  export: defaultExportConfig,
 };

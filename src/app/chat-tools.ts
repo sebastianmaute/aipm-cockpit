@@ -1,5 +1,5 @@
 import { sanitizeGroup, sanitizeLabels } from "./sanitize";
-import { PRIORITIES, type Priority, type Task } from "./types";
+import { PRIORITIES, type Priority, type Task, type RaidItem, type ChangeItem, type Milestone } from "./types";
 import type { Lang } from "./i18n";
 
 type TaskInput = {
@@ -23,6 +23,32 @@ export type Filters = {
   label?: string;
 };
 
+export type RaidSummary = {
+  id: number;
+  category: string;
+  title: string;
+  status: string;
+  severity?: string;
+  owner?: string;
+  stakeholderIds: number[];
+};
+
+export type ChangeSummary = {
+  id: number;
+  title: string;
+  status: string;
+  impact?: string;
+  decisionDate?: string;
+  stakeholderIds: number[];
+};
+
+export type MilestoneSummary = {
+  id: number;
+  name: string;
+  date: string;
+  achievedDate?: string;
+};
+
 export type ToolDispatcher = {
   listTasks(): Task[];
   getTask(id: number): Task | null;
@@ -33,6 +59,9 @@ export type ToolDispatcher = {
   sendInquiry(id: number): { sent: boolean; reason?: string };
   setFilters(filters: Filters): void;
   setLanguage(lang: Lang): void;
+  listRaid(): RaidSummary[];
+  listChanges(): ChangeSummary[];
+  listMilestones(): MilestoneSummary[];
   getSnapshot(): {
     today: string;
     language: Lang;
@@ -180,6 +209,24 @@ export const TOOL_DEFS = [
       "Get a quick snapshot of the app: today's date, language, holiday countries, storage backend, task count.",
     input_schema: { type: "object", properties: {} },
   },
+  {
+    name: "list_raid",
+    description:
+      "List all RAID items (Risks, Assumptions, Issues, Decisions) with id, category, title, status, severity, owner, and stakeholderIds. Read-only.",
+    input_schema: { type: "object", properties: {} },
+  },
+  {
+    name: "list_changes",
+    description:
+      "List all change-control items with id, title, status, impact, decisionDate, and stakeholderIds. Read-only.",
+    input_schema: { type: "object", properties: {} },
+  },
+  {
+    name: "list_milestones",
+    description:
+      "List all project milestones with id, name, target date, and achievedDate (if signed off). Read-only.",
+    input_schema: { type: "object", properties: {} },
+  },
 ];
 
 function asString(v: unknown): string | undefined {
@@ -210,6 +257,38 @@ function buildPatch(input: Record<string, unknown>): Partial<Task> {
   if (input.group !== undefined) patch.group = sanitizeGroup(input.group);
   if (input.labels !== undefined) patch.labels = sanitizeLabels(input.labels);
   return patch;
+}
+
+export function toRaidSummary(item: RaidItem): RaidSummary {
+  return {
+    id: item.id,
+    category: item.category,
+    title: item.title,
+    status: item.status,
+    severity: item.severity,
+    owner: item.owner,
+    stakeholderIds: item.stakeholderIds ?? [],
+  };
+}
+
+export function toChangeSummary(item: ChangeItem): ChangeSummary {
+  return {
+    id: item.id,
+    title: item.title,
+    status: item.status,
+    impact: item.impact,
+    decisionDate: item.decisionDate,
+    stakeholderIds: item.stakeholderIds ?? [],
+  };
+}
+
+export function toMilestoneSummary(item: Milestone): MilestoneSummary {
+  return {
+    id: item.id,
+    name: item.name,
+    date: item.date,
+    achievedDate: item.achievedDate,
+  };
 }
 
 export async function runTool(
@@ -317,6 +396,15 @@ export async function runTool(
 
     case "get_app_state":
       return d.getSnapshot();
+
+    case "list_raid":
+      return d.listRaid();
+
+    case "list_changes":
+      return d.listChanges();
+
+    case "list_milestones":
+      return d.listMilestones();
 
     default:
       throw new Error(`unknown tool: ${name}`);

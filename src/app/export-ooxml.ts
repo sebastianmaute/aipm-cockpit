@@ -1,4 +1,4 @@
-// Hand-rolled Office Open XML (OOXML) builders for tasks export.
+// Hand-rolled Office Open XML (OOXML) builders for workspace export.
 //
 // Why no library: jszip+docx+xlsx+pptx would pull a ~600KB dependency tree
 // for what is, structurally, just a few XML strings inside a ZIP. We have
@@ -14,9 +14,9 @@
 //   • White      #FFFFFF — header text on dark backgrounds
 //
 // What each format contains:
-//   DOCX — title, intro paragraph, table with all tasks
-//   XLSX — one worksheet with frozen header row + autofilter
-//   PPTX — title slide + one slide per task (capped at 100 to keep size sane)
+//   DOCX — title + one heading+table block per section
+//   XLSX — one worksheet per section (frozen header, autofilter, zebra rows)
+//   PPTX — title slide + divider+item slides per section (capped per section)
 //
 // Note: this file deliberately doesn't validate the SchemaSpec exhaustively;
 // it produces the subset of OOXML each application needs to open and round-
@@ -24,7 +24,7 @@
 // always a missing relationship or a typo in a namespace URI.
 
 import { type ZipEntry, buildZip } from "./zip";
-import type { RaidItem, Task } from "./types";
+import type { ExportSection } from "./export-sections";
 
 // --- brand palette --------------------------------------------------------
 //
@@ -37,6 +37,10 @@ const COLOR_LIGHT_GREY = "E3E6E6";
 const COLOR_MEDIUM_GREY = "939598";
 const COLOR_WHITE = "FFFFFF";
 const COLOR_TEXT = "1A1A1A";
+
+// Per-section row cap for PPTX. Sections with more rows emit a truncation-
+// notice slide. 100 keeps the file size manageable and PowerPoint snappy.
+const PPTX_MAX_ROWS_PER_SECTION = 100;
 
 // --- shared helpers -------------------------------------------------------
 
@@ -55,136 +59,31 @@ function todayHuman(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-/** Pull the human row a task should produce in the tabular formats. Order
- *  is the same in DOCX and XLSX so users get a consistent layout. */
-function taskRow(task: Task): {
-  id: string;
-  taskName: string;
-  assignee: string;
-  email: string;
-  due: string;
-  status: string;
-  priority: string;
-  group: string;
-  labels: string;
-  blockers: string;
-  notes: string;
-} {
-  return {
-    id: String(task.id),
-    taskName: task.taskName ?? "",
-    assignee: task.assignee ?? "",
-    email: task.assigneeEmail ?? "",
-    due: task.dueDate ?? "",
-    status: task.completedDate ? `Completed ${task.completedDate}` : "Open",
-    priority: task.priority,
-    group: task.group ?? "",
-    labels: Array.isArray(task.labels) ? task.labels.join(", ") : "",
-    blockers: task.blockers ?? "",
-    notes: task.notes ?? "",
-  };
-}
-
-const TABLE_COLUMNS: Array<{ key: keyof ReturnType<typeof taskRow>; label: string; widthPx: number }> = [
-  { key: "id", label: "ID", widthPx: 50 },
-  { key: "taskName", label: "Task", widthPx: 240 },
-  { key: "assignee", label: "Assignee", widthPx: 130 },
-  { key: "email", label: "Email", widthPx: 160 },
-  { key: "due", label: "Due", widthPx: 90 },
-  { key: "status", label: "Status", widthPx: 130 },
-  { key: "priority", label: "Priority", widthPx: 80 },
-  { key: "group", label: "Group", widthPx: 110 },
-  { key: "labels", label: "Labels", widthPx: 130 },
-  { key: "blockers", label: "Blockers", widthPx: 160 },
-  { key: "notes", label: "Notes", widthPx: 220 },
-];
-
-/** Same idea as `taskRow` — flatten a RaidItem into plain strings for the
- *  tabular formats so the OOXML emitters don't have to know about the type. */
-function raidRow(item: RaidItem): {
-  id: string;
-  category: string;
-  title: string;
-  severity: string;
-  status: string;
-  owner: string;
-  ownerEmail: string;
-  raised: string;
-  target: string;
-  closed: string;
-  linkedTasks: string;
-  causedBy: string;
-  description: string;
-  mitigation: string;
-} {
-  const categoryLabel: Record<string, string> = {
-    R: "Risk",
-    A: "Assumption",
-    I: "Issue",
-    D: "Dependency",
-  };
-  let severity = item.severity ?? "";
-  if (item.category === "R" && item.probability && item.impact) {
-    severity = `${severity} (${item.probability}×${item.impact})`;
-  }
-  return {
-    id: String(item.id),
-    category: categoryLabel[item.category] ?? item.category,
-    title: item.title ?? "",
-    severity,
-    status: item.status,
-    owner: item.owner ?? "",
-    ownerEmail: item.ownerEmail ?? "",
-    raised: item.raisedDate ?? "",
-    target: item.targetDate ?? "",
-    closed: item.closedDate ?? "",
-    linkedTasks: item.linkedTaskIds.map((id) => `#${id}`).join(", "),
-    causedBy: item.causedByRaidIds.map((id) => `#${id}`).join(", "),
-    description: item.description ?? "",
-    mitigation: item.mitigation ?? "",
-  };
-}
-
-const RAID_TABLE_COLUMNS: Array<{ key: keyof ReturnType<typeof raidRow>; label: string; widthPx: number }> = [
-  { key: "id", label: "ID", widthPx: 50 },
-  { key: "category", label: "Category", widthPx: 90 },
-  { key: "title", label: "Title", widthPx: 240 },
-  { key: "severity", label: "Severity", widthPx: 110 },
-  { key: "status", label: "Status", widthPx: 110 },
-  { key: "owner", label: "Owner", widthPx: 130 },
-  { key: "ownerEmail", label: "Email", widthPx: 160 },
-  { key: "raised", label: "Raised", widthPx: 90 },
-  { key: "target", label: "Target", widthPx: 90 },
-  { key: "closed", label: "Closed", widthPx: 90 },
-  { key: "linkedTasks", label: "Linked tasks", widthPx: 130 },
-  { key: "causedBy", label: "Caused by", widthPx: 90 },
-  { key: "description", label: "Description", widthPx: 200 },
-  { key: "mitigation", label: "Mitigation", widthPx: 220 },
-];
-
 // ============================================================================
 // DOCX
 // ============================================================================
 
 /**
- * Render a DOCX `<w:tbl>` from a column spec and a list of plain-string rows.
- * Shared by the tasks and RAID tables so both stay visually identical.
+ * Render a DOCX `<w:tbl>` from a list of string column labels and plain-
+ * string rows. Used for every section — Tasks, RAID, Milestones, etc.
+ *
+ * Column widths are distributed evenly across a standard landscape page
+ * (≈14 520 twips usable width at 0.5-inch margins on A4 landscape).
  */
-function buildDocxTable<T>(
-  columns: Array<{ key: keyof T; label: string; widthPx: number }>,
-  rows: T[],
-): string {
-  // Twips: 1 inch = 1440 twips. ~15 twips per pixel — good enough for visual
-  // proportions in print.
-  const TWIPS_PER_PX = 15;
-  const colWidths = columns.map((c) => Math.round(c.widthPx * TWIPS_PER_PX));
+function buildDocxTable(columns: string[], rows: (string | number)[][]): string {
+  // Fallback width when we have no pixel hint: share page width evenly.
+  const PAGE_WIDTH_TWIPS = 14520;
+  const colWidth = columns.length > 0
+    ? Math.floor(PAGE_WIDTH_TWIPS / columns.length)
+    : PAGE_WIDTH_TWIPS;
+  const colWidths = columns.map(() => colWidth);
 
   const tableHeader = `
     <w:tr>
       <w:trPr><w:tblHeader/></w:trPr>
       ${columns
         .map(
-          (c, i) => `
+          (label, i) => `
         <w:tc>
           <w:tcPr>
             <w:tcW w:w="${colWidths[i]}" w:type="dxa"/>
@@ -194,7 +93,7 @@ function buildDocxTable<T>(
             <w:pPr><w:pStyle w:val="TableHeader"/></w:pPr>
             <w:r>
               <w:rPr><w:b/><w:color w:val="${COLOR_WHITE}"/></w:rPr>
-              <w:t xml:space="preserve">${xmlEscape(c.label)}</w:t>
+              <w:t xml:space="preserve">${xmlEscape(label)}</w:t>
             </w:r>
           </w:p>
         </w:tc>`,
@@ -203,20 +102,20 @@ function buildDocxTable<T>(
     </w:tr>`;
 
   const tableBody = rows
-    .map((r, rowIdx) => {
+    .map((row, rowIdx) => {
       const fill = rowIdx % 2 === 1 ? COLOR_LIGHT_GREY : COLOR_WHITE;
       return `
       <w:tr>
         ${columns
           .map(
-            (c, i) => `
+            (_, i) => `
           <w:tc>
             <w:tcPr>
               <w:tcW w:w="${colWidths[i]}" w:type="dxa"/>
               <w:shd w:val="clear" w:color="auto" w:fill="${fill}"/>
             </w:tcPr>
             <w:p>
-              <w:r><w:t xml:space="preserve">${xmlEscape(r[c.key] as unknown as string)}</w:t></w:r>
+              <w:r><w:t xml:space="preserve">${xmlEscape(row[i] ?? "")}</w:t></w:r>
             </w:p>
           </w:tc>`,
           )
@@ -225,10 +124,11 @@ function buildDocxTable<T>(
     })
     .join("");
 
+  const totalWidth = colWidths.reduce((a, b) => a + b, 0);
   return `<w:tbl>
       <w:tblPr>
         <w:tblStyle w:val="Grid"/>
-        <w:tblW w:w="0" w:type="auto"/>
+        <w:tblW w:w="${totalWidth}" w:type="dxa"/>
         <w:tblBorders>
           <w:top    w:val="single" w:sz="4" w:space="0" w:color="${COLOR_LIGHT_GREY}"/>
           <w:left   w:val="single" w:sz="4" w:space="0" w:color="${COLOR_LIGHT_GREY}"/>
@@ -246,33 +146,34 @@ function buildDocxTable<T>(
     </w:tbl>`;
 }
 
-/** Build a `.docx` Blob containing a title + intro + tasks table, plus an
- *  optional RAID table after the tasks table when `raid` is non-empty. */
-export function buildDocx(tasks: Task[], raid: readonly RaidItem[] = []): Blob {
-  const rows = tasks.map(taskRow);
-  const raidRows = raid.map(raidRow);
-
-  const tasksTable = buildDocxTable(TABLE_COLUMNS, rows);
-  const raidTable =
-    raidRows.length > 0
-      ? `
-    <w:p/>
+/** Render one ExportSection as a DOCX heading paragraph + table. */
+function buildDocxSection(section: ExportSection): string {
+  return `
     <w:p>
       <w:pPr><w:pStyle w:val="Title"/></w:pPr>
       <w:r>
         <w:rPr><w:color w:val="${COLOR_DARK_BLUE}"/><w:sz w:val="36"/></w:rPr>
-        <w:t>RAID Log</w:t>
+        <w:t>${xmlEscape(section.title)}</w:t>
       </w:r>
     </w:p>
     <w:p>
       <w:r>
         <w:rPr><w:color w:val="${COLOR_MEDIUM_GREY}"/><w:i/></w:rPr>
-        <w:t xml:space="preserve">${raidRows.length} item${raidRows.length === 1 ? "" : "s"} · Risks, Assumptions, Issues, Dependencies</w:t>
+        <w:t xml:space="preserve">${section.rows.length} row${section.rows.length === 1 ? "" : "s"}</w:t>
       </w:r>
     </w:p>
     <w:p/>
-    ${buildDocxTable(RAID_TABLE_COLUMNS, raidRows)}`
-      : "";
+    ${buildDocxTable(section.columns, section.rows)}
+    <w:p/>`;
+}
+
+/**
+ * Build a `.docx` Blob containing a title paragraph + one heading+table block
+ * per ExportSection. Accepts the pre-computed sections list so the caller
+ * (exportWorkspace) can compute it once and share it across all three builders.
+ */
+export function buildDocx(sections: ExportSection[]): Blob {
+  const sectionsXml = sections.map(buildDocxSection).join("");
 
   const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
@@ -287,12 +188,11 @@ export function buildDocx(tasks: Task[], raid: readonly RaidItem[] = []): Blob {
     <w:p>
       <w:r>
         <w:rPr><w:color w:val="${COLOR_MEDIUM_GREY}"/><w:i/></w:rPr>
-        <w:t xml:space="preserve">Exported ${xmlEscape(todayHuman())} · ${rows.length} task${rows.length === 1 ? "" : "s"}</w:t>
+        <w:t xml:space="preserve">Exported ${xmlEscape(todayHuman())}</w:t>
       </w:r>
     </w:p>
     <w:p/>
-    ${tasksTable}
-    ${raidTable}
+    ${sectionsXml}
     <w:sectPr>
       <w:pgSz w:w="16838" w:h="11906" w:orient="landscape"/>
       <w:pgMar w:top="720" w:right="720" w:bottom="720" w:left="720" w:header="0" w:footer="0" w:gutter="0"/>
@@ -351,19 +251,39 @@ export function buildDocx(tasks: Task[], raid: readonly RaidItem[] = []): Blob {
 // ============================================================================
 
 /**
- * Build a `.xlsx` Blob with one worksheet containing all tasks.
+ * Sanitize a string into a valid Excel worksheet name:
+ *   • Remove characters illegal in sheet names: : \ / ? * [ ]
+ *   • Truncate to 31 characters (Excel limit).
+ */
+function sanitizeSheetName(raw: string): string {
+  return raw.replace(/[:\\/?*[\]]/g, "").slice(0, 31) || "Sheet";
+}
+
+/**
+ * Given a desired name and a set of already-used names, return a unique name
+ * that is still ≤31 characters. Appends a numeric suffix (_2, _3, …).
+ */
+function uniqueSheetName(desired: string, used: Set<string>): string {
+  if (!used.has(desired)) return desired;
+  for (let n = 2; ; n++) {
+    const suffix = `_${n}`;
+    const candidate = desired.slice(0, 31 - suffix.length) + suffix;
+    if (!used.has(candidate)) return candidate;
+  }
+}
+
+/**
+ * Build a `.xlsx` Blob with one worksheet per ExportSection.
  *
- * Style choices:
+ * Style choices (preserved from the original single-sheet builder):
  *   • Header row: Dark Blue fill, white bold text, frozen.
  *   • Body rows: alternating Light Grey / white fill.
- *   • Auto-filter on the header range so users can sort / filter in Excel.
+ *   • Auto-filter on the header range.
+ *   • Shared-strings dedup across all sheets.
  */
-export function buildXlsx(tasks: Task[], raid: readonly RaidItem[] = []): Blob {
-  const rows = tasks.map(taskRow);
-  const raidRows = raid.map(raidRow);
-
-  // Build sharedStrings table so we don't repeat long strings inline.
-  // Shared across both worksheets.
+export function buildXlsx(sections: ExportSection[]): Blob {
+  // Shared strings table — a single index shared across all worksheets so
+  // identical strings in different sheets don't get duplicated.
   const strings: string[] = [];
   const stringIndex = new Map<string, number>();
   function s(value: unknown): number {
@@ -378,51 +298,48 @@ export function buildXlsx(tasks: Task[], raid: readonly RaidItem[] = []): Blob {
 
   // Convert column index (0-based) to Excel column letters (A, B, …, AA, …).
   function colLetter(idx: number): string {
-    let s = "";
+    let result = "";
     let n = idx + 1;
     while (n > 0) {
       const r = (n - 1) % 26;
-      s = String.fromCharCode(65 + r) + s;
+      result = String.fromCharCode(65 + r) + result;
       n = Math.floor((n - 1) / 26);
     }
-    return s;
+    return result;
   }
 
-  /** Render a complete worksheet XML for a column-spec and rows. The shared
-   *  `s()` / `colLetter()` closures above are captured here so both sheets
-   *  use the same shared-strings index. */
-  function buildSheetXml<T>(
-    columns: Array<{ key: keyof T; label: string; widthPx: number }>,
-    sheetRows: T[],
-  ): string {
+  /** Build one worksheet XML. Captures the shared `s()` / `colLetter()` closures. */
+  function buildSheetXml(columns: string[], rows: (string | number)[][]): string {
     const lastCol = colLetter(columns.length - 1);
-    const lastRow = sheetRows.length + 1;
+    const lastRow = rows.length + 1;
 
     const headerCells = columns
-      .map((c, i) => {
+      .map((label, i) => {
         const ref = `${colLetter(i)}1`;
-        return `<c r="${ref}" t="s" s="1"><v>${s(c.label)}</v></c>`;
+        return `<c r="${ref}" t="s" s="1"><v>${s(label)}</v></c>`;
       })
       .join("");
 
-    const bodyRowsXml = sheetRows
+    const bodyRowsXml = rows
       .map((row, rIdx) => {
         const rowNum = rIdx + 2;
         const styleId = rIdx % 2 === 1 ? 2 : 3;
         const cells = columns
-          .map((c, ci) => {
+          .map((_, ci) => {
             const ref = `${colLetter(ci)}${rowNum}`;
-            return `<c r="${ref}" t="s" s="${styleId}"><v>${s(row[c.key])}</v></c>`;
+            return `<c r="${ref}" t="s" s="${styleId}"><v>${s(row[ci])}</v></c>`;
           })
           .join("");
         return `<row r="${rowNum}">${cells}</row>`;
       })
       .join("");
 
+    // Default column width: ~10 chars wide (reasonable for unknown content)
+    const defaultWidthChars = 14;
     const colDefs = columns
       .map(
-        (c, i) =>
-          `<col min="${i + 1}" max="${i + 1}" width="${Math.max(8, c.widthPx / 7).toFixed(1)}" customWidth="1"/>`,
+        (_, i) =>
+          `<col min="${i + 1}" max="${i + 1}" width="${defaultWidthChars}" customWidth="1"/>`,
       )
       .join("");
 
@@ -442,18 +359,25 @@ export function buildXlsx(tasks: Task[], raid: readonly RaidItem[] = []): Blob {
 </worksheet>`;
   }
 
-  const sheetXml = buildSheetXml(TABLE_COLUMNS, rows);
-  const raidSheetXml =
-    raidRows.length > 0
-      ? buildSheetXml(RAID_TABLE_COLUMNS, raidRows)
-      : null;
+  // Sanitize and deduplicate worksheet names.
+  const usedNames = new Set<string>();
+  const sheetNames: string[] = sections.map((sec) => {
+    const sanitized = sanitizeSheetName(sec.title);
+    const name = uniqueSheetName(sanitized, usedNames);
+    usedNames.add(name);
+    return name;
+  });
 
+  // Build all sheet XMLs (shared-strings index is populated as a side-effect).
+  const sheetXmls = sections.map((sec) => buildSheetXml(sec.columns, sec.rows));
+
+  // Now that shared strings are fully populated, build the SST XML.
   const sharedStringsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="${strings.length}" uniqueCount="${strings.length}">
   ${strings.map((str) => `<si><t xml:space="preserve">${xmlEscape(str)}</t></si>`).join("")}
 </sst>`;
 
-  // Styles. Indices used in cells: 1 = header, 2 = grey body, 3 = white body.
+  // Styles: indices used in cells: 1 = header, 2 = grey body, 3 = white body.
   const stylesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
   <fonts count="2">
@@ -477,61 +401,68 @@ export function buildXlsx(tasks: Task[], raid: readonly RaidItem[] = []): Blob {
   <cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
 </styleSheet>`;
 
-  // Workbook lists tasks first, then RAID Log when present. Sheet IDs are
-  // 1-indexed; r:id values must match the Relationship Ids below.
-  const sheetEntries =
-    raidSheetXml !== null
-      ? `<sheet name="Tasks" sheetId="1" r:id="rId1"/>
-         <sheet name="RAID Log" sheetId="2" r:id="rId4"/>`
-      : `<sheet name="Tasks" sheetId="1" r:id="rId1"/>`;
+  // Workbook: one <sheet> element per section. rId1 = sheet1, rId2 = sheet2, …
+  // rId offsets: sheet rIds start at 1; sharedStrings/styles use higher rIds.
+  const sheetCount = sections.length;
+  const sharedStringsRId = sheetCount + 1;
+  const stylesRId = sheetCount + 2;
+
+  const sheetListXml = sheetNames
+    .map((name, i) => `<sheet name="${xmlEscape(name)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`)
+    .join("\n         ");
 
   const workbookXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"
           xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
   <sheets>
-    ${sheetEntries}
+    ${sheetListXml}
   </sheets>
 </workbook>`;
 
   const workbookRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
-  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings" Target="sharedStrings.xml"/>
-  <Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
-  ${raidSheetXml !== null
-    ? `<Relationship Id="rId4" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/>`
-    : ""}
+  ${sheetNames
+    .map(
+      (_, i) =>
+        `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`,
+    )
+    .join("\n  ")}
+  <Relationship Id="rId${sharedStringsRId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings" Target="sharedStrings.xml"/>
+  <Relationship Id="rId${stylesRId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
 </Relationships>`;
 
-  const rootRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
-</Relationships>`;
+  const sheetOverrides = sheetNames
+    .map(
+      (_, i) =>
+        `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`,
+    )
+    .join("\n  ");
 
   const contentTypes = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
   <Default Extension="xml" ContentType="application/xml"/>
   <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
   <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
-  <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
-  ${raidSheetXml !== null
-    ? `<Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`
-    : ""}
+  ${sheetOverrides}
   <Override PartName="/xl/sharedStrings.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"/>
   <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
 </Types>`;
+
+  const rootRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+</Relationships>`;
 
   const entries: ZipEntry[] = [
     { path: "[Content_Types].xml", data: contentTypes },
     { path: "_rels/.rels", data: rootRels },
     { path: "xl/workbook.xml", data: workbookXml },
     { path: "xl/_rels/workbook.xml.rels", data: workbookRels },
-    { path: "xl/worksheets/sheet1.xml", data: sheetXml },
     { path: "xl/sharedStrings.xml", data: sharedStringsXml },
     { path: "xl/styles.xml", data: stylesXml },
   ];
-  if (raidSheetXml !== null) {
-    entries.push({ path: "xl/worksheets/sheet2.xml", data: raidSheetXml });
+  for (let i = 0; i < sheetXmls.length; i++) {
+    entries.push({ path: `xl/worksheets/sheet${i + 1}.xml`, data: sheetXmls[i] });
   }
 
   return buildZip(
@@ -545,57 +476,42 @@ export function buildXlsx(tasks: Task[], raid: readonly RaidItem[] = []): Blob {
 // ============================================================================
 
 /**
- * Build a `.pptx` Blob with a title slide + one slide per task.
- *
- * For very large task lists we cap the per-task slides at PPTX_MAX_SLIDES
- * (to keep file size manageable and PowerPoint snappy when opening). A
- * footer slide notes how many tasks were truncated, if any.
+ * Build a `.pptx` Blob with a title slide + one divider+item slide block per
+ * ExportSection. Each section is capped at PPTX_MAX_ROWS_PER_SECTION item
+ * slides; if truncated, a notice slide is inserted after the section items.
  *
  * Slide dimensions are 16:9 widescreen (9144000 × 5143500 EMUs = standard).
  */
-export function buildPptx(
-  tasks: Task[],
-  raid: readonly RaidItem[] = [],
-): Blob {
-  const PPTX_MAX_SLIDES = 100;
-  const PPTX_MAX_RAID_SLIDES = 50;
-  const truncated = tasks.length > PPTX_MAX_SLIDES;
-  const used = tasks.slice(0, PPTX_MAX_SLIDES);
-  const raidTruncated = raid.length > PPTX_MAX_RAID_SLIDES;
-  const raidUsed = raid.slice(0, PPTX_MAX_RAID_SLIDES);
-
-  // Slide order: title → tasks → (task truncation notice) → RAID divider →
-  // RAID items → (RAID truncation notice). Sections are omitted when empty.
+export function buildPptx(sections: ExportSection[]): Blob {
   const slideXmls: string[] = [];
-  slideXmls.push(buildPptxTitleSlide(tasks.length));
-  for (const task of used) {
-    slideXmls.push(buildPptxTaskSlide(task));
-  }
-  if (truncated) {
-    slideXmls.push(
-      buildPptxNoticeSlide(
-        `Showing the first ${PPTX_MAX_SLIDES} of ${tasks.length} tasks.`,
-        "Export to XLSX for the full list.",
-      ),
-    );
-  }
-  if (raid.length > 0) {
-    slideXmls.push(buildPptxRaidDividerSlide(raid.length));
-    for (const item of raidUsed) {
-      slideXmls.push(buildPptxRaidSlide(item));
+
+  // Title slide (always first).
+  slideXmls.push(buildPptxTitleSlide());
+
+  for (const section of sections) {
+    const truncated = section.rows.length > PPTX_MAX_ROWS_PER_SECTION;
+    const usedRows = section.rows.slice(0, PPTX_MAX_ROWS_PER_SECTION);
+
+    // Section divider slide.
+    slideXmls.push(buildPptxDividerSlide(section.title, section.rows.length));
+
+    // One item slide per row.
+    for (const row of usedRows) {
+      slideXmls.push(buildPptxRowSlide(section.title, section.columns, row));
     }
-    if (raidTruncated) {
+
+    // Truncation notice when section exceeds the cap.
+    if (truncated) {
       slideXmls.push(
         buildPptxNoticeSlide(
-          `Showing the first ${PPTX_MAX_RAID_SLIDES} of ${raid.length} RAID items.`,
+          `Showing the first ${PPTX_MAX_ROWS_PER_SECTION} of ${section.rows.length} ${section.title} rows.`,
           "Export to XLSX for the full list.",
         ),
       );
     }
   }
 
-  // [Content_Types].xml entries — one Override per slide, plus the static
-  // layout/master/theme parts.
+  // [Content_Types].xml — one Override per slide plus static parts.
   const slideOverrides = slideXmls
     .map(
       (_, i) =>
@@ -614,8 +530,7 @@ export function buildPptx(
   ${slideOverrides}
 </Types>`;
 
-  // Presentation.xml — sldIdList lists slides with sequential ids starting
-  // at 256 (PowerPoint's convention; 0–255 are reserved).
+  // presentation.xml — sldIdList with sequential IDs starting at 256.
   const sldIds = slideXmls
     .map((_, i) => `<p:sldId id="${256 + i}" r:id="rId${i + 2}"/>`)
     .join("");
@@ -632,7 +547,6 @@ export function buildPptx(
   <p:notesSz cx="6858000" cy="9144000"/>
 </p:presentation>`;
 
-  // Presentation rels: rId1 = slide master, rId2..N = slides.
   const presentationRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
   <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster" Target="slideMasters/slideMaster1.xml"/>
@@ -649,7 +563,6 @@ export function buildPptx(
   <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="ppt/presentation.xml"/>
 </Relationships>`;
 
-  // Slide master + layout — minimal but with our color palette wired in.
   const slideMasterXml = buildPptxSlideMaster();
   const slideMasterRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
@@ -665,7 +578,7 @@ export function buildPptx(
 
   const themeXml = buildPptxTheme();
 
-  // Each slide needs its own _rels pointing at the slide layout.
+  // Each slide shares the same _rels (points at slideLayout1).
   const slideRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
   <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="../slideLayouts/slideLayout1.xml"/>
@@ -677,26 +590,14 @@ export function buildPptx(
     { path: "ppt/presentation.xml", data: presentationXml },
     { path: "ppt/_rels/presentation.xml.rels", data: presentationRels },
     { path: "ppt/slideMasters/slideMaster1.xml", data: slideMasterXml },
-    {
-      path: "ppt/slideMasters/_rels/slideMaster1.xml.rels",
-      data: slideMasterRels,
-    },
+    { path: "ppt/slideMasters/_rels/slideMaster1.xml.rels", data: slideMasterRels },
     { path: "ppt/slideLayouts/slideLayout1.xml", data: slideLayoutXml },
-    {
-      path: "ppt/slideLayouts/_rels/slideLayout1.xml.rels",
-      data: slideLayoutRels,
-    },
+    { path: "ppt/slideLayouts/_rels/slideLayout1.xml.rels", data: slideLayoutRels },
     { path: "ppt/theme/theme1.xml", data: themeXml },
   ];
   for (let i = 0; i < slideXmls.length; i++) {
-    entries.push({
-      path: `ppt/slides/slide${i + 1}.xml`,
-      data: slideXmls[i],
-    });
-    entries.push({
-      path: `ppt/slides/_rels/slide${i + 1}.xml.rels`,
-      data: slideRels,
-    });
+    entries.push({ path: `ppt/slides/slide${i + 1}.xml`, data: slideXmls[i] });
+    entries.push({ path: `ppt/slides/_rels/slide${i + 1}.xml.rels`, data: slideRels });
   }
 
   return buildZip(
@@ -725,7 +626,6 @@ function pptxTextBox(opts: {
     italic?: boolean;
     sizeHundredths?: number; // Half-points; 1800 = 18pt, 4400 = 44pt
     colorRgb?: string;
-    fontFamily?: string;
   }>;
 }): string {
   const runs = opts.paragraphs
@@ -737,12 +637,9 @@ function pptxTextBox(opts: {
       const color = p.colorRgb
         ? `<a:solidFill><a:srgbClr val="${p.colorRgb}"/></a:solidFill>`
         : "";
-      const font = p.fontFamily
-        ? `<a:latin typeface="${xmlEscape(p.fontFamily)}"/>`
-        : "";
       return `<a:p>
   <a:r>
-    <a:rPr lang="en-US" ${rPr} dirty="0">${color}${font}</a:rPr>
+    <a:rPr lang="en-US" ${rPr} dirty="0">${color}</a:rPr>
     <a:t>${xmlEscape(p.text)}</a:t>
   </a:r>
 </a:p>`;
@@ -813,7 +710,7 @@ function pptxAccentBar(colorRgb: string): string {
 </p:sp>`;
 }
 
-function buildPptxTitleSlide(taskCount: number): string {
+function buildPptxTitleSlide(): string {
   const shapes =
     pptxBackgroundRect(COLOR_DARK_BLUE) +
     pptxTextBox({
@@ -841,7 +738,7 @@ function buildPptxTitleSlide(taskCount: number): string {
       cyEmu: 500000,
       paragraphs: [
         {
-          text: `${taskCount} task${taskCount === 1 ? "" : "s"} · Exported ${todayHuman()}`,
+          text: `Exported ${todayHuman()}`,
           italic: true,
           sizeHundredths: 2400,
           colorRgb: COLOR_LIGHT_GREY,
@@ -852,88 +749,8 @@ function buildPptxTitleSlide(taskCount: number): string {
   return wrapPptxSlide(shapes);
 }
 
-function buildPptxTaskSlide(task: Task): string {
-  const r = taskRow(task);
-  const statusColor = task.completedDate ? COLOR_GREEN : COLOR_PINK;
-
-  const shapes =
-    pptxAccentBar(statusColor) +
-    pptxTextBox({
-      id: 2,
-      name: "TaskId",
-      xEmu: 457200,
-      yEmu: 380000,
-      cxEmu: 8229600,
-      cyEmu: 350000,
-      paragraphs: [
-        {
-          text: `#${r.id} · ${r.priority} · ${r.status}`,
-          sizeHundredths: 1400,
-          colorRgb: COLOR_MEDIUM_GREY,
-          italic: true,
-        },
-      ],
-    }) +
-    pptxTextBox({
-      id: 3,
-      name: "TaskName",
-      xEmu: 457200,
-      yEmu: 750000,
-      cxEmu: 8229600,
-      cyEmu: 900000,
-      paragraphs: [
-        {
-          text: r.taskName || "(no name)",
-          bold: true,
-          sizeHundredths: 3200,
-          colorRgb: COLOR_DARK_BLUE,
-        },
-      ],
-    }) +
-    pptxTextBox({
-      id: 4,
-      name: "Meta",
-      xEmu: 457200,
-      yEmu: 1850000,
-      cxEmu: 8229600,
-      cyEmu: 1100000,
-      paragraphs: [
-        { text: `Assignee: ${r.assignee}`, sizeHundredths: 1600 },
-        r.email ? { text: `Email: ${r.email}`, sizeHundredths: 1600 } : null,
-        { text: `Due: ${r.due}`, sizeHundredths: 1600 },
-        r.group
-          ? { text: `Group: ${r.group}`, sizeHundredths: 1600 }
-          : null,
-        r.labels
-          ? { text: `Labels: ${r.labels}`, sizeHundredths: 1600 }
-          : null,
-      ].filter((p): p is { text: string; sizeHundredths: number } => !!p),
-    }) +
-    pptxTextBox({
-      id: 5,
-      name: "Notes",
-      xEmu: 457200,
-      yEmu: 3300000,
-      cxEmu: 8229600,
-      cyEmu: 1400000,
-      paragraphs: r.notes
-        ? [{ text: r.notes, sizeHundredths: 1400, colorRgb: COLOR_TEXT }]
-        : [
-            {
-              text: "(no notes)",
-              sizeHundredths: 1400,
-              italic: true,
-              colorRgb: COLOR_MEDIUM_GREY,
-            },
-          ],
-    });
-
-  return wrapPptxSlide(shapes);
-}
-
-/** Section-divider slide announcing the start of the RAID log. Same shape
- *  as the title slide but with a different subtitle. */
-function buildPptxRaidDividerSlide(itemCount: number): string {
+/** Section-divider slide: full-bleed Dark Blue with the section title. */
+function buildPptxDividerSlide(title: string, rowCount: number): string {
   const shapes =
     pptxBackgroundRect(COLOR_DARK_BLUE) +
     pptxTextBox({
@@ -945,7 +762,7 @@ function buildPptxRaidDividerSlide(itemCount: number): string {
       cyEmu: 900000,
       paragraphs: [
         {
-          text: "RAID Log",
+          text: title,
           bold: true,
           sizeHundredths: 4400,
           colorRgb: COLOR_WHITE,
@@ -961,7 +778,7 @@ function buildPptxRaidDividerSlide(itemCount: number): string {
       cyEmu: 500000,
       paragraphs: [
         {
-          text: `${itemCount} item${itemCount === 1 ? "" : "s"} · Risks, Assumptions, Issues, Dependencies`,
+          text: `${rowCount} row${rowCount === 1 ? "" : "s"}`,
           italic: true,
           sizeHundredths: 2400,
           colorRgb: COLOR_LIGHT_GREY,
@@ -972,33 +789,40 @@ function buildPptxRaidDividerSlide(itemCount: number): string {
   return wrapPptxSlide(shapes);
 }
 
-/** One slide per RAID item — category + status header bar, title, severity
- *  + owner + dates meta block, mitigation text. Mirrors `buildPptxTaskSlide`
- *  layout so the deck reads consistently. */
-function buildPptxRaidSlide(item: RaidItem): string {
-  const r = raidRow(item);
-  // Critical/High → pink (urgent), Medium → amber-ish, Low → green.
-  const accentColor =
-    item.severity === "Critical" || item.severity === "High"
-      ? COLOR_PINK
-      : item.severity === "Medium"
-        ? "F59E0B"
-        : COLOR_GREEN;
+/**
+ * One content slide per row. The first two columns go into a prominent title
+ * area; the remaining columns are listed as key: value lines in a meta block.
+ * This layout works well for both wide (many-column) and narrow sections.
+ */
+function buildPptxRowSlide(
+  sectionTitle: string,
+  columns: string[],
+  row: (string | number)[],
+): string {
+  const firstValue = String(row[0] ?? "");
+  const secondValue = columns.length > 1 ? String(row[1] ?? "") : "";
 
-  const linked = r.linkedTasks ? `Linked: ${r.linkedTasks}` : "";
+  // Remaining fields shown as "Label: value" lines.
+  const metaLines = columns
+    .slice(2, 8) // cap at 6 extra fields so text fits the slide
+    .map((col, i) => {
+      const val = String(row[i + 2] ?? "");
+      return val ? { text: `${col}: ${val}`, sizeHundredths: 1600 as const } : null;
+    })
+    .filter((p): p is { text: string; sizeHundredths: 1600 } => p !== null);
 
   const shapes =
-    pptxAccentBar(accentColor) +
+    pptxAccentBar(COLOR_GREEN) +
     pptxTextBox({
       id: 2,
-      name: "RaidMeta",
+      name: "RowMeta",
       xEmu: 457200,
       yEmu: 380000,
       cxEmu: 8229600,
       cyEmu: 350000,
       paragraphs: [
         {
-          text: `${r.category} · #${r.id} · ${r.severity || ""} · ${r.status}`,
+          text: `${sectionTitle} · ${firstValue}`,
           sizeHundredths: 1400,
           colorRgb: COLOR_MEDIUM_GREY,
           italic: true,
@@ -1007,54 +831,31 @@ function buildPptxRaidSlide(item: RaidItem): string {
     }) +
     pptxTextBox({
       id: 3,
-      name: "RaidTitle",
+      name: "RowTitle",
       xEmu: 457200,
       yEmu: 750000,
       cxEmu: 8229600,
       cyEmu: 900000,
       paragraphs: [
         {
-          text: r.title || "(no title)",
+          text: secondValue || firstValue || "(empty)",
           bold: true,
           sizeHundredths: 3200,
           colorRgb: COLOR_DARK_BLUE,
         },
       ],
     }) +
-    pptxTextBox({
-      id: 4,
-      name: "RaidMetaDetail",
-      xEmu: 457200,
-      yEmu: 1850000,
-      cxEmu: 8229600,
-      cyEmu: 1100000,
-      paragraphs: [
-        r.owner ? { text: `Owner: ${r.owner}`, sizeHundredths: 1600 } : null,
-        r.target ? { text: `Target: ${r.target}`, sizeHundredths: 1600 } : null,
-        r.raised ? { text: `Raised: ${r.raised}`, sizeHundredths: 1600 } : null,
-        linked ? { text: linked, sizeHundredths: 1600 } : null,
-      ].filter((p): p is { text: string; sizeHundredths: number } => !!p),
-    }) +
-    pptxTextBox({
-      id: 5,
-      name: "RaidMitigation",
-      xEmu: 457200,
-      yEmu: 3300000,
-      cxEmu: 8229600,
-      cyEmu: 1400000,
-      paragraphs: r.mitigation
-        ? [{ text: r.mitigation, sizeHundredths: 1400, colorRgb: COLOR_TEXT }]
-        : r.description
-          ? [{ text: r.description, sizeHundredths: 1400, colorRgb: COLOR_TEXT }]
-          : [
-              {
-                text: "(no mitigation notes)",
-                sizeHundredths: 1400,
-                italic: true,
-                colorRgb: COLOR_MEDIUM_GREY,
-              },
-            ],
-    });
+    (metaLines.length > 0
+      ? pptxTextBox({
+          id: 4,
+          name: "RowFields",
+          xEmu: 457200,
+          yEmu: 1850000,
+          cxEmu: 8229600,
+          cyEmu: 2800000,
+          paragraphs: metaLines,
+        })
+      : "");
 
   return wrapPptxSlide(shapes);
 }
@@ -1197,9 +998,6 @@ function buildPptxSlideLayout(): string {
 }
 
 function buildPptxTheme(): string {
-  // A minimal theme. Accent colors map onto the Acme palette so
-  // anything in a slide that resolves to a theme accent picks up our brand
-  // colors instead of Office's defaults.
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <a:theme xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" name="Acme">
   <a:themeElements>

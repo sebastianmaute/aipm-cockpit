@@ -1,3 +1,16 @@
+// 0.57.0 "Butler" is a UI + automation batch. Reminders gain toast-first
+// defaults, global-or-individual lead times, and a separate Jira-token-error
+// banner toggle. Document export (XLSX/DOCX/PDF/PPTX/Markdown) is now
+// configurable — choose which sections to include; default is Tasks + RAID.
+// The Claude chat panel is renamed AI Assistant and gains suggested prompts
+// (including "Give me an update"), a token-usage panel (session and weekly
+// bars with an 80% alert), a Stop button, and a top-bar button that opens it
+// as a pop-out. Views: the Trends view matches the Dashboard layout
+// (print-safe, resizable); the Gantt gains a Print button; the Calendar and
+// Milestones views are sized like the assistant; the activity-log print hides
+// controls. The activity log now records change, stakeholder, resource, and
+// role changes plus a coarse settings event. A new "Information flows"
+// diagram is added to Settings.
 // 0.56.0 "Bradbury" surfaces silent input sanitization so users can see when
 // their entries are adjusted to fit storage limits. Character counters appear
 // on capped text fields across the task, RAID, change, budget, stakeholder,
@@ -719,12 +732,12 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.56.0";
-export const APP_BUILD_DATE = "2026-06-09"; // 0.56.0 input sanitization feedback
+export const APP_VERSION = "0.57.0";
+export const APP_BUILD_DATE = "2026-06-09"; // 0.57.0 UI + automation batch
 /** Minor-series milestone codename (sci-fi/fantasy author names). The whole
- *  0.56.x line is "Bradbury" (Ray Bradbury); patch releases inherit
+ *  0.57.x line is "Butler" (Octavia Butler); patch releases inherit
  *  their minor version's codename rather than getting their own. */
-export const APP_MILESTONE = "Bradbury";
+export const APP_MILESTONE = "Butler";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -792,4 +805,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightModes",
   "versionHighlightClarke",
   "versionHighlightFieldFeedback",
+  "versionHighlightButler",
 ] as const;

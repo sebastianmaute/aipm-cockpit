@@ -3,9 +3,19 @@
 import { memo, useEffect, useRef, useState } from "react";
 import { TOOL_DEFS, type ToolDispatcher, runTool } from "./chat-tools";
 import { type Lang, type TranslationKey, t } from "./i18n";
+
+type PromptChip = { labelKey: TranslationKey; bodyKey: TranslationKey };
+
+const PROMPT_CHIPS: PromptChip[] = [
+  { labelKey: "chatPromptUpdate", bodyKey: "chatPromptUpdateBody" },
+  { labelKey: "chatPromptOverdue", bodyKey: "chatPromptOverdue" },
+  { labelKey: "chatPromptAtRisk", bodyKey: "chatPromptAtRisk" },
+  { labelKey: "chatPromptStatusUpdate", bodyKey: "chatPromptStatusUpdate" },
+];
 import { Markdown } from "./markdown";
 import { CHAT_MESSAGE_MAX } from "./sanitize";
 import type { AiConfig } from "./settings-menu";
+import { useAiUsageContext } from "./ai-usage-context";
 import { useResizable } from "./use-resizable";
 import { ResizeCornerHint, ResetSizeButton } from "./task-manager-ui";
 import { CENTERED_HALF_PANE_CLASS } from "./view-styles";
@@ -60,14 +70,18 @@ function buildSystemPrompt(
   ].join("\n");
 }
 
+type ApiUsage = { input_tokens: number; output_tokens: number };
+
 async function callClaude(
   apiKey: string,
   model: string,
   system: string,
   messages: ApiMessage[],
+  signal?: AbortSignal,
 ): Promise<{
   content: ContentBlock[];
   stop_reason: string;
+  usage: ApiUsage;
 }> {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -84,12 +98,18 @@ async function callClaude(
       messages,
       tools: TOOL_DEFS,
     }),
+    signal,
   });
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`${res.status}: ${text}`);
+    throw new Error(`${res.status}: ${text.slice(0, 300)}`);
   }
-  return await res.json();
+  const json = await res.json() as { content: ContentBlock[]; stop_reason: string; usage?: ApiUsage };
+  return {
+    content: json.content,
+    stop_reason: json.stop_reason,
+    usage: json.usage ?? { input_tokens: 0, output_tokens: 0 },
+  };
 }
 
 function stringifyResult(value: unknown): string {
@@ -145,7 +165,10 @@ function ChatPanelInner({
   const [error, setError] = useState<string | null>(null);
   const scrollerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const cancelledRef = useRef(false);
   const { ref: chatRef, reset: resetChatSize } = useResizable("lop-app:chat-size");
+  const { record: recordUsage } = useAiUsageContext();
 
   useEffect(() => {
     if (!scrollerRef.current) return;
@@ -162,6 +185,9 @@ function ChatPanelInner({
     setError(null);
     setInput("");
     setBusy(true);
+    cancelledRef.current = false;
+    const controller = new AbortController();
+    abortRef.current = controller;
 
     const newHistory: ApiMessage[] = [
       ...history,
@@ -174,10 +200,24 @@ function ChatPanelInner({
     const messages = newHistory.slice();
 
     try {
+      // Accumulate token usage across all turns for this send.
+      let totalInput = 0;
+      let totalOutput = 0;
+
       // Tool-use loop: keep round-tripping until Claude stops calling tools.
       // Capped to avoid runaway loops.
       for (let turn = 0; turn < 8; turn++) {
-        const response = await callClaude(ai.apiKey, ai.model, system, messages);
+        if (cancelledRef.current) break;
+        const response = await callClaude(
+          ai.apiKey,
+          ai.model,
+          system,
+          messages,
+          controller.signal,
+        );
+        totalInput += response.usage.input_tokens;
+        totalOutput += response.usage.output_tokens;
+
         const assistantMsg: ApiMessage = {
           role: "assistant",
           content: response.content,
@@ -192,6 +232,8 @@ function ChatPanelInner({
         }
 
         if (response.stop_reason !== "tool_use") break;
+
+        if (cancelledRef.current) break;
 
         const results: ToolResultBlock[] = [];
         for (const block of response.content) {
@@ -226,15 +268,44 @@ function ChatPanelInner({
         messages.push({ role: "user", content: results });
       }
 
+      if (cancelledRef.current) {
+        // Stopped by the user — append a neutral note, no error state.
+        setDisplay((prev) => [
+          ...prev,
+          { kind: "assistant", text: t(lang, "chatStopped") },
+        ]);
+      } else {
+        // Record summed token usage for the entire send (all turns combined).
+        // Skipped on cancel — no complete turn to bill.
+        recordUsage({ input: totalInput, output: totalOutput });
+      }
+
       setHistory(messages);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setError(t(lang, "chatError", msg));
+      // AbortError is raised by fetch when the controller fires — treat as
+      // a user-initiated stop, not a real error. Check .name directly because
+      // DOMException may not be instanceof Error across jsdom/Node boundaries.
+      const errName = err instanceof Error ? err.name : (err as { name?: string }).name;
+      if (errName === "AbortError") {
+        setDisplay((prev) => [
+          ...prev,
+          { kind: "assistant", text: t(lang, "chatStopped") },
+        ]);
+      } else {
+        const msg = err instanceof Error ? err.message : String(err);
+        setError(t(lang, "chatError", msg));
+      }
     } finally {
+      abortRef.current = null;
       setBusy(false);
       // Refocus the input after the round-trip resolves.
       inputRef.current?.focus();
     }
+  }
+
+  function stopChat() {
+    cancelledRef.current = true;
+    abortRef.current?.abort();
   }
 
   function clearChat() {
@@ -261,9 +332,26 @@ function ChatPanelInner({
         className="flex-1 overflow-y-auto rounded-md border border-line bg-surface-muted p-3"
       >
         {display.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            {apiKeyMissing ? t(lang, "chatNoApiKey") : t(lang, "chatGreeting")}
-          </p>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              {apiKeyMissing ? t(lang, "chatNoApiKey") : t(lang, "chatGreeting")}
+            </p>
+            {!apiKeyMissing && (
+              <ul className="flex flex-wrap gap-2 list-none p-0 m-0" aria-label="Suggested prompts">
+                {PROMPT_CHIPS.map((chip) => (
+                  <li key={chip.labelKey}>
+                    <button
+                      type="button"
+                      onClick={() => setInput(t(lang, chip.bodyKey))}
+                      className="rounded-full border border-AIPM-dark-blue/40 bg-surface px-3 py-1 text-xs font-medium text-AIPM-dark-blue hover:bg-AIPM-dark-blue/10 focus:outline-none focus:ring-2 focus:ring-AIPM-dark-blue/50 dark:border-AIPM-dark-blue/60 dark:text-AIPM-dark-blue dark:hover:bg-AIPM-dark-blue/20"
+                    >
+                      {t(lang, chip.labelKey)}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         ) : (
           <ul className="space-y-3">
             {display.map((item, idx) => (
@@ -341,14 +429,25 @@ function ChatPanelInner({
           className="min-w-0 flex-1 self-stretch resize-none rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none focus:ring-1 focus:ring-AIPM-green disabled:cursor-not-allowed disabled:opacity-50"
         />
         <div className="flex flex-col gap-2">
-          <button
-            type="button"
-            onClick={sendMessage}
-            disabled={busy || !input.trim() || apiKeyMissing}
-            className="rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {t(lang, "chatSend")}
-          </button>
+          {busy ? (
+            <button
+              type="button"
+              onClick={stopChat}
+              aria-label={t(lang, "chatStop")}
+              className="rounded-md bg-AIPM-pink px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+            >
+              {t(lang, "chatStop")}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={sendMessage}
+              disabled={!input.trim() || apiKeyMissing}
+              className="rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {t(lang, "chatSend")}
+            </button>
+          )}
           <button
             type="button"
             onClick={clearChat}

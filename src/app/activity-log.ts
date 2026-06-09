@@ -31,7 +31,20 @@ export type ActivityKind =
   | "shift.deleted"
   | "milestone.created"
   | "milestone.updated"
-  | "milestone.deleted";
+  | "milestone.deleted"
+  | "change.created"
+  | "change.updated"
+  | "change.deleted"
+  | "stakeholder.created"
+  | "stakeholder.updated"
+  | "stakeholder.deleted"
+  | "resource.created"
+  | "resource.updated"
+  | "resource.deleted"
+  | "role.created"
+  | "role.updated"
+  | "role.deleted"
+  | "settings.updated";
 
 export interface ActivityEntry {
   /** Monotonic id within the current log; not a timestamp. Used as a React key. */
@@ -70,6 +83,19 @@ export const ACTIVITY_KIND_TO_KEY: Record<ActivityKind, TranslationKey> = {
   "milestone.created": "activityMilestoneCreated",
   "milestone.updated": "activityMilestoneUpdated",
   "milestone.deleted": "activityMilestoneDeleted",
+  "change.created": "activityChangeCreated",
+  "change.updated": "activityChangeUpdated",
+  "change.deleted": "activityChangeDeleted",
+  "stakeholder.created": "activityStakeholderCreated",
+  "stakeholder.updated": "activityStakeholderUpdated",
+  "stakeholder.deleted": "activityStakeholderDeleted",
+  "resource.created": "activityResourceCreated",
+  "resource.updated": "activityResourceUpdated",
+  "resource.deleted": "activityResourceDeleted",
+  "role.created": "activityRoleCreated",
+  "role.updated": "activityRoleUpdated",
+  "role.deleted": "activityRoleDeleted",
+  "settings.updated": "activitySettingsUpdated", // no args — no {0}/{1} placeholder
 };
 
 const ACTIVITY_KINDS: ReadonlySet<ActivityKind> = new Set(
@@ -77,14 +103,15 @@ const ACTIVITY_KINDS: ReadonlySet<ActivityKind> = new Set(
 );
 
 /** Top-level grouping derived from the kind string prefix. Used by the
- *  Activity panel's group filter (All / Tasks / RAID / Bulk / Jira). */
-export type ActivityGroup = "tasks" | "raid" | "bulk" | "jira";
+ *  Activity panel's group filter (All / Tasks / RAID / Bulk / Jira / General). */
+export type ActivityGroup = "tasks" | "raid" | "bulk" | "jira" | "general";
 
 export function activityGroupOf(kind: ActivityKind): ActivityGroup {
   if (kind.startsWith("task.")) return "tasks";
   if (kind.startsWith("raid.")) return "raid";
   if (kind.startsWith("bulk.")) return "bulk";
-  return "jira";
+  if (kind.startsWith("jira.")) return "jira";
+  return "general";
 }
 
 function isActivityKind(v: unknown): v is ActivityKind {

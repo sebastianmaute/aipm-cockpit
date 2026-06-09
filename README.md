@@ -3,9 +3,82 @@
 [![Pipeline Status](https://gitlab.example.com/example-group/public-collab/lop-app/badges/main/pipeline.svg)](https://gitlab.example.com/example-group/public-collab/lop-app/-/commits/main)
 [![coverage](https://gitlab.example.com/example-group/public-collab/lop-app/badges/main/coverage.svg)](https://gitlab.example.com/example-group/public-collab/lop-app/-/commits/main)
 
-**v0.56.0 "Bradbury"** — AI-assisted project-status tracker for Acme project leads. Manage open points, track accountability, plan resource capacity & cost, keep an address book of the team, and draft status-inquiry emails — all in the browser, no backend required. Includes a consolidated project-health **Dashboard** (RAG status with lettered badges + burn-down charts with axis labels, milestones, and Earned Value SPI/CPI that feed the Schedule/Budget RAGs), **Milestones**, and **Earned Value** reporting. **RAID review reminders** nudge you when active RAID items are past their target date or stale beyond a configurable interval. **Stakeholder register** with a RACI matrix over milestones, an Influence/Interest grid, and true RAID deep-linking (`#raid/<id>` opens the exact item). Planning and budget tables gain filter/sort controls; RAID and Budget reports are present by default; Help offers full-text search. Integrates with Microsoft 365 (Outlook contacts/calendar, SharePoint storage) and Turso database backends.
+**v0.56.0 "Bradbury"** — AI-assisted project-status tracker for Acme project leads. Manage open points, track accountability, plan resource capacity and cost, keep a stakeholder register, manage RAID and change-control logs, and monitor project health — all in the browser, no backend account required.
 
-The app ships a **modern sidebar layout** by default — a Dark-Blue left rail with grouped navigation, a top bar, full-viewport single-view content, full-page task editor and Settings pages, and a Light / Dark / System theme — with the original single-scroll **Classic mode** kept as a toggle (Settings → Appearance → Layout).
+---
+
+## Automation: Reminders and Alerts
+
+The app fires reminders on page load once per session for approaching deadlines, stale RAID items, stakeholder communications, and team birthdays. All reminder types share a unified model: toasts fire by default; banners and pop-ups are opt-in via Settings → Notifications. Each channel (banner, toast, popup) has its own lead-time setting, or you can set a single global lead-time that overrides all channels.
+
+### Task due-date reminders
+
+Tasks approaching or past their due date trigger a reminder. The lead time is shifted to a working day — weekends, public holidays, and recorded absences are skipped forward so you are never reminded on a non-working day. Reminders can be snoozed for 1 hour or 1 day.
+
+### RAID-review reminders
+
+Active RAID items (Risks, Assumptions, Issues, Dependencies) that are past their target date or have not been updated within a configurable review interval trigger a RAID-review reminder. The modal links directly to the overdue item (`#raid/<id>`). Controlled by Settings → Notifications → RAID review; the review interval is configurable in days.
+
+### Stakeholder-communication reminders
+
+A quadrant-based policy maps each stakeholder's Influence/Interest position to a lead time and the categories of items that should prompt a communication nudge:
+
+| Quadrant | Lead time | Sources |
+|----------|-----------|---------|
+| Manage Closely | 14 days | Milestones, RAID (Medium+), pending Changes |
+| Keep Satisfied | 7 days | Milestones, RAID (High+), pending Changes |
+| Keep Informed | 7 days | Milestones, pending Changes |
+| Monitor | 3 days | Overdue milestones only |
+
+Reminders are generated when: a milestone the stakeholder is RACI-linked to is overdue or within the lead window; an open RAID item linked to the stakeholder meets the severity threshold or is overdue; or a pending Change item is linked to the stakeholder. Requires the Stakeholders feature module to be enabled (Settings → Features).
+
+### Birthday reminders
+
+Resources with a birthday stored in the address book trigger a toast when the birthday falls within the configured lead window, shifted to the nearest working day.
+
+### Jira-token expiry reminders
+
+When Jira integration is enabled and a token-expiry date is recorded, the app surfaces a sticky banner warning when the token is expiring soon, expired, or has been marked invalid. A separate settings toggle controls the Jira-token banner independently from the main notification channels.
+
+---
+
+## Integrations
+
+### Jira
+
+The app includes a server-side proxy layer for Jira Cloud. All browser-to-Jira traffic goes through Next.js API routes — credentials are sent in the POST body per request and are never persisted server-side.
+
+| Route | Purpose |
+|-------|---------|
+| `POST /api/jira/test` | Verify credentials (`/rest/api/3/myself`) |
+| `POST /api/jira/projects` | List accessible projects |
+| `POST /api/jira/issue-types` | List issue types for a project |
+| `POST /api/jira/users` | Search assignable users |
+| `POST /api/jira/search` | Run a JQL query (paginated) |
+| `POST /api/jira/create-issue` | Create a new Jira issue from a local task |
+| `POST /api/jira/update-issue` | Push local task edits back to Jira |
+| `POST /api/jira/transition-issue` | Change an issue's workflow status category |
+
+Bidirectional sync with conflict resolution is available from the Jira settings section. Credentials (site URL, email, API token) are stored in `localStorage` and sent only to your own Atlassian domain.
+
+### Microsoft 365
+
+Microsoft 365 features use MSAL (browser PKCE — no backend token exchange) and the Microsoft Graph API. The integration is off by default; enable it in Settings → Integrations.
+
+| Feature | Graph scope | What it does |
+|---------|-------------|--------------|
+| Outlook contacts import | `Contacts.Read` | Imports personal contacts from `/me/contacts` into the Resource Directory and assignee address book via a preview-and-pick dialog; updates existing entries by email |
+| Outlook calendar import | `Calendars.Read` | Imports all-day Out-of-Office events from `/me/calendarView` as Absences via a preview-and-pick dialog with a per-row absence-type selector |
+| SharePoint storage | `Sites.ReadWrite.All` | Stores the workspace as a single JSON or CSV blob in a SharePoint document library; URL configured in Settings → Integrations / Storage Configuration |
+
+#### Setup
+
+1. Register an app in [Microsoft Entra admin center](https://entra.microsoft.com/) as a single-page application (SPA).
+2. Add a redirect URI: `http://localhost:3000` for dev, or your production URL.
+3. Grant API permissions: `Contacts.Read`, `Calendars.Read`, `Sites.ReadWrite.All` (or narrower equivalents).
+4. Copy the **Client ID** and **Tenant ID** into Settings → Integrations, or provide them via the env vars below.
+
+---
 
 ## What It Does
 
@@ -17,10 +90,8 @@ A single-page task manager built for project leads who maintain a "List of Open 
 4. Send pre-filled status-inquiry emails to assignees with one click
 5. Export the task list to CSV, Markdown, PDF, DOCX, XLSX, or PPTX
 6. Optionally sync tasks bidirectionally with a Jira project
-7. Track RAID items and create reports to the steering commitee
-8. Plan capacity, utilization, availability and cost rates internally and externally while considering holidays
-
-The **Claude AI chat** (Settings → AI; user-supplied API key) understands natural-language commands ("mark all overdue tasks as delayed", "add a task for Alice due next Friday") and answers questions about your open points. **Voice commands** (Web Speech API, EN/DE) provide the same capability hands-free.
+7. Track RAID items and create reports for the steering committee
+8. Plan capacity, utilization, availability, and cost rates while accounting for holidays
 
 All data is stored locally by default — no backend account required.
 
@@ -28,85 +99,43 @@ All data is stored locally by default — no backend account required.
 
 | Feature | Description |
 |---------|-------------|
-| Task management | Create, edit, delete, bulk-edit, filter by priority / assignee / group / label; optional effort fields (Original estimate & Time spent in w/d/h/m, Jira basis 1w=5d 1d=8h) with hideable/sortable Est./Spent columns and an inline effort progress bar |
+| Task management | Create, edit, delete, bulk-edit, filter by priority / assignee / group / label; effort fields (Original estimate & Time spent in w/d/h/m, Jira basis 1w=5d 1d=8h) with hideable/sortable Est./Spent columns and an inline effort progress bar |
 | Gantt chart | Visual timeline with drag-and-drop reorder and dependency arrows; clicking a task name opens the task editor |
 | Task dependencies | FS / SS / FF / SF predecessor relationships with cycle detection |
 | Groups & labels | Categorize tasks freely; filter by group or label |
-| AI chat (Claude) | Ask questions or create/update tasks in natural language |
+| AI chat (Claude) | Ask questions or create/update tasks in natural language (user-supplied API key, Settings → AI) |
 | Voice commands | Speak commands in English or German (Web Speech API) |
-| Reminders | Banner, toast, and popup alerts for approaching deadlines and birthdays; a unified "days ahead" lead that shifts off weekends / holidays / absences onto a working day; per-reminder snooze (1 hour / 1 day) |
 | Reports | Summary view with overdue, due-soon, and completion stats |
-| RAID register | Risks / Assumptions / Issues / Dependencies log with parent/child cycle detection |
-| Change Log (change-control register) | RAID-sibling register of change requests: type (Scope / Schedule / Cost / Quality / Other), a 6-state approval workflow (Proposed / Under Review / Approved / Rejected / Implemented / Deferred), impact rating with optional schedule-day & cost figures, requestor/approver + decision date, and links to tasks and RAID items; sortable/filterable panel, draggable edit modal, and a printable Change Report; feeds a computed Scope RAG on the dashboard |
-| Stakeholder register | First-class `Stakeholder` workspace entity (name, role, organisation, contact, engagement level, influence/interest scores, optional Resource link); sortable/filterable register panel and a draggable edit modal. Includes a **RACI matrix** (Responsible / Accountable / Consulted / Informed per stakeholder × milestone, with soft warnings for zero or multiple Accountable entries) and an **Influence / Interest grid** (2-D power/interest scatter plot with colour-coded quadrants). True **RAID deep-linking**: `#raid/<id>` opens the register and jumps to the exact item; the RAID-review reminder modal links directly to the overdue item |
-| Resource planner & address book | First-class resources with an address book (name, title, contact details, company, birthday) in a Directory tab; two-dimensional roles (discipline × grade) carrying internal/external rates; absences; per-period utilization planning grid (week or month) → capacity, cost & margin with read-only rollup; pop-out resources report and address-book window |
-| Budget planner | PO-line budget buckets (T&M / fixed-price) with per-role allocations, a three-value CCI (margin / cost-performance / consumption), win/loss with spillover, and multi-currency display via ECB rates; buckets are removable, drag-reorderable, and fully editable via a dedicated modal (name, PO, type, currency, fixed-price amount, dates, spillover successor, manual FX override, role picker) |
+| RAID register | Risks / Assumptions / Issues / Dependencies log with parent/child cycle detection and true deep-linking (`#raid/<id>`) |
+| Change Log | RAID-sibling change-control register with 6-state approval workflow (Proposed → Implemented/Deferred), impact rating, schedule-day and cost figures, and a printable Change Report; feeds the Scope RAG on the dashboard |
+| Stakeholder register | Sortable/filterable register with RACI matrix (per stakeholder × milestone), Influence/Interest grid, and engagement level tracking |
+| Resource planner & address book | Address book (name, title, contact, birthday), two-dimensional roles (discipline × grade) with internal/external rates, absences, per-period utilization planning grid → capacity, cost, and margin rollup |
+| Budget planner | PO-line budget buckets (T&M / fixed-price) with per-role allocations, CCI, win/loss with spillover, multi-currency via ECB rates |
+| Dashboard | Project-health RAG status with lettered badges, burn-down charts, milestones, and Earned Value SPI/CPI that feed the Schedule/Budget RAGs |
 | Activity log | Browser-local chronological record of task / RAID / absence / shift CRUD with text / wildcard / regex search |
-| Contacts | Assignee address book — persists across task deletion and Jira sync churn; auto-suggests on task forms |
-| Jira sync | Pull from and push to a Jira Cloud project (bidirectional, with conflict resolution); optional API-token-expiry reminder, and clear messages when the token is expired/invalid or Jira is unreachable |
-| Microsoft 365 sign-in | MSAL browser PKCE sign-in with lazily-loaded consent flow; master toggle in Settings → Integrations (default OFF) |
-| Outlook contacts import | Import personal contacts from Outlook (Graph `/me/contacts`) into the Resource Directory and assignee address book via a preview-and-pick dialog; updates existing by email |
-| Outlook calendar import | Import time-away events (all-day, Out-of-Office) from Outlook (Graph `/me/calendarView`) as Absences via a preview-and-pick dialog with per-row absence-type selector |
-| Draggable modals | Every modal window (task editor, budget editor, role manager, resource editor, …) is repositionable by dragging its title bar |
-| Pop-out windows | Open Chat, Gantt, RAID, Resources, Activity, or the address book in their own window — read-only mirror views synced live from the main window |
+| Baseline / variance trends (Turso) | Periodic KPI snapshots into append-only Turso tables; a Trends view shows baseline-vs-current variance, KPI trend charts, and the snapshot list |
+| Layout & theme | Modern Dark-Blue sidebar layout (default) with grouped navigation and full-viewport single-view content; Classic single-scroll mode toggle (Settings → Appearance → Layout); Light / Dark / System theme |
+| Input feedback | Character counters on capped text fields; on-blur clamp notices on numeric fields; save-time summary toast when entries were adjusted |
 | Export | CSV, Markdown, PDF (print), DOCX, XLSX, PPTX |
 | Localization | English (US / UK) and German |
-| Input feedback | Character counters on capped text fields (hidden until ~80% full, warning color at the cap); on-blur clamp notices on numeric fields (shift hours, change impact, budget amounts/rates) when a value is adjusted to its min/max; a label strip notice when separator characters are removed; a save-time summary toast when any entries were adjusted to fit limits |
-| Layout & theme | Modern Dark-Blue sidebar layout (default) with grouped navigation, full-viewport single-view content, a full-page task editor (5 stacked sections) and full-page Settings; a single-page **Classic mode** toggle (Settings → Appearance → Layout); Light / Dark / System theme on the AIPM brand palette; URL-hash deep-linking (`#gantt`, `#raid`, `#raid/<id>`, …) — `#<view>/<id>` navigates to the view and opens the specified item |
-| Printing | Scoped print — printing a report (Reports, RAID Report, Resources Report) or the Activity log prints just that view (sidebar, top bar, banners, and other panes are hidden) on A4 |
-| Baseline / variance trends (Turso) | When the active backend is Turso, periodic KPI snapshots (remaining hours/cost, % complete, forecast end, SPI/CPI, RAGs, burn-down series) are captured into append-only Turso tables; a Trends view shows baseline-vs-current variance, KPI trend charts, and the snapshot list — auto-captured once per cadence bucket (weekly default; daily/monthly) plus a manual capture button, re-baselineable, with highlighted recording gaps |
-
-## Screenshots
-
-<details>
-<summary>Here are some screenshots...</summary>
-
-![Main Screen](./public/Main.png)
-![New task](./public/Newtask.png)
-![Reports](./public/Reports.png)
-![Gantt](./public/Gantt.png)
-![RAID](./public/RAID.png)
-![Resources](./public/Resources.png)
-![Configuration](./public/Configuration.png)
-</details>
+| Printing | Scoped print — printing a report prints just that view (sidebar, banners, and other panes are hidden) |
 
 ## Storage Backends
 
-The app persists tasks in one of several backends, switchable in Settings:
-
 | Backend | Description |
 |---------|-------------|
-| Browser (default) | `IndexedDB` (schema v6) for tasks, RAID, absences, resources, roles, disciplines, grades, and the resource plan (record-level writes, legacy `localStorage` data migrates on first load); `localStorage` for settings — zero setup, survives page refresh |
+| Browser (default) | `IndexedDB` (schema v6) for workspace entities; `localStorage` for settings — zero setup, survives page refresh |
 | Local JSON / CSV / Markdown | File System Access API — reads and writes a local file you pick |
-| SharePoint JSON / CSV | Store workspace as a single JSON or CSV blob in a SharePoint Sites document library via Microsoft Graph; requires M365 sign-in (configure in Settings → Integrations; paste the file URL in Storage Configuration) |
-| Turso (libSQL) | Store workspace in a Turso (libSQL) database via the HTTP `/v2/pipeline` API — a **relational schema** with one table per entity (tasks, RAID, absences, shifts, resources, roles, disciplines, grades, budget buckets, plan, FX rates); single-blob databases from 0.25.x import automatically on first load. Configure in Settings → Integrations (Database URL + Auth token) or via `NEXT_PUBLIC_TURSO_DATABASE_URL` / `NEXT_PUBLIC_TURSO_AUTH_TOKEN` env vars. Works with **Turso Cloud** (`libsql://…` URL + token) and a **local / self-hosted `tursodb`** — run `tursodb mydb.db --sync-server 127.0.0.1:8080` and set the URL to `http://127.0.0.1:8080` with the token blank (plaintext `http://` is permitted only for loopback hosts) |
+| SharePoint JSON / CSV | Workspace as a single JSON or CSV blob in a SharePoint document library via Microsoft Graph; requires M365 sign-in |
+| Turso (libSQL) | Relational schema with one table per entity via the Turso HTTP `/v2/pipeline` API; works with Turso Cloud and a local/self-hosted `tursodb` |
 
 ### Sample workspace
 
-The repo ships a complete demo dataset:
-
 | File | Description |
 |------|-------------|
-| `sample-workspace.md` / `.csv` | Hand-curated demo workspace (tasks, RAID, milestones, stakeholders + RACI, budgets, resources). The `.md` is the source of truth (the `.csv` is partial — no budgets, by format design). |
+| `sample-workspace.md` / `.csv` | Hand-curated demo workspace (tasks, RAID, milestones, stakeholders + RACI, budgets, resources). The `.md` is the source of truth. |
 | `sample-workspace.json` | Complete demo workspace generated from the `.md` (adds a demo change-log + RAID→stakeholder links) via `npx vite-node scripts/generate-sample-workspace.ts`. |
-| `sample-workspace.sqlite3` | The same complete workspace as a Turso-compatible SQLite database (schema v9). Import it with the Turso CLI: `turso db create lop-demo --from-file sample-workspace.sqlite3`, then point the app at that database's URL + token in Settings → Integrations / Storage Configuration. |
-
-The Jira integration stores credentials (site URL, email, API token) in `localStorage`. They are never sent to any server other than your own Atlassian domain via the local proxy routes below.
-
-## API Routes
-
-All routes are CORS proxy endpoints — the browser calls them, they call Atlassian, and forward the response. Credentials are sent in the POST body and are never persisted server-side.
-
-| Route | Purpose |
-|-------|---------|
-| `POST /api/jira/test` | Verify credentials (calls `/rest/api/3/myself`) |
-| `POST /api/jira/projects` | List accessible projects |
-| `POST /api/jira/issue-types` | List issue types for a project |
-| `POST /api/jira/users` | Search assignable users |
-| `POST /api/jira/search` | Run a JQL query (paginated) |
-| `POST /api/jira/create-issue` | Create a new Jira issue from a local task |
-| `POST /api/jira/update-issue` | Push local task edits back to Jira |
-| `POST /api/jira/transition-issue` | Change the issue's workflow status category |
+| `sample-workspace.sqlite3` | The same workspace as a Turso-compatible SQLite database (schema v9). Import with: `turso db create lop-demo --from-file sample-workspace.sqlite3`, then configure the URL and token in Settings → Integrations. |
 
 ## Commands
 
@@ -145,7 +174,7 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ### Environment Variables (optional)
 
-No environment variables are **required** — all integrations work via in-app Settings. However, you may set these optional **build-time** variables to pre-configure integrations:
+No environment variables are **required** — all integrations work via in-app Settings. These optional build-time variables pre-configure integrations:
 
 | Variable | Purpose |
 |----------|---------|
@@ -154,16 +183,10 @@ No environment variables are **required** — all integrations work via in-app S
 | `NEXT_PUBLIC_TURSO_DATABASE_URL` | Turso database URL (overrides Settings → Integrations input) |
 | `NEXT_PUBLIC_TURSO_AUTH_TOKEN` | Turso auth token (overrides Settings → Integrations input); **recommend a scoped token** |
 
-The Claude API key and Jira credentials are entered in the in-app Settings panel and stored in `localStorage`.
+The Claude API key and Jira credentials are entered in Settings and stored in `localStorage`.
 
-### Microsoft 365 Integration
+**Security note**: Turso auth tokens live in the browser (`localStorage` or as `NEXT_PUBLIC_*` env vars, which are not secret). Use a token scoped to the minimum required database and operations; rotate if exposed.
 
-To enable Microsoft 365 features (Outlook contacts/calendar import, SharePoint storage):
+## License
 
-1. Register an app in [Microsoft Entra admin center](https://entra.microsoft.com/).
-2. Create a single-page application (SPA) with redirect URI `http://localhost:3000` (dev) or your production URL.
-3. Grant API permissions: `Contacts.Read`, `Calendars.Read`, `Sites.ReadWrite.All` (or scoped equivalently).
-4. Copy the **Client ID** and **Tenant ID** into Settings → Integrations, or set env vars above.
-5. The app uses MSAL in the browser for PKCE sign-in (no backend token exchange needed).
-
-**Security note**: Turso auth tokens live in the browser (localStorage or as `NEXT_PUBLIC_*` env vars, which are **not secret**). Use a Turso token scoped to the minimum required database and operations; rotate if exposed.
+Apache 2.0 — see [LICENSE](./LICENSE).

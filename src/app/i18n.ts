@@ -167,6 +167,12 @@ const enUS = {
   storageSaveFailed: "Couldn't save tasks: {0}",
   storageNotReady: "Storage isn't configured yet — pick a file in Settings.",
   storageUnreachable: "Storage unreachable — is the server running?",
+  storageUnreachableBanner:
+    "Can't reach your Turso database — changes aren't being saved. Check the database URL in Settings; the database may have been renamed or removed.",
+  storageAuthBanner:
+    "Your Turso auth token was rejected — changes aren't being saved. Update the token in Settings.",
+  storageBannerAria: "Storage connection problem",
+  storageBannerOpenSettings: "Open storage settings",
   storagePermissionGestureNeeded:
     "Write access not granted yet. Open Settings and click \"Grant write access\" to allow saving.",
   storageGrantWrite: "Grant write access",
@@ -290,11 +296,12 @@ const enUS = {
   budgetReportColWinLoss: "Win/Loss",
   budgetReportFilterBucket: "Filter buckets",
 
-  tabChat: "Chat",
+  tabChat: "AI Assistant",
   tabNewTask: "New task",
   tabEditTask: "Editing task #{0}",
 
   aiAssistant: "AI assistant",
+  openAiAssistant: "AI Assistant",
   aiApiKey: "Anthropic API key",
   aiApiKeyPlaceholder: "sk-ant-...",
   aiModel: "Model",
@@ -307,11 +314,19 @@ const enUS = {
   chatNoApiKey:
     "Add your Anthropic API key in Settings to start chatting.",
   chatClear: "Clear chat",
+  chatStop: "Stop",
+  chatStopped: "Stopped",
   chatToolCall: "Used {0}",
   chatToolError: "Tool error",
   chatError: "Chat failed: {0}",
   chatGreeting:
     "I can list, add, update, delete tasks and send inquiries. Try \"show overdue tasks\" or \"add a task to review the pricing deck due Friday\".",
+  chatPromptUpdate: "Give me an update",
+  chatPromptUpdateBody:
+    "Call list_tasks, list_raid, list_changes, and list_milestones. Then rank every actionable item by urgency and impact: overdue tasks, open high-severity RAID items, pending or under-review change requests, and overdue milestones come first. For each item state its id, title/name, status, due date where relevant, and the single most important next action the project lead should take. Group by category (Tasks / RAID / Changes / Milestones) and finish with a one-sentence overall project-health summary.",
+  chatPromptOverdue: "Show overdue tasks",
+  chatPromptAtRisk: "What's at risk?",
+  chatPromptStatusUpdate: "Draft a status update for stakeholders",
 
   aiConsentTitle: "Enable Claude chat?",
   aiConsentBullet1:
@@ -332,7 +347,7 @@ const enUS = {
   aiConsentAccept: "I understand — enable chat",
   aiConsentDecline: "Cancel",
   aiConsentRequired:
-    "Consent required. Open the Chat tab to review and enable.",
+    "Consent required. Open the AI Assistant tab to review and enable.",
   aiConsentGranted: "Chat enabled",
   aiConsentRevoke: "Revoke consent",
   aiConsentNotAccepted:
@@ -537,13 +552,13 @@ const enUS = {
     "The app ships a modern layout by default: a Dark-Blue left sidebar with grouped navigation (Open Points, Chat, Gantt, Resources, Budget, RAID, Reports, Activity, Settings), a top bar with the view title and actions, and a full-viewport content area showing one view at a time. Opening a task or Settings fills the page instead of a popover; the sidebar collapses to an icon rail on narrow screens (and on demand via the top-bar menu button). The URL hash deep-links each view (#gantt, #raid, …) so back / forward and bookmarks work.\nPrefer the original single-scroll page? Switch to Classic mode in Settings → Appearance → Layout — it keeps the boxed workspace tabs and header described in the other help sections.\nTheme: choose Light, Dark, or System (follows your OS) in Settings → Appearance; colors stay on the AIPM brand palette either way.",
   helpSecAddTitle: "Adding & editing tasks",
   helpSecAddBody:
-    "Click the + button in the header to open the New task modal. The same modal opens — pre-filled — when you click Edit on a row. Required fields: Task name, Assignee, Due date. Optional: Email, Group, Labels, Blockers, Notes. The + beside the Assignee adds that person to the address book and fills the assignee in one step. You can also ask Claude in the Chat tab (e.g. \"add a task to review the deck due Friday\").",
+    "Click the + button in the header to open the New task modal. The same modal opens — pre-filled — when you click Edit on a row. Required fields: Task name, Assignee, Due date. Optional: Email, Group, Labels, Blockers, Notes. The + beside the Assignee adds that person to the address book and fills the assignee in one step. You can also ask Claude in the AI Assistant tab (e.g. \"add a task to review the deck due Friday\").",
   helpSecWorkspaceTitle: "Workspace pane",
   helpSecWorkspaceBody:
-    "The boxed pane below the header holds the workspace tabs (Chat, Reports, Gantt, RAID, Resources, Activity). Drag its bottom-right corner to resize, click the chevron on the right of the tab strip to collapse / expand, and Reset size to restore the default. Resize and collapsed state both persist across reloads. Each tab's pop-out icon opens it in its own window — a read-only mirror that reflects the main window live; make edits in the main window.",
+    "The boxed pane below the header holds the workspace tabs (AI Assistant, Reports, Gantt, RAID, Resources, Activity). Drag its bottom-right corner to resize, click the chevron on the right of the tab strip to collapse / expand, and Reset size to restore the default. Resize and collapsed state both persist across reloads. Each tab's pop-out icon opens it in its own window — a read-only mirror that reflects the main window live; make edits in the main window.",
   helpSecTabsTitle: "Tabs",
   helpSecTabsBody:
-    "Chat — talk to Claude to view, add, update, and delete tasks in natural language.\nReports — statistics about tasks, assignees, status, inquiries, and on-time / late completions, plus breakdowns by group and label.\nGantt — visual timeline with drag-to-reschedule and FS / SS / FF / SF dependency arrows.\nRAID — register risks, assumptions, issues, and dependencies; link entries to specific tasks.\nResources — capacity calendar with shifts, absences, holidays, and per-day workload.\nActivity — audit log of every task / RAID / resource change in this browser.",
+    "AI Assistant — talk to Claude to view, add, update, and delete tasks in natural language.\nReports — statistics about tasks, assignees, status, inquiries, and on-time / late completions, plus breakdowns by group and label.\nGantt — visual timeline with drag-to-reschedule and FS / SS / FF / SF dependency arrows.\nRAID — register risks, assumptions, issues, and dependencies; link entries to specific tasks.\nResources — capacity calendar with shifts, absences, holidays, and per-day workload.\nActivity — audit log of every task / RAID / resource change in this browser.",
   helpSecTasksTitle: "Tasks list",
   helpSecTasksBody:
     "Sort by clicking column headers. Filter via the search box and the priority / assignee dropdowns. Tick the row checkboxes to multi-select; a bulk-edit bar appears for batch updates. Per-row actions: Mark complete / Reopen, Send inquiry, Push to Jira (when Jira is enabled and the row is unlinked), Edit, Delete. Long notes collapse to the first line — click \"Show more\" to expand. Drag the table's bottom-right corner to resize.",
@@ -573,7 +588,7 @@ const enUS = {
     "Tasks live in this browser's IndexedDB by default (record-level writes; legacy localStorage data migrates automatically on first load). Switch to a local JSON, CSV, or Markdown file in Settings → Storage to sync with disk (Chrome / Edge / Opera). The browser will ask for write permission on the first save; if it denies, click \"Grant write access\" in Settings. SharePoint backends are coming soon. The bundled sample-workspace.sqlite3 can be imported directly into a Turso database (e.g. via the Turso CLI: turso db create lop-demo --from-file sample-workspace.sqlite3), then configure the database URL and token in Settings → Integrations.",
   helpSecAiTitle: "AI chat",
   helpSecAiBody:
-    "Add an Anthropic API key in Settings → AI, then accept the consent screen on the Chat tab. Messages and task data are sent directly from your browser to api.anthropic.com — Acme's AI usage policy applies. The key is stored in this browser's localStorage. Claude can list, create, update, and delete tasks on your behalf via tool calls.",
+    "Add an Anthropic API key in Settings → AI, then accept the consent screen on the AI Assistant tab. Messages and task data are sent directly from your browser to api.anthropic.com — Acme's AI usage policy applies. The key is stored in this browser's localStorage. Claude can list, create, update, and delete tasks on your behalf via tool calls.",
   helpSecInputFeedbackTitle: "Input feedback",
   helpSecInputFeedbackBody:
     "Capped text fields show a live character counter as you approach the limit — it stays hidden until roughly 80% full and turns a warning color when you reach the cap. Numeric fields (shift hours, change schedule-days/cost, budget amounts and rate overrides) are automatically clamped to their allowed range on blur, with an inline notice if the value was adjusted. If a label contains separator characters that must be stripped, a notice appears next to the field. When you save a record and any entries were trimmed or clamped to fit storage limits, a brief summary toast confirms what was adjusted.",
@@ -746,6 +761,7 @@ const enUS = {
   activityFilterRaid: "RAID",
   activityFilterBulk: "Bulk",
   activityFilterJira: "Jira",
+  activityFilterGeneral: "General",
   activitySearchPlaceholder: "Search (text, wildcards, or regex)…",
   activitySearchLiteral: "Text",
   activitySearchWildcard: "Wildcard",
@@ -822,6 +838,19 @@ const enUS = {
   activityMilestoneCreated: "Created milestone #{0} – {1}",
   activityMilestoneUpdated: "Updated milestone #{0}",
   activityMilestoneDeleted: "Deleted milestone #{0}",
+  activityChangeCreated: "Change #{0} created: {1}",
+  activityChangeUpdated: "Change #{0} updated: {1}",
+  activityChangeDeleted: "Change #{0} deleted: {1}",
+  activityStakeholderCreated: "Stakeholder #{0} created: {1}",
+  activityStakeholderUpdated: "Stakeholder #{0} updated: {1}",
+  activityStakeholderDeleted: "Stakeholder #{0} deleted: {1}",
+  activityResourceCreated: "Resource #{0} created: {1}",
+  activityResourceUpdated: "Resource #{0} updated: {1}",
+  activityResourceDeleted: "Resource #{0} deleted: {1}",
+  activityRoleCreated: "Role #{0} created: {1}",
+  activityRoleUpdated: "Role #{0} updated: {1}",
+  activityRoleDeleted: "Role #{0} deleted: {1}",
+  activitySettingsUpdated: "Settings updated",
   taskDueDateAbsenceWarning:
     "Note: {0} is on {1} from {2} to {3}.",
   resourcesWorkdayHours: "Hours per work day",
@@ -1369,6 +1398,10 @@ const enUS = {
   helpSearchNoResults: "No help topics match your search.",
   dashboardStatusSave: "Save",
   dashboardStatusClear: "Clear",
+  notifUseGlobalLeadDays: "Use one global lead time (days ahead)",
+  notifGlobalLeadDaysHint: "Untick to set each reminder's lead time individually.",
+  notifJiraTokenError: "Show Jira token error banner",
+  notifLeadDaysPerReminder: "Days ahead (per reminder)",
   notifRaidReview: "RAID review reminders",
   notifRaidReviewTooltip: "Nudge when RAID items are past their target date or have not been reviewed within the interval.",
   raidReviewIntervalDays: "RAID review interval (days)",
@@ -1385,6 +1418,7 @@ const enUS = {
   raidReviewLastTouched: "Last touched",
   notifStakeholderComms: "Stakeholder communication reminders",
   notifStakeholderCommsTooltip: "Nudge to update key stakeholders about milestones, RAID items and changes linked to them.",
+  notifCommsLeadDaysHint: "Lead times below are per-quadrant and independent of the global lead-time setting.",
   stakeholderCommsToast: "{0} stakeholders need an update",
   stakeholderCommsBannerAria: "Stakeholder communication reminders",
   stakeholderCommsBannerTitle: "{0} stakeholders need an update",
@@ -1400,12 +1434,48 @@ const enUS = {
   versionHighlightModes: "Simple / Modular / Advanced mode: pare the app to Tasks, Chat & Reports and re-enable functions as needed.",
   versionHighlightClarke: "Stakeholder communication reminders nudge you to engage key stakeholders before milestones, RAID items, and changes.",
   versionHighlightFieldFeedback: "Input feedback: character counters, clamp notices, and a save-time summary when entries are adjusted to fit limits.",
+  versionHighlightButler: "AI Assistant (renamed from Chat): suggested prompts, token-usage panel, Stop button, pop-out. Configurable document export. Reminder lead times and banner toggles. Activity log extended; Information flows diagram in Settings.",
   fieldCounter: "{0} / {1}",
   fieldTrimmedToFit: "trimmed to fit",
   fieldAdjustedMax: "adjusted to max {0}",
   fieldAdjustedMin: "adjusted to min {0}",
   fieldCharsRemoved: "removed: {0}",
   fieldsAdjusted: "Saved — {0} field(s) adjusted to fit limits",
+
+  usage80Toast: "You've used 80% of your token budget",
+  aiUsageSession: "Current session",
+  aiUsageWeek: "Current week (all models)",
+  aiUsageResetAt: "Resets {0}",
+  aiSessionCap: "Session token cap",
+  aiWeeklyCap: "Weekly token cap",
+
+  settingsSectionExport: "Export",
+  exportSectionHint: "Choose which sections to include in document exports (XLSX, DOCX, PDF, PPTX, Markdown). Default: Tasks and RAID.",
+  exportLabelTasks: "Tasks",
+  exportLabelRaid: "RAID",
+  exportLabelChanges: "Changes",
+  exportLabelMilestones: "Milestones",
+  exportLabelStakeholders: "Stakeholders",
+  exportLabelBudgets: "Budget",
+  exportLabelResources: "Resources",
+  exportLabelRoles: "Roles & rates",
+  exportLabelAbsences: "Absences",
+  exportLabelShifts: "Shifts",
+  exportLabelStatus: "Status report",
+
+  settingsSectionInformationFlows: "Information flows",
+  infoFlowsIntro: "A read-only overview of the app's interfaces, integrations, and data sources.",
+  infoFlowsDiagramAriaLabel: "Information flows: browser PWA connected to local storage, Turso cloud DB, Jira, Microsoft 365, and the Anthropic API.",
+  infoFlowsLegendLocalLabel: "Local storage",
+  infoFlowsLegendLocalDesc: "Browser IndexedDB and localStorage — default offline-first storage.",
+  infoFlowsLegendTursoLabel: "Turso (libSQL)",
+  infoFlowsLegendTursoDesc: "Optional cloud database for multi-device sync and snapshot trends.",
+  infoFlowsLegendJiraLabel: "Jira",
+  infoFlowsLegendJiraDesc: "Issue tracker accessed via the app's /api/jira server-side proxy.",
+  infoFlowsLegendM365Label: "Microsoft 365",
+  infoFlowsLegendM365Desc: "Graph API + MSAL login — SharePoint files, contacts, and calendar.",
+  infoFlowsLegendAnthropicLabel: "Anthropic API",
+  infoFlowsLegendAnthropicDesc: "Claude AI model powering the built-in Assistant chat.",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;

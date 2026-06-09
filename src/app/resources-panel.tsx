@@ -21,7 +21,7 @@ import { localeFor, shortDateRangeIso } from "./date-format";
 import { type CalendarMode, monthWindow, resolveWindow, stepAnchor } from "./calendar-window";
 import { type Lang, t } from "./i18n";
 import { ResourceCalendar } from "./resource-calendar";
-import { INNER_TABLE_CLASS, VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
+import { CENTERED_HALF_PANE_CLASS, INNER_TABLE_CLASS, VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { ResourceWorkload, WORKLOAD_COL_WIDTHS, type WorkloadCol } from "./resource-workload";
 import { SegmentedControl } from "./segmented-control";
 import { generatePeriods, displayCapacityHours, absencesForResource, absenceWorkdays } from "./resource-capacity";
@@ -306,8 +306,10 @@ function ResourcesPanelInner({
 
   const isEmpty = rows.length === 0 && resources.length === 0;
 
+  const paneClass = view === "calendar" ? CENTERED_HALF_PANE_CLASS : VIEW_PANE_RESIZABLE_CLASS;
+
   return (
-    <section ref={resRef} className={VIEW_PANE_RESIZABLE_CLASS}>
+    <section ref={resRef} className={paneClass}>
       {renderHeader()}
       {isEmpty && view !== "planning" && (
         <div className="mt-3 flex-1 rounded-md border border-dashed border-line p-6 text-center text-sm text-muted-foreground">

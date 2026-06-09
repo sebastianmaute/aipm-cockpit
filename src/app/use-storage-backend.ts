@@ -15,6 +15,7 @@ import {
   requestWriteAccessForBackend,
 } from "./storage";
 import { getTursoConfig } from "./turso-config";
+import { tursoErrorKind } from "./storage-error";
 import { useMsAuth } from "./use-ms-auth";
 import { useWorkspace } from "./workspace-context";
 
@@ -42,6 +43,10 @@ export interface UseStorageBackendArgs {
   setActivityLog: React.Dispatch<React.SetStateAction<ActivityEntry[]>>;
   showToast: (kind: "info" | "error", text: string) => void;
   setStorageConfig: (config: StorageConfig) => void;
+  /** Reports the outcome of a load/save so the caller can drive the storage
+   *  status bubble + banner. `null` = success (clear any error); an error value
+   *  is classified (see storage-error.ts). */
+  onStorageOutcome?: (err: unknown | null) => void;
 }
 
 export function useStorageBackend(args: UseStorageBackendArgs) {
@@ -139,10 +144,14 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         setStakeholders(workspace.stakeholders ?? []);
         suppressNextSaveRef.current = true;
         await refreshBackendStatus();
+        args.onStorageOutcome?.(null);
       } catch (err) {
         if (cancelled) return;
+        args.onStorageOutcome?.(err);
+        // Turso connectivity/auth failures surface as the persistent storage
+        // banner (via onStorageOutcome) — skip the transient toast for those.
         if (err instanceof StorageNotReadyError) {
-          if (settingsRef.current.storageConfig.kind !== "browser") {
+          if (settingsRef.current.storageConfig.kind !== "browser" && !tursoErrorKind(err)) {
             const hint = (err as StorageNotReadyError).hint;
             const key =
               hint === "local-file-permission-needed"
@@ -152,7 +161,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
                   : "storageNotReady";
             args.showToast("error", t(langRef.current, key));
           }
-        } else if (!(err instanceof StorageNotImplementedError)) {
+        } else if (!(err instanceof StorageNotImplementedError) && !tursoErrorKind(err)) {
           args.showToast("error", t(langRef.current, "storageLoadFailed", String(err)));
         }
         await refreshBackendStatus();
@@ -179,7 +188,12 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       return;
     }
     const timer = setTimeout(() => {
-      backend.save({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, milestones, changes, stakeholders }).catch((err) => {
+      backend.save({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, milestones, changes, stakeholders }).then(() => {
+        args.onStorageOutcome?.(null);
+      }).catch((err) => {
+        args.onStorageOutcome?.(err);
+        // Turso connectivity/auth failures show the persistent banner — skip the toast.
+        if (tursoErrorKind(err)) return;
         if (err instanceof StorageNotReadyError) {
           const hint = (err as StorageNotReadyError).hint;
           const key =

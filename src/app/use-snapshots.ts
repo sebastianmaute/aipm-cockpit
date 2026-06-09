@@ -89,7 +89,13 @@ export function useSnapshots(args: UseSnapshotsArgs): UseSnapshotsResult {
           setSnapshots(history);
         }
       } catch (err) {
-        if (!cancelled) console.error("snapshot auto-capture failed", err);
+        if (!cancelled) {
+          console.error("snapshot auto-capture failed", err);
+          // Surface it so the storage status + banner can react (this is often
+          // the first request that hits a rotated/dead Turso DB while the app
+          // is open). The handler classifies and decides whether to toast.
+          errRef.current?.(err);
+        }
       }
     })();
     return () => { cancelled = true; };

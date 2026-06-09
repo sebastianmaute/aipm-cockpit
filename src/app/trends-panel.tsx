@@ -7,6 +7,8 @@ import { healthText } from "./health";
 import { TrendChart, type TrendPoint } from "./trend-chart";
 import { formatCurrency } from "./resource-cost";
 import type { SnapshotRecord, VarianceKey, VarianceRow } from "./snapshot";
+import { ReportCard } from "./report-table";
+import { useResizable } from "./use-resizable";
 
 export interface TrendsPanelProps {
   lang: Lang;
@@ -71,6 +73,7 @@ function trendPoints(snaps: readonly SnapshotRecord[], gaps: ReadonlySet<string>
 
 export function TrendsPanel(props: TrendsPanelProps) {
   const { lang, active, snapshots, baseline, variance, gaps, busy, captureNow, setBaseline, deleteSnapshot } = props;
+  const { ref, reset } = useResizable("lop-app:trends-size");
 
   if (!active) {
     return (
@@ -85,19 +88,19 @@ export function TrendsPanel(props: TrendsPanelProps) {
   const currency = props.latest?.currency || "EUR";
   const gapLabel = gaps.length > 0 ? t(lang, gaps.length === 1 ? "trendsGapOne" : "trendsGapMany", gaps.length) : undefined;
 
+  const captureButton = (
+    <button
+      type="button"
+      onClick={() => { void captureNow(); }}
+      disabled={busy}
+      className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-3 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90 disabled:cursor-not-allowed disabled:opacity-50"
+    >
+      {t(lang, "trendsCaptureNow")}
+    </button>
+  );
+
   return (
-    <div className={VIEW_PANE_CLASS}>
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold text-foreground">{t(lang, "navTrends")}</h2>
-        <button
-          type="button"
-          onClick={() => { void captureNow(); }}
-          disabled={busy}
-          className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-3 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {t(lang, "trendsCaptureNow")}
-        </button>
-      </div>
+    <ReportCard lang={lang} sizeRef={ref} onResetSize={reset} title={t(lang, "navTrends")} toolbarExtra={captureButton}>
 
       {snapshots.length === 0 ? (
         <p className="text-sm text-muted-foreground">{t(lang, "trendsNoSnapshots")}</p>
@@ -192,6 +195,6 @@ export function TrendsPanel(props: TrendsPanelProps) {
           </div>
         </div>
       )}
-    </div>
+    </ReportCard>
   );
 }

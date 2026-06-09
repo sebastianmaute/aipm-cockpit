@@ -297,6 +297,76 @@ describe("getStakeholderCommsItems", () => {
     expect(result).toEqual([]);
   });
 
+  describe("leadDaysByQuadrant override", () => {
+    it("with override 30 for manage-closely, a milestone 25 days out triggers a reminder", () => {
+      const s = stake({ id: 1, name: "Alice", influence: "High", interest: "High", raci: { "1": "A" } });
+      const result = getStakeholderCommsItems({
+        stakeholders: [s],
+        milestones: [milestone({ id: 1, name: "Future", date: "2026-07-03" })], // 25 days out
+        raid: [],
+        changes: [],
+        today: TODAY,
+        flags: ALL_ON,
+        leadDaysByQuadrant: { "manage-closely": 30, "keep-satisfied": 7, "keep-informed": 7, monitor: 3 },
+      });
+      expect(result).toHaveLength(1);
+      expect(result[0]).toMatchObject({ quadrant: "manage-closely", itemId: 1, reasonKey: "stakeholderCommsMilestoneDue" });
+    });
+
+    it("without override, default 14d applies — milestone 25 days out is NOT reminded", () => {
+      const s = stake({ id: 1, name: "Alice", influence: "High", interest: "High", raci: { "1": "A" } });
+      const result = getStakeholderCommsItems({
+        stakeholders: [s],
+        milestones: [milestone({ id: 1, name: "Future", date: "2026-07-03" })], // 25 days out
+        raid: [],
+        changes: [],
+        today: TODAY,
+        flags: ALL_ON,
+      });
+      expect(result).toEqual([]);
+    });
+
+    it("override only affects the targeted quadrant (monitor unaffected)", () => {
+      const monitor = stake({ id: 2, name: "Mona", influence: "Low", interest: "Low", raci: { "1": "C" } });
+      const result = getStakeholderCommsItems({
+        stakeholders: [monitor],
+        milestones: [milestone({ id: 1, name: "Soon", date: "2026-06-10" })], // 2 days out, not overdue
+        raid: [],
+        changes: [],
+        today: TODAY,
+        flags: ALL_ON,
+        // manage-closely boosted to 30 but monitor stays at 3 → milestone is upcoming, not overdue → no reminder
+        leadDaysByQuadrant: { "manage-closely": 30, "keep-satisfied": 7, "keep-informed": 7, monitor: 3 },
+      });
+      expect(result).toEqual([]);
+    });
+
+    it("partial override (missing quadrant) falls back to default lead days, not undefined-suppressed", () => {
+      // keep-satisfied default leadDays = 7; milestone 5 days out should trigger it.
+      // The partial override only provides manage-closely; keep-satisfied is absent.
+      // Before the fix, leadDaysByQuadrant[quadrant] === undefined → policy.leadDays = undefined
+      // → dayDiff(...) <= undefined → always false → reminder silently suppressed (bug).
+      // After the fix, the ?? fallback reinstates basePolicy.leadDays (7) → reminder fires.
+      const s = stake({ id: 1, name: "Sam", influence: "High", interest: "Low", raci: { "1": "R" } });
+      const result = getStakeholderCommsItems({
+        stakeholders: [s],
+        milestones: [milestone({ id: 1, name: "Upcoming", date: "2026-06-13" })], // 5 days out
+        raid: [],
+        changes: [],
+        today: TODAY,
+        flags: ALL_ON,
+        // Partial: only manage-closely supplied; keep-satisfied key absent.
+        leadDaysByQuadrant: { "manage-closely": 30 } as unknown as Record<string, number> as never,
+      });
+      expect(result).toHaveLength(1);
+      expect(result[0]).toMatchObject({
+        quadrant: "keep-satisfied",
+        itemId: 1,
+        reasonKey: "stakeholderCommsMilestoneDue",
+      });
+    });
+  });
+
   it("sorts by priority desc then stakeholder name", () => {
     const manage = stake({ id: 1, name: "Zoe", influence: "High", interest: "High", raci: { "1": "A" } });
     const monitor = stake({ id: 2, name: "Abe", influence: "Low", interest: "Low", raci: { "2": "C" } });

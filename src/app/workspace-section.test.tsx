@@ -205,7 +205,7 @@ describe("WorkspaceSection", () => {
         language: "en-US",
         ai: { consentAccepted: false, apiKey: "", model: "claude-sonnet-4-6" },
         jira: { enabled: false, siteUrl: "", email: "", apiToken: "", projectKey: "", projectName: "", issueTypes: [], assigneeMode: "currentUser", assigneeAccountId: "", assigneeDisplayName: "", tokenExpiresAt: "" },
-        notifications: { reminderLeadDays: 7, banner: { enabled: false }, popup: { enabled: false }, toast: { enabled: false }, birthday: { enabled: false }, raidReview: { enabled: false }, raidReviewIntervalDays: 14, stakeholderComms: { enabled: false } },
+        notifications: { reminderLeadDays: 7, useGlobalLeadDays: true, banner: { enabled: false }, popup: { enabled: false }, toast: { enabled: false }, birthday: { enabled: false }, raidReview: { enabled: false }, raidReviewIntervalDays: 14, stakeholderComms: { enabled: false }, stakeholderCommsLeadDays: { "manage-closely": 14, "keep-satisfied": 7, "keep-informed": 7, monitor: 3 }, jiraTokenError: { enabled: false } },
         holidayCountries: [],
         resources: { workdayHours: 8 },
         popout: { reuseWindow: false },
@@ -223,7 +223,7 @@ describe("WorkspaceSection", () => {
     render(<WorkspaceSection {...makeProps()} />, { wrapper: Wrapper });
 
     // Ungated tabs always present
-    expect(screen.getByRole("tab", { name: /chat/i })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /AI Assistant/i })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: /reports/i })).toBeInTheDocument();
 
     // Module-gated tabs must be absent

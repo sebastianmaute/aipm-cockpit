@@ -176,22 +176,24 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
               : t(lang, "tasksCountFiltered", visible.length, entries.length)}
           </span>
         </h2>
-        <PrintButton lang={lang} />
-        <ResetColWidthsButton onClick={resetColWidths} lang={lang} />
-        <ResetSizeButton onClick={resetActSize} lang={lang} />
-        {entries.length > 0 && (
-          <button
-            type="button"
-            onClick={onClear}
-            title={t(lang, "activityClearHint")}
-            className="rounded-md border border-line bg-surface px-2.5 py-1 text-xs font-medium text-foreground hover:bg-surface-muted"
-          >
-            {t(lang, "activityClear")}
-          </button>
-        )}
+        <div className="flex items-center gap-2 print:hidden">
+          <PrintButton lang={lang} />
+          <ResetColWidthsButton onClick={resetColWidths} lang={lang} />
+          <ResetSizeButton onClick={resetActSize} lang={lang} />
+          {entries.length > 0 && (
+            <button
+              type="button"
+              onClick={onClear}
+              title={t(lang, "activityClearHint")}
+              className="rounded-md border border-line bg-surface px-2.5 py-1 text-xs font-medium text-foreground hover:bg-surface-muted"
+            >
+              {t(lang, "activityClear")}
+            </button>
+          )}
+        </div>
       </header>
 
-      <div className="mb-2 flex shrink-0 flex-wrap items-center gap-2">
+      <div className="mb-2 flex shrink-0 flex-wrap items-center gap-2 print:hidden">
         <div className="relative min-w-[14rem] flex-1">
           <input
             type="search"
@@ -234,6 +236,7 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
             { value: "raid", label: t(lang, "activityFilterRaid") },
             { value: "bulk", label: t(lang, "activityFilterBulk") },
             { value: "jira", label: t(lang, "activityFilterJira") },
+            { value: "general", label: t(lang, "activityFilterGeneral") },
           ]}
           onChange={setGroupFilter}
         />

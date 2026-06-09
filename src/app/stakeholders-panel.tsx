@@ -45,7 +45,7 @@ export interface StakeholdersPanelProps {
   resources: readonly Resource[];
   milestones: readonly Milestone[];
   onSave: (item: Stakeholder) => void;
-  onDelete: (id: number) => void;
+  onDelete: (id: number, name: string) => void;
 }
 
 // --- Chip helpers -----------------------------------------------------------
@@ -377,7 +377,7 @@ function StakeholdersPanelInner({
           }}
           onCancel={closeModal}
           onDelete={() => {
-            onDelete(draft.id);
+            onDelete(draft.id, draft.name);
             closeModal();
           }}
         />

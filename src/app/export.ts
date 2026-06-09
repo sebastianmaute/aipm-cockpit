@@ -20,7 +20,11 @@
 // blob URL on next tick.
 
 import { type Workspace, workspaceToCsv, workspaceToMarkdown } from "./storage";
-import type { RaidItem, Task } from "./types";
+import type { ExportConfig } from "./settings-types";
+import { defaultExportConfig } from "./settings-types";
+import { buildExportSections } from "./export-sections";
+import type { ExportSection } from "./export-sections";
+import type { Lang } from "./i18n";
 
 export type ExportFormat = "csv" | "md" | "pdf" | "docx" | "xlsx" | "pptx";
 
@@ -76,108 +80,28 @@ function htmlEscape(s: unknown): string {
     .replace(/"/g, "&quot;");
 }
 
-/**
- * Build a print-friendly HTML document and open it in a new tab, then
- * trigger window.print() once it's loaded. We use the Acme palette
- * so the resulting PDF is on-brand even if the user saves at default
- * print settings.
- *
- * Why a new tab vs. an iframe?  Browsers (esp. Chrome / Edge) handle the
- * print dialog more reliably when invoked on a top-level window than on a
- * same-origin frame, and the tab gives the user a fallback (Ctrl+P) if
- * the auto-print didn't fire.
- */
-function exportPdf(tasks: Task[], raid: readonly RaidItem[] = []): void {
-  if (typeof window === "undefined") return;
-
-  const today = new Date().toISOString().slice(0, 10);
-  const total = tasks.length;
-  const raidTotal = raid.length;
-
-  const rows = tasks
-    .map((t) => {
-      const status = t.completedDate
-        ? `<span style="color:#84BD00">✓ ${htmlEscape(t.completedDate)}</span>`
-        : "Open";
-      const labels = (t.labels ?? []).join(", ");
-      return `<tr>
-        <td class="mono">${htmlEscape(t.id)}</td>
-        <td>${htmlEscape(t.taskName)}</td>
-        <td>${htmlEscape(t.assignee)}</td>
-        <td>${htmlEscape(t.dueDate)}</td>
-        <td>${status}</td>
-        <td>${htmlEscape(t.priority)}</td>
-        <td>${htmlEscape(t.group ?? "")}</td>
-        <td>${htmlEscape(labels)}</td>
-        <td>${htmlEscape(t.blockers ?? "")}</td>
-        <td>${htmlEscape(t.notes ?? "")}</td>
-      </tr>`;
-    })
+/** Render one ExportSection as an HTML heading + table block. */
+function renderSectionHtml(section: ExportSection): string {
+  const headerCells = section.columns
+    .map((col) => `<th>${htmlEscape(col)}</th>`)
     .join("");
-
-  // RAID section — only emitted when there's content, so the PDF stays a
-  // single-section "tasks list" for users who don't use the RAID log.
-  const CATEGORY_LABEL: Record<string, string> = {
-    R: "Risk",
-    A: "Assumption",
-    I: "Issue",
-    D: "Dependency",
-  };
-  const raidRowsHtml = raid
-    .map((r) => {
-      let severity = htmlEscape(r.severity ?? "");
-      if (r.category === "R" && r.probability && r.impact) {
-        severity = `${severity} (${r.probability}×${r.impact})`;
-      }
-      const linked = r.linkedTaskIds.map((id) => `#${id}`).join(", ");
-      const causedBy = r.causedByRaidIds.map((id) => `#${id}`).join(", ");
-      return `<tr>
-        <td class="mono">${htmlEscape(r.id)}</td>
-        <td>${htmlEscape(CATEGORY_LABEL[r.category] ?? r.category)}</td>
-        <td>${htmlEscape(r.title)}</td>
-        <td>${severity}</td>
-        <td>${htmlEscape(r.status)}</td>
-        <td>${htmlEscape(r.owner ?? "")}</td>
-        <td>${htmlEscape(r.targetDate ?? "")}</td>
-        <td>${htmlEscape(linked)}</td>
-        <td class="mono">${htmlEscape(causedBy)}</td>
-        <td>${htmlEscape(r.mitigation ?? r.description ?? "")}</td>
-      </tr>`;
-    })
-    .join("");
-
-  const raidSection =
-    raidTotal === 0
-      ? ""
-      : `
-  <h2 style="margin-top:16pt;margin-bottom:6pt;color:#004159;font-size:16pt;font-weight:600">RAID Log</h2>
-  <div class="subtitle" style="margin-bottom:8pt">${raidTotal} item${raidTotal === 1 ? "" : "s"} · Risks, Assumptions, Issues, Dependencies</div>
+  const bodyRows = section.rows
+    .map(
+      (row) =>
+        `<tr>${row.map((cell) => `<td>${htmlEscape(cell)}</td>`).join("")}</tr>`
+    )
+    .join("\n      ");
+  return `
+  <h2 style="margin-top:16pt;margin-bottom:6pt;color:#004159;font-size:16pt;font-weight:600">${htmlEscape(section.title)}</h2>
   <table>
-    <thead>
-      <tr>
-        <th>ID</th>
-        <th>Cat</th>
-        <th>Title</th>
-        <th>Severity</th>
-        <th>Status</th>
-        <th>Owner</th>
-        <th>Target</th>
-        <th>Linked</th>
-        <th>Caused by</th>
-        <th>Mitigation / Notes</th>
-      </tr>
-    </thead>
+    <thead><tr>${headerCells}</tr></thead>
     <tbody>
-      ${raidRowsHtml}
+      ${bodyRows}
     </tbody>
   </table>`;
+}
 
-  const html = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8"/>
-  <title>List of Open Points — ${htmlEscape(today)}</title>
-  <style>
+const PRINT_STYLES = `
     /* Print-tuned styles — Acme palette. */
     @page { size: A4 landscape; margin: 10mm 8mm; }
     * { box-sizing: border-box; }
@@ -193,7 +117,7 @@ function exportPdf(tasks: Task[], raid: readonly RaidItem[] = []): void {
     }
     h1 { margin: 0; color: #004159; font-size: 22pt; font-weight: 600; }
     .subtitle { color: #939598; font-size: 10pt; font-style: italic; margin-top: 4px; }
-    table { width: 100%; border-collapse: collapse; font-size: 9pt; }
+    table { width: 100%; border-collapse: collapse; font-size: 9pt; margin-bottom: 12pt; }
     thead th {
       background: #004159; color: #ffffff;
       padding: 6px 6px; text-align: left;
@@ -213,35 +137,36 @@ function exportPdf(tasks: Task[], raid: readonly RaidItem[] = []): void {
     @media print {
       thead { display: table-header-group; } /* repeat header on each page */
       tr { page-break-inside: avoid; }
-    }
+    }`;
+
+/**
+ * Pure helper: build the full print-HTML string for a workspace.
+ * Exported so it can be unit-tested without touching window.print().
+ *
+ * Sections are controlled by `cfg` (same ExportConfig used for CSV/DOCX).
+ * Each enabled, non-empty section becomes an <h2> + <table> block.
+ */
+export function buildPdfHtml(ws: Workspace, cfg: ExportConfig, lang: Lang): string {
+  const today = new Date().toISOString().slice(0, 10);
+  const sections = buildExportSections(ws, cfg, lang);
+  const sectionsHtml = sections.length === 0
+    ? `<p style="color:#939598;font-style:italic">No sections to export.</p>`
+    : sections.map(renderSectionHtml).join("\n");
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <title>List of Open Points — ${htmlEscape(today)}</title>
+  <style>${PRINT_STYLES}
   </style>
 </head>
 <body>
   <header>
     <h1>List of Open Points</h1>
-    <div class="subtitle">${total} task${total === 1 ? "" : "s"} · Exported ${htmlEscape(today)}</div>
+    <div class="subtitle">Exported ${htmlEscape(today)}</div>
   </header>
-  ${total === 0 ? `<p style="color:#939598;font-style:italic">No tasks to export.</p>` : `
-  <table>
-    <thead>
-      <tr>
-        <th>ID</th>
-        <th>Task</th>
-        <th>Assignee</th>
-        <th>Due</th>
-        <th>Status</th>
-        <th>Priority</th>
-        <th>Group</th>
-        <th>Labels</th>
-        <th>Blockers</th>
-        <th>Notes</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${rows}
-    </tbody>
-  </table>`}
-  ${raidSection}
+  ${sectionsHtml}
   <footer>Acme — List of Open Points Tracker</footer>
   <script>
     // Wait one paint so the browser has rendered the table before
@@ -257,6 +182,23 @@ function exportPdf(tasks: Task[], raid: readonly RaidItem[] = []): void {
   </script>
 </body>
 </html>`;
+}
+
+/**
+ * Build a print-friendly HTML document and open it in a new tab, then
+ * trigger window.print() once it's loaded. We use the Acme palette
+ * so the resulting PDF is on-brand even if the user saves at default
+ * print settings.
+ *
+ * Why a new tab vs. an iframe?  Browsers (esp. Chrome / Edge) handle the
+ * print dialog more reliably when invoked on a top-level window than on a
+ * same-origin frame, and the tab gives the user a fallback (Ctrl+P) if
+ * the auto-print didn't fire.
+ */
+function exportPdf(ws: Workspace, cfg: ExportConfig, lang: Lang): void {
+  if (typeof window === "undefined") return;
+
+  const html = buildPdfHtml(ws, cfg, lang);
 
   // Open a new tab and write the HTML into it. Pop-up blockers may stop
   // this — in which case we fall back to a Blob download of the HTML so
@@ -275,54 +217,52 @@ function exportPdf(tasks: Task[], raid: readonly RaidItem[] = []): void {
 // --- Public entry point --------------------------------------------------
 
 /**
- * Export the workspace (tasks + RAID items) in the requested format.
+ * Export the workspace in the requested format.
  *
  * For all formats except `"pdf"`, this triggers a browser download via a
  * hidden anchor. For `"pdf"`, this opens a print-styled HTML in a new tab
  * and immediately invokes `window.print()` — the user finalizes the export
  * by choosing "Save as PDF" in the browser's native print dialog.
  *
- * Empty workspaces are still exportable; you get a file with just the
- * header row (CSV/XLSX), an empty table (DOCX), the title slide (PPTX), or
- * a "No tasks to export." page (PDF/MD).
+ * Which sections appear is controlled by `exportConfig` (defaults to
+ * `defaultExportConfig` which enables tasks + RAID). Sections that are
+ * enabled in the config but whose workspace array is empty are omitted.
  *
- * RAID items appear as:
- *   • CSV/MD — a second `# RAID` / `# RAID Log` section in the same file
- *     (round-trips through the storage layer).
- *   • PDF — a "RAID Log" table after the tasks table.
- *   • DOCX — a "RAID Log" heading + table after the tasks table.
- *   • XLSX — a second worksheet named "RAID Log".
- *   • PPTX — a section-divider slide + one slide per item (capped at 50).
- *
- * When the workspace has no RAID items, the output is byte-equivalent to
- * the pre-RAID tasks-only export.
+ * For DOCX/XLSX/PPTX the section list is computed once via
+ * `buildExportSections` and passed to all three builders so there is no
+ * duplication of the projection logic.
  */
 export async function exportWorkspace(
   ws: Workspace,
   format: ExportFormat,
+  exportConfig?: ExportConfig,
+  lang: Lang = "en-US",
 ): Promise<void> {
+  const cfg = exportConfig ?? defaultExportConfig;
   if (format === "pdf") {
-    exportPdf(ws.tasks, ws.raid);
+    exportPdf(ws, cfg, lang);
     return;
   }
 
   let blob: Blob;
   if (format === "csv") {
-    blob = new Blob([workspaceToCsv(ws)], { type: MIME.csv });
+    blob = new Blob([workspaceToCsv(ws, cfg)], { type: MIME.csv });
   } else if (format === "md") {
-    blob = new Blob([workspaceToMarkdown(ws)], { type: MIME.md });
+    blob = new Blob([workspaceToMarkdown(ws, cfg)], { type: MIME.md });
   } else {
-    // OOXML builders live in a separate ~45 KB module. Loaded on demand so it
-    // stays out of the initial bundle and the live heap until the user
-    // actually picks docx/xlsx/pptx. The dynamic import is cached after the
-    // first call, so repeat clicks have no re-fetch cost.
+    // OOXML builders live in a separate module. Loaded on demand so it stays
+    // out of the initial bundle. The dynamic import is cached after the first
+    // call, so repeat clicks have no re-fetch cost.
+    //
+    // Sections are computed once here and shared across all three builders.
     const { buildDocx, buildPptx, buildXlsx } = await import("./export-ooxml");
+    const sections = buildExportSections(ws, cfg, lang);
     if (format === "docx") {
-      blob = buildDocx(ws.tasks, ws.raid);
+      blob = buildDocx(sections);
     } else if (format === "xlsx") {
-      blob = buildXlsx(ws.tasks, ws.raid);
+      blob = buildXlsx(sections);
     } else {
-      blob = buildPptx(ws.tasks, ws.raid);
+      blob = buildPptx(sections);
     }
   }
   triggerDownload(defaultFilename(format), blob);

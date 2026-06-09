@@ -16,6 +16,7 @@ interface ModernShellProps {
   bannerCount: number;
   onNewTask: () => void;
   onShowAlerts: () => void;
+  onOpenAiAssistant?: () => void;
   topBarMenus: React.ReactNode;
   sidebarFooter: React.ReactNode;
   tasksSection: React.ReactNode;
@@ -35,6 +36,7 @@ interface ModernShellProps {
 
 export function ModernShell({
   lang, activeView, onNavigate, version, mode, bannerCount, onNewTask, onShowAlerts,
+  onOpenAiAssistant,
   topBarMenus, sidebarFooter, tasksSection, workspace,
   editView = null, editTitle = "", editActions = null,
   settingsView = null,
@@ -80,6 +82,7 @@ export function ModernShell({
           bannerCount={bannerCount}
           onNewTask={onNewTask}
           onShowAlerts={onShowAlerts}
+          onOpenAiAssistant={onOpenAiAssistant}
           primaryAction={isEditing ? editActions : undefined}
           onToggleSidebar={onToggleCollapsed}
         >

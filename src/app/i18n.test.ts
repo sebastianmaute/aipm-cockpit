@@ -40,6 +40,15 @@ describe("RACI legend", () => {
   });
 });
 
+describe("tabChat rename", () => {
+  it("tabChat is 'AI Assistant' in en-US", () => {
+    expect(t("en-US", "tabChat")).toBe("AI Assistant");
+  });
+  it("tabChat is 'KI-Assistent' in the German dictionary", () => {
+    expect(de["tabChat"]).toBe("KI-Assistent");
+  });
+});
+
 describe("brand name", () => {
   it("uses the Project Management Tracker brand name", () => {
     expect(t("en-US", "appTitle")).toBe("Project Management Tracker");

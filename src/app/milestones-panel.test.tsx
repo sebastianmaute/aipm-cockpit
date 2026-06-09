@@ -140,4 +140,19 @@ describe("MilestonesPanel", () => {
     const { container } = renderMilestones({ milestones: [m("Alpha", "2026-06-10")] });
     expect(container.querySelectorAll(".cursor-col-resize").length).toBeGreaterThan(0);
   });
+
+  it("root uses CENTERED_HALF_PANE_CLASS (mx-auto, h-[50%], w-[50%])", () => {
+    const { container } = renderMilestones();
+    const root = container.firstElementChild as HTMLElement;
+    expect(root.className).toContain("mx-auto");
+    expect(root.className).toContain("h-[50%]");
+    expect(root.className).toContain("w-[50%]");
+  });
+
+  it("contains a ResizeCornerHint (resize corner affordance)", () => {
+    const { container } = renderMilestones();
+    // ResizeCornerHint renders an aria-hidden decorative element in the corner
+    const hint = container.querySelector("[aria-hidden='true']");
+    expect(hint).not.toBeNull();
+  });
 });

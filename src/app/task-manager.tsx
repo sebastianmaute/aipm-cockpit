@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createSettingsLogger, SETTINGS_LOG_DEBOUNCE_MS } from "./settings-log";
 import { getAlertableTasks } from "./due-dates";
 import { getBucketReminders } from "./budget-report";
 import { t } from "./i18n";
@@ -40,16 +41,18 @@ import { TasksSection } from "./tasks-section";
 import { useResizable } from "./use-resizable";
 import { WorkspaceTabProvider, useWorkspaceTab } from "./workspace-tab-context";
 import { AppHeader } from "./app-header";
-import { BirthdayBanner, DueBanner, JiraTokenBanner, RaidReviewBanner, RaidReviewModal, StakeholderCommsBanner, StakeholderCommsModal } from "./notifications";
+import { BirthdayBanner, DueBanner, JiraTokenBanner, RaidReviewBanner, RaidReviewModal, StakeholderCommsBanner, StakeholderCommsModal, StorageBanner } from "./notifications";
+import { tursoErrorKind, type StorageErrorKind } from "./storage-error";
 import { getRaidReviewItems } from "./raid-review";
 import { useStakeholderComms } from "./use-stakeholder-comms";
 import { getJiraTokenAlert } from "./jira-token-status";
+import { effectiveLeadDays } from "./notifications-lead";
 import { WorkspaceSection } from "./workspace-section";
 import { RolesPanel } from "./roles-panel";
 import { getUpcomingBirthdays } from "./birthdays";
 import { useBirthdayAlerts } from "./use-birthday-alerts";
 import { useReminderSnooze } from "./use-reminder-snooze";
-import { isReportPopoutTab } from "./broadcast-sync";
+import { isReportPopoutTab, openPopoutWindow } from "./broadcast-sync";
 import { AppShell } from "./app-shell";
 import { ModernShell } from "./modern-shell";
 import { useHashView } from "./use-hash-view";
@@ -58,7 +61,7 @@ import type { AppView } from "./nav-config";
 import { useSnapshots } from "./use-snapshots";
 import { computeDashboard } from "./dashboard";
 import { getTursoConfig } from "./turso-config";
-import { defaultSnapshotSettings } from "./settings-types";
+import { defaultExportConfig, defaultSnapshotSettings } from "./settings-types";
 import { TaskEditView, TASK_EDIT_FORM_ID } from "./task-edit-view";
 import { APP_VERSION_LABEL } from "./version";
 import { ActionMenus } from "./action-menus";
@@ -66,6 +69,7 @@ import { makeEditGuard } from "./read-only-guard";
 import { SettingsView } from "./settings-view";
 import { ReadOnlyMirrorBanner } from "./read-only-mirror-banner";
 import { VoiceCommandProvider } from "./voice-command-context";
+import { AiUsageProvider } from "./ai-usage-context";
 import { useMsAuth } from "./use-ms-auth";
 import { SidebarFooter } from "./sidebar-footer";
 import { useSidebarCollapsed } from "./use-sidebar-collapsed";
@@ -233,6 +237,23 @@ function TaskManagerInner() {
     settings.integrations?.turso?.databaseUrl,
     settings.integrations?.turso?.authToken,
   );
+  // Turso storage connectivity status — set when a load/save/snapshot op fails
+  // with an unreachable host or rejected token, cleared on the next success.
+  // Drives the status bubble (red) and a sticky banner (mirrors the Jira token).
+  const [storageError, setStorageError] = useState<{ kind: StorageErrorKind } | null>(null);
+  const [storageErrorDismissed, setStorageErrorDismissed] = useState(false);
+  const reportStorageOutcome = useCallback((err: unknown | null) => {
+    if (err == null) {
+      // Recovery: clear the error and the dismissal so a later failure re-shows
+      // the banner (dismiss only hides the current failing run).
+      setStorageError(null);
+      setStorageErrorDismissed(false);
+      return;
+    }
+    const kind = tursoErrorKind(err);
+    if (kind) setStorageError({ kind });
+  }, []);
+
   const snapshots = useSnapshots({
     active: trendsActive,
     cadence: snapshotsCfg.cadence,
@@ -263,7 +284,12 @@ function TaskManagerInner() {
         currency: plan.currency || "EUR",
       };
     },
-    onError: (err) => showToast("error", t(lang, "storageSaveFailed", String(err))),
+    onError: (err) => {
+      reportStorageOutcome(err);
+      // Connectivity/auth failures surface as the sticky banner; only toast
+      // other (e.g. manual-capture) errors so the banner isn't duplicated.
+      if (!tursoErrorKind(err)) showToast("error", t(lang, "storageSaveFailed", String(err)));
+    },
   });
   const trends = { ...snapshots, active: trendsActive };
 
@@ -308,7 +334,12 @@ function TaskManagerInner() {
   });
 
   const { storageDescription, storageReady, onPickStorageFile, onGrantWriteAccess, onOpenStorageFile, onRequestStorageSwitch } =
-    useStorageBackend({ settings, lang, hydrated, isPopout, activityLog, setActivityLog, showToast, setStorageConfig: (storageConfig) => setSettings((s) => ({ ...s, storageConfig })) });
+    useStorageBackend({ settings, lang, hydrated, isPopout, activityLog, setActivityLog, showToast, setStorageConfig: (storageConfig) => setSettings((s) => ({ ...s, storageConfig })), onStorageOutcome: reportStorageOutcome });
+
+  // The status bubble must reflect real reachability: a stale Turso config is
+  // `isReady()`-true (config present) but actually failing, so fold in the
+  // observed error.
+  const storageOk = storageReady && !storageError;
 
   // Reverse-lookup index for the "referenced by N RAID items" badge on
   // each task row. Map<taskId, RaidItem[]>. O(R) on every raid update,
@@ -369,18 +400,14 @@ function TaskManagerInner() {
     handleSetAllUtilizationMode,
   } = useResourcePlanner({ lang, logActivity, showToast, workdayHours: settings.resources.workdayHours, holidaySet });
 
-  // Change Log CRUD. The hook reads/writes `changes` via WorkspaceProvider;
-  // change activity-logging is intentionally out of scope (logActivity here is
-  // kind-keyed, not free-text), so no logActivity is passed.
-  const { handleSaveChange, handleDeleteChange } = useChangeLog({ today });
+  // Change Log CRUD. The hook reads/writes `changes` via WorkspaceProvider.
+  const { handleSaveChange, handleDeleteChange } = useChangeLog({ today, logActivity });
 
-  // Stakeholder register / RACI / map CRUD. Mirrors the Change Log: the hook
-  // reads/writes `stakeholders` via WorkspaceProvider; the three panels source
-  // `resources`/`milestones` from context inside WorkspaceSection. As with
-  // useChangeLog, no logActivity is passed — task-manager's logActivity is
-  // kind-keyed (ActivityKind), not the free-text summary the hook expects.
+  // Stakeholder register / RACI / map CRUD. The hook reads/writes `stakeholders`
+  // via WorkspaceProvider; the three panels source `resources`/`milestones` from
+  // context inside WorkspaceSection.
   const { stakeholders, handleSaveStakeholder, handleDeleteStakeholder } =
-    useStakeholders({ today });
+    useStakeholders({ today, logActivity });
 
   // Stakeholder-comms reminder (mirrors the RAID-review reminder wiring above):
   // mode-gated via `flags`, surfaced as a banner + modal in the shared slots.
@@ -639,14 +666,14 @@ function TaskManagerInner() {
   const bannerItems = useMemo(() => {
     const cfg = settings.notifications.banner;
     if (!cfg.enabled) return [];
-    return getAlertableTasks(tasks, settings.notifications.reminderLeadDays, today, holidaySet, absences);
-  }, [tasks, settings.notifications.reminderLeadDays, settings.notifications.banner, today, holidaySet, absences]);
+    return getAlertableTasks(tasks, effectiveLeadDays(settings.notifications, "banner"), today, holidaySet, absences);
+  }, [tasks, settings.notifications, today, holidaySet, absences]);
 
   const birthdayItems = useMemo(
     () => settings.notifications.birthday.enabled
-      ? getUpcomingBirthdays(resources, today, settings.notifications.reminderLeadDays, holidaySet, absences)
+      ? getUpcomingBirthdays(resources, today, effectiveLeadDays(settings.notifications, "birthday"), holidaySet, absences)
       : [],
-    [resources, settings.notifications.reminderLeadDays, settings.notifications.birthday, today, holidaySet, absences],
+    [resources, settings.notifications, today, holidaySet, absences],
   );
 
   const raidReviewItems = useMemo(
@@ -657,8 +684,8 @@ function TaskManagerInner() {
   );
 
   const dueModalItems = useMemo(() => {
-    return getAlertableTasks(tasks, settings.notifications.reminderLeadDays, today, holidaySet, absences);
-  }, [tasks, settings.notifications.reminderLeadDays, today, holidaySet, absences]);
+    return getAlertableTasks(tasks, effectiveLeadDays(settings.notifications, "popup"), today, holidaySet, absences);
+  }, [tasks, settings.notifications, today, holidaySet, absences]);
 
   const bucketReminders = useMemo(
     () => getBucketReminders(budgets, settings.notifications.reminderLeadDays, today),
@@ -672,6 +699,28 @@ function TaskManagerInner() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bucketReminderKey]);
+
+  // Log a coarse, debounced "settings.updated" activity entry on every
+  // user-driven settings change. Guards:
+  //   1. Pre-hydration: `hydrated` is false until localStorage is loaded;
+  //      the effect skips all runs while false.
+  //   2. Initial mount: even after hydration the very first run reflects the
+  //      loaded value (not a user edit), so `settingsInitialRef` suppresses it.
+  //   3. Secrets: `logActivity("settings.updated")` emits no field values.
+  const settingsLoggerRef = useRef(
+    createSettingsLogger(() => logActivity("settings.updated"), SETTINGS_LOG_DEBOUNCE_MS),
+  );
+  const settingsInitialRef = useRef(true);
+  useEffect(() => {
+    if (!hydrated) return;
+    if (settingsInitialRef.current) {
+      settingsInitialRef.current = false;
+      return;
+    }
+    const logger = settingsLoggerRef.current;
+    logger.notifyChange();
+    return () => logger.cancel();
+  }, [settings, hydrated]);
 
   const absenceKnownAssignees = useMemo(
     () => [
@@ -935,7 +984,7 @@ function TaskManagerInner() {
       onChange={setSettings}
       onCommitFeatures={handleCommitFeatures}
       storageDescription={storageDescription}
-      storageReady={storageReady}
+      storageReady={storageOk}
       onPickStorageFile={onPickStorageFile}
       onOpenStorageFile={onOpenStorageFile}
       onGrantStorageWrite={onGrantWriteAccess}
@@ -951,6 +1000,7 @@ function TaskManagerInner() {
       lang={lang}
       onCommand={handleCommand}
       onVoiceError={(msg) => showToast("error", msg)}
+      exportConfig={settings.export ?? defaultExportConfig}
     />
   );
 
@@ -971,12 +1021,20 @@ function TaskManagerInner() {
       {!isPopout && !birthdaySnooze.isSnoozed && !birthdayDismissed && birthdayItems.length > 0 && (
         <BirthdayBanner items={birthdayItems} lang={lang} onDismiss={() => setBirthdayDismissed(true)} onSnooze={birthdaySnooze.snooze} />
       )}
-      {!isPopout && jiraTokenAlert && !jiraTokenSnooze.isSnoozed && !jiraTokenDismissed && (
+      {!isPopout && jiraTokenAlert && !jiraTokenSnooze.isSnoozed && !jiraTokenDismissed && settings.notifications.jiraTokenError.enabled && (
         <JiraTokenBanner
           alert={jiraTokenAlert}
           lang={lang}
           onSnooze={jiraTokenSnooze.snooze}
           onDismiss={() => setJiraTokenDismissed(true)}
+        />
+      )}
+      {!isPopout && storageError && settings.storageConfig.kind === "turso" && !storageErrorDismissed && (
+        <StorageBanner
+          kind={storageError.kind}
+          lang={lang}
+          onOpenSettings={() => setActiveTab("settings")}
+          onDismiss={() => setStorageErrorDismissed(true)}
         />
       )}
       {!isPopout && !raidReviewSnooze.isSnoozed && !raidReviewDismissed && raidReviewItems.length > 0 && (
@@ -1102,7 +1160,7 @@ function TaskManagerInner() {
       showToast={showToast}
       handleCommand={handleCommand}
       storageDescription={storageDescription}
-      storageReady={storageReady}
+      storageReady={storageOk}
       onPickStorageFile={onPickStorageFile}
       onOpenStorageFile={onOpenStorageFile}
       onGrantStorageWrite={onGrantWriteAccess}
@@ -1110,6 +1168,7 @@ function TaskManagerInner() {
       settings={settings}
       setSettings={setSettings}
       lang={lang}
+      onOpenAiAssistant={() => openPopoutWindow("chat", settings.popout.reuseWindow)}
     />
   );
 
@@ -1156,6 +1215,7 @@ function TaskManagerInner() {
         bannerCount={bannerItems.length}
         onNewTask={() => { handleCancelEdit(); setTaskModalOpen(true); }}
         onShowAlerts={() => { setBannerDismissed(false); setDueModalOpen(true); }}
+        onOpenAiAssistant={() => openPopoutWindow("chat", settings.popout.reuseWindow)}
         topBarMenus={topBarMenus}
         collapsed={sidebarCollapsed}
         onToggleCollapsed={toggleSidebar}
@@ -1164,7 +1224,7 @@ function TaskManagerInner() {
             lang={lang}
             collapsed={sidebarCollapsed}
             storageDescription={storageDescription}
-            storageReady={storageReady}
+            storageReady={storageOk}
             isSignedIn={msAuth.account != null}
             accountName={msAuth.account?.username ?? null}
             onSignOut={() => {
@@ -1187,17 +1247,21 @@ function TaskManagerInner() {
 
   if (isPopout) {
     return (
-      <ToastProvider value={showToast}>
-        <VoiceCommandProvider value={voiceHandlers}>{legacyTree}</VoiceCommandProvider>
-      </ToastProvider>
+      <AiUsageProvider lang={lang} ai={settings.ai} showToast={showToast}>
+        <ToastProvider value={showToast}>
+          <VoiceCommandProvider value={voiceHandlers}>{legacyTree}</VoiceCommandProvider>
+        </ToastProvider>
+      </AiUsageProvider>
     );
   }
   return (
-    <ToastProvider value={showToast}>
-      <VoiceCommandProvider value={voiceHandlers}>
-        <AppShell layout={settings.layout} classic={legacyTree} modern={modernTree} />
-      </VoiceCommandProvider>
-    </ToastProvider>
+    <AiUsageProvider lang={lang} ai={settings.ai} showToast={showToast}>
+      <ToastProvider value={showToast}>
+        <VoiceCommandProvider value={voiceHandlers}>
+          <AppShell layout={settings.layout} classic={legacyTree} modern={modernTree} />
+        </VoiceCommandProvider>
+      </ToastProvider>
+    </AiUsageProvider>
   );
 }
 

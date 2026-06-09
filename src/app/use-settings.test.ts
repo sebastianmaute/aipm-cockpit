@@ -175,6 +175,118 @@ describe("notifications defaults", () => {
   });
 });
 
+describe("notifications migration — stakeholderCommsLeadDays", () => {
+  it("missing stakeholderCommsLeadDays fills all four quadrants with defaults (14/7/7/3)", async () => {
+    const legacy: Record<string, unknown> = {
+      ...defaultSettings,
+      notifications: {
+        ...defaultNotificationsConfig,
+        // stakeholderCommsLeadDays deliberately absent
+      },
+    };
+    delete (legacy.notifications as Record<string, unknown>).stakeholderCommsLeadDays;
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(legacy));
+    const { result } = renderHook(() => useSettings());
+    await act(async () => {});
+    expect(result.current.settings.notifications.stakeholderCommsLeadDays).toEqual({
+      "manage-closely": 14,
+      "keep-satisfied": 7,
+      "keep-informed": 7,
+      monitor: 3,
+    });
+  });
+
+  it("valid persisted values are preserved", async () => {
+    localStorage.setItem(
+      SETTINGS_KEY,
+      JSON.stringify({
+        ...defaultSettings,
+        notifications: {
+          ...defaultNotificationsConfig,
+          stakeholderCommsLeadDays: {
+            "manage-closely": 21,
+            "keep-satisfied": 10,
+            "keep-informed": 5,
+            monitor: 1,
+          },
+        },
+      }),
+    );
+    const { result } = renderHook(() => useSettings());
+    await act(async () => {});
+    expect(result.current.settings.notifications.stakeholderCommsLeadDays).toEqual({
+      "manage-closely": 21,
+      "keep-satisfied": 10,
+      "keep-informed": 5,
+      monitor: 1,
+    });
+  });
+
+  it("invalid value for one quadrant falls back to that quadrant's default", async () => {
+    localStorage.setItem(
+      SETTINGS_KEY,
+      JSON.stringify({
+        ...defaultSettings,
+        notifications: {
+          ...defaultNotificationsConfig,
+          stakeholderCommsLeadDays: {
+            "manage-closely": "bad",
+            "keep-satisfied": 10,
+            "keep-informed": 5,
+            monitor: 1,
+          },
+        },
+      }),
+    );
+    const { result } = renderHook(() => useSettings());
+    await act(async () => {});
+    expect(result.current.settings.notifications.stakeholderCommsLeadDays["manage-closely"]).toBe(14);
+    expect(result.current.settings.notifications.stakeholderCommsLeadDays["keep-satisfied"]).toBe(10);
+  });
+
+  it("value above 365 is clamped to 365", async () => {
+    localStorage.setItem(
+      SETTINGS_KEY,
+      JSON.stringify({
+        ...defaultSettings,
+        notifications: {
+          ...defaultNotificationsConfig,
+          stakeholderCommsLeadDays: {
+            "manage-closely": 999,
+            "keep-satisfied": 7,
+            "keep-informed": 7,
+            monitor: 3,
+          },
+        },
+      }),
+    );
+    const { result } = renderHook(() => useSettings());
+    await act(async () => {});
+    expect(result.current.settings.notifications.stakeholderCommsLeadDays["manage-closely"]).toBe(365);
+  });
+
+  it("zero is a valid value (preserved)", async () => {
+    localStorage.setItem(
+      SETTINGS_KEY,
+      JSON.stringify({
+        ...defaultSettings,
+        notifications: {
+          ...defaultNotificationsConfig,
+          stakeholderCommsLeadDays: {
+            "manage-closely": 0,
+            "keep-satisfied": 7,
+            "keep-informed": 7,
+            monitor: 3,
+          },
+        },
+      }),
+    );
+    const { result } = renderHook(() => useSettings());
+    await act(async () => {});
+    expect(result.current.settings.notifications.stakeholderCommsLeadDays["manage-closely"]).toBe(0);
+  });
+});
+
 describe("layout setting", () => {
   it("defaults to modern", () => {
     expect(defaultSettings.layout).toBe("modern");
@@ -198,5 +310,151 @@ describe("features persistence", () => {
     const raw = window.localStorage.getItem(SETTINGS_KEY);
     expect(raw).toBeTruthy();
     expect(JSON.parse(raw as string).features).toEqual(["raid", "budget"]);
+  });
+});
+
+describe("notifications migration — per-channel leadDays", () => {
+  it("persisted channel leadDays:21 survives migrateNotifications", async () => {
+    localStorage.setItem(
+      SETTINGS_KEY,
+      JSON.stringify({
+        ...defaultSettings,
+        notifications: {
+          ...defaultNotificationsConfig,
+          toast: { enabled: true, leadDays: 21 },
+        },
+      }),
+    );
+    const { result } = renderHook(() => useSettings());
+    await act(async () => {});
+    expect(result.current.settings.notifications.toast.leadDays).toBe(21);
+  });
+
+  it("invalid leadDays:'x' is omitted (undefined)", async () => {
+    localStorage.setItem(
+      SETTINGS_KEY,
+      JSON.stringify({
+        ...defaultSettings,
+        notifications: {
+          ...defaultNotificationsConfig,
+          toast: { enabled: true, leadDays: "x" },
+        },
+      }),
+    );
+    const { result } = renderHook(() => useSettings());
+    await act(async () => {});
+    expect(result.current.settings.notifications.toast.leadDays).toBeUndefined();
+  });
+
+  it("negative leadDays is omitted (undefined)", async () => {
+    localStorage.setItem(
+      SETTINGS_KEY,
+      JSON.stringify({
+        ...defaultSettings,
+        notifications: {
+          ...defaultNotificationsConfig,
+          banner: { enabled: true, leadDays: -3 },
+        },
+      }),
+    );
+    const { result } = renderHook(() => useSettings());
+    await act(async () => {});
+    expect(result.current.settings.notifications.banner.leadDays).toBeUndefined();
+  });
+
+  it("leadDays:0 is preserved (zero is a valid value)", async () => {
+    localStorage.setItem(
+      SETTINGS_KEY,
+      JSON.stringify({
+        ...defaultSettings,
+        notifications: {
+          ...defaultNotificationsConfig,
+          popup: { enabled: true, leadDays: 0 },
+        },
+      }),
+    );
+    const { result } = renderHook(() => useSettings());
+    await act(async () => {});
+    expect(result.current.settings.notifications.popup.leadDays).toBe(0);
+  });
+
+  it("leadDays above 365 is clamped to 365", async () => {
+    localStorage.setItem(
+      SETTINGS_KEY,
+      JSON.stringify({
+        ...defaultSettings,
+        notifications: {
+          ...defaultNotificationsConfig,
+          toast: { enabled: true, leadDays: 999 },
+        },
+      }),
+    );
+    const { result } = renderHook(() => useSettings());
+    await act(async () => {});
+    expect(result.current.settings.notifications.toast.leadDays).toBe(365);
+  });
+});
+
+describe("notifications migration — useGlobalLeadDays + jiraTokenError", () => {
+  it("legacy blob missing useGlobalLeadDays + jiraTokenError fills both to defaults", async () => {
+    const legacy: Record<string, unknown> = {
+      ...defaultSettings,
+      notifications: {
+        reminderLeadDays: 7,
+        banner: { enabled: true },
+        toast: { enabled: true },
+        popup: { enabled: true },
+        birthday: { enabled: true },
+        raidReview: { enabled: true },
+        raidReviewIntervalDays: 14,
+        stakeholderComms: { enabled: true },
+        // useGlobalLeadDays and jiraTokenError deliberately absent
+      },
+    };
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(legacy));
+    const { result } = renderHook(() => useSettings());
+    await act(async () => {});
+    expect(result.current.settings.notifications.useGlobalLeadDays).toBe(true);
+    expect(result.current.settings.notifications.jiraTokenError).toEqual({ enabled: true });
+  });
+
+  it("explicit legacy banner:{enabled:true} is PRESERVED (not flipped to new default false)", async () => {
+    const legacy: Record<string, unknown> = {
+      ...defaultSettings,
+      notifications: {
+        reminderLeadDays: 7,
+        banner: { enabled: true },
+        toast: { enabled: true },
+        popup: { enabled: true },
+        birthday: { enabled: true },
+        raidReview: { enabled: true },
+        raidReviewIntervalDays: 14,
+        stakeholderComms: { enabled: true },
+      },
+    };
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(legacy));
+    const { result } = renderHook(() => useSettings());
+    await act(async () => {});
+    expect(result.current.settings.notifications.banner.enabled).toBe(true);
+  });
+
+  it("explicit legacy popup:{enabled:true} is PRESERVED (not flipped to new default false)", async () => {
+    const legacy: Record<string, unknown> = {
+      ...defaultSettings,
+      notifications: {
+        reminderLeadDays: 7,
+        banner: { enabled: false },
+        toast: { enabled: true },
+        popup: { enabled: true },
+        birthday: { enabled: true },
+        raidReview: { enabled: true },
+        raidReviewIntervalDays: 14,
+        stakeholderComms: { enabled: true },
+      },
+    };
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(legacy));
+    const { result } = renderHook(() => useSettings());
+    await act(async () => {});
+    expect(result.current.settings.notifications.popup.enabled).toBe(true);
   });
 });

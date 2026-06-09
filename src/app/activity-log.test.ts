@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, test } from "vitest";
 import {
+  ACTIVITY_KIND_TO_KEY,
   activityGroupOf,
   appendActivity,
   clearActivityLog,
@@ -8,6 +9,8 @@ import {
   type ActivityEntry,
   type ActivityKind,
 } from "./activity-log";
+import { de } from "./i18n.de";
+import { t } from "./i18n";
 
 // Mirrors the module-private constants. Kept here so the raw-localStorage
 // injection tests (invalid-entry filtering) can target the real key.
@@ -30,11 +33,31 @@ describe("activityGroupOf", () => {
     expect(activityGroupOf("jira.sync")).toBe("jira");
   });
 
-  test("absence.* and shift.* fall through to 'jira' (documented quirk)", () => {
-    // There is no dedicated group for absence/shift kinds, so the `else` branch
-    // buckets them under "jira". Pinned so any intended fix is deliberate.
-    expect(activityGroupOf("absence.created")).toBe("jira");
-    expect(activityGroupOf("shift.deleted")).toBe("jira");
+  test("absence.* / shift.* / milestone.* map to 'general'", () => {
+    expect(activityGroupOf("absence.created")).toBe("general");
+    expect(activityGroupOf("absence.updated")).toBe("general");
+    expect(activityGroupOf("absence.deleted")).toBe("general");
+    expect(activityGroupOf("shift.created")).toBe("general");
+    expect(activityGroupOf("shift.deleted")).toBe("general");
+    expect(activityGroupOf("milestone.created")).toBe("general");
+    expect(activityGroupOf("milestone.updated")).toBe("general");
+    expect(activityGroupOf("milestone.deleted")).toBe("general");
+  });
+
+  test("change.* / stakeholder.* / resource.* / role.* / settings.updated map to 'general'", () => {
+    expect(activityGroupOf("change.created")).toBe("general");
+    expect(activityGroupOf("change.updated")).toBe("general");
+    expect(activityGroupOf("change.deleted")).toBe("general");
+    expect(activityGroupOf("stakeholder.created")).toBe("general");
+    expect(activityGroupOf("stakeholder.updated")).toBe("general");
+    expect(activityGroupOf("stakeholder.deleted")).toBe("general");
+    expect(activityGroupOf("resource.created")).toBe("general");
+    expect(activityGroupOf("resource.updated")).toBe("general");
+    expect(activityGroupOf("resource.deleted")).toBe("general");
+    expect(activityGroupOf("role.created")).toBe("general");
+    expect(activityGroupOf("role.updated")).toBe("general");
+    expect(activityGroupOf("role.deleted")).toBe("general");
+    expect(activityGroupOf("settings.updated")).toBe("general");
   });
 });
 
@@ -127,5 +150,35 @@ describe("loadActivityLog — defensive parsing", () => {
     const loaded = loadActivityLog();
     expect(loaded).toHaveLength(MAX);
     expect(loaded[0].id).toBe(101); // 1..100 dropped
+  });
+});
+
+describe("ACTIVITY_KIND_TO_KEY — new kinds have non-empty labels in both locales", () => {
+  const NEW_KINDS: ActivityKind[] = [
+    "change.created",
+    "change.updated",
+    "change.deleted",
+    "stakeholder.created",
+    "stakeholder.updated",
+    "stakeholder.deleted",
+    "resource.created",
+    "resource.updated",
+    "resource.deleted",
+    "role.created",
+    "role.updated",
+    "role.deleted",
+    "settings.updated",
+  ];
+
+  test.each(NEW_KINDS)("%s has a non-empty en-US label", (kind) => {
+    const key = ACTIVITY_KIND_TO_KEY[kind];
+    const label = t("en-US", key);
+    expect(label).toBeTruthy();
+  });
+
+  test.each(NEW_KINDS)("%s has a non-empty de-DE label", (kind) => {
+    const key = ACTIVITY_KIND_TO_KEY[kind];
+    const label = de[key];
+    expect(label).toBeTruthy();
   });
 });

@@ -174,6 +174,12 @@ export const de: Record<TranslationKey, string> = {
   storageNotReady:
     "Speicher noch nicht konfiguriert – bitte in den Einstellungen eine Datei wählen.",
   storageUnreachable: "Speicher nicht erreichbar — läuft der Server?",
+  storageUnreachableBanner:
+    "Turso-Datenbank nicht erreichbar — Änderungen werden nicht gespeichert. Prüfen Sie die Datenbank-URL in den Einstellungen; die Datenbank wurde evtl. umbenannt oder gelöscht.",
+  storageAuthBanner:
+    "Turso-Authentifizierungstoken abgelehnt — Änderungen werden nicht gespeichert. Aktualisieren Sie das Token in den Einstellungen.",
+  storageBannerAria: "Problem mit der Speicherverbindung",
+  storageBannerOpenSettings: "Speichereinstellungen öffnen",
   storagePermissionGestureNeeded:
     "Schreibzugriff noch nicht erteilt. Öffnen Sie die Einstellungen und klicken Sie \"Schreibzugriff erlauben\".",
   storageGrantWrite: "Schreibzugriff erlauben",
@@ -297,11 +303,12 @@ export const de: Record<TranslationKey, string> = {
   budgetReportColWinLoss: "Gewinn/Verlust",
   budgetReportFilterBucket: "Buckets filtern",
 
-  tabChat: "Chat",
+  tabChat: "KI-Assistent",
   tabNewTask: "Neue Aufgabe",
   tabEditTask: "Aufgabe #{0} bearbeiten",
 
   aiAssistant: "KI-Assistent",
+  openAiAssistant: "KI-Assistent",
   aiApiKey: "Anthropic API-Schlüssel",
   aiApiKeyPlaceholder: "sk-ant-...",
   aiModel: "Modell",
@@ -314,11 +321,19 @@ export const de: Record<TranslationKey, string> = {
   chatNoApiKey:
     "API-Schlüssel in den Einstellungen hinterlegen, um den Chat zu nutzen.",
   chatClear: "Chat leeren",
+  chatStop: "Stopp",
+  chatStopped: "Abgebrochen",
   chatToolCall: "Werkzeug verwendet: {0}",
   chatToolError: "Werkzeugfehler",
   chatError: "Chat fehlgeschlagen: {0}",
   chatGreeting:
     "Ich kann Aufgaben anzeigen, anlegen, ändern, löschen und Anfragen senden. Probieren Sie \"zeige überfällige Aufgaben\" oder \"neue Aufgabe Pricing-Deck prüfen, fällig Freitag\".",
+  chatPromptUpdate: "Statusübersicht",
+  chatPromptUpdateBody:
+    "Rufe list_tasks, list_raid, list_changes und list_milestones auf. Ranke dann alle offenen Punkte nach Dringlichkeit und Auswirkung: überfällige Aufgaben, offene RAID-Einträge mit hohem Schweregrad, ausstehende oder in Prüfung befindliche Änderungsanträge und überfällige Meilensteine zuerst. Nenne für jeden Punkt ID, Titel/Name, Status, Fälligkeitsdatum (falls vorhanden) und die wichtigste nächste Maßnahme. Gruppiere nach Kategorie (Aufgaben / RAID / Änderungen / Meilensteine) und schließe mit einer Satz-Zusammenfassung des Projektgesundheitszustands ab.",
+  chatPromptOverdue: "Überfällige Aufgaben anzeigen",
+  chatPromptAtRisk: "Was ist gefährdet?",
+  chatPromptStatusUpdate: "Statusbericht für Stakeholder erstellen",
 
   aiConsentTitle: "Claude-Chat aktivieren?",
   aiConsentBullet1:
@@ -339,7 +354,7 @@ export const de: Record<TranslationKey, string> = {
   aiConsentAccept: "Verstanden – Chat aktivieren",
   aiConsentDecline: "Abbrechen",
   aiConsentRequired:
-    "Einwilligung erforderlich. Öffnen Sie den Chat-Tab, um sie zu prüfen und zu aktivieren.",
+    "Einwilligung erforderlich. Öffnen Sie den KI-Assistenten-Tab, um sie zu prüfen und zu aktivieren.",
   aiConsentGranted: "Chat aktiviert",
   aiConsentRevoke: "Einwilligung widerrufen",
   aiConsentNotAccepted:
@@ -552,13 +567,13 @@ export const de: Record<TranslationKey, string> = {
     "Die App startet standardmäßig im modernen Layout: eine dunkelblaue Seitenleiste links mit gruppierter Navigation (Offene Punkte, Chat, Gantt, Ressourcen, Budget, RAID, Berichte, Aktivität, Einstellungen), eine Kopfleiste mit Titel und Aktionen sowie ein bildschirmfüllender Bereich, der jeweils eine Ansicht zeigt. Aufgaben und Einstellungen öffnen sich als ganze Seite statt als Popover; die Seitenleiste klappt auf schmalen Bildschirmen (und per Menüknopf in der Kopfleiste) zu einer Symbolleiste zusammen. Der URL-Anker verlinkt jede Ansicht direkt (#gantt, #raid, …), sodass Vor / Zurück und Lesezeichen funktionieren.\nLieber die ursprüngliche, durchgehend scrollende Seite? Wechseln Sie unter Einstellungen → Darstellung → Layout in den klassischen Modus — er behält die umrahmten Arbeitsbereich-Tabs und die Kopfzeile, die in den übrigen Hilfeabschnitten beschrieben sind.\nDesign: Hell, Dunkel oder System (folgt dem Betriebssystem) unter Einstellungen → Darstellung; die Farben bleiben in beiden Fällen in der AIPM-Markenpalette.",
   helpSecAddTitle: "Aufgaben anlegen & bearbeiten",
   helpSecAddBody:
-    "Auf das +-Symbol im Header klicken, um den Dialog \"Neue Aufgabe\" zu öffnen. Beim Klick auf \"Bearbeiten\" einer Zeile öffnet sich derselbe Dialog vorbefüllt. Pflichtfelder: Aufgabenname, Zugewiesener, Fälligkeit. Optional: E-Mail, Gruppe, Labels, Blocker, Notizen. Das + neben dem Zugewiesenen fügt diese Person in einem Schritt zum Adressbuch hinzu und übernimmt sie als Zugewiesenen. Alternativ im Chat-Tab Claude bitten (z. B. \"neue Aufgabe Deck prüfen, fällig Freitag\").",
+    "Auf das +-Symbol im Header klicken, um den Dialog \"Neue Aufgabe\" zu öffnen. Beim Klick auf \"Bearbeiten\" einer Zeile öffnet sich derselbe Dialog vorbefüllt. Pflichtfelder: Aufgabenname, Zugewiesener, Fälligkeit. Optional: E-Mail, Gruppe, Labels, Blocker, Notizen. Das + neben dem Zugewiesenen fügt diese Person in einem Schritt zum Adressbuch hinzu und übernimmt sie als Zugewiesenen. Alternativ im KI-Assistenten-Tab Claude bitten (z. B. \"neue Aufgabe Deck prüfen, fällig Freitag\").",
   helpSecWorkspaceTitle: "Arbeitsbereich",
   helpSecWorkspaceBody:
-    "Der eingerahmte Bereich unter dem Header enthält die Workspace-Tabs (Chat, Berichte, Gantt, RAID, Ressourcen, Aktivität). Untere rechte Ecke ziehen zum Vergrößern, Pfeil rechts in der Tab-Leiste zum Ein-/Ausklappen, \"Größe zurücksetzen\" für die Standardgröße. Beide Zustände werden zwischen Seitenladevorgängen gespeichert. Das Abdock-Symbol jedes Tabs öffnet ihn in einem eigenen Fenster – eine schreibgeschützte Ansicht, die das Hauptfenster live spiegelt; Änderungen bitte im Hauptfenster vornehmen.",
+    "Der eingerahmte Bereich unter dem Header enthält die Workspace-Tabs (KI-Assistent, Berichte, Gantt, RAID, Ressourcen, Aktivität). Untere rechte Ecke ziehen zum Vergrößern, Pfeil rechts in der Tab-Leiste zum Ein-/Ausklappen, \"Größe zurücksetzen\" für die Standardgröße. Beide Zustände werden zwischen Seitenladevorgängen gespeichert. Das Abdock-Symbol jedes Tabs öffnet ihn in einem eigenen Fenster – eine schreibgeschützte Ansicht, die das Hauptfenster live spiegelt; Änderungen bitte im Hauptfenster vornehmen.",
   helpSecTabsTitle: "Tabs",
   helpSecTabsBody:
-    "Chat – mit Claude per natürlicher Sprache Aufgaben anzeigen, anlegen, ändern und löschen.\nBerichte – Statistiken zu Aufgaben, Zugewiesenen, Status, Abfragen und pünktlichen / verspäteten Erledigungen, inkl. Auswertung nach Gruppe und Label.\nGantt – visuelle Zeitleiste mit Drag-Verschiebung und Abhängigkeitspfeilen (FS / SS / FF / SF).\nRAID – Register für Risks, Assumptions, Issues und Dependencies mit Verknüpfung zu Aufgaben.\nRessourcen – Kapazitätskalender mit Schichten, Abwesenheiten, Feiertagen und Tagesauslastung.\nAktivität – Audit-Log aller Änderungen an Aufgaben, RAID und Ressourcen in diesem Browser.",
+    "KI-Assistent – mit Claude per natürlicher Sprache Aufgaben anzeigen, anlegen, ändern und löschen.\nBerichte – Statistiken zu Aufgaben, Zugewiesenen, Status, Abfragen und pünktlichen / verspäteten Erledigungen, inkl. Auswertung nach Gruppe und Label.\nGantt – visuelle Zeitleiste mit Drag-Verschiebung und Abhängigkeitspfeilen (FS / SS / FF / SF).\nRAID – Register für Risks, Assumptions, Issues und Dependencies mit Verknüpfung zu Aufgaben.\nRessourcen – Kapazitätskalender mit Schichten, Abwesenheiten, Feiertagen und Tagesauslastung.\nAktivität – Audit-Log aller Änderungen an Aufgaben, RAID und Ressourcen in diesem Browser.",
   helpSecTasksTitle: "Aufgabenliste",
   helpSecTasksBody:
     "Spaltenüberschriften klicken zum Sortieren. Filtern über das Suchfeld und die Priorität- / Zugewiesener-Dropdowns. Über die Zeilen-Checkboxen lassen sich mehrere Aufgaben auswählen; eine Bulk-Edit-Leiste erscheint für Sammeländerungen. Aktionen pro Zeile: Erledigt / Wieder öffnen, Anfrage senden, An Jira übertragen (bei aktivem Jira und ungebundener Zeile), Bearbeiten, Löschen. Lange Notizen werden auf die erste Zeile gekürzt – \"Mehr anzeigen\" klappt sie auf. Untere rechte Tabellenecke ziehen zum Vergrößern.",
@@ -588,7 +603,7 @@ export const de: Record<TranslationKey, string> = {
     "Aufgaben liegen standardmäßig in der IndexedDB des Browsers (Datensatz-Updates; alte localStorage-Daten werden beim ersten Laden automatisch migriert). In den Einstellungen → Speicher auf eine lokale JSON-, CSV- oder Markdown-Datei umstellen (Chrome / Edge / Opera). Der Browser fragt beim ersten Speichern nach Schreibrechten; falls verweigert, in den Einstellungen \"Schreibzugriff erteilen\" klicken. SharePoint-Backends folgen. Die mitgelieferte sample-workspace.sqlite3 lässt sich direkt in eine Turso-Datenbank importieren (z. B. per Turso-CLI: turso db create lop-demo --from-file sample-workspace.sqlite3); anschließend die Datenbank-URL und den Token unter Einstellungen → Integrationen eintragen.",
   helpSecAiTitle: "KI-Chat",
   helpSecAiBody:
-    "API-Schlüssel unter Einstellungen → KI hinterlegen und im Chat-Tab die Einwilligung akzeptieren. Nachrichten und Aufgabendaten werden direkt aus dem Browser an api.anthropic.com gesendet – die KI-Nutzungsrichtlinie der Acme gilt. Der Schlüssel liegt im localStorage dieses Browsers. Claude kann Aufgaben über Tool-Calls auflisten, anlegen, ändern und löschen.",
+    "API-Schlüssel unter Einstellungen → KI hinterlegen und im KI-Assistenten-Tab die Einwilligung akzeptieren. Nachrichten und Aufgabendaten werden direkt aus dem Browser an api.anthropic.com gesendet – die KI-Nutzungsrichtlinie der Acme gilt. Der Schlüssel liegt im localStorage dieses Browsers. Claude kann Aufgaben über Tool-Calls auflisten, anlegen, ändern und löschen.",
   helpSecInputFeedbackTitle: "Eingabe-Feedback",
   helpSecInputFeedbackBody:
     "Textfelder mit Zeichenbegrenzung zeigen einen Live-Zähler, sobald Sie sich dem Limit nähern – er erscheint erst ab etwa 80 % Füllstand und wechselt bei Erreichen der Grenze die Farbe. Numerische Felder (Schichtstunden, Änderungs-Terminauswirkung/-Kosten, Budgetbeträge und Satz-Overrides) werden beim Verlassen des Feldes automatisch auf den erlaubten Bereich begrenzt; ein Hinweis erscheint, wenn der Wert angepasst wurde. Enthält ein Label Trennzeichen, die entfernt werden müssen, erscheint ein Hinweis neben dem Feld. Beim Speichern eines Eintrags werden gekürtzte oder begrenzte Felder in einem kurzen Toast zusammengefasst.",
@@ -762,6 +777,7 @@ export const de: Record<TranslationKey, string> = {
   activityFilterRaid: "RAID",
   activityFilterBulk: "Sammel",
   activityFilterJira: "Jira",
+  activityFilterGeneral: "Allgemein",
   activitySearchPlaceholder: "Suche (Text, Wildcards oder Regex)…",
   activitySearchLiteral: "Text",
   activitySearchWildcard: "Wildcard",
@@ -840,6 +856,19 @@ export const de: Record<TranslationKey, string> = {
   activityMilestoneCreated: "Meilenstein #{0} erstellt – {1}",
   activityMilestoneUpdated: "Meilenstein #{0} aktualisiert",
   activityMilestoneDeleted: "Meilenstein #{0} gelöscht",
+  activityChangeCreated: "Änderung #{0} erstellt: {1}",
+  activityChangeUpdated: "Änderung #{0} aktualisiert: {1}",
+  activityChangeDeleted: "Änderung #{0} gelöscht: {1}",
+  activityStakeholderCreated: "Stakeholder #{0} erstellt: {1}",
+  activityStakeholderUpdated: "Stakeholder #{0} aktualisiert: {1}",
+  activityStakeholderDeleted: "Stakeholder #{0} gelöscht: {1}",
+  activityResourceCreated: "Ressource #{0} erstellt: {1}",
+  activityResourceUpdated: "Ressource #{0} aktualisiert: {1}",
+  activityResourceDeleted: "Ressource #{0} gelöscht: {1}",
+  activityRoleCreated: "Rolle #{0} erstellt: {1}",
+  activityRoleUpdated: "Rolle #{0} aktualisiert: {1}",
+  activityRoleDeleted: "Rolle #{0} gelöscht: {1}",
+  activitySettingsUpdated: "Einstellungen aktualisiert",
   taskDueDateAbsenceWarning:
     "Hinweis: {0} ist von {2} bis {3} ({1}).",
   resourcesWorkdayHours: "Stunden pro Arbeitstag",
@@ -1375,6 +1404,10 @@ export const de: Record<TranslationKey, string> = {
   helpSearchNoResults: "Keine Hilfethemen passen zur Suche.",
   dashboardStatusSave: "Speichern",
   dashboardStatusClear: "Leeren",
+  notifUseGlobalLeadDays: "Eine globale Vorlaufzeit (Tage im Voraus) verwenden",
+  notifGlobalLeadDaysHint: "Deaktivieren, um die Vorlaufzeit jeder Erinnerung einzeln festzulegen.",
+  notifJiraTokenError: "Jira-Token-Fehlerbanner anzeigen",
+  notifLeadDaysPerReminder: "Tage im Voraus (je Erinnerung)",
   notifRaidReview: "RAID-Prüfungserinnerungen",
   notifRaidReviewTooltip: "Hinweis, wenn RAID-Einträge ihr Zieldatum ueberschritten haben oder nicht innerhalb des Intervalls geprüft wurden.",
   raidReviewIntervalDays: "RAID-Prüfintervall (Tage)",
@@ -1391,6 +1424,7 @@ export const de: Record<TranslationKey, string> = {
   raidReviewLastTouched: "Zuletzt geändert",
   notifStakeholderComms: "Erinnerungen zur Stakeholder-Kommunikation",
   notifStakeholderCommsTooltip: "Erinnert daran, wichtige Stakeholder über verknüpfte Meilensteine, RAID-Einträge und Änderungen zu informieren.",
+  notifCommsLeadDaysHint: "Vorlaufzeiten unten gelten je Quadrant und sind unabhängig von der globalen Einstellung.",
   stakeholderCommsToast: "{0} Stakeholder benötigen ein Update",
   stakeholderCommsBannerAria: "Erinnerungen zur Stakeholder-Kommunikation",
   stakeholderCommsBannerTitle: "{0} Stakeholder benötigen ein Update",
@@ -1418,10 +1452,46 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightModes: "Einfach- / Modular- / Erweitert-Modus: App auf Aufgaben, Chat und Berichte reduzieren und Funktionen nach Bedarf wieder aktivieren.",
   versionHighlightClarke: "Stakeholder-Kommunikationserinnerungen weisen darauf hin, wichtige Stakeholder vor Meilensteinen, RAID-Einträgen und Änderungen einzubinden.",
   versionHighlightFieldFeedback: "Eingabe-Feedback: Zeichenzähler, Anpassungshinweise und eine Zusammenfassung beim Speichern, wenn Eingaben auf Grenzwerte angepasst wurden.",
+  versionHighlightButler: "KI-Assistent (umbenannt von Chat): Vorschlaege, Token-Nutzungsanzeige, Stopp-Schaltflaeche, Pop-out. Konfigurierbarer Dokumentexport. Erinnerungsvorlaufzeiten und Banner-Umschalter. Aktivitaetslog erweitert; Informationsfluss-Diagramm in den Einstellungen.",
   fieldCounter: "{0} / {1}",
   fieldTrimmedToFit: "auf Maximallänge gekürzt",
   fieldAdjustedMax: "auf Maximum {0} angepasst",
   fieldAdjustedMin: "auf Minimum {0} angepasst",
   fieldCharsRemoved: "entfernt: {0}",
   fieldsAdjusted: "Gespeichert — {0} Feld(er) auf Grenzwerte angepasst",
+
+  usage80Toast: "Sie haben 80 % Ihres Token-Budgets verbraucht",
+  aiUsageSession: "Aktuelle Sitzung",
+  aiUsageWeek: "Aktuelle Woche (alle Modelle)",
+  aiUsageResetAt: "Zurückgesetzt {0}",
+  aiSessionCap: "Sitzungs-Token-Limit",
+  aiWeeklyCap: "Wöchentliches Token-Limit",
+
+  settingsSectionExport: "Export",
+  exportSectionHint: "Legen Sie fest, welche Abschnitte in Dokumentexporte (XLSX, DOCX, PDF, PPTX, Markdown) einbezogen werden. Standard: Aufgaben und RAID.",
+  exportLabelTasks: "Aufgaben",
+  exportLabelRaid: "RAID",
+  exportLabelChanges: "Änderungen",
+  exportLabelMilestones: "Meilensteine",
+  exportLabelStakeholders: "Stakeholder",
+  exportLabelBudgets: "Budget",
+  exportLabelResources: "Ressourcen",
+  exportLabelRoles: "Rollen & Raten",
+  exportLabelAbsences: "Abwesenheiten",
+  exportLabelShifts: "Schichten",
+  exportLabelStatus: "Statusbericht",
+
+  settingsSectionInformationFlows: "Informationsflüsse",
+  infoFlowsIntro: "Eine schreibgeschützte Übersicht der Schnittstellen, Integrationen und Datenquellen der App.",
+  infoFlowsDiagramAriaLabel: "Informationsflüsse: Browser-PWA verbunden mit lokalem Speicher, Turso-Cloud-DB, Jira, Microsoft 365 und der Anthropic-API.",
+  infoFlowsLegendLocalLabel: "Lokaler Speicher",
+  infoFlowsLegendLocalDesc: "Browser IndexedDB und localStorage — Standard-Offline-Speicher.",
+  infoFlowsLegendTursoLabel: "Turso (libSQL)",
+  infoFlowsLegendTursoDesc: "Optionale Cloud-Datenbank für geräteübergreifende Synchronisation und Snapshot-Trends.",
+  infoFlowsLegendJiraLabel: "Jira",
+  infoFlowsLegendJiraDesc: "Issue-Tracker, erreichbar über den serverseitigen Proxy /api/jira der App.",
+  infoFlowsLegendM365Label: "Microsoft 365",
+  infoFlowsLegendM365Desc: "Graph-API + MSAL-Login — SharePoint-Dateien, Kontakte und Kalender.",
+  infoFlowsLegendAnthropicLabel: "Anthropic-API",
+  infoFlowsLegendAnthropicDesc: "Claude-KI-Modell für den integrierten Assistenten-Chat.",
 };
