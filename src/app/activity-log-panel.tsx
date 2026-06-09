@@ -234,6 +234,7 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
             { value: "raid", label: t(lang, "activityFilterRaid") },
             { value: "bulk", label: t(lang, "activityFilterBulk") },
             { value: "jira", label: t(lang, "activityFilterJira") },
+            { value: "general", label: t(lang, "activityFilterGeneral") },
           ]}
           onChange={setGroupFilter}
         />

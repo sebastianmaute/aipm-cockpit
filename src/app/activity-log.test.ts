@@ -33,11 +33,31 @@ describe("activityGroupOf", () => {
     expect(activityGroupOf("jira.sync")).toBe("jira");
   });
 
-  test("absence.* and shift.* fall through to 'jira' (documented quirk)", () => {
-    // There is no dedicated group for absence/shift kinds, so the `else` branch
-    // buckets them under "jira". Pinned so any intended fix is deliberate.
-    expect(activityGroupOf("absence.created")).toBe("jira");
-    expect(activityGroupOf("shift.deleted")).toBe("jira");
+  test("absence.* / shift.* / milestone.* map to 'general'", () => {
+    expect(activityGroupOf("absence.created")).toBe("general");
+    expect(activityGroupOf("absence.updated")).toBe("general");
+    expect(activityGroupOf("absence.deleted")).toBe("general");
+    expect(activityGroupOf("shift.created")).toBe("general");
+    expect(activityGroupOf("shift.deleted")).toBe("general");
+    expect(activityGroupOf("milestone.created")).toBe("general");
+    expect(activityGroupOf("milestone.updated")).toBe("general");
+    expect(activityGroupOf("milestone.deleted")).toBe("general");
+  });
+
+  test("change.* / stakeholder.* / resource.* / role.* / settings.updated map to 'general'", () => {
+    expect(activityGroupOf("change.created")).toBe("general");
+    expect(activityGroupOf("change.updated")).toBe("general");
+    expect(activityGroupOf("change.deleted")).toBe("general");
+    expect(activityGroupOf("stakeholder.created")).toBe("general");
+    expect(activityGroupOf("stakeholder.updated")).toBe("general");
+    expect(activityGroupOf("stakeholder.deleted")).toBe("general");
+    expect(activityGroupOf("resource.created")).toBe("general");
+    expect(activityGroupOf("resource.updated")).toBe("general");
+    expect(activityGroupOf("resource.deleted")).toBe("general");
+    expect(activityGroupOf("role.created")).toBe("general");
+    expect(activityGroupOf("role.updated")).toBe("general");
+    expect(activityGroupOf("role.deleted")).toBe("general");
+    expect(activityGroupOf("settings.updated")).toBe("general");
   });
 });
 

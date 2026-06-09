@@ -768,6 +768,7 @@ export const de: Record<TranslationKey, string> = {
   activityFilterRaid: "RAID",
   activityFilterBulk: "Sammel",
   activityFilterJira: "Jira",
+  activityFilterGeneral: "Allgemein",
   activitySearchPlaceholder: "Suche (Text, Wildcards oder Regex)…",
   activitySearchLiteral: "Text",
   activitySearchWildcard: "Wildcard",

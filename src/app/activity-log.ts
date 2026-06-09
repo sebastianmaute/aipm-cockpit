@@ -95,7 +95,7 @@ export const ACTIVITY_KIND_TO_KEY: Record<ActivityKind, TranslationKey> = {
   "role.created": "activityRoleCreated",
   "role.updated": "activityRoleUpdated",
   "role.deleted": "activityRoleDeleted",
-  "settings.updated": "activitySettingsUpdated",
+  "settings.updated": "activitySettingsUpdated", // no args — no {0}/{1} placeholder
 };
 
 const ACTIVITY_KINDS: ReadonlySet<ActivityKind> = new Set(
@@ -103,14 +103,15 @@ const ACTIVITY_KINDS: ReadonlySet<ActivityKind> = new Set(
 );
 
 /** Top-level grouping derived from the kind string prefix. Used by the
- *  Activity panel's group filter (All / Tasks / RAID / Bulk / Jira). */
-export type ActivityGroup = "tasks" | "raid" | "bulk" | "jira";
+ *  Activity panel's group filter (All / Tasks / RAID / Bulk / Jira / General). */
+export type ActivityGroup = "tasks" | "raid" | "bulk" | "jira" | "general";
 
 export function activityGroupOf(kind: ActivityKind): ActivityGroup {
   if (kind.startsWith("task.")) return "tasks";
   if (kind.startsWith("raid.")) return "raid";
   if (kind.startsWith("bulk.")) return "bulk";
-  return "jira";
+  if (kind.startsWith("jira.")) return "jira";
+  return "general";
 }
 
 function isActivityKind(v: unknown): v is ActivityKind {

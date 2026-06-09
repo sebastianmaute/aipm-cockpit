@@ -752,6 +752,7 @@ const enUS = {
   activityFilterRaid: "RAID",
   activityFilterBulk: "Bulk",
   activityFilterJira: "Jira",
+  activityFilterGeneral: "General",
   activitySearchPlaceholder: "Search (text, wildcards, or regex)…",
   activitySearchLiteral: "Text",
   activitySearchWildcard: "Wildcard",
