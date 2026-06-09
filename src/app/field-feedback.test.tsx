@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
+import { renderHook, act } from "@testing-library/react";
 import { CharCounter, FieldNotice } from "./field-feedback";
+import { useAdjustmentTracker } from "./field-feedback";
+import type { Report } from "./sanitize-report";
 
 describe("CharCounter", () => {
   it("renders nothing below 80% of the cap", () => {
@@ -29,5 +32,31 @@ describe("FieldNotice", () => {
     render(<FieldNotice>adjusted to max 24</FieldNotice>);
     const el = screen.getByText("adjusted to max 24");
     expect(el).toHaveAttribute("aria-live", "polite");
+  });
+});
+
+describe("useAdjustmentTracker", () => {
+  const changed: Report<string> = { value: "x", adjustment: { kind: "truncated", max: 1, removed: 3 } };
+  const clean: Report<string> = { value: "x", adjustment: null };
+
+  it("counts only reports with a non-null adjustment", () => {
+    const { result } = renderHook(() => useAdjustmentTracker());
+    let a = "", b = "";
+    act(() => {
+      a = result.current.track(changed);
+      b = result.current.track(clean);
+    });
+    expect(a).toBe("x");
+    expect(b).toBe("x");
+    expect(result.current.count()).toBe(1);
+  });
+
+  it("resets the count", () => {
+    const { result } = renderHook(() => useAdjustmentTracker());
+    act(() => {
+      result.current.track(changed);
+      result.current.reset();
+    });
+    expect(result.current.count()).toBe(0);
   });
 });
