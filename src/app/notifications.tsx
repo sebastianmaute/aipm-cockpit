@@ -170,6 +170,31 @@ export function JiraTokenBanner({
   );
 }
 
+export function StorageBanner({
+  kind, lang, onOpenSettings, onDismiss,
+}: { kind: "unreachable" | "auth"; lang: Lang; onOpenSettings: () => void; onDismiss: () => void }) {
+  const msg = kind === "auth" ? t(lang, "storageAuthBanner") : t(lang, "storageUnreachableBanner");
+  return (
+    <div role="region" aria-label={t(lang, "storageBannerAria")}
+      className="mb-6 flex flex-wrap items-center gap-3 rounded-lg border border-AIPM-pink/40 bg-AIPM-pink/10 px-4 py-3 dark:border-AIPM-pink/60 dark:bg-AIPM-pink/15">
+      <span aria-hidden className="text-lg">⚠</span>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">{msg}</p>
+      </div>
+      <div className="flex gap-2">
+        <button type="button" onClick={onOpenSettings}
+          className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-3 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90">
+          {t(lang, "storageBannerOpenSettings")}
+        </button>
+        <button type="button" onClick={onDismiss} aria-label={t(lang, "alertBannerDismiss")}
+          className="rounded-md border border-AIPM-medium-grey/40 bg-surface px-3 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted">
+          {t(lang, "alertBannerDismiss")}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function DueDatesModal({
   items,
   lang,

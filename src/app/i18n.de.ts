@@ -174,6 +174,12 @@ export const de: Record<TranslationKey, string> = {
   storageNotReady:
     "Speicher noch nicht konfiguriert – bitte in den Einstellungen eine Datei wählen.",
   storageUnreachable: "Speicher nicht erreichbar — läuft der Server?",
+  storageUnreachableBanner:
+    "Turso-Datenbank nicht erreichbar — Änderungen werden nicht gespeichert. Prüfen Sie die Datenbank-URL in den Einstellungen; die Datenbank wurde evtl. umbenannt oder gelöscht.",
+  storageAuthBanner:
+    "Turso-Authentifizierungstoken abgelehnt — Änderungen werden nicht gespeichert. Aktualisieren Sie das Token in den Einstellungen.",
+  storageBannerAria: "Problem mit der Speicherverbindung",
+  storageBannerOpenSettings: "Speichereinstellungen öffnen",
   storagePermissionGestureNeeded:
     "Schreibzugriff noch nicht erteilt. Öffnen Sie die Einstellungen und klicken Sie \"Schreibzugriff erlauben\".",
   storageGrantWrite: "Schreibzugriff erlauben",

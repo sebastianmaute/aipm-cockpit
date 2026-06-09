@@ -167,6 +167,12 @@ const enUS = {
   storageSaveFailed: "Couldn't save tasks: {0}",
   storageNotReady: "Storage isn't configured yet — pick a file in Settings.",
   storageUnreachable: "Storage unreachable — is the server running?",
+  storageUnreachableBanner:
+    "Can't reach your Turso database — changes aren't being saved. Check the database URL in Settings; the database may have been renamed or removed.",
+  storageAuthBanner:
+    "Your Turso auth token was rejected — changes aren't being saved. Update the token in Settings.",
+  storageBannerAria: "Storage connection problem",
+  storageBannerOpenSettings: "Open storage settings",
   storagePermissionGestureNeeded:
     "Write access not granted yet. Open Settings and click \"Grant write access\" to allow saving.",
   storageGrantWrite: "Grant write access",

@@ -40,7 +40,8 @@ import { TasksSection } from "./tasks-section";
 import { useResizable } from "./use-resizable";
 import { WorkspaceTabProvider, useWorkspaceTab } from "./workspace-tab-context";
 import { AppHeader } from "./app-header";
-import { BirthdayBanner, DueBanner, JiraTokenBanner, RaidReviewBanner, RaidReviewModal, StakeholderCommsBanner, StakeholderCommsModal } from "./notifications";
+import { BirthdayBanner, DueBanner, JiraTokenBanner, RaidReviewBanner, RaidReviewModal, StakeholderCommsBanner, StakeholderCommsModal, StorageBanner } from "./notifications";
+import { tursoErrorKind, type StorageErrorKind } from "./storage-error";
 import { getRaidReviewItems } from "./raid-review";
 import { useStakeholderComms } from "./use-stakeholder-comms";
 import { getJiraTokenAlert } from "./jira-token-status";
@@ -233,6 +234,23 @@ function TaskManagerInner() {
     settings.integrations?.turso?.databaseUrl,
     settings.integrations?.turso?.authToken,
   );
+  // Turso storage connectivity status — set when a load/save/snapshot op fails
+  // with an unreachable host or rejected token, cleared on the next success.
+  // Drives the status bubble (red) and a sticky banner (mirrors the Jira token).
+  const [storageError, setStorageError] = useState<{ kind: StorageErrorKind } | null>(null);
+  const [storageErrorDismissed, setStorageErrorDismissed] = useState(false);
+  const reportStorageOutcome = useCallback((err: unknown | null) => {
+    if (err == null) {
+      // Recovery: clear the error and the dismissal so a later failure re-shows
+      // the banner (dismiss only hides the current failing run).
+      setStorageError(null);
+      setStorageErrorDismissed(false);
+      return;
+    }
+    const kind = tursoErrorKind(err);
+    if (kind) setStorageError({ kind });
+  }, []);
+
   const snapshots = useSnapshots({
     active: trendsActive,
     cadence: snapshotsCfg.cadence,
@@ -263,7 +281,12 @@ function TaskManagerInner() {
         currency: plan.currency || "EUR",
       };
     },
-    onError: (err) => showToast("error", t(lang, "storageSaveFailed", String(err))),
+    onError: (err) => {
+      reportStorageOutcome(err);
+      // Connectivity/auth failures surface as the sticky banner; only toast
+      // other (e.g. manual-capture) errors so the banner isn't duplicated.
+      if (!tursoErrorKind(err)) showToast("error", t(lang, "storageSaveFailed", String(err)));
+    },
   });
   const trends = { ...snapshots, active: trendsActive };
 
@@ -308,7 +331,12 @@ function TaskManagerInner() {
   });
 
   const { storageDescription, storageReady, onPickStorageFile, onGrantWriteAccess, onOpenStorageFile, onRequestStorageSwitch } =
-    useStorageBackend({ settings, lang, hydrated, isPopout, activityLog, setActivityLog, showToast, setStorageConfig: (storageConfig) => setSettings((s) => ({ ...s, storageConfig })) });
+    useStorageBackend({ settings, lang, hydrated, isPopout, activityLog, setActivityLog, showToast, setStorageConfig: (storageConfig) => setSettings((s) => ({ ...s, storageConfig })), onStorageOutcome: reportStorageOutcome });
+
+  // The status bubble must reflect real reachability: a stale Turso config is
+  // `isReady()`-true (config present) but actually failing, so fold in the
+  // observed error.
+  const storageOk = storageReady && !storageError;
 
   // Reverse-lookup index for the "referenced by N RAID items" badge on
   // each task row. Map<taskId, RaidItem[]>. O(R) on every raid update,
@@ -935,7 +963,7 @@ function TaskManagerInner() {
       onChange={setSettings}
       onCommitFeatures={handleCommitFeatures}
       storageDescription={storageDescription}
-      storageReady={storageReady}
+      storageReady={storageOk}
       onPickStorageFile={onPickStorageFile}
       onOpenStorageFile={onOpenStorageFile}
       onGrantStorageWrite={onGrantWriteAccess}
@@ -977,6 +1005,14 @@ function TaskManagerInner() {
           lang={lang}
           onSnooze={jiraTokenSnooze.snooze}
           onDismiss={() => setJiraTokenDismissed(true)}
+        />
+      )}
+      {!isPopout && storageError && settings.storageConfig.kind === "turso" && !storageErrorDismissed && (
+        <StorageBanner
+          kind={storageError.kind}
+          lang={lang}
+          onOpenSettings={() => setActiveTab("settings")}
+          onDismiss={() => setStorageErrorDismissed(true)}
         />
       )}
       {!isPopout && !raidReviewSnooze.isSnoozed && !raidReviewDismissed && raidReviewItems.length > 0 && (
@@ -1102,7 +1138,7 @@ function TaskManagerInner() {
       showToast={showToast}
       handleCommand={handleCommand}
       storageDescription={storageDescription}
-      storageReady={storageReady}
+      storageReady={storageOk}
       onPickStorageFile={onPickStorageFile}
       onOpenStorageFile={onOpenStorageFile}
       onGrantStorageWrite={onGrantWriteAccess}
@@ -1164,7 +1200,7 @@ function TaskManagerInner() {
             lang={lang}
             collapsed={sidebarCollapsed}
             storageDescription={storageDescription}
-            storageReady={storageReady}
+            storageReady={storageOk}
             isSignedIn={msAuth.account != null}
             accountName={msAuth.account?.username ?? null}
             onSignOut={() => {
