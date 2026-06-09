@@ -308,6 +308,7 @@ export const de: Record<TranslationKey, string> = {
   tabEditTask: "Aufgabe #{0} bearbeiten",
 
   aiAssistant: "KI-Assistent",
+  openAiAssistant: "KI-Assistent",
   aiApiKey: "Anthropic API-Schlüssel",
   aiApiKeyPlaceholder: "sk-ant-...",
   aiModel: "Modell",

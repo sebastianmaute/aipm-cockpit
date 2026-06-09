@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type React from "react";
 import { FiltersProvider } from "./filters-context";
@@ -46,6 +46,33 @@ describe("AppHeader", () => {
   it("renders the app title heading", () => {
     render(<AppHeader {...makeProps()} />, { wrapper: Wrapper });
     expect(screen.getByRole("heading", { level: 1 })).toBeInTheDocument();
+  });
+
+  it("renders the AI Assistant button when onOpenAiAssistant is provided", () => {
+    render(<AppHeader {...makeProps({ onOpenAiAssistant: vi.fn() })} />, { wrapper: Wrapper });
+    expect(screen.getByRole("button", { name: "AI Assistant" })).toBeInTheDocument();
+  });
+
+  it("calls onOpenAiAssistant when the AI Assistant button is clicked", () => {
+    const onOpenAiAssistant = vi.fn();
+    render(<AppHeader {...makeProps({ onOpenAiAssistant })} />, { wrapper: Wrapper });
+    fireEvent.click(screen.getByRole("button", { name: "AI Assistant" }));
+    expect(onOpenAiAssistant).toHaveBeenCalledOnce();
+  });
+
+  it("omits the AI Assistant button when onOpenAiAssistant is not provided", () => {
+    render(<AppHeader {...makeProps()} />, { wrapper: Wrapper });
+    expect(screen.queryByRole("button", { name: "AI Assistant" })).toBeNull();
+  });
+
+  it("renders AI Assistant button before Add Task button in DOM order", () => {
+    render(<AppHeader {...makeProps({ onOpenAiAssistant: vi.fn() })} />, { wrapper: Wrapper });
+    const buttons = screen.getAllByRole("button");
+    const aiIdx = buttons.findIndex((b) => b.getAttribute("aria-label") === "AI Assistant");
+    const addIdx = buttons.findIndex((b) => b.getAttribute("aria-label") === "Add task");
+    expect(aiIdx).toBeGreaterThanOrEqual(0);
+    expect(addIdx).toBeGreaterThanOrEqual(0);
+    expect(aiIdx).toBeLessThan(addIdx);
   });
 
   it("bell badge shows count when bannerItems has entries", () => {

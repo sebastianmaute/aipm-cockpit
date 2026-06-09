@@ -301,6 +301,7 @@ const enUS = {
   tabEditTask: "Editing task #{0}",
 
   aiAssistant: "AI assistant",
+  openAiAssistant: "AI Assistant",
   aiApiKey: "Anthropic API key",
   aiApiKeyPlaceholder: "sk-ant-...",
   aiModel: "Model",

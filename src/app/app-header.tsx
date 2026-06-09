@@ -24,6 +24,8 @@ export interface AppHeaderProps {
   settings: Settings;
   setSettings: React.Dispatch<React.SetStateAction<Settings>>;
   lang: Lang;
+  /** Opens the AI Assistant chat pop-out. */
+  onOpenAiAssistant?: () => void;
 }
 
 export function AppHeader({
@@ -46,6 +48,7 @@ export function AppHeader({
   settings,
   setSettings,
   lang,
+  onOpenAiAssistant,
 }: AppHeaderProps) {
   return (
     <header className="mb-8 flex items-start justify-between gap-4">
@@ -65,6 +68,19 @@ export function AppHeader({
           className="h-7 w-auto"
         />
         <div className="flex items-center gap-1">
+          {onOpenAiAssistant && (
+            <button
+              type="button"
+              onClick={onOpenAiAssistant}
+              aria-label={t(lang, "openAiAssistant")}
+              title={t(lang, "openAiAssistant")}
+              className="rounded-md p-2 text-AIPM-dark-grey hover:bg-surface-muted hover:text-AIPM-dark-blue focus:outline-none focus:ring-2 focus:ring-AIPM-green dark:text-AIPM-medium-grey dark:hover:text-AIPM-light-grey"
+            >
+              <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-5 w-5">
+                <path fillRule="evenodd" d="M2 5a2 2 0 012-2h12a2 2 0 012 2v7a2 2 0 01-2 2H6l-4 4V5z" clipRule="evenodd" />
+              </svg>
+            </button>
+          )}
           <button
             type="button"
             onClick={() => {

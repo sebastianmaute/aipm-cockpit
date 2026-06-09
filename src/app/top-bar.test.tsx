@@ -59,4 +59,33 @@ describe("TopBar", () => {
     expect(screen.getByRole("button", { name: "Save changes" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "New task" })).toBeNull();
   });
+
+  it("renders the AI Assistant button when onOpenAiAssistant is provided", () => {
+    const onOpenAiAssistant = vi.fn();
+    render(<TopBar {...base} onOpenAiAssistant={onOpenAiAssistant} />);
+    expect(screen.getByRole("button", { name: "AI Assistant" })).toBeTruthy();
+  });
+
+  it("calls onOpenAiAssistant when the AI Assistant button is clicked", () => {
+    const onOpenAiAssistant = vi.fn();
+    render(<TopBar {...base} onOpenAiAssistant={onOpenAiAssistant} />);
+    fireEvent.click(screen.getByRole("button", { name: "AI Assistant" }));
+    expect(onOpenAiAssistant).toHaveBeenCalledOnce();
+  });
+
+  it("omits the AI Assistant button when onOpenAiAssistant is not provided", () => {
+    render(<TopBar {...base} />);
+    expect(screen.queryByRole("button", { name: "AI Assistant" })).toBeNull();
+  });
+
+  it("renders AI Assistant button before New Task button in DOM order", () => {
+    const onOpenAiAssistant = vi.fn();
+    render(<TopBar {...base} onOpenAiAssistant={onOpenAiAssistant} />);
+    const buttons = screen.getAllByRole("button");
+    const aiIdx = buttons.findIndex((b) => b.getAttribute("aria-label") === "AI Assistant");
+    const newTaskIdx = buttons.findIndex((b) => b.textContent?.trim() === "New task");
+    expect(aiIdx).toBeGreaterThanOrEqual(0);
+    expect(newTaskIdx).toBeGreaterThanOrEqual(0);
+    expect(aiIdx).toBeLessThan(newTaskIdx);
+  });
 });

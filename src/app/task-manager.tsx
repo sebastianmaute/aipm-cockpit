@@ -52,7 +52,7 @@ import { RolesPanel } from "./roles-panel";
 import { getUpcomingBirthdays } from "./birthdays";
 import { useBirthdayAlerts } from "./use-birthday-alerts";
 import { useReminderSnooze } from "./use-reminder-snooze";
-import { isReportPopoutTab } from "./broadcast-sync";
+import { isReportPopoutTab, openPopoutWindow } from "./broadcast-sync";
 import { AppShell } from "./app-shell";
 import { ModernShell } from "./modern-shell";
 import { useHashView } from "./use-hash-view";
@@ -1167,6 +1167,7 @@ function TaskManagerInner() {
       settings={settings}
       setSettings={setSettings}
       lang={lang}
+      onOpenAiAssistant={() => openPopoutWindow("chat", settings.popout.reuseWindow)}
     />
   );
 
@@ -1213,6 +1214,7 @@ function TaskManagerInner() {
         bannerCount={bannerItems.length}
         onNewTask={() => { handleCancelEdit(); setTaskModalOpen(true); }}
         onShowAlerts={() => { setBannerDismissed(false); setDueModalOpen(true); }}
+        onOpenAiAssistant={() => openPopoutWindow("chat", settings.popout.reuseWindow)}
         topBarMenus={topBarMenus}
         collapsed={sidebarCollapsed}
         onToggleCollapsed={toggleSidebar}

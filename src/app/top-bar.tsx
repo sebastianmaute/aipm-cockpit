@@ -7,6 +7,8 @@ interface TopBarProps {
   bannerCount: number;
   onNewTask: () => void;
   onShowAlerts: () => void;
+  /** Opens the AI Assistant chat pop-out. */
+  onOpenAiAssistant?: () => void;
   /** When set, replaces the default New-task button (e.g. Save/Cancel while editing). */
   primaryAction?: React.ReactNode;
   /** When set, renders a leading menu button that toggles the sidebar. */
@@ -15,7 +17,7 @@ interface TopBarProps {
   children?: React.ReactNode;
 }
 
-export function TopBar({ lang, title, bannerCount, onNewTask, onShowAlerts, primaryAction, onToggleSidebar, children }: TopBarProps) {
+export function TopBar({ lang, title, bannerCount, onNewTask, onShowAlerts, onOpenAiAssistant, primaryAction, onToggleSidebar, children }: TopBarProps) {
   return (
     <header className="flex items-center justify-between gap-4 border-b border-line bg-surface px-6 py-3">
       <div className="flex min-w-0 items-center gap-3">
@@ -37,6 +39,19 @@ export function TopBar({ lang, title, bannerCount, onNewTask, onShowAlerts, prim
         </h1>
       </div>
       <div className="flex items-center gap-1">
+        {onOpenAiAssistant && (
+          <button
+            type="button"
+            onClick={onOpenAiAssistant}
+            aria-label={t(lang, "openAiAssistant")}
+            title={t(lang, "openAiAssistant")}
+            className="rounded-md p-2 text-AIPM-dark-grey hover:bg-surface-muted hover:text-AIPM-dark-blue focus:outline-none focus:ring-2 focus:ring-AIPM-green dark:text-AIPM-medium-grey dark:hover:text-AIPM-light-grey"
+          >
+            <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-5 w-5">
+              <path fillRule="evenodd" d="M2 5a2 2 0 012-2h12a2 2 0 012 2v7a2 2 0 01-2 2H6l-4 4V5z" clipRule="evenodd" />
+            </svg>
+          </button>
+        )}
         {primaryAction ?? (
           <button
             type="button"
