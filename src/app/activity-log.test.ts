@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, test } from "vitest";
 import {
+  ACTIVITY_KIND_TO_KEY,
   activityGroupOf,
   appendActivity,
   clearActivityLog,
@@ -8,6 +9,8 @@ import {
   type ActivityEntry,
   type ActivityKind,
 } from "./activity-log";
+import { de } from "./i18n.de";
+import { t } from "./i18n";
 
 // Mirrors the module-private constants. Kept here so the raw-localStorage
 // injection tests (invalid-entry filtering) can target the real key.
@@ -127,5 +130,35 @@ describe("loadActivityLog — defensive parsing", () => {
     const loaded = loadActivityLog();
     expect(loaded).toHaveLength(MAX);
     expect(loaded[0].id).toBe(101); // 1..100 dropped
+  });
+});
+
+describe("ACTIVITY_KIND_TO_KEY — new kinds have non-empty labels in both locales", () => {
+  const NEW_KINDS: ActivityKind[] = [
+    "change.created",
+    "change.updated",
+    "change.deleted",
+    "stakeholder.created",
+    "stakeholder.updated",
+    "stakeholder.deleted",
+    "resource.created",
+    "resource.updated",
+    "resource.deleted",
+    "role.created",
+    "role.updated",
+    "role.deleted",
+    "settings.updated",
+  ];
+
+  test.each(NEW_KINDS)("%s has a non-empty en-US label", (kind) => {
+    const key = ACTIVITY_KIND_TO_KEY[kind];
+    const label = t("en-US", key);
+    expect(label).toBeTruthy();
+  });
+
+  test.each(NEW_KINDS)("%s has a non-empty de-DE label", (kind) => {
+    const key = ACTIVITY_KIND_TO_KEY[kind];
+    const label = de[key];
+    expect(label).toBeTruthy();
   });
 });

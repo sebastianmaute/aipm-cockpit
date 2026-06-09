@@ -31,7 +31,20 @@ export type ActivityKind =
   | "shift.deleted"
   | "milestone.created"
   | "milestone.updated"
-  | "milestone.deleted";
+  | "milestone.deleted"
+  | "change.created"
+  | "change.updated"
+  | "change.deleted"
+  | "stakeholder.created"
+  | "stakeholder.updated"
+  | "stakeholder.deleted"
+  | "resource.created"
+  | "resource.updated"
+  | "resource.deleted"
+  | "role.created"
+  | "role.updated"
+  | "role.deleted"
+  | "settings.updated";
 
 export interface ActivityEntry {
   /** Monotonic id within the current log; not a timestamp. Used as a React key. */
@@ -70,6 +83,19 @@ export const ACTIVITY_KIND_TO_KEY: Record<ActivityKind, TranslationKey> = {
   "milestone.created": "activityMilestoneCreated",
   "milestone.updated": "activityMilestoneUpdated",
   "milestone.deleted": "activityMilestoneDeleted",
+  "change.created": "activityChangeCreated",
+  "change.updated": "activityChangeUpdated",
+  "change.deleted": "activityChangeDeleted",
+  "stakeholder.created": "activityStakeholderCreated",
+  "stakeholder.updated": "activityStakeholderUpdated",
+  "stakeholder.deleted": "activityStakeholderDeleted",
+  "resource.created": "activityResourceCreated",
+  "resource.updated": "activityResourceUpdated",
+  "resource.deleted": "activityResourceDeleted",
+  "role.created": "activityRoleCreated",
+  "role.updated": "activityRoleUpdated",
+  "role.deleted": "activityRoleDeleted",
+  "settings.updated": "activitySettingsUpdated",
 };
 
 const ACTIVITY_KINDS: ReadonlySet<ActivityKind> = new Set(
