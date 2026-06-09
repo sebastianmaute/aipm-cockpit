@@ -24,6 +24,18 @@ import { type NextRequest, NextResponse } from "next/server";
 //                    HTML — no dangerouslySetInnerHTML anywhere.
 //   connect-src      api.anthropic.com — chat panel calls Anthropic from
 //                    the browser. Jira goes through /api/jira/* (self).
+//                    *.turso.io — the Turso storage backend and snapshot
+//                    store call the libSQL HTTP /v2/pipeline API directly
+//                    from the browser. http://localhost|127.0.0.1 cover a
+//                    local/self-hosted tursodb (see turso-config.ts
+//                    toHttpUrl, which allows loopback over plaintext http).
+//                    graph.microsoft.com — SharePoint backend + Outlook
+//                    calendar/contacts. login.microsoftonline.com — MSAL
+//                    PKCE token exchange (acquireTokenSilent).
+//   frame-src        login.microsoftonline.com — MSAL acquireTokenSilent
+//                    renews tokens in a hidden iframe pointed at the login
+//                    host. (Sign-in/out + interactive consent use popups,
+//                    which are window.open and not governed by frame-src.)
 //   font-src 'self'  next/font/google self-hosts at build time.
 //   'unsafe-eval'    dev only — React DevTools / error reconstruction.
 
@@ -45,8 +57,8 @@ function buildCsp(nonce: string): string {
     "style-src-attr 'unsafe-inline'",
     "img-src 'self' data:",
     "font-src 'self'",
-    "connect-src 'self' https://api.anthropic.com",
-    "frame-src 'none'",
+    "connect-src 'self' https://api.anthropic.com https://*.turso.io https://graph.microsoft.com https://login.microsoftonline.com http://localhost:* http://127.0.0.1:*",
+    "frame-src https://login.microsoftonline.com",
     "frame-ancestors 'none'",
     "object-src 'none'",
     "base-uri 'self'",

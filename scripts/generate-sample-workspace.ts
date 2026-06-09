@@ -6,7 +6,13 @@
  * script parses it, enriches it with a demo change-log + RAID→stakeholder links,
  * and emits the two COMPLETE, faithfully-round-tripping formats:
  *   sample-workspace.json    — complete workspace (all entities + enrichment)
- *   sample-workspace.sqlite3 — Turso-importable; schema v9; built via node:sqlite
+ *   sample-workspace.sqlite3 — Turso-importable; schema v9; built via node:sqlite.
+ *                              MUST be WAL journal mode — `turso db create
+ *                              --from-file` requires it. We set PRAGMA
+ *                              journal_mode=WAL, checkpoint(TRUNCATE) all frames
+ *                              back into the single file, and delete the
+ *                              transient -wal/-shm sidecars so the committed
+ *                              artifact is one self-contained WAL-mode file.
  *
  * It deliberately does NOT overwrite sample-workspace.md / .csv: workspaceToMarkdown
  * does not `\|`-escape the pipe-delimited blended-budget cell, so re-emitting the MD
@@ -155,9 +161,20 @@ const sqlitePath  = join(ROOT, "sample-workspace.sqlite3");
 // JSON — complete workspace (the canonical generated export, incl. enrichment)
 writeFileSync(jsonPath, workspaceToJson(enrichedWs), "utf8");
 
-// SQLite — build fresh, replay workspaceToStatements
+// SQLite — build fresh, replay workspaceToStatements.
+// Remove any prior file + sidecars so we start from a clean slate.
+const sqliteSidecars = [`${sqlitePath}-wal`, `${sqlitePath}-shm`];
+function removeSqliteSidecars(): void {
+  for (const f of sqliteSidecars) if (existsSync(f)) unlinkSync(f);
+}
 if (existsSync(sqlitePath)) unlinkSync(sqlitePath);
+removeSqliteSidecars();
+
 const db = new DatabaseSync(sqlitePath);
+
+// WAL journal mode is REQUIRED by `turso db create --from-file`. Set it before
+// the BEGIN/COMMIT batch below (PRAGMA journal_mode cannot run inside a txn).
+db.exec("PRAGMA journal_mode = WAL");
 
 const stmts = workspaceToStatements(enrichedWs);
 for (const stmt of stmts) {
@@ -174,6 +191,10 @@ for (const stmt of stmts) {
     db.prepare(stmt.sql).run(...params);
   }
 }
+
+// Flush all WAL frames back into the main database file so the single
+// sample-workspace.sqlite3 is self-contained (header stays WAL mode).
+db.exec("PRAGMA wal_checkpoint(TRUNCATE)");
 
 // ---------------------------------------------------------------------------
 // Step 4: Print summary
@@ -237,6 +258,11 @@ if (process.env["VERIFY"] === "1") {
   // SQLite verification
   const dbVerify = new DatabaseSync(sqlitePath);
 
+  // WAL mode is a hard requirement for `turso db create --from-file`.
+  const journalMode = (dbVerify.prepare("PRAGMA journal_mode").get() as { journal_mode: string } | undefined)?.journal_mode;
+  console.log(`SQLite journal_mode: ${journalMode}`);
+  if (journalMode !== "wal") throw new Error(`Expected journal_mode=wal (Turso import requirement), got ${journalMode}`);
+
   const schemaVersion = (dbVerify.prepare("SELECT value FROM meta WHERE key='schema_version'").get() as { value: string } | undefined)?.value;
   console.log(`\nSQLite schema_version: ${schemaVersion}`);
   if (schemaVersion !== "9") throw new Error(`Expected schema_version=9, got ${schemaVersion}`);
@@ -271,3 +297,7 @@ if (process.env["VERIFY"] === "1") {
   dbVerify.close();
   console.log("\nAll round-trip + integrity checks passed. ✓");
 }
+
+// Final cleanup: opening a WAL-mode DB recreates -wal/-shm; drop them so the
+// committed artifact is the single self-contained sample-workspace.sqlite3.
+removeSqliteSidecars();
