@@ -223,7 +223,7 @@ describe("WorkspaceSection", () => {
     render(<WorkspaceSection {...makeProps()} />, { wrapper: Wrapper });
 
     // Ungated tabs always present
-    expect(screen.getByRole("tab", { name: /chat/i })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /AI Assistant/i })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: /reports/i })).toBeInTheDocument();
 
     // Module-gated tabs must be absent

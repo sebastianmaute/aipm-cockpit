@@ -303,7 +303,7 @@ export const de: Record<TranslationKey, string> = {
   budgetReportColWinLoss: "Gewinn/Verlust",
   budgetReportFilterBucket: "Buckets filtern",
 
-  tabChat: "Chat",
+  tabChat: "KI-Assistent",
   tabNewTask: "Neue Aufgabe",
   tabEditTask: "Aufgabe #{0} bearbeiten",
 
@@ -345,7 +345,7 @@ export const de: Record<TranslationKey, string> = {
   aiConsentAccept: "Verstanden – Chat aktivieren",
   aiConsentDecline: "Abbrechen",
   aiConsentRequired:
-    "Einwilligung erforderlich. Öffnen Sie den Chat-Tab, um sie zu prüfen und zu aktivieren.",
+    "Einwilligung erforderlich. Öffnen Sie den KI-Assistenten-Tab, um sie zu prüfen und zu aktivieren.",
   aiConsentGranted: "Chat aktiviert",
   aiConsentRevoke: "Einwilligung widerrufen",
   aiConsentNotAccepted:
@@ -558,13 +558,13 @@ export const de: Record<TranslationKey, string> = {
     "Die App startet standardmäßig im modernen Layout: eine dunkelblaue Seitenleiste links mit gruppierter Navigation (Offene Punkte, Chat, Gantt, Ressourcen, Budget, RAID, Berichte, Aktivität, Einstellungen), eine Kopfleiste mit Titel und Aktionen sowie ein bildschirmfüllender Bereich, der jeweils eine Ansicht zeigt. Aufgaben und Einstellungen öffnen sich als ganze Seite statt als Popover; die Seitenleiste klappt auf schmalen Bildschirmen (und per Menüknopf in der Kopfleiste) zu einer Symbolleiste zusammen. Der URL-Anker verlinkt jede Ansicht direkt (#gantt, #raid, …), sodass Vor / Zurück und Lesezeichen funktionieren.\nLieber die ursprüngliche, durchgehend scrollende Seite? Wechseln Sie unter Einstellungen → Darstellung → Layout in den klassischen Modus — er behält die umrahmten Arbeitsbereich-Tabs und die Kopfzeile, die in den übrigen Hilfeabschnitten beschrieben sind.\nDesign: Hell, Dunkel oder System (folgt dem Betriebssystem) unter Einstellungen → Darstellung; die Farben bleiben in beiden Fällen in der AIPM-Markenpalette.",
   helpSecAddTitle: "Aufgaben anlegen & bearbeiten",
   helpSecAddBody:
-    "Auf das +-Symbol im Header klicken, um den Dialog \"Neue Aufgabe\" zu öffnen. Beim Klick auf \"Bearbeiten\" einer Zeile öffnet sich derselbe Dialog vorbefüllt. Pflichtfelder: Aufgabenname, Zugewiesener, Fälligkeit. Optional: E-Mail, Gruppe, Labels, Blocker, Notizen. Das + neben dem Zugewiesenen fügt diese Person in einem Schritt zum Adressbuch hinzu und übernimmt sie als Zugewiesenen. Alternativ im Chat-Tab Claude bitten (z. B. \"neue Aufgabe Deck prüfen, fällig Freitag\").",
+    "Auf das +-Symbol im Header klicken, um den Dialog \"Neue Aufgabe\" zu öffnen. Beim Klick auf \"Bearbeiten\" einer Zeile öffnet sich derselbe Dialog vorbefüllt. Pflichtfelder: Aufgabenname, Zugewiesener, Fälligkeit. Optional: E-Mail, Gruppe, Labels, Blocker, Notizen. Das + neben dem Zugewiesenen fügt diese Person in einem Schritt zum Adressbuch hinzu und übernimmt sie als Zugewiesenen. Alternativ im KI-Assistenten-Tab Claude bitten (z. B. \"neue Aufgabe Deck prüfen, fällig Freitag\").",
   helpSecWorkspaceTitle: "Arbeitsbereich",
   helpSecWorkspaceBody:
-    "Der eingerahmte Bereich unter dem Header enthält die Workspace-Tabs (Chat, Berichte, Gantt, RAID, Ressourcen, Aktivität). Untere rechte Ecke ziehen zum Vergrößern, Pfeil rechts in der Tab-Leiste zum Ein-/Ausklappen, \"Größe zurücksetzen\" für die Standardgröße. Beide Zustände werden zwischen Seitenladevorgängen gespeichert. Das Abdock-Symbol jedes Tabs öffnet ihn in einem eigenen Fenster – eine schreibgeschützte Ansicht, die das Hauptfenster live spiegelt; Änderungen bitte im Hauptfenster vornehmen.",
+    "Der eingerahmte Bereich unter dem Header enthält die Workspace-Tabs (KI-Assistent, Berichte, Gantt, RAID, Ressourcen, Aktivität). Untere rechte Ecke ziehen zum Vergrößern, Pfeil rechts in der Tab-Leiste zum Ein-/Ausklappen, \"Größe zurücksetzen\" für die Standardgröße. Beide Zustände werden zwischen Seitenladevorgängen gespeichert. Das Abdock-Symbol jedes Tabs öffnet ihn in einem eigenen Fenster – eine schreibgeschützte Ansicht, die das Hauptfenster live spiegelt; Änderungen bitte im Hauptfenster vornehmen.",
   helpSecTabsTitle: "Tabs",
   helpSecTabsBody:
-    "Chat – mit Claude per natürlicher Sprache Aufgaben anzeigen, anlegen, ändern und löschen.\nBerichte – Statistiken zu Aufgaben, Zugewiesenen, Status, Abfragen und pünktlichen / verspäteten Erledigungen, inkl. Auswertung nach Gruppe und Label.\nGantt – visuelle Zeitleiste mit Drag-Verschiebung und Abhängigkeitspfeilen (FS / SS / FF / SF).\nRAID – Register für Risks, Assumptions, Issues und Dependencies mit Verknüpfung zu Aufgaben.\nRessourcen – Kapazitätskalender mit Schichten, Abwesenheiten, Feiertagen und Tagesauslastung.\nAktivität – Audit-Log aller Änderungen an Aufgaben, RAID und Ressourcen in diesem Browser.",
+    "KI-Assistent – mit Claude per natürlicher Sprache Aufgaben anzeigen, anlegen, ändern und löschen.\nBerichte – Statistiken zu Aufgaben, Zugewiesenen, Status, Abfragen und pünktlichen / verspäteten Erledigungen, inkl. Auswertung nach Gruppe und Label.\nGantt – visuelle Zeitleiste mit Drag-Verschiebung und Abhängigkeitspfeilen (FS / SS / FF / SF).\nRAID – Register für Risks, Assumptions, Issues und Dependencies mit Verknüpfung zu Aufgaben.\nRessourcen – Kapazitätskalender mit Schichten, Abwesenheiten, Feiertagen und Tagesauslastung.\nAktivität – Audit-Log aller Änderungen an Aufgaben, RAID und Ressourcen in diesem Browser.",
   helpSecTasksTitle: "Aufgabenliste",
   helpSecTasksBody:
     "Spaltenüberschriften klicken zum Sortieren. Filtern über das Suchfeld und die Priorität- / Zugewiesener-Dropdowns. Über die Zeilen-Checkboxen lassen sich mehrere Aufgaben auswählen; eine Bulk-Edit-Leiste erscheint für Sammeländerungen. Aktionen pro Zeile: Erledigt / Wieder öffnen, Anfrage senden, An Jira übertragen (bei aktivem Jira und ungebundener Zeile), Bearbeiten, Löschen. Lange Notizen werden auf die erste Zeile gekürzt – \"Mehr anzeigen\" klappt sie auf. Untere rechte Tabellenecke ziehen zum Vergrößern.",
@@ -594,7 +594,7 @@ export const de: Record<TranslationKey, string> = {
     "Aufgaben liegen standardmäßig in der IndexedDB des Browsers (Datensatz-Updates; alte localStorage-Daten werden beim ersten Laden automatisch migriert). In den Einstellungen → Speicher auf eine lokale JSON-, CSV- oder Markdown-Datei umstellen (Chrome / Edge / Opera). Der Browser fragt beim ersten Speichern nach Schreibrechten; falls verweigert, in den Einstellungen \"Schreibzugriff erteilen\" klicken. SharePoint-Backends folgen. Die mitgelieferte sample-workspace.sqlite3 lässt sich direkt in eine Turso-Datenbank importieren (z. B. per Turso-CLI: turso db create lop-demo --from-file sample-workspace.sqlite3); anschließend die Datenbank-URL und den Token unter Einstellungen → Integrationen eintragen.",
   helpSecAiTitle: "KI-Chat",
   helpSecAiBody:
-    "API-Schlüssel unter Einstellungen → KI hinterlegen und im Chat-Tab die Einwilligung akzeptieren. Nachrichten und Aufgabendaten werden direkt aus dem Browser an api.anthropic.com gesendet – die KI-Nutzungsrichtlinie der Acme gilt. Der Schlüssel liegt im localStorage dieses Browsers. Claude kann Aufgaben über Tool-Calls auflisten, anlegen, ändern und löschen.",
+    "API-Schlüssel unter Einstellungen → KI hinterlegen und im KI-Assistenten-Tab die Einwilligung akzeptieren. Nachrichten und Aufgabendaten werden direkt aus dem Browser an api.anthropic.com gesendet – die KI-Nutzungsrichtlinie der Acme gilt. Der Schlüssel liegt im localStorage dieses Browsers. Claude kann Aufgaben über Tool-Calls auflisten, anlegen, ändern und löschen.",
   helpSecInputFeedbackTitle: "Eingabe-Feedback",
   helpSecInputFeedbackBody:
     "Textfelder mit Zeichenbegrenzung zeigen einen Live-Zähler, sobald Sie sich dem Limit nähern – er erscheint erst ab etwa 80 % Füllstand und wechselt bei Erreichen der Grenze die Farbe. Numerische Felder (Schichtstunden, Änderungs-Terminauswirkung/-Kosten, Budgetbeträge und Satz-Overrides) werden beim Verlassen des Feldes automatisch auf den erlaubten Bereich begrenzt; ein Hinweis erscheint, wenn der Wert angepasst wurde. Enthält ein Label Trennzeichen, die entfernt werden müssen, erscheint ein Hinweis neben dem Feld. Beim Speichern eines Eintrags werden gekürtzte oder begrenzte Felder in einem kurzen Toast zusammengefasst.",

@@ -63,7 +63,7 @@ describe("SidebarNav", () => {
         navGroups={filterNavGroups([])}
       />,
     );
-    expect(screen.getByRole("button", { name: /Chat/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /AI Assistant/i })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^RAID$/i })).toBeNull();
   });
 });

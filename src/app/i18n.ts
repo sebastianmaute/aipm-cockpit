@@ -296,7 +296,7 @@ const enUS = {
   budgetReportColWinLoss: "Win/Loss",
   budgetReportFilterBucket: "Filter buckets",
 
-  tabChat: "Chat",
+  tabChat: "AI Assistant",
   tabNewTask: "New task",
   tabEditTask: "Editing task #{0}",
 
@@ -338,7 +338,7 @@ const enUS = {
   aiConsentAccept: "I understand — enable chat",
   aiConsentDecline: "Cancel",
   aiConsentRequired:
-    "Consent required. Open the Chat tab to review and enable.",
+    "Consent required. Open the AI Assistant tab to review and enable.",
   aiConsentGranted: "Chat enabled",
   aiConsentRevoke: "Revoke consent",
   aiConsentNotAccepted:
@@ -543,13 +543,13 @@ const enUS = {
     "The app ships a modern layout by default: a Dark-Blue left sidebar with grouped navigation (Open Points, Chat, Gantt, Resources, Budget, RAID, Reports, Activity, Settings), a top bar with the view title and actions, and a full-viewport content area showing one view at a time. Opening a task or Settings fills the page instead of a popover; the sidebar collapses to an icon rail on narrow screens (and on demand via the top-bar menu button). The URL hash deep-links each view (#gantt, #raid, …) so back / forward and bookmarks work.\nPrefer the original single-scroll page? Switch to Classic mode in Settings → Appearance → Layout — it keeps the boxed workspace tabs and header described in the other help sections.\nTheme: choose Light, Dark, or System (follows your OS) in Settings → Appearance; colors stay on the AIPM brand palette either way.",
   helpSecAddTitle: "Adding & editing tasks",
   helpSecAddBody:
-    "Click the + button in the header to open the New task modal. The same modal opens — pre-filled — when you click Edit on a row. Required fields: Task name, Assignee, Due date. Optional: Email, Group, Labels, Blockers, Notes. The + beside the Assignee adds that person to the address book and fills the assignee in one step. You can also ask Claude in the Chat tab (e.g. \"add a task to review the deck due Friday\").",
+    "Click the + button in the header to open the New task modal. The same modal opens — pre-filled — when you click Edit on a row. Required fields: Task name, Assignee, Due date. Optional: Email, Group, Labels, Blockers, Notes. The + beside the Assignee adds that person to the address book and fills the assignee in one step. You can also ask Claude in the AI Assistant tab (e.g. \"add a task to review the deck due Friday\").",
   helpSecWorkspaceTitle: "Workspace pane",
   helpSecWorkspaceBody:
-    "The boxed pane below the header holds the workspace tabs (Chat, Reports, Gantt, RAID, Resources, Activity). Drag its bottom-right corner to resize, click the chevron on the right of the tab strip to collapse / expand, and Reset size to restore the default. Resize and collapsed state both persist across reloads. Each tab's pop-out icon opens it in its own window — a read-only mirror that reflects the main window live; make edits in the main window.",
+    "The boxed pane below the header holds the workspace tabs (AI Assistant, Reports, Gantt, RAID, Resources, Activity). Drag its bottom-right corner to resize, click the chevron on the right of the tab strip to collapse / expand, and Reset size to restore the default. Resize and collapsed state both persist across reloads. Each tab's pop-out icon opens it in its own window — a read-only mirror that reflects the main window live; make edits in the main window.",
   helpSecTabsTitle: "Tabs",
   helpSecTabsBody:
-    "Chat — talk to Claude to view, add, update, and delete tasks in natural language.\nReports — statistics about tasks, assignees, status, inquiries, and on-time / late completions, plus breakdowns by group and label.\nGantt — visual timeline with drag-to-reschedule and FS / SS / FF / SF dependency arrows.\nRAID — register risks, assumptions, issues, and dependencies; link entries to specific tasks.\nResources — capacity calendar with shifts, absences, holidays, and per-day workload.\nActivity — audit log of every task / RAID / resource change in this browser.",
+    "AI Assistant — talk to Claude to view, add, update, and delete tasks in natural language.\nReports — statistics about tasks, assignees, status, inquiries, and on-time / late completions, plus breakdowns by group and label.\nGantt — visual timeline with drag-to-reschedule and FS / SS / FF / SF dependency arrows.\nRAID — register risks, assumptions, issues, and dependencies; link entries to specific tasks.\nResources — capacity calendar with shifts, absences, holidays, and per-day workload.\nActivity — audit log of every task / RAID / resource change in this browser.",
   helpSecTasksTitle: "Tasks list",
   helpSecTasksBody:
     "Sort by clicking column headers. Filter via the search box and the priority / assignee dropdowns. Tick the row checkboxes to multi-select; a bulk-edit bar appears for batch updates. Per-row actions: Mark complete / Reopen, Send inquiry, Push to Jira (when Jira is enabled and the row is unlinked), Edit, Delete. Long notes collapse to the first line — click \"Show more\" to expand. Drag the table's bottom-right corner to resize.",
@@ -579,7 +579,7 @@ const enUS = {
     "Tasks live in this browser's IndexedDB by default (record-level writes; legacy localStorage data migrates automatically on first load). Switch to a local JSON, CSV, or Markdown file in Settings → Storage to sync with disk (Chrome / Edge / Opera). The browser will ask for write permission on the first save; if it denies, click \"Grant write access\" in Settings. SharePoint backends are coming soon. The bundled sample-workspace.sqlite3 can be imported directly into a Turso database (e.g. via the Turso CLI: turso db create lop-demo --from-file sample-workspace.sqlite3), then configure the database URL and token in Settings → Integrations.",
   helpSecAiTitle: "AI chat",
   helpSecAiBody:
-    "Add an Anthropic API key in Settings → AI, then accept the consent screen on the Chat tab. Messages and task data are sent directly from your browser to api.anthropic.com — Acme's AI usage policy applies. The key is stored in this browser's localStorage. Claude can list, create, update, and delete tasks on your behalf via tool calls.",
+    "Add an Anthropic API key in Settings → AI, then accept the consent screen on the AI Assistant tab. Messages and task data are sent directly from your browser to api.anthropic.com — Acme's AI usage policy applies. The key is stored in this browser's localStorage. Claude can list, create, update, and delete tasks on your behalf via tool calls.",
   helpSecInputFeedbackTitle: "Input feedback",
   helpSecInputFeedbackBody:
     "Capped text fields show a live character counter as you approach the limit — it stays hidden until roughly 80% full and turns a warning color when you reach the cap. Numeric fields (shift hours, change schedule-days/cost, budget amounts and rate overrides) are automatically clamped to their allowed range on blur, with an inline notice if the value was adjusted. If a label contains separator characters that must be stripped, a notice appears next to the field. When you save a record and any entries were trimmed or clamped to fit storage limits, a brief summary toast confirms what was adjusted.",
