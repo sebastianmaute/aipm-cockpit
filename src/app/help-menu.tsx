@@ -34,6 +34,7 @@ const SECTIONS: Array<{
   { titleKey: "helpSecJiraTitle", bodyKey: "helpSecJiraBody" },
   { titleKey: "helpSecStorageTitle", bodyKey: "helpSecStorageBody" },
   { titleKey: "helpSecAiTitle", bodyKey: "helpSecAiBody" },
+  { titleKey: "helpSecInputFeedbackTitle", bodyKey: "helpSecInputFeedbackBody" },
   { titleKey: "helpSecKeysTitle", bodyKey: "helpSecKeysBody" },
 ];
 

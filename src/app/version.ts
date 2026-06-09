@@ -9,6 +9,9 @@
 // summarizes how many fields were adjusted. New pure modules: sanitize-report.ts
 // (adjustment descriptors), field-feedback.tsx (CharCounter, FieldNotice,
 // useAdjustmentTracker), and toast-context.tsx (shared toast access for editors).
+// The release also regenerates the sample workspace from one generator
+// (csv/md/json all consistent) and adds sample-workspace.sqlite3 for
+// direct Turso import (schema v9, `turso db create ... --from-file`).
 // 0.55.0 "Clarke" is a UI-refinement batch plus stakeholder communication
 // reminders. UI: the i18n DE bundle is audited for literal-UTF-8 umlauts (a new
 // encoding guard test); the dashboard Save/Clear buttons move beside the status

@@ -1,4 +1,4 @@
-<!-- Generated: 2026-05-31 | Files scanned: types.ts, storage.ts, sanitize.ts, raid.ts, activity-log.ts, contacts.ts, resource-foundation.ts, resource-capacity.ts, reminder-snooze.ts, use-settings.ts, jira-token-status.ts, duration.ts + msal-config.ts, turso-config.ts | Token estimate: ~1300 | Updated for 0.29.0–0.50.0: ProjectStatus + Milestone[] persisted (v6 additive, no schema bump); budget-health + budget-burndown pure modules; ChangeItem[] change-control register persisted (schema v7 additive) -->
+<!-- Generated: 2026-06-09 | Files scanned: types.ts, storage.ts, sanitize.ts, raid.ts, activity-log.ts, contacts.ts, resource-foundation.ts, resource-capacity.ts, reminder-snooze.ts, use-settings.ts, jira-token-status.ts, duration.ts + msal-config.ts, turso-config.ts | Token estimate: ~1300 | Updated for 0.29.0–0.56.0: ProjectStatus + Milestone[] persisted (v6 additive, no schema bump); budget-health + budget-burndown pure modules; ChangeItem[] change-control register persisted (schema v7 additive); sample-workspace files regenerated from one generator; sample-workspace.sqlite3 added for Turso import -->
 
 # Data
 
@@ -468,3 +468,19 @@ RAID review banner / modal / toast nudge.
 `ContactsMap`. Capped at `CONTACTS_MAX = 500`. Persisted to `lop-app:contacts`
 independently of the tasks list so suggestions survive task deletion, Clear
 All, and Jira sync churn.
+
+## Sample workspace (`scripts/generate-sample-workspace.ts`)
+
+A single canonical generator emits the demo dataset in all four formats:
+
+| File | Description |
+|---|---|
+| `sample-workspace.csv` | RFC-style multi-section CSV (all entities) |
+| `sample-workspace.md` | Markdown pipe-table multi-section file |
+| `sample-workspace.json` | Full JSON envelope (`schemaVersion: 9`) |
+| `sample-workspace.sqlite3` | SQLite database mirroring the Turso relational schema (schema v9); import with `turso db create lop-demo --from-file sample-workspace.sqlite3` |
+
+Run `npx vite-node scripts/generate-sample-workspace.ts` to regenerate all
+four from the same source (keeps csv/md/json/sqlite3 in sync). The dataset
+includes tasks, RAID items with `stakeholderIds` links, milestones, stakeholders
+with RACI assignments, change-log entries, budget buckets, and resources.

@@ -17,10 +17,12 @@ post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-
   - **Label strip notice** when separator characters are removed from a label.
   - **Save-time toast** summarizing how many fields were adjusted to fit limits.
 - New modules: pure `sanitize-report.ts` (describes text-cap / clamp / label-strip adjustments), `field-feedback.tsx` (`CharCounter`, `FieldNotice`, `useAdjustmentTracker`), and `toast-context.tsx` (shared toast access for editors).
+- The repo now ships a **complete sample workspace** as `sample-workspace.json` (new) and a Turso-importable `sample-workspace.sqlite3` (schema v9), featuring example RAID↔stakeholder links and a change-log entry, all generated from one canonical source via `scripts/generate-sample-workspace.ts`.
 
 ### Changed
 - Capped text inputs no longer hard-stop at the limit via the browser `maxLength`; instead the counter shows the overflow and the value is trimmed on blur (storage-layer sanitizers remain the final guard).
 - `BUDGET_NAME_MAX`, `PO_NUMBER_MAX`, `AMOUNT_MAX` are now exported from `sanitize.ts`.
+- The sample `sample-workspace.csv` and `sample-workspace.md` are now regenerated from the same single generator as the JSON and SQLite files, eliminating the prior csv/md drift.
 
 ## [0.55.0] — 2026-06-08 "Clarke"
 
