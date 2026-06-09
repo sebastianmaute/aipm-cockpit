@@ -3,7 +3,7 @@
 import { type Dispatch, type SetStateAction, useEffect, useState } from "react";
 import { type Lang, loadI18n, migrateLang } from "./i18n";
 import { defaultSettings, sanitizeIntegrations, type Settings } from "./settings-menu";
-import { resolveSnapshotSettings } from "./settings-types";
+import { resolveSnapshotSettings, sanitizeAiConfig } from "./settings-types";
 import { resolveExtraReports } from "./addable-reports";
 import { sanitizeFeatures } from "./feature-modules";
 import { isPlainObject } from "./sanitize";
@@ -64,10 +64,7 @@ export function useSettings(): {
             ...defaultSettings,
             ...parsed,
             language: resolvedLang,
-            ai: {
-              ...defaultSettings.ai,
-              ...(isPlainObject(parsed.ai) ? parsed.ai : {}),
-            },
+            ai: sanitizeAiConfig(isPlainObject(parsed.ai) ? parsed.ai : {}),
             notifications: migrateNotifications(parsed.notifications),
             jira: {
               ...defaultSettings.jira,

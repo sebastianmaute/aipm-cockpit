@@ -6,6 +6,7 @@ import { type Lang, type TranslationKey, t } from "./i18n";
 import { Markdown } from "./markdown";
 import { CHAT_MESSAGE_MAX } from "./sanitize";
 import type { AiConfig } from "./settings-menu";
+import { useAiUsage } from "./use-ai-usage";
 import { useResizable } from "./use-resizable";
 import { ResizeCornerHint, ResetSizeButton } from "./task-manager-ui";
 import { CENTERED_HALF_PANE_CLASS } from "./view-styles";
@@ -60,6 +61,8 @@ function buildSystemPrompt(
   ].join("\n");
 }
 
+type ApiUsage = { input_tokens: number; output_tokens: number };
+
 async function callClaude(
   apiKey: string,
   model: string,
@@ -68,6 +71,7 @@ async function callClaude(
 ): Promise<{
   content: ContentBlock[];
   stop_reason: string;
+  usage: ApiUsage;
 }> {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -89,7 +93,12 @@ async function callClaude(
     const text = await res.text();
     throw new Error(`${res.status}: ${text}`);
   }
-  return await res.json();
+  const json = await res.json() as { content: ContentBlock[]; stop_reason: string; usage?: ApiUsage };
+  return {
+    content: json.content,
+    stop_reason: json.stop_reason,
+    usage: json.usage ?? { input_tokens: 0, output_tokens: 0 },
+  };
 }
 
 function stringifyResult(value: unknown): string {
@@ -146,6 +155,7 @@ function ChatPanelInner({
   const scrollerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const { ref: chatRef, reset: resetChatSize } = useResizable("lop-app:chat-size");
+  const { record: recordUsage } = useAiUsage();
 
   useEffect(() => {
     if (!scrollerRef.current) return;
@@ -174,10 +184,17 @@ function ChatPanelInner({
     const messages = newHistory.slice();
 
     try {
+      // Accumulate token usage across all turns for this send.
+      let totalInput = 0;
+      let totalOutput = 0;
+
       // Tool-use loop: keep round-tripping until Claude stops calling tools.
       // Capped to avoid runaway loops.
       for (let turn = 0; turn < 8; turn++) {
         const response = await callClaude(ai.apiKey, ai.model, system, messages);
+        totalInput += response.usage.input_tokens;
+        totalOutput += response.usage.output_tokens;
+
         const assistantMsg: ApiMessage = {
           role: "assistant",
           content: response.content,
@@ -225,6 +242,9 @@ function ChatPanelInner({
 
         messages.push({ role: "user", content: results });
       }
+
+      // Record summed token usage for the entire send (all turns combined).
+      recordUsage({ input: totalInput, output: totalOutput });
 
       setHistory(messages);
     } catch (err) {

@@ -14,17 +14,47 @@ export type ChatModel =
   | "claude-opus-4-7"
   | "claude-haiku-4-5-20251001";
 
+export const DEFAULT_SESSION_TOKEN_CAP = 200_000;
+export const DEFAULT_WEEKLY_TOKEN_CAP = 2_000_000;
+
 export type AiConfig = {
   apiKey: string;
   model: ChatModel;
   consentAccepted: boolean;
+  sessionTokenCap?: number;
+  weeklyTokenCap?: number;
 };
 
 export const defaultAiConfig: AiConfig = {
   apiKey: "",
   model: "claude-sonnet-4-6",
   consentAccepted: false,
+  sessionTokenCap: DEFAULT_SESSION_TOKEN_CAP,
+  weeklyTokenCap: DEFAULT_WEEKLY_TOKEN_CAP,
 };
+
+export function sanitizeAiConfig(raw: unknown): AiConfig {
+  const obj = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const coerceCap = (v: unknown, def: number): number => {
+    const n = Number(v);
+    return Number.isFinite(n) && n > 0 ? Math.round(n) : def;
+  };
+  const MODELS: readonly ChatModel[] = [
+    "claude-sonnet-4-6",
+    "claude-opus-4-7",
+    "claude-haiku-4-5-20251001",
+  ];
+  const model: ChatModel = MODELS.includes(obj.model as ChatModel)
+    ? (obj.model as ChatModel)
+    : defaultAiConfig.model;
+  return {
+    apiKey: typeof obj.apiKey === "string" ? obj.apiKey : "",
+    model,
+    consentAccepted: obj.consentAccepted === true,
+    sessionTokenCap: coerceCap(obj.sessionTokenCap, DEFAULT_SESSION_TOKEN_CAP),
+    weeklyTokenCap: coerceCap(obj.weeklyTokenCap, DEFAULT_WEEKLY_TOKEN_CAP),
+  };
+}
 
 export type ChannelConfig = { enabled: boolean; leadDays?: number };
 
