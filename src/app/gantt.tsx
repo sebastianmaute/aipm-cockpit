@@ -30,7 +30,7 @@ import { type Lang, t } from "./i18n";
 import { isPlainObject } from "./sanitize";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { useResizable } from "./use-resizable";
-import { ResetSizeButton, ResizeCornerHint } from "./task-manager-ui";
+import { PrintButton, ResetSizeButton, ResizeCornerHint } from "./task-manager-ui";
 import { PRIORITIES, type Absence, type AbsenceType, type DependencyType, type Milestone, type Priority, type Task } from "./types";
 import { isAchieved, milestoneStatus, MILESTONE_DUE_SOON_WORKDAYS, sortMilestones } from "./milestones";
 
@@ -1108,7 +1108,7 @@ export function GanttPanel({
     prefs.assignee !== "All";
 
   const toolbar = (
-    <div className="mb-2 flex shrink-0 flex-wrap items-center gap-2">
+    <div className="mb-2 flex shrink-0 flex-wrap items-center gap-2 print:hidden">
       {onAddTask && (
         <button
           type="button"
@@ -1240,13 +1240,14 @@ export function GanttPanel({
         </svg>
         <span>{t(lang, "ganttCriticalPath")}</span>
       </button>
+      <PrintButton lang={lang} />
       <ResetSizeButton onClick={resetGanttSize} lang={lang} />
     </div>
   );
 
   if (rowsCount === 0 && sortedMilestones.length === 0) {
     return (
-      <div ref={ganttRef} className={VIEW_PANE_RESIZABLE_CLASS}>
+      <div ref={ganttRef} className={`print-root print-landscape ${VIEW_PANE_RESIZABLE_CLASS}`}>
         {toolbar}
         <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-line p-10 text-center text-sm text-muted-foreground">
           <span>
@@ -1268,7 +1269,7 @@ export function GanttPanel({
   }
 
   return (
-    <div ref={ganttRef} className={VIEW_PANE_RESIZABLE_CLASS}>
+    <div ref={ganttRef} className={`print-root print-landscape ${VIEW_PANE_RESIZABLE_CLASS}`}>
       {toolbar}
       <div
         ref={scrollRef}

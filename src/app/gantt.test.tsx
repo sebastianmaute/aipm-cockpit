@@ -201,3 +201,17 @@ test("gantt pane uses VIEW_PANE_RESIZABLE_CLASS", () => {
   const src = readFileSync(join(__dirname, "gantt.tsx"), "utf8");
   expect(src).toMatch(/VIEW_PANE_RESIZABLE_CLASS/);
 });
+
+// ---------- print button ---------------------------------------------------
+
+test("gantt toolbar renders a Print button", () => {
+  const { getByRole } = render(<GanttPanel {...BASE_PROPS} />);
+  const btn = getByRole("button", { name: /print/i });
+  expect(btn).toBeTruthy();
+});
+
+test("gantt root pane has print-root and print-landscape classes", () => {
+  const src = readFileSync(join(__dirname, "gantt.tsx"), "utf8");
+  expect(src).toMatch(/print-root/);
+  expect(src).toMatch(/print-landscape/);
+});
