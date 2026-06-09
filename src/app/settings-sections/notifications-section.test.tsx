@@ -94,6 +94,50 @@ describe("useGlobalLeadDays toggle", () => {
   });
 });
 
+describe("stakeholder comms per-quadrant lead days", () => {
+  const settingsWithCommsOn = {
+    ...defaultSettings,
+    notifications: { ...defaultSettings.notifications, stakeholderComms: { enabled: true } },
+  };
+
+  it("renders four quadrant lead-day inputs when stakeholderComms is enabled", () => {
+    render(<NotificationsSection lang="en-US" settings={settingsWithCommsOn} onChange={vi.fn()} />);
+    expect(screen.getByRole("spinbutton", { name: t("en-US", "quadrantManageClosely") })).toBeInTheDocument();
+    expect(screen.getByRole("spinbutton", { name: t("en-US", "quadrantKeepSatisfied") })).toBeInTheDocument();
+    expect(screen.getByRole("spinbutton", { name: t("en-US", "quadrantKeepInformed") })).toBeInTheDocument();
+    expect(screen.getByRole("spinbutton", { name: t("en-US", "quadrantMonitor") })).toBeInTheDocument();
+  });
+
+  it("quadrant inputs are NOT disabled when useGlobalLeadDays is true", () => {
+    const settings = { ...settingsWithCommsOn, notifications: { ...settingsWithCommsOn.notifications, useGlobalLeadDays: true } };
+    render(<NotificationsSection lang="en-US" settings={settings} onChange={vi.fn()} />);
+    expect(screen.getByRole("spinbutton", { name: t("en-US", "quadrantManageClosely") })).not.toBeDisabled();
+    expect(screen.getByRole("spinbutton", { name: t("en-US", "quadrantMonitor") })).not.toBeDisabled();
+  });
+
+  it("editing manage-closely calls onChange with updated stakeholderCommsLeadDays", () => {
+    const onChange = vi.fn();
+    render(<NotificationsSection lang="en-US" settings={settingsWithCommsOn} onChange={onChange} />);
+    const input = screen.getByRole("spinbutton", { name: t("en-US", "quadrantManageClosely") });
+    fireEvent.change(input, { target: { value: "21" } });
+    const next = onChange.mock.calls.at(-1)![0] as typeof settingsWithCommsOn;
+    expect(next.notifications.stakeholderCommsLeadDays["manage-closely"]).toBe(21);
+    // other quadrants untouched
+    expect(next.notifications.stakeholderCommsLeadDays["keep-satisfied"]).toBe(
+      settingsWithCommsOn.notifications.stakeholderCommsLeadDays["keep-satisfied"],
+    );
+  });
+
+  it("quadrant inputs are hidden when stakeholderComms is disabled", () => {
+    const settings = {
+      ...defaultSettings,
+      notifications: { ...defaultSettings.notifications, stakeholderComms: { enabled: false } },
+    };
+    render(<NotificationsSection lang="en-US" settings={settings} onChange={vi.fn()} />);
+    expect(screen.queryByRole("spinbutton", { name: t("en-US", "quadrantManageClosely") })).not.toBeInTheDocument();
+  });
+});
+
 describe("jiraTokenError toggle", () => {
   it("renders the jira token error checkbox and reflects jiraTokenError.enabled", () => {
     render(

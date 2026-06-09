@@ -1418,6 +1418,7 @@ const enUS = {
   raidReviewLastTouched: "Last touched",
   notifStakeholderComms: "Stakeholder communication reminders",
   notifStakeholderCommsTooltip: "Nudge to update key stakeholders about milestones, RAID items and changes linked to them.",
+  notifCommsLeadDaysHint: "Lead times below are per-quadrant and independent of the global lead-time setting.",
   stakeholderCommsToast: "{0} stakeholders need an update",
   stakeholderCommsBannerAria: "Stakeholder communication reminders",
   stakeholderCommsBannerTitle: "{0} stakeholders need an update",

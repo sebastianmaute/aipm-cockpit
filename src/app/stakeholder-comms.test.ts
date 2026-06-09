@@ -297,6 +297,51 @@ describe("getStakeholderCommsItems", () => {
     expect(result).toEqual([]);
   });
 
+  describe("leadDaysByQuadrant override", () => {
+    it("with override 30 for manage-closely, a milestone 25 days out triggers a reminder", () => {
+      const s = stake({ id: 1, name: "Alice", influence: "High", interest: "High", raci: { "1": "A" } });
+      const result = getStakeholderCommsItems({
+        stakeholders: [s],
+        milestones: [milestone({ id: 1, name: "Future", date: "2026-07-03" })], // 25 days out
+        raid: [],
+        changes: [],
+        today: TODAY,
+        flags: ALL_ON,
+        leadDaysByQuadrant: { "manage-closely": 30, "keep-satisfied": 7, "keep-informed": 7, monitor: 3 },
+      });
+      expect(result).toHaveLength(1);
+      expect(result[0]).toMatchObject({ quadrant: "manage-closely", itemId: 1, reasonKey: "stakeholderCommsMilestoneDue" });
+    });
+
+    it("without override, default 14d applies — milestone 25 days out is NOT reminded", () => {
+      const s = stake({ id: 1, name: "Alice", influence: "High", interest: "High", raci: { "1": "A" } });
+      const result = getStakeholderCommsItems({
+        stakeholders: [s],
+        milestones: [milestone({ id: 1, name: "Future", date: "2026-07-03" })], // 25 days out
+        raid: [],
+        changes: [],
+        today: TODAY,
+        flags: ALL_ON,
+      });
+      expect(result).toEqual([]);
+    });
+
+    it("override only affects the targeted quadrant (monitor unaffected)", () => {
+      const monitor = stake({ id: 2, name: "Mona", influence: "Low", interest: "Low", raci: { "1": "C" } });
+      const result = getStakeholderCommsItems({
+        stakeholders: [monitor],
+        milestones: [milestone({ id: 1, name: "Soon", date: "2026-06-10" })], // 2 days out, not overdue
+        raid: [],
+        changes: [],
+        today: TODAY,
+        flags: ALL_ON,
+        // manage-closely boosted to 30 but monitor stays at 3 → milestone is upcoming, not overdue → no reminder
+        leadDaysByQuadrant: { "manage-closely": 30, "keep-satisfied": 7, "keep-informed": 7, monitor: 3 },
+      });
+      expect(result).toEqual([]);
+    });
+  });
+
   it("sorts by priority desc then stakeholder name", () => {
     const manage = stake({ id: 1, name: "Zoe", influence: "High", interest: "High", raci: { "1": "A" } });
     const monitor = stake({ id: 2, name: "Abe", influence: "Low", interest: "Low", raci: { "2": "C" } });

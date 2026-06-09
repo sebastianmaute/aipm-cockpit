@@ -30,6 +30,7 @@ function makeSettings(): Settings {
       raidReview: { enabled: true },
       raidReviewIntervalDays: 14,
       stakeholderComms: { enabled: true },
+      stakeholderCommsLeadDays: { "manage-closely": 14, "keep-satisfied": 7, "keep-informed": 7, monitor: 3 },
       jiraTokenError: { enabled: true },
     },
     jira: {

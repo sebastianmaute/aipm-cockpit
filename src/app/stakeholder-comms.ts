@@ -39,6 +39,7 @@ interface CommsArgs {
   changes: readonly ChangeItem[];
   today: string; // YYYY-MM-DD
   flags: CommsFlags;
+  leadDaysByQuadrant?: Record<StakeholderQuadrant, number>;
 }
 
 // Severity ranking — mirrors the real RaidSeverity union in types.ts.
@@ -185,13 +186,16 @@ function changeReminders(
 }
 
 export function getStakeholderCommsItems(args: CommsArgs): StakeholderCommsReminder[] {
-  const { stakeholders, milestones, raid, changes, today, flags } = args;
+  const { stakeholders, milestones, raid, changes, today, flags, leadDaysByQuadrant } = args;
   if (!flags.stakeholdersEnabled || stakeholders.length === 0) return [];
 
   const out: StakeholderCommsReminder[] = [];
   for (const s of stakeholders) {
     const quadrant = quadrantFor(s);
-    const policy = POLICY[quadrant];
+    const basePolicy = POLICY[quadrant];
+    const policy: QuadrantPolicy = leadDaysByQuadrant
+      ? { ...basePolicy, leadDays: leadDaysByQuadrant[quadrant] }
+      : basePolicy;
 
     if (flags.milestonesEnabled && hasSource(policy, "milestone")) {
       out.push(...milestoneReminders(s, quadrant, policy, milestones, today));

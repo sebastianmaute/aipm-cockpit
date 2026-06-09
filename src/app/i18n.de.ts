@@ -1424,6 +1424,7 @@ export const de: Record<TranslationKey, string> = {
   raidReviewLastTouched: "Zuletzt geändert",
   notifStakeholderComms: "Erinnerungen zur Stakeholder-Kommunikation",
   notifStakeholderCommsTooltip: "Erinnert daran, wichtige Stakeholder über verknüpfte Meilensteine, RAID-Einträge und Änderungen zu informieren.",
+  notifCommsLeadDaysHint: "Vorlaufzeiten unten gelten je Quadrant und sind unabhängig von der globalen Einstellung.",
   stakeholderCommsToast: "{0} Stakeholder benötigen ein Update",
   stakeholderCommsBannerAria: "Erinnerungen zur Stakeholder-Kommunikation",
   stakeholderCommsBannerTitle: "{0} Stakeholder benötigen ein Update",

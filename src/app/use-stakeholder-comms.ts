@@ -84,7 +84,10 @@ export function useStakeholderComms({
   // Reactive items for the banner/modal surfaces (always reflect current data).
   const items =
     flags.stakeholdersEnabled && settings.notifications.stakeholderComms.enabled
-      ? getStakeholderCommsItems({ stakeholders, milestones, raid, changes, today, flags })
+      ? getStakeholderCommsItems({
+          stakeholders, milestones, raid, changes, today, flags,
+          leadDaysByQuadrant: settings.notifications.stakeholderCommsLeadDays,
+        })
       : [];
 
   useEffect(() => {
@@ -106,6 +109,7 @@ export function useStakeholderComms({
             changes: changesRef.current,
             today: todayRef.current,
             flags: flagsRef.current,
+            leadDaysByQuadrant: settingsRef.current.notifications.stakeholderCommsLeadDays,
           })
         : [];
 

@@ -3,7 +3,8 @@
 import { type Dispatch, type SetStateAction, useEffect, useState } from "react";
 import { type Lang, loadI18n, migrateLang } from "./i18n";
 import { defaultSettings, sanitizeIntegrations, type Settings } from "./settings-menu";
-import { resolveSnapshotSettings, sanitizeAiConfig, sanitizeExportConfig } from "./settings-types";
+import { defaultNotificationsConfig, resolveSnapshotSettings, sanitizeAiConfig, sanitizeExportConfig } from "./settings-types";
+import type { StakeholderQuadrant } from "./stakeholders";
 import { resolveExtraReports } from "./addable-reports";
 import { sanitizeFeatures } from "./feature-modules";
 import { isPlainObject } from "./sanitize";
@@ -14,6 +15,10 @@ export const SETTINGS_KEY = "lop-app:settings";
 export function writeSettings(settings: Settings): void {
   window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
 }
+
+const COMMS_QUADRANTS: readonly StakeholderQuadrant[] = [
+  "manage-closely", "keep-satisfied", "keep-informed", "monitor",
+];
 
 function migrateNotifications(raw: unknown): Settings["notifications"] {
   const p = (isPlainObject(raw) ? raw : {}) as Record<string, unknown>;
@@ -30,6 +35,17 @@ function migrateNotifications(raw: unknown): Settings["notifications"] {
   };
   const lead = Number(p.reminderLeadDays ?? pick(p.birthday).leadDays ?? pick(p.banner).thresholdWorkDays);
   const raidInterval = Math.round(Number(p.raidReviewIntervalDays));
+
+  const rawLeadDays = isPlainObject(p.stakeholderCommsLeadDays)
+    ? (p.stakeholderCommsLeadDays as Record<string, unknown>)
+    : {};
+  const stakeholderCommsLeadDays = {} as Record<StakeholderQuadrant, number>;
+  for (const q of COMMS_QUADRANTS) {
+    const n = Number(rawLeadDays[q]);
+    stakeholderCommsLeadDays[q] =
+      Number.isFinite(n) && n >= 0 ? Math.min(365, Math.round(n)) : defaultNotificationsConfig.stakeholderCommsLeadDays[q];
+  }
+
   return {
     reminderLeadDays: Number.isFinite(lead) && lead >= 0 ? lead : 7,
     useGlobalLeadDays: typeof p.useGlobalLeadDays === "boolean" ? p.useGlobalLeadDays : true,
@@ -38,6 +54,7 @@ function migrateNotifications(raw: unknown): Settings["notifications"] {
     raidReviewIntervalDays:
       Number.isFinite(raidInterval) && raidInterval >= 1 ? Math.min(365, raidInterval) : 14,
     stakeholderComms: ch(p.stakeholderComms),
+    stakeholderCommsLeadDays,
     jiraTokenError: ch(p.jiraTokenError),
   };
 }

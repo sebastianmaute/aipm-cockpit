@@ -1,7 +1,8 @@
 "use client";
 
 import { type Lang, type TranslationKey, t } from "../i18n";
-import type { ChannelConfig, Settings } from "../settings-types";
+import type { ChannelConfig, NotificationsConfig, Settings } from "../settings-types";
+import type { StakeholderQuadrant } from "../stakeholders";
 import { InfoTooltip } from "../info-tooltip";
 
 interface NotificationsSectionProps {
@@ -141,7 +142,7 @@ export function NotificationsSection({ lang, settings, onChange }: Notifications
         />
       </label>
 
-      {/* Stakeholder comms — uses hardcoded per-quadrant policy (14/7/7/3 days), not a per-reminder lead-days */}
+      {/* Stakeholder comms toggle */}
       <NotificationRow
         labelKey="notifStakeholderComms"
         lang={lang}
@@ -152,6 +153,15 @@ export function NotificationsSection({ lang, settings, onChange }: Notifications
         showLeadDays={false}
         onChange={(c) => patchNotif({ stakeholderComms: c })}
       />
+
+      {/* Per-quadrant lead days — independent of the global lead-time toggle */}
+      {notifications.stakeholderComms.enabled && (
+        <CommsLeadDaysBlock
+          lang={lang}
+          leadDays={notifications.stakeholderCommsLeadDays}
+          onChange={(leadDays) => patchNotif({ stakeholderCommsLeadDays: leadDays })}
+        />
+      )}
 
       {/* Jira token error banner toggle */}
       <div className="mt-2 flex items-center gap-2 text-sm text-foreground">
@@ -167,6 +177,55 @@ export function NotificationsSection({ lang, settings, onChange }: Notifications
           {t(lang, "notifJiraTokenError")}
         </label>
       </div>
+    </div>
+  );
+}
+
+const QUADRANT_LABEL_KEYS: Record<StakeholderQuadrant, TranslationKey> = {
+  "manage-closely": "quadrantManageClosely",
+  "keep-satisfied": "quadrantKeepSatisfied",
+  "keep-informed": "quadrantKeepInformed",
+  monitor: "quadrantMonitor",
+};
+
+const QUADRANT_ORDER: readonly StakeholderQuadrant[] = [
+  "manage-closely", "keep-satisfied", "keep-informed", "monitor",
+];
+
+interface CommsLeadDaysBlockProps {
+  lang: Lang;
+  leadDays: NotificationsConfig["stakeholderCommsLeadDays"];
+  onChange: (next: NotificationsConfig["stakeholderCommsLeadDays"]) => void;
+}
+
+function CommsLeadDaysBlock({ lang, leadDays, onChange }: CommsLeadDaysBlockProps) {
+  function handleChange(quadrant: StakeholderQuadrant, raw: string) {
+    const n = Math.max(0, Math.min(365, Math.round(Number(raw) || 0)));
+    onChange({ ...leadDays, [quadrant]: n });
+  }
+
+  return (
+    <div className="ml-6 mt-1 space-y-1 border-l border-line pl-3">
+      <p className="text-xs text-muted-foreground">
+        {t(lang, "notifCommsLeadDaysHint")}
+      </p>
+      {QUADRANT_ORDER.map((q) => (
+        <label
+          key={q}
+          className="flex items-center justify-between gap-2 text-sm text-foreground"
+        >
+          <span>{t(lang, QUADRANT_LABEL_KEYS[q])}</span>
+          <input
+            type="number"
+            min={0}
+            max={365}
+            aria-label={t(lang, QUADRANT_LABEL_KEYS[q])}
+            value={leadDays[q]}
+            onChange={(e) => handleChange(q, e.target.value)}
+            className="w-20 rounded-md border border-line px-2 py-1 text-right tabular-nums"
+          />
+        </label>
+      ))}
     </div>
   );
 }

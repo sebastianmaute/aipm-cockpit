@@ -175,6 +175,118 @@ describe("notifications defaults", () => {
   });
 });
 
+describe("notifications migration — stakeholderCommsLeadDays", () => {
+  it("missing stakeholderCommsLeadDays fills all four quadrants with defaults (14/7/7/3)", async () => {
+    const legacy: Record<string, unknown> = {
+      ...defaultSettings,
+      notifications: {
+        ...defaultNotificationsConfig,
+        // stakeholderCommsLeadDays deliberately absent
+      },
+    };
+    delete (legacy.notifications as Record<string, unknown>).stakeholderCommsLeadDays;
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(legacy));
+    const { result } = renderHook(() => useSettings());
+    await act(async () => {});
+    expect(result.current.settings.notifications.stakeholderCommsLeadDays).toEqual({
+      "manage-closely": 14,
+      "keep-satisfied": 7,
+      "keep-informed": 7,
+      monitor: 3,
+    });
+  });
+
+  it("valid persisted values are preserved", async () => {
+    localStorage.setItem(
+      SETTINGS_KEY,
+      JSON.stringify({
+        ...defaultSettings,
+        notifications: {
+          ...defaultNotificationsConfig,
+          stakeholderCommsLeadDays: {
+            "manage-closely": 21,
+            "keep-satisfied": 10,
+            "keep-informed": 5,
+            monitor: 1,
+          },
+        },
+      }),
+    );
+    const { result } = renderHook(() => useSettings());
+    await act(async () => {});
+    expect(result.current.settings.notifications.stakeholderCommsLeadDays).toEqual({
+      "manage-closely": 21,
+      "keep-satisfied": 10,
+      "keep-informed": 5,
+      monitor: 1,
+    });
+  });
+
+  it("invalid value for one quadrant falls back to that quadrant's default", async () => {
+    localStorage.setItem(
+      SETTINGS_KEY,
+      JSON.stringify({
+        ...defaultSettings,
+        notifications: {
+          ...defaultNotificationsConfig,
+          stakeholderCommsLeadDays: {
+            "manage-closely": "bad",
+            "keep-satisfied": 10,
+            "keep-informed": 5,
+            monitor: 1,
+          },
+        },
+      }),
+    );
+    const { result } = renderHook(() => useSettings());
+    await act(async () => {});
+    expect(result.current.settings.notifications.stakeholderCommsLeadDays["manage-closely"]).toBe(14);
+    expect(result.current.settings.notifications.stakeholderCommsLeadDays["keep-satisfied"]).toBe(10);
+  });
+
+  it("value above 365 is clamped to 365", async () => {
+    localStorage.setItem(
+      SETTINGS_KEY,
+      JSON.stringify({
+        ...defaultSettings,
+        notifications: {
+          ...defaultNotificationsConfig,
+          stakeholderCommsLeadDays: {
+            "manage-closely": 999,
+            "keep-satisfied": 7,
+            "keep-informed": 7,
+            monitor: 3,
+          },
+        },
+      }),
+    );
+    const { result } = renderHook(() => useSettings());
+    await act(async () => {});
+    expect(result.current.settings.notifications.stakeholderCommsLeadDays["manage-closely"]).toBe(365);
+  });
+
+  it("zero is a valid value (preserved)", async () => {
+    localStorage.setItem(
+      SETTINGS_KEY,
+      JSON.stringify({
+        ...defaultSettings,
+        notifications: {
+          ...defaultNotificationsConfig,
+          stakeholderCommsLeadDays: {
+            "manage-closely": 0,
+            "keep-satisfied": 7,
+            "keep-informed": 7,
+            monitor: 3,
+          },
+        },
+      }),
+    );
+    const { result } = renderHook(() => useSettings());
+    await act(async () => {});
+    expect(result.current.settings.notifications.stakeholderCommsLeadDays["manage-closely"]).toBe(0);
+  });
+});
+
 describe("layout setting", () => {
   it("defaults to modern", () => {
     expect(defaultSettings.layout).toBe("modern");

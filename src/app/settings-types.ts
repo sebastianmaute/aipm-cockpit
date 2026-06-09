@@ -1,5 +1,6 @@
 // src/app/settings-types.ts
 import type { AddableReportId } from "./addable-reports";
+import type { StakeholderQuadrant } from "./stakeholders";
 import type { FeatureModuleId } from "./feature-modules";
 import { ALL_MODULE_IDS } from "./feature-modules";
 import type { Lang } from "./i18n";
@@ -68,6 +69,7 @@ export type NotificationsConfig = {
   raidReview: ChannelConfig;
   raidReviewIntervalDays: number;
   stakeholderComms: ChannelConfig;
+  stakeholderCommsLeadDays: Record<StakeholderQuadrant, number>;
   jiraTokenError: ChannelConfig;
 };
 
@@ -81,6 +83,12 @@ export const defaultNotificationsConfig: NotificationsConfig = {
   raidReview: { enabled: true },
   raidReviewIntervalDays: 14,
   stakeholderComms: { enabled: true },
+  stakeholderCommsLeadDays: {
+    "manage-closely": 14,
+    "keep-satisfied": 7,
+    "keep-informed": 7,
+    monitor: 3,
+  },
   jiraTokenError: { enabled: true },
 };
 
