@@ -26,7 +26,7 @@ import {
 import { useDraggable } from "./use-draggable";
 import { CharCounter, FieldNotice, useAdjustmentTracker } from "./field-feedback";
 import { describeTextCap, describeClamp } from "./sanitize-report";
-import { TASK_NAME_MAX, TEXTAREA_MAX, ASSIGNEE_MAX, AMOUNT_MAX } from "./sanitize";
+import { BUDGET_NAME_MAX, TEXTAREA_MAX, AMOUNT_MAX } from "./sanitize";
 import { useToastContext } from "./toast-context";
 
 export interface ChangeEditModalProps {
@@ -146,10 +146,12 @@ export function ChangeEditModal({
     setError(null);
     adj.reset();
     // Route capped text fields through tracker so silent truncations are counted.
-    adj.track(describeTextCap(draft.title, TASK_NAME_MAX));
+    adj.track(describeTextCap(draft.title, BUDGET_NAME_MAX));
     adj.track(describeTextCap(draft.description ?? "", TEXTAREA_MAX));
-    adj.track(describeTextCap(draft.requestedBy ?? "", ASSIGNEE_MAX));
-    adj.track(describeTextCap(draft.decisionBy ?? "", ASSIGNEE_MAX));
+    adj.track(describeTextCap(draft.requestedBy ?? "", BUDGET_NAME_MAX));
+    adj.track(describeTextCap(draft.decisionBy ?? "", BUDGET_NAME_MAX));
+    adj.track(describeTextCap(draft.impactDescription ?? "", TEXTAREA_MAX));
+    adj.track(describeTextCap(draft.resolutionNotes ?? "", TEXTAREA_MAX));
     if (adj.count() > 0) showToast("info", t(lang, "fieldsAdjusted", adj.count()));
     onSave();
   }
@@ -234,11 +236,11 @@ export function ChangeEditModal({
               required
               value={draft.title}
               onChange={(e) => update("title", e.target.value)}
-              onBlur={(e) => update("title", describeTextCap(e.target.value, TASK_NAME_MAX).value.trim())}
+              onBlur={(e) => update("title", describeTextCap(e.target.value, BUDGET_NAME_MAX).value.trim())}
               aria-describedby="change-title-counter"
               className={INPUT_CLASS}
             />
-            <CharCounter value={draft.title} max={TASK_NAME_MAX} id="change-title-counter" lang={lang} />
+            <CharCounter value={draft.title} max={BUDGET_NAME_MAX} id="change-title-counter" lang={lang} />
           </label>
 
           {/* Type */}
@@ -334,13 +336,13 @@ export function ChangeEditModal({
                 update("requestedBy", e.target.value || undefined)
               }
               onBlur={(e) => {
-                const trimmed = describeTextCap(e.target.value, ASSIGNEE_MAX).value.trim();
+                const trimmed = describeTextCap(e.target.value, BUDGET_NAME_MAX).value.trim();
                 update("requestedBy", trimmed || undefined);
               }}
               aria-describedby="change-requestedBy-counter"
               className={INPUT_CLASS}
             />
-            <CharCounter value={draft.requestedBy ?? ""} max={ASSIGNEE_MAX} id="change-requestedBy-counter" lang={lang} />
+            <CharCounter value={draft.requestedBy ?? ""} max={BUDGET_NAME_MAX} id="change-requestedBy-counter" lang={lang} />
           </label>
 
           {/* Impact description */}
@@ -354,8 +356,11 @@ export function ChangeEditModal({
               onChange={(e) =>
                 update("impactDescription", e.target.value || undefined)
               }
+              onBlur={(e) => update("impactDescription", describeTextCap(e.target.value, TEXTAREA_MAX).value || undefined)}
+              aria-describedby="change-impactDescription-counter"
               className={INPUT_CLASS}
             />
+            <CharCounter value={draft.impactDescription ?? ""} max={TEXTAREA_MAX} id="change-impactDescription-counter" lang={lang} />
           </label>
 
           {/* Schedule impact (days) */}
@@ -437,13 +442,13 @@ export function ChangeEditModal({
                 update("decisionBy", e.target.value || undefined)
               }
               onBlur={(e) => {
-                const trimmed = describeTextCap(e.target.value, ASSIGNEE_MAX).value.trim();
+                const trimmed = describeTextCap(e.target.value, BUDGET_NAME_MAX).value.trim();
                 update("decisionBy", trimmed || undefined);
               }}
               aria-describedby="change-decisionBy-counter"
               className={INPUT_CLASS}
             />
-            <CharCounter value={draft.decisionBy ?? ""} max={ASSIGNEE_MAX} id="change-decisionBy-counter" lang={lang} />
+            <CharCounter value={draft.decisionBy ?? ""} max={BUDGET_NAME_MAX} id="change-decisionBy-counter" lang={lang} />
           </label>
 
           {/* Decision date — read-only display when set (auto-filled by status). */}
@@ -469,8 +474,11 @@ export function ChangeEditModal({
               onChange={(e) =>
                 update("resolutionNotes", e.target.value || undefined)
               }
+              onBlur={(e) => update("resolutionNotes", describeTextCap(e.target.value, TEXTAREA_MAX).value || undefined)}
+              aria-describedby="change-resolutionNotes-counter"
               className={INPUT_CLASS}
             />
+            <CharCounter value={draft.resolutionNotes ?? ""} max={TEXTAREA_MAX} id="change-resolutionNotes-counter" lang={lang} />
           </label>
 
           {/* Linked tasks --------------------------------------------- */}
