@@ -1,0 +1,1296 @@
+{
+  "schemaVersion": 9,
+  "tasks": [
+    {
+      "id": 1,
+      "taskName": "Design SSO architecture",
+      "assignee": "Alex Example",
+      "assigneeEmail": "Sample.Dummy@example.com",
+      "startDate": "2026-04-01",
+      "dueDate": "2026-04-20",
+      "lastUpdateDate": "2026-04-22",
+      "priority": "High",
+      "blockers": "",
+      "notes": "Reviewed OIDC vs SAML; OIDC selected based on partner roadmap.",
+      "completedDate": "2026-04-22",
+      "inquiriesSent": 0,
+      "group": "Auth Migration",
+      "labels": [
+        "design",
+        "architecture"
+      ],
+      "dependencies": [],
+      "jiraKey": "LOP-101",
+      "jiraIssueType": "Story",
+      "resourceId": 1
+    },
+    {
+      "id": 2,
+      "taskName": "POC OIDC integration",
+      "assignee": "Sam Placeholder",
+      "assigneeEmail": "Fictional.Jordan@example.com",
+      "startDate": "2026-04-15",
+      "dueDate": "2026-04-30",
+      "lastUpdateDate": "2026-05-04",
+      "priority": "High",
+      "blockers": "",
+      "notes": "Worked through token refresh edge cases. One inquiry from product lead about UX. Merged to main.",
+      "completedDate": "2026-05-04",
+      "inquiriesSent": 1,
+      "group": "Auth Migration",
+      "labels": [
+        "poc",
+        "backend"
+      ],
+      "dependencies": [
+        {
+          "taskId": 1,
+          "type": "FS"
+        }
+      ],
+      "jiraKey": "LOP-102",
+      "jiraIssueType": "Story",
+      "resourceId": 2
+    },
+    {
+      "id": 3,
+      "taskName": "Stakeholder workshop",
+      "assignee": "Taylor Specimen",
+      "assigneeEmail": "aria.patel@example.com",
+      "dueDate": "2026-05-05",
+      "lastUpdateDate": "2026-05-05",
+      "priority": "Medium",
+      "blockers": "",
+      "notes": "Workshop with security, legal, product. Action items captured in Confluence: SSO-2026-Q2.",
+      "completedDate": "2026-05-05",
+      "inquiriesSent": 0,
+      "group": "Auth Migration",
+      "labels": [
+        "planning",
+        "stakeholder"
+      ],
+      "dependencies": [
+        {
+          "taskId": 2,
+          "type": "SS"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "taskName": "Backend API skeleton",
+      "assignee": "Sam Placeholder",
+      "assigneeEmail": "Fictional.Jordan@example.com",
+      "startDate": "2026-05-04",
+      "dueDate": "2026-05-12",
+      "lastUpdateDate": "2026-05-13",
+      "priority": "Urgent",
+      "blockers": "Waiting on database schema review from DBA team.",
+      "notes": "Stalled while Jane is on holiday. Rate-limit middleware design needs review; current draft uses sliding-window over Redis.",
+      "inquiriesSent": 3,
+      "group": "Auth Migration",
+      "labels": [
+        "backend",
+        "api"
+      ],
+      "dependencies": [
+        {
+          "taskId": 2,
+          "type": "FS"
+        }
+      ],
+      "jiraKey": "LOP-103",
+      "jiraIssueType": "Story",
+      "lastSyncedAt": "2026-05-13T10:30:00.000Z",
+      "localModifiedAt": "2026-05-13T10:35:12.000Z",
+      "resourceId": 2
+    },
+    {
+      "id": 5,
+      "taskName": "Frontend login flow",
+      "assignee": "Alex Example",
+      "assigneeEmail": "Sample.Dummy@example.com",
+      "startDate": "2026-05-15",
+      "dueDate": "2026-05-22",
+      "lastUpdateDate": "2026-05-14",
+      "priority": "High",
+      "blockers": "",
+      "notes": "React component scaffolded; need to wire token storage. Considering httpOnly cookie vs sessionStorage tradeoff.",
+      "inquiriesSent": 0,
+      "group": "Auth Migration",
+      "labels": [
+        "frontend",
+        "ui"
+      ],
+      "dependencies": [
+        {
+          "taskId": 4,
+          "type": "FS"
+        }
+      ],
+      "localModifiedAt": "2026-05-14T16:20:00.000Z",
+      "resourceId": 1
+    },
+    {
+      "id": 6,
+      "taskName": "Migration script for legacy users",
+      "assignee": "Sam Placeholder",
+      "assigneeEmail": "Fictional.Jordan@example.com",
+      "startDate": "2026-05-12",
+      "dueDate": "2026-05-25",
+      "lastUpdateDate": "2026-05-15",
+      "priority": "High",
+      "blockers": "Pending DBA approval on dry-run plan.",
+      "notes": "50k legacy users with bcrypt-hashed passwords. Plan for incremental migration in 5k batches with rollback markers.",
+      "inquiriesSent": 2,
+      "group": "Auth Migration",
+      "labels": [
+        "backend",
+        "migration"
+      ],
+      "dependencies": [
+        {
+          "taskId": 3,
+          "type": "FS"
+        }
+      ],
+      "healthOverride": "R",
+      "resourceId": 2
+    },
+    {
+      "id": 7,
+      "taskName": "Security review",
+      "assignee": "Morgan Standin",
+      "assigneeEmail": "Invented.Riley@example.com",
+      "startDate": "2026-05-20",
+      "dueDate": "2026-06-02",
+      "lastUpdateDate": "2026-05-15",
+      "priority": "Medium",
+      "blockers": "",
+      "notes": "Schedule with InfoSec. Expect ~1 week turnaround. Scope: token storage, redirect URIs, CSP, session fixation.",
+      "inquiriesSent": 0,
+      "group": "Auth Migration",
+      "labels": [
+        "security",
+        "compliance"
+      ],
+      "dependencies": [
+        {
+          "taskId": 4,
+          "type": "FS"
+        }
+      ],
+      "resourceId": 4
+    },
+    {
+      "id": 8,
+      "taskName": "Load testing",
+      "assignee": "Sam Placeholder",
+      "assigneeEmail": "Fictional.Jordan@example.com",
+      "startDate": "2026-06-03",
+      "dueDate": "2026-06-10",
+      "lastUpdateDate": "2026-05-15",
+      "priority": "Medium",
+      "blockers": "",
+      "notes": "Target: 10k concurrent logins/sec sustained for 30 minutes. Tools: k6 or Gatling. Hold a slot in the staging env.",
+      "inquiriesSent": 0,
+      "group": "Auth Migration",
+      "labels": [
+        "testing",
+        "performance"
+      ],
+      "dependencies": [
+        {
+          "taskId": 5,
+          "type": "FS"
+        },
+        {
+          "taskId": 6,
+          "type": "FS"
+        }
+      ],
+      "resourceId": 2
+    },
+    {
+      "id": 9,
+      "taskName": "Documentation",
+      "assignee": "Taylor Specimen",
+      "assigneeEmail": "aria.patel@example.com",
+      "dueDate": "2026-06-15",
+      "lastUpdateDate": "2026-05-10",
+      "priority": "Low",
+      "blockers": "",
+      "notes": "Update Confluence runbook + internal API docs. Add a runbook for token rotation incidents.",
+      "inquiriesSent": 0,
+      "group": "Auth Migration",
+      "labels": [
+        "docs"
+      ],
+      "dependencies": [
+        {
+          "taskId": 8,
+          "type": "FF"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "taskName": "Production cutover",
+      "assignee": "Alex Example",
+      "assigneeEmail": "Sample.Dummy@example.com",
+      "dueDate": "2026-06-20",
+      "lastUpdateDate": "2026-05-15",
+      "priority": "Urgent",
+      "blockers": "",
+      "notes": "Maintenance window: Sun 02:00-06:00 UTC. Rollback via DNS flip (60s TTL pre-staged). Status page banner from -30min.",
+      "inquiriesSent": 0,
+      "group": "Auth Migration",
+      "labels": [
+        "deployment",
+        "critical"
+      ],
+      "dependencies": [
+        {
+          "taskId": 7,
+          "type": "FS"
+        },
+        {
+          "taskId": 8,
+          "type": "FS"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "taskName": "Quarterly OKR review",
+      "assignee": "Morgan Standin",
+      "assigneeEmail": "Invented.Riley@example.com",
+      "dueDate": "2026-05-30",
+      "lastUpdateDate": "2026-05-08",
+      "priority": "Medium",
+      "blockers": "",
+      "notes": "Compile Q2 metrics: KR1 conversion, KR2 incident MTTR, KR3 NPS. Slides due 48h before steering committee.",
+      "inquiriesSent": 0,
+      "group": "Operations",
+      "labels": [
+        "okr",
+        "reporting"
+      ],
+      "dependencies": [],
+      "resourceId": 4
+    },
+    {
+      "id": 12,
+      "taskName": "Vendor renewal: Datadog",
+      "assignee": "Taylor Specimen",
+      "assigneeEmail": "aria.patel@example.com",
+      "dueDate": "2026-07-01",
+      "lastUpdateDate": "2026-05-15",
+      "priority": "Low",
+      "blockers": "",
+      "notes": "Auto-renew expires 2026-07-15. Negotiate seat count downward (we overprovisioned by ~30%).",
+      "inquiriesSent": 0,
+      "group": "Operations",
+      "labels": [
+        "vendor",
+        "renewal"
+      ],
+      "dependencies": [
+        {
+          "taskId": 11,
+          "type": "SF"
+        }
+      ],
+      "resourceId": 3
+    },
+    {
+      "id": 13,
+      "taskName": "Dev environment setup",
+      "assignee": "Sam Placeholder",
+      "assigneeEmail": "Fictional.Jordan@example.com",
+      "startDate": "2026-03-28",
+      "dueDate": "2026-04-04",
+      "lastUpdateDate": "2026-04-05",
+      "priority": "Medium",
+      "blockers": "",
+      "notes": "Docker Compose stack + seed data scripts ready. All four team members confirmed access.",
+      "completedDate": "2026-04-05",
+      "inquiriesSent": 0,
+      "group": "Auth Migration",
+      "labels": [
+        "infra",
+        "devops"
+      ],
+      "dependencies": [],
+      "jiraKey": "LOP-100",
+      "jiraIssueType": "Task",
+      "lastSyncedAt": "2026-05-13T10:30:00.000Z",
+      "resourceId": 2
+    },
+    {
+      "id": 14,
+      "taskName": "Risk & compliance kick-off",
+      "assignee": "Morgan Standin",
+      "assigneeEmail": "Invented.Riley@example.com",
+      "startDate": "2026-04-08",
+      "dueDate": "2026-04-10",
+      "lastUpdateDate": "2026-04-10",
+      "priority": "Medium",
+      "blockers": "",
+      "notes": "Identified 4 risk items. RAID log bootstrapped. SOC2 evidence tracker set up in Confluence.",
+      "completedDate": "2026-04-10",
+      "inquiriesSent": 0,
+      "group": "Auth Migration",
+      "labels": [
+        "planning",
+        "compliance"
+      ],
+      "dependencies": [
+        {
+          "taskId": 1,
+          "type": "FS"
+        }
+      ],
+      "resourceId": 4
+    }
+  ],
+  "raid": [
+    {
+      "id": 1,
+      "category": "R",
+      "title": "Legacy user data corruption during migration",
+      "description": "50k bcrypt-hashed passwords; corruption could lock users out of all services.",
+      "severity": "High",
+      "probability": 3,
+      "impact": 5,
+      "status": "Mitigated",
+      "owner": "Sam Placeholder",
+      "ownerEmail": "Fictional.Jordan@example.com",
+      "mitigation": "Pre-migration backup + 5k-batch dry-runs with rollback markers. Weekly integrity checks during cutover week.",
+      "linkedTaskIds": [
+        6
+      ],
+      "raisedDate": "2026-04-25",
+      "targetDate": "2026-06-15",
+      "causedByRaidIds": [],
+      "stakeholderIds": []
+    },
+    {
+      "id": 2,
+      "category": "R",
+      "title": "SSO provider outage during peak hours",
+      "description": "Vendor-side downtime would block all logins for all users.",
+      "severity": "Medium",
+      "probability": 2,
+      "impact": 4,
+      "status": "Open",
+      "owner": "Morgan Standin",
+      "ownerEmail": "Invented.Riley@example.com",
+      "mitigation": "Provider SLA: 99.95%. Fallback: temporary local-account bypass for ops accounts (documented, time-boxed).",
+      "linkedTaskIds": [],
+      "raisedDate": "2026-05-01",
+      "causedByRaidIds": [],
+      "stakeholderIds": [
+        1,
+        6
+      ]
+    },
+    {
+      "id": 3,
+      "category": "R",
+      "title": "Performance regression on login under load",
+      "description": "Auth path adds 200ms p95 latency vs baseline; could degrade homepage TTFB.",
+      "severity": "High",
+      "probability": 4,
+      "impact": 3,
+      "status": "Realized",
+      "owner": "Sam Placeholder",
+      "ownerEmail": "Fictional.Jordan@example.com",
+      "mitigation": "Token verification cached; index added on session lookup. Still monitoring.",
+      "linkedTaskIds": [
+        4
+      ],
+      "raisedDate": "2026-05-08",
+      "causedByRaidIds": [],
+      "stakeholderIds": []
+    },
+    {
+      "id": 4,
+      "category": "R",
+      "title": "Third-party dependency with known CVE",
+      "description": "passport-oauth2 v1.7.0 has CVE-2024-9999 (moderate); upgrade blocked by peer-dep conflict.",
+      "severity": "Medium",
+      "probability": 3,
+      "impact": 3,
+      "status": "Open",
+      "owner": "Alex Example",
+      "ownerEmail": "Sample.Dummy@example.com",
+      "mitigation": "Pinned to patched fork until upstream releases v1.8.0. Scheduled upgrade 2026-06-01.",
+      "linkedTaskIds": [
+        5
+      ],
+      "raisedDate": "2026-05-12",
+      "targetDate": "2026-06-01",
+      "causedByRaidIds": [],
+      "stakeholderIds": []
+    },
+    {
+      "id": 5,
+      "category": "A",
+      "title": "Users accept 4-hour maintenance window for cutover",
+      "description": "Comms team confirmed via survey: 92% acceptance for off-hours maintenance.",
+      "severity": "Medium",
+      "status": "Validated",
+      "owner": "Taylor Specimen",
+      "ownerEmail": "aria.patel@example.com",
+      "linkedTaskIds": [],
+      "raisedDate": "2026-05-05",
+      "causedByRaidIds": [],
+      "stakeholderIds": []
+    },
+    {
+      "id": 6,
+      "category": "A",
+      "title": "All team members briefed on new auth flow",
+      "description": "Assumed frontend devs know the new cookie/token contract.",
+      "status": "Invalidated",
+      "owner": "Alex Example",
+      "ownerEmail": "Sample.Dummy@example.com",
+      "mitigation": "Assumption was wrong — ran a knowledge check; 2 of 4 devs unaware. Remediated with doc session on 2026-05-15.",
+      "linkedTaskIds": [
+        5
+      ],
+      "raisedDate": "2026-05-01",
+      "closedDate": "2026-05-15",
+      "causedByRaidIds": [],
+      "stakeholderIds": []
+    },
+    {
+      "id": 7,
+      "category": "A",
+      "title": "Staging environment mirrors production load",
+      "description": "Capacity planning assumes staging handles realistic load. If wrong load tests will be misleading.",
+      "status": "Open",
+      "owner": "Sam Placeholder",
+      "ownerEmail": "Fictional.Jordan@example.com",
+      "linkedTaskIds": [
+        8
+      ],
+      "raisedDate": "2026-05-10",
+      "targetDate": "2026-06-03",
+      "causedByRaidIds": [],
+      "stakeholderIds": []
+    },
+    {
+      "id": 8,
+      "category": "I",
+      "title": "SSO redirect loop on Safari",
+      "description": "SameSite=Strict cookie + cross-origin redirect chain triggers Safari ITP loop — surfaced in testing.",
+      "severity": "High",
+      "status": "In Progress",
+      "owner": "Sam Placeholder",
+      "ownerEmail": "Fictional.Jordan@example.com",
+      "mitigation": "Workaround in dev: SameSite=Lax. Need security review before prod.",
+      "linkedTaskIds": [
+        4,
+        5
+      ],
+      "raisedDate": "2026-05-13",
+      "targetDate": "2026-05-22",
+      "causedByRaidIds": [
+        3
+      ],
+      "stakeholderIds": []
+    },
+    {
+      "id": 9,
+      "category": "I",
+      "title": "Rate-limit counter not resetting correctly",
+      "description": "Sliding-window counter in Redis does not reset on TTL expiry under high concurrency; causes spurious 429s.",
+      "severity": "High",
+      "status": "Open",
+      "owner": "Sam Placeholder",
+      "ownerEmail": "Fictional.Jordan@example.com",
+      "mitigation": "Being investigated. Temporary mitigation: raised threshold to 500 req/min.",
+      "linkedTaskIds": [
+        4
+      ],
+      "raisedDate": "2026-05-17",
+      "targetDate": "2026-05-24",
+      "causedByRaidIds": [],
+      "stakeholderIds": []
+    },
+    {
+      "id": 10,
+      "category": "I",
+      "title": "Accessibility gap in login form",
+      "description": "Missing ARIA labels on password toggle button; flagged by axe-core in CI.",
+      "severity": "Low",
+      "status": "Resolved",
+      "owner": "Alex Example",
+      "ownerEmail": "Sample.Dummy@example.com",
+      "mitigation": "Fixed in PR #87; merged 2026-05-16.",
+      "linkedTaskIds": [
+        5
+      ],
+      "raisedDate": "2026-05-16",
+      "closedDate": "2026-05-16",
+      "causedByRaidIds": [],
+      "stakeholderIds": []
+    },
+    {
+      "id": 11,
+      "category": "D",
+      "title": "Compliance team sign-off for production",
+      "description": "InfoSec must approve SOC2 evidence package before cutover.",
+      "severity": "Medium",
+      "status": "Open",
+      "owner": "Morgan Standin",
+      "ownerEmail": "Invented.Riley@example.com",
+      "linkedTaskIds": [
+        7
+      ],
+      "raisedDate": "2026-05-10",
+      "targetDate": "2026-06-02",
+      "causedByRaidIds": [],
+      "stakeholderIds": [
+        1,
+        5
+      ]
+    },
+    {
+      "id": 12,
+      "category": "D",
+      "title": "Network team firewall changes",
+      "description": "Egress rules to api.sso-provider.com on 443.",
+      "severity": "Medium",
+      "status": "Delivered",
+      "owner": "Taylor Specimen",
+      "ownerEmail": "aria.patel@example.com",
+      "mitigation": "Confirmed by ticket NET-2342 closed 2026-05-10.",
+      "linkedTaskIds": [
+        4
+      ],
+      "raisedDate": "2026-04-28",
+      "targetDate": "2026-05-10",
+      "closedDate": "2026-05-10",
+      "causedByRaidIds": [],
+      "stakeholderIds": []
+    },
+    {
+      "id": 13,
+      "category": "D",
+      "title": "DBA schema approval for migration tables",
+      "description": "DBA must approve 3 new tables + 2 indexes before migration script can run in prod.",
+      "severity": "High",
+      "status": "Open",
+      "owner": "Morgan Standin",
+      "ownerEmail": "Invented.Riley@example.com",
+      "linkedTaskIds": [
+        6
+      ],
+      "raisedDate": "2026-05-14",
+      "targetDate": "2026-05-21",
+      "causedByRaidIds": [
+        11
+      ],
+      "stakeholderIds": [
+        5
+      ]
+    }
+  ],
+  "absences": [
+    {
+      "id": 1,
+      "assignee": "Alex Example",
+      "assigneeEmail": "Sample.Dummy@example.com",
+      "startDate": "2026-06-01",
+      "endDate": "2026-06-14",
+      "type": "vacation",
+      "note": "Family trip",
+      "localModifiedAt": ""
+    },
+    {
+      "id": 2,
+      "assignee": "Sam Placeholder",
+      "assigneeEmail": "Fictional.Jordan@example.com",
+      "startDate": "2026-05-28",
+      "endDate": "2026-05-28",
+      "type": "sick",
+      "localModifiedAt": ""
+    },
+    {
+      "id": 3,
+      "assignee": "Taylor Specimen",
+      "assigneeEmail": "aria.patel@example.com",
+      "startDate": "2026-06-23",
+      "endDate": "2026-06-25",
+      "type": "training",
+      "note": "Kubernetes cert",
+      "localModifiedAt": ""
+    },
+    {
+      "id": 4,
+      "assignee": "Morgan Standin",
+      "assigneeEmail": "Invented.Riley@example.com",
+      "startDate": "2026-06-17",
+      "endDate": "2026-06-18",
+      "type": "other",
+      "note": "Offsite leadership summit",
+      "localModifiedAt": ""
+    },
+    {
+      "id": 5,
+      "assignee": "Sam Placeholder",
+      "assigneeEmail": "Fictional.Jordan@example.com",
+      "startDate": "2026-07-07",
+      "endDate": "2026-07-11",
+      "type": "vacation",
+      "note": "Summer holiday",
+      "localModifiedAt": ""
+    }
+  ],
+  "shifts": [
+    {
+      "id": 1,
+      "assignee": "Alex Example",
+      "assigneeEmail": "Sample.Dummy@example.com",
+      "hoursPerWeekday": [
+        0,
+        8,
+        8,
+        8,
+        8,
+        8,
+        0
+      ],
+      "note": "Standard 5-day week",
+      "localModifiedAt": ""
+    },
+    {
+      "id": 2,
+      "assignee": "Sam Placeholder",
+      "assigneeEmail": "Fictional.Jordan@example.com",
+      "hoursPerWeekday": [
+        0,
+        10,
+        10,
+        10,
+        10,
+        0,
+        0
+      ],
+      "note": "Compressed 4-day week",
+      "localModifiedAt": ""
+    },
+    {
+      "id": 3,
+      "assignee": "Taylor Specimen",
+      "assigneeEmail": "aria.patel@example.com",
+      "hoursPerWeekday": [
+        0,
+        8,
+        8,
+        8,
+        8,
+        4,
+        0
+      ],
+      "note": "Short Friday",
+      "localModifiedAt": ""
+    },
+    {
+      "id": 4,
+      "assignee": "Morgan Standin",
+      "assigneeEmail": "Invented.Riley@example.com",
+      "hoursPerWeekday": [
+        0,
+        6,
+        6,
+        6,
+        6,
+        6,
+        0
+      ],
+      "note": "30h part-time",
+      "localModifiedAt": ""
+    }
+  ],
+  "resources": [
+    {
+      "id": 1,
+      "firstName": "Sample",
+      "lastName": "Dummy",
+      "roleId": 1,
+      "utilizationMode": "percent",
+      "utilization": {
+        "2026-04": 80,
+        "2026-05": 100,
+        "2026-06": 60,
+        "2026-07": 50
+      },
+      "email": "Sample.Dummy@example.com",
+      "title": "Lead Architect",
+      "businessPhone": "+49 30 5550101",
+      "location": "Berlin",
+      "department": "IAM",
+      "company": "Acme",
+      "birthday": "06-14",
+      "notes": "Primary SSO architect; OIDC lead.",
+      "absenceOverride": {
+        "2026-06": 88
+      }
+    },
+    {
+      "id": 2,
+      "firstName": "Fictional",
+      "lastName": "Jordan",
+      "roleId": 2,
+      "utilizationMode": "percent",
+      "utilization": {
+        "2026-04": 100,
+        "2026-05": 100,
+        "2026-06": 80,
+        "2026-07": 30
+      },
+      "email": "Fictional.Jordan@example.com",
+      "title": "Senior Developer",
+      "businessPhone": "+49 89 5550102",
+      "location": "Munich",
+      "department": "Engineering",
+      "company": "Acme",
+      "birthday": "11-02",
+      "notes": "Backend and migration tooling."
+    },
+    {
+      "id": 3,
+      "firstName": "Aria",
+      "lastName": "Patel",
+      "roleId": 3,
+      "utilizationMode": "hours",
+      "utilization": {
+        "2026-04": 40,
+        "2026-05": 60,
+        "2026-06": 56,
+        "2026-07": 32
+      },
+      "email": "aria.patel@example.com",
+      "title": "Business Analyst",
+      "businessPhone": "+44 20 5550103",
+      "location": "London",
+      "department": "Consulting",
+      "company": "Acme",
+      "birthday": "03-27",
+      "notes": "Stakeholder workshops; part-time (hours mode)."
+    },
+    {
+      "id": 4,
+      "firstName": "Invented",
+      "lastName": "Riley",
+      "roleId": 4,
+      "utilizationMode": "percent",
+      "utilization": {
+        "2026-04": 50,
+        "2026-05": 60,
+        "2026-06": 50,
+        "2026-07": 30
+      },
+      "email": "Invented.Riley@example.com",
+      "title": "Project Manager",
+      "businessPhone": "+49 30 5550104",
+      "location": "Berlin",
+      "department": "PMO",
+      "company": "Acme",
+      "birthday": "09-08",
+      "notes": "Compliance and RAID owner."
+    },
+    {
+      "id": 5,
+      "firstName": "David",
+      "lastName": "Avery",
+      "roleId": 5,
+      "utilizationMode": "percent",
+      "utilization": {
+        "2026-04": 100,
+        "2026-05": 0,
+        "2026-06": 0,
+        "2026-07": 0
+      },
+      "email": "david.Avery@example.com",
+      "title": "Consultant",
+      "businessPhone": "+48 22 5550105",
+      "location": "Warsaw",
+      "department": "Consulting",
+      "company": "Acme",
+      "birthday": "12-30",
+      "notes": "Rolled off after April (0% utilization)."
+    }
+  ],
+  "roles": [
+    {
+      "id": 1,
+      "disciplineId": 1,
+      "gradeId": 4,
+      "internalRate": 95,
+      "externalRate": 145
+    },
+    {
+      "id": 2,
+      "disciplineId": 1,
+      "gradeId": 5,
+      "internalRate": 110,
+      "externalRate": 165
+    },
+    {
+      "id": 3,
+      "disciplineId": 2,
+      "gradeId": 3,
+      "internalRate": 80,
+      "externalRate": 120
+    },
+    {
+      "id": 4,
+      "disciplineId": 4,
+      "gradeId": 4,
+      "internalRate": 100,
+      "externalRate": 150
+    },
+    {
+      "id": 5,
+      "disciplineId": 1,
+      "gradeId": 3,
+      "internalRate": 75,
+      "externalRate": 110
+    },
+    {
+      "id": 6,
+      "disciplineId": 3,
+      "gradeId": 5,
+      "internalRate": 115,
+      "externalRate": 170
+    }
+  ],
+  "disciplines": [
+    {
+      "id": 1,
+      "name": "Developer"
+    },
+    {
+      "id": 2,
+      "name": "Business Analyst"
+    },
+    {
+      "id": 3,
+      "name": "Consultant"
+    },
+    {
+      "id": 4,
+      "name": "Project Manager"
+    }
+  ],
+  "grades": [
+    {
+      "id": 1,
+      "name": "Junior"
+    },
+    {
+      "id": 2,
+      "name": "Associate"
+    },
+    {
+      "id": 3,
+      "name": "Consultant"
+    },
+    {
+      "id": 4,
+      "name": "Senior"
+    },
+    {
+      "id": 5,
+      "name": "Lead"
+    },
+    {
+      "id": 6,
+      "name": "Principal"
+    }
+  ],
+  "plan": {
+    "startDate": "2026-04-01",
+    "endDate": "2026-07-31",
+    "granularity": "month",
+    "currency": "EUR"
+  },
+  "budgets": [
+    {
+      "id": 1,
+      "name": "Identity Platform – T&M",
+      "type": "tm",
+      "currency": "EUR",
+      "startDate": "2026-04-01",
+      "endDate": "2026-07-31",
+      "status": "open",
+      "allocations": [
+        {
+          "roleId": 1,
+          "resourceIds": [
+            1
+          ],
+          "budgetHours": {
+            "2026-04": 120,
+            "2026-05": 120,
+            "2026-06": 80,
+            "2026-07": 60
+          },
+          "actualHours": {
+            "2026-04": 118,
+            "2026-05": 130,
+            "2026-06": 44
+          }
+        },
+        {
+          "roleId": 3,
+          "resourceIds": [
+            3
+          ],
+          "budgetHours": {
+            "2026-04": 60,
+            "2026-05": 80,
+            "2026-06": 70,
+            "2026-07": 40
+          },
+          "actualHours": {
+            "2026-04": 55,
+            "2026-05": 78
+          }
+        },
+        {
+          "roleId": 4,
+          "resourceIds": [
+            4
+          ],
+          "budgetHours": {
+            "2026-04": 40,
+            "2026-05": 40,
+            "2026-06": 40,
+            "2026-07": 30
+          },
+          "actualHours": {
+            "2026-04": 42,
+            "2026-05": 38
+          }
+        }
+      ],
+      "poNumber": "4400125303",
+      "order": 0,
+      "planningMode": "detailed"
+    },
+    {
+      "id": 2,
+      "name": "Advisory Retainer (blended)",
+      "type": "tm",
+      "currency": "EUR",
+      "startDate": "2026-04-01",
+      "endDate": "2026-07-31",
+      "status": "open",
+      "allocations": [],
+      "poNumber": "4400141354",
+      "order": 1,
+      "planningMode": "blended",
+      "disciplineAllocations": [
+        {
+          "disciplineId": 3,
+          "resourceIds": [
+            5
+          ],
+          "budgetHours": {
+            "2026-04": 80,
+            "2026-05": 80,
+            "2026-06": 60
+          },
+          "actualHours": {
+            "2026-04": 75,
+            "2026-05": 82
+          }
+        },
+        {
+          "disciplineId": 1,
+          "resourceIds": [
+            2
+          ],
+          "budgetHours": {
+            "2026-04": 40,
+            "2026-05": 40
+          },
+          "actualHours": {
+            "2026-04": 38,
+            "2026-05": 36
+          }
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "Capped SOW (rate override)",
+      "type": "tm",
+      "currency": "EUR",
+      "startDate": "2026-04-01",
+      "endDate": "2026-07-31",
+      "status": "open",
+      "allocations": [
+        {
+          "roleId": 2,
+          "resourceIds": [
+            2
+          ],
+          "budgetHours": {
+            "2026-04": 50,
+            "2026-05": 50,
+            "2026-06": 50
+          },
+          "actualHours": {
+            "2026-04": 48,
+            "2026-05": 52
+          }
+        }
+      ],
+      "poNumber": "4400087177",
+      "order": 2,
+      "planningMode": "detailed",
+      "rateOverrideInternal": 90,
+      "rateOverrideExternal": 200
+    },
+    {
+      "id": 4,
+      "name": "Data Migration (fixed price)",
+      "type": "fixed",
+      "currency": "EUR",
+      "startDate": "2026-04-01",
+      "endDate": "2026-07-31",
+      "status": "open",
+      "allocations": [
+        {
+          "roleId": 1,
+          "resourceIds": [
+            1
+          ],
+          "budgetHours": {
+            "2026-04": 60,
+            "2026-05": 60
+          },
+          "actualHours": {
+            "2026-04": 62,
+            "2026-05": 58
+          }
+        },
+        {
+          "roleId": 5,
+          "resourceIds": [
+            5
+          ],
+          "budgetHours": {
+            "2026-04": 40
+          },
+          "actualHours": {
+            "2026-04": 40
+          }
+        }
+      ],
+      "poNumber": "4400098499",
+      "fixedPriceAmount": 80000,
+      "order": 3,
+      "planningMode": "detailed"
+    },
+    {
+      "id": 5,
+      "name": "Discovery Phase (closed)",
+      "type": "tm",
+      "currency": "EUR",
+      "startDate": "2026-04-01",
+      "endDate": "2026-04-30",
+      "status": "closed",
+      "allocations": [
+        {
+          "roleId": 3,
+          "resourceIds": [
+            3
+          ],
+          "budgetHours": {
+            "2026-04": 50
+          },
+          "actualHours": {
+            "2026-04": 30
+          }
+        }
+      ],
+      "poNumber": "4400053230",
+      "successorId": 1,
+      "closedDate": "2026-04-30",
+      "order": 4,
+      "planningMode": "detailed"
+    }
+  ],
+  "fxRates": null,
+  "status": {},
+  "milestones": [
+    {
+      "id": 1,
+      "name": "Design Sign-off",
+      "date": "2026-04-20",
+      "linkedTaskIds": []
+    },
+    {
+      "id": 2,
+      "name": "Go-Live",
+      "date": "2026-09-01",
+      "linkedTaskIds": []
+    },
+    {
+      "id": 3,
+      "name": "Hypercare Exit",
+      "date": "2026-12-15",
+      "linkedTaskIds": []
+    }
+  ],
+  "changes": [
+    {
+      "id": 1,
+      "title": "Add MFA to SSO scope",
+      "description": "Extend the current SSO implementation to require multi-factor authentication (TOTP / push) for all privileged accounts before production go-live. Driven by updated InfoSec policy issued 2026-05-20.",
+      "type": "Scope",
+      "status": "Under Review",
+      "impact": "High",
+      "impactDescription": "Adds ~3 weeks of backend + frontend work. Requires additional security review cycle and re-scoping of load-test scenarios.",
+      "scheduleImpactDays": 21,
+      "costImpact": 18000,
+      "requestedBy": "Morgan Standin",
+      "raisedDate": "2026-05-21",
+      "decisionBy": "Elena Fischer",
+      "linkedTaskIds": [
+        2
+      ],
+      "linkedRaidIds": [
+        4
+      ],
+      "stakeholderIds": [
+        1,
+        5
+      ],
+      "localModifiedAt": "2026-05-21T09:00:00.000Z"
+    },
+    {
+      "id": 2,
+      "title": "Extend go-live by two weeks",
+      "description": "Proposed two-week slip of the production cutover (from 2026-09-01 to 2026-09-15) to accommodate the MFA scope addition and unresolved SSO provider SLA concerns. Allows a full regression cycle and a second hypercare rehearsal.",
+      "type": "Schedule",
+      "status": "Proposed",
+      "impact": "Medium",
+      "impactDescription": "Delays hypercare exit to 2026-12-29. Minor cost impact (two additional sprint weeks). Customer comms required; maintenance-window notice must be re-issued.",
+      "scheduleImpactDays": 14,
+      "costImpact": 6000,
+      "requestedBy": "Alex Example",
+      "raisedDate": "2026-05-28",
+      "decisionBy": "Elena Fischer",
+      "linkedTaskIds": [],
+      "linkedRaidIds": [
+        2
+      ],
+      "stakeholderIds": [
+        1,
+        4
+      ],
+      "localModifiedAt": "2026-05-28T14:30:00.000Z"
+    }
+  ],
+  "stakeholders": [
+    {
+      "id": 1,
+      "name": "Elena Fischer",
+      "category": "Sponsor",
+      "influence": "High",
+      "interest": "High",
+      "raci": {
+        "1": "A",
+        "2": "A",
+        "3": "C"
+      },
+      "organization": "Acme"
+    },
+    {
+      "id": 2,
+      "name": "Sam Placeholder",
+      "category": "Internal",
+      "influence": "High",
+      "interest": "Medium",
+      "raci": {
+        "1": "R",
+        "2": "A",
+        "3": "R"
+      },
+      "organization": "Acme",
+      "resourceId": 2
+    },
+    {
+      "id": 3,
+      "name": "Taylor Specimen",
+      "category": "Internal",
+      "influence": "Medium",
+      "interest": "High",
+      "raci": {
+        "1": "C",
+        "2": "R",
+        "3": "I"
+      },
+      "organization": "Acme",
+      "resourceId": 3
+    },
+    {
+      "id": 4,
+      "name": "David Okoro",
+      "category": "Customer",
+      "influence": "Medium",
+      "interest": "Medium",
+      "raci": {
+        "1": "I",
+        "2": "C",
+        "3": "C"
+      },
+      "organization": "Acme Corp"
+    },
+    {
+      "id": 5,
+      "name": "Morgan Standin",
+      "category": "Regulator",
+      "influence": "High",
+      "interest": "Low",
+      "raci": {
+        "1": "I",
+        "2": "I",
+        "3": "C"
+      },
+      "organization": "InfoSec Authority",
+      "resourceId": 4
+    },
+    {
+      "id": 6,
+      "name": "Lena Vogt",
+      "category": "Vendor",
+      "influence": "Low",
+      "interest": "Low",
+      "raci": {},
+      "organization": "CloudVendor GmbH"
+    },
+    {
+      "id": 7,
+      "name": "Sam Rivera",
+      "category": "Other",
+      "influence": "Low",
+      "interest": "High",
+      "raci": {
+        "1": "I",
+        "2": "I",
+        "3": "R"
+      },
+      "organization": "Community Forum"
+    }
+  ]
+}
