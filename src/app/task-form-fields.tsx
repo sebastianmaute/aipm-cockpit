@@ -7,6 +7,7 @@ import { ContactInput } from "./contact-input";
 import type { listContacts } from "./contacts";
 import { DependenciesEditor } from "./dependencies-editor";
 import { formatDuration, parseDuration } from "./duration";
+import { CharCounter, FieldNotice } from "./field-feedback";
 import {
   computeTaskHealth,
   HEALTH_VALUES,
@@ -24,6 +25,7 @@ import {
   TEXTAREA_MAX,
   sanitizeVoiceTranscript,
 } from "./sanitize";
+import { describeTextCap } from "./sanitize-report";
 import { EffortProgressBar } from "./effort-progress-bar";
 import { SegmentedControl } from "./segmented-control";
 import { useTaskForm } from "./task-form-context";
@@ -116,10 +118,14 @@ export function TaskFormFields({
             <input
               type="text"
               required
-              maxLength={TASK_NAME_MAX}
+              aria-required="true"
               value={form.taskName}
               onChange={(e) => setForm({ ...form, taskName: e.target.value })}
+              onBlur={(e) =>
+                setForm({ ...form, taskName: describeTextCap(e.target.value, TASK_NAME_MAX).value.trim() })
+              }
               placeholder={t(lang, "placeholderTaskName")}
+              aria-describedby="taskName-counter"
               className={`${inputClass} pr-10`}
             />
             <InlineMicButton
@@ -137,6 +143,7 @@ export function TaskFormFields({
               onError={(msg) => onShowToast("error", msg)}
             />
           </div>
+          <CharCounter value={form.taskName} max={TASK_NAME_MAX} id="taskName-counter" lang={lang} />
         </Field>
 
         <Field label={t(lang, "assignee")} required>
@@ -186,6 +193,7 @@ export function TaskFormFields({
               +
             </button>
           </div>
+          <CharCounter value={form.assignee} max={ASSIGNEE_MAX} id="assignee-counter" lang={lang} />
           {editingIsJiraLinked && (
             <p className="mt-1 text-xs italic text-muted-foreground">
               🔒 {t(lang, "jiraManagedHint")}
@@ -196,14 +204,18 @@ export function TaskFormFields({
         <Field label={t(lang, "email")}>
           <input
             type="email"
-            maxLength={EMAIL_MAX}
             value={form.assigneeEmail}
             onChange={(e) =>
               setForm({ ...form, assigneeEmail: e.target.value })
             }
+            onBlur={(e) =>
+              setForm({ ...form, assigneeEmail: describeTextCap(e.target.value, EMAIL_MAX).value.trim() })
+            }
             placeholder={t(lang, "placeholderEmail")}
+            aria-describedby="email-counter"
             className={inputClass}
           />
+          <CharCounter value={form.assigneeEmail} max={EMAIL_MAX} id="email-counter" lang={lang} />
         </Field>
       </TaskFormSection>
 
@@ -290,6 +302,7 @@ export function TaskFormFields({
             placeholder={t(lang, "placeholderGroup")}
             maxLength={GROUP_MAX}
           />
+          <CharCounter value={form.group} max={GROUP_MAX} id="group-counter" lang={lang} />
         </Field>
 
         <EffortField
@@ -344,12 +357,16 @@ export function TaskFormFields({
         <Field label={t(lang, "blockers")} className="sm:col-span-2">
           <textarea
             rows={2}
-            maxLength={TEXTAREA_MAX}
             value={form.blockers}
             onChange={(e) => setForm({ ...form, blockers: e.target.value })}
+            onBlur={(e) =>
+              setForm({ ...form, blockers: describeTextCap(e.target.value, TEXTAREA_MAX).value })
+            }
             placeholder={t(lang, "placeholderBlockers")}
+            aria-describedby="blockers-counter"
             className={inputClass}
           />
+          <CharCounter value={form.blockers} max={TEXTAREA_MAX} id="blockers-counter" lang={lang} />
         </Field>
       </TaskFormSection>
 
@@ -427,12 +444,16 @@ export function TaskFormFields({
         <Field label={t(lang, "notes")} className="sm:col-span-2">
           <textarea
             rows={3}
-            maxLength={TEXTAREA_MAX}
             value={form.notes}
             onChange={(e) => setForm({ ...form, notes: e.target.value })}
+            onBlur={(e) =>
+              setForm({ ...form, notes: describeTextCap(e.target.value, TEXTAREA_MAX).value })
+            }
             placeholder={t(lang, "placeholderNotes")}
+            aria-describedby="notes-counter"
             className={inputClass}
           />
+          <CharCounter value={form.notes} max={TEXTAREA_MAX} id="notes-counter" lang={lang} />
         </Field>
 
         {error && (
@@ -514,11 +535,7 @@ function EffortField({
         placeholder={t(lang, "taskEffortHint")}
         className={inputClass}
       />
-      {invalid && (
-        <p className="mt-1 text-xs text-AIPM-pink">
-          {t(lang, "taskEffortInvalid")}
-        </p>
-      )}
+      {invalid && <FieldNotice>{t(lang, "taskEffortInvalid")}</FieldNotice>}
     </Field>
   );
 }

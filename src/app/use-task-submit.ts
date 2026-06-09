@@ -4,10 +4,16 @@ import type React from "react";
 import { emptyForm, type TaskFormDraft } from "./task-form-context";
 import { upsertContact, type ContactsMap } from "./contacts";
 import { type ActivityKind } from "./activity-log";
+import { useAdjustmentTracker } from "./field-feedback";
 import { t, type Lang } from "./i18n";
 import { type Settings } from "./settings-menu";
 import { type Task } from "./types";
 import {
+  ASSIGNEE_MAX,
+  EMAIL_MAX,
+  GROUP_MAX,
+  TASK_NAME_MAX,
+  TEXTAREA_MAX,
   isValidEmail,
   sanitizeAssignee,
   sanitizeBlockers,
@@ -20,6 +26,7 @@ import {
   sanitizePriority,
   sanitizeTaskName,
 } from "./sanitize";
+import { describeTextCap } from "./sanitize-report";
 
 export interface UseTaskSubmitArgs {
   form: TaskFormDraft;
@@ -59,18 +66,21 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
     setTasks,
     setContacts,
     logActivity,
+    showToast,
     onPushToJiraRef,
   } = args;
 
   const [error, setError] = useState<string | null>(null);
+  const adj = useAdjustmentTracker();
 
   const handleSubmit = useCallback(
     (e: React.FormEvent<HTMLFormElement>) => {
       e.preventDefault();
       setError(null);
+      adj.reset();
 
-      const taskName = sanitizeTaskName(form.taskName);
-      const assignee = sanitizeAssignee(form.assignee);
+      const taskName = sanitizeTaskName(adj.track(describeTextCap(form.taskName, TASK_NAME_MAX)));
+      const assignee = sanitizeAssignee(adj.track(describeTextCap(form.assignee, ASSIGNEE_MAX)));
       const dueDate = sanitizeIsoDate(form.dueDate);
 
       if (!taskName || !assignee || !dueDate) {
@@ -93,7 +103,7 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
         }
       }
 
-      const email = sanitizeEmail(form.assigneeEmail);
+      const email = sanitizeEmail(adj.track(describeTextCap(form.assigneeEmail, EMAIL_MAX)));
       if (email && !isValidEmail(email)) {
         setError(t(lang, "errorInvalidEmail"));
         return;
@@ -118,15 +128,19 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
         dueDate,
         lastUpdateDate: sanitizeIsoDate(form.lastUpdateDate) || today,
         priority: sanitizePriority(form.priority),
-        blockers: sanitizeBlockers(form.blockers),
-        notes: sanitizeNotes(form.notes),
-        group: sanitizeGroup(form.group),
+        blockers: sanitizeBlockers(adj.track(describeTextCap(form.blockers, TEXTAREA_MAX))),
+        notes: sanitizeNotes(adj.track(describeTextCap(form.notes, TEXTAREA_MAX))),
+        group: sanitizeGroup(adj.track(describeTextCap(form.group, GROUP_MAX))),
         labels: sanitizeLabels(form.labels),
         dependencies: cleanDependencies,
         healthOverride: form.healthOverride || undefined,
         originalEstimateMinutes: form.originalEstimateMinutes,
         timeSpentMinutes: form.timeSpentMinutes,
       };
+
+      if (adj.count() > 0) {
+        showToast("info", t(lang, "fieldsAdjusted", adj.count()));
+      }
 
       setContacts((prev) => upsertContact(prev, assignee, email));
 
@@ -176,6 +190,8 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
       setTaskModalOpen,
       setContacts,
       logActivity,
+      showToast,
+      adj,
       onPushToJiraRef,
     ],
   );
