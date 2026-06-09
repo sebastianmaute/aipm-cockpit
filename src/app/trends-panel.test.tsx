@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { render } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { TrendsPanel } from "./trends-panel";
 import type { SnapshotRecord, VarianceRow } from "./snapshot";
 
@@ -52,5 +52,15 @@ describe("TrendsPanel", () => {
     const { getByRole } = render(<TrendsPanel {...base} captureNow={captureNow} />);
     getByRole("button", { name: /capture/i }).click();
     expect(captureNow).toHaveBeenCalled();
+  });
+
+  it("renders a Print button (ReportCard toolbar)", () => {
+    render(<TrendsPanel {...base} />);
+    expect(screen.getByRole("button", { name: /print/i })).toBeInTheDocument();
+  });
+
+  it("renders a reset-size button (ReportCard toolbar)", () => {
+    render(<TrendsPanel {...base} />);
+    expect(screen.getByRole("button", { name: /reset.*size/i })).toBeInTheDocument();
   });
 });
