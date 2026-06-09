@@ -21,6 +21,8 @@
 
 import { type Workspace, workspaceToCsv, workspaceToMarkdown } from "./storage";
 import type { RaidItem, Task } from "./types";
+import type { ExportConfig } from "./settings-types";
+import { defaultExportConfig } from "./settings-types";
 
 export type ExportFormat = "csv" | "md" | "pdf" | "docx" | "xlsx" | "pptx";
 
@@ -300,7 +302,9 @@ function exportPdf(tasks: Task[], raid: readonly RaidItem[] = []): void {
 export async function exportWorkspace(
   ws: Workspace,
   format: ExportFormat,
+  exportConfig?: ExportConfig,
 ): Promise<void> {
+  const cfg = exportConfig ?? defaultExportConfig;
   if (format === "pdf") {
     exportPdf(ws.tasks, ws.raid);
     return;
@@ -308,9 +312,9 @@ export async function exportWorkspace(
 
   let blob: Blob;
   if (format === "csv") {
-    blob = new Blob([workspaceToCsv(ws)], { type: MIME.csv });
+    blob = new Blob([workspaceToCsv(ws, cfg)], { type: MIME.csv });
   } else if (format === "md") {
-    blob = new Blob([workspaceToMarkdown(ws)], { type: MIME.md });
+    blob = new Blob([workspaceToMarkdown(ws, cfg)], { type: MIME.md });
   } else {
     // OOXML builders live in a separate ~45 KB module. Loaded on demand so it
     // stays out of the initial bundle and the live heap until the user

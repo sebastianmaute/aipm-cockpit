@@ -6,6 +6,8 @@ import { ExportMenu } from "./export-menu";
 import { HelpMenu } from "./help-menu";
 import { VersionMenu } from "./version-menu";
 import { useWorkspace } from "./workspace-context";
+import { useSettings } from "./use-settings";
+import { defaultExportConfig } from "./settings-types";
 
 // Lazy-loaded like in app-header.tsx — the speech-recognition bundle is only
 // fetched client-side when the button mounts.
@@ -28,10 +30,12 @@ interface ActionMenusProps {
  */
 export function ActionMenus({ lang, onCommand, onVoiceError }: ActionMenusProps) {
   const { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates } = useWorkspace();
+  const { settings } = useSettings();
+  const exportConfig = settings.export ?? defaultExportConfig;
   return (
     <>
       <VoiceCommandButton lang={lang} onCommand={onCommand} onError={onVoiceError} />
-      <ExportMenu lang={lang} tasks={tasks} raid={raid} absences={absences} shifts={shifts} resources={resources} roles={roles} disciplines={disciplines} grades={grades} plan={plan} budgets={budgets} fxRates={fxRates} />
+      <ExportMenu lang={lang} tasks={tasks} raid={raid} absences={absences} shifts={shifts} resources={resources} roles={roles} disciplines={disciplines} grades={grades} plan={plan} budgets={budgets} fxRates={fxRates} exportConfig={exportConfig} />
       <HelpMenu lang={lang} />
       <VersionMenu lang={lang} />
     </>

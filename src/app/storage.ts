@@ -55,6 +55,8 @@ import {
   type Stakeholder,
   type Task,
 } from "./types";
+import type { ExportConfig } from "./settings-types";
+import { EXPORT_SECTION_KEYS } from "./settings-types";
 
 /** Top-level shape persisted to storage. JSON wraps it as an envelope; the
  *  CSV/MD encoders emit sections in one file. The browser backend keeps each
@@ -1135,37 +1137,48 @@ export function csvToStatus(text: string): ProjectStatus {
 /** Multi-section CSV: tasks then (optionally) raid, absences, and shifts,
  *  separated by marker lines. Used by file backends for round-trip;
  *  `tasksToCsv` remains the marker-less variant that the Export menu uses
- *  for one-way downloads. */
-export function workspaceToCsv(ws: Workspace): string {
+ *  for one-way downloads.
+ *
+ *  @param config When provided (document export), only sections enabled in the
+ *  config are emitted and storage-only sections (disciplines, grades, fxRates,
+ *  plan) are omitted. When undefined (default), ALL sections are emitted for
+ *  full round-trip storage fidelity. */
+export function workspaceToCsv(ws: Workspace, config?: ExportConfig): string {
+  const enabled = (key: (typeof EXPORT_SECTION_KEYS)[number]) =>
+    config === undefined || config[key];
+
   const parts: string[] = [CSV_SECTION_TASKS, tasksToCsv(ws.tasks)];
-  if (ws.raid.length > 0) {
+  if (enabled("raid") && ws.raid.length > 0) {
     parts.push("", CSV_SECTION_RAID, raidToCsv(ws.raid));
   }
-  if (ws.absences.length > 0) {
+  if (enabled("absences") && ws.absences.length > 0) {
     parts.push("", CSV_SECTION_ABSENCES, absencesToCsv(ws.absences));
   }
-  if (ws.shifts.length > 0) {
+  if (enabled("shifts") && ws.shifts.length > 0) {
     parts.push("", CSV_SECTION_SHIFTS, shiftsToCsv(ws.shifts));
   }
-  if (ws.disciplines.length > 0) parts.push("", CSV_SECTION_DISCIPLINES, refsToCsv(ws.disciplines));
-  if (ws.grades.length > 0) parts.push("", CSV_SECTION_GRADES, refsToCsv(ws.grades));
-  if (ws.roles.length > 0) parts.push("", CSV_SECTION_ROLES, rolesToCsv(ws.roles));
-  if (ws.resources.length > 0) parts.push("", CSV_SECTION_RESOURCES, resourcesToCsv(ws.resources));
-  if ((ws.budgets ?? []).length > 0) parts.push("", CSV_SECTION_BUDGETS, budgetsToCsv(ws.budgets ?? []));
-  if (ws.fxRates) parts.push("", fxRatesToCsvLine(ws.fxRates));
-  if (ws.status && Object.keys(ws.status).length > 0) {
+  if (config === undefined) {
+    // Storage-only sections — omitted from document exports.
+    if (ws.disciplines.length > 0) parts.push("", CSV_SECTION_DISCIPLINES, refsToCsv(ws.disciplines));
+    if (ws.grades.length > 0) parts.push("", CSV_SECTION_GRADES, refsToCsv(ws.grades));
+  }
+  if (enabled("roles") && ws.roles.length > 0) parts.push("", CSV_SECTION_ROLES, rolesToCsv(ws.roles));
+  if (enabled("resources") && ws.resources.length > 0) parts.push("", CSV_SECTION_RESOURCES, resourcesToCsv(ws.resources));
+  if (enabled("budgets") && (ws.budgets ?? []).length > 0) parts.push("", CSV_SECTION_BUDGETS, budgetsToCsv(ws.budgets ?? []));
+  if (config === undefined && ws.fxRates) parts.push("", fxRatesToCsvLine(ws.fxRates));
+  if (enabled("status") && ws.status && Object.keys(ws.status).length > 0) {
     parts.push("", CSV_SECTION_STATUS, statusToCsv(ws.status));
   }
-  if ((ws.milestones ?? []).length > 0) {
+  if (enabled("milestones") && (ws.milestones ?? []).length > 0) {
     parts.push("", CSV_SECTION_MILESTONES, milestonesToCsv(ws.milestones ?? []));
   }
-  if ((ws.changes ?? []).length > 0) {
+  if (enabled("changes") && (ws.changes ?? []).length > 0) {
     parts.push("", CSV_SECTION_CHANGES, changesToCsv(ws.changes ?? []));
   }
-  if ((ws.stakeholders ?? []).length > 0) {
+  if (enabled("stakeholders") && (ws.stakeholders ?? []).length > 0) {
     parts.push("", CSV_SECTION_STAKEHOLDERS, stakeholdersToCsv(ws.stakeholders ?? []));
   }
-  parts.push("", planToCsvLine(ws.plan));
+  if (config === undefined) parts.push("", planToCsvLine(ws.plan));
   return parts.join("\r\n");
 }
 
@@ -1932,23 +1945,34 @@ function planToMarkdown(p: ResourcePlan): string {
   return `## Plan\n\n${p.startDate},${p.endDate},${p.granularity},${p.currency}\n`;
 }
 
-/** Combined markdown workspace. Each entity section is its own heading + table. */
-export function workspaceToMarkdown(ws: Workspace): string {
+/** Combined markdown workspace. Each entity section is its own heading + table.
+ *
+ *  @param config When provided (document export), only sections enabled in the
+ *  config are emitted and storage-only sections (disciplines, grades, fxRates,
+ *  plan) are omitted. When undefined (default), ALL sections are emitted for
+ *  full round-trip storage fidelity. */
+export function workspaceToMarkdown(ws: Workspace, config?: ExportConfig): string {
+  const enabled = (key: (typeof EXPORT_SECTION_KEYS)[number]) =>
+    config === undefined || config[key];
+
   let out = tasksToMarkdown(ws.tasks);
-  if (ws.raid.length > 0) out += "\n" + raidToMarkdown(ws.raid);
-  if (ws.absences.length > 0) out += "\n" + absencesToMarkdown(ws.absences);
-  if (ws.shifts.length > 0) out += "\n" + shiftsToMarkdown(ws.shifts);
-  if (ws.disciplines.length > 0) out += "\n" + refsToMarkdown("Disciplines", ws.disciplines);
-  if (ws.grades.length > 0) out += "\n" + refsToMarkdown("Grades", ws.grades);
-  if (ws.roles.length > 0) out += "\n" + rolesToMarkdown(ws.roles);
-  if (ws.resources.length > 0) out += "\n" + resourcesToMarkdown(ws.resources);
-  if ((ws.budgets ?? []).length > 0) out += "\n" + budgetsToMarkdown(ws.budgets ?? []);
-  if (ws.fxRates) out += "\n" + fxRatesToMarkdown(ws.fxRates);
-  if (ws.status && Object.keys(ws.status).length > 0) out += "\n" + statusToMarkdown(ws.status);
-  if ((ws.milestones ?? []).length > 0) out += "\n" + milestonesToMarkdown(ws.milestones ?? []);
-  if ((ws.changes ?? []).length > 0) out += "\n" + changesToMarkdown(ws.changes ?? []);
-  if ((ws.stakeholders ?? []).length > 0) out += "\n" + stakeholdersToMarkdown(ws.stakeholders ?? []);
-  out += "\n" + planToMarkdown(ws.plan);
+  if (enabled("raid") && ws.raid.length > 0) out += "\n" + raidToMarkdown(ws.raid);
+  if (enabled("absences") && ws.absences.length > 0) out += "\n" + absencesToMarkdown(ws.absences);
+  if (enabled("shifts") && ws.shifts.length > 0) out += "\n" + shiftsToMarkdown(ws.shifts);
+  if (config === undefined) {
+    // Storage-only sections — omitted from document exports.
+    if (ws.disciplines.length > 0) out += "\n" + refsToMarkdown("Disciplines", ws.disciplines);
+    if (ws.grades.length > 0) out += "\n" + refsToMarkdown("Grades", ws.grades);
+  }
+  if (enabled("roles") && ws.roles.length > 0) out += "\n" + rolesToMarkdown(ws.roles);
+  if (enabled("resources") && ws.resources.length > 0) out += "\n" + resourcesToMarkdown(ws.resources);
+  if (enabled("budgets") && (ws.budgets ?? []).length > 0) out += "\n" + budgetsToMarkdown(ws.budgets ?? []);
+  if (config === undefined && ws.fxRates) out += "\n" + fxRatesToMarkdown(ws.fxRates);
+  if (enabled("status") && ws.status && Object.keys(ws.status).length > 0) out += "\n" + statusToMarkdown(ws.status);
+  if (enabled("milestones") && (ws.milestones ?? []).length > 0) out += "\n" + milestonesToMarkdown(ws.milestones ?? []);
+  if (enabled("changes") && (ws.changes ?? []).length > 0) out += "\n" + changesToMarkdown(ws.changes ?? []);
+  if (enabled("stakeholders") && (ws.stakeholders ?? []).length > 0) out += "\n" + stakeholdersToMarkdown(ws.stakeholders ?? []);
+  if (config === undefined) out += "\n" + planToMarkdown(ws.plan);
   return out;
 }
 

@@ -12,6 +12,7 @@ import { useEffect, useRef, useState } from "react";
 import { type ExportFormat, exportWorkspace } from "./export";
 import { type Lang, type TranslationKey, t } from "./i18n";
 import type { Absence, BudgetBucket, Discipline, FxRates, Grade, RaidItem, Resource, ResourcePlan, Role, Shift, Task } from "./types";
+import type { ExportConfig } from "./settings-types";
 
 const OPTIONS: Array<{
   format: ExportFormat;
@@ -39,6 +40,7 @@ export function ExportMenu({
   plan,
   budgets,
   fxRates,
+  exportConfig,
 }: {
   lang: Lang;
   tasks: Task[];
@@ -52,6 +54,7 @@ export function ExportMenu({
   plan: ResourcePlan;
   budgets: BudgetBucket[];
   fxRates: FxRates | null;
+  exportConfig?: ExportConfig;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -80,7 +83,7 @@ export function ExportMenu({
     // pops the save dialog / new tab. Some browsers focus-steal the dialog
     // and the popover never visually closes otherwise.
     setTimeout(() => {
-      void exportWorkspace({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates }, format);
+      void exportWorkspace({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates }, format, exportConfig);
     }, 0);
   }
 
