@@ -15,10 +15,11 @@ import {
   csvToWorkspace,
   markdownToWorkspace,
   emptyWorkspace,
+  neutralizeCsvFormula,
 } from "./storage";
 import { defaultExportConfig } from "./settings-types";
 import type { ExportConfig } from "./settings-types";
-import type { Milestone, ChangeItem, RaidItem } from "./types";
+import type { Milestone, ChangeItem, RaidItem, Task } from "./types";
 
 // ---------------------------------------------------------------------------
 // Shared test workspace — populated with tasks, RAID, milestones, and changes.
@@ -281,5 +282,126 @@ describe("Markdown pipe-escaping preserved with config", () => {
     const md = workspaceToMarkdown(ws, cfg);
     // The pipe inside the title must be escaped so it doesn't corrupt the table
     expect(md).toContain("Risk \\| Opportunity");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 6. neutralizeCsvFormula — unit tests for the helper
+// ---------------------------------------------------------------------------
+
+describe("neutralizeCsvFormula helper", () => {
+  it("prefixes single-quote on = (formula)", () => {
+    expect(neutralizeCsvFormula('=SUM(A1:A10)')).toBe("'=SUM(A1:A10)");
+  });
+
+  it("prefixes single-quote on + prefix", () => {
+    expect(neutralizeCsvFormula('+1')).toBe("'+1");
+  });
+
+  it("prefixes single-quote on - prefix", () => {
+    expect(neutralizeCsvFormula('-1')).toBe("'-1");
+  });
+
+  it("prefixes single-quote on @ prefix", () => {
+    expect(neutralizeCsvFormula('@user')).toBe("'@user");
+  });
+
+  it("prefixes single-quote on tab prefix", () => {
+    expect(neutralizeCsvFormula('\tvalue')).toBe("'\tvalue");
+  });
+
+  it("leaves normal values unchanged", () => {
+    expect(neutralizeCsvFormula('hello world')).toBe('hello world');
+  });
+
+  it("leaves empty string unchanged", () => {
+    expect(neutralizeCsvFormula('')).toBe('');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 7. CSV formula injection — export path neutralizes, storage path does NOT
+// ---------------------------------------------------------------------------
+
+describe("CSV formula injection — export path (config provided)", () => {
+  function makeFormulaTask(taskName = '=HYPERLINK("http://x","y")'): Task {
+    return {
+      id: "T1", taskName, status: "Open",
+      priority: "Medium", labels: [], dependencies: [],
+    } as unknown as Task;
+  }
+
+  it("export path neutralizes =HYPERLINK taskName with single-quote prefix", () => {
+    const ws = { ...emptyWorkspace(), tasks: [makeFormulaTask()] };
+    const csv = workspaceToCsv(ws, defaultExportConfig);
+    // The neutralized value gets CSV-quoted because it contains commas/quotes;
+    // but the ' prefix must appear right after the opening quote (or directly).
+    expect(csv).toContain("'=HYPERLINK");
+  });
+
+  it("storage path (no config) does NOT neutralize — = preserved verbatim", () => {
+    const ws = { ...emptyWorkspace(), tasks: [makeFormulaTask()] };
+    const csv = workspaceToCsv(ws); // no config — storage path
+    // Must NOT have a single-quote prefix before =
+    expect(csv).not.toContain("'=HYPERLINK");
+    expect(csv).toContain("=HYPERLINK");
+  });
+
+  it("storage path (no config) preserves raw formula — no neutralization", () => {
+    const ws = { ...emptyWorkspace(), tasks: [makeFormulaTask()] };
+    const storageCsv = workspaceToCsv(ws);                       // no config = storage path
+    const exportCsv  = workspaceToCsv(ws, defaultExportConfig);  // export path
+    expect(storageCsv).toContain('=HYPERLINK');      // raw formula present
+    expect(storageCsv).not.toContain("'=HYPERLINK"); // NOT neutralized
+    expect(exportCsv).toContain("'=HYPERLINK");      // export IS neutralized
+  });
+
+  it("export path neutralizes + prefix", () => {
+    const ws = { ...emptyWorkspace(), tasks: [makeFormulaTask("+inject")] };
+    const csv = workspaceToCsv(ws, defaultExportConfig);
+    expect(csv).toContain("'+inject");
+  });
+
+  it("export path neutralizes - prefix", () => {
+    const ws = { ...emptyWorkspace(), tasks: [makeFormulaTask("-inject")] };
+    const csv = workspaceToCsv(ws, defaultExportConfig);
+    expect(csv).toContain("'-inject");
+  });
+
+  it("export path neutralizes @ prefix", () => {
+    const ws = { ...emptyWorkspace(), tasks: [makeFormulaTask("@inject")] };
+    const csv = workspaceToCsv(ws, defaultExportConfig);
+    expect(csv).toContain("'@inject");
+  });
+
+  it("normal taskName is identical in both paths", () => {
+    const ws = { ...emptyWorkspace(), tasks: [makeFormulaTask("Normal title")] };
+    const csvStorage = workspaceToCsv(ws);
+    const csvExport = workspaceToCsv(ws, defaultExportConfig);
+    expect(csvStorage).toContain("Normal title");
+    expect(csvExport).toContain("Normal title");
+  });
+
+  it("storage path leaves + prefix verbatim", () => {
+    const ws = { ...emptyWorkspace(), tasks: [makeFormulaTask("+inject")] };
+    const csv = workspaceToCsv(ws);
+    expect(csv).not.toContain("'+inject");
+    expect(csv).toContain("+inject");
+  });
+
+  it("export path neutralizes = in RAID title", () => {
+    const raidItem: RaidItem = { ...raid, title: "=CMD" };
+    const ws = { ...emptyWorkspace(), raid: [raidItem] };
+    const cfg: ExportConfig = { ...defaultExportConfig, raid: true };
+    const csv = workspaceToCsv(ws, cfg);
+    expect(csv).toContain("'=CMD");
+  });
+
+  it("storage path leaves = in RAID title verbatim", () => {
+    const raidItem: RaidItem = { ...raid, title: "=CMD" };
+    const ws = { ...emptyWorkspace(), raid: [raidItem] };
+    const csv = workspaceToCsv(ws);
+    expect(csv).not.toContain("'=CMD");
+    expect(csv).toContain("=CMD");
   });
 });

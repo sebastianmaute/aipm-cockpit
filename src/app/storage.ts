@@ -843,55 +843,73 @@ function csvEscape(value: string): string {
   return value;
 }
 
+/**
+ * Neutralize spreadsheet formula injection (OWASP CSV injection).
+ * Prefixes a single-quote when the value starts with `= + - @ \t \r`,
+ * forcing spreadsheet apps to treat it as text rather than a formula.
+ *
+ * Applied ONLY on the document-export path (config provided to
+ * workspaceToCsv). The storage round-trip path must NOT apply this so
+ * re-import stays byte-identical.
+ */
+export function neutralizeCsvFormula(value: string): string {
+  return /^[=+\-@\t\r]/.test(value) ? "'" + value : value;
+}
+
+/** Combines formula neutralization (export-only) with CSV quoting. */
+function csvCellEscape(value: string, neutralize: boolean): string {
+  return csvEscape(neutralize ? neutralizeCsvFormula(value) : value);
+}
+
 export function fieldToString(t: Task, c: keyof Task): string {
   if (c === "labels") return Array.isArray(t.labels) ? t.labels.join("|") : "";
   if (c === "dependencies") return serializeDependencies(t.dependencies);
   return String(t[c] ?? "");
 }
 
-function tasksToCsv(tasks: Task[]): string {
+function tasksToCsv(tasks: Task[], neutralize = false): string {
   const lines: string[] = [CSV_COLUMNS.join(",")];
   for (const t of tasks) {
-    lines.push(CSV_COLUMNS.map((c) => csvEscape(fieldToString(t, c))).join(","));
+    lines.push(CSV_COLUMNS.map((c) => csvCellEscape(fieldToString(t, c), neutralize)).join(","));
   }
   return lines.join("\r\n");
 }
 
-function raidToCsv(raid: readonly RaidItem[]): string {
+function raidToCsv(raid: readonly RaidItem[], neutralize = false): string {
   const lines: string[] = [RAID_CSV_COLUMNS.join(",")];
   for (const r of raid) {
     lines.push(
-      RAID_CSV_COLUMNS.map((c) => csvEscape(raidFieldToString(r, c))).join(","),
+      RAID_CSV_COLUMNS.map((c) => csvCellEscape(raidFieldToString(r, c), neutralize)).join(","),
     );
   }
   return lines.join("\r\n");
 }
 
-function milestonesToCsv(milestones: readonly Milestone[]): string {
+function milestonesToCsv(milestones: readonly Milestone[], neutralize = false): string {
   const lines: string[] = [MILESTONES_CSV_COLUMNS.join(",")];
   for (const m of milestones) {
     lines.push(
-      MILESTONES_CSV_COLUMNS.map((c) => csvEscape(milestoneFieldToString(m, c))).join(","),
+      MILESTONES_CSV_COLUMNS.map((c) => csvCellEscape(milestoneFieldToString(m, c), neutralize)).join(","),
     );
   }
   return lines.join("\r\n");
 }
 
-function changesToCsv(changes: readonly ChangeItem[]): string {
+function changesToCsv(changes: readonly ChangeItem[], neutralize = false): string {
   const lines: string[] = [CHANGES_CSV_COLUMNS.join(",")];
   for (const c of changes) {
     lines.push(
-      CHANGES_CSV_COLUMNS.map((col) => csvEscape(changeFieldToString(c, col))).join(","),
+      CHANGES_CSV_COLUMNS.map((col) => csvCellEscape(changeFieldToString(c, col), neutralize)).join(","),
     );
   }
   return lines.join("\r\n");
 }
 
-export function stakeholdersToCsv(stakeholders: readonly Stakeholder[]): string {
+export function stakeholdersToCsv(stakeholders: readonly Stakeholder[], neutralize = false): string {
   const lines: string[] = [STAKEHOLDERS_CSV_COLUMNS.join(",")];
   for (const s of stakeholders) {
     lines.push(
-      STAKEHOLDERS_CSV_COLUMNS.map((col) => csvEscape(stakeholderFieldToString(s, col))).join(","),
+      STAKEHOLDERS_CSV_COLUMNS.map((col) => csvCellEscape(stakeholderFieldToString(s, col), neutralize)).join(","),
     );
   }
   return lines.join("\r\n");
@@ -901,23 +919,23 @@ export function absenceFieldToString(a: Absence, c: keyof Absence): string {
   return String(a[c] ?? "");
 }
 
-function absencesToCsv(absences: readonly Absence[]): string {
+function absencesToCsv(absences: readonly Absence[], neutralize = false): string {
   const lines: string[] = [ABSENCES_CSV_COLUMNS.join(",")];
   for (const a of absences) {
     lines.push(
       ABSENCES_CSV_COLUMNS.map((c) =>
-        csvEscape(absenceFieldToString(a, c)),
+        csvCellEscape(absenceFieldToString(a, c), neutralize),
       ).join(","),
     );
   }
   return lines.join("\r\n");
 }
 
-function shiftsToCsv(shifts: readonly Shift[]): string {
+function shiftsToCsv(shifts: readonly Shift[], neutralize = false): string {
   const lines: string[] = [SHIFTS_CSV_COLUMNS.join(",")];
   for (const s of shifts) {
     lines.push(
-      SHIFTS_CSV_COLUMNS.map((c) => csvEscape(shiftFieldToString(s, c))).join(
+      SHIFTS_CSV_COLUMNS.map((c) => csvCellEscape(shiftFieldToString(s, c), neutralize)).join(
         ",",
       ),
     );
@@ -950,14 +968,15 @@ export function resourceFieldToString(r: Resource, c: string): string {
   }
 }
 
-function rowsToCsv(header: readonly string[], rows: string[][]): string {
-  return [header.join(","), ...rows.map((r) => r.map(csvEscape).join(","))].join("\r\n");
+function rowsToCsv(header: readonly string[], rows: string[][], neutralize = false): string {
+  return [header.join(","), ...rows.map((r) => r.map((v) => csvCellEscape(v, neutralize)).join(","))].join("\r\n");
 }
 
-function resourcesToCsv(rs: readonly Resource[]): string {
+function resourcesToCsv(rs: readonly Resource[], neutralize = false): string {
   return rowsToCsv(
     RESOURCES_CSV_COLUMNS,
     rs.map((r) => RESOURCES_CSV_COLUMNS.map((c) => resourceFieldToString(r, c))),
+    neutralize,
   );
 }
 
@@ -986,8 +1005,8 @@ export function budgetFieldToString(b: BudgetBucket, c: string): string {
   }
 }
 
-function budgetsToCsv(bs: readonly BudgetBucket[]): string {
-  return rowsToCsv(BUDGETS_CSV_COLUMNS, bs.map((b) => BUDGETS_CSV_COLUMNS.map((c) => budgetFieldToString(b, c))));
+function budgetsToCsv(bs: readonly BudgetBucket[], neutralize = false): string {
+  return rowsToCsv(BUDGETS_CSV_COLUMNS, bs.map((b) => BUDGETS_CSV_COLUMNS.map((c) => budgetFieldToString(b, c))), neutralize);
 }
 
 function encodeRatesMap(rates: Record<string, number>): string {
@@ -998,10 +1017,11 @@ function fxRatesToCsvLine(fx: FxRates): string {
   return [CSV_SECTION_FXRATES, [fx.base, fx.date, fx.fetchedAt, encodeRatesMap(fx.rates)].map(csvEscape).join(",")].join("\r\n");
 }
 
-function rolesToCsv(rs: readonly Role[]): string {
+function rolesToCsv(rs: readonly Role[], neutralize = false): string {
   return rowsToCsv(
     ROLES_CSV_COLUMNS,
     rs.map((r) => ROLES_CSV_COLUMNS.map((c) => String((r as Record<string, unknown>)[c] ?? ""))),
+    neutralize,
   );
 }
 
@@ -1095,11 +1115,11 @@ const STATUS_FIELDS: readonly (keyof ProjectStatus)[] = [
   "narrative", "narrativeUpdatedAt",
 ];
 
-export function statusToCsv(status: ProjectStatus): string {
+export function statusToCsv(status: ProjectStatus, neutralize = false): string {
   const rows: string[] = ["field,value"];
   for (const f of STATUS_FIELDS) {
     const v = status[f];
-    if (v != null && v !== "") rows.push(`${f},${csvEscape(String(v))}`);
+    if (v != null && v !== "") rows.push(`${f},${csvCellEscape(String(v), neutralize)}`);
   }
   return rows.join("\r\n");
 }
@@ -1146,29 +1166,32 @@ export function csvToStatus(text: string): ProjectStatus {
 export function workspaceToCsv(ws: Workspace, config?: ExportConfig): string {
   const enabled = (key: (typeof EXPORT_SECTION_KEYS)[number]) =>
     config === undefined || config[key];
+  // neutralize = true only on the document-export path (config provided).
+  // The storage path (config === undefined) must stay byte-identical.
+  const neutralize = config !== undefined;
 
   const parts: string[] = [];
   const csvPush = (...items: string[]) => {
     if (parts.length > 0) parts.push("");
     parts.push(...items);
   };
-  if (!config || config.tasks) csvPush(CSV_SECTION_TASKS, tasksToCsv(ws.tasks));
-  if (enabled("raid") && ws.raid.length > 0) csvPush(CSV_SECTION_RAID, raidToCsv(ws.raid));
-  if (enabled("absences") && ws.absences.length > 0) csvPush(CSV_SECTION_ABSENCES, absencesToCsv(ws.absences));
-  if (enabled("shifts") && ws.shifts.length > 0) csvPush(CSV_SECTION_SHIFTS, shiftsToCsv(ws.shifts));
+  if (!config || config.tasks) csvPush(CSV_SECTION_TASKS, tasksToCsv(ws.tasks, neutralize));
+  if (enabled("raid") && ws.raid.length > 0) csvPush(CSV_SECTION_RAID, raidToCsv(ws.raid, neutralize));
+  if (enabled("absences") && ws.absences.length > 0) csvPush(CSV_SECTION_ABSENCES, absencesToCsv(ws.absences, neutralize));
+  if (enabled("shifts") && ws.shifts.length > 0) csvPush(CSV_SECTION_SHIFTS, shiftsToCsv(ws.shifts, neutralize));
   if (config === undefined) {
     // Storage-only sections — omitted from document exports.
     if (ws.disciplines.length > 0) csvPush(CSV_SECTION_DISCIPLINES, refsToCsv(ws.disciplines));
     if (ws.grades.length > 0) csvPush(CSV_SECTION_GRADES, refsToCsv(ws.grades));
   }
-  if (enabled("roles") && ws.roles.length > 0) csvPush(CSV_SECTION_ROLES, rolesToCsv(ws.roles));
-  if (enabled("resources") && ws.resources.length > 0) csvPush(CSV_SECTION_RESOURCES, resourcesToCsv(ws.resources));
-  if (enabled("budgets") && (ws.budgets ?? []).length > 0) csvPush(CSV_SECTION_BUDGETS, budgetsToCsv(ws.budgets ?? []));
+  if (enabled("roles") && ws.roles.length > 0) csvPush(CSV_SECTION_ROLES, rolesToCsv(ws.roles, neutralize));
+  if (enabled("resources") && ws.resources.length > 0) csvPush(CSV_SECTION_RESOURCES, resourcesToCsv(ws.resources, neutralize));
+  if (enabled("budgets") && (ws.budgets ?? []).length > 0) csvPush(CSV_SECTION_BUDGETS, budgetsToCsv(ws.budgets ?? [], neutralize));
   if (config === undefined && ws.fxRates) csvPush(fxRatesToCsvLine(ws.fxRates));
-  if (enabled("status") && ws.status && Object.keys(ws.status).length > 0) csvPush(CSV_SECTION_STATUS, statusToCsv(ws.status));
-  if (enabled("milestones") && (ws.milestones ?? []).length > 0) csvPush(CSV_SECTION_MILESTONES, milestonesToCsv(ws.milestones ?? []));
-  if (enabled("changes") && (ws.changes ?? []).length > 0) csvPush(CSV_SECTION_CHANGES, changesToCsv(ws.changes ?? []));
-  if (enabled("stakeholders") && (ws.stakeholders ?? []).length > 0) csvPush(CSV_SECTION_STAKEHOLDERS, stakeholdersToCsv(ws.stakeholders ?? []));
+  if (enabled("status") && ws.status && Object.keys(ws.status).length > 0) csvPush(CSV_SECTION_STATUS, statusToCsv(ws.status, neutralize));
+  if (enabled("milestones") && (ws.milestones ?? []).length > 0) csvPush(CSV_SECTION_MILESTONES, milestonesToCsv(ws.milestones ?? [], neutralize));
+  if (enabled("changes") && (ws.changes ?? []).length > 0) csvPush(CSV_SECTION_CHANGES, changesToCsv(ws.changes ?? [], neutralize));
+  if (enabled("stakeholders") && (ws.stakeholders ?? []).length > 0) csvPush(CSV_SECTION_STAKEHOLDERS, stakeholdersToCsv(ws.stakeholders ?? [], neutralize));
   if (config === undefined) csvPush(planToCsvLine(ws.plan));
   return parts.join("\r\n");
 }
