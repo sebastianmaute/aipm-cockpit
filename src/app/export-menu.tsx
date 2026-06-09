@@ -83,7 +83,7 @@ export function ExportMenu({
     // pops the save dialog / new tab. Some browsers focus-steal the dialog
     // and the popover never visually closes otherwise.
     setTimeout(() => {
-      void exportWorkspace({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates }, format, exportConfig);
+      void exportWorkspace({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates }, format, exportConfig, lang);
     }, 0);
   }
 
