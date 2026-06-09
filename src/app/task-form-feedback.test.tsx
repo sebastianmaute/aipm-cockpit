@@ -2,6 +2,9 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { TestProviders } from "./test-providers";
 import { TaskFormFields } from "./task-form-fields";
+import { t } from "./i18n";
+
+const NOTES_PLACEHOLDER = t("en-US", "placeholderNotes");
 
 function Harness() {
   return (
@@ -33,7 +36,7 @@ describe("TaskFormFields — field feedback", () => {
   it("shows the character counter when notes is near its cap (>= 80%)", () => {
     render(<Harness />, { wrapper: TestProviders });
 
-    const notesTextarea = screen.getByPlaceholderText("Anything else worth recording");
+    const notesTextarea = screen.getByPlaceholderText(NOTES_PLACEHOLDER);
     // Type 4900 characters (4900/5000 = 98% > 80% threshold)
     fireEvent.change(notesTextarea, { target: { value: "x".repeat(4900) } });
 
@@ -44,7 +47,7 @@ describe("TaskFormFields — field feedback", () => {
   it("trims notes to TEXTAREA_MAX on blur when value exceeds the cap", () => {
     render(<Harness />, { wrapper: TestProviders });
 
-    const notesTextarea = screen.getByPlaceholderText("Anything else worth recording");
+    const notesTextarea = screen.getByPlaceholderText(NOTES_PLACEHOLDER);
     const overCap = "y".repeat(5100);
     fireEvent.change(notesTextarea, { target: { value: overCap } });
     fireEvent.blur(notesTextarea);
