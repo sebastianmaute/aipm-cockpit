@@ -7,7 +7,7 @@
 // Built as a standalone component using the shared ModalHeader + useDraggable,
 // like resource-edit-modal.tsx / absence-edit-modal.tsx.
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { type Lang, t, type TranslationKey } from "./i18n";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
@@ -94,6 +94,8 @@ export function ChangeEditModal({
   const [taskPickerQuery, setTaskPickerQuery] = useState("");
   const [raidPickerQuery, setRaidPickerQuery] = useState("");
   const [notice, setNotice] = useState<Record<string, string>>({});
+  const scheduleNoticeId = useId();
+  const costNoticeId = useId();
   const adj = useAdjustmentTracker();
 
   const { offset, handleProps } = useDraggable(true);
@@ -385,9 +387,11 @@ export function ChangeEditModal({
                     : "",
                 }));
               }}
+              aria-invalid={!!notice.scheduleImpactDays || undefined}
+              aria-describedby={notice.scheduleImpactDays ? scheduleNoticeId : undefined}
               className={INPUT_CLASS}
             />
-            <FieldNotice>{notice.scheduleImpactDays}</FieldNotice>
+            <FieldNotice id={scheduleNoticeId}>{notice.scheduleImpactDays}</FieldNotice>
           </label>
 
           {/* Cost impact */}
@@ -412,9 +416,11 @@ export function ChangeEditModal({
                     : "",
                 }));
               }}
+              aria-invalid={!!notice.costImpact || undefined}
+              aria-describedby={notice.costImpact ? costNoticeId : undefined}
               className={INPUT_CLASS}
             />
-            <FieldNotice>{notice.costImpact}</FieldNotice>
+            <FieldNotice id={costNoticeId}>{notice.costImpact}</FieldNotice>
           </label>
 
           {/* Raised date */}

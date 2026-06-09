@@ -554,7 +554,7 @@ function TaskManagerInner() {
   const onPushToJiraRef = useRef<(taskId: number) => Promise<boolean>>(
     () => Promise.resolve(false),
   );
-  const { error, handleSubmit, handleCancelEdit, openEditModal } = useTaskSubmit({
+  const { fieldErrors, submitted, saveDisabled, handleSubmit, handleCancelEdit, openEditModal } = useTaskSubmit({
     form,
     setForm,
     editingId,
@@ -895,7 +895,8 @@ function TaskManagerInner() {
       <button
         type="submit"
         form={TASK_EDIT_FORM_ID}
-        className="rounded-md bg-AIPM-green px-4 py-1.5 text-sm font-semibold text-AIPM-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-AIPM-green"
+        disabled={saveDisabled}
+        className="rounded-md bg-AIPM-green px-4 py-1.5 text-sm font-semibold text-AIPM-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-AIPM-green disabled:cursor-not-allowed disabled:opacity-50"
       >
         {editingId !== null ? t(lang, "updateTask") : t(lang, "addTask")}
       </button>
@@ -914,7 +915,8 @@ function TaskManagerInner() {
       uniqueLabels={uniqueLabels}
       editingIsJiraLinked={editingIsJiraLinked}
       jiraEnabled={settings.jira.enabled}
-      error={error}
+      fieldErrors={fieldErrors}
+      submitted={submitted}
       holidaySet={holidaySet}
       jiraProjectKey={settings.jira.projectKey}
       jiraDefaultIssueType={settings.jira.issueTypes[0]}
@@ -1052,7 +1054,9 @@ function TaskManagerInner() {
         uniqueLabels={uniqueLabels}
         editingIsJiraLinked={editingIsJiraLinked}
         jiraEnabled={settings.jira.enabled}
-        error={error}
+        fieldErrors={fieldErrors}
+        submitted={submitted}
+        saveDisabled={saveDisabled}
         holidaySet={holidaySet}
         jiraProjectKey={settings.jira.projectKey}
         jiraDefaultIssueType={settings.jira.issueTypes[0]}

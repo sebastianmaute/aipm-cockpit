@@ -44,7 +44,9 @@ const enUS = {
   placeholderBlockers: "What's preventing progress?",
   placeholderNotes: "Anything else worth recording",
 
-  errorRequired: "Task name, assignee, and due date are required.",
+  errorTaskNameRequired: "Task name is required.",
+  errorAssigneeRequired: "Assignee is required.",
+  errorDueDateRequired: "Due date is required.",
   errorPastDate: "Due date must be today or later.",
   errorInvalidEmail: "That doesn't look like a valid email address.",
 

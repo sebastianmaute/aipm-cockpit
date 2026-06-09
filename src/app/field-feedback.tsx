@@ -16,7 +16,13 @@ interface CharCounterProps {
 /** Character counter: hidden < 80% of max, muted at >= 80%, pink + hint at the cap. */
 export function CharCounter({ value, max, id, lang }: CharCounterProps) {
   const len = value.length;
-  if (len < max * WARN_RATIO) return null;
+  if (len < max * WARN_RATIO) {
+    // Keep the id present (empty + hidden) so an input's aria-describedby that
+    // references this counter never dangles to a missing element. A hidden
+    // element contributes no accessible text, so nothing is announced until the
+    // counter actually shows near the cap.
+    return id ? <span id={id} hidden /> : null;
+  }
   const atCap = len >= max;
   return (
     <p id={id} className={`mt-1 text-xs ${atCap ? "text-AIPM-pink" : "text-muted-foreground"}`}>
@@ -36,6 +42,22 @@ export function FieldNotice({ id, children }: FieldNoticeProps) {
   if (!children) return null;
   return (
     <p id={id} role="status" aria-live="polite" className="mt-1 text-xs text-AIPM-pink">
+      {children}
+    </p>
+  );
+}
+
+interface FieldErrorProps {
+  id?: string;
+  children: ReactNode;
+}
+
+/** Inline validation error under a field. Uses role="alert" so it's announced
+ *  promptly; pair with aria-invalid + aria-describedby on the input. */
+export function FieldError({ id, children }: FieldErrorProps) {
+  if (!children) return null;
+  return (
+    <p id={id} role="alert" className="mt-1 text-xs font-medium text-AIPM-pink">
       {children}
     </p>
   );

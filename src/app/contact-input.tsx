@@ -14,7 +14,7 @@
 // row, Esc closes the popover. The dropdown is filtered by case-insensitive
 // substring match on name + email.
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type React from "react";
 import type { Contact } from "./contacts";
 import { type Lang, t } from "./i18n";
@@ -32,6 +32,8 @@ export function ContactInput({
   title,
   onBlur,
   "aria-describedby": ariaDescribedBy,
+  "aria-invalid": ariaInvalid,
+  "aria-required": ariaRequired,
 }: {
   lang: Lang;
   /** The current assignee name (for the underlying text input). */
@@ -53,9 +55,13 @@ export function ContactInput({
   title?: string;
   onBlur?: React.FocusEventHandler<HTMLInputElement>;
   "aria-describedby"?: string;
+  "aria-invalid"?: boolean;
+  "aria-required"?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [highlight, setHighlight] = useState(0);
+  // Unique per instance so two ContactInputs on one page don't collide.
+  const listboxId = useId();
   const rootRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
@@ -148,16 +154,18 @@ export function ContactInput({
         disabled={disabled}
         title={title}
         aria-describedby={ariaDescribedBy}
+        aria-invalid={ariaInvalid}
+        aria-required={ariaRequired}
         role="combobox"
         aria-expanded={open}
-        aria-controls="contact-listbox"
+        aria-controls={listboxId}
         aria-autocomplete="list"
         className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-AIPM-dark-blue focus:outline-none focus:ring-1 focus:ring-AIPM-green disabled:cursor-not-allowed disabled:bg-surface-muted disabled:text-muted-foreground"
       />
 
       {open && filtered.length > 0 && (
         <ul
-          id="contact-listbox"
+          id={listboxId}
           role="listbox"
           className="absolute left-0 right-0 z-30 mt-1 max-h-64 overflow-y-auto rounded-md border border-line bg-surface"
         >

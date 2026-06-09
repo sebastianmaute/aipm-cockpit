@@ -9,6 +9,7 @@ import { Modal } from "./modal";
 import { useTaskForm } from "./task-form-context";
 import type { Absence, Task } from "./types";
 import { TaskFormFields } from "./task-form-fields";
+import { type TaskFieldErrors } from "./task-validation";
 
 export interface TaskFormModalProps {
   lang: Lang;
@@ -21,7 +22,9 @@ export interface TaskFormModalProps {
   uniqueLabels: string[];
   editingIsJiraLinked: boolean;
   jiraEnabled: boolean;
-  error: string | null;
+  fieldErrors: TaskFieldErrors;
+  submitted: boolean;
+  saveDisabled: boolean;
   holidaySet: Set<string>;
   jiraProjectKey: string | undefined;
   jiraDefaultIssueType: string | undefined;
@@ -44,7 +47,9 @@ export function TaskFormModal({
   uniqueLabels,
   editingIsJiraLinked,
   jiraEnabled,
-  error,
+  fieldErrors,
+  submitted,
+  saveDisabled,
   holidaySet,
   jiraProjectKey,
   jiraDefaultIssueType,
@@ -96,7 +101,8 @@ export function TaskFormModal({
             uniqueLabels={uniqueLabels}
             editingIsJiraLinked={editingIsJiraLinked}
             jiraEnabled={jiraEnabled}
-            error={error}
+            fieldErrors={fieldErrors}
+            submitted={submitted}
             holidaySet={holidaySet}
             jiraProjectKey={jiraProjectKey}
             jiraDefaultIssueType={jiraDefaultIssueType}
@@ -114,7 +120,8 @@ export function TaskFormModal({
             </button>
             <button
               type="submit"
-              className="rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-AIPM-dark-blue focus:ring-offset-2"
+              disabled={saveDisabled}
+              className="rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-AIPM-dark-blue focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isEditing ? t(lang, "updateTask") : t(lang, "addTask")}
             </button>

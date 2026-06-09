@@ -128,17 +128,25 @@ export function RolesEditor({
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
-              {sortedRoles.map((r) => (
+              {sortedRoles.map((r) => {
+                const disciplineName = disciplines.find((d) => d.id === r.disciplineId)?.name ?? "n/a";
+                const gradeName = grades.find((g) => g.id === r.gradeId)?.name ?? "n/a";
+                // The rate inputs sit in bare <td>s with no per-row header, so
+                // each needs an explicit name carrying its row + column context.
+                const rowCtx = `${disciplineName} / ${gradeName}`;
+                return (
                 <tr key={r.id}>
-                  <td className="px-3 py-2">{disciplines.find((d) => d.id === r.disciplineId)?.name ?? "n/a"}</td>
-                  <td className="px-3 py-2">{grades.find((g) => g.id === r.gradeId)?.name ?? "n/a"}</td>
+                  <td className="px-3 py-2">{disciplineName}</td>
+                  <td className="px-3 py-2">{gradeName}</td>
                   <td className="px-3 py-2 text-right">
                     <input type="number" min={0} step={1} value={r.internalRate}
+                      aria-label={`${rowCtx} — ${t(lang, "rolesInternalRate")}`}
                       onChange={(e) => onSaveRole({ ...r, internalRate: clampRate(e.target.value) })}
                       className="w-24 rounded-md border border-line px-2 py-1 text-right text-sm tabular-nums bg-surface-muted" />
                   </td>
                   <td className="px-3 py-2 text-right">
                     <input type="number" min={0} step={1} value={r.externalRate}
+                      aria-label={`${rowCtx} — ${t(lang, "rolesExternalRate")}`}
                       onChange={(e) => onSaveRole({ ...r, externalRate: clampRate(e.target.value) })}
                       className="w-24 rounded-md border border-line px-2 py-1 text-right text-sm tabular-nums bg-surface-muted" />
                   </td>
@@ -147,7 +155,8 @@ export function RolesEditor({
                       className="rounded p-1 text-muted-foreground hover:bg-AIPM-pink/10 hover:text-AIPM-pink">×</button>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
           </div>
@@ -255,6 +264,7 @@ function RefList({
       </ul>
       <div className="mt-2 flex items-center gap-2">
         <input value={addValue} onChange={(e) => setAddValue(e.target.value)} placeholder={addPlaceholder}
+          aria-label={addPlaceholder}
           className="flex-1 rounded-md border border-line px-2 py-1 text-sm bg-surface-muted" />
         <button type="button" onClick={onAdd} aria-label={addPlaceholder}
           className="rounded-md border border-AIPM-dark-blue px-3 py-1 text-sm font-medium text-AIPM-dark-blue hover:bg-AIPM-dark-blue/5">+</button>

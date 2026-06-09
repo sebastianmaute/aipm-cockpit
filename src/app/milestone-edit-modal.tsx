@@ -130,6 +130,7 @@ export function MilestoneEditModal({
               {t(lang, "milestoneName")} *
             </span>
             <input
+              required
               value={draft.name}
               onChange={(e) => update("name", e.target.value)}
               className="rounded-md border border-line bg-surface px-3 py-2 text-sm"

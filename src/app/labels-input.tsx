@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import type React from "react";
 import { FieldNotice } from "./field-feedback";
 import { type Lang, t } from "./i18n";
@@ -27,6 +27,7 @@ export function LabelsInput({
 }) {
   const [draft, setDraft] = useState("");
   const [stripNotice, setStripNotice] = useState<string | null>(null);
+  const stripNoticeId = useId();
 
   const atCap = value.length >= LABELS_MAX_COUNT;
   const lower = draft.trim().toLowerCase();
@@ -146,6 +147,8 @@ export function LabelsInput({
           }}
           onFocus={() => !disabled && setOpen(true)}
           onKeyDown={onKeyDown}
+          aria-invalid={stripNotice ? true : undefined}
+          aria-describedby={stripNotice ? stripNoticeId : undefined}
           placeholder={
             atCap
               ? t(lang, "labelsAtCap")
@@ -180,7 +183,7 @@ export function LabelsInput({
         />
       )}
     </div>
-    {stripNotice && <FieldNotice>{stripNotice}</FieldNotice>}
+    {stripNotice && <FieldNotice id={stripNoticeId}>{stripNotice}</FieldNotice>}
     </>
   );
 }

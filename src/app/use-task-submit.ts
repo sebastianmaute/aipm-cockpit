@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type React from "react";
 import { emptyForm, type TaskFormDraft } from "./task-form-context";
 import { upsertContact, type ContactsMap } from "./contacts";
@@ -14,7 +14,6 @@ import {
   GROUP_MAX,
   TASK_NAME_MAX,
   TEXTAREA_MAX,
-  isValidEmail,
   sanitizeAssignee,
   sanitizeBlockers,
   sanitizeDependencies,
@@ -27,6 +26,7 @@ import {
   sanitizeTaskName,
 } from "./sanitize";
 import { describeTextCap } from "./sanitize-report";
+import { hasTaskErrors, validateTaskForm, type TaskFieldErrors } from "./task-validation";
 
 export interface UseTaskSubmitArgs {
   form: TaskFormDraft;
@@ -47,7 +47,9 @@ export interface UseTaskSubmitArgs {
 }
 
 export function useTaskSubmit(args: UseTaskSubmitArgs): {
-  error: string | null;
+  fieldErrors: TaskFieldErrors;
+  submitted: boolean;
+  saveDisabled: boolean;
   handleSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
   handleCancelEdit: () => void;
   openEditModal: (task: Task) => void;
@@ -70,28 +72,29 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
     onPushToJiraRef,
   } = args;
 
-  const [error, setError] = useState<string | null>(null);
+  // `submitted` flips true on the first submit attempt so per-field errors can
+  // reveal even for fields the user never blurred. Live `fieldErrors` also gate
+  // the Save button (saveDisabled) — see task-validation.ts for the rules.
+  const [submitted, setSubmitted] = useState(false);
+  const fieldErrors = useMemo(() => validateTaskForm(form, today), [form, today]);
+  const saveDisabled = hasTaskErrors(fieldErrors);
   const adj = useAdjustmentTracker();
 
   const handleSubmit = useCallback(
     (e: React.FormEvent<HTMLFormElement>) => {
       e.preventDefault();
-      setError(null);
+      setSubmitted(true);
       adj.reset();
+
+      // Per-field validation gates the submit (same rules surfaced inline).
+      // Normally the Save button is already disabled when invalid; this is the
+      // belt-and-suspenders guard for any path that still fires onSubmit.
+      if (hasTaskErrors(validateTaskForm(form, today))) return;
 
       // Safety net: fields are normally already trimmed on blur, but we re-cap here at submit time in case blur was skipped.
       const taskName = sanitizeTaskName(adj.track(describeTextCap(form.taskName, TASK_NAME_MAX)));
       const assignee = sanitizeAssignee(adj.track(describeTextCap(form.assignee, ASSIGNEE_MAX)));
       const dueDate = sanitizeIsoDate(form.dueDate);
-
-      if (!taskName || !assignee || !dueDate) {
-        setError(t(lang, "errorRequired"));
-        return;
-      }
-      if (dueDate < today) {
-        setError(t(lang, "errorPastDate"));
-        return;
-      }
 
       if (editingId !== null) {
         const existing = tasks.find((row) => row.id === editingId);
@@ -105,10 +108,6 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
       }
 
       const email = sanitizeEmail(adj.track(describeTextCap(form.assigneeEmail, EMAIL_MAX)));
-      if (email && !isValidEmail(email)) {
-        setError(t(lang, "errorInvalidEmail"));
-        return;
-      }
 
       const knownIds = new Set(tasks.map((row) => row.id));
       const cleanDependencies = sanitizeDependencies(
@@ -175,6 +174,10 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
         }
       }
       setForm(emptyForm());
+      // Reset only on this clean-close path. The jira-assignee early-return
+      // above intentionally leaves `submitted` true so its field errors persist
+      // while the form stays open.
+      setSubmitted(false);
       setTaskModalOpen(false);
     },
     [
@@ -199,7 +202,7 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
 
   const handleCancelEdit = useCallback(() => {
     setEditingId(null);
-    setError(null);
+    setSubmitted(false);
     setForm(emptyForm());
     setTaskModalOpen(false);
   }, [setEditingId, setForm, setTaskModalOpen]);
@@ -207,7 +210,7 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
   const openEditModal = useCallback(
     (task: Task) => {
       setEditingId(task.id);
-      setError(null);
+      setSubmitted(false);
       setTaskModalOpen(true);
       setForm({
         taskName: task.taskName,
@@ -234,5 +237,5 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
     [setEditingId, setTaskModalOpen, setForm],
   );
 
-  return { error, handleSubmit, handleCancelEdit, openEditModal };
+  return { fieldErrors, submitted, saveDisabled, handleSubmit, handleCancelEdit, openEditModal };
 }
