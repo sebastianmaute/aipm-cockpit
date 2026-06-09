@@ -26,10 +26,11 @@ export const defaultAiConfig: AiConfig = {
   consentAccepted: false,
 };
 
-export type ChannelConfig = { enabled: boolean };
+export type ChannelConfig = { enabled: boolean; leadDays?: number };
 
 export type NotificationsConfig = {
   reminderLeadDays: number;
+  useGlobalLeadDays: boolean;
   banner: ChannelConfig;
   toast: ChannelConfig;
   popup: ChannelConfig;
@@ -37,17 +38,20 @@ export type NotificationsConfig = {
   raidReview: ChannelConfig;
   raidReviewIntervalDays: number;
   stakeholderComms: ChannelConfig;
+  jiraTokenError: ChannelConfig;
 };
 
 export const defaultNotificationsConfig: NotificationsConfig = {
   reminderLeadDays: 7,
-  banner: { enabled: true },
+  useGlobalLeadDays: true,
+  banner: { enabled: false },
   toast: { enabled: true },
-  popup: { enabled: true },
+  popup: { enabled: false },
   birthday: { enabled: true },
   raidReview: { enabled: true },
   raidReviewIntervalDays: 14,
   stakeholderComms: { enabled: true },
+  jiraTokenError: { enabled: true },
 };
 
 export type JiraAssigneeMode = "currentUser" | "any" | "specific";

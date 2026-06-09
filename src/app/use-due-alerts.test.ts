@@ -34,6 +34,7 @@ function makeSettings(overrides: {
     },
     notifications: {
       reminderLeadDays: 7,
+      useGlobalLeadDays: true,
       banner: { enabled: true },
       toast: { enabled: overrides.toastEnabled ?? false },
       popup: { enabled: overrides.popupEnabled ?? false },
@@ -41,6 +42,7 @@ function makeSettings(overrides: {
       raidReview: { enabled: true },
       raidReviewIntervalDays: 14,
       stakeholderComms: { enabled: true },
+      jiraTokenError: { enabled: true },
     },
     jira: {
       enabled: false,

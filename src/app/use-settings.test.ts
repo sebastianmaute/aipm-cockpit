@@ -200,3 +200,67 @@ describe("features persistence", () => {
     expect(JSON.parse(raw as string).features).toEqual(["raid", "budget"]);
   });
 });
+
+describe("notifications migration — useGlobalLeadDays + jiraTokenError", () => {
+  it("legacy blob missing useGlobalLeadDays + jiraTokenError fills both to defaults", async () => {
+    const legacy: Record<string, unknown> = {
+      ...defaultSettings,
+      notifications: {
+        reminderLeadDays: 7,
+        banner: { enabled: true },
+        toast: { enabled: true },
+        popup: { enabled: true },
+        birthday: { enabled: true },
+        raidReview: { enabled: true },
+        raidReviewIntervalDays: 14,
+        stakeholderComms: { enabled: true },
+        // useGlobalLeadDays and jiraTokenError deliberately absent
+      },
+    };
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(legacy));
+    const { result } = renderHook(() => useSettings());
+    await act(async () => {});
+    expect(result.current.settings.notifications.useGlobalLeadDays).toBe(true);
+    expect(result.current.settings.notifications.jiraTokenError).toEqual({ enabled: true });
+  });
+
+  it("explicit legacy banner:{enabled:true} is PRESERVED (not flipped to new default false)", async () => {
+    const legacy: Record<string, unknown> = {
+      ...defaultSettings,
+      notifications: {
+        reminderLeadDays: 7,
+        banner: { enabled: true },
+        toast: { enabled: true },
+        popup: { enabled: true },
+        birthday: { enabled: true },
+        raidReview: { enabled: true },
+        raidReviewIntervalDays: 14,
+        stakeholderComms: { enabled: true },
+      },
+    };
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(legacy));
+    const { result } = renderHook(() => useSettings());
+    await act(async () => {});
+    expect(result.current.settings.notifications.banner.enabled).toBe(true);
+  });
+
+  it("explicit legacy popup:{enabled:true} is PRESERVED (not flipped to new default false)", async () => {
+    const legacy: Record<string, unknown> = {
+      ...defaultSettings,
+      notifications: {
+        reminderLeadDays: 7,
+        banner: { enabled: false },
+        toast: { enabled: true },
+        popup: { enabled: true },
+        birthday: { enabled: true },
+        raidReview: { enabled: true },
+        raidReviewIntervalDays: 14,
+        stakeholderComms: { enabled: true },
+      },
+    };
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(legacy));
+    const { result } = renderHook(() => useSettings());
+    await act(async () => {});
+    expect(result.current.settings.notifications.popup.enabled).toBe(true);
+  });
+});

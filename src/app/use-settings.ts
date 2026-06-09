@@ -23,11 +23,13 @@ function migrateNotifications(raw: unknown): Settings["notifications"] {
   const raidInterval = Math.round(Number(p.raidReviewIntervalDays));
   return {
     reminderLeadDays: Number.isFinite(lead) && lead >= 0 ? lead : 7,
+    useGlobalLeadDays: typeof p.useGlobalLeadDays === "boolean" ? p.useGlobalLeadDays : true,
     banner: ch(p.banner), toast: ch(p.toast), popup: ch(p.popup), birthday: ch(p.birthday),
     raidReview: ch(p.raidReview),
     raidReviewIntervalDays:
       Number.isFinite(raidInterval) && raidInterval >= 1 ? Math.min(365, raidInterval) : 14,
     stakeholderComms: ch(p.stakeholderComms),
+    jiraTokenError: ch(p.jiraTokenError),
   };
 }
 
