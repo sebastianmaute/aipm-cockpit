@@ -201,6 +201,88 @@ describe("features persistence", () => {
   });
 });
 
+describe("notifications migration — per-channel leadDays", () => {
+  it("persisted channel leadDays:21 survives migrateNotifications", async () => {
+    localStorage.setItem(
+      SETTINGS_KEY,
+      JSON.stringify({
+        ...defaultSettings,
+        notifications: {
+          ...defaultNotificationsConfig,
+          toast: { enabled: true, leadDays: 21 },
+        },
+      }),
+    );
+    const { result } = renderHook(() => useSettings());
+    await act(async () => {});
+    expect(result.current.settings.notifications.toast.leadDays).toBe(21);
+  });
+
+  it("invalid leadDays:'x' is omitted (undefined)", async () => {
+    localStorage.setItem(
+      SETTINGS_KEY,
+      JSON.stringify({
+        ...defaultSettings,
+        notifications: {
+          ...defaultNotificationsConfig,
+          toast: { enabled: true, leadDays: "x" },
+        },
+      }),
+    );
+    const { result } = renderHook(() => useSettings());
+    await act(async () => {});
+    expect(result.current.settings.notifications.toast.leadDays).toBeUndefined();
+  });
+
+  it("negative leadDays is omitted (undefined)", async () => {
+    localStorage.setItem(
+      SETTINGS_KEY,
+      JSON.stringify({
+        ...defaultSettings,
+        notifications: {
+          ...defaultNotificationsConfig,
+          banner: { enabled: true, leadDays: -3 },
+        },
+      }),
+    );
+    const { result } = renderHook(() => useSettings());
+    await act(async () => {});
+    expect(result.current.settings.notifications.banner.leadDays).toBeUndefined();
+  });
+
+  it("leadDays:0 is preserved (zero is a valid value)", async () => {
+    localStorage.setItem(
+      SETTINGS_KEY,
+      JSON.stringify({
+        ...defaultSettings,
+        notifications: {
+          ...defaultNotificationsConfig,
+          popup: { enabled: true, leadDays: 0 },
+        },
+      }),
+    );
+    const { result } = renderHook(() => useSettings());
+    await act(async () => {});
+    expect(result.current.settings.notifications.popup.leadDays).toBe(0);
+  });
+
+  it("leadDays above 365 is clamped to 365", async () => {
+    localStorage.setItem(
+      SETTINGS_KEY,
+      JSON.stringify({
+        ...defaultSettings,
+        notifications: {
+          ...defaultNotificationsConfig,
+          toast: { enabled: true, leadDays: 999 },
+        },
+      }),
+    );
+    const { result } = renderHook(() => useSettings());
+    await act(async () => {});
+    expect(result.current.settings.notifications.toast.leadDays).toBe(365);
+  });
+});
+
 describe("notifications migration — useGlobalLeadDays + jiraTokenError", () => {
   it("legacy blob missing useGlobalLeadDays + jiraTokenError fills both to defaults", async () => {
     const legacy: Record<string, unknown> = {

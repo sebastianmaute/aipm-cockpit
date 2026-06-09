@@ -18,7 +18,16 @@ export function writeSettings(settings: Settings): void {
 function migrateNotifications(raw: unknown): Settings["notifications"] {
   const p = (isPlainObject(raw) ? raw : {}) as Record<string, unknown>;
   const pick = (v: unknown) => (isPlainObject(v) ? (v as Record<string, unknown>) : {});
-  const ch = (v: unknown) => ({ enabled: isPlainObject(v) ? (v as { enabled?: unknown }).enabled !== false : true });
+  const ch = (v: unknown) => {
+    const o = isPlainObject(v) ? (v as Record<string, unknown>) : {};
+    const n = Number((o as { leadDays?: unknown }).leadDays);
+    const validLeadDays = Number.isFinite(n) && n >= 0 ? Math.min(365, Math.round(n)) : undefined;
+    const result: { enabled: boolean; leadDays?: number } = {
+      enabled: isPlainObject(v) ? (v as { enabled?: unknown }).enabled !== false : true,
+    };
+    if (validLeadDays !== undefined) result.leadDays = validLeadDays;
+    return result;
+  };
   const lead = Number(p.reminderLeadDays ?? pick(p.birthday).leadDays ?? pick(p.banner).thresholdWorkDays);
   const raidInterval = Math.round(Number(p.raidReviewIntervalDays));
   return {

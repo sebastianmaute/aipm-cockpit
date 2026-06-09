@@ -61,7 +61,7 @@ import type { AppView } from "./nav-config";
 import { useSnapshots } from "./use-snapshots";
 import { computeDashboard } from "./dashboard";
 import { getTursoConfig } from "./turso-config";
-import { defaultSnapshotSettings } from "./settings-types";
+import { defaultExportConfig, defaultSnapshotSettings } from "./settings-types";
 import { TaskEditView, TASK_EDIT_FORM_ID } from "./task-edit-view";
 import { APP_VERSION_LABEL } from "./version";
 import { ActionMenus } from "./action-menus";
@@ -1000,6 +1000,7 @@ function TaskManagerInner() {
       lang={lang}
       onCommand={handleCommand}
       onVoiceError={(msg) => showToast("error", msg)}
+      exportConfig={settings.export ?? defaultExportConfig}
     />
   );
 

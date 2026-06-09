@@ -6,6 +6,7 @@ import { type AlertableTask } from "./due-dates";
 import { type StorageKind } from "./storage";
 import { SettingsMenu, type Settings } from "./settings-menu";
 import { ActionMenus } from "./action-menus";
+import { defaultExportConfig } from "./settings-types";
 
 export interface AppHeaderProps {
   handleCancelEdit: () => void;
@@ -135,6 +136,7 @@ export function AppHeader({
             lang={lang}
             onCommand={handleCommand}
             onVoiceError={(msg) => showToast("error", msg)}
+            exportConfig={settings.export ?? defaultExportConfig}
           />
           <SettingsMenu
             settings={settings}
