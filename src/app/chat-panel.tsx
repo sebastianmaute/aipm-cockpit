@@ -102,7 +102,7 @@ async function callClaude(
   });
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`${res.status}: ${text}`);
+    throw new Error(`${res.status}: ${text.slice(0, 300)}`);
   }
   const json = await res.json() as { content: ContentBlock[]; stop_reason: string; usage?: ApiUsage };
   return {

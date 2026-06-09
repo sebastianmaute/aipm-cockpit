@@ -18,12 +18,13 @@ import {
   type Usage,
   type UsageBuckets,
 } from "./ai-usage";
-import { AI_USAGE_KEY } from "./use-ai-usage";
 import { crossed80 } from "./usage-warning";
 import type { Lang } from "./i18n";
 import { t } from "./i18n";
 import type { AiConfig } from "./settings-types";
 import { DEFAULT_SESSION_TOKEN_CAP, DEFAULT_WEEKLY_TOKEN_CAP } from "./settings-types";
+
+export const AI_USAGE_KEY = "lop-app:ai-usage";
 
 export type AiUsageContextValue = {
   sessionTotal: number;
@@ -72,6 +73,12 @@ export function AiUsageProvider({ lang, ai, showToast, children }: AiUsageProvid
   const [buckets, setBuckets] = useState<UsageBuckets>(() => loadBuckets());
   const [sessionTotal, setSessionTotal] = useState(0);
 
+  // Refs that mirror the latest committed state values so the record callback
+  // can read them synchronously without capturing stale closures. Kept in sync
+  // immediately after every setState call (same event loop tick).
+  const sessionTotalRef = useRef(0);
+  const bucketsRef = useRef<UsageBuckets>(buckets);
+
   // Per-scope "already warned this session" flags — booleans in a ref so they
   // never trigger re-renders and are never reset within the provider lifetime
   // (session resets on page reload; week flag is accurate enough as a simple bool).
@@ -84,27 +91,37 @@ export function AiUsageProvider({ lang, ai, showToast, children }: AiUsageProvid
     (u: Usage): void => {
       const tokens = u.input + u.output;
 
-      setSessionTotal((prevSession) => {
-        const nextSession = prevSession + tokens;
-        if (!warnedRef.current.session && crossed80(prevSession, nextSession, sessionCap)) {
-          warnedRef.current.session = true;
-          showToast("error", t(lang, "usage80Toast"));
-        }
-        return nextSession;
-      });
+      // Read previous values from refs — no state reads inside updaters.
+      const prevSession = sessionTotalRef.current;
+      const prevBuckets = bucketsRef.current;
+      const now = new Date();
 
-      setBuckets((prevBuckets) => {
-        const now = new Date();
-        const prevWeek = weekToDate(prevBuckets, now);
-        const updated = addToBuckets(prevBuckets, now, u);
-        const nextWeek = weekToDate(updated, now);
-        if (!warnedRef.current.week && crossed80(prevWeek, nextWeek, weeklyCap)) {
-          warnedRef.current.week = true;
-          showToast("error", t(lang, "usage80Toast"));
-        }
-        saveBuckets(updated);
-        return updated;
-      });
+      // Compute next values purely.
+      const nextSession = prevSession + tokens;
+      const prevWeek = weekToDate(prevBuckets, now);
+      const nextBuckets = addToBuckets(prevBuckets, now, u);
+      const nextWeek = weekToDate(nextBuckets, now);
+
+      // Advance refs before setState so back-to-back record() calls in the
+      // same tick see the accumulated totals, not the stale committed state.
+      sessionTotalRef.current = nextSession;
+      bucketsRef.current = nextBuckets;
+
+      // Pure state updates — no side effects inside the updater functions.
+      setSessionTotal(nextSession);
+      setBuckets(nextBuckets);
+
+      // Side effects outside the updaters: persist and warn.
+      saveBuckets(nextBuckets);
+
+      if (!warnedRef.current.session && crossed80(prevSession, nextSession, sessionCap)) {
+        warnedRef.current.session = true;
+        showToast("error", t(lang, "usage80Toast"));
+      }
+      if (!warnedRef.current.week && crossed80(prevWeek, nextWeek, weeklyCap)) {
+        warnedRef.current.week = true;
+        showToast("error", t(lang, "usage80Toast"));
+      }
     },
     [lang, sessionCap, weeklyCap, showToast],
   );
