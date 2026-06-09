@@ -15,6 +15,7 @@ import { AiSection } from "./settings-sections/ai-section";
 import { IntegrationsSection } from "./settings-sections/integrations-section";
 import { ModeSection } from "./settings-sections/mode-section";
 import { InformationFlowsSection } from "./settings-sections/information-flows-section";
+import { ExportSection } from "./settings-sections/export-section";
 import { JiraSettingsSection } from "./jira-settings";
 import { StorageConfigSection } from "./storage-config";
 import type { FeatureModuleId } from "./feature-modules";
@@ -34,7 +35,7 @@ interface SettingsViewProps {
 
 type SectionId =
   | "mode" | "appearance" | "localization" | "general" | "notifications"
-  | "ai" | "jira" | "storage" | "integrations" | "informationFlows";
+  | "ai" | "jira" | "storage" | "integrations" | "export" | "informationFlows";
 
 const RAIL: { id: SectionId; labelKey: TranslationKey }[] = [
   { id: "mode", labelKey: "settingsSectionMode" },
@@ -46,6 +47,7 @@ const RAIL: { id: SectionId; labelKey: TranslationKey }[] = [
   { id: "jira", labelKey: "settingsSectionJira" },
   { id: "storage", labelKey: "settingsSectionStorage" },
   { id: "integrations", labelKey: "settingsSectionIntegrations" },
+  { id: "export", labelKey: "settingsSectionExport" },
   { id: "informationFlows", labelKey: "settingsSectionInformationFlows" },
 ];
 
@@ -126,6 +128,9 @@ export function SettingsView(props: SettingsViewProps) {
         )}
         {active === "integrations" && (
           <IntegrationsSection lang={lang} settings={settings} onChange={onChange} />
+        )}
+        {active === "export" && (
+          <ExportSection lang={lang} settings={settings} onChange={onChange} />
         )}
         {active === "informationFlows" && (
           <InformationFlowsSection lang={lang} />
