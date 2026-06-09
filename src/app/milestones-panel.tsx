@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  ReportCard,
   SortHeaderButton,
   useSortableFilter,
   type SortDir,
@@ -17,7 +16,9 @@ import {
 } from "./milestones";
 import { type Lang, t } from "./i18n";
 import { useColumnResize } from "./use-column-resize";
-import { ColumnResizeHandle } from "./task-manager-ui";
+import { ColumnResizeHandle, ResizeCornerHint } from "./task-manager-ui";
+import { useResizable } from "./use-resizable";
+import { CENTERED_HALF_PANE_CLASS } from "./view-styles";
 import type { ActivityKind } from "./activity-log";
 import type { Milestone } from "./types";
 
@@ -53,7 +54,7 @@ export function MilestonesPanel({
   openCreateNonce?: number;
 }) {
   const { milestones, setMilestones, tasks } = useWorkspace();
-  const sizeRef = useRef<HTMLDivElement | null>(null);
+  const { ref } = useResizable("lop-app:milestones-size");
   const [editing, setEditing] = useState<Milestone | null>(null);
   const [isNew, setIsNew] = useState(false);
   const [search, setSearch] = useState("");
@@ -82,7 +83,7 @@ export function MilestonesPanel({
     getValue,
   );
 
-  const { colWidths, startColResize, resetColWidths } =
+  const { colWidths, startColResize } =
     useColumnResize<MilestoneCol>("milestone", MILESTONE_COL_WIDTHS);
   const startResize = startColResize as (col: string, e: React.MouseEvent) => void;
 
@@ -144,13 +145,11 @@ export function MilestonesPanel({
   }
 
   return (
-    <ReportCard
-      lang={lang}
-      sizeRef={sizeRef}
-      onResetSize={() => undefined}
-      onResetCols={resetColWidths}
-      title={t(lang, "milestonesTitle")}
-      toolbarExtra={
+    <div ref={ref} className={CENTERED_HALF_PANE_CLASS}>
+      <header className="mb-2 flex shrink-0 flex-wrap items-center justify-between gap-2">
+        <h2 className="text-lg font-medium text-foreground">
+          {t(lang, "milestonesTitle")}
+        </h2>
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
@@ -179,8 +178,7 @@ export function MilestonesPanel({
             <option value="overdue">{t(lang, "milestonesFilterOverdue")}</option>
           </select>
         </div>
-      }
-    >
+      </header>
       {sorted.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           {t(lang, "milestonesEmpty")}
@@ -278,6 +276,7 @@ export function MilestonesPanel({
           onClose={() => setEditing(null)}
         />
       ) : null}
-    </ReportCard>
+      <ResizeCornerHint lang={lang} />
+    </div>
   );
 }
