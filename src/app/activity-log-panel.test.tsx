@@ -32,4 +32,30 @@ describe("ActivityLogPanel", () => {
     render(<ActivityLogPanel lang="en-US" entries={entries} onClear={() => {}} />);
     expect(screen.getByRole("button", { name: /print/i })).toBeInTheDocument();
   });
+
+  it("wraps header controls in a print:hidden container so they are hidden when printing", () => {
+    const { container } = render(
+      <ActivityLogPanel lang="en-US" entries={entries} onClear={() => {}} />,
+    );
+    // Tailwind encodes print:hidden as the class string "print:hidden".
+    const allDivs = Array.from(container.querySelectorAll("div, header > div"));
+    const hiddenContainers = allDivs.filter((el) =>
+      el.className.includes("print:hidden"),
+    );
+    expect(hiddenContainers.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("does NOT mark the log table inside a print:hidden container", () => {
+    const { container } = render(
+      <ActivityLogPanel lang="en-US" entries={entries} onClear={() => {}} />,
+    );
+    const table = container.querySelector("table");
+    expect(table).not.toBeNull();
+    // Walk up from table — none of the ancestors up to print-root should be print:hidden.
+    let el: HTMLElement | null = table as HTMLElement;
+    while (el && !el.className.includes("print-root")) {
+      expect(el.className).not.toContain("print:hidden");
+      el = el.parentElement;
+    }
+  });
 });
