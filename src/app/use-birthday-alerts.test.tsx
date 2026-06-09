@@ -28,6 +28,23 @@ function makeSettings(enabled: boolean, leadDays: number): Settings {
   };
 }
 
+function makeSettingsWithChannelLeadDays(opts: {
+  enabled: boolean;
+  useGlobalLeadDays: boolean;
+  reminderLeadDays: number;
+  birthdayLeadDays?: number;
+}): Settings {
+  return {
+    ...defaultSettings,
+    notifications: {
+      ...defaultSettings.notifications,
+      reminderLeadDays: opts.reminderLeadDays,
+      useGlobalLeadDays: opts.useGlobalLeadDays,
+      birthday: { enabled: opts.enabled, leadDays: opts.birthdayLeadDays },
+    },
+  };
+}
+
 describe("useBirthdayAlerts", () => {
   it("fires toast once when enabled and an upcoming birthday exists", async () => {
     const today = "2026-05-25";
@@ -123,5 +140,47 @@ describe("useBirthdayAlerts", () => {
     });
 
     expect(result.current.birthdayDismissed).toBe(true);
+  });
+
+  it("uses channel-specific leadDays for birthday when useGlobalLeadDays=false", async () => {
+    // birthday 10 days away; global=0 would miss it, channel=14 should catch it
+    const today = "2026-05-25";
+    const resources: Resource[] = [makeResource(1, "06-04")]; // 10 days away
+    const showToast = vi.fn();
+    const settings = makeSettingsWithChannelLeadDays({
+      enabled: true,
+      useGlobalLeadDays: false,
+      reminderLeadDays: 0,
+      birthdayLeadDays: 14,
+    });
+
+    renderHook(() =>
+      useBirthdayAlerts({ hydrated: true, resources, today, settings, holidaySet: new Set(), absences: [], showToast }),
+    );
+
+    await act(async () => { await Promise.resolve(); });
+
+    expect(showToast).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores channel leadDays and uses global when useGlobalLeadDays=true", async () => {
+    // birthday 10 days away; global=7 misses it even though channel=30
+    const today = "2026-05-25";
+    const resources: Resource[] = [makeResource(1, "06-04")]; // 10 days away
+    const showToast = vi.fn();
+    const settings = makeSettingsWithChannelLeadDays({
+      enabled: true,
+      useGlobalLeadDays: true,
+      reminderLeadDays: 7,
+      birthdayLeadDays: 30,
+    });
+
+    renderHook(() =>
+      useBirthdayAlerts({ hydrated: true, resources, today, settings, holidaySet: new Set(), absences: [], showToast }),
+    );
+
+    await act(async () => { await Promise.resolve(); });
+
+    expect(showToast).not.toHaveBeenCalled();
   });
 });

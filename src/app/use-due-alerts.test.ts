@@ -22,6 +22,12 @@ const OVERDUE_TASK: Task = {
 function makeSettings(overrides: {
   toastEnabled?: boolean;
   popupEnabled?: boolean;
+  bannerEnabled?: boolean;
+  useGlobalLeadDays?: boolean;
+  reminderLeadDays?: number;
+  toastLeadDays?: number;
+  popupLeadDays?: number;
+  bannerLeadDays?: number;
 } = {}): Settings {
   return {
     language: "en-US",
@@ -33,11 +39,11 @@ function makeSettings(overrides: {
       consentAccepted: false,
     },
     notifications: {
-      reminderLeadDays: 7,
-      useGlobalLeadDays: true,
-      banner: { enabled: true },
-      toast: { enabled: overrides.toastEnabled ?? false },
-      popup: { enabled: overrides.popupEnabled ?? false },
+      reminderLeadDays: overrides.reminderLeadDays ?? 7,
+      useGlobalLeadDays: overrides.useGlobalLeadDays ?? true,
+      banner: { enabled: overrides.bannerEnabled ?? true, leadDays: overrides.bannerLeadDays },
+      toast: { enabled: overrides.toastEnabled ?? false, leadDays: overrides.toastLeadDays },
+      popup: { enabled: overrides.popupEnabled ?? false, leadDays: overrides.popupLeadDays },
       birthday: { enabled: false },
       raidReview: { enabled: true },
       raidReviewIntervalDays: 14,
@@ -181,6 +187,106 @@ describe("useDueAlerts", () => {
         expect.stringMatching(/RAID review due/i)
       )
     );
+  });
+
+  test("per-channel lead days: toast uses its own leadDays when useGlobalLeadDays=false", async () => {
+    // OVERDUE_TASK.dueDate = 2030-01-10, TODAY = 2030-01-15 → 5 days overdue
+    // toast leadDays=3 → task is within window (overdue tasks always alert)
+    const showToast = vi.fn();
+    renderHook(() =>
+      useDueAlerts({
+        hydrated: true,
+        tasks: [OVERDUE_TASK],
+        holidaySet: new Set(),
+        absences: [],
+        raid: [],
+        settings: makeSettings({
+          toastEnabled: true,
+          useGlobalLeadDays: false,
+          reminderLeadDays: 0, // global = 0 → would suppress if used
+          toastLeadDays: 10,   // channel override → includes overdue task
+        }),
+        today: TODAY,
+        showToast,
+        raidEnabled: false,
+      })
+    );
+    await act(async () => { await Promise.resolve(); });
+    expect(showToast).toHaveBeenCalledTimes(1);
+  });
+
+  test("per-channel lead days: popup uses its own leadDays when useGlobalLeadDays=false", async () => {
+    const showToast = vi.fn();
+    const { result } = renderHook(() =>
+      useDueAlerts({
+        hydrated: true,
+        tasks: [OVERDUE_TASK],
+        holidaySet: new Set(),
+        absences: [],
+        raid: [],
+        settings: makeSettings({
+          popupEnabled: true,
+          useGlobalLeadDays: false,
+          reminderLeadDays: 0,
+          popupLeadDays: 10,
+        }),
+        today: TODAY,
+        showToast,
+        raidEnabled: false,
+      })
+    );
+    await act(async () => { await Promise.resolve(); });
+    expect(result.current.dueModalOpen).toBe(true);
+  });
+
+  test("useGlobalLeadDays=true ignores channel leadDays and uses global value", async () => {
+    // OVERDUE_TASK due 2030-01-10, TODAY 2030-01-15 (5 days overdue)
+    // global=7 covers it; channel=0 would not — but global wins
+    const showToast = vi.fn();
+    renderHook(() =>
+      useDueAlerts({
+        hydrated: true,
+        tasks: [OVERDUE_TASK],
+        holidaySet: new Set(),
+        absences: [],
+        raid: [],
+        settings: makeSettings({
+          toastEnabled: true,
+          useGlobalLeadDays: true,
+          reminderLeadDays: 7,
+          toastLeadDays: 0,
+        }),
+        today: TODAY,
+        showToast,
+        raidEnabled: false,
+      })
+    );
+    await act(async () => { await Promise.resolve(); });
+    expect(showToast).toHaveBeenCalledTimes(1);
+  });
+
+  test("toast-first defaults: toast.enabled=true fires even when banner and popup are off", async () => {
+    const showToast = vi.fn();
+    renderHook(() =>
+      useDueAlerts({
+        hydrated: true,
+        tasks: [OVERDUE_TASK],
+        holidaySet: new Set(),
+        absences: [],
+        raid: [],
+        settings: makeSettings({
+          toastEnabled: true,
+          bannerEnabled: false,
+          popupEnabled: false,
+        }),
+        today: TODAY,
+        showToast,
+        raidEnabled: false,
+      })
+    );
+    await act(async () => { await Promise.resolve(); });
+    expect(showToast).toHaveBeenCalledTimes(1);
+    expect(showToast).toHaveBeenCalledWith("info", expect.any(String));
   });
 
   test("does not open the RAID-review modal when the raid module is disabled", async () => {

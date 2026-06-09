@@ -46,6 +46,7 @@ import { tursoErrorKind, type StorageErrorKind } from "./storage-error";
 import { getRaidReviewItems } from "./raid-review";
 import { useStakeholderComms } from "./use-stakeholder-comms";
 import { getJiraTokenAlert } from "./jira-token-status";
+import { effectiveLeadDays } from "./notifications-lead";
 import { WorkspaceSection } from "./workspace-section";
 import { RolesPanel } from "./roles-panel";
 import { getUpcomingBirthdays } from "./birthdays";
@@ -664,14 +665,14 @@ function TaskManagerInner() {
   const bannerItems = useMemo(() => {
     const cfg = settings.notifications.banner;
     if (!cfg.enabled) return [];
-    return getAlertableTasks(tasks, settings.notifications.reminderLeadDays, today, holidaySet, absences);
-  }, [tasks, settings.notifications.reminderLeadDays, settings.notifications.banner, today, holidaySet, absences]);
+    return getAlertableTasks(tasks, effectiveLeadDays(settings.notifications, "banner"), today, holidaySet, absences);
+  }, [tasks, settings.notifications, today, holidaySet, absences]);
 
   const birthdayItems = useMemo(
     () => settings.notifications.birthday.enabled
-      ? getUpcomingBirthdays(resources, today, settings.notifications.reminderLeadDays, holidaySet, absences)
+      ? getUpcomingBirthdays(resources, today, effectiveLeadDays(settings.notifications, "birthday"), holidaySet, absences)
       : [],
-    [resources, settings.notifications.reminderLeadDays, settings.notifications.birthday, today, holidaySet, absences],
+    [resources, settings.notifications, today, holidaySet, absences],
   );
 
   const raidReviewItems = useMemo(
@@ -682,8 +683,8 @@ function TaskManagerInner() {
   );
 
   const dueModalItems = useMemo(() => {
-    return getAlertableTasks(tasks, settings.notifications.reminderLeadDays, today, holidaySet, absences);
-  }, [tasks, settings.notifications.reminderLeadDays, today, holidaySet, absences]);
+    return getAlertableTasks(tasks, effectiveLeadDays(settings.notifications, "popup"), today, holidaySet, absences);
+  }, [tasks, settings.notifications, today, holidaySet, absences]);
 
   const bucketReminders = useMemo(
     () => getBucketReminders(budgets, settings.notifications.reminderLeadDays, today),
@@ -1018,7 +1019,7 @@ function TaskManagerInner() {
       {!isPopout && !birthdaySnooze.isSnoozed && !birthdayDismissed && birthdayItems.length > 0 && (
         <BirthdayBanner items={birthdayItems} lang={lang} onDismiss={() => setBirthdayDismissed(true)} onSnooze={birthdaySnooze.snooze} />
       )}
-      {!isPopout && jiraTokenAlert && !jiraTokenSnooze.isSnoozed && !jiraTokenDismissed && (
+      {!isPopout && jiraTokenAlert && !jiraTokenSnooze.isSnoozed && !jiraTokenDismissed && settings.notifications.jiraTokenError.enabled && (
         <JiraTokenBanner
           alert={jiraTokenAlert}
           lang={lang}

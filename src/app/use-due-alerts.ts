@@ -9,6 +9,7 @@ import {
 } from "react";
 import { getAlertableTasks } from "./due-dates";
 import { dueAlertsToastText, raidReviewToastText } from "./notifications";
+import { effectiveLeadDays } from "./notifications-lead";
 import { getRaidReviewItems } from "./raid-review";
 import { getSnoozedUntil } from "./reminder-snooze";
 import type { Settings } from "./settings-menu";
@@ -85,10 +86,11 @@ export function useDueAlerts({
     const { toast: toastCfg, popup: popupCfg } =
       settingsRef.current.notifications;
 
+    const notifCfgRef = settingsRef.current.notifications;
     const toastItems = toastCfg.enabled && !snoozed
       ? getAlertableTasks(
           tasks,
-          settingsRef.current.notifications.reminderLeadDays,
+          effectiveLeadDays(notifCfgRef, "toast"),
           todayRef.current,
           holidaySetRef.current,
           absencesRef.current,
@@ -98,7 +100,7 @@ export function useDueAlerts({
     const popupItems = popupCfg.enabled && !snoozed
       ? getAlertableTasks(
           tasks,
-          settingsRef.current.notifications.reminderLeadDays,
+          effectiveLeadDays(notifCfgRef, "popup"),
           todayRef.current,
           holidaySetRef.current,
           absencesRef.current,
