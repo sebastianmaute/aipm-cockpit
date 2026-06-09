@@ -404,7 +404,7 @@ function TaskManagerInner() {
   // via WorkspaceProvider; the three panels source `resources`/`milestones` from
   // context inside WorkspaceSection.
   const { stakeholders, handleSaveStakeholder, handleDeleteStakeholder } =
-    useStakeholders({ today });
+    useStakeholders({ today, logActivity });
 
   // Stakeholder-comms reminder (mirrors the RAID-review reminder wiring above):
   // mode-gated via `flags`, surfaced as a banner + modal in the shared slots.

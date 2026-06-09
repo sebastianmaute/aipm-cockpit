@@ -110,7 +110,7 @@ export interface WorkspaceSectionProps {
   handleDeleteChange: (id: number, title: string) => void;
   stakeholders: Stakeholder[];
   handleSaveStakeholder: (item: Stakeholder) => void;
-  handleDeleteStakeholder: (id: number) => void;
+  handleDeleteStakeholder: (id: number, name: string) => void;
   handleCreateMitigationTaskFromRaid: (raidId: number) => number | null | undefined;
   handleJumpToTaskFromRaid: (taskId: number) => void;
   activityLog: ActivityEntry[];
