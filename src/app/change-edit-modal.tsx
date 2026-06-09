@@ -24,6 +24,11 @@ import {
   type Task,
 } from "./types";
 import { useDraggable } from "./use-draggable";
+import { CharCounter, FieldNotice, useAdjustmentTracker } from "./field-feedback";
+import { describeTextCap, describeClamp } from "./sanitize-report";
+import { TASK_NAME_MAX, TEXTAREA_MAX, ASSIGNEE_MAX } from "./sanitize";
+
+const AMOUNT_MAX = 1_000_000_000;
 
 export interface ChangeEditModalProps {
   lang: Lang;
@@ -42,6 +47,7 @@ export interface ChangeEditModalProps {
   onSave: () => void;
   onCancel: () => void;
   onDelete: () => void;
+  onShowToast?: (kind: "info" | "error", msg: string) => void;
 }
 
 const TYPE_LABEL_KEYS: Record<ChangeType, TranslationKey> = {
@@ -84,10 +90,13 @@ export function ChangeEditModal({
   onSave,
   onCancel,
   onDelete,
+  onShowToast,
 }: ChangeEditModalProps) {
   const [error, setError] = useState<string | null>(null);
   const [taskPickerQuery, setTaskPickerQuery] = useState("");
   const [raidPickerQuery, setRaidPickerQuery] = useState("");
+  const [notice, setNotice] = useState<Record<string, string>>({});
+  const adj = useAdjustmentTracker();
 
   const { offset, handleProps } = useDraggable(true);
 
@@ -137,6 +146,13 @@ export function ChangeEditModal({
       return;
     }
     setError(null);
+    adj.reset();
+    // Route capped text fields through tracker so silent truncations are counted.
+    adj.track(describeTextCap(draft.title, TASK_NAME_MAX));
+    adj.track(describeTextCap(draft.description ?? "", TEXTAREA_MAX));
+    adj.track(describeTextCap(draft.requestedBy ?? "", ASSIGNEE_MAX));
+    adj.track(describeTextCap(draft.decisionBy ?? "", ASSIGNEE_MAX));
+    if (adj.count() > 0) onShowToast?.("info", t(lang, "fieldsAdjusted", adj.count()));
     onSave();
   }
 
@@ -220,8 +236,11 @@ export function ChangeEditModal({
               required
               value={draft.title}
               onChange={(e) => update("title", e.target.value)}
+              onBlur={(e) => update("title", describeTextCap(e.target.value, TASK_NAME_MAX).value.trim())}
+              aria-describedby="change-title-counter"
               className={INPUT_CLASS}
             />
+            <CharCounter value={draft.title} max={TASK_NAME_MAX} id="change-title-counter" lang={lang} />
           </label>
 
           {/* Type */}
@@ -271,8 +290,11 @@ export function ChangeEditModal({
               rows={2}
               value={draft.description}
               onChange={(e) => update("description", e.target.value)}
+              onBlur={(e) => update("description", describeTextCap(e.target.value, TEXTAREA_MAX).value)}
+              aria-describedby="change-description-counter"
               className={INPUT_CLASS}
             />
+            <CharCounter value={draft.description ?? ""} max={TEXTAREA_MAX} id="change-description-counter" lang={lang} />
           </label>
 
           {/* Impact */}
@@ -313,8 +335,14 @@ export function ChangeEditModal({
               onChange={(e) =>
                 update("requestedBy", e.target.value || undefined)
               }
+              onBlur={(e) => {
+                const trimmed = describeTextCap(e.target.value, ASSIGNEE_MAX).value.trim();
+                update("requestedBy", trimmed || undefined);
+              }}
+              aria-describedby="change-requestedBy-counter"
               className={INPUT_CLASS}
             />
+            <CharCounter value={draft.requestedBy ?? ""} max={ASSIGNEE_MAX} id="change-requestedBy-counter" lang={lang} />
           </label>
 
           {/* Impact description */}
@@ -343,8 +371,20 @@ export function ChangeEditModal({
               onChange={(e) =>
                 update("scheduleImpactDays", parseNumber(e.target.value))
               }
+              onBlur={(e) => {
+                const r = describeClamp(e.target.value, { min: 0, round: 0 });
+                update("scheduleImpactDays", r.value);
+                const clamped = r.adjustment?.kind === "clamped" ? r.adjustment : null;
+                setNotice((n) => ({
+                  ...n,
+                  scheduleImpactDays: clamped
+                    ? t(lang, clamped.bound === "max" ? "fieldAdjustedMax" : "fieldAdjustedMin", clamped.to)
+                    : "",
+                }));
+              }}
               className={INPUT_CLASS}
             />
+            <FieldNotice>{notice.scheduleImpactDays}</FieldNotice>
           </label>
 
           {/* Cost impact */}
@@ -358,8 +398,20 @@ export function ChangeEditModal({
               onChange={(e) =>
                 update("costImpact", parseNumber(e.target.value))
               }
+              onBlur={(e) => {
+                const r = describeClamp(e.target.value, { min: 0, max: AMOUNT_MAX, round: 2 });
+                update("costImpact", r.value);
+                const clamped = r.adjustment?.kind === "clamped" ? r.adjustment : null;
+                setNotice((n) => ({
+                  ...n,
+                  costImpact: clamped
+                    ? t(lang, clamped.bound === "max" ? "fieldAdjustedMax" : "fieldAdjustedMin", clamped.to)
+                    : "",
+                }));
+              }}
               className={INPUT_CLASS}
             />
+            <FieldNotice>{notice.costImpact}</FieldNotice>
           </label>
 
           {/* Raised date */}
@@ -386,8 +438,14 @@ export function ChangeEditModal({
               onChange={(e) =>
                 update("decisionBy", e.target.value || undefined)
               }
+              onBlur={(e) => {
+                const trimmed = describeTextCap(e.target.value, ASSIGNEE_MAX).value.trim();
+                update("decisionBy", trimmed || undefined);
+              }}
+              aria-describedby="change-decisionBy-counter"
               className={INPUT_CLASS}
             />
+            <CharCounter value={draft.decisionBy ?? ""} max={ASSIGNEE_MAX} id="change-decisionBy-counter" lang={lang} />
           </label>
 
           {/* Decision date — read-only display when set (auto-filled by status). */}
