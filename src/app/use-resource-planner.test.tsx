@@ -153,6 +153,87 @@ describe("useResourcePlanner", () => {
     });
   });
 
+  describe("resource activity logging", () => {
+    it("handleSaveResource logs resource.created for a new resource", () => {
+      const logActivity = vi.fn();
+      const { result } = renderPlanner({ logActivity });
+      const resource: Resource = {
+        id: 1, firstName: "Nora", lastName: "Ito",
+        roleId: null, utilizationMode: "percent", utilization: {},
+      };
+      act(() => { result.current.planner.handleSaveResource(resource); });
+      expect(logActivity).toHaveBeenCalledOnce();
+      expect(logActivity).toHaveBeenCalledWith("resource.created", 1, "Nora Ito");
+    });
+
+    it("handleSaveResource logs resource.updated for an existing resource", () => {
+      const logActivity = vi.fn();
+      const { result } = renderPlanner({ logActivity });
+      const resource: Resource = {
+        id: 2, firstName: "Marc", lastName: "Jordan",
+        roleId: null, utilizationMode: "percent", utilization: {},
+      };
+      act(() => { result.current.workspace.setResources([resource]); });
+      act(() => { result.current.planner.handleSaveResource({ ...resource, title: "Lead" }); });
+      expect(logActivity).toHaveBeenCalledOnce();
+      expect(logActivity).toHaveBeenCalledWith("resource.updated", 2, "Marc Jordan");
+    });
+
+    it("handleDeleteResource logs resource.deleted with name", () => {
+      const logActivity = vi.fn();
+      const { result } = renderPlanner({ logActivity });
+      const resource: Resource = {
+        id: 5, firstName: "Del", lastName: "Ete",
+        roleId: null, utilizationMode: "percent", utilization: {},
+      };
+      act(() => { result.current.workspace.setResources([resource]); });
+      act(() => { result.current.planner.handleDeleteResource(5); });
+      expect(result.current.workspace.resources).toHaveLength(0);
+      expect(logActivity).toHaveBeenCalledOnce();
+      expect(logActivity).toHaveBeenCalledWith("resource.deleted", 5, "Del Ete");
+    });
+  });
+
+  describe("role activity logging", () => {
+    it("handleSaveRole logs role.updated for an existing role", () => {
+      const logActivity = vi.fn();
+      const { result } = renderPlanner({ logActivity });
+      const role: Role = { id: 1, disciplineId: 2, gradeId: 3, internalRate: 100, externalRate: 150 };
+      act(() => { result.current.workspace.setRoles([role]); });
+      act(() => { result.current.planner.handleSaveRole({ ...role, internalRate: 200 }); });
+      expect(logActivity).toHaveBeenCalledOnce();
+      expect(logActivity).toHaveBeenCalledWith("role.updated", 1, "2/3");
+    });
+
+    it("resolveOrCreateRole logs role.created when creating a new role", () => {
+      const logActivity = vi.fn();
+      const { result } = renderPlanner({ logActivity });
+      act(() => { result.current.planner.resolveOrCreateRole(1, 2); });
+      expect(logActivity).toHaveBeenCalledOnce();
+      expect(logActivity).toHaveBeenCalledWith("role.created", expect.any(Number), "1/2");
+    });
+
+    it("resolveOrCreateRole does NOT log when role already exists (idempotent)", () => {
+      const logActivity = vi.fn();
+      const { result } = renderPlanner({ logActivity });
+      const role: Role = { id: 1, disciplineId: 1, gradeId: 1, internalRate: 0, externalRate: 0 };
+      act(() => { result.current.workspace.setRoles([role]); });
+      act(() => { result.current.planner.resolveOrCreateRole(1, 1); });
+      expect(logActivity).not.toHaveBeenCalled();
+    });
+
+    it("handleDeleteRole logs role.deleted with disciplineId/gradeId label", () => {
+      const logActivity = vi.fn();
+      const { result } = renderPlanner({ logActivity });
+      const role: Role = { id: 7, disciplineId: 3, gradeId: 2, internalRate: 0, externalRate: 0 };
+      act(() => { result.current.workspace.setRoles([role]); });
+      act(() => { result.current.planner.handleDeleteRole(7); });
+      expect(result.current.workspace.roles.some((r) => r.id === 7)).toBe(false);
+      expect(logActivity).toHaveBeenCalledOnce();
+      expect(logActivity).toHaveBeenCalledWith("role.deleted", 7, "3/2");
+    });
+  });
+
   describe("resource modal", () => {
     it("editingResource is null initially", () => {
       const { result } = renderPlanner();

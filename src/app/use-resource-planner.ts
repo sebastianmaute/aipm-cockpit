@@ -332,23 +332,32 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
     (next: Resource) => {
       const stamp = new Date().toISOString();
       const withStamp: Resource = { ...next, localModifiedAt: stamp };
-      setResources((prev) => {
-        const exists = prev.some((r) => r.id === next.id);
-        return exists
-          ? prev.map((r) => (r.id === next.id ? withStamp : r))
-          : [...prev, withStamp];
-      });
+      const isNew = resources.findIndex((r) => r.id === next.id) < 0;
+      setResources(isNew
+        ? [...resources, withStamp]
+        : resources.map((r) => (r.id === next.id ? withStamp : r)));
       setEditingResource(null);
+      const name = `${next.firstName} ${next.lastName}`.trim();
+      logActivityRef.current(
+        isNew ? "resource.created" : "resource.updated",
+        next.id,
+        name,
+      );
     },
-    [setResources],
+    [resources, setResources],
   );
 
   const handleDeleteResource = useCallback(
     (id: number) => {
-      setResources((prev) => prev.filter((r) => r.id !== id));
+      const removed = resources.find((r) => r.id === id);
+      setResources(resources.filter((r) => r.id !== id));
       setEditingResource(null);
+      if (removed) {
+        const name = `${removed.firstName} ${removed.lastName}`.trim();
+        logActivityRef.current("resource.deleted", id, name);
+      }
     },
-    [setResources],
+    [resources, setResources],
   );
 
   const handleImportResources = useCallback(
@@ -375,6 +384,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
         localModifiedAt: new Date().toISOString(),
       };
       setRoles((prev) => [...prev, role]);
+      logActivityRef.current("role.created", id, `${disciplineId}/${gradeId}`);
       return id;
     },
     [roles, setRoles],
@@ -386,12 +396,14 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
       setRoles((prev) =>
         prev.map((r) => (r.id === role.id ? { ...role, localModifiedAt: stamp } : r)),
       );
+      logActivityRef.current("role.updated", role.id, `${role.disciplineId}/${role.gradeId}`);
     },
     [setRoles],
   );
 
   const handleDeleteRole = useCallback(
     (id: number) => {
+      const removed = roles.find((r) => r.id === id);
       const stamp = new Date().toISOString();
       setRoles((prev) => prev.filter((r) => r.id !== id));
       setResources((prev) =>
@@ -399,8 +411,11 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
           r.roleId === id ? { ...r, roleId: null, localModifiedAt: stamp } : r,
         ),
       );
+      if (removed) {
+        logActivityRef.current("role.deleted", id, `${removed.disciplineId}/${removed.gradeId}`);
+      }
     },
-    [setRoles, setResources],
+    [roles, setRoles, setResources],
   );
 
   const handleAssignResourceRole = useCallback(
