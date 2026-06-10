@@ -126,6 +126,7 @@ function StakeholdersPanelInner({
       influence: "Medium",
       interest: "Medium",
       raci: {},
+      documentLinks: [],
     });
     setIsNew(true);
   }
