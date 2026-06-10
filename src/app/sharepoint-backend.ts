@@ -170,3 +170,32 @@ export function parseSharePointFileUrl(url: string): SpFileLocation | null {
     itemPath,
   };
 }
+
+export interface SpSiteLocation {
+  hostname: string;
+  sitePath: string;
+}
+
+/** Parse a SharePoint SITE or library URL into a Graph-addressable site path.
+ *  Relaxes the file-specific checks of parseSharePointFileUrl: a site URL has
+ *  only `/sites/<site>` (2 segments) and may end in a slash. Extra trailing
+ *  segments (library/folder) are ignored — only the site path is returned. */
+export function parseSharePointSiteUrl(url: string): SpSiteLocation | null {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return null;
+  }
+  if (parsed.protocol !== "https:") return null;
+  if (!parsed.hostname.endsWith(".sharepoint.com")) return null;
+  const hostLocal = parsed.hostname.replace(/\.sharepoint\.com$/, "");
+  if (hostLocal === "my" || hostLocal.endsWith("-my")) return null;
+
+  const segments = parsed.pathname.split("/").filter((s) => s !== "");
+  if (segments.length < 2) return null;
+  if (segments[0] !== "sites") return null;
+
+  const decoded = segments.slice(0, 2).map((s) => decodeURIComponent(s));
+  return { hostname: parsed.hostname, sitePath: `/${decoded[0]}/${decoded[1]}` };
+}
