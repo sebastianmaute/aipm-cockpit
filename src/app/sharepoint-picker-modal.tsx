@@ -83,6 +83,7 @@ export function SharePointPickerModal({
   const {
     loading,
     error,
+    searchForbidden,
     sites,
     drives,
     items,
@@ -91,6 +92,7 @@ export function SharePointPickerModal({
     openSite,
     openDrive,
     openFolder,
+    openSiteByPath,
   } = useSharePointBrowser(acquireToken);
 
   const title = t(lang, "spPickerTitle");
@@ -108,9 +110,7 @@ export function SharePointPickerModal({
   function handlePaste() {
     const loc = parseSharePointSiteUrl(pasteUrl.trim());
     if (!loc) return;
-    const siteId = `${loc.hostname}:${loc.sitePath}:`;
-    const site: SiteRef = { id: siteId, name: loc.sitePath, webUrl: pasteUrl.trim() };
-    void openSite(site);
+    void openSiteByPath(loc.hostname, loc.sitePath);
     setPasteUrl("");
   }
 
@@ -181,6 +181,12 @@ export function SharePointPickerModal({
 
           {/* Results area */}
           <div className="min-h-[120px]">
+            {searchForbidden && (
+              <p className="mb-2 rounded-md bg-surface-muted px-3 py-2 text-sm text-AIPM-pink">
+                {t(lang, "spPickerSearchForbidden")}
+              </p>
+            )}
+
             {error && (
               <p className="py-4 text-center text-sm text-AIPM-pink">{t(lang, error as Parameters<typeof t>[1])}</p>
             )}

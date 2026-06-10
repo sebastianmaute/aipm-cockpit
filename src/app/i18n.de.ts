@@ -1197,6 +1197,7 @@ export const de: Record<TranslationKey, string> = {
   spPickerErrorForbidden: "Zugriff verweigert — kein Zugriff auf diese Site oder Datei.",
   spPickerErrorNotFound: "Site oder Datei nicht gefunden.",
   spPickerErrorGeneric: "SharePoint ist ausgelastet — später erneut versuchen.",
+  spPickerSearchForbidden: "Die Site-Suche erfordert Administratorzustimmung (Sites.Read.All). Stattdessen unten eine Site-URL einfügen, um zu durchsuchen.",
 
   navGroupOverview: "ÜBERSICHT",
   navGroupPlan: "PLANUNG",

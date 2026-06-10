@@ -1179,6 +1179,7 @@ const enUS = {
   spPickerErrorForbidden: "Permission denied — you lack access to this site or file.",
   spPickerErrorNotFound: "Site or file not found.",
   spPickerErrorGeneric: "SharePoint is busy — try again later.",
+  spPickerSearchForbidden: "Site search needs admin consent (Sites.Read.All). Paste a site URL below to browse instead.",
 
   navGroupOverview: "OVERVIEW",
   navGroupPlan: "PLAN",

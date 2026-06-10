@@ -182,4 +182,42 @@ describe("SharePointPickerModal", () => {
       expect(screen.getByText(/permission denied/i)).toBeInTheDocument(),
     );
   });
+
+  it("shows the search-forbidden fallback hint after a 403 search", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: false, status: 403, json: async () => ({}) })));
+    render(<SharePointPickerModal mode="link" lang="en-US" acquireToken={acquire} onSelect={vi.fn()} onClose={vi.fn()} />);
+    fireEvent.change(screen.getByPlaceholderText(/search sites/i), { target: { value: "proj" } });
+    fireEvent.click(screen.getByText(/^Search$/));
+    await waitFor(() => expect(screen.getByText(/admin consent/i)).toBeInTheDocument());
+  });
+
+  it("paste-URL browses via the default-library path (openSiteByPath)", async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        value: [
+          {
+            id: "f1",
+            name: "Spec.docx",
+            webUrl: "https://c.sharepoint.com/x",
+            file: { mimeType: "application/msword" },
+            parentReference: { driveId: "d1" },
+          },
+        ],
+      }),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+    render(<SharePointPickerModal mode="link" lang="en-US" acquireToken={acquire} onSelect={vi.fn()} onClose={vi.fn()} />);
+    const pasteInput = screen.getByPlaceholderText(/site url|sharepoint\.com/i);
+    fireEvent.change(pasteInput, { target: { value: "https://c.sharepoint.com/sites/proj" } });
+    // click the Open button adjacent to the paste input
+    const openButtons = screen.getAllByText(/^Open$/);
+    fireEvent.click(openButtons[openButtons.length - 1]);
+    await waitFor(() => expect(screen.getByText("Spec.docx")).toBeInTheDocument());
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/sites/c.sharepoint.com:/sites/proj:/drive/root/children"),
+      expect.anything(),
+    );
+  });
 });
