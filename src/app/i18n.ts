@@ -149,6 +149,7 @@ const enUS = {
   spStorageDescribe: "{filename} on {sitePath}",
   spStoragePermissionDenied: "Permission denied. The signed-in user lacks access to this file.",
   spStorageSignInExpired: "Sign-in expired. Re-authenticate from Settings.",
+  spStorageBrowse: "Browse…",
   comingSoon: "coming soon",
   storageFsaUnsupported:
     "This browser doesn't support direct file access. Use Chrome, Edge, or Opera.",
@@ -859,6 +860,8 @@ const enUS = {
   activityRoleUpdated: "Role #{0} updated: {1}",
   activityRoleDeleted: "Role #{0} deleted: {1}",
   activitySettingsUpdated: "Settings updated",
+  activityDocLinkAdded: "Linked document {0}",
+  activityDocLinkRemoved: "Removed document link {0}",
   taskDueDateAbsenceWarning:
     "Note: {0} is on {1} from {2} to {3}.",
   resourcesWorkdayHours: "Hours per work day",
@@ -1164,6 +1167,22 @@ const enUS = {
   jiraIssueTypesTooltip: "Which Jira issue types to import as tasks.",
   jiraAssigneeTooltip: "Default assignee mapping for synced issues.",
 
+  spPickerTitle: "Browse SharePoint",
+  spPickerSearchPlaceholder: "Search sites…",
+  spPickerSearchButton: "Search",
+  spPickerPasteUrl: "…or paste a site URL",
+  spPickerSelectFile: "Select",
+  spPickerOpenFolder: "Open",
+  spPickerUse: "Use this folder",
+  spPickerEmptySites: "No sites found. Try another search or paste a site URL.",
+  spPickerEmptyFolder: "This folder is empty.",
+  spPickerErrorSignIn: "Sign in to Microsoft first.",
+  spPickerErrorAuth: "Sign-in expired. Re-authenticate from Settings.",
+  spPickerErrorForbidden: "Permission denied — you lack access to this site or file.",
+  spPickerErrorNotFound: "Site or file not found.",
+  spPickerErrorGeneric: "SharePoint is busy — try again later.",
+  spPickerSearchForbidden: "Site search needs admin consent (Sites.Read.All). Paste a site URL below to browse instead.",
+
   navGroupOverview: "OVERVIEW",
   navGroupPlan: "PLAN",
   navGroupRegisters: "REGISTERS",
@@ -1445,6 +1464,7 @@ const enUS = {
   versionHighlightButler: "AI Assistant (renamed from Chat): suggested prompts, token-usage panel, Stop button, pop-out. Configurable document export. Reminder lead times and banner toggles. Activity log extended; Information flows diagram in Settings.",
   versionHighlightVinge: "Multi-project / portfolio management (Phase 1): per-project workspaces with a project metadata header, portfolio registry + switching, Projects management view, create/edit form, empty-state, per-project export.",
   versionHighlightTursoMultiProject: "Turso multi-project: one shared database holds your whole portfolio, with per-project switching, archive/restore, and permanent delete.",
+  versionHighlightSpDocLinks: "Link SharePoint files & folders to tasks, RAID, changes, stakeholders, milestones and projects — with a built-in browser.",
   fieldCounter: "{0} / {1}",
   fieldTrimmedToFit: "trimmed to fit",
   fieldAdjustedMax: "adjusted to max {0}",
@@ -1524,6 +1544,15 @@ const enUS = {
   projectDocRepo: "Document repository",
   projectRegulatory: "Regulatory",
   projectNotes: "Notes",
+  projectDocumentLinks: "Documents",
+
+  documents: "Documents",
+  documentsAdd: "Add from SharePoint",
+  documentsEmpty: "No linked documents.",
+  documentsOpen: "Open in new tab",
+  documentsRemove: "Remove link",
+  documentsNeedsSharePoint: "Enable Microsoft 365 + SharePoint in Settings to link documents.",
+
 
   // Tooltips
   projectSalesforceTip: "Link to Salesforce opportunity",

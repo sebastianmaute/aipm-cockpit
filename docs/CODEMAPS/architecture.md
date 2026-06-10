@@ -1,4 +1,4 @@
-<!-- Generated: 2026-05-31 | Files scanned: ~100 source files | Token estimate: ~850 | Updated for 0.29.0–0.46.0: modern sidebar layout + UI-consistency sweep + Health Dashboard + Milestones + Earned Value -->
+<!-- Generated: 2026-06-10 | Files scanned: ~100 source files | Token estimate: ~850 | Updated for 0.29.0–0.59.0: modern sidebar layout + UI-consistency sweep + Health Dashboard + Milestones + Earned Value + Simple/Modular/Advanced mode + stakeholder comms + input feedback + configurable export + multi-project portfolio (file + Turso multi-tenancy) -->
 
 # Architecture
 
@@ -33,11 +33,13 @@ frontend/backend repos.
           ▼                                                    └──────────────┘
    ┌──────────────┐
    │ IndexedDB    │ tasks, raid, absences, shifts, resources, roles,
-   │ (schema v6)  │ disciplines, grades + resource-plan kv, budgets kv,
+   │ (store v6)   │ disciplines, grades + resource-plan kv, budgets kv,
    │              │ fxRates kv (record-level)
-   │ localStorage │ settings, contacts, activity log, UI prefs,
-   │              │ reminder-snooze:due, reminder-snooze:birthday
-   │ FS Access    │ optional local JSON/CSV/MD workspace file
+   │ localStorage │ settings, contacts, activity log, UI prefs, reminder
+   │              │ snooze, portfolio-mode + projects registry
+   │ FS Access    │ optional local JSON/CSV/MD workspace file (per project)
+   │ Turso (HTTP) │ single-tenant DB, OR one shared multi-tenant DB holding
+   │              │ all projects (project_id column everywhere)
    └──────────────┘
 ```
 
@@ -84,7 +86,9 @@ The `app-shell.tsx` router picks between them at runtime based on `settings.layo
                        dispatcher (chat-tools.ts) → CRUD on tasks/raid
 ```
 
-`Workspace = { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets?, fxRates? }` (schema v6). The `plan` singleton holds the planning window + canonical granularity + currency; `resources` carry per-period utilization + optional absence overrides + address-book contact fields; `roles` are discipline × grade combos with internal/external hourly rates; `budgets` are PO-line budget buckets (schema v6, optional for backward compat); `fxRates` is the cached ECB rate map (schema v6, optional).
+`Workspace = { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets?, fxRates?, status?, milestones?, changes?, stakeholders?, project? }` (logical schema v9; the IndexedDB object-store layout is a distinct concept at store version v6). The `plan` singleton holds the planning window + canonical granularity + currency; `resources` carry per-period utilization + optional absence overrides + address-book contact fields; `roles` are discipline × grade combos with internal/external hourly rates; `budgets` are PO-line budget buckets; `fxRates` is the cached ECB rate map; `status` is the dashboard RAG overrides + PM narrative; `milestones`/`changes`/`stakeholders` are the milestone, change-control, and stakeholder registers; `project` is the per-project `ProjectMeta` header (multi-project Phase 1). All these fields are optional for backward compat (each load path defaults them).
+
+The active storage backend depends on the global **portfolio mode** (`portfolio-mode.ts`, "file" | "turso", chosen in Settings). In file mode each project is a standalone workspace file (Phase 1). In Turso mode `createBackend` returns a `TursoTenantBackend(config, projectId)` — a multi-tenant slice of one shared DB — selected by the active project id; with no project id it falls back to the single-tenant `TursoBackend`.
 
 Pop-out windows (`?popout=resource-report`, `?popout=address-book`) are separate browser windows that load the same Next.js page. They stay in sync with the main window via `BroadcastChannel` (`broadcast-sync.ts`). Pop-outs are **read-only mirrors**: `useBroadcastSync` is called with `canSend={false}` in popouts so they receive updates but never broadcast — preventing overwrite of the main window's data. Edit affordances are locked (via `makeEditGuard`), a `ReadOnlyMirrorBanner` is shown, and mutating chat tools are refused.
 
@@ -94,11 +98,14 @@ Pop-out windows (`?popout=resource-report`, `?popout=address-book`) are separate
 - **Holidays** — `src/app/holidays.ts` lazy-imports `date-holidays` (and its moment-tz cost) only when at least one country is selected.
 - **Health / due-dates** — `health.ts` + `due-dates.ts` compute RAG status and alertable lists from `Task[] × today × holidaySet`. `due-dates.ts` also exports `shiftToWorkingDay` (shifts a date earlier past weekends, holidays, and absence days) and `absenceDayMap` (builds a per-assignee set of absent ISO dates) used by both due-date and birthday reminder logic.
 - **Reminders & snooze** — `getAlertableTasks` (due-dates.ts) and `getUpcomingBirthdays` (birthdays.ts) each apply `shiftToWorkingDay` so triggers never fall on non-working days. Reminder banners (`DueBanner`, `BirthdayBanner`, `JiraTokenBanner` in notifications.tsx) accept an `onSnooze` prop wired to `useReminderSnooze` in TaskManager; snooze state is persisted per-kind via `reminder-snooze.ts` (`ReminderKind = "due" | "birthday" | "jiraToken"`). The hook auto-clears state after the snooze elapses.
-- **Budget planner** — `budget-report.ts` (pure engine: CCI ×3, spillover, project rollup, reminders) + `budget-panel.tsx` (Budget tab) + `fx.ts` + `ecb.ts` + `use-fx-rates.ts` + `api/ecb/route.ts` (ECB FX). `budgets`/`fxRates` added to `Workspace` (schema v6, optional); full CSV/MD/JSON/IDB round-trip.
+- **Budget planner** — `budget-report.ts` (pure engine: CCI ×3, spillover, project rollup, reminders) + `budget-panel.tsx` (Budget tab) + `fx.ts` + `ecb.ts` + `use-fx-rates.ts` + `api/ecb/route.ts` (ECB FX). `budgets`/`fxRates` added to `Workspace` (optional); full CSV/MD/JSON/IDB round-trip.
 - **Project Health Dashboard** — `dashboard.ts` (pure engine: consolidates milestones + EVM SPI/CPI into overall/schedule/budget/scope RAG) + `dashboard-panel.tsx` (Dashboard tab, 0.43.0+) + `dashboard-sections/` (subsections). `status` added to `Workspace` (0.43.0+, optional).
 - **Milestones** — `milestones.ts` (pure engine: status + bucketing) + `milestones-panel.tsx` (Milestones tab, 0.44.0+) + `milestone-edit-modal.tsx`. `milestones[]` added to `Workspace` (0.44.0+, optional); Gantt integrates milestone diamond rows.
 - **Earned Value Management** — `evm.ts` (pure engine: task-effort PV/EV/AC → SPI/CPI/SV/CV, 0.45.0+). EVM metrics fold into Dashboard + Schedule/Budget RAGs.
-- **Export** — `export.ts` + `export-ooxml.ts` (lazy-imported for DOCX/XLSX/PPTX) + `export-menu.tsx` + `zip.ts` (hand-rolled STORE-method ZIP writer; no DEFLATE).
+- **Feature modes** — `feature-modules.ts` + `settings-sections/mode-section.tsx`; Simple/Modular/Advanced gating (0.54.0+) toggles 9 feature-modules that gate nav, automation, dashboard pills, and reports. `Settings.features` is the source of truth; default Advanced (all on), legacy settings migrate to all-on.
+- **Stakeholder communication reminders** — `stakeholder-comms.ts` (pure quadrant engine) + `use-stakeholder-comms.ts` (0.55.0+); derives "reach out" reminders from due-soon milestones, open RAID, and pending changes via stakeholder engagement policy, surfaced as banner/modal/toast/settings toggle. Silent when a source module is off.
+- **Export** — `export.ts` + `export-ooxml.ts` (lazy-imported for DOCX/XLSX/PPTX) + `export-menu.tsx` + `zip.ts` (hand-rolled STORE-method ZIP writer; no DEFLATE). Configurable multi-section export (`export-sections.ts` + `ExportConfig`, 0.57.0+) lets users pick which sections each document includes (default Tasks + RAID); the no-config storage round-trip stays byte-identical.
+- **Multi-project portfolio** — file mode (Phase 1, 0.58.0): a localStorage registry (`projects-registry.ts`) tracks projects, each a full Workspace + `ProjectMeta` header, with per-project file handles in a dedicated IndexedDB store (`project-file-handles.ts`). Turso mode (Phase 2, 0.59.0): one shared DB holds all projects (`turso-tenant-schema.ts` tenant DDL with a `project_id` column + composite `(id, project_id)` PKs + authoritative `projects` table; `turso-tenant-backend.ts` per-project backend; `turso-portfolio.ts` project-list ops). `portfolio-mode.ts` selects the active world; `type-to-confirm-dialog.tsx` gates hard-delete.
 - **Voice commands** — Web Speech API via `voice.ts` + `voice-button.tsx`.
 - **Activity log** — `activity-log.ts` + `activity-log-panel.tsx`; chronological CRUD record persisted to `lop-app:activity-log` (capped 500 entries), never written to exports. "Clear log" is gated behind `window.confirm` (matches `handleClearAll` / `handleDelete` precedent).
 - **Contacts** — `contacts.ts`; assignee↔email address book in `lop-app:contacts`, survives task deletion and Jira churn.

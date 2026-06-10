@@ -28,6 +28,7 @@ import { CharCounter, FieldNotice, useAdjustmentTracker } from "./field-feedback
 import { describeTextCap, describeClamp } from "./sanitize-report";
 import { BUDGET_NAME_MAX, TEXTAREA_MAX, AMOUNT_MAX } from "./sanitize";
 import { useToastContext } from "./toast-context";
+import { DocumentLinksFieldGated } from "./document-links-field-gated";
 
 export interface ChangeEditModalProps {
   lang: Lang;
@@ -485,6 +486,16 @@ export function ChangeEditModal({
               className={INPUT_CLASS}
             />
             <CharCounter value={draft.resolutionNotes ?? ""} max={TEXTAREA_MAX} id="change-resolutionNotes-counter" lang={lang} />
+          </label>
+
+          {/* Document links ------------------------------------------ */}
+          <label className="flex flex-col gap-1 text-sm sm:col-span-2">
+            <span className="font-medium text-foreground">{t(lang, "documents")}</span>
+            <DocumentLinksFieldGated
+              value={draft.documentLinks ?? []}
+              onChange={(links) => update("documentLinks", links)}
+              lang={lang}
+            />
           </label>
 
           {/* Linked tasks --------------------------------------------- */}

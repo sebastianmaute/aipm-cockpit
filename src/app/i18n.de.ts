@@ -154,6 +154,7 @@ export const de: Record<TranslationKey, string> = {
   spStorageDescribe: "{filename} auf {sitePath}",
   spStoragePermissionDenied: "Zugriff verweigert. Der angemeldete Benutzer hat keinen Zugriff auf diese Datei.",
   spStorageSignInExpired: "Anmeldung abgelaufen. Erneut in den Einstellungen anmelden.",
+  spStorageBrowse: "Durchsuchen…",
   comingSoon: "demnächst",
   storageFsaUnsupported:
     "Dieser Browser unterstützt keinen direkten Dateizugriff. Bitte Chrome, Edge oder Opera verwenden.",
@@ -877,6 +878,8 @@ export const de: Record<TranslationKey, string> = {
   activityRoleUpdated: "Rolle #{0} aktualisiert: {1}",
   activityRoleDeleted: "Rolle #{0} gelöscht: {1}",
   activitySettingsUpdated: "Einstellungen aktualisiert",
+  activityDocLinkAdded: "Dokument verknüpft {0}",
+  activityDocLinkRemoved: "Dokumentverknüpfung entfernt {0}",
   taskDueDateAbsenceWarning:
     "Hinweis: {0} ist von {2} bis {3} ({1}).",
   resourcesWorkdayHours: "Stunden pro Arbeitstag",
@@ -1182,6 +1185,22 @@ export const de: Record<TranslationKey, string> = {
   jiraIssueTypesTooltip: "Welche Jira-Vorgangstypen als Aufgaben importiert werden.",
   jiraAssigneeTooltip: "Standard-Zuweisungszuordnung für synchronisierte Vorgänge.",
 
+  spPickerTitle: "SharePoint durchsuchen",
+  spPickerSearchPlaceholder: "Sites suchen…",
+  spPickerSearchButton: "Suchen",
+  spPickerPasteUrl: "…oder Site-URL einfügen",
+  spPickerSelectFile: "Auswählen",
+  spPickerOpenFolder: "Öffnen",
+  spPickerUse: "Diesen Ordner verwenden",
+  spPickerEmptySites: "Keine Sites gefunden. Andere Suche versuchen oder Site-URL einfügen.",
+  spPickerEmptyFolder: "Dieser Ordner ist leer.",
+  spPickerErrorSignIn: "Zuerst bei Microsoft anmelden.",
+  spPickerErrorAuth: "Anmeldung abgelaufen. In den Einstellungen neu anmelden.",
+  spPickerErrorForbidden: "Zugriff verweigert — kein Zugriff auf diese Site oder Datei.",
+  spPickerErrorNotFound: "Site oder Datei nicht gefunden.",
+  spPickerErrorGeneric: "SharePoint ist ausgelastet — später erneut versuchen.",
+  spPickerSearchForbidden: "Die Site-Suche erfordert Administratorzustimmung (Sites.Read.All). Stattdessen unten eine Site-URL einfügen, um zu durchsuchen.",
+
   navGroupOverview: "ÜBERSICHT",
   navGroupPlan: "PLANUNG",
   navGroupRegisters: "REGISTER",
@@ -1463,6 +1482,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightButler: "KI-Assistent (umbenannt von Chat): Vorschlaege, Token-Nutzungsanzeige, Stopp-Schaltflaeche, Pop-out. Konfigurierbarer Dokumentexport. Erinnerungsvorlaufzeiten und Banner-Umschalter. Aktivitaetslog erweitert; Informationsfluss-Diagramm in den Einstellungen.",
   versionHighlightVinge: "Multi-Projekt- / Portfolio-Verwaltung (Phase 1): projektbezogene Arbeitsbereiche mit Projekt-Metadaten-Header, Portfolio-Registrierung und Wechsel, Projektverwaltungsansicht, Erstellen-/Bearbeitungsformular, Leerzustand, projektbezogener Export.",
   versionHighlightTursoMultiProject: "Turso-Multi-Projekt: Eine gemeinsame Datenbank enthält Ihr gesamtes Portfolio – mit projektweisem Wechsel, Archivieren/Wiederherstellen und endgültigem Löschen.",
+  versionHighlightSpDocLinks: "SharePoint-Dateien & -Ordner mit Aufgaben, RAID, Änderungen, Stakeholdern, Meilensteinen und Projekten verknüpfen — mit integriertem Browser.",
   fieldCounter: "{0} / {1}",
   fieldTrimmedToFit: "auf Maximallänge gekürzt",
   fieldAdjustedMax: "auf Maximum {0} angepasst",
@@ -1542,6 +1562,15 @@ export const de: Record<TranslationKey, string> = {
   projectDocRepo: "Dokumentenablage",
   projectRegulatory: "Regulatorik",
   projectNotes: "Hinweise",
+  projectDocumentLinks: "Dokumente",
+
+  documents: "Dokumente",
+  documentsAdd: "Aus SharePoint hinzufügen",
+  documentsEmpty: "Keine verknüpften Dokumente.",
+  documentsOpen: "In neuem Tab öffnen",
+  documentsRemove: "Verknüpfung entfernen",
+  documentsNeedsSharePoint: "Microsoft 365 + SharePoint in den Einstellungen aktivieren, um Dokumente zu verknüpfen.",
+
 
   // Tooltips
   projectSalesforceTip: "Link zur Salesforce-Opportunity",

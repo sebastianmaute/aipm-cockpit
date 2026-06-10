@@ -18,7 +18,7 @@ export default defineConfig({
       provider: "v8",
       reporter: ["text", "html"],
       include: ["src/**/*.{ts,tsx}"],
-      // The 80% threshold guards the business-logic / data layer. The
+      // The 70% threshold guards the business-logic / data layer. The
       // categories below are validated by component/E2E tests or are not
       // meaningfully unit-testable, so they are excluded from the % gate.
       exclude: [

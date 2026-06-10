@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { MockInstance, Mock } from "vitest";
-import { parseSharePointFileUrl } from "./sharepoint-backend";
+import { parseSharePointFileUrl, parseSharePointSiteUrl } from "./sharepoint-backend";
 
 describe("parseSharePointFileUrl", () => {
   it("parses a standard SharePoint Sites URL", () => {
@@ -101,6 +101,25 @@ describe("parseSharePointFileUrl", () => {
         "https://my.sharepoint.com/personal/user_contoso_com/Documents/file.json",
       ),
     ).toBeNull();
+  });
+});
+
+describe("parseSharePointSiteUrl", () => {
+  it("accepts a site URL (no file)", () => {
+    expect(parseSharePointSiteUrl("https://c.sharepoint.com/sites/proj")).toEqual({
+      hostname: "c.sharepoint.com",
+      sitePath: "/sites/proj",
+    });
+  });
+  it("accepts a trailing slash and a library subpath (keeps site only)", () => {
+    expect(parseSharePointSiteUrl("https://c.sharepoint.com/sites/proj/Shared%20Documents/")).toEqual({
+      hostname: "c.sharepoint.com",
+      sitePath: "/sites/proj",
+    });
+  });
+  it("rejects OneDrive and non-sharepoint hosts", () => {
+    expect(parseSharePointSiteUrl("https://c-my.sharepoint.com/personal/x")).toBeNull();
+    expect(parseSharePointSiteUrl("https://example.com/sites/proj")).toBeNull();
   });
 });
 
@@ -284,5 +303,12 @@ describe("SharePointBackend", () => {
       acquireToken,
     );
     expect(await be.describe()).toBe("workspace.json on /sites/Alpha");
+  });
+
+  it("requests the consolidated Files.ReadWrite.All scope on isReady", async () => {
+    const acquire = vi.fn(async () => "tok");
+    const be = new SharePointBackend({ kind: "sp-json", hostname: "c.sharepoint.com", sitePath: "/sites/p", itemPath: "f.json" }, acquire);
+    await be.isReady();
+    expect(acquire).toHaveBeenCalledWith(["Files.ReadWrite.All"]);
   });
 });

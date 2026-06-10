@@ -1,3 +1,5 @@
+import type { DocumentLink } from "./document-link";
+
 export type Priority = "Low" | "Medium" | "High" | "Urgent";
 
 export const PRIORITY_RANK: Record<Priority, number> = {
@@ -74,6 +76,9 @@ export type Task = {
    * `undefined` (the default) means "auto".
    */
   healthOverride?: "R" | "A" | "G";
+  /** SharePoint files/folders linked to this record. Always optional; absent
+   *  on legacy data, defaults to [] at the editor boundary. */
+  documentLinks?: DocumentLink[];
 };
 
 export const PRIORITIES: Priority[] = ["Low", "Medium", "High", "Urgent"];
@@ -177,6 +182,9 @@ export type RaidItem = {
   /** Stakeholders explicitly associated with this item (FK -> Stakeholder.id).
    *  Drives the communication-reminder engine. Always an array; defaults to []. */
   stakeholderIds: number[];
+  /** SharePoint files/folders linked to this record. Always optional; absent
+   *  on legacy data, defaults to [] at the editor boundary. */
+  documentLinks?: DocumentLink[];
 };
 
 /** A zero-duration key date, distinct from a task. `achievedDate` is a manual
@@ -190,6 +198,9 @@ export type Milestone = {
   achievedDate?: string;   // YYYY-MM-DD manual sign-off
   linkedTaskIds: number[];
   localModifiedAt?: string;
+  /** SharePoint files/folders linked to this record. Always optional; absent
+   *  on legacy data, defaults to [] at the editor boundary. */
+  documentLinks?: DocumentLink[];
 };
 
 // ----------------------------------------------------------------------------
@@ -227,6 +238,9 @@ export type ChangeItem = {
    *  Drives the communication-reminder engine. Always an array; defaults to []. */
   stakeholderIds: number[];
   localModifiedAt?: string;
+  /** SharePoint files/folders linked to this record. Always optional; absent
+   *  on legacy data, defaults to [] at the editor boundary. */
+  documentLinks?: DocumentLink[];
 };
 
 // ----------------------------------------------------------------------------
@@ -263,6 +277,9 @@ export type Stakeholder = {
   /** milestoneId (string key) -> RACI letter. Sparse; orphan keys filtered at render. */
   raci: Record<string, RaciRole>;
   localModifiedAt?: string;
+  /** SharePoint files/folders linked to this record. Always optional; absent
+   *  on legacy data, defaults to [] at the editor boundary. */
+  documentLinks?: DocumentLink[];
 };
 
 /** Project-level status overrides + PM narrative for the health dashboard.
@@ -558,4 +575,7 @@ export type ProjectMeta = {
   docRepoLocation?: string;
   regulatory: RegulatoryRequirement[];
   notes?: string;
+  /** SharePoint files/folders linked to this record. Always optional; absent
+   *  on legacy data, defaults to [] at the editor boundary. */
+  documentLinks?: DocumentLink[];
 };

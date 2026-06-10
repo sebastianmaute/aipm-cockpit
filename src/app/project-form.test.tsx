@@ -1,5 +1,25 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
+
+vi.mock("./use-settings", () => ({
+  useSettings: () => ({
+    settings: { integrations: { m365: { enabled: false, sharepoint: false } } },
+    setSettings: vi.fn(),
+    hydrated: true,
+    i18nReady: true,
+    lang: "en-US",
+  }),
+}));
+vi.mock("./use-ms-auth", () => ({
+  useMsAuth: () => ({
+    account: null,
+    ready: true,
+    signIn: vi.fn(),
+    signOut: vi.fn(),
+    acquireToken: vi.fn(async () => "tok"),
+  }),
+}));
+
 import { ProjectForm } from "./project-form";
 import { type Contact } from "./contacts";
 import { type ProjectMeta } from "./types";
@@ -155,5 +175,10 @@ describe("ProjectForm", () => {
     const { onCancel } = setup();
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(onCancel).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders the Documents field with the SharePoint gate hint when M365 is off", () => {
+    setup();
+    expect(screen.getByText(/enable microsoft 365/i)).toBeInTheDocument();
   });
 });

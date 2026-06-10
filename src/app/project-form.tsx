@@ -68,6 +68,7 @@ function draftFromMeta(meta: ProjectMeta): ProjectFormDraft {
     docRepoLocation: meta.docRepoLocation ?? "",
     regulatory: [...meta.regulatory],
     notes: meta.notes ?? "",
+    documentLinks: meta.documentLinks ?? [],
   };
 }
 
@@ -132,6 +133,7 @@ export function ProjectForm({
       docRepoLocation: draft.docRepoLocation,
       regulatory: draft.regulatory,
       notes: draft.notes,
+      documentLinks: draft.documentLinks,
     });
 
     // Guard: should pass since validation passed. If it ever returns null,

@@ -166,6 +166,7 @@ function ChangePanelInner({
       linkedTaskIds: [],
       linkedRaidIds: [],
       stakeholderIds: [],
+      documentLinks: [],
     });
     setIsNew(true);
   }
@@ -176,6 +177,7 @@ function ChangePanelInner({
       linkedTaskIds: [...item.linkedTaskIds],
       linkedRaidIds: [...item.linkedRaidIds],
       stakeholderIds: [...(item.stakeholderIds ?? [])],
+      documentLinks: [...(item.documentLinks ?? [])],
     });
     setIsNew(false);
   }

@@ -3,6 +3,14 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { StakeholderEditModal } from "./stakeholder-edit-modal";
 import type { Stakeholder, Milestone } from "./types";
 
+// Mock M365 hooks consumed by DocumentLinksFieldGated — default: SharePoint off.
+vi.mock("./use-settings", () => ({
+  useSettings: () => ({ settings: { integrations: { m365: { enabled: false, sharepoint: false } } }, setSettings: vi.fn(), hydrated: true, i18nReady: true, lang: "en-US" }),
+}));
+vi.mock("./use-ms-auth", () => ({
+  useMsAuth: () => ({ account: null, ready: true, signIn: vi.fn(), signOut: vi.fn(), acquireToken: vi.fn(async () => "tok") }),
+}));
+
 const draft: Stakeholder = {
   id: 1, name: "Sam", category: "Sponsor", influence: "High", interest: "Medium", raci: {},
 };
@@ -32,5 +40,12 @@ describe("StakeholderEditModal", () => {
     const p = setup({ draft: { ...draft, influence: "Low", interest: "Low" } });
     fireEvent.click(screen.getByRole("button", { name: /influence high.*interest high/i }));
     expect(p.onChange).toHaveBeenCalledWith(expect.objectContaining({ influence: "High", interest: "High" }));
+  });
+});
+
+describe("StakeholderEditModal — document links", () => {
+  it("shows the SharePoint hint when M365 is off", () => {
+    setup({ draft: { id: 1, name: "S", category: "Internal", influence: "Low", interest: "Low", raci: {} } });
+    expect(screen.getByText(/enable microsoft 365/i)).toBeInTheDocument();
   });
 });

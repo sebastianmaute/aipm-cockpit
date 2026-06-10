@@ -10,6 +10,7 @@ import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
 import { ModalEditFooter } from "./modal-edit-fields";
 import { useDraggable } from "./use-draggable";
+import { DocumentLinksFieldGated } from "./document-links-field-gated";
 import type { Milestone, Task } from "./types";
 
 interface Props {
@@ -160,6 +161,15 @@ export function MilestoneEditModal({
                 update("description", e.target.value || undefined)
               }
               className="min-h-16 rounded-md border border-line bg-surface px-3 py-2 text-sm"
+            />
+          </label>
+
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="font-medium text-foreground">{t(lang, "documents")}</span>
+            <DocumentLinksFieldGated
+              value={draft.documentLinks ?? []}
+              onChange={(links) => update("documentLinks", links)}
+              lang={lang}
             />
           </label>
 

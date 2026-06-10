@@ -3,6 +3,7 @@ import { TursoBackend } from "./turso-backend";
 import { TursoTenantBackend } from "./turso-tenant-backend";
 import type { TursoConfig } from "./turso-config";
 import { riskSeverityFromMatrix } from "./raid";
+import { encodeDocumentLinks, decodeDocumentLinks } from "./document-link";
 import {
   backfillResources,
   defaultResourcePlan,
@@ -96,7 +97,7 @@ export type Workspace = {
   project?: ProjectMeta;
 };
 
-const SCHEMA_VERSION = 9;
+const SCHEMA_VERSION = 10;
 
 /** A blank workspace with a default plan anchored to today. */
 export function emptyWorkspace(): Workspace {
@@ -409,6 +410,7 @@ export const CSV_COLUMNS: Array<keyof Task> = [
   "resourceId",
   "originalEstimateMinutes",
   "timeSpentMinutes",
+  "documentLinks",
 ];
 
 // Whitelist parser shared by CSV and Markdown deserialization. Anything that
@@ -442,6 +444,7 @@ export const RAID_CSV_COLUMNS: Array<keyof RaidItem> = [
   "localModifiedAt",
   "causedByRaidIds",
   "stakeholderIds",
+  "documentLinks",
 ];
 
 const RAID_MD_COLUMNS: Array<{ key: keyof RaidItem; label: string }> = [
@@ -463,6 +466,7 @@ const RAID_MD_COLUMNS: Array<{ key: keyof RaidItem; label: string }> = [
   { key: "localModifiedAt", label: "LocalModified" },
   { key: "causedByRaidIds", label: "CausedByIds" },
   { key: "stakeholderIds", label: "StakeholderIds" },
+  { key: "documentLinks", label: "DocumentLinks" },
 ];
 
 // Columns persisted for Absence items in CSV and Markdown. Order matches
@@ -536,7 +540,7 @@ export const ROLES_CSV_COLUMNS = ["id", "disciplineId", "gradeId", "internalRate
 export const REF_CSV_COLUMNS = ["id", "name", "localModifiedAt"] as const;
 
 export const MILESTONES_CSV_COLUMNS: Array<keyof Milestone> = [
-  "id", "name", "date", "description", "achievedDate", "linkedTaskIds", "localModifiedAt",
+  "id", "name", "date", "description", "achievedDate", "linkedTaskIds", "localModifiedAt", "documentLinks",
 ];
 
 export const BUDGETS_CSV_COLUMNS = [
@@ -701,6 +705,7 @@ export function raidFieldToString(r: RaidItem, c: keyof RaidItem): string {
       : "";
   if (c === "stakeholderIds")
     return Array.isArray(r.stakeholderIds) ? r.stakeholderIds.join("|") : "";
+  if (c === "documentLinks") return encodeDocumentLinks(r.documentLinks);
   return String(r[c] ?? "");
 }
 
@@ -772,11 +777,13 @@ export function buildRaidItemFromObj(obj: Record<string, string>): RaidItem | nu
     localModifiedAt: obj.localModifiedAt || undefined,
     causedByRaidIds,
     stakeholderIds: parseLinkedTaskIds(obj.stakeholderIds),
+    documentLinks: decodeDocumentLinks(obj.documentLinks),
   };
 }
 
 export function milestoneFieldToString(m: Milestone, c: keyof Milestone): string {
   if (c === "linkedTaskIds") return Array.isArray(m.linkedTaskIds) ? m.linkedTaskIds.join("|") : "";
+  if (c === "documentLinks") return encodeDocumentLinks(m.documentLinks);
   return String(m[c] ?? "");
 }
 
@@ -791,19 +798,21 @@ export function buildMilestoneFromObj(obj: Record<string, string>): Milestone | 
   if (obj.description) m.description = obj.description;
   if (obj.achievedDate) m.achievedDate = obj.achievedDate;
   if (obj.localModifiedAt) m.localModifiedAt = obj.localModifiedAt;
+  const dl = decodeDocumentLinks(obj.documentLinks); if (dl.length) m.documentLinks = dl;
   return m;
 }
 
 export const CHANGES_CSV_COLUMNS: Array<keyof ChangeItem> = [
   "id", "title", "description", "type", "status", "impact", "impactDescription", "scheduleImpactDays",
   "costImpact", "requestedBy", "raisedDate", "decisionBy", "decisionDate", "resolutionNotes",
-  "linkedTaskIds", "linkedRaidIds", "stakeholderIds", "localModifiedAt",
+  "linkedTaskIds", "linkedRaidIds", "stakeholderIds", "localModifiedAt", "documentLinks",
 ];
 
 export function changeFieldToString(c: ChangeItem, col: keyof ChangeItem): string {
   if (col === "linkedTaskIds") return Array.isArray(c.linkedTaskIds) ? c.linkedTaskIds.join("|") : "";
   if (col === "linkedRaidIds") return Array.isArray(c.linkedRaidIds) ? c.linkedRaidIds.join("|") : "";
   if (col === "stakeholderIds") return Array.isArray(c.stakeholderIds) ? c.stakeholderIds.join("|") : "";
+  if (col === "documentLinks") return encodeDocumentLinks(c.documentLinks);
   const v = c[col];
   return v === undefined || v === null ? "" : String(v);
 }
@@ -817,17 +826,19 @@ export function buildChangeFromObj(obj: Record<string, string>): ChangeItem | nu
     linkedTaskIds: parseLinkedTaskIds(obj.linkedTaskIds),
     linkedRaidIds: parseLinkedTaskIds(obj.linkedRaidIds),
     stakeholderIds: parseLinkedTaskIds(obj.stakeholderIds),
+    documentLinks: decodeDocumentLinks(obj.documentLinks),
   });
 }
 
 export const STAKEHOLDERS_CSV_COLUMNS: Array<keyof Stakeholder> = [
   "id", "name", "organization", "title", "email", "category",
-  "influence", "interest", "notes", "resourceId", "raci", "localModifiedAt",
+  "influence", "interest", "notes", "resourceId", "raci", "localModifiedAt", "documentLinks",
 ];
 
 export function stakeholderFieldToString(s: Stakeholder, col: keyof Stakeholder): string {
   if (col === "raci") return encodeRaciMap(s.raci);
   if (col === "resourceId") return s.resourceId == null ? "" : String(s.resourceId);
+  if (col === "documentLinks") return encodeDocumentLinks(s.documentLinks);
   const v = s[col];
   return v === undefined || v === null ? "" : String(v);
 }
@@ -838,6 +849,7 @@ export function buildStakeholderFromObj(obj: Record<string, string>): Stakeholde
     id: obj.id ? Number(obj.id) : undefined,
     resourceId: obj.resourceId ? Number(obj.resourceId) : null,
     raci: decodeRaciMap(obj.raci),
+    documentLinks: decodeDocumentLinks(obj.documentLinks),
   });
 }
 
@@ -874,11 +886,13 @@ function csvCellEscape(value: string, neutralize: boolean): string {
 export function fieldToString(t: Task, c: keyof Task): string {
   if (c === "labels") return Array.isArray(t.labels) ? t.labels.join("|") : "";
   if (c === "dependencies") return serializeDependencies(t.dependencies);
+  if (c === "documentLinks") return encodeDocumentLinks(t.documentLinks);
   return String(t[c] ?? "");
 }
 
 function tasksToCsv(tasks: Task[], neutralize = false): string {
-  const lines: string[] = [CSV_COLUMNS.join(",")];
+  const header = CSV_COLUMNS.join(",");
+  const lines: string[] = [header];
   for (const t of tasks) {
     lines.push(CSV_COLUMNS.map((c) => csvCellEscape(fieldToString(t, c), neutralize)).join(","));
   }
@@ -1189,6 +1203,7 @@ export const PROJECT_CSV_COLUMNS: Array<keyof ProjectMeta> = [
   "products", "platform", "deployment", "startDate", "endDate",
   "profitCenter", "quotes", "salesforceUrl", "sharepointUrl", "confluenceUrl",
   "contactPersons", "docRepoLocation", "regulatory", "notes",
+  "documentLinks",
 ];
 
 /** The list delimiter used across this file for joined string arrays. */
@@ -1324,6 +1339,7 @@ const PROJECT_ARRAY_COLUMNS = new Set<keyof ProjectMeta>([
 
 /** Single-line, reversible string form for one ProjectMeta field. */
 export function projectFieldToString(p: ProjectMeta, col: keyof ProjectMeta): string {
+  if (col === "documentLinks") return encodeDocumentLinks(p.documentLinks);
   if (col === "contactPersons") return encodeContactPersons(p.contactPersons);
   if (PROJECT_ARRAY_COLUMNS.has(col)) {
     const arr = p[col] as string[] | undefined;
@@ -1369,6 +1385,7 @@ function decodeProjectObj(obj: Record<string, string>): Record<string, unknown> 
     docRepoLocation: scalar("docRepoLocation"),
     regulatory: decodeProjectList(obj.regulatory ?? ""),
     notes: scalar("notes"),
+    documentLinks: decodeDocumentLinks(obj.documentLinks ?? ""),
   };
 }
 
@@ -1920,6 +1937,7 @@ export function buildTaskFromObj(obj: Record<string, string>): Task | null {
     resourceId: Number(obj.resourceId) || undefined,
     originalEstimateMinutes: sanitizeOptionalMinutes(obj.originalEstimateMinutes),
     timeSpentMinutes: sanitizeOptionalMinutes(obj.timeSpentMinutes),
+    documentLinks: decodeDocumentLinks(obj.documentLinks),
   };
 }
 
@@ -1974,6 +1992,7 @@ const MD_COLUMNS: Array<{ key: keyof Task; label: string }> = [
   { key: "resourceId", label: "ResourceId" },
   { key: "originalEstimateMinutes", label: "OrigEstimateMin" },
   { key: "timeSpentMinutes", label: "TimeSpentMin" },
+  { key: "documentLinks", label: "DocumentLinks" },
 ];
 
 function mdEscape(value: string): string {
@@ -2086,6 +2105,7 @@ const MILESTONES_MD_COLUMNS: Array<{ key: keyof Milestone; label: string }> = [
   { key: "achievedDate", label: "Achieved" },
   { key: "linkedTaskIds", label: "LinkedTasks" },
   { key: "localModifiedAt", label: "LocalModified" },
+  { key: "documentLinks", label: "DocumentLinks" },
 ];
 
 function milestonesToMarkdown(milestones: readonly Milestone[]): string {
@@ -2113,6 +2133,7 @@ function markdownToMilestones(md: string): Milestone[] {
       else if (norm === "achieved" || norm === "achieveddate") mapped["achievedDate"] = val;
       else if (norm === "linkedtasks" || norm === "linkedtaskids") mapped["linkedTaskIds"] = val;
       else if (norm === "localmodified" || norm === "localmodifiedat") mapped["localModifiedAt"] = val;
+      else if (norm === "documentlinks") mapped["documentLinks"] = val;
     }
     return buildMilestoneFromObj(mapped);
   }).filter((m): m is Milestone => m !== null);
@@ -2137,6 +2158,7 @@ const CHANGES_MD_COLUMNS: readonly { key: keyof ChangeItem; label: string }[] = 
   { key: "linkedRaidIds", label: "LinkedRaid" },
   { key: "stakeholderIds", label: "StakeholderIds" },
   { key: "localModifiedAt", label: "LocalModified" },
+  { key: "documentLinks", label: "DocumentLinks" },
 ];
 
 function changesToMarkdown(changes: readonly ChangeItem[]): string {
@@ -2175,6 +2197,7 @@ function markdownToChanges(md: string): ChangeItem[] {
       else if (norm === "linkedraid" || norm === "linkedraidids") mapped["linkedRaidIds"] = val;
       else if (norm === "stakeholderids" || norm === "stakeholders") mapped["stakeholderIds"] = val;
       else if (norm === "localmodified" || norm === "localmodifiedat") mapped["localModifiedAt"] = val;
+      else if (norm === "documentlinks") mapped["documentLinks"] = val;
     }
     return buildChangeFromObj(mapped);
   }).filter((c): c is ChangeItem => c !== null);
@@ -2193,6 +2216,7 @@ const STAKEHOLDERS_MD_COLUMNS: readonly { key: keyof Stakeholder; label: string 
   { key: "resourceId", label: "ResourceId" },
   { key: "raci", label: "RACI" },
   { key: "localModifiedAt", label: "LocalModified" },
+  { key: "documentLinks", label: "DocumentLinks" },
 ];
 
 function stakeholdersToMarkdown(stakeholders: readonly Stakeholder[]): string {
@@ -2225,6 +2249,7 @@ function markdownToStakeholders(md: string): Stakeholder[] {
       else if (norm === "resourceid") mapped["resourceId"] = val;
       else if (norm === "raci") mapped["raci"] = val;
       else if (norm === "localmodified" || norm === "localmodifiedat") mapped["localModifiedAt"] = val;
+      else if (norm === "documentlinks") mapped["documentLinks"] = val;
     }
     return buildStakeholderFromObj(mapped);
   }).filter((s): s is Stakeholder => s !== null);
@@ -2678,6 +2703,7 @@ function markdownToRaid(md: string): RaidItem[] {
       colMap[idx] = "causedByRaidIds";
     else if (norm === "stakeholderids" || norm === "stakeholders")
       colMap[idx] = "stakeholderIds";
+    else if (norm === "documentlinks") colMap[idx] = "documentLinks";
   });
 
   const items: RaidItem[] = [];
@@ -2774,6 +2800,7 @@ function markdownToTasks(md: string): Task[] {
       colMap[idx] = "originalEstimateMinutes";
     else if (norm === "timespentmin" || norm === "timespentminutes")
       colMap[idx] = "timeSpentMinutes";
+    else if (norm === "documentlinks") colMap[idx] = "documentLinks";
   });
 
   const tasks: Task[] = [];
@@ -2813,6 +2840,7 @@ function markdownToTasks(md: string): Task[] {
       resourceId: Number(obj.resourceId) || undefined,
       originalEstimateMinutes: sanitizeOptionalMinutes(obj.originalEstimateMinutes),
       timeSpentMinutes: sanitizeOptionalMinutes(obj.timeSpentMinutes),
+      documentLinks: decodeDocumentLinks(obj.documentLinks),
     });
   }
   return dropDanglingDependencies(tasks);

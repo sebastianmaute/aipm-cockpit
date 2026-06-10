@@ -55,6 +55,7 @@ import {
 } from "./project-options";
 import { NACE_SECTION_SET } from "./nace-sections";
 import { defaultResourcePlan, splitName } from "./resource-foundation";
+import { sanitizeDocumentLinks } from "./document-link";
 
 // --- Length caps -----------------------------------------------------------
 
@@ -890,6 +891,8 @@ export function sanitizeMilestone(input: unknown): Milestone | null {
   if (description) m.description = description;
   const localModifiedAt = sanitizeText(o.localModifiedAt, TEXTAREA_MAX);
   if (localModifiedAt) m.localModifiedAt = localModifiedAt;
+  const dl = sanitizeDocumentLinks((input as Record<string, unknown>).documentLinks);
+  if (dl.length) m.documentLinks = dl;
   return m;
 }
 
@@ -931,6 +934,8 @@ export function sanitizeChangeItem(input: unknown): ChangeItem | null {
   const decDate = sanitizeIsoDate(o.decisionDate); if (decDate) item.decisionDate = decDate;
   const notes = sanitizeText(o.resolutionNotes, TEXTAREA_MAX); if (notes) item.resolutionNotes = notes;
   const lma = sanitizeText(o.localModifiedAt, TEXTAREA_MAX); if (lma) item.localModifiedAt = lma;
+  const dl = sanitizeDocumentLinks((input as Record<string, unknown>).documentLinks);
+  if (dl.length) item.documentLinks = dl;
   return item;
 }
 
@@ -1007,6 +1012,8 @@ export function sanitizeStakeholder(input: unknown): Stakeholder | null {
   const rid = toNumber(o.resourceId);
   if (Number.isFinite(rid) && rid > 0) item.resourceId = Math.floor(rid);
   const lma = sanitizeText(o.localModifiedAt, TEXTAREA_MAX); if (lma) item.localModifiedAt = lma;
+  const dl = sanitizeDocumentLinks((input as Record<string, unknown>).documentLinks);
+  if (dl.length) item.documentLinks = dl;
   return item;
 }
 
@@ -1149,6 +1156,10 @@ export function sanitizeProjectMeta(
     const n = toNumber(o.identityCount);
     if (Number.isFinite(n) && n >= 0) meta.identityCount = Math.floor(n);
   }
+
+  // Optional documentLinks — pass through sanitized array (empty → omit).
+  const dl = sanitizeDocumentLinks((input as Record<string, unknown>).documentLinks);
+  if (dl.length) meta.documentLinks = dl;
 
   return meta;
 }

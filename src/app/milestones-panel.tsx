@@ -95,7 +95,7 @@ export function MilestonesPanel({
 
   function openNew() {
     setIsNew(true);
-    setEditing({ id: nextId(), name: "", date: today, linkedTaskIds: [] });
+    setEditing({ id: nextId(), name: "", date: today, linkedTaskIds: [], documentLinks: [] });
   }
 
   // One-way signal from the parent (Gantt "Add milestone"): when the nonce

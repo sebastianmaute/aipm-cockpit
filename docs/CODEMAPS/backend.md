@@ -1,4 +1,4 @@
-<!-- Generated: 2026-05-31 | Files scanned: src/proxy.ts + 10 (src/app/api/jira) | Token estimate: ~500 | Updated for 0.29.0–0.46.0: no backend changes; storage backends remain client-side + dashboard/milestones/EVM (pure logic) -->
+<!-- Generated: 2026-06-10 | Files scanned: src/proxy.ts + 10 (src/app/api/jira) + client storage backends | Token estimate: ~600 | Updated for 0.29.0–0.60.0: still no server-side app backend; client-side Turso multi-tenant backend + portfolio-mode (0.58.0–0.59.0); SharePoint Graph pure core + picker scope (0.60.0 "Stephenson") -->
 
 # Backend
 
@@ -10,12 +10,23 @@ no business logic on the server. Two thin server-side concerns only:
 
 ## Middleware (`src/proxy.ts`)
 
-Per-request `nonce-{uuid}` injected into `Content-Security-Policy: script-src
-'self' 'nonce-X' 'strict-dynamic' [+'unsafe-eval' in dev]; style-src-elem
-'self' 'nonce-X' [+'unsafe-inline' in dev]; style-src-attr 'unsafe-inline';
-img-src 'self' data:; font-src 'self'; connect-src 'self'
-https://api.anthropic.com; frame-src 'none'; frame-ancestors 'none';
-object-src 'none'; base-uri 'self'; form-action 'self'`.
+Per-request `nonce-{uuid}` injected into `Content-Security-Policy: default-src
+'self'; script-src 'self' 'nonce-X' 'strict-dynamic' [+'unsafe-eval' in dev];
+style-src-elem 'self' 'nonce-X' [dev: 'self' 'unsafe-inline', nonce omitted];
+style-src-attr 'unsafe-inline'; img-src 'self' data:; font-src 'self';
+connect-src 'self' https://api.anthropic.com https://*.turso.io
+https://graph.microsoft.com https://login.microsoftonline.com
+http://localhost:* http://127.0.0.1:*; frame-src
+https://login.microsoftonline.com; frame-ancestors 'none'; object-src 'none';
+base-uri 'self'; form-action 'self'`.
+
+`connect-src` allowlists every host the browser calls directly: Anthropic (chat
+panel), `*.turso.io` (Turso storage + snapshot pipeline), `graph.microsoft.com`
+(SharePoint backend + Outlook calendar/contacts), `login.microsoftonline.com`
+(MSAL PKCE token exchange), and loopback (self-hosted tursodb over plaintext
+http). `frame-src` permits `login.microsoftonline.com` for MSAL
+`acquireTokenSilent`'s hidden renewal iframe (sign-in/out use popups, which
+are not governed by frame-src). Jira still goes through `/api/jira/*` (self).
 
 Nonce is forwarded as `x-nonce` request header so Next reuses it for SSR
 script + style attribution. `style-src-attr 'unsafe-inline'` stays because
@@ -68,16 +79,25 @@ project root other than `src/proxy.ts`, and that middleware excludes
 
 ## Storage backends (client-side)
 
-The browser chooses a storage backend via Settings → Integrations. All backends live in the client (next/dynamic, `ssr: false`). New in 0.21.0–0.25.0:
+The browser chooses a storage backend via Settings → Integrations. All backends live in the client (next/dynamic, `ssr: false`). New in 0.21.0–0.25.0, extended with multi-tenant Turso in 0.59.0:
 
 | Backend | File(s) | How |
 |---------|---------|-----|
 | Browser (IndexedDB) | `storage.ts` (BrowserBackend) | Default; record-level IDB writes |
 | Local JSON/CSV/Markdown | `storage.ts` (LocalFileBackend) | File System Access API; round-trips via `migrateWorkspaceV5/V6` |
 | **SharePoint JSON/CSV** (0.22.0) | `sharepoint-backend.ts` (SharePointBackend) | Stores workspace blob to SharePoint Sites library via `graph.microsoft.com /me/drive/items/...`; requires MSAL token (M365 toggle in Settings) |
-| **Turso** (0.25.0) | `turso-backend.ts` (TursoBackend) | Stores workspace as single JSON blob via Turso HTTP `/v2/pipeline` API; no `@libsql/client` dep, raw fetch; configured in Settings → Integrations or `NEXT_PUBLIC_TURSO_*` env vars |
+| **Turso (single-project)** (0.25.0) | `turso-backend.ts` (TursoBackend) | Stores one workspace as relational rows via Turso HTTP `/v2/pipeline` API; no `@libsql/client` dep, raw fetch; configured in Settings → Integrations or `NEXT_PUBLIC_TURSO_*` env vars |
+| **Turso multi-tenant** (0.59.0) | `turso-tenant-backend.ts` (`TursoTenantBackend(config, projectId)`) | Stores MANY projects in ONE shared Turso DB: every entity table carries a `project_id` column, a `projects` table is the project list. Same `/v2/pipeline` transport as the single-tenant backend; `load`/`save` read/write only the `WHERE project_id = ?` slice. Used in portfolio "turso" mode |
 
-All backends implement the `StorageBackend` interface: `load(): Promise<Workspace>`, `save(workspace): Promise<void>`, `isReady(): Promise<boolean>`.
+The single-tenant `TursoBackend` remains for non-portfolio use; `createBackend` (storage.ts) returns `TursoTenantBackend` only when `kind === "turso"` AND a non-empty `tursoProjectId` dep is supplied, otherwise it falls back to `TursoBackend`.
+
+All backends implement the `StorageBackend` interface (`load(): Promise<Workspace>`, `save(workspace): Promise<void>`, `isReady(): Promise<boolean>`): BrowserBackend, LocalFileBackend, SharePointBackend, TursoBackend, and TursoTenantBackend.
+
+### Portfolio mode (multi-project, client-side, 0.58.0–0.59.0)
+
+- `portfolio-mode.ts` — global `"file" | "turso"` storage-mode switch (localStorage) plus the last-selected Turso project id. File mode uses the Phase 1 localStorage registry; Turso mode treats the shared DB's `projects` table as the source of truth.
+- `turso-portfolio.ts` — project-list CRUD over the shared pipeline: list / list-archived / create / update-meta / archive / restore / hard-delete. Every call prepends `tenantSchemaDdl()` (CREATE IF NOT EXISTS) so a fresh DB self-initializes.
+- `turso-tenant-schema.ts` — project-scoped DDL + statement builders, reusing the single-tenant column registries. Workspace tables gain a `project_id` column with a composite `PRIMARY KEY (id, project_id)`; a separate `projects` table holds one `ProjectMeta` row per project. Carries its own `SCHEMA_VERSION` ("10"), distinct from single-tenant turso-schema ("9").
 
 ## Configuration resolution (client-side, 0.21.0+)
 
@@ -94,3 +114,19 @@ Both are client-side only; no server-side validation.
 - Does not transform Jira responses beyond JSON parsing + ADF conversion.
 - Does not handle WebSocket / SSE traffic.
 - Does not proxy Microsoft Graph or Turso calls — browser makes them directly with MSAL tokens / Turso auth tokens.
+
+## SharePoint Graph pure core (0.60.0+)
+
+`sharepoint-graph.ts` — pure client-side Graph helper (no Next.js server involvement):
+
+- Site search (`/sites?search=`) and drive/item enumeration (`/drives`, `/items/{id}/children`) for the picker browser.
+- `parseSharePointSiteUrl(url)` — sibling utility that extracts the SharePoint site hostname + site path from a pasted storage URL, used by both the storage-config "Browse…" button and the picker modal.
+
+**Scopes used by the SharePoint integration (0.60.0+):**
+
+| Scope | Purpose |
+|-------|---------|
+| `Files.ReadWrite.All` | Storage backend: read and write the workspace JSON/CSV blob in a document library |
+| `Sites.Read.All` | Picker: search SharePoint sites via `/sites?search=` |
+
+The picker scope (`Sites.Read.All`) is requested incrementally only when the user opens the picker; the storage backend continues to work with `Files.ReadWrite.All` alone.
