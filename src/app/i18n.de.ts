@@ -1459,6 +1459,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightClarke: "Stakeholder-Kommunikationserinnerungen weisen darauf hin, wichtige Stakeholder vor Meilensteinen, RAID-Einträgen und Änderungen einzubinden.",
   versionHighlightFieldFeedback: "Eingabe-Feedback: Zeichenzähler, Anpassungshinweise und eine Zusammenfassung beim Speichern, wenn Eingaben auf Grenzwerte angepasst wurden.",
   versionHighlightButler: "KI-Assistent (umbenannt von Chat): Vorschlaege, Token-Nutzungsanzeige, Stopp-Schaltflaeche, Pop-out. Konfigurierbarer Dokumentexport. Erinnerungsvorlaufzeiten und Banner-Umschalter. Aktivitaetslog erweitert; Informationsfluss-Diagramm in den Einstellungen.",
+  versionHighlightVinge: "Multi-Projekt- / Portfolio-Verwaltung (Phase 1): projektbezogene Arbeitsbereiche mit Projekt-Metadaten-Header, Portfolio-Registrierung und Wechsel, Projektverwaltungsansicht, Erstellen-/Bearbeitungsformular, Leerzustand, projektbezogener Export.",
   fieldCounter: "{0} / {1}",
   fieldTrimmedToFit: "auf Maximallänge gekürzt",
   fieldAdjustedMax: "auf Maximum {0} angepasst",

@@ -1,3 +1,12 @@
+// 0.58.0 "Vinge" adds multi-project / portfolio management (Phase 1).
+// Each project is a self-contained workspace stored as a separate file.
+// A new project metadata header (name, code, description, lead, start/end
+// dates) sits at the top of every workspace. A portfolio registry lets users
+// create, switch, rename, and archive projects from a dedicated Projects
+// management view with a create/edit form and empty-state onboarding. Every
+// existing export surface (CSV, Markdown, JSON, DOCX, XLSX, PDF, PPTX) scopes
+// to the active project. File-based projects only (Phase 1); Turso
+// multi-project support follows.
 // 0.57.0 "Butler" is a UI + automation batch. Reminders gain toast-first
 // defaults, global-or-individual lead times, and a separate Jira-token-error
 // banner toggle. Document export (XLSX/DOCX/PDF/PPTX/Markdown) is now
@@ -732,12 +741,12 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.57.0";
-export const APP_BUILD_DATE = "2026-06-09"; // 0.57.0 UI + automation batch
+export const APP_VERSION = "0.58.0";
+export const APP_BUILD_DATE = "2026-06-10"; // 0.58.0 multi-project phase 1
 /** Minor-series milestone codename (sci-fi/fantasy author names). The whole
- *  0.57.x line is "Butler" (Octavia Butler); patch releases inherit
+ *  0.58.x line is "Vinge" (Vernor Vinge); patch releases inherit
  *  their minor version's codename rather than getting their own. */
-export const APP_MILESTONE = "Butler";
+export const APP_MILESTONE = "Vinge";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -806,4 +815,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightClarke",
   "versionHighlightFieldFeedback",
   "versionHighlightButler",
+  "versionHighlightVinge",
 ] as const;
