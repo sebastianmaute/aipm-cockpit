@@ -6,6 +6,7 @@ import { upsertContact, type ContactsMap } from "./contacts";
 import { type ActivityKind } from "./activity-log";
 import { useAdjustmentTracker } from "./field-feedback";
 import { t, type Lang } from "./i18n";
+import { nextId } from "./resource-foundation";
 import { type Settings } from "./settings-menu";
 import { type Task } from "./types";
 import {
@@ -158,9 +159,7 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
         setEditingId(null);
         logActivity("task.updated", updatedId, taskName);
       } else {
-        const nextId =
-          tasks.length > 0 ? Math.max(...tasks.map((row) => row.id)) + 1 : 1;
-        const newTask: Task = { id: nextId, ...payload, inquiriesSent: 0 };
+        const newTask: Task = { id: nextId(tasks), ...payload, inquiriesSent: 0 };
         const newId = newTask.id;
         const shouldPush =
           form.pushToJira &&

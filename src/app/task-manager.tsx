@@ -26,7 +26,7 @@ import { useGanttHandlers } from "./use-gantt-handlers";
 import { AppModals } from "./app-modals";
 import { type Resource, type BudgetBucket, type RaidItem, type ChangeItem } from "./types";
 import { useFxRates } from "./use-fx-rates";
-import { splitName, resourceDisplayName } from "./resource-foundation";
+import { splitName, resourceDisplayName, nextId as computeNextId } from "./resource-foundation";
 import { buildRaidByTaskIndex } from "./raid";
 import { buildChangeByTaskIndex } from "./change-log";
 import { FiltersProvider, useFilters } from "./filters-context";
@@ -54,7 +54,6 @@ import { getUpcomingBirthdays } from "./birthdays";
 import { useBirthdayAlerts } from "./use-birthday-alerts";
 import { useReminderSnooze } from "./use-reminder-snooze";
 import { isReportPopoutTab, openPopoutWindow } from "./broadcast-sync";
-import { AppShell } from "./app-shell";
 import { ModernShell } from "./modern-shell";
 import { useHashView } from "./use-hash-view";
 import { navLabelKey, filterNavGroups } from "./nav-config";
@@ -452,7 +451,7 @@ function TaskManagerInner() {
     [changes, changesEnabled],
   );
 
-  const nextId = tasks.length > 0 ? Math.max(...tasks.map((row) => row.id)) + 1 : 1;
+  const nextId = computeNextId(tasks);
 
   const {
     editingAbsence,
@@ -1614,8 +1613,10 @@ function TaskManagerInner() {
                 onCreate={handleCreateProjectByMode}
                 onLoadFromFile={() => { void loadProjectFromFile(); }}
               />
+            ) : settings.layout === "classic" ? (
+              legacyTree
             ) : (
-              <AppShell layout={settings.layout} classic={legacyTree} modern={modernTree} />
+              modernTree
             )}
           </VoiceCommandProvider>
         </ToastProvider>

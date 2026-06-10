@@ -55,7 +55,7 @@ frontend/backend repos.
 - **modern** (default, v0.29.0+): `<ModernShell>` with dark-blue sidebar, top bar, centered content pane, full-page editor & settings views. Sidebar responsive collapse on mobile via `useMediaQuery` + `useSidebarCollapsed`.
 - **classic** (legacy toggle): pre-v0.29.0 layout with horizontal AppHeader, left-side task table, floating right-side workspace panels.
 
-The `app-shell.tsx` router picks between them at runtime based on `settings.layout`.
+A ternary in `task-manager.tsx` picks between them at runtime based on `settings.layout`.
 
 ## Service boundaries
 

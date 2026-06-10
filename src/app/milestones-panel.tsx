@@ -15,6 +15,7 @@ import {
   type MilestoneStatus,
 } from "./milestones";
 import { type Lang, t } from "./i18n";
+import { nextId } from "./resource-foundation";
 import { useColumnResize } from "./use-column-resize";
 import { ColumnResizeHandle, ResizeCornerHint } from "./task-manager-ui";
 import { useResizable } from "./use-resizable";
@@ -89,13 +90,9 @@ export function MilestonesPanel({
 
   const tasksById = new Map(tasks.map((tk) => [tk.id, tk] as const));
 
-  function nextId() {
-    return milestones.reduce((m, x) => Math.max(m, x.id), 0) + 1;
-  }
-
   function openNew() {
     setIsNew(true);
-    setEditing({ id: nextId(), name: "", date: today, linkedTaskIds: [], documentLinks: [] });
+    setEditing({ id: nextId(milestones), name: "", date: today, linkedTaskIds: [], documentLinks: [] });
   }
 
   // One-way signal from the parent (Gantt "Add milestone"): when the nonce

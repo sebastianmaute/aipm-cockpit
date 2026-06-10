@@ -110,7 +110,6 @@ prerendered.
 | File | Role | Notes |
 |---|---|---|
 | **Layout & Navigation** | | |
-| `app-shell.tsx` | Routes between modern & classic based on `settings.layout` | ~12 lines; simple conditional |
 | `modern-shell.tsx` | Modern layout shell: sidebar + top-bar + main pane + banners | Accepts slots for `editView`, `settingsView`, `workspace`, `tasksSection`, `topBarMenus`, `sidebarFooter` |
 | `sidebar.tsx` | Dark-blue sidebar with logo, nav, collapse toggle, footer | Responsive w-64 / w-16 |
 | `sidebar-nav.tsx` | Nav groups (Overview / Plan / Registers / System) + items | Renders icon + label pairs via nav-icons |

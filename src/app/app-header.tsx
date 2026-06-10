@@ -48,7 +48,7 @@ export function AppHeader({
   onRequestStorageSwitch,
   // Settings come from props (not a local useSettings() call) so the classic
   // header's SettingsMenu writes the SAME settings instance that TaskManagerInner
-  // owns and AppShell reads — otherwise the layout toggle wouldn't switch the shell.
+  // owns and whose layout ternary reads — otherwise the layout toggle wouldn't switch the shell.
   settings,
   setSettings,
   lang,
