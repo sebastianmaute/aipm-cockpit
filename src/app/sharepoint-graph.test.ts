@@ -116,6 +116,7 @@ describe("isSafeGraphLink", () => {
     "https://evil.example.com/v1.0/sites",
     "http://graph.microsoft.com/v1.0/sites",
     "https://graph.microsoft.com.evil.com/v1.0/sites",
+    "https://graph.microsoft.com@evil.com/v1.0/sites",
     "",
   ])("rejects %j", (link) => {
     expect(isSafeGraphLink(link)).toBe(false);

@@ -64,7 +64,10 @@ export function folderChildrenUrl(driveId: string, itemId: string): string {
 
 /** Encode each segment of a server-relative site path. Constraint: the `/`
  *  separators must stay literal — Graph's `:/path:` site addressing needs a
- *  slash-separated path — so only the segments between them are encoded. */
+ *  slash-separated path — so only the segments between them are encoded.
+ *  The leading empty segment produced by split("/") on a path like "/sites/x"
+ *  is intentional: it encodes to "" and rejoins as the leading "/" — do not
+ *  skip it. */
 function encodeSitePath(sitePath: string): string {
   return sitePath.split("/").map(encodeURIComponent).join("/");
 }
@@ -122,7 +125,11 @@ export interface GraphListResponse<T> {
 }
 
 /** A pagination/next link is only safe to follow with the user's bearer token
- *  when it stays on the Graph origin (same guard as the Outlook hooks). */
+ *  when it stays on the Graph origin (same guard as the Outlook hooks).
+ *  Intentional divergence in how callers react to a violation: `readList`
+ *  treats a violating nextLink as absent (silent truncation of pagination),
+ *  while the Outlook hooks throw — each caller chooses its failure mode, so
+ *  do not unify them. */
 export function isSafeGraphLink(link: string): boolean {
   return link.startsWith("https://graph.microsoft.com/");
 }
