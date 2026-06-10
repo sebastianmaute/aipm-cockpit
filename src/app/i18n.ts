@@ -1483,6 +1483,84 @@ const enUS = {
   infoFlowsLegendM365Desc: "Graph API + MSAL login — SharePoint files, contacts, and calendar.",
   infoFlowsLegendAnthropicLabel: "Anthropic API",
   infoFlowsLegendAnthropicDesc: "Claude AI model powering the built-in Assistant chat.",
+
+  // --- Multi-project UI ---
+  // Nav
+  navPortfolio: "Portfolio",
+  navProjects: "Projects",
+
+  // Project form section headings
+  projectFormIdentity: "Project identity",
+  projectFormPeople: "People",
+  projectFormCustomer: "Customer",
+
+  // Field labels
+  projectName: "Project name",
+  projectCode: "Project code",
+  projectDescription: "Description",
+  projectSponsor: "Sponsor",
+  projectManager: "Project manager",
+  projectStakeholdersInternal: "Internal stakeholders",
+  projectStakeholdersExternal: "External stakeholders",
+  projectCustomer: "Customer",
+  projectNaceSection: "NACE section",
+  projectIdentityTypes: "Identity types",
+  projectIdentityCount: "Identity count",
+  projectProducts: "Products",
+  projectPlatform: "Platform",
+  projectDeployment: "Deployment",
+  projectStartDate: "Start date",
+  projectEndDate: "End date",
+  projectProfitCenter: "Profit center",
+  projectQuotes: "Quotes",
+  projectSalesforce: "Salesforce",
+  projectSharepoint: "SharePoint",
+  projectConfluence: "Confluence",
+  projectContactPersons: "Contact persons",
+  projectDocRepo: "Document repository",
+  projectRegulatory: "Regulatory",
+  projectNotes: "Notes",
+
+  // Tooltips
+  projectSalesforceTip: "Link to Salesforce opportunity",
+  projectSharepointTip: "Link to Sales SharePoint",
+  projectConfluenceTip: "Link to Confluence",
+
+  // Validation messages
+  errorProjectNameRequired: "Project name is required.",
+  errorProjectCodeRequired: "Project code is required.",
+  errorProjectManagerRequired: "Project manager is required.",
+  errorStakeholdersInternalRequired: "At least one internal stakeholder is required.",
+  errorStakeholdersExternalRequired: "At least one external stakeholder is required.",
+  errorCustomerRequired: "Customer is required.",
+  errorNaceRequired: "NACE section is required.",
+  errorProductsRequired: "At least one product is required.",
+  errorDeploymentRequired: "Deployment is required.",
+  errorStartDateRequired: "Start date is required.",
+  errorEndDateRequired: "End date is required.",
+  errorProfitCenterRequired: "Profit center is required.",
+  errorRegulatoryRequired: "Regulatory classification is required.",
+  errorEndBeforeStart: "End date must be after start date.",
+  errorInvalidUrl: "Please enter a valid URL.",
+
+  // Management view / empty-state / switcher
+  projectsTitle: "Projects",
+  projectsNew: "New project",
+  projectsSwitch: "Switch project",
+  projectsEdit: "Edit project",
+  projectsExport: "Export project",
+  projectsDelete: "Delete project",
+  projectsDeleteConfirm:
+    "Remove this project from the list? The underlying file is NOT deleted.",
+  projectsEmptyTitle: "No projects yet",
+  projectsEmptyCreate: "Create a new project",
+  projectsEmptyLoad: "Load from an existing file",
+  projectCurrentLabel: "Current project",
+  projectSwitcherLoadFile: "Load from file…",
+
+  // Contact picker
+  contactAddFromBook: "Add from address book",
+  contactAddManual: "Add manually",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;
