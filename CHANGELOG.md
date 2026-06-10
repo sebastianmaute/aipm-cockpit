@@ -4,9 +4,9 @@ All notable changes to **Project Management Tracker** are recorded here.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/);
 versioning follows [Semantic Versioning](https://semver.org/).
 
-Authoritative source for version + build date: [`src/app/version.ts`](src/app/version.ts).
-This file is seeded from that module's milestone comment plus the
-post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-diff.txt).
+This file is the authoritative per-version history. The current version and
+build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
+longer carries its own changelog comment.
 
 ## [0.60.1] - 2026-06-10 "Stephenson"
 
