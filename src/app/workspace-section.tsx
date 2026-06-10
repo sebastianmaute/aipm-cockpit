@@ -790,6 +790,7 @@ export function WorkspaceSection({
               onDelete={onDeleteProject}
               onExportCurrent={onExportCurrentProject}
               onLoadFromFile={onLoadProjectFromFile}
+              mode="file"
             />
           </div>
         )}
