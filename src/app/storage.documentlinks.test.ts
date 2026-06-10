@@ -40,7 +40,7 @@ describe("Task documentLinks round-trips", () => {
     const ws = emptyWorkspace();
     ws.tasks = [{ id: 1, taskName: "T", assignee: "A", assigneeEmail: "", dueDate: "2026-01-01", lastUpdateDate: "2026-01-01", priority: "Medium", blockers: "", notes: "" }];
     const csv = workspaceToCsv(ws);
-    expect(csv).toContain("DocumentLinks");
+    expect(csv).toContain("documentLinks");
     const back = csvToWorkspace(csv);
     expect(back.tasks[0].documentLinks ?? []).toEqual([]);
   });

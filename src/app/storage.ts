@@ -413,14 +413,6 @@ export const CSV_COLUMNS: Array<keyof Task> = [
   "documentLinks",
 ];
 
-// Override display labels for CSV_COLUMNS entries whose camelCase key would
-// be ambiguous or inconsistent with the Markdown label. The decoder in
-// csvToTasks normalises these back to the camelCase key via buildTaskFromObj's
-// alias handling.
-const CSV_COLUMN_LABELS: Partial<Record<keyof Task, string>> = {
-  documentLinks: "DocumentLinks",
-};
-
 // Whitelist parser shared by CSV and Markdown deserialization. Anything that
 // isn't "R" | "A" | "G" — including empty strings on legacy files — becomes
 // undefined (= "auto").
@@ -889,7 +881,7 @@ export function fieldToString(t: Task, c: keyof Task): string {
 }
 
 function tasksToCsv(tasks: Task[], neutralize = false): string {
-  const header = CSV_COLUMNS.map((c) => CSV_COLUMN_LABELS[c] ?? c).join(",");
+  const header = CSV_COLUMNS.join(",");
   const lines: string[] = [header];
   for (const t of tasks) {
     lines.push(CSV_COLUMNS.map((c) => csvCellEscape(fieldToString(t, c), neutralize)).join(","));
@@ -1932,7 +1924,7 @@ export function buildTaskFromObj(obj: Record<string, string>): Task | null {
     resourceId: Number(obj.resourceId) || undefined,
     originalEstimateMinutes: sanitizeOptionalMinutes(obj.originalEstimateMinutes),
     timeSpentMinutes: sanitizeOptionalMinutes(obj.timeSpentMinutes),
-    documentLinks: decodeDocumentLinks(obj.documentLinks ?? obj.DocumentLinks),
+    documentLinks: decodeDocumentLinks(obj.documentLinks),
   };
 }
 
