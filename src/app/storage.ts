@@ -1219,14 +1219,23 @@ function decodeProjectScalar(value: string): string {
 }
 
 /** Join a string array with the list delimiter, escaping the delimiter (and
- *  backslash) within each item so the split is lossless. */
-function encodeProjectList(items: readonly string[]): string {
+ *  backslash, carriage-return, newline) within each item so the split is
+ *  lossless and the result is always single-line (the Markdown bullet parser
+ *  is line-oriented). Escape order: `\\` first, then `|`, then `\r`, then
+ *  `\n` — keeps the encoding unambiguous. */
+export function encodeProjectList(items: readonly string[]): string {
   return items
-    .map((s) => s.replace(/\\/g, "\\\\").replace(/\|/g, "\\|"))
+    .map((s) =>
+      s
+        .replace(/\\/g, "\\\\")
+        .replace(/\|/g, "\\|")
+        .replace(/\r/g, "\\r")
+        .replace(/\n/g, "\\n"),
+    )
     .join(PROJECT_LIST_DELIM);
 }
 
-function decodeProjectList(text: string): string[] {
+export function decodeProjectList(text: string): string[] {
   if (text === "") return [];
   const parts: string[] = [];
   let buf = "";
@@ -1236,6 +1245,8 @@ function decodeProjectList(text: string): string[] {
       const next = text[i + 1];
       if (next === "|") { buf += "|"; i++; continue; }
       if (next === "\\") { buf += "\\"; i++; continue; }
+      if (next === "n") { buf += "\n"; i++; continue; }
+      if (next === "r") { buf += "\r"; i++; continue; }
     }
     if (c === PROJECT_LIST_DELIM) { parts.push(buf); buf = ""; continue; }
     buf += c;
@@ -1394,6 +1405,7 @@ export function markdownToProject(md: string): ProjectMeta | null {
   const map: Record<string, string> = {};
   for (const line of md.split(/\r?\n/)) {
     const m = /^- (\w+):\s*(.*)$/.exec(line.trim());
+    // No .trim() (unlike markdownToStatus): the encoded value may end in escaped chars that decodeProjectScalar must receive verbatim.
     if (m) map[m[1]] = m[2];
   }
   return buildProjectFromObj(map);

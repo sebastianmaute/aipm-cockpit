@@ -8,6 +8,8 @@ import {
   csvToWorkspace,
   workspaceToMarkdown,
   markdownToWorkspace,
+  encodeProjectList,
+  decodeProjectList,
 } from "./storage";
 import type { ProjectMeta } from "./types";
 
@@ -127,5 +129,28 @@ describe("ProjectMeta round-trip stability", () => {
     const b = workspaceToMarkdown(markdownToWorkspace(a));
     expect(b).toBe(a);
     expect(markdownToWorkspace(a).project).toEqual(wsWithProject().project);
+  });
+});
+
+describe("encodeProjectList / decodeProjectList unit", () => {
+  it("round-trips values containing newlines, pipes, and backslashes", () => {
+    const input = ["a\nb", "c|d", "e\\f"];
+    expect(decodeProjectList(encodeProjectList(input))).toEqual(input);
+  });
+
+  it("encoded string contains no raw newline or carriage-return characters", () => {
+    const input = ["line1\nline2", "cr\rhere", "both\r\nhere"];
+    const encoded = encodeProjectList(input);
+    expect(encoded).not.toMatch(/\n/);
+    expect(encoded).not.toMatch(/\r/);
+  });
+
+  it("round-trips an empty array", () => {
+    expect(decodeProjectList(encodeProjectList([]))).toEqual([]);
+  });
+
+  it("round-trips a single element with all special chars combined", () => {
+    const input = ["back\\slash | pipe\nnewline\rcarriage"];
+    expect(decodeProjectList(encodeProjectList(input))).toEqual(input);
   });
 });
