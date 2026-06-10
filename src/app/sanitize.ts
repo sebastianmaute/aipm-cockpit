@@ -55,6 +55,7 @@ import {
 } from "./project-options";
 import { NACE_SECTION_SET } from "./nace-sections";
 import { defaultResourcePlan, splitName } from "./resource-foundation";
+import { sanitizeDocumentLinks } from "./document-link";
 
 // --- Length caps -----------------------------------------------------------
 
@@ -931,6 +932,8 @@ export function sanitizeChangeItem(input: unknown): ChangeItem | null {
   const decDate = sanitizeIsoDate(o.decisionDate); if (decDate) item.decisionDate = decDate;
   const notes = sanitizeText(o.resolutionNotes, TEXTAREA_MAX); if (notes) item.resolutionNotes = notes;
   const lma = sanitizeText(o.localModifiedAt, TEXTAREA_MAX); if (lma) item.localModifiedAt = lma;
+  const dl = sanitizeDocumentLinks((input as Record<string, unknown>).documentLinks);
+  if (dl.length) item.documentLinks = dl;
   return item;
 }
 

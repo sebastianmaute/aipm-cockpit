@@ -803,13 +803,14 @@ export function buildMilestoneFromObj(obj: Record<string, string>): Milestone | 
 export const CHANGES_CSV_COLUMNS: Array<keyof ChangeItem> = [
   "id", "title", "description", "type", "status", "impact", "impactDescription", "scheduleImpactDays",
   "costImpact", "requestedBy", "raisedDate", "decisionBy", "decisionDate", "resolutionNotes",
-  "linkedTaskIds", "linkedRaidIds", "stakeholderIds", "localModifiedAt",
+  "linkedTaskIds", "linkedRaidIds", "stakeholderIds", "localModifiedAt", "documentLinks",
 ];
 
 export function changeFieldToString(c: ChangeItem, col: keyof ChangeItem): string {
   if (col === "linkedTaskIds") return Array.isArray(c.linkedTaskIds) ? c.linkedTaskIds.join("|") : "";
   if (col === "linkedRaidIds") return Array.isArray(c.linkedRaidIds) ? c.linkedRaidIds.join("|") : "";
   if (col === "stakeholderIds") return Array.isArray(c.stakeholderIds) ? c.stakeholderIds.join("|") : "";
+  if (col === "documentLinks") return encodeDocumentLinks(c.documentLinks);
   const v = c[col];
   return v === undefined || v === null ? "" : String(v);
 }
@@ -823,6 +824,7 @@ export function buildChangeFromObj(obj: Record<string, string>): ChangeItem | nu
     linkedTaskIds: parseLinkedTaskIds(obj.linkedTaskIds),
     linkedRaidIds: parseLinkedTaskIds(obj.linkedRaidIds),
     stakeholderIds: parseLinkedTaskIds(obj.stakeholderIds),
+    documentLinks: decodeDocumentLinks(obj.documentLinks),
   });
 }
 
@@ -2147,6 +2149,7 @@ const CHANGES_MD_COLUMNS: readonly { key: keyof ChangeItem; label: string }[] = 
   { key: "linkedRaidIds", label: "LinkedRaid" },
   { key: "stakeholderIds", label: "StakeholderIds" },
   { key: "localModifiedAt", label: "LocalModified" },
+  { key: "documentLinks", label: "DocumentLinks" },
 ];
 
 function changesToMarkdown(changes: readonly ChangeItem[]): string {
@@ -2185,6 +2188,7 @@ function markdownToChanges(md: string): ChangeItem[] {
       else if (norm === "linkedraid" || norm === "linkedraidids") mapped["linkedRaidIds"] = val;
       else if (norm === "stakeholderids" || norm === "stakeholders") mapped["stakeholderIds"] = val;
       else if (norm === "localmodified" || norm === "localmodifiedat") mapped["localModifiedAt"] = val;
+      else if (norm === "documentlinks") mapped["documentLinks"] = val;
     }
     return buildChangeFromObj(mapped);
   }).filter((c): c is ChangeItem => c !== null);
