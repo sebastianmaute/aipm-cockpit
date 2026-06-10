@@ -9,6 +9,7 @@ import {
   type SetStateAction,
 } from "react";
 import { type Health } from "./health";
+import type { DocumentLink } from "./document-link";
 import { type Priority, type TaskDependency } from "./types";
 
 function todayISO(): string {
@@ -35,6 +36,7 @@ export function emptyForm() {
     pushToJira: false,
     // Empty string = "Auto" (no override). Mapped to undefined on save.
     healthOverride: "" as "" | Health,
+    documentLinks: [] as DocumentLink[],
   };
 }
 

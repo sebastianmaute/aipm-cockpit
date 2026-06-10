@@ -7,6 +7,14 @@ import { TaskFormModal } from "./task-form-modal";
 // Mock the lazy mic button — it pulls in Web Speech API shims not available in jsdom.
 vi.mock("./voice-button", () => ({ InlineMicButton: () => null }));
 
+// Mock M365 hooks consumed by DocumentLinksFieldGated — default: SharePoint off.
+vi.mock("./use-settings", () => ({
+  useSettings: () => ({ settings: { integrations: { m365: { enabled: false, sharepoint: false } } } }),
+}));
+vi.mock("./use-ms-auth", () => ({
+  useMsAuth: () => ({ account: null, ready: true, signIn: vi.fn(), signOut: vi.fn(), acquireToken: vi.fn() }),
+}));
+
 // Mock useTaskForm so tests can seed form state without a real context provider.
 // vi.mock is hoisted by Vitest, so this applies to the entire file.
 vi.mock("./task-form-context", async (importOriginal) => {
@@ -140,5 +148,16 @@ describe("TaskFormModal — add-to-address-book button", () => {
     expect(
       screen.getByRole("button", { name: /add to address book/i }),
     ).toBeDisabled();
+  });
+});
+
+describe("TaskFormModal — Documents field", () => {
+  beforeEach(() => {
+    stubTaskForm();
+  });
+
+  it("shows the Documents field (gated hint when SharePoint is off)", () => {
+    render(<TaskFormModal {...defaultProps()} />);
+    expect(screen.getByText(/enable microsoft 365/i)).toBeInTheDocument();
   });
 });

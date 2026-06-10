@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import { useId, useState } from "react";
 import { ComboInput } from "./combo-input";
+import { DocumentLinksFieldGated } from "./document-links-field-gated";
 import { ContactInput } from "./contact-input";
 import type { listContacts } from "./contacts";
 import { DependenciesEditor } from "./dependencies-editor";
@@ -500,6 +501,14 @@ export function TaskFormFields({
             className={inputClass}
           />
           <CharCounter value={form.notes} max={TEXTAREA_MAX} id="notes-counter" lang={lang} />
+        </Field>
+
+        <Field label={t(lang, "documents")} className="sm:col-span-2">
+          <DocumentLinksFieldGated
+            value={form.documentLinks}
+            onChange={(documentLinks) => setForm((prev) => ({ ...prev, documentLinks }))}
+            lang={lang}
+          />
         </Field>
 
         {!isEditing &&

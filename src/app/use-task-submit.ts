@@ -136,6 +136,7 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
         healthOverride: form.healthOverride || undefined,
         originalEstimateMinutes: form.originalEstimateMinutes,
         timeSpentMinutes: form.timeSpentMinutes,
+        documentLinks: form.documentLinks,
       };
 
       if (adj.count() > 0) {
@@ -229,6 +230,7 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
         timeSpentMinutes: task.timeSpentMinutes,
         pushToJira: false,
         healthOverride: task.healthOverride ?? "",
+        documentLinks: task.documentLinks ?? [],
       });
       if (typeof window !== "undefined") {
         window.scrollTo({ top: 0, behavior: "smooth" });
