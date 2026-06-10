@@ -13,7 +13,8 @@
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { useWorkspaceTab } from "./workspace-tab-context";
 import { TABLE_HEAD_CLASS } from "./table-styles";
-import { type Lang, t, type TranslationKey } from "./i18n";
+import { type Lang, t } from "./i18n";
+import { categoryLabel, severityLabel, statusLabel } from "./raid-labels";
 import {
   buildRaidCausesIndex,
   compareRaid,
@@ -104,52 +105,6 @@ const severityRank: Record<RaidSeverity, number> = {
   Medium: 2,
   Low: 3,
 };
-
-// --- Translation lookups -------------------------------------------------
-
-export function categoryLabel(c: RaidCategory, lang: Lang): string {
-  return t(
-    lang,
-    c === "R"
-      ? "raidCategoryR"
-      : c === "A"
-        ? "raidCategoryA"
-        : c === "I"
-          ? "raidCategoryI"
-          : "raidCategoryD",
-  );
-}
-
-export function severityLabel(s: RaidSeverity, lang: Lang): string {
-  switch (s) {
-    case "Low":
-      return t(lang, "raidSeverityLow");
-    case "Medium":
-      return t(lang, "raidSeverityMedium");
-    case "High":
-      return t(lang, "raidSeverityHigh");
-    case "Critical":
-      return t(lang, "raidSeverityCritical");
-  }
-}
-
-const STATUS_KEY: Record<RaidStatus, TranslationKey> = {
-  Open: "raidStatusOpen",
-  Mitigated: "raidStatusMitigated",
-  Realized: "raidStatusRealized",
-  Closed: "raidStatusClosed",
-  Pending: "raidStatusPending",
-  Validated: "raidStatusValidated",
-  Invalidated: "raidStatusInvalidated",
-  "In Progress": "raidStatusInProgress",
-  Resolved: "raidStatusResolved",
-  Delivered: "raidStatusDelivered",
-  Blocked: "raidStatusBlocked",
-};
-
-export function statusLabel(s: RaidStatus, lang: Lang): string {
-  return t(lang, STATUS_KEY[s]);
-}
 
 // --- Component -----------------------------------------------------------
 

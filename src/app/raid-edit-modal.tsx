@@ -30,7 +30,7 @@ import {
   type Stakeholder,
   type Task,
 } from "./types";
-import { categoryLabel, severityLabel, statusLabel } from "./raid-panel";
+import { categoryLabel, severityLabel, statusLabel } from "./raid-labels";
 import { CharCounter, useAdjustmentTracker } from "./field-feedback";
 import { describeTextCap } from "./sanitize-report";
 import { TASK_NAME_MAX, TEXTAREA_MAX, ASSIGNEE_MAX } from "./sanitize";
