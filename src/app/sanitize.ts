@@ -1041,7 +1041,10 @@ function sanitizeStringArray(input: unknown, cap: number): string[] {
  * tools, form round-trips). Returns null when any required field is absent
  * or invalid.
  */
-export function sanitizeProjectMeta(input: unknown): ProjectMeta | null {
+export function sanitizeProjectMeta(
+  input: unknown,
+  opts: { lenientRequiredArrays?: boolean } = {},
+): ProjectMeta | null {
   if (!isPlainObject(input)) return null;
   const o = input;
 
@@ -1075,9 +1078,9 @@ export function sanitizeProjectMeta(input: unknown): ProjectMeta | null {
 
   // Required array: keyStakeholdersInternal / keyStakeholdersExternal.
   const keyStakeholdersInternal = sanitizeStringArray(o.keyStakeholdersInternal, BUDGET_NAME_MAX);
-  if (keyStakeholdersInternal.length === 0) return null;
+  if (!opts.lenientRequiredArrays && keyStakeholdersInternal.length === 0) return null;
   const keyStakeholdersExternal = sanitizeStringArray(o.keyStakeholdersExternal, BUDGET_NAME_MAX);
-  if (keyStakeholdersExternal.length === 0) return null;
+  if (!opts.lenientRequiredArrays && keyStakeholdersExternal.length === 0) return null;
 
   // Required array: regulatory — filter to known set, de-dupe, collapse "Not applicable".
   const rawRegArr: unknown[] = Array.isArray(o.regulatory) ? o.regulatory : [];
@@ -1089,7 +1092,7 @@ export function sanitizeProjectMeta(input: unknown): ProjectMeta | null {
     regulatorySeen.add(item);
     regulatoryFiltered.push(item as RegulatoryRequirement);
   }
-  if (regulatoryFiltered.length === 0) return null;
+  if (!opts.lenientRequiredArrays && regulatoryFiltered.length === 0) return null;
   const regulatory: RegulatoryRequirement[] = regulatoryFiltered.includes(REGULATORY_NOT_APPLICABLE)
     ? [REGULATORY_NOT_APPLICABLE]
     : regulatoryFiltered;

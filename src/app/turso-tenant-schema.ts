@@ -15,7 +15,7 @@
 // find-status logic still works.
 
 import {
-  ENTITY_SPECS, PLAN_COLUMNS, FX_COLUMNS, colDdl, rowObjects, TABLE_NAMES,
+  ENTITY_SPECS, PLAN_COLUMNS, FX_COLUMNS, rowObjects, TABLE_NAMES,
   type SqlStmt, type PipelineResultLike,
 } from "./turso-schema";
 import {
@@ -24,6 +24,8 @@ import {
 import type { ProjectMeta } from "./types";
 
 export const PROJECTS_TABLE = "projects";
+// Multi-tenant schema version. Intentionally distinct from the single-tenant
+// turso-schema.ts version ("9"); the two schemas evolve independently.
 const SCHEMA_VERSION = "10";
 
 const text = (value: string): { type: "text"; value: string } => ({ type: "text", value });
@@ -36,10 +38,19 @@ export interface ProjectListEntry {
 
 // --- DDL ------------------------------------------------------------------
 
+/** Like colDdl but renders `id` as a plain INTEGER (no single-column PK) so the
+ *  composite PRIMARY KEY (id, project_id) can make ids unique PER PROJECT in the
+ *  shared multi-tenant DB. */
+function tenantColDdl(columns: readonly string[]): string {
+  return columns.map((c) => (c === "id" ? "id INTEGER" : `"${c}" TEXT`)).join(", ");
+}
+
 export function tenantSchemaDdl(): string[] {
   const out: string[] = [];
   for (const s of ENTITY_SPECS) {
-    out.push(`CREATE TABLE IF NOT EXISTS ${s.table} (${colDdl(s.columns)}, project_id TEXT)`);
+    const hasId = s.columns.includes("id");
+    const pk = hasId ? ", PRIMARY KEY (id, project_id)" : "";
+    out.push(`CREATE TABLE IF NOT EXISTS ${s.table} (${tenantColDdl(s.columns)}, project_id TEXT${pk})`);
   }
   out.push(`CREATE TABLE IF NOT EXISTS plan (${PLAN_COLUMNS.map((c) => `"${c}" TEXT`).join(", ")}, project_id TEXT)`);
   out.push(`CREATE TABLE IF NOT EXISTS fx_rates (${FX_COLUMNS.map((c) => `"${c}" TEXT`).join(", ")}, project_id TEXT)`);

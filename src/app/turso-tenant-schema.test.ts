@@ -34,6 +34,12 @@ describe("turso-tenant-schema", () => {
     for (const c of PROJECT_CSV_COLUMNS) expect(ddl).toContain(`"${c}" TEXT`);
   });
 
+  it("entity tables use a composite (id, project_id) PK, not a colliding single id PK", () => {
+    const ddl = tenantSchemaDdl().join("\n");
+    expect(ddl).toContain("PRIMARY KEY (id, project_id)");
+    expect(ddl).not.toContain("id INTEGER PRIMARY KEY");
+  });
+
   it("select statements are project-scoped and ordered like TABLE_NAMES", () => {
     const stmts = tenantSelectStatements("p1");
     expect(stmts).toHaveLength(TABLE_NAMES.length);
@@ -73,6 +79,18 @@ describe("turso-tenant-schema", () => {
     const decoded = rowsToWorkspace(results);
     expect(decoded.plan.startDate).toBe("2026-01-01");
     expect(decoded.plan.currency).toBe("EUR");
+  });
+
+  it("two projects in one DB stay isolated on scoped load", () => {
+    const ws1 = { ...emptyWorkspace(), plan: { startDate: "2026-01-01", endDate: "2026-06-30", granularity: "month" as const, currency: "EUR" as const } };
+    const ws2 = { ...emptyWorkspace(), plan: { startDate: "2027-01-01", endDate: "2027-06-30", granularity: "week" as const, currency: "USD" as const } };
+    const all = [...tenantWorkspaceToStatements(ws1, "p1"), ...tenantWorkspaceToStatements(ws2, "p2")];
+    const decoded1 = rowsToWorkspace(simulateScopedSelect(all, tenantSelectStatements("p1")));
+    const decoded2 = rowsToWorkspace(simulateScopedSelect(all, tenantSelectStatements("p2")));
+    expect(decoded1.plan.startDate).toBe("2026-01-01");
+    expect(decoded1.plan.currency).toBe("EUR");
+    expect(decoded2.plan.startDate).toBe("2027-01-01");
+    expect(decoded2.plan.currency).toBe("USD");
   });
 
   it("listProjectsStatement filters archived='0'; archived variant filters '1'", () => {
@@ -121,6 +139,30 @@ function parseInsertCols(sql: string): string[] {
   const m = sql.match(/\(([^)]+)\)\s+VALUES/i);
   if (!m) return [];
   return m[1].split(",").map((c) => c.trim().replace(/^"|"$/g, ""));
+}
+
+/** Replay INSERTs from possibly-many projects, then answer a project-scoped
+ *  SELECT set by returning only the rows whose trailing project_id arg matches
+ *  that SELECT's project_id arg. Mirrors real WHERE project_id = ? semantics. */
+function simulateScopedSelect(insertStmts: SqlStmt[], selectStmts: SqlStmt[]): PipelineResultLike[] {
+  const byTable = new Map<string, { cols: { name: string }[]; rows: { values: { value: unknown }[]; projectId: unknown }[] }>();
+  for (const s of insertStmts) {
+    const m = s.sql.match(/^INSERT INTO (\w+) \(([^)]+)\) VALUES/i);
+    if (!m || !s.args) continue;
+    const table = m[1];
+    const cols = m[2].split(",").map((c) => c.trim().replace(/^"|"$/g, ""));
+    const entry = byTable.get(table) ?? { cols: cols.map((name) => ({ name })), rows: [] };
+    entry.rows.push({ values: s.args.map((a) => ({ value: a.value ?? "" })), projectId: s.args[s.args.length - 1].value });
+    byTable.set(table, entry);
+  }
+  return selectStmts.map((sel) => {
+    const m = sel.sql.match(/FROM (\w+)/i);
+    const table = m ? m[1] : "";
+    const pid = sel.args?.[0]?.value;
+    const entry = byTable.get(table);
+    const rows = entry ? entry.rows.filter((r) => r.projectId === pid).map((r) => r.values) : [];
+    return { type: "ok" as const, response: { type: "execute", result: { cols: entry?.cols ?? [], rows } } };
+  });
 }
 
 function simulateSelect(stmts: SqlStmt[]): PipelineResultLike[] {

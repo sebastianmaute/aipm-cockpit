@@ -1385,50 +1385,7 @@ export function buildProjectFromObj(obj: Record<string, string>): ProjectMeta | 
  *  Falls back to the strict sanitizer first so well-formed rows are normalized
  *  identically; only when that rejects do we build the lenient shape. */
 export function buildProjectFromObjLenient(obj: Record<string, string>): ProjectMeta | null {
-  const strict = buildProjectFromObj(obj);
-  if (strict) return strict;
-  const decoded = decodeProjectObj(obj);
-  const name = typeof decoded.name === "string" ? decoded.name.trim() : "";
-  if (!name) return null;
-  const str = (v: unknown): string => (typeof v === "string" ? v : "");
-  const optStr = (v: unknown): string | undefined =>
-    typeof v === "string" && v !== "" ? v : undefined;
-  const strArr = (v: unknown): string[] =>
-    Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
-  const count = decoded.identityCount;
-  const identityCount =
-    typeof count === "string" && count !== "" && Number.isFinite(Number(count))
-      ? Number(count)
-      : undefined;
-  return {
-    name,
-    code: str(decoded.code),
-    description: optStr(decoded.description),
-    sponsor: optStr(decoded.sponsor),
-    projectManager: str(decoded.projectManager),
-    keyStakeholdersInternal: strArr(decoded.keyStakeholdersInternal),
-    keyStakeholdersExternal: strArr(decoded.keyStakeholdersExternal),
-    customer: str(decoded.customer),
-    naceSection: str(decoded.naceSection),
-    identityTypes: strArr(decoded.identityTypes) as ProjectMeta["identityTypes"],
-    identityCount,
-    products: str(decoded.products),
-    platform: optStr(decoded.platform),
-    deployment: str(decoded.deployment) as ProjectMeta["deployment"],
-    startDate: str(decoded.startDate),
-    endDate: str(decoded.endDate),
-    profitCenter: str(decoded.profitCenter),
-    quotes: optStr(decoded.quotes),
-    salesforceUrl: optStr(decoded.salesforceUrl),
-    sharepointUrl: optStr(decoded.sharepointUrl),
-    confluenceUrl: optStr(decoded.confluenceUrl),
-    contactPersons: Array.isArray(decoded.contactPersons)
-      ? (decoded.contactPersons as ProjectMeta["contactPersons"])
-      : [],
-    docRepoLocation: optStr(decoded.docRepoLocation),
-    regulatory: strArr(decoded.regulatory) as ProjectMeta["regulatory"],
-    notes: optStr(decoded.notes),
-  };
+  return sanitizeProjectMeta(decodeProjectObj(obj), { lenientRequiredArrays: true });
 }
 
 /** Serializes ProjectMeta as a `field,value` CSV block (mirrors statusToCsv).
