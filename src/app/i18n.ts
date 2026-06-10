@@ -1541,6 +1541,15 @@ const enUS = {
   projectNotes: "Notes",
   projectDocumentLinks: "Documents",
 
+  documents: "Documents",
+  documentsAdd: "Add from SharePoint",
+  documentsEmpty: "No linked documents.",
+  documentsOpen: "Open in new tab",
+  documentsRemove: "Remove link",
+  documentsNeedsSharePoint: "Enable Microsoft 365 + SharePoint in Settings to link documents.",
+  activityDocLinkAdded: "Linked document {0}",
+  activityDocLinkRemoved: "Removed document link {0}",
+
   // Tooltips
   projectSalesforceTip: "Link to Salesforce opportunity",
   projectSharepointTip: "Link to Sales SharePoint",
