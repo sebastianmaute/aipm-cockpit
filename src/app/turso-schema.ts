@@ -31,7 +31,7 @@ export interface PipelineResultLike {
   error?: { message?: string };
 }
 
-interface EntitySpec<T> {
+export interface EntitySpec<T> {
   table: string;
   wsKey: keyof Workspace;
   columns: readonly string[];
@@ -46,7 +46,7 @@ const anyToRow = (r: unknown, c: string) =>
 // Heterogeneous registry: each spec's wsKey MUST point to a `T[]` field on
 // Workspace (enforced structurally by spec<T>() before the union-erasing cast
 // below). rowsToWorkspace assigns the sanitized T[] back to ws[wsKey].
-const ENTITY_SPECS: EntitySpec<unknown>[] = [
+export const ENTITY_SPECS: EntitySpec<unknown>[] = [
   spec<Task>({ table: "tasks", wsKey: "tasks", columns: CSV_COLUMNS, get: (w) => w.tasks, toRow: fieldToString as unknown as (e: Task, col: string) => string, fromObj: buildTaskFromObj }),
   spec<RaidItem>({ table: "raid", wsKey: "raid", columns: RAID_CSV_COLUMNS, get: (w) => w.raid, toRow: raidFieldToString as unknown as (e: RaidItem, col: string) => string, fromObj: buildRaidItemFromObj }),
   spec<Absence>({ table: "absences", wsKey: "absences", columns: ABSENCES_CSV_COLUMNS, get: (w) => w.absences, toRow: absenceFieldToString as unknown as (e: Absence, col: string) => string, fromObj: sanitizeAbsence }),
@@ -61,10 +61,10 @@ const ENTITY_SPECS: EntitySpec<unknown>[] = [
   spec<Stakeholder>({ table: "stakeholders", wsKey: "stakeholders", columns: STAKEHOLDERS_CSV_COLUMNS, get: (w) => w.stakeholders ?? [], toRow: stakeholderFieldToString as unknown as (e: Stakeholder, col: string) => string, fromObj: buildStakeholderFromObj }),
 ] as unknown as EntitySpec<unknown>[];
 
-const PLAN_COLUMNS = ["startDate", "endDate", "granularity", "currency"] as const;
-const FX_COLUMNS = ["base", "date", "fetchedAt", "rates"] as const;
+export const PLAN_COLUMNS = ["startDate", "endDate", "granularity", "currency"] as const;
+export const FX_COLUMNS = ["base", "date", "fetchedAt", "rates"] as const;
 
-function colDdl(columns: readonly string[]): string {
+export function colDdl(columns: readonly string[]): string {
   return columns.map((c) => (c === "id" ? "id INTEGER PRIMARY KEY" : `"${c}" TEXT`)).join(", ");
 }
 
@@ -81,7 +81,7 @@ export function selectStatements(): SqlStmt[] {
   return TABLE_NAMES.map((t) => ({ sql: `SELECT * FROM ${t}` }));
 }
 
-function rowObjects(res: PipelineResultLike | undefined): Record<string, string>[] {
+export function rowObjects(res: PipelineResultLike | undefined): Record<string, string>[] {
   const names = (res?.response?.result?.cols ?? []).map((c) => c?.name ?? "");
   const rows = res?.response?.result?.rows ?? [];
   return rows.map((row) => {
