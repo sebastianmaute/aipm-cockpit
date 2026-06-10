@@ -97,7 +97,7 @@ export type Workspace = {
   project?: ProjectMeta;
 };
 
-const SCHEMA_VERSION = 9;
+const SCHEMA_VERSION = 10;
 
 /** A blank workspace with a default plan anchored to today. */
 export function emptyWorkspace(): Workspace {
