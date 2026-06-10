@@ -6,7 +6,9 @@
  * script parses it, enriches it with a demo change-log + RAID→stakeholder links,
  * and emits the two COMPLETE, faithfully-round-tripping formats:
  *   sample-workspace.json    — complete workspace (all entities + enrichment)
- *   sample-workspace.sqlite3 — Turso-importable; schema v9; built via node:sqlite.
+ *   sample-workspace.sqlite3 — Turso-importable; schema v10 (multi-tenant; one
+ *                              `projects` row + project_id on every table);
+ *                              built via node:sqlite.
  *                              MUST be WAL journal mode — `turso db create
  *                              --from-file` requires it. We set PRAGMA
  *                              journal_mode=WAL, checkpoint(TRUNCATE) all frames
@@ -35,8 +37,9 @@ import {
   workspaceToJson,
   jsonToWorkspace,
 } from "../src/app/storage";
-import { workspaceToStatements, TABLE_NAMES } from "../src/app/turso-schema";
-import type { ChangeItem, RaidItem } from "../src/app/types";
+import { TABLE_NAMES } from "../src/app/turso-schema";
+import { tenantWorkspaceToStatements, upsertProjectStatement, PROJECTS_TABLE } from "../src/app/turso-tenant-schema";
+import type { ChangeItem, RaidItem, ProjectMeta } from "../src/app/types";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -144,11 +147,48 @@ const changes: ChangeItem[] = [
   },
 ];
 
+// ---------------------------------------------------------------------------
+// Step 2b: Synthesize a demo ProjectMeta + a STABLE (deterministic) project id.
+// The multi-tenant sqlite needs a `projects` row and a project_id on every
+// workspace row. Values are consistent with the sample (SSO / identity demo).
+// ---------------------------------------------------------------------------
+const SAMPLE_PROJECT_ID = "sample-project-0001";
+const sampleProjectMeta: ProjectMeta = {
+  name: "Customer Identity Platform",
+  code: "CIP-2026",
+  description: "Demo project: customer SSO / identity platform rollout with MFA and compliance gates.",
+  sponsor: "Elena Fischer",
+  projectManager: "Alex Example",
+  keyStakeholdersInternal: ["Elena Fischer", "Sam Placeholder", "Taylor Specimen"],
+  keyStakeholdersExternal: ["David Okoro", "Morgan Standin"],
+  customer: "Northwind Retail Group",
+  naceSection: "G",
+  identityTypes: ["B2C", "B2B"],
+  identityCount: 500000,
+  products: "SSO, MFA, Customer Directory",
+  platform: "Azure AD B2C",
+  deployment: "Cloud",
+  startDate: "2026-01-15",
+  endDate: "2026-09-15",
+  profitCenter: "PC-4711",
+  quotes: "Q-2026-0042",
+  salesforceUrl: "https://example.salesforce.com/opportunity/cip-2026",
+  sharepointUrl: "https://example.sharepoint.com/sites/cip-2026",
+  confluenceUrl: "https://example.atlassian.net/wiki/spaces/CIP",
+  contactPersons: [
+    { name: "David Okoro", email: "david.okoro@northwind.example", synced: false },
+  ],
+  docRepoLocation: "https://example.sharepoint.com/sites/cip-2026/Shared Documents",
+  regulatory: ["GDPR / data protection regulation", "NIS2"],
+  notes: "Generated sample project for the multi-tenant Turso demo database.",
+};
+
 // Assemble the enriched workspace (immutable spread)
 const enrichedWs = {
   ...ws,
   raid: enrichedRaid,
   changes,
+  project: sampleProjectMeta,
 };
 
 // ---------------------------------------------------------------------------
@@ -161,7 +201,7 @@ const sqlitePath  = join(ROOT, "sample-workspace.sqlite3");
 // JSON — complete workspace (the canonical generated export, incl. enrichment)
 writeFileSync(jsonPath, workspaceToJson(enrichedWs), "utf8");
 
-// SQLite — build fresh, replay workspaceToStatements.
+// SQLite — build fresh, replay the multi-tenant statements.
 // Remove any prior file + sidecars so we start from a clean slate.
 const sqliteSidecars = [`${sqlitePath}-wal`, `${sqlitePath}-shm`];
 function removeSqliteSidecars(): void {
@@ -176,7 +216,10 @@ const db = new DatabaseSync(sqlitePath);
 // the BEGIN/COMMIT batch below (PRAGMA journal_mode cannot run inside a txn).
 db.exec("PRAGMA journal_mode = WAL");
 
-const stmts = workspaceToStatements(enrichedWs);
+const stmts = [
+  ...tenantWorkspaceToStatements(enrichedWs, SAMPLE_PROJECT_ID),
+  upsertProjectStatement(sampleProjectMeta, SAMPLE_PROJECT_ID, false),
+];
 for (const stmt of stmts) {
   if (!stmt.args || stmt.args.length === 0) {
     // DDL, BEGIN, COMMIT, DELETE — no params
@@ -249,6 +292,8 @@ if (process.env["VERIFY"] === "1") {
   console.log(`JSON re-parse:  tasks=${jsonBack.tasks.length}, raid=${jsonBack.raid.length}, changes=${(jsonBack.changes ?? []).length}, stakeholders=${(jsonBack.stakeholders ?? []).length}, budgets=${(jsonBack.budgets ?? []).length}`);
   if ((jsonBack.changes ?? []).length !== 2) throw new Error("JSON round-trip: expected 2 changes");
   if ((jsonBack.budgets ?? []).length !== 5) throw new Error("JSON round-trip: expected 5 budgets");
+  if (jsonBack.project?.code !== "CIP-2026") throw new Error(`JSON round-trip: expected project.code=CIP-2026, got ${jsonBack.project?.code}`);
+  console.log(`  JSON project: code=${jsonBack.project?.code}, name="${jsonBack.project?.name}"  ✓`);
   const jsonRaid2 = jsonBack.raid.find((r) => r.id === 2);
   if (!jsonRaid2 || !jsonRaid2.stakeholderIds.includes(1) || !jsonRaid2.stakeholderIds.includes(6)) {
     throw new Error(`JSON round-trip: RAID item 2 stakeholderIds wrong: ${JSON.stringify(jsonRaid2?.stakeholderIds)}`);
@@ -265,7 +310,16 @@ if (process.env["VERIFY"] === "1") {
 
   const schemaVersion = (dbVerify.prepare("SELECT value FROM meta WHERE key='schema_version'").get() as { value: string } | undefined)?.value;
   console.log(`\nSQLite schema_version: ${schemaVersion}`);
-  if (schemaVersion !== "9") throw new Error(`Expected schema_version=9, got ${schemaVersion}`);
+  if (schemaVersion !== "10") throw new Error(`Expected schema_version=10, got ${schemaVersion}`);
+
+  // Multi-tenant: exactly one projects row, with our stable id + name.
+  const projectsCount = (dbVerify.prepare(`SELECT count(*) as n FROM ${PROJECTS_TABLE}`).get() as { n: number }).n;
+  console.log(`SQLite ${PROJECTS_TABLE} count: ${projectsCount}`);
+  if (projectsCount !== 1) throw new Error(`Expected ${PROJECTS_TABLE} count=1, got ${projectsCount}`);
+  const projectRow = dbVerify.prepare(`SELECT id, name FROM ${PROJECTS_TABLE}`).get() as { id: string; name: string };
+  if (projectRow.id !== SAMPLE_PROJECT_ID) throw new Error(`Expected project id=${SAMPLE_PROJECT_ID}, got ${projectRow.id}`);
+  if (projectRow.name !== "Customer Identity Platform") throw new Error(`Expected project name="Customer Identity Platform", got "${projectRow.name}"`);
+  console.log(`  project row: id=${projectRow.id}, name="${projectRow.name}"  ✓`);
 
   const expectedCounts: Record<string, number> = {
     changes: 2,
