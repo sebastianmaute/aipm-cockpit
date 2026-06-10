@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { runTursoPipeline } from "./turso-pipeline";
+import { DEFAULT_PIPELINE_TIMEOUT_MS, runTursoPipeline } from "./turso-pipeline";
 import { StorageNotReadyError } from "./storage";
 import type { TursoConfig } from "./turso-config";
 
@@ -74,12 +74,12 @@ describe("runTursoPipeline", () => {
 });
 
 describe("runTursoPipeline timeout", () => {
-  it("aborts a hung fetch after the default 15s and classifies it as storage-unreachable", async () => {
+  it("aborts a hung fetch after the default timeout and classifies it as storage-unreachable", async () => {
     vi.useFakeTimers();
     const fetchMock = stubHangingFetch();
     const pending = runTursoPipeline(cfg, [{ sql: "SELECT 1" }]);
     const expectation = expect(pending).rejects.toMatchObject({ hint: "storage-unreachable" });
-    await vi.advanceTimersByTimeAsync(14_999);
+    await vi.advanceTimersByTimeAsync(DEFAULT_PIPELINE_TIMEOUT_MS - 1);
     expect((fetchMock.mock.calls[0][1] as RequestInit).signal?.aborted).toBe(false);
     await vi.advanceTimersByTimeAsync(1);
     expect((fetchMock.mock.calls[0][1] as RequestInit).signal?.aborted).toBe(true);

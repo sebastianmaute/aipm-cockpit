@@ -3,6 +3,7 @@ import { TursoBackend } from "./turso-backend";
 import { StorageNotReadyError, emptyWorkspace, workspaceToJson } from "./storage";
 import type { TursoConfig } from "./turso-config";
 import { SCHEMA_DDL, TABLE_NAMES } from "./turso-schema";
+import { LOAD_TIMEOUT_MS } from "./turso-pipeline";
 
 const CONFIG: TursoConfig = { httpUrl: "https://db.turso.io", authToken: "tok" };
 
@@ -118,7 +119,7 @@ describe("TursoBackend", () => {
     expect(sqls.some((s) => s.startsWith("SELECT * FROM tasks"))).toBe(true);
   });
 
-  it("load aborts a hung endpoint after 10s and surfaces storage-unreachable", async () => {
+  it("load aborts a hung endpoint after the load timeout and surfaces storage-unreachable", async () => {
     vi.useFakeTimers();
     fetchSpy.mockImplementation(
       (_url: unknown, init?: RequestInit) =>
@@ -130,7 +131,7 @@ describe("TursoBackend", () => {
     );
     const pending = new TursoBackend(CONFIG).load();
     const expectation = expect(pending).rejects.toMatchObject({ hint: "storage-unreachable" });
-    await vi.advanceTimersByTimeAsync(9_999);
+    await vi.advanceTimersByTimeAsync(LOAD_TIMEOUT_MS - 1);
     expect((fetchSpy.mock.calls[0][1] as RequestInit).signal?.aborted).toBe(false);
     await vi.advanceTimersByTimeAsync(1);
     expect((fetchSpy.mock.calls[0][1] as RequestInit).signal?.aborted).toBe(true);

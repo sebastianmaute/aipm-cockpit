@@ -11,6 +11,9 @@ import type { TursoConfig } from "./turso-config";
 // A hung endpoint must not leave the debounced autosave pending forever: abort
 // and surface the same "storage-unreachable" kind an unreachable host produces.
 export const DEFAULT_PIPELINE_TIMEOUT_MS = 15_000;
+// load() blocks the initial UI hydration, so backends fail loads faster than
+// the save-oriented pipeline default above.
+export const LOAD_TIMEOUT_MS = 10_000;
 // Short budget for the best-effort ROLLBACK follow-up after a statement error.
 const ROLLBACK_TIMEOUT_MS = 5_000;
 
@@ -18,8 +21,10 @@ function execute(stmt: SqlStmt) {
   return { type: "execute" as const, stmt };
 }
 
+// Transactional batches always start with BEGIN, so only the first statement
+// is checked (avoids false positives on mid-batch matches).
 function isTransactional(stmts: SqlStmt[]): boolean {
-  return stmts.some((s) => /^\s*BEGIN\b/i.test(s.sql));
+  return /^\s*BEGIN\b/i.test(stmts[0]?.sql ?? "");
 }
 
 /** POST a pipeline request with an AbortController-based timeout. */
@@ -48,12 +53,16 @@ async function postPipeline(
 
 // Best-effort ROLLBACK after a mid-pipeline statement error so a concurrent
 // reader cannot observe a half-written workspace while the server-side
-// transaction stays open. Swallows ALL of its own errors (it must never mask
-// the original statement error) and goes straight to postPipeline, so it can
-// never recurse back into runTursoPipeline.
+// transaction stays open. Both thrown exceptions AND non-ok HTTP responses are
+// deliberately discarded so the original statement error is never masked, and
+// it goes straight to postPipeline, so it can never recurse back into
+// runTursoPipeline.
 async function rollbackBestEffort(config: TursoConfig): Promise<void> {
   try {
-    await postPipeline(config, [{ sql: "ROLLBACK" }], ROLLBACK_TIMEOUT_MS);
+    const res = await postPipeline(config, [{ sql: "ROLLBACK" }], ROLLBACK_TIMEOUT_MS);
+    if (!res.ok) {
+      // Intentionally ignored: a failed ROLLBACK must not mask the original error.
+    }
   } catch {
     // Intentionally swallowed: the caller is about to throw the original error.
   }
@@ -87,6 +96,8 @@ export async function runTursoPipeline(
   const results = (raw as { results?: PipelineResultLike[] }).results ?? [];
   for (const r of results) {
     if (r.type === "error") {
+      // Awaited so the ROLLBACK completes before the caller sees the rejection
+      // (and before any debounced retry could start a new pipeline).
       if (isTransactional(stmts)) await rollbackBestEffort(config);
       throw new Error(`Turso error: ${r.error?.message ?? "unknown"}`);
     }

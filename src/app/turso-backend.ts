@@ -17,15 +17,12 @@ import {
   type StorageBackend,
   type Workspace,
 } from "./storage";
-import { runTursoPipeline } from "./turso-pipeline";
+import { LOAD_TIMEOUT_MS, runTursoPipeline } from "./turso-pipeline";
 import type { PipelineResultLike, SqlStmt } from "./turso-schema";
 import type { TursoConfig } from "./turso-config";
 
 const OLD_BLOB_DDL = "CREATE TABLE IF NOT EXISTS workspace (id INTEGER PRIMARY KEY, data TEXT NOT NULL)";
 const OLD_BLOB_SELECT = "SELECT data FROM workspace WHERE id = 1";
-
-// load() blocks the initial UI hydration, so fail faster than the pipeline default.
-const LOAD_TIMEOUT_MS = 10_000;
 
 /** Defensively read results[i].response.result.rows[0][0].value as a string. */
 function firstRowText(results: PipelineResultLike[], i: number): string | null {

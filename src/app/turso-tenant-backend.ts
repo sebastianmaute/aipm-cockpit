@@ -16,11 +16,8 @@ import {
   type StorageBackend,
   type Workspace,
 } from "./storage";
-import { runTursoPipeline } from "./turso-pipeline";
+import { LOAD_TIMEOUT_MS, runTursoPipeline } from "./turso-pipeline";
 import type { TursoConfig } from "./turso-config";
-
-// load() blocks the initial UI hydration, so fail faster than the pipeline default.
-const LOAD_TIMEOUT_MS = 10_000;
 
 export class TursoTenantBackend implements StorageBackend {
   readonly kind = "turso" as const;

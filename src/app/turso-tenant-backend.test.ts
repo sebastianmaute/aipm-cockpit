@@ -1,6 +1,10 @@
 import { vi, describe, it, expect, beforeEach } from "vitest";
-vi.mock("./turso-pipeline", () => ({ runTursoPipeline: vi.fn() }));
-import { runTursoPipeline } from "./turso-pipeline";
+// spy:true keeps the real module (so the backend's LOAD_TIMEOUT_MS import stays
+// the real constant) while wrapping runTursoPipeline in a stubable spy. An
+// importOriginal factory would NOT work here: it caches the real module, so the
+// backend would bypass the mock (vitest 4 module-runner behavior).
+vi.mock("./turso-pipeline", { spy: true });
+import { LOAD_TIMEOUT_MS, runTursoPipeline } from "./turso-pipeline";
 import { TursoTenantBackend } from "./turso-tenant-backend";
 import { tenantSchemaDdl, upsertProjectStatement } from "./turso-tenant-schema";
 import { TABLE_NAMES } from "./turso-schema";
@@ -28,7 +32,12 @@ function projectsRow(id: string, m: ProjectMeta) {
 }
 
 describe("TursoTenantBackend", () => {
-  beforeEach(() => vi.mocked(runTursoPipeline).mockReset());
+  // mockClear + a base stub (NOT mockReset: on spy-mode mocks that restores the
+  // real implementation, which throws/hits the network when invoked).
+  beforeEach(() => {
+    vi.mocked(runTursoPipeline).mockClear();
+    vi.mocked(runTursoPipeline).mockImplementation(async () => []);
+  });
 
   it("kind is turso; isReady reflects config", async () => {
     expect(new TursoTenantBackend(cfg, "p1").kind).toBe("turso");
@@ -49,8 +58,8 @@ describe("TursoTenantBackend", () => {
     const stmts = vi.mocked(runTursoPipeline).mock.calls[0][1];
     expect(stmts.some((s) => s.sql.includes("WHERE project_id = ?"))).toBe(true);
     expect(stmts.some((s) => s.sql.includes("FROM projects WHERE id = ?"))).toBe(true);
-    // load() blocks UI hydration: it must request the explicit 10s pipeline timeout.
-    expect(vi.mocked(runTursoPipeline).mock.calls[0][2]).toBe(10_000);
+    // load() blocks UI hydration: it must request the shorter shared load timeout.
+    expect(vi.mocked(runTursoPipeline).mock.calls[0][2]).toBe(LOAD_TIMEOUT_MS);
   });
 
   it("save uses the default pipeline timeout (no explicit timeoutMs)", async () => {
