@@ -5,6 +5,7 @@ import { isViewEnabled, type FeatureModuleId } from "./feature-modules";
 // and "edit" are main-window-only views. "edit" is reserved for Phase 2
 // (full-page task editor) and intentionally has no nav entry yet.
 export type AppView =
+  | "projects"
   | "open-points"
   | "dashboard"
   | "trends"
@@ -43,6 +44,10 @@ export interface NavGroup {
 
 export const NAV_GROUPS: NavGroup[] = [
   {
+    labelKey: "navPortfolio",
+    items: [{ view: "projects" }],
+  },
+  {
     labelKey: "navGroupOverview",
     items: [{ view: "dashboard" }, { view: "trends" }, { view: "open-points" }, { view: "chat" }],
   },
@@ -80,6 +85,7 @@ export const NAV_GROUPS: NavGroup[] = [
 ];
 
 const LABEL_KEYS: Record<Exclude<AppView, "edit">, TranslationKey> = {
+  projects: "navProjects",
   dashboard: "navDashboard",
   trends: "navTrends",
   "open-points": "navOpenPoints",

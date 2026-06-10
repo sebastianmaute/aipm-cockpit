@@ -9,6 +9,8 @@ interface NavIconProps {
 // carries the accessible name (visible label when expanded, aria-label when
 // collapsed), so every glyph is aria-hidden.
 const ICON_PATHS: Record<AppView, string> = {
+  // projects: briefcase / portfolio
+  projects: "M20 7H4a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2",
   "open-points": "M9 5h11M9 12h11M9 19h11M4 5h.01M4 12h.01M4 19h.01",
   // dashboard: gauge / speedometer
   dashboard: "M12 2a10 10 0 0 1 10 10M12 2a10 10 0 0 0-10 10M12 12l4.5-4.5M12 12m-1 0a1 1 0 1 0 2 0 1 1 0 0 0-2 0M5.6 18.4A9.97 9.97 0 0 1 2 12M18.4 18.4A9.97 9.97 0 0 0 22 12",
