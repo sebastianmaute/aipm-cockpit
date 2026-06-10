@@ -6,6 +6,7 @@ import { type AlertableTask } from "./due-dates";
 import { type StorageKind } from "./storage";
 import { SettingsMenu, type Settings } from "./settings-menu";
 import { ActionMenus } from "./action-menus";
+import { ProjectSwitcher, type ProjectSwitcherProps } from "./project-switcher";
 import { defaultExportConfig } from "./settings-types";
 
 export interface AppHeaderProps {
@@ -27,6 +28,8 @@ export interface AppHeaderProps {
   lang: Lang;
   /** Opens the AI Assistant chat pop-out. */
   onOpenAiAssistant?: () => void;
+  /** When set, renders the current-project indicator + switcher under the title. */
+  projectSwitcher?: ProjectSwitcherProps;
 }
 
 export function AppHeader({
@@ -50,6 +53,7 @@ export function AppHeader({
   setSettings,
   lang,
   onOpenAiAssistant,
+  projectSwitcher,
 }: AppHeaderProps) {
   return (
     <header className="mb-8 flex items-start justify-between gap-4">
@@ -60,6 +64,11 @@ export function AppHeader({
         <p className="mt-1 text-sm text-AIPM-dark-grey dark:text-AIPM-medium-grey">
           {t(lang, "appSubtitle")}
         </p>
+        {projectSwitcher && (
+          <div className="mt-3">
+            <ProjectSwitcher {...projectSwitcher} />
+          </div>
+        )}
       </div>
       <div className="flex flex-col items-end gap-2">
         {/* eslint-disable-next-line @next/next/no-img-element */}

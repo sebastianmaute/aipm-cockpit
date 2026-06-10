@@ -1,5 +1,6 @@
 "use client";
 import { type Lang, t } from "./i18n";
+import { ProjectSwitcher, type ProjectSwitcherProps } from "./project-switcher";
 
 interface TopBarProps {
   lang: Lang;
@@ -13,11 +14,13 @@ interface TopBarProps {
   primaryAction?: React.ReactNode;
   /** When set, renders a leading menu button that toggles the sidebar. */
   onToggleSidebar?: () => void;
+  /** When set, renders the current-project indicator + switcher near the title. */
+  projectSwitcher?: ProjectSwitcherProps;
   /** Menu components (Export/Help/Version/Settings/Voice) rendered as-is. */
   children?: React.ReactNode;
 }
 
-export function TopBar({ lang, title, bannerCount, onNewTask, onShowAlerts, onOpenAiAssistant, primaryAction, onToggleSidebar, children }: TopBarProps) {
+export function TopBar({ lang, title, bannerCount, onNewTask, onShowAlerts, onOpenAiAssistant, primaryAction, onToggleSidebar, projectSwitcher, children }: TopBarProps) {
   return (
     <header className="flex items-center justify-between gap-4 border-b border-line bg-surface px-6 py-3">
       <div className="flex min-w-0 items-center gap-3">
@@ -37,6 +40,7 @@ export function TopBar({ lang, title, bannerCount, onNewTask, onShowAlerts, onOp
         <h1 className="truncate text-xl font-semibold tracking-tight text-AIPM-dark-blue dark:text-AIPM-light-grey">
           {title}
         </h1>
+        {projectSwitcher && <ProjectSwitcher {...projectSwitcher} />}
       </div>
       <div className="flex items-center gap-1">
         {onOpenAiAssistant && (
