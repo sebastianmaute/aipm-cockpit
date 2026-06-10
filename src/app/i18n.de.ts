@@ -169,6 +169,12 @@ export const de: Record<TranslationKey, string> = {
   storageSpComingSoon:
     "SharePoint-Synchronisierung ist geplant, aber noch nicht implementiert. Erfordert eine Azure-AD-App-Registrierung.",
   storageSwitchedToast: "Speicherort gewechselt.",
+  projectSwitchedToast: "Zu Projekt {0} gewechselt.",
+  projectCreatedToast: "Projekt {0} erstellt.",
+  projectLoadedToast: "Projekt {0} geladen.",
+  projectSwitchNotFound: "Dieses Projekt ist nicht mehr in deinem Portfolio.",
+  projectSwitchHandleMissing:
+    "Die Datei für dieses Projekt wurde nicht gefunden. Bitte erneut aus einer Datei öffnen.",
   storageLoadFailed: "Aufgaben konnten nicht geladen werden: {0}",
   storageSaveFailed: "Aufgaben konnten nicht gespeichert werden: {0}",
   storageNotReady:
@@ -1453,6 +1459,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightClarke: "Stakeholder-Kommunikationserinnerungen weisen darauf hin, wichtige Stakeholder vor Meilensteinen, RAID-Einträgen und Änderungen einzubinden.",
   versionHighlightFieldFeedback: "Eingabe-Feedback: Zeichenzähler, Anpassungshinweise und eine Zusammenfassung beim Speichern, wenn Eingaben auf Grenzwerte angepasst wurden.",
   versionHighlightButler: "KI-Assistent (umbenannt von Chat): Vorschlaege, Token-Nutzungsanzeige, Stopp-Schaltflaeche, Pop-out. Konfigurierbarer Dokumentexport. Erinnerungsvorlaufzeiten und Banner-Umschalter. Aktivitaetslog erweitert; Informationsfluss-Diagramm in den Einstellungen.",
+  versionHighlightVinge: "Multi-Projekt- / Portfolio-Verwaltung (Phase 1): projektbezogene Arbeitsbereiche mit Projekt-Metadaten-Header, Portfolio-Registrierung und Wechsel, Projektverwaltungsansicht, Erstellen-/Bearbeitungsformular, Leerzustand, projektbezogener Export.",
   fieldCounter: "{0} / {1}",
   fieldTrimmedToFit: "auf Maximallänge gekürzt",
   fieldAdjustedMax: "auf Maximum {0} angepasst",
@@ -1479,6 +1486,7 @@ export const de: Record<TranslationKey, string> = {
   exportLabelRoles: "Rollen & Raten",
   exportLabelAbsences: "Abwesenheiten",
   exportLabelShifts: "Schichten",
+  exportLabelProject: "Projektdetails",
   exportLabelStatus: "Statusbericht",
 
   settingsSectionInformationFlows: "Informationsflüsse",
@@ -1494,4 +1502,83 @@ export const de: Record<TranslationKey, string> = {
   infoFlowsLegendM365Desc: "Graph-API + MSAL-Login — SharePoint-Dateien, Kontakte und Kalender.",
   infoFlowsLegendAnthropicLabel: "Anthropic-API",
   infoFlowsLegendAnthropicDesc: "Claude-KI-Modell für den integrierten Assistenten-Chat.",
+
+  // --- Multi-project UI ---
+  // Nav
+  navPortfolio: "Portfolio",
+  navProjects: "Projekte",
+
+  // Project form section headings
+  projectFormIdentity: "Projektidentität",
+  projectFormPeople: "Beteiligte",
+  projectFormCustomer: "Kunde",
+
+  // Field labels
+  projectName: "Projektname",
+  projectCode: "Projektkürzel",
+  projectDescription: "Beschreibung",
+  projectSponsor: "Sponsor",
+  projectManager: "Projektleiter",
+  projectStakeholdersInternal: "Interne Stakeholder",
+  projectStakeholdersExternal: "Externe Stakeholder",
+  projectCustomer: "Kunde",
+  projectNaceSection: "NACE-Abschnitt",
+  projectIdentityTypes: "Identitätstypen",
+  projectIdentityCount: "Identitätsanzahl",
+  projectProducts: "Produkte",
+  projectPlatform: "Plattform",
+  projectDeployment: "Deployment",
+  projectStartDate: "Startdatum",
+  projectEndDate: "Enddatum",
+  projectProfitCenter: "Profit-Center",
+  projectQuotes: "Angebote",
+  projectSalesforce: "Salesforce",
+  projectSharepoint: "SharePoint",
+  projectConfluence: "Confluence",
+  projectContactPersons: "Ansprechpartner",
+  projectDocRepo: "Dokumentenablage",
+  projectRegulatory: "Regulatorik",
+  projectNotes: "Hinweise",
+
+  // Tooltips
+  projectSalesforceTip: "Link zur Salesforce-Opportunity",
+  projectSharepointTip: "Link zum Sales-SharePoint",
+  projectConfluenceTip: "Link zu Confluence",
+
+  // Validation messages
+  errorProjectNameRequired: "Projektname ist erforderlich.",
+  errorProjectCodeRequired: "Projektkürzel ist erforderlich.",
+  errorProjectManagerRequired: "Projektleiter ist erforderlich.",
+  errorStakeholdersInternalRequired: "Mindestens ein interner Stakeholder ist erforderlich.",
+  errorStakeholdersExternalRequired: "Mindestens ein externer Stakeholder ist erforderlich.",
+  errorCustomerRequired: "Kunde ist erforderlich.",
+  errorNaceRequired: "NACE-Abschnitt ist erforderlich.",
+  errorProductsRequired: "Mindestens ein Produkt ist erforderlich.",
+  errorDeploymentRequired: "Deployment ist erforderlich.",
+  errorStartDateRequired: "Startdatum ist erforderlich.",
+  errorEndDateRequired: "Enddatum ist erforderlich.",
+  errorProfitCenterRequired: "Profit-Center ist erforderlich.",
+  errorRegulatoryRequired: "Regulatorische Einstufung ist erforderlich.",
+  errorEndBeforeStart: "Das Enddatum muss nach dem Startdatum liegen.",
+  errorInvalidUrl: "Bitte eine gültige URL eingeben.",
+
+  // Management view / empty-state / switcher
+  projectsTitle: "Projekte",
+  projectsNew: "Neues Projekt",
+  projectsSwitch: "Projekt wechseln",
+  projectsEdit: "Projekt bearbeiten",
+  projectsExport: "Projekt exportieren",
+  projectFileFormat: "Dateiformat",
+  projectsDelete: "Projekt entfernen",
+  projectsDeleteConfirm:
+    "Projekt aus der Liste entfernen? Die zugrunde liegende Datei wird NICHT gelöscht.",
+  projectsEmptyTitle: "Noch keine Projekte",
+  projectsEmptyCreate: "Neues Projekt erstellen",
+  projectsEmptyLoad: "Aus vorhandener Datei laden",
+  projectCurrentLabel: "Aktuelles Projekt",
+  projectSwitcherLoadFile: "Aus Datei laden…",
+
+  // Contact picker
+  contactAddFromBook: "Aus Adressbuch hinzufügen",
+  contactAddManual: "Manuell hinzufügen",
 };

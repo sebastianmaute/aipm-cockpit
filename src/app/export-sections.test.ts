@@ -222,6 +222,7 @@ describe("buildExportSections", () => {
 
   it("returns empty array when no sections are enabled", () => {
     const allOff: ExportConfig = {
+      project: false,
       tasks: false, raid: false, changes: false, milestones: false,
       stakeholders: false, budgets: false, resources: false, roles: false,
       absences: false, shifts: false, status: false,

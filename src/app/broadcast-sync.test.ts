@@ -56,6 +56,69 @@ describe("useBroadcastSync", () => {
     rerender({ v: [2] });
     expect(posted).toHaveLength(1);
   });
+
+  // FIX 1a: a project switch in the main window broadcasts the new ProjectMeta
+  // so popout windows can live-update their read-only project header.
+  it("broadcasts the 'project' kind with a ProjectMeta value after mount", () => {
+    type Meta = { name: string; code: string };
+    type Props = { v: Meta | undefined };
+    const next: Meta = { name: "Gemini", code: "GMN" };
+    const { rerender } = renderHook(
+      ({ v }: Props) => useBroadcastSync("project", v, () => {}),
+      { initialProps: { v: undefined } as Props },
+    );
+    expect(posted).toHaveLength(0);
+    rerender({ v: next });
+    expect(posted).toHaveLength(1);
+    expect(posted[0]).toMatchObject({ kind: "project", value: next });
+  });
+});
+
+// FIX 1a apply path: an incoming "project" message is applied via the setter.
+// Uses a shared in-memory bus so a postMessage from one instance is delivered
+// to another instance's message listener (the real cross-window behaviour).
+describe("useBroadcastSync apply path", () => {
+  it("applies an incoming 'project' ProjectMeta to a receiving (canSend=false) instance", () => {
+    type Meta = { name: string; code: string };
+    const listeners: ((ev: MessageEvent) => void)[] = [];
+    class BusChannel {
+      constructor(public name: string) {}
+      postMessage(msg: unknown) {
+        for (const l of listeners) l({ data: msg } as MessageEvent);
+      }
+      addEventListener(_type: string, cb: (ev: MessageEvent) => void) {
+        listeners.push(cb);
+      }
+      removeEventListener(_type: string, cb: (ev: MessageEvent) => void) {
+        const i = listeners.indexOf(cb);
+        if (i >= 0) listeners.splice(i, 1);
+      }
+      close() {}
+    }
+    vi.stubGlobal("BroadcastChannel", BusChannel as unknown as typeof BroadcastChannel);
+
+    const next: Meta = { name: "Gemini", code: "GMN" };
+    const applied: (Meta | undefined)[] = [];
+
+    // Receiver: a popout-style instance (canSend=false) that records applies.
+    renderHook(() =>
+      useBroadcastSync<Meta | undefined>(
+        "project",
+        undefined,
+        (v) => applied.push(v),
+        /* canSend */ false,
+      ),
+    );
+    // Sender: the main window broadcasts a project change.
+    type Props = { v: Meta | undefined };
+    const { rerender } = renderHook(
+      ({ v }: Props) => useBroadcastSync<Meta | undefined>("project", v, () => {}),
+      { initialProps: { v: undefined } as Props },
+    );
+    rerender({ v: next });
+
+    expect(applied).toContainEqual(next);
+  });
 });
 
 describe("openPopoutWindow", () => {

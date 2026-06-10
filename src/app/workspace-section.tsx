@@ -15,7 +15,9 @@ import { DEFAULT_EXTRA_REPORTS } from "./addable-reports";
 import type { ToolDispatcher } from "./chat-tools";
 import type { UseSnapshotsResult } from "./use-snapshots";
 import type { ActivityEntry, ActivityKind } from "./activity-log";
-import type { Absence, BudgetBucket, ChangeItem, RaidItem, Resource, Shift, Stakeholder, Task } from "./types";
+import type { Absence, BudgetBucket, ChangeItem, ProjectMeta, RaidItem, Resource, Shift, Stakeholder, Task } from "./types";
+import type { ProjectRegistryEntry } from "./projects-registry";
+import type { Contact } from "./contacts";
 import { ResourceDirectory } from "./resource-directory";
 import { DashboardPanel } from "./dashboard-panel";
 import { MilestonesPanel } from "./milestones-panel";
@@ -84,6 +86,10 @@ const TrendsPanel = dynamic(
   () => import("./trends-panel").then((m) => m.TrendsPanel),
   { ssr: false },
 );
+const ProjectsPanel = dynamic(
+  () => import("./projects-panel").then((m) => m.ProjectsPanel),
+  { ssr: false },
+);
 
 export interface WorkspaceSectionProps {
   today: string;
@@ -137,6 +143,20 @@ export interface WorkspaceSectionProps {
   onRefreshFx: () => void;
   fxLoading?: boolean;
   trends: UseSnapshotsResult & { active: boolean };
+  // Multi-project (Projects view). The mutating callbacks are no-ops in popouts
+  // (their hook implementations early-return on isPopout); the panel still
+  // renders read-only there, matching every other panel.
+  projects: ProjectRegistryEntry[];
+  currentProjectId: string | null;
+  currentProject?: ProjectMeta;
+  projectStakeholderNames: string[];
+  projectAddressBook: Contact[];
+  onSwitchProject: (id: string) => void;
+  onCreateProject: (meta: ProjectMeta, format: "json" | "csv" | "md") => void;
+  onUpdateCurrentProject: (meta: ProjectMeta) => void;
+  onDeleteProject: (id: string) => void;
+  onExportCurrentProject: (format: string) => void;
+  onLoadProjectFromFile: () => void;
 }
 
 export function WorkspaceSection({
@@ -184,6 +204,17 @@ export function WorkspaceSection({
   fxLoading = false,
   fullBleed = false,
   trends,
+  projects,
+  currentProjectId,
+  currentProject,
+  projectStakeholderNames,
+  projectAddressBook,
+  onSwitchProject,
+  onCreateProject,
+  onUpdateCurrentProject,
+  onDeleteProject,
+  onExportCurrentProject,
+  onLoadProjectFromFile,
 }: WorkspaceSectionProps) {
   const { settings, setSettings, lang } = useSettings();
   const features = settings.features;
@@ -740,6 +771,25 @@ export function WorkspaceSection({
               captureNow={trends.captureNow}
               setBaseline={trends.setBaseline}
               deleteSnapshot={trends.deleteSnapshot}
+            />
+          </div>
+        )}
+
+        {activeTab === "projects" && (
+          <div id="panel-projects" role="tabpanel" className={panelScrollClass}>
+            <ProjectsPanel
+              projects={projects}
+              currentProjectId={currentProjectId}
+              currentProject={currentProject}
+              stakeholderNames={projectStakeholderNames}
+              addressBook={projectAddressBook}
+              lang={lang}
+              onSwitch={onSwitchProject}
+              onCreate={onCreateProject}
+              onUpdateCurrent={onUpdateCurrentProject}
+              onDelete={onDeleteProject}
+              onExportCurrent={onExportCurrentProject}
+              onLoadFromFile={onLoadProjectFromFile}
             />
           </div>
         )}

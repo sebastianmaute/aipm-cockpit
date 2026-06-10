@@ -41,7 +41,19 @@ import {
   type RaciRole,
   type StakeholderCategory,
   type InfluenceInterest,
+  type ContactPerson,
+  type ProjectMeta,
+  type IdentityType,
+  type Deployment,
+  type RegulatoryRequirement,
 } from "./types";
+import {
+  IDENTITY_TYPE_SET,
+  DEPLOYMENT_SET,
+  REGULATORY_SET,
+  REGULATORY_NOT_APPLICABLE,
+} from "./project-options";
+import { NACE_SECTION_SET } from "./nace-sections";
 import { defaultResourcePlan, splitName } from "./resource-foundation";
 
 // --- Length caps -----------------------------------------------------------
@@ -996,4 +1008,144 @@ export function sanitizeStakeholder(input: unknown): Stakeholder | null {
   if (Number.isFinite(rid) && rid > 0) item.resourceId = Math.floor(rid);
   const lma = sanitizeText(o.localModifiedAt, TEXTAREA_MAX); if (lma) item.localModifiedAt = lma;
   return item;
+}
+
+// --- Project meta sanitizer ------------------------------------------------
+
+function sanitizeContactPerson(input: unknown): ContactPerson | null {
+  if (!isPlainObject(input)) return null;
+  const name = sanitizeText(input.name, BUDGET_NAME_MAX);
+  if (!name) return null;
+  const email = sanitizeEmail(input.email);
+  const synced = typeof input.synced === "boolean" ? input.synced : false;
+  return { name, email, synced };
+}
+
+/** Coerce an unknown value to a string array, map through text sanitizer,
+ *  drop empties, and de-dupe (case-sensitive). */
+function sanitizeStringArray(input: unknown, cap: number): string[] {
+  const arr: unknown[] = Array.isArray(input) ? input : [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const item of arr) {
+    const s = sanitizeText(item, cap);
+    if (!s || seen.has(s)) continue;
+    seen.add(s);
+    out.push(s);
+  }
+  return out;
+}
+
+/**
+ * Full-record sanitizer for inbound ProjectMeta data (file imports, chat
+ * tools, form round-trips). Returns null when any required field is absent
+ * or invalid.
+ */
+export function sanitizeProjectMeta(input: unknown): ProjectMeta | null {
+  if (!isPlainObject(input)) return null;
+  const o = input;
+
+  // Required short-text fields — empty string means invalid.
+  const name = sanitizeText(o.name, BUDGET_NAME_MAX);
+  if (!name) return null;
+  const code = sanitizeText(o.code, BUDGET_NAME_MAX);
+  if (!code) return null;
+  const projectManager = sanitizeText(o.projectManager, BUDGET_NAME_MAX);
+  if (!projectManager) return null;
+  const customer = sanitizeText(o.customer, BUDGET_NAME_MAX);
+  if (!customer) return null;
+  const products = sanitizeText(o.products, BUDGET_NAME_MAX);
+  if (!products) return null;
+  const profitCenter = sanitizeText(o.profitCenter, BUDGET_NAME_MAX);
+  if (!profitCenter) return null;
+
+  // Required enum fields.
+  const naceSectionRaw = sanitizeText(o.naceSection, 4);
+  if (!NACE_SECTION_SET.has(naceSectionRaw)) return null;
+  const naceSection = naceSectionRaw;
+
+  const deploymentRaw = sanitizeText(o.deployment, BUDGET_NAME_MAX);
+  if (!DEPLOYMENT_SET.has(deploymentRaw)) return null;
+  const deployment = deploymentRaw as Deployment;
+
+  // Required dates — both must be present and valid.
+  const startDate = sanitizeIsoDate(o.startDate);
+  const endDate = sanitizeIsoDate(o.endDate);
+  if (!startDate || !endDate) return null;
+
+  // Required array: keyStakeholdersInternal / keyStakeholdersExternal.
+  const keyStakeholdersInternal = sanitizeStringArray(o.keyStakeholdersInternal, BUDGET_NAME_MAX);
+  if (keyStakeholdersInternal.length === 0) return null;
+  const keyStakeholdersExternal = sanitizeStringArray(o.keyStakeholdersExternal, BUDGET_NAME_MAX);
+  if (keyStakeholdersExternal.length === 0) return null;
+
+  // Required array: regulatory — filter to known set, de-dupe, collapse "Not applicable".
+  const rawRegArr: unknown[] = Array.isArray(o.regulatory) ? o.regulatory : [];
+  const regulatoryFiltered: RegulatoryRequirement[] = [];
+  const regulatorySeen = new Set<string>();
+  for (const item of rawRegArr) {
+    if (typeof item !== "string" || !REGULATORY_SET.has(item)) continue;
+    if (regulatorySeen.has(item)) continue;
+    regulatorySeen.add(item);
+    regulatoryFiltered.push(item as RegulatoryRequirement);
+  }
+  if (regulatoryFiltered.length === 0) return null;
+  const regulatory: RegulatoryRequirement[] = regulatoryFiltered.includes(REGULATORY_NOT_APPLICABLE)
+    ? [REGULATORY_NOT_APPLICABLE]
+    : regulatoryFiltered;
+
+  // Optional enum array: identityTypes — filter + de-dupe; empty [] is allowed.
+  const rawIdArr: unknown[] = Array.isArray(o.identityTypes) ? o.identityTypes : [];
+  const identityTypesSeen = new Set<string>();
+  const identityTypes: IdentityType[] = [];
+  for (const item of rawIdArr) {
+    if (typeof item !== "string" || !IDENTITY_TYPE_SET.has(item)) continue;
+    if (identityTypesSeen.has(item)) continue;
+    identityTypesSeen.add(item);
+    identityTypes.push(item as IdentityType);
+  }
+
+  // contactPersons — keep only valid entries; empty [] is allowed.
+  const rawCp: unknown[] = Array.isArray(o.contactPersons) ? o.contactPersons : [];
+  const contactPersons: ContactPerson[] = rawCp
+    .map(sanitizeContactPerson)
+    .filter((cp): cp is ContactPerson => cp !== null);
+
+  // Build required-fields-first object (sanitizeStakeholder style).
+  const meta: ProjectMeta = {
+    name,
+    code,
+    projectManager,
+    keyStakeholdersInternal,
+    keyStakeholdersExternal,
+    customer,
+    naceSection,
+    identityTypes,
+    products,
+    deployment,
+    startDate,
+    endDate,
+    profitCenter,
+    contactPersons,
+    regulatory,
+  };
+
+  // Optional text fields (short, trimmed).
+  const description = sanitizeText(o.description, TEXTAREA_MAX); if (description) meta.description = description;
+  const sponsor = sanitizeText(o.sponsor, BUDGET_NAME_MAX); if (sponsor) meta.sponsor = sponsor;
+  const platform = sanitizeText(o.platform, BUDGET_NAME_MAX); if (platform) meta.platform = platform;
+  const quotes = sanitizeText(o.quotes, TEXTAREA_MAX); if (quotes) meta.quotes = quotes;
+  const salesforceUrl = sanitizeText(o.salesforceUrl, BUDGET_NAME_MAX); if (salesforceUrl) meta.salesforceUrl = salesforceUrl;
+  const sharepointUrl = sanitizeText(o.sharepointUrl, BUDGET_NAME_MAX); if (sharepointUrl) meta.sharepointUrl = sharepointUrl;
+  const confluenceUrl = sanitizeText(o.confluenceUrl, BUDGET_NAME_MAX); if (confluenceUrl) meta.confluenceUrl = confluenceUrl;
+  const docRepoLocation = sanitizeText(o.docRepoLocation, BUDGET_NAME_MAX); if (docRepoLocation) meta.docRepoLocation = docRepoLocation;
+  const notes = sanitizeText(o.notes, TEXTAREA_MAX); if (notes) meta.notes = notes;
+
+  // Optional identityCount — coerce, require finite >= 0, floor.
+  if (o.identityCount !== undefined && o.identityCount !== null && o.identityCount !== "") {
+    const n = toNumber(o.identityCount);
+    if (Number.isFinite(n) && n >= 0) meta.identityCount = Math.floor(n);
+  }
+
+  return meta;
 }

@@ -81,7 +81,18 @@ import { useOutlookCalendar } from "./use-outlook-calendar";
 import { OutlookCalendarImportModal } from "./outlook-calendar-import-modal";
 import { dedupeKey, type OutlookEvent, type AbsenceImportTarget } from "./outlook-calendar";
 import { isoAddDays } from "./due-dates";
-import type { AbsenceType } from "./types";
+import type { AbsenceType, ProjectMeta } from "./types";
+import {
+  loadRegistry,
+  saveRegistry,
+  removeProject,
+  getCurrentEntry,
+  type ProjectsRegistry,
+} from "./projects-registry";
+import { deleteHandle } from "./project-file-handles";
+import { exportWorkspace, type ExportFormat } from "./export";
+import { ProjectEmptyState } from "./project-empty-state";
+import type { ProjectSwitcherProps } from "./project-switcher";
 
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
@@ -162,6 +173,9 @@ function TaskManagerInner() {
     status,
     milestones,
     changes,
+    fxRates,
+    project,
+    setProject,
   } = useWorkspace();
 
   const { setContacts, contactsList, handleRemoveContact } =
@@ -333,8 +347,27 @@ function TaskManagerInner() {
       setSettings((s) => ({ ...s, jira: { ...s.jira, tokenInvalidAt: ok ? undefined : new Date().toISOString() } })),
   });
 
-  const { storageDescription, storageReady, onPickStorageFile, onGrantWriteAccess, onOpenStorageFile, onRequestStorageSwitch } =
-    useStorageBackend({ settings, lang, hydrated, isPopout, activityLog, setActivityLog, showToast, setStorageConfig: (storageConfig) => setSettings((s) => ({ ...s, storageConfig })), onStorageOutcome: reportStorageOutcome });
+  // Observable copy of the portfolio registry. The storage hook persists the
+  // registry inside its switch/create/load flows; it cannot setState here, so we
+  // pass `onRegistryChange` (option b) and the hook calls it after every
+  // saveRegistry. This keeps the switcher list, empty-state gate, and Projects
+  // panel re-rendering without re-reading localStorage on a bump counter.
+  // Popouts mirror the main window and never mutate the registry, so an empty
+  // initial value is fine there (the empty-state is also gated off for popouts).
+  const [registry, setRegistry] = useState<ProjectsRegistry>(() => loadRegistry());
+
+  const {
+    storageDescription, storageReady, onPickStorageFile, onGrantWriteAccess,
+    onOpenStorageFile, onRequestStorageSwitch,
+    switchToProject, createProject, loadProjectFromFile,
+  } =
+    useStorageBackend({ settings, lang, hydrated, isPopout, activityLog, setActivityLog, showToast, setStorageConfig: (storageConfig) => setSettings((s) => ({ ...s, storageConfig })), onStorageOutcome: reportStorageOutcome, onRegistryChange: setRegistry });
+
+  const currentProjectId = registry.currentProjectId;
+  const currentEntry = getCurrentEntry(registry);
+  // Prefer the live in-memory project meta name; fall back to the registry
+  // entry's stored name, then null (the switcher shows a "no project" label).
+  const currentProjectName = project?.name ?? currentEntry?.name ?? null;
 
   // The status bubble must reflect real reachability: a stale Turso config is
   // `isReady()`-true (config present) but actually failing, so fold in the
@@ -778,6 +811,65 @@ function TaskManagerInner() {
   const cacheFxRates = useCallback((fx: import("./types").FxRates) => setFxRates(fx), [setFxRates]);
   const { refresh: refreshFx, loading: fxLoading } = useFxRates(cacheFxRates);
 
+  // --- Multi-project panel callbacks ----------------------------------
+  //
+  // Switch / create / load come straight from the storage hook (Task 10). The
+  // remaining three are owned here because they touch task-manager-local state.
+
+  // Edit the current project's metadata. The existing save effect persists the
+  // workspace (which carries `project`) — no side effects in the updater.
+  const handleUpdateCurrentProject = useCallback(
+    (meta: ProjectMeta) => setProject(meta),
+    [setProject],
+  );
+
+  // Navigate to the Projects view, whose panel hosts the create modal.
+  const handleNewProject = useCallback(() => setActiveTab("projects"), [setActiveTab]);
+
+  // Export the CURRENT project's workspace. Snapshot is assembled from context
+  // (same field set the save effect uses), including `project`.
+  const handleExportCurrentProject = useCallback(
+    (format: string) => {
+      const ws = {
+        tasks, raid, absences, shifts, resources, roles, disciplines, grades,
+        plan, budgets, fxRates, status, project, milestones, changes, stakeholders,
+      };
+      void exportWorkspace(ws, format as ExportFormat, settings.export ?? defaultExportConfig, lang);
+    },
+    [tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, milestones, changes, stakeholders, settings.export, lang],
+  );
+
+  // De-register a project: drop it from the registry (observable copy updated),
+  // best-effort delete its stored file handle. If the deleted project was
+  // current and others remain, switch to the new current; if none remain, the
+  // empty-state takes over on the next render.
+  const handleDeleteProject = useCallback(
+    (id: string) => {
+      const wasCurrent = registry.currentProjectId === id;
+      const next = removeProject(registry, id);
+      if (next === registry) return; // unknown id — nothing changed
+      void deleteHandle(id);
+      // removeProject re-points currentProjectId to the first survivor. When the
+      // CURRENT project was deleted and a survivor exists, load that survivor's
+      // data. switchToProject early-returns if currentProjectId already equals
+      // the target, so we persist the registry with currentProjectId cleared and
+      // let switchToProject re-point it after loading the survivor's workspace.
+      const survivor = next.currentProjectId;
+      if (wasCurrent && survivor) {
+        const cleared = { ...next, currentProjectId: null };
+        saveRegistry(cleared);
+        setRegistry(cleared);
+        void switchToProject(survivor);
+      } else {
+        // Deleted a non-current project (or none remain). Persist as-is; if none
+        // remain the empty-state takes over on the next render.
+        saveRegistry(next);
+        setRegistry(next);
+      }
+    },
+    [registry, switchToProject],
+  );
+
   const editingTask =
     editingId !== null
       ? tasks.find((row) => row.id === editingId) ?? null
@@ -876,6 +968,20 @@ function TaskManagerInner() {
     onRefreshFx: refreshFx,
     fxLoading,
     trends,
+    // Multi-project (Projects view). Mutating callbacks are no-ops in popouts
+    // (the hook's project functions early-return on isPopout); the panel still
+    // renders read-only there, matching how other panels behave.
+    projects: registry.projects,
+    currentProjectId,
+    currentProject: project,
+    projectStakeholderNames: stakeholders.map((s) => s.name),
+    projectAddressBook: contactsList,
+    onSwitchProject: switchToProject,
+    onCreateProject: createProject,
+    onUpdateCurrentProject: handleUpdateCurrentProject,
+    onDeleteProject: handleDeleteProject,
+    onExportCurrentProject: handleExportCurrentProject,
+    onLoadProjectFromFile: () => { void loadProjectFromFile(); },
   };
 
   const workspaceEl = <WorkspaceSection {...workspaceProps} />;
@@ -995,6 +1101,32 @@ function TaskManagerInner() {
   // The action-cluster menus (Voice/Export/Help/Version) shared with the classic
   // AppHeader via ActionMenus. The modern TopBar renders the + and bell buttons
   // itself; this fills its trailing `children` slot.
+  // Current-project indicator + switcher, shared by the classic AppHeader and the
+  // modern TopBar. Popouts mirror the main window and don't switch projects, so
+  // they get a READ-ONLY indicator (name only, no dropdown). The live `project`
+  // meta is kept in sync via the "project" BroadcastChannel slice, so the popout
+  // header updates when the main window switches projects.
+  const projectSwitcher: ProjectSwitcherProps = isPopout
+    ? {
+        currentProjectName: project?.name ?? null,
+        projects: [],
+        currentProjectId: null,
+        lang,
+        onSwitch: () => {},
+        onLoadFromFile: () => {},
+        onNew: () => {},
+        readOnly: true,
+      }
+    : {
+        currentProjectName,
+        projects: registry.projects,
+        currentProjectId,
+        lang,
+        onSwitch: switchToProject,
+        onLoadFromFile: () => { void loadProjectFromFile(); },
+        onNew: handleNewProject,
+      };
+
   const topBarMenus = (
     <ActionMenus
       lang={lang}
@@ -1169,6 +1301,7 @@ function TaskManagerInner() {
       setSettings={setSettings}
       lang={lang}
       onOpenAiAssistant={() => openPopoutWindow("chat", settings.popout.reuseWindow)}
+      projectSwitcher={projectSwitcher}
     />
   );
 
@@ -1240,6 +1373,7 @@ function TaskManagerInner() {
         settingsView={settingsViewEl}
         banners={bannersEl}
         navGroups={filteredNavGroups}
+        projectSwitcher={projectSwitcher}
       />
       {modalsBlock}
     </>
@@ -1254,11 +1388,29 @@ function TaskManagerInner() {
       </AiUsageProvider>
     );
   }
+  // Empty-state gate: on a fresh install (no registered projects) the user must
+  // create or load a project before anything else. Rendered as the ONLY surface
+  // — there is no interactive app chrome behind it — and covers both modern and
+  // classic layouts. Popouts are handled above (they mirror the main window and
+  // never see this). Gated on `hydrated` so SSR / pre-hydration (where
+  // loadRegistry() is empty) doesn't flash the modal.
+  const showEmptyState = hydrated && registry.projects.length === 0;
+
   return (
     <AiUsageProvider lang={lang} ai={settings.ai} showToast={showToast}>
       <ToastProvider value={showToast}>
         <VoiceCommandProvider value={voiceHandlers}>
-          <AppShell layout={settings.layout} classic={legacyTree} modern={modernTree} />
+          {showEmptyState ? (
+            <ProjectEmptyState
+              lang={lang}
+              stakeholderNames={stakeholders.map((s) => s.name)}
+              addressBook={contactsList}
+              onCreate={createProject}
+              onLoadFromFile={() => { void loadProjectFromFile(); }}
+            />
+          ) : (
+            <AppShell layout={settings.layout} classic={legacyTree} modern={modernTree} />
+          )}
         </VoiceCommandProvider>
       </ToastProvider>
     </AiUsageProvider>

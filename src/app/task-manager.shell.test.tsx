@@ -6,8 +6,25 @@ function setLayout(layout: "modern" | "classic") {
   window.localStorage.setItem("lop-app:settings", JSON.stringify({ layout }));
 }
 
+// Seed one registered project so the multi-project empty-state gate (shown when
+// the registry has zero projects) does not replace the app chrome these tests
+// assert against. The project's storageConfig points at the default browser
+// backend, matching the app's default.
+function seedRegistry() {
+  window.localStorage.setItem(
+    "lop-app:projects",
+    JSON.stringify({
+      projects: [{ id: "p1", name: "Seed", code: "SEED", storageConfig: { kind: "browser" } }],
+      currentProjectId: "p1",
+    }),
+  );
+}
+
 describe("TaskManager shell selection", () => {
-  beforeEach(() => window.localStorage.clear());
+  beforeEach(() => {
+    window.localStorage.clear();
+    seedRegistry();
+  });
 
   it("renders the sidebar brand in modern mode (default)", async () => {
     render(<TaskManager />);
