@@ -169,6 +169,12 @@ export const de: Record<TranslationKey, string> = {
   storageSpComingSoon:
     "SharePoint-Synchronisierung ist geplant, aber noch nicht implementiert. Erfordert eine Azure-AD-App-Registrierung.",
   storageSwitchedToast: "Speicherort gewechselt.",
+  projectSwitchedToast: "Zu Projekt {0} gewechselt.",
+  projectCreatedToast: "Projekt {0} erstellt.",
+  projectLoadedToast: "Projekt {0} geladen.",
+  projectSwitchNotFound: "Dieses Projekt ist nicht mehr in deinem Portfolio.",
+  projectSwitchHandleMissing:
+    "Die Datei für dieses Projekt wurde nicht gefunden. Bitte erneut aus einer Datei öffnen.",
   storageLoadFailed: "Aufgaben konnten nicht geladen werden: {0}",
   storageSaveFailed: "Aufgaben konnten nicht gespeichert werden: {0}",
   storageNotReady:

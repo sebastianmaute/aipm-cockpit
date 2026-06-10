@@ -2805,6 +2805,11 @@ export function isFileSystemAccessSupported(): boolean {
 
 type FilePickType = "json" | "csv" | "md";
 
+/** Public alias for the three file formats a local project can be created in.
+ *  Re-exported so callers (e.g. the project switcher) can talk about formats
+ *  without depending on the internal `FilePickType`. */
+export type LocalStorageFormat = FilePickType;
+
 // `id` gives each format its own remembered directory + filename in the
 // browser's File System Access pickers. Without distinct ids, every format
 // shares one remembered location, so opening the CSV picker lands on the
@@ -3215,6 +3220,27 @@ class LocalFileBackend implements StorageBackend {
     return handle ?? null;
   }
 
+  /**
+   * Non-interactive handle hydration. Persists a previously-obtained
+   * FileSystemFileHandle into this backend's IndexedDB slot so the next
+   * load()/save() targets that file WITHOUT showing a picker. Used by the
+   * project switcher, which keeps a per-project handle store and needs to
+   * point the active backend at the target project's file.
+   *
+   * The handle's existing read/write permission may be in the "prompt" state
+   * after a page reload; callers should re-grant via requestWriteAccess() from
+   * a user gesture if needed.
+   */
+  async setHandle(handle: FsHandle): Promise<void> {
+    await idbSet(this.idbKey, handle);
+  }
+
+  /** Reads back the handle currently bound to this backend (after a pick/open),
+   *  so callers can mirror it into a per-project handle store. */
+  async readHandle(): Promise<FsHandle | null> {
+    return this.getHandle();
+  }
+
   async pickFile(): Promise<void> {
     // showSaveFilePicker grants readwrite implicitly when the user picks a file.
     const handle = await pickSaveFile(this.format);
@@ -3347,6 +3373,36 @@ export function requestWriteAccessForBackend(
   backend: StorageBackend,
 ): Promise<boolean> | null {
   if (backend instanceof LocalFileBackend) return backend.requestWriteAccess();
+  return null;
+}
+
+/**
+ * Hydrate a file-based backend with an already-known FileSystemFileHandle,
+ * without an interactive picker. Returns the persistence promise for local
+ * backends, or null for non-file backends (browser / SharePoint / Turso),
+ * mirroring the pick/open/requestWriteAccess helpers above.
+ *
+ * The project switcher uses this to point the active LocalFileBackend at the
+ * target project's stored handle before triggering a load.
+ */
+export function setBackendFileHandle(
+  backend: StorageBackend,
+  handle: FsHandle,
+): Promise<void> | null {
+  if (backend instanceof LocalFileBackend) return backend.setHandle(handle);
+  return null;
+}
+
+/**
+ * Read the FileSystemFileHandle a file-based backend is currently bound to
+ * (after a pick/open). Returns null for non-file backends or when none is set.
+ * The project switcher uses this to mirror the just-picked handle into its
+ * per-project handle store.
+ */
+export function getBackendFileHandle(
+  backend: StorageBackend,
+): Promise<FsHandle | null> | null {
+  if (backend instanceof LocalFileBackend) return backend.readHandle();
   return null;
 }
 

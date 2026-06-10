@@ -163,6 +163,12 @@ const enUS = {
   storageSpComingSoon:
     "SharePoint sync is planned but not implemented yet. It will require an Azure AD app registration.",
   storageSwitchedToast: "Storage backend switched.",
+  projectSwitchedToast: "Switched to project {0}.",
+  projectCreatedToast: "Created project {0}.",
+  projectLoadedToast: "Loaded project {0}.",
+  projectSwitchNotFound: "That project is no longer in your portfolio.",
+  projectSwitchHandleMissing:
+    "Couldn't find the file for that project — re-open it from a file.",
   storageLoadFailed: "Couldn't load tasks: {0}",
   storageSaveFailed: "Couldn't save tasks: {0}",
   storageNotReady: "Storage isn't configured yet — pick a file in Settings.",
