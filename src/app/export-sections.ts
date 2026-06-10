@@ -167,6 +167,7 @@ const PROJECT_FIELD_I18N_KEYS: Readonly<Record<keyof ProjectMeta, TranslationKey
   docRepoLocation:           "projectDocRepo",
   regulatory:                "projectRegulatory",
   notes:                     "projectNotes",
+  documentLinks:             "projectDocumentLinks",
 };
 
 /**

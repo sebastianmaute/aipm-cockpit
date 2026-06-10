@@ -1542,6 +1542,7 @@ export const de: Record<TranslationKey, string> = {
   projectDocRepo: "Dokumentenablage",
   projectRegulatory: "Regulatorik",
   projectNotes: "Hinweise",
+  projectDocumentLinks: "Dokumente",
 
   // Tooltips
   projectSalesforceTip: "Link zur Salesforce-Opportunity",

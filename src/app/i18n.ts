@@ -1524,6 +1524,7 @@ const enUS = {
   projectDocRepo: "Document repository",
   projectRegulatory: "Regulatory",
   projectNotes: "Notes",
+  projectDocumentLinks: "Documents",
 
   // Tooltips
   projectSalesforceTip: "Link to Salesforce opportunity",
