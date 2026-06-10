@@ -4,7 +4,7 @@ import {
   tenantSchemaDdl, tenantSelectStatements, tenantWorkspaceToStatements,
   listProjectsStatement, listArchivedProjectsStatement, upsertProjectStatement,
   archiveProjectStatement, restoreProjectStatement, hardDeleteProjectStatements,
-  rowsToProjectList, PROJECTS_TABLE,
+  rowsToProjectList, PROJECTS_TABLE, selectProjectStatement,
 } from "./turso-tenant-schema";
 import { TABLE_NAMES, rowsToWorkspace } from "./turso-schema";
 import { emptyWorkspace, PROJECT_CSV_COLUMNS } from "./storage";
@@ -118,6 +118,12 @@ describe("turso-tenant-schema", () => {
       expect(sql.some((s) => s.includes(`DELETE FROM ${t} WHERE project_id = ?`))).toBe(true);
     }
     expect(sql.some((s) => s.includes(`DELETE FROM ${PROJECTS_TABLE} WHERE id = ?`))).toBe(true);
+  });
+
+  it("selectProjectStatement scopes by id", () => {
+    const s = selectProjectStatement("p1");
+    expect(s.sql).toContain(`FROM ${PROJECTS_TABLE} WHERE id = ?`);
+    expect(s.args?.[0]).toEqual({ type: "text", value: "p1" });
   });
 
   it("rowsToProjectList decodes id + archived + meta from a projects SELECT", () => {

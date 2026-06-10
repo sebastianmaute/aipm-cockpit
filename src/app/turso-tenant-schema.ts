@@ -117,6 +117,12 @@ export function listProjectsStatement(): SqlStmt {
   return { sql: `SELECT * FROM ${PROJECTS_TABLE} WHERE "archived" = '0'` };
 }
 
+/** SELECT the single projects-table row for this project id (for load() to
+ *  populate ws.project, since rowsToWorkspace does not carry ProjectMeta). */
+export function selectProjectStatement(id: string): SqlStmt {
+  return { sql: `SELECT * FROM ${PROJECTS_TABLE} WHERE id = ?`, args: [text(id)] };
+}
+
 export function listArchivedProjectsStatement(): SqlStmt {
   return { sql: `SELECT * FROM ${PROJECTS_TABLE} WHERE "archived" = '1'` };
 }

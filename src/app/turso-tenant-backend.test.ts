@@ -1,0 +1,62 @@
+import { vi, describe, it, expect, beforeEach } from "vitest";
+vi.mock("./turso-pipeline", () => ({ runTursoPipeline: vi.fn() }));
+import { runTursoPipeline } from "./turso-pipeline";
+import { TursoTenantBackend } from "./turso-tenant-backend";
+import { tenantSchemaDdl, upsertProjectStatement } from "./turso-tenant-schema";
+import { TABLE_NAMES } from "./turso-schema";
+import type { ProjectMeta } from "./types";
+
+const cfg = { httpUrl: "https://x.turso.io", authToken: "t" };
+
+function okEmpty() {
+  return { type: "ok" as const, response: { type: "execute", result: { cols: [], rows: [] } } };
+}
+function meta(): ProjectMeta {
+  return {
+    name: "Apollo", code: "APL-1", projectManager: "PM",
+    keyStakeholdersInternal: [], keyStakeholdersExternal: [],
+    customer: "Acme", naceSection: "C", identityTypes: [], products: "P",
+    deployment: "Cloud", startDate: "2026-01-01", endDate: "2026-12-31",
+    profitCenter: "PC-1", contactPersons: [], regulatory: [],
+  };
+}
+/** A projects-table SELECT result mirroring upsertProjectStatement's columns. */
+function projectsRow(id: string, m: ProjectMeta) {
+  const up = upsertProjectStatement(m, id, false);
+  const cols = up.sql.match(/\(([^)]+)\) VALUES/)![1].split(",").map((c) => ({ name: c.trim().replace(/"/g, "") }));
+  return { type: "ok" as const, response: { type: "execute", result: { cols, rows: [up.args!.map((a) => ({ value: a.value ?? "" }))] } } };
+}
+
+describe("TursoTenantBackend", () => {
+  beforeEach(() => vi.mocked(runTursoPipeline).mockReset());
+
+  it("kind is turso; isReady reflects config", async () => {
+    expect(new TursoTenantBackend(cfg, "p1").kind).toBe("turso");
+    expect(await new TursoTenantBackend(cfg, "p1").isReady()).toBe(true);
+    expect(await new TursoTenantBackend(null, "p1").isReady()).toBe(false);
+  });
+
+  it("load runs DDL + scoped selects, returns empty workspace + populates ws.project from the projects row", async () => {
+    const ddlCount = tenantSchemaDdl().length;
+    vi.mocked(runTursoPipeline).mockResolvedValueOnce([
+      ...Array.from({ length: ddlCount }, okEmpty),
+      ...TABLE_NAMES.map(okEmpty),          // all workspace tables empty
+      projectsRow("p1", meta()),            // the projects row
+    ]);
+    const ws = await new TursoTenantBackend(cfg, "p1").load();
+    expect(ws.tasks).toEqual([]);
+    expect(ws.project?.name).toBe("Apollo");
+    const stmts = vi.mocked(runTursoPipeline).mock.calls[0][1];
+    expect(stmts.some((s) => s.sql.includes("WHERE project_id = ?"))).toBe(true);
+    expect(stmts.some((s) => s.sql.includes("FROM projects WHERE id = ?"))).toBe(true);
+  });
+
+  it("save runs the scoped DELETE+INSERT transaction", async () => {
+    vi.mocked(runTursoPipeline).mockResolvedValueOnce([]);
+    const { emptyWorkspace } = await import("./storage");
+    await new TursoTenantBackend(cfg, "p1").save(emptyWorkspace());
+    const stmts = vi.mocked(runTursoPipeline).mock.calls[0][1];
+    expect(stmts[0].sql).toBe("BEGIN");
+    expect(stmts.some((s) => s.sql.startsWith("DELETE FROM tasks WHERE project_id"))).toBe(true);
+  });
+});
