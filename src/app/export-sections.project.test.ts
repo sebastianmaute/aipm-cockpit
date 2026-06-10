@@ -1,9 +1,14 @@
 // src/app/export-sections.project.test.ts
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeAll } from "vitest";
 import { buildExportSections } from "./export-sections";
 import { emptyWorkspace } from "./storage";
 import { defaultExportConfig } from "./settings-types";
+import { loadI18n } from "./i18n";
 import type { ProjectMeta } from "./types";
+
+beforeAll(async () => {
+  await loadI18n("de");
+});
 
 // ---------------------------------------------------------------------------
 // Fixture
@@ -47,6 +52,31 @@ function makeProjectMeta(): ProjectMeta {
 // ---------------------------------------------------------------------------
 
 describe("buildExportSections – project section", () => {
+  it("section title equals t(lang, 'exportLabelProject') for en-US and de", () => {
+    const ws = { ...emptyWorkspace(), project: makeProjectMeta() };
+    const cfg = { ...defaultExportConfig, project: true };
+
+    const enSec = buildExportSections(ws, cfg, "en-US").find((s) => s.key === "project")!;
+    expect(enSec.title).toBe("Project details");
+
+    const deSec = buildExportSections(ws, cfg, "de").find((s) => s.key === "project")!;
+    expect(deSec.title).toBe("Projektdetails");
+  });
+
+  it("field labels are localized — German produces German strings", () => {
+    const meta = makeProjectMeta();
+    const ws = { ...emptyWorkspace(), project: meta };
+    const cfg = { ...defaultExportConfig, project: true };
+
+    const rows = buildExportSections(ws, cfg, "de").find((s) => s.key === "project")!.rows;
+    const labels = rows.map((r) => r[0] as string);
+
+    expect(labels).toContain("Projektname");
+    expect(labels).toContain("Projektleiter");
+    expect(labels).toContain("Interne Stakeholder");
+    expect(labels).toContain("Ansprechpartner");
+  });
+
   it("includes a project section when project: true and ws.project is set", () => {
     const ws = { ...emptyWorkspace(), project: makeProjectMeta() };
     const cfg = { ...defaultExportConfig, project: true };

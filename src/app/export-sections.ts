@@ -32,7 +32,7 @@ import {
 } from "./storage";
 import type { ExportConfig, ExportSectionKey } from "./settings-types";
 import { EXPORT_SECTION_KEYS } from "./settings-types";
-import type { Lang } from "./i18n";
+import type { Lang, TranslationKey } from "./i18n";
 import { t } from "./i18n";
 import type {
   Task,
@@ -140,33 +140,33 @@ function shiftsSection(shifts: Shift[]): ExportSection {
   return { key: "shifts", title: "Shifts", columns, rows };
 }
 
-// Human-readable labels for each ProjectMeta field, in display order.
-const PROJECT_FIELD_LABELS: Readonly<Record<keyof ProjectMeta, string>> = {
-  name:                      "Name",
-  code:                      "Code",
-  description:               "Description",
-  sponsor:                   "Sponsor",
-  projectManager:            "Project manager",
-  keyStakeholdersInternal:   "Internal stakeholders",
-  keyStakeholdersExternal:   "External stakeholders",
-  customer:                  "Customer",
-  naceSection:               "NACE section",
-  identityTypes:             "Identity types",
-  identityCount:             "Identity count",
-  products:                  "Products",
-  platform:                  "Platform",
-  deployment:                "Deployment",
-  startDate:                 "Start date",
-  endDate:                   "End date",
-  profitCenter:              "Profit center",
-  quotes:                    "Quotes",
-  salesforceUrl:             "Salesforce URL",
-  sharepointUrl:             "SharePoint URL",
-  confluenceUrl:             "Confluence URL",
-  contactPersons:            "Contact persons",
-  docRepoLocation:           "Doc repo location",
-  regulatory:                "Regulatory",
-  notes:                     "Notes",
+// Maps each ProjectMeta field key to its i18n translation key, in display order.
+const PROJECT_FIELD_I18N_KEYS: Readonly<Record<keyof ProjectMeta, TranslationKey>> = {
+  name:                      "projectName",
+  code:                      "projectCode",
+  description:               "projectDescription",
+  sponsor:                   "projectSponsor",
+  projectManager:            "projectManager",
+  keyStakeholdersInternal:   "projectStakeholdersInternal",
+  keyStakeholdersExternal:   "projectStakeholdersExternal",
+  customer:                  "projectCustomer",
+  naceSection:               "projectNaceSection",
+  identityTypes:             "projectIdentityTypes",
+  identityCount:             "projectIdentityCount",
+  products:                  "projectProducts",
+  platform:                  "projectPlatform",
+  deployment:                "projectDeployment",
+  startDate:                 "projectStartDate",
+  endDate:                   "projectEndDate",
+  profitCenter:              "projectProfitCenter",
+  quotes:                    "projectQuotes",
+  salesforceUrl:             "projectSalesforce",
+  sharepointUrl:             "projectSharepoint",
+  confluenceUrl:             "projectConfluence",
+  contactPersons:            "projectContactPersons",
+  docRepoLocation:           "projectDocRepo",
+  regulatory:                "projectRegulatory",
+  notes:                     "projectNotes",
 };
 
 /**
@@ -175,10 +175,10 @@ const PROJECT_FIELD_LABELS: Readonly<Record<keyof ProjectMeta, string>> = {
  * produce no row).  Arrays are joined with ", "; ContactPerson items are
  * rendered as "name <email>" then joined with ", ".
  */
-function projectSection(p: ProjectMeta): ExportSection {
+function projectSection(p: ProjectMeta, lang: Lang): ExportSection {
   const rows: string[][] = [];
 
-  for (const key of Object.keys(PROJECT_FIELD_LABELS) as (keyof ProjectMeta)[]) {
+  for (const key of Object.keys(PROJECT_FIELD_I18N_KEYS) as (keyof ProjectMeta)[]) {
     const raw = p[key];
 
     // Skip undefined / null
@@ -198,10 +198,10 @@ function projectSection(p: ProjectMeta): ExportSection {
       if (value === "") continue;
     }
 
-    rows.push([PROJECT_FIELD_LABELS[key], value]);
+    rows.push([t(lang, PROJECT_FIELD_I18N_KEYS[key]), value]);
   }
 
-  return { key: "project", title: "Project details", columns: ["field", "value"], rows };
+  return { key: "project", title: t(lang, "exportLabelProject"), columns: ["field", "value"], rows };
 }
 
 function statusSection(status: ProjectStatus): ExportSection {
@@ -234,7 +234,7 @@ function statusSection(status: ProjectStatus): ExportSection {
 type SectionBuilder = (ws: Workspace, lang: Lang) => ExportSection | null;
 
 const BUILDERS: Record<ExportSectionKey, SectionBuilder> = {
-  project: (ws) => (ws.project ? projectSection(ws.project) : null),
+  project: (ws, lang) => (ws.project ? projectSection(ws.project, lang) : null),
   tasks: (ws, lang) => {
     const items = ws.tasks;
     return items.length > 0 ? tasksSection(items, lang) : null;
