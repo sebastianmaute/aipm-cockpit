@@ -17,20 +17,11 @@
 
 import { useState } from "react";
 import { type Contact } from "./contacts";
+import { CreateProjectForm } from "./create-project-form";
 import { t, type Lang } from "./i18n";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
-import { ProjectForm } from "./project-form";
 import { type ProjectMeta } from "./types";
-
-const CREATE_FORMATS = ["json", "csv", "md"] as const;
-type CreateFormat = (typeof CREATE_FORMATS)[number];
-
-const CREATE_FORMAT_LABEL: Record<CreateFormat, string> = {
-  json: "JSON",
-  csv: "CSV",
-  md: "Markdown",
-};
 
 const PRIMARY_BUTTON_CLASS =
   "rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-AIPM-dark-blue focus:ring-offset-2";
@@ -59,15 +50,11 @@ export function ProjectEmptyState({
   onLoadFromFile,
 }: ProjectEmptyStateProps) {
   const [view, setView] = useState<View>("choices");
-  const [createFormat, setCreateFormat] = useState<CreateFormat>("json");
 
-  const handleOpenCreate = () => {
-    setCreateFormat("json");
-    setView("create");
-  };
+  const handleOpenCreate = () => setView("create");
 
-  const handleSubmit = (meta: ProjectMeta) => {
-    onCreate(meta, createFormat);
+  const handleCreate = (meta: ProjectMeta, format: "json" | "csv" | "md") => {
+    onCreate(meta, format);
   };
 
   const handleBackToChoices = () => setView("choices");
@@ -119,32 +106,13 @@ export function ProjectEmptyState({
               </div>
             </div>
           ) : (
-            <>
-              <label className="mb-4 flex flex-col gap-1 text-sm">
-                <span className="font-medium text-foreground">
-                  {t(lang, "projectsExport")}
-                </span>
-                <select
-                  aria-label={t(lang, "projectsExport")}
-                  value={createFormat}
-                  onChange={(e) => setCreateFormat(e.target.value as CreateFormat)}
-                  className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
-                >
-                  {CREATE_FORMATS.map((fmt) => (
-                    <option key={fmt} value={fmt}>
-                      {CREATE_FORMAT_LABEL[fmt]}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <ProjectForm
-                stakeholderNames={stakeholderNames}
-                addressBook={addressBook}
-                lang={lang}
-                onSubmit={handleSubmit}
-                onCancel={handleBackToChoices}
-              />
-            </>
+            <CreateProjectForm
+              lang={lang}
+              stakeholderNames={stakeholderNames}
+              addressBook={addressBook}
+              onCreate={handleCreate}
+              onCancel={handleBackToChoices}
+            />
           )}
         </div>
       </div>

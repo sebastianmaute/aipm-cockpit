@@ -20,6 +20,7 @@
 
 import { useState } from "react";
 import { type Contact } from "./contacts";
+import { CreateProjectForm } from "./create-project-form";
 import { type ExportFormat } from "./export";
 import { t, type Lang } from "./i18n";
 import { Modal } from "./modal";
@@ -29,17 +30,9 @@ import { type ProjectRegistryEntry } from "./projects-registry";
 import { CENTERED_HALF_PANE_CLASS } from "./view-styles";
 import { type ProjectMeta } from "./types";
 
-/** File formats a brand-new project's workspace can be created in. The export
- *  menu offers the full ExportFormat union (from export.ts); the create flow is
- *  limited to the three formats a project file can be persisted as. */
-const CREATE_FORMATS = ["json", "csv", "md"] as const;
-type CreateFormat = (typeof CREATE_FORMATS)[number];
-
-const CREATE_FORMAT_LABEL: Record<CreateFormat, string> = {
-  json: "JSON",
-  csv: "CSV",
-  md: "Markdown",
-};
+/** File formats a brand-new project's workspace can be created in.
+ *  The create flow is delegated to CreateProjectForm which owns this list. */
+type CreateFormat = "json" | "csv" | "md";
 
 /** Real export formats offered for the current project (export.ts ExportFormat). */
 const EXPORT_FORMATS: ExportFormat[] = ["csv", "md", "pdf", "docx", "xlsx", "pptx"];
@@ -100,26 +93,23 @@ export function ProjectsPanel({
   onLoadFromFile,
 }: ProjectsPanelProps) {
   const [modal, setModal] = useState<ModalState>({ mode: "closed" });
-  const [createFormat, setCreateFormat] = useState<CreateFormat>("json");
   const [exportMenuId, setExportMenuId] = useState<string | null>(null);
 
   const closeModal = () => setModal({ mode: "closed" });
 
-  const openCreate = () => {
-    setCreateFormat("json");
-    setModal({ mode: "create" });
-  };
+  const openCreate = () => setModal({ mode: "create" });
 
   const handleDelete = (id: string) => {
     if (window.confirm(t(lang, "projectsDeleteConfirm"))) onDelete(id);
   };
 
-  const handleSubmit = (meta: ProjectMeta) => {
-    if (modal.mode === "create") {
-      onCreate(meta, createFormat);
-    } else if (modal.mode === "edit") {
-      onUpdateCurrent(meta);
-    }
+  const handleCreate = (meta: ProjectMeta, format: CreateFormat) => {
+    onCreate(meta, format);
+    closeModal();
+  };
+
+  const handleEditSubmit = (meta: ProjectMeta) => {
+    onUpdateCurrent(meta);
     closeModal();
   };
 
@@ -287,33 +277,24 @@ export function ProjectsPanel({
               onClose={closeModal}
             />
             <div className="overflow-y-auto p-6">
-              {modal.mode === "create" && (
-                <label className="mb-4 flex flex-col gap-1 text-sm">
-                  <span className="font-medium text-foreground">
-                    {t(lang, "projectsExport")}
-                  </span>
-                  <select
-                    aria-label={t(lang, "projectsExport")}
-                    value={createFormat}
-                    onChange={(e) => setCreateFormat(e.target.value as CreateFormat)}
-                    className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
-                  >
-                    {CREATE_FORMATS.map((fmt) => (
-                      <option key={fmt} value={fmt}>
-                        {CREATE_FORMAT_LABEL[fmt]}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+              {modal.mode === "create" ? (
+                <CreateProjectForm
+                  lang={lang}
+                  stakeholderNames={stakeholderNames}
+                  addressBook={addressBook}
+                  onCreate={handleCreate}
+                  onCancel={closeModal}
+                />
+              ) : (
+                <ProjectForm
+                  initial={currentProject}
+                  stakeholderNames={stakeholderNames}
+                  addressBook={addressBook}
+                  lang={lang}
+                  onSubmit={handleEditSubmit}
+                  onCancel={closeModal}
+                />
               )}
-              <ProjectForm
-                initial={modal.mode === "edit" ? currentProject : undefined}
-                stakeholderNames={stakeholderNames}
-                addressBook={addressBook}
-                lang={lang}
-                onSubmit={handleSubmit}
-                onCancel={closeModal}
-              />
             </div>
           </div>
         </Modal>

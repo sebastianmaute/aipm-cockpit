@@ -132,7 +132,7 @@ describe("ProjectsPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "+ New project" }));
 
     // Choose a non-default file format for the new project.
-    fireEvent.change(screen.getByLabelText("Export project"), {
+    fireEvent.change(screen.getByLabelText("File format"), {
       target: { value: "csv" },
     });
 

@@ -113,9 +113,9 @@ describe("ProjectEmptyState", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /create a new project/i }));
 
-    // Change format to csv before filling (select is labelled "Export project").
+    // Change format to csv before filling (select is labelled "File format").
     fireEvent.change(
-      screen.getByRole("combobox", { name: /export project/i }),
+      screen.getByRole("combobox", { name: /file format/i }),
       { target: { value: "csv" } },
     );
 

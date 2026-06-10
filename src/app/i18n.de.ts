@@ -1567,6 +1567,7 @@ export const de: Record<TranslationKey, string> = {
   projectsSwitch: "Projekt wechseln",
   projectsEdit: "Projekt bearbeiten",
   projectsExport: "Projekt exportieren",
+  projectFileFormat: "Dateiformat",
   projectsDelete: "Projekt entfernen",
   projectsDeleteConfirm:
     "Projekt aus der Liste entfernen? Die zugrunde liegende Datei wird NICHT gelöscht.",

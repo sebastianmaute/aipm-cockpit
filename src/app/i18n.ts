@@ -1549,6 +1549,7 @@ const enUS = {
   projectsSwitch: "Switch project",
   projectsEdit: "Edit project",
   projectsExport: "Export project",
+  projectFileFormat: "File format",
   projectsDelete: "Delete project",
   projectsDeleteConfirm:
     "Remove this project from the list? The underlying file is NOT deleted.",
