@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { writeHandle, StorageNotReadyError } from "./storage";
+import { writeHandle, StorageNotReadyError, createBackend } from "./storage";
 import type { FsHandle } from "./storage";
 
 function makeHandle(writable: {
@@ -43,5 +43,22 @@ describe("writeHandle", () => {
     const err = await writeHandle(makeHandle(writable), "x").catch((e) => e);
     expect(err).toBeInstanceOf(StorageNotReadyError);
     expect((err as StorageNotReadyError).hint).toBe("local-file-write-blocked");
+  });
+});
+
+describe("createBackend — turso tenant branch", () => {
+  it("createBackend returns a turso backend when kind=turso", () => {
+    const b = createBackend({ kind: "turso" }, {
+      tursoConfig: { httpUrl: "https://x.turso.io", authToken: "t" },
+      tursoProjectId: "p1",
+    });
+    expect(b.kind).toBe("turso");
+  });
+
+  it("createBackend still returns a turso backend with no projectId (single-tenant path)", () => {
+    const b = createBackend({ kind: "turso" }, {
+      tursoConfig: { httpUrl: "https://x.turso.io", authToken: "t" },
+    });
+    expect(b.kind).toBe("turso");
   });
 });
