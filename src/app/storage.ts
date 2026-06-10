@@ -1379,12 +1379,14 @@ export function buildProjectFromObj(obj: Record<string, string>): ProjectMeta | 
 }
 
 /** Lenient decode for an ALREADY-PERSISTED project row (e.g. a Turso `projects`
- *  row, the multi-tenant source of truth). Unlike `buildProjectFromObj`, this
- *  does not re-impose the create-form's required-field rules — a stored project
- *  must never be silently dropped on read just because, say, it has no external
- *  stakeholders. Only a non-empty `name` is required (a project always has one).
- *  Falls back to the strict sanitizer first so well-formed rows are normalized
- *  identically; only when that rejects do we build the lenient shape. */
+ *  table row, the multi-tenant source of truth). Decodes the raw column map via
+ *  `decodeProjectObj`, then runs the SAME `sanitizeProjectMeta` as the strict
+ *  path but with `lenientRequiredArrays: true`. That flag skips ONLY the three
+ *  empty-required-array rejections (keyStakeholdersInternal, keyStakeholdersExternal,
+ *  regulatory) while still enforcing all required scalars (name, code, etc.),
+ *  required enums (naceSection, deployment), required dates, and all per-field
+ *  sanitization. Why lenient? A project already stored in the DB must never be
+ *  silently dropped on read solely because, e.g., it has no external stakeholders. */
 export function buildProjectFromObjLenient(obj: Record<string, string>): ProjectMeta | null {
   return sanitizeProjectMeta(decodeProjectObj(obj), { lenientRequiredArrays: true });
 }

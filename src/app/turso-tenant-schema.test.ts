@@ -7,7 +7,7 @@ import {
   rowsToProjectList, PROJECTS_TABLE, selectProjectStatement,
 } from "./turso-tenant-schema";
 import { TABLE_NAMES, rowsToWorkspace } from "./turso-schema";
-import { emptyWorkspace, PROJECT_CSV_COLUMNS } from "./storage";
+import { emptyWorkspace, PROJECT_CSV_COLUMNS, buildProjectFromObj } from "./storage";
 import type { ProjectMeta } from "./types";
 import type { PipelineResultLike, SqlStmt } from "./turso-schema";
 
@@ -137,6 +137,30 @@ describe("turso-tenant-schema", () => {
     expect(list[0].archived).toBe(false);
     expect(list[0].meta.name).toBe(m.name);
     expect(list[0].meta.customer).toBe(m.customer);
+  });
+
+  it("rowsToProjectList keeps a project with empty required arrays that the STRICT decoder would reject", () => {
+    // meta() already has empty keyStakeholdersInternal/External, regulatory, and
+    // identityTypes — the three arrays that the strict sanitizer rejects when empty.
+    const m = meta();
+    const up = upsertProjectStatement(m, "p1", false);
+    const colNames = parseInsertCols(up.sql);
+    const argVals = up.args!.map((a) => String(a.value ?? ""));
+
+    // Build the plain Record<string,string> that the decoder receives.
+    const rowObj: Record<string, string> = {};
+    colNames.forEach((c, i) => { rowObj[c] = argVals[i]; });
+
+    // The strict path (buildProjectFromObj) must reject this row because the
+    // required arrays are empty — that is the whole point of the lenient branch.
+    expect(buildProjectFromObj(rowObj)).toBeNull();
+
+    // The lenient path (via rowsToProjectList) must keep it.
+    const cols = colNames.map((name) => ({ name }));
+    const rows = [up.args!.map((a) => ({ value: a.value ?? "" }))];
+    const list = rowsToProjectList({ type: "ok", response: { type: "execute", result: { cols, rows } } });
+    expect(list).toHaveLength(1);
+    expect(list[0].meta.name).toBe(m.name);
   });
 });
 
