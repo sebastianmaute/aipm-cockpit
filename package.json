@@ -25,7 +25,7 @@
     "lint": "Run ESLint (`eslint-config-next` preset)",
     "test": "Vitest unit/component tests in watch mode",
     "test:run": "Vitest, single run (CI-friendly)",
-    "test:coverage": "Vitest + v8 coverage report (fails below 80%)",
+    "test:coverage": "Vitest + v8 coverage report (fails below 70%)",
     "e2e": "Playwright E2E suite, headless",
     "e2e:ui": "Playwright interactive UI mode",
     "e2e:install": "One-time: download Chromium browser binary",

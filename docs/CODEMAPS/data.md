@@ -1,12 +1,16 @@
-<!-- Generated: 2026-06-09 | Files scanned: types.ts, storage.ts, sanitize.ts, raid.ts, activity-log.ts, contacts.ts, resource-foundation.ts, resource-capacity.ts, reminder-snooze.ts, use-settings.ts, jira-token-status.ts, duration.ts + msal-config.ts, turso-config.ts | Token estimate: ~1300 | Updated for 0.29.0–0.56.0: ProjectStatus + Milestone[] persisted (v6 additive, no schema bump); budget-health + budget-burndown pure modules; ChangeItem[] change-control register persisted (schema v7 additive); sample-workspace.json + sample-workspace.sqlite3 generated from the curated .md (Turso import) -->
+<!-- Generated: 2026-06-10 | Files scanned: types.ts, storage.ts, sanitize.ts, raid.ts, activity-log.ts, contacts.ts, resource-foundation.ts, resource-capacity.ts, reminder-snooze.ts, use-settings.ts, jira-token-status.ts, duration.ts + msal-config.ts, turso-config.ts, project-options.ts, nace-sections.ts, portfolio-mode.ts, projects-registry.ts, project-file-handles.ts, turso-tenant-schema.ts, feature-modules.ts | Token estimate: ~1500 | Updated for 0.29.0–0.59.0: ProjectStatus + Milestone[] persisted (v6 additive, no schema bump); budget-health + budget-burndown pure modules; ChangeItem[] change-control register persisted (schema v7 additive); RaidItem/ChangeItem gained `stakeholderIds` stakeholder-communication links (v0.55); Settings.features feature-module map (Simple/Modular/Advanced); ProjectMeta multi-project header persisted (Workspace schema v9 additive; Phase 1); Turso multi-tenancy (one shared DB, `project_id` on every table, tenant schema v10); snapshot tables scoped per project_id; sample-workspace.json + sample-workspace.sqlite3 generated from the curated .md (Turso import, sqlite now multi-tenant v10) -->
 
 # Data
 
-No database. All persistence is browser-local: IndexedDB (schema v6) for
-tasks / RAID / absences / shifts / resources / roles / disciplines / grades +
-a `resource-plan` kv singleton + `budgets` + `fxRates`; localStorage for UI
-prefs and lightweight stores (settings, contacts, activity log); optional local
-file (CSV/MD/JSON) via the File System Access API.
+No traditional database. Default persistence is browser-local: IndexedDB
+(store version v6 — distinct from the logical Workspace `SCHEMA_VERSION = 9`)
+for tasks / RAID / absences / shifts / resources / roles / disciplines / grades +
+a `resource-plan` kv singleton + `budgets` + `fxRates` + `project`; localStorage
+for UI prefs and lightweight stores (settings, contacts, activity log, the
+portfolio mode + project registry); optional local file (CSV/MD/JSON) via the
+File System Access API; optional remote backends (SharePoint, Turso). Multi-project
+(v0.58 Phase 1, file-based) and Turso multi-tenancy (v0.59 Phase 2) layer a
+portfolio of full workspaces on top — each carries a `ProjectMeta` header.
 
 ## Core schemas (`src/app/types.ts`)
 
@@ -57,6 +61,8 @@ RaidItem {
   localModifiedAt? ISO 8601 timestamp
   causedByRaidIds number[]                (parent RAID items; always an array,
                                            legacy singular causedByRaidId migrated on parse)
+  stakeholderIds  number[]                (v0.55: FK → Stakeholder.id; drives the
+                                           stakeholder-communication reminder engine; always [])
 }
 
 Absence {                                  // Resource Planner v1
@@ -228,7 +234,61 @@ ChangeItem {                                 // 0.50.0: RAID-sibling change requ
   resolutionNotes?  string
   linkedTaskIds     number[]                  // linked tasks
   linkedRaidIds     number[]                  // linked RAID items
+  stakeholderIds    number[]                  // v0.55: FK → Stakeholder.id; drives the
+                                              //   stakeholder-communication reminder engine; always []
   localModifiedAt?  ISO 8601 timestamp
+}
+
+// Multi-project / portfolio — schema v9 -----------------------------------
+// ProjectMeta is the top-level descriptor of the project a workspace tracks
+// (Phase 1, v0.58). Additive: a workspace with `project === undefined`
+// serializes byte-for-byte as before (no project block emitted).
+
+IdentityType   = "B2E" | "B2B" | "B2C" | "NHI"                 // project-options.ts
+Deployment     = "Cloud" | "On-premise" | "Hybrid"
+RegulatoryRequirement =
+  "Not applicable" | "GDPR / data protection regulation" | "DORA" | "MaRisk"
+  | "BAIT" | "NIS2" | "HIPAA" | "SOX" | "EU AI Act"
+  | "Export control / sanctions compliance"
+// NACE section = single letter "A".."U" (NACE Rev 2.1, 21 sections A–U;
+//   nace-sections.ts NACE_SECTIONS / NACE_SECTION_SET)
+
+ContactPerson {
+  name            string
+  email           string
+  synced          boolean                  // true = copied from address book; false = manual, never synced back
+}
+
+ProjectMeta {
+  // Identity
+  name                    string
+  code                    string
+  description?            string
+  // People — internal group
+  sponsor?                string
+  projectManager          string
+  keyStakeholdersInternal string[]         // required (non-empty unless lenient decode)
+  keyStakeholdersExternal string[]         // required (non-empty unless lenient decode)
+  // Customer group
+  customer                string
+  naceSection             string           // NACE section letter, e.g. "C" (validated A–U)
+  identityTypes           IdentityType[]
+  identityCount?          number
+  products                string
+  platform?               string
+  deployment              Deployment
+  startDate               "YYYY-MM-DD"
+  endDate                 "YYYY-MM-DD"
+  profitCenter            string
+  quotes?                 string
+  salesforceUrl?          string
+  sharepointUrl?          string
+  confluenceUrl?          string
+  contactPersons          ContactPerson[]
+  docRepoLocation?        string
+  regulatory              RegulatoryRequirement[]  // required (non-empty unless lenient);
+                                                   //   "Not applicable" collapses the rest
+  notes?                  string
 }
 ```
 
@@ -251,6 +311,9 @@ type Workspace = {
   milestones?: Milestone[];                 // 0.44.0+; optional for compat
   changes?: ChangeItem[];                   // schema v7 (0.50.0+); optional for compat
   stakeholders?: Stakeholder[];             // schema v8 (0.52.0+); optional for compat
+  project?: ProjectMeta;                    // schema v9 (0.58.0+); top-level project header.
+                                            //   Additive: undefined ⇒ no project block emitted
+                                            //   (byte-identical to pre-field serialization)
 };
 
 type StorageKind =
@@ -271,7 +334,7 @@ type CreateBackendDeps = {
   // ... Jira + other deps
 };
 
-const SCHEMA_VERSION = 6;
+const SCHEMA_VERSION = 9;          // logical Workspace version (≠ IndexedDB store version 6)
 ```
 
 `migrateWorkspaceV5(ws)` is **idempotent**: seeds `disciplines`/`grades` when
@@ -298,6 +361,16 @@ empty stakeholder register. The Turso backend gains a `stakeholders` table
 (columns: id, name, role, organisation, email, phone, engagementLevel, influence,
 interest, notes, resourceId, localModifiedAt) added by an additive migration.
 
+**Schema v9 (0.58.0+)** bumps `SCHEMA_VERSION` to `9` for the additive
+`Workspace.project` (`ProjectMeta`) field. There is **no dedicated
+`migrateWorkspaceV9` function** — `migrateWorkspaceV8` remains the tail of the
+chain (V8 → V7 → V6 → V5). Instead, every load path decodes `project` on its own:
+when a `project` block is present it is run through `sanitizeProjectMeta` and
+attached; when absent the key is simply left off, so a no-project workspace stays
+byte-identical to pre-v9 output. The `BrowserBackend` reads/writes it via the
+`kv` key `"project"`; CSV/Markdown/JSON gate emission on `ws.project` being set
+(and, for the dual-use document exports, on `config === undefined`).
+
 ## IndexedDB layout (`storage.ts`)
 
 ```
@@ -307,6 +380,7 @@ Database: lop-app  (version 6)
 │                                       + "status" object (0.43.0+) + "milestones" array (0.44.0+)
 │                                       + "changes" array (schema v7, 0.50.0+)
 │                                       + "stakeholders" array (schema v8, 0.52.0+)
+│                                       + "project" object (schema v9, 0.58.0+; absent ⇒ no project)
 ├── object store "tasks"        (v2)  — keyPath: "id", value: Task
 ├── object store "raid"         (v2)  — keyPath: "id", value: RaidItem
 ├── object store "absences"     (v3)  — keyPath: "id", value: Absence
@@ -320,6 +394,13 @@ Database: lop-app  (version 6)
 `onupgradeneeded` adds missing stores idempotently — upgraders keep their
 data and gain the new stores additively. The `plan` singleton is stored in
 the existing `kv` store under key `"resource-plan"`.
+
+**Per-project file handles** (v0.58 Phase 1) live in a **separate** IndexedDB
+database `lop-app-project-handles` (version 1, single out-of-line store
+`handles`; `project-file-handles.ts`) so storing `FileSystemFileHandle`s per
+project never touches the main `lop-app` DB's schema version. Records are keyed
+by the project id via `put(handle, projectId)`; all ops are no-ops when
+IndexedDB is unavailable (SSR).
 
 On first load post-upgrade, `BrowserBackend.load()` runs `migrateWorkspaceV5`
 and persists only what migration changed (reference-equality check per
@@ -344,7 +425,7 @@ legacy keys are removed.
 | Key | Shape |
 |---|---|
 | `lop-theme` | `"light"` \| `"dark"` \| `"system"` — persisted theme preference. Default `"system"` (absent = system). Read by the no-flash inline script in `layout.tsx` before hydration and by `use-theme.tsx` at runtime. Separate from the workspace `Settings` object. |
-| `lop-app:settings` | JSON envelope: `{ language, holidayCountries, ai, jira, notifications, storage, integrations?, layout? }`. The `layout` field: `"modern" \| "classic"` (default modern). The `jira` sub-object includes `tokenExpiresAt` + `tokenInvalidAt`. **0.21.0+** `integrations` sub-object: `{ m365Enabled: boolean, m365ClientId?: string, m365TenantId?: string, tursoEnabled: boolean, tursoDbUrl?: string, tursoAuthToken?: string }` (Settings → Integrations inputs); overridden by `NEXT_PUBLIC_*` env vars. The `notifications` sub-object: `{ reminderLeadDays, banner: {enabled}, toast: {enabled}, popup: {enabled}, birthday: {enabled} }`. |
+| `lop-app:settings` | JSON envelope: `{ language, holidayCountries, ai, jira, notifications, storage, integrations?, layout?, reports?, popout?, resources?, snapshots?, features?, export? }`. The `layout` field: `"modern" \| "classic"` (default modern). The `jira` sub-object includes `tokenExpiresAt` + `tokenInvalidAt`. **0.21.0+** `integrations` sub-object: `{ m365Enabled: boolean, m365ClientId?: string, m365TenantId?: string, tursoEnabled: boolean, tursoDbUrl?: string, tursoAuthToken?: string }` (Settings → Integrations inputs); overridden by `NEXT_PUBLIC_*` env vars. The `notifications` sub-object: `{ reminderLeadDays, banner: {enabled}, toast: {enabled}, popup: {enabled}, birthday: {enabled} }`. **0.54.0+** `features`: `FeatureModuleId[]` (the enabled feature modules — `dashboard`, `trends`, `gantt`, `milestones`, `resources`, `budget`, `raid`, `changes`, `stakeholders`; `feature-modules.ts`). `sanitizeFeatures(undefined) ⇒ all modules` (legacy migration); `[] ⇒ Simple`, all ⇒ Advanced, partial ⇒ Modular (`deriveMode`). Gates nav / automation / dashboard / reports. |
 | `lop-app:reminder-snooze:due` | Epoch-ms timestamp (stored as decimal string) until which the due-date reminder banner is snoozed; absent or elapsed = not snoozed |
 | `lop-app:reminder-snooze:birthday` | Epoch-ms timestamp until which the birthday reminder banner is snoozed; absent or elapsed = not snoozed |
 | `lop-app:reminder-snooze:jiraToken` | Epoch-ms timestamp until which the Jira token expiry banner is snoozed; absent or elapsed = not snoozed |
@@ -356,19 +437,24 @@ legacy keys are removed.
 | `lop-app:hidden-cols` | `string[]` |
 | `lop-app:task-table-size`, `lop-app:workspace-size`, `lop-app:task-modal-size`, `lop-app:gantt-size`, `lop-app:conflicts-modal-size`, `lop-app:due-modal-size`, `lop-app:help-size`, `lop-app:help-pos` | Resizable element sizes / positions |
 | `lop-app:gantt-prefs` | Gantt zoom/scale prefs |
+| `lop-app:portfolio-mode` | `"file" \| "turso"` — global portfolio storage mode (v0.58/0.59; `portfolio-mode.ts`). Absent / anything but `"turso"` ⇒ `"file"`. |
+| `lop-app:turso-current-project` | Turso-mode last-selected project id (string); absent = none. The Turso `projects` table is the source of truth — this only caches the selection (`portfolio-mode.ts`). |
+| `lop-app:projects` | File-mode project registry (v0.58 Phase 1; `projects-registry.ts`): `{ projects: ProjectRegistryEntry[], currentProjectId: string \| null }` where `ProjectRegistryEntry = { id, name, code, storageConfig }`. Malformed entries dropped on load; dangling `currentProjectId` coerced to `null`. |
 | `lop-app:tasks`, `lop-app:raid` | **Legacy** — removed after first successful IDB save |
 
 ## File-backend formats
 
 `LocalFileBackend` reads/writes one of three formats; round-trips lossless
-inside the supported field set. Each path runs `migrateWorkspaceV7` on parse
-(which chains `migrateWorkspaceV6` → `migrateWorkspaceV5`) so older files self-heal.
+inside the supported field set. Each path runs `migrateWorkspaceV8` on parse
+(which chains `migrateWorkspaceV7` → `migrateWorkspaceV6` → `migrateWorkspaceV5`)
+so older files self-heal; `project` is decoded separately via
+`sanitizeProjectMeta` (no migration step — see schema v9 above).
 
 | Kind | Sections |
 |---|---|
-| JSON | `{ schemaVersion: 7, tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, milestones, changes }` |
-| CSV  | `# TASKS` + `# RAID` + `# ABSENCES` + `# SHIFTS` + `# DISCIPLINES` + `# GRADES` + `# ROLES` + `# RESOURCES` + `# PLAN` + `# BUDGETS` + `# FX_RATES` + `# PROJECT STATUS` + `# MILESTONES` + `# CHANGES`, RFC-style escaping |
-| Markdown | `# LOP Tasks` + `# RAID Log` + `# Absences` + `# Shifts` + `# Disciplines` + `# Grades` + `# Roles` + `# Resources` + `# Plan` + `# Budgets` + `# FX Rates` H1s + `## Project Status` (field bullets) + `## Milestones` (pipe table) + `## Changes` (pipe table) H2s |
+| JSON | `{ schemaVersion: 9, tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, milestones, changes, stakeholders, project? }` (`project` key emitted only when set) |
+| CSV  | `# TASKS` + `# RAID` + `# ABSENCES` + `# SHIFTS` + `# DISCIPLINES` + `# GRADES` + `# ROLES` + `# RESOURCES` + `# PLAN` + `# BUDGETS` + `# FX_RATES` + `# PROJECT STATUS` + `# MILESTONES` + `# CHANGES` (+ a project section when `ws.project` set and `config === undefined`), RFC-style escaping |
+| Markdown | `# LOP Tasks` + `# RAID Log` + `# Absences` + `# Shifts` + `# Disciplines` + `# Grades` + `# Roles` + `# Resources` + `# Plan` + `# Budgets` + `# FX Rates` H1s + `## Project Status` (field bullets) + `## Milestones` (pipe table) + `## Changes` (pipe table) H2s (+ a project block when `ws.project` set and `config === undefined`) |
 
 The `utilization` and `absenceOverride` maps serialize into a single
 encoded cell each via `encodePeriodMap` / `decodePeriodMap` — format
@@ -390,6 +476,43 @@ encoded cell each via `encodePeriodMap` / `decodePeriodMap` — format
 - EXECUTE statement for write, SELECT for read
 - Configured via Settings → Integrations or `NEXT_PUBLIC_TURSO_DATABASE_URL` / `NEXT_PUBLIC_TURSO_AUTH_TOKEN` env vars
 - Recommend scoped Turso tokens (minimal permissions)
+- Single-tenant relational mapping lives in `turso-schema.ts` (`SCHEMA_VERSION = "9"`)
+
+## Turso multi-tenancy (schema v10, 0.59.0+)
+
+`turso-tenant-schema.ts` implements the v0.59 "Gibson" portfolio Phase 2:
+**one shared Turso database holds every project**. Built generically from the
+SAME column registries + encoders the single-tenant `turso-schema.ts` uses
+(`ENTITY_SPECS` / `PLAN_COLUMNS` / `FX_COLUMNS`), plus Phase 1's
+`PROJECT_CSV_COLUMNS` / `projectFieldToString` / `buildProjectFromObjLenient`
+for the projects table.
+
+- **`project_id TEXT` on every table.** Each workspace entity table gains a
+  `project_id` column. For tables with an `id`, the single-column PK is dropped
+  in favour of a composite `PRIMARY KEY (id, project_id)` (`tenantColDdl`
+  renders `id` as plain `INTEGER`), so ids are unique **per project** within the
+  shared DB.
+- **`projects` table = authoritative project list.** `CREATE TABLE projects
+  (id TEXT PRIMARY KEY, "archived" TEXT, …PROJECT_CSV_COLUMNS)` — one
+  `ProjectMeta` row per project. `archived` is `"0"` / `"1"` (soft archive);
+  hard-delete removes the row + every `WHERE project_id = ?` table slice.
+- **`meta` / `plan` / `fx_rates` are project_id-scoped and unkeyed** — they drop
+  the single-tenant fixed PK so multiple projects each keep their own row(s).
+  Every load `SELECT … WHERE project_id = ?`, so `rowsToWorkspace`'s first-row /
+  find-status logic still works.
+- `tenantWorkspaceToStatements(ws, projectId)` saves via a `BEGIN` → DDL →
+  per-table `DELETE … WHERE project_id` → re-INSERT → `COMMIT` batch; `meta`
+  stores `schema_version` + `project_status` per project. `load()` also runs
+  `selectProjectStatement(id)` to populate `ws.project` (rowsToWorkspace does
+  not carry `ProjectMeta`). Project CRUD: `list/listArchived/upsert/archive/
+  restore/hardDelete` statements + `rowsToProjectList`.
+- **`SCHEMA_VERSION = "10"`** — intentionally distinct from the single-tenant
+  `turso-schema.ts` `"9"`; the two schemas evolve independently.
+
+**Snapshots** (`snapshot-schema.ts`, Turso-only Trends): snapshot tables now
+carry a `project_id` column (scoped per project) and stay **out of** the
+workspace `TABLE_NAMES` (guard test), so a workspace save's clear-all
+(`DELETE … WHERE project_id`) never wipes them.
 
 ## Sanitization (`sanitize.ts`)
 
@@ -409,6 +532,18 @@ codec (clamps percent to 0..100 or hours to `HOURS_MAP_MAX`; accepts both
 object and CSV-string map forms).
 
 Budget sanitizers (schema v6) add `sanitizeBudgetBucket` and `sanitizeFxRates` to the same module, plus `encodeAllocations`/`decodeAllocations` (the CSV/MD allocation codec); allocations are validated inside `sanitizeBudgetBucket`.
+
+Multi-project (schema v9) adds `sanitizeProjectMeta(input, { lenientRequiredArrays? })`:
+validates required short-text fields (name, code, projectManager, customer,
+products, profitCenter), required enums (`naceSection` ∈ A–U, `deployment` ∈
+`DEPLOYMENT_SET`), required ISO dates (start/end), filters `identityTypes` /
+`regulatory` to their known sets (de-duped; `"Not applicable"` collapses the
+rest), and validates `contactPersons`. Returns `null` on any failure. The
+default (strict) mode also rejects empty `keyStakeholdersInternal` /
+`keyStakeholdersExternal` / `regulatory`; the **lenient** variant
+(`{ lenientRequiredArrays: true }`) relaxes those array-non-empty checks and is
+used by the Turso projects-row decode (`buildProjectFromObjLenient`) where a
+partial row should still yield a usable `ProjectMeta`.
 
 ## RAID derivations (`raid.ts`)
 
@@ -475,14 +610,20 @@ All, and Jira sync churn.
 |---|---|
 | `sample-workspace.md` | Hand-curated master (Markdown pipe-table, all entities incl. blended budgets) — the source of truth |
 | `sample-workspace.csv` | Hand-curated CSV companion (partial by format design: no budgets/changes) |
-| `sample-workspace.json` | Generated full JSON envelope (`schemaVersion: 9`, all entities + demo enrichment) |
-| `sample-workspace.sqlite3` | Generated SQLite database mirroring the Turso relational schema (schema v9); import with `turso db create lop-demo --from-file sample-workspace.sqlite3` |
+| `sample-workspace.json` | Generated full JSON envelope (`schemaVersion: 9`, all entities + a demo `project` ProjectMeta + demo enrichment) |
+| `sample-workspace.sqlite3` | Generated SQLite database mirroring the **multi-tenant** Turso relational schema (schema v10: one `projects` row + `project_id` on every table; WAL journal mode); import with `turso db create lop-demo --from-file sample-workspace.sqlite3` |
 
 `scripts/generate-sample-workspace.ts` parses the curated `sample-workspace.md`,
-enriches it with a demo change-log + RAID→stakeholder links, and emits the two
+enriches it with a demo change-log + RAID→stakeholder links + a synthesized
+`ProjectMeta` (with a stable id `sample-project-0001`), and emits the two
 COMPLETE, faithfully-round-tripping formats (`.json` + `.sqlite3`) via
-`npx vite-node scripts/generate-sample-workspace.ts`. It does NOT overwrite the
-`.md`/`.csv` masters: `workspaceToMarkdown` does not `\|`-escape the pipe-delimited
-blended-budget cell, so re-emitting the MD would corrupt the blended bucket. The
-dataset includes tasks, RAID items with `stakeholderIds` links, milestones,
-stakeholders with RACI assignments, change-log entries, budget buckets, and resources.
+`npx vite-node scripts/generate-sample-workspace.ts`. The `.sqlite3` is built
+through `tenantWorkspaceToStatements` + `upsertProjectStatement`
+(`turso-tenant-schema.ts`), so it is the multi-tenant v10 schema (one `projects`
+row, `project_id` on every table) and must be WAL journal mode for
+`turso db create --from-file`. It does NOT overwrite the `.md`/`.csv` masters:
+`workspaceToMarkdown` does not `\|`-escape the pipe-delimited blended-budget
+cell, so re-emitting the MD would corrupt the blended bucket. The dataset
+includes tasks, RAID items with `stakeholderIds` links, milestones, stakeholders
+with RACI assignments, change-log entries, budget buckets, resources, and the
+project header.

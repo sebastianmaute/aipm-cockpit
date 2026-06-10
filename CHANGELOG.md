@@ -8,6 +8,50 @@ Authoritative source for version + build date: [`src/app/version.ts`](src/app/ve
 This file is seeded from that module's milestone comment plus the
 post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-diff.txt).
 
+## [0.59.0] — 2026-06-10 "Gibson"
+
+### Added
+- **Turso multi-tenancy (multi-project Phase 2):** a single shared Turso database now holds every project. Every entity table gains a `project_id` column, and a new `projects` table is the authoritative registry (the database — not `localStorage` — is the source of truth for the Turso project list).
+- **Global portfolio-mode switch** (Settings → Integrations) selects between a **file-based** portfolio (Phase 1) and a **Turso-backed** portfolio. Exactly one mode is active at a time; changing it reloads the app.
+- **Archive / restore** projects (soft-delete by default) and **permanent hard-delete** behind a type-the-exact-name confirm dialog.
+- Snapshot capture is **scoped per project**, so baseline/variance trend history never bleeds across projects.
+
+### Changed
+- Saves are **last-write-wins per project**, so concurrent tabs stay safe.
+- The sample SQLite database (`sample-workspace.sqlite3`) is regenerated as a **multi-tenant** database (schema v10).
+
+### Notes
+- File-based projects (Phase 1) are unchanged and continue to work as before.
+- New modules: `portfolio-mode.ts`, `turso-tenant-schema.ts`, `turso-tenant-backend.ts`, `turso-portfolio.ts`, and a reusable `type-to-confirm-dialog.tsx`. The single-tenant `TursoBackend` is left intact.
+- **Accepted limitation (per the no-migration decision):** a pre-existing single-tenant Turso database that already had snapshot tables (Turso-only since v0.49) will not auto-gain `project_id`; its Trends view degrades gracefully (banner, no data loss) until those tables are recreated.
+
+## [0.58.0] — 2026-06-10 "Vinge"
+
+### Added
+- **Multi-project / portfolio management (Phase 1, file-based):** each project is a self-contained workspace stored as a separate file.
+- A **project metadata header** (name, code, description, lead, start/end dates, client, NACE sector, deployment model, identity types, regulatory requirements, internal/external key stakeholders) sits at the top of every workspace.
+- A **portfolio registry** lets users create, switch, rename, and archive projects from a dedicated Projects management view, with a create/edit form and empty-state onboarding.
+- A **top-bar project switcher** shows and changes the current project.
+
+### Changed
+- Every existing export surface (CSV, Markdown, JSON, DOCX, XLSX, PDF, PPTX) scopes to the active project.
+
+### Notes
+- File-based projects only in this phase; Turso multi-project support follows in 0.59.0.
+- The storage round-trip stays byte-identical for a workspace without a project header (project emission is gated and appended last).
+
+## [0.57.0] — 2026-06-09 "Butler"
+
+### Added
+- **Configurable document export:** choose which sections to include in XLSX / DOCX / PDF / PPTX / Markdown exports (default Tasks + RAID). The PDF export renders all enabled sections.
+- **AI Assistant** (renamed from "Claude chat") gains suggested prompts (including "Give me an update"), a **token-usage panel** (session and weekly bars with an 80% alert), a **Stop** button, and a top-bar button that opens it as a **pop-out** (read-only mirror).
+- A new **"Information flows"** diagram in Settings.
+
+### Changed
+- **Reminders** gain toast-first defaults, global-or-individual lead times, and a separate Jira-token-error banner toggle.
+- **Views:** the Trends view matches the Dashboard layout (print-safe, resizable); the Gantt gains a Print button; the Calendar and Milestones views are sized like the assistant; the activity-log print hides controls.
+- The **activity log** now records change, stakeholder, resource, and role changes plus a coarse settings event, and adds a "general" activity group.
+
 ## [0.56.0] — 2026-06-09 "Bradbury"
 
 ### Added

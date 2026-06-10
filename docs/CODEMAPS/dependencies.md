@@ -1,4 +1,4 @@
-<!-- Generated: 2026-05-31 | Files scanned: package.json, package-lock.json, vitest.config.ts, playwright.config.ts | Token estimate: ~700 | Updated for 0.29.0–0.46.0: no dependency changes; dashboard/milestones/EVM modules are pure logic -->
+<!-- Generated: 2026-06-10 | Files scanned: package.json, package-lock.json, vitest.config.ts, playwright.config.ts | Token estimate: ~700 | Updated for 0.59.0 "Gibson": test stack upgraded to Vitest 4; added fake-indexeddb + fast-check dev deps; no new runtime deps -->
 
 # Dependencies
 
@@ -24,16 +24,23 @@ Deliberately small surface. The runtime dep tree fits on one screen.
 | `@tailwindcss/postcss` | ^4 | Tailwind via PostCSS plugin (Tailwind v4 uses this layer) |
 | `eslint` | ^9 | Linter |
 | `eslint-config-next` | 16.2.6 | Next.js eslint preset |
-| `vitest` | ^3 | Unit/component test runner (`vitest.config.ts`) |
-| `@vitest/coverage-v8` | ^3 | v8 coverage provider; threshold enforced at 80% lines/functions/branches/statements |
-| `@vitejs/plugin-react` | ^4 | JSX/TSX transform inside the Vitest runner |
-| `jsdom` | ^25 | DOM environment for component tests |
-| `@testing-library/react` | ^16 | RTL render + queries (React 19 compatible) |
-| `@testing-library/jest-dom` | ^6 | Custom DOM matchers; registered in `vitest.setup.ts` |
-| `@testing-library/user-event` | ^14 | Realistic user interaction simulation |
-| `@playwright/test` | ^1.49 | E2E runner (`playwright.config.ts`); Chromium-only by default |
+| `vitest` | ^4.1.8 | Unit/component test runner (`vitest.config.ts`) |
+| `@vitest/coverage-v8` | ^4.1.8 | v8 coverage provider; threshold enforced at 70% lines/functions/branches/statements (scoped logic/data layer) |
+| `@vitejs/plugin-react` | ^4.3.4 | JSX/TSX transform inside the Vitest runner |
+| `jsdom` | ^25.0.1 | DOM environment for component tests |
+| `fake-indexeddb` | ^6.2.5 | In-memory IndexedDB for storage-layer tests (BrowserBackend / file-handle persistence) |
+| `fast-check` | ^4.8.0 | Property-based testing |
+| `@testing-library/react` | ^16.3.0 | RTL render + queries (React 19 compatible) |
+| `@testing-library/jest-dom` | ^6.6.3 | Custom DOM matchers; registered in `vitest.setup.ts` |
+| `@testing-library/user-event` | ^14.6.1 | Realistic user interaction simulation |
+| `@playwright/test` | ^1.49.0 | E2E runner (`playwright.config.ts`); Chromium-only by default |
 
-No runtime or dev deps changed in this update (0.11.0 through 0.37.1). Test count grows with each release; see CHANGELOG for per-release totals.
+**0.59.0 "Gibson":** the test stack moved to Vitest 4 (`vitest` + `@vitest/coverage-v8` → ^4.1.8) and gained `fake-indexeddb` + `fast-check`. Runtime deps unchanged. Test count grows with each release; see CHANGELOG for per-release totals.
+
+### `overrides` / `allowScripts`
+
+- **`overrides`:** `postcss` pinned to `^8.5.14` (transitive, via Tailwind/Next toolchain).
+- **`allowScripts`:** post-install build scripts are gated; only `esbuild@0.27.7`, `sharp@0.34.5`, and `unrs-resolver@1.11.1` are allowed to run.
 
 ## Notable transitive deps
 
@@ -80,7 +87,9 @@ processor. Self-contained.
 ```
 unit / component  →  vitest + jsdom + @vitejs/plugin-react
                      @testing-library/{react,jest-dom,user-event}
-                     coverage: @vitest/coverage-v8 (80% threshold)
+                     property-based: fast-check
+                     storage tests: fake-indexeddb (in-memory IDB)
+                     coverage: @vitest/coverage-v8 (70% threshold)
                      config: vitest.config.ts, vitest.setup.ts
                      location: src/**/*.test.{ts,tsx}
 
@@ -108,5 +117,5 @@ These were considered or asked about but **are not in the dep tree**:
 | `@tanstack/react-virtual` / virtualization libs | Task table not virtualized (high-risk refactor). |
 | State stores (zustand / jotai / redux-toolkit) | Single god-component owns state; `tasksRef` mirroring discussed as future cleanup. |
 | `@microsoft/microsoft-graph-client` | Direct Graph calls made via native `fetch` in `sharepoint-backend.ts` and Outlook hooks; no need for a client library wrapper. |
-| `@libsql/client` | Turso integration (0.25.0) uses raw HTTP `/v2/pipeline` API via `fetch`; no need for the SDK. |
+| `@libsql/client` | Turso integration (0.25.0) uses raw HTTP `/v2/pipeline` API via `fetch`; no need for the SDK. The 0.59.0 multi-tenancy work also stays on raw `/v2/pipeline`, not the SDK. |
 | `jszip` / `pako` | OOXML export uses the in-tree `zip.ts` STORE-method writer; no DEFLATE. |

@@ -2,12 +2,152 @@
 
 [![Pipeline Status](https://gitlab.example.com/example-group/public-collab/lop-app/badges/main/pipeline.svg)](https://gitlab.example.com/example-group/public-collab/lop-app/-/commits/main)
 [![coverage](https://gitlab.example.com/example-group/public-collab/lop-app/badges/main/coverage.svg)](https://gitlab.example.com/example-group/public-collab/lop-app/-/commits/main)
+[![version](https://img.shields.io/badge/version-v0.59.0_%22Gibson%22-2e7d32)](./CHANGELOG.md)
+[![license](https://img.shields.io/badge/license-Apache--2.0-blue)](./LICENSE)
 
-**v0.56.0 "Bradbury"** — AI-assisted project-status tracker for Acme project leads. Manage open points, track accountability, plan resource capacity and cost, keep a stakeholder register, manage RAID and change-control logs, and monitor project health — all in the browser, no backend account required.
+> AI-assisted, browser-based project-management tracker for Acme project leads — no backend account required.
 
 ---
 
-## Automation: Reminders and Alerts
+## Overview
+
+A single-page Project Management Tracker built for project leads who maintain a "List of Open Points" (LOP). Manage open points and track accountability, plan resource capacity and cost, keep a stakeholder register, run RAID and change-control logs, manage a portfolio of projects, and monitor project health — all in the browser. **All data is stored locally by default — no backend account required.**
+
+Core workflow:
+
+1. Add tasks with assignee, due date, and priority
+2. Filter, sort, and view tasks in a table or Gantt chart
+3. Ask the integrated Claude AI assistant to create, update, or summarize tasks in natural language
+4. Send pre-filled status-inquiry emails to assignees with one click
+5. Export the task list to CSV, Markdown, PDF, DOCX, XLSX, or PPTX
+6. Optionally sync tasks bidirectionally with a Jira project
+7. Track RAID and change-control items and create reports for the steering committee
+8. Plan capacity, utilization, availability, and cost rates while accounting for holidays
+9. Run a portfolio of projects, each with its own workspace and metadata header
+
+## Features
+
+Each row keeps a one-line summary. Expand **Details** for the full description.
+
+| Feature | Description |
+|---------|-------------|
+| Multi-project portfolio | Manage many projects from one app — each project is a full, independent workspace with a metadata header.<br><details><summary>Details</summary>Every project carries its own header (client, NACE sector, deployment model, identity types, regulatory requirements, internal/external key stakeholders). Switch projects from the top-bar switcher; create, edit, archive/restore, and permanently delete them. Hard-delete requires typing the project name into a confirm dialog. **File mode** keeps a local registry of per-project files; **Turso mode** stores every project in one shared multi-tenant database (the database is the source of truth for the project list). The global File ↔ Turso switch lives in Settings → Integrations. Export operates on the current project.</details> |
+| Task management | Create, edit, delete, bulk-edit, and filter by priority / assignee / group / label.<br><details><summary>Details</summary>Effort fields (Original estimate & Time spent in w/d/h/m, Jira basis 1w=5d 1d=8h) with hideable/sortable Est./Spent columns and an inline effort progress bar. Per-field inline validation reveals errors on blur/submit and disables Save until the form is valid.</details> |
+| Gantt chart | Visual timeline with drag-and-drop reorder and dependency arrows.<br><details><summary>Details</summary>Clicking a task name opens the task editor. Milestone overlays appear when the Milestones module is enabled; an inline add-milestone control creates milestones directly on the chart.</details> |
+| Task dependencies | FS / SS / FF / SF predecessor relationships with cycle detection.<br><details><summary>Details</summary>Dependencies are validated on save — circular chains are rejected before they can be persisted.</details> |
+| Groups & labels | Categorize tasks freely; filter by group or label. |
+| AI assistant (Claude) | Ask questions or create/update tasks in natural language (user-supplied API key, Settings → AI).<br><details><summary>Details</summary>Includes a live token-usage panel, a Stop button to interrupt a running response, and a pop-out window. The pop-out is a read-only mirror — its tools cannot mutate data. Tasks can be created, updated, and summarized via tool calls.</details> |
+| Voice commands | Speak commands in English or German (Web Speech API). |
+| Reports | Summary view with overdue, due-soon, and completion stats.<br><details><summary>Details</summary>Addable report cards (Stakeholder, RAID, Resource, Budget, and more) built on a shared sortable/filterable/resizable report table; each card prints on its own.</details> |
+| RAID register | Risks / Assumptions / Issues / Dependencies log with parent/child cycle detection and true deep-linking (`#raid/<id>`).<br><details><summary>Details</summary>Sortable/filterable table, severity and status tracking, optional links to stakeholders, and RAID-review reminders for stale or overdue items.</details> |
+| Change Log | RAID-sibling change-control register with a 6-state approval workflow.<br><details><summary>Details</summary>Proposed → Implemented / Deferred, with impact rating, schedule-day and cost figures, an optional Change → RAID link, optional stakeholder links, and a printable Change Report that feeds the Scope RAG on the dashboard.</details> |
+| Stakeholder register | Sortable/filterable register with a RACI matrix (per stakeholder × milestone), Influence/Interest grid, and engagement-level tracking.<br><details><summary>Details</summary>A quadrant-based engagement policy drives stakeholder-communication reminders from due-soon milestones, open RAID items, and pending changes the stakeholder is linked to (see Automation / Notifications).</details> |
+| Resource planner & address book | Address book (name, title, contact, birthday), two-dimensional roles (discipline × grade) with internal/external rates, absences, and a per-period utilization planning grid.<br><details><summary>Details</summary>Rolls up into capacity, cost, and margin. Sub-views: Directory, Workload, Calendar, Planning, and Manage Roles. Birthdays drive optional reminders; absences feed working-day calculations across the app.</details> |
+| Budget planner | PO-line budget buckets (T&M / fixed-price) with per-role allocations, CCI, and win/loss with spillover.<br><details><summary>Details</summary>Detailed (per-role) or blended (per-discipline, average grade rate) planning per bucket; multi-currency via ECB FX rates with per-rate EUR overrides; a dedicated read-only Budget Report.</details> |
+| Milestones | Timeline of project milestones with status classification, name/status filters, and resizable columns.<br><details><summary>Details</summary>Milestones overlay the Gantt chart, anchor the RACI matrix, and feed Schedule-RAG and stakeholder-communication reminders.</details> |
+| Dashboard | Project-health RAG status with lettered badges, burn-down charts, milestones, and Earned Value SPI/CPI.<br><details><summary>Details</summary>EVM indices feed the Schedule/Budget RAGs (CPI fills the Budget pill even without budget buckets). Configurable thresholds, print-friendly RAG captions, and a Clear button. Module-specific pills hide when their feature module is disabled.</details> |
+| Activity log | Browser-local chronological record of task / RAID / absence / shift CRUD with text / wildcard / regex search.<br><details><summary>Details</summary>Includes a "general" activity group for events that don't belong to a specific entity, plus a Clear-with-confirm action and a print button.</details> |
+| Baseline / variance trends (Turso) | Periodic KPI snapshots into append-only Turso tables; a Trends view shows baseline-vs-current variance and KPI trend charts.<br><details><summary>Details</summary>Snapshots are scoped per project under Turso multi-tenancy. The Trends view shows the snapshot list, lets you set a baseline, and surfaces a config-incomplete warning when capture cannot run.</details> |
+| Information flows | A diagram of information flows between stakeholders and the project. |
+| Feature modes | Simple / Modular / Advanced mode gates navigation, automation, dashboard, and reports via toggleable feature modules.<br><details><summary>Details</summary>Nine feature modules can be switched on or off (Settings → Features); Save applies the set and reloads. Disabled modules retain their data but pause automation and hide their UI.</details> |
+| Layout & theme | Modern Dark-Blue sidebar layout (default) with grouped navigation and full-viewport content; Classic single-scroll mode toggle; Light / Dark / System theme.<br><details><summary>Details</summary>Drag-resizable panes throughout, a centered half-size chat pane, and an icon rail for narrow viewports. Toggle layout in Settings → Appearance → Layout.</details> |
+| Input feedback | Character counters on capped text fields; on-blur clamp notices on numeric fields; a save-time summary toast when entries were adjusted. |
+| Export | Configurable multi-section export to CSV, Markdown, PDF (print), DOCX, XLSX, and PPTX.<br><details><summary>Details</summary>Per-section toggles (tasks, RAID, changes, milestones, stakeholders, budgets, resources, project metadata) control what each export contains; PDF renders all enabled sections. The storage round-trip (load/save) stays byte-identical regardless of export configuration.</details> |
+| Localization | English (US / UK) and German. |
+| Printing | Scoped print — printing a report prints just that view (sidebar, banners, and other panes are hidden). |
+
+## Quick Start
+
+### Prerequisites
+
+- **Node.js ≥ 20.9.0** (the CI image is `node:20`). Check with `node --version`.
+- **npm** (ships with Node.js).
+
+### Setup
+
+```bash
+npm install        # install dependencies
+npm run dev        # start the development server
+```
+
+Open [http://localhost:3000](http://localhost:3000).
+
+> **Note:** `npm run dev` is for **development only** (hot reload, unoptimized). For a production deployment, build first and then start the optimized server:
+>
+> ```bash
+> npm run build      # type-check + production build → .next/
+> npm run start      # serve the production build
+> ```
+
+No environment variables are required to run the app — every integration is configurable in-app via Settings. See [Environment Variables & Security](#environment-variables--security) for the optional build-time overrides.
+
+### Development Scripts
+
+<!-- AUTO-GENERATED from package.json scripts -->
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start Next.js dev server with hot reload on http://localhost:3000 |
+| `npm run build` | Production build — runs TypeScript type-check, then emits `.next/` |
+| `npm run start` | Serve the production build (run `npm run build` first) |
+| `npm run lint` | Run ESLint (`eslint-config-next` preset) |
+| `npm run test` | Vitest unit/component tests in watch mode |
+| `npm run test:run` | Vitest, single run (CI-friendly) |
+| `npm run test:coverage` | Vitest + v8 coverage report (fails below 70%) |
+| `npm run e2e` | Playwright E2E suite, headless |
+| `npm run e2e:ui` | Playwright interactive UI mode |
+| `npm run e2e:install` | One-time: download Chromium browser binary |
+| `npm run docs:scripts` | Regenerate AUTO-GENERATED scripts tables in repo docs from `package.json` |
+| `npm run docs:scripts:check` | Verify AUTO-GENERATED scripts tables are in sync; exit non-zero on drift (CI mode) |
+<!-- END AUTO-GENERATED -->
+
+## Storage Backends
+
+The active backend is chosen in Settings → Integrations / Storage Configuration. Switching backends migrates the current workspace into the new one.
+
+| Backend | Description | When to use |
+|---------|-------------|-------------|
+| Browser (default) | `IndexedDB` (schema v6) for workspace entities; `localStorage` for settings. | The zero-setup default. Use it for a single person on one machine — data survives page refresh but lives only in that browser profile. |
+| Local JSON / CSV / Markdown | File System Access API — reads and writes a local file you pick. | When you want a portable file you control (commit to git, drop in a shared drive, diff by hand). Markdown/CSV are human-readable; JSON is the complete round-trip. |
+| SharePoint JSON / CSV | Workspace as a single JSON or CSV blob in a SharePoint document library via Microsoft Graph; requires M365 sign-in. | When the team already lives in Microsoft 365 and you want the workspace stored alongside other project documents. |
+| Turso (libSQL) | Relational schema (one table per entity) via the Turso HTTP `/v2/pipeline` API; works with Turso Cloud and a local/self-hosted `tursodb`. | For multi-device or multi-project use — relational queries, baseline/variance trends, and the shared multi-tenant database that backs the portfolio in Turso mode. |
+
+## Integrations
+
+### Jira
+
+All browser-to-Jira traffic is proxied through Next.js API routes rather than calling Atlassian directly from the browser. This sidesteps CORS restrictions and keeps credential handling on the server boundary: the site URL, email, and API token are sent in the POST body **per request** and are never persisted server-side.
+
+| Route | Purpose |
+|-------|---------|
+| `POST /api/jira/test` | Verify credentials (`/rest/api/3/myself`) |
+| `POST /api/jira/projects` | List accessible projects |
+| `POST /api/jira/issue-types` | List issue types for a project |
+| `POST /api/jira/users` | Search assignable users |
+| `POST /api/jira/search` | Run a JQL query (paginated) |
+| `POST /api/jira/create-issue` | Create a new Jira issue from a local task |
+| `POST /api/jira/update-issue` | Push local task edits back to Jira |
+| `POST /api/jira/transition-issue` | Change an issue's workflow status category |
+
+Bidirectional sync with conflict resolution is available from the Jira settings section. Credentials (site URL, email, API token) are stored in `localStorage` and sent only to your own Atlassian domain.
+
+### Microsoft 365
+
+Microsoft 365 features use MSAL (browser PKCE — no backend token exchange) and the Microsoft Graph API. The integration is off by default; enable it in Settings → Integrations.
+
+| Feature | Graph scope | What it does |
+|---------|-------------|--------------|
+| Outlook contacts import | `Contacts.Read` | Imports personal contacts from `/me/contacts` into the Resource Directory and assignee address book via a preview-and-pick dialog; updates existing entries by email |
+| Outlook calendar import | `Calendars.Read` | Imports all-day Out-of-Office events from `/me/calendarView` as Absences via a preview-and-pick dialog with a per-row absence-type selector |
+| SharePoint storage | `Sites.ReadWrite.All` | Stores the workspace as a single JSON or CSV blob in a SharePoint document library; URL configured in Settings → Integrations / Storage Configuration |
+
+#### Setup
+
+1. Register an app in [Microsoft Entra admin center](https://entra.microsoft.com/) as a single-page application (SPA).
+2. Add a redirect URI: `http://localhost:3000` for dev, or your production URL.
+3. Grant API permissions: `Contacts.Read`, `Calendars.Read`, `Sites.ReadWrite.All` (or narrower equivalents).
+4. Copy the **Client ID** and **Tenant ID** into Settings → Integrations, or provide them via the env vars below.
+
+## Automation / Notifications
 
 The app fires reminders on page load once per session for approaching deadlines, stale RAID items, stakeholder communications, and team birthdays. All reminder types share a unified model: toasts fire by default; banners and pop-ups are opt-in via Settings → Notifications. Each channel (banner, toast, popup) has its own lead-time setting, or you can set a single global lead-time that overrides all channels.
 
@@ -40,139 +180,24 @@ Resources with a birthday stored in the address book trigger a toast when the bi
 
 When Jira integration is enabled and a token-expiry date is recorded, the app surfaces a sticky banner warning when the token is expiring soon, expired, or has been marked invalid. A separate settings toggle controls the Jira-token banner independently from the main notification channels.
 
----
-
-## Integrations
-
-### Jira
-
-The app includes a server-side proxy layer for Jira Cloud. All browser-to-Jira traffic goes through Next.js API routes — credentials are sent in the POST body per request and are never persisted server-side.
-
-| Route | Purpose |
-|-------|---------|
-| `POST /api/jira/test` | Verify credentials (`/rest/api/3/myself`) |
-| `POST /api/jira/projects` | List accessible projects |
-| `POST /api/jira/issue-types` | List issue types for a project |
-| `POST /api/jira/users` | Search assignable users |
-| `POST /api/jira/search` | Run a JQL query (paginated) |
-| `POST /api/jira/create-issue` | Create a new Jira issue from a local task |
-| `POST /api/jira/update-issue` | Push local task edits back to Jira |
-| `POST /api/jira/transition-issue` | Change an issue's workflow status category |
-
-Bidirectional sync with conflict resolution is available from the Jira settings section. Credentials (site URL, email, API token) are stored in `localStorage` and sent only to your own Atlassian domain.
-
-### Microsoft 365
-
-Microsoft 365 features use MSAL (browser PKCE — no backend token exchange) and the Microsoft Graph API. The integration is off by default; enable it in Settings → Integrations.
-
-| Feature | Graph scope | What it does |
-|---------|-------------|--------------|
-| Outlook contacts import | `Contacts.Read` | Imports personal contacts from `/me/contacts` into the Resource Directory and assignee address book via a preview-and-pick dialog; updates existing entries by email |
-| Outlook calendar import | `Calendars.Read` | Imports all-day Out-of-Office events from `/me/calendarView` as Absences via a preview-and-pick dialog with a per-row absence-type selector |
-| SharePoint storage | `Sites.ReadWrite.All` | Stores the workspace as a single JSON or CSV blob in a SharePoint document library; URL configured in Settings → Integrations / Storage Configuration |
-
-#### Setup
-
-1. Register an app in [Microsoft Entra admin center](https://entra.microsoft.com/) as a single-page application (SPA).
-2. Add a redirect URI: `http://localhost:3000` for dev, or your production URL.
-3. Grant API permissions: `Contacts.Read`, `Calendars.Read`, `Sites.ReadWrite.All` (or narrower equivalents).
-4. Copy the **Client ID** and **Tenant ID** into Settings → Integrations, or provide them via the env vars below.
-
----
-
-## What It Does
-
-A single-page task manager built for project leads who maintain a "List of Open Points" (LOP). Core workflow:
-
-1. Add tasks with assignee, due date, and priority
-2. Filter, sort, and view tasks in a table or Gantt chart
-3. Ask the integrated Claude AI chat to create, update, or summarize tasks in natural language
-4. Send pre-filled status-inquiry emails to assignees with one click
-5. Export the task list to CSV, Markdown, PDF, DOCX, XLSX, or PPTX
-6. Optionally sync tasks bidirectionally with a Jira project
-7. Track RAID items and create reports for the steering committee
-8. Plan capacity, utilization, availability, and cost rates while accounting for holidays
-
-All data is stored locally by default — no backend account required.
-
-## Features
-
-| Feature | Description |
-|---------|-------------|
-| Task management | Create, edit, delete, bulk-edit, filter by priority / assignee / group / label; effort fields (Original estimate & Time spent in w/d/h/m, Jira basis 1w=5d 1d=8h) with hideable/sortable Est./Spent columns and an inline effort progress bar |
-| Gantt chart | Visual timeline with drag-and-drop reorder and dependency arrows; clicking a task name opens the task editor |
-| Task dependencies | FS / SS / FF / SF predecessor relationships with cycle detection |
-| Groups & labels | Categorize tasks freely; filter by group or label |
-| AI chat (Claude) | Ask questions or create/update tasks in natural language (user-supplied API key, Settings → AI) |
-| Voice commands | Speak commands in English or German (Web Speech API) |
-| Reports | Summary view with overdue, due-soon, and completion stats |
-| RAID register | Risks / Assumptions / Issues / Dependencies log with parent/child cycle detection and true deep-linking (`#raid/<id>`) |
-| Change Log | RAID-sibling change-control register with 6-state approval workflow (Proposed → Implemented/Deferred), impact rating, schedule-day and cost figures, and a printable Change Report; feeds the Scope RAG on the dashboard |
-| Stakeholder register | Sortable/filterable register with RACI matrix (per stakeholder × milestone), Influence/Interest grid, and engagement level tracking |
-| Resource planner & address book | Address book (name, title, contact, birthday), two-dimensional roles (discipline × grade) with internal/external rates, absences, per-period utilization planning grid → capacity, cost, and margin rollup |
-| Budget planner | PO-line budget buckets (T&M / fixed-price) with per-role allocations, CCI, win/loss with spillover, multi-currency via ECB rates |
-| Dashboard | Project-health RAG status with lettered badges, burn-down charts, milestones, and Earned Value SPI/CPI that feed the Schedule/Budget RAGs |
-| Activity log | Browser-local chronological record of task / RAID / absence / shift CRUD with text / wildcard / regex search |
-| Baseline / variance trends (Turso) | Periodic KPI snapshots into append-only Turso tables; a Trends view shows baseline-vs-current variance, KPI trend charts, and the snapshot list |
-| Layout & theme | Modern Dark-Blue sidebar layout (default) with grouped navigation and full-viewport single-view content; Classic single-scroll mode toggle (Settings → Appearance → Layout); Light / Dark / System theme |
-| Input feedback | Character counters on capped text fields; on-blur clamp notices on numeric fields; save-time summary toast when entries were adjusted |
-| Export | CSV, Markdown, PDF (print), DOCX, XLSX, PPTX |
-| Localization | English (US / UK) and German |
-| Printing | Scoped print — printing a report prints just that view (sidebar, banners, and other panes are hidden) |
-
-## Storage Backends
-
-| Backend | Description |
-|---------|-------------|
-| Browser (default) | `IndexedDB` (schema v6) for workspace entities; `localStorage` for settings — zero setup, survives page refresh |
-| Local JSON / CSV / Markdown | File System Access API — reads and writes a local file you pick |
-| SharePoint JSON / CSV | Workspace as a single JSON or CSV blob in a SharePoint document library via Microsoft Graph; requires M365 sign-in |
-| Turso (libSQL) | Relational schema with one table per entity via the Turso HTTP `/v2/pipeline` API; works with Turso Cloud and a local/self-hosted `tursodb` |
-
-### Sample workspace
+## Sample Workspace
 
 | File | Description |
 |------|-------------|
 | `sample-workspace.md` / `.csv` | Hand-curated demo workspace (tasks, RAID, milestones, stakeholders + RACI, budgets, resources). The `.md` is the source of truth. |
 | `sample-workspace.json` | Complete demo workspace generated from the `.md` (adds a demo change-log + RAID→stakeholder links) via `npx vite-node scripts/generate-sample-workspace.ts`. |
-| `sample-workspace.sqlite3` | The same workspace as a Turso-compatible SQLite database (schema v9). Import with: `turso db create lop-demo --from-file sample-workspace.sqlite3`, then configure the URL and token in Settings → Integrations. |
-
-## Commands
-
-<!-- AUTO-GENERATED from package.json scripts -->
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Start Next.js dev server with hot reload on http://localhost:3000 |
-| `npm run build` | Production build — runs TypeScript type-check, then emits `.next/` |
-| `npm run start` | Serve the production build (run `npm run build` first) |
-| `npm run lint` | Run ESLint (`eslint-config-next` preset) |
-| `npm run test` | Vitest unit/component tests in watch mode |
-| `npm run test:run` | Vitest, single run (CI-friendly) |
-| `npm run test:coverage` | Vitest + v8 coverage report (fails below 80%) |
-| `npm run e2e` | Playwright E2E suite, headless |
-| `npm run e2e:ui` | Playwright interactive UI mode |
-| `npm run e2e:install` | One-time: download Chromium browser binary |
-| `npm run docs:scripts` | Regenerate AUTO-GENERATED scripts tables in repo docs from `package.json` |
-| `npm run docs:scripts:check` | Verify AUTO-GENERATED scripts tables are in sync; exit non-zero on drift (CI mode) |
-<!-- END AUTO-GENERATED -->
+| `sample-workspace.sqlite3` | The same workspace as a Turso-compatible SQLite database (multi-tenant, schema v10). Import with `turso db create lop-demo --from-file sample-workspace.sqlite3`, then configure the URL and token in Settings → Integrations. |
 
 ## Tech Stack
 
-- **Framework**: Next.js 16 (App Router)
+- **Framework**: Next.js 16 (App Router, Turbopack)
 - **UI**: React 19, Tailwind CSS 4
 - **Language**: TypeScript 5
+- **Testing**: Vitest 4 (unit/component, v8 coverage), Playwright (E2E)
 - **AI**: Anthropic Claude API (key stored client-side in Settings)
+- **Optional storage**: Turso (libSQL), Microsoft Graph / SharePoint
 
-## Setup
-
-```bash
-npm install
-npm run dev
-```
-
-Open [http://localhost:3000](http://localhost:3000).
-
-### Environment Variables (optional)
+## Environment Variables & Security
 
 No environment variables are **required** — all integrations work via in-app Settings. These optional build-time variables pre-configure integrations:
 
@@ -183,10 +208,8 @@ No environment variables are **required** — all integrations work via in-app S
 | `NEXT_PUBLIC_TURSO_DATABASE_URL` | Turso database URL (overrides Settings → Integrations input) |
 | `NEXT_PUBLIC_TURSO_AUTH_TOKEN` | Turso auth token (overrides Settings → Integrations input); **recommend a scoped token** |
 
-The Claude API key and Jira credentials are entered in Settings and stored in `localStorage`.
-
-**Security note**: Turso auth tokens live in the browser (`localStorage` or as `NEXT_PUBLIC_*` env vars, which are not secret). Use a token scoped to the minimum required database and operations; rotate if exposed.
+> ⚠️ **Security:** Turso auth tokens live in the browser (`localStorage`, or as `NEXT_PUBLIC_*` env vars, which are inlined at build time and are **not** secret). Use a token scoped to the minimum required database and operations, and rotate it if it may have been exposed. The Claude API key and Jira credentials are likewise entered in Settings and stored in `localStorage`.
 
 ## License
 
-Apache 2.0 — see [LICENSE](./LICENSE).
+Apache 2.0 — see the [LICENSE](./LICENSE) file for the full text.

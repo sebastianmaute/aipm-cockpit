@@ -1,4 +1,4 @@
-<!-- Generated: 2026-06-09 | Files scanned: ~127 (src/app/*.tsx, *.ts, settings-sections/) | Token estimate: ~1710 | Updated for 0.29.0–0.56.0: modern sidebar layout + UI-consistency sweep + Health Dashboard + Milestones + Earned Value + budget/dashboard RAG + burn-down + UI refinements + baseline/variance trends + change-control Log + stakeholder report + influence/interest matrix + Simple/Modular/Advanced mode + stakeholder communication reminders + input sanitization feedback -->
+<!-- Generated: 2026-06-10 | Files scanned: ~150 (src/app/*.tsx, *.ts, settings-sections/, dashboard-sections/) | Token estimate: ~1850 | Updated for 0.29.0–0.59.0: modern sidebar layout + UI-consistency sweep + Health Dashboard + Milestones + Earned Value + budget/dashboard RAG + burn-down + UI refinements + baseline/variance trends + change-control Log + stakeholder report + influence/interest matrix + Simple/Modular/Advanced mode + stakeholder communication reminders + input sanitization feedback + configurable multi-section export + AI usage panel + information-flows diagram + multi-project portfolio (file & Turso) -->
 
 # Frontend
 
@@ -18,13 +18,15 @@ src/app/layout.tsx           — root layout, security headers, globals.css,
         │       ├── src/app/sidebar.tsx (dark-blue, collapsible)
         │       │   └── src/app/sidebar-nav.tsx (nav groups)
         │       │       └── src/app/nav-icons.tsx (icon + label pairs)
-        │       ├── src/app/top-bar.tsx (title + New task + Alerts + menus)
+        │       ├── src/app/top-bar.tsx (ProjectSwitcher + title + New task + Alerts + AI pop-out + menus)
         │       │   └── src/app/action-menus.tsx (Voice·Export·Help·Version cluster)
         │       └── <main> (single active view + banners)
+        │           ├── ProjectsPanel (portfolio mgmt; `projects` view)
+        │           ├── ProjectEmptyState (modal when 0 projects)
         │           ├── TaskEditView (full-page task editor; Phase 2)
         │           ├── SettingsView (full-page Settings; Phase 4B)
         │           ├── Open Points tab (task table + workspace section tabs)
-        │           └── Workspace section (6 main tabs + 2 popout-only)
+        │           └── Workspace section (main tabs + popout-only)
         │
         ├── classic shell (legacy; v0.28.0 and earlier)
         │   └── src/app/classic-shell.tsx [not current focus]
@@ -96,7 +98,7 @@ prerendered.
 | `colWidths`, `hiddenCols` | UI table prefs in `localStorage` (colWidths debounced 250 ms) |
 | `search` + `searchDebounced` + `taskSearchIndex` | 150 ms search debounce + precomputed lowercase index |
 | `selectedIds`, `bulkEdit`, `expandedNotes` | Per-session UI only |
-| `activeTab` | `"open-points"` \| `"chat"` \| `"dashboard"` \| `"trends"` \| `"milestones"` \| `"reports"` \| `"gantt"` \| `"raid"` \| `"changes"` \| `"change-report"` \| `"budget"` \| `"resources"` \| `"activity"` \| `"resource-report"` \| `"address-book"` \| `"edit"` (last two in popouts or main); synced to URL hash via `useHashView` |
+| `activeTab` (`AppView`, nav-config.ts) | `"projects"` (Portfolio group) \| `"open-points"` \| `"chat"` \| `"dashboard"` \| `"trends"` \| `"milestones"` \| `"gantt"` \| `"resources"` (+ sub-views `"directory"` \| `"workload"` \| `"calendar"` \| `"planning"` \| `"manage-roles"`) \| `"budget"` \| `"budget-report"` \| `"raid"` \| `"raid-report"` \| `"changes"` \| `"change-report"` \| `"stakeholders"` \| `"raci"` \| `"stakeholder-map"` \| `"reports"` \| `"activity"` \| `"settings"` \| `"edit"` (main-only); synced to URL hash via `useHashView`. Nav groups: **Portfolio** (projects) / Overview / Plan / Registers / System |
 | `budgets: BudgetBucket[]`, `fxRates: FxRates \| null` | Persisted via `StorageBackend.save()`; lives in `WorkspaceContext`; `fxRates` refreshed on demand via `useFxRates` (Refresh ECB rates button) |
 | `dueSnooze` / `birthdaySnooze` / `jiraTokenSnooze` | `useReminderSnooze("due")` / `useReminderSnooze("birthday")` / `useReminderSnooze("jiraToken")` — each yields `{ isSnoozed, snoozedUntil, snooze, clear }`; banners are gated on `!isSnoozed` |
 | `raidFilterTaskId` | Cross-tab nav: jump from a task row to RAID pre-filtered for that task |
@@ -121,15 +123,18 @@ prerendered.
 | `use-sidebar-collapsed.ts` | `useSidebarCollapsed() → [collapsed, toggle]` persisted to localStorage | |
 | **Views** | | |
 | `task-edit-view.tsx` | Full-page task editor in `<main>` when `activeView === "edit"` | Reuses `TaskFormFields` (Phase 2) |
-| `settings-view.tsx` | Full-page Settings in `<main>` when `activeView === "settings"` | Left nav rail (8 sections) + right panel (Phase 4B) |
+| `settings-view.tsx` | Full-page Settings in `<main>` when `activeView === "settings"` | Left nav rail (11 sections: Mode / Appearance / Localization / General / Notifications / AI / Jira / Storage / Integrations / Export / Information flows) + right panel (Phase 4B) |
 | `settings-sections/appearance-section.tsx` | Theme selector (Light / Dark / System) | Wired to `useTheme()` |
 | `settings-sections/localization-section.tsx` | Language + holiday countries | |
 | `settings-sections/general-section.tsx` | General app settings | |
 | `settings-sections/notifications-section.tsx` | Reminder preferences | |
-| `settings-sections/ai-section.tsx` | Claude API key + model selection | |
+| `settings-sections/ai-section.tsx` | Claude API key + model selection + session/weekly token-cap inputs + consent grant/revoke; embeds `AiUsagePanel` | |
+| `settings-sections/ai-usage-panel.tsx` | `AiUsagePanel` — session + weekly token-usage bars (green < 80 %, pink ≥ 80 %) + next-reset label; reads `AiUsageProvider` | Component; 0.57.0+ |
+| `settings-sections/export-section.tsx` | Configurable multi-section export: per-section toggle checkboxes (project / tasks / RAID / changes / milestones / stakeholders / budgets / resources / roles / absences / shifts / status) writing `settings.export` (`ExportConfig`) | 0.57.0+ |
+| `settings-sections/information-flows-section.tsx` | Information-flows diagram: inline SVG showing the PWA at centre wired to local storage, Turso, Jira, M365 (Graph + MSAL), and the Anthropic API, plus a legend | 0.57.0+ |
 | `settings-sections/jira-settings.tsx` | Jira URL / email / API token + test-connection | |
 | `settings-sections/storage-config.tsx` | Backend picker (Browser / Local / SharePoint / Turso) | |
-| `settings-sections/integrations-section.tsx` | M365 + Turso toggles + settings | |
+| `settings-sections/integrations-section.tsx` | M365 + Turso toggles + settings; snapshot recording cadence; hosts the portfolio-mode **File \| Turso** selector (persists to localStorage + reloads, 0.59.0+) | |
 | `settings-sections/mode-section.tsx` | Simple / Modular / Advanced mode selector: preset buttons, per-module checkboxes, derived mode badge, Save & reload | `Settings.features` gates nav/automation/reports by mode; 0.54.0+ |
 | **Task Editor** | | |
 | `task-form-modal.tsx` | Task create/edit modal (classic mode); returns null when closed | ~491 lines extracted from task-manager |
@@ -202,7 +207,7 @@ prerendered.
 | `field-feedback.tsx` | `CharCounter` (approaches-cap counter badge), `FieldNotice` (inline on-blur notice), `useAdjustmentTracker` (accumulates per-save adjustment list for the toast) | Components + hook; 0.56.0+ |
 | `toast-context.tsx` | `ToastContext` + `useToast()` — shared imperative toast access so editor modals can fire the save-time "fields adjusted" toast without prop-drilling | Context; 0.56.0+ |
 | **Chat & Voice** | | |
-| `chat-panel.tsx` | Claude chat with tool calls via `dispatcher` | Conditional mount; history in TaskManager |
+| `chat-panel.tsx` | "AI Assistant": Claude chat with tool calls via `dispatcher`; suggested-prompt chips, Stop button (aborts the in-flight turn), centered resizable pane, consent screen; records token usage to AiUsageProvider. Top-bar exposes a pop-out button (0.57+) | Conditional mount; history in TaskManager |
 | `chat-tools.ts` | Tool dispatcher object; CRUD on tasks/RAID | Huge `useMemo` in TaskManager |
 | `use-chat-dispatcher.ts` | Hook wrapping chat tools | |
 | `voice-button.tsx` + `voice.ts` | Web Speech API integration | Lazy-imported |
@@ -229,7 +234,24 @@ prerendered.
 | `outlook-calendar-import-modal.tsx` | Preview-and-pick dialog for Outlook calendar | Modal component; 0.24.0+ |
 | `turso-config.ts` | Turso configuration resolver | Pure; 0.25.0+ |
 | `turso-backend.ts` | Turso HTTP `/v2/pipeline` storage backend | Implements `StorageBackend`; 0.25.0+ |
+| `turso-tenant-backend.ts` | Multi-tenant Turso `StorageBackend`: reads/writes only the `projectId` slice of the shared DB; `load()` also fetches the `projects`-table row to set `ws.project` | Implements `StorageBackend`; 0.59.0+ |
 | `storage-config.tsx` | Backend picker UI; gates on auth readiness | |
+| **Multi-project / Portfolio** | | |
+| `projects-panel.tsx` | Projects management view (`projects` AppView, Portfolio group): registered-project list with per-row Switch / Edit / Export / Delete; in Turso mode the destructive action is Archive plus a "Show archived" subsection (Restore + permanent-delete). Purely presentational — all side-effects delegated to callback props | Conditional mount; 0.58.0+ |
+| `project-switcher.tsx` | `ProjectSwitcher` — current-project indicator + dropdown switcher (list + Load-from-file + New); rendered by both classic `AppHeader` and modern `TopBar`; `readOnly` non-interactive variant for popouts | Component; 0.58.0+ |
+| `project-empty-state.tsx` | Non-dismissable onboarding modal shown when the registry has zero projects: Create-project (reveals `CreateProjectForm`) or Load-from-file | Component; 0.58.0+ |
+| `create-project-form.tsx` | `CreateProjectForm` — file-format selector (json/csv/md) above the shared `ProjectForm` (create mode); hosted by the panel modal and the empty-state; `hideFormat` for Turso mode | Component; 0.58.0+ |
+| `project-form.tsx` | Shared create/edit `ProjectForm` container: holds the draft, runs `validateProjectMeta` to gate Save, reveals per-field errors on blur/submit, sanitizes via `sanitizeProjectMeta` on submit | Component; 0.58.0+ |
+| `project-form-fields.tsx` | Presentational two-group field layout (Identity + People, Customer) for `ProjectForm`; controlled inputs, errors passed in pre-resolved | Component; 0.58.0+ |
+| `project-validation.ts` | Pure `ProjectDraft` type + `validateProjectMeta` / `hasProjectErrors` (i18n message keys per field) — single source for submit, display, and Save gating (mirrors task-validation) | Pure; 0.58.0+ |
+| `project-options.ts` | Static option sets: identity types (B2E/B2B/B2C/NHI), deployments, regulatory requirements + lookup sets | Pure; 0.58.0+ |
+| `nace-sections.ts` | Static `NACE_SECTIONS` list (NACE Rev 2.1 industry sections A–U) | Pure; 0.58.0+ |
+| `projects-registry.ts` | Pure registry core (`addProject`/`removeProject`/`setCurrentProject`/… immutable, id-supplied) + guarded localStorage IO (`lop-app:projects`); file-mode source of truth | Pure + IO; 0.58.0+ |
+| `project-file-handles.ts` | Dedicated IndexedDB DB (`lop-app-project-handles`) storing per-project `FileSystemFileHandle`s out-of-line, keyed by projectId; avoids touching storage.ts's IDB schema | 0.58.0+ |
+| `use-project-switch.ts` | Pure switch/create/load helpers (format→local-kind map, name-from-filename, registry-entry builder); stateful flows live in `use-storage-backend.ts` | Pure; 0.58.0+ |
+| `portfolio-mode.ts` | Global portfolio mode (`"file" \| "turso"`) + last-selected Turso project id in localStorage; guarded IO | Pure + IO; 0.59.0+ |
+| `turso-portfolio.ts` | Turso project CRUD over the shared DB's `projects` table (list/listArchived/create/updateMeta/archive/restore/hardDelete); ensures schema on every call | 0.59.0+ |
+| `type-to-confirm-dialog.tsx` | `TypeToConfirmDialog` — reusable destructive confirm modal; confirm button stays disabled until the exact value (e.g. project name) is typed; used for hard-delete | Component; 0.59.0+ |
 | **Theme & UI Tokens** | | |
 | `theme.ts` | Pure helpers: `resolveTheme`, `readStoredTheme` | 0.15.0+; no React |
 | `use-theme.tsx` | `ThemeProvider` + `useTheme() → { theme, setTheme }` | 0.15.0+; reads `lop-theme` from localStorage |
@@ -241,7 +263,8 @@ prerendered.
 | `milestones.ts` | `milestoneStatus(m, tasks, today)`, `partitionMilestones(milestones, tasks)` for on-track/at-risk/delayed bucketing | Pure; 0.44.0+ |
 | `evm.ts` | `computeEvm(tasks, plan) → { SPI, CPI, SV, CV, ... }` Earned Value metrics; folds Schedule/Budget RAG calculations | Pure; 0.45.0+ |
 | `dashboard-panel.tsx` | Health Dashboard view: health cards, milestone timeline, EVM charts | Conditional mount; 0.43.0+ |
-| `dashboard-sections/` | Reusable dashboard subsections (HealthCard, MilestoneTimeline, EVMChart) | Components; 0.43.0+ |
+| `dashboard-sections/health-pill.tsx` | `HealthPill` — RAG dot + label + colour-name span; used across the dashboard health band | Component; 0.43.0+ |
+| `dashboard-sections/registers-band.tsx` | `RegistersBand` — Top-RAID / overdue + due-soon tasks / milestones cards with deep-link buttons; `showRaid`/`showMilestones` mode gates | Component; 0.43.0+ |
 | `milestones-panel.tsx` | Milestones view: list, add, edit, link to tasks | Conditional mount; 0.44.0+ |
 | `milestone-edit-modal.tsx` | Modal editor for milestone name/date/description/linkedTaskIds | Component; 0.44.0+ |
 | `version-info.tsx` | VersionInfo body + VersionInfoModal (reused by Version popover, sidebar version line, Settings footer) | Component; 0.46.0+ |
@@ -268,7 +291,8 @@ prerendered.
 | `use-bulk-operations.ts` | Bulk-edit operations (e.g. apply field to selected) | |
 | `markdown.tsx` | Renders chat / report markdown safely | |
 | `help-search.ts` | Pure helpers for the Help full-text search (section matching + match-highlight segmentation) | Pure; 0.51.0+ |
-| `export.ts`, `export-ooxml.ts` | Export engines (CSV/MD/JSON/DOCX/XLSX/PPTX) | Lazy-imported |
+| `export.ts`, `export-ooxml.ts` | Export engines (CSV/MD/JSON/PDF/DOCX/XLSX/PPTX); honour `ExportConfig` per-section toggles (0.57+) | Lazy-imported |
+| `export-sections.ts` | Pure generic export-sections model + `buildExportSections(ws, cfg, lang)`: derives ordered `ExportSection[]` (title/columns/rows per entity) from the same CSV column constants + field-to-string helpers; gated by `ExportConfig` toggles AND non-empty data. Single source of truth consumed by all format builders | Pure; 0.57.0+ |
 | `zip.ts` | Hand-rolled STORE-method ZIP writer | No external dep |
 | `sanitize.ts` | Input validation for all inbound fields | Pure |
 | `health.ts` | RAG status computation + color helpers; gains `healthText` (colorized overall text, 0.48.0+) | Pure |
