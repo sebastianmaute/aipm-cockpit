@@ -141,6 +141,12 @@ function basicAuth(email: string, apiToken: string): string {
   return "Basic " + Buffer.from(`${email}:${apiToken}`).toString("base64");
 }
 
+// Bound every upstream call so a hung Atlassian endpoint cannot hold the
+// serverless function (and the client's spinner) for the platform timeout.
+// A timeout rejects the fetch, which the catch below turns into the same
+// structured 502 the client already classifies as a network failure.
+const JIRA_UPSTREAM_TIMEOUT_MS = 10_000;
+
 export async function callJira(
   creds: Creds,
   path: string,
@@ -165,6 +171,7 @@ export async function callJira(
       },
       // Server-to-server, no credentials/cookies.
       cache: "no-store",
+      signal: AbortSignal.timeout(JIRA_UPSTREAM_TIMEOUT_MS),
     });
   } catch (err) {
     // Network-level failure before any response (DNS, connection refused, TLS,

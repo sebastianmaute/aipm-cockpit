@@ -82,6 +82,14 @@ describe("rateLimit", () => {
     expect(rateLimit(req(ip, "x-real-ip"))!.status).toBe(429);
   });
 
+  it("keys buckets per scope so routes do not share limits", () => {
+    const ip = "10.0.0.7";
+    for (let i = 0; i < MAX_REQUESTS; i++) rateLimit(req(ip));
+    expect(rateLimit(req(ip))!.status).toBe(429);
+    // The same IP under a different scope has its own untouched bucket.
+    expect(rateLimit(req(ip), "ecb")).toBeNull();
+  });
+
   it("buckets all header-less requests under 'unknown'", () => {
     const bare = () =>
       new Request("https://example.com/api/jira/test", { method: "POST" });

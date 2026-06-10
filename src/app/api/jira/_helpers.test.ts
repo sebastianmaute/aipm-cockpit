@@ -180,6 +180,26 @@ describe("callJira — SSRF / URL hardening", () => {
     expect(headers["Content-Type"]).toBe("application/json");
   });
 
+  it("bounds the upstream call with an abort signal so a hung Jira cannot stall the route", async () => {
+    await callWith("https://acme.atlassian.net");
+    const init = fetchMock.mock.calls[0][1];
+    expect(init.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it("returns the same 502 envelope when the upstream call times out", async () => {
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    // AbortSignal.timeout rejects the fetch with a TimeoutError DOMException —
+    // it must take the same structured-502 path as any other network failure
+    // so the client's classifyJiraError still sees "network".
+    fetchMock.mockRejectedValueOnce(
+      new DOMException("The operation was aborted due to timeout", "TimeoutError"),
+    );
+    const res = await callWith("https://acme.atlassian.net");
+    expect(res.status).toBe(502);
+    await expect(res.json()).resolves.toEqual({ error: "upstream-unreachable" });
+    errSpy.mockRestore();
+  });
+
   it("returns a 502 envelope (not an unhandled throw) when the upstream fetch fails", async () => {
     const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     fetchMock.mockRejectedValueOnce(new Error("ECONNREFUSED"));
