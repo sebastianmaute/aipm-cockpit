@@ -7,6 +7,7 @@ import {
   type GraphContact,
   type OutlookContact,
 } from "./outlook-contacts";
+import { isSafeGraphLink } from "./sharepoint-graph";
 
 const GRAPH = "https://graph.microsoft.com/v1.0";
 const SELECT =
@@ -76,7 +77,7 @@ export function useOutlookContacts(
         if (mapped) out.push(mapped);
       }
       const next = page["@odata.nextLink"];
-      if (next && !next.startsWith("https://graph.microsoft.com/")) {
+      if (next && !isSafeGraphLink(next)) {
         throw new Error("outlookFetchFailed");
       }
       url = next;

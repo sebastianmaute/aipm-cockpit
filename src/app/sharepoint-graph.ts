@@ -45,27 +45,39 @@ export function searchSitesUrl(query: string): string {
   return `${GRAPH_BASE}/sites?search=${encodeURIComponent(query)}`;
 }
 
+// Graph IDs come back from Graph responses, but a poisoned/spoofed response
+// could carry a path-traversal "id" (e.g. "../me/...") that would pivot the
+// next authenticated fetch. encodeURIComponent confines each id to a single
+// path segment; Graph accepts percent-encoded ids (incl. the `,`/`:` that
+// composite site ids legitimately contain → %2C / %3A).
 export function siteDrivesUrl(siteId: string): string {
-  return `${GRAPH_BASE}/sites/${siteId}/drives`;
+  return `${GRAPH_BASE}/sites/${encodeURIComponent(siteId)}/drives`;
 }
 
 export function driveRootChildrenUrl(driveId: string): string {
-  return `${GRAPH_BASE}/drives/${driveId}/root/children`;
+  return `${GRAPH_BASE}/drives/${encodeURIComponent(driveId)}/root/children`;
 }
 
 export function folderChildrenUrl(driveId: string, itemId: string): string {
-  return `${GRAPH_BASE}/drives/${driveId}/items/${itemId}/children`;
+  return `${GRAPH_BASE}/drives/${encodeURIComponent(driveId)}/items/${encodeURIComponent(itemId)}/children`;
+}
+
+/** Encode each segment of a server-relative site path. Constraint: the `/`
+ *  separators must stay literal — Graph's `:/path:` site addressing needs a
+ *  slash-separated path — so only the segments between them are encoded. */
+function encodeSitePath(sitePath: string): string {
+  return sitePath.split("/").map(encodeURIComponent).join("/");
 }
 
 /** Resolve a site addressed by hostname + server-relative path (paste fallback). */
 export function siteByPathUrl(hostname: string, sitePath: string): string {
-  return `${GRAPH_BASE}/sites/${hostname}:${sitePath}`;
+  return `${GRAPH_BASE}/sites/${encodeURIComponent(hostname)}:${encodeSitePath(sitePath)}`;
 }
 
 /** Default document library (drive) root children of a site addressed by path.
  *  Works with Files.ReadWrite.All — no Sites.Read.All needed (unlike /sites/{id}/drives). */
 export function siteDefaultDriveRootChildrenUrl(hostname: string, sitePath: string): string {
-  return `${GRAPH_BASE}/sites/${hostname}:${sitePath}:/drive/root/children`;
+  return `${GRAPH_BASE}/sites/${encodeURIComponent(hostname)}:${encodeSitePath(sitePath)}:/drive/root/children`;
 }
 
 export function isFolder(item: GraphDriveItem): boolean {
@@ -109,10 +121,21 @@ export interface GraphListResponse<T> {
   "@odata.nextLink"?: string;
 }
 
+/** A pagination/next link is only safe to follow with the user's bearer token
+ *  when it stays on the Graph origin (same guard as the Outlook hooks). */
+export function isSafeGraphLink(link: string): boolean {
+  return link.startsWith("https://graph.microsoft.com/");
+}
+
 export function readList<T>(json: unknown): { items: T[]; nextLink?: string } {
   const r = (json ?? {}) as GraphListResponse<T>;
+  const rawNext = r["@odata.nextLink"];
+  // A foreign-origin nextLink is treated as absent: truncated pagination
+  // beats sending the bearer token to an attacker-chosen host.
+  const nextLink =
+    typeof rawNext === "string" && isSafeGraphLink(rawNext) ? rawNext : undefined;
   return {
     items: Array.isArray(r.value) ? r.value : [],
-    nextLink: typeof r["@odata.nextLink"] === "string" ? r["@odata.nextLink"] : undefined,
+    nextLink,
   };
 }

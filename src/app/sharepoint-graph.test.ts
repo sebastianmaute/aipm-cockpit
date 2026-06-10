@@ -5,7 +5,10 @@ import {
   siteDrivesUrl,
   driveRootChildrenUrl,
   folderChildrenUrl,
+  siteByPathUrl,
   siteDefaultDriveRootChildrenUrl,
+  isSafeGraphLink,
+  readList,
   mapSite,
   mapDriveItem,
   type GraphDriveItem,
@@ -18,11 +21,31 @@ describe("URL builders", () => {
   test("siteDrivesUrl", () => {
     expect(siteDrivesUrl("site-id")).toBe(`${GRAPH_BASE}/sites/site-id/drives`);
   });
+  test("siteDrivesUrl percent-encodes real-shaped composite site ids (commas)", () => {
+    expect(siteDrivesUrl("contoso.sharepoint.com,abc-123,def-456")).toBe(
+      `${GRAPH_BASE}/sites/contoso.sharepoint.com%2Cabc-123%2Cdef-456/drives`,
+    );
+  });
+  test("siteDrivesUrl neutralizes a hostile path-traversal id", () => {
+    const url = siteDrivesUrl("../me/messages");
+    expect(url).toBe(`${GRAPH_BASE}/sites/..%2Fme%2Fmessages/drives`);
+    expect(url).not.toContain("/me/messages");
+  });
   test("driveRootChildrenUrl", () => {
     expect(driveRootChildrenUrl("d1")).toBe(`${GRAPH_BASE}/drives/d1/root/children`);
   });
+  test("driveRootChildrenUrl encodes a hostile drive id", () => {
+    expect(driveRootChildrenUrl("../../me/drive")).toBe(
+      `${GRAPH_BASE}/drives/..%2F..%2Fme%2Fdrive/root/children`,
+    );
+  });
   test("folderChildrenUrl", () => {
     expect(folderChildrenUrl("d1", "item9")).toBe(`${GRAPH_BASE}/drives/d1/items/item9/children`);
+  });
+  test("folderChildrenUrl encodes both ids", () => {
+    expect(folderChildrenUrl("d:1", "it,em")).toBe(
+      `${GRAPH_BASE}/drives/d%3A1/items/it%2Cem/children`,
+    );
   });
 });
 
@@ -63,5 +86,55 @@ describe("siteDefaultDriveRootChildrenUrl", () => {
   test("addresses the site default drive by path", () => {
     expect(siteDefaultDriveRootChildrenUrl("c.sharepoint.com", "/sites/proj"))
       .toBe(`${GRAPH_BASE}/sites/c.sharepoint.com:/sites/proj:/drive/root/children`);
+  });
+  test("encodes path segments but preserves slash separators and :path: syntax", () => {
+    expect(siteDefaultDriveRootChildrenUrl("c.sharepoint.com", "/sites/My Proj"))
+      .toBe(`${GRAPH_BASE}/sites/c.sharepoint.com:/sites/My%20Proj:/drive/root/children`);
+  });
+  test("a hostile hostname cannot break out of the sites segment", () => {
+    expect(siteDefaultDriveRootChildrenUrl("evil/..", "/sites/proj"))
+      .toBe(`${GRAPH_BASE}/sites/evil%2F..:/sites/proj:/drive/root/children`);
+  });
+});
+
+describe("siteByPathUrl", () => {
+  test("addresses a site by hostname + server-relative path", () => {
+    expect(siteByPathUrl("c.sharepoint.com", "/sites/proj"))
+      .toBe(`${GRAPH_BASE}/sites/c.sharepoint.com:/sites/proj`);
+  });
+  test("encodes path segments while keeping slashes", () => {
+    expect(siteByPathUrl("c.sharepoint.com", "/sites/My Proj"))
+      .toBe(`${GRAPH_BASE}/sites/c.sharepoint.com:/sites/My%20Proj`);
+  });
+});
+
+describe("isSafeGraphLink", () => {
+  test("accepts Graph-origin https links", () => {
+    expect(isSafeGraphLink("https://graph.microsoft.com/v1.0/sites?$skiptoken=x")).toBe(true);
+  });
+  test.each([
+    "https://evil.example.com/v1.0/sites",
+    "http://graph.microsoft.com/v1.0/sites",
+    "https://graph.microsoft.com.evil.com/v1.0/sites",
+    "",
+  ])("rejects %j", (link) => {
+    expect(isSafeGraphLink(link)).toBe(false);
+  });
+});
+
+describe("readList", () => {
+  test("returns items and a Graph-origin nextLink", () => {
+    const next = `${GRAPH_BASE}/sites?$skiptoken=abc`;
+    expect(readList<string>({ value: ["a"], "@odata.nextLink": next }))
+      .toEqual({ items: ["a"], nextLink: next });
+  });
+  test("treats a foreign-origin nextLink as absent (no throw)", () => {
+    const out = readList<string>({ value: ["a"], "@odata.nextLink": "https://evil.example.com/next" });
+    expect(out.items).toEqual(["a"]);
+    expect(out.nextLink).toBeUndefined();
+  });
+  test("treats a non-string nextLink as absent", () => {
+    expect(readList<string>({ value: [], "@odata.nextLink": 42 as unknown as string }).nextLink)
+      .toBeUndefined();
   });
 });

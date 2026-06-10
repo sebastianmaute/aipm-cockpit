@@ -3,6 +3,7 @@
 
 import { useCallback } from "react";
 import { mapGraphEvent, type GraphEvent, type OutlookEvent } from "./outlook-calendar";
+import { isSafeGraphLink } from "./sharepoint-graph";
 
 const GRAPH = "https://graph.microsoft.com/v1.0";
 const SELECT = "id,subject,start,end,isAllDay,showAs";
@@ -77,7 +78,7 @@ export function useOutlookCalendar(
         if (mapped) out.push(mapped);
       }
       const next = page["@odata.nextLink"];
-      if (next && !next.startsWith("https://graph.microsoft.com/")) {
+      if (next && !isSafeGraphLink(next)) {
         throw new Error("outlookCalendarFetchFailed");
       }
       url = next;
