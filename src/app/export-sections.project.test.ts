@@ -5,6 +5,7 @@ import { emptyWorkspace } from "./storage";
 import { defaultExportConfig } from "./settings-types";
 import { loadI18n } from "./i18n";
 import type { ProjectMeta } from "./types";
+import type { DocumentLink } from "./document-link";
 
 beforeAll(async () => {
   await loadI18n("de");
@@ -237,6 +238,43 @@ describe("buildExportSections – project section", () => {
 
     const sections = buildExportSections(ws, cfg, "en-US");
     expect(sections.find((s) => s.key === "project")).toBeUndefined();
+  });
+
+  it("documentLinks are rendered as readable names, not '[object Object]'", () => {
+    const links: DocumentLink[] = [
+      { id: "dl-1", name: "Spec.docx", url: "https://sp.example.com/spec.docx", kind: "file" },
+      { id: "dl-2", name: "Evidence", url: "https://sp.example.com/evidence", kind: "folder" },
+    ];
+    const meta: ProjectMeta = {
+      ...makeProjectMeta(),
+      documentLinks: links,
+    };
+    const ws = { ...emptyWorkspace(), project: meta };
+    const cfg = { ...defaultExportConfig, project: true };
+
+    const rows = buildExportSections(ws, cfg, "en-US").find((s) => s.key === "project")!.rows;
+    const values = rows.map((r) => r[1] as string);
+
+    expect(values).toContain("Spec.docx, Evidence");
+    expect(values.join("")).not.toContain("[object Object]");
+  });
+
+  it("documentLinks row is omitted when documentLinks is empty or absent", () => {
+    // absent
+    const metaNoLinks: ProjectMeta = { ...makeProjectMeta() };
+    delete (metaNoLinks as Record<string, unknown>).documentLinks;
+    const ws1 = { ...emptyWorkspace(), project: metaNoLinks };
+    const cfg = { ...defaultExportConfig, project: true };
+    const rows1 = buildExportSections(ws1, cfg, "en-US").find((s) => s.key === "project")!.rows;
+    const labels1 = rows1.map((r) => r[0] as string);
+    expect(labels1).not.toContain("Document links");
+
+    // empty array
+    const metaEmptyLinks: ProjectMeta = { ...makeProjectMeta(), documentLinks: [] };
+    const ws2 = { ...emptyWorkspace(), project: metaEmptyLinks };
+    const rows2 = buildExportSections(ws2, cfg, "en-US").find((s) => s.key === "project")!.rows;
+    const labels2 = rows2.map((r) => r[0] as string);
+    expect(labels2).not.toContain("Document links");
   });
 
   it("project section appears first (before tasks) because 'project' is first in EXPORT_SECTION_KEYS", () => {
