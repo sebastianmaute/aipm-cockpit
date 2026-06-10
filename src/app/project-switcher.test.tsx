@@ -123,6 +123,28 @@ describe("ProjectSwitcher", () => {
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
   });
 
+  describe("turso mode", () => {
+    it("omits the 'Load from file' item from the dropdown", async () => {
+      const user = userEvent.setup();
+      renderSwitcher({ mode: "turso" });
+
+      await user.click(screen.getByRole("button", { name: /Apollo/ }));
+
+      expect(
+        screen.queryByRole("menuitem", {
+          name: t("en-US", "projectSwitcherLoadFile"),
+        }),
+      ).toBeNull();
+      // The rest of the menu is unchanged.
+      expect(screen.getByRole("menuitem", { name: /Gemini/ })).toBeInTheDocument();
+      expect(
+        screen.getByRole("menuitem", {
+          name: new RegExp(t("en-US", "projectsNew")),
+        }),
+      ).toBeInTheDocument();
+    });
+  });
+
   describe("readOnly mode (popout indicator)", () => {
     it("shows the current project name without an interactive trigger", () => {
       renderSwitcher({ readOnly: true });

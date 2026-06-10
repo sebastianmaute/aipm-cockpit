@@ -33,6 +33,9 @@ export interface CreateProjectFormProps {
   onCreate: (meta: ProjectMeta, format: "json" | "csv" | "md") => void;
   /** Optional — empty-state has no cancel; panel modal may provide one. */
   onCancel?: () => void;
+  /** Turso mode: hide the file-format selector and fix the format to "json"
+   *  (the Turso create path ignores it). Defaults to false (file mode). */
+  hideFormat?: boolean;
 }
 
 export function CreateProjectForm({
@@ -41,6 +44,7 @@ export function CreateProjectForm({
   addressBook,
   onCreate,
   onCancel,
+  hideFormat = false,
 }: CreateProjectFormProps) {
   const [format, setFormat] = useState<CreateFormat>("json");
 
@@ -52,23 +56,25 @@ export function CreateProjectForm({
 
   return (
     <>
-      <label className="mb-4 flex flex-col gap-1 text-sm">
-        <span className="font-medium text-foreground">
-          {t(lang, "projectFileFormat")}
-        </span>
-        <select
-          aria-label={t(lang, "projectFileFormat")}
-          value={format}
-          onChange={(e) => setFormat(e.target.value as CreateFormat)}
-          className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
-        >
-          {CREATE_FORMATS.map((fmt) => (
-            <option key={fmt} value={fmt}>
-              {CREATE_FORMAT_LABEL[fmt]}
-            </option>
-          ))}
-        </select>
-      </label>
+      {!hideFormat && (
+        <label className="mb-4 flex flex-col gap-1 text-sm">
+          <span className="font-medium text-foreground">
+            {t(lang, "projectFileFormat")}
+          </span>
+          <select
+            aria-label={t(lang, "projectFileFormat")}
+            value={format}
+            onChange={(e) => setFormat(e.target.value as CreateFormat)}
+            className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
+          >
+            {CREATE_FORMATS.map((fmt) => (
+              <option key={fmt} value={fmt}>
+                {CREATE_FORMAT_LABEL[fmt]}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       <ProjectForm
         stakeholderNames={stakeholderNames}
         addressBook={addressBook}

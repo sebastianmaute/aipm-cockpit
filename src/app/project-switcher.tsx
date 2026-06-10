@@ -17,6 +17,9 @@ export interface ProjectSwitcherProps {
    *  (folder icon + name, no chevron, no dropdown). Used by popout windows,
    *  which mirror the main window and cannot switch projects. */
   readOnly?: boolean;
+  /** Turso mode: hide the "Load from file" dropdown item (Turso has no file
+   *  load). Defaults to "file". */
+  mode?: "file" | "turso";
 }
 
 /**
@@ -37,6 +40,7 @@ export function ProjectSwitcher({
   onLoadFromFile,
   onNew,
   readOnly = false,
+  mode = "file",
 }: ProjectSwitcherProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -166,17 +170,19 @@ export function ProjectSwitcher({
             );
           })}
           <div className="my-1 border-t border-line" />
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => {
-              onLoadFromFile();
-              setOpen(false);
-            }}
-            className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-foreground hover:bg-surface-muted focus:outline-none focus:ring-2 focus:ring-AIPM-green"
-          >
-            {t(lang, "projectSwitcherLoadFile")}
-          </button>
+          {mode === "file" && (
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                onLoadFromFile();
+                setOpen(false);
+              }}
+              className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-foreground hover:bg-surface-muted focus:outline-none focus:ring-2 focus:ring-AIPM-green"
+            >
+              {t(lang, "projectSwitcherLoadFile")}
+            </button>
+          )}
           <button
             type="button"
             role="menuitem"
