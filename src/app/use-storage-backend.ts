@@ -63,6 +63,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     budgets, setBudgets,
     fxRates, setFxRates,
     status, setStatus,
+    project, setProject,
     milestones, setMilestones,
     changes, setChanges,
     stakeholders, setStakeholders,
@@ -139,6 +140,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         setBudgets(workspace.budgets ?? []);
         setFxRates(workspace.fxRates ?? null);
         setStatus(workspace.status ?? {});
+        setProject(workspace.project);
         setMilestones(workspace.milestones ?? []);
         setChanges(workspace.changes ?? []);
         setStakeholders(workspace.stakeholders ?? []);
@@ -188,7 +190,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       return;
     }
     const timer = setTimeout(() => {
-      backend.save({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, milestones, changes, stakeholders }).then(() => {
+      backend.save({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, milestones, changes, stakeholders }).then(() => {
         args.onStorageOutcome?.(null);
       }).catch((err) => {
         args.onStorageOutcome?.(err);
@@ -208,7 +210,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     }, 500);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, milestones, changes, stakeholders, args.hydrated, args.isPopout, backend]);
+  }, [tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, milestones, changes, stakeholders, args.hydrated, args.isPopout, backend]);
 
   const canSend = !args.isPopout;
   useBroadcastSync("tasks", tasks, setTasks, canSend);
@@ -230,7 +232,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     if (!promise) return;
     await promise;
     try {
-      await backend.save({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, milestones, changes, stakeholders });
+      await backend.save({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, milestones, changes, stakeholders });
       await refreshBackendStatus();
       args.showToast("info", t(langRef.current, "storageSwitchedToast"));
     } catch (err) {
@@ -313,7 +315,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     try {
       const pick = pickFileForBackend(target);
       if (pick) await pick;
-      await target.save({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, milestones, changes, stakeholders });
+      await target.save({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, milestones, changes, stakeholders });
       suppressNextLoadRef.current = true;
       args.setStorageConfig(newConfig);
       args.showToast("info", t(langRef.current, "storageConvertedToast", label));

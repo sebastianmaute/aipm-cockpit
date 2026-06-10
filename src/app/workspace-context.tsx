@@ -20,6 +20,7 @@ import {
   type FxRates,
   type Grade,
   type Milestone,
+  type ProjectMeta,
   type ProjectStatus,
   type RaidItem,
   type Resource,
@@ -64,6 +65,8 @@ interface WorkspaceValue {
   setFxRates: Dispatch<SetStateAction<FxRates | null>>;
   status: ProjectStatus;
   setStatus: Dispatch<SetStateAction<ProjectStatus>>;
+  project: ProjectMeta | undefined;
+  setProject: Dispatch<SetStateAction<ProjectMeta | undefined>>;
   milestones: Milestone[];
   setMilestones: Dispatch<SetStateAction<Milestone[]>>;
   changes: ChangeItem[];
@@ -88,6 +91,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [budgets, setBudgets] = useState<BudgetBucket[]>([]);
   const [fxRates, setFxRates] = useState<FxRates | null>(null);
   const [status, setStatus] = useState<ProjectStatus>({});
+  const [project, setProject] = useState<ProjectMeta | undefined>(undefined);
   const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [changes, setChanges] = useState<ChangeItem[]>([]);
   const [stakeholders, setStakeholders] = useState<Stakeholder[]>([]);
@@ -238,6 +242,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     budgets, setBudgets,
     fxRates, setFxRates,
     status, setStatus,
+    project, setProject,
     milestones, setMilestones,
     changes, setChanges,
     stakeholders, setStakeholders,
