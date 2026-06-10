@@ -1,4 +1,5 @@
 import { describe, expect, test, vi, beforeEach, afterEach } from "vitest";
+import { MAX_REQUESTS } from "../jira/_rate-limit";
 import { GET } from "./route";
 
 const SAMPLE = `<?xml version="1.0" encoding="UTF-8"?>
@@ -10,7 +11,7 @@ const SAMPLE = `<?xml version="1.0" encoding="UTF-8"?>
 </gesmes:Envelope>`;
 
 function mockFetch(impl: () => Promise<Partial<Response>>) {
-  const fn = vi.fn(impl);
+  const fn: ReturnType<typeof vi.fn> = vi.fn(impl);
   vi.stubGlobal("fetch", fn as unknown as typeof fetch);
   return fn;
 }
@@ -66,7 +67,7 @@ describe("GET /api/ecb", () => {
   test("bounds the upstream call with an abort signal so a hung ECB cannot stall the route", async () => {
     const fetchMock = mockFetch(async () => ({ ok: true, text: async () => SAMPLE }));
     await GET(ecbRequest("203.0.113.5"));
-    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    const init = fetchMock.mock.calls[0][1];
     expect(init.signal).toBeInstanceOf(AbortSignal);
   });
 
@@ -85,7 +86,6 @@ describe("GET /api/ecb", () => {
   });
 
   test("returns 429 with Retry-After once an IP exceeds the rate limit, without fetching", async () => {
-    const MAX_REQUESTS = 60; // matches the shared limiter's per-IP window cap
     const fetchMock = mockFetch(async () => ({ ok: true, text: async () => SAMPLE }));
     const ip = "203.0.113.7";
     for (let i = 0; i < MAX_REQUESTS; i++) {

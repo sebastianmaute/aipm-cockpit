@@ -4,10 +4,24 @@
 // store (Redis).
 
 const WINDOW_MS = 60_000; // 1 minute
-const MAX_REQUESTS = 60; // per IP per window
+export const MAX_REQUESTS = 60; // per IP per window
 
 type WindowRecord = { count: number; windowStart: number };
 const store = new Map<string, WindowRecord>();
+
+/** Number of tracked rate-limit buckets — exposed for eviction tests. */
+export function storeSize(): number {
+  return store.size;
+}
+
+// Drop every bucket whose window has fully elapsed so unique client IPs do
+// not accumulate for the process lifetime. Called only when a request starts
+// a fresh window, so the O(n) sweep is amortised across quiet periods.
+function evictElapsed(now: number): void {
+  for (const [key, rec] of store) {
+    if (now - rec.windowStart >= WINDOW_MS) store.delete(key);
+  }
+}
 
 function getClientIp(request: Request): string {
   const h = request.headers;
@@ -31,6 +45,7 @@ export function rateLimit(request: Request, scope = "jira"): Response | null {
   const rec = store.get(key);
 
   if (!rec || now - rec.windowStart >= WINDOW_MS) {
+    evictElapsed(now);
     store.set(key, { count: 1, windowStart: now });
     return null;
   }

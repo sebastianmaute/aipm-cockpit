@@ -1,8 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { rateLimit } from "./_rate-limit";
+import { MAX_REQUESTS, rateLimit, storeSize } from "./_rate-limit";
 
 const WINDOW_MS = 60_000;
-const MAX_REQUESTS = 60;
 
 // The limiter keeps a module-level Map keyed by client IP. There is no reset
 // hook, so each test uses a UNIQUE ip string to avoid bleeding state between
@@ -88,6 +87,23 @@ describe("rateLimit", () => {
     expect(rateLimit(req(ip))!.status).toBe(429);
     // The same IP under a different scope has its own untouched bucket.
     expect(rateLimit(req(ip), "ecb")).toBeNull();
+  });
+
+  it("evicts elapsed-window buckets when a request starts a fresh window", () => {
+    const exhausted = "10.0.0.30";
+    for (let i = 0; i < MAX_REQUESTS; i++) rateLimit(req(exhausted));
+    expect(rateLimit(req(exhausted))!.status).toBe(429);
+    rateLimit(req("10.0.0.31")); // another stale-to-be bucket
+    const before = storeSize();
+    expect(before).toBeGreaterThan(1);
+
+    // Cross the window boundary — the next fresh-window request sweeps every
+    // bucket whose window has fully elapsed.
+    vi.advanceTimersByTime(WINDOW_MS);
+    expect(rateLimit(req("10.0.0.32"))).toBeNull();
+    expect(storeSize()).toBeLessThan(before);
+    // The previously rate-limited IP was evicted, so it is allowed again.
+    expect(rateLimit(req(exhausted))).toBeNull();
   });
 
   it("buckets all header-less requests under 'unknown'", () => {

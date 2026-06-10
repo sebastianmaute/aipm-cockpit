@@ -11,7 +11,8 @@ const ECB_UPSTREAM_TIMEOUT_MS = 8_000;
 export const runtime = "nodejs";
 
 /** GET /api/ecb — fetch ECB daily EUR reference rates, return an FxRates table.
- *  The client caches the result in the workspace; this route holds no state. */
+ *  The client caches the result in the workspace; this route holds no state.
+ *  `request` feeds the shared per-IP rate limiter (429 + Retry-After on excess). */
 export async function GET(request: Request) {
   // Same per-IP limiter as the Jira proxy routes, namespaced so the two
   // route families do not drain each other's quota.
