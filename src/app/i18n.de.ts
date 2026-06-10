@@ -1567,8 +1567,7 @@ export const de: Record<TranslationKey, string> = {
   documentsOpen: "In neuem Tab öffnen",
   documentsRemove: "Verknüpfung entfernen",
   documentsNeedsSharePoint: "Microsoft 365 + SharePoint in den Einstellungen aktivieren, um Dokumente zu verknüpfen.",
-  activityDocLinkAdded: "Dokument verknüpft {0}",
-  activityDocLinkRemoved: "Dokumentverknüpfung entfernt {0}",
+
 
   // Tooltips
   projectSalesforceTip: "Link zur Salesforce-Opportunity",

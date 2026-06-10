@@ -3,6 +3,7 @@ import {
   sanitizeDocumentLinks,
   encodeDocumentLinks,
   decodeDocumentLinks,
+  isSafeHttpUrl,
   type DocumentLink,
 } from "./document-link";
 
@@ -61,6 +62,28 @@ describe("sanitizeDocumentLinks", () => {
       { name: "b", url: "https://y", kind: "file" },
     ]);
     expect(out[0].id).not.toBe(out[1].id);
+  });
+});
+
+describe("sanitizeDocumentLinks url-scheme guard", () => {
+  test("drops javascript: and data: and relative urls", () => {
+    const out = sanitizeDocumentLinks([
+      { name: "evil", url: "javascript:alert(1)", kind: "file" },
+      { name: "data", url: "data:text/html,x", kind: "file" },
+      { name: "rel", url: "/sites/x", kind: "file" },
+      { name: "ok", url: "https://c.sharepoint.com/x", kind: "file" },
+      { name: "okhttp", url: "http://c.sharepoint.com/y", kind: "file" },
+    ]);
+    expect(out.map((l) => l.name)).toEqual(["ok", "okhttp"]);
+  });
+});
+
+describe("isSafeHttpUrl", () => {
+  test("true for http/https, false otherwise", () => {
+    expect(isSafeHttpUrl("https://x")).toBe(true);
+    expect(isSafeHttpUrl("http://x")).toBe(true);
+    expect(isSafeHttpUrl("javascript:alert(1)")).toBe(false);
+    expect(isSafeHttpUrl("not a url")).toBe(false);
   });
 });
 

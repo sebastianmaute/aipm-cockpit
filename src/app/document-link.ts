@@ -38,6 +38,16 @@ function nextGeneratedId(): string {
   return `dl-${(_idSeq += 1)}`;
 }
 
+/** True only for http(s) URLs — blocks javascript:/data:/etc. in rendered hrefs. */
+export function isSafeHttpUrl(url: string): boolean {
+  try {
+    const u = new URL(url);
+    return u.protocol === "https:" || u.protocol === "http:";
+  } catch {
+    return false;
+  }
+}
+
 export function isValidDocumentLink(v: unknown): v is { name: string; url: string } {
   if (typeof v !== "object" || v === null) return false;
   const rec = v as Record<string, unknown>;
@@ -64,6 +74,7 @@ export function sanitizeDocumentLinks(raw: unknown): DocumentLink[] {
     if (itemId) link.itemId = itemId;
     if (mimeType) link.mimeType = mimeType;
     if (addedAt) link.addedAt = addedAt;
+    if (!isSafeHttpUrl(link.url)) continue;
     out.push(link);
   }
   return out;

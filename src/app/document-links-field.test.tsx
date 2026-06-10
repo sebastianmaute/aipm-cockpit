@@ -22,13 +22,17 @@ describe("DocumentLinksField", () => {
     expect(anchor).toHaveAttribute("target", "_blank");
   });
 
-  it("removes a link via onChange and logs", () => {
+  it("removes a link via onChange", () => {
     const onChange = vi.fn();
-    const onLog = vi.fn();
-    render(<DocumentLinksField value={links} onChange={onChange} lang="en-US" acquireToken={acquire} onLog={onLog} />);
+    render(<DocumentLinksField value={links} onChange={onChange} lang="en-US" acquireToken={acquire} />);
     fireEvent.click(screen.getByRole("button", { name: /remove link/i }));
     expect(onChange).toHaveBeenCalledWith([]);
-    expect(onLog).toHaveBeenCalledWith("removed", "Spec.docx");
+  });
+
+  it("does not render an href for an unsafe url", () => {
+    render(<DocumentLinksField value={[{ id: "1", name: "evil", url: "javascript:alert(1)", kind: "file" }]} onChange={vi.fn()} lang="en-US" acquireToken={acquire} />);
+    expect(screen.getByText("evil")).toBeInTheDocument();
+    expect(screen.queryByRole("link")).toBeNull();
   });
 
   it("opens the picker when Add is clicked", () => {
