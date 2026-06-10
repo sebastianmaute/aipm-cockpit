@@ -5,8 +5,8 @@ import nextConfig from "../next.config";
 async function securityHeaders(): Promise<Map<string, string>> {
   const rules = await nextConfig.headers!();
   const catchAll = rules.find((r) => r.source === "/(.*)");
-  expect(catchAll).toBeDefined();
-  return new Map(catchAll!.headers.map((h) => [h.key, h.value]));
+  if (!catchAll) throw new Error("catch-all route not found in next.config headers");
+  return new Map(catchAll.headers.map((h) => [h.key, h.value]));
 }
 
 describe("next.config security headers", () => {
