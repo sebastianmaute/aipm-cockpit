@@ -61,7 +61,7 @@ export class SharePointBackend implements StorageBackend {
 
   async isReady(): Promise<boolean> {
     try {
-      const token = await this.acquireToken(["Files.ReadWrite"]);
+      const token = await this.acquireToken(["Files.ReadWrite.All"]);
       return !!token;
     } catch {
       return false;
@@ -76,8 +76,8 @@ export class SharePointBackend implements StorageBackend {
 
   private async getToken(): Promise<string> {
     // Interactive: a load/save is an explicit user action, so first-time
-    // consent for Files.ReadWrite may surface a popup. (isReady stays silent.)
-    const token = await this.acquireToken(["Files.ReadWrite"], { interactive: true });
+    // consent for Files.ReadWrite.All may surface a popup. (isReady stays silent.)
+    const token = await this.acquireToken(["Files.ReadWrite.All"], { interactive: true });
     if (!token) throw new StorageNotReadyError("Sign in to Microsoft first");
     return token;
   }

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { StorageConfigSection } from "./storage-config";
@@ -160,6 +160,42 @@ describe("StorageConfigSection — Turso gating", () => {
     fireEvent.change(screen.getByRole("combobox"), { target: { value: "turso" } });
     expect(onRequestSwitch).toHaveBeenCalledWith("turso");
     expect(onChange).not.toHaveBeenCalledWith(expect.objectContaining({ kind: "turso" }));
+  });
+});
+
+describe("StorageConfigSection — Browse button", () => {
+  beforeEach(() => {
+    vi.stubGlobal("fetch", vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({ value: [] }),
+    })));
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("clicking Browse… opens the SharePoint picker dialog", async () => {
+    const user = userEvent.setup();
+    render(
+      <StorageConfigSection
+        lang="en-US"
+        config={{ kind: "sp-json", hostname: "c.sharepoint.com", sitePath: "/sites/p", itemPath: "f.json" }}
+        onChange={noop}
+        onRequestSwitch={noop}
+        m365Enabled={true}
+        sharepointEnabled={true}
+        tursoEnabled={false}
+        description={null}
+        ready={true}
+        onPickFile={noopAsync}
+        onOpenFile={noopAsync}
+        onGrantWrite={noopAsync}
+      />,
+    );
+    const browseBtn = screen.getByRole("button", { name: /browse/i });
+    await user.click(browseBtn);
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
   });
 });
 

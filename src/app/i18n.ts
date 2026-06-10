@@ -149,6 +149,7 @@ const enUS = {
   spStorageDescribe: "{filename} on {sitePath}",
   spStoragePermissionDenied: "Permission denied. The signed-in user lacks access to this file.",
   spStorageSignInExpired: "Sign-in expired. Re-authenticate from Settings.",
+  spStorageBrowse: "Browse…",
   comingSoon: "coming soon",
   storageFsaUnsupported:
     "This browser doesn't support direct file access. Use Chrome, Edge, or Opera.",

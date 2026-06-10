@@ -304,4 +304,11 @@ describe("SharePointBackend", () => {
     );
     expect(await be.describe()).toBe("workspace.json on /sites/Alpha");
   });
+
+  it("requests the consolidated Files.ReadWrite.All scope on isReady", async () => {
+    const acquire = vi.fn(async () => "tok");
+    const be = new SharePointBackend({ kind: "sp-json", hostname: "c.sharepoint.com", sitePath: "/sites/p", itemPath: "f.json" }, acquire);
+    await be.isReady();
+    expect(acquire).toHaveBeenCalledWith(["Files.ReadWrite.All"]);
+  });
 });

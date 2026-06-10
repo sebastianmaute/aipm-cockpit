@@ -10,6 +10,7 @@ import {
 import { useMsAuth } from "./use-ms-auth";
 import { InfoTooltip } from "./info-tooltip";
 import { parseSharePointFileUrl } from "./sharepoint-backend";
+import { SharePointPickerModal } from "./sharepoint-picker-modal";
 
 type Props = {
   lang: Lang;
@@ -103,6 +104,7 @@ export function StorageConfigSection({
   const [prevConfig, setPrevConfig] = useState(config);
   const [spUrl, setSpUrl] = useState(spUrlForConfig());
   const [spUrlError, setSpUrlError] = useState<string | null>(null);
+  const [spPickerOpen, setSpPickerOpen] = useState(false);
 
   if (prevConfig !== config) {
     setPrevConfig(config);
@@ -260,6 +262,33 @@ export function StorageConfigSection({
           <p className="text-xs text-muted-foreground">{t(lang, "spStorageHint")}</p>
           {spUrlError && (
             <p className="text-xs text-AIPM-pink">{spUrlError}</p>
+          )}
+          <button
+            type="button"
+            onClick={() => setSpPickerOpen(true)}
+            className="mt-1 rounded-md border border-line bg-surface px-3 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted"
+          >
+            {t(lang, "spStorageBrowse")}
+          </button>
+          {spPickerOpen && (config.kind === "sp-json" || config.kind === "sp-csv") && (
+            <SharePointPickerModal
+              mode="location"
+              lang={lang}
+              acquireToken={auth.acquireToken}
+              onSelect={(link) => {
+                const parsed = parseSharePointFileUrl(link.url);
+                if (parsed && (config.kind === "sp-json" || config.kind === "sp-csv")) {
+                  onChange({ kind: config.kind, ...parsed });
+                  setSpUrl(`https://${parsed.hostname}${parsed.sitePath}/${parsed.itemPath}`);
+                } else {
+                  // selection wasn't a recognizable site file URL — surface for manual fix
+                  setSpUrl(link.url);
+                  setSpUrlError(t(lang, "spStorageInvalidUrl"));
+                }
+                setSpPickerOpen(false);
+              }}
+              onClose={() => setSpPickerOpen(false)}
+            />
           )}
         </div>
       )}

@@ -154,6 +154,7 @@ export const de: Record<TranslationKey, string> = {
   spStorageDescribe: "{filename} auf {sitePath}",
   spStoragePermissionDenied: "Zugriff verweigert. Der angemeldete Benutzer hat keinen Zugriff auf diese Datei.",
   spStorageSignInExpired: "Anmeldung abgelaufen. Erneut in den Einstellungen anmelden.",
+  spStorageBrowse: "Durchsuchen…",
   comingSoon: "demnächst",
   storageFsaUnsupported:
     "Dieser Browser unterstützt keinen direkten Dateizugriff. Bitte Chrome, Edge oder Opera verwenden.",
