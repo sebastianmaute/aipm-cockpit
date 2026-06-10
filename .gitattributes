@@ -7,3 +7,12 @@
 # LF keeps the working copy, the committed blob, and the generator in agreement
 # on every platform.
 *.md text eol=lf
+
+# Golden serializer fixtures (src/app/golden-workspace.test.ts) pin the
+# byte-exact output of the dual-use storage serializers. They must never be
+# touched by line-ending conversion — `-text` makes git treat them as binary
+# for eol purposes, so the working copy always matches the committed blob
+# byte-for-byte on every platform. (This also overrides the `*.md eol=lf`
+# rule above for the .md fixture.)
+src/app/__fixtures__/golden-workspace.csv -text
+src/app/__fixtures__/golden-workspace.md -text
