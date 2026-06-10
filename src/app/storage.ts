@@ -1203,6 +1203,7 @@ export const PROJECT_CSV_COLUMNS: Array<keyof ProjectMeta> = [
   "products", "platform", "deployment", "startDate", "endDate",
   "profitCenter", "quotes", "salesforceUrl", "sharepointUrl", "confluenceUrl",
   "contactPersons", "docRepoLocation", "regulatory", "notes",
+  "documentLinks",
 ];
 
 /** The list delimiter used across this file for joined string arrays. */
@@ -1338,6 +1339,7 @@ const PROJECT_ARRAY_COLUMNS = new Set<keyof ProjectMeta>([
 
 /** Single-line, reversible string form for one ProjectMeta field. */
 export function projectFieldToString(p: ProjectMeta, col: keyof ProjectMeta): string {
+  if (col === "documentLinks") return encodeDocumentLinks(p.documentLinks);
   if (col === "contactPersons") return encodeContactPersons(p.contactPersons);
   if (PROJECT_ARRAY_COLUMNS.has(col)) {
     const arr = p[col] as string[] | undefined;
@@ -1383,6 +1385,7 @@ function decodeProjectObj(obj: Record<string, string>): Record<string, unknown> 
     docRepoLocation: scalar("docRepoLocation"),
     regulatory: decodeProjectList(obj.regulatory ?? ""),
     notes: scalar("notes"),
+    documentLinks: decodeDocumentLinks(obj.documentLinks ?? ""),
   };
 }
 

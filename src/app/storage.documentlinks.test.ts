@@ -7,7 +7,7 @@ import {
 } from "./storage";
 import type { DocumentLink } from "./document-link";
 import type { Workspace } from "./storage";
-import type { RaidItem, ChangeItem, Stakeholder, Milestone } from "./types";
+import type { RaidItem, ChangeItem, Stakeholder, Milestone, ProjectMeta } from "./types";
 
 const links: DocumentLink[] = [
   { id: "01", name: "Spec, v2.docx", url: "https://c.sharepoint.com/sites/p/Docs/Spec.docx", kind: "file", driveId: "b!d", itemId: "01" },
@@ -125,5 +125,29 @@ describe("Milestone documentLinks round-trips", () => {
     const w = emptyWorkspace();
     w.milestones = [{ id: 1, name: "M", date: "2026-01-01", linkedTaskIds: [] }];
     expect(workspaceToCsv(w)).not.toContain("[]");
+  });
+});
+
+describe("ProjectMeta documentLinks round-trips", () => {
+  function ws() {
+    const w = emptyWorkspace();
+    const p: ProjectMeta = {
+      name: "Proj", code: "PRJ-1", projectManager: "PM",
+      keyStakeholdersInternal: ["Alice"], keyStakeholdersExternal: ["Bob"],
+      customer: "Acme", naceSection: "C", identityTypes: [], products: "Widget",
+      deployment: "Cloud", startDate: "2026-01-01", endDate: "2026-12-31",
+      profitCenter: "PC-1", contactPersons: [], regulatory: ["Not applicable"],
+      documentLinks: links,
+    };
+    w.project = p;
+    return w;
+  }
+  test("Markdown (project block)", () => {
+    const back = markdownToWorkspace(workspaceToMarkdown(ws()));
+    expect(back.project?.documentLinks).toEqual(links);
+  });
+  test("JSON", () => {
+    const back = jsonToWorkspace(workspaceToJson(ws()));
+    expect(back.project?.documentLinks).toEqual(links);
   });
 });

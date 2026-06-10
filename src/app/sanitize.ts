@@ -1157,5 +1157,9 @@ export function sanitizeProjectMeta(
     if (Number.isFinite(n) && n >= 0) meta.identityCount = Math.floor(n);
   }
 
+  // Optional documentLinks — pass through sanitized array (empty → omit).
+  const dl = sanitizeDocumentLinks((input as Record<string, unknown>).documentLinks);
+  if (dl.length) meta.documentLinks = dl;
+
   return meta;
 }
