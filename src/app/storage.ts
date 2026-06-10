@@ -3,6 +3,7 @@ import { TursoBackend } from "./turso-backend";
 import { TursoTenantBackend } from "./turso-tenant-backend";
 import type { TursoConfig } from "./turso-config";
 import { riskSeverityFromMatrix } from "./raid";
+import { encodeDocumentLinks, decodeDocumentLinks } from "./document-link";
 import {
   backfillResources,
   defaultResourcePlan,
@@ -409,7 +410,16 @@ export const CSV_COLUMNS: Array<keyof Task> = [
   "resourceId",
   "originalEstimateMinutes",
   "timeSpentMinutes",
+  "documentLinks",
 ];
+
+// Override display labels for CSV_COLUMNS entries whose camelCase key would
+// be ambiguous or inconsistent with the Markdown label. The decoder in
+// csvToTasks normalises these back to the camelCase key via buildTaskFromObj's
+// alias handling.
+const CSV_COLUMN_LABELS: Partial<Record<keyof Task, string>> = {
+  documentLinks: "DocumentLinks",
+};
 
 // Whitelist parser shared by CSV and Markdown deserialization. Anything that
 // isn't "R" | "A" | "G" — including empty strings on legacy files — becomes
@@ -874,11 +884,13 @@ function csvCellEscape(value: string, neutralize: boolean): string {
 export function fieldToString(t: Task, c: keyof Task): string {
   if (c === "labels") return Array.isArray(t.labels) ? t.labels.join("|") : "";
   if (c === "dependencies") return serializeDependencies(t.dependencies);
+  if (c === "documentLinks") return encodeDocumentLinks(t.documentLinks);
   return String(t[c] ?? "");
 }
 
 function tasksToCsv(tasks: Task[], neutralize = false): string {
-  const lines: string[] = [CSV_COLUMNS.join(",")];
+  const header = CSV_COLUMNS.map((c) => CSV_COLUMN_LABELS[c] ?? c).join(",");
+  const lines: string[] = [header];
   for (const t of tasks) {
     lines.push(CSV_COLUMNS.map((c) => csvCellEscape(fieldToString(t, c), neutralize)).join(","));
   }
@@ -1920,6 +1932,7 @@ export function buildTaskFromObj(obj: Record<string, string>): Task | null {
     resourceId: Number(obj.resourceId) || undefined,
     originalEstimateMinutes: sanitizeOptionalMinutes(obj.originalEstimateMinutes),
     timeSpentMinutes: sanitizeOptionalMinutes(obj.timeSpentMinutes),
+    documentLinks: decodeDocumentLinks(obj.documentLinks ?? obj.DocumentLinks),
   };
 }
 
@@ -1974,6 +1987,7 @@ const MD_COLUMNS: Array<{ key: keyof Task; label: string }> = [
   { key: "resourceId", label: "ResourceId" },
   { key: "originalEstimateMinutes", label: "OrigEstimateMin" },
   { key: "timeSpentMinutes", label: "TimeSpentMin" },
+  { key: "documentLinks", label: "DocumentLinks" },
 ];
 
 function mdEscape(value: string): string {
@@ -2774,6 +2788,7 @@ function markdownToTasks(md: string): Task[] {
       colMap[idx] = "originalEstimateMinutes";
     else if (norm === "timespentmin" || norm === "timespentminutes")
       colMap[idx] = "timeSpentMinutes";
+    else if (norm === "documentlinks") colMap[idx] = "documentLinks";
   });
 
   const tasks: Task[] = [];
@@ -2813,6 +2828,7 @@ function markdownToTasks(md: string): Task[] {
       resourceId: Number(obj.resourceId) || undefined,
       originalEstimateMinutes: sanitizeOptionalMinutes(obj.originalEstimateMinutes),
       timeSpentMinutes: sanitizeOptionalMinutes(obj.timeSpentMinutes),
+      documentLinks: decodeDocumentLinks(obj.documentLinks),
     });
   }
   return dropDanglingDependencies(tasks);
