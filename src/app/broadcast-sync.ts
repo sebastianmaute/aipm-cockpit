@@ -96,9 +96,9 @@ export function useBroadcastSync<T>(
   }, [kind, value, canSend]);
 }
 
-// Tab keys mirror `TopTab` in task-manager.tsx. Kept in sync manually
-// because exporting `TopTab` from task-manager.tsx would create a circular
-// dep (task-manager.tsx imports this module).
+// Popout-capable subset of the `AppView` union in nav-config.ts. Kept in
+// sync manually: AppView also contains main-window-only views ("open-points",
+// "settings", "edit") that must never be offered as popout targets.
 export const POPOUT_TABS = [
   "chat",
   "reports",

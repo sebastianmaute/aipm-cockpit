@@ -12,7 +12,6 @@ export const de: Record<TranslationKey, string> = {
 
   newTask: "Neue Aufgabe",
   editingTask: "Aufgabe #{0} bearbeiten",
-  cancelEdit: "Bearbeitung abbrechen",
   cancel: "Abbrechen",
   addTask: "Aufgabe hinzufügen",
   updateTask: "Aufgabe aktualisieren",
@@ -151,9 +150,6 @@ export const de: Record<TranslationKey, string> = {
   spStorageNeedsSignIn: "Bei Microsoft anmelden, um SharePoint-Speicher zu nutzen.",
   spStorageNeedsToggle: "SharePoint-Speicher zuerst in Einstellungen → Integrationen aktivieren.",
   spStorageInvalidUrl: "URL konnte nicht ausgewertet werden. Vollständige SharePoint-Datei-URL verwenden.",
-  spStorageDescribe: "{filename} auf {sitePath}",
-  spStoragePermissionDenied: "Zugriff verweigert. Der angemeldete Benutzer hat keinen Zugriff auf diese Datei.",
-  spStorageSignInExpired: "Anmeldung abgelaufen. Erneut in den Einstellungen anmelden.",
   spStorageBrowse: "Durchsuchen…",
   comingSoon: "demnächst",
   storageFsaUnsupported:
@@ -167,8 +163,6 @@ export const de: Record<TranslationKey, string> = {
   storageConfirmOverwrite:
     "Die {0} Aufgabe(n) in der App werden durch den Inhalt der Datei ersetzt. Fortfahren?",
   storagePermissionNeeded: "Berechtigung beim nächsten Speichern erforderlich",
-  storageSpComingSoon:
-    "SharePoint-Synchronisierung ist geplant, aber noch nicht implementiert. Erfordert eine Azure-AD-App-Registrierung.",
   storageSwitchedToast: "Speicherort gewechselt.",
   projectSwitchedToast: "Zu Projekt {0} gewechselt.",
   projectCreatedToast: "Projekt {0} erstellt.",
@@ -213,8 +207,6 @@ export const de: Record<TranslationKey, string> = {
   bulkEditDoneMany: "{0} Aufgaben aktualisiert.",
   bulkSendNoTasks: "Keine Aufgaben zum Versenden bereit.",
   bulkSendDone: "{0} E-Mail(s) für {1} Aufgabe(n) geöffnet.",
-  bulkSendBlocked:
-    "Der Browser hat möglicherweise einige E-Mail-Fenster blockiert. Pop-ups für diese Seite zulassen oder einzeln senden.",
   confirmBulkSend: "{0} E-Mail(s) für {1} Aufgabe(n) senden?",
   emailSubjectBulk: "Update zu {0} offenen Aufgaben",
   emailBodyBulkTemplate:
@@ -229,7 +221,6 @@ export const de: Record<TranslationKey, string> = {
   budgetTypeTm: "Time & Material",
   budgetTypeFixed: "Festpreis",
   budgetCurrency: "Währung",
-  budgetFxRate: "Kurs (pro 1 EUR)",
   budgetFxRefresh: "EZB-Kurse aktualisieren",
   budgetFixedPrice: "Festpreisbetrag",
   budgetStart: "Beginn",
@@ -280,7 +271,6 @@ export const de: Record<TranslationKey, string> = {
   budgetRateOverrideExternal: "Externer Satz (Override)",
   budgetRateOverrideHint: "Überschreibt den Rollen- oder Mischsatz für alle Zeilen dieses Buckets. Leer lassen, um den berechneten Satz zu verwenden. Werte in EUR.",
   budgetRateOverrideInvalid: "Satz-Overrides müssen null oder größer sein.",
-  budgetUnitHours: "h",
   budgetUnitPerHour: "EUR/h",
   budgetAddDiscipline: "Disziplin hinzufügen",
   budgetRemoveDiscipline: "Disziplin entfernen",
@@ -361,7 +351,6 @@ export const de: Record<TranslationKey, string> = {
   aiConsentPolicyCheckbox:
     "Ich habe die Richtlinie der Acme zur KI-Nutzung gelesen und akzeptiere sie.",
   aiConsentAccept: "Verstanden – Chat aktivieren",
-  aiConsentDecline: "Abbrechen",
   aiConsentRequired:
     "Einwilligung erforderlich. Öffnen Sie den KI-Assistenten-Tab, um sie zu prüfen und zu aktivieren.",
   aiConsentGranted: "Chat aktiviert",
@@ -505,9 +494,7 @@ export const de: Record<TranslationKey, string> = {
   raidRiskMatrix: "Risikomatrix (Wahrscheinlichkeit × Auswirkung)",
   raidRaisedDate: "Erfasst",
   raidTargetDate: "Zieltermin",
-  raidClosedDate: "Geschlossen am",
   raidLinkedTasks: "Verknüpfte Aufgaben",
-  raidAddLinkedTask: "Aufgabe verknüpfen",
   raidLinkPickerPlaceholder: "ID oder Aufgabenname eingeben…",
   raidCreateMitigationTask: "Maßnahmenaufgabe anlegen",
   raidCreateMitigationTaskHint: "Erstellt eine neue Aufgabe, vorausgefüllt aus diesem Eintrag, und verknüpft sie.",
@@ -800,7 +787,6 @@ export const de: Record<TranslationKey, string> = {
   resourcesOpenTasks: "Offen",
   resourcesOverdueTasks: "Überfällig",
   resourcesUpcomingAbsences: "Anstehende Abwesenheiten",
-  resourcesAbsenceCount: "{0} Abwesenheit(en)",
   resourcesAddAbsence: "+ Abwesenheit hinzufügen",
   absenceNewItem: "Neue Abwesenheit",
   absenceEditItem: "Abwesenheit #{0} bearbeiten",
@@ -823,7 +809,6 @@ export const de: Record<TranslationKey, string> = {
   activityAbsenceCreated: "Abwesenheit #{0} für {1} erstellt: {2} – {3}",
   activityAbsenceUpdated: "Abwesenheit #{0} für {1} aktualisiert: {2} – {3}",
   activityAbsenceDeleted: "Abwesenheit #{0} für {1} gelöscht",
-  resourcesViewList: "Liste",
   resourcesViewCalendar: "Kalender",
   calendarModeCustom: "Benutzerdefiniert",
   calendarPrev: "Zurück",
@@ -887,7 +872,6 @@ export const de: Record<TranslationKey, string> = {
 
   reorderHint: "Zum Umsortieren ziehen",
   rolesConfirmDeleteRef: "Eintrag entfernen? Rollen, die ihn verwenden, werden n/a mit Sätzen 0.",
-  rolesManageTitle: "Rollen & Sätze",
   rolesRateCard: "Satztabelle",
   rolesDiscipline: "Disziplin",
   rolesGrade: "Stufe",
@@ -898,7 +882,6 @@ export const de: Record<TranslationKey, string> = {
   rolesAddGrade: "Stufe hinzufügen",
   rolesNoRoles: "Noch keine Rollen — Disziplin × Stufe hinzufügen.",
   resourcesManageRoles: "Rollen verwalten",
-  resourcesOpenReport: "Bericht",
   resourcesViewPlanning: "Planung",
   resourcesCapacityDays: "Kapazität (Tage)",
   resourcesPlanStart: "Von",
@@ -959,8 +942,6 @@ export const de: Record<TranslationKey, string> = {
   resourcesUnlinkedHint: "Nicht im Verzeichnis",
   resourcesAddAsResource: "Als Ressource hinzufügen",
 
-  resourcesAddressBookTitle: "Adressbuch",
-  resourcesOpenAddressBook: "Adressbuch öffnen",
   taskAddAssigneeToAddressBook: "Zum Adressbuch hinzufügen",
 
   reminderLeadDays: "Tage im Voraus",
@@ -1004,14 +985,10 @@ export const de: Record<TranslationKey, string> = {
   raidFieldCausedByHint: "Nach ID oder Titel suchen, um zu erfassen, welche anderen RAID-Einträge diesen verursacht haben.",
   raidFieldDeleteHint: "Diesen RAID-Eintrag dauerhaft löschen. Dies kann nicht rückgängig gemacht werden.",
   directorySearchHint: "Filtert das Verzeichnis auf Personen, deren Name, Titel, Abteilung oder E-Mail zum Text passen.",
-  resourcesViewHint: "Wechselt zwischen den Ansichten Verzeichnis, Auslastung, Kalender und Planung.",
   resourcesGranularityHint: "Gruppiert das Planungsraster nach Woche oder Monat.",
   resourcesPlanStartHint: "Erster Tag des Planungszeitraums.",
   resourcesPlanEndHint: "Letzter Tag des Planungszeitraums.",
-  resourcesManageRolesHint: "Öffnet den Editor für Rollen & Sätze, um Disziplinen, Grade und Sätze zu verwalten.",
-  resourcesOpenReportHint: "Öffnet den Ressourcenbericht in einem eigenen Fenster.",
   resourcesRollupHint: "Blendet die schreibgeschützte Kapazitäts- und Kostenübersicht ein oder aus.",
-  resourcesAddAbsenceHint: "Erfasst Urlaub, Krankheit, Schulung oder eine andere Abwesenheit für eine Person.",
   resourcesUtilModePercent: "Prozent",
   resourcesUtilModeHours: "Stunden",
   resourcesUtilModeHint: "Alle Ressourcen zwischen Prozent und Stunden umschalten; eingegebene Werte werden umgerechnet.",
@@ -1067,7 +1044,6 @@ export const de: Record<TranslationKey, string> = {
   raidReportFilterDetail: "Items filtern…",
   raidReportEmpty: "Noch keine RAID-Einträge. Über das RAID-Panel hinzufügen.",
   raidReportOpenReport: "RAID-Report öffnen",
-  raidReportOpenReportHint: "Eine Steuerungskreis-Übersicht in einem neuen Fenster öffnen.",
   versionHighlightRaidReport: "RAID-Report: Steuerungskreis-Übersicht über offene Risiken, Issues, Annahmen und Abhängigkeiten — mit Drill-Down zur vollständigen Item-Liste.",
   versionHighlightPrintReports: "Reports, RAID-Report und Resources-Report haben jetzt eine Drucken-Schaltfläche — erzeugt ein sauberes A4-Handout über den Browser-Druckdialog.",
 
@@ -1097,7 +1073,6 @@ export const de: Record<TranslationKey, string> = {
   integrationsM365SignedInAs: "Angemeldet als",
   integrationsM365SignOut: "Abmelden",
   integrationsM365NeedsConfig: "Client-ID eingeben, um sich anzumelden.",
-  integrationsM365SignInFailed: "Anmeldung fehlgeschlagen. Details in der Konsole.",
   integrationsSharepoint: "SharePoint-Speicher",
   integrationsOutlookContacts: "Outlook-Kontakte",
   integrationsOutlookCalendar: "Outlook-Kalender",

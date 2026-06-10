@@ -3,8 +3,6 @@ import React, { createContext, useCallback, useContext, useState } from "react";
 import { type PopoutTab, readPopoutTabFromUrl } from "./broadcast-sync";
 import { type AppView, buildHash, slugToView } from "./nav-config";
 
-export type TopTab = "chat" | "reports" | "gantt" | "raid" | "resources" | "directory" | "workload" | "calendar" | "planning" | "manage-roles" | "activity" | "raid-report" | "changes" | "change-report" | "budget" | "budget-report" | "trends";
-
 interface WorkspaceTabContextValue {
   activeTab: AppView;
   setActiveTab: React.Dispatch<React.SetStateAction<AppView>>;

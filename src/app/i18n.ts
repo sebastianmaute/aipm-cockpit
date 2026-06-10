@@ -8,7 +8,6 @@ const enUS = {
 
   newTask: "New task",
   editingTask: "Editing task #{0}",
-  cancelEdit: "Cancel edit",
   cancel: "Cancel",
   addTask: "Add task",
   updateTask: "Update task",
@@ -146,9 +145,6 @@ const enUS = {
   spStorageNeedsSignIn: "Sign in to Microsoft to use SharePoint storage.",
   spStorageNeedsToggle: "Enable SharePoint storage in Settings → Integrations first.",
   spStorageInvalidUrl: "Could not parse this URL. Use the full SharePoint file URL.",
-  spStorageDescribe: "{filename} on {sitePath}",
-  spStoragePermissionDenied: "Permission denied. The signed-in user lacks access to this file.",
-  spStorageSignInExpired: "Sign-in expired. Re-authenticate from Settings.",
   spStorageBrowse: "Browse…",
   comingSoon: "coming soon",
   storageFsaUnsupported:
@@ -161,8 +157,6 @@ const enUS = {
   storageConfirmOverwrite:
     "This will replace the {0} task(s) currently in the app with the contents of the file. Continue?",
   storagePermissionNeeded: "permission required on next save",
-  storageSpComingSoon:
-    "SharePoint sync is planned but not implemented yet. It will require an Azure AD app registration.",
   storageSwitchedToast: "Storage backend switched.",
   projectSwitchedToast: "Switched to project {0}.",
   projectCreatedToast: "Created project {0}.",
@@ -206,8 +200,6 @@ const enUS = {
   bulkEditDoneMany: "Updated {0} tasks.",
   bulkSendNoTasks: "No tasks ready to send.",
   bulkSendDone: "Opened {0} email(s) for {1} task(s).",
-  bulkSendBlocked:
-    "Your browser may have blocked some email windows. Allow popups for this site or send individually.",
   confirmBulkSend: "Send {0} email(s) for {1} task(s)?",
   emailSubjectBulk: "Update on {0} open tasks",
   emailBodyBulkTemplate:
@@ -222,7 +214,6 @@ const enUS = {
   budgetTypeTm: "Time & Material",
   budgetTypeFixed: "Fixed price",
   budgetCurrency: "Currency",
-  budgetFxRate: "Rate (per 1 EUR)",
   budgetFxRefresh: "Refresh ECB rates",
   budgetFixedPrice: "Fixed price amount",
   budgetStart: "Start",
@@ -273,7 +264,6 @@ const enUS = {
   budgetRateOverrideExternal: "External rate override",
   budgetRateOverrideHint: "Overrides the role or blended rate for every line in this bucket. Leave blank to use the computed rate. Values are in EUR.",
   budgetRateOverrideInvalid: "Rate overrides must be zero or greater.",
-  budgetUnitHours: "h",
   budgetUnitPerHour: "EUR/h",
   budgetAddDiscipline: "Add discipline",
   budgetRemoveDiscipline: "Remove discipline",
@@ -354,7 +344,6 @@ const enUS = {
   aiConsentPolicyCheckbox:
     "I have read and accept Acme's policy on AI usage.",
   aiConsentAccept: "I understand — enable chat",
-  aiConsentDecline: "Cancel",
   aiConsentRequired:
     "Consent required. Open the AI Assistant tab to review and enable.",
   aiConsentGranted: "Chat enabled",
@@ -490,9 +479,7 @@ const enUS = {
   raidRiskMatrix: "Risk matrix (probability × impact)",
   raidRaisedDate: "Raised",
   raidTargetDate: "Target date",
-  raidClosedDate: "Closed",
   raidLinkedTasks: "Linked tasks",
-  raidAddLinkedTask: "Link task",
   raidLinkPickerPlaceholder: "Type id or task name…",
   raidCreateMitigationTask: "Create mitigation task",
   raidCreateMitigationTaskHint: "Spawns a new task pre-filled from this item and links it back.",
@@ -784,7 +771,6 @@ const enUS = {
   resourcesOpenTasks: "Open",
   resourcesOverdueTasks: "Overdue",
   resourcesUpcomingAbsences: "Upcoming absences",
-  resourcesAbsenceCount: "{0} absence(s)",
   resourcesAddAbsence: "+ Add absence",
   absenceNewItem: "New absence",
   absenceEditItem: "Editing absence #{0}",
@@ -807,7 +793,6 @@ const enUS = {
   activityAbsenceCreated: "Absence #{0} created for {1}: {2} – {3}",
   activityAbsenceUpdated: "Absence #{0} updated for {1}: {2} – {3}",
   activityAbsenceDeleted: "Absence #{0} deleted for {1}",
-  resourcesViewList: "List",
   resourcesViewCalendar: "Calendar",
   calendarModeCustom: "Custom",
   calendarPrev: "Previous",
@@ -869,7 +854,6 @@ const enUS = {
 
   reorderHint: "Drag to reorder",
   rolesConfirmDeleteRef: "Remove this entry? Roles using it become n/a with zero rates.",
-  rolesManageTitle: "Roles & rates",
   rolesRateCard: "Rate card",
   rolesDiscipline: "Discipline",
   rolesGrade: "Grade",
@@ -880,7 +864,6 @@ const enUS = {
   rolesAddGrade: "Add grade",
   rolesNoRoles: "No roles yet — add a discipline × grade combination.",
   resourcesManageRoles: "Manage roles",
-  resourcesOpenReport: "Report",
   resourcesViewPlanning: "Planning",
   resourcesCapacityDays: "Capacity (days)",
   resourcesPlanStart: "From",
@@ -941,8 +924,6 @@ const enUS = {
   resourcesUnlinkedHint: "Not in the address book",
   resourcesAddAsResource: "Add as resource",
 
-  resourcesAddressBookTitle: "Address Book",
-  resourcesOpenAddressBook: "Open address book",
   taskAddAssigneeToAddressBook: "Add to address book",
 
   reminderLeadDays: "Days ahead",
@@ -986,14 +967,10 @@ const enUS = {
   raidFieldCausedByHint: "Search by id or title to record which other RAID items caused this one.",
   raidFieldDeleteHint: "Permanently delete this RAID item. This cannot be undone.",
   directorySearchHint: "Filter the directory to people whose name, title, department, or email match your text.",
-  resourcesViewHint: "Switch between Directory, Workload, Calendar, and Planning views.",
   resourcesGranularityHint: "Group the planning grid by week or by month.",
   resourcesPlanStartHint: "First day of the planning window.",
   resourcesPlanEndHint: "Last day of the planning window.",
-  resourcesManageRolesHint: "Open the roles & rates editor to manage disciplines, grades, and rate cards.",
-  resourcesOpenReportHint: "Open the resource report in its own window.",
   resourcesRollupHint: "Show or hide the read-only capacity and cost rollup.",
-  resourcesAddAbsenceHint: "Record a vacation, sick day, training, or other absence for a person.",
   resourcesUtilModePercent: "Percent",
   resourcesUtilModeHours: "Hours",
   resourcesUtilModeHint: "Switch all resources between percent and hours; entered values are converted.",
@@ -1049,7 +1026,6 @@ const enUS = {
   raidReportFilterDetail: "Filter items…",
   raidReportEmpty: "No RAID items yet. Add some in the RAID panel.",
   raidReportOpenReport: "Open RAID Report",
-  raidReportOpenReportHint: "Open a steering-committee overview in a new window.",
   versionHighlightRaidReport: "RAID Report: a steering-committee overview of open risks, issues, assumptions and dependencies — with a drill-down to the full item list.",
   versionHighlightPrintReports: "Reports, RAID Report and Resources Report now have a Print button — produces a clean A4-fitting handout via the browser's print dialog.",
 
@@ -1079,7 +1055,6 @@ const enUS = {
   integrationsM365SignedInAs: "Signed in as",
   integrationsM365SignOut: "Sign out",
   integrationsM365NeedsConfig: "Enter Client ID to sign in.",
-  integrationsM365SignInFailed: "Sign-in failed. Check console for details.",
   integrationsSharepoint: "SharePoint storage",
   integrationsOutlookContacts: "Outlook contacts",
   integrationsOutlookCalendar: "Outlook calendar",

@@ -1,7 +1,7 @@
 import type { TranslationKey } from "./i18n";
 import { isViewEnabled, type FeatureModuleId } from "./feature-modules";
 
-// Superset of the workspace/popout TopTab union. "open-points", "settings"
+// Superset of the popout tab union (POPOUT_TABS in broadcast-sync.ts). "open-points", "settings"
 // and "edit" are main-window-only views. "edit" is reserved for Phase 2
 // (full-page task editor) and intentionally has no nav entry yet.
 export type AppView =

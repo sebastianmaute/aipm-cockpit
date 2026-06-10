@@ -5,7 +5,6 @@ import {
   siteDrivesUrl,
   driveRootChildrenUrl,
   folderChildrenUrl,
-  siteByPathUrl,
   siteDefaultDriveRootChildrenUrl,
   isSafeGraphLink,
   readList,
@@ -94,17 +93,6 @@ describe("siteDefaultDriveRootChildrenUrl", () => {
   test("a hostile hostname cannot break out of the sites segment", () => {
     expect(siteDefaultDriveRootChildrenUrl("evil/..", "/sites/proj"))
       .toBe(`${GRAPH_BASE}/sites/evil%2F..:/sites/proj:/drive/root/children`);
-  });
-});
-
-describe("siteByPathUrl", () => {
-  test("addresses a site by hostname + server-relative path", () => {
-    expect(siteByPathUrl("c.sharepoint.com", "/sites/proj"))
-      .toBe(`${GRAPH_BASE}/sites/c.sharepoint.com:/sites/proj`);
-  });
-  test("encodes path segments while keeping slashes", () => {
-    expect(siteByPathUrl("c.sharepoint.com", "/sites/My Proj"))
-      .toBe(`${GRAPH_BASE}/sites/c.sharepoint.com:/sites/My%20Proj`);
   });
 });
 

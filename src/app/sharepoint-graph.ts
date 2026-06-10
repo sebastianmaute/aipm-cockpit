@@ -72,11 +72,6 @@ function encodeSitePath(sitePath: string): string {
   return sitePath.split("/").map(encodeURIComponent).join("/");
 }
 
-/** Resolve a site addressed by hostname + server-relative path (paste fallback). */
-export function siteByPathUrl(hostname: string, sitePath: string): string {
-  return `${GRAPH_BASE}/sites/${encodeURIComponent(hostname)}:${encodeSitePath(sitePath)}`;
-}
-
 /** Default document library (drive) root children of a site addressed by path.
  *  Works with Files.ReadWrite.All — no Sites.Read.All needed (unlike /sites/{id}/drives). */
 export function siteDefaultDriveRootChildrenUrl(hostname: string, sitePath: string): string {
