@@ -24,6 +24,7 @@ import {
   loadRegistry,
   saveRegistry,
   setCurrentProject as setCurrentProjectInRegistry,
+  type ProjectsRegistry,
 } from "./projects-registry";
 import { getHandle, saveHandle } from "./project-file-handles";
 import { localKindForFormat, deriveRegistryEntry } from "./use-project-switch";
@@ -61,6 +62,11 @@ export interface UseStorageBackendArgs {
    *  status bubble + banner. `null` = success (clear any error); an error value
    *  is classified (see storage-error.ts). */
   onStorageOutcome?: (err: unknown | null) => void;
+  /** Notifies the caller after the projects registry is persisted (switch /
+   *  create / load-from-file). Lets task-manager keep an observable copy of the
+   *  registry in React state so the switcher list, empty-state gate, and Projects
+   *  panel re-render. Receives the freshly-saved registry. */
+  onRegistryChange?: (registry: ProjectsRegistry) => void;
 }
 
 export function useStorageBackend(args: UseStorageBackendArgs) {
@@ -367,6 +373,15 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     return { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, milestones, changes, stakeholders };
   }
 
+  // Persist the registry AND surface the change to the caller so its observable
+  // copy (task-manager's `registry` state) re-renders. Every project flow that
+  // mutates the registry routes through here instead of calling saveRegistry
+  // directly, so no update is missed.
+  function commitRegistry(next: ProjectsRegistry): void {
+    saveRegistry(next);
+    args.onRegistryChange?.(next);
+  }
+
   // Build a backend for an arbitrary config using the current deps. Shared by
   // the project flows; mirrors the memo'd `backend` construction.
   function backendFor(config: StorageConfig) {
@@ -433,7 +448,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       suppressNextLoadRef.current = true;
       suppressNextSaveRef.current = true;
       args.setStorageConfig(target.storageConfig);
-      saveRegistry(setCurrentProjectInRegistry(registry, id));
+      commitRegistry(setCurrentProjectInRegistry(registry, id));
       args.showToast("info", t(langRef.current, "projectSwitchedToast", target.name));
     } catch (err) {
       reportProjectError(err);
@@ -472,7 +487,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         { id, name: meta.name, code: meta.code, storageConfig },
         true,
       );
-      saveRegistry(registry);
+      commitRegistry(registry);
       // Apply the new (empty + meta) workspace and point the active backend at it.
       applyWorkspace(ws);
       suppressNextLoadRef.current = true;
@@ -518,7 +533,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         project: loaded.project,
         fileName: fileName ?? undefined,
       });
-      saveRegistry(addProject(loadRegistry(), entry, true));
+      commitRegistry(addProject(loadRegistry(), entry, true));
       applyWorkspace(loaded);
       suppressNextLoadRef.current = true;
       suppressNextSaveRef.current = true;

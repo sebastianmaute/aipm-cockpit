@@ -49,10 +49,23 @@ function seedFeatures(features: readonly string[]): void {
   window.localStorage.setItem("lop-app:settings", JSON.stringify({ features }));
 }
 
+// Seed one registered project so the multi-project empty-state gate (shown on a
+// fresh registry) does not replace the app chrome + banner these tests assert.
+function seedRegistry(): void {
+  window.localStorage.setItem(
+    "lop-app:projects",
+    JSON.stringify({
+      projects: [{ id: "p1", name: "Seed", code: "SEED", storageConfig: { kind: "browser" } }],
+      currentProjectId: "p1",
+    }),
+  );
+}
+
 describe("TaskManager stakeholder-comms banner gating", () => {
   beforeEach(() => {
     globalThis.indexedDB = new IDBFactory();
     window.localStorage.clear();
+    seedRegistry();
   });
   afterEach(() => {
     cleanup();

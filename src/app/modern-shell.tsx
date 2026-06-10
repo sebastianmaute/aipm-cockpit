@@ -6,6 +6,7 @@ import { TopBar } from "./top-bar";
 import { VersionInfoModal } from "./version-info";
 import { navLabelKey, type AppView, type NavGroup } from "./nav-config";
 import { type AppMode } from "./feature-modules";
+import { type ProjectSwitcherProps } from "./project-switcher";
 
 interface ModernShellProps {
   lang: Lang;
@@ -32,6 +33,8 @@ interface ModernShellProps {
   collapsed?: boolean;
   onToggleCollapsed?: () => void;
   navGroups?: NavGroup[];
+  /** When set, renders the current-project indicator + switcher in the TopBar. */
+  projectSwitcher?: ProjectSwitcherProps;
 }
 
 export function ModernShell({
@@ -43,6 +46,7 @@ export function ModernShell({
   banners = null,
   collapsed = false, onToggleCollapsed = () => {},
   navGroups,
+  projectSwitcher,
 }: ModernShellProps) {
   const [versionOpen, setVersionOpen] = useState(false);
   const isEditing = activeView === "edit";
@@ -85,6 +89,7 @@ export function ModernShell({
           onOpenAiAssistant={onOpenAiAssistant}
           primaryAction={isEditing ? editActions : undefined}
           onToggleSidebar={onToggleCollapsed}
+          projectSwitcher={projectSwitcher}
         >
           {topBarMenus}
         </TopBar>
