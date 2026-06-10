@@ -1173,7 +1173,6 @@ const enUS = {
   spPickerUse: "Use this folder",
   spPickerEmptySites: "No sites found. Try another search or paste a site URL.",
   spPickerEmptyFolder: "This folder is empty.",
-  spPickerBack: "Back",
   spPickerErrorSignIn: "Sign in to Microsoft first.",
   spPickerErrorAuth: "Sign-in expired. Re-authenticate from Settings.",
   spPickerErrorForbidden: "Permission denied — you lack access to this site or file.",

@@ -1191,7 +1191,6 @@ export const de: Record<TranslationKey, string> = {
   spPickerUse: "Diesen Ordner verwenden",
   spPickerEmptySites: "Keine Sites gefunden. Andere Suche versuchen oder Site-URL einfügen.",
   spPickerEmptyFolder: "Dieser Ordner ist leer.",
-  spPickerBack: "Zurück",
   spPickerErrorSignIn: "Zuerst bei Microsoft anmelden.",
   spPickerErrorAuth: "Anmeldung abgelaufen. In den Einstellungen neu anmelden.",
   spPickerErrorForbidden: "Zugriff verweigert — kein Zugriff auf diese Site oder Datei.",

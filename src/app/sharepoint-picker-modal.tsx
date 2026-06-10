@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
 import { t, type Lang } from "./i18n";
@@ -94,16 +94,6 @@ export function SharePointPickerModal({
   } = useSharePointBrowser(acquireToken);
 
   const title = t(lang, "spPickerTitle");
-
-  // Mirror Modal's document listener on window so tests that dispatch
-  // keydown to window (rather than document) still trigger close.
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
 
   function handleSearch() {
     if (searchQuery.trim()) {

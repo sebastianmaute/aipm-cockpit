@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { SharePointPickerModal } from "./sharepoint-picker-modal";
 
@@ -7,6 +7,24 @@ const acquire = vi.fn(async () => "tok");
 function mockFetch(body: unknown) {
   vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, status: 200, json: async () => body })));
 }
+
+function mockFetchSequence(...bodies: unknown[]) {
+  const fetchMock = vi.fn();
+  for (const body of bodies) {
+    fetchMock.mockResolvedValueOnce({ ok: true, status: 200, json: async () => body });
+  }
+  vi.stubGlobal("fetch", fetchMock);
+  return fetchMock;
+}
+
+function mockFetchError(status: number) {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => ({ ok: false, status, json: async () => ({}) })),
+  );
+}
+
+beforeEach(() => vi.unstubAllGlobals());
 
 describe("SharePointPickerModal", () => {
   it("searches sites and lists results", async () => {
@@ -21,7 +39,147 @@ describe("SharePointPickerModal", () => {
     mockFetch({ value: [] });
     const onClose = vi.fn();
     render(<SharePointPickerModal mode="link" lang="en-US" acquireToken={acquire} onSelect={vi.fn()} onClose={onClose} />);
-    fireEvent.keyDown(window, { key: "Escape" });
+    fireEvent.keyDown(document, { key: "Escape" });
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it("file Select calls onSelect + onClose", async () => {
+    // search → sites; openSite → drives; openDrive → items (a file)
+    mockFetchSequence(
+      { value: [{ id: "s1", displayName: "Proj", webUrl: "https://c.sharepoint.com/sites/proj" }] },
+      { value: [{ id: "d1", name: "Documents" }] },
+      {
+        value: [
+          {
+            id: "f1",
+            name: "Spec.docx",
+            webUrl: "https://c.sharepoint.com/x",
+            file: { mimeType: "application/msword" },
+            parentReference: { driveId: "d1" },
+          },
+        ],
+      },
+    );
+
+    const onSelect = vi.fn();
+    const onClose = vi.fn();
+    render(
+      <SharePointPickerModal mode="link" lang="en-US" acquireToken={acquire} onSelect={onSelect} onClose={onClose} />,
+    );
+
+    // Step 1: search
+    fireEvent.change(screen.getByPlaceholderText(/search sites/i), { target: { value: "proj" } });
+    fireEvent.click(screen.getByText(/^Search$/));
+    await waitFor(() => expect(screen.getByText("Proj")).toBeInTheDocument());
+
+    // Step 2: open site → drives
+    fireEvent.click(screen.getByText("Proj"));
+    await waitFor(() => expect(screen.getByText("Documents")).toBeInTheDocument());
+
+    // Step 3: open drive → items
+    fireEvent.click(screen.getByText("Documents"));
+    await waitFor(() => expect(screen.getByText("Spec.docx")).toBeInTheDocument());
+
+    // Step 4: select the file
+    fireEvent.click(screen.getByText("Select"));
+    expect(onSelect).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "Spec.docx", kind: "file" }),
+    );
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('mode "link": folder shows "Use this folder" which calls onSelect+onClose', async () => {
+    mockFetchSequence(
+      { value: [{ id: "s1", displayName: "Proj", webUrl: "https://c.sharepoint.com/sites/proj" }] },
+      { value: [{ id: "d1", name: "Documents" }] },
+      {
+        value: [
+          {
+            id: "fo1",
+            name: "Sub",
+            webUrl: "https://c.sharepoint.com/y",
+            folder: {},
+            parentReference: { driveId: "d1" },
+          },
+        ],
+      },
+    );
+
+    const onSelect = vi.fn();
+    const onClose = vi.fn();
+    render(
+      <SharePointPickerModal mode="link" lang="en-US" acquireToken={acquire} onSelect={onSelect} onClose={onClose} />,
+    );
+
+    fireEvent.change(screen.getByPlaceholderText(/search sites/i), { target: { value: "proj" } });
+    fireEvent.click(screen.getByText(/^Search$/));
+    await waitFor(() => expect(screen.getByText("Proj")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByText("Proj"));
+    await waitFor(() => expect(screen.getByText("Documents")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByText("Documents"));
+    await waitFor(() => expect(screen.getByText("Sub")).toBeInTheDocument());
+
+    const useBtn = screen.getByText(/use this folder/i);
+    expect(useBtn).toBeInTheDocument();
+    fireEvent.click(useBtn);
+    expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ kind: "folder" }));
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('mode "location": folder has no "Use this folder" button but has "Open"', async () => {
+    mockFetchSequence(
+      { value: [{ id: "s1", displayName: "Proj", webUrl: "https://c.sharepoint.com/sites/proj" }] },
+      { value: [{ id: "d1", name: "Documents" }] },
+      {
+        value: [
+          {
+            id: "fo1",
+            name: "Sub",
+            webUrl: "https://c.sharepoint.com/y",
+            folder: {},
+            parentReference: { driveId: "d1" },
+          },
+        ],
+      },
+    );
+
+    render(
+      <SharePointPickerModal
+        mode="location"
+        lang="en-US"
+        acquireToken={acquire}
+        onSelect={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+
+    fireEvent.change(screen.getByPlaceholderText(/search sites/i), { target: { value: "proj" } });
+    fireEvent.click(screen.getByText(/^Search$/));
+    await waitFor(() => expect(screen.getByText("Proj")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByText("Proj"));
+    await waitFor(() => expect(screen.getByText("Documents")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByText("Documents"));
+    await waitFor(() => expect(screen.getByText("Sub")).toBeInTheDocument());
+
+    expect(screen.queryByText(/use this folder/i)).toBeNull();
+    // The folder row renders an "Open" button (in addition to the disabled paste-URL "Open")
+    expect(screen.getAllByText("Open").length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("403 error renders the forbidden message", async () => {
+    mockFetchError(403);
+    render(
+      <SharePointPickerModal mode="link" lang="en-US" acquireToken={acquire} onSelect={vi.fn()} onClose={vi.fn()} />,
+    );
+
+    fireEvent.change(screen.getByPlaceholderText(/search sites/i), { target: { value: "proj" } });
+    fireEvent.click(screen.getByText(/^Search$/));
+    await waitFor(() =>
+      expect(screen.getByText(/permission denied/i)).toBeInTheDocument(),
+    );
   });
 });
