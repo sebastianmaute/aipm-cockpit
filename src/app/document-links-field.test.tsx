@@ -40,4 +40,11 @@ describe("DocumentLinksField", () => {
     fireEvent.click(screen.getByRole("button", { name: /add from sharepoint/i }));
     expect(screen.getByRole("dialog")).toBeInTheDocument();
   });
+
+  it("fires onLog on remove", () => {
+    const onLog = vi.fn();
+    render(<DocumentLinksField value={[{ id: "1", name: "Spec.docx", url: "https://c.sharepoint.com/x", kind: "file" }]} onChange={vi.fn()} lang="en-US" acquireToken={acquire} onLog={onLog} />);
+    fireEvent.click(screen.getByRole("button", { name: /remove link/i }));
+    expect(onLog).toHaveBeenCalledWith("removed", "Spec.docx");
+  });
 });

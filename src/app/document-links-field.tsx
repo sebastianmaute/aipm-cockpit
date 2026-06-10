@@ -11,18 +11,22 @@ export interface DocumentLinksFieldProps {
   onChange: (next: DocumentLink[]) => void;
   lang: Lang;
   acquireToken: AcquireToken;
+  onLog?: (action: "added" | "removed", name: string) => void;
 }
 
-export function DocumentLinksField({ value, onChange, lang, acquireToken }: DocumentLinksFieldProps) {
+export function DocumentLinksField({ value, onChange, lang, acquireToken, onLog }: DocumentLinksFieldProps) {
   const [pickerOpen, setPickerOpen] = useState(false);
 
   function add(link: DocumentLink) {
     if (value.some((l) => l.url === link.url)) return;
     onChange([...value, link]);
+    onLog?.("added", link.name);
   }
 
   function remove(url: string) {
+    const removed = value.find((l) => l.url === url);
     onChange(value.filter((l) => l.url !== url));
+    if (removed) onLog?.("removed", removed.name);
   }
 
   return (

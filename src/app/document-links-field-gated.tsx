@@ -5,6 +5,7 @@ import type { DocumentLink } from "./document-link";
 import { DocumentLinksField } from "./document-links-field";
 import { useMsAuth } from "./use-ms-auth";
 import { useSettings } from "./use-settings";
+import { useActivityLogger } from "./activity-log-context";
 
 export interface DocumentLinksFieldGatedProps {
   value: DocumentLink[];
@@ -21,11 +22,16 @@ export function DocumentLinksFieldGated({ value, onChange, lang }: DocumentLinks
   const m365Enabled = m365?.enabled ?? false;
   const spEnabled = m365Enabled && (m365?.sharepoint ?? false);
   const auth = useMsAuth(m365Enabled);
+  const logActivity = useActivityLogger();
+  const onLog = logActivity
+    ? (action: "added" | "removed", name: string) =>
+        logActivity(action === "added" ? "doc.linkAdded" : "doc.linkRemoved", name)
+    : undefined;
 
   if (!spEnabled) {
     return <p className="text-xs text-muted-foreground">{t(lang, "documentsNeedsSharePoint")}</p>;
   }
   return (
-    <DocumentLinksField value={value} onChange={onChange} lang={lang} acquireToken={auth.acquireToken} />
+    <DocumentLinksField value={value} onChange={onChange} lang={lang} acquireToken={auth.acquireToken} onLog={onLog} />
   );
 }

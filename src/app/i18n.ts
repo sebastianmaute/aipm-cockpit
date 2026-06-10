@@ -860,6 +860,8 @@ const enUS = {
   activityRoleUpdated: "Role #{0} updated: {1}",
   activityRoleDeleted: "Role #{0} deleted: {1}",
   activitySettingsUpdated: "Settings updated",
+  activityDocLinkAdded: "Linked document {0}",
+  activityDocLinkRemoved: "Removed document link {0}",
   taskDueDateAbsenceWarning:
     "Note: {0} is on {1} from {2} to {3}.",
   resourcesWorkdayHours: "Hours per work day",

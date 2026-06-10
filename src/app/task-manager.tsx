@@ -7,6 +7,7 @@ import { getBucketReminders } from "./budget-report";
 import { t } from "./i18n";
 import { useChatDispatcher } from "./use-chat-dispatcher";
 import { useActivityLog } from "./use-activity-log";
+import { ActivityLogProvider } from "./activity-log-context";
 import { useDueAlerts } from "./use-due-alerts";
 import { useToast } from "./use-toast";
 import { useSettings, writeSettings } from "./use-settings";
@@ -1575,11 +1576,13 @@ function TaskManagerInner() {
 
   if (isPopout) {
     return (
-      <AiUsageProvider lang={lang} ai={settings.ai} showToast={showToast}>
-        <ToastProvider value={showToast}>
-          <VoiceCommandProvider value={voiceHandlers}>{legacyTree}</VoiceCommandProvider>
-        </ToastProvider>
-      </AiUsageProvider>
+      <ActivityLogProvider value={logActivity}>
+        <AiUsageProvider lang={lang} ai={settings.ai} showToast={showToast}>
+          <ToastProvider value={showToast}>
+            <VoiceCommandProvider value={voiceHandlers}>{legacyTree}</VoiceCommandProvider>
+          </ToastProvider>
+        </AiUsageProvider>
+      </ActivityLogProvider>
     );
   }
   // Empty-state gate: on a fresh install (no registered projects) the user must
@@ -1598,24 +1601,26 @@ function TaskManagerInner() {
       : hydrated && registry.projects.length === 0;
 
   return (
-    <AiUsageProvider lang={lang} ai={settings.ai} showToast={showToast}>
-      <ToastProvider value={showToast}>
-        <VoiceCommandProvider value={voiceHandlers}>
-          {showEmptyState ? (
-            <ProjectEmptyState
-              lang={lang}
-              mode={portfolioMode}
-              stakeholderNames={stakeholders.map((s) => s.name)}
-              addressBook={contactsList}
-              onCreate={handleCreateProjectByMode}
-              onLoadFromFile={() => { void loadProjectFromFile(); }}
-            />
-          ) : (
-            <AppShell layout={settings.layout} classic={legacyTree} modern={modernTree} />
-          )}
-        </VoiceCommandProvider>
-      </ToastProvider>
-    </AiUsageProvider>
+    <ActivityLogProvider value={logActivity}>
+      <AiUsageProvider lang={lang} ai={settings.ai} showToast={showToast}>
+        <ToastProvider value={showToast}>
+          <VoiceCommandProvider value={voiceHandlers}>
+            {showEmptyState ? (
+              <ProjectEmptyState
+                lang={lang}
+                mode={portfolioMode}
+                stakeholderNames={stakeholders.map((s) => s.name)}
+                addressBook={contactsList}
+                onCreate={handleCreateProjectByMode}
+                onLoadFromFile={() => { void loadProjectFromFile(); }}
+              />
+            ) : (
+              <AppShell layout={settings.layout} classic={legacyTree} modern={modernTree} />
+            )}
+          </VoiceCommandProvider>
+        </ToastProvider>
+      </AiUsageProvider>
+    </ActivityLogProvider>
   );
 }
 

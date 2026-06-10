@@ -878,6 +878,8 @@ export const de: Record<TranslationKey, string> = {
   activityRoleUpdated: "Rolle #{0} aktualisiert: {1}",
   activityRoleDeleted: "Rolle #{0} gelöscht: {1}",
   activitySettingsUpdated: "Einstellungen aktualisiert",
+  activityDocLinkAdded: "Dokument verknüpft {0}",
+  activityDocLinkRemoved: "Dokumentverknüpfung entfernt {0}",
   taskDueDateAbsenceWarning:
     "Hinweis: {0} ist von {2} bis {3} ({1}).",
   resourcesWorkdayHours: "Stunden pro Arbeitstag",
