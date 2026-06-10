@@ -145,10 +145,14 @@ export interface WorkspaceSectionProps {
   trends: UseSnapshotsResult & { active: boolean };
   // Multi-project (Projects view). The mutating callbacks are no-ops in popouts
   // (their hook implementations early-return on isPopout); the panel still
-  // renders read-only there, matching every other panel.
+  // renders read-only there, matching every other panel. Mode-aware: file mode
+  // uses the localStorage registry; turso mode uses the shared DB project list
+  // (archive/restore/hard-delete instead of delete-from-registry).
+  mode: "file" | "turso";
   projects: ProjectRegistryEntry[];
   currentProjectId: string | null;
   currentProject?: ProjectMeta;
+  archivedProjects?: ProjectRegistryEntry[];
   projectStakeholderNames: string[];
   projectAddressBook: Contact[];
   onSwitchProject: (id: string) => void;
@@ -157,6 +161,9 @@ export interface WorkspaceSectionProps {
   onDeleteProject: (id: string) => void;
   onExportCurrentProject: (format: string) => void;
   onLoadProjectFromFile: () => void;
+  onArchiveProject?: (id: string) => void;
+  onRestoreProject?: (id: string) => void;
+  onHardDeleteProject?: (id: string) => void;
 }
 
 export function WorkspaceSection({
@@ -204,9 +211,11 @@ export function WorkspaceSection({
   fxLoading = false,
   fullBleed = false,
   trends,
+  mode,
   projects,
   currentProjectId,
   currentProject,
+  archivedProjects,
   projectStakeholderNames,
   projectAddressBook,
   onSwitchProject,
@@ -215,6 +224,9 @@ export function WorkspaceSection({
   onDeleteProject,
   onExportCurrentProject,
   onLoadProjectFromFile,
+  onArchiveProject,
+  onRestoreProject,
+  onHardDeleteProject,
 }: WorkspaceSectionProps) {
   const { settings, setSettings, lang } = useSettings();
   const features = settings.features;
@@ -781,6 +793,7 @@ export function WorkspaceSection({
               projects={projects}
               currentProjectId={currentProjectId}
               currentProject={currentProject}
+              archivedProjects={archivedProjects}
               stakeholderNames={projectStakeholderNames}
               addressBook={projectAddressBook}
               lang={lang}
@@ -790,7 +803,10 @@ export function WorkspaceSection({
               onDelete={onDeleteProject}
               onExportCurrent={onExportCurrentProject}
               onLoadFromFile={onLoadProjectFromFile}
-              mode="file"
+              onArchive={onArchiveProject}
+              onRestore={onRestoreProject}
+              onHardDelete={onHardDeleteProject}
+              mode={mode}
             />
           </div>
         )}

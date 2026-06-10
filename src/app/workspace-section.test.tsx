@@ -80,6 +80,7 @@ function makeProps(overrides: Partial<WorkspaceSectionProps> = {}): WorkspaceSec
     onAddResource: vi.fn(),
     onChangeBudgets: vi.fn(),
     onRefreshFx: vi.fn(),
+    mode: "file",
     projects: [],
     currentProjectId: null,
     projectStakeholderNames: [],

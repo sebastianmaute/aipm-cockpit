@@ -169,7 +169,9 @@ export function ProjectSwitcher({
               </button>
             );
           })}
-          <div className="my-1 border-t border-line" />
+          {mode === "file" && (
+            <div className="my-1 border-t border-line" />
+          )}
           {mode === "file" && (
             <button
               type="button"

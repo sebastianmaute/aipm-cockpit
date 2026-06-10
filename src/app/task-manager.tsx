@@ -93,6 +93,10 @@ import { deleteHandle } from "./project-file-handles";
 import { exportWorkspace, type ExportFormat } from "./export";
 import { ProjectEmptyState } from "./project-empty-state";
 import type { ProjectSwitcherProps } from "./project-switcher";
+import { loadPortfolioMode, type PortfolioMode } from "./portfolio-mode";
+import { listProjects, listArchivedProjects, updateProjectMeta as tursoUpdateMeta } from "./turso-portfolio";
+import type { ProjectListEntry } from "./turso-tenant-schema";
+import type { ProjectRegistryEntry } from "./projects-registry";
 
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
@@ -268,11 +272,70 @@ function TaskManagerInner() {
     if (kind) setStorageError({ kind });
   }, []);
 
+  // Observable copy of the portfolio registry. The storage hook persists the
+  // registry inside its switch/create/load flows; it cannot setState here, so we
+  // pass `onRegistryChange` (option b) and the hook calls it after every
+  // saveRegistry. This keeps the switcher list, empty-state gate, and Projects
+  // panel re-rendering without re-reading localStorage on a bump counter.
+  // Popouts mirror the main window and never mutate the registry, so an empty
+  // initial value is fine there (the empty-state is also gated off for popouts).
+  const [registry, setRegistry] = useState<ProjectsRegistry>(() => loadRegistry());
+
+  // Portfolio storage mode. It only changes via the Settings toggle, which
+  // persists the new mode and reloads the page, so reading it once at mount is
+  // correct. In FILE mode the localStorage ProjectsRegistry drives everything;
+  // in TURSO mode the shared DB's `projects` table is the source of truth.
+  const [portfolioMode] = useState<PortfolioMode>(loadPortfolioMode());
+  const [tursoProjects, setTursoProjects] = useState<ProjectListEntry[]>([]);
+  const [tursoArchived, setTursoArchived] = useState<ProjectListEntry[]>([]);
+  const [tursoListLoaded, setTursoListLoaded] = useState(false);
+
+  const {
+    storageDescription, storageReady, onPickStorageFile, onGrantWriteAccess,
+    onOpenStorageFile, onRequestStorageSwitch,
+    switchToProject, createProject, loadProjectFromFile,
+    switchToTursoProject, createTursoProject, archiveTursoProject,
+    restoreTursoProject, hardDeleteTursoProject, tursoProjectId,
+  } =
+    useStorageBackend({ settings, lang, hydrated, isPopout, activityLog, setActivityLog, showToast, setStorageConfig: (storageConfig) => setSettings((s) => ({ ...s, storageConfig })), onStorageOutcome: reportStorageOutcome, onRegistryChange: setRegistry });
+
+  // Refresh the Turso project list (active + archived) from the shared DB. The
+  // list is the source of truth in Turso mode; this is called on first load and
+  // after every create/archive/restore/hard-delete. Only flips `tursoListLoaded`
+  // on success so a transient connectivity failure doesn't flash the empty-state.
+  const refreshTursoProjects = useCallback(async () => {
+    if (portfolioMode !== "turso") return;
+    const cfg = getTursoConfig(
+      settings.integrations?.turso?.databaseUrl,
+      settings.integrations?.turso?.authToken,
+    );
+    if (!cfg) return;
+    try {
+      const [active, archived] = await Promise.all([listProjects(cfg), listArchivedProjects(cfg)]);
+      setTursoProjects(active);
+      setTursoArchived(archived);
+      setTursoListLoaded(true);
+      reportStorageOutcome(null);
+    } catch (err) {
+      reportStorageOutcome(err);
+      // Do NOT set tursoListLoaded on error (avoids a false empty-state).
+    }
+  }, [portfolioMode, settings.integrations?.turso?.databaseUrl, settings.integrations?.turso?.authToken, reportStorageOutcome]);
+
+  useEffect(() => {
+    if (!hydrated || portfolioMode !== "turso") return;
+    // IIFE so the setState calls inside refreshTursoProjects run in a later
+    // microtask (after the first await), never synchronously in the effect body.
+    void (async () => {
+      await refreshTursoProjects();
+    })();
+  }, [hydrated, portfolioMode, refreshTursoProjects]);
+
   const snapshots = useSnapshots({
     active: trendsActive,
     cadence: snapshotsCfg.cadence,
     tursoConfig,
-    projectId: "",
+    projectId: portfolioMode === "turso" ? (tursoProjectId ?? "") : "",
     today: new Date(),
     buildContext: () => {
       const model = computeDashboard({
@@ -348,27 +411,13 @@ function TaskManagerInner() {
       setSettings((s) => ({ ...s, jira: { ...s.jira, tokenInvalidAt: ok ? undefined : new Date().toISOString() } })),
   });
 
-  // Observable copy of the portfolio registry. The storage hook persists the
-  // registry inside its switch/create/load flows; it cannot setState here, so we
-  // pass `onRegistryChange` (option b) and the hook calls it after every
-  // saveRegistry. This keeps the switcher list, empty-state gate, and Projects
-  // panel re-rendering without re-reading localStorage on a bump counter.
-  // Popouts mirror the main window and never mutate the registry, so an empty
-  // initial value is fine there (the empty-state is also gated off for popouts).
-  const [registry, setRegistry] = useState<ProjectsRegistry>(() => loadRegistry());
-
-  const {
-    storageDescription, storageReady, onPickStorageFile, onGrantWriteAccess,
-    onOpenStorageFile, onRequestStorageSwitch,
-    switchToProject, createProject, loadProjectFromFile,
-  } =
-    useStorageBackend({ settings, lang, hydrated, isPopout, activityLog, setActivityLog, showToast, setStorageConfig: (storageConfig) => setSettings((s) => ({ ...s, storageConfig })), onStorageOutcome: reportStorageOutcome, onRegistryChange: setRegistry });
-
   const currentProjectId = registry.currentProjectId;
   const currentEntry = getCurrentEntry(registry);
-  // Prefer the live in-memory project meta name; fall back to the registry
-  // entry's stored name, then null (the switcher shows a "no project" label).
-  const currentProjectName = project?.name ?? currentEntry?.name ?? null;
+  // Prefer the live in-memory project meta name (set by the active backend's
+  // load — file OR turso tenant); fall back to the file registry entry's stored
+  // name (file mode only), then null (the switcher shows a "no project" label).
+  const currentProjectName =
+    project?.name ?? (portfolioMode === "turso" ? null : currentEntry?.name) ?? null;
 
   // The status bubble must reflect real reachability: a stale Turso config is
   // `isReady()`-true (config present) but actually failing, so fold in the
@@ -871,6 +920,131 @@ function TaskManagerInner() {
     [registry, switchToProject],
   );
 
+  // --- Mode-aware portfolio derivations + handlers --------------------------
+  //
+  // FILE mode reads the localStorage registry; TURSO mode maps the shared DB's
+  // project-list rows into the SAME ProjectRegistryEntry shape the UI expects.
+
+  const portfolioProjects: ProjectRegistryEntry[] =
+    portfolioMode === "turso"
+      ? tursoProjects.map((e) => ({
+          id: e.id,
+          name: e.meta.name,
+          code: e.meta.code,
+          storageConfig: { kind: "turso" as const },
+        }))
+      : registry.projects;
+  const portfolioArchived: ProjectRegistryEntry[] =
+    portfolioMode === "turso"
+      ? tursoArchived.map((e) => ({
+          id: e.id,
+          name: e.meta.name,
+          code: e.meta.code,
+          storageConfig: { kind: "turso" as const },
+        }))
+      : [];
+  const portfolioCurrentId =
+    portfolioMode === "turso" ? tursoProjectId : currentProjectId;
+
+  // Switch — same navigation target ("New project" → projects view) in both
+  // modes; the switch itself routes to the active backend's handler.
+  const handleSwitchProjectByMode = useCallback(
+    (id: string) =>
+      portfolioMode === "turso" ? void switchToTursoProject(id) : void switchToProject(id),
+    [portfolioMode, switchToTursoProject, switchToProject],
+  );
+
+  // Create — the panel/empty-state callback is (meta, format); Turso ignores the
+  // file format and refreshes the shared list afterwards.
+  const handleCreateProjectByMode = useCallback(
+    (meta: ProjectMeta, format: "json" | "csv" | "md") => {
+      if (portfolioMode === "turso") {
+        void (async () => {
+          await createTursoProject(meta);
+          await refreshTursoProjects();
+        })();
+      } else {
+        createProject(meta, format);
+      }
+    },
+    [portfolioMode, createTursoProject, refreshTursoProjects, createProject],
+  );
+
+  // Update current project meta — Turso writes the projects-table row, mirrors
+  // it into the in-memory workspace, and refreshes the list.
+  const handleUpdateCurrentProjectByMode = useCallback(
+    (meta: ProjectMeta) => {
+      if (portfolioMode === "turso") {
+        const cfg = getTursoConfig(
+          settings.integrations?.turso?.databaseUrl,
+          settings.integrations?.turso?.authToken,
+        );
+        if (cfg && tursoProjectId) {
+          void (async () => {
+            await tursoUpdateMeta(cfg, meta, tursoProjectId);
+            setProject(meta);
+            await refreshTursoProjects();
+          })();
+        }
+      } else {
+        handleUpdateCurrentProject(meta);
+      }
+    },
+    [portfolioMode, settings.integrations?.turso?.databaseUrl, settings.integrations?.turso?.authToken, tursoProjectId, setProject, refreshTursoProjects, handleUpdateCurrentProject],
+  );
+
+  // Re-point the active project after archiving/hard-deleting it: if the affected
+  // id was active and it's now gone from the refreshed active list, switch to the
+  // first remaining active project (none remaining → the empty-state takes over).
+  const repointAfterRemoval = useCallback(
+    (removedId: string) => {
+      if (tursoProjectId !== removedId) return;
+      const cfg = getTursoConfig(
+        settings.integrations?.turso?.databaseUrl,
+        settings.integrations?.turso?.authToken,
+      );
+      if (!cfg) return;
+      void (async () => {
+        const remaining = await listProjects(cfg);
+        const survivor = remaining.find((p) => p.id !== removedId);
+        if (survivor) void switchToTursoProject(survivor.id);
+      })();
+    },
+    [tursoProjectId, settings.integrations?.turso?.databaseUrl, settings.integrations?.turso?.authToken, switchToTursoProject],
+  );
+
+  const handleArchiveTursoProject = useCallback(
+    (id: string) => {
+      void (async () => {
+        await archiveTursoProject(id);
+        await refreshTursoProjects();
+        repointAfterRemoval(id);
+      })();
+    },
+    [archiveTursoProject, refreshTursoProjects, repointAfterRemoval],
+  );
+
+  const handleRestoreTursoProject = useCallback(
+    (id: string) => {
+      void (async () => {
+        await restoreTursoProject(id);
+        await refreshTursoProjects();
+      })();
+    },
+    [restoreTursoProject, refreshTursoProjects],
+  );
+
+  const handleHardDeleteTursoProject = useCallback(
+    (id: string) => {
+      void (async () => {
+        await hardDeleteTursoProject(id);
+        await refreshTursoProjects();
+        repointAfterRemoval(id);
+      })();
+    },
+    [hardDeleteTursoProject, refreshTursoProjects, repointAfterRemoval],
+  );
+
   const editingTask =
     editingId !== null
       ? tasks.find((row) => row.id === editingId) ?? null
@@ -971,18 +1145,25 @@ function TaskManagerInner() {
     trends,
     // Multi-project (Projects view). Mutating callbacks are no-ops in popouts
     // (the hook's project functions early-return on isPopout); the panel still
-    // renders read-only there, matching how other panels behave.
-    projects: registry.projects,
-    currentProjectId,
+    // renders read-only there, matching how other panels behave. Mode-aware: in
+    // turso mode the list/current id come from the shared DB and the destructive
+    // action is Archive (with Restore/Hard-delete on archived rows).
+    mode: portfolioMode,
+    projects: portfolioProjects,
+    currentProjectId: portfolioCurrentId,
     currentProject: project,
+    archivedProjects: portfolioArchived,
     projectStakeholderNames: stakeholders.map((s) => s.name),
     projectAddressBook: contactsList,
-    onSwitchProject: switchToProject,
-    onCreateProject: createProject,
-    onUpdateCurrentProject: handleUpdateCurrentProject,
+    onSwitchProject: handleSwitchProjectByMode,
+    onCreateProject: handleCreateProjectByMode,
+    onUpdateCurrentProject: handleUpdateCurrentProjectByMode,
     onDeleteProject: handleDeleteProject,
     onExportCurrentProject: handleExportCurrentProject,
     onLoadProjectFromFile: () => { void loadProjectFromFile(); },
+    onArchiveProject: handleArchiveTursoProject,
+    onRestoreProject: handleRestoreTursoProject,
+    onHardDeleteProject: handleHardDeleteTursoProject,
   };
 
   const workspaceEl = <WorkspaceSection {...workspaceProps} />;
@@ -1120,10 +1301,11 @@ function TaskManagerInner() {
       }
     : {
         currentProjectName,
-        projects: registry.projects,
-        currentProjectId,
+        projects: portfolioProjects,
+        currentProjectId: portfolioCurrentId,
         lang,
-        onSwitch: switchToProject,
+        mode: portfolioMode,
+        onSwitch: handleSwitchProjectByMode,
         onLoadFromFile: () => { void loadProjectFromFile(); },
         onNew: handleNewProject,
       };
@@ -1395,7 +1577,14 @@ function TaskManagerInner() {
   // classic layouts. Popouts are handled above (they mirror the main window and
   // never see this). Gated on `hydrated` so SSR / pre-hydration (where
   // loadRegistry() is empty) doesn't flash the modal.
-  const showEmptyState = hydrated && registry.projects.length === 0;
+  // FILE mode: the localStorage registry is synchronous, so gate on hydration +
+  // zero projects. TURSO mode: gate additionally on `tursoListLoaded` so the
+  // empty-state never flashes before the first fetch and never shows when the DB
+  // is unreachable (the fetch only flips the flag on success).
+  const showEmptyState =
+    portfolioMode === "turso"
+      ? hydrated && tursoListLoaded && tursoProjects.length === 0
+      : hydrated && registry.projects.length === 0;
 
   return (
     <AiUsageProvider lang={lang} ai={settings.ai} showToast={showToast}>
@@ -1404,9 +1593,10 @@ function TaskManagerInner() {
           {showEmptyState ? (
             <ProjectEmptyState
               lang={lang}
+              mode={portfolioMode}
               stakeholderNames={stakeholders.map((s) => s.name)}
               addressBook={contactsList}
-              onCreate={createProject}
+              onCreate={handleCreateProjectByMode}
               onLoadFromFile={() => { void loadProjectFromFile(); }}
             />
           ) : (
