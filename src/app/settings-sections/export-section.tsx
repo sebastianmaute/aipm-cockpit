@@ -12,6 +12,7 @@ interface ExportSectionProps {
 }
 
 const LABEL_KEYS: Record<ExportSectionKey, TranslationKey> = {
+  project: "exportLabelProject",
   tasks: "exportLabelTasks",
   raid: "exportLabelRaid",
   changes: "exportLabelChanges",

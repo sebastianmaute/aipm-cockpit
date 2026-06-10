@@ -1479,6 +1479,7 @@ export const de: Record<TranslationKey, string> = {
   exportLabelRoles: "Rollen & Raten",
   exportLabelAbsences: "Abwesenheiten",
   exportLabelShifts: "Schichten",
+  exportLabelProject: "Projektdetails",
   exportLabelStatus: "Statusbericht",
 
   settingsSectionInformationFlows: "Informationsflüsse",

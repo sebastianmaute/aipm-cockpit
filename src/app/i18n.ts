@@ -1461,6 +1461,7 @@ const enUS = {
   exportLabelRoles: "Roles & rates",
   exportLabelAbsences: "Absences",
   exportLabelShifts: "Shifts",
+  exportLabelProject: "Project details",
   exportLabelStatus: "Status report",
 
   settingsSectionInformationFlows: "Information flows",

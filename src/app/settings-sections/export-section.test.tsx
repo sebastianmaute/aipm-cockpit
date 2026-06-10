@@ -16,7 +16,7 @@ function renderSection(overrides: Partial<typeof defaultSettings> = {}) {
 }
 
 describe("ExportSection", () => {
-  it("renders 11 checkboxes — one per export section key", () => {
+  it("renders 12 checkboxes — one per export section key", () => {
     renderSection();
     const checkboxes = screen.getAllByRole("checkbox");
     expect(checkboxes).toHaveLength(EXPORT_SECTION_KEYS.length);

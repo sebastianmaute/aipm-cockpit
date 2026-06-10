@@ -46,6 +46,7 @@ import type {
   Role,
   BudgetBucket,
   ProjectStatus,
+  ProjectMeta,
 } from "./types";
 
 export type ExportSection = {
@@ -139,6 +140,70 @@ function shiftsSection(shifts: Shift[]): ExportSection {
   return { key: "shifts", title: "Shifts", columns, rows };
 }
 
+// Human-readable labels for each ProjectMeta field, in display order.
+const PROJECT_FIELD_LABELS: Readonly<Record<keyof ProjectMeta, string>> = {
+  name:                      "Name",
+  code:                      "Code",
+  description:               "Description",
+  sponsor:                   "Sponsor",
+  projectManager:            "Project manager",
+  keyStakeholdersInternal:   "Internal stakeholders",
+  keyStakeholdersExternal:   "External stakeholders",
+  customer:                  "Customer",
+  naceSection:               "NACE section",
+  identityTypes:             "Identity types",
+  identityCount:             "Identity count",
+  products:                  "Products",
+  platform:                  "Platform",
+  deployment:                "Deployment",
+  startDate:                 "Start date",
+  endDate:                   "End date",
+  profitCenter:              "Profit center",
+  quotes:                    "Quotes",
+  salesforceUrl:             "Salesforce URL",
+  sharepointUrl:             "SharePoint URL",
+  confluenceUrl:             "Confluence URL",
+  contactPersons:            "Contact persons",
+  docRepoLocation:           "Doc repo location",
+  regulatory:                "Regulatory",
+  notes:                     "Notes",
+};
+
+/**
+ * Pivots a ProjectMeta into a ["field", "value"] key/value section.
+ * Only non-empty fields are included (undefined, empty string, empty array all
+ * produce no row).  Arrays are joined with ", "; ContactPerson items are
+ * rendered as "name <email>" then joined with ", ".
+ */
+function projectSection(p: ProjectMeta): ExportSection {
+  const rows: string[][] = [];
+
+  for (const key of Object.keys(PROJECT_FIELD_LABELS) as (keyof ProjectMeta)[]) {
+    const raw = p[key];
+
+    // Skip undefined / null
+    if (raw === undefined || raw === null) continue;
+
+    let value: string;
+
+    if (key === "contactPersons") {
+      const persons = raw as ProjectMeta["contactPersons"];
+      if (persons.length === 0) continue;
+      value = persons.map((cp) => `${cp.name} <${cp.email}>`).join(", ");
+    } else if (Array.isArray(raw)) {
+      if (raw.length === 0) continue;
+      value = (raw as string[]).join(", ");
+    } else {
+      value = String(raw);
+      if (value === "") continue;
+    }
+
+    rows.push([PROJECT_FIELD_LABELS[key], value]);
+  }
+
+  return { key: "project", title: "Project details", columns: ["field", "value"], rows };
+}
+
 function statusSection(status: ProjectStatus): ExportSection {
   // Status is a key/value map, not a flat list of entities. We represent it
   // as two columns ("field", "value") with one row per non-empty status field,
@@ -169,6 +234,7 @@ function statusSection(status: ProjectStatus): ExportSection {
 type SectionBuilder = (ws: Workspace, lang: Lang) => ExportSection | null;
 
 const BUILDERS: Record<ExportSectionKey, SectionBuilder> = {
+  project: (ws) => (ws.project ? projectSection(ws.project) : null),
   tasks: (ws, lang) => {
     const items = ws.tasks;
     return items.length > 0 ? tasksSection(items, lang) : null;
