@@ -1333,12 +1333,14 @@ export function projectFieldToString(p: ProjectMeta, col: keyof ProjectMeta): st
   return encodeProjectScalar(String(v));
 }
 
-/** Decode a `field -> raw string` map (as produced by the CSV/MD parsers) back
- *  into a sanitized ProjectMeta. Returns null when the data is invalid. */
-export function buildProjectFromObj(obj: Record<string, string>): ProjectMeta | null {
+/** Decode a `field -> raw string` map (as produced by the CSV/MD parsers, or a
+ *  Turso `projects` row) into the loose pre-sanitize ProjectMeta-shaped object.
+ *  Shared by the strict `buildProjectFromObj` and the lenient
+ *  `buildProjectFromObjLenient` so the per-field decode logic lives once. */
+function decodeProjectObj(obj: Record<string, string>): Record<string, unknown> {
   const scalar = (key: string): string | undefined =>
     obj[key] !== undefined ? decodeProjectScalar(obj[key]) : undefined;
-  return sanitizeProjectMeta({
+  return {
     name: scalar("name"),
     code: scalar("code"),
     description: scalar("description"),
@@ -1366,7 +1368,67 @@ export function buildProjectFromObj(obj: Record<string, string>): ProjectMeta | 
     docRepoLocation: scalar("docRepoLocation"),
     regulatory: decodeProjectList(obj.regulatory ?? ""),
     notes: scalar("notes"),
-  });
+  };
+}
+
+/** Decode a `field -> raw string` map (as produced by the CSV/MD parsers) back
+ *  into a sanitized ProjectMeta. Returns null when the data is invalid. */
+export function buildProjectFromObj(obj: Record<string, string>): ProjectMeta | null {
+  return sanitizeProjectMeta(decodeProjectObj(obj));
+}
+
+/** Lenient decode for an ALREADY-PERSISTED project row (e.g. a Turso `projects`
+ *  row, the multi-tenant source of truth). Unlike `buildProjectFromObj`, this
+ *  does not re-impose the create-form's required-field rules — a stored project
+ *  must never be silently dropped on read just because, say, it has no external
+ *  stakeholders. Only a non-empty `name` is required (a project always has one).
+ *  Falls back to the strict sanitizer first so well-formed rows are normalized
+ *  identically; only when that rejects do we build the lenient shape. */
+export function buildProjectFromObjLenient(obj: Record<string, string>): ProjectMeta | null {
+  const strict = buildProjectFromObj(obj);
+  if (strict) return strict;
+  const decoded = decodeProjectObj(obj);
+  const name = typeof decoded.name === "string" ? decoded.name.trim() : "";
+  if (!name) return null;
+  const str = (v: unknown): string => (typeof v === "string" ? v : "");
+  const optStr = (v: unknown): string | undefined =>
+    typeof v === "string" && v !== "" ? v : undefined;
+  const strArr = (v: unknown): string[] =>
+    Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
+  const count = decoded.identityCount;
+  const identityCount =
+    typeof count === "string" && count !== "" && Number.isFinite(Number(count))
+      ? Number(count)
+      : undefined;
+  return {
+    name,
+    code: str(decoded.code),
+    description: optStr(decoded.description),
+    sponsor: optStr(decoded.sponsor),
+    projectManager: str(decoded.projectManager),
+    keyStakeholdersInternal: strArr(decoded.keyStakeholdersInternal),
+    keyStakeholdersExternal: strArr(decoded.keyStakeholdersExternal),
+    customer: str(decoded.customer),
+    naceSection: str(decoded.naceSection),
+    identityTypes: strArr(decoded.identityTypes) as ProjectMeta["identityTypes"],
+    identityCount,
+    products: str(decoded.products),
+    platform: optStr(decoded.platform),
+    deployment: str(decoded.deployment) as ProjectMeta["deployment"],
+    startDate: str(decoded.startDate),
+    endDate: str(decoded.endDate),
+    profitCenter: str(decoded.profitCenter),
+    quotes: optStr(decoded.quotes),
+    salesforceUrl: optStr(decoded.salesforceUrl),
+    sharepointUrl: optStr(decoded.sharepointUrl),
+    confluenceUrl: optStr(decoded.confluenceUrl),
+    contactPersons: Array.isArray(decoded.contactPersons)
+      ? (decoded.contactPersons as ProjectMeta["contactPersons"])
+      : [],
+    docRepoLocation: optStr(decoded.docRepoLocation),
+    regulatory: strArr(decoded.regulatory) as ProjectMeta["regulatory"],
+    notes: optStr(decoded.notes),
+  };
 }
 
 /** Serializes ProjectMeta as a `field,value` CSV block (mirrors statusToCsv).
