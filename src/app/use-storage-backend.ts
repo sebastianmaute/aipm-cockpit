@@ -447,6 +447,16 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
    */
   async function createProject(meta: ProjectMeta, format: LocalStorageFormat): Promise<void> {
     if (args.isPopout) return;
+    // Flush the outgoing project to its OWN backend first (best-effort). Setting
+    // suppressNextSaveRef below cancels the pending debounced save, so edits made
+    // within the 500ms window before creating another project would otherwise be
+    // lost. Mirrors switchToProject's flush; must use the CURRENT active backend.
+    try {
+      await backend.save(currentWorkspace());
+    } catch {
+      // Swallow — the outgoing backend may be unconfigured (e.g. no file
+      // permission). Creating the new project is the user's intent.
+    }
     const id = crypto.randomUUID();
     const storageConfig: StorageConfig = { kind: localKindForFormat(format) };
     const ws: Workspace = { ...emptyWorkspace(), project: meta };
@@ -482,6 +492,16 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
    */
   async function loadProjectFromFile(format: LocalStorageFormat = "json"): Promise<void> {
     if (args.isPopout) return;
+    // Flush the outgoing project to its OWN backend first (best-effort). Setting
+    // suppressNextSaveRef below cancels the pending debounced save, so edits made
+    // within the 500ms window before opening another project would otherwise be
+    // lost. Mirrors switchToProject's flush; must use the CURRENT active backend.
+    try {
+      await backend.save(currentWorkspace());
+    } catch {
+      // Swallow — the outgoing backend may be unconfigured (e.g. no file
+      // permission). Opening the new project is the user's intent.
+    }
     const id = crypto.randomUUID();
     const storageConfig: StorageConfig = { kind: localKindForFormat(format) };
     try {

@@ -29,8 +29,27 @@ vi.mock("./storage", () => ({
   openFileForBackend: vi.fn(),
   pickFileForBackend: vi.fn(),
   requestWriteAccessForBackend: vi.fn(),
+  setBackendFileHandle: vi.fn(() => null),
+  getBackendFileHandle: vi.fn(() => null),
 }));
 import * as storageMod from "./storage";
+
+// ── Per-project file-handle store mock (IDB-backed in prod) ───────────────────
+vi.mock("./project-file-handles", () => ({
+  getHandle: vi.fn().mockResolvedValue(null),
+  saveHandle: vi.fn().mockResolvedValue(undefined),
+  deleteHandle: vi.fn().mockResolvedValue(undefined),
+}));
+import * as handlesMod from "./project-file-handles";
+
+// projects-registry is a pure module backed by jsdom localStorage — use it for
+// real so addProject / setCurrentProject / load+save round-trips behave as in prod.
+import {
+  addProject,
+  emptyRegistry,
+  loadRegistry,
+  saveRegistry,
+} from "./projects-registry";
 
 // ── Broadcast-sync mock ───────────────────────────────────────────────────────
 vi.mock("./broadcast-sync", () => ({
@@ -737,5 +756,229 @@ describe("useStorageBackend — onRequestStorageSwitch", () => {
 
     expect(confirmSpy).not.toHaveBeenCalled();
     expect(setStorageConfig).not.toHaveBeenCalled();
+  });
+});
+
+// ── Project switch / create / load-from-file (stateful flows) ─────────────────
+// These cover the three multi-project functions that live in useStorageBackend.
+// Fix-1 regression guard: createProject / loadProjectFromFile MUST flush the
+// CURRENT backend before changing storageConfig (the config change cancels the
+// pending debounced save), or in-window edits made within the 500ms debounce are
+// silently lost.
+describe("useStorageBackend — project flows", () => {
+  const createBackendMock = storageMod.createBackend as ReturnType<typeof vi.fn>;
+  let setStorageConfig: ReturnType<typeof vi.fn<(config: StorageConfig) => void>>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setStorageConfig = vi.fn<(config: StorageConfig) => void>();
+    // Reset the registry between tests (real module, jsdom localStorage).
+    saveRegistry(emptyRegistry());
+    // Default main backend (kind="browser")
+    mockBackend.load.mockResolvedValue(emptyWorkspace());
+    mockBackend.save.mockResolvedValue(undefined);
+    mockBackend.isReady.mockResolvedValue(true);
+    mockBackend.describe.mockResolvedValue("Browser");
+    createBackendMock.mockReturnValue(mockBackend);
+    (storageMod.pickFileForBackend as ReturnType<typeof vi.fn>).mockReturnValue(null);
+    (storageMod.openFileForBackend as ReturnType<typeof vi.fn>).mockReturnValue(null);
+    (storageMod.requestWriteAccessForBackend as ReturnType<typeof vi.fn>).mockReturnValue(null);
+    (storageMod.setBackendFileHandle as ReturnType<typeof vi.fn>).mockReturnValue(null);
+    (storageMod.getBackendFileHandle as ReturnType<typeof vi.fn>).mockReturnValue(null);
+    (handlesMod.getHandle as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    (handlesMod.saveHandle as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
+  });
+
+  // ── switchToProject ─────────────────────────────────────────────────────────
+  it("switchToProject saves the outgoing project, injects the target handle before load, applies target data + points config at the target", async () => {
+    // Register a target file project in the registry.
+    const targetId = "target-1";
+    const targetConfig: StorageConfig = { kind: "local-json" };
+    saveRegistry(
+      addProject(loadRegistry(), { id: targetId, name: "Target", code: "T", storageConfig: targetConfig }, false),
+    );
+
+    // Order log so we can assert handle-inject-before-load and save-before-config.
+    const order: string[] = [];
+    const handle = { name: "target.json" } as unknown as Parameters<typeof handlesMod.saveHandle>[1];
+    (handlesMod.getHandle as ReturnType<typeof vi.fn>).mockResolvedValue(handle);
+
+    const targetBackend = {
+      kind: "local-json",
+      load: vi.fn(() => { order.push("targetLoad"); return Promise.resolve({ ...emptyWorkspace(), tasks: [{ id: 555, taskName: "FromTarget" }] }); }),
+      save: vi.fn().mockResolvedValue(undefined),
+      isReady: vi.fn().mockResolvedValue(true),
+      describe: vi.fn().mockResolvedValue("target.json"),
+    };
+    (storageMod.setBackendFileHandle as ReturnType<typeof vi.fn>).mockImplementation(() => { order.push("setHandle"); return null; });
+    setStorageConfig.mockImplementation(() => { order.push("setConfig"); });
+
+    // Main backend records its save (the outgoing flush).
+    mockBackend.save.mockImplementation(() => { order.push("outgoingSave"); return Promise.resolve(undefined); });
+
+    // First createBackend → main (browser) memo; backendFor(target) → targetBackend.
+    createBackendMock
+      .mockReturnValueOnce(mockBackend)
+      .mockReturnValue(targetBackend);
+
+    const { result } = renderBackend(makeArgs({ setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+
+    await act(async () => { await result.current.switchToProject(targetId); });
+    await act(async () => { await Promise.resolve(); });
+
+    // Outgoing project flushed to the CURRENT (main) backend.
+    expect(mockBackend.save).toHaveBeenCalled();
+    // Target handle injected BEFORE the target load.
+    expect(storageMod.setBackendFileHandle).toHaveBeenCalledWith(targetBackend, handle);
+    expect(order.indexOf("setHandle")).toBeLessThan(order.indexOf("targetLoad"));
+    // Outgoing save happened before storageConfig was repointed.
+    expect(order.indexOf("outgoingSave")).toBeLessThan(order.indexOf("setConfig"));
+    // Target data applied + config repointed at the target.
+    expect(result.current.tasks[0]?.id).toBe(555);
+    expect(setStorageConfig).toHaveBeenCalledWith(targetConfig);
+  });
+
+  it("switchToProject is a no-op when the target id is the current project", async () => {
+    const targetId = "current-proj";
+    saveRegistry(
+      addProject(emptyRegistry(), { id: targetId, name: "Cur", code: "C", storageConfig: { kind: "browser" } }, true),
+    );
+    const { result } = renderBackend(makeArgs({ setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+    mockBackend.save.mockClear();
+
+    await act(async () => { await result.current.switchToProject(targetId); });
+
+    expect(setStorageConfig).not.toHaveBeenCalled();
+    expect(mockBackend.save).not.toHaveBeenCalled();
+  });
+
+  // ── createProject — Fix-1 regression guard ──────────────────────────────────
+  it("createProject FLUSHES the current backend before switching storageConfig (Fix-1 regression guard)", async () => {
+    const order: string[] = [];
+    mockBackend.save.mockImplementation(() => { order.push("currentSave"); return Promise.resolve(undefined); });
+    setStorageConfig.mockImplementation(() => { order.push("setConfig"); });
+
+    const targetBackend = {
+      kind: "local-json",
+      load: vi.fn().mockResolvedValue(emptyWorkspace()),
+      save: vi.fn(() => { order.push("targetSave"); return Promise.resolve(undefined); }),
+      isReady: vi.fn().mockResolvedValue(true),
+      describe: vi.fn().mockResolvedValue("new.json"),
+    };
+    // First createBackend → main memo; backendFor(newConfig) → targetBackend.
+    createBackendMock
+      .mockReturnValueOnce(mockBackend)
+      .mockReturnValue(targetBackend);
+
+    const { result } = renderBackend(makeArgs({ setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+    order.length = 0; // ignore any save during mount
+
+    await act(async () => {
+      await result.current.createProject({ name: "New Proj", code: "NP" } as never, "json");
+    });
+    await act(async () => { await Promise.resolve(); });
+
+    // The CURRENT (outgoing) backend was flushed...
+    expect(mockBackend.save).toHaveBeenCalled();
+    // ...BEFORE storageConfig was repointed at the new project.
+    expect(order.indexOf("currentSave")).toBeLessThan(order.indexOf("setConfig"));
+    // ...and the outgoing flush used the current backend, distinct from the new
+    //    target backend's write.
+    expect(order.indexOf("currentSave")).toBeLessThan(order.indexOf("targetSave"));
+    expect(setStorageConfig).toHaveBeenCalledWith({ kind: "local-json" });
+  });
+
+  it("createProject applies the new empty workspace + registers/selects it", async () => {
+    const targetBackend = {
+      kind: "local-json",
+      load: vi.fn().mockResolvedValue(emptyWorkspace()),
+      save: vi.fn().mockResolvedValue(undefined),
+      isReady: vi.fn().mockResolvedValue(true),
+      describe: vi.fn().mockResolvedValue("new.json"),
+    };
+    createBackendMock
+      .mockReturnValueOnce(mockBackend)
+      .mockReturnValue(targetBackend);
+
+    // Seed the current workspace with a task so we can prove it's cleared.
+    const { result } = renderBackend(makeArgs({ setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { result.current.setTasks([{ id: 1 } as unknown as Task]); });
+
+    await act(async () => {
+      await result.current.createProject({ name: "New Proj", code: "NP" } as never, "json");
+    });
+    await act(async () => { await Promise.resolve(); });
+
+    // New empty workspace applied (task cleared).
+    expect(result.current.tasks).toHaveLength(0);
+    // Registered + selected in the registry.
+    const reg = loadRegistry();
+    expect(reg.projects.some((p) => p.name === "New Proj")).toBe(true);
+    expect(reg.currentProjectId).not.toBeNull();
+  });
+
+  // ── loadProjectFromFile — Fix-1 regression guard ────────────────────────────
+  it("loadProjectFromFile FLUSHES the current backend before switching storageConfig (Fix-1 regression guard)", async () => {
+    const order: string[] = [];
+    mockBackend.save.mockImplementation(() => { order.push("currentSave"); return Promise.resolve(undefined); });
+    setStorageConfig.mockImplementation(() => { order.push("setConfig"); });
+
+    const targetBackend = {
+      kind: "local-json",
+      load: vi.fn().mockResolvedValue({ ...emptyWorkspace(), tasks: [{ id: 77, taskName: "Opened" }] }),
+      save: vi.fn().mockResolvedValue(undefined),
+      isReady: vi.fn().mockResolvedValue(true),
+      describe: vi.fn().mockResolvedValue("opened.json"),
+    };
+    // openFileForBackend must return a promise so the function proceeds past its
+    // early `if (!open) return` guard.
+    (storageMod.openFileForBackend as ReturnType<typeof vi.fn>).mockReturnValue(Promise.resolve(undefined));
+    createBackendMock
+      .mockReturnValueOnce(mockBackend)
+      .mockReturnValue(targetBackend);
+
+    const { result } = renderBackend(makeArgs({ setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+    order.length = 0;
+
+    await act(async () => { await result.current.loadProjectFromFile("json"); });
+    await act(async () => { await Promise.resolve(); });
+
+    // Outgoing flush happened on the current backend before the config repoint.
+    expect(mockBackend.save).toHaveBeenCalled();
+    expect(order.indexOf("currentSave")).toBeLessThan(order.indexOf("setConfig"));
+    // Loaded data applied + config repointed.
+    expect(result.current.tasks[0]?.id).toBe(77);
+    expect(setStorageConfig).toHaveBeenCalledWith({ kind: "local-json" });
+  });
+
+  it("loadProjectFromFile returns early (no flush, no config change) when the user cancels the file picker", async () => {
+    // openFileForBackend returns null → user dismissed / non-file backend.
+    (storageMod.openFileForBackend as ReturnType<typeof vi.fn>).mockReturnValue(null);
+    const targetBackend = {
+      kind: "local-json",
+      load: vi.fn(),
+      save: vi.fn().mockResolvedValue(undefined),
+      isReady: vi.fn().mockResolvedValue(true),
+      describe: vi.fn().mockResolvedValue(null),
+    };
+    createBackendMock
+      .mockReturnValueOnce(mockBackend)
+      .mockReturnValue(targetBackend);
+
+    const { result } = renderBackend(makeArgs({ setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+    mockBackend.save.mockClear();
+
+    await act(async () => { await result.current.loadProjectFromFile("json"); });
+
+    // The flush DOES run (it's the first thing the function does, before the
+    // picker), but the config must NOT change after an early return.
+    expect(setStorageConfig).not.toHaveBeenCalled();
+    expect(targetBackend.load).not.toHaveBeenCalled();
   });
 });
