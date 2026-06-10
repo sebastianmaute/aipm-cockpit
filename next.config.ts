@@ -13,10 +13,15 @@ const securityHeaders = [
   { key: "X-Frame-Options", value: "DENY" },
   // Send only origin on cross-origin requests; full URL on same-origin.
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  // Force HTTPS for a year, subdomains included. Sent unconditionally (no
+  // NODE_ENV gate): browsers only honor HSTS over HTTPS, so it is inert on
+  // plain-HTTP dev localhost and a conditional would just complicate the array.
+  { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" },
   // Restrict powerful features to explicit opt-in.
-  // Note: microphone is intentionally omitted — the app uses the Web Speech API
-  // for voice commands. Camera and geolocation are not used.
-  { key: "Permissions-Policy", value: "camera=(), geolocation=()" },
+  // Note: microphone=(self) — the top-level same-origin document needs the mic
+  // for the Web Speech API voice feature; subframes are denied. Camera and
+  // geolocation are not used.
+  { key: "Permissions-Policy", value: "camera=(), geolocation=(), microphone=(self)" },
 ];
 
 const nextConfig: NextConfig = {
