@@ -170,7 +170,7 @@ Refactor-specific proofs:
 ### Suggested execution order (each batch independently shippable)
 
 1. **Batch A — Reliability criticals + cheap security:** R1, R2, R7, S3, S4, S5, S6, S8 (small, high-value, no structural risk). ✅ **DONE** (v0.60.1, branch `refactor-batch-a-reliability-security`). Owner decision recorded: BYO-key stays → S1/S2 are documentation-only (Batch E).
-2. **Batch B — Dead code + low-risk moves:** 2.7, 2.8, 2.9, 2.11, golden-file fixtures (verification prerequisite for everything after).
+2. **Batch B — Dead code + low-risk moves:** 2.7, 2.8, 2.9, 2.11, golden-file fixtures (verification prerequisite for everything after). ✅ **DONE** (v0.60.2, branch `refactor-batch-b-cleanup`, net −491 LOC). Finding: CHANGELOG.md already covered all 97 versions from version.ts's comment (zero ported); CSV serializer emits CRLF (RFC 4180), MD emits LF — fixtures are `-text` in .gitattributes.
 3. **Batch C — Structural splits:** 2.1 (storage split), 2.2 (raid modal), 2.3 (gantt engine), 2.5 (barrel), 1.3+2.4 (Turso merge).
 4. **Batch D — Performance:** P1–P4 (P1 on the merged backend), R3, R4, R5, 1.5/2.6/R6.
 5. **Batch E — S1/S2** pending the owner's BYO-key decision.

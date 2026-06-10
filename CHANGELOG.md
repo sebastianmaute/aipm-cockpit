@@ -8,6 +8,18 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.60.2] - 2026-06-10 "Stephenson"
+
+Cleanup release (refactor Batch B — zero behavior change, net −491 lines).
+
+### Added
+- Golden-file fixtures (`src/app/__fixtures__/golden-workspace.{csv,md}`) plus a guard test pinning the byte-exact storage serializer output (no-config CSV/Markdown path). Any refactor that changes a single emitted byte of the on-disk format now fails loudly. Fixtures are `-text` in `.gitattributes` so git never converts their line endings (CSV is CRLF per RFC 4180; Markdown is LF).
+
+### Removed
+- `version.ts`'s 770-line changelog comment (this file is the authoritative history; coverage was verified before deletion).
+- Dead code: unused `HealthPill` component, unused `siteByPathUrl` Graph URL builder (+ its tests), 23 unused i18n keys (EN + DE), unused `TopTab` type, and the single-use `AppShell` wrapper (ternary inlined at its one call site).
+- Three inline `nextId()` duplicates replaced by the shared helper from `resource-foundation.ts` (verified semantically identical).
+
 ## [0.60.1] - 2026-06-10 "Stephenson"
 
 Reliability + security hardening (refactor Batch A — no new features).

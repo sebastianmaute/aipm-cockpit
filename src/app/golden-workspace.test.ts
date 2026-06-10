@@ -52,6 +52,7 @@ function expectBytesEqual(actual: string, expected: string, label: string): void
         `  actual:   ${JSON.stringify(actualLines[at] ?? "<missing>")}`,
     );
   }
+  // Only reachable on equality — kept so the test still registers an assertion.
   expect(actual).toBe(expected);
 }
 
