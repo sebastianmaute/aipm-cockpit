@@ -1,4 +1,4 @@
-<!-- Generated: 2026-06-10 | Files scanned: ~150 (src/app/*.tsx, *.ts, settings-sections/, dashboard-sections/) | Token estimate: ~1850 | Updated for 0.29.0–0.59.0: modern sidebar layout + UI-consistency sweep + Health Dashboard + Milestones + Earned Value + budget/dashboard RAG + burn-down + UI refinements + baseline/variance trends + change-control Log + stakeholder report + influence/interest matrix + Simple/Modular/Advanced mode + stakeholder communication reminders + input sanitization feedback + configurable multi-section export + AI usage panel + information-flows diagram + multi-project portfolio (file & Turso) -->
+<!-- Generated: 2026-06-10 | Files scanned: ~150 (src/app/*.tsx, *.ts, settings-sections/, dashboard-sections/) | Token estimate: ~1850 | Updated for 0.29.0–0.60.0: modern sidebar layout + UI-consistency sweep + Health Dashboard + Milestones + Earned Value + budget/dashboard RAG + burn-down + UI refinements + baseline/variance trends + change-control Log + stakeholder report + influence/interest matrix + Simple/Modular/Advanced mode + stakeholder communication reminders + input sanitization feedback + configurable multi-section export + AI usage panel + information-flows diagram + multi-project portfolio (file & Turso) + SharePoint picker + document links on 6 entities -->
 
 # Frontend
 
@@ -325,3 +325,14 @@ App Router with a single visible page (`/`). API routes under `/api/jira/*`
 Middleware `src/proxy.ts` runs on every HTML response.
 URL hash (`#gantt`, `#raid`, etc.) drives the active view in modern mode via
 `useHashView` (two-way sync).
+
+## SharePoint picker + document links (0.60.0+)
+
+| Module | Description | Notes |
+|--------|-------------|-------|
+| `sharepoint-picker-modal.tsx` | Custom Microsoft Graph file/folder browser: search sites, navigate libraries and folders, select a file or folder. Returns a `DocumentLink`. | Lazy-loaded; requires M365 sign-in |
+| `document-links-field.tsx` | `DocumentLinksField` — renders the list of `DocumentLink[]` attachments with add/remove/open controls; hosts the picker trigger | Shared across all 6 editors |
+| `document-links-field-gated.tsx` | Thin gate wrapper: renders `DocumentLinksField` only when M365 integration is enabled; no-ops otherwise | Used by each entity editor |
+| `use-sharepoint-browser.ts` | Hook encapsulating Graph site-search + drive/folder navigation state for the picker modal | Pure hook, no JSX |
+
+The gated field is embedded in the task editor (`task-edit-view.tsx` / `task-form-modal.tsx`), RAID editor (`raid-edit-modal.tsx`), change editor (`change-edit-modal.tsx`), stakeholder editor (`stakeholder-edit-modal.tsx`), milestone editor (`milestone-edit-modal.tsx`), and project form (`project-edit-form.tsx`).

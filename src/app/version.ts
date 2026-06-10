@@ -1,3 +1,13 @@
+// 0.60.0 "Stephenson" adds SharePoint document links to all six workspace
+// entities (Task, RAID, Change, Stakeholder, Milestone, Project). A new
+// custom Microsoft Graph browser (sharepoint-picker-modal.tsx) lets users
+// search SharePoint sites, navigate document libraries and folders, and pick
+// a file or folder without leaving the app. DocumentLink items are persisted
+// losslessly across JSON/CSV/Markdown/Turso. A "Browse…" button in the
+// SharePoint storage-backend config replaces the blind URL-paste workflow.
+// The storage scope is consolidated to Files.ReadWrite.All; site search adds
+// Sites.Read.All via the picker. Schema versions bumped: workspace 9→10,
+// Turso single-tenant 9→10, Turso multi-tenant 10→11.
 // 0.59.0 "Gibson" completes Turso multi-tenancy (Phase 2). A single shared
 // Turso database now holds every project: every entity table gains a
 // `project_id` column and a new `projects` table is the authoritative
@@ -751,12 +761,12 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.59.0";
-export const APP_BUILD_DATE = "2026-06-10"; // 0.59.0 Turso multi-project (phase 2)
+export const APP_VERSION = "0.60.0";
+export const APP_BUILD_DATE = "2026-06-10"; // 0.60.0 SharePoint picker + document links
 /** Minor-series milestone codename (sci-fi/fantasy author names). The whole
- *  0.59.x line is "Gibson" (William Gibson); patch releases inherit
+ *  0.60.x line is "Stephenson" (Neal Stephenson); patch releases inherit
  *  their minor version's codename rather than getting their own. */
-export const APP_MILESTONE = "Gibson";
+export const APP_MILESTONE = "Stephenson";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -827,4 +837,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightButler",
   "versionHighlightVinge",
   "versionHighlightTursoMultiProject",
+  "versionHighlightSpDocLinks",
 ] as const;

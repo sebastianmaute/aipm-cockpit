@@ -8,6 +8,16 @@ Authoritative source for version + build date: [`src/app/version.ts`](src/app/ve
 This file is seeded from that module's milestone comment plus the
 post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-diff.txt).
 
+## [0.60.0] - 2026-06-10 "Stephenson"
+
+### Added
+- SharePoint browse/picker (custom Microsoft Graph browser): search sites, navigate libraries/folders, select a file or folder.
+- Document links on all six workspace entities (Task, RAID, Change, Stakeholder, Milestone, Project): link SharePoint files/folders, open in a new tab, persisted losslessly across JSON/CSV/Markdown/Turso.
+- "Browse…" button in the SharePoint storage-backend config (replaces blind URL paste).
+
+### Changed
+- SharePoint storage backend scope consolidated to `Files.ReadWrite.All` (picker adds `Sites.Read.All` for site search). Schema versions bumped (workspace 10, Turso single-tenant 10, Turso multi-tenant 11).
+
 ## [0.59.0] — 2026-06-10 "Gibson"
 
 ### Added

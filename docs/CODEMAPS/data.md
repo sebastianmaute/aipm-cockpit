@@ -1,4 +1,4 @@
-<!-- Generated: 2026-06-10 | Files scanned: types.ts, storage.ts, sanitize.ts, raid.ts, activity-log.ts, contacts.ts, resource-foundation.ts, resource-capacity.ts, reminder-snooze.ts, use-settings.ts, jira-token-status.ts, duration.ts + msal-config.ts, turso-config.ts, project-options.ts, nace-sections.ts, portfolio-mode.ts, projects-registry.ts, project-file-handles.ts, turso-tenant-schema.ts, feature-modules.ts | Token estimate: ~1500 | Updated for 0.29.0–0.59.0: ProjectStatus + Milestone[] persisted (v6 additive, no schema bump); budget-health + budget-burndown pure modules; ChangeItem[] change-control register persisted (schema v7 additive); RaidItem/ChangeItem gained `stakeholderIds` stakeholder-communication links (v0.55); Settings.features feature-module map (Simple/Modular/Advanced); ProjectMeta multi-project header persisted (Workspace schema v9 additive; Phase 1); Turso multi-tenancy (one shared DB, `project_id` on every table, tenant schema v10); snapshot tables scoped per project_id; sample-workspace.json + sample-workspace.sqlite3 generated from the curated .md (Turso import, sqlite now multi-tenant v10) -->
+<!-- Generated: 2026-06-10 | Files scanned: types.ts, storage.ts, sanitize.ts, raid.ts, activity-log.ts, contacts.ts, resource-foundation.ts, resource-capacity.ts, reminder-snooze.ts, use-settings.ts, jira-token-status.ts, duration.ts + msal-config.ts, turso-config.ts, project-options.ts, nace-sections.ts, portfolio-mode.ts, projects-registry.ts, project-file-handles.ts, turso-tenant-schema.ts, feature-modules.ts, document-link.ts | Token estimate: ~1500 | Updated for 0.29.0–0.60.0: ProjectStatus + Milestone[] persisted (v6 additive, no schema bump); budget-health + budget-burndown pure modules; ChangeItem[] change-control register persisted (schema v7 additive); RaidItem/ChangeItem gained `stakeholderIds` stakeholder-communication links (v0.55); Settings.features feature-module map (Simple/Modular/Advanced); ProjectMeta multi-project header persisted (Workspace schema v9 additive; Phase 1); Turso multi-tenancy (one shared DB, `project_id` on every table, tenant schema v10); snapshot tables scoped per project_id; sample-workspace.json + sample-workspace.sqlite3 generated from the curated .md (Turso import, sqlite now multi-tenant v10); DocumentLink[] on all six entities (workspace schema v10, turso single-tenant v10, turso multi-tenant v11) -->
 
 # Data
 
@@ -627,3 +627,28 @@ cell, so re-emitting the MD would corrupt the blended bucket. The dataset
 includes tasks, RAID items with `stakeholderIds` links, milestones, stakeholders
 with RACI assignments, change-log entries, budget buckets, resources, and the
 project header.
+
+## Document links (`document-link.ts`) — 0.60.0+
+
+`DocumentLink { id, name, url, type: "file" | "folder", webUrl? }` — a
+SharePoint file or folder reference attached to a workspace entity. Pure
+module with type definition, `sanitizeDocumentLink` (field-length caps +
+URL validation), and a `documentLinkToCell` / `documentLinkFromCell`
+JSON-in-cell codec used by the CSV/Markdown backends.
+
+All six workspace entities gained an optional `documentLinks?: DocumentLink[]`
+field in 0.60.0:
+
+| Entity | Schema version |
+|--------|---------------|
+| `Task` (workspace JSON) | workspace v9 → **v10** |
+| `RaidItem` | workspace v9 → **v10** |
+| `ChangeItem` | workspace v9 → **v10** |
+| `Stakeholder` | workspace v9 → **v10** |
+| `Milestone` | workspace v9 → **v10** |
+| `ProjectMeta` | workspace v9 → **v10** |
+| Turso single-tenant | turso schema v9 → **v10** |
+| Turso multi-tenant | turso-tenant schema v10 → **v11** |
+
+The field is optional on read (old snapshots decode cleanly); every serializer
+encodes it as a JSON-in-cell string so no column explosion occurs in CSV/MD.

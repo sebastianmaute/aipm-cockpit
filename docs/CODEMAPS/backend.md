@@ -1,4 +1,4 @@
-<!-- Generated: 2026-06-10 | Files scanned: src/proxy.ts + 10 (src/app/api/jira) + client storage backends | Token estimate: ~600 | Updated for 0.29.0–0.59.0: still no server-side app backend; the only backend-relevant change is the new client-side Turso multi-tenant backend + portfolio-mode (0.58.0–0.59.0 "Gibson") -->
+<!-- Generated: 2026-06-10 | Files scanned: src/proxy.ts + 10 (src/app/api/jira) + client storage backends | Token estimate: ~600 | Updated for 0.29.0–0.60.0: still no server-side app backend; client-side Turso multi-tenant backend + portfolio-mode (0.58.0–0.59.0); SharePoint Graph pure core + picker scope (0.60.0 "Stephenson") -->
 
 # Backend
 
@@ -114,3 +114,19 @@ Both are client-side only; no server-side validation.
 - Does not transform Jira responses beyond JSON parsing + ADF conversion.
 - Does not handle WebSocket / SSE traffic.
 - Does not proxy Microsoft Graph or Turso calls — browser makes them directly with MSAL tokens / Turso auth tokens.
+
+## SharePoint Graph pure core (0.60.0+)
+
+`sharepoint-graph.ts` — pure client-side Graph helper (no Next.js server involvement):
+
+- Site search (`/sites?search=`) and drive/item enumeration (`/drives`, `/items/{id}/children`) for the picker browser.
+- `parseSharePointSiteUrl(url)` — sibling utility that extracts the SharePoint site hostname + site path from a pasted storage URL, used by both the storage-config "Browse…" button and the picker modal.
+
+**Scopes used by the SharePoint integration (0.60.0+):**
+
+| Scope | Purpose |
+|-------|---------|
+| `Files.ReadWrite.All` | Storage backend: read and write the workspace JSON/CSV blob in a document library |
+| `Sites.Read.All` | Picker: search SharePoint sites via `/sites?search=` |
+
+The picker scope (`Sites.Read.All`) is requested incrementally only when the user opens the picker; the storage backend continues to work with `Files.ReadWrite.All` alone.

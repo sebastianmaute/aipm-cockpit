@@ -2,7 +2,7 @@
 
 [![Pipeline Status](https://gitlab.example.com/example-group/public-collab/lop-app/badges/main/pipeline.svg)](https://gitlab.example.com/example-group/public-collab/lop-app/-/commits/main)
 [![coverage](https://gitlab.example.com/example-group/public-collab/lop-app/badges/main/coverage.svg)](https://gitlab.example.com/example-group/public-collab/lop-app/-/commits/main)
-[![version](https://img.shields.io/badge/version-v0.59.0_%22Gibson%22-2e7d32)](./CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-v0.60.0_%22Stephenson%22-2e7d32)](./CHANGELOG.md)
 [![license](https://img.shields.io/badge/license-Apache--2.0-blue)](./LICENSE)
 
 > AI-assisted, browser-based project-management tracker for Acme project leads — no backend account required.
@@ -55,6 +55,7 @@ Each row keeps a one-line summary. Expand **Details** for the full description.
 | Export | Configurable multi-section export to CSV, Markdown, PDF (print), DOCX, XLSX, and PPTX.<br><details><summary>Details</summary>Per-section toggles (tasks, RAID, changes, milestones, stakeholders, budgets, resources, project metadata) control what each export contains; PDF renders all enabled sections. The storage round-trip (load/save) stays byte-identical regardless of export configuration.</details> |
 | Localization | English (US / UK) and German. |
 | Printing | Scoped print — printing a report prints just that view (sidebar, banners, and other panes are hidden). |
+| SharePoint document links | Attach SharePoint files and folders to tasks, RAID items, changes, stakeholders, milestones, and projects via a built-in browser.<br><details><summary>Details</summary>A custom Microsoft Graph browser (search sites, navigate libraries/folders, pick a file or folder) replaces blind URL paste. Links open in a new tab and round-trip losslessly across all storage backends. Requires M365 sign-in; the "Browse…" button also appears in the SharePoint storage-backend config.</details> |
 
 ## Quick Start
 
@@ -138,13 +139,14 @@ Microsoft 365 features use MSAL (browser PKCE — no backend token exchange) and
 |---------|-------------|--------------|
 | Outlook contacts import | `Contacts.Read` | Imports personal contacts from `/me/contacts` into the Resource Directory and assignee address book via a preview-and-pick dialog; updates existing entries by email |
 | Outlook calendar import | `Calendars.Read` | Imports all-day Out-of-Office events from `/me/calendarView` as Absences via a preview-and-pick dialog with a per-row absence-type selector |
-| SharePoint storage | `Sites.ReadWrite.All` | Stores the workspace as a single JSON or CSV blob in a SharePoint document library; URL configured in Settings → Integrations / Storage Configuration |
+| SharePoint storage | `Files.ReadWrite.All` | Stores the workspace as a single JSON or CSV blob in a SharePoint document library; URL configured in Settings → Integrations / Storage Configuration |
+| SharePoint document links | `Files.ReadWrite.All` + `Sites.Read.All` (picker only) | Attaches SharePoint files/folders to workspace entities via a built-in Graph browser; links open in a new tab |
 
 #### Setup
 
 1. Register an app in [Microsoft Entra admin center](https://entra.microsoft.com/) as a single-page application (SPA).
 2. Add a redirect URI: `http://localhost:3000` for dev, or your production URL.
-3. Grant API permissions: `Contacts.Read`, `Calendars.Read`, `Sites.ReadWrite.All` (or narrower equivalents).
+3. Grant API permissions: `Contacts.Read`, `Calendars.Read`, `Files.ReadWrite.All`, `Sites.Read.All` (or narrower equivalents).
 4. Copy the **Client ID** and **Tenant ID** into Settings → Integrations, or provide them via the env vars below.
 
 ## Automation / Notifications
