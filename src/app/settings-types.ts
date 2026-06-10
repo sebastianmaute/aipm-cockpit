@@ -71,6 +71,8 @@ export type NotificationsConfig = {
   stakeholderComms: ChannelConfig;
   stakeholderCommsLeadDays: Record<StakeholderQuadrant, number>;
   jiraTokenError: ChannelConfig;
+  /** Set to true once the one-time v0.57 toast-first migration has run. Fresh installs start true. */
+  toastFirstMigrated: boolean;
 };
 
 export const defaultNotificationsConfig: NotificationsConfig = {
@@ -90,6 +92,7 @@ export const defaultNotificationsConfig: NotificationsConfig = {
     monitor: 3,
   },
   jiraTokenError: { enabled: true },
+  toastFirstMigrated: true,
 };
 
 export type JiraAssigneeMode = "currentUser" | "any" | "specific";

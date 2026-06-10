@@ -177,6 +177,8 @@ export const de: Record<TranslationKey, string> = {
     "Die Datei für dieses Projekt wurde nicht gefunden. Bitte erneut aus einer Datei öffnen.",
   storageLoadFailed: "Aufgaben konnten nicht geladen werden: {0}",
   storageSaveFailed: "Aufgaben konnten nicht gespeichert werden: {0}",
+  toastFirstMigrationNotice:
+    "Benachrichtigungs-Standard aktualisiert: Erinnerungen erscheinen jetzt als Toasts. Banner und Pop-ups sind aus – anpassbar unter Einstellungen → Benachrichtigungen.",
   storageNotReady:
     "Speicher noch nicht konfiguriert – bitte in den Einstellungen eine Datei wählen.",
   storageUnreachable: "Speicher nicht erreichbar — läuft der Server?",
