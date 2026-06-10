@@ -14,9 +14,11 @@ post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-
 - SharePoint browse/picker (custom Microsoft Graph browser): search sites, navigate libraries/folders, select a file or folder.
 - Document links on all six workspace entities (Task, RAID, Change, Stakeholder, Milestone, Project): link SharePoint files/folders, open in a new tab, persisted losslessly across JSON/CSV/Markdown/Turso.
 - "Browse…" button in the SharePoint storage-backend config (replaces blind URL paste).
+- Graceful picker fallback for tenants without a `Sites.Read.All` grant: when site search is forbidden (403), paste a site URL to browse its default document library using only `Files.ReadWrite.All` (no admin consent required).
+- Per-link activity logging (`doc.linkAdded` / `doc.linkRemoved`) via an `ActivityLog` context, so adding/removing a document link in any editor is recorded in the Activity log.
 
 ### Changed
-- SharePoint storage backend scope consolidated to `Files.ReadWrite.All` (picker adds `Sites.Read.All` for site search). Schema versions bumped (workspace 10, Turso single-tenant 10, Turso multi-tenant 11).
+- SharePoint storage backend scope consolidated to `Files.ReadWrite.All` (picker adds `Sites.Read.All` for site search, with a `Files.ReadWrite.All`-only fallback). Schema versions bumped (workspace 10, Turso single-tenant 10, Turso multi-tenant 11).
 
 ## [0.59.0] — 2026-06-10 "Gibson"
 
