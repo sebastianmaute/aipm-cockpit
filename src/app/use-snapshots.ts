@@ -15,6 +15,8 @@ export interface UseSnapshotsArgs {
   active: boolean;
   cadence: SnapshotCadence;
   tursoConfig: TursoConfig | null;
+  /** Active project id (Turso multi-tenant scoping). */
+  projectId: string;
   today: Date;
   /** Lazily assembles the capture context (model + workspace bits) at capture
    *  time. Returns the BuildSnapshotInput minus capturedAt/cadence/trigger,
@@ -50,12 +52,14 @@ export function useSnapshots(args: UseSnapshotsArgs): UseSnapshotsResult {
   const ctxRef = useRef(args.buildContext);
   const errRef = useRef(args.onError);
   const cfgRef = useRef(tursoConfig);
+  const pidRef = useRef(args.projectId);
   // Bumped by every user mutation. A load in flight that sees this change
   // between its start and completion must NOT clobber state with stale history.
   const opSeqRef = useRef(0);
   useEffect(() => { ctxRef.current = args.buildContext; }, [args.buildContext]);
   useEffect(() => { errRef.current = args.onError; }, [args.onError]);
   useEffect(() => { cfgRef.current = tursoConfig; }, [tursoConfig]);
+  useEffect(() => { pidRef.current = args.projectId; }, [args.projectId]);
 
   const makeRecord = useCallback(
     (trigger: SnapshotTrigger, isBaseline: boolean, bucket: string): SnapshotRecord => {
@@ -76,13 +80,13 @@ export function useSnapshots(args: UseSnapshotsArgs): UseSnapshotsResult {
     const stale = () => cancelled || opSeqRef.current !== startSeq;
     (async () => {
       try {
-        const history = await loadSnapshots(cfgRef.current);
+        const history = await loadSnapshots(cfgRef.current, pidRef.current);
         if (stale()) return;
         const hasCurrent = history.some((s) => s.bucket === currentBucket);
         if (!hasCurrent) {
           const isFirstEver = history.length === 0;
           const rec = makeRecord("auto", isFirstEver, currentBucket);
-          await storeAppend(cfgRef.current, rec);
+          await storeAppend(cfgRef.current, rec, pidRef.current);
           if (stale()) return;
           setSnapshots([...history, rec]);
         } else {
@@ -100,7 +104,7 @@ export function useSnapshots(args: UseSnapshotsArgs): UseSnapshotsResult {
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, cadence, currentBucket]);
+  }, [active, cadence, currentBucket, args.projectId]);
 
   const captureNow = useCallback(async () => {
     if (!active) return;
@@ -109,7 +113,7 @@ export function useSnapshots(args: UseSnapshotsArgs): UseSnapshotsResult {
     try {
       const isFirstEver = snapshots.length === 0;
       const rec = makeRecord("manual", isFirstEver, currentBucket);
-      await storeAppend(cfgRef.current, rec);
+      await storeAppend(cfgRef.current, rec, pidRef.current);
       setSnapshots((prev) => [...prev, rec]);
     } catch (err) {
       errRef.current?.(err);
@@ -123,7 +127,7 @@ export function useSnapshots(args: UseSnapshotsArgs): UseSnapshotsResult {
     opSeqRef.current += 1;
     setBusy(true);
     try {
-      await storeSetBaseline(cfgRef.current, id);
+      await storeSetBaseline(cfgRef.current, id, pidRef.current);
       setSnapshots((prev) => prev.map((s) => ({ ...s, isBaseline: s.id === id })));
     } catch (err) {
       errRef.current?.(err);
@@ -137,7 +141,7 @@ export function useSnapshots(args: UseSnapshotsArgs): UseSnapshotsResult {
     opSeqRef.current += 1;
     setBusy(true);
     try {
-      await storeDelete(cfgRef.current, id);
+      await storeDelete(cfgRef.current, id, pidRef.current);
       setSnapshots((prev) => prev.filter((s) => s.id !== id));
     } catch (err) {
       errRef.current?.(err);

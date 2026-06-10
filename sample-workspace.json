@@ -1292,5 +1292,51 @@
       },
       "organization": "Community Forum"
     }
-  ]
+  ],
+  "project": {
+    "name": "Customer Identity Platform",
+    "code": "CIP-2026",
+    "description": "Demo project: customer SSO / identity platform rollout with MFA and compliance gates.",
+    "sponsor": "Elena Fischer",
+    "projectManager": "Alex Example",
+    "keyStakeholdersInternal": [
+      "Elena Fischer",
+      "Sam Placeholder",
+      "Taylor Specimen"
+    ],
+    "keyStakeholdersExternal": [
+      "David Okoro",
+      "Morgan Standin"
+    ],
+    "customer": "Northwind Retail Group",
+    "naceSection": "G",
+    "identityTypes": [
+      "B2C",
+      "B2B"
+    ],
+    "identityCount": 500000,
+    "products": "SSO, MFA, Customer Directory",
+    "platform": "Azure AD B2C",
+    "deployment": "Cloud",
+    "startDate": "2026-01-15",
+    "endDate": "2026-09-15",
+    "profitCenter": "PC-4711",
+    "quotes": "Q-2026-0042",
+    "salesforceUrl": "https://example.salesforce.com/opportunity/cip-2026",
+    "sharepointUrl": "https://example.sharepoint.com/sites/cip-2026",
+    "confluenceUrl": "https://example.atlassian.net/wiki/spaces/CIP",
+    "contactPersons": [
+      {
+        "name": "David Okoro",
+        "email": "david.okoro@northwind.example",
+        "synced": false
+      }
+    ],
+    "docRepoLocation": "https://example.sharepoint.com/sites/cip-2026/Shared Documents",
+    "regulatory": [
+      "GDPR / data protection regulation",
+      "NIS2"
+    ],
+    "notes": "Generated sample project for the multi-tenant Turso demo database."
+  }
 }

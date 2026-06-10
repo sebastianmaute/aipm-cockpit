@@ -48,6 +48,7 @@ function setup(overrides: Partial<React.ComponentProps<typeof ProjectsPanel>> = 
       stakeholderNames={STAKEHOLDERS}
       addressBook={ADDRESS_BOOK}
       lang="en-US"
+      mode="file"
       onSwitch={onSwitch}
       onCreate={onCreate}
       onUpdateCurrent={onUpdateCurrent}
@@ -168,5 +169,76 @@ describe("ProjectsPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "Export project" }));
     fireEvent.click(screen.getByRole("menuitem", { name: "Excel (.xlsx)" }));
     expect(onExportCurrent).toHaveBeenCalledWith("xlsx");
+  });
+});
+
+describe("ProjectsPanel file mode", () => {
+  it("keeps Load from file and the existing Delete", () => {
+    setup({ mode: "file" });
+    expect(
+      screen.getByRole("button", { name: /load from file/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Delete project" }),
+    ).toBeInTheDocument();
+  });
+});
+
+describe("ProjectsPanel turso mode", () => {
+  const ARCHIVED: ProjectRegistryEntry[] = [
+    { id: "p9", name: "Old", code: "OLD", storageConfig: { kind: "turso" } as never },
+  ];
+
+  it("default delete archives; Show archived reveals restore + permanent delete", () => {
+    const onArchive = vi.fn();
+    const onHardDelete = vi.fn();
+    const onRestore = vi.fn();
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+
+    setup({
+      mode: "turso",
+      archivedProjects: ARCHIVED,
+      onArchive,
+      onRestore,
+      onHardDelete,
+    });
+
+    // Current row's destructive button is "Archive" in turso mode.
+    fireEvent.click(screen.getByRole("button", { name: /^archive$/i }));
+    expect(onArchive).toHaveBeenCalledWith("p1");
+
+    // Reveal archived.
+    fireEvent.click(screen.getByRole("button", { name: /show archived/i }));
+    expect(screen.getByText("Old")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /^restore$/i }));
+    expect(onRestore).toHaveBeenCalledWith("p9");
+
+    // Permanent delete: the row button opens the type-to-confirm dialog. Both
+    // the row button and the dialog's confirm button share the "Delete
+    // permanently" label, so disambiguate by clicking the LAST match (dialog).
+    fireEvent.click(
+      screen.getByRole("button", { name: /^delete permanently$/i }),
+    );
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "Old" } });
+    const confirmButtons = screen.getAllByRole("button", {
+      name: "Delete permanently",
+    });
+    fireEvent.click(confirmButtons[confirmButtons.length - 1]);
+    expect(onHardDelete).toHaveBeenCalledWith("p9");
+  });
+
+  it("hides Load from file", () => {
+    setup({ mode: "turso" });
+    expect(
+      screen.queryByRole("button", { name: /load from file/i }),
+    ).toBeNull();
+  });
+
+  it("does not show an Archive button in file mode", () => {
+    setup({ mode: "file" });
+    expect(
+      screen.queryByRole("button", { name: /^archive$/i }),
+    ).toBeNull();
   });
 });

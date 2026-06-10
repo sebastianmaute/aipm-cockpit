@@ -27,6 +27,7 @@ import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
 import { ProjectForm } from "./project-form";
 import { type ProjectRegistryEntry } from "./projects-registry";
+import { TypeToConfirmDialog } from "./type-to-confirm-dialog";
 import { CENTERED_HALF_PANE_CLASS } from "./view-styles";
 import { type ProjectMeta } from "./types";
 
@@ -52,6 +53,10 @@ const PRIMARY_BUTTON_CLASS =
 const SECONDARY_BUTTON_CLASS =
   "rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted";
 
+/** Destructive (pink) action button — delete / archive / permanent-delete. */
+const DESTRUCTIVE_BUTTON_CLASS =
+  "rounded-md border border-AIPM-pink/40 bg-surface px-3 py-1.5 text-sm font-medium text-AIPM-pink hover:bg-AIPM-pink/10 dark:border-AIPM-pink/50";
+
 export interface ProjectsPanelProps {
   projects: ProjectRegistryEntry[];
   currentProjectId: string | null;
@@ -71,6 +76,15 @@ export interface ProjectsPanelProps {
   /** Export the CURRENT project's workspace in the given format. */
   onExportCurrent: (format: string) => void;
   onLoadFromFile: () => void;
+  /** Storage backend kind. In "turso" mode the destructive per-row action is
+   *  Archive (soft-delete) and an "Archived projects" subsection becomes
+   *  available; in "file" mode the panel behaves exactly as in Phase 1. */
+  mode: "file" | "turso";
+  /** Turso-mode only: archived projects to reveal under "Show archived". */
+  archivedProjects?: ProjectRegistryEntry[];
+  onArchive?: (id: string) => void;
+  onRestore?: (id: string) => void;
+  onHardDelete?: (id: string) => void;
 }
 
 type ModalState =
@@ -91,9 +105,19 @@ export function ProjectsPanel({
   onDelete,
   onExportCurrent,
   onLoadFromFile,
+  mode,
+  archivedProjects,
+  onArchive,
+  onRestore,
+  onHardDelete,
 }: ProjectsPanelProps) {
   const [modal, setModal] = useState<ModalState>({ mode: "closed" });
   const [exportMenuId, setExportMenuId] = useState<string | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
+  const [hardDeleteTarget, setHardDeleteTarget] =
+    useState<ProjectRegistryEntry | null>(null);
+
+  const isTurso = mode === "turso";
 
   const closeModal = () => setModal({ mode: "closed" });
 
@@ -101,6 +125,10 @@ export function ProjectsPanel({
 
   const handleDelete = (id: string) => {
     if (window.confirm(t(lang, "projectsDeleteConfirm"))) onDelete(id);
+  };
+
+  const handleArchive = (id: string) => {
+    if (window.confirm(t(lang, "projectsArchiveConfirm"))) onArchive?.(id);
   };
 
   const handleCreate = (meta: ProjectMeta, format: CreateFormat) => {
@@ -126,9 +154,21 @@ export function ProjectsPanel({
           {t(lang, "projectsTitle")}
         </h2>
         <div className="flex items-center gap-2">
-          <button type="button" onClick={onLoadFromFile} className={SECONDARY_BUTTON_CLASS}>
-            {t(lang, "projectSwitcherLoadFile")}
-          </button>
+          {isTurso && (
+            <button
+              type="button"
+              onClick={() => setShowArchived((v) => !v)}
+              aria-pressed={showArchived}
+              className={SECONDARY_BUTTON_CLASS}
+            >
+              {t(lang, showArchived ? "projectsHideArchived" : "projectsShowArchived")}
+            </button>
+          )}
+          {!isTurso && (
+            <button type="button" onClick={onLoadFromFile} className={SECONDARY_BUTTON_CLASS}>
+              {t(lang, "projectSwitcherLoadFile")}
+            </button>
+          )}
           <button type="button" onClick={openCreate} className={PRIMARY_BUTTON_CLASS}>
             + {t(lang, "projectsNew")}
           </button>
@@ -231,13 +271,23 @@ export function ProjectsPanel({
                             )}
                           </div>
 
-                          <button
-                            type="button"
-                            onClick={() => handleDelete(p.id)}
-                            className="rounded-md border border-AIPM-pink/40 bg-surface px-3 py-1.5 text-sm font-medium text-AIPM-pink hover:bg-AIPM-pink/10 dark:border-AIPM-pink/50"
-                          >
-                            {t(lang, "projectsDelete")}
-                          </button>
+                          {isTurso ? (
+                            <button
+                              type="button"
+                              onClick={() => handleArchive(p.id)}
+                              className={DESTRUCTIVE_BUTTON_CLASS}
+                            >
+                              {t(lang, "projectsArchive")}
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleDelete(p.id)}
+                              className={DESTRUCTIVE_BUTTON_CLASS}
+                            >
+                              {t(lang, "projectsDelete")}
+                            </button>
+                          )}
                         </>
                       ) : (
                         <button
@@ -255,7 +305,69 @@ export function ProjectsPanel({
             })}
           </ul>
         )}
+
+        {/* Archived projects (turso mode only) ----------------------- */}
+        {isTurso && showArchived && (
+          <div className="mt-6 border-t border-line pt-4">
+            <h3 className="mb-2 text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
+              {t(lang, "projectsArchived")}
+            </h3>
+            {(archivedProjects ?? []).length === 0 ? (
+              <p className="text-sm italic text-muted-foreground">
+                {t(lang, "projectsEmptyTitle")}
+              </p>
+            ) : (
+              <ul className="flex flex-col gap-2">
+                {(archivedProjects ?? []).map((p) => (
+                  <li
+                    key={p.id}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-line bg-surface p-3"
+                  >
+                    <div className="flex min-w-0 flex-wrap items-center gap-2">
+                      <span className="font-medium text-foreground">{p.name}</span>
+                      <span className="font-mono text-xs text-muted-foreground">
+                        {p.code}
+                      </span>
+                    </div>
+                    <div className="flex shrink-0 flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => onRestore?.(p.id)}
+                        className={SECONDARY_BUTTON_CLASS}
+                      >
+                        {t(lang, "projectsRestore")}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setHardDeleteTarget(p)}
+                        className={DESTRUCTIVE_BUTTON_CLASS}
+                      >
+                        {t(lang, "projectsDeletePermanently")}
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
       </div>
+
+      {/* Permanent (hard) delete confirmation -------------------------- */}
+      {hardDeleteTarget && (
+        <TypeToConfirmDialog
+          lang={lang}
+          title={t(lang, "projectsHardDeleteTitle")}
+          message={t(lang, "projectsHardDeleteMessage")}
+          confirmValue={hardDeleteTarget.name}
+          confirmLabel={t(lang, "projectsDeletePermanently")}
+          onConfirm={() => {
+            onHardDelete?.(hardDeleteTarget.id);
+            setHardDeleteTarget(null);
+          }}
+          onCancel={() => setHardDeleteTarget(null)}
+        />
+      )}
 
       {/* Create / edit modal ------------------------------------------- */}
       {modal.mode !== "closed" && (

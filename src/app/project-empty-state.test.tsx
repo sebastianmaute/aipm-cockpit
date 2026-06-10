@@ -108,6 +108,26 @@ describe("ProjectEmptyState", () => {
     expect(format).toBe("json");
   });
 
+  it("turso mode shows Create only (no Load from file)", () => {
+    setup({ mode: "turso" });
+    expect(
+      screen.getByRole("button", { name: /create a new project/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /load from an existing file/i }),
+    ).toBeNull();
+  });
+
+  it("turso mode hides the file-format selector in the create view", () => {
+    setup({ mode: "turso" });
+    fireEvent.click(screen.getByRole("button", { name: /create a new project/i }));
+    expect(screen.queryByRole("combobox", { name: /file format/i })).toBeNull();
+    // The form itself still renders.
+    expect(
+      screen.getByLabelText("Project name", { exact: false }),
+    ).toBeInTheDocument();
+  });
+
   it("passes the chosen format to onCreate when the format selector is changed", () => {
     const { onCreate } = setup();
 

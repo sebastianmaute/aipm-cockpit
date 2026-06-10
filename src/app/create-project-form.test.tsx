@@ -62,6 +62,25 @@ describe("CreateProjectForm", () => {
     expect(screen.getByLabelText("Project name", { exact: false })).toBeInTheDocument();
   });
 
+  it("hides the file-format selector when hideFormat is set", () => {
+    setup({ hideFormat: true });
+    expect(screen.queryByLabelText("File format")).toBeNull();
+    expect(screen.queryByRole("combobox", { name: /file format/i })).toBeNull();
+    // The rest of the form still renders.
+    expect(
+      screen.getByLabelText("Project name", { exact: false }),
+    ).toBeInTheDocument();
+  });
+
+  it("submits format 'json' when hideFormat is set", () => {
+    const { onCreate } = setup({ hideFormat: true });
+    fillRequired();
+    fireEvent.click(screen.getByRole("button", { name: "New project" }));
+    expect(onCreate).toHaveBeenCalledTimes(1);
+    const [, format] = onCreate.mock.calls[0];
+    expect(format).toBe("json");
+  });
+
   it("calls onCreate with meta and the chosen format on submit", () => {
     const { onCreate } = setup();
 

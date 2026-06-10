@@ -35,6 +35,9 @@ export interface ProjectEmptyStateProps {
   addressBook: Contact[];
   onCreate: (meta: ProjectMeta, format: "json" | "csv" | "md") => void;
   onLoadFromFile: () => void;
+  /** Turso mode: hide the "Load from file" choice and hide the file-format
+   *  selector in the create view. Defaults to "file". */
+  mode?: "file" | "turso";
 }
 
 type View = "choices" | "create";
@@ -48,6 +51,7 @@ export function ProjectEmptyState({
   addressBook,
   onCreate,
   onLoadFromFile,
+  mode = "file",
 }: ProjectEmptyStateProps) {
   const [view, setView] = useState<View>("choices");
 
@@ -96,13 +100,15 @@ export function ProjectEmptyState({
                 >
                   {t(lang, "projectsEmptyCreate")}
                 </button>
-                <button
-                  type="button"
-                  onClick={onLoadFromFile}
-                  className={SECONDARY_BUTTON_CLASS}
-                >
-                  {t(lang, "projectsEmptyLoad")}
-                </button>
+                {mode === "file" && (
+                  <button
+                    type="button"
+                    onClick={onLoadFromFile}
+                    className={SECONDARY_BUTTON_CLASS}
+                  >
+                    {t(lang, "projectsEmptyLoad")}
+                  </button>
+                )}
               </div>
             </div>
           ) : (
@@ -112,6 +118,7 @@ export function ProjectEmptyState({
               addressBook={addressBook}
               onCreate={handleCreate}
               onCancel={handleBackToChoices}
+              hideFormat={mode === "turso"}
             />
           )}
         </div>

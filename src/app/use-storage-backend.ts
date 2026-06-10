@@ -30,6 +30,14 @@ import { getHandle, saveHandle } from "./project-file-handles";
 import { localKindForFormat, deriveRegistryEntry } from "./use-project-switch";
 import type { ProjectMeta } from "./types";
 import { getTursoConfig } from "./turso-config";
+import { loadCurrentTursoProjectId, saveCurrentTursoProjectId } from "./portfolio-mode";
+import { TursoTenantBackend } from "./turso-tenant-backend";
+import {
+  createProject as portfolioCreate,
+  archiveProject as portfolioArchive,
+  restoreProject as portfolioRestore,
+  hardDeleteProject as portfolioHardDelete,
+} from "./turso-portfolio";
 import { tursoErrorKind } from "./storage-error";
 import { useMsAuth } from "./use-ms-auth";
 import { useWorkspace } from "./workspace-context";
@@ -98,6 +106,11 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   const m365Enabled = args.settings.integrations?.m365?.enabled ?? false;
   const auth = useMsAuth(m365Enabled);
 
+  // Active Turso project id (portfolio mode). Seeded from the localStorage cache;
+  // switching/creating a Turso project updates it, which rebuilds the backend memo
+  // so load/save scope to the per-project TursoTenantBackend.
+  const [tursoProjectId, setTursoProjectId] = useState<string | null>(loadCurrentTursoProjectId());
+
   // Backend instance — memoised on storageConfig identity
   const backend = useMemo(() => {
     const tursoConfig = getTursoConfig(
@@ -107,12 +120,14 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     return createBackend(args.settings.storageConfig, {
       acquireToken: auth.acquireToken,
       tursoConfig,
+      tursoProjectId,
     });
   }, [
     args.settings.storageConfig,
     auth.acquireToken,
     args.settings.integrations?.turso?.databaseUrl,
     args.settings.integrations?.turso?.authToken,
+    tursoProjectId,
   ]);
 
   // Storage status
@@ -391,11 +406,18 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   function backendFor(config: StorageConfig) {
     return createBackend(config, {
       acquireToken: auth.acquireToken,
-      tursoConfig: getTursoConfig(
-        settingsRef.current.integrations?.turso?.databaseUrl,
-        settingsRef.current.integrations?.turso?.authToken,
-      ),
+      tursoConfig: tursoConfigNow(),
+      tursoProjectId,
     });
+  }
+
+  // Resolve the live Turso config from the current settings (mirrors how
+  // backendFor / the backend memo resolve it). Used by the Turso project flows.
+  function tursoConfigNow() {
+    return getTursoConfig(
+      settingsRef.current.integrations?.turso?.databaseUrl,
+      settingsRef.current.integrations?.turso?.authToken,
+    );
   }
 
   /**
@@ -548,6 +570,105 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     }
   }
 
+  // ── Turso portfolio (multi-tenant) project flows ───────────────────────────
+  // These mirror the FILE flows above (switchToProject / createProject) but scope
+  // to the shared Turso DB: the `projects` table is the source of truth, and the
+  // active project id is React state (tursoProjectId) cached in localStorage. Like
+  // the file handlers, they read live render-scope state and MUST NOT be memoized.
+
+  async function switchToTursoProject(id: string): Promise<void> {
+    if (args.isPopout) return;
+    const cfg = tursoConfigNow();
+    if (!cfg) {
+      args.showToast("error", t(langRef.current, "projectsTursoUnreachable"));
+      return;
+    }
+    if (tursoProjectId === id) return;
+    try {
+      // Best-effort flush of the outgoing project to the active backend.
+      try { await backend.save(currentWorkspace()); } catch { /* best-effort flush */ }
+      const target = new TursoTenantBackend(cfg, id);
+      const loaded = await target.load();
+      applyWorkspace(loaded);
+      suppressNextLoadRef.current = true;
+      suppressNextSaveRef.current = true;
+      setTursoProjectId(id);
+      saveCurrentTursoProjectId(id);
+      args.showToast("info", t(langRef.current, "projectSwitchedToast", loaded.project?.name ?? id));
+    } catch (err) {
+      reportProjectError(err);
+    }
+  }
+
+  async function createTursoProject(meta: ProjectMeta): Promise<void> {
+    if (args.isPopout) return;
+    const cfg = tursoConfigNow();
+    if (!cfg) {
+      args.showToast("error", t(langRef.current, "projectsTursoUnreachable"));
+      return;
+    }
+    // Flush the outgoing project first (setting suppressNextSaveRef below cancels
+    // the pending debounced save). Mirrors the file createProject flush.
+    try { await backend.save(currentWorkspace()); } catch { /* best-effort flush */ }
+    const id = crypto.randomUUID();
+    try {
+      await portfolioCreate(cfg, meta, id);
+      applyWorkspace({ ...emptyWorkspace(), project: meta });
+      suppressNextLoadRef.current = true;
+      suppressNextSaveRef.current = true;
+      setTursoProjectId(id);
+      saveCurrentTursoProjectId(id);
+      args.showToast("info", t(langRef.current, "projectCreatedToast", meta.name));
+    } catch (err) {
+      reportProjectError(err);
+    }
+  }
+
+  async function archiveTursoProject(id: string): Promise<void> {
+    if (args.isPopout) return;
+    const cfg = tursoConfigNow();
+    if (!cfg) {
+      args.showToast("error", t(langRef.current, "projectsTursoUnreachable"));
+      return;
+    }
+    try {
+      await portfolioArchive(cfg, id);
+      args.showToast("info", t(langRef.current, "projectArchivedToast"));
+    } catch (err) {
+      reportProjectError(err);
+    }
+  }
+
+  async function restoreTursoProject(id: string): Promise<void> {
+    if (args.isPopout) return;
+    const cfg = tursoConfigNow();
+    if (!cfg) {
+      args.showToast("error", t(langRef.current, "projectsTursoUnreachable"));
+      return;
+    }
+    try {
+      await portfolioRestore(cfg, id);
+      args.showToast("info", t(langRef.current, "projectRestoredToast"));
+    } catch (err) {
+      reportProjectError(err);
+    }
+  }
+
+  async function hardDeleteTursoProject(id: string): Promise<void> {
+    if (args.isPopout) return;
+    const cfg = tursoConfigNow();
+    if (!cfg) {
+      args.showToast("error", t(langRef.current, "projectsTursoUnreachable"));
+      return;
+    }
+    try {
+      await portfolioHardDelete(cfg, id);
+      args.showToast("info", t(langRef.current, "projectHardDeletedToast"));
+    } catch (err) {
+      reportProjectError(err);
+    }
+  }
+
   // Copy the handle the backend just stored (via pick/open) into the per-project
   // handle store, so switchToProject can re-attach it later. The LocalFileBackend
   // already persisted it under its own kv key; this mirrors it per-project.
@@ -584,5 +705,11 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     switchToProject,
     createProject,
     loadProjectFromFile,
+    switchToTursoProject,
+    createTursoProject,
+    archiveTursoProject,
+    restoreTursoProject,
+    hardDeleteTursoProject,
+    tursoProjectId,
   };
 }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   SNAPSHOT_DDL, SNAPSHOT_TABLE_NAMES, appendStatements, deleteStatements,
-  rowsToSnapshots, setBaselineStatements,
+  rowsToSnapshots, setBaselineStatements, snapshotSelectStatements,
 } from "./snapshot-schema";
 import { TABLE_NAMES } from "./turso-schema";
 import type { PipelineResultLike } from "./turso-schema";
@@ -34,7 +34,7 @@ describe("snapshot schema", () => {
   });
 
   it("appendStatements wraps inserts in BEGIN/COMMIT and inserts series rows", () => {
-    const stmts = appendStatements(rec);
+    const stmts = appendStatements(rec, "p1");
     expect(stmts[0].sql).toBe("BEGIN");
     expect(stmts[stmts.length - 1].sql).toBe("COMMIT");
     const inserts = stmts.filter((s) => /INSERT INTO snapshot_series/.test(s.sql));
@@ -44,14 +44,14 @@ describe("snapshot schema", () => {
   });
 
   it("setBaselineStatements clears all then sets one", () => {
-    const stmts = setBaselineStatements("abc");
+    const stmts = setBaselineStatements("abc", "p1");
     expect(stmts[0].sql).toMatch(/UPDATE snapshot SET is_baseline='0'/);
     expect(stmts[1].sql).toMatch(/UPDATE snapshot SET is_baseline='1' WHERE id = \?/);
     expect(stmts[1].args?.[0].value).toBe("abc");
   });
 
   it("deleteStatements removes the snapshot and its series rows", () => {
-    const stmts = deleteStatements("abc");
+    const stmts = deleteStatements("abc", "p1");
     expect(stmts.some((s) => /DELETE FROM snapshot_series WHERE snapshot_id = \?/.test(s.sql))).toBe(true);
     expect(stmts.some((s) => /DELETE FROM snapshot WHERE id = \?/.test(s.sql))).toBe(true);
   });
@@ -81,5 +81,51 @@ describe("snapshot schema", () => {
     const out = rowsToSnapshots(snapshotResult, seriesResult);
     expect(out).toHaveLength(1);
     expect(out[0]).toEqual(rec);
+  });
+});
+
+function projRec(): SnapshotRecord {
+  return {
+    id: "s1", capturedAt: "2026-01-01T00:00:00.000Z", bucket: "2026-W01",
+    cadence: "weekly", trigger: "manual", isBaseline: false,
+    remainingHours: 1, remainingCost: 2, pctComplete: 3,
+    forecastEndDate: "2026-06-01", planEndDate: "2026-06-01", spi: 1, cpi: 1,
+    overallRag: "G", scheduleRag: "G", budgetRag: "G", scopeRag: "G",
+    currency: "EUR", milestones: [], series: [{ period: "P1", plannedHours: 1, actualHours: 1, plannedCost: 1, actualCost: 1 }],
+  };
+}
+
+describe("snapshot-schema project scoping", () => {
+  it("DDL declares project_id on both snapshot tables", () => {
+    const ddl = SNAPSHOT_DDL.join("\n");
+    expect((ddl.match(/project_id TEXT/g) ?? []).length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("select statements scope by project_id", () => {
+    const stmts = snapshotSelectStatements("p1");
+    for (const s of stmts) {
+      expect(s.sql).toContain("WHERE project_id = ?");
+      expect(s.args?.[0]).toEqual({ type: "text", value: "p1" });
+    }
+  });
+
+  it("append carries project_id on the snapshot row and every series row", () => {
+    const stmts = appendStatements(projRec(), "p1");
+    for (const s of stmts.filter((x) => x.sql.startsWith("INSERT"))) {
+      expect(s.sql).toContain("project_id");
+      expect(s.args?.[s.args.length - 1]).toEqual({ type: "text", value: "p1" });
+    }
+  });
+
+  it("setBaseline scopes BOTH updates by project_id (no cross-project clobber)", () => {
+    const stmts = setBaselineStatements("s1", "p1");
+    expect(stmts).toHaveLength(2);
+    for (const s of stmts) expect(s.sql).toContain("project_id = ?");
+    expect(stmts[0].sql).toMatch(/SET is_baseline='0' WHERE project_id = \?/);
+  });
+
+  it("delete scopes by project_id", () => {
+    const stmts = deleteStatements("s1", "p1");
+    for (const s of stmts) expect(s.sql).toContain("project_id = ?");
   });
 });

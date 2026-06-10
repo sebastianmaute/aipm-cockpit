@@ -14,6 +14,7 @@ import {
 import type { SnapshotCadence } from "../snapshot";
 import { useMsAuth } from "../use-ms-auth";
 import { InfoTooltip } from "../info-tooltip";
+import { loadPortfolioMode, savePortfolioMode, type PortfolioMode } from "../portfolio-mode";
 
 interface IntegrationsSectionProps {
   lang: Lang;
@@ -41,6 +42,17 @@ export function IntegrationsSection({ lang, settings, onChange }: IntegrationsSe
   const snapshots = settings.snapshots ?? defaultSnapshotSettings;
   function updateSnapshots(patch: Partial<SnapshotSettings>) {
     onChange({ ...settings, snapshots: { ...snapshots, ...patch } });
+  }
+
+  // Portfolio storage mode lives in localStorage (not Settings) — see
+  // portfolio-mode.ts. Read once for the current selection; changing it persists
+  // the new mode and reloads the page so the whole portfolio UI re-initialises in
+  // the chosen mode (mirrors how the feature-modules "mode" Save reloads).
+  const portfolioMode = loadPortfolioMode();
+  function handlePortfolioModeChange(next: PortfolioMode) {
+    if (next === portfolioMode) return;
+    savePortfolioMode(next);
+    window.location.reload();
   }
 
   function updateM365(patch: Partial<M365IntegrationsSettings>) {
@@ -258,6 +270,23 @@ export function IntegrationsSection({ lang, settings, onChange }: IntegrationsSe
             {snapshots.enabled && !(envTursoUrlSet || turso.databaseUrl) && (
               <p className="mt-1 text-xs text-AIPM-pink">{t(lang, "snapshotConfigIncomplete")}</p>
             )}
+          </div>
+          <div className="mt-2 border-t border-line pt-2">
+            <label className="block text-xs">
+              <span className="inline-flex items-center gap-1 text-muted-foreground">
+                {t(lang, "portfolioModeLabel")}
+              </span>
+              <select
+                aria-label={t(lang, "portfolioModeLabel")}
+                value={portfolioMode}
+                onChange={(e) => handlePortfolioModeChange(e.target.value as PortfolioMode)}
+                className="mt-1 w-full rounded border border-line bg-surface px-2 py-1 text-foreground"
+              >
+                <option value="file">{t(lang, "portfolioModeFile")}</option>
+                <option value="turso">{t(lang, "portfolioModeTurso")}</option>
+              </select>
+            </label>
+            <p className="mt-1 text-xs text-muted-foreground">{t(lang, "portfolioModeHelp")}</p>
           </div>
         </div>
       )}

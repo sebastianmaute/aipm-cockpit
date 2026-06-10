@@ -1,5 +1,6 @@
 import { SharePointBackend } from "./sharepoint-backend";
 import { TursoBackend } from "./turso-backend";
+import { TursoTenantBackend } from "./turso-tenant-backend";
 import type { TursoConfig } from "./turso-config";
 import { riskSeverityFromMatrix } from "./raid";
 import {
@@ -1333,12 +1334,14 @@ export function projectFieldToString(p: ProjectMeta, col: keyof ProjectMeta): st
   return encodeProjectScalar(String(v));
 }
 
-/** Decode a `field -> raw string` map (as produced by the CSV/MD parsers) back
- *  into a sanitized ProjectMeta. Returns null when the data is invalid. */
-export function buildProjectFromObj(obj: Record<string, string>): ProjectMeta | null {
+/** Decode a `field -> raw string` map (as produced by the CSV/MD parsers, or a
+ *  Turso `projects` row) into the loose pre-sanitize ProjectMeta-shaped object.
+ *  Shared by the strict `buildProjectFromObj` and the lenient
+ *  `buildProjectFromObjLenient` so the per-field decode logic lives once. */
+function decodeProjectObj(obj: Record<string, string>): Record<string, unknown> {
   const scalar = (key: string): string | undefined =>
     obj[key] !== undefined ? decodeProjectScalar(obj[key]) : undefined;
-  return sanitizeProjectMeta({
+  return {
     name: scalar("name"),
     code: scalar("code"),
     description: scalar("description"),
@@ -1366,7 +1369,26 @@ export function buildProjectFromObj(obj: Record<string, string>): ProjectMeta | 
     docRepoLocation: scalar("docRepoLocation"),
     regulatory: decodeProjectList(obj.regulatory ?? ""),
     notes: scalar("notes"),
-  });
+  };
+}
+
+/** Decode a `field -> raw string` map (as produced by the CSV/MD parsers) back
+ *  into a sanitized ProjectMeta. Returns null when the data is invalid. */
+export function buildProjectFromObj(obj: Record<string, string>): ProjectMeta | null {
+  return sanitizeProjectMeta(decodeProjectObj(obj));
+}
+
+/** Lenient decode for an ALREADY-PERSISTED project row (e.g. a Turso `projects`
+ *  table row, the multi-tenant source of truth). Decodes the raw column map via
+ *  `decodeProjectObj`, then runs the SAME `sanitizeProjectMeta` as the strict
+ *  path but with `lenientRequiredArrays: true`. That flag skips ONLY the three
+ *  empty-required-array rejections (keyStakeholdersInternal, keyStakeholdersExternal,
+ *  regulatory) while still enforcing all required scalars (name, code, etc.),
+ *  required enums (naceSection, deployment), required dates, and all per-field
+ *  sanitization. Why lenient? A project already stored in the DB must never be
+ *  silently dropped on read solely because, e.g., it has no external stakeholders. */
+export function buildProjectFromObjLenient(obj: Record<string, string>): ProjectMeta | null {
+  return sanitizeProjectMeta(decodeProjectObj(obj), { lenientRequiredArrays: true });
 }
 
 /** Serializes ProjectMeta as a `field,value` CSV block (mirrors statusToCsv).
@@ -3322,6 +3344,10 @@ export interface CreateBackendDeps {
     options?: { interactive?: boolean },
   ) => Promise<string | null>;
   tursoConfig?: TursoConfig | null;
+  /** Active Turso project id. When kind="turso" AND this is a non-empty string,
+   *  createBackend returns a per-project TursoTenantBackend (Phase 2 multi-tenant
+   *  portfolio mode). Otherwise the single-tenant TursoBackend is used. */
+  tursoProjectId?: string | null;
 }
 
 export function createBackend(
@@ -3350,8 +3376,13 @@ export function createBackend(
         acquireToken,
       );
     }
-    case "turso":
+    case "turso": {
+      const tursoProjectId = deps.tursoProjectId;
+      if (typeof tursoProjectId === "string" && tursoProjectId.length > 0) {
+        return new TursoTenantBackend(deps.tursoConfig ?? null, tursoProjectId);
+      }
       return new TursoBackend(deps.tursoConfig ?? null);
+    }
   }
 }
 

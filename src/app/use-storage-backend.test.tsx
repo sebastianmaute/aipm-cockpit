@@ -56,6 +56,31 @@ vi.mock("./broadcast-sync", () => ({
   useBroadcastSync: vi.fn(),
 }));
 
+// ── Turso portfolio mock (the portfolio-level project ops over the shared DB) ──
+vi.mock("./turso-portfolio", () => ({
+  createProject: vi.fn(async () => undefined),
+  archiveProject: vi.fn(async () => undefined),
+  restoreProject: vi.fn(async () => undefined),
+  hardDeleteProject: vi.fn(async () => undefined),
+}));
+import * as tursoPortfolioMod from "./turso-portfolio";
+
+// ── TursoTenantBackend mock (per-project backend built directly in the hook) ──
+vi.mock("./turso-tenant-backend", () => ({
+  TursoTenantBackend: class {
+    kind = "turso" as const;
+    constructor(public config: unknown, public projectId: string) {}
+    load = vi.fn().mockResolvedValue({ tasks: [], raid: [], absences: [], shifts: [] });
+    save = vi.fn().mockResolvedValue(undefined);
+    isReady = vi.fn().mockResolvedValue(true);
+    describe = vi.fn().mockResolvedValue("Turso");
+  },
+}));
+
+// portfolio-mode is a pure module backed by jsdom localStorage — use it for real
+// so saveCurrentTursoProjectId / loadCurrentTursoProjectId round-trip as in prod.
+import { loadCurrentTursoProjectId, saveCurrentTursoProjectId } from "./portfolio-mode";
+
 // ── Mock backend ──────────────────────────────────────────────────────────────
 const mockBackend = {
   load: vi.fn().mockResolvedValue({ tasks: [], raid: [], absences: [], shifts: [] }),
@@ -87,8 +112,8 @@ function makeArgs(overrides: Partial<Parameters<typeof useStorageBackend>[0]> = 
 function makeProbe(args: Parameters<typeof useStorageBackend>[0]) {
   return function useProbe() {
     const backend = useStorageBackend(args);
-    const { tasks, raid, absences, shifts, setTasks, changes, setChanges } = useWorkspace();
-    return { ...backend, tasks, raid, absences, shifts, setTasks, changes, setChanges };
+    const { tasks, raid, absences, shifts, setTasks, changes, setChanges, project } = useWorkspace();
+    return { ...backend, tasks, raid, absences, shifts, setTasks, changes, setChanges, project };
   };
 }
 
@@ -980,5 +1005,55 @@ describe("useStorageBackend — project flows", () => {
     // picker), but the config must NOT change after an early return.
     expect(setStorageConfig).not.toHaveBeenCalled();
     expect(targetBackend.load).not.toHaveBeenCalled();
+  });
+});
+
+// ── Turso portfolio (multi-tenant) flows ──────────────────────────────────────
+// Exercises createTursoProject: it must call the portfolio create op with the
+// supplied meta + a generated id, cache that id (loadCurrentTursoProjectId), and
+// apply the new workspace (project meta surfaces in workspace state).
+describe("useStorageBackend — Turso portfolio flows", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    saveCurrentTursoProjectId(null);
+    mockBackend.load.mockResolvedValue({ tasks: [], raid: [], absences: [], shifts: [] });
+    mockBackend.save.mockResolvedValue(undefined);
+    mockBackend.isReady.mockResolvedValue(true);
+    mockBackend.describe.mockResolvedValue("Turso");
+    (storageMod.createBackend as ReturnType<typeof vi.fn>).mockReturnValue(mockBackend);
+  });
+
+  function tursoArgs() {
+    return makeArgs({
+      settings: {
+        storageConfig: { kind: "turso" },
+        integrations: { turso: { databaseUrl: "https://x.turso.io", authToken: "tok" } },
+      } as unknown as Settings,
+    });
+  }
+
+  it("createTursoProject calls the portfolio create op with the meta, caches the id, and applies the new project", async () => {
+    const meta = { name: "Apollo", code: "AP" } as never;
+    const { result } = renderBackend(tursoArgs());
+    await act(async () => { await Promise.resolve(); });
+
+    await act(async () => { await result.current.createTursoProject(meta); });
+    await act(async () => { await Promise.resolve(); });
+
+    // (a) portfolio create called once with the supplied meta.
+    const createMock = tursoPortfolioMod.createProject as ReturnType<typeof vi.fn>;
+    expect(createMock).toHaveBeenCalledTimes(1);
+    expect(createMock).toHaveBeenCalledWith(
+      expect.objectContaining({ httpUrl: expect.any(String) }),
+      meta,
+      expect.any(String),
+    );
+    // (b) the generated id was cached for next-load selection.
+    const cached = loadCurrentTursoProjectId();
+    expect(cached).toBeTruthy();
+    // The id passed to create is the same one that got cached.
+    expect(createMock.mock.calls[0]?.[2]).toBe(cached);
+    // (c) the new project meta was applied into workspace state.
+    expect(result.current.project).toEqual(meta);
   });
 });

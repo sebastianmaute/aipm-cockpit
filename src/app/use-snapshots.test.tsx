@@ -17,6 +17,7 @@ const baseArgs = {
   active: true,
   cadence: "weekly" as const,
   tursoConfig: { httpUrl: "https://db", authToken: "t" },
+  projectId: "p1",
   today: new Date("2026-06-10T09:00:00.000Z"), // ISO week 24
   buildContext: () => ({
     model: { progress: { percent: 0 }, overall: { effective: "G" }, schedule: { effective: "G" },
@@ -102,10 +103,10 @@ describe("useSnapshots", () => {
     await waitFor(() => expect(result.current.snapshots.length).toBe(1));
     const id = result.current.snapshots[0].id;
     await act(async () => { await result.current.setBaseline(id); });
-    expect(sb).toHaveBeenCalledWith(baseArgs.tursoConfig, id);
+    expect(sb).toHaveBeenCalledWith(baseArgs.tursoConfig, id, "p1");
     expect(result.current.snapshots[0].isBaseline).toBe(true);
     await act(async () => { await result.current.deleteSnapshot(id); });
-    expect(del).toHaveBeenCalledWith(baseArgs.tursoConfig, id);
+    expect(del).toHaveBeenCalledWith(baseArgs.tursoConfig, id, "p1");
     expect(result.current.snapshots).toHaveLength(0);
   });
 
