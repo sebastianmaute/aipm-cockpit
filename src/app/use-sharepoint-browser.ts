@@ -5,6 +5,7 @@ import { useCallback, useState } from "react";
 import type { DocumentLink } from "./document-link";
 import {
   searchSitesUrl, siteDrivesUrl, driveRootChildrenUrl, folderChildrenUrl,
+  siteDefaultDriveRootChildrenUrl,
   mapSite, mapDrive, mapDriveItem, readList,
   type GraphSite, type GraphDrive, type GraphDriveItem, type SiteRef, type DriveRef,
 } from "./sharepoint-graph";
@@ -22,6 +23,7 @@ interface Crumb { driveId: string; itemId: string | null; name: string; }
 interface BrowserState {
   loading: boolean;
   error: string | null;
+  searchForbidden: boolean;
   sites: SiteRef[];
   drives: DriveRef[];
   items: DocumentLink[];
@@ -30,7 +32,7 @@ interface BrowserState {
 }
 
 const INITIAL: BrowserState = {
-  loading: false, error: null, sites: [], drives: [], items: [],
+  loading: false, error: null, searchForbidden: false, sites: [], drives: [], items: [],
   breadcrumb: [], currentDriveId: null,
 };
 
@@ -67,8 +69,15 @@ export function useSharePointBrowser(acquireToken: AcquireToken) {
   }, [acquireToken]);
 
   const searchSites = useCallback(async (query: string) => {
+    setState((s) => ({ ...s, searchForbidden: false }));
     const json = await call<unknown>(searchSitesUrl(query));
-    if (!json) return;
+    if (!json) {
+      setState((s) => ({
+        ...s,
+        searchForbidden: s.error === "spPickerErrorForbidden",
+      }));
+      return;
+    }
     const { items } = readList<GraphSite>(json);
     setState((s) => ({ ...s, sites: items.map(mapSite).filter((x) => x.id), drives: [], items: [], breadcrumb: [], currentDriveId: null }));
   }, [call]);
@@ -101,7 +110,21 @@ export function useSharePointBrowser(acquireToken: AcquireToken) {
     }));
   }, [call]);
 
+  const openSiteByPath = useCallback(async (hostname: string, sitePath: string) => {
+    const json = await call<unknown>(siteDefaultDriveRootChildrenUrl(hostname, sitePath));
+    if (!json) return;
+    const { items } = readList<GraphDriveItem>(json);
+    const mapped = items.map(mapDriveItem);
+    const driveId = mapped[0]?.driveId ?? null;
+    setState((s) => ({
+      ...s,
+      items: mapped,
+      currentDriveId: driveId,
+      breadcrumb: [{ driveId: driveId ?? "", itemId: null, name: sitePath }],
+    }));
+  }, [call]);
+
   const reset = useCallback(() => setState(INITIAL), []);
 
-  return { ...state, searchSites, openSite, openDrive, openFolder, reset };
+  return { ...state, searchSites, openSite, openDrive, openFolder, openSiteByPath, reset };
 }

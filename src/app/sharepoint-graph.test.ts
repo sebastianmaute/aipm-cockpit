@@ -5,6 +5,7 @@ import {
   siteDrivesUrl,
   driveRootChildrenUrl,
   folderChildrenUrl,
+  siteDefaultDriveRootChildrenUrl,
   mapSite,
   mapDriveItem,
   type GraphDriveItem,
@@ -55,5 +56,12 @@ describe("mappers", () => {
   });
   test("folder mapping yields kind folder", () => {
     expect(mapDriveItem({ id: "x", name: "n", webUrl: "u", folder: {} }).kind).toBe("folder");
+  });
+});
+
+describe("siteDefaultDriveRootChildrenUrl", () => {
+  test("addresses the site default drive by path", () => {
+    expect(siteDefaultDriveRootChildrenUrl("c.sharepoint.com", "/sites/proj"))
+      .toBe(`${GRAPH_BASE}/sites/c.sharepoint.com:/sites/proj:/drive/root/children`);
   });
 });

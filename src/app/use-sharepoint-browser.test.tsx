@@ -39,6 +39,23 @@ describe("useSharePointBrowser", () => {
     await waitFor(() => expect(result.current.error).toBe("spPickerErrorAuth"));
   });
 
+  test("openSiteByPath lists the default library via Files.ReadWrite.All path", async () => {
+    mockFetchSequence({ body: { value: [{ id: "f1", name: "Spec.docx", webUrl: "https://c.sharepoint.com/x", file: { mimeType: "application/msword" }, parentReference: { driveId: "d1" } }] } });
+    const { result } = renderHook(() => useSharePointBrowser(acquire));
+    await act(async () => { await result.current.openSiteByPath("c.sharepoint.com", "/sites/proj"); });
+    await waitFor(() => expect(result.current.items).toHaveLength(1));
+    expect(result.current.items[0].name).toBe("Spec.docx");
+    expect(result.current.currentDriveId).toBe("d1");
+    expect(result.current.breadcrumb.length).toBeGreaterThan(0);
+  });
+
+  test("searchSites 403 sets searchForbidden", async () => {
+    mockFetchSequence({ status: 403 });
+    const { result } = renderHook(() => useSharePointBrowser(acquire));
+    await act(async () => { await result.current.searchSites("x"); });
+    await waitFor(() => expect(result.current.searchForbidden).toBe(true));
+  });
+
   test("openDrive then openFolder navigates and tracks breadcrumb", async () => {
     mockFetchSequence(
       { body: { value: [{ id: "d1", name: "Documents" }] } },

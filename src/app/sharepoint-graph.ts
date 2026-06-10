@@ -62,6 +62,12 @@ export function siteByPathUrl(hostname: string, sitePath: string): string {
   return `${GRAPH_BASE}/sites/${hostname}:${sitePath}`;
 }
 
+/** Default document library (drive) root children of a site addressed by path.
+ *  Works with Files.ReadWrite.All — no Sites.Read.All needed (unlike /sites/{id}/drives). */
+export function siteDefaultDriveRootChildrenUrl(hostname: string, sitePath: string): string {
+  return `${GRAPH_BASE}/sites/${hostname}:${sitePath}:/drive/root/children`;
+}
+
 export function isFolder(item: GraphDriveItem): boolean {
   return item.folder != null;
 }
