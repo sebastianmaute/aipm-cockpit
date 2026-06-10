@@ -7,7 +7,7 @@ import {
 } from "./storage";
 import type { DocumentLink } from "./document-link";
 import type { Workspace } from "./storage";
-import type { RaidItem, ChangeItem } from "./types";
+import type { RaidItem, ChangeItem, Stakeholder } from "./types";
 
 const links: DocumentLink[] = [
   { id: "01", name: "Spec, v2.docx", url: "https://c.sharepoint.com/sites/p/Docs/Spec.docx", kind: "file", driveId: "b!d", itemId: "01" },
@@ -87,6 +87,26 @@ describe("ChangeItem documentLinks round-trips", () => {
   test("empty Change documentLinks → no []", () => {
     const w = emptyWorkspace();
     w.changes = [{ id: 1, title: "C", description: "d", type: "Scope", status: "Proposed", linkedTaskIds: [], linkedRaidIds: [], stakeholderIds: [], raisedDate: "2026-01-01" }];
+    expect(workspaceToCsv(w)).not.toContain("[]");
+  });
+});
+
+describe("Stakeholder documentLinks round-trips", () => {
+  function ws() {
+    const w = emptyWorkspace();
+    const s: Stakeholder = {
+      id: 1, name: "S", category: "Internal", influence: "Low", interest: "Low",
+      raci: {}, documentLinks: links,
+    };
+    w.stakeholders = [s];
+    return w;
+  }
+  test("CSV", () => { expect(csvToWorkspace(workspaceToCsv(ws())).stakeholders![0]!.documentLinks).toEqual(links); });
+  test("Markdown", () => { expect(markdownToWorkspace(workspaceToMarkdown(ws())).stakeholders![0]!.documentLinks).toEqual(links); });
+  test("JSON", () => { expect(jsonToWorkspace(workspaceToJson(ws())).stakeholders![0]!.documentLinks).toEqual(links); });
+  test("empty Stakeholder documentLinks → no []", () => {
+    const w = emptyWorkspace();
+    w.stakeholders = [{ id: 1, name: "S", category: "Internal", influence: "Low", interest: "Low", raci: {} }];
     expect(workspaceToCsv(w)).not.toContain("[]");
   });
 });

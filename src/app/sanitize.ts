@@ -1010,6 +1010,8 @@ export function sanitizeStakeholder(input: unknown): Stakeholder | null {
   const rid = toNumber(o.resourceId);
   if (Number.isFinite(rid) && rid > 0) item.resourceId = Math.floor(rid);
   const lma = sanitizeText(o.localModifiedAt, TEXTAREA_MAX); if (lma) item.localModifiedAt = lma;
+  const dl = sanitizeDocumentLinks((input as Record<string, unknown>).documentLinks);
+  if (dl.length) item.documentLinks = dl;
   return item;
 }
 

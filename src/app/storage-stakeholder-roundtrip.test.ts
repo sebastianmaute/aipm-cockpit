@@ -39,7 +39,7 @@ describe("stakeholder storage round-trip", () => {
   it("STAKEHOLDERS_CSV_COLUMNS lists the canonical order", () => {
     expect(STAKEHOLDERS_CSV_COLUMNS).toEqual([
       "id", "name", "organization", "title", "email", "category",
-      "influence", "interest", "notes", "resourceId", "raci", "localModifiedAt",
+      "influence", "interest", "notes", "resourceId", "raci", "localModifiedAt", "documentLinks",
     ]);
   });
 

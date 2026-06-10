@@ -830,12 +830,13 @@ export function buildChangeFromObj(obj: Record<string, string>): ChangeItem | nu
 
 export const STAKEHOLDERS_CSV_COLUMNS: Array<keyof Stakeholder> = [
   "id", "name", "organization", "title", "email", "category",
-  "influence", "interest", "notes", "resourceId", "raci", "localModifiedAt",
+  "influence", "interest", "notes", "resourceId", "raci", "localModifiedAt", "documentLinks",
 ];
 
 export function stakeholderFieldToString(s: Stakeholder, col: keyof Stakeholder): string {
   if (col === "raci") return encodeRaciMap(s.raci);
   if (col === "resourceId") return s.resourceId == null ? "" : String(s.resourceId);
+  if (col === "documentLinks") return encodeDocumentLinks(s.documentLinks);
   const v = s[col];
   return v === undefined || v === null ? "" : String(v);
 }
@@ -846,6 +847,7 @@ export function buildStakeholderFromObj(obj: Record<string, string>): Stakeholde
     id: obj.id ? Number(obj.id) : undefined,
     resourceId: obj.resourceId ? Number(obj.resourceId) : null,
     raci: decodeRaciMap(obj.raci),
+    documentLinks: decodeDocumentLinks(obj.documentLinks),
   });
 }
 
@@ -2207,6 +2209,7 @@ const STAKEHOLDERS_MD_COLUMNS: readonly { key: keyof Stakeholder; label: string 
   { key: "resourceId", label: "ResourceId" },
   { key: "raci", label: "RACI" },
   { key: "localModifiedAt", label: "LocalModified" },
+  { key: "documentLinks", label: "DocumentLinks" },
 ];
 
 function stakeholdersToMarkdown(stakeholders: readonly Stakeholder[]): string {
@@ -2239,6 +2242,7 @@ function markdownToStakeholders(md: string): Stakeholder[] {
       else if (norm === "resourceid") mapped["resourceId"] = val;
       else if (norm === "raci") mapped["raci"] = val;
       else if (norm === "localmodified" || norm === "localmodifiedat") mapped["localModifiedAt"] = val;
+      else if (norm === "documentlinks") mapped["documentLinks"] = val;
     }
     return buildStakeholderFromObj(mapped);
   }).filter((s): s is Stakeholder => s !== null);
