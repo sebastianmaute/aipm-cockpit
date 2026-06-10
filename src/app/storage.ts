@@ -29,6 +29,7 @@ import {
   sanitizeRole,
   sanitizeShift,
   sanitizeStakeholder,
+  sanitizeProjectMeta,
   encodeRaciMap,
   decodeRaciMap,
   serializeDependencies,
@@ -41,7 +42,9 @@ import {
   type FxRates,
   type Grade,
   type Milestone,
+  type ContactPerson,
   type Priority,
+  type ProjectMeta,
   type ProjectStatus,
   type RaidCategory,
   type RaidItem,
@@ -86,6 +89,10 @@ export type Workspace = {
   changes?: ChangeItem[];
   /** Stakeholder register (incl. per-milestone RACI map). Optional for back-compat; load paths default to []. */
   stakeholders?: Stakeholder[];
+  /** Top-level descriptor of the project this workspace tracks. Additive and
+   *  optional: a workspace with `project === undefined` serializes byte-for-byte
+   *  as it did before this field existed (no project block is emitted). */
+  project?: ProjectMeta;
 };
 
 const SCHEMA_VERSION = 9;
@@ -257,6 +264,7 @@ const KV_STATUS_KEY = "project-status";
 const KV_MILESTONES_KEY = "milestones";
 const KV_CHANGES_KEY = "changes";
 const KV_STAKEHOLDERS_KEY = "stakeholders";
+const KV_PROJECT_KEY = "project";
 
 function openIdb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -550,6 +558,7 @@ const CSV_SECTION_DISCIPLINES = "# DISCIPLINES";
 const CSV_SECTION_GRADES = "# GRADES";
 const CSV_SECTION_PLAN = "# PLAN";
 const CSV_SECTION_STATUS = "# PROJECT STATUS";
+const CSV_SECTION_PROJECT = "# PROJECT META";
 
 // --- Resource Planner v2 Markdown column definitions -----------------------
 
@@ -1053,6 +1062,9 @@ export function workspaceToJson(ws: Workspace): string {
       milestones: ws.milestones ?? [],
       changes: ws.changes ?? [],
       stakeholders: ws.stakeholders ?? [],
+      // Additive: only present when a project is set, so legacy/no-project files
+      // stay free of a `project` key.
+      ...(ws.project ? { project: ws.project } : {}),
     },
     null,
     2,
@@ -1102,6 +1114,12 @@ export function jsonToWorkspace(text: string): Workspace {
       changes: ((p.changes as unknown[]) ?? []).map((c) => sanitizeChangeItem(c)).filter((c): c is ChangeItem => c !== null),
       stakeholders: ((p.stakeholders as unknown[]) ?? []).map((s) => sanitizeStakeholder(s)).filter((s): s is Stakeholder => s !== null),
     };
+    // Additive: sanitize an incoming project when present; otherwise leave the
+    // key off so no-project files round-trip without a `project` field.
+    if (p.project !== undefined) {
+      const project = sanitizeProjectMeta(p.project);
+      if (project) raw.project = project;
+    }
     return migrateWorkspaceV8(raw);
   } catch {
     return emptyWorkspace();
@@ -1154,6 +1172,233 @@ export function csvToStatus(text: string): ProjectStatus {
   return sanitizeProjectStatus(map);
 }
 
+// --- Project metadata encoder / decoder --------------------------------------
+//
+// ProjectMeta is a SINGLE object (like ProjectStatus), so it serializes as a
+// `field,value` key-value block — NOT a row table. Both CSV and Markdown share
+// the same per-field string form produced by `projectFieldToString`, so every
+// emitted value is a single line (newlines/pipes/backslashes are escaped) which
+// keeps the Markdown `- field: value` bullet parser robust.
+
+/** All ProjectMeta fields, in a fixed serialization order. */
+export const PROJECT_CSV_COLUMNS: Array<keyof ProjectMeta> = [
+  "name", "code", "description",
+  "sponsor", "projectManager", "keyStakeholdersInternal", "keyStakeholdersExternal",
+  "customer", "naceSection", "identityTypes", "identityCount",
+  "products", "platform", "deployment", "startDate", "endDate",
+  "profitCenter", "quotes", "salesforceUrl", "sharepointUrl", "confluenceUrl",
+  "contactPersons", "docRepoLocation", "regulatory", "notes",
+];
+
+/** The list delimiter used across this file for joined string arrays. */
+const PROJECT_LIST_DELIM = "|";
+
+/** Reversible single-line escape for an arbitrary scalar value. Escapes the
+ *  backslash first, then encodes newlines so the value never spans lines (the
+ *  Markdown bullet parser is line-oriented). */
+function encodeProjectScalar(value: string): string {
+  return value
+    .replace(/\\/g, "\\\\")
+    .replace(/\r/g, "\\r")
+    .replace(/\n/g, "\\n");
+}
+
+function decodeProjectScalar(value: string): string {
+  let out = "";
+  for (let i = 0; i < value.length; i++) {
+    const c = value[i];
+    if (c === "\\" && i + 1 < value.length) {
+      const next = value[i + 1];
+      if (next === "n") { out += "\n"; i++; continue; }
+      if (next === "r") { out += "\r"; i++; continue; }
+      if (next === "\\") { out += "\\"; i++; continue; }
+    }
+    out += c;
+  }
+  return out;
+}
+
+/** Join a string array with the list delimiter, escaping the delimiter (and
+ *  backslash) within each item so the split is lossless. */
+function encodeProjectList(items: readonly string[]): string {
+  return items
+    .map((s) => s.replace(/\\/g, "\\\\").replace(/\|/g, "\\|"))
+    .join(PROJECT_LIST_DELIM);
+}
+
+function decodeProjectList(text: string): string[] {
+  if (text === "") return [];
+  const parts: string[] = [];
+  let buf = "";
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (c === "\\" && i + 1 < text.length) {
+      const next = text[i + 1];
+      if (next === "|") { buf += "|"; i++; continue; }
+      if (next === "\\") { buf += "\\"; i++; continue; }
+    }
+    if (c === PROJECT_LIST_DELIM) { parts.push(buf); buf = ""; continue; }
+    buf += c;
+  }
+  parts.push(buf);
+  return parts;
+}
+
+/** Reversible encoder for contactPersons. Each entry is `name;email;synced`
+ *  with `\`, `;` and `|` escaped within sub-fields; entries are joined with the
+ *  list delimiter. */
+export function encodeContactPersons(people: readonly ContactPerson[]): string {
+  const esc = (s: string) =>
+    s.replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/\|/g, "\\|");
+  return people
+    .map((p) => `${esc(p.name)};${esc(p.email)};${p.synced ? "1" : "0"}`)
+    .join(PROJECT_LIST_DELIM);
+}
+
+export function decodeContactPersons(text: string): ContactPerson[] {
+  if (text === "") return [];
+  // Split into entries on the un-escaped list delimiter.
+  const entries: string[] = [];
+  let buf = "";
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (c === "\\" && i + 1 < text.length) { buf += c + text[i + 1]; i++; continue; }
+    if (c === PROJECT_LIST_DELIM) { entries.push(buf); buf = ""; continue; }
+    buf += c;
+  }
+  entries.push(buf);
+
+  const unescape = (s: string) => {
+    let out = "";
+    for (let i = 0; i < s.length; i++) {
+      const c = s[i];
+      if (c === "\\" && i + 1 < s.length) {
+        const next = s[i + 1];
+        if (next === ";" || next === "|" || next === "\\") { out += next; i++; continue; }
+      }
+      out += c;
+    }
+    return out;
+  };
+
+  const splitFields = (entry: string): string[] => {
+    const fields: string[] = [];
+    let f = "";
+    for (let i = 0; i < entry.length; i++) {
+      const c = entry[i];
+      if (c === "\\" && i + 1 < entry.length) { f += c + entry[i + 1]; i++; continue; }
+      if (c === ";") { fields.push(f); f = ""; continue; }
+      f += c;
+    }
+    fields.push(f);
+    return fields;
+  };
+
+  const people: ContactPerson[] = [];
+  for (const entry of entries) {
+    const [name = "", email = "", synced = "0"] = splitFields(entry);
+    people.push({
+      name: unescape(name),
+      email: unescape(email),
+      synced: synced === "1",
+    });
+  }
+  return people;
+}
+
+const PROJECT_ARRAY_COLUMNS = new Set<keyof ProjectMeta>([
+  "keyStakeholdersInternal", "keyStakeholdersExternal", "identityTypes", "regulatory",
+]);
+
+/** Single-line, reversible string form for one ProjectMeta field. */
+export function projectFieldToString(p: ProjectMeta, col: keyof ProjectMeta): string {
+  if (col === "contactPersons") return encodeContactPersons(p.contactPersons);
+  if (PROJECT_ARRAY_COLUMNS.has(col)) {
+    const arr = p[col] as string[] | undefined;
+    return Array.isArray(arr) ? encodeProjectList(arr) : "";
+  }
+  const v = p[col];
+  if (v === undefined || v === null) return "";
+  return encodeProjectScalar(String(v));
+}
+
+/** Decode a `field -> raw string` map (as produced by the CSV/MD parsers) back
+ *  into a sanitized ProjectMeta. Returns null when the data is invalid. */
+export function buildProjectFromObj(obj: Record<string, string>): ProjectMeta | null {
+  const scalar = (key: string): string | undefined =>
+    obj[key] !== undefined ? decodeProjectScalar(obj[key]) : undefined;
+  return sanitizeProjectMeta({
+    name: scalar("name"),
+    code: scalar("code"),
+    description: scalar("description"),
+    sponsor: scalar("sponsor"),
+    projectManager: scalar("projectManager"),
+    keyStakeholdersInternal: decodeProjectList(obj.keyStakeholdersInternal ?? ""),
+    keyStakeholdersExternal: decodeProjectList(obj.keyStakeholdersExternal ?? ""),
+    customer: scalar("customer"),
+    naceSection: scalar("naceSection"),
+    identityTypes: decodeProjectList(obj.identityTypes ?? ""),
+    identityCount: obj.identityCount !== undefined && obj.identityCount !== ""
+      ? obj.identityCount
+      : undefined,
+    products: scalar("products"),
+    platform: scalar("platform"),
+    deployment: scalar("deployment"),
+    startDate: scalar("startDate"),
+    endDate: scalar("endDate"),
+    profitCenter: scalar("profitCenter"),
+    quotes: scalar("quotes"),
+    salesforceUrl: scalar("salesforceUrl"),
+    sharepointUrl: scalar("sharepointUrl"),
+    confluenceUrl: scalar("confluenceUrl"),
+    contactPersons: decodeContactPersons(obj.contactPersons ?? ""),
+    docRepoLocation: scalar("docRepoLocation"),
+    regulatory: decodeProjectList(obj.regulatory ?? ""),
+    notes: scalar("notes"),
+  });
+}
+
+/** Serializes ProjectMeta as a `field,value` CSV block (mirrors statusToCsv).
+ *  Only non-empty fields are emitted, so absent optionals round-trip cleanly. */
+export function projectToCsv(project: ProjectMeta, neutralize = false): string {
+  const rows: string[] = ["field,value"];
+  for (const col of PROJECT_CSV_COLUMNS) {
+    const v = projectFieldToString(project, col);
+    if (v !== "") rows.push(`${col},${csvCellEscape(v, neutralize)}`);
+  }
+  return rows.join("\r\n");
+}
+
+export function csvToProject(text: string): ProjectMeta | null {
+  const rows = parseCsv(text).filter((r) => r.length >= 2 && r[0] && !r[0].startsWith("#"));
+  const map: Record<string, string> = {};
+  for (const [k, v] of rows) {
+    if (k === "field") continue; // header row
+    map[k] = v;
+  }
+  return buildProjectFromObj(map);
+}
+
+/** Serializes ProjectMeta as "## Project Meta" + "- field: value" bullets
+ *  (mirrors statusToMarkdown). Values are single-line via projectFieldToString. */
+export function projectToMarkdown(project: ProjectMeta): string {
+  const lines = ["## Project Meta", ""];
+  for (const col of PROJECT_CSV_COLUMNS) {
+    const v = projectFieldToString(project, col);
+    if (v !== "") lines.push(`- ${col}: ${v}`);
+  }
+  return lines.join("\n") + "\n";
+}
+
+export function markdownToProject(md: string): ProjectMeta | null {
+  const map: Record<string, string> = {};
+  for (const line of md.split(/\r?\n/)) {
+    const m = /^- (\w+):\s*(.*)$/.exec(line.trim());
+    if (m) map[m[1]] = m[2];
+  }
+  return buildProjectFromObj(map);
+}
+
 /** Multi-section CSV: tasks then (optionally) raid, absences, and shifts,
  *  separated by marker lines. Used by file backends for round-trip;
  *  `tasksToCsv` remains the marker-less variant that the Export menu uses
@@ -1193,6 +1438,10 @@ export function workspaceToCsv(ws: Workspace, config?: ExportConfig): string {
   if (enabled("changes") && (ws.changes ?? []).length > 0) csvPush(CSV_SECTION_CHANGES, changesToCsv(ws.changes ?? [], neutralize));
   if (enabled("stakeholders") && (ws.stakeholders ?? []).length > 0) csvPush(CSV_SECTION_STAKEHOLDERS, stakeholdersToCsv(ws.stakeholders ?? [], neutralize));
   if (config === undefined) csvPush(planToCsvLine(ws.plan));
+  // Project metadata — additive, storage-only for now (document export wires it
+  // in later). Emitted last so a no-project workspace's bytes are an exact
+  // prefix of a with-project one. Only when a project is present.
+  if (config === undefined && ws.project) csvPush(CSV_SECTION_PROJECT, projectToCsv(ws.project, neutralize));
   return parts.join("\r\n");
 }
 
@@ -1276,9 +1525,10 @@ function splitCsvSections(csv: string): {
   milestonesText: string;
   changesText: string;
   stakeholdersText: string;
+  projectText: string;
 } {
   const lines = csv.split(/\r?\n/);
-  let mode: "tasks" | "raid" | "absences" | "shifts" | "resources" | "roles" | "disciplines" | "grades" | "plan" | "budgets" | "fxrates" | "status" | "milestones" | "changes" | "stakeholders" | null = null;
+  let mode: "tasks" | "raid" | "absences" | "shifts" | "resources" | "roles" | "disciplines" | "grades" | "plan" | "budgets" | "fxrates" | "status" | "milestones" | "changes" | "stakeholders" | "project" | null = null;
   const tasksLines: string[] = [];
   const raidLines: string[] = [];
   const absencesLines: string[] = [];
@@ -1294,6 +1544,7 @@ function splitCsvSections(csv: string): {
   const milestonesLines: string[] = [];
   const changesLines: string[] = [];
   const stakeholdersLines: string[] = [];
+  const projectLines: string[] = [];
   for (const line of lines) {
     const trimmed = line.trimStart();
     if (trimmed.startsWith(CSV_SECTION_BUDGETS)) { mode = "budgets"; continue; }
@@ -1307,6 +1558,7 @@ function splitCsvSections(csv: string): {
     if (trimmed.startsWith(CSV_SECTION_RAID)) { mode = "raid"; continue; }
     if (trimmed.startsWith(CSV_SECTION_ABSENCES)) { mode = "absences"; continue; }
     if (trimmed.startsWith(CSV_SECTION_SHIFTS)) { mode = "shifts"; continue; }
+    if (trimmed.startsWith(CSV_SECTION_PROJECT)) { mode = "project"; continue; }
     if (trimmed.startsWith(CSV_SECTION_STATUS)) { mode = "status"; continue; }
     if (trimmed.startsWith(CSV_SECTION_MILESTONES)) { mode = "milestones"; continue; }
     if (trimmed.startsWith(CSV_SECTION_CHANGES)) { mode = "changes"; continue; }
@@ -1326,6 +1578,7 @@ function splitCsvSections(csv: string): {
     else if (mode === "milestones") milestonesLines.push(line);
     else if (mode === "changes") changesLines.push(line);
     else if (mode === "stakeholders") stakeholdersLines.push(line);
+    else if (mode === "project") projectLines.push(line);
     // (else: line before the first marker — drop it.)
   }
   return {
@@ -1344,6 +1597,7 @@ function splitCsvSections(csv: string): {
     milestonesText: milestonesLines.join("\r\n"),
     changesText: changesLines.join("\r\n"),
     stakeholdersText: stakeholdersLines.join("\r\n"),
+    projectText: projectLines.join("\r\n"),
   };
 }
 
@@ -1594,6 +1848,8 @@ export function csvToWorkspace(csv: string): Workspace {
     changes: s.changesText.trim() ? csvToChanges(s.changesText) : [],
     stakeholders: s.stakeholdersText.trim() ? csvToStakeholders(s.stakeholdersText) : [],
   };
+  const project = s.projectText.trim() ? csvToProject(s.projectText) : null;
+  if (project) ws.project = project;
   return migrateWorkspaceV8(ws);
 }
 
@@ -1988,6 +2244,8 @@ export function workspaceToMarkdown(ws: Workspace, config?: ExportConfig): strin
   if (enabled("changes") && (ws.changes ?? []).length > 0) mdParts.push(changesToMarkdown(ws.changes ?? []));
   if (enabled("stakeholders") && (ws.stakeholders ?? []).length > 0) mdParts.push(stakeholdersToMarkdown(ws.stakeholders ?? []));
   if (config === undefined) mdParts.push(planToMarkdown(ws.plan));
+  // Project metadata — additive, storage-only for now, emitted last (see CSV).
+  if (config === undefined && ws.project) mdParts.push(projectToMarkdown(ws.project));
   const out = mdParts.join("\n");
   return out;
 }
@@ -2038,6 +2296,7 @@ function splitMarkdownSections(md: string): {
   milestonesMd: string;
   changesMd: string;
   stakeholdersMd: string;
+  projectMd: string;
 } {
   const lines = md.split(/\r?\n/);
   const tasksLines: string[] = [];
@@ -2055,6 +2314,7 @@ function splitMarkdownSections(md: string): {
   const milestonesLines: string[] = [];
   const changesLines: string[] = [];
   const stakeholdersLines: string[] = [];
+  const projectLines: string[] = [];
   let target = tasksLines;
   for (const line of lines) {
     const trimmed = line.trim();
@@ -2069,6 +2329,7 @@ function splitMarkdownSections(md: string): {
     if (/^##\s+Plan\b/i.test(trimmed)) { target = planLines; continue; }
     if (/^#\s+Budgets\b/i.test(trimmed)) { target = budgetsLines; target.push(line); continue; }
     if (/^##\s+FX\s+Rates\b/i.test(trimmed)) { target = fxRatesLines; continue; }
+    if (/^##\s+Project\s+Meta\b/i.test(trimmed)) { target = projectLines; continue; }
     if (/^##\s+Project\s+Status\b/i.test(trimmed)) { target = statusLines; continue; }
     if (/^##\s+Milestones\b/i.test(trimmed)) { target = milestonesLines; continue; }
     if (/^##\s+Changes\b/i.test(trimmed)) { target = changesLines; continue; }
@@ -2091,6 +2352,7 @@ function splitMarkdownSections(md: string): {
     milestonesMd: milestonesLines.join("\n"),
     changesMd: changesLines.join("\n"),
     stakeholdersMd: stakeholdersLines.join("\n"),
+    projectMd: projectLines.join("\n"),
   };
 }
 
@@ -2420,6 +2682,8 @@ export function markdownToWorkspace(md: string): Workspace {
     changes: s.changesMd.trim() ? markdownToChanges(s.changesMd) : [],
     stakeholders: s.stakeholdersMd.trim() ? markdownToStakeholders(s.stakeholdersMd) : [],
   };
+  const project = s.projectMd.trim() ? markdownToProject(s.projectMd) : null;
+  if (project) ws.project = project;
   return migrateWorkspaceV8(ws);
 }
 
@@ -2724,6 +2988,7 @@ class BrowserBackend implements StorageBackend {
     let milestones: Milestone[] = [];
     let changes: ChangeItem[] = [];
     let stakeholders: Stakeholder[] = [];
+    let project: ProjectMeta | undefined;
     try {
       tasks = await idbGetAll<Task>(IDB_TASKS_STORE);
       raid = await idbGetAll<RaidItem>(IDB_RAID_STORE);
@@ -2740,6 +3005,7 @@ class BrowserBackend implements StorageBackend {
       milestones = (await idbGet<Milestone[]>(KV_MILESTONES_KEY)) ?? [];
       changes = (await idbGet<ChangeItem[]>(KV_CHANGES_KEY)) ?? [];
       stakeholders = (await idbGet<Stakeholder[]>(KV_STAKEHOLDERS_KEY)) ?? [];
+      project = sanitizeProjectMeta(await idbGet(KV_PROJECT_KEY)) ?? undefined;
     } catch {
       // IDB unavailable or upgrade failed. Fall through — the legacy
       // migration block below will still try localStorage, and if that's
@@ -2755,6 +3021,7 @@ class BrowserBackend implements StorageBackend {
     }
 
     const raw: Workspace = { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, milestones, changes, stakeholders };
+    if (project) raw.project = project;
     const ws = migrateWorkspaceV8(raw);
 
     try {
@@ -2868,6 +3135,8 @@ class BrowserBackend implements StorageBackend {
     await idbSet(KV_MILESTONES_KEY, ws.milestones ?? []);
     await idbSet(KV_CHANGES_KEY, ws.changes ?? []);
     await idbSet(KV_STAKEHOLDERS_KEY, ws.stakeholders ?? []);
+    if (ws.project) await idbSet(KV_PROJECT_KEY, ws.project);
+    else await idbDelete(KV_PROJECT_KEY);
 
     // Refresh baselines so the next save's diff is computed against what's
     // actually in IDB. Rebuilding the maps is O(N) but only runs after a
