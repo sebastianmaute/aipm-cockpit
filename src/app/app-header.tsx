@@ -4,10 +4,10 @@ import { type Lang, t } from "./i18n";
 import { type Command } from "./voice";
 import { type AlertableTask } from "./due-dates";
 import { type StorageKind } from "./storage";
-import { SettingsMenu, type Settings } from "./settings-menu";
+import { SettingsMenu } from "./settings-menu";
 import { ActionMenus } from "./action-menus";
 import { ProjectSwitcher, type ProjectSwitcherProps } from "./project-switcher";
-import { defaultExportConfig } from "./settings-types";
+import { defaultExportConfig, type Settings } from "./settings-types";
 
 export interface AppHeaderProps {
   handleCancelEdit: () => void;

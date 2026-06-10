@@ -5,7 +5,7 @@ import { formatExpiryDate } from "./date-format";
 import { type Lang, t } from "./i18n";
 import type { ConflictItem } from "./jira-api";
 import type { ConflictResolution } from "./jira-conflicts-modal";
-import type { Settings } from "./settings-menu";
+import type { Settings } from "./settings-types";
 import type { Task } from "./types";
 import { daysUntil } from "./jira-token-status";
 import { useWorkspace } from "./workspace-context";

@@ -3,7 +3,7 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { fireEvent } from "@testing-library/react";
 import { JiraSettingsSection } from "./jira-settings";
-import { defaultJiraConfig } from "./settings-menu";
+import { defaultJiraConfig } from "./settings-types";
 
 // Stub out Jira API calls — tests are pure UI
 vi.mock("./jira-api", () => ({

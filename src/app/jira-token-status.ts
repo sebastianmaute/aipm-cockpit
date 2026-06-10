@@ -1,4 +1,4 @@
-import type { JiraConfig } from "./settings-menu";
+import type { JiraConfig } from "./settings-types";
 
 export type JiraTokenAlert =
   | { state: "invalid" | "expired" | "expiring"; daysLeft: number; date: string }

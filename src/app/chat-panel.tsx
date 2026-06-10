@@ -14,7 +14,7 @@ const PROMPT_CHIPS: PromptChip[] = [
 ];
 import { Markdown } from "./markdown";
 import { CHAT_MESSAGE_MAX } from "./sanitize";
-import type { AiConfig } from "./settings-menu";
+import type { AiConfig } from "./settings-types";
 import { useAiUsageContext } from "./ai-usage-context";
 import { useResizable } from "./use-resizable";
 import { ResizeCornerHint, ResetSizeButton } from "./task-manager-ui";

@@ -18,7 +18,7 @@ import {
   type JiraAssigneeMode,
   type JiraConfig,
   defaultJiraConfig,
-} from "./settings-menu";
+} from "./settings-types";
 
 const inputClass =
   "w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none focus:ring-1 focus:ring-AIPM-green disabled:cursor-not-allowed disabled:opacity-50";

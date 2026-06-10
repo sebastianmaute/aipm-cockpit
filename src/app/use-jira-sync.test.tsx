@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Task } from "./types";
 import type { JiraIssue } from "./jira-api";
 import { JiraApiError } from "./jira-api";
-import type { Settings } from "./settings-menu";
+import type { Settings } from "./settings-types";
 import { useJiraSync } from "./use-jira-sync";
 import { useWorkspace } from "./workspace-context";
 import { TestProviders } from "./test-providers";

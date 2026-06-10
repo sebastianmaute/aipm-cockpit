@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
 import type { Lang } from "./i18n";
 import type { Task } from "./types";
-import { defaultSettings } from "./settings-menu";
+import { defaultSettings } from "./settings-types";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { FiltersProvider } from "./filters-context";
 import { TaskFormProvider, useTaskForm } from "./task-form-context";

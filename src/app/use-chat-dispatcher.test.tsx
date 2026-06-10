@@ -3,7 +3,7 @@ import { act, renderHook } from "@testing-library/react";
 import { type ReactNode } from "react";
 import { useChatDispatcher } from "./use-chat-dispatcher";
 import { TestProviders } from "./test-providers";
-import { type Settings } from "./settings-menu";
+import { type Settings } from "./settings-types";
 import { type StorageConfig } from "./storage";
 import { useTaskForm } from "./task-form-context";
 import { type Task } from "./types";

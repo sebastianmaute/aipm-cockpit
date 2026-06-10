@@ -1,9 +1,9 @@
 import { renderHook, act } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { useBirthdayAlerts } from "./use-birthday-alerts";
-import { defaultSettings } from "./settings-menu";
+import { defaultSettings } from "./settings-types";
 import type { Resource } from "./types";
-import type { Settings } from "./settings-menu";
+import type { Settings } from "./settings-types";
 
 function makeResource(id: number, birthday: string): Resource {
   return {

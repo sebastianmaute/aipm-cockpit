@@ -7,7 +7,7 @@ import { greetingName } from "./contacts";
 import { loadJiraApi } from "./use-jira-sync";
 import type { ActivityKind } from "./activity-log";
 import type { Task } from "./types";
-import type { Settings } from "./settings-menu";
+import type { Settings } from "./settings-types";
 import { useWorkspaceTab } from "./workspace-tab-context";
 
 export interface UseTaskRowHandlersArgs {

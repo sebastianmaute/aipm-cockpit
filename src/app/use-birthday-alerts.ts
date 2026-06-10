@@ -4,7 +4,7 @@ import { getUpcomingBirthdays } from "./birthdays";
 import { birthdayToastText } from "./notifications";
 import { effectiveLeadDays } from "./notifications-lead";
 import { getSnoozedUntil } from "./reminder-snooze";
-import type { Settings } from "./settings-menu";
+import type { Settings } from "./settings-types";
 import type { Resource, Absence } from "./types";
 
 export interface UseBirthdayAlertsArgs {

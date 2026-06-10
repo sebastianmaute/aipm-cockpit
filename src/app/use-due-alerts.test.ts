@@ -1,7 +1,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, test, vi } from "vitest";
 import { useDueAlerts } from "./use-due-alerts";
-import type { Settings } from "./settings-menu";
+import type { Settings } from "./settings-types";
 import type { RaidItem, Task } from "./types";
 import { ALL_MODULE_IDS } from "./feature-modules";
 

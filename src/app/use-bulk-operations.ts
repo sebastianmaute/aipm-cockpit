@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type Lang, t } from "./i18n";
-import type { Settings } from "./settings-menu";
+import type { Settings } from "./settings-types";
 import type { Task } from "./types";
 import type { ActivityKind } from "./activity-log";
 import type { Command } from "./voice";

@@ -4,7 +4,7 @@ import {
   defaultM365Integrations,
   defaultTursoIntegrations,
   sanitizeIntegrations,
-} from "./settings-menu";
+} from "./settings-types";
 
 describe("sanitizeIntegrations", () => {
   it("returns defaults for undefined input", () => {

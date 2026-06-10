@@ -13,29 +13,6 @@ import { AiSection } from "./settings-sections/ai-section";
 import { IntegrationsSection } from "./settings-sections/integrations-section";
 import { type Settings } from "./settings-types";
 
-export {
-  defaultAiConfig,
-  defaultNotificationsConfig,
-  defaultJiraConfig,
-  defaultM365Integrations,
-  defaultTursoIntegrations,
-  defaultIntegrations,
-  sanitizeIntegrations,
-  defaultSettings,
-} from "./settings-types";
-export type {
-  ChatModel,
-  AiConfig,
-  ChannelConfig,
-  NotificationsConfig,
-  JiraAssigneeMode,
-  JiraConfig,
-  M365IntegrationsSettings,
-  TursoIntegrationsSettings,
-  IntegrationsSettings,
-  Settings,
-} from "./settings-types";
-
 export function SettingsMenu({
   settings,
   onChange,

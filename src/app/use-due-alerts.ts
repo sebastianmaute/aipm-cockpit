@@ -12,7 +12,7 @@ import { dueAlertsToastText, raidReviewToastText } from "./notifications";
 import { effectiveLeadDays } from "./notifications-lead";
 import { getRaidReviewItems } from "./raid-review";
 import { getSnoozedUntil } from "./reminder-snooze";
-import type { Settings } from "./settings-menu";
+import type { Settings } from "./settings-types";
 import type { Task, Absence, RaidItem } from "./types";
 
 export interface UseDueAlertsArgs {

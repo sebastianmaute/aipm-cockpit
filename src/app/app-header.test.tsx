@@ -6,7 +6,7 @@ import { WorkspaceTabProvider } from "./workspace-tab-context";
 import { WorkspaceProvider } from "./workspace-context";
 import { AppHeader } from "./app-header";
 import type { AppHeaderProps } from "./app-header";
-import { defaultSettings } from "./settings-menu";
+import { defaultSettings } from "./settings-types";
 import type { AlertableTask } from "./due-dates";
 import type { Task } from "./types";
 

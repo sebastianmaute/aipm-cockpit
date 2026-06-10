@@ -2,7 +2,7 @@
 
 import { type Dispatch, type SetStateAction, useEffect, useState } from "react";
 import { type Lang, loadI18n, migrateLang } from "./i18n";
-import { defaultSettings, sanitizeIntegrations, type Settings } from "./settings-menu";
+import { defaultSettings, sanitizeIntegrations, type Settings } from "./settings-types";
 import { defaultNotificationsConfig, resolveSnapshotSettings, sanitizeAiConfig, sanitizeExportConfig } from "./settings-types";
 import type { StakeholderQuadrant } from "./stakeholders";
 import { resolveExtraReports } from "./addable-reports";

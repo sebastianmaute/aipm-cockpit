@@ -25,7 +25,7 @@ import {
   sanitizePriority,
   sanitizeTaskName,
 } from "./sanitize";
-import { type Settings } from "./settings-menu";
+import { type Settings } from "./settings-types";
 import { emptyForm, useTaskForm } from "./task-form-context";
 import { type Task } from "./types";
 import { useWorkspace } from "./workspace-context";

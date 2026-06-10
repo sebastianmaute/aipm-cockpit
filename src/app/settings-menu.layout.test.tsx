@@ -1,6 +1,7 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { SettingsMenu, defaultSettings } from "./settings-menu";
+import { SettingsMenu } from "./settings-menu";
+import { defaultSettings } from "./settings-types";
 
 const asyncNoop = async () => {};
 

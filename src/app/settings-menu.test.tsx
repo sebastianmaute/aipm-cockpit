@@ -1,7 +1,8 @@
 import React from "react";
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { defaultSettings, SettingsMenu, type Settings } from "./settings-menu";
+import { SettingsMenu } from "./settings-menu";
+import { defaultSettings, type Settings } from "./settings-types";
 import { t } from "./i18n";
 
 vi.mock("./jira-settings", () => ({

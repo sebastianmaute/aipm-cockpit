@@ -14,7 +14,7 @@ import {
   type StakeholderCommsReminder,
   getStakeholderCommsItems,
 } from "./stakeholder-comms";
-import type { Settings } from "./settings-menu";
+import type { Settings } from "./settings-types";
 import type { ChangeItem, Milestone, RaidItem, Stakeholder } from "./types";
 
 export interface UseStakeholderCommsArgs {

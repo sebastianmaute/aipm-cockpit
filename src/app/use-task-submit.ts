@@ -7,7 +7,7 @@ import { type ActivityKind } from "./activity-log";
 import { useAdjustmentTracker } from "./field-feedback";
 import { t, type Lang } from "./i18n";
 import { nextId } from "./resource-foundation";
-import { type Settings } from "./settings-menu";
+import { type Settings } from "./settings-types";
 import { type Task } from "./types";
 import {
   ASSIGNEE_MAX,

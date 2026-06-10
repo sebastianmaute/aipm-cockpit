@@ -12,7 +12,7 @@ import {
   sanitizeNotes,
   sanitizeTaskName,
 } from "./sanitize";
-import type { JiraConfig } from "./settings-menu";
+import type { JiraConfig } from "./settings-types";
 import type { Priority, Task } from "./types";
 
 export type JiraCreds = Pick<JiraConfig, "siteUrl" | "email" | "apiToken">;

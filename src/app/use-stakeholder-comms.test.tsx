@@ -1,8 +1,8 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { useStakeholderComms } from "./use-stakeholder-comms";
-import { defaultSettings } from "./settings-menu";
-import type { Settings } from "./settings-menu";
+import { defaultSettings } from "./settings-types";
+import type { Settings } from "./settings-types";
 import type { Milestone, Stakeholder } from "./types";
 
 const TODAY = "2030-01-15";

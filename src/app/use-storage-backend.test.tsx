@@ -1,7 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ActivityEntry } from "./activity-log";
-import type { Settings } from "./settings-menu";
+import type { Settings } from "./settings-types";
 import type { Lang } from "./i18n";
 import type { Task } from "./types";
 import type { StorageConfig } from "./storage";

@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { ActivityEntry } from "./activity-log";
 import { useBroadcastSync } from "./broadcast-sync";
 import { type Lang, t } from "./i18n";
-import type { Settings } from "./settings-menu";
+import type { Settings } from "./settings-types";
 import {
   type LocalStorageFormat,
   type StorageConfig,
