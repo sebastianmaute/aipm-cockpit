@@ -12,6 +12,7 @@
 
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { SegmentedControl } from "./segmented-control";
+import { DocumentLinksFieldGated } from "./document-links-field-gated";
 import { useWorkspaceTab } from "./workspace-tab-context";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import { type Lang, t, type TranslationKey } from "./i18n";
@@ -276,6 +277,7 @@ function RaidPanelInner({
       linkedTaskIds: [],
       causedByRaidIds: [],
       stakeholderIds: [],
+      documentLinks: [],
       raisedDate: today,
     });
     setIsNew(true);
@@ -1147,6 +1149,15 @@ function RaidEditModal({
               className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
             />
             <CharCounter value={draft.mitigation ?? ""} max={TEXTAREA_MAX} id="raid-mitigation-counter" lang={lang} />
+          </label>
+
+          <label className="flex flex-col gap-1 text-sm sm:col-span-2">
+            <span className="font-medium text-foreground">{t(lang, "documents")}</span>
+            <DocumentLinksFieldGated
+              value={draft.documentLinks ?? []}
+              onChange={(documentLinks) => onChange({ ...draft, documentLinks })}
+              lang={lang}
+            />
           </label>
 
           <div className="sm:col-span-2">

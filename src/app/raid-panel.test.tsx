@@ -9,6 +9,25 @@ import type { RaidPanelProps } from "./raid-panel";
 import type { RaidItem, Stakeholder } from "./types";
 import { WorkspaceTabProvider, useWorkspaceTab } from "./workspace-tab-context";
 
+vi.mock("./use-settings", () => ({
+  useSettings: () => ({
+    settings: { integrations: { m365: { enabled: false, sharepoint: false } } },
+    setSettings: vi.fn(),
+    hydrated: true,
+    i18nReady: true,
+    lang: "en-US",
+  }),
+}));
+vi.mock("./use-ms-auth", () => ({
+  useMsAuth: () => ({
+    account: null,
+    ready: true,
+    signIn: vi.fn(),
+    signOut: vi.fn(),
+    acquireToken: vi.fn(async () => "tok"),
+  }),
+}));
+
 function sh(id: number, name: string): Stakeholder {
   return { id, name, category: "Internal", influence: "Medium", interest: "Medium", raci: {} };
 }
@@ -238,4 +257,31 @@ test("raid toolbar: add-item precedes search; no open-report button", () => {
 });
 test("raid pane uses VIEW_PANE_RESIZABLE_CLASS", () => {
   expect(readFileSync(join(__dirname, "raid-panel.tsx"), "utf8")).toMatch(/VIEW_PANE_RESIZABLE_CLASS/);
+});
+
+describe("RaidPanel — document links", () => {
+  it("edit modal renders the Documents area (SharePoint gate hint when m365 is off)", () => {
+    const raid: RaidItem[] = [makeRaidItem({ id: 1, title: "Doc risk", severity: "High" })];
+    renderPanel(makeProps({ raid }));
+    fireEvent.click(screen.getByText("Doc risk"));
+    expect(screen.getByText(t("en-US", "documents"))).toBeInTheDocument();
+    expect(
+      screen.getByText(/enable microsoft 365/i),
+    ).toBeInTheDocument();
+  });
+
+  it("new RAID draft initialised with documentLinks: []", () => {
+    const onSave = vi.fn();
+    renderPanel(makeProps({ onSave }));
+    const addBtns = screen.getAllByRole("button", { name: t("en-US", "raidAddItem") });
+    fireEvent.click(addBtns[0]);
+    // Fill required title and save
+    fireEvent.change(screen.getByPlaceholderText(t("en-US", "raidPlaceholderTitle")), {
+      target: { value: "New item" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "raidSave") }));
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({ documentLinks: [] }),
+    );
+  });
 });
