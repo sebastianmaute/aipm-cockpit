@@ -15,6 +15,8 @@ import { useId, useState } from "react";
 import type React from "react";
 import { FieldError } from "./field-feedback";
 import { t, type Lang } from "./i18n";
+import type { DocumentLink } from "./document-link";
+import { DocumentLinksFieldGated } from "./document-links-field-gated";
 import {
   IDENTITY_TYPES,
   DEPLOYMENTS,
@@ -45,6 +47,7 @@ export type ProjectFormDraft = ProjectDraft & {
   quotes: string;
   docRepoLocation: string;
   notes: string;
+  documentLinks: DocumentLink[];
 };
 
 /** A blank create-mode draft: empty strings, empty arrays, no selection. */
@@ -75,6 +78,7 @@ export function emptyProjectDraft(): ProjectFormDraft {
     docRepoLocation: "",
     regulatory: [],
     notes: "",
+    documentLinks: [],
   };
 }
 
@@ -491,6 +495,14 @@ export function CustomerFields({
           value={draft.docRepoLocation}
           onChange={(e) => setDraft((p) => ({ ...p, docRepoLocation: e.target.value }))}
           className={inputClass}
+        />
+      </Field>
+
+      <Field label={t(lang, "documents")} className="sm:col-span-2">
+        <DocumentLinksFieldGated
+          value={draft.documentLinks}
+          onChange={(documentLinks) => setDraft((p) => ({ ...p, documentLinks }))}
+          lang={lang}
         />
       </Field>
 
