@@ -1,0 +1,159 @@
+import { describe, expect, it, vi } from "vitest";
+import { render, screen, fireEvent } from "@testing-library/react";
+import { ProjectForm } from "./project-form";
+import { type Contact } from "./contacts";
+import { type ProjectMeta } from "./types";
+
+const STAKEHOLDERS = ["Alice Smith", "Bob Jones"];
+const ADDRESS_BOOK: Contact[] = [
+  { name: "Carol White", email: "carol@example.com" },
+];
+
+function setup(overrides: Partial<React.ComponentProps<typeof ProjectForm>> = {}) {
+  const onSubmit = vi.fn<(meta: ProjectMeta) => void>();
+  const onCancel = vi.fn();
+  render(
+    <ProjectForm
+      lang="en-US"
+      stakeholderNames={STAKEHOLDERS}
+      addressBook={ADDRESS_BOOK}
+      onSubmit={onSubmit}
+      onCancel={onCancel}
+      {...overrides}
+    />,
+  );
+  return { onSubmit, onCancel };
+}
+
+/** The submit button (create mode label) — disabled state mirrors validity. */
+function saveButton(): HTMLButtonElement {
+  return screen.getByRole("button", { name: "New project" }) as HTMLButtonElement;
+}
+
+/** Type a name into a StakeholderRecipientInput (by id) and press Enter. */
+function addStakeholder(inputId: string, name: string) {
+  const input = document.getElementById(inputId) as HTMLInputElement;
+  fireEvent.change(input, { target: { value: name } });
+  fireEvent.keyDown(input, { key: "Enter" });
+}
+
+function setText(label: string, value: string) {
+  fireEvent.change(screen.getByLabelText(label, { exact: false }), {
+    target: { value },
+  });
+}
+
+/** Fill every required field so the form becomes valid. */
+function fillRequired() {
+  setText("Project name", "Apollo");
+  setText("Project code", "APL-1");
+  setText("Project manager", "Dana PM");
+  addStakeholder("keyStakeholdersInternal", "Alice Smith");
+  addStakeholder("keyStakeholdersExternal", "Ext Person");
+  setText("Customer", "ACME Corp");
+  fireEvent.change(screen.getByLabelText("NACE section", { exact: false }), {
+    target: { value: "C" },
+  });
+  setText("Products", "Widget");
+  fireEvent.change(screen.getByLabelText("Deployment", { exact: false }), {
+    target: { value: "Cloud" },
+  });
+  setText("Start date", "2026-01-01");
+  setText("End date", "2026-06-01");
+  setText("Profit center", "PC-9");
+  // Regulatory: tick the first non-"Not applicable" requirement.
+  fireEvent.click(screen.getByLabelText("GDPR / data protection regulation"));
+}
+
+describe("ProjectForm", () => {
+  it("disables Save initially in create mode (required fields blank)", () => {
+    setup();
+    expect(saveButton()).toBeDisabled();
+  });
+
+  it("enables Save once all required fields are filled", () => {
+    setup();
+    fillRequired();
+    expect(saveButton()).toBeEnabled();
+  });
+
+  it("submits a sanitized ProjectMeta matching the entered values", () => {
+    const { onSubmit } = setup();
+    fillRequired();
+    fireEvent.click(saveButton());
+
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    const meta = onSubmit.mock.calls[0][0];
+    expect(meta.name).toBe("Apollo");
+    expect(meta.deployment).toBe("Cloud");
+    expect(meta.regulatory).toEqual(["GDPR / data protection regulation"]);
+    expect(meta.keyStakeholdersInternal).toEqual(["Alice Smith"]);
+    expect(meta.keyStakeholdersExternal).toEqual(["Ext Person"]);
+    expect(meta.naceSection).toBe("C");
+  });
+
+  it("shows endBeforeStart error and disables Save when endDate < startDate", () => {
+    setup();
+    fillRequired();
+    setText("End date", "2025-01-01"); // before start
+    const endInput = screen.getByLabelText("End date", { exact: false });
+    fireEvent.blur(endInput);
+
+    expect(screen.getByText("End date must be after start date.")).toBeInTheDocument();
+    expect(saveButton()).toBeDisabled();
+  });
+
+  it("records manual contacts as synced:false and book contacts as synced:true", () => {
+    const { onSubmit } = setup();
+    fillRequired();
+
+    // Manual contact
+    fireEvent.change(
+      screen.getByLabelText("Add manually — name", { exact: false }),
+      { target: { value: "Manny Manual" } },
+    );
+    fireEvent.change(
+      screen.getByLabelText("Add manually — email", { exact: false }),
+      { target: { value: "manny@example.com" } },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Add" }));
+
+    // Address-book contact
+    fireEvent.change(screen.getByLabelText("Add from address book"), {
+      target: { value: "Carol White" },
+    });
+
+    fireEvent.click(saveButton());
+    const meta = onSubmit.mock.calls[0][0];
+    const manny = meta.contactPersons.find((c) => c.name === "Manny Manual");
+    const carol = meta.contactPersons.find((c) => c.name === "Carol White");
+    expect(manny).toEqual({ name: "Manny Manual", email: "manny@example.com", synced: false });
+    expect(carol).toEqual({ name: "Carol White", email: "carol@example.com", synced: true });
+  });
+
+  it("treats Not applicable as exclusive in the regulatory group", () => {
+    setup();
+
+    const gdpr = screen.getByLabelText("GDPR / data protection regulation") as HTMLInputElement;
+    const na = screen.getByLabelText("Not applicable") as HTMLInputElement;
+
+    fireEvent.click(gdpr);
+    expect(gdpr.checked).toBe(true);
+
+    // Selecting "Not applicable" clears the others.
+    fireEvent.click(na);
+    expect(na.checked).toBe(true);
+    expect(gdpr.checked).toBe(false);
+
+    // Selecting another clears "Not applicable".
+    fireEvent.click(gdpr);
+    expect(gdpr.checked).toBe(true);
+    expect(na.checked).toBe(false);
+  });
+
+  it("calls onCancel when Cancel is clicked", () => {
+    const { onCancel } = setup();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(onCancel).toHaveBeenCalledTimes(1);
+  });
+});
