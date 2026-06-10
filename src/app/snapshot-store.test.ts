@@ -32,7 +32,7 @@ function bodySqls(fetchMock: ReturnType<typeof vi.fn>, callIndex = 0): string[] 
 describe("snapshot-store", () => {
   it("appendSnapshot prepends DDL then the append statements", async () => {
     const fetchMock = okFetch(20);
-    await appendSnapshot(cfg, rec);
+    await appendSnapshot(cfg, rec, "p1");
     const sqls = bodySqls(fetchMock);
     expect(sqls.some((s) => /CREATE TABLE IF NOT EXISTS snapshot/.test(s))).toBe(true);
     expect(sqls).toContain("BEGIN");
@@ -51,7 +51,7 @@ describe("snapshot-store", () => {
       ],
     }), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
-    const out = await loadSnapshots(cfg);
+    const out = await loadSnapshots(cfg, "p1");
     expect(out).toHaveLength(1);
     expect(out[0].isBaseline).toBe(true);
     expect(out[0].pctComplete).toBe(10);
@@ -59,9 +59,23 @@ describe("snapshot-store", () => {
 
   it("setBaseline + deleteSnapshot send their statements after the DDL", async () => {
     const fetchMock = okFetch(20);
-    await setBaseline(cfg, "a");
-    await deleteSnapshot(cfg, "a");
+    await setBaseline(cfg, "a", "p1");
+    await deleteSnapshot(cfg, "a", "p1");
     expect(bodySqls(fetchMock, 0).some((s) => /is_baseline='1'/.test(s))).toBe(true);
     expect(bodySqls(fetchMock, 1).some((s) => /DELETE FROM snapshot WHERE id/.test(s))).toBe(true);
+  });
+
+  it("loadSnapshots issues project-scoped selects", async () => {
+    const fetchMock = okFetch(4);
+    await loadSnapshots(cfg, "p1");
+    const sqls = bodySqls(fetchMock);
+    expect(sqls.some((s) => /WHERE project_id = \?/.test(s))).toBe(true);
+  });
+
+  it("setBaseline forwards projectId (scoped clear of is_baseline)", async () => {
+    const fetchMock = okFetch(20);
+    await setBaseline(cfg, "s1", "p1");
+    const sqls = bodySqls(fetchMock);
+    expect(sqls.some((s) => /is_baseline='0' WHERE project_id = \?/.test(s))).toBe(true);
   });
 });

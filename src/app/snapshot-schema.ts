@@ -18,11 +18,11 @@ export const SNAPSHOT_DDL: string[] = [
     is_baseline TEXT, remaining_hours TEXT, remaining_cost TEXT, pct_complete TEXT,
     forecast_end_date TEXT, plan_end_date TEXT, spi TEXT, cpi TEXT,
     overall_rag TEXT, schedule_rag TEXT, budget_rag TEXT, scope_rag TEXT,
-    currency TEXT, milestones_json TEXT
+    currency TEXT, milestones_json TEXT, project_id TEXT
   )`,
   `CREATE TABLE IF NOT EXISTS snapshot_series (
     snapshot_id TEXT, seq TEXT, period TEXT,
-    planned_hours TEXT, actual_hours TEXT, planned_cost TEXT, actual_cost TEXT
+    planned_hours TEXT, actual_hours TEXT, planned_cost TEXT, actual_cost TEXT, project_id TEXT
   )`,
 ];
 
@@ -33,11 +33,11 @@ const SNAPSHOT_COLS = [
   "id", "captured_at", "bucket", "cadence", "trigger", "is_baseline",
   "remaining_hours", "remaining_cost", "pct_complete", "forecast_end_date",
   "plan_end_date", "spi", "cpi", "overall_rag", "schedule_rag", "budget_rag",
-  "scope_rag", "currency", "milestones_json",
+  "scope_rag", "currency", "milestones_json", "project_id",
 ] as const;
 
 const SERIES_COLS = [
-  "snapshot_id", "seq", "period", "planned_hours", "actual_hours", "planned_cost", "actual_cost",
+  "snapshot_id", "seq", "period", "planned_hours", "actual_hours", "planned_cost", "actual_cost", "project_id",
 ] as const;
 
 function insert(table: string, cols: readonly string[], args: { type: "text"; value: string }[]): SqlStmt {
@@ -47,16 +47,18 @@ function insert(table: string, cols: readonly string[], args: { type: "text"; va
   };
 }
 
-/** SELECT both snapshot tables (caller prepends SNAPSHOT_DDL). Order: snapshot, series. */
-export function snapshotSelectStatements(): SqlStmt[] {
+/** SELECT both snapshot tables (caller prepends SNAPSHOT_DDL). Order: snapshot, series.
+ *  Both selects are scoped to a single project_id for Turso multi-tenancy. */
+export function snapshotSelectStatements(projectId: string): SqlStmt[] {
   return [
-    { sql: "SELECT * FROM snapshot ORDER BY captured_at" },
-    { sql: "SELECT * FROM snapshot_series" },
+    { sql: "SELECT * FROM snapshot WHERE project_id = ? ORDER BY captured_at", args: [text(projectId)] },
+    { sql: "SELECT * FROM snapshot_series WHERE project_id = ?", args: [text(projectId)] },
   ];
 }
 
-/** BEGIN + insert the snapshot row + its series rows + COMMIT. */
-export function appendStatements(rec: SnapshotRecord): SqlStmt[] {
+/** BEGIN + insert the snapshot row + its series rows + COMMIT. Every inserted
+ *  row carries project_id (the trailing column of both COLS arrays). */
+export function appendStatements(rec: SnapshotRecord, projectId: string): SqlStmt[] {
   const out: SqlStmt[] = [{ sql: "BEGIN" }];
   out.push(insert("snapshot", SNAPSHOT_COLS, [
     text(rec.id), text(rec.capturedAt), text(rec.bucket), text(rec.cadence), text(rec.trigger),
@@ -64,29 +66,32 @@ export function appendStatements(rec: SnapshotRecord): SqlStmt[] {
     numText(rec.remainingHours), numText(rec.remainingCost), numText(rec.pctComplete),
     text(rec.forecastEndDate), text(rec.planEndDate), numText(rec.spi), numText(rec.cpi),
     text(rec.overallRag), text(rec.scheduleRag), text(rec.budgetRag), text(rec.scopeRag),
-    text(rec.currency), text(JSON.stringify(rec.milestones)),
+    text(rec.currency), text(JSON.stringify(rec.milestones)), text(projectId),
   ]));
   rec.series.forEach((p, i) => {
     out.push(insert("snapshot_series", SERIES_COLS, [
       text(rec.id), text(String(i)), text(p.period),
       numText(p.plannedHours), numText(p.actualHours), numText(p.plannedCost), numText(p.actualCost),
+      text(projectId),
     ]));
   });
   out.push({ sql: "COMMIT" });
   return out;
 }
 
-export function setBaselineStatements(id: string): SqlStmt[] {
+/** Clear then set the baseline flag. BOTH updates are scoped by project_id so a
+ *  re-baseline in one project never clears another project's baseline. */
+export function setBaselineStatements(id: string, projectId: string): SqlStmt[] {
   return [
-    { sql: "UPDATE snapshot SET is_baseline='0'" },
-    { sql: "UPDATE snapshot SET is_baseline='1' WHERE id = ?", args: [text(id)] },
+    { sql: "UPDATE snapshot SET is_baseline='0' WHERE project_id = ?", args: [text(projectId)] },
+    { sql: "UPDATE snapshot SET is_baseline='1' WHERE id = ? AND project_id = ?", args: [text(id), text(projectId)] },
   ];
 }
 
-export function deleteStatements(id: string): SqlStmt[] {
+export function deleteStatements(id: string, projectId: string): SqlStmt[] {
   return [
-    { sql: "DELETE FROM snapshot_series WHERE snapshot_id = ?", args: [text(id)] },
-    { sql: "DELETE FROM snapshot WHERE id = ?", args: [text(id)] },
+    { sql: "DELETE FROM snapshot_series WHERE snapshot_id = ? AND project_id = ?", args: [text(id), text(projectId)] },
+    { sql: "DELETE FROM snapshot WHERE id = ? AND project_id = ?", args: [text(id), text(projectId)] },
   ];
 }
 

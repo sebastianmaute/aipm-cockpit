@@ -272,6 +272,7 @@ function TaskManagerInner() {
     active: trendsActive,
     cadence: snapshotsCfg.cadence,
     tursoConfig,
+    projectId: "",
     today: new Date(),
     buildContext: () => {
       const model = computeDashboard({
