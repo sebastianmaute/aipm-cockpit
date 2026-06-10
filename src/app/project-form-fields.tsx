@@ -370,7 +370,7 @@ export function CustomerFields({
       <Field label={t(lang, "projectDeployment")} required>
         <select
           value={draft.deployment}
-          onChange={(e) => setDraft((p) => ({ ...p, deployment: e.target.value as Deployment }))}
+          onChange={(e) => setDraft((p) => ({ ...p, deployment: e.target.value as Deployment | "" }))}
           onBlur={() => markTouched("deployment")}
           aria-invalid={errorFor("deployment") ? true : undefined}
           aria-describedby={errorFor("deployment") ? "deployment-error" : undefined}

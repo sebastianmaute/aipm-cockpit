@@ -24,7 +24,7 @@ function idbAvailable(): boolean {
 
 function openHandlesDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open(HANDLES_DB_NAME, HANDLES_DB_VERSION);
+    const req = window.indexedDB.open(HANDLES_DB_NAME, HANDLES_DB_VERSION);
     req.onupgradeneeded = () => {
       const db = req.result;
       if (!db.objectStoreNames.contains(HANDLES_STORE)) {
@@ -52,7 +52,10 @@ export async function saveHandle(
     const store = tx.objectStore(HANDLES_STORE);
     const req = store.put(handle, projectId);
     req.onsuccess = () => resolve();
-    req.onerror = () => reject(req.error);
+    req.onerror = () => {
+      tx.abort();
+      reject(req.error);
+    };
   });
 }
 
@@ -91,6 +94,9 @@ export async function deleteHandle(projectId: string): Promise<void> {
     const store = tx.objectStore(HANDLES_STORE);
     const req = store.delete(projectId);
     req.onsuccess = () => resolve();
-    req.onerror = () => reject(req.error);
+    req.onerror = () => {
+      tx.abort();
+      reject(req.error);
+    };
   });
 }

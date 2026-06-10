@@ -13,6 +13,10 @@ export interface ProjectSwitcherProps {
   onSwitch: (id: string) => void;
   onLoadFromFile: () => void;
   onNew: () => void;
+  /** When true, render a NON-interactive indicator of the current project name
+   *  (folder icon + name, no chevron, no dropdown). Used by popout windows,
+   *  which mirror the main window and cannot switch projects. */
+  readOnly?: boolean;
 }
 
 /**
@@ -32,6 +36,7 @@ export function ProjectSwitcher({
   onSwitch,
   onLoadFromFile,
   onNew,
+  readOnly = false,
 }: ProjectSwitcherProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -55,6 +60,27 @@ export function ProjectSwitcher({
 
   const label =
     currentProjectName ?? t(lang, "projectCurrentLabel");
+
+  // Read-only mode: a non-interactive current-project indicator for popout
+  // windows. Folder icon + name, no chevron, no dropdown — not a button.
+  if (readOnly) {
+    return (
+      <div
+        title={label}
+        className="flex max-w-[16rem] items-center gap-2 rounded-md border border-line bg-surface-muted px-3 py-1.5 text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey"
+      >
+        <svg
+          viewBox="0 0 20 20"
+          fill="currentColor"
+          aria-hidden="true"
+          className="h-4 w-4 shrink-0 text-AIPM-green"
+        >
+          <path d="M2 6a2 2 0 012-2h4l2 2h6a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
+        </svg>
+        <span className="truncate">{label}</span>
+      </div>
+    );
+  }
 
   return (
     <div ref={ref} className="relative">

@@ -122,4 +122,32 @@ describe("ProjectSwitcher", () => {
     expect(onNew).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
   });
+
+  describe("readOnly mode (popout indicator)", () => {
+    it("shows the current project name without an interactive trigger", () => {
+      renderSwitcher({ readOnly: true });
+      // Name is displayed...
+      expect(screen.getByText("Apollo")).toBeInTheDocument();
+      // ...but there is NO dropdown trigger button.
+      expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    });
+
+    it("does not open a menu or call onSwitch when clicked", async () => {
+      const user = userEvent.setup();
+      const { onSwitch } = renderSwitcher({ readOnly: true });
+
+      await user.click(screen.getByText("Apollo"));
+
+      expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+      expect(onSwitch).not.toHaveBeenCalled();
+    });
+
+    it("falls back to the no-project label when the name is null", () => {
+      renderSwitcher({ readOnly: true, currentProjectName: null });
+      expect(
+        screen.getByText(t("en-US", "projectCurrentLabel")),
+      ).toBeInTheDocument();
+      expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    });
+  });
 });

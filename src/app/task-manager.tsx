@@ -1103,9 +1103,20 @@ function TaskManagerInner() {
   // itself; this fills its trailing `children` slot.
   // Current-project indicator + switcher, shared by the classic AppHeader and the
   // modern TopBar. Popouts mirror the main window and don't switch projects, so
-  // the switcher is omitted there (the empty-state is also gated off for popouts).
-  const projectSwitcher: ProjectSwitcherProps | undefined = isPopout
-    ? undefined
+  // they get a READ-ONLY indicator (name only, no dropdown). The live `project`
+  // meta is kept in sync via the "project" BroadcastChannel slice, so the popout
+  // header updates when the main window switches projects.
+  const projectSwitcher: ProjectSwitcherProps = isPopout
+    ? {
+        currentProjectName: project?.name ?? null,
+        projects: [],
+        currentProjectId: null,
+        lang,
+        onSwitch: () => {},
+        onLoadFromFile: () => {},
+        onNew: () => {},
+        readOnly: true,
+      }
     : {
         currentProjectName,
         projects: registry.projects,

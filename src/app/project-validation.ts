@@ -26,7 +26,7 @@ export type ProjectDraft = {
   customer: string;
   naceSection: string;
   products: string;
-  deployment: Deployment | string;
+  deployment: Deployment | "";
   // Dates
   startDate: string;
   endDate: string;
@@ -119,7 +119,7 @@ export function validateProjectMeta(draft: ProjectDraft): ProjectFieldErrors {
   if (!draft.products.trim()) errors.products = "errorProductsRequired";
   if (!draft.profitCenter.trim()) errors.profitCenter = "errorProfitCenterRequired";
   if (!draft.naceSection.trim()) errors.naceSection = "errorNaceRequired";
-  if (!draft.deployment || !(draft.deployment as string).trim()) errors.deployment = "errorDeploymentRequired";
+  if (!draft.deployment.trim()) errors.deployment = "errorDeploymentRequired";
 
   // Required non-empty arrays.
   if (draft.keyStakeholdersInternal.length === 0)

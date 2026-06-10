@@ -88,14 +88,15 @@ export function removeProject(
 /**
  * Switch the active project to `id`.
  *
- * Returns the registry unchanged (same shape, new object) when `id` is not
- * found in `projects` — unknown ids are silently ignored per spec.
+ * Returns the registry unchanged (SAME reference) when `id` is not found in
+ * `projects` — unknown ids are silently ignored per spec, mirroring
+ * `removeProject`'s not-found path.
  */
 export function setCurrentProject(
   reg: ProjectsRegistry,
   id: string,
 ): ProjectsRegistry {
-  if (!reg.projects.some((p) => p.id === id)) return { ...reg };
+  if (!reg.projects.some((p) => p.id === id)) return reg;
   return { ...reg, currentProjectId: id };
 }
 
