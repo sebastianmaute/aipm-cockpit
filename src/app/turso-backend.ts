@@ -24,6 +24,9 @@ import type { TursoConfig } from "./turso-config";
 const OLD_BLOB_DDL = "CREATE TABLE IF NOT EXISTS workspace (id INTEGER PRIMARY KEY, data TEXT NOT NULL)";
 const OLD_BLOB_SELECT = "SELECT data FROM workspace WHERE id = 1";
 
+// load() blocks the initial UI hydration, so fail faster than the pipeline default.
+const LOAD_TIMEOUT_MS = 10_000;
+
 /** Defensively read results[i].response.result.rows[0][0].value as a string. */
 function firstRowText(results: PipelineResultLike[], i: number): string | null {
   const cell = results[i]?.response?.result?.rows?.[0]?.[0];
@@ -59,7 +62,7 @@ export class TursoBackend implements StorageBackend {
       ...selectStatements(),
       { sql: OLD_BLOB_SELECT },
     ];
-    const results = await runTursoPipeline(this.config, stmts);
+    const results = await runTursoPipeline(this.config, stmts, LOAD_TIMEOUT_MS);
     const ddlCount = SCHEMA_DDL.length + 1; // schema DDL + old-blob DDL
     const selectCount = TABLE_NAMES.length;
     const relational = results.slice(ddlCount, ddlCount + selectCount);

@@ -19,6 +19,9 @@ import {
 import { runTursoPipeline } from "./turso-pipeline";
 import type { TursoConfig } from "./turso-config";
 
+// load() blocks the initial UI hydration, so fail faster than the pipeline default.
+const LOAD_TIMEOUT_MS = 10_000;
+
 export class TursoTenantBackend implements StorageBackend {
   readonly kind = "turso" as const;
 
@@ -47,7 +50,7 @@ export class TursoTenantBackend implements StorageBackend {
       ...tenantSelectStatements(this.projectId),
       selectProjectStatement(this.projectId),
     ];
-    const results = await runTursoPipeline(this.config, stmts);
+    const results = await runTursoPipeline(this.config, stmts, LOAD_TIMEOUT_MS);
     const relational = results.slice(ddl.length, ddl.length + TABLE_NAMES.length);
     const projectsResult = results[ddl.length + TABLE_NAMES.length];
     const isEmpty = relational.every((r) => (r?.response?.result?.rows?.length ?? 0) === 0);

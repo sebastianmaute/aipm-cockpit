@@ -18,6 +18,7 @@ describe("TursoBackend", () => {
   });
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.useRealTimers();
   });
 
   const okExec = (cols: string[] = [], rows: { value: string }[][] = []) =>
@@ -115,6 +116,25 @@ describe("TursoBackend", () => {
     const sqls: string[] = body.requests.map((r: { stmt?: { sql: string } }) => r.stmt?.sql ?? "");
     expect(sqls[0]).toContain("CREATE TABLE IF NOT EXISTS");
     expect(sqls.some((s) => s.startsWith("SELECT * FROM tasks"))).toBe(true);
+  });
+
+  it("load aborts a hung endpoint after 10s and surfaces storage-unreachable", async () => {
+    vi.useFakeTimers();
+    fetchSpy.mockImplementation(
+      (_url: unknown, init?: RequestInit) =>
+        new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () =>
+            reject(new DOMException("The operation was aborted.", "AbortError")),
+          );
+        }),
+    );
+    const pending = new TursoBackend(CONFIG).load();
+    const expectation = expect(pending).rejects.toMatchObject({ hint: "storage-unreachable" });
+    await vi.advanceTimersByTimeAsync(9_999);
+    expect((fetchSpy.mock.calls[0][1] as RequestInit).signal?.aborted).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    expect((fetchSpy.mock.calls[0][1] as RequestInit).signal?.aborted).toBe(true);
+    await expectation;
   });
 
   it("maps a fetch network rejection to StorageNotReadyError('storage-unreachable')", async () => {

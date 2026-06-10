@@ -49,6 +49,15 @@ describe("TursoTenantBackend", () => {
     const stmts = vi.mocked(runTursoPipeline).mock.calls[0][1];
     expect(stmts.some((s) => s.sql.includes("WHERE project_id = ?"))).toBe(true);
     expect(stmts.some((s) => s.sql.includes("FROM projects WHERE id = ?"))).toBe(true);
+    // load() blocks UI hydration: it must request the explicit 10s pipeline timeout.
+    expect(vi.mocked(runTursoPipeline).mock.calls[0][2]).toBe(10_000);
+  });
+
+  it("save uses the default pipeline timeout (no explicit timeoutMs)", async () => {
+    vi.mocked(runTursoPipeline).mockResolvedValueOnce([]);
+    const { emptyWorkspace } = await import("./storage");
+    await new TursoTenantBackend(cfg, "p1").save(emptyWorkspace());
+    expect(vi.mocked(runTursoPipeline).mock.calls[0][2]).toBeUndefined();
   });
 
   it("save runs the scoped DELETE+INSERT transaction", async () => {
