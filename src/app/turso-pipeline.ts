@@ -27,7 +27,9 @@ function isTransactional(stmts: SqlStmt[]): boolean {
   return /^\s*BEGIN\b/i.test(stmts[0]?.sql ?? "");
 }
 
-/** POST a pipeline request with an AbortController-based timeout. */
+/** POST a pipeline request with an AbortController-based timeout.
+ *  AbortController + setTimeout (rather than AbortSignal.timeout, used by the
+ *  server routes) so fake-timer tests can drive the abort deterministically. */
 async function postPipeline(
   config: TursoConfig,
   stmts: SqlStmt[],
@@ -59,10 +61,7 @@ async function postPipeline(
 // runTursoPipeline.
 async function rollbackBestEffort(config: TursoConfig): Promise<void> {
   try {
-    const res = await postPipeline(config, [{ sql: "ROLLBACK" }], ROLLBACK_TIMEOUT_MS);
-    if (!res.ok) {
-      // Intentionally ignored: a failed ROLLBACK must not mask the original error.
-    }
+    await postPipeline(config, [{ sql: "ROLLBACK" }], ROLLBACK_TIMEOUT_MS);
   } catch {
     // Intentionally swallowed: the caller is about to throw the original error.
   }

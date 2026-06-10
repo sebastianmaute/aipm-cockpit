@@ -3,6 +3,9 @@
 // Async store for snapshots over the shared Turso pipeline. Independent of the
 // workspace StorageBackend.save() cycle. Every call prepends SNAPSHOT_DDL so the
 // append-only tables exist (CREATE TABLE IF NOT EXISTS).
+//
+// All calls inherit DEFAULT_PIPELINE_TIMEOUT_MS: snapshots are background work
+// that never blocks UI hydration, so the shorter LOAD_TIMEOUT_MS is not used.
 
 import { runTursoPipeline } from "./turso-pipeline";
 import {

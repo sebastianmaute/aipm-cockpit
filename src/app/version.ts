@@ -1,3 +1,12 @@
+// 0.60.1 hardens reliability and security (refactor Batch A, no features).
+// Turso pipeline: AbortController timeouts (15s default, 10s loads) surfacing
+// as the existing storage-unreachable banner, plus a best-effort ROLLBACK when
+// a transactional batch fails mid-pipeline. Server routes: 10s/8s upstream
+// timeouts on the Jira and ECB proxies; /api/ecb joins the shared per-IP rate
+// limiter (now scope-keyed with stale-bucket eviction). SharePoint Graph:
+// all IDs percent-encoded in URL builders and @odata.nextLink origin-guarded
+// in readList via a shared isSafeGraphLink predicate. Headers: HSTS added and
+// Permissions-Policy microphone restricted to (self).
 // 0.60.0 "Stephenson" adds SharePoint document links to all six workspace
 // entities (Task, RAID, Change, Stakeholder, Milestone, Project). A new
 // custom Microsoft Graph browser (sharepoint-picker-modal.tsx) lets users
@@ -761,8 +770,8 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.60.0";
-export const APP_BUILD_DATE = "2026-06-10"; // 0.60.0 SharePoint picker + document links
+export const APP_VERSION = "0.60.1";
+export const APP_BUILD_DATE = "2026-06-10"; // 0.60.1 reliability + security hardening
 /** Minor-series milestone codename (sci-fi/fantasy author names). The whole
  *  0.60.x line is "Stephenson" (Neal Stephenson); patch releases inherit
  *  their minor version's codename rather than getting their own. */

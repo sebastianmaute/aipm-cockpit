@@ -8,6 +8,20 @@ Authoritative source for version + build date: [`src/app/version.ts`](src/app/ve
 This file is seeded from that module's milestone comment plus the
 post-release changes captured in [`.reports/codemap-diff.txt`](.reports/codemap-diff.txt).
 
+## [0.60.1] - 2026-06-10 "Stephenson"
+
+Reliability + security hardening (refactor Batch A — no new features).
+
+### Fixed
+- Turso pipeline requests now time out (15 s default, 10 s for loads) instead of hanging forever on an unresponsive endpoint; a timeout surfaces through the existing storage-unreachable banner, so unsaved changes are no longer silently at risk behind a hung autosave.
+- A transactional Turso batch that fails mid-pipeline now sends a best-effort `ROLLBACK`, so a concurrent reader can no longer observe a half-written workspace while the server-side transaction lingers.
+- Jira proxy (10 s) and ECB exchange-rate (8 s) upstream fetches time out instead of holding the server route for the platform limit; timeouts surface as the existing network-error handling.
+
+### Security
+- SharePoint Graph IDs are percent-encoded in all URL builders, and `@odata.nextLink` pagination links are origin-checked (shared `isSafeGraphLink` predicate) — a spoofed Graph response can no longer pivot authenticated requests off the Graph origin.
+- `/api/ecb` joins the shared per-IP rate limiter (60/min, now scope-keyed per route with stale-bucket eviction).
+- `Strict-Transport-Security` header added (1 year, includeSubDomains); `Permissions-Policy` now restricts the microphone to same-origin (`microphone=(self)`) — the voice feature is unaffected.
+
 ## [0.60.0] - 2026-06-10 "Stephenson"
 
 ### Added
