@@ -7,6 +7,7 @@ import {
 } from "./storage";
 import type { DocumentLink } from "./document-link";
 import type { Workspace } from "./storage";
+import type { RaidItem } from "./types";
 
 const links: DocumentLink[] = [
   { id: "01", name: "Spec, v2.docx", url: "https://c.sharepoint.com/sites/p/Docs/Spec.docx", kind: "file", driveId: "b!d", itemId: "01" },
@@ -45,5 +46,26 @@ describe("Task documentLinks round-trips", () => {
     expect(csv).not.toContain("[]");
     const back = csvToWorkspace(csv);
     expect(back.tasks[0].documentLinks ?? []).toEqual([]);
+  });
+});
+
+describe("RaidItem documentLinks round-trips", () => {
+  function ws() {
+    const w = emptyWorkspace();
+    const r: RaidItem = {
+      id: 1, category: "R", title: "Risk", status: "Open",
+      linkedTaskIds: [], causedByRaidIds: [], stakeholderIds: [], raisedDate: "2026-01-01",
+      documentLinks: links,
+    };
+    w.raid = [r];
+    return w;
+  }
+  test("CSV", () => { expect(csvToWorkspace(workspaceToCsv(ws())).raid[0].documentLinks).toEqual(links); });
+  test("Markdown", () => { expect(markdownToWorkspace(workspaceToMarkdown(ws())).raid[0].documentLinks).toEqual(links); });
+  test("JSON", () => { expect(jsonToWorkspace(workspaceToJson(ws())).raid[0].documentLinks).toEqual(links); });
+  test("empty RAID documentLinks → empty cell (no [])", () => {
+    const w = emptyWorkspace();
+    w.raid = [{ id: 1, category: "R", title: "Risk", status: "Open", linkedTaskIds: [], causedByRaidIds: [], stakeholderIds: [], raisedDate: "2026-01-01" }];
+    expect(workspaceToCsv(w)).not.toContain("[]");
   });
 });

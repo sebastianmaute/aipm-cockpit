@@ -444,6 +444,7 @@ export const RAID_CSV_COLUMNS: Array<keyof RaidItem> = [
   "localModifiedAt",
   "causedByRaidIds",
   "stakeholderIds",
+  "documentLinks",
 ];
 
 const RAID_MD_COLUMNS: Array<{ key: keyof RaidItem; label: string }> = [
@@ -465,6 +466,7 @@ const RAID_MD_COLUMNS: Array<{ key: keyof RaidItem; label: string }> = [
   { key: "localModifiedAt", label: "LocalModified" },
   { key: "causedByRaidIds", label: "CausedByIds" },
   { key: "stakeholderIds", label: "StakeholderIds" },
+  { key: "documentLinks", label: "DocumentLinks" },
 ];
 
 // Columns persisted for Absence items in CSV and Markdown. Order matches
@@ -703,6 +705,7 @@ export function raidFieldToString(r: RaidItem, c: keyof RaidItem): string {
       : "";
   if (c === "stakeholderIds")
     return Array.isArray(r.stakeholderIds) ? r.stakeholderIds.join("|") : "";
+  if (c === "documentLinks") return encodeDocumentLinks(r.documentLinks);
   return String(r[c] ?? "");
 }
 
@@ -774,6 +777,7 @@ export function buildRaidItemFromObj(obj: Record<string, string>): RaidItem | nu
     localModifiedAt: obj.localModifiedAt || undefined,
     causedByRaidIds,
     stakeholderIds: parseLinkedTaskIds(obj.stakeholderIds),
+    documentLinks: decodeDocumentLinks(obj.documentLinks),
   };
 }
 
@@ -2684,6 +2688,7 @@ function markdownToRaid(md: string): RaidItem[] {
       colMap[idx] = "causedByRaidIds";
     else if (norm === "stakeholderids" || norm === "stakeholders")
       colMap[idx] = "stakeholderIds";
+    else if (norm === "documentlinks") colMap[idx] = "documentLinks";
   });
 
   const items: RaidItem[] = [];
