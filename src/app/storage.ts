@@ -540,7 +540,7 @@ export const ROLES_CSV_COLUMNS = ["id", "disciplineId", "gradeId", "internalRate
 export const REF_CSV_COLUMNS = ["id", "name", "localModifiedAt"] as const;
 
 export const MILESTONES_CSV_COLUMNS: Array<keyof Milestone> = [
-  "id", "name", "date", "description", "achievedDate", "linkedTaskIds", "localModifiedAt",
+  "id", "name", "date", "description", "achievedDate", "linkedTaskIds", "localModifiedAt", "documentLinks",
 ];
 
 export const BUDGETS_CSV_COLUMNS = [
@@ -783,6 +783,7 @@ export function buildRaidItemFromObj(obj: Record<string, string>): RaidItem | nu
 
 export function milestoneFieldToString(m: Milestone, c: keyof Milestone): string {
   if (c === "linkedTaskIds") return Array.isArray(m.linkedTaskIds) ? m.linkedTaskIds.join("|") : "";
+  if (c === "documentLinks") return encodeDocumentLinks(m.documentLinks);
   return String(m[c] ?? "");
 }
 
@@ -797,6 +798,7 @@ export function buildMilestoneFromObj(obj: Record<string, string>): Milestone | 
   if (obj.description) m.description = obj.description;
   if (obj.achievedDate) m.achievedDate = obj.achievedDate;
   if (obj.localModifiedAt) m.localModifiedAt = obj.localModifiedAt;
+  const dl = decodeDocumentLinks(obj.documentLinks); if (dl.length) m.documentLinks = dl;
   return m;
 }
 
@@ -2100,6 +2102,7 @@ const MILESTONES_MD_COLUMNS: Array<{ key: keyof Milestone; label: string }> = [
   { key: "achievedDate", label: "Achieved" },
   { key: "linkedTaskIds", label: "LinkedTasks" },
   { key: "localModifiedAt", label: "LocalModified" },
+  { key: "documentLinks", label: "DocumentLinks" },
 ];
 
 function milestonesToMarkdown(milestones: readonly Milestone[]): string {
@@ -2127,6 +2130,7 @@ function markdownToMilestones(md: string): Milestone[] {
       else if (norm === "achieved" || norm === "achieveddate") mapped["achievedDate"] = val;
       else if (norm === "linkedtasks" || norm === "linkedtaskids") mapped["linkedTaskIds"] = val;
       else if (norm === "localmodified" || norm === "localmodifiedat") mapped["localModifiedAt"] = val;
+      else if (norm === "documentlinks") mapped["documentLinks"] = val;
     }
     return buildMilestoneFromObj(mapped);
   }).filter((m): m is Milestone => m !== null);

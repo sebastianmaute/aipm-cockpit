@@ -891,6 +891,8 @@ export function sanitizeMilestone(input: unknown): Milestone | null {
   if (description) m.description = description;
   const localModifiedAt = sanitizeText(o.localModifiedAt, TEXTAREA_MAX);
   if (localModifiedAt) m.localModifiedAt = localModifiedAt;
+  const dl = sanitizeDocumentLinks((input as Record<string, unknown>).documentLinks);
+  if (dl.length) m.documentLinks = dl;
   return m;
 }
 
