@@ -1,3 +1,13 @@
+// 0.59.0 "Gibson" completes Turso multi-tenancy (Phase 2). A single shared
+// Turso database now holds every project: every entity table gains a
+// `project_id` column and a new `projects` table is the authoritative
+// registry. A global portfolio-mode switch in Settings lets users choose
+// between file-based (Phase 1) and Turso-backed portfolios. Saves are
+// last-write-wins per project so concurrent tabs stay safe. Projects can
+// be soft-deleted (archived) and restored, or permanently deleted after
+// typing the project name to confirm. Snapshot capture is scoped per
+// project so trend history never bleeds across projects. File-based
+// projects (Phase 1) are unchanged and continue to work as before.
 // 0.58.0 "Vinge" adds multi-project / portfolio management (Phase 1).
 // Each project is a self-contained workspace stored as a separate file.
 // A new project metadata header (name, code, description, lead, start/end
@@ -741,12 +751,12 @@
 // Jira bidirectional sync + push, ADF description ↔ notes, resizable +
 // collapsible workspace, resizable tasks table, header "+" task modal).
 // Date is the last build.
-export const APP_VERSION = "0.58.0";
-export const APP_BUILD_DATE = "2026-06-10"; // 0.58.0 multi-project phase 1
+export const APP_VERSION = "0.59.0";
+export const APP_BUILD_DATE = "2026-06-10"; // 0.59.0 Turso multi-project (phase 2)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The whole
- *  0.58.x line is "Vinge" (Vernor Vinge); patch releases inherit
+ *  0.59.x line is "Gibson" (William Gibson); patch releases inherit
  *  their minor version's codename rather than getting their own. */
-export const APP_MILESTONE = "Vinge";
+export const APP_MILESTONE = "Gibson";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -816,4 +826,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightFieldFeedback",
   "versionHighlightButler",
   "versionHighlightVinge",
+  "versionHighlightTursoMultiProject",
 ] as const;

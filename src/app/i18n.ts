@@ -1444,6 +1444,7 @@ const enUS = {
   versionHighlightFieldFeedback: "Input feedback: character counters, clamp notices, and a save-time summary when entries are adjusted to fit limits.",
   versionHighlightButler: "AI Assistant (renamed from Chat): suggested prompts, token-usage panel, Stop button, pop-out. Configurable document export. Reminder lead times and banner toggles. Activity log extended; Information flows diagram in Settings.",
   versionHighlightVinge: "Multi-project / portfolio management (Phase 1): per-project workspaces with a project metadata header, portfolio registry + switching, Projects management view, create/edit form, empty-state, per-project export.",
+  versionHighlightTursoMultiProject: "Turso multi-project: one shared database holds your whole portfolio, with per-project switching, archive/restore, and permanent delete.",
   fieldCounter: "{0} / {1}",
   fieldTrimmedToFit: "trimmed to fit",
   fieldAdjustedMax: "adjusted to max {0}",
