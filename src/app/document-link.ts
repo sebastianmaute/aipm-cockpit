@@ -30,11 +30,12 @@ function optionalString(v: unknown): string | undefined {
   return s === "" ? undefined : s;
 }
 
-/** A counter so generated ids are unique within one sanitize call without
- *  Date.now()/Math.random() (kept deterministic + test-friendly). */
-function makeIdFactory(): () => string {
-  let n = 0;
-  return () => `dl-${(n += 1)}`;
+/** Module-level monotonic counter for generated ids. Avoids Date.now()/
+ *  Math.random() (deterministic) while staying unique across separate
+ *  sanitize calls, so merging two sanitized arrays never collides. */
+let _idSeq = 0;
+function nextGeneratedId(): string {
+  return `dl-${(_idSeq += 1)}`;
 }
 
 export function isValidDocumentLink(v: unknown): v is { name: string; url: string } {
@@ -45,13 +46,12 @@ export function isValidDocumentLink(v: unknown): v is { name: string; url: strin
 
 export function sanitizeDocumentLinks(raw: unknown): DocumentLink[] {
   if (!Array.isArray(raw)) return [];
-  const nextId = makeIdFactory();
   const out: DocumentLink[] = [];
   for (const entry of raw) {
     if (!isValidDocumentLink(entry)) continue;
     const rec = entry as Record<string, unknown>;
     const link: DocumentLink = {
-      id: optionalString(rec.id) ?? nextId(),
+      id: optionalString(rec.id) ?? nextGeneratedId(),
       name: asTrimmedString(rec.name),
       url: asTrimmedString(rec.url),
       kind: rec.kind === "folder" ? "folder" : "file",
@@ -76,7 +76,7 @@ export function encodeDocumentLinks(links: readonly DocumentLink[] | undefined):
 }
 
 /** Inverse of encodeDocumentLinks; tolerates empty/malformed cells. */
-export function decodeDocumentLinks(cell: string | undefined): DocumentLink[] {
+export function decodeDocumentLinks(cell: string | null | undefined): DocumentLink[] {
   if (!cell) return [];
   try {
     return sanitizeDocumentLinks(JSON.parse(cell));

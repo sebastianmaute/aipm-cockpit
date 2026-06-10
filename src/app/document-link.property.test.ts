@@ -7,6 +7,10 @@ const linkArb = fc.record({
   name: fc.string({ minLength: 1 }).map((s) => s.trim()).filter((s) => s.length > 0),
   url: fc.webUrl(),
   kind: fc.constantFrom("file" as const, "folder" as const),
+  driveId: fc.option(fc.string({ minLength: 1 }), { nil: undefined }),
+  itemId: fc.option(fc.string({ minLength: 1 }), { nil: undefined }),
+  mimeType: fc.option(fc.string({ minLength: 1 }), { nil: undefined }),
+  addedAt: fc.option(fc.string({ minLength: 1 }), { nil: undefined }),
 });
 
 describe("document-link properties", () => {

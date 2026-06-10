@@ -54,6 +54,14 @@ describe("sanitizeDocumentLinks", () => {
     expect(typeof out[0].id).toBe("string");
     expect(out[0].id.length).toBeGreaterThan(0);
   });
+
+  test("generates distinct ids for multiple id-less entries", () => {
+    const out = sanitizeDocumentLinks([
+      { name: "a", url: "https://x", kind: "file" },
+      { name: "b", url: "https://y", kind: "file" },
+    ]);
+    expect(out[0].id).not.toBe(out[1].id);
+  });
 });
 
 describe("encode/decode round-trip (JSON-in-cell)", () => {
