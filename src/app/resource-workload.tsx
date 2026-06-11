@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { shortDateRange } from "./date-format";
 import { type Lang, t } from "./i18n";
 import { buildResourceWorkload } from "./resource-workload-rows";
-import type { Absence, Resource, Shift, Task } from "./types";
+import type { Absence, RaidItem, Resource, Shift, Task } from "./types";
 import { INNER_TABLE_CLASS } from "./view-styles";
 import { ColumnResizeHandle } from "./task-manager-ui";
 import { TABLE_HEAD_CLASS } from "./table-styles";
@@ -25,6 +25,7 @@ interface Props {
   tasks: readonly Task[];
   absences: readonly Absence[];
   shifts: readonly Shift[];
+  raid: readonly RaidItem[];
   today: string;
   onEditResource: (r: Resource) => void;
   onAddResource: (seed: Partial<Resource>) => void;
@@ -46,6 +47,7 @@ export function ResourceWorkload({
   tasks,
   absences,
   shifts,
+  raid,
   today,
   onEditResource,
   onAddResource,
@@ -54,8 +56,8 @@ export function ResourceWorkload({
   colResize,
 }: Props) {
   const { managed, unlinked } = useMemo(
-    () => buildResourceWorkload(resources, tasks, absences, shifts, today),
-    [resources, tasks, absences, shifts, today],
+    () => buildResourceWorkload(resources, tasks, absences, shifts, raid, today),
+    [resources, tasks, absences, shifts, raid, today],
   );
 
   const { colWidths } = colResize;

@@ -1,10 +1,12 @@
+import { isTerminalStatus } from "./raid";
 import { resourceDisplayName, splitName } from "./resource-foundation";
-import { DEFAULT_WEEK_HOURS, type Absence, type Resource, type Shift, type Task, type WeekHours } from "./types";
+import { DEFAULT_WEEK_HOURS, type Absence, type RaidItem, type Resource, type Shift, type Task, type WeekHours } from "./types";
 
 export interface WorkloadRowBase {
   display: string;
   email: string;
   openCount: number;
+  raidOpenCount: number;
   overdueCount: number;
   weeklyHours: number;
   shift: Shift | null;
@@ -18,16 +20,18 @@ function sumHours(h: WeekHours): number { return h.reduce((a, b) => a + (b || 0)
 const DEFAULT_WEEKLY_HOURS = sumHours(DEFAULT_WEEK_HOURS);
 
 /**
- * Workload rows keyed off the managed address book. A task/absence/shift joins
- * a resource by `resourceId`, else by case-folded display name. Assignees
- * matching no resource fall into `unlinked` (read-only), carrying a split name
- * + email so the UI can offer "Add as resource".
+ * Workload rows keyed off the managed address book. A task/absence/shift/raid
+ * record joins a resource by `resourceId` (RAID by `ownerResourceId`), else by
+ * case-folded display name. Owners matching no resource fall into `unlinked`
+ * (read-only), carrying a split name + email so the UI can offer "Add as
+ * resource". RAID ownership contributes `raidOpenCount` (non-terminal items).
  */
 export function buildResourceWorkload(
   resources: readonly Resource[],
   tasks: readonly Task[],
   absences: readonly Absence[],
   shifts: readonly Shift[],
+  raid: readonly RaidItem[],
   today: string,
 ): WorkloadResult {
   const horizon = (() => {
@@ -43,7 +47,7 @@ export function buildResourceWorkload(
     const display = resourceDisplayName(r);
     managed.set(r.id, {
       kind: "managed", resource: r, display, email: r.email ?? "",
-      openCount: 0, overdueCount: 0, weeklyHours: DEFAULT_WEEKLY_HOURS, shift: null, upcoming: [],
+      openCount: 0, raidOpenCount: 0, overdueCount: 0, weeklyHours: DEFAULT_WEEKLY_HOURS, shift: null, upcoming: [],
     });
     const key = display.trim().toLowerCase();
     if (key && !nameToId.has(key)) nameToId.set(key, r.id);
@@ -58,7 +62,7 @@ export function buildResourceWorkload(
     if (!row) {
       const { firstName, lastName } = splitName(name);
       row = { kind: "unlinked", firstName, lastName, display: name, email: rawEmail?.trim() ?? "",
-        openCount: 0, overdueCount: 0, weeklyHours: DEFAULT_WEEKLY_HOURS, shift: null, upcoming: [] };
+        openCount: 0, raidOpenCount: 0, overdueCount: 0, weeklyHours: DEFAULT_WEEKLY_HOURS, shift: null, upcoming: [] };
       unlinked.set(key, row);
     } else if (!row.email && rawEmail?.trim()) {
       row.email = rawEmail.trim();
@@ -95,6 +99,12 @@ export function buildResourceWorkload(
     if (!row) continue;
     row.shift = s;
     row.weeklyHours = sumHours(s.hoursPerWeekday);
+  }
+  for (const item of raid) {
+    if (isTerminalStatus(item.status, item.category)) continue;
+    const row = resolve(item.ownerResourceId, item.owner ?? "", item.ownerEmail);
+    if (!row) continue;
+    row.raidOpenCount++;
   }
 
   for (const row of managed.values()) row.upcoming.sort((x, y) => x.startDate.localeCompare(y.startDate));
