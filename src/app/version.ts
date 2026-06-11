@@ -2,12 +2,12 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.61.0";
-export const APP_BUILD_DATE = "2026-06-11"; // 0.61.0 resource FK normalization (raid owner / shift)
+export const APP_VERSION = "0.62.0";
+export const APP_BUILD_DATE = "2026-06-11"; // 0.62.0 resource-aware assignee picker (SP1)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The whole
- *  0.61.x line is "Robinson" (Kim Stanley Robinson); patch releases inherit
+ *  0.62.x line is "Liu" (Cixin Liu); patch releases inherit
  *  their minor version's codename rather than getting their own. */
-export const APP_MILESTONE = "Robinson";
+export const APP_MILESTONE = "Liu";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";

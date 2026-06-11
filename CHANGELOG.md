@@ -8,6 +8,16 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.62.0] - 2026-06-11 "Liu"
+
+Resource-aware people picker (identity normalization SP1).
+
+### Added
+- The task assignee is now a resource-aware autocomplete: registry people are suggested first (picking one links the task to that Resource via `resourceId`), remembered contacts remain as a fallback, and "+ Add as resource" creates and links a new resource inline. A linked assignee shows the resource's current name/email — edit the person once on the resource and it updates everywhere — and a broken link can be cleared. The Resources → Workload view already resolves people by this link.
+
+### Changed
+- `ContactInput` is replaced by the new shared `ResourcePicker` component.
+
 ## [0.61.0] - 2026-06-11 "Robinson"
 
 Resource-identity normalization for RAID owners and shift assignees.
