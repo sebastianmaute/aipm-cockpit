@@ -1,4 +1,4 @@
-<!-- Generated: 2026-06-10 | Files scanned: src/proxy.ts + 10 (src/app/api/jira) + client storage backends | Token estimate: ~600 | Updated for 0.29.0–0.60.0: still no server-side app backend; client-side Turso multi-tenant backend + portfolio-mode (0.58.0–0.59.0); SharePoint Graph pure core + picker scope (0.60.0 "Stephenson") -->
+<!-- Generated: 2026-06-11 | Files scanned: src/proxy.ts + 10 (src/app/api/jira) + client storage backends | Token estimate: ~600 | Updated for 0.29.0–0.60.0: still no server-side app backend; client-side Turso multi-tenant backend + portfolio-mode (0.58.0–0.59.0); SharePoint Graph pure core + picker scope (0.60.0 "Stephenson"); data version history (`version-store.ts` + `version-schema.ts`: append-only `project_versions` over the same `/v2/pipeline` transport, pruned by retention, Turso-only) [0.66.0–0.69.0] -->
 
 # Backend
 
@@ -92,6 +92,11 @@ The browser chooses a storage backend via Settings → Integrations. All backend
 Both Turso modes live in ONE class: `createBackend` (storage.ts) passes `projectId` only when `kind === "turso"` AND a non-empty `tursoProjectId` dep is supplied; without it `TursoBackend` runs in single-tenant mode.
 
 All backends implement the `StorageBackend` interface (`load(): Promise<Workspace>`, `save(workspace): Promise<void>`, `isReady(): Promise<boolean>`): BrowserBackend, LocalFileBackend, SharePointBackend, and TursoBackend.
+
+### Version history (Turso-only, 0.66.0+)
+
+- `version-schema.ts` — DDL + SQL builders for the append-only `project_versions` table (full workspace JSON payload per version). Kept out of the workspace `TABLE_NAMES` (like the snapshot tables), so a workspace save's clear-all never wipes it.
+- `version-store.ts` — async CRUD (list / get / insert / prune) over the same Turso `/v2/pipeline` transport as the main backend; prunes auto-versions to `Settings.versionHistoryRetention`, leaving named checkpoints. Only active in Turso mode with the History feature module enabled.
 
 ### Portfolio mode (multi-project, client-side, 0.58.0–0.59.0)
 
