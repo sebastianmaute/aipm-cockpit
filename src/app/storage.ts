@@ -1,6 +1,5 @@
 import { SharePointBackend } from "./sharepoint-backend";
 import { TursoBackend } from "./turso-backend";
-import { TursoTenantBackend } from "./turso-tenant-backend";
 import type { TursoConfig } from "./turso-config";
 import { riskSeverityFromMatrix } from "./raid";
 import { encodeDocumentLinks, decodeDocumentLinks } from "./document-link";
@@ -3373,8 +3372,8 @@ export interface CreateBackendDeps {
   ) => Promise<string | null>;
   tursoConfig?: TursoConfig | null;
   /** Active Turso project id. When kind="turso" AND this is a non-empty string,
-   *  createBackend returns a per-project TursoTenantBackend (Phase 2 multi-tenant
-   *  portfolio mode). Otherwise the single-tenant TursoBackend is used. */
+   *  createBackend returns a per-project (tenant-mode) TursoBackend (Phase 2
+   *  multi-tenant portfolio mode). Otherwise single-tenant mode is used. */
   tursoProjectId?: string | null;
 }
 
@@ -3407,7 +3406,7 @@ export function createBackend(
     case "turso": {
       const tursoProjectId = deps.tursoProjectId;
       if (typeof tursoProjectId === "string" && tursoProjectId.length > 0) {
-        return new TursoTenantBackend(deps.tursoConfig ?? null, tursoProjectId);
+        return new TursoBackend(deps.tursoConfig ?? null, tursoProjectId);
       }
       return new TursoBackend(deps.tursoConfig ?? null);
     }

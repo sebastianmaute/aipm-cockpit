@@ -5,9 +5,16 @@
 // (env-or-settings). Last-write-wins; save() wraps the overwrite in a
 // BEGIN/COMMIT transaction.
 //
+// The backend is parameterized by an optional `projectId`:
+//   - projectId === undefined → single-tenant mode: the whole DB is one
+//     workspace (plus the legacy single-blob import probe).
+//   - projectId set → multi-tenant (portfolio) mode: reads/writes only the
+//     slice of the shared DB tagged with `project_id = projectId`, using the
+//     project-scoped statement builders from turso-tenant-schema.
+//
 // turso-schema.ts imports heavily from storage.ts. To avoid the circular
 // dependency  storage → turso-backend → turso-schema → storage  the schema
-// module is imported dynamically inside load() / save() (called only at
+// modules are imported dynamically inside load() / save() (called only at
 // runtime, never at module-init time). The type-only imports below are erased
 // at compile time and do not create a runtime cycle.
 
@@ -33,7 +40,10 @@ function firstRowText(results: PipelineResultLike[], i: number): string | null {
 export class TursoBackend implements StorageBackend {
   readonly kind = "turso" as const;
 
-  constructor(private config: TursoConfig | null) {}
+  constructor(
+    private config: TursoConfig | null,
+    private projectId?: string,
+  ) {}
 
   async isReady(): Promise<boolean> {
     return this.config !== null;
@@ -49,6 +59,23 @@ export class TursoBackend implements StorageBackend {
   }
 
   async load(): Promise<Workspace> {
+    return this.projectId === undefined
+      ? this.loadSingleTenant()
+      : this.loadTenant(this.projectId);
+  }
+
+  async save(workspace: Workspace): Promise<void> {
+    // Dynamic import breaks the storage → turso-backend → turso-schema → storage cycle.
+    if (this.projectId === undefined) {
+      const { workspaceToStatements } = await import("./turso-schema");
+      await runTursoPipeline(this.config, workspaceToStatements(workspace));
+      return;
+    }
+    const { tenantWorkspaceToStatements } = await import("./turso-tenant-schema");
+    await runTursoPipeline(this.config, tenantWorkspaceToStatements(workspace, this.projectId));
+  }
+
+  private async loadSingleTenant(): Promise<Workspace> {
     // Dynamic import breaks the storage → turso-backend → turso-schema → storage cycle.
     const { SCHEMA_DDL, TABLE_NAMES, selectStatements, rowsToWorkspace } =
       await import("./turso-schema");
@@ -73,9 +100,25 @@ export class TursoBackend implements StorageBackend {
     return rowsToWorkspace(relational);
   }
 
-  async save(workspace: Workspace): Promise<void> {
-    // Dynamic import breaks the storage → turso-backend → turso-schema → storage cycle.
-    const { workspaceToStatements } = await import("./turso-schema");
-    await runTursoPipeline(this.config, workspaceToStatements(workspace));
+  // NOTE: rowsToWorkspace does not populate ws.project (ProjectMeta is not in the
+  // workspace tables under Turso), so tenant load() additionally fetches the
+  // projects-table row for this id and sets ws.project from it.
+  private async loadTenant(projectId: string): Promise<Workspace> {
+    const { TABLE_NAMES, rowsToWorkspace } = await import("./turso-schema");
+    const { tenantSchemaDdl, tenantSelectStatements, selectProjectStatement, rowsToProjectList } =
+      await import("./turso-tenant-schema");
+    const ddl = tenantSchemaDdl();
+    const stmts = [
+      ...ddl.map((sql) => ({ sql })),
+      ...tenantSelectStatements(projectId),
+      selectProjectStatement(projectId),
+    ];
+    const results = await runTursoPipeline(this.config, stmts, LOAD_TIMEOUT_MS);
+    const relational = results.slice(ddl.length, ddl.length + TABLE_NAMES.length);
+    const projectsResult = results[ddl.length + TABLE_NAMES.length];
+    const isEmpty = relational.every((r) => (r?.response?.result?.rows?.length ?? 0) === 0);
+    const ws = isEmpty ? emptyWorkspace() : rowsToWorkspace(relational);
+    const meta = rowsToProjectList(projectsResult)[0]?.meta;
+    return meta ? { ...ws, project: meta } : ws;
   }
 }

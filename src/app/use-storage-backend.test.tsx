@@ -65,9 +65,9 @@ vi.mock("./turso-portfolio", () => ({
 }));
 import * as tursoPortfolioMod from "./turso-portfolio";
 
-// ── TursoTenantBackend mock (per-project backend built directly in the hook) ──
-vi.mock("./turso-tenant-backend", () => ({
-  TursoTenantBackend: class {
+// ── TursoBackend mock (per-project tenant-mode backend built directly in the hook) ──
+vi.mock("./turso-backend", () => ({
+  TursoBackend: class {
     kind = "turso" as const;
     constructor(public config: unknown, public projectId: string) {}
     load = vi.fn().mockResolvedValue({ tasks: [], raid: [], absences: [], shifts: [] });

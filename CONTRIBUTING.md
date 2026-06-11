@@ -66,7 +66,7 @@ src/app/
 ├── projects-panel.tsx    — Portfolio: project list / create / archive / delete
 ├── projects-registry.ts  — file-mode project registry (localStorage)
 ├── portfolio-mode.ts     — global File ↔ Turso portfolio-mode switch
-├── turso-tenant-backend.ts — multi-tenant Turso backend (one DB, many projects)
+├── turso-backend.ts      — Turso backend (single-tenant, or one-DB-many-projects via projectId)
 ├── feature-modules.ts    — Simple/Modular/Advanced module gating
 ├── i18n.ts               — en-US/en-GB dictionary (baked in)
 ├── i18n.de.ts            — de dictionary (lazy-loaded)
@@ -135,8 +135,8 @@ Each project is a full, independent `Workspace` plus a `ProjectMeta` header on
 `"file" | "turso"`) selects the active world: **file mode** uses a
 localStorage registry (`projects-registry.ts`) + per-project file handles in a
 dedicated IndexedDB store (`project-file-handles.ts`); **Turso mode** uses one
-shared multi-tenant database (`turso-tenant-schema.ts` / `turso-tenant-backend.ts`
-/ `turso-portfolio.ts`) where every entity table carries a `project_id` and a
+shared multi-tenant database (`turso-tenant-schema.ts` / `turso-backend.ts` in
+tenant mode / `turso-portfolio.ts`) where every entity table carries a `project_id` and a
 `projects` table is the authoritative list. Changing portfolio-mode saves and
 reloads the page. See `docs/CODEMAPS/data.md` for the schema detail.
 

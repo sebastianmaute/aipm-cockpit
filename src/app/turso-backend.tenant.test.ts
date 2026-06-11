@@ -5,7 +5,7 @@ import { vi, describe, it, expect, beforeEach } from "vitest";
 // backend would bypass the mock (vitest 4 module-runner behavior).
 vi.mock("./turso-pipeline", { spy: true });
 import { LOAD_TIMEOUT_MS, runTursoPipeline } from "./turso-pipeline";
-import { TursoTenantBackend } from "./turso-tenant-backend";
+import { TursoBackend } from "./turso-backend";
 import { tenantSchemaDdl, upsertProjectStatement } from "./turso-tenant-schema";
 import { TABLE_NAMES } from "./turso-schema";
 import type { ProjectMeta } from "./types";
@@ -31,7 +31,7 @@ function projectsRow(id: string, m: ProjectMeta) {
   return { type: "ok" as const, response: { type: "execute", result: { cols, rows: [up.args!.map((a) => ({ value: a.value ?? "" }))] } } };
 }
 
-describe("TursoTenantBackend", () => {
+describe("TursoBackend (tenant mode)", () => {
   // mockClear + a base stub (NOT mockReset: on spy-mode mocks that restores the
   // real implementation, which throws/hits the network when invoked).
   beforeEach(() => {
@@ -40,9 +40,9 @@ describe("TursoTenantBackend", () => {
   });
 
   it("kind is turso; isReady reflects config", async () => {
-    expect(new TursoTenantBackend(cfg, "p1").kind).toBe("turso");
-    expect(await new TursoTenantBackend(cfg, "p1").isReady()).toBe(true);
-    expect(await new TursoTenantBackend(null, "p1").isReady()).toBe(false);
+    expect(new TursoBackend(cfg, "p1").kind).toBe("turso");
+    expect(await new TursoBackend(cfg, "p1").isReady()).toBe(true);
+    expect(await new TursoBackend(null, "p1").isReady()).toBe(false);
   });
 
   it("load runs DDL + scoped selects, returns empty workspace + populates ws.project from the projects row", async () => {
@@ -52,7 +52,7 @@ describe("TursoTenantBackend", () => {
       ...TABLE_NAMES.map(okEmpty),          // all workspace tables empty
       projectsRow("p1", meta()),            // the projects row
     ]);
-    const ws = await new TursoTenantBackend(cfg, "p1").load();
+    const ws = await new TursoBackend(cfg, "p1").load();
     expect(ws.tasks).toEqual([]);
     expect(ws.project?.name).toBe("Apollo");
     const stmts = vi.mocked(runTursoPipeline).mock.calls[0][1];
@@ -65,14 +65,14 @@ describe("TursoTenantBackend", () => {
   it("save uses the default pipeline timeout (no explicit timeoutMs)", async () => {
     vi.mocked(runTursoPipeline).mockResolvedValueOnce([]);
     const { emptyWorkspace } = await import("./storage");
-    await new TursoTenantBackend(cfg, "p1").save(emptyWorkspace());
+    await new TursoBackend(cfg, "p1").save(emptyWorkspace());
     expect(vi.mocked(runTursoPipeline).mock.calls[0][2]).toBeUndefined();
   });
 
   it("save runs the scoped DELETE+INSERT transaction", async () => {
     vi.mocked(runTursoPipeline).mockResolvedValueOnce([]);
     const { emptyWorkspace } = await import("./storage");
-    await new TursoTenantBackend(cfg, "p1").save(emptyWorkspace());
+    await new TursoBackend(cfg, "p1").save(emptyWorkspace());
     const stmts = vi.mocked(runTursoPipeline).mock.calls[0][1];
     expect(stmts[0].sql).toBe("BEGIN");
     expect(stmts.some((s) => s.sql.startsWith("DELETE FROM tasks WHERE project_id"))).toBe(true);

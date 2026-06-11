@@ -31,7 +31,7 @@ import { localKindForFormat, deriveRegistryEntry } from "./use-project-switch";
 import type { ProjectMeta } from "./types";
 import { getTursoConfig } from "./turso-config";
 import { loadCurrentTursoProjectId, saveCurrentTursoProjectId } from "./portfolio-mode";
-import { TursoTenantBackend } from "./turso-tenant-backend";
+import { TursoBackend } from "./turso-backend";
 import {
   createProject as portfolioCreate,
   archiveProject as portfolioArchive,
@@ -108,7 +108,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
 
   // Active Turso project id (portfolio mode). Seeded from the localStorage cache;
   // switching/creating a Turso project updates it, which rebuilds the backend memo
-  // so load/save scope to the per-project TursoTenantBackend.
+  // so load/save scope to the per-project (tenant-mode) TursoBackend.
   const [tursoProjectId, setTursoProjectId] = useState<string | null>(loadCurrentTursoProjectId());
 
   // Backend instance — memoised on storageConfig identity
@@ -587,7 +587,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     try {
       // Best-effort flush of the outgoing project to the active backend.
       try { await backend.save(currentWorkspace()); } catch { /* best-effort flush */ }
-      const target = new TursoTenantBackend(cfg, id);
+      const target = new TursoBackend(cfg, id);
       const loaded = await target.load();
       applyWorkspace(loaded);
       suppressNextLoadRef.current = true;

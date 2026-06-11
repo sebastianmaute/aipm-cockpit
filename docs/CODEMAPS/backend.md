@@ -87,11 +87,11 @@ The browser chooses a storage backend via Settings → Integrations. All backend
 | Local JSON/CSV/Markdown | `storage.ts` (LocalFileBackend) | File System Access API; round-trips via `migrateWorkspaceV5/V6` |
 | **SharePoint JSON/CSV** (0.22.0) | `sharepoint-backend.ts` (SharePointBackend) | Stores workspace blob to SharePoint Sites library via `graph.microsoft.com /me/drive/items/...`; requires MSAL token (M365 toggle in Settings) |
 | **Turso (single-project)** (0.25.0) | `turso-backend.ts` (TursoBackend) | Stores one workspace as relational rows via Turso HTTP `/v2/pipeline` API; no `@libsql/client` dep, raw fetch; configured in Settings → Integrations or `NEXT_PUBLIC_TURSO_*` env vars |
-| **Turso multi-tenant** (0.59.0) | `turso-tenant-backend.ts` (`TursoTenantBackend(config, projectId)`) | Stores MANY projects in ONE shared Turso DB: every entity table carries a `project_id` column, a `projects` table is the project list. Same `/v2/pipeline` transport as the single-tenant backend; `load`/`save` read/write only the `WHERE project_id = ?` slice. Used in portfolio "turso" mode |
+| **Turso multi-tenant** (0.59.0) | `turso-backend.ts` (`TursoBackend(config, projectId)` — tenant mode) | Stores MANY projects in ONE shared Turso DB: every entity table carries a `project_id` column, a `projects` table is the project list. Same `/v2/pipeline` transport as single-tenant mode; `load`/`save` read/write only the `WHERE project_id = ?` slice. Used in portfolio "turso" mode |
 
-The single-tenant `TursoBackend` remains for non-portfolio use; `createBackend` (storage.ts) returns `TursoTenantBackend` only when `kind === "turso"` AND a non-empty `tursoProjectId` dep is supplied, otherwise it falls back to `TursoBackend`.
+Both Turso modes live in ONE class: `createBackend` (storage.ts) passes `projectId` only when `kind === "turso"` AND a non-empty `tursoProjectId` dep is supplied; without it `TursoBackend` runs in single-tenant mode.
 
-All backends implement the `StorageBackend` interface (`load(): Promise<Workspace>`, `save(workspace): Promise<void>`, `isReady(): Promise<boolean>`): BrowserBackend, LocalFileBackend, SharePointBackend, TursoBackend, and TursoTenantBackend.
+All backends implement the `StorageBackend` interface (`load(): Promise<Workspace>`, `save(workspace): Promise<void>`, `isReady(): Promise<boolean>`): BrowserBackend, LocalFileBackend, SharePointBackend, and TursoBackend.
 
 ### Portfolio mode (multi-project, client-side, 0.58.0–0.59.0)
 

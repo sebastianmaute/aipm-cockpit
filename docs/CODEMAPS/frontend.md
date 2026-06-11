@@ -232,8 +232,7 @@ prerendered.
 | `use-outlook-calendar.ts` | `useOutlookCalendar() → { events, isLoading, error }` | Client hook; 0.24.0+ |
 | `outlook-calendar-import-modal.tsx` | Preview-and-pick dialog for Outlook calendar | Modal component; 0.24.0+ |
 | `turso-config.ts` | Turso configuration resolver | Pure; 0.25.0+ |
-| `turso-backend.ts` | Turso HTTP `/v2/pipeline` storage backend | Implements `StorageBackend`; 0.25.0+ |
-| `turso-tenant-backend.ts` | Multi-tenant Turso `StorageBackend`: reads/writes only the `projectId` slice of the shared DB; `load()` also fetches the `projects`-table row to set `ws.project` | Implements `StorageBackend`; 0.59.0+ |
+| `turso-backend.ts` | Turso HTTP `/v2/pipeline` storage backend; optional `projectId` switches to multi-tenant mode (reads/writes only the `projectId` slice of the shared DB; tenant `load()` also fetches the `projects`-table row to set `ws.project`) | Implements `StorageBackend`; 0.25.0+, tenant mode 0.59.0+ |
 | `storage-config.tsx` | Backend picker UI; gates on auth readiness | |
 | **Multi-project / Portfolio** | | |
 | `projects-panel.tsx` | Projects management view (`projects` AppView, Portfolio group): registered-project list with per-row Switch / Edit / Export / Delete; in Turso mode the destructive action is Archive plus a "Show archived" subsection (Restore + permanent-delete). Purely presentational — all side-effects delegated to callback props | Conditional mount; 0.58.0+ |
