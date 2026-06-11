@@ -8,6 +8,18 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.63.0] - 2026-06-11 "Bujold"
+
+Resource-aware people pickers across RAID, shifts, and stakeholders (identity normalization SP2).
+
+### Added
+- The RAID owner and shift assignee fields are now resource-aware autocompletes (registry-first, contacts fallback, "+ Add as resource"), linking to a Resource via `ownerResourceId` / `resourceId`.
+- The stakeholder name field is a resource-aware typeahead that links to a Resource or leaves the stakeholder external — replacing the separate link-to-resource dropdown. External stakeholders (no link) remain a first-class state.
+
+### Changed
+- `ResourcePicker` gains an optional `onCreateResource`; omitting it yields the link-only variant used by stakeholders.
+- Removed the now-dead shift assignee datalist (`shiftKnownAssignees`) — superseded by the picker.
+
 ## [0.62.0] - 2026-06-11 "Liu"
 
 Resource-aware people picker (identity normalization SP1).
