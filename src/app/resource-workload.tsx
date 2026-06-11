@@ -27,6 +27,8 @@ interface Props {
   absences: readonly Absence[];
   shifts: readonly Shift[];
   raid: readonly RaidItem[];
+  /** When false (RAID module off), the "Open RAID" column is hidden. */
+  raidEnabled: boolean;
   today: string;
   onEditResource: (r: Resource) => void;
   onAddResource: (seed: Partial<Resource>) => void;
@@ -49,6 +51,7 @@ export function ResourceWorkload({
   absences,
   shifts,
   raid,
+  raidEnabled,
   today,
   onEditResource,
   onAddResource,
@@ -86,10 +89,12 @@ export function ResourceWorkload({
               {t(lang, "resourcesOverdueTasks")}
               <ColumnResizeHandle col="overdue" onMouseDown={startColResize} />
             </th>
-            <th className="relative px-3 py-2 font-medium text-right" style={{ width: colWidths.openRaid, minWidth: colWidths.openRaid }}>
-              {t(lang, "workloadOpenRaid")}
-              <ColumnResizeHandle col="openRaid" onMouseDown={startColResize} />
-            </th>
+            {raidEnabled && (
+              <th className="relative px-3 py-2 font-medium text-right" style={{ width: colWidths.openRaid, minWidth: colWidths.openRaid }}>
+                {t(lang, "workloadOpenRaid")}
+                <ColumnResizeHandle col="openRaid" onMouseDown={startColResize} />
+              </th>
+            )}
             <th className="relative px-3 py-2 font-medium text-right" style={{ width: colWidths.weeklyHours, minWidth: colWidths.weeklyHours }}>
               {t(lang, "resourcesWeeklyHours")}
               <ColumnResizeHandle col="weeklyHours" onMouseDown={startColResize} />
@@ -128,9 +133,11 @@ export function ResourceWorkload({
               >
                 {row.overdueCount}
               </td>
-              <td className="px-3 py-2 text-right tabular-nums text-foreground">
-                {row.raidOpenCount}
-              </td>
+              {raidEnabled && (
+                <td className="px-3 py-2 text-right tabular-nums text-foreground">
+                  {row.raidOpenCount}
+                </td>
+              )}
               <td className="px-3 py-2 text-right tabular-nums">
                 <button
                   type="button"
@@ -184,7 +191,7 @@ export function ResourceWorkload({
             <>
               <tr>
                 <td
-                  colSpan={7}
+                  colSpan={raidEnabled ? 7 : 6}
                   className="bg-surface-muted px-3 py-1.5"
                 >
                   <span className="font-semibold text-foreground">
@@ -231,9 +238,11 @@ export function ResourceWorkload({
                   >
                     {row.overdueCount}
                   </td>
-                  <td className="px-3 py-2 text-right tabular-nums text-foreground">
-                    {row.raidOpenCount}
-                  </td>
+                  {raidEnabled && (
+                    <td className="px-3 py-2 text-right tabular-nums text-foreground">
+                      {row.raidOpenCount}
+                    </td>
+                  )}
                   <td className="px-3 py-2 text-right tabular-nums">
                     <button
                       type="button"

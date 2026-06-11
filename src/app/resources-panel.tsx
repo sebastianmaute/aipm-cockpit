@@ -71,6 +71,7 @@ interface Props {
   absences: readonly Absence[];
   shifts: readonly Shift[];
   raid: readonly RaidItem[];
+  raidEnabled: boolean;
   resources: readonly Resource[];
   today: string;
   holidaySet: ReadonlySet<string>;
@@ -119,6 +120,7 @@ function ResourcesPanelInner({
   absences,
   shifts,
   raid,
+  raidEnabled,
   resources,
   today,
   holidaySet,
@@ -583,6 +585,7 @@ function ResourcesPanelInner({
           absences={absences}
           shifts={shifts}
           raid={raid}
+          raidEnabled={raidEnabled}
           today={today}
           onEditResource={onEditResource}
           onAddResource={onAddResource}
