@@ -16,7 +16,7 @@ import {
   decodeRatesMap,
 } from "./csv-codecs";
 import {
-  emptyWorkspace, migrateWorkspaceV8, sanitizeProjectStatus, type Workspace,
+  emptyWorkspace, migrateWorkspaceV9, sanitizeProjectStatus, type Workspace,
 } from "./workspace";
 import {
   sanitizeResource, sanitizeRole, sanitizeBudgetBucket, sanitizeDiscipline,
@@ -126,10 +126,10 @@ export function rowsToWorkspace(results: PipelineResultLike[]): Workspace {
       // malformed — leave the emptyWorkspace() default
     }
   }
-  return migrateWorkspaceV8(ws);
+  return migrateWorkspaceV9(ws);
 }
 
-const SCHEMA_VERSION = "10";
+const SCHEMA_VERSION = "11";
 
 function insertStmt(table: string, columns: readonly string[], values: string[]): SqlStmt {
   const colList = columns.map((c) => `"${c}"`).join(", ");

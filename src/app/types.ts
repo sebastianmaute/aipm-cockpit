@@ -155,6 +155,9 @@ export type RaidItem = {
   description?: string;
   owner?: string;
   ownerEmail?: string;
+  /** Stable link to a Resource (see Task.resourceId / Absence.resourceId).
+   *  Optional + additive; back-filled by the V9 migration from `ownerEmail`. */
+  ownerResourceId?: number | null;
   /** 4-level severity. For category "R" this is cached from
    *  `riskSeverityFromMatrix(probability, impact)`. */
   severity?: RaidSeverity;
@@ -363,6 +366,9 @@ export type Shift = {
   /** Length-7 tuple of weekday hours, 0 ≤ h ≤ 24. */
   hoursPerWeekday: WeekHours;
   note?: string;
+  /** Stable link to a Resource (see Task.resourceId / Absence.resourceId).
+   *  Optional + additive; back-filled by the V9 migration from `assigneeEmail`. */
+  resourceId?: number | null;
   /** ISO 8601 — set on every save for sync/conflict detection. */
   localModifiedAt?: string;
 };

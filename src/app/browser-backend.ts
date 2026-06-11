@@ -51,7 +51,7 @@ import {
   type StorageBackend,
   type Workspace,
   emptyWorkspace,
-  migrateWorkspaceV8,
+  migrateWorkspaceV9,
 } from "./workspace";
 
 /**
@@ -179,7 +179,7 @@ export class BrowserBackend implements StorageBackend {
 
     const raw: Workspace = { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, milestones, changes, stakeholders };
     if (project) raw.project = project;
-    const ws = migrateWorkspaceV8(raw);
+    const ws = migrateWorkspaceV9(raw);
 
     try {
       if (ws.resources !== raw.resources) await idbBulkUpdate(IDB_RESOURCES_STORE, ws.resources, []);

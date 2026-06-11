@@ -45,7 +45,7 @@ import {
 } from "./types";
 import type { ExportConfig } from "./settings-types";
 import { EXPORT_SECTION_KEYS } from "./settings-types";
-import { type Workspace, migrateWorkspaceV8, sanitizeProjectStatus } from "./workspace";
+import { type Workspace, migrateWorkspaceV9, sanitizeProjectStatus } from "./workspace";
 import {
   PROJECT_CSV_COLUMNS,
   STATUS_FIELDS,
@@ -80,6 +80,7 @@ const RAID_MD_COLUMNS: Array<{ key: keyof RaidItem; label: string }> = [
   { key: "status", label: "Status" },
   { key: "owner", label: "Owner" },
   { key: "ownerEmail", label: "OwnerEmail" },
+  { key: "ownerResourceId", label: "OwnerResourceId" },
   { key: "mitigation", label: "Mitigation" },
   { key: "linkedTaskIds", label: "LinkedTasks" },
   { key: "raisedDate", label: "Raised" },
@@ -109,6 +110,7 @@ const SHIFTS_MD_COLUMNS: readonly { col: string; label: string }[] = [
   { col: "id", label: "ID" },
   { col: "assignee", label: "Assignee" },
   { col: "assigneeEmail", label: "Email" },
+  { col: "resourceId", label: "ResourceId" },
   { col: "sunHours", label: "Sun" },
   { col: "monHours", label: "Mon" },
   { col: "tueHours", label: "Tue" },
@@ -745,6 +747,7 @@ function markdownToShifts(md: string): Shift[] {
     else if (norm === "assignee") colMap[idx] = "assignee";
     else if (norm === "email" || norm === "assigneeemail")
       colMap[idx] = "assigneeEmail";
+    else if (norm === "resourceid") colMap[idx] = "resourceId";
     else if (norm === "sun" || norm === "sunhours") colMap[idx] = "sunHours";
     else if (norm === "mon" || norm === "monhours") colMap[idx] = "monHours";
     else if (norm === "tue" || norm === "tuehours") colMap[idx] = "tueHours";
@@ -943,6 +946,7 @@ function markdownToRaid(md: string): RaidItem[] {
     else if (norm === "status") colMap[idx] = "status";
     else if (norm === "owner") colMap[idx] = "owner";
     else if (norm === "owneremail") colMap[idx] = "ownerEmail";
+    else if (norm === "ownerresourceid") colMap[idx] = "ownerResourceId";
     else if (norm === "mitigation") colMap[idx] = "mitigation";
     else if (norm === "linkedtasks" || norm === "linkedtaskids")
       colMap[idx] = "linkedTaskIds";
@@ -1004,7 +1008,7 @@ export function markdownToWorkspace(md: string): Workspace {
   };
   const project = s.projectMd.trim() ? markdownToProject(s.projectMd) : null;
   if (project) ws.project = project;
-  return migrateWorkspaceV8(ws);
+  return migrateWorkspaceV9(ws);
 }
 
 function markdownToTasks(md: string): Task[] {

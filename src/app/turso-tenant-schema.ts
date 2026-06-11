@@ -27,7 +27,7 @@ import type { ProjectMeta } from "./types";
 export const PROJECTS_TABLE = "projects";
 // Multi-tenant schema version. Intentionally distinct from the single-tenant
 // turso-schema.ts version ("9"); the two schemas evolve independently.
-const SCHEMA_VERSION = "11";
+const SCHEMA_VERSION = "12";
 
 const text = (value: string): { type: "text"; value: string } => ({ type: "text", value });
 

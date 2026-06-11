@@ -60,7 +60,7 @@ import {
 } from "./types";
 import type { ExportConfig } from "./settings-types";
 import { EXPORT_SECTION_KEYS } from "./settings-types";
-import { type Workspace, migrateWorkspaceV8, sanitizeProjectStatus } from "./workspace";
+import { type Workspace, migrateWorkspaceV9, sanitizeProjectStatus } from "./workspace";
 
 export const CSV_COLUMNS: Array<keyof Task> = [
   "id",
@@ -112,6 +112,7 @@ export const RAID_CSV_COLUMNS: Array<keyof RaidItem> = [
   "status",
   "owner",
   "ownerEmail",
+  "ownerResourceId",
   "mitigation",
   "linkedTaskIds",
   "raisedDate",
@@ -145,6 +146,7 @@ export const SHIFTS_CSV_COLUMNS: readonly string[] = [
   "id",
   "assignee",
   "assigneeEmail",
+  "resourceId",
   "sunHours",
   "monHours",
   "tueHours",
@@ -198,6 +200,8 @@ export function shiftFieldToString(s: Shift, col: string): string {
       return s.assignee;
     case "assigneeEmail":
       return s.assigneeEmail ?? "";
+    case "resourceId":
+      return s.resourceId == null ? "" : String(s.resourceId);
     case "sunHours":
       return String(s.hoursPerWeekday[0]);
     case "monHours":
@@ -335,6 +339,7 @@ export function buildRaidItemFromObj(obj: Record<string, string>): RaidItem | nu
     status,
     owner: obj.owner || undefined,
     ownerEmail: obj.ownerEmail || undefined,
+    ownerResourceId: Number(obj.ownerResourceId) || undefined,
     mitigation: obj.mitigation || undefined,
     linkedTaskIds: parseLinkedTaskIds(obj.linkedTaskIds),
     raisedDate: obj.raisedDate ?? "",
@@ -1351,7 +1356,7 @@ export function csvToWorkspace(csv: string): Workspace {
   };
   const project = s.projectText.trim() ? csvToProject(s.projectText) : null;
   if (project) ws.project = project;
-  return migrateWorkspaceV8(ws);
+  return migrateWorkspaceV9(ws);
 }
 
 /**

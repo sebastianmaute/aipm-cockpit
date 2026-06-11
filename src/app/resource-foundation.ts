@@ -5,9 +5,11 @@ import {
   type Absence,
   type Discipline,
   type Grade,
+  type RaidItem,
   type Resource,
   type ResourcePlan,
   type Role,
+  type Shift,
   type Task,
 } from "./types";
 
@@ -74,6 +76,71 @@ export function backfillResources(
     return r ? { ...a, resourceId: r.id } : a;
   });
   return { resources: Array.from(byKey.values()), tasks: outTasks, absences: outAbsences };
+}
+
+/**
+ * Build a case-folded email -> Resource.id lookup. Resources with no email
+ * are skipped. When two resources share an email (case-insensitively), the
+ * first wins — matching the first-seen-casing convention in backfillResources.
+ */
+function emailToResourceId(resources: readonly Resource[]): Map<string, number> {
+  const byEmail = new Map<string, number>();
+  for (const r of resources) {
+    const email = (r.email ?? "").trim().toLowerCase();
+    if (!email || byEmail.has(email)) continue;
+    byEmail.set(email, r.id);
+  }
+  return byEmail;
+}
+
+/**
+ * Idempotently fill an unset (null/undefined) `resourceId` FK on each
+ * absence/raid/shift by case-folded email match against Resource.email.
+ * Never overwrites an already-set FK; leaves the denormalized name/email
+ * cache untouched. Resources with no email are ignored. Pure: returns NEW
+ * arrays only when something changed (so reference-equality callers can
+ * detect a no-op).
+ */
+export function backfillResourceFks(
+  resources: readonly Resource[],
+  absences: readonly Absence[],
+  raid: readonly RaidItem[],
+  shifts: readonly Shift[],
+): { absences: Absence[]; raid: RaidItem[]; shifts: Shift[] } {
+  const byEmail = emailToResourceId(resources);
+  const lookup = (email: string | undefined): number | undefined => {
+    const key = (email ?? "").trim().toLowerCase();
+    return key ? byEmail.get(key) : undefined;
+  };
+  let absencesChanged = false;
+  const outAbsences = absences.map((a) => {
+    if (a.resourceId != null) return a;
+    const id = lookup(a.assigneeEmail);
+    if (id === undefined) return a;
+    absencesChanged = true;
+    return { ...a, resourceId: id };
+  });
+  let raidChanged = false;
+  const outRaid = raid.map((r) => {
+    if (r.ownerResourceId != null) return r;
+    const id = lookup(r.ownerEmail);
+    if (id === undefined) return r;
+    raidChanged = true;
+    return { ...r, ownerResourceId: id };
+  });
+  let shiftsChanged = false;
+  const outShifts = shifts.map((s) => {
+    if (s.resourceId != null) return s;
+    const id = lookup(s.assigneeEmail);
+    if (id === undefined) return s;
+    shiftsChanged = true;
+    return { ...s, resourceId: id };
+  });
+  return {
+    absences: absencesChanged ? outAbsences : (absences as Absence[]),
+    raid: raidChanged ? outRaid : (raid as RaidItem[]),
+    shifts: shiftsChanged ? outShifts : (shifts as Shift[]),
+  };
 }
 
 /** Next monotonic id for an entity array (1-based). */

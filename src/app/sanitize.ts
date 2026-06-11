@@ -479,6 +479,7 @@ export function sanitizeShift(input: unknown): Shift | null {
         : undefined,
     hoursPerWeekday,
     note: sanitizeNotes(raw.note) || undefined,
+    resourceId: toNumber(raw.resourceId) || undefined,
     localModifiedAt:
       typeof raw.localModifiedAt === "string"
         ? raw.localModifiedAt

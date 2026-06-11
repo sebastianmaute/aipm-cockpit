@@ -7,6 +7,7 @@
 // reverse. Extracted from storage.ts (which re-exports everything).
 
 import {
+  backfillResourceFks,
   backfillResources,
   defaultResourcePlan,
   seedDisciplines,
@@ -85,7 +86,7 @@ export type Workspace = {
   project?: Readonly<ProjectMeta>;
 };
 
-const SCHEMA_VERSION = 10;
+const SCHEMA_VERSION = 11;
 
 /** A blank workspace with a default plan anchored to today. */
 export function emptyWorkspace(): Workspace {
@@ -155,6 +156,29 @@ export function migrateWorkspaceV7(ws: Workspace): Workspace {
 export function migrateWorkspaceV8(ws: Workspace): Workspace {
   const base = migrateWorkspaceV7(ws);
   return base.stakeholders ? base : { ...base, stakeholders: [] };
+}
+
+/**
+ * v9 migration: back-fill the optional person-FK fields toward the Resource
+ * registry by case-folded email match. Runs after v8.
+ *   - Absence.resourceId   from assigneeEmail
+ *   - RaidItem.ownerResourceId from ownerEmail
+ *   - Shift.resourceId     from assigneeEmail
+ * Only blank (null/undefined) FKs are filled; already-set FKs are never
+ * overwritten. The denormalized name/email caches are left untouched.
+ * Idempotent — reuses arrays unchanged when nothing matched.
+ */
+export function migrateWorkspaceV9(ws: Workspace): Workspace {
+  const base = migrateWorkspaceV8(ws);
+  const filled = backfillResourceFks(base.resources, base.absences, base.raid, base.shifts);
+  if (
+    filled.absences === base.absences &&
+    filled.raid === base.raid &&
+    filled.shifts === base.shifts
+  ) {
+    return base;
+  }
+  return { ...base, absences: filled.absences, raid: filled.raid, shifts: filled.shifts };
 }
 
 // --- Storage configuration -------------------------------------------------
@@ -289,7 +313,7 @@ export function jsonToWorkspace(text: string): Workspace {
       const project = sanitizeProjectMeta(p.project);
       if (project) raw.project = project;
     }
-    return migrateWorkspaceV8(raw);
+    return migrateWorkspaceV9(raw);
   } catch {
     return emptyWorkspace();
   }
