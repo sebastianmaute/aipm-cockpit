@@ -14,6 +14,7 @@ import { isModuleEnabled } from "./feature-modules";
 import { DEFAULT_EXTRA_REPORTS } from "./addable-reports";
 import type { ToolDispatcher } from "./chat-tools";
 import type { UseSnapshotsResult } from "./use-snapshots";
+import type { UseVersionHistoryResult } from "./use-version-history";
 import type { ActivityEntry, ActivityKind } from "./activity-log";
 import type { Absence, BudgetBucket, ChangeItem, ProjectMeta, RaidItem, Resource, Shift, Stakeholder, Task } from "./types";
 import type { ProjectRegistryEntry } from "./projects-registry";
@@ -86,6 +87,10 @@ const TrendsPanel = dynamic(
   () => import("./trends-panel").then((m) => m.TrendsPanel),
   { ssr: false },
 );
+const HistoryPanel = dynamic(
+  () => import("./history-panel").then((m) => m.HistoryPanel),
+  { ssr: false },
+);
 const ProjectsPanel = dynamic(
   () => import("./projects-panel").then((m) => m.ProjectsPanel),
   { ssr: false },
@@ -145,6 +150,7 @@ export interface WorkspaceSectionProps {
   onRefreshFx: () => void;
   fxLoading?: boolean;
   trends: UseSnapshotsResult & { active: boolean };
+  versionHistory: UseVersionHistoryResult;
   // Multi-project (Projects view). The mutating callbacks are no-ops in popouts
   // (their hook implementations early-return on isPopout); the panel still
   // renders read-only there, matching every other panel. Mode-aware: file mode
@@ -216,6 +222,7 @@ export function WorkspaceSection({
   fxLoading = false,
   fullBleed = false,
   trends,
+  versionHistory,
   mode,
   projects,
   currentProjectId,
@@ -794,6 +801,17 @@ export function WorkspaceSection({
               captureNow={trends.captureNow}
               setBaseline={trends.setBaseline}
               deleteSnapshot={trends.deleteSnapshot}
+            />
+          </div>
+        )}
+
+        {activeTab === "history" && (
+          <div id="panel-history" role="tabpanel" className={panelScrollClass}>
+            <HistoryPanel
+              lang={lang}
+              versions={versionHistory.versions}
+              busy={versionHistory.busy}
+              onCaptureNow={(label) => void versionHistory.captureNow(label)}
             />
           </div>
         )}

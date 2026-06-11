@@ -9,6 +9,7 @@ export type AppView =
   | "open-points"
   | "dashboard"
   | "trends"
+  | "history"
   | "chat"
   | "gantt"
   | "milestones"
@@ -49,7 +50,7 @@ export const NAV_GROUPS: NavGroup[] = [
   },
   {
     labelKey: "navGroupOverview",
-    items: [{ view: "dashboard" }, { view: "trends" }, { view: "open-points" }, { view: "chat" }],
+    items: [{ view: "dashboard" }, { view: "trends" }, { view: "history" }, { view: "open-points" }, { view: "chat" }],
   },
   {
     labelKey: "navGroupPlan",
@@ -88,6 +89,7 @@ const LABEL_KEYS: Record<Exclude<AppView, "edit">, TranslationKey> = {
   projects: "navProjects",
   dashboard: "navDashboard",
   trends: "navTrends",
+  history: "navHistory",
   "open-points": "navOpenPoints",
   chat: "tabChat",
   gantt: "tabGantt",
@@ -121,17 +123,30 @@ export function allNavViews(): AppView[] {
   return ALL_NAV_VIEWS;
 }
 
+/** Views that are only reachable on a Turso backend. They are pruned from the
+ *  nav when `storageKind !== "turso"` so they never render a dead tab on the
+ *  file backend. "history" is gated this way (version history lives in Turso). */
+const TURSO_ONLY_VIEWS: readonly AppView[] = ["history"];
+
 /** NAV_GROUPS pruned to enabled views: disabled items and children removed,
- *  and any group left with no items dropped. Core views always survive. */
-export function filterNavGroups(features: readonly FeatureModuleId[]): NavGroup[] {
+ *  and any group left with no items dropped. Core views always survive.
+ *  Turso-only views (see TURSO_ONLY_VIEWS) are additionally pruned unless the
+ *  current storage backend is Turso. */
+export function filterNavGroups(
+  features: readonly FeatureModuleId[],
+  storageKind?: string,
+): NavGroup[] {
+  const onTurso = storageKind === "turso";
+  const keepView = (view: AppView): boolean =>
+    isViewEnabled(view, features) && (onTurso || !TURSO_ONLY_VIEWS.includes(view));
   return NAV_GROUPS.map((group) => ({
     ...group,
     items: group.items
-      .filter((item) => isViewEnabled(item.view, features))
+      .filter((item) => keepView(item.view))
       .map((item) => ({
         ...item,
         children: item.children
-          ? item.children.filter((c) => isViewEnabled(c.view, features))
+          ? item.children.filter((c) => keepView(c.view))
           : undefined,
       })),
   })).filter((group) => group.items.length > 0);

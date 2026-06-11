@@ -8,6 +8,26 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.66.0] - 2026-06-11 "Egan"
+
+Data version history — capture & timeline (Turso only; first slice).
+
+### Added
+- On the Turso backend, the app now keeps a per-project version history. Edits
+  are captured automatically a few minutes after they settle (rapid changes
+  coalesce into one version), and you can save a named checkpoint at any time
+  via "Save version now". A new **History** view (shown only on Turso) lists the
+  timeline. Comparing versions and restoring are coming in the next releases.
+- Automatic versions are pruned to the most recent 50 per project; named
+  checkpoints are kept. (A configurable retention setting arrives in a later
+  slice.)
+
+### Notes
+- Backward compatible: version history is a separate append-only table; existing
+  workspaces, exports, and the relational data are unaffected — no schema change
+  to existing tables and no migration. The feature is hidden and inert on the
+  file/IndexedDB backends.
+
 ## [0.65.0] - 2026-06-11 "Cherryh"
 
 Resource-linked project contacts — the final slice of the person-identity
