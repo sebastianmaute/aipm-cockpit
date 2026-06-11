@@ -935,6 +935,11 @@ const enUS = {
   resourcesUnlinked: "Unlinked",
   resourcesUnlinkedHint: "Not in the address book",
   resourcesAddAsResource: "Add as resource",
+  resourcePickerAddAsResource: "+ Add “{0}” as resource",
+  resourcePickerLinked: "Linked to a resource",
+  resourcePickerUnlink: "Unlink from resource",
+  resourcePickerResourcesGroup: "Resources",
+  resourcePickerRecentGroup: "Recent",
 
   taskAddAssigneeToAddressBook: "Add to address book",
 

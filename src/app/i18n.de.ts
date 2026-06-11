@@ -953,6 +953,11 @@ export const de: Record<TranslationKey, string> = {
   resourcesUnlinked: "Nicht zugeordnet",
   resourcesUnlinkedHint: "Nicht im Verzeichnis",
   resourcesAddAsResource: "Als Ressource hinzufügen",
+  resourcePickerAddAsResource: "+ „{0}“ als Ressource hinzufügen",
+  resourcePickerLinked: "Mit einer Ressource verknüpft",
+  resourcePickerUnlink: "Verknüpfung aufheben",
+  resourcePickerResourcesGroup: "Ressourcen",
+  resourcePickerRecentGroup: "Zuletzt verwendet",
 
   taskAddAssigneeToAddressBook: "Zum Adressbuch hinzufügen",
 
