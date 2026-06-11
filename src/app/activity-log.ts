@@ -46,7 +46,8 @@ export type ActivityKind =
   | "role.deleted"
   | "settings.updated"
   | "doc.linkAdded"
-  | "doc.linkRemoved";
+  | "doc.linkRemoved"
+  | "history.restore";
 
 export interface ActivityEntry {
   /** Monotonic id within the current log; not a timestamp. Used as a React key. */
@@ -100,6 +101,7 @@ export const ACTIVITY_KIND_TO_KEY: Record<ActivityKind, TranslationKey> = {
   "settings.updated": "activitySettingsUpdated", // no args — no {0}/{1} placeholder
   "doc.linkAdded": "activityDocLinkAdded",
   "doc.linkRemoved": "activityDocLinkRemoved",
+  "history.restore": "activityHistoryRestore",
 };
 
 const ACTIVITY_KINDS: ReadonlySet<ActivityKind> = new Set(
