@@ -174,6 +174,12 @@ export const de: Record<TranslationKey, string> = {
     "Die Projektliste konnte nicht gespeichert werden – der Browser-Speicher ist möglicherweise voll oder deaktiviert. Änderungen an der Liste gehen beim Neuladen eventuell verloren.",
   storageLoadFailed: "Aufgaben konnten nicht geladen werden: {0}",
   storageSaveFailed: "Aufgaben konnten nicht gespeichert werden: {0}",
+  projectCreateFailed: "Projekt konnte nicht erstellt werden: {0}",
+  projectUpdateFailed: "Projektdetails konnten nicht gespeichert werden: {0}",
+  projectArchiveFailed: "Projekt konnte nicht archiviert werden: {0}",
+  projectRestoreFailed: "Projekt konnte nicht wiederhergestellt werden: {0}",
+  projectHardDeleteFailed: "Projekt konnte nicht endgültig gelöscht werden: {0}",
+  projectRepointFailed: "Wechsel zu einem anderen Projekt fehlgeschlagen: {0}",
   toastFirstMigrationNotice:
     "Benachrichtigungs-Standard aktualisiert: Erinnerungen erscheinen jetzt als Toasts. Banner und Pop-ups sind aus – anpassbar unter Einstellungen → Benachrichtigungen.",
   storageNotReady:

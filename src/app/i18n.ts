@@ -168,6 +168,12 @@ const enUS = {
     "Couldn't save your project list — browser storage may be full or disabled. Changes to the list may be lost when you reload.",
   storageLoadFailed: "Couldn't load tasks: {0}",
   storageSaveFailed: "Couldn't save tasks: {0}",
+  projectCreateFailed: "Couldn't create the project: {0}",
+  projectUpdateFailed: "Couldn't save the project details: {0}",
+  projectArchiveFailed: "Couldn't archive the project: {0}",
+  projectRestoreFailed: "Couldn't restore the project: {0}",
+  projectHardDeleteFailed: "Couldn't delete the project: {0}",
+  projectRepointFailed: "Couldn't switch to another project: {0}",
   toastFirstMigrationNotice:
     "Notification defaults updated: reminders now appear as toasts. Banners and pop-ups are off — change this in Settings → Notifications.",
   storageNotReady: "Storage isn't configured yet — pick a file in Settings.",

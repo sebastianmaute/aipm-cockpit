@@ -94,7 +94,8 @@ import { exportWorkspace, type ExportFormat } from "./export";
 import { ProjectEmptyState } from "./project-empty-state";
 import type { ProjectSwitcherProps } from "./project-switcher";
 import { loadPortfolioMode, type PortfolioMode } from "./portfolio-mode";
-import { listProjects, listArchivedProjects, updateProjectMeta as tursoUpdateMeta } from "./turso-portfolio";
+import { listProjects, listArchivedProjects } from "./turso-portfolio";
+import { useTursoProjects } from "./use-turso-projects";
 import type { ProjectListEntry } from "./turso-tenant-schema";
 import type { ProjectRegistryEntry } from "./projects-registry";
 
@@ -970,96 +971,32 @@ function TaskManagerInner() {
     [portfolioMode, switchToTursoProject, switchToProject],
   );
 
-  // Create — the panel/empty-state callback is (meta, format); Turso ignores the
-  // file format and refreshes the shared list afterwards.
-  const handleCreateProjectByMode = useCallback(
-    (meta: ProjectMeta, format: "json" | "csv" | "md") => {
-      if (portfolioMode === "turso") {
-        void (async () => {
-          await createTursoProject(meta);
-          await refreshTursoProjects();
-        })();
-      } else {
-        createProject(meta, format);
-      }
-    },
-    [portfolioMode, createTursoProject, refreshTursoProjects, createProject],
-  );
-
-  // Update current project meta — Turso writes the projects-table row, mirrors
-  // it into the in-memory workspace, and refreshes the list.
-  const handleUpdateCurrentProjectByMode = useCallback(
-    (meta: ProjectMeta) => {
-      if (portfolioMode === "turso") {
-        const cfg = getTursoConfig(
-          settings.integrations?.turso?.databaseUrl,
-          settings.integrations?.turso?.authToken,
-        );
-        if (cfg && tursoProjectId) {
-          void (async () => {
-            await tursoUpdateMeta(cfg, meta, tursoProjectId);
-            setProject(meta);
-            await refreshTursoProjects();
-          })();
-        }
-      } else {
-        handleUpdateCurrentProject(meta);
-      }
-    },
-    [portfolioMode, settings.integrations?.turso?.databaseUrl, settings.integrations?.turso?.authToken, tursoProjectId, setProject, refreshTursoProjects, handleUpdateCurrentProject],
-  );
-
-  // Re-point the active project after archiving/hard-deleting it: if the affected
-  // id was active and it's now gone from the refreshed active list, switch to the
-  // first remaining active project (none remaining → the empty-state takes over).
-  const repointAfterRemoval = useCallback(
-    (removedId: string) => {
-      if (tursoProjectId !== removedId) return;
-      const cfg = getTursoConfig(
-        settings.integrations?.turso?.databaseUrl,
-        settings.integrations?.turso?.authToken,
-      );
-      if (!cfg) return;
-      void (async () => {
-        const remaining = await listProjects(cfg);
-        const survivor = remaining.find((p) => p.id !== removedId);
-        if (survivor) void switchToTursoProject(survivor.id);
-      })();
-    },
-    [tursoProjectId, settings.integrations?.turso?.databaseUrl, settings.integrations?.turso?.authToken, switchToTursoProject],
-  );
-
-  const handleArchiveTursoProject = useCallback(
-    (id: string) => {
-      void (async () => {
-        await archiveTursoProject(id);
-        await refreshTursoProjects();
-        repointAfterRemoval(id);
-      })();
-    },
-    [archiveTursoProject, refreshTursoProjects, repointAfterRemoval],
-  );
-
-  const handleRestoreTursoProject = useCallback(
-    (id: string) => {
-      void (async () => {
-        await restoreTursoProject(id);
-        await refreshTursoProjects();
-      })();
-    },
-    [restoreTursoProject, refreshTursoProjects],
-  );
-
-  const handleHardDeleteTursoProject = useCallback(
-    (id: string) => {
-      void (async () => {
-        await hardDeleteTursoProject(id);
-        await refreshTursoProjects();
-        repointAfterRemoval(id);
-      })();
-    },
-    [hardDeleteTursoProject, refreshTursoProjects, repointAfterRemoval],
-  );
+  // Create / update-meta / archive / restore / hard-delete — extracted to
+  // use-turso-projects.ts, which also surfaces failed Turso operations as
+  // error toasts (they used to vanish silently).
+  const {
+    handleCreateProjectByMode,
+    handleUpdateCurrentProjectByMode,
+    handleArchiveTursoProject,
+    handleRestoreTursoProject,
+    handleHardDeleteTursoProject,
+  } = useTursoProjects({
+    portfolioMode,
+    lang,
+    showToast,
+    tursoDatabaseUrl: settings.integrations?.turso?.databaseUrl,
+    tursoAuthToken: settings.integrations?.turso?.authToken,
+    tursoProjectId,
+    switchToTursoProject,
+    createTursoProject,
+    archiveTursoProject,
+    restoreTursoProject,
+    hardDeleteTursoProject,
+    refreshTursoProjects,
+    setProject,
+    createFileProject: createProject,
+    updateCurrentFileProject: handleUpdateCurrentProject,
+  });
 
   const editingTask =
     editingId !== null
