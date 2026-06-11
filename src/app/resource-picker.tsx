@@ -12,7 +12,7 @@
 // as a fallback when the FK is dangling (resource deleted). Keyboard + popover
 // behavior is lifted from the now-removed ContactInput.
 
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useId, useMemo, useRef, useState } from "react";
 import type React from "react";
 import type { Contact } from "./contacts";
 import { type Lang, t } from "./i18n";
@@ -207,7 +207,7 @@ export function ResourcePicker({
         )}
       </div>
 
-      {open && rows.length > 0 && (
+      {open && !disabled && rows.length > 0 && (
         <ul
           id={listboxId}
           role="listbox"
@@ -216,38 +216,53 @@ export function ResourcePicker({
           {rows.map((row, idx) => {
             const active = idx === highlight;
             const key = row.kind === "resource" ? `r${row.id}` : row.kind === "contact" ? `c${row.name}` : "add";
+            // Section headers: emit before the FIRST row of each kind. Headers are
+            // role="presentation" (not options) so they stay out of rows[]/highlight indexing.
+            const firstResource = row.kind === "resource" && idx === rows.findIndex((r) => r.kind === "resource");
+            const firstContact = row.kind === "contact" && idx === rows.findIndex((r) => r.kind === "contact");
             return (
-              <li
-                key={key}
-                role="option"
-                aria-selected={active}
-                onMouseEnter={() => setHighlight(idx)}
-                className={`px-3 py-1.5 text-sm ${active ? "bg-surface-muted" : "hover:bg-surface-muted"}`}
-              >
-                <button
-                  type="button"
-                  // onMouseDown runs before the input blur that would close the popover.
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    choose(row);
-                  }}
-                  className="flex w-full min-w-0 flex-col items-start text-left"
+              <Fragment key={key}>
+                {firstResource && (
+                  <li role="presentation" className="px-3 py-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    {t(lang, "resourcePickerResourcesGroup")}
+                  </li>
+                )}
+                {firstContact && (
+                  <li role="presentation" className="px-3 py-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    {t(lang, "resourcePickerRecentGroup")}
+                  </li>
+                )}
+                <li
+                  role="option"
+                  aria-selected={active}
+                  onMouseEnter={() => setHighlight(idx)}
+                  className={`px-3 py-1.5 text-sm ${active ? "bg-surface-muted" : "hover:bg-surface-muted"}`}
                 >
-                  {row.kind === "add" ? (
-                    <span className="font-medium text-AIPM-green">
-                      {t(lang, "resourcePickerAddAsResource").replace("{0}", row.name)}
-                    </span>
-                  ) : (
-                    <>
-                      <span className="flex items-center gap-1.5 truncate font-medium text-foreground">
-                        {row.kind === "resource" && <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-AIPM-green" />}
-                        {row.name}
+                  <button
+                    type="button"
+                    // onMouseDown runs before the input blur that would close the popover.
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      choose(row);
+                    }}
+                    className="flex w-full min-w-0 flex-col items-start text-left"
+                  >
+                    {row.kind === "add" ? (
+                      <span className="font-medium text-AIPM-green">
+                        {t(lang, "resourcePickerAddAsResource").replace("{0}", row.name)}
                       </span>
-                      {row.email && <span className="truncate text-xs text-muted-foreground">{row.email}</span>}
-                    </>
-                  )}
-                </button>
-              </li>
+                    ) : (
+                      <>
+                        <span className="flex items-center gap-1.5 truncate font-medium text-foreground">
+                          {row.kind === "resource" && <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-AIPM-green" />}
+                          {row.name}
+                        </span>
+                        {row.email && <span className="truncate text-xs text-muted-foreground">{row.email}</span>}
+                      </>
+                    )}
+                  </button>
+                </li>
+              </Fragment>
             );
           })}
         </ul>

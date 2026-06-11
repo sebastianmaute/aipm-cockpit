@@ -83,4 +83,19 @@ describe("ResourcePicker", () => {
     fireEvent.click(screen.getByRole("button", { name: /unlink|clear link/i }));
     expect(onChange).toHaveBeenCalledWith({ name: "Ghost", email: "g@x.com", resourceId: null });
   });
+
+  it("renders sectioned Resources and Recent headers when both kinds are present", () => {
+    setup({ name: "", email: "", resourceId: null });
+    fireEvent.focus(screen.getByRole("combobox"));
+    expect(screen.getByText("Resources")).toBeInTheDocument();
+    expect(screen.getByText("Recent")).toBeInTheDocument();
+  });
+
+  it("disabled suppresses the popover and create row", () => {
+    setup({ name: "Brand New", email: "", resourceId: null }, { disabled: true });
+    // A disabled input cannot be focused, so this attempt is a no-op.
+    fireEvent.focus(screen.getByRole("combobox"));
+    expect(screen.queryAllByRole("option")).toHaveLength(0);
+    expect(screen.queryByText(/Add .* as resource/i)).toBeNull();
+  });
 });
