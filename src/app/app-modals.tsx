@@ -203,6 +203,9 @@ export function AppModals({
           isNew={editingShift.isNew}
           existingAssigneeKeys={shiftExistingAssigneeKeys}
           knownAssignees={shiftKnownAssignees}
+          resources={resources}
+          contacts={contactsList}
+          onCreateResource={onCreateResource}
           onSave={handleSaveShift}
           onDelete={handleDeleteShift}
           onClose={handleCloseShiftModal}

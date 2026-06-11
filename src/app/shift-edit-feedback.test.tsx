@@ -17,6 +17,9 @@ function setup(over: Partial<React.ComponentProps<typeof ShiftEditModal>> = {}) 
       isNew={false}
       existingAssigneeKeys={new Set()}
       knownAssignees={[]}
+      resources={[]}
+      contacts={[]}
+      onCreateResource={vi.fn(() => 1)}
       onSave={vi.fn()}
       onDelete={vi.fn()}
       onClose={vi.fn()}

@@ -12,13 +12,16 @@ import { useId, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
-import { AssigneeField, ModalEditFooter } from "./modal-edit-fields";
+import { ModalEditFooter } from "./modal-edit-fields";
+import { ResourcePicker } from "./resource-picker";
 import { useDraggable } from "./use-draggable";
 import {
   MAX_HOURS_PER_DAY,
+  type Resource,
   type Shift,
   type WeekHours,
 } from "./types";
+import type { Contact } from "./contacts";
 import { FieldNotice } from "./field-feedback";
 import { describeClamp } from "./sanitize-report";
 
@@ -32,14 +35,20 @@ interface Props {
    *  (used to block duplicate creation). The current draft's own key is
    *  excluded by the caller. */
   existingAssigneeKeys: ReadonlySet<string>;
-  /** Known assignees from tasks / existing absences / shifts for autocomplete. */
+  /** Known assignees from tasks / existing absences / shifts for autocomplete.
+   *  Retained for caller compatibility; the assignee field is now a
+   *  registry-aware ResourcePicker (resources + contacts), not a datalist. */
   knownAssignees: ReadonlyArray<{ name: string; email?: string }>;
+  /** Registry resources offered first by the assignee picker. */
+  resources: readonly Resource[];
+  /** Remembered contacts offered as a fallback by the assignee picker. */
+  contacts: Contact[];
+  /** Creates a Resource from a typed name/email and returns its id. */
+  onCreateResource: (name: string, email: string) => number;
   onSave: (next: Shift) => void;
   onDelete: (id: number) => void;
   onClose: () => void;
 }
-
-const DATALIST_ID = "shift-assignee-options";
 
 const DAY_KEYS: ReadonlyArray<
   | "shiftDaySun"
@@ -65,7 +74,9 @@ export function ShiftEditModal({
   shift,
   isNew,
   existingAssigneeKeys,
-  knownAssignees,
+  resources,
+  contacts,
+  onCreateResource,
   onSave,
   onDelete,
   onClose,
@@ -168,17 +179,29 @@ export function ShiftEditModal({
           onSubmit={handleSubmit}
           className="grid grid-cols-1 gap-4 overflow-y-auto p-5 sm:grid-cols-2"
         >
-          <AssigneeField
-            datalistId={DATALIST_ID}
-            assignee={draft.assignee}
-            assigneeEmail={draft.assigneeEmail}
-            knownAssignees={knownAssignees}
-            onAssigneeChange={(name) => update("assignee", name)}
-            onEmailChange={(email) => update("assigneeEmail", email)}
-            assigneeLabel={t(lang, "shiftAssignee")}
-            assigneeEmailLabel={t(lang, "shiftAssigneeEmail")}
-            assigneePlaceholder={t(lang, "shiftPlaceholderAssignee")}
-          />
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="font-medium text-foreground">{t(lang, "shiftAssignee")}</span>
+            <ResourcePicker
+              lang={lang}
+              value={{ name: draft.assignee, email: draft.assigneeEmail ?? "", resourceId: draft.resourceId }}
+              resources={resources}
+              contacts={contacts}
+              onCreateResource={onCreateResource}
+              onChange={(next) =>
+                setDraft((d) => (d ? { ...d, assignee: next.name, assigneeEmail: next.email || undefined, resourceId: next.resourceId } : d))
+              }
+              placeholder={t(lang, "shiftPlaceholderAssignee")}
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="font-medium text-foreground">{t(lang, "shiftAssigneeEmail")}</span>
+            <input
+              type="email"
+              value={draft.assigneeEmail ?? ""}
+              onChange={(e) => update("assigneeEmail", e.target.value || undefined)}
+              className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
+            />
+          </label>
 
           <div className="flex flex-col gap-1 text-sm sm:col-span-2">
             <span className="font-medium text-foreground">
