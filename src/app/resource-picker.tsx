@@ -42,6 +42,7 @@ export function ResourcePicker({
   disabled,
   title,
   onBlur,
+  "aria-label": ariaLabel,
   "aria-describedby": ariaDescribedBy,
   "aria-invalid": ariaInvalid,
   "aria-required": ariaRequired,
@@ -57,6 +58,7 @@ export function ResourcePicker({
   disabled?: boolean;
   title?: string;
   onBlur?: React.FocusEventHandler<HTMLInputElement>;
+  "aria-label"?: string;
   "aria-describedby"?: string;
   "aria-invalid"?: boolean;
   "aria-required"?: boolean;
@@ -185,6 +187,7 @@ export function ResourcePicker({
           maxLength={maxLength}
           disabled={disabled}
           title={title}
+          aria-label={ariaLabel}
           aria-describedby={ariaDescribedBy}
           aria-invalid={ariaInvalid}
           aria-required={ariaRequired}

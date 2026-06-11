@@ -175,6 +175,22 @@ describe("ProjectForm", () => {
     expect(manny).toEqual({ name: "Manny Manual", email: "", synced: false });
   });
 
+  it("captures a typed email for an external (free-typed) contact", () => {
+    const { onSubmit } = setup();
+    fillRequired();
+
+    fireEvent.change(contactPicker(), { target: { value: "Vera Vendor" } });
+    fireEvent.change(screen.getByPlaceholderText("email"), {
+      target: { value: "vera@vendor.com" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add" }));
+
+    fireEvent.click(saveButton());
+    const meta = onSubmit.mock.calls[0][0];
+    const vera = meta.contactPersons.find((c) => c.name === "Vera Vendor");
+    expect(vera).toEqual({ name: "Vera Vendor", email: "vera@vendor.com", synced: false });
+  });
+
   it("offers NO '+ Add as resource' row in the contact-persons picker (link-only)", () => {
     setup();
     const picker = contactPicker();

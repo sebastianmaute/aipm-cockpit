@@ -621,6 +621,17 @@ function ContactPersonsControl({
             contacts={addressBook}
             onChange={(next) => setDraft({ name: next.name, email: next.email, resourceId: next.resourceId })}
             placeholder={t(lang, "contactAddManual")}
+            aria-label={t(lang, "contactAddManual")}
+          />
+        </div>
+        <div className="min-w-0 flex-1">
+          <input
+            type="email"
+            value={draft.email}
+            placeholder="email"
+            aria-label={`${t(lang, "contactAddManual")} — email`}
+            onChange={(e) => setDraft((d) => ({ ...d, email: e.target.value }))}
+            className={inputClass}
           />
         </div>
         <button

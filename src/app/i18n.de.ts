@@ -1622,6 +1622,5 @@ export const de: Record<TranslationKey, string> = {
   projectsTursoUnreachable: "Turso-Datenbank nicht erreichbar. Prüfen Sie URL und Token in den Einstellungen.",
 
   // Contact picker
-  contactAddFromBook: "Aus Adressbuch hinzufügen",
   contactAddManual: "Manuell hinzufügen",
 };
