@@ -8,7 +8,7 @@ import type { SnapshotCadence } from "./snapshot";
 import {
   type StorageConfig,
   defaultStorageConfig,
-} from "./storage";
+} from "./workspace";
 
 export type ChatModel =
   | "claude-sonnet-4-6"

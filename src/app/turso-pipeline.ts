@@ -4,7 +4,7 @@
 // the workspace backend AND the snapshot store share one transport with one
 // place handling auth (401), unreachable networks, timeouts, and error results.
 
-import { StorageNotReadyError } from "./storage";
+import { StorageNotReadyError } from "./workspace";
 import type { PipelineResultLike, SqlStmt } from "./turso-schema";
 import type { TursoConfig } from "./turso-config";
 

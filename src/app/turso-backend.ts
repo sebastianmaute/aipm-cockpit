@@ -23,7 +23,7 @@ import {
   jsonToWorkspace,
   type StorageBackend,
   type Workspace,
-} from "./storage";
+} from "./workspace";
 import { LOAD_TIMEOUT_MS, runTursoPipeline } from "./turso-pipeline";
 import type { PipelineResultLike, SqlStmt } from "./turso-schema";
 import type { TursoConfig } from "./turso-config";
