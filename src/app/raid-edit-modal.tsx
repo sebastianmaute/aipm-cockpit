@@ -425,6 +425,10 @@ export function RaidEditModal({
                   ownerResourceId: next.resourceId,
                 })
               }
+              onBlur={(e) => {
+                const trimmed = describeTextCap(e.target.value, ASSIGNEE_MAX).value.trim();
+                onChange({ ...draft, owner: trimmed || undefined });
+              }}
               maxLength={ASSIGNEE_MAX}
               title={t(lang, "raidFieldOwnerHint")}
               aria-describedby="raid-owner-counter"
