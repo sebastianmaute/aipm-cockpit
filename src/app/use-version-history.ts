@@ -6,6 +6,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { appendVersion, listVersionMeta, pruneVersions } from "./version-store";
+import { diffWorkspaces, summarizeDiff } from "./version-diff";
+import { jsonToWorkspace } from "./workspace";
 import type { TursoConfig } from "./turso-config";
 import type { ProjectVersion, ProjectVersionMeta } from "./version-history";
 
@@ -60,6 +62,12 @@ export function useVersionHistory(args: UseVersionHistoryArgs): UseVersionHistor
       if (!active) return;
       const payload = getPayload();
       if (trigger === "auto" && payload === lastPayload.current) return; // no-op
+      let summary: string | null = null;
+      const prev = lastPayload.current;
+      if (prev && prev !== payload) {
+        try { summary = summarizeDiff(diffWorkspaces(jsonToWorkspace(prev), jsonToWorkspace(payload))) || null; }
+        catch { summary = null; } // never let a summary failure block capture
+      }
       const capturedAt = new Date().toISOString();
       counter.current += 1;
       const v: ProjectVersion = {
@@ -68,7 +76,7 @@ export function useVersionHistory(args: UseVersionHistoryArgs): UseVersionHistor
         capturedAt,
         trigger,
         label,
-        summary: null,
+        summary,
         payload,
       };
       setBusy(true);

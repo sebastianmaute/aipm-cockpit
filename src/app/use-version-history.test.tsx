@@ -55,6 +55,21 @@ describe("useVersionHistory", () => {
     expect(append.mock.calls[0][1]).toMatchObject({ trigger: "manual", label: "Before review" });
   });
 
+  it("stores a change-summary computed against the previous capture", async () => {
+    const append = vi.spyOn(store, "appendVersion").mockResolvedValue();
+    vi.spyOn(store, "pruneVersions").mockResolvedValue();
+    vi.spyOn(store, "listVersionMeta").mockResolvedValue([]);
+    const base = { raid: [], absences: [], shifts: [], resources: [], roles: [], disciplines: [],
+      grades: [], plan: {}, budgets: [], milestones: [], changes: [], stakeholders: [], status: {} };
+    let payload = JSON.stringify({ tasks: [{ id: 1, title: "A" }], ...base });
+    const { result } = renderHook(() => useVersionHistory(args({ getPayload: () => payload })));
+    await act(async () => { await result.current.captureNow("v1"); });
+    expect(append.mock.calls[0][1].summary).toBeNull(); // first capture: no previous
+    payload = JSON.stringify({ tasks: [{ id: 1, title: "B" }], ...base });
+    await act(async () => { await result.current.captureNow("v2"); });
+    expect(append.mock.calls[1][1].summary).toMatch(/1 Tasks/);
+  });
+
   it("is inert when disabled (off-Turso)", async () => {
     const append = vi.spyOn(store, "appendVersion").mockResolvedValue();
     const list = vi.spyOn(store, "listVersionMeta").mockResolvedValue([]);
