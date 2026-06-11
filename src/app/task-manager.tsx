@@ -59,6 +59,9 @@ import { useHashView } from "./use-hash-view";
 import { navLabelKey, filterNavGroups } from "./nav-config";
 import type { AppView } from "./nav-config";
 import { useSnapshots } from "./use-snapshots";
+import { useVersionHistory } from "./use-version-history";
+import { DEFAULT_VERSION_RETENTION } from "./version-history";
+import { workspaceToJson } from "./workspace";
 import { computeDashboard } from "./dashboard";
 import { getTursoConfig } from "./turso-config";
 import { defaultExportConfig, defaultSnapshotSettings } from "./settings-types";
@@ -102,6 +105,10 @@ import type { ProjectRegistryEntry } from "./projects-registry";
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
 }
+
+// Idle window before an auto version is captured after a save. Coalesces a
+// burst of saves into a single version.
+const VERSION_IDLE_MS = 180_000; // 3 minutes
 
 // TaskManagerInner consumes the FiltersProvider context. The default
 // export below wraps this in <FiltersProvider> so useFilters() works.
@@ -263,21 +270,25 @@ function TaskManagerInner() {
   const trendsActive =
     settings.storageConfig.kind === "turso" && !isPopout && snapshotsCfg.enabled &&
     isModuleEnabled("trends", settings.features);
-  const tursoConfig = getTursoConfig(
-    settings.integrations?.turso?.databaseUrl,
-    settings.integrations?.turso?.authToken,
+  const tursoConfig = useMemo(
+    () => getTursoConfig(settings.integrations?.turso?.databaseUrl, settings.integrations?.turso?.authToken),
+    [settings.integrations?.turso?.databaseUrl, settings.integrations?.turso?.authToken],
   );
   // Turso storage connectivity status — set when a load/save/snapshot op fails
   // with an unreachable host or rejected token, cleared on the next success.
   // Drives the status bubble (red) and a sticky banner (mirrors the Jira token).
   const [storageError, setStorageError] = useState<{ kind: StorageErrorKind } | null>(null);
   const [storageErrorDismissed, setStorageErrorDismissed] = useState(false);
+  // Bridges a successful save into the version-history idle-capture timer. The
+  // hook is instantiated later, so this ref is wired up via an effect below.
+  const versionNotifyRef = useRef<() => void>(() => {});
   const reportStorageOutcome = useCallback((err: unknown | null) => {
     if (err == null) {
       // Recovery: clear the error and the dismissal so a later failure re-shows
       // the banner (dismiss only hides the current failing run).
       setStorageError(null);
       setStorageErrorDismissed(false);
+      versionNotifyRef.current(); // arm version-history idle capture on a good save
       return;
     }
     const kind = tursoErrorKind(err);
@@ -521,6 +532,30 @@ function TaskManagerInner() {
     settings,
     flags: { stakeholdersEnabled, milestonesEnabled, raidEnabled, changesEnabled },
   });
+
+  // Lazily serialize the CURRENT workspace for a version-history capture. Same
+  // field set the export handler and save effect use. Placed after the
+  // stakeholders hook so all referenced values are in scope.
+  const getVersionPayload = useCallback(
+    () => workspaceToJson({
+      tasks, raid, absences, shifts, resources, roles, disciplines, grades,
+      plan, budgets, fxRates, status, project, milestones, changes, stakeholders,
+    }),
+    [tasks, raid, absences, shifts, resources, roles, disciplines, grades,
+     plan, budgets, fxRates, status, project, milestones, changes, stakeholders],
+  );
+
+  // Version history. Turso-only, main-window-only; the hook is inert otherwise.
+  const versionHistory = useVersionHistory({
+    config: tursoConfig,
+    projectId: portfolioMode === "turso" ? (tursoProjectId ?? "") : "",
+    enabled: settings.storageConfig.kind === "turso" && !isPopout,
+    idleMs: VERSION_IDLE_MS,
+    retention: DEFAULT_VERSION_RETENTION,
+    getPayload: getVersionPayload,
+    onError: reportStorageOutcome,
+  });
+  useEffect(() => { versionNotifyRef.current = versionHistory.notifySaved; }, [versionHistory.notifySaved]);
 
   const [fillTaskAssigneeOnSave, setFillTaskAssigneeOnSave] = useState(false);
 
@@ -1026,8 +1061,8 @@ function TaskManagerInner() {
   );
 
   const filteredNavGroups = useMemo(
-    () => filterNavGroups(settings.features),
-    [settings.features],
+    () => filterNavGroups(settings.features, settings.storageConfig.kind),
+    [settings.features, settings.storageConfig.kind],
   );
 
   const appMode = useMemo(() => deriveMode(settings.features), [settings.features]);
@@ -1111,6 +1146,7 @@ function TaskManagerInner() {
     onRefreshFx: refreshFx,
     fxLoading,
     trends,
+    versionHistory,
     // Multi-project (Projects view). Mutating callbacks are no-ops in popouts
     // (the hook's project functions early-return on isPopout); the panel still
     // renders read-only there, matching how other panels behave. Mode-aware: in

@@ -1278,6 +1278,7 @@ const enUS = {
   evmNoEstimates: "No task estimates yet.",
   evmCoverage: "{0} of {1} tasks have estimates",
   navTrends: "Trends",
+  navHistory: "History",
   trendsRequireTurso: "Trends require the Turso backend. Choose Turso in Settings -> Storage to record snapshots.",
   trendsNoSnapshots: "No snapshots yet. The first one is captured automatically, or use Capture snapshot now.",
   trendsNotEnough: "Not enough snapshots yet to draw a trend.",

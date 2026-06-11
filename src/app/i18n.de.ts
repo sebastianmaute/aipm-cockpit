@@ -1284,6 +1284,7 @@ export const de: Record<TranslationKey, string> = {
   evmNoEstimates: "Noch keine Aufwandsschätzungen.",
   evmCoverage: "{0} von {1} Aufgaben haben Schätzungen",
   navTrends: "Trends",
+  navHistory: "Verlauf",
   trendsRequireTurso: "Trends erfordern das Turso-Backend. Waehlen Sie Turso unter Einstellungen -> Speicher, um Snapshots aufzuzeichnen.",
   trendsNoSnapshots: "Noch keine Snapshots. Der erste wird automatisch erfasst, oder nutzen Sie Snapshot jetzt erfassen.",
   trendsNotEnough: "Noch nicht genügend Snapshots für einen Trend.",
