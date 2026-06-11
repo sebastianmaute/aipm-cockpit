@@ -4,14 +4,13 @@
 // Microsoft Graph. Token acquisition is delegated to the caller (M1's
 // useMsAuth().acquireToken).
 
+import { csvToWorkspace, workspaceToCsv } from "./csv-codecs";
 import {
   StorageNotReadyError,
-  csvToWorkspace,
   emptyWorkspace,
-  workspaceToCsv,
   type StorageBackend,
   type Workspace,
-} from "./storage";
+} from "./workspace";
 
 export interface SpFileLocation {
   hostname: string;

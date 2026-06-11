@@ -19,8 +19,9 @@ import {
   type SqlStmt, type PipelineResultLike,
 } from "./turso-schema";
 import {
-  PROJECT_CSV_COLUMNS, projectFieldToString, buildProjectFromObjLenient, type Workspace,
-} from "./storage";
+  PROJECT_CSV_COLUMNS, projectFieldToString, buildProjectFromObjLenient,
+} from "./csv-codecs";
+import type { Workspace } from "./workspace";
 import type { ProjectMeta } from "./types";
 
 export const PROJECTS_TABLE = "projects";

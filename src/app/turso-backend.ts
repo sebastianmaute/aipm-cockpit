@@ -12,11 +12,11 @@
 //     slice of the shared DB tagged with `project_id = projectId`, using the
 //     project-scoped statement builders from turso-tenant-schema.
 //
-// turso-schema.ts imports heavily from storage.ts. To avoid the circular
-// dependency  storage → turso-backend → turso-schema → storage  the schema
-// modules are imported dynamically inside load() / save() (called only at
-// runtime, never at module-init time). The type-only imports below are erased
-// at compile time and do not create a runtime cycle.
+// The schema modules are imported dynamically inside load() / save() (called
+// only at runtime, never at module-init time) — a historical guard against the
+// former storage → turso-backend → turso-schema → storage cycle, kept to defer
+// loading the heavy codec layer until a Turso backend is actually used. The
+// type-only imports below are erased at compile time.
 
 import {
   emptyWorkspace,

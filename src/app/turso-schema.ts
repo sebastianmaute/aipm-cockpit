@@ -3,7 +3,7 @@
 // Pure relational mapping for the Turso backend. DDL/INSERT/SELECT are
 // generated generically from a registry whose column sets + encoders +
 // sanitizers are the SAME ones the CSV backend uses (exported from
-// storage.ts / sanitize.ts) — so no per-field mapping is duplicated.
+// csv-codecs.ts / sanitize.ts) — so no per-field mapping is duplicated.
 
 import {
   CSV_COLUMNS, RAID_CSV_COLUMNS, ABSENCES_CSV_COLUMNS, SHIFTS_CSV_COLUMNS,
@@ -13,8 +13,11 @@ import {
   resourceFieldToString, budgetFieldToString, milestoneFieldToString, buildTaskFromObj, buildRaidItemFromObj,
   buildMilestoneFromObj, changeFieldToString, buildChangeFromObj,
   stakeholderFieldToString, buildStakeholderFromObj,
-  decodeRatesMap, emptyWorkspace, migrateWorkspaceV8, sanitizeProjectStatus, type Workspace,
-} from "./storage";
+  decodeRatesMap,
+} from "./csv-codecs";
+import {
+  emptyWorkspace, migrateWorkspaceV8, sanitizeProjectStatus, type Workspace,
+} from "./workspace";
 import {
   sanitizeResource, sanitizeRole, sanitizeBudgetBucket, sanitizeDiscipline,
   sanitizeGrade, sanitizeAbsence, sanitizeShift, sanitizeFxRates, sanitizePlan,
