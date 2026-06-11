@@ -35,10 +35,6 @@ interface Props {
    *  (used to block duplicate creation). The current draft's own key is
    *  excluded by the caller. */
   existingAssigneeKeys: ReadonlySet<string>;
-  /** Known assignees from tasks / existing absences / shifts for autocomplete.
-   *  Retained for caller compatibility; the assignee field is now a
-   *  registry-aware ResourcePicker (resources + contacts), not a datalist. */
-  knownAssignees: ReadonlyArray<{ name: string; email?: string }>;
   /** Registry resources offered first by the assignee picker. */
   resources: readonly Resource[];
   /** Remembered contacts offered as a fallback by the assignee picker. */

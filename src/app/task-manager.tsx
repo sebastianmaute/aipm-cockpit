@@ -846,15 +846,6 @@ function TaskManagerInner() {
     [tasks, absences],
   );
 
-  const shiftKnownAssignees = useMemo(
-    () => [
-      ...tasks.map((tk) => ({ name: tk.assignee, email: tk.assigneeEmail })),
-      ...absences.map((a) => ({ name: a.assignee, email: a.assigneeEmail })),
-      ...shifts.map((s) => ({ name: s.assignee, email: s.assigneeEmail })),
-    ],
-    [tasks, absences, shifts],
-  );
-
   const shiftExistingAssigneeKeys = useMemo(
     () =>
       new Set(
@@ -1392,7 +1383,6 @@ function TaskManagerInner() {
         handleDeleteAbsence={handleDeleteAbsence}
         handleCloseAbsenceModal={handleCloseAbsenceModal}
         editingShift={editingShift}
-        shiftKnownAssignees={shiftKnownAssignees}
         shiftExistingAssigneeKeys={shiftExistingAssigneeKeys}
         handleSaveShift={handleSaveShift}
         handleDeleteShift={handleDeleteShift}

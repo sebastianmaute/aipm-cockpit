@@ -43,7 +43,6 @@ export interface AppModalsProps {
 
   // Shift edit modal
   editingShift: { shift: Shift; isNew: boolean } | null;
-  shiftKnownAssignees: ReadonlyArray<{ name: string; email?: string }>;
   shiftExistingAssigneeKeys: ReadonlySet<string>;
   handleSaveShift: (next: Shift) => void;
   handleDeleteShift: (id: number) => void;
@@ -101,7 +100,6 @@ export function AppModals({
   handleDeleteAbsence,
   handleCloseAbsenceModal,
   editingShift,
-  shiftKnownAssignees,
   shiftExistingAssigneeKeys,
   handleSaveShift,
   handleDeleteShift,
@@ -202,7 +200,6 @@ export function AppModals({
           shift={editingShift.shift}
           isNew={editingShift.isNew}
           existingAssigneeKeys={shiftExistingAssigneeKeys}
-          knownAssignees={shiftKnownAssignees}
           resources={resources}
           contacts={contactsList}
           onCreateResource={onCreateResource}

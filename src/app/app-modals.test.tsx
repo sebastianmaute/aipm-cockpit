@@ -62,7 +62,6 @@ function makeProps(): AppModalsProps {
     handleDeleteAbsence: vi.fn(),
     handleCloseAbsenceModal: vi.fn(),
     editingShift: null,
-    shiftKnownAssignees: [],
     shiftExistingAssigneeKeys: new Set(),
     handleSaveShift: vi.fn(),
     handleDeleteShift: vi.fn(),

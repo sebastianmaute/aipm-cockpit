@@ -30,7 +30,6 @@ function setup(over: Partial<React.ComponentProps<typeof ShiftEditModal>> = {}) 
       shift={SHIFT}
       isNew={false}
       existingAssigneeKeys={new Set()}
-      knownAssignees={[]}
       resources={RESOURCES}
       contacts={[]}
       onCreateResource={vi.fn(() => 1)}
