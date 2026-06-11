@@ -47,6 +47,8 @@ function defaultProps(overrides?: Partial<Parameters<typeof TaskFormModal>[0]>) 
     today: "2026-05-25",
     nextId: 1,
     contactsList: [],
+    resources: [],
+    onCreateResource: vi.fn(() => 1),
     absences: [],
     tasksForDeps: [],
     uniqueGroups: [],

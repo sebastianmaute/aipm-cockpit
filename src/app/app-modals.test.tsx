@@ -70,6 +70,8 @@ function makeProps(): AppModalsProps {
     today: "2026-05-22",
     nextId: 1,
     contactsList: [],
+    resources: [],
+    onCreateResource: vi.fn(() => 1),
     absences: [],
     tasksForDeps: [],
     uniqueGroups: [],

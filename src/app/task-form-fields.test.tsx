@@ -11,6 +11,8 @@ function Harness() {
         today="2026-05-29"
         nextId={1}
         contactsList={[]}
+        resources={[]}
+        onCreateResource={vi.fn(() => 1)}
         absences={[]}
         tasksForDeps={[]}
         uniqueGroups={[]}
@@ -60,6 +62,7 @@ describe("TaskFormFields", () => {
         <form aria-label="form">
           <TaskFormFields
             lang="en-US" today="2026-05-29" nextId={1} contactsList={[]}
+            resources={[]} onCreateResource={vi.fn(() => 1)}
             absences={[]} tasksForDeps={[]} uniqueGroups={[]} uniqueLabels={[]}
             editingIsJiraLinked={false} jiraEnabled={false}
             fieldErrors={{ taskName: "errorTaskNameRequired" }} submitted

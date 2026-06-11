@@ -17,6 +17,8 @@ function Harness(props?: { fieldErrors?: TaskFieldErrors; submitted?: boolean })
         today="2026-05-29"
         nextId={1}
         contactsList={[]}
+        resources={[]}
+        onCreateResource={vi.fn(() => 1)}
         absences={[]}
         tasksForDeps={[]}
         uniqueGroups={[]}

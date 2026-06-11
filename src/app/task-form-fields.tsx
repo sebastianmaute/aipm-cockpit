@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { useId, useState } from "react";
 import { ComboInput } from "./combo-input";
 import { DocumentLinksFieldGated } from "./document-links-field-gated";
-import { ContactInput } from "./contact-input";
+import { ResourcePicker } from "./resource-picker";
 import type { listContacts } from "./contacts";
 import { DependenciesEditor } from "./dependencies-editor";
 import { formatDuration, parseDuration } from "./duration";
@@ -31,7 +31,7 @@ import { EffortProgressBar } from "./effort-progress-bar";
 import { SegmentedControl } from "./segmented-control";
 import { useTaskForm } from "./task-form-context";
 import { type TaskErrorField, type TaskFieldErrors } from "./task-validation";
-import { PRIORITIES, type Absence, type Task } from "./types";
+import { PRIORITIES, type Absence, type Resource, type Task } from "./types";
 
 // voice-button is lazy-loaded — it transitively pulls the Web Speech API
 // shims in voice.ts which we only need when the user clicks the mic.
@@ -50,6 +50,8 @@ export interface TaskFormFieldsProps {
   today: string;
   nextId: number;
   contactsList: ReturnType<typeof listContacts>;
+  resources: readonly Resource[];
+  onCreateResource: (name: string, email: string) => number;
   absences: readonly Absence[];
   tasksForDeps: readonly Task[];
   uniqueGroups: string[];
@@ -71,6 +73,8 @@ export function TaskFormFields({
   today,
   nextId,
   contactsList,
+  resources,
+  onCreateResource,
   absences,
   tasksForDeps,
   uniqueGroups,
@@ -82,7 +86,6 @@ export function TaskFormFields({
   holidaySet,
   jiraProjectKey,
   jiraDefaultIssueType,
-  onRemoveContact,
   onShowToast,
   onAddAssigneeToAddressBook,
 }: TaskFormFieldsProps) {
@@ -186,33 +189,28 @@ export function TaskFormFields({
           */}
           <div className="flex items-start gap-2">
             <div className="min-w-0 flex-1">
-              <ContactInput
+              <ResourcePicker
                 lang={lang}
-                value={form.assignee}
+                value={{ name: form.assignee, email: form.assigneeEmail, resourceId: form.resourceId }}
+                resources={resources}
                 contacts={contactsList}
-                onChangeName={(name) =>
-                  setForm((prev) => ({ ...prev, assignee: name }))
-                }
-                onChangePair={(name, email) =>
+                onChange={(next) =>
                   setForm((prev) => ({
                     ...prev,
-                    assignee: name,
-                    assigneeEmail: email,
+                    assignee: next.name,
+                    assigneeEmail: next.email,
+                    resourceId: next.resourceId,
                   }))
                 }
-                onRemoveContact={onRemoveContact}
+                onCreateResource={onCreateResource}
+                placeholder={t(lang, "assignee")}
+                maxLength={ASSIGNEE_MAX}
                 onBlur={(e) => {
                   setForm((prev) => ({ ...prev, assignee: describeTextCap(e.target.value, ASSIGNEE_MAX).value.trim() }));
                   markTouched("assignee");
                 }}
                 aria-invalid={errorFor("assignee") ? true : undefined}
                 aria-describedby={describedBy("assignee", "assignee-counter")}
-                aria-required
-                placeholder={t(lang, "placeholderAssignee")}
-                disabled={editingIsJiraLinked}
-                title={
-                  editingIsJiraLinked ? t(lang, "jiraManagedHint") : undefined
-                }
               />
             </div>
             <button

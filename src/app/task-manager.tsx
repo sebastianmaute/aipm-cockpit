@@ -536,7 +536,7 @@ function TaskManagerInner() {
       const id = computeNextId(resources);
       setResources((prev) => [
         ...prev,
-        { id, firstName, lastName, email: email || undefined, roleId: null, utilizationMode: "percent", utilization: {} },
+        { id, firstName, lastName, email: email.trim() || undefined, roleId: null, utilizationMode: "percent", utilization: {} },
       ]);
       return id;
     },

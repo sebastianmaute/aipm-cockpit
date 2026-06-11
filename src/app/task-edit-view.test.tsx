@@ -11,6 +11,8 @@ function setup(over: Partial<React.ComponentProps<typeof TaskEditView>> = {}) {
       today="2026-05-29"
       nextId={7}
       contactsList={[]}
+      resources={[]}
+      onCreateResource={vi.fn(() => 1)}
       absences={[]}
       tasksForDeps={[]}
       uniqueGroups={[]}
@@ -41,6 +43,8 @@ describe("TaskEditView", () => {
         today="2026-05-29"
         nextId={7}
         contactsList={[]}
+        resources={[]}
+        onCreateResource={vi.fn(() => 1)}
         absences={[]}
         tasksForDeps={[]}
         uniqueGroups={[]}
