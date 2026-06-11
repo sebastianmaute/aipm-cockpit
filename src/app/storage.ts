@@ -1,18 +1,17 @@
 import { SharePointBackend } from "./sharepoint-backend";
 import { TursoBackend } from "./turso-backend";
 import type { TursoConfig } from "./turso-config";
-import { type Workspace, emptyWorkspace, type LocalKind, type StorageConfig, StorageNotReadyError, type StorageBackend, workspaceToJson, jsonToWorkspace } from "./workspace"; // facade-internal
-import { idbGet, idbSet, idbDelete } from "./idb"; // facade-internal
-import { type FilePickType, type FsHandle, pickSaveFile, pickOpenFile, hasGrantedPermission, tryGrantPermission, readHandle, writeHandle } from "./fs-access"; // facade-internal
-import { workspaceToCsv, csvToWorkspace } from "./csv-codecs"; // facade-internal
-import { workspaceToMarkdown, markdownToWorkspace } from "./markdown-codecs"; // facade-internal
+import { type StorageConfig, type StorageBackend } from "./workspace"; // facade-internal
+import { type FsHandle } from "./fs-access"; // facade-internal
 import { BrowserBackend } from "./browser-backend"; // facade-internal
+import { LocalFileBackend } from "./local-file-backend"; // facade-internal
 
 export * from "./workspace";
 export * from "./fs-access";
 export * from "./csv-codecs";
 export * from "./markdown-codecs";
 export * from "./browser-backend";
+export * from "./local-file-backend";
 
 // --- IndexedDB key/value wrapper ------------------------------------------
 //
@@ -42,116 +41,6 @@ export * from "./browser-backend";
 // --- Backends --------------------------------------------------------------
 
 
-class LocalFileBackend implements StorageBackend {
-  readonly kind: LocalKind;
-  private readonly idbKey: string;
-  private readonly format: FilePickType;
-
-  constructor(kind: LocalKind) {
-    this.kind = kind;
-    this.format =
-      kind === "local-json" ? "json" : kind === "local-csv" ? "csv" : "md";
-    this.idbKey = `file-handle:${kind}`;
-  }
-
-  private async getHandle(): Promise<FsHandle | null> {
-    const handle = await idbGet<FsHandle>(this.idbKey);
-    return handle ?? null;
-  }
-
-  /**
-   * Non-interactive handle hydration. Persists a previously-obtained
-   * FileSystemFileHandle into this backend's IndexedDB slot so the next
-   * load()/save() targets that file WITHOUT showing a picker. Used by the
-   * project switcher, which keeps a per-project handle store and needs to
-   * point the active backend at the target project's file.
-   *
-   * The handle's existing read/write permission may be in the "prompt" state
-   * after a page reload; callers should re-grant via requestWriteAccess() from
-   * a user gesture if needed.
-   */
-  async setHandle(handle: FsHandle): Promise<void> {
-    await idbSet(this.idbKey, handle);
-  }
-
-  /** Reads back the handle currently bound to this backend (after a pick/open),
-   *  so callers can mirror it into a per-project handle store. */
-  async readHandle(): Promise<FsHandle | null> {
-    return this.getHandle();
-  }
-
-  async pickFile(): Promise<void> {
-    // showSaveFilePicker grants readwrite implicitly when the user picks a file.
-    const handle = await pickSaveFile(this.format);
-    await idbSet(this.idbKey, handle);
-  }
-
-  async openFile(): Promise<void> {
-    const handle = await pickOpenFile(this.format);
-    // showOpenFilePicker returns a read-only handle. We're still in the
-    // user-gesture context from the click that triggered the picker, so
-    // request readwrite now while it's allowed. If the user dismisses or
-    // the browser denies, we store the handle anyway and surface a clearer
-    // "grant access" toast the next time save() runs.
-    await tryGrantPermission(handle, "readwrite");
-    await idbSet(this.idbKey, handle);
-  }
-
-  /**
-   * Explicit upgrade to readwrite, intended to be called from a click handler.
-   * Returns whether write access is now granted.
-   */
-  async requestWriteAccess(): Promise<boolean> {
-    const handle = await this.getHandle();
-    if (!handle) return false;
-    return await tryGrantPermission(handle, "readwrite");
-  }
-
-  async clearFile(): Promise<void> {
-    await idbDelete(this.idbKey);
-  }
-
-  async describe(): Promise<string | null> {
-    const handle = await this.getHandle();
-    return handle?.name ?? null;
-  }
-
-  async isReady(): Promise<boolean> {
-    const handle = await this.getHandle();
-    if (!handle) return false;
-    return await hasGrantedPermission(handle, "readwrite");
-  }
-
-  async load(): Promise<Workspace> {
-    const handle = await this.getHandle();
-    if (!handle) throw new StorageNotReadyError("local-file-not-picked");
-    if (!(await hasGrantedPermission(handle, "read"))) {
-      throw new StorageNotReadyError("local-file-permission-needed");
-    }
-    const text = await readHandle(handle);
-    if (!text.trim()) return emptyWorkspace();
-    if (this.format === "json") return jsonToWorkspace(text);
-    if (this.format === "csv") return csvToWorkspace(text);
-    return markdownToWorkspace(text);
-  }
-
-  async save(ws: Workspace): Promise<void> {
-    const handle = await this.getHandle();
-    if (!handle) throw new StorageNotReadyError("local-file-not-picked");
-    // Query only — never call requestPermission here. This path runs from a
-    // debounced auto-save effect, which has no user activation, so requesting
-    // permission would throw SecurityError. The user re-grants explicitly via
-    // the picker buttons or the "Grant write access" button.
-    if (!(await hasGrantedPermission(handle, "readwrite"))) {
-      throw new StorageNotReadyError("local-file-permission-needed");
-    }
-    let content: string;
-    if (this.format === "json") content = workspaceToJson(ws);
-    else if (this.format === "csv") content = workspaceToCsv(ws);
-    else content = workspaceToMarkdown(ws);
-    await writeHandle(handle, content);
-  }
-}
 
 // --- Factory ---------------------------------------------------------------
 
