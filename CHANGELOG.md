@@ -8,6 +8,22 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.60.4] - 2026-06-11 "Stephenson"
+
+Performance + reliability (refactor Batch D).
+
+### Performance
+- Turso autosaves are now proportional to what changed: only tables whose data actually changed are rewritten (a status-only edit drops from ~535 statements / ~590 KB to ~20 statements / ~4 KB on a 500-task workspace), and a save with zero changes skips the network round-trip entirely.
+- The three hottest React context providers (workspace, task form, filters) memoize their value objects — unrelated panels no longer re-render on every keystroke.
+- Gantt dependency arrows use a precomputed row-index map instead of per-edge linear scans (O(n²) → O(n) per frame).
+- Browser (IndexedDB) saves and loads run their independent store operations in parallel (~17 sequential awaits → one `Promise.all`), with all-or-nothing baseline semantics pinned by tests.
+
+### Reliability
+- A failed project-registry write (localStorage quota/disabled) now shows a toast instead of silently risking the project list.
+- A pending debounced save is flushed immediately when the tab is hidden or closed (`visibilitychange`/`pagehide`) — edits made in the last 500 ms before closing are no longer lost.
+- Multi-tab Turso writes are serialized via the Web Locks API (per DB + project, 20 s bounded wait). Simultaneous editing in two tabs remains last-write-wins per table and is documented as unsupported in the README.
+- Turso project operations (create, update, archive, restore, delete, repoint) now surface failures as toasts instead of failing silently; the logic moved from `task-manager.tsx` into a tested `use-turso-projects.ts` hook, and the feature-mode redirect logic is now a tested exported function in `feature-modules.ts`.
+
 ## [0.60.3] - 2026-06-11 "Stephenson"
 
 Structural refactor (Batch C — zero behavior change; on-disk format byte-stability proven by the golden fixtures at every step).

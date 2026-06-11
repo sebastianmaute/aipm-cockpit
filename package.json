@@ -1,6 +1,6 @@
 {
   "name": "lop-app",
-  "version": "0.60.3",
+  "version": "0.60.4",
   "private": true,
   "license": "Apache-2.0",
   "scripts": {
