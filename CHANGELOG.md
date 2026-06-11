@@ -8,6 +8,24 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.69.0] - 2026-06-11 "Simmons"
+
+Version history — retention, module toggle & polish (Turso only; final slice).
+
+### Added
+- A configurable retention setting (Settings → "Version history: keep N
+  versions"; minimum 50, in steps of 10, up to 1000) controls how many automatic
+  versions are kept per project; named checkpoints are always kept.
+- Version history is now a toggleable feature-module — turn the History view on
+  or off like the other modules. While off, no versions are captured (it still
+  requires the Turso backend either way).
+
+### Changed
+- Restoring now records an immediate version checkpoint of the restored state
+  (no waiting for the next autosave).
+- Naming a manual checkpoint uses an inline themed input instead of a browser
+  prompt.
+
 ## [0.68.0] - 2026-06-11 "Brin"
 
 Version history — selective restore (Turso only; third slice).

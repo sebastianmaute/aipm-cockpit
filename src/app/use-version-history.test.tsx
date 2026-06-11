@@ -110,4 +110,20 @@ describe("useVersionHistory", () => {
     expect(changes).toHaveLength(1);
     expect(changes[0]).toMatchObject({ collection: "tasks", recordId: 1, type: "modified" });
   });
+
+  it("captures an immediate version of the restored state (no stale getPayload)", async () => {
+    const base = { raid: [], absences: [], shifts: [], resources: [], roles: [], disciplines: [],
+      grades: [], plan: {}, budgets: [], milestones: [], changes: [], stakeholders: [], status: {} };
+    const version = JSON.stringify({ tasks: [{ id: 1, title: "Old" }], ...base });
+    vi.spyOn(store, "loadVersionPayload").mockResolvedValue(version);
+    vi.spyOn(store, "pruneVersions").mockResolvedValue();
+    vi.spyOn(store, "listVersionMeta").mockResolvedValue([]);
+    const append = vi.spyOn(store, "appendVersion").mockResolvedValue();
+    const now = JSON.stringify({ tasks: [{ id: 1, title: "New" }], ...base });
+    const { result } = renderHook(() => useVersionHistory(args({ getPayload: () => now, applyWorkspace: vi.fn(), logActivity: vi.fn() })));
+    await act(async () => { await result.current.restore("v1", { "tasks:1": ["title"] }, "Baseline"); });
+    expect(append).toHaveBeenCalledTimes(1);
+    const captured = JSON.parse(append.mock.calls[0][1].payload);
+    expect(captured.tasks[0].title).toBe("Old"); // the RESTORED state was captured
+  });
 });

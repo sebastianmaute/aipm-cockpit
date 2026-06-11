@@ -569,9 +569,9 @@ function TaskManagerInner() {
   const versionHistory = useVersionHistory({
     config: tursoConfig,
     projectId: portfolioMode === "turso" ? (tursoProjectId ?? "") : "",
-    enabled: settings.storageConfig.kind === "turso" && !isPopout,
+    enabled: settings.storageConfig.kind === "turso" && !isPopout && isModuleEnabled("history", settings.features),
     idleMs: VERSION_IDLE_MS,
-    retention: DEFAULT_VERSION_RETENTION,
+    retention: settings.versionHistoryRetention ?? DEFAULT_VERSION_RETENTION,
     getPayload: getVersionPayload,
     applyWorkspace: applyRestoredWorkspace,
     logActivity,

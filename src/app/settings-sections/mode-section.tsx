@@ -9,12 +9,20 @@ import {
   type FeatureModuleId,
   deriveMode,
 } from "../feature-modules";
+import {
+  MAX_VERSION_RETENTION,
+  MIN_VERSION_RETENTION,
+  VERSION_RETENTION_STEP,
+  sanitizeVersionRetention,
+} from "../version-history";
 
 interface ModeSectionProps {
   lang: Lang;
   settings: Settings;
   /** Called only on explicit Save; the parent persists features and triggers a page reload. */
   onCommitFeatures: (features: FeatureModuleId[]) => void;
+  /** Live settings patch (version-history retention saves immediately, unlike feature modules). */
+  onChange: (s: Settings) => void;
 }
 
 function sameSet(a: readonly FeatureModuleId[], b: readonly FeatureModuleId[]): boolean {
@@ -29,7 +37,7 @@ const MODE_LABEL_KEY = {
   advanced: "modeAdvanced",
 } as const;
 
-export function ModeSection({ lang, settings, onCommitFeatures }: ModeSectionProps) {
+export function ModeSection({ lang, settings, onCommitFeatures, onChange }: ModeSectionProps) {
   const saved = settings.features;
   const [draft, setDraft] = useState<FeatureModuleId[]>(saved);
 
@@ -101,6 +109,29 @@ export function ModeSection({ lang, settings, onCommitFeatures }: ModeSectionPro
           {t(lang, "modeRetentionNote")}
         </p>
       )}
+
+      <div className="border-t border-line pt-4">
+        <label className="flex items-center gap-2 text-sm text-foreground">
+          <span className="font-medium">{t(lang, "versionRetentionLabel")}</span>
+          <input
+            type="number"
+            min={MIN_VERSION_RETENTION}
+            max={MAX_VERSION_RETENTION}
+            step={VERSION_RETENTION_STEP}
+            aria-label={t(lang, "versionRetentionLabel")}
+            value={settings.versionHistoryRetention ?? MIN_VERSION_RETENTION}
+            onChange={(e) =>
+              onChange({
+                ...settings,
+                versionHistoryRetention: sanitizeVersionRetention(e.target.value),
+              })
+            }
+            className="w-20 rounded-md border border-line px-2 py-1 text-right tabular-nums"
+          />
+          <span className="text-xs text-muted-foreground">{t(lang, "versionRetentionUnit")}</span>
+        </label>
+        <p className="mt-1 text-xs text-muted-foreground">{t(lang, "versionRetentionHelp")}</p>
+      </div>
 
       <div className="flex flex-wrap gap-2 border-t border-line pt-4">
         <button

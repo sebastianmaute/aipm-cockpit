@@ -85,7 +85,12 @@ export function SettingsView(props: SettingsViewProps) {
 
       <section className="min-w-0 flex-1 rounded-lg border border-line bg-surface p-6">
         {active === "mode" && (
-          <ModeSection lang={lang} settings={settings} onCommitFeatures={props.onCommitFeatures} />
+          <ModeSection
+            lang={lang}
+            settings={settings}
+            onCommitFeatures={props.onCommitFeatures}
+            onChange={onChange}
+          />
         )}
         {active === "appearance" && (
           <AppearanceSection lang={lang} settings={settings} onChange={onChange} />

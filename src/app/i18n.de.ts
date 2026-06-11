@@ -609,6 +609,9 @@ export const de: Record<TranslationKey, string> = {
   helpSecStorageTitle: "Speicherort",
   helpSecStorageBody:
     "Aufgaben liegen standardmäßig in der IndexedDB des Browsers (Datensatz-Updates; alte localStorage-Daten werden beim ersten Laden automatisch migriert). In den Einstellungen → Speicher auf eine lokale JSON-, CSV- oder Markdown-Datei umstellen (Chrome / Edge / Opera). Der Browser fragt beim ersten Speichern nach Schreibrechten; falls verweigert, in den Einstellungen \"Schreibzugriff erteilen\" klicken. SharePoint-Backends folgen. Die mitgelieferte sample-workspace.sqlite3 lässt sich direkt in eine Turso-Datenbank importieren (z. B. per Turso-CLI: turso db create lop-demo --from-file sample-workspace.sqlite3); anschließend die Datenbank-URL und den Token unter Einstellungen → Integrationen eintragen.",
+  helpSecVersionHistoryTitle: "Versionsverlauf (Turso)",
+  helpSecVersionHistoryBody:
+    "Wenn das Speicher-Backend Turso ist und das Modul Verlauf aktiviert ist, führt jedes Projekt einen Append-only-Verlauf vollständiger Arbeitsbereich-Versionen. Versionen werden einige Minuten nach Abschluss Ihrer Bearbeitungen automatisch erfasst (schnell aufeinanderfolgende Speichervorgänge werden zu einer Version zusammengefasst; identische Inhalte werden übersprungen), und Sie können jederzeit mit \"Version jetzt speichern\" einen benannten Prüfpunkt anlegen. In der Verlaufsansicht können Sie eine Version mit den aktuellen Daten vergleichen oder zwei Versionen markieren, um sie miteinander zu vergleichen – ein feldgenauer Vergleich, gruppiert nach Entitätstyp, mit aufklappbarem Vorher → Nachher je Datensatz. In einer Ansicht \"mit aktuellen Daten verglichen\" markieren Sie ganze Datensätze oder einzelne Felder und klicken auf \"Auswahl wiederherstellen\", um nur diese zurückzusetzen – eine zerstörungsfreie Änderung, die selbst als neue Version erfasst und im Aktivitätslog protokolliert wird. Automatische Versionen werden auf das Limit unter Einstellungen → \"Versionsverlauf: N Versionen behalten\" begrenzt (mindestens 50, in Schritten von 10); benannte Prüfpunkte werden nie entfernt.",
   helpSecAiTitle: "KI-Chat",
   helpSecAiBody:
     "API-Schlüssel unter Einstellungen → KI hinterlegen und im KI-Assistenten-Tab die Einwilligung akzeptieren. Nachrichten und Aufgabendaten werden direkt aus dem Browser an api.anthropic.com gesendet – die KI-Nutzungsrichtlinie der Acme gilt. Der Schlüssel liegt im localStorage dieses Browsers. Claude kann Aufgaben über Tool-Calls auflisten, anlegen, ändern und löschen.",
@@ -1569,6 +1572,9 @@ export const de: Record<TranslationKey, string> = {
   historyCompareSelect: "Zum Vergleich auswählen",
   historyCompareSelected: "Auswahl vergleichen",
   historyRestoreSelected: "Auswahl wiederherstellen",
+  versionRetentionLabel: "Versionsverlauf: behalten",
+  versionRetentionHelp: "Maximale Anzahl automatischer Versionen pro Projekt (benannte Checkpoints bleiben immer erhalten). Nur Turso-Backend.",
+  versionRetentionUnit: "Versionen",
   projectDocRepo: "Dokumentenablage",
   projectRegulatory: "Regulatorik",
   projectNotes: "Hinweise",

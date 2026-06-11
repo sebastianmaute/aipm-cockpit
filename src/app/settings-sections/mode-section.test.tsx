@@ -4,12 +4,18 @@ import { ModeSection } from "./mode-section";
 import { defaultSettings } from "../settings-types";
 import { ALL_MODULE_IDS } from "../feature-modules";
 
-function setup(features = [...ALL_MODULE_IDS]) {
+function setup(features = [...ALL_MODULE_IDS], settingsPatch: Partial<typeof defaultSettings> = {}) {
   const onCommit = vi.fn();
+  const onChange = vi.fn();
   render(
-    <ModeSection lang="en-US" settings={{ ...defaultSettings, features }} onCommitFeatures={onCommit} />,
+    <ModeSection
+      lang="en-US"
+      settings={{ ...defaultSettings, features, ...settingsPatch }}
+      onCommitFeatures={onCommit}
+      onChange={onChange}
+    />,
   );
-  return { onCommit };
+  return { onCommit, onChange };
 }
 
 describe("ModeSection", () => {
@@ -51,5 +57,31 @@ describe("ModeSection", () => {
     setup([...ALL_MODULE_IDS]);
     fireEvent.click(screen.getByRole("checkbox", { name: "RAID" }));
     expect(screen.getByTestId("mode-badge")).toHaveTextContent("Modular");
+  });
+
+  it("renders the version-history retention stepper with min/step bounds", () => {
+    setup();
+    const stepper = screen.getByRole("spinbutton", { name: "Version history: keep" });
+    expect(stepper).toHaveAttribute("min", "50");
+    expect(stepper).toHaveAttribute("step", "10");
+    expect(stepper).toHaveAttribute("max", "1000");
+  });
+
+  it("snaps the retention value to the nearest 10 and patches versionHistoryRetention", () => {
+    const { onChange } = setup();
+    const stepper = screen.getByRole("spinbutton", { name: "Version history: keep" });
+    fireEvent.change(stepper, { target: { value: "63" } });
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ versionHistoryRetention: 60 }),
+    );
+  });
+
+  it("clamps an over-max retention value to 1000", () => {
+    const { onChange } = setup();
+    const stepper = screen.getByRole("spinbutton", { name: "Version history: keep" });
+    fireEvent.change(stepper, { target: { value: "9999" } });
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ versionHistoryRetention: 1000 }),
+    );
   });
 });

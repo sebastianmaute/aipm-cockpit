@@ -8,7 +8,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { appendVersion, listVersionMeta, loadVersionPayload, pruneVersions } from "./version-store";
 import { diffWorkspaces, summarizeDiff } from "./version-diff";
 import type { VersionChange } from "./version-diff";
-import { jsonToWorkspace } from "./workspace";
+import { jsonToWorkspace, workspaceToJson } from "./workspace";
 import type { Workspace } from "./workspace";
 import { applyRestore } from "./version-restore";
 import type { RestoreSelection } from "./version-restore";
@@ -65,11 +65,10 @@ export function useVersionHistory(args: UseVersionHistoryArgs): UseVersionHistor
     void Promise.resolve().then(() => refresh());
   }, [refresh]);
 
-  const writeVersion = useCallback(
-    async (trigger: "auto" | "manual", label: string | null) => {
+  // Append-from-explicit-payload core (shared by writeVersion and restore).
+  const capturePayload = useCallback(
+    async (payload: string, trigger: "auto" | "manual", label: string | null) => {
       if (!active) return;
-      const payload = getPayload();
-      if (trigger === "auto" && payload === lastPayload.current) return; // no-op
       let summary: string | null = null;
       const prev = lastPayload.current;
       if (prev && prev !== payload) {
@@ -99,7 +98,17 @@ export function useVersionHistory(args: UseVersionHistoryArgs): UseVersionHistor
         setBusy(false);
       }
     },
-    [active, config, projectId, retention, getPayload, refresh, onError],
+    [active, config, projectId, retention, refresh, onError],
+  );
+
+  const writeVersion = useCallback(
+    async (trigger: "auto" | "manual", label: string | null) => {
+      if (!active) return;
+      const payload = getPayload();
+      if (trigger === "auto" && payload === lastPayload.current) return; // no-op
+      await capturePayload(payload, trigger, label);
+    },
+    [active, getPayload, capturePayload],
   );
 
   const notifySaved = useCallback(() => {
@@ -128,10 +137,11 @@ export function useVersionHistory(args: UseVersionHistoryArgs): UseVersionHistor
       const now = jsonToWorkspace(getPayload());
       const changes = diffWorkspaces(version, now);
       const restored = applyRestore(now, version, changes, selection);
+      await capturePayload(workspaceToJson(restored), "auto", null);
       applyWorkspace?.(restored);
       logActivity?.("history.restore", count, versionLabel);
     } catch (err) { onError?.(err); }
-  }, [active, config, projectId, getPayload, applyWorkspace, logActivity, onError]);
+  }, [active, config, projectId, getPayload, capturePayload, applyWorkspace, logActivity, onError]);
 
   const loadDiff = useCallback(async (fromId: string, to: string | "now"): Promise<VersionChange[]> => {
     if (!active) return [];
