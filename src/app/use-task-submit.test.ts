@@ -43,6 +43,7 @@ function validForm(): TaskFormDraft {
     pushToJira: false,
     healthOverride: "",
     documentLinks: [],
+    resourceId: undefined,
   };
 }
 
@@ -258,5 +259,48 @@ describe("useTaskSubmit — new task: id, startDate clamp, push-to-jira", () => 
     );
     act(() => result.current.handleSubmit(fakeSubmitEvent()));
     expect(push).not.toHaveBeenCalled();
+  });
+});
+
+describe("useTaskSubmit — resourceId threading", () => {
+  it("carries form.resourceId onto the created Task", () => {
+    const setTasks = vi.fn();
+    const { result } = renderHook(() =>
+      useTaskSubmit(makeArgs({
+        setTasks, tasks: [], tasksRef: { current: [] },
+        form: { ...validForm(), resourceId: 7 },
+      })),
+    );
+    act(() => result.current.handleSubmit(fakeSubmitEvent()));
+    const nextList = setTasks.mock.calls[0][0] as Task[];
+    const created = nextList[nextList.length - 1];
+    expect(created.resourceId).toBe(7);
+  });
+
+  it("carries form.resourceId onto the patched Task in the edit branch", () => {
+    const setTasks = vi.fn();
+    const existing = makeTask({ id: 1, resourceId: undefined });
+    const { result } = renderHook(() =>
+      useTaskSubmit(makeArgs({
+        setTasks, editingId: 1, tasks: [existing],
+        tasksRef: { current: [existing] },
+        form: { ...validForm(), assignee: existing.assignee, resourceId: 7 },
+      })),
+    );
+    act(() => result.current.handleSubmit(fakeSubmitEvent()));
+    const updater = setTasks.mock.calls[0][0] as (p: Task[]) => Task[];
+    const [patched] = updater([existing]);
+    expect(patched.resourceId).toBe(7);
+  });
+
+  it("openEditModal seeds form.resourceId from the task", () => {
+    const setForm = vi.fn();
+    const linked = makeTask({ id: 1, resourceId: 9 });
+    const { result } = renderHook(() =>
+      useTaskSubmit(makeArgs({ setForm })),
+    );
+    act(() => result.current.openEditModal(linked));
+    const seeded = setForm.mock.calls[0][0] as TaskFormDraft;
+    expect(seeded.resourceId).toBe(9);
   });
 });

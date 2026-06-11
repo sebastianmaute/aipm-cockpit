@@ -137,6 +137,7 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
         healthOverride: form.healthOverride || undefined,
         originalEstimateMinutes: form.originalEstimateMinutes,
         timeSpentMinutes: form.timeSpentMinutes,
+        resourceId: form.resourceId ?? undefined,
         documentLinks: form.documentLinks,
       };
 
@@ -227,6 +228,7 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
         dependencies: task.dependencies ?? [],
         originalEstimateMinutes: task.originalEstimateMinutes,
         timeSpentMinutes: task.timeSpentMinutes,
+        resourceId: task.resourceId,
         pushToJira: false,
         healthOverride: task.healthOverride ?? "",
         documentLinks: task.documentLinks ?? [],

@@ -34,6 +34,8 @@ export function emptyForm() {
     // Optional Jira-style effort, canonical MINUTES. undefined = unset.
     originalEstimateMinutes: undefined as number | undefined,
     timeSpentMinutes: undefined as number | undefined,
+    // FK -> Resource.id; null/undefined = unlinked. Set by the assignee picker.
+    resourceId: undefined as number | null | undefined,
     pushToJira: false,
     // Empty string = "Auto" (no override). Mapped to undefined on save.
     healthOverride: "" as "" | Health,
