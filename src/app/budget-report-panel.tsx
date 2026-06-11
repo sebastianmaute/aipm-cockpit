@@ -37,15 +37,15 @@ type DetailSortKey =
 
 interface Props {
   lang: Lang;
-  buckets: BudgetBucket[];
+  buckets: readonly BudgetBucket[];
   plan: ResourcePlan;
-  roles: Role[];
-  resources: Resource[];
-  absences: Absence[];
+  roles: readonly Role[];
+  resources: readonly Resource[];
+  absences: readonly Absence[];
   holidaySet: Set<string>;
   workdayHours: number;
   fxRates: FxRates | null;
-  tasks: Task[];
+  tasks: readonly Task[];
   today: string;
   embedded?: boolean;
 }

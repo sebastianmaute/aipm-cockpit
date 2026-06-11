@@ -38,7 +38,7 @@ import { useToastContext } from "./toast-context";
 
 export type RaidEditModalProps = {
   lang: Lang;
-  tasks: Task[];
+  tasks: readonly Task[];
   raid: readonly RaidItem[];
   stakeholdersEnabled: boolean;
   stakeholders: readonly Stakeholder[];

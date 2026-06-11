@@ -50,7 +50,7 @@ export type MilestoneSummary = {
 };
 
 export type ToolDispatcher = {
-  listTasks(): Task[];
+  listTasks(): readonly Task[];
   getTask(id: number): Task | null;
   createTask(input: TaskInput): Task;
   updateTask(id: number, patch: Partial<Task>): Task | null;

@@ -33,7 +33,7 @@ export function DependenciesEditor({
   value: TaskDependency[];
   /** Snapshot of all tasks; used to populate the predecessor dropdown and
    *  validate cycles. */
-  allTasks: Task[];
+  allTasks: readonly Task[];
   /** Id of the task being edited; null when creating a new task (no cycles
    *  are possible yet). */
   ownTaskId: number | null;

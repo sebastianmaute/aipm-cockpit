@@ -81,7 +81,7 @@ export function GanttPanel({
   onEditMilestone,
 }: {
   lang: Lang;
-  tasks: Task[];
+  tasks: readonly Task[];
   absences: readonly Absence[];
   milestones?: readonly Milestone[];
   onUpdateBar?: (edit: GanttBarEdit) => void;

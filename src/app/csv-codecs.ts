@@ -456,7 +456,7 @@ export function fieldToString(t: Task, c: keyof Task): string {
   return String(t[c] ?? "");
 }
 
-function tasksToCsv(tasks: Task[], neutralize = false): string {
+function tasksToCsv(tasks: readonly Task[], neutralize = false): string {
   const header = CSV_COLUMNS.join(",");
   const lines: string[] = [header];
   for (const t of tasks) {

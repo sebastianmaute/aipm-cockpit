@@ -35,7 +35,7 @@ function lastTouch(item: RaidItem): string {
 }
 
 export function getRaidReviewItems(
-  raid: RaidItem[],
+  raid: readonly RaidItem[],
   today: string,
   reviewIntervalDays: number,
 ): RaidReviewItem[] {

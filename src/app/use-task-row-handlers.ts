@@ -11,14 +11,14 @@ import type { Settings } from "./settings-types";
 import { useWorkspaceTab } from "./workspace-tab-context";
 
 export interface UseTaskRowHandlersArgs {
-  tasksRef: React.MutableRefObject<Task[]>;
+  tasksRef: React.RefObject<readonly Task[]>;
   settings: Settings;
   lang: Lang;
   today: string;
   editingId: number | null;
   showToast: (kind: "info" | "error", text: string) => void;
   openEditModal: (task: Task) => void;
-  setTasks: React.Dispatch<React.SetStateAction<Task[]>>;
+  setTasks: React.Dispatch<React.SetStateAction<readonly Task[]>>;
   setRaidFilterTaskId: React.Dispatch<React.SetStateAction<number | null>>;
   setWorkspaceCollapsed: React.Dispatch<React.SetStateAction<boolean>>;
   deselectIdRef: React.MutableRefObject<(id: number) => void>;

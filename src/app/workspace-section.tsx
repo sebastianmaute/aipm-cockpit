@@ -111,10 +111,10 @@ export interface WorkspaceSectionProps {
   handleClearRaidTaskFilter: () => void;
   handleSaveRaidItem: (item: RaidItem) => void;
   handleDeleteRaidItem: (id: number) => void;
-  changes: ChangeItem[];
+  changes: readonly ChangeItem[];
   handleSaveChange: (item: ChangeItem) => void;
   handleDeleteChange: (id: number, title: string) => void;
-  stakeholders: Stakeholder[];
+  stakeholders: readonly Stakeholder[];
   handleSaveStakeholder: (item: Stakeholder) => void;
   handleDeleteStakeholder: (id: number, name: string) => void;
   handleCreateMitigationTaskFromRaid: (raidId: number) => number | null | undefined;

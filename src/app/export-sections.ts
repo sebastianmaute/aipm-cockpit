@@ -61,7 +61,7 @@ export type ExportSection = {
 // Per-section projection helpers
 // ---------------------------------------------------------------------------
 
-function tasksSection(tasks: Task[], lang: Lang): ExportSection {
+function tasksSection(tasks: readonly Task[], lang: Lang): ExportSection {
   const columns = CSV_COLUMNS as unknown as string[];
   const rows = tasks.map((t) =>
     CSV_COLUMNS.map((c) => fieldToString(t, c))
@@ -69,7 +69,7 @@ function tasksSection(tasks: Task[], lang: Lang): ExportSection {
   return { key: "tasks", title: t(lang, "tasks"), columns, rows };
 }
 
-function raidSection(raid: RaidItem[], lang: Lang): ExportSection {
+function raidSection(raid: readonly RaidItem[], lang: Lang): ExportSection {
   const columns = RAID_CSV_COLUMNS as unknown as string[];
   const rows = raid.map((r) =>
     RAID_CSV_COLUMNS.map((c) => raidFieldToString(r, c))
@@ -77,7 +77,7 @@ function raidSection(raid: RaidItem[], lang: Lang): ExportSection {
   return { key: "raid", title: t(lang, "tabRaid"), columns, rows };
 }
 
-function milestonesSection(milestones: Milestone[], lang: Lang): ExportSection {
+function milestonesSection(milestones: readonly Milestone[], lang: Lang): ExportSection {
   const columns = MILESTONES_CSV_COLUMNS as unknown as string[];
   const rows = milestones.map((m) =>
     MILESTONES_CSV_COLUMNS.map((c) => milestoneFieldToString(m, c))
@@ -85,7 +85,7 @@ function milestonesSection(milestones: Milestone[], lang: Lang): ExportSection {
   return { key: "milestones", title: t(lang, "navMilestones"), columns, rows };
 }
 
-function changesSection(changes: ChangeItem[], lang: Lang): ExportSection {
+function changesSection(changes: readonly ChangeItem[], lang: Lang): ExportSection {
   const columns = CHANGES_CSV_COLUMNS as unknown as string[];
   const rows = changes.map((c) =>
     CHANGES_CSV_COLUMNS.map((col) => changeFieldToString(c, col))
@@ -93,7 +93,7 @@ function changesSection(changes: ChangeItem[], lang: Lang): ExportSection {
   return { key: "changes", title: t(lang, "navChanges"), columns, rows };
 }
 
-function stakeholdersSection(stakeholders: Stakeholder[], lang: Lang): ExportSection {
+function stakeholdersSection(stakeholders: readonly Stakeholder[], lang: Lang): ExportSection {
   const columns = STAKEHOLDERS_CSV_COLUMNS as unknown as string[];
   const rows = stakeholders.map((s) =>
     STAKEHOLDERS_CSV_COLUMNS.map((col) => stakeholderFieldToString(s, col))
@@ -101,7 +101,7 @@ function stakeholdersSection(stakeholders: Stakeholder[], lang: Lang): ExportSec
   return { key: "stakeholders", title: t(lang, "navStakeholders"), columns, rows };
 }
 
-function budgetsSection(budgets: BudgetBucket[]): ExportSection {
+function budgetsSection(budgets: readonly BudgetBucket[]): ExportSection {
   const columns = BUDGETS_CSV_COLUMNS as unknown as string[];
   const rows = budgets.map((b) =>
     BUDGETS_CSV_COLUMNS.map((c) => budgetFieldToString(b, c))
@@ -109,7 +109,7 @@ function budgetsSection(budgets: BudgetBucket[]): ExportSection {
   return { key: "budgets", title: "Budgets", columns, rows };
 }
 
-function resourcesSection(resources: Resource[], lang: Lang): ExportSection {
+function resourcesSection(resources: readonly Resource[], lang: Lang): ExportSection {
   const columns = RESOURCES_CSV_COLUMNS as unknown as string[];
   const rows = resources.map((r) =>
     RESOURCES_CSV_COLUMNS.map((c) => resourceFieldToString(r, c))
@@ -117,7 +117,7 @@ function resourcesSection(resources: Resource[], lang: Lang): ExportSection {
   return { key: "resources", title: t(lang, "tabResources"), columns, rows };
 }
 
-function rolesSection(roles: Role[]): ExportSection {
+function rolesSection(roles: readonly Role[]): ExportSection {
   const columns = ROLES_CSV_COLUMNS as unknown as string[];
   const rows = roles.map((r) =>
     ROLES_CSV_COLUMNS.map((c) => String((r as Record<string, unknown>)[c] ?? ""))
@@ -125,7 +125,7 @@ function rolesSection(roles: Role[]): ExportSection {
   return { key: "roles", title: "Roles", columns, rows };
 }
 
-function absencesSection(absences: Absence[]): ExportSection {
+function absencesSection(absences: readonly Absence[]): ExportSection {
   const columns = ABSENCES_CSV_COLUMNS as unknown as string[];
   const rows = absences.map((a) =>
     ABSENCES_CSV_COLUMNS.map((c) => absenceFieldToString(a, c))
@@ -133,7 +133,7 @@ function absencesSection(absences: Absence[]): ExportSection {
   return { key: "absences", title: "Absences", columns, rows };
 }
 
-function shiftsSection(shifts: Shift[]): ExportSection {
+function shiftsSection(shifts: readonly Shift[]): ExportSection {
   const columns = SHIFTS_CSV_COLUMNS as unknown as string[];
   const rows = shifts.map((s) =>
     SHIFTS_CSV_COLUMNS.map((c) => shiftFieldToString(s, c))

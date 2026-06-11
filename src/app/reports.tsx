@@ -105,7 +105,7 @@ type Stats = {
 };
 
 function computeStats(
-  tasks: Task[],
+  tasks: readonly Task[],
   today: string,
   holidaySet: Set<string>,
 ): Stats {
@@ -260,24 +260,24 @@ export function ReportsPanel({
   stakeholders = [], milestones = [],
   features = [...ALL_MODULE_IDS],
 }: {
-  tasks: Task[];
+  tasks: readonly Task[];
   today: string;
   holidaySet: Set<string>;
   lang: Lang;
-  raid?: RaidItem[];
-  buckets?: BudgetBucket[];
+  raid?: readonly RaidItem[];
+  buckets?: readonly BudgetBucket[];
   plan?: ResourcePlan;
-  roles?: Role[];
-  disciplines?: Discipline[];
-  grades?: Grade[];
-  resources?: Resource[];
-  absences?: Absence[];
+  roles?: readonly Role[];
+  disciplines?: readonly Discipline[];
+  grades?: readonly Grade[];
+  resources?: readonly Resource[];
+  absences?: readonly Absence[];
   workdayHours?: number;
   fxRates?: FxRates | null;
   extraReports?: AddableReportId[];
   onChangeExtraReports?: (next: AddableReportId[]) => void;
-  stakeholders?: Stakeholder[];
-  milestones?: Milestone[];
+  stakeholders?: readonly Stakeholder[];
+  milestones?: readonly Milestone[];
   features?: FeatureModuleId[];
 }) {
   const stats = useMemo(

@@ -269,7 +269,7 @@ function mdUnescape(value: string): string {
     .replace(/\\\\/g, "\\");
 }
 
-function tasksToMarkdown(tasks: Task[]): string {
+function tasksToMarkdown(tasks: readonly Task[]): string {
   const header = `| ${MD_COLUMNS.map((c) => c.label).join(" | ")} |`;
   const sep = `| ${MD_COLUMNS.map(() => "---").join(" | ")} |`;
   const lines = ["# LOP Tasks", "", header, sep];

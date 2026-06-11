@@ -31,9 +31,15 @@ import {
   type Task,
 } from "./types";
 
+/** Workspace-section state is `readonly X[]` on purpose: these arrays become
+ *  the `Workspace` sections handed to storage, and the Turso dirty-table save
+ *  detects changes by reference equality (see workspace.ts / turso-schema.ts).
+ *  The readonly types make setter updaters replace arrays instead of mutating
+ *  them in place. Derived lists (filteredSortedTasks, …) stay mutable — they
+ *  are freshly built each memo run and never persisted. */
 interface WorkspaceValue {
-  tasks: Task[];
-  setTasks: Dispatch<SetStateAction<Task[]>>;
+  tasks: readonly Task[];
+  setTasks: Dispatch<SetStateAction<readonly Task[]>>;
 
   uniqueAssignees: string[];
   uniqueGroups: string[];
@@ -43,58 +49,58 @@ interface WorkspaceValue {
 
   filteredSortedTasks: Task[];
 
-  raid: RaidItem[];
-  setRaid: Dispatch<SetStateAction<RaidItem[]>>;
-  absences: Absence[];
-  setAbsences: Dispatch<SetStateAction<Absence[]>>;
-  shifts: Shift[];
-  setShifts: Dispatch<SetStateAction<Shift[]>>;
-  resources: Resource[];
-  setResources: Dispatch<SetStateAction<Resource[]>>;
-  roles: Role[];
-  setRoles: Dispatch<SetStateAction<Role[]>>;
-  disciplines: Discipline[];
-  setDisciplines: Dispatch<SetStateAction<Discipline[]>>;
-  grades: Grade[];
-  setGrades: Dispatch<SetStateAction<Grade[]>>;
+  raid: readonly RaidItem[];
+  setRaid: Dispatch<SetStateAction<readonly RaidItem[]>>;
+  absences: readonly Absence[];
+  setAbsences: Dispatch<SetStateAction<readonly Absence[]>>;
+  shifts: readonly Shift[];
+  setShifts: Dispatch<SetStateAction<readonly Shift[]>>;
+  resources: readonly Resource[];
+  setResources: Dispatch<SetStateAction<readonly Resource[]>>;
+  roles: readonly Role[];
+  setRoles: Dispatch<SetStateAction<readonly Role[]>>;
+  disciplines: readonly Discipline[];
+  setDisciplines: Dispatch<SetStateAction<readonly Discipline[]>>;
+  grades: readonly Grade[];
+  setGrades: Dispatch<SetStateAction<readonly Grade[]>>;
   plan: ResourcePlan;
   setPlan: Dispatch<SetStateAction<ResourcePlan>>;
-  budgets: BudgetBucket[];
-  setBudgets: Dispatch<SetStateAction<BudgetBucket[]>>;
+  budgets: readonly BudgetBucket[];
+  setBudgets: Dispatch<SetStateAction<readonly BudgetBucket[]>>;
   fxRates: FxRates | null;
   setFxRates: Dispatch<SetStateAction<FxRates | null>>;
   status: ProjectStatus;
   setStatus: Dispatch<SetStateAction<ProjectStatus>>;
   project: ProjectMeta | undefined;
   setProject: Dispatch<SetStateAction<ProjectMeta | undefined>>;
-  milestones: Milestone[];
-  setMilestones: Dispatch<SetStateAction<Milestone[]>>;
-  changes: ChangeItem[];
-  setChanges: Dispatch<SetStateAction<ChangeItem[]>>;
+  milestones: readonly Milestone[];
+  setMilestones: Dispatch<SetStateAction<readonly Milestone[]>>;
+  changes: readonly ChangeItem[];
+  setChanges: Dispatch<SetStateAction<readonly ChangeItem[]>>;
 
-  stakeholders: Stakeholder[];
-  setStakeholders: Dispatch<SetStateAction<Stakeholder[]>>;
+  stakeholders: readonly Stakeholder[];
+  setStakeholders: Dispatch<SetStateAction<readonly Stakeholder[]>>;
 }
 
 const WorkspaceContext = createContext<WorkspaceValue | undefined>(undefined);
 
 export function WorkspaceProvider({ children }: { children: ReactNode }) {
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [raid, setRaid] = useState<RaidItem[]>([]);
-  const [absences, setAbsences] = useState<Absence[]>([]);
-  const [shifts, setShifts] = useState<Shift[]>([]);
-  const [resources, setResources] = useState<Resource[]>([]);
-  const [roles, setRoles] = useState<Role[]>([]);
-  const [disciplines, setDisciplines] = useState<Discipline[]>([]);
-  const [grades, setGrades] = useState<Grade[]>([]);
+  const [tasks, setTasks] = useState<readonly Task[]>([]);
+  const [raid, setRaid] = useState<readonly RaidItem[]>([]);
+  const [absences, setAbsences] = useState<readonly Absence[]>([]);
+  const [shifts, setShifts] = useState<readonly Shift[]>([]);
+  const [resources, setResources] = useState<readonly Resource[]>([]);
+  const [roles, setRoles] = useState<readonly Role[]>([]);
+  const [disciplines, setDisciplines] = useState<readonly Discipline[]>([]);
+  const [grades, setGrades] = useState<readonly Grade[]>([]);
   const [plan, setPlan] = useState<ResourcePlan>(() => defaultResourcePlan(new Date().toISOString().slice(0, 10)));
-  const [budgets, setBudgets] = useState<BudgetBucket[]>([]);
+  const [budgets, setBudgets] = useState<readonly BudgetBucket[]>([]);
   const [fxRates, setFxRates] = useState<FxRates | null>(null);
   const [status, setStatus] = useState<ProjectStatus>({});
   const [project, setProject] = useState<ProjectMeta | undefined>(undefined);
-  const [milestones, setMilestones] = useState<Milestone[]>([]);
-  const [changes, setChanges] = useState<ChangeItem[]>([]);
-  const [stakeholders, setStakeholders] = useState<Stakeholder[]>([]);
+  const [milestones, setMilestones] = useState<readonly Milestone[]>([]);
+  const [changes, setChanges] = useState<readonly ChangeItem[]>([]);
+  const [stakeholders, setStakeholders] = useState<readonly Stakeholder[]>([]);
   const {
     searchDebounced,
     priorityFilter,

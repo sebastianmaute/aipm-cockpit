@@ -38,7 +38,7 @@ export interface EntitySpec<T> {
   table: string;
   wsKey: keyof Workspace;
   columns: readonly string[];
-  get: (ws: Workspace) => T[];
+  get: (ws: Workspace) => readonly T[];
   toRow: (e: T, col: string) => string;
   fromObj: (obj: Record<string, string>) => T | null;
 }

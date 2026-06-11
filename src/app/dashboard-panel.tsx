@@ -17,18 +17,18 @@ import { BurndownCharts } from "./burndown-chart";
 
 interface DashboardPanelProps {
   lang: Lang;
-  tasks: Task[];
-  raid: RaidItem[];
-  budgets: BudgetBucket[];
+  tasks: readonly Task[];
+  raid: readonly RaidItem[];
+  budgets: readonly BudgetBucket[];
   plan: ResourcePlan;
-  roles: Role[];
-  resources: Resource[];
-  absences: Absence[];
+  roles: readonly Role[];
+  resources: readonly Resource[];
+  absences: readonly Absence[];
   holidaySet: ReadonlySet<string>;
   workdayHours: number;
   today: string;
-  milestones?: Milestone[];
-  changes?: ChangeItem[];
+  milestones?: readonly Milestone[];
+  changes?: readonly ChangeItem[];
   onOpenRaid?: (id: number) => void;
   onOpenTask?: (id: number) => void;
   onOpenMilestone?: () => void;

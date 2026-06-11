@@ -21,10 +21,10 @@ export interface UseStakeholderCommsArgs {
   hydrated: boolean;
   today: string;
   showToast: (kind: "info" | "error", text: string) => void;
-  stakeholders: Stakeholder[];
-  milestones: Milestone[];
-  raid: RaidItem[];
-  changes: ChangeItem[];
+  stakeholders: readonly Stakeholder[];
+  milestones: readonly Milestone[];
+  raid: readonly RaidItem[];
+  changes: readonly ChangeItem[];
   settings: Settings;
   flags: CommsFlags;
 }

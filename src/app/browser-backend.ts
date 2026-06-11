@@ -93,8 +93,8 @@ export class BrowserBackend implements StorageBackend {
   async load(): Promise<Workspace> {
     if (typeof window === "undefined") return emptyWorkspace();
 
-    let tasks: Task[] = [];
-    let raid: RaidItem[] = [];
+    let tasks: readonly Task[] = [];
+    let raid: readonly RaidItem[] = [];
     let absences: Absence[] = [];
     let shifts: Shift[] = [];
     let resources: Resource[] = [];

@@ -43,16 +43,16 @@ export function ExportMenu({
   exportConfig,
 }: {
   lang: Lang;
-  tasks: Task[];
-  raid: RaidItem[];
-  absences: Absence[];
-  shifts: Shift[];
-  resources: Resource[];
-  roles: Role[];
-  disciplines: Discipline[];
-  grades: Grade[];
+  tasks: readonly Task[];
+  raid: readonly RaidItem[];
+  absences: readonly Absence[];
+  shifts: readonly Shift[];
+  resources: readonly Resource[];
+  roles: readonly Role[];
+  disciplines: readonly Discipline[];
+  grades: readonly Grade[];
   plan: ResourcePlan;
-  budgets: BudgetBucket[];
+  budgets: readonly BudgetBucket[];
   fxRates: FxRates | null;
   exportConfig?: ExportConfig;
 }) {

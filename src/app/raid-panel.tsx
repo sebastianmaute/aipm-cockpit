@@ -59,12 +59,12 @@ type RaidCol = keyof typeof RAID_COL_WIDTHS;
 
 export type RaidPanelProps = {
   lang: Lang;
-  tasks: Task[];
-  raid: RaidItem[];
+  tasks: readonly Task[];
+  raid: readonly RaidItem[];
   /** When false, the Stakeholders picker in the edit modal is hidden. Default true. */
   stakeholdersEnabled?: boolean;
   /** Selectable stakeholders for the picker; empty when the module is off. */
-  stakeholders?: Stakeholder[];
+  stakeholders?: readonly Stakeholder[];
   /** YYYY-MM-DD; used for default `raisedDate` and "closed today" autofill. */
   today: string;
   /** When non-null, only items linking to this task id are shown. The task

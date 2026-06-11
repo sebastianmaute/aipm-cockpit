@@ -23,7 +23,7 @@ import type { Task } from "./types";
 
 export interface UseContactsArgs {
   hydrated: boolean;
-  tasks: Task[];
+  tasks: readonly Task[];
 }
 
 export function useContacts({ hydrated, tasks }: UseContactsArgs): {

@@ -48,9 +48,9 @@ type ChangeCol = keyof typeof CHANGE_COL_WIDTHS;
 
 export type ChangePanelProps = {
   lang: Lang;
-  tasks: Task[];
-  raid: RaidItem[];
-  changes: ChangeItem[];
+  tasks: readonly Task[];
+  raid: readonly RaidItem[];
+  changes: readonly ChangeItem[];
   /** YYYY-MM-DD; default `raisedDate` for new drafts + decisionDate autofill. */
   today: string;
   onSave: (item: ChangeItem) => void;
@@ -60,7 +60,7 @@ export type ChangePanelProps = {
   /** When false, the Stakeholders picker is hidden in the edit modal. Default true. */
   stakeholdersEnabled?: boolean;
   /** Selectable stakeholders for the picker; empty when the module is off. */
-  stakeholders?: Stakeholder[];
+  stakeholders?: readonly Stakeholder[];
 };
 
 // --- Color palette -------------------------------------------------------

@@ -35,12 +35,12 @@ export interface UseTaskSubmitArgs {
   editingId: number | null;
   setEditingId: React.Dispatch<React.SetStateAction<number | null>>;
   setTaskModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  tasks: Task[];
+  tasks: readonly Task[];
   today: string;
   lang: Lang;
   settings: Settings;
-  tasksRef: React.MutableRefObject<Task[]>;
-  setTasks: React.Dispatch<React.SetStateAction<Task[]>>;
+  tasksRef: React.RefObject<readonly Task[]>;
+  setTasks: React.Dispatch<React.SetStateAction<readonly Task[]>>;
   setContacts: React.Dispatch<React.SetStateAction<ContactsMap>>;
   logActivity: (kind: ActivityKind, ...args: (string | number)[]) => void;
   showToast: (kind: "info" | "error", text: string) => void;

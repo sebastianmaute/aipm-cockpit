@@ -87,14 +87,14 @@ function HoursCell({
 
 export interface BudgetPanelProps {
   lang: Lang;
-  buckets: BudgetBucket[];
-  roles: Role[];
-  disciplines: Discipline[];
-  grades: Grade[];
-  resources: Resource[];
+  buckets: readonly BudgetBucket[];
+  roles: readonly Role[];
+  disciplines: readonly Discipline[];
+  grades: readonly Grade[];
+  resources: readonly Resource[];
   plan: ResourcePlan;
   fxRates: FxRates | null;
-  absences: Absence[];
+  absences: readonly Absence[];
   holidaySet: Set<string>;
   workdayHours: number;
   today: string;

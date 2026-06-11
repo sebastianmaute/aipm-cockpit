@@ -5,8 +5,8 @@ import { type Task } from "./types";
 import { sanitizeIsoDate } from "./sanitize";
 
 export interface UseGanttHandlersArgs {
-  tasksRef: React.MutableRefObject<Task[]>;
-  setTasks: React.Dispatch<React.SetStateAction<Task[]>>;
+  tasksRef: React.RefObject<readonly Task[]>;
+  setTasks: React.Dispatch<React.SetStateAction<readonly Task[]>>;
   today: string;
 }
 

@@ -17,10 +17,10 @@ import type { Task, Absence, RaidItem } from "./types";
 
 export interface UseDueAlertsArgs {
   hydrated: boolean;
-  tasks: Task[];
+  tasks: readonly Task[];
   holidaySet: Set<string>;
-  absences: Absence[];
-  raid: RaidItem[];
+  absences: readonly Absence[];
+  raid: readonly RaidItem[];
   settings: Settings;
   today: string;
   showToast: (kind: "info" | "error", text: string) => void;

@@ -50,8 +50,8 @@ export interface TaskFormFieldsProps {
   today: string;
   nextId: number;
   contactsList: ReturnType<typeof listContacts>;
-  absences: Absence[];
-  tasksForDeps: Task[];
+  absences: readonly Absence[];
+  tasksForDeps: readonly Task[];
   uniqueGroups: string[];
   uniqueLabels: string[];
   editingIsJiraLinked: boolean;

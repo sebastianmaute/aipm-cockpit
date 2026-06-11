@@ -36,7 +36,7 @@ export type AlertableTask = {
  * due date ascending.
  */
 export function getAlertableTasks(
-  tasks: Task[],
+  tasks: readonly Task[],
   reminderLeadDays: number,
   today: string,
   holidays: Set<string>,

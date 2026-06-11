@@ -138,7 +138,7 @@ export function removeContact(c: ContactsMap, name: string): ContactsMap {
  */
 export function seedContactsFromTasks(
   current: ContactsMap,
-  tasks: Task[],
+  tasks: readonly Task[],
 ): ContactsMap {
   let next = current;
   for (const t of tasks) {

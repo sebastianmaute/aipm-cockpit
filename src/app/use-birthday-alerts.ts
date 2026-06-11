@@ -9,11 +9,11 @@ import type { Resource, Absence } from "./types";
 
 export interface UseBirthdayAlertsArgs {
   hydrated: boolean;
-  resources: Resource[];
+  resources: readonly Resource[];
   today: string;
   settings: Settings;
   holidaySet: Set<string>;
-  absences: Absence[];
+  absences: readonly Absence[];
   showToast: (kind: "info" | "error", text: string) => void;
 }
 

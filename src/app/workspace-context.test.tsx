@@ -199,7 +199,7 @@ describe("WorkspaceProvider", () => {
       return null;
     });
 
-    let setTasksRef: Dispatch<SetStateAction<import("./types").Task[]>> | undefined;
+    let setTasksRef: Dispatch<SetStateAction<readonly import("./types").Task[]>> | undefined;
     function CaptureSetter() {
       setTasksRef = useWorkspace().setTasks;
       return null;
@@ -232,5 +232,18 @@ describe("WorkspaceProvider", () => {
     } finally {
       console.error = original;
     }
+  });
+
+  test("workspace sections are compile-time readonly (dirty-save guard)", () => {
+    // Type-level proof, never executed: the Turso dirty-table save detects
+    // changes by reference equality, so an in-place mutation of a workspace
+    // section would silently skip that table's save (data loss). If someone
+    // reverts the ReadonlyArray sections in workspace.ts, the @ts-expect-error
+    // below becomes "unused" and tsc fails the build (TS2578).
+    function mutationDoesNotCompile(ws: import("./workspace").Workspace): void {
+      // @ts-expect-error tasks is ReadonlyArray — in-place mutation is forbidden
+      ws.tasks.push(makeTask());
+    }
+    expect(typeof mutationDoesNotCompile).toBe("function");
   });
 });

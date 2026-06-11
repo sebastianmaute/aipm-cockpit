@@ -49,35 +49,40 @@ import {
 /** Top-level shape persisted to storage. JSON wraps it as an envelope; the
  *  CSV/MD encoders emit sections in one file. The browser backend keeps each
  *  entity type under a separate IndexedDB object store. */
+/** Immutability contract: the Turso dirty-table save (`dirtyWorkspaceTables`
+ *  in turso-schema.ts) detects changes by REFERENCE EQUALITY on these
+ *  sections. An in-place `push`/`splice`/`sort` on a workspace array would
+ *  silently skip that table's save — the readonly types below make the
+ *  compiler enforce replace-don't-mutate. */
 export type Workspace = {
-  tasks: Task[];
-  raid: RaidItem[];
-  absences: Absence[];
-  shifts: Shift[]; // dormant
-  resources: Resource[];
-  roles: Role[];
-  disciplines: Discipline[];
-  grades: Grade[];
-  plan: ResourcePlan;
+  tasks: ReadonlyArray<Task>;
+  raid: ReadonlyArray<RaidItem>;
+  absences: ReadonlyArray<Absence>;
+  shifts: ReadonlyArray<Shift>; // dormant
+  resources: ReadonlyArray<Resource>;
+  roles: ReadonlyArray<Role>;
+  disciplines: ReadonlyArray<Discipline>;
+  grades: ReadonlyArray<Grade>;
+  plan: Readonly<ResourcePlan>;
   /** Budget planner buckets. Optional so older saved files and existing
    *  Workspace literals still satisfy the type; every load path defaults to
    *  [] (see migrateWorkspaceV6). */
-  budgets?: BudgetBucket[];
+  budgets?: ReadonlyArray<BudgetBucket>;
   /** Cached ECB rate table; null/absent until first fetched. */
-  fxRates?: FxRates | null;
+  fxRates?: Readonly<FxRates> | null;
   /** Project-level RAG overrides + PM narrative for the dashboard. Optional so
    *  older saved files still type-check; every load path defaults to {}. */
-  status?: ProjectStatus;
+  status?: Readonly<ProjectStatus>;
   /** Project milestones (key dates). Optional for back-compat; load paths default to []. */
-  milestones?: Milestone[];
+  milestones?: ReadonlyArray<Milestone>;
   /** Change-control register. Optional for back-compat; load paths default to []. */
-  changes?: ChangeItem[];
+  changes?: ReadonlyArray<ChangeItem>;
   /** Stakeholder register (incl. per-milestone RACI map). Optional for back-compat; load paths default to []. */
-  stakeholders?: Stakeholder[];
+  stakeholders?: ReadonlyArray<Stakeholder>;
   /** Top-level descriptor of the project this workspace tracks. Additive and
    *  optional: a workspace with `project === undefined` serializes byte-for-byte
    *  as it did before this field existed (no project block is emitted). */
-  project?: ProjectMeta;
+  project?: Readonly<ProjectMeta>;
 };
 
 const SCHEMA_VERSION = 10;
