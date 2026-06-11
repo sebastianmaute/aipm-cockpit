@@ -534,13 +534,17 @@ function TaskManagerInner() {
     (name: string, email: string): number => {
       const { firstName, lastName } = splitName(name);
       const id = computeNextId(resources);
+      // Mirror handleSaveResource's new-resource commit: stamp localModifiedAt
+      // (change-tracking / Turso sync) and log resource.created for activity-log
+      // completeness — a picker-created person must behave like a Resources-view one.
       setResources((prev) => [
         ...prev,
-        { id, firstName, lastName, email: email.trim() || undefined, roleId: null, utilizationMode: "percent", utilization: {} },
+        { id, firstName, lastName, email: email.trim() || undefined, roleId: null, utilizationMode: "percent", utilization: {}, localModifiedAt: new Date().toISOString() },
       ]);
+      logActivity("resource.created", id, `${firstName} ${lastName}`.trim());
       return id;
     },
-    [resources, setResources],
+    [resources, setResources, logActivity],
   );
 
   const handleSaveResourceFromAnywhere = useCallback((next: Resource) => {
