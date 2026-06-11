@@ -9,6 +9,9 @@ import { appendVersion, listVersionMeta, loadVersionPayload, pruneVersions } fro
 import { diffWorkspaces, summarizeDiff } from "./version-diff";
 import type { VersionChange } from "./version-diff";
 import { jsonToWorkspace } from "./workspace";
+import type { Workspace } from "./workspace";
+import { applyRestore } from "./version-restore";
+import type { RestoreSelection } from "./version-restore";
 import type { TursoConfig } from "./turso-config";
 import type { ProjectVersion, ProjectVersionMeta } from "./version-history";
 
@@ -20,6 +23,8 @@ export interface UseVersionHistoryArgs {
   retention: number;
   getPayload: () => string; // lazily serialize the CURRENT workspace
   onError?: (err: unknown) => void;
+  applyWorkspace?: (ws: Workspace) => void;
+  logActivity?: (kind: "history.restore", ...args: (string | number)[]) => void;
 }
 
 export interface UseVersionHistoryResult {
@@ -28,11 +33,12 @@ export interface UseVersionHistoryResult {
   notifySaved: () => void;
   captureNow: (label: string) => Promise<void>;
   loadDiff: (fromId: string, to: string | "now") => Promise<VersionChange[]>;
+  restore: (versionId: string, selection: RestoreSelection, versionLabel: string) => Promise<void>;
   refresh: () => Promise<void>;
 }
 
 export function useVersionHistory(args: UseVersionHistoryArgs): UseVersionHistoryResult {
-  const { config, projectId, enabled, idleMs, retention, getPayload, onError } = args;
+  const { config, projectId, enabled, idleMs, retention, getPayload, onError, applyWorkspace, logActivity } = args;
   const [versions, setVersions] = useState<ProjectVersionMeta[]>([]);
   const [busy, setBusy] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -111,6 +117,22 @@ export function useVersionHistory(args: UseVersionHistoryArgs): UseVersionHistor
     [writeVersion],
   );
 
+  const restore = useCallback(async (versionId: string, selection: RestoreSelection, versionLabel: string) => {
+    if (!active) return;
+    const count = Object.keys(selection).length;
+    if (count === 0) return;
+    try {
+      const verStr = await loadVersionPayload(config, versionId, projectId);
+      if (!verStr) return;
+      const version = jsonToWorkspace(verStr);
+      const now = jsonToWorkspace(getPayload());
+      const changes = diffWorkspaces(version, now);
+      const restored = applyRestore(now, version, changes, selection);
+      applyWorkspace?.(restored);
+      logActivity?.("history.restore", count, versionLabel);
+    } catch (err) { onError?.(err); }
+  }, [active, config, projectId, getPayload, applyWorkspace, logActivity, onError]);
+
   const loadDiff = useCallback(async (fromId: string, to: string | "now"): Promise<VersionChange[]> => {
     if (!active) return [];
     try {
@@ -128,5 +150,5 @@ export function useVersionHistory(args: UseVersionHistoryArgs): UseVersionHistor
     [],
   );
 
-  return { versions, busy, notifySaved, captureNow, loadDiff, refresh };
+  return { versions, busy, notifySaved, captureNow, loadDiff, restore, refresh };
 }

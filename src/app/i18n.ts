@@ -860,6 +860,7 @@ const enUS = {
   activitySettingsUpdated: "Settings updated",
   activityDocLinkAdded: "Linked document {0}",
   activityDocLinkRemoved: "Removed document link {0}",
+  activityHistoryRestore: "Restored {0} change(s) from version {1}",
   taskDueDateAbsenceWarning:
     "Note: {0} is on {1} from {2} to {3}.",
   resourcesWorkdayHours: "Hours per work day",
@@ -1549,6 +1550,7 @@ const enUS = {
   historyCompareVsNow: "Compared with current",
   historyCompareSelect: "Select to compare",
   historyCompareSelected: "Compare selected",
+  historyRestoreSelected: "Restore selected",
   projectDocRepo: "Document repository",
   projectRegulatory: "Regulatory",
   projectNotes: "Notes",

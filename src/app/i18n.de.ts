@@ -878,6 +878,7 @@ export const de: Record<TranslationKey, string> = {
   activitySettingsUpdated: "Einstellungen aktualisiert",
   activityDocLinkAdded: "Dokument verknüpft {0}",
   activityDocLinkRemoved: "Dokumentverknüpfung entfernt {0}",
+  activityHistoryRestore: "{0} Änderung(en) aus Version {1} wiederhergestellt",
   taskDueDateAbsenceWarning:
     "Hinweis: {0} ist von {2} bis {3} ({1}).",
   resourcesWorkdayHours: "Stunden pro Arbeitstag",
@@ -1567,6 +1568,7 @@ export const de: Record<TranslationKey, string> = {
   historyCompareVsNow: "Mit aktuellem Stand verglichen",
   historyCompareSelect: "Zum Vergleich auswählen",
   historyCompareSelected: "Auswahl vergleichen",
+  historyRestoreSelected: "Auswahl wiederherstellen",
   projectDocRepo: "Dokumentenablage",
   projectRegulatory: "Regulatorik",
   projectNotes: "Hinweise",

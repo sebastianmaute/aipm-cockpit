@@ -1,7 +1,8 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { VersionDiffView } from "./version-diff-view";
 import type { VersionChange } from "./version-diff";
+import { changeKey } from "./version-restore";
 
 const changes: VersionChange[] = [
   { collection: "tasks", collectionLabel: "Tasks", kind: "list", recordId: 1, recordLabel: "Design sign-off",
@@ -26,5 +27,21 @@ describe("VersionDiffView", () => {
   it("shows an empty state when there are no changes", () => {
     render(<VersionDiffView lang="en-US" changes={[]} />);
     expect(screen.getByText(/No differences/)).toBeInTheDocument();
+  });
+  it("renders record + field checkboxes in selectable mode and reports toggles", () => {
+    const onToggleRecord = vi.fn();
+    const onToggleField = vi.fn();
+    render(
+      <VersionDiffView lang="en-US" changes={changes} selectable selection={{}}
+        onToggleRecord={onToggleRecord} onToggleField={onToggleField} />,
+    );
+    const boxes = screen.getAllByRole("checkbox");
+    expect(boxes.length).toBeGreaterThan(0);
+    fireEvent.click(boxes[0]);
+    expect(onToggleRecord).toHaveBeenCalledWith(changeKey("tasks", 1));
+  });
+  it("renders NO checkboxes when not selectable (read-only default)", () => {
+    render(<VersionDiffView lang="en-US" changes={changes} />);
+    expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
   });
 });

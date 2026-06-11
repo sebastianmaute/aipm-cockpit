@@ -8,6 +8,18 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.68.0] - 2026-06-11 "Brin"
+
+Version history — selective restore (Turso only; third slice).
+
+### Added
+- From a "Compared with current" view you can now restore selectively: tick whole
+  records or individual fields and click "Restore selected". Restoring reverts a
+  changed field to the version's value, brings back a record deleted since the
+  version, or removes a record added since — only for what you tick. Restore is
+  non-destructive: it applies to your current data (saved as a new version) and
+  is recorded in the activity log.
+
 ## [0.67.0] - 2026-06-11 "Niven"
 
 Version history — compare (Turso only; second slice).

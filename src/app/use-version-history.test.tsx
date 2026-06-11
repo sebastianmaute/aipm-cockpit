@@ -80,6 +80,23 @@ describe("useVersionHistory", () => {
     expect(list).not.toHaveBeenCalled();
   });
 
+  it("restore applies the reverted workspace and logs the restore", async () => {
+    const base = { raid: [], absences: [], shifts: [], resources: [], roles: [], disciplines: [],
+      grades: [], plan: {}, budgets: [], milestones: [], changes: [], stakeholders: [], status: {} };
+    const version = JSON.stringify({ tasks: [{ id: 1, title: "Old" }], ...base });
+    vi.spyOn(store, "loadVersionPayload").mockResolvedValue(version);
+    vi.spyOn(store, "listVersionMeta").mockResolvedValue([]);
+    const now = JSON.stringify({ tasks: [{ id: 1, title: "New" }], ...base });
+    const applyWorkspace = vi.fn();
+    const logActivity = vi.fn();
+    const { result } = renderHook(() => useVersionHistory(args({ getPayload: () => now, applyWorkspace, logActivity })));
+    await act(async () => { await result.current.restore("v1", { "tasks:1": ["title"] }, "v1-label"); });
+    expect(applyWorkspace).toHaveBeenCalledTimes(1);
+    const applied = applyWorkspace.mock.calls[0][0];
+    expect(applied.tasks[0].title).toBe("Old");
+    expect(logActivity).toHaveBeenCalledWith("history.restore", 1, "v1-label");
+  });
+
   it("loadDiff compares a version payload against the current workspace", async () => {
     const base = { raid: [], absences: [], shifts: [], resources: [], roles: [], disciplines: [],
       grades: [], plan: {}, budgets: [], milestones: [], changes: [], stakeholders: [], status: {} };

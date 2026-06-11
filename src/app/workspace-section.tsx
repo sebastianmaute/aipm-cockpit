@@ -813,6 +813,7 @@ export function WorkspaceSection({
               busy={versionHistory.busy}
               onCaptureNow={(label) => void versionHistory.captureNow(label)}
               loadDiff={versionHistory.loadDiff}
+              restore={versionHistory.restore}
             />
           </div>
         )}

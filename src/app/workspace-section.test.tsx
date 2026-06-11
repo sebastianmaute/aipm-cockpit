@@ -112,6 +112,7 @@ function makeProps(overrides: Partial<WorkspaceSectionProps> = {}): WorkspaceSec
       notifySaved: vi.fn(),
       captureNow: vi.fn(async () => {}),
       loadDiff: vi.fn().mockResolvedValue([]),
+      restore: vi.fn(async () => {}),
       refresh: vi.fn(async () => {}),
     },
     ...overrides,
