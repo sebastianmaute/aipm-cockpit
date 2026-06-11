@@ -32,6 +32,7 @@ import {
 import type { ExportConfig } from "./settings-types";
 import { EXPORT_SECTION_KEYS } from "./settings-types";
 import { type Workspace, emptyWorkspace, migrateWorkspaceV8, type LocalKind, type StorageConfig, StorageNotReadyError, type StorageBackend, workspaceToJson, sanitizeProjectStatus, jsonToWorkspace } from "./workspace"; // facade-internal
+import { IDB_TASKS_STORE, IDB_RAID_STORE, IDB_ABSENCES_STORE, IDB_SHIFTS_STORE, IDB_RESOURCES_STORE, IDB_ROLES_STORE, IDB_DISCIPLINES_STORE, IDB_GRADES_STORE, KV_PLAN_KEY, IDB_BUDGETS_STORE, KV_FXRATES_KEY, KV_STATUS_KEY, KV_MILESTONES_KEY, KV_CHANGES_KEY, KV_STAKEHOLDERS_KEY, KV_PROJECT_KEY, idbGet, idbSet, idbDelete, idbGetAll, idbBulkUpdate } from "./idb"; // facade-internal
 
 export * from "./workspace";
 
@@ -52,141 +53,6 @@ export * from "./workspace";
 // idempotently — users coming from earlier versions keep their data and gain
 // the new record stores additively.
 
-const IDB_NAME = "lop-app";
-const IDB_VERSION = 6;
-const IDB_KV_STORE = "kv";
-const IDB_TASKS_STORE = "tasks";
-const IDB_RAID_STORE = "raid";
-const IDB_ABSENCES_STORE = "absences";
-const IDB_SHIFTS_STORE = "shifts";
-const IDB_RESOURCES_STORE = "resources";
-const IDB_ROLES_STORE = "roles";
-const IDB_DISCIPLINES_STORE = "disciplines";
-const IDB_GRADES_STORE = "grades";
-const KV_PLAN_KEY = "resource-plan";
-const IDB_BUDGETS_STORE = "budgets";
-const KV_FXRATES_KEY = "fx-rates";
-const KV_STATUS_KEY = "project-status";
-const KV_MILESTONES_KEY = "milestones";
-const KV_CHANGES_KEY = "changes";
-const KV_STAKEHOLDERS_KEY = "stakeholders";
-const KV_PROJECT_KEY = "project";
-
-function openIdb(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    if (typeof indexedDB === "undefined") {
-      reject(new Error("IndexedDB unavailable"));
-      return;
-    }
-    const req = indexedDB.open(IDB_NAME, IDB_VERSION);
-    req.onupgradeneeded = () => {
-      const db = req.result;
-      if (!db.objectStoreNames.contains(IDB_KV_STORE)) {
-        db.createObjectStore(IDB_KV_STORE);
-      }
-      if (!db.objectStoreNames.contains(IDB_TASKS_STORE)) {
-        db.createObjectStore(IDB_TASKS_STORE, { keyPath: "id" });
-      }
-      if (!db.objectStoreNames.contains(IDB_RAID_STORE)) {
-        db.createObjectStore(IDB_RAID_STORE, { keyPath: "id" });
-      }
-      if (!db.objectStoreNames.contains(IDB_ABSENCES_STORE)) {
-        db.createObjectStore(IDB_ABSENCES_STORE, { keyPath: "id" });
-      }
-      if (!db.objectStoreNames.contains(IDB_SHIFTS_STORE)) {
-        db.createObjectStore(IDB_SHIFTS_STORE, { keyPath: "id" });
-      }
-      if (!db.objectStoreNames.contains(IDB_RESOURCES_STORE)) {
-        db.createObjectStore(IDB_RESOURCES_STORE, { keyPath: "id" });
-      }
-      if (!db.objectStoreNames.contains(IDB_ROLES_STORE)) {
-        db.createObjectStore(IDB_ROLES_STORE, { keyPath: "id" });
-      }
-      if (!db.objectStoreNames.contains(IDB_DISCIPLINES_STORE)) {
-        db.createObjectStore(IDB_DISCIPLINES_STORE, { keyPath: "id" });
-      }
-      if (!db.objectStoreNames.contains(IDB_GRADES_STORE)) {
-        db.createObjectStore(IDB_GRADES_STORE, { keyPath: "id" });
-      }
-      if (!db.objectStoreNames.contains(IDB_BUDGETS_STORE)) {
-        db.createObjectStore(IDB_BUDGETS_STORE, { keyPath: "id" });
-      }
-    };
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
-}
-
-async function idbGet<T>(key: string): Promise<T | undefined> {
-  const db = await openIdb();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(IDB_KV_STORE, "readonly");
-    const store = tx.objectStore(IDB_KV_STORE);
-    const req = store.get(key);
-    req.onsuccess = () => resolve(req.result as T | undefined);
-    req.onerror = () => reject(req.error);
-  });
-}
-
-async function idbSet(key: string, value: unknown): Promise<void> {
-  const db = await openIdb();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(IDB_KV_STORE, "readwrite");
-    const store = tx.objectStore(IDB_KV_STORE);
-    const req = store.put(value, key);
-    req.onsuccess = () => resolve();
-    req.onerror = () => reject(req.error);
-  });
-}
-
-async function idbDelete(key: string): Promise<void> {
-  const db = await openIdb();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(IDB_KV_STORE, "readwrite");
-    const store = tx.objectStore(IDB_KV_STORE);
-    const req = store.delete(key);
-    req.onsuccess = () => resolve();
-    req.onerror = () => reject(req.error);
-  });
-}
-
-/** Reads every record from a record store. Used by BrowserBackend to load
- *  tasks/raid as arrays. Empty store → empty array. */
-async function idbGetAll<T>(storeName: string): Promise<T[]> {
-  const db = await openIdb();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(storeName, "readonly");
-    const store = tx.objectStore(storeName);
-    const req = store.getAll();
-    req.onsuccess = () => resolve((req.result ?? []) as T[]);
-    req.onerror = () => reject(req.error);
-  });
-}
-
-/**
- * One-transaction bulk update against a keyPath-keyed store:
- *   - `puts`  — records to insert/replace (key derived from each item's `id`)
- *   - `deleteIds` — keys to remove
- *
- * Both arrays may be empty; the function short-circuits when there's no work
- * so unchanged saves don't even open a transaction.
- */
-async function idbBulkUpdate<T extends { id: number }>(
-  storeName: string,
-  puts: readonly T[],
-  deleteIds: readonly number[],
-): Promise<void> {
-  if (puts.length === 0 && deleteIds.length === 0) return;
-  const db = await openIdb();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(storeName, "readwrite");
-    const store = tx.objectStore(storeName);
-    for (const item of puts) store.put(item);
-    for (const id of deleteIds) store.delete(id);
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-  });
-}
 
 // --- CSV serialization -----------------------------------------------------
 
