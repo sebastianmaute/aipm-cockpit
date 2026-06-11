@@ -243,6 +243,10 @@ describe("WorkspaceProvider", () => {
     function mutationDoesNotCompile(ws: import("./workspace").Workspace): void {
       // @ts-expect-error tasks is ReadonlyArray — in-place mutation is forbidden
       ws.tasks.push(makeTask());
+      // @ts-expect-error raid is ReadonlyArray — in-place mutation is forbidden
+      ws.raid.pop();
+      // @ts-expect-error status is Readonly — property assignment is forbidden
+      ws.status.statusSummary = "";
     }
     expect(typeof mutationDoesNotCompile).toBe("function");
   });
