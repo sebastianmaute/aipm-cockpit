@@ -2,8 +2,8 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.60.2";
-export const APP_BUILD_DATE = "2026-06-10"; // 0.60.2 cleanup + golden serializer fixtures
+export const APP_VERSION = "0.60.3";
+export const APP_BUILD_DATE = "2026-06-11"; // 0.60.3 structural module splits
 /** Minor-series milestone codename (sci-fi/fantasy author names). The whole
  *  0.60.x line is "Stephenson" (Neal Stephenson); patch releases inherit
  *  their minor version's codename rather than getting their own. */

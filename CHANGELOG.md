@@ -8,6 +8,20 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.60.3] - 2026-06-11 "Stephenson"
+
+Structural refactor (Batch C — zero behavior change; on-disk format byte-stability proven by the golden fixtures at every step).
+
+### Changed
+- `storage.ts` split from a 3,466-line god module into a 126-line facade over seven focused modules: `workspace.ts` (Workspace type, migrations, JSON codec), `idb.ts`, `fs-access.ts`, `csv-codecs.ts`, `markdown-codecs.ts`, `browser-backend.ts`, `local-file-backend.ts`. All existing imports keep working via re-exports.
+- The two Turso backends merged into one `TursoBackend(config, projectId?)` — single-tenant and multi-project modes share one class; `turso-tenant-backend.ts` removed.
+- `RaidEditModal` extracted from `raid-panel.tsx` (1,493 → 703 lines) into `raid-edit-modal.tsx`, matching the other entity modals; shared labels moved to `raid-labels.ts`.
+- Pure Gantt logic (preferences, date helpers, bar derivation, critical-path algorithm) extracted from `gantt.tsx` (1,967 → 1,493 lines) into React-free `gantt-engine.ts`.
+- `settings-menu.tsx` no longer re-exports settings types; 29 files import `settings-types.ts` directly.
+
+### Fixed
+- Four module-import cycles dissolved (`storage ↔ settings-types`, `storage ↔ sharepoint/turso backends`, `settings-menu ↔ jira-settings`, `settings-menu → jira-settings → jira-api`); the storage layer is now a strict DAG (workspace/idb leaves → codecs → backends → facade).
+
 ## [0.60.2] - 2026-06-10 "Stephenson"
 
 Cleanup release (refactor Batch B — zero behavior change, net −491 lines).
