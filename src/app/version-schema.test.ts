@@ -16,7 +16,7 @@ describe("version-schema", () => {
     const { TABLE_NAMES } = await import("./turso-schema");
     expect(VERSION_TABLE_NAME).toBe("project_versions");
     expect(TABLE_NAMES).not.toContain("project_versions");
-    expect(VERSION_DDL).toMatch(/CREATE TABLE IF NOT EXISTS project_versions/);
+    expect(VERSION_DDL.join("\n")).toMatch(/CREATE TABLE IF NOT EXISTS project_versions/);
   });
 
   it("append inserts all columns including the payload and project_id", () => {
