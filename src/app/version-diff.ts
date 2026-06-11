@@ -1,0 +1,101 @@
+// src/app/version-diff.ts
+// Pure diff between two Workspace snapshots, driven by a collection registry.
+// List collections are matched by numeric id; singletons are compared as one
+// object. Field changes exclude bookkeeping noise (localModifiedAt). The result
+// powers the read-only compare view and (Slice 3) selective restore.
+
+import type { Workspace } from "./workspace";
+
+export type ChangeType = "added" | "removed" | "modified";
+
+export interface FieldChange { field: string; label: string; before: unknown; after: unknown; }
+
+export interface VersionChange {
+  collection: string;
+  collectionLabel: string;
+  kind: "list" | "singleton";
+  recordId: number | null;
+  recordLabel: string;
+  type: ChangeType;
+  fields: FieldChange[];
+}
+
+interface CollectionSpec { key: keyof Workspace; label: string; kind: "list" | "singleton"; nameField?: string; }
+
+export const COLLECTION_SPECS: CollectionSpec[] = [
+  { key: "tasks", label: "Tasks", kind: "list", nameField: "title" },
+  { key: "raid", label: "RAID", kind: "list", nameField: "title" },
+  { key: "changes", label: "Changes", kind: "list", nameField: "title" },
+  { key: "milestones", label: "Milestones", kind: "list", nameField: "name" },
+  { key: "stakeholders", label: "Stakeholders", kind: "list", nameField: "name" },
+  { key: "resources", label: "Resources", kind: "list", nameField: "name" },
+  { key: "roles", label: "Roles", kind: "list", nameField: "name" },
+  { key: "disciplines", label: "Disciplines", kind: "list", nameField: "name" },
+  { key: "grades", label: "Grades", kind: "list", nameField: "name" },
+  { key: "budgets", label: "Budget buckets", kind: "list", nameField: "name" },
+  { key: "absences", label: "Absences", kind: "list", nameField: "reason" },
+  { key: "shifts", label: "Shifts", kind: "list", nameField: "label" },
+  { key: "plan", label: "Resource plan", kind: "singleton" },
+  { key: "status", label: "Project status", kind: "singleton" },
+  { key: "project", label: "Project info", kind: "singleton" },
+  { key: "fxRates", label: "FX rates", kind: "singleton" },
+];
+
+const IGNORED_FIELDS = new Set(["localModifiedAt"]);
+
+function humanize(field: string): string {
+  const s = field.replace(/([A-Z])/g, " $1").replace(/[_-]+/g, " ").trim();
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+function eq(a: unknown, b: unknown): boolean { return JSON.stringify(a ?? null) === JSON.stringify(b ?? null); }
+
+function fieldChanges(before: Record<string, unknown>, after: Record<string, unknown>): FieldChange[] {
+  const keys = new Set([...Object.keys(before ?? {}), ...Object.keys(after ?? {})]);
+  const out: FieldChange[] = [];
+  for (const k of keys) {
+    if (IGNORED_FIELDS.has(k)) continue;
+    if (!eq(before?.[k], after?.[k])) out.push({ field: k, label: humanize(k), before: before?.[k], after: after?.[k] });
+  }
+  return out;
+}
+function recordLabel(rec: Record<string, unknown> | undefined, id: number, nameField?: string): string {
+  const name = nameField ? rec?.[nameField] : undefined;
+  return typeof name === "string" && name.trim() ? name : `#${id}`;
+}
+function diffList(spec: CollectionSpec, older: unknown[], newer: unknown[]): VersionChange[] {
+  const byId = (arr: unknown[]) => new Map(arr.map((r) => [(r as { id: number }).id, r as Record<string, unknown>]));
+  const a = byId(older ?? []);
+  const b = byId(newer ?? []);
+  const out: VersionChange[] = [];
+  const base = (id: number, rec: Record<string, unknown> | undefined, type: ChangeType, fields: FieldChange[]): VersionChange => ({
+    collection: spec.key, collectionLabel: spec.label, kind: "list",
+    recordId: id, recordLabel: recordLabel(rec, id, spec.nameField), type, fields,
+  });
+  for (const [id, rec] of b) {
+    if (!a.has(id)) out.push(base(id, rec, "added", fieldChanges({}, rec)));
+    else { const fields = fieldChanges(a.get(id)!, rec); if (fields.length) out.push(base(id, rec, "modified", fields)); }
+  }
+  for (const [id, rec] of a) { if (!b.has(id)) out.push(base(id, rec, "removed", fieldChanges(rec, {}))); }
+  return out;
+}
+function diffSingleton(spec: CollectionSpec, older: unknown, newer: unknown): VersionChange[] {
+  const fields = fieldChanges((older ?? {}) as Record<string, unknown>, (newer ?? {}) as Record<string, unknown>);
+  if (!fields.length) return [];
+  return [{ collection: spec.key, collectionLabel: spec.label, kind: "singleton", recordId: null, recordLabel: spec.label, type: "modified", fields }];
+}
+
+export function diffWorkspaces(older: Workspace, newer: Workspace): VersionChange[] {
+  const out: VersionChange[] = [];
+  for (const spec of COLLECTION_SPECS) {
+    if (spec.kind === "list") out.push(...diffList(spec, older[spec.key] as unknown[], newer[spec.key] as unknown[]));
+    else out.push(...diffSingleton(spec, older[spec.key], newer[spec.key]));
+  }
+  return out;
+}
+
+export function summarizeDiff(changes: VersionChange[]): string {
+  if (!changes.length) return "";
+  const counts = new Map<string, number>();
+  for (const c of changes) counts.set(c.collectionLabel, (counts.get(c.collectionLabel) ?? 0) + 1);
+  return [...counts.entries()].map(([label, n]) => `${n} ${label}`).join(", ");
+}
