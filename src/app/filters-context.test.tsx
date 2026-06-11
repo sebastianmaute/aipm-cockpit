@@ -1,6 +1,7 @@
 import { describe, test, expect, beforeEach, afterEach, vi } from "vitest";
-import { renderHook, act } from "@testing-library/react";
-import { type ReactNode } from "react";
+import { renderHook, render, fireEvent, act } from "@testing-library/react";
+import { memo, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
+import { type Priority } from "./types";
 import { FiltersProvider, useFilters } from "./filters-context";
 
 function wrapper({ children }: { children: ReactNode }) {
@@ -104,6 +105,61 @@ describe("FiltersProvider", () => {
       vi.advanceTimersByTime(1);
     });
     expect(result.current.searchDebounced).toBe("hello");
+  });
+
+  test("context value is referentially stable across unrelated parent re-renders", () => {
+    let consumerRenders = 0;
+    const Consumer = memo(function Consumer() {
+      useFilters();
+      consumerRenders += 1;
+      return null;
+    });
+
+    function Harness() {
+      const [, setTick] = useState(0);
+      return (
+        <>
+          <button onClick={() => setTick((t) => t + 1)}>tick</button>
+          <FiltersProvider>
+            <Consumer />
+          </FiltersProvider>
+        </>
+      );
+    }
+
+    const { getByText } = render(<Harness />);
+    const after = consumerRenders;
+    expect(after).toBeGreaterThan(0);
+
+    fireEvent.click(getByText("tick"));
+    fireEvent.click(getByText("tick"));
+    expect(consumerRenders).toBe(after);
+  });
+
+  test("a filter state change still re-renders consumers (counter sanity)", () => {
+    let consumerRenders = 0;
+    const Consumer = memo(function Consumer() {
+      useFilters();
+      consumerRenders += 1;
+      return null;
+    });
+
+    let setPriorityRef: Dispatch<SetStateAction<Priority | "All">> | undefined;
+    function CaptureSetter() {
+      setPriorityRef = useFilters().setPriorityFilter;
+      return null;
+    }
+
+    render(
+      <FiltersProvider>
+        <Consumer />
+        <CaptureSetter />
+      </FiltersProvider>,
+    );
+    const after = consumerRenders;
+
+    act(() => setPriorityRef!("High"));
+    expect(consumerRenders).toBeGreaterThan(after);
   });
 
   test("useFilters() outside a FiltersProvider throws a documented error", () => {

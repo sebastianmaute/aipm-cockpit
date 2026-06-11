@@ -1,6 +1,6 @@
 import { describe, test, expect } from "vitest";
-import { renderHook, act } from "@testing-library/react";
-import { type ReactNode } from "react";
+import { renderHook, render, fireEvent, act } from "@testing-library/react";
+import { memo, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { FiltersProvider, useFilters } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 
@@ -155,6 +155,68 @@ describe("WorkspaceProvider", () => {
     const { result } = renderHook(() => useWorkspace(), { wrapper });
     expect(result.current.changes).toEqual([]);
     expect(typeof result.current.setChanges).toBe("function");
+  });
+
+  test("context value is referentially stable across unrelated parent re-renders", () => {
+    let consumerRenders = 0;
+    const Consumer = memo(function Consumer() {
+      useWorkspace();
+      consumerRenders += 1;
+      return null;
+    });
+
+    function Harness() {
+      const [, setTick] = useState(0);
+      return (
+        <>
+          <button onClick={() => setTick((t) => t + 1)}>tick</button>
+          <FiltersProvider>
+            <WorkspaceProvider>
+              <Consumer />
+            </WorkspaceProvider>
+          </FiltersProvider>
+        </>
+      );
+    }
+
+    const { getByText } = render(<Harness />);
+    const after = consumerRenders;
+    expect(after).toBeGreaterThan(0);
+
+    // Unrelated state above the providers: every memo dep is unchanged,
+    // so the memoized value keeps its identity and the memo'd consumer
+    // must not re-render.
+    fireEvent.click(getByText("tick"));
+    fireEvent.click(getByText("tick"));
+    expect(consumerRenders).toBe(after);
+  });
+
+  test("a workspace state change still re-renders consumers (counter sanity)", () => {
+    let consumerRenders = 0;
+    const Consumer = memo(function Consumer() {
+      useWorkspace();
+      consumerRenders += 1;
+      return null;
+    });
+
+    let setTasksRef: Dispatch<SetStateAction<import("./types").Task[]>> | undefined;
+    function CaptureSetter() {
+      setTasksRef = useWorkspace().setTasks;
+      return null;
+    }
+
+    render(
+      <FiltersProvider>
+        <WorkspaceProvider>
+          <Consumer />
+          <CaptureSetter />
+        </WorkspaceProvider>
+      </FiltersProvider>,
+    );
+    const after = consumerRenders;
+
+    act(() => setTasksRef!([makeTask()]));
+    expect(consumerRenders).toBeGreaterThan(after);
   });
 
   test("useWorkspace() outside a WorkspaceProvider throws a documented error", () => {

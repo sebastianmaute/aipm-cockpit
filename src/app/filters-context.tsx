@@ -14,6 +14,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useMemo,
   useState,
   type Dispatch,
   type ReactNode,
@@ -107,27 +108,45 @@ export function FiltersProvider({ children }: { children: ReactNode }) {
     setRaidFilterTaskId(null);
   }, []);
 
-  const value: FiltersValue = {
-    search,
-    searchDebounced,
-    priorityFilter,
-    assigneeFilter,
-    groupFilter,
-    labelFilter,
-    sortKey,
-    sortDir,
-    raidFilterTaskId,
-    setSearch,
-    setSearchImmediate,
-    setPriorityFilter,
-    setAssigneeFilter,
-    setGroupFilter,
-    setLabelFilter,
-    setSortKey,
-    setSortDir,
-    setRaidFilterTaskId,
-    resetFilters,
-  };
+  // Memoized container: useState setters are identity-stable and excluded
+  // from deps. setSearchImmediate / resetFilters are useCallback([]) — also
+  // stable, but listed because they are not useState setters.
+  const value: FiltersValue = useMemo(
+    () => ({
+      search,
+      searchDebounced,
+      priorityFilter,
+      assigneeFilter,
+      groupFilter,
+      labelFilter,
+      sortKey,
+      sortDir,
+      raidFilterTaskId,
+      setSearch,
+      setSearchImmediate,
+      setPriorityFilter,
+      setAssigneeFilter,
+      setGroupFilter,
+      setLabelFilter,
+      setSortKey,
+      setSortDir,
+      setRaidFilterTaskId,
+      resetFilters,
+    }),
+    [
+      search,
+      searchDebounced,
+      priorityFilter,
+      assigneeFilter,
+      groupFilter,
+      labelFilter,
+      sortKey,
+      sortDir,
+      raidFilterTaskId,
+      setSearchImmediate,
+      resetFilters,
+    ],
+  );
 
   return (
     <FiltersContext.Provider value={value}>{children}</FiltersContext.Provider>

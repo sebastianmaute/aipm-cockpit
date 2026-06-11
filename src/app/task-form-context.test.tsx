@@ -1,6 +1,6 @@
 import { describe, test, expect } from "vitest";
-import { renderHook, act } from "@testing-library/react";
-import { type ReactNode } from "react";
+import { renderHook, render, fireEvent, act } from "@testing-library/react";
+import { memo, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import {
   TaskFormProvider,
   useTaskForm,
@@ -74,6 +74,61 @@ describe("TaskFormProvider", () => {
     act(() => result.current.setBulkEditOpen(false));
     expect(result.current.bulkEditOpen).toBe(false);
     expect(result.current.bulkEdit.priority).toBe("Urgent");
+  });
+
+  test("context value is referentially stable across unrelated parent re-renders", () => {
+    let consumerRenders = 0;
+    const Consumer = memo(function Consumer() {
+      useTaskForm();
+      consumerRenders += 1;
+      return null;
+    });
+
+    function Harness() {
+      const [, setTick] = useState(0);
+      return (
+        <>
+          <button onClick={() => setTick((t) => t + 1)}>tick</button>
+          <TaskFormProvider>
+            <Consumer />
+          </TaskFormProvider>
+        </>
+      );
+    }
+
+    const { getByText } = render(<Harness />);
+    const after = consumerRenders;
+    expect(after).toBeGreaterThan(0);
+
+    fireEvent.click(getByText("tick"));
+    fireEvent.click(getByText("tick"));
+    expect(consumerRenders).toBe(after);
+  });
+
+  test("a form state change still re-renders consumers (counter sanity)", () => {
+    let consumerRenders = 0;
+    const Consumer = memo(function Consumer() {
+      useTaskForm();
+      consumerRenders += 1;
+      return null;
+    });
+
+    let setOpenRef: Dispatch<SetStateAction<boolean>> | undefined;
+    function CaptureSetter() {
+      setOpenRef = useTaskForm().setTaskModalOpen;
+      return null;
+    }
+
+    render(
+      <TaskFormProvider>
+        <Consumer />
+        <CaptureSetter />
+      </TaskFormProvider>,
+    );
+    const after = consumerRenders;
+
+    act(() => setOpenRef!(true));
+    expect(consumerRenders).toBeGreaterThan(after);
   });
 
   test("useTaskForm() outside a TaskFormProvider throws a documented error", () => {

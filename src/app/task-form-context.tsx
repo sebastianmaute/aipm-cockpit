@@ -3,6 +3,7 @@
 import {
   createContext,
   useContext,
+  useMemo,
   useState,
   type Dispatch,
   type ReactNode,
@@ -103,18 +104,23 @@ export function TaskFormProvider({ children }: { children: ReactNode }) {
   const [bulkEdit, setBulkEdit] = useState<BulkEditDraft>(emptyBulkEdit);
   const [bulkEditOpen, setBulkEditOpen] = useState(false);
 
-  const value: TaskFormValue = {
-    form,
-    setForm,
-    editingId,
-    setEditingId,
-    taskModalOpen,
-    setTaskModalOpen,
-    bulkEdit,
-    setBulkEdit,
-    bulkEditOpen,
-    setBulkEditOpen,
-  };
+  // Memoized container: useState setters are identity-stable and excluded
+  // from deps; the value identity only changes when a state slice changes.
+  const value: TaskFormValue = useMemo(
+    () => ({
+      form,
+      setForm,
+      editingId,
+      setEditingId,
+      taskModalOpen,
+      setTaskModalOpen,
+      bulkEdit,
+      setBulkEdit,
+      bulkEditOpen,
+      setBulkEditOpen,
+    }),
+    [form, editingId, taskModalOpen, bulkEdit, bulkEditOpen],
+  );
 
   return (
     <TaskFormContext.Provider value={value}>
