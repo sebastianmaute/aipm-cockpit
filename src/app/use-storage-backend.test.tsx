@@ -235,6 +235,9 @@ describe("useStorageBackend — save effect", () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    // Remove the instance-level visibilityState shadow set by dispatchHidden()
+    // so later tests see jsdom's prototype getter ("visible") again.
+    Reflect.deleteProperty(document, "visibilityState");
   });
 
   it("calls backend.save after workspace changes (debounced 500ms)", async () => {
@@ -289,6 +292,107 @@ describe("useStorageBackend — save effect", () => {
     await act(async () => { await Promise.resolve(); });
 
     expect(mockBackend.save).not.toHaveBeenCalled();
+  });
+
+  // ── R5: flush-on-hide ────────────────────────────────────────────────────
+  // Simulate the tab being hidden: jsdom's Document.prototype.visibilityState
+  // getter returns "visible"; shadow it with an instance property (removed in
+  // afterEach) and dispatch the event the hook listens for.
+  function dispatchHidden() {
+    Object.defineProperty(document, "visibilityState", {
+      value: "hidden",
+      configurable: true,
+    });
+    document.dispatchEvent(new Event("visibilitychange"));
+  }
+
+  it("flushes the pending debounced save immediately when the tab is hidden, without double-firing", async () => {
+    const { result } = renderBackend();
+    // Load completes → suppressNextSaveRef = true
+    await act(async () => { await Promise.resolve(); });
+    // First debounce cycle: suppress fires and clears
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    mockBackend.save.mockClear();
+
+    // Make a change, then hide the tab BEFORE the 500ms debounce elapses.
+    await act(async () => {
+      result.current.setTasks([{ id: 1, taskName: "T1" } as unknown as Task]);
+    });
+    await act(async () => { dispatchHidden(); await Promise.resolve(); });
+
+    expect(mockBackend.save).toHaveBeenCalledTimes(1);
+    expect(mockBackend.save).toHaveBeenCalledWith(
+      expect.objectContaining({ tasks: [expect.objectContaining({ id: 1 })] }),
+    );
+
+    // The cancelled debounce timer must NOT fire a second save.
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    expect(mockBackend.save).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not save on tab hide when no save is pending", async () => {
+    renderBackend();
+    await act(async () => { await Promise.resolve(); });
+    // First debounce cycle: suppressed effect run registers no listeners.
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    mockBackend.save.mockClear();
+
+    await act(async () => { dispatchHidden(); await Promise.resolve(); });
+
+    expect(mockBackend.save).not.toHaveBeenCalled();
+  });
+
+  it("does not re-save on tab hide after the debounced save already fired", async () => {
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    mockBackend.save.mockClear();
+
+    // Change → debounced save fires normally.
+    await act(async () => {
+      result.current.setTasks([{ id: 1, taskName: "T1" } as unknown as Task]);
+    });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    expect(mockBackend.save).toHaveBeenCalledTimes(1);
+
+    // Hiding the tab afterwards must not save again (nothing pending).
+    await act(async () => { dispatchHidden(); await Promise.resolve(); });
+    expect(mockBackend.save).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not flush on tab hide in popout mode (main window owns persistence)", async () => {
+    const { result } = renderBackend(makeArgs({ isPopout: true }));
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    mockBackend.save.mockClear();
+
+    await act(async () => {
+      result.current.setTasks([{ id: 1, taskName: "T1" } as unknown as Task]);
+    });
+    await act(async () => { dispatchHidden(); await Promise.resolve(); });
+
+    expect(mockBackend.save).not.toHaveBeenCalled();
+  });
+
+  it("flushes the pending debounced save on pagehide", async () => {
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    mockBackend.save.mockClear();
+
+    await act(async () => {
+      result.current.setTasks([{ id: 1, taskName: "T1" } as unknown as Task]);
+    });
+    await act(async () => { window.dispatchEvent(new Event("pagehide")); await Promise.resolve(); });
+
+    expect(mockBackend.save).toHaveBeenCalledTimes(1);
   });
 
   it("shows toast on save error", async () => {
@@ -944,6 +1048,45 @@ describe("useStorageBackend — project flows", () => {
     const reg = loadRegistry();
     expect(reg.projects.some((p) => p.name === "New Proj")).toBe(true);
     expect(reg.currentProjectId).not.toBeNull();
+  });
+
+  // ── R3: registry persistence failure must be surfaced ───────────────────────
+  it("createProject surfaces a registry save failure as an error toast while still updating the in-memory registry", async () => {
+    const onRegistryChange = vi.fn();
+    const targetBackend = {
+      kind: "local-json",
+      load: vi.fn().mockResolvedValue(emptyWorkspace()),
+      save: vi.fn().mockResolvedValue(undefined),
+      isReady: vi.fn().mockResolvedValue(true),
+      describe: vi.fn().mockResolvedValue("new.json"),
+    };
+    createBackendMock
+      .mockReturnValueOnce(mockBackend)
+      .mockReturnValue(targetBackend);
+
+    const { result } = renderBackend(makeArgs({ setStorageConfig, onRegistryChange }));
+    await act(async () => { await Promise.resolve(); });
+
+    // Quota exhausted / storage disabled: every localStorage write throws.
+    const setItemSpy = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new DOMException("quota exceeded", "QuotaExceededError");
+    });
+    try {
+      await act(async () => {
+        await result.current.createProject({ name: "New Proj", code: "NP" } as never, "json");
+      });
+    } finally {
+      setItemSpy.mockRestore();
+    }
+
+    // The observable in-memory registry copy still received the new project…
+    expect(onRegistryChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        projects: [expect.objectContaining({ name: "New Proj" })],
+      }),
+    );
+    // …and the persistence failure was surfaced to the user.
+    expect(showToast).toHaveBeenCalledWith("error", expect.stringContaining("project list"));
   });
 
   // ── loadProjectFromFile — Fix-1 regression guard ────────────────────────────

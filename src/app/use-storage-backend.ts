@@ -231,7 +231,10 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       suppressNextSaveRef.current = false;
       return;
     }
-    const timer = setTimeout(() => {
+    // Fire-and-forget save with the effect's full error handling — the .catch
+    // routes every rejection to the storage-outcome/toast path, so neither the
+    // timer nor the flush-on-hide below can produce an unhandled rejection.
+    const doSave = () => {
       backend.save({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, milestones, changes, stakeholders }).then(() => {
         args.onStorageOutcome?.(null);
       }).catch((err) => {
@@ -249,8 +252,38 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
           args.showToast("error", t(langRef.current, "storageSaveFailed", String(err)));
         }
       });
-    }, 500);
-    return () => clearTimeout(timer);
+    };
+    // `fired` guards against double-firing: once either the debounce timer or a
+    // flush has started the save, later triggers are no-ops. (If the timer
+    // already fired and that save is still in flight, skipping the flush is the
+    // simple, acceptable choice — the in-flight save carries this effect run's
+    // workspace snapshot anyway.)
+    let fired = false;
+    const timer = setTimeout(() => { fired = true; doSave(); }, 500);
+    // Flush-on-hide: a pending debounced save would be silently lost if the
+    // user hides or closes the tab within the 500ms window. `visibilitychange`
+    // → "hidden" is the primary signal; `pagehide` is the backup for actual
+    // unload/navigation (chosen over `beforeunload`, which is unreliable with
+    // the back/forward cache and not used elsewhere in this codebase).
+    // Listeners are only registered on effect runs that passed the hydrated/
+    // popout/suppress gates above, so the flush obeys the exact same gating as
+    // the debounced save and never fires when no save is pending.
+    const flush = () => {
+      if (fired) return;
+      fired = true;
+      clearTimeout(timer);
+      doSave();
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "hidden") flush();
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("pagehide", flush);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("pagehide", flush);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, milestones, changes, stakeholders, args.hydrated, args.isPopout, backend]);
 
@@ -396,9 +429,17 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // copy (task-manager's `registry` state) re-renders. Every project flow that
   // mutates the registry routes through here instead of calling saveRegistry
   // directly, so no update is missed.
+  // A failed localStorage write (quota / disabled) is surfaced as a transient
+  // toast — like the other one-shot storage failures here — rather than the
+  // sticky storage banner, which is reserved for the workspace backend being
+  // down. The in-memory copy is still committed so the UI stays consistent for
+  // this session; only persistence across reloads is at risk.
   function commitRegistry(next: ProjectsRegistry): void {
-    saveRegistry(next);
+    const persisted = saveRegistry(next);
     args.onRegistryChange?.(next);
+    if (!persisted) {
+      args.showToast("error", t(langRef.current, "projectsRegistrySaveFailed"));
+    }
   }
 
   // Build a backend for an arbitrary config using the current deps. Shared by

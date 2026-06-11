@@ -201,14 +201,20 @@ export function loadRegistry(): ProjectsRegistry {
 
 /**
  * Persist the registry to localStorage.
- * Silently swallows quota / disabled-storage errors (same policy as
- * contacts.ts).
+ *
+ * Returns `false` when the write was attempted but failed (quota exceeded /
+ * storage disabled) so callers can surface the failure — localStorage is the
+ * ONLY persistence for the project registry, so a silent drop would make the
+ * project list vanish on the next load with zero feedback. The SSR no-op
+ * returns `true` (nothing to report — no write was attempted).
  */
-export function saveRegistry(reg: ProjectsRegistry): void {
-  if (typeof window === "undefined") return;
+export function saveRegistry(reg: ProjectsRegistry): boolean {
+  if (typeof window === "undefined") return true;
   try {
     window.localStorage.setItem(REGISTRY_KEY, JSON.stringify(reg));
+    return true;
   } catch {
-    // Quota / disabled storage — silently drop.
+    // Quota / disabled storage — report to the caller for user-visible surfacing.
+    return false;
   }
 }

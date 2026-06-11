@@ -170,6 +170,8 @@ export const de: Record<TranslationKey, string> = {
   projectSwitchNotFound: "Dieses Projekt ist nicht mehr in deinem Portfolio.",
   projectSwitchHandleMissing:
     "Die Datei für dieses Projekt wurde nicht gefunden. Bitte erneut aus einer Datei öffnen.",
+  projectsRegistrySaveFailed:
+    "Die Projektliste konnte nicht gespeichert werden – der Browser-Speicher ist möglicherweise voll oder deaktiviert. Änderungen an der Liste gehen beim Neuladen eventuell verloren.",
   storageLoadFailed: "Aufgaben konnten nicht geladen werden: {0}",
   storageSaveFailed: "Aufgaben konnten nicht gespeichert werden: {0}",
   toastFirstMigrationNotice:

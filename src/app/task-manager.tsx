@@ -915,20 +915,26 @@ function TaskManagerInner() {
       // data. switchToProject early-returns if currentProjectId already equals
       // the target, so we persist the registry with currentProjectId cleared and
       // let switchToProject re-point it after loading the survivor's workspace.
+      // Persist + update the observable copy; a failed localStorage write
+      // (quota / disabled) is surfaced as a toast — the in-memory list stays
+      // consistent for this session, only reload persistence is at risk.
+      const persist = (reg: ProjectsRegistry) => {
+        if (!saveRegistry(reg)) {
+          showToast("error", t(lang, "projectsRegistrySaveFailed"));
+        }
+        setRegistry(reg);
+      };
       const survivor = next.currentProjectId;
       if (wasCurrent && survivor) {
-        const cleared = { ...next, currentProjectId: null };
-        saveRegistry(cleared);
-        setRegistry(cleared);
+        persist({ ...next, currentProjectId: null });
         void switchToProject(survivor);
       } else {
         // Deleted a non-current project (or none remain). Persist as-is; if none
         // remain the empty-state takes over on the next render.
-        saveRegistry(next);
-        setRegistry(next);
+        persist(next);
       }
     },
-    [registry, switchToProject],
+    [registry, switchToProject, lang, showToast],
   );
 
   // --- Mode-aware portfolio derivations + handlers --------------------------

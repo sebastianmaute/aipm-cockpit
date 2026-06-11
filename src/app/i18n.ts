@@ -164,6 +164,8 @@ const enUS = {
   projectSwitchNotFound: "That project is no longer in your portfolio.",
   projectSwitchHandleMissing:
     "Couldn't find the file for that project — re-open it from a file.",
+  projectsRegistrySaveFailed:
+    "Couldn't save your project list — browser storage may be full or disabled. Changes to the list may be lost when you reload.",
   storageLoadFailed: "Couldn't load tasks: {0}",
   storageSaveFailed: "Couldn't save tasks: {0}",
   toastFirstMigrationNotice:

@@ -1,6 +1,7 @@
-import { describe, it, expect } from "vitest";
+import { afterEach, describe, it, expect, vi } from "vitest";
 import { addProject, removeProject, setCurrentProject, renameProject,
-  emptyRegistry, type ProjectRegistryEntry } from "./projects-registry";
+  emptyRegistry, loadRegistry, saveRegistry,
+  type ProjectRegistryEntry } from "./projects-registry";
 
 const entry = (id: string): ProjectRegistryEntry =>
   ({ id, name: "P" + id, code: "C" + id, storageConfig: { kind: "local-json" } as never });
@@ -48,5 +49,25 @@ describe("projects-registry (pure)", () => {
   });
   it("emptyRegistry returns a fresh empty registry", () => {
     expect(emptyRegistry()).toEqual({ projects: [], currentProjectId: null });
+  });
+});
+
+describe("projects-registry (IO)", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    window.localStorage.clear();
+  });
+
+  it("saveRegistry returns true on success and round-trips through loadRegistry", () => {
+    const reg = addProject(emptyRegistry(), entry("1"), true);
+    expect(saveRegistry(reg)).toBe(true);
+    expect(loadRegistry()).toEqual(reg);
+  });
+
+  it("saveRegistry returns false when localStorage.setItem throws (quota / disabled)", () => {
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new DOMException("quota exceeded", "QuotaExceededError");
+    });
+    expect(saveRegistry(addProject(emptyRegistry(), entry("1"), true))).toBe(false);
   });
 });
