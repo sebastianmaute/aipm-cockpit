@@ -178,6 +178,7 @@ function TaskManagerInner() {
     absences,
     shifts,
     resources,
+    setResources,
     roles,
     disciplines,
     grades,
@@ -528,6 +529,19 @@ function TaskManagerInner() {
     setFillTaskAssigneeOnSave(true);
     handleOpenAddResource({ firstName, lastName, email: email.trim() || undefined });
   }, [handleOpenAddResource]);
+
+  const handleCreateResource = useCallback(
+    (name: string, email: string): number => {
+      const { firstName, lastName } = splitName(name);
+      const id = computeNextId(resources);
+      setResources((prev) => [
+        ...prev,
+        { id, firstName, lastName, email: email || undefined, roleId: null, utilizationMode: "percent", utilization: {} },
+      ]);
+      return id;
+    },
+    [resources, setResources],
+  );
 
   const handleSaveResourceFromAnywhere = useCallback((next: Resource) => {
     handleSaveResource(next);
@@ -1203,6 +1217,8 @@ function TaskManagerInner() {
       today={today}
       nextId={nextId}
       contactsList={contactsList}
+      resources={resources}
+      onCreateResource={handleCreateResource}
       absences={absences}
       tasksForDeps={tasks}
       uniqueGroups={uniqueGroups}
@@ -1378,6 +1394,8 @@ function TaskManagerInner() {
         today={today}
         nextId={nextId}
         contactsList={contactsList}
+        resources={resources}
+        onCreateResource={handleCreateResource}
         absences={absences}
         tasksForDeps={tasks}
         uniqueGroups={uniqueGroups}

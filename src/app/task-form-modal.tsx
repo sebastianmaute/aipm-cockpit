@@ -7,7 +7,7 @@ import type { listContacts } from "./contacts";
 import { type Lang, t } from "./i18n";
 import { Modal } from "./modal";
 import { useTaskForm } from "./task-form-context";
-import type { Absence, Task } from "./types";
+import type { Absence, Resource, Task } from "./types";
 import { TaskFormFields } from "./task-form-fields";
 import { type TaskFieldErrors } from "./task-validation";
 
@@ -16,6 +16,8 @@ export interface TaskFormModalProps {
   today: string;
   nextId: number;
   contactsList: ReturnType<typeof listContacts>;
+  resources: readonly Resource[];
+  onCreateResource: (name: string, email: string) => number;
   absences: readonly Absence[];
   tasksForDeps: readonly Task[];
   uniqueGroups: string[];
@@ -41,6 +43,8 @@ export function TaskFormModal({
   today,
   nextId,
   contactsList,
+  resources,
+  onCreateResource,
   absences,
   tasksForDeps,
   uniqueGroups,
@@ -95,6 +99,8 @@ export function TaskFormModal({
             today={today}
             nextId={nextId}
             contactsList={contactsList}
+            resources={resources}
+            onCreateResource={onCreateResource}
             absences={absences}
             tasksForDeps={tasksForDeps}
             uniqueGroups={uniqueGroups}
