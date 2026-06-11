@@ -11,7 +11,7 @@
 // module needs no validation logic of its own. AIPM palette only — no shadows or
 // gradients.
 
-import { useId, useState } from "react";
+import { useState } from "react";
 import type React from "react";
 import { FieldError } from "./field-feedback";
 import { t, type Lang } from "./i18n";
@@ -26,12 +26,14 @@ import {
 import { NACE_SECTIONS } from "./nace-sections";
 import { type ProjectDraft, type ProjectErrorField } from "./project-validation";
 import { StakeholderRecipientInput } from "./stakeholder-recipient-input";
+import { ResourcePicker } from "./resource-picker";
 import { type Contact } from "./contacts";
 import {
   type ContactPerson,
   type Deployment,
   type IdentityType,
   type RegulatoryRequirement,
+  type Resource,
 } from "./types";
 
 // The form's in-progress draft. A SUPERSET of `ProjectDraft` (the shape
@@ -143,6 +145,7 @@ export interface ProjectFieldsProps {
   lang: Lang;
   stakeholderNames: string[];
   addressBook: Contact[];
+  resources: readonly Resource[];
 }
 
 // ---------------------------------------------------------------------------
@@ -262,6 +265,7 @@ export function CustomerFields({
   markTouched,
   lang,
   addressBook,
+  resources,
 }: ProjectFieldsProps) {
   const toggleIdentityType = (type: IdentityType) =>
     setDraft((p) => ({
@@ -485,6 +489,7 @@ export function CustomerFields({
           lang={lang}
           contactPersons={draft.contactPersons}
           addressBook={addressBook}
+          resources={resources}
           onChange={(next) => setDraft((p) => ({ ...p, contactPersons: next }))}
         />
       </div>
@@ -543,38 +548,33 @@ function ContactPersonsControl({
   lang,
   contactPersons,
   addressBook,
+  resources,
   onChange,
 }: {
   lang: Lang;
   contactPersons: ContactPerson[];
   addressBook: Contact[];
+  resources: readonly Resource[];
   onChange: (next: ContactPerson[]) => void;
 }) {
-  const [manualName, setManualName] = useState("");
-  const [manualEmail, setManualEmail] = useState("");
-  const [bookSel, setBookSel] = useState("");
-  const nameId = useId();
-  const emailId = useId();
+  const [draft, setDraft] = useState<{ name: string; email: string; resourceId: number | null }>(
+    { name: "", email: "", resourceId: null },
+  );
 
   const hasName = (name: string) =>
     contactPersons.some((c) => c.name.trim().toLowerCase() === name.trim().toLowerCase());
 
-  const addFromBook = (name: string) => {
-    const found = addressBook.find((c) => c.name === name);
-    if (!found || hasName(found.name)) {
-      setBookSel("");
-      return;
-    }
-    onChange([...contactPersons, { name: found.name, email: found.email, synced: true }]);
-    setBookSel("");
-  };
-
-  const addManual = () => {
-    const name = manualName.trim();
+  const addDraft = () => {
+    const name = draft.name.trim();
     if (!name || hasName(name)) return;
-    onChange([...contactPersons, { name, email: manualEmail.trim(), synced: false }]);
-    setManualName("");
-    setManualEmail("");
+    const synced = draft.resourceId != null || addressBook.some((c) => c.name === name);
+    onChange([
+      ...contactPersons,
+      draft.resourceId != null
+        ? { name, email: draft.email.trim(), synced, resourceId: draft.resourceId }
+        : { name, email: draft.email.trim(), synced },
+    ]);
+    setDraft({ name: "", email: "", resourceId: null });
   };
 
   return (
@@ -590,9 +590,11 @@ function ContactPersonsControl({
               key={cp.name}
               className="flex items-center justify-between rounded-md border border-line bg-surface px-3 py-1.5 text-sm text-foreground"
             >
-              <span>
-                {cp.name}
-                {cp.email ? ` <${cp.email}>` : ""}
+              <span className="flex items-center gap-1.5">
+                {cp.resourceId != null && (
+                  <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full bg-AIPM-green" title={t(lang, "resourcePickerLinked")} />
+                )}
+                <span>{cp.name}{cp.email ? ` <${cp.email}>` : ""}</span>
               </span>
               <button
                 type="button"
@@ -607,53 +609,23 @@ function ContactPersonsControl({
         </ul>
       )}
 
-      {/* Add from address book */}
-      {addressBook.length > 0 && (
-        <div className="mb-2 flex items-center gap-2">
-          <select
-            aria-label={t(lang, "contactAddFromBook")}
-            value={bookSel}
-            onChange={(e) => addFromBook(e.target.value)}
-            className={inputClass}
-          >
-            <option value="">{t(lang, "contactAddFromBook")}</option>
-            {addressBook.map((c) => (
-              <option key={c.name} value={c.name}>
-                {c.name}
-                {c.email ? ` <${c.email}>` : ""}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
-
-      {/* Add manually */}
+      {/* Add a contact: link-only ResourcePicker (registry resources + address
+          book as suggestions; no "+ Add as resource" row — project contacts are
+          often external clients/vendors). */}
       <div className="flex flex-wrap items-end gap-2">
         <div className="min-w-0 flex-1">
-          <input
-            id={nameId}
-            type="text"
-            value={manualName}
+          <ResourcePicker
+            lang={lang}
+            value={draft}
+            resources={resources}
+            contacts={addressBook}
+            onChange={(next) => setDraft({ name: next.name, email: next.email, resourceId: next.resourceId })}
             placeholder={t(lang, "contactAddManual")}
-            aria-label={`${t(lang, "contactAddManual")} — name`}
-            onChange={(e) => setManualName(e.target.value)}
-            className={inputClass}
-          />
-        </div>
-        <div className="min-w-0 flex-1">
-          <input
-            id={emailId}
-            type="email"
-            value={manualEmail}
-            placeholder="email"
-            aria-label={`${t(lang, "contactAddManual")} — email`}
-            onChange={(e) => setManualEmail(e.target.value)}
-            className={inputClass}
           />
         </div>
         <button
           type="button"
-          onClick={addManual}
+          onClick={addDraft}
           className="shrink-0 rounded-md border border-line bg-surface px-3 py-2 text-sm font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted dark:border-line dark:bg-surface dark:text-foreground dark:hover:bg-surface-muted"
         >
           {t(lang, "add")}

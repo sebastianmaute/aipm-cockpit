@@ -25,7 +25,7 @@ import {
   type ProjectErrorField,
 } from "./project-validation";
 import { sanitizeProjectMeta } from "./sanitize";
-import { type ProjectMeta } from "./types";
+import { type ProjectMeta, type Resource } from "./types";
 
 export interface ProjectFormProps {
   /** Provided → edit mode (prefilled); omitted → create mode (blank). */
@@ -34,6 +34,8 @@ export interface ProjectFormProps {
   stakeholderNames: string[];
   /** Address book for the "add from address book" contact picker. */
   addressBook: Contact[];
+  /** Registry resources for the link-only contact-person picker. */
+  resources: readonly Resource[];
   lang: Lang;
   /** Called with a sanitized ProjectMeta on a valid submit. */
   onSubmit: (meta: ProjectMeta) => void;
@@ -76,6 +78,7 @@ export function ProjectForm({
   initial,
   stakeholderNames,
   addressBook,
+  resources,
   lang,
   onSubmit,
   onCancel,
@@ -150,6 +153,7 @@ export function ProjectForm({
     lang,
     stakeholderNames,
     addressBook,
+    resources,
   };
 
   return (

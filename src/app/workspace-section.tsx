@@ -157,6 +157,7 @@ export interface WorkspaceSectionProps {
   archivedProjects?: ProjectRegistryEntry[];
   projectStakeholderNames: string[];
   projectAddressBook: Contact[];
+  projectResources: readonly Resource[];
   onSwitchProject: (id: string) => void;
   onCreateProject: (meta: ProjectMeta, format: "json" | "csv" | "md") => void;
   onUpdateCurrentProject: (meta: ProjectMeta) => void;
@@ -222,6 +223,7 @@ export function WorkspaceSection({
   archivedProjects,
   projectStakeholderNames,
   projectAddressBook,
+  projectResources,
   onSwitchProject,
   onCreateProject,
   onUpdateCurrentProject,
@@ -805,6 +807,7 @@ export function WorkspaceSection({
               archivedProjects={archivedProjects}
               stakeholderNames={projectStakeholderNames}
               addressBook={projectAddressBook}
+              resources={projectResources}
               lang={lang}
               onSwitch={onSwitchProject}
               onCreate={onCreateProject}
