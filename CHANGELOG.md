@@ -8,6 +8,20 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.61.0] - 2026-06-11 "Robinson"
+
+Resource-identity normalization for RAID owners and shift assignees.
+
+### Added
+- `RaidItem.ownerResourceId` and `Shift.resourceId` — stable foreign keys linking a RAID item's owner and a shift's assignee to the Resource registry, mirroring the existing `Task.resourceId` / `Absence.resourceId`. Both are optional and additive; the denormalized name/email strings are kept as a display cache.
+- A schema migration (workspace v11) that back-fills these two new keys and the previously-unused `Absence.resourceId` by matching each record's email against `Resource.email` (case-folded, email-only — no name guessing). Idempotent: already-set links are never overwritten.
+
+### Changed
+- Schema versions bumped: workspace 10 → 11, Turso single-tenant 10 → 11, Turso multi-project 11 → 12.
+
+### Known limitation
+- **Existing Turso databases need their `raid` and `shifts` tables recreated.** The new columns are not auto-added to an already-deployed Turso schema (the relational tables use `CREATE TABLE IF NOT EXISTS`), so the first save after upgrading would reference a missing column and fail. To migrate a live single-tenant or multi-project Turso database, clear and re-save the workspace (or re-import it) so the tables are recreated with the new columns. The default browser (IndexedDB) and file-based backends migrate automatically with no action needed.
+
 ## [0.60.5] - 2026-06-11 "Stephenson"
 
 Security documentation (refactor Batch E — final batch of the v0.60.x refactor plan).
