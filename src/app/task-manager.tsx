@@ -61,7 +61,7 @@ import type { AppView } from "./nav-config";
 import { useSnapshots } from "./use-snapshots";
 import { useVersionHistory } from "./use-version-history";
 import { DEFAULT_VERSION_RETENTION } from "./version-history";
-import { workspaceToJson } from "./workspace";
+import { workspaceToJson, type Workspace } from "./workspace";
 import { computeDashboard } from "./dashboard";
 import { getTursoConfig } from "./turso-config";
 import { defaultExportConfig, defaultSnapshotSettings } from "./settings-types";
@@ -182,20 +182,31 @@ function TaskManagerInner() {
     uniqueGroups,
     uniqueLabels,
     raid,
+    setRaid,
     absences,
+    setAbsences,
     shifts,
+    setShifts,
     resources,
     setResources,
     roles,
+    setRoles,
     disciplines,
+    setDisciplines,
     grades,
+    setGrades,
     setBudgets,
     setFxRates,
     budgets,
     plan,
+    setPlan,
     status,
+    setStatus,
     milestones,
+    setMilestones,
     changes,
+    setChanges,
+    setStakeholders,
     fxRates,
     project,
     setProject,
@@ -545,6 +556,15 @@ function TaskManagerInner() {
      plan, budgets, fxRates, status, project, milestones, changes, stakeholders],
   );
 
+  // Fan a restored workspace into every setter (mirrors use-storage-backend's
+  // applyWorkspace). Used by selective version restore to apply the new state.
+  const applyRestoredWorkspace = useCallback((w: Workspace) => {
+    setTasks(w.tasks ?? []); setRaid(w.raid ?? []); setAbsences(w.absences ?? []); setShifts(w.shifts ?? []);
+    setResources(w.resources ?? []); setRoles(w.roles ?? []); setDisciplines(w.disciplines ?? []); setGrades(w.grades ?? []);
+    if (w.plan) setPlan(w.plan); setBudgets(w.budgets ?? []); setFxRates(w.fxRates ?? null); setStatus(w.status ?? {});
+    setProject(w.project); setMilestones(w.milestones ?? []); setChanges(w.changes ?? []); setStakeholders(w.stakeholders ?? []);
+  }, [setTasks, setRaid, setAbsences, setShifts, setResources, setRoles, setDisciplines, setGrades, setPlan, setBudgets, setFxRates, setStatus, setProject, setMilestones, setChanges, setStakeholders]);
+
   // Version history. Turso-only, main-window-only; the hook is inert otherwise.
   const versionHistory = useVersionHistory({
     config: tursoConfig,
@@ -553,6 +573,8 @@ function TaskManagerInner() {
     idleMs: VERSION_IDLE_MS,
     retention: DEFAULT_VERSION_RETENTION,
     getPayload: getVersionPayload,
+    applyWorkspace: applyRestoredWorkspace,
+    logActivity,
     onError: (err) => {
       // Mirror the snapshot hook: connectivity/auth failures surface as the
       // sticky banner (via reportStorageOutcome → tursoErrorKind); any other

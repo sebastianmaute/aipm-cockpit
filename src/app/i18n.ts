@@ -1550,6 +1550,7 @@ const enUS = {
   historyCompareVsNow: "Compared with current",
   historyCompareSelect: "Select to compare",
   historyCompareSelected: "Compare selected",
+  historyRestoreSelected: "Restore selected",
   projectDocRepo: "Document repository",
   projectRegulatory: "Regulatory",
   projectNotes: "Notes",

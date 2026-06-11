@@ -1568,6 +1568,7 @@ export const de: Record<TranslationKey, string> = {
   historyCompareVsNow: "Mit aktuellem Stand verglichen",
   historyCompareSelect: "Zum Vergleich auswählen",
   historyCompareSelected: "Auswahl vergleichen",
+  historyRestoreSelected: "Auswahl wiederherstellen",
   projectDocRepo: "Dokumentenablage",
   projectRegulatory: "Regulatorik",
   projectNotes: "Hinweise",
