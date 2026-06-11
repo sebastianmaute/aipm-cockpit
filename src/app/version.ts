@@ -2,12 +2,12 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.67.0";
-export const APP_BUILD_DATE = "2026-06-11"; // 0.67.0 data version history — compare (Turso, slice 2)
+export const APP_VERSION = "0.68.0";
+export const APP_BUILD_DATE = "2026-06-11"; // 0.68.0 data version history — selective restore (Turso, slice 3)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The whole
- *  0.67.x line is "Niven" (Larry Niven); patch releases inherit
+ *  0.68.x line is "Brin" (David Brin); patch releases inherit
  *  their minor version's codename rather than getting their own. */
-export const APP_MILESTONE = "Niven";
+export const APP_MILESTONE = "Brin";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
