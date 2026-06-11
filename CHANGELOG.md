@@ -8,6 +8,16 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.60.5] - 2026-06-11 "Stephenson"
+
+Security documentation (refactor Batch E — final batch of the v0.60.x refactor plan).
+
+### Changed
+- The AI consent screen now states explicitly that the API key is stored unencrypted in the browser's localStorage and sent directly to api.anthropic.com, and recommends a dedicated spend-limited key.
+- All three credential fields (Anthropic API key, Jira API token, Turso auth token) show a storage note: unencrypted localStorage — don't use production credentials on shared machines.
+- README gained a "Security Model" section documenting the local-first BYO-key architecture: what is stored where, what leaves the browser, and credential recommendations.
+- Verified (audit item S2): credentials never appear in workspace exports, the activity log, or console output.
+
 ## [0.60.4] - 2026-06-11 "Stephenson"
 
 Performance + reliability (refactor Batch D).
