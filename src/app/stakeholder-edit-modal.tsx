@@ -154,6 +154,9 @@ export function StakeholderEditModal({
               onChange={(next) =>
                 onChange({ ...draft, name: next.name, resourceId: next.resourceId })
               }
+              onBlur={(e) =>
+                onChange({ ...draft, name: describeTextCap(e.target.value, BUDGET_NAME_MAX).value.trim(), resourceId: draft.resourceId })
+              }
               maxLength={BUDGET_NAME_MAX}
               aria-required
               aria-describedby="stakeholder-name-counter"
