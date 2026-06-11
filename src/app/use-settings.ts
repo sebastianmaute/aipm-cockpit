@@ -7,6 +7,7 @@ import { defaultNotificationsConfig, resolveSnapshotSettings, sanitizeAiConfig, 
 import type { StakeholderQuadrant } from "./stakeholders";
 import { resolveExtraReports } from "./addable-reports";
 import { sanitizeFeatures } from "./feature-modules";
+import { sanitizeVersionRetention } from "./version-history";
 import { isPlainObject } from "./sanitize";
 
 export const SETTINGS_KEY = "lop-app:settings";
@@ -135,6 +136,7 @@ export function useSettings(): {
             integrations: sanitizeIntegrations(parsed.integrations),
             snapshots: resolveSnapshotSettings(parsed.snapshots),
             features: sanitizeFeatures((parsed as Record<string, unknown>).features),
+            versionHistoryRetention: sanitizeVersionRetention((parsed as Record<string, unknown>).versionHistoryRetention),
             export: sanitizeExportConfig((parsed as Record<string, unknown>).export),
           };
           Promise.resolve().then(() => {

@@ -21,3 +21,16 @@ export interface ProjectVersion extends ProjectVersionMeta {
 
 /** Default auto-version retention. Slice 4 replaces this with a Settings value. */
 export const DEFAULT_VERSION_RETENTION = 50;
+
+/** Min auto-version retention; the configurable setting cannot go below this. */
+export const MIN_VERSION_RETENTION = 50;
+export const MAX_VERSION_RETENTION = 1000;
+export const VERSION_RETENTION_STEP = 10;
+
+/** Clamp a retention value to [50, 1000] and snap to the nearest 10. Bad input → 50. */
+export function sanitizeVersionRetention(raw: unknown): number {
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return DEFAULT_VERSION_RETENTION;
+  const snapped = Math.round(n / VERSION_RETENTION_STEP) * VERSION_RETENTION_STEP;
+  return Math.max(MIN_VERSION_RETENTION, Math.min(MAX_VERSION_RETENTION, snapped));
+}

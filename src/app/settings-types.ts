@@ -254,6 +254,8 @@ export type Settings = {
   integrations?: IntegrationsSettings;
   snapshots?: SnapshotSettings;
   features: FeatureModuleId[];
+  /** Max auto-versions kept per project in version history (Turso). Min 50, step 10. */
+  versionHistoryRetention?: number;
   export?: ExportConfig;
 };
 
@@ -271,5 +273,6 @@ export const defaultSettings: Settings = {
   integrations: defaultIntegrations,
   snapshots: defaultSnapshotSettings,
   features: [...ALL_MODULE_IDS],
+  versionHistoryRetention: 50,
   export: defaultExportConfig,
 };
