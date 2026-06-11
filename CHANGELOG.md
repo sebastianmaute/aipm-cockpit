@@ -8,6 +8,19 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.67.0] - 2026-06-11 "Niven"
+
+Version history — compare (Turso only; second slice).
+
+### Added
+- The History view can now compare versions: click "Compared with current" on a
+  version to see what changed versus the current data, or tick two versions and
+  "Compare selected" to compare them with each other (ordered oldest→newest).
+  Changes are grouped by type (tasks, RAID, milestones, resources, budget, …) and
+  each record expands to show field-level before→after.
+- The timeline now captions each version with a short summary of what changed
+  (e.g. "3 Tasks, 1 RAID").
+
 ## [0.66.0] - 2026-06-11 "Egan"
 
 Data version history — capture & timeline (Turso only; first slice).
