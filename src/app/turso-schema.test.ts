@@ -200,6 +200,12 @@ describe("stakeholders turso table", () => {
     expect(TABLE_NAMES).toContain("stakeholders");
   });
 
+  it("excludes project_versions from TABLE_NAMES so a workspace save cannot clear history", () => {
+    // Version history is an append-only side table; if it ever enters TABLE_NAMES
+    // the per-save DELETE FROM sweep would wipe it (same rule as snapshot tables).
+    expect(TABLE_NAMES).not.toContain("project_versions");
+  });
+
   it("full round-trip restores stakeholders", () => {
     const sample = {
       id: 1, name: "Sponsor Sam", organization: "Acme", title: "VP",
