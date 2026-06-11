@@ -31,6 +31,28 @@ import type { TursoConfig } from "./turso-config";
 const OLD_BLOB_DDL = "CREATE TABLE IF NOT EXISTS workspace (id INTEGER PRIMARY KEY, data TEXT NOT NULL)";
 const OLD_BLOB_SELECT = "SELECT data FROM workspace WHERE id = 1";
 
+/** Upper bound on waiting for the cross-tab write lock. Generously above the
+ *  15s pipeline timeout so a healthy lock holder finishes its save first. */
+const LOCK_WAIT_TIMEOUT_MS = 20_000;
+
+/** The cross-tab write lock could not be acquired within LOCK_WAIT_TIMEOUT_MS.
+ *  Deliberately NOT a StorageNotReadyError and NOT classified by
+ *  storage-error.ts: a lock timeout is transient (another tab is writing), so
+ *  it surfaces via the generic save-failure toast rather than the persistent
+ *  connectivity/auth banner. */
+export class TursoLockTimeoutError extends Error {
+  constructor(options?: ErrorOptions) {
+    super("Turso write lock timed out — another tab may be saving to the same database.", options);
+    this.name = "TursoLockTimeoutError";
+  }
+}
+
+/** Web Locks name for the cross-tab single-writer lock. Scoped by DB URL and
+ *  (in tenant mode) project id: different DBs / projects must not contend. */
+export function tursoWriteLockName(httpUrl: string, projectId: string | undefined): string {
+  return `lop-turso-write:${httpUrl}:${projectId ?? "single"}`;
+}
+
 /** Defensively read results[i].response.result.rows[0][0].value as a string. */
 function firstRowText(results: PipelineResultLike[], i: number): string | null {
   const cell = results[i]?.response?.result?.rows?.[0]?.[0];
@@ -86,15 +108,49 @@ export class TursoBackend implements StorageBackend {
       this.baseline = workspace;
       return;
     }
+    let stmts: SqlStmt[];
     if (this.projectId === undefined) {
-      await runTursoPipeline(this.config, workspaceToStatements(workspace, dirty));
+      stmts = workspaceToStatements(workspace, dirty);
     } else {
       const { tenantWorkspaceToStatements } = await import("./turso-tenant-schema");
-      await runTursoPipeline(this.config, tenantWorkspaceToStatements(workspace, this.projectId, dirty));
+      stmts = tenantWorkspaceToStatements(workspace, this.projectId, dirty);
     }
-    // Reached only when the pipeline succeeded: a failed save keeps the old
-    // baseline so the next save retries the still-dirty tables.
+    // Cross-tab single-writer: two full tabs on the same DB + project would
+    // otherwise interleave per-table dirty writes into a state neither tab
+    // ever had. See withWriteLock.
+    await this.withWriteLock(() => runTursoPipeline(this.config, stmts));
+    // Reached only when the pipeline succeeded: a failed (or lock-aborted)
+    // save keeps the old baseline so the next save retries the dirty tables.
     this.baseline = workspace;
+  }
+
+  /** Run `fn` while holding the exclusive cross-tab Web Lock for this DB +
+   *  project. Falls back to a direct call when the Web Locks API is
+   *  unavailable (jsdom, older browsers) or when no config is set (the
+   *  pipeline then throws its own not-configured error). The wait is bounded:
+   *  if the lock is not granted within LOCK_WAIT_TIMEOUT_MS the save fails
+   *  with TursoLockTimeoutError instead of hanging forever. */
+  private async withWriteLock<T>(fn: () => Promise<T>): Promise<T> {
+    const locks = typeof navigator !== "undefined" ? navigator.locks : undefined;
+    if (!locks || !this.config) return fn();
+    const name = tursoWriteLockName(this.config.httpUrl, this.projectId);
+    let granted = false;
+    try {
+      return await locks.request(
+        name,
+        { mode: "exclusive", signal: AbortSignal.timeout(LOCK_WAIT_TIMEOUT_MS) },
+        () => {
+          granted = true;
+          return fn();
+        },
+      );
+    } catch (err) {
+      // A rejection before the callback ran means the lock wait itself was
+      // aborted (the timeout fired). Errors thrown by fn() — i.e. real
+      // pipeline failures — pass through unchanged once the lock was granted.
+      if (!granted) throw new TursoLockTimeoutError({ cause: err });
+      throw err;
+    }
   }
 
   private async loadSingleTenant(): Promise<Workspace> {

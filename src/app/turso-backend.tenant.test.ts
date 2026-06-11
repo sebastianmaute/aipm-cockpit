@@ -1,4 +1,4 @@
-import { vi, describe, it, expect, beforeEach } from "vitest";
+import { vi, describe, it, expect, beforeEach, afterEach } from "vitest";
 // spy:true keeps the real module (so the backend's LOAD_TIMEOUT_MS import stays
 // the real constant) while wrapping runTursoPipeline in a stubable spy. An
 // importOriginal factory would NOT work here: it caches the real module, so the
@@ -123,6 +123,50 @@ describe("TursoBackend (tenant mode)", () => {
       const stmts = vi.mocked(runTursoPipeline).mock.calls[2][1];
       expect(stmts.some((s) => s.sql === "DELETE FROM tasks WHERE project_id = ?")).toBe(true);
       expect(stmts.some((s) => s.sql.startsWith("INSERT INTO tasks"))).toBe(true);
+    });
+  });
+
+  describe("cross-tab write lock", () => {
+    afterEach(() => {
+      Reflect.deleteProperty(navigator, "locks");
+    });
+
+    it("two tabs' saves serialize through a queued lock, scoped to the tenant project", async () => {
+      // A faithful little Web Locks stand-in: requests for the (single) lock
+      // name queue behind one another, like two tabs contending in a browser.
+      const names: string[] = [];
+      let tail: Promise<unknown> = Promise.resolve();
+      Object.defineProperty(navigator, "locks", {
+        configurable: true,
+        value: {
+          request: (name: string, _options: unknown, cb: () => Promise<unknown>) => {
+            names.push(name);
+            const run = tail.then(() => cb());
+            tail = run.catch(() => undefined);
+            return run;
+          },
+        },
+      });
+      const order: string[] = [];
+      let release!: () => void;
+      const gate = new Promise<void>((resolve) => { release = resolve; });
+      vi.mocked(runTursoPipeline)
+        .mockImplementationOnce(async () => { order.push("tabA-start"); await gate; order.push("tabA-end"); return []; })
+        .mockImplementationOnce(async () => { order.push("tabB"); return []; });
+      const { emptyWorkspace } = await import("./storage");
+      // Two backend instances = two tabs pointing at the same DB + project.
+      const tabA = new TursoBackend(cfg, "p1").save(emptyWorkspace());
+      const tabB = new TursoBackend(cfg, "p1").save(emptyWorkspace());
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      // Tab B is queued behind tab A's in-flight pipeline — not interleaved.
+      expect(runTursoPipeline).toHaveBeenCalledTimes(1);
+      release();
+      await Promise.all([tabA, tabB]);
+      expect(order).toEqual(["tabA-start", "tabA-end", "tabB"]);
+      expect(names).toEqual([
+        "lop-turso-write:https://x.turso.io:p1",
+        "lop-turso-write:https://x.turso.io:p1",
+      ]);
     });
   });
 });

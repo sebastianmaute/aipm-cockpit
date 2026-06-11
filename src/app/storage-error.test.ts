@@ -26,4 +26,9 @@ describe("tursoErrorKind", () => {
     expect(tursoErrorKind(null)).toBeNull();
     expect(tursoErrorKind("nope")).toBeNull();
   });
+
+  it("does not classify a cross-tab lock timeout (transient — toast, not the connectivity banner)", async () => {
+    const { TursoLockTimeoutError } = await import("./turso-backend");
+    expect(tursoErrorKind(new TursoLockTimeoutError())).toBeNull();
+  });
 });

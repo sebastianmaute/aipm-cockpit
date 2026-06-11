@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { TursoBackend } from "./turso-backend";
+import { TursoBackend, TursoLockTimeoutError, tursoWriteLockName } from "./turso-backend";
 import { StorageNotReadyError, emptyWorkspace, workspaceToJson } from "./storage";
 import type { TursoConfig } from "./turso-config";
 import { SCHEMA_DDL, TABLE_NAMES } from "./turso-schema";
@@ -208,6 +208,85 @@ describe("TursoBackend", () => {
       const sqls = bodySqls(2);
       expect(sqls.filter((s) => s.startsWith("DELETE FROM"))).toEqual(["DELETE FROM tasks"]);
       expect(sqls.some((s) => s.startsWith("INSERT INTO tasks"))).toBe(true);
+    });
+  });
+
+  describe("cross-tab write lock", () => {
+    const okSave = () => jsonRes({ results: [okExec()] });
+    /** Install a navigator.locks mock (jsdom does not implement the Web Locks API). */
+    const defineLocks = (
+      request: (
+        name: string,
+        options: { mode?: string; signal?: AbortSignal },
+        cb: () => Promise<unknown>,
+      ) => Promise<unknown>,
+    ) => {
+      Object.defineProperty(navigator, "locks", { value: { request }, configurable: true });
+    };
+    afterEach(() => {
+      Reflect.deleteProperty(navigator, "locks");
+    });
+
+    it("save acquires the per-DB exclusive lock with a bounded wait; a no-change save skips it", async () => {
+      const seen: { name: string; mode?: string; boundedWait: boolean }[] = [];
+      defineLocks(async (name, options, cb) => {
+        seen.push({ name, mode: options.mode, boundedWait: options.signal instanceof AbortSignal });
+        return cb();
+      });
+      fetchSpy.mockResolvedValue(okSave());
+      const backend = new TursoBackend(CONFIG);
+      const ws = emptyWorkspace();
+      await backend.save(ws);
+      expect(seen).toEqual([
+        { name: "lop-turso-write:https://db.turso.io:single", mode: "exclusive", boundedWait: true },
+      ]);
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      // Zero-change save: no pipeline round-trip, so no lock acquisition either.
+      await backend.save({ ...ws });
+      expect(seen).toHaveLength(1);
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it("falls back to a direct save when navigator.locks is unavailable (jsdom default)", async () => {
+      expect((navigator as { locks?: unknown }).locks).toBeUndefined();
+      fetchSpy.mockResolvedValue(okSave());
+      await expect(new TursoBackend(CONFIG).save(emptyWorkspace())).resolves.toBeUndefined();
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it("a lock-wait abort rejects with TursoLockTimeoutError, writes nothing, and keeps the baseline", async () => {
+      defineLocks(async () => {
+        throw new DOMException("the lock wait timed out", "TimeoutError");
+      });
+      const backend = new TursoBackend(CONFIG);
+      const ws = emptyWorkspace();
+      ws.tasks = [minimalTask as never];
+      await expect(backend.save(ws)).rejects.toBeInstanceOf(TursoLockTimeoutError);
+      expect(fetchSpy).not.toHaveBeenCalled();
+      // Baseline did not advance: the retry is still a full first save.
+      defineLocks(async (_name, _options, cb) => cb());
+      fetchSpy.mockResolvedValue(okSave());
+      await backend.save(ws);
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      const sqls = JSON.parse((fetchSpy.mock.calls[0][1] as RequestInit).body as string)
+        .requests.map((r: { stmt?: { sql: string } }) => r.stmt?.sql);
+      expect(sqls).toContain("DELETE FROM tasks");
+    });
+
+    it("an error thrown inside the locked save passes through unchanged", async () => {
+      defineLocks(async (_name, _options, cb) => cb());
+      fetchSpy.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+      await expect(new TursoBackend(CONFIG).save(emptyWorkspace()))
+        .rejects.toMatchObject({ hint: "storage-unreachable" });
+    });
+
+    it("scopes the lock name by DB URL and project id", () => {
+      expect(tursoWriteLockName("https://db.turso.io", undefined)).toBe("lop-turso-write:https://db.turso.io:single");
+      expect(tursoWriteLockName("https://db.turso.io", "p1")).toBe("lop-turso-write:https://db.turso.io:p1");
+      expect(tursoWriteLockName("https://db.turso.io", "p1"))
+        .not.toBe(tursoWriteLockName("https://db.turso.io", "p2"));
+      expect(tursoWriteLockName("https://other.turso.io", "p1"))
+        .not.toBe(tursoWriteLockName("https://db.turso.io", "p1"));
     });
   });
 });
