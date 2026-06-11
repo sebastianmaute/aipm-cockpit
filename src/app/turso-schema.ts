@@ -147,6 +147,11 @@ function insertStmt(table: string, columns: readonly string[], values: string[])
  * `!==` reliably means "content changed". Maps each changed Workspace section
  * to its Turso table name (singletons: plan → plan, fxRates → fx_rates,
  * status → meta).
+ *
+ * `ws.project` is DELIBERATELY excluded: save() never persists it in either
+ * mode — the tenant projects row is written only via turso-portfolio.ts's
+ * upsert path. If project persistence is ever added to a builder, this diff
+ * must learn about it or project-only edits would be silently skipped.
  */
 export function dirtyWorkspaceTables(prev: Workspace, next: Workspace): Set<string> {
   const dirty = new Set<string>();
