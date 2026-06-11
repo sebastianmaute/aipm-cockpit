@@ -140,31 +140,66 @@ function insertStmt(table: string, columns: readonly string[], values: string[])
   };
 }
 
-/** Ordered statements that OVERWRITE the whole workspace, transactionally. */
-export function workspaceToStatements(ws: Workspace): SqlStmt[] {
+/**
+ * Table-level reference diff between two workspaces — the same trick
+ * BrowserBackend.diff uses at row level: the codebase follows an
+ * immutable-update convention, so a changed section gets a NEW reference and
+ * `!==` reliably means "content changed". Maps each changed Workspace section
+ * to its Turso table name (singletons: plan → plan, fxRates → fx_rates,
+ * status → meta).
+ */
+export function dirtyWorkspaceTables(prev: Workspace, next: Workspace): Set<string> {
+  const dirty = new Set<string>();
+  for (const s of ENTITY_SPECS) {
+    if (prev[s.wsKey] !== next[s.wsKey]) dirty.add(s.table);
+  }
+  if (prev.plan !== next.plan) dirty.add("plan");
+  if (prev.fxRates !== next.fxRates) dirty.add("fx_rates");
+  if (prev.status !== next.status) dirty.add("meta");
+  return dirty;
+}
+
+/**
+ * Ordered statements that OVERWRITE the workspace, transactionally.
+ *
+ * When `dirtyTables` is provided, DELETE+INSERT are emitted only for those
+ * tables (the others are untouched in the DB); the CREATE TABLE IF NOT EXISTS
+ * set and BEGIN/COMMIT are ALWAYS emitted — DDL is cheap and guards the first
+ * write against a fresh database. Omitting the param keeps the historical
+ * full-rewrite behavior.
+ */
+export function workspaceToStatements(ws: Workspace, dirtyTables?: ReadonlySet<string>): SqlStmt[] {
+  const isDirty = (table: string) => dirtyTables === undefined || dirtyTables.has(table);
   const out: SqlStmt[] = [{ sql: "BEGIN" }];
   for (const ddl of SCHEMA_DDL) out.push({ sql: ddl });
-  for (const name of TABLE_NAMES) out.push({ sql: `DELETE FROM ${name}` });
+  for (const name of TABLE_NAMES) {
+    if (isDirty(name)) out.push({ sql: `DELETE FROM ${name}` });
+  }
   for (const s of ENTITY_SPECS) {
+    if (!isDirty(s.table)) continue;
     for (const e of s.get(ws)) {
       out.push(insertStmt(s.table, s.columns, s.columns.map((c) => s.toRow(e, c))));
     }
   }
-  const p = ws.plan;
-  out.push(insertStmt("plan", ["id", ...PLAN_COLUMNS], ["1", p.startDate, p.endDate, p.granularity, p.currency]));
-  if (ws.fxRates) {
+  if (isDirty("plan")) {
+    const p = ws.plan;
+    out.push(insertStmt("plan", ["id", ...PLAN_COLUMNS], ["1", p.startDate, p.endDate, p.granularity, p.currency]));
+  }
+  if (ws.fxRates && isDirty("fx_rates")) {
     const fx = ws.fxRates;
     const rates = Object.entries(fx.rates).map(([k, v]) => `${k}=${v}`).join("|");
     out.push(insertStmt("fx_rates", ["id", ...FX_COLUMNS], ["1", fx.base, fx.date, fx.fetchedAt, rates]));
   }
-  out.push({ sql: `INSERT INTO meta (key, value) VALUES ('schema_version', ?)`, args: [{ type: "text", value: SCHEMA_VERSION }] });
-  out.push({
-    sql: `INSERT INTO meta (key, value) VALUES (?, ?)`,
-    args: [
-      { type: "text", value: "project_status" },
-      { type: "text", value: JSON.stringify(ws.status ?? {}) },
-    ],
-  });
+  if (isDirty("meta")) {
+    out.push({ sql: `INSERT INTO meta (key, value) VALUES ('schema_version', ?)`, args: [{ type: "text", value: SCHEMA_VERSION }] });
+    out.push({
+      sql: `INSERT INTO meta (key, value) VALUES (?, ?)`,
+      args: [
+        { type: "text", value: "project_status" },
+        { type: "text", value: JSON.stringify(ws.status ?? {}) },
+      ],
+    });
+  }
   out.push({ sql: "COMMIT" });
   return out;
 }

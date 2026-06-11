@@ -88,26 +88,38 @@ function tenantInsert(table: string, columns: readonly string[], values: string[
 
 // --- DELETE+INSERT (save) -------------------------------------------------
 
-export function tenantWorkspaceToStatements(ws: Workspace, projectId: string): SqlStmt[] {
+/**
+ * Like workspaceToStatements: when `dirtyTables` is provided, the scoped
+ * DELETE+INSERT pairs are emitted only for those tables; DDL and BEGIN/COMMIT
+ * are always emitted. Omitting the param keeps the full project overwrite.
+ */
+export function tenantWorkspaceToStatements(ws: Workspace, projectId: string, dirtyTables?: ReadonlySet<string>): SqlStmt[] {
+  const isDirty = (table: string) => dirtyTables === undefined || dirtyTables.has(table);
   const out: SqlStmt[] = [{ sql: "BEGIN" }];
   for (const ddl of tenantSchemaDdl()) out.push({ sql: ddl });
   for (const name of TABLE_NAMES) {
+    if (!isDirty(name)) continue;
     out.push({ sql: `DELETE FROM ${name} WHERE project_id = ?`, args: [text(projectId)] });
   }
   for (const s of ENTITY_SPECS) {
+    if (!isDirty(s.table)) continue;
     for (const e of s.get(ws)) {
       out.push(tenantInsert(s.table, s.columns, s.columns.map((c) => s.toRow(e, c)), projectId));
     }
   }
-  const p = ws.plan;
-  out.push(tenantInsert("plan", PLAN_COLUMNS, [p.startDate, p.endDate, p.granularity, p.currency], projectId));
-  if (ws.fxRates) {
+  if (isDirty("plan")) {
+    const p = ws.plan;
+    out.push(tenantInsert("plan", PLAN_COLUMNS, [p.startDate, p.endDate, p.granularity, p.currency], projectId));
+  }
+  if (ws.fxRates && isDirty("fx_rates")) {
     const fx = ws.fxRates;
     const rates = Object.entries(fx.rates).map(([k, v]) => `${k}=${v}`).join("|");
     out.push(tenantInsert("fx_rates", FX_COLUMNS, [fx.base, fx.date, fx.fetchedAt, rates], projectId));
   }
-  out.push(tenantInsert("meta", ["key", "value"], ["schema_version", SCHEMA_VERSION], projectId));
-  out.push(tenantInsert("meta", ["key", "value"], ["project_status", JSON.stringify(ws.status ?? {})], projectId));
+  if (isDirty("meta")) {
+    out.push(tenantInsert("meta", ["key", "value"], ["schema_version", SCHEMA_VERSION], projectId));
+    out.push(tenantInsert("meta", ["key", "value"], ["project_status", JSON.stringify(ws.status ?? {})], projectId));
+  }
   out.push({ sql: "COMMIT" });
   return out;
 }

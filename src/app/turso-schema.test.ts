@@ -1,5 +1,5 @@
 import { describe, it, test, expect } from "vitest";
-import { SCHEMA_DDL, TABLE_NAMES, selectStatements, workspaceToStatements, rowsToWorkspace, type PipelineResultLike } from "./turso-schema";
+import { SCHEMA_DDL, TABLE_NAMES, selectStatements, workspaceToStatements, rowsToWorkspace, dirtyWorkspaceTables, type PipelineResultLike } from "./turso-schema";
 import { emptyWorkspace } from "./storage";
 
 function resultsFromStatements(stmts: { sql: string; args?: { value?: string }[] }[]): PipelineResultLike[] {
@@ -79,6 +79,76 @@ describe("workspaceToStatements", () => {
     expect(stmt.args?.length).toBe(colCount);
     const idArg = stmt.args?.[0];
     expect(idArg).toEqual({ type: "integer", value: "7" });
+  });
+});
+
+describe("dirtyWorkspaceTables", () => {
+  it("returns an empty set when every section keeps its reference", () => {
+    const ws = emptyWorkspace();
+    expect(dirtyWorkspaceTables(ws, { ...ws }).size).toBe(0);
+  });
+
+  it("flags a replaced entity array with its table name", () => {
+    const ws = emptyWorkspace();
+    const next = { ...ws, tasks: [...ws.tasks] };
+    expect([...dirtyWorkspaceTables(ws, next)]).toEqual(["tasks"]);
+  });
+
+  it("maps budgets to the budget_buckets table", () => {
+    const ws = { ...emptyWorkspace(), budgets: [] };
+    const next = { ...ws, budgets: [] }; // new array reference, same (empty) content
+    expect([...dirtyWorkspaceTables(ws, next)]).toEqual(["budget_buckets"]);
+  });
+
+  it("maps the singletons: plan → plan, fxRates → fx_rates, status → meta", () => {
+    const ws = emptyWorkspace();
+    const next = {
+      ...ws,
+      plan: { ...ws.plan },
+      fxRates: { base: "EUR", date: "2026-06-01", fetchedAt: "2026-06-01T00:00:00.000Z", rates: { EUR: 1 } } as never,
+      status: { ...(ws.status ?? {}) },
+    };
+    const dirty = dirtyWorkspaceTables(ws, next);
+    expect(dirty.has("plan")).toBe(true);
+    expect(dirty.has("fx_rates")).toBe(true);
+    expect(dirty.has("meta")).toBe(true);
+    expect(dirty.size).toBe(3);
+  });
+});
+
+describe("workspaceToStatements with a dirty-table filter", () => {
+  const task = { id: 1, taskName: "T", assignee: "", assigneeEmail: "", dueDate: "2026-06-01", lastUpdateDate: "2026-06-01", priority: "Medium", blockers: "", notes: "" };
+  const raidItem = { id: 2, category: "R", title: "Risk", status: "Open", raisedDate: "2026-06-01", linkedTaskIds: [], severity: "Low", probability: "Low", impact: "Low" };
+
+  it("emits DDL always but DELETE+INSERT only for dirty tables", () => {
+    const ws = emptyWorkspace();
+    ws.tasks = [task as never];
+    ws.raid = [raidItem as never];
+    const sqls = workspaceToStatements(ws, new Set(["tasks"])).map((s) => s.sql);
+    expect(sqls[0]).toBe("BEGIN");
+    expect(sqls[sqls.length - 1]).toBe("COMMIT");
+    expect(sqls.filter((s) => s.startsWith("CREATE TABLE IF NOT EXISTS"))).toHaveLength(SCHEMA_DDL.length);
+    expect(sqls.filter((s) => s.startsWith("DELETE FROM"))).toEqual(["DELETE FROM tasks"]);
+    expect(sqls.some((s) => s.startsWith("INSERT INTO tasks"))).toBe(true);
+    expect(sqls.some((s) => s.startsWith("INSERT INTO raid"))).toBe(false);
+    expect(sqls.some((s) => s.startsWith("INSERT INTO plan"))).toBe(false);
+    expect(sqls.some((s) => s.startsWith("INSERT INTO meta"))).toBe(false);
+    // BEGIN + DDL + DELETE tasks + 1 task INSERT + COMMIT
+    expect(sqls).toHaveLength(1 + SCHEMA_DDL.length + 1 + 1 + 1);
+  });
+
+  it("an empty filter yields a DDL-only transaction (no DELETE/INSERT)", () => {
+    const sqls = workspaceToStatements(emptyWorkspace(), new Set()).map((s) => s.sql);
+    expect(sqls.some((s) => s.startsWith("DELETE FROM"))).toBe(false);
+    expect(sqls.some((s) => s.startsWith("INSERT INTO"))).toBe(false);
+    expect(sqls).toHaveLength(1 + SCHEMA_DDL.length + 1);
+  });
+
+  it("omitting the filter keeps the full-overwrite behavior", () => {
+    const sqls = workspaceToStatements(emptyWorkspace()).map((s) => s.sql);
+    expect(sqls.filter((s) => s.startsWith("DELETE FROM"))).toHaveLength(TABLE_NAMES.length);
+    expect(sqls.some((s) => s.startsWith("INSERT INTO plan"))).toBe(true);
+    expect(sqls.some((s) => s.startsWith("INSERT INTO meta"))).toBe(true);
   });
 });
 

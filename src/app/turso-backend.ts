@@ -40,6 +40,17 @@ function firstRowText(results: PipelineResultLike[], i: number): string | null {
 export class TursoBackend implements StorageBackend {
   readonly kind = "turso" as const;
 
+  /**
+   * Per-section workspace references from the LAST SUCCESSFUL save() — the
+   * baseline for table-level dirty detection (see dirtyWorkspaceTables).
+   * null until the first save succeeds, so the first save of an instance is
+   * always a full rewrite (guards a fresh DB and the legacy-blob import path,
+   * where load() returns data that is NOT yet in the relational tables).
+   * Backend/project switches construct a new instance (storage.ts
+   * createBackend), so the baseline never leaks across targets.
+   */
+  private baseline: Workspace | null = null;
+
   constructor(
     private config: TursoConfig | null,
     private projectId?: string,
@@ -66,13 +77,24 @@ export class TursoBackend implements StorageBackend {
 
   async save(workspace: Workspace): Promise<void> {
     // Dynamic import breaks the storage → turso-backend → turso-schema → storage cycle.
-    if (this.projectId === undefined) {
-      const { workspaceToStatements } = await import("./turso-schema");
-      await runTursoPipeline(this.config, workspaceToStatements(workspace));
+    const { workspaceToStatements, dirtyWorkspaceTables } = await import("./turso-schema");
+    // Table-level dirty detection by reference equality (React state follows
+    // the immutable-update convention). undefined = no baseline → full rewrite.
+    const dirty = this.baseline ? dirtyWorkspaceTables(this.baseline, workspace) : undefined;
+    if (dirty !== undefined && dirty.size === 0) {
+      // Nothing changed since the last successful save — skip the round-trip.
+      this.baseline = workspace;
       return;
     }
-    const { tenantWorkspaceToStatements } = await import("./turso-tenant-schema");
-    await runTursoPipeline(this.config, tenantWorkspaceToStatements(workspace, this.projectId));
+    if (this.projectId === undefined) {
+      await runTursoPipeline(this.config, workspaceToStatements(workspace, dirty));
+    } else {
+      const { tenantWorkspaceToStatements } = await import("./turso-tenant-schema");
+      await runTursoPipeline(this.config, tenantWorkspaceToStatements(workspace, this.projectId, dirty));
+    }
+    // Reached only when the pipeline succeeded: a failed save keeps the old
+    // baseline so the next save retries the still-dirty tables.
+    this.baseline = workspace;
   }
 
   private async loadSingleTenant(): Promise<Workspace> {

@@ -77,4 +77,52 @@ describe("TursoBackend (tenant mode)", () => {
     expect(stmts[0].sql).toBe("BEGIN");
     expect(stmts.some((s) => s.sql.startsWith("DELETE FROM tasks WHERE project_id"))).toBe(true);
   });
+
+  describe("dirty-table saves", () => {
+    const minimalTask = { id: 1, taskName: "T", assignee: "", assigneeEmail: "", dueDate: "2026-06-01", lastUpdateDate: "2026-06-01", priority: "Medium", blockers: "", notes: "" };
+
+    it("first save is full; second save with only tasks changed emits scoped DELETE+INSERT for tasks only", async () => {
+      const { emptyWorkspace } = await import("./storage");
+      const backend = new TursoBackend(cfg, "p1");
+      const ws = emptyWorkspace();
+      await backend.save(ws);
+      const full = vi.mocked(runTursoPipeline).mock.calls[0][1];
+      // first save (no baseline) = full rewrite: one scoped DELETE per table
+      expect(full.filter((s) => s.sql.startsWith("DELETE FROM"))).toHaveLength(TABLE_NAMES.length);
+
+      const ws2 = { ...ws, tasks: [minimalTask as never] };
+      await backend.save(ws2);
+      const sqls = vi.mocked(runTursoPipeline).mock.calls[1][1].map((s) => s.sql);
+      expect(sqls[0]).toBe("BEGIN");
+      expect(sqls[sqls.length - 1]).toBe("COMMIT");
+      expect(sqls.filter((s) => s.startsWith("CREATE TABLE IF NOT EXISTS"))).toHaveLength(tenantSchemaDdl().length);
+      expect(sqls.filter((s) => s.startsWith("DELETE FROM"))).toEqual(["DELETE FROM tasks WHERE project_id = ?"]);
+      const inserts = sqls.filter((s) => s.startsWith("INSERT INTO"));
+      expect(inserts).toHaveLength(1);
+      expect(inserts[0].startsWith("INSERT INTO tasks")).toBe(true);
+      // BEGIN + DDL + DELETE tasks + 1 task INSERT + COMMIT
+      expect(sqls).toHaveLength(1 + tenantSchemaDdl().length + 1 + 1 + 1);
+    });
+
+    it("zero-change save skips the pipeline; a failed save keeps its tables dirty for the next save", async () => {
+      const { emptyWorkspace } = await import("./storage");
+      const backend = new TursoBackend(cfg, "p1");
+      const ws = emptyWorkspace();
+      await backend.save(ws);
+      expect(runTursoPipeline).toHaveBeenCalledTimes(1);
+
+      // New wrapper object, same per-table references — no pipeline call.
+      await expect(backend.save({ ...ws })).resolves.toBeUndefined();
+      expect(runTursoPipeline).toHaveBeenCalledTimes(1);
+
+      const ws2 = { ...ws, tasks: [minimalTask as never] };
+      vi.mocked(runTursoPipeline).mockRejectedValueOnce(new Error("boom"));
+      await expect(backend.save(ws2)).rejects.toThrow("boom");
+
+      await backend.save(ws2); // retry succeeds via the base stub
+      const stmts = vi.mocked(runTursoPipeline).mock.calls[2][1];
+      expect(stmts.some((s) => s.sql === "DELETE FROM tasks WHERE project_id = ?")).toBe(true);
+      expect(stmts.some((s) => s.sql.startsWith("INSERT INTO tasks"))).toBe(true);
+    });
+  });
 });

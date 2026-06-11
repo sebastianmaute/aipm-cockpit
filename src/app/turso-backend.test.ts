@@ -143,4 +143,71 @@ describe("TursoBackend", () => {
     vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(new TypeError("Failed to fetch"));
     await expect(backend.save(emptyWorkspace())).rejects.toMatchObject({ hint: "storage-unreachable" });
   });
+
+  describe("dirty-table saves", () => {
+    const okSave = () => jsonRes({ results: [okExec()] });
+    /** SQL of every statement in the pipeline body of fetch call N. */
+    const bodySqls = (call: number): string[] =>
+      JSON.parse((fetchSpy.mock.calls[call][1] as RequestInit).body as string)
+        .requests.map((r: { stmt?: { sql: string } }) => r.stmt?.sql)
+        .filter((s: string | undefined): s is string => s !== undefined);
+
+    it("first save (no baseline) is a full rewrite", async () => {
+      fetchSpy.mockResolvedValue(okSave());
+      const ws = emptyWorkspace();
+      ws.tasks = [minimalTask as never];
+      await new TursoBackend(CONFIG).save(ws);
+      const sqls = bodySqls(0);
+      // BEGIN + DDL + one DELETE per table + 1 task INSERT + plan + 2 meta rows + COMMIT
+      expect(sqls.filter((s) => s.startsWith("DELETE FROM"))).toHaveLength(TABLE_NAMES.length);
+      expect(sqls).toHaveLength(1 + SCHEMA_DDL.length + TABLE_NAMES.length + 1 + 1 + 2 + 1);
+    });
+
+    it("second save with only a new tasks array emits DDL + DELETE/INSERT for tasks only", async () => {
+      fetchSpy.mockResolvedValue(okSave());
+      const backend = new TursoBackend(CONFIG);
+      const ws = emptyWorkspace();
+      ws.tasks = [minimalTask as never];
+      await backend.save(ws);
+      const ws2 = { ...ws, tasks: [ws.tasks[0], { ...minimalTask, id: 2 } as never] };
+      await backend.save(ws2);
+      const sqls = bodySqls(1);
+      expect(sqls[0]).toBe("BEGIN");
+      expect(sqls[sqls.length - 1]).toBe("COMMIT");
+      expect(sqls.filter((s) => s.startsWith("CREATE TABLE IF NOT EXISTS"))).toHaveLength(SCHEMA_DDL.length);
+      expect(sqls.filter((s) => s.startsWith("DELETE FROM"))).toEqual(["DELETE FROM tasks"]);
+      const inserts = sqls.filter((s) => s.startsWith("INSERT INTO"));
+      expect(inserts).toHaveLength(2);
+      expect(inserts.every((s) => s.startsWith("INSERT INTO tasks"))).toBe(true);
+      // BEGIN + DDL + DELETE tasks + 2 task INSERTs + COMMIT
+      expect(sqls).toHaveLength(1 + SCHEMA_DDL.length + 1 + 2 + 1);
+    });
+
+    it("a save with zero changes performs no pipeline call but still resolves", async () => {
+      fetchSpy.mockResolvedValue(okSave());
+      const backend = new TursoBackend(CONFIG);
+      const ws = emptyWorkspace();
+      await backend.save(ws);
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      // New wrapper object, same per-table references — nothing dirty.
+      await expect(backend.save({ ...ws })).resolves.toBeUndefined();
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it("a failed save does not advance the baseline — the next save retries the dirty tables", async () => {
+      fetchSpy.mockResolvedValueOnce(okSave());
+      const backend = new TursoBackend(CONFIG);
+      const ws = emptyWorkspace();
+      ws.tasks = [minimalTask as never];
+      await backend.save(ws);
+      const ws2 = { ...ws, tasks: [{ ...minimalTask, taskName: "edited" } as never] };
+      fetchSpy.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+      await expect(backend.save(ws2)).rejects.toMatchObject({ hint: "storage-unreachable" });
+      fetchSpy.mockResolvedValueOnce(okSave());
+      await backend.save(ws2);
+      const sqls = bodySqls(2);
+      expect(sqls.filter((s) => s.startsWith("DELETE FROM"))).toEqual(["DELETE FROM tasks"]);
+      expect(sqls.some((s) => s.startsWith("INSERT INTO tasks"))).toBe(true);
+    });
+  });
 });

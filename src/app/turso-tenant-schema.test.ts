@@ -73,6 +73,30 @@ describe("turso-tenant-schema", () => {
     expect(taskInsert!.args?.[taskInsert!.args.length - 1]).toEqual({ type: "text", value: "p1" });
   });
 
+  it("dirty-table filter: DDL always, scoped DELETE+INSERT only for dirty tables", () => {
+    const ws = { ...emptyWorkspace(),
+      tasks: [{ id: 1, taskName: "T1", assignee: "", assigneeEmail: "",
+        dueDate: "2026-06-01", lastUpdateDate: "2026-01-01",
+        priority: "Medium" as const, blockers: "", notes: "" } as never] };
+    const stmts = tenantWorkspaceToStatements(ws, "p1", new Set(["tasks"]));
+    const sqls = stmts.map((s) => s.sql);
+    expect(sqls[0]).toBe("BEGIN");
+    expect(sqls[sqls.length - 1]).toBe("COMMIT");
+    expect(sqls.filter((s) => s.startsWith("CREATE TABLE IF NOT EXISTS"))).toHaveLength(tenantSchemaDdl().length);
+    expect(sqls.filter((s) => s.startsWith("DELETE FROM"))).toEqual(["DELETE FROM tasks WHERE project_id = ?"]);
+    expect(sqls.some((s) => s.startsWith("INSERT INTO tasks"))).toBe(true);
+    expect(sqls.some((s) => s.startsWith("INSERT INTO plan"))).toBe(false);
+    expect(sqls.some((s) => s.startsWith("INSERT INTO meta"))).toBe(false);
+    // BEGIN + DDL + DELETE tasks + 1 task INSERT + COMMIT
+    expect(sqls).toHaveLength(1 + tenantSchemaDdl().length + 1 + 1 + 1);
+  });
+
+  it("dirty-table filter omitted: full scoped overwrite (one DELETE per table)", () => {
+    const sqls = tenantWorkspaceToStatements(emptyWorkspace(), "p1").map((s) => s.sql);
+    expect(sqls.filter((s) => s.startsWith("DELETE FROM"))).toHaveLength(TABLE_NAMES.length);
+    expect(sqls.some((s) => s.startsWith("INSERT INTO plan"))).toBe(true);
+  });
+
   it("round-trips a workspace through statements -> simulated rows -> rowsToWorkspace", () => {
     const ws = { ...emptyWorkspace(), plan: { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month" as const, currency: "EUR" as const } };
     const results = simulateSelect(tenantWorkspaceToStatements(ws, "p1"));
