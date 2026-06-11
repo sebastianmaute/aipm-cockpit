@@ -30,6 +30,7 @@ import {
   type Absence,
   DEFAULT_WEEK_HOURS,
   type PlanGranularity,
+  type RaidItem,
   type Resource,
   type ResourcePlan,
   type Role,
@@ -69,6 +70,7 @@ interface Props {
   tasks: readonly Task[];
   absences: readonly Absence[];
   shifts: readonly Shift[];
+  raid: readonly RaidItem[];
   resources: readonly Resource[];
   today: string;
   holidaySet: ReadonlySet<string>;
@@ -116,6 +118,7 @@ function ResourcesPanelInner({
   tasks,
   absences,
   shifts,
+  raid,
   resources,
   today,
   holidaySet,
@@ -579,6 +582,7 @@ function ResourcesPanelInner({
           tasks={tasks}
           absences={absences}
           shifts={shifts}
+          raid={raid}
           today={today}
           onEditResource={onEditResource}
           onAddResource={onAddResource}

@@ -14,6 +14,7 @@ export const WORKLOAD_COL_WIDTHS = {
   email: 180,
   openTasks: 110,
   overdue: 110,
+  openRaid: 90,
   weeklyHours: 120,
   upcoming: 200,
 } as const;
@@ -85,6 +86,10 @@ export function ResourceWorkload({
               {t(lang, "resourcesOverdueTasks")}
               <ColumnResizeHandle col="overdue" onMouseDown={startColResize} />
             </th>
+            <th className="relative px-3 py-2 font-medium text-right" style={{ width: colWidths.openRaid, minWidth: colWidths.openRaid }}>
+              {t(lang, "workloadOpenRaid")}
+              <ColumnResizeHandle col="openRaid" onMouseDown={startColResize} />
+            </th>
             <th className="relative px-3 py-2 font-medium text-right" style={{ width: colWidths.weeklyHours, minWidth: colWidths.weeklyHours }}>
               {t(lang, "resourcesWeeklyHours")}
               <ColumnResizeHandle col="weeklyHours" onMouseDown={startColResize} />
@@ -122,6 +127,9 @@ export function ResourceWorkload({
                 }`}
               >
                 {row.overdueCount}
+              </td>
+              <td className="px-3 py-2 text-right tabular-nums text-foreground">
+                {row.raidOpenCount}
               </td>
               <td className="px-3 py-2 text-right tabular-nums">
                 <button
@@ -176,7 +184,7 @@ export function ResourceWorkload({
             <>
               <tr>
                 <td
-                  colSpan={6}
+                  colSpan={7}
                   className="bg-surface-muted px-3 py-1.5"
                 >
                   <span className="font-semibold text-foreground">
@@ -222,6 +230,9 @@ export function ResourceWorkload({
                     }`}
                   >
                     {row.overdueCount}
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums text-foreground">
+                    {row.raidOpenCount}
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums">
                     <button

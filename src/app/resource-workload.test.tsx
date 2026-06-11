@@ -10,7 +10,7 @@ const colResize = {
   resetColWidths: () => {},
 };
 const baseProps = {
-  lang: "en-US" as const, resources: [r], absences: [], shifts: [], today: "2026-06-01",
+  lang: "en-US" as const, resources: [r], absences: [], shifts: [], raid: [], today: "2026-06-01",
   onEditResource: vi.fn(), onAddResource: vi.fn(), onEditAbsence: vi.fn(), onEditShift: vi.fn(),
   colResize,
 };

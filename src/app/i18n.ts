@@ -782,6 +782,7 @@ const enUS = {
   resourcesEmpty: "No tasks have been assigned to anyone yet.",
   resourcesOpenTasks: "Open",
   resourcesOverdueTasks: "Overdue",
+  workloadOpenRaid: "Open RAID",
   resourcesUpcomingAbsences: "Upcoming absences",
   resourcesAddAbsence: "+ Add absence",
   absenceNewItem: "New absence",

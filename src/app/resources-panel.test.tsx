@@ -16,6 +16,7 @@ const baseProps = {
   tasks: [] as never[],
   absences: [] as never[],
   shifts: [] as never[],
+  raid: [] as never[],
   resources,
   today: "2026-05-23",
   holidaySet: new Set<string>(),

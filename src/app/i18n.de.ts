@@ -798,6 +798,7 @@ export const de: Record<TranslationKey, string> = {
   resourcesEmpty: "Es wurden noch keine Aufgaben zugewiesen.",
   resourcesOpenTasks: "Offen",
   resourcesOverdueTasks: "Überfällig",
+  workloadOpenRaid: "Offene RAID",
   resourcesUpcomingAbsences: "Anstehende Abwesenheiten",
   resourcesAddAbsence: "+ Abwesenheit hinzufügen",
   absenceNewItem: "Neue Abwesenheit",

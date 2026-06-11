@@ -591,6 +591,7 @@ export function WorkspaceSection({
               tasks={tasks}
               absences={absences}
               shifts={shifts}
+              raid={raid}
               resources={resources}
               today={today}
               holidaySet={holidaySet}
