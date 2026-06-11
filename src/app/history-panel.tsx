@@ -112,7 +112,17 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff }: H
 
       {diff !== null && (
         <div className="mt-4">
-          <h3 className="mb-2 text-sm font-semibold text-foreground">{t(lang, "historyCompareTitle")}</h3>
+          <div className="mb-2 flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-foreground">{t(lang, "historyCompareTitle")}</h3>
+            <button
+              type="button"
+              onClick={() => { setDiff(null); setSelected([]); }}
+              aria-label={t(lang, "alertModalClose")}
+              className="rounded-full px-1 text-muted-foreground hover:text-AIPM-pink"
+            >
+              ×
+            </button>
+          </div>
           <VersionDiffView lang={lang} changes={diff} />
         </div>
       )}
