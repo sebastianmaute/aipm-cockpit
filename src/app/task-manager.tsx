@@ -11,7 +11,7 @@ import { ActivityLogProvider } from "./activity-log-context";
 import { useDueAlerts } from "./use-due-alerts";
 import { useToast } from "./use-toast";
 import { useSettings, writeSettings } from "./use-settings";
-import { isViewEnabled, isModuleEnabled, deriveMode, type FeatureModuleId } from "./feature-modules";
+import { disabledViewRedirect, isModuleEnabled, deriveMode, type FeatureModuleId } from "./feature-modules";
 import { useJiraSync } from "./use-jira-sync";
 import { useStorageBackend } from "./use-storage-backend";
 import { useResourcePlanner } from "./use-resource-planner";
@@ -150,9 +150,8 @@ function TaskManagerInner() {
   // In classic layout, fall back to "chat" instead of "open-points" to avoid a
   // double-hop (open-points → chat) caused by the classic-fallback effect above.
   useEffect(() => {
-    if (isViewEnabled(activeTab, settings.features)) return;
-    const fallback = (isPopout || settings.layout === "classic") ? "chat" : "open-points";
-    setActiveTab(isModuleEnabled("dashboard", settings.features) ? "dashboard" : fallback);
+    const target = disabledViewRedirect(activeTab, settings.features, settings.layout, isPopout);
+    if (target !== activeTab) setActiveTab(target);
   }, [activeTab, settings.features, settings.layout, isPopout, setActiveTab]);
 
   const handleCommitFeatures = useCallback(

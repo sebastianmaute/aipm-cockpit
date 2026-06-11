@@ -95,6 +95,22 @@ export function isViewEnabled(view: AppView, features: readonly FeatureModuleId[
   return features.includes(mod);
 }
 
+/** Where the app should land when the active view's module is disabled (e.g.
+ *  after a Save+reload into Simple mode, or a stale hash). Enabled views are
+ *  kept as-is; otherwise prefer the dashboard when its module is on, falling
+ *  back to "chat" in popouts and the classic layout (avoids a double-hop via
+ *  the classic-fallback effect) and "open-points" in the modern layout. */
+export function disabledViewRedirect(
+  active: AppView,
+  features: readonly FeatureModuleId[],
+  layout: "modern" | "classic",
+  isPopout: boolean,
+): AppView {
+  if (isViewEnabled(active, features)) return active;
+  const fallback = isPopout || layout === "classic" ? "chat" : "open-points";
+  return isModuleEnabled("dashboard", features) ? "dashboard" : fallback;
+}
+
 /** Views to render in navigation: core sidebar views (excluding the non-navigable
  *  `edit` full-page editor and `settings`, which are reached by other means) plus
  *  every enabled module's views. */

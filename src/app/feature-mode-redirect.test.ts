@@ -1,32 +1,23 @@
 import { describe, expect, it } from "vitest";
-import { isViewEnabled, isModuleEnabled, type FeatureModuleId } from "./feature-modules";
-import type { AppView } from "./nav-config";
+import { disabledViewRedirect } from "./feature-modules";
 
-function redirectTarget(
-  active: AppView,
-  features: FeatureModuleId[],
-  layout: "modern" | "classic" = "modern",
-  isPopout = false,
-): AppView {
-  if (isViewEnabled(active, features)) return active;
-  const fallback = (isPopout || layout === "classic") ? "chat" : "open-points";
-  return isModuleEnabled("dashboard", features) ? "dashboard" : fallback;
-}
-
-describe("disabled-view redirect rule", () => {
+describe("disabled-view redirect rule (disabledViewRedirect)", () => {
   it("keeps an enabled view", () => {
-    expect(redirectTarget("raid", ["raid"])).toBe("raid");
+    expect(disabledViewRedirect("raid", ["raid"], "modern", false)).toBe("raid");
+  });
+  it("keeps a core view regardless of features", () => {
+    expect(disabledViewRedirect("chat", [], "modern", false)).toBe("chat");
   });
   it("redirects a disabled view to dashboard when dashboard is on", () => {
-    expect(redirectTarget("raid", ["dashboard"])).toBe("dashboard");
+    expect(disabledViewRedirect("raid", ["dashboard"], "modern", false)).toBe("dashboard");
   });
   it("falls back to open-points when dashboard is also off", () => {
-    expect(redirectTarget("raid", [])).toBe("open-points");
+    expect(disabledViewRedirect("raid", [], "modern", false)).toBe("open-points");
   });
   it("falls back to chat in classic layout when dashboard is off", () => {
-    expect(redirectTarget("raid", [], "classic")).toBe("chat");
+    expect(disabledViewRedirect("raid", [], "classic", false)).toBe("chat");
   });
   it("falls back to chat in a popout when dashboard is off", () => {
-    expect(redirectTarget("raid", [], "modern", true)).toBe("chat");
+    expect(disabledViewRedirect("raid", [], "modern", true)).toBe("chat");
   });
 });
