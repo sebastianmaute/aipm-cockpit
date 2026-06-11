@@ -1,3 +1,9 @@
+// src/app/browser-backend.ts
+//
+// Default IndexedDB storage backend: per-entity record stores with
+// diff-based saves plus KV slots for the singleton sections. Extracted from
+// storage.ts (which re-exports everything).
+
 import { defaultResourcePlan } from "./resource-foundation";
 import { sanitizeProjectMeta } from "./sanitize";
 import {

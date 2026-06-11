@@ -1,3 +1,11 @@
+// src/app/workspace.ts
+//
+// The Workspace shape and its lifecycle: emptyWorkspace, the V5-V8
+// migrations, the JSON envelope codec (workspaceToJson / jsonToWorkspace),
+// and the storage config/error/backend-interface types. This is the root of
+// the storage layer — codecs and backends import from here, never the
+// reverse. Extracted from storage.ts (which re-exports everything).
+
 import {
   backfillResources,
   defaultResourcePlan,

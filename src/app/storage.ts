@@ -1,3 +1,12 @@
+// src/app/storage.ts
+//
+// Storage facade. The implementation lives in focused modules — workspace
+// (Workspace type, migrations, JSON codec, config/error/backend types), idb,
+// fs-access, csv-codecs, markdown-codecs, browser-backend, local-file-backend —
+// and everything they export is re-exported here, so existing importers keep
+// using "./storage". This file itself only owns the createBackend factory and
+// the LocalFileBackend pick/open/handle helpers.
+
 import { SharePointBackend } from "./sharepoint-backend";
 import { TursoBackend } from "./turso-backend";
 import type { TursoConfig } from "./turso-config";
@@ -12,35 +21,6 @@ export * from "./csv-codecs";
 export * from "./markdown-codecs";
 export * from "./browser-backend";
 export * from "./local-file-backend";
-
-// --- IndexedDB key/value wrapper ------------------------------------------
-//
-// Schema:
-//   - "kv"   — generic key/value store (legacy). Used by LocalFileBackend to
-//              persist picked FsHandles. Created at version 1.
-//   - "tasks" / "raid" — record-level storage for the BrowserBackend.
-//              Created at version 2. keyPath:"id" pulls the key directly
-//              from the stored record, so puts don't need an explicit key.
-//   - "absences" — third workspace entity (Resource Planner v1). Created
-//              at version 3. Same keyPath:"id" pattern as tasks/raid.
-//   - "shifts"  — fourth workspace entity (Resource Planner Phase 4).
-//              Created at version 4. Per-assignee weekly hours pattern.
-//
-// Bumping the version triggers `onupgradeneeded`, which adds missing stores
-// idempotently — users coming from earlier versions keep their data and gain
-// the new record stores additively.
-
-
-// --- CSV serialization -----------------------------------------------------
-
-
-
-// --- File System Access API helpers ---------------------------------------
-
-
-// --- Backends --------------------------------------------------------------
-
-
 
 // --- Factory ---------------------------------------------------------------
 

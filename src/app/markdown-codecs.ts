@@ -1,3 +1,11 @@
+// src/app/markdown-codecs.ts
+//
+// Markdown codec layer: *_MD_COLUMNS registries, mdEscape/mdUnescape,
+// per-entity table encoders/decoders and the workspaceToMarkdown /
+// markdownToWorkspace orchestrators. Shares the field encoders and
+// build*FromObj decoders with ./csv-codecs. Extracted from storage.ts
+// (which re-exports everything).
+
 import { decodeDocumentLinks } from "./document-link";
 import { defaultResourcePlan } from "./resource-foundation";
 import {

@@ -1,3 +1,19 @@
+// --- IndexedDB key/value wrapper ------------------------------------------
+//
+// Schema:
+//   - "kv"   — generic key/value store (legacy). Used by LocalFileBackend to
+//              persist picked FsHandles. Created at version 1.
+//   - "tasks" / "raid" — record-level storage for the BrowserBackend.
+//              Created at version 2. keyPath:"id" pulls the key directly
+//              from the stored record, so puts don't need an explicit key.
+//   - "absences" — third workspace entity (Resource Planner v1). Created
+//              at version 3. Same keyPath:"id" pattern as tasks/raid.
+//   - "shifts"  — fourth workspace entity (Resource Planner Phase 4).
+//              Created at version 4. Per-assignee weekly hours pattern.
+//
+// Bumping the version triggers `onupgradeneeded`, which adds missing stores
+// idempotently — users coming from earlier versions keep their data and gain
+// the new record stores additively.
 
 const IDB_NAME = "lop-app";
 const IDB_VERSION = 6;

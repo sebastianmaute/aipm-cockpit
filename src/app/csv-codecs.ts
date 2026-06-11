@@ -1,3 +1,11 @@
+// src/app/csv-codecs.ts
+//
+// CSV codec layer: per-entity column registries (*_CSV_COLUMNS), field
+// encoders (fieldToString family) and build*FromObj decoders shared with the
+// markdown codec and the Turso schema mapping, csv escaping/formula
+// neutralization, and the workspaceToCsv / csvToWorkspace orchestrators.
+// Extracted from storage.ts (which re-exports everything).
+
 import { riskSeverityFromMatrix } from "./raid";
 import { encodeDocumentLinks, decodeDocumentLinks } from "./document-link";
 import { defaultResourcePlan } from "./resource-foundation";

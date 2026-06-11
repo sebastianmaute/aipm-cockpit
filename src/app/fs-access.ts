@@ -1,3 +1,9 @@
+// src/app/fs-access.ts
+//
+// File System Access API helpers: support detection, save/open pickers,
+// permission queries and readHandle/writeHandle (with the .crswap abort
+// guard). Extracted from storage.ts (which re-exports everything).
+
 import { StorageNotReadyError } from "./workspace";
 
 export function isFileSystemAccessSupported(): boolean {

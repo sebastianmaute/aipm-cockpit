@@ -1,3 +1,9 @@
+// src/app/local-file-backend.ts
+//
+// File System Access backed storage backend (local-json / local-csv /
+// local-md), persisting the picked file handle in the IDB kv store.
+// Extracted from storage.ts (which re-exports everything).
+
 import { csvToWorkspace, workspaceToCsv } from "./csv-codecs";
 import { markdownToWorkspace, workspaceToMarkdown } from "./markdown-codecs";
 import {
