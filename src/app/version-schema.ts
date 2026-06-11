@@ -10,10 +10,12 @@ import type { ProjectVersion, ProjectVersionMeta, VersionTrigger } from "./versi
 
 export const VERSION_TABLE_NAME = "project_versions";
 
-export const VERSION_DDL = `CREATE TABLE IF NOT EXISTS project_versions (
+export const VERSION_DDL: string[] = [
+  `CREATE TABLE IF NOT EXISTS project_versions (
   id TEXT PRIMARY KEY, project_id TEXT, captured_at TEXT, trigger TEXT,
   label TEXT, summary TEXT, payload TEXT
-)`;
+)`,
+];
 
 const text = (value: string) => ({ type: "text" as const, value });
 
