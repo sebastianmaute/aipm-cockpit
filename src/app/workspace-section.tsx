@@ -108,6 +108,8 @@ export interface WorkspaceSectionProps {
   }) => void;
   handleCancelEdit: () => void;
   setTaskModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  contactsList: Contact[];
+  onCreateResource: (name: string, email: string) => number;
   handleClearRaidTaskFilter: () => void;
   handleSaveRaidItem: (item: RaidItem) => void;
   handleDeleteRaidItem: (id: number) => void;
@@ -178,6 +180,8 @@ export function WorkspaceSection({
   handleGanttBarUpdate,
   handleCancelEdit,
   setTaskModalOpen,
+  contactsList,
+  onCreateResource,
   handleClearRaidTaskFilter,
   handleSaveRaidItem,
   handleDeleteRaidItem,
@@ -521,6 +525,9 @@ export function WorkspaceSection({
             raid={raid}
             stakeholdersEnabled={stakeholdersEnabled}
             stakeholders={stakeholders}
+            resources={resources}
+            contacts={contactsList}
+            onCreateResource={onCreateResource}
             today={today}
             filterTaskId={raidFilterTaskId}
             onClearTaskFilter={handleClearRaidTaskFilter}

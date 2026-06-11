@@ -6,7 +6,7 @@ import { render, screen, fireEvent, within } from "@testing-library/react";
 import { t } from "./i18n";
 import { RaidPanel } from "./raid-panel";
 import type { RaidPanelProps } from "./raid-panel";
-import type { RaidItem, Stakeholder } from "./types";
+import type { RaidItem, Resource, Stakeholder } from "./types";
 import { WorkspaceTabProvider, useWorkspaceTab } from "./workspace-tab-context";
 
 vi.mock("./use-settings", () => ({
@@ -44,6 +44,19 @@ function makeProps(overrides: Partial<RaidPanelProps> = {}): RaidPanelProps {
     onDelete: vi.fn(),
     onCreateMitigationTask: vi.fn().mockReturnValue(null),
     onJumpToTask: vi.fn(),
+    resources: [],
+    contacts: [],
+    onCreateResource: vi.fn(() => 1),
+    ...overrides,
+  };
+}
+
+function res(overrides: Partial<Resource> & Pick<Resource, "id" | "firstName" | "lastName">): Resource {
+  return {
+    email: undefined,
+    roleId: null,
+    utilizationMode: "percent",
+    utilization: {},
     ...overrides,
   };
 }
@@ -244,6 +257,32 @@ describe("RaidPanel — stakeholders", () => {
     renderPanel(makeProps({ raid, stakeholdersEnabled: false, stakeholders: [sh(3, "Dana")] }));
     fireEvent.click(screen.getByText("Risk one"));
     expect(screen.queryByText(t("en-US", "fieldStakeholders"))).not.toBeInTheDocument();
+  });
+});
+
+describe("RaidPanel — owner ResourcePicker", () => {
+  it("picking a registry resource for owner stamps ownerResourceId on save", () => {
+    const onSave = vi.fn();
+    const raid: RaidItem[] = [makeRaidItem({ id: 1, title: "Risk one", severity: "High" })];
+    const resources: Resource[] = [
+      res({ id: 1, firstName: "Sample", lastName: "Dummy", email: "Sample@x.com" }),
+    ];
+    renderPanel(makeProps({ raid, onSave, resources }));
+    fireEvent.click(screen.getByText("Risk one"));
+
+    // The owner field is now a ResourcePicker combobox. Focus + type to surface
+    // the "Alex Example" registry suggestion, then pick it.
+    const owner = within(
+      screen.getByRole("dialog", { name: t("en-US", "raidEditItem", 1) }),
+    ).getByRole("combobox");
+    fireEvent.focus(owner);
+    fireEvent.change(owner, { target: { value: "Sample" } });
+    fireEvent.mouseDown(screen.getByText("Alex Example"));
+
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "raidSave") }));
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({ ownerResourceId: 1, owner: "Alex Example" }),
+    );
   });
 });
 

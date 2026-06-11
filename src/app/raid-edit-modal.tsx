@@ -26,10 +26,13 @@ import {
   type RaidItem,
   type RaidSeverity,
   type RaidStatus,
+  type Resource,
   type RiskScale,
   type Stakeholder,
   type Task,
 } from "./types";
+import type { Contact } from "./contacts";
+import { ResourcePicker } from "./resource-picker";
 import { categoryLabel, severityLabel, statusLabel } from "./raid-labels";
 import { CharCounter, useAdjustmentTracker } from "./field-feedback";
 import { describeTextCap } from "./sanitize-report";
@@ -42,6 +45,9 @@ export type RaidEditModalProps = {
   raid: readonly RaidItem[];
   stakeholdersEnabled: boolean;
   stakeholders: readonly Stakeholder[];
+  resources: readonly Resource[];
+  contacts: Contact[];
+  onCreateResource: (name: string, email: string) => number;
   draft: RaidItem;
   isNew: boolean;
   onChange: (next: RaidItem) => void;
@@ -62,6 +68,9 @@ export function RaidEditModal({
   raid,
   stakeholdersEnabled,
   stakeholders,
+  resources,
+  contacts,
+  onCreateResource,
   draft,
   isNew,
   onChange,
@@ -402,19 +411,23 @@ export function RaidEditModal({
             <span className="font-medium text-foreground">
               {t(lang, "raidOwner")}
             </span>
-            <input
-              type="text"
-              value={draft.owner ?? ""}
-              onChange={(e) =>
-                onChange({ ...draft, owner: e.target.value || undefined })
+            <ResourcePicker
+              lang={lang}
+              value={{ name: draft.owner ?? "", email: draft.ownerEmail ?? "", resourceId: draft.ownerResourceId }}
+              resources={resources}
+              contacts={contacts}
+              onCreateResource={onCreateResource}
+              onChange={(next) =>
+                onChange({
+                  ...draft,
+                  owner: next.name || undefined,
+                  ownerEmail: next.email || undefined,
+                  ownerResourceId: next.resourceId,
+                })
               }
-              onBlur={(e) => {
-                const trimmed = describeTextCap(e.target.value, ASSIGNEE_MAX).value.trim();
-                onChange({ ...draft, owner: trimmed || undefined });
-              }}
+              maxLength={ASSIGNEE_MAX}
               title={t(lang, "raidFieldOwnerHint")}
               aria-describedby="raid-owner-counter"
-              className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
             />
             <CharCounter value={draft.owner ?? ""} max={ASSIGNEE_MAX} id="raid-owner-counter" lang={lang} />
           </label>

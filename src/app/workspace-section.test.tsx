@@ -54,6 +54,8 @@ function makeProps(overrides: Partial<WorkspaceSectionProps> = {}): WorkspaceSec
     handleGanttBarUpdate: vi.fn(),
     handleCancelEdit: vi.fn(),
     setTaskModalOpen: vi.fn(),
+    contactsList: [],
+    onCreateResource: vi.fn(() => 1),
     handleClearRaidTaskFilter: vi.fn(),
     handleSaveRaidItem: vi.fn(),
     handleDeleteRaidItem: vi.fn(),

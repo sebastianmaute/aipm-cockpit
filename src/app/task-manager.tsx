@@ -1062,6 +1062,8 @@ function TaskManagerInner() {
     handleGanttBarUpdate: guardEdit(handleGanttBarUpdate),
     handleCancelEdit,
     setTaskModalOpen,
+    contactsList,
+    onCreateResource: handleCreateResource,
     handleClearRaidTaskFilter,
     handleSaveRaidItem: guardEdit(handleSaveRaidItem),
     handleDeleteRaidItem: guardEdit(handleDeleteRaidItem),

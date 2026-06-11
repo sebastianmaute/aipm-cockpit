@@ -32,10 +32,12 @@ import {
   type RaidItem,
   type RaidSeverity,
   type RaidStatus,
+  type Resource,
   type RiskScale,
   type Stakeholder,
   type Task,
 } from "./types";
+import type { Contact } from "./contacts";
 import { RaidEditModal } from "./raid-edit-modal";
 import { useColumnResize } from "./use-column-resize";
 import { useResizable } from "./use-resizable";
@@ -65,6 +67,10 @@ export type RaidPanelProps = {
   stakeholdersEnabled?: boolean;
   /** Selectable stakeholders for the picker; empty when the module is off. */
   stakeholders?: readonly Stakeholder[];
+  /** Registry resources + remembered contacts for the owner ResourcePicker. */
+  resources: readonly Resource[];
+  contacts: Contact[];
+  onCreateResource: (name: string, email: string) => number;
   /** YYYY-MM-DD; used for default `raisedDate` and "closed today" autofill. */
   today: string;
   /** When non-null, only items linking to this task id are shown. The task
@@ -114,6 +120,9 @@ function RaidPanelInner({
   raid,
   stakeholdersEnabled = true,
   stakeholders = [],
+  resources,
+  contacts,
+  onCreateResource,
   today,
   filterTaskId,
   onClearTaskFilter,
@@ -629,6 +638,9 @@ function RaidPanelInner({
           raid={raid}
           stakeholdersEnabled={stakeholdersEnabled}
           stakeholders={stakeholders}
+          resources={resources}
+          contacts={contacts}
+          onCreateResource={onCreateResource}
           draft={draft}
           isNew={isNew}
           onChange={setDraft}
