@@ -91,7 +91,7 @@ export function ResourcePicker({
       .filter((c) => {
         if (resNames.has(c.name.toLowerCase())) return false; // resource wins over a same-name contact
         if (!q) return true;
-        return c.name.toLowerCase().includes(q) || (!!c.email && c.email.toLowerCase().includes(q));
+        return c.name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q);
       })
       .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }))
       .map((c) => ({ kind: "contact", name: c.name, email: c.email }));
@@ -101,6 +101,11 @@ export function ResourcePicker({
     if (trimmed && !exact) out.push({ kind: "add", name: trimmed });
     return out;
   }, [resources, contacts, display]);
+
+  // rows is [resources..., contacts..., add] by construction, so the first resource
+  // is at index 0 and the first contact at firstContactIdx. Compute the contact
+  // boundary ONCE here instead of an O(n) findIndex per row inside the .map below.
+  const firstContactIdx = rows.findIndex((r) => r.kind === "contact");
 
   const [prevLen, setPrevLen] = useState(rows.length);
   if (prevLen !== rows.length) {
@@ -123,6 +128,7 @@ export function ResourcePicker({
     } else if (row.kind === "contact") {
       onChange({ name: row.name, email: row.email, resourceId: null });
     } else {
+      // email is best-effort carry-over from the field; the parent/Resources view can correct it.
       const id = onCreateResource(row.name, value.email);
       onChange({ name: row.name, email: value.email, resourceId: id });
     }
@@ -185,6 +191,7 @@ export function ResourcePicker({
           role="combobox"
           aria-expanded={open}
           aria-controls={listboxId}
+          aria-activedescendant={open && rows.length ? `${listboxId}-opt-${highlight}` : undefined}
           aria-autocomplete="list"
           className={`w-full rounded-md border bg-surface px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-AIPM-green disabled:cursor-not-allowed disabled:bg-surface-muted disabled:text-muted-foreground ${
             linked ? "border-AIPM-green pr-8" : dangling ? "border-AIPM-pink pr-8" : "border-line"
@@ -218,8 +225,8 @@ export function ResourcePicker({
             const key = row.kind === "resource" ? `r${row.id}` : row.kind === "contact" ? `c${row.name}` : "add";
             // Section headers: emit before the FIRST row of each kind. Headers are
             // role="presentation" (not options) so they stay out of rows[]/highlight indexing.
-            const firstResource = row.kind === "resource" && idx === rows.findIndex((r) => r.kind === "resource");
-            const firstContact = row.kind === "contact" && idx === rows.findIndex((r) => r.kind === "contact");
+            const firstResource = idx === 0 && row.kind === "resource";
+            const firstContact = idx === firstContactIdx && row.kind === "contact";
             return (
               <Fragment key={key}>
                 {firstResource && (
@@ -233,6 +240,7 @@ export function ResourcePicker({
                   </li>
                 )}
                 <li
+                  id={`${listboxId}-opt-${idx}`}
                   role="option"
                   aria-selected={active}
                   onMouseEnter={() => setHighlight(idx)}

@@ -80,7 +80,7 @@ describe("ResourcePicker", () => {
   it("dangling FK falls back to the stored name and renders an unlink control without crashing", () => {
     const { onChange } = setup({ name: "Ghost", email: "g@x.com", resourceId: 404 });
     expect(screen.getByRole("combobox")).toHaveValue("Ghost");
-    fireEvent.click(screen.getByRole("button", { name: /unlink|clear link/i }));
+    fireEvent.click(screen.getByRole("button", { name: /unlink from resource/i }));
     expect(onChange).toHaveBeenCalledWith({ name: "Ghost", email: "g@x.com", resourceId: null });
   });
 
