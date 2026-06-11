@@ -29,6 +29,9 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
   // we're comparing the current workspace against (null = two-version, view-only).
   const [selection, setSelection] = useState<RestoreSelection>({});
   const [compareFrom, setCompareFrom] = useState<{ id: string; label: string } | null>(null);
+  // Inline manual-checkpoint naming (replaces the old prompt dialog).
+  const [naming, setNaming] = useState(false);
+  const [draftLabel, setDraftLabel] = useState("");
 
   const toggleRecord = (key: string) =>
     setSelection((s) => { const n = { ...s }; if (n[key] !== undefined) delete n[key]; else n[key] = "all"; return n; });
@@ -42,9 +45,16 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
       return n;
     });
 
-  const handleSave = () => {
-    const label = window.prompt(t(lang, "historyManualLabelPrompt"));
-    if (label && label.trim()) onCaptureNow(label.trim());
+  const confirmSave = () => {
+    const label = draftLabel.trim();
+    if (label) onCaptureNow(label);
+    setNaming(false);
+    setDraftLabel("");
+  };
+
+  const cancelSave = () => {
+    setNaming(false);
+    setDraftLabel("");
   };
 
   const runDiff = async (fromId: string, to: string | "now") => {
@@ -81,14 +91,44 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
           >
             {t(lang, "historyCompareSelected")}
           </button>
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={busy}
-            className="rounded-md bg-AIPM-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
-          >
-            {t(lang, "historySaveNow")}
-          </button>
+          {naming ? (
+            <span className="flex items-center gap-2">
+              <input
+                type="text"
+                autoFocus
+                value={draftLabel}
+                onChange={(e) => setDraftLabel(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") confirmSave(); else if (e.key === "Escape") cancelSave(); }}
+                placeholder={t(lang, "historyManualLabelPrompt")}
+                className="rounded-md border border-line bg-surface px-3 py-1.5 text-sm text-foreground focus:border-AIPM-dark-blue focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={confirmSave}
+                disabled={busy}
+                className="rounded-md bg-AIPM-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+              >
+                {t(lang, "add")}
+              </button>
+              <button
+                type="button"
+                onClick={cancelSave}
+                aria-label={t(lang, "cancel")}
+                className="rounded-full px-1 text-muted-foreground hover:text-AIPM-pink"
+              >
+                ×
+              </button>
+            </span>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setNaming(true)}
+              disabled={busy}
+              className="rounded-md bg-AIPM-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+            >
+              {t(lang, "historySaveNow")}
+            </button>
+          )}
         </span>
       </div>
 

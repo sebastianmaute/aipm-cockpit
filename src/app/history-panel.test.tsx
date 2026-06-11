@@ -19,11 +19,13 @@ it("shows the empty state when there are no versions", () => {
   expect(screen.getByText(/No versions yet/)).toBeInTheDocument();
 });
 
-it("calls onCaptureNow with the entered label", () => {
+it("captures a named checkpoint via the inline input", () => {
   const onCaptureNow = vi.fn();
-  vi.spyOn(window, "prompt").mockReturnValue("My checkpoint");
   render(<HistoryPanel lang="en-US" versions={metas} busy={false} onCaptureNow={onCaptureNow} loadDiff={vi.fn().mockResolvedValue([])} restore={vi.fn().mockResolvedValue(undefined)} />);
   fireEvent.click(screen.getByRole("button", { name: "Save version now" }));
+  const input = screen.getByPlaceholderText("Name this version");
+  fireEvent.change(input, { target: { value: "My checkpoint" } });
+  fireEvent.click(screen.getByRole("button", { name: "Add" }));
   expect(onCaptureNow).toHaveBeenCalledWith("My checkpoint");
 });
 
