@@ -23,7 +23,7 @@ import {
 import { InfluenceInterestMatrix } from "./influence-interest-matrix";
 import { useDraggable } from "./use-draggable";
 import { setRaciRole } from "./stakeholders";
-import { resourceDisplayName } from "./resource-foundation";
+import { ResourcePicker } from "./resource-picker";
 import { CharCounter, useAdjustmentTracker } from "./field-feedback";
 import { DocumentLinksFieldGated } from "./document-links-field-gated";
 import { describeTextCap } from "./sanitize-report";
@@ -146,14 +146,17 @@ export function StakeholderEditModal({
             <span className="font-medium text-foreground">
               {t(lang, "stakeholderFieldName")} *
             </span>
-            <input
-              type="text"
-              required
-              value={draft.name}
-              onChange={(e) => update("name", e.target.value)}
-              onBlur={(e) => update("name", describeTextCap(e.target.value, BUDGET_NAME_MAX).value.trim())}
+            <ResourcePicker
+              lang={lang}
+              value={{ name: draft.name, email: draft.email ?? "", resourceId: draft.resourceId }}
+              resources={resources}
+              contacts={[]}
+              onChange={(next) =>
+                onChange({ ...draft, name: next.name, resourceId: next.resourceId })
+              }
+              maxLength={BUDGET_NAME_MAX}
+              aria-required
               aria-describedby="stakeholder-name-counter"
-              className={INPUT_CLASS}
             />
             <CharCounter value={draft.name} max={BUDGET_NAME_MAX} id="stakeholder-name-counter" lang={lang} />
           </label>
@@ -279,29 +282,6 @@ export function StakeholderEditModal({
               onChange={(links) => update("documentLinks", links)}
               lang={lang}
             />
-          </label>
-
-          {/* Linked resource */}
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-foreground">
-              {t(lang, "stakeholderFieldResource")}
-            </span>
-            <select
-              aria-label={t(lang, "stakeholderFieldResource")}
-              value={draft.resourceId ?? ""}
-              onChange={(e) => {
-                const val = e.target.value;
-                update("resourceId", val === "" ? undefined : Number(val));
-              }}
-              className={INPUT_CLASS}
-            >
-              <option value="">{t(lang, "stakeholderResourceNone")}</option>
-              {resources.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {resourceDisplayName(r)}
-                </option>
-              ))}
-            </select>
           </label>
 
           {/* RACI by milestone */}

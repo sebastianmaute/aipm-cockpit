@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { StakeholderEditModal } from "./stakeholder-edit-modal";
-import type { Stakeholder, Milestone } from "./types";
+import type { Stakeholder, Milestone, Resource } from "./types";
 
 // Mock M365 hooks consumed by DocumentLinksFieldGated — default: SharePoint off.
 vi.mock("./use-settings", () => ({
@@ -40,6 +40,39 @@ describe("StakeholderEditModal", () => {
     const p = setup({ draft: { ...draft, influence: "Low", interest: "Low" } });
     fireEvent.click(screen.getByRole("button", { name: /influence high.*interest high/i }));
     expect(p.onChange).toHaveBeenCalledWith(expect.objectContaining({ influence: "High", interest: "High" }));
+  });
+});
+
+describe("StakeholderEditModal — name picker (link-only)", () => {
+  const resources: Resource[] = [
+    { id: 1, firstName: "Sample", lastName: "Dummy", email: "Sample@x.com", roleId: null, utilizationMode: "percent", utilization: {} },
+  ];
+
+  // The name picker is the combobox wired to the name counter; the Category
+  // <select> also carries the implicit combobox role, so disambiguate by that.
+  const namePicker = () =>
+    screen
+      .getAllByRole("combobox")
+      .find((el) => el.getAttribute("aria-describedby") === "stakeholder-name-counter")!;
+
+  it("picking a resource sets both name and resourceId", () => {
+    const p = setup({ draft: { ...draft, name: "" }, resources });
+    fireEvent.focus(namePicker());
+    fireEvent.mouseDown(screen.getByText("Alex Example"));
+    expect(p.onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "Alex Example", resourceId: 1 }),
+    );
+  });
+
+  it("typing a free name keeps the stakeholder external (no + Add row, resourceId stays unset)", () => {
+    const p = setup({ draft: { ...draft, name: "" }, resources });
+    fireEvent.focus(namePicker());
+    fireEvent.change(namePicker(), { target: { value: "External Person" } });
+    expect(screen.queryByText(/Add .* as resource/i)).toBeNull();
+    const onChangeSpy = p.onChange as ReturnType<typeof vi.fn>;
+    const lastCall = onChangeSpy.mock.calls.at(-1)?.[0] as Stakeholder;
+    expect(lastCall.name).toBe("External Person");
+    expect(lastCall.resourceId == null).toBe(true);
   });
 });
 
