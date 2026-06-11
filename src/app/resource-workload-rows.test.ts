@@ -54,6 +54,16 @@ describe("buildResourceWorkload", () => {
     expect(managed[0].weeklyHours).toBe(40);
     expect(managed[0].shift).not.toBeNull();
   });
+  it("attaches a shift by resourceId even when the assignee name differs", () => {
+    // The FK wins over the name: a stale/mismatched assignee string still
+    // resolves to the linked resource. Would land in `unlinked` if the shift
+    // join ignored resourceId.
+    const shift: Shift = { id: 1, assignee: "stale name", resourceId: 1, hoursPerWeekday: [0, 8, 8, 8, 8, 0, 0] };
+    const { managed, unlinked } = buildResourceWorkload([res(1, "Sample", "Dummy")], [], [], [shift], "2026-06-01");
+    expect(unlinked).toHaveLength(0);
+    expect(managed[0].shift).not.toBeNull();
+    expect(managed[0].weeklyHours).toBe(32);
+  });
   it("collects only upcoming absences within the 60-day horizon", () => {
     const mk = (id: number, s: string, e: string): Absence => ({ id, assignee: "Alex Example", startDate: s, endDate: e, type: "vacation", resourceId: 1 });
     const { managed } = buildResourceWorkload([res(1, "Sample", "Dummy")], [], [mk(1,"2026-01-01","2026-01-05"), mk(2,"2026-06-10","2026-06-12"), mk(3,"2026-12-01","2026-12-05")], [], "2026-06-01");

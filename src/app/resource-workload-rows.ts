@@ -18,10 +18,10 @@ function sumHours(h: WeekHours): number { return h.reduce((a, b) => a + (b || 0)
 const DEFAULT_WEEKLY_HOURS = sumHours(DEFAULT_WEEK_HOURS);
 
 /**
- * Workload rows keyed off the managed address book. A task/absence joins a
- * resource by `resourceId`, else by case-folded display name; shifts join by
- * name only. Assignees matching no resource fall into `unlinked` (read-only),
- * carrying a split name + email so the UI can offer "Add as resource".
+ * Workload rows keyed off the managed address book. A task/absence/shift joins
+ * a resource by `resourceId`, else by case-folded display name. Assignees
+ * matching no resource fall into `unlinked` (read-only), carrying a split name
+ * + email so the UI can offer "Add as resource".
  */
 export function buildResourceWorkload(
   resources: readonly Resource[],
@@ -66,7 +66,7 @@ export function buildResourceWorkload(
     return row;
   };
 
-  const resolve = (resourceId: number | undefined, assignee: string, email?: string): WorkloadRowBase | null => {
+  const resolve = (resourceId: number | null | undefined, assignee: string, email?: string): WorkloadRowBase | null => {
     if (resourceId != null && managed.has(resourceId)) return managed.get(resourceId)!;
     const name = (assignee ?? "").trim();
     if (!name) return null;
@@ -91,7 +91,7 @@ export function buildResourceWorkload(
     row.upcoming.push(a);
   }
   for (const s of shifts) {
-    const row = resolve(undefined, s.assignee, s.assigneeEmail);
+    const row = resolve(s.resourceId, s.assignee, s.assigneeEmail);
     if (!row) continue;
     row.shift = s;
     row.weeklyHours = sumHours(s.hoursPerWeekday);
