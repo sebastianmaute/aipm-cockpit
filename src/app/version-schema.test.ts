@@ -51,7 +51,7 @@ describe("version-schema", () => {
     expect(del.sql).toMatch(/trigger = 'auto'/);
     expect(del.sql).toMatch(/project_id = \?/);
     expect(del.sql).toMatch(/NOT IN/);
-    expect(del.args?.some((a) => a.value === "50")).toBe(true);
+    expect(del.sql).toMatch(/LIMIT 50\b/); // keep is inlined as a sanitized integer
   });
 
   it("rowsToVersionMeta maps rows and coerces trigger/label", () => {

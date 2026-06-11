@@ -553,7 +553,14 @@ function TaskManagerInner() {
     idleMs: VERSION_IDLE_MS,
     retention: DEFAULT_VERSION_RETENTION,
     getPayload: getVersionPayload,
-    onError: reportStorageOutcome,
+    onError: (err) => {
+      // Mirror the snapshot hook: connectivity/auth failures surface as the
+      // sticky banner (via reportStorageOutcome → tursoErrorKind); any other
+      // capture failure toasts rather than being silently swallowed. Version
+      // capture is best-effort and never blocks the main save.
+      reportStorageOutcome(err);
+      if (!tursoErrorKind(err)) showToast("error", t(lang, "storageSaveFailed", String(err)));
+    },
   });
   useEffect(() => { versionNotifyRef.current = versionHistory.notifySaved; }, [versionHistory.notifySaved]);
 

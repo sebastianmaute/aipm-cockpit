@@ -57,13 +57,17 @@ export function versionPayloadStatements(id: string, projectId: string): SqlStmt
   ];
 }
 
-/** Delete auto rows beyond the newest `keep`; never touches manual rows. */
+/** Delete auto rows beyond the newest `keep`; never touches manual rows.
+ *  `keep` is a trusted integer (a constant or a clamped setting), so it is
+ *  inlined as a sanitized integer — SQLite's LIMIT wants an integer expression,
+ *  not a text-bound parameter (whose type affinity is driver-dependent). */
 export function pruneStatements(projectId: string, keep: number): SqlStmt[] {
+  const limit = Math.max(0, Math.floor(keep)); // injection-safe: integer only
   return [
     {
       sql: `DELETE FROM ${VERSION_TABLE_NAME} WHERE project_id = ? AND trigger = 'auto' AND id NOT IN (`
-        + `SELECT id FROM ${VERSION_TABLE_NAME} WHERE project_id = ? AND trigger = 'auto' ORDER BY captured_at DESC LIMIT ?)`,
-      args: [text(projectId), text(projectId), text(String(keep))],
+        + `SELECT id FROM ${VERSION_TABLE_NAME} WHERE project_id = ? AND trigger = 'auto' ORDER BY captured_at DESC LIMIT ${limit})`,
+      args: [text(projectId), text(projectId)],
     },
   ];
 }
