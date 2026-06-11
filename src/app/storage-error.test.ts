@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { StorageNotReadyError } from "./storage";
-import { tursoErrorKind } from "./storage-error";
+import { isTursoLockTimeout, tursoErrorKind } from "./storage-error";
 
 describe("tursoErrorKind", () => {
   it("maps the unreachable hint", () => {
@@ -30,5 +30,18 @@ describe("tursoErrorKind", () => {
   it("does not classify a cross-tab lock timeout (transient — toast, not the connectivity banner)", async () => {
     const { TursoLockTimeoutError } = await import("./turso-backend");
     expect(tursoErrorKind(new TursoLockTimeoutError())).toBeNull();
+  });
+});
+
+describe("isTursoLockTimeout", () => {
+  it("detects the cross-tab lock timeout (so the toast can localize it)", async () => {
+    const { TursoLockTimeoutError } = await import("./turso-backend");
+    expect(isTursoLockTimeout(new TursoLockTimeoutError())).toBe(true);
+  });
+
+  it("ignores other errors and non-errors", () => {
+    expect(isTursoLockTimeout(new Error("boom"))).toBe(false);
+    expect(isTursoLockTimeout(new StorageNotReadyError("storage-unreachable"))).toBe(false);
+    expect(isTursoLockTimeout(null)).toBe(false);
   });
 });

@@ -7,8 +7,18 @@
 // hints, unrelated errors) returns null so no false storage banner appears.
 
 import { StorageNotReadyError } from "./storage";
+import { TursoLockTimeoutError } from "./turso-backend";
 
 export type StorageErrorKind = "unreachable" | "auth";
+
+/** True when a save failed because the cross-tab Web Locks wait timed out
+ *  (another tab is writing). Deliberately NOT a StorageErrorKind — it's
+ *  transient, so it stays on the toast path; the UI boundary uses this to
+ *  swap the raw English error text for the localized `tursoLockTimeout`
+ *  message (turso-backend.ts has no lang context). */
+export function isTursoLockTimeout(err: unknown): boolean {
+  return err instanceof TursoLockTimeoutError;
+}
 
 export function tursoErrorKind(err: unknown): StorageErrorKind | null {
   if (err instanceof StorageNotReadyError) {

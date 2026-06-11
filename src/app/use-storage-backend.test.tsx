@@ -66,6 +66,9 @@ vi.mock("./turso-portfolio", () => ({
 import * as tursoPortfolioMod from "./turso-portfolio";
 
 // ── TursoBackend mock (per-project tenant-mode backend built directly in the hook) ──
+// TursoLockTimeoutError must be exported by the mock too: storage-error.ts
+// (used unmocked by the hook's save-failure path) instanceof-checks against
+// whatever this module exports.
 vi.mock("./turso-backend", () => ({
   TursoBackend: class {
     kind = "turso" as const;
@@ -75,7 +78,14 @@ vi.mock("./turso-backend", () => ({
     isReady = vi.fn().mockResolvedValue(true);
     describe = vi.fn().mockResolvedValue("Turso");
   },
+  TursoLockTimeoutError: class TursoLockTimeoutError extends Error {
+    constructor() {
+      super("Turso write lock timed out");
+      this.name = "TursoLockTimeoutError";
+    }
+  },
 }));
+import { TursoLockTimeoutError } from "./turso-backend";
 
 // portfolio-mode is a pure module backed by jsdom localStorage — use it for real
 // so saveCurrentTursoProjectId / loadCurrentTursoProjectId round-trip as in prod.
@@ -259,6 +269,27 @@ describe("useStorageBackend — save effect", () => {
 
     expect(mockBackend.save).toHaveBeenCalledWith(
       expect.objectContaining({ tasks: expect.any(Array), raid: expect.any(Array) }),
+    );
+  });
+
+  it("localizes the cross-tab lock-timeout save failure instead of toasting the raw English error", async () => {
+    const { result } = renderBackend();
+    // Load completes → suppressNextSaveRef = true; burn the first debounce cycle.
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    mockBackend.save.mockClear();
+    mockBackend.save.mockRejectedValueOnce(new TursoLockTimeoutError());
+
+    await act(async () => {
+      result.current.setTasks([{ id: 1, taskName: "T1" } as unknown as Task]);
+    });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+
+    expect(showToast).toHaveBeenCalledWith(
+      "error",
+      "Couldn't save: another tab is writing to this database and the wait timed out. Saving retries automatically.",
     );
   });
 

@@ -168,6 +168,8 @@ const enUS = {
     "Couldn't save your project list — browser storage may be full or disabled. Changes to the list may be lost when you reload.",
   storageLoadFailed: "Couldn't load tasks: {0}",
   storageSaveFailed: "Couldn't save tasks: {0}",
+  tursoLockTimeout:
+    "Couldn't save: another tab is writing to this database and the wait timed out. Saving retries automatically.",
   projectCreateFailed: "Couldn't create the project: {0}",
   projectUpdateFailed: "Couldn't save the project details: {0}",
   projectArchiveFailed: "Couldn't archive the project: {0}",

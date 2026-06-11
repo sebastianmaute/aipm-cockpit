@@ -38,7 +38,7 @@ import {
   restoreProject as portfolioRestore,
   hardDeleteProject as portfolioHardDelete,
 } from "./turso-portfolio";
-import { tursoErrorKind } from "./storage-error";
+import { isTursoLockTimeout, tursoErrorKind } from "./storage-error";
 import { useMsAuth } from "./use-ms-auth";
 import { useWorkspace } from "./workspace-context";
 
@@ -248,6 +248,9 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
             hint === "local-file-write-blocked"     ? "storageWriteBlocked" :
                                                       "storageNotReady";
           args.showToast("error", t(langRef.current, key));
+        } else if (isTursoLockTimeout(err)) {
+          // Localized text — the error's own message is English-only.
+          args.showToast("error", t(langRef.current, "tursoLockTimeout"));
         } else if (!(err instanceof StorageNotImplementedError)) {
           args.showToast("error", t(langRef.current, "storageSaveFailed", String(err)));
         }
@@ -410,6 +413,9 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
               ? "storageUnreachable"
               : "storageNotReady";
         args.showToast("error", t(langRef.current, key));
+      } else if (isTursoLockTimeout(err)) {
+        // Conversion target was Turso and the cross-tab write lock timed out.
+        args.showToast("error", t(langRef.current, "tursoLockTimeout"));
       } else {
         // StorageNotImplementedError also surfaces here — user confirmed a
         // conversion write, so silent failure is wrong.

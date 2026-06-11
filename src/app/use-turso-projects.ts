@@ -17,6 +17,7 @@ import { t, type Lang } from "./i18n";
 import { getTursoConfig } from "./turso-config";
 import { listProjects, updateProjectMeta as tursoUpdateMeta } from "./turso-portfolio";
 import type { PortfolioMode } from "./portfolio-mode";
+import type { ProjectListEntry } from "./turso-tenant-schema";
 import type { ProjectMeta } from "./types";
 
 /** File formats the create-project panel offers in FILE mode. */
@@ -37,7 +38,9 @@ export interface UseTursoProjectsArgs {
   archiveTursoProject: (id: string) => Promise<void>;
   restoreTursoProject: (id: string) => Promise<void>;
   hardDeleteTursoProject: (id: string) => Promise<void>;
-  refreshTursoProjects: () => Promise<void>;
+  /** Re-fetches the project list and sets state; resolves with the fetched
+   *  ACTIVE list (null on failure) so callers can reuse it without a 2nd fetch. */
+  refreshTursoProjects: () => Promise<ProjectListEntry[] | null>;
   /** Mirror freshly saved meta into the in-memory workspace (Turso mode). */
   setProject: (meta: ProjectMeta) => void;
   // FILE-mode fallbacks — the mode branching lives in the returned handlers.
@@ -123,14 +126,17 @@ export function useTursoProjects(args: UseTursoProjectsArgs): UseTursoProjectsRe
   // Re-point the active project after archiving/hard-deleting it: if the affected
   // id was active and it's now gone from the refreshed active list, switch to the
   // first remaining active project (none remaining → the empty-state takes over).
+  // `refreshed` is the active list the preceding refreshTursoProjects() already
+  // fetched — reuse it; only fall back to a listProjects fetch of our own when
+  // the refresh failed (null) and we have no list to work with.
   const repointAfterRemoval = useCallback(
-    (removedId: string) => {
+    (removedId: string, refreshed?: ProjectListEntry[] | null) => {
       if (tursoProjectId !== removedId) return;
       const cfg = getTursoConfig(tursoDatabaseUrl, tursoAuthToken);
       if (!cfg) return;
       void (async () => {
         try {
-          const remaining = await listProjects(cfg);
+          const remaining = refreshed ?? (await listProjects(cfg));
           const survivor = remaining.find((p) => p.id !== removedId);
           if (survivor) await switchToTursoProject(survivor.id);
         } catch (err) {
@@ -146,8 +152,8 @@ export function useTursoProjects(args: UseTursoProjectsArgs): UseTursoProjectsRe
       void (async () => {
         try {
           await archiveTursoProject(id);
-          await refreshTursoProjects();
-          repointAfterRemoval(id);
+          const refreshed = await refreshTursoProjects();
+          repointAfterRemoval(id, refreshed);
         } catch (err) {
           showToast("error", t(lang, "projectArchiveFailed", errorText(err)));
         }
@@ -175,8 +181,8 @@ export function useTursoProjects(args: UseTursoProjectsArgs): UseTursoProjectsRe
       void (async () => {
         try {
           await hardDeleteTursoProject(id);
-          await refreshTursoProjects();
-          repointAfterRemoval(id);
+          const refreshed = await refreshTursoProjects();
+          repointAfterRemoval(id, refreshed);
         } catch (err) {
           showToast("error", t(lang, "projectHardDeleteFailed", errorText(err)));
         }

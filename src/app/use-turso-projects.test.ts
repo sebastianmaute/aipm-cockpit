@@ -6,6 +6,7 @@
 import { renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useTursoProjects, type UseTursoProjectsArgs } from "./use-turso-projects";
+import type { ProjectListEntry } from "./turso-tenant-schema";
 import type { ProjectMeta } from "./types";
 
 vi.mock("./turso-portfolio", () => ({
@@ -34,7 +35,8 @@ function makeArgs(overrides: Partial<UseTursoProjectsArgs> = {}): UseTursoProjec
     archiveTursoProject: vi.fn(async () => {}),
     restoreTursoProject: vi.fn(async () => {}),
     hardDeleteTursoProject: vi.fn(async () => {}),
-    refreshTursoProjects: vi.fn(async () => {}),
+    // Default: refresh "failed" (null) so repoint falls back to its own fetch.
+    refreshTursoProjects: vi.fn<UseTursoProjectsArgs["refreshTursoProjects"]>(async () => null),
     setProject: vi.fn(),
     createFileProject: vi.fn(),
     updateCurrentFileProject: vi.fn(),
@@ -120,18 +122,34 @@ describe("useTursoProjects — update current meta", () => {
 });
 
 describe("useTursoProjects — archive / restore / hard-delete", () => {
-  it("archive: archives, refreshes, and repoints to the survivor when the active project was removed", async () => {
-    vi.mocked(listProjects).mockResolvedValue([
+  it("archive: archives, refreshes, and repoints to the survivor using the refreshed list (no second fetch)", async () => {
+    const refreshed: ProjectListEntry[] = [
       { id: "p-1", meta: META, archived: false },
       { id: "p-2", meta: META, archived: false },
-    ] as never);
-    const args = makeArgs({ tursoProjectId: "p-1" });
+    ];
+    const args = makeArgs({
+      tursoProjectId: "p-1",
+      refreshTursoProjects: vi.fn<UseTursoProjectsArgs["refreshTursoProjects"]>(async () => refreshed),
+    });
     const { result } = renderHook(() => useTursoProjects(args));
     result.current.handleArchiveTursoProject("p-1");
     await waitFor(() => expect(args.switchToTursoProject).toHaveBeenCalledWith("p-2"));
     expect(args.archiveTursoProject).toHaveBeenCalledWith("p-1");
     expect(args.refreshTursoProjects).toHaveBeenCalled();
+    // The refresh already fetched the list — repoint must NOT fetch it again.
+    expect(vi.mocked(listProjects)).not.toHaveBeenCalled();
     expect(args.showToast).not.toHaveBeenCalled();
+  });
+
+  it("archive: falls back to its own listProjects fetch when the refresh returned null", async () => {
+    vi.mocked(listProjects).mockResolvedValue([
+      { id: "p-2", meta: META, archived: false },
+    ] as never);
+    const args = makeArgs({ tursoProjectId: "p-1" }); // default refresh resolves null
+    const { result } = renderHook(() => useTursoProjects(args));
+    result.current.handleArchiveTursoProject("p-1");
+    await waitFor(() => expect(args.switchToTursoProject).toHaveBeenCalledWith("p-2"));
+    expect(vi.mocked(listProjects)).toHaveBeenCalledTimes(1);
   });
 
   it("archive: does not repoint when a non-active project was archived", async () => {
@@ -194,15 +212,18 @@ describe("useTursoProjects — archive / restore / hard-delete", () => {
     );
   });
 
-  it("hard delete: success path archives nothing, refreshes, repoints", async () => {
-    vi.mocked(listProjects).mockResolvedValue([
-      { id: "p-7", meta: META, archived: false },
-    ] as never);
-    const args = makeArgs({ tursoProjectId: "p-1" });
+  it("hard delete: success path archives nothing, refreshes, repoints from the refreshed list", async () => {
+    const args = makeArgs({
+      tursoProjectId: "p-1",
+      refreshTursoProjects: vi.fn<UseTursoProjectsArgs["refreshTursoProjects"]>(async () => [
+        { id: "p-7", meta: META, archived: false },
+      ]),
+    });
     const { result } = renderHook(() => useTursoProjects(args));
     result.current.handleHardDeleteTursoProject("p-1");
     await waitFor(() => expect(args.switchToTursoProject).toHaveBeenCalledWith("p-7"));
     expect(args.hardDeleteTursoProject).toHaveBeenCalledWith("p-1");
+    expect(vi.mocked(listProjects)).not.toHaveBeenCalled();
     expect(args.showToast).not.toHaveBeenCalled();
   });
 });

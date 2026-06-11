@@ -174,6 +174,8 @@ export const de: Record<TranslationKey, string> = {
     "Die Projektliste konnte nicht gespeichert werden – der Browser-Speicher ist möglicherweise voll oder deaktiviert. Änderungen an der Liste gehen beim Neuladen eventuell verloren.",
   storageLoadFailed: "Aufgaben konnten nicht geladen werden: {0}",
   storageSaveFailed: "Aufgaben konnten nicht gespeichert werden: {0}",
+  tursoLockTimeout:
+    "Speichern nicht möglich: Ein anderer Tab schreibt gerade in diese Datenbank und die Wartezeit ist abgelaufen. Das Speichern wird automatisch erneut versucht.",
   projectCreateFailed: "Projekt konnte nicht erstellt werden: {0}",
   projectUpdateFailed: "Projektdetails konnten nicht gespeichert werden: {0}",
   projectArchiveFailed: "Projekt konnte nicht archiviert werden: {0}",
