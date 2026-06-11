@@ -1,6 +1,8 @@
 // src/app/history-panel.tsx
-// Read-only version-history timeline (Slice 1). Compare/diff + restore land in
-// later slices. Turso-gated by the parent; this component is presentational.
+// Version-history timeline + compare (Slice 2). Selective restore lands in a
+// later slice. Turso-gated by the parent; this component is presentational.
+// Compare modes: per-row "compare with current", or tick two versions and
+// "compare selected" (the two are ordered oldest→newest before diffing).
 
 import { useState } from "react";
 import { t } from "./i18n";
@@ -20,6 +22,7 @@ interface HistoryPanelProps {
 export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff }: HistoryPanelProps) {
   const [diff, setDiff] = useState<VersionChange[] | null>(null);
   const [comparing, setComparing] = useState(false);
+  const [selected, setSelected] = useState<string[]>([]);
 
   const handleSave = () => {
     const label = window.prompt(t(lang, "historyManualLabelPrompt"));
@@ -31,18 +34,44 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff }: H
     try { setDiff(await loadDiff(fromId, to)); } finally { setComparing(false); }
   };
 
+  // Tick up to two versions; a third selection drops the oldest pick.
+  const toggleSelect = (id: string) =>
+    setSelected((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id].slice(-2),
+    );
+
+  const compareSelected = () => {
+    if (selected.length !== 2) return;
+    // Order the two picks oldest→newest so the diff reads "from older → newer".
+    const [a, b] = selected
+      .map((id) => versions.find((v) => v.id === id))
+      .filter((v): v is ProjectVersionMeta => !!v)
+      .sort((x, y) => x.capturedAt.localeCompare(y.capturedAt));
+    if (a && b) void runDiff(a.id, b.id);
+  };
+
   return (
     <div className="p-4">
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-lg font-semibold text-foreground">{t(lang, "historyTitle")}</h2>
-        <button
-          type="button"
-          onClick={handleSave}
-          disabled={busy}
-          className="rounded-md bg-AIPM-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
-        >
-          {t(lang, "historySaveNow")}
-        </button>
+        <span className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={compareSelected}
+            disabled={selected.length !== 2 || comparing}
+            className="rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:border-AIPM-dark-blue disabled:opacity-50"
+          >
+            {t(lang, "historyCompareSelected")}
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={busy}
+            className="rounded-md bg-AIPM-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+          >
+            {t(lang, "historySaveNow")}
+          </button>
+        </span>
       </div>
 
       {versions.length === 0 ? (
@@ -52,6 +81,13 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff }: H
           {versions.map((v) => (
             <li key={v.id} className="flex items-center justify-between rounded-md border border-line bg-surface px-3 py-2 text-sm">
               <span className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={selected.includes(v.id)}
+                  onChange={() => toggleSelect(v.id)}
+                  aria-label={`${t(lang, "historyCompareSelect")} ${v.label ?? new Date(v.capturedAt).toLocaleString()}`}
+                  className="accent-AIPM-dark-blue"
+                />
                 <span className={`rounded px-1.5 py-0.5 text-xs ${v.trigger === "manual" ? "bg-AIPM-green/15 text-AIPM-green" : "bg-surface-muted text-muted-foreground"}`}>
                   {v.trigger === "manual" ? `★ ${t(lang, "historyManual")}` : t(lang, "historyAuto")}
                 </span>

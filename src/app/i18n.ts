@@ -1547,6 +1547,8 @@ const enUS = {
   historyRemoved: "Removed",
   historyModified: "Modified",
   historyCompareVsNow: "Compared with current",
+  historyCompareSelect: "Select to compare",
+  historyCompareSelected: "Compare selected",
   projectDocRepo: "Document repository",
   projectRegulatory: "Regulatory",
   projectNotes: "Notes",

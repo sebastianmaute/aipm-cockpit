@@ -38,3 +38,18 @@ it("compares a clicked version against now and renders the diff", async () => {
   expect(await screen.findByText("T1")).toBeInTheDocument();
   expect(loadDiff).toHaveBeenCalledWith("v1", "now");
 });
+
+it("compares two ticked versions, ordered oldest→newest", async () => {
+  const loadDiff = vi.fn().mockResolvedValue([]);
+  render(<HistoryPanel lang="en-US" versions={metas} busy={false} onCaptureNow={vi.fn()} loadDiff={loadDiff} />);
+  // "Compare selected" is disabled until exactly two are ticked
+  const compareBtn = screen.getByRole("button", { name: "Compare selected" });
+  expect(compareBtn).toBeDisabled();
+  const boxes = screen.getAllByRole("checkbox");
+  fireEvent.click(boxes[0]); // v2 (newer)
+  fireEvent.click(boxes[1]); // v1 (older)
+  expect(compareBtn).toBeEnabled();
+  fireEvent.click(compareBtn);
+  // ordered oldest (v1) → newest (v2)
+  expect(loadDiff).toHaveBeenCalledWith("v1", "v2");
+});
