@@ -1,6 +1,7 @@
 "use client";
 
 import { type Lang, t } from "../i18n";
+import { FieldNotice } from "../field-feedback";
 import {
   type M365IntegrationsSettings,
   type TursoIntegrationsSettings,
@@ -241,6 +242,7 @@ export function IntegrationsSection({ lang, settings, onChange }: IntegrationsSe
                 placeholder={t(lang, "integrationsTursoTokenPlaceholder")}
                 className="mt-1 w-full rounded border border-line bg-surface px-2 py-1 text-foreground"
               />
+              <FieldNotice>{t(lang, "credentialStorageNote")}</FieldNotice>
             </label>
           )}
           <div className="mt-2 border-t border-line pt-2">

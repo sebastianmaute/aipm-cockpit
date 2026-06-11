@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { type Lang, t } from "./i18n";
+import { FieldNotice } from "./field-feedback";
 import { InfoTooltip } from "./info-tooltip";
 import {
   type JiraIssueType,
@@ -274,6 +275,7 @@ export function JiraSettingsSection({
                 placeholder="ATATT…"
                 className={inputClass}
               />
+              <FieldNotice>{t(lang, "credentialStorageNote")}</FieldNotice>
               <a
                 href="https://id.atlassian.com/manage-profile/security/api-tokens"
                 target="_blank"

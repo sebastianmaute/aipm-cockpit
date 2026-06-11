@@ -216,6 +216,32 @@ No environment variables are **required** — all integrations work via in-app S
 
 > ⚠️ **Security:** Turso auth tokens live in the browser (`localStorage`, or as `NEXT_PUBLIC_*` env vars, which are inlined at build time and are **not** secret). Use a token scoped to the minimum required database and operations, and rotate it if it may have been exposed. The Claude API key and Jira credentials are likewise entered in Settings and stored in `localStorage`.
 
+## Security Model
+
+This is a **local-first, bring-your-own-key** application. There is no application server holding accounts or secrets: you supply your own credentials in Settings, and they stay in your browser. That makes the browser profile the security boundary — the trade-off is deliberate.
+
+### What is stored where
+
+| Data | Location |
+|------|----------|
+| Anthropic API key, Jira credentials (site URL, email, API token), Turso database URL + auth token, all other settings | `localStorage`, **unencrypted** |
+| Workspace data (tasks, RAID, changes, milestones, stakeholders, …) | `IndexedDB` on the default Browser backend, or whichever storage backend you configure |
+
+Credentials are deliberately excluded from workspace exports (JSON/CSV/Markdown), the activity log, and console output — they exist only in `localStorage`.
+
+### What leaves the browser
+
+- **AI chat** — chat messages, the workspace data the assistant reads, and your API key are sent directly from the browser to `api.anthropic.com`; there is no proxy in between.
+- **Jira** — credentials and issue data go to the same-origin `/api/jira/*` proxy, which forwards them only to `*.atlassian.net` (SSRF allowlist) and persists nothing server-side.
+- **Turso** — workspace data and the auth token go to your own Turso/libSQL database over HTTPS.
+- **Microsoft 365** — Graph calls authenticate with MSAL-issued tokens; the app never handles your Microsoft password.
+
+### Recommendations
+
+- Use dedicated, minimally scoped credentials: an Anthropic API key with a spend limit, a Jira API token with an expiry date, and a Turso token scoped to a single database.
+- Do not use this app with production credentials on shared or untrusted machines — anyone with access to the browser profile can read every stored credential.
+- Rotate or revoke credentials when a machine changes hands or a key may have been exposed.
+
 ## License
 
 Apache 2.0 — see the [LICENSE](./LICENSE) file for the full text.

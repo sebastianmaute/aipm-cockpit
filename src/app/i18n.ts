@@ -339,7 +339,7 @@ const enUS = {
   aiConsentBullet1:
     "Your messages and task data (names, assignees, emails, dates, blockers, notes) are sent directly from this browser to api.anthropic.com whenever you chat.",
   aiConsentBullet2:
-    "Your Anthropic API key is stored in this browser's localStorage. Anyone with access to this browser profile can read and use it. Anthropic will bill any usage to that key.",
+    "Your Anthropic API key is stored unencrypted in this browser's localStorage and sent directly from this browser to api.anthropic.com. Anyone with access to this browser profile can read and use it, and Anthropic will bill any usage to that key — use a dedicated API key with a spend limit.",
   aiConsentBullet3:
     "Anthropic's handling of your data is governed by their Privacy Policy and Usage Policy. Review them before enabling.",
   aiConsentBullet4:
@@ -358,6 +358,8 @@ const enUS = {
   aiConsentRevoke: "Revoke consent",
   aiConsentNotAccepted:
     "Claude chat is disabled. Review and accept the consent below to enable it.",
+  credentialStorageNote:
+    "Stored unencrypted in this browser's localStorage — do not use production credentials on shared or untrusted machines.",
 
   notifications: "Due-date notifications",
   notificationsHint:

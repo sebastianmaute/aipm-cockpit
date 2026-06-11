@@ -346,7 +346,7 @@ export const de: Record<TranslationKey, string> = {
   aiConsentBullet1:
     "Ihre Nachrichten und Aufgabendaten (Namen, Zugewiesene, E-Mails, Datumsangaben, Blocker, Notizen) werden bei jeder Anfrage direkt aus diesem Browser an api.anthropic.com gesendet.",
   aiConsentBullet2:
-    "Ihr Anthropic-API-Schlüssel wird im localStorage dieses Browsers gespeichert. Jeder mit Zugriff auf dieses Browser-Profil kann ihn lesen und nutzen. Anthropic stellt jegliche Nutzung diesem Schlüssel in Rechnung.",
+    "Ihr Anthropic-API-Schlüssel wird unverschlüsselt im localStorage dieses Browsers gespeichert und direkt aus diesem Browser an api.anthropic.com gesendet. Jeder mit Zugriff auf dieses Browser-Profil kann ihn lesen und nutzen, und Anthropic stellt jegliche Nutzung diesem Schlüssel in Rechnung – verwenden Sie einen eigenen API-Schlüssel mit Ausgabenlimit.",
   aiConsentBullet3:
     "Die Datenverarbeitung durch Anthropic unterliegt deren Datenschutz- und Nutzungsrichtlinien. Bitte vor der Aktivierung lesen.",
   aiConsentBullet4:
@@ -365,6 +365,8 @@ export const de: Record<TranslationKey, string> = {
   aiConsentRevoke: "Einwilligung widerrufen",
   aiConsentNotAccepted:
     "Claude-Chat ist deaktiviert. Bitte die untenstehende Einwilligung prüfen und akzeptieren.",
+  credentialStorageNote:
+    "Wird unverschlüsselt im localStorage dieses Browsers gespeichert – verwenden Sie auf gemeinsam genutzten oder nicht vertrauenswürdigen Rechnern keine produktiven Zugangsdaten.",
 
   notifications: "Fälligkeits-Benachrichtigungen",
   notificationsHint:

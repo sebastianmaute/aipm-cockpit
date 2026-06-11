@@ -4,6 +4,7 @@ import { type Lang, t } from "../i18n";
 import type { ChatModel, Settings } from "../settings-types";
 import { DEFAULT_SESSION_TOKEN_CAP, DEFAULT_WEEKLY_TOKEN_CAP } from "../settings-types";
 import { InfoTooltip } from "../info-tooltip";
+import { FieldNotice } from "../field-feedback";
 import { AiUsagePanel } from "./ai-usage-panel";
 
 interface AiSectionProps {
@@ -70,6 +71,7 @@ export function AiSection({ lang, settings, onChange }: AiSectionProps) {
           placeholder={t(lang, "aiApiKeyPlaceholder")}
           className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none focus:ring-1 focus:ring-AIPM-green"
         />
+        <FieldNotice>{t(lang, "credentialStorageNote")}</FieldNotice>
       </label>
       <label className="mt-2 block">
         <span className="mb-1 flex items-center gap-1 text-xs text-muted-foreground">
