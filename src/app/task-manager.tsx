@@ -571,7 +571,7 @@ function TaskManagerInner() {
     projectId: portfolioMode === "turso" ? (tursoProjectId ?? "") : "",
     enabled: settings.storageConfig.kind === "turso" && !isPopout,
     idleMs: VERSION_IDLE_MS,
-    retention: DEFAULT_VERSION_RETENTION,
+    retention: settings.versionHistoryRetention ?? DEFAULT_VERSION_RETENTION,
     getPayload: getVersionPayload,
     applyWorkspace: applyRestoredWorkspace,
     logActivity,

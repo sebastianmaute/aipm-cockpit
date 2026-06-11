@@ -11,7 +11,8 @@ export type FeatureModuleId =
   | "budget"
   | "raid"
   | "changes"
-  | "stakeholders";
+  | "stakeholders"
+  | "history";
 
 export interface FeatureModule {
   id: FeatureModuleId;
@@ -42,6 +43,7 @@ export const FEATURE_MODULES: readonly FeatureModule[] = [
     views: ["stakeholders", "raci", "stakeholder-map"],
     report: "stakeholder-report",
   },
+  { id: "history", labelKey: "navHistory", views: ["history"] },
 ] as const;
 
 /** Views always present regardless of mode. */

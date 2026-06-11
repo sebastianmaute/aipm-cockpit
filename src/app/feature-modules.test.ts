@@ -15,13 +15,19 @@ import {
 } from "./feature-modules";
 
 describe("feature-modules registry", () => {
-  it("has 9 modules and uses each id once", () => {
-    expect(ALL_MODULE_IDS).toHaveLength(9);
-    expect(new Set(ALL_MODULE_IDS).size).toBe(9);
+  it("has 10 modules and uses each id once", () => {
+    expect(ALL_MODULE_IDS).toHaveLength(10);
+    expect(new Set(ALL_MODULE_IDS).size).toBe(10);
   });
 
   it("every module's parent view appears in its views list", () => {
     for (const m of FEATURE_MODULES) expect(m.views).toContain(m.id as AppView);
+  });
+
+  it("registers a 'history' module gating the history view", () => {
+    expect(ALL_MODULE_IDS).toContain("history");
+    expect(isViewEnabled("history", [])).toBe(false); // module off → view hidden
+    expect(isViewEnabled("history", ["history"])).toBe(true); // module on → view shown
   });
 });
 
