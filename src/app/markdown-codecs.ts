@@ -23,6 +23,7 @@ import {
   sanitizeResource,
   sanitizeRole,
   sanitizeShift,
+  fkIdOrUndefined,
 } from "./sanitize";
 import {
   type Absence,
@@ -1101,7 +1102,7 @@ function markdownToTasks(md: string): Task[] {
       lastSyncedAt: obj.lastSyncedAt || undefined,
       localModifiedAt: obj.localModifiedAt || undefined,
       healthOverride: parseHealthOverride(obj.healthOverride),
-      resourceId: Number(obj.resourceId) || undefined,
+      resourceId: fkIdOrUndefined(obj.resourceId),
       originalEstimateMinutes: sanitizeOptionalMinutes(obj.originalEstimateMinutes),
       timeSpentMinutes: sanitizeOptionalMinutes(obj.timeSpentMinutes),
       documentLinks: decodeDocumentLinks(obj.documentLinks),

@@ -164,6 +164,17 @@ export function sanitizeNonNegInt(n: unknown): number {
   return Math.floor(num);
 }
 
+/**
+ * Decode an optional foreign-key id: a positive integer, else `undefined`.
+ * Entity ids are 1-based (see `nextId`), so blank / 0 / negative / NaN all
+ * mean "unlinked". This is the canonical FK-decode guard — prefer it over
+ * `Number(x) || undefined`, which keeps negative ids (a negative is truthy).
+ */
+export function fkIdOrUndefined(raw: unknown): number | undefined {
+  const n = toNumber(raw);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : undefined;
+}
+
 export function isPlainObject(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
 }
@@ -398,7 +409,7 @@ export function sanitizeAbsence(input: unknown): Absence | null {
       typeof raw.localModifiedAt === "string"
         ? raw.localModifiedAt
         : undefined,
-    resourceId: toNumber(raw.resourceId) || undefined,
+    resourceId: fkIdOrUndefined(raw.resourceId),
   };
 }
 
@@ -479,7 +490,7 @@ export function sanitizeShift(input: unknown): Shift | null {
         : undefined,
     hoursPerWeekday,
     note: sanitizeNotes(raw.note) || undefined,
-    resourceId: toNumber(raw.resourceId) || undefined,
+    resourceId: fkIdOrUndefined(raw.resourceId),
     localModifiedAt:
       typeof raw.localModifiedAt === "string"
         ? raw.localModifiedAt

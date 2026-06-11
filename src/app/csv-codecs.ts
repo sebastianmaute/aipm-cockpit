@@ -33,6 +33,7 @@ import {
   encodeRaciMap,
   decodeRaciMap,
   serializeDependencies,
+  fkIdOrUndefined,
 } from "./sanitize";
 import {
   type Absence,
@@ -339,7 +340,7 @@ export function buildRaidItemFromObj(obj: Record<string, string>): RaidItem | nu
     status,
     owner: obj.owner || undefined,
     ownerEmail: obj.ownerEmail || undefined,
-    ownerResourceId: Number(obj.ownerResourceId) || undefined,
+    ownerResourceId: fkIdOrUndefined(obj.ownerResourceId),
     mitigation: obj.mitigation || undefined,
     linkedTaskIds: parseLinkedTaskIds(obj.linkedTaskIds),
     raisedDate: obj.raisedDate ?? "",
@@ -1389,7 +1390,7 @@ export function buildTaskFromObj(obj: Record<string, string>): Task | null {
     lastSyncedAt: obj.lastSyncedAt || undefined,
     localModifiedAt: obj.localModifiedAt || undefined,
     healthOverride: parseHealthOverride(obj.healthOverride),
-    resourceId: Number(obj.resourceId) || undefined,
+    resourceId: fkIdOrUndefined(obj.resourceId),
     originalEstimateMinutes: sanitizeOptionalMinutes(obj.originalEstimateMinutes),
     timeSpentMinutes: sanitizeOptionalMinutes(obj.timeSpentMinutes),
     documentLinks: decodeDocumentLinks(obj.documentLinks),

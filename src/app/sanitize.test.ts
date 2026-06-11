@@ -10,6 +10,7 @@ import {
   sanitizePlan,
   sanitizeOptionalMinutes,
   sanitizeNonNegInt,
+  fkIdOrUndefined,
   sanitizeAbsence,
   sanitizeShift,
   sanitizeBudgetBucket,
@@ -309,6 +310,30 @@ describe("numeric coercion never throws on adversarial JSON objects", () => {
       expect(() => sanitizeRole({ id: obj, disciplineId: 1, gradeId: 1 })).not.toThrow();
       expect(() => sanitizeBudgetBucket({ id: obj, name: "B" })).not.toThrow();
       expect(() => sanitizeFxRates({ base: "EUR", date: "2026-01-01", fetchedAt: "x", rates: { USD: obj } })).not.toThrow();
+    });
+  }
+});
+
+describe("fkIdOrUndefined", () => {
+  it("keeps a positive integer id (number and string forms)", () => {
+    expect(fkIdOrUndefined(3)).toBe(3);
+    expect(fkIdOrUndefined("3")).toBe(3);
+  });
+  it("floors a fractional id", () => {
+    expect(fkIdOrUndefined(3.7)).toBe(3);
+  });
+  for (const [label, input] of [
+    ["empty string", ""],
+    ["zero", 0],
+    ["zero string", "0"],
+    ["negative", -5],
+    ["negative string", "-5"],
+    ["NaN-ish", "abc"],
+    ["undefined", undefined],
+    ["null", null],
+  ] as const) {
+    it(`treats ${label} as unlinked (undefined)`, () => {
+      expect(fkIdOrUndefined(input)).toBeUndefined();
     });
   }
 });
