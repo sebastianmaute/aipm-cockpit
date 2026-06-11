@@ -25,8 +25,11 @@ loaded `Workspace` is one project; history is therefore **per-project**.
 2. **Restore granularity:** *combined* — tick a whole changed record, or expand
    it and tick individual fields (field-level is the underlying capability;
    record-level ticking selects all of that record's changed fields).
-3. **Retention:** keep the most recent 50 `auto` versions per project (prune
-   older); keep **all** `manual` checkpoints forever.
+3. **Retention:** keep the most recent *N* `auto` versions per project (prune
+   older); keep **all** `manual` checkpoints forever. *N* is a **configurable
+   setting** exposed in the Settings menu as a numeric **stepper**: minimum 50,
+   increments of 10 (50, 60, 70, …), default 50, with a generous upper guard
+   (1000) to prevent accidental runaway Turso growth.
 4. **Version scope:** the whole project workspace (every editable collection).
    App settings/preferences are out of scope.
 5. **Compare:** both *version → now* and *version ↔ version*.
@@ -73,8 +76,12 @@ loaded `Workspace` is one project; history is therefore **per-project**.
   (counts per collection) for a human-readable timeline caption.
 
 **Retention:** after each successful capture, prune `auto` rows beyond the most
-recent 50 for that `project_id`. `manual` rows are exempt. Best-effort; a prune
-failure is logged and never blocks the save.
+recent *N* for that `project_id`, where *N* is the configurable setting
+(`Settings.versionHistoryRetention`, default 50). `manual` rows are exempt.
+Best-effort; a prune failure is logged and never blocks the save. Lowering *N*
+prunes on the next capture (not retroactively/destructively on save of the
+setting). Reading the setting at prune time means the cap always reflects the
+current value.
 
 ## Pure engines
 
@@ -125,6 +132,17 @@ records/fields are preserved exactly.
 (excluded from `TABLE_NAMES`); EN + DE i18n keys. The nav entry is gated on
 `storageKind === 'turso' && isModuleEnabled('history', features)`.
 
+**Retention setting:** add `versionHistoryRetention: number` to `Settings`
+(default 50) with a sanitizer that clamps to `[50, 1000]` and snaps to the
+nearest 10 (so the persisted value is always a valid stepper value, even from a
+hand-edited/legacy config). `sanitizeSettings(undefined → 50)` is the legacy
+migration. Surface it in the Settings menu — both the modern full-page
+`settings-view`/`settings-sections` and the classic settings popover consume the
+shared section — as a numeric stepper control (`min=50`, `step=10`, `max=1000`)
+with EN+DE label/help i18n. It sits in a History/Storage-related settings group
+and may note that it applies to the Turso history. Live auto-save like the other
+settings sections.
+
 ## Error handling
 
 - Capture and prune are **best-effort**: failure never breaks the main workspace
@@ -142,6 +160,9 @@ records/fields are preserved exactly.
   { spy: true })`).
 - `use-version-history` — RTL; coalescing with fake timers (rapid saves → one
   version; no-op when payload unchanged); off-Turso inert.
+- Retention setting: `sanitizeSettings` clamps `versionHistoryRetention` to
+  `[50, 1000]` and snaps to 10s (49 → 50, 63 → 60, 9999 → 1000, undefined → 50);
+  the prune uses the current setting value (N=50 keeps 50, N=80 keeps 80).
 - Round-trip: a payload survives `workspaceToJson` → `jsonToWorkspace` → restore.
 - Golden fixtures unaffected (separate table; no workspace-serialization change).
 - `turso-schema` guard test extended to assert `project_versions` is NOT cleared
@@ -156,8 +177,9 @@ records/fields are preserved exactly.
    with timeline and read-only diff (vs-now and vs-version).
 3. **Selective restore** — `version-restore`, restore controls, non-destructive
    new-version save, `history.restore` activity-log entry.
-4. **Gating + polish** — `history` feature-module + nav, Turso gating, i18n,
-   retention surfaced, empty/disabled states.
+4. **Gating + polish** — `history` feature-module + nav, Turso gating, i18n, the
+   `versionHistoryRetention` Settings stepper (min 50, step 10) wired to the
+   prune, empty/disabled states.
 
 ## Out of scope
 
