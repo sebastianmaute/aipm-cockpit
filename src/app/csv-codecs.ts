@@ -804,13 +804,12 @@ export function decodeContactPersons(text: string): ContactPerson[] {
   const people: ContactPerson[] = [];
   for (const entry of entries) {
     const [name = "", email = "", synced = "0", rid = ""] = splitFields(entry);
-    const person: ContactPerson = {
+    people.push({
       name: unescape(name),
       email: unescape(email),
       synced: synced === "1",
-    };
-    if (rid !== "") person.resourceId = Number(rid);
-    people.push(person);
+      ...(rid !== "" ? { resourceId: Number(rid) } : {}),
+    });
   }
   return people;
 }
