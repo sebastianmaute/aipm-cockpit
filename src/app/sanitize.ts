@@ -1037,7 +1037,8 @@ function sanitizeContactPerson(input: unknown): ContactPerson | null {
   if (!name) return null;
   const email = sanitizeEmail(input.email);
   const synced = typeof input.synced === "boolean" ? input.synced : false;
-  return { name, email, synced };
+  const resourceId = fkIdOrUndefined(input.resourceId);
+  return resourceId === undefined ? { name, email, synced } : { name, email, synced, resourceId };
 }
 
 /** Coerce an unknown value to a string array, map through text sanitizer,
