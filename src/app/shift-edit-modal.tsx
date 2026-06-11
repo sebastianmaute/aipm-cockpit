@@ -187,9 +187,10 @@ export function ShiftEditModal({
               resources={resources}
               contacts={contacts}
               onCreateResource={onCreateResource}
-              onChange={(next) =>
-                setDraft((d) => (d ? { ...d, assignee: next.name, assigneeEmail: next.email || undefined, resourceId: next.resourceId } : d))
-              }
+              onChange={(next) => {
+                setDraft((d) => (d ? { ...d, assignee: next.name, assigneeEmail: next.email || undefined, resourceId: next.resourceId } : d));
+                setError(null); // mirror update(): clear the validation banner on edit
+              }}
               placeholder={t(lang, "shiftPlaceholderAssignee")}
             />
           </label>
