@@ -69,6 +69,7 @@ describe("TaskFormFields — assignee ResourcePicker integration", () => {
     fireEvent.focus(combobox);
 
     // Pick the suggested resource row.
+    // mouseDown (not click): ResourcePicker selects on mousedown to beat the input's blur-close.
     fireEvent.mouseDown(screen.getByText("Alex Example"));
 
     expect(screen.getByTestId("resourceId").textContent).toBe("1");
