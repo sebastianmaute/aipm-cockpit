@@ -209,6 +209,9 @@ export function TaskFormFields({
                   setForm((prev) => ({ ...prev, assignee: describeTextCap(e.target.value, ASSIGNEE_MAX).value.trim() }));
                   markTouched("assignee");
                 }}
+                disabled={editingIsJiraLinked}
+                title={editingIsJiraLinked ? t(lang, "jiraManagedHint") : undefined}
+                aria-required
                 aria-invalid={errorFor("assignee") ? true : undefined}
                 aria-describedby={describedBy("assignee", "assignee-counter")}
               />

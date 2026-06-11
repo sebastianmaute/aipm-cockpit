@@ -25,9 +25,11 @@ const Sample: Resource = {
 function Harness({
   resources = [],
   onCreateResource = vi.fn(() => 1),
+  editingIsJiraLinked = false,
 }: {
   resources?: Resource[];
   onCreateResource?: (name: string, email: string) => number;
+  editingIsJiraLinked?: boolean;
 }) {
   return (
     <form aria-label="form">
@@ -42,7 +44,7 @@ function Harness({
         tasksForDeps={[]}
         uniqueGroups={[]}
         uniqueLabels={[]}
-        editingIsJiraLinked={false}
+        editingIsJiraLinked={editingIsJiraLinked}
         jiraEnabled={false}
         fieldErrors={{}}
         submitted={false}
@@ -88,5 +90,19 @@ describe("TaskFormFields — assignee ResourcePicker integration", () => {
 
     expect(onCreateResource).toHaveBeenCalledWith("New Person", "");
     expect(screen.getByTestId("resourceId").textContent).toBe("42");
+  });
+
+  it("locks the assignee picker when the task is Jira-linked", () => {
+    render(<Harness resources={[Sample]} editingIsJiraLinked />, {
+      wrapper: TestProviders,
+    });
+
+    const combobox = screen.getByPlaceholderText("Assignee");
+    expect(combobox).toBeDisabled();
+
+    // A disabled picker must not open its suggestion popover (a listbox of
+    // resource options) on focus — Jira owns the assignee.
+    fireEvent.focus(combobox);
+    expect(screen.queryByRole("listbox")).toBeNull();
   });
 });
