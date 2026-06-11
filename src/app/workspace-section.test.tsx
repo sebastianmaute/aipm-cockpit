@@ -87,6 +87,7 @@ function makeProps(overrides: Partial<WorkspaceSectionProps> = {}): WorkspaceSec
     currentProjectId: null,
     projectStakeholderNames: [],
     projectAddressBook: [],
+    projectResources: [],
     onSwitchProject: vi.fn(),
     onCreateProject: vi.fn(),
     onUpdateCurrentProject: vi.fn(),

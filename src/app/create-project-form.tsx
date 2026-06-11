@@ -15,7 +15,7 @@ import { useState } from "react";
 import { type Contact } from "./contacts";
 import { t, type Lang } from "./i18n";
 import { ProjectForm } from "./project-form";
-import { type ProjectMeta } from "./types";
+import { type ProjectMeta, type Resource } from "./types";
 
 const CREATE_FORMATS = ["json", "csv", "md"] as const;
 type CreateFormat = (typeof CREATE_FORMATS)[number];
@@ -30,6 +30,7 @@ export interface CreateProjectFormProps {
   lang: Lang;
   stakeholderNames: string[];
   addressBook: Contact[];
+  resources: readonly Resource[];
   onCreate: (meta: ProjectMeta, format: "json" | "csv" | "md") => void;
   /** Optional — empty-state has no cancel; panel modal may provide one. */
   onCancel?: () => void;
@@ -42,6 +43,7 @@ export function CreateProjectForm({
   lang,
   stakeholderNames,
   addressBook,
+  resources,
   onCreate,
   onCancel,
   hideFormat = false,
@@ -78,6 +80,7 @@ export function CreateProjectForm({
       <ProjectForm
         stakeholderNames={stakeholderNames}
         addressBook={addressBook}
+        resources={resources}
         lang={lang}
         onSubmit={handleSubmit}
         onCancel={handleCancel}

@@ -22,11 +22,22 @@ vi.mock("./use-ms-auth", () => ({
 
 import { ProjectForm } from "./project-form";
 import { type Contact } from "./contacts";
-import { type ProjectMeta } from "./types";
+import { type ProjectMeta, type Resource } from "./types";
 
 const STAKEHOLDERS = ["Alice Smith", "Bob Jones"];
 const ADDRESS_BOOK: Contact[] = [
   { name: "Carol White", email: "carol@example.com" },
+];
+const RESOURCES: Resource[] = [
+  {
+    id: 1,
+    firstName: "Sample",
+    lastName: "Dummy",
+    email: "s@x.com",
+    roleId: null,
+    utilizationMode: "percent",
+    utilization: {},
+  },
 ];
 
 function setup(overrides: Partial<React.ComponentProps<typeof ProjectForm>> = {}) {
@@ -37,6 +48,7 @@ function setup(overrides: Partial<React.ComponentProps<typeof ProjectForm>> = {}
       lang="en-US"
       stakeholderNames={STAKEHOLDERS}
       addressBook={ADDRESS_BOOK}
+      resources={RESOURCES}
       onSubmit={onSubmit}
       onCancel={onCancel}
       {...overrides}
@@ -123,32 +135,68 @@ describe("ProjectForm", () => {
     expect(saveButton()).toBeDisabled();
   });
 
-  it("records manual contacts as synced:false and book contacts as synced:true", () => {
+  /** The contact-persons ResourcePicker input, located by its placeholder. */
+  function contactPicker(): HTMLInputElement {
+    return screen.getByPlaceholderText("Add manually") as HTMLInputElement;
+  }
+
+  it("links a resource picked in the contact-persons picker (synced + resourceId)", () => {
     const { onSubmit } = setup();
     fillRequired();
 
-    // Manual contact
-    fireEvent.change(
-      screen.getByLabelText("Add manually — name", { exact: false }),
-      { target: { value: "Manny Manual" } },
-    );
-    fireEvent.change(
-      screen.getByLabelText("Add manually — email", { exact: false }),
-      { target: { value: "manny@example.com" } },
-    );
+    const picker = contactPicker();
+    fireEvent.focus(picker);
+    fireEvent.change(picker, { target: { value: "Sample" } });
+    fireEvent.mouseDown(screen.getByText("Alex Example"));
     fireEvent.click(screen.getByRole("button", { name: "Add" }));
 
-    // Address-book contact
-    fireEvent.change(screen.getByLabelText("Add from address book"), {
-      target: { value: "Carol White" },
+    fireEvent.click(saveButton());
+    const meta = onSubmit.mock.calls[0][0];
+    const Sample = meta.contactPersons.find((c) => c.name === "Alex Example");
+    expect(Sample).toEqual({
+      name: "Alex Example",
+      email: "s@x.com",
+      synced: true,
+      resourceId: 1,
     });
+  });
+
+  it("records a free-typed manual contact as synced:false with no resourceId", () => {
+    const { onSubmit } = setup();
+    fillRequired();
+
+    const picker = contactPicker();
+    fireEvent.change(picker, { target: { value: "Manny Manual" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add" }));
 
     fireEvent.click(saveButton());
     const meta = onSubmit.mock.calls[0][0];
     const manny = meta.contactPersons.find((c) => c.name === "Manny Manual");
-    const carol = meta.contactPersons.find((c) => c.name === "Carol White");
-    expect(manny).toEqual({ name: "Manny Manual", email: "manny@example.com", synced: false });
-    expect(carol).toEqual({ name: "Carol White", email: "carol@example.com", synced: true });
+    expect(manny).toEqual({ name: "Manny Manual", email: "", synced: false });
+  });
+
+  it("captures a typed email for an external (free-typed) contact", () => {
+    const { onSubmit } = setup();
+    fillRequired();
+
+    fireEvent.change(contactPicker(), { target: { value: "Vera Vendor" } });
+    fireEvent.change(screen.getByPlaceholderText("email"), {
+      target: { value: "vera@vendor.com" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add" }));
+
+    fireEvent.click(saveButton());
+    const meta = onSubmit.mock.calls[0][0];
+    const vera = meta.contactPersons.find((c) => c.name === "Vera Vendor");
+    expect(vera).toEqual({ name: "Vera Vendor", email: "vera@vendor.com", synced: false });
+  });
+
+  it("offers NO '+ Add as resource' row in the contact-persons picker (link-only)", () => {
+    setup();
+    const picker = contactPicker();
+    fireEvent.focus(picker);
+    fireEvent.change(picker, { target: { value: "Totally New Vendor" } });
+    expect(screen.queryByText(/Add .* as resource/i)).toBeNull();
   });
 
   it("treats Not applicable as exclusive in the regulatory group", () => {

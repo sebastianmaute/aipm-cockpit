@@ -1123,6 +1123,7 @@ function TaskManagerInner() {
     archivedProjects: portfolioArchived,
     projectStakeholderNames: stakeholders.map((s) => s.name),
     projectAddressBook: contactsList,
+    projectResources: resources,
     onSwitchProject: handleSwitchProjectByMode,
     onCreateProject: handleCreateProjectByMode,
     onUpdateCurrentProject: handleUpdateCurrentProjectByMode,
@@ -1570,6 +1571,7 @@ function TaskManagerInner() {
                 mode={portfolioMode}
                 stakeholderNames={stakeholders.map((s) => s.name)}
                 addressBook={contactsList}
+                resources={resources}
                 onCreate={handleCreateProjectByMode}
                 onLoadFromFile={() => { void loadProjectFromFile(); }}
               />

@@ -550,6 +550,8 @@ export type ContactPerson = {
   email: string;
   /** true = copied from the address book; false = manual, never synced back. */
   synced: boolean;
+  /** Optional FK -> Resource.id; null/absent for an external (unlinked) contact. */
+  resourceId?: number | null;
 };
 
 export type ProjectMeta = {

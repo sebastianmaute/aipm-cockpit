@@ -8,6 +8,25 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.65.0] - 2026-06-11 "Cherryh"
+
+Resource-linked project contacts — the final slice of the person-identity
+normalization (SP4).
+
+### Added
+- A project's contact persons can now link to a Resource. The add control is a
+  resource-aware picker (registry people suggested first, the address book as a
+  fallback): picking a registry person links the contact via a new
+  `resourceId`, while a free-typed name (with an optional email) stays an
+  external contact. Linked contacts show a small indicator in the list. This
+  completes the resource-normalization of every person surface — tasks, RAID
+  owners, shifts, stakeholders, and now project contacts.
+
+### Notes
+- Backward compatible: unlinked contacts serialize exactly as before (the
+  resource link is stored only when set), so existing workspaces, exports, and
+  Turso databases are unaffected — no schema change and no migration.
+
 ## [0.64.0] - 2026-06-11 "Hamilton"
 
 Per-resource RAID ownership rollup (identity normalization SP3).

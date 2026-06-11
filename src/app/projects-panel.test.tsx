@@ -47,6 +47,7 @@ function setup(overrides: Partial<React.ComponentProps<typeof ProjectsPanel>> = 
       currentProject={CURRENT_META}
       stakeholderNames={STAKEHOLDERS}
       addressBook={ADDRESS_BOOK}
+      resources={[]}
       lang="en-US"
       mode="file"
       onSwitch={onSwitch}

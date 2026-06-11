@@ -29,7 +29,7 @@ import { ProjectForm } from "./project-form";
 import { type ProjectRegistryEntry } from "./projects-registry";
 import { TypeToConfirmDialog } from "./type-to-confirm-dialog";
 import { CENTERED_HALF_PANE_CLASS } from "./view-styles";
-import { type ProjectMeta } from "./types";
+import { type ProjectMeta, type Resource } from "./types";
 
 /** File formats a brand-new project's workspace can be created in.
  *  The create flow is delegated to CreateProjectForm which owns this list. */
@@ -66,6 +66,8 @@ export interface ProjectsPanelProps {
   stakeholderNames: string[];
   /** Address book for the ProjectForm contact picker. */
   addressBook: Contact[];
+  /** Registry resources for the link-only contact-person picker. */
+  resources: readonly Resource[];
   lang: Lang;
   onSwitch: (id: string) => void;
   onCreate: (meta: ProjectMeta, format: CreateFormat) => void;
@@ -98,6 +100,7 @@ export function ProjectsPanel({
   currentProject,
   stakeholderNames,
   addressBook,
+  resources,
   lang,
   onSwitch,
   onCreate,
@@ -394,6 +397,7 @@ export function ProjectsPanel({
                   lang={lang}
                   stakeholderNames={stakeholderNames}
                   addressBook={addressBook}
+                  resources={resources}
                   onCreate={handleCreate}
                   onCancel={closeModal}
                 />
@@ -402,6 +406,7 @@ export function ProjectsPanel({
                   initial={currentProject}
                   stakeholderNames={stakeholderNames}
                   addressBook={addressBook}
+                  resources={resources}
                   lang={lang}
                   onSubmit={handleEditSubmit}
                   onCancel={closeModal}

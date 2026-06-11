@@ -21,7 +21,7 @@ import { CreateProjectForm } from "./create-project-form";
 import { t, type Lang } from "./i18n";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
-import { type ProjectMeta } from "./types";
+import { type ProjectMeta, type Resource } from "./types";
 
 const PRIMARY_BUTTON_CLASS =
   "rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-AIPM-dark-blue focus:ring-offset-2";
@@ -33,6 +33,7 @@ export interface ProjectEmptyStateProps {
   lang: Lang;
   stakeholderNames: string[];
   addressBook: Contact[];
+  resources: readonly Resource[];
   onCreate: (meta: ProjectMeta, format: "json" | "csv" | "md") => void;
   onLoadFromFile: () => void;
   /** Turso mode: hide the "Load from file" choice and hide the file-format
@@ -49,6 +50,7 @@ export function ProjectEmptyState({
   lang,
   stakeholderNames,
   addressBook,
+  resources,
   onCreate,
   onLoadFromFile,
   mode = "file",
@@ -116,6 +118,7 @@ export function ProjectEmptyState({
               lang={lang}
               stakeholderNames={stakeholderNames}
               addressBook={addressBook}
+              resources={resources}
               onCreate={handleCreate}
               onCancel={handleBackToChoices}
               hideFormat={mode === "turso"}

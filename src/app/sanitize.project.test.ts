@@ -48,4 +48,14 @@ describe("sanitizeProjectMeta", () => {
     expect(sanitizeProjectMeta(null)).toBeNull();
     expect(sanitizeProjectMeta("x")).toBeNull();
   });
+  it("keeps a positive contact-person resourceId and drops non-positive ones", () => {
+    const m = sanitizeProjectMeta({ ...valid, contactPersons: [
+      { name: "Linked", email: "l@x.test", synced: false, resourceId: 7 },
+      { name: "Zero", email: "z@x.test", synced: false, resourceId: 0 },
+      { name: "Neg", email: "n@x.test", synced: false, resourceId: -1 },
+    ]});
+    expect(m?.contactPersons[0].resourceId).toBe(7);
+    expect(m?.contactPersons[1].resourceId).toBeUndefined();
+    expect(m?.contactPersons[2].resourceId).toBeUndefined();
+  });
 });

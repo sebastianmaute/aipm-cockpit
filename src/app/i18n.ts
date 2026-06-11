@@ -1604,7 +1604,6 @@ const enUS = {
   projectsTursoUnreachable: "Can't reach the Turso database. Check the URL and token in Settings.",
 
   // Contact picker
-  contactAddFromBook: "Add from address book",
   contactAddManual: "Add manually",
 } as const;
 

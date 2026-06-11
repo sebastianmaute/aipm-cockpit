@@ -755,7 +755,10 @@ export function encodeContactPersons(people: readonly ContactPerson[]): string {
   const esc = (s: string) =>
     s.replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/\|/g, "\\|");
   return people
-    .map((p) => `${esc(p.name)};${esc(p.email)};${p.synced ? "1" : "0"}`)
+    .map((p) => {
+      const base = `${esc(p.name)};${esc(p.email)};${p.synced ? "1" : "0"}`;
+      return typeof p.resourceId === "number" ? `${base};${p.resourceId}` : base;
+    })
     .join(PROJECT_LIST_DELIM);
 }
 
@@ -800,11 +803,12 @@ export function decodeContactPersons(text: string): ContactPerson[] {
 
   const people: ContactPerson[] = [];
   for (const entry of entries) {
-    const [name = "", email = "", synced = "0"] = splitFields(entry);
+    const [name = "", email = "", synced = "0", rid = ""] = splitFields(entry);
     people.push({
       name: unescape(name),
       email: unescape(email),
       synced: synced === "1",
+      ...(rid !== "" ? { resourceId: Number(rid) } : {}),
     });
   }
   return people;

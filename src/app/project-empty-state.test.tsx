@@ -17,6 +17,7 @@ function setup(overrides: Partial<React.ComponentProps<typeof ProjectEmptyState>
       lang="en-US"
       stakeholderNames={STAKEHOLDERS}
       addressBook={ADDRESS_BOOK}
+      resources={[]}
       onCreate={onCreate}
       onLoadFromFile={onLoadFromFile}
       {...overrides}

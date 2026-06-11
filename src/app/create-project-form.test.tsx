@@ -17,6 +17,7 @@ function setup(overrides: Partial<React.ComponentProps<typeof CreateProjectForm>
       lang="en-US"
       stakeholderNames={STAKEHOLDERS}
       addressBook={ADDRESS_BOOK}
+      resources={[]}
       onCreate={onCreate}
       onCancel={onCancel}
       {...overrides}
