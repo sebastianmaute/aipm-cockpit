@@ -8,6 +8,13 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.64.0] - 2026-06-11 "Hamilton"
+
+Per-resource RAID ownership rollup (identity normalization SP3).
+
+### Added
+- The workload/people view now shows an "Open RAID" count per resource — how many non-terminal RAID items each person owns, resolved by the owner link set in 0.63.0 (falling back to the owner name into the unlinked bucket). The first view to consume the resource-ownership links.
+
 ## [0.63.0] - 2026-06-11 "Bujold"
 
 Resource-aware people pickers across RAID, shifts, and stakeholders (identity normalization SP2).
