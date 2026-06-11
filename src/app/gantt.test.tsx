@@ -187,6 +187,47 @@ describe("GanttPanel milestones", () => {
   });
 });
 
+// ---------- dependency arrows ----------------------------------------------
+
+describe("GanttPanel dependency arrows", () => {
+  it("draws a dependency edge between two placeable tasks", () => {
+    const tasks = [
+      ...BASE_TASKS,
+      {
+        id: 2,
+        taskName: "B",
+        assignee: "y",
+        priority: "Medium" as const,
+        startDate: dayPlus(1),
+        dueDate: dayPlus(10),
+        dependencies: [{ taskId: 1, type: "FS" as const }],
+      } as unknown as Task,
+    ];
+    const { container } = render(<GanttPanel {...BASE_PROPS} tasks={tasks} />);
+    // The edge is the only <path> carrying a marker-end (the <defs> arrowhead
+    // paths and milestone connectors don't).
+    const edges = container.querySelectorAll("path[marker-end]");
+    expect(edges.length).toBe(1);
+  });
+
+  it("skips edges whose predecessor id is not in the visible rows", () => {
+    const tasks = [
+      ...BASE_TASKS,
+      {
+        id: 2,
+        taskName: "B",
+        assignee: "y",
+        priority: "Medium" as const,
+        startDate: dayPlus(1),
+        dueDate: dayPlus(10),
+        dependencies: [{ taskId: 999, type: "FS" as const }],
+      } as unknown as Task,
+    ];
+    const { container } = render(<GanttPanel {...BASE_PROPS} tasks={tasks} />);
+    expect(container.querySelectorAll("path[marker-end]").length).toBe(0);
+  });
+});
+
 // ---------- source-scan tests (Task 6: toolbar ordering + pane resize) ------
 
 test("gantt toolbar: + Add Task markup precedes the search input", () => {

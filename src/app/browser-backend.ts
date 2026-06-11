@@ -110,22 +110,59 @@ export class BrowserBackend implements StorageBackend {
     let stakeholders: Stakeholder[] = [];
     let project: ProjectMeta | undefined;
     try {
-      tasks = await idbGetAll<Task>(IDB_TASKS_STORE);
-      raid = await idbGetAll<RaidItem>(IDB_RAID_STORE);
-      absences = await idbGetAll<Absence>(IDB_ABSENCES_STORE);
-      shifts = await idbGetAll<Shift>(IDB_SHIFTS_STORE);
-      resources = await idbGetAll<Resource>(IDB_RESOURCES_STORE);
-      roles = await idbGetAll<Role>(IDB_ROLES_STORE);
-      disciplines = await idbGetAll<Discipline>(IDB_DISCIPLINES_STORE);
-      grades = await idbGetAll<Grade>(IDB_GRADES_STORE);
-      plan = (await idbGet<ResourcePlan>(KV_PLAN_KEY)) ?? plan;
-      budgets = await idbGetAll<BudgetBucket>(IDB_BUDGETS_STORE);
-      fxRates = (await idbGet<FxRates>(KV_FXRATES_KEY)) ?? null;
-      status = (await idbGet<ProjectStatus>(KV_STATUS_KEY)) ?? {};
-      milestones = (await idbGet<Milestone[]>(KV_MILESTONES_KEY)) ?? [];
-      changes = (await idbGet<ChangeItem[]>(KV_CHANGES_KEY)) ?? [];
-      stakeholders = (await idbGet<Stakeholder[]>(KV_STAKEHOLDERS_KEY)) ?? [];
-      project = sanitizeProjectMeta(await idbGet(KV_PROJECT_KEY)) ?? undefined;
+      // Independent stores/keys — fetch in parallel instead of ~16 awaits in
+      // sequence. Result assembly below keeps the original order/defaults.
+      const [
+        idbTasks,
+        idbRaid,
+        idbAbsences,
+        idbShifts,
+        idbResources,
+        idbRoles,
+        idbDisciplines,
+        idbGrades,
+        idbPlan,
+        idbBudgets,
+        idbFxRates,
+        idbStatus,
+        idbMilestones,
+        idbChanges,
+        idbStakeholders,
+        idbProject,
+      ] = await Promise.all([
+        idbGetAll<Task>(IDB_TASKS_STORE),
+        idbGetAll<RaidItem>(IDB_RAID_STORE),
+        idbGetAll<Absence>(IDB_ABSENCES_STORE),
+        idbGetAll<Shift>(IDB_SHIFTS_STORE),
+        idbGetAll<Resource>(IDB_RESOURCES_STORE),
+        idbGetAll<Role>(IDB_ROLES_STORE),
+        idbGetAll<Discipline>(IDB_DISCIPLINES_STORE),
+        idbGetAll<Grade>(IDB_GRADES_STORE),
+        idbGet<ResourcePlan>(KV_PLAN_KEY),
+        idbGetAll<BudgetBucket>(IDB_BUDGETS_STORE),
+        idbGet<FxRates>(KV_FXRATES_KEY),
+        idbGet<ProjectStatus>(KV_STATUS_KEY),
+        idbGet<Milestone[]>(KV_MILESTONES_KEY),
+        idbGet<ChangeItem[]>(KV_CHANGES_KEY),
+        idbGet<Stakeholder[]>(KV_STAKEHOLDERS_KEY),
+        idbGet(KV_PROJECT_KEY),
+      ]);
+      tasks = idbTasks;
+      raid = idbRaid;
+      absences = idbAbsences;
+      shifts = idbShifts;
+      resources = idbResources;
+      roles = idbRoles;
+      disciplines = idbDisciplines;
+      grades = idbGrades;
+      plan = idbPlan ?? plan;
+      budgets = idbBudgets;
+      fxRates = idbFxRates ?? null;
+      status = idbStatus ?? {};
+      milestones = idbMilestones ?? [];
+      changes = idbChanges ?? [];
+      stakeholders = idbStakeholders ?? [];
+      project = sanitizeProjectMeta(idbProject) ?? undefined;
     } catch {
       // IDB unavailable or upgrade failed. Fall through — the legacy
       // migration block below will still try localStorage, and if that's
@@ -224,39 +261,37 @@ export class BrowserBackend implements StorageBackend {
     const raidDelta = this.diff(this.raidBaseline, ws.raid);
     const absenceDelta = this.diff(this.absencesBaseline, ws.absences);
     const shiftDelta = this.diff(this.shiftsBaseline, ws.shifts);
-
-    await idbBulkUpdate(IDB_TASKS_STORE, taskDelta.puts, taskDelta.deletes);
-    await idbBulkUpdate(IDB_RAID_STORE, raidDelta.puts, raidDelta.deletes);
-    await idbBulkUpdate(
-      IDB_ABSENCES_STORE,
-      absenceDelta.puts,
-      absenceDelta.deletes,
-    );
-    await idbBulkUpdate(
-      IDB_SHIFTS_STORE,
-      shiftDelta.puts,
-      shiftDelta.deletes,
-    );
-
     const resourceDelta = this.diff(this.resourcesBaseline, ws.resources);
     const roleDelta = this.diff(this.rolesBaseline, ws.roles);
     const discDelta = this.diff(this.disciplinesBaseline, ws.disciplines);
     const gradeDelta = this.diff(this.gradesBaseline, ws.grades);
-    await idbBulkUpdate(IDB_RESOURCES_STORE, resourceDelta.puts, resourceDelta.deletes);
-    await idbBulkUpdate(IDB_ROLES_STORE, roleDelta.puts, roleDelta.deletes);
-    await idbBulkUpdate(IDB_DISCIPLINES_STORE, discDelta.puts, discDelta.deletes);
-    await idbBulkUpdate(IDB_GRADES_STORE, gradeDelta.puts, gradeDelta.deletes);
-    await idbSet(KV_PLAN_KEY, ws.plan);
-
     const budgetDelta = this.diff(this.budgetsBaseline, ws.budgets ?? []);
-    await idbBulkUpdate(IDB_BUDGETS_STORE, budgetDelta.puts, budgetDelta.deletes);
-    await idbSet(KV_FXRATES_KEY, ws.fxRates ?? null);
-    await idbSet(KV_STATUS_KEY, ws.status ?? {});
-    await idbSet(KV_MILESTONES_KEY, ws.milestones ?? []);
-    await idbSet(KV_CHANGES_KEY, ws.changes ?? []);
-    await idbSet(KV_STAKEHOLDERS_KEY, ws.stakeholders ?? []);
-    if (ws.project) await idbSet(KV_PROJECT_KEY, ws.project);
-    else await idbDelete(KV_PROJECT_KEY);
+
+    // Independent object stores / KV keys — issue every write in parallel
+    // instead of ~17 sequential awaits. If ANY write rejects, the joined
+    // Promise.all rejects before the baseline refresh below runs, so no
+    // baseline advances and the next save re-diffs everything still dirty
+    // (all-or-nothing, matching the previous sequential code, which also
+    // only refreshed baselines after the last await). idbBulkUpdate
+    // short-circuits empty deltas, so unchanged stores stay free.
+    await Promise.all([
+      idbBulkUpdate(IDB_TASKS_STORE, taskDelta.puts, taskDelta.deletes),
+      idbBulkUpdate(IDB_RAID_STORE, raidDelta.puts, raidDelta.deletes),
+      idbBulkUpdate(IDB_ABSENCES_STORE, absenceDelta.puts, absenceDelta.deletes),
+      idbBulkUpdate(IDB_SHIFTS_STORE, shiftDelta.puts, shiftDelta.deletes),
+      idbBulkUpdate(IDB_RESOURCES_STORE, resourceDelta.puts, resourceDelta.deletes),
+      idbBulkUpdate(IDB_ROLES_STORE, roleDelta.puts, roleDelta.deletes),
+      idbBulkUpdate(IDB_DISCIPLINES_STORE, discDelta.puts, discDelta.deletes),
+      idbBulkUpdate(IDB_GRADES_STORE, gradeDelta.puts, gradeDelta.deletes),
+      idbBulkUpdate(IDB_BUDGETS_STORE, budgetDelta.puts, budgetDelta.deletes),
+      idbSet(KV_PLAN_KEY, ws.plan),
+      idbSet(KV_FXRATES_KEY, ws.fxRates ?? null),
+      idbSet(KV_STATUS_KEY, ws.status ?? {}),
+      idbSet(KV_MILESTONES_KEY, ws.milestones ?? []),
+      idbSet(KV_CHANGES_KEY, ws.changes ?? []),
+      idbSet(KV_STAKEHOLDERS_KEY, ws.stakeholders ?? []),
+      ws.project ? idbSet(KV_PROJECT_KEY, ws.project) : idbDelete(KV_PROJECT_KEY),
+    ]);
 
     // Refresh baselines so the next save's diff is computed against what's
     // actually in IDB. Rebuilding the maps is O(N) but only runs after a

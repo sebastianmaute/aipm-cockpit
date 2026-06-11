@@ -271,6 +271,16 @@ export function GanttPanel({
   // `layout.placeable` / `layout.bars`.
   const layout = { placeable: visible, bars: allBars };
 
+  // Row index by task id, rebuilt only when the visible list changes. The
+  // dependency-arrow and milestone-connector overlays need a row lookup per
+  // edge; `findIndex` there was O(n) per edge → O(n²) per render at scale.
+  // Misses read as -1 to keep the original findIndex semantics.
+  const rowIndexById = useMemo(() => {
+    const m = new Map<number, number>();
+    visible.forEach((task, idx) => m.set(task.id, idx));
+    return m;
+  }, [visible]);
+
   function setSort(sort: GanttSort) {
     setPrefs((p) => ({ ...p, sort }));
   }
@@ -931,9 +941,7 @@ export function GanttPanel({
                 (diffDays(range.min, myBar.end) + 1) * DAY_WIDTH_PX;
               const myYMid = rowIdx * ROW_HEIGHT_PX + ROW_HEIGHT_PX / 2;
               return task.dependencies.map((dep, depIdx) => {
-                const predRowIdx = layout.placeable.findIndex(
-                  (p) => p.id === dep.taskId,
-                );
+                const predRowIdx = rowIndexById.get(dep.taskId) ?? -1;
                 if (predRowIdx < 0) return null;
                 const predBar = layout.bars.get(dep.taskId);
                 if (!predBar) return null;
@@ -1004,9 +1012,7 @@ export function GanttPanel({
               return (m.linkedTaskIds ?? []).flatMap((taskId) => {
                 const bar = layout.bars.get(taskId);
                 if (!bar) return [];
-                const taskRowIdx = layout.placeable.findIndex(
-                  (p) => p.id === taskId,
-                );
+                const taskRowIdx = rowIndexById.get(taskId) ?? -1;
                 if (taskRowIdx < 0) return [];
                 const taskEndX =
                   LEFT_GUTTER_PX +
