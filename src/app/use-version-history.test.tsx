@@ -79,4 +79,18 @@ describe("useVersionHistory", () => {
     expect(append).not.toHaveBeenCalled();
     expect(list).not.toHaveBeenCalled();
   });
+
+  it("loadDiff compares a version payload against the current workspace", async () => {
+    const base = { raid: [], absences: [], shifts: [], resources: [], roles: [], disciplines: [],
+      grades: [], plan: {}, budgets: [], milestones: [], changes: [], stakeholders: [], status: {} };
+    const older = JSON.stringify({ tasks: [{ id: 1, title: "A" }], ...base });
+    vi.spyOn(store, "loadVersionPayload").mockResolvedValue(older);
+    vi.spyOn(store, "listVersionMeta").mockResolvedValue([]);
+    const now = JSON.stringify({ tasks: [{ id: 1, title: "B" }], ...base });
+    const { result } = renderHook(() => useVersionHistory(args({ getPayload: () => now })));
+    let changes: unknown[] = [];
+    await act(async () => { changes = await result.current.loadDiff("v1", "now"); });
+    expect(changes).toHaveLength(1);
+    expect(changes[0]).toMatchObject({ collection: "tasks", recordId: 1, type: "modified" });
+  });
 });

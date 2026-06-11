@@ -9,20 +9,32 @@ const metas: ProjectVersionMeta[] = [
 ];
 
 it("lists versions newest-first with label/trigger", () => {
-  render(<HistoryPanel lang="en-US" versions={metas} busy={false} onCaptureNow={vi.fn()} />);
+  render(<HistoryPanel lang="en-US" versions={metas} busy={false} onCaptureNow={vi.fn()} loadDiff={vi.fn().mockResolvedValue([])} />);
   expect(screen.getByText("Before review")).toBeInTheDocument();
   expect(screen.getByText(/Auto/)).toBeInTheDocument();
 });
 
 it("shows the empty state when there are no versions", () => {
-  render(<HistoryPanel lang="en-US" versions={[]} busy={false} onCaptureNow={vi.fn()} />);
+  render(<HistoryPanel lang="en-US" versions={[]} busy={false} onCaptureNow={vi.fn()} loadDiff={vi.fn().mockResolvedValue([])} />);
   expect(screen.getByText(/No versions yet/)).toBeInTheDocument();
 });
 
 it("calls onCaptureNow with the entered label", () => {
   const onCaptureNow = vi.fn();
   vi.spyOn(window, "prompt").mockReturnValue("My checkpoint");
-  render(<HistoryPanel lang="en-US" versions={metas} busy={false} onCaptureNow={onCaptureNow} />);
+  render(<HistoryPanel lang="en-US" versions={metas} busy={false} onCaptureNow={onCaptureNow} loadDiff={vi.fn().mockResolvedValue([])} />);
   fireEvent.click(screen.getByRole("button", { name: "Save version now" }));
   expect(onCaptureNow).toHaveBeenCalledWith("My checkpoint");
+});
+
+it("compares a clicked version against now and renders the diff", async () => {
+  const versions = [{ id: "v1", projectId: "p1", capturedAt: "2026-06-10T09:00:00.000Z", trigger: "auto", label: null, summary: "1 Tasks" }];
+  const loadDiff = vi.fn().mockResolvedValue([
+    { collection: "tasks", collectionLabel: "Tasks", kind: "list", recordId: 1, recordLabel: "T1",
+      type: "modified", fields: [{ field: "title", label: "Title", before: "A", after: "B" }] },
+  ]);
+  render(<HistoryPanel lang="en-US" versions={versions as never} busy={false} onCaptureNow={() => {}} loadDiff={loadDiff} />);
+  fireEvent.click(screen.getByText(/Compared with current/i));
+  expect(await screen.findByText("T1")).toBeInTheDocument();
+  expect(loadDiff).toHaveBeenCalledWith("v1", "now");
 });

@@ -5,8 +5,9 @@
 // when `enabled` is false (non-Turso backends / popout).
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { appendVersion, listVersionMeta, pruneVersions } from "./version-store";
+import { appendVersion, listVersionMeta, loadVersionPayload, pruneVersions } from "./version-store";
 import { diffWorkspaces, summarizeDiff } from "./version-diff";
+import type { VersionChange } from "./version-diff";
 import { jsonToWorkspace } from "./workspace";
 import type { TursoConfig } from "./turso-config";
 import type { ProjectVersion, ProjectVersionMeta } from "./version-history";
@@ -26,6 +27,7 @@ export interface UseVersionHistoryResult {
   busy: boolean;
   notifySaved: () => void;
   captureNow: (label: string) => Promise<void>;
+  loadDiff: (fromId: string, to: string | "now") => Promise<VersionChange[]>;
   refresh: () => Promise<void>;
 }
 
@@ -109,6 +111,16 @@ export function useVersionHistory(args: UseVersionHistoryArgs): UseVersionHistor
     [writeVersion],
   );
 
+  const loadDiff = useCallback(async (fromId: string, to: string | "now"): Promise<VersionChange[]> => {
+    if (!active) return [];
+    try {
+      const fromStr = await loadVersionPayload(config, fromId, projectId);
+      const toStr = to === "now" ? getPayload() : await loadVersionPayload(config, to, projectId);
+      if (!fromStr || !toStr) return [];
+      return diffWorkspaces(jsonToWorkspace(fromStr), jsonToWorkspace(toStr));
+    } catch (err) { onError?.(err); return []; }
+  }, [active, config, projectId, getPayload, onError]);
+
   useEffect(
     () => () => {
       if (timer.current) clearTimeout(timer.current);
@@ -116,5 +128,5 @@ export function useVersionHistory(args: UseVersionHistoryArgs): UseVersionHistor
     [],
   );
 
-  return { versions, busy, notifySaved, captureNow, refresh };
+  return { versions, busy, notifySaved, captureNow, loadDiff, refresh };
 }

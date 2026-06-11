@@ -2,21 +2,33 @@
 // Read-only version-history timeline (Slice 1). Compare/diff + restore land in
 // later slices. Turso-gated by the parent; this component is presentational.
 
+import { useState } from "react";
 import { t } from "./i18n";
 import type { Lang } from "./i18n";
 import type { ProjectVersionMeta } from "./version-history";
+import type { VersionChange } from "./version-diff";
+import { VersionDiffView } from "./version-diff-view";
 
 interface HistoryPanelProps {
   lang: Lang;
   versions: ProjectVersionMeta[];
   busy: boolean;
   onCaptureNow: (label: string) => void;
+  loadDiff: (fromId: string, to: string | "now") => Promise<VersionChange[]>;
 }
 
-export function HistoryPanel({ lang, versions, busy, onCaptureNow }: HistoryPanelProps) {
+export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff }: HistoryPanelProps) {
+  const [diff, setDiff] = useState<VersionChange[] | null>(null);
+  const [comparing, setComparing] = useState(false);
+
   const handleSave = () => {
     const label = window.prompt(t(lang, "historyManualLabelPrompt"));
     if (label && label.trim()) onCaptureNow(label.trim());
+  };
+
+  const runDiff = async (fromId: string, to: string | "now") => {
+    setComparing(true);
+    try { setDiff(await loadDiff(fromId, to)); } finally { setComparing(false); }
   };
 
   return (
@@ -44,11 +56,29 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow }: HistoryPane
                   {v.trigger === "manual" ? `★ ${t(lang, "historyManual")}` : t(lang, "historyAuto")}
                 </span>
                 <span className="text-foreground">{v.label ?? new Date(v.capturedAt).toLocaleString()}</span>
+                {v.summary && <span className="text-xs text-muted-foreground">{v.summary}</span>}
               </span>
-              <span className="text-xs text-muted-foreground">{new Date(v.capturedAt).toLocaleString()}</span>
+              <span className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => void runDiff(v.id, "now")}
+                  disabled={comparing}
+                  className="text-xs text-AIPM-dark-blue hover:underline disabled:opacity-50"
+                >
+                  {t(lang, "historyCompareVsNow")}
+                </button>
+                <span className="text-xs text-muted-foreground">{new Date(v.capturedAt).toLocaleString()}</span>
+              </span>
             </li>
           ))}
         </ul>
+      )}
+
+      {diff !== null && (
+        <div className="mt-4">
+          <h3 className="mb-2 text-sm font-semibold text-foreground">{t(lang, "historyCompareTitle")}</h3>
+          <VersionDiffView lang={lang} changes={diff} />
+        </div>
       )}
     </div>
   );
