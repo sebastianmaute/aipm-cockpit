@@ -98,4 +98,19 @@ describe("ResourcePicker", () => {
     expect(screen.queryAllByRole("option")).toHaveLength(0);
     expect(screen.queryByText(/Add .* as resource/i)).toBeNull();
   });
+
+  it("omits the + Add row entirely when onCreateResource is not provided (link-only)", () => {
+    const onChange = vi.fn();
+    render(
+      <ResourcePicker
+        lang="en-US"
+        value={{ name: "Brand New", email: "", resourceId: null }}
+        resources={resources}
+        contacts={contacts}
+        onChange={onChange}
+      />,
+    );
+    fireEvent.focus(screen.getByRole("combobox"));
+    expect(screen.queryByText(/Add .* as resource/i)).toBeNull();
+  });
 });

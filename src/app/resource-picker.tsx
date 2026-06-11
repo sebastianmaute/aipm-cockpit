@@ -51,7 +51,7 @@ export function ResourcePicker({
   resources: readonly Resource[];
   contacts: Contact[];
   onChange: (next: { name: string; email: string; resourceId: number | null }) => void;
-  onCreateResource: (name: string, email: string) => number;
+  onCreateResource?: (name: string, email: string) => number;
   placeholder?: string;
   maxLength?: number;
   disabled?: boolean;
@@ -98,9 +98,9 @@ export function ResourcePicker({
     const out: Row[] = [...resRows, ...conRows];
     const trimmed = display.trim();
     const exact = resRows.some((r) => r.name.toLowerCase() === trimmed.toLowerCase());
-    if (trimmed && !exact) out.push({ kind: "add", name: trimmed });
+    if (onCreateResource && trimmed && !exact) out.push({ kind: "add", name: trimmed });
     return out;
-  }, [resources, contacts, display]);
+  }, [resources, contacts, display, onCreateResource]);
 
   // rows is [resources..., contacts..., add] by construction, so the first resource
   // is at index 0 and the first contact at firstContactIdx. Compute the contact
@@ -127,7 +127,7 @@ export function ResourcePicker({
       onChange({ name: row.name, email: row.email, resourceId: row.id });
     } else if (row.kind === "contact") {
       onChange({ name: row.name, email: row.email, resourceId: null });
-    } else {
+    } else if (onCreateResource) {
       // email is best-effort carry-over from the field; the parent/Resources view can correct it.
       const id = onCreateResource(row.name, value.email);
       onChange({ name: row.name, email: value.email, resourceId: id });
