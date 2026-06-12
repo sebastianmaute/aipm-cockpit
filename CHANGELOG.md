@@ -8,6 +8,23 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.73.0] - 2026-06-12 "Bester"
+
+Template suggestion — the creation wizard recommends and preselects the best-fit
+template from the project's parameters.
+
+### Added
+- Deterministic template suggestion at project creation: the wizard's Template
+  step scores the project's parameters (team size, regulated flag, deployment,
+  duration, identity scale) and preselects + badges the recommended template,
+  with a reason line explaining why it fits. You can still pick any other
+  template or start from Blank.
+
+### Notes
+- Completes the 4-part templates feature: field visibility (0.70.0), project
+  templates (0.71.0), per-project functions + creation wizard (0.72.0), and
+  template suggestion (0.73.0).
+
 ## [0.72.0] - 2026-06-12 "Zelazny"
 
 Per-project functions — each project keeps its own enabled modules (reactive, no

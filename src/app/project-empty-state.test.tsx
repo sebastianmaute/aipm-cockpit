@@ -102,7 +102,11 @@ describe("ProjectEmptyState", () => {
     expect(saveBtn).toBeEnabled();
     fireEvent.click(saveBtn);
 
-    // Step 2 (Template): keep the default Blank choice, advance to Step 3.
+    // Step 2 (Template): the wizard now preselects a suggested template, so
+    // explicitly pick Blank for a no-template create, then advance to Step 3.
+    fireEvent.click(
+      screen.getByRole("button", { name: /choose functions yourself/i }),
+    );
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
 
     // Step 3 (Functions): create — default format is json.

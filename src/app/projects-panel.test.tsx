@@ -140,7 +140,11 @@ describe("ProjectsPanel", () => {
     fillRequired();
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
 
-    // Step 2 (Template): keep the default Blank choice, advance.
+    // Step 2 (Template): the wizard now preselects a suggested template, so
+    // explicitly pick Blank for a no-template create, then advance.
+    fireEvent.click(
+      screen.getByRole("button", { name: /choose functions yourself/i }),
+    );
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
 
     // Step 3 (Functions): create.

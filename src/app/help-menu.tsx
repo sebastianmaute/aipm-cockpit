@@ -25,6 +25,7 @@ const SECTIONS: Array<{
   { titleKey: "helpSecFieldVisibilityTitle", bodyKey: "helpSecFieldVisibilityBody" },
   { titleKey: "helpSecTemplatesTitle", bodyKey: "helpSecTemplatesBody" },
   { titleKey: "helpSecPerProjectFunctionsTitle", bodyKey: "helpSecPerProjectFunctionsBody" },
+  { titleKey: "helpSecTemplateSuggestTitle", bodyKey: "helpSecTemplateSuggestBody" },
   { titleKey: "helpSecWorkspaceTitle", bodyKey: "helpSecWorkspaceBody" },
   { titleKey: "helpSecTabsTitle", bodyKey: "helpSecTabsBody" },
   { titleKey: "helpSecTasksTitle", bodyKey: "helpSecTasksBody" },
