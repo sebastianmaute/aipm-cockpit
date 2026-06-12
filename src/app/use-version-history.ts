@@ -49,7 +49,14 @@ export function useVersionHistory(args: UseVersionHistoryArgs): UseVersionHistor
 
   const refresh = useCallback(async () => {
     if (!active) {
-      setVersions([]);
+      // Functional update returning the SAME reference when already empty: a
+      // plain `setVersions([])` allocates a new array each call, which React
+      // treats as a state change and re-renders. Combined with an unstable
+      // caller arg (e.g. an inline `onError`) that churns this callback's
+      // identity, that re-render re-runs the refresh effect, which calls
+      // refresh again — a mount-time whole-tree render loop on non-Turso
+      // backends where this hook is inert. Bail without churning state.
+      setVersions((prev) => (prev.length === 0 ? prev : []));
       return;
     }
     try {

@@ -80,6 +80,29 @@ describe("useVersionHistory", () => {
     expect(list).not.toHaveBeenCalled();
   });
 
+  // Regression: when inactive, the refresh callback must NOT churn `versions`
+  // with a fresh [] each call. A new array is a state change that re-renders;
+  // with an unstable caller arg (an inline onError, as the real call site had)
+  // that re-creates `refresh`, the refresh effect re-runs and calls refresh
+  // again — a mount-time whole-tree render loop (~1000 renders/sec) that froze
+  // the app. The inactive path now returns the same reference, so it can't loop.
+  it("inactive + unstable onError keeps versions stable and does not loop", async () => {
+    vi.spyOn(store, "listVersionMeta").mockResolvedValue([]);
+    let renders = 0;
+    const { result } = renderHook(() => {
+      renders += 1;
+      // Fresh onError EVERY render — the production bug shape.
+      return useVersionHistory(args({ enabled: false, onError: () => {} }));
+    });
+    const firstVersions = result.current.versions;
+    // Flush the refresh effect's microtask chain several times.
+    await act(async () => {
+      for (let i = 0; i < 5; i += 1) await Promise.resolve();
+    });
+    expect(result.current.versions).toBe(firstVersions); // same ref → no churn
+    expect(renders).toBeLessThan(5); // bounded, not a runaway loop
+  });
+
   it("restore applies the reverted workspace and logs the restore", async () => {
     const base = { raid: [], absences: [], shifts: [], resources: [], roles: [], disciplines: [],
       grades: [], plan: {}, budgets: [], milestones: [], changes: [], stakeholders: [], status: {} };

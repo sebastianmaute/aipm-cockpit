@@ -617,6 +617,22 @@ function TaskManagerInner() {
     setProject(w.project); setMilestones(w.milestones ?? []); setChanges(w.changes ?? []); setStakeholders(w.stakeholders ?? []);
   }, [setTasks, setRaid, setAbsences, setShifts, setResources, setRoles, setDisciplines, setGrades, setPlan, setBudgets, setFxRates, setStatus, setProject, setMilestones, setChanges, setStakeholders]);
 
+  // Stable onError so useVersionHistory's `refresh` callback keeps a stable
+  // identity — an inline arrow here re-creates refresh every render, re-running
+  // its effect and (on the Turso path) re-fetching the version list on every
+  // render. See use-version-history.ts for the matching inactive-path guard.
+  const handleVersionError = useCallback(
+    (err: unknown) => {
+      // Mirror the snapshot hook: connectivity/auth failures surface as the
+      // sticky banner (via reportStorageOutcome → tursoErrorKind); any other
+      // capture failure toasts rather than being silently swallowed. Version
+      // capture is best-effort and never blocks the main save.
+      reportStorageOutcome(err);
+      if (!tursoErrorKind(err)) showToast("error", t(lang, "storageSaveFailed", String(err)));
+    },
+    [reportStorageOutcome, showToast, lang],
+  );
+
   // Version history. Turso-only, main-window-only; the hook is inert otherwise.
   const versionHistory = useVersionHistory({
     config: tursoConfig,
@@ -627,14 +643,7 @@ function TaskManagerInner() {
     getPayload: getVersionPayload,
     applyWorkspace: applyRestoredWorkspace,
     logActivity,
-    onError: (err) => {
-      // Mirror the snapshot hook: connectivity/auth failures surface as the
-      // sticky banner (via reportStorageOutcome → tursoErrorKind); any other
-      // capture failure toasts rather than being silently swallowed. Version
-      // capture is best-effort and never blocks the main save.
-      reportStorageOutcome(err);
-      if (!tursoErrorKind(err)) showToast("error", t(lang, "storageSaveFailed", String(err)));
-    },
+    onError: handleVersionError,
   });
   useEffect(() => { versionNotifyRef.current = versionHistory.notifySaved; }, [versionHistory.notifySaved]);
 
