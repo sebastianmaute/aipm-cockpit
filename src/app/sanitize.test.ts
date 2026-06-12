@@ -15,6 +15,7 @@ import {
   sanitizeShift,
   sanitizeBudgetBucket,
   sanitizeFxRates,
+  sanitizeProjectMeta,
 } from "./sanitize";
 import {
   encodePeriodMap,
@@ -336,4 +337,21 @@ describe("fkIdOrUndefined", () => {
       expect(fkIdOrUndefined(input)).toBeUndefined();
     });
   }
+});
+
+describe("sanitizeProjectMeta – jiraUrl", () => {
+  const base = {
+    name: "P", code: "C", projectManager: "M", customer: "X", products: "Y",
+    profitCenter: "Z", naceSection: "A", deployment: "Cloud",
+    identityTypes: [], identityCount: "0", regulatory: ["Not applicable"],
+    keyStakeholdersInternal: ["a"], keyStakeholdersExternal: ["b"],
+    startDate: "2026-01-01", endDate: "2026-02-01", contactPersons: [],
+  };
+
+  test("sanitizeProjectMeta keeps a valid jiraUrl and drops a blank one", () => {
+    const withUrl = sanitizeProjectMeta({ ...base, jiraUrl: "https://acme.atlassian.net/browse/AB-1" });
+    expect(withUrl?.jiraUrl).toBe("https://acme.atlassian.net/browse/AB-1");
+    const blank = sanitizeProjectMeta({ ...base, jiraUrl: "" });
+    expect(blank?.jiraUrl).toBeUndefined();
+  });
 });

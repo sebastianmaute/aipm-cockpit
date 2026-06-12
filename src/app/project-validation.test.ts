@@ -7,7 +7,7 @@ const ok: ProjectDraft = {
   customer: "Cust", naceSection: "C", products: "P", deployment: "Cloud",
   startDate: "2026-01-01", endDate: "2026-02-01", profitCenter: "PC",
   regulatory: ["DORA"], identityTypes: [], contactPersons: [],
-  salesforceUrl: "", sharepointUrl: "", confluenceUrl: "",
+  salesforceUrl: "", sharepointUrl: "", confluenceUrl: "", jiraUrl: "",
 };
 
 describe("validateProjectMeta", () => {

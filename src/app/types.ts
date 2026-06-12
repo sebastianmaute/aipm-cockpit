@@ -579,6 +579,7 @@ export type ProjectMeta = {
   salesforceUrl?: string;
   sharepointUrl?: string;
   confluenceUrl?: string;
+  jiraUrl?: string;
   contactPersons: ContactPerson[];
   docRepoLocation?: string;
   regulatory: RegulatoryRequirement[];

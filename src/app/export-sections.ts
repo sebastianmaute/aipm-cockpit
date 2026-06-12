@@ -164,6 +164,7 @@ const PROJECT_FIELD_I18N_KEYS: Readonly<Record<keyof ProjectMeta, TranslationKey
   salesforceUrl:             "projectSalesforce",
   sharepointUrl:             "projectSharepoint",
   confluenceUrl:             "projectConfluence",
+  jiraUrl:                   "projectJira",
   contactPersons:            "projectContactPersons",
   docRepoLocation:           "projectDocRepo",
   regulatory:                "projectRegulatory",

@@ -41,6 +41,7 @@ export type ProjectDraft = {
   salesforceUrl: string;
   sharepointUrl: string;
   confluenceUrl: string;
+  jiraUrl: string;
 };
 
 // ---------------------------------------------------------------------------
@@ -64,7 +65,8 @@ export type ProjectErrorField =
   | "endDate"
   | "salesforceUrl"
   | "sharepointUrl"
-  | "confluenceUrl";
+  | "confluenceUrl"
+  | "jiraUrl";
 
 /** i18n message keys used for inline project-meta form errors. */
 export type ProjectErrorKey =
@@ -149,6 +151,8 @@ export function validateProjectMeta(draft: ProjectDraft): ProjectFieldErrors {
     errors.sharepointUrl = "errorInvalidUrl";
   if (draft.confluenceUrl && !isLikelyUrl(draft.confluenceUrl))
     errors.confluenceUrl = "errorInvalidUrl";
+  if (draft.jiraUrl && !isLikelyUrl(draft.jiraUrl))
+    errors.jiraUrl = "errorInvalidUrl";
 
   return errors;
 }

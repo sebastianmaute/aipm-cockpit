@@ -1633,6 +1633,7 @@ const enUS = {
   projectSalesforce: "Salesforce",
   projectSharepoint: "SharePoint",
   projectConfluence: "Confluence",
+  projectJira: "Jira",
   projectContactPersons: "Contact persons",
   historyTitle: "Version history",
   historyEmpty: "No versions yet — changes you make will be captured here.",

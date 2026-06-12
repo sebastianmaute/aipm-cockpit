@@ -76,6 +76,7 @@ export function emptyProjectDraft(): ProjectFormDraft {
     salesforceUrl: "",
     sharepointUrl: "",
     confluenceUrl: "",
+    jiraUrl: "",
     contactPersons: [],
     docRepoLocation: "",
     regulatory: [],

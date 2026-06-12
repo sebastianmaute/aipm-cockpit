@@ -1651,6 +1651,7 @@ export const de: Record<TranslationKey, string> = {
   projectSalesforce: "Salesforce",
   projectSharepoint: "SharePoint",
   projectConfluence: "Confluence",
+  projectJira: "Jira",
   projectContactPersons: "Ansprechpartner",
   historyTitle: "Versionsverlauf",
   historyEmpty: "Noch keine Versionen — Ihre Änderungen werden hier erfasst.",
