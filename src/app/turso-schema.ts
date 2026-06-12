@@ -18,6 +18,7 @@ import {
 import {
   emptyWorkspace, migrateWorkspaceV9, sanitizeProjectStatus, type Workspace,
 } from "./workspace";
+import { sanitizeFieldVisibility } from "./field-visibility";
 import {
   sanitizeResource, sanitizeRole, sanitizeBudgetBucket, sanitizeDiscipline,
   sanitizeGrade, sanitizeAbsence, sanitizeShift, sanitizeFxRates, sanitizePlan,
@@ -126,6 +127,15 @@ export function rowsToWorkspace(results: PipelineResultLike[]): Workspace {
       // malformed — leave the emptyWorkspace() default
     }
   }
+  const fvRow = rowObjects(byTable.get("meta")).find((r) => r.key === "field_visibility");
+  if (fvRow?.value) {
+    try {
+      const fv = sanitizeFieldVisibility(JSON.parse(fvRow.value));
+      if (fv) ws.fieldVisibility = fv;
+    } catch {
+      // malformed — leave default (undefined)
+    }
+  }
   return migrateWorkspaceV9(ws);
 }
 
@@ -161,6 +171,7 @@ export function dirtyWorkspaceTables(prev: Workspace, next: Workspace): Set<stri
   if (prev.plan !== next.plan) dirty.add("plan");
   if (prev.fxRates !== next.fxRates) dirty.add("fx_rates");
   if (prev.status !== next.status) dirty.add("meta");
+  if (prev.fieldVisibility !== next.fieldVisibility) dirty.add("meta");
   return dirty;
 }
 
@@ -204,6 +215,15 @@ export function workspaceToStatements(ws: Workspace, dirtyTables?: ReadonlySet<s
         { type: "text", value: JSON.stringify(ws.status ?? {}) },
       ],
     });
+    if (ws.fieldVisibility && Object.keys(ws.fieldVisibility).length > 0) {
+      out.push({
+        sql: `INSERT INTO meta (key, value) VALUES (?, ?)`,
+        args: [
+          { type: "text", value: "field_visibility" },
+          { type: "text", value: JSON.stringify(ws.fieldVisibility) },
+        ],
+      });
+    }
   }
   out.push({ sql: "COMMIT" });
   return out;
