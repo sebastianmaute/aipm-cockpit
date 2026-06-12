@@ -1550,7 +1550,7 @@ export const de: Record<TranslationKey, string> = {
   modeModulesHeading: "Funktionen",
   modeIntro: "Der Einfach-Modus zeigt nur Aufgaben, Chat und Berichte. Schalten Sie Funktionen ein, um einen modularen Aufbau zu erstellen; sind alle aktiv, befinden Sie sich im Erweitert-Modus.",
   modeRetentionNote: "Vorhandene Daten bleiben erhalten und erscheinen wieder, sobald Sie eine Funktion erneut aktivieren.",
-  modeSave: "Speichern & neu laden",
+  modeSave: "Speichern",
   modeDiscard: "Verwerfen",
   versionHighlightModes: "Einfach- / Modular- / Erweitert-Modus: App auf Aufgaben, Chat und Berichte reduzieren und Funktionen nach Bedarf wieder aktivieren.",
   versionHighlightClarke: "Stakeholder-Kommunikationserinnerungen weisen darauf hin, wichtige Stakeholder vor Meilensteinen, RAID-Einträgen und Änderungen einzubinden.",

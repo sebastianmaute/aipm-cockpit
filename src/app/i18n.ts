@@ -1347,7 +1347,7 @@ const enUS = {
   modeModulesHeading: "Functions",
   modeIntro: "Simple mode shows only Tasks, Chat and Reports. Turn functions on to build a Modular setup; with all on you are in Advanced mode.",
   modeRetentionNote: "Existing data is kept and reappears when you re-enable a function.",
-  modeSave: "Save & reload",
+  modeSave: "Save",
   modeDiscard: "Discard",
   evmTitle: "Earned value",
   evmPv: "Planned (PV)",

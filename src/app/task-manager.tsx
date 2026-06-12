@@ -10,7 +10,7 @@ import { useActivityLog } from "./use-activity-log";
 import { ActivityLogProvider } from "./activity-log-context";
 import { useDueAlerts } from "./use-due-alerts";
 import { useToast } from "./use-toast";
-import { useSettings, writeSettings } from "./use-settings";
+import { useSettings } from "./use-settings";
 import { useTemplates } from "./use-templates";
 import { templateFromWorkspace, type SaveTemplateInput } from "./templates";
 import { applyTemplate } from "./template-apply";
@@ -35,6 +35,7 @@ import { buildRaidByTaskIndex } from "./raid";
 import { buildChangeByTaskIndex } from "./change-log";
 import { FiltersProvider, useFilters } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
+import { useFeaturesSync } from "./use-features-sync";
 import { ToastProvider } from "./toast-context";
 import { useChangeLog } from "./use-change-log";
 import { useStakeholders } from "./use-stakeholders";
@@ -166,14 +167,6 @@ function TaskManagerInner() {
     if (target !== activeTab) setActiveTab(target);
   }, [activeTab, settings.features, settings.layout, isPopout, setActiveTab]);
 
-  const handleCommitFeatures = useCallback(
-    (features: FeatureModuleId[]) => {
-      writeSettings({ ...settings, features });
-      window.location.reload();
-    },
-    [settings],
-  );
-
   const { setRaidFilterTaskId } = useFilters();
   // Tasks data + derivations owned by WorkspaceProvider (Slice 2 of the
   // task-manager decomposition; see
@@ -215,7 +208,22 @@ function TaskManagerInner() {
     fxRates,
     project,
     setProject,
+    setFeatures,
   } = useWorkspace();
+
+  // Mirror the active project's per-project `Workspace.features` into the
+  // reactive `settings.features` (the source the 45 module consumers read), so
+  // mode changes and project switches re-render instead of reloading the page.
+  useFeaturesSync(setSettings);
+
+  // Committing a mode/feature change just writes the per-project features;
+  // useFeaturesSync propagates it into settings reactively (no reload).
+  const handleCommitFeatures = useCallback(
+    (features: FeatureModuleId[]) => {
+      setFeatures(features);
+    },
+    [setFeatures],
+  );
 
   const { setContacts, contactsList, handleRemoveContact } =
     useContacts({ hydrated, tasks });
