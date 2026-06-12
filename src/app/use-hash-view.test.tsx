@@ -56,6 +56,28 @@ describe("useHashView", () => {
     expect(window.location.hash).toBe("#raid");
   });
 
+  it("writes the hash via replaceState, not location.hash assignment", () => {
+    // Regression: assigning location.hash fires `hashchange`, which the hook's
+    // own listener handles by calling setActiveTab — a feedback loop that pegged
+    // the main thread (blank page, no error). replaceState updates the URL
+    // without re-entering the listener. See the hook doc comment.
+    window.location.hash = "";
+    const replaceSpy = vi.spyOn(window.history, "replaceState");
+    renderHook(
+      () => {
+        useHashView();
+        const ctx = useWorkspaceTab();
+        useLayoutEffect(() => { ctx.setActiveTab("raid"); /* eslint-disable-line react-hooks/exhaustive-deps */ }, []);
+        return ctx;
+      },
+      { wrapper },
+    );
+    act(() => {});
+    expect(replaceSpy).toHaveBeenCalledWith(null, "", "#raid");
+    expect(window.location.hash).toBe("#raid");
+    replaceSpy.mockRestore();
+  });
+
   it("does nothing when disabled", () => {
     window.location.hash = "";
     const { result } = renderHook(

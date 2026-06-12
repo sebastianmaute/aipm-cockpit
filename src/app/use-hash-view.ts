@@ -20,6 +20,17 @@ function currentHash(): string {
  * `features` gates navigation to disabled-module views — if the hash points at
  * a view whose module is off, the hash is ignored (the redirect effect keeps
  * the user on a valid view and will rewrite the hash).
+ *
+ * IMPORTANT — why the view→hash write uses `history.replaceState` and not
+ * `window.location.hash = …`: assigning to `location.hash` fires a `hashchange`
+ * event, which this hook's own listener (`apply`) handles by calling
+ * `setActiveTab`. That self-notification turns the two effects into a feedback
+ * loop: every view→hash write re-enters hash→view, which can flip the view and
+ * trigger another write. Because `hashchange` is a macrotask, React's
+ * "maximum update depth" guard never trips, so the loop pegs the main thread
+ * silently (blank page, no error). `replaceState` updates the URL without
+ * firing `hashchange`; genuine back/forward navigation still fires it and is
+ * still handled by `apply`.
  */
 export function useHashView(enabled: boolean = true, features?: readonly FeatureModuleId[]): void {
   const { activeTab, setActiveTab, isPopout, requestOpen } = useWorkspaceTab();
@@ -40,9 +51,13 @@ export function useHashView(enabled: boolean = true, features?: readonly Feature
 
   // View change: write the hash, but only when the BASE view differs — so an
   // existing "#raid/123" is not clobbered while we stay on RAID. Skip "edit".
+  // Uses replaceState (not `location.hash =`) so the write does NOT re-enter
+  // the hashchange listener above — see the hook doc comment.
   useEffect(() => {
     if (!enabled || typeof window === "undefined" || isPopout || activeTab === "edit") return;
     const current = parseHash(window.location.hash);
-    if (current.view !== activeTab) window.location.hash = buildHash(activeTab);
+    if (current.view !== activeTab) {
+      window.history.replaceState(null, "", buildHash(activeTab));
+    }
   }, [enabled, isPopout, activeTab]);
 }
