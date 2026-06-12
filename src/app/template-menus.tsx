@@ -130,6 +130,9 @@ export function SaveTemplateMenu({ lang, onSave }: SaveTemplateMenuProps) {
               />
               <span>{t(lang, "templateIncludeContent")}</span>
             </label>
+            <p className="text-xs text-muted-foreground">
+              {t(lang, "templateSaveCaptures")}
+            </p>
             <div className="flex justify-end">
               <button
                 type="button"
@@ -167,6 +170,26 @@ function seedCount(tpl: ProjectTemplate | undefined): number {
   );
 }
 
+/**
+ * Per-entity breakdown of a template's seed, e.g. "12 tasks, 3 milestones,
+ * 5 RAID", listing only non-empty collections. Presentational only.
+ */
+function seedBreakdown(lang: Lang, tpl: ProjectTemplate | undefined): string {
+  const s = tpl?.seed;
+  if (!s) return "";
+  const parts: string[] = [];
+  const add = (n: number | undefined, label: string) => {
+    if (n) parts.push(`${n} ${label}`);
+  };
+  add(s.tasks?.length, t(lang, "tasks"));
+  add(s.milestones?.length, t(lang, "navMilestones"));
+  add(s.raid?.length, t(lang, "tabRaid"));
+  add(s.changes?.length, t(lang, "navChanges"));
+  add(s.stakeholders?.length, t(lang, "navStakeholders"));
+  add(s.budgets?.length, t(lang, "tabBudget"));
+  return parts.join(", ");
+}
+
 export function ApplyTemplateMenu({ lang, templates, onApply }: ApplyTemplateMenuProps) {
   const [open, setOpen] = useState(false);
   // `null` = "follow the default (first template)". A user pick sets an explicit
@@ -176,6 +199,7 @@ export function ApplyTemplateMenu({ lang, templates, onApply }: ApplyTemplateMen
   const [includeSeed, setIncludeSeed] = useState(false);
   const ref = useDismiss(open, () => setOpen(false));
   const checkboxId = useId();
+  const seedDescId = useId();
 
   const selectedId = useMemo(() => {
     if (picked && templates.some((tpl) => tpl.id === picked)) return picked;
@@ -187,6 +211,7 @@ export function ApplyTemplateMenu({ lang, templates, onApply }: ApplyTemplateMen
     [templates, selectedId],
   );
   const count = seedCount(selected);
+  const breakdown = seedBreakdown(lang, selected);
   const hasTemplates = templates.length > 0;
 
   function submit() {
@@ -230,8 +255,8 @@ export function ApplyTemplateMenu({ lang, templates, onApply }: ApplyTemplateMen
               {t(lang, "templateApplyReplacesFv")}
             </p>
             {count > 0 && (
-              <p className="text-xs text-muted-foreground">
-                {t(lang, "templateIncludeSeed")} ({count})
+              <p id={seedDescId} className="text-xs text-muted-foreground">
+                {t(lang, "templateIncludeSeed")} ({breakdown})
               </p>
             )}
             <label htmlFor={checkboxId} className="flex items-center gap-2 text-sm text-foreground">
@@ -239,6 +264,7 @@ export function ApplyTemplateMenu({ lang, templates, onApply }: ApplyTemplateMen
                 id={checkboxId}
                 type="checkbox"
                 aria-label={t(lang, "templateIncludeSeed")}
+                aria-describedby={count > 0 ? seedDescId : undefined}
                 checked={includeSeed}
                 onChange={(e) => setIncludeSeed(e.target.checked)}
                 className="h-4 w-4 rounded border-line text-AIPM-green focus:ring-AIPM-green"

@@ -1,7 +1,28 @@
-import { render, screen, fireEvent } from "@testing-library/react";
+import {
+  render as rtlRender,
+  screen,
+  fireEvent,
+  type RenderOptions,
+} from "@testing-library/react";
+import type { ReactElement, ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { SettingsMenu } from "./settings-menu";
+import { FiltersProvider } from "./filters-context";
+import { WorkspaceProvider } from "./workspace-context";
 import { defaultSettings } from "./settings-types";
+
+// SettingsMenu embeds TemplatesSection, which reads the live workspace
+// (useCurrentWorkspace), so every render needs the workspace providers.
+function Providers({ children }: { children: ReactNode }) {
+  return (
+    <FiltersProvider>
+      <WorkspaceProvider>{children}</WorkspaceProvider>
+    </FiltersProvider>
+  );
+}
+function render(ui: ReactElement, options?: RenderOptions) {
+  return rtlRender(ui, { wrapper: Providers, ...options });
+}
 
 const asyncNoop = async () => {};
 

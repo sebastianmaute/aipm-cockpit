@@ -439,6 +439,9 @@ const enUS = {
   templateSaveName: "Name",
   templateIncludeContent: "Include current content as starter",
   templateSaveAction: "Save",
+  templateSaveCaptures:
+    "Captures this project's feature mode and field visibility.",
+  templatesSaveCurrent: "Save current project as a template…",
   templateApplyTitle: "Apply template to current project",
   templatePick: "Template",
   templateIncludeSeed: "Also add starter content",

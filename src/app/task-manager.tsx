@@ -14,6 +14,7 @@ import { useSettings, writeSettings } from "./use-settings";
 import { useTemplates } from "./use-templates";
 import { templateFromWorkspace, type SaveTemplateInput } from "./templates";
 import { applyTemplate } from "./template-apply";
+import { useCurrentWorkspace } from "./use-current-workspace";
 import { disabledViewRedirect, isModuleEnabled, deriveMode, type FeatureModuleId } from "./feature-modules";
 import { useJiraSync } from "./use-jira-sync";
 import { useStorageBackend } from "./use-storage-backend";
@@ -210,7 +211,6 @@ function TaskManagerInner() {
     changes,
     setChanges,
     setStakeholders,
-    fieldVisibility,
     setFieldVisibility,
     fxRates,
     project,
@@ -541,28 +541,7 @@ function TaskManagerInner() {
   // match exactly what would be persisted. Features are NOT applied on apply
   // (only fieldVisibility + optional seed); the setters trigger the autosave.
   const { templates: projectTemplates, addTemplate } = useTemplates();
-  const buildCurrentWorkspace = useCallback(
-    (): Workspace => ({
-      tasks,
-      raid,
-      absences,
-      shifts,
-      resources,
-      roles,
-      disciplines,
-      grades,
-      plan,
-      budgets,
-      fxRates,
-      status,
-      milestones,
-      changes,
-      stakeholders,
-      project,
-      fieldVisibility,
-    }),
-    [tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, milestones, changes, stakeholders, project, fieldVisibility],
-  );
+  const buildCurrentWorkspace = useCurrentWorkspace();
   const handleSaveTemplate = useCallback(
     (input: SaveTemplateInput) => {
       addTemplate(

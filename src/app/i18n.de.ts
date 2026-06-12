@@ -446,6 +446,9 @@ export const de: Record<TranslationKey, string> = {
   templateSaveName: "Name",
   templateIncludeContent: "Aktuellen Inhalt als Vorlage übernehmen",
   templateSaveAction: "Speichern",
+  templateSaveCaptures:
+    "Erfasst den Funktionsmodus und die Feldsichtbarkeit dieses Projekts.",
+  templatesSaveCurrent: "Aktuelles Projekt als Vorlage speichern…",
   templateApplyTitle: "Vorlage auf aktuelles Projekt anwenden",
   templatePick: "Vorlage",
   templateIncludeSeed: "Startinhalt hinzufügen",
