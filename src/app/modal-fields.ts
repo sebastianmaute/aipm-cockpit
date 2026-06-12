@@ -29,7 +29,6 @@ export const MODAL_FIELDS: Record<ModalId, readonly ModalField[]> = {
     { id: "taskName", labelKey: "taskName", tier: "simple", required: true },
     { id: "assignee", labelKey: "assignee", tier: "simple" },
     { id: "dueDate", labelKey: "dueDate", tier: "simple" },
-    { id: "status", labelKey: "status", tier: "simple" },
     { id: "notes", labelKey: "notes", tier: "simple" },
     { id: "priority", labelKey: "priority", tier: "advanced" },
     { id: "startDate", labelKey: "startDate", tier: "advanced" },
@@ -41,8 +40,6 @@ export const MODAL_FIELDS: Record<ModalId, readonly ModalField[]> = {
     { id: "email", labelKey: "email", tier: "full" },
     { id: "timeSpent", labelKey: "taskTimeSpent", tier: "full" },
     { id: "lastUpdate", labelKey: "lastUpdate", tier: "full" },
-    { id: "completedDate", labelKey: "completedDate", tier: "full" },
-    { id: "jiraLink", labelKey: "jiraLink", tier: "full" },
     { id: "healthOverride", labelKey: "healthOverride", tier: "full" },
   ],
   raid: [

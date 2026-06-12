@@ -1,6 +1,6 @@
 // src/app/modal-fields.test.ts
 import { describe, expect, it } from "vitest";
-import { MODAL_FIELDS, MODAL_IDS, type ModalId } from "./modal-fields";
+import { MODAL_FIELDS, MODAL_IDS } from "./modal-fields";
 
 const TIER_RANK = { simple: 0, advanced: 1, full: 2 } as const;
 
