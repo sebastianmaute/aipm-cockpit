@@ -14,6 +14,7 @@
     "test:coverage": "vitest run --coverage",
     "e2e": "playwright test",
     "e2e:ui": "playwright test --ui",
+    "e2e:smoke": "node scripts/e2e-smoke.mjs",
     "e2e:install": "playwright install --with-deps chromium",
     "docs:scripts": "node scripts/sync-script-docs.mjs",
     "docs:scripts:check": "node scripts/sync-script-docs.mjs --check"
@@ -28,6 +29,7 @@
     "test:coverage": "Vitest + v8 coverage report (fails below 70%)",
     "e2e": "Playwright E2E suite, headless",
     "e2e:ui": "Playwright interactive UI mode",
+    "e2e:smoke": "Standalone smoke driver (scripts/e2e-smoke.mjs): seeds a project, walks every view, fails on any console/page error. Needs a running server",
     "e2e:install": "One-time: download Chromium browser binary",
     "docs:scripts": "Regenerate AUTO-GENERATED scripts tables in repo docs from `package.json`",
     "docs:scripts:check": "Verify AUTO-GENERATED scripts tables are in sync; exit non-zero on drift (CI mode)"

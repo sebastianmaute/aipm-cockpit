@@ -38,6 +38,7 @@ are entered in the in-app Settings panel and stored in the browser.
 | `npm run test:coverage` | Vitest + v8 coverage report (fails below 70%) |
 | `npm run e2e` | Playwright E2E suite, headless |
 | `npm run e2e:ui` | Playwright interactive UI mode |
+| `npm run e2e:smoke` | Standalone smoke driver (scripts/e2e-smoke.mjs): seeds a project, walks every view, fails on any console/page error. Needs a running server |
 | `npm run e2e:install` | One-time: download Chromium browser binary |
 | `npm run docs:scripts` | Regenerate AUTO-GENERATED scripts tables in repo docs from `package.json` |
 | `npm run docs:scripts:check` | Verify AUTO-GENERATED scripts tables are in sync; exit non-zero on drift (CI mode) |
