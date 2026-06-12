@@ -70,7 +70,8 @@ export const MODAL_FIELDS: Record<ModalId, readonly ModalField[]> = {
   ],
   milestone: [
     { id: "name", labelKey: "name", tier: "simple", required: true },
-    { id: "targetDate", labelKey: "targetDate", tier: "simple" },
+    // Both name and date are validated (empty date blocks save), so date is locked-required.
+    { id: "targetDate", labelKey: "targetDate", tier: "simple", required: true },
     { id: "description", labelKey: "description", tier: "advanced" },
     { id: "achievedDate", labelKey: "achievedDate", tier: "advanced" },
     { id: "linkedTasks", labelKey: "linkedTasks", tier: "advanced" },
