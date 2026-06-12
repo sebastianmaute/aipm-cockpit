@@ -18,6 +18,7 @@ import { getTursoConfig } from "./turso-config";
 import { listProjects, updateProjectMeta as tursoUpdateMeta } from "./turso-portfolio";
 import type { PortfolioMode } from "./portfolio-mode";
 import type { ProjectListEntry } from "./turso-tenant-schema";
+import type { NewProjectOpts } from "./new-project-workspace";
 import type { ProjectMeta } from "./types";
 
 /** File formats the create-project panel offers in FILE mode. */
@@ -34,7 +35,7 @@ export interface UseTursoProjectsArgs {
   tursoProjectId: string | null;
   // Turso backend operations (from useStorageBackend / refresh callback).
   switchToTursoProject: (id: string) => Promise<void>;
-  createTursoProject: (meta: ProjectMeta) => Promise<void>;
+  createTursoProject: (meta: ProjectMeta, opts?: NewProjectOpts) => Promise<void>;
   archiveTursoProject: (id: string) => Promise<void>;
   restoreTursoProject: (id: string) => Promise<void>;
   hardDeleteTursoProject: (id: string) => Promise<void>;
@@ -44,12 +45,20 @@ export interface UseTursoProjectsArgs {
   /** Mirror freshly saved meta into the in-memory workspace (Turso mode). */
   setProject: (meta: ProjectMeta) => void;
   // FILE-mode fallbacks — the mode branching lives in the returned handlers.
-  createFileProject: (meta: ProjectMeta, format: ProjectFileFormat) => void | Promise<void>;
+  createFileProject: (
+    meta: ProjectMeta,
+    format: ProjectFileFormat,
+    opts?: NewProjectOpts,
+  ) => void | Promise<void>;
   updateCurrentFileProject: (meta: ProjectMeta) => void;
 }
 
 export interface UseTursoProjectsResult {
-  handleCreateProjectByMode: (meta: ProjectMeta, format: ProjectFileFormat) => void;
+  handleCreateProjectByMode: (
+    meta: ProjectMeta,
+    format: ProjectFileFormat,
+    opts?: NewProjectOpts,
+  ) => void;
   handleUpdateCurrentProjectByMode: (meta: ProjectMeta) => void;
   handleArchiveTursoProject: (id: string) => void;
   handleRestoreTursoProject: (id: string) => void;
@@ -82,18 +91,18 @@ export function useTursoProjects(args: UseTursoProjectsArgs): UseTursoProjectsRe
   // Create — the panel/empty-state callback is (meta, format); Turso ignores the
   // file format and refreshes the shared list afterwards.
   const handleCreateProjectByMode = useCallback(
-    (meta: ProjectMeta, format: ProjectFileFormat) => {
+    (meta: ProjectMeta, format: ProjectFileFormat, opts: NewProjectOpts = {}) => {
       if (portfolioMode === "turso") {
         void (async () => {
           try {
-            await createTursoProject(meta);
+            await createTursoProject(meta, opts);
             await refreshTursoProjects();
           } catch (err) {
             showToast("error", t(lang, "projectCreateFailed", errorText(err)));
           }
         })();
       } else {
-        void createFileProject(meta, format);
+        void createFileProject(meta, format, opts);
       }
     },
     [portfolioMode, createTursoProject, refreshTursoProjects, createFileProject, showToast, lang],

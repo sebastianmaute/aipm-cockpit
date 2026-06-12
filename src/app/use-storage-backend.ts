@@ -12,7 +12,6 @@ import {
   StorageNotImplementedError,
   StorageNotReadyError,
   createBackend,
-  emptyWorkspace,
   getBackendFileHandle,
   openFileForBackend,
   pickFileForBackend,
@@ -28,6 +27,7 @@ import {
 } from "./projects-registry";
 import { getHandle, saveHandle } from "./project-file-handles";
 import { localKindForFormat, deriveRegistryEntry } from "./use-project-switch";
+import { buildNewProjectWorkspace, type NewProjectOpts } from "./new-project-workspace";
 import type { ProjectMeta } from "./types";
 import { getTursoConfig } from "./turso-config";
 import { loadCurrentTursoProjectId, saveCurrentTursoProjectId } from "./portfolio-mode";
@@ -537,7 +537,11 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
    * carries the supplied meta, persist the handle per-project, register +
    * select it, then apply the new (empty) workspace into state.
    */
-  async function createProject(meta: ProjectMeta, format: LocalStorageFormat): Promise<void> {
+  async function createProject(
+    meta: ProjectMeta,
+    format: LocalStorageFormat,
+    opts: NewProjectOpts = {},
+  ): Promise<void> {
     if (args.isPopout) return;
     // Flush the outgoing project to its OWN backend first (best-effort). Setting
     // suppressNextSaveRef below cancels the pending debounced save, so edits made
@@ -551,7 +555,9 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     }
     const id = crypto.randomUUID();
     const storageConfig: StorageConfig = { kind: localKindForFormat(format) };
-    const ws: Workspace = { ...emptyWorkspace(), project: meta };
+    // Empty workspace by default; with a template/features opts it applies the
+    // template's field-visibility + optional seed and sets per-project features.
+    const ws: Workspace = buildNewProjectWorkspace(meta, opts);
     try {
       const targetBackend = backendFor(storageConfig);
       // Save picker — grants readwrite implicitly when the user picks a file.
@@ -651,7 +657,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     }
   }
 
-  async function createTursoProject(meta: ProjectMeta): Promise<void> {
+  async function createTursoProject(meta: ProjectMeta, opts: NewProjectOpts = {}): Promise<void> {
     if (args.isPopout) return;
     const cfg = tursoConfigNow();
     if (!cfg) {
@@ -662,9 +668,16 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     // the pending debounced save). Mirrors the file createProject flush.
     try { await backend.save(currentWorkspace()); } catch { /* best-effort flush */ }
     const id = crypto.randomUUID();
+    const ws = buildNewProjectWorkspace(meta, opts);
     try {
       await portfolioCreate(cfg, meta, id);
-      applyWorkspace({ ...emptyWorkspace(), project: meta });
+      // Persist the new workspace (per-project features / field-visibility / seed)
+      // into the new project's Turso tables NOW. The suppressNextSaveRef below
+      // cancels the autosave the applyWorkspace setState would otherwise trigger,
+      // so without this explicit save those rows would not land until the next
+      // user edit. The file path saves explicitly too (targetBackend.save).
+      await new TursoBackend(cfg, id).save(ws);
+      applyWorkspace(ws);
       suppressNextLoadRef.current = true;
       suppressNextSaveRef.current = true;
       setTursoProjectId(id);
