@@ -185,9 +185,9 @@ function TaskRowImpl({
       {!hiddenCols.has("status") && (
         <Td>
           {isComplete && !task.healthOverride ? (
-            <span title={label} aria-label={label} className="text-AIPM-green">✓</span>
+            <span role="img" title={label} aria-label={label} className="text-AIPM-green-strong">✓</span>
           ) : (
-            <span title={label} aria-label={label} className={`inline-block h-2.5 w-2.5 rounded-full ${healthDot[health.color]}`} />
+            <span role="img" title={label} aria-label={label} className={`inline-block h-2.5 w-2.5 rounded-full ${healthDot[health.color]}`} />
           )}
         </Td>
       )}

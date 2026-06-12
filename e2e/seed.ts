@@ -1,14 +1,19 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { test as base, expect, type Page } from "@playwright/test";
 
-// Seeds an IndexedDB-backed project into the registry BEFORE any app code runs,
-// so the app boots straight into the main UI instead of the empty-state. A
-// file-backed project would require the File System Access save-picker, which
-// headless Chromium can't satisfy — so we also stub the FSA pickers in-memory
-// for any flow that reaches them.
-//
-// Runs in the browser context (serialized by addInitScript) — must not close
-// over anything from the Node test scope.
-function seedInit(): void {
+// Real sample workspace (14 tasks, RAID, budgets, milestones, …) — gives the
+// a11y/nav specs realistic data so colour-coded states (RAG amber/red, budget
+// over/under, completed-task greens, etc.) actually render and get scanned.
+const SAMPLE_WORKSPACE = JSON.parse(
+  readFileSync(join(process.cwd(), "sample-workspace.json"), "utf8"),
+) as Record<string, unknown>;
+
+// Registry + File System Access stub. Runs in the browser before app code on
+// every navigation. A `kind:"browser"` project loads from IndexedDB (no
+// save-picker, which headless Chromium can't satisfy); the FSA pickers are
+// stubbed in-memory for any flow that still reaches them.
+function seedRegistryAndFsa(): void {
   localStorage.setItem(
     "lop-app:projects",
     JSON.stringify({
@@ -33,13 +38,49 @@ function seedInit(): void {
   (window as unknown as { showOpenFilePicker: unknown }).showOpenFilePicker = async () => [handle];
 }
 
-// Test fixture: every test gets a context pre-seeded with the project above.
-// (The fixture-provide callback is named `run` rather than Playwright's usual
-// `use` so eslint-plugin-react-hooks doesn't mistake it for the React `use` hook.)
+// Writes the sample workspace into IndexedDB in the exact shape BrowserBackend
+// reads (see browser-backend.ts / idb.ts). Runs in the browser via evaluate so
+// it completes BEFORE the app loads (addInitScript can't block on async IDB).
+function seedIndexedDb(ws: Record<string, unknown>): Promise<void> {
+  const ENTITY = ["tasks", "raid", "absences", "shifts", "resources", "roles", "disciplines", "grades", "budgets"];
+  const KV: Record<string, string> = {
+    plan: "resource-plan", fxRates: "fx-rates", status: "project-status",
+    milestones: "milestones", changes: "changes", stakeholders: "stakeholders", project: "project",
+  };
+  return new Promise((resolve, reject) => {
+    const open = indexedDB.open("lop-app", 6);
+    open.onupgradeneeded = () => {
+      const db = open.result;
+      if (!db.objectStoreNames.contains("kv")) db.createObjectStore("kv");
+      for (const s of ENTITY) if (!db.objectStoreNames.contains(s)) db.createObjectStore(s, { keyPath: "id" });
+    };
+    open.onerror = () => reject(open.error);
+    open.onsuccess = () => {
+      const db = open.result;
+      const tx = db.transaction(db.objectStoreNames, "readwrite");
+      for (const field of ENTITY)
+        for (const rec of (ws[field] as unknown[]) ?? []) tx.objectStore(field).put(rec);
+      const kv = tx.objectStore("kv");
+      for (const [field, key] of Object.entries(KV)) if (ws[field] != null) kv.put(ws[field], key);
+      tx.oncomplete = () => { db.close(); resolve(); };
+      tx.onerror = () => reject(tx.error);
+    };
+  });
+}
+
+// Test fixture: every test's context is pre-seeded with the registry + FSA stub,
+// and its page has the sample workspace written to IndexedDB before first use.
 export const test = base.extend({
   context: async ({ context }, run) => {
-    await context.addInitScript(seedInit);
+    await context.addInitScript(seedRegistryAndFsa);
     await run(context);
+  },
+  page: async ({ page }, run) => {
+    // Same-origin lightweight document so IndexedDB (per-origin) is reachable
+    // and seeded before any app navigation.
+    await page.goto("/favicon.ico");
+    await page.evaluate(seedIndexedDb, SAMPLE_WORKSPACE);
+    await run(page);
   },
 });
 
@@ -61,12 +102,6 @@ export const PRIMARY_VIEWS = [
   "Settings",
 ] as const;
 
-/**
- * Click a primary nav control by its trimmed accessible label (aria-label or
- * text). Uses an in-page match because the modern sidebar renders icon-rail
- * buttons whose role/name don't line up cleanly with getByRole. Throws if the
- * control is missing, so a nav rename fails the test loudly.
- */
 const NAV_SELECTOR = 'aside a, aside button, nav a, nav button, [role="tab"]';
 
 /**
