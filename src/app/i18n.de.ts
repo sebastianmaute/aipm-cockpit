@@ -71,11 +71,10 @@ export const de: Record<TranslationKey, string> = {
   cover: "Vertretung",
   coverEmail: "Vertretung E-Mail",
   funding: "Budget",
-  period: "Zeitraum",
+  period: "Zeitraum", // Budget-Zeitraum (nicht Datumsbereich)
   burnRate: "Verbrauchsrate",
   planningDetail: "Planungsdetails",
-  originalEstimate: "Ursprüngliche Schätzung",
-  timeSpent: "Aufgewendete Zeit",
+
   completedDate: "Abgeschlossen am",
   jiraLink: "Jira-Link",
   healthOverride: "Status-Override",

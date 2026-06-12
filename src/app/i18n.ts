@@ -70,8 +70,7 @@ const enUS = {
   period: "Period",
   burnRate: "Burn rate",
   planningDetail: "Planning detail",
-  originalEstimate: "Original estimate",
-  timeSpent: "Time spent",
+
   completedDate: "Completed date",
   jiraLink: "Jira link",
   healthOverride: "Health override",
