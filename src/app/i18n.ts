@@ -449,6 +449,13 @@ const enUS = {
   templateApplyAction: "Apply",
   templateApplied: "Template applied",
   templateSaved: "Template saved",
+  templateSuggested: "Suggested",
+  suggestSignalTeam: "{0} people",
+  suggestSignalRegulated: "regulated",
+  suggestSignalDeployment: "{0} deployment",
+  suggestSignalDuration: "{0}-month timeline",
+  suggestSignalScale: "large user base",
+  suggestSignalLimited: "limited info — start simple",
 
   exportTitle: "Export tasks",
   exportSubtitle: "Download all {0} tasks in your preferred format.",

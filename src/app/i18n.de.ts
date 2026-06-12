@@ -456,6 +456,13 @@ export const de: Record<TranslationKey, string> = {
   templateApplyAction: "Anwenden",
   templateApplied: "Vorlage angewendet",
   templateSaved: "Vorlage gespeichert",
+  templateSuggested: "Empfohlen",
+  suggestSignalTeam: "{0} Personen",
+  suggestSignalRegulated: "reguliert",
+  suggestSignalDeployment: "Betrieb: {0}",
+  suggestSignalDuration: "{0}-Monats-Laufzeit",
+  suggestSignalScale: "große Nutzerbasis",
+  suggestSignalLimited: "wenig Infos -- einfach starten",
 
   exportTitle: "Aufgaben exportieren",
   exportSubtitle:
