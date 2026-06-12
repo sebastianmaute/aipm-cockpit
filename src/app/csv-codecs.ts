@@ -62,6 +62,7 @@ import {
 import type { ExportConfig } from "./settings-types";
 import { EXPORT_SECTION_KEYS } from "./settings-types";
 import { type Workspace, migrateWorkspaceV9, sanitizeProjectStatus } from "./workspace";
+import { sanitizeFieldVisibility, type FieldVisibilityConfig } from "./field-visibility";
 
 export const CSV_COLUMNS: Array<keyof Task> = [
   "id",
@@ -192,6 +193,7 @@ const CSV_SECTION_GRADES = "# GRADES";
 const CSV_SECTION_PLAN = "# PLAN";
 const CSV_SECTION_STATUS = "# PROJECT STATUS";
 const CSV_SECTION_PROJECT = "# PROJECT META";
+const CSV_SECTION_FIELD_VIS = "# FIELD-VISIBILITY";
 
 export function shiftFieldToString(s: Shift, col: string): string {
   switch (col) {
@@ -664,6 +666,27 @@ export function csvToStatus(text: string): ProjectStatus {
   return sanitizeProjectStatus(map);
 }
 
+// --- Field-visibility encoder / decoder --------------------------------------
+//
+// The per-project field-visibility config is small and shaped like a nested
+// map, so it serializes as a single `config,<json>` row rather than a column
+// table. Not a user-exportable section: emission is gated purely on the value
+// being present (never routed through the export `enabled(...)` allowlist).
+
+export function fieldVisibilityToCsv(cfg: FieldVisibilityConfig, neutralize = false): string {
+  return ["config", csvCellEscape(JSON.stringify(cfg), neutralize)].join(",");
+}
+
+export function csvToFieldVisibility(text: string): FieldVisibilityConfig | undefined {
+  const rows = parseCsv(text).filter((r) => r.length >= 2 && r[0] === "config");
+  if (rows.length === 0) return undefined;
+  try {
+    return sanitizeFieldVisibility(JSON.parse(rows[0][1]));
+  } catch {
+    return undefined;
+  }
+}
+
 // --- Project metadata encoder / decoder --------------------------------------
 //
 // ProjectMeta is a SINGLE object (like ProjectStatus), so it serializes as a
@@ -953,6 +976,11 @@ export function workspaceToCsv(ws: Workspace, config?: ExportConfig): string {
   // in later). Emitted last so a no-project workspace's bytes are an exact
   // prefix of a with-project one. Only when a project is present.
   if (config === undefined && ws.project) csvPush(CSV_SECTION_PROJECT, projectToCsv(ws.project, neutralize));
+  // Field-visibility — storage-only, NOT a user-exportable section. Gated only
+  // on the value being present so an empty/undefined config emits nothing and
+  // the byte-stable storage round-trip is preserved.
+  if (ws.fieldVisibility && Object.keys(ws.fieldVisibility).length > 0)
+    csvPush(CSV_SECTION_FIELD_VIS, fieldVisibilityToCsv(ws.fieldVisibility, neutralize));
   return parts.join("\r\n");
 }
 
@@ -1037,9 +1065,10 @@ function splitCsvSections(csv: string): {
   changesText: string;
   stakeholdersText: string;
   projectText: string;
+  fieldVisText: string;
 } {
   const lines = csv.split(/\r?\n/);
-  let mode: "tasks" | "raid" | "absences" | "shifts" | "resources" | "roles" | "disciplines" | "grades" | "plan" | "budgets" | "fxrates" | "status" | "milestones" | "changes" | "stakeholders" | "project" | null = null;
+  let mode: "tasks" | "raid" | "absences" | "shifts" | "resources" | "roles" | "disciplines" | "grades" | "plan" | "budgets" | "fxrates" | "status" | "milestones" | "changes" | "stakeholders" | "project" | "fieldVis" | null = null;
   const tasksLines: string[] = [];
   const raidLines: string[] = [];
   const absencesLines: string[] = [];
@@ -1056,6 +1085,7 @@ function splitCsvSections(csv: string): {
   const changesLines: string[] = [];
   const stakeholdersLines: string[] = [];
   const projectLines: string[] = [];
+  const fieldVisLines: string[] = [];
   for (const line of lines) {
     const trimmed = line.trimStart();
     if (trimmed.startsWith(CSV_SECTION_BUDGETS)) { mode = "budgets"; continue; }
@@ -1069,6 +1099,7 @@ function splitCsvSections(csv: string): {
     if (trimmed.startsWith(CSV_SECTION_RAID)) { mode = "raid"; continue; }
     if (trimmed.startsWith(CSV_SECTION_ABSENCES)) { mode = "absences"; continue; }
     if (trimmed.startsWith(CSV_SECTION_SHIFTS)) { mode = "shifts"; continue; }
+    if (trimmed.startsWith(CSV_SECTION_FIELD_VIS)) { mode = "fieldVis"; continue; }
     if (trimmed.startsWith(CSV_SECTION_PROJECT)) { mode = "project"; continue; }
     if (trimmed.startsWith(CSV_SECTION_STATUS)) { mode = "status"; continue; }
     if (trimmed.startsWith(CSV_SECTION_MILESTONES)) { mode = "milestones"; continue; }
@@ -1090,6 +1121,7 @@ function splitCsvSections(csv: string): {
     else if (mode === "changes") changesLines.push(line);
     else if (mode === "stakeholders") stakeholdersLines.push(line);
     else if (mode === "project") projectLines.push(line);
+    else if (mode === "fieldVis") fieldVisLines.push(line);
     // (else: line before the first marker — drop it.)
   }
   return {
@@ -1109,6 +1141,7 @@ function splitCsvSections(csv: string): {
     changesText: changesLines.join("\r\n"),
     stakeholdersText: stakeholdersLines.join("\r\n"),
     projectText: projectLines.join("\r\n"),
+    fieldVisText: fieldVisLines.join("\r\n"),
   };
 }
 
@@ -1361,6 +1394,10 @@ export function csvToWorkspace(csv: string): Workspace {
   };
   const project = s.projectText.trim() ? csvToProject(s.projectText) : null;
   if (project) ws.project = project;
+  if (s.fieldVisText.trim()) {
+    const fv = csvToFieldVisibility(s.fieldVisText);
+    if (fv) ws.fieldVisibility = fv;
+  }
   return migrateWorkspaceV9(ws);
 }
 
