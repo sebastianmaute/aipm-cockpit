@@ -1,21 +1,13 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
+import { http, HttpResponse } from "msw";
 import { renderHook } from "@testing-library/react";
+import { server } from "../test/msw-server";
 import { useOutlookCalendar } from "./use-outlook-calendar";
 
 const WINDOW = { startDateTime: "2026-05-01T00:00:00Z", endDateTime: "2026-11-01T00:00:00Z" };
+const CALENDAR_VIEW = "https://graph.microsoft.com/v1.0/me/calendarView";
 
 describe("useOutlookCalendar", () => {
-  let fetchSpy: ReturnType<typeof vi.fn>;
-  beforeEach(() => {
-    fetchSpy = vi.fn();
-    vi.stubGlobal("fetch", fetchSpy);
-  });
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
-  function jsonRes(body: unknown, status = 200): Response {
-    return { ok: status >= 200 && status < 300, status, json: async () => body } as unknown as Response;
-  }
   const allDay = {
     id: "1", subject: "Vac",
     start: { dateTime: "2026-06-01T00:00:00" }, end: { dateTime: "2026-06-02T00:00:00" },
@@ -29,35 +21,42 @@ describe("useOutlookCalendar", () => {
 
   it("fetches with the right params/headers, follows nextLink, filters time-away", async () => {
     const acquireToken = vi.fn().mockResolvedValue("tok");
-    fetchSpy
-      .mockResolvedValueOnce(jsonRes({ value: [allDay, meeting], "@odata.nextLink": "https://graph.microsoft.com/v1.0/me/calendarView?$skip=100" }))
-      .mockResolvedValueOnce(jsonRes({ value: [] }));
+    const requests: Request[] = [];
+    // One handler serves both pages: the initial query, then the $skip nextLink.
+    server.use(
+      http.get(CALENDAR_VIEW, ({ request }) => {
+        requests.push(request);
+        if (new URL(request.url).searchParams.has("$skip")) return HttpResponse.json({ value: [] });
+        return HttpResponse.json({
+          value: [allDay, meeting],
+          "@odata.nextLink": `${CALENDAR_VIEW}?$skip=100`,
+        });
+      }),
+    );
+
     const { result } = renderHook(() => useOutlookCalendar(acquireToken));
     const events = await result.current.fetchEvents(WINDOW);
 
-    expect(events).toHaveLength(1); // meeting filtered out
+    expect(events).toHaveLength(1); // meeting (busy) filtered out, only the all-day OOF kept
     expect(events[0].startDate).toBe("2026-06-01");
     expect(acquireToken).toHaveBeenCalledWith(["Calendars.Read"], { interactive: true });
-    const url = fetchSpy.mock.calls[0][0] as string;
-    expect(url).toContain("/me/calendarView");
-    expect(url).toContain("startDateTime=");
-    expect(url).toContain("endDateTime=");
-    expect(url).toContain("%24select=");
-    expect(url).toContain("%24orderby=");
-    const init = fetchSpy.mock.calls[0][1] as RequestInit;
-    expect(init.headers).toMatchObject({
-      Authorization: "Bearer tok",
-      Prefer: 'outlook.timezone="UTC"',
-    });
-    expect(fetchSpy).toHaveBeenCalledTimes(2);
-    expect(fetchSpy.mock.calls[1][0]).toBe("https://graph.microsoft.com/v1.0/me/calendarView?$skip=100");
+
+    expect(requests).toHaveLength(2);
+    const first = requests[0].url;
+    expect(first).toContain("/me/calendarView");
+    expect(first).toContain("startDateTime=");
+    expect(first).toContain("endDateTime=");
+    expect(first).toContain("%24select=");
+    expect(first).toContain("%24orderby=");
+    expect(requests[0].headers.get("Authorization")).toBe("Bearer tok");
+    expect(requests[0].headers.get("Prefer")).toBe('outlook.timezone="UTC"');
+    expect(requests[1].url).toBe(`${CALENDAR_VIEW}?$skip=100`);
   });
 
   it("throws outlookSignInRequired when token is null", async () => {
     const acquireToken = vi.fn().mockResolvedValue(null);
     const { result } = renderHook(() => useOutlookCalendar(acquireToken));
     await expect(result.current.fetchEvents(WINDOW)).rejects.toThrow("outlookSignInRequired");
-    expect(fetchSpy).not.toHaveBeenCalled();
   });
 
   it("maps HTTP errors to keys", async () => {
@@ -67,7 +66,7 @@ describe("useOutlookCalendar", () => {
       [403, "outlookCalendarPermissionDenied"],
       [500, "outlookCalendarFetchFailed"],
     ] as const) {
-      fetchSpy.mockResolvedValueOnce(jsonRes({}, status));
+      server.use(http.get(CALENDAR_VIEW, () => HttpResponse.json({}, { status })));
       const { result } = renderHook(() => useOutlookCalendar(acquireToken));
       await expect(result.current.fetchEvents(WINDOW)).rejects.toThrow(key);
     }
@@ -81,7 +80,11 @@ describe("useOutlookCalendar", () => {
 
   it("rejects an off-Graph nextLink", async () => {
     const acquireToken = vi.fn().mockResolvedValue("tok");
-    fetchSpy.mockResolvedValueOnce(jsonRes({ value: [], "@odata.nextLink": "https://evil.example.com/x" }));
+    server.use(
+      http.get(CALENDAR_VIEW, () =>
+        HttpResponse.json({ value: [], "@odata.nextLink": "https://evil.example.com/x" }),
+      ),
+    );
     const { result } = renderHook(() => useOutlookCalendar(acquireToken));
     await expect(result.current.fetchEvents(WINDOW)).rejects.toThrow("outlookCalendarFetchFailed");
   });

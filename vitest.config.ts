@@ -25,6 +25,8 @@ export default defineConfig({
         "src/**/*.test.{ts,tsx}",
         "src/**/*.spec.{ts,tsx}",
         "src/**/*.d.ts",
+        // Test-only utilities (msw server, fixtures):
+        "src/test/**",
         // Next.js framework boundaries + route glue (E2E/manually verified):
         "src/proxy.ts",
         "src/app/layout.tsx",
