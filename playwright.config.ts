@@ -25,7 +25,16 @@ export default defineConfig({
   },
   projects: [
     {
+      // Functional specs (smoke, app navigation, a11y). This is what CI runs.
       name: "chromium",
+      testIgnore: /visual\.spec\.ts/,
+      use: { ...devices["Desktop Chrome"] },
+    },
+    {
+      // Visual-regression snapshots — opt-in (`npm run e2e:visual`), kept out of
+      // the default run because baselines are per-platform (see visual.spec.ts).
+      name: "visual",
+      testMatch: /visual\.spec\.ts/,
       use: { ...devices["Desktop Chrome"] },
     },
     // Add firefox / webkit later if cross-browser coverage is needed:

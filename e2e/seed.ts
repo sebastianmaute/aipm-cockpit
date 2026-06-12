@@ -104,6 +104,12 @@ export const PRIMARY_VIEWS = [
 
 const NAV_SELECTOR = 'aside a, aside button, nav a, nav button, [role="tab"]';
 
+// Freeze "now" so anything the app derives from the current date (RAG status,
+// due-soon highlighting, "as of …" captions, Gantt today-line / visible window)
+// renders identically on every run — otherwise the a11y and visual specs drift
+// with the calendar date.
+export const FROZEN_NOW = new Date("2026-06-15T09:00:00.000Z");
+
 /**
  * Navigate to the app and wait until the sidebar shell is interactive. The
  * timeout is generous because the FIRST navigation against the dev `webServer`
@@ -111,6 +117,7 @@ const NAV_SELECTOR = 'aside a, aside button, nav a, nav button, [role="tab"]';
  * subsequent in-app navigations are fast.
  */
 export async function gotoApp(page: Page): Promise<void> {
+  await page.clock.install({ time: FROZEN_NOW });
   await page.goto("/");
   await expect(page.locator("main").first()).toBeVisible();
   await page.waitForFunction(

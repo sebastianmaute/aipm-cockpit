@@ -99,9 +99,11 @@ No environment variables are required to run the app — every integration is co
 | `npm run test` | Vitest unit/component tests in watch mode |
 | `npm run test:run` | Vitest, single run (CI-friendly) |
 | `npm run test:coverage` | Vitest + v8 coverage report (fails below 70%) |
-| `npm run e2e` | Playwright E2E suite, headless |
+| `npm run e2e` | Playwright functional E2E (smoke + app nav + a11y), headless — the CI suite |
 | `npm run e2e:ui` | Playwright interactive UI mode |
 | `npm run e2e:smoke` | Standalone smoke driver (scripts/e2e-smoke.mjs): seeds a project, walks every view, fails on any console/page error. Needs a running server |
+| `npm run e2e:visual` | Playwright visual-regression snapshots (opt-in; baselines are per-platform — generate CI's in the Linux container) |
+| `npm run e2e:visual:update` | Regenerate visual snapshot baselines for the current platform |
 | `npm run e2e:install` | One-time: download Chromium browser binary |
 | `npm run docs:scripts` | Regenerate AUTO-GENERATED scripts tables in repo docs from `package.json` |
 | `npm run docs:scripts:check` | Verify AUTO-GENERATED scripts tables are in sync; exit non-zero on drift (CI mode) |

@@ -1379,7 +1379,6 @@ export function GanttPanel({
             return (
               <div
                 key={`m-${m.id}`}
-                role="row"
                 className="relative flex border-b border-line"
                 style={{ height: ROW_HEIGHT_PX }}
               >
