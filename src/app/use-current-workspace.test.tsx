@@ -17,8 +17,27 @@ describe("useCurrentWorkspace", () => {
   it("returns a builder that assembles a full Workspace snapshot", () => {
     const { result } = renderHook(() => useCurrentWorkspace(), { wrapper });
     const ws = result.current();
-    expect(ws).toHaveProperty("tasks");
-    expect(ws).toHaveProperty("fieldVisibility");
+    expect(Object.keys(ws).sort()).toEqual(
+      [
+        "absences",
+        "budgets",
+        "changes",
+        "disciplines",
+        "fieldVisibility",
+        "fxRates",
+        "grades",
+        "milestones",
+        "plan",
+        "project",
+        "raid",
+        "resources",
+        "roles",
+        "shifts",
+        "stakeholders",
+        "status",
+        "tasks",
+      ].sort(),
+    );
     expect(Array.isArray(ws.tasks)).toBe(true);
   });
 });
