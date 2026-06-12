@@ -29,9 +29,7 @@ export function complexityScore(meta: ProjectMeta): { score: number; reasons: Su
 
   const team =
     (meta.keyStakeholdersInternal?.length ?? 0) +
-    (meta.keyStakeholdersExternal?.length ?? 0) +
-    (meta.sponsor?.trim() ? 1 : 0) +
-    (meta.projectManager?.trim() ? 1 : 0);
+    (meta.keyStakeholdersExternal?.length ?? 0);
   if (team >= TEAM_LARGE) { score += 2; reasons.push({ key: "suggestSignalTeam", args: [team] }); }
   else if (team >= TEAM_MID) { score += 1; reasons.push({ key: "suggestSignalTeam", args: [team] }); }
 

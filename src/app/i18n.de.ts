@@ -462,7 +462,7 @@ export const de: Record<TranslationKey, string> = {
   suggestSignalDeployment: "Betrieb: {0}",
   suggestSignalDuration: "{0}-Monats-Laufzeit",
   suggestSignalScale: "große Nutzerbasis",
-  suggestSignalLimited: "wenig Infos -- einfach starten",
+  suggestSignalLimited: "wenig Infos — einfach starten",
 
   exportTitle: "Aufgaben exportieren",
   exportSubtitle:

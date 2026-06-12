@@ -41,6 +41,11 @@ describe("complexityScore", () => {
     expect(complexityScore(meta({ identityCount: 5000 })).score).toBe(1);
     expect(complexityScore(meta({ identityCount: 10 })).score).toBe(0);
   });
+  it("PM + sponsor set but 0 stakeholders → score 0 (mandatory roles are not a size signal)", () => {
+    const s = complexityScore(meta({ projectManager: "Alice", sponsor: "Bob" }));
+    expect(s.score).toBe(0);
+    expect(s.reasons).toEqual([]);
+  });
 });
 
 describe("suggestTemplate", () => {

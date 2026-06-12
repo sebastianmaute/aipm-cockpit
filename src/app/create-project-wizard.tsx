@@ -239,13 +239,15 @@ export function CreateProjectWizard({
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-medium text-foreground">{tpl.name}</span>
-                    {suggestion?.templateId === tpl.id && (
-                      <span className="rounded-full bg-AIPM-dark-blue px-2 py-0.5 text-xs font-semibold text-white">
-                        {t(lang, "templateSuggested")}
+                    <span className="flex items-center gap-1">
+                      {suggestion?.templateId === tpl.id && (
+                        <span className="rounded-full bg-AIPM-dark-blue px-2 py-0.5 text-xs font-semibold text-white">
+                          {t(lang, "templateSuggested")}
+                        </span>
+                      )}
+                      <span className="rounded-full bg-AIPM-green/15 px-2 py-0.5 text-xs font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
+                        {t(lang, MODE_LABEL_KEY[tplMode])}
                       </span>
-                    )}
-                    <span className="rounded-full bg-AIPM-green/15 px-2 py-0.5 text-xs font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
-                      {t(lang, MODE_LABEL_KEY[tplMode])}
                     </span>
                   </div>
                   {tpl.description && (
