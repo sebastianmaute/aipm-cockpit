@@ -17,6 +17,8 @@ import { CharCounter, useAdjustmentTracker } from "./field-feedback";
 import { describeTextCap } from "./sanitize-report";
 import { ASSIGNEE_MAX, EMAIL_MAX } from "./sanitize";
 import { useToastContext } from "./toast-context";
+import { ModalFieldControls } from "./modal-field-controls";
+import { useModalVisibility } from "./use-modal-visibility";
 
 interface Props {
   lang: Lang;
@@ -67,6 +69,7 @@ export function ResourceEditModal({
 
   const showToast = useToastContext();
   const adj = useAdjustmentTracker();
+  const { isVisible } = useModalVisibility("resource");
 
   const { offset, handleProps } = useDraggable(draft !== null);
 
@@ -132,6 +135,10 @@ export function ResourceEditModal({
           dragHandleProps={handleProps}
         />
 
+        <div className="flex justify-end border-b border-line px-4 py-2">
+          <ModalFieldControls modalId="resource" lang={lang} />
+        </div>
+
         <form
           onSubmit={handleSubmit}
           className="grid grid-cols-1 gap-4 overflow-y-auto p-5 sm:grid-cols-2"
@@ -169,137 +176,153 @@ export function ResourceEditModal({
           </label>
 
           {/* Job title */}
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-foreground">
-              {t(lang, "resourceJobTitle")}
-            </span>
-            <input
-              type="text"
-              value={draft.title ?? ""}
-              onChange={(e) => update("title", e.target.value || undefined)}
-              className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
-            />
-          </label>
-
-          {/* Company */}
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-foreground">
-              {t(lang, "resourceCompany")}
-            </span>
-            <input
-              type="text"
-              value={draft.company ?? ""}
-              onChange={(e) => update("company", e.target.value || undefined)}
-              className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
-            />
-          </label>
-
-          {/* Department */}
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-foreground">
-              {t(lang, "resourceDepartment")}
-            </span>
-            <input
-              type="text"
-              value={draft.department ?? ""}
-              onChange={(e) => update("department", e.target.value || undefined)}
-              className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
-            />
-          </label>
-
-          {/* Location */}
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-foreground">
-              {t(lang, "resourceLocation")}
-            </span>
-            <input
-              type="text"
-              value={draft.location ?? ""}
-              onChange={(e) => update("location", e.target.value || undefined)}
-              className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
-            />
-          </label>
-
-          {/* Business phone */}
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-foreground">
-              {t(lang, "resourcePhone")}
-            </span>
-            <input
-              type="tel"
-              value={draft.businessPhone ?? ""}
-              onChange={(e) =>
-                update("businessPhone", e.target.value || undefined)
-              }
-              className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
-            />
-          </label>
-
-          {/* Email */}
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-foreground">
-              {t(lang, "resourceEmail")}
-            </span>
-            <input
-              type="email"
-              value={draft.email ?? ""}
-              onChange={(e) => update("email", e.target.value || undefined)}
-              onBlur={(e) => {
-                const trimmed = describeTextCap(e.target.value, EMAIL_MAX).value.trim();
-                update("email", trimmed || undefined);
-              }}
-              aria-describedby="resource-email-counter"
-              className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
-            />
-            <CharCounter value={draft.email ?? ""} max={EMAIL_MAX} id="resource-email-counter" lang={lang} />
-          </label>
-
-          {/* Birthday — native date picker with optional year */}
-          <div className="flex flex-col gap-1 text-sm sm:col-span-2">
-            <span className="font-medium text-foreground">
-              {t(lang, "resourceBirthday")}
-            </span>
-            <div className="flex flex-wrap items-center gap-3">
+          {isVisible("jobTitle") && (
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="font-medium text-foreground">
+                {t(lang, "resourceJobTitle")}
+              </span>
               <input
-                type="date"
-                value={birthdayToInput(draft.birthday)}
-                onChange={(e) => update("birthday", inputToBirthday(e.target.value, yearUnknown))}
-                aria-label={t(lang, "resourceBirthday")}
+                type="text"
+                value={draft.title ?? ""}
+                onChange={(e) => update("title", e.target.value || undefined)}
                 className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
               />
-              <label className="flex items-center gap-1.5 text-sm text-foreground">
+            </label>
+          )}
+
+          {/* Company */}
+          {isVisible("company") && (
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="font-medium text-foreground">
+                {t(lang, "resourceCompany")}
+              </span>
+              <input
+                type="text"
+                value={draft.company ?? ""}
+                onChange={(e) => update("company", e.target.value || undefined)}
+                className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
+              />
+            </label>
+          )}
+
+          {/* Department */}
+          {isVisible("department") && (
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="font-medium text-foreground">
+                {t(lang, "resourceDepartment")}
+              </span>
+              <input
+                type="text"
+                value={draft.department ?? ""}
+                onChange={(e) => update("department", e.target.value || undefined)}
+                className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
+              />
+            </label>
+          )}
+
+          {/* Location */}
+          {isVisible("location") && (
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="font-medium text-foreground">
+                {t(lang, "resourceLocation")}
+              </span>
+              <input
+                type="text"
+                value={draft.location ?? ""}
+                onChange={(e) => update("location", e.target.value || undefined)}
+                className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
+              />
+            </label>
+          )}
+
+          {/* Business phone */}
+          {isVisible("businessPhone") && (
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="font-medium text-foreground">
+                {t(lang, "resourcePhone")}
+              </span>
+              <input
+                type="tel"
+                value={draft.businessPhone ?? ""}
+                onChange={(e) =>
+                  update("businessPhone", e.target.value || undefined)
+                }
+                className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
+              />
+            </label>
+          )}
+
+          {/* Email */}
+          {isVisible("email") && (
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="font-medium text-foreground">
+                {t(lang, "resourceEmail")}
+              </span>
+              <input
+                type="email"
+                value={draft.email ?? ""}
+                onChange={(e) => update("email", e.target.value || undefined)}
+                onBlur={(e) => {
+                  const trimmed = describeTextCap(e.target.value, EMAIL_MAX).value.trim();
+                  update("email", trimmed || undefined);
+                }}
+                aria-describedby="resource-email-counter"
+                className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
+              />
+              <CharCounter value={draft.email ?? ""} max={EMAIL_MAX} id="resource-email-counter" lang={lang} />
+            </label>
+          )}
+
+          {/* Birthday — native date picker with optional year */}
+          {isVisible("birthday") && (
+            <div className="flex flex-col gap-1 text-sm sm:col-span-2">
+              <span className="font-medium text-foreground">
+                {t(lang, "resourceBirthday")}
+              </span>
+              <div className="flex flex-wrap items-center gap-3">
                 <input
-                  type="checkbox"
-                  checked={yearUnknown}
-                  onChange={(e) => {
-                    const checked = e.target.checked;
-                    setYearUnknown(checked);
-                    // Re-normalize from the pending draft (not the render snapshot).
-                    setDraft((prev) =>
-                      prev
-                        ? { ...prev, birthday: inputToBirthday(birthdayToInput(prev.birthday), checked) }
-                        : prev,
-                    );
-                    setError(null);
-                  }}
+                  type="date"
+                  value={birthdayToInput(draft.birthday)}
+                  onChange={(e) => update("birthday", inputToBirthday(e.target.value, yearUnknown))}
+                  aria-label={t(lang, "resourceBirthday")}
+                  className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
                 />
-                {t(lang, "resourceBirthdayYearUnknown")}
-              </label>
+                <label className="flex items-center gap-1.5 text-sm text-foreground">
+                  <input
+                    type="checkbox"
+                    checked={yearUnknown}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setYearUnknown(checked);
+                      // Re-normalize from the pending draft (not the render snapshot).
+                      setDraft((prev) =>
+                        prev
+                          ? { ...prev, birthday: inputToBirthday(birthdayToInput(prev.birthday), checked) }
+                          : prev,
+                      );
+                      setError(null);
+                    }}
+                  />
+                  {t(lang, "resourceBirthdayYearUnknown")}
+                </label>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Notes — full width textarea */}
-          <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-            <span className="font-medium text-foreground">
-              {t(lang, "resourceNotes")}
-            </span>
-            <textarea
-              rows={3}
-              value={draft.notes ?? ""}
-              onChange={(e) => update("notes", e.target.value || undefined)}
-              className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
-            />
-          </label>
+          {isVisible("notes") && (
+            <label className="flex flex-col gap-1 text-sm sm:col-span-2">
+              <span className="font-medium text-foreground">
+                {t(lang, "resourceNotes")}
+              </span>
+              <textarea
+                rows={3}
+                value={draft.notes ?? ""}
+                onChange={(e) => update("notes", e.target.value || undefined)}
+                className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
+              />
+            </label>
+          )}
 
           {error && (
             <p className="text-sm text-AIPM-pink sm:col-span-2">

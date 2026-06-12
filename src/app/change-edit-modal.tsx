@@ -24,6 +24,8 @@ import {
   type Task,
 } from "./types";
 import { useDraggable } from "./use-draggable";
+import { ModalFieldControls } from "./modal-field-controls";
+import { useModalVisibility } from "./use-modal-visibility";
 import { CharCounter, FieldNotice, useAdjustmentTracker } from "./field-feedback";
 import { describeTextCap, describeClamp } from "./sanitize-report";
 import { BUDGET_NAME_MAX, TEXTAREA_MAX, AMOUNT_MAX } from "./sanitize";
@@ -91,6 +93,7 @@ export function ChangeEditModal({
   onDelete,
 }: ChangeEditModalProps) {
   const showToast = useToastContext();
+  const { isVisible } = useModalVisibility("change");
   const [error, setError] = useState<string | null>(null);
   const [taskPickerQuery, setTaskPickerQuery] = useState("");
   const [raidPickerQuery, setRaidPickerQuery] = useState("");
@@ -225,6 +228,10 @@ export function ChangeEditModal({
           dragHandleProps={handleProps}
         />
 
+        <div className="flex justify-end border-b border-line px-4 py-2">
+          <ModalFieldControls modalId="change" lang={lang} />
+        </div>
+
         <form
           onSubmit={handleSubmit}
           className="grid grid-cols-1 gap-4 overflow-y-auto p-6 sm:grid-cols-2"
@@ -247,6 +254,7 @@ export function ChangeEditModal({
           </label>
 
           {/* Type */}
+          {isVisible("type") && (
           <label className="flex flex-col gap-1 text-sm">
             <span className="font-medium text-foreground">
               {t(lang, "changeFieldType")}
@@ -264,8 +272,10 @@ export function ChangeEditModal({
               ))}
             </select>
           </label>
+          )}
 
           {/* Status */}
+          {isVisible("status") && (
           <label className="flex flex-col gap-1 text-sm">
             <span className="font-medium text-foreground">
               {t(lang, "changeFieldStatus")}
@@ -283,8 +293,10 @@ export function ChangeEditModal({
               ))}
             </select>
           </label>
+          )}
 
           {/* Description */}
+          {isVisible("description") && (
           <label className="flex flex-col gap-1 text-sm sm:col-span-2">
             <span className="font-medium text-foreground">
               {t(lang, "changeFieldDescription")}
@@ -299,8 +311,10 @@ export function ChangeEditModal({
             />
             <CharCounter value={draft.description ?? ""} max={TEXTAREA_MAX} id="change-description-counter" lang={lang} />
           </label>
+          )}
 
-          {/* Impact */}
+          {/* Impact (level — part of the `impact` field group) */}
+          {isVisible("impact") && (
           <label className="flex flex-col gap-1 text-sm">
             <span className="font-medium text-foreground">
               {t(lang, "changeFieldImpact")}
@@ -326,8 +340,10 @@ export function ChangeEditModal({
               ))}
             </select>
           </label>
+          )}
 
           {/* Requested by */}
+          {isVisible("requestor") && (
           <label className="flex flex-col gap-1 text-sm">
             <span className="font-medium text-foreground">
               {t(lang, "changeFieldRequestedBy")}
@@ -347,8 +363,10 @@ export function ChangeEditModal({
             />
             <CharCounter value={draft.requestedBy ?? ""} max={BUDGET_NAME_MAX} id="change-requestedBy-counter" lang={lang} />
           </label>
+          )}
 
-          {/* Impact description */}
+          {/* Impact description (part of the `impact` field group) */}
+          {isVisible("impact") && (
           <label className="flex flex-col gap-1 text-sm sm:col-span-2">
             <span className="font-medium text-foreground">
               {t(lang, "changeFieldImpactDescription")}
@@ -365,8 +383,10 @@ export function ChangeEditModal({
             />
             <CharCounter value={draft.impactDescription ?? ""} max={TEXTAREA_MAX} id="change-impactDescription-counter" lang={lang} />
           </label>
+          )}
 
-          {/* Schedule impact (days) */}
+          {/* Schedule impact (days — part of the `deltas` field group) */}
+          {isVisible("deltas") && (
           <label className="flex flex-col gap-1 text-sm">
             <span className="font-medium text-foreground">
               {t(lang, "changeFieldScheduleImpact")}
@@ -394,8 +414,10 @@ export function ChangeEditModal({
             />
             <FieldNotice id={scheduleNoticeId}>{notice.scheduleImpactDays}</FieldNotice>
           </label>
+          )}
 
-          {/* Cost impact */}
+          {/* Cost impact (part of the `deltas` field group) */}
+          {isVisible("deltas") && (
           <label className="flex flex-col gap-1 text-sm">
             <span className="font-medium text-foreground">
               {t(lang, "changeFieldCostImpact")}
@@ -423,8 +445,9 @@ export function ChangeEditModal({
             />
             <FieldNotice id={costNoticeId}>{notice.costImpact}</FieldNotice>
           </label>
+          )}
 
-          {/* Raised date */}
+          {/* Raised date — no registry id; always rendered. */}
           <label className="flex flex-col gap-1 text-sm">
             <span className="font-medium text-foreground">
               {t(lang, "changeFieldRaisedDate")}
@@ -459,7 +482,7 @@ export function ChangeEditModal({
           </label>
 
           {/* Decision date — read-only display when set (auto-filled by status). */}
-          {draft.decisionDate && (
+          {isVisible("decisionDate") && draft.decisionDate && (
             <div className="flex flex-col gap-1 text-sm">
               <span className="font-medium text-foreground">
                 {t(lang, "changeFieldDecisionDate")}
@@ -498,8 +521,8 @@ export function ChangeEditModal({
             />
           </label>
 
-          {/* Linked tasks --------------------------------------------- */}
-          <div className="sm:col-span-2">
+          {/* Linked tasks (part of the `links` field group) ----------- */}
+          {isVisible("links") && <div className="sm:col-span-2">
             <span className="mb-2 block text-sm font-medium text-foreground">
               {t(lang, "changeFieldLinkedTasks")}
             </span>
@@ -558,10 +581,10 @@ export function ChangeEditModal({
                 </ul>
               )}
             </div>
-          </div>
+          </div>}
 
-          {/* Linked RAID items ---------------------------------------- */}
-          {raidEnabled && <div className="sm:col-span-2">
+          {/* Linked RAID items (part of the `links` field group) ------ */}
+          {isVisible("links") && raidEnabled && <div className="sm:col-span-2">
             <span className="mb-2 block text-sm font-medium text-foreground">
               {t(lang, "changeFieldLinkedRaid")}
             </span>
@@ -622,8 +645,8 @@ export function ChangeEditModal({
             </div>
           </div>}
 
-          {/* Stakeholders ------------------------------------------- */}
-          {stakeholdersEnabled && (
+          {/* Stakeholders (part of the `links` field group) --------- */}
+          {isVisible("links") && stakeholdersEnabled && (
             <div className="sm:col-span-2">
               <span className="mb-2 block text-sm font-medium text-foreground">
                 {t(lang, "fieldStakeholders")}

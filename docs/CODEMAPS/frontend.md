@@ -338,3 +338,18 @@ URL hash (`#gantt`, `#raid`, etc.) drives the active view in modern mode via
 | `use-sharepoint-browser.ts` | Hook encapsulating Graph site-search + drive/folder navigation state for the picker modal | Pure hook, no JSX |
 
 The gated field is embedded in the task editor (`task-edit-view.tsx` / `task-form-modal.tsx`), RAID editor (`raid-edit-modal.tsx`), change editor (`change-edit-modal.tsx`), stakeholder editor (`stakeholder-edit-modal.tsx`), milestone editor (`milestone-edit-modal.tsx`), and project form (`project-edit-form.tsx`).
+
+## Modal field visibility (Simple / Advanced / Full)
+
+Per-modal field-visibility tiers let users hide rarely-used fields in the 8 edit
+modals (task, RAID, change, milestone, stakeholder, resource, absence, budget).
+Config is persisted per-project on `Workspace.fieldVisibility`; the default tier
+is **Advanced** (`undefined` config resolves to it). Required/validated fields are
+always shown and locked.
+
+| Module | Description | Notes |
+|--------|-------------|-------|
+| `modal-fields.ts` | Registry: `MODAL_FIELDS` (per-modal field list with `id`/`labelKey`/`tier`/`required`), `MODAL_IDS`, `ModalId` / `FieldTier` types | Pure; tiers nest (simple ⊂ advanced ⊂ full); required fields are pinned to the simple tier |
+| `field-visibility.ts` | Pure resolver: `applyTier`, `tierFields`, `visibleFields`, `toggleField`, `tierOf`, `sanitizeFieldVisibility` over a `FieldVisibilityConfig`; `DEFAULT_TIER = "advanced"` | Pure; byte-stable serialization (registry order); sanitize re-adds required ids + drops unknowns |
+| `use-modal-visibility.ts` | `useModalVisibility(modalId) → { mode, isVisible, setMode, toggleField, reset }` hook over `Workspace.fieldVisibility` | Client hook |
+| `modal-field-controls.tsx` | Header control: Simple/Advanced/Full tier switch + a cog popover (per-field checklist; required fields locked) | Component; rendered by each of the 8 edit modals |

@@ -222,3 +222,20 @@ describe("stakeholders turso table", () => {
     expect(back.stakeholders![0].resourceId).toBe(4);
   });
 });
+
+describe("turso fieldVisibility (meta KV)", () => {
+  it("marks meta dirty when fieldVisibility changes by reference", () => {
+    const a = emptyWorkspace();
+    const b = { ...a, fieldVisibility: { task: { fields: ["taskName"] } } };
+    expect(dirtyWorkspaceTables(a, b).has("meta")).toBe(true);
+  });
+
+  it("full round-trip restores fieldVisibility via rowsToWorkspace", () => {
+    const ws = {
+      ...emptyWorkspace(),
+      fieldVisibility: { task: { fields: ["taskName", "assignee"] } },
+    };
+    const back = rowsToWorkspace(resultsFromStatements(workspaceToStatements(ws)));
+    expect(back.fieldVisibility?.task.fields).toEqual(["taskName", "assignee"]);
+  });
+});

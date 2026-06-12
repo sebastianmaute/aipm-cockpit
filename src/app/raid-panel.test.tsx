@@ -8,6 +8,8 @@ import { RaidPanel } from "./raid-panel";
 import type { RaidPanelProps } from "./raid-panel";
 import type { RaidItem, Resource, Stakeholder } from "./types";
 import { WorkspaceTabProvider, useWorkspaceTab } from "./workspace-tab-context";
+import { FiltersProvider } from "./filters-context";
+import { WorkspaceProvider } from "./workspace-context";
 
 vi.mock("./use-settings", () => ({
   useSettings: () => ({
@@ -63,13 +65,18 @@ function res(overrides: Partial<Resource> & Pick<Resource, "id" | "firstName" | 
 
 // --- helpers ---------------------------------------------------------------
 
-// RaidPanel consumes the workspace-tab context (for deep-link open), so every
-// render must be wrapped in WorkspaceTabProvider — exactly as the real app does.
+// RaidPanel consumes the workspace-tab context (for deep-link open) and the
+// edit modal's field-visibility controls read the Workspace/Filters contexts,
+// so every render must be wrapped — exactly as the real app does.
 function renderPanel(props: RaidPanelProps) {
   return render(
-    <WorkspaceTabProvider>
-      <RaidPanel {...props} />
-    </WorkspaceTabProvider>,
+    <FiltersProvider>
+      <WorkspaceProvider>
+        <WorkspaceTabProvider>
+          <RaidPanel {...props} />
+        </WorkspaceTabProvider>
+      </WorkspaceProvider>
+    </FiltersProvider>,
   );
 }
 
@@ -219,10 +226,14 @@ describe("RaidPanel deep-link open", () => {
       );
     }
     render(
-      <WorkspaceTabProvider>
-        <Trigger />
-        <RaidPanel {...makeProps({ raid })} />
-      </WorkspaceTabProvider>,
+      <FiltersProvider>
+        <WorkspaceProvider>
+          <WorkspaceTabProvider>
+            <Trigger />
+            <RaidPanel {...makeProps({ raid })} />
+          </WorkspaceTabProvider>
+        </WorkspaceProvider>
+      </FiltersProvider>,
     );
 
     // Modal closed initially.
@@ -247,6 +258,9 @@ describe("RaidPanel — stakeholders", () => {
     const raid: RaidItem[] = [makeRaidItem({ id: 1, title: "Risk one", severity: "High" })];
     renderPanel(makeProps({ raid, onSave, stakeholdersEnabled: true, stakeholders: [sh(3, "Dana"), sh(7, "Lee")] }));
     fireEvent.click(screen.getByText("Risk one"));
+    // Linked stakeholders is a Full-only field; the modal defaults to Advanced,
+    // so switch the tier control to Full to reveal the stakeholder picker.
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "fieldViewFull") }));
     fireEvent.click(screen.getByLabelText("Dana"));
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "raidSave") }));
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ stakeholderIds: [3] }));

@@ -17,6 +17,8 @@ import { AssigneeField, ModalEditFooter } from "./modal-edit-fields";
 import { SegmentedControl } from "./segmented-control";
 import { useDraggable } from "./use-draggable";
 import { ABSENCE_TYPES, type Absence, type AbsenceType } from "./types";
+import { ModalFieldControls } from "./modal-field-controls";
+import { useModalVisibility } from "./use-modal-visibility";
 
 interface Props {
   lang: Lang;
@@ -47,6 +49,8 @@ export function AbsenceEditModal({
   const [prevAbsence, setPrevAbsence] = useState(absence);
   const [draft, setDraft] = useState<Absence | null>(absence);
   const [error, setError] = useState<string | null>(null);
+
+  const { isVisible } = useModalVisibility("absence");
 
   if (prevAbsence !== absence) {
     setPrevAbsence(absence);
@@ -123,10 +127,15 @@ export function AbsenceEditModal({
           dragHandleProps={handleProps}
         />
 
+        <div className="flex justify-end border-b border-line px-4 py-2">
+          <ModalFieldControls modalId="absence" lang={lang} />
+        </div>
+
         <form
           onSubmit={handleSubmit}
           className="grid grid-cols-1 gap-4 overflow-y-auto p-5 sm:grid-cols-2"
         >
+          {/* Assignee (required) + optional email (Full-only via `email`). */}
           <AssigneeField
             datalistId={DATALIST_ID}
             assignee={draft.assignee}
@@ -137,70 +146,80 @@ export function AbsenceEditModal({
             assigneeLabel={t(lang, "absenceAssignee")}
             assigneeEmailLabel={t(lang, "absenceAssigneeEmail")}
             assigneePlaceholder={t(lang, "absencePlaceholderAssignee")}
+            showEmail={isVisible("email")}
           />
 
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-foreground">
-              {t(lang, "absenceStart")} *
-            </span>
-            <input
-              type="date"
-              required
-              value={draft.startDate}
-              onChange={(e) => update("startDate", e.target.value)}
-              className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
-            />
-          </label>
+          {/* Start + end dates (grouped under the `dates` id). */}
+          {isVisible("dates") && (
+            <>
+              <label className="flex flex-col gap-1 text-sm">
+                <span className="font-medium text-foreground">
+                  {t(lang, "absenceStart")} *
+                </span>
+                <input
+                  type="date"
+                  required
+                  value={draft.startDate}
+                  onChange={(e) => update("startDate", e.target.value)}
+                  className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
+                />
+              </label>
 
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-foreground">
-              {t(lang, "absenceEnd")} *
-            </span>
-            <input
-              type="date"
-              required
-              value={draft.endDate}
-              onChange={(e) => update("endDate", e.target.value)}
-              className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
-            />
-          </label>
+              <label className="flex flex-col gap-1 text-sm">
+                <span className="font-medium text-foreground">
+                  {t(lang, "absenceEnd")} *
+                </span>
+                <input
+                  type="date"
+                  required
+                  value={draft.endDate}
+                  onChange={(e) => update("endDate", e.target.value)}
+                  className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
+                />
+              </label>
+            </>
+          )}
 
-          <div className="flex flex-col gap-1 text-sm sm:col-span-2">
-            <span className="font-medium text-foreground">
-              {t(lang, "absenceType")}
-            </span>
-            <SegmentedControl<AbsenceType>
-              value={draft.type}
-              ariaLabel={t(lang, "absenceType")}
-              options={ABSENCE_TYPES.map((tp) => ({
-                value: tp,
-                label:
-                  tp === "vacation"
-                    ? t(lang, "absenceTypeVacation")
-                    : tp === "sick"
-                      ? t(lang, "absenceTypeSick")
-                      : tp === "training"
-                        ? t(lang, "absenceTypeTraining")
-                        : t(lang, "absenceTypeOther"),
-              }))}
-              onChange={(tp) => update("type", tp)}
-            />
-          </div>
+          {isVisible("type") && (
+            <div className="flex flex-col gap-1 text-sm sm:col-span-2">
+              <span className="font-medium text-foreground">
+                {t(lang, "absenceType")}
+              </span>
+              <SegmentedControl<AbsenceType>
+                value={draft.type}
+                ariaLabel={t(lang, "absenceType")}
+                options={ABSENCE_TYPES.map((tp) => ({
+                  value: tp,
+                  label:
+                    tp === "vacation"
+                      ? t(lang, "absenceTypeVacation")
+                      : tp === "sick"
+                        ? t(lang, "absenceTypeSick")
+                        : tp === "training"
+                          ? t(lang, "absenceTypeTraining")
+                          : t(lang, "absenceTypeOther"),
+                }))}
+                onChange={(tp) => update("type", tp)}
+              />
+            </div>
+          )}
 
-          <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-            <span className="font-medium text-foreground">
-              {t(lang, "absenceNote")}
-            </span>
-            <textarea
-              rows={2}
-              value={draft.note ?? ""}
-              onChange={(e) =>
-                update("note", e.target.value || undefined)
-              }
-              placeholder={t(lang, "absencePlaceholderNote")}
-              className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
-            />
-          </label>
+          {isVisible("note") && (
+            <label className="flex flex-col gap-1 text-sm sm:col-span-2">
+              <span className="font-medium text-foreground">
+                {t(lang, "absenceNote")}
+              </span>
+              <textarea
+                rows={2}
+                value={draft.note ?? ""}
+                onChange={(e) =>
+                  update("note", e.target.value || undefined)
+                }
+                placeholder={t(lang, "absencePlaceholderNote")}
+                className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
+              />
+            </label>
+          )}
 
           {error && (
             <p className="sm:col-span-2 text-sm text-AIPM-pink">

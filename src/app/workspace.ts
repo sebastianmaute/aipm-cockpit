@@ -13,6 +13,7 @@ import {
   seedDisciplines,
   seedGrades,
 } from "./resource-foundation";
+import { sanitizeFieldVisibility, type FieldVisibilityConfig } from "./field-visibility";
 import {
   sanitizeAbsence,
   sanitizeBudgetBucket,
@@ -84,6 +85,10 @@ export type Workspace = {
    *  optional: a workspace with `project === undefined` serializes byte-for-byte
    *  as it did before this field existed (no project block is emitted). */
   project?: Readonly<ProjectMeta>;
+  /** Per-project modal field-visibility config. Optional & additive: when
+   *  undefined a workspace serializes byte-for-byte as before (no JSON key),
+   *  and every modal falls back to its Advanced default. */
+  fieldVisibility?: Readonly<FieldVisibilityConfig>;
 };
 
 const SCHEMA_VERSION = 11;
@@ -258,6 +263,9 @@ export function workspaceToJson(ws: Workspace): string {
       // Additive: only present when a project is set, so legacy/no-project files
       // stay free of a `project` key.
       ...(ws.project ? { project: ws.project } : {}),
+      // Additive: only present when configured, so legacy files stay free of a
+      // `fieldVisibility` key.
+      ...(ws.fieldVisibility ? { fieldVisibility: ws.fieldVisibility } : {}),
     },
     null,
     2,
@@ -313,6 +321,10 @@ export function jsonToWorkspace(text: string): Workspace {
       const project = sanitizeProjectMeta(p.project);
       if (project) raw.project = project;
     }
+    // Additive: sanitize an incoming field-visibility config when present;
+    // junk sanitizes to undefined and the key stays off.
+    const fieldVisibility = sanitizeFieldVisibility(p.fieldVisibility);
+    if (fieldVisibility) raw.fieldVisibility = fieldVisibility;
     return migrateWorkspaceV9(raw);
   } catch {
     return emptyWorkspace();

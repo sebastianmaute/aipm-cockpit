@@ -7,6 +7,7 @@
 // (which re-exports everything).
 
 import { decodeDocumentLinks } from "./document-link";
+import { sanitizeFieldVisibility, type FieldVisibilityConfig } from "./field-visibility";
 import { defaultResourcePlan } from "./resource-foundation";
 import {
   dropDanglingDependencies,
@@ -204,6 +205,23 @@ export function markdownToStatus(md: string): ProjectStatus {
     if (m) map[m[1]] = m[2].trim();
   }
   return sanitizeProjectStatus(map);
+}
+
+
+/** Serializes the per-project field-visibility config as JSON inside a fenced
+ *  block under "## Field Visibility" (JSON sidesteps Markdown table escaping). */
+export function fieldVisibilityToMarkdown(cfg: FieldVisibilityConfig): string {
+  return ["## Field Visibility", "", "```json", JSON.stringify(cfg, null, 2), "```", ""].join("\n");
+}
+
+export function markdownToFieldVisibility(md: string): FieldVisibilityConfig | undefined {
+  const m = /## Field Visibility\s*\n+```json\s*\n([\s\S]*?)\n```/.exec(md);
+  if (!m) return undefined;
+  try {
+    return sanitizeFieldVisibility(JSON.parse(m[1]));
+  } catch {
+    return undefined;
+  }
 }
 
 
@@ -568,6 +586,10 @@ export function workspaceToMarkdown(ws: Workspace, config?: ExportConfig): strin
   if (config === undefined) mdParts.push(planToMarkdown(ws.plan));
   // Project metadata — additive, storage-only for now, emitted last (see CSV).
   if (config === undefined && ws.project) mdParts.push(projectToMarkdown(ws.project));
+  // Field-visibility config — storage-only, emitted last so it never shifts
+  // existing fixture bytes; absent/empty emits nothing (byte-stability).
+  if (config === undefined && ws.fieldVisibility && Object.keys(ws.fieldVisibility).length > 0)
+    mdParts.push(fieldVisibilityToMarkdown(ws.fieldVisibility));
   const out = mdParts.join("\n");
   return out;
 }
@@ -1009,6 +1031,8 @@ export function markdownToWorkspace(md: string): Workspace {
   };
   const project = s.projectMd.trim() ? markdownToProject(s.projectMd) : null;
   if (project) ws.project = project;
+  const fv = markdownToFieldVisibility(md);
+  if (fv) ws.fieldVisibility = fv;
   return migrateWorkspaceV9(ws);
 }
 

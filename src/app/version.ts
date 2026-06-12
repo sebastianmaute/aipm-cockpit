@@ -2,12 +2,12 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.69.0";
-export const APP_BUILD_DATE = "2026-06-11"; // 0.69.0 version history — retention, module & polish (Turso, slice 4)
+export const APP_VERSION = "0.70.0";
+export const APP_BUILD_DATE = "2026-06-12"; // 0.70.0 modal field visibility — per-editor Simple/Advanced/Full views + cog
 /** Minor-series milestone codename (sci-fi/fantasy author names). The whole
- *  0.69.x line is "Simmons" (Dan Simmons); patch releases inherit
+ *  0.70.x line is "Heinlein" (Robert A. Heinlein); patch releases inherit
  *  their minor version's codename rather than getting their own. */
-export const APP_MILESTONE = "Simmons";
+export const APP_MILESTONE = "Heinlein";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -79,4 +79,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightVinge",
   "versionHighlightTursoMultiProject",
   "versionHighlightSpDocLinks",
+  "versionHighlightFieldVisibility",
 ] as const;

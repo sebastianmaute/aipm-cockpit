@@ -1,7 +1,10 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { TestProviders } from "./test-providers";
+import { ModalFieldControls } from "./modal-field-controls";
 import { TaskFormFields } from "./task-form-fields";
+import { t } from "./i18n";
 
 function Harness() {
   return (
@@ -74,5 +77,44 @@ describe("TaskFormFields", () => {
     }
     render(<ErrHarness />, { wrapper: TestProviders });
     expect(screen.getByRole("alert").textContent).toContain("Task name is required");
+  });
+
+  describe("field visibility", () => {
+    function VisHarness() {
+      return (
+        <>
+          <ModalFieldControls modalId="task" lang="en-US" />
+          <form aria-label="form">
+            <TaskFormFields
+              lang="en-US" today="2026-05-29" nextId={1} contactsList={[]}
+              resources={[]} onCreateResource={vi.fn(() => 1)}
+              absences={[]} tasksForDeps={[]} uniqueGroups={[]} uniqueLabels={[]}
+              editingIsJiraLinked={false} jiraEnabled={false}
+              fieldErrors={{}} submitted={false}
+              holidaySet={new Set()} jiraProjectKey={undefined} jiraDefaultIssueType={undefined}
+              onRemoveContact={vi.fn()} onShowToast={vi.fn()} onAddAssigneeToAddressBook={vi.fn()}
+            />
+          </form>
+        </>
+      );
+    }
+
+    it("shows Advanced fields and hides Full-only fields by default", () => {
+      render(<VisHarness />, { wrapper: TestProviders });
+      // Advanced default: priority (advanced) present, email (full) absent.
+      expect(screen.getByText("Priority")).toBeTruthy();
+      expect(screen.queryByText("Email")).toBeNull();
+    });
+
+    it("hides advanced fields like Priority when switched to Simple, keeping Task name", async () => {
+      const user = userEvent.setup();
+      render(<VisHarness />, { wrapper: TestProviders });
+      expect(screen.getByText("Priority")).toBeTruthy();
+
+      await user.click(screen.getByRole("button", { name: t("en-US", "fieldViewSimple") }));
+
+      expect(screen.queryByText("Priority")).toBeNull();
+      expect(screen.getByText("Task name")).toBeTruthy();
+    });
   });
 });

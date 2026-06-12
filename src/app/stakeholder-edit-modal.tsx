@@ -29,6 +29,8 @@ import { DocumentLinksFieldGated } from "./document-links-field-gated";
 import { describeTextCap } from "./sanitize-report";
 import { BUDGET_NAME_MAX, TEXTAREA_MAX } from "./sanitize";
 import { useToastContext } from "./toast-context";
+import { ModalFieldControls } from "./modal-field-controls";
+import { useModalVisibility } from "./use-modal-visibility";
 
 export interface StakeholderEditModalProps {
   lang: Lang;
@@ -80,6 +82,7 @@ export function StakeholderEditModal({
   const [error, setError] = useState<string | null>(null);
   const showToast = useToastContext();
   const adj = useAdjustmentTracker();
+  const { isVisible } = useModalVisibility("stakeholder");
 
   const { offset, handleProps } = useDraggable(true);
 
@@ -137,6 +140,10 @@ export function StakeholderEditModal({
           dragHandleProps={handleProps}
         />
 
+        <div className="flex justify-end border-b border-line px-4 py-2">
+          <ModalFieldControls modalId="stakeholder" lang={lang} />
+        </div>
+
         <form
           onSubmit={handleSubmit}
           className="grid grid-cols-1 gap-4 overflow-y-auto p-6 sm:grid-cols-2"
@@ -165,117 +172,130 @@ export function StakeholderEditModal({
           </label>
 
           {/* Organization */}
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-foreground">
-              {t(lang, "stakeholderFieldOrganization")}
-            </span>
-            <input
-              type="text"
-              value={draft.organization ?? ""}
-              onChange={(e) => update("organization", e.target.value || undefined)}
-              onBlur={(e) => {
-                const trimmed = describeTextCap(e.target.value, BUDGET_NAME_MAX).value.trim();
-                update("organization", trimmed || undefined);
-              }}
-              aria-describedby="stakeholder-organization-counter"
-              className={INPUT_CLASS}
-            />
-            <CharCounter value={draft.organization ?? ""} max={BUDGET_NAME_MAX} id="stakeholder-organization-counter" lang={lang} />
-          </label>
+          {isVisible("organization") && (
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="font-medium text-foreground">
+                {t(lang, "stakeholderFieldOrganization")}
+              </span>
+              <input
+                type="text"
+                value={draft.organization ?? ""}
+                onChange={(e) => update("organization", e.target.value || undefined)}
+                onBlur={(e) => {
+                  const trimmed = describeTextCap(e.target.value, BUDGET_NAME_MAX).value.trim();
+                  update("organization", trimmed || undefined);
+                }}
+                aria-describedby="stakeholder-organization-counter"
+                className={INPUT_CLASS}
+              />
+              <CharCounter value={draft.organization ?? ""} max={BUDGET_NAME_MAX} id="stakeholder-organization-counter" lang={lang} />
+            </label>
+          )}
 
-          {/* Title */}
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-foreground">
-              {t(lang, "stakeholderFieldTitle")}
-            </span>
-            <input
-              type="text"
-              value={draft.title ?? ""}
-              onChange={(e) => update("title", e.target.value || undefined)}
-              onBlur={(e) => {
-                const trimmed = describeTextCap(e.target.value, BUDGET_NAME_MAX).value.trim();
-                update("title", trimmed || undefined);
-              }}
-              aria-describedby="stakeholder-title-counter"
-              className={INPUT_CLASS}
-            />
-            <CharCounter value={draft.title ?? ""} max={BUDGET_NAME_MAX} id="stakeholder-title-counter" lang={lang} />
-          </label>
+          {/* Title + Email — the `contact` registry field */}
+          {isVisible("contact") && (
+            <>
+              {/* Title */}
+              <label className="flex flex-col gap-1 text-sm">
+                <span className="font-medium text-foreground">
+                  {t(lang, "stakeholderFieldTitle")}
+                </span>
+                <input
+                  type="text"
+                  value={draft.title ?? ""}
+                  onChange={(e) => update("title", e.target.value || undefined)}
+                  onBlur={(e) => {
+                    const trimmed = describeTextCap(e.target.value, BUDGET_NAME_MAX).value.trim();
+                    update("title", trimmed || undefined);
+                  }}
+                  aria-describedby="stakeholder-title-counter"
+                  className={INPUT_CLASS}
+                />
+                <CharCounter value={draft.title ?? ""} max={BUDGET_NAME_MAX} id="stakeholder-title-counter" lang={lang} />
+              </label>
 
-          {/* Email */}
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-foreground">
-              {t(lang, "stakeholderFieldEmail")}
-            </span>
-            <input
-              type="text"
-              value={draft.email ?? ""}
-              onChange={(e) => update("email", e.target.value || undefined)}
-              onBlur={(e) => {
-                const trimmed = describeTextCap(e.target.value, BUDGET_NAME_MAX).value.trim();
-                update("email", trimmed || undefined);
-              }}
-              aria-describedby="stakeholder-email-counter"
-              className={INPUT_CLASS}
-            />
-            <CharCounter value={draft.email ?? ""} max={BUDGET_NAME_MAX} id="stakeholder-email-counter" lang={lang} />
-          </label>
+              {/* Email */}
+              <label className="flex flex-col gap-1 text-sm">
+                <span className="font-medium text-foreground">
+                  {t(lang, "stakeholderFieldEmail")}
+                </span>
+                <input
+                  type="text"
+                  value={draft.email ?? ""}
+                  onChange={(e) => update("email", e.target.value || undefined)}
+                  onBlur={(e) => {
+                    const trimmed = describeTextCap(e.target.value, BUDGET_NAME_MAX).value.trim();
+                    update("email", trimmed || undefined);
+                  }}
+                  aria-describedby="stakeholder-email-counter"
+                  className={INPUT_CLASS}
+                />
+                <CharCounter value={draft.email ?? ""} max={BUDGET_NAME_MAX} id="stakeholder-email-counter" lang={lang} />
+              </label>
+            </>
+          )}
 
           {/* Category */}
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-foreground">
-              {t(lang, "stakeholderFieldCategory")}
-            </span>
-            <select
-              aria-label={t(lang, "stakeholderFieldCategory")}
-              value={draft.category}
-              onChange={(e) => update("category", e.target.value as StakeholderCategory)}
-              className={INPUT_CLASS}
-            >
-              {STAKEHOLDER_CATEGORIES.map((cat) => (
-                <option key={cat} value={cat}>
-                  {t(lang, CATEGORY_LABEL_KEYS[cat])}
-                </option>
-              ))}
-            </select>
-          </label>
+          {isVisible("category") && (
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="font-medium text-foreground">
+                {t(lang, "stakeholderFieldCategory")}
+              </span>
+              <select
+                aria-label={t(lang, "stakeholderFieldCategory")}
+                value={draft.category}
+                onChange={(e) => update("category", e.target.value as StakeholderCategory)}
+                className={INPUT_CLASS}
+              >
+                {STAKEHOLDER_CATEGORIES.map((cat) => (
+                  <option key={cat} value={cat}>
+                    {t(lang, CATEGORY_LABEL_KEYS[cat])}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
 
           {/* Influence / Interest matrix — one click sets both */}
-          <div className="flex flex-col gap-1 text-sm sm:col-span-2">
-            <span className="font-medium text-foreground">
-              {t(lang, "stakeholderFieldInfluence")} / {t(lang, "stakeholderFieldInterest")}
-            </span>
-            <InfluenceInterestMatrix
-              lang={lang}
-              influence={draft.influence}
-              interest={draft.interest}
-              onPick={(influence, interest) => onChange({ ...draft, influence, interest })}
-            />
-            <span className="text-xs text-muted-foreground">
-              {t(lang, "stakeholderFieldInfluence")}: {t(lang, LEVEL_LABEL_KEYS[draft.influence])}
-              {" · "}
-              {t(lang, "stakeholderFieldInterest")}: {t(lang, LEVEL_LABEL_KEYS[draft.interest])}
-            </span>
-          </div>
+          {isVisible("influenceInterest") && (
+            <div className="flex flex-col gap-1 text-sm sm:col-span-2">
+              <span className="font-medium text-foreground">
+                {t(lang, "stakeholderFieldInfluence")} / {t(lang, "stakeholderFieldInterest")}
+              </span>
+              <InfluenceInterestMatrix
+                lang={lang}
+                influence={draft.influence}
+                interest={draft.interest}
+                onPick={(influence, interest) => onChange({ ...draft, influence, interest })}
+              />
+              <span className="text-xs text-muted-foreground">
+                {t(lang, "stakeholderFieldInfluence")}: {t(lang, LEVEL_LABEL_KEYS[draft.influence])}
+                {" · "}
+                {t(lang, "stakeholderFieldInterest")}: {t(lang, LEVEL_LABEL_KEYS[draft.interest])}
+              </span>
+            </div>
+          )}
 
           {/* Notes */}
-          <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-            <span className="font-medium text-foreground">
-              {t(lang, "stakeholderFieldNotes")}
-            </span>
-            <textarea
-              rows={2}
-              value={draft.notes ?? ""}
-              onChange={(e) => update("notes", e.target.value || undefined)}
-              onBlur={(e) => {
-                const capped = describeTextCap(e.target.value, TEXTAREA_MAX).value;
-                update("notes", capped || undefined);
-              }}
-              aria-describedby="stakeholder-notes-counter"
-              className={INPUT_CLASS}
-            />
-            <CharCounter value={draft.notes ?? ""} max={TEXTAREA_MAX} id="stakeholder-notes-counter" lang={lang} />
-          </label>
+          {isVisible("notes") && (
+            <label className="flex flex-col gap-1 text-sm sm:col-span-2">
+              <span className="font-medium text-foreground">
+                {t(lang, "stakeholderFieldNotes")}
+              </span>
+              <textarea
+                rows={2}
+                value={draft.notes ?? ""}
+                onChange={(e) => update("notes", e.target.value || undefined)}
+                onBlur={(e) => {
+                  const capped = describeTextCap(e.target.value, TEXTAREA_MAX).value;
+                  update("notes", capped || undefined);
+                }}
+                aria-describedby="stakeholder-notes-counter"
+                className={INPUT_CLASS}
+              />
+              <CharCounter value={draft.notes ?? ""} max={TEXTAREA_MAX} id="stakeholder-notes-counter" lang={lang} />
+            </label>
+          )}
 
           {/* Document links */}
           <label className="flex flex-col gap-1 text-sm sm:col-span-2">
@@ -287,43 +307,45 @@ export function StakeholderEditModal({
             />
           </label>
 
-          {/* RACI by milestone */}
-          <div className="sm:col-span-2">
-            <span className="mb-2 block text-sm font-medium text-foreground">
-              {t(lang, "raciSectionTitle")}
-            </span>
-            {milestones.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                {t(lang, "raciNoMilestones")}
-              </p>
-            ) : (
-              <div className="flex flex-col gap-2">
-                {milestones.map((m) => (
-                  <div key={m.id} className="flex items-center gap-3 text-sm">
-                    <span className="w-40 truncate text-foreground">{m.name}</span>
-                    <select
-                      aria-label={`${m.name} (RACI)`}
-                      value={draft.raci[String(m.id)] ?? ""}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        onChange(
-                          setRaciRole(draft, m.id, val === "" ? null : (val as RaciRole)),
-                        );
-                      }}
-                      className={INPUT_CLASS}
-                    >
-                      <option value="">{t(lang, "raciNone")}</option>
-                      {RACI_ROLES.map((role) => (
-                        <option key={role} value={role}>
-                          {t(lang, RACI_LABEL_KEYS[role])}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+          {/* RACI by milestone — Full-only registry field */}
+          {isVisible("raci") && (
+            <div className="sm:col-span-2">
+              <span className="mb-2 block text-sm font-medium text-foreground">
+                {t(lang, "raciSectionTitle")}
+              </span>
+              {milestones.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  {t(lang, "raciNoMilestones")}
+                </p>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {milestones.map((m) => (
+                    <div key={m.id} className="flex items-center gap-3 text-sm">
+                      <span className="w-40 truncate text-foreground">{m.name}</span>
+                      <select
+                        aria-label={`${m.name} (RACI)`}
+                        value={draft.raci[String(m.id)] ?? ""}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          onChange(
+                            setRaciRole(draft, m.id, val === "" ? null : (val as RaciRole)),
+                          );
+                        }}
+                        className={INPUT_CLASS}
+                      >
+                        <option value="">{t(lang, "raciNone")}</option>
+                        {RACI_ROLES.map((role) => (
+                          <option key={role} value={role}>
+                            {t(lang, RACI_LABEL_KEYS[role])}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {error && (
             <p

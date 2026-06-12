@@ -30,6 +30,7 @@ import { describeTextCap } from "./sanitize-report";
 import { EffortProgressBar } from "./effort-progress-bar";
 import { SegmentedControl } from "./segmented-control";
 import { useTaskForm } from "./task-form-context";
+import { useModalVisibility } from "./use-modal-visibility";
 import { type TaskErrorField, type TaskFieldErrors } from "./task-validation";
 import { PRIORITIES, type Absence, type Resource, type Task } from "./types";
 
@@ -92,6 +93,7 @@ export function TaskFormFields({
 }: TaskFormFieldsProps) {
   const { form, setForm, editingId } = useTaskForm();
   const isEditing = editingId !== null;
+  const { isVisible } = useModalVisibility("task");
 
   // A field's error shows once it's been blurred (touched) or a submit was
   // attempted — a pristine form stays quiet. Reset when switching tasks via the
@@ -128,17 +130,19 @@ export function TaskFormFields({
           />
         </Field>
 
-        <Field label={t(lang, "priority")}>
-          <SegmentedControl
-            value={form.priority}
-            ariaLabel={t(lang, "priority")}
-            options={PRIORITIES.map((p) => ({
-              value: p,
-              label: priorityLabel(lang, p),
-            }))}
-            onChange={(p) => setForm({ ...form, priority: p })}
-          />
-        </Field>
+        {isVisible("priority") && (
+          <Field label={t(lang, "priority")}>
+            <SegmentedControl
+              value={form.priority}
+              ariaLabel={t(lang, "priority")}
+              options={PRIORITIES.map((p) => ({
+                value: p,
+                label: priorityLabel(lang, p),
+              }))}
+              onChange={(p) => setForm({ ...form, priority: p })}
+            />
+          </Field>
+        )}
 
         <Field
           label={t(lang, "taskName")}
@@ -179,6 +183,7 @@ export function TaskFormFields({
           <FieldError id="taskName-error">{errorFor("taskName")}</FieldError>
         </Field>
 
+        {isVisible("assignee") && (
         <Field label={t(lang, "assignee")} required>
           {/*
             ContactInput renders a text input + autocomplete popover of
@@ -238,7 +243,9 @@ export function TaskFormFields({
             </p>
           )}
         </Field>
+        )}
 
+        {isVisible("email") && (
         <Field label={t(lang, "email")}>
           <input
             type="email"
@@ -258,9 +265,12 @@ export function TaskFormFields({
           <CharCounter value={form.assigneeEmail} max={EMAIL_MAX} id="email-counter" lang={lang} />
           <FieldError id="assigneeEmail-error">{errorFor("assigneeEmail")}</FieldError>
         </Field>
+        )}
       </TaskFormSection>
 
+      {(isVisible("startDate") || isVisible("dueDate") || isVisible("lastUpdate")) && (
       <TaskFormSection index={2} title={t(lang, "taskFormSectionScheduling")}>
+        {isVisible("startDate") && (
         <Field label={t(lang, "startDate")}>
           <input
             type="date"
@@ -276,7 +286,9 @@ export function TaskFormFields({
             {t(lang, "startDateHint")}
           </p>
         </Field>
+        )}
 
+        {isVisible("dueDate") && (
         <Field label={t(lang, "dueDate")} required>
           <input
             type="date"
@@ -325,7 +337,9 @@ export function TaskFormFields({
             );
           })()}
         </Field>
+        )}
 
+        {isVisible("lastUpdate") && (
         <Field label={t(lang, "lastUpdateDate")}>
           <input
             type="date"
@@ -336,7 +350,9 @@ export function TaskFormFields({
             className={inputClass}
           />
         </Field>
+        )}
       </TaskFormSection>
+      )}
 
       <TaskFormSection index={3} title={t(lang, "taskFormSectionEffort")}>
         <Field label={t(lang, "group")}>
@@ -354,43 +370,53 @@ export function TaskFormFields({
           <CharCounter value={form.group} max={GROUP_MAX} id="group-counter" lang={lang} />
         </Field>
 
-        <EffortField
-          key={`estimate-${editingId ?? "new"}`}
-          lang={lang}
-          label={t(lang, "taskOriginalEstimate")}
-          minutes={form.originalEstimateMinutes}
-          onChange={(minutes) =>
-            setForm((prev) => ({ ...prev, originalEstimateMinutes: minutes }))
-          }
-        />
-
-        <EffortField
-          key={`spent-${editingId ?? "new"}`}
-          lang={lang}
-          label={t(lang, "taskTimeSpent")}
-          minutes={form.timeSpentMinutes}
-          onChange={(minutes) =>
-            setForm((prev) => ({ ...prev, timeSpentMinutes: minutes }))
-          }
-        />
-
-        <EffortProgressBar
-          lang={lang}
-          estimateMin={form.originalEstimateMinutes}
-          spentMin={form.timeSpentMinutes}
-        />
-
-        <Field label={t(lang, "labels")}>
-          <LabelsInput
+        {isVisible("estimate") && (
+          <EffortField
+            key={`estimate-${editingId ?? "new"}`}
             lang={lang}
-            value={form.labels}
-            suggestions={uniqueLabels}
-            onChange={(labels) => setForm({ ...form, labels })}
+            label={t(lang, "taskOriginalEstimate")}
+            minutes={form.originalEstimateMinutes}
+            onChange={(minutes) =>
+              setForm((prev) => ({ ...prev, originalEstimateMinutes: minutes }))
+            }
           />
-        </Field>
+        )}
+
+        {isVisible("timeSpent") && (
+          <>
+            <EffortField
+              key={`spent-${editingId ?? "new"}`}
+              lang={lang}
+              label={t(lang, "taskTimeSpent")}
+              minutes={form.timeSpentMinutes}
+              onChange={(minutes) =>
+                setForm((prev) => ({ ...prev, timeSpentMinutes: minutes }))
+              }
+            />
+
+            <EffortProgressBar
+              lang={lang}
+              estimateMin={form.originalEstimateMinutes}
+              spentMin={form.timeSpentMinutes}
+            />
+          </>
+        )}
+
+        {isVisible("labels") && (
+          <Field label={t(lang, "labels")}>
+            <LabelsInput
+              lang={lang}
+              value={form.labels}
+              suggestions={uniqueLabels}
+              onChange={(labels) => setForm({ ...form, labels })}
+            />
+          </Field>
+        )}
       </TaskFormSection>
 
+      {(isVisible("dependencies") || isVisible("blockers")) && (
       <TaskFormSection index={4} title={t(lang, "taskFormSectionRelationships")}>
+        {isVisible("dependencies") && (
         <Field label={t(lang, "depDependencies")} className="sm:col-span-2">
           <DependenciesEditor
             lang={lang}
@@ -402,7 +428,9 @@ export function TaskFormFields({
             }
           />
         </Field>
+        )}
 
+        {isVisible("blockers") && (
         <Field label={t(lang, "blockers")} className="sm:col-span-2">
           <textarea
             rows={2}
@@ -417,9 +445,12 @@ export function TaskFormFields({
           />
           <CharCounter value={form.blockers} max={TEXTAREA_MAX} id="blockers-counter" lang={lang} />
         </Field>
+        )}
       </TaskFormSection>
+      )}
 
       <TaskFormSection index={5} title={t(lang, "taskFormSectionStatus")}>
+        {(isVisible("health") || isVisible("healthOverride")) && (
         <Field label={t(lang, "health")} className="sm:col-span-2">
           {(() => {
             // Show what the auto-rule would say so the user can decide
@@ -489,7 +520,9 @@ export function TaskFormFields({
             );
           })()}
         </Field>
+        )}
 
+        {isVisible("notes") && (
         <Field label={t(lang, "notes")} className="sm:col-span-2">
           <textarea
             rows={3}
@@ -504,6 +537,7 @@ export function TaskFormFields({
           />
           <CharCounter value={form.notes} max={TEXTAREA_MAX} id="notes-counter" lang={lang} />
         </Field>
+        )}
 
         <Field label={t(lang, "documents")} className="sm:col-span-2">
           <DocumentLinksFieldGated
