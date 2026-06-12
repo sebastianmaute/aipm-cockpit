@@ -1,0 +1,40 @@
+// src/app/modal-field-controls.test.tsx
+import { fireEvent, render, screen } from "@testing-library/react";
+import { type ReactNode } from "react";
+import { describe, expect, it } from "vitest";
+import { FiltersProvider } from "./filters-context";
+import { ModalFieldControls } from "./modal-field-controls";
+import { t } from "./i18n";
+import { WorkspaceProvider } from "./workspace-context";
+
+function wrapper({ children }: { children: ReactNode }) {
+  return (
+    <FiltersProvider>
+      <WorkspaceProvider>{children}</WorkspaceProvider>
+    </FiltersProvider>
+  );
+}
+
+function renderControls() {
+  return render(<ModalFieldControls modalId="milestone" lang="en-US" />, { wrapper });
+}
+
+describe("ModalFieldControls", () => {
+  it("renders the three tier buttons and highlights Advanced by default", () => {
+    renderControls();
+    const adv = screen.getByRole("button", { name: t("en-US", "fieldViewAdvanced") });
+    expect(adv).toHaveAttribute("aria-pressed", "true");
+  });
+  it("clicking Simple updates the pressed state", () => {
+    renderControls();
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "fieldViewSimple") }));
+    expect(screen.getByRole("button", { name: t("en-US", "fieldViewSimple") })).toHaveAttribute("aria-pressed", "true");
+  });
+  it("opens the cog and disables required-field checkboxes", () => {
+    renderControls();
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "configureFields") }));
+    const nameBox = screen.getByRole("checkbox", { name: t("en-US", "name") });
+    expect(nameBox).toBeDisabled();
+    expect(nameBox).toBeChecked();
+  });
+});
