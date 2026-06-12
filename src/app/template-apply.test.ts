@@ -99,6 +99,13 @@ describe("applyTemplate", () => {
     const ws = applyTemplate(emptyWorkspace(), tpl(seed), { includeSeed: true });
     expect(ws.raid[0].ownerResourceId).toBeNull();
   });
+  it("clears the person FK resourceId on seed tasks", () => {
+    const task: Task = { ...mkTask(1, "S1"), resourceId: 7 };
+    const seed: TemplateSeed = { tasks: [task] };
+    const ws = applyTemplate(emptyWorkspace(), tpl(seed), { includeSeed: true });
+    expect(ws.tasks).toHaveLength(1);
+    expect(ws.tasks[0].resourceId).toBeUndefined();
+  });
   it("remaps stakeholder raci keys to new milestone ids and clears resourceId", () => {
     const milestone: Milestone = { id: 1, name: "M1", date: "2026-01-01", linkedTaskIds: [] };
     const stakeholder: Stakeholder = {

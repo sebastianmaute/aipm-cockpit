@@ -53,7 +53,8 @@ function remapDeps(
 /**
  * Re-id a template seed relative to a target workspace and rewrite every
  * internal reference. References that point outside the seed are dropped;
- * person FKs (resource owners) are cleared since resources are not seeded.
+ * person FKs (task/RAID owners, stakeholder links) are cleared since resources
+ * are not seeded.
  * Pure — returns a new seed, never mutates the input.
  */
 export function remapSeed(ws: Workspace, seed: TemplateSeed): TemplateSeed {
@@ -69,6 +70,7 @@ export function remapSeed(ws: Workspace, seed: TemplateSeed): TemplateSeed {
     out.tasks = seed.tasks.map((t) => ({
       ...t,
       id: taskMap.get(t.id)!,
+      resourceId: undefined,
       ...(t.dependencies
         ? { dependencies: remapDeps(t.dependencies, taskMap) }
         : {}),
