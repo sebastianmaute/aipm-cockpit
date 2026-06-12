@@ -35,6 +35,7 @@ import {
   serializeDependencies,
   fkIdOrUndefined,
 } from "./sanitize";
+import { sanitizeFeatures, type FeatureModuleId } from "./feature-modules";
 import {
   type Absence,
   type BudgetBucket,
@@ -194,6 +195,7 @@ const CSV_SECTION_PLAN = "# PLAN";
 const CSV_SECTION_STATUS = "# PROJECT STATUS";
 const CSV_SECTION_PROJECT = "# PROJECT META";
 const CSV_SECTION_FIELD_VIS = "# FIELD-VISIBILITY";
+const CSV_SECTION_FUNCTIONS = "# FUNCTIONS";
 
 export function shiftFieldToString(s: Shift, col: string): string {
   switch (col) {
@@ -687,6 +689,27 @@ export function csvToFieldVisibility(text: string): FieldVisibilityConfig | unde
   }
 }
 
+// --- Per-project feature-module list encoder / decoder -----------------------
+//
+// The per-project features list is small and shape-identical to the settings
+// features array, so it serializes as a single `config,<json>` row (same
+// approach as field-visibility). Emission is gated on PRESENCE (not length),
+// so an explicit `[]` (Simple mode) round-trips correctly as `[]`.
+
+export function featuresToCsv(features: readonly FeatureModuleId[], neutralize = false): string {
+  return ["config", csvCellEscape(JSON.stringify(features), neutralize)].join(",");
+}
+
+export function csvToFeatures(text: string): FeatureModuleId[] | undefined {
+  const rows = parseCsv(text).filter((r) => r.length >= 2 && r[0] === "config");
+  if (rows.length === 0) return undefined;
+  try {
+    return sanitizeFeatures(JSON.parse(rows[0][1]));
+  } catch {
+    return undefined;
+  }
+}
+
 // --- Project metadata encoder / decoder --------------------------------------
 //
 // ProjectMeta is a SINGLE object (like ProjectStatus), so it serializes as a
@@ -981,6 +1004,8 @@ export function workspaceToCsv(ws: Workspace, config?: ExportConfig): string {
   // the byte-stable storage round-trip is preserved.
   if (ws.fieldVisibility && Object.keys(ws.fieldVisibility).length > 0)
     csvPush(CSV_SECTION_FIELD_VIS, fieldVisibilityToCsv(ws.fieldVisibility, neutralize));
+  if (ws.features !== undefined)
+    csvPush(CSV_SECTION_FUNCTIONS, featuresToCsv(ws.features, neutralize));
   return parts.join("\r\n");
 }
 
@@ -1066,9 +1091,10 @@ function splitCsvSections(csv: string): {
   stakeholdersText: string;
   projectText: string;
   fieldVisText: string;
+  functionsText: string;
 } {
   const lines = csv.split(/\r?\n/);
-  let mode: "tasks" | "raid" | "absences" | "shifts" | "resources" | "roles" | "disciplines" | "grades" | "plan" | "budgets" | "fxrates" | "status" | "milestones" | "changes" | "stakeholders" | "project" | "fieldVis" | null = null;
+  let mode: "tasks" | "raid" | "absences" | "shifts" | "resources" | "roles" | "disciplines" | "grades" | "plan" | "budgets" | "fxrates" | "status" | "milestones" | "changes" | "stakeholders" | "project" | "fieldVis" | "functions" | null = null;
   const tasksLines: string[] = [];
   const raidLines: string[] = [];
   const absencesLines: string[] = [];
@@ -1086,6 +1112,7 @@ function splitCsvSections(csv: string): {
   const stakeholdersLines: string[] = [];
   const projectLines: string[] = [];
   const fieldVisLines: string[] = [];
+  const functionsLines: string[] = [];
   for (const line of lines) {
     const trimmed = line.trimStart();
     if (trimmed.startsWith(CSV_SECTION_BUDGETS)) { mode = "budgets"; continue; }
@@ -1100,6 +1127,7 @@ function splitCsvSections(csv: string): {
     if (trimmed.startsWith(CSV_SECTION_ABSENCES)) { mode = "absences"; continue; }
     if (trimmed.startsWith(CSV_SECTION_SHIFTS)) { mode = "shifts"; continue; }
     if (trimmed.startsWith(CSV_SECTION_FIELD_VIS)) { mode = "fieldVis"; continue; }
+    if (trimmed.startsWith(CSV_SECTION_FUNCTIONS)) { mode = "functions"; continue; }
     if (trimmed.startsWith(CSV_SECTION_PROJECT)) { mode = "project"; continue; }
     if (trimmed.startsWith(CSV_SECTION_STATUS)) { mode = "status"; continue; }
     if (trimmed.startsWith(CSV_SECTION_MILESTONES)) { mode = "milestones"; continue; }
@@ -1122,6 +1150,7 @@ function splitCsvSections(csv: string): {
     else if (mode === "stakeholders") stakeholdersLines.push(line);
     else if (mode === "project") projectLines.push(line);
     else if (mode === "fieldVis") fieldVisLines.push(line);
+    else if (mode === "functions") functionsLines.push(line);
     // (else: line before the first marker — drop it.)
   }
   return {
@@ -1142,6 +1171,7 @@ function splitCsvSections(csv: string): {
     stakeholdersText: stakeholdersLines.join("\r\n"),
     projectText: projectLines.join("\r\n"),
     fieldVisText: fieldVisLines.join("\r\n"),
+    functionsText: functionsLines.join("\r\n"),
   };
 }
 
@@ -1397,6 +1427,10 @@ export function csvToWorkspace(csv: string): Workspace {
   if (s.fieldVisText.trim()) {
     const fv = csvToFieldVisibility(s.fieldVisText);
     if (fv) ws.fieldVisibility = fv;
+  }
+  if (s.functionsText.trim()) {
+    const f = csvToFeatures(s.functionsText);
+    if (f !== undefined) ws.features = f;
   }
   return migrateWorkspaceV9(ws);
 }
