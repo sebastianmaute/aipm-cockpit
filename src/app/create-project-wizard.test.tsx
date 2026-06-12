@@ -99,6 +99,13 @@ describe("CreateProjectWizard", () => {
     window.localStorage.removeItem(SETTINGS_KEY);
   });
 
+  it("renders the reset-size button", () => {
+    setup();
+    expect(
+      screen.getByRole("button", { name: "Reset back to the default size." }),
+    ).toBeInTheDocument();
+  });
+
   it("starts on Step 1 (Details) showing the project form", () => {
     setup();
     expect(

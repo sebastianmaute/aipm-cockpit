@@ -33,6 +33,8 @@ import { type NewProjectOpts } from "./new-project-workspace";
 import { type ProjectTemplate } from "./templates";
 import { type ProjectMeta, type Resource } from "./types";
 import { useTemplates } from "./use-templates";
+import { useResizable } from "./use-resizable";
+import { ResetSizeButton, ResizeCornerHint } from "./task-manager-ui";
 
 type CreateFormat = "json" | "csv" | "md";
 
@@ -170,194 +172,215 @@ export function CreateProjectWizard({
   const mode = deriveMode(features);
   const offerSeed = hasSeedContent(selectedTemplate);
 
+  const { ref: sizeRef, reset: resetSize } = useResizable("lop-app:create-wizard-size");
+
   return (
-    <div className="flex flex-col">
-      <StepIndicator lang={lang} step={step} />
+    <div
+      ref={sizeRef}
+      className="relative flex min-h-[420px] min-w-[480px] flex-col resize overflow-hidden"
+    >
+      {/* Fixed header: step indicator + reset-size button */}
+      <div className="flex shrink-0 items-start justify-between gap-2 pb-4">
+        <StepIndicator lang={lang} step={step} />
+        <ResetSizeButton onClick={resetSize} lang={lang} />
+      </div>
 
-      {/* Step 1 — Details: reuse the shared create form (its submit advances). */}
-      {step === 1 && (
-        <CreateProjectForm
-          lang={lang}
-          stakeholderNames={stakeholderNames}
-          addressBook={addressBook}
-          resources={resources}
-          onCreate={handleDetails}
-          onCancel={onCancel}
-          hideFormat={hideFormat}
-          submitLabel={t(lang, "wizardNext")}
-          initialMeta={meta ?? undefined}
-          initialFormat={format}
-        />
-      )}
+      {/* Scrollable body */}
+      <div className="min-h-0 flex-1 overflow-y-auto">
 
-      {/* Step 2 — Template. */}
-      {step === 2 && (
-        <div className="flex flex-col gap-4">
-          {suggestion && (
-            <p className="mb-2 text-xs text-muted-foreground">
-              {suggestion.reasons
-                .map((r) => t(lang, r.key, ...(r.args ?? [])))
-                .join(" · ")}
-              {" → "}
-              {t(lang, MODE_LABEL_KEY[suggestion.tier])}
-            </p>
-          )}
-          <fieldset className="flex flex-col gap-2">
-            <button
-              type="button"
-              onClick={() => chooseTemplate(null)}
-              aria-pressed={selectedTemplate === null}
-              className={`rounded-md border px-3 py-2 text-left text-sm hover:bg-surface-muted ${
-                selectedTemplate === null
-                  ? "border-AIPM-green bg-AIPM-green/10"
-                  : "border-line bg-surface"
-              }`}
-            >
-              <span className="font-medium text-foreground">
-                {t(lang, "wizardBlankTemplate")}
-              </span>
-            </button>
+        {/* Step 1 — Details: reuse the shared create form (its submit advances). */}
+        {step === 1 && (
+          <CreateProjectForm
+            lang={lang}
+            stakeholderNames={stakeholderNames}
+            addressBook={addressBook}
+            resources={resources}
+            onCreate={handleDetails}
+            onCancel={onCancel}
+            hideFormat={hideFormat}
+            submitLabel={t(lang, "wizardNext")}
+            initialMeta={meta ?? undefined}
+            initialFormat={format}
+          />
+        )}
 
-            {templates.map((tpl) => {
-              const selected = selectedTemplate?.id === tpl.id;
-              const tplMode = deriveMode(tpl.features);
-              const seedCount = tpl.seed
-                ? Object.values(tpl.seed).reduce(
-                    (sum, v) => sum + (Array.isArray(v) ? v.length : 0),
-                    0,
-                  )
-                : 0;
-              return (
-                <button
-                  key={tpl.id}
-                  type="button"
-                  onClick={() => chooseTemplate(tpl)}
-                  aria-pressed={selected}
-                  className={`rounded-md border px-3 py-2 text-left text-sm hover:bg-surface-muted ${
-                    selected ? "border-AIPM-green bg-AIPM-green/10" : "border-line bg-surface"
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-medium text-foreground">{tpl.name}</span>
-                    <span className="flex items-center gap-1">
-                      {suggestion?.templateId === tpl.id && (
-                        <span className="rounded-full bg-AIPM-dark-blue px-2 py-0.5 text-xs font-semibold text-white">
-                          {t(lang, "templateSuggested")}
-                        </span>
-                      )}
-                      <span className="rounded-full bg-AIPM-green/15 px-2 py-0.5 text-xs font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
-                        {t(lang, MODE_LABEL_KEY[tplMode])}
-                      </span>
-                    </span>
-                  </div>
-                  {tpl.description && (
-                    <p className="mt-1 text-xs text-muted-foreground">{tpl.description}</p>
-                  )}
-                  {seedCount > 0 && (
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {t(lang, "wizardIncludeContent")}: {seedCount}
-                    </p>
-                  )}
-                </button>
-              );
-            })}
-          </fieldset>
-
-          <div className="flex justify-between gap-2 border-t border-line pt-4">
-            <div className="flex gap-2">
-              <button type="button" onClick={() => setStep(1)} className={SECONDARY_BUTTON_CLASS}>
-                {t(lang, "wizardBack")}
+        {/* Step 2 — Template. */}
+        {step === 2 && (
+          <div className="flex flex-col gap-4 pb-2">
+            {suggestion && (
+              <p className="mb-2 text-xs text-muted-foreground">
+                {suggestion.reasons
+                  .map((r) => t(lang, r.key, ...(r.args ?? [])))
+                  .join(" · ")}
+                {" → "}
+                {t(lang, MODE_LABEL_KEY[suggestion.tier])}
+              </p>
+            )}
+            <fieldset className="flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={() => chooseTemplate(null)}
+                aria-pressed={selectedTemplate === null}
+                className={`rounded-md border px-3 py-2 text-left text-sm hover:bg-surface-muted ${
+                  selectedTemplate === null
+                    ? "border-AIPM-green bg-AIPM-green/10"
+                    : "border-line bg-surface"
+                }`}
+              >
+                <span className="font-medium text-foreground">
+                  {t(lang, "wizardBlankTemplate")}
+                </span>
               </button>
-              {onCancel && (
-                <button type="button" onClick={onCancel} className={SECONDARY_BUTTON_CLASS}>
-                  {t(lang, "cancel")}
-                </button>
-              )}
+
+              {templates.map((tpl) => {
+                const selected = selectedTemplate?.id === tpl.id;
+                const tplMode = deriveMode(tpl.features);
+                const seedCount = tpl.seed
+                  ? Object.values(tpl.seed).reduce(
+                      (sum, v) => sum + (Array.isArray(v) ? v.length : 0),
+                      0,
+                    )
+                  : 0;
+                return (
+                  <button
+                    key={tpl.id}
+                    type="button"
+                    onClick={() => chooseTemplate(tpl)}
+                    aria-pressed={selected}
+                    className={`rounded-md border px-3 py-2 text-left text-sm hover:bg-surface-muted ${
+                      selected ? "border-AIPM-green bg-AIPM-green/10" : "border-line bg-surface"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-medium text-foreground">{tpl.name}</span>
+                      <span className="flex items-center gap-1">
+                        {suggestion?.templateId === tpl.id && (
+                          <span className="rounded-full bg-AIPM-dark-blue px-2 py-0.5 text-xs font-semibold text-white">
+                            {t(lang, "templateSuggested")}
+                          </span>
+                        )}
+                        <span className="rounded-full bg-AIPM-green/15 px-2 py-0.5 text-xs font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
+                          {t(lang, MODE_LABEL_KEY[tplMode])}
+                        </span>
+                      </span>
+                    </div>
+                    {tpl.description && (
+                      <p className="mt-1 text-xs text-muted-foreground">{tpl.description}</p>
+                    )}
+                    {seedCount > 0 && (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {t(lang, "wizardIncludeContent")}: {seedCount}
+                      </p>
+                    )}
+                  </button>
+                );
+              })}
+            </fieldset>
+          </div>
+        )}
+
+        {/* Step 3 — Functions. */}
+        {step === 3 && (
+          <div className="flex flex-col gap-5 pb-2">
+            <p className="text-sm text-muted-foreground">{t(lang, "wizardFunctionsIntro")}</p>
+
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium">{t(lang, "modeBadgeLabel")}:</span>
+              <span className="rounded-full bg-AIPM-green/15 px-3 py-1 text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
+                {t(lang, MODE_LABEL_KEY[mode])}
+              </span>
             </div>
-            <button type="button" onClick={() => setStep(3)} className={PRIMARY_BUTTON_CLASS}>
-              {t(lang, "wizardNext")}
-            </button>
-          </div>
-        </div>
-      )}
 
-      {/* Step 3 — Functions. */}
-      {step === 3 && (
-        <div className="flex flex-col gap-5">
-          <p className="text-sm text-muted-foreground">{t(lang, "wizardFunctionsIntro")}</p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                aria-label="Apply Simple preset"
+                onClick={() => setFeatures([])}
+                className="rounded-md border border-line px-3 py-1.5 text-sm hover:bg-surface-muted"
+              >
+                {t(lang, "modePresetSimple")}
+              </button>
+              <button
+                type="button"
+                aria-label="Apply Advanced preset"
+                onClick={() => setFeatures([...ALL_MODULE_IDS])}
+                className="rounded-md border border-line px-3 py-1.5 text-sm hover:bg-surface-muted"
+              >
+                {t(lang, "modePresetAdvanced")}
+              </button>
+            </div>
 
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium">{t(lang, "modeBadgeLabel")}:</span>
-            <span className="rounded-full bg-AIPM-green/15 px-3 py-1 text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
-              {t(lang, MODE_LABEL_KEY[mode])}
-            </span>
-          </div>
+            <fieldset className="flex flex-col gap-2">
+              <legend className="mb-1 text-sm font-semibold text-foreground">
+                {t(lang, "modeModulesHeading")}
+              </legend>
+              {FEATURE_MODULES.map((m) => (
+                <label key={m.id} className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={features.includes(m.id)}
+                    onChange={() => toggleModule(m.id)}
+                    className="h-4 w-4 accent-AIPM-green"
+                  />
+                  <span>{t(lang, m.labelKey)}</span>
+                </label>
+              ))}
+            </fieldset>
 
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              aria-label="Apply Simple preset"
-              onClick={() => setFeatures([])}
-              className="rounded-md border border-line px-3 py-1.5 text-sm hover:bg-surface-muted"
-            >
-              {t(lang, "modePresetSimple")}
-            </button>
-            <button
-              type="button"
-              aria-label="Apply Advanced preset"
-              onClick={() => setFeatures([...ALL_MODULE_IDS])}
-              className="rounded-md border border-line px-3 py-1.5 text-sm hover:bg-surface-muted"
-            >
-              {t(lang, "modePresetAdvanced")}
-            </button>
-          </div>
-
-          <fieldset className="flex flex-col gap-2">
-            <legend className="mb-1 text-sm font-semibold text-foreground">
-              {t(lang, "modeModulesHeading")}
-            </legend>
-            {FEATURE_MODULES.map((m) => (
-              <label key={m.id} className="flex items-center gap-2 text-sm">
+            {offerSeed && (
+              <label className="flex items-center gap-2 border-t border-line pt-4 text-sm">
                 <input
                   type="checkbox"
-                  checked={features.includes(m.id)}
-                  onChange={() => toggleModule(m.id)}
+                  checked={includeSeed}
+                  onChange={(e) => setIncludeSeed(e.target.checked)}
                   className="h-4 w-4 accent-AIPM-green"
                 />
-                <span>{t(lang, m.labelKey)}</span>
+                <span>{t(lang, "wizardIncludeContent")}</span>
               </label>
-            ))}
-          </fieldset>
-
-          {offerSeed && (
-            <label className="flex items-center gap-2 border-t border-line pt-4 text-sm">
-              <input
-                type="checkbox"
-                checked={includeSeed}
-                onChange={(e) => setIncludeSeed(e.target.checked)}
-                className="h-4 w-4 accent-AIPM-green"
-              />
-              <span>{t(lang, "wizardIncludeContent")}</span>
-            </label>
-          )}
-
-          <div className="flex justify-between gap-2 border-t border-line pt-4">
-            <div className="flex gap-2">
-              <button type="button" onClick={() => setStep(2)} className={SECONDARY_BUTTON_CLASS}>
-                {t(lang, "wizardBack")}
-              </button>
-              {onCancel && (
-                <button type="button" onClick={onCancel} className={SECONDARY_BUTTON_CLASS}>
-                  {t(lang, "cancel")}
-                </button>
-              )}
-            </div>
-            <button type="button" onClick={handleCreate} className={PRIMARY_BUTTON_CLASS}>
-              {t(lang, "wizardCreate")}
-            </button>
+            )}
           </div>
+        )}
+
+      </div>
+
+      {/* Pinned footer: navigation buttons for steps 2 and 3 */}
+      {step === 2 && (
+        <div className="flex shrink-0 justify-between gap-2 border-t border-line pt-4">
+          <div className="flex gap-2">
+            <button type="button" onClick={() => setStep(1)} className={SECONDARY_BUTTON_CLASS}>
+              {t(lang, "wizardBack")}
+            </button>
+            {onCancel && (
+              <button type="button" onClick={onCancel} className={SECONDARY_BUTTON_CLASS}>
+                {t(lang, "cancel")}
+              </button>
+            )}
+          </div>
+          <button type="button" onClick={() => setStep(3)} className={PRIMARY_BUTTON_CLASS}>
+            {t(lang, "wizardNext")}
+          </button>
         </div>
       )}
+
+      {step === 3 && (
+        <div className="flex shrink-0 justify-between gap-2 border-t border-line pt-4">
+          <div className="flex gap-2">
+            <button type="button" onClick={() => setStep(2)} className={SECONDARY_BUTTON_CLASS}>
+              {t(lang, "wizardBack")}
+            </button>
+            {onCancel && (
+              <button type="button" onClick={onCancel} className={SECONDARY_BUTTON_CLASS}>
+                {t(lang, "cancel")}
+              </button>
+            )}
+          </div>
+          <button type="button" onClick={handleCreate} className={PRIMARY_BUTTON_CLASS}>
+            {t(lang, "wizardCreate")}
+          </button>
+        </div>
+      )}
+
+      <ResizeCornerHint lang={lang} />
     </div>
   );
 }

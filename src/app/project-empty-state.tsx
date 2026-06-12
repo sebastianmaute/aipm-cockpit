@@ -88,7 +88,7 @@ export function ProjectEmptyState({
     >
       <div
         data-modal-panel
-        className="relative flex max-h-[90vh] w-[720px] min-w-[360px] max-w-[95vw] flex-col overflow-hidden rounded-xl border border-line bg-surface"
+        className="relative flex max-h-[90vh] w-[880px] min-w-[360px] max-w-[95vw] flex-col overflow-hidden rounded-xl border border-line bg-surface"
       >
         <ModalHeader
           lang={lang}
