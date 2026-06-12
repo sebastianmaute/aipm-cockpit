@@ -176,71 +176,81 @@ export function ResourceEditModal({
           </label>
 
           {/* Job title */}
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-foreground">
-              {t(lang, "resourceJobTitle")}
-            </span>
-            <input
-              type="text"
-              value={draft.title ?? ""}
-              onChange={(e) => update("title", e.target.value || undefined)}
-              className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
-            />
-          </label>
+          {isVisible("jobTitle") && (
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="font-medium text-foreground">
+                {t(lang, "resourceJobTitle")}
+              </span>
+              <input
+                type="text"
+                value={draft.title ?? ""}
+                onChange={(e) => update("title", e.target.value || undefined)}
+                className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
+              />
+            </label>
+          )}
 
           {/* Company */}
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-foreground">
-              {t(lang, "resourceCompany")}
-            </span>
-            <input
-              type="text"
-              value={draft.company ?? ""}
-              onChange={(e) => update("company", e.target.value || undefined)}
-              className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
-            />
-          </label>
+          {isVisible("company") && (
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="font-medium text-foreground">
+                {t(lang, "resourceCompany")}
+              </span>
+              <input
+                type="text"
+                value={draft.company ?? ""}
+                onChange={(e) => update("company", e.target.value || undefined)}
+                className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
+              />
+            </label>
+          )}
 
           {/* Department */}
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-foreground">
-              {t(lang, "resourceDepartment")}
-            </span>
-            <input
-              type="text"
-              value={draft.department ?? ""}
-              onChange={(e) => update("department", e.target.value || undefined)}
-              className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
-            />
-          </label>
+          {isVisible("department") && (
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="font-medium text-foreground">
+                {t(lang, "resourceDepartment")}
+              </span>
+              <input
+                type="text"
+                value={draft.department ?? ""}
+                onChange={(e) => update("department", e.target.value || undefined)}
+                className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
+              />
+            </label>
+          )}
 
           {/* Location */}
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-foreground">
-              {t(lang, "resourceLocation")}
-            </span>
-            <input
-              type="text"
-              value={draft.location ?? ""}
-              onChange={(e) => update("location", e.target.value || undefined)}
-              className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
-            />
-          </label>
+          {isVisible("location") && (
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="font-medium text-foreground">
+                {t(lang, "resourceLocation")}
+              </span>
+              <input
+                type="text"
+                value={draft.location ?? ""}
+                onChange={(e) => update("location", e.target.value || undefined)}
+                className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
+              />
+            </label>
+          )}
 
           {/* Business phone */}
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-foreground">
-              {t(lang, "resourcePhone")}
-            </span>
-            <input
-              type="tel"
-              value={draft.businessPhone ?? ""}
-              onChange={(e) =>
-                update("businessPhone", e.target.value || undefined)
-              }
-              className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
-            />
-          </label>
+          {isVisible("businessPhone") && (
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="font-medium text-foreground">
+                {t(lang, "resourcePhone")}
+              </span>
+              <input
+                type="tel"
+                value={draft.businessPhone ?? ""}
+                onChange={(e) =>
+                  update("businessPhone", e.target.value || undefined)
+                }
+                className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
+              />
+            </label>
+          )}
 
           {/* Email */}
           {isVisible("email") && (
@@ -300,17 +310,19 @@ export function ResourceEditModal({
           )}
 
           {/* Notes — full width textarea */}
-          <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-            <span className="font-medium text-foreground">
-              {t(lang, "resourceNotes")}
-            </span>
-            <textarea
-              rows={3}
-              value={draft.notes ?? ""}
-              onChange={(e) => update("notes", e.target.value || undefined)}
-              className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
-            />
-          </label>
+          {isVisible("notes") && (
+            <label className="flex flex-col gap-1 text-sm sm:col-span-2">
+              <span className="font-medium text-foreground">
+                {t(lang, "resourceNotes")}
+              </span>
+              <textarea
+                rows={3}
+                value={draft.notes ?? ""}
+                onChange={(e) => update("notes", e.target.value || undefined)}
+                className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
+              />
+            </label>
+          )}
 
           {error && (
             <p className="text-sm text-AIPM-pink sm:col-span-2">

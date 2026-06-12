@@ -139,10 +139,10 @@ describe("ResourceEditModal", () => {
   });
 
   describe("field visibility", () => {
-    it("Advanced default shows email and hides Full-only birthday; switching tiers keeps the required Name input", () => {
+    it("Advanced default shows jobTitle and hides Full-only birthday; switching tiers keeps the required Name input", () => {
       setup();
-      // Advanced default: email (simple-tier) is visible; birthday (full-tier) is hidden.
-      expect(screen.getByText(t("en-US", "resourceEmail"))).toBeInTheDocument();
+      // Advanced default: jobTitle (advanced-tier) is visible; birthday (full-tier) is hidden.
+      expect(screen.getByText(t("en-US", "resourceJobTitle"))).toBeInTheDocument();
       expect(screen.queryByLabelText("Birthday")).toBeNull();
       // Required Name inputs are always rendered, regardless of tier.
       expect(screen.getByText(t("en-US", "resourceFirstName"))).toBeInTheDocument();
@@ -152,8 +152,9 @@ describe("ResourceEditModal", () => {
       expect(screen.getByLabelText("Birthday")).toBeInTheDocument();
       expect(screen.getByText(t("en-US", "resourceFirstName"))).toBeInTheDocument();
 
-      // Switch to Simple → birthday is hidden again, Name still present.
+      // Switch to Simple → jobTitle and birthday are hidden, Name still present.
       fireEvent.click(screen.getByRole("button", { name: t("en-US", "fieldViewSimple") }));
+      expect(screen.queryByText(t("en-US", "resourceJobTitle"))).toBeNull();
       expect(screen.queryByLabelText("Birthday")).toBeNull();
       expect(screen.getByText(t("en-US", "resourceFirstName"))).toBeInTheDocument();
     });
