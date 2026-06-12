@@ -8,6 +8,7 @@
 
 import { decodeDocumentLinks } from "./document-link";
 import { sanitizeFieldVisibility, type FieldVisibilityConfig } from "./field-visibility";
+import { sanitizeFeatures, type FeatureModuleId } from "./feature-modules";
 import { defaultResourcePlan } from "./resource-foundation";
 import {
   dropDanglingDependencies,
@@ -219,6 +220,22 @@ export function markdownToFieldVisibility(md: string): FieldVisibilityConfig | u
   if (!m) return undefined;
   try {
     return sanitizeFieldVisibility(JSON.parse(m[1]));
+  } catch {
+    return undefined;
+  }
+}
+
+/** Serializes the per-project feature list as JSON inside a fenced
+ *  block under "## Functions" (presence-gated: explicit [] still emits). */
+export function featuresToMarkdown(features: readonly FeatureModuleId[]): string {
+  return ["## Functions", "", "```json", JSON.stringify(features, null, 2), "```", ""].join("\n");
+}
+
+export function markdownToFeatures(md: string): FeatureModuleId[] | undefined {
+  const m = /## Functions\s*\n+```json\s*\n([\s\S]*?)\n```/.exec(md);
+  if (!m) return undefined;
+  try {
+    return sanitizeFeatures(JSON.parse(m[1]));
   } catch {
     return undefined;
   }
@@ -590,6 +607,8 @@ export function workspaceToMarkdown(ws: Workspace, config?: ExportConfig): strin
   // existing fixture bytes; absent/empty emits nothing (byte-stability).
   if (config === undefined && ws.fieldVisibility && Object.keys(ws.fieldVisibility).length > 0)
     mdParts.push(fieldVisibilityToMarkdown(ws.fieldVisibility));
+  if (config === undefined && ws.features !== undefined)
+    mdParts.push(featuresToMarkdown(ws.features));
   const out = mdParts.join("\n");
   return out;
 }
@@ -1033,6 +1052,8 @@ export function markdownToWorkspace(md: string): Workspace {
   if (project) ws.project = project;
   const fv = markdownToFieldVisibility(md);
   if (fv) ws.fieldVisibility = fv;
+  const fns = markdownToFeatures(md);
+  if (fns !== undefined) ws.features = fns;
   return migrateWorkspaceV9(ws);
 }
 
