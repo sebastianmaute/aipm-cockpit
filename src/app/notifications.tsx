@@ -89,7 +89,7 @@ export function DueBanner({
         <p className="text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
           {t(lang, "alertBannerTitle", items.length)}
         </p>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-AIPM-dark-blue dark:text-AIPM-light-grey">
           {summary}
         </p>
       </div>
@@ -132,7 +132,7 @@ export function BirthdayBanner({
       <span aria-hidden className="text-lg">🎂</span>
       <div className="min-w-0 flex-1">
         <p className="text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">{t(lang, "birthdayBannerTitle", items.length)}</p>
-        <p className="text-xs text-muted-foreground">{summary}</p>
+        <p className="text-xs text-AIPM-dark-blue dark:text-AIPM-light-grey">{summary}</p>
       </div>
       <div className="flex gap-2">
         <SnoozeMenu lang={lang} onSnooze={onSnooze} />
@@ -267,7 +267,7 @@ export function DueDatesModal({
                       </span>{" "}
                       {item.task.taskName}
                     </p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-xs text-AIPM-dark-blue dark:text-AIPM-light-grey">
                       {t(lang, "assignee")}: {item.task.assignee} ·{" "}
                       {t(lang, "due")}: {item.task.dueDate}
                       {item.category === "soon" && (
@@ -342,7 +342,7 @@ export function RaidReviewBanner({
         <p className="text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
           {t(lang, "raidReviewBannerTitle", items.length)}
         </p>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-AIPM-dark-blue dark:text-AIPM-light-grey">
           {raidReviewSummary(items, lang)}
         </p>
       </div>
@@ -435,7 +435,7 @@ export function RaidReviewModal({
                     <p className="font-medium text-AIPM-dark-blue dark:text-AIPM-light-grey">
                       <span className="font-mono text-xs text-muted-foreground">#{item.id}</span> {item.title}
                     </p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-xs text-AIPM-dark-blue dark:text-AIPM-light-grey">
                       {item.owner ? `${item.owner} · ` : ""}
                       {item.targetDate ? `${t(lang, "raidTargetDate")}: ${item.targetDate} · ` : ""}
                       {t(lang, "raidReviewLastTouched")}: {daysSinceReview}d
@@ -497,7 +497,7 @@ export function StakeholderCommsBanner({
         <p className="text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
           {t(lang, "stakeholderCommsBannerTitle", stakeholders)}
         </p>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-AIPM-dark-blue dark:text-AIPM-light-grey">
           {t(lang, "stakeholderCommsBannerHint", items.length)}
         </p>
       </div>
@@ -594,7 +594,7 @@ export function StakeholderCommsModal({
                 <p className="font-medium text-AIPM-dark-blue dark:text-AIPM-light-grey">
                   {item.stakeholderName}
                 </p>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-AIPM-dark-blue dark:text-AIPM-light-grey">
                   {item.itemTitle} · {commsReasonLabel(item.reasonKey, lang)}
                 </p>
               </li>

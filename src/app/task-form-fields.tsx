@@ -481,9 +481,9 @@ export function TaskFormFields({
             const chipInactive =
               "border-line bg-surface text-foreground hover:bg-surface-muted dark:border-line dark:bg-surface dark:text-foreground dark:hover:bg-surface-muted";
             const chipActive: Record<Health, string> = {
-              R: "border-AIPM-pink bg-AIPM-pink/10 text-AIPM-pink dark:border-AIPM-pink dark:bg-AIPM-pink/15",
-              A: "border-AIPM-purple bg-AIPM-purple/10 text-AIPM-purple dark:border-AIPM-purple dark:bg-AIPM-purple/15",
-              G: "border-AIPM-green bg-AIPM-green/10 text-AIPM-green dark:border-AIPM-green dark:bg-AIPM-green/15",
+              R: "border-AIPM-pink bg-AIPM-pink/10 text-AIPM-dark-blue dark:border-AIPM-pink dark:bg-AIPM-pink/15 dark:text-AIPM-light-grey",
+              A: "border-AIPM-purple bg-AIPM-purple/10 text-AIPM-dark-blue dark:border-AIPM-purple dark:bg-AIPM-purple/15 dark:text-AIPM-light-grey",
+              G: "border-AIPM-green bg-AIPM-green/10 text-AIPM-dark-blue dark:border-AIPM-green dark:bg-AIPM-green/15 dark:text-AIPM-light-grey",
             };
             return (
               <div className="flex flex-wrap items-center gap-2">

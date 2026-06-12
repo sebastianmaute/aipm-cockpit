@@ -146,7 +146,7 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
                   aria-label={`${t(lang, "historyCompareSelect")} ${v.label ?? new Date(v.capturedAt).toLocaleString()}`}
                   className="accent-AIPM-dark-blue"
                 />
-                <span className={`rounded px-1.5 py-0.5 text-xs ${v.trigger === "manual" ? "bg-AIPM-green/15 text-AIPM-green" : "bg-surface-muted text-muted-foreground"}`}>
+                <span className={`rounded px-1.5 py-0.5 text-xs ${v.trigger === "manual" ? "bg-AIPM-green/15 text-AIPM-dark-blue dark:text-AIPM-light-grey" : "bg-surface-muted text-muted-foreground"}`}>
                   {v.trigger === "manual" ? `★ ${t(lang, "historyManual")}` : t(lang, "historyAuto")}
                 </span>
                 <span className="text-foreground">{v.label ?? new Date(v.capturedAt).toLocaleString()}</span>

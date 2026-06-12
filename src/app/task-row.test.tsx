@@ -257,7 +257,7 @@ describe("TaskRow zebra striping", () => {
     expect(tr?.className).not.toContain("bg-surface-muted/40");
   });
 
-  test("completed striped row composes the dim and the stripe tint", () => {
+  test("completed row uses a muted tint, not an opacity dim (WCAG contrast)", () => {
     const ctx = makeContext();
     const { container } = render(
       rowWrapper({
@@ -276,8 +276,10 @@ describe("TaskRow zebra striping", () => {
       }),
     );
     const tr = container.querySelector("tbody tr");
-    expect(tr?.className).toContain("opacity-60");
-    expect(tr?.className).toContain("bg-surface-muted/40");
+    // opacity-dimming drags text/badges below the AA contrast threshold, so the
+    // completed affordance is a full-opacity muted tint (+ strikethrough title).
+    expect(tr?.className).not.toContain("opacity-60");
+    expect(tr?.className).toContain("bg-surface-muted/60");
   });
 });
 

@@ -89,9 +89,9 @@ function summarizeNote(
 
 const priorityStyle: Record<Priority, string> = {
   Low: "bg-surface-muted text-muted-foreground",
-  Medium: "bg-AIPM-blue/15 text-AIPM-blue dark:bg-AIPM-blue/20",
-  High: "bg-AIPM-purple/15 text-AIPM-purple dark:bg-AIPM-purple/20",
-  Urgent: "bg-AIPM-pink/15 text-AIPM-pink dark:bg-AIPM-pink/20",
+  Medium: "bg-AIPM-blue/15 text-AIPM-dark-blue dark:bg-AIPM-blue/20 dark:text-AIPM-light-grey",
+  High: "bg-AIPM-purple/15 text-AIPM-dark-blue dark:bg-AIPM-purple/20 dark:text-AIPM-light-grey",
+  Urgent: "bg-AIPM-pink/15 text-AIPM-dark-blue dark:bg-AIPM-pink/20 dark:text-AIPM-light-grey",
 };
 
 /**
@@ -166,7 +166,10 @@ function TaskRowImpl({
     : isSelected
       ? "bg-surface-muted"
       : isComplete
-        ? `opacity-60${isStriped ? " bg-surface-muted/40" : ""}`
+        ? // Completed rows are signalled by the strikethrough title + a muted
+          // tint — NOT `opacity`, which dims all text/badges below the WCAG AA
+          // contrast threshold (axe flagged the whole row).
+          "bg-surface-muted/60"
         : isStriped
           ? "bg-surface-muted/40"
           : "";
@@ -226,7 +229,7 @@ function TaskRowImpl({
           <span
             title={t(lang, "taskRowChangesBadge", changeRefs.length)}
             aria-label={t(lang, "taskRowChangesBadge", changeRefs.length)}
-            className="ml-1 inline-flex items-center rounded bg-AIPM-blue/15 px-1.5 py-0.5 text-[10px] font-medium text-AIPM-blue dark:bg-AIPM-blue/20"
+            className="ml-1 inline-flex items-center rounded bg-AIPM-blue/15 px-1.5 py-0.5 text-[10px] font-medium text-AIPM-dark-blue dark:bg-AIPM-blue/20 dark:text-AIPM-light-grey"
           >
             {t(lang, "taskRowChangesBadge", changeRefs.length)}
           </span>

@@ -196,7 +196,7 @@ function ResourceCalendarInner({
                     d.isToday
                       ? "bg-AIPM-green/20 text-AIPM-dark-blue dark:bg-AIPM-green/20 dark:text-AIPM-light-grey"
                       : d.isHoliday
-                        ? "bg-AIPM-purple/15 text-AIPM-purple dark:bg-AIPM-purple/20 dark:text-AIPM-purple"
+                        ? "bg-AIPM-purple/15 text-AIPM-dark-blue dark:bg-AIPM-purple/20 dark:text-AIPM-light-grey"
                         : d.isWeekend
                           ? "bg-AIPM-dark-blue text-white"
                           : "bg-AIPM-dark-blue text-white",

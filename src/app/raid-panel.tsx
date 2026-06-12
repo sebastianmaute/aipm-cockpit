@@ -93,10 +93,10 @@ export type RaidPanelProps = {
 // --- Color palette -------------------------------------------------------
 
 const categoryPillClass: Record<RaidCategory, string> = {
-  R: "bg-AIPM-pink/15 text-AIPM-pink dark:bg-AIPM-pink/20",
-  A: "bg-AIPM-blue/15 text-AIPM-blue dark:bg-AIPM-blue/20",
-  I: "bg-AIPM-purple/15 text-AIPM-purple dark:bg-AIPM-purple/20",
-  D: "bg-AIPM-green/15 text-AIPM-green dark:bg-AIPM-green/20",
+  R: "bg-AIPM-pink/15 text-AIPM-dark-blue dark:bg-AIPM-pink/20 dark:text-AIPM-light-grey",
+  A: "bg-AIPM-blue/15 text-AIPM-dark-blue dark:bg-AIPM-blue/20 dark:text-AIPM-light-grey",
+  I: "bg-AIPM-purple/15 text-AIPM-dark-blue dark:bg-AIPM-purple/20 dark:text-AIPM-light-grey",
+  D: "bg-AIPM-green/15 text-AIPM-dark-blue dark:bg-AIPM-green/20 dark:text-AIPM-light-grey",
 };
 
 const severityDotClass: Record<"R" | "A" | "G", string> = {

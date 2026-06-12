@@ -553,7 +553,7 @@ function ToolBlock({
         onToggle={(e) => setOpen((e.currentTarget as HTMLDetailsElement).open)}
         className={`max-w-[85%] rounded-lg border px-3 py-2 text-xs ${
           error
-            ? "border-AIPM-pink/40 bg-AIPM-pink/10 text-AIPM-pink dark:border-AIPM-pink/50 dark:bg-AIPM-pink/15"
+            ? "border-AIPM-pink/40 bg-AIPM-pink/10 text-AIPM-dark-blue dark:border-AIPM-pink/50 dark:bg-AIPM-pink/15 dark:text-AIPM-light-grey"
             : "border-line bg-surface text-foreground"
         }`}
       >
