@@ -5,6 +5,7 @@ import { type Contact } from "./contacts";
 import { type ProjectMeta } from "./types";
 import { type NewProjectOpts } from "./new-project-workspace";
 import { SETTINGS_KEY } from "./use-settings";
+import { t } from "./i18n";
 
 const STAKEHOLDERS = ["Alice Smith", "Bob Jones"];
 const ADDRESS_BOOK: Contact[] = [
@@ -36,8 +37,21 @@ function setup(
   return { onCreate, onCancel };
 }
 
+/** Overrides for the complexity-driving Step-1 fields so a test can steer the
+ *  resulting suggestTemplate tier (sparse → Minimal, heavy → Full delivery). */
+interface Step1Overrides {
+  /** Extra internal stakeholders to add beyond the default Alice Smith. */
+  internalStakeholders?: string[];
+  deployment?: "Cloud" | "On-premise" | "Hybrid";
+  /** Regulatory checkbox label to tick (default GDPR). "Not applicable" =
+   *  unregulated. */
+  regulatoryLabel?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
 /** Fill every required project field so Step 1's form becomes valid. */
-function fillRequired() {
+function fillRequired(overrides: Step1Overrides = {}) {
   function setText(label: string, value: string) {
     fireEvent.change(screen.getByLabelText(label, { exact: false }), {
       target: { value },
@@ -52,6 +66,9 @@ function fillRequired() {
   setText("Project code", "WZ-1");
   setText("Project manager", "Dana PM");
   addStakeholder("keyStakeholdersInternal", "Alice Smith");
+  for (const name of overrides.internalStakeholders ?? []) {
+    addStakeholder("keyStakeholdersInternal", name);
+  }
   addStakeholder("keyStakeholdersExternal", "Ext Person");
   setText("Customer", "ACME Corp");
   fireEvent.change(screen.getByLabelText("NACE section", { exact: false }), {
@@ -59,17 +76,21 @@ function fillRequired() {
   });
   setText("Products", "Widget");
   fireEvent.change(screen.getByLabelText("Deployment", { exact: false }), {
-    target: { value: "Cloud" },
+    target: { value: overrides.deployment ?? "Cloud" },
   });
-  setText("Start date", "2026-01-01");
-  setText("End date", "2026-06-01");
+  setText("Start date", overrides.startDate ?? "2026-01-01");
+  setText("End date", overrides.endDate ?? "2026-06-01");
   setText("Profit center", "PC-9");
-  fireEvent.click(screen.getByLabelText("GDPR / data protection regulation"));
+  fireEvent.click(
+    screen.getByLabelText(
+      overrides.regulatoryLabel ?? "GDPR / data protection regulation",
+    ),
+  );
 }
 
 /** Step 1 → submit the project details form (advances to Step 2). */
-function completeStep1() {
-  fillRequired();
+function completeStep1(overrides: Step1Overrides = {}) {
+  fillRequired(overrides);
   fireEvent.click(screen.getByRole("button", { name: "Next" }));
 }
 
@@ -201,5 +222,72 @@ describe("CreateProjectWizard", () => {
     // On Step 2 — both Back and Cancel are present in the nav row.
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(onCancel).toHaveBeenCalledTimes(1);
+  });
+
+  it("Step 2 preselects + badges the suggested template (high complexity → Full delivery)", () => {
+    setup();
+
+    // HIGH-complexity meta: 8 internal stakeholders (team ≥ 8 → +2), Hybrid
+    // deployment (+2), DORA regulatory (+1), >12-month timeline (+2) → score 7
+    // → advanced tier → builtin-full "Full delivery".
+    completeStep1({
+      internalStakeholders: ["B", "C", "D", "E", "F", "G", "H"],
+      deployment: "Hybrid",
+      regulatoryLabel: "DORA",
+      startDate: "2026-01-01",
+      endDate: "2027-06-01",
+    });
+
+    // On Step 2: the suggested "Full delivery" row is preselected and badged.
+    const fullRow = screen.getByRole("button", { name: /Full delivery/ });
+    expect(fullRow).toHaveAttribute("aria-pressed", "true");
+    expect(
+      screen.getByText(t("en-US", "templateSuggested")),
+    ).toBeInTheDocument();
+  });
+
+  it("sparse meta suggests + preselects Minimal", () => {
+    setup();
+
+    // Minimal valid meta: just the required stakeholders (team 3 → +1), Cloud,
+    // unregulated ("Not applicable"), and a short (~1 month) timeline → score 1
+    // → simple tier → builtin-minimal "Minimal".
+    completeStep1({
+      deployment: "Cloud",
+      regulatoryLabel: "Not applicable",
+      startDate: "2026-01-01",
+      endDate: "2026-02-01",
+    });
+
+    expect(
+      screen.getByRole("button", { name: /Minimal/ }),
+    ).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("manual pick of Blank overrides the suggestion and sticks", () => {
+    setup();
+
+    // Reach Step 2 with something preselected (default meta → Standard PM).
+    completeStep1();
+    expect(
+      screen.getByRole("button", { name: /Standard PM/ }),
+    ).toHaveAttribute("aria-pressed", "true");
+
+    // Pick Blank — it wins over the suggestion.
+    fireEvent.click(
+      screen.getByRole("button", { name: /choose functions yourself/i }),
+    );
+    const blank = screen.getByRole("button", {
+      name: /choose functions yourself/i,
+    });
+    expect(blank).toHaveAttribute("aria-pressed", "true");
+
+    // Navigate Next → Back; the manual Blank choice is NOT re-overwritten by the
+    // suggestion (preselect runs once, only while untouched).
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    expect(
+      screen.getByRole("button", { name: /choose functions yourself/i }),
+    ).toHaveAttribute("aria-pressed", "true");
   });
 });

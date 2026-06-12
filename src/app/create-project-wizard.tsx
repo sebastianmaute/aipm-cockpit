@@ -18,9 +18,10 @@
 // The assembled opts ({ template?, features, includeSeed }) are handed to the
 // host's onCreate, which threads them to buildNewProjectWorkspace.
 
-import { useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { type Contact } from "./contacts";
 import { CreateProjectForm } from "./create-project-form";
+import { suggestTemplate } from "./template-suggest";
 import {
   ALL_MODULE_IDS,
   FEATURE_MODULES,
@@ -116,17 +117,42 @@ export function CreateProjectWizard({
   const [features, setFeatures] = useState<FeatureModuleId[]>([...ALL_MODULE_IDS]);
   const [includeSeed, setIncludeSeed] = useState(false);
 
-  // Step 1 → capture details and advance (does NOT create yet).
+  // Suggestion derived from the captured Step-1 meta. Drives the badge + reason
+  // line and is preselected ONCE when Step 1 is submitted (see handleDetails),
+  // unless the user has already touched the list.
+  const userTouchedTemplateRef = useRef(false);
+  const suggestion = useMemo(
+    () => (meta ? suggestTemplate(meta, templates) : null),
+    [meta, templates],
+  );
+
+  // Apply a template's effects WITHOUT marking the list as user-touched (used by
+  // the preselect path). `chooseTemplate` wraps this to flag a real user pick.
+  const applyTemplateChoice = (tpl: ProjectTemplate | null) => {
+    setSelectedTemplate(tpl);
+    setFeatures(tpl ? ALL_MODULE_IDS.filter((id) => tpl.features.includes(id)) : [...ALL_MODULE_IDS]);
+    setIncludeSeed(hasSeedContent(tpl));
+  };
+
+  // Step 1 → capture details and advance (does NOT create yet). On this single
+  // transition into Step 2, preselect the suggested template — but only while
+  // the user has not touched the list, so a manual pick (incl. Blank) made on a
+  // prior visit is never overwritten. Computed from the fresh meta `m` so it
+  // does not lag the memoized `suggestion` by a render.
   const handleDetails = (m: ProjectMeta, fmt: CreateFormat) => {
     setMeta(m);
     setFormat(fmt);
+    if (!userTouchedTemplateRef.current) {
+      const { templateId } = suggestTemplate(m, templates);
+      const tpl = templates.find((tp) => tp.id === templateId) ?? null;
+      if (tpl) applyTemplateChoice(tpl);
+    }
     setStep(2);
   };
 
   const chooseTemplate = (tpl: ProjectTemplate | null) => {
-    setSelectedTemplate(tpl);
-    setFeatures(tpl ? ALL_MODULE_IDS.filter((id) => tpl.features.includes(id)) : [...ALL_MODULE_IDS]);
-    setIncludeSeed(hasSeedContent(tpl));
+    userTouchedTemplateRef.current = true;
+    applyTemplateChoice(tpl);
   };
 
   const toggleModule = (id: FeatureModuleId) =>
@@ -167,6 +193,15 @@ export function CreateProjectWizard({
       {/* Step 2 — Template. */}
       {step === 2 && (
         <div className="flex flex-col gap-4">
+          {suggestion && (
+            <p className="mb-2 text-xs text-muted-foreground">
+              {suggestion.reasons
+                .map((r) => t(lang, r.key, ...(r.args ?? [])))
+                .join(" · ")}
+              {" → "}
+              {t(lang, MODE_LABEL_KEY[suggestion.tier])}
+            </p>
+          )}
           <fieldset className="flex flex-col gap-2">
             <button
               type="button"
@@ -204,6 +239,11 @@ export function CreateProjectWizard({
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-medium text-foreground">{tpl.name}</span>
+                    {suggestion?.templateId === tpl.id && (
+                      <span className="rounded-full bg-AIPM-dark-blue px-2 py-0.5 text-xs font-semibold text-white">
+                        {t(lang, "templateSuggested")}
+                      </span>
+                    )}
                     <span className="rounded-full bg-AIPM-green/15 px-2 py-0.5 text-xs font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
                       {t(lang, MODE_LABEL_KEY[tplMode])}
                     </span>
