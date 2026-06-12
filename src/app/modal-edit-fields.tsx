@@ -42,6 +42,7 @@ export function AssigneeField({
   assigneeLabel,
   assigneeEmailLabel,
   assigneePlaceholder,
+  showEmail = true,
 }: {
   datalistId: string;
   assignee: string;
@@ -52,6 +53,8 @@ export function AssigneeField({
   assigneeLabel: string;
   assigneeEmailLabel: string;
   assigneePlaceholder: string;
+  /** When false, the email input is hidden (its value is preserved by the caller). */
+  showEmail?: boolean;
 }) {
   const options = useMemo(
     () => dedupeAssignees(knownAssignees),
@@ -90,15 +93,17 @@ export function AssigneeField({
         </datalist>
       </label>
 
-      <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-        <span className="font-medium text-foreground">{assigneeEmailLabel}</span>
-        <input
-          type="email"
-          value={assigneeEmail ?? ""}
-          onChange={(e) => onEmailChange(e.target.value || undefined)}
-          className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
-        />
-      </label>
+      {showEmail && (
+        <label className="flex flex-col gap-1 text-sm sm:col-span-2">
+          <span className="font-medium text-foreground">{assigneeEmailLabel}</span>
+          <input
+            type="email"
+            value={assigneeEmail ?? ""}
+            onChange={(e) => onEmailChange(e.target.value || undefined)}
+            className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
+          />
+        </label>
+      )}
     </>
   );
 }
