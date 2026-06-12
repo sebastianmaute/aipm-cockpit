@@ -15,7 +15,7 @@ import { useTemplates } from "./use-templates";
 import { templateFromWorkspace, type SaveTemplateInput } from "./templates";
 import { applyTemplate } from "./template-apply";
 import { useCurrentWorkspace } from "./use-current-workspace";
-import { disabledViewRedirect, isModuleEnabled, deriveMode, type FeatureModuleId } from "./feature-modules";
+import { ALL_MODULE_IDS, disabledViewRedirect, isModuleEnabled, deriveMode, type FeatureModuleId } from "./feature-modules";
 import { useJiraSync } from "./use-jira-sync";
 import { useStorageBackend } from "./use-storage-backend";
 import { useResourcePlanner } from "./use-resource-planner";
@@ -565,6 +565,10 @@ function TaskManagerInner() {
       if (!tpl) return;
       const next = applyTemplate(buildCurrentWorkspace(), tpl, opts);
       setFieldVisibility(next.fieldVisibility);
+      // Apply the template's functions to the current project too (reactive via
+      // useFeaturesSync, persisted via autosave). Filter through ALL_MODULE_IDS so
+      // only valid ids in registry order are set — mirrors creation behavior.
+      setFeatures(ALL_MODULE_IDS.filter((id) => tpl.features.includes(id)));
       if (opts.includeSeed) {
         setTasks(next.tasks);
         setMilestones(next.milestones ?? []);
@@ -575,7 +579,7 @@ function TaskManagerInner() {
       }
       showToast("info", t(lang, "templateApplied"));
     },
-    [projectTemplates, buildCurrentWorkspace, setFieldVisibility, setTasks, setMilestones, setRaid, setChanges, setStakeholders, setBudgets, showToast, lang],
+    [projectTemplates, buildCurrentWorkspace, setFieldVisibility, setFeatures, setTasks, setMilestones, setRaid, setChanges, setStakeholders, setBudgets, showToast, lang],
   );
 
   // Stakeholder-comms reminder (mirrors the RAID-review reminder wiring above):

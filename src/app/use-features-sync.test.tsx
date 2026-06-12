@@ -5,6 +5,7 @@ import { type ReactNode } from "react";
 import { useWorkspace, WorkspaceProvider } from "./workspace-context";
 import { FiltersProvider } from "./filters-context";
 import { useFeaturesSync } from "./use-features-sync";
+import { ALL_MODULE_IDS } from "./feature-modules";
 
 function Providers({ children }: { children: ReactNode }) {
   return (
@@ -28,7 +29,8 @@ describe("useFeaturesSync", () => {
         <Harness setSettings={setSettings} />
       </Providers>,
     );
-    // The initial render has features === undefined → the effect early-returns.
+    // The initial render has features === undefined → syncs to the all-modules
+    // default. Clear that so we isolate the click's defined-set sync below.
     setSettings.mockClear();
     act(() => getByText("set").click());
     expect(setSettings).toHaveBeenCalled();
@@ -40,14 +42,22 @@ describe("useFeaturesSync", () => {
     expect(updater({ features: [] }).features).toEqual(["raid"]);
   });
 
-  it("does NOT sync when workspace features is undefined (initial)", () => {
+  it("resets settings.features to the all-modules default when workspace features is undefined", () => {
     const setSettings = vi.fn();
     render(
       <Providers>
         <Harness setSettings={setSettings} />
       </Providers>,
     );
-    // features starts undefined → the effect early-returns → no sync call.
-    expect(setSettings).not.toHaveBeenCalled();
+    // features starts undefined (legacy / no per-project override) → the mirror
+    // resets to the all-modules DEFAULT (no portfolio leak), rather than leaving
+    // the previous project's set untouched.
+    expect(setSettings).toHaveBeenCalled();
+    const updater = setSettings.mock.calls.at(-1)![0] as (s: {
+      features: string[];
+    }) => { features: string[] };
+    // Apply the updater to a settings holding a *different* (stale) set; it must
+    // overwrite with the all-modules default.
+    expect(updater({ features: ["raid"] }).features).toEqual([...ALL_MODULE_IDS]);
   });
 });

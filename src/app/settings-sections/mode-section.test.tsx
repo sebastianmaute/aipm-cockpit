@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { ModeSection } from "./mode-section";
 import { defaultSettings } from "../settings-types";
-import { ALL_MODULE_IDS } from "../feature-modules";
+import { ALL_MODULE_IDS, type FeatureModuleId } from "../feature-modules";
 
 function setup(features = [...ALL_MODULE_IDS], settingsPatch: Partial<typeof defaultSettings> = {}) {
   const onCommit = vi.fn();
@@ -83,5 +83,37 @@ describe("ModeSection", () => {
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({ versionHistoryRetention: 1000 }),
     );
+  });
+
+  it("re-seeds the draft from the new feature set when remounted on a project switch", () => {
+    // settings-view supplies a `key` derived from the active feature set, so a
+    // project switch remounts ModeSection and re-seeds its draft. Simulate that
+    // here: render with one set, then re-render with a new set AND a new key.
+    const projA: FeatureModuleId[] = ["raid"];
+    const projB: FeatureModuleId[] = ["budget"];
+    const props = { lang: "en-US" as const, onCommitFeatures: vi.fn(), onChange: vi.fn() };
+    const { rerender } = render(
+      <ModeSection
+        key={projA.join("|")}
+        settings={{ ...defaultSettings, features: projA }}
+        {...props}
+      />,
+    );
+    // Project A: RAID checked, Budget not.
+    expect(screen.getByRole("checkbox", { name: "RAID" })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Budget" })).not.toBeChecked();
+
+    rerender(
+      <ModeSection
+        key={projB.join("|")}
+        settings={{ ...defaultSettings, features: projB }}
+        {...props}
+      />,
+    );
+    // Project B's draft reflects the NEW set (Budget on, RAID off) — not stale.
+    expect(screen.getByRole("checkbox", { name: "Budget" })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "RAID" })).not.toBeChecked();
+    // Save is disabled because the re-seeded draft matches the new saved set.
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
   });
 });

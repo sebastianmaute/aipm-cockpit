@@ -88,6 +88,10 @@ export function SettingsView(props: SettingsViewProps) {
       <section className="min-w-0 flex-1 rounded-lg border border-line bg-surface p-6">
         {active === "mode" && (
           <ModeSection
+            // Remount when the active project's functions change so the draft
+            // re-seeds from the new set — prevents a stale draft (and thus
+            // saving the old project's functions) after a project switch.
+            key={(settings.features ?? []).join("|")}
             lang={lang}
             settings={settings}
             onCommitFeatures={props.onCommitFeatures}

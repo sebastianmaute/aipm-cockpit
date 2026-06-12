@@ -445,7 +445,7 @@ const enUS = {
   templateApplyTitle: "Apply template to current project",
   templatePick: "Template",
   templateIncludeSeed: "Also add starter content",
-  templateApplyReplacesFv: "Applying replaces this project's field-visibility settings.",
+  templateApplyReplacesFv: "Applying replaces this project's field-visibility and functions.",
   templateApplyAction: "Apply",
   templateApplied: "Template applied",
   templateSaved: "Template saved",

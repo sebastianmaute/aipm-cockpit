@@ -452,7 +452,7 @@ export const de: Record<TranslationKey, string> = {
   templateApplyTitle: "Vorlage auf aktuelles Projekt anwenden",
   templatePick: "Vorlage",
   templateIncludeSeed: "Startinhalt hinzufügen",
-  templateApplyReplacesFv: "Das Anwenden ersetzt die Feldsichtbarkeits-Einstellungen dieses Projekts.",
+  templateApplyReplacesFv: "Das Anwenden ersetzt die Feldsichtbarkeit und Funktionen dieses Projekts.",
   templateApplyAction: "Anwenden",
   templateApplied: "Vorlage angewendet",
   templateSaved: "Vorlage gespeichert",
