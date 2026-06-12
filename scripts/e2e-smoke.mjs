@@ -52,9 +52,7 @@ await page.addInitScript(() => {
       close: async () => {},
     }),
   };
-  // @ts-ignore
   window.showSaveFilePicker = async () => handle;
-  // @ts-ignore
   window.showOpenFilePicker = async () => [handle];
 });
 
