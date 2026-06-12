@@ -22,15 +22,18 @@ import {
   sanitizeTaskName,
 } from "./sanitize";
 import {
+  DEPENDENCY_TYPES,
   RAID_CATEGORIES,
   type BudgetBucket,
   type ChangeItem,
+  type DependencyType,
   type Milestone,
   type RaidCategory,
   type RaidItem,
   type RaidStatus,
   type Stakeholder,
   type Task,
+  type TaskDependency,
 } from "./types";
 
 /**
@@ -136,6 +139,23 @@ function sanitizeSeedTask(raw: unknown): Task | null {
   if (timeSpentMinutes !== undefined) task.timeSpentMinutes = timeSpentMinutes;
   const resourceId = fkIdOrUndefined(raw.resourceId);
   if (resourceId !== undefined) task.resourceId = resourceId;
+  const deps = Array.isArray(raw.dependencies)
+    ? (raw.dependencies as unknown[])
+        .map((d): TaskDependency | null => {
+          if (!isPlainObject(d)) return null;
+          const taskId = fkIdOrUndefined(d.taskId);
+          if (taskId === undefined) return null;
+          const type = (
+            DEPENDENCY_TYPES as readonly string[]
+          ).includes(d.type as string)
+            ? (d.type as DependencyType)
+            : null;
+          if (!type) return null;
+          return { taskId, type };
+        })
+        .filter((d): d is TaskDependency => d !== null)
+    : [];
+  if (deps.length) task.dependencies = deps;
   return task;
 }
 

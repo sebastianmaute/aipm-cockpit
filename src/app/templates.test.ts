@@ -28,4 +28,15 @@ describe("sanitizeTemplates", () => {
     expect(sanitizeTemplate(5)).toBeNull();
     expect(sanitizeTemplate({ id: "a", name: "A", features: [], fieldVisibility: {} })?.id).toBe("a");
   });
+  it("preserves seed task dependencies through the round-trip", () => {
+    const out = sanitizeTemplates([{
+      id: "t", name: "T", features: [], fieldVisibility: {},
+      seed: { tasks: [
+        { id: 1, taskName: "A", assignee: "", assigneeEmail: "", dueDate: "", lastUpdateDate: "", priority: "Low", blockers: "", notes: "" },
+        { id: 2, taskName: "B", assignee: "", assigneeEmail: "", dueDate: "", lastUpdateDate: "", priority: "Low", blockers: "", notes: "",
+          dependencies: [{ taskId: 1, type: "FS" }] },
+      ]}
+    }]);
+    expect(out[0].seed?.tasks?.[1].dependencies).toEqual([{ taskId: 1, type: "FS" }]);
+  });
 });
