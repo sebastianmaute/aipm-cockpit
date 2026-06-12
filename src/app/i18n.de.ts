@@ -449,6 +449,7 @@ export const de: Record<TranslationKey, string> = {
   templateApplyTitle: "Vorlage auf aktuelles Projekt anwenden",
   templatePick: "Vorlage",
   templateIncludeSeed: "Startinhalt hinzufügen",
+  templateApplyReplacesFv: "Das Anwenden ersetzt die Feldsichtbarkeits-Einstellungen dieses Projekts.",
   templateApplyAction: "Anwenden",
   templateApplied: "Vorlage angewendet",
   templateSaved: "Vorlage gespeichert",
@@ -682,7 +683,7 @@ export const de: Record<TranslationKey, string> = {
     "Jeder Editor (Aufgaben, RAID, Änderungen, Meilensteine, Stakeholder, Ressourcen, Abwesenheiten und Budgets) verfügt über einen Schalter Einfach / Erweitert / Vollständig, der steuert, wie viele Felder angezeigt werden, sowie ein Zahnrad, um einzelne Felder ein- oder auszublenden. Einfach zeigt das Wesentliche, Erweitert (die Voreinstellung) zeigt den gängigen Satz und Vollständig zeigt alles. Pflichtfelder werden unabhängig von der Ansicht immer angezeigt, und die Einstellung wird pro Projekt gespeichert. Das Ausblenden eines Feldes ändert nur die Anzeige – die dahinterliegenden Daten werden nie gelöscht, sodass eine vollständigere Ansicht die Werte unverändert zurückbringt.",
   helpSecTemplatesTitle: "Projektvorlagen",
   helpSecTemplatesBody:
-    "Projektvorlagen bündeln einen Funktionsmodus, eine Feldsichtbarkeits-Konfiguration und optionalen Startinhalt zu einem wiederverwendbaren Setup. Einige Vorlagen sind bereits eingebaut, und Sie können das aktuelle Projekt als eigene Vorlage speichern. Beim Anwenden einer Vorlage wird die Feldsichtbarkeit gesetzt und optional ihr Startinhalt hinzugefügt – an das Projekt angehängt, sodass Ihre vorhandenen Einträge erhalten bleiben. Verwalten (umbenennen, duplizieren, löschen) können Sie Ihre gespeicherten Vorlagen in den Einstellungen.",
+    "Projektvorlagen speichern eine Funktionsmodus-Voreinstellung, eine Feldsichtbarkeits-Konfiguration und optionalen Startinhalt als wiederverwendbares Setup. Einige Vorlagen sind bereits eingebaut, und Sie können das aktuelle Projekt als eigene Vorlage speichern. Das Anwenden einer Vorlage auf das aktuelle Projekt setzt dessen Feldsichtbarkeit und hängt optional ihren Startinhalt an – Ihre vorhandenen Einträge bleiben erhalten. Die gespeicherte Funktionsmodus-Voreinstellung wird angewendet, wenn Sie ein neues Projekt aus der Vorlage erstellen (in Kürze verfügbar). Verwalten (umbenennen, duplizieren, löschen) können Sie Ihre gespeicherten Vorlagen in den Einstellungen.",
   helpSecKeysTitle: "Tastatur & Shortcuts",
   helpSecKeysBody:
     "Esc – aktuell geöffneten Dialog, Pop-up oder Aufgaben-Formular schließen.\nEnter im Chat – Nachricht senden. Shift+Enter – Zeilenumbruch.\n+-Symbol im Header – Dialog \"Neue Aufgabe\" öffnen.\nPfeil in der Workspace-Tableiste – Bereich ein-/ausklappen.\nKlick auf einen Tab bei eingeklapptem Bereich – klappt automatisch aus.",
@@ -1556,7 +1557,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightTursoMultiProject: "Turso-Multi-Projekt: Eine gemeinsame Datenbank enthält Ihr gesamtes Portfolio – mit projektweisem Wechsel, Archivieren/Wiederherstellen und endgültigem Löschen.",
   versionHighlightSpDocLinks: "SharePoint-Dateien & -Ordner mit Aufgaben, RAID, Änderungen, Stakeholdern, Meilensteinen und Projekten verknüpfen — mit integriertem Browser.",
   versionHighlightFieldVisibility: "Feldsichtbarkeit: Einfache, erweiterte oder vollständige Felder je Editor – mit Zahnrad zum Anpassen der angezeigten Felder",
-  versionHighlightTemplates: "Projektvorlagen: ein Projekt-Setup als wiederverwendbare Vorlage speichern und anwenden (Modus, Feldsichtbarkeit, optionaler Startinhalt), um neue Projekte schnell aufzusetzen",
+  versionHighlightTemplates: "Projektvorlagen: die Feldsichtbarkeit und optionalen Startinhalt eines Projekts als wiederverwendbare Vorlage speichern und auf ein Projekt anwenden, um die Feldsichtbarkeit zu setzen und Startinhalt hinzuzufügen",
   fieldCounter: "{0} / {1}",
   fieldTrimmedToFit: "auf Maximallänge gekürzt",
   fieldAdjustedMax: "auf Maximum {0} angepasst",

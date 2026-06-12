@@ -15,7 +15,11 @@ export const SETTINGS_KEY = "lop-app:settings";
 
 /** Synchronously write settings to localStorage. */
 export function writeSettings(settings: Settings): void {
-  window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  try {
+    window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  } catch {
+    // quota exceeded / storage disabled — degrade gracefully, keep in-memory settings
+  }
 }
 
 const COMMS_QUADRANTS: readonly StakeholderQuadrant[] = [
@@ -166,7 +170,11 @@ export function useSettings(): {
   // Persist settings on every change, guarded by hydration so mount doesn't overwrite.
   useEffect(() => {
     if (!hydrated) return;
-    window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+    try {
+      window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+    } catch {
+      // quota exceeded / storage disabled — degrade gracefully, keep in-memory settings
+    }
   }, [settings, hydrated]);
 
   // Sync document language attribute and ensure dict is loaded on mid-session switch.

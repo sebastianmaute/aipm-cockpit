@@ -226,6 +226,9 @@ export function ApplyTemplateMenu({ lang, templates, onApply }: ApplyTemplateMen
                 </option>
               ))}
             </select>
+            <p className="text-xs text-muted-foreground">
+              {t(lang, "templateApplyReplacesFv")}
+            </p>
             {count > 0 && (
               <p className="text-xs text-muted-foreground">
                 {t(lang, "templateIncludeSeed")} ({count})
