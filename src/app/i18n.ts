@@ -651,6 +651,9 @@ const enUS = {
   helpSecInputFeedbackTitle: "Input feedback",
   helpSecInputFeedbackBody:
     "Capped text fields show a live character counter as you approach the limit — it stays hidden until roughly 80% full and turns a warning color when you reach the cap. Numeric fields (shift hours, change schedule-days/cost, budget amounts and rate overrides) are automatically clamped to their allowed range on blur, with an inline notice if the value was adjusted. If a label contains separator characters that must be stripped, a notice appears next to the field. When you save a record and any entries were trimmed or clamped to fit storage limits, a brief summary toast confirms what was adjusted.",
+  helpSecFieldVisibilityTitle: "Field visibility",
+  helpSecFieldVisibilityBody:
+    "Every entity editor (tasks, RAID, changes, milestones, stakeholders, resources, absences, and budgets) has a Simple / Advanced / Full switch that controls how many fields are shown, plus a cog to show or hide individual fields. Simple shows the essentials, Advanced (the default) shows the common set, and Full shows everything. Required fields are always shown regardless of the view, and the setting is saved per project. Hiding a field only changes what you see — it never deletes the data behind it, so switching to a fuller view brings the values back unchanged.",
   helpSecKeysTitle: "Keyboard & shortcuts",
   helpSecKeysBody:
     "Esc — close any open modal, popover, or task form.\nEnter in chat — send message. Shift+Enter — newline.\n+ button in header — open the New task modal.\nChevron in the workspace tab strip — collapse / expand the pane.\nClick a tab while collapsed — auto-expands.",
@@ -1511,6 +1514,7 @@ const enUS = {
   versionHighlightVinge: "Multi-project / portfolio management (Phase 1): per-project workspaces with a project metadata header, portfolio registry + switching, Projects management view, create/edit form, empty-state, per-project export.",
   versionHighlightTursoMultiProject: "Turso multi-project: one shared database holds your whole portfolio, with per-project switching, archive/restore, and permanent delete.",
   versionHighlightSpDocLinks: "Link SharePoint files & folders to tasks, RAID, changes, stakeholders, milestones and projects — with a built-in browser.",
+  versionHighlightFieldVisibility: "Field visibility: show Simple, Advanced, or Full fields per editor, with a cog to customize which fields appear",
   fieldCounter: "{0} / {1}",
   fieldTrimmedToFit: "trimmed to fit",
   fieldAdjustedMax: "adjusted to max {0}",

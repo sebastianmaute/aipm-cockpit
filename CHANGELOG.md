@@ -8,6 +8,22 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.70.0] - 2026-06-12 "Heinlein"
+
+Per-modal field visibility — Simple / Advanced / Full views with a configurable cog.
+
+### Added
+- Every entity editor (task, RAID, change, milestone, stakeholder, resource,
+  absence, and budget) now has a Simple / Advanced / Full field-visibility
+  switch, plus a cog to show or hide individual fields. The default view is
+  Advanced.
+- The chosen view and per-field overrides are persisted per project across all
+  storage backends (File, CSV, Markdown, and Turso).
+
+### Changed
+- Required fields are always shown regardless of the selected view, and hiding a
+  field only changes what you see — it never deletes the underlying data.
+
 ## [0.69.0] - 2026-06-11 "Simmons"
 
 Version history — retention, module toggle & polish (Turso only; final slice).
