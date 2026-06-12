@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { useEffect, useRef, type ReactNode } from "react";
+import { FiltersProvider } from "./filters-context";
+import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { ChangeEditModal } from "./change-edit-modal";
+import { applyTier } from "./field-visibility";
 import { t } from "./i18n";
 import type { ChangeItem, Stakeholder } from "./types";
 
@@ -24,20 +29,54 @@ function change(over: Partial<ChangeItem> = {}): ChangeItem {
 function s(id: number, name: string): Stakeholder {
   return { id, name, category: "Internal", influence: "Medium", interest: "Medium", raci: {} };
 }
+
+// ModalFieldControls (rendered in the modal header) reads field visibility from
+// the workspace, so every render needs a WorkspaceProvider/FiltersProvider.
+function wrapper({ children }: { children: ReactNode }) {
+  return (
+    <FiltersProvider>
+      <WorkspaceProvider>{children}</WorkspaceProvider>
+    </FiltersProvider>
+  );
+}
+
+/** Seeds the workspace field-visibility config once on mount (e.g. Full view). */
+function Seed({ tier }: { tier: "full" }) {
+  const { setFieldVisibility } = useWorkspace();
+  const seeded = useRef(false);
+  useEffect(() => {
+    if (seeded.current) return;
+    seeded.current = true;
+    setFieldVisibility(() => ({ change: applyTier("change", tier) }));
+  }, [setFieldVisibility, tier]);
+  return null;
+}
+
 function renderModal(over: Partial<React.ComponentProps<typeof ChangeEditModal>> = {}) {
-  return render(<ChangeEditModal {...base} {...over} />);
+  return render(<ChangeEditModal {...base} {...over} />, { wrapper });
+}
+
+/** Render with the Full tier seeded, so Full-only fields (links) are present. */
+function renderModalFull(over: Partial<React.ComponentProps<typeof ChangeEditModal>> = {}) {
+  return render(
+    <>
+      <Seed tier="full" />
+      <ChangeEditModal {...base} {...over} />
+    </>,
+    { wrapper },
+  );
 }
 
 describe("ChangeEditModal", () => {
   it("renders the title field, a type select, and a status select", () => {
-    const { getByDisplayValue, getByLabelText } = render(<ChangeEditModal {...base} />);
+    const { getByDisplayValue, getByLabelText } = renderModal();
     expect(getByDisplayValue("Widen scope")).toBeTruthy();
     expect(getByLabelText(/type/i)).toBeTruthy();
     expect(getByLabelText(/status/i)).toBeTruthy();
   });
   it("calls onApplyStatus when the status changes", () => {
     const onApplyStatus = vi.fn();
-    const { getByLabelText } = render(<ChangeEditModal {...base} onApplyStatus={onApplyStatus} />);
+    const { getByLabelText } = renderModal({ onApplyStatus });
     const sel = getByLabelText(/status/i) as HTMLSelectElement;
     sel.value = "Approved";
     sel.dispatchEvent(new Event("change", { bubbles: true }));
@@ -45,7 +84,7 @@ describe("ChangeEditModal", () => {
   });
   it("calls onSave / onCancel from the footer buttons", () => {
     const onSave = vi.fn(), onCancel = vi.fn();
-    const { getByRole } = render(<ChangeEditModal {...base} onSave={onSave} onCancel={onCancel} />);
+    const { getByRole } = renderModal({ onSave, onCancel });
     getByRole("button", { name: /save/i }).click();
     getByRole("button", { name: /cancel/i }).click();
     expect(onSave).toHaveBeenCalled();
@@ -63,12 +102,49 @@ describe("ChangeEditModal — document links", () => {
 describe("ChangeEditModal — stakeholders", () => {
   it("edits linked stakeholders when stakeholders module is enabled", () => {
     const onChange = vi.fn();
-    renderModal({ stakeholdersEnabled: true, stakeholders: [s(3, "Dana"), s(7, "Lee")], draft: change({ stakeholderIds: [] }), onChange });
+    // Stakeholders live in the Full-only `links` group, so seed the Full tier.
+    renderModalFull({ stakeholdersEnabled: true, stakeholders: [s(3, "Dana"), s(7, "Lee")], draft: change({ stakeholderIds: [] }), onChange });
     fireEvent.click(screen.getByLabelText("Dana"));
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ stakeholderIds: [3] }));
   });
   it("hides the stakeholder picker when the module is disabled", () => {
-    renderModal({ stakeholdersEnabled: false, stakeholders: [s(3, "Dana")], draft: change({ stakeholderIds: [] }) });
+    renderModalFull({ stakeholdersEnabled: false, stakeholders: [s(3, "Dana")], draft: change({ stakeholderIds: [] }) });
     expect(screen.queryByText(t("en-US", "fieldStakeholders"))).not.toBeInTheDocument();
+  });
+});
+
+describe("ChangeEditModal — field visibility", () => {
+  // The modal body labels (changeFieldRequestedBy / changeFieldLinkedTasks)
+  // double as cog-checklist labels, so target the BODY inputs/labels to stay
+  // distinct from the cog popover (which is closed by default anyway).
+  const REQUESTOR_LABEL = t("en-US", "changeFieldRequestedBy");
+  const LINKED_TASKS_LABEL = t("en-US", "changeFieldLinkedTasks");
+
+  it("shows advanced fields and hides Full-only links by default (Advanced)", () => {
+    renderModal();
+    // Advanced-tier field present.
+    expect(screen.getByText(REQUESTOR_LABEL)).toBeTruthy();
+    // Full-only `links` group (linked tasks) absent.
+    expect(screen.queryByText(LINKED_TASKS_LABEL)).toBeNull();
+    // Required Title input always rendered.
+    expect(screen.getByDisplayValue("Widen scope")).toBeTruthy();
+  });
+
+  it("hides advanced fields like Requested-by when switched to Simple, keeping Title", async () => {
+    const user = userEvent.setup();
+    renderModal();
+    expect(screen.getByText(REQUESTOR_LABEL)).toBeTruthy();
+
+    await user.click(
+      screen.getByRole("button", { name: t("en-US", "fieldViewSimple") }),
+    );
+
+    expect(screen.queryByText(REQUESTOR_LABEL)).toBeNull();
+    expect(screen.getByDisplayValue("Widen scope")).toBeTruthy();
+  });
+
+  it("shows the Full-only linked-tasks group in Full tier", () => {
+    renderModalFull();
+    expect(screen.getByText(LINKED_TASKS_LABEL)).toBeTruthy();
   });
 });

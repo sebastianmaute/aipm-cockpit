@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render } from "@testing-library/react";
+import { useEffect, useRef, type ReactNode } from "react";
+import { FiltersProvider } from "./filters-context";
+import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { ChangePanel } from "./change-panel";
+import { applyTier } from "./field-visibility";
 import type { ChangeItem } from "./types";
 
 function ci(over: Partial<ChangeItem>): ChangeItem {
@@ -12,32 +16,67 @@ const base = {
   today: "2026-06-10", onSave: vi.fn(), onDelete: vi.fn(),
 };
 
+// The embedded ChangeEditModal renders ModalFieldControls, which reads
+// field visibility from the Workspace/Filters contexts.
+function Providers({ children }: { children: ReactNode }) {
+  return (
+    <FiltersProvider>
+      <WorkspaceProvider>{children}</WorkspaceProvider>
+    </FiltersProvider>
+  );
+}
+
+/** Seeds the workspace field-visibility config once on mount (e.g. Full view). */
+function Seed({ tier }: { tier: "full" }) {
+  const { setFieldVisibility } = useWorkspace();
+  const seeded = useRef(false);
+  useEffect(() => {
+    if (seeded.current) return;
+    seeded.current = true;
+    setFieldVisibility(() => ({ change: applyTier("change", tier) }));
+  }, [setFieldVisibility, tier]);
+  return null;
+}
+
 describe("ChangePanel", () => {
   it("renders a row per change", () => {
-    const { getByText } = render(<ChangePanel {...base} />);
+    const { getByText } = render(<ChangePanel {...base} />, { wrapper: Providers });
     expect(getByText("Alpha scope")).toBeTruthy();
     expect(getByText("Beta cost")).toBeTruthy();
   });
   it("has an add button", () => {
-    const { getByRole } = render(<ChangePanel {...base} />);
+    const { getByRole } = render(<ChangePanel {...base} />, { wrapper: Providers });
     expect(getByRole("button", { name: /add/i })).toBeTruthy();
   });
   it("opens the editor when a row is clicked", () => {
-    const { getByText, getByDisplayValue } = render(<ChangePanel {...base} />);
+    const { getByText, getByDisplayValue } = render(<ChangePanel {...base} />, { wrapper: Providers });
     fireEvent.click(getByText("Alpha scope"));
     expect(getByDisplayValue("Alpha scope")).toBeTruthy();
   });
 });
 
 describe("ChangePanel — raidEnabled", () => {
+  // The Linked-RAID editor lives in the Full-only `links` group, so seed Full tier.
   it("hides the RAID link control when raidEnabled is false", () => {
-    const { getByText, queryByText } = render(<ChangePanel {...base} raidEnabled={false} />);
+    const { getByText, queryByText } = render(
+      <>
+        <Seed tier="full" />
+        <ChangePanel {...base} raidEnabled={false} />
+      </>,
+      { wrapper: Providers },
+    );
     fireEvent.click(getByText("Alpha scope"));
     expect(queryByText("Linked RAID items")).toBeNull();
   });
 
   it("shows the RAID link control when raidEnabled is true (default)", () => {
-    const { getByText } = render(<ChangePanel {...base} />);
+    const { getByText } = render(
+      <>
+        <Seed tier="full" />
+        <ChangePanel {...base} />
+      </>,
+      { wrapper: Providers },
+    );
     fireEvent.click(getByText("Alpha scope"));
     expect(getByText("Linked RAID items")).toBeTruthy();
   });
