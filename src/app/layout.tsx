@@ -39,6 +39,11 @@ export default async function RootLayout({
       <body className="min-h-full flex flex-col font-[var(--font-titillium)]">
         <script
           nonce={nonce}
+          // React strips the nonce from the client DOM (security), so the
+          // client property is "" while the SSR'd HTML carries the nonce —
+          // a benign mismatch. Suppress it on this element specifically;
+          // suppressHydrationWarning on <html> does not reach children.
+          suppressHydrationWarning
           dangerouslySetInnerHTML={{ __html: NO_FLASH_THEME_SCRIPT }}
         />
         <ThemeProvider>{children}</ThemeProvider>
