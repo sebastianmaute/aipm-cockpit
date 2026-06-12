@@ -9,6 +9,8 @@
 // draft state and passes it down with change callbacks.
 
 import { useEffect, useMemo, useState } from "react";
+import { ModalFieldControls } from "./modal-field-controls";
+import { useModalVisibility } from "./use-modal-visibility";
 import { SegmentedControl } from "./segmented-control";
 import { DocumentLinksFieldGated } from "./document-links-field-gated";
 import { type Lang, t } from "./i18n";
@@ -83,6 +85,7 @@ export function RaidEditModal({
   onJumpToRaid,
 }: RaidEditModalProps) {
   const showToast = useToastContext();
+  const { isVisible } = useModalVisibility("raid");
   const adj = useAdjustmentTracker();
   const [error, setError] = useState<string | null>(null);
   const [taskPickerQuery, setTaskPickerQuery] = useState("");
@@ -250,7 +253,12 @@ export function RaidEditModal({
           </button>
         </header>
 
+        <div className="flex justify-end border-b border-line px-4 py-2">
+          <ModalFieldControls modalId="raid" lang={lang} />
+        </div>
+
         <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-4 overflow-y-auto p-6 sm:grid-cols-2">
+          {isVisible("category") && (
           <div className="flex flex-col gap-1 text-sm">
             <label className="flex flex-col gap-1">
               <span className="font-medium text-foreground">
@@ -316,7 +324,9 @@ export function RaidEditModal({
               </span>
             )}
           </div>
+          )}
 
+          {isVisible("status") && (
           <label className="flex flex-col gap-1 text-sm">
             <span className="font-medium text-foreground">
               {t(lang, "raidStatus")}
@@ -332,6 +342,7 @@ export function RaidEditModal({
               onChange={(s) => onApplyStatus(s)}
             />
           </label>
+          )}
 
           <label className="flex flex-col gap-1 text-sm sm:col-span-2">
             <span className="font-medium text-foreground">
@@ -351,6 +362,7 @@ export function RaidEditModal({
             <CharCounter value={draft.title} max={TASK_NAME_MAX} id="raid-title-counter" lang={lang} />
           </label>
 
+          {isVisible("description") && (
           <label className="flex flex-col gap-1 text-sm sm:col-span-2">
             <span className="font-medium text-foreground">
               {t(lang, "raidDescription")}
@@ -369,8 +381,13 @@ export function RaidEditModal({
             />
             <CharCounter value={draft.description ?? ""} max={TEXTAREA_MAX} id="raid-description-counter" lang={lang} />
           </label>
+          )}
 
-          {draft.category === "R" ? (
+          {/* Risk scoring: for Risk items this is the matrix (full-only field
+              `riskMatrix`); for non-Risk items it's the severity control
+              (advanced field `scoring`). Each branch is guarded by its own id. */}
+          {draft.category === "R"
+            ? isVisible("riskMatrix") && (
             <div className="sm:col-span-2" title={t(lang, "raidFieldRiskMatrixHint")}>
               <div className="mb-2 flex items-baseline justify-between gap-2">
                 <span className="text-sm font-medium text-foreground">
@@ -389,7 +406,8 @@ export function RaidEditModal({
                 lang={lang}
               />
             </div>
-          ) : (
+              )
+            : isVisible("scoring") && (
             <label className="flex flex-col gap-1 text-sm">
               <span className="font-medium text-foreground">
                 {t(lang, "raidSeverity")}
@@ -405,8 +423,9 @@ export function RaidEditModal({
                 onChange={(s) => onChange({ ...draft, severity: s })}
               />
             </label>
-          )}
+              )}
 
+          {isVisible("owner") && (
           <label className="flex flex-col gap-1 text-sm">
             <span className="font-medium text-foreground">
               {t(lang, "raidOwner")}
@@ -435,7 +454,10 @@ export function RaidEditModal({
             />
             <CharCounter value={draft.owner ?? ""} max={ASSIGNEE_MAX} id="raid-owner-counter" lang={lang} />
           </label>
+          )}
 
+          {/* Owner email travels with the owner field. */}
+          {isVisible("owner") && (
           <label className="flex flex-col gap-1 text-sm">
             <span className="font-medium text-foreground">
               {t(lang, "email")}
@@ -450,7 +472,9 @@ export function RaidEditModal({
               className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
             />
           </label>
+          )}
 
+          {isVisible("raisedDate") && (
           <label className="flex flex-col gap-1 text-sm">
             <span className="font-medium text-foreground">
               {t(lang, "raidRaisedDate")}
@@ -463,7 +487,9 @@ export function RaidEditModal({
               className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
             />
           </label>
+          )}
 
+          {isVisible("targetDate") && (
           <label className="flex flex-col gap-1 text-sm">
             <span className="font-medium text-foreground">
               {t(lang, "raidTargetDate")}
@@ -478,7 +504,9 @@ export function RaidEditModal({
               className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
             />
           </label>
+          )}
 
+          {isVisible("mitigation") && (
           <label className="flex flex-col gap-1 text-sm sm:col-span-2">
             <span className="font-medium text-foreground">
               {t(lang, "raidMitigation")}
@@ -497,6 +525,7 @@ export function RaidEditModal({
             />
             <CharCounter value={draft.mitigation ?? ""} max={TEXTAREA_MAX} id="raid-mitigation-counter" lang={lang} />
           </label>
+          )}
 
           <label className="flex flex-col gap-1 text-sm sm:col-span-2">
             <span className="font-medium text-foreground">{t(lang, "documents")}</span>
@@ -507,6 +536,7 @@ export function RaidEditModal({
             />
           </label>
 
+          {isVisible("linkedTasks") && (
           <div className="sm:col-span-2">
             <div className="mb-2 flex items-center justify-between gap-2">
               <span className="text-sm font-medium text-foreground">
@@ -579,8 +609,10 @@ export function RaidEditModal({
               )}
             </div>
           </div>
+          )}
 
           {/* Caused by ----------------------------------------------- */}
+          {isVisible("linkedRaid") && (
           <div className="sm:col-span-2">
             <div className="mb-2 flex items-center justify-between gap-2">
               <span className="text-sm font-medium text-foreground">
@@ -648,10 +680,11 @@ export function RaidEditModal({
               )}
             </div>
           </div>
+          )}
 
           {/* Items caused by this — read-only. The user breaks the link by
               editing the child. Only shown for saved items with children. */}
-          {!isNew && causedChildren.length > 0 && (
+          {isVisible("linkedRaid") && !isNew && causedChildren.length > 0 && (
             <div className="sm:col-span-2">
               <span className="mb-2 block text-sm font-medium text-foreground">
                 {t(lang, "raidCausedThis")}
@@ -674,7 +707,7 @@ export function RaidEditModal({
           )}
 
           {/* Stakeholders ------------------------------------------- */}
-          {stakeholdersEnabled && (
+          {stakeholdersEnabled && isVisible("linkedStakeholders") && (
             <div className="sm:col-span-2">
               <span className="mb-2 block text-sm font-medium text-foreground">
                 {t(lang, "fieldStakeholders")}
