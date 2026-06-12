@@ -39,6 +39,11 @@ export interface CreateProjectFormProps {
   hideFormat?: boolean;
   /** Override the submit button label. Defaults to "New project". */
   submitLabel?: string;
+  /** Prefill the field group (e.g. the wizard restoring captured details on
+   *  Back). Forwarded to ProjectForm's `initial`. Defaults undefined → blank. */
+  initialMeta?: ProjectMeta;
+  /** Prefill the file-format selector. Defaults to "json". */
+  initialFormat?: "json" | "csv" | "md";
 }
 
 export function CreateProjectForm({
@@ -50,8 +55,10 @@ export function CreateProjectForm({
   onCancel,
   hideFormat = false,
   submitLabel,
+  initialMeta,
+  initialFormat,
 }: CreateProjectFormProps) {
-  const [format, setFormat] = useState<CreateFormat>("json");
+  const [format, setFormat] = useState<CreateFormat>(initialFormat ?? "json");
 
   const handleSubmit = (meta: ProjectMeta) => {
     onCreate(meta, format);
@@ -81,6 +88,7 @@ export function CreateProjectForm({
         </label>
       )}
       <ProjectForm
+        initial={initialMeta}
         stakeholderNames={stakeholderNames}
         addressBook={addressBook}
         resources={resources}

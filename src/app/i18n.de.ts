@@ -1707,6 +1707,7 @@ export const de: Record<TranslationKey, string> = {
   projectsEmptyTitle: "Noch keine Projekte",
   projectsEmptyCreate: "Neues Projekt erstellen",
   projectsEmptyLoad: "Aus vorhandener Datei laden",
+  wizardStepsLabel: "Schritte",
   wizardStepDetails: "Details",
   wizardStepTemplate: "Vorlage",
   wizardStepFunctions: "Funktionen",

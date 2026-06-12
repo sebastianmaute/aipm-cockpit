@@ -175,4 +175,31 @@ describe("CreateProjectWizard", () => {
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(onCancel).toHaveBeenCalledTimes(1);
   });
+
+  it("Back from Step 2 preserves the Step-1 details", () => {
+    setup();
+
+    completeStep1();
+    // On Step 2 now — go Back to Step 1.
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+
+    // The previously-entered project name is still in the field.
+    const nameInput = screen.getByLabelText("Project name", {
+      exact: false,
+    }) as HTMLInputElement;
+    expect(nameInput.value).toBe("WizardProj");
+    const codeInput = screen.getByLabelText("Project code", {
+      exact: false,
+    }) as HTMLInputElement;
+    expect(codeInput.value).toBe("WZ-1");
+  });
+
+  it("Cancel on Step 2 calls onCancel", () => {
+    const { onCancel } = setup();
+
+    completeStep1();
+    // On Step 2 — both Back and Cancel are present in the nav row.
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(onCancel).toHaveBeenCalledTimes(1);
+  });
 });

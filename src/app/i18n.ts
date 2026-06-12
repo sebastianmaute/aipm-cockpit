@@ -1689,6 +1689,7 @@ const enUS = {
   projectsEmptyTitle: "No projects yet",
   projectsEmptyCreate: "Create a new project",
   projectsEmptyLoad: "Load from an existing file",
+  wizardStepsLabel: "Steps",
   wizardStepDetails: "Details",
   wizardStepTemplate: "Template",
   wizardStepFunctions: "Functions",

@@ -78,7 +78,7 @@ function StepIndicator({ lang, step }: { lang: Lang; step: Step }) {
     { n: 3, key: "wizardStepFunctions" },
   ];
   return (
-    <ol className="mb-5 flex items-center gap-2 text-sm" aria-label="Steps">
+    <ol className="mb-5 flex items-center gap-2 text-sm" aria-label={t(lang, "wizardStepsLabel")}>
       {labels.map(({ n, key }, i) => (
         <li key={n} className="flex items-center gap-2">
           <span
@@ -159,6 +159,8 @@ export function CreateProjectWizard({
           onCancel={onCancel}
           hideFormat={hideFormat}
           submitLabel={t(lang, "wizardNext")}
+          initialMeta={meta ?? undefined}
+          initialFormat={format}
         />
       )}
 
@@ -220,9 +222,16 @@ export function CreateProjectWizard({
           </fieldset>
 
           <div className="flex justify-between gap-2 border-t border-line pt-4">
-            <button type="button" onClick={() => setStep(1)} className={SECONDARY_BUTTON_CLASS}>
-              {t(lang, "wizardBack")}
-            </button>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setStep(1)} className={SECONDARY_BUTTON_CLASS}>
+                {t(lang, "wizardBack")}
+              </button>
+              {onCancel && (
+                <button type="button" onClick={onCancel} className={SECONDARY_BUTTON_CLASS}>
+                  {t(lang, "cancel")}
+                </button>
+              )}
+            </div>
             <button type="button" onClick={() => setStep(3)} className={PRIMARY_BUTTON_CLASS}>
               {t(lang, "wizardNext")}
             </button>
@@ -291,9 +300,16 @@ export function CreateProjectWizard({
           )}
 
           <div className="flex justify-between gap-2 border-t border-line pt-4">
-            <button type="button" onClick={() => setStep(2)} className={SECONDARY_BUTTON_CLASS}>
-              {t(lang, "wizardBack")}
-            </button>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setStep(2)} className={SECONDARY_BUTTON_CLASS}>
+                {t(lang, "wizardBack")}
+              </button>
+              {onCancel && (
+                <button type="button" onClick={onCancel} className={SECONDARY_BUTTON_CLASS}>
+                  {t(lang, "cancel")}
+                </button>
+              )}
+            </div>
             <button type="button" onClick={handleCreate} className={PRIMARY_BUTTON_CLASS}>
               {t(lang, "wizardCreate")}
             </button>
