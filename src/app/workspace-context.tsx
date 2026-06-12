@@ -10,6 +10,7 @@ import {
   type SetStateAction,
 } from "react";
 import { useFilters } from "./filters-context";
+import type { FeatureModuleId } from "./feature-modules";
 import type { FieldVisibilityConfig } from "./field-visibility";
 import { defaultResourcePlan } from "./resource-foundation";
 import {
@@ -76,6 +77,8 @@ interface WorkspaceValue {
   setProject: Dispatch<SetStateAction<ProjectMeta | undefined>>;
   fieldVisibility: FieldVisibilityConfig | undefined;
   setFieldVisibility: Dispatch<SetStateAction<FieldVisibilityConfig | undefined>>;
+  features: readonly FeatureModuleId[] | undefined;
+  setFeatures: Dispatch<SetStateAction<readonly FeatureModuleId[] | undefined>>;
   milestones: readonly Milestone[];
   setMilestones: Dispatch<SetStateAction<readonly Milestone[]>>;
   changes: readonly ChangeItem[];
@@ -102,6 +105,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<ProjectStatus>({});
   const [project, setProject] = useState<ProjectMeta | undefined>(undefined);
   const [fieldVisibility, setFieldVisibility] = useState<FieldVisibilityConfig | undefined>(undefined);
+  const [features, setFeatures] = useState<readonly FeatureModuleId[] | undefined>(undefined);
   const [milestones, setMilestones] = useState<readonly Milestone[]>([]);
   const [changes, setChanges] = useState<readonly ChangeItem[]>([]);
   const [stakeholders, setStakeholders] = useState<readonly Stakeholder[]>([]);
@@ -258,6 +262,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       status, setStatus,
       project, setProject,
       fieldVisibility, setFieldVisibility,
+      features, setFeatures,
       milestones, setMilestones,
       changes, setChanges,
       stakeholders, setStakeholders,
@@ -283,6 +288,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       status,
       project,
       fieldVisibility,
+      features,
       milestones,
       changes,
       stakeholders,
