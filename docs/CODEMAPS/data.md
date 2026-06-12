@@ -314,6 +314,8 @@ type Workspace = {
   project?: ProjectMeta;                    // schema v9 (0.58.0+); top-level project header.
                                             //   Additive: undefined ⇒ no project block emitted
                                             //   (byte-identical to pre-field serialization)
+  features?: FeatureModuleId[];             // per-project enabled modules (functions).
+                                            //   Present-only: undefined ⇒ no override; [] ⇒ Simple
 };
 
 type StorageKind =
@@ -370,6 +372,16 @@ attached; when absent the key is simply left off, so a no-project workspace stay
 byte-identical to pre-v9 output. The `BrowserBackend` reads/writes it via the
 `kv` key `"project"`; CSV/Markdown/JSON gate emission on `ws.project` being set
 (and, for the dual-use document exports, on `config === undefined`).
+
+**Per-project functions** — `Workspace.features?` (`FeatureModuleId[]`) records the
+modules enabled for a project. It is serialized like `fieldVisibility`: a
+present-only field carried across JSON / CSV / Markdown / Turso (single-tenant
+plus the tenant meta-KV). Semantics are additive and migration-free: `undefined`
+means *no override* (legacy projects inherit the global default, i.e. all
+modules) and `[]` means *Simple mode* (no modules). On load the workspace value
+is mirrored into the reactive `settings.features` — see `useFeaturesSync` in
+frontend.md — so a project switch re-renders the enabled function set without a
+page reload.
 
 ## IndexedDB layout (`storage.ts`)
 

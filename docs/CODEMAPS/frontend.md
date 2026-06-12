@@ -134,7 +134,7 @@ prerendered.
 | `settings-sections/jira-settings.tsx` | Jira URL / email / API token + test-connection | |
 | `settings-sections/storage-config.tsx` | Backend picker (Browser / Local / SharePoint / Turso) | |
 | `settings-sections/integrations-section.tsx` | M365 + Turso toggles + settings; snapshot recording cadence; hosts the portfolio-mode **File \| Turso** selector (persists to localStorage + reloads, 0.59.0+) | |
-| `settings-sections/mode-section.tsx` | Simple / Modular / Advanced mode selector: preset buttons, per-module checkboxes, derived mode badge, Save & reload | `Settings.features` gates nav/automation/reports by mode; 0.54.0+ |
+| `settings-sections/mode-section.tsx` | Simple / Modular / Advanced mode selector: preset buttons, per-module checkboxes, derived mode badge. Now **per-project**: commits write the current project's `Workspace.features` (no Save & reload — `useFeaturesSync` mirrors it into reactive `settings.features`) | `Settings.features` gates nav/automation/reports by mode; per-project 0.71.0+; 0.54.0+ |
 | **Task Editor** | | |
 | `task-form-modal.tsx` | Task create/edit modal (classic mode); returns null when closed | ~491 lines extracted from task-manager |
 | `task-form-fields.tsx` | Shared form fields (5 sections via `TaskFormSection`) + validation | Consumed by both TaskFormModal and TaskEditView |
@@ -243,6 +243,8 @@ prerendered.
 | `project-switcher.tsx` | `ProjectSwitcher` — current-project indicator + dropdown switcher (list + Load-from-file + New); rendered by both classic `AppHeader` and modern `TopBar`; `readOnly` non-interactive variant for popouts | Component; 0.58.0+ |
 | `project-empty-state.tsx` | Non-dismissable onboarding modal shown when the registry has zero projects: Create-project (reveals `CreateProjectForm`) or Load-from-file | Component; 0.58.0+ |
 | `create-project-form.tsx` | `CreateProjectForm` — file-format selector (json/csv/md) above the shared `ProjectForm` (create mode); hosted by the panel modal and the empty-state; `hideFormat` for Turso mode | Component; 0.58.0+ |
+| `create-project-wizard.tsx` | `CreateProjectWizard` — 3-step create flow: **(1) Details** (reuses `CreateProjectForm`, captures meta+format and advances), **(2) Template** (pick a built-in/user template or Blank; seeds the function set from `template.features`), **(3) Functions** (mode presets + per-module checkboxes, same UI shape as `ModeSection`, plus optional "include starter content"). Assembles `NewProjectOpts` ({ template?, features, includeSeed }) handed to the host's `onCreate` | Component; 0.71.0+ |
+| `use-features-sync.ts` | `useFeaturesSync(setSettings)` — bridge effect mirroring the current project's `Workspace.features` into reactive `settings.features` (the source the module consumers read). Makes per-project functions + mode commits reactive **without a page reload**; `undefined` (legacy / no override) leaves settings untouched; identity-guarded so it never loops | Hook; 0.71.0+ |
 | `project-form.tsx` | Shared create/edit `ProjectForm` container: holds the draft, runs `validateProjectMeta` to gate Save, reveals per-field errors on blur/submit, sanitizes via `sanitizeProjectMeta` on submit | Component; 0.58.0+ |
 | `project-form-fields.tsx` | Presentational two-group field layout (Identity + People, Customer) for `ProjectForm`; controlled inputs, errors passed in pre-resolved | Component; 0.58.0+ |
 | `project-validation.ts` | Pure `ProjectDraft` type + `validateProjectMeta` / `hasProjectErrors` (i18n message keys per field) — single source for submit, display, and Save gating (mirrors task-validation) | Pure; 0.58.0+ |
@@ -299,7 +301,8 @@ prerendered.
 | `sanitize.ts` | Input validation for all inbound fields | Pure |
 | `health.ts` | RAG status computation + color helpers; gains `healthText` (colorized overall text, 0.48.0+) | Pure |
 | `due-dates.ts` | Due-date sorting + alertable task logic | Pure |
-| `feature-modules.ts` | Module registry (`FEATURE_MODULES`, `FeatureModuleId`), `defaultFeatures()`, `resolveMode()`, `isModuleEnabled()` helpers | Pure; `Settings.features` map gates nav/automation/reports by mode; 0.54.0+ |
+| `feature-modules.ts` | Module registry (`FEATURE_MODULES`, `FeatureModuleId`, `ALL_MODULE_IDS`) + pure helpers: `sanitizeFeatures()`, `deriveMode()`, `isModuleEnabled()` / `isViewEnabled()`, `enabledNavViews()`, `visibleReports()`, and `disabledViewRedirect(active, features, layout, isPopout)` — where the app lands when the active view's module is disabled (applied by the redirect effect in task-manager, deps include `settings.features`) | Pure; `Settings.features` gates nav/automation/reports by mode; 0.54.0+ |
+| `new-project-workspace.ts` | `buildNewProjectWorkspace` — assembles a fresh `Workspace` from `NewProjectOpts` ({ template?, features, includeSeed }): applies the chosen template, stamps per-project `Workspace.features`, and optionally seeds starter content | Pure; 0.71.0+ |
 | `settings-types.ts` | `Settings` shape re-exported from settings-menu | Shared type |
 | `types.ts` | `Task`, `RaidItem`, `Absence`, `Resource`, `Role`, etc. | Core data schemas |
 | `storage.ts` | `StorageBackend` interface + IDB/File/SharePoint/Turso impls | ~1500 LOC |
