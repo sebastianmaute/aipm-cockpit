@@ -82,7 +82,6 @@ export const MODAL_FIELDS: Record<ModalId, readonly ModalField[]> = {
     { id: "category", labelKey: "category", tier: "simple" },
     { id: "contact", labelKey: "titleEmail", tier: "advanced" },
     { id: "influenceInterest", labelKey: "influenceInterest", tier: "advanced" },
-    { id: "resourceLink", labelKey: "resourceLink", tier: "advanced" },
     { id: "notes", labelKey: "notes", tier: "full" },
     { id: "raci", labelKey: "raci", tier: "full" },
   ],

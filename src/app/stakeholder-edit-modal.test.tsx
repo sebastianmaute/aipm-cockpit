@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
+import { useEffect, useRef, type ReactNode } from "react";
+import { FiltersProvider } from "./filters-context";
+import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { StakeholderEditModal } from "./stakeholder-edit-modal";
+import { applyTier } from "./field-visibility";
+import { t } from "./i18n";
 import type { Stakeholder, Milestone, Resource } from "./types";
 
 // Mock M365 hooks consumed by DocumentLinksFieldGated — default: SharePoint off.
@@ -10,6 +15,28 @@ vi.mock("./use-settings", () => ({
 vi.mock("./use-ms-auth", () => ({
   useMsAuth: () => ({ account: null, ready: true, signIn: vi.fn(), signOut: vi.fn(), acquireToken: vi.fn(async () => "tok") }),
 }));
+
+// ModalFieldControls (rendered in the modal header) reads field visibility from
+// the workspace, so every render needs a WorkspaceProvider/FiltersProvider.
+function wrapper({ children }: { children: ReactNode }) {
+  return (
+    <FiltersProvider>
+      <WorkspaceProvider>{children}</WorkspaceProvider>
+    </FiltersProvider>
+  );
+}
+
+/** Seeds the workspace field-visibility config once on mount (e.g. Full view). */
+function Seed({ tier }: { tier: "full" }) {
+  const { setFieldVisibility } = useWorkspace();
+  const seeded = useRef(false);
+  useEffect(() => {
+    if (seeded.current) return;
+    seeded.current = true;
+    setFieldVisibility(() => ({ stakeholder: applyTier("stakeholder", tier) }));
+  }, [setFieldVisibility, tier]);
+  return null;
+}
 
 const draft: Stakeholder = {
   id: 1, name: "Sam", category: "Sponsor", influence: "High", interest: "Medium", raci: {},
@@ -21,7 +48,23 @@ function setup(over: Partial<React.ComponentProps<typeof StakeholderEditModal>> 
     lang: "en-US" as const, draft, isNew: true, milestones, resources: [],
     onChange: vi.fn(), onSave: vi.fn(), onCancel: vi.fn(), onDelete: vi.fn(), ...over,
   };
-  render(<StakeholderEditModal {...props} />);
+  render(<StakeholderEditModal {...props} />, { wrapper });
+  return props;
+}
+
+/** Like setup, but seeds the Full tier first so Full-only fields (notes, raci) render. */
+function setupFull(over: Partial<React.ComponentProps<typeof StakeholderEditModal>> = {}) {
+  const props = {
+    lang: "en-US" as const, draft, isNew: true, milestones, resources: [],
+    onChange: vi.fn(), onSave: vi.fn(), onCancel: vi.fn(), onDelete: vi.fn(), ...over,
+  };
+  render(
+    <>
+      <Seed tier="full" />
+      <StakeholderEditModal {...props} />
+    </>,
+    { wrapper },
+  );
   return props;
 }
 
@@ -32,7 +75,8 @@ describe("StakeholderEditModal", () => {
     expect(p.onSave).not.toHaveBeenCalled();
   });
   it("edits a RACI cell for a milestone", () => {
-    const p = setup();
+    // raci is a Full-only registry field, hidden at the Advanced default — seed Full.
+    const p = setupFull();
     fireEvent.change(screen.getByLabelText("Go-Live (RACI)"), { target: { value: "A" } });
     expect(p.onChange).toHaveBeenCalledWith(expect.objectContaining({ raci: { "10": "A" } }));
   });
@@ -80,5 +124,40 @@ describe("StakeholderEditModal — document links", () => {
   it("shows the SharePoint hint when M365 is off", () => {
     setup({ draft: { id: 1, name: "S", category: "Internal", influence: "Low", interest: "Low", raci: {} } });
     expect(screen.getByText(/enable microsoft 365/i)).toBeInTheDocument();
+  });
+});
+
+describe("StakeholderEditModal — field visibility", () => {
+  // The required Name input is always shown; the Influence/Interest matrix is an
+  // Advanced field shown by default; the RACI block is Full-only and hidden at
+  // the Advanced default. The cog popover is closed, so body labels are safe.
+  const RACI_LABEL = t("en-US", "raciSectionTitle");
+  const SIMPLE_LABEL = t("en-US", "fieldViewSimple");
+
+  it("shows the advanced influence/interest field and hides Full-only RACI at the Advanced default", () => {
+    setup();
+    // Required Name input is always present (its ResourcePicker carries the counter).
+    expect(
+      screen
+        .getAllByRole("combobox")
+        .some((el) => el.getAttribute("aria-describedby") === "stakeholder-name-counter"),
+    ).toBe(true);
+    // Advanced field visible by default — the matrix descriptor mentions Influence.
+    expect(screen.getByText(/Influence: High/)).toBeInTheDocument();
+    // Full-only RACI block hidden at the Advanced default.
+    expect(screen.queryByText(RACI_LABEL)).not.toBeInTheDocument();
+  });
+
+  it("clicking Simple hides the advanced field while the required Name input remains", () => {
+    setup();
+    fireEvent.click(screen.getByRole("button", { name: SIMPLE_LABEL }));
+    // Advanced influence/interest descriptor is now hidden.
+    expect(screen.queryByText(/Influence: High/)).not.toBeInTheDocument();
+    // Required Name picker remains.
+    expect(
+      screen
+        .getAllByRole("combobox")
+        .some((el) => el.getAttribute("aria-describedby") === "stakeholder-name-counter"),
+    ).toBe(true);
   });
 });

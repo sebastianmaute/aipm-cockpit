@@ -1,8 +1,21 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
+import type { ReactNode } from "react";
+import { FiltersProvider } from "./filters-context";
+import { WorkspaceProvider } from "./workspace-context";
 import { StakeholdersPanel } from "./stakeholders-panel";
 import { t } from "./i18n";
 import type { Stakeholder } from "./types";
+
+// The add/edit modal renders ModalFieldControls, which reads field visibility
+// from the workspace, so the panel needs a WorkspaceProvider/FiltersProvider.
+function wrapper({ children }: { children: ReactNode }) {
+  return (
+    <FiltersProvider>
+      <WorkspaceProvider>{children}</WorkspaceProvider>
+    </FiltersProvider>
+  );
+}
 
 const items: Stakeholder[] = [
   { id: 1, name: "Zoe", category: "Customer", influence: "High", interest: "Low", raci: {} },
@@ -25,7 +38,7 @@ function setup() {
     lang: "en-US" as const, stakeholders: items, resources: [], milestones: [],
     onSave: vi.fn(), onDelete: vi.fn(),
   };
-  render(<StakeholdersPanel {...props} />);
+  render(<StakeholdersPanel {...props} />, { wrapper });
   return props;
 }
 
@@ -35,7 +48,7 @@ function renderStakeholders(overrides: { stakeholders: Stakeholder[] }) {
     onSave: vi.fn(), onDelete: vi.fn(),
     ...overrides,
   };
-  render(<StakeholdersPanel {...props} />);
+  render(<StakeholdersPanel {...props} />, { wrapper });
   return props;
 }
 
