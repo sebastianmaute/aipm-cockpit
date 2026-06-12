@@ -1548,7 +1548,7 @@ export const de: Record<TranslationKey, string> = {
   modePresetSimple: "Einfach",
   modePresetAdvanced: "Erweitert",
   modeModulesHeading: "Funktionen",
-  modeIntro: "Der Einfach-Modus zeigt nur Aufgaben, Chat und Berichte. Schalten Sie Funktionen ein, um einen modularen Aufbau zu erstellen; sind alle aktiv, befinden Sie sich im Erweitert-Modus.",
+  modeIntro: "Legen Sie fest, welche Funktionen dieses Projekt verwendet. Jedes Projekt hat seine eigene Auswahl -- beim Wechsel des Projekts werden die jeweiligen Funktionen geladen.",
   modeRetentionNote: "Vorhandene Daten bleiben erhalten und erscheinen wieder, sobald Sie eine Funktion erneut aktivieren.",
   modeSave: "Speichern",
   modeDiscard: "Verwerfen",

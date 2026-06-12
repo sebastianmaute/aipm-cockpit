@@ -1345,7 +1345,7 @@ const enUS = {
   modePresetSimple: "Simple",
   modePresetAdvanced: "Advanced",
   modeModulesHeading: "Functions",
-  modeIntro: "Simple mode shows only Tasks, Chat and Reports. Turn functions on to build a Modular setup; with all on you are in Advanced mode.",
+  modeIntro: "Choose which functions this project uses. Each project keeps its own set — switching projects loads that project's functions.",
   modeRetentionNote: "Existing data is kept and reappears when you re-enable a function.",
   modeSave: "Save",
   modeDiscard: "Discard",
