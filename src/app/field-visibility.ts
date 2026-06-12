@@ -11,7 +11,7 @@ export interface FieldVisibilityConfig {
 
 const TIER_RANK: Record<FieldTier, number> = { simple: 0, advanced: 1, full: 2 };
 const TIERS: readonly FieldTier[] = ["simple", "advanced", "full"];
-const DEFAULT_TIER: FieldTier = "advanced";
+export const DEFAULT_TIER: FieldTier = "advanced";
 
 function knownIds(modalId: ModalId): Set<string> {
   return new Set(MODAL_FIELDS[modalId].map((f) => f.id));

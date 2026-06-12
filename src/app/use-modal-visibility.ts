@@ -3,7 +3,7 @@ import { useCallback, useMemo } from "react";
 import { useWorkspace } from "./workspace-context";
 import type { FieldTier, ModalId } from "./modal-fields";
 import {
-  applyTier, tierOf, toggleField as toggleFieldPure, visibleFields,
+  applyTier, DEFAULT_TIER, tierOf, toggleField as toggleFieldPure, visibleFields,
   type FieldVisibilityConfig, type ModalVisibility,
 } from "./field-visibility";
 
@@ -14,8 +14,6 @@ export interface ModalVisibilityApi {
   toggleField: (fieldId: string) => void;
   reset: () => void;
 }
-
-const DEFAULT_TIER: FieldTier = "advanced";
 
 export function useModalVisibility(modalId: ModalId): ModalVisibilityApi {
   const { fieldVisibility, setFieldVisibility } = useWorkspace();
