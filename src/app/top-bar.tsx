@@ -61,7 +61,7 @@ export function TopBar({ lang, title, bannerCount, onNewTask, onShowAlerts, onOp
             type="button"
             onClick={onNewTask}
             title={t(lang, "newTask")}
-            className="rounded-md bg-AIPM-green px-3 py-1.5 text-sm font-semibold text-AIPM-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-AIPM-green"
+            className="rounded-md bg-AIPM-green px-3 py-1.5 text-sm font-semibold text-AIPM-dark-blue hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-AIPM-green"
           >
             {t(lang, "newTask")}
           </button>

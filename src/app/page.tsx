@@ -7,9 +7,13 @@ export default async function Home() {
   // Without this the page could be statically prerendered with a stale nonce
   // at build time, and every script/style would fail the CSP check at runtime.
   await connection();
+  // Plain wrapper — NOT a <main> landmark. Each layout renders its own single
+  // <main> around its content region (ModernShell for modern; the classic/
+  // popout trees in task-manager.tsx), so wrapping here too would nest a second
+  // main landmark (a WCAG "no duplicate main" violation).
   return (
-    <main className="flex flex-1 flex-col bg-surface-muted dark:bg-black">
+    <div className="flex flex-1 flex-col bg-surface-muted dark:bg-black">
       <TaskManager />
-    </main>
+    </div>
   );
 }

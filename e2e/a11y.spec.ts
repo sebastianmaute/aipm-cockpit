@@ -1,20 +1,19 @@
 import AxeBuilder from "@axe-core/playwright";
 import { test, expect, gotoApp, openView } from "./seed";
 
-// Accessibility smoke gate: scan the critical views for WCAG 2.0/2.1 A & AA
-// violations and fail on `critical`/`serious` STRUCTURAL issues (missing names,
-// roles, labels, landmarks, etc.).
+// Accessibility gate: scan the critical views for WCAG 2.0/2.1 A & AA
+// violations and fail on any `critical`/`serious` impact — including
+// `color-contrast`, which now passes after the palette was tuned for AA (a
+// darker `--muted-foreground` and an `--AIPM-green-strong` for green text on
+// light surfaces; see globals.css).
 //
-// `color-contrast` is computed and REPORTED but not gated: the palette is a hard
-// brand constraint (only the 9 permitted AIPM colors — see the AIPM-color-palette
-// note), so contrast is a design-level decision, not something a code change
-// here can freely resolve. Track those findings separately; re-enable gating if
-// the palette is ever adjusted for AA contrast.
+// NOTE: these run against a freshly-seeded EMPTY project, so data-dependent
+// colour states (RAG amber/red text, completed-task greens, etc.) aren't
+// exercised here. A data-seeded a11y pass would widen contrast coverage.
 const A11Y_VIEWS = ["Dashboard", "Open Points", "Gantt", "Resources", "Budget", "RAID", "Settings"] as const;
-const UNGATED_RULES = new Set(["color-contrast"]);
 
 for (const name of A11Y_VIEWS) {
-  test(`a11y: ${name} has no critical/serious structural WCAG A/AA violations`, async ({ page }) => {
+  test(`a11y: ${name} has no critical/serious WCAG A/AA violations`, async ({ page }) => {
     await gotoApp(page);
     await openView(page, name);
 
@@ -22,19 +21,12 @@ for (const name of A11Y_VIEWS) {
       .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
       .analyze();
 
-    const serious = results.violations.filter(
+    const blocking = results.violations.filter(
       (v) => v.impact === "critical" || v.impact === "serious",
     );
-
-    // Report (non-blocking) the brand-palette-constrained contrast findings.
-    for (const v of serious.filter((v) => UNGATED_RULES.has(v.id))) {
-      console.warn(`[a11y][${name}] ungated ${v.id}: ${v.nodes.length} node(s) — brand-palette constrained`);
-    }
-
-    const blocking = serious.filter((v) => !UNGATED_RULES.has(v.id));
     const summary = blocking
       .map((v) => `${v.impact} · ${v.id}: ${v.help} (${v.nodes.length} node(s))`)
       .join("\n");
-    expect(blocking, `${name} structural a11y violations:\n${summary}`).toEqual([]);
+    expect(blocking, `${name} a11y violations:\n${summary}`).toEqual([]);
   });
 }

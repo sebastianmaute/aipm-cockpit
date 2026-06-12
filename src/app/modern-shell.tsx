@@ -63,7 +63,7 @@ export function ModernShell({
     <div className="flex h-screen w-screen overflow-hidden bg-surface-muted pb-6 dark:bg-black">
       <a
         href="#main-content"
-        className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-md focus:bg-AIPM-green focus:px-3 focus:py-1.5 focus:text-sm focus:font-semibold focus:text-AIPM-white"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-md focus:bg-AIPM-green focus:px-3 focus:py-1.5 focus:text-sm focus:font-semibold focus:text-AIPM-dark-blue"
       >
         {t(lang, "skipToContent")}
       </a>

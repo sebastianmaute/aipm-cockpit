@@ -8,7 +8,12 @@
   --surface: #ffffff;
   --surface-muted: #e3e6e6;
   --line: #e3e6e6;
-  --muted-foreground: #939598;
+  /* Secondary text. Brand medium-grey #939598 is only 3.0:1 on white (and
+     worse on the #e3e6e6 surface-muted panels), so it fails WCAG AA. The
+     lightest value that clears 4.5:1 on BOTH white and #e3e6e6 is the brand
+     dark-grey #636362 — so in light mode muted text matches body text (the
+     accepted trade for AA). The dark theme keeps a distinct lighter grey. */
+  --muted-foreground: #636362;
 
   /* Acme brand palette — only these colors are permitted */
   --AIPM-dark-grey: #636362;
@@ -20,6 +25,11 @@
   --AIPM-blue: #60c0dd;
   --AIPM-pink: #e5497c;
   --AIPM-purple: #aa4899;
+  /* AA-accessible variant of --AIPM-green for GREEN TEXT ON A LIGHT BACKGROUND
+     (RAG "Green", accents): brand green #84bd00 is only 2.26:1 on white. This
+     darker green meets AA; use it only for green text on light surfaces — the
+     bright brand green still applies to fills and to text on dark surfaces. */
+  --AIPM-green-strong: #4d7000;
 }
 
 @theme inline {
@@ -40,6 +50,7 @@
   --color-AIPM-blue: var(--AIPM-blue);
   --color-AIPM-pink: var(--AIPM-pink);
   --color-AIPM-purple: var(--AIPM-purple);
+  --color-AIPM-green-strong: var(--AIPM-green-strong);
 }
 
 .dark {
@@ -48,6 +59,12 @@
   --surface: #121619;
   --surface-muted: #1b2024;
   --line: #2b3137;
+  /* On the dark surfaces a lighter secondary grey is what meets AA (the light
+     value #767676 would be too dark on #0b0f12). */
+  --muted-foreground: #9ca3a9;
+  /* On dark surfaces the bright brand green already has ample contrast — keep
+     it (the darker on-light variant would read as muddy here). */
+  --AIPM-green-strong: #84bd00;
 }
 
 body {

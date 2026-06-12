@@ -197,6 +197,8 @@ export const healthDot: Record<Health, string> = {
 export const healthText: Record<Health, string> = {
   R: "text-AIPM-pink",
   A: "text-AIPM-purple",
-  G: "text-AIPM-green",
+  // AA-accessible green for text on light surfaces (brand green is only 2.26:1
+  // on white). See --AIPM-green-strong in globals.css.
+  G: "text-AIPM-green-strong",
 };
 

@@ -26,7 +26,7 @@ function navItemClass(active: boolean, indent: "root" | "child", collapsed: bool
     : indent === "root"
       ? "px-4 py-2 "
       : "py-1.5 pl-9 pr-4 ";
-  const inactiveText = indent === "root" ? "text-AIPM-light-grey" : "text-AIPM-medium-grey";
+  const inactiveText = indent === "root" ? "text-AIPM-light-grey" : "text-AIPM-light-grey";
   const state = active
     ? "border-AIPM-green bg-AIPM-green/15 font-semibold text-AIPM-white"
     : `border-transparent ${inactiveText} hover:bg-AIPM-white/10 hover:text-AIPM-white`;
@@ -39,7 +39,7 @@ export function SidebarNav({ lang, activeView, onNavigate, collapsed = false, na
       {(navGroups ?? NAV_GROUPS).map((group) => (
         <div key={group.labelKey}>
           {!collapsed && (
-            <p className="px-4 pb-1 text-[11px] font-semibold uppercase tracking-wider text-AIPM-medium-grey">
+            <p className="px-4 pb-1 text-[11px] font-semibold uppercase tracking-wider text-AIPM-light-grey">
               {t(lang, group.labelKey)}
             </p>
           )}

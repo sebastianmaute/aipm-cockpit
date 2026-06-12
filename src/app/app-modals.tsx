@@ -221,7 +221,7 @@ export function AppModals({
       )}
 
       {!isPopout && (
-        <footer className="mt-12 flex items-center justify-between gap-4 border-t border-AIPM-light-grey pt-6 text-xs text-AIPM-medium-grey dark:border-zinc-800">
+        <footer className="mt-12 flex items-center justify-between gap-4 border-t border-AIPM-light-grey pt-6 text-xs text-muted-foreground dark:border-zinc-800">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/AIPM-logo.svg" alt="Acme" className="h-6 w-auto" />
           <span className="text-right italic">

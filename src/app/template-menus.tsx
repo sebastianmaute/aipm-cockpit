@@ -31,7 +31,7 @@ const FIELD_CLASS =
   "w-full rounded-md border border-line bg-surface px-2.5 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-AIPM-green";
 
 const PRIMARY_BTN_CLASS =
-  "rounded-md bg-AIPM-green px-3 py-1.5 text-sm font-medium text-white hover:bg-AIPM-dark-blue focus:outline-none focus:ring-2 focus:ring-AIPM-green disabled:cursor-not-allowed disabled:opacity-50";
+  "rounded-md bg-AIPM-green px-3 py-1.5 text-sm font-medium text-AIPM-dark-blue hover:bg-AIPM-dark-blue hover:text-AIPM-white focus:outline-none focus:ring-2 focus:ring-AIPM-green disabled:cursor-not-allowed disabled:opacity-50";
 
 /** Close the popover on outside-click / Escape — same handler ExportMenu uses. */
 function useDismiss(open: boolean, close: () => void) {

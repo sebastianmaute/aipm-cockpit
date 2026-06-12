@@ -18,8 +18,8 @@ import type { JiraTokenAlert } from "./jira-token-status";
 
 const categoryStyle: Record<AlertCategory, string> = {
   overdue: "bg-AIPM-pink text-white",
-  today: "bg-AIPM-green text-white",
-  soon: "bg-AIPM-green text-white",
+  today: "bg-AIPM-green text-AIPM-dark-blue",
+  soon: "bg-AIPM-green text-AIPM-dark-blue",
 };
 
 function categoryLabel(category: AlertCategory, lang: Lang): string {

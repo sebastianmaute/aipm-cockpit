@@ -1328,7 +1328,7 @@ function TaskManagerInner() {
         type="submit"
         form={TASK_EDIT_FORM_ID}
         disabled={saveDisabled}
-        className="rounded-md bg-AIPM-green px-4 py-1.5 text-sm font-semibold text-AIPM-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-AIPM-green disabled:cursor-not-allowed disabled:opacity-50"
+        className="rounded-md bg-AIPM-green px-4 py-1.5 text-sm font-semibold text-AIPM-dark-blue hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-AIPM-green disabled:cursor-not-allowed disabled:opacity-50"
       >
         {editingId !== null ? t(lang, "updateTask") : t(lang, "addTask")}
       </button>
@@ -1594,24 +1594,26 @@ function TaskManagerInner() {
   // region (workspace + tasks) scrolls, and the footer (last child of
   // modalsBlock) stays visible at the bottom without scrolling the whole page.
   const legacyTree = isPopout ? (
-    <div className="flex flex-1 flex-col p-4">
+    <main id="main-content" className="flex flex-1 flex-col p-4">
       {!isReportPopoutTab(activeTab) && <ReadOnlyMirrorBanner lang={lang} />}
       {bannersEl}
       {workspaceEl}
       {modalsBlock}
-    </div>
+    </main>
   ) : (
     <div className="flex h-screen flex-col">
       <div className="mx-auto w-full max-w-[1536px] shrink-0 px-6 pt-6 sm:px-10 sm:pt-10">
         {appHeaderEl}
       </div>
-      <div className="min-h-0 flex-1 overflow-auto">
+      {/* The classic layout's single <main> landmark — the scrollable content
+          region below the header (the modern layout's lives in ModernShell). */}
+      <main id="main-content" className="min-h-0 flex-1 overflow-auto">
         <div className="mx-auto w-full max-w-[1536px] px-6 pb-6 sm:px-10 sm:pb-10">
           {bannersEl}
           {workspaceEl}
           {tasksSectionEl}
         </div>
-      </div>
+      </main>
       {/* Footer lives at the end of modalsBlock; the max-w wrapper restores its
           horizontal framing now that it sits outside the scroll region. Fixed
           modals/toast inside are unaffected by this plain wrapper. */}

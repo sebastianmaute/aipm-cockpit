@@ -105,7 +105,7 @@ export interface BudgetPanelProps {
 
 function Cci({ label, value, currency, locale, lang, rag }: { label: string; value: CciValue; currency: string; locale: string; lang: Lang; rag?: Health | null }) {
   const pct = value.percent == null ? "—" : `${value.percent.toFixed(1)}%`;
-  const tone = value.amount >= 0 ? "text-AIPM-green" : "text-AIPM-pink";
+  const tone = value.amount >= 0 ? "text-AIPM-green-strong" : "text-AIPM-pink";
   return (
     <div className="rounded-lg border border-line p-3">
       <div className="flex items-center justify-between text-xs text-muted-foreground">

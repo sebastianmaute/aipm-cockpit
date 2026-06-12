@@ -410,7 +410,7 @@ export function TasksSection({
             <button
               type="button"
               onClick={handleBulkSendInquiry}
-              className="rounded-md bg-AIPM-green px-3 py-1.5 text-sm font-medium text-white hover:opacity-90"
+              className="rounded-md bg-AIPM-green px-3 py-1.5 text-sm font-medium text-AIPM-dark-blue hover:opacity-90"
             >
               {t(lang, "bulkSendInquiries")}
             </button>

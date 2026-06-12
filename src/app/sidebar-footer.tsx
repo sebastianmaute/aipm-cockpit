@@ -57,14 +57,14 @@ export function SidebarFooter({
   return (
     <div className="flex flex-col gap-3">
       <div>
-        <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-AIPM-medium-grey">
+        <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-AIPM-light-grey">
           {t(lang, "theme")}
         </span>
         <ThemeControl lang={lang} />
       </div>
 
       {storageDescription && (
-        <p className={storageReady ? "text-AIPM-light-grey" : "text-AIPM-medium-grey"}>
+        <p className={storageReady ? "text-AIPM-light-grey" : "text-AIPM-light-grey"}>
           <span
             aria-hidden
             className={
@@ -82,7 +82,7 @@ export function SidebarFooter({
           <button
             type="button"
             onClick={onSignOut}
-            className="rounded-md px-2 py-1 text-AIPM-medium-grey hover:bg-AIPM-white/10 hover:text-AIPM-white focus:outline-none focus:ring-2 focus:ring-AIPM-green"
+            className="rounded-md px-2 py-1 text-AIPM-light-grey hover:bg-AIPM-white/10 hover:text-AIPM-white focus:outline-none focus:ring-2 focus:ring-AIPM-green"
           >
             {t(lang, "sidebarSignOut")}
           </button>

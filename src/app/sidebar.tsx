@@ -61,7 +61,7 @@ export function Sidebar({
         <SidebarNav lang={lang} activeView={activeView} onNavigate={onNavigate} collapsed={collapsed} navGroups={navGroups} />
       </div>
 
-      <div className="border-t border-AIPM-white/10 px-4 py-3 text-xs text-AIPM-medium-grey">
+      <div className="border-t border-AIPM-white/10 px-4 py-3 text-xs text-AIPM-light-grey">
         {footer}
         {!collapsed && (
           <span
@@ -76,7 +76,7 @@ export function Sidebar({
             type="button"
             onClick={onShowVersion}
             title={t(lang, "versionHistory")}
-            className="mt-2 block w-full rounded text-left text-AIPM-medium-grey hover:text-AIPM-light-grey focus:outline-none focus:ring-2 focus:ring-AIPM-green"
+            className="mt-2 block w-full rounded text-left text-AIPM-light-grey hover:text-AIPM-light-grey focus:outline-none focus:ring-2 focus:ring-AIPM-green"
           >
             {t(lang, "versionVersion")} {version}
           </button>

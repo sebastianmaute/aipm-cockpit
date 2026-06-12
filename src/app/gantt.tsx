@@ -755,7 +755,7 @@ export function GanttPanel({
         title={t(lang, "ganttCriticalPathHint")}
         className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium focus:outline-none focus:ring-1 ${
           prefs.showCriticalPath
-            ? "border-AIPM-pink bg-AIPM-pink/10 text-AIPM-pink hover:bg-AIPM-pink/20 focus:ring-AIPM-pink dark:border-AIPM-pink dark:bg-AIPM-pink/15"
+            ? "border-AIPM-pink bg-AIPM-pink/10 text-AIPM-dark-blue hover:bg-AIPM-pink/20 focus:ring-AIPM-pink dark:border-AIPM-pink dark:bg-AIPM-pink/15 dark:text-AIPM-light-grey"
             : "border-line bg-surface text-foreground hover:bg-surface-muted focus:ring-AIPM-green"
         }`}
       >
