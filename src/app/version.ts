@@ -2,12 +2,12 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.71.0";
-export const APP_BUILD_DATE = "2026-06-12"; // 0.71.0 project templates — reusable project setups (mode + field visibility + optional starter content)
+export const APP_VERSION = "0.72.0";
+export const APP_BUILD_DATE = "2026-06-12"; // 0.72.0 per-project functions — each project keeps its own enabled modules (reactive, no reload) + a 3-step creation wizard
 /** Minor-series milestone codename (sci-fi/fantasy author names). The whole
- *  0.71.x line is "Bear" (Greg Bear); patch releases inherit
+ *  0.72.x line is "Zelazny" (Roger Zelazny); patch releases inherit
  *  their minor version's codename rather than getting their own. */
-export const APP_MILESTONE = "Bear";
+export const APP_MILESTONE = "Zelazny";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -81,4 +81,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightSpDocLinks",
   "versionHighlightFieldVisibility",
   "versionHighlightTemplates",
+  "versionHighlightPerProjectFunctions",
 ] as const;

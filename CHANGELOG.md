@@ -8,6 +8,30 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.72.0] - 2026-06-12 "Zelazny"
+
+Per-project functions — each project keeps its own enabled modules (reactive, no
+reload) plus a 3-step creation wizard.
+
+### Added
+- Enabled functions (modules) are now stored on each project rather than globally.
+  Switching projects applies that project's functions reactively — the navigation
+  and automation update without a page reload.
+- A 3-step project-creation wizard (Details → Template → Functions) that applies
+  a template's field visibility, optionally appends its starter content, and sets
+  the chosen functions, all at creation time.
+
+### Changed
+- The Settings → Mode section now configures the current project's functions
+  (it no longer toggles a global setting or triggers a reload).
+- Resolves the "coming soon" note from 0.71.0: a template's feature mode is now
+  applied when you create a project from it (via the wizard).
+
+### Fixed
+- Per-project field visibility (introduced in 0.70.0) and the new per-project
+  functions are now persisted in multi-project Turso mode and in the default
+  IndexedDB backend; previously these were dropped on reload in those modes.
+
 ## [0.71.0] - 2026-06-12 "Bear"
 
 Project templates — reusable project setups (mode + field visibility + optional starter content).

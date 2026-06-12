@@ -687,6 +687,9 @@ export const de: Record<TranslationKey, string> = {
   helpSecTemplatesTitle: "Projektvorlagen",
   helpSecTemplatesBody:
     "Projektvorlagen speichern eine Funktionsmodus-Voreinstellung, eine Feldsichtbarkeits-Konfiguration und optionalen Startinhalt als wiederverwendbares Setup. Einige Vorlagen sind bereits eingebaut, und Sie können das aktuelle Projekt als eigene Vorlage speichern. Das Anwenden einer Vorlage auf das aktuelle Projekt setzt dessen Feldsichtbarkeit und hängt optional ihren Startinhalt an – Ihre vorhandenen Einträge bleiben erhalten. Die gespeicherte Funktionsmodus-Voreinstellung wird angewendet, wenn Sie ein neues Projekt aus der Vorlage erstellen (in Kürze verfügbar). Verwalten (umbenennen, duplizieren, löschen) können Sie Ihre gespeicherten Vorlagen in den Einstellungen.",
+  helpSecPerProjectFunctionsTitle: "Projektbezogene Funktionen",
+  helpSecPerProjectFunctionsBody:
+    "Jedes Projekt behält seinen eigenen Satz aktivierter Funktionen (Module). Wählen Sie diese unter Einstellungen → Modus, wo die Schalter für das aktuelle Projekt gelten, oder während der Projekterstellung im 3-stufigen Assistenten. Beim Wechsel zu einem anderen Projekt werden dessen Funktionen ohne Neuladen der Seite geladen, sodass sich Navigation und Automatisierung sofort anpassen. Vorlagen können voreinstellen, mit welchen Funktionen ein neues Projekt startet.",
   helpSecKeysTitle: "Tastatur & Shortcuts",
   helpSecKeysBody:
     "Esc – aktuell geöffneten Dialog, Pop-up oder Aufgaben-Formular schließen.\nEnter im Chat – Nachricht senden. Shift+Enter – Zeilenumbruch.\n+-Symbol im Header – Dialog \"Neue Aufgabe\" öffnen.\nPfeil in der Workspace-Tableiste – Bereich ein-/ausklappen.\nKlick auf einen Tab bei eingeklapptem Bereich – klappt automatisch aus.",
@@ -1561,6 +1564,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightSpDocLinks: "SharePoint-Dateien & -Ordner mit Aufgaben, RAID, Änderungen, Stakeholdern, Meilensteinen und Projekten verknüpfen — mit integriertem Browser.",
   versionHighlightFieldVisibility: "Feldsichtbarkeit: Einfache, erweiterte oder vollständige Felder je Editor – mit Zahnrad zum Anpassen der angezeigten Felder",
   versionHighlightTemplates: "Projektvorlagen: die Feldsichtbarkeit und optionalen Startinhalt eines Projekts als wiederverwendbare Vorlage speichern und auf ein Projekt anwenden, um die Feldsichtbarkeit zu setzen und Startinhalt hinzuzufügen",
+  versionHighlightPerProjectFunctions: "Projektbezogene Funktionen: jedes Projekt behält seine eigenen aktivierten Module, ohne Neuladen umschaltbar, konfiguriert (mit einer Vorlage) in einem neuen 3-stufigen Erstellungsassistenten",
   fieldCounter: "{0} / {1}",
   fieldTrimmedToFit: "auf Maximallänge gekürzt",
   fieldAdjustedMax: "auf Maximum {0} angepasst",
