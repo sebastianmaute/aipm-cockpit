@@ -1,9 +1,21 @@
 import { describe, expect, test, vi } from "vitest";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { FiltersProvider } from "./filters-context";
+import { WorkspaceProvider } from "./workspace-context";
 import { BudgetPanel } from "./budget-panel";
 import type { BudgetBucket, Role, ResourcePlan } from "./types";
+
+// The edit modal's header controls read field visibility from the workspace,
+// so any render that can open the modal needs Workspace/Filters providers.
+function wrapper({ children }: { children: ReactNode }) {
+  return (
+    <FiltersProvider>
+      <WorkspaceProvider>{children}</WorkspaceProvider>
+    </FiltersProvider>
+  );
+}
 
 const plan: ResourcePlan = { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month", currency: "EUR" };
 const roles: Role[] = [{ id: 3, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 }];
@@ -45,7 +57,7 @@ function Harness({
 describe("BudgetPanel editing", () => {
   test("Add bucket emits a new open bucket", async () => {
     const spy = vi.fn();
-    render(<Harness initial={[]} onChangeSpy={spy} />);
+    render(<Harness initial={[]} onChangeSpy={spy} />, { wrapper });
     // Header button is exactly "+ Add bucket" (the empty-state prompt is "+ Add bucket…").
     await userEvent.click(screen.getByRole("button", { name: /^\+ Add bucket$/i }));
     expect(spy).toHaveBeenCalledTimes(1);
@@ -56,7 +68,7 @@ describe("BudgetPanel editing", () => {
 
   test("empty-state add-bucket prompt is clickable and opens the modal", async () => {
     const spy = vi.fn();
-    render(<Harness initial={[]} onChangeSpy={spy} />);
+    render(<Harness initial={[]} onChangeSpy={spy} />, { wrapper });
     await userEvent.click(screen.getByRole("button", { name: /^\+ Add bucket…$/i }));
     expect(spy).toHaveBeenCalledTimes(1);
     const emitted = spy.mock.calls[0][0] as BudgetBucket[];
@@ -71,7 +83,7 @@ describe("BudgetPanel editing", () => {
       id: 1, name: "PAM", type: "tm", currency: "EUR", startDate: "2026-01-01", endDate: "2026-01-31", status: "open",
       allocations: [{ roleId: 3, resourceIds: [], budgetHours: { "2026-01": 100 }, actualHours: { "2026-01": 80 } }],
     }];
-    render(<Harness initial={initial} onChangeSpy={spy} />);
+    render(<Harness initial={initial} onChangeSpy={spy} />, { wrapper });
     const cell = screen.getByLabelText("actual-1-3-2026-01") as HTMLInputElement;
     // Controlled input starts at the prop value.
     expect(cell.value).toBe("80");
@@ -88,14 +100,14 @@ describe("BudgetPanel editing", () => {
       id: 1, name: "PAM", type: "tm", currency: "EUR", startDate: "2026-01-01", endDate: "2026-12-31", status: "open",
       allocations: [],
     }];
-    render(<Harness initial={initial} onChangeSpy={spy} />);
+    render(<Harness initial={initial} onChangeSpy={spy} />, { wrapper });
     await userEvent.click(screen.getByRole("button", { name: /Edit bucket/i }));
     expect(screen.getByRole("dialog")).toBeInTheDocument();
   });
 
   test("Add bucket emits the new bucket AND opens the modal", async () => {
     const spy = vi.fn();
-    render(<Harness initial={[]} onChangeSpy={spy} />);
+    render(<Harness initial={[]} onChangeSpy={spy} />, { wrapper });
     await userEvent.click(screen.getByRole("button", { name: /^\+ Add bucket$/i }));
     // onChange fired with the new bucket
     expect(spy).toHaveBeenCalledTimes(1);
@@ -112,7 +124,7 @@ describe("BudgetPanel editing", () => {
       id: 1, name: "PAM", type: "tm", currency: "EUR", startDate: "2026-01-01", endDate: "2026-01-31", status: "open",
       allocations: [{ roleId: 3, resourceIds: [], budgetHours: {}, actualHours: {} }],
     }];
-    render(<Harness initial={initial} onChangeSpy={spy} />);
+    render(<Harness initial={initial} onChangeSpy={spy} />, { wrapper });
     await userEvent.click(screen.getByRole("button", { name: /Close bucket/i }));
     const last = spy.mock.calls.at(-1)![0] as BudgetBucket[];
     expect(last[0].status).toBe("closed");
@@ -127,7 +139,7 @@ describe("BudgetPanel editing", () => {
       planningMode: "blended", allocations: [],
       disciplineAllocations: [{ disciplineId: 1, resourceIds: [], budgetHours: {}, actualHours: {} }],
     }];
-    render(<Harness initial={initial} onChangeSpy={spy} />);
+    render(<Harness initial={initial} onChangeSpy={spy} />, { wrapper });
     const input = screen.getByLabelText("budget-1-d1-2026-01") as HTMLInputElement;
     fireEvent.change(input, { target: { value: "50" } });
     const last = spy.mock.calls.at(-1)![0] as BudgetBucket[];
@@ -142,7 +154,7 @@ describe("BudgetPanel editing", () => {
       planningMode: "blended", allocations: [],
       disciplineAllocations: [{ disciplineId: 1, resourceIds: [], budgetHours: {}, actualHours: {} }],
     }];
-    render(<Harness initial={initial} onChangeSpy={spy} />);
+    render(<Harness initial={initial} onChangeSpy={spy} />, { wrapper });
     const input = screen.getByLabelText("actual-1-d1-2026-01") as HTMLInputElement;
     fireEvent.change(input, { target: { value: "30" } });
     const last = spy.mock.calls.at(-1)![0] as BudgetBucket[];

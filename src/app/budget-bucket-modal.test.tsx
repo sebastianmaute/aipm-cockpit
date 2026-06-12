@@ -1,7 +1,35 @@
 import { describe, expect, test, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
+import { useEffect, useRef, type ReactNode } from "react";
+import { FiltersProvider } from "./filters-context";
+import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { BudgetBucketModal } from "./budget-bucket-modal";
+import { applyTier } from "./field-visibility";
+import type { FieldTier } from "./modal-fields";
+import { t } from "./i18n";
 import type { BudgetBucket, Role } from "./types";
+
+// ModalFieldControls (rendered in the modal header) reads field visibility from
+// the workspace, so every render needs a WorkspaceProvider/FiltersProvider.
+function wrapper({ children }: { children: ReactNode }) {
+  return (
+    <FiltersProvider>
+      <WorkspaceProvider>{children}</WorkspaceProvider>
+    </FiltersProvider>
+  );
+}
+
+/** Seeds the workspace field-visibility config once on mount. */
+function Seed({ tier }: { tier: FieldTier }) {
+  const { setFieldVisibility } = useWorkspace();
+  const seeded = useRef(false);
+  useEffect(() => {
+    if (seeded.current) return;
+    seeded.current = true;
+    setFieldVisibility(() => ({ budget: applyTier("budget", tier) }));
+  }, [setFieldVisibility, tier]);
+  return null;
+}
 
 const roles: Role[] = [
   { id: 3, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 },
@@ -28,21 +56,26 @@ function setup(
   over: Partial<React.ComponentProps<typeof BudgetBucketModal>> = {},
 ) {
   const onSave = vi.fn();
-  render(
-    <BudgetBucketModal
-      lang="en-US"
-      bucket={baseBucket}
-      allBuckets={[baseBucket]}
-      roles={roles}
-      disciplines={[]}
-      grades={[]}
-      resources={[]}
-      onSave={onSave}
-      onClose={vi.fn()}
-      {...over}
-    />,
+  const result = render(
+    <>
+      {/* Seed Full so every field (incl. Full-only rate overrides + planning) renders. */}
+      <Seed tier="full" />
+      <BudgetBucketModal
+        lang="en-US"
+        bucket={baseBucket}
+        allBuckets={[baseBucket]}
+        roles={roles}
+        disciplines={[]}
+        grades={[]}
+        resources={[]}
+        onSave={onSave}
+        onClose={vi.fn()}
+        {...over}
+      />
+    </>,
+    { wrapper },
   );
-  return { onSave };
+  return { onSave, ...result };
 }
 
 describe("BudgetBucketModal", () => {
@@ -232,5 +265,38 @@ describe("BudgetBucketModal", () => {
     fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
     expect(onSave).not.toHaveBeenCalled();
     expect(screen.getByText(/zero or greater/i)).toBeInTheDocument();
+  });
+
+  test("tier switch hides advanced/full fields but keeps required ones", () => {
+    // Render at the Advanced default (no Seed) and assert against modal-BODY labels.
+    render(
+      <BudgetBucketModal
+        lang="en-US"
+        bucket={baseBucket}
+        allBuckets={[baseBucket]}
+        roles={roles}
+        disciplines={[]}
+        grades={[]}
+        resources={[]}
+        onSave={vi.fn()}
+        onClose={vi.fn()}
+      />,
+      { wrapper },
+    );
+
+    const fxLabel = t("en-US", "budgetFxOverride"); // advanced
+    const rateLabel = t("en-US", "budgetRateOverrideInternal"); // full
+    const nameLabel = t("en-US", "budgetBucketName"); // required
+    const startLabel = t("en-US", "budgetStartDate"); // required (period)
+
+    // Advanced default: the advanced FX field shows; the Full-only rate override is hidden.
+    expect(screen.getByText(fxLabel)).toBeInTheDocument();
+    expect(screen.queryByText(rateLabel)).not.toBeInTheDocument();
+
+    // Switch to Simple: the advanced FX field disappears, required fields remain.
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "fieldViewSimple") }));
+    expect(screen.queryByText(fxLabel)).not.toBeInTheDocument();
+    expect(screen.getByText(nameLabel)).toBeInTheDocument();
+    expect(screen.getByText(startLabel)).toBeInTheDocument();
   });
 });

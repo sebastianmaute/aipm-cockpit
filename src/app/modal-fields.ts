@@ -104,10 +104,18 @@ export const MODAL_FIELDS: Record<ModalId, readonly ModalField[]> = {
     { id: "note", labelKey: "absenceNote", tier: "full" },
   ],
   budget: [
-    { id: "name", labelKey: "name", tier: "simple", required: true },
-    { id: "funding", labelKey: "funding", tier: "simple" },
-    { id: "period", labelKey: "period", tier: "advanced" },
-    { id: "burnRate", labelKey: "burnRate", tier: "advanced" },
-    { id: "planningFlags", labelKey: "planningDetail", tier: "full" },
+    { id: "name", labelKey: "budgetBucketName", tier: "simple", required: true },
+    // Start + end dates are grouped; start>end blocks save, so this is locked-required.
+    { id: "period", labelKey: "budgetStartDate", tier: "simple", required: true },
+    { id: "poNumber", labelKey: "budgetPoNumber", tier: "simple" },
+    // Type segmented control + its conditional fixed-price amount input.
+    { id: "type", labelKey: "budgetType", tier: "simple" },
+    { id: "currency", labelKey: "budgetCurrency", tier: "advanced" },
+    { id: "successor", labelKey: "budgetSuccessor", tier: "advanced" },
+    { id: "fxOverride", labelKey: "budgetFxOverride", tier: "advanced" },
+    // Internal + external per-hour rate overrides.
+    { id: "rateOverrides", labelKey: "budgetRateOverrideInternal", tier: "full" },
+    // Detailed-planning toggle + the role/discipline allocation blocks it gates.
+    { id: "planningDetail", labelKey: "budgetDetailedPlanning", tier: "full" },
   ],
 };

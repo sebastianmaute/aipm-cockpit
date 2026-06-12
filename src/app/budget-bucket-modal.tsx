@@ -23,6 +23,8 @@ import { CharCounter, FieldNotice, useAdjustmentTracker } from "./field-feedback
 import { describeTextCap, describeClamp } from "./sanitize-report";
 import { BUDGET_NAME_MAX, PO_NUMBER_MAX, AMOUNT_MAX } from "./sanitize";
 import { useToastContext } from "./toast-context";
+import { ModalFieldControls } from "./modal-field-controls";
+import { useModalVisibility } from "./use-modal-visibility";
 
 interface BudgetBucketModalProps {
   lang: Lang;
@@ -56,6 +58,7 @@ export function BudgetBucketModal({
   const [disciplineToAdd, setDisciplineToAdd] = useState<string>("");
   const [notice, setNotice] = useState<Record<string, string>>({});
   const { offset, handleProps } = useDraggable(true);
+  const { isVisible } = useModalVisibility("budget");
   const showToast = useToastContext();
   const adj = useAdjustmentTracker();
   const fixedPriceNoticeId = useId();
@@ -216,6 +219,10 @@ export function BudgetBucketModal({
           dragHandleProps={handleProps}
         />
 
+        <div className="flex justify-end border-b border-line px-4 py-2">
+          <ModalFieldControls modalId="budget" lang={lang} />
+        </div>
+
         <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-y-auto p-6 sm:grid-cols-2">
           {/* Bucket name */}
           <label className="flex flex-col gap-1 text-sm sm:col-span-2">
@@ -235,6 +242,7 @@ export function BudgetBucketModal({
           </label>
 
           {/* PO number */}
+          {isVisible("poNumber") && (
           <label className="flex flex-col gap-1 text-sm">
             <span>{t(lang, "budgetPoNumber")}</span>
             <input
@@ -256,8 +264,10 @@ export function BudgetBucketModal({
             />
             <CharCounter value={draft.poNumber ?? ""} max={PO_NUMBER_MAX} id="bucket-po-counter" lang={lang} />
           </label>
+          )}
 
-          {/* Type */}
+          {/* Type + (conditional) fixed-price amount */}
+          {isVisible("type") && (
           <div className="flex flex-col gap-1 text-sm">
             <span>{t(lang, "budgetType")}</span>
             <SegmentedControl
@@ -273,8 +283,10 @@ export function BudgetBucketModal({
               onChange={(type) => setDraft((d) => ({ ...d, type }))}
             />
           </div>
+          )}
 
           {/* Currency */}
+          {isVisible("currency") && (
           <label className="flex flex-col gap-1 text-sm">
             <span>{t(lang, "budgetCurrency")}</span>
             <select
@@ -294,9 +306,10 @@ export function BudgetBucketModal({
               ))}
             </select>
           </label>
+          )}
 
-          {/* Fixed-price amount (conditional) */}
-          {isFixed && (
+          {/* Fixed-price amount (conditional on Type=fixed and the Type field visibility) */}
+          {isVisible("type") && isFixed && (
             <label className="flex flex-col gap-1 text-sm">
               <span>{t(lang, "budgetFixedPriceAmount")}</span>
               <input
@@ -358,6 +371,7 @@ export function BudgetBucketModal({
           </label>
 
           {/* Successor bucket */}
+          {isVisible("successor") && (
           <label className="flex flex-col gap-1 text-sm">
             <span>{t(lang, "budgetSuccessor")}</span>
             <select
@@ -381,8 +395,10 @@ export function BudgetBucketModal({
                 ))}
             </select>
           </label>
+          )}
 
           {/* Manual FX rate */}
+          {isVisible("fxOverride") && (
           <label className="flex flex-col gap-1 text-sm">
             <span>{t(lang, "budgetFxOverride")}</span>
             <input
@@ -421,8 +437,10 @@ export function BudgetBucketModal({
               {t(lang, "budgetFxOverrideHint")}
             </span>
           </label>
+          )}
 
-          {/* Detailed planning toggle */}
+          {/* Detailed planning toggle (gates the allocation blocks under `planningDetail`) */}
+          {isVisible("planningDetail") && (
           <div className="flex flex-col gap-1 text-sm sm:col-span-2">
             <span>{t(lang, "budgetDetailedPlanning")}</span>
             <button
@@ -441,8 +459,11 @@ export function BudgetBucketModal({
             </button>
             <span className="text-xs text-muted-foreground">{t(lang, "budgetDetailedPlanningHint")}</span>
           </div>
+          )}
 
-          {/* Rate overrides */}
+          {/* Rate overrides (internal + external, grouped) */}
+          {isVisible("rateOverrides") && (
+          <>
           <label className="flex flex-col gap-1 text-sm">
             <span>{t(lang, "budgetRateOverrideInternal")}</span>
             <div className="flex items-center gap-1">
@@ -507,9 +528,11 @@ export function BudgetBucketModal({
             </div>
             <FieldNotice id={rateExtNoticeId}>{notice.rateOverrideExternal}</FieldNotice>
           </label>
+          </>
+          )}
 
-          {/* Role allocations (detailed mode) */}
-          {!isBlended && (
+          {/* Role allocations (detailed mode) — only when planning detail is visible */}
+          {isVisible("planningDetail") && !isBlended && (
           <div className="flex flex-col gap-2 text-sm sm:col-span-2">
             <span className="font-medium">{t(lang, "budgetAllocations")}</span>
 
@@ -592,8 +615,8 @@ export function BudgetBucketModal({
           </div>
           )}
 
-          {/* Discipline allocations (blended mode) */}
-          {isBlended && (
+          {/* Discipline allocations (blended mode) — only when planning detail is visible */}
+          {isVisible("planningDetail") && isBlended && (
             <div className="flex flex-col gap-2 text-sm sm:col-span-2">
               <span className="font-medium">{t(lang, "budgetModeBlended")}</span>
               {(draft.disciplineAllocations ?? []).map((a) => (
