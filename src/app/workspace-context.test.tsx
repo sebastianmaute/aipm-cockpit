@@ -157,6 +157,13 @@ describe("WorkspaceProvider", () => {
     expect(typeof result.current.setChanges).toBe("function");
   });
 
+  test("exposes fieldVisibility state and setter", () => {
+    const { result } = renderHook(() => useWorkspace(), { wrapper });
+    expect(result.current.fieldVisibility).toBeUndefined();
+    act(() => result.current.setFieldVisibility({ task: { fields: ["taskName"] } }));
+    expect(result.current.fieldVisibility?.task.fields).toEqual(["taskName"]);
+  });
+
   test("context value is referentially stable across unrelated parent re-renders", () => {
     let consumerRenders = 0;
     const Consumer = memo(function Consumer() {

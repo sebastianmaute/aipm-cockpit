@@ -10,6 +10,7 @@ import {
   type SetStateAction,
 } from "react";
 import { useFilters } from "./filters-context";
+import type { FieldVisibilityConfig } from "./field-visibility";
 import { defaultResourcePlan } from "./resource-foundation";
 import {
   PRIORITY_RANK,
@@ -73,6 +74,8 @@ interface WorkspaceValue {
   setStatus: Dispatch<SetStateAction<ProjectStatus>>;
   project: ProjectMeta | undefined;
   setProject: Dispatch<SetStateAction<ProjectMeta | undefined>>;
+  fieldVisibility: FieldVisibilityConfig | undefined;
+  setFieldVisibility: Dispatch<SetStateAction<FieldVisibilityConfig | undefined>>;
   milestones: readonly Milestone[];
   setMilestones: Dispatch<SetStateAction<readonly Milestone[]>>;
   changes: readonly ChangeItem[];
@@ -98,6 +101,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [fxRates, setFxRates] = useState<FxRates | null>(null);
   const [status, setStatus] = useState<ProjectStatus>({});
   const [project, setProject] = useState<ProjectMeta | undefined>(undefined);
+  const [fieldVisibility, setFieldVisibility] = useState<FieldVisibilityConfig | undefined>(undefined);
   const [milestones, setMilestones] = useState<readonly Milestone[]>([]);
   const [changes, setChanges] = useState<readonly ChangeItem[]>([]);
   const [stakeholders, setStakeholders] = useState<readonly Stakeholder[]>([]);
@@ -253,6 +257,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       fxRates, setFxRates,
       status, setStatus,
       project, setProject,
+      fieldVisibility, setFieldVisibility,
       milestones, setMilestones,
       changes, setChanges,
       stakeholders, setStakeholders,
@@ -277,6 +282,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       fxRates,
       status,
       project,
+      fieldVisibility,
       milestones,
       changes,
       stakeholders,
