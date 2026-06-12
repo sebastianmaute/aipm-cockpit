@@ -44,16 +44,16 @@ export default defineConfig({
         "src/app/voice.ts",
         "src/app/jira-api.ts",
       ],
-      // Honest floor for the scoped logic/data layer (see `exclude` above).
-      // The previous 80% was never met (the repo measured ~49% across all
-      // files). 70% is a met, meaningful gate; ratchet it up as logic coverage
-      // grows. Reaching 80% would require browser-File-System-Access tests for
-      // storage.ts's local-file backends — E2E territory, low unit-test value.
+      // Ratcheted floor for the scoped logic/data layer (see `exclude` above).
+      // Set just below the measured coverage (lines 92.5 / stmts 89.7 / funcs
+      // 91.9 / branch 81.3 as of 2026-06-12) to lock in the gains and catch
+      // regressions, with a few points of headroom for normal churn. Raise
+      // these as coverage climbs; never lower them just to make a PR pass.
       thresholds: {
-        lines: 70,
-        functions: 70,
-        branches: 70,
-        statements: 70,
+        lines: 90,
+        functions: 89,
+        branches: 78,
+        statements: 87,
       },
     },
   },
