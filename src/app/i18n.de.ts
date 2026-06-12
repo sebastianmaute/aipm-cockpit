@@ -442,6 +442,17 @@ export const de: Record<TranslationKey, string> = {
   showDueAlerts: "Fälligkeits-Benachrichtigungen anzeigen",
   addTaskButton: "Aufgabe hinzufügen",
 
+  templateSaveTitle: "Projekt als Vorlage speichern",
+  templateSaveName: "Name",
+  templateIncludeContent: "Aktuellen Inhalt als Vorlage übernehmen",
+  templateSaveAction: "Speichern",
+  templateApplyTitle: "Vorlage auf aktuelles Projekt anwenden",
+  templatePick: "Vorlage",
+  templateIncludeSeed: "Startinhalt hinzufügen",
+  templateApplyAction: "Anwenden",
+  templateApplied: "Vorlage angewendet",
+  templateSaved: "Vorlage gespeichert",
+
   exportTitle: "Aufgaben exportieren",
   exportSubtitle:
     "Alle {0} Aufgaben im gewünschten Format herunterladen.",

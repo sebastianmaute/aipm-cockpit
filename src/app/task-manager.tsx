@@ -11,6 +11,9 @@ import { ActivityLogProvider } from "./activity-log-context";
 import { useDueAlerts } from "./use-due-alerts";
 import { useToast } from "./use-toast";
 import { useSettings, writeSettings } from "./use-settings";
+import { useTemplates } from "./use-templates";
+import { templateFromWorkspace, type SaveTemplateInput } from "./templates";
+import { applyTemplate } from "./template-apply";
 import { disabledViewRedirect, isModuleEnabled, deriveMode, type FeatureModuleId } from "./feature-modules";
 import { useJiraSync } from "./use-jira-sync";
 import { useStorageBackend } from "./use-storage-backend";
@@ -207,6 +210,8 @@ function TaskManagerInner() {
     changes,
     setChanges,
     setStakeholders,
+    fieldVisibility,
+    setFieldVisibility,
     fxRates,
     project,
     setProject,
@@ -529,6 +534,62 @@ function TaskManagerInner() {
   // context inside WorkspaceSection.
   const { stakeholders, handleSaveStakeholder, handleDeleteStakeholder } =
     useStakeholders({ today, logActivity });
+
+  // Save/Apply template wiring for the action cluster. `buildCurrentWorkspace`
+  // assembles a Workspace from the live workspace-context collections the same
+  // way the app hands one to storage, so the captured template + applied seed
+  // match exactly what would be persisted. Features are NOT applied on apply
+  // (only fieldVisibility + optional seed); the setters trigger the autosave.
+  const { templates: projectTemplates, addTemplate } = useTemplates();
+  const buildCurrentWorkspace = useCallback(
+    (): Workspace => ({
+      tasks,
+      raid,
+      absences,
+      shifts,
+      resources,
+      roles,
+      disciplines,
+      grades,
+      plan,
+      budgets,
+      fxRates,
+      status,
+      milestones,
+      changes,
+      stakeholders,
+      project,
+      fieldVisibility,
+    }),
+    [tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, milestones, changes, stakeholders, project, fieldVisibility],
+  );
+  const handleSaveTemplate = useCallback(
+    (input: SaveTemplateInput) => {
+      addTemplate(
+        templateFromWorkspace(buildCurrentWorkspace(), settings.features, input, crypto.randomUUID()),
+      );
+      showToast("info", t(lang, "templateSaved"));
+    },
+    [addTemplate, buildCurrentWorkspace, settings.features, showToast, lang],
+  );
+  const handleApplyTemplate = useCallback(
+    (id: string, opts: { includeSeed: boolean }) => {
+      const tpl = projectTemplates.find((x) => x.id === id);
+      if (!tpl) return;
+      const next = applyTemplate(buildCurrentWorkspace(), tpl, opts);
+      setFieldVisibility(next.fieldVisibility);
+      if (opts.includeSeed) {
+        setTasks(next.tasks);
+        setMilestones(next.milestones ?? []);
+        setRaid(next.raid);
+        setChanges(next.changes ?? []);
+        setStakeholders(next.stakeholders ?? []);
+        setBudgets(next.budgets ?? []);
+      }
+      showToast("info", t(lang, "templateApplied"));
+    },
+    [projectTemplates, buildCurrentWorkspace, setFieldVisibility, setTasks, setMilestones, setRaid, setChanges, setStakeholders, setBudgets, showToast, lang],
+  );
 
   // Stakeholder-comms reminder (mirrors the RAID-review reminder wiring above):
   // mode-gated via `flags`, surfaced as a banner + modal in the shared slots.
@@ -1352,6 +1413,9 @@ function TaskManagerInner() {
       onCommand={handleCommand}
       onVoiceError={(msg) => showToast("error", msg)}
       exportConfig={settings.export ?? defaultExportConfig}
+      templates={projectTemplates}
+      onSaveTemplate={handleSaveTemplate}
+      onApplyTemplate={handleApplyTemplate}
     />
   );
 

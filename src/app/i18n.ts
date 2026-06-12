@@ -435,6 +435,17 @@ const enUS = {
   showDueAlerts: "Show due-date notifications",
   addTaskButton: "Add task",
 
+  templateSaveTitle: "Save project as a template",
+  templateSaveName: "Name",
+  templateIncludeContent: "Include current content as starter",
+  templateSaveAction: "Save",
+  templateApplyTitle: "Apply template to current project",
+  templatePick: "Template",
+  templateIncludeSeed: "Also add starter content",
+  templateApplyAction: "Apply",
+  templateApplied: "Template applied",
+  templateSaved: "Template saved",
+
   exportTitle: "Export tasks",
   exportSubtitle: "Download all {0} tasks in your preferred format.",
   exportCsv: "CSV",
