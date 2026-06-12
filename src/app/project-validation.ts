@@ -138,9 +138,8 @@ export function validateProjectMeta(draft: ProjectDraft): ProjectFieldErrors {
   if (!startDate) {
     errors.startDate = "errorStartDateRequired";
   }
-  if (!endDate) {
-    errors.endDate = "errorEndDateRequired";
-  } else if (startDate && endDate < startDate) {
+  // End date is optional; when present it must not precede the start date.
+  if (endDate && startDate && endDate < startDate) {
     errors.endDate = "errorEndBeforeStart";
   }
 

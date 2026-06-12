@@ -26,6 +26,12 @@ describe("validateProjectMeta", () => {
   it("flags endDate before startDate", () => {
     expect(validateProjectMeta({ ...ok, endDate: "2025-01-01" }).endDate).toBe("errorEndBeforeStart");
   });
+  it("treats end date as optional (no error when blank)", () => {
+    expect(validateProjectMeta({ ...ok, endDate: "" }).endDate).toBeUndefined();
+  });
+  it("a complete draft with no end date has no errors (Next enabled)", () => {
+    expect(hasProjectErrors(validateProjectMeta({ ...ok, endDate: "" }))).toBe(false);
+  });
   it("flags a malformed URL but allows blank", () => {
     expect(validateProjectMeta({ ...ok, salesforceUrl: "not a url" }).salesforceUrl).toBe("errorInvalidUrl");
     expect(validateProjectMeta({ ...ok, salesforceUrl: "https://x.test" }).salesforceUrl).toBeUndefined();
