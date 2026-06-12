@@ -5,7 +5,11 @@ import { emptyWorkspace } from "./workspace";
 
 describe("csv fieldVisibility section", () => {
   it("emits no field-visibility section when undefined", () => {
-    expect(workspaceToCsv(emptyWorkspace())).not.toContain("field-visibility");
+    expect(workspaceToCsv(emptyWorkspace())).not.toContain("# FIELD-VISIBILITY");
+  });
+  it("emits the field-visibility section when present", () => {
+    const ws = { ...emptyWorkspace(), fieldVisibility: { task: { fields: ["taskName"] } } };
+    expect(workspaceToCsv(ws)).toContain("# FIELD-VISIBILITY");
   });
   it("round-trips fieldVisibility through CSV", () => {
     const ws = { ...emptyWorkspace(), fieldVisibility: { task: { fields: ["taskName", "assignee"] } } };
