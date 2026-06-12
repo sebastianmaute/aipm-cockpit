@@ -11,6 +11,7 @@ import { LocalizationSection } from "./settings-sections/localization-section";
 import { NotificationsSection } from "./settings-sections/notifications-section";
 import { AiSection } from "./settings-sections/ai-section";
 import { IntegrationsSection } from "./settings-sections/integrations-section";
+import { TemplatesSection } from "./settings-sections/templates-section";
 import { type Settings } from "./settings-types";
 
 export function SettingsMenu({
@@ -102,6 +103,10 @@ export function SettingsMenu({
           <AppearanceSection lang={lang} settings={settings} onChange={onChange} />
 
           <LocalizationSection lang={lang} settings={settings} onChange={onChange} />
+
+          <hr className="my-4 border-line" />
+
+          <TemplatesSection lang={lang} />
 
           <hr className="my-4 border-line" />
 
