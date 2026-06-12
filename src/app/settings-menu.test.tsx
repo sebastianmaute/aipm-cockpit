@@ -1,9 +1,29 @@
 import React from "react";
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import {
+  render as rtlRender,
+  screen,
+  fireEvent,
+  type RenderOptions,
+} from "@testing-library/react";
 import { SettingsMenu } from "./settings-menu";
+import { FiltersProvider } from "./filters-context";
+import { WorkspaceProvider } from "./workspace-context";
 import { defaultSettings, type Settings } from "./settings-types";
 import { t } from "./i18n";
+
+// SettingsMenu embeds TemplatesSection, which reads the live workspace
+// (useCurrentWorkspace), so every render needs the workspace providers.
+function Providers({ children }: { children: React.ReactNode }) {
+  return (
+    <FiltersProvider>
+      <WorkspaceProvider>{children}</WorkspaceProvider>
+    </FiltersProvider>
+  );
+}
+function render(ui: React.ReactElement, options?: RenderOptions) {
+  return rtlRender(ui, { wrapper: Providers, ...options });
+}
 
 vi.mock("./jira-settings", () => ({
   JiraSettingsSection: () => null,

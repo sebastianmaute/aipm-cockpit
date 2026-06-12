@@ -5,6 +5,7 @@ import type { FeatureModuleId } from "./feature-modules";
 import { ALL_MODULE_IDS } from "./feature-modules";
 import type { Lang } from "./i18n";
 import type { SnapshotCadence } from "./snapshot";
+import type { ProjectTemplate } from "./templates";
 import {
   type StorageConfig,
   defaultStorageConfig,
@@ -256,6 +257,8 @@ export type Settings = {
   features: FeatureModuleId[];
   /** Max auto-versions kept per project in version history (Turso). Min 50, step 10. */
   versionHistoryRetention?: number;
+  /** User-created project templates (built-ins live in code). Cross-project, in the settings blob. */
+  templates?: ProjectTemplate[];
   export?: ExportConfig;
 };
 
@@ -274,5 +277,6 @@ export const defaultSettings: Settings = {
   snapshots: defaultSnapshotSettings,
   features: [...ALL_MODULE_IDS],
   versionHistoryRetention: 50,
+  templates: [],
   export: defaultExportConfig,
 };

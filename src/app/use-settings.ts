@@ -7,6 +7,7 @@ import { defaultNotificationsConfig, resolveSnapshotSettings, sanitizeAiConfig, 
 import type { StakeholderQuadrant } from "./stakeholders";
 import { resolveExtraReports } from "./addable-reports";
 import { sanitizeFeatures } from "./feature-modules";
+import { sanitizeTemplates } from "./templates";
 import { sanitizeVersionRetention } from "./version-history";
 import { isPlainObject } from "./sanitize";
 
@@ -14,7 +15,11 @@ export const SETTINGS_KEY = "lop-app:settings";
 
 /** Synchronously write settings to localStorage. */
 export function writeSettings(settings: Settings): void {
-  window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  try {
+    window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  } catch {
+    // quota exceeded / storage disabled — degrade gracefully, keep in-memory settings
+  }
 }
 
 const COMMS_QUADRANTS: readonly StakeholderQuadrant[] = [
@@ -137,6 +142,7 @@ export function useSettings(): {
             snapshots: resolveSnapshotSettings(parsed.snapshots),
             features: sanitizeFeatures((parsed as Record<string, unknown>).features),
             versionHistoryRetention: sanitizeVersionRetention((parsed as Record<string, unknown>).versionHistoryRetention),
+            templates: sanitizeTemplates((parsed as Record<string, unknown>).templates),
             export: sanitizeExportConfig((parsed as Record<string, unknown>).export),
           };
           Promise.resolve().then(() => {
@@ -164,7 +170,11 @@ export function useSettings(): {
   // Persist settings on every change, guarded by hydration so mount doesn't overwrite.
   useEffect(() => {
     if (!hydrated) return;
-    window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+    try {
+      window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+    } catch {
+      // quota exceeded / storage disabled — degrade gracefully, keep in-memory settings
+    }
   }, [settings, hydrated]);
 
   // Sync document language attribute and ensure dict is loaded on mid-session switch.

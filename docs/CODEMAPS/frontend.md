@@ -353,3 +353,16 @@ always shown and locked.
 | `field-visibility.ts` | Pure resolver: `applyTier`, `tierFields`, `visibleFields`, `toggleField`, `tierOf`, `sanitizeFieldVisibility` over a `FieldVisibilityConfig`; `DEFAULT_TIER = "advanced"` | Pure; byte-stable serialization (registry order); sanitize re-adds required ids + drops unknowns |
 | `use-modal-visibility.ts` | `useModalVisibility(modalId) → { mode, isVisible, setMode, toggleField, reset }` hook over `Workspace.fieldVisibility` | Client hook |
 | `modal-field-controls.tsx` | Header control: Simple/Advanced/Full tier switch + a cog popover (per-field checklist; required fields locked) | Component; rendered by each of the 8 edit modals |
+
+## Templates (0.71.0+)
+
+Project templates bundle a `FieldVisibilityConfig`, a set of feature-module toggles, and optional seed content into a reusable `ProjectTemplate`. Applying a template replaces field-visibility wholesale and non-destructively appends re-id'd seed rows to the workspace — existing content is never overwritten.
+
+| Module | Description | Notes |
+|--------|-------------|-------|
+| `templates.ts` | `ProjectTemplate` / `TemplateSeed` types; `sanitizeTemplate` / `sanitizeTemplates`; `templateFromWorkspace` (snapshot the current workspace state into a new template) | Pure |
+| `templates-builtin.ts` | Three in-code starter templates: **builtin-minimal** (bare task list), **builtin-standard** (phased tasks + Gantt + milestones + RAID + change control), **builtin-full** (every module + full delivery skeleton). `builtIn: true` is set in code only — never decoded from stored data | Pure constants |
+| `template-apply.ts` | `applyTemplate(ws, tpl, opts)` — pure apply; `remapSeed(ws, seed)` — re-ids every entity in the seed relative to the target workspace and rewires all internal references (task deps, `linkedTaskIds`, `causedByRaidIds`, `stakeholderIds`); out-of-seed refs are dropped, person FKs cleared | Pure |
+| `use-templates.ts` | `useTemplates()` — merges built-ins with `Settings.templates[]` (user-saved); exposes `addTemplate`, `updateTemplate`, `removeTemplate`, `duplicateTemplate` CRUD (user templates only; built-ins are immutable) | Client hook; persists via `useSettings` → localStorage |
+
+User templates are persisted in `Settings.templates[]` (localStorage). The Settings view exposes a Templates section (list + save/delete/duplicate). The actions-menu "Save as template" entry calls `templateFromWorkspace`; "Apply template" calls `applyTemplate`.

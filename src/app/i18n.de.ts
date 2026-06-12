@@ -442,6 +442,21 @@ export const de: Record<TranslationKey, string> = {
   showDueAlerts: "Fälligkeits-Benachrichtigungen anzeigen",
   addTaskButton: "Aufgabe hinzufügen",
 
+  templateSaveTitle: "Projekt als Vorlage speichern",
+  templateSaveName: "Name",
+  templateIncludeContent: "Aktuellen Inhalt als Vorlage übernehmen",
+  templateSaveAction: "Speichern",
+  templateSaveCaptures:
+    "Erfasst den Funktionsmodus und die Feldsichtbarkeit dieses Projekts.",
+  templatesSaveCurrent: "Aktuelles Projekt als Vorlage speichern…",
+  templateApplyTitle: "Vorlage auf aktuelles Projekt anwenden",
+  templatePick: "Vorlage",
+  templateIncludeSeed: "Startinhalt hinzufügen",
+  templateApplyReplacesFv: "Das Anwenden ersetzt die Feldsichtbarkeits-Einstellungen dieses Projekts.",
+  templateApplyAction: "Anwenden",
+  templateApplied: "Vorlage angewendet",
+  templateSaved: "Vorlage gespeichert",
+
   exportTitle: "Aufgaben exportieren",
   exportSubtitle:
     "Alle {0} Aufgaben im gewünschten Format herunterladen.",
@@ -669,6 +684,9 @@ export const de: Record<TranslationKey, string> = {
   helpSecFieldVisibilityTitle: "Feldsichtbarkeit",
   helpSecFieldVisibilityBody:
     "Jeder Editor (Aufgaben, RAID, Änderungen, Meilensteine, Stakeholder, Ressourcen, Abwesenheiten und Budgets) verfügt über einen Schalter Einfach / Erweitert / Vollständig, der steuert, wie viele Felder angezeigt werden, sowie ein Zahnrad, um einzelne Felder ein- oder auszublenden. Einfach zeigt das Wesentliche, Erweitert (die Voreinstellung) zeigt den gängigen Satz und Vollständig zeigt alles. Pflichtfelder werden unabhängig von der Ansicht immer angezeigt, und die Einstellung wird pro Projekt gespeichert. Das Ausblenden eines Feldes ändert nur die Anzeige – die dahinterliegenden Daten werden nie gelöscht, sodass eine vollständigere Ansicht die Werte unverändert zurückbringt.",
+  helpSecTemplatesTitle: "Projektvorlagen",
+  helpSecTemplatesBody:
+    "Projektvorlagen speichern eine Funktionsmodus-Voreinstellung, eine Feldsichtbarkeits-Konfiguration und optionalen Startinhalt als wiederverwendbares Setup. Einige Vorlagen sind bereits eingebaut, und Sie können das aktuelle Projekt als eigene Vorlage speichern. Das Anwenden einer Vorlage auf das aktuelle Projekt setzt dessen Feldsichtbarkeit und hängt optional ihren Startinhalt an – Ihre vorhandenen Einträge bleiben erhalten. Die gespeicherte Funktionsmodus-Voreinstellung wird angewendet, wenn Sie ein neues Projekt aus der Vorlage erstellen (in Kürze verfügbar). Verwalten (umbenennen, duplizieren, löschen) können Sie Ihre gespeicherten Vorlagen in den Einstellungen.",
   helpSecKeysTitle: "Tastatur & Shortcuts",
   helpSecKeysBody:
     "Esc – aktuell geöffneten Dialog, Pop-up oder Aufgaben-Formular schließen.\nEnter im Chat – Nachricht senden. Shift+Enter – Zeilenumbruch.\n+-Symbol im Header – Dialog \"Neue Aufgabe\" öffnen.\nPfeil in der Workspace-Tableiste – Bereich ein-/ausklappen.\nKlick auf einen Tab bei eingeklapptem Bereich – klappt automatisch aus.",
@@ -1513,6 +1531,15 @@ export const de: Record<TranslationKey, string> = {
   stakeholderCommsRaidOverdue: "RAID-Eintrag über Zieltermin",
   stakeholderCommsChangePending: "Änderung wartet auf Entscheidung",
   versionHighlightRaidReview: "RAID-Prüfungserinnerungen markieren überfällige und veraltete Einträge; RAG-Politur im Dashboard und Budgetbericht.",
+  settingsSectionTemplates: "Vorlagen",
+  templatesIntro:
+    "Wiederverwendbare Projekt-Setups: Funktionsmodus, Feldsichtbarkeit und optionaler Startinhalt.",
+  templatesBuiltInLabel: "Vorinstalliert",
+  templatesYoursLabel: "Eigene Vorlagen",
+  templatesDuplicate: "Duplizieren",
+  templatesDelete: "Löschen",
+  templatesRename: "Vorlagenname",
+  templatesEmpty: "Noch keine gespeicherten Vorlagen.",
   settingsSectionMode: "Modus",
   modeSimple: "Einfach",
   modeModular: "Modular",
@@ -1533,6 +1560,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightTursoMultiProject: "Turso-Multi-Projekt: Eine gemeinsame Datenbank enthält Ihr gesamtes Portfolio – mit projektweisem Wechsel, Archivieren/Wiederherstellen und endgültigem Löschen.",
   versionHighlightSpDocLinks: "SharePoint-Dateien & -Ordner mit Aufgaben, RAID, Änderungen, Stakeholdern, Meilensteinen und Projekten verknüpfen — mit integriertem Browser.",
   versionHighlightFieldVisibility: "Feldsichtbarkeit: Einfache, erweiterte oder vollständige Felder je Editor – mit Zahnrad zum Anpassen der angezeigten Felder",
+  versionHighlightTemplates: "Projektvorlagen: die Feldsichtbarkeit und optionalen Startinhalt eines Projekts als wiederverwendbare Vorlage speichern und auf ein Projekt anwenden, um die Feldsichtbarkeit zu setzen und Startinhalt hinzuzufügen",
   fieldCounter: "{0} / {1}",
   fieldTrimmedToFit: "auf Maximallänge gekürzt",
   fieldAdjustedMax: "auf Maximum {0} angepasst",

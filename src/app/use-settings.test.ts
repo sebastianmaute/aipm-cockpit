@@ -1,5 +1,5 @@
 import { act, renderHook } from "@testing-library/react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ALL_MODULE_IDS } from "./feature-modules";
 import { defaultSettings } from "./settings-types";
 import { defaultNotificationsConfig } from "./settings-types";
@@ -661,5 +661,32 @@ describe("notifications migration — toast-first one-time migration", () => {
     expect(n.popup.enabled).toBe(true);
     expect(n.toast.enabled).toBe(false);
     expect(n.toastFirstMigrated).toBe(true);
+  });
+});
+
+import { sanitizeTemplates } from "./templates";
+
+describe("settings templates field", () => {
+  it("sanitizes a templates array and defaults undefined to []", () => {
+    const parsed = JSON.parse(JSON.stringify({ templates: [{ id: "t", name: "T", features: [], fieldVisibility: {} }] }));
+    expect(sanitizeTemplates(parsed.templates)).toHaveLength(1);
+    expect(sanitizeTemplates(undefined)).toEqual([]);
+  });
+});
+
+describe("writeSettings — localStorage quota guard", () => {
+  it("does NOT throw when setItem raises QuotaExceededError", () => {
+    // Arrange: stub setItem to simulate a full / disabled localStorage.
+    const spy = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new DOMException("quota", "QuotaExceededError");
+    });
+
+    try {
+      // Act + Assert: a failed persist must degrade gracefully, never throw.
+      expect(() => writeSettings(defaultSettings)).not.toThrow();
+      expect(spy).toHaveBeenCalled();
+    } finally {
+      spy.mockRestore();
+    }
   });
 });

@@ -435,6 +435,21 @@ const enUS = {
   showDueAlerts: "Show due-date notifications",
   addTaskButton: "Add task",
 
+  templateSaveTitle: "Save project as a template",
+  templateSaveName: "Name",
+  templateIncludeContent: "Include current content as starter",
+  templateSaveAction: "Save",
+  templateSaveCaptures:
+    "Captures this project's feature mode and field visibility.",
+  templatesSaveCurrent: "Save current project as a template…",
+  templateApplyTitle: "Apply template to current project",
+  templatePick: "Template",
+  templateIncludeSeed: "Also add starter content",
+  templateApplyReplacesFv: "Applying replaces this project's field-visibility settings.",
+  templateApplyAction: "Apply",
+  templateApplied: "Template applied",
+  templateSaved: "Template saved",
+
   exportTitle: "Export tasks",
   exportSubtitle: "Download all {0} tasks in your preferred format.",
   exportCsv: "CSV",
@@ -654,6 +669,9 @@ const enUS = {
   helpSecFieldVisibilityTitle: "Field visibility",
   helpSecFieldVisibilityBody:
     "Every entity editor (tasks, RAID, changes, milestones, stakeholders, resources, absences, and budgets) has a Simple / Advanced / Full switch that controls how many fields are shown, plus a cog to show or hide individual fields. Simple shows the essentials, Advanced (the default) shows the common set, and Full shows everything. Required fields are always shown regardless of the view, and the setting is saved per project. Hiding a field only changes what you see — it never deletes the data behind it, so switching to a fuller view brings the values back unchanged.",
+  helpSecTemplatesTitle: "Project templates",
+  helpSecTemplatesBody:
+    "Project templates store a feature-mode preset, a field-visibility config, and optional starter content as a reusable setup. A few built-in templates ship with the app, and you can save the current project as your own template. Applying a template to the current project sets its field visibility and optionally appends its starter content — your existing items are kept. The stored feature-mode preset is applied when you create a new project from the template (coming soon). Manage your saved templates (rename, duplicate, delete) in Settings.",
   helpSecKeysTitle: "Keyboard & shortcuts",
   helpSecKeysBody:
     "Esc — close any open modal, popover, or task form.\nEnter in chat — send message. Shift+Enter — newline.\n+ button in header — open the New task modal.\nChevron in the workspace tab strip — collapse / expand the pane.\nClick a tab while collapsed — auto-expands.",
@@ -1310,6 +1328,15 @@ const enUS = {
   settingsSectionJira: "Jira",
   settingsSectionStorage: "Storage",
   settingsSectionIntegrations: "Integrations",
+  settingsSectionTemplates: "Templates",
+  templatesIntro:
+    "Reusable project setups: feature mode, field visibility, and optional starter content.",
+  templatesBuiltInLabel: "Built-in",
+  templatesYoursLabel: "Your templates",
+  templatesDuplicate: "Duplicate",
+  templatesDelete: "Delete",
+  templatesRename: "Template name",
+  templatesEmpty: "No saved templates yet.",
   settingsSectionMode: "Mode",
   modeSimple: "Simple",
   modeModular: "Modular",
@@ -1515,6 +1542,7 @@ const enUS = {
   versionHighlightTursoMultiProject: "Turso multi-project: one shared database holds your whole portfolio, with per-project switching, archive/restore, and permanent delete.",
   versionHighlightSpDocLinks: "Link SharePoint files & folders to tasks, RAID, changes, stakeholders, milestones and projects — with a built-in browser.",
   versionHighlightFieldVisibility: "Field visibility: show Simple, Advanced, or Full fields per editor, with a cog to customize which fields appear",
+  versionHighlightTemplates: "Project templates: save a project's field visibility and optional starter content as a reusable template, and apply it to a project to set field visibility and add starter content",
   fieldCounter: "{0} / {1}",
   fieldTrimmedToFit: "trimmed to fit",
   fieldAdjustedMax: "adjusted to max {0}",

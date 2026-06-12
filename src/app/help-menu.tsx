@@ -23,6 +23,7 @@ const SECTIONS: Array<{
   { titleKey: "helpSecLayoutTitle", bodyKey: "helpSecLayoutBody" },
   { titleKey: "helpSecAddTitle", bodyKey: "helpSecAddBody" },
   { titleKey: "helpSecFieldVisibilityTitle", bodyKey: "helpSecFieldVisibilityBody" },
+  { titleKey: "helpSecTemplatesTitle", bodyKey: "helpSecTemplatesBody" },
   { titleKey: "helpSecWorkspaceTitle", bodyKey: "helpSecWorkspaceBody" },
   { titleKey: "helpSecTabsTitle", bodyKey: "helpSecTabsBody" },
   { titleKey: "helpSecTasksTitle", bodyKey: "helpSecTasksBody" },
