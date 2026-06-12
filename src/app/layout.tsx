@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { Titillium_Web } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "./use-theme";
@@ -18,11 +19,17 @@ export const metadata: Metadata = {
     "Draft status-inquiry emails for delayed items in a project's List of Open Points.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Next.js auto-nonces its own framework/page scripts, but NOT a hand-authored
+  // <script>. Read the per-request nonce that src/proxy.ts sets on x-nonce (same
+  // value as the CSP script-src nonce) so this inline script passes the strict
+  // CSP. Reading headers() also opts the layout into dynamic rendering, which
+  // nonce-based CSP already requires (see page.tsx connection()).
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
   return (
     <html
       lang="en"
@@ -30,7 +37,10 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col font-[var(--font-titillium)]">
-        <script dangerouslySetInnerHTML={{ __html: NO_FLASH_THEME_SCRIPT }} />
+        <script
+          nonce={nonce}
+          dangerouslySetInnerHTML={{ __html: NO_FLASH_THEME_SCRIPT }}
+        />
         <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>
