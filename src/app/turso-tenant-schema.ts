@@ -119,6 +119,12 @@ export function tenantWorkspaceToStatements(ws: Workspace, projectId: string, di
   if (isDirty("meta")) {
     out.push(tenantInsert("meta", ["key", "value"], ["schema_version", SCHEMA_VERSION], projectId));
     out.push(tenantInsert("meta", ["key", "value"], ["project_status", JSON.stringify(ws.status ?? {})], projectId));
+    if (ws.fieldVisibility && Object.keys(ws.fieldVisibility).length > 0) {
+      out.push(tenantInsert("meta", ["key", "value"], ["field_visibility", JSON.stringify(ws.fieldVisibility)], projectId));
+    }
+    if (ws.features !== undefined) {
+      out.push(tenantInsert("meta", ["key", "value"], ["features", JSON.stringify(ws.features)], projectId));
+    }
   }
   out.push({ sql: "COMMIT" });
   return out;
