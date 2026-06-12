@@ -11,6 +11,8 @@ import { ModalHeader } from "./modal-header";
 import { ModalEditFooter } from "./modal-edit-fields";
 import { useDraggable } from "./use-draggable";
 import { DocumentLinksFieldGated } from "./document-links-field-gated";
+import { ModalFieldControls } from "./modal-field-controls";
+import { useModalVisibility } from "./use-modal-visibility";
 import type { Milestone, Task } from "./types";
 
 interface Props {
@@ -40,6 +42,7 @@ export function MilestoneEditModal({
   const [prev, setPrev] = useState(milestone);
   const [draft, setDraft] = useState<Milestone | null>(milestone);
   const [error, setError] = useState<string | null>(null);
+  const { isVisible } = useModalVisibility("milestone");
 
   if (prev !== milestone) {
     setPrev(milestone);
@@ -122,6 +125,10 @@ export function MilestoneEditModal({
           dragHandleProps={handleProps}
         />
 
+        <div className="flex justify-end border-b border-line px-4 py-2">
+          <ModalFieldControls modalId="milestone" lang={lang} />
+        </div>
+
         <form
           onSubmit={handleSubmit}
           className="flex flex-col gap-4 overflow-y-auto p-5"
@@ -138,6 +145,7 @@ export function MilestoneEditModal({
             />
           </label>
 
+          {isVisible("targetDate") && (
           <label className="flex flex-col gap-1 text-sm">
             <span className="font-medium text-foreground">
               {t(lang, "milestoneDate")} *
@@ -150,7 +158,9 @@ export function MilestoneEditModal({
               className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
             />
           </label>
+          )}
 
+          {isVisible("description") && (
           <label className="flex flex-col gap-1 text-sm">
             <span className="font-medium text-foreground">
               {t(lang, "milestoneDescription")}
@@ -163,7 +173,9 @@ export function MilestoneEditModal({
               className="min-h-16 rounded-md border border-line bg-surface px-3 py-2 text-sm"
             />
           </label>
+          )}
 
+          {isVisible("documentLinks") && (
           <label className="flex flex-col gap-1 text-sm">
             <span className="font-medium text-foreground">{t(lang, "documents")}</span>
             <DocumentLinksFieldGated
@@ -172,7 +184,9 @@ export function MilestoneEditModal({
               lang={lang}
             />
           </label>
+          )}
 
+          {isVisible("achievedDate") && (
           <label className="flex items-center gap-2 text-sm">
             <input
               type="checkbox"
@@ -190,7 +204,9 @@ export function MilestoneEditModal({
               {t(lang, "milestoneAchieved")}
             </span>
           </label>
+          )}
 
+          {isVisible("linkedTasks") && (
           <fieldset className="flex flex-col gap-1 text-sm">
             <legend className="font-medium text-foreground">
               {t(lang, "milestoneLinkedTasks")}
@@ -214,6 +230,7 @@ export function MilestoneEditModal({
               )}
             </div>
           </fieldset>
+          )}
 
           {error && (
             <p className="text-sm text-AIPM-pink">{error}</p>
