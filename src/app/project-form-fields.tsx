@@ -90,6 +90,12 @@ export function emptyProjectDraft(): ProjectFormDraft {
 export const inputClass =
   "w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none focus:ring-1 focus:ring-AIPM-green dark:border-line dark:bg-surface dark:text-foreground";
 
+// Suggested identity-count steps (datalist) — guidance only; any number is valid.
+const IDENTITY_COUNT_STEPS = [
+  50, 100, 500, 1000, 2500, 5000, 10000, 30000, 50000, 100000, 250000, 500000,
+  1000000, 5000000, 10000000, 50000000,
+] as const;
+
 // One titled section. Owns its own two-column grid so wide fields can span. The
 // heading uses the AIPM dark-blue token and a bottom divider (mirrors the task
 // form's TaskFormSection, minus the leading number).
@@ -115,18 +121,25 @@ export function Field({
   label,
   required,
   className,
+  tooltip,
   children,
 }: {
   label: string;
   required?: boolean;
   className?: string;
+  tooltip?: string;
   children: React.ReactNode;
 }) {
   return (
-    <label className={`block ${className ?? ""}`}>
+    <label className={`block ${className ?? ""}`} title={tooltip}>
       <span className="mb-1 block text-sm font-medium text-foreground">
         {label}
         {required && <span className="ml-0.5 text-AIPM-pink">*</span>}
+        {tooltip && (
+          <span aria-hidden className="ml-1 cursor-help text-muted-foreground" title={tooltip}>
+            ⓘ
+          </span>
+        )}
       </span>
       {children}
     </label>
@@ -163,7 +176,7 @@ export function IdentityPeopleFields({
 }: ProjectFieldsProps) {
   return (
     <FormSection title={`${t(lang, "projectFormIdentity")} · ${t(lang, "projectFormPeople")}`}>
-      <Field label={t(lang, "projectName")} required>
+      <Field label={t(lang, "projectName")} required tooltip={t(lang, "tipProjectName")}>
         <input
           type="text"
           value={draft.name}
@@ -176,7 +189,7 @@ export function IdentityPeopleFields({
         <FieldError id="name-error">{errorFor("name")}</FieldError>
       </Field>
 
-      <Field label={t(lang, "projectCode")} required>
+      <Field label={t(lang, "projectCode")} required tooltip={t(lang, "tipProjectCode")}>
         <input
           type="text"
           value={draft.code}
@@ -207,7 +220,7 @@ export function IdentityPeopleFields({
         />
       </Field>
 
-      <Field label={t(lang, "projectManager")} required>
+      <Field label={t(lang, "projectManager")} required tooltip={t(lang, "tipProjectManager")}>
         <input
           type="text"
           value={draft.projectManager}
@@ -296,7 +309,7 @@ export function CustomerFields({
 
   return (
     <FormSection title={t(lang, "projectFormCustomer")}>
-      <Field label={t(lang, "projectCustomer")} required>
+      <Field label={t(lang, "projectCustomer")} required tooltip={t(lang, "tipCustomer")}>
         <input
           type="text"
           value={draft.customer}
@@ -309,7 +322,7 @@ export function CustomerFields({
         <FieldError id="customer-error">{errorFor("customer")}</FieldError>
       </Field>
 
-      <Field label={t(lang, "projectNaceSection")} required>
+      <Field label={t(lang, "projectNaceSection")} required tooltip={t(lang, "tipNace")}>
         <select
           value={draft.naceSection}
           onChange={(e) => setDraft((p) => ({ ...p, naceSection: e.target.value }))}
@@ -344,17 +357,23 @@ export function CustomerFields({
         </div>
       </Field>
 
-      <Field label={t(lang, "projectIdentityCount")}>
+      <Field label={t(lang, "projectIdentityCount")} tooltip={t(lang, "tipIdentityCount")}>
         <input
           type="number"
           min={0}
           value={draft.identityCount}
+          list="identity-count-steps"
           onChange={(e) => setDraft((p) => ({ ...p, identityCount: e.target.value }))}
           className={inputClass}
         />
+        <datalist id="identity-count-steps">
+          {IDENTITY_COUNT_STEPS.map((n) => (
+            <option key={n} value={n} />
+          ))}
+        </datalist>
       </Field>
 
-      <Field label={t(lang, "projectProducts")} required>
+      <Field label={t(lang, "projectProducts")} required tooltip={t(lang, "tipProducts")}>
         <input
           type="text"
           value={draft.products}
@@ -376,7 +395,7 @@ export function CustomerFields({
         />
       </Field>
 
-      <Field label={t(lang, "projectDeployment")} required>
+      <Field label={t(lang, "projectDeployment")} required tooltip={t(lang, "tipDeployment")}>
         <select
           value={draft.deployment}
           onChange={(e) => setDraft((p) => ({ ...p, deployment: e.target.value as Deployment | "" }))}
@@ -395,7 +414,7 @@ export function CustomerFields({
         <FieldError id="deployment-error">{errorFor("deployment")}</FieldError>
       </Field>
 
-      <Field label={t(lang, "projectStartDate")} required>
+      <Field label={t(lang, "projectStartDate")} required tooltip={t(lang, "tipStartDate")}>
         <input
           type="date"
           value={draft.startDate}
@@ -408,7 +427,7 @@ export function CustomerFields({
         <FieldError id="startDate-error">{errorFor("startDate")}</FieldError>
       </Field>
 
-      <Field label={t(lang, "projectEndDate")} required>
+      <Field label={t(lang, "projectEndDate")} tooltip={t(lang, "tipEndDate")}>
         <input
           type="date"
           value={draft.endDate}
@@ -421,7 +440,7 @@ export function CustomerFields({
         <FieldError id="endDate-error">{errorFor("endDate")}</FieldError>
       </Field>
 
-      <Field label={t(lang, "projectProfitCenter")} required>
+      <Field label={t(lang, "projectProfitCenter")} required tooltip={t(lang, "tipProfitCenter")}>
         <input
           type="text"
           value={draft.profitCenter}
@@ -443,7 +462,7 @@ export function CustomerFields({
         />
       </Field>
 
-      <Field label={t(lang, "projectSalesforce")}>
+      <Field label={t(lang, "projectLinkSalesforce")}>
         <input
           type="url"
           value={draft.salesforceUrl}
@@ -457,7 +476,7 @@ export function CustomerFields({
         <FieldError id="salesforceUrl-error">{errorFor("salesforceUrl")}</FieldError>
       </Field>
 
-      <Field label={t(lang, "projectSharepoint")}>
+      <Field label={t(lang, "projectLinkSharepoint")}>
         <input
           type="url"
           value={draft.sharepointUrl}
@@ -471,7 +490,7 @@ export function CustomerFields({
         <FieldError id="sharepointUrl-error">{errorFor("sharepointUrl")}</FieldError>
       </Field>
 
-      <Field label={t(lang, "projectConfluence")}>
+      <Field label={t(lang, "projectLinkConfluence")}>
         <input
           type="url"
           value={draft.confluenceUrl}
@@ -483,6 +502,20 @@ export function CustomerFields({
           className={inputClass}
         />
         <FieldError id="confluenceUrl-error">{errorFor("confluenceUrl")}</FieldError>
+      </Field>
+
+      <Field label={t(lang, "projectLinkJira")}>
+        <input
+          type="url"
+          value={draft.jiraUrl}
+          title={t(lang, "projectJiraTip")}
+          onChange={(e) => setDraft((p) => ({ ...p, jiraUrl: e.target.value }))}
+          onBlur={() => markTouched("jiraUrl")}
+          aria-invalid={errorFor("jiraUrl") ? true : undefined}
+          aria-describedby={errorFor("jiraUrl") ? "jiraUrl-error" : undefined}
+          className={inputClass}
+        />
+        <FieldError id="jiraUrl-error">{errorFor("jiraUrl")}</FieldError>
       </Field>
 
       <div className="sm:col-span-2">
@@ -512,7 +545,7 @@ export function CustomerFields({
         />
       </Field>
 
-      <Field label={t(lang, "projectRegulatory")} required className="sm:col-span-2">
+      <Field label={t(lang, "projectRegulatory")} required className="sm:col-span-2" tooltip={t(lang, "tipRegulatory")}>
         <div className="flex flex-col gap-2">
           {REGULATORY_REQUIREMENTS.map((req) => (
             <label key={req} className="flex items-center gap-1.5 text-sm text-foreground">
