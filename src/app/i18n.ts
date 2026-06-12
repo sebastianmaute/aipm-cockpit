@@ -682,6 +682,9 @@ const enUS = {
   helpSecPerProjectFunctionsTitle: "Per-project functions",
   helpSecPerProjectFunctionsBody:
     "Each project keeps its own set of enabled functions (modules). Choose them in Settings → Mode, where the toggles apply to the current project, or while creating a project in the 3-step wizard. Switching to another project loads that project's functions without a page reload, so the navigation and automation adjust instantly. Templates can preset which functions a new project starts with.",
+  helpSecTemplateSuggestTitle: "Template suggestion",
+  helpSecTemplateSuggestBody:
+    "When you create a project, the wizard recommends a template based on the project's team size, regulatory needs, deployment, timeline, and scale. It preselects the suggested template and shows why it fits — you can pick any other template or start from Blank instead.",
   helpSecKeysTitle: "Keyboard & shortcuts",
   helpSecKeysBody:
     "Esc — close any open modal, popover, or task form.\nEnter in chat — send message. Shift+Enter — newline.\n+ button in header — open the New task modal.\nChevron in the workspace tab strip — collapse / expand the pane.\nClick a tab while collapsed — auto-expands.",
@@ -1554,6 +1557,7 @@ const enUS = {
   versionHighlightFieldVisibility: "Field visibility: show Simple, Advanced, or Full fields per editor, with a cog to customize which fields appear",
   versionHighlightTemplates: "Project templates: save a project's field visibility and optional starter content as a reusable template, and apply it to a project to set field visibility and add starter content",
   versionHighlightPerProjectFunctions: "Per-project functions: each project keeps its own enabled modules, switchable without a reload, configured (with a template) in a new 3-step creation wizard",
+  versionHighlightTemplateSuggest: "Smart template suggestion: the creation wizard recommends and preselects the best-fit template from your project's size, complexity, and team",
   fieldCounter: "{0} / {1}",
   fieldTrimmedToFit: "trimmed to fit",
   fieldAdjustedMax: "adjusted to max {0}",
