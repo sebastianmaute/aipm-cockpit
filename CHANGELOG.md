@@ -8,6 +8,27 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.71.0] - 2026-06-12 "Bear"
+
+Project templates — reusable project setups (mode + field visibility + optional starter content).
+
+### Added
+- A cross-project library of reusable project templates: three built-in starters
+  (minimal, standard, and full delivery skeletons) plus a "Save current project
+  as a template" action that snapshots the current setup.
+- A Templates section in Settings to manage your saved templates — list, rename,
+  duplicate, and delete (built-in templates are read-only).
+- An "Apply template" entry in the actions menu sets the project's field
+  visibility and optionally appends the template's starter content with re-id'd
+  entities. Applying is non-destructive — your existing items are kept.
+- User templates are persisted in settings (localStorage).
+
+### Changed
+- Applying a template never overwrites existing data; starter content is appended
+  with fresh ids and internal references rewired.
+- Upcoming: applying the feature mode at project creation and template
+  suggestions are planned for a future release.
+
 ## [0.70.0] - 2026-06-12 "Heinlein"
 
 Per-modal field visibility — Simple / Advanced / Full views with a configurable cog.

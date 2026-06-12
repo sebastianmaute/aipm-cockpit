@@ -354,7 +354,7 @@ always shown and locked.
 | `use-modal-visibility.ts` | `useModalVisibility(modalId) → { mode, isVisible, setMode, toggleField, reset }` hook over `Workspace.fieldVisibility` | Client hook |
 | `modal-field-controls.tsx` | Header control: Simple/Advanced/Full tier switch + a cog popover (per-field checklist; required fields locked) | Component; rendered by each of the 8 edit modals |
 
-## Templates (0.60.x+)
+## Templates (0.71.0+)
 
 Project templates bundle a `FieldVisibilityConfig`, a set of feature-module toggles, and optional seed content into a reusable `ProjectTemplate`. Applying a template replaces field-visibility wholesale and non-destructively appends re-id'd seed rows to the workspace — existing content is never overwritten.
 

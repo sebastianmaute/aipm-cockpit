@@ -665,6 +665,9 @@ const enUS = {
   helpSecFieldVisibilityTitle: "Field visibility",
   helpSecFieldVisibilityBody:
     "Every entity editor (tasks, RAID, changes, milestones, stakeholders, resources, absences, and budgets) has a Simple / Advanced / Full switch that controls how many fields are shown, plus a cog to show or hide individual fields. Simple shows the essentials, Advanced (the default) shows the common set, and Full shows everything. Required fields are always shown regardless of the view, and the setting is saved per project. Hiding a field only changes what you see — it never deletes the data behind it, so switching to a fuller view brings the values back unchanged.",
+  helpSecTemplatesTitle: "Project templates",
+  helpSecTemplatesBody:
+    "Project templates bundle a feature mode, field-visibility config, and optional starter content into a reusable setup. A few built-in templates ship with the app, and you can save the current project as your own template. Applying a template sets the field visibility and optionally adds its starter content — appended to the project, so your existing items are kept. Manage your saved templates (rename, duplicate, delete) in Settings.",
   helpSecKeysTitle: "Keyboard & shortcuts",
   helpSecKeysBody:
     "Esc — close any open modal, popover, or task form.\nEnter in chat — send message. Shift+Enter — newline.\n+ button in header — open the New task modal.\nChevron in the workspace tab strip — collapse / expand the pane.\nClick a tab while collapsed — auto-expands.",
@@ -1535,6 +1538,7 @@ const enUS = {
   versionHighlightTursoMultiProject: "Turso multi-project: one shared database holds your whole portfolio, with per-project switching, archive/restore, and permanent delete.",
   versionHighlightSpDocLinks: "Link SharePoint files & folders to tasks, RAID, changes, stakeholders, milestones and projects — with a built-in browser.",
   versionHighlightFieldVisibility: "Field visibility: show Simple, Advanced, or Full fields per editor, with a cog to customize which fields appear",
+  versionHighlightTemplates: "Project templates: save a project setup as a reusable template and apply it (mode, field visibility, optional starter content) to spin up new projects fast",
   fieldCounter: "{0} / {1}",
   fieldTrimmedToFit: "trimmed to fit",
   fieldAdjustedMax: "adjusted to max {0}",
