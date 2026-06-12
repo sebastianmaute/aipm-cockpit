@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { ProjectEmptyState } from "./project-empty-state";
 import { type Contact } from "./contacts";
 import { type ProjectMeta } from "./types";
+import { type NewProjectOpts } from "./new-project-workspace";
 
 const STAKEHOLDERS = ["Alice Smith", "Bob Jones"];
 const ADDRESS_BOOK: Contact[] = [
@@ -10,7 +11,8 @@ const ADDRESS_BOOK: Contact[] = [
 ];
 
 function setup(overrides: Partial<React.ComponentProps<typeof ProjectEmptyState>> = {}) {
-  const onCreate = vi.fn<(meta: ProjectMeta, format: "json" | "csv" | "md") => void>();
+  const onCreate =
+    vi.fn<(meta: ProjectMeta, format: "json" | "csv" | "md", opts?: NewProjectOpts) => void>();
   const onLoadFromFile = vi.fn();
   render(
     <ProjectEmptyState
@@ -77,36 +79,42 @@ describe("ProjectEmptyState", () => {
     expect(onLoadFromFile).toHaveBeenCalledTimes(1);
   });
 
-  it("clicking Create reveals the ProjectForm; filling required fields and submitting calls onCreate with meta + format", () => {
+  it("clicking Create reveals the wizard; completing all three steps calls onCreate with meta + format + opts", () => {
     const { onCreate } = setup();
 
     // Initially the form is NOT shown.
     expect(screen.queryByLabelText("Project name", { exact: false })).toBeNull();
 
-    // Open the create view.
+    // Open the create wizard.
     fireEvent.click(screen.getByRole("button", { name: /create a new project/i }));
 
-    // Form is now visible.
+    // Step 1 (Details) form is now visible.
     expect(
       screen.getByLabelText("Project name", { exact: false }),
     ).toBeInTheDocument();
 
-    // The save button label is "New project" (from ProjectForm create mode).
+    // The Step-1 submit button label is "New project" (from ProjectForm create mode).
     const saveBtn = screen.getByRole("button", { name: "New project" }) as HTMLButtonElement;
     expect(saveBtn).toBeDisabled();
 
-    // Fill the form.
+    // Fill the form and advance to Step 2.
     fillRequired();
     expect(saveBtn).toBeEnabled();
-
-    // Submit — default format is json.
     fireEvent.click(saveBtn);
 
+    // Step 2 (Template): keep the default Blank choice, advance to Step 3.
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+
+    // Step 3 (Functions): create — default format is json.
+    fireEvent.click(screen.getByRole("button", { name: "Create project" }));
+
     expect(onCreate).toHaveBeenCalledTimes(1);
-    const [meta, format] = onCreate.mock.calls[0];
+    const [meta, format, opts] = onCreate.mock.calls[0];
     expect(meta.name).toBe("Apollo");
     expect(meta.deployment).toBe("Cloud");
     expect(format).toBe("json");
+    expect(opts).toBeDefined();
+    expect(opts?.template).toBeUndefined();
   });
 
   it("turso mode shows Create only (no Load from file)", () => {
@@ -141,7 +149,10 @@ describe("ProjectEmptyState", () => {
     );
 
     fillRequired();
+    // Step 1 → 2 → 3 → create.
     fireEvent.click(screen.getByRole("button", { name: "New project" }));
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    fireEvent.click(screen.getByRole("button", { name: "Create project" }));
 
     expect(onCreate).toHaveBeenCalledTimes(1);
     const [, format] = onCreate.mock.calls[0];

@@ -20,8 +20,9 @@
 
 import { useState } from "react";
 import { type Contact } from "./contacts";
-import { CreateProjectForm } from "./create-project-form";
+import { CreateProjectWizard } from "./create-project-wizard";
 import { type ExportFormat } from "./export";
+import { type NewProjectOpts } from "./new-project-workspace";
 import { t, type Lang } from "./i18n";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
@@ -70,7 +71,7 @@ export interface ProjectsPanelProps {
   resources: readonly Resource[];
   lang: Lang;
   onSwitch: (id: string) => void;
-  onCreate: (meta: ProjectMeta, format: CreateFormat) => void;
+  onCreate: (meta: ProjectMeta, format: CreateFormat, opts?: NewProjectOpts) => void;
   /** Save edited metadata back to the current project. */
   onUpdateCurrent: (meta: ProjectMeta) => void;
   /** De-register a project (the confirm dialog is handled here). */
@@ -134,8 +135,12 @@ export function ProjectsPanel({
     if (window.confirm(t(lang, "projectsArchiveConfirm"))) onArchive?.(id);
   };
 
-  const handleCreate = (meta: ProjectMeta, format: CreateFormat) => {
-    onCreate(meta, format);
+  const handleCreate = (
+    meta: ProjectMeta,
+    format: CreateFormat,
+    opts: NewProjectOpts,
+  ) => {
+    onCreate(meta, format, opts);
     closeModal();
   };
 
@@ -393,13 +398,14 @@ export function ProjectsPanel({
             />
             <div className="overflow-y-auto p-6">
               {modal.mode === "create" ? (
-                <CreateProjectForm
+                <CreateProjectWizard
                   lang={lang}
                   stakeholderNames={stakeholderNames}
                   addressBook={addressBook}
                   resources={resources}
                   onCreate={handleCreate}
                   onCancel={closeModal}
+                  hideFormat={isTurso}
                 />
               ) : (
                 <ProjectForm

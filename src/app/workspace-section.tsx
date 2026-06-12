@@ -17,6 +17,7 @@ import type { UseSnapshotsResult } from "./use-snapshots";
 import type { UseVersionHistoryResult } from "./use-version-history";
 import type { ActivityEntry, ActivityKind } from "./activity-log";
 import type { Absence, BudgetBucket, ChangeItem, ProjectMeta, RaidItem, Resource, Shift, Stakeholder, Task } from "./types";
+import type { NewProjectOpts } from "./new-project-workspace";
 import type { ProjectRegistryEntry } from "./projects-registry";
 import type { Contact } from "./contacts";
 import { ResourceDirectory } from "./resource-directory";
@@ -165,7 +166,7 @@ export interface WorkspaceSectionProps {
   projectAddressBook: Contact[];
   projectResources: readonly Resource[];
   onSwitchProject: (id: string) => void;
-  onCreateProject: (meta: ProjectMeta, format: "json" | "csv" | "md") => void;
+  onCreateProject: (meta: ProjectMeta, format: "json" | "csv" | "md", opts?: NewProjectOpts) => void;
   onUpdateCurrentProject: (meta: ProjectMeta) => void;
   onDeleteProject: (id: string) => void;
   onExportCurrentProject: (format: string) => void;
