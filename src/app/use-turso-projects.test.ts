@@ -56,7 +56,7 @@ describe("useTursoProjects — create", () => {
     const { result } = renderHook(() => useTursoProjects(args));
     result.current.handleCreateProjectByMode(META, "json");
     await waitFor(() => expect(args.refreshTursoProjects).toHaveBeenCalled());
-    expect(args.createTursoProject).toHaveBeenCalledWith(META);
+    expect(args.createTursoProject).toHaveBeenCalledWith(META, {});
     expect(args.showToast).not.toHaveBeenCalled();
     expect(args.createFileProject).not.toHaveBeenCalled();
   });
@@ -77,7 +77,7 @@ describe("useTursoProjects — create", () => {
     const args = makeArgs({ portfolioMode: "file" });
     const { result } = renderHook(() => useTursoProjects(args));
     result.current.handleCreateProjectByMode(META, "csv");
-    expect(args.createFileProject).toHaveBeenCalledWith(META, "csv");
+    expect(args.createFileProject).toHaveBeenCalledWith(META, "csv", {});
     expect(args.createTursoProject).not.toHaveBeenCalled();
   });
 });

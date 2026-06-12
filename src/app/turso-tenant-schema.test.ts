@@ -105,6 +105,37 @@ describe("turso-tenant-schema", () => {
     expect(decoded.plan.currency).toBe("EUR");
   });
 
+  it("round-trips per-project field_visibility and features through the tenant path", () => {
+    const ws = {
+      ...emptyWorkspace(),
+      fieldVisibility: { task: { fields: ["taskName"] } },
+      features: ["raid"] as const,
+    };
+    const results = simulateSelect(tenantWorkspaceToStatements(ws, "p1"));
+    const decoded = rowsToWorkspace(results);
+    expect(decoded.fieldVisibility?.task.fields).toEqual(["taskName"]);
+    expect(decoded.features).toEqual(["raid"]);
+  });
+
+  it("persists an empty features array (not dropped) through the tenant path", () => {
+    const ws = { ...emptyWorkspace(), features: [] as const };
+    const results = simulateSelect(tenantWorkspaceToStatements(ws, "p1"));
+    const decoded = rowsToWorkspace(results);
+    expect(decoded.features).toEqual([]);
+  });
+
+  it("scopes field_visibility + features meta rows by project_id (no cross-leak)", () => {
+    const ws1 = { ...emptyWorkspace(), features: ["raid"] as const, fieldVisibility: { task: { fields: ["taskName"] } } };
+    const ws2 = { ...emptyWorkspace(), features: ["budget"] as const };
+    const all = [...tenantWorkspaceToStatements(ws1, "p1"), ...tenantWorkspaceToStatements(ws2, "p2")];
+    const decoded1 = rowsToWorkspace(simulateScopedSelect(all, tenantSelectStatements("p1")));
+    const decoded2 = rowsToWorkspace(simulateScopedSelect(all, tenantSelectStatements("p2")));
+    expect(decoded1.features).toEqual(["raid"]);
+    expect(decoded1.fieldVisibility?.task.fields).toEqual(["taskName"]);
+    expect(decoded2.features).toEqual(["budget"]);
+    expect(decoded2.fieldVisibility).toBeUndefined();
+  });
+
   it("two projects in one DB stay isolated on scoped load", () => {
     const ws1 = { ...emptyWorkspace(), plan: { startDate: "2026-01-01", endDate: "2026-06-30", granularity: "month" as const, currency: "EUR" as const } };
     const ws2 = { ...emptyWorkspace(), plan: { startDate: "2027-01-01", endDate: "2027-06-30", granularity: "week" as const, currency: "USD" as const } };

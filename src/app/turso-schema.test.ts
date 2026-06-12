@@ -239,3 +239,21 @@ describe("turso fieldVisibility (meta KV)", () => {
     expect(back.fieldVisibility?.task.fields).toEqual(["taskName", "assignee"]);
   });
 });
+
+describe("turso features (meta KV)", () => {
+  it("marks meta dirty when features changes by reference", () => {
+    const a = emptyWorkspace();
+    const b = { ...a, features: ["raid"] as const };
+    expect(dirtyWorkspaceTables(a, b).has("meta")).toBe(true);
+  });
+
+  it("round-trips features incl. explicit empty via meta KV", () => {
+    const ws1 = { ...emptyWorkspace(), features: ["raid"] as const };
+    const back1 = rowsToWorkspace(resultsFromStatements(workspaceToStatements(ws1)));
+    expect(back1.features).toEqual(["raid"]);
+
+    const ws2 = { ...emptyWorkspace(), features: [] as const };
+    const back2 = rowsToWorkspace(resultsFromStatements(workspaceToStatements(ws2)));
+    expect(back2.features).toEqual([]); // explicit empty preserved
+  });
+});

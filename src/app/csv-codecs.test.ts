@@ -17,3 +17,17 @@ describe("csv fieldVisibility section", () => {
     expect(back.fieldVisibility?.task.fields).toEqual(["taskName", "assignee"]);
   });
 });
+
+describe("csv features section", () => {
+  it("emits no section when undefined", () => {
+    expect(workspaceToCsv(emptyWorkspace())).not.toContain("# FUNCTIONS");
+  });
+  it("emits and round-trips features, preserving explicit empty (Simple)", () => {
+    const ws = { ...emptyWorkspace(), features: ["raid"] as const };
+    expect(workspaceToCsv(ws)).toContain("# FUNCTIONS");
+    expect(csvToWorkspace(workspaceToCsv(ws)).features).toEqual(["raid"]);
+    const simple = { ...emptyWorkspace(), features: [] as const };
+    expect(workspaceToCsv(simple)).toContain("# FUNCTIONS"); // empty STILL emits
+    expect(csvToWorkspace(workspaceToCsv(simple)).features).toEqual([]);
+  });
+});

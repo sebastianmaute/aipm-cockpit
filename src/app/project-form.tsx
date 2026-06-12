@@ -40,6 +40,8 @@ export interface ProjectFormProps {
   /** Called with a sanitized ProjectMeta on a valid submit. */
   onSubmit: (meta: ProjectMeta) => void;
   onCancel: () => void;
+  /** Override the submit button label. Defaults to "Edit project" / "New project". */
+  submitLabel?: string;
 }
 
 /** Build the editable draft from an existing ProjectMeta (edit mode). */
@@ -82,6 +84,7 @@ export function ProjectForm({
   lang,
   onSubmit,
   onCancel,
+  submitLabel,
 }: ProjectFormProps) {
   const [draft, setDraft] = useState<ProjectFormDraft>(() =>
     initial ? draftFromMeta(initial) : emptyProjectDraft(),
@@ -174,7 +177,7 @@ export function ProjectForm({
           disabled={saveDisabled}
           className="rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-AIPM-dark-blue focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {t(lang, initial ? "projectsEdit" : "projectsNew")}
+          {submitLabel ?? t(lang, initial ? "projectsEdit" : "projectsNew")}
         </button>
       </div>
     </form>

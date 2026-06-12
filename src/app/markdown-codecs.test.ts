@@ -29,3 +29,17 @@ describe("markdown fieldVisibility section", () => {
     expect(back.fieldVisibility?.task.fields).toContain("taskName");
   });
 });
+
+describe("markdown features section", () => {
+  it("emits nothing when undefined", () => {
+    expect(workspaceToMarkdown(emptyWorkspace())).not.toContain("## Functions");
+  });
+  it("emits and round-trips features incl. explicit empty (Simple)", () => {
+    const ws = { ...emptyWorkspace(), features: ["raid", "gantt"] as const };
+    expect(workspaceToMarkdown(ws)).toContain("## Functions");
+    expect(markdownToWorkspace(workspaceToMarkdown(ws)).features).toEqual(expect.arrayContaining(["raid", "gantt"]));
+    const simple = { ...emptyWorkspace(), features: [] as const };
+    expect(workspaceToMarkdown(simple)).toContain("## Functions"); // empty STILL emits
+    expect(markdownToWorkspace(workspaceToMarkdown(simple)).features).toEqual([]);
+  });
+});

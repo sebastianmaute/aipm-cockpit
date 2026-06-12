@@ -164,6 +164,13 @@ describe("WorkspaceProvider", () => {
     expect(result.current.fieldVisibility?.task.fields).toEqual(["taskName"]);
   });
 
+  test("exposes features state and setter", () => {
+    const { result } = renderHook(() => useWorkspace(), { wrapper });
+    expect(result.current.features).toBeUndefined();
+    act(() => result.current.setFeatures(["raid"]));
+    expect(result.current.features).toEqual(["raid"]);
+  });
+
   test("context value is referentially stable across unrelated parent re-renders", () => {
     let consumerRenders = 0;
     const Consumer = memo(function Consumer() {

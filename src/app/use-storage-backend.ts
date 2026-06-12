@@ -12,7 +12,6 @@ import {
   StorageNotImplementedError,
   StorageNotReadyError,
   createBackend,
-  emptyWorkspace,
   getBackendFileHandle,
   openFileForBackend,
   pickFileForBackend,
@@ -28,6 +27,7 @@ import {
 } from "./projects-registry";
 import { getHandle, saveHandle } from "./project-file-handles";
 import { localKindForFormat, deriveRegistryEntry } from "./use-project-switch";
+import { buildNewProjectWorkspace, type NewProjectOpts } from "./new-project-workspace";
 import type { ProjectMeta } from "./types";
 import { getTursoConfig } from "./turso-config";
 import { loadCurrentTursoProjectId, saveCurrentTursoProjectId } from "./portfolio-mode";
@@ -93,6 +93,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     status, setStatus,
     project, setProject,
     fieldVisibility, setFieldVisibility,
+    features, setFeatures,
     milestones, setMilestones,
     changes, setChanges,
     stakeholders, setStakeholders,
@@ -158,6 +159,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     setStatus(workspace.status ?? {});
     setProject(workspace.project);
     setFieldVisibility(workspace.fieldVisibility);
+    setFeatures(workspace.features);
     setMilestones(workspace.milestones ?? []);
     setChanges(workspace.changes ?? []);
     setStakeholders(workspace.stakeholders ?? []);
@@ -237,7 +239,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     // routes every rejection to the storage-outcome/toast path, so neither the
     // timer nor the flush-on-hide below can produce an unhandled rejection.
     const doSave = () => {
-      backend.save({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, milestones, changes, stakeholders }).then(() => {
+      backend.save({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders }).then(() => {
         args.onStorageOutcome?.(null);
       }).catch((err) => {
         args.onStorageOutcome?.(err);
@@ -290,7 +292,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       window.removeEventListener("pagehide", flush);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, milestones, changes, stakeholders, args.hydrated, args.isPopout, backend]);
+  }, [tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, args.hydrated, args.isPopout, backend]);
 
   const canSend = !args.isPopout;
   useBroadcastSync("tasks", tasks, setTasks, canSend);
@@ -316,7 +318,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     if (!promise) return;
     await promise;
     try {
-      await backend.save({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, milestones, changes, stakeholders });
+      await backend.save({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders });
       await refreshBackendStatus();
       args.showToast("info", t(langRef.current, "storageSwitchedToast"));
     } catch (err) {
@@ -399,7 +401,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     try {
       const pick = pickFileForBackend(target);
       if (pick) await pick;
-      await target.save({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, milestones, changes, stakeholders });
+      await target.save({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders });
       suppressNextLoadRef.current = true;
       args.setStorageConfig(newConfig);
       args.showToast("info", t(langRef.current, "storageConvertedToast", label));
@@ -430,7 +432,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // the file handlers above. Must NOT be memoized or it would capture stale
   // state.
   function currentWorkspace(): Workspace {
-    return { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, milestones, changes, stakeholders };
+    return { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders };
   }
 
   // Persist the registry AND surface the change to the caller so its observable
@@ -535,7 +537,11 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
    * carries the supplied meta, persist the handle per-project, register +
    * select it, then apply the new (empty) workspace into state.
    */
-  async function createProject(meta: ProjectMeta, format: LocalStorageFormat): Promise<void> {
+  async function createProject(
+    meta: ProjectMeta,
+    format: LocalStorageFormat,
+    opts: NewProjectOpts = {},
+  ): Promise<void> {
     if (args.isPopout) return;
     // Flush the outgoing project to its OWN backend first (best-effort). Setting
     // suppressNextSaveRef below cancels the pending debounced save, so edits made
@@ -549,7 +555,9 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     }
     const id = crypto.randomUUID();
     const storageConfig: StorageConfig = { kind: localKindForFormat(format) };
-    const ws: Workspace = { ...emptyWorkspace(), project: meta };
+    // Empty workspace by default; with a template/features opts it applies the
+    // template's field-visibility + optional seed and sets per-project features.
+    const ws: Workspace = buildNewProjectWorkspace(meta, opts);
     try {
       const targetBackend = backendFor(storageConfig);
       // Save picker — grants readwrite implicitly when the user picks a file.
@@ -649,7 +657,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     }
   }
 
-  async function createTursoProject(meta: ProjectMeta): Promise<void> {
+  async function createTursoProject(meta: ProjectMeta, opts: NewProjectOpts = {}): Promise<void> {
     if (args.isPopout) return;
     const cfg = tursoConfigNow();
     if (!cfg) {
@@ -660,9 +668,16 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     // the pending debounced save). Mirrors the file createProject flush.
     try { await backend.save(currentWorkspace()); } catch { /* best-effort flush */ }
     const id = crypto.randomUUID();
+    const ws = buildNewProjectWorkspace(meta, opts);
     try {
       await portfolioCreate(cfg, meta, id);
-      applyWorkspace({ ...emptyWorkspace(), project: meta });
+      // Persist the new workspace (per-project features / field-visibility / seed)
+      // into the new project's Turso tables NOW. The suppressNextSaveRef below
+      // cancels the autosave the applyWorkspace setState would otherwise trigger,
+      // so without this explicit save those rows would not land until the next
+      // user edit. The file path saves explicitly too (targetBackend.save).
+      await new TursoBackend(cfg, id).save(ws);
+      applyWorkspace(ws);
       suppressNextLoadRef.current = true;
       suppressNextSaveRef.current = true;
       setTursoProjectId(id);

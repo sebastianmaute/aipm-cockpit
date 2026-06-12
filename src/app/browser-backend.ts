@@ -47,6 +47,14 @@ import {
   idbGetAll,
   idbSet,
 } from "./idb";
+import { sanitizeFieldVisibility } from "./field-visibility";
+import { sanitizeFeatures, type FeatureModuleId } from "./feature-modules";
+
+// KV slots for two optional workspace singletons that round-trip through the
+// file/Turso codecs but were never persisted by the IndexedDB backend, so both
+// were lost on reload in the default single-project browser storage mode.
+const KV_FIELDVIS_KEY = "fieldVisibility";
+const KV_FEATURES_KEY = "features";
 import {
   type StorageBackend,
   type Workspace,
@@ -109,6 +117,8 @@ export class BrowserBackend implements StorageBackend {
     let changes: ChangeItem[] = [];
     let stakeholders: Stakeholder[] = [];
     let project: ProjectMeta | undefined;
+    let fieldVisibility: Workspace["fieldVisibility"] | undefined;
+    let features: readonly FeatureModuleId[] | undefined;
     try {
       // Independent stores/keys — fetch in parallel instead of ~16 awaits in
       // sequence. Result assembly below keeps the original order/defaults.
@@ -129,6 +139,8 @@ export class BrowserBackend implements StorageBackend {
         idbChanges,
         idbStakeholders,
         idbProject,
+        idbFieldVisibility,
+        idbFeatures,
       ] = await Promise.all([
         idbGetAll<Task>(IDB_TASKS_STORE),
         idbGetAll<RaidItem>(IDB_RAID_STORE),
@@ -146,6 +158,8 @@ export class BrowserBackend implements StorageBackend {
         idbGet<ChangeItem[]>(KV_CHANGES_KEY),
         idbGet<Stakeholder[]>(KV_STAKEHOLDERS_KEY),
         idbGet(KV_PROJECT_KEY),
+        idbGet(KV_FIELDVIS_KEY),
+        idbGet(KV_FEATURES_KEY),
       ]);
       tasks = idbTasks;
       raid = idbRaid;
@@ -163,6 +177,14 @@ export class BrowserBackend implements StorageBackend {
       changes = idbChanges ?? [];
       stakeholders = idbStakeholders ?? [];
       project = sanitizeProjectMeta(idbProject) ?? undefined;
+      // Optional singletons: junk/empty fieldVisibility sanitizes to undefined.
+      fieldVisibility = sanitizeFieldVisibility(idbFieldVisibility);
+      // Present-check: absent ⇒ undefined (no override); an explicit [] (Simple)
+      // is preserved rather than expanded to all modules by sanitizeFeatures(undefined).
+      features =
+        idbFeatures !== undefined && idbFeatures !== null
+          ? sanitizeFeatures(idbFeatures)
+          : undefined;
     } catch {
       // IDB unavailable or upgrade failed. Fall through — the legacy
       // migration block below will still try localStorage, and if that's
@@ -179,6 +201,8 @@ export class BrowserBackend implements StorageBackend {
 
     const raw: Workspace = { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, milestones, changes, stakeholders };
     if (project) raw.project = project;
+    if (fieldVisibility) raw.fieldVisibility = fieldVisibility;
+    if (features !== undefined) raw.features = features;
     const ws = migrateWorkspaceV9(raw);
 
     try {
@@ -291,6 +315,14 @@ export class BrowserBackend implements StorageBackend {
       idbSet(KV_CHANGES_KEY, ws.changes ?? []),
       idbSet(KV_STAKEHOLDERS_KEY, ws.stakeholders ?? []),
       ws.project ? idbSet(KV_PROJECT_KEY, ws.project) : idbDelete(KV_PROJECT_KEY),
+      // Delete-on-empty so a cleared config doesn't linger and reload as stale.
+      ws.fieldVisibility && Object.keys(ws.fieldVisibility).length > 0
+        ? idbSet(KV_FIELDVIS_KEY, ws.fieldVisibility)
+        : idbDelete(KV_FIELDVIS_KEY),
+      // Presence gate (NOT length): [] is persisted (Simple mode); absent ⇒ delete.
+      ws.features !== undefined
+        ? idbSet(KV_FEATURES_KEY, ws.features)
+        : idbDelete(KV_FEATURES_KEY),
     ]);
 
     // Refresh baselines so the next save's diff is computed against what's

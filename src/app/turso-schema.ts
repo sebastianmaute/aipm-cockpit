@@ -19,6 +19,7 @@ import {
   emptyWorkspace, migrateWorkspaceV9, sanitizeProjectStatus, type Workspace,
 } from "./workspace";
 import { sanitizeFieldVisibility } from "./field-visibility";
+import { sanitizeFeatures } from "./feature-modules";
 import {
   sanitizeResource, sanitizeRole, sanitizeBudgetBucket, sanitizeDiscipline,
   sanitizeGrade, sanitizeAbsence, sanitizeShift, sanitizeFxRates, sanitizePlan,
@@ -136,6 +137,15 @@ export function rowsToWorkspace(results: PipelineResultLike[]): Workspace {
       // malformed — leave default (undefined)
     }
   }
+  const fnRow = rowObjects(byTable.get("meta")).find((r) => r.key === "features");
+  if (fnRow?.value) {
+    try {
+      const f = sanitizeFeatures(JSON.parse(fnRow.value));
+      if (f !== undefined) ws.features = f;
+    } catch {
+      // malformed — leave undefined
+    }
+  }
   return migrateWorkspaceV9(ws);
 }
 
@@ -172,6 +182,7 @@ export function dirtyWorkspaceTables(prev: Workspace, next: Workspace): Set<stri
   if (prev.fxRates !== next.fxRates) dirty.add("fx_rates");
   if (prev.status !== next.status) dirty.add("meta");
   if (prev.fieldVisibility !== next.fieldVisibility) dirty.add("meta");
+  if (prev.features !== next.features) dirty.add("meta");
   return dirty;
 }
 
@@ -221,6 +232,15 @@ export function workspaceToStatements(ws: Workspace, dirtyTables?: ReadonlySet<s
         args: [
           { type: "text", value: "field_visibility" },
           { type: "text", value: JSON.stringify(ws.fieldVisibility) },
+        ],
+      });
+    }
+    if (ws.features !== undefined) {
+      out.push({
+        sql: `INSERT INTO meta (key, value) VALUES (?, ?)`,
+        args: [
+          { type: "text", value: "features" },
+          { type: "text", value: JSON.stringify(ws.features) },
         ],
       });
     }

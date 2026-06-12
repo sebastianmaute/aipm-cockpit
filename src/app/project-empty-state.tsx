@@ -4,8 +4,8 @@
 // zero projects.  It is always open (mounted only when projects.length === 0,
 // controlled by Task 18) and offers two primary choices:
 //
-//   • Create project  — reveals the shared ProjectForm with a format selector
-//                       and calls onCreate(meta, format) on submit.
+//   • Create project  — reveals the 3-step CreateProjectWizard and calls
+//                       onCreate(meta, format, opts) when the wizard finishes.
 //   • Load from file  — calls onLoadFromFile immediately.
 //
 // Non-dismissability: the user MUST pick one of the two actions — there is no
@@ -17,10 +17,11 @@
 
 import { useState } from "react";
 import { type Contact } from "./contacts";
-import { CreateProjectForm } from "./create-project-form";
+import { CreateProjectWizard } from "./create-project-wizard";
 import { t, type Lang } from "./i18n";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
+import { type NewProjectOpts } from "./new-project-workspace";
 import { type ProjectMeta, type Resource } from "./types";
 
 const PRIMARY_BUTTON_CLASS =
@@ -34,7 +35,11 @@ export interface ProjectEmptyStateProps {
   stakeholderNames: string[];
   addressBook: Contact[];
   resources: readonly Resource[];
-  onCreate: (meta: ProjectMeta, format: "json" | "csv" | "md") => void;
+  onCreate: (
+    meta: ProjectMeta,
+    format: "json" | "csv" | "md",
+    opts?: NewProjectOpts,
+  ) => void;
   onLoadFromFile: () => void;
   /** Turso mode: hide the "Load from file" choice and hide the file-format
    *  selector in the create view. Defaults to "file". */
@@ -59,8 +64,12 @@ export function ProjectEmptyState({
 
   const handleOpenCreate = () => setView("create");
 
-  const handleCreate = (meta: ProjectMeta, format: "json" | "csv" | "md") => {
-    onCreate(meta, format);
+  const handleCreate = (
+    meta: ProjectMeta,
+    format: "json" | "csv" | "md",
+    opts: NewProjectOpts,
+  ) => {
+    onCreate(meta, format, opts);
   };
 
   const handleBackToChoices = () => setView("choices");
@@ -114,7 +123,7 @@ export function ProjectEmptyState({
               </div>
             </div>
           ) : (
-            <CreateProjectForm
+            <CreateProjectWizard
               lang={lang}
               stakeholderNames={stakeholderNames}
               addressBook={addressBook}

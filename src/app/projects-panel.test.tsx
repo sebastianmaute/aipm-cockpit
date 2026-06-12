@@ -129,22 +129,30 @@ describe("ProjectsPanel", () => {
     expect(onDelete).toHaveBeenCalledWith("p1");
   });
 
-  it("opens the create form and calls onCreate with meta + chosen format", () => {
+  it("opens the create wizard and calls onCreate with meta + chosen format + opts", () => {
     const { onCreate } = setup();
     fireEvent.click(screen.getByRole("button", { name: "+ New project" }));
 
-    // Choose a non-default file format for the new project.
+    // Step 1 (Details): choose a non-default file format, then advance.
     fireEvent.change(screen.getByLabelText("File format"), {
       target: { value: "csv" },
     });
-
     fillRequired();
-    fireEvent.click(screen.getByRole("button", { name: "New project" }));
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+
+    // Step 2 (Template): keep the default Blank choice, advance.
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+
+    // Step 3 (Functions): create.
+    fireEvent.click(screen.getByRole("button", { name: "Create project" }));
 
     expect(onCreate).toHaveBeenCalledTimes(1);
-    const [meta, format] = onCreate.mock.calls[0];
+    const [meta, format, opts] = onCreate.mock.calls[0];
     expect(meta.name).toBe("NewProj");
     expect(format).toBe("csv");
+    // Blank → no template, every module enabled.
+    expect(opts.template).toBeUndefined();
+    expect(opts.features).toContain("dashboard");
   });
 
   it("opens Edit prefilled and calls onUpdateCurrent on submit", () => {

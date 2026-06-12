@@ -14,6 +14,7 @@ import {
   seedGrades,
 } from "./resource-foundation";
 import { sanitizeFieldVisibility, type FieldVisibilityConfig } from "./field-visibility";
+import { sanitizeFeatures, type FeatureModuleId } from "./feature-modules";
 import {
   sanitizeAbsence,
   sanitizeBudgetBucket,
@@ -89,6 +90,10 @@ export type Workspace = {
    *  undefined a workspace serializes byte-for-byte as before (no JSON key),
    *  and every modal falls back to its Advanced default. */
   fieldVisibility?: Readonly<FieldVisibilityConfig>;
+  /** Per-project enabled feature modules. Optional & additive: undefined = no override
+   *  (legacy / inherits the current active set); [] = Simple mode. Serializes to nothing
+   *  when undefined. */
+  features?: readonly FeatureModuleId[];
 };
 
 const SCHEMA_VERSION = 11;
@@ -266,6 +271,9 @@ export function workspaceToJson(ws: Workspace): string {
       // Additive: only present when configured, so legacy files stay free of a
       // `fieldVisibility` key.
       ...(ws.fieldVisibility ? { fieldVisibility: ws.fieldVisibility } : {}),
+      // Additive: present (incl. explicit [] = Simple) emits the key; undefined
+      // (no override) omits it, so legacy files round-trip without a `features` key.
+      ...(ws.features ? { features: ws.features } : {}),
     },
     null,
     2,
@@ -325,6 +333,12 @@ export function jsonToWorkspace(text: string): Workspace {
     // junk sanitizes to undefined and the key stays off.
     const fieldVisibility = sanitizeFieldVisibility(p.fieldVisibility);
     if (fieldVisibility) raw.fieldVisibility = fieldVisibility;
+    // Additive + present-checked: only sanitize when the key is present, so an
+    // absent key stays undefined (no override) and an explicit [] (Simple) is
+    // preserved rather than expanded to all modules by sanitizeFeatures(undefined).
+    if (p.features !== undefined) {
+      raw.features = sanitizeFeatures(p.features);
+    }
     return migrateWorkspaceV9(raw);
   } catch {
     return emptyWorkspace();

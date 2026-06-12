@@ -10,12 +10,12 @@ import { useActivityLog } from "./use-activity-log";
 import { ActivityLogProvider } from "./activity-log-context";
 import { useDueAlerts } from "./use-due-alerts";
 import { useToast } from "./use-toast";
-import { useSettings, writeSettings } from "./use-settings";
+import { useSettings } from "./use-settings";
 import { useTemplates } from "./use-templates";
 import { templateFromWorkspace, type SaveTemplateInput } from "./templates";
 import { applyTemplate } from "./template-apply";
 import { useCurrentWorkspace } from "./use-current-workspace";
-import { disabledViewRedirect, isModuleEnabled, deriveMode, type FeatureModuleId } from "./feature-modules";
+import { ALL_MODULE_IDS, disabledViewRedirect, isModuleEnabled, deriveMode, type FeatureModuleId } from "./feature-modules";
 import { useJiraSync } from "./use-jira-sync";
 import { useStorageBackend } from "./use-storage-backend";
 import { useResourcePlanner } from "./use-resource-planner";
@@ -35,6 +35,7 @@ import { buildRaidByTaskIndex } from "./raid";
 import { buildChangeByTaskIndex } from "./change-log";
 import { FiltersProvider, useFilters } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
+import { useFeaturesSync } from "./use-features-sync";
 import { ToastProvider } from "./toast-context";
 import { useChangeLog } from "./use-change-log";
 import { useStakeholders } from "./use-stakeholders";
@@ -166,14 +167,6 @@ function TaskManagerInner() {
     if (target !== activeTab) setActiveTab(target);
   }, [activeTab, settings.features, settings.layout, isPopout, setActiveTab]);
 
-  const handleCommitFeatures = useCallback(
-    (features: FeatureModuleId[]) => {
-      writeSettings({ ...settings, features });
-      window.location.reload();
-    },
-    [settings],
-  );
-
   const { setRaidFilterTaskId } = useFilters();
   // Tasks data + derivations owned by WorkspaceProvider (Slice 2 of the
   // task-manager decomposition; see
@@ -215,7 +208,22 @@ function TaskManagerInner() {
     fxRates,
     project,
     setProject,
+    setFeatures,
   } = useWorkspace();
+
+  // Mirror the active project's per-project `Workspace.features` into the
+  // reactive `settings.features` (the source the 45 module consumers read), so
+  // mode changes and project switches re-render instead of reloading the page.
+  useFeaturesSync(setSettings);
+
+  // Committing a mode/feature change just writes the per-project features;
+  // useFeaturesSync propagates it into settings reactively (no reload).
+  const handleCommitFeatures = useCallback(
+    (features: FeatureModuleId[]) => {
+      setFeatures(features);
+    },
+    [setFeatures],
+  );
 
   const { setContacts, contactsList, handleRemoveContact } =
     useContacts({ hydrated, tasks });
@@ -557,6 +565,10 @@ function TaskManagerInner() {
       if (!tpl) return;
       const next = applyTemplate(buildCurrentWorkspace(), tpl, opts);
       setFieldVisibility(next.fieldVisibility);
+      // Apply the template's functions to the current project too (reactive via
+      // useFeaturesSync, persisted via autosave). Filter through ALL_MODULE_IDS so
+      // only valid ids in registry order are set — mirrors creation behavior.
+      setFeatures(ALL_MODULE_IDS.filter((id) => tpl.features.includes(id)));
       if (opts.includeSeed) {
         setTasks(next.tasks);
         setMilestones(next.milestones ?? []);
@@ -567,7 +579,7 @@ function TaskManagerInner() {
       }
       showToast("info", t(lang, "templateApplied"));
     },
-    [projectTemplates, buildCurrentWorkspace, setFieldVisibility, setTasks, setMilestones, setRaid, setChanges, setStakeholders, setBudgets, showToast, lang],
+    [projectTemplates, buildCurrentWorkspace, setFieldVisibility, setFeatures, setTasks, setMilestones, setRaid, setChanges, setStakeholders, setBudgets, showToast, lang],
   );
 
   // Stakeholder-comms reminder (mirrors the RAID-review reminder wiring above):

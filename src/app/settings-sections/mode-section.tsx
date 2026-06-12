@@ -19,7 +19,7 @@ import {
 interface ModeSectionProps {
   lang: Lang;
   settings: Settings;
-  /** Called only on explicit Save; the parent persists features and triggers a page reload. */
+  /** Called only on explicit Save; the parent writes the per-project features (synced reactively, no reload). */
   onCommitFeatures: (features: FeatureModuleId[]) => void;
   /** Live settings patch (version-history retention saves immediately, unlike feature modules). */
   onChange: (s: Settings) => void;
