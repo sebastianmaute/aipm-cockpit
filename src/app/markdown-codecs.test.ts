@@ -16,4 +16,16 @@ describe("markdown fieldVisibility section", () => {
     const back = markdownToWorkspace(workspaceToMarkdown(ws));
     expect(back.fieldVisibility?.raid.fields).toContain("title");
   });
+  it("emits nothing for an empty fieldVisibility object", () => {
+    const ws = { ...emptyWorkspace(), fieldVisibility: {} };
+    expect(workspaceToMarkdown(ws)).not.toContain("## Field Visibility");
+  });
+  it("round-trips with a populated plan without corrupting it", () => {
+    const base = emptyWorkspace();
+    const ws = { ...base, fieldVisibility: { task: { fields: ["taskName", "assignee", "dueDate", "status", "notes"] } } };
+    const back = markdownToWorkspace(workspaceToMarkdown(ws));
+    expect(back.plan.startDate).toBe(base.plan.startDate);
+    expect(back.plan.endDate).toBe(base.plan.endDate);
+    expect(back.fieldVisibility?.task.fields).toContain("taskName");
+  });
 });
