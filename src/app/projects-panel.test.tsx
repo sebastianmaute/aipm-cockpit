@@ -138,7 +138,7 @@ describe("ProjectsPanel", () => {
       target: { value: "csv" },
     });
     fillRequired();
-    fireEvent.click(screen.getByRole("button", { name: "New project" }));
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
 
     // Step 2 (Template): keep the default Blank choice, advance.
     fireEvent.click(screen.getByRole("button", { name: "Next" }));

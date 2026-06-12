@@ -93,8 +93,8 @@ describe("ProjectEmptyState", () => {
       screen.getByLabelText("Project name", { exact: false }),
     ).toBeInTheDocument();
 
-    // The Step-1 submit button label is "New project" (from ProjectForm create mode).
-    const saveBtn = screen.getByRole("button", { name: "New project" }) as HTMLButtonElement;
+    // The Step-1 submit button label is "Next" (wizard overrides the default "New project").
+    const saveBtn = screen.getByRole("button", { name: "Next" }) as HTMLButtonElement;
     expect(saveBtn).toBeDisabled();
 
     // Fill the form and advance to Step 2.
@@ -150,7 +150,7 @@ describe("ProjectEmptyState", () => {
 
     fillRequired();
     // Step 1 → 2 → 3 → create.
-    fireEvent.click(screen.getByRole("button", { name: "New project" }));
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
     fireEvent.click(screen.getByRole("button", { name: "Create project" }));
 

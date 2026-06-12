@@ -37,6 +37,8 @@ export interface CreateProjectFormProps {
   /** Turso mode: hide the file-format selector and fix the format to "json"
    *  (the Turso create path ignores it). Defaults to false (file mode). */
   hideFormat?: boolean;
+  /** Override the submit button label. Defaults to "New project". */
+  submitLabel?: string;
 }
 
 export function CreateProjectForm({
@@ -47,6 +49,7 @@ export function CreateProjectForm({
   onCreate,
   onCancel,
   hideFormat = false,
+  submitLabel,
 }: CreateProjectFormProps) {
   const [format, setFormat] = useState<CreateFormat>("json");
 
@@ -84,6 +87,7 @@ export function CreateProjectForm({
         lang={lang}
         onSubmit={handleSubmit}
         onCancel={handleCancel}
+        submitLabel={submitLabel}
       />
     </>
   );

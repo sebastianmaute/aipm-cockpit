@@ -70,7 +70,7 @@ function fillRequired() {
 /** Step 1 → submit the project details form (advances to Step 2). */
 function completeStep1() {
   fillRequired();
-  fireEvent.click(screen.getByRole("button", { name: "New project" }));
+  fireEvent.click(screen.getByRole("button", { name: "Next" }));
 }
 
 describe("CreateProjectWizard", () => {

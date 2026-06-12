@@ -158,6 +158,7 @@ export function CreateProjectWizard({
           onCreate={handleDetails}
           onCancel={onCancel}
           hideFormat={hideFormat}
+          submitLabel={t(lang, "wizardNext")}
         />
       )}
 
