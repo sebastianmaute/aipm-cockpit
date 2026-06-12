@@ -1,6 +1,7 @@
 "use client";
 
 import { type RefObject } from "react";
+import { ModalFieldControls } from "./modal-field-controls";
 import { ModalHeader } from "./modal-header";
 import { useDraggable } from "./use-draggable";
 import type { listContacts } from "./contacts";
@@ -90,6 +91,9 @@ export function TaskFormModal({
           onClose={onCancel}
           dragHandleProps={handleProps}
         />
+        <div className="flex justify-end border-b border-line px-4 py-2">
+          <ModalFieldControls modalId="task" lang={lang} />
+        </div>
         <form
           onSubmit={onSubmit}
           className="min-h-0 flex-1 overflow-y-auto space-y-6 p-6"

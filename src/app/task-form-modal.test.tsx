@@ -1,8 +1,20 @@
 import { describe, test, it, expect, vi, beforeEach } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { createRef } from "react";
+import { createRef, type ReactNode } from "react";
+import { FiltersProvider } from "./filters-context";
+import { WorkspaceProvider } from "./workspace-context";
 import { useTaskForm, emptyForm, emptyBulkEdit } from "./task-form-context";
 import { TaskFormModal } from "./task-form-modal";
+
+// ModalFieldControls (rendered in the modal header) reads field visibility from
+// the workspace, so renders need a WorkspaceProvider. useTaskForm stays mocked.
+function Providers({ children }: { children: ReactNode }) {
+  return (
+    <FiltersProvider>
+      <WorkspaceProvider>{children}</WorkspaceProvider>
+    </FiltersProvider>
+  );
+}
 
 // Mock the lazy mic button — it pulls in Web Speech API shims not available in jsdom.
 vi.mock("./voice-button", () => ({ InlineMicButton: () => null }));
@@ -78,20 +90,20 @@ describe("TaskFormModal", () => {
 
   test("renders nothing when taskModalOpen is false", () => {
     stubTaskForm(undefined, false);
-    const { container } = render(<TaskFormModal {...defaultProps()} />);
+    const { container } = render(<TaskFormModal {...defaultProps()} />, { wrapper: Providers });
     expect(container.querySelector("form")).toBeNull();
     expect(screen.queryByRole("heading")).toBeNull();
   });
 
   test("renders header and form when modal is open", () => {
-    render(<TaskFormModal {...defaultProps()} />);
+    render(<TaskFormModal {...defaultProps()} />, { wrapper: Providers });
     expect(screen.getByRole("heading", { level: 2 })).toBeInTheDocument();
     expect(document.querySelector("form")).not.toBeNull();
   });
 
   test("close button fires onCancel exactly once", () => {
     const props = defaultProps();
-    render(<TaskFormModal {...props} />);
+    render(<TaskFormModal {...props} />, { wrapper: Providers });
     // The header close button carries aria-label t(lang, "alertModalClose").
     const closeButton = screen
       .getAllByRole("button")
@@ -103,7 +115,7 @@ describe("TaskFormModal", () => {
 
   test("submitting the form fires onSubmit", () => {
     const props = defaultProps();
-    render(<TaskFormModal {...props} />);
+    render(<TaskFormModal {...props} />, { wrapper: Providers });
     const form = document.querySelector("form");
     expect(form).not.toBeNull();
     fireEvent.submit(form!);
@@ -111,7 +123,7 @@ describe("TaskFormModal", () => {
   });
 
   test("renders all 5 numbered section headings (parity with edit view)", () => {
-    render(<TaskFormModal {...defaultProps()} />);
+    render(<TaskFormModal {...defaultProps()} />, { wrapper: Providers });
     expect(screen.getByText("1. Details")).toBeInTheDocument();
     expect(screen.getByText("2. Scheduling")).toBeInTheDocument();
     expect(screen.getByText("3. Effort & Classification")).toBeInTheDocument();
@@ -127,7 +139,7 @@ describe("TaskFormModal — cancel in create mode", () => {
 
   it("shows Cancel in create mode too", () => {
     // editingId is null in stubTaskForm, so isEditing=false
-    render(<TaskFormModal {...defaultProps()} />);
+    render(<TaskFormModal {...defaultProps()} />, { wrapper: Providers });
     expect(screen.getByRole("button", { name: /cancel|abbrechen/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /add task|aufgabe hinzuf/i })).toBeInTheDocument();
   });
@@ -140,13 +152,13 @@ describe("TaskFormModal — add-to-address-book button", () => {
 
   it("fires onAddAssigneeToAddressBook with the current assignee + email", () => {
     const onAdd = vi.fn();
-    render(<TaskFormModal {...defaultProps({ onAddAssigneeToAddressBook: onAdd })} />);
+    render(<TaskFormModal {...defaultProps({ onAddAssigneeToAddressBook: onAdd })} />, { wrapper: Providers });
     fireEvent.click(screen.getByRole("button", { name: /add to address book/i }));
     expect(onAdd).toHaveBeenCalledWith("Nora Ito", "nora@x.com");
   });
 
   it("disables the add-to-address-book button for Jira-linked tasks", () => {
-    render(<TaskFormModal {...defaultProps({ editingIsJiraLinked: true })} />);
+    render(<TaskFormModal {...defaultProps({ editingIsJiraLinked: true })} />, { wrapper: Providers });
     expect(
       screen.getByRole("button", { name: /add to address book/i }),
     ).toBeDisabled();
@@ -159,7 +171,7 @@ describe("TaskFormModal — Documents field", () => {
   });
 
   it("shows the Documents field (gated hint when SharePoint is off)", () => {
-    render(<TaskFormModal {...defaultProps()} />);
+    render(<TaskFormModal {...defaultProps()} />, { wrapper: Providers });
     expect(screen.getByText(/enable microsoft 365/i)).toBeInTheDocument();
   });
 });
