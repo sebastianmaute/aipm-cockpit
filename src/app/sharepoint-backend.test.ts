@@ -1,5 +1,7 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { MockInstance, Mock } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { Mock } from "vitest";
+import { http, HttpResponse } from "msw";
+import { server } from "../test/msw-server";
 import { parseSharePointFileUrl, parseSharePointSiteUrl } from "./sharepoint-backend";
 
 describe("parseSharePointFileUrl", () => {
@@ -132,6 +134,13 @@ const FAKE_LOCATION = {
   itemPath: "Shared Documents/lop/workspace.json",
 } as const;
 
+// The Graph content URL the backend builds for FAKE_LOCATION. The space in
+// "Shared Documents" is percent-encoded once it goes through fetch/Request.
+const CONTENT_URL =
+  "https://graph.microsoft.com/v1.0/sites/contoso.sharepoint.com:/sites/Alpha:/drive/root:/Shared%20Documents/lop/workspace.json:/content";
+// Bare colons in the path break msw's path-param matcher, so match by RegExp.
+const CONTENT_RE = /graph\.microsoft\.com\/v1\.0\/sites\/.+\/content$/;
+
 const EMPTY_WORKSPACE: Workspace = {
   tasks: [],
   raid: [],
@@ -150,158 +159,110 @@ const EMPTY_WORKSPACE: Workspace = {
 };
 
 describe("SharePointBackend", () => {
-  let fetchSpy: MockInstance;
   let acquireToken: Mock;
 
   beforeEach(() => {
-    fetchSpy = vi.spyOn(globalThis, "fetch");
     acquireToken = vi.fn().mockResolvedValue("fake-token");
   });
 
-  afterEach(() => {
-    fetchSpy.mockRestore();
-  });
-
-  function makeJsonResponse(body: unknown, status = 200): Response {
-    return new Response(JSON.stringify(body), {
-      status,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
-
   it("isReady returns false when acquireToken returns null", async () => {
     acquireToken.mockResolvedValue(null);
-    const be = new SharePointBackend(
-      { kind: "sp-json", ...FAKE_LOCATION },
-      acquireToken,
-    );
+    const be = new SharePointBackend({ kind: "sp-json", ...FAKE_LOCATION }, acquireToken);
     expect(await be.isReady()).toBe(false);
   });
 
   it("isReady returns true when acquireToken returns a token", async () => {
-    const be = new SharePointBackend(
-      { kind: "sp-json", ...FAKE_LOCATION },
-      acquireToken,
-    );
+    const be = new SharePointBackend({ kind: "sp-json", ...FAKE_LOCATION }, acquireToken);
     expect(await be.isReady()).toBe(true);
   });
 
   it("isReady returns false when acquireToken rejects", async () => {
     acquireToken.mockRejectedValue(new Error("MSAL network error"));
-    const be = new SharePointBackend(
-      { kind: "sp-json", ...FAKE_LOCATION },
-      acquireToken,
-    );
+    const be = new SharePointBackend({ kind: "sp-json", ...FAKE_LOCATION }, acquireToken);
     expect(await be.isReady()).toBe(false);
   });
 
-  it("load constructs correct Graph URL", async () => {
-    fetchSpy.mockResolvedValue(makeJsonResponse(EMPTY_WORKSPACE));
-    const be = new SharePointBackend(
-      { kind: "sp-json", ...FAKE_LOCATION },
-      acquireToken,
-    );
+  it("load constructs the correct Graph URL", async () => {
+    const requests: Request[] = [];
+    server.use(http.get(CONTENT_RE, ({ request }) => {
+      requests.push(request);
+      return HttpResponse.json(EMPTY_WORKSPACE);
+    }));
+    const be = new SharePointBackend({ kind: "sp-json", ...FAKE_LOCATION }, acquireToken);
     await be.load();
-    expect(fetchSpy).toHaveBeenCalledOnce();
-    const url = fetchSpy.mock.calls[0][0] as string;
-    expect(url).toBe(
-      "https://graph.microsoft.com/v1.0/sites/contoso.sharepoint.com:/sites/Alpha:/drive/root:/Shared Documents/lop/workspace.json:/content",
-    );
+    expect(requests).toHaveLength(1);
+    expect(requests[0].url).toBe(CONTENT_URL);
   });
 
   it("load 200 returns parsed Workspace for sp-json", async () => {
-    fetchSpy.mockResolvedValue(makeJsonResponse(EMPTY_WORKSPACE));
-    const be = new SharePointBackend(
-      { kind: "sp-json", ...FAKE_LOCATION },
-      acquireToken,
-    );
+    server.use(http.get(CONTENT_RE, () => HttpResponse.json(EMPTY_WORKSPACE)));
+    const be = new SharePointBackend({ kind: "sp-json", ...FAKE_LOCATION }, acquireToken);
     const ws = await be.load();
     expect(ws.tasks).toEqual([]);
   });
 
   it("load 404 returns default empty Workspace", async () => {
-    fetchSpy.mockResolvedValue(new Response("", { status: 404 }));
-    const be = new SharePointBackend(
-      { kind: "sp-json", ...FAKE_LOCATION },
-      acquireToken,
-    );
+    server.use(http.get(CONTENT_RE, () => new HttpResponse("", { status: 404 })));
+    const be = new SharePointBackend({ kind: "sp-json", ...FAKE_LOCATION }, acquireToken);
     const ws = await be.load();
     expect(ws.tasks).toEqual([]);
     expect(ws.raid).toEqual([]);
   });
 
   it("load 401 throws StorageNotReadyError with reauthenticate hint", async () => {
-    fetchSpy.mockResolvedValue(new Response("", { status: 401 }));
-    const be = new SharePointBackend(
-      { kind: "sp-json", ...FAKE_LOCATION },
-      acquireToken,
-    );
+    server.use(http.get(CONTENT_RE, () => new HttpResponse("", { status: 401 })));
+    const be = new SharePointBackend({ kind: "sp-json", ...FAKE_LOCATION }, acquireToken);
     await expect(be.load()).rejects.toThrow(/sign-in expired/i);
   });
 
   it("load 403 throws StorageNotReadyError with permission hint", async () => {
-    fetchSpy.mockResolvedValue(new Response("", { status: 403 }));
-    const be = new SharePointBackend(
-      { kind: "sp-json", ...FAKE_LOCATION },
-      acquireToken,
-    );
+    server.use(http.get(CONTENT_RE, () => new HttpResponse("", { status: 403 })));
+    const be = new SharePointBackend({ kind: "sp-json", ...FAKE_LOCATION }, acquireToken);
     await expect(be.load()).rejects.toThrow(/permission denied/i);
   });
 
   it("load 500 throws with friendly hint", async () => {
-    fetchSpy.mockResolvedValue(new Response("", { status: 500 }));
-    const be = new SharePointBackend(
-      { kind: "sp-json", ...FAKE_LOCATION },
-      acquireToken,
-    );
+    server.use(http.get(CONTENT_RE, () => new HttpResponse("", { status: 500 })));
+    const be = new SharePointBackend({ kind: "sp-json", ...FAKE_LOCATION }, acquireToken);
     await expect(be.load()).rejects.toThrow(/sharepoint returned 500/i);
   });
 
   it("acquireToken null throws with sign-in hint", async () => {
     acquireToken.mockResolvedValue(null);
-    const be = new SharePointBackend(
-      { kind: "sp-json", ...FAKE_LOCATION },
-      acquireToken,
-    );
+    const be = new SharePointBackend({ kind: "sp-json", ...FAKE_LOCATION }, acquireToken);
     await expect(be.load()).rejects.toThrow(/sign in to microsoft/i);
   });
 
   it("save constructs correct PUT URL and body for sp-json", async () => {
-    fetchSpy.mockResolvedValue(new Response("", { status: 201 }));
-    const be = new SharePointBackend(
-      { kind: "sp-json", ...FAKE_LOCATION },
-      acquireToken,
-    );
+    let captured: Request | undefined;
+    let body = "";
+    server.use(http.put(CONTENT_RE, async ({ request }) => {
+      captured = request;
+      body = await request.clone().text();
+      return new HttpResponse("", { status: 201 });
+    }));
+    const be = new SharePointBackend({ kind: "sp-json", ...FAKE_LOCATION }, acquireToken);
     await be.save(EMPTY_WORKSPACE);
-    expect(fetchSpy).toHaveBeenCalledOnce();
-    const [url, init] = fetchSpy.mock.calls[0];
-    expect(url).toBe(
-      "https://graph.microsoft.com/v1.0/sites/contoso.sharepoint.com:/sites/Alpha:/drive/root:/Shared Documents/lop/workspace.json:/content",
-    );
-    expect((init as RequestInit).method).toBe("PUT");
-    expect((init as RequestInit).body).toBe(JSON.stringify(EMPTY_WORKSPACE));
-    const headers = new Headers((init as RequestInit).headers);
-    expect(headers.get("Content-Type")).toBe("application/json");
-    expect(headers.get("Authorization")).toBe("Bearer fake-token");
+    expect(captured?.url).toBe(CONTENT_URL);
+    expect(captured?.method).toBe("PUT");
+    expect(body).toBe(JSON.stringify(EMPTY_WORKSPACE));
+    expect(captured?.headers.get("Content-Type")).toBe("application/json");
+    expect(captured?.headers.get("Authorization")).toBe("Bearer fake-token");
   });
 
   it("save constructs correct Content-Type for sp-csv", async () => {
-    fetchSpy.mockResolvedValue(new Response("", { status: 200 }));
-    const be = new SharePointBackend(
-      { kind: "sp-csv", ...FAKE_LOCATION },
-      acquireToken,
-    );
+    let captured: Request | undefined;
+    server.use(http.put(CONTENT_RE, ({ request }) => {
+      captured = request;
+      return new HttpResponse("", { status: 200 });
+    }));
+    const be = new SharePointBackend({ kind: "sp-csv", ...FAKE_LOCATION }, acquireToken);
     await be.save(EMPTY_WORKSPACE);
-    const [, init] = fetchSpy.mock.calls[0];
-    const headers = new Headers((init as RequestInit).headers);
-    expect(headers.get("Content-Type")).toBe("text/csv;charset=utf-8");
+    expect(captured?.headers.get("Content-Type")).toBe("text/csv;charset=utf-8");
   });
 
   it("describe returns 'filename on sitePath'", async () => {
-    const be = new SharePointBackend(
-      { kind: "sp-json", ...FAKE_LOCATION },
-      acquireToken,
-    );
+    const be = new SharePointBackend({ kind: "sp-json", ...FAKE_LOCATION }, acquireToken);
     expect(await be.describe()).toBe("workspace.json on /sites/Alpha");
   });
 
