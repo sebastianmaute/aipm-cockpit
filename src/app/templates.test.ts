@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { sanitizeTemplate, sanitizeTemplates } from "./templates";
+import { sanitizeTemplate, sanitizeTemplates, templateFromWorkspace } from "./templates";
+import { emptyWorkspace } from "./workspace";
 
 describe("sanitizeTemplates", () => {
   it("returns [] for junk / legacy", () => {
@@ -38,5 +39,29 @@ describe("sanitizeTemplates", () => {
       ]}
     }]);
     expect(out[0].seed?.tasks?.[1].dependencies).toEqual([{ taskId: 1, type: "FS" }]);
+  });
+});
+
+describe("templateFromWorkspace", () => {
+  it("captures features + fieldVisibility, no seed when includeContent is false", () => {
+    const ws = { ...emptyWorkspace(), fieldVisibility: { task: { fields: ["taskName"] } } };
+    const t = templateFromWorkspace(ws, ["raid"], { name: "My T", includeContent: false }, "id1");
+    expect(t.id).toBe("id1");
+    expect(t.name).toBe("My T");
+    expect(t.features).toEqual(["raid"]);
+    expect(t.fieldVisibility.task.fields).toEqual(["taskName"]);
+    expect(t.seed).toBeUndefined();
+    expect(t.builtIn).toBeFalsy();
+  });
+  it("captures seedable content when includeContent is true", () => {
+    const task = { id: 1, taskName: "A", assignee: "", assigneeEmail: "", dueDate: "", lastUpdateDate: "", priority: "Medium" as const, blockers: "", notes: "" };
+    const ws = { ...emptyWorkspace(), tasks: [task] };
+    const t = templateFromWorkspace(ws, [], { name: "T", includeContent: true }, "id2");
+    expect(t.seed?.tasks).toHaveLength(1);
+  });
+  it("trims the name and description", () => {
+    const t = templateFromWorkspace(emptyWorkspace(), [], { name: "  Trimmed  ", description: "  d  ", includeContent: false }, "id3");
+    expect(t.name).toBe("Trimmed");
+    expect(t.description).toBe("d");
   });
 });

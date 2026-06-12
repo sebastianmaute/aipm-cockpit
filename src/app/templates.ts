@@ -1,4 +1,5 @@
 import { sanitizeFeatures, type FeatureModuleId } from "./feature-modules";
+import type { Workspace } from "./workspace";
 import {
   sanitizeFieldVisibility,
   type FieldVisibilityConfig,
@@ -255,6 +256,45 @@ export function sanitizeTemplate(raw: unknown): ProjectTemplate | null {
   const seed = sanitizeSeed(raw.seed);
   if (seed) tpl.seed = seed;
   return tpl; // builtIn never honored from stored data
+}
+
+export interface SaveTemplateInput {
+  name: string;
+  description?: string;
+  includeContent: boolean;
+}
+
+/**
+ * Build a new `ProjectTemplate` from the current workspace state. Captures
+ * feature-module toggles and field-visibility config always; optionally
+ * captures seed content when `includeContent` is true. Pure function — no
+ * side effects, no stripping of entity ids (sanitized on READ by
+ * `sanitizeTemplates`, re-id'd on APPLY by `applyTemplate`).
+ */
+export function templateFromWorkspace(
+  ws: Workspace,
+  features: readonly FeatureModuleId[],
+  input: SaveTemplateInput,
+  newId: string,
+): ProjectTemplate {
+  const tpl: ProjectTemplate = {
+    id: newId,
+    name: input.name.trim(),
+    features: sanitizeFeatures(features),
+    fieldVisibility: sanitizeFieldVisibility(ws.fieldVisibility) ?? {},
+  };
+  if (input.description?.trim()) tpl.description = input.description.trim();
+  if (input.includeContent) {
+    const seed: TemplateSeed = {};
+    if (ws.tasks.length) seed.tasks = ws.tasks;
+    if (ws.milestones?.length) seed.milestones = ws.milestones;
+    if (ws.raid.length) seed.raid = ws.raid;
+    if (ws.changes?.length) seed.changes = ws.changes;
+    if (ws.stakeholders?.length) seed.stakeholders = ws.stakeholders;
+    if (ws.budgets?.length) seed.budgets = ws.budgets;
+    if (Object.keys(seed).length) tpl.seed = seed;
+  }
+  return tpl;
 }
 
 /** Sanitize a stored array of templates, dropping any malformed entries. */
