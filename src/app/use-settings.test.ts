@@ -663,3 +663,13 @@ describe("notifications migration — toast-first one-time migration", () => {
     expect(n.toastFirstMigrated).toBe(true);
   });
 });
+
+import { sanitizeTemplates } from "./templates";
+
+describe("settings templates field", () => {
+  it("sanitizes a templates array and defaults undefined to []", () => {
+    const parsed = JSON.parse(JSON.stringify({ templates: [{ id: "t", name: "T", features: [], fieldVisibility: {} }] }));
+    expect(sanitizeTemplates(parsed.templates)).toHaveLength(1);
+    expect(sanitizeTemplates(undefined)).toEqual([]);
+  });
+});
