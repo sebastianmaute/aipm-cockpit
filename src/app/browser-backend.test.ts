@@ -38,6 +38,7 @@ vi.mock("./idb", async (importOriginal) => {
 });
 
 import { BrowserBackend } from "./browser-backend";
+import type { FeatureModuleId } from "./feature-modules";
 import { IDB_RAID_STORE, IDB_TASKS_STORE } from "./idb";
 import { emptyWorkspace } from "./workspace";
 
@@ -111,6 +112,48 @@ describe("BrowserBackend parallel IDB save/load", () => {
     expect(loaded.raid[0]).toMatchObject({ id: 7, title: "Scope creep" });
     expect(loaded.milestones).toHaveLength(1);
     expect(loaded.milestones?.[0]).toMatchObject({ id: 2, name: "Go live" });
+  });
+
+  it("save → fresh load round-trips fieldVisibility and features", async () => {
+    const ws = {
+      ...emptyWorkspace(),
+      fieldVisibility: { task: { fields: ["taskName"] } },
+      features: ["raid"] as FeatureModuleId[],
+    };
+    await new BrowserBackend().save(ws);
+
+    const loaded = await new BrowserBackend().load();
+    expect(loaded.fieldVisibility).toEqual({ task: { fields: ["taskName"] } });
+    expect(loaded.features).toEqual(["raid"]);
+  });
+
+  it("persists features: [] (Simple mode) rather than expanding to all modules", async () => {
+    const ws = { ...emptyWorkspace(), features: [] };
+    await new BrowserBackend().save(ws);
+
+    const loaded = await new BrowserBackend().load();
+    expect(loaded.features).toEqual([]);
+  });
+
+  it("loads absent fieldVisibility / features as undefined (no override)", async () => {
+    const ws = { ...emptyWorkspace(), tasks: [task] };
+    await new BrowserBackend().save(ws);
+
+    const loaded = await new BrowserBackend().load();
+    expect(loaded.fieldVisibility).toBeUndefined();
+    expect(loaded.features).toBeUndefined();
+  });
+
+  it("clears a previously-saved fieldVisibility when re-saved empty", async () => {
+    const backend = new BrowserBackend();
+    await backend.save({
+      ...emptyWorkspace(),
+      fieldVisibility: { task: { fields: ["taskName"] } },
+    });
+    await backend.save({ ...emptyWorkspace(), fieldVisibility: {} });
+
+    const loaded = await new BrowserBackend().load();
+    expect(loaded.fieldVisibility).toBeUndefined();
   });
 
   it("second save of an unchanged workspace emits empty deltas (baselines advanced)", async () => {
