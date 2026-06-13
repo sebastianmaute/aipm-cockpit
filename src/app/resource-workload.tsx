@@ -141,12 +141,13 @@ export function ResourceWorkload({
               <td className="px-3 py-2 text-right tabular-nums">
                 <button
                   type="button"
-                  onClick={() =>
+                  onClick={(e) => {
+                    e.stopPropagation();
                     onEditShift(row.shift, {
                       display: row.display,
                       email: row.email,
-                    })
-                  }
+                    });
+                  }}
                   title={
                     row.shift
                       ? t(lang, "resourcesEditShift")
