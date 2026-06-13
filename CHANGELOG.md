@@ -8,6 +8,45 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.74.0] - 2026-06-13 "Niven"
+
+Create-project wizard & empty-state overhaul — a wider, resizable modal, a
+focused required-field form with the rest tucked behind an optional section, a
+mandatory Contacts field, a unified storage selector with Turso configuration at
+creation time, and a first-run backend-setup surface.
+
+### Added
+- **Storage selector with Turso.** The create form's "File format" selector is
+  now "Storage" and offers Turso alongside JSON/CSV/Markdown. Picking Turso opens
+  a backend-config modal (Turso database URL/token, M365 sign-in, portfolio
+  storage mode) so you can set it up without leaving the wizard; the new project
+  is then created on the Turso backend.
+- **First-run backend setup.** On a fresh install (no projects yet) the
+  empty-state offers "Configure the Turso backend" and "Configure M365
+  integration" buttons — the only way to reach those settings before a project
+  exists. The dead, non-functional ✕ on that non-dismissable modal is gone.
+- **"Link to Jira"** project field (joins Salesforce / SharePoint / Confluence),
+  persisted across JSON/CSV/Turso.
+- Field tooltips across the project form, including a Contacts tooltip explaining
+  the "Add manually" picker, the email field, and the Add button.
+- A stepped identity-count datalist (50 … 1,000,000,000) suggesting common scales.
+
+### Changed
+- **Mandatory Contacts, optional stakeholders.** At least one contact person
+  (linked from your resources / address book, or typed in) is now required;
+  internal and external key stakeholders became optional and moved into the
+  optional section. Existing projects saved without contacts still load.
+- **End date is optional** (it was required, and was the cause of the Next button
+  staying disabled on an otherwise-complete form).
+- The new-project modal is wider (960px) and **resizable** (drag the corner; a
+  reset-size button restores the default). Non-mandatory fields are collapsed by
+  default under an **"Optional details"** disclosure. Regulatory requirements
+  render in two columns.
+
+### Notes
+- The sample workspace (`sample-workspace.json` / `.sqlite3`) was regenerated to
+  include the project's Jira link and a second contact.
+
 ## [0.73.0] - 2026-06-12 "Bester"
 
 Template suggestion — the creation wizard recommends and preselects the best-fit

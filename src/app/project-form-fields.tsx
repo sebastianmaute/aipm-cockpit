@@ -14,6 +14,7 @@
 import { useState } from "react";
 import type React from "react";
 import { FieldError } from "./field-feedback";
+import { InfoTooltip } from "./info-tooltip";
 import { t, type Lang } from "./i18n";
 import type { DocumentLink } from "./document-link";
 import { DocumentLinksFieldGated } from "./document-links-field-gated";
@@ -76,6 +77,7 @@ export function emptyProjectDraft(): ProjectFormDraft {
     salesforceUrl: "",
     sharepointUrl: "",
     confluenceUrl: "",
+    jiraUrl: "",
     contactPersons: [],
     docRepoLocation: "",
     regulatory: [],
@@ -88,6 +90,12 @@ export function emptyProjectDraft(): ProjectFormDraft {
 // cross-form import).
 export const inputClass =
   "w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none focus:ring-1 focus:ring-AIPM-green dark:border-line dark:bg-surface dark:text-foreground";
+
+// Suggested identity-count steps (datalist) — guidance only; any number is valid.
+const IDENTITY_COUNT_STEPS = [
+  50, 100, 500, 1000, 2500, 5000, 10000, 30000, 50000, 100000, 250000, 500000,
+  1000000, 5000000, 10000000, 50000000,
+] as const;
 
 // One titled section. Owns its own two-column grid so wide fields can span. The
 // heading uses the AIPM dark-blue token and a bottom divider (mirrors the task
@@ -111,21 +119,26 @@ export function FormSection({
 
 // Field wrapper with label + required-asterisk convention (same as task form).
 export function Field({
+  lang,
   label,
   required,
   className,
+  tooltip,
   children,
 }: {
+  lang: Lang;
   label: string;
   required?: boolean;
   className?: string;
+  tooltip?: string;
   children: React.ReactNode;
 }) {
   return (
     <label className={`block ${className ?? ""}`}>
-      <span className="mb-1 block text-sm font-medium text-foreground">
+      <span className="mb-1 flex items-center gap-1 text-sm font-medium text-foreground">
         {label}
-        {required && <span className="ml-0.5 text-AIPM-pink">*</span>}
+        {required && <span className="text-AIPM-pink">*</span>}
+        {tooltip && <InfoTooltip text={tooltip} label={t(lang, "infoMore")} />}
       </span>
       {children}
     </label>
@@ -158,11 +171,12 @@ export function IdentityPeopleFields({
   errorFor,
   markTouched,
   lang,
-  stakeholderNames,
+  addressBook,
+  resources,
 }: ProjectFieldsProps) {
   return (
     <FormSection title={`${t(lang, "projectFormIdentity")} · ${t(lang, "projectFormPeople")}`}>
-      <Field label={t(lang, "projectName")} required>
+      <Field lang={lang} label={t(lang,"projectName")} required tooltip={t(lang, "tipProjectName")}>
         <input
           type="text"
           value={draft.name}
@@ -175,7 +189,7 @@ export function IdentityPeopleFields({
         <FieldError id="name-error">{errorFor("name")}</FieldError>
       </Field>
 
-      <Field label={t(lang, "projectCode")} required>
+      <Field lang={lang} label={t(lang,"projectCode")} required tooltip={t(lang, "tipProjectCode")}>
         <input
           type="text"
           value={draft.code}
@@ -188,25 +202,7 @@ export function IdentityPeopleFields({
         <FieldError id="code-error">{errorFor("code")}</FieldError>
       </Field>
 
-      <Field label={t(lang, "projectDescription")} className="sm:col-span-2">
-        <textarea
-          rows={2}
-          value={draft.description}
-          onChange={(e) => setDraft((p) => ({ ...p, description: e.target.value }))}
-          className={inputClass}
-        />
-      </Field>
-
-      <Field label={t(lang, "projectSponsor")}>
-        <input
-          type="text"
-          value={draft.sponsor}
-          onChange={(e) => setDraft((p) => ({ ...p, sponsor: e.target.value }))}
-          className={inputClass}
-        />
-      </Field>
-
-      <Field label={t(lang, "projectManager")} required>
+      <Field lang={lang} label={t(lang,"projectManager")} required tooltip={t(lang, "tipProjectManager")}>
         <input
           type="text"
           value={draft.projectManager}
@@ -219,36 +215,21 @@ export function IdentityPeopleFields({
         <FieldError id="projectManager-error">{errorFor("projectManager")}</FieldError>
       </Field>
 
+      {/* Contacts are MANDATORY (≥1). Consumes registry resources + the address
+          book via the link-only ResourcePicker. */}
       <div className="sm:col-span-2">
-        <StakeholderRecipientInput
-          id="keyStakeholdersInternal"
-          label={`${t(lang, "projectStakeholdersInternal")} *`}
-          value={draft.keyStakeholdersInternal}
-          suggestions={stakeholderNames}
+        <ContactPersonsControl
+          lang={lang}
+          contactPersons={draft.contactPersons}
+          addressBook={addressBook}
+          resources={resources}
+          required
+          error={errorFor("contactPersons")}
           onChange={(next) => {
-            setDraft((p) => ({ ...p, keyStakeholdersInternal: next }));
-            markTouched("keyStakeholdersInternal");
+            setDraft((p) => ({ ...p, contactPersons: next }));
+            markTouched("contactPersons");
           }}
         />
-        <FieldError id="keyStakeholdersInternal-error">
-          {errorFor("keyStakeholdersInternal")}
-        </FieldError>
-      </div>
-
-      <div className="sm:col-span-2">
-        <StakeholderRecipientInput
-          id="keyStakeholdersExternal"
-          label={`${t(lang, "projectStakeholdersExternal")} *`}
-          value={draft.keyStakeholdersExternal}
-          suggestions={stakeholderNames}
-          onChange={(next) => {
-            setDraft((p) => ({ ...p, keyStakeholdersExternal: next }));
-            markTouched("keyStakeholdersExternal");
-          }}
-        />
-        <FieldError id="keyStakeholdersExternal-error">
-          {errorFor("keyStakeholdersExternal")}
-        </FieldError>
       </div>
     </FormSection>
   );
@@ -264,17 +245,7 @@ export function CustomerFields({
   errorFor,
   markTouched,
   lang,
-  addressBook,
-  resources,
 }: ProjectFieldsProps) {
-  const toggleIdentityType = (type: IdentityType) =>
-    setDraft((p) => ({
-      ...p,
-      identityTypes: p.identityTypes.includes(type)
-        ? p.identityTypes.filter((x) => x !== type)
-        : [...p.identityTypes, type],
-    }));
-
   // Regulatory checkbox group with an EXCLUSIVE "Not applicable":
   //  - selecting "Not applicable" clears everything else,
   //  - selecting any other requirement clears "Not applicable".
@@ -295,7 +266,7 @@ export function CustomerFields({
 
   return (
     <FormSection title={t(lang, "projectFormCustomer")}>
-      <Field label={t(lang, "projectCustomer")} required>
+      <Field lang={lang} label={t(lang,"projectCustomer")} required tooltip={t(lang, "tipCustomer")}>
         <input
           type="text"
           value={draft.customer}
@@ -308,7 +279,7 @@ export function CustomerFields({
         <FieldError id="customer-error">{errorFor("customer")}</FieldError>
       </Field>
 
-      <Field label={t(lang, "projectNaceSection")} required>
+      <Field lang={lang} label={t(lang,"projectNaceSection")} required tooltip={t(lang, "tipNace")}>
         <select
           value={draft.naceSection}
           onChange={(e) => setDraft((p) => ({ ...p, naceSection: e.target.value }))}
@@ -327,33 +298,7 @@ export function CustomerFields({
         <FieldError id="naceSection-error">{errorFor("naceSection")}</FieldError>
       </Field>
 
-      <Field label={t(lang, "projectIdentityTypes")} className="sm:col-span-2">
-        <div className="flex flex-wrap gap-3">
-          {IDENTITY_TYPES.map((type) => (
-            <label key={type} className="flex items-center gap-1.5 text-sm text-foreground">
-              <input
-                type="checkbox"
-                checked={draft.identityTypes.includes(type)}
-                onChange={() => toggleIdentityType(type)}
-                className="h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue focus:ring-AIPM-green dark:border-line dark:bg-surface-muted"
-              />
-              {type}
-            </label>
-          ))}
-        </div>
-      </Field>
-
-      <Field label={t(lang, "projectIdentityCount")}>
-        <input
-          type="number"
-          min={0}
-          value={draft.identityCount}
-          onChange={(e) => setDraft((p) => ({ ...p, identityCount: e.target.value }))}
-          className={inputClass}
-        />
-      </Field>
-
-      <Field label={t(lang, "projectProducts")} required>
+      <Field lang={lang} label={t(lang,"projectProducts")} required tooltip={t(lang, "tipProducts")}>
         <input
           type="text"
           value={draft.products}
@@ -366,16 +311,7 @@ export function CustomerFields({
         <FieldError id="products-error">{errorFor("products")}</FieldError>
       </Field>
 
-      <Field label={t(lang, "projectPlatform")}>
-        <input
-          type="text"
-          value={draft.platform}
-          onChange={(e) => setDraft((p) => ({ ...p, platform: e.target.value }))}
-          className={inputClass}
-        />
-      </Field>
-
-      <Field label={t(lang, "projectDeployment")} required>
+      <Field lang={lang} label={t(lang,"projectDeployment")} required tooltip={t(lang, "tipDeployment")}>
         <select
           value={draft.deployment}
           onChange={(e) => setDraft((p) => ({ ...p, deployment: e.target.value as Deployment | "" }))}
@@ -394,7 +330,7 @@ export function CustomerFields({
         <FieldError id="deployment-error">{errorFor("deployment")}</FieldError>
       </Field>
 
-      <Field label={t(lang, "projectStartDate")} required>
+      <Field lang={lang} label={t(lang,"projectStartDate")} required tooltip={t(lang, "tipStartDate")}>
         <input
           type="date"
           value={draft.startDate}
@@ -407,20 +343,7 @@ export function CustomerFields({
         <FieldError id="startDate-error">{errorFor("startDate")}</FieldError>
       </Field>
 
-      <Field label={t(lang, "projectEndDate")} required>
-        <input
-          type="date"
-          value={draft.endDate}
-          onChange={(e) => setDraft((p) => ({ ...p, endDate: e.target.value }))}
-          onBlur={() => markTouched("endDate")}
-          aria-invalid={errorFor("endDate") ? true : undefined}
-          aria-describedby={errorFor("endDate") ? "endDate-error" : undefined}
-          className={inputClass}
-        />
-        <FieldError id="endDate-error">{errorFor("endDate")}</FieldError>
-      </Field>
-
-      <Field label={t(lang, "projectProfitCenter")} required>
+      <Field lang={lang} label={t(lang,"projectProfitCenter")} required tooltip={t(lang, "tipProfitCenter")}>
         <input
           type="text"
           value={draft.profitCenter}
@@ -433,86 +356,8 @@ export function CustomerFields({
         <FieldError id="profitCenter-error">{errorFor("profitCenter")}</FieldError>
       </Field>
 
-      <Field label={t(lang, "projectQuotes")} className="sm:col-span-2">
-        <textarea
-          rows={2}
-          value={draft.quotes}
-          onChange={(e) => setDraft((p) => ({ ...p, quotes: e.target.value }))}
-          className={inputClass}
-        />
-      </Field>
-
-      <Field label={t(lang, "projectSalesforce")}>
-        <input
-          type="url"
-          value={draft.salesforceUrl}
-          title={t(lang, "projectSalesforceTip")}
-          onChange={(e) => setDraft((p) => ({ ...p, salesforceUrl: e.target.value }))}
-          onBlur={() => markTouched("salesforceUrl")}
-          aria-invalid={errorFor("salesforceUrl") ? true : undefined}
-          aria-describedby={errorFor("salesforceUrl") ? "salesforceUrl-error" : undefined}
-          className={inputClass}
-        />
-        <FieldError id="salesforceUrl-error">{errorFor("salesforceUrl")}</FieldError>
-      </Field>
-
-      <Field label={t(lang, "projectSharepoint")}>
-        <input
-          type="url"
-          value={draft.sharepointUrl}
-          title={t(lang, "projectSharepointTip")}
-          onChange={(e) => setDraft((p) => ({ ...p, sharepointUrl: e.target.value }))}
-          onBlur={() => markTouched("sharepointUrl")}
-          aria-invalid={errorFor("sharepointUrl") ? true : undefined}
-          aria-describedby={errorFor("sharepointUrl") ? "sharepointUrl-error" : undefined}
-          className={inputClass}
-        />
-        <FieldError id="sharepointUrl-error">{errorFor("sharepointUrl")}</FieldError>
-      </Field>
-
-      <Field label={t(lang, "projectConfluence")}>
-        <input
-          type="url"
-          value={draft.confluenceUrl}
-          title={t(lang, "projectConfluenceTip")}
-          onChange={(e) => setDraft((p) => ({ ...p, confluenceUrl: e.target.value }))}
-          onBlur={() => markTouched("confluenceUrl")}
-          aria-invalid={errorFor("confluenceUrl") ? true : undefined}
-          aria-describedby={errorFor("confluenceUrl") ? "confluenceUrl-error" : undefined}
-          className={inputClass}
-        />
-        <FieldError id="confluenceUrl-error">{errorFor("confluenceUrl")}</FieldError>
-      </Field>
-
-      <div className="sm:col-span-2">
-        <ContactPersonsControl
-          lang={lang}
-          contactPersons={draft.contactPersons}
-          addressBook={addressBook}
-          resources={resources}
-          onChange={(next) => setDraft((p) => ({ ...p, contactPersons: next }))}
-        />
-      </div>
-
-      <Field label={t(lang, "projectDocRepo")} className="sm:col-span-2">
-        <input
-          type="text"
-          value={draft.docRepoLocation}
-          onChange={(e) => setDraft((p) => ({ ...p, docRepoLocation: e.target.value }))}
-          className={inputClass}
-        />
-      </Field>
-
-      <Field label={t(lang, "documents")} className="sm:col-span-2">
-        <DocumentLinksFieldGated
-          value={draft.documentLinks}
-          onChange={(documentLinks) => setDraft((p) => ({ ...p, documentLinks }))}
-          lang={lang}
-        />
-      </Field>
-
-      <Field label={t(lang, "projectRegulatory")} required className="sm:col-span-2">
-        <div className="flex flex-col gap-2">
+      <Field lang={lang} label={t(lang,"projectRegulatory")} required className="sm:col-span-2" tooltip={t(lang, "tipRegulatory")}>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {REGULATORY_REQUIREMENTS.map((req) => (
             <label key={req} className="flex items-center gap-1.5 text-sm text-foreground">
               <input
@@ -527,8 +372,209 @@ export function CustomerFields({
         </div>
         <FieldError id="regulatory-error">{errorFor("regulatory")}</FieldError>
       </Field>
+    </FormSection>
+  );
+}
 
-      <Field label={t(lang, "projectNotes")} className="sm:col-span-2">
+// ---------------------------------------------------------------------------
+// Group 3 — Optional details (rendered inside a collapsible disclosure by
+// project-form.tsx; every field here is non-mandatory). Renders its own
+// two-column grid (no FormSection heading — the disclosure summary titles it).
+// ---------------------------------------------------------------------------
+
+export function OptionalDetailsFields({
+  draft,
+  setDraft,
+  errorFor,
+  markTouched,
+  lang,
+  stakeholderNames,
+}: ProjectFieldsProps) {
+  const toggleIdentityType = (type: IdentityType) =>
+    setDraft((p) => ({
+      ...p,
+      identityTypes: p.identityTypes.includes(type)
+        ? p.identityTypes.filter((x) => x !== type)
+        : [...p.identityTypes, type],
+    }));
+
+  return (
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <Field lang={lang} label={t(lang,"projectDescription")} className="sm:col-span-2">
+        <textarea
+          rows={2}
+          value={draft.description}
+          onChange={(e) => setDraft((p) => ({ ...p, description: e.target.value }))}
+          className={inputClass}
+        />
+      </Field>
+
+      <Field lang={lang} label={t(lang,"projectSponsor")}>
+        <input
+          type="text"
+          value={draft.sponsor}
+          onChange={(e) => setDraft((p) => ({ ...p, sponsor: e.target.value }))}
+          className={inputClass}
+        />
+      </Field>
+
+      <Field lang={lang} label={t(lang,"projectPlatform")}>
+        <input
+          type="text"
+          value={draft.platform}
+          onChange={(e) => setDraft((p) => ({ ...p, platform: e.target.value }))}
+          className={inputClass}
+        />
+      </Field>
+
+      <Field lang={lang} label={t(lang,"projectIdentityTypes")} className="sm:col-span-2">
+        <div className="flex flex-wrap gap-3">
+          {IDENTITY_TYPES.map((type) => (
+            <label key={type} className="flex items-center gap-1.5 text-sm text-foreground">
+              <input
+                type="checkbox"
+                checked={draft.identityTypes.includes(type)}
+                onChange={() => toggleIdentityType(type)}
+                className="h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue focus:ring-AIPM-green dark:border-line dark:bg-surface-muted"
+              />
+              {type}
+            </label>
+          ))}
+        </div>
+      </Field>
+
+      <Field lang={lang} label={t(lang,"projectIdentityCount")} tooltip={t(lang, "tipIdentityCount")}>
+        <input
+          type="number"
+          min={0}
+          value={draft.identityCount}
+          list="identity-count-steps"
+          onChange={(e) => setDraft((p) => ({ ...p, identityCount: e.target.value }))}
+          className={inputClass}
+        />
+        <datalist id="identity-count-steps">
+          {IDENTITY_COUNT_STEPS.map((n) => (
+            <option key={n} value={n} />
+          ))}
+        </datalist>
+      </Field>
+
+      <Field lang={lang} label={t(lang,"projectEndDate")} tooltip={t(lang, "tipEndDate")}>
+        <input
+          type="date"
+          value={draft.endDate}
+          onChange={(e) => setDraft((p) => ({ ...p, endDate: e.target.value }))}
+          onBlur={() => markTouched("endDate")}
+          aria-invalid={errorFor("endDate") ? true : undefined}
+          aria-describedby={errorFor("endDate") ? "endDate-error" : undefined}
+          className={inputClass}
+        />
+        <FieldError id="endDate-error">{errorFor("endDate")}</FieldError>
+      </Field>
+
+      <Field lang={lang} label={t(lang,"projectQuotes")} className="sm:col-span-2">
+        <textarea
+          rows={2}
+          value={draft.quotes}
+          onChange={(e) => setDraft((p) => ({ ...p, quotes: e.target.value }))}
+          className={inputClass}
+        />
+      </Field>
+
+      <Field lang={lang} label={t(lang,"projectLinkSalesforce")}>
+        <input
+          type="url"
+          value={draft.salesforceUrl}
+          title={t(lang, "projectSalesforceTip")}
+          onChange={(e) => setDraft((p) => ({ ...p, salesforceUrl: e.target.value }))}
+          onBlur={() => markTouched("salesforceUrl")}
+          aria-invalid={errorFor("salesforceUrl") ? true : undefined}
+          aria-describedby={errorFor("salesforceUrl") ? "salesforceUrl-error" : undefined}
+          className={inputClass}
+        />
+        <FieldError id="salesforceUrl-error">{errorFor("salesforceUrl")}</FieldError>
+      </Field>
+
+      <Field lang={lang} label={t(lang,"projectLinkSharepoint")}>
+        <input
+          type="url"
+          value={draft.sharepointUrl}
+          title={t(lang, "projectSharepointTip")}
+          onChange={(e) => setDraft((p) => ({ ...p, sharepointUrl: e.target.value }))}
+          onBlur={() => markTouched("sharepointUrl")}
+          aria-invalid={errorFor("sharepointUrl") ? true : undefined}
+          aria-describedby={errorFor("sharepointUrl") ? "sharepointUrl-error" : undefined}
+          className={inputClass}
+        />
+        <FieldError id="sharepointUrl-error">{errorFor("sharepointUrl")}</FieldError>
+      </Field>
+
+      <Field lang={lang} label={t(lang,"projectLinkConfluence")}>
+        <input
+          type="url"
+          value={draft.confluenceUrl}
+          title={t(lang, "projectConfluenceTip")}
+          onChange={(e) => setDraft((p) => ({ ...p, confluenceUrl: e.target.value }))}
+          onBlur={() => markTouched("confluenceUrl")}
+          aria-invalid={errorFor("confluenceUrl") ? true : undefined}
+          aria-describedby={errorFor("confluenceUrl") ? "confluenceUrl-error" : undefined}
+          className={inputClass}
+        />
+        <FieldError id="confluenceUrl-error">{errorFor("confluenceUrl")}</FieldError>
+      </Field>
+
+      <Field lang={lang} label={t(lang,"projectLinkJira")}>
+        <input
+          type="url"
+          value={draft.jiraUrl}
+          title={t(lang, "projectJiraTip")}
+          onChange={(e) => setDraft((p) => ({ ...p, jiraUrl: e.target.value }))}
+          onBlur={() => markTouched("jiraUrl")}
+          aria-invalid={errorFor("jiraUrl") ? true : undefined}
+          aria-describedby={errorFor("jiraUrl") ? "jiraUrl-error" : undefined}
+          className={inputClass}
+        />
+        <FieldError id="jiraUrl-error">{errorFor("jiraUrl")}</FieldError>
+      </Field>
+
+      <div className="sm:col-span-2">
+        <StakeholderRecipientInput
+          id="keyStakeholdersInternal"
+          label={t(lang, "projectStakeholdersInternal")}
+          value={draft.keyStakeholdersInternal}
+          suggestions={stakeholderNames}
+          onChange={(next) => setDraft((p) => ({ ...p, keyStakeholdersInternal: next }))}
+        />
+      </div>
+
+      <div className="sm:col-span-2">
+        <StakeholderRecipientInput
+          id="keyStakeholdersExternal"
+          label={t(lang, "projectStakeholdersExternal")}
+          value={draft.keyStakeholdersExternal}
+          suggestions={stakeholderNames}
+          onChange={(next) => setDraft((p) => ({ ...p, keyStakeholdersExternal: next }))}
+        />
+      </div>
+
+      <Field lang={lang} label={t(lang,"projectDocRepo")} className="sm:col-span-2">
+        <input
+          type="text"
+          value={draft.docRepoLocation}
+          onChange={(e) => setDraft((p) => ({ ...p, docRepoLocation: e.target.value }))}
+          className={inputClass}
+        />
+      </Field>
+
+      <Field lang={lang} label={t(lang,"documents")} className="sm:col-span-2">
+        <DocumentLinksFieldGated
+          value={draft.documentLinks}
+          onChange={(documentLinks) => setDraft((p) => ({ ...p, documentLinks }))}
+          lang={lang}
+        />
+      </Field>
+
+      <Field lang={lang} label={t(lang,"projectNotes")} className="sm:col-span-2">
         <textarea
           rows={3}
           value={draft.notes}
@@ -536,7 +582,7 @@ export function CustomerFields({
           className={inputClass}
         />
       </Field>
-    </FormSection>
+    </div>
   );
 }
 
@@ -550,12 +596,16 @@ function ContactPersonsControl({
   addressBook,
   resources,
   onChange,
+  required,
+  error,
 }: {
   lang: Lang;
   contactPersons: ContactPerson[];
   addressBook: Contact[];
   resources: readonly Resource[];
   onChange: (next: ContactPerson[]) => void;
+  required?: boolean;
+  error?: string | null;
 }) {
   const [draft, setDraft] = useState<{ name: string; email: string; resourceId: number | null }>(
     { name: "", email: "", resourceId: null },
@@ -579,8 +629,10 @@ function ContactPersonsControl({
 
   return (
     <div>
-      <span className="mb-1 block text-sm font-medium text-foreground">
+      <span className="mb-1 flex items-center gap-1 text-sm font-medium text-foreground">
         {t(lang, "projectContactPersons")}
+        {required && <span className="text-AIPM-pink">*</span>}
+        <InfoTooltip text={t(lang, "contactPersonsTip")} />
       </span>
 
       {contactPersons.length > 0 && (
@@ -642,6 +694,8 @@ function ContactPersonsControl({
           {t(lang, "add")}
         </button>
       </div>
+
+      <FieldError id="contactPersons-error">{error}</FieldError>
     </div>
   );
 }

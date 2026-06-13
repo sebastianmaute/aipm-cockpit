@@ -1610,6 +1610,7 @@ const enUS = {
   projectFormIdentity: "Project identity",
   projectFormPeople: "People",
   projectFormCustomer: "Customer",
+  projectFormOptional: "Optional details",
 
   // Field labels
   projectName: "Project name",
@@ -1633,6 +1634,26 @@ const enUS = {
   projectSalesforce: "Salesforce",
   projectSharepoint: "SharePoint",
   projectConfluence: "Confluence",
+  projectJira: "Jira",
+  projectLinkSalesforce: "Link to Salesforce",
+  projectLinkSharepoint: "Link to SharePoint",
+  projectLinkConfluence: "Link to Confluence",
+  projectLinkJira: "Link to Jira",
+  projectJiraTip: "Link to the Jira project or board",
+  tipProjectName: "Short, human-readable project name",
+  tipProjectCode: "Unique short code (e.g. ACME-01)",
+  tipProjectManager: "Person accountable for delivery",
+  tipCustomer: "Client organisation",
+  tipStakeholdersInternal: "Internal stakeholders — type a name and press Enter",
+  tipStakeholdersExternal: "External stakeholders — type a name and press Enter",
+  tipStartDate: "Planned project start",
+  tipEndDate: "Planned end (optional)",
+  tipIdentityCount: "Approximate number of identities; pick a step or type a number",
+  tipDeployment: "Hosting model for the solution",
+  tipProducts: "Products in scope",
+  tipProfitCenter: "Profit centre for billing",
+  tipNace: "NACE industry classification",
+  tipRegulatory: "Applicable regulatory requirements",
   projectContactPersons: "Contact persons",
   historyTitle: "Version history",
   historyEmpty: "No versions yet — changes you make will be captured here.",
@@ -1676,6 +1697,7 @@ const enUS = {
   errorProjectManagerRequired: "Project manager is required.",
   errorStakeholdersInternalRequired: "At least one internal stakeholder is required.",
   errorStakeholdersExternalRequired: "At least one external stakeholder is required.",
+  errorContactsRequired: "At least one contact is required.",
   errorCustomerRequired: "Customer is required.",
   errorNaceRequired: "NACE section is required.",
   errorProductsRequired: "At least one product is required.",
@@ -1694,6 +1716,14 @@ const enUS = {
   projectsEdit: "Edit project",
   projectsExport: "Export project",
   projectFileFormat: "File format",
+  projectStorage: "Storage",
+  storageOptionConfigure: "Configure the Turso backend",
+  backendSetup: "Backend setup",
+  emptyStateConfigM365: "Configure M365 integration",
+  emptyStateConfigTursoTip:
+    "Set up the Turso database backend (URL and token) before creating a project.",
+  emptyStateConfigM365Tip:
+    "Sign in and configure Microsoft 365 (SharePoint, Outlook) before creating a project.",
   projectsDelete: "Delete project",
   projectsDeleteConfirm:
     "Remove this project from the list? The underlying file is NOT deleted.",
@@ -1733,6 +1763,9 @@ const enUS = {
 
   // Contact picker
   contactAddManual: "Add manually",
+  infoMore: "More information",
+  contactPersonsTip:
+    "How to add a contact: in “Add manually” pick a team member or saved contact to link them, or type a new name for someone outside your directory; use the email field to record an address for a typed-in (external) contact; click Add to put them on the list. At least one contact is required.",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;

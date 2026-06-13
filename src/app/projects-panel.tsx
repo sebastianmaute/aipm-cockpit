@@ -28,7 +28,10 @@ import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
 import { ProjectForm } from "./project-form";
 import { type ProjectRegistryEntry } from "./projects-registry";
+import { type Settings } from "./settings-types";
+import { ResetSizeButton, ResizeCornerHint } from "./task-manager-ui";
 import { TypeToConfirmDialog } from "./type-to-confirm-dialog";
+import { useResizable } from "./use-resizable";
 import { CENTERED_HALF_PANE_CLASS } from "./view-styles";
 import { type ProjectMeta, type Resource } from "./types";
 
@@ -69,6 +72,10 @@ export interface ProjectsPanelProps {
   addressBook: Contact[];
   /** Registry resources for the link-only contact-person picker. */
   resources: readonly Resource[];
+  /** Current settings (for the backend-config modal opened from the selector). */
+  settings: Settings;
+  /** Persist edited settings (IntegrationsSection emits a full next value). */
+  onChangeSettings: (s: Settings) => void;
   lang: Lang;
   onSwitch: (id: string) => void;
   onCreate: (meta: ProjectMeta, format: CreateFormat, opts?: NewProjectOpts) => void;
@@ -102,6 +109,8 @@ export function ProjectsPanel({
   stakeholderNames,
   addressBook,
   resources,
+  settings,
+  onChangeSettings,
   lang,
   onSwitch,
   onCreate,
@@ -116,6 +125,7 @@ export function ProjectsPanel({
   onHardDelete,
 }: ProjectsPanelProps) {
   const [modal, setModal] = useState<ModalState>({ mode: "closed" });
+  const { ref: sizeRef, reset: resetSize } = useResizable("lop-app:create-modal-size");
   const [exportMenuId, setExportMenuId] = useState<string | null>(null);
   const [showArchived, setShowArchived] = useState(false);
   const [hardDeleteTarget, setHardDeleteTarget] =
@@ -388,21 +398,25 @@ export function ProjectsPanel({
           zIndex={50}
         >
           <div
+            ref={sizeRef}
             data-modal-panel
-            className="relative flex max-h-[90vh] w-[720px] min-w-[460px] max-w-[95vw] flex-col overflow-hidden rounded-xl border border-line bg-surface"
+            className="relative flex max-h-[90vh] min-h-[420px] w-[960px] min-w-[360px] max-w-[95vw] resize flex-col overflow-hidden rounded-xl border border-line bg-surface"
           >
             <ModalHeader
               lang={lang}
               title={t(lang, modal.mode === "create" ? "projectsNew" : "projectsEdit")}
               onClose={closeModal}
+              headerExtra={<ResetSizeButton onClick={resetSize} lang={lang} />}
             />
-            <div className="overflow-y-auto p-6">
+            <div className="min-h-0 flex-1 overflow-y-auto p-6">
               {modal.mode === "create" ? (
                 <CreateProjectWizard
                   lang={lang}
                   stakeholderNames={stakeholderNames}
                   addressBook={addressBook}
                   resources={resources}
+                  settings={settings}
+                  onChangeSettings={onChangeSettings}
                   onCreate={handleCreate}
                   onCancel={closeModal}
                   hideFormat={isTurso}
@@ -419,6 +433,8 @@ export function ProjectsPanel({
                 />
               )}
             </div>
+
+            <ResizeCornerHint lang={lang} />
           </div>
         </Modal>
       )}

@@ -18,6 +18,7 @@ import type { UseVersionHistoryResult } from "./use-version-history";
 import type { ActivityEntry, ActivityKind } from "./activity-log";
 import type { Absence, BudgetBucket, ChangeItem, ProjectMeta, RaidItem, Resource, Shift, Stakeholder, Task } from "./types";
 import type { NewProjectOpts } from "./new-project-workspace";
+import type { Settings } from "./settings-types";
 import type { ProjectRegistryEntry } from "./projects-registry";
 import type { Contact } from "./contacts";
 import { ResourceDirectory } from "./resource-directory";
@@ -165,6 +166,8 @@ export interface WorkspaceSectionProps {
   projectStakeholderNames: string[];
   projectAddressBook: Contact[];
   projectResources: readonly Resource[];
+  projectSettings: Settings;
+  onChangeProjectSettings: (s: Settings) => void;
   onSwitchProject: (id: string) => void;
   onCreateProject: (meta: ProjectMeta, format: "json" | "csv" | "md", opts?: NewProjectOpts) => void;
   onUpdateCurrentProject: (meta: ProjectMeta) => void;
@@ -232,6 +235,8 @@ export function WorkspaceSection({
   projectStakeholderNames,
   projectAddressBook,
   projectResources,
+  projectSettings,
+  onChangeProjectSettings,
   onSwitchProject,
   onCreateProject,
   onUpdateCurrentProject,
@@ -829,6 +834,8 @@ export function WorkspaceSection({
               stakeholderNames={projectStakeholderNames}
               addressBook={projectAddressBook}
               resources={projectResources}
+              settings={projectSettings}
+              onChangeSettings={onChangeProjectSettings}
               lang={lang}
               onSwitch={onSwitchProject}
               onCreate={onCreateProject}

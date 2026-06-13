@@ -4,6 +4,7 @@ import { CreateProjectWizard } from "./create-project-wizard";
 import { type Contact } from "./contacts";
 import { type ProjectMeta } from "./types";
 import { type NewProjectOpts } from "./new-project-workspace";
+import { defaultSettings } from "./settings-types";
 import { SETTINGS_KEY } from "./use-settings";
 import { t } from "./i18n";
 
@@ -29,6 +30,8 @@ function setup(
       stakeholderNames={STAKEHOLDERS}
       addressBook={ADDRESS_BOOK}
       resources={[]}
+      settings={defaultSettings}
+      onChangeSettings={vi.fn()}
       onCreate={onCreate}
       onCancel={onCancel}
       {...overrides}
@@ -86,6 +89,11 @@ function fillRequired(overrides: Step1Overrides = {}) {
       overrides.regulatoryLabel ?? "GDPR / data protection regulation",
     ),
   );
+  // Contacts are now mandatory (≥1): add one manual contact.
+  fireEvent.change(screen.getByPlaceholderText("Add manually"), {
+    target: { value: "Pat Contact" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Add" }));
 }
 
 /** Step 1 → submit the project details form (advances to Step 2). */
@@ -97,6 +105,13 @@ function completeStep1(overrides: Step1Overrides = {}) {
 describe("CreateProjectWizard", () => {
   beforeEach(() => {
     window.localStorage.removeItem(SETTINGS_KEY);
+  });
+
+  it("does not own a reset-size button (resize lives on the modal panel)", () => {
+    setup();
+    expect(
+      screen.queryByRole("button", { name: "Reset back to the default size." }),
+    ).toBeNull();
   });
 
   it("starts on Step 1 (Details) showing the project form", () => {

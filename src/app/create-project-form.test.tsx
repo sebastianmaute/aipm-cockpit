@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { CreateProjectForm } from "./create-project-form";
 import { type Contact } from "./contacts";
+import { defaultSettings } from "./settings-types";
 import { type ProjectMeta } from "./types";
 
 const STAKEHOLDERS = ["Alice Smith", "Bob Jones"];
@@ -10,20 +11,24 @@ const ADDRESS_BOOK: Contact[] = [
 ];
 
 function setup(overrides: Partial<React.ComponentProps<typeof CreateProjectForm>> = {}) {
-  const onCreate = vi.fn<(meta: ProjectMeta, format: "json" | "csv" | "md") => void>();
+  const onCreate =
+    vi.fn<(meta: ProjectMeta, format: "json" | "csv" | "md", storage: "file" | "turso") => void>();
   const onCancel = vi.fn();
+  const onChangeSettings = vi.fn();
   render(
     <CreateProjectForm
       lang="en-US"
       stakeholderNames={STAKEHOLDERS}
       addressBook={ADDRESS_BOOK}
       resources={[]}
+      settings={defaultSettings}
+      onChangeSettings={onChangeSettings}
       onCreate={onCreate}
       onCancel={onCancel}
       {...overrides}
     />,
   );
-  return { onCreate, onCancel };
+  return { onCreate, onCancel, onChangeSettings };
 }
 
 function fillRequired() {
@@ -54,39 +59,46 @@ function fillRequired() {
   setText("End date", "2026-06-01");
   setText("Profit center", "PC-9");
   fireEvent.click(screen.getByLabelText("GDPR / data protection regulation"));
+  // Contacts are now mandatory (≥1): add one manual contact.
+  fireEvent.change(screen.getByPlaceholderText("Add manually"), {
+    target: { value: "Pat Contact" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Add" }));
 }
 
 describe("CreateProjectForm", () => {
-  it("renders the file-format selector (labelled 'File format') and the project form", () => {
+  it("renders the storage selector (labelled 'Storage') with a Turso option and the project form", () => {
     setup();
-    expect(screen.getByLabelText("File format")).toBeInTheDocument();
+    expect(screen.getByLabelText("Storage")).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: /Turso/i })).toBeInTheDocument();
     expect(screen.getByLabelText("Project name", { exact: false })).toBeInTheDocument();
   });
 
-  it("hides the file-format selector when hideFormat is set", () => {
+  it("hides the storage selector when hideFormat is set", () => {
     setup({ hideFormat: true });
-    expect(screen.queryByLabelText("File format")).toBeNull();
-    expect(screen.queryByRole("combobox", { name: /file format/i })).toBeNull();
+    expect(screen.queryByLabelText("Storage")).toBeNull();
+    expect(screen.queryByRole("combobox", { name: /storage/i })).toBeNull();
     // The rest of the form still renders.
     expect(
       screen.getByLabelText("Project name", { exact: false }),
     ).toBeInTheDocument();
   });
 
-  it("submits format 'json' when hideFormat is set", () => {
+  it("submits format 'json' and storage 'file' when hideFormat is set", () => {
     const { onCreate } = setup({ hideFormat: true });
     fillRequired();
     fireEvent.click(screen.getByRole("button", { name: "New project" }));
     expect(onCreate).toHaveBeenCalledTimes(1);
-    const [, format] = onCreate.mock.calls[0];
+    const [, format, storage] = onCreate.mock.calls[0];
     expect(format).toBe("json");
+    expect(storage).toBe("file");
   });
 
-  it("calls onCreate with meta and the chosen format on submit", () => {
+  it("calls onCreate with meta, the chosen format, and storage 'file' on submit", () => {
     const { onCreate } = setup();
 
     // Change from default json to md.
-    fireEvent.change(screen.getByLabelText("File format"), {
+    fireEvent.change(screen.getByLabelText("Storage"), {
       target: { value: "md" },
     });
 
@@ -94,8 +106,17 @@ describe("CreateProjectForm", () => {
     fireEvent.click(screen.getByRole("button", { name: "New project" }));
 
     expect(onCreate).toHaveBeenCalledTimes(1);
-    const [meta, format] = onCreate.mock.calls[0];
+    const [meta, format, storage] = onCreate.mock.calls[0];
     expect(meta.name).toBe("TestProj");
     expect(format).toBe("md");
+    expect(storage).toBe("file");
+  });
+
+  it("opens the backend-config modal when Turso storage is selected", () => {
+    setup();
+    fireEvent.change(screen.getByLabelText("Storage"), {
+      target: { value: "turso" },
+    });
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
   });
 });

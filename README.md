@@ -200,7 +200,7 @@ When Jira integration is enabled and a token-expiry date is recorded, the app su
 |------|-------------|
 | `sample-workspace.md` / `.csv` | Hand-curated demo workspace (tasks, RAID, milestones, stakeholders + RACI, budgets, resources). The `.md` is the source of truth. |
 | `sample-workspace.json` | Complete demo workspace generated from the `.md` (adds a demo change-log + RAID→stakeholder links) via `npx vite-node scripts/generate-sample-workspace.ts`. |
-| `sample-workspace.sqlite3` | The same workspace as a Turso-compatible SQLite database (multi-tenant, schema v10). Import with `turso db create lop-demo --from-file sample-workspace.sqlite3`, then configure the URL and token in Settings → Integrations. |
+| `sample-workspace.sqlite3` | The same workspace as a Turso-compatible SQLite database (multi-tenant, schema v12). Import with `turso db create lop-demo --from-file sample-workspace.sqlite3`, then configure the URL and token in Settings → Integrations. |
 
 ## Tech Stack
 

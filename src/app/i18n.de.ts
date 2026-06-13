@@ -1628,6 +1628,7 @@ export const de: Record<TranslationKey, string> = {
   projectFormIdentity: "Projektidentität",
   projectFormPeople: "Beteiligte",
   projectFormCustomer: "Kunde",
+  projectFormOptional: "Optionale Angaben",
 
   // Field labels
   projectName: "Projektname",
@@ -1651,6 +1652,26 @@ export const de: Record<TranslationKey, string> = {
   projectSalesforce: "Salesforce",
   projectSharepoint: "SharePoint",
   projectConfluence: "Confluence",
+  projectJira: "Jira",
+  projectLinkSalesforce: "Link zu Salesforce",
+  projectLinkSharepoint: "Link zu SharePoint",
+  projectLinkConfluence: "Link zu Confluence",
+  projectLinkJira: "Link zu Jira",
+  projectJiraTip: "Link zum Jira-Projekt oder -Board",
+  tipProjectName: "Kurzer, lesbarer Projektname",
+  tipProjectCode: "Eindeutiger Kurzcode (z. B. ACME-01)",
+  tipProjectManager: "Verantwortliche Person für die Lieferung",
+  tipCustomer: "Kundenorganisation",
+  tipStakeholdersInternal: "Interne Stakeholder - Name eingeben, Enter drücken",
+  tipStakeholdersExternal: "Externe Stakeholder - Name eingeben, Enter drücken",
+  tipStartDate: "Geplanter Projektstart",
+  tipEndDate: "Geplantes Ende (optional)",
+  tipIdentityCount: "Ungefähre Anzahl Identitäten; Schritt wählen oder Zahl eingeben",
+  tipDeployment: "Hosting-Modell der Lösung",
+  tipProducts: "Produkte im Umfang",
+  tipProfitCenter: "Profitcenter für die Abrechnung",
+  tipNace: "NACE-Branchenklassifikation",
+  tipRegulatory: "Geltende regulatorische Anforderungen",
   projectContactPersons: "Ansprechpartner",
   historyTitle: "Versionsverlauf",
   historyEmpty: "Noch keine Versionen — Ihre Änderungen werden hier erfasst.",
@@ -1694,6 +1715,7 @@ export const de: Record<TranslationKey, string> = {
   errorProjectManagerRequired: "Projektleiter ist erforderlich.",
   errorStakeholdersInternalRequired: "Mindestens ein interner Stakeholder ist erforderlich.",
   errorStakeholdersExternalRequired: "Mindestens ein externer Stakeholder ist erforderlich.",
+  errorContactsRequired: "Mindestens ein Kontakt ist erforderlich.",
   errorCustomerRequired: "Kunde ist erforderlich.",
   errorNaceRequired: "NACE-Abschnitt ist erforderlich.",
   errorProductsRequired: "Mindestens ein Produkt ist erforderlich.",
@@ -1712,6 +1734,14 @@ export const de: Record<TranslationKey, string> = {
   projectsEdit: "Projekt bearbeiten",
   projectsExport: "Projekt exportieren",
   projectFileFormat: "Dateiformat",
+  projectStorage: "Speicher",
+  storageOptionConfigure: "Turso-Backend konfigurieren",
+  backendSetup: "Backend-Einrichtung",
+  emptyStateConfigM365: "M365-Integration konfigurieren",
+  emptyStateConfigTursoTip:
+    "Turso-Datenbank-Backend (URL und Token) vor dem Anlegen eines Projekts einrichten.",
+  emptyStateConfigM365Tip:
+    "Bei Microsoft 365 anmelden und konfigurieren (SharePoint, Outlook), bevor ein Projekt angelegt wird.",
   projectsDelete: "Projekt entfernen",
   projectsDeleteConfirm:
     "Projekt aus der Liste entfernen? Die zugrunde liegende Datei wird NICHT gelöscht.",
@@ -1751,4 +1781,7 @@ export const de: Record<TranslationKey, string> = {
 
   // Contact picker
   contactAddManual: "Manuell hinzufügen",
+  infoMore: "Weitere Informationen",
+  contactPersonsTip:
+    "Kontakt hinzufügen: unter „Manuell hinzufügen“ ein Teammitglied oder einen gespeicherten Kontakt wählen, um ihn zu verknüpfen, oder einen neuen Namen für eine Person außerhalb Ihres Verzeichnisses eingeben; im E-Mail-Feld eine Adresse für einen manuell eingegebenen (externen) Kontakt hinterlegen; mit Hinzufügen zur Liste hinzufügen. Mindestens ein Kontakt ist erforderlich.",
 };

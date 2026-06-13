@@ -11,17 +11,25 @@
 // Non-dismissability: the user MUST pick one of the two actions — there is no
 // current project to fall back to.  The shared Modal requires an onClose prop
 // (for Escape / backdrop click); we pass a no-op so those gestures do nothing.
-// ModalHeader always renders an X button wired to onClose, so the X becomes a
-// visual-only artifact — acceptable because the body copy makes clear the user
-// must create or load.
+// The header is rendered with `hideClose` so there is no dead ✕ control (it
+// would be a no-op here and read as a broken affordance).
+//
+// On a fresh install there is also no Settings UI reachable yet, so the choices
+// screen offers a "Backend setup" section: buttons to configure the Turso
+// backend and the M365 integration (both open the shared BackendConfigModal,
+// which wraps IntegrationsSection) before the user creates or loads a project.
 
 import { useState } from "react";
+import { BackendConfigModal } from "./backend-config-modal";
 import { type Contact } from "./contacts";
 import { CreateProjectWizard } from "./create-project-wizard";
 import { t, type Lang } from "./i18n";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
 import { type NewProjectOpts } from "./new-project-workspace";
+import { type Settings } from "./settings-types";
+import { ResetSizeButton, ResizeCornerHint } from "./task-manager-ui";
+import { useResizable } from "./use-resizable";
 import { type ProjectMeta, type Resource } from "./types";
 
 const PRIMARY_BUTTON_CLASS =
@@ -35,6 +43,10 @@ export interface ProjectEmptyStateProps {
   stakeholderNames: string[];
   addressBook: Contact[];
   resources: readonly Resource[];
+  /** Current settings (for the backend-config modal opened from the selector). */
+  settings: Settings;
+  /** Persist edited settings (IntegrationsSection emits a full next value). */
+  onChangeSettings: (s: Settings) => void;
   onCreate: (
     meta: ProjectMeta,
     format: "json" | "csv" | "md",
@@ -56,11 +68,15 @@ export function ProjectEmptyState({
   stakeholderNames,
   addressBook,
   resources,
+  settings,
+  onChangeSettings,
   onCreate,
   onLoadFromFile,
   mode = "file",
 }: ProjectEmptyStateProps) {
   const [view, setView] = useState<View>("choices");
+  const [configModal, setConfigModal] = useState<null | "turso" | "m365">(null);
+  const { ref: sizeRef, reset: resetSize } = useResizable("lop-app:create-modal-size");
 
   const handleOpenCreate = () => setView("create");
 
@@ -87,17 +103,29 @@ export function ProjectEmptyState({
       zIndex={50}
     >
       <div
+        ref={sizeRef}
         data-modal-panel
-        className="relative flex max-h-[90vh] w-[720px] min-w-[360px] max-w-[95vw] flex-col overflow-hidden rounded-xl border border-line bg-surface"
+        className="relative flex max-h-[90vh] min-h-[420px] w-[960px] min-w-[360px] max-w-[95vw] resize flex-col overflow-hidden rounded-xl border border-line bg-surface"
       >
         <ModalHeader
           lang={lang}
           title={t(lang, titleKey)}
           titleId={TITLE_ID}
-          onClose={noop}
+          // The create (wizard) view can be closed via the ✕ — it returns to the
+          // choices screen. The choices screen itself has no project to fall back
+          // to, so it stays non-dismissable (no ✕) and shows the brand logo.
+          onClose={view === "create" ? handleBackToChoices : noop}
+          hideClose={view === "choices"}
+          headerExtra={<ResetSizeButton onClick={resetSize} lang={lang} />}
+          logo={
+            view === "choices" ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src="/AIPM-logo.svg" alt="Acme" className="h-7 w-auto" />
+            ) : undefined
+          }
         />
 
-        <div className="overflow-y-auto p-6">
+        <div className="min-h-0 flex-1 overflow-y-auto p-6">
           {view === "choices" ? (
             <div className="flex flex-col gap-6">
               <p className="text-sm text-muted-foreground">
@@ -121,6 +149,32 @@ export function ProjectEmptyState({
                   </button>
                 )}
               </div>
+
+              {/* Backend setup — configure storage / integrations before there
+                  is any project to fall back to. */}
+              <div className="border-t border-line pt-4">
+                <h3 className="mb-2 text-sm font-semibold text-foreground">
+                  {t(lang, "backendSetup")}
+                </h3>
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setConfigModal("turso")}
+                    title={t(lang, "emptyStateConfigTursoTip")}
+                    className={SECONDARY_BUTTON_CLASS}
+                  >
+                    {t(lang, "storageOptionConfigure")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfigModal("m365")}
+                    title={t(lang, "emptyStateConfigM365Tip")}
+                    className={SECONDARY_BUTTON_CLASS}
+                  >
+                    {t(lang, "emptyStateConfigM365")}
+                  </button>
+                </div>
+              </div>
             </div>
           ) : (
             <CreateProjectWizard
@@ -128,13 +182,32 @@ export function ProjectEmptyState({
               stakeholderNames={stakeholderNames}
               addressBook={addressBook}
               resources={resources}
+              settings={settings}
+              onChangeSettings={onChangeSettings}
               onCreate={handleCreate}
               onCancel={handleBackToChoices}
               hideFormat={mode === "turso"}
             />
           )}
         </div>
+
+        <ResizeCornerHint lang={lang} />
       </div>
+
+      {configModal !== null && (
+        <BackendConfigModal
+          lang={lang}
+          title={t(
+            lang,
+            configModal === "turso"
+              ? "storageOptionConfigure"
+              : "emptyStateConfigM365",
+          )}
+          settings={settings}
+          onChangeSettings={onChangeSettings}
+          onClose={() => setConfigModal(null)}
+        />
+      )}
     </Modal>
   );
 }

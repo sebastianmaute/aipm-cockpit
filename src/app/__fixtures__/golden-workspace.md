@@ -159,7 +159,8 @@
 - salesforceUrl: https://example.salesforce.com/opportunity/cip-2026
 - sharepointUrl: https://example.sharepoint.com/sites/cip-2026
 - confluenceUrl: https://example.atlassian.net/wiki/spaces/CIP
-- contactPersons: David Okoro;david.okoro@northwind.example;0
+- jiraUrl: https://example.atlassian.net/browse/CIP
+- contactPersons: David Okoro;david.okoro@northwind.example;0|Alex Example;Sample.Dummy@example.com;0
 - docRepoLocation: https://example.sharepoint.com/sites/cip-2026/Shared Documents
 - regulatory: GDPR / data protection regulation|NIS2
 - notes: Generated sample project for the multi-tenant Turso demo database.

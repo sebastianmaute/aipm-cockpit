@@ -69,7 +69,7 @@ import { DEFAULT_VERSION_RETENTION } from "./version-history";
 import { workspaceToJson, type Workspace } from "./workspace";
 import { computeDashboard } from "./dashboard";
 import { getTursoConfig } from "./turso-config";
-import { defaultExportConfig, defaultSnapshotSettings } from "./settings-types";
+import { defaultExportConfig, defaultSnapshotSettings, type Settings } from "./settings-types";
 import { TaskEditView, TASK_EDIT_FORM_ID } from "./task-edit-view";
 import { APP_VERSION_LABEL } from "./version";
 import { ActionMenus } from "./action-menus";
@@ -1250,6 +1250,8 @@ function TaskManagerInner() {
     projectStakeholderNames: stakeholders.map((s) => s.name),
     projectAddressBook: contactsList,
     projectResources: resources,
+    projectSettings: settings,
+    onChangeProjectSettings: (next: Settings) => setSettings(() => next),
     onSwitchProject: handleSwitchProjectByMode,
     onCreateProject: handleCreateProjectByMode,
     onUpdateCurrentProject: handleUpdateCurrentProjectByMode,
@@ -1703,6 +1705,8 @@ function TaskManagerInner() {
                 stakeholderNames={stakeholders.map((s) => s.name)}
                 addressBook={contactsList}
                 resources={resources}
+                settings={settings}
+                onChangeSettings={(next) => setSettings(() => next)}
                 onCreate={handleCreateProjectByMode}
                 onLoadFromFile={() => { void loadProjectFromFile(); }}
               />

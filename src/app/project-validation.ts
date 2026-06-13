@@ -41,6 +41,7 @@ export type ProjectDraft = {
   salesforceUrl: string;
   sharepointUrl: string;
   confluenceUrl: string;
+  jiraUrl: string;
 };
 
 // ---------------------------------------------------------------------------
@@ -59,12 +60,14 @@ export type ProjectErrorField =
   | "deployment"
   | "keyStakeholdersInternal"
   | "keyStakeholdersExternal"
+  | "contactPersons"
   | "regulatory"
   | "startDate"
   | "endDate"
   | "salesforceUrl"
   | "sharepointUrl"
-  | "confluenceUrl";
+  | "confluenceUrl"
+  | "jiraUrl";
 
 /** i18n message keys used for inline project-meta form errors. */
 export type ProjectErrorKey =
@@ -78,6 +81,7 @@ export type ProjectErrorKey =
   | "errorDeploymentRequired"
   | "errorStakeholdersInternalRequired"
   | "errorStakeholdersExternalRequired"
+  | "errorContactsRequired"
   | "errorRegulatoryRequired"
   | "errorStartDateRequired"
   | "errorEndDateRequired"
@@ -121,11 +125,10 @@ export function validateProjectMeta(draft: ProjectDraft): ProjectFieldErrors {
   if (!draft.naceSection.trim()) errors.naceSection = "errorNaceRequired";
   if (!draft.deployment.trim()) errors.deployment = "errorDeploymentRequired";
 
-  // Required non-empty arrays.
-  if (draft.keyStakeholdersInternal.length === 0)
-    errors.keyStakeholdersInternal = "errorStakeholdersInternalRequired";
-  if (draft.keyStakeholdersExternal.length === 0)
-    errors.keyStakeholdersExternal = "errorStakeholdersExternalRequired";
+  // Required non-empty arrays. Key stakeholders (internal/external) are now
+  // OPTIONAL; at least one contact person is mandatory instead.
+  if (draft.contactPersons.length === 0)
+    errors.contactPersons = "errorContactsRequired";
   if (draft.regulatory.length === 0)
     errors.regulatory = "errorRegulatoryRequired";
 
@@ -136,9 +139,8 @@ export function validateProjectMeta(draft: ProjectDraft): ProjectFieldErrors {
   if (!startDate) {
     errors.startDate = "errorStartDateRequired";
   }
-  if (!endDate) {
-    errors.endDate = "errorEndDateRequired";
-  } else if (startDate && endDate < startDate) {
+  // End date is optional; when present it must not precede the start date.
+  if (endDate && startDate && endDate < startDate) {
     errors.endDate = "errorEndBeforeStart";
   }
 
@@ -149,6 +151,8 @@ export function validateProjectMeta(draft: ProjectDraft): ProjectFieldErrors {
     errors.sharepointUrl = "errorInvalidUrl";
   if (draft.confluenceUrl && !isLikelyUrl(draft.confluenceUrl))
     errors.confluenceUrl = "errorInvalidUrl";
+  if (draft.jiraUrl && !isLikelyUrl(draft.jiraUrl))
+    errors.jiraUrl = "errorInvalidUrl";
 
   return errors;
 }

@@ -4,6 +4,7 @@ import { ProjectEmptyState } from "./project-empty-state";
 import { type Contact } from "./contacts";
 import { type ProjectMeta } from "./types";
 import { type NewProjectOpts } from "./new-project-workspace";
+import { defaultSettings } from "./settings-types";
 
 const STAKEHOLDERS = ["Alice Smith", "Bob Jones"];
 const ADDRESS_BOOK: Contact[] = [
@@ -20,6 +21,8 @@ function setup(overrides: Partial<React.ComponentProps<typeof ProjectEmptyState>
       stakeholderNames={STAKEHOLDERS}
       addressBook={ADDRESS_BOOK}
       resources={[]}
+      settings={defaultSettings}
+      onChangeSettings={vi.fn()}
       onCreate={onCreate}
       onLoadFromFile={onLoadFromFile}
       {...overrides}
@@ -60,6 +63,11 @@ function fillRequired() {
   setText("End date", "2026-06-01");
   setText("Profit center", "PC-9");
   fireEvent.click(screen.getByLabelText("GDPR / data protection regulation"));
+  // Contacts are now mandatory (≥1): add one manual contact.
+  fireEvent.change(screen.getByPlaceholderText("Add manually"), {
+    target: { value: "Pat Contact" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Add" }));
 }
 
 describe("ProjectEmptyState", () => {
@@ -71,6 +79,31 @@ describe("ProjectEmptyState", () => {
     expect(
       screen.getByRole("button", { name: /load from an existing file/i }),
     ).toBeInTheDocument();
+  });
+
+  it("renders no close (✕) button — the empty state is non-dismissable", () => {
+    setup();
+    expect(screen.queryByLabelText(/close/i)).toBeNull();
+  });
+
+  it("offers backend-config buttons for Turso and M365", () => {
+    setup();
+    expect(
+      screen.getByRole("button", { name: /configure the turso backend/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /configure m365 integration/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("opens the backend-config modal when a backend button is clicked", () => {
+    setup();
+    // The empty state itself is one dialog; the config modal is a second.
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
+    fireEvent.click(
+      screen.getByRole("button", { name: /configure the turso backend/i }),
+    );
+    expect(screen.getAllByRole("dialog")).toHaveLength(2);
   });
 
   it("calls onLoadFromFile when the Load button is clicked", () => {
@@ -146,9 +179,9 @@ describe("ProjectEmptyState", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /create a new project/i }));
 
-    // Change format to csv before filling (select is labelled "File format").
+    // Change format to csv before filling (select is labelled "Storage").
     fireEvent.change(
-      screen.getByRole("combobox", { name: /file format/i }),
+      screen.getByRole("combobox", { name: /storage/i }),
       { target: { value: "csv" } },
     );
 

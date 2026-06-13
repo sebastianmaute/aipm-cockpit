@@ -724,7 +724,7 @@ export const PROJECT_CSV_COLUMNS: Array<keyof ProjectMeta> = [
   "sponsor", "projectManager", "keyStakeholdersInternal", "keyStakeholdersExternal",
   "customer", "naceSection", "identityTypes", "identityCount",
   "products", "platform", "deployment", "startDate", "endDate",
-  "profitCenter", "quotes", "salesforceUrl", "sharepointUrl", "confluenceUrl",
+  "profitCenter", "quotes", "salesforceUrl", "sharepointUrl", "confluenceUrl", "jiraUrl",
   "contactPersons", "docRepoLocation", "regulatory", "notes",
   "documentLinks",
 ];
@@ -908,6 +908,7 @@ function decodeProjectObj(obj: Record<string, string>): Record<string, unknown> 
     salesforceUrl: scalar("salesforceUrl"),
     sharepointUrl: scalar("sharepointUrl"),
     confluenceUrl: scalar("confluenceUrl"),
+    jiraUrl: scalar("jiraUrl"),
     contactPersons: decodeContactPersons(obj.contactPersons ?? ""),
     docRepoLocation: scalar("docRepoLocation"),
     regulatory: decodeProjectList(obj.regulatory ?? ""),
