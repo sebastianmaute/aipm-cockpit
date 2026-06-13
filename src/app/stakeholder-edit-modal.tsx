@@ -151,8 +151,8 @@ export function StakeholderEditModal({
         >
           {/* Name */}
           <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-            <span className="font-medium text-foreground">
-              {t(lang, "stakeholderFieldName")} *
+            <span className="flex items-center gap-1 font-medium text-foreground">
+              {t(lang, "stakeholderFieldName")} *<InfoTooltip text={t(lang, "stakeholderFieldNameHint")} />
             </span>
             <ResourcePicker
               lang={lang}

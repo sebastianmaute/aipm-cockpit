@@ -139,6 +139,10 @@ describe("StakeholderEditModal — field tooltips", () => {
     setup();
     expect(screen.getByRole("button", { name: t("en-US", "stakeholderFieldOrganizationHint") })).toBeInTheDocument();
   });
+  it("renders an InfoTooltip for the Name field (accessible by hint text as aria-label)", () => {
+    setup();
+    expect(screen.getByRole("button", { name: t("en-US", "stakeholderFieldNameHint") })).toBeInTheDocument();
+  });
 });
 
 describe("StakeholderEditModal — field visibility", () => {
