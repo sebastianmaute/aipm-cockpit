@@ -149,6 +149,7 @@
 - naceSection: G
 - identityTypes: B2C|B2B
 - identityCount: 500000
+- stakeholderCount: 5
 - products: SSO, MFA, Customer Directory
 - platform: Azure AD B2C
 - deployment: Cloud

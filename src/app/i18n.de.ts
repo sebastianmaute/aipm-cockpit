@@ -463,6 +463,8 @@ export const de: Record<TranslationKey, string> = {
   suggestSignalDuration: "{0}-Monats-Laufzeit",
   suggestSignalScale: "große Nutzerbasis",
   suggestSignalLimited: "wenig Infos — einfach starten",
+  suggestBasedOn: "Basierend auf",
+  none: "Keine",
 
   exportTitle: "Aufgaben exportieren",
   exportSubtitle:
@@ -1642,6 +1644,7 @@ export const de: Record<TranslationKey, string> = {
   projectNaceSection: "NACE-Abschnitt",
   projectIdentityTypes: "Identitätstypen",
   projectIdentityCount: "Identitätsanzahl",
+  projectStakeholderCount: "Anzahl Stakeholder",
   projectProducts: "Produkte",
   projectPlatform: "Plattform",
   projectDeployment: "Deployment",
@@ -1666,7 +1669,8 @@ export const de: Record<TranslationKey, string> = {
   tipStakeholdersExternal: "Externe Stakeholder - Name eingeben, Enter drücken",
   tipStartDate: "Geplanter Projektstart",
   tipEndDate: "Geplantes Ende (optional)",
-  tipIdentityCount: "Ungefähre Anzahl Identitäten; Schritt wählen oder Zahl eingeben",
+  tipIdentityCount: "Ungefähre Anzahl Identitäten; Schritt wählen",
+  tipStakeholderCount: "Ungefähre Anzahl beteiligter Stakeholder (beliebige Ganzzahl)",
   tipDeployment: "Hosting-Modell der Lösung",
   tipProducts: "Produkte im Umfang",
   tipProfitCenter: "Profitcenter für die Abrechnung",

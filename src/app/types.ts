@@ -569,6 +569,7 @@ export type ProjectMeta = {
   naceSection: string;            // NACE section letter, e.g. "C"
   identityTypes: IdentityType[];
   identityCount?: number;
+  stakeholderCount?: number;       // 0.74: replaces internal/external key-stakeholder lists in the form
   products: string;
   platform?: string;
   deployment: Deployment;

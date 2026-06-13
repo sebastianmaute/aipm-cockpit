@@ -154,6 +154,7 @@ const PROJECT_FIELD_I18N_KEYS: Readonly<Record<keyof ProjectMeta, TranslationKey
   naceSection:               "projectNaceSection",
   identityTypes:             "projectIdentityTypes",
   identityCount:             "projectIdentityCount",
+  stakeholderCount:          "projectStakeholderCount",
   products:                  "projectProducts",
   platform:                  "projectPlatform",
   deployment:                "projectDeployment",

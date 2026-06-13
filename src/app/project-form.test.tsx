@@ -62,13 +62,6 @@ function saveButton(): HTMLButtonElement {
   return screen.getByRole("button", { name: "New project" }) as HTMLButtonElement;
 }
 
-/** Type a name into a StakeholderRecipientInput (by id) and press Enter. */
-function addStakeholder(inputId: string, name: string) {
-  const input = document.getElementById(inputId) as HTMLInputElement;
-  fireEvent.change(input, { target: { value: name } });
-  fireEvent.keyDown(input, { key: "Enter" });
-}
-
 function setText(label: string, value: string) {
   fireEvent.change(screen.getByLabelText(label, { exact: false }), {
     target: { value },
@@ -80,8 +73,6 @@ function fillRequired() {
   setText("Project name", "Apollo");
   setText("Project code", "APL-1");
   setText("Project manager", "Dana PM");
-  addStakeholder("keyStakeholdersInternal", "Alice Smith");
-  addStakeholder("keyStakeholdersExternal", "Ext Person");
   setText("Customer", "ACME Corp");
   fireEvent.change(screen.getByLabelText("NACE section", { exact: false }), {
     target: { value: "C" },
@@ -124,8 +115,8 @@ describe("ProjectForm", () => {
     expect(meta.name).toBe("Apollo");
     expect(meta.deployment).toBe("Cloud");
     expect(meta.regulatory).toEqual(["GDPR / data protection regulation"]);
-    expect(meta.keyStakeholdersInternal).toEqual(["Alice Smith"]);
-    expect(meta.keyStakeholdersExternal).toEqual(["Ext Person"]);
+    expect(meta.keyStakeholdersInternal).toEqual([]);
+    expect(meta.keyStakeholdersExternal).toEqual([]);
     expect(meta.naceSection).toBe("C");
   });
 

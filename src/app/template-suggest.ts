@@ -10,7 +10,7 @@ export interface TemplateSuggestion { templateId: string; tier: SuggestTier; rea
 const DEPLOYMENT_POINTS: Record<ProjectMeta["deployment"], number> = { Cloud: 0, "On-premise": 1, Hybrid: 2 };
 const TEAM_MID = 3, TEAM_LARGE = 8;
 const DURATION_MID_MONTHS = 3, DURATION_LARGE_MONTHS = 12;
-const SCALE_THRESHOLD = 1000;
+const SCALE_MID = 1000, SCALE_LARGE = 50000, SCALE_HUGE = 5000000;
 const TIER_MODULAR_MIN = 2, TIER_ADVANCED_MIN = 5;
 const TIER_RANK: Record<SuggestTier, number> = { simple: 0, modular: 1, advanced: 2 };
 
@@ -27,9 +27,12 @@ export function complexityScore(meta: ProjectMeta): { score: number; reasons: Su
   const reasons: SuggestReason[] = [];
   let score = 0;
 
+  // 0.74: the form captures a single stakeholder count; fall back to the legacy
+  // internal/external lists for projects created before the change.
   const team =
-    (meta.keyStakeholdersInternal?.length ?? 0) +
-    (meta.keyStakeholdersExternal?.length ?? 0);
+    meta.stakeholderCount ??
+    ((meta.keyStakeholdersInternal?.length ?? 0) +
+      (meta.keyStakeholdersExternal?.length ?? 0));
   if (team >= TEAM_LARGE) { score += 2; reasons.push({ key: "suggestSignalTeam", args: [team] }); }
   else if (team >= TEAM_MID) { score += 1; reasons.push({ key: "suggestSignalTeam", args: [team] }); }
 
@@ -43,7 +46,10 @@ export function complexityScore(meta: ProjectMeta): { score: number; reasons: Su
   if (months > DURATION_LARGE_MONTHS) { score += 2; reasons.push({ key: "suggestSignalDuration", args: [months] }); }
   else if (months >= DURATION_MID_MONTHS) { score += 1; reasons.push({ key: "suggestSignalDuration", args: [months] }); }
 
-  if ((meta.identityCount ?? 0) >= SCALE_THRESHOLD) { score += 1; reasons.push({ key: "suggestSignalScale" }); }
+  const idCount = meta.identityCount ?? 0;
+  if (idCount >= SCALE_HUGE) { score += 3; reasons.push({ key: "suggestSignalScale" }); }
+  else if (idCount >= SCALE_LARGE) { score += 2; reasons.push({ key: "suggestSignalScale" }); }
+  else if (idCount >= SCALE_MID) { score += 1; reasons.push({ key: "suggestSignalScale" }); }
 
   return { score, reasons };
 }

@@ -722,7 +722,7 @@ export function csvToFeatures(text: string): FeatureModuleId[] | undefined {
 export const PROJECT_CSV_COLUMNS: Array<keyof ProjectMeta> = [
   "name", "code", "description",
   "sponsor", "projectManager", "keyStakeholdersInternal", "keyStakeholdersExternal",
-  "customer", "naceSection", "identityTypes", "identityCount",
+  "customer", "naceSection", "identityTypes", "identityCount", "stakeholderCount",
   "products", "platform", "deployment", "startDate", "endDate",
   "profitCenter", "quotes", "salesforceUrl", "sharepointUrl", "confluenceUrl", "jiraUrl",
   "contactPersons", "docRepoLocation", "regulatory", "notes",
@@ -897,6 +897,9 @@ function decodeProjectObj(obj: Record<string, string>): Record<string, unknown> 
     identityTypes: decodeProjectList(obj.identityTypes ?? ""),
     identityCount: obj.identityCount !== undefined && obj.identityCount !== ""
       ? obj.identityCount
+      : undefined,
+    stakeholderCount: obj.stakeholderCount !== undefined && obj.stakeholderCount !== ""
+      ? obj.stakeholderCount
       : undefined,
     products: scalar("products"),
     platform: scalar("platform"),

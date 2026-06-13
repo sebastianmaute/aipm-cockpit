@@ -43,8 +43,9 @@ function setup(
 /** Overrides for the complexity-driving Step-1 fields so a test can steer the
  *  resulting suggestTemplate tier (sparse → Minimal, heavy → Full delivery). */
 interface Step1Overrides {
-  /** Extra internal stakeholders to add beyond the default Alice Smith. */
-  internalStakeholders?: string[];
+  /** Number-of-stakeholders value (drives the team-size complexity signal).
+   *  Defaults to 2 (the prior Alice + Ext baseline = no team points). */
+  stakeholderCount?: number;
   deployment?: "Cloud" | "On-premise" | "Hybrid";
   /** Regulatory checkbox label to tick (default GDPR). "Not applicable" =
    *  unregulated. */
@@ -60,19 +61,10 @@ function fillRequired(overrides: Step1Overrides = {}) {
       target: { value },
     });
   }
-  function addStakeholder(inputId: string, name: string) {
-    const input = document.getElementById(inputId) as HTMLInputElement;
-    fireEvent.change(input, { target: { value: name } });
-    fireEvent.keyDown(input, { key: "Enter" });
-  }
   setText("Project name", "WizardProj");
   setText("Project code", "WZ-1");
   setText("Project manager", "Dana PM");
-  addStakeholder("keyStakeholdersInternal", "Alice Smith");
-  for (const name of overrides.internalStakeholders ?? []) {
-    addStakeholder("keyStakeholdersInternal", name);
-  }
-  addStakeholder("keyStakeholdersExternal", "Ext Person");
+  setText("Number of stakeholders", String(overrides.stakeholderCount ?? 2));
   setText("Customer", "ACME Corp");
   fireEvent.change(screen.getByLabelText("NACE section", { exact: false }), {
     target: { value: "C" },
@@ -246,7 +238,7 @@ describe("CreateProjectWizard", () => {
     // deployment (+2), DORA regulatory (+1), >12-month timeline (+2) → score 7
     // → advanced tier → builtin-full "Full delivery".
     completeStep1({
-      internalStakeholders: ["B", "C", "D", "E", "F", "G", "H"],
+      stakeholderCount: 9,
       deployment: "Hybrid",
       regulatoryLabel: "DORA",
       startDate: "2026-01-01",

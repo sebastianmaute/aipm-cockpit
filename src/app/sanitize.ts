@@ -1176,6 +1176,12 @@ export function sanitizeProjectMeta(
     if (Number.isFinite(n) && n >= 0) meta.identityCount = Math.floor(n);
   }
 
+  // Optional stakeholderCount — coerce, require finite >= 0, floor.
+  if (o.stakeholderCount !== undefined && o.stakeholderCount !== null && o.stakeholderCount !== "") {
+    const n = toNumber(o.stakeholderCount);
+    if (Number.isFinite(n) && n >= 0) meta.stakeholderCount = Math.floor(n);
+  }
+
   // Optional documentLinks — pass through sanitized array (empty → omit).
   const dl = sanitizeDocumentLinks((input as Record<string, unknown>).documentLinks);
   if (dl.length) meta.documentLinks = dl;

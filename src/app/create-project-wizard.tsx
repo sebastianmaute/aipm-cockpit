@@ -217,6 +217,7 @@ export function CreateProjectWizard({
           <div className="flex flex-col gap-4 pb-2">
             {suggestion && (
               <p className="mb-2 text-xs text-muted-foreground">
+                {t(lang, "suggestBasedOn")}{" "}
                 {suggestion.reasons
                   .map((r) => t(lang, r.key, ...(r.args ?? [])))
                   .join(" · ")}
@@ -238,6 +239,9 @@ export function CreateProjectWizard({
                 <span className="font-medium text-foreground">
                   {t(lang, "wizardBlankTemplate")}
                 </span>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {t(lang, "wizardIncludeContent")}: {t(lang, "none")}
+                </p>
               </button>
 
               {templates.map((tpl) => {

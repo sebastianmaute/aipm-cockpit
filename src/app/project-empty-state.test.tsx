@@ -40,17 +40,9 @@ function fillRequired() {
     });
   }
 
-  function addStakeholder(inputId: string, name: string) {
-    const input = document.getElementById(inputId) as HTMLInputElement;
-    fireEvent.change(input, { target: { value: name } });
-    fireEvent.keyDown(input, { key: "Enter" });
-  }
-
   setText("Project name", "Apollo");
   setText("Project code", "APL-1");
   setText("Project manager", "Dana PM");
-  addStakeholder("keyStakeholdersInternal", "Alice Smith");
-  addStakeholder("keyStakeholdersExternal", "Ext Person");
   setText("Customer", "ACME Corp");
   fireEvent.change(screen.getByLabelText("NACE section", { exact: false }), {
     target: { value: "C" },

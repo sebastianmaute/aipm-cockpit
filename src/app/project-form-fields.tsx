@@ -26,7 +26,6 @@ import {
 } from "./project-options";
 import { NACE_SECTIONS } from "./nace-sections";
 import { type ProjectDraft, type ProjectErrorField } from "./project-validation";
-import { StakeholderRecipientInput } from "./stakeholder-recipient-input";
 import { ResourcePicker } from "./resource-picker";
 import { type Contact } from "./contacts";
 import {
@@ -45,6 +44,7 @@ import {
 export type ProjectFormDraft = ProjectDraft & {
   description: string;
   sponsor: string;
+  stakeholderCount: string;
   identityCount: string;
   platform: string;
   quotes: string;
@@ -66,6 +66,7 @@ export function emptyProjectDraft(): ProjectFormDraft {
     customer: "",
     naceSection: "",
     identityTypes: [],
+    stakeholderCount: "",
     identityCount: "",
     products: "",
     platform: "",
@@ -388,7 +389,6 @@ export function OptionalDetailsFields({
   errorFor,
   markTouched,
   lang,
-  stakeholderNames,
 }: ProjectFieldsProps) {
   const toggleIdentityType = (type: IdentityType) =>
     setDraft((p) => ({
@@ -444,19 +444,19 @@ export function OptionalDetailsFields({
       </Field>
 
       <Field lang={lang} label={t(lang,"projectIdentityCount")} tooltip={t(lang, "tipIdentityCount")}>
-        <input
-          type="number"
-          min={0}
+        {/* Only the predefined steps are accepted — no free entry, no by-1 stepper. */}
+        <select
           value={draft.identityCount}
-          list="identity-count-steps"
           onChange={(e) => setDraft((p) => ({ ...p, identityCount: e.target.value }))}
           className={inputClass}
-        />
-        <datalist id="identity-count-steps">
+        >
+          <option value="">—</option>
           {IDENTITY_COUNT_STEPS.map((n) => (
-            <option key={n} value={n} />
+            <option key={n} value={n}>
+              {n.toLocaleString("en-US")}
+            </option>
           ))}
-        </datalist>
+        </select>
       </Field>
 
       <Field lang={lang} label={t(lang,"projectEndDate")} tooltip={t(lang, "tipEndDate")}>
@@ -537,25 +537,16 @@ export function OptionalDetailsFields({
         <FieldError id="jiraUrl-error">{errorFor("jiraUrl")}</FieldError>
       </Field>
 
-      <div className="sm:col-span-2">
-        <StakeholderRecipientInput
-          id="keyStakeholdersInternal"
-          label={t(lang, "projectStakeholdersInternal")}
-          value={draft.keyStakeholdersInternal}
-          suggestions={stakeholderNames}
-          onChange={(next) => setDraft((p) => ({ ...p, keyStakeholdersInternal: next }))}
+      <Field lang={lang} label={t(lang, "projectStakeholderCount")} tooltip={t(lang, "tipStakeholderCount")}>
+        <input
+          type="number"
+          min={0}
+          step={1}
+          value={draft.stakeholderCount}
+          onChange={(e) => setDraft((p) => ({ ...p, stakeholderCount: e.target.value }))}
+          className={inputClass}
         />
-      </div>
-
-      <div className="sm:col-span-2">
-        <StakeholderRecipientInput
-          id="keyStakeholdersExternal"
-          label={t(lang, "projectStakeholdersExternal")}
-          value={draft.keyStakeholdersExternal}
-          suggestions={stakeholderNames}
-          onChange={(next) => setDraft((p) => ({ ...p, keyStakeholdersExternal: next }))}
-        />
-      </div>
+      </Field>
 
       <Field lang={lang} label={t(lang,"projectDocRepo")} className="sm:col-span-2">
         <input
