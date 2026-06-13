@@ -1,5 +1,6 @@
-import { act, renderHook } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { act, renderHook, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { __resetSafeModeCache } from "./safe-mode";
 import { ALL_MODULE_IDS } from "./feature-modules";
 import { defaultSettings } from "./settings-types";
 import { defaultNotificationsConfig } from "./settings-types";
@@ -688,5 +689,31 @@ describe("writeSettings — localStorage quota guard", () => {
     } finally {
       spy.mockRestore();
     }
+  });
+});
+
+describe("useSettings — safe mode", () => {
+  beforeEach(() => {
+    __resetSafeModeCache();
+    window.history.replaceState({}, "", "/");
+    window.localStorage.clear();
+  });
+  afterEach(() => {
+    __resetSafeModeCache();
+    window.history.replaceState({}, "", "/");
+    window.localStorage.clear();
+  });
+
+  it("boots defaults and does NOT read or write SETTINGS_KEY in safe mode", async () => {
+    const stored = JSON.stringify({ ...defaultSettings, language: "de" });
+    window.localStorage.setItem(SETTINGS_KEY, stored);
+    __resetSafeModeCache();
+    window.history.replaceState({}, "", "/?safe=1");
+
+    const { result } = renderHook(() => useSettings());
+    await waitFor(() => expect(result.current.hydrated).toBe(true));
+
+    expect(result.current.settings.language).toBe(defaultSettings.language);
+    expect(window.localStorage.getItem(SETTINGS_KEY)).toBe(stored);
   });
 });
