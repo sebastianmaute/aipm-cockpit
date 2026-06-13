@@ -748,17 +748,19 @@ export function RaidEditModal({
           )}
 
           <div className="flex justify-between gap-2 sm:col-span-2">
-            <button
-              type="button"
-              onClick={() => {
-                if (window.confirm(t(lang, "raidConfirmDelete"))) onDelete();
-              }}
-              disabled={isNew}
-              title={t(lang, "raidFieldDeleteHint")}
-              className="rounded-md border border-AIPM-pink/40 bg-surface px-3 py-2 text-sm font-medium text-AIPM-pink hover:bg-AIPM-pink/10 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {t(lang, "raidDelete")}
-            </button>
+            <span className="inline-flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => {
+                  if (window.confirm(t(lang, "raidConfirmDelete"))) onDelete();
+                }}
+                disabled={isNew}
+                className="rounded-md border border-AIPM-pink/40 bg-surface px-3 py-2 text-sm font-medium text-AIPM-pink hover:bg-AIPM-pink/10 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {t(lang, "raidDelete")}
+              </button>
+              <InfoTooltip text={t(lang, "raidFieldDeleteHint")} />
+            </span>
             <div className="flex gap-2">
               <button
                 type="button"

@@ -90,6 +90,15 @@ describe("RaidEditModal InfoTooltip hints", () => {
     const input = screen.getByPlaceholderText(t("en-US", "raidPlaceholderTitle"));
     expect(input.getAttribute("title")).toBeNull();
   });
+
+  it("Delete hint is an InfoTooltip, and the Delete button carries no native title", () => {
+    render(modalEl(), { wrapper });
+    // The hint now renders as an InfoTooltip span[role=button]…
+    expect(screen.getByRole("button", { name: t("en-US", "raidFieldDeleteHint") })).toBeTruthy();
+    // …and the Delete action button itself no longer has a native title attribute.
+    const del = screen.getByRole("button", { name: t("en-US", "raidDelete") });
+    expect(del.getAttribute("title")).toBeNull();
+  });
 });
 
 describe("RaidEditModal field visibility", () => {
