@@ -29,19 +29,22 @@ type ActionTier = "now" | "soon" | "monitor";
 
 interface I18nText { key: TranslationKey; params?: (string | number)[]; }
 
+// AS BUILT (SP1): a flat descriptor. `open` carries view+id directly (no nested
+// `target`). A one-click `mark-reviewed`/quick-win op is DEFERRED to SP3 (when
+// the snooze store + one-click ops land); the `quickWin` score weight is
+// reserved-but-unused in SP1.
 type ActionCta =
-  | { kind: "open"; target: { view: AppView; id: string | number } } // deep-link to the entity
-  | { kind: "snooze"; actionId: string }                              // dismiss/snooze this action
-  | { kind: "mark-reviewed"; raidId: string };                        // one-click op (engine describes; surface executes)
+  | { kind: "open"; view: AppView; id: string | number } // deep-link to the entity
+  | { kind: "snooze"; actionId: string };                // dismiss/snooze this action (wired in SP3)
 
 interface SuggestedAction {
-  id: string;             // STABLE: `${source}:${entityId}:${reason}` e.g. "raid-review:R-12:overdue"
+  id: string;             // STABLE: `${source}:${entityId}:${reason}` e.g. "raid:R-12:overdue"
   source: ActionSource;   // "task-due" | "raid" | "change-pending" | "milestone" | "budget" | "stakeholder-comms"
-  moduleId: FeatureModuleId;
+  moduleId?: FeatureModuleId; // OPTIONAL — undefined = always-on/core (e.g. task-due has no gate)
   title: I18nText;        // i18n key + params — surface translates (engine is i18n-free)
   why: I18nText;          // the triggering signal + reason
   score: number;          // integer, for ranking
-  tier: ActionTier;       // banded from score
+  tier: ActionTier;       // banded from score (engine re-bands from score — single source of truth)
   cta: ActionCta;         // a DESCRIPTOR, not a function — SP2 executes it
 }
 ```
@@ -52,22 +55,27 @@ interface SuggestedAction {
 ### Provider registry
 ```ts
 interface ActionProvider {
-  moduleId: FeatureModuleId;                  // gate: skipped if the module is disabled
+  moduleId?: FeatureModuleId;                 // OPTIONAL gate: skipped if set and the module is disabled; absent = always run
   provide(input: ActionInput): SuggestedAction[];
 }
 ```
-`computeNextActions(input)` runs only providers whose `moduleId` is enabled in `input.features`, concatenates results, **dedups by `id`** (first wins), sorts by `score` desc with a stable tiebreak (`id` asc), and returns the list (each already carrying its banded `tier`).
+Providers that DO set `moduleId` (raid/change-pending/milestone/budget/stakeholder-comms) also stamp it on each emitted action for SP2's convenience; the core `task-due` provider has no gate. `computeNextActions(input, providers)` runs only providers whose `moduleId` (if any) is enabled in `input.features`, concatenates results, **dedups by `id`** (first wins), drops `dismissed` ids, sorts by `score` desc with a stable tiebreak (`id` asc), and **re-bands each action's `tier` from its `score`** (the engine is the single source of truth for tier). The real provider array is assembled in `next-actions/index.ts`.
 
-`ActionInput` is the read-only slice the providers need:
+`ActionInput` AS BUILT (the read-only slice the providers need — the surface assembles it in SP2):
 ```ts
 interface ActionInput {
-  tasks; raid; changes; milestones; budgets; stakeholders; plan; resources; absences; status;
+  tasks; raid; changes; milestones; stakeholders;     // entity lists
   dashboard: DashboardModel;          // the EXISTING computed model (RAGs, EVM SPI/CPI) — reused, not recomputed
-  features: FeatureModuleId[];
-  holidaySet; today: string; now: Date;
+  commsReminders: readonly StakeholderCommsReminder[]; // PRE-COMPUTED by the surface (needs the settings comms policy) — mirrors how `dashboard` is passed in
+  features: readonly FeatureModuleId[];
+  projectName: string;                // for the budget action title
+  today: string; now: Date;
+  reminderLeadDays; dueSoonWorkdays; raidReviewIntervalDays: number; // thresholds the providers pass through to the existing signal fns
   dismissed: ReadonlySet<string>;     // snoozed/dismissed action ids — INJECTED (engine stays pure; SP3 wires the store)
 }
 ```
+> SP1 simplification (spec-approved): `getAlertableTasks`/`partitionMilestones` are called with an empty holiday/absence set — `ActionInput` carries no `holidaySet`/`absences` yet. SP3 must add them before supplanting the due-alerts banner so the action classification matches the banner exactly.
+
 `computeNextActions` filters out any action whose `id` is in `dismissed`.
 
 ### SP1 core providers (granularity rule: per-item for individually-actionable; aggregate for threshold signals)
