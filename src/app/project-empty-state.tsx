@@ -111,9 +111,18 @@ export function ProjectEmptyState({
           lang={lang}
           title={t(lang, titleKey)}
           titleId={TITLE_ID}
-          onClose={noop}
-          hideClose
+          // The create (wizard) view can be closed via the ✕ — it returns to the
+          // choices screen. The choices screen itself has no project to fall back
+          // to, so it stays non-dismissable (no ✕) and shows the brand logo.
+          onClose={view === "create" ? handleBackToChoices : noop}
+          hideClose={view === "choices"}
           headerExtra={<ResetSizeButton onClick={resetSize} lang={lang} />}
+          logo={
+            view === "choices" ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src="/AIPM-logo.svg" alt="Acme" className="h-7 w-auto" />
+            ) : undefined
+          }
         />
 
         <div className="min-h-0 flex-1 overflow-y-auto p-6">

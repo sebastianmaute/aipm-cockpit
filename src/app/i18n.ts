@@ -1763,6 +1763,7 @@ const enUS = {
 
   // Contact picker
   contactAddManual: "Add manually",
+  infoMore: "More information",
   contactPersonsTip:
     "How to add a contact: in “Add manually” pick a team member or saved contact to link them, or type a new name for someone outside your directory; use the email field to record an address for a typed-in (external) contact; click Add to put them on the list. At least one contact is required.",
   contactAddManualHint:

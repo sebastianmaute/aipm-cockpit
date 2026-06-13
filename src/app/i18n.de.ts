@@ -1781,6 +1781,7 @@ export const de: Record<TranslationKey, string> = {
 
   // Contact picker
   contactAddManual: "Manuell hinzufügen",
+  infoMore: "Weitere Informationen",
   contactPersonsTip:
     "Kontakt hinzufügen: unter „Manuell hinzufügen“ ein Teammitglied oder einen gespeicherten Kontakt wählen, um ihn zu verknüpfen, oder einen neuen Namen für eine Person außerhalb Ihres Verzeichnisses eingeben; im E-Mail-Feld eine Adresse für einen manuell eingegebenen (externen) Kontakt hinterlegen; mit Hinzufügen zur Liste hinzufügen. Mindestens ein Kontakt ist erforderlich.",
   contactAddManualHint:

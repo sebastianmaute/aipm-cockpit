@@ -25,6 +25,9 @@ interface ModalHeaderProps {
   /** Extra controls rendered in the header's right cluster, before the close
    *  button (e.g. a reset-size button for a resizable modal panel). */
   headerExtra?: ReactNode;
+  /** Optional branding rendered top-left, before the title (e.g. the Acme
+   *  logo on the first-run empty-state). */
+  logo?: ReactNode;
 }
 
 /** Stop a pointerdown on interactive controls from initiating a window drag. */
@@ -40,6 +43,7 @@ export function ModalHeader({
   dragHandleProps,
   hideClose = false,
   headerExtra,
+  logo,
 }: ModalHeaderProps) {
   const voice = useVoiceCommand();
   return (
@@ -49,9 +53,12 @@ export function ModalHeader({
         dragHandleProps ? "cursor-move touch-none select-none" : ""
       }`}
     >
-      <h2 id={titleId} className="text-lg font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
-        {title}
-      </h2>
+      <div className="flex min-w-0 items-center gap-3">
+        {logo}
+        <h2 id={titleId} className="truncate text-lg font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
+          {title}
+        </h2>
+      </div>
       <div className="flex items-center gap-1" onPointerDown={stopDrag}>
         {headerExtra}
         {voice && (

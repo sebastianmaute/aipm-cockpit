@@ -119,12 +119,14 @@ export function FormSection({
 
 // Field wrapper with label + required-asterisk convention (same as task form).
 export function Field({
+  lang,
   label,
   required,
   className,
   tooltip,
   children,
 }: {
+  lang: Lang;
   label: string;
   required?: boolean;
   className?: string;
@@ -132,15 +134,11 @@ export function Field({
   children: React.ReactNode;
 }) {
   return (
-    <label className={`block ${className ?? ""}`} title={tooltip}>
-      <span className="mb-1 block text-sm font-medium text-foreground">
+    <label className={`block ${className ?? ""}`}>
+      <span className="mb-1 flex items-center gap-1 text-sm font-medium text-foreground">
         {label}
-        {required && <span className="ml-0.5 text-AIPM-pink">*</span>}
-        {tooltip && (
-          <span aria-hidden className="ml-1 cursor-help text-muted-foreground" title={tooltip}>
-            ⓘ
-          </span>
-        )}
+        {required && <span className="text-AIPM-pink">*</span>}
+        {tooltip && <InfoTooltip text={tooltip} label={t(lang, "infoMore")} />}
       </span>
       {children}
     </label>
@@ -178,7 +176,7 @@ export function IdentityPeopleFields({
 }: ProjectFieldsProps) {
   return (
     <FormSection title={`${t(lang, "projectFormIdentity")} · ${t(lang, "projectFormPeople")}`}>
-      <Field label={t(lang, "projectName")} required tooltip={t(lang, "tipProjectName")}>
+      <Field lang={lang} label={t(lang,"projectName")} required tooltip={t(lang, "tipProjectName")}>
         <input
           type="text"
           value={draft.name}
@@ -191,7 +189,7 @@ export function IdentityPeopleFields({
         <FieldError id="name-error">{errorFor("name")}</FieldError>
       </Field>
 
-      <Field label={t(lang, "projectCode")} required tooltip={t(lang, "tipProjectCode")}>
+      <Field lang={lang} label={t(lang,"projectCode")} required tooltip={t(lang, "tipProjectCode")}>
         <input
           type="text"
           value={draft.code}
@@ -204,7 +202,7 @@ export function IdentityPeopleFields({
         <FieldError id="code-error">{errorFor("code")}</FieldError>
       </Field>
 
-      <Field label={t(lang, "projectManager")} required tooltip={t(lang, "tipProjectManager")}>
+      <Field lang={lang} label={t(lang,"projectManager")} required tooltip={t(lang, "tipProjectManager")}>
         <input
           type="text"
           value={draft.projectManager}
@@ -268,7 +266,7 @@ export function CustomerFields({
 
   return (
     <FormSection title={t(lang, "projectFormCustomer")}>
-      <Field label={t(lang, "projectCustomer")} required tooltip={t(lang, "tipCustomer")}>
+      <Field lang={lang} label={t(lang,"projectCustomer")} required tooltip={t(lang, "tipCustomer")}>
         <input
           type="text"
           value={draft.customer}
@@ -281,7 +279,7 @@ export function CustomerFields({
         <FieldError id="customer-error">{errorFor("customer")}</FieldError>
       </Field>
 
-      <Field label={t(lang, "projectNaceSection")} required tooltip={t(lang, "tipNace")}>
+      <Field lang={lang} label={t(lang,"projectNaceSection")} required tooltip={t(lang, "tipNace")}>
         <select
           value={draft.naceSection}
           onChange={(e) => setDraft((p) => ({ ...p, naceSection: e.target.value }))}
@@ -300,7 +298,7 @@ export function CustomerFields({
         <FieldError id="naceSection-error">{errorFor("naceSection")}</FieldError>
       </Field>
 
-      <Field label={t(lang, "projectProducts")} required tooltip={t(lang, "tipProducts")}>
+      <Field lang={lang} label={t(lang,"projectProducts")} required tooltip={t(lang, "tipProducts")}>
         <input
           type="text"
           value={draft.products}
@@ -313,7 +311,7 @@ export function CustomerFields({
         <FieldError id="products-error">{errorFor("products")}</FieldError>
       </Field>
 
-      <Field label={t(lang, "projectDeployment")} required tooltip={t(lang, "tipDeployment")}>
+      <Field lang={lang} label={t(lang,"projectDeployment")} required tooltip={t(lang, "tipDeployment")}>
         <select
           value={draft.deployment}
           onChange={(e) => setDraft((p) => ({ ...p, deployment: e.target.value as Deployment | "" }))}
@@ -332,7 +330,7 @@ export function CustomerFields({
         <FieldError id="deployment-error">{errorFor("deployment")}</FieldError>
       </Field>
 
-      <Field label={t(lang, "projectStartDate")} required tooltip={t(lang, "tipStartDate")}>
+      <Field lang={lang} label={t(lang,"projectStartDate")} required tooltip={t(lang, "tipStartDate")}>
         <input
           type="date"
           value={draft.startDate}
@@ -345,7 +343,7 @@ export function CustomerFields({
         <FieldError id="startDate-error">{errorFor("startDate")}</FieldError>
       </Field>
 
-      <Field label={t(lang, "projectProfitCenter")} required tooltip={t(lang, "tipProfitCenter")}>
+      <Field lang={lang} label={t(lang,"projectProfitCenter")} required tooltip={t(lang, "tipProfitCenter")}>
         <input
           type="text"
           value={draft.profitCenter}
@@ -358,7 +356,7 @@ export function CustomerFields({
         <FieldError id="profitCenter-error">{errorFor("profitCenter")}</FieldError>
       </Field>
 
-      <Field label={t(lang, "projectRegulatory")} required className="sm:col-span-2" tooltip={t(lang, "tipRegulatory")}>
+      <Field lang={lang} label={t(lang,"projectRegulatory")} required className="sm:col-span-2" tooltip={t(lang, "tipRegulatory")}>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {REGULATORY_REQUIREMENTS.map((req) => (
             <label key={req} className="flex items-center gap-1.5 text-sm text-foreground">
@@ -402,7 +400,7 @@ export function OptionalDetailsFields({
 
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-      <Field label={t(lang, "projectDescription")} className="sm:col-span-2">
+      <Field lang={lang} label={t(lang,"projectDescription")} className="sm:col-span-2">
         <textarea
           rows={2}
           value={draft.description}
@@ -411,7 +409,7 @@ export function OptionalDetailsFields({
         />
       </Field>
 
-      <Field label={t(lang, "projectSponsor")}>
+      <Field lang={lang} label={t(lang,"projectSponsor")}>
         <input
           type="text"
           value={draft.sponsor}
@@ -420,7 +418,7 @@ export function OptionalDetailsFields({
         />
       </Field>
 
-      <Field label={t(lang, "projectPlatform")}>
+      <Field lang={lang} label={t(lang,"projectPlatform")}>
         <input
           type="text"
           value={draft.platform}
@@ -429,7 +427,7 @@ export function OptionalDetailsFields({
         />
       </Field>
 
-      <Field label={t(lang, "projectIdentityTypes")} className="sm:col-span-2">
+      <Field lang={lang} label={t(lang,"projectIdentityTypes")} className="sm:col-span-2">
         <div className="flex flex-wrap gap-3">
           {IDENTITY_TYPES.map((type) => (
             <label key={type} className="flex items-center gap-1.5 text-sm text-foreground">
@@ -445,7 +443,7 @@ export function OptionalDetailsFields({
         </div>
       </Field>
 
-      <Field label={t(lang, "projectIdentityCount")} tooltip={t(lang, "tipIdentityCount")}>
+      <Field lang={lang} label={t(lang,"projectIdentityCount")} tooltip={t(lang, "tipIdentityCount")}>
         <input
           type="number"
           min={0}
@@ -461,7 +459,7 @@ export function OptionalDetailsFields({
         </datalist>
       </Field>
 
-      <Field label={t(lang, "projectEndDate")} tooltip={t(lang, "tipEndDate")}>
+      <Field lang={lang} label={t(lang,"projectEndDate")} tooltip={t(lang, "tipEndDate")}>
         <input
           type="date"
           value={draft.endDate}
@@ -474,7 +472,7 @@ export function OptionalDetailsFields({
         <FieldError id="endDate-error">{errorFor("endDate")}</FieldError>
       </Field>
 
-      <Field label={t(lang, "projectQuotes")} className="sm:col-span-2">
+      <Field lang={lang} label={t(lang,"projectQuotes")} className="sm:col-span-2">
         <textarea
           rows={2}
           value={draft.quotes}
@@ -483,7 +481,7 @@ export function OptionalDetailsFields({
         />
       </Field>
 
-      <Field label={t(lang, "projectLinkSalesforce")}>
+      <Field lang={lang} label={t(lang,"projectLinkSalesforce")}>
         <input
           type="url"
           value={draft.salesforceUrl}
@@ -497,7 +495,7 @@ export function OptionalDetailsFields({
         <FieldError id="salesforceUrl-error">{errorFor("salesforceUrl")}</FieldError>
       </Field>
 
-      <Field label={t(lang, "projectLinkSharepoint")}>
+      <Field lang={lang} label={t(lang,"projectLinkSharepoint")}>
         <input
           type="url"
           value={draft.sharepointUrl}
@@ -511,7 +509,7 @@ export function OptionalDetailsFields({
         <FieldError id="sharepointUrl-error">{errorFor("sharepointUrl")}</FieldError>
       </Field>
 
-      <Field label={t(lang, "projectLinkConfluence")}>
+      <Field lang={lang} label={t(lang,"projectLinkConfluence")}>
         <input
           type="url"
           value={draft.confluenceUrl}
@@ -525,7 +523,7 @@ export function OptionalDetailsFields({
         <FieldError id="confluenceUrl-error">{errorFor("confluenceUrl")}</FieldError>
       </Field>
 
-      <Field label={t(lang, "projectLinkJira")}>
+      <Field lang={lang} label={t(lang,"projectLinkJira")}>
         <input
           type="url"
           value={draft.jiraUrl}
@@ -559,7 +557,7 @@ export function OptionalDetailsFields({
         />
       </div>
 
-      <Field label={t(lang, "projectDocRepo")} className="sm:col-span-2">
+      <Field lang={lang} label={t(lang,"projectDocRepo")} className="sm:col-span-2">
         <input
           type="text"
           value={draft.docRepoLocation}
@@ -568,7 +566,7 @@ export function OptionalDetailsFields({
         />
       </Field>
 
-      <Field label={t(lang, "documents")} className="sm:col-span-2">
+      <Field lang={lang} label={t(lang,"documents")} className="sm:col-span-2">
         <DocumentLinksFieldGated
           value={draft.documentLinks}
           onChange={(documentLinks) => setDraft((p) => ({ ...p, documentLinks }))}
@@ -576,7 +574,7 @@ export function OptionalDetailsFields({
         />
       </Field>
 
-      <Field label={t(lang, "projectNotes")} className="sm:col-span-2">
+      <Field lang={lang} label={t(lang,"projectNotes")} className="sm:col-span-2">
         <textarea
           rows={3}
           value={draft.notes}
@@ -676,7 +674,6 @@ function ContactPersonsControl({
             onChange={(next) => setDraft({ name: next.name, email: next.email, resourceId: next.resourceId })}
             placeholder={t(lang, "contactAddManual")}
             aria-label={t(lang, "contactAddManual")}
-            title={t(lang, "contactAddManualHint")}
           />
         </div>
         <div className="min-w-0 flex-1">
@@ -685,7 +682,6 @@ function ContactPersonsControl({
             value={draft.email}
             placeholder="email"
             aria-label={`${t(lang, "contactAddManual")} — email`}
-            title={t(lang, "contactEmailHint")}
             onChange={(e) => setDraft((d) => ({ ...d, email: e.target.value }))}
             className={inputClass}
           />
@@ -693,7 +689,6 @@ function ContactPersonsControl({
         <button
           type="button"
           onClick={addDraft}
-          title={t(lang, "contactAddButtonHint")}
           className="shrink-0 rounded-md border border-line bg-surface px-3 py-2 text-sm font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted dark:border-line dark:bg-surface dark:text-foreground dark:hover:bg-surface-muted"
         >
           {t(lang, "add")}
