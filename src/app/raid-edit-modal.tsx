@@ -40,6 +40,7 @@ import { CharCounter, useAdjustmentTracker } from "./field-feedback";
 import { describeTextCap } from "./sanitize-report";
 import { TASK_NAME_MAX, TEXTAREA_MAX, ASSIGNEE_MAX } from "./sanitize";
 import { useToastContext } from "./toast-context";
+import { InfoTooltip } from "./info-tooltip";
 
 export type RaidEditModalProps = {
   lang: Lang;
@@ -261,14 +262,14 @@ export function RaidEditModal({
           {isVisible("category") && (
           <div className="flex flex-col gap-1 text-sm">
             <label className="flex flex-col gap-1">
-              <span className="font-medium text-foreground">
+              <span className="flex items-center gap-1 font-medium text-foreground">
                 {t(lang, "raidCategory")}
+                <InfoTooltip text={t(lang, "raidFieldCategoryHint")} />
               </span>
               <SegmentedControl<RaidCategory>
                 value={draft.category}
                 disabled={!isNew && !categoryUnlocked}
                 ariaLabel={t(lang, "raidCategory")}
-                title={t(lang, "raidFieldCategoryHint")}
                 options={RAID_CATEGORIES.map((c) => ({
                   value: c,
                   label: categoryLabel(c, lang),
@@ -328,13 +329,13 @@ export function RaidEditModal({
 
           {isVisible("status") && (
           <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-foreground">
+            <span className="flex items-center gap-1 font-medium text-foreground">
               {t(lang, "raidStatus")}
+              <InfoTooltip text={t(lang, "raidFieldStatusHint")} />
             </span>
             <SegmentedControl<RaidStatus>
               value={draft.status}
               ariaLabel={t(lang, "raidStatus")}
-              title={t(lang, "raidFieldStatusHint")}
               options={statusOpts.map((s) => ({
                 value: s,
                 label: statusLabel(s, lang),
@@ -345,8 +346,9 @@ export function RaidEditModal({
           )}
 
           <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-            <span className="font-medium text-foreground">
+            <span className="flex items-center gap-1 font-medium text-foreground">
               {t(lang, "raidTitle")} *
+              <InfoTooltip text={t(lang, "raidFieldTitleHint")} />
             </span>
             <input
               type="text"
@@ -355,7 +357,6 @@ export function RaidEditModal({
               onChange={(e) => onChange({ ...draft, title: e.target.value })}
               onBlur={(e) => onChange({ ...draft, title: describeTextCap(e.target.value, TASK_NAME_MAX).value.trim() })}
               placeholder={t(lang, "raidPlaceholderTitle")}
-              title={t(lang, "raidFieldTitleHint")}
               aria-describedby="raid-title-counter"
               className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
             />
@@ -364,8 +365,9 @@ export function RaidEditModal({
 
           {isVisible("description") && (
           <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-            <span className="font-medium text-foreground">
+            <span className="flex items-center gap-1 font-medium text-foreground">
               {t(lang, "raidDescription")}
+              <InfoTooltip text={t(lang, "raidFieldDescriptionHint")} />
             </span>
             <textarea
               rows={2}
@@ -375,7 +377,6 @@ export function RaidEditModal({
               }
               onBlur={(e) => onChange({ ...draft, description: describeTextCap(e.target.value, TEXTAREA_MAX).value || undefined })}
               placeholder={t(lang, "raidPlaceholderDescription")}
-              title={t(lang, "raidFieldDescriptionHint")}
               aria-describedby="raid-description-counter"
               className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
             />
@@ -388,10 +389,11 @@ export function RaidEditModal({
               (advanced field `scoring`). Each branch is guarded by its own id. */}
           {draft.category === "R"
             ? isVisible("riskMatrix") && (
-            <div className="sm:col-span-2" title={t(lang, "raidFieldRiskMatrixHint")}>
+            <div className="sm:col-span-2">
               <div className="mb-2 flex items-baseline justify-between gap-2">
-                <span className="text-sm font-medium text-foreground">
+                <span className="flex items-center gap-1 text-sm font-medium text-foreground">
                   {t(lang, "raidRiskMatrix")}
+                  <InfoTooltip text={t(lang, "raidFieldRiskMatrixHint")} />
                 </span>
                 <span className="text-xs text-muted-foreground">
                   {draft.probability && draft.impact
@@ -409,13 +411,13 @@ export function RaidEditModal({
               )
             : isVisible("scoring") && (
             <label className="flex flex-col gap-1 text-sm">
-              <span className="font-medium text-foreground">
+              <span className="flex items-center gap-1 font-medium text-foreground">
                 {t(lang, "raidSeverity")}
+                <InfoTooltip text={t(lang, "raidFieldSeverityHint")} />
               </span>
               <SegmentedControl<RaidSeverity>
                 value={draft.severity ?? "Medium"}
                 ariaLabel={t(lang, "raidSeverity")}
-                title={t(lang, "raidFieldSeverityHint")}
                 options={RAID_SEVERITIES.map((s) => ({
                   value: s,
                   label: severityLabel(s, lang),
@@ -427,8 +429,9 @@ export function RaidEditModal({
 
           {isVisible("owner") && (
           <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-foreground">
+            <span className="flex items-center gap-1 font-medium text-foreground">
               {t(lang, "raidOwner")}
+              <InfoTooltip text={t(lang, "raidFieldOwnerHint")} />
             </span>
             <ResourcePicker
               lang={lang}
@@ -449,7 +452,6 @@ export function RaidEditModal({
                 onChange({ ...draft, owner: trimmed || undefined });
               }}
               maxLength={ASSIGNEE_MAX}
-              title={t(lang, "raidFieldOwnerHint")}
               aria-describedby="raid-owner-counter"
             />
             <CharCounter value={draft.owner ?? ""} max={ASSIGNEE_MAX} id="raid-owner-counter" lang={lang} />
@@ -459,8 +461,9 @@ export function RaidEditModal({
           {/* Owner email travels with the owner field. */}
           {isVisible("owner") && (
           <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-foreground">
+            <span className="flex items-center gap-1 font-medium text-foreground">
               {t(lang, "email")}
+              <InfoTooltip text={t(lang, "raidFieldOwnerEmailHint")} />
             </span>
             <input
               type="email"
@@ -468,7 +471,6 @@ export function RaidEditModal({
               onChange={(e) =>
                 onChange({ ...draft, ownerEmail: e.target.value || undefined })
               }
-              title={t(lang, "raidFieldOwnerEmailHint")}
               className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
             />
           </label>
@@ -476,14 +478,14 @@ export function RaidEditModal({
 
           {isVisible("raisedDate") && (
           <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-foreground">
+            <span className="flex items-center gap-1 font-medium text-foreground">
               {t(lang, "raidRaisedDate")}
+              <InfoTooltip text={t(lang, "raidFieldRaisedDateHint")} />
             </span>
             <input
               type="date"
               value={draft.raisedDate}
               onChange={(e) => onChange({ ...draft, raisedDate: e.target.value })}
-              title={t(lang, "raidFieldRaisedDateHint")}
               className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
             />
           </label>
@@ -491,8 +493,9 @@ export function RaidEditModal({
 
           {isVisible("targetDate") && (
           <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-foreground">
+            <span className="flex items-center gap-1 font-medium text-foreground">
               {t(lang, "raidTargetDate")}
+              <InfoTooltip text={t(lang, "raidFieldTargetDateHint")} />
             </span>
             <input
               type="date"
@@ -500,7 +503,6 @@ export function RaidEditModal({
               onChange={(e) =>
                 onChange({ ...draft, targetDate: e.target.value || undefined })
               }
-              title={t(lang, "raidFieldTargetDateHint")}
               className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
             />
           </label>
@@ -508,8 +510,9 @@ export function RaidEditModal({
 
           {isVisible("mitigation") && (
           <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-            <span className="font-medium text-foreground">
+            <span className="flex items-center gap-1 font-medium text-foreground">
               {t(lang, "raidMitigation")}
+              <InfoTooltip text={t(lang, "raidFieldMitigationHint")} />
             </span>
             <textarea
               rows={3}
@@ -519,7 +522,6 @@ export function RaidEditModal({
               }
               onBlur={(e) => onChange({ ...draft, mitigation: describeTextCap(e.target.value, TEXTAREA_MAX).value || undefined })}
               placeholder={t(lang, "raidPlaceholderMitigation")}
-              title={t(lang, "raidFieldMitigationHint")}
               aria-describedby="raid-mitigation-counter"
               className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
             />
@@ -539,8 +541,9 @@ export function RaidEditModal({
           {isVisible("linkedTasks") && (
           <div className="sm:col-span-2">
             <div className="mb-2 flex items-center justify-between gap-2">
-              <span className="text-sm font-medium text-foreground">
+              <span className="flex items-center gap-1 text-sm font-medium text-foreground">
                 {t(lang, "raidLinkedTasks")}
+                <InfoTooltip text={t(lang, "raidFieldLinkedTasksHint")} />
               </span>
               <button
                 type="button"
@@ -586,7 +589,6 @@ export function RaidEditModal({
                 value={taskPickerQuery}
                 onChange={(e) => setTaskPickerQuery(e.target.value)}
                 placeholder={t(lang, "raidLinkPickerPlaceholder")}
-                title={t(lang, "raidFieldLinkedTasksHint")}
                 className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm"
               />
               {taskPickerQuery.trim() !== "" && availableTasks.length > 0 && (
@@ -615,8 +617,9 @@ export function RaidEditModal({
           {isVisible("linkedRaid") && (
           <div className="sm:col-span-2">
             <div className="mb-2 flex items-center justify-between gap-2">
-              <span className="text-sm font-medium text-foreground">
+              <span className="flex items-center gap-1 text-sm font-medium text-foreground">
                 {t(lang, "raidCausedBy")}
+                <InfoTooltip text={t(lang, "raidFieldCausedByHint")} />
               </span>
             </div>
             <div className="mb-2 flex flex-wrap items-center gap-1.5">
@@ -657,7 +660,6 @@ export function RaidEditModal({
                 value={causePickerQuery}
                 onChange={(e) => setCausePickerQuery(e.target.value)}
                 placeholder={t(lang, "raidCausedByPlaceholder")}
-                title={t(lang, "raidFieldCausedByHint")}
                 className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm"
               />
               {causePickerQuery.trim() !== "" && availableCauses.length > 0 && (

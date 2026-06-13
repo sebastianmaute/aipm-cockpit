@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { describe, expect, test, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { BudgetPanel } from "./budget-panel";
+import { t } from "./i18n";
 import type { BudgetBucket, Role, ResourcePlan } from "./types";
 
 const plan: ResourcePlan = { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month", currency: "EUR" };
@@ -87,6 +88,14 @@ test("filters the bucket role table by role name", () => {
   // Filtering to "Frontend" hides the Backend row.
   expect(screen.queryByText("Backend Senior")).not.toBeInTheDocument();
   expect(screen.getByText("Frontend Junior")).toBeInTheDocument();
+});
+
+test("renders InfoTooltip for CPI metric label by accessible name", () => {
+  render(<BudgetPanel {...props} />);
+  const hint = t("en-US", "budgetCciCpiHint");
+  // CPI tooltip appears in both the project-total row and the per-bucket row
+  const tooltips = screen.getAllByRole("button", { name: hint });
+  expect(tooltips.length).toBeGreaterThanOrEqual(1);
 });
 
 test("budget renders a bucket-count heading and is a resizable card", () => {
