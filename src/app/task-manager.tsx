@@ -58,6 +58,7 @@ import { RolesPanel } from "./roles-panel";
 import { getUpcomingBirthdays } from "./birthdays";
 import { useBirthdayAlerts } from "./use-birthday-alerts";
 import { useReminderSnooze } from "./use-reminder-snooze";
+import { useActionSnooze } from "./use-action-snooze";
 import { isReportPopoutTab, openPopoutWindow } from "./broadcast-sync";
 import { ModernShell } from "./modern-shell";
 import { useHashView } from "./use-hash-view";
@@ -445,6 +446,7 @@ function TaskManagerInner() {
   const raidReviewSnooze = useReminderSnooze("raidReview");
   const [raidReviewDismissed, setRaidReviewDismissed] = useState(false);
   const stakeholderCommsSnooze = useReminderSnooze("stakeholderComms");
+  const actionSnooze = useActionSnooze();
   const [jiraTokenDismissed, setJiraTokenDismissed] = useState(false);
   const jiraTokenAlert = useMemo(
     () => getJiraTokenAlert(settings.jira, today, settings.notifications.reminderLeadDays),
@@ -644,9 +646,10 @@ function TaskManagerInner() {
           reminderLeadDays: settings.notifications.reminderLeadDays,
           dueSoonWorkdays: settings.notifications.dueSoonWorkdays,
           raidReviewIntervalDays: settings.notifications.raidReviewIntervalDays,
+          dismissed: actionSnooze.dismissed,
         }),
       ),
-    [tasks, raid, changes, milestones, stakeholders, dashboardModel, comms.items, settings.features, settings.notifications, project, today],
+    [tasks, raid, changes, milestones, stakeholders, dashboardModel, comms.items, settings.features, settings.notifications, project, today, actionSnooze.dismissed],
   );
   const nowCount = nextActions.filter((a) => a.tier === "now").length;
   const openAction = useCallback(
@@ -654,6 +657,10 @@ function TaskManagerInner() {
       if (a.cta.kind === "open") requestOpen(a.cta.view, Number(a.cta.id));
     },
     [requestOpen],
+  );
+  const snoozeAction = useCallback(
+    (a: SuggestedAction, ms: number) => actionSnooze.snooze(a.id, ms),
+    [actionSnooze],
   );
 
   // Lazily serialize the CURRENT workspace for a version-history capture. Same
@@ -1324,6 +1331,7 @@ function TaskManagerInner() {
     onHardDeleteProject: handleHardDeleteTursoProject,
     nextActions,
     onOpenAction: openAction,
+    onSnooze: snoozeAction,
   };
 
   const workspaceEl = <WorkspaceSection {...workspaceProps} />;
