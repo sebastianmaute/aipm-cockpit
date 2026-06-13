@@ -1751,6 +1751,7 @@ const enUS = {
   portfolioModeFile: "Local files",
   portfolioModeTurso: "Turso database (multi-project)",
   portfolioModeHelp: "Choose where your portfolio of projects lives. Local files keep one file per project; Turso stores all projects in one shared database.",
+  portfolioModeTursoNeedsConfig: "Enter the Turso URL and token above before switching the portfolio to Turso — otherwise you land in an empty Turso portfolio.",
   projectsArchived: "Archived projects",
   projectsShowArchived: "Show archived",
   projectsHideArchived: "Hide archived",

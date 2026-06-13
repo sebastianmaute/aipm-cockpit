@@ -16,7 +16,7 @@ import type { SnapshotCadence } from "../snapshot";
 import { useMsAuth } from "../use-ms-auth";
 import { InfoTooltip } from "../info-tooltip";
 import { loadPortfolioMode, savePortfolioMode, type PortfolioMode } from "../portfolio-mode";
-import { isLikelyRegionQualifiedTursoUrl } from "../turso-config";
+import { getTursoConfig, isLikelyRegionQualifiedTursoUrl } from "../turso-config";
 
 interface IntegrationsSectionProps {
   lang: Lang;
@@ -51,8 +51,13 @@ export function IntegrationsSection({ lang, settings, onChange }: IntegrationsSe
   // the new mode and reloads the page so the whole portfolio UI re-initialises in
   // the chosen mode (mirrors how the feature-modules "mode" Save reloads).
   const portfolioMode = loadPortfolioMode();
+  // Turso portfolio mode is only safe once Turso resolves a config (URL + token,
+  // or env vars). Switching to Turso unconfigured reloads into an EMPTY Turso
+  // portfolio with no way back except this very selector — strands the user.
+  const tursoConfigured = !!getTursoConfig(turso.databaseUrl, turso.authToken);
   function handlePortfolioModeChange(next: PortfolioMode) {
     if (next === portfolioMode) return;
+    if (next === "turso" && !tursoConfigured) return; // guard: must configure Turso first
     savePortfolioMode(next);
     window.location.reload();
   }
@@ -291,10 +296,15 @@ export function IntegrationsSection({ lang, settings, onChange }: IntegrationsSe
                 className="mt-1 w-full rounded border border-line bg-surface px-2 py-1 text-foreground"
               >
                 <option value="file">{t(lang, "portfolioModeFile")}</option>
-                <option value="turso">{t(lang, "portfolioModeTurso")}</option>
+                <option value="turso" disabled={!tursoConfigured}>
+                  {t(lang, "portfolioModeTurso")}
+                </option>
               </select>
             </label>
             <p className="mt-1 text-xs text-muted-foreground">{t(lang, "portfolioModeHelp")}</p>
+            {!tursoConfigured && (
+              <p className="mt-1 text-xs text-AIPM-pink">{t(lang, "portfolioModeTursoNeedsConfig")}</p>
+            )}
           </div>
         </div>
       )}
