@@ -1760,6 +1760,7 @@ export const de: Record<TranslationKey, string> = {
   wizardBack: "Zurück",
   wizardBlankTemplate: "Leer — Funktionen selbst auswählen",
   wizardIncludeContent: "Beispielinhalte einschließen",
+  seedDatabaseUpload: "Datenbank-Upload",
   wizardCreate: "Projekt erstellen",
   wizardFunctionsIntro: "Wählen Sie aus, welche Funktionen dieses Projekt verwendet",
   projectCurrentLabel: "Aktuelles Projekt",

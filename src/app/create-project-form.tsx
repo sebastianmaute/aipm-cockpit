@@ -60,6 +60,8 @@ export interface CreateProjectFormProps {
   initialMeta?: ProjectMeta;
   /** Prefill the selector. Defaults to "json". */
   initialFormat?: CreateFormat;
+  /** Footer bottom-left slot, forwarded to ProjectForm. */
+  footerLeft?: React.ReactNode;
 }
 
 export function CreateProjectForm({
@@ -75,6 +77,7 @@ export function CreateProjectForm({
   submitLabel,
   initialMeta,
   initialFormat,
+  footerLeft,
 }: CreateProjectFormProps) {
   const [selection, setSelection] = useState<StorageSelection>(
     initialFormat ?? "json",
@@ -131,6 +134,7 @@ export function CreateProjectForm({
         onSubmit={handleSubmit}
         onCancel={handleCancel}
         submitLabel={submitLabel}
+        footerLeft={footerLeft}
       />
 
       {configOpen && (

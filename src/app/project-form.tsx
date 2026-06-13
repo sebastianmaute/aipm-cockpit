@@ -43,6 +43,9 @@ export interface ProjectFormProps {
   onCancel: () => void;
   /** Override the submit button label. Defaults to "Edit project" / "New project". */
   submitLabel?: string;
+  /** Optional content rendered at the footer's bottom-left (e.g. a
+   *  "Configure M365 integration" button). */
+  footerLeft?: React.ReactNode;
 }
 
 /** Build the editable draft from an existing ProjectMeta (edit mode). */
@@ -88,6 +91,7 @@ export function ProjectForm({
   onSubmit,
   onCancel,
   submitLabel,
+  footerLeft,
 }: ProjectFormProps) {
   const [draft, setDraft] = useState<ProjectFormDraft>(() =>
     initial ? draftFromMeta(initial) : emptyProjectDraft(),
@@ -180,7 +184,9 @@ export function ProjectForm({
         </div>
       </details>
 
-      <div className="flex justify-end gap-2 border-t border-line pt-4">
+      <div className="flex items-center justify-between gap-2 border-t border-line pt-4">
+        <div className="flex items-center gap-2">{footerLeft}</div>
+        <div className="flex items-center gap-2">
         <button
           type="button"
           onClick={onCancel}
@@ -195,6 +201,7 @@ export function ProjectForm({
         >
           {submitLabel ?? t(lang, initial ? "projectsEdit" : "projectsNew")}
         </button>
+        </div>
       </div>
     </form>
   );

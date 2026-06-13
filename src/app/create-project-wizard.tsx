@@ -34,6 +34,7 @@ import { type Settings } from "./settings-types";
 import { type ProjectTemplate } from "./templates";
 import { type ProjectMeta, type Resource } from "./types";
 import { useTemplates } from "./use-templates";
+import { BackendConfigModal } from "./backend-config-modal";
 
 type CreateFormat = "json" | "csv" | "md";
 
@@ -74,6 +75,7 @@ type Step = 1 | 2 | 3;
 /** True when a template carries any seed content worth offering to stamp. */
 function hasSeedContent(tpl: ProjectTemplate | null): boolean {
   if (!tpl?.seed) return false;
+  if (tpl.seed.type === "database_upload") return true;
   return Object.values(tpl.seed).some((v) => Array.isArray(v) && v.length > 0);
 }
 
@@ -118,6 +120,7 @@ export function CreateProjectWizard({
   const { templates } = useTemplates();
 
   const [step, setStep] = useState<Step>(1);
+  const [m365Open, setM365Open] = useState(false);
   const [meta, setMeta] = useState<ProjectMeta | null>(null);
   const [format, setFormat] = useState<CreateFormat>("json");
   const [storage, setStorage] = useState<"file" | "turso">("file");
@@ -184,6 +187,15 @@ export function CreateProjectWizard({
   const mode = deriveMode(features);
   const offerSeed = hasSeedContent(selectedTemplate);
 
+  // When M365 isn't enabled yet, offer a bottom-left shortcut to configure it
+  // (opens the shared backend-config modal focused on M365).
+  const m365NeedsSetup = !settings.integrations?.m365?.enabled;
+  const m365Button = m365NeedsSetup ? (
+    <button type="button" onClick={() => setM365Open(true)} className={SECONDARY_BUTTON_CLASS}>
+      {t(lang, "emptyStateConfigM365")}
+    </button>
+  ) : null;
+
   return (
     <div className="flex min-h-0 flex-col">
       {/* Fixed header: step indicator (the modal panel owns resize/reset). */}
@@ -206,6 +218,7 @@ export function CreateProjectWizard({
             onCreate={handleDetails}
             onCancel={onCancel}
             hideFormat={hideFormat}
+            footerLeft={m365Button}
             submitLabel={t(lang, "wizardNext")}
             initialMeta={meta ?? undefined}
             initialFormat={format}
@@ -279,11 +292,15 @@ export function CreateProjectWizard({
                     {tpl.description && (
                       <p className="mt-1 text-xs text-muted-foreground">{tpl.description}</p>
                     )}
-                    {seedCount > 0 && (
+                    {tpl.seed?.type === "database_upload" ? (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {t(lang, "wizardIncludeContent")}: {t(lang, "seedDatabaseUpload")}
+                      </p>
+                    ) : seedCount > 0 ? (
                       <p className="mt-1 text-xs text-muted-foreground">
                         {t(lang, "wizardIncludeContent")}: {seedCount}
                       </p>
-                    )}
+                    ) : null}
                   </button>
                 );
               })}
@@ -367,6 +384,7 @@ export function CreateProjectWizard({
                 {t(lang, "cancel")}
               </button>
             )}
+            {m365Button}
           </div>
           <button type="button" onClick={() => setStep(3)} className={PRIMARY_BUTTON_CLASS}>
             {t(lang, "wizardNext")}
@@ -385,11 +403,22 @@ export function CreateProjectWizard({
                 {t(lang, "cancel")}
               </button>
             )}
+            {m365Button}
           </div>
           <button type="button" onClick={handleCreate} className={PRIMARY_BUTTON_CLASS}>
             {t(lang, "wizardCreate")}
           </button>
         </div>
+      )}
+
+      {m365Open && (
+        <BackendConfigModal
+          lang={lang}
+          title={t(lang, "emptyStateConfigM365")}
+          settings={settings}
+          onChangeSettings={onChangeSettings}
+          onClose={() => setM365Open(false)}
+        />
       )}
     </div>
   );
