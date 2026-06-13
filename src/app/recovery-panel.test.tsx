@@ -46,4 +46,15 @@ describe("RecoveryPanel", () => {
     fireEvent.click(getByText(/Download config/i));
     expect(exp).toHaveBeenCalledTimes(1);
   });
+
+  it("shows the storage-unavailable notice and disables actions when localStorage is broken", () => {
+    const spy = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("disabled");
+    });
+    const { getByText } = render(<RecoveryPanel />);
+    expect(getByText(/Storage is unavailable/i)).toBeTruthy();
+    const reset = getByText(/Reset to clean config/i).closest("button") as HTMLButtonElement;
+    expect(reset.disabled).toBe(true);
+    spy.mockRestore();
+  });
 });

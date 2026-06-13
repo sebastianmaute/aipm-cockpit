@@ -56,6 +56,16 @@ function downloadJson(filename: string, json: string): void {
 
 export function RecoveryPanel() {
   const lang = readPersistedLang();
+  const [storageOk] = useState<boolean>(() => {
+    try {
+      const k = "__lop_recovery_probe__";
+      window.localStorage.setItem(k, "1");
+      window.localStorage.removeItem(k);
+      return true;
+    } catch {
+      return false;
+    }
+  });
   const [summary] = useState<ConfigSummary>(() => readSummary());
   const [message, setMessage] = useState<string | null>(null);
   const backups = listBackups();
@@ -93,6 +103,7 @@ export function RecoveryPanel() {
         {t(lang, "recoveryPageTitle")}
       </h1>
       <p className="text-sm text-muted-foreground">{t(lang, "recoveryPageIntro")}</p>
+      {!storageOk && <p className="text-sm text-AIPM-pink">{t(lang, "recoveryError")}</p>}
 
       <section className="rounded-lg border border-line bg-surface p-4">
         <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -116,21 +127,23 @@ export function RecoveryPanel() {
         <button
           type="button"
           onClick={onDownload}
-          className="rounded-md border border-line px-4 py-2 text-sm font-medium text-AIPM-dark-blue hover:bg-surface-muted dark:text-AIPM-light-grey"
+          disabled={!storageOk}
+          className="rounded-md border border-line px-4 py-2 text-sm font-medium text-AIPM-dark-blue hover:bg-surface-muted disabled:opacity-50 dark:text-AIPM-light-grey"
         >
           {t(lang, "recoveryDownload")}
         </button>
         <button
           type="button"
           onClick={onReset}
-          className="rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+          disabled={!storageOk}
+          className="rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
         >
           {t(lang, "recoveryReset")}
         </button>
         <button
           type="button"
           onClick={onRestore}
-          disabled={backups.length === 0}
+          disabled={backups.length === 0 || !storageOk}
           className="rounded-md border border-line px-4 py-2 text-sm font-medium text-AIPM-dark-blue hover:bg-surface-muted disabled:opacity-50 dark:text-AIPM-light-grey"
         >
           {t(lang, "recoveryRestore")}
