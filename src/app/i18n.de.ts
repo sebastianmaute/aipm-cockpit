@@ -1734,6 +1734,12 @@ export const de: Record<TranslationKey, string> = {
   projectFileFormat: "Dateiformat",
   projectStorage: "Speicher",
   storageOptionConfigure: "Turso-Backend konfigurieren",
+  backendSetup: "Backend-Einrichtung",
+  emptyStateConfigM365: "M365-Integration konfigurieren",
+  emptyStateConfigTursoTip:
+    "Turso-Datenbank-Backend (URL und Token) vor dem Anlegen eines Projekts einrichten.",
+  emptyStateConfigM365Tip:
+    "Bei Microsoft 365 anmelden und konfigurieren (SharePoint, Outlook), bevor ein Projekt angelegt wird.",
   projectsDelete: "Projekt entfernen",
   projectsDeleteConfirm:
     "Projekt aus der Liste entfernen? Die zugrunde liegende Datei wird NICHT gelöscht.",

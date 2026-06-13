@@ -76,6 +76,31 @@ describe("ProjectEmptyState", () => {
     ).toBeInTheDocument();
   });
 
+  it("renders no close (✕) button — the empty state is non-dismissable", () => {
+    setup();
+    expect(screen.queryByLabelText(/close/i)).toBeNull();
+  });
+
+  it("offers backend-config buttons for Turso and M365", () => {
+    setup();
+    expect(
+      screen.getByRole("button", { name: /configure the turso backend/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /configure m365 integration/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("opens the backend-config modal when a backend button is clicked", () => {
+    setup();
+    // The empty state itself is one dialog; the config modal is a second.
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
+    fireEvent.click(
+      screen.getByRole("button", { name: /configure the turso backend/i }),
+    );
+    expect(screen.getAllByRole("dialog")).toHaveLength(2);
+  });
+
   it("calls onLoadFromFile when the Load button is clicked", () => {
     const { onLoadFromFile } = setup();
     fireEvent.click(screen.getByRole("button", { name: /load from an existing file/i }));

@@ -18,6 +18,9 @@ interface ModalHeaderProps {
   onClose: () => void;
   /** Pointer handlers from useDraggable; the header acts as the drag handle. */
   dragHandleProps?: DragHandleProps;
+  /** Hide the ✕ close button (e.g. a non-dismissable empty-state header where
+   *  the close gesture is a no-op and the button would be a dead control). */
+  hideClose?: boolean;
 }
 
 /** Stop a pointerdown on interactive controls from initiating a window drag. */
@@ -31,6 +34,7 @@ export function ModalHeader({
   titleId,
   onClose,
   dragHandleProps,
+  hideClose = false,
 }: ModalHeaderProps) {
   const voice = useVoiceCommand();
   return (
@@ -47,21 +51,23 @@ export function ModalHeader({
         {voice && (
           <VoiceCommandButton lang={lang} onCommand={voice.onCommand} onError={voice.onError} />
         )}
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label={t(lang, "alertModalClose")}
-          title={t(lang, "alertModalClose")}
-          className="rounded-md p-2 text-AIPM-dark-grey hover:bg-surface-muted hover:text-AIPM-dark-blue dark:text-AIPM-medium-grey dark:hover:text-AIPM-light-grey"
-        >
-          <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-4 w-4">
-            <path
-              fillRule="evenodd"
-              d="M4.28 4.28a.75.75 0 011.06 0L10 8.94l4.66-4.66a.75.75 0 111.06 1.06L11.06 10l4.66 4.66a.75.75 0 11-1.06 1.06L10 11.06l-4.66 4.66a.75.75 0 01-1.06-1.06L8.94 10 4.28 5.34a.75.75 0 010-1.06z"
-              clipRule="evenodd"
-            />
-          </svg>
-        </button>
+        {!hideClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label={t(lang, "alertModalClose")}
+            title={t(lang, "alertModalClose")}
+            className="rounded-md p-2 text-AIPM-dark-grey hover:bg-surface-muted hover:text-AIPM-dark-blue dark:text-AIPM-medium-grey dark:hover:text-AIPM-light-grey"
+          >
+            <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-4 w-4">
+              <path
+                fillRule="evenodd"
+                d="M4.28 4.28a.75.75 0 011.06 0L10 8.94l4.66-4.66a.75.75 0 111.06 1.06L11.06 10l4.66 4.66a.75.75 0 11-1.06 1.06L10 11.06l-4.66 4.66a.75.75 0 01-1.06-1.06L8.94 10 4.28 5.34a.75.75 0 010-1.06z"
+                clipRule="evenodd"
+              />
+            </svg>
+          </button>
+        )}
       </div>
     </header>
   );

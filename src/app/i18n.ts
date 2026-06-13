@@ -1716,6 +1716,12 @@ const enUS = {
   projectFileFormat: "File format",
   projectStorage: "Storage",
   storageOptionConfigure: "Configure the Turso backend",
+  backendSetup: "Backend setup",
+  emptyStateConfigM365: "Configure M365 integration",
+  emptyStateConfigTursoTip:
+    "Set up the Turso database backend (URL and token) before creating a project.",
+  emptyStateConfigM365Tip:
+    "Sign in and configure Microsoft 365 (SharePoint, Outlook) before creating a project.",
   projectsDelete: "Delete project",
   projectsDeleteConfirm:
     "Remove this project from the list? The underlying file is NOT deleted.",

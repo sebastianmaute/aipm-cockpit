@@ -11,11 +11,16 @@
 // Non-dismissability: the user MUST pick one of the two actions — there is no
 // current project to fall back to.  The shared Modal requires an onClose prop
 // (for Escape / backdrop click); we pass a no-op so those gestures do nothing.
-// ModalHeader always renders an X button wired to onClose, so the X becomes a
-// visual-only artifact — acceptable because the body copy makes clear the user
-// must create or load.
+// The header is rendered with `hideClose` so there is no dead ✕ control (it
+// would be a no-op here and read as a broken affordance).
+//
+// On a fresh install there is also no Settings UI reachable yet, so the choices
+// screen offers a "Backend setup" section: buttons to configure the Turso
+// backend and the M365 integration (both open the shared BackendConfigModal,
+// which wraps IntegrationsSection) before the user creates or loads a project.
 
 import { useState } from "react";
+import { BackendConfigModal } from "./backend-config-modal";
 import { type Contact } from "./contacts";
 import { CreateProjectWizard } from "./create-project-wizard";
 import { t, type Lang } from "./i18n";
@@ -68,6 +73,7 @@ export function ProjectEmptyState({
   mode = "file",
 }: ProjectEmptyStateProps) {
   const [view, setView] = useState<View>("choices");
+  const [configModal, setConfigModal] = useState<null | "turso" | "m365">(null);
 
   const handleOpenCreate = () => setView("create");
 
@@ -102,6 +108,7 @@ export function ProjectEmptyState({
           title={t(lang, titleKey)}
           titleId={TITLE_ID}
           onClose={noop}
+          hideClose
         />
 
         <div className="overflow-y-auto p-6">
@@ -128,6 +135,32 @@ export function ProjectEmptyState({
                   </button>
                 )}
               </div>
+
+              {/* Backend setup — configure storage / integrations before there
+                  is any project to fall back to. */}
+              <div className="border-t border-line pt-4">
+                <h3 className="mb-2 text-sm font-semibold text-foreground">
+                  {t(lang, "backendSetup")}
+                </h3>
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setConfigModal("turso")}
+                    title={t(lang, "emptyStateConfigTursoTip")}
+                    className={SECONDARY_BUTTON_CLASS}
+                  >
+                    {t(lang, "storageOptionConfigure")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfigModal("m365")}
+                    title={t(lang, "emptyStateConfigM365Tip")}
+                    className={SECONDARY_BUTTON_CLASS}
+                  >
+                    {t(lang, "emptyStateConfigM365")}
+                  </button>
+                </div>
+              </div>
             </div>
           ) : (
             <CreateProjectWizard
@@ -144,6 +177,21 @@ export function ProjectEmptyState({
           )}
         </div>
       </div>
+
+      {configModal !== null && (
+        <BackendConfigModal
+          lang={lang}
+          title={t(
+            lang,
+            configModal === "turso"
+              ? "storageOptionConfigure"
+              : "emptyStateConfigM365",
+          )}
+          settings={settings}
+          onChangeSettings={onChangeSettings}
+          onClose={() => setConfigModal(null)}
+        />
+      )}
     </Modal>
   );
 }
