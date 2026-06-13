@@ -4,12 +4,15 @@
 // project was last selected. IO is guarded like projects-registry.ts /
 // contacts.ts (typeof-window guard + try/catch).
 
+import { isSafeMode } from "./safe-mode";
+
 export type PortfolioMode = "file" | "turso";
 
-const MODE_KEY = "lop-app:portfolio-mode";
-const CURRENT_TURSO_PROJECT_KEY = "lop-app:turso-current-project";
+export const MODE_KEY = "lop-app:portfolio-mode";
+export const CURRENT_TURSO_PROJECT_KEY = "lop-app:turso-current-project";
 
 export function loadPortfolioMode(): PortfolioMode {
+  if (isSafeMode()) return "file";
   if (typeof window === "undefined") return "file";
   try {
     return window.localStorage.getItem(MODE_KEY) === "turso" ? "turso" : "file";
@@ -28,6 +31,7 @@ export function savePortfolioMode(mode: PortfolioMode): void {
 }
 
 export function loadCurrentTursoProjectId(): string | null {
+  if (isSafeMode()) return null;
   if (typeof window === "undefined") return null;
   try {
     const v = window.localStorage.getItem(CURRENT_TURSO_PROJECT_KEY);
