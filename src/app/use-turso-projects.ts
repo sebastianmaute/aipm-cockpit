@@ -16,7 +16,7 @@ import { useCallback } from "react";
 import { t, type Lang } from "./i18n";
 import { getTursoConfig } from "./turso-config";
 import { listProjects, updateProjectMeta as tursoUpdateMeta } from "./turso-portfolio";
-import type { PortfolioMode } from "./portfolio-mode";
+import { savePortfolioMode, type PortfolioMode } from "./portfolio-mode";
 import type { ProjectListEntry } from "./turso-tenant-schema";
 import type { NewProjectOpts } from "./new-project-workspace";
 import type { ProjectMeta } from "./types";
@@ -92,11 +92,22 @@ export function useTursoProjects(args: UseTursoProjectsArgs): UseTursoProjectsRe
   // file format and refreshes the shared list afterwards.
   const handleCreateProjectByMode = useCallback(
     (meta: ProjectMeta, format: ProjectFileFormat, opts: NewProjectOpts = {}) => {
-      if (portfolioMode === "turso") {
+      // Route to Turso when the portfolio is globally in Turso mode OR the user
+      // picked Turso storage for this one project (opts.storage discriminator).
+      const useTurso = portfolioMode === "turso" || opts.storage === "turso";
+      if (useTurso) {
+        const crossMode = portfolioMode !== "turso";
         void (async () => {
           try {
             await createTursoProject(meta, opts);
             await refreshTursoProjects();
+            // Cross-mode create (global mode is "file" but the user chose Turso
+            // storage for this project): persist the mode switch and reload so the
+            // newly created Turso project becomes the active, visible portfolio.
+            if (crossMode) {
+              savePortfolioMode("turso");
+              window.location.reload();
+            }
           } catch (err) {
             showToast("error", t(lang, "projectCreateFailed", errorText(err)));
           }

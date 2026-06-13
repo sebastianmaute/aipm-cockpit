@@ -4,6 +4,7 @@ import { CreateProjectWizard } from "./create-project-wizard";
 import { type Contact } from "./contacts";
 import { type ProjectMeta } from "./types";
 import { type NewProjectOpts } from "./new-project-workspace";
+import { defaultSettings } from "./settings-types";
 import { SETTINGS_KEY } from "./use-settings";
 import { t } from "./i18n";
 
@@ -29,6 +30,8 @@ function setup(
       stakeholderNames={STAKEHOLDERS}
       addressBook={ADDRESS_BOOK}
       resources={[]}
+      settings={defaultSettings}
+      onChangeSettings={vi.fn()}
       onCreate={onCreate}
       onCancel={onCancel}
       {...overrides}

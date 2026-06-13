@@ -22,6 +22,7 @@ import { t, type Lang } from "./i18n";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
 import { type NewProjectOpts } from "./new-project-workspace";
+import { type Settings } from "./settings-types";
 import { type ProjectMeta, type Resource } from "./types";
 
 const PRIMARY_BUTTON_CLASS =
@@ -35,6 +36,10 @@ export interface ProjectEmptyStateProps {
   stakeholderNames: string[];
   addressBook: Contact[];
   resources: readonly Resource[];
+  /** Current settings (for the backend-config modal opened from the selector). */
+  settings: Settings;
+  /** Persist edited settings (IntegrationsSection emits a full next value). */
+  onChangeSettings: (s: Settings) => void;
   onCreate: (
     meta: ProjectMeta,
     format: "json" | "csv" | "md",
@@ -56,6 +61,8 @@ export function ProjectEmptyState({
   stakeholderNames,
   addressBook,
   resources,
+  settings,
+  onChangeSettings,
   onCreate,
   onLoadFromFile,
   mode = "file",
@@ -128,6 +135,8 @@ export function ProjectEmptyState({
               stakeholderNames={stakeholderNames}
               addressBook={addressBook}
               resources={resources}
+              settings={settings}
+              onChangeSettings={onChangeSettings}
               onCreate={handleCreate}
               onCancel={handleBackToChoices}
               hideFormat={mode === "turso"}

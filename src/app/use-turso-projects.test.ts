@@ -16,9 +16,20 @@ vi.mock("./turso-portfolio", () => ({
 vi.mock("./turso-config", () => ({
   getTursoConfig: vi.fn(() => ({ httpUrl: "https://db.example", authToken: "tok" })),
 }));
+vi.mock("./portfolio-mode", () => ({
+  savePortfolioMode: vi.fn(),
+}));
 
 import { listProjects, updateProjectMeta } from "./turso-portfolio";
 import { getTursoConfig } from "./turso-config";
+import { savePortfolioMode } from "./portfolio-mode";
+
+// Stub window.location.reload so a cross-mode create does not actually reload jsdom.
+const reloadSpy = vi.fn();
+Object.defineProperty(window, "location", {
+  configurable: true,
+  value: { ...window.location, reload: reloadSpy },
+});
 
 const META = { name: "Apollo", code: "AP" } as ProjectMeta;
 
@@ -79,6 +90,17 @@ describe("useTursoProjects — create", () => {
     result.current.handleCreateProjectByMode(META, "csv");
     expect(args.createFileProject).toHaveBeenCalledWith(META, "csv", {});
     expect(args.createTursoProject).not.toHaveBeenCalled();
+  });
+
+  it("file mode + opts.storage 'turso': routes to the Turso backend, persists the mode switch, reloads", async () => {
+    const args = makeArgs({ portfolioMode: "file" });
+    const { result } = renderHook(() => useTursoProjects(args));
+    result.current.handleCreateProjectByMode(META, "json", { storage: "turso" });
+    await waitFor(() => expect(args.createTursoProject).toHaveBeenCalledWith(META, { storage: "turso" }));
+    expect(args.createFileProject).not.toHaveBeenCalled();
+    await waitFor(() => expect(args.refreshTursoProjects).toHaveBeenCalled());
+    expect(savePortfolioMode).toHaveBeenCalledWith("turso");
+    expect(reloadSpy).toHaveBeenCalled();
   });
 });
 

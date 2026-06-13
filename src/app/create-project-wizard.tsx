@@ -30,6 +30,7 @@ import {
 } from "./feature-modules";
 import { t, type Lang } from "./i18n";
 import { type NewProjectOpts } from "./new-project-workspace";
+import { type Settings } from "./settings-types";
 import { type ProjectTemplate } from "./templates";
 import { type ProjectMeta, type Resource } from "./types";
 import { useTemplates } from "./use-templates";
@@ -55,6 +56,10 @@ export interface CreateProjectWizardProps {
   stakeholderNames: string[];
   addressBook: Contact[];
   resources: readonly Resource[];
+  /** Current settings (for the backend-config modal opened from the selector). */
+  settings: Settings;
+  /** Persist edited settings (IntegrationsSection emits a full next value). */
+  onChangeSettings: (s: Settings) => void;
   /** Extended over CreateProjectForm: also carries the assembled NewProjectOpts. */
   onCreate: (
     meta: ProjectMeta,
@@ -106,6 +111,8 @@ export function CreateProjectWizard({
   stakeholderNames,
   addressBook,
   resources,
+  settings,
+  onChangeSettings,
   onCreate,
   onCancel,
   hideFormat = false,
@@ -115,6 +122,7 @@ export function CreateProjectWizard({
   const [step, setStep] = useState<Step>(1);
   const [meta, setMeta] = useState<ProjectMeta | null>(null);
   const [format, setFormat] = useState<CreateFormat>("json");
+  const [storage, setStorage] = useState<"file" | "turso">("file");
   const [selectedTemplate, setSelectedTemplate] = useState<ProjectTemplate | null>(null);
   const [features, setFeatures] = useState<FeatureModuleId[]>([...ALL_MODULE_IDS]);
   const [includeSeed, setIncludeSeed] = useState(false);
@@ -141,9 +149,14 @@ export function CreateProjectWizard({
   // the user has not touched the list, so a manual pick (incl. Blank) made on a
   // prior visit is never overwritten. Computed from the fresh meta `m` so it
   // does not lag the memoized `suggestion` by a render.
-  const handleDetails = (m: ProjectMeta, fmt: CreateFormat) => {
+  const handleDetails = (
+    m: ProjectMeta,
+    fmt: CreateFormat,
+    sto: "file" | "turso",
+  ) => {
     setMeta(m);
     setFormat(fmt);
+    setStorage(sto);
     if (!userTouchedTemplateRef.current) {
       const { templateId } = suggestTemplate(m, templates);
       const tpl = templates.find((tp) => tp.id === templateId) ?? null;
@@ -166,6 +179,7 @@ export function CreateProjectWizard({
       template: selectedTemplate ?? undefined,
       features,
       includeSeed,
+      storage,
     });
   };
 
@@ -195,6 +209,8 @@ export function CreateProjectWizard({
             stakeholderNames={stakeholderNames}
             addressBook={addressBook}
             resources={resources}
+            settings={settings}
+            onChangeSettings={onChangeSettings}
             onCreate={handleDetails}
             onCancel={onCancel}
             hideFormat={hideFormat}

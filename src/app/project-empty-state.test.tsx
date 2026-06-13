@@ -4,6 +4,7 @@ import { ProjectEmptyState } from "./project-empty-state";
 import { type Contact } from "./contacts";
 import { type ProjectMeta } from "./types";
 import { type NewProjectOpts } from "./new-project-workspace";
+import { defaultSettings } from "./settings-types";
 
 const STAKEHOLDERS = ["Alice Smith", "Bob Jones"];
 const ADDRESS_BOOK: Contact[] = [
@@ -20,6 +21,8 @@ function setup(overrides: Partial<React.ComponentProps<typeof ProjectEmptyState>
       stakeholderNames={STAKEHOLDERS}
       addressBook={ADDRESS_BOOK}
       resources={[]}
+      settings={defaultSettings}
+      onChangeSettings={vi.fn()}
       onCreate={onCreate}
       onLoadFromFile={onLoadFromFile}
       {...overrides}
@@ -146,9 +149,9 @@ describe("ProjectEmptyState", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /create a new project/i }));
 
-    // Change format to csv before filling (select is labelled "File format").
+    // Change format to csv before filling (select is labelled "Storage").
     fireEvent.change(
-      screen.getByRole("combobox", { name: /file format/i }),
+      screen.getByRole("combobox", { name: /storage/i }),
       { target: { value: "csv" } },
     );
 

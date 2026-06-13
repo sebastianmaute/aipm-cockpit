@@ -9,6 +9,7 @@ import { FiltersProvider } from "./filters-context";
 import { WorkspaceSection } from "./workspace-section";
 import type { WorkspaceSectionProps } from "./workspace-section";
 import { useSettings } from "./use-settings";
+import { defaultSettings } from "./settings-types";
 import { createRef } from "react";
 import type { ToolDispatcher } from "./chat-tools";
 import type { ActivityEntry } from "./activity-log";
@@ -88,6 +89,8 @@ function makeProps(overrides: Partial<WorkspaceSectionProps> = {}): WorkspaceSec
     projectStakeholderNames: [],
     projectAddressBook: [],
     projectResources: [],
+    projectSettings: defaultSettings,
+    onChangeProjectSettings: vi.fn(),
     onSwitchProject: vi.fn(),
     onCreateProject: vi.fn(),
     onUpdateCurrentProject: vi.fn(),

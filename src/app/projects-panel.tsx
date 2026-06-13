@@ -28,6 +28,7 @@ import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
 import { ProjectForm } from "./project-form";
 import { type ProjectRegistryEntry } from "./projects-registry";
+import { type Settings } from "./settings-types";
 import { TypeToConfirmDialog } from "./type-to-confirm-dialog";
 import { CENTERED_HALF_PANE_CLASS } from "./view-styles";
 import { type ProjectMeta, type Resource } from "./types";
@@ -69,6 +70,10 @@ export interface ProjectsPanelProps {
   addressBook: Contact[];
   /** Registry resources for the link-only contact-person picker. */
   resources: readonly Resource[];
+  /** Current settings (for the backend-config modal opened from the selector). */
+  settings: Settings;
+  /** Persist edited settings (IntegrationsSection emits a full next value). */
+  onChangeSettings: (s: Settings) => void;
   lang: Lang;
   onSwitch: (id: string) => void;
   onCreate: (meta: ProjectMeta, format: CreateFormat, opts?: NewProjectOpts) => void;
@@ -102,6 +107,8 @@ export function ProjectsPanel({
   stakeholderNames,
   addressBook,
   resources,
+  settings,
+  onChangeSettings,
   lang,
   onSwitch,
   onCreate,
@@ -403,6 +410,8 @@ export function ProjectsPanel({
                   stakeholderNames={stakeholderNames}
                   addressBook={addressBook}
                   resources={resources}
+                  settings={settings}
+                  onChangeSettings={onChangeSettings}
                   onCreate={handleCreate}
                   onCancel={closeModal}
                   hideFormat={isTurso}

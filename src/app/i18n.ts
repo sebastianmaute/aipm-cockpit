@@ -1714,6 +1714,8 @@ const enUS = {
   projectsEdit: "Edit project",
   projectsExport: "Export project",
   projectFileFormat: "File format",
+  projectStorage: "Storage",
+  storageOptionConfigure: "Configure the Turso backend",
   projectsDelete: "Delete project",
   projectsDeleteConfirm:
     "Remove this project from the list? The underlying file is NOT deleted.",

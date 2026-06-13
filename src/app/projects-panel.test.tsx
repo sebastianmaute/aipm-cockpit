@@ -3,6 +3,7 @@ import { render, screen, fireEvent, within } from "@testing-library/react";
 import { ProjectsPanel } from "./projects-panel";
 import { type Contact } from "./contacts";
 import { type ProjectRegistryEntry } from "./projects-registry";
+import { defaultSettings } from "./settings-types";
 import { type ProjectMeta } from "./types";
 
 const STAKEHOLDERS = ["Alice Smith", "Bob Jones"];
@@ -48,6 +49,8 @@ function setup(overrides: Partial<React.ComponentProps<typeof ProjectsPanel>> = 
       stakeholderNames={STAKEHOLDERS}
       addressBook={ADDRESS_BOOK}
       resources={[]}
+      settings={defaultSettings}
+      onChangeSettings={vi.fn()}
       lang="en-US"
       mode="file"
       onSwitch={onSwitch}
@@ -134,7 +137,7 @@ describe("ProjectsPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "+ New project" }));
 
     // Step 1 (Details): choose a non-default file format, then advance.
-    fireEvent.change(screen.getByLabelText("File format"), {
+    fireEvent.change(screen.getByLabelText("Storage"), {
       target: { value: "csv" },
     });
     fillRequired();

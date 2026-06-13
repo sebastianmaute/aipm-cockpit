@@ -1732,6 +1732,8 @@ export const de: Record<TranslationKey, string> = {
   projectsEdit: "Projekt bearbeiten",
   projectsExport: "Projekt exportieren",
   projectFileFormat: "Dateiformat",
+  projectStorage: "Speicher",
+  storageOptionConfigure: "Turso-Backend konfigurieren",
   projectsDelete: "Projekt entfernen",
   projectsDeleteConfirm:
     "Projekt aus der Liste entfernen? Die zugrunde liegende Datei wird NICHT gelöscht.",

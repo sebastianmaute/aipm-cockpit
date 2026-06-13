@@ -8,6 +8,10 @@ export interface NewProjectOpts {
   template?: ProjectTemplate;
   features?: readonly FeatureModuleId[];
   includeSeed?: boolean;
+  /** Routing discriminator only: when "turso" the host create handler routes to
+   *  the Turso backend regardless of the global portfolio mode. Ignored by
+   *  buildNewProjectWorkspace (it has no effect on the assembled Workspace). */
+  storage?: "file" | "turso";
 }
 
 /** Assemble a new project's Workspace: base + meta, optionally apply a template
