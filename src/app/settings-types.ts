@@ -69,6 +69,7 @@ export type NotificationsConfig = {
   birthday: ChannelConfig;
   raidReview: ChannelConfig;
   raidReviewIntervalDays: number;
+  dueSoonWorkdays: number;
   stakeholderComms: ChannelConfig;
   stakeholderCommsLeadDays: Record<StakeholderQuadrant, number>;
   jiraTokenError: ChannelConfig;
@@ -85,6 +86,7 @@ export const defaultNotificationsConfig: NotificationsConfig = {
   birthday: { enabled: true },
   raidReview: { enabled: true },
   raidReviewIntervalDays: 14,
+  dueSoonWorkdays: 3,
   stakeholderComms: { enabled: true },
   stakeholderCommsLeadDays: {
     "manage-closely": 14,

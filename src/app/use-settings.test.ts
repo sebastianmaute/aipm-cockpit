@@ -665,6 +665,59 @@ describe("notifications migration — toast-first one-time migration", () => {
   });
 });
 
+describe("notifications migration — dueSoonWorkdays", () => {
+  it("valid persisted dueSoonWorkdays:5 round-trips to 5", async () => {
+    localStorage.setItem(
+      SETTINGS_KEY,
+      JSON.stringify({
+        ...defaultSettings,
+        notifications: { ...defaultNotificationsConfig, dueSoonWorkdays: 5 },
+      }),
+    );
+    const { result } = renderHook(() => useSettings());
+    await act(async () => {});
+    expect(result.current.settings.notifications.dueSoonWorkdays).toBe(5);
+  });
+
+  it("missing dueSoonWorkdays defaults to 3", async () => {
+    const legacy: Record<string, unknown> = {
+      ...defaultSettings,
+      notifications: { ...defaultNotificationsConfig },
+    };
+    delete (legacy.notifications as Record<string, unknown>).dueSoonWorkdays;
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(legacy));
+    const { result } = renderHook(() => useSettings());
+    await act(async () => {});
+    expect(result.current.settings.notifications.dueSoonWorkdays).toBe(3);
+  });
+
+  it("invalid dueSoonWorkdays (-1) defaults to 3", async () => {
+    localStorage.setItem(
+      SETTINGS_KEY,
+      JSON.stringify({
+        ...defaultSettings,
+        notifications: { ...defaultNotificationsConfig, dueSoonWorkdays: -1 },
+      }),
+    );
+    const { result } = renderHook(() => useSettings());
+    await act(async () => {});
+    expect(result.current.settings.notifications.dueSoonWorkdays).toBe(3);
+  });
+
+  it("non-numeric dueSoonWorkdays (\"x\") defaults to 3", async () => {
+    localStorage.setItem(
+      SETTINGS_KEY,
+      JSON.stringify({
+        ...defaultSettings,
+        notifications: { ...defaultNotificationsConfig, dueSoonWorkdays: "x" },
+      }),
+    );
+    const { result } = renderHook(() => useSettings());
+    await act(async () => {});
+    expect(result.current.settings.notifications.dueSoonWorkdays).toBe(3);
+  });
+});
+
 import { sanitizeTemplates } from "./templates";
 
 describe("settings templates field", () => {
