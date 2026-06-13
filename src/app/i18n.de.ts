@@ -1234,7 +1234,6 @@ export const de: Record<TranslationKey, string> = {
   storageConvertConfirm: "Aktuellen Workspace ({0} Aufgaben) nach {1} konvertieren und in diesen Speicher schreiben? Vorhandene Daten dort werden überschrieben.",
   storageConvertedToast: "Konvertiert und zu {0} gewechselt.",
 
-  themeTooltip: "Hell, dunkel oder Systemeinstellung wählen.",
   languageTooltip: "Anzeigesprache der App-Oberfläche.",
   holidayCountriesTooltip: "Feiertage dieser Länder werden als arbeitsfreie Tage markiert.",
   notificationsTooltip: "Erinnerungen, Fälligkeitswarnungen und Benachrichtigungsart konfigurieren.",

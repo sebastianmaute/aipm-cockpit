@@ -1216,7 +1216,6 @@ const enUS = {
   storageConvertConfirm: "Convert your current workspace ({0} tasks) to {1} and write it to this storage, overwriting any data already there?",
   storageConvertedToast: "Converted and switched to {0}.",
 
-  themeTooltip: "Choose light, dark, or follow your system setting.",
   languageTooltip: "Display language for the app interface.",
   holidayCountriesTooltip: "Public holidays from these countries are marked as non-working days.",
   notificationsTooltip: "Configure reminders, due-date alerts, and how you are notified.",

@@ -20,7 +20,7 @@ export function AppearanceSection({ lang, settings, onChange }: AppearanceSectio
       <div className="mb-4">
         <span className="mb-1 flex items-center gap-1 text-sm font-medium text-foreground">
           {t(lang, "theme")}
-          <InfoTooltip text={t(lang, "themeTooltip")} />
+          <InfoTooltip text={t(lang, "themeHint")} />
         </span>
         <SegmentedControl<Theme>
           value={theme}
