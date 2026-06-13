@@ -204,7 +204,7 @@ export function ChangeEditModal({
 
   const title = isNew
     ? t(lang, "changesAdd")
-    : t(lang, "changeReportTitle");
+    : t(lang, "changeEditTitle");
   const saveDisabled = !draft.title.trim();
 
   return (

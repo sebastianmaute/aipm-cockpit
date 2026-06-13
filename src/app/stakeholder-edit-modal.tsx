@@ -116,7 +116,7 @@ export function StakeholderEditModal({
     onSave();
   }
 
-  const title = isNew ? t(lang, "stakeholdersAdd") : t(lang, "navStakeholders");
+  const title = isNew ? t(lang, "stakeholdersAdd") : t(lang, "stakeholderEditTitle");
   const saveDisabled = !draft.name.trim();
 
   return (

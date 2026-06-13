@@ -148,3 +148,10 @@ describe("ChangeEditModal — field visibility", () => {
     expect(screen.getByText(LINKED_TASKS_LABEL)).toBeTruthy();
   });
 });
+
+describe("ChangeEditModal — edit heading", () => {
+  it("shows 'Edit change' heading when editing an existing item", () => {
+    renderModal({ isNew: false });
+    expect(screen.getByRole("heading", { name: t("en-US", "changeEditTitle") })).toBeInTheDocument();
+  });
+});

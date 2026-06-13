@@ -130,6 +130,31 @@ describe("TaskFormModal", () => {
     expect(screen.getByText("4. Relationships")).toBeInTheDocument();
     expect(screen.getByText("5. Status & Notes")).toBeInTheDocument();
   });
+
+  test("shows 'Edit task' heading when editing an existing task", () => {
+    mockUseTaskForm.mockReturnValue({
+      form: { ...emptyForm() },
+      setForm: vi.fn(),
+      editingId: 42,
+      setEditingId: vi.fn(),
+      taskModalOpen: true,
+      setTaskModalOpen: vi.fn(),
+      bulkEdit: emptyBulkEdit(),
+      setBulkEdit: vi.fn(),
+      bulkEditOpen: false,
+      setBulkEditOpen: vi.fn(),
+    });
+    render(<TaskFormModal {...defaultProps()} />, { wrapper: Providers });
+    expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent("Edit task");
+  });
+
+  test("has a close button in the header", () => {
+    render(<TaskFormModal {...defaultProps()} />, { wrapper: Providers });
+    const closeButton = screen
+      .getAllByRole("button")
+      .find((b) => b.getAttribute("aria-label") === "Close");
+    expect(closeButton).toBeDefined();
+  });
 });
 
 describe("TaskFormModal — cancel in create mode", () => {
