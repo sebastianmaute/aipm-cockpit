@@ -189,6 +189,17 @@ describe("ResourcesPanel", () => {
     // RagBadge renders R, A, or G as visible text in the margin column
     expect(screen.getAllByText(/^[RAG]$/).length).toBeGreaterThan(0);
   });
+
+  test("A2: absence override input uses text-sm (not text-[10px])", () => {
+    const resources = [{ id: 1, firstName: "Sample", lastName: "", roleId: null, utilizationMode: "percent" as const, utilization: {} }];
+    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "USD" };
+    render(<ResourcesPanel {...baseProps} view="planning" lang="en-US" resources={resources} plan={plan} workdayHours={8}
+      holidaySet={new Set()} onSetUtilization={() => {}}
+      onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
+    const input = screen.getByLabelText("Absence override for Sample in 2026-02");
+    expect(input.className).toContain("text-sm");
+    expect(input.className).not.toContain("text-[10px]");
+  });
 });
 
 test("custom calendar view has a Today button that resets to the current month", () => {
@@ -208,12 +219,14 @@ test("resources-panel: no view SegmentedControl, no roles/report/add-absence but
   expect(src).toMatch(/VIEW_PANE_RESIZABLE_CLASS/);
 });
 
-test("calendar view root uses CENTERED_HALF_PANE_CLASS (mx-auto, h-[50%], w-[50%])", () => {
+test("A1: calendar view root uses VIEW_PANE_RESIZABLE_CLASS (full resizable pane, not the half-size centered pane)", () => {
   const { container } = render(<ResourcesPanel {...baseProps} view="calendar" today="2026-06-15" />);
   const root = container.firstElementChild as HTMLElement;
-  expect(root.className).toContain("mx-auto");
-  expect(root.className).toContain("h-[50%]");
-  expect(root.className).toContain("w-[50%]");
+  // Calendar was switched from CENTERED_HALF_PANE_CLASS to VIEW_PANE_RESIZABLE_CLASS so it
+  // matches every other sibling resource view in size.
+  expect(root.className).toContain("resize");
+  expect(root.className).not.toContain("mx-auto");
+  expect(root.className).not.toContain("w-[50%]");
 });
 
 test("workload view root does NOT use the centered half-pane class", () => {

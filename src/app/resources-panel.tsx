@@ -21,7 +21,7 @@ import { localeFor, shortDateRangeIso } from "./date-format";
 import { type CalendarMode, monthWindow, resolveWindow, stepAnchor } from "./calendar-window";
 import { type Lang, t } from "./i18n";
 import { ResourceCalendar } from "./resource-calendar";
-import { CENTERED_HALF_PANE_CLASS, INNER_TABLE_CLASS, VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
+import { INNER_TABLE_CLASS, VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { ResourceWorkload, WORKLOAD_COL_WIDTHS, type WorkloadCol } from "./resource-workload";
 import { SegmentedControl } from "./segmented-control";
 import { generatePeriods, displayCapacityHours, absencesForResource, absenceWorkdays } from "./resource-capacity";
@@ -311,7 +311,9 @@ function ResourcesPanelInner({
 
   const isEmpty = rows.length === 0 && resources.length === 0;
 
-  const paneClass = view === "calendar" ? CENTERED_HALF_PANE_CLASS : VIEW_PANE_RESIZABLE_CLASS;
+  // Calendar shares Workload's full resizable pane (was the half-size centered
+  // pane, which made it visibly smaller than every sibling resource view).
+  const paneClass = VIEW_PANE_RESIZABLE_CLASS;
 
   return (
     <section ref={resRef} className={paneClass}>
@@ -480,7 +482,7 @@ function ResourcesPanelInner({
                             placeholder={derived ? "" : String(absenceWorkdays(resAbs, p.start, p.end, holidaySet) * workdayHours)}
                             readOnly={derived}
                             onChange={(e) => { if (!derived) onSetAbsenceOverride(r.id, p.key, e.target.value === "" ? null : Number(e.target.value)); }}
-                            className={`mt-0.5 w-16 rounded border border-AIPM-purple/40 px-1 py-0.5 text-right text-[10px] tabular-nums text-AIPM-purple dark:border-AIPM-purple/50 dark:bg-surface dark:text-AIPM-purple${derived ? " bg-surface-muted opacity-60" : ""}`} />
+                            className={`mt-0.5 w-16 rounded border border-AIPM-purple/40 px-1 py-0.5 text-right text-sm tabular-nums text-AIPM-purple dark:border-AIPM-purple/50 dark:bg-surface dark:text-AIPM-purple${derived ? " bg-surface-muted opacity-60" : ""}`} />
                         </td>
                         );
                       })}

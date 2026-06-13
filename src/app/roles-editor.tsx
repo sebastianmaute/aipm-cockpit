@@ -139,16 +139,22 @@ export function RolesEditor({
                   <td className="px-3 py-2">{disciplineName}</td>
                   <td className="px-3 py-2">{gradeName}</td>
                   <td className="px-3 py-2 text-right">
-                    <input type="number" min={0} step={1} value={r.internalRate}
-                      aria-label={`${rowCtx} — ${t(lang, "rolesInternalRate")}`}
-                      onChange={(e) => onSaveRole({ ...r, internalRate: clampRate(e.target.value) })}
-                      className="w-24 rounded-md border border-line px-2 py-1 text-right text-sm tabular-nums bg-surface-muted" />
+                    <span className="inline-flex items-center justify-end gap-1">
+                      <span aria-hidden className="text-muted-foreground">€</span>
+                      <input type="number" min={0} step={1} value={r.internalRate}
+                        aria-label={`${rowCtx} — ${t(lang, "rolesInternalRate")}`}
+                        onChange={(e) => onSaveRole({ ...r, internalRate: clampRate(e.target.value) })}
+                        className="w-24 rounded-md border border-line px-2 py-1 text-right text-sm tabular-nums bg-surface-muted" />
+                    </span>
                   </td>
                   <td className="px-3 py-2 text-right">
-                    <input type="number" min={0} step={1} value={r.externalRate}
-                      aria-label={`${rowCtx} — ${t(lang, "rolesExternalRate")}`}
-                      onChange={(e) => onSaveRole({ ...r, externalRate: clampRate(e.target.value) })}
-                      className="w-24 rounded-md border border-line px-2 py-1 text-right text-sm tabular-nums bg-surface-muted" />
+                    <span className="inline-flex items-center justify-end gap-1">
+                      <span aria-hidden className="text-muted-foreground">€</span>
+                      <input type="number" min={0} step={1} value={r.externalRate}
+                        aria-label={`${rowCtx} — ${t(lang, "rolesExternalRate")}`}
+                        onChange={(e) => onSaveRole({ ...r, externalRate: clampRate(e.target.value) })}
+                        className="w-24 rounded-md border border-line px-2 py-1 text-right text-sm tabular-nums bg-surface-muted" />
+                    </span>
                   </td>
                   <td className="px-3 py-2 text-right">
                     <button type="button" onClick={() => onDeleteRole(r.id)} aria-label={t(lang, "delete")}

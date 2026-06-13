@@ -46,4 +46,11 @@ describe("RolesEditor rate-card table", () => {
     expect(cell?.className).toContain("px-3");
     expect(cell?.className).toContain("py-2");
   });
+
+  it("A3: renders a € prefix symbol next to each rate input", () => {
+    renderEditor();
+    const euros = screen.getAllByText("€");
+    // One € for internal rate, one for external rate (aria-hidden, so use getAllByText)
+    expect(euros.length).toBeGreaterThanOrEqual(2);
+  });
 });
