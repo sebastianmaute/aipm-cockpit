@@ -38,7 +38,8 @@ export function complexityScore(meta: ProjectMeta): { score: number; reasons: Su
   const dep = DEPLOYMENT_POINTS[meta.deployment] ?? 0;
   if (dep > 0) { score += dep; reasons.push({ key: "suggestSignalDeployment", args: [meta.deployment] }); }
 
-  const months = Math.round(monthsBetween(meta.startDate, meta.endDate));
+  // endDate is optional (0.74) — no end date means unknown duration (0 signal).
+  const months = meta.endDate ? Math.round(monthsBetween(meta.startDate, meta.endDate)) : 0;
   if (months > DURATION_LARGE_MONTHS) { score += 2; reasons.push({ key: "suggestSignalDuration", args: [months] }); }
   else if (months >= DURATION_MID_MONTHS) { score += 1; reasons.push({ key: "suggestSignalDuration", args: [months] }); }
 

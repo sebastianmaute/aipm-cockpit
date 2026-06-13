@@ -373,4 +373,14 @@ describe("sanitizeProjectMeta – jiraUrl", () => {
     expect(r).not.toBeNull();
     expect(r?.contactPersons).toEqual([]);
   });
+
+  test("accepts a blank end date (optional since 0.74) → endDate ''", () => {
+    // Regression: validateProjectMeta treats endDate as optional, so sanitize
+    // must NOT reject a blank endDate or the form silently fails to submit.
+    const r = sanitizeProjectMeta({ ...base, endDate: "" });
+    expect(r).not.toBeNull();
+    expect(r?.endDate).toBe("");
+    // startDate stays required.
+    expect(sanitizeProjectMeta({ ...base, startDate: "" })).toBeNull();
+  });
 });

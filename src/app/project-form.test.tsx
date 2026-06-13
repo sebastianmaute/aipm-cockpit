@@ -129,6 +129,16 @@ describe("ProjectForm", () => {
     expect(meta.naceSection).toBe("C");
   });
 
+  it("submits when the end date is left blank (optional since 0.74)", () => {
+    const { onSubmit } = setup();
+    fillRequired();
+    setText("End date", ""); // clear the optional end date
+    expect(saveButton()).toBeEnabled();
+    fireEvent.click(saveButton());
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    expect(onSubmit.mock.calls[0][0].endDate).toBe("");
+  });
+
   it("shows endBeforeStart error and disables Save when endDate < startDate", () => {
     setup();
     fillRequired();

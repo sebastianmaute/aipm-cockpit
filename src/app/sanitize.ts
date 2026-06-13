@@ -1091,10 +1091,13 @@ export function sanitizeProjectMeta(
   if (!DEPLOYMENT_SET.has(deploymentRaw)) return null;
   const deployment = deploymentRaw as Deployment;
 
-  // Required dates — both must be present and valid.
+  // startDate is required; endDate is OPTIONAL (since 0.74) — keep a valid ISO
+  // date, otherwise "" (no end date). Rejecting a blank endDate here would make
+  // a complete form silently unsubmittable, since validateProjectMeta (which
+  // gates the Save/Next button) treats endDate as optional.
   const startDate = sanitizeIsoDate(o.startDate);
-  const endDate = sanitizeIsoDate(o.endDate);
-  if (!startDate || !endDate) return null;
+  if (!startDate) return null;
+  const endDate = sanitizeIsoDate(o.endDate) ?? "";
 
   // Key stakeholders (internal / external) are OPTIONAL — accept any sanitized
   // array, including empty. Contacts are the mandatory people field now, but
