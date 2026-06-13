@@ -32,6 +32,8 @@ interface ModernShellProps {
   collapsed?: boolean;
   onToggleCollapsed?: () => void;
   navGroups?: NavGroup[];
+  /** Optional per-view badge counts shown in the sidebar (e.g. urgent action count). */
+  navBadges?: Partial<Record<AppView, number>>;
   /** When set, renders the current-project indicator + switcher in the TopBar. */
   projectSwitcher?: ProjectSwitcherProps;
 }
@@ -45,6 +47,7 @@ export function ModernShell({
   banners = null,
   collapsed = false, onToggleCollapsed = () => {},
   navGroups,
+  navBadges,
   projectSwitcher,
 }: ModernShellProps) {
   const [versionOpen, setVersionOpen] = useState(false);
@@ -77,6 +80,7 @@ export function ModernShell({
         mode={mode}
         footer={sidebarFooter}
         navGroups={navGroups}
+        navBadges={navBadges}
       />
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar

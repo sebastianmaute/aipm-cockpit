@@ -66,4 +66,26 @@ describe("SidebarNav", () => {
     expect(screen.getByRole("button", { name: /AI Assistant/i })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^RAID$/i })).toBeNull();
   });
+
+  describe("badges", () => {
+    it("shows a pill with the count when badges has a positive value for a view", () => {
+      render(<SidebarNav lang="en-US" activeView="dashboard" onNavigate={() => {}} badges={{ actions: 3 }} />);
+      expect(screen.getByText("3")).toBeTruthy();
+    });
+
+    it("does not render a pill when the count is 0", () => {
+      render(<SidebarNav lang="en-US" activeView="dashboard" onNavigate={() => {}} badges={{ actions: 0 }} />);
+      expect(screen.queryByText("0")).toBeNull();
+    });
+
+    it("does not render a pill when badges prop is omitted", () => {
+      render(<SidebarNav lang="en-US" activeView="dashboard" onNavigate={() => {}} />);
+      expect(screen.queryByText("3")).toBeNull();
+    });
+
+    it("does not render the pill when the sidebar is collapsed", () => {
+      render(<SidebarNav lang="en-US" activeView="dashboard" onNavigate={() => {}} collapsed badges={{ actions: 5 }} />);
+      expect(screen.queryByText("5")).toBeNull();
+    });
+  });
 });

@@ -21,10 +21,12 @@ interface SidebarProps {
   mode: AppMode;
   footer?: React.ReactNode;
   navGroups?: NavGroup[];
+  /** Optional per-view badge counts passed through to SidebarNav. */
+  navBadges?: Partial<Record<AppView, number>>;
 }
 
 export function Sidebar({
-  lang, activeView, onNavigate, collapsed, onToggleCollapsed, version, onShowVersion, mode, footer, navGroups,
+  lang, activeView, onNavigate, collapsed, onToggleCollapsed, version, onShowVersion, mode, footer, navGroups, navBadges,
 }: SidebarProps) {
   return (
     <aside
@@ -58,7 +60,7 @@ export function Sidebar({
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <SidebarNav lang={lang} activeView={activeView} onNavigate={onNavigate} collapsed={collapsed} navGroups={navGroups} />
+        <SidebarNav lang={lang} activeView={activeView} onNavigate={onNavigate} collapsed={collapsed} navGroups={navGroups} badges={navBadges} />
       </div>
 
       <div className="border-t border-AIPM-white/10 px-4 py-3 text-xs text-AIPM-light-grey">
