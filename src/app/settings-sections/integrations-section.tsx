@@ -16,6 +16,7 @@ import type { SnapshotCadence } from "../snapshot";
 import { useMsAuth } from "../use-ms-auth";
 import { InfoTooltip } from "../info-tooltip";
 import { loadPortfolioMode, savePortfolioMode, type PortfolioMode } from "../portfolio-mode";
+import { isLikelyRegionQualifiedTursoUrl } from "../turso-config";
 
 interface IntegrationsSectionProps {
   lang: Lang;
@@ -227,6 +228,11 @@ export function IntegrationsSection({ lang, settings, onChange }: IntegrationsSe
                 placeholder={t(lang, "integrationsTursoUrlPlaceholder")}
                 className="mt-1 w-full rounded border border-line bg-surface px-2 py-1 text-foreground"
               />
+              {isLikelyRegionQualifiedTursoUrl(turso.databaseUrl ?? "") && (
+                <p className="mt-1 text-xs text-AIPM-pink">
+                  {t(lang, "tursoUrlRegionWarning")}
+                </p>
+              )}
             </label>
           )}
           {!envTursoTokenSet && (

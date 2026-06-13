@@ -1237,6 +1237,7 @@ const enUS = {
   integrationsOutlookCalendarTooltip: "Import out-of-office and time-away events from your Outlook calendar into your absences.",
   integrationsTursoTooltip: "Store your workspace in a Turso (libSQL) database.",
   integrationsTursoUrlTooltip: "Your Turso database URL (libsql://, https://, or http:// for a local server).",
+  tursoUrlRegionWarning: "This looks like a region-specific host (e.g. .aws-eu-west-1.turso.io). Turso usually rejects it with “no route configured for host”. Use the routable URL from `turso db show <db>` (no region segment).",
   integrationsTursoTokenTooltip: "Auth token for the Turso database. Leave empty for a local token-less server.",
   storageTooltip: "Where your workspace is saved. Switching converts your current data and writes it to the new backend.",
 

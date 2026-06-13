@@ -46,6 +46,26 @@ function toHttpUrl(raw: string): string | null {
   return null;
 }
 
+/** True when a Turso URL looks region-qualified — e.g.
+ *  `<db>-<org>.aws-eu-west-1.turso.io` — instead of the routable
+ *  `<db>-<org>.turso.io`. Hitting the region host with the HTTP `/v2/pipeline`
+ *  API returns "no route configured for host", so the UI warns on it.
+ *  Returns false for non-Turso hosts (loopback, custom domains) and bad input. */
+export function isLikelyRegionQualifiedTursoUrl(raw: string): boolean {
+  if (!raw) return false;
+  let hostname: string;
+  try {
+    hostname = new URL(raw.replace(/^libsql:\/\//, "https://")).hostname;
+  } catch {
+    return false;
+  }
+  if (!hostname.endsWith(".turso.io")) return false;
+  // The labels before ".turso.io": the routable form is a single label
+  // ("<db>-<org>"); a region adds another dot-separated label.
+  const sub = hostname.slice(0, -".turso.io".length);
+  return sub.includes(".");
+}
+
 export function getTursoConfig(
   settingsUrl?: string,
   settingsToken?: string,
