@@ -12,7 +12,6 @@ function setup(over: Partial<React.ComponentProps<typeof ModernShell>> = {}) {
       version="v0.29.0"
       mode="advanced"
       bannerCount={0}
-      onNewTask={() => {}}
       onShowAlerts={() => {}}
       topBarMenus={<div data-testid="menus" />}
       sidebarFooter={null}
@@ -46,13 +45,6 @@ describe("ModernShell", () => {
   it("uses the active view's label as the top-bar title", () => {
     setup({ activeView: "gantt" });
     expect(screen.getByRole("heading", { name: "Gantt" })).toBeTruthy();
-  });
-
-  it("wires onNewTask to the top-bar new-task button", () => {
-    const onNewTask = vi.fn();
-    setup({ onNewTask });
-    fireEvent.click(screen.getByRole("button", { name: "New task" }));
-    expect(onNewTask).toHaveBeenCalled();
   });
 
   it("shows the edit view, edit title, and edit actions for the edit view", () => {
