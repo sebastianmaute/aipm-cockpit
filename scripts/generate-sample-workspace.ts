@@ -6,7 +6,7 @@
  * script parses it, enriches it with a demo change-log + RAID→stakeholder links,
  * and emits the two COMPLETE, faithfully-round-tripping formats:
  *   sample-workspace.json    — complete workspace (all entities + enrichment)
- *   sample-workspace.sqlite3 — Turso-importable; schema v10 (multi-tenant; one
+ *   sample-workspace.sqlite3 — Turso-importable; schema v12 (multi-tenant; one
  *                              `projects` row + project_id on every table);
  *                              built via node:sqlite.
  *                              MUST be WAL journal mode — `turso db create
@@ -175,8 +175,10 @@ const sampleProjectMeta: ProjectMeta = {
   salesforceUrl: "https://example.salesforce.com/opportunity/cip-2026",
   sharepointUrl: "https://example.sharepoint.com/sites/cip-2026",
   confluenceUrl: "https://example.atlassian.net/wiki/spaces/CIP",
+  jiraUrl: "https://example.atlassian.net/browse/CIP",
   contactPersons: [
     { name: "David Okoro", email: "david.okoro@northwind.example", synced: false },
+    { name: "Alex Example", email: "Sample.Dummy@example.com", synced: false },
   ],
   docRepoLocation: "https://example.sharepoint.com/sites/cip-2026/Shared Documents",
   regulatory: ["GDPR / data protection regulation", "NIS2"],
@@ -310,7 +312,7 @@ if (process.env["VERIFY"] === "1") {
 
   const schemaVersion = (dbVerify.prepare("SELECT value FROM meta WHERE key='schema_version'").get() as { value: string } | undefined)?.value;
   console.log(`\nSQLite schema_version: ${schemaVersion}`);
-  if (schemaVersion !== "10") throw new Error(`Expected schema_version=10, got ${schemaVersion}`);
+  if (schemaVersion !== "12") throw new Error(`Expected schema_version=12, got ${schemaVersion}`);
 
   // Multi-tenant: exactly one projects row, with our stable id + name.
   const projectsCount = (dbVerify.prepare(`SELECT count(*) as n FROM ${PROJECTS_TABLE}`).get() as { n: number }).n;

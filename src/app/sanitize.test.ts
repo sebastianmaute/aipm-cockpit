@@ -354,4 +354,23 @@ describe("sanitizeProjectMeta – jiraUrl", () => {
     const blank = sanitizeProjectMeta({ ...base, jiraUrl: "" });
     expect(blank?.jiraUrl).toBeUndefined();
   });
+
+  test("accepts empty key stakeholders (now optional) in strict mode", () => {
+    const r = sanitizeProjectMeta({
+      ...base,
+      keyStakeholdersInternal: [],
+      keyStakeholdersExternal: [],
+    });
+    expect(r).not.toBeNull();
+    expect(r?.keyStakeholdersInternal).toEqual([]);
+    expect(r?.keyStakeholdersExternal).toEqual([]);
+  });
+
+  test("still decodes a project with no contacts in strict mode (legacy-safe)", () => {
+    // Contacts are mandatory at the FORM layer only; sanitize must not reject an
+    // already-stored project that predates the contacts requirement.
+    const r = sanitizeProjectMeta({ ...base, contactPersons: [] });
+    expect(r).not.toBeNull();
+    expect(r?.contactPersons).toEqual([]);
+  });
 });

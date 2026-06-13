@@ -1781,4 +1781,11 @@ export const de: Record<TranslationKey, string> = {
 
   // Contact picker
   contactAddManual: "Manuell hinzufügen",
+  contactPersonsTip:
+    "Kontakt hinzufügen: unter „Manuell hinzufügen“ ein Teammitglied oder einen gespeicherten Kontakt wählen, um ihn zu verknüpfen, oder einen neuen Namen für eine Person außerhalb Ihres Verzeichnisses eingeben; im E-Mail-Feld eine Adresse für einen manuell eingegebenen (externen) Kontakt hinterlegen; mit Hinzufügen zur Liste hinzufügen. Mindestens ein Kontakt ist erforderlich.",
+  contactAddManualHint:
+    "Ein vorhandenes Teammitglied oder einen gespeicherten Kontakt wählen, um ihn zu verknüpfen, oder einen neuen Namen für eine nicht im Verzeichnis enthaltene Person eingeben.",
+  contactEmailHint:
+    "E-Mail für einen manuell eingegebenen Kontakt. Verknüpfte Verzeichniskontakte verwenden ihre eigene E-Mail.",
+  contactAddButtonHint: "Die eingegebene Person zur Kontaktliste hinzufügen.",
 };

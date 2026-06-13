@@ -14,6 +14,7 @@
 import { useState } from "react";
 import type React from "react";
 import { FieldError } from "./field-feedback";
+import { InfoTooltip } from "./info-tooltip";
 import { t, type Lang } from "./i18n";
 import type { DocumentLink } from "./document-link";
 import { DocumentLinksFieldGated } from "./document-links-field-gated";
@@ -630,9 +631,10 @@ function ContactPersonsControl({
 
   return (
     <div>
-      <span className="mb-1 block text-sm font-medium text-foreground">
+      <span className="mb-1 flex items-center gap-1 text-sm font-medium text-foreground">
         {t(lang, "projectContactPersons")}
-        {required && <span className="ml-0.5 text-AIPM-pink">*</span>}
+        {required && <span className="text-AIPM-pink">*</span>}
+        <InfoTooltip text={t(lang, "contactPersonsTip")} />
       </span>
 
       {contactPersons.length > 0 && (
@@ -674,6 +676,7 @@ function ContactPersonsControl({
             onChange={(next) => setDraft({ name: next.name, email: next.email, resourceId: next.resourceId })}
             placeholder={t(lang, "contactAddManual")}
             aria-label={t(lang, "contactAddManual")}
+            title={t(lang, "contactAddManualHint")}
           />
         </div>
         <div className="min-w-0 flex-1">
@@ -682,6 +685,7 @@ function ContactPersonsControl({
             value={draft.email}
             placeholder="email"
             aria-label={`${t(lang, "contactAddManual")} — email`}
+            title={t(lang, "contactEmailHint")}
             onChange={(e) => setDraft((d) => ({ ...d, email: e.target.value }))}
             className={inputClass}
           />
@@ -689,6 +693,7 @@ function ContactPersonsControl({
         <button
           type="button"
           onClick={addDraft}
+          title={t(lang, "contactAddButtonHint")}
           className="shrink-0 rounded-md border border-line bg-surface px-3 py-2 text-sm font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted dark:border-line dark:bg-surface dark:text-foreground dark:hover:bg-surface-muted"
         >
           {t(lang, "add")}

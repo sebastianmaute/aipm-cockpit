@@ -1763,6 +1763,13 @@ const enUS = {
 
   // Contact picker
   contactAddManual: "Add manually",
+  contactPersonsTip:
+    "How to add a contact: in “Add manually” pick a team member or saved contact to link them, or type a new name for someone outside your directory; use the email field to record an address for a typed-in (external) contact; click Add to put them on the list. At least one contact is required.",
+  contactAddManualHint:
+    "Pick an existing team member or saved contact to link them, or type a new name for someone not in your directory.",
+  contactEmailHint:
+    "Email for a manually typed contact. Linked directory contacts already carry their own email.",
+  contactAddButtonHint: "Add the entered person to the contact list.",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;

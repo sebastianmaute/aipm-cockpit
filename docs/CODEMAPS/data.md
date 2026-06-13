@@ -267,8 +267,8 @@ ProjectMeta {
   // People — internal group
   sponsor?                string
   projectManager          string
-  keyStakeholdersInternal string[]         // required (non-empty unless lenient decode)
-  keyStakeholdersExternal string[]         // required (non-empty unless lenient decode)
+  keyStakeholdersInternal string[]         // OPTIONAL since the contacts overhaul (0.74); may be []
+  keyStakeholdersExternal string[]         // OPTIONAL since the contacts overhaul (0.74); may be []
   // Customer group
   customer                string
   naceSection             string           // NACE section letter, e.g. "C" (validated A–U)
@@ -278,13 +278,15 @@ ProjectMeta {
   platform?               string
   deployment              Deployment
   startDate               "YYYY-MM-DD"
-  endDate                 "YYYY-MM-DD"
+  endDate?                "YYYY-MM-DD"      // OPTIONAL since 0.74; when present must be ≥ startDate
   profitCenter            string
   quotes?                 string
   salesforceUrl?          string
   sharepointUrl?          string
   confluenceUrl?          string
-  contactPersons          ContactPerson[]
+  jiraUrl?                string            // 0.74: "Link to Jira"
+  contactPersons          ContactPerson[]  // MANDATORY at the form layer (≥1) since 0.74; sanitize
+                                           //   stays lenient so legacy projects without contacts decode
   docRepoLocation?        string
   regulatory              RegulatoryRequirement[]  // required (non-empty unless lenient);
                                                    //   "Not applicable" collapses the rest
@@ -558,14 +560,18 @@ Budget sanitizers (schema v6) add `sanitizeBudgetBucket` and `sanitizeFxRates` t
 Multi-project (schema v9) adds `sanitizeProjectMeta(input, { lenientRequiredArrays? })`:
 validates required short-text fields (name, code, projectManager, customer,
 products, profitCenter), required enums (`naceSection` ∈ A–U, `deployment` ∈
-`DEPLOYMENT_SET`), required ISO dates (start/end), filters `identityTypes` /
-`regulatory` to their known sets (de-duped; `"Not applicable"` collapses the
-rest), and validates `contactPersons`. Returns `null` on any failure. The
-default (strict) mode also rejects empty `keyStakeholdersInternal` /
-`keyStakeholdersExternal` / `regulatory`; the **lenient** variant
-(`{ lenientRequiredArrays: true }`) relaxes those array-non-empty checks and is
-used by the Turso projects-row decode (`buildProjectFromObjLenient`) where a
-partial row should still yield a usable `ProjectMeta`.
+`DEPLOYMENT_SET`), required `startDate` (`endDate` is optional since 0.74),
+filters `identityTypes` / `regulatory` to their known sets (de-duped;
+`"Not applicable"` collapses the rest), and keeps valid `contactPersons`.
+Returns `null` on any failure. `keyStakeholdersInternal` /
+`keyStakeholdersExternal` are accepted as-is (OPTIONAL since the 0.74 contacts
+overhaul — sanitize no longer rejects empty stakeholder arrays). The default
+(strict) mode still rejects empty `regulatory`; the **lenient** variant
+(`{ lenientRequiredArrays: true }`) relaxes that and is used by the Turso
+projects-row decode (`buildProjectFromObjLenient`) where a partial row should
+still yield a usable `ProjectMeta`. NOTE: the **mandatory contact (≥1)** rule is
+enforced only at the form layer (`validateProjectMeta`), NOT in `sanitizeProjectMeta`,
+so projects saved before 0.74 (no contacts) still decode.
 
 ## RAID derivations (`raid.ts`)
 

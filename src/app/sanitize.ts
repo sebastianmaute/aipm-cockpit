@@ -1096,11 +1096,13 @@ export function sanitizeProjectMeta(
   const endDate = sanitizeIsoDate(o.endDate);
   if (!startDate || !endDate) return null;
 
-  // Required array: keyStakeholdersInternal / keyStakeholdersExternal.
+  // Key stakeholders (internal / external) are OPTIONAL — accept any sanitized
+  // array, including empty. Contacts are the mandatory people field now, but
+  // that is enforced at the form layer (validateProjectMeta) only: sanitize must
+  // stay lenient here so existing projects saved without contacts still decode
+  // (decode call sites use strict mode).
   const keyStakeholdersInternal = sanitizeStringArray(o.keyStakeholdersInternal, BUDGET_NAME_MAX);
-  if (!opts.lenientRequiredArrays && keyStakeholdersInternal.length === 0) return null;
   const keyStakeholdersExternal = sanitizeStringArray(o.keyStakeholdersExternal, BUDGET_NAME_MAX);
-  if (!opts.lenientRequiredArrays && keyStakeholdersExternal.length === 0) return null;
 
   // Required array: regulatory — filter to known set, de-dupe, collapse "Not applicable".
   const rawRegArr: unknown[] = Array.isArray(o.regulatory) ? o.regulatory : [];
