@@ -138,6 +138,11 @@ describe("ResourceEditModal", () => {
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ birthday: "06-03" }));
   });
 
+  it("renders an InfoTooltip for the Email field (accessible by hint text as aria-label)", () => {
+    setupFull();
+    expect(screen.getByRole("button", { name: t("en-US", "resourceEmailHint") })).toBeInTheDocument();
+  });
+
   describe("field visibility", () => {
     it("Advanced default shows jobTitle and hides Full-only birthday; switching tiers keeps the required Name input", () => {
       setup();

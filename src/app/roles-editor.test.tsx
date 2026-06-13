@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
 import { RolesEditor } from "./roles-editor";
+import { t } from "./i18n";
 import { INNER_TABLE_CLASS } from "./view-styles";
 import type { Discipline, Grade, Role } from "./types";
 
@@ -45,6 +46,11 @@ describe("RolesEditor rate-card table", () => {
     const cell = screen.getAllByText("Engineering").map((el) => el.closest("td")).find(Boolean);
     expect(cell?.className).toContain("px-3");
     expect(cell?.className).toContain("py-2");
+  });
+
+  it("renders InfoTooltip triggers on column headers (accessible by hint text)", () => {
+    renderEditor();
+    expect(screen.getByRole("button", { name: t("en-US", "rolesDisciplineHint") })).toBeInTheDocument();
   });
 
   it("A3: renders a € prefix symbol next to each rate input", () => {
