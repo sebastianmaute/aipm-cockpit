@@ -48,6 +48,7 @@ export const FEATURE_MODULES: readonly FeatureModule[] = [
 
 /** Views always present regardless of mode. */
 export const CORE_VIEWS: readonly AppView[] = [
+  "actions",
   "open-points",
   "chat",
   "reports",

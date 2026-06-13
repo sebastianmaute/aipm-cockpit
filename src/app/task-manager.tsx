@@ -106,6 +106,9 @@ import { listProjects, listArchivedProjects } from "./turso-portfolio";
 import { useTursoProjects } from "./use-turso-projects";
 import type { ProjectListEntry } from "./turso-tenant-schema";
 import type { ProjectRegistryEntry } from "./projects-registry";
+import { computeNextActions } from "./next-actions";
+import { buildActionInput } from "./next-actions-input";
+import type { SuggestedAction } from "./next-actions";
 
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
@@ -597,6 +600,61 @@ function TaskManagerInner() {
     settings,
     flags: { stakeholdersEnabled, milestonesEnabled, raidEnabled, changesEnabled },
   });
+
+  // Render-scope dashboard model — same args as the snapshot buildContext above,
+  // but memoized so nextActions and the dashboard panel share one computation.
+  const dashboardModel = useMemo(
+    () =>
+      computeDashboard({
+        tasks,
+        raid,
+        budgets,
+        plan,
+        roles,
+        resources,
+        absences,
+        workdayHours: settings.resources.workdayHours,
+        holidaySet,
+        status,
+        activity: activityLog,
+        today,
+        milestones,
+        changes,
+      }),
+    [tasks, raid, budgets, plan, roles, resources, absences, settings.resources.workdayHours, holidaySet, status, activityLog, today, milestones, changes],
+  );
+
+  // Suggested next-actions engine. Reuses comms.items (already computed above)
+  // so we don't run getStakeholderCommsItems a second time.
+  const nextActions = useMemo(
+    () =>
+      computeNextActions(
+        buildActionInput({
+          tasks,
+          raid,
+          changes,
+          milestones,
+          stakeholders,
+          dashboard: dashboardModel,
+          commsReminders: comms.items,
+          features: settings.features,
+          projectName: project?.name ?? "",
+          today,
+          now: new Date(),
+          reminderLeadDays: settings.notifications.reminderLeadDays,
+          dueSoonWorkdays: settings.notifications.dueSoonWorkdays,
+          raidReviewIntervalDays: settings.notifications.raidReviewIntervalDays,
+        }),
+      ),
+    [tasks, raid, changes, milestones, stakeholders, dashboardModel, comms.items, settings.features, settings.notifications, project, today],
+  );
+  const nowCount = nextActions.filter((a) => a.tier === "now").length;
+  const openAction = useCallback(
+    (a: SuggestedAction) => {
+      if (a.cta.kind === "open") requestOpen(a.cta.view, Number(a.cta.id));
+    },
+    [requestOpen],
+  );
 
   // Lazily serialize the CURRENT workspace for a version-history capture. Same
   // field set the export handler and save effect use. Placed after the
@@ -1264,6 +1322,8 @@ function TaskManagerInner() {
     onArchiveProject: handleArchiveTursoProject,
     onRestoreProject: handleRestoreTursoProject,
     onHardDeleteProject: handleHardDeleteTursoProject,
+    nextActions,
+    onOpenAction: openAction,
   };
 
   const workspaceEl = <WorkspaceSection {...workspaceProps} />;
@@ -1666,6 +1726,7 @@ function TaskManagerInner() {
         banners={bannersEl}
         navGroups={filteredNavGroups}
         projectSwitcher={projectSwitcher}
+        navBadges={{ actions: nowCount }}
       />
       {modalsBlock}
     </>

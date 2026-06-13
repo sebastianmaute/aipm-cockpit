@@ -1410,6 +1410,24 @@ const enUS = {
   snapshotNeedsTurso: "Recording only runs while the Turso backend is active.",
   snapshotNeedsTursoFirst: "Move this project to Turso first — snapshots record per Turso project.",
 
+  // --- Action Center (SP2) ---
+  navActions: "Next actions",
+  actionCenterTitle: "Next actions",
+  actionCenterSubtitle: "What to act on, ranked by priority",
+  dashboardTopActions: "Top actions",
+  actionsEmptyState: "You're all caught up — no actions right now.",
+  actionOpen: "Open",
+  actionTierNow: "Now",
+  actionTierSoon: "Soon",
+  actionTierMonitor: "Monitor",
+  actionSourceTask: "Task",
+  actionSourceRaid: "RAID",
+  actionSourceChange: "Change",
+  actionSourceMilestone: "Milestone",
+  actionSourceBudget: "Budget",
+  actionSourceComms: "Stakeholder",
+  versionHighlightActionCenter: "Action Center: a ranked Now/Soon/Monitor queue of suggested next steps, plus a dashboard widget",
+
   // --- Suggested next actions (engine SP1) ---
   actionTaskTitle: "Task: {0}",
   actionTaskWhyOverdue: "Overdue by {0} working day(s)",

@@ -14,6 +14,8 @@ import type { Absence, BudgetBucket, ChangeItem, ChangeStatus, Milestone, RaidIt
 import { formatCurrency } from "./resource-cost";
 import { RagBadge } from "./rag-badge";
 import { BurndownCharts } from "./burndown-chart";
+import { ActionRow } from "./action-row";
+import type { SuggestedAction } from "./next-actions/types";
 
 interface DashboardPanelProps {
   lang: Lang;
@@ -36,6 +38,8 @@ interface DashboardPanelProps {
   showBudget?: boolean;
   showMilestones?: boolean;
   showChanges?: boolean;
+  topActions?: readonly SuggestedAction[];
+  onOpenAction?: (a: SuggestedAction) => void;
 }
 
 const CHANGE_STATUS_KEY: Record<ChangeStatus, TranslationKey> = {
@@ -79,7 +83,7 @@ function OverrideSelect({
 }
 
 export function DashboardPanel(props: DashboardPanelProps) {
-  const { lang, today, onOpenRaid, onOpenTask } = props;
+  const { lang, today, onOpenRaid, onOpenTask, topActions, onOpenAction } = props;
   const { showRaid = true, showBudget = true, showMilestones = true, showChanges = true } = props;
   const { status, setStatus } = useWorkspace();
   const sizeRef = useRef<HTMLDivElement | null>(null);
@@ -348,6 +352,20 @@ export function DashboardPanel(props: DashboardPanelProps) {
             </ul>
           )}
         </Section>
+
+        {/* Top actions */}
+        {topActions && topActions.length > 0 && (
+          <section className="mt-4">
+            <h3 className="mb-2 text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
+              {t(lang, "dashboardTopActions")}
+            </h3>
+            <div className="flex flex-col gap-2">
+              {topActions.map((a) => (
+                <ActionRow key={a.id} lang={lang} action={a} onOpen={onOpenAction ?? (() => {})} />
+              ))}
+            </div>
+          </section>
+        )}
       </div>
     </ReportCard>
   );

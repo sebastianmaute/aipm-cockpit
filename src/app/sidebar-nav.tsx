@@ -12,6 +12,8 @@ interface SidebarNavProps {
   collapsed?: boolean;
   /** Override the default NAV_GROUPS with a pre-filtered list. */
   navGroups?: NavGroup[];
+  /** Optional per-view badge counts (e.g. urgent action count on "actions"). */
+  badges?: Partial<Record<AppView, number>>;
 }
 
 function isParentActive(item: NavItem, active: AppView): boolean {
@@ -33,7 +35,7 @@ function navItemClass(active: boolean, indent: "root" | "child", collapsed: bool
   return base + spacing + state;
 }
 
-export function SidebarNav({ lang, activeView, onNavigate, collapsed = false, navGroups }: SidebarNavProps) {
+export function SidebarNav({ lang, activeView, onNavigate, collapsed = false, navGroups, badges }: SidebarNavProps) {
   return (
     <nav aria-label={t(lang, "navPrimaryLabel")} className="flex flex-col gap-4 py-2">
       {(navGroups ?? NAV_GROUPS).map((group) => (
@@ -60,6 +62,11 @@ export function SidebarNav({ lang, activeView, onNavigate, collapsed = false, na
                   >
                     <NavIcon view={item.view} />
                     {!collapsed && <span>{label}</span>}
+                    {!collapsed && !!badges?.[item.view] && (
+                      <span aria-hidden className="ml-auto inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-AIPM-pink px-1 text-[10px] font-semibold leading-none text-white">
+                        {badges[item.view]}
+                      </span>
+                    )}
                   </button>
                   {showChildren && (
                     <ul role="list">

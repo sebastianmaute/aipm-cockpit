@@ -8,6 +8,16 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.77.0] - 2026-06-13 "Russ"
+
+### Added
+- **Action Center.** A new "Next actions" view turns the project's signals
+  (overdue tasks, open Critical/High RAID + reviews due, pending changes,
+  overdue/at-risk milestones, budget overruns, stakeholder-comms due) into a
+  ranked queue grouped Now / Soon / Monitor — click a row to jump straight to
+  the item. Plus a "Top actions" card on the Dashboard and a nav badge counting
+  the urgent ("now") items. (Consumes the next-actions engine.)
+
 ## [0.76.0] - 2026-06-13 "Delany"
 
 ### Added

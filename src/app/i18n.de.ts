@@ -1407,6 +1407,24 @@ export const de: Record<TranslationKey, string> = {
   snapshotNeedsTurso: "Die Aufzeichnung läuft nur, solange das Turso-Backend aktiv ist.",
   snapshotNeedsTursoFirst: "Verschieben Sie dieses Projekt zuerst zu Turso — Snapshots werden pro Turso-Projekt aufgezeichnet.",
 
+  // --- Action Center (SP2) ---
+  navActions: "Nächste Schritte",
+  actionCenterTitle: "Nächste Schritte",
+  actionCenterSubtitle: "Worauf Sie reagieren sollten — nach Priorität sortiert",
+  dashboardTopActions: "Wichtigste Schritte",
+  actionsEmptyState: "Alles erledigt — derzeit keine offenen Schritte.",
+  actionOpen: "Öffnen",
+  actionTierNow: "Jetzt",
+  actionTierSoon: "Bald",
+  actionTierMonitor: "Beobachten",
+  actionSourceTask: "Aufgabe",
+  actionSourceRaid: "RAID",
+  actionSourceChange: "Änderung",
+  actionSourceMilestone: "Meilenstein",
+  actionSourceBudget: "Budget",
+  actionSourceComms: "Stakeholder",
+  versionHighlightActionCenter: "Action Center: eine nach Jetzt/Bald/Beobachten sortierte Liste vorgeschlagener nächster Schritte plus Dashboard-Widget",
+
   // --- Vorgeschlagene nächste Schritte (Engine SP1) ---
   actionTaskTitle: "Aufgabe: {0}",
   actionTaskWhyOverdue: "Überfällig seit {0} Arbeitstag(en)",

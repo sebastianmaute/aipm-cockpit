@@ -220,6 +220,85 @@ describe("DashboardPanel RAG polish (Task 3)", () => {
   });
 });
 
+describe("DashboardPanel top-actions card (Task 7)", () => {
+  const baseProps = {
+    lang: "en-US" as const,
+    tasks: [],
+    raid: [],
+    budgets: [],
+    plan,
+    roles: [],
+    resources: [],
+    absences: [],
+    holidaySet: new Set<string>(),
+    workdayHours: 8,
+    today: "2026-06-02",
+  };
+
+  const action1 = {
+    id: "raid:1:severity",
+    source: "raid" as const,
+    moduleId: "raid" as const,
+    title: { key: "actionRaidTitle" as const, params: [1, "X"] as (string | number)[] },
+    why: { key: "actionRaidWhySeverity" as const, params: ["High"] as (string | number)[] },
+    score: 60,
+    tier: "now" as const,
+    cta: { kind: "open" as const, view: "raid" as const, id: 1 },
+  };
+
+  const action2 = {
+    id: "task-due:2:overdue",
+    source: "task-due" as const,
+    title: { key: "actionTaskTitle" as const, params: [2, "Y"] as (string | number)[] },
+    why: { key: "actionTaskWhyOverdue" as const, params: [3] as (string | number)[] },
+    score: 80,
+    tier: "now" as const,
+    cta: { kind: "open" as const, view: "open-points" as const, id: 2 },
+  };
+
+  it("renders the Top actions heading and rows when topActions has items", () => {
+    const onOpenAction = vi.fn();
+    render(
+      <DashboardPanel
+        {...baseProps}
+        topActions={[action1, action2]}
+        onOpenAction={onOpenAction}
+      />,
+      { wrapper },
+    );
+    expect(screen.getByText("Top actions")).toBeInTheDocument();
+    // Two action rows rendered — each has an "Open" CTA button
+    expect(screen.getAllByRole("button", { name: "Open" }).length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("fires onOpenAction with the action when a row is clicked", async () => {
+    const user = userEvent.setup();
+    const onOpenAction = vi.fn();
+    render(
+      <DashboardPanel
+        {...baseProps}
+        topActions={[action1]}
+        onOpenAction={onOpenAction}
+      />,
+      { wrapper },
+    );
+    // Click the "Open" button inside the ActionRow (exact text, not the print button)
+    const rowButton = screen.getByRole("button", { name: "Open" });
+    await user.click(rowButton);
+    expect(onOpenAction).toHaveBeenCalledWith(action1);
+  });
+
+  it("does NOT render the Top actions heading when topActions is undefined", () => {
+    render(<DashboardPanel {...baseProps} />, { wrapper });
+    expect(screen.queryByText("Top actions")).toBeNull();
+  });
+
+  it("does NOT render the Top actions heading when topActions is empty", () => {
+    render(<DashboardPanel {...baseProps} topActions={[]} />, { wrapper });
+    expect(screen.queryByText("Top actions")).toBeNull();
+  });
+});
+
 describe("DashboardPanel status narrative layout (Task 2)", () => {
   it("places Save and Clear in a right-hand column beside the textarea", () => {
     const { wrapper: w } = (() => ({ wrapper }))();

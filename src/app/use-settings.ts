@@ -42,6 +42,7 @@ function migrateNotifications(raw: unknown): Settings["notifications"] {
   };
   const lead = Number(p.reminderLeadDays ?? pick(p.birthday).leadDays ?? pick(p.banner).thresholdWorkDays);
   const raidInterval = Math.round(Number(p.raidReviewIntervalDays));
+  const dueSoonWd = Math.round(Number(p.dueSoonWorkdays));
 
   const rawLeadDays = isPlainObject(p.stakeholderCommsLeadDays)
     ? (p.stakeholderCommsLeadDays as Record<string, unknown>)
@@ -68,6 +69,8 @@ function migrateNotifications(raw: unknown): Settings["notifications"] {
     raidReview: ch(p.raidReview),
     raidReviewIntervalDays:
       Number.isFinite(raidInterval) && raidInterval >= 1 ? Math.min(365, raidInterval) : 14,
+    dueSoonWorkdays:
+      Number.isFinite(dueSoonWd) && dueSoonWd >= 1 ? Math.min(365, dueSoonWd) : 3,
     stakeholderComms: ch(p.stakeholderComms),
     stakeholderCommsLeadDays,
     jiraTokenError: ch(p.jiraTokenError),
