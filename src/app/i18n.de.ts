@@ -1770,6 +1770,8 @@ export const de: Record<TranslationKey, string> = {
   portfolioModeTurso: "Turso-Datenbank (Multi-Projekt)",
   portfolioModeHelp: "Legen Sie fest, wo Ihr Projektportfolio gespeichert wird. Lokale Dateien speichern eine Datei pro Projekt; Turso speichert alle Projekte in einer gemeinsamen Datenbank.",
   portfolioModeTursoNeedsConfig: "Geben Sie zuerst Turso-URL und -Token oben ein, bevor Sie das Portfolio auf Turso umstellen — sonst landen Sie in einem leeren Turso-Portfolio.",
+  portfolioModeSwitchNote: "Dies lädt die App neu, um das ausgewählte Portfolio anzuzeigen. Ihr aktuelles Projekt bleibt in seinem eigenen Speicher und wird NICHT verschoben — wechseln Sie erst, wenn Sie das Projekt dort angelegt oder migriert haben.",
+  portfolioModeSwitchConfirm: "Speichern & Portfolio wechseln",
   projectsArchived: "Archivierte Projekte",
   projectsShowArchived: "Archiv anzeigen",
   projectsHideArchived: "Archiv ausblenden",

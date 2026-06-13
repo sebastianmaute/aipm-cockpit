@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { type Lang, t } from "../i18n";
 import { FieldNotice } from "../field-feedback";
 import {
@@ -47,18 +48,21 @@ export function IntegrationsSection({ lang, settings, onChange }: IntegrationsSe
   }
 
   // Portfolio storage mode lives in localStorage (not Settings) — see
-  // portfolio-mode.ts. Read once for the current selection; changing it persists
-  // the new mode and reloads the page so the whole portfolio UI re-initialises in
-  // the chosen mode (mirrors how the feature-modules "mode" Save reloads).
+  // portfolio-mode.ts. Switching is DELIBERATE: picking a mode only stages it;
+  // an explicit "Save & switch" button persists it and reloads. A bare dropdown
+  // that reloaded on change kicked users out mid-config — and switching does NOT
+  // migrate the current project (each portfolio is a separate store), so the
+  // surprise reload landed them in the OTHER (often empty) portfolio.
   const portfolioMode = loadPortfolioMode();
+  const [pendingMode, setPendingMode] = useState<PortfolioMode>(portfolioMode);
   // Turso portfolio mode is only safe once Turso resolves a config (URL + token,
-  // or env vars). Switching to Turso unconfigured reloads into an EMPTY Turso
-  // portfolio with no way back except this very selector — strands the user.
+  // or env vars). Disable it until then so a switch can't land in a dead portfolio.
   const tursoConfigured = !!getTursoConfig(turso.databaseUrl, turso.authToken);
-  function handlePortfolioModeChange(next: PortfolioMode) {
-    if (next === portfolioMode) return;
-    if (next === "turso" && !tursoConfigured) return; // guard: must configure Turso first
-    savePortfolioMode(next);
+  const portfolioModeDirty = pendingMode !== portfolioMode;
+  function confirmPortfolioModeSwitch() {
+    if (!portfolioModeDirty) return;
+    if (pendingMode === "turso" && !tursoConfigured) return; // guard
+    savePortfolioMode(pendingMode);
     window.location.reload();
   }
 
@@ -291,8 +295,8 @@ export function IntegrationsSection({ lang, settings, onChange }: IntegrationsSe
               </span>
               <select
                 aria-label={t(lang, "portfolioModeLabel")}
-                value={portfolioMode}
-                onChange={(e) => handlePortfolioModeChange(e.target.value as PortfolioMode)}
+                value={pendingMode}
+                onChange={(e) => setPendingMode(e.target.value as PortfolioMode)}
                 className="mt-1 w-full rounded border border-line bg-surface px-2 py-1 text-foreground"
               >
                 <option value="file">{t(lang, "portfolioModeFile")}</option>
@@ -304,6 +308,18 @@ export function IntegrationsSection({ lang, settings, onChange }: IntegrationsSe
             <p className="mt-1 text-xs text-muted-foreground">{t(lang, "portfolioModeHelp")}</p>
             {!tursoConfigured && (
               <p className="mt-1 text-xs text-AIPM-pink">{t(lang, "portfolioModeTursoNeedsConfig")}</p>
+            )}
+            {portfolioModeDirty && (
+              <div className="mt-2 rounded-md border border-AIPM-purple/40 bg-AIPM-purple/5 p-2">
+                <p className="text-xs text-foreground">{t(lang, "portfolioModeSwitchNote")}</p>
+                <button
+                  type="button"
+                  onClick={confirmPortfolioModeSwitch}
+                  className="mt-2 rounded-md bg-AIPM-dark-blue px-3 py-1.5 text-xs font-medium text-white hover:opacity-90"
+                >
+                  {t(lang, "portfolioModeSwitchConfirm")}
+                </button>
+              </div>
             )}
           </div>
         </div>
