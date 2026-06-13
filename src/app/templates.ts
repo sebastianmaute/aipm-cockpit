@@ -44,10 +44,6 @@ import {
  * wouldn't accept.
  */
 export interface TemplateSeed {
-  /** When "database_upload", the starter content comes from an uploaded database
-   *  (e.g. the sample sqlite3) rather than the inline entity arrays below. The
-   *  inline apply path treats such a seed as carrying no inline entities. */
-  type?: "database_upload";
   tasks?: readonly Task[];
   milestones?: readonly Milestone[];
   raid?: readonly RaidItem[];
@@ -234,7 +230,6 @@ function sanitizeSeed(raw: unknown): TemplateSeed | undefined {
     sanitizeStakeholder,
   );
   const budgets = sanitizeArr<BudgetBucket>(raw.budgets, sanitizeBudgetBucket);
-  if (raw.type === "database_upload") seed.type = "database_upload";
   if (tasks) seed.tasks = tasks;
   if (milestones) seed.milestones = milestones;
   if (rd) seed.raid = rd;

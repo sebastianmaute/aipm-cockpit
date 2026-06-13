@@ -75,7 +75,6 @@ type Step = 1 | 2 | 3;
 /** True when a template carries any seed content worth offering to stamp. */
 function hasSeedContent(tpl: ProjectTemplate | null): boolean {
   if (!tpl?.seed) return false;
-  if (tpl.seed.type === "database_upload") return true;
   return Object.values(tpl.seed).some((v) => Array.isArray(v) && v.length > 0);
 }
 
@@ -292,15 +291,11 @@ export function CreateProjectWizard({
                     {tpl.description && (
                       <p className="mt-1 text-xs text-muted-foreground">{tpl.description}</p>
                     )}
-                    {tpl.seed?.type === "database_upload" ? (
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {t(lang, "wizardIncludeContent")}: {t(lang, "seedDatabaseUpload")}
-                      </p>
-                    ) : seedCount > 0 ? (
+                    {seedCount > 0 && (
                       <p className="mt-1 text-xs text-muted-foreground">
                         {t(lang, "wizardIncludeContent")}: {seedCount}
                       </p>
-                    ) : null}
+                    )}
                   </button>
                 );
               })}

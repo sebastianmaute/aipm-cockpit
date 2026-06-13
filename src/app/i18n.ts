@@ -1742,7 +1742,6 @@ const enUS = {
   wizardBack: "Back",
   wizardBlankTemplate: "Blank — choose functions yourself",
   wizardIncludeContent: "Include starter content",
-  seedDatabaseUpload: "Database upload",
   wizardCreate: "Create project",
   wizardFunctionsIntro: "Choose which functions this project uses",
   projectCurrentLabel: "Current project",
