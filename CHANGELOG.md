@@ -8,6 +8,27 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.75.0] - 2026-06-13 "Nagata"
+
+### Added
+- **Emergency recovery / safe mode.** Boot the app into a clean configuration
+  without losing data:
+  - `?safe=1` (also `?safe` / `#safe`) boots on the browser/file backend at the
+    empty state, ignoring stored config in memory — nothing is read or written.
+  - A standalone `/recovery` page (isolated from the main app tree) to download
+    the current config, reset to a clean slate, or restore the last config.
+  - Reset is **non-destructive**: the three config keys (`settings`,
+    `portfolio-mode`, `turso-current-project`) are moved to timestamped backup
+    keys, never deleted. Project data, the registry, IndexedDB, and any Turso
+    cloud database are untouched.
+  - A top-level error boundary replaces white-screen crashes with a recovery
+    fallback.
+
+### Fixed
+- Turso portfolio: "Move to Turso" and the Integrations portfolio switch now
+  persist `storageConfig.kind="turso"`, so the workspace backend follows the
+  portfolio instead of staying on the local file (which broke snapshot capture).
+
 ## [0.74.0] - 2026-06-13 "Niven"
 
 Create-project wizard & empty-state overhaul — a wider, resizable modal, a

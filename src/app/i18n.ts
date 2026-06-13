@@ -1588,6 +1588,7 @@ const enUS = {
   versionHighlightTemplates: "Project templates: save a project's field visibility and optional starter content as a reusable template, and apply it to a project to set field visibility and add starter content",
   versionHighlightPerProjectFunctions: "Per-project functions: each project keeps its own enabled modules, switchable without a reload, configured (with a template) in a new 3-step creation wizard",
   versionHighlightTemplateSuggest: "Smart template suggestion: the creation wizard recommends and preselects the best-fit template from your project's size, complexity, and team",
+  versionHighlightRecovery: "Emergency recovery: ?safe=1 boot and a /recovery page reset config without losing data",
   fieldCounter: "{0} / {1}",
   fieldTrimmedToFit: "trimmed to fit",
   fieldAdjustedMax: "adjusted to max {0}",

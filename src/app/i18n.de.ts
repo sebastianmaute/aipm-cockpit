@@ -1606,6 +1606,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightTemplates: "Projektvorlagen: die Feldsichtbarkeit und optionalen Startinhalt eines Projekts als wiederverwendbare Vorlage speichern und auf ein Projekt anwenden, um die Feldsichtbarkeit zu setzen und Startinhalt hinzuzufügen",
   versionHighlightPerProjectFunctions: "Projektbezogene Funktionen: jedes Projekt behält seine eigenen aktivierten Module, ohne Neuladen umschaltbar, konfiguriert (mit einer Vorlage) in einem neuen 3-stufigen Erstellungsassistenten",
   versionHighlightTemplateSuggest: "Intelligenter Vorlagenvorschlag: der Erstellungsassistent empfiehlt und wählt anhand von Größe, Komplexität und Team Ihres Projekts die am besten passende Vorlage vor",
+  versionHighlightRecovery: "Notfall-Wiederherstellung: ?safe=1-Start und eine /recovery-Seite setzen die Konfiguration zurück, ohne Daten zu verlieren",
   fieldCounter: "{0} / {1}",
   fieldTrimmedToFit: "auf Maximallänge gekürzt",
   fieldAdjustedMax: "auf Maximum {0} angepasst",
