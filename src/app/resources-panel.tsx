@@ -445,11 +445,11 @@ function ResourcesPanelInner({
                   const totalHours = row.totalHours;
                   const resAbs = absencesForResource(absences, r);
                   return (
-                    <tr key={r.id}>
+                    <tr key={r.id} onClick={() => onEditResource(r)} className="cursor-pointer hover:bg-surface-muted">
                       <td className="px-3 py-2">
                         <button
                           type="button"
-                          onClick={() => onEditResource(r)}
+                          onClick={(e) => { e.stopPropagation(); onEditResource(r); }}
                           title={resourceDisplayName(r)}
                           className="rounded-md border border-transparent px-2 py-0.5 text-left font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-AIPM-green dark:text-AIPM-light-grey"
                         >
@@ -473,6 +473,7 @@ function ResourcesPanelInner({
                             title={t(lang, "resourcesUtilizationHint")}
                             value={cellValue}
                             readOnly={derived}
+                            onClick={(e) => e.stopPropagation()}
                             onChange={(e) => { if (!derived) onSetUtilization(r.id, p.key, Number(e.target.value) || 0); }}
                             className={`w-16 rounded border border-line px-1 py-0.5 text-right tabular-nums dark:bg-surface${derived ? " bg-surface-muted opacity-60" : ""}`} />
                           <input type="number" min={0} step={1}
@@ -481,6 +482,7 @@ function ResourcesPanelInner({
                             value={derived ? "" : (r.absenceOverride?.[p.key] ?? "")}
                             placeholder={derived ? "" : String(absenceWorkdays(resAbs, p.start, p.end, holidaySet) * workdayHours)}
                             readOnly={derived}
+                            onClick={(e) => e.stopPropagation()}
                             onChange={(e) => { if (!derived) onSetAbsenceOverride(r.id, p.key, e.target.value === "" ? null : Number(e.target.value)); }}
                             className={`mt-0.5 w-16 rounded border border-AIPM-purple/40 px-1 py-0.5 text-right text-sm tabular-nums text-AIPM-purple dark:border-AIPM-purple/50 dark:bg-surface dark:text-AIPM-purple${derived ? " bg-surface-muted opacity-60" : ""}`} />
                         </td>

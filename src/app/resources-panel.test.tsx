@@ -151,6 +151,46 @@ describe("ResourcesPanel", () => {
     expect(onEditResource).toHaveBeenCalledWith(resources[0]);
   });
 
+  test("planning view: clicking the row (outside the name button) calls onEditResource", () => {
+    const onEditResource = vi.fn();
+    const resources = [{ id: 1, firstName: "Sample", lastName: "Dummy", roleId: null, utilizationMode: "percent" as const, utilization: {} }];
+    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };
+    render(<ResourcesPanel {...baseProps} view="planning" resources={resources} plan={plan} workdayHours={8}
+      onEditResource={onEditResource} onSetUtilization={() => {}}
+      onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
+    // Click the data row itself (not the name button) — should fire onEditResource
+    const rows = screen.getAllByRole("row");
+    // First row is thead, second is the data row
+    const dataRow = rows[1];
+    fireEvent.click(dataRow);
+    expect(onEditResource).toHaveBeenCalledTimes(1);
+    expect(onEditResource).toHaveBeenCalledWith(resources[0]);
+  });
+
+  test("planning view: clicking a utilization input does NOT fire onEditResource", () => {
+    const onEditResource = vi.fn();
+    const resources = [{ id: 1, firstName: "Sample", lastName: "Dummy", roleId: null, utilizationMode: "percent" as const, utilization: {} }];
+    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };
+    render(<ResourcesPanel {...baseProps} view="planning" resources={resources} plan={plan} workdayHours={8}
+      onEditResource={onEditResource} onSetUtilization={() => {}}
+      onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
+    const utilizationInput = screen.getByLabelText("Utilization for Alex Example in 2026-02");
+    fireEvent.click(utilizationInput);
+    expect(onEditResource).not.toHaveBeenCalled();
+  });
+
+  test("planning view: clicking an absence override input does NOT fire onEditResource", () => {
+    const onEditResource = vi.fn();
+    const resources = [{ id: 1, firstName: "Sample", lastName: "Dummy", roleId: null, utilizationMode: "percent" as const, utilization: {} }];
+    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };
+    render(<ResourcesPanel {...baseProps} view="planning" resources={resources} plan={plan} workdayHours={8}
+      onEditResource={onEditResource} onSetUtilization={() => {}}
+      onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
+    const absenceInput = screen.getByLabelText("Absence override for Alex Example in 2026-02");
+    fireEvent.click(absenceInput);
+    expect(onEditResource).not.toHaveBeenCalled();
+  });
+
   test("workload header shows reset-cols and reset-size together (one toolbar, not stacked)", () => {
     render(<ResourcesPanel {...baseProps} view="workload" />);
     // Exactly one reset-column-widths control, now lifted into the panel header
