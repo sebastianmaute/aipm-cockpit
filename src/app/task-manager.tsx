@@ -288,12 +288,6 @@ function TaskManagerInner() {
     holidayCountries: settings.holidayCountries,
   });
 
-  // Baseline/variance trend snapshots. Active only on a Turso backend in the
-  // main window with recording enabled; the hook is a no-op otherwise.
-  const snapshotsCfg = settings.snapshots ?? defaultSnapshotSettings;
-  const trendsActive =
-    settings.storageConfig.kind === "turso" && !isPopout && snapshotsCfg.enabled &&
-    isModuleEnabled("trends", settings.features);
   const tursoConfig = useMemo(
     () => getTursoConfig(settings.integrations?.turso?.databaseUrl, settings.integrations?.turso?.authToken),
     [settings.integrations?.turso?.databaseUrl, settings.integrations?.turso?.authToken],
@@ -382,6 +376,14 @@ function TaskManagerInner() {
     })();
   }, [hydrated, portfolioMode, refreshTursoProjects]);
 
+  // Baseline/variance trend snapshots. Active when the project's data lives in
+  // Turso — either the single-DB Turso storage backend (storageConfig.kind) OR
+  // turso portfolio mode (Move-to-Turso) — in the main window with recording on.
+  const snapshotsCfg = settings.snapshots ?? defaultSnapshotSettings;
+  const trendsActive =
+    (settings.storageConfig.kind === "turso" || portfolioMode === "turso") &&
+    !isPopout && snapshotsCfg.enabled &&
+    isModuleEnabled("trends", settings.features);
   const snapshots = useSnapshots({
     active: trendsActive,
     cadence: snapshotsCfg.cadence,

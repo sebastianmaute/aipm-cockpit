@@ -63,7 +63,10 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   // Turso portfolio mode is only safe once Turso resolves a config (URL + token,
   // or env vars). Disable it until then so a switch can't land in a dead portfolio.
   const tursoConfigured = !!getTursoConfig(turso.databaseUrl, turso.authToken);
-  const onTurso = portfolioMode === "turso";
+  // "On Turso" = data lives in Turso: either the single-DB Turso storage backend
+  // (Settings → Storage) OR turso portfolio mode (Move-to-Turso). Snapshot
+  // recording is available in either.
+  const onTurso = portfolioMode === "turso" || settings.storageConfig?.kind === "turso";
   // Show "Move to Turso" only where a current project exists (settings views),
   // Turso is configured, and the portfolio is still on File.
   const canMoveToTurso = !!onMigrateToTurso && !onTurso && tursoConfigured;
