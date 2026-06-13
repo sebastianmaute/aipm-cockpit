@@ -18,6 +18,7 @@ function input(
     changes: [],
     milestones: [],
     stakeholders: [],
+    commsReminders: [],
     dashboard: {
       budget: { effective: budgetEffective },
       evm: { cpi },

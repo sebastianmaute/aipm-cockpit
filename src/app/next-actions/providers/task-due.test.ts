@@ -6,7 +6,7 @@ import { ACTION_WEIGHTS } from "../score";
 
 function input(tasks: Task[]): ActionInput {
   return {
-    tasks, raid: [], changes: [], milestones: [], stakeholders: [],
+    tasks, raid: [], changes: [], milestones: [], stakeholders: [], commsReminders: [],
     dashboard: {} as ActionInput["dashboard"], features: [], today: "2026-06-15", now: new Date("2026-06-15T00:00:00Z"),
     reminderLeadDays: 0, dueSoonWorkdays: 3, raidReviewIntervalDays: 30, dismissed: new Set(),
     projectName: "",

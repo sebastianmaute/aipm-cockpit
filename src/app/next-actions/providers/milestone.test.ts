@@ -9,7 +9,7 @@ const TODAY = "2026-06-15";
 
 function input(milestones: Milestone[], tasks: Task[] = []): ActionInput {
   return {
-    tasks, raid: [], changes: [], milestones, stakeholders: [],
+    tasks, raid: [], changes: [], milestones, stakeholders: [], commsReminders: [],
     dashboard: {} as ActionInput["dashboard"], features: [], today: TODAY, now: new Date(`${TODAY}T00:00:00Z`),
     reminderLeadDays: 0, dueSoonWorkdays: 3, raidReviewIntervalDays: 30, dismissed: new Set(),
     projectName: "",

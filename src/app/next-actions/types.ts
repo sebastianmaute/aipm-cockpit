@@ -4,6 +4,7 @@ import type { AppView } from "../nav-config";
 import type { FeatureModuleId } from "../feature-modules";
 import type { Task, RaidItem, ChangeItem, Milestone, Stakeholder } from "../types";
 import type { DashboardModel } from "../dashboard";
+import type { StakeholderCommsReminder } from "../stakeholder-comms";
 
 export type ActionTier = "now" | "soon" | "monitor";
 export type ActionSource =
@@ -38,6 +39,7 @@ export interface ActionInput {
   changes: readonly ChangeItem[];
   milestones: readonly Milestone[];
   stakeholders: readonly Stakeholder[];
+  commsReminders: readonly StakeholderCommsReminder[];
   dashboard: DashboardModel;          // existing computed model — reused, not recomputed
   features: readonly FeatureModuleId[];
   today: string;                      // ISO yyyy-mm-dd

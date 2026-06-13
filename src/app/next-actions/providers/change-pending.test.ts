@@ -34,6 +34,7 @@ function input(changes: ChangeItem[]): ActionInput {
     changes,
     milestones: [],
     stakeholders: [],
+    commsReminders: [],
     dashboard: {} as ActionInput["dashboard"],
     features: [],
     today: "2026-06-13",
