@@ -23,6 +23,24 @@ describe("ResourceWorkload", () => {
     expect(onEditResource).toHaveBeenCalledWith(r);
   });
 
+  it("clicking a managed row fires onEditResource (RAID-style row click)", () => {
+    const onEditResource = vi.fn();
+    render(<ResourceWorkload {...baseProps} tasks={[]} onEditResource={onEditResource} />);
+    const row = screen.getByRole("button", { name: "Alex Example" }).closest("tr")!;
+    expect(row.className).toContain("cursor-pointer");
+    expect(row.className).toContain("hover:bg-surface-muted");
+    fireEvent.click(row);
+    expect(onEditResource).toHaveBeenCalledTimes(1);
+    expect(onEditResource).toHaveBeenCalledWith(r);
+  });
+
+  it("clicking the name button fires onEditResource exactly once (stopPropagation prevents double-fire)", () => {
+    const onEditResource = vi.fn();
+    render(<ResourceWorkload {...baseProps} tasks={[]} onEditResource={onEditResource} />);
+    fireEvent.click(screen.getByRole("button", { name: "Alex Example" }));
+    expect(onEditResource).toHaveBeenCalledTimes(1);
+  });
+
   it("offers Add as resource for an unlinked assignee and seeds the name", () => {
     const onAddResource = vi.fn();
     const tasks: Task[] = [{ id: 9, taskName: "T", assignee: "Bob Lee", assigneeEmail: "bob@x.com", dueDate: "2026-12-31", lastUpdateDate: "2026-01-01", priority: "Medium", blockers: "", notes: "", inquiriesSent: 0 }];

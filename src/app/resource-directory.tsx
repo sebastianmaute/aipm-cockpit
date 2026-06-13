@@ -287,11 +287,11 @@ function ResourceDirectoryInner({
             </thead>
             <tbody className="divide-y divide-line">
               {rows.map((r) => (
-                <tr key={r.id} className="align-middle">
+                <tr key={r.id} className="cursor-pointer align-middle hover:bg-surface-muted" onClick={() => onEditResource(r)}>
                   <td className="px-3 py-2">
                     <button
                       type="button"
-                      onClick={() => onEditResource(r)}
+                      onClick={(e) => { e.stopPropagation(); onEditResource(r); }}
                       className="rounded-md border border-transparent px-2 py-0.5 font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted"
                     >
                       {resourceDisplayName(r)}

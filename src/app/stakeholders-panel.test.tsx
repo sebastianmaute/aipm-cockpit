@@ -70,14 +70,20 @@ describe("StakeholdersPanel", () => {
     expect(high.className).toContain("dark:");
     expect(med.className).toContain("dark:");
   });
-  it("opens the editor from a workload-style name button, not a whole-row hover", () => {
+  it("clicking a row opens the editor (RAID-style row click)", () => {
+    renderStakeholders({ stakeholders: [sampleStakeholder({ name: "Dana" })] });
+    const row = screen.getByRole("button", { name: "Dana" }).closest("tr")!;
+    expect(row.className).toContain("cursor-pointer");
+    expect(row.className).toContain("hover:bg-surface-muted");
+    fireEvent.click(row);
+    expect(screen.getByRole("heading", { name: /stakeholder/i })).toBeInTheDocument();
+  });
+
+  it("clicking the name button opens editor exactly once (stopPropagation prevents double-fire)", () => {
     renderStakeholders({ stakeholders: [sampleStakeholder({ name: "Dana" })] });
     const btn = screen.getByRole("button", { name: "Dana" });
-    expect(btn.className).toContain("hover:border-AIPM-dark-blue");
-    expect(btn.className).toContain("hover:bg-surface-muted");
     fireEvent.click(btn);
-    expect(screen.getByRole("heading", { name: /stakeholder/i })).toBeInTheDocument();
-    const row = btn.closest("tr")!;
-    expect(row.className).not.toContain("hover:bg-surface-muted");
+    // Editor opens — one modal heading, not two
+    expect(screen.getAllByRole("heading", { name: /stakeholder/i })).toHaveLength(1);
   });
 });
