@@ -1410,6 +1410,12 @@ const enUS = {
   snapshotNeedsTurso: "Recording only runs while the Turso backend is active.",
   snapshotNeedsTursoFirst: "Move this project to Turso first — snapshots record per Turso project.",
 
+  // --- Action snooze (SP3) ---
+  actionSnooze: "Snooze",
+  actionSnooze1h: "1 hour",
+  actionSnooze1d: "1 day",
+  versionHighlightSnoozeActions: "Reminders folded into the Action Center: snooze actions (1h/1d); the due / RAID-review / stakeholder-comms banners are gone",
+
   // --- Action Center (SP2) ---
   navActions: "Next actions",
   actionCenterTitle: "Next actions",

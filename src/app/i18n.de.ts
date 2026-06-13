@@ -1407,6 +1407,12 @@ export const de: Record<TranslationKey, string> = {
   snapshotNeedsTurso: "Die Aufzeichnung läuft nur, solange das Turso-Backend aktiv ist.",
   snapshotNeedsTursoFirst: "Verschieben Sie dieses Projekt zuerst zu Turso — Snapshots werden pro Turso-Projekt aufgezeichnet.",
 
+  // --- Aktion vertagen (SP3) ---
+  actionSnooze: "Später",
+  actionSnooze1h: "1 Stunde",
+  actionSnooze1d: "1 Tag",
+  versionHighlightSnoozeActions: "Erinnerungen ins Action Center integriert: Aktionen vertagen (1 Std./1 Tag); die Banner für Fälligkeiten / RAID-Überprüfung / Stakeholder-Kommunikation entfallen",
+
   // --- Action Center (SP2) ---
   navActions: "Nächste Schritte",
   actionCenterTitle: "Nächste Schritte",
