@@ -61,7 +61,7 @@ export function ActionRow({ lang, action, onOpen, onSnooze }: ActionRowProps) {
           <span className="relative">
             <button
               type="button"
-              aria-haspopup="menu"
+              aria-haspopup="true"
               aria-expanded={menuOpen}
               onClick={(e) => { e.stopPropagation(); setMenuOpen((o) => !o); }}
               className="rounded-md border border-line px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-surface-muted"
@@ -70,7 +70,6 @@ export function ActionRow({ lang, action, onOpen, onSnooze }: ActionRowProps) {
             </button>
             {menuOpen && (
               <span
-                role="menu"
                 className="absolute right-0 top-full z-20 mt-1 flex w-max flex-col rounded-md border border-line bg-surface py-1 shadow-sm"
               >
                 <button type="button"
