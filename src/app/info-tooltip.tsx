@@ -19,6 +19,16 @@ export function InfoTooltip({ text, label }: InfoTooltipProps) {
         role="button"
         tabIndex={0}
         aria-label={label ?? text}
+        // Click keeps the bubble open via focus. preventDefault stops a wrapping
+        // <label> from forwarding the click (which would move focus to the field's
+        // input and immediately hide the bubble); focus() re-asserts focus here.
+        onClick={(e) => {
+          e.preventDefault();
+          e.currentTarget.focus();
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") e.currentTarget.blur();
+        }}
         className="flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-line text-[10px] font-semibold leading-none text-muted-foreground hover:text-foreground focus:outline-none focus:ring-1 focus:ring-AIPM-green"
       >
         i
