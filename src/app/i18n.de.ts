@@ -1407,6 +1407,27 @@ export const de: Record<TranslationKey, string> = {
   snapshotNeedsTurso: "Die Aufzeichnung läuft nur, solange das Turso-Backend aktiv ist.",
   snapshotNeedsTursoFirst: "Verschieben Sie dieses Projekt zuerst zu Turso — Snapshots werden pro Turso-Projekt aufgezeichnet.",
 
+  // --- Vorgeschlagene nächste Schritte (Engine SP1) ---
+  actionTaskTitle: "Aufgabe: {0}",
+  actionTaskWhyOverdue: "Überfällig seit {0} Arbeitstag(en)",
+  actionTaskWhyToday: "Heute fällig",
+  actionTaskWhySoon: "Fällig in {0} Arbeitstag(en)",
+  actionRaidTitle: "RAID {0}: {1}",
+  actionRaidWhySeverity: "Schweregrad {0}, weiterhin offen",
+  actionRaidWhyReviewOverdue: "Überprüfung {0} Tag(e) überfällig",
+  actionRaidWhyReviewStale: "Seit {0} Tagen nicht überprüft",
+  actionChangeAggTitle: "{0} Änderungen warten auf Entscheidung",
+  actionChangeAggWhy: "Offene Änderungen setzen den Umfang auf Rot",
+  actionChangeItemTitle: "Änderung: {0}",
+  actionChangeItemWhy: "Auswirkung {0}, wartet auf Entscheidung",
+  actionMilestoneTitle: "Meilenstein: {0}",
+  actionMilestoneWhyOverdue: "Überfällig",
+  actionMilestoneWhyAtRisk: "Gefährdet — eine blockierende Aufgabe ist rot oder das Datum verschoben",
+  actionBudgetTitle: "Budget: {0}",
+  actionBudgetWhyCpi: "Kostenleistung unter Ziel (CPI {0})",
+  actionCommsTitle: "Stakeholder informieren: {0}",
+  actionCommsWhy: "{0}-Update fällig",
+
   // --- UI polish batch (0.76.0) ---
   changeEditTitle: "Änderung bearbeiten",
   stakeholderEditTitle: "Stakeholder bearbeiten",

@@ -1410,6 +1410,27 @@ const enUS = {
   snapshotNeedsTurso: "Recording only runs while the Turso backend is active.",
   snapshotNeedsTursoFirst: "Move this project to Turso first — snapshots record per Turso project.",
 
+  // --- Suggested next actions (engine SP1) ---
+  actionTaskTitle: "Task: {0}",
+  actionTaskWhyOverdue: "Overdue by {0} working day(s)",
+  actionTaskWhyToday: "Due today",
+  actionTaskWhySoon: "Due in {0} working day(s)",
+  actionRaidTitle: "RAID {0}: {1}",
+  actionRaidWhySeverity: "{0} severity, still open",
+  actionRaidWhyReviewOverdue: "Review {0} day(s) overdue",
+  actionRaidWhyReviewStale: "Not reviewed in {0} days",
+  actionChangeAggTitle: "{0} changes awaiting decision",
+  actionChangeAggWhy: "Pending changes push Scope to Red",
+  actionChangeItemTitle: "Change: {0}",
+  actionChangeItemWhy: "{0} impact, awaiting decision",
+  actionMilestoneTitle: "Milestone: {0}",
+  actionMilestoneWhyOverdue: "Overdue",
+  actionMilestoneWhyAtRisk: "At risk — a blocking task is red or the date slipped",
+  actionBudgetTitle: "Budget: {0}",
+  actionBudgetWhyCpi: "Cost performance below target (CPI {0})",
+  actionCommsTitle: "Update stakeholder: {0}",
+  actionCommsWhy: "{0} update due",
+
   // --- UI polish batch (0.76.0) ---
   // Modal heading fixes
   changeEditTitle: "Edit change",
