@@ -69,15 +69,15 @@ function renderModalFull(over: Partial<React.ComponentProps<typeof ChangeEditMod
 
 describe("ChangeEditModal", () => {
   it("renders the title field, a type select, and a status select", () => {
-    const { getByDisplayValue, getByLabelText } = renderModal();
+    const { getByDisplayValue } = renderModal();
     expect(getByDisplayValue("Widen scope")).toBeTruthy();
-    expect(getByLabelText(/type/i)).toBeTruthy();
-    expect(getByLabelText(/status/i)).toBeTruthy();
+    expect(screen.getByRole("combobox", { name: t("en-US", "changeFieldType") })).toBeTruthy();
+    expect(screen.getByRole("combobox", { name: t("en-US", "changeFieldStatus") })).toBeTruthy();
   });
   it("calls onApplyStatus when the status changes", () => {
     const onApplyStatus = vi.fn();
-    const { getByLabelText } = renderModal({ onApplyStatus });
-    const sel = getByLabelText(/status/i) as HTMLSelectElement;
+    renderModal({ onApplyStatus });
+    const sel = screen.getByRole("combobox", { name: t("en-US", "changeFieldStatus") }) as HTMLSelectElement;
     sel.value = "Approved";
     sel.dispatchEvent(new Event("change", { bubbles: true }));
     expect(onApplyStatus).toHaveBeenCalledWith("Approved");
@@ -153,5 +153,12 @@ describe("ChangeEditModal — edit heading", () => {
   it("shows 'Edit change' heading when editing an existing item", () => {
     renderModal({ isNew: false });
     expect(screen.getByRole("heading", { name: t("en-US", "changeEditTitle") })).toBeInTheDocument();
+  });
+});
+
+describe("ChangeEditModal — field tooltips", () => {
+  it("renders an InfoTooltip for the Title field (accessible by hint text as aria-label)", () => {
+    renderModal();
+    expect(screen.getByRole("button", { name: t("en-US", "changeFieldTitleHint") })).toBeInTheDocument();
   });
 });

@@ -134,6 +134,13 @@ describe("StakeholderEditModal — edit heading", () => {
   });
 });
 
+describe("StakeholderEditModal — field tooltips", () => {
+  it("renders an InfoTooltip for the Organization field (accessible by hint text as aria-label)", () => {
+    setup();
+    expect(screen.getByRole("button", { name: t("en-US", "stakeholderFieldOrganizationHint") })).toBeInTheDocument();
+  });
+});
+
 describe("StakeholderEditModal — field visibility", () => {
   // The required Name input is always shown; the Influence/Interest matrix is an
   // Advanced field shown by default; the RACI block is Full-only and hidden at

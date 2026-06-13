@@ -31,6 +31,7 @@ import { describeTextCap, describeClamp } from "./sanitize-report";
 import { BUDGET_NAME_MAX, TEXTAREA_MAX, AMOUNT_MAX } from "./sanitize";
 import { useToastContext } from "./toast-context";
 import { DocumentLinksFieldGated } from "./document-links-field-gated";
+import { InfoTooltip } from "./info-tooltip";
 
 export interface ChangeEditModalProps {
   lang: Lang;
@@ -238,8 +239,8 @@ export function ChangeEditModal({
         >
           {/* Title */}
           <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-            <span className="font-medium text-foreground">
-              {t(lang, "changeFieldTitle")} *
+            <span className="flex items-center gap-1 font-medium text-foreground">
+              {t(lang, "changeFieldTitle")} *<InfoTooltip text={t(lang, "changeFieldTitleHint")} />
             </span>
             <input
               type="text"
@@ -256,8 +257,8 @@ export function ChangeEditModal({
           {/* Type */}
           {isVisible("type") && (
           <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-foreground">
-              {t(lang, "changeFieldType")}
+            <span className="flex items-center gap-1 font-medium text-foreground">
+              {t(lang, "changeFieldType")}<InfoTooltip text={t(lang, "changeFieldTypeHint")} />
             </span>
             <select
               aria-label={t(lang, "changeFieldType")}
@@ -277,8 +278,8 @@ export function ChangeEditModal({
           {/* Status */}
           {isVisible("status") && (
           <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-foreground">
-              {t(lang, "changeFieldStatus")}
+            <span className="flex items-center gap-1 font-medium text-foreground">
+              {t(lang, "changeFieldStatus")}<InfoTooltip text={t(lang, "changeFieldStatusHint")} />
             </span>
             <select
               aria-label={t(lang, "changeFieldStatus")}
@@ -298,8 +299,8 @@ export function ChangeEditModal({
           {/* Description */}
           {isVisible("description") && (
           <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-            <span className="font-medium text-foreground">
-              {t(lang, "changeFieldDescription")}
+            <span className="flex items-center gap-1 font-medium text-foreground">
+              {t(lang, "changeFieldDescription")}<InfoTooltip text={t(lang, "changeFieldDescriptionHint")} />
             </span>
             <textarea
               rows={2}
@@ -316,8 +317,8 @@ export function ChangeEditModal({
           {/* Impact (level — part of the `impact` field group) */}
           {isVisible("impact") && (
           <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-foreground">
-              {t(lang, "changeFieldImpact")}
+            <span className="flex items-center gap-1 font-medium text-foreground">
+              {t(lang, "changeFieldImpact")}<InfoTooltip text={t(lang, "changeFieldImpactHint")} />
             </span>
             <select
               aria-label={t(lang, "changeFieldImpact")}
@@ -345,8 +346,8 @@ export function ChangeEditModal({
           {/* Requested by */}
           {isVisible("requestor") && (
           <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-foreground">
-              {t(lang, "changeFieldRequestedBy")}
+            <span className="flex items-center gap-1 font-medium text-foreground">
+              {t(lang, "changeFieldRequestedBy")}<InfoTooltip text={t(lang, "changeFieldRequestedByHint")} />
             </span>
             <input
               type="text"
@@ -368,8 +369,8 @@ export function ChangeEditModal({
           {/* Impact description (part of the `impact` field group) */}
           {isVisible("impact") && (
           <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-            <span className="font-medium text-foreground">
-              {t(lang, "changeFieldImpactDescription")}
+            <span className="flex items-center gap-1 font-medium text-foreground">
+              {t(lang, "changeFieldImpactDescription")}<InfoTooltip text={t(lang, "changeFieldImpactDescriptionHint")} />
             </span>
             <textarea
               rows={2}
@@ -388,8 +389,8 @@ export function ChangeEditModal({
           {/* Schedule impact (days — part of the `deltas` field group) */}
           {isVisible("deltas") && (
           <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-foreground">
-              {t(lang, "changeFieldScheduleImpact")}
+            <span className="flex items-center gap-1 font-medium text-foreground">
+              {t(lang, "changeFieldScheduleImpact")}<InfoTooltip text={t(lang, "changeFieldScheduleImpactHint")} />
             </span>
             <input
               type="number"
@@ -419,8 +420,8 @@ export function ChangeEditModal({
           {/* Cost impact (part of the `deltas` field group) */}
           {isVisible("deltas") && (
           <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-foreground">
-              {t(lang, "changeFieldCostImpact")}
+            <span className="flex items-center gap-1 font-medium text-foreground">
+              {t(lang, "changeFieldCostImpact")}<InfoTooltip text={t(lang, "changeFieldCostImpactHint")} />
             </span>
             <input
               type="number"
@@ -449,8 +450,8 @@ export function ChangeEditModal({
 
           {/* Raised date — no registry id; always rendered. */}
           <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-foreground">
-              {t(lang, "changeFieldRaisedDate")}
+            <span className="flex items-center gap-1 font-medium text-foreground">
+              {t(lang, "changeFieldRaisedDate")}<InfoTooltip text={t(lang, "changeFieldRaisedDateHint")} />
             </span>
             <input
               type="date"
@@ -462,8 +463,8 @@ export function ChangeEditModal({
 
           {/* Decided by */}
           <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-foreground">
-              {t(lang, "changeFieldDecisionBy")}
+            <span className="flex items-center gap-1 font-medium text-foreground">
+              {t(lang, "changeFieldDecisionBy")}<InfoTooltip text={t(lang, "changeFieldDecisionByHint")} />
             </span>
             <input
               type="text"
@@ -484,8 +485,8 @@ export function ChangeEditModal({
           {/* Decision date — read-only display when set (auto-filled by status). */}
           {isVisible("decisionDate") && draft.decisionDate && (
             <div className="flex flex-col gap-1 text-sm">
-              <span className="font-medium text-foreground">
-                {t(lang, "changeFieldDecisionDate")}
+              <span className="flex items-center gap-1 font-medium text-foreground">
+                {t(lang, "changeFieldDecisionDate")}<InfoTooltip text={t(lang, "changeFieldDecisionDateHint")} />
               </span>
               <span className="rounded-md border border-line bg-surface-muted px-3 py-2 text-sm text-muted-foreground">
                 {draft.decisionDate}
@@ -495,8 +496,8 @@ export function ChangeEditModal({
 
           {/* Resolution / rationale */}
           <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-            <span className="font-medium text-foreground">
-              {t(lang, "changeFieldResolution")}
+            <span className="flex items-center gap-1 font-medium text-foreground">
+              {t(lang, "changeFieldResolution")}<InfoTooltip text={t(lang, "changeFieldResolutionHint")} />
             </span>
             <textarea
               rows={2}
@@ -523,8 +524,8 @@ export function ChangeEditModal({
 
           {/* Linked tasks (part of the `links` field group) ----------- */}
           {isVisible("links") && <div className="sm:col-span-2">
-            <span className="mb-2 block text-sm font-medium text-foreground">
-              {t(lang, "changeFieldLinkedTasks")}
+            <span className="mb-2 flex items-center gap-1 text-sm font-medium text-foreground">
+              {t(lang, "changeFieldLinkedTasks")}<InfoTooltip text={t(lang, "changeFieldLinkedTasksHint")} />
             </span>
             <div className="mb-2 flex flex-wrap gap-1.5">
               {draft.linkedTaskIds.length === 0 && (
@@ -585,8 +586,8 @@ export function ChangeEditModal({
 
           {/* Linked RAID items (part of the `links` field group) ------ */}
           {isVisible("links") && raidEnabled && <div className="sm:col-span-2">
-            <span className="mb-2 block text-sm font-medium text-foreground">
-              {t(lang, "changeFieldLinkedRaid")}
+            <span className="mb-2 flex items-center gap-1 text-sm font-medium text-foreground">
+              {t(lang, "changeFieldLinkedRaid")}<InfoTooltip text={t(lang, "changeFieldLinkedRaidHint")} />
             </span>
             <div className="mb-2 flex flex-wrap gap-1.5">
               {draft.linkedRaidIds.length === 0 && (
