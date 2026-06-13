@@ -71,7 +71,7 @@ export function ActionRow({ lang, action, onOpen, onSnooze }: ActionRowProps) {
             {menuOpen && (
               <span
                 role="menu"
-                className="absolute right-0 top-full z-20 mt-1 flex w-max flex-col rounded-md border border-line bg-surface py-1 shadow-md"
+                className="absolute right-0 top-full z-20 mt-1 flex w-max flex-col rounded-md border border-line bg-surface py-1 shadow-sm"
               >
                 <button type="button"
                   onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onSnooze(action, SNOOZE_1H); }}
