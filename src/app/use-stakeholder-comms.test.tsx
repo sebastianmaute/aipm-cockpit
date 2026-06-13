@@ -1,5 +1,5 @@
-import { act, renderHook, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { renderHook } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 import { useStakeholderComms } from "./use-stakeholder-comms";
 import { defaultSettings } from "./settings-types";
 import type { Settings } from "./settings-types";
@@ -27,13 +27,11 @@ const DUE_MILESTONE: Milestone = {
 
 function makeSettings(overrides: {
   stakeholderCommsEnabled?: boolean;
-  toastEnabled?: boolean;
 } = {}): Settings {
   return {
     ...defaultSettings,
     notifications: {
       ...defaultSettings.notifications,
-      toast: { enabled: overrides.toastEnabled ?? true },
       stakeholderComms: { enabled: overrides.stakeholderCommsEnabled ?? true },
     },
   };
@@ -47,45 +45,49 @@ const FLAGS = {
 };
 
 describe("useStakeholderComms", () => {
-  it("fires a toast once when comms reminders exist and channel + toast are enabled", async () => {
-    const showToast = vi.fn();
-    renderHook(() =>
+  it("computes reminder items when the channel is enabled and a due milestone is RACI-linked", () => {
+    const { result } = renderHook(() =>
       useStakeholderComms({
-        hydrated: true,
         today: TODAY,
-        showToast,
         stakeholders: [STAKEHOLDER],
         milestones: [DUE_MILESTONE],
         raid: [],
         changes: [],
-        settings: makeSettings({ toastEnabled: true, stakeholderCommsEnabled: true }),
+        settings: makeSettings({ stakeholderCommsEnabled: true }),
         flags: FLAGS,
       })
     );
-    await waitFor(() =>
-      expect(showToast).toHaveBeenCalledWith("info", expect.any(String))
-    );
-    expect(showToast).toHaveBeenCalledTimes(1);
+    expect(result.current.items.length).toBeGreaterThan(0);
+    expect(result.current.items[0].stakeholderId).toBe(1);
   });
 
-  it("does NOT fire when the stakeholderComms channel is disabled", async () => {
-    const showToast = vi.fn();
-    renderHook(() =>
+  it("returns no items when the stakeholderComms channel is disabled", () => {
+    const { result } = renderHook(() =>
       useStakeholderComms({
-        hydrated: true,
         today: TODAY,
-        showToast,
         stakeholders: [STAKEHOLDER],
         milestones: [DUE_MILESTONE],
         raid: [],
         changes: [],
-        settings: makeSettings({ toastEnabled: true, stakeholderCommsEnabled: false }),
+        settings: makeSettings({ stakeholderCommsEnabled: false }),
         flags: FLAGS,
       })
     );
-    await act(async () => {
-      await Promise.resolve();
-    });
-    expect(showToast).not.toHaveBeenCalled();
+    expect(result.current.items).toEqual([]);
+  });
+
+  it("returns no items when stakeholders are disabled via flags", () => {
+    const { result } = renderHook(() =>
+      useStakeholderComms({
+        today: TODAY,
+        stakeholders: [STAKEHOLDER],
+        milestones: [DUE_MILESTONE],
+        raid: [],
+        changes: [],
+        settings: makeSettings({ stakeholderCommsEnabled: true }),
+        flags: { ...FLAGS, stakeholdersEnabled: false },
+      })
+    );
+    expect(result.current.items).toEqual([]);
   });
 });

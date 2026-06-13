@@ -1,4 +1,4 @@
-export type ReminderKind = "due" | "birthday" | "jiraToken" | "raidReview" | "stakeholderComms";
+export type ReminderKind = "birthday" | "jiraToken";
 
 export const SNOOZE_1H = 60 * 60 * 1000;
 export const SNOOZE_1D = 24 * 60 * 60 * 1000;

@@ -5,9 +5,6 @@ import { render, screen } from "@testing-library/react";
 import { AppModals, type AppModalsProps } from "./app-modals";
 
 // Mock all child components so tests focus on conditional rendering only.
-vi.mock("./notifications", () => ({
-  DueDatesModal: () => <div data-testid="due-dates-modal" />,
-}));
 vi.mock("./task-form-modal", () => ({
   TaskFormModal: () => <div data-testid="task-form-modal" />,
 }));
@@ -49,10 +46,6 @@ function makeProps(): AppModalsProps {
   return {
     lang: "en-US",
     isPopout: false,
-    dueModalOpen: false,
-    dueModalItems: [],
-    onSelectDueTask: vi.fn(),
-    onCloseDueModal: vi.fn(),
     jiraConflicts: [],
     handleResolveConflicts: vi.fn(),
     clearConflicts: vi.fn(),
@@ -114,12 +107,6 @@ describe("AppModals", () => {
     stubTaskForm();
     render(<AppModals {...makeProps()} />);
     expect(screen.getByTestId("task-form-modal")).toBeInTheDocument();
-  });
-
-  it("shows DueDatesModal when dueModalOpen is true", () => {
-    stubTaskForm();
-    render(<AppModals {...makeProps()} dueModalOpen={true} />);
-    expect(screen.getByTestId("due-dates-modal")).toBeInTheDocument();
   });
 
   it("shows JiraConflictsModal when jiraConflicts is non-empty", () => {

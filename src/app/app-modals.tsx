@@ -1,7 +1,6 @@
 "use client";
 
 import React, { type RefObject } from "react";
-import { DueDatesModal } from "./notifications";
 import { TaskFormModal } from "./task-form-modal";
 import { type TaskFieldErrors } from "./task-validation";
 import { JiraConflictsModal } from "./jira-conflicts-modal";
@@ -9,7 +8,6 @@ import { AbsenceEditModal } from "./absence-edit-modal";
 import { ShiftEditModal } from "./shift-edit-modal";
 import { ResourceEditModal } from "./resource-edit-modal";
 import type { listContacts } from "./contacts";
-import type { AlertableTask } from "./due-dates";
 import type { Lang } from "./i18n";
 import type { ConflictItem } from "./jira-api";
 import type { ConflictResolution } from "./jira-conflicts-modal";
@@ -22,12 +20,6 @@ export interface AppModalsProps {
   /** When false, the task form modal is not rendered (modern mode uses the
    *  full-page edit view instead). Defaults to true. */
   showTaskFormModal?: boolean;
-
-  // Due-dates modal
-  dueModalOpen: boolean;
-  dueModalItems: AlertableTask[];
-  onSelectDueTask: (taskId: number) => void;
-  onCloseDueModal: () => void;
 
   // Jira conflicts modal
   jiraConflicts: ConflictItem[];
@@ -87,10 +79,6 @@ export function AppModals({
   lang,
   isPopout,
   showTaskFormModal = true,
-  dueModalOpen,
-  dueModalItems,
-  onSelectDueTask,
-  onCloseDueModal,
   jiraConflicts,
   handleResolveConflicts,
   clearConflicts,
@@ -161,15 +149,6 @@ export function AppModals({
           onCancel={handleCancelEdit}
           onRemoveContact={handleRemoveContact}
           onShowToast={showToast}
-        />
-      )}
-
-      {dueModalOpen && (
-        <DueDatesModal
-          items={dueModalItems}
-          lang={lang}
-          onClose={onCloseDueModal}
-          onSelectTask={onSelectDueTask}
         />
       )}
 

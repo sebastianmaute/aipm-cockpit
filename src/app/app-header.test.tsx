@@ -7,16 +7,13 @@ import { WorkspaceProvider } from "./workspace-context";
 import { AppHeader } from "./app-header";
 import type { AppHeaderProps } from "./app-header";
 import { defaultSettings } from "./settings-types";
-import type { AlertableTask } from "./due-dates";
-import type { Task } from "./types";
 
 function makeProps(overrides: Partial<AppHeaderProps> = {}): AppHeaderProps {
   return {
     handleCancelEdit: vi.fn(),
     setTaskModalOpen: vi.fn(),
-    bannerItems: [],
-    setBannerDismissed: vi.fn(),
-    setDueModalOpen: vi.fn(),
+    bannerCount: 0,
+    onShowAlerts: vi.fn(),
     showToast: vi.fn(),
     handleCommand: vi.fn(),
     storageDescription: null,
@@ -75,24 +72,15 @@ describe("AppHeader", () => {
     expect(aiIdx).toBeLessThan(addIdx);
   });
 
-  it("bell badge shows count when bannerItems has entries", () => {
-    const makeTask = (id: number): Task =>
-      ({
-        id,
-        taskName: `Task ${id}`,
-        assignee: "",
-        assigneeEmail: "",
-        dueDate: "2099-01-01",
-        lastUpdateDate: "2099-01-01",
-        priority: "medium",
-        blockers: "",
-        notes: "",
-      }) as unknown as Task;
-    const items: AlertableTask[] = [
-      { task: makeTask(1), category: "soon", workDaysLeft: 1 },
-      { task: makeTask(2), category: "soon", workDaysLeft: 2 },
-    ];
-    render(<AppHeader {...makeProps({ bannerItems: items })} />, { wrapper: Wrapper });
+  it("bell badge shows count when bannerCount is positive", () => {
+    render(<AppHeader {...makeProps({ bannerCount: 2 })} />, { wrapper: Wrapper });
     expect(screen.getByText("2")).toBeInTheDocument();
+  });
+
+  it("calls onShowAlerts when the bell button is clicked", () => {
+    const onShowAlerts = vi.fn();
+    render(<AppHeader {...makeProps({ onShowAlerts })} />, { wrapper: Wrapper });
+    fireEvent.click(screen.getByRole("button", { name: /show due-date notifications/i }));
+    expect(onShowAlerts).toHaveBeenCalledOnce();
   });
 });
