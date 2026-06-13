@@ -58,11 +58,8 @@ At the existing `computeDashboard(...)` call site:
 - `ActionRow({ lang, action, onOpen })`: a `<div role="button" tabIndex=0 onClick={() => onOpen(action)} className="cursor-pointer … hover:bg-surface-muted">` containing: a small source marker, `t(lang, action.title.key, ...(action.title.params ?? []))`, a muted `why` line, a tier dot, and an `[Open]` `<button>` whose onClick `stopPropagation`s then `onOpen(action)`. AIPM palette; tier accent uses brand tokens (now=AIPM-pink/red-ish within palette, soon=amber-equivalent within palette, monitor=muted) — confirm against `AIPM-color-palette` (use existing health/RAG tokens, no new colors).
 - `onOpen(action)` (in task-manager): executes the CTA — `if (action.cta.kind === "open") requestOpen(action.cta.view, action.cta.id)`. (The `snooze` kind is unreachable in SP2.)
 
-### 5. CTA deep-link: generalize id to `string | number`
-RAID ids are strings (e.g. `"R-12"`); the deep-link infra in `workspace-tab-context.tsx` types `requestOpen(view, id: number)` / `pendingOpen: {view, id: number}`. Generalize to `string | number`:
-- `requestOpen(view: AppView, id: string | number)`, `pendingOpen: { view: AppView; id: string | number } | null`.
-- `buildHash(view, id)` already stringifies; `parseHash` returns the id as-is (string) — confirm consumers that compare `pendingOpen.id` to a numeric entity id still match (number panels compare `Number(id)` or the panel already coerces; RAID compares string). Each consuming panel (raid/task/milestone/change/stakeholder) auto-opens its editor from `pendingOpen.id` — verify the comparison works for both id kinds (coerce where a panel uses numeric ids).
-- This is backward-compatible: existing numeric callers keep passing numbers.
+### 5. CTA deep-link — NO infra change needed (all ids numeric)
+CORRECTION (verified): every entity `id` is a `number` (Task/RaidItem/ChangeItem/Milestone/Stakeholder), and `requestOpen(view, id: number)` / `parseHash → itemId: number` are already numeric. "R-12" is just a display format. `SuggestedAction.cta.id` is typed `string | number` (SP1) but is always a number at runtime, so the executor simply coerces: `requestOpen(cta.view, Number(cta.id))`. **No change to `workspace-tab-context.tsx`.** Panels that consume `pendingOpen` auto-open their editor (RAID/tasks confirmed); others at least navigate to the right view. The budget aggregate uses `id:0` → navigates to the budget view (no entity editor; acceptable).
 
 ### 6. Nav badge plumbing
 - `sidebar-nav.tsx`: add an optional `badges?: Partial<Record<AppView, number>>` prop; render a small pill (`bg-AIPM-pink text-white`, like the alerts badge) on a nav item when `badges[item.view]` > 0.
