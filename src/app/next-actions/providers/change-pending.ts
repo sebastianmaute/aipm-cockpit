@@ -19,7 +19,7 @@ export const changePendingProvider: ActionProvider = {
         source: "change-pending",
         moduleId: "changes",
         title: { key: "actionChangeAggTitle", params: [pending.length] },
-        why: { key: "actionChangeAggWhy", params: ["Red"] },
+        why: { key: "actionChangeAggWhy" },
         score,
         tier: bandTier(score),
         cta: { kind: "open", view: "changes", id: 0 },

@@ -1420,19 +1420,16 @@ const enUS = {
   actionRaidWhyReviewOverdue: "Review {0} day(s) overdue",
   actionRaidWhyReviewStale: "Not reviewed in {0} days",
   actionChangeAggTitle: "{0} changes awaiting decision",
-  actionChangeAggWhy: "Pending changes push Scope to {0}",
+  actionChangeAggWhy: "Pending changes push Scope to Red",
   actionChangeItemTitle: "Change: {0}",
   actionChangeItemWhy: "{0} impact, awaiting decision",
   actionMilestoneTitle: "Milestone: {0}",
   actionMilestoneWhyOverdue: "Overdue",
   actionMilestoneWhyAtRisk: "At risk — a blocking task is red or the date slipped",
   actionBudgetTitle: "Budget: {0}",
-  actionBudgetWhyOver: "Spend at {0}% of budget",
   actionBudgetWhyCpi: "Cost performance below target (CPI {0})",
   actionCommsTitle: "Update stakeholder: {0}",
   actionCommsWhy: "{0} update due",
-  actionRagRed: "Red",
-  actionRagAmber: "Amber",
 
   // --- UI polish batch (0.76.0) ---
   // Modal heading fixes

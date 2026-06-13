@@ -20,6 +20,7 @@ export const raidProvider: ActionProvider = {
       out.push({
         id: `raid:${item.id}:severity`,
         source: "raid",
+        moduleId: "raid",
         title: { key: "actionRaidTitle" as const, params: [item.id, item.title] },
         why: { key: "actionRaidWhySeverity" as const, params: [item.severity ?? ""] },
         score,
@@ -41,6 +42,7 @@ export const raidProvider: ActionProvider = {
       out.push({
         id: `raid:${r.item.id}:${r.reason}`,
         source: "raid",
+        moduleId: "raid",
         title: { key: "actionRaidTitle" as const, params: [r.item.id, r.item.title] },
         why,
         score,

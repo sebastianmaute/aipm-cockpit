@@ -63,7 +63,7 @@ describe("changePendingProvider", () => {
     expect(agg!.title.key).toBe("actionChangeAggTitle");
     expect(agg!.title.params![0]).toBe(SCOPE_PENDING_RED); // pending.length
     expect(agg!.why.key).toBe("actionChangeAggWhy");
-    expect(agg!.why.params![0]).toBe("Red");
+    expect(agg!.why.params).toBeUndefined(); // RAG word baked into the string (localizable)
     expect(agg!.source).toBe("change-pending");
     expect(agg!.cta).toEqual({ kind: "open", view: "changes", id: 0 });
     // Score must include both riskCritical and impactScopePending
