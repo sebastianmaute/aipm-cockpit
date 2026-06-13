@@ -1230,4 +1230,40 @@ describe("useStorageBackend — Turso portfolio flows", () => {
     // (c) the new project meta was applied into workspace state.
     expect(result.current.project).toEqual(meta);
   });
+
+  it("migrateCurrentProjectToTurso persists storageConfig.kind 'turso' so the workspace backend follows the portfolio (regression: snapshot 'Storage not ready')", async () => {
+    // Start on a FILE/browser portfolio with a current project, Turso configured.
+    const meta = { name: "Gemini", code: "GE" } as never;
+    mockBackend.load.mockResolvedValue({ project: meta, tasks: [], raid: [], absences: [], shifts: [] });
+    const args = makeArgs({
+      settings: {
+        storageConfig: { kind: "browser" },
+        integrations: { turso: { databaseUrl: "https://x.turso.io", authToken: "tok" } },
+      } as unknown as Settings,
+    });
+
+    // Stub reload — jsdom's is a no-op that warns; replace so we can assert it ran.
+    const reloadSpy = vi.fn();
+    const originalLocation = window.location;
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: { ...originalLocation, reload: reloadSpy },
+    });
+
+    try {
+      const { result } = renderBackend(args);
+      await act(async () => { await Promise.resolve(); });
+
+      await act(async () => { await result.current.migrateCurrentProjectToTurso(); });
+      await act(async () => { await Promise.resolve(); });
+
+      // Settings were persisted synchronously with the Turso backend kind BEFORE
+      // the reload, so the post-reload backend memo builds a TursoBackend.
+      const persisted = JSON.parse(window.localStorage.getItem("lop-app:settings") ?? "{}");
+      expect(persisted.storageConfig?.kind).toBe("turso");
+      expect(reloadSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      Object.defineProperty(window, "location", { configurable: true, value: originalLocation });
+    }
+  });
 });

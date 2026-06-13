@@ -18,6 +18,9 @@ import { useMsAuth } from "../use-ms-auth";
 import { InfoTooltip } from "../info-tooltip";
 import { loadPortfolioMode, savePortfolioMode, type PortfolioMode } from "../portfolio-mode";
 import { getTursoConfig, isLikelyRegionQualifiedTursoUrl } from "../turso-config";
+import { writeSettings } from "../use-settings";
+import { loadRegistry } from "../projects-registry";
+import { defaultStorageConfig } from "../workspace";
 
 interface IntegrationsSectionProps {
   lang: Lang;
@@ -75,6 +78,23 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
     if (!portfolioModeDirty) return;
     if (pendingMode === "turso" && !tursoConfigured) return; // guard
     savePortfolioMode(pendingMode);
+    // Keep the workspace storage backend aligned with the portfolio: switching TO
+    // Turso must also persist storageConfig.kind "turso" (synchronously, so it
+    // survives the reload), or the backend memo rebuilds a file/browser backend
+    // and the workspace keeps loading the local file while the project list +
+    // snapshots talk to Turso. (portfolioMode === "turso" ⟺ storageConfig "turso".)
+    if (pendingMode === "turso") {
+      writeSettings({ ...settings, storageConfig: { kind: "turso" } });
+    } else if (settings.storageConfig?.kind === "turso") {
+      // Leaving Turso for the File portfolio: a leftover "turso" storageConfig
+      // would keep the backend memo pointed at Turso after reload (no file-mode
+      // bootstrap reconciles it), stranding the user. Restore the File portfolio's
+      // current-project backend config (registry is its source of truth), or the
+      // browser default if none.
+      const reg = loadRegistry();
+      const current = reg.projects.find((p) => p.id === reg.currentProjectId);
+      writeSettings({ ...settings, storageConfig: current?.storageConfig ?? defaultStorageConfig });
+    }
     window.location.reload();
   }
 

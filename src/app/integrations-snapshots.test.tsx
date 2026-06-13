@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import { render, fireEvent } from "@testing-library/react";
 import { IntegrationsSection } from "./settings-sections/integrations-section";
 import { defaultSettings } from "./settings-types";
+import { savePortfolioMode } from "./portfolio-mode";
+import { saveRegistry } from "./projects-registry";
 
 describe("IntegrationsSection snapshot controls", () => {
   it("renders the recording toggle + cadence select inside the Turso block when Turso is enabled", () => {
@@ -45,6 +47,76 @@ describe("IntegrationsSection snapshot controls", () => {
     );
     fireEvent.click(getByText("Move to Turso"));
     expect(onMigrateToTurso).toHaveBeenCalledTimes(1);
+  });
+
+  it("switching the portfolio to Turso persists storageConfig.kind 'turso' (regression: workspace stayed on the local file)", () => {
+    window.localStorage.clear();
+    const settings = {
+      ...defaultSettings,
+      integrations: {
+        ...defaultSettings.integrations,
+        turso: { enabled: true, databaseUrl: "https://x.turso.io", authToken: "tok" },
+      },
+    };
+    const reloadSpy = vi.fn();
+    const originalLocation = window.location;
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: { ...originalLocation, reload: reloadSpy },
+    });
+    try {
+      const { getByLabelText, getByText } = render(
+        <IntegrationsSection lang="en-US" settings={settings} onChange={() => {}} />,
+      );
+      const select = getByLabelText("Portfolio storage") as HTMLSelectElement;
+      select.value = "turso";
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+      fireEvent.click(getByText("Save & switch portfolio"));
+
+      const persisted = JSON.parse(window.localStorage.getItem("lop-app:settings") ?? "{}");
+      expect(persisted.storageConfig?.kind).toBe("turso");
+      expect(reloadSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      Object.defineProperty(window, "location", { configurable: true, value: originalLocation });
+    }
+  });
+
+  it("switching the portfolio back to File restores the current file project's backend config (regression: leftover 'turso' stranded the workspace)", () => {
+    window.localStorage.clear();
+    savePortfolioMode("turso");
+    saveRegistry({
+      currentProjectId: "p1",
+      projects: [{ id: "p1", name: "Local", code: "LO", storageConfig: { kind: "local-json" } }],
+    });
+    const settings = {
+      ...defaultSettings,
+      storageConfig: { kind: "turso" as const },
+      integrations: {
+        ...defaultSettings.integrations,
+        turso: { enabled: true, databaseUrl: "https://x.turso.io", authToken: "tok" },
+      },
+    };
+    const reloadSpy = vi.fn();
+    const originalLocation = window.location;
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: { ...originalLocation, reload: reloadSpy },
+    });
+    try {
+      const { getByLabelText, getByText } = render(
+        <IntegrationsSection lang="en-US" settings={settings} onChange={() => {}} />,
+      );
+      const select = getByLabelText("Portfolio storage") as HTMLSelectElement;
+      select.value = "file";
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+      fireEvent.click(getByText("Save & switch portfolio"));
+
+      const persisted = JSON.parse(window.localStorage.getItem("lop-app:settings") ?? "{}");
+      expect(persisted.storageConfig?.kind).toBe("local-json");
+      expect(reloadSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      Object.defineProperty(window, "location", { configurable: true, value: originalLocation });
+    }
   });
 
   it("updates cadence via onChange", () => {
