@@ -41,6 +41,7 @@ export interface ActionInput {
   dashboard: DashboardModel;          // existing computed model — reused, not recomputed
   features: readonly FeatureModuleId[];
   today: string;                      // ISO yyyy-mm-dd
+  projectName: string;                // display name of the current project
   now: Date;
   reminderLeadDays: number;
   dueSoonWorkdays: number;

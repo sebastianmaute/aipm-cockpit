@@ -12,6 +12,7 @@ function input(milestones: Milestone[], tasks: Task[] = []): ActionInput {
     tasks, raid: [], changes: [], milestones, stakeholders: [],
     dashboard: {} as ActionInput["dashboard"], features: [], today: TODAY, now: new Date(`${TODAY}T00:00:00Z`),
     reminderLeadDays: 0, dueSoonWorkdays: 3, raidReviewIntervalDays: 30, dismissed: new Set(),
+    projectName: "",
   } as ActionInput;
 }
 

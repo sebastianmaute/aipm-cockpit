@@ -42,6 +42,7 @@ function input(changes: ChangeItem[]): ActionInput {
     dueSoonWorkdays: 5,
     raidReviewIntervalDays: 30,
     dismissed: new Set(),
+    projectName: "",
   };
 }
 

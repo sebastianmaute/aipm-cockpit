@@ -9,6 +9,7 @@ function input(tasks: Task[]): ActionInput {
     tasks, raid: [], changes: [], milestones: [], stakeholders: [],
     dashboard: {} as ActionInput["dashboard"], features: [], today: "2026-06-15", now: new Date("2026-06-15T00:00:00Z"),
     reminderLeadDays: 0, dueSoonWorkdays: 3, raidReviewIntervalDays: 30, dismissed: new Set(),
+    projectName: "",
   } as ActionInput;
 }
 
