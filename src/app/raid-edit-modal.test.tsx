@@ -75,6 +75,31 @@ function wrapper({ children }: { children: ReactNode }) {
 // distinct from the cog checklist labels (mitigation / riskMatrix).
 const MITIGATION_LABEL = t("en-US", "raidMitigation");
 const RISK_MATRIX_LABEL = t("en-US", "raidRiskMatrix");
+const TITLE_HINT = t("en-US", "raidFieldTitleHint");
+
+describe("RaidEditModal InfoTooltip hints", () => {
+  it("renders the Title field InfoTooltip reachable by accessible name", () => {
+    render(modalEl(), { wrapper });
+    // InfoTooltip renders a span[role=button] with aria-label = hint text
+    expect(screen.getByRole("button", { name: TITLE_HINT })).toBeTruthy();
+  });
+
+  it("Title input no longer carries a native title attribute", () => {
+    render(modalEl(), { wrapper });
+    // The title input is identified by its placeholder text
+    const input = screen.getByPlaceholderText(t("en-US", "raidPlaceholderTitle"));
+    expect(input.getAttribute("title")).toBeNull();
+  });
+
+  it("Delete hint is an InfoTooltip, and the Delete button carries no native title", () => {
+    render(modalEl(), { wrapper });
+    // The hint now renders as an InfoTooltip span[role=button]…
+    expect(screen.getByRole("button", { name: t("en-US", "raidFieldDeleteHint") })).toBeTruthy();
+    // …and the Delete action button itself no longer has a native title attribute.
+    const del = screen.getByRole("button", { name: t("en-US", "raidDelete") });
+    expect(del.getAttribute("title")).toBeNull();
+  });
+});
 
 describe("RaidEditModal field visibility", () => {
   it("shows advanced fields and hides Full-only fields by default (Advanced)", () => {

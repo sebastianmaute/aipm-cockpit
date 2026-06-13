@@ -1,6 +1,7 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import { ResourceWorkload, WORKLOAD_COL_WIDTHS } from "./resource-workload";
+import { t } from "./i18n";
 import type { Resource, Task } from "./types";
 
 const r: Resource = { id: 1, firstName: "Sample", lastName: "Dummy", roleId: null, utilizationMode: "percent", utilization: {} };
@@ -21,6 +22,42 @@ describe("ResourceWorkload", () => {
     render(<ResourceWorkload {...baseProps} tasks={[]} onEditResource={onEditResource} />);
     fireEvent.click(screen.getByRole("button", { name: "Alex Example" }));
     expect(onEditResource).toHaveBeenCalledWith(r);
+  });
+
+  it("clicking a managed row fires onEditResource (RAID-style row click)", () => {
+    const onEditResource = vi.fn();
+    render(<ResourceWorkload {...baseProps} tasks={[]} onEditResource={onEditResource} />);
+    const row = screen.getByRole("button", { name: "Alex Example" }).closest("tr")!;
+    expect(row.className).toContain("cursor-pointer");
+    expect(row.className).toContain("hover:bg-surface-muted");
+    fireEvent.click(row);
+    expect(onEditResource).toHaveBeenCalledTimes(1);
+    expect(onEditResource).toHaveBeenCalledWith(r);
+  });
+
+  it("clicking the name button fires onEditResource exactly once (stopPropagation prevents double-fire)", () => {
+    const onEditResource = vi.fn();
+    render(<ResourceWorkload {...baseProps} tasks={[]} onEditResource={onEditResource} />);
+    fireEvent.click(screen.getByRole("button", { name: "Alex Example" }));
+    expect(onEditResource).toHaveBeenCalledTimes(1);
+  });
+
+  it("clicking the shift button fires onEditShift once and NOT onEditResource (stopPropagation guard)", () => {
+    const onEditResource = vi.fn();
+    const onEditShift = vi.fn();
+    render(
+      <ResourceWorkload
+        {...baseProps}
+        tasks={[]}
+        onEditResource={onEditResource}
+        onEditShift={onEditShift}
+      />,
+    );
+    // The shift cell button lives in a managed row that also has a row-level
+    // onClick; its title is the default-shift label when no shift is set.
+    fireEvent.click(screen.getByTitle(t("en-US", "resourcesDefaultShift")));
+    expect(onEditShift).toHaveBeenCalledTimes(1);
+    expect(onEditResource).not.toHaveBeenCalled();
   });
 
   it("offers Add as resource for an unlinked assignee and seeds the name", () => {

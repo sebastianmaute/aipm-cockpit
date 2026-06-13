@@ -127,6 +127,24 @@ describe("StakeholderEditModal — document links", () => {
   });
 });
 
+describe("StakeholderEditModal — edit heading", () => {
+  it("shows 'Edit stakeholder' heading when editing an existing item", () => {
+    setup({ isNew: false });
+    expect(screen.getByRole("heading", { name: t("en-US", "stakeholderEditTitle") })).toBeInTheDocument();
+  });
+});
+
+describe("StakeholderEditModal — field tooltips", () => {
+  it("renders an InfoTooltip for the Organization field (accessible by hint text as aria-label)", () => {
+    setup();
+    expect(screen.getByRole("button", { name: t("en-US", "stakeholderFieldOrganizationHint") })).toBeInTheDocument();
+  });
+  it("renders an InfoTooltip for the Name field (accessible by hint text as aria-label)", () => {
+    setup();
+    expect(screen.getByRole("button", { name: t("en-US", "stakeholderFieldNameHint") })).toBeInTheDocument();
+  });
+});
+
 describe("StakeholderEditModal — field visibility", () => {
   // The required Name input is always shown; the Influence/Interest matrix is an
   // Advanced field shown by default; the RACI block is Full-only and hidden at

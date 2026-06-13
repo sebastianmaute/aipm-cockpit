@@ -19,6 +19,7 @@ import { ASSIGNEE_MAX, EMAIL_MAX } from "./sanitize";
 import { useToastContext } from "./toast-context";
 import { ModalFieldControls } from "./modal-field-controls";
 import { useModalVisibility } from "./use-modal-visibility";
+import { InfoTooltip } from "./info-tooltip";
 
 interface Props {
   lang: Lang;
@@ -145,8 +146,8 @@ export function ResourceEditModal({
         >
           {/* First name */}
           <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-foreground">
-              {t(lang, "resourceFirstName")}
+            <span className="flex items-center gap-1 font-medium text-foreground">
+              {t(lang, "resourceFirstName")}<InfoTooltip text={t(lang, "resourceFirstNameHint")} />
             </span>
             <input
               type="text"
@@ -161,8 +162,8 @@ export function ResourceEditModal({
 
           {/* Last name */}
           <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-foreground">
-              {t(lang, "resourceLastName")}
+            <span className="flex items-center gap-1 font-medium text-foreground">
+              {t(lang, "resourceLastName")}<InfoTooltip text={t(lang, "resourceLastNameHint")} />
             </span>
             <input
               type="text"
@@ -178,8 +179,8 @@ export function ResourceEditModal({
           {/* Job title */}
           {isVisible("jobTitle") && (
             <label className="flex flex-col gap-1 text-sm">
-              <span className="font-medium text-foreground">
-                {t(lang, "resourceJobTitle")}
+              <span className="flex items-center gap-1 font-medium text-foreground">
+                {t(lang, "resourceJobTitle")}<InfoTooltip text={t(lang, "resourceJobTitleHint")} />
               </span>
               <input
                 type="text"
@@ -193,8 +194,8 @@ export function ResourceEditModal({
           {/* Company */}
           {isVisible("company") && (
             <label className="flex flex-col gap-1 text-sm">
-              <span className="font-medium text-foreground">
-                {t(lang, "resourceCompany")}
+              <span className="flex items-center gap-1 font-medium text-foreground">
+                {t(lang, "resourceCompany")}<InfoTooltip text={t(lang, "resourceCompanyHint")} />
               </span>
               <input
                 type="text"
@@ -208,8 +209,8 @@ export function ResourceEditModal({
           {/* Department */}
           {isVisible("department") && (
             <label className="flex flex-col gap-1 text-sm">
-              <span className="font-medium text-foreground">
-                {t(lang, "resourceDepartment")}
+              <span className="flex items-center gap-1 font-medium text-foreground">
+                {t(lang, "resourceDepartment")}<InfoTooltip text={t(lang, "resourceDepartmentHint")} />
               </span>
               <input
                 type="text"
@@ -223,8 +224,8 @@ export function ResourceEditModal({
           {/* Location */}
           {isVisible("location") && (
             <label className="flex flex-col gap-1 text-sm">
-              <span className="font-medium text-foreground">
-                {t(lang, "resourceLocation")}
+              <span className="flex items-center gap-1 font-medium text-foreground">
+                {t(lang, "resourceLocation")}<InfoTooltip text={t(lang, "resourceLocationHint")} />
               </span>
               <input
                 type="text"
@@ -238,8 +239,8 @@ export function ResourceEditModal({
           {/* Business phone */}
           {isVisible("businessPhone") && (
             <label className="flex flex-col gap-1 text-sm">
-              <span className="font-medium text-foreground">
-                {t(lang, "resourcePhone")}
+              <span className="flex items-center gap-1 font-medium text-foreground">
+                {t(lang, "resourcePhone")}<InfoTooltip text={t(lang, "resourcePhoneHint")} />
               </span>
               <input
                 type="tel"
@@ -255,8 +256,8 @@ export function ResourceEditModal({
           {/* Email */}
           {isVisible("email") && (
             <label className="flex flex-col gap-1 text-sm">
-              <span className="font-medium text-foreground">
-                {t(lang, "resourceEmail")}
+              <span className="flex items-center gap-1 font-medium text-foreground">
+                {t(lang, "resourceEmail")}<InfoTooltip text={t(lang, "resourceEmailHint")} />
               </span>
               <input
                 type="email"
@@ -276,8 +277,8 @@ export function ResourceEditModal({
           {/* Birthday — native date picker with optional year */}
           {isVisible("birthday") && (
             <div className="flex flex-col gap-1 text-sm sm:col-span-2">
-              <span className="font-medium text-foreground">
-                {t(lang, "resourceBirthday")}
+              <span className="flex items-center gap-1 font-medium text-foreground">
+                {t(lang, "resourceBirthday")}<InfoTooltip text={t(lang, "resourceBirthdayHint")} />
               </span>
               <div className="flex flex-wrap items-center gap-3">
                 <input
@@ -312,8 +313,8 @@ export function ResourceEditModal({
           {/* Notes — full width textarea */}
           {isVisible("notes") && (
             <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-              <span className="font-medium text-foreground">
-                {t(lang, "resourceNotes")}
+              <span className="flex items-center gap-1 font-medium text-foreground">
+                {t(lang, "resourceNotes")}<InfoTooltip text={t(lang, "resourceNotesHint")} />
               </span>
               <textarea
                 rows={3}

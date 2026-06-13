@@ -10,6 +10,7 @@ import { sanitizeFeatures } from "./feature-modules";
 import { sanitizeTemplates } from "./templates";
 import { sanitizeVersionRetention } from "./version-history";
 import { isPlainObject } from "./sanitize";
+import { isSafeMode } from "./safe-mode";
 
 export const SETTINGS_KEY = "lop-app:settings";
 
@@ -94,6 +95,22 @@ export function useSettings(): {
   // Load settings from localStorage once on mount; lift hydrated + i18nReady gates.
   useEffect(() => {
     let cancelled = false;
+
+    // Safe mode: ignore persisted settings entirely. Boot the default settings
+    // in memory and load the default-language dict. Nothing is read into or
+    // written from SETTINGS_KEY, so a broken config can't re-brick the boot.
+    if (isSafeMode()) {
+      Promise.resolve().then(() => {
+        if (!cancelled) setHydrated(true);
+      });
+      loadI18n(defaultSettings.language).finally(() => {
+        if (!cancelled) setI18nReady(true);
+      });
+      return () => {
+        cancelled = true;
+      };
+    }
+
     let resolvedLang: Lang = defaultSettings.language;
     try {
       const settingsRaw = window.localStorage.getItem(SETTINGS_KEY);
@@ -169,7 +186,7 @@ export function useSettings(): {
 
   // Persist settings on every change, guarded by hydration so mount doesn't overwrite.
   useEffect(() => {
-    if (!hydrated) return;
+    if (!hydrated || isSafeMode()) return;
     try {
       window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
     } catch {

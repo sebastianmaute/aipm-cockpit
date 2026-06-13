@@ -1639,7 +1639,6 @@ function TaskManagerInner() {
         version={APP_VERSION_LABEL}
         mode={appMode}
         bannerCount={bannerItems.length}
-        onNewTask={() => { handleCancelEdit(); setTaskModalOpen(true); }}
         onShowAlerts={() => { setBannerDismissed(false); setDueModalOpen(true); }}
         onOpenAiAssistant={() => openPopoutWindow("chat", settings.popout.reuseWindow)}
         topBarMenus={topBarMenus}

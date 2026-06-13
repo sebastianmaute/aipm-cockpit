@@ -25,6 +25,7 @@ import { BUDGET_NAME_MAX, PO_NUMBER_MAX, AMOUNT_MAX } from "./sanitize";
 import { useToastContext } from "./toast-context";
 import { ModalFieldControls } from "./modal-field-controls";
 import { useModalVisibility } from "./use-modal-visibility";
+import { InfoTooltip } from "./info-tooltip";
 
 interface BudgetBucketModalProps {
   lang: Lang;
@@ -400,7 +401,7 @@ export function BudgetBucketModal({
           {/* Manual FX rate */}
           {isVisible("fxOverride") && (
           <label className="flex flex-col gap-1 text-sm">
-            <span>{t(lang, "budgetFxOverride")}</span>
+            <span className="flex items-center gap-1">{t(lang, "budgetFxOverride")}<InfoTooltip text={t(lang, "budgetFxOverrideHint")} /></span>
             <input
               className={inputClass}
               type="number"
@@ -410,7 +411,6 @@ export function BudgetBucketModal({
               aria-label={t(lang, "budgetFxOverride")}
               aria-invalid={!!notice.fxRateOverride || undefined}
               aria-describedby={notice.fxRateOverride ? fxNoticeId : undefined}
-              title={t(lang, "budgetFxOverrideHint")}
               onChange={(e) =>
                 setDraft((d) => ({
                   ...d,
@@ -433,22 +433,18 @@ export function BudgetBucketModal({
               }}
             />
             <FieldNotice id={fxNoticeId}>{notice.fxRateOverride}</FieldNotice>
-            <span className="text-xs text-muted-foreground">
-              {t(lang, "budgetFxOverrideHint")}
-            </span>
           </label>
           )}
 
           {/* Detailed planning toggle (gates the allocation blocks under `planningDetail`) */}
           {isVisible("planningDetail") && (
           <div className="flex flex-col gap-1 text-sm sm:col-span-2">
-            <span>{t(lang, "budgetDetailedPlanning")}</span>
+            <span className="flex items-center gap-1">{t(lang, "budgetDetailedPlanning")}<InfoTooltip text={t(lang, "budgetDetailedPlanningHint")} /></span>
             <button
               type="button"
               onClick={togglePlanningMode}
               aria-pressed={!isBlended}
               aria-label={t(lang, "budgetDetailedPlanning")}
-              title={t(lang, "budgetDetailedPlanningHint")}
               className={`w-fit rounded-md border px-3 py-1.5 text-xs font-medium ${
                 !isBlended
                   ? "border-AIPM-dark-blue bg-AIPM-dark-blue text-white"
@@ -457,7 +453,6 @@ export function BudgetBucketModal({
             >
               {t(lang, !isBlended ? "budgetModeDetailed" : "budgetModeBlended")}
             </button>
-            <span className="text-xs text-muted-foreground">{t(lang, "budgetDetailedPlanningHint")}</span>
           </div>
           )}
 
@@ -465,7 +460,7 @@ export function BudgetBucketModal({
           {isVisible("rateOverrides") && (
           <>
           <label className="flex flex-col gap-1 text-sm">
-            <span>{t(lang, "budgetRateOverrideInternal")}</span>
+            <span className="flex items-center gap-1">{t(lang, "budgetRateOverrideInternal")}<InfoTooltip text={t(lang, "budgetRateOverrideHint")} /></span>
             <div className="flex items-center gap-1">
               <input
                 className={inputClass}
@@ -475,7 +470,6 @@ export function BudgetBucketModal({
                 aria-label={t(lang, "budgetRateOverrideInternal")}
                 aria-invalid={!!notice.rateOverrideInternal || undefined}
                 aria-describedby={notice.rateOverrideInternal ? rateIntNoticeId : undefined}
-                title={t(lang, "budgetRateOverrideHint")}
                 value={draft.rateOverrideInternal ?? ""}
                 onChange={(e) =>
                   setDraft((d) => ({ ...d, rateOverrideInternal: e.target.value === "" ? undefined : Number(e.target.value) }))
@@ -497,7 +491,7 @@ export function BudgetBucketModal({
             <FieldNotice id={rateIntNoticeId}>{notice.rateOverrideInternal}</FieldNotice>
           </label>
           <label className="flex flex-col gap-1 text-sm">
-            <span>{t(lang, "budgetRateOverrideExternal")}</span>
+            <span className="flex items-center gap-1">{t(lang, "budgetRateOverrideExternal")}<InfoTooltip text={t(lang, "budgetRateOverrideHint")} /></span>
             <div className="flex items-center gap-1">
               <input
                 className={inputClass}
@@ -507,7 +501,6 @@ export function BudgetBucketModal({
                 aria-label={t(lang, "budgetRateOverrideExternal")}
                 aria-invalid={!!notice.rateOverrideExternal || undefined}
                 aria-describedby={notice.rateOverrideExternal ? rateExtNoticeId : undefined}
-                title={t(lang, "budgetRateOverrideHint")}
                 value={draft.rateOverrideExternal ?? ""}
                 onChange={(e) =>
                   setDraft((d) => ({ ...d, rateOverrideExternal: e.target.value === "" ? undefined : Number(e.target.value) }))

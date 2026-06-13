@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { describe, test, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { ResourcesPanel } from "./resources-panel";
+import { t } from "./i18n";
 import type { Resource } from "./types";
 
 const resources: Resource[] = [
@@ -151,6 +152,46 @@ describe("ResourcesPanel", () => {
     expect(onEditResource).toHaveBeenCalledWith(resources[0]);
   });
 
+  test("planning view: clicking the row (outside the name button) calls onEditResource", () => {
+    const onEditResource = vi.fn();
+    const resources = [{ id: 1, firstName: "Sample", lastName: "Dummy", roleId: null, utilizationMode: "percent" as const, utilization: {} }];
+    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };
+    render(<ResourcesPanel {...baseProps} view="planning" resources={resources} plan={plan} workdayHours={8}
+      onEditResource={onEditResource} onSetUtilization={() => {}}
+      onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
+    // Click the data row itself (not the name button) — should fire onEditResource
+    const rows = screen.getAllByRole("row");
+    // First row is thead, second is the data row
+    const dataRow = rows[1];
+    fireEvent.click(dataRow);
+    expect(onEditResource).toHaveBeenCalledTimes(1);
+    expect(onEditResource).toHaveBeenCalledWith(resources[0]);
+  });
+
+  test("planning view: clicking a utilization input does NOT fire onEditResource", () => {
+    const onEditResource = vi.fn();
+    const resources = [{ id: 1, firstName: "Sample", lastName: "Dummy", roleId: null, utilizationMode: "percent" as const, utilization: {} }];
+    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };
+    render(<ResourcesPanel {...baseProps} view="planning" resources={resources} plan={plan} workdayHours={8}
+      onEditResource={onEditResource} onSetUtilization={() => {}}
+      onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
+    const utilizationInput = screen.getByLabelText("Utilization for Alex Example in 2026-02");
+    fireEvent.click(utilizationInput);
+    expect(onEditResource).not.toHaveBeenCalled();
+  });
+
+  test("planning view: clicking an absence override input does NOT fire onEditResource", () => {
+    const onEditResource = vi.fn();
+    const resources = [{ id: 1, firstName: "Sample", lastName: "Dummy", roleId: null, utilizationMode: "percent" as const, utilization: {} }];
+    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };
+    render(<ResourcesPanel {...baseProps} view="planning" resources={resources} plan={plan} workdayHours={8}
+      onEditResource={onEditResource} onSetUtilization={() => {}}
+      onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
+    const absenceInput = screen.getByLabelText("Absence override for Alex Example in 2026-02");
+    fireEvent.click(absenceInput);
+    expect(onEditResource).not.toHaveBeenCalled();
+  });
+
   test("workload header shows reset-cols and reset-size together (one toolbar, not stacked)", () => {
     render(<ResourcesPanel {...baseProps} view="workload" />);
     // Exactly one reset-column-widths control, now lifted into the panel header
@@ -189,6 +230,17 @@ describe("ResourcesPanel", () => {
     // RagBadge renders R, A, or G as visible text in the margin column
     expect(screen.getAllByText(/^[RAG]$/).length).toBeGreaterThan(0);
   });
+
+  test("A2: absence override input uses text-sm (not text-[10px])", () => {
+    const resources = [{ id: 1, firstName: "Sample", lastName: "", roleId: null, utilizationMode: "percent" as const, utilization: {} }];
+    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "USD" };
+    render(<ResourcesPanel {...baseProps} view="planning" lang="en-US" resources={resources} plan={plan} workdayHours={8}
+      holidaySet={new Set()} onSetUtilization={() => {}}
+      onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
+    const input = screen.getByLabelText("Absence override for Sample in 2026-02");
+    expect(input.className).toContain("text-sm");
+    expect(input.className).not.toContain("text-[10px]");
+  });
 });
 
 test("custom calendar view has a Today button that resets to the current month", () => {
@@ -208,16 +260,35 @@ test("resources-panel: no view SegmentedControl, no roles/report/add-absence but
   expect(src).toMatch(/VIEW_PANE_RESIZABLE_CLASS/);
 });
 
-test("calendar view root uses CENTERED_HALF_PANE_CLASS (mx-auto, h-[50%], w-[50%])", () => {
+test("A1: calendar view root uses VIEW_PANE_RESIZABLE_CLASS (full resizable pane, not the half-size centered pane)", () => {
   const { container } = render(<ResourcesPanel {...baseProps} view="calendar" today="2026-06-15" />);
   const root = container.firstElementChild as HTMLElement;
-  expect(root.className).toContain("mx-auto");
-  expect(root.className).toContain("h-[50%]");
-  expect(root.className).toContain("w-[50%]");
+  // Calendar was switched from CENTERED_HALF_PANE_CLASS to VIEW_PANE_RESIZABLE_CLASS so it
+  // matches every other sibling resource view in size.
+  expect(root.className).toContain("resize");
+  expect(root.className).not.toContain("mx-auto");
+  expect(root.className).not.toContain("w-[50%]");
 });
 
 test("workload view root does NOT use the centered half-pane class", () => {
   const { container } = render(<ResourcesPanel {...baseProps} view="workload" />);
   const root = container.firstElementChild as HTMLElement;
   expect(root.className).not.toContain("mx-auto");
+});
+
+test("planning view: capacity-days column header has an InfoTooltip (no native title on th)", () => {
+  const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };
+  render(<ResourcesPanel {...baseProps} view="planning" resources={[]} plan={plan} workdayHours={8}
+    onSetUtilization={() => {}} onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
+  // InfoTooltip renders a focusable span with role=button whose accessible name is the hint text.
+  expect(screen.getByRole("button", { name: t("en-US", "resourcesCapacityDaysHint") })).toBeInTheDocument();
+});
+
+test("planning view: per-cell utilization input still has native title (intentionally left)", () => {
+  const resources = [{ id: 1, firstName: "Sample", lastName: "", roleId: null, utilizationMode: "percent" as const, utilization: {} }];
+  const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };
+  render(<ResourcesPanel {...baseProps} view="planning" resources={resources} plan={plan} workdayHours={8}
+    onSetUtilization={() => {}} onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
+  const utilInput = screen.getByLabelText("Utilization for Sample in 2026-02");
+  expect(utilInput.getAttribute("title")).toBe(t("en-US", "resourcesUtilizationHint"));
 });

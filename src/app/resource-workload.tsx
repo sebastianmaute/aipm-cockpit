@@ -107,11 +107,11 @@ export function ResourceWorkload({
         </thead>
         <tbody className="divide-y divide-line">
           {managed.map((row) => (
-            <tr key={`res-${row.resource.id}`} className="align-top">
+            <tr key={`res-${row.resource.id}`} className="cursor-pointer align-top hover:bg-surface-muted" onClick={() => onEditResource(row.resource)}>
               <td className="px-3 py-2 font-medium text-foreground">
                 <button
                   type="button"
-                  onClick={() => onEditResource(row.resource)}
+                  onClick={(e) => { e.stopPropagation(); onEditResource(row.resource); }}
                   className="rounded-md border border-transparent px-2 py-0.5 text-left font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-AIPM-green"
                   title={row.display}
                 >
@@ -141,12 +141,13 @@ export function ResourceWorkload({
               <td className="px-3 py-2 text-right tabular-nums">
                 <button
                   type="button"
-                  onClick={() =>
+                  onClick={(e) => {
+                    e.stopPropagation();
                     onEditShift(row.shift, {
                       display: row.display,
                       email: row.email,
-                    })
-                  }
+                    });
+                  }}
                   title={
                     row.shift
                       ? t(lang, "resourcesEditShift")
@@ -170,7 +171,7 @@ export function ResourceWorkload({
                       <li key={a.id}>
                         <button
                           type="button"
-                          onClick={() => onEditAbsence(a)}
+                          onClick={(e) => { e.stopPropagation(); onEditAbsence(a); }}
                           title={a.note ?? ""}
                           className="inline-flex items-center gap-1 rounded-md border border-line bg-surface px-2 py-0.5 text-xs text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted"
                         >

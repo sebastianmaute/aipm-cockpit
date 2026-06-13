@@ -267,6 +267,17 @@ describe("BudgetBucketModal", () => {
     expect(screen.getByText(/zero or greater/i)).toBeInTheDocument();
   });
 
+  test("rate override hint is an InfoTooltip (accessible by name), not a native title on the input", () => {
+    setup({ disciplines });
+    // Both internal and external rate labels get an InfoTooltip with the same hint key —
+    // expect two tooltip buttons (one per field).
+    const hintText = t("en-US", "budgetRateOverrideHint");
+    expect(screen.getAllByRole("button", { name: hintText }).length).toBeGreaterThanOrEqual(1);
+    // The internal rate input itself must NOT carry the native title any more.
+    const input = screen.getByLabelText(t("en-US", "budgetRateOverrideInternal"));
+    expect(input.getAttribute("title")).toBeNull();
+  });
+
   test("tier switch hides advanced/full fields but keeps required ones", () => {
     // Render at the Advanced default (no Seed) and assert against modal-BODY labels.
     render(

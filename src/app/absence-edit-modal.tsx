@@ -19,6 +19,7 @@ import { useDraggable } from "./use-draggable";
 import { ABSENCE_TYPES, type Absence, type AbsenceType } from "./types";
 import { ModalFieldControls } from "./modal-field-controls";
 import { useModalVisibility } from "./use-modal-visibility";
+import { InfoTooltip } from "./info-tooltip";
 
 interface Props {
   lang: Lang;
@@ -147,14 +148,15 @@ export function AbsenceEditModal({
             assigneeEmailLabel={t(lang, "absenceAssigneeEmail")}
             assigneePlaceholder={t(lang, "absencePlaceholderAssignee")}
             showEmail={isVisible("email")}
+            tooltip={t(lang, "absenceAssigneeHint")}
           />
 
           {/* Start + end dates (grouped under the `dates` id). */}
           {isVisible("dates") && (
             <>
               <label className="flex flex-col gap-1 text-sm">
-                <span className="font-medium text-foreground">
-                  {t(lang, "absenceStart")} *
+                <span className="flex items-center gap-1 font-medium text-foreground">
+                  {t(lang, "absenceStart")} *<InfoTooltip text={t(lang, "absenceStartHint")} />
                 </span>
                 <input
                   type="date"
@@ -166,8 +168,8 @@ export function AbsenceEditModal({
               </label>
 
               <label className="flex flex-col gap-1 text-sm">
-                <span className="font-medium text-foreground">
-                  {t(lang, "absenceEnd")} *
+                <span className="flex items-center gap-1 font-medium text-foreground">
+                  {t(lang, "absenceEnd")} *<InfoTooltip text={t(lang, "absenceEndHint")} />
                 </span>
                 <input
                   type="date"
@@ -182,8 +184,8 @@ export function AbsenceEditModal({
 
           {isVisible("type") && (
             <div className="flex flex-col gap-1 text-sm sm:col-span-2">
-              <span className="font-medium text-foreground">
-                {t(lang, "absenceType")}
+              <span className="flex items-center gap-1 font-medium text-foreground">
+                {t(lang, "absenceType")}<InfoTooltip text={t(lang, "absenceTypeHint")} />
               </span>
               <SegmentedControl<AbsenceType>
                 value={draft.type}
@@ -206,8 +208,8 @@ export function AbsenceEditModal({
 
           {isVisible("note") && (
             <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-              <span className="font-medium text-foreground">
-                {t(lang, "absenceNote")}
+              <span className="flex items-center gap-1 font-medium text-foreground">
+                {t(lang, "absenceNote")}<InfoTooltip text={t(lang, "absenceNoteHint")} />
               </span>
               <textarea
                 rows={2}

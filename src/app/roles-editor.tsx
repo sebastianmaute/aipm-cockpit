@@ -8,6 +8,7 @@ import { useColumnResize } from "./use-column-resize";
 import { ColumnResizeHandle } from "./task-manager-ui";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import { INNER_TABLE_CLASS } from "./view-styles";
+import { InfoTooltip } from "./info-tooltip";
 
 export const ROLES_COL_WIDTHS = {
   discipline: 160,
@@ -101,27 +102,39 @@ export function RolesEditor({
             <thead className={TABLE_HEAD_CLASS}>
               <tr>
                 <th className="relative px-3 py-2 font-medium" style={{ width: colWidths.discipline, minWidth: colWidths.discipline }}>
-                  <button type="button" onClick={() => toggleSort("discipline")} className="inline-flex items-center gap-1 hover:text-AIPM-green">
-                    {t(lang, "rolesDiscipline")}{sort?.key === "discipline" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
-                  </button>
+                  <span className="inline-flex items-center gap-1">
+                    <button type="button" onClick={() => toggleSort("discipline")} className="inline-flex items-center gap-1 hover:text-AIPM-green">
+                      {t(lang, "rolesDiscipline")}{sort?.key === "discipline" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
+                    </button>
+                    <InfoTooltip text={t(lang, "rolesDisciplineHint")} />
+                  </span>
                   <ColumnResizeHandle col="discipline" onMouseDown={startResize} />
                 </th>
                 <th className="relative px-3 py-2 font-medium" style={{ width: colWidths.grade, minWidth: colWidths.grade }}>
-                  <button type="button" onClick={() => toggleSort("grade")} className="inline-flex items-center gap-1 hover:text-AIPM-green">
-                    {t(lang, "rolesGrade")}{sort?.key === "grade" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
-                  </button>
+                  <span className="inline-flex items-center gap-1">
+                    <button type="button" onClick={() => toggleSort("grade")} className="inline-flex items-center gap-1 hover:text-AIPM-green">
+                      {t(lang, "rolesGrade")}{sort?.key === "grade" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
+                    </button>
+                    <InfoTooltip text={t(lang, "rolesGradeHint")} />
+                  </span>
                   <ColumnResizeHandle col="grade" onMouseDown={startResize} />
                 </th>
                 <th className="relative px-3 py-2 text-right font-medium" style={{ width: colWidths.internal, minWidth: colWidths.internal }}>
-                  <button type="button" onClick={() => toggleSort("internal")} className="inline-flex items-center gap-1 hover:text-AIPM-green">
-                    {t(lang, "rolesInternalRate")}{sort?.key === "internal" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
-                  </button>
+                  <span className="inline-flex items-center gap-1">
+                    <button type="button" onClick={() => toggleSort("internal")} className="inline-flex items-center gap-1 hover:text-AIPM-green">
+                      {t(lang, "rolesInternalRate")}{sort?.key === "internal" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
+                    </button>
+                    <InfoTooltip text={t(lang, "rolesInternalRateHint")} />
+                  </span>
                   <ColumnResizeHandle col="internal" onMouseDown={startResize} />
                 </th>
                 <th className="relative px-3 py-2 text-right font-medium" style={{ width: colWidths.external, minWidth: colWidths.external }}>
-                  <button type="button" onClick={() => toggleSort("external")} className="inline-flex items-center gap-1 hover:text-AIPM-green">
-                    {t(lang, "rolesExternalRate")}{sort?.key === "external" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
-                  </button>
+                  <span className="inline-flex items-center gap-1">
+                    <button type="button" onClick={() => toggleSort("external")} className="inline-flex items-center gap-1 hover:text-AIPM-green">
+                      {t(lang, "rolesExternalRate")}{sort?.key === "external" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
+                    </button>
+                    <InfoTooltip text={t(lang, "rolesExternalRateHint")} />
+                  </span>
                   <ColumnResizeHandle col="external" onMouseDown={startResize} />
                 </th>
                 <th className="px-3 py-2" />
@@ -139,16 +152,22 @@ export function RolesEditor({
                   <td className="px-3 py-2">{disciplineName}</td>
                   <td className="px-3 py-2">{gradeName}</td>
                   <td className="px-3 py-2 text-right">
-                    <input type="number" min={0} step={1} value={r.internalRate}
-                      aria-label={`${rowCtx} — ${t(lang, "rolesInternalRate")}`}
-                      onChange={(e) => onSaveRole({ ...r, internalRate: clampRate(e.target.value) })}
-                      className="w-24 rounded-md border border-line px-2 py-1 text-right text-sm tabular-nums bg-surface-muted" />
+                    <span className="inline-flex items-center justify-end gap-1">
+                      <span aria-hidden className="text-muted-foreground">€</span>
+                      <input type="number" min={0} step={1} value={r.internalRate}
+                        aria-label={`${rowCtx} — ${t(lang, "rolesInternalRate")}`}
+                        onChange={(e) => onSaveRole({ ...r, internalRate: clampRate(e.target.value) })}
+                        className="w-24 rounded-md border border-line px-2 py-1 text-right text-sm tabular-nums bg-surface-muted" />
+                    </span>
                   </td>
                   <td className="px-3 py-2 text-right">
-                    <input type="number" min={0} step={1} value={r.externalRate}
-                      aria-label={`${rowCtx} — ${t(lang, "rolesExternalRate")}`}
-                      onChange={(e) => onSaveRole({ ...r, externalRate: clampRate(e.target.value) })}
-                      className="w-24 rounded-md border border-line px-2 py-1 text-right text-sm tabular-nums bg-surface-muted" />
+                    <span className="inline-flex items-center justify-end gap-1">
+                      <span aria-hidden className="text-muted-foreground">€</span>
+                      <input type="number" min={0} step={1} value={r.externalRate}
+                        aria-label={`${rowCtx} — ${t(lang, "rolesExternalRate")}`}
+                        onChange={(e) => onSaveRole({ ...r, externalRate: clampRate(e.target.value) })}
+                        className="w-24 rounded-md border border-line px-2 py-1 text-right text-sm tabular-nums bg-surface-muted" />
+                    </span>
                   </td>
                   <td className="px-3 py-2 text-right">
                     <button type="button" onClick={() => onDeleteRole(r.id)} aria-label={t(lang, "delete")}

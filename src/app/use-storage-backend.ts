@@ -41,6 +41,7 @@ import {
 import { isTursoLockTimeout, tursoErrorKind } from "./storage-error";
 import { useMsAuth } from "./use-ms-auth";
 import { useWorkspace } from "./workspace-context";
+import { writeSettings } from "./use-settings";
 
 // Hoisted to module scope — static map, no per-render allocation
 const STORAGE_LABEL_KEYS: Record<StorageKind, Parameters<typeof t>[1]> = {
@@ -715,6 +716,14 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       // portfolio to Turso. The reload re-initialises the app in Turso mode.
       saveCurrentTursoProjectId(id);
       savePortfolioMode("turso");
+      // Point the workspace storage backend at Turso too, persisted SYNCHRONOUSLY
+      // so it survives the reload below. Without this the portfolio flips to Turso
+      // while the backend memo still rebuilds a FILE/browser backend (its
+      // storageConfig.kind is unchanged) — so the workspace keeps loading the
+      // local file and snapshot capture (which reads the Turso config) fails with
+      // "Storage not ready". portfolioMode === "turso" must imply storageConfig
+      // kind "turso".
+      writeSettings({ ...settingsRef.current, storageConfig: { kind: "turso" } });
       window.location.reload();
     } catch (err) {
       reportProjectError(err);

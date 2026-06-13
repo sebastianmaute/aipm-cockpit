@@ -124,6 +124,22 @@ The active backend is chosen in Settings → Integrations / Storage Configuratio
 
 When two full browser tabs (not read-only pop-outs) point at the same Turso database, their saves are serialized through the [Web Locks API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Locks_API) — one exclusive lock per database URL and project — so one tab's write never interleaves with another's. The model remains last-write-wins per table: the slower tab still overwrites the faster one, so simultaneously editing the same project in two tabs is not a supported workflow. A tab that cannot acquire the lock within 20 seconds fails that save with an error toast instead of waiting indefinitely.
 
+### Emergency recovery
+
+If a configuration change ever leaves the app stuck (for example a bad Turso
+URL or a portfolio mode that won't load), you can recover without losing data:
+
+- **Safe-mode boot:** open the app with `?safe=1` appended to the URL
+  (e.g. `https://…/?safe=1`). The app boots on the local browser/file backend
+  at the empty state and ignores your stored configuration in memory — nothing
+  is changed on disk.
+- **Recovery page:** open `/recovery`. From there you can **download** your
+  current configuration, **reset** to a clean configuration, or **restore** the
+  previous one. Reset only moves the configuration aside (it is recoverable) and
+  never touches your projects, tasks, or any Turso cloud database.
+- If the app shows an error screen, use its **Recover** button (it links to the
+  same recovery page).
+
 ## Integrations
 
 ### Jira

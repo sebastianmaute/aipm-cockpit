@@ -75,7 +75,7 @@ export function TaskFormModal({
       open
       onClose={onCancel}
       ariaLabel={
-        isEditing ? t(lang, "tabEditTask", editingId!) : t(lang, "tabNewTask")
+        isEditing ? t(lang, "taskEditTitle") : t(lang, "tabNewTask")
       }
       backdropClassName="bg-AIPM-dark-blue/40 overflow-y-auto"
     >
@@ -87,7 +87,7 @@ export function TaskFormModal({
       >
         <ModalHeader
           lang={lang}
-          title={isEditing ? t(lang, "tabEditTask", editingId!) : t(lang, "tabNewTask")}
+          title={isEditing ? t(lang, "taskEditTitle") : t(lang, "tabNewTask")}
           onClose={onCancel}
           dragHandleProps={handleProps}
         />

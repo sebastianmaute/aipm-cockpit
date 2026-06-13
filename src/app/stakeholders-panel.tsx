@@ -321,12 +321,13 @@ function StakeholdersPanelInner({
               return (
                 <tr
                   key={item.id}
-                  className="align-top"
+                  className="cursor-pointer align-top hover:bg-surface-muted"
+                  onClick={() => openEdit(item)}
                 >
                   <td className="px-3 py-2">
                     <button
                       type="button"
-                      onClick={() => openEdit(item)}
+                      onClick={(e) => { e.stopPropagation(); openEdit(item); }}
                       title={item.name}
                       className="rounded-md border border-transparent px-2 py-0.5 text-left font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-AIPM-green"
                     >

@@ -21,7 +21,7 @@ import { localeFor, shortDateRangeIso } from "./date-format";
 import { type CalendarMode, monthWindow, resolveWindow, stepAnchor } from "./calendar-window";
 import { type Lang, t } from "./i18n";
 import { ResourceCalendar } from "./resource-calendar";
-import { CENTERED_HALF_PANE_CLASS, INNER_TABLE_CLASS, VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
+import { INNER_TABLE_CLASS, VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { ResourceWorkload, WORKLOAD_COL_WIDTHS, type WorkloadCol } from "./resource-workload";
 import { SegmentedControl } from "./segmented-control";
 import { generatePeriods, displayCapacityHours, absencesForResource, absenceWorkdays } from "./resource-capacity";
@@ -46,6 +46,7 @@ import { useResizable } from "./use-resizable";
 import { RagBadge } from "./rag-badge";
 import { marginAmountHealth } from "./budget-health";
 import { useSortableFilter, TableFilter, SortHeaderButton, type SortDir } from "./report-table";
+import { InfoTooltip } from "./info-tooltip";
 
 const PLANNING_COL_WIDTHS = {
   assignee: 160,
@@ -311,7 +312,9 @@ function ResourcesPanelInner({
 
   const isEmpty = rows.length === 0 && resources.length === 0;
 
-  const paneClass = view === "calendar" ? CENTERED_HALF_PANE_CLASS : VIEW_PANE_RESIZABLE_CLASS;
+  // Calendar shares Workload's full resizable pane (was the half-size centered
+  // pane, which made it visibly smaller than every sibling resource view).
+  const paneClass = VIEW_PANE_RESIZABLE_CLASS;
 
   return (
     <section ref={resRef} className={paneClass}>
@@ -335,16 +338,14 @@ function ResourcesPanelInner({
           <>
             <div className="mb-2 flex flex-wrap items-center gap-2 text-xs">
               <label className="flex items-center gap-1">
-                <span>{t(lang, "resourcesPlanStart")}</span>
+                <span className="flex items-center gap-1">{t(lang, "resourcesPlanStart")}<InfoTooltip text={t(lang, "resourcesPlanStartHint")} /></span>
                 <input type="date" aria-label={t(lang, "resourcesPlanStart")} value={plan.startDate}
-                  title={t(lang, "resourcesPlanStartHint")}
                   onChange={(e) => onSetPlanWindow(e.target.value, plan.endDate)}
                   className="rounded border border-line px-2 py-1.5 text-sm dark:bg-surface" />
               </label>
               <label className="flex items-center gap-1">
-                <span>{t(lang, "resourcesPlanEnd")}</span>
+                <span className="flex items-center gap-1">{t(lang, "resourcesPlanEnd")}<InfoTooltip text={t(lang, "resourcesPlanEndHint")} /></span>
                 <input type="date" aria-label={t(lang, "resourcesPlanEnd")} value={plan.endDate}
-                  title={t(lang, "resourcesPlanEndHint")}
                   onChange={(e) => onSetPlanWindow(plan.startDate, e.target.value)}
                   className="rounded border border-line px-2 py-1.5 text-sm dark:bg-surface" />
               </label>
@@ -398,33 +399,33 @@ function ResourcesPanelInner({
                   <th
                     className="relative px-3 py-2 text-right font-medium"
                     style={{ width: planning.colWidths.capacityDays, minWidth: planning.colWidths.capacityDays }}
-                    title={t(lang, "resourcesCapacityDaysHint")}
                   >
                     <SortHeaderButton label={t(lang, "resourcesCapacityDays")} active={planSort.key === "capacityDays" && planSort.dir !== "off"} dir={planSort.dir} onClick={() => planClick("capacityDays")} />
+                    <InfoTooltip text={t(lang, "resourcesCapacityDaysHint")} />
                     <ColumnResizeHandle col="capacityDays" onMouseDown={planningStartResize} />
                   </th>
                   <th
                     className="relative px-3 py-2 text-right font-medium"
                     style={{ width: planning.colWidths.internalCost, minWidth: planning.colWidths.internalCost }}
-                    title={t(lang, "resourcesInternalCostHint")}
                   >
                     <SortHeaderButton label={t(lang, "resourcesInternalCost")} active={planSort.key === "internalCost" && planSort.dir !== "off"} dir={planSort.dir} onClick={() => planClick("internalCost")} />
+                    <InfoTooltip text={t(lang, "resourcesInternalCostHint")} />
                     <ColumnResizeHandle col="internalCost" onMouseDown={planningStartResize} />
                   </th>
                   <th
                     className="relative px-3 py-2 text-right font-medium"
                     style={{ width: planning.colWidths.externalCost, minWidth: planning.colWidths.externalCost }}
-                    title={t(lang, "resourcesExternalCostHint")}
                   >
                     <SortHeaderButton label={t(lang, "resourcesExternalCost")} active={planSort.key === "externalCost" && planSort.dir !== "off"} dir={planSort.dir} onClick={() => planClick("externalCost")} />
+                    <InfoTooltip text={t(lang, "resourcesExternalCostHint")} />
                     <ColumnResizeHandle col="externalCost" onMouseDown={planningStartResize} />
                   </th>
                   <th
                     className="relative px-3 py-2 text-right font-medium"
                     style={{ width: planning.colWidths.margin, minWidth: planning.colWidths.margin }}
-                    title={t(lang, "resourcesMarginHint")}
                   >
                     <SortHeaderButton label={t(lang, "resourcesMargin")} active={planSort.key === "margin" && planSort.dir !== "off"} dir={planSort.dir} onClick={() => planClick("margin")} />
+                    <InfoTooltip text={t(lang, "resourcesMarginHint")} />
                     <ColumnResizeHandle col="margin" onMouseDown={planningStartResize} />
                   </th>
                 </tr>
@@ -443,11 +444,11 @@ function ResourcesPanelInner({
                   const totalHours = row.totalHours;
                   const resAbs = absencesForResource(absences, r);
                   return (
-                    <tr key={r.id}>
+                    <tr key={r.id} onClick={() => onEditResource(r)} className="cursor-pointer hover:bg-surface-muted">
                       <td className="px-3 py-2">
                         <button
                           type="button"
-                          onClick={() => onEditResource(r)}
+                          onClick={(e) => { e.stopPropagation(); onEditResource(r); }}
                           title={resourceDisplayName(r)}
                           className="rounded-md border border-transparent px-2 py-0.5 text-left font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-AIPM-green dark:text-AIPM-light-grey"
                         >
@@ -471,6 +472,7 @@ function ResourcesPanelInner({
                             title={t(lang, "resourcesUtilizationHint")}
                             value={cellValue}
                             readOnly={derived}
+                            onClick={(e) => e.stopPropagation()}
                             onChange={(e) => { if (!derived) onSetUtilization(r.id, p.key, Number(e.target.value) || 0); }}
                             className={`w-16 rounded border border-line px-1 py-0.5 text-right tabular-nums dark:bg-surface${derived ? " bg-surface-muted opacity-60" : ""}`} />
                           <input type="number" min={0} step={1}
@@ -479,8 +481,9 @@ function ResourcesPanelInner({
                             value={derived ? "" : (r.absenceOverride?.[p.key] ?? "")}
                             placeholder={derived ? "" : String(absenceWorkdays(resAbs, p.start, p.end, holidaySet) * workdayHours)}
                             readOnly={derived}
+                            onClick={(e) => e.stopPropagation()}
                             onChange={(e) => { if (!derived) onSetAbsenceOverride(r.id, p.key, e.target.value === "" ? null : Number(e.target.value)); }}
-                            className={`mt-0.5 w-16 rounded border border-AIPM-purple/40 px-1 py-0.5 text-right text-[10px] tabular-nums text-AIPM-purple dark:border-AIPM-purple/50 dark:bg-surface dark:text-AIPM-purple${derived ? " bg-surface-muted opacity-60" : ""}`} />
+                            className={`mt-0.5 w-16 rounded border border-AIPM-purple/40 px-1 py-0.5 text-right text-sm tabular-nums text-AIPM-purple dark:border-AIPM-purple/50 dark:bg-surface dark:text-AIPM-purple${derived ? " bg-surface-muted opacity-60" : ""}`} />
                         </td>
                         );
                       })}

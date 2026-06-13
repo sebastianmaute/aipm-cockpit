@@ -31,6 +31,7 @@ import { BUDGET_NAME_MAX, TEXTAREA_MAX } from "./sanitize";
 import { useToastContext } from "./toast-context";
 import { ModalFieldControls } from "./modal-field-controls";
 import { useModalVisibility } from "./use-modal-visibility";
+import { InfoTooltip } from "./info-tooltip";
 
 export interface StakeholderEditModalProps {
   lang: Lang;
@@ -116,7 +117,7 @@ export function StakeholderEditModal({
     onSave();
   }
 
-  const title = isNew ? t(lang, "stakeholdersAdd") : t(lang, "navStakeholders");
+  const title = isNew ? t(lang, "stakeholdersAdd") : t(lang, "stakeholderEditTitle");
   const saveDisabled = !draft.name.trim();
 
   return (
@@ -150,8 +151,8 @@ export function StakeholderEditModal({
         >
           {/* Name */}
           <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-            <span className="font-medium text-foreground">
-              {t(lang, "stakeholderFieldName")} *
+            <span className="flex items-center gap-1 font-medium text-foreground">
+              {t(lang, "stakeholderFieldName")} *<InfoTooltip text={t(lang, "stakeholderFieldNameHint")} />
             </span>
             <ResourcePicker
               lang={lang}
@@ -174,8 +175,8 @@ export function StakeholderEditModal({
           {/* Organization */}
           {isVisible("organization") && (
             <label className="flex flex-col gap-1 text-sm">
-              <span className="font-medium text-foreground">
-                {t(lang, "stakeholderFieldOrganization")}
+              <span className="flex items-center gap-1 font-medium text-foreground">
+                {t(lang, "stakeholderFieldOrganization")}<InfoTooltip text={t(lang, "stakeholderFieldOrganizationHint")} />
               </span>
               <input
                 type="text"
@@ -197,8 +198,8 @@ export function StakeholderEditModal({
             <>
               {/* Title */}
               <label className="flex flex-col gap-1 text-sm">
-                <span className="font-medium text-foreground">
-                  {t(lang, "stakeholderFieldTitle")}
+                <span className="flex items-center gap-1 font-medium text-foreground">
+                  {t(lang, "stakeholderFieldTitle")}<InfoTooltip text={t(lang, "stakeholderFieldTitleHint")} />
                 </span>
                 <input
                   type="text"
@@ -216,8 +217,8 @@ export function StakeholderEditModal({
 
               {/* Email */}
               <label className="flex flex-col gap-1 text-sm">
-                <span className="font-medium text-foreground">
-                  {t(lang, "stakeholderFieldEmail")}
+                <span className="flex items-center gap-1 font-medium text-foreground">
+                  {t(lang, "stakeholderFieldEmail")}<InfoTooltip text={t(lang, "stakeholderFieldEmailHint")} />
                 </span>
                 <input
                   type="text"
@@ -238,8 +239,8 @@ export function StakeholderEditModal({
           {/* Category */}
           {isVisible("category") && (
             <label className="flex flex-col gap-1 text-sm">
-              <span className="font-medium text-foreground">
-                {t(lang, "stakeholderFieldCategory")}
+              <span className="flex items-center gap-1 font-medium text-foreground">
+                {t(lang, "stakeholderFieldCategory")}<InfoTooltip text={t(lang, "stakeholderFieldCategoryHint")} />
               </span>
               <select
                 aria-label={t(lang, "stakeholderFieldCategory")}
@@ -259,8 +260,10 @@ export function StakeholderEditModal({
           {/* Influence / Interest matrix — one click sets both */}
           {isVisible("influenceInterest") && (
             <div className="flex flex-col gap-1 text-sm sm:col-span-2">
-              <span className="font-medium text-foreground">
-                {t(lang, "stakeholderFieldInfluence")} / {t(lang, "stakeholderFieldInterest")}
+              <span className="flex items-center gap-1 font-medium text-foreground">
+                {t(lang, "stakeholderFieldInfluence")}<InfoTooltip text={t(lang, "stakeholderFieldInfluenceHint")} />
+                {" / "}
+                {t(lang, "stakeholderFieldInterest")}<InfoTooltip text={t(lang, "stakeholderFieldInterestHint")} />
               </span>
               <InfluenceInterestMatrix
                 lang={lang}
@@ -279,8 +282,8 @@ export function StakeholderEditModal({
           {/* Notes */}
           {isVisible("notes") && (
             <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-              <span className="font-medium text-foreground">
-                {t(lang, "stakeholderFieldNotes")}
+              <span className="flex items-center gap-1 font-medium text-foreground">
+                {t(lang, "stakeholderFieldNotes")}<InfoTooltip text={t(lang, "stakeholderFieldNotesHint")} />
               </span>
               <textarea
                 rows={2}

@@ -7,7 +7,6 @@ describe("TopBar", () => {
     lang: "en-US" as const,
     title: "Gantt",
     bannerCount: 0,
-    onNewTask: () => {},
     onShowAlerts: () => {},
   };
 
@@ -16,11 +15,14 @@ describe("TopBar", () => {
     expect(screen.getByRole("heading", { name: "Gantt" })).toBeTruthy();
   });
 
-  it("calls onNewTask when the new-task button is clicked", () => {
-    const onNewTask = vi.fn();
-    render(<TopBar {...base} onNewTask={onNewTask} />);
-    fireEvent.click(screen.getByRole("button", { name: "New task" }));
-    expect(onNewTask).toHaveBeenCalled();
+  it("renders no New task button when no primaryAction is given", () => {
+    render(<TopBar {...base} />);
+    expect(screen.queryByText(/new task/i)).toBeNull();
+  });
+
+  it("renders primaryAction when provided", () => {
+    render(<TopBar {...base} primaryAction={<button type="button">Save</button>} />);
+    expect(screen.getByRole("button", { name: "Save" })).toBeTruthy();
   });
 
   it("shows the alert badge count when > 0", () => {
@@ -45,13 +47,12 @@ describe("TopBar", () => {
     expect(screen.queryByRole("button", { name: "Open navigation menu" })).toBeNull();
   });
 
-  it("renders primaryAction in place of the default New-task button", () => {
+  it("renders primaryAction in place of the absent New-task button", () => {
     render(
       <TopBar
         lang="en-US"
         title="Editing task #5"
         bannerCount={0}
-        onNewTask={() => {}}
         onShowAlerts={() => {}}
         primaryAction={<button type="button">Save changes</button>}
       />,
@@ -78,14 +79,14 @@ describe("TopBar", () => {
     expect(screen.queryByRole("button", { name: "AI Assistant" })).toBeNull();
   });
 
-  it("renders AI Assistant button before New Task button in DOM order", () => {
+  it("renders AI Assistant button before the alerts button in DOM order", () => {
     const onOpenAiAssistant = vi.fn();
     render(<TopBar {...base} onOpenAiAssistant={onOpenAiAssistant} />);
     const buttons = screen.getAllByRole("button");
     const aiIdx = buttons.findIndex((b) => b.getAttribute("aria-label") === "AI Assistant");
-    const newTaskIdx = buttons.findIndex((b) => b.textContent?.trim() === "New task");
+    const alertIdx = buttons.findIndex((b) => b.getAttribute("aria-label") === "Show due-date notifications");
     expect(aiIdx).toBeGreaterThanOrEqual(0);
-    expect(newTaskIdx).toBeGreaterThanOrEqual(0);
-    expect(aiIdx).toBeLessThan(newTaskIdx);
+    expect(alertIdx).toBeGreaterThanOrEqual(0);
+    expect(aiIdx).toBeLessThan(alertIdx);
   });
 });

@@ -6,7 +6,6 @@ interface TopBarProps {
   lang: Lang;
   title: string;
   bannerCount: number;
-  onNewTask: () => void;
   onShowAlerts: () => void;
   /** Opens the AI Assistant chat pop-out. */
   onOpenAiAssistant?: () => void;
@@ -20,7 +19,7 @@ interface TopBarProps {
   children?: React.ReactNode;
 }
 
-export function TopBar({ lang, title, bannerCount, onNewTask, onShowAlerts, onOpenAiAssistant, primaryAction, onToggleSidebar, projectSwitcher, children }: TopBarProps) {
+export function TopBar({ lang, title, bannerCount, onShowAlerts, onOpenAiAssistant, primaryAction, onToggleSidebar, projectSwitcher, children }: TopBarProps) {
   return (
     <header className="flex items-center justify-between gap-4 border-b border-line bg-surface px-6 py-3">
       <div className="flex min-w-0 items-center gap-3">
@@ -56,16 +55,7 @@ export function TopBar({ lang, title, bannerCount, onNewTask, onShowAlerts, onOp
             </svg>
           </button>
         )}
-        {primaryAction ?? (
-          <button
-            type="button"
-            onClick={onNewTask}
-            title={t(lang, "newTask")}
-            className="rounded-md bg-AIPM-green px-3 py-1.5 text-sm font-semibold text-AIPM-dark-blue hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-AIPM-green"
-          >
-            {t(lang, "newTask")}
-          </button>
-        )}
+        {primaryAction}
         <button
           type="button"
           onClick={onShowAlerts}

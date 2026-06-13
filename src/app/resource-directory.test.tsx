@@ -68,6 +68,24 @@ describe("ResourceDirectory", () => {
     expect(within(rows[0]).getByText("Zoe Adams")).toBeInTheDocument();
   });
 
+  it("clicking a directory row opens the editor (RAID-style row click)", () => {
+    const onEdit = vi.fn();
+    render(<ResourceDirectory lang="en-US" resources={rs} roles={[]} disciplines={[]} grades={[]} onAssignRole={vi.fn()} onEditResource={onEdit} onAddResource={vi.fn()} onAddAbsence={vi.fn()} />);
+    const row = screen.getByRole("button", { name: "Alex Example" }).closest("tr")!;
+    expect(row.className).toContain("cursor-pointer");
+    expect(row.className).toContain("hover:bg-surface-muted");
+    fireEvent.click(row);
+    expect(onEdit).toHaveBeenCalledTimes(1);
+    expect(onEdit).toHaveBeenCalledWith(rs[0]);
+  });
+
+  it("clicking the name button fires onEditResource exactly once (stopPropagation prevents double-fire)", () => {
+    const onEdit = vi.fn();
+    render(<ResourceDirectory lang="en-US" resources={rs} roles={[]} disciplines={[]} grades={[]} onAssignRole={vi.fn()} onEditResource={onEdit} onAddResource={vi.fn()} onAddAbsence={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Alex Example" }));
+    expect(onEdit).toHaveBeenCalledTimes(1);
+  });
+
   it("gives the directory search box a descriptive tooltip", () => {
     render(<ResourceDirectory {...common} resources={rs} />);
     expect(screen.getByPlaceholderText(/filter by name, title/i)).toHaveAttribute(
