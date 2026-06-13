@@ -1628,6 +1628,7 @@ export const de: Record<TranslationKey, string> = {
   projectFormIdentity: "Projektidentität",
   projectFormPeople: "Beteiligte",
   projectFormCustomer: "Kunde",
+  projectFormOptional: "Optionale Angaben",
 
   // Field labels
   projectName: "Projektname",

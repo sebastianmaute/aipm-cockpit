@@ -102,11 +102,11 @@ describe("CreateProjectWizard", () => {
     window.localStorage.removeItem(SETTINGS_KEY);
   });
 
-  it("renders the reset-size button", () => {
+  it("does not own a reset-size button (resize lives on the modal panel)", () => {
     setup();
     expect(
-      screen.getByRole("button", { name: "Reset back to the default size." }),
-    ).toBeInTheDocument();
+      screen.queryByRole("button", { name: "Reset back to the default size." }),
+    ).toBeNull();
   });
 
   it("starts on Step 1 (Details) showing the project form", () => {

@@ -28,6 +28,8 @@ import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
 import { type NewProjectOpts } from "./new-project-workspace";
 import { type Settings } from "./settings-types";
+import { ResetSizeButton, ResizeCornerHint } from "./task-manager-ui";
+import { useResizable } from "./use-resizable";
 import { type ProjectMeta, type Resource } from "./types";
 
 const PRIMARY_BUTTON_CLASS =
@@ -74,6 +76,7 @@ export function ProjectEmptyState({
 }: ProjectEmptyStateProps) {
   const [view, setView] = useState<View>("choices");
   const [configModal, setConfigModal] = useState<null | "turso" | "m365">(null);
+  const { ref: sizeRef, reset: resetSize } = useResizable("lop-app:create-modal-size");
 
   const handleOpenCreate = () => setView("create");
 
@@ -100,8 +103,9 @@ export function ProjectEmptyState({
       zIndex={50}
     >
       <div
+        ref={sizeRef}
         data-modal-panel
-        className="relative flex max-h-[90vh] w-[880px] min-w-[360px] max-w-[95vw] flex-col overflow-hidden rounded-xl border border-line bg-surface"
+        className="relative flex max-h-[90vh] min-h-[420px] w-[960px] min-w-[360px] max-w-[95vw] resize flex-col overflow-hidden rounded-xl border border-line bg-surface"
       >
         <ModalHeader
           lang={lang}
@@ -109,9 +113,10 @@ export function ProjectEmptyState({
           titleId={TITLE_ID}
           onClose={noop}
           hideClose
+          headerExtra={<ResetSizeButton onClick={resetSize} lang={lang} />}
         />
 
-        <div className="overflow-y-auto p-6">
+        <div className="min-h-0 flex-1 overflow-y-auto p-6">
           {view === "choices" ? (
             <div className="flex flex-col gap-6">
               <p className="text-sm text-muted-foreground">
@@ -176,6 +181,8 @@ export function ProjectEmptyState({
             />
           )}
         </div>
+
+        <ResizeCornerHint lang={lang} />
       </div>
 
       {configModal !== null && (

@@ -1610,6 +1610,7 @@ const enUS = {
   projectFormIdentity: "Project identity",
   projectFormPeople: "People",
   projectFormCustomer: "Customer",
+  projectFormOptional: "Optional details",
 
   // Field labels
   projectName: "Project name",

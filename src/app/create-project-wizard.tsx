@@ -34,8 +34,6 @@ import { type Settings } from "./settings-types";
 import { type ProjectTemplate } from "./templates";
 import { type ProjectMeta, type Resource } from "./types";
 import { useTemplates } from "./use-templates";
-import { useResizable } from "./use-resizable";
-import { ResetSizeButton, ResizeCornerHint } from "./task-manager-ui";
 
 type CreateFormat = "json" | "csv" | "md";
 
@@ -186,21 +184,15 @@ export function CreateProjectWizard({
   const mode = deriveMode(features);
   const offerSeed = hasSeedContent(selectedTemplate);
 
-  const { ref: sizeRef, reset: resetSize } = useResizable("lop-app:create-wizard-size");
-
   return (
-    <div
-      ref={sizeRef}
-      className="relative flex min-h-[420px] min-w-[480px] flex-col resize overflow-hidden"
-    >
-      {/* Fixed header: step indicator + reset-size button */}
-      <div className="flex shrink-0 items-start justify-between gap-2 pb-4">
+    <div className="flex min-h-0 flex-col">
+      {/* Fixed header: step indicator (the modal panel owns resize/reset). */}
+      <div className="flex shrink-0 items-start pb-4">
         <StepIndicator lang={lang} step={step} />
-        <ResetSizeButton onClick={resetSize} lang={lang} />
       </div>
 
-      {/* Scrollable body */}
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      {/* Body — the modal panel scrolls, so this just stacks. */}
+      <div className="min-h-0 flex-1">
 
         {/* Step 1 — Details: reuse the shared create form (its submit advances). */}
         {step === 1 && (
@@ -395,8 +387,6 @@ export function CreateProjectWizard({
           </button>
         </div>
       )}
-
-      <ResizeCornerHint lang={lang} />
     </div>
   );
 }

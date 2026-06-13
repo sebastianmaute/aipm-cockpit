@@ -202,24 +202,6 @@ export function IdentityPeopleFields({
         <FieldError id="code-error">{errorFor("code")}</FieldError>
       </Field>
 
-      <Field label={t(lang, "projectDescription")} className="sm:col-span-2">
-        <textarea
-          rows={2}
-          value={draft.description}
-          onChange={(e) => setDraft((p) => ({ ...p, description: e.target.value }))}
-          className={inputClass}
-        />
-      </Field>
-
-      <Field label={t(lang, "projectSponsor")}>
-        <input
-          type="text"
-          value={draft.sponsor}
-          onChange={(e) => setDraft((p) => ({ ...p, sponsor: e.target.value }))}
-          className={inputClass}
-        />
-      </Field>
-
       <Field label={t(lang, "projectManager")} required tooltip={t(lang, "tipProjectManager")}>
         <input
           type="text"
@@ -278,17 +260,7 @@ export function CustomerFields({
   errorFor,
   markTouched,
   lang,
-  addressBook,
-  resources,
 }: ProjectFieldsProps) {
-  const toggleIdentityType = (type: IdentityType) =>
-    setDraft((p) => ({
-      ...p,
-      identityTypes: p.identityTypes.includes(type)
-        ? p.identityTypes.filter((x) => x !== type)
-        : [...p.identityTypes, type],
-    }));
-
   // Regulatory checkbox group with an EXCLUSIVE "Not applicable":
   //  - selecting "Not applicable" clears everything else,
   //  - selecting any other requirement clears "Not applicable".
@@ -341,38 +313,6 @@ export function CustomerFields({
         <FieldError id="naceSection-error">{errorFor("naceSection")}</FieldError>
       </Field>
 
-      <Field label={t(lang, "projectIdentityTypes")} className="sm:col-span-2">
-        <div className="flex flex-wrap gap-3">
-          {IDENTITY_TYPES.map((type) => (
-            <label key={type} className="flex items-center gap-1.5 text-sm text-foreground">
-              <input
-                type="checkbox"
-                checked={draft.identityTypes.includes(type)}
-                onChange={() => toggleIdentityType(type)}
-                className="h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue focus:ring-AIPM-green dark:border-line dark:bg-surface-muted"
-              />
-              {type}
-            </label>
-          ))}
-        </div>
-      </Field>
-
-      <Field label={t(lang, "projectIdentityCount")} tooltip={t(lang, "tipIdentityCount")}>
-        <input
-          type="number"
-          min={0}
-          value={draft.identityCount}
-          list="identity-count-steps"
-          onChange={(e) => setDraft((p) => ({ ...p, identityCount: e.target.value }))}
-          className={inputClass}
-        />
-        <datalist id="identity-count-steps">
-          {IDENTITY_COUNT_STEPS.map((n) => (
-            <option key={n} value={n} />
-          ))}
-        </datalist>
-      </Field>
-
       <Field label={t(lang, "projectProducts")} required tooltip={t(lang, "tipProducts")}>
         <input
           type="text"
@@ -384,15 +324,6 @@ export function CustomerFields({
           className={inputClass}
         />
         <FieldError id="products-error">{errorFor("products")}</FieldError>
-      </Field>
-
-      <Field label={t(lang, "projectPlatform")}>
-        <input
-          type="text"
-          value={draft.platform}
-          onChange={(e) => setDraft((p) => ({ ...p, platform: e.target.value }))}
-          className={inputClass}
-        />
       </Field>
 
       <Field label={t(lang, "projectDeployment")} required tooltip={t(lang, "tipDeployment")}>
@@ -427,19 +358,6 @@ export function CustomerFields({
         <FieldError id="startDate-error">{errorFor("startDate")}</FieldError>
       </Field>
 
-      <Field label={t(lang, "projectEndDate")} tooltip={t(lang, "tipEndDate")}>
-        <input
-          type="date"
-          value={draft.endDate}
-          onChange={(e) => setDraft((p) => ({ ...p, endDate: e.target.value }))}
-          onBlur={() => markTouched("endDate")}
-          aria-invalid={errorFor("endDate") ? true : undefined}
-          aria-describedby={errorFor("endDate") ? "endDate-error" : undefined}
-          className={inputClass}
-        />
-        <FieldError id="endDate-error">{errorFor("endDate")}</FieldError>
-      </Field>
-
       <Field label={t(lang, "projectProfitCenter")} required tooltip={t(lang, "tipProfitCenter")}>
         <input
           type="text"
@@ -451,6 +369,123 @@ export function CustomerFields({
           className={inputClass}
         />
         <FieldError id="profitCenter-error">{errorFor("profitCenter")}</FieldError>
+      </Field>
+
+      <Field label={t(lang, "projectRegulatory")} required className="sm:col-span-2" tooltip={t(lang, "tipRegulatory")}>
+        <div className="flex flex-col gap-2">
+          {REGULATORY_REQUIREMENTS.map((req) => (
+            <label key={req} className="flex items-center gap-1.5 text-sm text-foreground">
+              <input
+                type="checkbox"
+                checked={draft.regulatory.includes(req)}
+                onChange={() => toggleRegulatory(req)}
+                className="h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue focus:ring-AIPM-green dark:border-line dark:bg-surface-muted"
+              />
+              {req}
+            </label>
+          ))}
+        </div>
+        <FieldError id="regulatory-error">{errorFor("regulatory")}</FieldError>
+      </Field>
+    </FormSection>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Group 3 — Optional details (rendered inside a collapsible disclosure by
+// project-form.tsx; every field here is non-mandatory). Renders its own
+// two-column grid (no FormSection heading — the disclosure summary titles it).
+// ---------------------------------------------------------------------------
+
+export function OptionalDetailsFields({
+  draft,
+  setDraft,
+  errorFor,
+  markTouched,
+  lang,
+  addressBook,
+  resources,
+}: ProjectFieldsProps) {
+  const toggleIdentityType = (type: IdentityType) =>
+    setDraft((p) => ({
+      ...p,
+      identityTypes: p.identityTypes.includes(type)
+        ? p.identityTypes.filter((x) => x !== type)
+        : [...p.identityTypes, type],
+    }));
+
+  return (
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <Field label={t(lang, "projectDescription")} className="sm:col-span-2">
+        <textarea
+          rows={2}
+          value={draft.description}
+          onChange={(e) => setDraft((p) => ({ ...p, description: e.target.value }))}
+          className={inputClass}
+        />
+      </Field>
+
+      <Field label={t(lang, "projectSponsor")}>
+        <input
+          type="text"
+          value={draft.sponsor}
+          onChange={(e) => setDraft((p) => ({ ...p, sponsor: e.target.value }))}
+          className={inputClass}
+        />
+      </Field>
+
+      <Field label={t(lang, "projectPlatform")}>
+        <input
+          type="text"
+          value={draft.platform}
+          onChange={(e) => setDraft((p) => ({ ...p, platform: e.target.value }))}
+          className={inputClass}
+        />
+      </Field>
+
+      <Field label={t(lang, "projectIdentityTypes")} className="sm:col-span-2">
+        <div className="flex flex-wrap gap-3">
+          {IDENTITY_TYPES.map((type) => (
+            <label key={type} className="flex items-center gap-1.5 text-sm text-foreground">
+              <input
+                type="checkbox"
+                checked={draft.identityTypes.includes(type)}
+                onChange={() => toggleIdentityType(type)}
+                className="h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue focus:ring-AIPM-green dark:border-line dark:bg-surface-muted"
+              />
+              {type}
+            </label>
+          ))}
+        </div>
+      </Field>
+
+      <Field label={t(lang, "projectIdentityCount")} tooltip={t(lang, "tipIdentityCount")}>
+        <input
+          type="number"
+          min={0}
+          value={draft.identityCount}
+          list="identity-count-steps"
+          onChange={(e) => setDraft((p) => ({ ...p, identityCount: e.target.value }))}
+          className={inputClass}
+        />
+        <datalist id="identity-count-steps">
+          {IDENTITY_COUNT_STEPS.map((n) => (
+            <option key={n} value={n} />
+          ))}
+        </datalist>
+      </Field>
+
+      <Field label={t(lang, "projectEndDate")} tooltip={t(lang, "tipEndDate")}>
+        <input
+          type="date"
+          value={draft.endDate}
+          onChange={(e) => setDraft((p) => ({ ...p, endDate: e.target.value }))}
+          onBlur={() => markTouched("endDate")}
+          aria-invalid={errorFor("endDate") ? true : undefined}
+          aria-describedby={errorFor("endDate") ? "endDate-error" : undefined}
+          className={inputClass}
+        />
+        <FieldError id="endDate-error">{errorFor("endDate")}</FieldError>
       </Field>
 
       <Field label={t(lang, "projectQuotes")} className="sm:col-span-2">
@@ -545,23 +580,6 @@ export function CustomerFields({
         />
       </Field>
 
-      <Field label={t(lang, "projectRegulatory")} required className="sm:col-span-2" tooltip={t(lang, "tipRegulatory")}>
-        <div className="flex flex-col gap-2">
-          {REGULATORY_REQUIREMENTS.map((req) => (
-            <label key={req} className="flex items-center gap-1.5 text-sm text-foreground">
-              <input
-                type="checkbox"
-                checked={draft.regulatory.includes(req)}
-                onChange={() => toggleRegulatory(req)}
-                className="h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue focus:ring-AIPM-green dark:border-line dark:bg-surface-muted"
-              />
-              {req}
-            </label>
-          ))}
-        </div>
-        <FieldError id="regulatory-error">{errorFor("regulatory")}</FieldError>
-      </Field>
-
       <Field label={t(lang, "projectNotes")} className="sm:col-span-2">
         <textarea
           rows={3}
@@ -570,7 +588,7 @@ export function CustomerFields({
           className={inputClass}
         />
       </Field>
-    </FormSection>
+    </div>
   );
 }
 

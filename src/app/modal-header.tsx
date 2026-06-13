@@ -1,5 +1,6 @@
 "use client";
 
+import { type ReactNode } from "react";
 import { type Lang, t } from "./i18n";
 import { useVoiceCommand } from "./voice-command-context";
 import { VoiceCommandButton } from "./voice-button";
@@ -21,6 +22,9 @@ interface ModalHeaderProps {
   /** Hide the ✕ close button (e.g. a non-dismissable empty-state header where
    *  the close gesture is a no-op and the button would be a dead control). */
   hideClose?: boolean;
+  /** Extra controls rendered in the header's right cluster, before the close
+   *  button (e.g. a reset-size button for a resizable modal panel). */
+  headerExtra?: ReactNode;
 }
 
 /** Stop a pointerdown on interactive controls from initiating a window drag. */
@@ -35,6 +39,7 @@ export function ModalHeader({
   onClose,
   dragHandleProps,
   hideClose = false,
+  headerExtra,
 }: ModalHeaderProps) {
   const voice = useVoiceCommand();
   return (
@@ -48,6 +53,7 @@ export function ModalHeader({
         {title}
       </h2>
       <div className="flex items-center gap-1" onPointerDown={stopDrag}>
+        {headerExtra}
         {voice && (
           <VoiceCommandButton lang={lang} onCommand={voice.onCommand} onError={voice.onError} />
         )}
