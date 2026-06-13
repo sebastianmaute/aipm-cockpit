@@ -128,6 +128,13 @@ describe("AbsenceEditModal", () => {
     expect(screen.getByRole("button", { name: t("en-US", "absenceStartHint") })).toBeInTheDocument();
   });
 
+  it("renders an InfoTooltip on the assignee field accessible by absenceAssigneeHint", () => {
+    setup();
+    expect(
+      screen.getByRole("button", { name: t("en-US", "absenceAssigneeHint") }),
+    ).toBeInTheDocument();
+  });
+
   describe("field visibility", () => {
     it("Advanced default shows Type and hides Full-only Email; Simple hides Type while the required Assignee stays", () => {
       setup();

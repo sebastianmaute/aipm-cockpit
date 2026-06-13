@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { type Lang, t } from "./i18n";
+import { InfoTooltip } from "./info-tooltip";
 
 type AssigneeOption = { name: string; email?: string };
 
@@ -43,6 +44,7 @@ export function AssigneeField({
   assigneeEmailLabel,
   assigneePlaceholder,
   showEmail = true,
+  tooltip,
 }: {
   datalistId: string;
   assignee: string;
@@ -55,6 +57,8 @@ export function AssigneeField({
   assigneePlaceholder: string;
   /** When false, the email input is hidden (its value is preserved by the caller). */
   showEmail?: boolean;
+  /** Optional already-translated tooltip text shown inline after the label. */
+  tooltip?: string;
 }) {
   const options = useMemo(
     () => dedupeAssignees(knownAssignees),
@@ -64,7 +68,9 @@ export function AssigneeField({
   return (
     <>
       <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-        <span className="font-medium text-foreground">{assigneeLabel} *</span>
+        <span className={tooltip ? "flex items-center gap-1 font-medium text-foreground" : "font-medium text-foreground"}>
+          {assigneeLabel} *{tooltip && <InfoTooltip text={tooltip} />}
+        </span>
         <input
           type="text"
           required

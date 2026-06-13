@@ -148,6 +148,7 @@ export function AbsenceEditModal({
             assigneeEmailLabel={t(lang, "absenceAssigneeEmail")}
             assigneePlaceholder={t(lang, "absencePlaceholderAssignee")}
             showEmail={isVisible("email")}
+            tooltip={t(lang, "absenceAssigneeHint")}
           />
 
           {/* Start + end dates (grouped under the `dates` id). */}
