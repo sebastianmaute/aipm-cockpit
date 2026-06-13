@@ -89,6 +89,11 @@ function fillRequired(overrides: Step1Overrides = {}) {
       overrides.regulatoryLabel ?? "GDPR / data protection regulation",
     ),
   );
+  // Contacts are now mandatory (≥1): add one manual contact.
+  fireEvent.change(screen.getByPlaceholderText("Add manually"), {
+    target: { value: "Pat Contact" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Add" }));
 }
 
 /** Step 1 → submit the project details form (advances to Step 2). */

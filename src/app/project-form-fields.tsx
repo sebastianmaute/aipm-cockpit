@@ -172,7 +172,8 @@ export function IdentityPeopleFields({
   errorFor,
   markTouched,
   lang,
-  stakeholderNames,
+  addressBook,
+  resources,
 }: ProjectFieldsProps) {
   return (
     <FormSection title={`${t(lang, "projectFormIdentity")} · ${t(lang, "projectFormPeople")}`}>
@@ -215,36 +216,21 @@ export function IdentityPeopleFields({
         <FieldError id="projectManager-error">{errorFor("projectManager")}</FieldError>
       </Field>
 
+      {/* Contacts are MANDATORY (≥1). Consumes registry resources + the address
+          book via the link-only ResourcePicker. */}
       <div className="sm:col-span-2">
-        <StakeholderRecipientInput
-          id="keyStakeholdersInternal"
-          label={`${t(lang, "projectStakeholdersInternal")} *`}
-          value={draft.keyStakeholdersInternal}
-          suggestions={stakeholderNames}
+        <ContactPersonsControl
+          lang={lang}
+          contactPersons={draft.contactPersons}
+          addressBook={addressBook}
+          resources={resources}
+          required
+          error={errorFor("contactPersons")}
           onChange={(next) => {
-            setDraft((p) => ({ ...p, keyStakeholdersInternal: next }));
-            markTouched("keyStakeholdersInternal");
+            setDraft((p) => ({ ...p, contactPersons: next }));
+            markTouched("contactPersons");
           }}
         />
-        <FieldError id="keyStakeholdersInternal-error">
-          {errorFor("keyStakeholdersInternal")}
-        </FieldError>
-      </div>
-
-      <div className="sm:col-span-2">
-        <StakeholderRecipientInput
-          id="keyStakeholdersExternal"
-          label={`${t(lang, "projectStakeholdersExternal")} *`}
-          value={draft.keyStakeholdersExternal}
-          suggestions={stakeholderNames}
-          onChange={(next) => {
-            setDraft((p) => ({ ...p, keyStakeholdersExternal: next }));
-            markTouched("keyStakeholdersExternal");
-          }}
-        />
-        <FieldError id="keyStakeholdersExternal-error">
-          {errorFor("keyStakeholdersExternal")}
-        </FieldError>
       </div>
     </FormSection>
   );
@@ -372,7 +358,7 @@ export function CustomerFields({
       </Field>
 
       <Field label={t(lang, "projectRegulatory")} required className="sm:col-span-2" tooltip={t(lang, "tipRegulatory")}>
-        <div className="flex flex-col gap-2">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {REGULATORY_REQUIREMENTS.map((req) => (
             <label key={req} className="flex items-center gap-1.5 text-sm text-foreground">
               <input
@@ -403,8 +389,7 @@ export function OptionalDetailsFields({
   errorFor,
   markTouched,
   lang,
-  addressBook,
-  resources,
+  stakeholderNames,
 }: ProjectFieldsProps) {
   const toggleIdentityType = (type: IdentityType) =>
     setDraft((p) => ({
@@ -554,12 +539,22 @@ export function OptionalDetailsFields({
       </Field>
 
       <div className="sm:col-span-2">
-        <ContactPersonsControl
-          lang={lang}
-          contactPersons={draft.contactPersons}
-          addressBook={addressBook}
-          resources={resources}
-          onChange={(next) => setDraft((p) => ({ ...p, contactPersons: next }))}
+        <StakeholderRecipientInput
+          id="keyStakeholdersInternal"
+          label={t(lang, "projectStakeholdersInternal")}
+          value={draft.keyStakeholdersInternal}
+          suggestions={stakeholderNames}
+          onChange={(next) => setDraft((p) => ({ ...p, keyStakeholdersInternal: next }))}
+        />
+      </div>
+
+      <div className="sm:col-span-2">
+        <StakeholderRecipientInput
+          id="keyStakeholdersExternal"
+          label={t(lang, "projectStakeholdersExternal")}
+          value={draft.keyStakeholdersExternal}
+          suggestions={stakeholderNames}
+          onChange={(next) => setDraft((p) => ({ ...p, keyStakeholdersExternal: next }))}
         />
       </div>
 
@@ -602,12 +597,16 @@ function ContactPersonsControl({
   addressBook,
   resources,
   onChange,
+  required,
+  error,
 }: {
   lang: Lang;
   contactPersons: ContactPerson[];
   addressBook: Contact[];
   resources: readonly Resource[];
   onChange: (next: ContactPerson[]) => void;
+  required?: boolean;
+  error?: string | null;
 }) {
   const [draft, setDraft] = useState<{ name: string; email: string; resourceId: number | null }>(
     { name: "", email: "", resourceId: null },
@@ -633,6 +632,7 @@ function ContactPersonsControl({
     <div>
       <span className="mb-1 block text-sm font-medium text-foreground">
         {t(lang, "projectContactPersons")}
+        {required && <span className="ml-0.5 text-AIPM-pink">*</span>}
       </span>
 
       {contactPersons.length > 0 && (
@@ -694,6 +694,8 @@ function ContactPersonsControl({
           {t(lang, "add")}
         </button>
       </div>
+
+      <FieldError id="contactPersons-error">{error}</FieldError>
     </div>
   );
 }

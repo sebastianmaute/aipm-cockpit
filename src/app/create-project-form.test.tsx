@@ -59,6 +59,11 @@ function fillRequired() {
   setText("End date", "2026-06-01");
   setText("Profit center", "PC-9");
   fireEvent.click(screen.getByLabelText("GDPR / data protection regulation"));
+  // Contacts are now mandatory (≥1): add one manual contact.
+  fireEvent.change(screen.getByPlaceholderText("Add manually"), {
+    target: { value: "Pat Contact" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Add" }));
 }
 
 describe("CreateProjectForm", () => {

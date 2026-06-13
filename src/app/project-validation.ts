@@ -60,6 +60,7 @@ export type ProjectErrorField =
   | "deployment"
   | "keyStakeholdersInternal"
   | "keyStakeholdersExternal"
+  | "contactPersons"
   | "regulatory"
   | "startDate"
   | "endDate"
@@ -80,6 +81,7 @@ export type ProjectErrorKey =
   | "errorDeploymentRequired"
   | "errorStakeholdersInternalRequired"
   | "errorStakeholdersExternalRequired"
+  | "errorContactsRequired"
   | "errorRegulatoryRequired"
   | "errorStartDateRequired"
   | "errorEndDateRequired"
@@ -123,11 +125,10 @@ export function validateProjectMeta(draft: ProjectDraft): ProjectFieldErrors {
   if (!draft.naceSection.trim()) errors.naceSection = "errorNaceRequired";
   if (!draft.deployment.trim()) errors.deployment = "errorDeploymentRequired";
 
-  // Required non-empty arrays.
-  if (draft.keyStakeholdersInternal.length === 0)
-    errors.keyStakeholdersInternal = "errorStakeholdersInternalRequired";
-  if (draft.keyStakeholdersExternal.length === 0)
-    errors.keyStakeholdersExternal = "errorStakeholdersExternalRequired";
+  // Required non-empty arrays. Key stakeholders (internal/external) are now
+  // OPTIONAL; at least one contact person is mandatory instead.
+  if (draft.contactPersons.length === 0)
+    errors.contactPersons = "errorContactsRequired";
   if (draft.regulatory.length === 0)
     errors.regulatory = "errorRegulatoryRequired";
 

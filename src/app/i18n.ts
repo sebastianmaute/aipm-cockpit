@@ -1697,6 +1697,7 @@ const enUS = {
   errorProjectManagerRequired: "Project manager is required.",
   errorStakeholdersInternalRequired: "At least one internal stakeholder is required.",
   errorStakeholdersExternalRequired: "At least one external stakeholder is required.",
+  errorContactsRequired: "At least one contact is required.",
   errorCustomerRequired: "Customer is required.",
   errorNaceRequired: "NACE section is required.",
   errorProductsRequired: "At least one product is required.",

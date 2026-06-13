@@ -1715,6 +1715,7 @@ export const de: Record<TranslationKey, string> = {
   errorProjectManagerRequired: "Projektleiter ist erforderlich.",
   errorStakeholdersInternalRequired: "Mindestens ein interner Stakeholder ist erforderlich.",
   errorStakeholdersExternalRequired: "Mindestens ein externer Stakeholder ist erforderlich.",
+  errorContactsRequired: "Mindestens ein Kontakt ist erforderlich.",
   errorCustomerRequired: "Kunde ist erforderlich.",
   errorNaceRequired: "NACE-Abschnitt ist erforderlich.",
   errorProductsRequired: "Mindestens ein Produkt ist erforderlich.",
