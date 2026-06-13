@@ -21,6 +21,7 @@ import type { NewProjectOpts } from "./new-project-workspace";
 import type { Settings } from "./settings-types";
 import type { ProjectRegistryEntry } from "./projects-registry";
 import type { Contact } from "./contacts";
+import type { SuggestedAction } from "./next-actions";
 import { ResourceDirectory } from "./resource-directory";
 import { DashboardPanel } from "./dashboard-panel";
 import { MilestonesPanel } from "./milestones-panel";
@@ -95,6 +96,10 @@ const HistoryPanel = dynamic(
 );
 const ProjectsPanel = dynamic(
   () => import("./projects-panel").then((m) => m.ProjectsPanel),
+  { ssr: false },
+);
+const ActionsPanel = dynamic(
+  () => import("./actions-panel").then((m) => m.ActionsPanel),
   { ssr: false },
 );
 
@@ -178,6 +183,8 @@ export interface WorkspaceSectionProps {
   onArchiveProject?: (id: string) => void;
   onRestoreProject?: (id: string) => void;
   onHardDeleteProject?: (id: string) => void;
+  nextActions: readonly SuggestedAction[];
+  onOpenAction: (a: SuggestedAction) => void;
 }
 
 export function WorkspaceSection({
@@ -248,6 +255,8 @@ export function WorkspaceSection({
   onArchiveProject,
   onRestoreProject,
   onHardDeleteProject,
+  nextActions,
+  onOpenAction,
 }: WorkspaceSectionProps) {
   const { settings, setSettings, lang } = useSettings();
   const features = settings.features;
@@ -791,6 +800,8 @@ export function WorkspaceSection({
               showBudget={isModuleEnabled("budget", settings.features)}
               showMilestones={isModuleEnabled("milestones", settings.features)}
               showChanges={isModuleEnabled("changes", settings.features)}
+              topActions={nextActions.slice(0, 5)}
+              onOpenAction={onOpenAction}
             />
           </div>
         )}
@@ -823,6 +834,12 @@ export function WorkspaceSection({
               loadDiff={versionHistory.loadDiff}
               restore={versionHistory.restore}
             />
+          </div>
+        )}
+
+        {activeTab === "actions" && (
+          <div id="panel-actions" role="tabpanel" className={panelClass}>
+            <ActionsPanel lang={lang} actions={nextActions} onOpen={onOpenAction} />
           </div>
         )}
 
