@@ -10,7 +10,8 @@ import {
   raciWarningFor,
   setRaciRole,
 } from "./stakeholders";
-import { RACI_ROLES, type RaciRole, type Stakeholder, type Milestone } from "./types";
+import { type RaciRole, type Stakeholder, type Milestone } from "./types";
+import { RaciChipPicker, RaciLegend } from "./raci-chip-picker";
 import { useResizable } from "./use-resizable";
 import { ResetSizeButton, ResizeCornerHint } from "./task-manager-ui";
 
@@ -110,23 +111,15 @@ export function RaciPanel({ lang, stakeholders, milestones, onSave }: RaciPanelP
                     const ariaLabel = `${row.milestone.name} · ${stakeholderName}`;
                     return (
                       <td key={cell.stakeholderId} className="px-3 py-2">
-                        <select
-                          aria-label={ariaLabel}
-                          value={cell.role ?? ""}
-                          onChange={(e) => {
+                        <RaciChipPicker
+                          value={(cell.role ?? "") as RaciRole | ""}
+                          ariaPrefix={ariaLabel}
+                          lang={lang}
+                          onChange={(role) => {
                             if (!stakeholder) return;
-                            const newRole = e.target.value === "" ? null : (e.target.value as RaciRole);
-                            onSave(setRaciRole(stakeholder, row.milestone.id, newRole));
+                            onSave(setRaciRole(stakeholder, row.milestone.id, role === "" ? null : role));
                           }}
-                          className="rounded border border-line bg-surface px-1 py-0.5 text-xs text-foreground"
-                        >
-                          <option value="">{t(lang, "raciNone")}</option>
-                          {RACI_ROLES.map((role) => (
-                            <option key={role} value={role}>
-                              {role}
-                            </option>
-                          ))}
-                        </select>
+                        />
                       </td>
                     );
                   })}
@@ -137,7 +130,7 @@ export function RaciPanel({ lang, stakeholders, milestones, onSave }: RaciPanelP
         </table>
       </div>
 
-      <p className="mt-3 shrink-0 text-xs text-muted-foreground">{t(lang, "raciLegend")}</p>
+      <RaciLegend lang={lang} />
       <ResizeCornerHint lang={lang} />
     </div>
   );
