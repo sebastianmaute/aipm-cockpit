@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { render } from "@testing-library/react";
+import { render, fireEvent } from "@testing-library/react";
 import { IntegrationsSection } from "./settings-sections/integrations-section";
 import { defaultSettings } from "./settings-types";
 
@@ -21,6 +21,30 @@ describe("IntegrationsSection snapshot controls", () => {
     const settings = { ...defaultSettings, integrations: { ...defaultSettings.integrations, turso: { enabled: true, databaseUrl: "https://db.example.com" } }, snapshots: { enabled: true, cadence: "weekly" as const } };
     const { queryByText } = render(<IntegrationsSection lang="en-US" settings={settings} onChange={() => {}} />);
     expect(queryByText(/no Turso database URL is set/i)).toBeNull();
+  });
+
+  it("disables the recording toggle until the portfolio is on Turso (file mode)", () => {
+    const settings = { ...defaultSettings, integrations: { ...defaultSettings.integrations, turso: { enabled: true } } };
+    const { getByText } = render(<IntegrationsSection lang="en-US" settings={settings} onChange={() => {}} />);
+    const label = getByText(/Snapshot trend recording/i).closest("label")!;
+    const checkbox = label.querySelector('input[type="checkbox"]') as HTMLInputElement;
+    expect(checkbox.disabled).toBe(true);
+  });
+
+  it("shows 'Move to Turso' and fires it when configured + callback provided (file mode)", () => {
+    const onMigrateToTurso = vi.fn();
+    const settings = {
+      ...defaultSettings,
+      integrations: {
+        ...defaultSettings.integrations,
+        turso: { enabled: true, databaseUrl: "https://db.example.com", authToken: "tok" },
+      },
+    };
+    const { getByText } = render(
+      <IntegrationsSection lang="en-US" settings={settings} onChange={() => {}} onMigrateToTurso={onMigrateToTurso} />,
+    );
+    fireEvent.click(getByText("Move to Turso"));
+    expect(onMigrateToTurso).toHaveBeenCalledTimes(1);
   });
 
   it("updates cadence via onChange", () => {

@@ -1377,6 +1377,7 @@ function TaskManagerInner() {
       onOpenStorageFile={onOpenStorageFile}
       onGrantStorageWrite={onGrantWriteAccess}
       onRequestStorageSwitch={onRequestStorageSwitch}
+      onMigrateToTurso={() => { void migrateCurrentProjectToTurso(); }}
     />
   );
 
@@ -1584,6 +1585,7 @@ function TaskManagerInner() {
       onOpenStorageFile={onOpenStorageFile}
       onGrantStorageWrite={onGrantWriteAccess}
       onRequestStorageSwitch={onRequestStorageSwitch}
+      onMigrateToTurso={() => { void migrateCurrentProjectToTurso(); }}
       settings={settings}
       setSettings={setSettings}
       lang={lang}

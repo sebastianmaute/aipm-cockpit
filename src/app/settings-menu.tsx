@@ -23,6 +23,7 @@ export function SettingsMenu({
   onOpenStorageFile,
   onGrantStorageWrite,
   onRequestStorageSwitch,
+  onMigrateToTurso,
   open: controlledOpen,
   onOpenChange,
 }: {
@@ -34,6 +35,7 @@ export function SettingsMenu({
   onOpenStorageFile: () => Promise<void>;
   onGrantStorageWrite: () => Promise<void>;
   onRequestStorageSwitch: (kind: StorageKind) => void;
+  onMigrateToTurso?: () => void;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
 }) {
@@ -149,7 +151,7 @@ export function SettingsMenu({
 
           <hr className="my-4 border-line" />
 
-          <IntegrationsSection lang={lang} settings={settings} onChange={onChange} />
+          <IntegrationsSection lang={lang} settings={settings} onChange={onChange} onMigrateToTurso={onMigrateToTurso} />
         </div>
       )}
     </div>

@@ -32,6 +32,7 @@ interface SettingsViewProps {
   onOpenStorageFile: () => Promise<void>;
   onGrantStorageWrite: () => Promise<void>;
   onRequestStorageSwitch: (kind: StorageKind) => void;
+  onMigrateToTurso?: () => void;
 }
 
 type SectionId =
@@ -139,7 +140,7 @@ export function SettingsView(props: SettingsViewProps) {
           />
         )}
         {active === "integrations" && (
-          <IntegrationsSection lang={lang} settings={settings} onChange={onChange} />
+          <IntegrationsSection lang={lang} settings={settings} onChange={onChange} onMigrateToTurso={props.onMigrateToTurso} />
         )}
         {active === "export" && (
           <ExportSection lang={lang} settings={settings} onChange={onChange} />

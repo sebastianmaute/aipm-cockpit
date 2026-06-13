@@ -23,6 +23,7 @@ export interface AppHeaderProps {
   onOpenStorageFile: () => Promise<void>;
   onGrantStorageWrite: () => Promise<void>;
   onRequestStorageSwitch: (kind: StorageKind) => void;
+  onMigrateToTurso?: () => void;
   settings: Settings;
   setSettings: React.Dispatch<React.SetStateAction<Settings>>;
   lang: Lang;
@@ -46,6 +47,7 @@ export function AppHeader({
   onOpenStorageFile,
   onGrantStorageWrite,
   onRequestStorageSwitch,
+  onMigrateToTurso,
   // Settings come from props (not a local useSettings() call) so the classic
   // header's SettingsMenu writes the SAME settings instance that TaskManagerInner
   // owns and whose layout ternary reads — otherwise the layout toggle wouldn't switch the shell.
@@ -156,6 +158,7 @@ export function AppHeader({
             onOpenStorageFile={onOpenStorageFile}
             onGrantStorageWrite={onGrantStorageWrite}
             onRequestStorageSwitch={onRequestStorageSwitch}
+            onMigrateToTurso={onMigrateToTurso}
           />
         </div>
       </div>

@@ -23,9 +23,14 @@ interface IntegrationsSectionProps {
   lang: Lang;
   settings: Settings;
   onChange: (s: Settings) => void;
+  /** Migrate the current project into Turso + switch the portfolio. Provided
+   *  only where a current project exists (the settings views) — when present and
+   *  the portfolio is still on File with Turso configured, a "Move to Turso"
+   *  button is shown. Omitted in the create-flow modal (no project to move). */
+  onMigrateToTurso?: () => void;
 }
 
-export function IntegrationsSection({ lang, settings, onChange }: IntegrationsSectionProps) {
+export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso }: IntegrationsSectionProps) {
   const integrations = settings.integrations ?? defaultIntegrations;
   const m365 = integrations.m365 ?? defaultM365Integrations;
   const turso = integrations.turso ?? defaultTursoIntegrations;
@@ -58,6 +63,10 @@ export function IntegrationsSection({ lang, settings, onChange }: IntegrationsSe
   // Turso portfolio mode is only safe once Turso resolves a config (URL + token,
   // or env vars). Disable it until then so a switch can't land in a dead portfolio.
   const tursoConfigured = !!getTursoConfig(turso.databaseUrl, turso.authToken);
+  const onTurso = portfolioMode === "turso";
+  // Show "Move to Turso" only where a current project exists (settings views),
+  // Turso is configured, and the portfolio is still on File.
+  const canMoveToTurso = !!onMigrateToTurso && !onTurso && tursoConfigured;
   const portfolioModeDirty = pendingMode !== portfolioMode;
   function confirmPortfolioModeSwitch() {
     if (!portfolioModeDirty) return;
@@ -260,17 +269,35 @@ export function IntegrationsSection({ lang, settings, onChange }: IntegrationsSe
               <FieldNotice>{t(lang, "credentialStorageNote")}</FieldNotice>
             </label>
           )}
+          {/* Primary action: carry the current project into Turso. */}
+          {canMoveToTurso && (
+            <div className="mt-2 border-t border-line pt-2">
+              <button
+                type="button"
+                onClick={onMigrateToTurso}
+                className="rounded-md bg-AIPM-dark-blue px-3 py-1.5 text-xs font-medium text-white hover:opacity-90"
+              >
+                {t(lang, "projectMigrateToTurso")}
+              </button>
+              <p className="mt-1 text-xs text-muted-foreground">{t(lang, "projectMigrateToTursoHint")}</p>
+            </div>
+          )}
           <div className="mt-2 border-t border-line pt-2">
             <label className="flex items-center gap-2 text-sm">
               <input
                 type="checkbox"
                 checked={snapshots.enabled}
+                disabled={!onTurso}
                 onChange={(e) => updateSnapshots({ enabled: e.target.checked })}
-                className="h-4 w-4"
+                className="h-4 w-4 disabled:cursor-not-allowed disabled:opacity-50"
               />
-              <span>{t(lang, "snapshotRecordingLabel")}</span>
+              <span className={onTurso ? undefined : "text-muted-foreground"}>
+                {t(lang, "snapshotRecordingLabel")}
+              </span>
             </label>
-            <p className="mt-1 text-xs text-muted-foreground">{t(lang, "snapshotNeedsTurso")}</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {t(lang, onTurso ? "snapshotNeedsTurso" : "snapshotNeedsTursoFirst")}
+            </p>
             <label className="mt-2 block text-xs">
               <span className="text-muted-foreground">{t(lang, "snapshotCadenceLabel")}</span>
               <select

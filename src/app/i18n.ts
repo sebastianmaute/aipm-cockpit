@@ -1410,6 +1410,7 @@ const enUS = {
   snapshotCadenceDaily: "Daily",
   snapshotCadenceMonthly: "Monthly",
   snapshotNeedsTurso: "Recording only runs while the Turso backend is active.",
+  snapshotNeedsTursoFirst: "Move this project to Turso first — snapshots record per Turso project.",
   snapshotConfigIncomplete: "Recording is on, but no Turso database URL is set yet - no snapshots will be captured until it is configured.",
   storageTursoLeaveWarn: "Snapshot trend recording only works on the Turso backend. Switching to {1} stops recording (your {0} items are still converted). Your recorded snapshots are kept in Turso and recording resumes when you switch back. Continue?",
   versionHighlightTrends: "Baseline + variance / burn-down trends - periodic Turso snapshots show slippage over time",
