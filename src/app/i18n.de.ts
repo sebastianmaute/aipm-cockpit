@@ -10,7 +10,6 @@ export const de: Record<TranslationKey, string> = {
   appTitle: "Project Management Tracker",
   appSubtitle: "Erfassen Sie offene Projektpunkte. Lokal in diesem Browser gespeichert.",
 
-  newTask: "Neue Aufgabe",
   editingTask: "Aufgabe #{0} bearbeiten",
   cancel: "Abbrechen",
   addTask: "Aufgabe hinzufügen",
@@ -1664,6 +1663,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightPerProjectFunctions: "Projektbezogene Funktionen: jedes Projekt behält seine eigenen aktivierten Module, ohne Neuladen umschaltbar, konfiguriert (mit einer Vorlage) in einem neuen 3-stufigen Erstellungsassistenten",
   versionHighlightTemplateSuggest: "Intelligenter Vorlagenvorschlag: der Erstellungsassistent empfiehlt und wählt anhand von Größe, Komplexität und Team Ihres Projekts die am besten passende Vorlage vor",
   versionHighlightRecovery: "Notfall-Wiederherstellung: ?safe=1-Start und eine /recovery-Seite setzen die Konfiguration zurück, ohne Daten zu verlieren",
+  versionHighlightUiPolishBatch: "UI-Politur: klickbare Zeilen, ein farbcodierter RACI-Chip-Picker und Feld-Tooltips in den Editoren",
   fieldCounter: "{0} / {1}",
   fieldTrimmedToFit: "auf Maximallänge gekürzt",
   fieldAdjustedMax: "auf Maximum {0} angepasst",

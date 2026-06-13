@@ -2,12 +2,12 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.75.0";
-export const APP_BUILD_DATE = "2026-06-13"; // 0.75.0 emergency recovery / safe mode — ?safe=1 boot, /recovery route, non-destructive config quarantine/restore, error boundary
+export const APP_VERSION = "0.76.0";
+export const APP_BUILD_DATE = "2026-06-13"; // 0.76.0 UI polish batch — clickable rows, RACI chip picker, field tooltips, sizing fixes
 /** Minor-series milestone codename (sci-fi/fantasy author names). The whole
- *  0.75.x line is "Nagata" (James S.A. Corey's Naomi Nagata); patch releases inherit
+ *  0.76.x line is "Delany" (Samuel R. Delany); patch releases inherit
  *  their minor version's codename rather than getting their own. */
-export const APP_MILESTONE = "Nagata";
+export const APP_MILESTONE = "Delany";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -84,4 +84,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightPerProjectFunctions",
   "versionHighlightTemplateSuggest",
   "versionHighlightRecovery",
+  "versionHighlightUiPolishBatch",
 ] as const;

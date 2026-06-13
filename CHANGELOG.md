@@ -8,6 +8,26 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.76.0] - 2026-06-13 "Delany"
+
+### Added
+- Color-coded RACI chip picker (replaces the dropdown) with an aligned legend.
+- Field tooltips across the Manage Roles, Edit Resource, New Absence, Budget,
+  Edit RAID, Edit Change, and Edit Stakeholder editors.
+- RAID-style clickable rows on Stakeholders, Directory, Workload, and Planning —
+  click a row to open its editor (inline inputs unaffected).
+- Currency (€) symbol next to the Manage Roles rate fields.
+
+### Changed
+- Resource Calendar now uses the full resizable pane (was a smaller centered
+  pane), matching Workload's size.
+- Planning's absence-override input matches the utilization input's size.
+- Removed the New-task button from the modern top bar.
+
+### Fixed
+- Edit Change / Edit Stakeholder / Edit Task modals now show correct headings
+  ("Edit change" / "Edit stakeholder" / "Edit task") instead of the view names.
+
 ## [0.75.0] - 2026-06-13 "Nagata"
 
 ### Added

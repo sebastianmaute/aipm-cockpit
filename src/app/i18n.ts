@@ -6,7 +6,6 @@ const enUS = {
   appTitle: "Project Management Tracker",
   appSubtitle: "Capture open project items. Stored locally in this browser.",
 
-  newTask: "New task",
   editingTask: "Editing task #{0}",
   cancel: "Cancel",
   addTask: "Add task",
@@ -1654,6 +1653,7 @@ const enUS = {
   versionHighlightPerProjectFunctions: "Per-project functions: each project keeps its own enabled modules, switchable without a reload, configured (with a template) in a new 3-step creation wizard",
   versionHighlightTemplateSuggest: "Smart template suggestion: the creation wizard recommends and preselects the best-fit template from your project's size, complexity, and team",
   versionHighlightRecovery: "Emergency recovery: ?safe=1 boot and a /recovery page reset config without losing data",
+  versionHighlightUiPolishBatch: "UI polish: clickable rows, a color-coded RACI chip picker, and field tooltips across the editors",
   fieldCounter: "{0} / {1}",
   fieldTrimmedToFit: "trimmed to fit",
   fieldAdjustedMax: "adjusted to max {0}",

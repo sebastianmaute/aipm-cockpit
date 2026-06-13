@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { describe, expect, it, beforeEach } from "vitest";
 import TaskManager from "./task-manager";
 
@@ -51,27 +51,4 @@ describe("TaskManager shell selection", () => {
     expect(root.className).toContain("flex-col");
   });
 
-  it("opens the full-page edit view (not the modal) when New task is clicked in modern mode", async () => {
-    render(<TaskManager />); // modern is the default layout
-    // The modern top bar's New-task button.
-    fireEvent.click(await screen.findByRole("button", { name: "New task" }));
-    // Full-page edit view appears…
-    expect(await screen.findByRole("heading", { name: "1. Details" })).toBeTruthy();
-    // …and the dialog modal does NOT.
-    expect(screen.queryByRole("dialog", { name: /new task/i })).toBeNull();
-    // Top bar + footer both show Save (Add task) + Cancel instead of New task.
-    expect(screen.getAllByRole("button", { name: "Add task" }).length).toBeGreaterThan(0);
-    expect(screen.queryByRole("button", { name: "New task" })).toBeNull();
-  });
-
-  it("returns to the previous view when the edit is cancelled", async () => {
-    render(<TaskManager />);
-    fireEvent.click(await screen.findByRole("button", { name: "New task" }));
-    expect(await screen.findByRole("heading", { name: "1. Details" })).toBeTruthy();
-    fireEvent.click(screen.getAllByRole("button", { name: "Cancel" })[0]);
-    // Back on Open Points (the origin view): the edit heading is gone.
-    await waitFor(() =>
-      expect(screen.queryByRole("heading", { name: "1. Details" })).toBeNull(),
-    );
-  });
 });
