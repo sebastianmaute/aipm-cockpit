@@ -97,6 +97,7 @@ function makeProps(overrides: Partial<WorkspaceSectionProps> = {}): WorkspaceSec
     onDeleteProject: vi.fn(),
     onExportCurrentProject: vi.fn(),
     onLoadProjectFromFile: vi.fn(),
+    onMigrateProjectToTurso: vi.fn(),
     trends: {
       active: false,
       snapshots: [],

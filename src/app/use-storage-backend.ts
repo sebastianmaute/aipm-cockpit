@@ -30,7 +30,7 @@ import { localKindForFormat, deriveRegistryEntry } from "./use-project-switch";
 import { buildNewProjectWorkspace, type NewProjectOpts } from "./new-project-workspace";
 import type { ProjectMeta } from "./types";
 import { getTursoConfig } from "./turso-config";
-import { loadCurrentTursoProjectId, saveCurrentTursoProjectId } from "./portfolio-mode";
+import { loadCurrentTursoProjectId, saveCurrentTursoProjectId, savePortfolioMode } from "./portfolio-mode";
 import { TursoBackend } from "./turso-backend";
 import {
   createProject as portfolioCreate,
@@ -688,6 +688,39 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     }
   }
 
+  // Migrate the CURRENT (file-mode) project into a brand-new Turso project,
+  // carrying its full workspace, then switch the portfolio to Turso and reload so
+  // the migrated project is the active one. Unlike createTursoProject (which
+  // builds a fresh workspace), this copies the live workspace verbatim.
+  async function migrateCurrentProjectToTurso(): Promise<void> {
+    if (args.isPopout) return;
+    const cfg = tursoConfigNow();
+    if (!cfg) {
+      args.showToast("error", t(langRef.current, "projectsTursoUnreachable"));
+      return;
+    }
+    const ws = currentWorkspace();
+    const meta = ws.project;
+    if (!meta) {
+      args.showToast("error", t(langRef.current, "projectMigrateNoProject"));
+      return;
+    }
+    // Flush the current file project before copying it.
+    try { await backend.save(ws); } catch { /* best-effort flush */ }
+    const id = crypto.randomUUID();
+    try {
+      await portfolioCreate(cfg, meta, id);
+      await new TursoBackend(cfg, id).save(ws);
+      // Make the migrated project the active Turso project and switch the
+      // portfolio to Turso. The reload re-initialises the app in Turso mode.
+      saveCurrentTursoProjectId(id);
+      savePortfolioMode("turso");
+      window.location.reload();
+    } catch (err) {
+      reportProjectError(err);
+    }
+  }
+
   async function archiveTursoProject(id: string): Promise<void> {
     if (args.isPopout) return;
     const cfg = tursoConfigNow();
@@ -771,6 +804,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     loadProjectFromFile,
     switchToTursoProject,
     createTursoProject,
+    migrateCurrentProjectToTurso,
     archiveTursoProject,
     restoreTursoProject,
     hardDeleteTursoProject,

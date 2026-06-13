@@ -59,6 +59,7 @@ function setup(overrides: Partial<React.ComponentProps<typeof ProjectsPanel>> = 
       onDelete={onDelete}
       onExportCurrent={onExportCurrent}
       onLoadFromFile={onLoadFromFile}
+      onMigrateToTurso={vi.fn()}
       {...overrides}
     />,
   );
@@ -182,6 +183,25 @@ describe("ProjectsPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "Export project" }));
     fireEvent.click(screen.getByRole("menuitem", { name: "Excel (.xlsx)" }));
     expect(onExportCurrent).toHaveBeenCalledWith("xlsx");
+  });
+
+  it("hides 'Move to Turso' when Turso is not configured", () => {
+    setup();
+    expect(screen.queryByRole("button", { name: "Move to Turso" })).toBeNull();
+  });
+
+  it("shows 'Move to Turso' in file mode when Turso is configured and fires it", () => {
+    const onMigrateToTurso = vi.fn();
+    const settings = {
+      ...defaultSettings,
+      integrations: {
+        ...defaultSettings.integrations,
+        turso: { enabled: true, databaseUrl: "libsql://db-org.turso.io", authToken: "tok" },
+      },
+    };
+    setup({ settings, onMigrateToTurso });
+    fireEvent.click(screen.getByRole("button", { name: "Move to Turso" }));
+    expect(onMigrateToTurso).toHaveBeenCalledTimes(1);
   });
 });
 

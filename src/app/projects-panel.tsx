@@ -29,6 +29,7 @@ import { ModalHeader } from "./modal-header";
 import { ProjectForm } from "./project-form";
 import { type ProjectRegistryEntry } from "./projects-registry";
 import { type Settings } from "./settings-types";
+import { getTursoConfig } from "./turso-config";
 import { ResetSizeButton, ResizeCornerHint } from "./task-manager-ui";
 import { TypeToConfirmDialog } from "./type-to-confirm-dialog";
 import { useResizable } from "./use-resizable";
@@ -86,6 +87,9 @@ export interface ProjectsPanelProps {
   /** Export the CURRENT project's workspace in the given format. */
   onExportCurrent: (format: string) => void;
   onLoadFromFile: () => void;
+  /** File mode + Turso configured: copy the current project into a new Turso
+   *  project and switch the portfolio to Turso. */
+  onMigrateToTurso: () => void;
   /** Storage backend kind. In "turso" mode the destructive per-row action is
    *  Archive (soft-delete) and an "Archived projects" subsection becomes
    *  available; in "file" mode the panel behaves exactly as in Phase 1. */
@@ -118,6 +122,7 @@ export function ProjectsPanel({
   onDelete,
   onExportCurrent,
   onLoadFromFile,
+  onMigrateToTurso,
   mode,
   archivedProjects,
   onArchive,
@@ -125,6 +130,10 @@ export function ProjectsPanel({
   onHardDelete,
 }: ProjectsPanelProps) {
   const [modal, setModal] = useState<ModalState>({ mode: "closed" });
+  const tursoConfigured = !!getTursoConfig(
+    settings.integrations?.turso?.databaseUrl,
+    settings.integrations?.turso?.authToken,
+  );
   const { ref: sizeRef, reset: resetSize } = useResizable("lop-app:create-modal-size");
   const [exportMenuId, setExportMenuId] = useState<string | null>(null);
   const [showArchived, setShowArchived] = useState(false);
@@ -185,6 +194,16 @@ export function ProjectsPanel({
           {!isTurso && (
             <button type="button" onClick={onLoadFromFile} className={SECONDARY_BUTTON_CLASS}>
               {t(lang, "projectSwitcherLoadFile")}
+            </button>
+          )}
+          {!isTurso && tursoConfigured && currentProject && (
+            <button
+              type="button"
+              onClick={onMigrateToTurso}
+              title={t(lang, "projectMigrateToTursoHint")}
+              className={SECONDARY_BUTTON_CLASS}
+            >
+              {t(lang, "projectMigrateToTurso")}
             </button>
           )}
           <button type="button" onClick={openCreate} className={PRIMARY_BUTTON_CLASS}>

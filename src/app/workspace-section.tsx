@@ -174,6 +174,7 @@ export interface WorkspaceSectionProps {
   onDeleteProject: (id: string) => void;
   onExportCurrentProject: (format: string) => void;
   onLoadProjectFromFile: () => void;
+  onMigrateProjectToTurso: () => void;
   onArchiveProject?: (id: string) => void;
   onRestoreProject?: (id: string) => void;
   onHardDeleteProject?: (id: string) => void;
@@ -243,6 +244,7 @@ export function WorkspaceSection({
   onDeleteProject,
   onExportCurrentProject,
   onLoadProjectFromFile,
+  onMigrateProjectToTurso,
   onArchiveProject,
   onRestoreProject,
   onHardDeleteProject,
@@ -843,6 +845,7 @@ export function WorkspaceSection({
               onDelete={onDeleteProject}
               onExportCurrent={onExportCurrentProject}
               onLoadFromFile={onLoadProjectFromFile}
+              onMigrateToTurso={onMigrateProjectToTurso}
               onArchive={onArchiveProject}
               onRestore={onRestoreProject}
               onHardDelete={onHardDeleteProject}

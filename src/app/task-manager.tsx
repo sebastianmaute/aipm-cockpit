@@ -341,7 +341,7 @@ function TaskManagerInner() {
     storageDescription, storageReady, onPickStorageFile, onGrantWriteAccess,
     onOpenStorageFile, onRequestStorageSwitch,
     switchToProject, createProject, loadProjectFromFile,
-    switchToTursoProject, createTursoProject, archiveTursoProject,
+    switchToTursoProject, createTursoProject, migrateCurrentProjectToTurso, archiveTursoProject,
     restoreTursoProject, hardDeleteTursoProject, tursoProjectId,
   } =
     useStorageBackend({ settings, lang, hydrated, isPopout, activityLog, setActivityLog, showToast, setStorageConfig: (storageConfig) => setSettings((s) => ({ ...s, storageConfig })), onStorageOutcome: reportStorageOutcome, onRegistryChange: setRegistry });
@@ -1258,6 +1258,7 @@ function TaskManagerInner() {
     onDeleteProject: handleDeleteProject,
     onExportCurrentProject: handleExportCurrentProject,
     onLoadProjectFromFile: () => { void loadProjectFromFile(); },
+    onMigrateProjectToTurso: () => { void migrateCurrentProjectToTurso(); },
     onArchiveProject: handleArchiveTursoProject,
     onRestoreProject: handleRestoreTursoProject,
     onHardDeleteProject: handleHardDeleteTursoProject,
