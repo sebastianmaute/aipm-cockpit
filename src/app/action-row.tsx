@@ -27,15 +27,13 @@ export function ActionRow({ lang, action, onOpen }: ActionRowProps) {
   const title = t(lang, action.title.key, ...(action.title.params ?? []));
   const why = t(lang, action.why.key, ...(action.why.params ?? []));
   return (
+    // Mouse convenience only — NOT role="button"/tabIndex: nesting an interactive
+    // control (the Open button) inside a role=button is a WCAG nested-interactive
+    // violation. Keyboard/AT users use the inner Open button (the real affordance).
+    // Mirrors the RAID-row pattern (a plain onClick row + a focusable inner button).
     <div
-      role="button"
-      tabIndex={0}
-      aria-label={title}
       onClick={() => onOpen(action)}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(action); }
-      }}
-      className="flex cursor-pointer items-center gap-3 rounded-md border border-line bg-surface px-3 py-2 hover:bg-surface-muted focus:outline-none focus:ring-2 focus:ring-AIPM-green"
+      className="flex cursor-pointer items-center gap-3 rounded-md border border-line bg-surface px-3 py-2 hover:bg-surface-muted"
     >
       <span aria-hidden className={`h-2 w-2 shrink-0 rounded-full ${TIER_DOT[action.tier]}`} />
       <span className="min-w-0 flex-1">

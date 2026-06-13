@@ -11,10 +11,12 @@ const action: SuggestedAction = {
 };
 
 describe("ActionRow", () => {
-  it("clicking the row fires onOpen with the action", () => {
+  it("clicking the row body fires onOpen with the action", () => {
     const onOpen = vi.fn();
-    const { getByRole } = render(<ActionRow lang="en-US" action={action} onOpen={onOpen} />);
-    fireEvent.click(getByRole("button", { name: /Server down/i }));
+    // The row is a plain onClick div (no role=button — avoids nested-interactive
+    // a11y with the inner Open button). Click the title text; it bubbles to the row.
+    const { getByText } = render(<ActionRow lang="en-US" action={action} onOpen={onOpen} />);
+    fireEvent.click(getByText(/Server down/));
     expect(onOpen).toHaveBeenCalledWith(action);
   });
   it("clicking the Open button fires onOpen exactly once (stopPropagation)", () => {
