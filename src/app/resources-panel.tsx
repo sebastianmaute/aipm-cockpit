@@ -46,6 +46,7 @@ import { useResizable } from "./use-resizable";
 import { RagBadge } from "./rag-badge";
 import { marginAmountHealth } from "./budget-health";
 import { useSortableFilter, TableFilter, SortHeaderButton, type SortDir } from "./report-table";
+import { InfoTooltip } from "./info-tooltip";
 
 const PLANNING_COL_WIDTHS = {
   assignee: 160,
@@ -337,16 +338,14 @@ function ResourcesPanelInner({
           <>
             <div className="mb-2 flex flex-wrap items-center gap-2 text-xs">
               <label className="flex items-center gap-1">
-                <span>{t(lang, "resourcesPlanStart")}</span>
+                <span className="flex items-center gap-1">{t(lang, "resourcesPlanStart")}<InfoTooltip text={t(lang, "resourcesPlanStartHint")} /></span>
                 <input type="date" aria-label={t(lang, "resourcesPlanStart")} value={plan.startDate}
-                  title={t(lang, "resourcesPlanStartHint")}
                   onChange={(e) => onSetPlanWindow(e.target.value, plan.endDate)}
                   className="rounded border border-line px-2 py-1.5 text-sm dark:bg-surface" />
               </label>
               <label className="flex items-center gap-1">
-                <span>{t(lang, "resourcesPlanEnd")}</span>
+                <span className="flex items-center gap-1">{t(lang, "resourcesPlanEnd")}<InfoTooltip text={t(lang, "resourcesPlanEndHint")} /></span>
                 <input type="date" aria-label={t(lang, "resourcesPlanEnd")} value={plan.endDate}
-                  title={t(lang, "resourcesPlanEndHint")}
                   onChange={(e) => onSetPlanWindow(plan.startDate, e.target.value)}
                   className="rounded border border-line px-2 py-1.5 text-sm dark:bg-surface" />
               </label>
@@ -400,33 +399,33 @@ function ResourcesPanelInner({
                   <th
                     className="relative px-3 py-2 text-right font-medium"
                     style={{ width: planning.colWidths.capacityDays, minWidth: planning.colWidths.capacityDays }}
-                    title={t(lang, "resourcesCapacityDaysHint")}
                   >
                     <SortHeaderButton label={t(lang, "resourcesCapacityDays")} active={planSort.key === "capacityDays" && planSort.dir !== "off"} dir={planSort.dir} onClick={() => planClick("capacityDays")} />
+                    <InfoTooltip text={t(lang, "resourcesCapacityDaysHint")} />
                     <ColumnResizeHandle col="capacityDays" onMouseDown={planningStartResize} />
                   </th>
                   <th
                     className="relative px-3 py-2 text-right font-medium"
                     style={{ width: planning.colWidths.internalCost, minWidth: planning.colWidths.internalCost }}
-                    title={t(lang, "resourcesInternalCostHint")}
                   >
                     <SortHeaderButton label={t(lang, "resourcesInternalCost")} active={planSort.key === "internalCost" && planSort.dir !== "off"} dir={planSort.dir} onClick={() => planClick("internalCost")} />
+                    <InfoTooltip text={t(lang, "resourcesInternalCostHint")} />
                     <ColumnResizeHandle col="internalCost" onMouseDown={planningStartResize} />
                   </th>
                   <th
                     className="relative px-3 py-2 text-right font-medium"
                     style={{ width: planning.colWidths.externalCost, minWidth: planning.colWidths.externalCost }}
-                    title={t(lang, "resourcesExternalCostHint")}
                   >
                     <SortHeaderButton label={t(lang, "resourcesExternalCost")} active={planSort.key === "externalCost" && planSort.dir !== "off"} dir={planSort.dir} onClick={() => planClick("externalCost")} />
+                    <InfoTooltip text={t(lang, "resourcesExternalCostHint")} />
                     <ColumnResizeHandle col="externalCost" onMouseDown={planningStartResize} />
                   </th>
                   <th
                     className="relative px-3 py-2 text-right font-medium"
                     style={{ width: planning.colWidths.margin, minWidth: planning.colWidths.margin }}
-                    title={t(lang, "resourcesMarginHint")}
                   >
                     <SortHeaderButton label={t(lang, "resourcesMargin")} active={planSort.key === "margin" && planSort.dir !== "off"} dir={planSort.dir} onClick={() => planClick("margin")} />
+                    <InfoTooltip text={t(lang, "resourcesMarginHint")} />
                     <ColumnResizeHandle col="margin" onMouseDown={planningStartResize} />
                   </th>
                 </tr>

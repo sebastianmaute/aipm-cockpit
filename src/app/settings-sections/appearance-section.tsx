@@ -25,7 +25,6 @@ export function AppearanceSection({ lang, settings, onChange }: AppearanceSectio
         <SegmentedControl<Theme>
           value={theme}
           ariaLabel={t(lang, "theme")}
-          title={t(lang, "themeHint")}
           className="w-full"
           options={[
             { value: "light", label: t(lang, "themeLight") },
@@ -44,7 +43,6 @@ export function AppearanceSection({ lang, settings, onChange }: AppearanceSectio
         <SegmentedControl<"modern" | "classic">
           value={settings.layout}
           ariaLabel={t(lang, "layout")}
-          title={t(lang, "layoutTooltip")}
           className="w-full"
           options={[
             { value: "modern", label: t(lang, "layoutModern") },

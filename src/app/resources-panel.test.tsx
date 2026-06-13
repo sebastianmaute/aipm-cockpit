@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { describe, test, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { ResourcesPanel } from "./resources-panel";
+import { t } from "./i18n";
 import type { Resource } from "./types";
 
 const resources: Resource[] = [
@@ -273,4 +274,21 @@ test("workload view root does NOT use the centered half-pane class", () => {
   const { container } = render(<ResourcesPanel {...baseProps} view="workload" />);
   const root = container.firstElementChild as HTMLElement;
   expect(root.className).not.toContain("mx-auto");
+});
+
+test("planning view: capacity-days column header has an InfoTooltip (no native title on th)", () => {
+  const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };
+  render(<ResourcesPanel {...baseProps} view="planning" resources={[]} plan={plan} workdayHours={8}
+    onSetUtilization={() => {}} onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
+  // InfoTooltip renders a focusable span with role=button whose accessible name is the hint text.
+  expect(screen.getByRole("button", { name: t("en-US", "resourcesCapacityDaysHint") })).toBeInTheDocument();
+});
+
+test("planning view: per-cell utilization input still has native title (intentionally left)", () => {
+  const resources = [{ id: 1, firstName: "Sample", lastName: "", roleId: null, utilizationMode: "percent" as const, utilization: {} }];
+  const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };
+  render(<ResourcesPanel {...baseProps} view="planning" resources={resources} plan={plan} workdayHours={8}
+    onSetUtilization={() => {}} onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
+  const utilInput = screen.getByLabelText("Utilization for Sample in 2026-02");
+  expect(utilInput.getAttribute("title")).toBe(t("en-US", "resourcesUtilizationHint"));
 });
