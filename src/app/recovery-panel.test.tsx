@@ -17,7 +17,7 @@ describe("RecoveryPanel", () => {
       JSON.stringify({ storageConfig: { kind: "turso" }, integrations: { turso: { authToken: "SECRET" } } }),
     );
     const { getByText, queryByText } = render(<RecoveryPanel />);
-    expect(getByText(/turso/i)).toBeTruthy();
+    expect(getByText("turso")).toBeTruthy();
     expect(queryByText(/SECRET/)).toBeNull();
   });
 
@@ -40,12 +40,7 @@ describe("RecoveryPanel", () => {
 
   it("Download triggers an export", () => {
     const exp = vi.spyOn(recovery, "exportConfig").mockReturnValue("{}");
-    const createURL = vi.fn(() => "blob:x");
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore jsdom lacks createObjectURL
-    URL.createObjectURL = createURL;
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore jsdom lacks revokeObjectURL
+    URL.createObjectURL = vi.fn(() => "blob:x");
     URL.revokeObjectURL = vi.fn();
     const { getByText } = render(<RecoveryPanel />);
     fireEvent.click(getByText(/Download config/i));

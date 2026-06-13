@@ -1,7 +1,6 @@
 // src/app/recovery-panel.tsx
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
 import { t } from "./i18n";
 import {
@@ -93,6 +92,7 @@ export function RecoveryPanel() {
       <h1 className="text-2xl font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
         {t(lang, "recoveryPageTitle")}
       </h1>
+      <p className="text-sm text-muted-foreground">{t(lang, "recoveryPageIntro")}</p>
 
       <section className="rounded-lg border border-line bg-surface p-4">
         <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -103,6 +103,10 @@ export function RecoveryPanel() {
           <dd className="text-foreground">{summary.backendKind}</dd>
           <dt className="text-muted-foreground">{t(lang, "recoveryPortfolioMode")}</dt>
           <dd className="text-foreground">{summary.portfolioMode}</dd>
+          <dt className="text-muted-foreground">{t(lang, "recoveryTursoConfigured")}</dt>
+          <dd className="text-foreground">
+            {t(lang, summary.tursoConfigured ? "recoveryYes" : "recoveryNo")}
+          </dd>
         </dl>
       </section>
 
@@ -131,9 +135,13 @@ export function RecoveryPanel() {
         >
           {t(lang, "recoveryRestore")}
         </button>
-        <Link href="/" className="mt-2 text-center text-xs text-muted-foreground underline">
+        {/* Plain anchor (not next/link) on purpose: the recovery page is
+            provider-light and must do a full document navigation so it works
+            even when the main app tree is bricked. */}
+        {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+        <a href="/" className="mt-2 text-center text-xs text-muted-foreground underline">
           {t(lang, "recoveryBackToApp")}
-        </Link>
+        </a>
       </div>
     </main>
   );
