@@ -46,26 +46,37 @@ function readIndex(store: Storage): BackupMeta[] {
   }
 }
 
+// Write (or refresh) this run's index entry. Called after each backup copy and
+// BEFORE the matching live key is removed, so a key is dropped only once it is
+// already indexed — i.e. always reachable by restoreConfig. Replaces any prior
+// entry for the same id (the keys list grows as the quarantine progresses).
+function upsertIndexEntry(store: Storage, id: string, at: string, keys: string[]): void {
+  const index = readIndex(store).filter((b) => b.id !== id);
+  index.unshift({ id, at, keys: [...keys] });
+  store.setItem(INDEX_KEY, JSON.stringify(index));
+}
+
 /** Move each present config key to a timestamped backup key, then remove the
- *  live key. Returns the backup id (null if nothing was backed up or storage
- *  is unavailable). */
+ *  live key. The index entry is refreshed BEFORE each live key is removed, so a
+ *  failure mid-quarantine (e.g. quota) never strands an un-indexed,
+ *  unrecoverable backup — every already-removed key is restorable. Returns the
+ *  backup id (null if nothing was backed up or storage is unavailable). */
 export function quarantineConfig(): { ok: boolean; id: string | null } {
   const store = ls();
   if (!store) return { ok: false, id: null };
   try {
     const id = String(Date.now());
+    const at = new Date().toISOString();
     const movedKeys: string[] = [];
     for (const key of CONFIG_KEYS) {
       const value = store.getItem(key);
       if (value === null) continue;
-      store.setItem(`${BACKUP_PREFIX}${id}:${key}`, value); // copy first
-      store.removeItem(key); // then drop the live key (recoverable move)
+      store.setItem(`${BACKUP_PREFIX}${id}:${key}`, value); // 1. copy to backup
       movedKeys.push(key);
+      upsertIndexEntry(store, id, at, movedKeys); // 2. index BEFORE removing live
+      store.removeItem(key); // 3. drop the live key (now recoverable)
     }
     if (movedKeys.length === 0) return { ok: true, id: null };
-    const index = readIndex(store);
-    index.unshift({ id, at: new Date().toISOString(), keys: movedKeys });
-    store.setItem(INDEX_KEY, JSON.stringify(index));
     return { ok: true, id };
   } catch {
     return { ok: false, id: null };

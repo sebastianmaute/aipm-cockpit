@@ -81,4 +81,36 @@ describe("recovery-config", () => {
     expect(() => quarantineConfig()).not.toThrow();
     spy.mockRestore();
   });
+
+  it("a mid-quarantine failure still leaves already-moved keys restorable via the index", () => {
+    window.localStorage.setItem(SETTINGS_KEY, '{"a":1}');
+    window.localStorage.setItem(MODE_KEY, "turso");
+    // Throw when the SECOND key (MODE_KEY) is copied to its backup — after the
+    // first key (SETTINGS_KEY) has already been copied, indexed, and removed.
+    const realSet = Storage.prototype.setItem;
+    const spy = vi
+      .spyOn(Storage.prototype, "setItem")
+      .mockImplementation(function (this: Storage, k: string, v: string) {
+        if (k.startsWith("lop-app:recovery-backup:") && k.endsWith(`:${MODE_KEY}`)) {
+          throw new Error("quota");
+        }
+        return realSet.call(this, k, v);
+      });
+
+    const { ok } = quarantineConfig();
+    expect(ok).toBe(false); // failed partway through
+    spy.mockRestore();
+
+    // The first key was indexed BEFORE its live key was removed, so it is
+    // reachable + restorable despite the mid-loop failure (no orphan).
+    const backups = listBackups();
+    expect(backups).toHaveLength(1);
+    expect(backups[0].keys).toEqual([SETTINGS_KEY]);
+    expect(window.localStorage.getItem(SETTINGS_KEY)).toBeNull(); // live key was moved
+    expect(restoreConfig(backups[0].id)).toBe(true);
+    expect(window.localStorage.getItem(SETTINGS_KEY)).toBe('{"a":1}'); // recovered
+
+    // The second key never got moved — its live value is untouched.
+    expect(window.localStorage.getItem(MODE_KEY)).toBe("turso");
+  });
 });
