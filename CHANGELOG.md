@@ -15,6 +15,9 @@ longer carries its own changelog comment.
   (~3.76:1 on white, below WCAG AA). Added a darker `pink-strong` shade (mirroring
   the existing `green-strong`) and applied it to those text uses; the bright pink
   is unchanged for fills, borders, and text on dark surfaces.
+- Toast notifications now use a colour-tinted background (pink for errors, blue
+  otherwise) with accent text — matching the in-app error boxes — instead of the
+  plain bordered surface, while staying AA-readable in both light and dark themes.
 
 ## [0.80.1] - 2026-06-14
 

@@ -213,10 +213,13 @@ export function AppModals({
         <div
           role="status"
           aria-live="polite"
-          // Bordered style: colored left-accent on a surface bg with readable
-          // dark text — white-on-pink (3.76:1) failed WCAG AA at this size.
-          className={`fixed bottom-4 right-4 z-30 max-w-md rounded-md border border-l-4 bg-surface px-4 py-2.5 text-sm text-foreground shadow-lg ${
-            toast.kind === "error" ? "border-AIPM-pink" : "border-AIPM-dark-blue"
+          // Tinted style matching the app's inline error boxes: a colored tint +
+          // left-accent border + AA-contrast accent text in both themes.
+          // (white-on-pink — even on pink-strong — fails AA in dark mode.)
+          className={`fixed bottom-4 right-4 z-30 max-w-md rounded-md border border-l-4 px-4 py-2.5 text-sm shadow-lg ${
+            toast.kind === "error"
+              ? "border-AIPM-pink bg-AIPM-pink/10 text-AIPM-pink-strong dark:bg-AIPM-pink/15"
+              : "border-AIPM-dark-blue bg-AIPM-dark-blue/10 text-AIPM-dark-blue dark:bg-AIPM-dark-blue/20 dark:text-AIPM-light-grey"
           }`}
         >
           {toast.text}
