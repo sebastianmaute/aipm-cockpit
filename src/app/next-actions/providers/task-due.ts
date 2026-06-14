@@ -8,6 +8,7 @@ const W = ACTION_WEIGHTS;
 export const taskDueProvider: ActionProvider = {
   // no moduleId → core, always runs
   provide(input: ActionInput): SuggestedAction[] {
+    if (input.taskDueEnabled === false) return []; // Settings → Notifications "due reminders" off
     const alerts = getAlertableTasks(
       input.tasks,
       input.reminderLeadDays,

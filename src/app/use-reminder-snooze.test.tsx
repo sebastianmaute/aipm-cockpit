@@ -8,23 +8,23 @@ describe("useReminderSnooze", () => {
   afterEach(() => vi.useRealTimers());
 
   it("is not snoozed initially", () => {
-    const { result } = renderHook(() => useReminderSnooze("due"));
+    const { result } = renderHook(() => useReminderSnooze("jiraToken"));
     expect(result.current.isSnoozed).toBe(false);
   });
   it("becomes snoozed after snooze() and persists", () => {
-    const { result } = renderHook(() => useReminderSnooze("due"));
+    const { result } = renderHook(() => useReminderSnooze("jiraToken"));
     act(() => result.current.snooze(SNOOZE_1H));
     expect(result.current.isSnoozed).toBe(true);
-    expect(getSnoozedUntil("due")).toBeGreaterThan(Date.now());
+    expect(getSnoozedUntil("jiraToken")).toBeGreaterThan(Date.now());
   });
   it("auto-clears (re-shows) after the duration elapses", () => {
-    const { result } = renderHook(() => useReminderSnooze("due"));
+    const { result } = renderHook(() => useReminderSnooze("jiraToken"));
     act(() => result.current.snooze(SNOOZE_1H));
     act(() => { vi.advanceTimersByTime(SNOOZE_1H + 1000); });
     expect(result.current.isSnoozed).toBe(false);
   });
   it("clear() unsnoozes immediately", () => {
-    const { result } = renderHook(() => useReminderSnooze("due"));
+    const { result } = renderHook(() => useReminderSnooze("jiraToken"));
     act(() => result.current.snooze(SNOOZE_1H));
     act(() => result.current.clear());
     expect(result.current.isSnoozed).toBe(false);

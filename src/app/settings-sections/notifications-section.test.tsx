@@ -6,14 +6,6 @@ import { defaultSettings } from "../settings-types";
 import { t } from "../i18n";
 
 describe("NotificationsSection", () => {
-  it("toggling the toast channel persists notifications.toast.enabled", () => {
-    const onChange = vi.fn();
-    render(<NotificationsSection lang="en-US" settings={defaultSettings} onChange={onChange} />);
-    fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "notifToast") }));
-    const last = onChange.mock.calls.at(-1)?.[0];
-    expect(last.notifications.toast.enabled).toBe(false);
-  });
-
   it("editing reminder lead days persists the value", () => {
     const onChange = vi.fn();
     render(<NotificationsSection lang="en-US" settings={defaultSettings} onChange={onChange} />);
@@ -59,13 +51,13 @@ describe("useGlobalLeadDays toggle", () => {
     render(
       <NotificationsSection lang="en-US" settings={defaultSettings} onChange={vi.fn()} />,
     );
-    // Only banner, toast, popup, birthday have lead-days inputs (raidReview and
-    // stakeholderComms use interval/quadrant-policy respectively — no lead-days input)
+    // Only birthday has a lead-days input now (raidReview and stakeholderComms
+    // use interval/quadrant-policy; the dead banner/toast/popup rows were removed)
     const perReminderLabel = t("en-US", "notifLeadDaysPerReminder");
     const inputs = screen
       .getAllByRole("spinbutton")
       .filter((el) => el.getAttribute("aria-label") === perReminderLabel);
-    expect(inputs).toHaveLength(4);
+    expect(inputs).toHaveLength(1);
     inputs.forEach((el) => expect(el).toBeDisabled());
   });
 
@@ -79,7 +71,7 @@ describe("useGlobalLeadDays toggle", () => {
     const inputs = screen
       .getAllByRole("spinbutton")
       .filter((el) => el.getAttribute("aria-label") === perReminderLabel);
-    expect(inputs).toHaveLength(4);
+    expect(inputs).toHaveLength(1);
     inputs.forEach((el) => expect(el).not.toBeDisabled());
   });
 

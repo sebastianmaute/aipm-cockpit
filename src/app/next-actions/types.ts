@@ -48,6 +48,8 @@ export interface ActionInput {
   reminderLeadDays: number;
   dueSoonWorkdays: number;
   raidReviewIntervalDays: number;
+  taskDueEnabled?: boolean;           // Settings → Notifications "due reminders" toggle; false → no task-due actions (undefined = enabled)
+  raidReviewEnabled?: boolean;        // "RAID review reminder" toggle; false → no RAID review-due actions, severity actions stay (undefined = enabled)
   dismissed: ReadonlySet<string>;     // snoozed/dismissed action ids (injected; SP3 wires the store)
 }
 

@@ -6,9 +6,6 @@ function makeCfg(overrides: Partial<NotificationsConfig> = {}): NotificationsCon
   return {
     reminderLeadDays: 7,
     useGlobalLeadDays: true,
-    banner: { enabled: true },
-    toast: { enabled: true },
-    popup: { enabled: true },
     birthday: { enabled: true },
     raidReview: { enabled: true },
     raidReviewIntervalDays: 14,
@@ -16,7 +13,6 @@ function makeCfg(overrides: Partial<NotificationsConfig> = {}): NotificationsCon
     stakeholderComms: { enabled: true },
     stakeholderCommsLeadDays: { "manage-closely": 14, "keep-satisfied": 7, "keep-informed": 7, monitor: 3 },
     jiraTokenError: { enabled: true },
-    toastFirstMigrated: true,
     ...overrides,
   };
 }
@@ -26,27 +22,27 @@ describe("effectiveLeadDays", () => {
     const cfg = makeCfg({
       useGlobalLeadDays: true,
       reminderLeadDays: 7,
-      banner: { enabled: true, leadDays: 3 },
+      birthday: { enabled: true, leadDays: 3 },
     });
-    expect(effectiveLeadDays(cfg, "banner")).toBe(7);
+    expect(effectiveLeadDays(cfg, "birthday")).toBe(7);
   });
 
   it("global off → returns channel leadDays when set", () => {
     const cfg = makeCfg({
       useGlobalLeadDays: false,
       reminderLeadDays: 7,
-      toast: { enabled: true, leadDays: 14 },
+      birthday: { enabled: true, leadDays: 14 },
     });
-    expect(effectiveLeadDays(cfg, "toast")).toBe(14);
+    expect(effectiveLeadDays(cfg, "birthday")).toBe(14);
   });
 
   it("global off + channel has no leadDays → falls back to reminderLeadDays", () => {
     const cfg = makeCfg({
       useGlobalLeadDays: false,
       reminderLeadDays: 7,
-      popup: { enabled: true },
+      birthday: { enabled: true },
     });
-    expect(effectiveLeadDays(cfg, "popup")).toBe(7);
+    expect(effectiveLeadDays(cfg, "birthday")).toBe(7);
   });
 
   it("global on → returns reminderLeadDays for all channels regardless of per-channel overrides", () => {

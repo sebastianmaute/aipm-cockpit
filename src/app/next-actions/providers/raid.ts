@@ -29,8 +29,12 @@ export const raidProvider: ActionProvider = {
       });
     }
 
-    // (B) Review-due actions — overdue or stale items per getRaidReviewItems
-    const reviewItems = getRaidReviewItems(input.raid, input.today, input.raidReviewIntervalDays);
+    // (B) Review-due actions — overdue or stale items per getRaidReviewItems.
+    // Gated by the "RAID review reminder" toggle; severity actions (A) always run.
+    const reviewItems =
+      input.raidReviewEnabled === false
+        ? []
+        : getRaidReviewItems(input.raid, input.today, input.raidReviewIntervalDays);
     for (const r of reviewItems) {
       const urgency = r.reason === "overdue" ? W.urgencyOverdue : 0;
       const staleness = stalenessScore(r.reason === "overdue" ? r.daysOverdue : r.daysSinceReview);

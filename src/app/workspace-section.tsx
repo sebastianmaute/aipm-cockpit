@@ -185,6 +185,7 @@ export interface WorkspaceSectionProps {
   onHardDeleteProject?: (id: string) => void;
   nextActions: readonly SuggestedAction[];
   onOpenAction: (a: SuggestedAction) => void;
+  onSnooze?: (a: SuggestedAction, ms: number) => void;
 }
 
 export function WorkspaceSection({
@@ -257,6 +258,7 @@ export function WorkspaceSection({
   onHardDeleteProject,
   nextActions,
   onOpenAction,
+  onSnooze,
 }: WorkspaceSectionProps) {
   const { settings, setSettings, lang } = useSettings();
   const features = settings.features;
@@ -839,7 +841,7 @@ export function WorkspaceSection({
 
         {activeTab === "actions" && (
           <div id="panel-actions" role="tabpanel" className={panelClass}>
-            <ActionsPanel lang={lang} actions={nextActions} onOpen={onOpenAction} />
+            <ActionsPanel lang={lang} actions={nextActions} onOpen={onOpenAction} onSnooze={onSnooze} />
           </div>
         )}
 

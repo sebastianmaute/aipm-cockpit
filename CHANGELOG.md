@@ -8,6 +8,15 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.78.0] - 2026-06-13 "Hopkinson"
+
+### Changed
+- The due-dates, RAID-review, and stakeholder-comms **reminder banners and
+  modals are gone** — those nudges now live in the **Action Center** as ranked
+  actions. The header bell opens the Action Center. Snooze any action for 1 hour
+  or 1 day; it returns when the timer lapses. (Birthday, Jira-token, storage, and
+  safe-mode banners are unchanged.)
+
 ## [0.77.0] - 2026-06-13 "Russ"
 
 ### Added

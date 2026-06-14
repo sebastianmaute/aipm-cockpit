@@ -506,7 +506,10 @@ function RaidPanelInner({
                   key={item.id}
                   onClick={() => openEdit(item)}
                   className={`cursor-pointer align-top hover:bg-surface-muted ${
-                    terminal ? "opacity-60" : ""
+                    // De-emphasize terminal rows with a background tint, NOT opacity
+                    // (opacity dims all text/badges below the WCAG AA threshold —
+                    // mirrors the task-row precedent).
+                    terminal ? "bg-surface-muted" : ""
                   }`}
                 >
                   <td className="px-3 py-2 font-mono text-muted-foreground">
@@ -600,7 +603,7 @@ function RaidPanelInner({
                           {children.length > 0 && (
                             <span
                               title={t(lang, "raidCausedThisCount", children.length)}
-                              className="inline-flex items-center rounded bg-AIPM-purple/15 px-1.5 py-0.5 text-[10px] font-medium text-AIPM-purple dark:bg-AIPM-purple/20"
+                              className="inline-flex items-center rounded bg-AIPM-purple px-1.5 py-0.5 text-[10px] font-medium text-white"
                             >
                               → {children.length}
                             </span>

@@ -1,11 +1,9 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { BirthdayBanner, DueBanner, JiraTokenBanner, RaidReviewBanner, RaidReviewModal, raidReviewToastText } from "./notifications";
-import { getRaidReviewItems } from "./raid-review";
+import { BirthdayBanner, JiraTokenBanner } from "./notifications";
 import { SNOOZE_1H, SNOOZE_1D } from "./reminder-snooze";
 import type { UpcomingBirthday } from "./birthdays";
-import type { RaidItem, Resource, Task } from "./types";
-import type { AlertableTask } from "./due-dates";
+import type { Resource } from "./types";
 import type { JiraTokenAlert } from "./jira-token-status";
 
 function makeResource(id: number, firstName: string, lastName: string): Resource {
@@ -90,18 +88,6 @@ describe("BirthdayBanner", () => {
   });
 });
 
-describe("DueBanner", () => {
-  it("DueBanner fires onSnooze with the chosen duration", () => {
-    const onSnooze = vi.fn();
-    const items: AlertableTask[] = [{ task: { id: 1, taskName: "T", dueDate: "2026-12-31" } as unknown as Task, category: "soon" as const, workDaysLeft: 1 }];
-    render(<DueBanner items={items} lang="en-US" onOpenList={vi.fn()} onDismiss={vi.fn()} onSnooze={onSnooze} />);
-    fireEvent.click(screen.getByRole("button", { name: /in 1 hour/i }));
-    expect(onSnooze).toHaveBeenCalledWith(SNOOZE_1H);
-    fireEvent.click(screen.getByRole("button", { name: /in 1 day/i }));
-    expect(onSnooze).toHaveBeenCalledWith(SNOOZE_1D);
-  });
-});
-
 describe("JiraTokenBanner", () => {
   it("renders the invalid message", () => {
     const alert: JiraTokenAlert = { state: "invalid", daysLeft: 0, date: "" };
@@ -140,34 +126,5 @@ describe("JiraTokenBanner", () => {
       />,
     );
     expect(screen.getByText(/expires in 4 day/i)).toBeInTheDocument();
-  });
-});
-
-function raid(p: Partial<RaidItem>): RaidItem {
-  return { id: 1, category: "R", title: "T", status: "Open", linkedTaskIds: [], causedByRaidIds: [], stakeholderIds: [], raisedDate: "2026-01-01", ...p };
-}
-
-describe("RaidReview notifications", () => {
-  const items = getRaidReviewItems([raid({ id: 1, targetDate: "2026-01-01", title: "Server risk" })], "2026-06-04", 14);
-
-  it("raidReviewToastText summarizes counts", () => {
-    expect(raidReviewToastText(items, "en-US")).toMatch(/past target/i);
-  });
-
-  it("RaidReviewBanner shows the count", () => {
-    render(<RaidReviewBanner items={items} lang="en-US" onOpenList={() => {}} onDismiss={() => {}} onSnooze={() => {}} />);
-    expect(screen.getByText(/1 RAID items need review/i)).toBeInTheDocument();
-  });
-
-  it("RaidReviewBanner renders nothing when empty", () => {
-    const { container } = render(<RaidReviewBanner items={[]} lang="en-US" onOpenList={() => {}} onDismiss={() => {}} onSnooze={() => {}} />);
-    expect(container).toBeEmptyDOMElement();
-  });
-
-  it("RaidReviewModal calls onSelectRaid with the item id", () => {
-    const onSelectRaid = vi.fn();
-    render(<RaidReviewModal items={items} lang="en-US" onClose={() => {}} onSelectRaid={onSelectRaid} />);
-    fireEvent.click(screen.getByRole("button", { name: /edit/i }));
-    expect(onSelectRaid).toHaveBeenCalledWith(1);
   });
 });

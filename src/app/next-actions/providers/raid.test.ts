@@ -157,6 +157,14 @@ describe("raidProvider — review actions", () => {
     const acts = raidProvider.provide(input([item]));
     expect(acts.find((a) => a.id.startsWith("raid:40:"))).toBeUndefined();
   });
+
+  it("suppresses review actions when raidReviewEnabled is false, but keeps severity actions", () => {
+    // Critical + past targetDate would normally yield severity + overdue-review
+    const item = criticalRisk({ id: 50, targetDate: "2026-05-01", raisedDate: "2026-05-14" });
+    const acts = raidProvider.provide({ ...input([item]), raidReviewEnabled: false });
+    expect(acts.find((a) => a.id === "raid:50:severity")).toBeDefined();
+    expect(acts.find((a) => a.id === "raid:50:overdue")).toBeUndefined();
+  });
 });
 
 describe("raidProvider — provider metadata", () => {

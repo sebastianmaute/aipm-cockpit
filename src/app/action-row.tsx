@@ -1,7 +1,9 @@
 // src/app/action-row.tsx
 "use client";
+import { useState } from "react";
 import { type Lang, t, type TranslationKey } from "./i18n";
 import type { SuggestedAction, ActionSource, ActionTier } from "./next-actions/types";
+import { SNOOZE_1H, SNOOZE_1D } from "./reminder-snooze";
 
 const SOURCE_LABEL: Record<ActionSource, TranslationKey> = {
   "task-due": "actionSourceTask",
@@ -21,9 +23,11 @@ interface ActionRowProps {
   lang: Lang;
   action: SuggestedAction;
   onOpen: (action: SuggestedAction) => void;
+  onSnooze?: (action: SuggestedAction, durationMs: number) => void;
 }
 
-export function ActionRow({ lang, action, onOpen }: ActionRowProps) {
+export function ActionRow({ lang, action, onOpen, onSnooze }: ActionRowProps) {
+  const [menuOpen, setMenuOpen] = useState(false);
   const title = t(lang, action.title.key, ...(action.title.params ?? []));
   const why = t(lang, action.why.key, ...(action.why.params ?? []));
   return (
@@ -45,13 +49,44 @@ export function ActionRow({ lang, action, onOpen }: ActionRowProps) {
         </span>
         <span className="mt-0.5 block truncate text-xs text-muted-foreground">{why}</span>
       </span>
-      <button
-        type="button"
-        onClick={(e) => { e.stopPropagation(); onOpen(action); }}
-        className="shrink-0 rounded-md border border-line px-3 py-1 text-xs font-medium text-AIPM-dark-blue hover:bg-surface-muted dark:text-AIPM-light-grey"
-      >
-        {t(lang, "actionOpen")}
-      </button>
+      <div className="flex shrink-0 items-center gap-1">
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onOpen(action); }}
+          className="rounded-md border border-line px-3 py-1 text-xs font-medium text-AIPM-dark-blue hover:bg-surface-muted dark:text-AIPM-light-grey"
+        >
+          {t(lang, "actionOpen")}
+        </button>
+        {onSnooze && (
+          <span className="relative">
+            <button
+              type="button"
+              aria-haspopup="true"
+              aria-expanded={menuOpen}
+              onClick={(e) => { e.stopPropagation(); setMenuOpen((o) => !o); }}
+              className="rounded-md border border-line px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-surface-muted"
+            >
+              {t(lang, "actionSnooze")} ▾
+            </button>
+            {menuOpen && (
+              <span
+                className="absolute right-0 top-full z-20 mt-1 flex w-max flex-col rounded-md border border-line bg-surface py-1 shadow-sm"
+              >
+                <button type="button"
+                  onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onSnooze(action, SNOOZE_1H); }}
+                  className="px-3 py-1 text-left text-xs text-foreground hover:bg-surface-muted">
+                  {t(lang, "actionSnooze1h")}
+                </button>
+                <button type="button"
+                  onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onSnooze(action, SNOOZE_1D); }}
+                  className="px-3 py-1 text-left text-xs text-foreground hover:bg-surface-muted">
+                  {t(lang, "actionSnooze1d")}
+                </button>
+              </span>
+            )}
+          </span>
+        )}
+      </div>
     </div>
   );
 }

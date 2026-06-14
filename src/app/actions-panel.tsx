@@ -15,9 +15,10 @@ interface ActionsPanelProps {
   lang: Lang;
   actions: readonly SuggestedAction[];
   onOpen: (action: SuggestedAction) => void;
+  onSnooze?: (action: SuggestedAction, durationMs: number) => void;
 }
 
-export function ActionsPanel({ lang, actions, onOpen }: ActionsPanelProps) {
+export function ActionsPanel({ lang, actions, onOpen, onSnooze }: ActionsPanelProps) {
   return (
     <div className={VIEW_PANE_FILL_CLASS}>
       <div className="mb-4 shrink-0">
@@ -40,7 +41,7 @@ export function ActionsPanel({ lang, actions, onOpen }: ActionsPanelProps) {
                 </h3>
                 <div className="flex flex-col gap-2">
                   {rows.map((a) => (
-                    <ActionRow key={a.id} lang={lang} action={a} onOpen={onOpen} />
+                    <ActionRow key={a.id} lang={lang} action={a} onOpen={onOpen} onSnooze={onSnooze} />
                   ))}
                 </div>
               </section>

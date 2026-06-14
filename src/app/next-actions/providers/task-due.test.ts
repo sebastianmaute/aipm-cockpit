@@ -28,4 +28,8 @@ describe("taskDueProvider", () => {
   it("returns nothing when no tasks are due", () => {
     expect(taskDueProvider.provide(input([]))).toEqual([]);
   });
+  it("emits nothing when taskDueEnabled is false (settings toggle off)", () => {
+    const task: Task = { id: 7, taskName: "Ship", dueDate: "2026-06-10", assignee: "", assigneeEmail: "", lastUpdateDate: "2026-06-01", priority: "Medium", blockers: "", notes: "" };
+    expect(taskDueProvider.provide({ ...input([task]), taskDueEnabled: false })).toEqual([]);
+  });
 });

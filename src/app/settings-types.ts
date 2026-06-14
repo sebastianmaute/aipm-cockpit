@@ -63,9 +63,6 @@ export type ChannelConfig = { enabled: boolean; leadDays?: number };
 export type NotificationsConfig = {
   reminderLeadDays: number;
   useGlobalLeadDays: boolean;
-  banner: ChannelConfig;
-  toast: ChannelConfig;
-  popup: ChannelConfig;
   birthday: ChannelConfig;
   raidReview: ChannelConfig;
   raidReviewIntervalDays: number;
@@ -73,16 +70,11 @@ export type NotificationsConfig = {
   stakeholderComms: ChannelConfig;
   stakeholderCommsLeadDays: Record<StakeholderQuadrant, number>;
   jiraTokenError: ChannelConfig;
-  /** Set to true once the one-time v0.57 toast-first migration has run. Fresh installs start true. */
-  toastFirstMigrated: boolean;
 };
 
 export const defaultNotificationsConfig: NotificationsConfig = {
   reminderLeadDays: 7,
   useGlobalLeadDays: true,
-  banner: { enabled: false },
-  toast: { enabled: true },
-  popup: { enabled: false },
   birthday: { enabled: true },
   raidReview: { enabled: true },
   raidReviewIntervalDays: 14,
@@ -95,7 +87,6 @@ export const defaultNotificationsConfig: NotificationsConfig = {
     monitor: 3,
   },
   jiraTokenError: { enabled: true },
-  toastFirstMigrated: true,
 };
 
 export type JiraAssigneeMode = "currentUser" | "any" | "specific";

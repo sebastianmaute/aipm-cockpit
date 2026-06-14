@@ -2,7 +2,6 @@
 import type React from "react";
 import { type Lang, t } from "./i18n";
 import { type Command } from "./voice";
-import { type AlertableTask } from "./due-dates";
 import { type StorageKind } from "./storage";
 import { SettingsMenu } from "./settings-menu";
 import { ActionMenus } from "./action-menus";
@@ -12,9 +11,10 @@ import { defaultExportConfig, type Settings } from "./settings-types";
 export interface AppHeaderProps {
   handleCancelEdit: () => void;
   setTaskModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  bannerItems: AlertableTask[];
-  setBannerDismissed: React.Dispatch<React.SetStateAction<boolean>>;
-  setDueModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  /** Count shown on the bell badge (now-tier suggested-action count). */
+  bannerCount: number;
+  /** Bell click — navigates to the Action Center. */
+  onShowAlerts: () => void;
   showToast: (kind: "info" | "error", text: string) => void;
   handleCommand: (cmd: Command, originalText: string) => void;
   storageDescription: string | null;
@@ -36,9 +36,8 @@ export interface AppHeaderProps {
 export function AppHeader({
   handleCancelEdit,
   setTaskModalOpen,
-  bannerItems,
-  setBannerDismissed,
-  setDueModalOpen,
+  bannerCount,
+  onShowAlerts,
   showToast,
   handleCommand,
   storageDescription,
@@ -118,10 +117,7 @@ export function AppHeader({
           </button>
           <button
             type="button"
-            onClick={() => {
-              setBannerDismissed(false);
-              setDueModalOpen(true);
-            }}
+            onClick={onShowAlerts}
             aria-label={t(lang, "showDueAlerts")}
             title={t(lang, "showDueAlerts")}
             className="relative rounded-md p-2 text-AIPM-dark-grey hover:bg-surface-muted hover:text-AIPM-dark-blue focus:outline-none focus:ring-2 focus:ring-AIPM-green dark:text-AIPM-medium-grey dark:hover:text-AIPM-light-grey"
@@ -134,12 +130,12 @@ export function AppHeader({
             >
               <path d="M10 2a6 6 0 00-6 6v2.586l-.707.707A1 1 0 004 13h12a1 1 0 00.707-1.707L16 10.586V8a6 6 0 00-6-6zM8 15a2 2 0 104 0H8z" />
             </svg>
-            {bannerItems.length > 0 && (
+            {bannerCount > 0 && (
               <span
                 aria-hidden
                 className="absolute -right-0.5 -top-0.5 inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-AIPM-pink px-1 text-[10px] font-semibold leading-none text-white"
               >
-                {bannerItems.length}
+                {bannerCount}
               </span>
             )}
           </button>

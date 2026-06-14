@@ -234,7 +234,7 @@ describe("WorkspaceSection", () => {
         language: "en-US",
         ai: { consentAccepted: false, apiKey: "", model: "claude-sonnet-4-6" },
         jira: { enabled: false, siteUrl: "", email: "", apiToken: "", projectKey: "", projectName: "", issueTypes: [], assigneeMode: "currentUser", assigneeAccountId: "", assigneeDisplayName: "", tokenExpiresAt: "" },
-        notifications: { reminderLeadDays: 7, useGlobalLeadDays: true, banner: { enabled: false }, popup: { enabled: false }, toast: { enabled: false }, birthday: { enabled: false }, raidReview: { enabled: false }, raidReviewIntervalDays: 14, dueSoonWorkdays: 3, stakeholderComms: { enabled: false }, stakeholderCommsLeadDays: { "manage-closely": 14, "keep-satisfied": 7, "keep-informed": 7, monitor: 3 }, jiraTokenError: { enabled: false }, toastFirstMigrated: true },
+        notifications: { reminderLeadDays: 7, useGlobalLeadDays: true, birthday: { enabled: false }, raidReview: { enabled: false }, raidReviewIntervalDays: 14, dueSoonWorkdays: 3, stakeholderComms: { enabled: false }, stakeholderCommsLeadDays: { "manage-closely": 14, "keep-satisfied": 7, "keep-informed": 7, monitor: 3 }, jiraTokenError: { enabled: false } },
         holidayCountries: [],
         resources: { workdayHours: 8 },
         popout: { reuseWindow: false },
@@ -247,7 +247,6 @@ describe("WorkspaceSection", () => {
       hydrated: true,
       i18nReady: true,
       lang: "en-US" as const,
-      toastFirstJustMigrated: false,
     });
 
     render(<WorkspaceSection {...makeProps()} />, { wrapper: Wrapper });
