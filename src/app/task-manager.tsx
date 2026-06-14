@@ -1235,6 +1235,7 @@ function TaskManagerInner() {
     manageRolesView: (
       <RolesPanel
         lang={lang}
+        currency={plan.currency || "EUR"}
         roles={roles}
         disciplines={disciplines}
         grades={grades}

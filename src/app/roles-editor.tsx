@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { type Lang, t } from "./i18n";
+import { type Lang, t, localeFor } from "./i18n";
+import { currencySymbol } from "./resource-cost";
 import { roleLabel } from "./resource-foundation";
 import type { Discipline, Grade, Role } from "./types";
 import { useColumnResize } from "./use-column-resize";
@@ -20,6 +21,8 @@ export type RolesCol = keyof typeof ROLES_COL_WIDTHS;
 
 export interface RolesEditorProps {
   lang: Lang;
+  /** Project base currency (ISO 4217, e.g. plan.currency) — drives the rate-field symbol. */
+  currency: string;
   roles: readonly Role[];
   disciplines: readonly Discipline[];
   grades: readonly Grade[];
@@ -43,11 +46,12 @@ function clampRate(raw: string): number {
 }
 
 export function RolesEditor({
-  lang, roles, disciplines, grades,
+  lang, currency, roles, disciplines, grades,
   onSaveRole, onDeleteRole, onResolveOrCreateRole,
   onAddDiscipline, onRenameDiscipline, onDeleteDiscipline, onReorderDisciplines,
   onAddGrade, onRenameGrade, onDeleteGrade, onReorderGrades,
 }: RolesEditorProps) {
+  const curSymbol = currencySymbol(currency, localeFor(lang));
   const [newDiscipline, setNewDiscipline] = useState("");
   const [newGrade, setNewGrade] = useState("");
   const [comboDiscipline, setComboDiscipline] = useState<number | "">("");
@@ -153,7 +157,7 @@ export function RolesEditor({
                   <td className="px-3 py-2">{gradeName}</td>
                   <td className="px-3 py-2 text-right">
                     <span className="inline-flex items-center justify-end gap-1">
-                      <span aria-hidden className="text-muted-foreground">€</span>
+                      <span aria-hidden className="text-muted-foreground">{curSymbol}</span>
                       <input type="number" min={0} step={1} value={r.internalRate}
                         aria-label={`${rowCtx} — ${t(lang, "rolesInternalRate")}`}
                         onChange={(e) => onSaveRole({ ...r, internalRate: clampRate(e.target.value) })}
@@ -162,7 +166,7 @@ export function RolesEditor({
                   </td>
                   <td className="px-3 py-2 text-right">
                     <span className="inline-flex items-center justify-end gap-1">
-                      <span aria-hidden className="text-muted-foreground">€</span>
+                      <span aria-hidden className="text-muted-foreground">{curSymbol}</span>
                       <input type="number" min={0} step={1} value={r.externalRate}
                         aria-label={`${rowCtx} — ${t(lang, "rolesExternalRate")}`}
                         onChange={(e) => onSaveRole({ ...r, externalRate: clampRate(e.target.value) })}

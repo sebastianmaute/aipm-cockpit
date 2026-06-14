@@ -9,6 +9,7 @@ test("RolesPanel renders the roles editor inside a fit-height centered card", ()
   const { container } = render(
     <RolesPanel
       lang="en-US"
+      currency="EUR"
       roles={[]}
       disciplines={[]}
       grades={[]}
