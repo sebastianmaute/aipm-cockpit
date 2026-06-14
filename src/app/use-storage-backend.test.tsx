@@ -28,6 +28,8 @@ vi.mock("./storage", () => ({
   },
   openFileForBackend: vi.fn(),
   pickFileForBackend: vi.fn(),
+  pickOpenFileAny: vi.fn(),
+  formatFromFileName: vi.fn(() => "json"),
   requestWriteAccessForBackend: vi.fn(),
   setBackendFileHandle: vi.fn(() => null),
   getBackendFileHandle: vi.fn(() => null),
@@ -1179,6 +1181,40 @@ describe("useStorageBackend — project flows", () => {
     // picker), but the config must NOT change after an early return.
     expect(setStorageConfig).not.toHaveBeenCalled();
     expect(targetBackend.load).not.toHaveBeenCalled();
+  });
+
+  it("loadProjectFromFile() with no format auto-detects from the picked file extension (CSV)", async () => {
+    const handle = { name: "exported.csv" };
+    (storageMod.pickOpenFileAny as ReturnType<typeof vi.fn>).mockResolvedValue(handle);
+    (storageMod.formatFromFileName as ReturnType<typeof vi.fn>).mockReturnValue("csv");
+    (storageMod.setBackendFileHandle as ReturnType<typeof vi.fn>).mockReturnValue(Promise.resolve(undefined));
+    (storageMod.requestWriteAccessForBackend as ReturnType<typeof vi.fn>).mockReturnValue(Promise.resolve(true));
+
+    const targetBackend = {
+      kind: "local-csv",
+      load: vi.fn().mockResolvedValue({ ...emptyWorkspace(), tasks: [{ id: 88, taskName: "FromCsv" }] }),
+      save: vi.fn().mockResolvedValue(undefined),
+      isReady: vi.fn().mockResolvedValue(true),
+      describe: vi.fn().mockResolvedValue("exported.csv"),
+    };
+    createBackendMock
+      .mockReturnValueOnce(mockBackend)
+      .mockReturnValue(targetBackend);
+
+    const { result } = renderBackend(makeArgs({ setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+
+    await act(async () => { await result.current.loadProjectFromFile(); });
+    await act(async () => { await Promise.resolve(); });
+
+    // The any-format picker was used (not a per-format picker), the picked
+    // handle was bound to the CSV backend, and the CSV config was applied.
+    expect(storageMod.pickOpenFileAny).toHaveBeenCalled();
+    expect(storageMod.formatFromFileName).toHaveBeenCalledWith("exported.csv");
+    expect(storageMod.setBackendFileHandle).toHaveBeenCalledWith(targetBackend, handle);
+    expect(storageMod.openFileForBackend).not.toHaveBeenCalled();
+    expect(result.current.tasks[0]?.id).toBe(88);
+    expect(setStorageConfig).toHaveBeenCalledWith({ kind: "local-csv" });
   });
 });
 
