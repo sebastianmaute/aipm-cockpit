@@ -2,12 +2,12 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.80.2";
-export const APP_BUILD_DATE = "2026-06-14"; // 0.80.2 a11y: AIPM-pink-strong for AA-contrast error/RAID text
+export const APP_VERSION = "0.81.0";
+export const APP_BUILD_DATE = "2026-06-14"; // 0.81.0 Trends/chips/Manage-Roles/RACI UI batch
 /** Minor-series milestone codename (sci-fi/fantasy author names). The whole
- *  0.80.x line is "Kress" (Nancy Kress); patch releases inherit
+ *  0.81.x line is "Wolfe" (Gene Wolfe); patch releases inherit
  *  their minor version's codename rather than getting their own. */
-export const APP_MILESTONE = "Kress";
+export const APP_MILESTONE = "Wolfe";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -89,4 +89,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightSnoozeActions",
   "versionHighlightActionChips",
   "versionHighlightScheduleWorkload",
+  "versionHighlightUiBatch",
 ] as const;

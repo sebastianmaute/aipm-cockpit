@@ -8,6 +8,20 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.81.0] - 2026-06-14 "Wolfe"
+
+### Added / Changed
+- Trends tables now have resizable columns and match the rounded table style.
+- Suggested-action chips show a tooltip explaining why each is flagged and open
+  the relevant item (task / RAID / change / milestone / stakeholder) when clicked.
+- The RACI picker is now compact: it shows the selected role and expands to all
+  roles (plus clear) on click, collapsing on outside-click.
+
+### Fixed
+- Manage Roles header tooltips read in normal case and are no longer clipped by
+  the table border; the Manage Roles pane fits its content without exceeding the
+  viewport.
+
 ## [0.80.2] - 2026-06-14
 
 ### Fixed
