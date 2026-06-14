@@ -41,7 +41,7 @@ function reminder(over: Partial<StakeholderCommsReminder> = {}): StakeholderComm
   };
 }
 
-const EXPECTED_SCORE = scoreAction({ urgency: ACTION_WEIGHTS.urgencySoon, risk: ACTION_WEIGHTS.riskHigh });
+const EXPECTED_SCORE = scoreAction({ urgency: ACTION_WEIGHTS.urgencySoon, risk: ACTION_WEIGHTS.riskHigh, clarity: ACTION_WEIGHTS.clarityBonus });
 
 describe("stakeholderCommsProvider — single reminder", () => {
   it("maps one reminder to one action with the correct id", () => {
@@ -99,5 +99,12 @@ describe("stakeholderCommsProvider — edge cases", () => {
 describe("stakeholderCommsProvider — provider metadata", () => {
   it("has moduleId 'stakeholders'", () => {
     expect(stakeholderCommsProvider.moduleId).toBe("stakeholders");
+  });
+});
+
+describe("stakeholderCommsProvider — clarity bonus", () => {
+  it("includes the clarity bonus in the score", () => {
+    const [a] = stakeholderCommsProvider.provide(input([reminder()]));
+    expect(a.score).toBe(ACTION_WEIGHTS.urgencySoon + ACTION_WEIGHTS.riskHigh + ACTION_WEIGHTS.clarityBonus);
   });
 });

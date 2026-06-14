@@ -13,8 +13,8 @@ export const workloadProvider: ActionProvider = {
     return alerts.map((al): SuggestedAction => {
       const score =
         al.reason === "over-allocated"
-          ? scoreAction({ risk: al.value >= allocCritical ? W.riskCritical : W.riskHigh, urgency: W.urgencySoon })
-          : scoreAction({ urgency: al.value >= overdueUrgent ? W.urgencyOverdue : W.urgencyToday, risk: W.riskHigh });
+          ? scoreAction({ risk: al.value >= allocCritical ? W.riskCritical : W.riskHigh, urgency: W.urgencySoon, clarity: input.semiClarityBonus ?? W.semiClarityBonus })
+          : scoreAction({ urgency: al.value >= overdueUrgent ? W.urgencyOverdue : W.urgencyToday, risk: W.riskHigh, clarity: input.semiClarityBonus ?? W.semiClarityBonus });
       const why =
         al.reason === "over-allocated"
           ? { key: "actionWorkloadWhyOverAllocated" as const, params: [al.value] }

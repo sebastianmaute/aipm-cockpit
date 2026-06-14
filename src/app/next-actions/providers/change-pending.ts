@@ -14,7 +14,7 @@ export const changePendingProvider: ActionProvider = {
 
     // Aggregate action — fires when pending backlog reaches the Red threshold
     if (pending.length >= scopePendingRed) {
-      const score = scoreAction({ risk: W.riskCritical, impact: W.impactScopePending });
+      const score = scoreAction({ risk: W.riskCritical, impact: W.impactScopePending, clarity: input.clarityBonus ?? W.clarityBonus });
       out.push({
         id: "change-pending:all:aggregate",
         source: "change-pending",
@@ -30,7 +30,7 @@ export const changePendingProvider: ActionProvider = {
     // Per-item actions — pending changes whose impact maps to Red
     for (const c of pending) {
       if (changeImpactRag(c.impact) !== "R") continue;
-      const score = scoreAction({ risk: W.riskCritical });
+      const score = scoreAction({ risk: W.riskCritical, clarity: input.clarityBonus ?? W.clarityBonus });
       out.push({
         id: `change-pending:${c.id}:item`,
         source: "change-pending",

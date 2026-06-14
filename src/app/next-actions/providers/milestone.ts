@@ -25,7 +25,7 @@ export const milestoneProvider: ActionProvider = {
     );
 
     for (const m of overdue) {
-      const score = scoreAction({ urgency: W.urgencyOverdue, impact: W.impactBlocksMilestone });
+      const score = scoreAction({ urgency: W.urgencyOverdue, impact: W.impactBlocksMilestone, clarity: input.semiClarityBonus ?? W.semiClarityBonus });
       out.push({
         id: `milestone:${m.id}:overdue`,
         source: "milestone",
@@ -39,7 +39,7 @@ export const milestoneProvider: ActionProvider = {
     }
 
     for (const m of atRisk) {
-      const score = scoreAction({ risk: W.riskHigh, impact: W.impactBlocksMilestone });
+      const score = scoreAction({ risk: W.riskHigh, impact: W.impactBlocksMilestone, clarity: input.semiClarityBonus ?? W.semiClarityBonus });
       out.push({
         id: `milestone:${m.id}:at-risk`,
         source: "milestone",

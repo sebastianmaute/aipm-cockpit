@@ -8,7 +8,7 @@ export const stakeholderCommsProvider: ActionProvider = {
   moduleId: "stakeholders",
   provide(input: ActionInput): SuggestedAction[] {
     return input.commsReminders.map((r) => {
-      const score = scoreAction({ urgency: W.urgencySoon, risk: W.riskHigh });
+      const score = scoreAction({ urgency: W.urgencySoon, risk: W.riskHigh, clarity: input.clarityBonus ?? W.clarityBonus });
       return {
         id: `stakeholder-comms:${r.stakeholderId}:${r.itemKind}:${r.itemId}`,
         source: "stakeholder-comms",
