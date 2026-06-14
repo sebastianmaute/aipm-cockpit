@@ -1484,6 +1484,8 @@ export const de: Record<TranslationKey, string> = {
   actionMilestoneWhyAtRisk: "Gefährdet — eine blockierende Aufgabe ist rot oder das Datum verschoben",
   actionBudgetTitle: "Budget: {0}",
   actionBudgetWhyCpi: "Kostenleistung unter Ziel (CPI {0})",
+  actionBudgetWhyWorsening: "CPI {0} — über Budget und verschlechtert sich",
+  actionBudgetWhyImproving: "CPI {0} — über Budget, aber verbessert sich",
   actionCommsTitle: "Stakeholder informieren: {0}",
   actionCommsWhy: "{0}-Update fällig",
 

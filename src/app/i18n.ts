@@ -1487,6 +1487,8 @@ const enUS = {
   actionMilestoneWhyAtRisk: "At risk — a blocking task is red or the date slipped",
   actionBudgetTitle: "Budget: {0}",
   actionBudgetWhyCpi: "Cost performance below target (CPI {0})",
+  actionBudgetWhyWorsening: "CPI {0} — over budget and worsening",
+  actionBudgetWhyImproving: "CPI {0} — over budget but improving",
   actionCommsTitle: "Update stakeholder: {0}",
   actionCommsWhy: "{0} update due",
 
