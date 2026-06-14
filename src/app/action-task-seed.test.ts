@@ -21,4 +21,18 @@ describe("buildTaskSeedFromAction", () => {
     const seed = buildTaskSeedFromAction(raidAction(), "en-US");
     expect(seed.notes).toBe("From: RAID — Severity High — no owner assigned\n\n");
   });
+  it("builds the seed for a non-raid (budget) source", () => {
+    const action = {
+      id: "budget:overall:over", source: "budget",
+      title: { key: "actionBudgetTitle", params: ["Acme"] },
+      why: { key: "actionBudgetWhyCpi", params: ["0.80"] },
+      score: 5, tier: "monitor", cta: { kind: "open", view: "budget", id: 0 },
+    } as unknown as import("./next-actions/types").SuggestedAction;
+    const seed = buildTaskSeedFromAction(action, "en-US");
+    expect(seed.taskName).toBe("Budget: Acme");
+    expect(seed.notes.startsWith("From: ")).toBe(true);
+    expect(seed.notes.endsWith("\n\n")).toBe(true);
+    expect(seed.notes).toContain("Budget");
+    expect(seed.notes).toContain("Cost performance below target (CPI 0.80)");
+  });
 });
