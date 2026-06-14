@@ -1414,6 +1414,7 @@ const enUS = {
   actionSourceWorkload: "Workload",
   actionScheduleTitle: "{0} is behind schedule",
   actionScheduleWhyBehind: "Schedule performance index is {0} (under 1.0 = behind plan)",
+  actionScheduleWhySlipping: "SPI {0} — schedule slipping",
   actionScheduleWhyBurndown: "Burn-up is trailing the planned line",
   actionWorkloadTitle: "{0}",
   actionWorkloadWhyOverAllocated: "Over-allocated — {0}% planned in the next period",
