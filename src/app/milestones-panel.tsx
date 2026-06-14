@@ -20,6 +20,7 @@ import { useColumnResize } from "./use-column-resize";
 import { ColumnResizeHandle, ResizeCornerHint } from "./task-manager-ui";
 import { useResizable } from "./use-resizable";
 import { CENTERED_HALF_PANE_CLASS } from "./view-styles";
+import { TABLE_HEAD_CLASS } from "./table-styles";
 import type { ActivityKind } from "./activity-log";
 import type { Milestone } from "./types";
 
@@ -182,8 +183,8 @@ export function MilestonesPanel({
         </p>
       ) : (
         <table className="w-full text-sm">
-          <thead>
-            <tr className="text-left text-xs uppercase text-muted-foreground">
+          <thead className={TABLE_HEAD_CLASS}>
+            <tr className="text-left">
               <th
                 className="relative py-1"
                 style={{ width: colWidths.name, minWidth: colWidths.name }}

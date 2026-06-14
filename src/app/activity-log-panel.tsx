@@ -263,7 +263,7 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
                     type="button"
                     onClick={() => toggleSort("timestamp")}
                     title={t(lang, "sortBy", t(lang, "activityHeaderWhen"))}
-                    className="cursor-pointer select-none text-left text-xs uppercase tracking-wide hover:text-AIPM-green-strong"
+                    className="cursor-pointer select-none text-left text-xs uppercase tracking-wide hover:text-AIPM-green"
                   >
                     {t(lang, "activityHeaderWhen")}
                     {sortIndicator("timestamp")}
@@ -278,7 +278,7 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
                     type="button"
                     onClick={() => toggleSort("kind")}
                     title={t(lang, "sortBy", t(lang, "activityHeaderKind"))}
-                    className="cursor-pointer select-none text-left text-xs uppercase tracking-wide hover:text-AIPM-green-strong"
+                    className="cursor-pointer select-none text-left text-xs uppercase tracking-wide hover:text-AIPM-green"
                   >
                     {t(lang, "activityHeaderKind")}
                     {sortIndicator("kind")}
@@ -293,7 +293,7 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
                     type="button"
                     onClick={() => toggleSort("message")}
                     title={t(lang, "sortBy", t(lang, "activityHeaderMessage"))}
-                    className="cursor-pointer select-none text-left text-xs uppercase tracking-wide hover:text-AIPM-green-strong"
+                    className="cursor-pointer select-none text-left text-xs uppercase tracking-wide hover:text-AIPM-green"
                   >
                     {t(lang, "activityHeaderMessage")}
                     {sortIndicator("message")}

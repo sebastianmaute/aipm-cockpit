@@ -40,7 +40,7 @@ export function Sidebar({
           <div>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/AIPM-logo.svg" alt="Acme" className="h-6 w-auto brightness-0 invert" />
-            <p className="mt-1 text-[11px] font-semibold uppercase tracking-wider text-AIPM-green-strong">
+            <p className="mt-1 text-[11px] font-semibold uppercase tracking-wider text-AIPM-green">
               {t(lang, "sidebarBrandSubtitle")}
             </p>
           </div>

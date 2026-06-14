@@ -103,7 +103,7 @@ export function RolesEditor({
               <tr>
                 <th className="relative px-3 py-2 font-medium" style={{ width: colWidths.discipline, minWidth: colWidths.discipline }}>
                   <span className="inline-flex items-center gap-1">
-                    <button type="button" onClick={() => toggleSort("discipline")} className="inline-flex items-center gap-1 hover:text-AIPM-green-strong">
+                    <button type="button" onClick={() => toggleSort("discipline")} className="inline-flex items-center gap-1 hover:text-AIPM-green">
                       {t(lang, "rolesDiscipline")}{sort?.key === "discipline" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
                     </button>
                     <InfoTooltip text={t(lang, "rolesDisciplineHint")} />
@@ -112,7 +112,7 @@ export function RolesEditor({
                 </th>
                 <th className="relative px-3 py-2 font-medium" style={{ width: colWidths.grade, minWidth: colWidths.grade }}>
                   <span className="inline-flex items-center gap-1">
-                    <button type="button" onClick={() => toggleSort("grade")} className="inline-flex items-center gap-1 hover:text-AIPM-green-strong">
+                    <button type="button" onClick={() => toggleSort("grade")} className="inline-flex items-center gap-1 hover:text-AIPM-green">
                       {t(lang, "rolesGrade")}{sort?.key === "grade" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
                     </button>
                     <InfoTooltip text={t(lang, "rolesGradeHint")} />
@@ -121,7 +121,7 @@ export function RolesEditor({
                 </th>
                 <th className="relative px-3 py-2 text-right font-medium" style={{ width: colWidths.internal, minWidth: colWidths.internal }}>
                   <span className="inline-flex items-center gap-1">
-                    <button type="button" onClick={() => toggleSort("internal")} className="inline-flex items-center gap-1 hover:text-AIPM-green-strong">
+                    <button type="button" onClick={() => toggleSort("internal")} className="inline-flex items-center gap-1 hover:text-AIPM-green">
                       {t(lang, "rolesInternalRate")}{sort?.key === "internal" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
                     </button>
                     <InfoTooltip text={t(lang, "rolesInternalRateHint")} />
@@ -130,7 +130,7 @@ export function RolesEditor({
                 </th>
                 <th className="relative px-3 py-2 text-right font-medium" style={{ width: colWidths.external, minWidth: colWidths.external }}>
                   <span className="inline-flex items-center gap-1">
-                    <button type="button" onClick={() => toggleSort("external")} className="inline-flex items-center gap-1 hover:text-AIPM-green-strong">
+                    <button type="button" onClick={() => toggleSort("external")} className="inline-flex items-center gap-1 hover:text-AIPM-green">
                       {t(lang, "rolesExternalRate")}{sort?.key === "external" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
                     </button>
                     <InfoTooltip text={t(lang, "rolesExternalRateHint")} />
