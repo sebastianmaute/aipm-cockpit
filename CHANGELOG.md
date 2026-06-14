@@ -8,6 +8,16 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.79.2] - 2026-06-14
+
+### Fixed
+- Accessibility (WCAG AA contrast): info-bearing green text on light backgrounds
+  now uses the darker `green-strong` shade; the RACI chips are readable in both
+  selected and unselected states; and the Milestones table got the standard dark
+  header (it was the only table still using a light one, which made its green
+  sort label fail contrast). The automated accessibility gate now also covers the
+  Stakeholders, Changes, Milestones, Reports, and Activity views.
+
 ## [0.79.1] - 2026-06-14
 
 ### Fixed
