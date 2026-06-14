@@ -60,7 +60,7 @@ const QUADRANTS: QuadrantConfig[] = [
     id: "keep-informed",
     testId: "quadrant-keep-informed",
     labelKey: "quadrantKeepInformed",
-    tintClass: "bg-AIPM-light-grey/20 dark:bg-AIPM-medium-grey/25",
+    tintClass: "bg-surface-muted/20",
   },
 ];
 
