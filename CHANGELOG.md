@@ -24,6 +24,13 @@ longer carries its own changelog comment.
   archived project can be permanently deleted from the archived list.
 - The Settings rail is now sorted alphabetically, with **Information flows**
   pinned to the bottom under a divider.
+- Manage Roles now has a reset-column-widths button, matching the other tables.
+
+### Fixed
+- Version-history auto-capture no longer writes an empty version when a save
+  only bumped bookkeeping timestamps (`localModifiedAt`): the auto trigger now
+  checks the meaningful diff (which ignores volatile fields) instead of raw
+  byte equality, so an interval with no real change produces no version.
 
 ## [0.81.0] - 2026-06-14 "Wolfe"
 
