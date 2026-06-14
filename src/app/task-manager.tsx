@@ -1292,6 +1292,9 @@ function TaskManagerInner() {
       lang={lang}
       today={today}
       fillHeight={settings.layout === "modern"}
+      nextActions={nextActions}
+      onOpenAction={openAction}
+      onShowActions={() => setActiveTab("actions")}
       jiraSiteUrl={settings.jira.siteUrl}
       onToggleSelect={onToggleSelect}
       onToggleNoteExpanded={onToggleNoteExpanded}

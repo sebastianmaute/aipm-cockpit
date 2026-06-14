@@ -8,6 +8,14 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.79.0] - 2026-06-14 "Willis"
+
+### Added
+- **Inline action chips:** the most urgent next action(s) for a view now appear
+  as compact chips at the top of that view (RAID, Open Points, Budget, …) and on
+  each Reports section. Click a chip to jump straight to the item; `+N more` opens
+  the Action Center. Completes the "suggested next actions" feature.
+
 ## [0.78.0] - 2026-06-13 "Hopkinson"
 
 ### Changed

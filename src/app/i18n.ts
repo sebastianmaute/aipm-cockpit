@@ -1396,6 +1396,10 @@ const enUS = {
   actionSnooze1h: "1 hour",
   actionSnooze1d: "1 day",
   versionHighlightSnoozeActions: "Reminders folded into the Action Center: snooze actions (1h/1d); the due / RAID-review / stakeholder-comms banners are gone",
+  // --- Inline action chips (SP4) ---
+  actionChipsLabel: "Suggested actions",
+  actionChipsMore: "+{0} more",
+  versionHighlightActionChips: "The next action now shows inline on each view and report — click a chip to jump straight to the item",
   // --- Restored: still used by kept banners + comms items (SP3) ---
   alertBannerDismiss: "Dismiss",
   alertCatOverdue: "Overdue",

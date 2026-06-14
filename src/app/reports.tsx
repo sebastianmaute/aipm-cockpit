@@ -27,6 +27,9 @@ import { ResourcesReportPanel } from "./resources-report";
 import { StakeholderReportPanel } from "./stakeholder-report-panel";
 import { ADDABLE_REPORTS, type AddableReportId } from "./addable-reports";
 import { visibleReports, type FeatureModuleId, ALL_MODULE_IDS } from "./feature-modules";
+import { ActionChips, chipsForView } from "./action-chips";
+import type { AppView } from "./nav-config";
+import type { SuggestedAction } from "./next-actions/types";
 import type {
   Absence, BudgetBucket, Discipline, FxRates, Grade, Milestone, RaidItem, Resource, ResourcePlan, Role, Stakeholder,
 } from "./types";
@@ -259,6 +262,7 @@ export function ReportsPanel({
   extraReports = [], onChangeExtraReports,
   stakeholders = [], milestones = [],
   features = [...ALL_MODULE_IDS],
+  nextActions = [], onOpenAction, onShowActions,
 }: {
   tasks: readonly Task[];
   today: string;
@@ -279,6 +283,9 @@ export function ReportsPanel({
   stakeholders?: readonly Stakeholder[];
   milestones?: readonly Milestone[];
   features?: FeatureModuleId[];
+  nextActions?: readonly SuggestedAction[];
+  onOpenAction?: (a: SuggestedAction) => void;
+  onShowActions?: () => void;
 }) {
   const stats = useMemo(
     () => computeStats(tasks, today, holidaySet),
@@ -415,6 +422,13 @@ export function ReportsPanel({
       })}
     </select>
   ) : null;
+
+  const REPORT_SOURCE_VIEW: Partial<Record<AddableReportId, AppView>> = {
+    "raid-report": "raid",
+    "budget-report": "budget",
+    "stakeholder-report": "stakeholders",
+    // resource-report: Resources is not an action source → no chips
+  };
 
   const renderEmbedded = (id: AddableReportId) => {
     if (id === "raid-report") return <RaidReportPanel embedded lang={lang} items={raid} today={today} />;
@@ -656,6 +670,19 @@ export function ReportsPanel({
                 ×
               </button>
             </div>
+            {(() => {
+              const src = REPORT_SOURCE_VIEW[id];
+              if (!src || !onOpenAction || !onShowActions) return null;
+              return (
+                <ActionChips
+                  lang={lang}
+                  actions={chipsForView(nextActions, src)}
+                  onOpen={onOpenAction}
+                  onShowMore={onShowActions}
+                  className="mb-2"
+                />
+              );
+            })()}
             {body}
           </div>
         );

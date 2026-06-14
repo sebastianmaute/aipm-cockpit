@@ -149,5 +149,37 @@ export async function openView(page: Page, name: string): Promise<void> {
     },
     { name, sel: NAV_SELECTOR },
   );
-  await page.waitForTimeout(300);
+  await waitForViewSettled(page);
+}
+
+/**
+ * Wait until the main view's DOM stops changing, so axe (and visual specs) scan
+ * a FULLY-rendered view. A fixed `waitForTimeout` could scan mid-render of the
+ * heavy data tables, so whether a given row is present — and thus whether its
+ * a11y violations are caught — became non-deterministic (a real contrast bug
+ * could pass one run and fail another depending on runner timing). Polling for
+ * DOM stability makes the scan deterministic.
+ *
+ * The poll MUST be driver-side: `page.clock.install` (see gotoApp) fakes the
+ * page's `setTimeout`, so an in-page timer-based settle would never fire.
+ */
+async function waitForViewSettled(page: Page): Promise<void> {
+  // Fonts affect text metrics (→ the large-vs-normal contrast threshold); let
+  // them settle if the browser exposes the API. Tolerant — never blocks.
+  await page
+    .evaluate(() => (document as unknown as { fonts?: { ready?: Promise<unknown> } }).fonts?.ready)
+    .catch(() => {});
+  let prev = -1;
+  let stable = 0;
+  // ~240ms of stability (3×80ms), capped at ~4s so a perpetually-animating
+  // element can never hang the scan.
+  for (let i = 0; i < 50 && stable < 3; i++) {
+    const len = await page.evaluate(() => document.querySelector("main")?.innerHTML.length ?? 0);
+    if (len === prev) stable += 1;
+    else {
+      stable = 0;
+      prev = len;
+    }
+    await page.waitForTimeout(80);
+  }
 }

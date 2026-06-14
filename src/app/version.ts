@@ -2,12 +2,12 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.78.0";
-export const APP_BUILD_DATE = "2026-06-13"; // 0.78.0 reminders folded into the Action Center + per-action snooze
+export const APP_VERSION = "0.79.0";
+export const APP_BUILD_DATE = "2026-06-14"; // 0.79.0 inline next-action chips on views + reports
 /** Minor-series milestone codename (sci-fi/fantasy author names). The whole
- *  0.78.x line is "Hopkinson" (Nalo Hopkinson); patch releases inherit
+ *  0.79.x line is "Willis" (Connie Willis); patch releases inherit
  *  their minor version's codename rather than getting their own. */
-export const APP_MILESTONE = "Hopkinson";
+export const APP_MILESTONE = "Willis";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -87,4 +87,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightUiPolishBatch",
   "versionHighlightActionCenter",
   "versionHighlightSnoozeActions",
+  "versionHighlightActionChips",
 ] as const;
