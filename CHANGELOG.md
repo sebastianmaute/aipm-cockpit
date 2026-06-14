@@ -19,7 +19,8 @@ longer carries its own changelog comment.
 - Moved the **History** navigation entry from the Overview group to the System
   group, directly below **Activity**.
 - The Manage Roles pane is now manually resizable (drag the bottom-right corner)
-  while still scaling to its content by default.
+  while still scaling to its content by default, with a reset-size button that
+  returns it to the content-fit default.
 - The Archive action in the Projects panel now has a tooltip explaining that an
   archived project can be permanently deleted from the archived list.
 - The Settings rail is now sorted alphabetically, with **Information flows**
