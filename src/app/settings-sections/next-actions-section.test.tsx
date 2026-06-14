@@ -16,6 +16,16 @@ describe("NextActionsSection", () => {
     );
   });
 
+  it("renders the three ranking-weight inputs and edits clarity bonus", () => {
+    const onChange = vi.fn();
+    render(<NextActionsSection lang="en-US" settings={defaultSettings} onChange={onChange} />);
+    const clarity = screen.getByLabelText("Clarity bonus");
+    fireEvent.change(clarity, { target: { value: "20" } });
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ nextActions: expect.objectContaining({ clarityBonus: 20 }) }),
+    );
+  });
+
   it("reset button is disabled at defaults and restores defaults when overridden", () => {
     const onChange = vi.fn();
     const overridden = {

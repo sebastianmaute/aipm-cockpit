@@ -16,6 +16,7 @@ type NumField = {
   hintKey: TranslationKey;
   /** "int" → whole numbers (count / percent); "ratio" → decimals (SPI). */
   kind: "int" | "ratio";
+  min?: number;
 };
 
 const FIELDS: readonly NumField[] = [
@@ -26,6 +27,9 @@ const FIELDS: readonly NumField[] = [
   { key: "workloadAllocatedCritical", labelKey: "naWorkloadAllocatedCritical", hintKey: "naWorkloadAllocatedCriticalHint", kind: "int" },
   { key: "workloadOverdueThreshold", labelKey: "naWorkloadOverdueThreshold", hintKey: "naWorkloadOverdueThresholdHint", kind: "int" },
   { key: "workloadOverdueUrgent", labelKey: "naWorkloadOverdueUrgent", hintKey: "naWorkloadOverdueUrgentHint", kind: "int" },
+  { key: "clarityBonus", labelKey: "naClarityBonus", hintKey: "naClarityBonusHint", kind: "int", min: 0 },
+  { key: "semiClarityBonus", labelKey: "naSemiClarityBonus", hintKey: "naSemiClarityBonusHint", kind: "int", min: 0 },
+  { key: "staticPenalty", labelKey: "naStaticPenalty", hintKey: "naStaticPenaltyHint", kind: "int", min: 0 },
 ];
 
 export function NextActionsSection({ lang, settings, onChange }: NextActionsSectionProps) {
@@ -59,7 +63,7 @@ export function NextActionsSection({ lang, settings, onChange }: NextActionsSect
             </span>
             <input
               type="number"
-              min={f.kind === "ratio" ? 0.1 : 1}
+              min={f.min ?? (f.kind === "ratio" ? 0.1 : 1)}
               max={f.kind === "ratio" ? 2 : 100000}
               step={f.kind === "ratio" ? 0.05 : 1}
               aria-label={t(lang, f.labelKey)}
