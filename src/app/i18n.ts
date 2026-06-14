@@ -291,6 +291,8 @@ const enUS = {
   budgetRemoveBucket: "Remove bucket",
   budgetRemoveBucketConfirm: "Remove this budget bucket? Calculations based on it will reset to 0.",
   budgetReorderHandle: "Reorder bucket — drag, or focus and use the up/down arrow keys",
+  reportReorderHandle: "Drag or use arrow keys to reorder",
+  snapshotSelectRow: "Select snapshot {0}",
   budgetEditBucket: "Edit bucket",
   budgetStartDate: "Start date",
   budgetEndDate: "End date",

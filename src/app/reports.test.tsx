@@ -304,7 +304,7 @@ describe("ReportsPanel — drag-reorder extra reports", () => {
     );
 
     // Locate the two drag handles (one per extra report card, in DOM order)
-    const handles = screen.getAllByRole("button", { name: /drag to reorder/i });
+    const handles = screen.getAllByRole("button", { name: /drag or use arrow keys to reorder/i });
     expect(handles).toHaveLength(2);
 
     // Drag the 2nd handle (budget-report) onto the 1st card (raid-report)

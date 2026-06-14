@@ -374,6 +374,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
                 <button
                   type="button"
                   aria-label={t(lang, "dashboardHideTrends")}
+                  aria-pressed={true}
                   title={t(lang, "dashboardHideTrends")}
                   onClick={() => props.onToggleTrends!(false)}
                   className="rounded border border-line bg-surface px-2 py-0.5 text-xs text-muted-foreground hover:bg-surface-muted print:hidden"
@@ -389,6 +390,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
             <button
               type="button"
               aria-label={t(lang, "dashboardShowTrends")}
+              aria-pressed={false}
               onClick={() => props.onToggleTrends!(true)}
               className="rounded-md border border-line bg-surface px-2 py-1 text-xs text-muted-foreground hover:bg-surface-muted"
             >

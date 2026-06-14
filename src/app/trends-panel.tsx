@@ -252,7 +252,7 @@ export function TrendsPanel(props: TrendsPanelProps) {
                             return next;
                           });
                         }}
-                        aria-label={`Select snapshot ${s.capturedAt.slice(0, 16)}`}
+                        aria-label={t(lang, "snapshotSelectRow", s.capturedAt.slice(0, 16))}
                       />
                     </td>
                     <td className="px-3 py-2 tabular-nums">{s.capturedAt.slice(0, 16).replace("T", " ")}</td>

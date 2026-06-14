@@ -352,6 +352,15 @@ export function ReportsPanel({
     onChangeExtraReports?.(ids);
   };
 
+  const moveReport = (id: AddableReportId, delta: number) => {
+    const ids = [...extraReports];
+    const i = ids.indexOf(id);
+    const j = i + delta;
+    if (i < 0 || j < 0 || j >= ids.length) return;
+    [ids[i], ids[j]] = [ids[j], ids[i]];
+    onChangeExtraReports?.(ids);
+  };
+
   const resetAllReports = () => {
     inquiry.resetColWidths();
     assignee.resetColWidths();
@@ -684,11 +693,21 @@ export function ReportsPanel({
                 <button
                   type="button"
                   draggable
+                  tabIndex={0}
                   onDragStart={() => setDragId(id)}
                   onDragEnd={() => setDragId(null)}
-                  aria-label="Drag to reorder"
-                  title="Drag to reorder"
-                  className="cursor-grab touch-none rounded px-1 py-0.5 text-muted-foreground hover:text-foreground print:hidden"
+                  onKeyDown={(e) => {
+                    if (e.key === "ArrowUp") {
+                      e.preventDefault();
+                      moveReport(id, -1);
+                    } else if (e.key === "ArrowDown") {
+                      e.preventDefault();
+                      moveReport(id, 1);
+                    }
+                  }}
+                  aria-label={t(lang, "reportReorderHandle")}
+                  title={t(lang, "reportReorderHandle")}
+                  className="cursor-grab touch-none select-none rounded px-1 py-0.5 text-muted-foreground hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-AIPM-green print:hidden"
                 >
                   ⠿
                 </button>

@@ -61,7 +61,7 @@ export function InfoTooltip({ text, label }: InfoTooltipProps) {
             role="tooltip"
             data-tooltip-portal
             style={{ top: pos.top, left: pos.left, transform: "translateX(-50%)" }}
-            className="pointer-events-none fixed z-[100] w-max max-w-[16rem] rounded-md border border-line bg-surface px-2 py-1 text-xs font-normal normal-case text-foreground shadow-md"
+            className="pointer-events-none fixed z-[100] w-max max-w-[16rem] rounded-md border border-line bg-surface px-2 py-1 text-xs font-normal normal-case text-foreground"
           >
             {text}
           </span>,
