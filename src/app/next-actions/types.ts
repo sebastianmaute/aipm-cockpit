@@ -6,6 +6,7 @@ import type { Task, RaidItem, ChangeItem, Milestone, Stakeholder } from "../type
 import type { DashboardModel } from "../dashboard";
 import type { StakeholderCommsReminder } from "../stakeholder-comms";
 import type { WorkloadAlert } from "../next-actions-workload";
+import type { ActionTrends } from "./trends";
 
 export type ActionTier = "now" | "soon" | "monitor";
 export type ActionSource =
@@ -61,6 +62,12 @@ export interface ActionInput {
   taskDueEnabled?: boolean;           // Settings → Notifications "due reminders" toggle; false → no task-due actions (undefined = enabled)
   workloadAlerts?: readonly WorkloadAlert[];  // pre-computed by the surface via buildWorkloadAlerts; feeds the `workload` provider
   raidReviewEnabled?: boolean;        // "RAID review reminder" toggle; false → no RAID review-due actions, severity actions stay (undefined = enabled)
+  /** Aggregate-metric trend directions (Turso snapshots). Undefined off-Turso. */
+  trends?: ActionTrends;
+  /** Confidence weights (Settings -> Next actions). Provider falls back to const. */
+  clarityBonus?: number;
+  semiClarityBonus?: number;
+  staticPenalty?: number;
   dismissed: ReadonlySet<string>;     // snoozed/dismissed action ids (injected; SP3 wires the store)
 }
 

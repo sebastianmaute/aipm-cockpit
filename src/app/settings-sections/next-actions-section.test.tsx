@@ -16,6 +16,25 @@ describe("NextActionsSection", () => {
     );
   });
 
+  it("renders the three ranking-weight inputs and edits clarity bonus", () => {
+    const onChange = vi.fn();
+    render(<NextActionsSection lang="en-US" settings={defaultSettings} onChange={onChange} />);
+    const clarity = screen.getByLabelText("Clarity bonus");
+    fireEvent.change(clarity, { target: { value: "20" } });
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ nextActions: expect.objectContaining({ clarityBonus: 20 }) }),
+    );
+  });
+
+  it("edits the static penalty input", () => {
+    const onChange = vi.fn();
+    render(<NextActionsSection lang="en-US" settings={defaultSettings} onChange={onChange} />);
+    fireEvent.change(screen.getByLabelText("Static penalty"), { target: { value: "30" } });
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ nextActions: expect.objectContaining({ staticPenalty: 30 }) }),
+    );
+  });
+
   it("reset button is disabled at defaults and restores defaults when overridden", () => {
     const onChange = vi.fn();
     const overridden = {

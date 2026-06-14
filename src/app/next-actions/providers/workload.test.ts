@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { workloadProvider } from "./workload";
 import type { ActionInput } from "../types";
+import { ACTION_WEIGHTS } from "../score";
 
 function input(workloadAlerts: ActionInput["workloadAlerts"]): ActionInput {
   return {
@@ -27,6 +28,10 @@ describe("workloadProvider", () => {
   it("emits nothing when there are no alerts", () => {
     expect(workloadProvider.provide(input([]))).toEqual([]);
     expect(workloadProvider.provide(input(undefined))).toEqual([]);
+  });
+  it("includes the semi-clarity bonus in the over-allocated score", () => {
+    const [a] = workloadProvider.provide(input([{ resourceId: 1, resourceName: "Aria", reason: "over-allocated", value: 135 }]));
+    expect(a.score).toBe(ACTION_WEIGHTS.riskCritical + ACTION_WEIGHTS.urgencySoon + ACTION_WEIGHTS.semiClarityBonus);
   });
   it("honors overridden over-allocation and overload escalation thresholds", () => {
     const overAlloc = [{ resourceId: 1, resourceName: "Aria", reason: "over-allocated" as const, value: 120 }];

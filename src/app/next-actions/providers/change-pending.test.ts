@@ -75,8 +75,8 @@ describe("changePendingProvider", () => {
     expect(agg!.why.params).toBeUndefined(); // RAG word baked into the string (localizable)
     expect(agg!.source).toBe("change-pending");
     expect(agg!.cta).toEqual({ kind: "open", view: "changes", id: 0 });
-    // Score must include both riskCritical and impactScopePending
-    const expectedScore = scoreAction({ risk: W.riskCritical, impact: W.impactScopePending });
+    // Score must include riskCritical, impactScopePending, and clarityBonus
+    const expectedScore = scoreAction({ risk: W.riskCritical, impact: W.impactScopePending, clarity: W.clarityBonus });
     expect(agg!.score).toBe(expectedScore);
   });
 
@@ -150,5 +150,19 @@ describe("changePendingProvider", () => {
     const agg = actions.find((a) => a.id === "change-pending:all:aggregate");
     expect(agg).toBeDefined();
     expect(agg!.title.params![0]).toBe(6); // only 6 are pending
+  });
+
+  it("includes the clarity bonus in the aggregate score", () => {
+    const changes = Array.from({ length: SCOPE_PENDING_RED }, (_, i) => ci({ id: i + 1 }));
+    const actions = changePendingProvider.provide(input(changes));
+    const agg = actions.find((a) => a.id === "change-pending:all:aggregate");
+    expect(agg!.score).toBe(W.riskCritical + W.impactScopePending + W.clarityBonus);
+  });
+
+  it("includes the clarity bonus in the per-item score", () => {
+    const changes = [ci({ id: 1, status: "Proposed", impact: "Critical", title: "Risk" })];
+    const actions = changePendingProvider.provide(input(changes));
+    const item = actions.find((a) => a.id === "change-pending:1:item");
+    expect(item!.score).toBe(W.riskCritical + W.clarityBonus);
   });
 });

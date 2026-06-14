@@ -252,6 +252,12 @@ export type NextActionsConfig = {
   workloadOverdueThreshold: number;
   /** Overdue-task count at/above which the overload alert escalates to urgent. */
   workloadOverdueUrgent: number;
+  /** Confidence bonus for a clear-fix action. */
+  clarityBonus: number;
+  /** Confidence bonus for a semi-clear (several-lever) action. */
+  semiClarityBonus: number;
+  /** Confidence penalty for a vague/aggregate static signal. */
+  staticPenalty: number;
 };
 
 export const defaultNextActionsConfig: NextActionsConfig = {
@@ -262,6 +268,9 @@ export const defaultNextActionsConfig: NextActionsConfig = {
   workloadAllocatedCritical: 130,
   workloadOverdueThreshold: 3,
   workloadOverdueUrgent: 5,
+  clarityBonus: 15,
+  semiClarityBonus: 7,
+  staticPenalty: 25,
 };
 
 /** Unset -> default (fresh copy); otherwise coerce each field to a finite value
@@ -273,6 +282,10 @@ export function resolveNextActionsConfig(raw: unknown): NextActionsConfig {
   const intMin1 = (v: unknown, def: number): number => {
     const n = Number(v);
     return Number.isFinite(n) && n >= 1 ? Math.round(n) : def;
+  };
+  const intMin0 = (v: unknown, def: number): number => {
+    const n = Number(v);
+    return Number.isFinite(n) && n >= 0 ? Math.round(n) : def;
   };
   const ratio = (v: unknown, def: number): number => {
     const n = Number(v);
@@ -286,6 +299,9 @@ export function resolveNextActionsConfig(raw: unknown): NextActionsConfig {
     workloadAllocatedCritical: intMin1(obj.workloadAllocatedCritical, d.workloadAllocatedCritical),
     workloadOverdueThreshold: intMin1(obj.workloadOverdueThreshold, d.workloadOverdueThreshold),
     workloadOverdueUrgent: intMin1(obj.workloadOverdueUrgent, d.workloadOverdueUrgent),
+    clarityBonus: intMin0(obj.clarityBonus, d.clarityBonus),
+    semiClarityBonus: intMin0(obj.semiClarityBonus, d.semiClarityBonus),
+    staticPenalty: intMin0(obj.staticPenalty, d.staticPenalty),
   };
 }
 

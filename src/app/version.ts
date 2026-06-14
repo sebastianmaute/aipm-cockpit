@@ -2,12 +2,12 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.82.0";
-export const APP_BUILD_DATE = "2026-06-14"; // 0.82.0 load any file format on empty state + History under Activity
+export const APP_VERSION = "0.83.0";
+export const APP_BUILD_DATE = "2026-06-14"; // 0.83.0 confidence ranking for Action Center
 /** Minor-series milestone codename (sci-fi/fantasy author names). The whole
- *  0.82.x line is "Jemisin" (N. K. Jemisin); patch releases inherit
+ *  0.83.x line is "Robinson" (Kim Stanley Robinson); patch releases inherit
  *  their minor version's codename rather than getting their own. */
-export const APP_MILESTONE = "Jemisin";
+export const APP_MILESTONE = "Robinson";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -92,4 +92,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightUiBatch",
   "versionHighlightDocuments",
   "versionHighlightLoadFormats",
+  "versionHighlightConfidenceRanking",
 ] as const;

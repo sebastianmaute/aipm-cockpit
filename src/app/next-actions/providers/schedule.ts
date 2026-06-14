@@ -11,16 +11,30 @@ export const scheduleProvider: ActionProvider = {
     const critical = input.scheduleSpiCritical ?? 0.8;
     const spi = input.dashboard.evm?.spi ?? null;
     if (spi == null || spi >= warn) return [];
+
+    const trend = input.trends?.schedule;
+    const penaltyBase = input.staticPenalty ?? W.staticPenalty;
+    // Worsening trend has real momentum -> less penalty so the score rises vs a stale signal.
+    const staticPenalty = trend === "worsening" ? Math.round(penaltyBase / 2) : penaltyBase;
+
     const score =
       spi < critical
-        ? scoreAction({ urgency: W.urgencyOverdue, risk: W.riskCritical })
-        : scoreAction({ urgency: W.urgencySoon, risk: W.riskHigh });
+        ? scoreAction({ urgency: W.urgencyOverdue, risk: W.riskCritical, staticPenalty })
+        : scoreAction({ urgency: W.urgencySoon, risk: W.riskHigh, staticPenalty });
+
+    const why =
+      trend === "worsening"
+        ? { key: "actionScheduleWhySlipping" as const, params: [spi.toFixed(2)] }
+        : trend === "improving"
+          ? { key: "actionScheduleWhyImproving" as const, params: [spi.toFixed(2)] }
+          : { key: "actionScheduleWhyBehind" as const, params: [spi.toFixed(2)] };
+
     return [
       {
         id: "schedule:project:spi",
         source: "schedule",
         title: { key: "actionScheduleTitle", params: [input.projectName] },
-        why: { key: "actionScheduleWhyBehind", params: [spi.toFixed(2)] },
+        why,
         score,
         tier: bandTier(score),
         cta: { kind: "open", view: "dashboard", id: 0 },

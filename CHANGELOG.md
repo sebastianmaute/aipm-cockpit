@@ -8,6 +8,24 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.83.0] - 2026-06-14 "Robinson"
+
+### Added / Changed
+- The Action Center now ranks suggested actions by **confidence** — how
+  actionable a signal is — using a hybrid score. A clarity bonus and a
+  static-signal penalty mean a clear, actionable item can now outrank a vague,
+  static red, instead of ordering purely by raw severity.
+- Snapshot-trend awareness for the **budget** and **schedule** signals: a metric
+  that is actively worsening (compared to the previous snapshot) is ranked higher
+  than one that is merely bad but stable.
+- Root-cause **why-text** (magnitude + trend) is now attached to the budget,
+  schedule, and RAID-no-owner actions, so each suggestion explains *why* it
+  fired rather than just *that* it fired.
+- New configurable **ranking weights** under **Settings → Next actions**, letting
+  you tune how clarity, trend, and severity combine into the final ranking.
+- The inbox now has a collapsible **"monitor"** group, separating
+  keep-an-eye-on items from the ones that need action now.
+
 ## [0.82.0] - 2026-06-14 "Jemisin"
 
 ### Added / Changed

@@ -75,13 +75,14 @@ describe("milestoneProvider — overdue milestone", () => {
     expect(acts[0].why).toEqual({ key: "actionMilestoneWhyOverdue" });
   });
 
-  it("computes score = urgencyOverdue + impactBlocksMilestone", () => {
+  it("computes score = urgencyOverdue + impactBlocksMilestone + semiClarityBonus", () => {
     const expectedScore = scoreAction({
       urgency: ACTION_WEIGHTS.urgencyOverdue,
       impact: ACTION_WEIGHTS.impactBlocksMilestone,
+      clarity: ACTION_WEIGHTS.semiClarityBonus,
     });
     const acts = milestoneProvider.provide(input([overdueMilestone()]));
-    expect(acts[0].score).toBe(expectedScore);  // 40 + 20 = 60
+    expect(acts[0].score).toBe(expectedScore);  // 40 + 20 + 7 = 67
   });
 
   it("sets cta to open milestones view with milestone id", () => {
@@ -121,15 +122,23 @@ describe("milestoneProvider — at-risk milestone", () => {
     expect(a.cta).toEqual({ kind: "open", view: "milestones", id: 5 });
   });
 
-  it("computes score = riskHigh + impactBlocksMilestone for at-risk", () => {
+  it("computes score = riskHigh + impactBlocksMilestone + semiClarityBonus for at-risk", () => {
     const expectedScore = scoreAction({
       risk: ACTION_WEIGHTS.riskHigh,
       impact: ACTION_WEIGHTS.impactBlocksMilestone,
+      clarity: ACTION_WEIGHTS.semiClarityBonus,
     });
     const atRiskMs = onTrackMilestone({ id: 5, date: "2026-07-01", linkedTaskIds: [10] });
     const blockingTask = task({ id: 10, dueDate: "2026-07-15" });
     const acts = milestoneProvider.provide(input([atRiskMs], [blockingTask]));
-    expect(acts[0].score).toBe(expectedScore);  // 15 + 20 = 35
+    expect(acts[0].score).toBe(expectedScore);  // 15 + 20 + 7 = 42
+  });
+});
+
+describe("milestoneProvider — semi-clarity bonus", () => {
+  it("includes the semi-clarity bonus in the overdue score", () => {
+    const [a] = milestoneProvider.provide(input([overdueMilestone()]));
+    expect(a.score).toBe(ACTION_WEIGHTS.urgencyOverdue + ACTION_WEIGHTS.impactBlocksMilestone + ACTION_WEIGHTS.semiClarityBonus);
   });
 });
 

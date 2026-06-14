@@ -25,7 +25,7 @@ export const taskDueProvider: ActionProvider = {
           : al.category === "today"
             ? { key: "actionTaskWhyToday" as const }
             : { key: "actionTaskWhySoon" as const, params: [al.workDaysLeft] };
-      const score = scoreAction({ urgency });
+      const score = scoreAction({ urgency, clarity: input.clarityBonus ?? W.clarityBonus });
       return {
         id: `task-due:${al.task.id}:${al.category}`,
         source: "task-due",

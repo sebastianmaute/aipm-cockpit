@@ -12,7 +12,23 @@ export const budgetProvider: ActionProvider = {
 
     const cpi = input.dashboard.evm.cpi;
     const cpiText = cpi != null && Number.isFinite(cpi) ? cpi.toFixed(2) : "n/a";
-    const score = scoreAction({ risk: eff === "R" ? W.riskCritical : W.riskHigh });
+
+    const trend = input.trends?.budget;
+    const penaltyBase = input.staticPenalty ?? W.staticPenalty;
+    // Worsening trend has real momentum -> less penalty so the score rises vs a stale signal.
+    const staticPenalty = trend === "worsening" ? Math.round(penaltyBase / 2) : penaltyBase;
+
+    const score = scoreAction({
+      risk: eff === "R" ? W.riskCritical : W.riskHigh,
+      staticPenalty,
+    });
+
+    const why =
+      trend === "worsening"
+        ? { key: "actionBudgetWhyWorsening" as const, params: [cpiText] }
+        : trend === "improving"
+          ? { key: "actionBudgetWhyImproving" as const, params: [cpiText] }
+          : { key: "actionBudgetWhyCpi" as const, params: [cpiText] };
 
     return [
       {
@@ -20,7 +36,7 @@ export const budgetProvider: ActionProvider = {
         source: "budget",
         moduleId: "budget",
         title: { key: "actionBudgetTitle", params: [input.projectName] },
-        why: { key: "actionBudgetWhyCpi", params: [cpiText] },
+        why,
         score,
         tier: bandTier(score),
         cta: { kind: "open", view: "budget", id: 0 },

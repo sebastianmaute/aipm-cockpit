@@ -32,4 +32,9 @@ describe("taskDueProvider", () => {
     const task: Task = { id: 7, taskName: "Ship", dueDate: "2026-06-10", assignee: "", assigneeEmail: "", lastUpdateDate: "2026-06-01", priority: "Medium", blockers: "", notes: "" };
     expect(taskDueProvider.provide({ ...input([task]), taskDueEnabled: false })).toEqual([]);
   });
+  it("includes the clarity bonus in the score for an overdue task", () => {
+    const task: Task = { id: 7, taskName: "Ship", dueDate: "2026-06-10", assignee: "", assigneeEmail: "", lastUpdateDate: "2026-06-01", priority: "Medium", blockers: "", notes: "" };
+    const [a] = taskDueProvider.provide(input([task]));
+    expect(a.score).toBe(ACTION_WEIGHTS.urgencyOverdue + ACTION_WEIGHTS.clarityBonus);
+  });
 });

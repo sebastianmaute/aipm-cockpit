@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { raidProvider } from "./raid";
 import type { ActionInput } from "../types";
 import type { RaidItem } from "../../types";
+import type { DashboardModel } from "../../dashboard";
 import { ACTION_WEIGHTS } from "../score";
 
 const TODAY = "2026-06-15";
@@ -74,7 +75,7 @@ describe("raidProvider — severity actions", () => {
     expect(sev!.cta).toEqual({ kind: "open", view: "raid", id: 1 });
     expect(sev!.score).toBeGreaterThanOrEqual(ACTION_WEIGHTS.riskCritical);
     expect(sev!.title).toEqual({ key: "actionRaidTitle", params: [1, "Server outage risk"] });
-    expect(sev!.why).toEqual({ key: "actionRaidWhySeverity", params: ["Critical"] });
+    expect(sev!.why).toEqual({ key: "actionRaidWhyNoOwner", params: ["Critical"] });
   });
 
   it("emits a severity action for a non-terminal High Assumption item (RAG=R)", () => {
@@ -170,5 +171,41 @@ describe("raidProvider — review actions", () => {
 describe("raidProvider — provider metadata", () => {
   it("has moduleId 'raid'", () => {
     expect(raidProvider.moduleId).toBe("raid");
+  });
+});
+
+describe("raid severity confidence", () => {
+  function input(raid: unknown[], over: Record<string, unknown> = {}): ActionInput {
+    return {
+      tasks: [], raid, changes: [], milestones: [], stakeholders: [],
+      commsReminders: [], features: ["raid"], projectName: "P",
+      today: "2026-01-01", now: new Date("2026-01-01T00:00:00Z"),
+      reminderLeadDays: 7, dueSoonWorkdays: 5, raidReviewIntervalDays: 14,
+      raidReviewEnabled: false, dismissed: new Set<string>(),
+      dashboard: { budget: { effective: "G" }, evm: {} } as unknown as DashboardModel,
+      ...over,
+    } as ActionInput;
+  }
+  const highRisk = {
+    id: 1, category: "R", title: "DB outage", severity: "High",
+    status: "Open", linkedTaskIds: [], raisedDate: "2026-01-01",
+  };
+  it("scores risk + clarity bonus when unassigned", () => {
+    const [a] = raidProvider.provide(input([{ ...highRisk }]));
+    // severityRag("High") => "R" → riskCritical
+    expect(a.score).toBe(ACTION_WEIGHTS.riskCritical + ACTION_WEIGHTS.clarityBonus);
+  });
+  it("uses the no-owner why when unassigned", () => {
+    const [a] = raidProvider.provide(input([{ ...highRisk }]));
+    expect(a.why.key).toBe("actionRaidWhyNoOwner");
+  });
+  it("scores risk + semi bonus when an owner is set", () => {
+    const [a] = raidProvider.provide(input([{ ...highRisk, owner: "Mara" }]));
+    // severityRag("High") => "R" → riskCritical
+    expect(a.score).toBe(ACTION_WEIGHTS.riskCritical + ACTION_WEIGHTS.semiClarityBonus);
+  });
+  it("keeps the severity why when an owner is set", () => {
+    const [a] = raidProvider.provide(input([{ ...highRisk, owner: "Mara" }]));
+    expect(a.why.key).toBe("actionRaidWhySeverity");
   });
 });

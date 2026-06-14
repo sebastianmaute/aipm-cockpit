@@ -1,5 +1,6 @@
 // src/app/actions-panel.tsx
 "use client";
+import { useState } from "react";
 import { type Lang, t, type TranslationKey } from "./i18n";
 import { VIEW_PANE_FILL_CLASS } from "./view-styles";
 import { ActionRow } from "./action-row";
@@ -19,6 +20,7 @@ interface ActionsPanelProps {
 }
 
 export function ActionsPanel({ lang, actions, onOpen, onSnooze }: ActionsPanelProps) {
+  const [monitorOpen, setMonitorOpen] = useState(false);
   return (
     <div className={VIEW_PANE_FILL_CLASS}>
       <div className="mb-4 shrink-0">
@@ -34,6 +36,27 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze }: ActionsPanelPr
           {TIERS.map(({ tier, labelKey }) => {
             const rows = actions.filter((a) => a.tier === tier);
             if (rows.length === 0) return null;
+            if (tier === "monitor") {
+              return (
+                <section key={tier}>
+                  <button
+                    type="button"
+                    aria-expanded={monitorOpen}
+                    aria-controls="action-monitor-list"
+                    onClick={() => setMonitorOpen((o) => !o)}
+                    className="mb-2 flex w-full items-center gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground"
+                  >
+                    <span aria-hidden>{monitorOpen ? "▾" : "▸"}</span>
+                    {t(lang, "actionMonitoredCount", rows.length)}
+                  </button>
+                  <div id="action-monitor-list" className="flex flex-col gap-2" hidden={!monitorOpen}>
+                    {rows.map((a) => (
+                      <ActionRow key={a.id} lang={lang} action={a} onOpen={onOpen} onSnooze={onSnooze} />
+                    ))}
+                  </div>
+                </section>
+              );
+            }
             return (
               <section key={tier}>
                 <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">

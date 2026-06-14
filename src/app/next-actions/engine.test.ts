@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { computeNextActions } from "./engine";
 import type { ActionInput, ActionProvider, SuggestedAction } from "./types";
+import { budgetProvider } from "./providers/budget";
+import { raidProvider } from "./providers/raid";
 
 function mkAction(id: string, score: number, moduleId?: SuggestedAction["moduleId"]): SuggestedAction {
   return {
@@ -39,5 +41,23 @@ describe("computeNextActions", () => {
     const input = { ...baseInput, dismissed: new Set(["gone"]) } as ActionInput;
     const out = computeNextActions(input, [provider([mkAction("gone", 90), mkAction("keep", 40)])]);
     expect(out.map((a) => a.id)).toEqual(["keep"]);
+  });
+  it("ranks a clear RAID-no-owner action above a static red budget", () => {
+    const input = {
+      tasks: [], changes: [], milestones: [], stakeholders: [], commsReminders: [],
+      features: ["budget", "raid"], projectName: "P",
+      today: "2026-01-01", now: new Date("2026-01-01T00:00:00Z"),
+      reminderLeadDays: 7, dueSoonWorkdays: 5, raidReviewIntervalDays: 14,
+      raidReviewEnabled: false, dismissed: new Set<string>(),
+      dashboard: { budget: { effective: "R" }, evm: { cpi: 0.8 } },
+      raid: [{ id: 1, category: "R", title: "DB outage", severity: "High",
+               status: "Open", linkedTaskIds: [], raisedDate: "2026-01-01" }],
+    } as never;
+    const actions = computeNextActions(input, [budgetProvider, raidProvider]);
+    const raidIdx = actions.findIndex((a) => a.source === "raid");
+    const budgetIdx = actions.findIndex((a) => a.source === "budget");
+    expect(raidIdx).toBeGreaterThanOrEqual(0);
+    expect(budgetIdx).toBeGreaterThanOrEqual(0);
+    expect(raidIdx).toBeLessThan(budgetIdx); // raid clarity-boosted, budget penalised
   });
 });
