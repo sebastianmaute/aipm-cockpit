@@ -65,7 +65,6 @@ describe("InfoTooltip", () => {
       // Stub getBoundingClientRect on the trigger span (the role=button span)
       const trigger = screen.getByRole("button", { name: "Near right edge" });
       const triggerParent = container.firstChild as HTMLElement; // outer wrapper span
-      jest: void 0; // silence unused var — we use vi below implicitly via vitest globals
       Object.defineProperty(triggerParent, "getBoundingClientRect", {
         value: () => ({
           left: 980,
