@@ -213,10 +213,10 @@ export function AppModals({
         <div
           role="status"
           aria-live="polite"
-          className={`fixed bottom-4 right-4 z-30 max-w-md rounded-md px-4 py-2.5 text-sm shadow-lg ${
-            toast.kind === "error"
-              ? "bg-AIPM-pink text-white"
-              : "bg-AIPM-dark-blue text-white"
+          // Bordered style: colored left-accent on a surface bg with readable
+          // dark text — white-on-pink (3.76:1) failed WCAG AA at this size.
+          className={`fixed bottom-4 right-4 z-30 max-w-md rounded-md border border-l-4 bg-surface px-4 py-2.5 text-sm text-foreground shadow-lg ${
+            toast.kind === "error" ? "border-AIPM-pink" : "border-AIPM-dark-blue"
           }`}
         >
           {toast.text}

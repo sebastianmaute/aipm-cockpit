@@ -8,6 +8,13 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.80.1] - 2026-06-14
+
+### Fixed
+- Accessibility: toast notifications now use a coloured left-accent border on a
+  readable surface background instead of white-on-colour fills — the error
+  toast's white-on-pink combination failed WCAG AA contrast.
+
 ## [0.80.0] - 2026-06-14 "Kress"
 
 ### Added
