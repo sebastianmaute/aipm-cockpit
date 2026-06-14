@@ -518,6 +518,9 @@ export function WorkspaceSection({
               stakeholders={stakeholders}
               milestones={milestones}
               features={settings.features}
+              nextActions={nextActions}
+              onOpenAction={onOpenAction}
+              onShowActions={() => setActiveTab("actions")}
             />
           </div>
         )}
