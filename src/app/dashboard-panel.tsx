@@ -307,65 +307,89 @@ export function DashboardPanel(props: DashboardPanelProps) {
           dueSoon={model.dueSoon}
           onOpenRaid={onOpenRaid}
           onOpenTask={onOpenTask}
-          overdueMilestones={model.overdueMilestones}
-          atRiskMilestones={model.atRiskMilestones}
-          dueSoonMilestones={model.dueSoonMilestones}
-          onOpenMilestone={props.onOpenMilestone}
           showRaid={showRaid}
-          showMilestones={showMilestones}
         />
 
-        {/* Changes */}
-        {showChanges && (
-          <Section title={t(lang, "dashboardChangesHeading")} boxed>
-            <p className="mb-1 text-xs font-semibold uppercase text-muted-foreground">
-              {t(lang, "dashboardChangesPending", String(model.changes.pending))}
-            </p>
-            {model.topChanges.length === 0 ? (
-              <p className="text-sm text-muted-foreground">{t(lang, "dashboardChangesEmpty")}</p>
+        {/* Milestones + Changes (side-by-side on large screens) */}
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          {showMilestones && (
+            <Section title={t(lang, "dashboardMilestones")} boxed>
+              {model.overdueMilestones.length + model.atRiskMilestones.length + model.dueSoonMilestones.length === 0 ? (
+                <p className="text-sm text-muted-foreground">—</p>
+              ) : (
+                <ul className="space-y-1 text-sm">
+                  {[...model.overdueMilestones, ...model.atRiskMilestones, ...model.dueSoonMilestones].map((m) => (
+                    <li key={m.id}>
+                      {props.onOpenMilestone ? (
+                        <button
+                          type="button"
+                          className="rounded-md border border-transparent px-2 py-0.5 text-left text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted"
+                          onClick={() => props.onOpenMilestone!()}
+                        >
+                          {model.atRiskMilestones.includes(m) ? "⚠ " : ""}{m.name} · {m.date}
+                        </button>
+                      ) : (
+                        <span>{model.atRiskMilestones.includes(m) ? "⚠ " : ""}{m.name} · {m.date}</span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Section>
+          )}
+          {showChanges && (
+            <Section title={t(lang, "dashboardChangesHeading")} boxed>
+              <p className="mb-1 text-xs font-semibold uppercase text-muted-foreground">
+                {t(lang, "dashboardChangesPending", String(model.changes.pending))}
+              </p>
+              {model.topChanges.length === 0 ? (
+                <p className="text-sm text-muted-foreground">{t(lang, "dashboardChangesEmpty")}</p>
+              ) : (
+                <ul className="space-y-1 text-sm">
+                  {model.topChanges.map((c) => (
+                    <li key={c.id} className="flex items-center gap-2">
+                      <RagBadge value={changeImpactRag(c.impact)} lang={lang} />
+                      <span className="text-muted-foreground">#{c.id}</span>
+                      <span className="font-medium">{c.title}</span>
+                      <span className="text-muted-foreground">· {t(lang, CHANGE_STATUS_KEY[c.status])}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Section>
+          )}
+        </div>
+
+        {/* Top actions + Recent activity (side-by-side on large screens) */}
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          {/* Top actions */}
+          {topActions && topActions.length > 0 && (
+            <section>
+              <h3 className="mb-2 text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
+                {t(lang, "dashboardTopActions")}
+              </h3>
+              <div className="flex flex-col gap-2">
+                {topActions.map((a) => (
+                  <ActionRow key={a.id} lang={lang} action={a} onOpen={onOpenAction ?? (() => {})} />
+                ))}
+              </div>
+            </section>
+          )}
+          {/* Recent activity */}
+          <Section title={t(lang, "dashboardRecentActivity")} boxed>
+            {model.recentActivity.length === 0 ? (
+              <p className="text-sm text-muted-foreground">{t(lang, "dashboardEmpty")}</p>
             ) : (
               <ul className="space-y-1 text-sm">
-                {model.topChanges.map((c) => (
-                  <li key={c.id} className="flex items-center gap-2">
-                    <RagBadge value={changeImpactRag(c.impact)} lang={lang} />
-                    <span className="text-muted-foreground">#{c.id}</span>
-                    <span className="font-medium">{c.title}</span>
-                    <span className="text-muted-foreground">· {t(lang, CHANGE_STATUS_KEY[c.status])}</span>
+                {model.recentActivity.map((e) => (
+                  <li key={e.id} className="text-muted-foreground">
+                    {e.timestamp.slice(0, 10)} · {e.kind}
                   </li>
                 ))}
               </ul>
             )}
           </Section>
-        )}
-
-        {/* Recent activity */}
-        <Section title={t(lang, "dashboardRecentActivity")} boxed>
-          {model.recentActivity.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t(lang, "dashboardEmpty")}</p>
-          ) : (
-            <ul className="space-y-1 text-sm">
-              {model.recentActivity.map((e) => (
-                <li key={e.id} className="text-muted-foreground">
-                  {e.timestamp.slice(0, 10)} · {e.kind}
-                </li>
-              ))}
-            </ul>
-          )}
-        </Section>
-
-        {/* Top actions */}
-        {topActions && topActions.length > 0 && (
-          <section className="mt-4">
-            <h3 className="mb-2 text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
-              {t(lang, "dashboardTopActions")}
-            </h3>
-            <div className="flex flex-col gap-2">
-              {topActions.map((a) => (
-                <ActionRow key={a.id} lang={lang} action={a} onOpen={onOpenAction ?? (() => {})} />
-              ))}
-            </div>
-          </section>
-        )}
+        </div>
       </div>
     </ReportCard>
   );

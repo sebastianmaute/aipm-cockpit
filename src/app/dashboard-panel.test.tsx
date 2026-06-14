@@ -388,7 +388,6 @@ describe("RegistersBand link styling", () => {
         lang="en-US"
         topRaid={[{ id: 1, category: "R", title: "risk", status: "Open", linkedTaskIds: [], raisedDate: "2026-01-01", causedByRaidIds: [] } as never]}
         overdue={[]} dueSoon={[]}
-        overdueMilestones={[]} atRiskMilestones={[]} dueSoonMilestones={[]}
         onOpenRaid={() => {}}
       />,
     );
