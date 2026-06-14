@@ -104,6 +104,63 @@ test("budget renders a bucket-count heading and is a resizable card", () => {
   expect(src).toMatch(/VIEW_PANE_RESIZABLE_CLASS/);
 });
 
+describe("Cci primary prop", () => {
+  // We test Cci by rendering BudgetPanel with a bucket that has known CCI values
+  // and checking which number appears as the big figure vs the small figure.
+  // With primary="percent" on CPI and Consumption, the big figure is the percent string.
+  // With default (Margin), the big figure is the currency amount.
+
+  const cciProps = {
+    ...props,
+    buckets: [{
+      id: 1, name: "B1", type: "tm" as const, currency: "EUR" as const,
+      startDate: "2026-01-01", endDate: "2026-06-30", status: "open" as const,
+      allocations: [{ roleId: 3, resourceIds: [], budgetHours: { "2026-01": 100 }, actualHours: { "2026-01": 95 } }],
+    }],
+  };
+
+  test("CPI card shows percent as big figure and currency as small figure", () => {
+    render(<BudgetPanel {...cciProps} />);
+    // There are two CPI cards (project-total + per-bucket). We look at all text-lg elements.
+    // The big figure for CPI with primary="percent" must contain a "%" string.
+    // CPI and Consumption big figures should contain "%"
+    const cpiLabel = t("en-US", "budgetCciCpi");
+    // Find a card whose label is CPI
+    const cards = Array.from(document.querySelectorAll(".rounded-lg.border.border-line.p-3"));
+    const cpiCards = cards.filter((c) => c.textContent?.includes(cpiLabel));
+    expect(cpiCards.length).toBeGreaterThanOrEqual(1);
+    for (const card of cpiCards) {
+      const big = card.querySelector(".text-lg.font-semibold");
+      expect(big?.textContent).toMatch(/%/);
+    }
+  });
+
+  test("Consumption card shows percent as big figure", () => {
+    render(<BudgetPanel {...cciProps} />);
+    const consumptionLabel = t("en-US", "budgetCciConsumption");
+    const cards = Array.from(document.querySelectorAll(".rounded-lg.border.border-line.p-3"));
+    const consumptionCards = cards.filter((c) => c.textContent?.includes(consumptionLabel));
+    expect(consumptionCards.length).toBeGreaterThanOrEqual(1);
+    for (const card of consumptionCards) {
+      const big = card.querySelector(".text-lg.font-semibold");
+      expect(big?.textContent).toMatch(/%/);
+    }
+  });
+
+  test("Margin card shows currency amount as big figure (default primary=amount)", () => {
+    render(<BudgetPanel {...cciProps} />);
+    const marginLabel = t("en-US", "budgetCciMargin");
+    const cards = Array.from(document.querySelectorAll(".rounded-lg.border.border-line.p-3"));
+    const marginCards = cards.filter((c) => c.textContent?.includes(marginLabel));
+    expect(marginCards.length).toBeGreaterThanOrEqual(1);
+    for (const card of marginCards) {
+      const big = card.querySelector(".text-lg.font-semibold");
+      // Currency amount big figure should NOT be just a percent string (it's a formatted number)
+      expect(big?.textContent).not.toMatch(/^\s*\d+\.\d+%\s*$/);
+    }
+  });
+});
+
 test("over-budget allocation row shows a Red RAG badge", () => {
   const overBudgetBuckets: BudgetBucket[] = [{
     id: 1, name: "PAM", type: "tm", currency: "EUR", startDate: "2026-01-01", endDate: "2026-06-30", status: "open",
