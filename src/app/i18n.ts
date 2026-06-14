@@ -1496,6 +1496,7 @@ const enUS = {
   actionBudgetWhyImproving: "CPI {0} — over budget but improving",
   actionCommsTitle: "Update stakeholder: {0}",
   actionCommsWhy: "{0} update due",
+  actionCreatedFromNote: "From: {0} — {1}",
 
   // --- UI polish batch (0.76.0) ---
   // Modal heading fixes

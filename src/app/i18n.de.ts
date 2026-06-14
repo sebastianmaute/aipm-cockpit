@@ -1493,6 +1493,7 @@ export const de: Record<TranslationKey, string> = {
   actionBudgetWhyImproving: "CPI {0} — über Budget, aber verbessert sich",
   actionCommsTitle: "Stakeholder informieren: {0}",
   actionCommsWhy: "{0}-Update fällig",
+  actionCreatedFromNote: "Aus: {0} — {1}",
 
   // --- UI polish batch (0.76.0) ---
   changeEditTitle: "Änderung bearbeiten",
