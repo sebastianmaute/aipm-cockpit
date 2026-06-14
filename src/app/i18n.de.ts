@@ -1412,6 +1412,7 @@ export const de: Record<TranslationKey, string> = {
   actionScheduleTitle: "{0} ist im Verzug",
   actionScheduleWhyBehind: "Schedule Performance Index liegt bei {0} (unter 1,0 = hinter Plan)",
   actionScheduleWhySlipping: "SPI {0} — Zeitplan verzögert sich",
+  actionScheduleWhyImproving: "SPI {0} — im Rückstand, aber verbessert sich",
   actionScheduleWhyBurndown: "Burn-up liegt hinter der geplanten Linie",
   actionWorkloadTitle: "{0}",
   actionWorkloadWhyOverAllocated: "Überlastet — {0}% im nächsten Zeitraum verplant",

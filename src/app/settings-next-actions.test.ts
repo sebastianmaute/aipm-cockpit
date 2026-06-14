@@ -65,4 +65,7 @@ describe("ranking weights", () => {
     expect(c.clarityBonus).toBe(15);
     expect(c.staticPenalty).toBe(25);
   });
+  it("falls back to default for an invalid semiClarityBonus", () => {
+    expect(resolveNextActionsConfig({ semiClarityBonus: -3 }).semiClarityBonus).toBe(7);
+  });
 });

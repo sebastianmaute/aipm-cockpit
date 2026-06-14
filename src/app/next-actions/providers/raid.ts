@@ -36,6 +36,8 @@ export const raidProvider: ActionProvider = {
       });
     }
 
+    // Review-due nudges deliberately carry NO clarity bonus: confidence weighting
+    // applies only to the actionable severity signals in section (A).
     // (B) Review-due actions — overdue or stale items per getRaidReviewItems.
     // Gated by the "RAID review reminder" toggle; severity actions (A) always run.
     const reviewItems =

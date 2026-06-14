@@ -75,4 +75,8 @@ describe("schedule confidence", () => {
     const [a] = scheduleProvider.provide(inputConf({ trends: { schedule: "worsening" } }));
     expect(a.why.key).toBe("actionScheduleWhySlipping");
   });
+  it("uses the improving why when improving", () => {
+    const [a] = scheduleProvider.provide(inputConf({ trends: { schedule: "improving" } }));
+    expect(a.why.key).toBe("actionScheduleWhyImproving");
+  });
 });

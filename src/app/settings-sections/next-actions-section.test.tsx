@@ -26,6 +26,15 @@ describe("NextActionsSection", () => {
     );
   });
 
+  it("edits the static penalty input", () => {
+    const onChange = vi.fn();
+    render(<NextActionsSection lang="en-US" settings={defaultSettings} onChange={onChange} />);
+    fireEvent.change(screen.getByLabelText("Static penalty"), { target: { value: "30" } });
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ nextActions: expect.objectContaining({ staticPenalty: 30 }) }),
+    );
+  });
+
   it("reset button is disabled at defaults and restores defaults when overridden", () => {
     const onChange = vi.fn();
     const overridden = {

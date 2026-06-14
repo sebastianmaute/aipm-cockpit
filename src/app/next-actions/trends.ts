@@ -12,7 +12,7 @@ export interface ActionTrends {
   schedule?: TrendDir;
 }
 
-export const TREND_LOOKBACK = 1;       // buckets back to compare against
+export const TREND_LOOKBACK = 1;       // snapshots back to compare against (Nth prior snapshot)
 const COST_EPSILON = 1;                 // currency units treated as "no change"
 const SPI_EPSILON = 0.01;
 const RAG_ORDER: Record<string, number> = { G: 0, A: 1, R: 2 };

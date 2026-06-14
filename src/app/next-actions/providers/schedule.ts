@@ -25,7 +25,9 @@ export const scheduleProvider: ActionProvider = {
     const why =
       trend === "worsening"
         ? { key: "actionScheduleWhySlipping" as const, params: [spi.toFixed(2)] }
-        : { key: "actionScheduleWhyBehind" as const, params: [spi.toFixed(2)] };
+        : trend === "improving"
+          ? { key: "actionScheduleWhyImproving" as const, params: [spi.toFixed(2)] }
+          : { key: "actionScheduleWhyBehind" as const, params: [spi.toFixed(2)] };
 
     return [
       {
