@@ -190,6 +190,7 @@ export interface WorkspaceSectionProps {
   nextActions: readonly SuggestedAction[];
   onOpenAction: (a: SuggestedAction) => void;
   onSnooze?: (a: SuggestedAction, ms: number) => void;
+  onCreateTask?: (a: SuggestedAction) => void;
 }
 
 export function WorkspaceSection({
@@ -262,6 +263,7 @@ export function WorkspaceSection({
   nextActions,
   onOpenAction,
   onSnooze,
+  onCreateTask,
 }: WorkspaceSectionProps) {
   const { settings, setSettings, lang } = useSettings();
   const features = settings.features;
@@ -864,7 +866,7 @@ export function WorkspaceSection({
 
         {activeTab === "actions" && (
           <div id="panel-actions" role="tabpanel" className={panelClass}>
-            <ActionsPanel lang={lang} actions={nextActions} onOpen={onOpenAction} onSnooze={onSnooze} />
+            <ActionsPanel lang={lang} actions={nextActions} onOpen={onOpenAction} onSnooze={onSnooze} onCreateTask={onCreateTask} />
           </div>
         )}
 
