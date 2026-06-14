@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { type Lang, t } from "./i18n";
 import { RACI_ROLES, type RaciRole } from "./types";
 
@@ -31,22 +32,34 @@ const CHIP_BASE =
 
 export function RaciChipPicker({ value, onChange, ariaPrefix, lang }: RaciChipPickerProps) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLSpanElement>(null);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const popRef = useRef<HTMLSpanElement>(null);
 
-  // Close on outside pointerdown or Escape while the popover is open.
+  // Position the popover via a body portal so it is never clipped by the RACI
+  // matrix's overflow-auto scroll container. Close on outside pointerdown,
+  // Escape, or scroll/resize (a fixed popover must not drift from its trigger).
   useEffect(() => {
     if (!open) return;
+    const r = triggerRef.current?.getBoundingClientRect();
+    if (r) setPos({ top: r.bottom + 4, left: r.left });
     const onPointerDown = (e: PointerEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      const tgt = e.target as Node;
+      if (!triggerRef.current?.contains(tgt) && !popRef.current?.contains(tgt)) setOpen(false);
     };
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
     };
+    const onScroll = () => setOpen(false);
     document.addEventListener("pointerdown", onPointerDown);
     document.addEventListener("keydown", onKeyDown);
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", onScroll);
     return () => {
       document.removeEventListener("pointerdown", onPointerDown);
       document.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", onScroll);
     };
   }, [open]);
 
@@ -58,8 +71,9 @@ export function RaciChipPicker({ value, onChange, ariaPrefix, lang }: RaciChipPi
   const triggerLabel = value === "" ? t(lang, "raciSetLabel") : t(lang, ROLE_LABEL_KEY[value]);
 
   return (
-    <span ref={ref} className="relative inline-flex items-center">
+    <span className="relative inline-flex items-center">
       <button
+        ref={triggerRef}
         type="button"
         aria-haspopup="true"
         aria-expanded={open}
@@ -74,8 +88,13 @@ export function RaciChipPicker({ value, onChange, ariaPrefix, lang }: RaciChipPi
       >
         {value === "" ? "+" : value}
       </button>
-      {open && (
-        <span className="absolute left-0 top-full z-20 mt-1 flex w-max items-center gap-1 rounded-md border border-line bg-surface p-1 shadow-sm">
+      {open && pos && typeof document !== "undefined" &&
+        createPortal(
+        <span
+          ref={popRef}
+          style={{ top: pos.top, left: pos.left }}
+          className="fixed z-[100] flex w-max items-center gap-1 rounded-md border border-line bg-surface p-1 shadow-sm"
+        >
           {RACI_ROLES.map((role) => {
             const c = CHIP[role];
             return (
@@ -107,7 +126,8 @@ export function RaciChipPicker({ value, onChange, ariaPrefix, lang }: RaciChipPi
           >
             ✕
           </button>
-        </span>
+        </span>,
+        document.body,
       )}
     </span>
   );
