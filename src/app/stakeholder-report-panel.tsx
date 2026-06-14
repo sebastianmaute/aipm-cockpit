@@ -5,6 +5,7 @@
 // like RaidReportPanel. No mutation — purely derived from props.
 
 import { type Lang, t, type TranslationKey } from "./i18n";
+import { InfoTooltip } from "./info-tooltip";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import {
   quadrantFor,
@@ -205,10 +206,16 @@ export function StakeholderReportPanel({
                     {t(lang, "stakeholderFieldCategory")}
                   </th>
                   <th className="px-3 py-2 font-medium">
-                    {t(lang, "stakeholderFieldInfluence")}
+                    <span className="inline-flex items-center gap-1">
+                      {t(lang, "stakeholderFieldInfluence")}
+                      <InfoTooltip text={t(lang, "stakeholderFieldInfluenceHint")} />
+                    </span>
                   </th>
                   <th className="px-3 py-2 font-medium">
-                    {t(lang, "stakeholderFieldInterest")}
+                    <span className="inline-flex items-center gap-1">
+                      {t(lang, "stakeholderFieldInterest")}
+                      <InfoTooltip text={t(lang, "stakeholderFieldInterestHint")} />
+                    </span>
                   </th>
                 </tr>
               </thead>
