@@ -13,6 +13,8 @@ import { RowContextProvider, TaskRow, type RowContextValue } from "./task-row";
 import { DEFAULT_COL_WIDTHS } from "./use-column-manager";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
+import { ActionChips, chipsForView } from "./action-chips";
+import type { SuggestedAction } from "./next-actions/types";
 import {
   EraserIcon,
   ResetColWidthsButton,
@@ -94,6 +96,10 @@ export interface TasksSectionProps {
   handleBulkSendInquiry: () => void;
   applyBulkEdit: () => void;
   cancelBulkEdit: () => void;
+  // Inline action chips (SP4): task-due actions surfaced atop the Open Points pane.
+  nextActions?: readonly SuggestedAction[];
+  onOpenAction?: (a: SuggestedAction) => void;
+  onShowActions?: () => void;
 }
 
 export function TasksSection({
@@ -138,6 +144,9 @@ export function TasksSection({
   handleBulkSendInquiry,
   applyBulkEdit,
   cancelBulkEdit,
+  nextActions = [],
+  onOpenAction,
+  onShowActions,
 }: TasksSectionProps) {
   const {
     search, setSearch,
@@ -217,6 +226,15 @@ export function TasksSection({
     >
       {/* shrink-0 wrapper keeps header, filters and bulk-edit from growing into the table area */}
       <div className="shrink-0">
+      {onOpenAction && onShowActions && (
+        <ActionChips
+          lang={lang}
+          actions={chipsForView(nextActions, "open-points")}
+          onOpen={onOpenAction}
+          onShowMore={onShowActions}
+          className="mb-2"
+        />
+      )}
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <div ref={colConfigRef} className="relative">
