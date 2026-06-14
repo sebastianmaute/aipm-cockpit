@@ -1393,6 +1393,10 @@ export const de: Record<TranslationKey, string> = {
   actionSnooze1h: "1 Stunde",
   actionSnooze1d: "1 Tag",
   versionHighlightSnoozeActions: "Erinnerungen ins Action Center integriert: Aktionen vertagen (1 Std./1 Tag); die Banner für Fälligkeiten / RAID-Überprüfung / Stakeholder-Kommunikation entfallen",
+  // --- Inline-Aktionschips (SP4) ---
+  actionChipsLabel: "Vorgeschlagene Schritte",
+  actionChipsMore: "+{0} weitere",
+  versionHighlightActionChips: "Der nächste Schritt erscheint jetzt direkt in jeder Ansicht und jedem Bericht — Chip anklicken, um zum Eintrag zu springen",
   // --- Restored: still used by kept banners + comms items (SP3) ---
   alertBannerDismiss: "Schließen",
   alertCatOverdue: "Überfällig",
