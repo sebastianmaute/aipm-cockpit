@@ -24,6 +24,8 @@ longer carries its own changelog comment.
 - Manage Roles header tooltips read in normal case and are no longer clipped by
   the table border; the Manage Roles pane fits its content without exceeding the
   viewport.
+- The Manage Roles rate fields now show the project's currency symbol (from the
+  budget plan's currency) instead of a hard-coded €.
 
 ## [0.80.2] - 2026-06-14
 
