@@ -34,8 +34,9 @@ describe("ActionsPanel", () => {
     render(<ActionsPanel lang="en-US" actions={actions} onOpen={() => {}} />);
     const toggle = screen.getByRole("button", { name: /monitored/i });
     expect(toggle).toHaveAttribute("aria-expanded", "false");
-    expect(screen.queryByText(/budget/i)).toBeNull(); // row hidden while collapsed
+    expect(document.getElementById("action-monitor-list")).toHaveAttribute("hidden"); // row hidden while collapsed
     fireEvent.click(toggle);
     expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(document.getElementById("action-monitor-list")).not.toHaveAttribute("hidden");
   });
 });

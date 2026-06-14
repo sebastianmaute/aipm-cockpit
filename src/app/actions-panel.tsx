@@ -49,13 +49,11 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze }: ActionsPanelPr
                     <span aria-hidden>{monitorOpen ? "▾" : "▸"}</span>
                     {t(lang, "actionMonitoredCount", rows.length)}
                   </button>
-                  {monitorOpen && (
-                    <div id="action-monitor-list" className="flex flex-col gap-2">
-                      {rows.map((a) => (
-                        <ActionRow key={a.id} lang={lang} action={a} onOpen={onOpen} onSnooze={onSnooze} />
-                      ))}
-                    </div>
-                  )}
+                  <div id="action-monitor-list" className="flex flex-col gap-2" hidden={!monitorOpen}>
+                    {rows.map((a) => (
+                      <ActionRow key={a.id} lang={lang} action={a} onOpen={onOpen} onSnooze={onSnooze} />
+                    ))}
+                  </div>
                 </section>
               );
             }
