@@ -24,6 +24,8 @@ export interface BuildActionInputArgs {
   reminderLeadDays: number;
   dueSoonWorkdays: number;
   raidReviewIntervalDays: number;
+  taskDueEnabled?: boolean;            // default true
+  raidReviewEnabled?: boolean;         // default true
   dismissed?: ReadonlySet<string>;
 }
 
@@ -43,6 +45,8 @@ export function buildActionInput(a: BuildActionInputArgs): ActionInput {
     reminderLeadDays: a.reminderLeadDays,
     dueSoonWorkdays: a.dueSoonWorkdays,
     raidReviewIntervalDays: a.raidReviewIntervalDays,
+    taskDueEnabled: a.taskDueEnabled ?? true,
+    raidReviewEnabled: a.raidReviewEnabled ?? true,
     dismissed: a.dismissed ?? new Set<string>(),
   };
 }

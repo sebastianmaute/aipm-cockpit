@@ -634,6 +634,11 @@ function TaskManagerInner() {
           reminderLeadDays: settings.notifications.reminderLeadDays,
           dueSoonWorkdays: settings.notifications.dueSoonWorkdays,
           raidReviewIntervalDays: settings.notifications.raidReviewIntervalDays,
+          // NB: do NOT gate task-due on notifications.banner.enabled — that flag
+          // defaults false post toast-first migration, so it would hide due
+          // actions for everyone. Due actions stay always-on (core); the RAID
+          // review toggle below defaults true and is a safe gate.
+          raidReviewEnabled: settings.notifications.raidReview.enabled,
           dismissed: actionSnooze.dismissed,
         }),
       ),
