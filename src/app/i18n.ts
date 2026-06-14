@@ -1410,6 +1410,10 @@ const enUS = {
   actionWorkloadWhyOverAllocated: "Over-allocated — {0}% planned in the next period",
   actionWorkloadWhyOverload: "{0} overdue items assigned",
   versionHighlightScheduleWorkload: "Two new suggested-action signals: a schedule/EVM warning when the project trends behind plan, and workload alerts for over-allocated or overloaded people",
+  // --- RACI chip picker + UI batch (0.81.0) ---
+  raciSetLabel: "Set RACI",
+  raciClear: "Clear",
+  versionHighlightUiBatch: "Resizable Trends columns; action chips explain why and open the item; clearer Manage-Roles tooltips; a compact RACI picker",
   // --- Restored: still used by kept banners + comms items (SP3) ---
   alertBannerDismiss: "Dismiss",
   alertCatOverdue: "Overdue",

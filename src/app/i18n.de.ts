@@ -1407,6 +1407,10 @@ export const de: Record<TranslationKey, string> = {
   actionWorkloadWhyOverAllocated: "Überlastet — {0}% im nächsten Zeitraum verplant",
   actionWorkloadWhyOverload: "{0} überfällige Aufgaben zugewiesen",
   versionHighlightScheduleWorkload: "Zwei neue Vorschlags-Signale: eine Termin-/EVM-Warnung, wenn das Projekt hinter den Plan fällt, und Auslastungs-Hinweise für überlastete Personen",
+  // --- RACI-Chip-Auswahl + UI-Batch (0.81.0) ---
+  raciSetLabel: "RACI setzen",
+  raciClear: "Löschen",
+  versionHighlightUiBatch: "Größenveränderbare Trends-Spalten; Aktionschips erklären den Grund und öffnen den Eintrag; klarere Manage-Roles-Tooltips; eine kompakte RACI-Auswahl",
   // --- Restored: still used by kept banners + comms items (SP3) ---
   alertBannerDismiss: "Schließen",
   alertCatOverdue: "Überfällig",
