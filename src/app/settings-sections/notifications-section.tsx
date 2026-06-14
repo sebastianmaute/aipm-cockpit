@@ -65,36 +65,6 @@ export function NotificationsSection({ lang, settings, onChange }: Notifications
         />
       </label>
 
-      {/* Banner */}
-      <NotificationRow
-        labelKey="notifBanner"
-        lang={lang}
-        config={notifications.banner}
-        useGlobalLeadDays={notifications.useGlobalLeadDays}
-        perReminderLabel={t(lang, "notifLeadDaysPerReminder")}
-        onChange={(c) => patchNotif({ banner: c })}
-      />
-
-      {/* Toast */}
-      <NotificationRow
-        labelKey="notifToast"
-        lang={lang}
-        config={notifications.toast}
-        useGlobalLeadDays={notifications.useGlobalLeadDays}
-        perReminderLabel={t(lang, "notifLeadDaysPerReminder")}
-        onChange={(c) => patchNotif({ toast: c })}
-      />
-
-      {/* Popup */}
-      <NotificationRow
-        labelKey="notifPopup"
-        lang={lang}
-        config={notifications.popup}
-        useGlobalLeadDays={notifications.useGlobalLeadDays}
-        perReminderLabel={t(lang, "notifLeadDaysPerReminder")}
-        onChange={(c) => patchNotif({ popup: c })}
-      />
-
       {/* Birthday */}
       <NotificationRow
         labelKey="notifBirthday"

@@ -420,9 +420,6 @@ export const de: Record<TranslationKey, string> = {
   notifications: "Fälligkeits-Benachrichtigungen",
   notificationsHint:
     "Jede Benachrichtigung kann unabhängig aktiviert oder deaktiviert werden. Der Schwellwert ist die Anzahl Arbeitstage vor dem Fälligkeitsdatum (überfällige und heute fällige Aufgaben sind immer enthalten).",
-  notifBanner: "Banner",
-  notifToast: "Toast",
-  notifPopup: "Pop-up beim Laden",
 
   showDueAlerts: "Fälligkeits-Benachrichtigungen anzeigen",
   addTaskButton: "Aufgabe hinzufügen",

@@ -413,9 +413,6 @@ const enUS = {
   notifications: "Due-date notifications",
   notificationsHint:
     "Each notification can be enabled or disabled independently. Threshold is the number of work days before the due date that will trigger the notification (overdue and due-today are always included).",
-  notifBanner: "Banner",
-  notifToast: "Toast",
-  notifPopup: "Pop-up on load",
 
   showDueAlerts: "Show due-date notifications",
   addTaskButton: "Add task",
