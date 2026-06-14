@@ -634,6 +634,9 @@ const enUS = {
   helpSecActivityTitle: "Activity log",
   helpSecActivityBody:
     "Append-only log of task, RAID, absence, and shift changes in this browser. Sort by time / kind, filter by entity group, and search by text, wildcard (`*`, `?`), or regex. Useful for audit-style review after bulk edits or Jira syncs. The log lives in this browser only — it is never written to any export file — and trims the oldest entries when it exceeds 500. \"Clear log\" asks for confirmation before deleting all entries.",
+  helpSecDocumentsTitle: "Documents",
+  helpSecDocumentsBody:
+    "The Documents tab gathers every linked file across the whole project — tasks, RAID items, changes, milestones, stakeholders, and the project header — into one table. Each row shows the document (a file or folder, opening in a new tab) and its source item; click the source to jump to that item's editor, or the ✕ to remove the link. \"+ Add document\" picks any item as the target and reuses the SharePoint picker / paste-URL field to attach a new link there. Links live on their source items, so removing one here is the same as removing it from that item's editor.",
   helpSecVoiceTitle: "Voice commands",
   helpSecVoiceBody:
     "Click the microphone in the header and try:\n• \"add task review the deck\"\n• \"edit task 2\"\n• \"delete task 3\"\n• \"send inquiry for task 5\"\n• \"search blockers\" / \"clear search\"\n• \"switch to German\"\nIndividual text fields also have an inline microphone for dictation.",
@@ -1410,6 +1413,27 @@ const enUS = {
   actionWorkloadWhyOverAllocated: "Over-allocated — {0}% planned in the next period",
   actionWorkloadWhyOverload: "{0} overdue items assigned",
   versionHighlightScheduleWorkload: "Two new suggested-action signals: a schedule/EVM warning when the project trends behind plan, and workload alerts for over-allocated or overloaded people",
+  // --- RACI chip picker + UI batch (0.81.0) ---
+  raciSetLabel: "Set RACI",
+  raciClear: "Clear",
+  versionHighlightUiBatch: "Resizable Trends columns; action chips explain why and open the item; clearer Manage-Roles tooltips; a compact RACI picker",
+  // --- Documents tab (0.81.0) ---
+  navDocuments: "Documents",
+  documentsModuleDesc: "A single place to see and manage every document link across the project.",
+  documentsTitle: "Documents",
+  documentsTabEmpty: "No documents linked yet. Add one below or from any item's editor.",
+  documentsColDocument: "Document",
+  documentsColSource: "Linked to",
+  documentsColActions: "",
+  documentsTabAdd: "Add document",
+  documentsTarget: "Attach to",
+  documentsSourceTask: "Task",
+  documentsSourceRaid: "RAID",
+  documentsSourceChange: "Change",
+  documentsSourceMilestone: "Milestone",
+  documentsSourceStakeholder: "Stakeholder",
+  documentsSourceProject: "Project",
+  versionHighlightDocuments: "A new Documents tab gathers every linked file across the project — open, jump to the source, remove, or add new links in one place",
   // --- Restored: still used by kept banners + comms items (SP3) ---
   alertBannerDismiss: "Dismiss",
   alertCatOverdue: "Overdue",

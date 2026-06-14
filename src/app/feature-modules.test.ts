@@ -15,9 +15,9 @@ import {
 } from "./feature-modules";
 
 describe("feature-modules registry", () => {
-  it("has 10 modules and uses each id once", () => {
-    expect(ALL_MODULE_IDS).toHaveLength(10);
-    expect(new Set(ALL_MODULE_IDS).size).toBe(10);
+  it("has 11 modules and uses each id once", () => {
+    expect(ALL_MODULE_IDS).toHaveLength(11);
+    expect(new Set(ALL_MODULE_IDS).size).toBe(11);
   });
 
   it("every module's parent view appears in its views list", () => {
@@ -44,7 +44,7 @@ describe("sanitizeFeatures", () => {
 });
 
 describe("deriveMode", () => {
-  it("all nine -> advanced", () => {
+  it("all modules -> advanced", () => {
     expect(deriveMode([...ALL_MODULE_IDS])).toBe("advanced");
   });
   it("none -> simple", () => {

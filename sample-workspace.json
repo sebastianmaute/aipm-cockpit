@@ -23,7 +23,14 @@
       "jiraKey": "LOP-101",
       "jiraIssueType": "Story",
       "resourceId": 1,
-      "documentLinks": []
+      "documentLinks": [
+        {
+          "id": "dl-1",
+          "name": "OIDC Architecture Decision.docx",
+          "url": "https://example.sharepoint.com/sites/auth-migration/Shared%20Documents/OIDC-Architecture-Decision.docx",
+          "kind": "file"
+        }
+      ]
     },
     {
       "id": 2,
@@ -240,7 +247,14 @@
           "type": "FF"
         }
       ],
-      "documentLinks": []
+      "documentLinks": [
+        {
+          "id": "dl-2",
+          "name": "API Docs (Confluence export)",
+          "url": "https://example.sharepoint.com/sites/auth-migration/Shared%20Documents/API-Docs",
+          "kind": "folder"
+        }
+      ]
     },
     {
       "id": 10,
@@ -389,7 +403,14 @@
       "targetDate": "2026-06-15",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "documentLinks": [
+        {
+          "id": "dl-3",
+          "name": "Migration Runbook.pdf",
+          "url": "https://example.sharepoint.com/sites/auth-migration/Shared%20Documents/Migration-Runbook.pdf",
+          "kind": "file"
+        }
+      ]
     },
     {
       "id": 2,
@@ -1185,7 +1206,15 @@
       "id": 1,
       "name": "Design Sign-off",
       "date": "2026-04-20",
-      "linkedTaskIds": []
+      "linkedTaskIds": [],
+      "documentLinks": [
+        {
+          "id": "dl-4",
+          "name": "Design Sign-off Minutes.docx",
+          "url": "https://example.sharepoint.com/sites/auth-migration/Shared%20Documents/Design-Signoff-Minutes.docx",
+          "kind": "file"
+        }
+      ]
     },
     {
       "id": 2,
@@ -1262,7 +1291,15 @@
         "2": "A",
         "3": "C"
       },
-      "organization": "Acme"
+      "organization": "Acme",
+      "documentLinks": [
+        {
+          "id": "dl-5",
+          "name": "Steering Committee Deck Q2.pptx",
+          "url": "https://example.sharepoint.com/sites/auth-migration/Shared%20Documents/Steering-Deck-Q2.pptx",
+          "kind": "file"
+        }
+      ]
     },
     {
       "id": 2,

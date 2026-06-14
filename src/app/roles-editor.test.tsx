@@ -10,10 +10,11 @@ const disciplines: Discipline[] = [{ id: 1, name: "Engineering" }];
 const grades: Grade[] = [{ id: 1, name: "Senior" }];
 const roles: Role[] = [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 200 }];
 
-function renderEditor() {
+function renderEditor(currency = "EUR") {
   return render(
     <RolesEditor
       lang="en-US"
+      currency={currency}
       roles={roles}
       disciplines={disciplines}
       grades={grades}
@@ -33,6 +34,15 @@ function renderEditor() {
 }
 
 describe("RolesEditor rate-card table", () => {
+  it("shows the project currency symbol next to the rate fields, not a hard-coded €", () => {
+    const eur = renderEditor("EUR");
+    expect(eur.container.textContent).toContain("€");
+    eur.unmount();
+    const usd = renderEditor("USD");
+    expect(usd.container.textContent).toContain("$");
+    expect(usd.container.textContent).not.toContain("€");
+  });
+
   it("wraps the rate-card table in the shared inner-table scroll card", () => {
     renderEditor();
     const table = screen.getByRole("table");

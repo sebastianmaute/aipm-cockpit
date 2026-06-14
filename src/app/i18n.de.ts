@@ -649,6 +649,9 @@ export const de: Record<TranslationKey, string> = {
   helpSecActivityTitle: "Aktivitätslog",
   helpSecActivityBody:
     "Append-only-Log aller Änderungen an Aufgaben, RAID, Abwesenheiten und Schichten in diesem Browser. Sortierbar nach Zeit / Typ, filterbar nach Entitätsgruppe und Suche per Text, Wildcard (`*`, `?`) oder Regex. Hilfreich für Audit-artige Reviews nach Bulk-Edits oder Jira-Syncs. Das Log liegt nur in diesem Browser – es wird in keine Export-Datei geschrieben – und schneidet die ältesten Einträge ab 500 ab. \"Log leeren\" fragt vor dem Löschen aller Einträge um Bestätigung.",
+  helpSecDocumentsTitle: "Dokumente",
+  helpSecDocumentsBody:
+    "Der Dokumente-Tab sammelt jede verknüpfte Datei des gesamten Projekts – Aufgaben, RAID-Einträge, Änderungen, Meilensteine, Stakeholder und den Projektkopf – in einer Tabelle. Jede Zeile zeigt das Dokument (Datei oder Ordner, öffnet in neuem Tab) und sein Quell-Element; ein Klick auf die Quelle springt zum Editor dieses Elements, das ✕ entfernt die Verknüpfung. \"+ Dokument hinzufügen\" wählt ein beliebiges Element als Ziel und nutzt das SharePoint-Auswahl- / URL-Einfügefeld, um dort eine neue Verknüpfung anzuhängen. Verknüpfungen liegen auf ihren Quell-Elementen – sie hier zu entfernen ist dasselbe wie das Entfernen im Editor des Elements.",
   helpSecVoiceTitle: "Sprachbefehle",
   helpSecVoiceBody:
     "Auf das Mikrofon im Header klicken und z. B. sagen:\n• \"neue Aufgabe Deck prüfen\"\n• \"Aufgabe 2 bearbeiten\"\n• \"Aufgabe 3 löschen\"\n• \"Anfrage für Aufgabe 5 senden\"\n• \"Suche Blocker\" / \"Suche zurücksetzen\"\n• \"Sprache Englisch\"\nEinzelne Textfelder haben zusätzlich ein Mikrofon-Symbol für Diktate.",
@@ -1407,6 +1410,27 @@ export const de: Record<TranslationKey, string> = {
   actionWorkloadWhyOverAllocated: "Überlastet — {0}% im nächsten Zeitraum verplant",
   actionWorkloadWhyOverload: "{0} überfällige Aufgaben zugewiesen",
   versionHighlightScheduleWorkload: "Zwei neue Vorschlags-Signale: eine Termin-/EVM-Warnung, wenn das Projekt hinter den Plan fällt, und Auslastungs-Hinweise für überlastete Personen",
+  // --- RACI-Chip-Auswahl + UI-Batch (0.81.0) ---
+  raciSetLabel: "RACI setzen",
+  raciClear: "Löschen",
+  versionHighlightUiBatch: "Größenveränderbare Trends-Spalten; Aktionschips erklären den Grund und öffnen den Eintrag; klarere Manage-Roles-Tooltips; eine kompakte RACI-Auswahl",
+  // --- Dokumente-Tab (0.81.0) ---
+  navDocuments: "Dokumente",
+  documentsModuleDesc: "Ein zentraler Ort, um alle Dokument-Verknüpfungen im Projekt zu sehen und zu verwalten.",
+  documentsTitle: "Dokumente",
+  documentsTabEmpty: "Noch keine Dokumente verknüpft. Unten oder im Editor eines Eintrags hinzufügen.",
+  documentsColDocument: "Dokument",
+  documentsColSource: "Verknüpft mit",
+  documentsColActions: "",
+  documentsTabAdd: "Dokument hinzufügen",
+  documentsTarget: "Anhängen an",
+  documentsSourceTask: "Aufgabe",
+  documentsSourceRaid: "RAID",
+  documentsSourceChange: "Änderung",
+  documentsSourceMilestone: "Meilenstein",
+  documentsSourceStakeholder: "Stakeholder",
+  documentsSourceProject: "Projekt",
+  versionHighlightDocuments: "Ein neuer Dokumente-Tab sammelt alle verknüpften Dateien des Projekts — öffnen, zur Quelle springen, entfernen oder neue Verknüpfungen an einem Ort hinzufügen",
   // --- Restored: still used by kept banners + comms items (SP3) ---
   alertBannerDismiss: "Schließen",
   alertCatOverdue: "Überfällig",

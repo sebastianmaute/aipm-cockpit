@@ -12,11 +12,13 @@ export type FeatureModuleId =
   | "raid"
   | "changes"
   | "stakeholders"
-  | "history";
+  | "history"
+  | "documents";
 
 export interface FeatureModule {
   id: FeatureModuleId;
   labelKey: TranslationKey;
+  descKey?: TranslationKey;
   /** Parent view + every child view this module owns. The parent view id equals the module id. */
   views: readonly AppView[];
   /** The addable report this module unlocks, if any. */
@@ -44,6 +46,7 @@ export const FEATURE_MODULES: readonly FeatureModule[] = [
     report: "stakeholder-report",
   },
   { id: "history", labelKey: "navHistory", views: ["history"] },
+  { id: "documents", labelKey: "navDocuments", descKey: "documentsModuleDesc", views: ["documents"] },
 ] as const;
 
 /** Views always present regardless of mode. */

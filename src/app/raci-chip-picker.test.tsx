@@ -1,36 +1,34 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, fireEvent } from "@testing-library/react";
+import { render, fireEvent, screen } from "@testing-library/react";
 import { RaciChipPicker } from "./raci-chip-picker";
 
-// The chip's accessible name is its aria-label: `${ariaPrefix} — ${roleLabel}`,
-// e.g. "M1 · S1 — Responsible". Match by the role label, NOT the letter.
+// Collapsed trigger: aria-expanded + aria-haspopup. Each expanded role chip's
+// accessible name is just the role letter ("R"/"A"/"C"/"I"); the clear chip's
+// accessible name matches /clear/i.
 describe("RaciChipPicker", () => {
-  it("renders four chips R/A/C/I", () => {
-    const { getByRole } = render(
-      <RaciChipPicker value="" onChange={() => {}} ariaPrefix="M1 · S1" lang="en-US" />,
-    );
-    for (const label of ["Responsible", "Accountable", "Consulted", "Informed"]) {
-      expect(getByRole("button", { name: new RegExp(label) })).toBeTruthy();
-    }
+  it("collapsed shows only the trigger; clicking expands to all roles + clear", () => {
+    render(<RaciChipPicker value="A" onChange={() => {}} ariaPrefix="x" lang="en-US" />);
+    // collapsed: a role chip C is not yet shown
+    expect(screen.queryByRole("button", { name: "C" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { expanded: false }));
+    expect(screen.getByRole("button", { name: "C" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /clear/i })).toBeTruthy();
   });
 
-  it("clicking an inactive chip sets that role", () => {
+  it("picking a role fires onChange and collapses", () => {
     const onChange = vi.fn();
-    const { getByRole } = render(
-      <RaciChipPicker value="" onChange={onChange} ariaPrefix="M1 · S1" lang="en-US" />,
-    );
-    fireEvent.click(getByRole("button", { name: /Responsible/ }));
-    expect(onChange).toHaveBeenCalledWith("R");
+    render(<RaciChipPicker value="" onChange={onChange} ariaPrefix="x" lang="en-US" />);
+    fireEvent.click(screen.getByRole("button", { expanded: false }));
+    fireEvent.click(screen.getByRole("button", { name: "C" }));
+    expect(onChange).toHaveBeenCalledWith("C");
+    expect(screen.queryByRole("button", { name: "R" })).toBeNull(); // collapsed again
   });
 
-  it("clicking the active chip clears it", () => {
+  it("clear fires onChange('') and collapses", () => {
     const onChange = vi.fn();
-    const { getByRole } = render(
-      <RaciChipPicker value="A" onChange={onChange} ariaPrefix="M1 · S1" lang="en-US" />,
-    );
-    const a = getByRole("button", { name: /Accountable/ });
-    expect(a.getAttribute("aria-pressed")).toBe("true");
-    fireEvent.click(a);
+    render(<RaciChipPicker value="R" onChange={onChange} ariaPrefix="x" lang="en-US" />);
+    fireEvent.click(screen.getByRole("button", { expanded: false }));
+    fireEvent.click(screen.getByRole("button", { name: /clear/i }));
     expect(onChange).toHaveBeenCalledWith("");
   });
 });

@@ -33,6 +33,7 @@ const SECTIONS: Array<{
   { titleKey: "helpSecRaidTitle", bodyKey: "helpSecRaidBody" },
   { titleKey: "helpSecResourcesTitle", bodyKey: "helpSecResourcesBody" },
   { titleKey: "helpSecActivityTitle", bodyKey: "helpSecActivityBody" },
+  { titleKey: "helpSecDocumentsTitle", bodyKey: "helpSecDocumentsBody" },
   { titleKey: "helpSecVoiceTitle", bodyKey: "helpSecVoiceBody" },
   { titleKey: "helpSecNotifTitle", bodyKey: "helpSecNotifBody" },
   { titleKey: "helpSecJiraTitle", bodyKey: "helpSecJiraBody" },

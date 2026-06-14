@@ -5,8 +5,9 @@
 // modal state, row-click opens StakeholderEditModal. All mutations go through
 // callback props — the parent owns the canonical `stakeholders` array.
 
-import { memo, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import { StakeholderEditModal } from "./stakeholder-edit-modal";
+import { useWorkspaceTab } from "./workspace-tab-context";
 import { compareStakeholder, nextStakeholderId, type StakeholderSortKey } from "./stakeholders";
 import { type Lang, t, type TranslationKey } from "./i18n";
 import { TABLE_HEAD_CLASS } from "./table-styles";
@@ -135,6 +136,18 @@ function StakeholdersPanelInner({
     setDraft({ ...item, raci: { ...item.raci } });
     setIsNew(false);
   }
+
+  // Deep-link: when a suggested-action chip requests opening a stakeholder,
+  // open its edit modal once and clear the pending signal.
+  const { pendingOpen, clearPendingOpen } = useWorkspaceTab();
+  useEffect(() => {
+    if (pendingOpen?.view !== "stakeholders") return;
+    const item = stakeholders.find((s) => s.id === pendingOpen.id);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-way deep-link
+    if (item && draft?.id !== item.id) openEdit(item);
+    clearPendingOpen();
+    // openEdit is a stable hoisted declaration; depend only on the signal + data.
+  }, [pendingOpen, stakeholders, draft, clearPendingOpen]);
 
   function closeModal() {
     setDraft(null);

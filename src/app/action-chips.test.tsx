@@ -40,4 +40,10 @@ describe("ActionChips", () => {
     fireEvent.click(getByText(/Item x/));
     expect(onOpen).toHaveBeenCalledWith(a);
   });
+  it("each chip has a why-tooltip (title) from action.why", () => {
+    const a = mk("1", "now"); // why: { key: "actionRaidWhySeverity", params: ["Critical"] }
+    const { getByText } = render(<ActionChips lang="en-US" actions={[a]} onOpen={() => {}} onShowMore={() => {}} />);
+    const chip = getByText(/Item 1/).closest("button");
+    expect(chip?.getAttribute("title")).toMatch(/Critical/);
+  });
 });

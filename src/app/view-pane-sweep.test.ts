@@ -10,9 +10,10 @@ const ROOT = join(process.cwd(), "src", "app");
 // NOTE: tasks-section.tsx (fillHeight ternary) and activity-log-panel.tsx have
 // their own dedicated assertions below. reports.tsx / raid-report / resources-
 // report wrap content in ReportCard (report-table.tsx), which carries the class.
-// chat-panel.tsx and roles-panel.tsx (Manage Roles) are the exceptions — they
-// share the centered half-size CENTERED_HALF_PANE_CLASS (still drag-resizable);
-// asserted separately below.
+// chat-panel.tsx is the exception — it uses the centered half-size
+// CENTERED_HALF_PANE_CLASS (drag-resizable); asserted separately below.
+// roles-panel.tsx (Manage Roles) uses CENTERED_FIT_PANE_CLASS (fit-height,
+// capped at viewport); asserted separately below.
 const RESIZABLE_FILES = [
   "raid-panel.tsx",
   "resources-panel.tsx",
@@ -86,9 +87,9 @@ describe("view-pane sweep", () => {
     expect(src).toContain("CENTERED_HALF_PANE_CLASS");
   });
 
-  it("manage-roles panel uses the shared centered half-size class", () => {
+  it("manage-roles panel uses the fit-height centered pane class", () => {
     const src = readFileSync(join(__dirname, "roles-panel.tsx"), "utf8");
-    expect(src).toContain("CENTERED_HALF_PANE_CLASS");
+    expect(src).toContain("CENTERED_FIT_PANE_CLASS");
   });
 
   it("resource-directory is resizable", () => {

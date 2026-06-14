@@ -6,8 +6,9 @@
 // row opens ChangeEditModal (create / edit / delete). All mutations go through
 // callback props — the parent owns the canonical `changes` array.
 
-import { memo, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import { ChangeEditModal } from "./change-edit-modal";
+import { useWorkspaceTab } from "./workspace-tab-context";
 import {
   changeImpactRag,
   compareChange,
@@ -181,6 +182,19 @@ function ChangePanelInner({
     });
     setIsNew(false);
   }
+
+  // Deep-link: when a suggested-action chip requests opening a change, open its
+  // edit modal once and clear the pending signal. Skip id 0 — the aggregate
+  // change CTA only navigates to the view.
+  const { pendingOpen, clearPendingOpen } = useWorkspaceTab();
+  useEffect(() => {
+    if (pendingOpen?.view !== "changes" || pendingOpen.id === 0) return;
+    const item = changes.find((c) => c.id === pendingOpen.id);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-way deep-link
+    if (item && draft?.id !== item.id) openEdit(item);
+    clearPendingOpen();
+    // openEdit is a stable hoisted declaration; depend only on the signal + data.
+  }, [pendingOpen, changes, draft, clearPendingOpen]);
 
   function closeModal() {
     setDraft(null);

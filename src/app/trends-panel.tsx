@@ -9,6 +9,24 @@ import { formatCurrency } from "./resource-cost";
 import type { SnapshotRecord, VarianceKey, VarianceRow } from "./snapshot";
 import { ReportCard } from "./report-table";
 import { useResizable } from "./use-resizable";
+import { useColumnResize } from "./use-column-resize";
+import { ColumnResizeHandle } from "./task-manager-ui";
+
+const VARIANCE_COL_WIDTHS = {
+  kpi: 200,
+  baseline: 120,
+  current: 120,
+  delta: 140,
+} as const;
+type VarianceCol = keyof typeof VARIANCE_COL_WIDTHS;
+
+const SNAPSHOT_COL_WIDTHS = {
+  capturedAt: 160,
+  trigger: 120,
+  baseline: 100,
+  actions: 180,
+} as const;
+type SnapshotCol = keyof typeof SNAPSHOT_COL_WIDTHS;
 
 export interface TrendsPanelProps {
   lang: Lang;
@@ -74,6 +92,10 @@ function trendPoints(snaps: readonly SnapshotRecord[], gaps: ReadonlySet<string>
 export function TrendsPanel(props: TrendsPanelProps) {
   const { lang, active, snapshots, baseline, variance, gaps, busy, captureNow, setBaseline, deleteSnapshot } = props;
   const { ref, reset } = useResizable("lop-app:trends-size");
+  const varianceResize = useColumnResize<VarianceCol>("trends-variance", VARIANCE_COL_WIDTHS);
+  const snapshotResize = useColumnResize<SnapshotCol>("trends-snapshots", SNAPSHOT_COL_WIDTHS);
+  const varianceStartResize = varianceResize.startColResize as (col: string, e: React.MouseEvent) => void;
+  const snapshotStartResize = snapshotResize.startColResize as (col: string, e: React.MouseEvent) => void;
 
   if (!active) {
     return (
@@ -111,13 +133,26 @@ export function TrendsPanel(props: TrendsPanelProps) {
               {t(lang, "trendsVarianceHeading")}
               {baseline ? ` · ${t(lang, "trendsBaselineLabel")}: ${baseline.bucket}` : ""}
             </h3>
-            <table className={INNER_TABLE_CLASS}>
+            <div className={INNER_TABLE_CLASS}>
+            <table className="w-full text-left text-sm">
               <thead className={TABLE_HEAD_CLASS}>
                 <tr>
-                  <th className="px-3 py-2 text-left">KPI</th>
-                  <th className="px-3 py-2 text-right">{t(lang, "trendsBaselineLabel")}</th>
-                  <th className="px-3 py-2 text-right">{t(lang, "trendsCurrentLabel")}</th>
-                  <th className="px-3 py-2 text-right">{t(lang, "trendsDeltaLabel")}</th>
+                  <th className="relative px-3 py-2 text-left" style={{ width: varianceResize.colWidths.kpi, minWidth: varianceResize.colWidths.kpi }}>
+                    KPI
+                    <ColumnResizeHandle col="kpi" onMouseDown={varianceStartResize} />
+                  </th>
+                  <th className="relative px-3 py-2 text-right" style={{ width: varianceResize.colWidths.baseline, minWidth: varianceResize.colWidths.baseline }}>
+                    {t(lang, "trendsBaselineLabel")}
+                    <ColumnResizeHandle col="baseline" onMouseDown={varianceStartResize} />
+                  </th>
+                  <th className="relative px-3 py-2 text-right" style={{ width: varianceResize.colWidths.current, minWidth: varianceResize.colWidths.current }}>
+                    {t(lang, "trendsCurrentLabel")}
+                    <ColumnResizeHandle col="current" onMouseDown={varianceStartResize} />
+                  </th>
+                  <th className="relative px-3 py-2 text-right" style={{ width: varianceResize.colWidths.delta, minWidth: varianceResize.colWidths.delta }}>
+                    {t(lang, "trendsDeltaLabel")}
+                    <ColumnResizeHandle col="delta" onMouseDown={varianceStartResize} />
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -136,6 +171,7 @@ export function TrendsPanel(props: TrendsPanelProps) {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
 
           <div className="flex flex-wrap gap-4">
@@ -159,13 +195,26 @@ export function TrendsPanel(props: TrendsPanelProps) {
 
           <div>
             <h3 className="mb-1 text-xs uppercase tracking-wide text-muted-foreground">{t(lang, "trendsSnapshotsHeading")}</h3>
-            <table className={INNER_TABLE_CLASS}>
+            <div className={INNER_TABLE_CLASS}>
+            <table className="w-full text-left text-sm">
               <thead className={TABLE_HEAD_CLASS}>
                 <tr>
-                  <th className="px-3 py-2 text-left">{t(lang, "trendsCapturedAt")}</th>
-                  <th className="px-3 py-2 text-left">{t(lang, "trendsTrigger")}</th>
-                  <th className="px-3 py-2 text-left">{t(lang, "trendsBaselineLabel")}</th>
-                  <th className="px-3 py-2 text-right">{t(lang, "trendsActions")}</th>
+                  <th className="relative px-3 py-2 text-left" style={{ width: snapshotResize.colWidths.capturedAt, minWidth: snapshotResize.colWidths.capturedAt }}>
+                    {t(lang, "trendsCapturedAt")}
+                    <ColumnResizeHandle col="capturedAt" onMouseDown={snapshotStartResize} />
+                  </th>
+                  <th className="relative px-3 py-2 text-left" style={{ width: snapshotResize.colWidths.trigger, minWidth: snapshotResize.colWidths.trigger }}>
+                    {t(lang, "trendsTrigger")}
+                    <ColumnResizeHandle col="trigger" onMouseDown={snapshotStartResize} />
+                  </th>
+                  <th className="relative px-3 py-2 text-left" style={{ width: snapshotResize.colWidths.baseline, minWidth: snapshotResize.colWidths.baseline }}>
+                    {t(lang, "trendsBaselineLabel")}
+                    <ColumnResizeHandle col="baseline" onMouseDown={snapshotStartResize} />
+                  </th>
+                  <th className="relative px-3 py-2 text-right" style={{ width: snapshotResize.colWidths.actions, minWidth: snapshotResize.colWidths.actions }}>
+                    {t(lang, "trendsActions")}
+                    <ColumnResizeHandle col="actions" onMouseDown={snapshotStartResize} />
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -192,6 +241,7 @@ export function TrendsPanel(props: TrendsPanelProps) {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         </div>
       )}
