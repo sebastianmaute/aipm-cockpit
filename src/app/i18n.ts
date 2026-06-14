@@ -1361,6 +1361,8 @@ const enUS = {
   evmCpi: "CPI",
   evmSv: "Schedule var. (SV)",
   evmCv: "Cost var. (CV)",
+  evmSpiHint: "Schedule Performance Index = earned value ÷ planned value. Above 1 means ahead of schedule.",
+  evmCpiHint: "Cost Performance Index = earned value ÷ actual cost. Above 1 means under budget.",
   evmNoEstimates: "No task estimates yet.",
   evmCoverage: "{0} of {1} tasks have estimates",
   navTrends: "Trends",
@@ -1536,6 +1538,7 @@ const enUS = {
   budgetCciCpiHint: "Cost Performance Index = earned ÷ actual. Above 1 is under budget.",
   budgetCciMarginHint: "Margin = (external value − internal cost) ÷ external value.",
   budgetCciConsumptionHint: "Share of budgeted hours already consumed.",
+  budgetReportColWinLossHint: "Difference between revenue and cost in EUR; negative means the bucket runs at a loss.",
   budgetWinLossHint: "Hours won or lost versus plan.",
   budgetSpilloverInHint: "Hours carried in from another bucket.",
   // Edit Change tooltips
