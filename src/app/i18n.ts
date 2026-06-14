@@ -1444,6 +1444,7 @@ const enUS = {
   versionHighlightDocuments: "A new Documents tab gathers every linked file across the project — open, jump to the source, remove, or add new links in one place",
   versionHighlightLoadFormats: "The empty-state \"Load from file\" now accepts any supported format (JSON, CSV, or Markdown) and detects it from the file",
   versionHighlightConfidenceRanking: "Action Center now ranks by how actionable a signal is, with configurable weights and a collapsible monitor group.",
+  versionHighlightCreateTask: "Turn an Action Center item into a follow-up task in one click — pre-filled from the signal, with RAID items linked back automatically.",
   // --- Restored: still used by kept banners + comms items (SP3) ---
   alertBannerDismiss: "Dismiss",
   alertCatOverdue: "Overdue",
@@ -1461,6 +1462,7 @@ const enUS = {
   dashboardTopActions: "Top actions",
   actionsEmptyState: "You're all caught up — no actions right now.",
   actionOpen: "Open",
+  actionCreateTask: "Create task",
   actionTierNow: "Now",
   actionTierSoon: "Soon",
   actionTierMonitor: "Monitor",
@@ -1496,6 +1498,7 @@ const enUS = {
   actionBudgetWhyImproving: "CPI {0} — over budget but improving",
   actionCommsTitle: "Update stakeholder: {0}",
   actionCommsWhy: "{0} update due",
+  actionCreatedFromNote: "From: {0} — {1}",
 
   // --- UI polish batch (0.76.0) ---
   // Modal heading fixes

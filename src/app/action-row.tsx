@@ -1,20 +1,10 @@
 // src/app/action-row.tsx
 "use client";
 import { useState } from "react";
-import { type Lang, t, type TranslationKey } from "./i18n";
-import type { SuggestedAction, ActionSource, ActionTier } from "./next-actions/types";
+import { type Lang, t } from "./i18n";
+import type { SuggestedAction, ActionTier } from "./next-actions/types";
 import { SNOOZE_1H, SNOOZE_1D } from "./reminder-snooze";
-
-const SOURCE_LABEL: Record<ActionSource, TranslationKey> = {
-  "task-due": "actionSourceTask",
-  raid: "actionSourceRaid",
-  "change-pending": "actionSourceChange",
-  milestone: "actionSourceMilestone",
-  budget: "actionSourceBudget",
-  "stakeholder-comms": "actionSourceComms",
-  schedule: "actionSourceSchedule",
-  workload: "actionSourceWorkload",
-};
+import { ACTION_SOURCE_LABEL } from "./action-source-label";
 const TIER_DOT: Record<ActionTier, string> = {
   now: "bg-AIPM-pink",
   soon: "bg-AIPM-purple",
@@ -26,9 +16,10 @@ interface ActionRowProps {
   action: SuggestedAction;
   onOpen: (action: SuggestedAction) => void;
   onSnooze?: (action: SuggestedAction, durationMs: number) => void;
+  onCreateTask?: (action: SuggestedAction) => void;
 }
 
-export function ActionRow({ lang, action, onOpen, onSnooze }: ActionRowProps) {
+export function ActionRow({ lang, action, onOpen, onSnooze, onCreateTask }: ActionRowProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const title = t(lang, action.title.key, ...(action.title.params ?? []));
   const why = t(lang, action.why.key, ...(action.why.params ?? []));
@@ -45,7 +36,7 @@ export function ActionRow({ lang, action, onOpen, onSnooze }: ActionRowProps) {
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-2">
           <span className="rounded bg-surface-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-            {t(lang, SOURCE_LABEL[action.source])}
+            {t(lang, ACTION_SOURCE_LABEL[action.source])}
           </span>
           <span className="truncate text-sm font-medium text-foreground">{title}</span>
         </span>
@@ -59,6 +50,15 @@ export function ActionRow({ lang, action, onOpen, onSnooze }: ActionRowProps) {
         >
           {t(lang, "actionOpen")}
         </button>
+        {onCreateTask && action.source !== "task-due" && (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onCreateTask(action); }}
+            className="rounded-md border border-line px-2 py-1 text-xs font-medium text-AIPM-dark-blue hover:bg-surface-muted dark:text-AIPM-light-grey"
+          >
+            {t(lang, "actionCreateTask")}
+          </button>
+        )}
         {onSnooze && (
           <span className="relative">
             <button

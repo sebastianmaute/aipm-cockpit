@@ -109,6 +109,8 @@ import { buildActionInput } from "./next-actions-input";
 import { buildWorkloadAlerts } from "./next-actions-workload";
 import type { SuggestedAction } from "./next-actions";
 import { computeActionTrends } from "./next-actions/trends";
+import { buildTaskSeedFromAction } from "./action-task-seed";
+import { emptyForm } from "./task-form-context";
 
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
@@ -904,6 +906,7 @@ function TaskManagerInner() {
   const onPushToJiraRef = useRef<(taskId: number) => Promise<boolean>>(
     () => Promise.resolve(false),
   );
+  const pendingLinkRaidIdRef = useRef<number | null>(null);
   const { fieldErrors, submitted, saveDisabled, handleSubmit, handleCancelEdit, openEditModal } = useTaskSubmit({
     form,
     setForm,
@@ -920,7 +923,24 @@ function TaskManagerInner() {
     logActivity,
     showToast,
     onPushToJiraRef,
+    raid,
+    setRaid,
+    pendingLinkRaidIdRef,
   });
+
+  const handleCreateTaskFromAction = useCallback(
+    (action: SuggestedAction) => {
+      handleCancelEdit(); // reset editor (clears editingId, form, and the pending ref)
+      const seed = buildTaskSeedFromAction(action, lang);
+      setForm(() => ({ ...emptyForm(), taskName: seed.taskName, notes: seed.notes }));
+      pendingLinkRaidIdRef.current =
+        action.source === "raid" && action.cta.kind === "open"
+          ? Number(action.cta.id)
+          : null;
+      setTaskModalOpen(true);
+    },
+    [handleCancelEdit, lang, setForm, setTaskModalOpen, pendingLinkRaidIdRef],
+  );
 
   // Deep-link: when a suggested-action chip requests opening a task, open its
   // edit modal once and clear the pending signal so it does not re-fire.
@@ -1322,6 +1342,7 @@ function TaskManagerInner() {
     nextActions,
     onOpenAction: openAction,
     onSnooze: snoozeAction,
+    onCreateTask: isPopout ? undefined : handleCreateTaskFromAction,
   };
 
   const workspaceEl = <WorkspaceSection {...workspaceProps} />;

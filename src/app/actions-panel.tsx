@@ -17,9 +17,10 @@ interface ActionsPanelProps {
   actions: readonly SuggestedAction[];
   onOpen: (action: SuggestedAction) => void;
   onSnooze?: (action: SuggestedAction, durationMs: number) => void;
+  onCreateTask?: (action: SuggestedAction) => void;
 }
 
-export function ActionsPanel({ lang, actions, onOpen, onSnooze }: ActionsPanelProps) {
+export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask }: ActionsPanelProps) {
   const [monitorOpen, setMonitorOpen] = useState(false);
   return (
     <div className={VIEW_PANE_FILL_CLASS}>
@@ -51,7 +52,7 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze }: ActionsPanelPr
                   </button>
                   <div id="action-monitor-list" className="flex flex-col gap-2" hidden={!monitorOpen}>
                     {rows.map((a) => (
-                      <ActionRow key={a.id} lang={lang} action={a} onOpen={onOpen} onSnooze={onSnooze} />
+                      <ActionRow key={a.id} lang={lang} action={a} onOpen={onOpen} onSnooze={onSnooze} onCreateTask={onCreateTask} />
                     ))}
                   </div>
                 </section>
@@ -64,7 +65,7 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze }: ActionsPanelPr
                 </h3>
                 <div className="flex flex-col gap-2">
                   {rows.map((a) => (
-                    <ActionRow key={a.id} lang={lang} action={a} onOpen={onOpen} onSnooze={onSnooze} />
+                    <ActionRow key={a.id} lang={lang} action={a} onOpen={onOpen} onSnooze={onSnooze} onCreateTask={onCreateTask} />
                   ))}
                 </div>
               </section>
