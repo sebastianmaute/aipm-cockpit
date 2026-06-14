@@ -108,6 +108,7 @@ import { computeNextActions } from "./next-actions";
 import { buildActionInput } from "./next-actions-input";
 import { buildWorkloadAlerts } from "./next-actions-workload";
 import type { SuggestedAction } from "./next-actions";
+import { computeActionTrends } from "./next-actions/trends";
 
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
@@ -419,6 +420,13 @@ function TaskManagerInner() {
   });
   const trends = { ...snapshots, active: trendsActive };
 
+  // Aggregate-metric trend directions for the next-actions confidence ranking.
+  // Only meaningful when snapshots are recorded (Turso); undefined otherwise.
+  const actionTrends = useMemo(
+    () => (trendsActive ? computeActionTrends(snapshots.snapshots) : undefined),
+    [trendsActive, snapshots.snapshots],
+  );
+
   const raidEnabled = isModuleEnabled("raid", settings.features);
   const changesEnabled = isModuleEnabled("changes", settings.features);
   const stakeholdersEnabled = isModuleEnabled("stakeholders", settings.features);
@@ -645,6 +653,10 @@ function TaskManagerInner() {
           scheduleSpiCritical: settings.nextActions?.scheduleSpiCritical,
           workloadAllocatedCritical: settings.nextActions?.workloadAllocatedCritical,
           workloadOverdueUrgent: settings.nextActions?.workloadOverdueUrgent,
+          trends: actionTrends,
+          clarityBonus: settings.nextActions?.clarityBonus,
+          semiClarityBonus: settings.nextActions?.semiClarityBonus,
+          staticPenalty: settings.nextActions?.staticPenalty,
           // Due actions stay always-on (core). The RAID review toggle below
           // defaults true and is a safe gate.
           raidReviewEnabled: settings.notifications.raidReview.enabled,
@@ -652,7 +664,7 @@ function TaskManagerInner() {
           dismissed: actionSnooze.dismissed,
         }),
       ),
-    [tasks, raid, changes, milestones, stakeholders, dashboardModel, comms.items, settings.features, settings.notifications, settings.nextActions, project, today, workloadAlerts, actionSnooze.dismissed],
+    [tasks, raid, changes, milestones, stakeholders, dashboardModel, comms.items, settings.features, settings.notifications, settings.nextActions, project, today, workloadAlerts, actionSnooze.dismissed, actionTrends],
   );
   const nowCount = nextActions.filter((a) => a.tier === "now").length;
   const openAction = useCallback(
