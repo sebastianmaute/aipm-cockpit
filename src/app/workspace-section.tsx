@@ -473,7 +473,10 @@ export function WorkspaceSection({
       >
         <ActionChips
           lang={lang}
-          actions={chipsForView(nextActions, activeTab)}
+          // open-points renders in TasksSection (which carries its own strip);
+          // in classic both surfaces mount, so exclude it here to avoid a
+          // duplicate/orphan strip in the workspace card.
+          actions={activeTab === "open-points" ? [] : chipsForView(nextActions, activeTab)}
           onOpen={onOpenAction}
           onShowMore={() => setActiveTab("actions")}
           className="mb-2 shrink-0"
