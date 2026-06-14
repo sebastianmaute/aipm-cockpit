@@ -90,4 +90,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightActionChips",
   "versionHighlightScheduleWorkload",
   "versionHighlightUiBatch",
+  "versionHighlightDocuments",
 ] as const;

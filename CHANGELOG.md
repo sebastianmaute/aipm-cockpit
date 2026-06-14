@@ -16,6 +16,9 @@ longer carries its own changelog comment.
   the relevant item (task / RAID / change / milestone / stakeholder) when clicked.
 - The RACI picker is now compact: it shows the selected role and expands to all
   roles (plus clear) on click, collapsing on outside-click.
+- New **Documents** tab: every linked file across tasks, RAID, changes,
+  milestones, stakeholders, and the project in one place — open a link, jump to
+  its source, remove it, or attach a new one to any item.
 
 ### Fixed
 - Manage Roles header tooltips read in normal case and are no longer clipped by

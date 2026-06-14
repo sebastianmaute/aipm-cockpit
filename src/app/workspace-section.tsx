@@ -103,6 +103,10 @@ const ActionsPanel = dynamic(
   () => import("./actions-panel").then((m) => m.ActionsPanel),
   { ssr: false },
 );
+const DocumentsPanel = dynamic(
+  () => import("./documents-panel").then((m) => m.DocumentsPanel),
+  { ssr: false },
+);
 
 export interface WorkspaceSectionProps {
   today: string;
@@ -856,6 +860,12 @@ export function WorkspaceSection({
         {activeTab === "actions" && (
           <div id="panel-actions" role="tabpanel" className={panelClass}>
             <ActionsPanel lang={lang} actions={nextActions} onOpen={onOpenAction} onSnooze={onSnooze} />
+          </div>
+        )}
+
+        {activeTab === "documents" && (
+          <div id="panel-documents" role="tabpanel" className={panelClass}>
+            <DocumentsPanel />
           </div>
         )}
 
