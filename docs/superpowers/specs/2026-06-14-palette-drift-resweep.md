@@ -27,16 +27,15 @@ Map `text-AIPM-dark-grey [dark:text-AIPM-medium-grey]` → `text-muted-foregroun
 Background / border chrome:
 - `project-switcher.tsx` — L97 `hover:bg-AIPM-light-grey` → `hover:bg-surface-muted` (leave the rest of the className intact).
 - `app-modals.tsx` — L203 `border-AIPM-light-grey … dark:border-zinc-800` → `border-line` (removes the off-palette `zinc-800` too).
-- `resource-calendar.tsx` — L257 weekend `hover:bg-AIPM-medium-grey/20 dark:hover:bg-AIPM-medium-grey/20` → `hover:bg-surface-muted` (the cell base is already `bg-surface-muted`; the hover should be a token).
 
-### ② REMAP — low-emphasis tints → `bg-surface-muted` (dark-mode correctness)
-Replace `bg-AIPM-light-grey/NN` (and any `dark:bg-AIPM-medium-grey/NN` partner) with `bg-surface-muted` (drop the alpha; `surface-muted` already IS the light value and flips correctly in dark — confirm visually that the un-alpha'd tint reads acceptably; if too strong, keep a `/NN` on `bg-surface-muted`):
-- `influence-interest-matrix.tsx` — L23 `bg-AIPM-light-grey/30 hover:bg-AIPM-light-grey/40`, L24 `hover:bg-AIPM-light-grey/30`.
-- `stakeholder-map-panel.tsx` — L63 `bg-AIPM-light-grey/20 dark:bg-AIPM-medium-grey/25`.
-- `stakeholders-panel.tsx` — L69 `bg-AIPM-light-grey/40 … dark:bg-AIPM-medium-grey/30` (keep the `text-foreground dark:text-AIPM-light-grey` text part).
+### ② REMAP — low-emphasis tints → `bg-surface-muted` (dark-mode correctness, alpha PRESERVED)
+Replace `bg-AIPM-light-grey/NN` → `bg-surface-muted/NN` (SAME alpha; and drop any `dark:bg-AIPM-medium-grey/NN` partner since `surface-muted` already flips in dark). Preserving the alpha keeps light mode pixel-identical (`surface-muted` light = #E3E6E6 = `AIPM-light-grey`) while fixing dark mode:
+- `influence-interest-matrix.tsx` — L23 `bg-AIPM-light-grey/30 hover:bg-AIPM-light-grey/40` → `bg-surface-muted/30 hover:bg-surface-muted/40`, L24 `hover:bg-AIPM-light-grey/30` → `hover:bg-surface-muted/30`.
+- `stakeholder-map-panel.tsx` — L63 `bg-AIPM-light-grey/20 dark:bg-AIPM-medium-grey/25` → `bg-surface-muted/20`.
+- `stakeholders-panel.tsx` — L69 `bg-AIPM-light-grey/40 … dark:bg-AIPM-medium-grey/30` → `bg-surface-muted/40` (keep the `text-foreground dark:text-AIPM-light-grey` text part).
 
 ### ③ KEEP — deliberate, documented category/status greys (NO change)
-- `resource-calendar.tsx` — L67 "other" absence cell + L321 "Other" legend chip (`bg-AIPM-medium-grey/45…`) — DESIGN-TOKENS-sanctioned category.
+- `resource-calendar.tsx` — L67 "other" absence cell + L321 "Other" legend chip (`bg-AIPM-medium-grey/45…`) — DESIGN-TOKENS-sanctioned category. ALSO L257 weekend-cell `hover:bg-AIPM-medium-grey/20` — KEPT: `AIPM-medium-grey` is a kept color, and the cell base is already `bg-surface-muted` so a token hover would be a no-op that kills the hover feedback. (Guard does not ban `AIPM-medium-grey`.)
 - `action-row.tsx` — L19 `monitor` tier dot `bg-AIPM-medium-grey` (deliberate de-emphasized tier; decorative `aria-hidden` dot).
 - `sidebar-footer.tsx` — L72 storage-not-ready dot `bg-AIPM-medium-grey` (neutral status vs `bg-AIPM-green` ready).
 - `raci-chip-picker.tsx` — L18 RACI "I" = grey (intentional category, consistent with R/A/C on/off pattern).
