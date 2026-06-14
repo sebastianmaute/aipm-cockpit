@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { useEffect, type ReactNode } from "react";
 import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
+import { WorkspaceTabProvider } from "./workspace-tab-context";
 import { MilestonesPanel } from "./milestones-panel";
 import { t } from "./i18n";
 import type { Milestone } from "./types";
@@ -15,7 +16,9 @@ vi.mock("./activity-log", async (orig) => ({
 function wrapper({ children }: { children: ReactNode }) {
   return (
     <FiltersProvider>
-      <WorkspaceProvider>{children}</WorkspaceProvider>
+      <WorkspaceProvider>
+        <WorkspaceTabProvider>{children}</WorkspaceTabProvider>
+      </WorkspaceProvider>
     </FiltersProvider>
   );
 }

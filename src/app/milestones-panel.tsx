@@ -8,6 +8,7 @@ import {
 } from "./report-table";
 import { MilestoneEditModal } from "./milestone-edit-modal";
 import { useWorkspace } from "./workspace-context";
+import { useWorkspaceTab } from "./workspace-tab-context";
 import {
   filterMilestones,
   milestoneStatus,
@@ -110,6 +111,17 @@ export function MilestonesPanel({
     // openNew is a stable hoisted declaration; depend only on the nonce.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openCreateNonce]);
+
+  // Deep-link: when a suggested-action chip requests opening a milestone, open
+  // its edit modal once and clear the pending signal.
+  const { pendingOpen, clearPendingOpen } = useWorkspaceTab();
+  useEffect(() => {
+    if (pendingOpen?.view !== "milestones") return;
+    const m = milestones.find((x) => x.id === pendingOpen.id);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-way deep-link
+    if (m && editing?.id !== m.id) setEditing(m);
+    clearPendingOpen();
+  }, [pendingOpen, milestones, editing, setEditing, clearPendingOpen]);
 
   function save(next: Milestone) {
     const creating = !milestones.some((m) => m.id === next.id);

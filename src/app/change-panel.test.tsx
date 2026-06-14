@@ -3,6 +3,7 @@ import { fireEvent, render } from "@testing-library/react";
 import { useEffect, useRef, type ReactNode } from "react";
 import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
+import { WorkspaceTabProvider } from "./workspace-tab-context";
 import { ChangePanel } from "./change-panel";
 import { applyTier } from "./field-visibility";
 import type { ChangeItem } from "./types";
@@ -21,7 +22,9 @@ const base = {
 function Providers({ children }: { children: ReactNode }) {
   return (
     <FiltersProvider>
-      <WorkspaceProvider>{children}</WorkspaceProvider>
+      <WorkspaceProvider>
+        <WorkspaceTabProvider>{children}</WorkspaceTabProvider>
+      </WorkspaceProvider>
     </FiltersProvider>
   );
 }

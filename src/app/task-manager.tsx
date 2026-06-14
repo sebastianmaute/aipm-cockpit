@@ -137,7 +137,7 @@ function TaskManagerInner() {
     resetColWidths,
     startColResize,
   } = useColumnManager();
-  const { isPopout, activeTab, setActiveTab, requestOpen } = useWorkspaceTab();
+  const { isPopout, activeTab, setActiveTab, requestOpen, pendingOpen, clearPendingOpen } = useWorkspaceTab();
   useHashView(settings.layout === "modern", settings.features);
   // Classic mode has no panel for the modern-only views; fall back to chat.
   useEffect(() => {
@@ -895,6 +895,15 @@ function TaskManagerInner() {
     showToast,
     onPushToJiraRef,
   });
+
+  // Deep-link: when a suggested-action chip requests opening a task, open its
+  // edit modal once and clear the pending signal so it does not re-fire.
+  useEffect(() => {
+    if (pendingOpen?.view !== "open-points") return;
+    const task = tasks.find((t) => t.id === pendingOpen.id);
+    if (task) openEditModal(task);
+    clearPendingOpen();
+  }, [pendingOpen, tasks, openEditModal, clearPendingOpen]);
 
   const {
     expandedNotes,

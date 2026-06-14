@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider } from "./workspace-context";
+import { WorkspaceTabProvider } from "./workspace-tab-context";
 import { StakeholdersPanel } from "./stakeholders-panel";
 import { t } from "./i18n";
 import type { Stakeholder } from "./types";
@@ -12,7 +13,9 @@ import type { Stakeholder } from "./types";
 function wrapper({ children }: { children: ReactNode }) {
   return (
     <FiltersProvider>
-      <WorkspaceProvider>{children}</WorkspaceProvider>
+      <WorkspaceProvider>
+        <WorkspaceTabProvider>{children}</WorkspaceTabProvider>
+      </WorkspaceProvider>
     </FiltersProvider>
   );
 }
