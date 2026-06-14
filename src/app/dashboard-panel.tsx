@@ -40,6 +40,8 @@ interface DashboardPanelProps {
   showChanges?: boolean;
   topActions?: readonly SuggestedAction[];
   onOpenAction?: (a: SuggestedAction) => void;
+  showTrends?: boolean;
+  onToggleTrends?: (show: boolean) => void;
 }
 
 const CHANGE_STATUS_KEY: Record<ChangeStatus, TranslationKey> = {
@@ -85,6 +87,7 @@ function OverrideSelect({
 export function DashboardPanel(props: DashboardPanelProps) {
   const { lang, today, onOpenRaid, onOpenTask, topActions, onOpenAction } = props;
   const { showRaid = true, showBudget = true, showMilestones = true, showChanges = true } = props;
+  const showTrends = props.showTrends !== false;
   const { status, setStatus } = useWorkspace();
   const sizeRef = useRef<HTMLDivElement | null>(null);
 
@@ -359,6 +362,40 @@ export function DashboardPanel(props: DashboardPanelProps) {
             </Section>
           )}
         </div>
+
+        {/* Trends widget */}
+        {showTrends ? (
+          <div className="rounded-lg border border-line bg-surface p-4">
+            <div className="mb-2 flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
+                {t(lang, "navTrends")}
+              </h3>
+              {props.onToggleTrends && (
+                <button
+                  type="button"
+                  aria-label={t(lang, "dashboardHideTrends")}
+                  title={t(lang, "dashboardHideTrends")}
+                  onClick={() => props.onToggleTrends!(false)}
+                  className="rounded border border-line bg-surface px-2 py-0.5 text-xs text-muted-foreground hover:bg-surface-muted print:hidden"
+                >
+                  {t(lang, "dashboardHideTrends")}
+                </button>
+              )}
+            </div>
+            <p className="text-sm text-muted-foreground">{t(lang, "trendsRequireTurso")}</p>
+          </div>
+        ) : props.onToggleTrends ? (
+          <div className="flex justify-end print:hidden">
+            <button
+              type="button"
+              aria-label={t(lang, "dashboardShowTrends")}
+              onClick={() => props.onToggleTrends!(true)}
+              className="rounded-md border border-line bg-surface px-2 py-1 text-xs text-muted-foreground hover:bg-surface-muted"
+            >
+              + {t(lang, "dashboardShowTrends")}
+            </button>
+          </div>
+        ) : null}
 
         {/* Top actions + Recent activity (side-by-side on large screens) */}
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">

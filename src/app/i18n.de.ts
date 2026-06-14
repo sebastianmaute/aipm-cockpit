@@ -1690,6 +1690,8 @@ export const de: Record<TranslationKey, string> = {
   helpSearchNoResults: "Keine Hilfethemen passen zur Suche.",
   dashboardStatusSave: "Speichern",
   dashboardStatusClear: "Leeren",
+  dashboardShowTrends: "Trends anzeigen",
+  dashboardHideTrends: "Trends ausblenden",
   notifUseGlobalLeadDays: "Eine globale Vorlaufzeit (Tage im Voraus) verwenden",
   notifGlobalLeadDaysHint: "Deaktivieren, um die Vorlaufzeit jeder Erinnerung einzeln festzulegen.",
   notifJiraTokenError: "Jira-Token-Fehlerbanner anzeigen",

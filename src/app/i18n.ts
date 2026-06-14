@@ -1701,6 +1701,8 @@ const enUS = {
   helpSearchNoResults: "No help topics match your search.",
   dashboardStatusSave: "Save",
   dashboardStatusClear: "Clear",
+  dashboardShowTrends: "Show trends",
+  dashboardHideTrends: "Hide trends",
   notifUseGlobalLeadDays: "Use one global lead time (days ahead)",
   notifGlobalLeadDaysHint: "Untick to set each reminder's lead time individually.",
   notifJiraTokenError: "Show Jira token error banner",
