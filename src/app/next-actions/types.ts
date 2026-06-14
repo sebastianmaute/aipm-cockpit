@@ -5,10 +5,12 @@ import type { FeatureModuleId } from "../feature-modules";
 import type { Task, RaidItem, ChangeItem, Milestone, Stakeholder } from "../types";
 import type { DashboardModel } from "../dashboard";
 import type { StakeholderCommsReminder } from "../stakeholder-comms";
+import type { WorkloadAlert } from "../next-actions-workload";
 
 export type ActionTier = "now" | "soon" | "monitor";
 export type ActionSource =
-  | "task-due" | "raid" | "change-pending" | "milestone" | "budget" | "stakeholder-comms";
+  | "task-due" | "raid" | "change-pending" | "milestone" | "budget" | "stakeholder-comms"
+  | "schedule" | "workload";
 
 /** Translated by the surface (SP2); the engine stays i18n-free. */
 export interface I18nText {
@@ -49,6 +51,7 @@ export interface ActionInput {
   dueSoonWorkdays: number;
   raidReviewIntervalDays: number;
   taskDueEnabled?: boolean;           // Settings → Notifications "due reminders" toggle; false → no task-due actions (undefined = enabled)
+  workloadAlerts?: readonly WorkloadAlert[];  // pre-computed by the surface via buildWorkloadAlerts; feeds the `workload` provider
   raidReviewEnabled?: boolean;        // "RAID review reminder" toggle; false → no RAID review-due actions, severity actions stay (undefined = enabled)
   dismissed: ReadonlySet<string>;     // snoozed/dismissed action ids (injected; SP3 wires the store)
 }

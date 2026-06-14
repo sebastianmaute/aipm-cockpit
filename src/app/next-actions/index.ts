@@ -9,6 +9,8 @@ import { changePendingProvider } from "./providers/change-pending";
 import { milestoneProvider } from "./providers/milestone";
 import { budgetProvider } from "./providers/budget";
 import { stakeholderCommsProvider } from "./providers/stakeholder-comms";
+import { scheduleProvider } from "./providers/schedule";
+import { workloadProvider } from "./providers/workload";
 import type { ActionInput, ActionProvider, SuggestedAction } from "./types";
 
 /** The real provider set, in a deterministic order. */
@@ -19,6 +21,8 @@ export const ALL_PROVIDERS: readonly ActionProvider[] = [
   milestoneProvider,
   budgetProvider,
   stakeholderCommsProvider,
+  scheduleProvider,
+  workloadProvider,
 ];
 
 /** Compute the ranked suggested actions from the app's current signals. */

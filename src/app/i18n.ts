@@ -1400,6 +1400,16 @@ const enUS = {
   actionChipsLabel: "Suggested actions",
   actionChipsMore: "+{0} more",
   versionHighlightActionChips: "The next action now shows inline on each view and report — click a chip to jump straight to the item",
+  // --- Schedule + workload providers (0.80.0) ---
+  actionSourceSchedule: "Schedule",
+  actionSourceWorkload: "Workload",
+  actionScheduleTitle: "{0} is behind schedule",
+  actionScheduleWhyBehind: "Schedule performance index is {0} (under 1.0 = behind plan)",
+  actionScheduleWhyBurndown: "Burn-up is trailing the planned line",
+  actionWorkloadTitle: "{0}",
+  actionWorkloadWhyOverAllocated: "Over-allocated — {0}% planned in the next period",
+  actionWorkloadWhyOverload: "{0} overdue items assigned",
+  versionHighlightScheduleWorkload: "Two new suggested-action signals: a schedule/EVM warning when the project trends behind plan, and workload alerts for over-allocated or overloaded people",
   // --- Restored: still used by kept banners + comms items (SP3) ---
   alertBannerDismiss: "Dismiss",
   alertCatOverdue: "Overdue",
