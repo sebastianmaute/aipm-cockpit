@@ -1477,6 +1477,7 @@ const enUS = {
   actionTaskWhySoon: "Due in {0} working day(s)",
   actionRaidTitle: "RAID {0}: {1}",
   actionRaidWhySeverity: "{0} severity, still open",
+  actionRaidWhyNoOwner: "Severity {0} — no owner assigned",
   actionRaidWhyReviewOverdue: "Review {0} day(s) overdue",
   actionRaidWhyReviewStale: "Not reviewed in {0} days",
   actionChangeAggTitle: "{0} changes awaiting decision",

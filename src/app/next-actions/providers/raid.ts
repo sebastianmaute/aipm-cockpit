@@ -16,13 +16,20 @@ export const raidProvider: ActionProvider = {
       if (isTerminalStatus(item.status, item.category)) continue;
       const rag = severityRag(item.severity);
       if (rag !== "R" && rag !== "A") continue;
-      const score = scoreAction({ risk: rag === "R" ? W.riskCritical : W.riskHigh });
+      const hasOwner = !!(item.owner || item.ownerEmail || item.ownerResourceId != null);
+      const clarity = hasOwner
+        ? (input.semiClarityBonus ?? W.semiClarityBonus)
+        : (input.clarityBonus ?? W.clarityBonus);
+      const score = scoreAction({ risk: rag === "R" ? W.riskCritical : W.riskHigh, clarity });
+      const why = hasOwner
+        ? { key: "actionRaidWhySeverity" as const, params: [item.severity ?? ""] }
+        : { key: "actionRaidWhyNoOwner" as const, params: [item.severity ?? ""] };
       out.push({
         id: `raid:${item.id}:severity`,
         source: "raid",
         moduleId: "raid",
         title: { key: "actionRaidTitle" as const, params: [item.id, item.title] },
-        why: { key: "actionRaidWhySeverity" as const, params: [item.severity ?? ""] },
+        why,
         score,
         tier: bandTier(score),
         cta: { kind: "open", view: "raid", id: item.id },

@@ -1474,6 +1474,7 @@ export const de: Record<TranslationKey, string> = {
   actionTaskWhySoon: "Fällig in {0} Arbeitstag(en)",
   actionRaidTitle: "RAID {0}: {1}",
   actionRaidWhySeverity: "Schweregrad {0}, weiterhin offen",
+  actionRaidWhyNoOwner: "Schweregrad {0} — kein Verantwortlicher zugewiesen",
   actionRaidWhyReviewOverdue: "Überprüfung {0} Tag(e) überfällig",
   actionRaidWhyReviewStale: "Seit {0} Tagen nicht überprüft",
   actionChangeAggTitle: "{0} Änderungen warten auf Entscheidung",
