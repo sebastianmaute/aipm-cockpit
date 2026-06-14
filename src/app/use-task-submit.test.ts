@@ -1,6 +1,7 @@
 // src/app/use-task-submit.test.ts
 import { act, renderHook } from "@testing-library/react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
+import type { RaidItem } from "./types";
 
 beforeAll(() => {
   window.scrollTo = vi.fn();
@@ -68,6 +69,9 @@ function makeArgs(overrides: Partial<Parameters<typeof useTaskSubmit>[0]> = {}) 
     logActivity: vi.fn(),
     showToast: vi.fn(),
     onPushToJiraRef: { current: vi.fn().mockResolvedValue(false) },
+    raid: [] as readonly RaidItem[],
+    setRaid: vi.fn(),
+    pendingLinkRaidIdRef: { current: null as number | null },
     ...overrides,
   };
 }
@@ -302,5 +306,90 @@ describe("useTaskSubmit — resourceId threading", () => {
     act(() => result.current.openEditModal(linked));
     const seeded = setForm.mock.calls[0][0] as TaskFormDraft;
     expect(seeded.resourceId).toBe(9);
+  });
+});
+
+describe("useTaskSubmit — RAID back-link on task create", () => {
+  function makeRaidItem(overrides: Partial<RaidItem> = {}): RaidItem {
+    return {
+      id: 7,
+      category: "R",
+      title: "Test risk",
+      status: "Open",
+      linkedTaskIds: [],
+      causedByRaidIds: [],
+      stakeholderIds: [],
+      raisedDate: "2030-01-01",
+      ...overrides,
+    };
+  }
+
+  it("links the created task id into the RAID item and clears the ref", () => {
+    const pendingLinkRaidIdRef = { current: 7 as number | null };
+    let raidState: readonly RaidItem[] = [makeRaidItem({ id: 7, linkedTaskIds: [] })];
+    const setRaid: React.Dispatch<React.SetStateAction<readonly RaidItem[]>> = (u) => {
+      raidState = typeof u === "function" ? u(raidState) : u;
+    };
+    const { result } = renderHook(() =>
+      useTaskSubmit(makeArgs({
+        tasks: [],
+        tasksRef: { current: [] },
+        editingId: null,
+        raid: raidState,
+        setRaid,
+        pendingLinkRaidIdRef,
+      })),
+    );
+    act(() => result.current.handleSubmit(fakeSubmitEvent()));
+    expect(raidState[0].linkedTaskIds).toHaveLength(1);
+    expect(raidState[0].linkedTaskIds[0]).toBe(1); // nextId([]) === 1
+    expect(pendingLinkRaidIdRef.current).toBeNull();
+  });
+
+  it("does not throw and leaves raid unchanged when the RAID item id is missing", () => {
+    const pendingLinkRaidIdRef = { current: 99 as number | null };
+    const setTasks = vi.fn();
+    let raidState: readonly RaidItem[] = [makeRaidItem({ id: 7, linkedTaskIds: [] })];
+    const setRaid: React.Dispatch<React.SetStateAction<readonly RaidItem[]>> = (u) => {
+      raidState = typeof u === "function" ? u(raidState) : u;
+    };
+    const { result } = renderHook(() =>
+      useTaskSubmit(makeArgs({
+        tasks: [],
+        tasksRef: { current: [] },
+        setTasks,
+        raid: raidState,
+        setRaid,
+        pendingLinkRaidIdRef,
+      })),
+    );
+    act(() => result.current.handleSubmit(fakeSubmitEvent()));
+    expect(raidState[0].linkedTaskIds).toHaveLength(0); // unchanged
+    expect(pendingLinkRaidIdRef.current).toBeNull();
+    expect(setTasks).toHaveBeenCalled(); // task still created
+  });
+
+  it("cancel clears the pending link ref", () => {
+    const pendingLinkRaidIdRef = { current: 5 as number | null };
+    const { result } = renderHook(() =>
+      useTaskSubmit(makeArgs({ pendingLinkRaidIdRef })),
+    );
+    act(() => result.current.handleCancelEdit());
+    expect(pendingLinkRaidIdRef.current).toBeNull();
+  });
+
+  it("does not call setRaid when pendingLinkRaidIdRef is null", () => {
+    const setRaid = vi.fn();
+    const pendingLinkRaidIdRef = { current: null as number | null };
+    const { result } = renderHook(() =>
+      useTaskSubmit(makeArgs({
+        tasks: [],
+        tasksRef: { current: [] },
+        setRaid,
+        pendingLinkRaidIdRef,
+      })),
+    );
+    act(() => result.current.handleSubmit(fakeSubmitEvent()));
+    expect(setRaid).not.toHaveBeenCalled();
   });
 });

@@ -904,6 +904,7 @@ function TaskManagerInner() {
   const onPushToJiraRef = useRef<(taskId: number) => Promise<boolean>>(
     () => Promise.resolve(false),
   );
+  const pendingLinkRaidIdRef = useRef<number | null>(null);
   const { fieldErrors, submitted, saveDisabled, handleSubmit, handleCancelEdit, openEditModal } = useTaskSubmit({
     form,
     setForm,
@@ -920,6 +921,9 @@ function TaskManagerInner() {
     logActivity,
     showToast,
     onPushToJiraRef,
+    raid,
+    setRaid,
+    pendingLinkRaidIdRef,
   });
 
   // Deep-link: when a suggested-action chip requests opening a task, open its

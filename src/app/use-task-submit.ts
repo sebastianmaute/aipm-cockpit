@@ -8,7 +8,7 @@ import { useAdjustmentTracker } from "./field-feedback";
 import { t, type Lang } from "./i18n";
 import { nextId } from "./resource-foundation";
 import { type Settings } from "./settings-types";
-import { type Task } from "./types";
+import { type Task, type RaidItem } from "./types";
 import {
   ASSIGNEE_MAX,
   EMAIL_MAX,
@@ -45,6 +45,9 @@ export interface UseTaskSubmitArgs {
   logActivity: (kind: ActivityKind, ...args: (string | number)[]) => void;
   showToast: (kind: "info" | "error", text: string) => void;
   onPushToJiraRef: React.MutableRefObject<(taskId: number) => Promise<boolean>>;
+  raid: readonly RaidItem[];
+  setRaid: React.Dispatch<React.SetStateAction<readonly RaidItem[]>>;
+  pendingLinkRaidIdRef: React.MutableRefObject<number | null>;
 }
 
 export function useTaskSubmit(args: UseTaskSubmitArgs): {
@@ -71,6 +74,8 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
     logActivity,
     showToast,
     onPushToJiraRef,
+    setRaid,
+    pendingLinkRaidIdRef,
   } = args;
 
   // `submitted` flips true on the first submit attempt so per-field errors can
@@ -170,6 +175,24 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
         tasksRef.current = nextList;
         setTasks(nextList);
         logActivity("task.created", newId, taskName);
+        const linkRaidId = pendingLinkRaidIdRef.current;
+        pendingLinkRaidIdRef.current = null;
+        if (linkRaidId != null) {
+          setRaid((prev) =>
+            prev.some((r) => r.id === linkRaidId)
+              ? prev.map((r) =>
+                  r.id === linkRaidId
+                    ? {
+                        ...r,
+                        linkedTaskIds: r.linkedTaskIds.includes(newId)
+                          ? r.linkedTaskIds
+                          : [...r.linkedTaskIds, newId],
+                      }
+                    : r,
+                )
+              : prev,
+          );
+        }
         if (shouldPush) {
           void onPushToJiraRef.current(newId);
         }
@@ -198,18 +221,22 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
       showToast,
       adj,
       onPushToJiraRef,
+      setRaid,
+      pendingLinkRaidIdRef,
     ],
   );
 
   const handleCancelEdit = useCallback(() => {
+    pendingLinkRaidIdRef.current = null;
     setEditingId(null);
     setSubmitted(false);
     setForm(emptyForm());
     setTaskModalOpen(false);
-  }, [setEditingId, setForm, setTaskModalOpen]);
+  }, [setEditingId, setForm, setTaskModalOpen, pendingLinkRaidIdRef]);
 
   const openEditModal = useCallback(
     (task: Task) => {
+      pendingLinkRaidIdRef.current = null;
       setEditingId(task.id);
       setSubmitted(false);
       setTaskModalOpen(true);
@@ -237,7 +264,7 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
         window.scrollTo({ top: 0, behavior: "smooth" });
       }
     },
-    [setEditingId, setTaskModalOpen, setForm],
+    [setEditingId, setTaskModalOpen, setForm, pendingLinkRaidIdRef],
   );
 
   return { fieldErrors, submitted, saveDisabled, handleSubmit, handleCancelEdit, openEditModal };
