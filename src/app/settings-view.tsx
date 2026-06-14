@@ -2,15 +2,17 @@
 "use client";
 
 import { useState } from "react";
-import { type Lang, type TranslationKey, t } from "./i18n";
+import { type Lang, type TranslationKey, t, localeFor } from "./i18n";
 import type { Settings } from "./settings-types";
 import type { StorageKind } from "./storage";
 import { APP_LICENSE, APP_LICENSE_URL, APP_VERSION_LABEL } from "./version";
 import { VersionInfoModal } from "./version-info";
+import { InfoTooltip } from "./info-tooltip";
 import { AppearanceSection } from "./settings-sections/appearance-section";
 import { LocalizationSection } from "./settings-sections/localization-section";
 import { GeneralSection } from "./settings-sections/general-section";
 import { NotificationsSection } from "./settings-sections/notifications-section";
+import { NextActionsSection } from "./settings-sections/next-actions-section";
 import { AiSection } from "./settings-sections/ai-section";
 import { IntegrationsSection } from "./settings-sections/integrations-section";
 import { ModeSection } from "./settings-sections/mode-section";
@@ -37,7 +39,7 @@ interface SettingsViewProps {
 
 type SectionId =
   | "mode" | "templates" | "appearance" | "localization" | "general" | "notifications"
-  | "ai" | "jira" | "storage" | "integrations" | "export" | "informationFlows";
+  | "nextActions" | "ai" | "jira" | "storage" | "integrations" | "export" | "informationFlows";
 
 const RAIL: { id: SectionId; labelKey: TranslationKey }[] = [
   { id: "mode", labelKey: "settingsSectionMode" },
@@ -51,13 +53,59 @@ const RAIL: { id: SectionId; labelKey: TranslationKey }[] = [
   { id: "storage", labelKey: "settingsSectionStorage" },
   { id: "integrations", labelKey: "settingsSectionIntegrations" },
   { id: "export", labelKey: "settingsSectionExport" },
+  { id: "nextActions", labelKey: "settingsSectionNextActions" },
   { id: "informationFlows", labelKey: "settingsSectionInformationFlows" },
 ];
 
+// Advanced sections revealed only in expert mode.
+const EXPERT_IDS: readonly SectionId[] = ["nextActions", "notifications", "templates", "mode", "export"];
+// Connectivity sections grouped together above Information flows (own divider).
+const INTEGRATION_IDS: readonly SectionId[] = ["ai", "jira", "integrations"];
+const FLOWS_ID: SectionId = "informationFlows";
+
 export function SettingsView(props: SettingsViewProps) {
   const { lang, settings, onChange } = props;
-  const [active, setActive] = useState<SectionId>("mode");
+  // Default to an always-visible section ("mode" is expert-gated).
+  const [active, setActive] = useState<SectionId>("appearance");
   const [showVersion, setShowVersion] = useState(false);
+
+  const expert = settings.expertMode === true;
+  const byLabel = (a: { labelKey: TranslationKey }, b: { labelKey: TranslationKey }) =>
+    t(lang, a.labelKey).localeCompare(t(lang, b.labelKey), localeFor(lang));
+
+  // Main group: everything except integrations + flows, with expert-only
+  // sections shown only in expert mode. Alphabetical by label.
+  const mainEntries = RAIL.filter(
+    (r) => r.id !== FLOWS_ID && !INTEGRATION_IDS.includes(r.id) && (expert || !EXPERT_IDS.includes(r.id)),
+  ).sort(byLabel);
+  const integrationEntries = RAIL.filter((r) => INTEGRATION_IDS.includes(r.id)).sort(byLabel);
+  const flowsEntry = RAIL.find((r) => r.id === FLOWS_ID);
+
+  const toggleExpert = (next: boolean) => {
+    onChange({ ...settings, expertMode: next });
+    // Leaving expert mode while parked on an expert-only section would blank the
+    // panel — fall back to an always-visible section.
+    if (!next && EXPERT_IDS.includes(active)) setActive("appearance");
+  };
+
+  const renderRailButton = ({ id, labelKey }: { id: SectionId; labelKey: TranslationKey }) => {
+    const isActive = active === id;
+    return (
+      <button
+        key={id}
+        type="button"
+        aria-current={isActive ? "page" : undefined}
+        onClick={() => setActive(id)}
+        className={
+          isActive
+            ? "rounded-md bg-AIPM-dark-blue px-3 py-2 text-left text-sm font-medium text-white"
+            : "rounded-md px-3 py-2 text-left text-sm text-foreground hover:bg-surface-muted"
+        }
+      >
+        {t(lang, labelKey)}
+      </button>
+    );
+  };
 
   return (
     <>
@@ -66,24 +114,32 @@ export function SettingsView(props: SettingsViewProps) {
         aria-label={t(lang, "settings")}
         className="flex shrink-0 flex-row flex-wrap gap-1 md:w-56 md:flex-col"
       >
-        {RAIL.map(({ id, labelKey }) => {
-          const isActive = active === id;
-          return (
-            <button
-              key={id}
-              type="button"
-              aria-current={isActive ? "page" : undefined}
-              onClick={() => setActive(id)}
-              className={
-                isActive
-                  ? "rounded-md bg-AIPM-dark-blue px-3 py-2 text-left text-sm font-medium text-white"
-                  : "rounded-md px-3 py-2 text-left text-sm text-foreground hover:bg-surface-muted"
-              }
-            >
-              {t(lang, labelKey)}
-            </button>
-          );
-        })}
+        <label className="mb-1 flex items-center gap-2 rounded-md px-3 py-2 text-sm text-foreground">
+          <input
+            type="checkbox"
+            checked={expert}
+            aria-label={t(lang, "settingsExpertMode")}
+            onChange={(e) => toggleExpert(e.target.checked)}
+            className="h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue focus:ring-AIPM-green"
+          />
+          <span className="inline-flex items-center gap-1">
+            {t(lang, "settingsExpertMode")}
+            <InfoTooltip text={t(lang, "settingsExpertModeHint")} />
+          </span>
+        </label>
+        {mainEntries.map(renderRailButton)}
+        {integrationEntries.length > 0 && (
+          <>
+            <hr className="my-1 border-line" />
+            {integrationEntries.map(renderRailButton)}
+          </>
+        )}
+        {flowsEntry && (
+          <>
+            <hr className="my-1 border-line" />
+            {renderRailButton(flowsEntry)}
+          </>
+        )}
       </nav>
 
       <section className="min-w-0 flex-1 rounded-lg border border-line bg-surface p-6">
@@ -111,6 +167,9 @@ export function SettingsView(props: SettingsViewProps) {
         )}
         {active === "notifications" && (
           <NotificationsSection lang={lang} settings={settings} onChange={onChange} />
+        )}
+        {active === "nextActions" && (
+          <NextActionsSection lang={lang} settings={settings} onChange={onChange} />
         )}
         {active === "ai" && (
           <AiSection lang={lang} settings={settings} onChange={onChange} />

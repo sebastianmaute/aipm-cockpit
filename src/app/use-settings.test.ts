@@ -114,6 +114,35 @@ describe("useSettings", () => {
     });
   });
 
+  describe("same-page sync", () => {
+    it("setSettings on one instance propagates to another live instance", async () => {
+      const a = renderHook(() => useSettings());
+      const b = renderHook(() => useSettings());
+      await act(async () => {});
+      expect(b.result.current.settings.expertMode).not.toBe(true);
+      act(() => {
+        a.result.current.setSettings((s) => ({ ...s, expertMode: true }));
+      });
+      // The change made through instance A reaches instance B without a reload.
+      expect(b.result.current.settings.expertMode).toBe(true);
+      a.unmount();
+      b.unmount();
+    });
+
+    it("an unmounted instance no longer receives broadcasts", async () => {
+      const a = renderHook(() => useSettings());
+      const b = renderHook(() => useSettings());
+      await act(async () => {});
+      b.unmount();
+      // Must not throw / warn about updating an unmounted instance.
+      act(() => {
+        a.result.current.setSettings((s) => ({ ...s, expertMode: true }));
+      });
+      expect(a.result.current.settings.expertMode).toBe(true);
+      a.unmount();
+    });
+  });
+
   describe("persistence", () => {
     it("persists settings to localStorage when setSettings is called", async () => {
       const { result } = renderHook(() => useSettings());

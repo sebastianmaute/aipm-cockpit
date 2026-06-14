@@ -91,6 +91,40 @@ export async function pickOpenFile(type: FilePickType): Promise<FsHandle> {
   return handle as FsHandle;
 }
 
+/**
+ * Open picker that accepts every supported local format (JSON / CSV / Markdown)
+ * in a single dialog. The caller derives the actual format from the picked
+ * file's name via {@link formatFromFileName}. Used by the "Load from file"
+ * flows (empty state, project switcher) so the user is not forced to pre-select
+ * a format. Uses its own remembered-location `id` distinct from the per-format
+ * pickers.
+ */
+export async function pickOpenFileAny(): Promise<FsHandle> {
+  if (typeof window === "undefined" || !("showOpenFilePicker" in window)) {
+    throw new StorageNotReadyError("file-system-access-unsupported");
+  }
+  const types = (["json", "csv", "md"] as const).flatMap((f) => PICK_OPTS[f].types);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [handle] = await (window as any).showOpenFilePicker({
+    multiple: false,
+    id: "lopfile_any",
+    types,
+  });
+  return handle as FsHandle;
+}
+
+/**
+ * Infer the local storage format from a file name's extension. `.csv` → "csv",
+ * `.md`/`.markdown` → "md", everything else (incl. `.json` and unknown) → "json".
+ * JSON is the safe default: it is the lossless round-trip format.
+ */
+export function formatFromFileName(name: string | undefined): LocalStorageFormat {
+  const lower = (name ?? "").toLowerCase();
+  if (lower.endsWith(".csv")) return "csv";
+  if (lower.endsWith(".md") || lower.endsWith(".markdown")) return "md";
+  return "json";
+}
+
 export async function hasGrantedPermission(
   handle: FsHandle,
   mode: "read" | "readwrite",

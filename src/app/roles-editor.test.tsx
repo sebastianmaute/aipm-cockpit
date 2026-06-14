@@ -43,6 +43,13 @@ describe("RolesEditor rate-card table", () => {
     expect(usd.container.textContent).not.toContain("€");
   });
 
+  it("renders a reset-column-widths button for the rate-card table", () => {
+    renderEditor();
+    expect(
+      screen.getByRole("button", { name: t("en-US", "colResetWidthsHint") }),
+    ).toBeInTheDocument();
+  });
+
   it("wraps the rate-card table in the shared inner-table scroll card", () => {
     renderEditor();
     const table = screen.getByRole("table");

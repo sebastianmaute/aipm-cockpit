@@ -33,6 +33,7 @@ export interface BuildWorkloadAlertsArgs {
   workdayHours: number;
   holidaySet: ReadonlySet<string>;
   overdueThreshold?: number;
+  overAllocatedPct?: number;
 }
 
 const DEFAULT_OVERDUE_THRESHOLD = 3;
@@ -41,6 +42,7 @@ const OVER_ALLOCATED_PCT = 100;
 
 export function buildWorkloadAlerts(a: BuildWorkloadAlertsArgs): WorkloadAlert[] {
   const threshold = a.overdueThreshold ?? DEFAULT_OVERDUE_THRESHOLD;
+  const overAllocatedPct = a.overAllocatedPct ?? OVER_ALLOCATED_PCT;
   const out: WorkloadAlert[] = [];
 
   const { managed } = buildResourceWorkload(a.resources, a.tasks, a.absences, a.shifts, a.raid, a.today);
@@ -65,7 +67,7 @@ export function buildWorkloadAlerts(a: BuildWorkloadAlertsArgs): WorkloadAlert[]
         const v = pct[k] ?? 0;
         if (v > max) max = v;
       }
-      if (max > OVER_ALLOCATED_PCT) {
+      if (max > overAllocatedPct) {
         out.push({
           resourceId: r.id,
           resourceName: resourceDisplayName(r),

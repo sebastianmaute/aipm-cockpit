@@ -8,6 +8,58 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.82.0] - 2026-06-14 "Jemisin"
+
+### Added / Changed
+- The empty-state (no project yet) "Load from file" now accepts any supported
+  file format — JSON, CSV, or Markdown — in a single picker and detects the
+  format from the chosen file's extension, instead of only loading JSON. This
+  also applies to the "Load from file" actions in the project switcher and the
+  Projects panel.
+- Moved the **History** navigation entry from the Overview group to the System
+  group, directly below **Activity**.
+- The Manage Roles pane is now manually resizable (drag the bottom-right corner)
+  while still scaling to its content by default, with a reset-size button that
+  returns it to the content-fit default.
+- The Archive action in the Projects panel now has a tooltip explaining that an
+  archived project can be permanently deleted from the archived list.
+- The Settings rail is now sorted alphabetically, with **Information flows**
+  pinned to the bottom under a divider.
+- Manage Roles now has a reset-column-widths button, matching the other tables.
+- Added an **Expert mode** toggle to Settings. The advanced sections (Mode,
+  Templates, Notifications, Next actions, Export) and the toolbar's
+  save-as-template / apply-template actions are hidden unless expert mode is on.
+  The connectivity sections (AI assistant, Jira, Integrations) are now grouped
+  together above Information flows, each under its own divider.
+- New **Settings → Next actions** section to override the signal-firing
+  thresholds of the suggested-next-actions engine: pending-changes count, the
+  schedule SPI warn / critical levels, the workload over-allocation % (and its
+  critical level), and the overload overdue-task count (and its urgent level).
+  Each field shows its default and there is a reset-to-defaults button; invalid
+  values fall back per-field. Day-based lead times stay under Notifications.
+- Explanatory InfoTooltips on non-obvious table-column headers across the app
+  (RAID Severity; Change Impact; Stakeholder Influence / Interest; Trends
+  Baseline / Delta; Resources report Capacity / Internal / External / Margin /
+  Avg util.; the Inquiries count; RAID report Age) — matching the Manage Roles
+  rate-card headers. `SortHeaderButton` gained an optional `hint` prop.
+
+### Fixed
+- Settings changes now propagate across the whole page without a reload. The app
+  has several independent `useSettings()` instances (the canonical shell, the
+  standalone workspace/pop-out section, and read-only consumers); previously a
+  change made through one — e.g. accepting the AI-usage policy, or toggling a
+  setting in the Settings menu — did not reach the others until a reload. Each
+  instance now broadcasts changes to the others. This also fixes the chat
+  consent screen ("I understand") not opening the assistant.
+- Snapshot auto-capture no longer throws `StorageNotReadyError` on mount when
+  the storage kind is "turso" but the URL/token are unset or quarantined: the
+  trends-active gate now requires a non-null Turso config, and `useSnapshots`
+  defensively skips the load when no config is present.
+- Version-history auto-capture no longer writes an empty version when a save
+  only bumped bookkeeping timestamps (`localModifiedAt`): the auto trigger now
+  checks the meaningful diff (which ignores volatile fields) instead of raw
+  byte equality, so an interval with no real change produces no version.
+
 ## [0.81.0] - 2026-06-14 "Wolfe"
 
 ### Added / Changed

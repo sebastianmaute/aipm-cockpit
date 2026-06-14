@@ -6,7 +6,7 @@ import { currencySymbol } from "./resource-cost";
 import { roleLabel } from "./resource-foundation";
 import type { Discipline, Grade, Role } from "./types";
 import { useColumnResize } from "./use-column-resize";
-import { ColumnResizeHandle } from "./task-manager-ui";
+import { ColumnResizeHandle, ResetColWidthsButton } from "./task-manager-ui";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import { INNER_TABLE_CLASS } from "./view-styles";
 import { InfoTooltip } from "./info-tooltip";
@@ -56,7 +56,7 @@ export function RolesEditor({
   const [newGrade, setNewGrade] = useState("");
   const [comboDiscipline, setComboDiscipline] = useState<number | "">("");
   const [comboGrade, setComboGrade] = useState<number | "">("");
-  const { colWidths, startColResize } = useColumnResize<RolesCol>(
+  const { colWidths, startColResize, resetColWidths } = useColumnResize<RolesCol>(
     "roles",
     ROLES_COL_WIDTHS,
   );
@@ -96,7 +96,10 @@ export function RolesEditor({
   return (
     <div className="flex flex-col gap-6">
       <section>
-        <h4 className="mb-2 text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">{t(lang, "rolesRateCard")}</h4>
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <h4 className="text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">{t(lang, "rolesRateCard")}</h4>
+          <ResetColWidthsButton onClick={resetColWidths} lang={lang} />
+        </div>
         {sortedRoles.length === 0 ? (
           <p className="text-sm text-muted-foreground">{t(lang, "rolesNoRoles")}</p>
         ) : (

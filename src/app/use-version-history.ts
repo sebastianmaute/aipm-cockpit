@@ -112,7 +112,23 @@ export function useVersionHistory(args: UseVersionHistoryArgs): UseVersionHistor
     async (trigger: "auto" | "manual", label: string | null) => {
       if (!active) return;
       const payload = getPayload();
-      if (trigger === "auto" && payload === lastPayload.current) return; // no-op
+      if (trigger === "auto") {
+        const prev = lastPayload.current;
+        // Cheap byte-identity short-circuit first.
+        if (prev === payload) return; // no-op
+        // Then a MEANINGFUL-change check: diffWorkspaces ignores volatile
+        // bookkeeping (e.g. localModifiedAt), so an auto-save that only bumps
+        // timestamps — with no real content change — does not create an empty
+        // version. (Manual checkpoints always capture.)
+        if (prev) {
+          try {
+            if (diffWorkspaces(jsonToWorkspace(prev), jsonToWorkspace(payload)).length === 0) return;
+          } catch {
+            // If the diff itself fails, fall through and capture rather than
+            // silently dropping a potentially-real change.
+          }
+        }
+      }
       await capturePayload(payload, trigger, label);
     },
     [active, getPayload, capturePayload],

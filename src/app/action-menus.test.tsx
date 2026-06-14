@@ -42,6 +42,23 @@ describe("ActionMenus", () => {
     ).toBeInTheDocument();
   });
 
+  it("hides the save/apply-template menus unless expert mode is on", () => {
+    const { rerender } = render(
+      <ActionMenus lang="en-US" onCommand={vi.fn()} onVoiceError={vi.fn()} />,
+      { wrapper: Wrapper },
+    );
+    expect(screen.queryByRole("button", { name: t("en-US", "templateSaveTitle") })).toBeNull();
+    expect(screen.queryByRole("button", { name: t("en-US", "templateApplyTitle") })).toBeNull();
+
+    rerender(
+      <Wrapper>
+        <ActionMenus lang="en-US" onCommand={vi.fn()} onVoiceError={vi.fn()} expertMode />
+      </Wrapper>,
+    );
+    expect(screen.getByRole("button", { name: t("en-US", "templateSaveTitle") })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: t("en-US", "templateApplyTitle") })).toBeInTheDocument();
+  });
+
   it("uses defaultExportConfig when no exportConfig prop is supplied", () => {
     capturedExportConfig = undefined;
     render(

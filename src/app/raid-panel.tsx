@@ -43,6 +43,7 @@ import { useColumnResize } from "./use-column-resize";
 import { useResizable } from "./use-resizable";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton, ResizeCornerHint } from "./task-manager-ui";
+import { InfoTooltip } from "./info-tooltip";
 
 const RAID_COL_WIDTHS = {
   id: 60,
@@ -453,6 +454,7 @@ function RaidPanelInner({
                 <button type="button" onClick={() => toggleSort("severity")} className="inline-flex items-center gap-1 hover:text-AIPM-green">
                   {t(lang, "raidSeverity")}{sort?.key === "severity" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
                 </button>
+                <InfoTooltip text={t(lang, "raidSeverityHint")} />
                 <ColumnResizeHandle col="severity" onMouseDown={startResize} />
               </th>
               <th className="relative px-3 py-2" style={{ width: colWidths.status, minWidth: colWidths.status }} aria-sort={sort?.key === "status" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>

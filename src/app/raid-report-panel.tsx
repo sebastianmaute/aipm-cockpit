@@ -444,7 +444,7 @@ function TopOpenTable({ lang, rows, colResize }: { lang: Lang; rows: RaidReport[
                 <ColumnResizeHandle col="title" onMouseDown={sr} />
               </th>
               <th className="relative px-3 py-2 font-medium" style={{ width: w.severity, minWidth: w.severity }}>
-                <SortHeaderButton label={t(lang, "raidSeverity")} active={sort.key === "severity" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("severity")} />
+                <SortHeaderButton label={t(lang, "raidSeverity")} hint={t(lang, "raidSeverityHint")} active={sort.key === "severity" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("severity")} />
                 <ColumnResizeHandle col="severity" onMouseDown={sr} />
               </th>
               <th className="relative px-3 py-2 font-medium" style={{ width: w.owner, minWidth: w.owner }}>
@@ -452,7 +452,7 @@ function TopOpenTable({ lang, rows, colResize }: { lang: Lang; rows: RaidReport[
                 <ColumnResizeHandle col="owner" onMouseDown={sr} />
               </th>
               <th className="relative px-3 py-2 text-right font-medium" style={{ width: w.age, minWidth: w.age }}>
-                <SortHeaderButton label={t(lang, "raidReportColAge")} active={sort.key === "ageDays" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("ageDays")} />
+                <SortHeaderButton label={t(lang, "raidReportColAge")} hint={t(lang, "raidReportColAgeHint")} active={sort.key === "ageDays" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("ageDays")} />
                 <ColumnResizeHandle col="age" onMouseDown={sr} />
               </th>
             </tr>
@@ -624,7 +624,7 @@ function DetailTable({ lang, rows, colResize }: { lang: Lang; rows: RaidReport["
                 <ColumnResizeHandle col="title" onMouseDown={sr} />
               </th>
               <th className="relative px-3 py-2 font-medium" style={{ width: w.severity, minWidth: w.severity }}>
-                <SortHeaderButton label={t(lang, "raidSeverity")} active={sort.key === "severity" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("severity")} />
+                <SortHeaderButton label={t(lang, "raidSeverity")} hint={t(lang, "raidSeverityHint")} active={sort.key === "severity" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("severity")} />
                 <ColumnResizeHandle col="severity" onMouseDown={sr} />
               </th>
               <th className="relative px-3 py-2 font-medium" style={{ width: w.status, minWidth: w.status }}>
@@ -644,7 +644,7 @@ function DetailTable({ lang, rows, colResize }: { lang: Lang; rows: RaidReport["
                 <ColumnResizeHandle col="targetDate" onMouseDown={sr} />
               </th>
               <th className="relative px-3 py-2 text-right font-medium" style={{ width: w.ageDays, minWidth: w.ageDays }}>
-                <SortHeaderButton label={t(lang, "raidReportColAge")} active={sort.key === "ageDays" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("ageDays")} />
+                <SortHeaderButton label={t(lang, "raidReportColAge")} hint={t(lang, "raidReportColAgeHint")} active={sort.key === "ageDays" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("ageDays")} />
                 <ColumnResizeHandle col="ageDays" onMouseDown={sr} />
               </th>
               <th className="relative px-3 py-2 text-right font-medium" style={{ width: w.linkedTaskCount, minWidth: w.linkedTaskCount }}>

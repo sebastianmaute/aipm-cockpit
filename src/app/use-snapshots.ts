@@ -74,7 +74,9 @@ export function useSnapshots(args: UseSnapshotsArgs): UseSnapshotsResult {
 
   // Load history; auto-capture once per bucket when enabled.
   useEffect(() => {
-    if (!active) return;
+    // Defense-in-depth: even if `active` leaks true, never run a Turso pipeline
+    // without a config — it would throw StorageNotReadyError on mount.
+    if (!active || !cfgRef.current) return;
     let cancelled = false;
     const startSeq = opSeqRef.current;
     const stale = () => cancelled || opSeqRef.current !== startSeq;

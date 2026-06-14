@@ -15,6 +15,8 @@ import {
   getBackendFileHandle,
   openFileForBackend,
   pickFileForBackend,
+  pickOpenFileAny,
+  formatFromFileName,
   requestWriteAccessForBackend,
   setBackendFileHandle,
 } from "./storage";
@@ -589,7 +591,10 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
    * project meta, else the file name), persists the handle, registers +
    * selects it, and applies the loaded data.
    */
-  async function loadProjectFromFile(format: LocalStorageFormat = "json"): Promise<void> {
+  // `format` undefined → auto-detect: a single picker accepts every supported
+  // format (JSON/CSV/Markdown) and the format is derived from the picked file's
+  // extension. Passing an explicit format keeps the old per-format picker.
+  async function loadProjectFromFile(format?: LocalStorageFormat): Promise<void> {
     if (args.isPopout) return;
     // Flush the outgoing project to its OWN backend first (best-effort). Setting
     // suppressNextSaveRef below cancels the pending debounced save, so edits made
@@ -602,12 +607,28 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       // permission). Opening the new project is the user's intent.
     }
     const id = crypto.randomUUID();
-    const storageConfig: StorageConfig = { kind: localKindForFormat(format) };
     try {
-      const targetBackend = backendFor(storageConfig);
-      const open = openFileForBackend(targetBackend);
-      if (!open) return;
-      await open;
+      // Auto-detect: pick a file across all formats FIRST (still in the click's
+      // user-gesture), derive the format from its name, then bind the handle to
+      // the matching backend without a second picker. requestWriteAccess is
+      // best-effort here so a later save doesn't need a fresh gesture; load only
+      // needs read, so a denied upgrade does not block opening the project.
+      let resolvedFormat = format;
+      let preopenedBackend: ReturnType<typeof backendFor> | null = null;
+      if (resolvedFormat === undefined) {
+        const handle = await pickOpenFileAny();
+        resolvedFormat = formatFromFileName(handle.name);
+        preopenedBackend = backendFor({ kind: localKindForFormat(resolvedFormat) });
+        await setBackendFileHandle(preopenedBackend, handle);
+        await requestWriteAccessForBackend(preopenedBackend);
+      }
+      const storageConfig: StorageConfig = { kind: localKindForFormat(resolvedFormat) };
+      const targetBackend = preopenedBackend ?? backendFor(storageConfig);
+      if (!preopenedBackend) {
+        const open = openFileForBackend(targetBackend);
+        if (!open) return;
+        await open;
+      }
       const loaded = await targetBackend.load();
       const fileName = targetBackend.describe ? await targetBackend.describe() : null;
       await persistBackendHandle(targetBackend, id);

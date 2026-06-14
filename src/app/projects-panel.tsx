@@ -312,6 +312,7 @@ export function ProjectsPanel({
                             <button
                               type="button"
                               onClick={() => handleArchive(p.id)}
+                              title={t(lang, "projectsArchiveHint")}
                               className={DESTRUCTIVE_BUTTON_CLASS}
                             >
                               {t(lang, "projectsArchive")}

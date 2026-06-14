@@ -45,6 +45,27 @@ describe("useVersionHistory", () => {
     expect(append).toHaveBeenCalledTimes(1); // unchanged → no 2nd capture
   });
 
+  it("skips an auto capture when only volatile bookkeeping (localModifiedAt) changed", async () => {
+    const append = vi.spyOn(store, "appendVersion").mockResolvedValue();
+    vi.spyOn(store, "pruneVersions").mockResolvedValue();
+    vi.spyOn(store, "listVersionMeta").mockResolvedValue([]);
+    const base = { raid: [], absences: [], shifts: [], resources: [], roles: [], disciplines: [],
+      grades: [], plan: {}, budgets: [], milestones: [], changes: [], stakeholders: [], status: {} };
+    let payload = JSON.stringify({ tasks: [{ id: 1, taskName: "A", localModifiedAt: "2026-01-01T00:00:00.000Z" }], ...base });
+    const { result } = renderHook(() => useVersionHistory(args({ getPayload: () => payload })));
+
+    act(() => { result.current.notifySaved(); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+    expect(append).toHaveBeenCalledTimes(1); // first snapshot
+
+    // Same content, only the timestamp moved — the byte string differs but the
+    // semantic diff is empty, so no new version should be written.
+    payload = JSON.stringify({ tasks: [{ id: 1, taskName: "A", localModifiedAt: "2026-02-02T00:00:00.000Z" }], ...base });
+    act(() => { result.current.notifySaved(); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+    expect(append).toHaveBeenCalledTimes(1); // timestamp-only → no 2nd capture
+  });
+
   it("captureNow writes a manual version immediately with the label", async () => {
     const append = vi.spyOn(store, "appendVersion").mockResolvedValue();
     vi.spyOn(store, "pruneVersions").mockResolvedValue();

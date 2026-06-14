@@ -28,4 +28,17 @@ describe("workloadProvider", () => {
     expect(workloadProvider.provide(input([]))).toEqual([]);
     expect(workloadProvider.provide(input(undefined))).toEqual([]);
   });
+  it("honors overridden over-allocation and overload escalation thresholds", () => {
+    const overAlloc = [{ resourceId: 1, resourceName: "Aria", reason: "over-allocated" as const, value: 120 }];
+    // value 120 < default critical 130 → riskHigh; with override critical 110 → riskCritical (higher score).
+    const baseScore = workloadProvider.provide(input(overAlloc))[0].score;
+    const escalated = workloadProvider.provide({ ...input(overAlloc), workloadAllocatedCritical: 110 })[0].score;
+    expect(escalated).toBeGreaterThan(baseScore);
+
+    const overload = [{ resourceId: 2, resourceName: "Bo", reason: "overload" as const, value: 4 }];
+    // value 4 < default urgent 5 → urgencyToday; with override urgent 3 → urgencyOverdue (higher score).
+    const baseOverload = workloadProvider.provide(input(overload))[0].score;
+    const escalatedOverload = workloadProvider.provide({ ...input(overload), workloadOverdueUrgent: 3 })[0].score;
+    expect(escalatedOverload).toBeGreaterThan(baseOverload);
+  });
 });

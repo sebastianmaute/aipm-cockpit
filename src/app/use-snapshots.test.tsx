@@ -54,6 +54,15 @@ describe("useSnapshots", () => {
     expect(load).not.toHaveBeenCalled();
   });
 
+  it("never runs the store when active but the Turso config is missing", async () => {
+    // Guards the StorageNotReadyError on mount: storage kind can be "turso"
+    // while the URL/token are unset/quarantined, so active can leak true.
+    const load = vi.spyOn(store, "loadSnapshots").mockResolvedValue([]);
+    renderHook(() => useSnapshots({ ...baseArgs, active: true, tursoConfig: null }));
+    await Promise.resolve();
+    expect(load).not.toHaveBeenCalled();
+  });
+
   it("exposes the baseline (flagged) and computes gaps", async () => {
     vi.spyOn(store, "loadSnapshots").mockResolvedValue([
       rec("2026-05-25T00:00:00.000Z", "2026-W22", true),

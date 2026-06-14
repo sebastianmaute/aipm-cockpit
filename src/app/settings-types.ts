@@ -234,6 +234,61 @@ export function resolveSnapshotSettings(raw: unknown): SnapshotSettings {
   };
 }
 
+/** User-tunable signal-firing thresholds for the "next actions" engine. Each
+ *  overrides a hard-coded default used to decide WHEN a suggested action fires
+ *  (the day-based lead times live in NotificationsConfig, not here). */
+export type NextActionsConfig = {
+  /** Pending-change backlog count that raises the aggregate scope action. */
+  scopePendingRed: number;
+  /** Schedule SPI at/above which no schedule action fires. */
+  scheduleSpiWarn: number;
+  /** Schedule SPI below which the action escalates to critical. */
+  scheduleSpiCritical: number;
+  /** Near-term planned utilisation % above which an over-allocated alert fires. */
+  workloadAllocatedPct: number;
+  /** Over-allocation % at/above which the alert escalates to critical. */
+  workloadAllocatedCritical: number;
+  /** Overdue-task count at/above which an overload alert fires. */
+  workloadOverdueThreshold: number;
+  /** Overdue-task count at/above which the overload alert escalates to urgent. */
+  workloadOverdueUrgent: number;
+};
+
+export const defaultNextActionsConfig: NextActionsConfig = {
+  scopePendingRed: 5,
+  scheduleSpiWarn: 0.9,
+  scheduleSpiCritical: 0.8,
+  workloadAllocatedPct: 100,
+  workloadAllocatedCritical: 130,
+  workloadOverdueThreshold: 3,
+  workloadOverdueUrgent: 5,
+};
+
+/** Unset -> default (fresh copy); otherwise coerce each field to a finite value
+ *  within sane bounds, falling back to the default per field. */
+export function resolveNextActionsConfig(raw: unknown): NextActionsConfig {
+  if (!raw || typeof raw !== "object") return { ...defaultNextActionsConfig };
+  const obj = raw as Record<string, unknown>;
+  const d = defaultNextActionsConfig;
+  const intMin1 = (v: unknown, def: number): number => {
+    const n = Number(v);
+    return Number.isFinite(n) && n >= 1 ? Math.round(n) : def;
+  };
+  const ratio = (v: unknown, def: number): number => {
+    const n = Number(v);
+    return Number.isFinite(n) && n > 0 && n <= 2 ? n : def;
+  };
+  return {
+    scopePendingRed: intMin1(obj.scopePendingRed, d.scopePendingRed),
+    scheduleSpiWarn: ratio(obj.scheduleSpiWarn, d.scheduleSpiWarn),
+    scheduleSpiCritical: ratio(obj.scheduleSpiCritical, d.scheduleSpiCritical),
+    workloadAllocatedPct: intMin1(obj.workloadAllocatedPct, d.workloadAllocatedPct),
+    workloadAllocatedCritical: intMin1(obj.workloadAllocatedCritical, d.workloadAllocatedCritical),
+    workloadOverdueThreshold: intMin1(obj.workloadOverdueThreshold, d.workloadOverdueThreshold),
+    workloadOverdueUrgent: intMin1(obj.workloadOverdueUrgent, d.workloadOverdueUrgent),
+  };
+}
+
 export type Settings = {
   language: Lang;
   holidayCountries: string[];
@@ -244,9 +299,13 @@ export type Settings = {
   popout: { reuseWindow: boolean };
   resources: { workdayHours: number };
   layout: "modern" | "classic";
+  /** Expert mode reveals advanced settings sections + template actions. */
+  expertMode?: boolean;
   reports?: { extra: AddableReportId[] };
   integrations?: IntegrationsSettings;
   snapshots?: SnapshotSettings;
+  /** User overrides for the next-actions signal thresholds (omit = defaults). */
+  nextActions?: NextActionsConfig;
   features: FeatureModuleId[];
   /** Max auto-versions kept per project in version history (Turso). Min 50, step 10. */
   versionHistoryRetention?: number;
@@ -265,9 +324,11 @@ export const defaultSettings: Settings = {
   popout: { reuseWindow: false },
   resources: { workdayHours: 8 },
   layout: "modern",
+  expertMode: false,
   reports: { extra: ["raid-report", "budget-report"] },
   integrations: defaultIntegrations,
   snapshots: defaultSnapshotSettings,
+  nextActions: defaultNextActionsConfig,
   features: [...ALL_MODULE_IDS],
   versionHistoryRetention: 50,
   templates: [],

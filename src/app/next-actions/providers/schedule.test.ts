@@ -32,4 +32,12 @@ describe("scheduleProvider", () => {
   it("emits nothing when SPI is null", () => {
     expect(scheduleProvider.provide(input(null))).toEqual([]);
   });
+  it("honors overridden SPI warn/critical thresholds", () => {
+    // SPI 0.92 is below an overridden warn of 0.95 → fires; below crit 0.93 → now-tier.
+    const a = scheduleProvider.provide({ ...input(0.92), scheduleSpiWarn: 0.95, scheduleSpiCritical: 0.93 });
+    expect(a).toHaveLength(1);
+    expect(a[0].score).toBeGreaterThanOrEqual(60);
+    // With a stricter warn of 0.9 (default), 0.92 would NOT fire.
+    expect(scheduleProvider.provide({ ...input(0.92), scheduleSpiWarn: 0.9 })).toEqual([]);
+  });
 });

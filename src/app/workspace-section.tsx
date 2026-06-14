@@ -1,7 +1,7 @@
 "use client";
 import dynamic from "next/dynamic";
 import type React from "react";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { t } from "./i18n";
 import { openPopoutWindow } from "./broadcast-sync";
 import { useSettings } from "./use-settings";
@@ -116,7 +116,6 @@ export interface WorkspaceSectionProps {
   workspaceCollapsed: boolean;
   setWorkspaceCollapsed: React.Dispatch<React.SetStateAction<boolean>>;
   dispatcher: ToolDispatcher;
-  handleAcceptAiConsent: () => void;
   fullBleed?: boolean;
   handleGanttBarUpdate: (edit: {
     taskId: number;
@@ -201,7 +200,6 @@ export function WorkspaceSection({
   workspaceCollapsed,
   setWorkspaceCollapsed,
   dispatcher,
-  handleAcceptAiConsent,
   handleGanttBarUpdate,
   handleCancelEdit,
   setTaskModalOpen,
@@ -267,6 +265,13 @@ export function WorkspaceSection({
 }: WorkspaceSectionProps) {
   const { settings, setSettings, lang } = useSettings();
   const features = settings.features;
+  // Accept the AI consent on THIS component's settings instance — useSettings()
+  // is per-instance with no same-page sync, so writing through a parent handler
+  // (a different instance) would never reach the ChatPanel rendered here.
+  const handleAcceptAiConsent = useCallback(
+    () => setSettings((s) => ({ ...s, ai: { ...s.ai, consentAccepted: true } })),
+    [setSettings],
+  );
   const { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, milestones } = useWorkspace();
   const { activeTab, setActiveTab, isPopout } = useWorkspaceTab();
   const { raidFilterTaskId } = useFilters();

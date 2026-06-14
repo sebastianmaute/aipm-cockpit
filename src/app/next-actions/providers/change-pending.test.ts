@@ -52,6 +52,15 @@ function input(changes: ChangeItem[]): ActionInput {
 describe("changePendingProvider", () => {
   const W = ACTION_WEIGHTS;
 
+  it("honors an overridden scopePendingRed threshold", () => {
+    const three = [ci({ id: 1 }), ci({ id: 2 }), ci({ id: 3 })];
+    // Default threshold is 5 → no aggregate with 3 pending.
+    expect(changePendingProvider.provide(input(three)).some((a) => a.id === "change-pending:all:aggregate")).toBe(false);
+    // Override to 3 → aggregate fires.
+    const out = changePendingProvider.provide({ ...input(three), scopePendingRed: 3 });
+    expect(out.some((a) => a.id === "change-pending:all:aggregate")).toBe(true);
+  });
+
   it("emits aggregate action when pending count >= SCOPE_PENDING_RED (5)", () => {
     const changes = Array.from({ length: SCOPE_PENDING_RED }, (_, i) =>
       ci({ id: i + 1, status: "Under Review" }),

@@ -144,6 +144,7 @@ export function AppHeader({
             onCommand={handleCommand}
             onVoiceError={(msg) => showToast("error", msg)}
             exportConfig={settings.export ?? defaultExportConfig}
+            expertMode={settings.expertMode}
           />
           <SettingsMenu
             settings={settings}

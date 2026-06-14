@@ -52,7 +52,7 @@ export const NAV_GROUPS: NavGroup[] = [
   },
   {
     labelKey: "navGroupOverview",
-    items: [{ view: "dashboard" }, { view: "actions" }, { view: "trends" }, { view: "history" }, { view: "open-points" }, { view: "chat" }],
+    items: [{ view: "dashboard" }, { view: "actions" }, { view: "trends" }, { view: "open-points" }, { view: "chat" }],
   },
   {
     labelKey: "navGroupPlan",
@@ -84,7 +84,7 @@ export const NAV_GROUPS: NavGroup[] = [
   },
   {
     labelKey: "navGroupSystem",
-    items: [{ view: "activity" }, { view: "settings" }],
+    items: [{ view: "activity" }, { view: "history" }, { view: "settings" }],
   },
 ];
 

@@ -34,10 +34,30 @@ function makeProps(overrides = {}) {
 }
 
 describe("SettingsView", () => {
-  it("shows the Mode section by default with a Mode rail entry", () => {
+  it("hides the expert-only sections by default (expert mode off)", () => {
     render(<SettingsView {...makeProps()} />);
-    expect(screen.getByRole("button", { name: "Mode" })).toBeInTheDocument();
+    // Appearance is the default landing section and is always visible.
+    expect(screen.getByRole("radio", { name: t("en-US", "themeSystem") })).toBeInTheDocument();
+    // Expert-only rail entries are absent.
+    for (const key of ["settingsSectionMode", "settingsSectionTemplates", "settingsSectionNotifications", "settingsSectionNextActions", "settingsSectionExport"] as const) {
+      expect(screen.queryByRole("button", { name: t("en-US", key) })).toBeNull();
+    }
+  });
+
+  it("expert mode reveals the advanced sections", () => {
+    render(<SettingsView {...makeProps({ settings: { ...defaultSettings, expertMode: true } })} />);
+    const modeBtn = screen.getByRole("button", { name: t("en-US", "settingsSectionMode") });
+    expect(modeBtn).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: t("en-US", "settingsSectionNextActions") })).toBeInTheDocument();
+    fireEvent.click(modeBtn);
     expect(screen.getByText(/Current mode/)).toBeInTheDocument();
+  });
+
+  it("toggling expert mode off propagates expertMode:false through onChange", () => {
+    const onChange = vi.fn();
+    render(<SettingsView {...makeProps({ settings: { ...defaultSettings, expertMode: true }, onChange })} />);
+    fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "settingsExpertMode") }));
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ expertMode: false }));
   });
 
   it("clicking Appearance rail entry shows the Appearance section", () => {
