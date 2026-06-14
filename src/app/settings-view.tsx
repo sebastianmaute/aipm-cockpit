@@ -61,6 +61,8 @@ const RAIL: { id: SectionId; labelKey: TranslationKey }[] = [
 const EXPERT_IDS: readonly SectionId[] = ["nextActions", "notifications", "templates", "mode", "export"];
 // Connectivity sections grouped together above Information flows (own divider).
 const INTEGRATION_IDS: readonly SectionId[] = ["ai", "jira", "integrations"];
+// Storage gets its own divider group between connectivity and information flows.
+const STORAGE_ID: SectionId = "storage";
 const FLOWS_ID: SectionId = "informationFlows";
 
 export function SettingsView(props: SettingsViewProps) {
@@ -73,12 +75,17 @@ export function SettingsView(props: SettingsViewProps) {
   const byLabel = (a: { labelKey: TranslationKey }, b: { labelKey: TranslationKey }) =>
     t(lang, a.labelKey).localeCompare(t(lang, b.labelKey), localeFor(lang));
 
-  // Main group: everything except integrations + flows, with expert-only
+  // Main group: everything except storage, integrations + flows, with expert-only
   // sections shown only in expert mode. Alphabetical by label.
   const mainEntries = RAIL.filter(
-    (r) => r.id !== FLOWS_ID && !INTEGRATION_IDS.includes(r.id) && (expert || !EXPERT_IDS.includes(r.id)),
+    (r) =>
+      r.id !== FLOWS_ID &&
+      r.id !== STORAGE_ID &&
+      !INTEGRATION_IDS.includes(r.id) &&
+      (expert || !EXPERT_IDS.includes(r.id)),
   ).sort(byLabel);
   const integrationEntries = RAIL.filter((r) => INTEGRATION_IDS.includes(r.id)).sort(byLabel);
+  const storageEntry = RAIL.find((r) => r.id === STORAGE_ID);
   const flowsEntry = RAIL.find((r) => r.id === FLOWS_ID);
 
   const toggleExpert = (next: boolean) => {
@@ -132,6 +139,12 @@ export function SettingsView(props: SettingsViewProps) {
           <>
             <hr className="my-1 border-line" />
             {integrationEntries.map(renderRailButton)}
+          </>
+        )}
+        {storageEntry && (
+          <>
+            <hr className="my-1 border-line" />
+            {renderRailButton(storageEntry)}
           </>
         )}
         {flowsEntry && (
