@@ -8,6 +8,15 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.80.0] - 2026-06-14 "Kress"
+
+### Added
+- **Two new suggested-action signals.** A **schedule** warning surfaces when the
+  project trends behind plan (EVM schedule performance index below 1.0), and
+  **workload** alerts flag people who are over-allocated (>100% planned) or
+  carrying several overdue items. Both appear in the Action Center and as inline
+  chips, clickable straight to the dashboard / workload view.
+
 ## [0.79.2] - 2026-06-14
 
 ### Fixed
