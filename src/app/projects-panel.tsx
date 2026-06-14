@@ -134,6 +134,7 @@ export function ProjectsPanel({
     settings.integrations?.turso?.databaseUrl,
     settings.integrations?.turso?.authToken,
   );
+  const { ref: paneSizeRef, reset: resetPaneSize } = useResizable("lop-app:projects-pane-size");
   const { ref: sizeRef, reset: resetSize } = useResizable("lop-app:create-modal-size");
   const [exportMenuId, setExportMenuId] = useState<string | null>(null);
   const [showArchived, setShowArchived] = useState(false);
@@ -174,7 +175,7 @@ export function ProjectsPanel({
   };
 
   return (
-    <section className={`${CENTERED_HALF_PANE_CLASS} text-foreground`}>
+    <div ref={paneSizeRef} className={`${CENTERED_HALF_PANE_CLASS} text-foreground`}>
       {/* Header --------------------------------------------------------- */}
       <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-line pb-4">
         <h2 className="text-lg font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
@@ -209,6 +210,7 @@ export function ProjectsPanel({
           <button type="button" onClick={openCreate} className={PRIMARY_BUTTON_CLASS}>
             + {t(lang, "projectsNew")}
           </button>
+          <ResetSizeButton onClick={resetPaneSize} lang={lang} />
         </div>
       </header>
 
@@ -458,6 +460,6 @@ export function ProjectsPanel({
           </div>
         </Modal>
       )}
-    </section>
+    </div>
   );
 }
