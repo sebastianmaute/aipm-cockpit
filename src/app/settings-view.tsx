@@ -7,6 +7,7 @@ import type { Settings } from "./settings-types";
 import type { StorageKind } from "./storage";
 import { APP_LICENSE, APP_LICENSE_URL, APP_VERSION_LABEL } from "./version";
 import { VersionInfoModal } from "./version-info";
+import { InfoTooltip } from "./info-tooltip";
 import { AppearanceSection } from "./settings-sections/appearance-section";
 import { LocalizationSection } from "./settings-sections/localization-section";
 import { GeneralSection } from "./settings-sections/general-section";
@@ -56,18 +57,36 @@ const RAIL: { id: SectionId; labelKey: TranslationKey }[] = [
   { id: "informationFlows", labelKey: "settingsSectionInformationFlows" },
 ];
 
+// Advanced sections revealed only in expert mode.
+const EXPERT_IDS: readonly SectionId[] = ["nextActions", "notifications", "templates", "mode", "export"];
+// Connectivity sections grouped together above Information flows (own divider).
+const INTEGRATION_IDS: readonly SectionId[] = ["ai", "jira", "integrations"];
+const FLOWS_ID: SectionId = "informationFlows";
+
 export function SettingsView(props: SettingsViewProps) {
   const { lang, settings, onChange } = props;
-  const [active, setActive] = useState<SectionId>("mode");
+  // Default to an always-visible section ("mode" is expert-gated).
+  const [active, setActive] = useState<SectionId>("appearance");
   const [showVersion, setShowVersion] = useState(false);
 
-  // Rail order: every section sorted alphabetically by its (translated) label,
-  // with "Information flows" pinned to the bottom under a divider.
-  const FLOWS_ID: SectionId = "informationFlows";
-  const railSorted = RAIL.filter((r) => r.id !== FLOWS_ID).sort((a, b) =>
-    t(lang, a.labelKey).localeCompare(t(lang, b.labelKey), localeFor(lang)),
-  );
+  const expert = settings.expertMode === true;
+  const byLabel = (a: { labelKey: TranslationKey }, b: { labelKey: TranslationKey }) =>
+    t(lang, a.labelKey).localeCompare(t(lang, b.labelKey), localeFor(lang));
+
+  // Main group: everything except integrations + flows, with expert-only
+  // sections shown only in expert mode. Alphabetical by label.
+  const mainEntries = RAIL.filter(
+    (r) => r.id !== FLOWS_ID && !INTEGRATION_IDS.includes(r.id) && (expert || !EXPERT_IDS.includes(r.id)),
+  ).sort(byLabel);
+  const integrationEntries = RAIL.filter((r) => INTEGRATION_IDS.includes(r.id)).sort(byLabel);
   const flowsEntry = RAIL.find((r) => r.id === FLOWS_ID);
+
+  const toggleExpert = (next: boolean) => {
+    onChange({ ...settings, expertMode: next });
+    // Leaving expert mode while parked on an expert-only section would blank the
+    // panel — fall back to an always-visible section.
+    if (!next && EXPERT_IDS.includes(active)) setActive("appearance");
+  };
 
   const renderRailButton = ({ id, labelKey }: { id: SectionId; labelKey: TranslationKey }) => {
     const isActive = active === id;
@@ -95,7 +114,26 @@ export function SettingsView(props: SettingsViewProps) {
         aria-label={t(lang, "settings")}
         className="flex shrink-0 flex-row flex-wrap gap-1 md:w-56 md:flex-col"
       >
-        {railSorted.map(renderRailButton)}
+        <label className="mb-1 flex items-center gap-2 rounded-md px-3 py-2 text-sm text-foreground">
+          <input
+            type="checkbox"
+            checked={expert}
+            aria-label={t(lang, "settingsExpertMode")}
+            onChange={(e) => toggleExpert(e.target.checked)}
+            className="h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue focus:ring-AIPM-green"
+          />
+          <span className="inline-flex items-center gap-1">
+            {t(lang, "settingsExpertMode")}
+            <InfoTooltip text={t(lang, "settingsExpertModeHint")} />
+          </span>
+        </label>
+        {mainEntries.map(renderRailButton)}
+        {integrationEntries.length > 0 && (
+          <>
+            <hr className="my-1 border-line" />
+            {integrationEntries.map(renderRailButton)}
+          </>
+        )}
         {flowsEntry && (
           <>
             <hr className="my-1 border-line" />

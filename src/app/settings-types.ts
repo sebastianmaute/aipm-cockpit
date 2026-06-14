@@ -299,6 +299,8 @@ export type Settings = {
   popout: { reuseWindow: boolean };
   resources: { workdayHours: number };
   layout: "modern" | "classic";
+  /** Expert mode reveals advanced settings sections + template actions. */
+  expertMode?: boolean;
   reports?: { extra: AddableReportId[] };
   integrations?: IntegrationsSettings;
   snapshots?: SnapshotSettings;
@@ -322,6 +324,7 @@ export const defaultSettings: Settings = {
   popout: { reuseWindow: false },
   resources: { workdayHours: 8 },
   layout: "modern",
+  expertMode: false,
   reports: { extra: ["raid-report", "budget-report"] },
   integrations: defaultIntegrations,
   snapshots: defaultSnapshotSettings,

@@ -1476,6 +1476,7 @@ function TaskManagerInner() {
       templates={projectTemplates}
       onSaveTemplate={handleSaveTemplate}
       onApplyTemplate={handleApplyTemplate}
+      expertMode={settings.expertMode}
     />
   );
 

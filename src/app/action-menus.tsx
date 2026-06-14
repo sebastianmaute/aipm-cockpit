@@ -31,6 +31,8 @@ interface ActionMenusProps {
   onApplyTemplate?: (id: string, opts: { includeSeed: boolean }) => void;
   /** Capture the current project as a new template. No-op default for tests. */
   onSaveTemplate?: (input: SaveTemplateInput) => void;
+  /** Expert mode reveals the Save-as-template / Apply-template menus. */
+  expertMode?: boolean;
 }
 
 /**
@@ -50,14 +52,19 @@ export function ActionMenus({
   templates = [],
   onApplyTemplate,
   onSaveTemplate,
+  expertMode = false,
 }: ActionMenusProps) {
   const { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates } = useWorkspace();
   return (
     <>
       <VoiceCommandButton lang={lang} onCommand={onCommand} onError={onVoiceError} />
       <ExportMenu lang={lang} tasks={tasks} raid={raid} absences={absences} shifts={shifts} resources={resources} roles={roles} disciplines={disciplines} grades={grades} plan={plan} budgets={budgets} fxRates={fxRates} exportConfig={exportConfig} />
-      <SaveTemplateMenu lang={lang} onSave={onSaveTemplate ?? (() => {})} />
-      <ApplyTemplateMenu lang={lang} templates={templates} onApply={onApplyTemplate ?? (() => {})} />
+      {expertMode && (
+        <>
+          <SaveTemplateMenu lang={lang} onSave={onSaveTemplate ?? (() => {})} />
+          <ApplyTemplateMenu lang={lang} templates={templates} onApply={onApplyTemplate ?? (() => {})} />
+        </>
+      )}
       <HelpMenu lang={lang} />
       <VersionMenu lang={lang} />
     </>

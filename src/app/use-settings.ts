@@ -131,6 +131,7 @@ export function useSettings(): {
               ...(isPlainObject(parsed.resources) ? parsed.resources : {}),
             },
             layout: coerceLayout((parsed as Record<string, unknown>).layout),
+            expertMode: (parsed as Record<string, unknown>).expertMode === true,
             holidayCountries: Array.isArray(parsed.holidayCountries)
               ? (parsed.holidayCountries as unknown[]).filter(
                   (v): v is string => typeof v === "string",

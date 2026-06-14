@@ -1742,6 +1742,8 @@ const enUS = {
   exportLabelStatus: "Status report",
 
   settingsSectionInformationFlows: "Information flows",
+  settingsExpertMode: "Expert mode",
+  settingsExpertModeHint: "Reveal advanced settings (Mode, Templates, Notifications, Next actions, Export) and the save-as-template / apply-template actions in the toolbar.",
   settingsSectionNextActions: "Next actions",
   nextActionsTooltip: "Override the built-in thresholds that decide when a suggested next action fires.",
   nextActionsHint: "These thresholds tune which signals raise a suggested action. Day-based lead times live under Notifications. Invalid values fall back to the default.",

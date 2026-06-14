@@ -26,6 +26,11 @@ longer carries its own changelog comment.
 - The Settings rail is now sorted alphabetically, with **Information flows**
   pinned to the bottom under a divider.
 - Manage Roles now has a reset-column-widths button, matching the other tables.
+- Added an **Expert mode** toggle to Settings. The advanced sections (Mode,
+  Templates, Notifications, Next actions, Export) and the toolbar's
+  save-as-template / apply-template actions are hidden unless expert mode is on.
+  The connectivity sections (AI assistant, Jira, Integrations) are now grouped
+  together above Information flows, each under its own divider.
 - New **Settings → Next actions** section to override the signal-firing
   thresholds of the suggested-next-actions engine: pending-changes count, the
   schedule SPI warn / critical levels, the workload over-allocation % (and its

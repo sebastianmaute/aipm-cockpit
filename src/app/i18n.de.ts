@@ -1752,6 +1752,8 @@ export const de: Record<TranslationKey, string> = {
   exportLabelStatus: "Statusbericht",
 
   settingsSectionInformationFlows: "Informationsflüsse",
+  settingsExpertMode: "Expertenmodus",
+  settingsExpertModeHint: "Erweiterte Einstellungen (Modus, Vorlagen, Benachrichtigungen, Nächste Aktionen, Export) sowie die Aktionen zum Speichern/Anwenden von Vorlagen in der Symbolleiste anzeigen.",
   settingsSectionNextActions: "Nächste Aktionen",
   nextActionsTooltip: "Überschreiben Sie die eingebauten Schwellenwerte, die bestimmen, wann eine vorgeschlagene nächste Aktion ausgelöst wird.",
   nextActionsHint: "Diese Schwellenwerte steuern, welche Signale eine vorgeschlagene Aktion auslösen. Tagesbasierte Vorlaufzeiten liegen unter Benachrichtigungen. Ungültige Werte verwenden den Standard.",
