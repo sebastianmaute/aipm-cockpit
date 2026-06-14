@@ -22,6 +22,7 @@ import { useColumnResize } from "./use-column-resize";
 import { useResizable } from "./use-resizable";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton, ResizeCornerHint } from "./task-manager-ui";
+import { InfoTooltip } from "./info-tooltip";
 import { resourceDisplayName } from "./resource-foundation";
 
 // --- Column widths ----------------------------------------------------------
@@ -278,6 +279,7 @@ function StakeholdersPanelInner({
                 >
                   {t(lang, "stakeholderFieldInfluence")}{sortArrow("influence")}
                 </button>
+                <InfoTooltip text={t(lang, "stakeholderFieldInfluenceHint")} />
                 <ColumnResizeHandle col="influence" onMouseDown={startResize} />
               </th>
               <th
@@ -292,6 +294,7 @@ function StakeholdersPanelInner({
                 >
                   {t(lang, "stakeholderFieldInterest")}{sortArrow("interest")}
                 </button>
+                <InfoTooltip text={t(lang, "stakeholderFieldInterestHint")} />
                 <ColumnResizeHandle col="interest" onMouseDown={startResize} />
               </th>
               <th

@@ -10,6 +10,7 @@ import {
   ResizeCornerHint,
 } from "./task-manager-ui";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
+import { InfoTooltip } from "./info-tooltip";
 
 export type SortDir = "asc" | "desc" | "off";
 
@@ -107,14 +108,17 @@ export function SortHeaderButton({
   active,
   dir,
   onClick,
+  hint,
 }: {
   label: string;
   active: boolean;
   dir: SortDir;
   onClick: () => void;
+  /** Optional one-line explanation shown as an InfoTooltip beside the label. */
+  hint?: string;
 }) {
   const indicator = active ? (dir === "asc" ? " ↑" : " ↓") : "";
-  return (
+  const button = (
     <button
       type="button"
       onClick={onClick}
@@ -123,6 +127,15 @@ export function SortHeaderButton({
       {label}
       {indicator}
     </button>
+  );
+  if (!hint) return button;
+  // InfoTooltip is a SIBLING of the sort button (not nested), so opening the
+  // tooltip never triggers the column sort.
+  return (
+    <span className="inline-flex items-center gap-1">
+      {button}
+      <InfoTooltip text={hint} />
+    </span>
   );
 }
 

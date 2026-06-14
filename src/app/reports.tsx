@@ -5,6 +5,7 @@ import { workdaysUntil } from "./due-dates";
 import { useColumnResize } from "./use-column-resize";
 import { useResizable } from "./use-resizable";
 import { ColumnResizeHandle } from "./task-manager-ui";
+import { InfoTooltip } from "./info-tooltip";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import {
   useSortableFilter,
@@ -576,6 +577,7 @@ export function ReportsPanel({
                   </th>
                   <th className="relative px-3 py-2 text-right" style={{ width: inquiry.colWidths.count, minWidth: inquiry.colWidths.count }}>
                     {t(lang, "reportsInquiriesCol")}
+                    <InfoTooltip text={t(lang, "reportsInquiriesColHint")} />
                     <ColumnResizeHandle col="count" onMouseDown={inquiryStartResize} />
                   </th>
                 </tr>

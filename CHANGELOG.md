@@ -25,6 +25,11 @@ longer carries its own changelog comment.
 - The Settings rail is now sorted alphabetically, with **Information flows**
   pinned to the bottom under a divider.
 - Manage Roles now has a reset-column-widths button, matching the other tables.
+- Explanatory InfoTooltips on non-obvious table-column headers across the app
+  (RAID Severity; Change Impact; Stakeholder Influence / Interest; Trends
+  Baseline / Delta; Resources report Capacity / Internal / External / Margin /
+  Avg util.; the Inquiries count; RAID report Age) — matching the Manage Roles
+  rate-card headers. `SortHeaderButton` gained an optional `hint` prop.
 
 ### Fixed
 - Version-history auto-capture no longer writes an empty version when a save

@@ -33,6 +33,7 @@ import { useColumnResize } from "./use-column-resize";
 import { useResizable } from "./use-resizable";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton, ResizeCornerHint } from "./task-manager-ui";
+import { InfoTooltip } from "./info-tooltip";
 
 const CHANGE_COL_WIDTHS = {
   id: 60,
@@ -321,6 +322,7 @@ function ChangePanelInner({
                 <button type="button" onClick={() => toggleSort("impact")} className="inline-flex items-center gap-1 hover:text-AIPM-green">
                   {t(lang, "changeFieldImpact")}{sortArrow("impact")}
                 </button>
+                <InfoTooltip text={t(lang, "changeFieldImpactHint")} />
                 <ColumnResizeHandle col="impact" onMouseDown={startResize} />
               </th>
               <th className="relative px-3 py-2" style={{ width: colWidths.status, minWidth: colWidths.status }} aria-sort={ariaSort("status")}>

@@ -110,14 +110,14 @@ describe("RaidPanel sortable column headers", () => {
 
   it("clicking Severity header once → ascending order (Low first, Critical last)", () => {
     const { container } = renderPanel(makeProps({ raid: raidItems }));
-    fireEvent.click(screen.getByRole("button", { name: /severity/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^Severity( [▲▼])?$/ }));
     const ids = rowIds(container);
     expect(ids).toEqual(["#1", "#2", "#3"]); // Low(1) → High(2) → Critical(3)
   });
 
   it("clicking Severity header twice → descending order (Critical first, Low last)", () => {
     const { container } = renderPanel(makeProps({ raid: raidItems }));
-    const btn = screen.getByRole("button", { name: /severity/i });
+    const btn = screen.getByRole("button", { name: /^Severity( [▲▼])?$/ });
     fireEvent.click(btn);
     fireEvent.click(btn);
     const ids = rowIds(container);
@@ -126,7 +126,7 @@ describe("RaidPanel sortable column headers", () => {
 
   it("clicking Severity header three times → back to default order (severity-rank, open-first)", () => {
     const { container } = renderPanel(makeProps({ raid: raidItems }));
-    const btn = screen.getByRole("button", { name: /severity/i });
+    const btn = screen.getByRole("button", { name: /^Severity( [▲▼])?$/ });
     fireEvent.click(btn);
     fireEvent.click(btn);
     fireEvent.click(btn);

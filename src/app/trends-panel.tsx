@@ -11,6 +11,7 @@ import { ReportCard } from "./report-table";
 import { useResizable } from "./use-resizable";
 import { useColumnResize } from "./use-column-resize";
 import { ColumnResizeHandle } from "./task-manager-ui";
+import { InfoTooltip } from "./info-tooltip";
 
 const VARIANCE_COL_WIDTHS = {
   kpi: 200,
@@ -143,6 +144,7 @@ export function TrendsPanel(props: TrendsPanelProps) {
                   </th>
                   <th className="relative px-3 py-2 text-right" style={{ width: varianceResize.colWidths.baseline, minWidth: varianceResize.colWidths.baseline }}>
                     {t(lang, "trendsBaselineLabel")}
+                    <InfoTooltip text={t(lang, "trendsBaselineLabelHint")} />
                     <ColumnResizeHandle col="baseline" onMouseDown={varianceStartResize} />
                   </th>
                   <th className="relative px-3 py-2 text-right" style={{ width: varianceResize.colWidths.current, minWidth: varianceResize.colWidths.current }}>
@@ -151,6 +153,7 @@ export function TrendsPanel(props: TrendsPanelProps) {
                   </th>
                   <th className="relative px-3 py-2 text-right" style={{ width: varianceResize.colWidths.delta, minWidth: varianceResize.colWidths.delta }}>
                     {t(lang, "trendsDeltaLabel")}
+                    <InfoTooltip text={t(lang, "trendsDeltaLabelHint")} />
                     <ColumnResizeHandle col="delta" onMouseDown={varianceStartResize} />
                   </th>
                 </tr>

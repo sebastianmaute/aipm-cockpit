@@ -221,19 +221,19 @@ function ByPeriodTable({ lang, rows, colResize, days, money }: {
                 <ColumnResizeHandle col="label" onMouseDown={sr} />
               </th>
               <th className="relative px-3 py-2 text-right font-medium" style={{ width: w.days, minWidth: w.days }}>
-                <SortHeaderButton label={t(lang, "resourcesCapacityDays")} active={sort.key === "days" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("days")} />
+                <SortHeaderButton label={t(lang, "resourcesCapacityDays")} hint={t(lang, "resourcesCapacityDaysHint")} active={sort.key === "days" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("days")} />
                 <ColumnResizeHandle col="days" onMouseDown={sr} />
               </th>
               <th className="relative px-3 py-2 text-right font-medium" style={{ width: w.internal, minWidth: w.internal }}>
-                <SortHeaderButton label={t(lang, "resourcesInternalCost")} active={sort.key === "internal" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("internal")} />
+                <SortHeaderButton label={t(lang, "resourcesInternalCost")} hint={t(lang, "resourcesInternalCostHint")} active={sort.key === "internal" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("internal")} />
                 <ColumnResizeHandle col="internal" onMouseDown={sr} />
               </th>
               <th className="relative px-3 py-2 text-right font-medium" style={{ width: w.external, minWidth: w.external }}>
-                <SortHeaderButton label={t(lang, "resourcesExternalCost")} active={sort.key === "external" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("external")} />
+                <SortHeaderButton label={t(lang, "resourcesExternalCost")} hint={t(lang, "resourcesExternalCostHint")} active={sort.key === "external" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("external")} />
                 <ColumnResizeHandle col="external" onMouseDown={sr} />
               </th>
               <th className="relative px-3 py-2 text-right font-medium" style={{ width: w.margin, minWidth: w.margin }}>
-                <SortHeaderButton label={t(lang, "resourcesMargin")} active={sort.key === "margin" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("margin")} />
+                <SortHeaderButton label={t(lang, "resourcesMargin")} hint={t(lang, "resourcesMarginHint")} active={sort.key === "margin" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("margin")} />
                 <ColumnResizeHandle col="margin" onMouseDown={sr} />
               </th>
             </tr>
@@ -310,15 +310,15 @@ function ByGroupTable({ lang, title, rows, colResize, days, money }: {
                 <ColumnResizeHandle col="headcount" onMouseDown={sr} />
               </th>
               <th className="relative px-3 py-2 text-right font-medium" style={{ width: w.days, minWidth: w.days }}>
-                <SortHeaderButton label={t(lang, "resourcesCapacityDays")} active={sort.key === "days" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("days")} />
+                <SortHeaderButton label={t(lang, "resourcesCapacityDays")} hint={t(lang, "resourcesCapacityDaysHint")} active={sort.key === "days" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("days")} />
                 <ColumnResizeHandle col="days" onMouseDown={sr} />
               </th>
               <th className="relative px-3 py-2 text-right font-medium" style={{ width: w.internal, minWidth: w.internal }}>
-                <SortHeaderButton label={t(lang, "resourcesInternalCost")} active={sort.key === "internal" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("internal")} />
+                <SortHeaderButton label={t(lang, "resourcesInternalCost")} hint={t(lang, "resourcesInternalCostHint")} active={sort.key === "internal" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("internal")} />
                 <ColumnResizeHandle col="internal" onMouseDown={sr} />
               </th>
               <th className="relative px-3 py-2 text-right font-medium" style={{ width: w.external, minWidth: w.external }}>
-                <SortHeaderButton label={t(lang, "resourcesExternalCost")} active={sort.key === "external" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("external")} />
+                <SortHeaderButton label={t(lang, "resourcesExternalCost")} hint={t(lang, "resourcesExternalCostHint")} active={sort.key === "external" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("external")} />
                 <ColumnResizeHandle col="external" onMouseDown={sr} />
               </th>
             </tr>
@@ -384,19 +384,19 @@ function ByResourceTable({ lang, rows, colResize, days, money }: {
                 <ColumnResizeHandle col="role" onMouseDown={sr} />
               </th>
               <th className="relative px-3 py-2 text-right font-medium" style={{ width: w.avgUtil, minWidth: w.avgUtil }}>
-                <SortHeaderButton label={t(lang, "resourcesReportAvgUtil")} active={sort.key === "avgUtil" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("avgUtil")} />
+                <SortHeaderButton label={t(lang, "resourcesReportAvgUtil")} hint={t(lang, "resourcesReportAvgUtilHint")} active={sort.key === "avgUtil" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("avgUtil")} />
                 <ColumnResizeHandle col="avgUtil" onMouseDown={sr} />
               </th>
               <th className="relative px-3 py-2 text-right font-medium" style={{ width: w.capDays, minWidth: w.capDays }}>
-                <SortHeaderButton label={t(lang, "resourcesCapacityDays")} active={sort.key === "capDays" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("capDays")} />
+                <SortHeaderButton label={t(lang, "resourcesCapacityDays")} hint={t(lang, "resourcesCapacityDaysHint")} active={sort.key === "capDays" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("capDays")} />
                 <ColumnResizeHandle col="capDays" onMouseDown={sr} />
               </th>
               <th className="relative px-3 py-2 text-right font-medium" style={{ width: w.internal, minWidth: w.internal }}>
-                <SortHeaderButton label={t(lang, "resourcesInternalCost")} active={sort.key === "internal" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("internal")} />
+                <SortHeaderButton label={t(lang, "resourcesInternalCost")} hint={t(lang, "resourcesInternalCostHint")} active={sort.key === "internal" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("internal")} />
                 <ColumnResizeHandle col="internal" onMouseDown={sr} />
               </th>
               <th className="relative px-3 py-2 text-right font-medium" style={{ width: w.external, minWidth: w.external }}>
-                <SortHeaderButton label={t(lang, "resourcesExternalCost")} active={sort.key === "external" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("external")} />
+                <SortHeaderButton label={t(lang, "resourcesExternalCost")} hint={t(lang, "resourcesExternalCostHint")} active={sort.key === "external" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("external")} />
                 <ColumnResizeHandle col="external" onMouseDown={sr} />
               </th>
             </tr>
