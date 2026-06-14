@@ -106,6 +106,7 @@ import type { ProjectListEntry } from "./turso-tenant-schema";
 import type { ProjectRegistryEntry } from "./projects-registry";
 import { computeNextActions } from "./next-actions";
 import { buildActionInput } from "./next-actions-input";
+import { buildWorkloadAlerts } from "./next-actions-workload";
 import type { SuggestedAction } from "./next-actions";
 
 function todayISO() {
@@ -603,6 +604,13 @@ function TaskManagerInner() {
     [tasks, raid, budgets, plan, roles, resources, absences, settings.resources.workdayHours, holidaySet, status, activityLog, today, milestones, changes],
   );
 
+  // Pre-computed workload alerts (over-allocated / overload) for the `workload`
+  // next-actions provider; computed once on the surface and fed into the engine.
+  const workloadAlerts = useMemo(
+    () => buildWorkloadAlerts({ resources, tasks, absences, shifts, raid, plan, today, workdayHours: settings.resources.workdayHours, holidaySet }),
+    [resources, tasks, absences, shifts, raid, plan, today, settings.resources.workdayHours, holidaySet],
+  );
+
   // Suggested next-actions engine. Reuses comms.items (already computed above)
   // so we don't run getStakeholderCommsItems a second time.
   const nextActions = useMemo(
@@ -626,10 +634,11 @@ function TaskManagerInner() {
           // Due actions stay always-on (core). The RAID review toggle below
           // defaults true and is a safe gate.
           raidReviewEnabled: settings.notifications.raidReview.enabled,
+          workloadAlerts,
           dismissed: actionSnooze.dismissed,
         }),
       ),
-    [tasks, raid, changes, milestones, stakeholders, dashboardModel, comms.items, settings.features, settings.notifications, project, today, actionSnooze.dismissed],
+    [tasks, raid, changes, milestones, stakeholders, dashboardModel, comms.items, settings.features, settings.notifications, project, today, workloadAlerts, actionSnooze.dismissed],
   );
   const nowCount = nextActions.filter((a) => a.tier === "now").length;
   const openAction = useCallback(

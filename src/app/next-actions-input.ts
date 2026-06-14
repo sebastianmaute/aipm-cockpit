@@ -7,6 +7,7 @@ import type { ActionInput } from "./next-actions/types";
 import type { DashboardModel } from "./dashboard";
 import type { StakeholderCommsReminder } from "./stakeholder-comms";
 import type { FeatureModuleId } from "./feature-modules";
+import type { WorkloadAlert } from "./next-actions-workload";
 import type { Task, RaidItem, ChangeItem, Milestone, Stakeholder } from "./types";
 
 export interface BuildActionInputArgs {
@@ -24,6 +25,7 @@ export interface BuildActionInputArgs {
   reminderLeadDays: number;
   dueSoonWorkdays: number;
   raidReviewIntervalDays: number;
+  workloadAlerts?: readonly WorkloadAlert[];
   taskDueEnabled?: boolean;            // default true
   raidReviewEnabled?: boolean;         // default true
   dismissed?: ReadonlySet<string>;
@@ -45,6 +47,7 @@ export function buildActionInput(a: BuildActionInputArgs): ActionInput {
     reminderLeadDays: a.reminderLeadDays,
     dueSoonWorkdays: a.dueSoonWorkdays,
     raidReviewIntervalDays: a.raidReviewIntervalDays,
+    workloadAlerts: a.workloadAlerts ?? [],
     taskDueEnabled: a.taskDueEnabled ?? true,
     raidReviewEnabled: a.raidReviewEnabled ?? true,
     dismissed: a.dismissed ?? new Set<string>(),
