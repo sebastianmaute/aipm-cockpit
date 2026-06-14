@@ -22,6 +22,11 @@ export const VIEW_PANE_RESIZABLE_CLASS =
 
 /** Centered, half-viewport pane card that is ALSO user-resizable: horizontally
  *  centered (mx-auto), top-anchored, half width/height with min bounds, drag the
- *  corner for a custom size. Shared by Chat and Manage Roles. */
+ *  corner for a custom size. Used by Chat. */
 export const CENTERED_HALF_PANE_CLASS =
   "relative mx-auto flex h-[50%] max-h-full min-h-[360px] w-[50%] min-w-[420px] flex-col overflow-hidden rounded-xl border border-line bg-surface p-6 resize";
+
+/** Centered, half-width pane that grows with its content but never exceeds the
+ *  viewport (then its body scrolls). Used by Manage Roles. */
+export const CENTERED_FIT_PANE_CLASS =
+  "relative mx-auto flex w-[50%] min-w-[420px] max-h-[calc(100vh-7rem)] min-h-[280px] flex-col overflow-hidden rounded-xl border border-line bg-surface p-6";

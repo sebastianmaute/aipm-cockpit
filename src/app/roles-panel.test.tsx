@@ -5,7 +5,7 @@ import { RolesPanel } from "./roles-panel";
 
 const noop = () => {};
 
-test("RolesPanel renders the roles editor inside a resizable card", () => {
+test("RolesPanel renders the roles editor inside a fit-height centered card", () => {
   const { container } = render(
     <RolesPanel
       lang="en-US"
@@ -25,5 +25,7 @@ test("RolesPanel renders the roles editor inside a resizable card", () => {
       onReorderGrades={noop}
     />,
   );
-  expect(container.querySelector(".resize")).toBeTruthy();
+  const section = container.querySelector("section");
+  expect(section?.className).toContain("mx-auto");
+  expect(section?.className).toContain("max-h-[calc(100vh-7rem)]");
 });
