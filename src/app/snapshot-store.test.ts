@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { appendSnapshot, deleteSnapshot, loadSnapshots, setBaseline } from "./snapshot-store";
+import { appendSnapshot, deleteSnapshot, deleteSnapshots, loadSnapshots, setBaseline } from "./snapshot-store";
 import type { TursoConfig } from "./turso-config";
 import type { SnapshotRecord } from "./snapshot";
 
@@ -77,5 +77,21 @@ describe("snapshot-store", () => {
     await setBaseline(cfg, "s1", "p1");
     const sqls = bodySqls(fetchMock);
     expect(sqls.some((s) => /is_baseline='0' WHERE project_id = \?/.test(s))).toBe(true);
+  });
+
+  it("deleteSnapshots runs ONE pipeline containing a DELETE for each id", async () => {
+    const fetchMock = okFetch(20);
+    await deleteSnapshots(cfg, ["id-a", "id-b", "id-c"], "p1");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const sqls = bodySqls(fetchMock, 0);
+    expect(sqls.some((s) => /CREATE TABLE IF NOT EXISTS snapshot/.test(s))).toBe(true);
+    const deleteSqls = sqls.filter((s) => /DELETE FROM snapshot WHERE id/.test(s));
+    expect(deleteSqls).toHaveLength(3);
+  });
+
+  it("deleteSnapshots is a no-op when ids is empty (no pipeline call)", async () => {
+    const fetchMock = okFetch(20);
+    await deleteSnapshots(cfg, [], "p1");
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

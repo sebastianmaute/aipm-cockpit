@@ -36,3 +36,8 @@ export async function setBaseline(config: TursoConfig | null, id: string, projec
 export async function deleteSnapshot(config: TursoConfig | null, id: string, projectId: string): Promise<void> {
   await runTursoPipeline(config, [...ddl(), ...deleteStatements(id, projectId)]);
 }
+
+export async function deleteSnapshots(config: TursoConfig | null, ids: readonly string[], projectId: string): Promise<void> {
+  if (ids.length === 0) return;
+  await runTursoPipeline(config, [...ddl(), ...ids.flatMap((id) => deleteStatements(id, projectId))]);
+}

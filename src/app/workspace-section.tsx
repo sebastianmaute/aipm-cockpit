@@ -847,6 +847,7 @@ export function WorkspaceSection({
               captureNow={trends.captureNow}
               setBaseline={trends.setBaseline}
               deleteSnapshot={trends.deleteSnapshot}
+              deleteSnapshots={trends.deleteSnapshots}
             />
           </div>
         )}

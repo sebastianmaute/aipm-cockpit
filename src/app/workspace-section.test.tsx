@@ -108,6 +108,7 @@ function makeProps(overrides: Partial<WorkspaceSectionProps> = {}): WorkspaceSec
       captureNow: vi.fn(async () => {}),
       setBaseline: vi.fn(async () => {}),
       deleteSnapshot: vi.fn(async () => {}),
+      deleteSnapshots: vi.fn(async () => {}),
     },
     versionHistory: {
       versions: [],
