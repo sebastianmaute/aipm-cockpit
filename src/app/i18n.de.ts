@@ -1397,6 +1397,16 @@ export const de: Record<TranslationKey, string> = {
   actionChipsLabel: "Vorgeschlagene Schritte",
   actionChipsMore: "+{0} weitere",
   versionHighlightActionChips: "Der nächste Schritt erscheint jetzt direkt in jeder Ansicht und jedem Bericht — Chip anklicken, um zum Eintrag zu springen",
+  // --- Termin- + Auslastungs-Provider (0.80.0) ---
+  actionSourceSchedule: "Termin",
+  actionSourceWorkload: "Auslastung",
+  actionScheduleTitle: "{0} ist im Verzug",
+  actionScheduleWhyBehind: "Schedule Performance Index liegt bei {0} (unter 1,0 = hinter Plan)",
+  actionScheduleWhyBurndown: "Burn-up liegt hinter der geplanten Linie",
+  actionWorkloadTitle: "{0}",
+  actionWorkloadWhyOverAllocated: "Überlastet — {0}% im nächsten Zeitraum verplant",
+  actionWorkloadWhyOverload: "{0} überfällige Aufgaben zugewiesen",
+  versionHighlightScheduleWorkload: "Zwei neue Vorschlags-Signale: eine Termin-/EVM-Warnung, wenn das Projekt hinter den Plan fällt, und Auslastungs-Hinweise für überlastete Personen",
   // --- Restored: still used by kept banners + comms items (SP3) ---
   alertBannerDismiss: "Schließen",
   alertCatOverdue: "Überfällig",
