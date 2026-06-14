@@ -17,7 +17,14 @@ export function InfoTooltip({ text, label }: InfoTooltipProps) {
   useEffect(() => {
     if (!open || !ref.current) return;
     const r = ref.current.getBoundingClientRect();
-    setPos({ top: r.bottom + 4, left: r.left + r.width / 2 });
+    const MARGIN = 8;
+    const HALF = 128; // half of max-w-[16rem] (256px)
+    const centered = r.left + r.width / 2;
+    const clampedLeft = Math.min(
+      Math.max(centered, MARGIN + HALF),
+      window.innerWidth - MARGIN - HALF,
+    );
+    setPos({ top: r.bottom + 4, left: clampedLeft });
     const close = () => setOpen(false);
     window.addEventListener("scroll", close, true);
     window.addEventListener("resize", close);
