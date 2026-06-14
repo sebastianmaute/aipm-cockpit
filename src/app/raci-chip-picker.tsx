@@ -1,4 +1,5 @@
 "use client";
+import { useEffect, useRef, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { RACI_ROLES, type RaciRole } from "./types";
 
@@ -25,27 +26,89 @@ const ROLE_LABEL_KEY: Record<RaciRole, Parameters<typeof t>[1]> = {
   I: "raciRoleInformed",
 };
 
+const CHIP_BASE =
+  "flex h-5 w-5 items-center justify-center rounded-full border text-[11px] font-semibold leading-none transition-colors focus:outline-none focus:ring-1 focus:ring-AIPM-green";
+
 export function RaciChipPicker({ value, onChange, ariaPrefix, lang }: RaciChipPickerProps) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLSpanElement>(null);
+
+  // Close on outside pointerdown or Escape while the popover is open.
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  const pick = (role: RaciRole | "") => {
+    setOpen(false);
+    onChange(role);
+  };
+
+  const triggerLabel = value === "" ? t(lang, "raciSetLabel") : t(lang, ROLE_LABEL_KEY[value]);
+
   return (
-    <span className="inline-flex items-center gap-1">
-      {RACI_ROLES.map((role) => {
-        const active = value === role;
-        const c = CHIP[role];
-        return (
+    <span ref={ref} className="relative inline-flex items-center">
+      <button
+        type="button"
+        aria-haspopup="true"
+        aria-expanded={open}
+        aria-label={`${ariaPrefix} — ${triggerLabel}`}
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((o) => !o);
+        }}
+        className={`${CHIP_BASE} ${
+          value === "" ? "border-dashed border-line text-muted-foreground hover:bg-surface-muted" : CHIP[value].on
+        }`}
+      >
+        {value === "" ? "+" : value}
+      </button>
+      {open && (
+        <span className="absolute left-0 top-full z-20 mt-1 flex w-max items-center gap-1 rounded-md border border-line bg-surface p-1 shadow-sm">
+          {RACI_ROLES.map((role) => {
+            const c = CHIP[role];
+            return (
+              <button
+                key={role}
+                type="button"
+                aria-pressed={value === role}
+                aria-label={role}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  pick(role);
+                }}
+                className={`${CHIP_BASE} ${
+                  value === role ? c.on : `bg-surface ${c.off} hover:bg-surface-muted`
+                }`}
+              >
+                {role}
+              </button>
+            );
+          })}
           <button
-            key={role}
             type="button"
-            aria-pressed={active}
-            aria-label={`${ariaPrefix} — ${t(lang, ROLE_LABEL_KEY[role])}`}
-            onClick={() => onChange(active ? "" : role)}
-            className={`flex h-5 w-5 items-center justify-center rounded-full border text-[11px] font-semibold leading-none transition-colors ${
-              active ? c.on : `bg-surface ${c.off} hover:bg-surface-muted`
-            } focus:outline-none focus:ring-1 focus:ring-AIPM-green`}
+            aria-label={t(lang, "raciClear")}
+            onClick={(e) => {
+              e.stopPropagation();
+              pick("");
+            }}
+            className={`${CHIP_BASE} border-line text-muted-foreground hover:bg-surface-muted`}
           >
-            {role}
+            ✕
           </button>
-        );
-      })}
+        </span>
+      )}
     </span>
   );
 }

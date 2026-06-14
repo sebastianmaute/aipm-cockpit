@@ -17,9 +17,11 @@ describe("RaciPanel", () => {
   it("edits a cell and saves the stakeholder", () => {
     const onSave = vi.fn();
     render(<RaciPanel lang="en-US" stakeholders={stakeholders} milestones={milestones} onSave={onSave} />);
-    // Chip aria-label: "{milestone} · {stakeholder} — {roleLabel}"
-    const chip = screen.getByRole("button", { name: /Go-Live · Sam.*Responsible/i });
-    fireEvent.click(chip);
+    // Collapsed trigger aria-label: "{milestone} · {stakeholder} — {currentRoleLabel}".
+    // Sam's cell holds "A", so expand it then pick the "R" role chip in the popover.
+    const trigger = screen.getByRole("button", { name: /Go-Live · Sam.*Accountable/i });
+    fireEvent.click(trigger);
+    fireEvent.click(screen.getByRole("button", { name: "R" }));
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ id: 1, raci: { "10": "R" } }));
   });
   it("shows an empty state when there are no milestones", () => {
