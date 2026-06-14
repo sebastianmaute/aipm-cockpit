@@ -1453,6 +1453,7 @@ const enUS = {
   versionHighlightLoadFormats: "The empty-state \"Load from file\" now accepts any supported format (JSON, CSV, or Markdown) and detects it from the file",
   versionHighlightConfidenceRanking: "Action Center now ranks by how actionable a signal is, with configurable weights and a collapsible monitor group.",
   versionHighlightCreateTask: "Turn an Action Center item into a follow-up task in one click — pre-filled from the signal, with RAID items linked back automatically.",
+  versionHighlightUiBatch85: "A polish pass across planning, dashboard, budget, reports, history and settings — plus snapshot delete, report reordering, and a dashboard Trends toggle.",
   // --- Restored: still used by kept banners + comms items (SP3) ---
   alertBannerDismiss: "Dismiss",
   alertCatOverdue: "Overdue",

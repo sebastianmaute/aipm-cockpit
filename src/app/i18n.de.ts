@@ -1450,6 +1450,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightLoadFormats: "Das \"Aus Datei laden\" im Leerzustand akzeptiert jetzt jedes unterstützte Format (JSON, CSV oder Markdown) und erkennt es anhand der Datei",
   versionHighlightConfidenceRanking: "Das Action Center sortiert jetzt nach Handlungsklarheit — mit konfigurierbaren Gewichten und einer einklappbaren Überwachungsgruppe.",
   versionHighlightCreateTask: "Aus einem Action-Center-Eintrag mit einem Klick eine Folgeaufgabe erstellen — vorausgefüllt aus dem Signal, RAID-Einträge werden automatisch verknüpft.",
+  versionHighlightUiBatch85: "Feinschliff in Planung, Dashboard, Budget, Berichten, Verlauf und Einstellungen — plus Snapshot-Löschen, Bericht-Sortierung und ein Dashboard-Trends-Schalter.",
   // --- Restored: still used by kept banners + comms items (SP3) ---
   alertBannerDismiss: "Schließen",
   alertCatOverdue: "Überfällig",
