@@ -2,8 +2,8 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.79.0";
-export const APP_BUILD_DATE = "2026-06-14"; // 0.79.0 inline next-action chips on views + reports
+export const APP_VERSION = "0.79.1";
+export const APP_BUILD_DATE = "2026-06-14"; // 0.79.1 palette-drift re-sweep (chrome greys → semantic tokens)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The whole
  *  0.79.x line is "Willis" (Connie Willis); patch releases inherit
  *  their minor version's codename rather than getting their own. */

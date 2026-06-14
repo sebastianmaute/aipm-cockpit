@@ -62,7 +62,7 @@ export function AppHeader({
         <h1 className="text-3xl font-semibold tracking-tight text-AIPM-dark-blue dark:text-AIPM-light-grey">
           {t(lang, "appTitle")}
         </h1>
-        <p className="mt-1 text-sm text-AIPM-dark-grey dark:text-AIPM-medium-grey">
+        <p className="mt-1 text-sm text-muted-foreground">
           {t(lang, "appSubtitle")}
         </p>
         {projectSwitcher && (
@@ -85,7 +85,7 @@ export function AppHeader({
               onClick={onOpenAiAssistant}
               aria-label={t(lang, "openAiAssistant")}
               title={t(lang, "openAiAssistant")}
-              className="rounded-md p-2 text-AIPM-dark-grey hover:bg-surface-muted hover:text-AIPM-dark-blue focus:outline-none focus:ring-2 focus:ring-AIPM-green dark:text-AIPM-medium-grey dark:hover:text-AIPM-light-grey"
+              className="rounded-md p-2 text-muted-foreground hover:bg-surface-muted hover:text-AIPM-dark-blue focus:outline-none focus:ring-2 focus:ring-AIPM-green dark:hover:text-AIPM-light-grey"
             >
               <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-5 w-5">
                 <path fillRule="evenodd" d="M2 5a2 2 0 012-2h12a2 2 0 012 2v7a2 2 0 01-2 2H6l-4 4V5z" clipRule="evenodd" />
@@ -100,7 +100,7 @@ export function AppHeader({
             }}
             aria-label={t(lang, "addTaskButton")}
             title={t(lang, "addTaskButton")}
-            className="rounded-md p-2 text-AIPM-dark-grey hover:bg-surface-muted hover:text-AIPM-dark-blue focus:outline-none focus:ring-2 focus:ring-AIPM-green dark:text-AIPM-medium-grey dark:hover:text-AIPM-light-grey"
+            className="rounded-md p-2 text-muted-foreground hover:bg-surface-muted hover:text-AIPM-dark-blue focus:outline-none focus:ring-2 focus:ring-AIPM-green dark:hover:text-AIPM-light-grey"
           >
             <svg
               viewBox="0 0 20 20"
@@ -120,7 +120,7 @@ export function AppHeader({
             onClick={onShowAlerts}
             aria-label={t(lang, "showDueAlerts")}
             title={t(lang, "showDueAlerts")}
-            className="relative rounded-md p-2 text-AIPM-dark-grey hover:bg-surface-muted hover:text-AIPM-dark-blue focus:outline-none focus:ring-2 focus:ring-AIPM-green dark:text-AIPM-medium-grey dark:hover:text-AIPM-light-grey"
+            className="relative rounded-md p-2 text-muted-foreground hover:bg-surface-muted hover:text-AIPM-dark-blue focus:outline-none focus:ring-2 focus:ring-AIPM-green dark:hover:text-AIPM-light-grey"
           >
             <svg
               viewBox="0 0 20 20"

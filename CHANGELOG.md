@@ -8,6 +8,15 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.79.1] - 2026-06-14
+
+### Fixed
+- Components added since the 0.16.0 palette sweep had reintroduced legacy grey
+  chrome utilities; re-swept them to semantic surface tokens. No change in light
+  mode; dark mode now renders these surfaces correctly, and a stray off-palette
+  border was removed. A new guard test prevents the chrome greys from drifting
+  back.
+
 ## [0.79.0] - 2026-06-14 "Willis"
 
 ### Added

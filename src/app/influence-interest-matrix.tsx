@@ -20,8 +20,8 @@ function cellTint(score: number): string {
   if (score >= 6) return "bg-AIPM-green/30 hover:bg-AIPM-green/40";
   if (score >= 5) return "bg-AIPM-green/20 hover:bg-AIPM-green/30";
   if (score >= 4) return "bg-AIPM-purple/15 hover:bg-AIPM-purple/25";
-  if (score >= 3) return "bg-AIPM-light-grey/30 hover:bg-AIPM-light-grey/40";
-  return "bg-surface-muted hover:bg-AIPM-light-grey/30";
+  if (score >= 3) return "bg-surface-muted/30 hover:bg-surface-muted/40";
+  return "bg-surface-muted hover:bg-surface-muted/30";
 }
 
 export interface InfluenceInterestMatrixProps {

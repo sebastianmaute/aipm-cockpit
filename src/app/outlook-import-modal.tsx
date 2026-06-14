@@ -72,7 +72,7 @@ export function OutlookImportModal({
             type="button"
             onClick={onClose}
             aria-label={t(lang, "outlookImportCancel")}
-            className="rounded-md p-2 text-AIPM-dark-grey hover:bg-surface-muted hover:text-AIPM-dark-blue"
+            className="rounded-md p-2 text-muted-foreground hover:bg-surface-muted hover:text-AIPM-dark-blue"
           >
             <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-4 w-4">
               <path

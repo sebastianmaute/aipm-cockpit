@@ -94,7 +94,7 @@ export function ProjectSwitcher({
         aria-haspopup="menu"
         aria-expanded={open}
         title={t(lang, "projectCurrentLabel")}
-        className="flex max-w-[16rem] items-center gap-2 rounded-md border border-line bg-surface-muted px-3 py-1.5 text-sm font-semibold text-AIPM-dark-blue hover:bg-AIPM-light-grey focus:outline-none focus:ring-2 focus:ring-AIPM-green dark:text-AIPM-light-grey dark:hover:bg-surface"
+        className="flex max-w-[16rem] items-center gap-2 rounded-md border border-line bg-surface-muted px-3 py-1.5 text-sm font-semibold text-AIPM-dark-blue hover:bg-surface-muted focus:outline-none focus:ring-2 focus:ring-AIPM-green dark:text-AIPM-light-grey dark:hover:bg-surface"
       >
         <svg
           viewBox="0 0 20 20"
@@ -109,7 +109,7 @@ export function ProjectSwitcher({
           viewBox="0 0 20 20"
           fill="currentColor"
           aria-hidden="true"
-          className="h-4 w-4 shrink-0 text-AIPM-dark-grey dark:text-AIPM-medium-grey"
+          className="h-4 w-4 shrink-0 text-muted-foreground"
         >
           <path
             fillRule="evenodd"
