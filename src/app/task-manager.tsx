@@ -373,6 +373,10 @@ function TaskManagerInner() {
   const snapshotsCfg = settings.snapshots ?? defaultSnapshotSettings;
   const trendsActive =
     (settings.storageConfig.kind === "turso" || portfolioMode === "turso") &&
+    // Require a usable Turso config: storage kind can be "turso" while the URL /
+    // token are still unset or quarantined, and snapshot capture must not run
+    // (and throw StorageNotReadyError) against a null config.
+    tursoConfig !== null &&
     !isPopout && snapshotsCfg.enabled &&
     isModuleEnabled("trends", settings.features);
   const snapshots = useSnapshots({

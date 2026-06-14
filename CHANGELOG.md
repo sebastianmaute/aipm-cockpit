@@ -32,6 +32,10 @@ longer carries its own changelog comment.
   rate-card headers. `SortHeaderButton` gained an optional `hint` prop.
 
 ### Fixed
+- Snapshot auto-capture no longer throws `StorageNotReadyError` on mount when
+  the storage kind is "turso" but the URL/token are unset or quarantined: the
+  trends-active gate now requires a non-null Turso config, and `useSnapshots`
+  defensively skips the load when no config is present.
 - Version-history auto-capture no longer writes an empty version when a save
   only bumped bookkeeping timestamps (`localModifiedAt`): the auto trigger now
   checks the meaningful diff (which ignores volatile fields) instead of raw
