@@ -275,3 +275,45 @@ describe("ReportsPanel — module gating", () => {
     expect(within(picker).getByRole("option", { name: /stakeholder report/i })).toBeInTheDocument();
   });
 });
+
+describe("ReportsPanel — drag-reorder extra reports", () => {
+  it("calls onChangeExtraReports with reordered array when 2nd card dragged onto 1st", () => {
+    const onChange = vi.fn();
+    render(
+      <ReportsPanel
+        tasks={[makeTask({ id: 1, assignee: "A" })]}
+        today={TODAY}
+        holidaySet={new Set()}
+        lang="en-US"
+        raid={[]}
+        stakeholders={[]}
+        milestones={[]}
+        extraReports={["raid-report", "budget-report"]}
+        onChangeExtraReports={onChange}
+        features={[...ALL_MODULE_IDS]}
+        buckets={brBuckets}
+        plan={brPlan}
+        roles={brRoles}
+        disciplines={[{ id: 1, name: "Consulting" }]}
+        grades={[{ id: 1, name: "Junior" }]}
+        resources={[]}
+        absences={[]}
+        workdayHours={8}
+        fxRates={null}
+      />,
+    );
+
+    // Locate the two drag handles (one per extra report card, in DOM order)
+    const handles = screen.getAllByRole("button", { name: /drag to reorder/i });
+    expect(handles).toHaveLength(2);
+
+    // Drag the 2nd handle (budget-report) onto the 1st card (raid-report)
+    fireEvent.dragStart(handles[1]);
+    const cards = screen.getAllByTestId("extra-report-card");
+    fireEvent.dragOver(cards[0]);
+    fireEvent.drop(cards[0]);
+
+    expect(onChange).toHaveBeenCalledOnce();
+    expect(onChange).toHaveBeenCalledWith(["budget-report", "raid-report"]);
+  });
+});
