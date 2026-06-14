@@ -12,6 +12,8 @@ const SOURCE_LABEL: Record<ActionSource, TranslationKey> = {
   milestone: "actionSourceMilestone",
   budget: "actionSourceBudget",
   "stakeholder-comms": "actionSourceComms",
+  schedule: "actionSourceSchedule",
+  workload: "actionSourceWorkload",
 };
 const TIER_DOT: Record<ActionTier, string> = {
   now: "bg-AIPM-pink",
