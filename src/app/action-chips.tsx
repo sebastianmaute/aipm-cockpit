@@ -39,6 +39,7 @@ export function ActionChips({ lang, actions, onOpen, onShowMore, className }: Ac
           key={action.id}
           type="button"
           onClick={() => onOpen(action)}
+          title={t(lang, action.why.key, ...(action.why.params ?? []))}
           className="inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-2 py-1 text-xs text-foreground hover:bg-surface-muted"
         >
           <span aria-hidden className={`h-1.5 w-1.5 shrink-0 rounded-full ${TIER_DOT[action.tier as "now" | "soon"]}`} />
