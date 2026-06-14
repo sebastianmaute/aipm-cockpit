@@ -415,9 +415,9 @@ export const de: Record<TranslationKey, string> = {
   credentialStorageNote:
     "Wird unverschlüsselt im localStorage dieses Browsers gespeichert – verwenden Sie auf gemeinsam genutzten oder nicht vertrauenswürdigen Rechnern keine produktiven Zugangsdaten.",
 
-  notifications: "Fälligkeits-Benachrichtigungen",
+  notifications: "Erinnerungen & Benachrichtigungen",
   notificationsHint:
-    "Jede Benachrichtigung kann unabhängig aktiviert oder deaktiviert werden. Der Schwellwert ist die Anzahl Arbeitstage vor dem Fälligkeitsdatum (überfällige und heute fällige Aufgaben sind immer enthalten).",
+    "Jede Erinnerung kann unabhängig aktiviert oder deaktiviert werden. Die Vorlaufzeit legt fest, wie viele Arbeitstage vor einem Fälligkeitsdatum Sie erinnert werden (überfällige und heute fällige Aufgaben sind immer enthalten).",
 
   showDueAlerts: "Fälligkeits-Benachrichtigungen anzeigen",
   addTaskButton: "Aufgabe hinzufügen",

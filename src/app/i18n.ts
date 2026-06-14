@@ -408,9 +408,9 @@ const enUS = {
   credentialStorageNote:
     "Stored unencrypted in this browser's localStorage — do not use production credentials on shared or untrusted machines.",
 
-  notifications: "Due-date notifications",
+  notifications: "Reminders & notifications",
   notificationsHint:
-    "Each notification can be enabled or disabled independently. Threshold is the number of work days before the due date that will trigger the notification (overdue and due-today are always included).",
+    "Each reminder can be turned on or off independently. The lead time sets how many work days before a due date you are nudged (overdue and due-today are always included).",
 
   showDueAlerts: "Show due-date notifications",
   addTaskButton: "Add task",
