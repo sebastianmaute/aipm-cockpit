@@ -15,7 +15,7 @@ export const budgetProvider: ActionProvider = {
 
     const trend = input.trends?.budget;
     const penaltyBase = input.staticPenalty ?? W.staticPenalty;
-    // A worsening aggregate IS moving — pull it back up by halving the penalty.
+    // Worsening trend has real momentum -> less penalty so the score rises vs a stale signal.
     const staticPenalty = trend === "worsening" ? Math.round(penaltyBase / 2) : penaltyBase;
 
     const score = scoreAction({

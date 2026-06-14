@@ -81,21 +81,28 @@ describe("budget confidence", () => {
   function redInput(over: Record<string, unknown> = {}) {
     return {
       tasks: [], raid: [], changes: [], milestones: [], stakeholders: [],
-      commsReminders: [], features: ["budget"], projectName: "P",
+      commsReminders: [], features: [], projectName: "P",
       today: "2026-01-01", now: new Date("2026-01-01T00:00:00Z"),
       reminderLeadDays: 7, dueSoonWorkdays: 5, raidReviewIntervalDays: 14,
       dismissed: new Set<string>(),
-      dashboard: { budget: { effective: "R" }, evm: { cpi: 0.8 } },
+      dashboard: {
+        budget: { effective: "R" },
+        evm: { cpi: 0.8 },
+      } as unknown as DashboardModel,
       ...over,
-    } as unknown as Parameters<typeof budgetProvider.provide>[0];
+    } as ActionInput;
   }
   it("applies the static penalty so a red budget is not top-tier by default", () => {
     const [a] = budgetProvider.provide(redInput());
-    expect(a.score).toBe(5); // risk 30 - penalty 25
+    expect(a.score).toBe(ACTION_WEIGHTS.riskCritical - ACTION_WEIGHTS.staticPenalty);
   });
   it("halves the penalty when the trend is worsening", () => {
     const [a] = budgetProvider.provide(redInput({ trends: { budget: "worsening" } }));
-    expect(a.score).toBe(17); // 30 - round(25/2)=13
+    const halved = Math.round(ACTION_WEIGHTS.staticPenalty / 2);
+    expect(a.score).toBe(ACTION_WEIGHTS.riskCritical - halved);
+  });
+  it("uses the worsening why-key when worsening", () => {
+    const [a] = budgetProvider.provide(redInput({ trends: { budget: "worsening" } }));
     expect(a.why.key).toBe("actionBudgetWhyWorsening");
   });
   it("uses the improving why-key when improving", () => {
@@ -104,6 +111,6 @@ describe("budget confidence", () => {
   });
   it("honors a configured staticPenalty override", () => {
     const [a] = budgetProvider.provide(redInput({ staticPenalty: 10 }));
-    expect(a.score).toBe(20); // 30 - 10
+    expect(a.score).toBe(ACTION_WEIGHTS.riskCritical - 10);
   });
 });
