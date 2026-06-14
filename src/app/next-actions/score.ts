@@ -13,6 +13,9 @@ export const ACTION_WEIGHTS = {
   quickWin: 10,
   stalenessPerDay: 1,
   stalenessCap: 15,
+  clarityBonus: 15,     // signal has one obvious assignable fix
+  semiClarityBonus: 7,  // several levers, still actionable
+  staticPenalty: 25,    // aggregate/derived red with no single lever
 } as const;
 
 export const TIER_NOW = 60;
@@ -24,10 +27,16 @@ export interface ScoreFactors {
   impact?: number;
   quickWin?: number;
   staleness?: number;
+  clarity?: number;        // confidence bonus (clear-fix item)
+  staticPenalty?: number;  // confidence penalty (vague/static signal)
 }
 
 export function scoreAction(f: ScoreFactors): number {
-  return (f.urgency ?? 0) + (f.risk ?? 0) + (f.impact ?? 0) + (f.quickWin ?? 0) + (f.staleness ?? 0);
+  const sum =
+    (f.urgency ?? 0) + (f.risk ?? 0) + (f.impact ?? 0) +
+    (f.quickWin ?? 0) + (f.staleness ?? 0) +
+    (f.clarity ?? 0) - (f.staticPenalty ?? 0);
+  return Math.max(0, sum); // never negative — keeps sort deterministic
 }
 
 export function bandTier(score: number): ActionTier {
