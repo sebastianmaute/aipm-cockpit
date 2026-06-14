@@ -33,6 +33,10 @@ export interface BuildActionInputArgs {
   workloadAlerts?: readonly WorkloadAlert[];
   taskDueEnabled?: boolean;            // default true
   raidReviewEnabled?: boolean;         // default true
+  trends?: import("./next-actions/trends").ActionTrends;
+  clarityBonus?: number;
+  semiClarityBonus?: number;
+  staticPenalty?: number;
   dismissed?: ReadonlySet<string>;
 }
 
@@ -60,6 +64,10 @@ export function buildActionInput(a: BuildActionInputArgs): ActionInput {
     workloadAlerts: a.workloadAlerts ?? [],
     taskDueEnabled: a.taskDueEnabled ?? true,
     raidReviewEnabled: a.raidReviewEnabled ?? true,
+    trends: a.trends,
+    clarityBonus: a.clarityBonus,
+    semiClarityBonus: a.semiClarityBonus,
+    staticPenalty: a.staticPenalty,
     dismissed: a.dismissed ?? new Set<string>(),
   };
 }

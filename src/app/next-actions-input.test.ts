@@ -25,3 +25,29 @@ describe("buildActionInput", () => {
     expect(buildActionInput({ ...base, dismissed: d }).dismissed).toBe(d);
   });
 });
+
+describe("confidence field passthrough", () => {
+  const base = {
+    tasks: [], raid: [], changes: [], milestones: [], stakeholders: [],
+    dashboard: { budget: { effective: "G" }, evm: {} } as never,
+    commsReminders: [], features: [], projectName: "P",
+    today: "2026-01-01", now: new Date("2026-01-01T00:00:00Z"),
+    reminderLeadDays: 7, dueSoonWorkdays: 5, raidReviewIntervalDays: 14,
+  };
+  it("passes trends and weight overrides straight through", () => {
+    const input = buildActionInput({
+      ...base,
+      trends: { budget: "worsening" },
+      clarityBonus: 20, semiClarityBonus: 9, staticPenalty: 30,
+    });
+    expect(input.trends).toEqual({ budget: "worsening" });
+    expect(input.clarityBonus).toBe(20);
+    expect(input.semiClarityBonus).toBe(9);
+    expect(input.staticPenalty).toBe(30);
+  });
+  it("leaves them undefined when omitted", () => {
+    const input = buildActionInput(base);
+    expect(input.trends).toBeUndefined();
+    expect(input.clarityBonus).toBeUndefined();
+  });
+});
