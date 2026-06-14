@@ -44,6 +44,11 @@ longer carries its own changelog comment.
   rate-card headers. `SortHeaderButton` gained an optional `hint` prop.
 
 ### Fixed
+- Accepting the AI-usage policy from the chat consent screen ("I understand")
+  now actually opens the assistant. The consent flag was written to a different
+  `useSettings()` instance than the one the chat panel reads (each call is
+  per-instance, no same-page sync), so the screen never advanced; the chat now
+  flips consent on its own instance.
 - Snapshot auto-capture no longer throws `StorageNotReadyError` on mount when
   the storage kind is "turso" but the URL/token are unset or quarantined: the
   trends-active gate now requires a non-null Turso config, and `useSnapshots`

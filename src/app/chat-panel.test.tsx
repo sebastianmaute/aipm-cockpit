@@ -1,5 +1,6 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
+import { useState } from "react";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { ChatPanel } from "./chat-panel";
@@ -42,6 +43,49 @@ const AI_WITH_KEY = {
   consentAccepted: true,
   apiKey: "sk-test",
 };
+
+describe("Consent screen accept", () => {
+  it("clicking I understand after ticking the policy fires onAcceptConsent", () => {
+    const onAcceptConsent = vi.fn();
+    render(
+      <ChatPanel
+        lang="en-US"
+        ai={{ ...defaultAiConfig, consentAccepted: false }}
+        dispatcher={makeDispatcher()}
+        onAcceptConsent={onAcceptConsent}
+      />,
+    );
+    const button = screen.getByRole("button", { name: /I understand/i });
+    expect(button).toBeDisabled();
+    fireEvent.click(screen.getByRole("checkbox"));
+    expect(button).not.toBeDisabled();
+    fireEvent.click(button);
+    expect(onAcceptConsent).toHaveBeenCalledTimes(1);
+  });
+
+  it("clears the consent screen once onAcceptConsent flips the SAME ai instance", () => {
+    // Regression for the cross-instance bug: the consent handler must write to
+    // the settings instance ChatPanel actually reads. Here onAcceptConsent
+    // updates the very `ai` passed to ChatPanel, and the consent screen must go.
+    function Harness() {
+      const [ai, setAi] = useState({ ...defaultAiConfig, consentAccepted: false });
+      return (
+        <ChatPanel
+          lang="en-US"
+          ai={ai}
+          dispatcher={makeDispatcher()}
+          onAcceptConsent={() => setAi((a) => ({ ...a, consentAccepted: true }))}
+        />
+      );
+    }
+    render(<Harness />);
+    fireEvent.click(screen.getByRole("checkbox"));
+    fireEvent.click(screen.getByRole("button", { name: /I understand/i }));
+    // Consent screen gone → the chat composer is shown.
+    expect(screen.queryByRole("button", { name: /I understand/i })).toBeNull();
+    expect(screen.getByPlaceholderText("Ask Claude about your tasks…")).toBeInTheDocument();
+  });
+});
 
 // ---------------------------------------------------------------------------
 // Stop-button tests

@@ -1051,10 +1051,6 @@ function TaskManagerInner() {
     isReadOnly: isPopout,
   });
 
-  const handleAcceptAiConsent = useCallback(() => {
-    setSettings((s) => ({ ...s, ai: { ...s.ai, consentAccepted: true } }));
-  }, [setSettings]);
-
   const handleChangeBudgets = useCallback((next: BudgetBucket[]) => setBudgets(next), [setBudgets]);
   const cacheFxRates = useCallback((fx: import("./types").FxRates) => setFxRates(fx), [setFxRates]);
   const { refresh: refreshFx, loading: fxLoading } = useFxRates(cacheFxRates);
@@ -1223,7 +1219,6 @@ function TaskManagerInner() {
     workspaceCollapsed,
     setWorkspaceCollapsed,
     dispatcher,
-    handleAcceptAiConsent,
     handleGanttBarUpdate: guardEdit(handleGanttBarUpdate),
     handleCancelEdit,
     setTaskModalOpen,

@@ -51,7 +51,6 @@ function makeProps(overrides: Partial<WorkspaceSectionProps> = {}): WorkspaceSec
     workspaceCollapsed: false,
     setWorkspaceCollapsed: vi.fn(),
     dispatcher: {} as ToolDispatcher,
-    handleAcceptAiConsent: vi.fn(),
     handleGanttBarUpdate: vi.fn(),
     handleCancelEdit: vi.fn(),
     setTaskModalOpen: vi.fn(),
