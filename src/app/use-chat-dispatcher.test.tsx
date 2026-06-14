@@ -23,9 +23,6 @@ function makeSettings(): Settings {
     notifications: {
       reminderLeadDays: 7,
       useGlobalLeadDays: true,
-      banner: { enabled: true },
-      toast: { enabled: true },
-      popup: { enabled: true },
       birthday: { enabled: false },
       raidReview: { enabled: true },
       raidReviewIntervalDays: 14,
@@ -33,7 +30,6 @@ function makeSettings(): Settings {
       stakeholderComms: { enabled: true },
       stakeholderCommsLeadDays: { "manage-closely": 14, "keep-satisfied": 7, "keep-informed": 7, monitor: 3 },
       jiraTokenError: { enabled: true },
-      toastFirstMigrated: true,
     },
     jira: {
       enabled: false,

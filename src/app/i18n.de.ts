@@ -229,8 +229,6 @@ export const de: Record<TranslationKey, string> = {
   projectRestoreFailed: "Projekt konnte nicht wiederhergestellt werden: {0}",
   projectHardDeleteFailed: "Projekt konnte nicht endgültig gelöscht werden: {0}",
   projectRepointFailed: "Wechsel zu einem anderen Projekt fehlgeschlagen: {0}",
-  toastFirstMigrationNotice:
-    "Benachrichtigungs-Standard aktualisiert: Erinnerungen erscheinen jetzt als Toasts. Banner und Pop-ups sind aus – anpassbar unter Einstellungen → Benachrichtigungen.",
   storageNotReady:
     "Speicher noch nicht konfiguriert – bitte in den Einstellungen eine Datei wählen.",
   storageUnreachable: "Speicher nicht erreichbar — läuft der Server?",

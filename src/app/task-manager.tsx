@@ -119,21 +119,10 @@ const VERSION_IDLE_MS = 180_000; // 3 minutes
 // TaskManagerInner consumes the FiltersProvider context. The default
 // export below wraps this in <FiltersProvider> so useFilters() works.
 function TaskManagerInner() {
-  const { settings, setSettings, hydrated, i18nReady, lang, toastFirstJustMigrated } = useSettings();
+  const { settings, setSettings, hydrated, i18nReady, lang } = useSettings();
   const { activityLog, setActivityLog, logActivity, handleClearActivityLog } =
     useActivityLog({ lang });
   const { toast, showToast } = useToast();
-
-  // Fire a one-time info toast when the toast-first migration flipped on this
-  // load (existing user upgrading from pre-0.57 defaults). The ref ensures it
-  // fires exactly once per mount even across re-renders, and never for fresh
-  // installs or already-migrated users (toastFirstJustMigrated is false then).
-  const migrationToastFiredRef = useRef(false);
-  useEffect(() => {
-    if (!toastFirstJustMigrated || !i18nReady || migrationToastFiredRef.current) return;
-    migrationToastFiredRef.current = true;
-    showToast("info", t(lang, "toastFirstMigrationNotice"));
-  }, [toastFirstJustMigrated, i18nReady, lang, showToast]);
 
   const { workspaceCollapsed, setWorkspaceCollapsed } = useWorkspaceCollapsed();
   const { collapsed: sidebarCollapsed, toggle: toggleSidebar } = useSidebarCollapsed();
@@ -634,10 +623,8 @@ function TaskManagerInner() {
           reminderLeadDays: settings.notifications.reminderLeadDays,
           dueSoonWorkdays: settings.notifications.dueSoonWorkdays,
           raidReviewIntervalDays: settings.notifications.raidReviewIntervalDays,
-          // NB: do NOT gate task-due on notifications.banner.enabled — that flag
-          // defaults false post toast-first migration, so it would hide due
-          // actions for everyone. Due actions stay always-on (core); the RAID
-          // review toggle below defaults true and is a safe gate.
+          // Due actions stay always-on (core). The RAID review toggle below
+          // defaults true and is a safe gate.
           raidReviewEnabled: settings.notifications.raidReview.enabled,
           dismissed: actionSnooze.dismissed,
         }),

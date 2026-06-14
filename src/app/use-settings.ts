@@ -40,7 +40,7 @@ function migrateNotifications(raw: unknown): Settings["notifications"] {
     if (validLeadDays !== undefined) result.leadDays = validLeadDays;
     return result;
   };
-  const lead = Number(p.reminderLeadDays ?? pick(p.birthday).leadDays ?? pick(p.banner).thresholdWorkDays);
+  const lead = Number(p.reminderLeadDays ?? pick(p.birthday).leadDays);
   const raidInterval = Math.round(Number(p.raidReviewIntervalDays));
   const dueSoonWd = Math.round(Number(p.dueSoonWorkdays));
 
@@ -54,17 +54,9 @@ function migrateNotifications(raw: unknown): Settings["notifications"] {
       Number.isFinite(n) && n >= 0 ? Math.min(365, Math.round(n)) : defaultNotificationsConfig.stakeholderCommsLeadDays[q];
   }
 
-  const alreadyMigrated = p.toastFirstMigrated === true;
-  const banner = ch(p.banner);
-  const popup = ch(p.popup);
-  const toast = ch(p.toast);
-
   return {
     reminderLeadDays: Number.isFinite(lead) && lead >= 0 ? lead : 7,
     useGlobalLeadDays: typeof p.useGlobalLeadDays === "boolean" ? p.useGlobalLeadDays : true,
-    banner: alreadyMigrated ? banner : { ...banner, enabled: false },
-    toast: alreadyMigrated ? toast : { ...toast, enabled: true },
-    popup: alreadyMigrated ? popup : { ...popup, enabled: false },
     birthday: ch(p.birthday),
     raidReview: ch(p.raidReview),
     raidReviewIntervalDays:
@@ -74,7 +66,6 @@ function migrateNotifications(raw: unknown): Settings["notifications"] {
     stakeholderComms: ch(p.stakeholderComms),
     stakeholderCommsLeadDays,
     jiraTokenError: ch(p.jiraTokenError),
-    toastFirstMigrated: true,
   };
 }
 
@@ -88,12 +79,10 @@ export function useSettings(): {
   hydrated: boolean;
   i18nReady: boolean;
   lang: Lang;
-  toastFirstJustMigrated: boolean;
 } {
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [hydrated, setHydrated] = useState(false);
   const [i18nReady, setI18nReady] = useState(false);
-  const [toastFirstJustMigrated, setToastFirstJustMigrated] = useState(false);
 
   // Load settings from localStorage once on mount; lift hydrated + i18nReady gates.
   useEffect(() => {
@@ -120,12 +109,6 @@ export function useSettings(): {
       if (settingsRaw) {
         const parsed = JSON.parse(settingsRaw);
         if (isPlainObject(parsed)) {
-          // Detect whether the toast-first migration will fire on this load:
-          // settingsRaw exists (existing user) and toastFirstMigrated is not yet set.
-          const didMigrate =
-            (parsed as Record<string, unknown>).notifications == null ||
-            ((parsed as Record<string, unknown>).notifications as Record<string, unknown>)
-              .toastFirstMigrated !== true;
           resolvedLang = migrateLang(
             (parsed as Record<string, unknown>).language,
           );
@@ -168,7 +151,6 @@ export function useSettings(): {
           Promise.resolve().then(() => {
             if (!cancelled) {
               setSettings(merged);
-              if (didMigrate) setToastFirstJustMigrated(true);
             }
           });
         }
@@ -205,5 +187,5 @@ export function useSettings(): {
 
   const lang = settings.language;
 
-  return { settings, setSettings, hydrated, i18nReady, lang, toastFirstJustMigrated };
+  return { settings, setSettings, hydrated, i18nReady, lang };
 }
