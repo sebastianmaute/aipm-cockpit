@@ -3,7 +3,7 @@
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
 export const APP_VERSION = "0.81.0";
-export const APP_BUILD_DATE = "2026-06-14"; // 0.81.0 Trends/chips/Manage-Roles/RACI UI batch
+export const APP_BUILD_DATE = "2026-06-14"; // 0.81.0 Trends/chips/Manage-Roles/RACI UI batch + Documents tab
 /** Minor-series milestone codename (sci-fi/fantasy author names). The whole
  *  0.81.x line is "Wolfe" (Gene Wolfe); patch releases inherit
  *  their minor version's codename rather than getting their own. */

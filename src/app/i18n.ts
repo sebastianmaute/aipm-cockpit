@@ -634,6 +634,9 @@ const enUS = {
   helpSecActivityTitle: "Activity log",
   helpSecActivityBody:
     "Append-only log of task, RAID, absence, and shift changes in this browser. Sort by time / kind, filter by entity group, and search by text, wildcard (`*`, `?`), or regex. Useful for audit-style review after bulk edits or Jira syncs. The log lives in this browser only — it is never written to any export file — and trims the oldest entries when it exceeds 500. \"Clear log\" asks for confirmation before deleting all entries.",
+  helpSecDocumentsTitle: "Documents",
+  helpSecDocumentsBody:
+    "The Documents tab gathers every linked file across the whole project — tasks, RAID items, changes, milestones, stakeholders, and the project header — into one table. Each row shows the document (a file or folder, opening in a new tab) and its source item; click the source to jump to that item's editor, or the ✕ to remove the link. \"+ Add document\" picks any item as the target and reuses the SharePoint picker / paste-URL field to attach a new link there. Links live on their source items, so removing one here is the same as removing it from that item's editor.",
   helpSecVoiceTitle: "Voice commands",
   helpSecVoiceBody:
     "Click the microphone in the header and try:\n• \"add task review the deck\"\n• \"edit task 2\"\n• \"delete task 3\"\n• \"send inquiry for task 5\"\n• \"search blockers\" / \"clear search\"\n• \"switch to German\"\nIndividual text fields also have an inline microphone for dictation.",

@@ -61,6 +61,7 @@ Each row keeps a one-line summary. Expand **Details** for the full description.
 | Localization | English (US / UK) and German. |
 | Printing | Scoped print — printing a report prints just that view (sidebar, banners, and other panes are hidden). |
 | SharePoint document links | Attach SharePoint files and folders to tasks, RAID items, changes, stakeholders, milestones, and projects via a built-in browser.<br><details><summary>Details</summary>A custom Microsoft Graph browser (search sites, navigate libraries/folders, pick a file or folder) replaces blind URL paste. Links open in a new tab and round-trip losslessly across all storage backends. Requires M365 sign-in; the "Browse…" button also appears in the SharePoint storage-backend config.</details> |
+| Documents tab | A single view that aggregates every linked document across the project.<br><details><summary>Details</summary>Lists every link carried by tasks, RAID items, changes, milestones, stakeholders, and the project header in one table: open a link in a new tab, jump to its source item's editor, remove it, or attach a new one to any item via the same SharePoint picker / paste-URL field. Links stay on their source items (no separate store), so removing a link here is identical to removing it from that item's editor.</details> |
 
 ## Quick Start
 

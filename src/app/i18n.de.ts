@@ -649,6 +649,9 @@ export const de: Record<TranslationKey, string> = {
   helpSecActivityTitle: "Aktivitätslog",
   helpSecActivityBody:
     "Append-only-Log aller Änderungen an Aufgaben, RAID, Abwesenheiten und Schichten in diesem Browser. Sortierbar nach Zeit / Typ, filterbar nach Entitätsgruppe und Suche per Text, Wildcard (`*`, `?`) oder Regex. Hilfreich für Audit-artige Reviews nach Bulk-Edits oder Jira-Syncs. Das Log liegt nur in diesem Browser – es wird in keine Export-Datei geschrieben – und schneidet die ältesten Einträge ab 500 ab. \"Log leeren\" fragt vor dem Löschen aller Einträge um Bestätigung.",
+  helpSecDocumentsTitle: "Dokumente",
+  helpSecDocumentsBody:
+    "Der Dokumente-Tab sammelt jede verknüpfte Datei des gesamten Projekts – Aufgaben, RAID-Einträge, Änderungen, Meilensteine, Stakeholder und den Projektkopf – in einer Tabelle. Jede Zeile zeigt das Dokument (Datei oder Ordner, öffnet in neuem Tab) und sein Quell-Element; ein Klick auf die Quelle springt zum Editor dieses Elements, das ✕ entfernt die Verknüpfung. \"+ Dokument hinzufügen\" wählt ein beliebiges Element als Ziel und nutzt das SharePoint-Auswahl- / URL-Einfügefeld, um dort eine neue Verknüpfung anzuhängen. Verknüpfungen liegen auf ihren Quell-Elementen – sie hier zu entfernen ist dasselbe wie das Entfernen im Editor des Elements.",
   helpSecVoiceTitle: "Sprachbefehle",
   helpSecVoiceBody:
     "Auf das Mikrofon im Header klicken und z. B. sagen:\n• \"neue Aufgabe Deck prüfen\"\n• \"Aufgabe 2 bearbeiten\"\n• \"Aufgabe 3 löschen\"\n• \"Anfrage für Aufgabe 5 senden\"\n• \"Suche Blocker\" / \"Suche zurücksetzen\"\n• \"Sprache Englisch\"\nEinzelne Textfelder haben zusätzlich ein Mikrofon-Symbol für Diktate.",
