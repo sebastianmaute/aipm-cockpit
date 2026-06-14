@@ -61,7 +61,7 @@ export function InfluenceInterestMatrix({ lang, influence, interest, onPick }: I
                   aria-pressed={isSelected}
                   aria-label={`${influenceLabel} ${t(lang, LEVEL_LABEL_KEYS[inf])}, ${interestLabel} ${t(lang, LEVEL_LABEL_KEYS[intr])}`}
                   onClick={() => onPick(inf, intr)}
-                  className={`flex h-12 w-14 items-center justify-center rounded text-[10px] font-medium text-foreground ${cellTint(score)} ${isSelected ? "ring-2 ring-AIPM-green ring-offset-1" : ""}`}
+                  className={`flex h-12 w-14 items-center justify-center rounded text-[10px] font-medium text-AIPM-dark-blue dark:text-foreground ${cellTint(score)} ${isSelected ? "ring-2 ring-AIPM-green ring-offset-1" : ""}`}
                 >
                   {isSelected ? <span aria-hidden className="text-AIPM-dark-blue">&#9679;</span> : null}
                 </button>
