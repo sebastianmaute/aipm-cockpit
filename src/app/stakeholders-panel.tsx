@@ -210,7 +210,7 @@ function StakeholdersPanelInner({
                 <button
                   type="button"
                   onClick={() => toggleSort("name")}
-                  className="inline-flex items-center gap-1 hover:text-AIPM-green"
+                  className="inline-flex items-center gap-1 hover:text-AIPM-green-strong"
                 >
                   {t(lang, "stakeholderFieldName")}{sortArrow("name")}
                 </button>
@@ -224,7 +224,7 @@ function StakeholdersPanelInner({
                 <button
                   type="button"
                   onClick={() => toggleSort("organization")}
-                  className="inline-flex items-center gap-1 hover:text-AIPM-green"
+                  className="inline-flex items-center gap-1 hover:text-AIPM-green-strong"
                 >
                   {t(lang, "stakeholderFieldOrganization")}{sortArrow("organization")}
                 </button>
@@ -247,7 +247,7 @@ function StakeholdersPanelInner({
                 <button
                   type="button"
                   onClick={() => toggleSort("category")}
-                  className="inline-flex items-center gap-1 hover:text-AIPM-green"
+                  className="inline-flex items-center gap-1 hover:text-AIPM-green-strong"
                 >
                   {t(lang, "stakeholderFieldCategory")}{sortArrow("category")}
                 </button>
@@ -261,7 +261,7 @@ function StakeholdersPanelInner({
                 <button
                   type="button"
                   onClick={() => toggleSort("influence")}
-                  className="inline-flex items-center gap-1 hover:text-AIPM-green"
+                  className="inline-flex items-center gap-1 hover:text-AIPM-green-strong"
                 >
                   {t(lang, "stakeholderFieldInfluence")}{sortArrow("influence")}
                 </button>
@@ -275,7 +275,7 @@ function StakeholdersPanelInner({
                 <button
                   type="button"
                   onClick={() => toggleSort("interest")}
-                  className="inline-flex items-center gap-1 hover:text-AIPM-green"
+                  className="inline-flex items-center gap-1 hover:text-AIPM-green-strong"
                 >
                   {t(lang, "stakeholderFieldInterest")}{sortArrow("interest")}
                 </button>

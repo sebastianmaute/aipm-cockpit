@@ -118,7 +118,7 @@ export function SortHeaderButton({
     <button
       type="button"
       onClick={onClick}
-      className={`inline-flex items-center gap-1 ${active ? "text-AIPM-green" : ""} hover:text-AIPM-green`}
+      className={`inline-flex items-center gap-1 ${active ? "text-AIPM-green-strong" : ""} hover:text-AIPM-green-strong`}
     >
       {label}
       {indicator}

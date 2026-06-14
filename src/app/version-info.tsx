@@ -66,7 +66,7 @@ export function VersionInfo({ lang }: { lang: Lang }) {
       <ul className="mt-1.5 space-y-1 text-xs text-foreground">
         {APP_HIGHLIGHT_KEYS.map((k) => (
           <li key={k} className="flex gap-2">
-            <span aria-hidden className="mt-0.5 text-AIPM-green">
+            <span aria-hidden className="mt-0.5 text-AIPM-green-strong">
               •
             </span>
             <span>{t(lang, k)}</span>

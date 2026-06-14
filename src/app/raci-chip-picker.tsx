@@ -13,7 +13,7 @@ interface RaciChipPickerProps {
 // Brand color per role (filled when active, outlined when inactive).
 const CHIP: Record<RaciRole, { on: string; off: string }> = {
   R: { on: "bg-AIPM-dark-blue text-white border-AIPM-dark-blue", off: "border-AIPM-dark-blue text-AIPM-dark-blue" },
-  A: { on: "bg-AIPM-green text-white border-AIPM-green", off: "border-AIPM-green text-AIPM-green" },
+  A: { on: "bg-AIPM-green text-white border-AIPM-green", off: "border-AIPM-green text-AIPM-green-strong" },
   C: { on: "bg-AIPM-purple text-white border-AIPM-purple", off: "border-AIPM-purple text-AIPM-purple" },
   I: { on: "bg-AIPM-medium-grey text-white border-AIPM-medium-grey", off: "border-AIPM-medium-grey text-AIPM-medium-grey" },
 };

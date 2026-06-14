@@ -9,7 +9,10 @@ import { join } from "node:path";
 const FORBIDDEN = /\btext-AIPM-green(?!-)/;
 
 const SRC = join(process.cwd(), "src/app");
-const tsxFiles = readdirSync(SRC).filter((f) => f.endsWith(".tsx") && !f.includes(".test."));
+// Recursive so subdirectories (settings-sections/, next-actions/, …) are covered.
+const tsxFiles = readdirSync(SRC, { recursive: true })
+  .map((f) => String(f))
+  .filter((f) => f.endsWith(".tsx") && !f.includes(".test."));
 
 describe("green-text contrast guard", () => {
   describe("detection regex", () => {

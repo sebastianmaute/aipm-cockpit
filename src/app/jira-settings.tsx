@@ -310,7 +310,7 @@ export function JiraSettingsSection({
                   : t(lang, "jiraTest")}
               </button>
               {status.kind === "ok" && (
-                <span className="text-xs text-AIPM-green">
+                <span className="text-xs text-AIPM-green-strong">
                   ✓ {status.message}
                 </span>
               )}

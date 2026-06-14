@@ -85,7 +85,7 @@ export function TemplatesSection({ lang }: TemplatesSectionProps) {
             checked={includeContent}
             aria-label={t(lang, "templateIncludeContent")}
             onChange={(e) => setIncludeContent(e.target.checked)}
-            className="h-4 w-4 rounded border-line text-AIPM-green focus:ring-AIPM-green"
+            className="h-4 w-4 rounded border-line text-AIPM-green-strong focus:ring-AIPM-green"
           />
           <span>{t(lang, "templateIncludeContent")}</span>
         </label>
