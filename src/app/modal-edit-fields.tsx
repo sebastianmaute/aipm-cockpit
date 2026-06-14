@@ -140,7 +140,7 @@ export function ModalEditFooter({
           <button
             type="button"
             onClick={onDelete}
-            className="rounded-md border border-AIPM-pink/40 bg-surface px-3 py-1.5 text-sm font-medium text-AIPM-pink hover:bg-AIPM-pink/10 dark:border-AIPM-pink/50"
+            className="rounded-md border border-AIPM-pink/40 bg-surface px-3 py-1.5 text-sm font-medium text-AIPM-pink-strong hover:bg-AIPM-pink/10 dark:border-AIPM-pink/50"
           >
             {t(lang, "delete")}
           </button>

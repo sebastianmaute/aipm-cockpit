@@ -326,7 +326,7 @@ export function ResourceEditModal({
           )}
 
           {error && (
-            <p className="text-sm text-AIPM-pink sm:col-span-2">
+            <p className="text-sm text-AIPM-pink-strong sm:col-span-2">
               {error}
             </p>
           )}

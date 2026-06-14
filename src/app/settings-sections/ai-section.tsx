@@ -112,7 +112,7 @@ export function AiSection({ lang, settings, onChange }: AiSectionProps) {
                 ai: { ...settings.ai, consentAccepted: false },
               })
             }
-            className="text-xs font-medium text-AIPM-pink underline-offset-2 hover:underline"
+            className="text-xs font-medium text-AIPM-pink-strong underline-offset-2 hover:underline"
           >
             {t(lang, "aiConsentRevoke")}
           </button>

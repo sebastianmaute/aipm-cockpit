@@ -55,7 +55,7 @@ export function DocumentLinksField({ value, onChange, lang, acquireToken, onLog 
                 type="button"
                 onClick={() => remove(link.url)}
                 aria-label={t(lang, "documentsRemove")}
-                className="rounded px-1 text-AIPM-pink hover:bg-surface-muted"
+                className="rounded px-1 text-AIPM-pink-strong hover:bg-surface-muted"
               >
                 ✕
               </button>

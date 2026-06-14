@@ -276,7 +276,7 @@ function BucketDetailTable({
                   <td className="px-3 py-2 text-right tabular-nums">{money(r.budgetValue)}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{money(r.consumedValue)}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{r.marginPct == null ? "—" : `${r.marginPct.toFixed(1)}%`}</td>
-                  <td className={`px-3 py-2 text-right tabular-nums ${r.winLossValue < 0 ? "text-AIPM-pink font-medium" : ""}`}>{money(r.winLossValue)}</td>
+                  <td className={`px-3 py-2 text-right tabular-nums ${r.winLossValue < 0 ? "text-AIPM-pink-strong font-medium" : ""}`}>{money(r.winLossValue)}</td>
                 </tr>
               ))
             )}

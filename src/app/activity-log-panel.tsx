@@ -210,7 +210,7 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
             }`}
           />
           {matcher?.invalid && (
-            <span className="absolute -bottom-4 left-1 text-[10px] text-AIPM-pink">
+            <span className="absolute -bottom-4 left-1 text-[10px] text-AIPM-pink-strong">
               {t(lang, "activitySearchInvalidRegex")}
             </span>
           )}

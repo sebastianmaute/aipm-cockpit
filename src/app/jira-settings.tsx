@@ -315,7 +315,7 @@ export function JiraSettingsSection({
                 </span>
               )}
               {status.kind === "err" && (
-                <span className="text-xs text-AIPM-pink">
+                <span className="text-xs text-AIPM-pink-strong">
                   ⚠ {status.message}
                 </span>
               )}
@@ -466,7 +466,7 @@ export function JiraSettingsSection({
             <button
               type="button"
               onClick={reset}
-              className="text-xs font-medium text-AIPM-pink underline-offset-2 hover:underline"
+              className="text-xs font-medium text-AIPM-pink-strong underline-offset-2 hover:underline"
             >
               {t(lang, "jiraReset")}
             </button>

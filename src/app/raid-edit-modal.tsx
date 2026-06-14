@@ -741,7 +741,7 @@ export function RaidEditModal({
           {error && (
             <p
               role="alert"
-              className="rounded-md bg-AIPM-pink/10 px-3 py-2 text-sm text-AIPM-pink dark:bg-AIPM-pink/15 sm:col-span-2"
+              className="rounded-md bg-AIPM-pink/10 px-3 py-2 text-sm text-AIPM-pink-strong dark:bg-AIPM-pink/15 sm:col-span-2"
             >
               {error}
             </p>
@@ -755,7 +755,7 @@ export function RaidEditModal({
                   if (window.confirm(t(lang, "raidConfirmDelete"))) onDelete();
                 }}
                 disabled={isNew}
-                className="rounded-md border border-AIPM-pink/40 bg-surface px-3 py-2 text-sm font-medium text-AIPM-pink hover:bg-AIPM-pink/10 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-md border border-AIPM-pink/40 bg-surface px-3 py-2 text-sm font-medium text-AIPM-pink-strong hover:bg-AIPM-pink/10 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {t(lang, "raidDelete")}
               </button>

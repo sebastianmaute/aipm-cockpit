@@ -184,7 +184,7 @@ export function InlineMicButton({
       }
       className={`absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-1 ${
         listening
-          ? "animate-pulse text-AIPM-pink"
+          ? "animate-pulse text-AIPM-pink-strong"
           : "text-muted-foreground hover:text-foreground"
       }`}
     >

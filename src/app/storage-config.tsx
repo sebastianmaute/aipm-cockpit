@@ -214,7 +214,7 @@ export function StorageConfigSection({
                 )}
               </div>
               {error && (
-                <p className="text-xs text-AIPM-pink">
+                <p className="text-xs text-AIPM-pink-strong">
                   {error}
                 </p>
               )}
@@ -224,7 +224,7 @@ export function StorageConfigSection({
       )}
 
       {isSp && !spGateOk && (
-        <p className="mt-2 text-xs text-AIPM-pink">
+        <p className="mt-2 text-xs text-AIPM-pink-strong">
           {!m365Enabled
             ? t(lang, "spStorageNeedsM365")
             : t(lang, "spStorageNeedsToggle")}
@@ -261,7 +261,7 @@ export function StorageConfigSection({
           </label>
           <p className="text-xs text-muted-foreground">{t(lang, "spStorageHint")}</p>
           {spUrlError && (
-            <p className="text-xs text-AIPM-pink">{spUrlError}</p>
+            <p className="text-xs text-AIPM-pink-strong">{spUrlError}</p>
           )}
           <button
             type="button"
@@ -294,10 +294,10 @@ export function StorageConfigSection({
       )}
 
       {isTurso && !tursoEnabled && (
-        <p className="mt-2 text-xs text-AIPM-pink">{t(lang, "storageTursoNeedsToggle")}</p>
+        <p className="mt-2 text-xs text-AIPM-pink-strong">{t(lang, "storageTursoNeedsToggle")}</p>
       )}
       {isTurso && tursoEnabled && !ready && (
-        <p className="mt-2 text-xs text-AIPM-pink">{t(lang, "storageTursoNeedsConfig")}</p>
+        <p className="mt-2 text-xs text-AIPM-pink-strong">{t(lang, "storageTursoNeedsConfig")}</p>
       )}
       {isTurso && tursoEnabled && ready && description && (
         <p className="mt-2 text-xs text-muted-foreground">✓ {description}</p>

@@ -233,7 +233,7 @@ export function MilestoneEditModal({
           )}
 
           {error && (
-            <p className="text-sm text-AIPM-pink">{error}</p>
+            <p className="text-sm text-AIPM-pink-strong">{error}</p>
           )}
 
           <ModalEditFooter

@@ -671,7 +671,7 @@ export function BudgetBucketModal({
           )}
 
           {error && (
-            <p role="alert" className="text-sm text-AIPM-pink sm:col-span-2">{error}</p>
+            <p role="alert" className="text-sm text-AIPM-pink-strong sm:col-span-2">{error}</p>
           )}
         </div>
 

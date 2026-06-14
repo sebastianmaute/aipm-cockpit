@@ -183,7 +183,7 @@ export function TrendsPanel(props: TrendsPanelProps) {
                           </button>
                         )}
                         <button type="button" disabled={busy} onClick={() => { void deleteSnapshot(s.id); }}
-                          className="text-xs text-AIPM-pink underline hover:opacity-80 disabled:opacity-50">
+                          className="text-xs text-AIPM-pink-strong underline hover:opacity-80 disabled:opacity-50">
                           {t(lang, "trendsDeleteSnapshot")}
                         </button>
                       </span>

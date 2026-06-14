@@ -127,7 +127,7 @@ export function ResourceWorkload({
               <td
                 className={`px-3 py-2 text-right tabular-nums ${
                   row.overdueCount > 0
-                    ? "font-medium text-AIPM-pink"
+                    ? "font-medium text-AIPM-pink-strong"
                     : "text-muted-foreground"
                 }`}
               >
@@ -233,7 +233,7 @@ export function ResourceWorkload({
                   <td
                     className={`px-3 py-2 text-right tabular-nums ${
                       row.overdueCount > 0
-                        ? "font-medium text-AIPM-pink"
+                        ? "font-medium text-AIPM-pink-strong"
                         : "text-muted-foreground"
                     }`}
                   >
