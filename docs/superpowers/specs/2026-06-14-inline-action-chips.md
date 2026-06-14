@@ -73,12 +73,9 @@ const viewChips = nextActions.filter(a => a.cta.kind === "open" && a.cta.view ==
   - `<ReportCard … actions={<ActionChips lang actions={nextActions.filter(a => a.cta.view === SRC)} onOpen={onOpenAction} onShowMore={onShowActions} />}>`.
 - The top-level Reports `ReportCard` (the wrapper at `reports.tsx:428`, `title={tabReports}`) gets NO chips (the data-view strip already self-hides on `activeTab==="reports"` since no action has `cta.view==="reports"`).
 
-## §4 — Classic-layout nav badge (deferred from SP2/SP3)
+## §4 — Classic-layout now-count: ALREADY DONE (no work)
 
-SP2 shipped the now-tier badge only on the modern sidebar. Add the same pill to the **classic** sub-tab tablist in `workspace-section.tsx`:
-- `const nowCount = nextActions.filter(a => a.tier === "now").length;`
-- On the `"actions"` sub-tab button, when `nowCount > 0`, render a pill `bg-AIPM-pink text-white` (mirror the modern sidebar badge styling) with `nowCount`.
-- No new prop — `nowCount` is derived from the `nextActions` already in scope.
+Investigation correction: the classic `legacyTree` has **no "Actions" tab** — its primary chrome is `AppHeader` + the workspace card's legacy tab strip (chat/reports/gantt/raid/resources/budget/activity) + the Tasks section; the modern sidebar (with `navBadges`) is modern-only. The classic now-tier count is **already surfaced** by the SP3 bell repoint (`AppHeader … bannerCount={nowCount}`, `onShowAlerts → setActiveTab("actions")`). The modern sidebar badge shipped in SP2. So both layouts already show the now-tier count — **SP4 adds no nav badge.** (The inline chips' `+N more` is the in-view path to the full Action Center.)
 
 ## §5 — i18n, version, testing
 
@@ -88,7 +85,6 @@ SP2 shipped the now-tier badge only on the modern sidebar. Add the same pill to 
   - `action-chips.test.tsx`: filters out `monitor`; caps at 3 chips; `+N more` shows the correct N (now/soon only) and fires `onShowMore`; clicking a chip fires `onOpen` with that action; empty/all-monitor list → renders nothing; chip title uses `t(...)`.
   - `workspace-section` test: the strip renders for a view with matching now/soon actions and is absent for a view with none; `onShowMore` navigates to `actions`.
   - `report-table`/`reports` test: a `ReportCard` with an `actions` slot renders it; `ReportsPanel` passes the right per-card source filter.
-  - classic badge test: the Actions sub-tab shows the `nowCount` pill when > 0, none when 0.
   - i18n EN/DE parity + encoding; full suite + e2e green (the e2e a11y gate is now deterministic after `2b5ab22`).
 
 ## Out of scope (SP4)
@@ -98,4 +94,4 @@ SP2 shipped the now-tier badge only on the modern sidebar. Add the same pill to 
 
 ## File summary
 **New:** `action-chips.tsx` (+ test).
-**Modified:** `workspace-section.tsx` (data-view strip + classic badge + thread to ReportsPanel), `reports.tsx` (per-card chips), `report-table.tsx` (`ReportCard.actions` slot), `i18n.ts`/`i18n.de.ts`, `version.ts`, `CHANGELOG.md` (+ tests).
+**Modified:** `workspace-section.tsx` (data-view strip + thread chips to ReportsPanel), `reports.tsx` (per-card chips), `report-table.tsx` (`ReportCard.actions` slot), `i18n.ts`/`i18n.de.ts`, `version.ts`, `CHANGELOG.md` (+ tests).
