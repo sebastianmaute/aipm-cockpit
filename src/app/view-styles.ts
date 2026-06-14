@@ -27,6 +27,9 @@ export const CENTERED_HALF_PANE_CLASS =
   "relative mx-auto flex h-[50%] max-h-full min-h-[360px] w-[50%] min-w-[420px] flex-col overflow-hidden rounded-xl border border-line bg-surface p-6 resize";
 
 /** Centered, half-width pane that grows with its content but never exceeds the
- *  viewport (then its body scrolls). Used by Manage Roles. */
+ *  viewport (then its body scrolls), AND is user-resizable: the default height
+ *  tracks the content, but the bottom-right corner drags to a custom size (the
+ *  drag overrides the content-fit height/width within the min/max bounds). Used
+ *  by Manage Roles. */
 export const CENTERED_FIT_PANE_CLASS =
-  "relative mx-auto flex w-[50%] min-w-[420px] max-h-[calc(100vh-7rem)] min-h-[280px] flex-col overflow-hidden rounded-xl border border-line bg-surface p-6";
+  "relative mx-auto flex w-[50%] min-w-[420px] max-h-[calc(100vh-7rem)] min-h-[280px] flex-col overflow-hidden rounded-xl border border-line bg-surface p-6 resize";

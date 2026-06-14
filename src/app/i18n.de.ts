@@ -1916,6 +1916,7 @@ export const de: Record<TranslationKey, string> = {
   projectsShowArchived: "Archiv anzeigen",
   projectsHideArchived: "Archiv ausblenden",
   projectsArchive: "Archivieren",
+  projectsArchiveHint: "Archiviert das Projekt (es erscheint nicht mehr im Umschalter). Nach dem Archivieren kann ein Projekt aus der Archivliste endgültig gelöscht werden.",
   projectsRestore: "Wiederherstellen",
   projectsDeletePermanently: "Endgültig löschen",
   projectsArchiveConfirm: "Dieses Projekt archivieren? Sie können es später aus der Archivliste wiederherstellen.",

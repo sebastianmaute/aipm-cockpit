@@ -18,6 +18,12 @@ longer carries its own changelog comment.
   Projects panel.
 - Moved the **History** navigation entry from the Overview group to the System
   group, directly below **Activity**.
+- The Manage Roles pane is now manually resizable (drag the bottom-right corner)
+  while still scaling to its content by default.
+- The Archive action in the Projects panel now has a tooltip explaining that an
+  archived project can be permanently deleted from the archived list.
+- The Settings rail is now sorted alphabetically, with **Information flows**
+  pinned to the bottom under a divider.
 
 ## [0.81.0] - 2026-06-14 "Wolfe"
 

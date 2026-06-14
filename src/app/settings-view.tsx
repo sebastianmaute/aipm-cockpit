@@ -2,7 +2,7 @@
 "use client";
 
 import { useState } from "react";
-import { type Lang, type TranslationKey, t } from "./i18n";
+import { type Lang, type TranslationKey, t, localeFor } from "./i18n";
 import type { Settings } from "./settings-types";
 import type { StorageKind } from "./storage";
 import { APP_LICENSE, APP_LICENSE_URL, APP_VERSION_LABEL } from "./version";
@@ -59,6 +59,33 @@ export function SettingsView(props: SettingsViewProps) {
   const [active, setActive] = useState<SectionId>("mode");
   const [showVersion, setShowVersion] = useState(false);
 
+  // Rail order: every section sorted alphabetically by its (translated) label,
+  // with "Information flows" pinned to the bottom under a divider.
+  const FLOWS_ID: SectionId = "informationFlows";
+  const railSorted = RAIL.filter((r) => r.id !== FLOWS_ID).sort((a, b) =>
+    t(lang, a.labelKey).localeCompare(t(lang, b.labelKey), localeFor(lang)),
+  );
+  const flowsEntry = RAIL.find((r) => r.id === FLOWS_ID);
+
+  const renderRailButton = ({ id, labelKey }: { id: SectionId; labelKey: TranslationKey }) => {
+    const isActive = active === id;
+    return (
+      <button
+        key={id}
+        type="button"
+        aria-current={isActive ? "page" : undefined}
+        onClick={() => setActive(id)}
+        className={
+          isActive
+            ? "rounded-md bg-AIPM-dark-blue px-3 py-2 text-left text-sm font-medium text-white"
+            : "rounded-md px-3 py-2 text-left text-sm text-foreground hover:bg-surface-muted"
+        }
+      >
+        {t(lang, labelKey)}
+      </button>
+    );
+  };
+
   return (
     <>
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 md:flex-row">
@@ -66,24 +93,13 @@ export function SettingsView(props: SettingsViewProps) {
         aria-label={t(lang, "settings")}
         className="flex shrink-0 flex-row flex-wrap gap-1 md:w-56 md:flex-col"
       >
-        {RAIL.map(({ id, labelKey }) => {
-          const isActive = active === id;
-          return (
-            <button
-              key={id}
-              type="button"
-              aria-current={isActive ? "page" : undefined}
-              onClick={() => setActive(id)}
-              className={
-                isActive
-                  ? "rounded-md bg-AIPM-dark-blue px-3 py-2 text-left text-sm font-medium text-white"
-                  : "rounded-md px-3 py-2 text-left text-sm text-foreground hover:bg-surface-muted"
-              }
-            >
-              {t(lang, labelKey)}
-            </button>
-          );
-        })}
+        {railSorted.map(renderRailButton)}
+        {flowsEntry && (
+          <>
+            <hr className="my-1 border-line" />
+            {renderRailButton(flowsEntry)}
+          </>
+        )}
       </nav>
 
       <section className="min-w-0 flex-1 rounded-lg border border-line bg-surface p-6">

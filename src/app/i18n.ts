@@ -1906,6 +1906,7 @@ const enUS = {
   projectsShowArchived: "Show archived",
   projectsHideArchived: "Hide archived",
   projectsArchive: "Archive",
+  projectsArchiveHint: "Archives the project (it stops appearing in the switcher). Once archived, a project can be permanently deleted from the archived list.",
   projectsRestore: "Restore",
   projectsDeletePermanently: "Delete permanently",
   projectsArchiveConfirm: "Archive this project? You can restore it later from the archived list.",
