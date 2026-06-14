@@ -22,6 +22,7 @@ import type { Settings } from "./settings-types";
 import type { ProjectRegistryEntry } from "./projects-registry";
 import type { Contact } from "./contacts";
 import type { SuggestedAction } from "./next-actions";
+import { ActionChips, chipsForView } from "./action-chips";
 import { ResourceDirectory } from "./resource-directory";
 import { DashboardPanel } from "./dashboard-panel";
 import { MilestonesPanel } from "./milestones-panel";
@@ -470,6 +471,13 @@ export function WorkspaceSection({
         hidden={!isPopout && !fullBleed && workspaceCollapsed}
         className="flex min-h-0 flex-1 flex-col"
       >
+        <ActionChips
+          lang={lang}
+          actions={chipsForView(nextActions, activeTab)}
+          onOpen={onOpenAction}
+          onShowMore={() => setActiveTab("actions")}
+          className="mb-2 shrink-0"
+        />
         <div
           id="panel-chat"
           role="tabpanel"
