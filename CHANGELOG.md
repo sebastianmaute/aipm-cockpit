@@ -8,6 +8,20 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.84.0] - 2026-06-14 "Cherryh"
+
+### Added / Changed
+- Action Center gains a **"Create task" CTA** on every signal card (except
+  task-due, which already links to an existing task). Clicking it opens the
+  task editor pre-seeded with a title derived from the signal and a "From"
+  note explaining why the action fired — no blank-form hunting required.
+- RAID-originated signals (no owner, overdue review) automatically populate
+  **linkedTaskIds** on the new task, so the RAID item shows the follow-up
+  task as linked once the editor is saved.
+- The flow is **propose-then-confirm**: the editor opens pre-filled but fully
+  editable; the task is only created when the user saves, preserving the
+  normal task-creation guardrails and validation.
+
 ## [0.83.0] - 2026-06-14 "Robinson"
 
 ### Added / Changed

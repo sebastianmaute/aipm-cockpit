@@ -1441,6 +1441,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightDocuments: "Ein neuer Dokumente-Tab sammelt alle verknüpften Dateien des Projekts — öffnen, zur Quelle springen, entfernen oder neue Verknüpfungen an einem Ort hinzufügen",
   versionHighlightLoadFormats: "Das \"Aus Datei laden\" im Leerzustand akzeptiert jetzt jedes unterstützte Format (JSON, CSV oder Markdown) und erkennt es anhand der Datei",
   versionHighlightConfidenceRanking: "Das Action Center sortiert jetzt nach Handlungsklarheit — mit konfigurierbaren Gewichten und einer einklappbaren Überwachungsgruppe.",
+  versionHighlightCreateTask: "Aus einem Action-Center-Eintrag mit einem Klick eine Folgeaufgabe erstellen — vorausgefüllt aus dem Signal, RAID-Einträge werden automatisch verknüpft.",
   // --- Restored: still used by kept banners + comms items (SP3) ---
   alertBannerDismiss: "Schließen",
   alertCatOverdue: "Überfällig",
