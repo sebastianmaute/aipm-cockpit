@@ -42,7 +42,7 @@ interface Props {
   endDate: string;
 }
 
-const CELL_PX = 36;
+const CELL_PX = 40;
 const ASSIGNEE_COL_PX = 180;
 
 interface CalendarDay {
