@@ -33,7 +33,7 @@ export function EffortProgressBar({ lang, estimateMin, spentMin }: EffortProgres
           />
         )}
       </div>
-      <p className={`mt-1 text-xs ${over ? "text-AIPM-pink" : "text-muted-foreground"}`}>
+      <p className={`mt-1 text-xs ${over ? "text-AIPM-pink-strong" : "text-muted-foreground"}`}>
         {hasEstimate
           ? `${formatDuration(spentMin ?? 0) || "0m"} / ${formatDuration(estimateMin ?? 0)} · ${labelPct}%`
           : t(lang, "taskEffortNoEstimate")}

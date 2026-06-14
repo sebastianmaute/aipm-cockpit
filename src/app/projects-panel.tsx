@@ -60,7 +60,7 @@ const SECONDARY_BUTTON_CLASS =
 
 /** Destructive (pink) action button — delete / archive / permanent-delete. */
 const DESTRUCTIVE_BUTTON_CLASS =
-  "rounded-md border border-AIPM-pink/40 bg-surface px-3 py-1.5 text-sm font-medium text-AIPM-pink hover:bg-AIPM-pink/10 dark:border-AIPM-pink/50";
+  "rounded-md border border-AIPM-pink/40 bg-surface px-3 py-1.5 text-sm font-medium text-AIPM-pink-strong hover:bg-AIPM-pink/10 dark:border-AIPM-pink/50";
 
 export interface ProjectsPanelProps {
   projects: ProjectRegistryEntry[];

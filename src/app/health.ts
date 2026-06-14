@@ -195,7 +195,7 @@ export const healthDot: Record<Health, string> = {
  * healthDot, which uses semantic Tailwind colours for the dot fill.
  */
 export const healthText: Record<Health, string> = {
-  R: "text-AIPM-pink",
+  R: "text-AIPM-pink-strong",
   A: "text-AIPM-purple",
   // AA-accessible green for text on light surfaces (brand green is only 2.26:1
   // on white). See --AIPM-green-strong in globals.css.

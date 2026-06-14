@@ -270,7 +270,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                 className="mt-1 w-full rounded border border-line bg-surface px-2 py-1 text-foreground"
               />
               {isLikelyRegionQualifiedTursoUrl(turso.databaseUrl ?? "") && (
-                <p className="mt-1 text-xs text-AIPM-pink">
+                <p className="mt-1 text-xs text-AIPM-pink-strong">
                   {t(lang, "tursoUrlRegionWarning")}
                 </p>
               )}
@@ -335,7 +335,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
               </select>
             </label>
             {snapshots.enabled && !(envTursoUrlSet || turso.databaseUrl) && (
-              <p className="mt-1 text-xs text-AIPM-pink">{t(lang, "snapshotConfigIncomplete")}</p>
+              <p className="mt-1 text-xs text-AIPM-pink-strong">{t(lang, "snapshotConfigIncomplete")}</p>
             )}
           </div>
           <div className="mt-2 border-t border-line pt-2">
@@ -357,7 +357,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
             </label>
             <p className="mt-1 text-xs text-muted-foreground">{t(lang, "portfolioModeHelp")}</p>
             {!tursoConfigured && (
-              <p className="mt-1 text-xs text-AIPM-pink">{t(lang, "portfolioModeTursoNeedsConfig")}</p>
+              <p className="mt-1 text-xs text-AIPM-pink-strong">{t(lang, "portfolioModeTursoNeedsConfig")}</p>
             )}
             {portfolioModeDirty && (
               <div className="mt-2 rounded-md border border-AIPM-purple/40 bg-AIPM-purple/5 p-2">

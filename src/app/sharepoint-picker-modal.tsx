@@ -182,13 +182,13 @@ export function SharePointPickerModal({
           {/* Results area */}
           <div className="min-h-[120px]">
             {searchForbidden && (
-              <p className="mb-2 rounded-md bg-surface-muted px-3 py-2 text-sm text-AIPM-pink">
+              <p className="mb-2 rounded-md bg-surface-muted px-3 py-2 text-sm text-AIPM-pink-strong">
                 {t(lang, "spPickerSearchForbidden")}
               </p>
             )}
 
             {error && (
-              <p className="py-4 text-center text-sm text-AIPM-pink">{t(lang, error as Parameters<typeof t>[1])}</p>
+              <p className="py-4 text-center text-sm text-AIPM-pink-strong">{t(lang, error as Parameters<typeof t>[1])}</p>
             )}
 
             {loading && !error && (

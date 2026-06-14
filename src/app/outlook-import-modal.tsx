@@ -90,7 +90,7 @@ export function OutlookImportModal({
               {t(lang, "outlookImportLoading")}
             </p>
           ) : error ? (
-            <p className="py-8 text-center text-sm text-AIPM-pink">{error}</p>
+            <p className="py-8 text-center text-sm text-AIPM-pink-strong">{error}</p>
           ) : contacts.length === 0 ? (
             <p className="py-8 text-center text-sm text-muted-foreground">
               {t(lang, "outlookImportEmpty")}

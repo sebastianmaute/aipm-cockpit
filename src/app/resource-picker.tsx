@@ -207,7 +207,7 @@ export function ResourcePicker({
             aria-label={t(lang, "resourcePickerUnlink")}
             title={linked ? t(lang, "resourcePickerLinked") : t(lang, "resourcePickerUnlink")}
             className={`absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 ${
-              linked ? "text-AIPM-green-strong" : "text-AIPM-pink"
+              linked ? "text-AIPM-green-strong" : "text-AIPM-pink-strong"
             } hover:bg-surface-muted`}
           >
             <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-3.5 w-3.5">

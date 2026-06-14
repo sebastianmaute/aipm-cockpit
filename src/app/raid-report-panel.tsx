@@ -467,7 +467,7 @@ function TopOpenTable({ lang, rows, colResize }: { lang: Lang; rows: RaidReport[
                 </td>
                 <td className="px-3 py-2 text-muted-foreground">{row.severity ?? ""}</td>
                 <td className="px-3 py-2">{ownerCell(lang, row.owner)}</td>
-                <td className={`px-3 py-2 text-right tabular-nums ${row.overdue ? "text-AIPM-pink font-medium" : "text-muted-foreground"}`}>
+                <td className={`px-3 py-2 text-right tabular-nums ${row.overdue ? "text-AIPM-pink-strong font-medium" : "text-muted-foreground"}`}>
                   {row.ageDays}d
                 </td>
               </tr>
@@ -526,7 +526,7 @@ function CategoryTable({ lang, rows, colResize }: { lang: Lang; rows: RaidReport
                 <td className="px-3 py-2 font-medium text-foreground">{row.category}</td>
                 <td className="px-3 py-2 text-right tabular-nums">{row.open}</td>
                 <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">{row.closed}</td>
-                <td className={`px-3 py-2 text-right tabular-nums ${row.overdue > 0 ? "text-AIPM-pink font-medium" : "text-muted-foreground"}`}>{row.overdue}</td>
+                <td className={`px-3 py-2 text-right tabular-nums ${row.overdue > 0 ? "text-AIPM-pink-strong font-medium" : "text-muted-foreground"}`}>{row.overdue}</td>
               </tr>
             ))}
           </tbody>
@@ -665,7 +665,7 @@ function DetailTable({ lang, rows, colResize }: { lang: Lang; rows: RaidReport["
                 <td className="px-3 py-2 text-muted-foreground">{r.status}</td>
                 <td className="px-3 py-2">{ownerCell(lang, r.owner)}</td>
                 <td className="px-3 py-2 text-muted-foreground tabular-nums">{r.raisedDate}</td>
-                <td className={`px-3 py-2 tabular-nums ${r.overdue ? "text-AIPM-pink font-medium" : "text-muted-foreground"}`}>
+                <td className={`px-3 py-2 tabular-nums ${r.overdue ? "text-AIPM-pink-strong font-medium" : "text-muted-foreground"}`}>
                   {r.targetDate ?? "—"}
                 </td>
                 <td className="px-3 py-2 text-right tabular-nums">{r.ageDays}</td>

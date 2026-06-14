@@ -224,7 +224,7 @@ export function AbsenceEditModal({
           )}
 
           {error && (
-            <p className="sm:col-span-2 text-sm text-AIPM-pink">
+            <p className="sm:col-span-2 text-sm text-AIPM-pink-strong">
               {error}
             </p>
           )}

@@ -138,7 +138,7 @@ export function Field({
     <label className={`block ${className ?? ""}`}>
       <span className="mb-1 flex items-center gap-1 text-sm font-medium text-foreground">
         {label}
-        {required && <span className="text-AIPM-pink">*</span>}
+        {required && <span className="text-AIPM-pink-strong">*</span>}
         {tooltip && <InfoTooltip text={tooltip} label={t(lang, "infoMore")} />}
       </span>
       {children}
@@ -622,7 +622,7 @@ function ContactPersonsControl({
     <div>
       <span className="mb-1 flex items-center gap-1 text-sm font-medium text-foreground">
         {t(lang, "projectContactPersons")}
-        {required && <span className="text-AIPM-pink">*</span>}
+        {required && <span className="text-AIPM-pink-strong">*</span>}
         <InfoTooltip text={t(lang, "contactPersonsTip")} />
       </span>
 

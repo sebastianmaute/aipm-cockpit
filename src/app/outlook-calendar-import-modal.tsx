@@ -112,7 +112,7 @@ export function OutlookCalendarImportModal({
           {loading ? (
             <p className="py-8 text-center text-sm text-muted-foreground">{t(lang, "outlookCalImportLoading")}</p>
           ) : error ? (
-            <p className="py-8 text-center text-sm text-AIPM-pink">{error}</p>
+            <p className="py-8 text-center text-sm text-AIPM-pink-strong">{error}</p>
           ) : events.length === 0 ? (
             <p className="py-8 text-center text-sm text-muted-foreground">{t(lang, "outlookCalImportEmpty")}</p>
           ) : (

@@ -662,7 +662,7 @@ export function Field({
     <label className={`block ${className ?? ""}`}>
       <span className="mb-1 block text-sm font-medium text-foreground">
         {label}
-        {required && <span className="ml-0.5 text-AIPM-pink">*</span>}
+        {required && <span className="ml-0.5 text-AIPM-pink-strong">*</span>}
       </span>
       {children}
     </label>

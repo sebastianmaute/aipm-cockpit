@@ -8,6 +8,17 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.80.2] - 2026-06-14
+
+### Fixed
+- Accessibility: error / validation / RAG-red text used the bright brand pink
+  (~3.76:1 on white, below WCAG AA). Added a darker `pink-strong` shade (mirroring
+  the existing `green-strong`) and applied it to those text uses; the bright pink
+  is unchanged for fills, borders, and text on dark surfaces.
+- Toast notifications now use a colour-tinted background (pink for errors, blue
+  otherwise) with accent text — matching the in-app error boxes — instead of the
+  plain bordered surface, while staying AA-readable in both light and dark themes.
+
 ## [0.80.1] - 2026-06-14
 
 ### Fixed

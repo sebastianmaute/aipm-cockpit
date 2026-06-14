@@ -30,6 +30,10 @@
      darker green meets AA; use it only for green text on light surfaces — the
      bright brand green still applies to fills and to text on dark surfaces. */
   --AIPM-green-strong: #4d7000;
+  /* Darker pink for AA-contrast TEXT on light surfaces (AIPM-pink #e5497c is
+     ~3.76:1 on white — fails AA). Bright AIPM-pink stays for fills/borders and
+     text on dark surfaces. */
+  --AIPM-pink-strong: #c41e5a;
 }
 
 @theme inline {
@@ -51,6 +55,7 @@
   --color-AIPM-pink: var(--AIPM-pink);
   --color-AIPM-purple: var(--AIPM-purple);
   --color-AIPM-green-strong: var(--AIPM-green-strong);
+  --color-AIPM-pink-strong: var(--AIPM-pink-strong);
 }
 
 .dark {
@@ -65,6 +70,8 @@
   /* On dark surfaces the bright brand green already has ample contrast — keep
      it (the darker on-light variant would read as muddy here). */
   --AIPM-green-strong: #84bd00;
+  /* Dark mode: the bright pink is AA on dark surfaces, so -strong == AIPM-pink. */
+  --AIPM-pink-strong: #e5497c;
 }
 
 body {
