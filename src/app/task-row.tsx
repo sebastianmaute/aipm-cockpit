@@ -371,7 +371,7 @@ function TaskActionsImpl({ task, isPushing }: TaskActionsProps) {
         <button
           type="button"
           onClick={() => onToggleComplete(task)}
-          className="text-xs font-medium text-AIPM-green underline-offset-2 hover:underline"
+          className="text-xs font-medium text-AIPM-green-strong underline-offset-2 hover:underline"
         >
           {task.completedDate ? t(lang, "reopenTask") : t(lang, "markComplete")}
         </button>

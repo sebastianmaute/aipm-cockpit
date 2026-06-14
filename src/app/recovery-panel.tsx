@@ -121,7 +121,7 @@ export function RecoveryPanel() {
         </dl>
       </section>
 
-      {message && <p className="text-sm text-AIPM-green">{message}</p>}
+      {message && <p className="text-sm text-AIPM-green-strong">{message}</p>}
 
       <div className="flex flex-col gap-3">
         <button

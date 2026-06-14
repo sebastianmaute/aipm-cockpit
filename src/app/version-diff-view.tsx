@@ -12,7 +12,7 @@ const TYPE_KEY: Record<ChangeType, "historyAdded" | "historyRemoved" | "historyM
   added: "historyAdded", removed: "historyRemoved", modified: "historyModified",
 };
 const TYPE_CLASS: Record<ChangeType, string> = {
-  added: "text-AIPM-green", removed: "text-AIPM-pink", modified: "text-muted-foreground",
+  added: "text-AIPM-green-strong", removed: "text-AIPM-pink", modified: "text-muted-foreground",
 };
 
 function fmt(v: unknown): string {
@@ -92,7 +92,7 @@ export function VersionDiffView({
                           <span className="font-medium text-muted-foreground">{f.label}:</span>
                           <span className="text-AIPM-pink line-through">{fmt(f.before)}</span>
                           <span className="text-muted-foreground">→</span>
-                          <span className="text-AIPM-green">{fmt(f.after)}</span>
+                          <span className="text-AIPM-green-strong">{fmt(f.after)}</span>
                         </li>
                       ))}
                     </ul>

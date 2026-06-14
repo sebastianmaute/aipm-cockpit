@@ -77,7 +77,7 @@ export function ProjectSwitcher({
           viewBox="0 0 20 20"
           fill="currentColor"
           aria-hidden="true"
-          className="h-4 w-4 shrink-0 text-AIPM-green"
+          className="h-4 w-4 shrink-0 text-AIPM-green-strong"
         >
           <path d="M2 6a2 2 0 012-2h4l2 2h6a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
         </svg>
@@ -100,7 +100,7 @@ export function ProjectSwitcher({
           viewBox="0 0 20 20"
           fill="currentColor"
           aria-hidden="true"
-          className="h-4 w-4 shrink-0 text-AIPM-green"
+          className="h-4 w-4 shrink-0 text-AIPM-green-strong"
         >
           <path d="M2 6a2 2 0 012-2h4l2 2h6a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
         </svg>
@@ -157,7 +157,7 @@ export function ProjectSwitcher({
                     viewBox="0 0 20 20"
                     fill="currentColor"
                     aria-hidden="true"
-                    className="h-4 w-4 shrink-0 text-AIPM-green"
+                    className="h-4 w-4 shrink-0 text-AIPM-green-strong"
                   >
                     <path
                       fillRule="evenodd"
