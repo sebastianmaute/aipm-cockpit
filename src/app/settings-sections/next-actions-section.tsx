@@ -88,6 +88,15 @@ export function NextActionsSection({ lang, settings, onChange }: NextActionsSect
       >
         {t(lang, "nextActionsReset")}
       </button>
+
+      <hr className="my-3 border-line" />
+      <div className="text-xs text-muted-foreground space-y-1">
+        <p className="font-medium text-foreground">{t(lang, "naFormulaHeading")}</p>
+        <p>{t(lang, "naFormulaScore")}</p>
+        <p>{t(lang, "naFormulaVars")}</p>
+        <p>{t(lang, "naFormulaTiers")}</p>
+        <p>{t(lang, "naFormulaThresholds")}</p>
+      </div>
     </div>
   );
 }

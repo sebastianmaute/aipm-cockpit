@@ -35,6 +35,12 @@ describe("NextActionsSection", () => {
     );
   });
 
+  it("renders the formula explainer block below the reset button", () => {
+    render(<NextActionsSection lang="en-US" settings={defaultSettings} onChange={vi.fn()} />);
+    expect(screen.getByText(/how actions are ranked/i)).toBeInTheDocument();
+    expect(screen.getByText(/score = urgency \+ risk \+ impact/i)).toBeInTheDocument();
+  });
+
   it("reset button is disabled at defaults and restores defaults when overridden", () => {
     const onChange = vi.fn();
     const overridden = {
