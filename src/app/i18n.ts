@@ -1462,6 +1462,7 @@ const enUS = {
   actionTierNow: "Now",
   actionTierSoon: "Soon",
   actionTierMonitor: "Monitor",
+  actionMonitoredCount: "{0} monitored",
   actionSourceTask: "Task",
   actionSourceRaid: "RAID",
   actionSourceChange: "Change",

@@ -1459,6 +1459,7 @@ export const de: Record<TranslationKey, string> = {
   actionTierNow: "Jetzt",
   actionTierSoon: "Bald",
   actionTierMonitor: "Beobachten",
+  actionMonitoredCount: "{0} überwacht",
   actionSourceTask: "Aufgabe",
   actionSourceRaid: "RAID",
   actionSourceChange: "Änderung",
