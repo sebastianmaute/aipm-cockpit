@@ -16,9 +16,10 @@ interface ActionRowProps {
   action: SuggestedAction;
   onOpen: (action: SuggestedAction) => void;
   onSnooze?: (action: SuggestedAction, durationMs: number) => void;
+  onCreateTask?: (action: SuggestedAction) => void;
 }
 
-export function ActionRow({ lang, action, onOpen, onSnooze }: ActionRowProps) {
+export function ActionRow({ lang, action, onOpen, onSnooze, onCreateTask }: ActionRowProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const title = t(lang, action.title.key, ...(action.title.params ?? []));
   const why = t(lang, action.why.key, ...(action.why.params ?? []));
@@ -49,6 +50,15 @@ export function ActionRow({ lang, action, onOpen, onSnooze }: ActionRowProps) {
         >
           {t(lang, "actionOpen")}
         </button>
+        {onCreateTask && action.source !== "task-due" && (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onCreateTask(action); }}
+            className="rounded-md border border-line px-2 py-1 text-xs font-medium text-AIPM-dark-blue hover:bg-surface-muted dark:text-AIPM-light-grey"
+          >
+            {t(lang, "actionCreateTask")}
+          </button>
+        )}
         {onSnooze && (
           <span className="relative">
             <button

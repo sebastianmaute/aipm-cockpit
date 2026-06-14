@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, fireEvent } from "@testing-library/react";
+import { render, fireEvent, screen } from "@testing-library/react";
 import { ActionRow } from "./action-row";
 import type { SuggestedAction } from "./next-actions/types";
 import { SNOOZE_1H, SNOOZE_1D } from "./reminder-snooze";
@@ -49,5 +49,45 @@ describe("ActionRow snooze", () => {
   it("renders no Snooze control when onSnooze is omitted", () => {
     const { queryByRole } = render(<ActionRow lang="en-US" action={action} onOpen={() => {}} />);
     expect(queryByRole("button", { name: /Snooze/i })).toBeNull();
+  });
+});
+
+describe("ActionRow create task", () => {
+  it("renders Create task for a non-task-due action and calls onCreateTask without opening", () => {
+    const onOpen = vi.fn();
+    const onCreateTask = vi.fn();
+    const action = {
+      id: "raid:1:severity", source: "raid",
+      title: { key: "actionRaidTitle", params: [1, "X"] },
+      why: { key: "actionRaidWhyNoOwner", params: ["High"] },
+      score: 30, tier: "now", cta: { kind: "open", view: "raid", id: 1 },
+    } as never;
+    render(<ActionRow lang="en-US" action={action} onOpen={onOpen} onCreateTask={onCreateTask} />);
+    const btn = screen.getByRole("button", { name: /create task/i });
+    fireEvent.click(btn);
+    expect(onCreateTask).toHaveBeenCalledTimes(1);
+    expect(onOpen).not.toHaveBeenCalled();
+  });
+
+  it("hides Create task for a task-due action", () => {
+    const action = {
+      id: "task-due:1:overdue", source: "task-due",
+      title: { key: "actionTaskTitle", params: ["X"] },
+      why: { key: "actionTaskWhyOverdue", params: [2] },
+      score: 40, tier: "now", cta: { kind: "open", view: "open-points", id: 1 },
+    } as never;
+    render(<ActionRow lang="en-US" action={action} onOpen={() => {}} onCreateTask={() => {}} />);
+    expect(screen.queryByRole("button", { name: /create task/i })).toBeNull();
+  });
+
+  it("hides Create task when onCreateTask is not provided", () => {
+    const action = {
+      id: "raid:1:severity", source: "raid",
+      title: { key: "actionRaidTitle", params: [1, "X"] },
+      why: { key: "actionRaidWhyNoOwner", params: ["High"] },
+      score: 30, tier: "now", cta: { kind: "open", view: "raid", id: 1 },
+    } as never;
+    render(<ActionRow lang="en-US" action={action} onOpen={() => {}} />);
+    expect(screen.queryByRole("button", { name: /create task/i })).toBeNull();
   });
 });

@@ -1458,6 +1458,7 @@ export const de: Record<TranslationKey, string> = {
   dashboardTopActions: "Wichtigste Schritte",
   actionsEmptyState: "Alles erledigt — derzeit keine offenen Schritte.",
   actionOpen: "Öffnen",
+  actionCreateTask: "Aufgabe erstellen",
   actionTierNow: "Jetzt",
   actionTierSoon: "Bald",
   actionTierMonitor: "Beobachten",

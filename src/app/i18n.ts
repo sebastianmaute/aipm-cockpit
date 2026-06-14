@@ -1461,6 +1461,7 @@ const enUS = {
   dashboardTopActions: "Top actions",
   actionsEmptyState: "You're all caught up — no actions right now.",
   actionOpen: "Open",
+  actionCreateTask: "Create task",
   actionTierNow: "Now",
   actionTierSoon: "Soon",
   actionTierMonitor: "Monitor",
