@@ -1,6 +1,6 @@
 "use client";
 
-import { type Dispatch, type SetStateAction, useEffect, useState } from "react";
+import { type Dispatch, type SetStateAction, useEffect, useRef, useState } from "react";
 import { type Lang, loadI18n, migrateLang } from "./i18n";
 import { defaultSettings, sanitizeIntegrations, type Settings } from "./settings-types";
 import { defaultNotificationsConfig, resolveSnapshotSettings, resolveNextActionsConfig, sanitizeAiConfig, sanitizeExportConfig } from "./settings-types";
@@ -73,6 +73,22 @@ export function coerceLayout(value: unknown): "modern" | "classic" {
   return value === "classic" ? "classic" : "modern";
 }
 
+// ── Same-page settings sync ────────────────────────────────────────────────
+// useSettings() is called by several independent components (the canonical
+// TaskManager instance, the standalone WorkspaceSection — which must also run
+// in pop-out windows — and a few read-only consumers). Each keeps its OWN
+// useState (so SSR, load/persist, and per-test isolation are unchanged), but
+// without coordination a change made through one instance never reaches the
+// others until a reload (e.g. accepting AI consent in Settings vs. the chat).
+//
+// This module-level registry bridges them: setSettings applies locally AND
+// notifies every OTHER live instance with the new value. Listeners are added on
+// mount and removed on unmount, so the ONLY module state is a transient Set of
+// callbacks — no settings value is cached at module scope, so nothing leaks
+// across renders or test cases.
+type SettingsListener = (next: Settings) => void;
+const settingsListeners = new Set<SettingsListener>();
+
 export function useSettings(): {
   settings: Settings;
   setSettings: Dispatch<SetStateAction<Settings>>;
@@ -83,6 +99,39 @@ export function useSettings(): {
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [hydrated, setHydrated] = useState(false);
   const [i18nReady, setI18nReady] = useState(false);
+
+  // Identity of THIS instance's broadcast listener, and the value last
+  // received-from / sent-to the registry — used to suppress echo loops. Both
+  // refs are only touched in effects (never during render).
+  const listenerRef = useRef<SettingsListener | null>(null);
+  const lastSyncedRef = useRef<Settings | null>(null);
+
+  // Subscribe to cross-instance broadcasts. The listener records the incoming
+  // value before applying it, so this instance's broadcast effect recognises it
+  // as already-synced and does not echo it back.
+  useEffect(() => {
+    const listener: SettingsListener = (next) => {
+      lastSyncedRef.current = next;
+      setSettings(next);
+    };
+    listenerRef.current = listener;
+    settingsListeners.add(listener);
+    return () => {
+      settingsListeners.delete(listener);
+      listenerRef.current = null;
+    };
+  }, []);
+
+  // After a LOCAL change commits, notify every other live instance. Skips
+  // pre-hydration (load/defaults) and values that arrived via a broadcast.
+  useEffect(() => {
+    if (!hydrated) return;
+    if (lastSyncedRef.current === settings) return;
+    lastSyncedRef.current = settings;
+    for (const l of settingsListeners) {
+      if (l !== listenerRef.current) l(settings);
+    }
+  }, [settings, hydrated]);
 
   // Load settings from localStorage once on mount; lift hydrated + i18nReady gates.
   useEffect(() => {
@@ -152,6 +201,10 @@ export function useSettings(): {
           };
           Promise.resolve().then(() => {
             if (!cancelled) {
+              // Load applies locally only — every instance reads the same
+              // localStorage, so mark it synced to keep the broadcast effect
+              // from echoing the loaded value.
+              lastSyncedRef.current = merged;
               setSettings(merged);
             }
           });
