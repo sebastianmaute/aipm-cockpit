@@ -1434,6 +1434,7 @@ const enUS = {
   documentsSourceStakeholder: "Stakeholder",
   documentsSourceProject: "Project",
   versionHighlightDocuments: "A new Documents tab gathers every linked file across the project — open, jump to the source, remove, or add new links in one place",
+  versionHighlightLoadFormats: "The empty-state \"Load from file\" now accepts any supported format (JSON, CSV, or Markdown) and detects it from the file",
   // --- Restored: still used by kept banners + comms items (SP3) ---
   alertBannerDismiss: "Dismiss",
   alertCatOverdue: "Overdue",

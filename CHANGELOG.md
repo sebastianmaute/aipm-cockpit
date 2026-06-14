@@ -8,6 +8,17 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.82.0] - 2026-06-14 "Jemisin"
+
+### Added / Changed
+- The empty-state (no project yet) "Load from file" now accepts any supported
+  file format — JSON, CSV, or Markdown — in a single picker and detects the
+  format from the chosen file's extension, instead of only loading JSON. This
+  also applies to the "Load from file" actions in the project switcher and the
+  Projects panel.
+- Moved the **History** navigation entry from the Overview group to the System
+  group, directly below **Activity**.
+
 ## [0.81.0] - 2026-06-14 "Wolfe"
 
 ### Added / Changed
