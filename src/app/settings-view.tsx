@@ -11,6 +11,7 @@ import { AppearanceSection } from "./settings-sections/appearance-section";
 import { LocalizationSection } from "./settings-sections/localization-section";
 import { GeneralSection } from "./settings-sections/general-section";
 import { NotificationsSection } from "./settings-sections/notifications-section";
+import { NextActionsSection } from "./settings-sections/next-actions-section";
 import { AiSection } from "./settings-sections/ai-section";
 import { IntegrationsSection } from "./settings-sections/integrations-section";
 import { ModeSection } from "./settings-sections/mode-section";
@@ -37,7 +38,7 @@ interface SettingsViewProps {
 
 type SectionId =
   | "mode" | "templates" | "appearance" | "localization" | "general" | "notifications"
-  | "ai" | "jira" | "storage" | "integrations" | "export" | "informationFlows";
+  | "nextActions" | "ai" | "jira" | "storage" | "integrations" | "export" | "informationFlows";
 
 const RAIL: { id: SectionId; labelKey: TranslationKey }[] = [
   { id: "mode", labelKey: "settingsSectionMode" },
@@ -51,6 +52,7 @@ const RAIL: { id: SectionId; labelKey: TranslationKey }[] = [
   { id: "storage", labelKey: "settingsSectionStorage" },
   { id: "integrations", labelKey: "settingsSectionIntegrations" },
   { id: "export", labelKey: "settingsSectionExport" },
+  { id: "nextActions", labelKey: "settingsSectionNextActions" },
   { id: "informationFlows", labelKey: "settingsSectionInformationFlows" },
 ];
 
@@ -127,6 +129,9 @@ export function SettingsView(props: SettingsViewProps) {
         )}
         {active === "notifications" && (
           <NotificationsSection lang={lang} settings={settings} onChange={onChange} />
+        )}
+        {active === "nextActions" && (
+          <NextActionsSection lang={lang} settings={settings} onChange={onChange} />
         )}
         {active === "ai" && (
           <AiSection lang={lang} settings={settings} onChange={onChange} />

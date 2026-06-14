@@ -611,8 +611,13 @@ function TaskManagerInner() {
   // Pre-computed workload alerts (over-allocated / overload) for the `workload`
   // next-actions provider; computed once on the surface and fed into the engine.
   const workloadAlerts = useMemo(
-    () => buildWorkloadAlerts({ resources, tasks, absences, shifts, raid, plan, today, workdayHours: settings.resources.workdayHours, holidaySet }),
-    [resources, tasks, absences, shifts, raid, plan, today, settings.resources.workdayHours, holidaySet],
+    () => buildWorkloadAlerts({
+      resources, tasks, absences, shifts, raid, plan, today,
+      workdayHours: settings.resources.workdayHours, holidaySet,
+      overdueThreshold: settings.nextActions?.workloadOverdueThreshold,
+      overAllocatedPct: settings.nextActions?.workloadAllocatedPct,
+    }),
+    [resources, tasks, absences, shifts, raid, plan, today, settings.resources.workdayHours, holidaySet, settings.nextActions],
   );
 
   // Suggested next-actions engine. Reuses comms.items (already computed above)
@@ -635,6 +640,11 @@ function TaskManagerInner() {
           reminderLeadDays: settings.notifications.reminderLeadDays,
           dueSoonWorkdays: settings.notifications.dueSoonWorkdays,
           raidReviewIntervalDays: settings.notifications.raidReviewIntervalDays,
+          scopePendingRed: settings.nextActions?.scopePendingRed,
+          scheduleSpiWarn: settings.nextActions?.scheduleSpiWarn,
+          scheduleSpiCritical: settings.nextActions?.scheduleSpiCritical,
+          workloadAllocatedCritical: settings.nextActions?.workloadAllocatedCritical,
+          workloadOverdueUrgent: settings.nextActions?.workloadOverdueUrgent,
           // Due actions stay always-on (core). The RAID review toggle below
           // defaults true and is a safe gate.
           raidReviewEnabled: settings.notifications.raidReview.enabled,
@@ -642,7 +652,7 @@ function TaskManagerInner() {
           dismissed: actionSnooze.dismissed,
         }),
       ),
-    [tasks, raid, changes, milestones, stakeholders, dashboardModel, comms.items, settings.features, settings.notifications, project, today, workloadAlerts, actionSnooze.dismissed],
+    [tasks, raid, changes, milestones, stakeholders, dashboardModel, comms.items, settings.features, settings.notifications, settings.nextActions, project, today, workloadAlerts, actionSnooze.dismissed],
   );
   const nowCount = nextActions.filter((a) => a.tier === "now").length;
   const openAction = useCallback(

@@ -10,9 +10,10 @@ export const changePendingProvider: ActionProvider = {
   provide(input: ActionInput): SuggestedAction[] {
     const out: SuggestedAction[] = [];
     const pending = input.changes.filter((c) => isPendingChange(c.status));
+    const scopePendingRed = input.scopePendingRed ?? SCOPE_PENDING_RED;
 
     // Aggregate action — fires when pending backlog reaches the Red threshold
-    if (pending.length >= SCOPE_PENDING_RED) {
+    if (pending.length >= scopePendingRed) {
       const score = scoreAction({ risk: W.riskCritical, impact: W.impactScopePending });
       out.push({
         id: "change-pending:all:aggregate",

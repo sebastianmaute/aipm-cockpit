@@ -3,7 +3,7 @@
 import { type Dispatch, type SetStateAction, useEffect, useState } from "react";
 import { type Lang, loadI18n, migrateLang } from "./i18n";
 import { defaultSettings, sanitizeIntegrations, type Settings } from "./settings-types";
-import { defaultNotificationsConfig, resolveSnapshotSettings, sanitizeAiConfig, sanitizeExportConfig } from "./settings-types";
+import { defaultNotificationsConfig, resolveSnapshotSettings, resolveNextActionsConfig, sanitizeAiConfig, sanitizeExportConfig } from "./settings-types";
 import type { StakeholderQuadrant } from "./stakeholders";
 import { resolveExtraReports } from "./addable-reports";
 import { sanitizeFeatures } from "./feature-modules";
@@ -143,6 +143,7 @@ export function useSettings(): {
             },
             integrations: sanitizeIntegrations(parsed.integrations),
             snapshots: resolveSnapshotSettings(parsed.snapshots),
+            nextActions: resolveNextActionsConfig((parsed as Record<string, unknown>).nextActions),
             features: sanitizeFeatures((parsed as Record<string, unknown>).features),
             versionHistoryRetention: sanitizeVersionRetention((parsed as Record<string, unknown>).versionHistoryRetention),
             templates: sanitizeTemplates((parsed as Record<string, unknown>).templates),

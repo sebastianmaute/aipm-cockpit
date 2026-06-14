@@ -26,6 +26,12 @@ longer carries its own changelog comment.
 - The Settings rail is now sorted alphabetically, with **Information flows**
   pinned to the bottom under a divider.
 - Manage Roles now has a reset-column-widths button, matching the other tables.
+- New **Settings → Next actions** section to override the signal-firing
+  thresholds of the suggested-next-actions engine: pending-changes count, the
+  schedule SPI warn / critical levels, the workload over-allocation % (and its
+  critical level), and the overload overdue-task count (and its urgent level).
+  Each field shows its default and there is a reset-to-defaults button; invalid
+  values fall back per-field. Day-based lead times stay under Notifications.
 - Explanatory InfoTooltips on non-obvious table-column headers across the app
   (RAID Severity; Change Impact; Stakeholder Influence / Interest; Trends
   Baseline / Delta; Resources report Capacity / Internal / External / Margin /

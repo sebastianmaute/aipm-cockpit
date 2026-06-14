@@ -50,6 +50,14 @@ export interface ActionInput {
   reminderLeadDays: number;
   dueSoonWorkdays: number;
   raidReviewIntervalDays: number;
+  // Optional signal-firing threshold overrides (Settings → Next actions). Each
+  // provider falls back to its hard-coded default when the field is undefined,
+  // so existing callers/tests need not supply them.
+  scopePendingRed?: number;
+  scheduleSpiWarn?: number;
+  scheduleSpiCritical?: number;
+  workloadAllocatedCritical?: number;
+  workloadOverdueUrgent?: number;
   taskDueEnabled?: boolean;           // Settings → Notifications "due reminders" toggle; false → no task-due actions (undefined = enabled)
   workloadAlerts?: readonly WorkloadAlert[];  // pre-computed by the surface via buildWorkloadAlerts; feeds the `workload` provider
   raidReviewEnabled?: boolean;        // "RAID review reminder" toggle; false → no RAID review-due actions, severity actions stay (undefined = enabled)

@@ -25,6 +25,11 @@ export interface BuildActionInputArgs {
   reminderLeadDays: number;
   dueSoonWorkdays: number;
   raidReviewIntervalDays: number;
+  scopePendingRed?: number;
+  scheduleSpiWarn?: number;
+  scheduleSpiCritical?: number;
+  workloadAllocatedCritical?: number;
+  workloadOverdueUrgent?: number;
   workloadAlerts?: readonly WorkloadAlert[];
   taskDueEnabled?: boolean;            // default true
   raidReviewEnabled?: boolean;         // default true
@@ -47,6 +52,11 @@ export function buildActionInput(a: BuildActionInputArgs): ActionInput {
     reminderLeadDays: a.reminderLeadDays,
     dueSoonWorkdays: a.dueSoonWorkdays,
     raidReviewIntervalDays: a.raidReviewIntervalDays,
+    scopePendingRed: a.scopePendingRed,
+    scheduleSpiWarn: a.scheduleSpiWarn,
+    scheduleSpiCritical: a.scheduleSpiCritical,
+    workloadAllocatedCritical: a.workloadAllocatedCritical,
+    workloadOverdueUrgent: a.workloadOverdueUrgent,
     workloadAlerts: a.workloadAlerts ?? [],
     taskDueEnabled: a.taskDueEnabled ?? true,
     raidReviewEnabled: a.raidReviewEnabled ?? true,
