@@ -25,9 +25,11 @@ for (const name of VISUAL_VIEWS) {
     await gotoApp(page);
     await openView(page, name);
 
-    // Wait for web fonts so text metrics match the baseline.
+    // Wait for web fonts so text metrics match the baseline. No fixed sleep:
+    // openView() already polls the DOM to a stable state, and toHaveScreenshot
+    // auto-retries until two consecutive captures match — a fixed wait could
+    // only ever scan mid-render (the flaky pattern fixed in seed.ts/a11y).
     await page.evaluate(() => document.fonts.ready);
-    await page.waitForTimeout(300);
 
     await expect(page).toHaveScreenshot(`${name.toLowerCase().replace(/\s+/g, "-")}.png`, {
       fullPage: false,
