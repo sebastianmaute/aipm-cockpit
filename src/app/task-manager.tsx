@@ -73,7 +73,7 @@ import { TaskEditView, TASK_EDIT_FORM_ID } from "./task-edit-view";
 import { APP_VERSION_LABEL } from "./version";
 import { ActionMenus } from "./action-menus";
 import { makeEditGuard } from "./read-only-guard";
-import { buildMailtoUrl, stakeholderEmail, resolveDraftRecipient } from "./mailto";
+import { buildMailtoUrl, resolveDraftRecipient } from "./mailto";
 import { isValidEmail } from "./sanitize";
 import { SettingsView } from "./settings-view";
 import { ReadOnlyMirrorBanner } from "./read-only-mirror-banner";
