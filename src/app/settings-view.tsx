@@ -23,6 +23,7 @@ import { JiraSettingsSection } from "./jira-settings";
 import { StorageConfigSection } from "./storage-config";
 import { CommTemplatesSection } from "./settings-sections/comm-templates-section";
 import type { UseCommTemplatesResult } from "./use-comm-templates";
+import type { TursoConfig } from "./turso-config";
 import type { FeatureModuleId } from "./feature-modules";
 
 interface SettingsViewProps {
@@ -39,6 +40,7 @@ interface SettingsViewProps {
   onMigrateToTurso?: () => void;
   commTemplatesEnabled?: boolean;
   commTemplates?: UseCommTemplatesResult;
+  commTemplatesConfig?: TursoConfig | null;
 }
 
 type SectionId =
@@ -240,6 +242,7 @@ export function SettingsView(props: SettingsViewProps) {
             onSaveBody={props.commTemplates.saveBody}
             onRemove={props.commTemplates.remove}
             onSetDefault={props.commTemplates.setDefault}
+            config={props.commTemplatesConfig ?? null}
           />
         )}
         {active === "informationFlows" && (
