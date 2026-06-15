@@ -109,7 +109,7 @@ export function ActionRow({ lang, action, onOpen, onSnooze, onCreateTask, assign
                 aria-label={t(lang, "actionAssignOwner")}
                 onClick={(e) => e.stopPropagation()}
                 onKeyDown={(e) => { if (e.key === "Escape") setAssignOpen(false); }}
-                className="absolute right-0 top-full z-20 mt-1 w-64 rounded-md border border-line bg-surface p-2 shadow-sm"
+                className="absolute right-0 top-full z-20 mt-1 w-64 rounded-md border border-line bg-surface p-2"
               >
                 <ResourcePicker
                   lang={lang}
@@ -136,7 +136,7 @@ export function ActionRow({ lang, action, onOpen, onSnooze, onCreateTask, assign
             </button>
             {menuOpen && (
               <span
-                className="absolute right-0 top-full z-20 mt-1 flex w-max flex-col rounded-md border border-line bg-surface py-1 shadow-sm"
+                className="absolute right-0 top-full z-20 mt-1 flex w-max flex-col rounded-md border border-line bg-surface py-1"
               >
                 <button type="button"
                   onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onSnooze(action, SNOOZE_1H); }}
