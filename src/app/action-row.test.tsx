@@ -91,3 +91,35 @@ describe("ActionRow create task", () => {
     expect(screen.queryByRole("button", { name: /create task/i })).toBeNull();
   });
 });
+
+describe("ActionRow assign owner", () => {
+  function noOwnerRaid(): never {
+    return {
+      id: "raid:12:severity", source: "raid",
+      title: { key: "actionRaidTitle", params: [12, "DB outage"] },
+      why: { key: "actionRaidWhyNoOwner", params: ["High"] },
+      score: 30, tier: "now", cta: { kind: "open", view: "raid", id: 12 },
+    } as never;
+  }
+  const bundle = { resources: [], onCreateResource: () => 1, onAssign: () => {} };
+
+  it("shows Assign owner for a no-owner raid action and opens the picker", () => {
+    const onOpen = vi.fn();
+    render(<ActionRow lang="en-US" action={noOwnerRaid()} onOpen={onOpen} assignOwner={{ ...bundle, onAssign: vi.fn() }} />);
+    const btn = screen.getByRole("button", { name: /assign owner/i });
+    fireEvent.click(btn);
+    expect(onOpen).not.toHaveBeenCalled();       // stopPropagation
+    expect(screen.getByRole("textbox")).toBeInTheDocument(); // ResourcePicker input present
+  });
+
+  it("hides Assign owner for an owned raid action (severity why)", () => {
+    const owned = { ...(noOwnerRaid() as SuggestedAction), why: { key: "actionRaidWhySeverity", params: ["High"] } } as never;
+    render(<ActionRow lang="en-US" action={owned} onOpen={() => {}} assignOwner={bundle} />);
+    expect(screen.queryByRole("button", { name: /assign owner/i })).toBeNull();
+  });
+
+  it("hides Assign owner when no assignOwner bundle is provided", () => {
+    render(<ActionRow lang="en-US" action={noOwnerRaid()} onOpen={() => {}} />);
+    expect(screen.queryByRole("button", { name: /assign owner/i })).toBeNull();
+  });
+});

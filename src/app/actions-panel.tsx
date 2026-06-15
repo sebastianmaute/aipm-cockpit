@@ -4,6 +4,7 @@ import { useState } from "react";
 import { type Lang, t, type TranslationKey } from "./i18n";
 import { VIEW_PANE_FILL_CLASS } from "./view-styles";
 import { ActionRow } from "./action-row";
+import type { AssignOwnerBundle } from "./action-row";
 import type { SuggestedAction, ActionTier } from "./next-actions/types";
 
 const TIERS: { tier: ActionTier; labelKey: TranslationKey }[] = [
@@ -18,9 +19,10 @@ interface ActionsPanelProps {
   onOpen: (action: SuggestedAction) => void;
   onSnooze?: (action: SuggestedAction, durationMs: number) => void;
   onCreateTask?: (action: SuggestedAction) => void;
+  assignOwner?: AssignOwnerBundle;
 }
 
-export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask }: ActionsPanelProps) {
+export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, assignOwner }: ActionsPanelProps) {
   const [monitorOpen, setMonitorOpen] = useState(false);
   return (
     <div className={VIEW_PANE_FILL_CLASS}>
@@ -52,7 +54,7 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask }: 
                   </button>
                   <div id="action-monitor-list" className="flex flex-col gap-2" hidden={!monitorOpen}>
                     {rows.map((a) => (
-                      <ActionRow key={a.id} lang={lang} action={a} onOpen={onOpen} onSnooze={onSnooze} onCreateTask={onCreateTask} />
+                      <ActionRow key={a.id} lang={lang} action={a} onOpen={onOpen} onSnooze={onSnooze} onCreateTask={onCreateTask} assignOwner={assignOwner} />
                     ))}
                   </div>
                 </section>
@@ -65,7 +67,7 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask }: 
                 </h3>
                 <div className="flex flex-col gap-2">
                   {rows.map((a) => (
-                    <ActionRow key={a.id} lang={lang} action={a} onOpen={onOpen} onSnooze={onSnooze} onCreateTask={onCreateTask} />
+                    <ActionRow key={a.id} lang={lang} action={a} onOpen={onOpen} onSnooze={onSnooze} onCreateTask={onCreateTask} assignOwner={assignOwner} />
                   ))}
                 </div>
               </section>
