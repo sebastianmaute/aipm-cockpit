@@ -76,13 +76,16 @@ import { TaskEditView, TASK_EDIT_FORM_ID } from "./task-edit-view";
 import { APP_VERSION_LABEL } from "./version";
 import { ActionMenus } from "./action-menus";
 import { makeEditGuard } from "./read-only-guard";
-import { buildMailtoUrl, resolveDraftRecipient } from "./mailto";
+import { resolveDraftRecipient } from "./mailto";
 import { isValidEmail } from "./sanitize";
 import { SettingsView } from "./settings-view";
 import { ReadOnlyMirrorBanner } from "./read-only-mirror-banner";
 import { VoiceCommandProvider } from "./voice-command-context";
 import { AiUsageProvider } from "./ai-usage-context";
 import { useMsAuth } from "./use-ms-auth";
+import { useCommSend } from "./use-comm-send";
+import { CommSendPreviewModal } from "./comm-send-preview-modal";
+import { sanitizeTemplateHtml } from "./sanitize-html";
 import { SidebarFooter } from "./sidebar-footer";
 import { useSidebarCollapsed } from "./use-sidebar-collapsed";
 import { useOutlookContacts } from "./use-outlook-contacts";
@@ -779,6 +782,7 @@ function TaskManagerInner() {
   const outlookContactsEnabled =
     m365Enabled && (settings.integrations?.m365?.outlookContacts ?? false);
   const msAuth = useMsAuth(m365Enabled);
+  const commSend = useCommSend({ mode: settings.commTemplateSendMode ?? "mailto", msAuth, lang, showToast });
   const { fetchContacts: fetchOutlookContacts } = useOutlookContacts(msAuth.acquireToken);
 
   const [importOpen, setImportOpen] = useState(false);
@@ -1011,6 +1015,7 @@ function TaskManagerInner() {
     handleCancelEdit,
     logActivity,
     resolveTemplateBody: resolveCommBody,
+    sendCommTemplate: commSend.send,
   });
 
   const handleDraftMessageFromAction = useCallback(
@@ -1037,10 +1042,13 @@ function TaskManagerInner() {
         const body = tplBody != null
           ? htmlToPlainText(renderTemplate(tplBody, "stakeholder-update", buildStakeholderUpdateVars(sh, project?.name ?? "")))
           : t(lang, "commsEmailBodyTemplate", sh.name);
-        window.location.href = buildMailtoUrl(email, subject, body);
+        const html = tplBody != null
+          ? sanitizeTemplateHtml(renderTemplate(tplBody, "stakeholder-update", buildStakeholderUpdateVars(sh, project?.name ?? "")))
+          : `<p>${body.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/\n/g, "<br>")}</p>`;
+        commSend.send({ to: email, subject, html, plain: body });
       }
     },
-    [tasks, onSendInquiry, stakeholders, resources, project, lang, resolveCommBody],
+    [tasks, onSendInquiry, stakeholders, resources, project, lang, resolveCommBody, commSend],
   );
 
   // Keep the forwarding ref current after every commit (it's only ever read
@@ -1608,6 +1616,20 @@ function TaskManagerInner() {
 
   const modalsBlock = (
     <>
+      <CommSendPreviewModal
+        open={commSend.previewModal.open}
+        req={commSend.previewModal.req}
+        busy={commSend.previewModal.busy}
+        onSend={commSend.previewModal.onSend}
+        onCancel={commSend.previewModal.onCancel}
+        labels={{
+          title: t(lang, "commSendPreviewTitle"),
+          to: t(lang, "commSendPreviewTo"),
+          subject: t(lang, "commSendPreviewSubject"),
+          send: t(lang, "commSendPreviewSend"),
+          cancel: t(lang, "commSendPreviewCancel"),
+        }}
+      />
       <OutlookImportModal
         lang={lang}
         open={importOpen}
