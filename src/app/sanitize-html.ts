@@ -11,6 +11,9 @@ export function sanitizeTemplateHtml(html: string): string {
   return DOMPurify.sanitize(html, {
     ALLOWED_TAGS,
     ALLOWED_ATTR,
-    ALLOWED_URI_REGEXP: /^(?:https?|mailto):/i,
+    // End-anchored so the storage boundary stays airtight on its own (not just
+    // behind the editor's isSafeHttpUrl pre-filter): scheme must lead and no
+    // angle-brackets/quotes may sneak into the value.
+    ALLOWED_URI_REGEXP: /^(?:https?|mailto):[^<>"]*$/i,
   });
 }

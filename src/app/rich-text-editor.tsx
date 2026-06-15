@@ -1,4 +1,5 @@
 "use client";
+import { useEffect, useRef } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import type { Editor } from "@tiptap/react";
@@ -46,6 +47,10 @@ function ToolbarButton(props: { label: string; active?: boolean; onClick: () => 
 
 export function RichTextEditor(props: RichTextEditorProps) {
   const { value, onChange, label, mergeFields, fieldLabel, labels } = props;
+  // useEditor binds onUpdate once at mount; route onChange through a ref so a
+  // future caller passing an inline callback isn't captured stale.
+  const onChangeRef = useRef(onChange);
+  useEffect(() => { onChangeRef.current = onChange; }, [onChange]);
   const editor = useEditor({
     extensions: [StarterKit],
     content: value,
@@ -59,7 +64,7 @@ export function RichTextEditor(props: RichTextEditorProps) {
           "min-h-40 w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-AIPM-green",
       },
     },
-    onUpdate: ({ editor }: { editor: Editor }) => onChange(sanitizeTemplateHtml(editor.getHTML())),
+    onUpdate: ({ editor }: { editor: Editor }) => onChangeRef.current(sanitizeTemplateHtml(editor.getHTML())),
   });
 
   function addLink() {

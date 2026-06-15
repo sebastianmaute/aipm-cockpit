@@ -148,7 +148,15 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
             />
           </label>
 
-          <div className="flex flex-col gap-1" onBlur={persistBody}>
+          <div
+            className="flex flex-col gap-1"
+            onBlur={(e) => {
+              // Persist only when focus leaves the whole editor+toolbar group —
+              // clicking a toolbar button blurs the contenteditable but keeps
+              // focus inside this wrapper, so it must not trigger a save.
+              if (!e.currentTarget.contains(e.relatedTarget as Node | null)) persistBody();
+            }}
+          >
             <span className="text-sm font-medium text-foreground">{t(lang, "commTplBody")}</span>
             <RichTextEditor
               key={selected.id}
