@@ -149,3 +149,37 @@ describe("ActionRow assign owner", () => {
     expect(screen.queryByRole("combobox")).toBeNull(); // popover closed
   });
 });
+
+describe("ActionRow draft message", () => {
+  function draftableAction(source: string): never {
+    return {
+      id: `${source}:1:x`, source,
+      title: { key: "actionTaskTitle", params: ["X"] },
+      why: { key: "actionTaskWhyOverdue", params: [2] },
+      score: 40, tier: "now", cta: { kind: "open", view: "open-points", id: 1 },
+    } as never;
+  }
+
+  it("shows Draft message for task-due and calls onDraftMessage without opening", () => {
+    const onOpen = vi.fn();
+    const onDraftMessage = vi.fn();
+    render(<ActionRow lang="en-US" action={draftableAction("task-due")} onOpen={onOpen} onDraftMessage={onDraftMessage} />);
+    const btn = screen.getByRole("button", { name: /draft message/i });
+    fireEvent.click(btn);
+    expect(onDraftMessage).toHaveBeenCalledTimes(1);
+    expect(onOpen).not.toHaveBeenCalled();
+  });
+
+  it("shows Draft message for stakeholder-comms", () => {
+    render(<ActionRow lang="en-US" action={draftableAction("stakeholder-comms")} onOpen={() => {}} onDraftMessage={() => {}} />);
+    expect(screen.getByRole("button", { name: /draft message/i })).toBeInTheDocument();
+  });
+
+  it("hides Draft message for other sources and when onDraftMessage absent", () => {
+    const { unmount } = render(<ActionRow lang="en-US" action={draftableAction("budget")} onOpen={() => {}} onDraftMessage={() => {}} />);
+    expect(screen.queryByRole("button", { name: /draft message/i })).toBeNull();
+    unmount();
+    render(<ActionRow lang="en-US" action={draftableAction("task-due")} onOpen={() => {}} />);
+    expect(screen.queryByRole("button", { name: /draft message/i })).toBeNull();
+  });
+});

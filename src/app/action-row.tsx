@@ -27,9 +27,10 @@ interface ActionRowProps {
   onSnooze?: (action: SuggestedAction, durationMs: number) => void;
   onCreateTask?: (action: SuggestedAction) => void;
   assignOwner?: AssignOwnerBundle;
+  onDraftMessage?: (action: SuggestedAction) => void;
 }
 
-export function ActionRow({ lang, action, onOpen, onSnooze, onCreateTask, assignOwner }: ActionRowProps) {
+export function ActionRow({ lang, action, onOpen, onSnooze, onCreateTask, assignOwner, onDraftMessage }: ActionRowProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
   const assignPopRef = useRef<HTMLSpanElement>(null);
@@ -54,6 +55,10 @@ export function ActionRow({ lang, action, onOpen, onSnooze, onCreateTask, assign
     assignOwner != null &&
     action.source === "raid" &&
     action.why.key === "actionRaidWhyNoOwner" &&
+    action.cta.kind === "open";
+  const canDraft =
+    onDraftMessage != null &&
+    (action.source === "task-due" || action.source === "stakeholder-comms") &&
     action.cta.kind === "open";
   return (
     // Mouse convenience only — NOT role="button"/tabIndex: nesting an interactive
@@ -82,6 +87,15 @@ export function ActionRow({ lang, action, onOpen, onSnooze, onCreateTask, assign
         >
           {t(lang, "actionOpen")}
         </button>
+        {canDraft && onDraftMessage && (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onDraftMessage(action); }}
+            className="rounded-md border border-line px-2 py-1 text-xs font-medium text-AIPM-dark-blue hover:bg-surface-muted dark:text-AIPM-light-grey"
+          >
+            {t(lang, "actionDraftMessage")}
+          </button>
+        )}
         {onCreateTask && action.source !== "task-due" && (
           <button
             type="button"
