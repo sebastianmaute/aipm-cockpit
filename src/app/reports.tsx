@@ -339,6 +339,28 @@ export function ReportsPanel({
   const [groupFilter, setGroupFilter] = useState("");
   const [labelSort, setLabelSort] = useState<GroupOrLabelSort>({ key: "total", dir: "desc" });
   const [labelFilter, setLabelFilter] = useState("");
+  const [dragId, setDragId] = useState<AddableReportId | null>(null);
+
+  const onDropOnReport = (targetId: AddableReportId) => {
+    if (dragId == null || dragId === targetId) return;
+    const ids = [...extraReports];
+    const fromIdx = ids.indexOf(dragId);
+    const targetIdx = ids.indexOf(targetId);
+    if (fromIdx < 0 || targetIdx < 0) return;
+    ids.splice(fromIdx, 1);
+    ids.splice(targetIdx, 0, dragId);
+    onChangeExtraReports?.(ids);
+  };
+
+  const moveReport = (id: AddableReportId, delta: number) => {
+    const ids = [...extraReports];
+    const i = ids.indexOf(id);
+    const j = i + delta;
+    if (i < 0 || j < 0 || j >= ids.length) return;
+    [ids[i], ids[j]] = [ids[j], ids[i]];
+    onChangeExtraReports?.(ids);
+  };
+
   const resetAllReports = () => {
     inquiry.resetColWidths();
     assignee.resetColWidths();
@@ -659,9 +681,38 @@ export function ReportsPanel({
         if (!meta || !body) return null;
         const removeLabel = `${t(lang, "reportsRemoveReport")}: ${t(lang, meta.titleKey)}`;
         return (
-          <div key={id}>
+          <div
+            key={id}
+            data-testid="extra-report-card"
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={() => onDropOnReport(id)}
+            className={dragId != null && dragId !== id ? "opacity-70" : undefined}
+          >
             <div className="mb-2 flex items-center justify-between gap-2 border-t border-line pt-4">
-              <h3 className="text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">{t(lang, meta.titleKey)}</h3>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  draggable
+                  tabIndex={0}
+                  onDragStart={() => setDragId(id)}
+                  onDragEnd={() => setDragId(null)}
+                  onKeyDown={(e) => {
+                    if (e.key === "ArrowUp") {
+                      e.preventDefault();
+                      moveReport(id, -1);
+                    } else if (e.key === "ArrowDown") {
+                      e.preventDefault();
+                      moveReport(id, 1);
+                    }
+                  }}
+                  aria-label={t(lang, "reportReorderHandle")}
+                  title={t(lang, "reportReorderHandle")}
+                  className="cursor-grab touch-none select-none rounded px-1 py-0.5 text-muted-foreground hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-AIPM-green print:hidden"
+                >
+                  ⠿
+                </button>
+                <h3 className="text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">{t(lang, meta.titleKey)}</h3>
+              </div>
               <button
                 type="button"
                 onClick={() => onChangeExtraReports?.(extraReports.filter((x) => x !== id))}

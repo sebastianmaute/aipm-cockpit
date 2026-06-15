@@ -127,4 +127,8 @@ body {
 
   /* Belt-and-braces: hide column-resize handles even if their print:hidden gets dropped */
   [aria-hidden="true"].cursor-col-resize { display: none !important; }
+
+  /* Hide portalled tooltip bubbles — they are appended to document.body and would
+     otherwise print if a tooltip was open at the moment window.print() was called. */
+  [data-tooltip-portal] { display: none !important; }
 }

@@ -1,6 +1,6 @@
 import { Section } from "../report-table";
 import { type Lang, t } from "../i18n";
-import type { Milestone, RaidItem, Task } from "../types";
+import type { RaidItem, Task } from "../types";
 
 const LINK_CLASS =
   "rounded-md border border-transparent px-2 py-0.5 text-left text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted";
@@ -27,12 +27,7 @@ export function RegistersBand({
   dueSoon,
   onOpenRaid,
   onOpenTask,
-  overdueMilestones,
-  atRiskMilestones,
-  dueSoonMilestones,
-  onOpenMilestone,
   showRaid = true,
-  showMilestones = true,
 }: {
   lang: Lang;
   topRaid: RaidItem[];
@@ -40,12 +35,7 @@ export function RegistersBand({
   dueSoon: Task[];
   onOpenRaid?: (id: number) => void;
   onOpenTask?: (id: number) => void;
-  overdueMilestones: Milestone[];
-  atRiskMilestones: Milestone[];
-  dueSoonMilestones: Milestone[];
-  onOpenMilestone?: () => void;
   showRaid?: boolean;
-  showMilestones?: boolean;
 }) {
   return (
     <div className="space-y-4">
@@ -124,27 +114,6 @@ export function RegistersBand({
           </ul>
         </Section>
       </div>
-      {showMilestones && (
-        <Section title={t(lang, "dashboardMilestones")} boxed>
-          {overdueMilestones.length + atRiskMilestones.length + dueSoonMilestones.length === 0 ? (
-            <p className="text-sm text-muted-foreground">—</p>
-          ) : (
-            <ul className="space-y-1 text-sm">
-              {[...overdueMilestones, ...atRiskMilestones, ...dueSoonMilestones].map((m) => (
-                <li key={m.id}>
-                  {onOpenMilestone ? (
-                    <button type="button" className={LINK_CLASS} onClick={() => onOpenMilestone()}>
-                      {atRiskMilestones.includes(m) ? "⚠ " : ""}{m.name} · {m.date}
-                    </button>
-                  ) : (
-                    <span>{atRiskMilestones.includes(m) ? "⚠ " : ""}{m.name} · {m.date}</span>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-        </Section>
-      )}
     </div>
   );
 }

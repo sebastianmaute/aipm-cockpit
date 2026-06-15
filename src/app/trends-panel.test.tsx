@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { TrendsPanel } from "./trends-panel";
 import type { SnapshotRecord, VarianceRow } from "./snapshot";
 
@@ -26,7 +26,7 @@ const base = {
   variance,
   gaps: ["2026-W23"],
   busy: false,
-  captureNow: noop, setBaseline: noop, deleteSnapshot: noop,
+  captureNow: noop, setBaseline: noop, deleteSnapshot: noop, deleteSnapshots: noop as (ids: readonly string[]) => Promise<void>,
 };
 
 describe("TrendsPanel", () => {
@@ -62,5 +62,55 @@ describe("TrendsPanel", () => {
   it("renders a reset-size button (ReportCard toolbar)", () => {
     render(<TrendsPanel {...base} />);
     expect(screen.getByRole("button", { name: /reset.*size/i })).toBeInTheDocument();
+  });
+
+  it("shows a per-row delete button for each snapshot", () => {
+    render(<TrendsPanel {...base} />);
+    // Two snapshots → two delete buttons (aria-label or text "Delete")
+    const deleteBtns = screen.getAllByRole("button", { name: /^Delete$/i });
+    expect(deleteBtns).toHaveLength(2);
+  });
+
+  it("per-row delete calls deleteSnapshot after confirm=true", () => {
+    vi.stubGlobal("confirm", () => true);
+    const deleteSnapshot = vi.fn(noop);
+    render(<TrendsPanel {...base} deleteSnapshot={deleteSnapshot} />);
+    const [firstDelete] = screen.getAllByRole("button", { name: /^Delete$/i });
+    fireEvent.click(firstDelete);
+    expect(deleteSnapshot).toHaveBeenCalledTimes(1);
+    vi.unstubAllGlobals();
+  });
+
+  it("per-row delete does NOT call deleteSnapshot when confirm=false", () => {
+    vi.stubGlobal("confirm", () => false);
+    const deleteSnapshot = vi.fn(noop);
+    render(<TrendsPanel {...base} deleteSnapshot={deleteSnapshot} />);
+    const [firstDelete] = screen.getAllByRole("button", { name: /^Delete$/i });
+    fireEvent.click(firstDelete);
+    expect(deleteSnapshot).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
+
+  it("selecting two rows and clicking 'Delete selected' calls deleteSnapshots with both ids", () => {
+    vi.stubGlobal("confirm", () => true);
+    const deleteSnapshots = vi.fn(noop as (ids: readonly string[]) => Promise<void>);
+    render(<TrendsPanel {...base} deleteSnapshots={deleteSnapshots} />);
+    // Check both row checkboxes
+    const checkboxes = screen.getAllByRole("checkbox");
+    fireEvent.click(checkboxes[0]);
+    fireEvent.click(checkboxes[1]);
+    // Click the "Delete selected" button
+    const bulkBtn = screen.getByRole("button", { name: /delete selected/i });
+    fireEvent.click(bulkBtn);
+    expect(deleteSnapshots).toHaveBeenCalledTimes(1);
+    const [ids] = deleteSnapshots.mock.calls[0] as [readonly string[]];
+    expect(ids).toHaveLength(2);
+    vi.unstubAllGlobals();
+  });
+
+  it("'Delete selected' button is disabled when no rows are selected", () => {
+    render(<TrendsPanel {...base} />);
+    const bulkBtn = screen.getByRole("button", { name: /delete selected/i });
+    expect(bulkBtn).toBeDisabled();
   });
 });

@@ -8,6 +8,43 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.85.0] - 2026-06-14 "Liu"
+
+### Added / Changed
+- **Tooltip clamp**: long tooltips across planning, RAID, and settings surfaces are
+  now clamped to a max-width so they never overflow the viewport.
+- **Manage Roles / Projects / Milestones resize controls**: each table panel gains
+  explicit column-resize handles, consistent with the rest of the application.
+- **Stakeholder matrix contrast**: row/column header cells meet WCAG AA contrast
+  requirements; chip colours updated to pass the a11y gate.
+- **Report drag-reorder**: reports in the composable-reports panel can be
+  reordered by dragging, replacing the old up/down button approach.
+- **Snapshot delete** (single + bulk): individual snapshots can be deleted from
+  the Trends detail view; the bulk-delete action clears all snapshots for a
+  project in one step.
+- **Next-actions formula explainer**: the ranking-weight sliders in
+  Settings → Next actions now include an inline formula preview so the combined
+  score is transparent.
+- **Dedicated Storage settings section**: Turso/IndexedDB/file storage options
+  have been extracted from Integrations into their own Settings rail entry.
+- **Dashboard layout**: the Changes and Top-actions columns are now independently
+  resizable; column order has been rationalised.
+- **Dashboard Trends toggle**: a new toggle on the Dashboard lets users
+  show/hide the Trends mini-chart without leaving the view.
+- **Calendar row height**: the calendar view respects a compact/comfortable
+  density setting, matching the task-table density control.
+- **Budget date/stepper alignment**: date pickers and numeric steppers in the
+  budget editor are now vertically aligned with their labels.
+- **Budget CPI/Consumption percent display**: CPI and budget-consumption values
+  are shown as percentages with one decimal place throughout the budget report.
+- **Budget-report tooltips (hidden in print)**: metric-explanation tooltips on
+  the budget report are suppressed in print/PDF output to avoid clutter.
+- **RAID-report aging layout**: the aging column in the RAID report has been
+  tightened and aligns consistently with the status and priority columns.
+- **A11y fixes**: several interactive elements across the wizard, settings panel,
+  and report tables received missing `aria-label` / `role` corrections surfaced
+  by the Playwright axe gate.
+
 ## [0.84.0] - 2026-06-14 "Cherryh"
 
 ### Added / Changed

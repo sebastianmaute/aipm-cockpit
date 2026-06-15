@@ -128,4 +128,27 @@ describe("useSnapshots", () => {
     await act(async () => { await result.current.captureNow(); });
     expect(onError).toHaveBeenCalled();
   });
+
+  it("deleteSnapshots removes all given ids from state in one call", async () => {
+    const snapA = rec("2026-05-25T00:00:00.000Z", "2026-W22");
+    const snapB = rec("2026-06-01T00:00:00.000Z", "2026-W23");
+    const snapC = rec("2026-06-10T00:00:00.000Z", "2026-W24", true);
+    vi.spyOn(store, "loadSnapshots").mockResolvedValue([snapA, snapB, snapC]);
+    vi.spyOn(store, "appendSnapshot").mockResolvedValue();
+    const delMany = vi.spyOn(store, "deleteSnapshots").mockResolvedValue();
+    const { result } = renderHook(() => useSnapshots(baseArgs));
+    await waitFor(() => expect(result.current.snapshots.length).toBe(3));
+    await act(async () => { await result.current.deleteSnapshots([snapA.id, snapB.id]); });
+    expect(delMany).toHaveBeenCalledWith(baseArgs.tursoConfig, [snapA.id, snapB.id], "p1");
+    expect(result.current.snapshots).toHaveLength(1);
+    expect(result.current.snapshots[0].id).toBe(snapC.id);
+  });
+
+  it("deleteSnapshots is a no-op when inactive", async () => {
+    vi.spyOn(store, "loadSnapshots").mockResolvedValue([]);
+    const delMany = vi.spyOn(store, "deleteSnapshots").mockResolvedValue();
+    const { result } = renderHook(() => useSnapshots({ ...baseArgs, active: false }));
+    await act(async () => { await result.current.deleteSnapshots(["x"]); });
+    expect(delMany).not.toHaveBeenCalled();
+  });
 });

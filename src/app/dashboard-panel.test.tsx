@@ -388,7 +388,6 @@ describe("RegistersBand link styling", () => {
         lang="en-US"
         topRaid={[{ id: 1, category: "R", title: "risk", status: "Open", linkedTaskIds: [], raisedDate: "2026-01-01", causedByRaidIds: [] } as never]}
         overdue={[]} dueSoon={[]}
-        overdueMilestones={[]} atRiskMilestones={[]} dueSoonMilestones={[]}
         onOpenRaid={() => {}}
       />,
     );
@@ -485,6 +484,57 @@ const propsWithEstimates = {
   ...fullProps,
   tasks: tasksWithEstimates,
 };
+
+// ─── Trends widget visibility + toggle ───────────────────────────────────────
+
+describe("DashboardPanel Trends widget (showTrends)", () => {
+  const baseProps = {
+    lang: "en-US" as const,
+    tasks: [],
+    raid: [],
+    budgets: [],
+    plan,
+    roles: [],
+    resources: [],
+    absences: [],
+    holidaySet: new Set<string>(),
+    workdayHours: 8,
+    today: "2026-06-02",
+  };
+
+  it("renders the Trends widget by default (showTrends undefined)", () => {
+    render(<DashboardPanel {...baseProps} />, { wrapper });
+    expect(screen.getByText("Trends")).toBeInTheDocument();
+  });
+
+  it("renders the Trends widget when showTrends is true", () => {
+    render(<DashboardPanel {...baseProps} showTrends={true} />, { wrapper });
+    expect(screen.getByText("Trends")).toBeInTheDocument();
+  });
+
+  it("hides the Trends widget when showTrends is false", () => {
+    render(<DashboardPanel {...baseProps} showTrends={false} />, { wrapper });
+    expect(screen.queryByText("Trends")).toBeNull();
+  });
+
+  it("calls onToggleTrends(false) when the remove button is clicked", async () => {
+    const user = userEvent.setup();
+    const onToggleTrends = vi.fn();
+    render(<DashboardPanel {...baseProps} showTrends={true} onToggleTrends={onToggleTrends} />, { wrapper });
+    const removeBtn = screen.getByRole("button", { name: /hide trends/i });
+    await user.click(removeBtn);
+    expect(onToggleTrends).toHaveBeenCalledWith(false);
+  });
+
+  it("calls onToggleTrends(true) when the add button is clicked", async () => {
+    const user = userEvent.setup();
+    const onToggleTrends = vi.fn();
+    render(<DashboardPanel {...baseProps} showTrends={false} onToggleTrends={onToggleTrends} />, { wrapper });
+    const addBtn = screen.getByRole("button", { name: /show trends/i });
+    await user.click(addBtn);
+    expect(onToggleTrends).toHaveBeenCalledWith(true);
+  });
+});
 
 describe("DashboardPanel top-band Budget/Scope pill gating", () => {
   it("shows both Budget and Scope pills in the top band when all flags are true (baseline)", () => {

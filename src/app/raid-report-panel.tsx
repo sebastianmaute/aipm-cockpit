@@ -168,8 +168,10 @@ export function RaidReportPanel({ lang, items, today, embedded = false }: Props)
           <StatusTable lang={lang} rows={rep.byStatus} colResize={status} />
           <OwnerTable lang={lang} rows={rep.byOwner} colResize={owner} />
           <TopOpenTable lang={lang} rows={rep.topOpen} colResize={topOpen} />
-          <CategoryTable lang={lang} rows={rep.byCategory} colResize={category} />
-          <AgingTable lang={lang} rows={rep.byAging} colResize={aging} />
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <CategoryTable lang={lang} rows={rep.byCategory} colResize={category} />
+            <AgingTable lang={lang} rows={rep.byAging} colResize={aging} />
+          </div>
         </>
       )}
 

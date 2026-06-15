@@ -69,7 +69,7 @@ function HoursCell({
           type="number"
           value={budget ?? ""}
           onChange={(e) => onBudget(Number(e.target.value) || 0)}
-          className="w-16 rounded border border-line bg-surface px-1 text-right"
+          className="w-16 rounded border border-line bg-surface px-1 py-0.5 text-right tabular-nums"
         />
       </div>
       <div className="flex items-center gap-1">
@@ -82,7 +82,7 @@ function HoursCell({
           type="number"
           value={actual ?? ""}
           onChange={(e) => onActual(Number(e.target.value) || 0)}
-          className="w-16 rounded border border-line bg-surface-muted px-1 text-right"
+          className="w-16 rounded border border-line bg-surface-muted px-1 py-0.5 text-right tabular-nums"
         />
         <RagBadge value={ratioHealth(actual ?? 0, budget ?? 0)} lang={lang} />
       </div>
@@ -108,9 +108,11 @@ export interface BudgetPanelProps {
   fxLoading?: boolean;
 }
 
-function Cci({ label, hint, value, currency, locale, lang, rag }: { label: string; hint?: string; value: CciValue; currency: string; locale: string; lang: Lang; rag?: Health | null }) {
+function Cci({ label, hint, value, currency, locale, lang, rag, primary = "amount" }: { label: string; hint?: string; value: CciValue; currency: string; locale: string; lang: Lang; rag?: Health | null; primary?: "amount" | "percent" }) {
   const pct = value.percent == null ? "—" : `${value.percent.toFixed(1)}%`;
   const tone = value.amount >= 0 ? "text-AIPM-green-strong" : "text-AIPM-pink-strong";
+  const bigFigure = primary === "percent" ? pct : formatCurrency(value.amount, currency, locale);
+  const smallFigure = primary === "percent" ? formatCurrency(value.amount, currency, locale) : pct;
   return (
     <div className="rounded-lg border border-line p-3">
       <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -120,8 +122,8 @@ function Cci({ label, hint, value, currency, locale, lang, rag }: { label: strin
         </span>
         {rag !== undefined ? <RagBadge value={rag} lang={lang} title={label} /> : null}
       </div>
-      <div className={`text-lg font-semibold ${tone}`}>{formatCurrency(value.amount, currency, locale)}</div>
-      <div className="text-xs text-muted-foreground">{pct}</div>
+      <div className={`text-lg font-semibold ${tone}`}>{bigFigure}</div>
+      <div className="text-xs text-muted-foreground">{smallFigure}</div>
     </div>
   );
 }
@@ -291,8 +293,8 @@ export function BudgetPanel(props: BudgetPanelProps) {
         </h2>
         <div className="grid grid-cols-3 gap-3">
           <Cci label={t(lang, "budgetCciMargin")} hint={t(lang, "budgetCciMarginHint")} value={report.project.contributionMargin} currency={projCur} locale={locale} lang={lang} rag={marginHealth(report.project.contributionMargin.percent)} />
-          <Cci label={t(lang, "budgetCciCpi")} hint={t(lang, "budgetCciCpiHint")} value={report.project.costPerformance} currency={projCur} locale={locale} lang={lang} rag={costPerformanceHealth(report.project.costPerformance.percent)} />
-          <Cci label={t(lang, "budgetCciConsumption")} hint={t(lang, "budgetCciConsumptionHint")} value={report.project.consumption} currency={projCur} locale={locale} lang={lang} rag={ratioHealth(report.project.consumedValue, report.project.budgetValue)} />
+          <Cci label={t(lang, "budgetCciCpi")} hint={t(lang, "budgetCciCpiHint")} value={report.project.costPerformance} currency={projCur} locale={locale} lang={lang} rag={costPerformanceHealth(report.project.costPerformance.percent)} primary="percent" />
+          <Cci label={t(lang, "budgetCciConsumption")} hint={t(lang, "budgetCciConsumptionHint")} value={report.project.consumption} currency={projCur} locale={locale} lang={lang} rag={ratioHealth(report.project.consumedValue, report.project.budgetValue)} primary="percent" />
         </div>
       </section>
 
@@ -376,8 +378,8 @@ export function BudgetPanel(props: BudgetPanelProps) {
               )}
               <div className="mt-3 grid grid-cols-3 gap-3">
                 <Cci label={t(lang, "budgetCciMargin")} hint={t(lang, "budgetCciMarginHint")} value={cci(br.contributionMargin)} currency={bucket.currency} locale={locale} lang={lang} rag={marginHealth(br.contributionMargin.percent)} />
-                <Cci label={t(lang, "budgetCciCpi")} hint={t(lang, "budgetCciCpiHint")} value={cci(br.costPerformance)} currency={bucket.currency} locale={locale} lang={lang} rag={costPerformanceHealth(br.costPerformance.percent)} />
-                <Cci label={t(lang, "budgetCciConsumption")} hint={t(lang, "budgetCciConsumptionHint")} value={cci(br.consumption)} currency={bucket.currency} locale={locale} lang={lang} rag={ratioHealth(br.consumedValue, br.budgetValue)} />
+                <Cci label={t(lang, "budgetCciCpi")} hint={t(lang, "budgetCciCpiHint")} value={cci(br.costPerformance)} currency={bucket.currency} locale={locale} lang={lang} rag={costPerformanceHealth(br.costPerformance.percent)} primary="percent" />
+                <Cci label={t(lang, "budgetCciConsumption")} hint={t(lang, "budgetCciConsumptionHint")} value={cci(br.consumption)} currency={bucket.currency} locale={locale} lang={lang} rag={ratioHealth(br.consumedValue, br.budgetValue)} primary="percent" />
               </div>
               <div className="mt-3 overflow-x-auto">
                 <table className="w-full text-xs">
@@ -399,7 +401,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
                       {periods.map((p) => (
                         <th
                           key={p.key}
-                          className="relative px-2 py-1 text-right"
+                          className="relative px-1 py-1 text-right"
                           style={{ width: colWidths.period, minWidth: colWidths.period }}
                         >
                           {p.key}

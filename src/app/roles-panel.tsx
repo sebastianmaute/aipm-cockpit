@@ -4,7 +4,6 @@ import { useRef } from "react";
 import { CENTERED_FIT_PANE_CLASS } from "./view-styles";
 import { t } from "./i18n";
 import { RolesEditor, type RolesEditorProps } from "./roles-editor";
-import { ResetSizeButton } from "./task-manager-ui";
 
 export function RolesPanel(props: RolesEditorProps) {
   // The pane defaults to a content-fit height (CENTERED_FIT_PANE_CLASS) and is
@@ -24,9 +23,8 @@ export function RolesPanel(props: RolesEditorProps) {
     <section ref={paneRef} className={CENTERED_FIT_PANE_CLASS}>
       <header className="mb-2 flex shrink-0 items-center justify-between gap-2">
         <h2 className="text-lg font-medium text-foreground">{t(props.lang, "resourcesManageRoles")}</h2>
-        <ResetSizeButton onClick={resetSize} lang={props.lang} />
       </header>
-      <div className="min-h-0 flex-1 overflow-y-auto"><RolesEditor {...props} /></div>
+      <div className="min-h-0 flex-1 overflow-y-auto"><RolesEditor {...props} onResetSize={resetSize} /></div>
     </section>
   );
 }

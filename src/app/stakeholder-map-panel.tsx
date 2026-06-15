@@ -122,7 +122,7 @@ export function StakeholderMapPanel({ lang, stakeholders }: StakeholderMapPanelP
                     {byQuadrant[q.id].map((s) => (
                       <span
                         key={s.id}
-                        className="inline-block rounded px-1.5 py-0.5 text-xs font-medium bg-surface-muted text-foreground"
+                        className="inline-block rounded px-1.5 py-0.5 text-xs font-medium bg-surface-muted text-AIPM-dark-blue dark:text-foreground"
                       >
                         {s.name}
                       </span>

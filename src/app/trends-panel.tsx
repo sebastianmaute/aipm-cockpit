@@ -1,4 +1,5 @@
 "use client";
+import { useState } from "react";
 import { type Lang, t, localeFor } from "./i18n";
 import { VIEW_PANE_CLASS, INNER_TABLE_CLASS } from "./view-styles";
 import { TABLE_HEAD_CLASS } from "./table-styles";
@@ -41,6 +42,7 @@ export interface TrendsPanelProps {
   captureNow: () => Promise<void>;
   setBaseline: (id: string) => Promise<void>;
   deleteSnapshot: (id: string) => Promise<void>;
+  deleteSnapshots: (ids: readonly string[]) => Promise<void>;
 }
 
 const VARIANCE_LABEL_KEYS: Record<VarianceKey, Parameters<typeof t>[1]> = {
@@ -91,7 +93,8 @@ function trendPoints(snaps: readonly SnapshotRecord[], gaps: ReadonlySet<string>
 }
 
 export function TrendsPanel(props: TrendsPanelProps) {
-  const { lang, active, snapshots, baseline, variance, gaps, busy, captureNow, setBaseline, deleteSnapshot } = props;
+  const { lang, active, snapshots, baseline, variance, gaps, busy, captureNow, setBaseline, deleteSnapshot, deleteSnapshots } = props;
+  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const { ref, reset } = useResizable("lop-app:trends-size");
   const varianceResize = useColumnResize<VarianceCol>("trends-variance", VARIANCE_COL_WIDTHS);
   const snapshotResize = useColumnResize<SnapshotCol>("trends-snapshots", SNAPSHOT_COL_WIDTHS);
@@ -197,11 +200,26 @@ export function TrendsPanel(props: TrendsPanelProps) {
           </div>
 
           <div>
-            <h3 className="mb-1 text-xs uppercase tracking-wide text-muted-foreground">{t(lang, "trendsSnapshotsHeading")}</h3>
+            <div className="mb-1 flex items-center justify-between">
+              <h3 className="text-xs uppercase tracking-wide text-muted-foreground">{t(lang, "trendsSnapshotsHeading")}</h3>
+              <button
+                type="button"
+                disabled={selected.size === 0 || busy}
+                onClick={() => {
+                  if (!window.confirm(t(lang, "snapshotDeleteSelectedConfirm", selected.size))) return;
+                  void deleteSnapshots([...selected]);
+                  setSelected(new Set());
+                }}
+                className="rounded border border-AIPM-pink-strong px-2 py-0.5 text-xs text-AIPM-pink-strong hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {t(lang, "snapshotDeleteSelected", selected.size)}
+              </button>
+            </div>
             <div className={INNER_TABLE_CLASS}>
             <table className="w-full text-left text-sm">
               <thead className={TABLE_HEAD_CLASS}>
                 <tr>
+                  <th className="w-8 px-3 py-2" />
                   <th className="relative px-3 py-2 text-left" style={{ width: snapshotResize.colWidths.capturedAt, minWidth: snapshotResize.colWidths.capturedAt }}>
                     {t(lang, "trendsCapturedAt")}
                     <ColumnResizeHandle col="capturedAt" onMouseDown={snapshotStartResize} />
@@ -223,6 +241,20 @@ export function TrendsPanel(props: TrendsPanelProps) {
               <tbody>
                 {[...snapshots].reverse().map((s) => (
                   <tr key={s.id}>
+                    <td className="px-3 py-2">
+                      <input
+                        type="checkbox"
+                        checked={selected.has(s.id)}
+                        onChange={(e) => {
+                          setSelected((prev) => {
+                            const next = new Set(prev);
+                            if (e.target.checked) next.add(s.id); else next.delete(s.id);
+                            return next;
+                          });
+                        }}
+                        aria-label={t(lang, "snapshotSelectRow", s.capturedAt.slice(0, 16))}
+                      />
+                    </td>
                     <td className="px-3 py-2 tabular-nums">{s.capturedAt.slice(0, 16).replace("T", " ")}</td>
                     <td className="px-3 py-2">{t(lang, s.trigger === "auto" ? "trendsTriggerAuto" : "trendsTriggerManual")}</td>
                     <td className="px-3 py-2">{s.isBaseline ? "★" : ""}</td>
@@ -234,9 +266,17 @@ export function TrendsPanel(props: TrendsPanelProps) {
                             {t(lang, "trendsSetBaseline")}
                           </button>
                         )}
-                        <button type="button" disabled={busy} onClick={() => { void deleteSnapshot(s.id); }}
-                          className="text-xs text-AIPM-pink-strong underline hover:opacity-80 disabled:opacity-50">
-                          {t(lang, "trendsDeleteSnapshot")}
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => {
+                            if (!window.confirm(t(lang, "snapshotDeleteConfirm"))) return;
+                            void deleteSnapshot(s.id);
+                            setSelected((prev) => { const next = new Set(prev); next.delete(s.id); return next; });
+                          }}
+                          className="text-xs text-AIPM-pink-strong underline hover:opacity-80 disabled:opacity-50"
+                        >
+                          {t(lang, "snapshotDelete")}
                         </button>
                       </span>
                     </td>

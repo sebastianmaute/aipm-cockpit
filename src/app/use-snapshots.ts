@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   appendSnapshot as storeAppend, deleteSnapshot as storeDelete,
+  deleteSnapshots as storeDeleteMany,
   loadSnapshots, setBaseline as storeSetBaseline,
 } from "./snapshot-store";
 import { bucketKey, buildSnapshot, computeVariance, detectGaps } from "./snapshot";
@@ -36,6 +37,7 @@ export interface UseSnapshotsResult {
   captureNow: () => Promise<void>;
   setBaseline: (id: string) => Promise<void>;
   deleteSnapshot: (id: string) => Promise<void>;
+  deleteSnapshots: (ids: readonly string[]) => Promise<void>;
 }
 
 function pickBaseline(snaps: readonly SnapshotRecord[]): SnapshotRecord | null {
@@ -152,11 +154,25 @@ export function useSnapshots(args: UseSnapshotsArgs): UseSnapshotsResult {
     }
   }, [active]);
 
+  const deleteSnapshots = useCallback(async (ids: readonly string[]) => {
+    if (!active) return;
+    opSeqRef.current += 1;
+    setBusy(true);
+    try {
+      await storeDeleteMany(cfgRef.current, ids, pidRef.current);
+      setSnapshots((prev) => prev.filter((s) => !ids.includes(s.id)));
+    } catch (err) {
+      errRef.current?.(err);
+    } finally {
+      setBusy(false);
+    }
+  }, [active]);
+
   const baseline = pickBaseline(snapshots);
   const sorted = [...snapshots].sort((a, b) => a.capturedAt.localeCompare(b.capturedAt));
   const latest = sorted.length ? sorted[sorted.length - 1] : null;
   const variance = latest ? computeVariance(baseline, latest) : [];
   const gaps = detectGaps(snapshots, cadence, today);
 
-  return { snapshots: sorted, baseline, latest, variance, gaps, busy, captureNow, setBaseline, deleteSnapshot };
+  return { snapshots: sorted, baseline, latest, variance, gaps, busy, captureNow, setBaseline, deleteSnapshot, deleteSnapshots };
 }

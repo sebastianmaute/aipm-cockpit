@@ -21,6 +21,7 @@ import { formatCurrency } from "./resource-cost";
 import { resolveRate } from "./fx";
 import type { Absence, BudgetBucket, FxRates, ResourcePlan, Resource, Role, Task } from "./types";
 import { RagBadge } from "./rag-badge";
+import { InfoTooltip } from "./info-tooltip";
 import { ratioHealth, marginHealth, costPerformanceHealth } from "./budget-health";
 import { computeBurndownSeries } from "./budget-burndown";
 import { BurndownCharts } from "./burndown-chart";
@@ -95,9 +96,9 @@ export function BudgetReportPanel({
           <Tile label={t(lang, "budgetReportRevenue")} value={money(proj.revenue)}
             rag={<RagBadge value={marginHealth(proj.contributionMargin.percent)} lang={lang} title={t(lang, "budgetReportRevenue")} />} />
           <Tile label={t(lang, "budgetReportCost")} value={money(proj.cost)} />
-          <Tile label={t(lang, "budgetCciMargin")} value={`${money(proj.contributionMargin.amount)} (${pct(proj.contributionMargin)})`} rag={<RagBadge value={marginHealth(proj.contributionMargin.percent)} lang={lang} title={t(lang, "budgetCciMargin")} />} />
-          <Tile label={t(lang, "budgetCciCpi")} value={`${money(proj.costPerformance.amount)} (${pct(proj.costPerformance)})`} rag={<RagBadge value={costPerformanceHealth(proj.costPerformance.percent)} lang={lang} title={t(lang, "budgetCciCpi")} />} />
-          <Tile label={t(lang, "budgetCciConsumption")} value={`${money(proj.consumption.amount)} (${pct(proj.consumption)})`} rag={<RagBadge value={ratioHealth(proj.consumedValue, proj.budgetValue)} lang={lang} title={t(lang, "budgetCciConsumption")} />} />
+          <Tile label={<>{t(lang, "budgetCciMargin")}<span className="print:hidden ml-1"><InfoTooltip text={t(lang, "budgetCciMarginHint")} /></span></>} value={`${money(proj.contributionMargin.amount)} (${pct(proj.contributionMargin)})`} rag={<RagBadge value={marginHealth(proj.contributionMargin.percent)} lang={lang} title={t(lang, "budgetCciMargin")} />} />
+          <Tile label={<>{t(lang, "budgetCciCpi")}<span className="print:hidden ml-1"><InfoTooltip text={t(lang, "budgetCciCpiHint")} /></span></>} value={`${money(proj.costPerformance.amount)} (${pct(proj.costPerformance)})`} rag={<RagBadge value={costPerformanceHealth(proj.costPerformance.percent)} lang={lang} title={t(lang, "budgetCciCpi")} />} />
+          <Tile label={<>{t(lang, "budgetCciConsumption")}<span className="print:hidden ml-1"><InfoTooltip text={t(lang, "budgetCciConsumptionHint")} /></span></>} value={`${money(proj.consumption.amount)} (${pct(proj.consumption)})`} rag={<RagBadge value={ratioHealth(proj.consumedValue, proj.budgetValue)} lang={lang} title={t(lang, "budgetCciConsumption")} />} />
         </div>
       </Section>
 
@@ -110,8 +111,8 @@ export function BudgetReportPanel({
               <Tile label={t(lang, "evmPv")} value={`${Math.round(evm.pv)}h${evm.money ? ` (${money(evm.money.pv)})` : ""}`} />
               <Tile label={t(lang, "evmEv")} value={`${Math.round(evm.ev)}h${evm.money ? ` (${money(evm.money.ev)})` : ""}`} />
               <Tile label={t(lang, "evmAc")} value={`${Math.round(evm.ac)}h${evm.money ? ` (${money(evm.money.ac)})` : ""}`} />
-              <Tile label={t(lang, "evmSpi")} value={evm.spi != null ? evm.spi.toFixed(2) : "—"} />
-              <Tile label={t(lang, "evmCpi")} value={evm.cpi != null ? evm.cpi.toFixed(2) : "—"} />
+              <Tile label={<>{t(lang, "evmSpi")}<span className="print:hidden ml-1"><InfoTooltip text={t(lang, "evmSpiHint")} /></span></>} value={evm.spi != null ? evm.spi.toFixed(2) : "—"} />
+              <Tile label={<>{t(lang, "evmCpi")}<span className="print:hidden ml-1"><InfoTooltip text={t(lang, "evmCpiHint")} /></span></>} value={evm.cpi != null ? evm.cpi.toFixed(2) : "—"} />
               <Tile label={t(lang, "evmSv")} value={`${Math.round(evm.sv)}h${evm.money ? ` (${money(evm.money.sv)})` : ""}`} />
               <Tile label={t(lang, "evmCv")} value={`${Math.round(evm.cv)}h${evm.money ? ` (${money(evm.money.cv)})` : ""}`} />
             </div>
@@ -206,7 +207,7 @@ function BucketDetailTable({
   const w = colResize.colWidths;
   const sr = colResize.startColResize as (col: string, e: React.MouseEvent) => void;
 
-  const cols: { key: DetailSortKey; col: DetailCol; label: string; align: "left" | "right" }[] = useMemo(
+  const cols: { key: DetailSortKey; col: DetailCol; label: string; align: "left" | "right"; hint?: string }[] = useMemo(
     () => [
       { key: "name", col: "bucket", label: t(lang, "budgetReportByBucket"), align: "left" },
       { key: "mode", col: "mode", label: t(lang, "budgetReportColMode"), align: "left" },
@@ -219,7 +220,7 @@ function BucketDetailTable({
       { key: "budgetEur", col: "budgetEur", label: t(lang, "budgetReportColBudgetEur"), align: "right" },
       { key: "consumedEur", col: "consumedEur", label: t(lang, "budgetReportColConsumed"), align: "right" },
       { key: "margin", col: "margin", label: t(lang, "budgetReportColMargin"), align: "right" },
-      { key: "winLoss", col: "winLoss", label: t(lang, "budgetReportColWinLoss"), align: "right" },
+      { key: "winLoss", col: "winLoss", label: t(lang, "budgetReportColWinLoss"), align: "right", hint: t(lang, "budgetReportColWinLossHint") },
     ],
     [lang],
   );
@@ -244,6 +245,7 @@ function BucketDetailTable({
                     dir={sort.dir}
                     onClick={() => click(c.key)}
                   />
+                  {c.hint && <span className="print:hidden ml-1 inline-flex align-middle"><InfoTooltip text={c.hint} /></span>}
                   <ColumnResizeHandle col={c.col} onMouseDown={sr} />
                 </th>
               ))}

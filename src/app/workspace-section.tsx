@@ -827,6 +827,8 @@ export function WorkspaceSection({
               showBudget={isModuleEnabled("budget", settings.features)}
               showMilestones={isModuleEnabled("milestones", settings.features)}
               showChanges={isModuleEnabled("changes", settings.features)}
+              showTrends={settings.dashboard?.showTrends !== false}
+              onToggleTrends={(show) => setSettings((s) => ({ ...s, dashboard: { ...s.dashboard, showTrends: show } }))}
               topActions={nextActions.slice(0, 5)}
               onOpenAction={onOpenAction}
             />
@@ -847,6 +849,7 @@ export function WorkspaceSection({
               captureNow={trends.captureNow}
               setBaseline={trends.setBaseline}
               deleteSnapshot={trends.deleteSnapshot}
+              deleteSnapshots={trends.deleteSnapshots}
             />
           </div>
         )}

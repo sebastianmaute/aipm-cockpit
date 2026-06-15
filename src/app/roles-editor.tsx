@@ -6,7 +6,7 @@ import { currencySymbol } from "./resource-cost";
 import { roleLabel } from "./resource-foundation";
 import type { Discipline, Grade, Role } from "./types";
 import { useColumnResize } from "./use-column-resize";
-import { ColumnResizeHandle, ResetColWidthsButton } from "./task-manager-ui";
+import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton } from "./task-manager-ui";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import { INNER_TABLE_CLASS } from "./view-styles";
 import { InfoTooltip } from "./info-tooltip";
@@ -37,6 +37,8 @@ export interface RolesEditorProps {
   onRenameGrade: (id: number, name: string) => void;
   onDeleteGrade: (id: number) => void;
   onReorderGrades: (ids: number[]) => void;
+  /** Called when the user clicks the reset-pane-size button in the rate-card header. */
+  onResetSize?: () => void;
 }
 
 function clampRate(raw: string): number {
@@ -50,6 +52,7 @@ export function RolesEditor({
   onSaveRole, onDeleteRole, onResolveOrCreateRole,
   onAddDiscipline, onRenameDiscipline, onDeleteDiscipline, onReorderDisciplines,
   onAddGrade, onRenameGrade, onDeleteGrade, onReorderGrades,
+  onResetSize,
 }: RolesEditorProps) {
   const curSymbol = currencySymbol(currency, localeFor(lang));
   const [newDiscipline, setNewDiscipline] = useState("");
@@ -98,7 +101,10 @@ export function RolesEditor({
       <section>
         <div className="mb-2 flex items-center justify-between gap-2">
           <h4 className="text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">{t(lang, "rolesRateCard")}</h4>
-          <ResetColWidthsButton onClick={resetColWidths} lang={lang} />
+          <div className="flex flex-row items-center gap-2">
+            {onResetSize && <ResetSizeButton onClick={onResetSize} lang={lang} />}
+            <ResetColWidthsButton onClick={resetColWidths} lang={lang} />
+          </div>
         </div>
         {sortedRoles.length === 0 ? (
           <p className="text-sm text-muted-foreground">{t(lang, "rolesNoRoles")}</p>

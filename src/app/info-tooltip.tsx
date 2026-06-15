@@ -17,7 +17,14 @@ export function InfoTooltip({ text, label }: InfoTooltipProps) {
   useEffect(() => {
     if (!open || !ref.current) return;
     const r = ref.current.getBoundingClientRect();
-    setPos({ top: r.bottom + 4, left: r.left + r.width / 2 });
+    const MARGIN = 8;
+    const HALF = 128; // half of max-w-[16rem] (256px)
+    const centered = r.left + r.width / 2;
+    const clampedLeft = Math.min(
+      Math.max(centered, MARGIN + HALF),
+      window.innerWidth - MARGIN - HALF,
+    );
+    setPos({ top: r.bottom + 4, left: clampedLeft });
     const close = () => setOpen(false);
     window.addEventListener("scroll", close, true);
     window.addEventListener("resize", close);
@@ -52,8 +59,9 @@ export function InfoTooltip({ text, label }: InfoTooltipProps) {
         createPortal(
           <span
             role="tooltip"
+            data-tooltip-portal
             style={{ top: pos.top, left: pos.left, transform: "translateX(-50%)" }}
-            className="pointer-events-none fixed z-[100] w-max max-w-[16rem] rounded-md border border-line bg-surface px-2 py-1 text-xs font-normal normal-case text-foreground shadow-md"
+            className="pointer-events-none fixed z-[100] w-max max-w-[16rem] rounded-md border border-line bg-surface px-2 py-1 text-xs font-normal normal-case text-foreground"
           >
             {text}
           </span>,
