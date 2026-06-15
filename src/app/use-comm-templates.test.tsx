@@ -40,6 +40,16 @@ describe("useCommTemplates", () => {
     expect(upsertTemplate).toHaveBeenCalledTimes(1);
     expect(result.current.templates.some((t) => t.name === "New")).toBe(true);
   });
+  it("auto-defaults the first template in a category, not later ones", async () => {
+    const { result } = renderHook(() => useCommTemplates({ active: true, config: cfg }));
+    await waitFor(() => expect(loadTemplates).toHaveBeenCalled());
+    await act(async () => { await result.current.create("status-inquiry", "First", "<p>a</p>"); });
+    const first = result.current.templates.find((t) => t.name === "First")!;
+    expect(first.isDefault).toBe(true);
+    expect(result.current.resolveTemplateBody("status-inquiry")).toBe("<p>a</p>");
+    await act(async () => { await result.current.create("status-inquiry", "Second", "<p>b</p>"); });
+    expect(result.current.templates.find((t) => t.name === "Second")!.isDefault).toBe(false);
+  });
   it("setDefault moves the default within the category", async () => {
     loadTemplates.mockResolvedValue([def, other]);
     const { result } = renderHook(() => useCommTemplates({ active: true, config: cfg }));

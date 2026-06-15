@@ -76,13 +76,16 @@ export function useCommTemplates(args: UseCommTemplatesArgs): UseCommTemplatesRe
     try {
       const now = new Date().toISOString();
       const suffix = Math.random().toString(36).slice(2, 8);
-      const tpl: CommTemplate = { id: `${category}-${now}-${suffix}`, category, name, body, isDefault: false, createdAt: now, updatedAt: now };
+      // First template in a category becomes its default, so the send flow uses
+      // it automatically without requiring an explicit "Set as default" click.
+      const isDefault = !templates.some((tpl) => tpl.category === category && tpl.isDefault);
+      const tpl: CommTemplate = { id: `${category}-${now}-${suffix}`, category, name, body, isDefault, createdAt: now, updatedAt: now };
       await storeUpsert(cfgRef.current, tpl);
       setTemplates((prev) => [...prev, tpl]);
     } finally {
       setBusy(false);
     }
-  }, [active]);
+  }, [active, templates]);
 
   const upsertField = useCallback(async (id: string, patch: Partial<Pick<CommTemplate, "name" | "body">>) => {
     if (!active || !cfgRef.current) return;
