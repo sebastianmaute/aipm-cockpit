@@ -8,6 +8,17 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.86.0] - 2026-06-15 "Hamilton"
+
+### Added / Changed
+- **Assign owner from Action Center**: RAID risks without an owner now show an
+  inline "Assign owner" CTA in the Action Center inbox row. Clicking it opens a
+  `ResourcePicker` popover that writes the owner field immediately — no editor
+  round-trip required (surface-only change; engine untouched).
+- **Second execution-depth slice**: following the create-task CTA (0.85.0), this
+  slice continues the pattern of resolving Action Center signals directly in the
+  inbox, reducing modal navigation for common triage actions.
+
 ## [0.85.0] - 2026-06-14 "Liu"
 
 ### Added / Changed

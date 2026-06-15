@@ -91,3 +91,61 @@ describe("ActionRow create task", () => {
     expect(screen.queryByRole("button", { name: /create task/i })).toBeNull();
   });
 });
+
+describe("ActionRow assign owner", () => {
+  function noOwnerRaid(): never {
+    return {
+      id: "raid:12:severity", source: "raid",
+      title: { key: "actionRaidTitle", params: [12, "DB outage"] },
+      why: { key: "actionRaidWhyNoOwner", params: ["High"] },
+      score: 30, tier: "now", cta: { kind: "open", view: "raid", id: 12 },
+    } as never;
+  }
+  const bundle = { resources: [], onCreateResource: () => 1, onAssign: () => {} };
+
+  it("shows Assign owner for a no-owner raid action and opens the picker", () => {
+    const onOpen = vi.fn();
+    render(<ActionRow lang="en-US" action={noOwnerRaid()} onOpen={onOpen} assignOwner={{ ...bundle, onAssign: vi.fn() }} />);
+    const btn = screen.getByRole("button", { name: /assign owner/i });
+    fireEvent.click(btn);
+    expect(onOpen).not.toHaveBeenCalled();       // stopPropagation
+    expect(screen.getByRole("combobox")).toBeInTheDocument(); // ResourcePicker input present (role="combobox")
+  });
+
+  it("hides Assign owner for an owned raid action (severity why)", () => {
+    const owned = { ...(noOwnerRaid() as SuggestedAction), why: { key: "actionRaidWhySeverity", params: ["High"] } } as never;
+    render(<ActionRow lang="en-US" action={owned} onOpen={() => {}} assignOwner={bundle} />);
+    expect(screen.queryByRole("button", { name: /assign owner/i })).toBeNull();
+  });
+
+  it("hides Assign owner when no assignOwner bundle is provided", () => {
+    render(<ActionRow lang="en-US" action={noOwnerRaid()} onOpen={() => {}} />);
+    expect(screen.queryByRole("button", { name: /assign owner/i })).toBeNull();
+  });
+
+  it("calls onAssign and closes when a resource is picked", () => {
+    const onAssign = vi.fn();
+    const resources = [{ id: 1, firstName: "Mara", lastName: "Vega", email: "mara@x.io" }] as never;
+    render(
+      <ActionRow
+        lang="en-US"
+        action={noOwnerRaid() as never}
+        onOpen={() => {}}
+        assignOwner={{ resources, onCreateResource: () => 1, onAssign }}
+      />,
+    );
+    // Open the assign-owner popover.
+    fireEvent.click(screen.getByRole("button", { name: /assign owner/i }));
+    // The ResourcePicker combobox is now rendered; focus it so the listbox opens.
+    const combobox = screen.getByRole("combobox");
+    fireEvent.focus(combobox);
+    // Select "Mara Vega" via onMouseDown (ResourcePicker uses onMouseDown on option buttons
+    // so it runs before the blur that would otherwise close the listbox).
+    // Target the option <li> by role to get a unique element, then fire on the button inside.
+    const optionLi = screen.getByRole("option");
+    fireEvent.mouseDown(optionLi.querySelector("button")!);
+    expect(onAssign).toHaveBeenCalledTimes(1);
+    expect(onAssign.mock.calls[0][1]).toMatchObject({ resourceId: 1 });
+    expect(screen.queryByRole("combobox")).toBeNull(); // popover closed
+  });
+});

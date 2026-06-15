@@ -107,6 +107,10 @@ export function useSnapshots(args: UseSnapshotsArgs): UseSnapshotsResult {
       }
     })();
     return () => { cancelled = true; };
+    // Intentional: buildContext/onError/tursoConfig are read via the refs mirrored
+    // above (ctxRef/errRef/cfgRef), so they must NOT be effect deps — re-running on
+    // every render-new buildContext would re-fetch history (and re-auto-capture) each
+    // render. The effect fires only when active/cadence/bucket/project actually change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active, cadence, currentBucket, args.projectId]);
 

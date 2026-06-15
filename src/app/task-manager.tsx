@@ -30,6 +30,7 @@ import { type Resource, type BudgetBucket, type RaidItem, type ChangeItem } from
 import { useFxRates } from "./use-fx-rates";
 import { splitName, resourceDisplayName, nextId as computeNextId } from "./resource-foundation";
 import { buildRaidByTaskIndex } from "./raid";
+import { applyOwnerAssignment } from "./action-assign-owner";
 import { buildChangeByTaskIndex } from "./change-log";
 import { FiltersProvider, useFilters } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
@@ -928,6 +929,27 @@ function TaskManagerInner() {
     pendingLinkRaidIdRef,
   });
 
+  const assignOwnerBundle = useMemo(
+    () =>
+      isPopout
+        ? undefined
+        : {
+            resources,
+            onCreateResource: handleCreateResource,
+            onAssign: (
+              action: SuggestedAction,
+              v: { name: string; email: string; resourceId: number | null },
+            ) => {
+              const id = action.cta.kind === "open" ? Number(action.cta.id) : -1;
+              const next = applyOwnerAssignment(raid, id, v);
+              if (next === raid) return; // no matching item → no write, no toast
+              setRaid(next as RaidItem[]);
+              showToast("info", t(lang, "actionOwnerAssigned", id));
+            },
+          },
+    [isPopout, resources, handleCreateResource, raid, setRaid, showToast, lang],
+  );
+
   const handleCreateTaskFromAction = useCallback(
     (action: SuggestedAction) => {
       handleCancelEdit(); // reset editor (clears editingId, form, and the pending ref)
@@ -1343,6 +1365,7 @@ function TaskManagerInner() {
     onOpenAction: openAction,
     onSnooze: snoozeAction,
     onCreateTask: isPopout ? undefined : handleCreateTaskFromAction,
+    assignOwner: assignOwnerBundle,
   };
 
   const workspaceEl = <WorkspaceSection {...workspaceProps} />;

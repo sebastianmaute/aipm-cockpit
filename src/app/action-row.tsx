@@ -1,15 +1,24 @@
 // src/app/action-row.tsx
 "use client";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { type Lang, t } from "./i18n";
 import type { SuggestedAction, ActionTier } from "./next-actions/types";
+import type { Resource } from "./types";
 import { SNOOZE_1H, SNOOZE_1D } from "./reminder-snooze";
 import { ACTION_SOURCE_LABEL } from "./action-source-label";
+import { ResourcePicker } from "./resource-picker";
+
 const TIER_DOT: Record<ActionTier, string> = {
   now: "bg-AIPM-pink",
   soon: "bg-AIPM-purple",
   monitor: "bg-AIPM-medium-grey",
 };
+
+export interface AssignOwnerBundle {
+  resources: readonly Resource[];
+  onCreateResource: (name: string, email: string) => number;
+  onAssign: (action: SuggestedAction, value: { name: string; email: string; resourceId: number | null }) => void;
+}
 
 interface ActionRowProps {
   lang: Lang;
@@ -17,12 +26,35 @@ interface ActionRowProps {
   onOpen: (action: SuggestedAction) => void;
   onSnooze?: (action: SuggestedAction, durationMs: number) => void;
   onCreateTask?: (action: SuggestedAction) => void;
+  assignOwner?: AssignOwnerBundle;
 }
 
-export function ActionRow({ lang, action, onOpen, onSnooze, onCreateTask }: ActionRowProps) {
+export function ActionRow({ lang, action, onOpen, onSnooze, onCreateTask, assignOwner }: ActionRowProps) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [assignOpen, setAssignOpen] = useState(false);
+  const assignPopRef = useRef<HTMLSpanElement>(null);
+
+  // Focus first focusable element when popover opens (a11y: dialog focus management).
+  useEffect(() => {
+    if (assignOpen) assignPopRef.current?.querySelector<HTMLElement>("input,button,[tabindex]")?.focus();
+  }, [assignOpen]);
+
+  // Close on Escape regardless of which element inside the dialog has focus.
+  // Document-level listener is robust even when ResourcePicker's own Escape handler
+  // fires e.preventDefault() without bubbling (e.g. when its listbox is open).
+  useEffect(() => {
+    if (!assignOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setAssignOpen(false); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [assignOpen]);
   const title = t(lang, action.title.key, ...(action.title.params ?? []));
   const why = t(lang, action.why.key, ...(action.why.params ?? []));
+  const canAssign =
+    assignOwner != null &&
+    action.source === "raid" &&
+    action.why.key === "actionRaidWhyNoOwner" &&
+    action.cta.kind === "open";
   return (
     // Mouse convenience only — NOT role="button"/tabIndex: nesting an interactive
     // control (the Open button) inside a role=button is a WCAG nested-interactive
@@ -59,6 +91,38 @@ export function ActionRow({ lang, action, onOpen, onSnooze, onCreateTask }: Acti
             {t(lang, "actionCreateTask")}
           </button>
         )}
+        {canAssign && assignOwner && (
+          <span className="relative">
+            <button
+              type="button"
+              aria-haspopup="dialog"
+              aria-expanded={assignOpen}
+              onClick={(e) => { e.stopPropagation(); setAssignOpen((o) => !o); }}
+              className="rounded-md border border-line px-2 py-1 text-xs font-medium text-AIPM-dark-blue hover:bg-surface-muted dark:text-AIPM-light-grey"
+            >
+              {t(lang, "actionAssignOwner")}
+            </button>
+            {assignOpen && (
+              <span
+                ref={assignPopRef}
+                role="dialog"
+                aria-label={t(lang, "actionAssignOwner")}
+                onClick={(e) => e.stopPropagation()}
+                onKeyDown={(e) => { if (e.key === "Escape") setAssignOpen(false); }}
+                className="absolute right-0 top-full z-20 mt-1 w-64 rounded-md border border-line bg-surface p-2"
+              >
+                <ResourcePicker
+                  lang={lang}
+                  value={{ name: "", email: "", resourceId: null }}
+                  resources={assignOwner.resources}
+                  contacts={[]}
+                  onCreateResource={assignOwner.onCreateResource}
+                  onChange={(next) => { assignOwner.onAssign(action, next); setAssignOpen(false); }}
+                />
+              </span>
+            )}
+          </span>
+        )}
         {onSnooze && (
           <span className="relative">
             <button
@@ -72,7 +136,7 @@ export function ActionRow({ lang, action, onOpen, onSnooze, onCreateTask }: Acti
             </button>
             {menuOpen && (
               <span
-                className="absolute right-0 top-full z-20 mt-1 flex w-max flex-col rounded-md border border-line bg-surface py-1 shadow-sm"
+                className="absolute right-0 top-full z-20 mt-1 flex w-max flex-col rounded-md border border-line bg-surface py-1"
               >
                 <button type="button"
                   onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onSnooze(action, SNOOZE_1H); }}
