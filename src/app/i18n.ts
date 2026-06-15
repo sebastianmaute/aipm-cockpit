@@ -143,6 +143,10 @@ const enUS = {
   confirmClearActivityLog: "Clear all {0} activity log entries? This cannot be undone.",
   promptEmail: "No email saved for {0}. Enter their email address:",
 
+  commsEmailSubject: "Project update — {0}",
+  commsEmailBodyTemplate:
+    "Hi {0},\n\nA quick update on where we stand and what I need from you:\n\n",
+
   emailSubject: "Update for assigned task: #{0} – {1}",
   emailBodyTemplate:
     "Hi {0},\n\nCould you provide a status update on the following task?\n\n- ID: #{1}\n- Task: {2}\n- Due: {3}\n- Last update: {4}\n\nThanks",

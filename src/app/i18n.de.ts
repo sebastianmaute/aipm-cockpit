@@ -148,6 +148,10 @@ export const de: Record<TranslationKey, string> = {
   confirmClearActivityLog: "Alle {0} Aktivitätsprotokoll-Einträge löschen? Dies kann nicht rückgängig gemacht werden.",
   promptEmail: "Keine E-Mail-Adresse für {0} gespeichert. Bitte E-Mail-Adresse eingeben:",
 
+  commsEmailSubject: "Projekt-Update — {0}",
+  commsEmailBodyTemplate:
+    "Hallo {0},\n\nein kurzes Update zum aktuellen Stand und was ich von dir brauche:\n\n",
+
   emailSubject: "Update zur zugewiesenen Aufgabe: #{0} – {1}",
   emailBodyTemplate:
     "Hallo {0},\n\nkönnten Sie ein Status-Update zur folgenden Aufgabe geben?\n\n- ID: #{1}\n- Aufgabe: {2}\n- Fällig: {3}\n- Letzte Aktualisierung: {4}\n\nDanke",
