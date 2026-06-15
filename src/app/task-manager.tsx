@@ -928,6 +928,37 @@ function TaskManagerInner() {
     pendingLinkRaidIdRef,
   });
 
+  const assignOwnerBundle = useMemo(
+    () =>
+      isPopout
+        ? undefined
+        : {
+            resources,
+            onCreateResource: handleCreateResource,
+            onAssign: (
+              action: SuggestedAction,
+              v: { name: string; email: string; resourceId: number | null },
+            ) => {
+              const id = action.cta.kind === "open" ? Number(action.cta.id) : -1;
+              if (!raid.some((r) => r.id === id)) return; // deleted between open + pick
+              setRaid((prev) =>
+                prev.map((r) =>
+                  r.id === id
+                    ? {
+                        ...r,
+                        owner: v.name || undefined,
+                        ownerEmail: v.email || undefined,
+                        ownerResourceId: v.resourceId,
+                      }
+                    : r,
+                ),
+              );
+              showToast("info", t(lang, "actionOwnerAssigned", id));
+            },
+          },
+    [isPopout, resources, handleCreateResource, raid, setRaid, showToast, lang],
+  );
+
   const handleCreateTaskFromAction = useCallback(
     (action: SuggestedAction) => {
       handleCancelEdit(); // reset editor (clears editingId, form, and the pending ref)
@@ -1343,6 +1374,7 @@ function TaskManagerInner() {
     onOpenAction: openAction,
     onSnooze: snoozeAction,
     onCreateTask: isPopout ? undefined : handleCreateTaskFromAction,
+    assignOwner: assignOwnerBundle,
   };
 
   const workspaceEl = <WorkspaceSection {...workspaceProps} />;

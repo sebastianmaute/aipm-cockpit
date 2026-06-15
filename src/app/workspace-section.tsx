@@ -22,6 +22,7 @@ import type { Settings } from "./settings-types";
 import type { ProjectRegistryEntry } from "./projects-registry";
 import type { Contact } from "./contacts";
 import type { SuggestedAction } from "./next-actions";
+import type { AssignOwnerBundle } from "./action-row";
 import { ActionChips, chipsForView } from "./action-chips";
 import { ResourceDirectory } from "./resource-directory";
 import { DashboardPanel } from "./dashboard-panel";
@@ -191,6 +192,7 @@ export interface WorkspaceSectionProps {
   onOpenAction: (a: SuggestedAction) => void;
   onSnooze?: (a: SuggestedAction, ms: number) => void;
   onCreateTask?: (a: SuggestedAction) => void;
+  assignOwner?: AssignOwnerBundle;
 }
 
 export function WorkspaceSection({
@@ -264,6 +266,7 @@ export function WorkspaceSection({
   onOpenAction,
   onSnooze,
   onCreateTask,
+  assignOwner,
 }: WorkspaceSectionProps) {
   const { settings, setSettings, lang } = useSettings();
   const features = settings.features;
@@ -869,7 +872,7 @@ export function WorkspaceSection({
 
         {activeTab === "actions" && (
           <div id="panel-actions" role="tabpanel" className={panelClass}>
-            <ActionsPanel lang={lang} actions={nextActions} onOpen={onOpenAction} onSnooze={onSnooze} onCreateTask={onCreateTask} />
+            <ActionsPanel lang={lang} actions={nextActions} onOpen={onOpenAction} onSnooze={onSnooze} onCreateTask={onCreateTask} assignOwner={assignOwner} />
           </div>
         )}
 

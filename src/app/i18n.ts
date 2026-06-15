@@ -1413,6 +1413,7 @@ const enUS = {
   actionSnooze1h: "1 hour",
   actionSnooze1d: "1 day",
   actionAssignOwner: "Assign owner",
+  actionOwnerAssigned: "Owner assigned to RAID #{0}",
   versionHighlightSnoozeActions: "Reminders folded into the Action Center: snooze actions (1h/1d); the due / RAID-review / stakeholder-comms banners are gone",
   // --- Inline action chips (SP4) ---
   actionChipsLabel: "Suggested actions",
