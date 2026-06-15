@@ -1,5 +1,4 @@
 // src/app/comm-templates.ts — pure model + interpolation for communication templates.
-import type { Lang } from "./i18n";
 import type { Task, Stakeholder } from "./types";
 import { greetingName } from "./contacts";
 
@@ -36,7 +35,7 @@ export function withDefault(list: readonly CommTemplate[], id: string): CommTemp
   return list.map((t) => (t.category === target.category ? { ...t, isDefault: t.id === id } : t));
 }
 
-export function buildStatusInquiryVars(task: Task, _lang: Lang): Record<string, string> {
+export function buildStatusInquiryVars(task: Task): Record<string, string> {
   return {
     taskId: String(task.id),
     taskName: task.taskName,

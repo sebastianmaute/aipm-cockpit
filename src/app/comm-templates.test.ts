@@ -30,7 +30,7 @@ describe("withDefault", () => {
 
 describe("var builders", () => {
   it("builds status-inquiry vars", () => {
-    const v = buildStatusInquiryVars({ id: 7, taskName: "Ship", dueDate: "2026-07-01", lastUpdateDate: "2026-06-01", assignee: "Mara Vega" } as never, "en-US");
+    const v = buildStatusInquiryVars({ id: 7, taskName: "Ship", dueDate: "2026-07-01", lastUpdateDate: "2026-06-01", assignee: "Mara Vega" } as never);
     expect(v.taskId).toBe("7");
     expect(v.taskName).toBe("Ship");
     expect(v.dueDate).toBe("2026-07-01");
