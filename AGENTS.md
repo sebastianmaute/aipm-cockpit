@@ -45,3 +45,6 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
   the surface translates.
 - Storage is a facade (`storage.ts`) over multiple backends: JSON file, CSV, Markdown, Turso
   (single + multi-tenant), IndexedDB. Snapshots/Trends and version history are Turso-ONLY.
+- Action-Center CTAs are surface-only: thread an optional handler
+  task-manager → workspace-section → ActionsPanel → ActionRow (ActionsPanel renders in
+  workspace-section, not task-manager); the `next-actions/` engine stays pure.
