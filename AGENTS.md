@@ -20,7 +20,8 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
 - **i18n:** `i18n.ts` (EN) + `i18n.de.ts` (DE) key sets must be identical (tsc enforces).
   DE must use real German umlauts — the `i18n-encoding` test BANS ASCII subs (fuer/druecken).
   The Edit tool corrupts umlauts AND curls double-quotes in `i18n.de.ts` (bites umlaut-free
-  strings too); patch it via a node utf8 write and re-verify.
+  strings too); patch it via a node utf8 write and re-verify. The file is CRLF — a node
+  replace whose anchor uses `\n` silently no-ops; match `\r\n`.
 - **Byte-stable serializers:** `golden-workspace.test` pins the exact CSV/Markdown storage bytes.
   A failure usually means a real format change — only regenerate the `__fixtures__` when the
   *input* (`sample-workspace.json`) legitimately changed, never to mask a format diff.
@@ -37,6 +38,9 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
   IndexedDB). Miss one and data silently drops on that backend.
 - **Turso-gated features** (Snapshots/Trends, version history) must check `tursoConfig !== null`,
   not just `storageConfig.kind === "turso"` (kind can be set while the config is unset/quarantined).
+- **New Turso table that is NOT workspace data** (snapshots, version history, comm_templates)
+  must stay OUT of `TABLE_NAMES` (a guard test enforces it) — else the workspace save's
+  per-table DELETE wipes it. `SqlArg.value` (turso-schema) is string-only even for ints (`String(v)`).
 
 ## Architecture pointers
 
@@ -48,3 +52,6 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
 - Action-Center CTAs are surface-only: thread an optional handler
   task-manager → workspace-section → ActionsPanel → ActionRow (ActionsPanel renders in
   workspace-section, not task-manager); the `next-actions/` engine stays pure.
+- Heavy browser-only deps (rich-text editor, etc.) load via `next/dynamic({ ssr: false })` to
+  stay off the main bundle; ProseMirror/Tiptap-style libs need `Range.getClientRects` +
+  `getBoundingClientRect` jsdom stubs in their tests.
