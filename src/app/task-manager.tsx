@@ -73,7 +73,8 @@ import { TaskEditView, TASK_EDIT_FORM_ID } from "./task-edit-view";
 import { APP_VERSION_LABEL } from "./version";
 import { ActionMenus } from "./action-menus";
 import { makeEditGuard } from "./read-only-guard";
-import { buildMailtoUrl, stakeholderEmail } from "./mailto";
+import { buildMailtoUrl, stakeholderEmail, resolveDraftRecipient } from "./mailto";
+import { isValidEmail } from "./sanitize";
 import { SettingsView } from "./settings-view";
 import { ReadOnlyMirrorBanner } from "./read-only-mirror-banner";
 import { VoiceCommandProvider } from "./voice-command-context";
@@ -1013,14 +1014,14 @@ function TaskManagerInner() {
       if (action.source === "stakeholder-comms") {
         const sh = stakeholders.find((s) => s.id === id);
         if (!sh) return;
-        let email = stakeholderEmail(sh, resources);
-        if (!email) {
-          const provided = window.prompt(t(lang, "promptEmail", sh.name), "");
-          if (provided === null) return;
-          const trimmed = provided.trim();
-          if (!trimmed) return;
-          email = trimmed;
-        }
+        const email = resolveDraftRecipient(
+          sh,
+          resources,
+          () => window.prompt(t(lang, "promptEmail", sh.name), ""),
+          isValidEmail,
+          () => window.alert(t(lang, "errorInvalidEmail")),
+        );
+        if (!email) return;
         const subject = t(lang, "commsEmailSubject", project?.name ?? "");
         const body = t(lang, "commsEmailBodyTemplate", sh.name);
         window.location.href = buildMailtoUrl(email, subject, body);

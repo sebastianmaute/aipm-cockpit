@@ -163,16 +163,24 @@ describe("ActionRow draft message", () => {
   it("shows Draft message for task-due and calls onDraftMessage without opening", () => {
     const onOpen = vi.fn();
     const onDraftMessage = vi.fn();
-    render(<ActionRow lang="en-US" action={draftableAction("task-due")} onOpen={onOpen} onDraftMessage={onDraftMessage} />);
+    const action = draftableAction("task-due");
+    render(<ActionRow lang="en-US" action={action} onOpen={onOpen} onDraftMessage={onDraftMessage} />);
     const btn = screen.getByRole("button", { name: /draft message/i });
     fireEvent.click(btn);
     expect(onDraftMessage).toHaveBeenCalledTimes(1);
+    expect(onDraftMessage).toHaveBeenCalledWith(action);
     expect(onOpen).not.toHaveBeenCalled();
   });
 
-  it("shows Draft message for stakeholder-comms", () => {
-    render(<ActionRow lang="en-US" action={draftableAction("stakeholder-comms")} onOpen={() => {}} onDraftMessage={() => {}} />);
-    expect(screen.getByRole("button", { name: /draft message/i })).toBeInTheDocument();
+  it("shows Draft message for stakeholder-comms and calls onDraftMessage", () => {
+    const onDraftMessage = vi.fn();
+    const action = draftableAction("stakeholder-comms");
+    render(<ActionRow lang="en-US" action={action} onOpen={() => {}} onDraftMessage={onDraftMessage} />);
+    const btn = screen.getByRole("button", { name: /draft message/i });
+    expect(btn).toBeInTheDocument();
+    fireEvent.click(btn);
+    expect(onDraftMessage).toHaveBeenCalledTimes(1);
+    expect(onDraftMessage).toHaveBeenCalledWith(action);
   });
 
   it("hides Draft message for other sources and when onDraftMessage absent", () => {
