@@ -256,6 +256,27 @@ describe("useTaskRowHandlers — onSendInquiry", () => {
     expect(persist([task])[0].assigneeEmail).toBe("bob@example.com");
     expect(hrefValue.startsWith("mailto:")).toBe(true);
   });
+
+  it("uses the default template body (rendered, plain-texted) when resolveTemplateBody returns one", () => {
+    const setTasks = vi.fn();
+    const task = makeTask({ id: 1, assigneeEmail: "alice@example.com", taskName: "Ship It" });
+    const resolveTemplateBody = vi.fn(() => "<p>Hi {{taskName}}</p>");
+    const { result } = renderHook(() => useTaskRowHandlers(makeArgs({ setTasks, resolveTemplateBody })));
+    act(() => result.current.onSendInquiry(task));
+    const decoded = decodeURIComponent(hrefValue);
+    expect(decoded).toContain("Hi Ship It");
+    expect(resolveTemplateBody).toHaveBeenCalledWith("status-inquiry");
+  });
+
+  it("falls back to the i18n body when no template is resolved", () => {
+    const setTasks = vi.fn();
+    const task = makeTask({ id: 1, assigneeEmail: "alice@example.com", taskName: "Ship It" });
+    const { result } = renderHook(() => useTaskRowHandlers(makeArgs({ setTasks, resolveTemplateBody: () => null })));
+    act(() => result.current.onSendInquiry(task));
+    expect(hrefValue.startsWith("mailto:")).toBe(true);
+    // i18n fallback body does NOT contain the raw template markup
+    expect(decodeURIComponent(hrefValue)).not.toContain("{{taskName}}");
+  });
 });
 
 describe("useTaskRowHandlers — onPushToJira", () => {

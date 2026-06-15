@@ -8,6 +8,19 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.88.0] - 2026-06-15 "Niven"
+
+### Added / Changed
+- **Communication templates (SP1)**: author named, categorized email templates
+  (status inquiry, stakeholder update) with `{{merge-field}}` placeholders in a new
+  Turso-only Settings pane. Each category has a default template that the "draft
+  email" send flows (status-chase + stakeholder message) use automatically, rendered
+  to plain text for the `mailto:` body. Off-Turso, the existing i18n body templates
+  remain the fallback. Templates are stored globally (shared across projects) in a
+  dedicated `comm_templates` table, kept out of the workspace save/load cycle.
+- Foundation for later slices: SP2 will add a rich-text (Outlook-like) editor, and
+  SP3 named template versions with compare/restore.
+
 ## [0.87.0] - 2026-06-15 "Wells"
 
 ### Added / Changed

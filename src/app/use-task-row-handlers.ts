@@ -4,6 +4,8 @@ import type React from "react";
 import { t, type Lang } from "./i18n";
 import { isValidEmail } from "./sanitize";
 import { buildMailtoUrl } from "./mailto";
+import { htmlToPlainText } from "./html-to-text";
+import { renderTemplate, buildStatusInquiryVars } from "./comm-templates";
 import { greetingName } from "./contacts";
 import { loadJiraApi } from "./use-jira-sync";
 import type { ActivityKind } from "./activity-log";
@@ -25,6 +27,7 @@ export interface UseTaskRowHandlersArgs {
   deselectIdRef: React.MutableRefObject<(id: number) => void>;
   handleCancelEdit: () => void;
   logActivity: (kind: ActivityKind, ...args: (string | number)[]) => void;
+  resolveTemplateBody?: (category: "status-inquiry") => string | null;
 }
 
 export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
@@ -42,6 +45,7 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
     deselectIdRef,
     handleCancelEdit,
     logActivity,
+    resolveTemplateBody,
   } = args;
 
   const { setActiveTab } = useWorkspaceTab();
@@ -135,15 +139,10 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
       }
       const greeting = greetingName(task.assignee) || task.assignee;
       const subject = t(lang, "emailSubject", task.id, task.taskName);
-      const body = t(
-        lang,
-        "emailBodyTemplate",
-        greeting,
-        task.id,
-        task.taskName,
-        task.dueDate,
-        task.lastUpdateDate,
-      );
+      const tplBody = resolveTemplateBody?.("status-inquiry") ?? null;
+      const body = tplBody != null
+        ? htmlToPlainText(renderTemplate(tplBody, "status-inquiry", buildStatusInquiryVars(task)))
+        : t(lang, "emailBodyTemplate", greeting, task.id, task.taskName, task.dueDate, task.lastUpdateDate);
       const url = buildMailtoUrl(email, subject, body);
       window.location.href = url;
       setTasks((prev) =>
@@ -154,7 +153,7 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
         ),
       );
     },
-    [lang, setTasks],
+    [lang, setTasks, resolveTemplateBody],
   );
 
   const onPushToJira = useCallback(

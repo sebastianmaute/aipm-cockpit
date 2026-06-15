@@ -21,6 +21,8 @@ import { InformationFlowsSection } from "./settings-sections/information-flows-s
 import { ExportSection } from "./settings-sections/export-section";
 import { JiraSettingsSection } from "./jira-settings";
 import { StorageConfigSection } from "./storage-config";
+import { CommTemplatesSection } from "./settings-sections/comm-templates-section";
+import type { UseCommTemplatesResult } from "./use-comm-templates";
 import type { FeatureModuleId } from "./feature-modules";
 
 interface SettingsViewProps {
@@ -35,11 +37,14 @@ interface SettingsViewProps {
   onGrantStorageWrite: () => Promise<void>;
   onRequestStorageSwitch: (kind: StorageKind) => void;
   onMigrateToTurso?: () => void;
+  commTemplatesEnabled?: boolean;
+  commTemplates?: UseCommTemplatesResult;
 }
 
 type SectionId =
   | "mode" | "templates" | "appearance" | "localization" | "general" | "notifications"
-  | "nextActions" | "ai" | "jira" | "storage" | "integrations" | "export" | "informationFlows";
+  | "nextActions" | "ai" | "jira" | "storage" | "integrations" | "export" | "informationFlows"
+  | "commTemplates";
 
 const RAIL: { id: SectionId; labelKey: TranslationKey }[] = [
   { id: "mode", labelKey: "settingsSectionMode" },
@@ -55,6 +60,7 @@ const RAIL: { id: SectionId; labelKey: TranslationKey }[] = [
   { id: "export", labelKey: "settingsSectionExport" },
   { id: "nextActions", labelKey: "settingsSectionNextActions" },
   { id: "informationFlows", labelKey: "settingsSectionInformationFlows" },
+  { id: "commTemplates", labelKey: "settingsSectionCommTemplates" },
 ];
 
 // Advanced sections revealed only in expert mode.
@@ -81,12 +87,14 @@ export function SettingsView(props: SettingsViewProps) {
     (r) =>
       r.id !== FLOWS_ID &&
       r.id !== STORAGE_ID &&
+      r.id !== "commTemplates" &&
       !INTEGRATION_IDS.includes(r.id) &&
       (expert || !EXPERT_IDS.includes(r.id)),
   ).sort(byLabel);
   const integrationEntries = RAIL.filter((r) => INTEGRATION_IDS.includes(r.id)).sort(byLabel);
   const storageEntry = RAIL.find((r) => r.id === STORAGE_ID);
   const flowsEntry = RAIL.find((r) => r.id === FLOWS_ID);
+  const commTemplatesEntry = props.commTemplatesEnabled ? RAIL.find((r) => r.id === "commTemplates") : undefined;
 
   const toggleExpert = (next: boolean) => {
     onChange({ ...settings, expertMode: next });
@@ -145,6 +153,12 @@ export function SettingsView(props: SettingsViewProps) {
           <>
             <hr className="my-1 border-line" />
             {renderRailButton(storageEntry)}
+          </>
+        )}
+        {commTemplatesEntry && (
+          <>
+            <hr className="my-1 border-line" />
+            {renderRailButton(commTemplatesEntry)}
           </>
         )}
         {flowsEntry && (
@@ -216,6 +230,17 @@ export function SettingsView(props: SettingsViewProps) {
         )}
         {active === "export" && (
           <ExportSection lang={lang} settings={settings} onChange={onChange} />
+        )}
+        {active === "commTemplates" && props.commTemplates && (
+          <CommTemplatesSection
+            lang={lang}
+            templates={props.commTemplates.templates}
+            onCreate={props.commTemplates.create}
+            onRename={props.commTemplates.rename}
+            onSaveBody={props.commTemplates.saveBody}
+            onRemove={props.commTemplates.remove}
+            onSetDefault={props.commTemplates.setDefault}
+          />
         )}
         {active === "informationFlows" && (
           <InformationFlowsSection lang={lang} />
