@@ -1392,6 +1392,7 @@ const enUS = {
   commSendPreviewSend: "Send",
   commSendPreviewCancel: "Cancel",
   commSendDraftError: "Couldn't create the Outlook draft — opening a preview instead.",
+  commSendDraftCreated: "Draft created in Outlook — open Outlook to review and send.",
   commSendSent: "Email sent.",
   commSendFellBackToMailto: "Sending via Outlook failed — opening your email app instead.",
   settingsSectionIntegrations: "Integrations",

@@ -43,7 +43,12 @@ export function useCommSend(args: UseCommSendArgs): UseCommSendResult {
       mode,
       m365Available: msAuth.ready && msAuth.account !== null,
       acquireToken: msAuth.acquireToken,
-      openDraft: (webLink) => { if (webLink) window.open(webLink, "_blank", "noopener"); },
+      openDraft: (webLink) => {
+        // The draft was created in the mailbox; open it for review. If the popup
+        // is blocked or Graph returned no webLink, toast so the success isn't silent.
+        const w = webLink ? window.open(webLink, "_blank", "noopener") : null;
+        if (!w) showToast("info", t(lang, "commSendDraftCreated"));
+      },
       openPreview: (r) => setPreview({ open: true, req: r }),
       sendMailto: sendMailtoFallback,
       onError: () => showToast("error", t(lang, "commSendDraftError")),

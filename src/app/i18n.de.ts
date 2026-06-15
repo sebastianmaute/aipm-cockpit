@@ -1410,6 +1410,7 @@ export const de: Record<TranslationKey, string> = {
   commSendPreviewSend: "Senden",
   commSendPreviewCancel: "Abbrechen",
   commSendDraftError: "Outlook-Entwurf konnte nicht erstellt werden — Vorschau wird geöffnet.",
+  commSendDraftCreated: "Entwurf in Outlook erstellt — zum Prüfen und Senden Outlook öffnen.",
   commSendSent: "E-Mail gesendet.",
   commSendFellBackToMailto: "Senden über Outlook fehlgeschlagen — Ihre E-Mail-App wird geöffnet.",
   settingsSectionIntegrations: "Integrationen",

@@ -7,7 +7,7 @@ import { buildMailtoUrl } from "./mailto";
 import { htmlToPlainText } from "./html-to-text";
 import { renderTemplate, buildStatusInquiryVars } from "./comm-templates";
 import { sanitizeTemplateHtml } from "./sanitize-html";
-import type { CommSendRequest } from "./comm-send";
+import { plainTextToHtml, type CommSendRequest } from "./comm-send";
 import { greetingName } from "./contacts";
 import { loadJiraApi } from "./use-jira-sync";
 import type { ActivityKind } from "./activity-log";
@@ -149,7 +149,7 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
         : t(lang, "emailBodyTemplate", greeting, task.id, task.taskName, task.dueDate, task.lastUpdateDate);
       const html = tplBody != null
         ? sanitizeTemplateHtml(renderTemplate(tplBody, "status-inquiry", buildStatusInquiryVars(task)))
-        : `<p>${body.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/\n/g, "<br>")}</p>`;
+        : plainTextToHtml(body);
       if (sendCommTemplate) {
         sendCommTemplate({ to: email, subject, html, plain: body });
       } else {

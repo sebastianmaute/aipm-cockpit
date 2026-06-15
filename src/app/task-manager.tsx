@@ -84,6 +84,7 @@ import { VoiceCommandProvider } from "./voice-command-context";
 import { AiUsageProvider } from "./ai-usage-context";
 import { useMsAuth } from "./use-ms-auth";
 import { useCommSend } from "./use-comm-send";
+import { plainTextToHtml } from "./comm-send";
 import { CommSendPreviewModal } from "./comm-send-preview-modal";
 import { sanitizeTemplateHtml } from "./sanitize-html";
 import { SidebarFooter } from "./sidebar-footer";
@@ -1044,7 +1045,7 @@ function TaskManagerInner() {
           : t(lang, "commsEmailBodyTemplate", sh.name);
         const html = tplBody != null
           ? sanitizeTemplateHtml(renderTemplate(tplBody, "stakeholder-update", buildStakeholderUpdateVars(sh, project?.name ?? "")))
-          : `<p>${body.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/\n/g, "<br>")}</p>`;
+          : plainTextToHtml(body);
         commSend.send({ to: email, subject, html, plain: body });
       }
     },

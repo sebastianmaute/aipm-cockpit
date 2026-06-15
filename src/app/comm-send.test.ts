@@ -2,7 +2,14 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const createDraft = vi.hoisted(() => vi.fn());
 vi.mock("./graph-mail", async (orig) => ({ ...(await orig()), createDraft }));
-import { sendCommTemplate, type CommSendDeps, type CommSendRequest } from "./comm-send";
+import { sendCommTemplate, plainTextToHtml, type CommSendDeps, type CommSendRequest } from "./comm-send";
+
+describe("plainTextToHtml", () => {
+  it("escapes all HTML-significant chars (incl >) and wraps with <br> newlines", () => {
+    expect(plainTextToHtml("a & b < c > d")).toBe("<p>a &amp; b &lt; c &gt; d</p>");
+    expect(plainTextToHtml("line1\nline2")).toBe("<p>line1<br>line2</p>");
+  });
+});
 
 const req: CommSendRequest = { to: "a@b.com", subject: "S", html: "<p>h</p>", plain: "h" };
 

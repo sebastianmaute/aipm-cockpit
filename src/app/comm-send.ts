@@ -42,3 +42,12 @@ export async function sendCommTemplate(req: CommSendRequest, deps: CommSendDeps)
     deps.openPreview(req);
   }
 }
+
+const HTML_ESC: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+
+/** Wrap a plain-text body as minimal HTML for the Graph send path when no rich
+ *  template exists: escape all five HTML-significant chars and turn newlines into
+ *  <br>. (The mailto path keeps using the raw plain text.) */
+export function plainTextToHtml(plain: string): string {
+  return `<p>${plain.replace(/[&<>"']/g, (c) => HTML_ESC[c]).replace(/\n/g, "<br>")}</p>`;
+}
