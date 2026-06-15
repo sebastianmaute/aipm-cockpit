@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { CommTemplatesSection } from "./comm-templates-section";
 import type { CommTemplate } from "../comm-templates";
+import { defaultSettings } from "../settings-types";
 
 const saveVersion = vi.fn(async () => {});
 vi.mock("../use-comm-template-versions", () => ({
@@ -37,10 +38,10 @@ const tpl = (over: Partial<CommTemplate> = {}): CommTemplate => ({
   id: "t1", category: "status-inquiry", name: "Inquiry A", body: "Hello ", isDefault: false, createdAt: "", updatedAt: "", ...over,
 });
 
-function setup(templates: CommTemplate[]) {
+function setup(templates: CommTemplate[], onChange = vi.fn()) {
   const handlers = { onCreate: vi.fn(), onRename: vi.fn(), onSaveBody: vi.fn(), onRemove: vi.fn(), onSetDefault: vi.fn() };
-  render(<CommTemplatesSection lang="en-US" templates={templates} config={null} {...handlers} />);
-  return handlers;
+  render(<CommTemplatesSection lang="en-US" templates={templates} config={null} settings={defaultSettings} onChange={onChange} {...handlers} />);
+  return { ...handlers, onChange };
 }
 
 describe("CommTemplatesSection", () => {
@@ -80,5 +81,11 @@ describe("CommTemplatesSection", () => {
     fireEvent.click(screen.getByRole("button", { name: "Compare: v1" }));
     expect(await screen.findByLabelText(/removed: old/)).toBeTruthy();
     expect(screen.getByLabelText(/added: new/)).toBeTruthy();
+  });
+
+  it("changes the send mode via the radio group", () => {
+    const { onChange } = setup([], vi.fn());
+    fireEvent.click(screen.getByRole("radio", { name: "Outlook draft (HTML)" }));
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ commTemplateSendMode: "outlook-draft" }));
   });
 });

@@ -3,6 +3,8 @@ import { useState } from "react";
 import { type Lang, t, type TranslationKey } from "../i18n";
 import { COMM_TEMPLATE_CATEGORIES, CATEGORY_FIELDS, type CommTemplate, type CommTemplateCategory } from "../comm-templates";
 import type { TursoConfig } from "../turso-config";
+import type { Settings } from "../settings-types";
+import type { CommTemplateSendMode } from "../comm-send";
 import { useCommTemplateVersions } from "../use-comm-template-versions";
 import { diffLines } from "../text-diff";
 import { htmlToPlainText } from "../html-to-text";
@@ -28,6 +30,8 @@ export interface CommTemplatesSectionProps {
   onRemove: (id: string) => void;
   onSetDefault: (category: CommTemplateCategory, id: string) => void;
   config: TursoConfig | null;
+  settings: Settings;
+  onChange: (s: Settings) => void;
 }
 
 export function CommTemplatesSection(props: CommTemplatesSectionProps) {
@@ -101,6 +105,27 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
         </h2>
         <p className="mt-1 text-sm text-muted-foreground">{t(lang, "commTplIntro")}</p>
       </div>
+
+      <fieldset className="flex flex-col gap-1 text-sm text-foreground">
+        <legend className="font-medium">{t(lang, "commSendMode")}</legend>
+        {([
+          ["mailto", "commSendModeMailto"],
+          ["outlook-draft", "commSendModeDraft"],
+          ["in-app-preview", "commSendModePreview"],
+        ] as [CommTemplateSendMode, TranslationKey][]).map(([value, key]) => (
+          <label key={value} className="flex items-center gap-2">
+            <input
+              type="radio"
+              name="commSendMode"
+              checked={(props.settings.commTemplateSendMode ?? "mailto") === value}
+              onChange={() => props.onChange({ ...props.settings, commTemplateSendMode: value })}
+              className="h-4 w-4 cursor-pointer border-line text-AIPM-dark-blue focus:ring-AIPM-green"
+            />
+            <span>{t(lang, key)}</span>
+          </label>
+        ))}
+        <span className="text-xs text-muted-foreground">{t(lang, "commSendModeHint")}</span>
+      </fieldset>
 
       <label className="flex flex-col gap-1 text-sm text-foreground">
         <span className="font-medium">{t(lang, "commTplCategory")}</span>
