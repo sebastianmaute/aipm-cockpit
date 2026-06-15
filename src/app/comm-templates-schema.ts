@@ -2,6 +2,7 @@
 // GLOBAL comm_templates table. This table is cross-project and MUST stay out of
 // turso-schema's TABLE_NAMES so the workspace overwrite never touches it.
 import type { PipelineResultLike, SqlStmt } from "./turso-schema";
+import { COMM_TEMPLATE_CATEGORIES } from "./comm-templates";
 import type { CommTemplate, CommTemplateCategory } from "./comm-templates";
 
 export const COMM_TEMPLATE_DDL: string[] = [
@@ -47,7 +48,7 @@ function rowObjects(res: PipelineResultLike | undefined): Record<string, string>
 
 export function rowsToTemplates(res: PipelineResultLike | undefined): CommTemplate[] {
   return rowObjects(res)
-    .filter((r) => r.id)
+    .filter((r) => r.id && COMM_TEMPLATE_CATEGORIES.includes(r.category as CommTemplateCategory))
     .map((r): CommTemplate => ({
       id: r.id,
       category: r.category as CommTemplateCategory,

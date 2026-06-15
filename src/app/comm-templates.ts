@@ -26,7 +26,7 @@ const ESC: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"
 function htmlEscape(s: string): string { return s.replace(/[&<>"']/g, (c) => ESC[c]); }
 
 export function renderTemplate(body: string, category: CommTemplateCategory, vars: Readonly<Record<string, string>>): string {
-  const allowed = new Set(CATEGORY_FIELDS[category]);
+  const allowed = new Set(CATEGORY_FIELDS[category] ?? []);
   return body.replace(/\{\{(\w+)\}\}/g, (m, field) => (allowed.has(field) ? htmlEscape(vars[field] ?? "") : m));
 }
 

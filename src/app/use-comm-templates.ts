@@ -75,7 +75,8 @@ export function useCommTemplates(args: UseCommTemplatesArgs): UseCommTemplatesRe
     setBusy(true);
     try {
       const now = new Date().toISOString();
-      const tpl: CommTemplate = { id: `${category}-${now}`, category, name, body, isDefault: false, createdAt: now, updatedAt: now };
+      const suffix = Math.random().toString(36).slice(2, 8);
+      const tpl: CommTemplate = { id: `${category}-${now}-${suffix}`, category, name, body, isDefault: false, createdAt: now, updatedAt: now };
       await storeUpsert(cfgRef.current, tpl);
       setTemplates((prev) => [...prev, tpl]);
     } finally {
