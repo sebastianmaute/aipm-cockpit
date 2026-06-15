@@ -1,6 +1,6 @@
 // src/app/action-row.tsx
 "use client";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { type Lang, t } from "./i18n";
 import type { SuggestedAction, ActionTier } from "./next-actions/types";
 import type { Resource } from "./types";
@@ -32,6 +32,22 @@ interface ActionRowProps {
 export function ActionRow({ lang, action, onOpen, onSnooze, onCreateTask, assignOwner }: ActionRowProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
+  const assignPopRef = useRef<HTMLSpanElement>(null);
+
+  // Focus first focusable element when popover opens (a11y: dialog focus management).
+  useEffect(() => {
+    if (assignOpen) assignPopRef.current?.querySelector<HTMLElement>("input,button,[tabindex]")?.focus();
+  }, [assignOpen]);
+
+  // Close on Escape regardless of which element inside the dialog has focus.
+  // Document-level listener is robust even when ResourcePicker's own Escape handler
+  // fires e.preventDefault() without bubbling (e.g. when its listbox is open).
+  useEffect(() => {
+    if (!assignOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setAssignOpen(false); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [assignOpen]);
   const title = t(lang, action.title.key, ...(action.title.params ?? []));
   const why = t(lang, action.why.key, ...(action.why.params ?? []));
   const canAssign =
@@ -88,6 +104,7 @@ export function ActionRow({ lang, action, onOpen, onSnooze, onCreateTask, assign
             </button>
             {assignOpen && (
               <span
+                ref={assignPopRef}
                 role="dialog"
                 aria-label={t(lang, "actionAssignOwner")}
                 onClick={(e) => e.stopPropagation()}

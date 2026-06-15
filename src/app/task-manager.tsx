@@ -30,6 +30,7 @@ import { type Resource, type BudgetBucket, type RaidItem, type ChangeItem } from
 import { useFxRates } from "./use-fx-rates";
 import { splitName, resourceDisplayName, nextId as computeNextId } from "./resource-foundation";
 import { buildRaidByTaskIndex } from "./raid";
+import { applyOwnerAssignment } from "./action-assign-owner";
 import { buildChangeByTaskIndex } from "./change-log";
 import { FiltersProvider, useFilters } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
@@ -940,19 +941,9 @@ function TaskManagerInner() {
               v: { name: string; email: string; resourceId: number | null },
             ) => {
               const id = action.cta.kind === "open" ? Number(action.cta.id) : -1;
-              if (!raid.some((r) => r.id === id)) return; // deleted between open + pick
-              setRaid((prev) =>
-                prev.map((r) =>
-                  r.id === id
-                    ? {
-                        ...r,
-                        owner: v.name || undefined,
-                        ownerEmail: v.email || undefined,
-                        ownerResourceId: v.resourceId,
-                      }
-                    : r,
-                ),
-              );
+              const next = applyOwnerAssignment(raid, id, v);
+              if (next === raid) return; // no matching item → no write, no toast
+              setRaid(next as RaidItem[]);
               showToast("info", t(lang, "actionOwnerAssigned", id));
             },
           },
