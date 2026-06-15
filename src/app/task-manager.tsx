@@ -23,6 +23,9 @@ import { useContacts } from "./use-contacts";
 import { useWorkspaceCollapsed } from "./use-workspace-collapsed";
 import { useHolidaySet } from "./use-holiday-set";
 import { useTaskRowHandlers } from "./use-task-row-handlers";
+import { useCommTemplates } from "./use-comm-templates";
+import { renderTemplate, buildStakeholderUpdateVars } from "./comm-templates";
+import { htmlToPlainText } from "./html-to-text";
 import { useTaskSubmit } from "./use-task-submit";
 import { useGanttHandlers } from "./use-gantt-handlers";
 import { AppModals } from "./app-modals";
@@ -975,6 +978,9 @@ function TaskManagerInner() {
     clearPendingOpen();
   }, [pendingOpen, tasks, openEditModal, clearPendingOpen]);
 
+  const commTemplatesActive = tursoConfig !== null && !isPopout;
+  const commTemplates = useCommTemplates({ active: commTemplatesActive, config: tursoConfig });
+
   const {
     expandedNotes,
     pushingIds,
@@ -1001,6 +1007,7 @@ function TaskManagerInner() {
     deselectIdRef,
     handleCancelEdit,
     logActivity,
+    resolveTemplateBody: commTemplates.resolveTemplateBody,
   });
 
   const handleDraftMessageFromAction = useCallback(
@@ -1023,11 +1030,14 @@ function TaskManagerInner() {
         );
         if (!email) return;
         const subject = t(lang, "commsEmailSubject", project?.name ?? "");
-        const body = t(lang, "commsEmailBodyTemplate", sh.name);
+        const tplBody = commTemplates.resolveTemplateBody("stakeholder-update");
+        const body = tplBody != null
+          ? htmlToPlainText(renderTemplate(tplBody, "stakeholder-update", buildStakeholderUpdateVars(sh, project?.name ?? "")))
+          : t(lang, "commsEmailBodyTemplate", sh.name);
         window.location.href = buildMailtoUrl(email, subject, body);
       }
     },
-    [tasks, onSendInquiry, stakeholders, resources, project, lang],
+    [tasks, onSendInquiry, stakeholders, resources, project, lang, commTemplates],
   );
 
   // Keep the forwarding ref current after every commit (it's only ever read
@@ -1516,6 +1526,8 @@ function TaskManagerInner() {
       onGrantStorageWrite={onGrantWriteAccess}
       onRequestStorageSwitch={onRequestStorageSwitch}
       onMigrateToTurso={() => { void migrateCurrentProjectToTurso(); }}
+      commTemplatesEnabled={commTemplatesActive}
+      commTemplates={commTemplates}
     />
   );
 
