@@ -26,6 +26,10 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
   *input* (`sample-workspace.json`) legitimately changed, never to mask a format diff.
 - **Palette:** only the sanctioned AIPM brand tokens (`globals.css`); no off-palette colors,
   gradients, or shadows. The a11y gate + palette-sweep test enforce contrast/token use.
+  Note: palette-sweep scans CSS for `box-shadow` — an off-palette Tailwind class (e.g. `shadow-md`)
+  on an element PASSES CI but is still forbidden; check new components by eye.
+- **a11y (axe gate):** every new interactive control (button/checkbox/input/drag handle) needs an
+  accessible name and keyboard operability — an unlabeled form control is an axe-critical FAIL.
 - **CI is GitLab** (not GitHub),  (GitLab). Pipeline: install → lint → typecheck → unit → build → e2e.
 - **Releasing:** bump `src/app/version.ts` (APP_VERSION + milestone), add a `CHANGELOG.md` entry,
   and append any new `versionHighlight*` key to `APP_HIGHLIGHT_KEYS` (+ EN/DE strings).
