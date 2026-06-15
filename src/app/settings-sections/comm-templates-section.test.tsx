@@ -72,4 +72,13 @@ describe("CommTemplatesSection", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save version" }));
     expect(saveVersion).toHaveBeenCalledWith("My version", expect.any(String), false);
   });
+
+  it("compares Current against a version and shows the diff", async () => {
+    setup([tpl({ body: "<p>new</p>" })]);
+    fireEvent.click(screen.getByRole("button", { name: "Inquiry A" }));
+    fireEvent.click(screen.getByRole("button", { name: "Compare: Current" }));
+    fireEvent.click(screen.getByRole("button", { name: "Compare: v1" }));
+    expect(await screen.findByLabelText(/removed: old/)).toBeTruthy();
+    expect(screen.getByLabelText(/added: new/)).toBeTruthy();
+  });
 });
