@@ -1461,6 +1461,7 @@ const enUS = {
   versionHighlightCreateTask: "Turn an Action Center item into a follow-up task in one click — pre-filled from the signal, with RAID items linked back automatically.",
   versionHighlightUiBatch85: "A polish pass across planning, dashboard, budget, reports, history and settings — plus snapshot delete, report reordering, and a dashboard Trends toggle.",
   versionHighlightAssignOwner: "Assign an owner to a RAID risk straight from the Action Center — pick a person in the inbox and it's set, no editor round-trip.",
+  versionHighlightDraftMessage: "Draft a status-chase or stakeholder message straight from the Action Center — opens your mail client pre-filled.",
   // --- Restored: still used by kept banners + comms items (SP3) ---
   alertBannerDismiss: "Dismiss",
   alertCatOverdue: "Overdue",

@@ -8,6 +8,18 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.87.0] - 2026-06-15 "Wells"
+
+### Added / Changed
+- **Draft message from Action Center**: task-due and stakeholder-comms inbox rows
+  now show an inline "Draft message" CTA that opens a prefilled `mailto:` in your
+  mail client. Task-due reuses the existing status-inquiry flow; stakeholder-comms
+  composes a new mailto addressed to the stakeholder (surface-only change; engine
+  untouched).
+- **Third execution-depth slice**: following assign-owner (0.86.0) and create-task
+  (0.85.0), this slice continues resolving Action Center signals directly in the
+  inbox, reducing modal navigation for common triage actions.
+
 ## [0.86.0] - 2026-06-15 "Hamilton"
 
 ### Added / Changed

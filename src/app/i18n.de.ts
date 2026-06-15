@@ -1458,6 +1458,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightCreateTask: "Aus einem Action-Center-Eintrag mit einem Klick eine Folgeaufgabe erstellen — vorausgefüllt aus dem Signal, RAID-Einträge werden automatisch verknüpft.",
   versionHighlightUiBatch85: "Feinschliff in Planung, Dashboard, Budget, Berichten, Verlauf und Einstellungen — plus Snapshot-Löschen, Bericht-Sortierung und ein Dashboard-Trends-Schalter.",
   versionHighlightAssignOwner: "Einem RAID-Risiko direkt im Action Center einen Verantwortlichen zuweisen — Person in der Inbox wählen, fertig, ohne Umweg über den Editor.",
+  versionHighlightDraftMessage: "Eine Status-Nachfrage oder Stakeholder-Nachricht direkt aus dem Action Center verfassen — öffnet das Mailprogramm vorausgefüllt.",
   // --- Restored: still used by kept banners + comms items (SP3) ---
   alertBannerDismiss: "Schließen",
   alertCatOverdue: "Überfällig",
