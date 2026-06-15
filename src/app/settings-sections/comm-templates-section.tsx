@@ -1,7 +1,13 @@
 "use client";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { type Lang, t, type TranslationKey } from "../i18n";
 import { COMM_TEMPLATE_CATEGORIES, CATEGORY_FIELDS, type CommTemplate, type CommTemplateCategory } from "../comm-templates";
+import dynamic from "next/dynamic";
+
+const RichTextEditor = dynamic(() => import("../rich-text-editor").then((m) => m.RichTextEditor), {
+  ssr: false,
+  loading: () => <div className="min-h-40 rounded-md border border-line bg-surface-muted" />,
+});
 
 const CAT_LABEL_KEY: Record<CommTemplateCategory, TranslationKey> = {
   "status-inquiry": "commTplCat_statusInquiry",
@@ -24,8 +30,6 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [newName, setNewName] = useState("");
   const [bodyDraft, setBodyDraft] = useState("");
-  const bodyRef = useRef<HTMLTextAreaElement | null>(null);
-
   const inCategory = templates.filter((tpl) => tpl.category === category);
   const selected = inCategory.find((tpl) => tpl.id === selectedId) ?? null;
 
@@ -39,20 +43,6 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
     if (!name) return;
     props.onCreate(category, name, "");
     setNewName("");
-  }
-
-  function insertField(field: string) {
-    const token = `{{${field}}}`;
-    const el = bodyRef.current;
-    const start = el?.selectionStart ?? bodyDraft.length;
-    const end = el?.selectionEnd ?? bodyDraft.length;
-    setBodyDraft(bodyDraft.slice(0, start) + token + bodyDraft.slice(end));
-    requestAnimationFrame(() => {
-      if (!bodyRef.current) return;
-      bodyRef.current.focus();
-      const pos = start + token.length;
-      bodyRef.current.setSelectionRange(pos, pos);
-    });
   }
 
   function persistBody() {
@@ -158,34 +148,29 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
             />
           </label>
 
-          <div className="flex flex-col gap-1">
-            <span className="text-sm font-medium text-foreground">{t(lang, "commTplMergeFields")}</span>
-            <div className="flex flex-wrap gap-1">
-              {CATEGORY_FIELDS[category].map((field) => (
-                <button
-                  key={field}
-                  type="button"
-                  onClick={() => insertField(field)}
-                  className="rounded-md border border-line px-2 py-1 text-xs text-foreground hover:bg-surface-muted"
-                >
-                  {t(lang, ("commTplField_" + field) as TranslationKey)}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <label className="flex flex-col gap-1 text-sm text-foreground">
-            <span className="font-medium">{t(lang, "commTplBody")}</span>
-            <textarea
-              ref={bodyRef}
+          <div className="flex flex-col gap-1" onBlur={persistBody}>
+            <span className="text-sm font-medium text-foreground">{t(lang, "commTplBody")}</span>
+            <RichTextEditor
+              key={selected.id}
               value={bodyDraft}
-              aria-label={t(lang, "commTplBody")}
-              rows={8}
-              onChange={(e) => setBodyDraft(e.target.value)}
-              onBlur={persistBody}
-              className="w-full rounded-md border border-line bg-surface px-2 py-1.5 font-mono text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-AIPM-green"
+              onChange={setBodyDraft}
+              label={t(lang, "commTplBody")}
+              mergeFields={CATEGORY_FIELDS[category]}
+              fieldLabel={(f) => t(lang, ("commTplField_" + f) as TranslationKey)}
+              labels={{
+                bold: t(lang, "commTplBold"),
+                italic: t(lang, "commTplItalic"),
+                underline: t(lang, "commTplUnderline"),
+                heading1: t(lang, "commTplHeading1"),
+                heading2: t(lang, "commTplHeading2"),
+                bulletList: t(lang, "commTplBulletList"),
+                numberedList: t(lang, "commTplNumberedList"),
+                link: t(lang, "commTplLink"),
+                unlink: t(lang, "commTplUnlink"),
+                linkPrompt: t(lang, "commTplLinkPrompt"),
+              }}
             />
-          </label>
+          </div>
         </div>
       )}
     </div>
