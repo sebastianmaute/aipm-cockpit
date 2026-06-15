@@ -1505,6 +1505,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightDraftMessage: "Eine Status-Nachfrage oder Stakeholder-Nachricht direkt aus dem Action Center verfassen — öffnet das Mailprogramm vorausgefüllt.",
   versionHighlightCommTemplates: "Benannte Kommunikationsvorlagen mit Platzhaltern verfassen (Turso) — die Standardvorlage wird beim Verfassen einer E-Mail automatisch verwendet.",
   versionHighlightCommTemplatesRich: "Kommunikationsvorlagen in einem Rich-Text-Editor schreiben (Fett, Listen, Überschriften, Links) mit Platzhalter-Chips — Formatierung wird beim Speichern bereinigt.",
+  versionHighlightCommTemplatesVersions: "Benannte Versionen einer Kommunikationsvorlage speichern, zwei davon vergleichen und eine frühere wiederherstellen (der aktuelle Entwurf wird zuerst gesichert).",
   // --- Restored: still used by kept banners + comms items (SP3) ---
   alertBannerDismiss: "Schließen",
   alertCatOverdue: "Überfällig",

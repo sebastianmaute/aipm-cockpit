@@ -8,6 +8,15 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.90.0] - 2026-06-15 "Russ"
+
+### Added / Changed
+- **Communication templates versions (SP3)**: save named versions of a template,
+  compare any two as a rendered plain-text diff, and restore an earlier one — the
+  current draft is auto-snapshotted before a restore so nothing is lost. Versions
+  live in an append-only Turso table (out of the workspace save cycle). This
+  completes the editable-templates roadmap ahead of the optional Graph HTML-send slice.
+
 ## [0.89.0] - 2026-06-15 "Bujold"
 
 ### Added / Changed
