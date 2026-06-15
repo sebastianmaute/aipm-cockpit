@@ -109,7 +109,7 @@ describe("ActionRow assign owner", () => {
     const btn = screen.getByRole("button", { name: /assign owner/i });
     fireEvent.click(btn);
     expect(onOpen).not.toHaveBeenCalled();       // stopPropagation
-    expect(screen.getByRole("textbox")).toBeInTheDocument(); // ResourcePicker input present
+    expect(screen.getByRole("combobox")).toBeInTheDocument(); // ResourcePicker input present (role="combobox")
   });
 
   it("hides Assign owner for an owned raid action (severity why)", () => {

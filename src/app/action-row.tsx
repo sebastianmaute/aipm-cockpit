@@ -6,7 +6,7 @@ import type { SuggestedAction, ActionTier } from "./next-actions/types";
 import type { Resource } from "./types";
 import { SNOOZE_1H, SNOOZE_1D } from "./reminder-snooze";
 import { ACTION_SOURCE_LABEL } from "./action-source-label";
-import { resourceDisplayName } from "./resource-foundation";
+import { ResourcePicker } from "./resource-picker";
 
 const TIER_DOT: Record<ActionTier, string> = {
   now: "bg-AIPM-pink",
@@ -27,66 +27,6 @@ interface ActionRowProps {
   onSnooze?: (action: SuggestedAction, durationMs: number) => void;
   onCreateTask?: (action: SuggestedAction) => void;
   assignOwner?: AssignOwnerBundle;
-}
-
-/** Minimal inline owner-picker rendered inside the assign-owner popover.
- *  Uses a plain <input type="text"> (implicit role="textbox") so RTL
- *  getByRole("textbox") finds it, and drops a filtered resource list below. */
-function OwnerInput({
-  lang,
-  resources,
-  onCreateResource,
-  onAssign,
-}: {
-  lang: Lang;
-  resources: readonly Resource[];
-  onCreateResource: (name: string, email: string) => number;
-  onAssign: (value: { name: string; email: string; resourceId: number | null }) => void;
-}) {
-  const [query, setQuery] = useState("");
-  const q = query.trim().toLowerCase();
-  const matches = resources.filter(
-    (r) => !q || resourceDisplayName(r).toLowerCase().includes(q) || (r.email ?? "").toLowerCase().includes(q),
-  );
-  return (
-    <div className="flex flex-col gap-1">
-      <input
-        type="text"
-        aria-label={t(lang, "actionAssignOwner")}
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        placeholder={t(lang, "actionAssignOwner")}
-        className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-AIPM-green"
-      />
-      {matches.length > 0 && (
-        <ul className="flex flex-col">
-          {matches.map((r) => (
-            <li key={r.id}>
-              <button
-                type="button"
-                onClick={() => onAssign({ name: resourceDisplayName(r), email: r.email ?? "", resourceId: r.id })}
-                className="w-full px-3 py-1 text-left text-xs text-foreground hover:bg-surface-muted"
-              >
-                {resourceDisplayName(r)}
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-      {query && !matches.find((r) => resourceDisplayName(r).toLowerCase() === q) && (
-        <button
-          type="button"
-          onClick={() => {
-            const id = onCreateResource(query, "");
-            onAssign({ name: query, email: "", resourceId: id });
-          }}
-          className="px-3 py-1 text-left text-xs text-foreground hover:bg-surface-muted"
-        >
-          + {query}
-        </button>
-      )}
-    </div>
-  );
 }
 
 export function ActionRow({ lang, action, onOpen, onSnooze, onCreateTask, assignOwner }: ActionRowProps) {
@@ -154,11 +94,13 @@ export function ActionRow({ lang, action, onOpen, onSnooze, onCreateTask, assign
                 onKeyDown={(e) => { if (e.key === "Escape") setAssignOpen(false); }}
                 className="absolute right-0 top-full z-20 mt-1 w-64 rounded-md border border-line bg-surface p-2 shadow-sm"
               >
-                <OwnerInput
+                <ResourcePicker
                   lang={lang}
+                  value={{ name: "", email: "", resourceId: null }}
                   resources={assignOwner.resources}
+                  contacts={[]}
                   onCreateResource={assignOwner.onCreateResource}
-                  onAssign={(next) => { assignOwner.onAssign(action, next); setAssignOpen(false); }}
+                  onChange={(next) => { assignOwner.onAssign(action, next); setAssignOpen(false); }}
                 />
               </span>
             )}
