@@ -1391,7 +1391,6 @@ export const de: Record<TranslationKey, string> = {
   commTplSaveVersion: "Version speichern",
   commTplVersionNamePrompt: "Diese Version benennen",
   commTplRestore: "Wiederherstellen",
-  commTplRestored: "Wiederhergestellt",
   commTplCompare: "Vergleichen",
   commTplCurrent: "Aktuell",
   commTplVersionAuto: "Auto",

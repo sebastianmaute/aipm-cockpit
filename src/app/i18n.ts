@@ -1373,7 +1373,6 @@ const enUS = {
   commTplSaveVersion: "Save version",
   commTplVersionNamePrompt: "Name this version",
   commTplRestore: "Restore",
-  commTplRestored: "Restored",
   commTplCompare: "Compare",
   commTplCurrent: "Current",
   commTplVersionAuto: "Auto",
