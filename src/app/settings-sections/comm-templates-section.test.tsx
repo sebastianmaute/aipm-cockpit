@@ -3,6 +3,25 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { CommTemplatesSection } from "./comm-templates-section";
 import type { CommTemplate } from "../comm-templates";
 
+vi.mock("../rich-text-editor", () => ({
+  RichTextEditor: (p: {
+    value: string;
+    onChange: (html: string) => void;
+    label: string;
+    mergeFields: readonly string[];
+    fieldLabel: (f: string) => string;
+  }) => (
+    <div>
+      <textarea aria-label={p.label} value={p.value} onChange={(e) => p.onChange(e.target.value)} />
+      {p.mergeFields.map((f) => (
+        <button key={f} type="button" onClick={() => p.onChange(p.value + `{{${f}}}`)}>
+          {p.fieldLabel(f)}
+        </button>
+      ))}
+    </div>
+  ),
+}));
+
 const tpl = (over: Partial<CommTemplate> = {}): CommTemplate => ({
   id: "t1", category: "status-inquiry", name: "Inquiry A", body: "Hello ", isDefault: false, createdAt: "", updatedAt: "", ...over,
 });
@@ -21,10 +40,10 @@ describe("CommTemplatesSection", () => {
     expect(h.onCreate).toHaveBeenCalledWith("status-inquiry", "Weekly ping", "");
   });
 
-  it("inserts a merge field token into the body", () => {
+  it("inserts a merge field token into the body", async () => {
     setup([tpl()]);
     fireEvent.click(screen.getByRole("button", { name: "Inquiry A" }));
-    const body = screen.getByLabelText("Body") as HTMLTextAreaElement;
+    const body = (await screen.findByLabelText("Body")) as HTMLTextAreaElement;
     fireEvent.click(screen.getByRole("button", { name: "Task name" }));
     expect(body.value).toContain("{{taskName}}");
   });

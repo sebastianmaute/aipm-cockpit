@@ -8,6 +8,16 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.89.0] - 2026-06-15 "Bujold"
+
+### Added / Changed
+- **Communication templates rich-text editor (SP2)**: the Turso-only template
+  Settings pane now edits bodies in a lazy-loaded Tiptap editor — bold, italic,
+  underline, headings, bullet/numbered lists, and links — with the merge-field
+  chips inline. Authored HTML is sanitized with DOMPurify on save. The body is
+  still stored as HTML and flattened to plain text on send (rich HTML send
+  arrives with the Graph slice). SP3 (named versions + compare/restore) is next.
+
 ## [0.88.0] - 2026-06-15 "Niven"
 
 ### Added / Changed
