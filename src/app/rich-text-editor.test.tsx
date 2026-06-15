@@ -58,4 +58,9 @@ describe("RichTextEditor", () => {
     const surface = await screen.findByLabelText("Body");
     expect(surface.textContent).toContain("Hi");
   });
+  it("does not emit onChange on mount (no spurious save)", async () => {
+    const { onChange } = setup();
+    await screen.findByLabelText("Body");
+    expect(onChange).not.toHaveBeenCalled();
+  });
 });
