@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 
 vi.mock("./turso-pipeline", () => ({ runTursoPipeline: vi.fn(async () => []) }));
 import { runTursoPipeline } from "./turso-pipeline";
-import { saveVersion, deleteVersion, loadVersions } from "./comm-template-versions-store";
+import { saveVersion, loadVersions } from "./comm-template-versions-store";
 import { TABLE_NAMES } from "./turso-schema";
 
 const cfg = {} as never;
