@@ -1492,6 +1492,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightAssignOwner: "Einem RAID-Risiko direkt im Action Center einen Verantwortlichen zuweisen — Person in der Inbox wählen, fertig, ohne Umweg über den Editor.",
   versionHighlightDraftMessage: "Eine Status-Nachfrage oder Stakeholder-Nachricht direkt aus dem Action Center verfassen — öffnet das Mailprogramm vorausgefüllt.",
   versionHighlightCommTemplates: "Benannte Kommunikationsvorlagen mit Platzhaltern verfassen (Turso) — die Standardvorlage wird beim Verfassen einer E-Mail automatisch verwendet.",
+  versionHighlightCommTemplatesRich: "Kommunikationsvorlagen in einem Rich-Text-Editor schreiben (Fett, Listen, Überschriften, Links) mit Platzhalter-Chips — Formatierung wird beim Speichern bereinigt.",
   // --- Restored: still used by kept banners + comms items (SP3) ---
   alertBannerDismiss: "Schließen",
   alertCatOverdue: "Überfällig",

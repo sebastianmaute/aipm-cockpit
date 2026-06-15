@@ -1495,6 +1495,7 @@ const enUS = {
   versionHighlightAssignOwner: "Assign an owner to a RAID risk straight from the Action Center — pick a person in the inbox and it's set, no editor round-trip.",
   versionHighlightDraftMessage: "Draft a status-chase or stakeholder message straight from the Action Center — opens your mail client pre-filled.",
   versionHighlightCommTemplates: "Author named communication templates with merge fields (Turso) — your default is used automatically when you draft an email.",
+  versionHighlightCommTemplatesRich: "Write communication templates in a rich editor (bold, lists, headings, links) with merge-field chips — formatting is sanitized on save.",
   // --- Restored: still used by kept banners + comms items (SP3) ---
   alertBannerDismiss: "Dismiss",
   alertCatOverdue: "Overdue",
