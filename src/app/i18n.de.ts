@@ -148,6 +148,10 @@ export const de: Record<TranslationKey, string> = {
   confirmClearActivityLog: "Alle {0} Aktivitätsprotokoll-Einträge löschen? Dies kann nicht rückgängig gemacht werden.",
   promptEmail: "Keine E-Mail-Adresse für {0} gespeichert. Bitte E-Mail-Adresse eingeben:",
 
+  commsEmailSubject: "Projekt-Update — {0}",
+  commsEmailBodyTemplate:
+    "Hallo {0},\n\nein kurzes Update zum aktuellen Stand und was ich von dir brauche:\n\n",
+
   emailSubject: "Update zur zugewiesenen Aufgabe: #{0} – {1}",
   emailBodyTemplate:
     "Hallo {0},\n\nkönnten Sie ein Status-Update zur folgenden Aufgabe geben?\n\n- ID: #{1}\n- Aufgabe: {2}\n- Fällig: {3}\n- Letzte Aktualisierung: {4}\n\nDanke",
@@ -1454,6 +1458,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightCreateTask: "Aus einem Action-Center-Eintrag mit einem Klick eine Folgeaufgabe erstellen — vorausgefüllt aus dem Signal, RAID-Einträge werden automatisch verknüpft.",
   versionHighlightUiBatch85: "Feinschliff in Planung, Dashboard, Budget, Berichten, Verlauf und Einstellungen — plus Snapshot-Löschen, Bericht-Sortierung und ein Dashboard-Trends-Schalter.",
   versionHighlightAssignOwner: "Einem RAID-Risiko direkt im Action Center einen Verantwortlichen zuweisen — Person in der Inbox wählen, fertig, ohne Umweg über den Editor.",
+  versionHighlightDraftMessage: "Eine Status-Nachfrage oder Stakeholder-Nachricht direkt aus dem Action Center verfassen — öffnet das Mailprogramm vorausgefüllt.",
   // --- Restored: still used by kept banners + comms items (SP3) ---
   alertBannerDismiss: "Schließen",
   alertCatOverdue: "Überfällig",
@@ -1471,6 +1476,7 @@ export const de: Record<TranslationKey, string> = {
   dashboardTopActions: "Wichtigste Schritte",
   actionsEmptyState: "Alles erledigt — derzeit keine offenen Schritte.",
   actionOpen: "Öffnen",
+  actionDraftMessage: "Nachricht verfassen",
   actionCreateTask: "Aufgabe erstellen",
   actionTierNow: "Jetzt",
   actionTierSoon: "Bald",

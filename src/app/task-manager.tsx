@@ -73,6 +73,8 @@ import { TaskEditView, TASK_EDIT_FORM_ID } from "./task-edit-view";
 import { APP_VERSION_LABEL } from "./version";
 import { ActionMenus } from "./action-menus";
 import { makeEditGuard } from "./read-only-guard";
+import { buildMailtoUrl, resolveDraftRecipient } from "./mailto";
+import { isValidEmail } from "./sanitize";
 import { SettingsView } from "./settings-view";
 import { ReadOnlyMirrorBanner } from "./read-only-mirror-banner";
 import { VoiceCommandProvider } from "./voice-command-context";
@@ -1000,6 +1002,34 @@ function TaskManagerInner() {
     handleCancelEdit,
     logActivity,
   });
+
+  const handleDraftMessageFromAction = useCallback(
+    (action: SuggestedAction) => {
+      const id = action.cta.kind === "open" ? Number(action.cta.id) : -1;
+      if (action.source === "task-due") {
+        const task = tasks.find((t) => t.id === id);
+        if (task) onSendInquiry(task);
+        return;
+      }
+      if (action.source === "stakeholder-comms") {
+        const sh = stakeholders.find((s) => s.id === id);
+        if (!sh) return;
+        const email = resolveDraftRecipient(
+          sh,
+          resources,
+          () => window.prompt(t(lang, "promptEmail", sh.name), ""),
+          isValidEmail,
+          () => window.alert(t(lang, "errorInvalidEmail")),
+        );
+        if (!email) return;
+        const subject = t(lang, "commsEmailSubject", project?.name ?? "");
+        const body = t(lang, "commsEmailBodyTemplate", sh.name);
+        window.location.href = buildMailtoUrl(email, subject, body);
+      }
+    },
+    [tasks, onSendInquiry, stakeholders, resources, project, lang],
+  );
+
   // Keep the forwarding ref current after every commit (it's only ever read
   // from event handlers, never during render).
   useEffect(() => {
@@ -1365,6 +1395,7 @@ function TaskManagerInner() {
     onOpenAction: openAction,
     onSnooze: snoozeAction,
     onCreateTask: isPopout ? undefined : handleCreateTaskFromAction,
+    onDraftMessage: isPopout ? undefined : handleDraftMessageFromAction,
     assignOwner: assignOwnerBundle,
   };
 

@@ -192,6 +192,7 @@ export interface WorkspaceSectionProps {
   onOpenAction: (a: SuggestedAction) => void;
   onSnooze?: (a: SuggestedAction, ms: number) => void;
   onCreateTask?: (a: SuggestedAction) => void;
+  onDraftMessage?: (a: SuggestedAction) => void;
   assignOwner?: AssignOwnerBundle;
 }
 
@@ -266,6 +267,7 @@ export function WorkspaceSection({
   onOpenAction,
   onSnooze,
   onCreateTask,
+  onDraftMessage,
   assignOwner,
 }: WorkspaceSectionProps) {
   const { settings, setSettings, lang } = useSettings();
@@ -872,7 +874,7 @@ export function WorkspaceSection({
 
         {activeTab === "actions" && (
           <div id="panel-actions" role="tabpanel" className={panelClass}>
-            <ActionsPanel lang={lang} actions={nextActions} onOpen={onOpenAction} onSnooze={onSnooze} onCreateTask={onCreateTask} assignOwner={assignOwner} />
+            <ActionsPanel lang={lang} actions={nextActions} onOpen={onOpenAction} onSnooze={onSnooze} onCreateTask={onCreateTask} onDraftMessage={onDraftMessage} assignOwner={assignOwner} />
           </div>
         )}
 

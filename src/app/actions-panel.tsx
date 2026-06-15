@@ -20,9 +20,10 @@ interface ActionsPanelProps {
   onSnooze?: (action: SuggestedAction, durationMs: number) => void;
   onCreateTask?: (action: SuggestedAction) => void;
   assignOwner?: AssignOwnerBundle;
+  onDraftMessage?: (action: SuggestedAction) => void;
 }
 
-export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, assignOwner }: ActionsPanelProps) {
+export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, assignOwner, onDraftMessage }: ActionsPanelProps) {
   const [monitorOpen, setMonitorOpen] = useState(false);
   return (
     <div className={VIEW_PANE_FILL_CLASS}>
@@ -54,7 +55,7 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
                   </button>
                   <div id="action-monitor-list" className="flex flex-col gap-2" hidden={!monitorOpen}>
                     {rows.map((a) => (
-                      <ActionRow key={a.id} lang={lang} action={a} onOpen={onOpen} onSnooze={onSnooze} onCreateTask={onCreateTask} assignOwner={assignOwner} />
+                      <ActionRow key={a.id} lang={lang} action={a} onOpen={onOpen} onSnooze={onSnooze} onCreateTask={onCreateTask} assignOwner={assignOwner} onDraftMessage={onDraftMessage} />
                     ))}
                   </div>
                 </section>
@@ -67,7 +68,7 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
                 </h3>
                 <div className="flex flex-col gap-2">
                   {rows.map((a) => (
-                    <ActionRow key={a.id} lang={lang} action={a} onOpen={onOpen} onSnooze={onSnooze} onCreateTask={onCreateTask} assignOwner={assignOwner} />
+                    <ActionRow key={a.id} lang={lang} action={a} onOpen={onOpen} onSnooze={onSnooze} onCreateTask={onCreateTask} assignOwner={assignOwner} onDraftMessage={onDraftMessage} />
                   ))}
                 </div>
               </section>

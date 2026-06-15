@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type React from "react";
 import { t, type Lang } from "./i18n";
 import { isValidEmail } from "./sanitize";
+import { buildMailtoUrl } from "./mailto";
 import { greetingName } from "./contacts";
 import { loadJiraApi } from "./use-jira-sync";
 import type { ActivityKind } from "./activity-log";
@@ -143,7 +144,7 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
         task.dueDate,
         task.lastUpdateDate,
       );
-      const url = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+      const url = buildMailtoUrl(email, subject, body);
       window.location.href = url;
       setTasks((prev) =>
         prev.map((row) =>

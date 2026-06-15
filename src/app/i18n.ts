@@ -143,6 +143,10 @@ const enUS = {
   confirmClearActivityLog: "Clear all {0} activity log entries? This cannot be undone.",
   promptEmail: "No email saved for {0}. Enter their email address:",
 
+  commsEmailSubject: "Project update — {0}",
+  commsEmailBodyTemplate:
+    "Hi {0},\n\nA quick update on where we stand and what I need from you:\n\n",
+
   emailSubject: "Update for assigned task: #{0} – {1}",
   emailBodyTemplate:
     "Hi {0},\n\nCould you provide a status update on the following task?\n\n- ID: #{1}\n- Task: {2}\n- Due: {3}\n- Last update: {4}\n\nThanks",
@@ -1457,6 +1461,7 @@ const enUS = {
   versionHighlightCreateTask: "Turn an Action Center item into a follow-up task in one click — pre-filled from the signal, with RAID items linked back automatically.",
   versionHighlightUiBatch85: "A polish pass across planning, dashboard, budget, reports, history and settings — plus snapshot delete, report reordering, and a dashboard Trends toggle.",
   versionHighlightAssignOwner: "Assign an owner to a RAID risk straight from the Action Center — pick a person in the inbox and it's set, no editor round-trip.",
+  versionHighlightDraftMessage: "Draft a status-chase or stakeholder message straight from the Action Center — opens your mail client pre-filled.",
   // --- Restored: still used by kept banners + comms items (SP3) ---
   alertBannerDismiss: "Dismiss",
   alertCatOverdue: "Overdue",
@@ -1474,6 +1479,7 @@ const enUS = {
   dashboardTopActions: "Top actions",
   actionsEmptyState: "You're all caught up — no actions right now.",
   actionOpen: "Open",
+  actionDraftMessage: "Draft message",
   actionCreateTask: "Create task",
   actionTierNow: "Now",
   actionTierSoon: "Soon",

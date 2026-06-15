@@ -149,3 +149,45 @@ describe("ActionRow assign owner", () => {
     expect(screen.queryByRole("combobox")).toBeNull(); // popover closed
   });
 });
+
+describe("ActionRow draft message", () => {
+  function draftableAction(source: string): never {
+    return {
+      id: `${source}:1:x`, source,
+      title: { key: "actionTaskTitle", params: ["X"] },
+      why: { key: "actionTaskWhyOverdue", params: [2] },
+      score: 40, tier: "now", cta: { kind: "open", view: "open-points", id: 1 },
+    } as never;
+  }
+
+  it("shows Draft message for task-due and calls onDraftMessage without opening", () => {
+    const onOpen = vi.fn();
+    const onDraftMessage = vi.fn();
+    const action = draftableAction("task-due");
+    render(<ActionRow lang="en-US" action={action} onOpen={onOpen} onDraftMessage={onDraftMessage} />);
+    const btn = screen.getByRole("button", { name: /draft message/i });
+    fireEvent.click(btn);
+    expect(onDraftMessage).toHaveBeenCalledTimes(1);
+    expect(onDraftMessage).toHaveBeenCalledWith(action);
+    expect(onOpen).not.toHaveBeenCalled();
+  });
+
+  it("shows Draft message for stakeholder-comms and calls onDraftMessage", () => {
+    const onDraftMessage = vi.fn();
+    const action = draftableAction("stakeholder-comms");
+    render(<ActionRow lang="en-US" action={action} onOpen={() => {}} onDraftMessage={onDraftMessage} />);
+    const btn = screen.getByRole("button", { name: /draft message/i });
+    expect(btn).toBeInTheDocument();
+    fireEvent.click(btn);
+    expect(onDraftMessage).toHaveBeenCalledTimes(1);
+    expect(onDraftMessage).toHaveBeenCalledWith(action);
+  });
+
+  it("hides Draft message for other sources and when onDraftMessage absent", () => {
+    const { unmount } = render(<ActionRow lang="en-US" action={draftableAction("budget")} onOpen={() => {}} onDraftMessage={() => {}} />);
+    expect(screen.queryByRole("button", { name: /draft message/i })).toBeNull();
+    unmount();
+    render(<ActionRow lang="en-US" action={draftableAction("task-due")} onOpen={() => {}} />);
+    expect(screen.queryByRole("button", { name: /draft message/i })).toBeNull();
+  });
+});
