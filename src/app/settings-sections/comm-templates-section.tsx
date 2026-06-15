@@ -2,6 +2,8 @@
 import { useState } from "react";
 import { type Lang, t, type TranslationKey } from "../i18n";
 import { COMM_TEMPLATE_CATEGORIES, CATEGORY_FIELDS, type CommTemplate, type CommTemplateCategory } from "../comm-templates";
+import type { TursoConfig } from "../turso-config";
+import { useCommTemplateVersions } from "../use-comm-template-versions";
 import dynamic from "next/dynamic";
 
 const RichTextEditor = dynamic(() => import("../rich-text-editor").then((m) => m.RichTextEditor), {
@@ -22,6 +24,7 @@ export interface CommTemplatesSectionProps {
   onSaveBody: (id: string, body: string) => void;
   onRemove: (id: string) => void;
   onSetDefault: (category: CommTemplateCategory, id: string) => void;
+  config: TursoConfig | null;
 }
 
 export function CommTemplatesSection(props: CommTemplatesSectionProps) {
@@ -30,8 +33,11 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [newName, setNewName] = useState("");
   const [bodyDraft, setBodyDraft] = useState("");
+  const [restoreNonce, setRestoreNonce] = useState(0);
   const inCategory = templates.filter((tpl) => tpl.category === category);
   const selected = inCategory.find((tpl) => tpl.id === selectedId) ?? null;
+
+  const versions = useCommTemplateVersions({ active: props.config !== null, config: props.config, templateId: selectedId });
 
   function selectTemplate(tpl: CommTemplate) {
     setSelectedId(tpl.id);
@@ -47,6 +53,22 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
 
   function persistBody() {
     if (selected && bodyDraft !== selected.body) props.onSaveBody(selected.id, bodyDraft);
+  }
+
+  function saveCurrentVersion() {
+    if (!selected) return;
+    const name = window.prompt(t(lang, "commTplVersionNamePrompt"), "");
+    if (!name || !name.trim()) return;
+    void versions.saveVersion(name.trim(), bodyDraft, false);
+  }
+
+  function restoreVersion(body: string) {
+    if (!selected) return;
+    const stamp = new Date().toISOString();
+    void versions.saveVersion(`${t(lang, "commTplBeforeRestore")} — ${stamp}`, bodyDraft, true);
+    setBodyDraft(body);
+    props.onSaveBody(selected.id, body);
+    setRestoreNonce((n) => n + 1);
   }
 
   return (
@@ -159,7 +181,7 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
           >
             <span className="text-sm font-medium text-foreground">{t(lang, "commTplBody")}</span>
             <RichTextEditor
-              key={selected.id}
+              key={`${selected.id}:${restoreNonce}`}
               value={bodyDraft}
               onChange={setBodyDraft}
               label={t(lang, "commTplBody")}
@@ -178,6 +200,45 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
                 linkPrompt: t(lang, "commTplLinkPrompt"),
               }}
             />
+          </div>
+
+          <div className="flex flex-col gap-2 border-t border-line pt-2">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-foreground">{t(lang, "commTplVersions")}</span>
+              <button
+                type="button"
+                onClick={saveCurrentVersion}
+                className="shrink-0 rounded-md border border-line px-2 py-1 text-xs hover:bg-surface-muted"
+              >
+                {t(lang, "commTplSaveVersion")}
+              </button>
+            </div>
+            {versions.versions.length === 0 ? (
+              <p className="text-xs text-muted-foreground">{t(lang, "commTplVersionsEmpty")}</p>
+            ) : (
+              <ul className="flex flex-col gap-1">
+                {versions.versions.map((v) => (
+                  <li key={v.id} className="flex items-center justify-between gap-2 rounded-md border border-line bg-surface px-2 py-1">
+                    <span className="flex min-w-0 flex-1 items-center gap-2">
+                      <span className="truncate text-xs text-foreground">{v.name}</span>
+                      {v.isAuto && (
+                        <span className="shrink-0 rounded bg-surface-muted px-1 py-0.5 text-[10px] text-muted-foreground">
+                          {t(lang, "commTplVersionAuto")}
+                        </span>
+                      )}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => restoreVersion(v.body)}
+                      aria-label={`${t(lang, "commTplRestore")}: ${v.name}`}
+                      className="shrink-0 rounded-md border border-line px-2 py-0.5 text-[11px] hover:bg-surface-muted"
+                    >
+                      {t(lang, "commTplRestore")}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </div>
       )}

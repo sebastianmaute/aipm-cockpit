@@ -3,6 +3,17 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { CommTemplatesSection } from "./comm-templates-section";
 import type { CommTemplate } from "../comm-templates";
 
+const saveVersion = vi.fn(async () => {});
+vi.mock("../use-comm-template-versions", () => ({
+  useCommTemplateVersions: () => ({
+    versions: [{ id: "x-v-1", templateId: "t1", name: "v1", body: "<p>old</p>", isAuto: false, createdAt: "2026-06-15T00:00:00Z" }],
+    busy: false,
+    saveVersion,
+    removeVersion: vi.fn(),
+    refresh: vi.fn(),
+  }),
+}));
+
 vi.mock("../rich-text-editor", () => ({
   RichTextEditor: (p: {
     value: string;
@@ -28,7 +39,7 @@ const tpl = (over: Partial<CommTemplate> = {}): CommTemplate => ({
 
 function setup(templates: CommTemplate[]) {
   const handlers = { onCreate: vi.fn(), onRename: vi.fn(), onSaveBody: vi.fn(), onRemove: vi.fn(), onSetDefault: vi.fn() };
-  render(<CommTemplatesSection lang="en-US" templates={templates} {...handlers} />);
+  render(<CommTemplatesSection lang="en-US" templates={templates} config={null} {...handlers} />);
   return handlers;
 }
 
@@ -52,5 +63,13 @@ describe("CommTemplatesSection", () => {
     const h = setup([tpl()]);
     fireEvent.click(screen.getByRole("button", { name: "Set as default" }));
     expect(h.onSetDefault).toHaveBeenCalledWith("status-inquiry", "t1");
+  });
+
+  it("saves a named version of the current body", async () => {
+    setup([tpl()]);
+    fireEvent.click(screen.getByRole("button", { name: "Inquiry A" }));
+    vi.spyOn(window, "prompt").mockReturnValue("My version");
+    fireEvent.click(screen.getByRole("button", { name: "Save version" }));
+    expect(saveVersion).toHaveBeenCalledWith("My version", expect.any(String), false);
   });
 });

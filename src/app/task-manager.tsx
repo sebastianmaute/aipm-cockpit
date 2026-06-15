@@ -1531,6 +1531,7 @@ function TaskManagerInner() {
       onMigrateToTurso={() => { void migrateCurrentProjectToTurso(); }}
       commTemplatesEnabled={commTemplatesActive}
       commTemplates={commTemplates}
+      commTemplatesConfig={tursoConfig}
     />
   );
 
