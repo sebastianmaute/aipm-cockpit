@@ -980,6 +980,9 @@ function TaskManagerInner() {
 
   const commTemplatesActive = tursoConfig !== null && !isPopout;
   const commTemplates = useCommTemplates({ active: commTemplatesActive, config: tursoConfig });
+  // Stable callback (its own useCallback) — depend on this, not the whole hook
+  // object, so consumers don't re-create on every render.
+  const resolveCommBody = commTemplates.resolveTemplateBody;
 
   const {
     expandedNotes,
@@ -1007,7 +1010,7 @@ function TaskManagerInner() {
     deselectIdRef,
     handleCancelEdit,
     logActivity,
-    resolveTemplateBody: commTemplates.resolveTemplateBody,
+    resolveTemplateBody: resolveCommBody,
   });
 
   const handleDraftMessageFromAction = useCallback(
@@ -1030,14 +1033,14 @@ function TaskManagerInner() {
         );
         if (!email) return;
         const subject = t(lang, "commsEmailSubject", project?.name ?? "");
-        const tplBody = commTemplates.resolveTemplateBody("stakeholder-update");
+        const tplBody = resolveCommBody("stakeholder-update");
         const body = tplBody != null
           ? htmlToPlainText(renderTemplate(tplBody, "stakeholder-update", buildStakeholderUpdateVars(sh, project?.name ?? "")))
           : t(lang, "commsEmailBodyTemplate", sh.name);
         window.location.href = buildMailtoUrl(email, subject, body);
       }
     },
-    [tasks, onSendInquiry, stakeholders, resources, project, lang, commTemplates],
+    [tasks, onSendInquiry, stakeholders, resources, project, lang, resolveCommBody],
   );
 
   // Keep the forwarding ref current after every commit (it's only ever read

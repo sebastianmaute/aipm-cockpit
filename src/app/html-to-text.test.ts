@@ -13,4 +13,7 @@ describe("htmlToPlainText", () => {
   it("collapses 3+ blank lines and trims", () => {
     expect(htmlToPlainText("<p>a</p><br><br><br><p>b</p>")).toBe("a\n\nb");
   });
+  it("renders list items as dash bullets", () => {
+    expect(htmlToPlainText("<ul><li>one</li><li>two</li></ul>")).toBe("- one\n- two");
+  });
 });
