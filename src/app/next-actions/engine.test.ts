@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { computeNextActions } from "./engine";
+import { TIER_NOW } from "./score";
 import type { ActionInput, ActionProvider, SuggestedAction } from "./types";
 import { budgetProvider } from "./providers/budget";
 import { raidProvider } from "./providers/raid";
@@ -59,5 +60,30 @@ describe("computeNextActions", () => {
     expect(raidIdx).toBeGreaterThanOrEqual(0);
     expect(budgetIdx).toBeGreaterThanOrEqual(0);
     expect(raidIdx).toBeLessThan(budgetIdx); // raid clarity-boosted, budget penalised
+  });
+});
+
+describe("learnedBias in the engine", () => {
+  function stubAction(id: string, source: SuggestedAction["source"], whyKey: string, score: number): SuggestedAction {
+    return { id, source, title: { key: "x" as never }, why: { key: whyKey as never }, score, tier: "monitor", cta: { kind: "snooze", actionId: id } };
+  }
+  function providerOf(actions: SuggestedAction[]): ActionProvider { return { provide: () => actions }; }
+  function inp(over: Partial<ActionInput> = {}): ActionInput {
+    return { tasks: [], raid: [], changes: [], milestones: [], stakeholders: [], commsReminders: [], dashboard: {} as never, features: [], today: "2026-06-16", projectName: "P", now: new Date("2026-06-16T00:00:00Z"), reminderLeadDays: 7, dueSoonWorkdays: 3, raidReviewIntervalDays: 14, dismissed: new Set<string>(), ...over };
+  }
+  it("adds positive bias and annotates moved:up", () => {
+    const out = computeNextActions(inp({ learnedBias: { "raid:wk": 15 } }), [providerOf([stubAction("raid:1:x", "raid", "wk", 40)])]);
+    expect(out[0].score).toBe(55);
+    expect(out[0].learning).toEqual({ bias: 15, moved: "up" });
+  });
+  it("safety floor: an intrinsically-now item is never demoted out of now", () => {
+    const out = computeNextActions(inp({ learnedBias: { "raid:wk": -20 } }), [providerOf([stubAction("raid:2:x", "raid", "wk", 65)])]);
+    expect(out[0].score).toBeGreaterThanOrEqual(TIER_NOW);
+    expect(out[0].tier).toBe("now");
+  });
+  it("no learnedBias = unchanged score, no annotation", () => {
+    const out = computeNextActions(inp(), [providerOf([stubAction("raid:3:x", "raid", "wk", 40)])]);
+    expect(out[0].score).toBe(40);
+    expect(out[0].learning).toBeUndefined();
   });
 });
