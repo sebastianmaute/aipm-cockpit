@@ -25,6 +25,27 @@ describe("ActionsPanel", () => {
     expect(getByText(/all caught up/i)).toBeTruthy();
   });
 
+  it("sorts soon-tier rows by score descending", () => {
+    const soon = (id: string, score: number): SuggestedAction => ({
+      id, source: "raid", moduleId: "raid",
+      title: { key: "actionRaidTitle", params: [1, id] },
+      why: { key: "actionRaidWhySeverity", params: ["High"] },
+      score, tier: "soon",
+      cta: { kind: "open", view: "raid", id: 1 },
+    });
+    // Supplied in non-descending score order.
+    const actions = [soon("low", 10), soon("mid", 30), soon("high", 50)];
+    render(<ActionsPanel lang="en-US" actions={actions} onOpen={() => {}} />);
+    const order = screen
+      .getAllByText(/^RAID 1:/)
+      .map((el) => el.textContent ?? "");
+    const idxHigh = order.findIndex((t) => t.includes("high"));
+    const idxMid = order.findIndex((t) => t.includes("mid"));
+    const idxLow = order.findIndex((t) => t.includes("low"));
+    expect(idxHigh).toBeLessThan(idxMid);
+    expect(idxMid).toBeLessThan(idxLow);
+  });
+
   it("collapses the monitor group by default and toggles it", () => {
     const actions = [
       { id: "m1", source: "budget", title: { key: "actionBudgetTitle", params: ["P"] },

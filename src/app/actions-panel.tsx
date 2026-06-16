@@ -42,7 +42,10 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
       ) : (
         <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-auto">
           {TIERS.map(({ tier, labelKey }) => {
-            const rows = actions.filter((a) => a.tier === tier);
+            const rows = actions
+              .filter((a) => a.tier === tier)
+              .slice()
+              .sort((a, b) => b.score - a.score || a.id.localeCompare(b.id));
             if (rows.length === 0) return null;
             if (tier === "monitor") {
               return (
