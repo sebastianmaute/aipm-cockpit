@@ -123,11 +123,13 @@ describe("AiSection", () => {
     expect(screen.getByText("Project Leadership Operating Guide")).toBeInTheDocument();
     expect(screen.getByText("My Guide")).toBeInTheDocument();
     expect(screen.getByText(t("en-US", "aiGuideBuiltInBadge"))).toBeInTheDocument();
-    // Delete buttons: only user guide has one
+    // Delete buttons: only user guide has one. The accessible name is
+    // qualified per-row with the guide name, so match by prefix.
     const deleteBtns = screen.getAllByRole("button", {
-      name: t("en-US", "aiGuideDelete"),
+      name: new RegExp(`^${t("en-US", "aiGuideDelete")}`),
     });
     expect(deleteBtns).toHaveLength(1);
+    expect(deleteBtns[0]).toHaveAccessibleName(`${t("en-US", "aiGuideDelete")} – My Guide`);
   });
 
   it("toggling master toggle calls onChange with groundInGuides flipped", () => {

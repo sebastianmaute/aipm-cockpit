@@ -5,7 +5,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { loadGuides, saveGuide, removeGuide } from "./operating-guide-store";
-import type { OperatingGuide } from "./operating-guide";
+import type { OperatingGuide, GuideScope } from "./operating-guide";
 import type { TursoConfig } from "./turso-config";
 import {
   BUILTIN_GUIDE_ID, BUILTIN_GUIDE_NAME, BUILTIN_GUIDE_CONTENT,
@@ -17,7 +17,7 @@ export interface UseOperatingGuidesArgs {
 export interface UseOperatingGuidesResult {
   guides: OperatingGuide[];
   busy: boolean;
-  create: (name: string, content: string) => Promise<void>;
+  create: (name: string, content: string, opts?: { priority?: number; scope?: GuideScope }) => Promise<void>;
   update: (g: OperatingGuide) => Promise<void>;
   remove: (id: string) => Promise<void>;
   refresh: () => Promise<void>;
@@ -56,7 +56,7 @@ export function useOperatingGuides({ config }: UseOperatingGuidesArgs): UseOpera
 
   useEffect(() => { void refresh(); }, [refresh, config]);
 
-  const create = useCallback(async (name: string, content: string) => {
+  const create = useCallback(async (name: string, content: string, opts?: { priority?: number; scope?: GuideScope }) => {
     opSeqRef.current += 1;
     setBusy(true);
     try {
@@ -67,7 +67,7 @@ export function useOperatingGuides({ config }: UseOperatingGuidesArgs): UseOpera
       const suffix = Math.random().toString(36).slice(2, 8);
       const g: OperatingGuide = {
         id: `guide-${suffix}`, name, content, enabled: true,
-        priority: maxP + 1, scope: {}, builtIn: false,
+        priority: opts?.priority ?? maxP + 1, scope: opts?.scope ?? {}, builtIn: false,
       };
       await saveGuide(cfgRef.current, g);
       await refresh();

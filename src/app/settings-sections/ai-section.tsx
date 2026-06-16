@@ -8,7 +8,7 @@ import { InfoTooltip } from "../info-tooltip";
 import { FieldNotice } from "../field-feedback";
 import { AiUsagePanel } from "./ai-usage-panel";
 import type { UseOperatingGuidesResult } from "../use-operating-guides";
-import type { OperatingGuide } from "../operating-guide";
+import type { OperatingGuide, GuideScope } from "../operating-guide";
 import { guidesCharCount, GUIDE_CHAR_BUDGET } from "../operating-guide";
 import { FEATURE_MODULES } from "../feature-modules";
 import type { AppMode, FeatureModuleId } from "../feature-modules";
@@ -74,6 +74,13 @@ function draftFromGuide(g: OperatingGuide): GuideDraft {
   };
 }
 
+function draftToScope(draft: GuideDraft): GuideScope {
+  return {
+    ...(draft.scopeModes.length ? { modes: draft.scopeModes } : {}),
+    ...(draft.scopeModules.length ? { modules: draft.scopeModules } : {}),
+  };
+}
+
 interface GuideFormProps {
   lang: Lang;
   draft: GuideDraft;
@@ -104,7 +111,6 @@ function GuideForm({ lang, draft, onChange, onSave, onCancel, busy }: GuideFormP
         <span className="mb-1 block text-xs text-muted-foreground">{t(lang, "aiGuideName")}</span>
         <input
           type="text"
-          aria-label={t(lang, "aiGuideName")}
           value={draft.name}
           onChange={(e) => onChange({ ...draft, name: e.target.value })}
           className="w-full rounded-md border border-line bg-surface px-2 py-1 text-sm text-foreground focus:border-line focus:outline-none focus:ring-1 focus:ring-AIPM-green"
@@ -113,7 +119,6 @@ function GuideForm({ lang, draft, onChange, onSave, onCancel, busy }: GuideFormP
       <label className="block">
         <span className="mb-1 block text-xs text-muted-foreground">{t(lang, "aiGuideContent")}</span>
         <textarea
-          aria-label={t(lang, "aiGuideContent")}
           value={draft.content}
           rows={6}
           onChange={(e) => onChange({ ...draft, content: e.target.value })}
@@ -126,7 +131,6 @@ function GuideForm({ lang, draft, onChange, onSave, onCancel, busy }: GuideFormP
           type="number"
           min={1}
           step={1}
-          aria-label={t(lang, "aiGuidePriority")}
           value={draft.priority}
           onChange={(e) => {
             const n = parseInt(e.target.value, 10);
@@ -219,7 +223,10 @@ export function AiSection({ lang, settings, onChange, operatingGuides }: AiSecti
   async function handleSave() {
     if (!og) return;
     if (formMode === "add") {
-      await og.create(draft.name.trim(), draft.content);
+      await og.create(draft.name.trim(), draft.content, {
+        priority: draft.priority,
+        scope: draftToScope(draft),
+      });
     } else if (formMode !== null) {
       const existing = og.guides.find((g) => g.id === formMode);
       if (existing) {
@@ -228,10 +235,7 @@ export function AiSection({ lang, settings, onChange, operatingGuides }: AiSecti
           name: draft.name.trim(),
           content: draft.content,
           priority: draft.priority,
-          scope: {
-            modes: draft.scopeModes.length > 0 ? draft.scopeModes : undefined,
-            modules: draft.scopeModules.length > 0 ? draft.scopeModules : undefined,
-          },
+          scope: draftToScope(draft),
         });
       }
     }
@@ -392,7 +396,7 @@ export function AiSection({ lang, settings, onChange, operatingGuides }: AiSecti
                       <label className="flex items-center gap-1 text-xs text-foreground">
                         <input
                           type="checkbox"
-                          aria-label={t(lang, "aiGuideEnabled")}
+                          aria-label={`${t(lang, "aiGuideEnabled")} – ${g.name}`}
                           checked={g.enabled}
                           onChange={() => { void og.update({ ...g, enabled: !g.enabled }); }}
                         />
@@ -400,6 +404,7 @@ export function AiSection({ lang, settings, onChange, operatingGuides }: AiSecti
                       </label>
                       <button
                         type="button"
+                        aria-label={`${t(lang, "aiGuideEdit")} – ${g.name}`}
                         onClick={() => openEdit(g)}
                         className="rounded-md border border-line bg-surface px-2 py-0.5 text-xs font-medium text-foreground"
                       >
@@ -408,6 +413,7 @@ export function AiSection({ lang, settings, onChange, operatingGuides }: AiSecti
                       {!g.builtIn && (
                         <button
                           type="button"
+                          aria-label={`${t(lang, "aiGuideDelete")} – ${g.name}`}
                           onClick={() => { void og.remove(g.id); }}
                           className="rounded-md border border-line bg-surface px-2 py-0.5 text-xs font-medium text-AIPM-pink-strong"
                         >
