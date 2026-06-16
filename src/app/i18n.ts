@@ -1535,6 +1535,32 @@ const enUS = {
   notifyPermissionDenied: "Notification permission was not granted.",
   versionHighlightDesktopNotify:
     "Desktop notifications for newly urgent Action Center signals while the tab is in the background.",
+  learningSurfacedHint: "You usually act on these — surfaced",
+  learningDemotedHint: "Often dismissed — demoted",
+  settingsLearningEnable: "Learn from my Action Center responses",
+  settingsLearningEnableHint:
+    "Adapts ranking from which suggested actions you act on, snooze, or dismiss. Never hides an urgent item.",
+  settingsLearningStore: "Learning data storage",
+  settingsLearningStoreLocal: "This browser only",
+  settingsLearningStoreTurso: "Turso (shared across devices)",
+  settingsLearningReset: "Reset learned data",
+  settingsLearningResetConfirm: "Clear all learned Action Center data?",
+  settingsLearningInsights: "View learning insights",
+  learningInsightsTitle: "Action Center learning",
+  learningInsightsEmpty:
+    "No learning data yet. Act on, snooze, or dismiss suggested actions to build it.",
+  learningColKind: "Action kind",
+  learningColActed: "Acted",
+  learningColSnoozed: "Snoozed",
+  learningColDismissed: "Dismissed",
+  learningColBias: "Adjustment",
+  learningColOverride: "Override",
+  learningOverrideAuto: "Auto",
+  learningOverrideSurface: "Always surface",
+  learningOverrideSuppress: "Always suppress",
+  learningOverrideOff: "Off",
+  versionHighlightLearning:
+    "The Action Center learns from how you respond and surfaces fewer, higher-value next-best-actions.",
   // --- Restored: still used by kept banners + comms items (SP3) ---
   alertBannerDismiss: "Dismiss",
   alertCatOverdue: "Overdue",
