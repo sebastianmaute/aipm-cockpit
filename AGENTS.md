@@ -24,6 +24,9 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
   strings too); patch it via a node utf8 write and re-verify. The file is CRLF — a node
   replace whose anchor uses `\n` silently no-ops; match `\r\n`.
   Interpolated strings use 0-based positional placeholders: `t(lang, key, a, b)` → `{0}`/`{1}`.
+  `Lang` is `"en-US" | "en-GB" | "de"` — there is NO `"en"` (legacy runtime alias only, invalid
+  as a TS literal; `t(lang, …)` calls and component tests must use `"en-US"`). The DE dict is lazy —
+  a test asserting DE output must call `loadI18n("de")` (e.g. in `beforeAll`) before the assertion.
 - **Byte-stable serializers:** `golden-workspace.test` pins the exact CSV/Markdown storage bytes.
   A failure usually means a real format change — only regenerate the `__fixtures__` when the
   *input* (`sample-workspace.json`) legitimately changed, never to mask a format diff.
@@ -33,6 +36,8 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
   on an element PASSES CI but is still forbidden; check new components by eye.
 - **a11y (axe gate):** every new interactive control (button/checkbox/input/drag handle) needs an
   accessible name and keyboard operability — an unlabeled form control is an axe-critical FAIL.
+  A `placeholder` is NOT an accessible name — an input needs `aria-label`/`<label>` (a placeholder-only
+  input fails the axe gate even though it looks labeled).
 - **CI is GitLab** (not GitHub),  (GitLab). Pipeline: install → lint → typecheck → unit → build → e2e.
 - **Releasing:** bump `src/app/version.ts` (APP_VERSION + milestone), add a `CHANGELOG.md` entry,
   and append any new `versionHighlight*` key to `APP_HIGHLIGHT_KEYS` (+ EN/DE strings).
@@ -56,7 +61,8 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
   (single + multi-tenant), IndexedDB. Snapshots/Trends and version history are Turso-ONLY.
 - Action-Center CTAs are surface-only: thread an optional handler
   task-manager → workspace-section → ActionsPanel → ActionRow (ActionsPanel renders in
-  workspace-section, not task-manager); the `next-actions/` engine stays pure.
+  workspace-section, not task-manager, and renders TWO ActionRow lists — tier + monitor — so a new
+  CTA prop must be threaded to BOTH); the `next-actions/` engine stays pure.
 - Heavy browser-only deps (rich-text editor, etc.) load via `next/dynamic({ ssr: false })` to
   stay off the main bundle; ProseMirror/Tiptap-style libs need `Range.getClientRects` +
   `getBoundingClientRect` jsdom stubs in their tests.
