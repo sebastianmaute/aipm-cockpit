@@ -1041,7 +1041,7 @@ function TaskManagerInner() {
 
   const commTemplatesActive = tursoConfig !== null && !isPopout;
   const commTemplates = useCommTemplates({ active: commTemplatesActive, config: tursoConfig });
-  const { guides: operatingGuides } = useOperatingGuides({ config: tursoConfig });
+  const operatingGuides = useOperatingGuides({ config: tursoConfig });
   // Stable callback (its own useCallback) — depend on this, not the whole hook
   // object, so consumers don't re-create on every render.
   const resolveCommBody = commTemplates.resolveTemplateBody;
@@ -1586,7 +1586,7 @@ function TaskManagerInner() {
     onOpenLearningSettings,
     onPushMilestonesToOutlook: calendarPushEnabled ? calendarPushToOutlook : undefined,
     calendarPushBusy: calendarPushEnabled ? calendarPushBusy : undefined,
-    guides: operatingGuides,
+    guides: operatingGuides.guides,
   };
 
   const workspaceEl = <WorkspaceSection {...workspaceProps} />;
@@ -1709,6 +1709,7 @@ function TaskManagerInner() {
       commTemplatesEnabled={commTemplatesActive}
       commTemplates={commTemplates}
       commTemplatesConfig={tursoConfig}
+      operatingGuides={operatingGuides}
       learningConfig={settings.nextActionsLearning ?? defaultNextActionsLearning}
       onChangeLearningConfig={isPopout ? undefined : (c) => setSettings((s) => ({ ...s, nextActionsLearning: c }))}
       onResetLearning={isPopout ? undefined : () => { void learning.reset(); }}

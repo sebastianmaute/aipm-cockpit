@@ -41,6 +41,7 @@ interface SettingsViewProps {
   commTemplatesEnabled?: boolean;
   commTemplates?: UseCommTemplatesResult;
   commTemplatesConfig?: TursoConfig | null;
+  operatingGuides?: import("./use-operating-guides").UseOperatingGuidesResult;
   learningConfig?: NextActionsLearningConfig;
   onChangeLearningConfig?: (c: NextActionsLearningConfig) => void;
   onResetLearning?: () => void;
@@ -246,7 +247,7 @@ export function SettingsView(props: SettingsViewProps) {
           />
         )}
         {active === "ai" && (
-          <AiSection lang={lang} settings={settings} onChange={onChange} />
+          <AiSection lang={lang} settings={settings} onChange={onChange} operatingGuides={props.operatingGuides} />
         )}
         {active === "jira" && (
           <JiraSettingsSection
