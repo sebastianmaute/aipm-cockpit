@@ -28,7 +28,7 @@ export class GraphCalendarError extends Error {
 
 function nextDay(isoDate: string): string {
   const d = new Date(`${isoDate}T00:00:00Z`);
-  if (Number.isNaN(d.getTime())) throw new GraphCalendarError(0, `Invalid milestone date: ${isoDate}`);
+  if (Number.isNaN(d.getTime())) throw new GraphCalendarError(-1, `Invalid milestone date: ${isoDate}`);
   d.setUTCDate(d.getUTCDate() + 1);
   return d.toISOString().slice(0, 10);
 }
@@ -54,15 +54,21 @@ async function graph(token: string, method: string, path: string, payload?: unkn
   return res;
 }
 
+/** GET an absolute Graph URL, returning the parsed JSON or throwing on non-ok.
+ *  Mirrors graph() but for GET (no body), against a full URL (for pagination). */
+async function graphGet<T>(token: string, url: string): Promise<T> {
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) throw new GraphCalendarError(res.status, `Graph GET failed (${res.status})`);
+  return (await res.json()) as T;
+}
+
 /** All project-tagged events (id only), paginated. */
 export async function listProjectEvents(token: string, projectId: string): Promise<ExistingEvent[]> {
   const cat = categoryFor(projectId).replace(/'/g, "''"); // OData single-quote escape
   let url: string | null = `${GRAPH}/me/events?$filter=${encodeURIComponent(`categories/any(c:c eq '${cat}')`)}&$select=id&$top=100`;
   const out: ExistingEvent[] = [];
   for (let i = 0; i < MAX_PAGES && url; i++) {
-    const res: Response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-    if (!res.ok) throw new GraphCalendarError(res.status, `Graph list events failed (${res.status})`);
-    const json: { value?: { id: string }[]; "@odata.nextLink"?: string } = await res.json();
+    const json: { value?: { id: string }[]; "@odata.nextLink"?: string } = await graphGet(token, url);
     for (const e of json.value ?? []) out.push({ id: e.id });
     url = json["@odata.nextLink"] ?? null;
   }

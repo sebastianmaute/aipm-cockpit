@@ -62,13 +62,20 @@ export function pragmaStatements(tables: readonly string[]): SqlStmt[] {
  * table_info returns rows of (cid, name, type, notnull, dflt_value, pk). The
  * `name` is normally the 2nd column, but we look it up by the result's own
  * `cols` metadata (robust to column ordering) and fall back to index 1.
- * An empty/missing result (table does not exist yet) yields [].
+ * An empty/missing result for a known shape (table does not exist yet) yields [].
+ *
+ * Returns `null` as an "unknown schema" sentinel when the result carries NO
+ * `cols` metadata AND no `"name"` column could be located — i.e. the PRAGMA
+ * shape drifted and we cannot trust the parse. Callers must treat `null` as
+ * "do not ALTER" rather than "no columns → ALTER everything" (which would
+ * spuriously re-add existing columns and fail the save with a duplicate column).
  */
-export function existingColumnsFromPragma(res: PipelineResultLike | undefined): string[] {
+export function existingColumnsFromPragma(res: PipelineResultLike | undefined): string[] | null {
   const cols = res?.response?.result?.cols ?? [];
   const rows = res?.response?.result?.rows ?? [];
-  let nameIdx = cols.findIndex((c) => c?.name === "name");
-  if (nameIdx < 0) nameIdx = 1; // table_info's canonical column order
+  const namedIdx = cols.findIndex((c) => c?.name === "name");
+  if (cols.length === 0 && namedIdx < 0) return null; // unknown schema — do not infer columns
+  const nameIdx = namedIdx < 0 ? 1 : namedIdx; // table_info's canonical column order
   const out: string[] = [];
   for (const row of rows) {
     const cell = row[nameIdx];
@@ -112,6 +119,7 @@ export function buildColumnEnsureAlters(
   const out: SqlStmt[] = [];
   specs.forEach((spec, i) => {
     const existing = existingColumnsFromPragma(pragmaResults[i]);
+    if (existing === null) return; // unknown schema for this table — do not ALTER
     out.push(...missingColumnAlters(spec.table, existing, spec.columns));
   });
   return out;

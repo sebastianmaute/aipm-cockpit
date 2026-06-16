@@ -11,6 +11,10 @@ const updateEvent = vi.fn<(...a: unknown[]) => Promise<void>>(async () => {});
 const deleteEvent = vi.fn<(...a: unknown[]) => Promise<void>>(async () => {});
 vi.mock("./outlook-calendar-write", () => ({
   CALENDAR_READWRITE_SCOPE: ["Calendars.ReadWrite"],
+  // real class so `err instanceof GraphCalendarError` holds in the hook under test
+  GraphCalendarError: class GraphCalendarError extends Error {
+    constructor(public status: number, m: string) { super(m); this.name = "GraphCalendarError"; }
+  },
   milestoneToGraphEvent: (m: { id: number }) => ({ subject: `M${m.id}` }),
   listProjectEvents: (...a: unknown[]) => listProjectEvents(...a),
   createEvent: (...a: unknown[]) => createEvent(...a),
@@ -19,6 +23,7 @@ vi.mock("./outlook-calendar-write", () => ({
 }));
 
 import { useOutlookCalendarPush } from "./use-outlook-calendar-push";
+import { GraphCalendarError } from "./outlook-calendar-write";
 import type { Milestone } from "./types";
 
 const ms = (id: number, over: Partial<Milestone> = {}): Milestone => ({ id, name: `M${id}`, date: "2026-07-01", linkedTaskIds: [], ...over });
@@ -37,6 +42,20 @@ describe("useOutlookCalendarPush", () => {
     const next = typeof updater === "function" ? updater([ms(1)]) : updater;
     expect(next[0].outlookEventId).toBe("new-evt");
     expect(showToast).toHaveBeenCalled();
+  });
+  it("clears a stale outlookEventId when the update returns 404 (event deleted in Outlook)", async () => {
+    listProjectEvents.mockResolvedValue([{ id: "stale" }]); // matches the milestone link → routed to update
+    updateEvent.mockRejectedValueOnce(new GraphCalendarError(404, "gone"));
+    const setMilestones = vi.fn();
+    const { result } = renderHook(() =>
+      useOutlookCalendarPush({ milestones: [ms(1, { outlookEventId: "stale" })], projectId: "p", setMilestones, isPopout: false, lang: "en-US", enabled: true }));
+    await act(async () => { await result.current.pushToOutlook(); });
+    expect(setMilestones).toHaveBeenCalled();
+    const updater = setMilestones.mock.calls.at(-1)![0];
+    const next = typeof updater === "function" ? updater([ms(1, { outlookEventId: "stale" })]) : updater;
+    expect(next[0].outlookEventId).toBeUndefined();
+    // a 404 self-heal must NOT raise the partial-failure ("error") toast on its own
+    expect(showToast).not.toHaveBeenCalledWith("error", expect.anything());
   });
   it("toasts and does nothing when no token", async () => {
     acquireToken.mockResolvedValueOnce(null);

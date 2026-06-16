@@ -357,8 +357,8 @@ describe("TursoBackend", () => {
 
       // call 0 is PRAGMA table_info, one per entity table.
       expect(bodySqls(0).every((s) => s.startsWith("PRAGMA table_info"))).toBe(true);
-      // call 1 issues exactly the one missing ALTER.
-      expect(bodySqls(1)).toEqual(['ALTER TABLE "milestones" ADD COLUMN "outlookEventId" TEXT']);
+      // call 1 issues exactly the one missing ALTER, wrapped in a transaction.
+      expect(bodySqls(1)).toEqual(["BEGIN", 'ALTER TABLE "milestones" ADD COLUMN "outlookEventId" TEXT', "COMMIT"]);
       // The ALTER pipeline (call 1) precedes the INSERT overwrite (call 2).
       expect(bodySqls(2).some((s) => s.startsWith("INSERT INTO tasks"))).toBe(true);
       expect(fetchSpy).toHaveBeenCalledTimes(3);
@@ -404,7 +404,7 @@ describe("TursoBackend", () => {
       const ws = emptyWorkspace();
       ws.tasks = [minimalTask as never];
       await new TursoBackend(CONFIG, "proj-1").save(ws);
-      expect(bodySqls(1)).toEqual(['ALTER TABLE "milestones" ADD COLUMN "outlookEventId" TEXT']);
+      expect(bodySqls(1)).toEqual(["BEGIN", 'ALTER TABLE "milestones" ADD COLUMN "outlookEventId" TEXT', "COMMIT"]);
       // The overwrite is project-scoped.
       expect(bodySqls(2).some((s) => s.includes("WHERE project_id = ?"))).toBe(true);
     });

@@ -64,9 +64,13 @@ describe("existingColumnsFromPragma", () => {
     };
     expect(existingColumnsFromPragma(res)).toEqual(["id", "title"]);
   });
-  it("returns [] for a missing/empty result (table absent)", () => {
-    expect(existingColumnsFromPragma(undefined)).toEqual([]);
+  it("returns [] for an empty result that still carries cols metadata (table absent, known shape)", () => {
     expect(existingColumnsFromPragma(pragmaResult([]))).toEqual([]);
+  });
+  it("returns the null sentinel when cols metadata is absent and no name column found (schema drift)", () => {
+    expect(existingColumnsFromPragma(undefined)).toBeNull();
+    const noCols: PipelineResultLike = { type: "ok", response: { type: "execute", result: { cols: [], rows: [] } } };
+    expect(existingColumnsFromPragma(noCols)).toBeNull();
   });
   it("skips rows with a null name cell", () => {
     const res: PipelineResultLike = {
@@ -131,6 +135,17 @@ describe("buildColumnEnsureAlters", () => {
   it("returns [] when every table is up to date", () => {
     const results = [pragmaResult(["id", "taskName"]), pragmaResult(["id", "name", "outlookEventId"])];
     expect(buildColumnEnsureAlters(specs, results)).toEqual([]);
+  });
+
+  it("emits NO alters for a table whose PRAGMA result has empty cols (unknown schema → null sentinel)", () => {
+    const driftResult: PipelineResultLike = { type: "ok", response: { type: "execute", result: { cols: [], rows: [] } } };
+    const results = [
+      driftResult, // tasks: schema drift / unknown — must NOT ALTER
+      pragmaResult(["id", "name"]), // milestones missing outlookEventId
+    ];
+    expect(buildColumnEnsureAlters(specs, results)).toEqual([
+      { sql: 'ALTER TABLE "milestones" ADD COLUMN "outlookEventId" TEXT' },
+    ]);
   });
 
   it("aligns specs to pragmaResults by index", () => {

@@ -203,7 +203,9 @@ export class TursoBackend implements StorageBackend {
     const pragmaResults = await runTursoPipeline(this.config, pragmaStatements(tables));
     const alters = buildColumnEnsureAlters(specs, pragmaResults);
     if (alters.length === 0) return; // fresh / up-to-date DB — no second round-trip.
-    await runTursoPipeline(this.config, alters);
+    // Wrap a multi-table migration in a transaction so it applies atomically
+    // (libSQL supports DDL in a transaction). A partial failure rolls back fully.
+    await runTursoPipeline(this.config, [{ sql: "BEGIN" }, ...alters, { sql: "COMMIT" }]);
   }
 
   private async loadSingleTenant(): Promise<Workspace> {
