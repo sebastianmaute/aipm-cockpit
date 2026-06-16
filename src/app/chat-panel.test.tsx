@@ -390,3 +390,35 @@ describe("prompt caching", () => {
     rejectFetch(abortError);
   });
 });
+
+// ---------------------------------------------------------------------------
+// guidesReady gate
+// ---------------------------------------------------------------------------
+describe("guidesReady gate", () => {
+  it("disables send and shows loading placeholder when grounding is on but guides are not ready", () => {
+    render(
+      <ChatPanel
+        lang="en-US"
+        ai={{ ...defaultAiConfig, consentAccepted: true, apiKey: "sk-test", groundInGuides: true }}
+        dispatcher={{
+          listTasks: vi.fn(() => []),
+          getTask: vi.fn(() => null),
+          createTask: vi.fn(),
+          updateTask: vi.fn(() => null),
+          deleteTask: vi.fn(() => false),
+          deleteAllTasks: vi.fn(() => 0),
+          listRaid: vi.fn(() => []),
+          listChanges: vi.fn(() => []),
+          listMilestones: vi.fn(() => []),
+          listStakeholders: vi.fn(() => []),
+          listDocuments: vi.fn(() => []),
+          getSnapshot: vi.fn(() => null),
+        } as unknown as Parameters<typeof ChatPanel>[0]["dispatcher"]}
+        onAcceptConsent={vi.fn()}
+        guidesReady={false}
+      />,
+    );
+    expect(screen.getByPlaceholderText("Loading operating guides…")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
+  });
+});

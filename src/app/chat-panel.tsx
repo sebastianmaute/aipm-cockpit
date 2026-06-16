@@ -166,18 +166,20 @@ function ChatPanelImpl({
   dispatcher,
   onAcceptConsent,
   guides = [],
+  guidesReady = true,
 }: {
   lang: Lang;
   ai: AiConfig;
   dispatcher: ToolDispatcher;
   onAcceptConsent: () => void;
   guides?: readonly OperatingGuide[];
+  guidesReady?: boolean;
 }) {
   if (!ai.consentAccepted) {
     return <ConsentScreen lang={lang} onAccept={onAcceptConsent} />;
   }
   return (
-    <ChatPanelInner lang={lang} ai={ai} dispatcher={dispatcher} guides={guides} />
+    <ChatPanelInner lang={lang} ai={ai} dispatcher={dispatcher} guides={guides} guidesReady={guidesReady} />
   );
 }
 
@@ -192,11 +194,13 @@ function ChatPanelInner({
   ai,
   dispatcher,
   guides = [],
+  guidesReady = true,
 }: {
   lang: Lang;
   ai: AiConfig;
   dispatcher: ToolDispatcher;
   guides?: readonly OperatingGuide[];
+  guidesReady?: boolean;
 }) {
   const [history, setHistory] = useState<ApiMessage[]>([]);
   const [display, setDisplay] = useState<DisplayItem[]>([]);
@@ -215,9 +219,11 @@ function ChatPanelInner({
     scrollerRef.current.scrollTop = scrollerRef.current.scrollHeight;
   }, [display, busy]);
 
+  const guidesPending = ai.groundInGuides && !guidesReady;
+
   async function sendMessage() {
     const text = input.trim().slice(0, CHAT_MESSAGE_MAX);
-    if (!text || busy) return;
+    if (!text || busy || guidesPending) return;
     if (!ai.apiKey.trim()) {
       setError(t(lang, "chatNoApiKey"));
       return;
@@ -464,8 +470,8 @@ function ChatPanelInner({
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={onKeyDown}
-          placeholder={t(lang, "chatPlaceholder")}
-          disabled={busy || apiKeyMissing}
+          placeholder={guidesPending ? t(lang, "chatGuidesLoading") : t(lang, "chatPlaceholder")}
+          disabled={busy || apiKeyMissing || guidesPending}
           className="min-w-0 flex-1 self-stretch resize-none rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none focus:ring-1 focus:ring-AIPM-green disabled:cursor-not-allowed disabled:opacity-50"
         />
         <div className="flex flex-col gap-2">
@@ -482,7 +488,7 @@ function ChatPanelInner({
             <button
               type="button"
               onClick={sendMessage}
-              disabled={!input.trim() || apiKeyMissing}
+              disabled={!input.trim() || apiKeyMissing || guidesPending}
               className="rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {t(lang, "chatSend")}

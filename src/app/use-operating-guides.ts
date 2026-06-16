@@ -17,6 +17,7 @@ export interface UseOperatingGuidesArgs {
 export interface UseOperatingGuidesResult {
   guides: OperatingGuide[];
   busy: boolean;
+  ready: boolean;
   create: (name: string, content: string, opts?: { priority?: number; scope?: GuideScope }) => Promise<void>;
   update: (g: OperatingGuide) => Promise<void>;
   remove: (id: string) => Promise<void>;
@@ -33,6 +34,7 @@ function builtinGuide(): OperatingGuide {
 export function useOperatingGuides({ config }: UseOperatingGuidesArgs): UseOperatingGuidesResult {
   const [guides, setGuides] = useState<OperatingGuide[]>([]);
   const [busy, setBusy] = useState(false);
+  const [ready, setReady] = useState(false);
   const cfgRef = useRef(config);
   const opSeqRef = useRef(0);
   const mountedRef = useRef(true);
@@ -51,6 +53,8 @@ export function useOperatingGuides({ config }: UseOperatingGuidesArgs): UseOpera
       setGuides(list);
     } catch {
       // optional feature — leave guides as-is
+    } finally {
+      if (mountedRef.current) setReady(true);
     }
   }, []);
 
@@ -99,5 +103,5 @@ export function useOperatingGuides({ config }: UseOperatingGuidesArgs): UseOpera
     }
   }, [refresh]);
 
-  return { guides, busy, create, update, remove, refresh };
+  return { guides, busy, ready, create, update, remove, refresh };
 }

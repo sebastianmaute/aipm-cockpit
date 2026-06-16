@@ -1587,6 +1587,7 @@ function TaskManagerInner() {
     onPushMilestonesToOutlook: calendarPushEnabled ? calendarPushToOutlook : undefined,
     calendarPushBusy: calendarPushEnabled ? calendarPushBusy : undefined,
     guides: operatingGuides.guides,
+    guidesReady: operatingGuides.ready,
   };
 
   const workspaceEl = <WorkspaceSection {...workspaceProps} />;

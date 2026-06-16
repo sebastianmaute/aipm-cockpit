@@ -87,6 +87,7 @@ describe("AiSection", () => {
         },
       ],
       busy: false,
+      ready: true,
       create: vi.fn(),
       update: vi.fn(),
       remove: vi.fn(),

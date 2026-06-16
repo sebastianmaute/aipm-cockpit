@@ -376,6 +376,7 @@ export const de: Record<TranslationKey, string> = {
     "Wird nur in diesem Browser gespeichert. Anfragen gehen direkt von Ihrem Browser an api.anthropic.com.",
 
   chatPlaceholder: "Fragen Sie Claude zu Ihren Aufgaben…",
+  chatGuidesLoading: "Betriebsleitfäden werden geladen…",
   chatSend: "Senden",
   chatThinking: "Denke nach…",
   chatNoApiKey:

@@ -209,6 +209,7 @@ export interface WorkspaceSectionProps {
   onPushMilestonesToOutlook?: () => void;
   calendarPushBusy?: boolean;
   guides?: readonly OperatingGuide[];
+  guidesReady?: boolean;
 }
 
 export function WorkspaceSection({
@@ -294,6 +295,7 @@ export function WorkspaceSection({
   onPushMilestonesToOutlook,
   calendarPushBusy,
   guides = [],
+  guidesReady = true,
 }: WorkspaceSectionProps) {
   const { settings, setSettings, lang } = useSettings();
   const features = settings.features;
@@ -534,6 +536,7 @@ export function WorkspaceSection({
             dispatcher={dispatcher}
             onAcceptConsent={handleAcceptAiConsent}
             guides={guides}
+            guidesReady={guidesReady}
           />
         </div>
 

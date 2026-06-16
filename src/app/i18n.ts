@@ -370,6 +370,7 @@ const enUS = {
     "Stored in this browser only. Calls go directly from your browser to api.anthropic.com.",
 
   chatPlaceholder: "Ask Claude about your tasks…",
+  chatGuidesLoading: "Loading operating guides…",
   chatSend: "Send",
   chatThinking: "Thinking…",
   chatNoApiKey:
