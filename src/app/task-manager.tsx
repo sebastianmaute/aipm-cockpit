@@ -701,10 +701,9 @@ function TaskManagerInner() {
   const nowCount = nextActions.filter((a) => a.tier === "now").length;
   const openAction = useCallback(
     (a: SuggestedAction) => {
-      void recordLearning(a, "acted");
       if (a.cta.kind === "open") requestOpen(a.cta.view, Number(a.cta.id));
     },
-    [requestOpen, recordLearning],
+    [requestOpen],
   );
   const openActionCenter = useCallback(() => {
     if (typeof window !== "undefined") window.focus();
@@ -988,10 +987,11 @@ function TaskManagerInner() {
               const next = applyOwnerAssignment(raid, id, v);
               if (next === raid) return; // no matching item → no write, no toast
               setRaid(next as RaidItem[]);
+              void recordLearning(action, "acted");
               showToast("info", t(lang, "actionOwnerAssigned", id));
             },
           },
-    [isPopout, resources, handleCreateResource, raid, setRaid, showToast, lang],
+    [isPopout, resources, handleCreateResource, raid, setRaid, showToast, lang, recordLearning],
   );
 
   const handleCreateTaskFromAction = useCallback(
@@ -1059,7 +1059,7 @@ function TaskManagerInner() {
       const id = action.cta.kind === "open" ? Number(action.cta.id) : -1;
       if (action.source === "task-due") {
         const task = tasks.find((t) => t.id === id);
-        if (task) onSendInquiry(task);
+        if (task) { onSendInquiry(task); void recordLearning(action, "acted"); }
         return;
       }
       if (action.source === "stakeholder-comms") {
@@ -1082,9 +1082,10 @@ function TaskManagerInner() {
           ? sanitizeTemplateHtml(renderTemplate(tplBody, "stakeholder-update", buildStakeholderUpdateVars(sh, project?.name ?? "")))
           : plainTextToHtml(body);
         commSend.send({ to: email, subject, html, plain: body });
+        void recordLearning(action, "acted");
       }
     },
-    [tasks, onSendInquiry, stakeholders, resources, project, lang, resolveCommBody, commSend],
+    [tasks, onSendInquiry, stakeholders, resources, project, lang, resolveCommBody, commSend, recordLearning],
   );
 
   const handleEscalate = useCallback(
@@ -1104,8 +1105,9 @@ function TaskManagerInner() {
       }
       const { subject, body } = buildEscalationMail(lang, item, plan, project?.name ?? "");
       window.location.href = buildMailtoUrl(recipient.email, subject, body);
+      void recordLearning(action, "acted");
     },
-    [raid, setRaid, lang, project],
+    [raid, setRaid, lang, project, recordLearning],
   );
 
   const escalateBundle = useMemo(
@@ -1122,18 +1124,22 @@ function TaskManagerInner() {
   );
 
   const handleRebaselineMilestone = useCallback(
-    (id: number, newDate: string) => {
+    (action: SuggestedAction, id: number, newDate: string) => {
       if (!isValidIsoDate(newDate)) { window.alert(t(lang, "errorInvalidDate")); return; }
       const next = applyMilestoneRebaseline(milestones, id, newDate);
-      if (next !== milestones) setMilestones(next as Milestone[]);
+      if (next !== milestones) {
+        setMilestones(next as Milestone[]);
+        void recordLearning(action, "acted");
+      }
     },
-    [milestones, setMilestones, lang],
+    [milestones, setMilestones, lang, recordLearning],
   );
 
   const snapshotsRebaselineNow = snapshots.rebaselineNow;
-  const handleRebaselineSnapshot = useCallback(() => {
+  const handleRebaselineSnapshot = useCallback((action: SuggestedAction) => {
+    void recordLearning(action, "acted");
     void snapshotsRebaselineNow();
-  }, [snapshotsRebaselineNow]);
+  }, [snapshotsRebaselineNow, recordLearning]);
 
   const rebaselineBundle = useMemo<RebaselineBundle | undefined>(
     () =>
