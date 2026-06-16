@@ -58,6 +58,7 @@ import { useStakeholderComms } from "./use-stakeholder-comms";
 import { getJiraTokenAlert } from "./jira-token-status";
 import { effectiveLeadDays } from "./notifications-lead";
 import { WorkspaceSection } from "./workspace-section";
+import { useOutlookCalendarPush } from "./use-outlook-calendar-push";
 import { RolesPanel } from "./roles-panel";
 import { getUpcomingBirthdays } from "./birthdays";
 import { useBirthdayAlerts } from "./use-birthday-alerts";
@@ -1417,6 +1418,34 @@ function TaskManagerInner() {
     [isPopout, handleCommand, showToast],
   );
 
+  // Push milestones to the Outlook calendar (write-back). Gated on M365 being
+  // enabled AND the explicit calendar-push setting, and never in a popout.
+  const calendarPushEnabled =
+    !isPopout &&
+    (settings.integrations?.m365?.enabled ?? false) &&
+    (settings.integrations?.m365?.outlookCalendarPush ?? false);
+  // Use the active project's STABLE id for the Outlook event category so events
+  // are not orphaned when the (display) name changes: registry/turso current id
+  // → ProjectMeta.code → the literal "default".
+  const calendarProjectId = portfolioCurrentId || project?.code || "default";
+  // The workspace setter is Dispatch<SetStateAction<readonly Milestone[]>>; the
+  // hook wants (updater: (prev: Milestone[]) => Milestone[]) => void — bridge it.
+  const setMilestonesForPush = useCallback(
+    (updater: (prev: Milestone[]) => Milestone[]) =>
+      setMilestones((prev) => updater([...prev])),
+    [setMilestones],
+  );
+  const calendarPush = useOutlookCalendarPush({
+    milestones,
+    projectId: calendarProjectId,
+    setMilestones: setMilestonesForPush,
+    isPopout,
+    lang,
+    enabled: calendarPushEnabled,
+  });
+  const calendarPushToOutlook = calendarPush.pushToOutlook;
+  const calendarPushBusy = calendarPush.busy;
+
   if (!i18nReady) return null;
 
   // Shared props for WorkspaceSection. Spread into both the classic (no
@@ -1525,6 +1554,8 @@ function TaskManagerInner() {
     assignOwner: assignOwnerBundle,
     escalate: escalateBundle,
     rebaseline: rebaselineBundle,
+    onPushMilestonesToOutlook: calendarPushEnabled ? calendarPushToOutlook : undefined,
+    calendarPushBusy,
   };
 
   const workspaceEl = <WorkspaceSection {...workspaceProps} />;

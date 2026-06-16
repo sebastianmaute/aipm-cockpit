@@ -158,4 +158,48 @@ describe("MilestonesPanel", () => {
     const hint = container.querySelector("[aria-hidden='true']");
     expect(hint).not.toBeNull();
   });
+
+  it("renders a Push-to-Outlook button when onPushToOutlook is provided and calls it on click", () => {
+    const onPushToOutlook = vi.fn();
+    render(
+      <>
+        <Seed milestones={[m("Alpha", "2026-06-10")]} />
+        <MilestonesPanel
+          {...baseProps}
+          onPushToOutlook={onPushToOutlook}
+        />
+      </>,
+      { wrapper },
+    );
+    const btn = screen.getByRole("button", {
+      name: t("en-US", "calendarPush"),
+    });
+    fireEvent.click(btn);
+    expect(onPushToOutlook).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not render a Push-to-Outlook button when onPushToOutlook is absent", () => {
+    renderMilestones({ milestones: [m("Alpha", "2026-06-10")] });
+    expect(
+      screen.queryByRole("button", { name: t("en-US", "calendarPush") }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows the busy label and disables the Push-to-Outlook button when calendarPushBusy", () => {
+    render(
+      <>
+        <Seed milestones={[m("Alpha", "2026-06-10")]} />
+        <MilestonesPanel
+          {...baseProps}
+          onPushToOutlook={vi.fn()}
+          calendarPushBusy
+        />
+      </>,
+      { wrapper },
+    );
+    const btn = screen.getByRole("button", {
+      name: t("en-US", "calendarPushing"),
+    });
+    expect(btn).toBeDisabled();
+  });
 });

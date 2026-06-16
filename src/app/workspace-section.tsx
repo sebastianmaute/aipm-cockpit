@@ -198,6 +198,8 @@ export interface WorkspaceSectionProps {
   assignOwner?: AssignOwnerBundle;
   escalate?: EscalateBundle;
   rebaseline?: RebaselineBundle;
+  onPushMilestonesToOutlook?: () => void;
+  calendarPushBusy?: boolean;
 }
 
 export function WorkspaceSection({
@@ -275,6 +277,8 @@ export function WorkspaceSection({
   assignOwner,
   escalate,
   rebaseline,
+  onPushMilestonesToOutlook,
+  calendarPushBusy,
 }: WorkspaceSectionProps) {
   const { settings, setSettings, lang } = useSettings();
   const features = settings.features;
@@ -804,6 +808,8 @@ export function WorkspaceSection({
               holidaySet={holidaySet}
               logActivity={logActivity}
               openCreateNonce={milestoneCreateNonce}
+              onPushToOutlook={onPushMilestonesToOutlook}
+              calendarPushBusy={calendarPushBusy}
             />
           </div>
         )}
