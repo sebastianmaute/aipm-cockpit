@@ -88,6 +88,12 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
     void versions.saveVersion(name.trim(), bodyDraft, false);
   }
 
+  function cancelEdit() {
+    if (!selected) return;
+    setBodyDraft(selected.body);
+    setRestoreNonce((n) => n + 1);
+  }
+
   function restoreVersion(body: string) {
     if (!selected) return;
     const stamp = new Date().toISOString();
@@ -226,7 +232,16 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
               if (!e.currentTarget.contains(e.relatedTarget as Node | null)) persistBody();
             }}
           >
-            <span className="text-sm font-medium text-foreground">{t(lang, "commTplBody")}</span>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-foreground">{t(lang, "commTplBody")}</span>
+              <button
+                type="button"
+                onClick={cancelEdit}
+                className="shrink-0 rounded-md border border-line px-2 py-1 text-xs hover:bg-surface-muted"
+              >
+                {t(lang, "commTemplateCancelEdit")}
+              </button>
+            </div>
             <RichTextEditor
               key={`${selected.id}:${restoreNonce}`}
               value={bodyDraft}

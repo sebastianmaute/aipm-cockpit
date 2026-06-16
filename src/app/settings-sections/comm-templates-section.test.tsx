@@ -74,6 +74,18 @@ describe("CommTemplatesSection", () => {
     expect(saveVersion).toHaveBeenCalledWith("My version", expect.any(String), false);
   });
 
+  it("cancels editing: reverts the body draft and does not save", async () => {
+    const h = setup([tpl({ body: "Hello " })]);
+    fireEvent.click(screen.getByRole("button", { name: "Inquiry A" }));
+    const body = (await screen.findByLabelText("Body")) as HTMLTextAreaElement;
+    fireEvent.change(body, { target: { value: "Hello CHANGED" } });
+    expect(body.value).toBe("Hello CHANGED");
+    fireEvent.click(screen.getByRole("button", { name: "Cancel editing" }));
+    const reverted = (await screen.findByLabelText("Body")) as HTMLTextAreaElement;
+    expect(reverted.value).toBe("Hello ");
+    expect(h.onSaveBody).not.toHaveBeenCalled();
+  });
+
   it("compares Current against a version and shows the diff", async () => {
     setup([tpl({ body: "<p>new</p>" })]);
     fireEvent.click(screen.getByRole("button", { name: "Inquiry A" }));
