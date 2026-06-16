@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { type ReactNode } from "react";
 import { FiltersProvider } from "./filters-context";
@@ -300,8 +300,7 @@ describe("DashboardPanel top-actions card (Task 7)", () => {
 });
 
 describe("DashboardPanel status narrative layout (Task 2)", () => {
-  it("places Save and Clear in a right-hand column beside the textarea", () => {
-    const { wrapper: w } = (() => ({ wrapper }))();
+  function renderNarrative() {
     render(
       <DashboardPanel
         lang="en-US"
@@ -318,14 +317,37 @@ describe("DashboardPanel status narrative layout (Task 2)", () => {
         workdayHours={8}
         today="2026-06-02"
       />,
-      { wrapper: w },
+      { wrapper },
     );
+  }
+
+  it("places Save and Clear in a justify-end row BELOW the textarea", () => {
+    renderNarrative();
+    const textarea = screen.getByRole("textbox");
     const save = screen.getByRole("button", { name: /save/i });
     const clear = screen.getByRole("button", { name: /clear/i });
-    const col = save.parentElement!;
-    expect(col).toBe(clear.parentElement);
-    expect(col.className).toContain("flex-col");
-    expect(col.parentElement!.className).toContain("items-stretch");
+
+    // Save and Clear share one button row.
+    const row = save.parentElement!;
+    expect(row).toBe(clear.parentElement);
+    expect(row.className).toContain("justify-end");
+    expect(row.className).toContain("print:hidden");
+
+    // The button row is a sibling that follows the textarea in DOM order.
+    const container = textarea.parentElement!;
+    expect(container).toBe(row.parentElement);
+    const kids = Array.from(container.children);
+    expect(kids.indexOf(textarea)).toBeLessThan(kids.indexOf(row));
+  });
+
+  it("grows the textarea height to scrollHeight on input (autogrow)", async () => {
+    const user = userEvent.setup();
+    renderNarrative();
+    const textarea = screen.getByRole("textbox") as HTMLTextAreaElement;
+    // jsdom has no layout, so stub scrollHeight to a known value.
+    Object.defineProperty(textarea, "scrollHeight", { configurable: true, value: 173 });
+    await user.type(textarea, "line one\nline two\nline three");
+    expect(textarea.style.height).toBe("173px");
   });
 });
 
@@ -378,6 +400,73 @@ describe("DashboardPanel status narrative Clear button", () => {
     );
     const clearBtn = screen.getByRole("button", { name: /clear/i });
     expect(clearBtn).toBeDisabled();
+  });
+});
+
+describe("DashboardPanel budget-burn CPI stat", () => {
+  // A task with an estimate + completion + time-spent yields a non-null EVM CPI:
+  // EV = 57min, AC = 60min → cpi = 0.95.
+  const taskWithCpi = [
+    {
+      id: 1, title: "Done task", status: "Done", health: "G",
+      originalEstimateMinutes: 57, timeSpentMinutes: 60,
+      dueDate: "2026-06-01", completedDate: "2026-06-01",
+      linkedRaidIds: [], subtaskIds: [], parentId: null, assigneeIds: [],
+    },
+  ] as never[];
+
+  // The burn-tile group is the flex row that holds the Sub-budget + hours
+  // tiles (the hours tile is labelled "h"); the new CPI stat must live there,
+  // distinct from the separate EVM SPI/CPI block.
+  function burnTileGroup(): HTMLElement {
+    const hoursTile = screen.getByText("h").closest("div.rounded-lg") as HTMLElement;
+    return hoursTile.parentElement as HTMLElement;
+  }
+
+  it("shows the CPI value in the budget-burn tile group when model.evm.cpi is present", () => {
+    render(
+      <DashboardPanel
+        lang="en-US"
+        tasks={taskWithCpi}
+        raid={[]}
+        budgets={minimalBudget as never}
+        plan={plan}
+        roles={[]}
+        resources={[]}
+        absences={[]}
+        holidaySet={new Set<string>()}
+        workdayHours={8}
+        today="2026-06-02"
+      />,
+      { wrapper },
+    );
+    const group = burnTileGroup();
+    const cpiLabel = within(group).getByText("CPI");
+    const tile = cpiLabel.closest("div.rounded-lg") as HTMLElement;
+    expect(within(tile).getByText("0.95")).toBeInTheDocument();
+  });
+
+  it("shows an em dash in the budget-burn CPI stat when model.evm.cpi is null", () => {
+    render(
+      <DashboardPanel
+        lang="en-US"
+        tasks={[]}
+        raid={[]}
+        budgets={minimalBudget as never}
+        plan={plan}
+        roles={[]}
+        resources={[]}
+        absences={[]}
+        holidaySet={new Set<string>()}
+        workdayHours={8}
+        today="2026-06-02"
+      />,
+      { wrapper },
+    );
+    const group = burnTileGroup();
+    const cpiLabel = within(group).getByText("CPI");
+    const tile = cpiLabel.closest("div.rounded-lg") as HTMLElement;
+    expect(within(tile).getByText("—")).toBeInTheDocument();
   });
 });
 
@@ -533,6 +622,31 @@ describe("DashboardPanel Trends widget (showTrends)", () => {
     const addBtn = screen.getByRole("button", { name: /show trends/i });
     await user.click(addBtn);
     expect(onToggleTrends).toHaveBeenCalledWith(true);
+  });
+
+  it("renders the Trends toggle in the dashboard top toolbar, not inside the trends widget", async () => {
+    const user = userEvent.setup();
+    const onToggleTrends = vi.fn();
+    render(<DashboardPanel {...baseProps} showTrends={true} onToggleTrends={onToggleTrends} />, { wrapper });
+
+    // Toggle reflects the current (shown) state.
+    const toggle = screen.getByRole("button", { name: /hide trends/i });
+
+    // It must live in the TOP toolbar — the band that contains the "Overall"
+    // status word — and NOT inside the Trends widget.
+    const overallWord = screen.getByText("Overall");
+    const topBand = overallWord.closest("div.rounded-lg");
+    expect(topBand).not.toBeNull();
+    expect(topBand!.contains(toggle)).toBe(true);
+
+    // The Trends widget heading must not be an ancestor of the toggle.
+    const trendsHeading = screen.getByText("Trends");
+    const trendsWidget = trendsHeading.closest("div.rounded-lg");
+    expect(trendsWidget!.contains(toggle)).toBe(false);
+
+    // Toggling still calls the handler with the negated state.
+    await user.click(toggle);
+    expect(onToggleTrends).toHaveBeenCalledWith(false);
   });
 });
 

@@ -244,6 +244,9 @@ prerendered.
 | `outlook-calendar.ts` | `importOutlookCalendar(token, startDate, endDate) → Absence[]` | Pure; 0.24.0+ |
 | `use-outlook-calendar.ts` | `useOutlookCalendar() → { events, isLoading, error }` | Client hook; 0.24.0+ |
 | `outlook-calendar-import-modal.tsx` | Preview-and-pick dialog for Outlook calendar | Modal component; 0.24.0+ |
+| `outlook-calendar-write.ts` | Graph calendar client (`Calendars.ReadWrite`): list/create/update/delete all-day milestone events on `/me/events`, events tagged `AIPM:<projectId>` | Pure; 0.96.0+ |
+| `calendar-reconcile.ts` | Pure reconcile planner: diffs current project milestones vs existing tagged events → create/update/delete plan (idempotent re-push) | No React; 0.96.0+ |
+| `use-outlook-calendar-push.ts` | `useOutlookCalendarPush()` hook — wires `acquireToken(Calendars.ReadWrite)` + reconcile plan to push milestones; opt-in (Settings → Integrations → M365) | Client hook; 0.96.0+ |
 | `turso-config.ts` | Turso configuration resolver | Pure; 0.25.0+ |
 | `turso-backend.ts` | Turso HTTP `/v2/pipeline` storage backend; optional `projectId` switches to multi-tenant mode (reads/writes only the `projectId` slice of the shared DB; tenant `load()` also fetches the `projects`-table row to set `ws.project`) | Implements `StorageBackend`; 0.25.0+, tenant mode 0.59.0+ |
 | `storage-config.tsx` | Backend picker UI; gates on auth readiness | |
@@ -278,7 +281,7 @@ prerendered.
 | `dashboard-panel.tsx` | Health Dashboard view: health cards, milestone timeline, EVM charts | Conditional mount; 0.43.0+ |
 | `dashboard-sections/health-pill.tsx` | `HealthPill` — RAG dot + label + colour-name span; used across the dashboard health band | Component; 0.43.0+ |
 | `dashboard-sections/registers-band.tsx` | `RegistersBand` — Top-RAID / overdue + due-soon tasks / milestones cards with deep-link buttons; `showRaid`/`showMilestones` mode gates | Component; 0.43.0+ |
-| `milestones-panel.tsx` | Milestones view: list, add, edit, link to tasks | Conditional mount; 0.44.0+ |
+| `milestones-panel.tsx` | Milestones view: list, add, edit, link to tasks; **"Push to Outlook"** button (0.96.0+) reconciles milestones into the Outlook calendar via `use-outlook-calendar-push.ts` (opt-in, M365-gated) | Conditional mount; 0.44.0+ |
 | `milestone-edit-modal.tsx` | Modal editor for milestone name/date/description/linkedTaskIds | Component; 0.44.0+ |
 | `version-info.tsx` | VersionInfo body + VersionInfoModal (reused by Version popover, sidebar version line, Settings footer) | Component; 0.46.0+ |
 | `rag-badge.tsx` | `RagBadge` — lettered R/A/G badge pill shared by dashboard pills, budget bucket metrics, and the Budget Report status column | Component; 0.47.0+ |

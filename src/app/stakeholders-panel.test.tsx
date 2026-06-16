@@ -89,4 +89,27 @@ describe("StakeholdersPanel", () => {
     // Editor opens — one modal heading, not two
     expect(screen.getAllByRole("heading", { name: /stakeholder/i })).toHaveLength(1);
   });
+
+  it("threads the comms-pending set to the editor matrix: jump-to-Action-Center icon fires onJumpToComms", () => {
+    const onJumpToComms = vi.fn();
+    const stakeholder = sampleStakeholder({ id: 42, name: "Dana" });
+    render(
+      <StakeholdersPanel
+        lang="en-US"
+        stakeholders={[stakeholder]}
+        resources={[]}
+        milestones={[]}
+        onSave={vi.fn()}
+        onDelete={vi.fn()}
+        commsPendingStakeholderIds={new Set([42])}
+        onJumpToComms={onJumpToComms}
+      />,
+      { wrapper },
+    );
+    // Open Dana's editor — the matrix renders her selected cell with the icon.
+    fireEvent.click(screen.getByRole("button", { name: "Dana" }));
+    const icon = screen.getByRole("button", { name: t("en-US", "stakeholderNeedsComms") });
+    fireEvent.click(icon);
+    expect(onJumpToComms).toHaveBeenCalledWith(42);
+  });
 });

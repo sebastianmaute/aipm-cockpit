@@ -18,6 +18,19 @@ describe("csv fieldVisibility section", () => {
   });
 });
 
+describe("csv milestone outlookEventId", () => {
+  it("round-trips Milestone.outlookEventId through CSV", () => {
+    const ws = {
+      ...emptyWorkspace(),
+      milestones: [
+        { id: 1, name: "Kickoff", date: "2026-01-15", linkedTaskIds: [], outlookEventId: "AAMk-evt-1" },
+      ],
+    };
+    const back = csvToWorkspace(workspaceToCsv(ws));
+    expect(back.milestones?.[0]?.outlookEventId).toBe("AAMk-evt-1");
+  });
+});
+
 describe("csv features section", () => {
   it("emits no section when undefined", () => {
     expect(workspaceToCsv(emptyWorkspace())).not.toContain("# FUNCTIONS");

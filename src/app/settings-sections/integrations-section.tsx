@@ -201,6 +201,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                 ["integrationsSharepoint", "sharepoint", false, "integrationsSharepointTooltip"],
                 ["integrationsOutlookContacts", "outlookContacts", false, "integrationsOutlookContactsTooltip"],
                 ["integrationsOutlookCalendar", "outlookCalendar", false, "integrationsOutlookCalendarTooltip"],
+                ["settingsOutlookCalendarPush", "outlookCalendarPush", false, "settingsOutlookCalendarPushHint"],
               ] as const
             ).map(([labelKey, key, comingSoon, tooltipKey]) => (
               <div key={labelKey} className="mt-1 flex items-center gap-1">

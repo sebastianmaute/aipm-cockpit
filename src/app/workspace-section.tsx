@@ -138,6 +138,10 @@ export interface WorkspaceSectionProps {
   stakeholders: readonly Stakeholder[];
   handleSaveStakeholder: (item: Stakeholder) => void;
   handleDeleteStakeholder: (id: number, name: string) => void;
+  /** Stakeholder ids with a pending stakeholder-comms next-action (drives the matrix icon). */
+  commsPendingStakeholderIds?: ReadonlySet<number>;
+  /** Jump to the Action Center for the given stakeholder. */
+  onJumpToComms?: (stakeholderId: number) => void;
   handleCreateMitigationTaskFromRaid: (raidId: number) => number | null | undefined;
   handleJumpToTaskFromRaid: (taskId: number) => void;
   activityLog: ActivityEntry[];
@@ -198,6 +202,11 @@ export interface WorkspaceSectionProps {
   assignOwner?: AssignOwnerBundle;
   escalate?: EscalateBundle;
   rebaseline?: RebaselineBundle;
+  learningEnabled?: boolean;
+  expertMode?: boolean;
+  onOpenLearningSettings?: () => void;
+  onPushMilestonesToOutlook?: () => void;
+  calendarPushBusy?: boolean;
 }
 
 export function WorkspaceSection({
@@ -222,6 +231,8 @@ export function WorkspaceSection({
   stakeholders,
   handleSaveStakeholder,
   handleDeleteStakeholder,
+  commsPendingStakeholderIds,
+  onJumpToComms,
   handleCreateMitigationTaskFromRaid,
   handleJumpToTaskFromRaid,
   activityLog,
@@ -275,6 +286,11 @@ export function WorkspaceSection({
   assignOwner,
   escalate,
   rebaseline,
+  learningEnabled,
+  expertMode,
+  onOpenLearningSettings,
+  onPushMilestonesToOutlook,
+  calendarPushBusy,
 }: WorkspaceSectionProps) {
   const { settings, setSettings, lang } = useSettings();
   const features = settings.features;
@@ -735,6 +751,8 @@ export function WorkspaceSection({
               milestones={milestones}
               onSave={handleSaveStakeholder}
               onDelete={handleDeleteStakeholder}
+              commsPendingStakeholderIds={commsPendingStakeholderIds}
+              onJumpToComms={onJumpToComms}
             />
           </div>
         )}
@@ -804,6 +822,8 @@ export function WorkspaceSection({
               holidaySet={holidaySet}
               logActivity={logActivity}
               openCreateNonce={milestoneCreateNonce}
+              onPushToOutlook={onPushMilestonesToOutlook}
+              calendarPushBusy={calendarPushBusy}
             />
           </div>
         )}
@@ -880,7 +900,7 @@ export function WorkspaceSection({
 
         {activeTab === "actions" && (
           <div id="panel-actions" role="tabpanel" className={panelClass}>
-            <ActionsPanel lang={lang} actions={nextActions} onOpen={onOpenAction} onSnooze={onSnooze} onCreateTask={onCreateTask} onDraftMessage={onDraftMessage} assignOwner={assignOwner} escalate={escalate} rebaseline={rebaseline} />
+            <ActionsPanel lang={lang} actions={nextActions} onOpen={onOpenAction} onSnooze={onSnooze} onCreateTask={onCreateTask} onDraftMessage={onDraftMessage} assignOwner={assignOwner} escalate={escalate} rebaseline={rebaseline} learningEnabled={learningEnabled} expertMode={expertMode} onOpenLearningSettings={onOpenLearningSettings} />
           </div>
         )}
 

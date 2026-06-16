@@ -6,6 +6,8 @@ import type { SuggestedAction, ActionTier } from "./next-actions/types";
 import type { Resource } from "./types";
 import { SNOOZE_1H, SNOOZE_1D } from "./reminder-snooze";
 import { ACTION_SOURCE_LABEL } from "./action-source-label";
+import { ACTION_SOURCE_ICON } from "./action-source-icon";
+import { InfoTooltip } from "./info-tooltip";
 import { ResourcePicker } from "./resource-picker";
 import { EscalatePopover, type EscalateBundle } from "./escalate-popover";
 import { RebaselinePopover, type RebaselineBundle } from "./rebaseline-popover";
@@ -93,6 +95,14 @@ export function ActionRow({ lang, action, onOpen, onSnooze, onCreateTask, assign
       <span aria-hidden className={`h-2 w-2 shrink-0 rounded-full ${TIER_DOT[action.tier]}`} />
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-2">
+          <span aria-hidden data-action-source-icon className="shrink-0 text-muted-foreground">
+            {ACTION_SOURCE_ICON[action.source]}
+          </span>
+          {/* InfoTooltip renders its own focusable trigger; it carries the numeric
+              score as the accessible hint (the icon stays decorative). */}
+          <span onClick={(e) => e.stopPropagation()} className="shrink-0">
+            <InfoTooltip text={t(lang, "actionScoreTooltip", action.score)} />
+          </span>
           <span className="rounded bg-surface-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
             {t(lang, ACTION_SOURCE_LABEL[action.source])}
           </span>

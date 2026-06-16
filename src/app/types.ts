@@ -201,6 +201,8 @@ export type Milestone = {
   achievedDate?: string;   // YYYY-MM-DD manual sign-off
   linkedTaskIds: number[];
   localModifiedAt?: string;
+  /** Outlook calendar event id for this milestone (calendar write-back link). */
+  outlookEventId?: string;
   /** SharePoint files/folders linked to this record. Always optional; absent
    *  on legacy data, defaults to [] at the editor boundary. */
   documentLinks?: DocumentLink[];

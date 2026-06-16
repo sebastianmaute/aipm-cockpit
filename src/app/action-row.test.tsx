@@ -292,6 +292,17 @@ describe("ActionRow rebaseline", () => {
   });
 });
 
+describe("ActionRow source icon + score tooltip", () => {
+  it("renders the source icon and a tooltip carrying the score", () => {
+    const scored = { ...action, source: "raid" as const, score: 42 };
+    render(<ActionRow lang="en-US" action={scored} onOpen={() => {}} />);
+    // The decorative source glyph is present (aria-hidden svg inside the row).
+    expect(document.querySelector('[data-action-source-icon] svg')).toBeInTheDocument();
+    // The InfoTooltip trigger exposes the score via its accessible name.
+    expect(screen.getByRole("button", { name: /Score: 42/ })).toBeInTheDocument();
+  });
+});
+
 describe("ActionRow learning hint", () => {
   it("renders a surfaced hint when learning.moved is up", () => {
     const surfaced = { ...action, learning: { bias: 12, moved: "up" as const } };

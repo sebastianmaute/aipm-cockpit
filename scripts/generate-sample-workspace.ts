@@ -1,12 +1,12 @@
 /**
  * generate-sample-workspace.ts
  *
- * Source of truth: the hand-curated `sample-workspace.md` (human-editable master;
- * it carries the full budget detail incl. blended discipline allocations). This
- * script parses it, enriches it with a demo change-log + RAID→stakeholder links,
- * and emits the two COMPLETE, faithfully-round-tripping formats:
- *   sample-workspace.json    — complete workspace (all entities + enrichment)
- *   sample-workspace.sqlite3 — Turso-importable; schema v12 (multi-tenant; one
+ * Source of truth: the hand-curated `sample-workspace-small.md` (human-editable
+ * master; it carries the full budget detail incl. blended discipline allocations).
+ * This script parses it, enriches it with a demo change-log + RAID→stakeholder
+ * links, and emits the two COMPLETE, faithfully-round-tripping formats:
+ *   sample-workspace-small.json    — complete workspace (all entities + enrichment)
+ *   sample-workspace-small.sqlite3 — Turso-importable; schema v12 (multi-tenant; one
  *                              `projects` row + project_id on every table);
  *                              built via node:sqlite.
  *                              MUST be WAL journal mode — `turso db create
@@ -16,10 +16,18 @@
  *                              transient -wal/-shm sidecars so the committed
  *                              artifact is one self-contained WAL-mode file.
  *
- * It deliberately does NOT overwrite sample-workspace.md / .csv: workspaceToMarkdown
- * does not `\|`-escape the pipe-delimited blended-budget cell, so re-emitting the MD
- * would corrupt the blended bucket on re-parse. Those two stay hand-curated; JSON +
- * sqlite3 are the generated complete exports (and the place the demo change-log lives).
+ * It deliberately does NOT overwrite sample-workspace-small.md / .csv:
+ * workspaceToMarkdown does not `\|`-escape the pipe-delimited blended-budget cell,
+ * so re-emitting the MD would corrupt the blended bucket on re-parse. Those two
+ * stay hand-curated; JSON + sqlite3 are the generated complete exports (and the
+ * place the demo change-log lives).
+ *
+ * It additionally emits SCALED demo datasets from the enriched small workspace via
+ * the pure `scaleWorkspace(ws, factor)` helper (replicates content entities with a
+ * per-replica id offset + full FK remap; reference data/singletons kept once):
+ *   sample-workspace-big.json  / .sqlite3 — 3× the small content entities
+ *   sample-workspace-huge.json / .sqlite3 — 10× the small content entities
+ * (only json + sqlite3 for the scaled variants — no curated md/csv.)
  *
  * Run with:
  *   npx vite-node scripts/generate-sample-workspace.ts
@@ -39,6 +47,8 @@ import {
 } from "../src/app/storage";
 import { TABLE_NAMES } from "../src/app/turso-schema";
 import { tenantWorkspaceToStatements, upsertProjectStatement, PROJECTS_TABLE } from "../src/app/turso-tenant-schema";
+import { scaleWorkspace } from "../src/app/scale-workspace";
+import type { Workspace } from "../src/app/workspace";
 import type { ChangeItem, RaidItem, ProjectMeta } from "../src/app/types";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -48,7 +58,7 @@ const ROOT = join(__dirname, "..");
 // ---------------------------------------------------------------------------
 // Step 1: Parse the canonical source
 // ---------------------------------------------------------------------------
-const mdSource = readFileSync(join(ROOT, "sample-workspace.md"), "utf8");
+const mdSource = readFileSync(join(ROOT, "sample-workspace-small.md"), "utf8");
 const ws = markdownToWorkspace(mdSource);
 
 // Verify we got a sensible parse before enriching
@@ -198,49 +208,60 @@ const enrichedWs = {
 // Step 3: Emit all formats
 // ---------------------------------------------------------------------------
 
-const jsonPath    = join(ROOT, "sample-workspace.json");
-const sqlitePath  = join(ROOT, "sample-workspace.sqlite3");
+const jsonPath    = join(ROOT, "sample-workspace-small.json");
+const sqlitePath  = join(ROOT, "sample-workspace-small.sqlite3");
+
+/**
+ * Build a self-contained, Turso-importable (WAL-mode) sqlite file at `path`
+ * from `ws`, removing any prior file + transient -wal/-shm sidecars first.
+ * Returns the OPEN DatabaseSync handle (caller reads counts / closes).
+ */
+function emitTenantSqlite(path: string, ws: Workspace): DatabaseSync {
+  const sidecars = [`${path}-wal`, `${path}-shm`];
+  for (const f of sidecars) if (existsSync(f)) unlinkSync(f);
+  if (existsSync(path)) unlinkSync(path);
+  for (const f of sidecars) if (existsSync(f)) unlinkSync(f);
+
+  const handle = new DatabaseSync(path);
+  // WAL journal mode is REQUIRED by `turso db create --from-file`. Set it before
+  // the BEGIN/COMMIT batch below (PRAGMA journal_mode cannot run inside a txn).
+  handle.exec("PRAGMA journal_mode = WAL");
+
+  const statements = [
+    ...tenantWorkspaceToStatements(ws, SAMPLE_PROJECT_ID),
+    upsertProjectStatement(sampleProjectMeta, SAMPLE_PROJECT_ID, false),
+  ];
+  for (const stmt of statements) {
+    if (!stmt.args || stmt.args.length === 0) {
+      // DDL, BEGIN, COMMIT, DELETE — no params
+      handle.exec(stmt.sql);
+    } else {
+      // INSERT with positional ? placeholders
+      const params = stmt.args.map((arg) => {
+        if (arg.type === "null" || arg.value == null) return null;
+        if (arg.type === "integer") return Number(arg.value);
+        return arg.value; // text
+      });
+      handle.prepare(stmt.sql).run(...params);
+    }
+  }
+
+  // Flush all WAL frames back into the main database file so the single
+  // committed artifact is self-contained (header stays WAL mode).
+  handle.exec("PRAGMA wal_checkpoint(TRUNCATE)");
+  return handle;
+}
+
+/** Drop the transient -wal/-shm sidecars for `path` (opening a WAL DB recreates them). */
+function dropSqliteSidecars(path: string): void {
+  for (const f of [`${path}-wal`, `${path}-shm`]) if (existsSync(f)) unlinkSync(f);
+}
 
 // JSON — complete workspace (the canonical generated export, incl. enrichment)
 writeFileSync(jsonPath, workspaceToJson(enrichedWs), "utf8");
 
 // SQLite — build fresh, replay the multi-tenant statements.
-// Remove any prior file + sidecars so we start from a clean slate.
-const sqliteSidecars = [`${sqlitePath}-wal`, `${sqlitePath}-shm`];
-function removeSqliteSidecars(): void {
-  for (const f of sqliteSidecars) if (existsSync(f)) unlinkSync(f);
-}
-if (existsSync(sqlitePath)) unlinkSync(sqlitePath);
-removeSqliteSidecars();
-
-const db = new DatabaseSync(sqlitePath);
-
-// WAL journal mode is REQUIRED by `turso db create --from-file`. Set it before
-// the BEGIN/COMMIT batch below (PRAGMA journal_mode cannot run inside a txn).
-db.exec("PRAGMA journal_mode = WAL");
-
-const stmts = [
-  ...tenantWorkspaceToStatements(enrichedWs, SAMPLE_PROJECT_ID),
-  upsertProjectStatement(sampleProjectMeta, SAMPLE_PROJECT_ID, false),
-];
-for (const stmt of stmts) {
-  if (!stmt.args || stmt.args.length === 0) {
-    // DDL, BEGIN, COMMIT, DELETE — no params
-    db.exec(stmt.sql);
-  } else {
-    // INSERT with positional ? placeholders
-    const params = stmt.args.map((arg) => {
-      if (arg.type === "null" || arg.value == null) return null;
-      if (arg.type === "integer") return Number(arg.value);
-      return arg.value; // text
-    });
-    db.prepare(stmt.sql).run(...params);
-  }
-}
-
-// Flush all WAL frames back into the main database file so the single
-// sample-workspace.sqlite3 is self-contained (header stays WAL mode).
-db.exec("PRAGMA wal_checkpoint(TRUNCATE)");
+const db = emitTenantSqlite(sqlitePath, enrichedWs);
 
 // ---------------------------------------------------------------------------
 // Step 4: Print summary
@@ -277,11 +298,42 @@ console.log(`  grades:       ${enrichedWs.grades.length}`);
 console.log("\nFiles written:");
 console.log(`  ${jsonPath}`);
 console.log(`  ${sqlitePath}`);
-console.log("  (sample-workspace.md / .csv are hand-curated — not overwritten)");
+console.log("  (sample-workspace-small.md / .csv are hand-curated — not overwritten)");
 
 console.log("\nSQLite row counts per table:");
 for (const [table, count] of Object.entries(tableCounts)) {
   console.log(`  ${table.padEnd(18)}: ${count}`);
+}
+
+// ---------------------------------------------------------------------------
+// Step 3b: Emit SCALED variants (big = 3×, huge = 10×) from the enriched small
+// workspace. scaleWorkspace replicates content entities with a per-replica id
+// offset + full FK remap; reference data + singletons (incl. project) are kept
+// once. json + sqlite3 only — no curated md/csv.
+// ---------------------------------------------------------------------------
+const SCALED_VARIANTS: ReadonlyArray<{ name: string; factor: number }> = [
+  { name: "big", factor: 3 },
+  { name: "huge", factor: 10 },
+];
+
+console.log("\nScaled variants:");
+for (const { name, factor } of SCALED_VARIANTS) {
+  const scaled = scaleWorkspace(enrichedWs, factor);
+  const scaledJsonPath = join(ROOT, `sample-workspace-${name}.json`);
+  const scaledSqlitePath = join(ROOT, `sample-workspace-${name}.sqlite3`);
+
+  writeFileSync(scaledJsonPath, workspaceToJson(scaled), "utf8");
+  const scaledDb = emitTenantSqlite(scaledSqlitePath, scaled);
+  scaledDb.close();
+  dropSqliteSidecars(scaledSqlitePath);
+
+  console.log(
+    `  ${name.padEnd(4)} (${factor}×): tasks=${scaled.tasks.length}, raid=${scaled.raid.length}, ` +
+      `milestones=${(scaled.milestones ?? []).length}, changes=${(scaled.changes ?? []).length}, ` +
+      `stakeholders=${(scaled.stakeholders ?? []).length}, budgets=${(scaled.budgets ?? []).length}`,
+  );
+  console.log(`       → ${scaledJsonPath}`);
+  console.log(`       → ${scaledSqlitePath}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -356,5 +408,5 @@ if (process.env["VERIFY"] === "1") {
 }
 
 // Final cleanup: opening a WAL-mode DB recreates -wal/-shm; drop them so the
-// committed artifact is the single self-contained sample-workspace.sqlite3.
-removeSqliteSidecars();
+// committed artifact is the single self-contained sample-workspace-small.sqlite3.
+dropSqliteSidecars(sqlitePath);

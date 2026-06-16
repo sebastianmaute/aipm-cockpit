@@ -8,10 +8,10 @@
 // bytes so such a change fails loudly here instead.
 //
 // The fixtures under src/app/__fixtures__/ were generated ONCE from the
-// repo-root sample-workspace.json via the real decoder + serializers and are
+// repo-root sample-workspace-small.json via the real decoder + serializers and are
 // committed verbatim (marked `-text` in .gitattributes so git never performs
 // line-ending conversion on them). They are intentionally DISTINCT from the
-// repo-root sample-workspace.md / sample-workspace.csv, which are curated
+// repo-root sample-workspace-small.md / sample-workspace-small.csv, which are curated
 // sources of truth with hand-escaped cells that the serializer does not
 // reproduce. Do NOT regenerate the fixtures to "fix" a failure of this test:
 // a failure means the storage byte format changed, which is the bug.
@@ -30,7 +30,7 @@ import {
 const repoRoot = join(import.meta.dirname, "..", "..");
 const fixturesDir = join(import.meta.dirname, "__fixtures__");
 
-const sampleJson = readFileSync(join(repoRoot, "sample-workspace.json"), "utf8");
+const sampleJson = readFileSync(join(repoRoot, "sample-workspace-small.json"), "utf8");
 const ws = jsonToWorkspace(sampleJson);
 
 // Note: readFileSync with "utf8" performs NO line-ending normalization — the

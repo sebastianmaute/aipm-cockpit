@@ -117,6 +117,11 @@ describe("CreateProjectWizard", () => {
     ).toBeNull();
   });
 
+  it("Step 1 storage step shows the Turso recommendation note", () => {
+    setup();
+    expect(screen.getByText(/Turso recommended/i)).toBeInTheDocument();
+  });
+
   it("selecting a template pre-fills its features on Step 3, and Create reports the tweaked opts", () => {
     const { onCreate } = setup();
 

@@ -58,6 +58,7 @@ import { useStakeholderComms } from "./use-stakeholder-comms";
 import { getJiraTokenAlert } from "./jira-token-status";
 import { effectiveLeadDays } from "./notifications-lead";
 import { WorkspaceSection } from "./workspace-section";
+import { useOutlookCalendarPush } from "./use-outlook-calendar-push";
 import { RolesPanel } from "./roles-panel";
 import { getUpcomingBirthdays } from "./birthdays";
 import { useBirthdayAlerts } from "./use-birthday-alerts";
@@ -699,6 +700,25 @@ function TaskManagerInner() {
     [tasks, raid, changes, milestones, stakeholders, dashboardModel, comms.items, settings.features, settings.notifications, settings.nextActions, project, today, workloadAlerts, actionSnooze.dismissed, actionTrends, learnedBias],
   );
   const nowCount = nextActions.filter((a) => a.tier === "now").length;
+  // Stakeholder ids with a pending stakeholder-comms next-action. Feeds the
+  // influence/interest matrix's "needs communication" jump-to-Action-Center icon.
+  const commsPendingStakeholderIds = useMemo(() => {
+    const ids = new Set<number>();
+    for (const a of nextActions) {
+      if (a.source === "stakeholder-comms" && a.cta.kind === "open") {
+        ids.add(Number(a.cta.id));
+      }
+    }
+    return ids;
+  }, [nextActions]);
+  // Deep-link to the Action Center for this stakeholder (uses the shared
+  // requestOpen primitive: switches to the actions view + sets #actions/<id>).
+  const jumpToComms = useCallback(
+    (stakeholderId: number) => requestOpen("actions", stakeholderId),
+    [requestOpen],
+  );
+  const onJumpToComms = isPopout ? undefined : jumpToComms;
+  const onOpenLearningSettings = useCallback(() => setActiveTab("settings"), [setActiveTab]);
   const openAction = useCallback(
     (a: SuggestedAction) => {
       if (a.cta.kind === "open") requestOpen(a.cta.view, Number(a.cta.id));
@@ -1417,6 +1437,37 @@ function TaskManagerInner() {
     [isPopout, handleCommand, showToast],
   );
 
+  // Push milestones to the Outlook calendar (write-back). Gated on M365 being
+  // enabled AND the explicit calendar-push setting, and never in a popout.
+  const calendarPushEnabled =
+    !isPopout &&
+    (settings.integrations?.m365?.enabled ?? false) &&
+    (settings.integrations?.m365?.outlookCalendarPush ?? false);
+  // The Outlook event category "AIPM:<projectId>" depends on a STABLE id so events
+  // are not orphaned when the (display) name changes: registry/turso current id
+  // → ProjectMeta.code → the literal "default". `portfolioCurrentId` is the stable
+  // registry/tenant id. LIMITATION: the `project?.code` fallback (single-project
+  // file mode) is user-editable — renaming the project code after a push orphans
+  // existing Outlook events (they keep the old category). Acceptable for v1.
+  const calendarProjectId = portfolioCurrentId || project?.code || "default";
+  // The workspace setter is Dispatch<SetStateAction<readonly Milestone[]>>; the
+  // hook wants (updater: (prev: Milestone[]) => Milestone[]) => void — bridge it.
+  const setMilestonesForPush = useCallback(
+    (updater: (prev: Milestone[]) => Milestone[]) =>
+      setMilestones((prev) => updater([...prev])),
+    [setMilestones],
+  );
+  const calendarPush = useOutlookCalendarPush({
+    milestones,
+    projectId: calendarProjectId,
+    setMilestones: setMilestonesForPush,
+    isPopout,
+    lang,
+    enabled: calendarPushEnabled,
+  });
+  const calendarPushToOutlook = calendarPush.pushToOutlook;
+  const calendarPushBusy = calendarPush.busy;
+
   if (!i18nReady) return null;
 
   // Shared props for WorkspaceSection. Spread into both the classic (no
@@ -1522,9 +1573,16 @@ function TaskManagerInner() {
     onSnooze: snoozeAction,
     onCreateTask: isPopout ? undefined : handleCreateTaskFromAction,
     onDraftMessage: isPopout ? undefined : handleDraftMessageFromAction,
+    commsPendingStakeholderIds,
+    onJumpToComms,
     assignOwner: assignOwnerBundle,
     escalate: escalateBundle,
     rebaseline: rebaselineBundle,
+    learningEnabled: settings.nextActionsLearning?.enabled ?? false,
+    expertMode: settings.expertMode === true,
+    onOpenLearningSettings,
+    onPushMilestonesToOutlook: calendarPushEnabled ? calendarPushToOutlook : undefined,
+    calendarPushBusy: calendarPushEnabled ? calendarPushBusy : undefined,
   };
 
   const workspaceEl = <WorkspaceSection {...workspaceProps} />;

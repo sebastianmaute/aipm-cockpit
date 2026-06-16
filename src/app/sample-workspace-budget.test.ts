@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { markdownToWorkspace } from "./storage";
 import { computeBudgetReport } from "./budget-report";
 
-const md = readFileSync(join(import.meta.dirname, "..", "..", "sample-workspace.md"), "utf8");
+const md = readFileSync(join(import.meta.dirname, "..", "..", "sample-workspace-small.md"), "utf8");
 const ws = markdownToWorkspace(md);
 
 describe("sample-workspace budgets", () => {

@@ -49,12 +49,16 @@ export function MilestonesPanel({
   holidaySet,
   logActivity,
   openCreateNonce,
+  onPushToOutlook,
+  calendarPushBusy,
 }: {
   lang: Lang;
   today: string;
   holidaySet: ReadonlySet<string>;
   logActivity?: (kind: ActivityKind, ...args: (string | number)[]) => void;
   openCreateNonce?: number;
+  onPushToOutlook?: () => void;
+  calendarPushBusy?: boolean;
 }) {
   const { milestones, setMilestones, tasks } = useWorkspace();
   const { ref, reset: resetSize } = useResizable("lop-app:milestones-size");
@@ -171,6 +175,16 @@ export function MilestonesPanel({
           >
             + {t(lang, "milestoneNew")}
           </button>
+          {onPushToOutlook ? (
+            <button
+              type="button"
+              onClick={onPushToOutlook}
+              disabled={calendarPushBusy}
+              className="rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted disabled:opacity-60"
+            >
+              {t(lang, calendarPushBusy ? "calendarPushing" : "calendarPush")}
+            </button>
+          ) : null}
           <input
             type="search"
             value={search}

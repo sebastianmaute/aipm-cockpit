@@ -404,6 +404,7 @@ const MILESTONES_MD_COLUMNS: Array<{ key: keyof Milestone; label: string }> = [
   { key: "linkedTaskIds", label: "LinkedTasks" },
   { key: "localModifiedAt", label: "LocalModified" },
   { key: "documentLinks", label: "DocumentLinks" },
+  { key: "outlookEventId", label: "OutlookEventId" },
 ];
 
 function milestonesToMarkdown(milestones: readonly Milestone[]): string {
@@ -432,6 +433,7 @@ function markdownToMilestones(md: string): Milestone[] {
       else if (norm === "linkedtasks" || norm === "linkedtaskids") mapped["linkedTaskIds"] = val;
       else if (norm === "localmodified" || norm === "localmodifiedat") mapped["localModifiedAt"] = val;
       else if (norm === "documentlinks") mapped["documentLinks"] = val;
+      else if (norm === "outlookeventid") mapped["outlookEventId"] = val;
     }
     return buildMilestoneFromObj(mapped);
   }).filter((m): m is Milestone => m !== null);

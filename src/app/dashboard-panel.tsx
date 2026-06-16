@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ReportCard, Section, Tile } from "./report-table";
 import { computeDashboard } from "./dashboard";
 import { RegistersBand } from "./dashboard-sections/registers-band";
@@ -135,6 +135,17 @@ export function DashboardPanel(props: DashboardPanelProps) {
     setDraftNarrative(storedNarrative);
   }
 
+  // Autogrow: keep the status textarea sized to its content. Applied on input
+  // and whenever the draft value changes (e.g. external reload / Clear).
+  const narrativeRef = useRef<HTMLTextAreaElement | null>(null);
+  const resizeNarrative = (el: HTMLTextAreaElement) => {
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  };
+  useEffect(() => {
+    if (narrativeRef.current) resizeNarrative(narrativeRef.current);
+  }, [draftNarrative]);
+
   const commitNarrative = () => {
     const trimmed = draftNarrative.trim();
     if (trimmed === (status.narrative ?? "")) return;
@@ -196,7 +207,19 @@ export function DashboardPanel(props: DashboardPanelProps) {
               onChange={(v) => setStatus((s) => ({ ...s, scopeOverride: v }))}
             />
           )}
-          <span className="ml-auto text-sm text-muted-foreground">
+          {props.onToggleTrends && (
+            <button
+              type="button"
+              aria-label={t(lang, showTrends ? "dashboardHideTrends" : "dashboardShowTrends")}
+              aria-pressed={showTrends}
+              title={t(lang, showTrends ? "dashboardHideTrends" : "dashboardShowTrends")}
+              onClick={() => props.onToggleTrends?.(!showTrends)}
+              className="ml-auto rounded-md border border-line bg-surface px-2 py-1 text-xs text-muted-foreground hover:bg-surface-muted print:hidden"
+            >
+              {t(lang, showTrends ? "dashboardHideTrends" : "dashboardShowTrends")}
+            </button>
+          )}
+          <span className={`${props.onToggleTrends ? "" : "ml-auto "}text-sm text-muted-foreground`}>
             {t(lang, "dashboardReportDate", today)}
           </span>
           <p className="basis-full text-xs text-muted-foreground">
@@ -206,20 +229,22 @@ export function DashboardPanel(props: DashboardPanelProps) {
 
         {/* Narrative */}
         <Section title={t(lang, "dashboardStatusSummary")}>
-          <div className="flex items-stretch gap-2">
+          <div>
             <textarea
-              className="min-h-24 min-w-0 flex-1 resize-none rounded-md border border-line bg-surface p-2 text-sm"
+              ref={narrativeRef}
+              className="min-h-24 w-full resize-none rounded-md border border-line bg-surface p-2 text-sm"
               placeholder={t(lang, "dashboardNarrativePlaceholder")}
               value={draftNarrative}
               onChange={(e) => setDraftNarrative(e.target.value)}
+              onInput={(e) => resizeNarrative(e.currentTarget)}
               onBlur={commitNarrative}
             />
-            <div className="flex flex-col gap-2">
+            <div className="mt-2 flex justify-end gap-2 print:hidden">
               <button
                 type="button"
                 onClick={commitNarrative}
                 disabled={draftNarrative.trim() === (status.narrative ?? "")}
-                className="rounded-md bg-AIPM-dark-blue px-3 py-1 text-xs font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 print:hidden"
+                className="rounded-md bg-AIPM-dark-blue px-3 py-1 text-xs font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {t(lang, "dashboardStatusSave")}
               </button>
@@ -228,7 +253,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
                 onClick={clearNarrative}
                 onMouseDown={(e) => e.preventDefault()}
                 disabled={(status.narrative ?? "") === "" && draftNarrative === ""}
-                className="rounded-md border border-line bg-surface px-3 py-1 text-xs font-medium text-foreground hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 print:hidden"
+                className="rounded-md border border-line bg-surface px-3 py-1 text-xs font-medium text-foreground hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {t(lang, "dashboardStatusClear")}
               </button>
@@ -277,6 +302,10 @@ export function DashboardPanel(props: DashboardPanelProps) {
                     label="h"
                     value={`${Math.round(model.burn.actualHours)} / ${Math.round(model.burn.budgetHours)}`}
                     rag={<RagBadge value={ratioHealth(model.burn.actualHours, model.burn.budgetHours)} lang={lang} title="h" />}
+                  />
+                  <Tile
+                    label={t(lang, "evmCpi")}
+                    value={model.evm.cpi != null ? model.evm.cpi.toFixed(2) : "—"}
                   />
                 </div>
               ) : (
@@ -363,39 +392,13 @@ export function DashboardPanel(props: DashboardPanelProps) {
           )}
         </div>
 
-        {/* Trends widget */}
+        {/* Trends widget (toggled from the top toolbar) */}
         {showTrends ? (
           <div className="rounded-lg border border-line bg-surface p-4">
-            <div className="mb-2 flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
-                {t(lang, "navTrends")}
-              </h3>
-              {props.onToggleTrends && (
-                <button
-                  type="button"
-                  aria-label={t(lang, "dashboardHideTrends")}
-                  aria-pressed={true}
-                  title={t(lang, "dashboardHideTrends")}
-                  onClick={() => props.onToggleTrends!(false)}
-                  className="rounded border border-line bg-surface px-2 py-0.5 text-xs text-muted-foreground hover:bg-surface-muted print:hidden"
-                >
-                  {t(lang, "dashboardHideTrends")}
-                </button>
-              )}
-            </div>
+            <h3 className="mb-2 text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
+              {t(lang, "navTrends")}
+            </h3>
             <p className="text-sm text-muted-foreground">{t(lang, "trendsRequireTurso")}</p>
-          </div>
-        ) : props.onToggleTrends ? (
-          <div className="flex justify-end print:hidden">
-            <button
-              type="button"
-              aria-label={t(lang, "dashboardShowTrends")}
-              aria-pressed={false}
-              onClick={() => props.onToggleTrends!(true)}
-              className="rounded-md border border-line bg-surface px-2 py-1 text-xs text-muted-foreground hover:bg-surface-muted"
-            >
-              + {t(lang, "dashboardShowTrends")}
-            </button>
           </div>
         ) : null}
 

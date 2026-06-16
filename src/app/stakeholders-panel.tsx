@@ -48,6 +48,10 @@ export interface StakeholdersPanelProps {
   milestones: readonly Milestone[];
   onSave: (item: Stakeholder) => void;
   onDelete: (id: number, name: string) => void;
+  /** Stakeholder ids with a pending stakeholder-comms next-action (drives the matrix icon). */
+  commsPendingStakeholderIds?: ReadonlySet<number>;
+  /** Jump to the Action Center for the given stakeholder. */
+  onJumpToComms?: (stakeholderId: number) => void;
 }
 
 // --- Chip helpers -----------------------------------------------------------
@@ -92,6 +96,8 @@ function StakeholdersPanelInner({
   milestones,
   onSave,
   onDelete,
+  commsPendingStakeholderIds,
+  onJumpToComms,
 }: StakeholdersPanelProps) {
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<{ key: StakeholderSortKey; dir: "asc" | "desc" } | null>(null);
@@ -388,6 +394,8 @@ function StakeholdersPanelInner({
           isNew={isNew}
           milestones={milestones}
           resources={resources}
+          commsPendingStakeholderIds={commsPendingStakeholderIds}
+          onJumpToComms={onJumpToComms}
           onChange={setDraft}
           onSave={() => {
             onSave(draft);

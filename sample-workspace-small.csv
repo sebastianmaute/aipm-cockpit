@@ -82,10 +82,10 @@ id,firstName,lastName,title,businessPhone,location,department,email,company,birt
 # PLAN
 2026-04-01,2026-07-31,month,EUR
 # MILESTONES
-id,name,date,description,achievedDate,linkedTaskIds,localModifiedAt,documentLinks
-1,Design Sign-off,2026-04-20,,,,,"[{""name"":""Design Sign-off Minutes.docx"",""url"":""https://example.sharepoint.com/sites/auth-migration/Shared%20Documents/Design-Signoff-Minutes.docx"",""kind"":""file""}]"
-2,Go-Live,2026-09-01,,,,,
-3,Hypercare Exit,2026-12-15,,,,,
+id,name,date,description,achievedDate,linkedTaskIds,localModifiedAt,documentLinks,outlookEventId
+1,Design Sign-off,2026-04-20,,,,,"[{""name"":""Design Sign-off Minutes.docx"",""url"":""https://example.sharepoint.com/sites/auth-migration/Shared%20Documents/Design-Signoff-Minutes.docx"",""kind"":""file""}]",
+2,Go-Live,2026-09-01,,,,,,
+3,Hypercare Exit,2026-12-15,,,,,,
 
 # STAKEHOLDERS
 id,name,organization,title,email,category,influence,interest,notes,resourceId,raci,localModifiedAt,documentLinks
