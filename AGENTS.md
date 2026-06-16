@@ -10,7 +10,9 @@ This version has breaking changes — APIs, conventions, and file structure may 
 npm run dev                 # next dev (forked Next.js)
 npm run build               # next build (prebuild checks script-docs are in sync)
 npm run lint                # eslint  (CI --max-warnings=0: an unused import/var or `_`-prefixed
-                            # param is FATAL — no argsIgnorePattern; re-check after every extract)
+                            # param is FATAL — no argsIgnorePattern; re-check after every extract.
+                            # react-hooks/exhaustive-deps REJECTS an `obj.member` dep (e.g.
+                            # [snapshots.rebaselineNow]) — hoist it to a local const and depend on that.)
 npx tsc --noEmit            # typecheck (enforces i18n EN/DE key parity)
 npm run test:run            # vitest (unit/integration)
 npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
