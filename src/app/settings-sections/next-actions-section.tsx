@@ -130,13 +130,13 @@ export function NextActionsSection({
           <label className="mb-2 flex items-center gap-2 text-sm text-foreground">
             <input
               type="checkbox"
-              aria-label={t(lang, "settingsLearningEnable")}
+              aria-labelledby="learning-enable-label"
               checked={learningConfig.enabled}
               onChange={(e) => onChangeLearningConfig({ ...learningConfig, enabled: e.target.checked })}
               className="h-4 w-4 rounded border-line"
             />
             <span className="inline-flex items-center gap-1">
-              {t(lang, "settingsLearningEnable")}
+              <span id="learning-enable-label">{t(lang, "settingsLearningEnable")}</span>
               <InfoTooltip text={t(lang, "settingsLearningEnableHint")} />
             </span>
           </label>

@@ -17,17 +17,17 @@ const baseProps = () => ({
 
 describe("LearningInsights", () => {
   it("renders a row per kind with counts", () => {
-    render(<LearningInsights {...baseProps()} />);
+    render(<LearningInsights {...baseProps()} now={0} />);
     expect(screen.getByText("5")).toBeTruthy(); // acted count
   });
   it("changing the override select calls onSetOverride", () => {
     const p = baseProps();
-    render(<LearningInsights {...p} />);
+    render(<LearningInsights {...p} now={0} />);
     fireEvent.change(screen.getAllByRole("combobox")[0], { target: { value: "suppress" } });
     expect(p.onSetOverride).toHaveBeenCalledWith("raid:actionRaidWhySeverity", "suppress");
   });
   it("shows the empty state with no data", () => {
-    render(<LearningInsights {...baseProps()} state={{}} />);
+    render(<LearningInsights {...baseProps()} state={{}} now={0} />);
     expect(screen.getByText(/No learning data yet/i)).toBeTruthy();
   });
 });

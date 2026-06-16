@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { t, type Lang } from "./i18n";
 import {
+  decayStats,
   learnedBias,
   type LearningState,
   type LearningOverrides,
@@ -17,6 +19,8 @@ interface LearningInsightsProps {
   overrides: LearningOverrides;
   onSetOverride: (kind: string, override: LearningOverride) => void;
   onReset: () => void;
+  /** Decay reference time. Defaults to Date.now(); injectable for deterministic tests. */
+  now?: number;
 }
 
 const OVERRIDE_OPTIONS: readonly LearningOverride[] = ["auto", "surface", "suppress", "off"];
@@ -45,8 +49,14 @@ export function LearningInsights({
   overrides,
   onSetOverride,
   onReset,
+  now,
 }: LearningInsightsProps) {
   const kinds = Object.keys(state);
+  // Match the engine: display decayed stats/bias so old data stays consistent.
+  // The react-hooks/purity lint bans Date.now() in the render body, so capture
+  // the fallback "now" once via a lazy state initializer (runs outside render).
+  const [fallbackNow] = useState(() => Date.now());
+  const nowMs = now ?? fallbackNow;
 
   return (
     <section className="flex flex-col gap-4 text-foreground">
@@ -71,18 +81,19 @@ export function LearningInsights({
               <tbody>
                 {kinds.map((kind) => {
                   const stats = state[kind];
+                  const d = decayStats(stats, nowMs);
                   return (
                     <tr key={kind} className="border-t border-line align-top">
                       <td className="px-3 py-2">
                         <div>{sourceLabel(lang, kind)}</div>
                         <div className="text-xs text-muted-foreground">{kind}</div>
                       </td>
-                      <td className="px-3 py-2 text-right tabular-nums">{Math.round(stats.acted)}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{Math.round(stats.snoozed)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{Math.round(d.acted)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{Math.round(d.snoozed)}</td>
                       <td className="px-3 py-2 text-right tabular-nums">
-                        {Math.round(stats.dismissed)}
+                        {Math.round(d.dismissed)}
                       </td>
-                      <td className="px-3 py-2 text-right tabular-nums">{formatBias(learnedBias(stats))}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{formatBias(learnedBias(d))}</td>
                       <td className="px-3 py-2">
                         <select
                           aria-label={t(lang, "learningColOverride")}

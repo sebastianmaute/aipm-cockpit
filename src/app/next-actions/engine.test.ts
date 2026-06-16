@@ -80,6 +80,14 @@ describe("learnedBias in the engine", () => {
     const out = computeNextActions(inp({ learnedBias: { "raid:wk": -20 } }), [providerOf([stubAction("raid:2:x", "raid", "wk", 65)])]);
     expect(out[0].score).toBeGreaterThanOrEqual(TIER_NOW);
     expect(out[0].tier).toBe("now");
+    // The floor rescued it (65-20=45 would drop below now) — no misleading "demoted" hint.
+    expect(out[0].learning).toBeUndefined();
+  });
+  it("genuine within-now demotion is still annotated (floor did NOT rescue)", () => {
+    const out = computeNextActions(inp({ learnedBias: { "raid:wk": -5 } }), [providerOf([stubAction("raid:4:x", "raid", "wk", 70)])]);
+    expect(out[0].score).toBe(65);
+    expect(out[0].tier).toBe("now");
+    expect(out[0].learning).toEqual({ bias: -5, moved: "down" });
   });
   it("no learnedBias = unchanged score, no annotation", () => {
     const out = computeNextActions(inp(), [providerOf([stubAction("raid:3:x", "raid", "wk", 40)])]);

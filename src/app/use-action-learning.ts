@@ -45,7 +45,7 @@ export function useActionLearning({
   // Decay is time-dependent, but Date.now() is banned inside useMemo (engine-purity
   // lint). We capture "now" inside the load/persist callbacks (where it is allowed)
   // and feed it to the memo as a plain dep, so the bias map stays a pure derivation.
-  const [nowTick, setNowTick] = useState(0);
+  const [nowTick, setNowTick] = useState(() => Date.now());
 
   // Ref mirrors keep callbacks/effects reading the latest values without widening
   // their dep arrays. These mirror effects MUST stay declared before the
