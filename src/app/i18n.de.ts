@@ -1628,6 +1628,7 @@ export const de: Record<TranslationKey, string> = {
   actionLearningGoToSettings: "Einstellungen für nächste Aktionen öffnen",
   stakeholderNeedsComms: "Kommunikation nötig — im Aktionscenter öffnen",
   versionHighlightUiBatchVm: "Verbesserungen an Einfluss/Interesse, Aktionscenter und Dashboard sowie skalierbare Beispieldaten.",
+  versionHighlightAiContextCore: "Claude liest jetzt Ihre Betriebsleitfäden und passt sich an Ihren App-Modus und die aktuelle Ansicht an – als Berater in der Rolle eines leitenden Projektmanagers.",
   actionEscalateRecipient: "Benachrichtigen",
   actionEscalateEmailPlaceholder: "E-Mail-Adresse",
   escalateMailSubject: "Eskalation: RAID #{0} — {1}",

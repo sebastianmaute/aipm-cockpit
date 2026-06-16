@@ -1597,6 +1597,7 @@ const enUS = {
   actionLearningGoToSettings: "Open Next-actions settings",
   stakeholderNeedsComms: "Needs communication — open in the Action Center",
   versionHighlightUiBatchVm: "Influence/Interest, Action Center, and dashboard polish, plus scalable sample datasets.",
+  versionHighlightAiContextCore: "Claude now reads your operating guides and adapts to your app mode and current view, advising as a senior project manager.",
   // --- Restored: still used by kept banners + comms items (SP3) ---
   alertBannerDismiss: "Dismiss",
   alertCatOverdue: "Overdue",
