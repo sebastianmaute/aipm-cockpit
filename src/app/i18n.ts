@@ -1527,6 +1527,14 @@ const enUS = {
   versionHighlightCommTemplatesSend: "Send communication templates as real HTML email via Microsoft 365 — as an Outlook draft to review, or preview-and-send in the app (plain-text email app remains the fallback).",
   versionHighlightEscalate: "Escalate at-risk RAID items: raise severity and notify in one step",
   versionHighlightRebaseline: "Re-baseline drifting milestones and schedule/budget from the Action Center.",
+  notifySummaryTitle: "{0} new urgent actions",
+  notifySummaryBody: "Open the app to review them.",
+  settingsDesktopNotify: "Desktop notifications for urgent actions",
+  settingsDesktopNotifyHint:
+    "Browser only; the app tab must be open. Notifies once per new urgent signal while the tab is in the background.",
+  notifyPermissionDenied: "Notification permission was not granted.",
+  versionHighlightDesktopNotify:
+    "Desktop notifications for newly urgent Action Center signals while the tab is in the background.",
   // --- Restored: still used by kept banners + comms items (SP3) ---
   alertBannerDismiss: "Dismiss",
   alertCatOverdue: "Overdue",
