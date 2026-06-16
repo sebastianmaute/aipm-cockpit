@@ -454,6 +454,7 @@ legacy keys are removed.
 | `lop-app:portfolio-mode` | `"file" \| "turso"` — global portfolio storage mode (v0.58/0.59; `portfolio-mode.ts`). Absent / anything but `"turso"` ⇒ `"file"`. |
 | `lop-app:turso-current-project` | Turso-mode last-selected project id (string); absent = none. The Turso `projects` table is the source of truth — this only caches the selection (`portfolio-mode.ts`). |
 | `lop-app:projects` | File-mode project registry (v0.58 Phase 1; `projects-registry.ts`): `{ projects: ProjectRegistryEntry[], currentProjectId: string \| null }` where `ProjectRegistryEntry = { id, name, code, storageConfig }`. Malformed entries dropped on load; dangling `currentProjectId` coerced to `null`. |
+| `lop-app:action-learning` | **0.95.0+** Action Center learning store (local backend): per-kind outcome stats (`acted` / `snoozed` / `dismissed` / `last_at`) + explicit overrides. Opt-in; absent until the learning layer records its first outcome. Manual reset = delete this key. The alternative backend is the global Turso `action_learning` table (see below). |
 | `lop-app:tasks`, `lop-app:raid` | **Legacy** — removed after first successful IDB save |
 
 ## File-backend formats
@@ -537,6 +538,16 @@ a workspace save's clear-all never wipes it; auto-versions are pruned to
 `Settings.versionHistoryRetention` (`settings-types.ts`; `sanitizeVersionRetention`
 clamps to min 50 / max 1000 in steps of 10, default 50), named checkpoints are
 exempt.
+
+**Action Center learning** (`learning-schema.ts` DDL + `learning-store-turso.ts`,
+opt-in, 0.95.0+): a **global** (cross-project, NOT project-scoped) `action_learning`
+table — `(kind TEXT PRIMARY KEY, acted, snoozed, dismissed, last_at, override)` —
+holds the per-kind learning state for the Turso store backend (the local backend
+uses the `lop-app:action-learning` localStorage key instead). Like the snapshot
+and version tables it is kept **out of** the workspace `TABLE_NAMES`, so a
+workspace save's clear-all never touches it; a manual reset is
+`DELETE FROM action_learning`. Writes are a full rewrite (DELETE then re-insert)
+of the table.
 
 ## Sanitization (`sanitize.ts`)
 

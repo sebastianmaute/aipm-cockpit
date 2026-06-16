@@ -2,10 +2,10 @@
 
 [![Pipeline Status](https://gitlab.example.com/example-group/public-collab/lop-app/badges/main/pipeline.svg)](https://gitlab.example.com/example-group/public-collab/lop-app/-/commits/main)
 [![coverage](https://gitlab.example.com/example-group/public-collab/lop-app/badges/main/coverage.svg)](https://gitlab.example.com/example-group/public-collab/lop-app/-/commits/main)
-[![version](https://img.shields.io/badge/version-v0.60.0_%22Stephenson%22-2e7d32)](./CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-v0.95.0_%22Hopkinson%22-2e7d32)](./CHANGELOG.md)
 [![license](https://img.shields.io/badge/license-Apache--2.0-blue)](./LICENSE)
 
-> AI-assisted, browser-based project-management tracker for Acme project leads — no backend account required.
+> An AI-assisted project-command surface for project leads. It plugs into Microsoft 365 (Outlook contacts & calendar, SharePoint documents) and syncs bidirectionally with Jira — so it accelerates your existing workflow instead of becoming another place to maintain data. Local-first; no backend account required.
 
 ---
 
@@ -24,6 +24,10 @@ Core workflow:
 7. Track RAID and change-control items and create reports for the steering committee
 8. Plan capacity, utilization, availability, and cost rates while accounting for holidays
 9. Run a portfolio of projects, each with its own workspace and metadata header
+
+### Not another data silo
+
+The tracker is built to *accelerate* your existing stack, not replace it. It pulls people in from your Outlook contacts, attaches documents straight from SharePoint, and keeps tasks in lockstep with Jira through **bidirectional sync** — so you stay in one place instead of re-keying the same data into yet another tool. Its **Action Center** turns live project data into a ranked list of next-best-actions, and that ranking now **learns** from how you respond (act / snooze / dismiss). The result: the tool tells you what to do next rather than asking you to keep one more list current.
 
 ## Features
 
@@ -46,6 +50,7 @@ Each row keeps a one-line summary. Expand **Details** for the full description.
 | Budget planner | PO-line budget buckets (T&M / fixed-price) with per-role allocations, CCI, and win/loss with spillover.<br><details><summary>Details</summary>Detailed (per-role) or blended (per-discipline, average grade rate) planning per bucket; multi-currency via ECB FX rates with per-rate EUR overrides; a dedicated read-only Budget Report.</details> |
 | Milestones | Timeline of project milestones with status classification, name/status filters, and resizable columns.<br><details><summary>Details</summary>Milestones overlay the Gantt chart, anchor the RACI matrix, and feed Schedule-RAG and stakeholder-communication reminders.</details> |
 | Dashboard | Project-health RAG status with lettered badges, burn-down charts, milestones, and Earned Value SPI/CPI.<br><details><summary>Details</summary>EVM indices feed the Schedule/Budget RAGs (CPI fills the Budget pill even without budget buckets). Configurable thresholds, print-friendly RAG captions, and a Clear button. Module-specific pills hide when their feature module is disabled.</details> |
+| Action Center | Ranked next-best-actions derived from live project data, each with an executable CTA.<br><details><summary>Details</summary>The engine turns due tasks, at-risk RAID, milestone drift, schedule/budget slippage, and stakeholder-comms signals into a ranked queue. Each row carries a one-click CTA — create task, assign owner, draft message, escalate, or re-baseline — plus optional desktop notifications. An **opt-in learning layer** adapts the ranking from how you respond to each kind of action (act / snooze / dismiss); the bias is bounded and safety-floored so urgent items are never hidden, and a Learning Insights view shows what has been learned. Learning is off by default and resettable.</details> |
 | Activity log | Browser-local chronological record of task / RAID / absence / shift CRUD with text / wildcard / regex search.<br><details><summary>Details</summary>Includes a "general" activity group for events that don't belong to a specific entity, plus a Clear-with-confirm action and a print button.</details> |
 | Baseline / variance trends (Turso) | Periodic KPI snapshots into append-only Turso tables; a Trends view shows baseline-vs-current variance and KPI trend charts.<br><details><summary>Details</summary>Snapshots are scoped per project under Turso multi-tenancy. The Trends view shows the snapshot list, lets you set a baseline, and surfaces a config-incomplete warning when capture cannot run.</details> |
 | Version history (Turso) | Per-project, append-only history of full-workspace versions; a History view lets you compare versions and selectively restore.<br><details><summary>Details</summary>Versions are captured automatically (idle-debounced; rapid autosaves coalesce, identical payloads are skipped) plus on-demand named checkpoints. Compare a version against the current data, or tick two versions to diff them against each other — a field-level diff grouped by entity type (tasks, RAID, milestones, resources, budget, …), each record expanding before→after. From a "compared with current" view, tick whole records or individual fields and Restore selected; restore is non-destructive (it applies to current data, is captured as a new version, and is recorded in the activity log). Auto-versions are pruned to a configurable retention (Settings → "Version history: keep N versions"; minimum 50, steps of 10); named checkpoints are never pruned. Turso backend only, and shown only while the History feature module is enabled.</details> |

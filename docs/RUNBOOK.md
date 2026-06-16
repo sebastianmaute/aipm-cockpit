@@ -232,6 +232,17 @@ Next 16 + React 19 have moved fast. Pin the patch version and check
 `node_modules/next/dist/docs/` for changes before re-bumping. The root
 `AGENTS.md` exists specifically to flag this risk.
 
+### "Disable / reset Action Center learning"
+The Action Center learning layer (0.95.0+) is **opt-in and off by default**. To
+turn it off or wipe what it has learned: Settings → Next actions → toggle
+learning off, or use **"Reset learned data"** in the same section. A manual reset
+is also possible: for the **local store**, clear the `lop-app:action-learning`
+localStorage key; for the **Turso store**, run `DELETE FROM action_learning`
+(a global, cross-project table kept out of the workspace save cycle). Learning
+**never blocks boot** — a load failure is swallowed and the engine falls back to
+the intrinsic ranking — and it is **ignored in safe-mode** (`?safe=1`), so it can
+never wedge startup.
+
 ### "CSP blocks a new feature"
 Symptoms: a specific resource fails in DevTools Console with `Refused to
 connect to ...` or `Refused to load the script ...`. Fix: edit
