@@ -104,7 +104,8 @@ export function EscalatePopover({ lang, action, bundle }: EscalatePopoverProps) 
           />
           <input
             type="email"
-            placeholder="Email"
+            aria-label={t(lang, "actionEscalateEmailPlaceholder")}
+            placeholder={t(lang, "actionEscalateEmailPlaceholder")}
             value={emailInput}
             onChange={(e) => {
               setEmailInput(e.target.value);

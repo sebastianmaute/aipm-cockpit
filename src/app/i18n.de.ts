@@ -1547,6 +1547,7 @@ export const de: Record<TranslationKey, string> = {
   actionEscalateNotifyOnlyMax: "Bereits kritisch — nur benachrichtigen",
   actionEscalateConfirm: "Jetzt eskalieren",
   actionEscalateRecipient: "Benachrichtigen",
+  actionEscalateEmailPlaceholder: "E-Mail-Adresse",
   escalateMailSubject: "Eskalation: RAID #{0} — {1}",
   escalateMailIntro: "RAID-Eintrag #{0} ({1}) muss eskaliert werden.",
   escalateMailSeverityRaised: "Schweregrad von {0} auf {1} erhöht.",

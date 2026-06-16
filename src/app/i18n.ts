@@ -1550,6 +1550,7 @@ const enUS = {
   actionEscalateNotifyOnlyMax: "Already Critical — notify only",
   actionEscalateConfirm: "Escalate now",
   actionEscalateRecipient: "Notify",
+  actionEscalateEmailPlaceholder: "Email address",
   escalateMailSubject: "Escalation: RAID #{0} — {1}",
   escalateMailIntro: "RAID item #{0} ({1}) needs escalation.",
   escalateMailSeverityRaised: "Severity raised from {0} to {1}.",
