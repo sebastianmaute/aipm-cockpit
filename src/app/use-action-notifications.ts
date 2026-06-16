@@ -65,7 +65,10 @@ export function useActionNotifications({
 
     const granted =
       typeof Notification !== "undefined" && Notification.permission === "granted";
-    if (!enabled || isPopout || !granted) return;
+    if (!enabled || isPopout || !granted) {
+      if (!enabled) seededRef.current = false; // re-enable must re-seed silently (no storm)
+      return;
+    }
 
     if (!seededRef.current) {
       seededRef.current = true;

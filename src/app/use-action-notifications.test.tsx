@@ -126,4 +126,21 @@ describe("useActionNotifications firing", () => {
     rerender({ actions: [action("a")] });
     expect(ctor).toHaveBeenCalledTimes(2);
   });
+  it("re-seeds silently on re-enable (no storm) after a disable", () => {
+    installNotification("granted");
+    const { rerender } = renderHook(
+      ({ actions, enabled }) => useActionNotifications({ ...baseArgs(), enabled, actions }),
+      { initialProps: { actions: [action("a")], enabled: true } },
+    );
+    expect(ctor).not.toHaveBeenCalled(); // first gated cycle seeded "a"
+    rerender({ actions: [action("a")], enabled: false }); // disable -> resets seed
+    // While disabled a new urgent action "b" appears. On re-enable the seen-set
+    // must be re-seeded with the full current backlog ("a","b") silently — NOT
+    // fired as a storm. Without the reset, "b" is treated as new and pops.
+    rerender({ actions: [action("a"), action("b")], enabled: true });
+    expect(ctor).not.toHaveBeenCalled(); // NO storm for the backlog present on re-enable
+    // A genuinely new action that arrives AFTER the re-seed still notifies.
+    rerender({ actions: [action("a"), action("b"), action("c")], enabled: true });
+    expect(ctor).toHaveBeenCalledTimes(1);
+  });
 });
