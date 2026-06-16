@@ -2,12 +2,12 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.93.0";
-export const APP_BUILD_DATE = "2026-06-16"; // 0.93.0 re-baseline CTA
+export const APP_VERSION = "0.94.0";
+export const APP_BUILD_DATE = "2026-06-16"; // 0.94.0 desktop notifications
 /** Minor-series milestone codename (sci-fi/fantasy author names). The whole
- *  0.93.x line is "Cadigan" (Pat Cadigan); patch releases inherit
+ *  0.94.x line is "Mieville" (China Mieville); patch releases inherit
  *  their minor version's codename rather than getting their own. */
-export const APP_MILESTONE = "Cadigan";
+export const APP_MILESTONE = "Mieville";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -103,4 +103,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightCommTemplatesSend",
   "versionHighlightEscalate",
   "versionHighlightRebaseline",
+  "versionHighlightDesktopNotify",
 ] as const;
