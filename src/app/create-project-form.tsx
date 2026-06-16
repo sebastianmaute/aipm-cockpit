@@ -123,6 +123,9 @@ export function CreateProjectForm({
               {t(lang, "storageTurso")}
             </option>
           </select>
+          <p className="text-xs text-muted-foreground">
+            {t(lang, "wizardStorageTursoRecommended")}
+          </p>
         </label>
       )}
       <ProjectForm
