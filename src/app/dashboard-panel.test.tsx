@@ -300,8 +300,7 @@ describe("DashboardPanel top-actions card (Task 7)", () => {
 });
 
 describe("DashboardPanel status narrative layout (Task 2)", () => {
-  it("places Save and Clear in a right-hand column beside the textarea", () => {
-    const { wrapper: w } = (() => ({ wrapper }))();
+  function renderNarrative() {
     render(
       <DashboardPanel
         lang="en-US"
@@ -318,14 +317,37 @@ describe("DashboardPanel status narrative layout (Task 2)", () => {
         workdayHours={8}
         today="2026-06-02"
       />,
-      { wrapper: w },
+      { wrapper },
     );
+  }
+
+  it("places Save and Clear in a justify-end row BELOW the textarea", () => {
+    renderNarrative();
+    const textarea = screen.getByRole("textbox");
     const save = screen.getByRole("button", { name: /save/i });
     const clear = screen.getByRole("button", { name: /clear/i });
-    const col = save.parentElement!;
-    expect(col).toBe(clear.parentElement);
-    expect(col.className).toContain("flex-col");
-    expect(col.parentElement!.className).toContain("items-stretch");
+
+    // Save and Clear share one button row.
+    const row = save.parentElement!;
+    expect(row).toBe(clear.parentElement);
+    expect(row.className).toContain("justify-end");
+    expect(row.className).toContain("print:hidden");
+
+    // The button row is a sibling that follows the textarea in DOM order.
+    const container = textarea.parentElement!;
+    expect(container).toBe(row.parentElement);
+    const kids = Array.from(container.children);
+    expect(kids.indexOf(textarea)).toBeLessThan(kids.indexOf(row));
+  });
+
+  it("grows the textarea height to scrollHeight on input (autogrow)", async () => {
+    const user = userEvent.setup();
+    renderNarrative();
+    const textarea = screen.getByRole("textbox") as HTMLTextAreaElement;
+    // jsdom has no layout, so stub scrollHeight to a known value.
+    Object.defineProperty(textarea, "scrollHeight", { configurable: true, value: 173 });
+    await user.type(textarea, "line one\nline two\nline three");
+    expect(textarea.style.height).toBe("173px");
   });
 });
 

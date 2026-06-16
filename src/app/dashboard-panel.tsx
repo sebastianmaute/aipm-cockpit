@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ReportCard, Section, Tile } from "./report-table";
 import { computeDashboard } from "./dashboard";
 import { RegistersBand } from "./dashboard-sections/registers-band";
@@ -135,6 +135,17 @@ export function DashboardPanel(props: DashboardPanelProps) {
     setDraftNarrative(storedNarrative);
   }
 
+  // Autogrow: keep the status textarea sized to its content. Applied on input
+  // and whenever the draft value changes (e.g. external reload / Clear).
+  const narrativeRef = useRef<HTMLTextAreaElement | null>(null);
+  const resizeNarrative = (el: HTMLTextAreaElement) => {
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  };
+  useEffect(() => {
+    if (narrativeRef.current) resizeNarrative(narrativeRef.current);
+  }, [draftNarrative]);
+
   const commitNarrative = () => {
     const trimmed = draftNarrative.trim();
     if (trimmed === (status.narrative ?? "")) return;
@@ -218,20 +229,22 @@ export function DashboardPanel(props: DashboardPanelProps) {
 
         {/* Narrative */}
         <Section title={t(lang, "dashboardStatusSummary")}>
-          <div className="flex items-stretch gap-2">
+          <div>
             <textarea
-              className="min-h-24 min-w-0 flex-1 resize-none rounded-md border border-line bg-surface p-2 text-sm"
+              ref={narrativeRef}
+              className="min-h-24 w-full resize-none rounded-md border border-line bg-surface p-2 text-sm"
               placeholder={t(lang, "dashboardNarrativePlaceholder")}
               value={draftNarrative}
               onChange={(e) => setDraftNarrative(e.target.value)}
+              onInput={(e) => resizeNarrative(e.currentTarget)}
               onBlur={commitNarrative}
             />
-            <div className="flex flex-col gap-2">
+            <div className="mt-2 flex justify-end gap-2 print:hidden">
               <button
                 type="button"
                 onClick={commitNarrative}
                 disabled={draftNarrative.trim() === (status.narrative ?? "")}
-                className="rounded-md bg-AIPM-dark-blue px-3 py-1 text-xs font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 print:hidden"
+                className="rounded-md bg-AIPM-dark-blue px-3 py-1 text-xs font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {t(lang, "dashboardStatusSave")}
               </button>
@@ -240,7 +253,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
                 onClick={clearNarrative}
                 onMouseDown={(e) => e.preventDefault()}
                 disabled={(status.narrative ?? "") === "" && draftNarrative === ""}
-                className="rounded-md border border-line bg-surface px-3 py-1 text-xs font-medium text-foreground hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 print:hidden"
+                className="rounded-md border border-line bg-surface px-3 py-1 text-xs font-medium text-foreground hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {t(lang, "dashboardStatusClear")}
               </button>
