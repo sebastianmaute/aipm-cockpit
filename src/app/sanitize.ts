@@ -905,6 +905,8 @@ export function sanitizeMilestone(input: unknown): Milestone | null {
   if (localModifiedAt) m.localModifiedAt = localModifiedAt;
   const dl = sanitizeDocumentLinks((input as Record<string, unknown>).documentLinks);
   if (dl.length) m.documentLinks = dl;
+  const outlookEventId = typeof o.outlookEventId === "string" ? o.outlookEventId.slice(0, 300) : "";
+  if (outlookEventId) m.outlookEventId = outlookEventId;
   return m;
 }
 

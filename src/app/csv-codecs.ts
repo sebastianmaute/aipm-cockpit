@@ -170,7 +170,7 @@ export const ROLES_CSV_COLUMNS = ["id", "disciplineId", "gradeId", "internalRate
 export const REF_CSV_COLUMNS = ["id", "name", "localModifiedAt"] as const;
 
 export const MILESTONES_CSV_COLUMNS: Array<keyof Milestone> = [
-  "id", "name", "date", "description", "achievedDate", "linkedTaskIds", "localModifiedAt", "documentLinks",
+  "id", "name", "date", "description", "achievedDate", "linkedTaskIds", "localModifiedAt", "documentLinks", "outlookEventId",
 ];
 
 export const BUDGETS_CSV_COLUMNS = [
@@ -375,6 +375,7 @@ export function buildMilestoneFromObj(obj: Record<string, string>): Milestone | 
   if (obj.achievedDate) m.achievedDate = obj.achievedDate;
   if (obj.localModifiedAt) m.localModifiedAt = obj.localModifiedAt;
   const dl = decodeDocumentLinks(obj.documentLinks); if (dl.length) m.documentLinks = dl;
+  if (obj.outlookEventId) m.outlookEventId = obj.outlookEventId;
   return m;
 }
 

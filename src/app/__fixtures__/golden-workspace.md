@@ -107,11 +107,11 @@
 
 ## Milestones
 
-| ID | Name | Date | Description | Achieved | LinkedTasks | LocalModified | DocumentLinks |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | Design Sign-off | 2026-04-20 |  |  |  |  | [{"id":"dl-4","name":"Design Sign-off Minutes.docx","url":"https://example.sharepoint.com/sites/auth-migration/Shared%20Documents/Design-Signoff-Minutes.docx","kind":"file"}] |
-| 2 | Go-Live | 2026-09-01 |  |  |  |  |  |
-| 3 | Hypercare Exit | 2026-12-15 |  |  |  |  |  |
+| ID | Name | Date | Description | Achieved | LinkedTasks | LocalModified | DocumentLinks | OutlookEventId |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | Design Sign-off | 2026-04-20 |  |  |  |  | [{"id":"dl-4","name":"Design Sign-off Minutes.docx","url":"https://example.sharepoint.com/sites/auth-migration/Shared%20Documents/Design-Signoff-Minutes.docx","kind":"file"}] |  |
+| 2 | Go-Live | 2026-09-01 |  |  |  |  |  |  |
+| 3 | Hypercare Exit | 2026-12-15 |  |  |  |  |  |  |
 
 ## Changes
 
