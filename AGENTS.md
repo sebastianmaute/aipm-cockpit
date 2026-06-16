@@ -48,6 +48,13 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
   and append any new `versionHighlight*` key to `APP_HIGHLIGHT_KEYS` (+ EN/DE strings).
 - **New persisted `Workspace` field → SIX write paths** (JSON/CSV/MD/Turso-single/Turso-tenant/
   IndexedDB). Miss one and data silently drops on that backend.
+- **New COLUMN on an existing entity** (e.g. `Milestone.outlookEventId`): add it to the entity's
+  `*_CSV_COLUMNS` (covers CSV **and** Turso single+tenant — the DDL/insert derive from it), plus the
+  markdown codec + `sanitize.ts`; REGENERATE `__fixtures__/golden-*` (a legit new-column format change)
+  and append the column to the curated `sample-workspace` `.md`/`.csv`. EXISTING Turso DBs:
+  `CREATE TABLE IF NOT EXISTS` can't add the column and the save INSERTs *named* columns, so an old DB
+  errors on save — `turso-migrate.ts` self-heals it (PRAGMA-diff → `ALTER ADD COLUMN`, run inside the
+  write lock before the save).
 - **Turso-gated features** (Snapshots/Trends, version history) must check `tursoConfig !== null`,
   not just `storageConfig.kind === "turso"` (kind can be set while the config is unset/quarantined).
 - **CSP allowlist:** every host the BROWSER calls (Turso, Anthropic, MS Graph, MSAL, Jira) must be in
