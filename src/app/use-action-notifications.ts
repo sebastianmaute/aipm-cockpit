@@ -56,19 +56,25 @@ export function useActionNotifications({
   const seededRef = useRef(false);
   const cbRef = useRef({ lang, requestOpen, openActionCenter });
 
+  // Mirror the latest callbacks/lang into a ref WITHOUT widening the main
+  // effect's deps. This effect MUST stay declared before the main effect:
+  // React runs effects in declaration order, so cbRef is refreshed before the
+  // main effect reads it. Reordering these two effects would make it stale.
   useEffect(() => {
     cbRef.current = { lang, requestOpen, openActionCenter };
   });
 
   useEffect(() => {
-    if (seenRef.current === null) seenRef.current = readSeen();
-
     const granted =
       typeof Notification !== "undefined" && Notification.permission === "granted";
     if (!enabled || isPopout || !granted) {
       if (!enabled) seededRef.current = false; // re-enable must re-seed silently (no storm)
       return;
     }
+
+    // Read persisted dedup only once we're past the gate — disabled/popout/
+    // ungranted cycles must not touch storage.
+    if (seenRef.current === null) seenRef.current = readSeen();
 
     if (!seededRef.current) {
       seededRef.current = true;
@@ -91,7 +97,10 @@ export function useActionNotifications({
             });
             n.onclick = () => {
               window.focus();
-              if (a.cta.kind === "open") open(a.cta.view, Number(a.cta.id));
+              if (a.cta.kind === "open") {
+                const id = Number(a.cta.id);
+                if (Number.isFinite(id)) open(a.cta.view, id);
+              }
               n.close();
             };
           } else {
@@ -105,8 +114,10 @@ export function useActionNotifications({
               n.close();
             };
           }
-        } catch {
-          /* some environments throw on construct even when granted — non-fatal */
+        } catch (err) {
+          // Some environments throw on construct even when granted (e.g. certain
+          // browser extension contexts) — non-fatal, but surface for debugging.
+          console.warn("Desktop notification failed to construct", err);
         }
       }
     }
