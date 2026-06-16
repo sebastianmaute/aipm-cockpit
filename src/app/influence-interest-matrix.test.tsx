@@ -10,6 +10,16 @@ describe("InfluenceInterestMatrix", () => {
     expect(selected).toHaveAttribute("aria-pressed", "true");
   });
 
+  it("renders each cell label inside a solid chip wrapper for contrast", () => {
+    render(<InfluenceInterestMatrix lang="en-US" influence="High" interest="Medium" onPick={vi.fn()} />);
+    const chips = screen.getAllByTestId("ii-cell-chip");
+    expect(chips).toHaveLength(9);
+    for (const chip of chips) {
+      expect(chip).toHaveClass("bg-surface");
+      expect(chip).toHaveClass("text-foreground");
+    }
+  });
+
   it("calls onPick with the clicked cell's influence and interest", () => {
     const onPick = vi.fn();
     render(<InfluenceInterestMatrix lang="en-US" influence="Low" interest="Low" onPick={onPick} />);
