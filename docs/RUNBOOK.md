@@ -203,6 +203,10 @@ traffic, so server-side logs will be silent.
 Cause: M365 toggle is OFF, invalid M365 credentials, or insufficient Graph scopes. 
 Fix: Open Settings → Integrations, enable the M365 master toggle, enter valid Entra Client ID / Tenant ID, and ensure the Entra app has `Contacts.Read` and `Calendars.Read` scopes granted.
 
+### "Calendar write-back not syncing / re-consent"
+Cause: The write-back toggle is OFF, no push has been triggered, or `Calendars.ReadWrite` consent was denied.
+Fix: Enable it in Settings → Integrations → Microsoft 365 → "Push milestones to my Outlook calendar", then click "Push to Outlook" on the Milestones view. If access was denied, re-grant the `Calendars.ReadWrite` scope (the consent dialog re-appears on the next push). Events are tagged `AIPM:<projectId>` — a re-push reconciles existing events and removes orphans.
+
 ### "SharePoint storage shows 'not ready' or 'coming soon'"
 Cause: M365 toggle is OFF or integration is not set up.
 Fix: Same as Outlook import — enable M365 in Settings → Integrations and configure Entra app credentials.

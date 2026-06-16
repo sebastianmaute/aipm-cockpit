@@ -8,6 +8,14 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.96.0] - 2026-06-16 "VanderMeer"
+
+### Added
+- **Outlook calendar write-back** — a "Push to Outlook" button on the Milestones view reconciles the
+  current project's milestones into your Outlook calendar as all-day events (create / update / remove),
+  tagged so a re-push stays idempotent. One-way (the app owns milestone dates); opt-in under
+  Settings → Integrations → Microsoft 365. Requires M365 sign-in + Calendars.ReadWrite consent.
+
 ## [0.95.0] - 2026-06-16 "Hopkinson"
 
 ### Added

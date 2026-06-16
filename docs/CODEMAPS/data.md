@@ -191,6 +191,8 @@ Milestone {                                  // 0.44.0: project milestone with e
   description?    string
   achievedDate?   "YYYY-MM-DD"              // null = not yet achieved
   linkedTaskIds   number[]                  // tasks that feed this milestone
+  outlookEventId? string                    // 0.96.0: Graph calendar-event link for write-back
+                                            // (six write paths); event tagged `AIPM:<projectId>`
   localModifiedAt? ISO 8601 timestamp
 }
 
