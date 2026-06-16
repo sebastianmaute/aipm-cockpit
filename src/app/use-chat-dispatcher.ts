@@ -9,7 +9,7 @@ import {
   type SetStateAction,
 } from "react";
 import { type Filters, type ToolDispatcher, toRaidSummary, toChangeSummary, toMilestoneSummary } from "./chat-tools";
-import { deriveMode, type AppMode, type FeatureModuleId } from "./feature-modules";
+import { deriveMode, type FeatureModuleId } from "./feature-modules";
 import type { AppView } from "./nav-config";
 import { greetingName } from "./contacts";
 import { useFilters } from "./filters-context";
@@ -328,7 +328,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
           taskCount: tasks.length,
           knownGroups: Array.from(groups).sort(),
           knownLabels: Array.from(labels).sort(),
-          mode: deriveMode(settingsRef.current.features) as AppMode,
+          mode: deriveMode(settingsRef.current.features),
           enabledModules: settingsRef.current.features as FeatureModuleId[],
           currentView: viewRef.current,
         };
