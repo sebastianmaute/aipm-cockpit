@@ -4,7 +4,7 @@ import { __resetSafeModeCache } from "./safe-mode";
 import { ALL_MODULE_IDS } from "./feature-modules";
 import { defaultSettings } from "./settings-types";
 import { defaultNotificationsConfig } from "./settings-types";
-import { coerceLayout, migrateNotifications, SETTINGS_KEY, useSettings, writeSettings } from "./use-settings";
+import { coerceLayout, migrateNextActionsLearning, migrateNotifications, SETTINGS_KEY, useSettings, writeSettings } from "./use-settings";
 
 beforeEach(() => {
   localStorage.clear();
@@ -565,5 +565,15 @@ describe("migrateNotifications desktopUrgent", () => {
     expect(migrateNotifications({ desktopUrgent: { enabled: "yes" } }).desktopUrgent).toEqual({
       enabled: false,
     });
+  });
+});
+
+describe("migrateNextActionsLearning", () => {
+  it("defaults to disabled + local when absent", () => {
+    expect(migrateNextActionsLearning(undefined)).toEqual({ enabled: false, store: "local" });
+  });
+  it("coerces store to the union, else local", () => {
+    expect(migrateNextActionsLearning({ enabled: true, store: "turso" })).toEqual({ enabled: true, store: "turso" });
+    expect(migrateNextActionsLearning({ enabled: "yes", store: "cloud" })).toEqual({ enabled: false, store: "local" });
   });
 });
