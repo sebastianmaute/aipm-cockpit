@@ -50,12 +50,19 @@ export function EscalatePopover({ lang, action, bundle }: EscalatePopoverProps) 
   const resolvedEmail = recipient.email || emailInput;
   const canConfirm = isValidEmail(resolvedEmail);
 
+  const toggleOpen = () => {
+    if (!open) { setRecipient(EMPTY_RECIPIENT); setEmailInput(""); }
+    setOpen((o) => !o);
+  };
+
   const confirm = () => {
     bundle.onEscalate(action, {
       name: recipient.name,
       email: resolvedEmail,
       resourceId: recipient.resourceId ?? null,
     });
+    setRecipient(EMPTY_RECIPIENT);
+    setEmailInput("");
     setOpen(false);
   };
 
@@ -70,7 +77,7 @@ export function EscalatePopover({ lang, action, bundle }: EscalatePopoverProps) 
         type="button"
         aria-haspopup="dialog"
         aria-expanded={open}
-        onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}
+        onClick={(e) => { e.stopPropagation(); toggleOpen(); }}
         className="rounded-md border border-line px-2 py-1 text-xs font-medium text-AIPM-dark-blue hover:bg-surface-muted dark:text-AIPM-light-grey"
       >
         {t(lang, "actionEscalate")}

@@ -1062,12 +1062,12 @@ function TaskManagerInner() {
       const id = Number(action.cta.id);
       const item = raid.find((r) => r.id === id);
       if (!item) return; // deleted-source safe
+      if (!isValidEmail(recipient.email)) { window.alert(t(lang, "errorInvalidEmail")); return; }
       const plan = planEscalation(item);
       if (plan.to) {
         const next = applyEscalation(raid, id, plan.to);
         if (next !== raid) setRaid(next as RaidItem[]);
       }
-      if (!isValidEmail(recipient.email)) { window.alert(t(lang, "errorInvalidEmail")); return; }
       const { subject, body } = buildEscalationMail(lang, item, plan, project?.name ?? "");
       window.location.href = buildMailtoUrl(recipient.email, subject, body);
     },
