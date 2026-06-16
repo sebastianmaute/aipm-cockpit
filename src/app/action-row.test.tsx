@@ -191,3 +191,52 @@ describe("ActionRow draft message", () => {
     expect(screen.queryByRole("button", { name: /draft message/i })).toBeNull();
   });
 });
+
+describe("ActionRow escalate", () => {
+  // Has-owner severity action (why = actionRaidWhySeverity) — the escalate target.
+  function severityRaid(): never {
+    return {
+      id: "raid:5:severity", source: "raid",
+      title: { key: "actionRaidTitle", params: [5, "API outage"] },
+      why: { key: "actionRaidWhySeverity", params: ["High"] },
+      score: 30, tier: "now", cta: { kind: "open", view: "raid", id: 5 },
+    } as never;
+  }
+  const raidItems = [
+    { id: 5, category: "I", title: "API outage", status: "Open", severity: "High" },
+  ] as never;
+  const bundle = { resources: [], onCreateResource: () => 1, raid: raidItems, onEscalate: () => {} };
+  // The trigger button is "Escalate"; the in-dialog confirm is "Escalate now" — anchor the
+  // regex so the two never collide.
+  const ESCALATE = /^Escalate$/;
+
+  it("shows Escalate for a has-owner severity raid action", () => {
+    render(<ActionRow lang="en-US" action={severityRaid()} onOpen={() => {}} escalate={bundle} />);
+    expect(screen.getByRole("button", { name: ESCALATE })).toBeInTheDocument();
+  });
+
+  it("opens the confirm dialog without firing onOpen (stopPropagation)", () => {
+    const onOpen = vi.fn();
+    render(<ActionRow lang="en-US" action={severityRaid()} onOpen={onOpen} escalate={bundle} />);
+    fireEvent.click(screen.getByRole("button", { name: ESCALATE }));
+    expect(onOpen).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
+  it("hides Escalate for a no-owner raid action (assign-owner's row — non-overlap)", () => {
+    const noOwner = { ...(severityRaid() as SuggestedAction), why: { key: "actionRaidWhyNoOwner", params: ["High"] } } as never;
+    render(<ActionRow lang="en-US" action={noOwner} onOpen={() => {}} escalate={bundle} />);
+    expect(screen.queryByRole("button", { name: ESCALATE })).toBeNull();
+  });
+
+  it("hides Escalate for a review-due raid action", () => {
+    const reviewDue = { ...(severityRaid() as SuggestedAction), why: { key: "actionRaidWhyReviewOverdue", params: [3] } } as never;
+    render(<ActionRow lang="en-US" action={reviewDue} onOpen={() => {}} escalate={bundle} />);
+    expect(screen.queryByRole("button", { name: ESCALATE })).toBeNull();
+  });
+
+  it("hides Escalate when no escalate bundle is provided", () => {
+    render(<ActionRow lang="en-US" action={severityRaid()} onOpen={() => {}} />);
+    expect(screen.queryByRole("button", { name: ESCALATE })).toBeNull();
+  });
+});
