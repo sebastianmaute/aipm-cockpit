@@ -8,6 +8,16 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.95.0] - 2026-06-16 "Hopkinson"
+
+### Added
+- **Action Center learning layer** — the Action Center now learns from how you respond to suggested
+  actions (act / snooze / dismiss) and applies a bounded, safety-capped bias to ranking so it surfaces
+  fewer, higher-value next-best-actions. Opt-in (Settings → Next actions); a per-row hint explains any
+  adjustment; a learning-insights view shows per-kind stats with manual Auto/Surface/Suppress/Off
+  overrides. Learning data lives in this browser or, optionally, in Turso (shared across devices).
+  Urgent items are never hidden.
+
 ## [0.94.0] - 2026-06-16 "Mieville"
 
 ### Added
