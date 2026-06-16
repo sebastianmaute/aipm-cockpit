@@ -2,12 +2,12 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.91.0";
-export const APP_BUILD_DATE = "2026-06-15"; // 0.91.0 comm templates SP4 graph send
+export const APP_VERSION = "0.92.0";
+export const APP_BUILD_DATE = "2026-06-16"; // 0.92.0 escalate CTA
 /** Minor-series milestone codename (sci-fi/fantasy author names). The whole
- *  0.91.x line is "Stross" (Charles Stross); patch releases inherit
+ *  0.92.x line is "Asaro" (Catherine Asaro); patch releases inherit
  *  their minor version's codename rather than getting their own. */
-export const APP_MILESTONE = "Stross";
+export const APP_MILESTONE = "Asaro";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -101,4 +101,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightCommTemplatesRich",
   "versionHighlightCommTemplatesVersions",
   "versionHighlightCommTemplatesSend",
+  "versionHighlightEscalate",
 ] as const;

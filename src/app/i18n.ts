@@ -1524,6 +1524,7 @@ const enUS = {
   versionHighlightCommTemplatesRich: "Write communication templates in a rich editor (bold, lists, headings, links) with merge-field chips — formatting is sanitized on save.",
   versionHighlightCommTemplatesVersions: "Save named versions of a communication template, compare any two, and restore an earlier one (your current draft is snapshotted first).",
   versionHighlightCommTemplatesSend: "Send communication templates as real HTML email via Microsoft 365 — as an Outlook draft to review, or preview-and-send in the app (plain-text email app remains the fallback).",
+  versionHighlightEscalate: "Escalate at-risk RAID items: raise severity and notify in one step",
   // --- Restored: still used by kept banners + comms items (SP3) ---
   alertBannerDismiss: "Dismiss",
   alertCatOverdue: "Overdue",
