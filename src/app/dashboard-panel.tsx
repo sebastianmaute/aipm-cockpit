@@ -303,6 +303,10 @@ export function DashboardPanel(props: DashboardPanelProps) {
                     value={`${Math.round(model.burn.actualHours)} / ${Math.round(model.burn.budgetHours)}`}
                     rag={<RagBadge value={ratioHealth(model.burn.actualHours, model.burn.budgetHours)} lang={lang} title="h" />}
                   />
+                  <Tile
+                    label={t(lang, "evmCpi")}
+                    value={model.evm.cpi != null ? model.evm.cpi.toFixed(2) : "—"}
+                  />
                 </div>
               ) : (
                 <p className="text-sm text-muted-foreground">{t(lang, "dashboardNoBudget")}</p>
