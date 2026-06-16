@@ -905,7 +905,9 @@ export function sanitizeMilestone(input: unknown): Milestone | null {
   if (localModifiedAt) m.localModifiedAt = localModifiedAt;
   const dl = sanitizeDocumentLinks((input as Record<string, unknown>).documentLinks);
   if (dl.length) m.documentLinks = dl;
-  const outlookEventId = typeof o.outlookEventId === "string" ? o.outlookEventId.slice(0, 300) : "";
+  // Microsoft Graph event ids are long base64 (>300 chars); a tighter cap truncates
+  // them and yields a 404 on PATCH/DELETE. Cap at 1024 to be safe.
+  const outlookEventId = typeof o.outlookEventId === "string" ? o.outlookEventId.slice(0, 1024) : "";
   if (outlookEventId) m.outlookEventId = outlookEventId;
   return m;
 }

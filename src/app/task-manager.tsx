@@ -1424,9 +1424,12 @@ function TaskManagerInner() {
     !isPopout &&
     (settings.integrations?.m365?.enabled ?? false) &&
     (settings.integrations?.m365?.outlookCalendarPush ?? false);
-  // Use the active project's STABLE id for the Outlook event category so events
+  // The Outlook event category "AIPM:<projectId>" depends on a STABLE id so events
   // are not orphaned when the (display) name changes: registry/turso current id
-  // → ProjectMeta.code → the literal "default".
+  // → ProjectMeta.code → the literal "default". `portfolioCurrentId` is the stable
+  // registry/tenant id. LIMITATION: the `project?.code` fallback (single-project
+  // file mode) is user-editable — renaming the project code after a push orphans
+  // existing Outlook events (they keep the old category). Acceptable for v1.
   const calendarProjectId = portfolioCurrentId || project?.code || "default";
   // The workspace setter is Dispatch<SetStateAction<readonly Milestone[]>>; the
   // hook wants (updater: (prev: Milestone[]) => Milestone[]) => void — bridge it.

@@ -20,9 +20,10 @@ describe("planCalendarReconcile", () => {
     expect(p.create).toEqual([]);
     expect(p.delete).toEqual([]);
   });
-  it("re-creates when the stored id is gone from Outlook (user deleted the event)", () => {
+  it("updates by stored id even when absent from Outlook (dup-proof against indexing lag)", () => {
     const p = planCalendarReconcile([ms(1, { outlookEventId: "stale" })], []);
-    expect(p.create.map((m) => m.id)).toEqual([1]);
+    expect(p.update).toEqual([{ milestone: ms(1, { outlookEventId: "stale" }), eventId: "stale" }]);
+    expect(p.create).toEqual([]);
     expect(p.delete).toEqual([]);
   });
   it("deletes an orphaned tagged event with no matching milestone", () => {

@@ -149,7 +149,10 @@ export function rowsToWorkspace(results: PipelineResultLike[]): Workspace {
   return migrateWorkspaceV9(ws);
 }
 
-const SCHEMA_VERSION = "11";
+// Bump on any schema/column change. NOTE: there is no ALTER-migration runner —
+// adding a column means existing Turso databases (created before this column)
+// need re-creation / sample re-import (as with documentLinks/resource-fk columns).
+const SCHEMA_VERSION = "12";
 
 function insertStmt(table: string, columns: readonly string[], values: string[]): SqlStmt {
   const colList = columns.map((c) => `"${c}"`).join(", ");
