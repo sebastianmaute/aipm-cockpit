@@ -43,7 +43,6 @@ export function selectActiveGuides(
     .filter((g) => dimensionMatches(g.scope.modes, ctx.mode))
     .filter((g) => dimensionMatches(g.scope.modules, ctx.modules))
     .filter((g) => dimensionMatches(g.scope.views, ctx.view))
-    .slice()
     .sort((a, b) => a.priority - b.priority || a.id.localeCompare(b.id));
 }
 
