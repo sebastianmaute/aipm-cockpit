@@ -3,6 +3,7 @@
 import { memo, useEffect, useRef, useState } from "react";
 import { TOOL_DEFS, type ToolDispatcher, runTool } from "./chat-tools";
 import { type Lang, type TranslationKey, t } from "./i18n";
+import { selectActiveGuides, assembleGuideBlock, type OperatingGuide } from "./operating-guide";
 
 type PromptChip = { labelKey: TranslationKey; bodyKey: TranslationKey };
 
@@ -52,13 +53,15 @@ type DisplayItem =
 
 const ANTHROPIC_VERSION = "2023-06-01";
 
-function buildSystemPrompt(
+export function buildSystemPrompt(
   lang: Lang,
   snapshot: ReturnType<ToolDispatcher["getSnapshot"]>,
+  guides: readonly OperatingGuide[],
+  groundInGuides: boolean,
 ): string {
   const groups = (snapshot.knownGroups ?? []).join(", ") || "(none)";
   const labels = (snapshot.knownLabels ?? []).join(", ") || "(none)";
-  return [
+  const baseLines = [
     "You are an assistant embedded in the List of Open Points Tracker app, a list-of-open-points task manager.",
     "The user is a project lead tracking open tasks. Each task has: id, taskName, assignee, assigneeEmail, dueDate (YYYY-MM-DD), lastUpdateDate, priority (Low/Medium/High/Urgent), blockers, notes, group (single optional category), labels (zero or more tags).",
     "Use the provided tools to read and modify the app's state. Prefer calling tools over guessing. After modifying state, briefly confirm what changed.",
@@ -67,7 +70,20 @@ function buildSystemPrompt(
     `Known groups: ${groups}. Known labels: ${labels}. When the user mentions a category, prefer reusing an existing group or label rather than creating near-duplicates.`,
     "When the user references a task by name or fragment, call list_tasks to find its ID first.",
     `Active language code: ${lang}.`,
+  ];
+  const appContext = [
+    "APP CONTEXT — adapt your behavior to this.",
+    `Mode: ${snapshot.mode}. Enabled modules: ${snapshot.enabledModules.join(", ") || "(none)"}.`,
+    `Current view: ${snapshot.currentView}.`,
+    "In simple mode keep actions minimal and never reference disabled modules.",
+    "You are acting as a senior project & program manager.",
   ].join("\n");
+  const guideBlock = groundInGuides
+    ? assembleGuideBlock(selectActiveGuides(guides, {
+        mode: snapshot.mode, modules: snapshot.enabledModules, view: snapshot.currentView,
+      }))
+    : "";
+  return [baseLines.join("\n"), appContext, guideBlock].filter(Boolean).join("\n\n");
 }
 
 type ApiUsage = { input_tokens: number; output_tokens: number };
@@ -94,7 +110,7 @@ async function callClaude(
     body: JSON.stringify({
       model,
       max_tokens: 4096,
-      system,
+      system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }],
       messages,
       tools: TOOL_DEFS,
     }),
@@ -129,17 +145,19 @@ function ChatPanelImpl({
   ai,
   dispatcher,
   onAcceptConsent,
+  guides = [],
 }: {
   lang: Lang;
   ai: AiConfig;
   dispatcher: ToolDispatcher;
   onAcceptConsent: () => void;
+  guides?: readonly OperatingGuide[];
 }) {
   if (!ai.consentAccepted) {
     return <ConsentScreen lang={lang} onAccept={onAcceptConsent} />;
   }
   return (
-    <ChatPanelInner lang={lang} ai={ai} dispatcher={dispatcher} />
+    <ChatPanelInner lang={lang} ai={ai} dispatcher={dispatcher} guides={guides} />
   );
 }
 
@@ -153,10 +171,12 @@ function ChatPanelInner({
   lang,
   ai,
   dispatcher,
+  guides = [],
 }: {
   lang: Lang;
   ai: AiConfig;
   dispatcher: ToolDispatcher;
+  guides?: readonly OperatingGuide[];
 }) {
   const [history, setHistory] = useState<ApiMessage[]>([]);
   const [display, setDisplay] = useState<DisplayItem[]>([]);
@@ -196,7 +216,7 @@ function ChatPanelInner({
     setHistory(newHistory);
     setDisplay((prev) => [...prev, { kind: "user", text }]);
 
-    const system = buildSystemPrompt(lang, dispatcher.getSnapshot());
+    const system = buildSystemPrompt(lang, dispatcher.getSnapshot(), guides, ai.groundInGuides);
     const messages = newHistory.slice();
 
     try {
