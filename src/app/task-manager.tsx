@@ -700,6 +700,18 @@ function TaskManagerInner() {
     [tasks, raid, changes, milestones, stakeholders, dashboardModel, comms.items, settings.features, settings.notifications, settings.nextActions, project, today, workloadAlerts, actionSnooze.dismissed, actionTrends, learnedBias],
   );
   const nowCount = nextActions.filter((a) => a.tier === "now").length;
+  // Stakeholder ids with a pending stakeholder-comms next-action. Feeds the
+  // influence/interest matrix's "needs communication" jump-to-Action-Center icon.
+  const commsPendingStakeholderIds = useMemo(() => {
+    const ids = new Set<number>();
+    for (const a of nextActions) {
+      if (a.source === "stakeholder-comms" && a.cta.kind === "open") {
+        ids.add(Number(a.cta.id));
+      }
+    }
+    return ids;
+  }, [nextActions]);
+  const onJumpToComms = isPopout ? undefined : () => setActiveTab("open-points");
   const openAction = useCallback(
     (a: SuggestedAction) => {
       if (a.cta.kind === "open") requestOpen(a.cta.view, Number(a.cta.id));
@@ -1554,6 +1566,8 @@ function TaskManagerInner() {
     onSnooze: snoozeAction,
     onCreateTask: isPopout ? undefined : handleCreateTaskFromAction,
     onDraftMessage: isPopout ? undefined : handleDraftMessageFromAction,
+    commsPendingStakeholderIds,
+    onJumpToComms,
     assignOwner: assignOwnerBundle,
     escalate: escalateBundle,
     rebaseline: rebaselineBundle,

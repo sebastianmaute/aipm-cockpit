@@ -31,14 +31,30 @@ export interface InfluenceInterestMatrixProps {
   influence: InfluenceInterest;
   interest: InfluenceInterest;
   onPick: (influence: InfluenceInterest, interest: InfluenceInterest) => void;
+  /** Id of the stakeholder this matrix is editing (drives the needs-comms icon). */
+  stakeholderId?: number;
+  /** Stakeholder ids with a pending stakeholder-comms next-action. */
+  commsPendingStakeholderIds?: ReadonlySet<number>;
+  /** Jump to the Action Center for the given stakeholder (deep-link target). */
+  onJumpToComms?: (stakeholderId: number) => void;
 }
 
-export function InfluenceInterestMatrix({ lang, influence, interest, onPick }: InfluenceInterestMatrixProps) {
+export function InfluenceInterestMatrix({
+  lang,
+  influence,
+  interest,
+  onPick,
+  stakeholderId,
+  commsPendingStakeholderIds,
+  onJumpToComms,
+}: InfluenceInterestMatrixProps) {
   const idx = (l: InfluenceInterest) => INFLUENCE_INTEREST_LEVELS.indexOf(l) + 1;
   const rows: InfluenceInterest[] = ["High", "Medium", "Low"];   // top -> bottom
   const cols: InfluenceInterest[] = ["Low", "Medium", "High"];   // left -> right
   const influenceLabel = t(lang, "stakeholderFieldInfluence");
   const interestLabel = t(lang, "stakeholderFieldInterest");
+  const needsComms =
+    stakeholderId !== undefined && (commsPendingStakeholderIds?.has(stakeholderId) ?? false);
 
   return (
     <div className="inline-flex items-stretch gap-1">
@@ -68,9 +84,39 @@ export function InfluenceInterestMatrix({ lang, influence, interest, onPick }: I
                   {/* Solid chip: text/marker contrast is independent of the quadrant tint. */}
                   <span
                     data-testid="ii-cell-chip"
-                    className="inline-flex min-h-5 min-w-5 items-center justify-center rounded bg-surface px-1.5 py-0.5 text-[10px] font-medium text-foreground"
+                    className="inline-flex min-h-5 min-w-5 items-center justify-center gap-0.5 rounded bg-surface px-1.5 py-0.5 text-[10px] font-medium text-foreground"
                   >
                     {isSelected ? <span aria-hidden>&#9679;</span> : null}
+                    {isSelected && needsComms && stakeholderId !== undefined ? (
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        aria-label={t(lang, "stakeholderNeedsComms")}
+                        title={t(lang, "stakeholderNeedsComms")}
+                        className="inline-flex cursor-pointer items-center justify-center rounded text-AIPM-purple hover:text-AIPM-green focus-visible:outline focus-visible:outline-2 focus-visible:outline-AIPM-green"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onJumpToComms?.(stakeholderId);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            onJumpToComms?.(stakeholderId);
+                          }
+                        }}
+                      >
+                        <svg
+                          viewBox="0 0 16 16"
+                          width="11"
+                          height="11"
+                          fill="currentColor"
+                          aria-hidden
+                        >
+                          <path d="M2 3.5A1.5 1.5 0 0 1 3.5 2h9A1.5 1.5 0 0 1 14 3.5v6A1.5 1.5 0 0 1 12.5 11H6.7l-2.5 2.2A.6.6 0 0 1 3.2 13v-2H3.5A1.5 1.5 0 0 1 2 9.5v-6Z" />
+                        </svg>
+                      </span>
+                    ) : null}
                   </span>
                 </button>
               );

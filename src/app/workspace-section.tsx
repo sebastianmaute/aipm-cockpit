@@ -138,6 +138,10 @@ export interface WorkspaceSectionProps {
   stakeholders: readonly Stakeholder[];
   handleSaveStakeholder: (item: Stakeholder) => void;
   handleDeleteStakeholder: (id: number, name: string) => void;
+  /** Stakeholder ids with a pending stakeholder-comms next-action (drives the matrix icon). */
+  commsPendingStakeholderIds?: ReadonlySet<number>;
+  /** Jump to the Action Center for the given stakeholder. */
+  onJumpToComms?: (stakeholderId: number) => void;
   handleCreateMitigationTaskFromRaid: (raidId: number) => number | null | undefined;
   handleJumpToTaskFromRaid: (taskId: number) => void;
   activityLog: ActivityEntry[];
@@ -224,6 +228,8 @@ export function WorkspaceSection({
   stakeholders,
   handleSaveStakeholder,
   handleDeleteStakeholder,
+  commsPendingStakeholderIds,
+  onJumpToComms,
   handleCreateMitigationTaskFromRaid,
   handleJumpToTaskFromRaid,
   activityLog,
@@ -739,6 +745,8 @@ export function WorkspaceSection({
               milestones={milestones}
               onSave={handleSaveStakeholder}
               onDelete={handleDeleteStakeholder}
+              commsPendingStakeholderIds={commsPendingStakeholderIds}
+              onJumpToComms={onJumpToComms}
             />
           </div>
         )}

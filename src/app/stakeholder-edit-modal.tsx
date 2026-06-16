@@ -43,6 +43,10 @@ export interface StakeholderEditModalProps {
   onSave: () => void;
   onCancel: () => void;
   onDelete: () => void;
+  /** Stakeholder ids with a pending stakeholder-comms next-action (drives the matrix icon). */
+  commsPendingStakeholderIds?: ReadonlySet<number>;
+  /** Jump to the Action Center for the given stakeholder. */
+  onJumpToComms?: (stakeholderId: number) => void;
 }
 
 const CATEGORY_LABEL_KEYS: Record<StakeholderCategory, TranslationKey> = {
@@ -79,6 +83,8 @@ export function StakeholderEditModal({
   onSave,
   onCancel,
   onDelete,
+  commsPendingStakeholderIds,
+  onJumpToComms,
 }: StakeholderEditModalProps) {
   const [error, setError] = useState<string | null>(null);
   const showToast = useToastContext();
@@ -270,6 +276,9 @@ export function StakeholderEditModal({
                 influence={draft.influence}
                 interest={draft.interest}
                 onPick={(influence, interest) => onChange({ ...draft, influence, interest })}
+                stakeholderId={draft.id}
+                commsPendingStakeholderIds={commsPendingStakeholderIds}
+                onJumpToComms={onJumpToComms}
               />
               <span className="text-xs text-muted-foreground">
                 {t(lang, "stakeholderFieldInfluence")}: {t(lang, LEVEL_LABEL_KEYS[draft.influence])}
