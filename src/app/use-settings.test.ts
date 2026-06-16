@@ -4,7 +4,7 @@ import { __resetSafeModeCache } from "./safe-mode";
 import { ALL_MODULE_IDS } from "./feature-modules";
 import { defaultSettings } from "./settings-types";
 import { defaultNotificationsConfig } from "./settings-types";
-import { coerceLayout, SETTINGS_KEY, useSettings, writeSettings } from "./use-settings";
+import { coerceLayout, migrateNotifications, SETTINGS_KEY, useSettings, writeSettings } from "./use-settings";
 
 beforeEach(() => {
   localStorage.clear();
@@ -549,5 +549,21 @@ describe("useSettings — safe mode", () => {
 
     expect(result.current.settings.language).toBe(defaultSettings.language);
     expect(window.localStorage.getItem(SETTINGS_KEY)).toBe(stored);
+  });
+});
+
+describe("migrateNotifications desktopUrgent", () => {
+  it("defaults desktopUrgent.enabled to false when absent", () => {
+    expect(migrateNotifications({}).desktopUrgent).toEqual({ enabled: false });
+  });
+  it("preserves desktopUrgent.enabled=true when set", () => {
+    expect(migrateNotifications({ desktopUrgent: { enabled: true } }).desktopUrgent).toEqual({
+      enabled: true,
+    });
+  });
+  it("treats a non-true value as disabled", () => {
+    expect(migrateNotifications({ desktopUrgent: { enabled: "yes" } }).desktopUrgent).toEqual({
+      enabled: false,
+    });
   });
 });
