@@ -5,8 +5,8 @@ import { csvToWorkspace, markdownToWorkspace } from "./storage";
 import { quadrantFor, accountableCountByMilestone, raciWarningFor } from "./stakeholders";
 
 const root = join(import.meta.dirname, "..", "..");
-const csv = csvToWorkspace(readFileSync(join(root, "sample-workspace.csv"), "utf8"));
-const md = markdownToWorkspace(readFileSync(join(root, "sample-workspace.md"), "utf8"));
+const csv = csvToWorkspace(readFileSync(join(root, "sample-workspace-small.csv"), "utf8"));
+const md = markdownToWorkspace(readFileSync(join(root, "sample-workspace-small.md"), "utf8"));
 
 for (const [name, ws] of [["csv", csv], ["md", md]] as const) {
   describe(`sample-workspace ${name}: milestones + stakeholders`, () => {
