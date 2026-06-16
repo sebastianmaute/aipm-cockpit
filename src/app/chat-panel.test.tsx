@@ -3,7 +3,7 @@ import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { useState } from "react";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { ChatPanel, buildSystemPrompt } from "./chat-panel";
+import { ChatPanel, buildSystemPrompt, systemBlocksText } from "./chat-panel";
 import type { ToolDispatcher } from "./chat-tools";
 import { defaultAiConfig } from "./settings-types";
 import type { OperatingGuide } from "./operating-guide";
@@ -312,7 +312,7 @@ const guide: OperatingGuide = {
 
 describe("buildSystemPrompt app-context + guides", () => {
   it("includes an APP CONTEXT block with mode/modules/view", () => {
-    const s = buildSystemPrompt("en-US", snap, [], true);
+    const s = systemBlocksText(buildSystemPrompt("en-US", snap, [], true));
     expect(s).toContain("APP CONTEXT");
     expect(s).toContain("Mode: advanced");
     expect(s).toContain("Current view: milestones");
@@ -320,20 +320,31 @@ describe("buildSystemPrompt app-context + guides", () => {
   });
 
   it("includes in-scope guides when grounding is ON", () => {
-    const s = buildSystemPrompt("en-US", snap, [guide], true);
+    const s = systemBlocksText(buildSystemPrompt("en-US", snap, [guide], true));
     expect(s).toContain("Be decisive.");
     expect(s).toContain("priority order");
   });
 
   it("omits the guide block when grounding is OFF", () => {
-    const s = buildSystemPrompt("en-US", snap, [guide], false);
+    const s = systemBlocksText(buildSystemPrompt("en-US", snap, [guide], false));
     expect(s).not.toContain("Be decisive.");
   });
 
   it("omits the guide block when no guide is in scope", () => {
     const off: OperatingGuide = { ...guide, scope: { views: ["budget" as const] } };
-    const s = buildSystemPrompt("en-US", snap, [off], true);
+    const s = systemBlocksText(buildSystemPrompt("en-US", snap, [off], true));
     expect(s).not.toContain("Be decisive.");
+  });
+
+  it("caches the stable prefix (incl. guide) and leaves volatile state uncached", () => {
+    const blocks = buildSystemPrompt("en-US", snap, [guide], true);
+    // Block 0 = cached stable prefix, contains the guide text.
+    expect(blocks[0].cache_control?.type).toBe("ephemeral");
+    expect(blocks[0].text).toContain("Be decisive.");
+    // Block 1 = uncached volatile suffix, contains the APP CONTEXT + state.
+    expect(blocks[1].cache_control).toBeUndefined();
+    expect(blocks[1].text).toContain("APP CONTEXT");
+    expect(blocks[1].text).toContain("Current view: milestones");
   });
 });
 
@@ -372,6 +383,7 @@ describe("prompt caching", () => {
     const body = JSON.parse((fetchSpy.mock.calls[0][1] as RequestInit).body as string);
     expect(Array.isArray(body.system)).toBe(true);
     expect(body.system[0].cache_control.type).toBe("ephemeral");
+    expect(body.system[1].cache_control).toBeUndefined();
 
     // Clean up pending fetch.
     const abortError = Object.assign(new Error("Aborted"), { name: "AbortError" });

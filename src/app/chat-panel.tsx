@@ -36,6 +36,8 @@ type ToolResultBlock = {
 };
 type ContentBlock = TextBlock | ToolUseBlock | ToolResultBlock;
 
+type SystemBlock = { type: "text"; text: string; cache_control?: { type: "ephemeral" } };
+
 type ApiMessage =
   | { role: "user"; content: string | ContentBlock[] }
   | { role: "assistant"; content: ContentBlock[] };
@@ -58,19 +60,29 @@ export function buildSystemPrompt(
   snapshot: ReturnType<ToolDispatcher["getSnapshot"]>,
   guides: readonly OperatingGuide[],
   groundInGuides: boolean,
-): string {
+): SystemBlock[] {
   const groups = (snapshot.knownGroups ?? []).join(", ") || "(none)";
   const labels = (snapshot.knownLabels ?? []).join(", ") || "(none)";
-  const baseLines = [
+  // STABLE prefix (cached): fixed instructions that never interpolate per-call
+  // state, plus the (large) guide text. Anthropic prompt-cache is prefix-based,
+  // so this must come FIRST and contain only call-invariant content.
+  const stableInstructions = [
     "You are an assistant embedded in the List of Open Points Tracker app, a list-of-open-points task manager.",
     "The user is a project lead tracking open tasks. Each task has: id, taskName, assignee, assigneeEmail, dueDate (YYYY-MM-DD), lastUpdateDate, priority (Low/Medium/High/Urgent), blockers, notes, group (single optional category), labels (zero or more tags).",
     "Use the provided tools to read and modify the app's state. Prefer calling tools over guessing. After modifying state, briefly confirm what changed.",
     "Before deleting tasks (delete_task or delete_all_tasks) confirm with the user in chat unless they were already explicit.",
-    `Today is ${snapshot.today}. UI language is ${snapshot.language}. Respond in the user's language. Storage backend: ${snapshot.storageKind}. Current task count: ${snapshot.taskCount}.`,
-    `Known groups: ${groups}. Known labels: ${labels}. When the user mentions a category, prefer reusing an existing group or label rather than creating near-duplicates.`,
     "When the user references a task by name or fragment, call list_tasks to find its ID first.",
     `Active language code: ${lang}.`,
-  ];
+  ].join("\n");
+  const guideBlock = groundInGuides
+    ? assembleGuideBlock(selectActiveGuides(guides, {
+        mode: snapshot.mode, modules: snapshot.enabledModules, view: snapshot.currentView,
+      }))
+    : "";
+  const stableText = [stableInstructions, guideBlock].filter(Boolean).join("\n\n");
+
+  // VOLATILE suffix (uncached): per-call state + the APP CONTEXT block. Placed
+  // AFTER the cached prefix so it never invalidates the cache.
   const appContext = [
     "APP CONTEXT — adapt your behavior to this.",
     `Mode: ${snapshot.mode}. Enabled modules: ${snapshot.enabledModules.join(", ") || "(none)"}.`,
@@ -78,12 +90,20 @@ export function buildSystemPrompt(
     "In simple mode keep actions minimal and never reference disabled modules.",
     "You are acting as a senior project & program manager.",
   ].join("\n");
-  const guideBlock = groundInGuides
-    ? assembleGuideBlock(selectActiveGuides(guides, {
-        mode: snapshot.mode, modules: snapshot.enabledModules, view: snapshot.currentView,
-      }))
-    : "";
-  return [baseLines.join("\n"), appContext, guideBlock].filter(Boolean).join("\n\n");
+  const volatileText = [
+    `Today is ${snapshot.today}. UI language is ${snapshot.language}. Respond in the user's language. Storage backend: ${snapshot.storageKind}. Current task count: ${snapshot.taskCount}.`,
+    `Known groups: ${groups}. Known labels: ${labels}. When the user mentions a category, prefer reusing an existing group or label rather than creating near-duplicates.`,
+    appContext,
+  ].join("\n");
+
+  return [
+    { type: "text", text: stableText, cache_control: { type: "ephemeral" } },
+    { type: "text", text: volatileText },
+  ];
+}
+
+export function systemBlocksText(blocks: SystemBlock[]): string {
+  return blocks.map((b) => b.text).join("\n\n");
 }
 
 type ApiUsage = { input_tokens: number; output_tokens: number };
@@ -91,7 +111,7 @@ type ApiUsage = { input_tokens: number; output_tokens: number };
 async function callClaude(
   apiKey: string,
   model: string,
-  system: string,
+  system: SystemBlock[],
   messages: ApiMessage[],
   signal?: AbortSignal,
 ): Promise<{
@@ -110,7 +130,7 @@ async function callClaude(
     body: JSON.stringify({
       model,
       max_tokens: 4096,
-      system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }],
+      system: system,
       messages,
       tools: TOOL_DEFS,
     }),
