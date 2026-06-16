@@ -309,6 +309,10 @@ export function resolveNextActionsConfig(raw: unknown): NextActionsConfig {
   };
 }
 
+export type LearningStoreKind = "local" | "turso";
+export type NextActionsLearningConfig = { enabled: boolean; store: LearningStoreKind };
+export const defaultNextActionsLearning: NextActionsLearningConfig = { enabled: false, store: "local" };
+
 export type Settings = {
   language: Lang;
   holidayCountries: string[];
@@ -326,6 +330,8 @@ export type Settings = {
   snapshots?: SnapshotSettings;
   /** User overrides for the next-actions signal thresholds (omit = defaults). */
   nextActions?: NextActionsConfig;
+  /** Action Center learning layer (opt-in). */
+  nextActionsLearning?: NextActionsLearningConfig;
   features: FeatureModuleId[];
   /** Max auto-versions kept per project in version history (Turso). Min 50, step 10. */
   versionHistoryRetention?: number;

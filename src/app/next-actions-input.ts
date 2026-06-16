@@ -38,6 +38,8 @@ export interface BuildActionInputArgs {
   semiClarityBonus?: number;
   staticPenalty?: number;
   dismissed?: ReadonlySet<string>;
+  /** Learned per-kind bias (`${source}:${why.key}` -> points). Off when undefined/empty. */
+  learnedBias?: Record<string, number>;
 }
 
 export function buildActionInput(a: BuildActionInputArgs): ActionInput {
@@ -69,5 +71,6 @@ export function buildActionInput(a: BuildActionInputArgs): ActionInput {
     semiClarityBonus: a.semiClarityBonus,
     staticPenalty: a.staticPenalty,
     dismissed: a.dismissed ?? new Set<string>(),
+    learnedBias: a.learnedBias,
   };
 }

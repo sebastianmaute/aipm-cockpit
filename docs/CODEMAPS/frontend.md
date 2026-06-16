@@ -205,6 +205,12 @@ prerendered.
 | `version-diff-view.tsx` | Field-level diff grouped by entity type (tasks, RAID, milestones, resources, budget, …); each record expands before→after, with optional restore checkboxes | Component; 0.66.0+ |
 | `use-version-history.ts` | `useVersionHistory()` hook — capture (auto idle-debounced + manual checkpoints), compare, selective restore, and retention prune over `version-store.ts` | Client hook; 0.66.0+ |
 | `milestones.ts` | Pure milestone helpers: `filterMilestones` (name + status filter) + milestone status classification | No React; 0.55.0+ |
+| **Action Center learning (0.95.0+)** | | |
+| `action-learning.ts` | Pure learning model: per-kind outcome stats → time-decayed `bias` (evidence-gated) + explicit overrides; no React, no i18n | Pure; 0.95.0+ |
+| `use-action-learning.ts` | `useActionLearning(...) → { bias, state, overrides, record, setOverride, reset }` — gated capture hook; persists to the picked store (local or Turso), serialized saves, load-failure guard | Client hook; 0.95.0+ |
+| `learning-insights.tsx` | `LearningInsights` view: per-kind learned bias + evidence counts (what the loop has learned); reachable from the Action Center | Component; 0.95.0+ |
+| `action-row.tsx` (learning hint) | Per-row learning hint badge showing whether an action kind was nudged up/down by the learned bias (`learning: { bias, moved }` on the ranked action) | 0.95.0+ |
+| `settings-sections/next-actions-section.tsx` (learning controls) | Next-actions settings: opt-in learning toggle, store choice (local / Turso), and "Reset learned data" | 0.95.0+ |
 | **Documents** | | |
 | `documents.ts` | Pure aggregator: `collectDocuments({tasks,raid,changes,milestones,stakeholders,project})` → flat `DocRef[]` (one per link) with its source `{kind,id,name,view}` and array index | No React; 0.81.0+ |
 | `documents-panel.tsx` | Documents view (`documents` AppView, Registers group): one table of every linked file across the 5 entities + project — open link, jump to source editor (`requestOpen`), remove, or attach a new link to any target via `DocumentLinksFieldGated` | Conditional mount; 0.81.0+ |

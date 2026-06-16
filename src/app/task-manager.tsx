@@ -75,7 +75,7 @@ import { DEFAULT_VERSION_RETENTION } from "./version-history";
 import { workspaceToJson, type Workspace } from "./workspace";
 import { computeDashboard } from "./dashboard";
 import { getTursoConfig } from "./turso-config";
-import { defaultExportConfig, defaultSnapshotSettings, type Settings } from "./settings-types";
+import { defaultExportConfig, defaultNextActionsLearning, defaultSnapshotSettings, type Settings } from "./settings-types";
 import { TaskEditView, TASK_EDIT_FORM_ID } from "./task-edit-view";
 import { APP_VERSION_LABEL } from "./version";
 import { ActionMenus } from "./action-menus";
@@ -83,6 +83,8 @@ import { makeEditGuard } from "./read-only-guard";
 import { resolveDraftRecipient, buildMailtoUrl } from "./mailto";
 import { isValidEmail } from "./sanitize";
 import { SettingsView } from "./settings-view";
+import { LearningInsights } from "./learning-insights";
+import { useActionLearning } from "./use-action-learning";
 import { ReadOnlyMirrorBanner } from "./read-only-mirror-banner";
 import { VoiceCommandProvider } from "./voice-command-context";
 import { AiUsageProvider } from "./ai-usage-context";
@@ -300,6 +302,15 @@ function TaskManagerInner() {
     () => getTursoConfig(settings.integrations?.turso?.databaseUrl, settings.integrations?.turso?.authToken),
     [settings.integrations?.turso?.databaseUrl, settings.integrations?.turso?.authToken],
   );
+
+  // Action Center learning layer: records CTA/snooze outcomes and feeds a learned
+  // per-kind bias back into the ranking. Inert (no-op record, empty bias) when
+  // disabled or in a popout.
+  const learning = useActionLearning({
+    config: settings.nextActionsLearning ?? defaultNextActionsLearning,
+    tursoConfig,
+    isPopout,
+  });
   // Turso storage connectivity status — set when a load/save/snapshot op fails
   // with an unreachable host or rejected token, cleared on the next success.
   // Drives the status bubble (red) and a sticky banner (mirrors the Jira token).
@@ -644,6 +655,10 @@ function TaskManagerInner() {
     [resources, tasks, absences, shifts, raid, plan, today, settings.resources.workdayHours, holidaySet, settings.nextActions],
   );
 
+  // Hoisted so the memo/callbacks can depend on these directly (exhaustive-deps
+  // rejects an `obj.member` dep like `learning.bias` / `learning.record`).
+  const learnedBias = learning.bias;
+  const recordLearning = learning.record;
   // Suggested next-actions engine. Reuses comms.items (already computed above)
   // so we don't run getStakeholderCommsItems a second time.
   const nextActions = useMemo(
@@ -678,9 +693,10 @@ function TaskManagerInner() {
           raidReviewEnabled: settings.notifications.raidReview.enabled,
           workloadAlerts,
           dismissed: actionSnooze.dismissed,
+          learnedBias,
         }),
       ),
-    [tasks, raid, changes, milestones, stakeholders, dashboardModel, comms.items, settings.features, settings.notifications, settings.nextActions, project, today, workloadAlerts, actionSnooze.dismissed, actionTrends],
+    [tasks, raid, changes, milestones, stakeholders, dashboardModel, comms.items, settings.features, settings.notifications, settings.nextActions, project, today, workloadAlerts, actionSnooze.dismissed, actionTrends, learnedBias],
   );
   const nowCount = nextActions.filter((a) => a.tier === "now").length;
   const openAction = useCallback(
@@ -703,8 +719,8 @@ function TaskManagerInner() {
     openActionCenter,
   });
   const snoozeAction = useCallback(
-    (a: SuggestedAction, ms: number) => actionSnooze.snooze(a.id, ms),
-    [actionSnooze],
+    (a: SuggestedAction, ms: number) => { void recordLearning(a, "snoozed"); actionSnooze.snooze(a.id, ms); },
+    [actionSnooze, recordLearning],
   );
 
   // Lazily serialize the CURRENT workspace for a version-history capture. Same
@@ -971,14 +987,16 @@ function TaskManagerInner() {
               const next = applyOwnerAssignment(raid, id, v);
               if (next === raid) return; // no matching item → no write, no toast
               setRaid(next as RaidItem[]);
+              void recordLearning(action, "acted");
               showToast("info", t(lang, "actionOwnerAssigned", id));
             },
           },
-    [isPopout, resources, handleCreateResource, raid, setRaid, showToast, lang],
+    [isPopout, resources, handleCreateResource, raid, setRaid, showToast, lang, recordLearning],
   );
 
   const handleCreateTaskFromAction = useCallback(
     (action: SuggestedAction) => {
+      void recordLearning(action, "acted");
       handleCancelEdit(); // reset editor (clears editingId, form, and the pending ref)
       const seed = buildTaskSeedFromAction(action, lang);
       setForm(() => ({ ...emptyForm(), taskName: seed.taskName, notes: seed.notes }));
@@ -988,7 +1006,7 @@ function TaskManagerInner() {
           : null;
       setTaskModalOpen(true);
     },
-    [handleCancelEdit, lang, setForm, setTaskModalOpen, pendingLinkRaidIdRef],
+    [handleCancelEdit, lang, setForm, setTaskModalOpen, pendingLinkRaidIdRef, recordLearning],
   );
 
   // Deep-link: when a suggested-action chip requests opening a task, open its
@@ -1041,7 +1059,7 @@ function TaskManagerInner() {
       const id = action.cta.kind === "open" ? Number(action.cta.id) : -1;
       if (action.source === "task-due") {
         const task = tasks.find((t) => t.id === id);
-        if (task) onSendInquiry(task);
+        if (task) { onSendInquiry(task); void recordLearning(action, "acted"); }
         return;
       }
       if (action.source === "stakeholder-comms") {
@@ -1064,9 +1082,10 @@ function TaskManagerInner() {
           ? sanitizeTemplateHtml(renderTemplate(tplBody, "stakeholder-update", buildStakeholderUpdateVars(sh, project?.name ?? "")))
           : plainTextToHtml(body);
         commSend.send({ to: email, subject, html, plain: body });
+        void recordLearning(action, "acted");
       }
     },
-    [tasks, onSendInquiry, stakeholders, resources, project, lang, resolveCommBody, commSend],
+    [tasks, onSendInquiry, stakeholders, resources, project, lang, resolveCommBody, commSend, recordLearning],
   );
 
   const handleEscalate = useCallback(
@@ -1086,8 +1105,9 @@ function TaskManagerInner() {
       }
       const { subject, body } = buildEscalationMail(lang, item, plan, project?.name ?? "");
       window.location.href = buildMailtoUrl(recipient.email, subject, body);
+      void recordLearning(action, "acted");
     },
-    [raid, setRaid, lang, project],
+    [raid, setRaid, lang, project, recordLearning],
   );
 
   const escalateBundle = useMemo(
@@ -1104,18 +1124,22 @@ function TaskManagerInner() {
   );
 
   const handleRebaselineMilestone = useCallback(
-    (id: number, newDate: string) => {
+    (action: SuggestedAction, id: number, newDate: string) => {
       if (!isValidIsoDate(newDate)) { window.alert(t(lang, "errorInvalidDate")); return; }
       const next = applyMilestoneRebaseline(milestones, id, newDate);
-      if (next !== milestones) setMilestones(next as Milestone[]);
+      if (next !== milestones) {
+        setMilestones(next as Milestone[]);
+        void recordLearning(action, "acted");
+      }
     },
-    [milestones, setMilestones, lang],
+    [milestones, setMilestones, lang, recordLearning],
   );
 
   const snapshotsRebaselineNow = snapshots.rebaselineNow;
-  const handleRebaselineSnapshot = useCallback(() => {
+  const handleRebaselineSnapshot = useCallback((action: SuggestedAction) => {
+    void recordLearning(action, "acted");
     void snapshotsRebaselineNow();
-  }, [snapshotsRebaselineNow]);
+  }, [snapshotsRebaselineNow, recordLearning]);
 
   const rebaselineBundle = useMemo<RebaselineBundle | undefined>(
     () =>
@@ -1623,7 +1647,30 @@ function TaskManagerInner() {
       commTemplatesEnabled={commTemplatesActive}
       commTemplates={commTemplates}
       commTemplatesConfig={tursoConfig}
+      learningConfig={settings.nextActionsLearning ?? defaultNextActionsLearning}
+      onChangeLearningConfig={isPopout ? undefined : (c) => setSettings((s) => ({ ...s, nextActionsLearning: c }))}
+      onResetLearning={isPopout ? undefined : () => { void learning.reset(); }}
+      onOpenInsights={isPopout ? undefined : () => setActiveTab("learning-insights")}
     />
+  );
+
+  const learningInsightsEl = (
+    <div className="flex flex-col gap-4">
+      <button
+        type="button"
+        onClick={() => setActiveTab("settings")}
+        className="self-start rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted"
+      >
+        {t(lang, "wizardBack")}
+      </button>
+      <LearningInsights
+        lang={lang}
+        state={learning.state}
+        overrides={learning.overrides}
+        onSetOverride={(kind, override) => { void learning.setOverride(kind, override); }}
+        onReset={() => { void learning.reset(); }}
+      />
+    </div>
   );
 
   // The action-cluster menus (Voice/Export/Help/Version) shared with the classic
@@ -1875,6 +1922,7 @@ function TaskManagerInner() {
         editTitle={editTitle}
         editActions={editActions}
         settingsView={settingsViewEl}
+        learningInsightsView={learningInsightsEl}
         banners={bannersEl}
         navGroups={filteredNavGroups}
         projectSwitcher={projectSwitcher}

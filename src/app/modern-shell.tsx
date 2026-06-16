@@ -27,6 +27,8 @@ interface ModernShellProps {
   editActions?: React.ReactNode;
   /** Phase 4B: full-page Settings, shown when activeView === "settings". */
   settingsView?: React.ReactNode;
+  /** Settings-launched learning insights, shown when activeView === "learning-insights". */
+  learningInsightsView?: React.ReactNode;
   /** Phase 4C: reminder banners rendered at the top of <main>. */
   banners?: React.ReactNode;
   collapsed?: boolean;
@@ -44,6 +46,7 @@ export function ModernShell({
   topBarMenus, sidebarFooter, tasksSection, workspace,
   editView = null, editTitle = "", editActions = null,
   settingsView = null,
+  learningInsightsView = null,
   banners = null,
   collapsed = false, onToggleCollapsed = () => {},
   navGroups,
@@ -53,14 +56,17 @@ export function ModernShell({
   const [versionOpen, setVersionOpen] = useState(false);
   const isEditing = activeView === "edit";
   const isSettings = activeView === "settings";
+  const isLearningInsights = activeView === "learning-insights";
   const title = isEditing ? editTitle : t(lang, navLabelKey(activeView));
   const content = isEditing
     ? editView
     : isSettings
       ? settingsView
-      : activeView === "open-points"
-        ? tasksSection
-        : workspace;
+      : isLearningInsights
+        ? learningInsightsView
+        : activeView === "open-points"
+          ? tasksSection
+          : workspace;
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-surface-muted pb-6 dark:bg-black">
       <a

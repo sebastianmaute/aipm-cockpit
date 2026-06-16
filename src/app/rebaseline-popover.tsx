@@ -9,10 +9,10 @@ export interface RebaselineBundle {
   // Milestone (B) path — all backends:
   milestones: readonly Milestone[];
   tasks: readonly Task[];
-  onRebaselineMilestone: (id: number, newDate: string) => void;
+  onRebaselineMilestone: (action: SuggestedAction, id: number, newDate: string) => void;
   // Schedule/budget (A) path — Turso-gated:
   snapshotActive: boolean;
-  onRebaselineSnapshot: () => void;
+  onRebaselineSnapshot: (action: SuggestedAction) => void;
   busy: boolean;
 }
 
@@ -53,12 +53,12 @@ export function RebaselinePopover({ lang, action, bundle }: RebaselinePopoverPro
 
   const confirmMilestone = () => {
     if (!milestone) return;
-    bundle.onRebaselineMilestone(milestone.id, date);
+    bundle.onRebaselineMilestone(action, milestone.id, date);
     setOpen(false);
   };
 
   const confirmSnapshot = () => {
-    bundle.onRebaselineSnapshot();
+    bundle.onRebaselineSnapshot(action);
     setOpen(false);
   };
 

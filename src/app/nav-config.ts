@@ -33,6 +33,7 @@ export type AppView =
   | "reports"
   | "activity"
   | "settings"
+  | "learning-insights"
   | "edit";
 
 export interface NavItem {
@@ -88,7 +89,7 @@ export const NAV_GROUPS: NavGroup[] = [
   },
 ];
 
-const LABEL_KEYS: Record<Exclude<AppView, "edit">, TranslationKey> = {
+const LABEL_KEYS: Record<Exclude<AppView, "edit" | "learning-insights">, TranslationKey> = {
   projects: "navProjects",
   dashboard: "navDashboard",
   actions: "navActions",
@@ -179,9 +180,11 @@ export function subTabsFor(
 }
 
 export function navLabelKey(view: AppView): TranslationKey {
-  // The "edit" view (Phase 2 full-page editor) has no sidebar label and never
-  // appears in NAV_GROUPS; give it a harmless valid key rather than masking it.
+  // The "edit" view (Phase 2 full-page editor) and "learning-insights" (a
+  // settings-launched insights surface) have no sidebar label and never appear
+  // in NAV_GROUPS; give them a harmless valid key rather than masking it.
   if (view === "edit") return "navOpenPoints";
+  if (view === "learning-insights") return "learningInsightsTitle";
   return LABEL_KEYS[view];
 }
 

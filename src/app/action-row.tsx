@@ -99,6 +99,13 @@ export function ActionRow({ lang, action, onOpen, onSnooze, onCreateTask, assign
           <span className="truncate text-sm font-medium text-foreground">{title}</span>
         </span>
         <span className="mt-0.5 block truncate text-xs text-muted-foreground">{why}</span>
+        {action.learning?.moved && (
+          <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+            {action.learning.moved === "up"
+              ? t(lang, "learningSurfacedHint")
+              : t(lang, "learningDemotedHint")}
+          </span>
+        )}
       </span>
       <div className="flex shrink-0 items-center gap-1">
         <button

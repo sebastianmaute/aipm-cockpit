@@ -45,6 +45,14 @@ export function bandTier(score: number): ActionTier {
   return "monitor";
 }
 
+/** Apply a bounded learned bias to an intrinsic score, never demoting an
+ *  intrinsically-now item out of the now tier (safety floor). */
+export function applyLearnedBias(intrinsic: number, kind: string, learnedBias?: Record<string, number>): number {
+  const bias = learnedBias?.[kind] ?? 0;
+  const biased = Math.max(0, intrinsic + bias);
+  return intrinsic >= TIER_NOW ? Math.max(biased, TIER_NOW) : biased;
+}
+
 /** Staleness contribution: +1/day capped. */
 export function stalenessScore(days: number): number {
   return Math.min(Math.max(0, Math.floor(days)) * ACTION_WEIGHTS.stalenessPerDay, ACTION_WEIGHTS.stalenessCap);

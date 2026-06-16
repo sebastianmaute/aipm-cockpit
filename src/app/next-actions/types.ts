@@ -33,6 +33,7 @@ export interface SuggestedAction {
   score: number;
   tier: ActionTier;
   cta: ActionCta;
+  learning?: { bias: number; moved: "up" | "down" };
 }
 
 /** Read-only slice the providers consume. The surface (SP2) builds this. */
@@ -68,6 +69,8 @@ export interface ActionInput {
   clarityBonus?: number;
   semiClarityBonus?: number;
   staticPenalty?: number;
+  /** Learned per-kind bias (`${source}:${why.key}` -> points). Off when undefined. */
+  learnedBias?: Record<string, number>;
   dismissed: ReadonlySet<string>;     // snoozed/dismissed action ids (injected; SP3 wires the store)
 }
 

@@ -39,12 +39,13 @@ function bundle(over: Partial<RebaselineBundle> = {}): RebaselineBundle {
 describe("RebaselinePopover milestone variant", () => {
   it("prefills the forecast date and fires onRebaselineMilestone on confirm", () => {
     const b = bundle();
-    render(<RebaselinePopover lang="en-US" action={milestoneAction()} bundle={b} />);
+    const action = milestoneAction();
+    render(<RebaselinePopover lang="en-US" action={action} bundle={b} />);
     fireEvent.click(screen.getByRole("button", { name: /^Re-baseline$/ }));
     const input = screen.getByLabelText("New target date") as HTMLInputElement;
     expect(input.value).toBe("2026-08-15"); // forecast from linked task
     fireEvent.click(screen.getByRole("button", { name: /Re-baseline now/ }));
-    expect(b.onRebaselineMilestone).toHaveBeenCalledWith(7, "2026-08-15");
+    expect(b.onRebaselineMilestone).toHaveBeenCalledWith(action, 7, "2026-08-15");
   });
   it("disables confirm when the date is cleared", () => {
     render(<RebaselinePopover lang="en-US" action={milestoneAction()} bundle={bundle()} />);
@@ -57,10 +58,12 @@ describe("RebaselinePopover milestone variant", () => {
 describe("RebaselinePopover snapshot variant", () => {
   it("fires onRebaselineSnapshot on confirm", () => {
     const b = bundle();
-    render(<RebaselinePopover lang="en-US" action={scheduleAction()} bundle={b} />);
+    const action = scheduleAction();
+    render(<RebaselinePopover lang="en-US" action={action} bundle={b} />);
     fireEvent.click(screen.getByRole("button", { name: /^Re-baseline$/ }));
     fireEvent.click(screen.getByRole("button", { name: /Re-baseline now/ }));
     expect(b.onRebaselineSnapshot).toHaveBeenCalledTimes(1);
+    expect(b.onRebaselineSnapshot).toHaveBeenCalledWith(action);
   });
   it("disables confirm when busy", () => {
     render(<RebaselinePopover lang="en-US" action={scheduleAction()} bundle={bundle({ busy: true })} />);

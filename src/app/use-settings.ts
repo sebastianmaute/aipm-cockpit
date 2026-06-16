@@ -2,7 +2,7 @@
 
 import { type Dispatch, type SetStateAction, useEffect, useRef, useState } from "react";
 import { type Lang, loadI18n, migrateLang } from "./i18n";
-import { defaultSettings, sanitizeIntegrations, type Settings } from "./settings-types";
+import { defaultSettings, sanitizeIntegrations, type Settings, type NextActionsLearningConfig } from "./settings-types";
 import { defaultNotificationsConfig, resolveSnapshotSettings, resolveNextActionsConfig, sanitizeAiConfig, sanitizeExportConfig } from "./settings-types";
 import type { StakeholderQuadrant } from "./stakeholders";
 import { resolveExtraReports } from "./addable-reports";
@@ -26,6 +26,14 @@ export function writeSettings(settings: Settings): void {
 const COMMS_QUADRANTS: readonly StakeholderQuadrant[] = [
   "manage-closely", "keep-satisfied", "keep-informed", "monitor",
 ];
+
+export function migrateNextActionsLearning(raw: unknown): NextActionsLearningConfig {
+  const o = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  return {
+    enabled: o.enabled === true,
+    store: o.store === "turso" ? "turso" : "local",
+  };
+}
 
 export function migrateNotifications(raw: unknown): Settings["notifications"] {
   const p = (isPlainObject(raw) ? raw : {}) as Record<string, unknown>;
@@ -199,6 +207,7 @@ export function useSettings(): {
             integrations: sanitizeIntegrations(parsed.integrations),
             snapshots: resolveSnapshotSettings(parsed.snapshots),
             nextActions: resolveNextActionsConfig((parsed as Record<string, unknown>).nextActions),
+            nextActionsLearning: migrateNextActionsLearning((parsed as Record<string, unknown>).nextActionsLearning),
             features: sanitizeFeatures((parsed as Record<string, unknown>).features),
             versionHistoryRetention: sanitizeVersionRetention((parsed as Record<string, unknown>).versionHistoryRetention),
             templates: sanitizeTemplates((parsed as Record<string, unknown>).templates),
