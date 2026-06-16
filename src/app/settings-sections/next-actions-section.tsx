@@ -1,14 +1,30 @@
 "use client";
 
 import { type Lang, type TranslationKey, t } from "../i18n";
-import { type NextActionsConfig, type Settings, defaultNextActionsConfig } from "../settings-types";
+import {
+  type NextActionsConfig,
+  type NextActionsLearningConfig,
+  type LearningStoreKind,
+  type Settings,
+  defaultNextActionsConfig,
+} from "../settings-types";
 import { InfoTooltip } from "../info-tooltip";
 
 interface NextActionsSectionProps {
   lang: Lang;
   settings: Settings;
   onChange: (s: Settings) => void;
+  /** Learning layer controls — omitted (e.g. in popouts) hides the block entirely. */
+  learningConfig?: NextActionsLearningConfig;
+  onChangeLearningConfig?: (c: NextActionsLearningConfig) => void;
+  onResetLearning?: () => void;
+  onOpenInsights?: () => void;
 }
+
+const LEARNING_STORE_OPTIONS: readonly { value: LearningStoreKind; labelKey: TranslationKey }[] = [
+  { value: "local", labelKey: "settingsLearningStoreLocal" },
+  { value: "turso", labelKey: "settingsLearningStoreTurso" },
+];
 
 type NumField = {
   key: keyof NextActionsConfig;
@@ -32,8 +48,18 @@ const FIELDS: readonly NumField[] = [
   { key: "staticPenalty", labelKey: "naStaticPenalty", hintKey: "naStaticPenaltyHint", kind: "int", min: 0 },
 ];
 
-export function NextActionsSection({ lang, settings, onChange }: NextActionsSectionProps) {
+export function NextActionsSection({
+  lang,
+  settings,
+  onChange,
+  learningConfig,
+  onChangeLearningConfig,
+  onResetLearning,
+  onOpenInsights,
+}: NextActionsSectionProps) {
   const cfg = settings.nextActions ?? defaultNextActionsConfig;
+  const learningEnabled =
+    learningConfig != null && onChangeLearningConfig != null && onResetLearning != null && onOpenInsights != null;
 
   function patch(p: Partial<NextActionsConfig>) {
     onChange({ ...settings, nextActions: { ...cfg, ...p } });
@@ -97,6 +123,62 @@ export function NextActionsSection({ lang, settings, onChange }: NextActionsSect
         <p>{t(lang, "naFormulaTiers")}</p>
         <p>{t(lang, "naFormulaThresholds")}</p>
       </div>
+
+      {learningEnabled && learningConfig && onChangeLearningConfig && onResetLearning && onOpenInsights && (
+        <>
+          <hr className="my-3 border-line" />
+          <label className="mb-2 flex items-center gap-2 text-sm text-foreground">
+            <input
+              type="checkbox"
+              aria-label={t(lang, "settingsLearningEnable")}
+              checked={learningConfig.enabled}
+              onChange={(e) => onChangeLearningConfig({ ...learningConfig, enabled: e.target.checked })}
+              className="h-4 w-4 rounded border-line"
+            />
+            <span className="inline-flex items-center gap-1">
+              {t(lang, "settingsLearningEnable")}
+              <InfoTooltip text={t(lang, "settingsLearningEnableHint")} />
+            </span>
+          </label>
+
+          <label className="mb-2 flex items-center justify-between gap-2 text-sm text-foreground">
+            <span>{t(lang, "settingsLearningStore")}</span>
+            <select
+              aria-label={t(lang, "settingsLearningStore")}
+              value={learningConfig.store}
+              onChange={(e) =>
+                onChangeLearningConfig({ ...learningConfig, store: e.target.value as LearningStoreKind })
+              }
+              className="rounded-md border border-line bg-surface px-2 py-1 text-sm"
+            >
+              {LEARNING_STORE_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {t(lang, o.labelKey)}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <div className="mt-2 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                if (window.confirm(t(lang, "settingsLearningResetConfirm"))) onResetLearning();
+              }}
+              className="rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted"
+            >
+              {t(lang, "settingsLearningReset")}
+            </button>
+            <button
+              type="button"
+              onClick={onOpenInsights}
+              className="rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted"
+            >
+              {t(lang, "settingsLearningInsights")}
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }

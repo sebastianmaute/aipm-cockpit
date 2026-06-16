@@ -75,7 +75,7 @@ import { DEFAULT_VERSION_RETENTION } from "./version-history";
 import { workspaceToJson, type Workspace } from "./workspace";
 import { computeDashboard } from "./dashboard";
 import { getTursoConfig } from "./turso-config";
-import { defaultExportConfig, defaultSnapshotSettings, type Settings } from "./settings-types";
+import { defaultExportConfig, defaultNextActionsLearning, defaultSnapshotSettings, type Settings } from "./settings-types";
 import { TaskEditView, TASK_EDIT_FORM_ID } from "./task-edit-view";
 import { APP_VERSION_LABEL } from "./version";
 import { ActionMenus } from "./action-menus";
@@ -83,6 +83,8 @@ import { makeEditGuard } from "./read-only-guard";
 import { resolveDraftRecipient, buildMailtoUrl } from "./mailto";
 import { isValidEmail } from "./sanitize";
 import { SettingsView } from "./settings-view";
+import { LearningInsights } from "./learning-insights";
+import { useActionLearning } from "./use-action-learning";
 import { ReadOnlyMirrorBanner } from "./read-only-mirror-banner";
 import { VoiceCommandProvider } from "./voice-command-context";
 import { AiUsageProvider } from "./ai-usage-context";
@@ -300,6 +302,15 @@ function TaskManagerInner() {
     () => getTursoConfig(settings.integrations?.turso?.databaseUrl, settings.integrations?.turso?.authToken),
     [settings.integrations?.turso?.databaseUrl, settings.integrations?.turso?.authToken],
   );
+
+  // Action Center learning layer: records CTA/snooze outcomes and feeds a learned
+  // per-kind bias back into the ranking. Inert (no-op record, empty bias) when
+  // disabled or in a popout.
+  const learning = useActionLearning({
+    config: settings.nextActionsLearning ?? defaultNextActionsLearning,
+    tursoConfig,
+    isPopout,
+  });
   // Turso storage connectivity status — set when a load/save/snapshot op fails
   // with an unreachable host or rejected token, cleared on the next success.
   // Drives the status bubble (red) and a sticky banner (mirrors the Jira token).
@@ -644,6 +655,10 @@ function TaskManagerInner() {
     [resources, tasks, absences, shifts, raid, plan, today, settings.resources.workdayHours, holidaySet, settings.nextActions],
   );
 
+  // Hoisted so the memo/callbacks can depend on these directly (exhaustive-deps
+  // rejects an `obj.member` dep like `learning.bias` / `learning.record`).
+  const learnedBias = learning.bias;
+  const recordLearning = learning.record;
   // Suggested next-actions engine. Reuses comms.items (already computed above)
   // so we don't run getStakeholderCommsItems a second time.
   const nextActions = useMemo(
@@ -678,16 +693,18 @@ function TaskManagerInner() {
           raidReviewEnabled: settings.notifications.raidReview.enabled,
           workloadAlerts,
           dismissed: actionSnooze.dismissed,
+          learnedBias,
         }),
       ),
-    [tasks, raid, changes, milestones, stakeholders, dashboardModel, comms.items, settings.features, settings.notifications, settings.nextActions, project, today, workloadAlerts, actionSnooze.dismissed, actionTrends],
+    [tasks, raid, changes, milestones, stakeholders, dashboardModel, comms.items, settings.features, settings.notifications, settings.nextActions, project, today, workloadAlerts, actionSnooze.dismissed, actionTrends, learnedBias],
   );
   const nowCount = nextActions.filter((a) => a.tier === "now").length;
   const openAction = useCallback(
     (a: SuggestedAction) => {
+      void recordLearning(a, "acted");
       if (a.cta.kind === "open") requestOpen(a.cta.view, Number(a.cta.id));
     },
-    [requestOpen],
+    [requestOpen, recordLearning],
   );
   const openActionCenter = useCallback(() => {
     if (typeof window !== "undefined") window.focus();
@@ -703,8 +720,8 @@ function TaskManagerInner() {
     openActionCenter,
   });
   const snoozeAction = useCallback(
-    (a: SuggestedAction, ms: number) => actionSnooze.snooze(a.id, ms),
-    [actionSnooze],
+    (a: SuggestedAction, ms: number) => { void recordLearning(a, "snoozed"); actionSnooze.snooze(a.id, ms); },
+    [actionSnooze, recordLearning],
   );
 
   // Lazily serialize the CURRENT workspace for a version-history capture. Same
@@ -979,6 +996,7 @@ function TaskManagerInner() {
 
   const handleCreateTaskFromAction = useCallback(
     (action: SuggestedAction) => {
+      void recordLearning(action, "acted");
       handleCancelEdit(); // reset editor (clears editingId, form, and the pending ref)
       const seed = buildTaskSeedFromAction(action, lang);
       setForm(() => ({ ...emptyForm(), taskName: seed.taskName, notes: seed.notes }));
@@ -988,7 +1006,7 @@ function TaskManagerInner() {
           : null;
       setTaskModalOpen(true);
     },
-    [handleCancelEdit, lang, setForm, setTaskModalOpen, pendingLinkRaidIdRef],
+    [handleCancelEdit, lang, setForm, setTaskModalOpen, pendingLinkRaidIdRef, recordLearning],
   );
 
   // Deep-link: when a suggested-action chip requests opening a task, open its
@@ -1623,7 +1641,30 @@ function TaskManagerInner() {
       commTemplatesEnabled={commTemplatesActive}
       commTemplates={commTemplates}
       commTemplatesConfig={tursoConfig}
+      learningConfig={settings.nextActionsLearning ?? defaultNextActionsLearning}
+      onChangeLearningConfig={isPopout ? undefined : (c) => setSettings((s) => ({ ...s, nextActionsLearning: c }))}
+      onResetLearning={isPopout ? undefined : () => { void learning.reset(); }}
+      onOpenInsights={isPopout ? undefined : () => setActiveTab("learning-insights")}
     />
+  );
+
+  const learningInsightsEl = (
+    <div className="flex flex-col gap-4">
+      <button
+        type="button"
+        onClick={() => setActiveTab("settings")}
+        className="self-start rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted"
+      >
+        {t(lang, "wizardBack")}
+      </button>
+      <LearningInsights
+        lang={lang}
+        state={learning.state}
+        overrides={learning.overrides}
+        onSetOverride={(kind, override) => { void learning.setOverride(kind, override); }}
+        onReset={() => { void learning.reset(); }}
+      />
+    </div>
   );
 
   // The action-cluster menus (Voice/Export/Help/Version) shared with the classic
@@ -1875,6 +1916,7 @@ function TaskManagerInner() {
         editTitle={editTitle}
         editActions={editActions}
         settingsView={settingsViewEl}
+        learningInsightsView={learningInsightsEl}
         banners={bannersEl}
         navGroups={filteredNavGroups}
         projectSwitcher={projectSwitcher}

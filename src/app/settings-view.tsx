@@ -3,7 +3,7 @@
 
 import { useState } from "react";
 import { type Lang, type TranslationKey, t, localeFor } from "./i18n";
-import type { Settings } from "./settings-types";
+import type { Settings, NextActionsLearningConfig } from "./settings-types";
 import type { StorageKind } from "./storage";
 import { APP_LICENSE, APP_LICENSE_URL, APP_VERSION_LABEL } from "./version";
 import { VersionInfoModal } from "./version-info";
@@ -41,6 +41,10 @@ interface SettingsViewProps {
   commTemplatesEnabled?: boolean;
   commTemplates?: UseCommTemplatesResult;
   commTemplatesConfig?: TursoConfig | null;
+  learningConfig?: NextActionsLearningConfig;
+  onChangeLearningConfig?: (c: NextActionsLearningConfig) => void;
+  onResetLearning?: () => void;
+  onOpenInsights?: () => void;
 }
 
 type SectionId =
@@ -198,7 +202,15 @@ export function SettingsView(props: SettingsViewProps) {
           <NotificationsSection lang={lang} settings={settings} onChange={onChange} />
         )}
         {active === "nextActions" && (
-          <NextActionsSection lang={lang} settings={settings} onChange={onChange} />
+          <NextActionsSection
+            lang={lang}
+            settings={settings}
+            onChange={onChange}
+            learningConfig={props.learningConfig}
+            onChangeLearningConfig={props.onChangeLearningConfig}
+            onResetLearning={props.onResetLearning}
+            onOpenInsights={props.onOpenInsights}
+          />
         )}
         {active === "ai" && (
           <AiSection lang={lang} settings={settings} onChange={onChange} />

@@ -56,3 +56,65 @@ describe("NextActionsSection", () => {
     );
   });
 });
+
+describe("NextActionsSection learning controls", () => {
+  const learningConfig = { enabled: false, store: "local" as const };
+
+  it("toggling the enable checkbox calls onChangeLearningConfig with enabled:true", () => {
+    const onChangeLearningConfig = vi.fn();
+    render(
+      <NextActionsSection
+        lang="en-US"
+        settings={defaultSettings}
+        onChange={vi.fn()}
+        learningConfig={learningConfig}
+        onChangeLearningConfig={onChangeLearningConfig}
+        onResetLearning={vi.fn()}
+        onOpenInsights={vi.fn()}
+      />,
+    );
+    const checkbox = screen.getByLabelText(t("en-US", "settingsLearningEnable"));
+    fireEvent.click(checkbox);
+    expect(onChangeLearningConfig).toHaveBeenCalledWith({ enabled: true, store: "local" });
+  });
+
+  it("changing the store select calls onChangeLearningConfig with store:turso", () => {
+    const onChangeLearningConfig = vi.fn();
+    render(
+      <NextActionsSection
+        lang="en-US"
+        settings={defaultSettings}
+        onChange={vi.fn()}
+        learningConfig={{ enabled: true, store: "local" }}
+        onChangeLearningConfig={onChangeLearningConfig}
+        onResetLearning={vi.fn()}
+        onOpenInsights={vi.fn()}
+      />,
+    );
+    const select = screen.getByLabelText(t("en-US", "settingsLearningStore"));
+    fireEvent.change(select, { target: { value: "turso" } });
+    expect(onChangeLearningConfig).toHaveBeenCalledWith({ enabled: true, store: "turso" });
+  });
+
+  it("clicking View learning insights calls onOpenInsights", () => {
+    const onOpenInsights = vi.fn();
+    render(
+      <NextActionsSection
+        lang="en-US"
+        settings={defaultSettings}
+        onChange={vi.fn()}
+        learningConfig={learningConfig}
+        onChangeLearningConfig={vi.fn()}
+        onResetLearning={vi.fn()}
+        onOpenInsights={onOpenInsights}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "settingsLearningInsights") }));
+    expect(onOpenInsights).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders no learning controls when the props are omitted", () => {
+    render(<NextActionsSection lang="en-US" settings={defaultSettings} onChange={vi.fn()} />);
+    expect(screen.queryByLabelText(t("en-US", "settingsLearningEnable"))).toBeNull();
+  });
+});

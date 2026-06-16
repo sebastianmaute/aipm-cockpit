@@ -291,3 +291,23 @@ describe("ActionRow rebaseline", () => {
     expect(screen.queryByRole("button", { name: REB })).toBeNull();
   });
 });
+
+describe("ActionRow learning hint", () => {
+  it("renders a surfaced hint when learning.moved is up", () => {
+    const surfaced = { ...action, learning: { bias: 12, moved: "up" as const } };
+    render(<ActionRow lang="en-US" action={surfaced} onOpen={() => {}} />);
+    expect(screen.getByText(/surfaced/i)).toBeInTheDocument();
+  });
+
+  it("renders a demoted hint when learning.moved is down", () => {
+    const demoted = { ...action, learning: { bias: -12, moved: "down" as const } };
+    render(<ActionRow lang="en-US" action={demoted} onOpen={() => {}} />);
+    expect(screen.getByText(/demoted/i)).toBeInTheDocument();
+  });
+
+  it("renders no learning hint when learning is absent", () => {
+    render(<ActionRow lang="en-US" action={action} onOpen={() => {}} />);
+    expect(screen.queryByText(/surfaced/i)).toBeNull();
+    expect(screen.queryByText(/demoted/i)).toBeNull();
+  });
+});
