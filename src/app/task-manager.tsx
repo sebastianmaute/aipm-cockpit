@@ -1558,7 +1558,7 @@ function TaskManagerInner() {
     escalate: escalateBundle,
     rebaseline: rebaselineBundle,
     onPushMilestonesToOutlook: calendarPushEnabled ? calendarPushToOutlook : undefined,
-    calendarPushBusy,
+    calendarPushBusy: calendarPushEnabled ? calendarPushBusy : undefined,
   };
 
   const workspaceEl = <WorkspaceSection {...workspaceProps} />;

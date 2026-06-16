@@ -28,6 +28,7 @@ export class GraphCalendarError extends Error {
 
 function nextDay(isoDate: string): string {
   const d = new Date(`${isoDate}T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) throw new GraphCalendarError(0, `Invalid milestone date: ${isoDate}`);
   d.setUTCDate(d.getUTCDate() + 1);
   return d.toISOString().slice(0, 10);
 }

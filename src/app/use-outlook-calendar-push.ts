@@ -35,14 +35,15 @@ export function useOutlookCalendarPush({ milestones, projectId, setMilestones, i
       let failed = 0;
       for (const m of plan.create) {
         try { newIds.set(m.id, await createEvent(token, milestoneToGraphEvent(m, projectId))); }
-        catch { failed++; }
+        catch (err) { failed++; console.warn("Outlook calendar push: create event failed", err); }
       }
       for (const u of plan.update) {
         try { await updateEvent(token, u.eventId, milestoneToGraphEvent(u.milestone, projectId)); }
-        catch { failed++; }
+        catch (err) { failed++; console.warn("Outlook calendar push: update event failed", err); }
       }
       for (const id of plan.delete) {
-        try { await deleteEvent(token, id); } catch { failed++; }
+        try { await deleteEvent(token, id); }
+        catch (err) { failed++; console.warn("Outlook calendar push: delete event failed", err); }
       }
       if (newIds.size > 0) {
         setMilestones((prev) => prev.map((m) => (newIds.has(m.id) ? { ...m, outlookEventId: newIds.get(m.id) } : m)));

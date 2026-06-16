@@ -15,4 +15,7 @@ describe("milestoneToGraphEvent", () => {
   it("categoryFor prefixes the project id", () => {
     expect(categoryFor("p1")).toBe("AIPM:p1");
   });
+  it("throws on a malformed milestone date", () => {
+    expect(() => milestoneToGraphEvent({ id: 1, name: "X", date: "not-a-date", linkedTaskIds: [] }, "p")).toThrow();
+  });
 });
