@@ -29,12 +29,14 @@ import { htmlToPlainText } from "./html-to-text";
 import { useTaskSubmit } from "./use-task-submit";
 import { useGanttHandlers } from "./use-gantt-handlers";
 import { AppModals } from "./app-modals";
-import { type Resource, type BudgetBucket, type RaidItem, type ChangeItem } from "./types";
+import { type Resource, type BudgetBucket, type RaidItem, type ChangeItem, type Milestone } from "./types";
 import { useFxRates } from "./use-fx-rates";
 import { splitName, resourceDisplayName, nextId as computeNextId } from "./resource-foundation";
 import { buildRaidByTaskIndex } from "./raid";
 import { applyOwnerAssignment } from "./action-assign-owner";
 import { planEscalation, applyEscalation, buildEscalationMail } from "./action-escalate";
+import { applyMilestoneRebaseline, isValidIsoDate } from "./action-rebaseline";
+import type { RebaselineBundle } from "./rebaseline-popover";
 import { buildChangeByTaskIndex } from "./change-log";
 import { FiltersProvider, useFilters } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
@@ -1087,6 +1089,33 @@ function TaskManagerInner() {
     [isPopout, resources, handleCreateResource, raid, handleEscalate],
   );
 
+  const handleRebaselineMilestone = useCallback(
+    (id: number, newDate: string) => {
+      if (!isValidIsoDate(newDate)) { window.alert(t(lang, "errorInvalidDate")); return; }
+      const next = applyMilestoneRebaseline(milestones, id, newDate);
+      if (next !== milestones) setMilestones(next as Milestone[]);
+    },
+    [milestones, setMilestones, lang],
+  );
+
+  const handleRebaselineSnapshot = useCallback(() => {
+    void snapshots.rebaselineNow();
+  }, [snapshots]);
+
+  const rebaselineBundle = useMemo<RebaselineBundle | undefined>(
+    () =>
+      isPopout
+        ? undefined
+        : {
+            milestones,
+            tasks,
+            onRebaselineMilestone: handleRebaselineMilestone,
+            snapshotActive: trendsActive,
+            onRebaselineSnapshot: handleRebaselineSnapshot,
+          },
+    [isPopout, milestones, tasks, handleRebaselineMilestone, handleRebaselineSnapshot, trendsActive],
+  );
+
   // Keep the forwarding ref current after every commit (it's only ever read
   // from event handlers, never during render).
   useEffect(() => {
@@ -1455,6 +1484,7 @@ function TaskManagerInner() {
     onDraftMessage: isPopout ? undefined : handleDraftMessageFromAction,
     assignOwner: assignOwnerBundle,
     escalate: escalateBundle,
+    rebaseline: rebaselineBundle,
   };
 
   const workspaceEl = <WorkspaceSection {...workspaceProps} />;
