@@ -106,4 +106,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightDesktopNotify",
   "versionHighlightLearning",
   "versionHighlightCalendarPush",
+  "versionHighlightUiBatchVm",
 ] as const;

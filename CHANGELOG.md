@@ -15,6 +15,24 @@ longer carries its own changelog comment.
   current project's milestones into your Outlook calendar as all-day events (create / update / remove),
   tagged so a re-push stays idempotent. One-way (the app owns milestone dates); opt-in under
   Settings → Integrations → Microsoft 365. Requires M365 sign-in + Calendars.ReadWrite consent.
+- **Scalable sample datasets** — the bundled sample workspace is now `sample-workspace-small.*`, with
+  generated `-big` (3×) and `-huge` (10×) variants (JSON + SQLite) for testing larger projects. A pure
+  `scaleWorkspace` helper replicates every entity with id-offset + full FK remap (no dangling refs).
+
+### Changed
+- **Settings IA** — General now hosts the Appearance and Storage sections (divider-split sub-sections)
+  instead of separate rail entries; Communication Templates moved directly below Templates and is
+  Expert-mode only.
+- **Action Center polish** — each action row shows a per-source icon with a tooltip carrying its
+  calculated score; tiers sort by score (highest first); an Expert-mode "Learning is ON/OFF" status
+  pill in the header links to the Next-actions settings.
+- **Influence/Interest matrix** — readable text contrast (labels on solid chips, decoupled from the
+  quadrant tint); stakeholders with a pending communication show a "needs communication" marker that
+  jumps to the Action Center.
+- **Dashboard** — the Trends show/hide toggle moved to the top toolbar; the status-summary buttons sit
+  below an auto-growing textarea; the budget-burn section now shows CPI.
+- **New-project wizard** — an informational note recommends the Turso backend (richer features, more
+  complete data model, more automation than file storage).
 
 ## [0.95.0] - 2026-06-16 "Hopkinson"
 
