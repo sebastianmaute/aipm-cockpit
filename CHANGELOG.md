@@ -8,6 +8,14 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.94.0] - 2026-06-16 "Mieville"
+
+### Added
+- **Desktop notifications for urgent actions** — opt-in browser notifications raised when a new
+  urgent ("now") Action Center signal appears while the app tab is in the background. One popup per
+  new signal (deduped); a burst coalesces into a single "N new urgent actions" summary. Enable it in
+  Settings -> Notifications (requests browser permission). Browser-only; the tab must be open.
+
 ## [0.93.0] - 2026-06-16 "Cadigan"
 
 ### Added

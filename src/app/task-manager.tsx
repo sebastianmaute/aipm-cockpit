@@ -63,6 +63,7 @@ import { getUpcomingBirthdays } from "./birthdays";
 import { useBirthdayAlerts } from "./use-birthday-alerts";
 import { useReminderSnooze } from "./use-reminder-snooze";
 import { useActionSnooze } from "./use-action-snooze";
+import { useActionNotifications } from "./use-action-notifications";
 import { isReportPopoutTab, openPopoutWindow } from "./broadcast-sync";
 import { ModernShell } from "./modern-shell";
 import { useHashView } from "./use-hash-view";
@@ -688,6 +689,19 @@ function TaskManagerInner() {
     },
     [requestOpen],
   );
+  const openActionCenter = useCallback(() => {
+    if (typeof window !== "undefined") window.focus();
+    setActiveTab("open-points");
+  }, [setActiveTab]);
+
+  useActionNotifications({
+    actions: nextActions,
+    enabled: settings.notifications.desktopUrgent.enabled,
+    isPopout,
+    lang,
+    requestOpen,
+    openActionCenter,
+  });
   const snoozeAction = useCallback(
     (a: SuggestedAction, ms: number) => actionSnooze.snooze(a.id, ms),
     [actionSnooze],

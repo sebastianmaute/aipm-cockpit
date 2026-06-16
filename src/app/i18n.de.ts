@@ -1556,6 +1556,14 @@ export const de: Record<TranslationKey, string> = {
   actionRebaselineConfirm: "Jetzt neu ausrichten",
   errorInvalidDate: "Gültiges Datum eingeben (JJJJ-MM-TT).",
   versionHighlightRebaseline: "Abweichende Meilensteine sowie Termin/Budget direkt im Aktionscenter neu ausrichten.",
+  notifySummaryTitle: "{0} neue dringende Aktionen",
+  notifySummaryBody: "Öffnen Sie die App, um sie zu prüfen.",
+  settingsDesktopNotify: "Desktop-Benachrichtigungen für dringende Aktionen",
+  settingsDesktopNotifyHint:
+    "Nur im Browser; der App-Tab muss geöffnet sein. Benachrichtigt einmal pro neuem dringenden Signal, während der Tab im Hintergrund ist.",
+  notifyPermissionDenied: "Berechtigung für Benachrichtigungen wurde nicht erteilt.",
+  versionHighlightDesktopNotify:
+    "Desktop-Benachrichtigungen für neu dringende Aktionscenter-Signale, während der Tab im Hintergrund ist.",
   actionEscalateRecipient: "Benachrichtigen",
   actionEscalateEmailPlaceholder: "E-Mail-Adresse",
   escalateMailSubject: "Eskalation: RAID #{0} — {1}",

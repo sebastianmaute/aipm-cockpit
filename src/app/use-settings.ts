@@ -27,7 +27,7 @@ const COMMS_QUADRANTS: readonly StakeholderQuadrant[] = [
   "manage-closely", "keep-satisfied", "keep-informed", "monitor",
 ];
 
-function migrateNotifications(raw: unknown): Settings["notifications"] {
+export function migrateNotifications(raw: unknown): Settings["notifications"] {
   const p = (isPlainObject(raw) ? raw : {}) as Record<string, unknown>;
   const pick = (v: unknown) => (isPlainObject(v) ? (v as Record<string, unknown>) : {});
   const ch = (v: unknown) => {
@@ -66,6 +66,11 @@ function migrateNotifications(raw: unknown): Settings["notifications"] {
     stakeholderComms: ch(p.stakeholderComms),
     stakeholderCommsLeadDays,
     jiraTokenError: ch(p.jiraTokenError),
+    desktopUrgent: {
+      enabled:
+        isPlainObject(p.desktopUrgent) &&
+        (p.desktopUrgent as { enabled?: unknown }).enabled === true,
+    },
   };
 }
 

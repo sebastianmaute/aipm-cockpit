@@ -10,7 +10,9 @@ This version has breaking changes — APIs, conventions, and file structure may 
 npm run dev                 # next dev (forked Next.js)
 npm run build               # next build (prebuild checks script-docs are in sync)
 npm run lint                # eslint  (CI --max-warnings=0: an unused import/var or `_`-prefixed
-                            # param is FATAL — no argsIgnorePattern; re-check after every extract)
+                            # param is FATAL — no argsIgnorePattern; re-check after every extract.
+                            # react-hooks/exhaustive-deps REJECTS an `obj.member` dep (e.g.
+                            # [snapshots.rebaselineNow]) — hoist it to a local const and depend on that.)
 npx tsc --noEmit            # typecheck (enforces i18n EN/DE key parity)
 npm run test:run            # vitest (unit/integration)
 npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
@@ -57,6 +59,10 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
 - `src/app/` is flat, organized by feature. Pure domain logic lives in i18n-free modules/subdirs
   (e.g. `next-actions/`, serializers); React surfaces import them. Keep the engines i18n-free —
   the surface translates.
+  Before creating `<name>.ts`, check for an existing `<name>.tsx` (and vice versa) — a bare
+  `./<name>` import resolves `.ts` AHEAD of `.tsx`, so a new pure `foo.ts` silently hijacks an
+  existing `foo.tsx` component import and breaks its tests. Name the pure module distinctly
+  (e.g. `action-notifications.ts` beside the `notifications.tsx` component).
 - Storage is a facade (`storage.ts`) over multiple backends: JSON file, CSV, Markdown, Turso
   (single + multi-tenant), IndexedDB. Snapshots/Trends and version history are Turso-ONLY.
 - Action-Center CTAs are surface-only: thread an optional handler

@@ -4,6 +4,7 @@ import { type Lang, type TranslationKey, t } from "../i18n";
 import type { ChannelConfig, NotificationsConfig, Settings } from "../settings-types";
 import type { StakeholderQuadrant } from "../stakeholders";
 import { InfoTooltip } from "../info-tooltip";
+import { useToastContext } from "../toast-context";
 
 interface NotificationsSectionProps {
   lang: Lang;
@@ -16,6 +17,29 @@ export function NotificationsSection({ lang, settings, onChange }: Notifications
 
   function patchNotif(patch: Partial<typeof notifications>) {
     onChange({ ...settings, notifications: { ...notifications, ...patch } });
+  }
+
+  const showToast = useToastContext();
+
+  async function handleDesktopToggle(checked: boolean) {
+    if (!checked) {
+      patchNotif({ desktopUrgent: { enabled: false } });
+      return;
+    }
+    if (typeof Notification === "undefined") {
+      showToast("error", t(lang, "notifyPermissionDenied"));
+      return;
+    }
+    try {
+      const result = await Notification.requestPermission();
+      if (result === "granted") {
+        patchNotif({ desktopUrgent: { enabled: true } });
+      } else {
+        showToast("error", t(lang, "notifyPermissionDenied"));
+      }
+    } catch {
+      showToast("error", t(lang, "notifyPermissionDenied"));
+    }
   }
 
   return (
@@ -146,6 +170,20 @@ export function NotificationsSection({ lang, settings, onChange }: Notifications
           />
           {t(lang, "notifJiraTokenError")}
         </label>
+      </div>
+
+      {/* Desktop notifications for urgent Action Center signals */}
+      <div className="mt-2 flex items-center gap-2 text-sm text-foreground">
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={notifications.desktopUrgent.enabled}
+            onChange={(e) => handleDesktopToggle(e.target.checked)}
+            className="h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue focus:ring-AIPM-green"
+          />
+          {t(lang, "settingsDesktopNotify")}
+        </label>
+        <InfoTooltip text={t(lang, "settingsDesktopNotifyHint")} />
       </div>
     </div>
   );
