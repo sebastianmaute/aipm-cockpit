@@ -71,6 +71,8 @@ export type NotificationsConfig = {
   stakeholderComms: ChannelConfig;
   stakeholderCommsLeadDays: Record<StakeholderQuadrant, number>;
   jiraTokenError: ChannelConfig;
+  /** Desktop browser notifications for urgent ("now") Action Center signals. Off by default. */
+  desktopUrgent: ChannelConfig;
 };
 
 export const defaultNotificationsConfig: NotificationsConfig = {
@@ -88,6 +90,7 @@ export const defaultNotificationsConfig: NotificationsConfig = {
     monitor: 3,
   },
   jiraTokenError: { enabled: true },
+  desktopUrgent: { enabled: false },
 };
 
 export type JiraAssigneeMode = "currentUser" | "any" | "specific";
