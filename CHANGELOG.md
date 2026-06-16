@@ -8,6 +8,11 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.92.0] - 2026-06-16 "Asaro"
+
+### Added
+- **Escalate action** — at-risk RAID items in the Action Center now have an "Escalate" button. It raises the item's severity one level (Issue/Assumption/Dependency; Risks and already-Critical items are notify-only since Risk severity is matrix-derived) and opens a prefilled escalation email to a chosen recipient, in one confirm step.
+
 ## [0.91.0] - 2026-06-15 "Stross"
 
 ### Added / Changed

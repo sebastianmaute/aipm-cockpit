@@ -34,6 +34,7 @@ import { useFxRates } from "./use-fx-rates";
 import { splitName, resourceDisplayName, nextId as computeNextId } from "./resource-foundation";
 import { buildRaidByTaskIndex } from "./raid";
 import { applyOwnerAssignment } from "./action-assign-owner";
+import { planEscalation, applyEscalation, buildEscalationMail } from "./action-escalate";
 import { buildChangeByTaskIndex } from "./change-log";
 import { FiltersProvider, useFilters } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
@@ -76,7 +77,7 @@ import { TaskEditView, TASK_EDIT_FORM_ID } from "./task-edit-view";
 import { APP_VERSION_LABEL } from "./version";
 import { ActionMenus } from "./action-menus";
 import { makeEditGuard } from "./read-only-guard";
-import { resolveDraftRecipient } from "./mailto";
+import { resolveDraftRecipient, buildMailtoUrl } from "./mailto";
 import { isValidEmail } from "./sanitize";
 import { SettingsView } from "./settings-view";
 import { ReadOnlyMirrorBanner } from "./read-only-mirror-banner";
@@ -1052,6 +1053,40 @@ function TaskManagerInner() {
     [tasks, onSendInquiry, stakeholders, resources, project, lang, resolveCommBody, commSend],
   );
 
+  const handleEscalate = useCallback(
+    (
+      action: SuggestedAction,
+      recipient: { name: string; email: string; resourceId: number | null },
+    ) => {
+      if (action.cta.kind !== "open") return;
+      const id = Number(action.cta.id);
+      const item = raid.find((r) => r.id === id);
+      if (!item) return; // deleted-source safe
+      if (!isValidEmail(recipient.email)) { window.alert(t(lang, "errorInvalidEmail")); return; }
+      const plan = planEscalation(item);
+      if (plan.to) {
+        const next = applyEscalation(raid, id, plan.to);
+        if (next !== raid) setRaid(next as RaidItem[]);
+      }
+      const { subject, body } = buildEscalationMail(lang, item, plan, project?.name ?? "");
+      window.location.href = buildMailtoUrl(recipient.email, subject, body);
+    },
+    [raid, setRaid, lang, project],
+  );
+
+  const escalateBundle = useMemo(
+    () =>
+      isPopout
+        ? undefined
+        : {
+            resources,
+            onCreateResource: handleCreateResource,
+            raid,
+            onEscalate: handleEscalate,
+          },
+    [isPopout, resources, handleCreateResource, raid, handleEscalate],
+  );
+
   // Keep the forwarding ref current after every commit (it's only ever read
   // from event handlers, never during render).
   useEffect(() => {
@@ -1419,6 +1454,7 @@ function TaskManagerInner() {
     onCreateTask: isPopout ? undefined : handleCreateTaskFromAction,
     onDraftMessage: isPopout ? undefined : handleDraftMessageFromAction,
     assignOwner: assignOwnerBundle,
+    escalate: escalateBundle,
   };
 
   const workspaceEl = <WorkspaceSection {...workspaceProps} />;
