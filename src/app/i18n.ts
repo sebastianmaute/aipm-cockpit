@@ -1561,6 +1561,16 @@ const enUS = {
   learningOverrideOff: "Off",
   versionHighlightLearning:
     "The Action Center learns from how you respond and surfaces fewer, higher-value next-best-actions.",
+  calendarPush: "Push to Outlook",
+  calendarPushing: "Pushing…",
+  calendarPushResult: "Outlook calendar updated: {0} created, {1} updated, {2} removed.",
+  calendarPushPartial: "{0} event(s) could not be synced.",
+  calendarPushNoAccess: "Outlook calendar access was not granted.",
+  settingsOutlookCalendarPush: "Push milestones to my Outlook calendar",
+  settingsOutlookCalendarPushHint:
+    "Adds a \"Push to Outlook\" button to the Milestones view. One-way: your milestones become all-day events; the app never reads your calendar changes back.",
+  versionHighlightCalendarPush:
+    "Push project milestones into your Outlook calendar as all-day events.",
   // --- Restored: still used by kept banners + comms items (SP3) ---
   alertBannerDismiss: "Dismiss",
   alertCatOverdue: "Overdue",

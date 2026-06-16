@@ -1590,6 +1590,18 @@ export const de: Record<TranslationKey, string> = {
   learningOverrideOff: "Aus",
   versionHighlightLearning:
     "Das Aktionscenter lernt aus Ihren Reaktionen und zeigt weniger, dafür wertvollere nächste Aktionen.",
+  calendarPush: "An Outlook senden",
+  calendarPushing: "Wird gesendet…",
+  calendarPushResult:
+    "Outlook-Kalender aktualisiert: {0} erstellt, {1} aktualisiert, {2} entfernt.",
+  calendarPushPartial: "{0} Termin(e) konnten nicht synchronisiert werden.",
+  calendarPushNoAccess: "Zugriff auf den Outlook-Kalender wurde nicht erteilt.",
+  settingsOutlookCalendarPush:
+    "Meilensteine in meinen Outlook-Kalender übertragen",
+  settingsOutlookCalendarPushHint:
+    "Fügt der Meilenstein-Ansicht eine Schaltfläche „An Outlook senden“ hinzu. Einseitig: Ihre Meilensteine werden zu ganztägigen Terminen; die App liest Ihre Kalenderänderungen nie zurück.",
+  versionHighlightCalendarPush:
+    "Projekt-Meilensteine als ganztägige Termine in Ihren Outlook-Kalender übertragen.",
   actionEscalateRecipient: "Benachrichtigen",
   actionEscalateEmailPlaceholder: "E-Mail-Adresse",
   escalateMailSubject: "Eskalation: RAID #{0} — {1}",
