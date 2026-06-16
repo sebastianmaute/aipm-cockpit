@@ -1571,6 +1571,15 @@ const enUS = {
     "Adds a \"Push to Outlook\" button to the Milestones view. One-way: your milestones become all-day events; the app never reads your calendar changes back.",
   versionHighlightCalendarPush:
     "Push project milestones into your Outlook calendar as all-day events.",
+  wizardStorageTursoRecommended: "Turso recommended — richer features, a more complete data model, and more automation than file storage.",
+  commTemplateCancelEdit: "Cancel editing",
+  actionScoreTooltip: "Score: {0}",
+  actionLearningPrefix: "Learning is",
+  actionLearningOn: "ON",
+  actionLearningOff: "OFF",
+  actionLearningGoToSettings: "Open Next-actions settings",
+  stakeholderNeedsComms: "Needs communication — open in the Action Center",
+  versionHighlightUiBatchVm: "Influence/Interest, Action Center, and dashboard polish, plus scalable sample datasets.",
   // --- Restored: still used by kept banners + comms items (SP3) ---
   alertBannerDismiss: "Dismiss",
   alertCatOverdue: "Overdue",
