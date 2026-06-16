@@ -7,6 +7,7 @@ import type { Resource } from "./types";
 import { SNOOZE_1H, SNOOZE_1D } from "./reminder-snooze";
 import { ACTION_SOURCE_LABEL } from "./action-source-label";
 import { ResourcePicker } from "./resource-picker";
+import { EscalatePopover, type EscalateBundle } from "./escalate-popover";
 
 const TIER_DOT: Record<ActionTier, string> = {
   now: "bg-AIPM-pink",
@@ -28,9 +29,10 @@ interface ActionRowProps {
   onCreateTask?: (action: SuggestedAction) => void;
   assignOwner?: AssignOwnerBundle;
   onDraftMessage?: (action: SuggestedAction) => void;
+  escalate?: EscalateBundle;
 }
 
-export function ActionRow({ lang, action, onOpen, onSnooze, onCreateTask, assignOwner, onDraftMessage }: ActionRowProps) {
+export function ActionRow({ lang, action, onOpen, onSnooze, onCreateTask, assignOwner, onDraftMessage, escalate }: ActionRowProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
   const assignPopRef = useRef<HTMLSpanElement>(null);
@@ -59,6 +61,11 @@ export function ActionRow({ lang, action, onOpen, onSnooze, onCreateTask, assign
   const canDraft =
     onDraftMessage != null &&
     (action.source === "task-due" || action.source === "stakeholder-comms") &&
+    action.cta.kind === "open";
+  const canEscalate =
+    escalate != null &&
+    action.source === "raid" &&
+    action.why.key === "actionRaidWhySeverity" &&
     action.cta.kind === "open";
   return (
     // Mouse convenience only — NOT role="button"/tabIndex: nesting an interactive
@@ -104,6 +111,9 @@ export function ActionRow({ lang, action, onOpen, onSnooze, onCreateTask, assign
           >
             {t(lang, "actionCreateTask")}
           </button>
+        )}
+        {canEscalate && escalate && (
+          <EscalatePopover lang={lang} action={action} bundle={escalate} />
         )}
         {canAssign && assignOwner && (
           <span className="relative">

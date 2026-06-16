@@ -5,6 +5,7 @@ import { type Lang, t, type TranslationKey } from "./i18n";
 import { VIEW_PANE_FILL_CLASS } from "./view-styles";
 import { ActionRow } from "./action-row";
 import type { AssignOwnerBundle } from "./action-row";
+import type { EscalateBundle } from "./escalate-popover";
 import type { SuggestedAction, ActionTier } from "./next-actions/types";
 
 const TIERS: { tier: ActionTier; labelKey: TranslationKey }[] = [
@@ -21,9 +22,10 @@ interface ActionsPanelProps {
   onCreateTask?: (action: SuggestedAction) => void;
   assignOwner?: AssignOwnerBundle;
   onDraftMessage?: (action: SuggestedAction) => void;
+  escalate?: EscalateBundle;
 }
 
-export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, assignOwner, onDraftMessage }: ActionsPanelProps) {
+export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, assignOwner, onDraftMessage, escalate }: ActionsPanelProps) {
   const [monitorOpen, setMonitorOpen] = useState(false);
   return (
     <div className={VIEW_PANE_FILL_CLASS}>
@@ -55,7 +57,7 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
                   </button>
                   <div id="action-monitor-list" className="flex flex-col gap-2" hidden={!monitorOpen}>
                     {rows.map((a) => (
-                      <ActionRow key={a.id} lang={lang} action={a} onOpen={onOpen} onSnooze={onSnooze} onCreateTask={onCreateTask} assignOwner={assignOwner} onDraftMessage={onDraftMessage} />
+                      <ActionRow key={a.id} lang={lang} action={a} onOpen={onOpen} onSnooze={onSnooze} onCreateTask={onCreateTask} assignOwner={assignOwner} onDraftMessage={onDraftMessage} escalate={escalate} />
                     ))}
                   </div>
                 </section>
@@ -68,7 +70,7 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
                 </h3>
                 <div className="flex flex-col gap-2">
                   {rows.map((a) => (
-                    <ActionRow key={a.id} lang={lang} action={a} onOpen={onOpen} onSnooze={onSnooze} onCreateTask={onCreateTask} assignOwner={assignOwner} onDraftMessage={onDraftMessage} />
+                    <ActionRow key={a.id} lang={lang} action={a} onOpen={onOpen} onSnooze={onSnooze} onCreateTask={onCreateTask} assignOwner={assignOwner} onDraftMessage={onDraftMessage} escalate={escalate} />
                   ))}
                 </div>
               </section>
