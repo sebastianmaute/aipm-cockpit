@@ -131,7 +131,7 @@ function lastNonNull(values: readonly (number | null)[]): number | null {
 
 /** Latest effective end for a milestone: max of its target date and any linked
  *  task's effective end (completedDate || dueDate). */
-function milestoneForecast(m: Milestone, tasksById: ReadonlyMap<number, Task>): string {
+export function milestoneForecast(m: Milestone, tasksById: ReadonlyMap<number, Task>): string {
   let latest = m.date;
   for (const id of m.linkedTaskIds) {
     const t = tasksById.get(id);
