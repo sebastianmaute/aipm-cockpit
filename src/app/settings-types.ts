@@ -138,6 +138,7 @@ export type M365IntegrationsSettings = {
   sharepoint: boolean;
   outlookContacts: boolean;
   outlookCalendar: boolean;
+  outlookCalendarPush: boolean;
 };
 
 export type TursoIntegrationsSettings = {
@@ -156,6 +157,7 @@ export const defaultM365Integrations: M365IntegrationsSettings = {
   sharepoint: false,
   outlookContacts: false,
   outlookCalendar: false,
+  outlookCalendarPush: false,
 };
 
 export const defaultTursoIntegrations: TursoIntegrationsSettings = {
@@ -180,6 +182,7 @@ export function sanitizeIntegrations(raw: unknown): IntegrationsSettings {
       sharepoint: typeof m365Raw?.sharepoint === "boolean" ? m365Raw.sharepoint : false,
       outlookContacts: typeof m365Raw?.outlookContacts === "boolean" ? m365Raw.outlookContacts : false,
       outlookCalendar: typeof m365Raw?.outlookCalendar === "boolean" ? m365Raw.outlookCalendar : false,
+      outlookCalendarPush: typeof m365Raw?.outlookCalendarPush === "boolean" ? m365Raw.outlookCalendarPush : false,
     },
     turso: {
       enabled: typeof tursoRaw?.enabled === "boolean" ? tursoRaw.enabled : false,

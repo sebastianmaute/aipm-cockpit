@@ -116,6 +116,7 @@ describe("SettingsMenu — Integrations section", () => {
       sharepoint: false,
       outlookContacts: false,
       outlookCalendar: false,
+      outlookCalendarPush: false,
     },
     turso: { enabled: false },
   } as const;

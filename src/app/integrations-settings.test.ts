@@ -47,3 +47,13 @@ describe("sanitizeIntegrations", () => {
     expect(result.m365?.clientId).toBeUndefined();
   });
 });
+
+describe("sanitizeIntegrations outlookCalendarPush", () => {
+  it("defaults outlookCalendarPush to false", () => {
+    expect(sanitizeIntegrations({ m365: {} }).m365!.outlookCalendarPush).toBe(false);
+  });
+  it("preserves outlookCalendarPush=true and coerces non-bool to false", () => {
+    expect(sanitizeIntegrations({ m365: { outlookCalendarPush: true } }).m365!.outlookCalendarPush).toBe(true);
+    expect(sanitizeIntegrations({ m365: { outlookCalendarPush: "yes" } }).m365!.outlookCalendarPush).toBe(false);
+  });
+});
