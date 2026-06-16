@@ -31,6 +31,7 @@ function bundle(over: Partial<RebaselineBundle> = {}): RebaselineBundle {
     onRebaselineMilestone: vi.fn(),
     snapshotActive: true,
     onRebaselineSnapshot: vi.fn(),
+    busy: false,
     ...over,
   };
 }
@@ -60,5 +61,18 @@ describe("RebaselinePopover snapshot variant", () => {
     fireEvent.click(screen.getByRole("button", { name: /^Re-baseline$/ }));
     fireEvent.click(screen.getByRole("button", { name: /Re-baseline now/ }));
     expect(b.onRebaselineSnapshot).toHaveBeenCalledTimes(1);
+  });
+  it("disables confirm when busy", () => {
+    render(<RebaselinePopover lang="en-US" action={scheduleAction()} bundle={bundle({ busy: true })} />);
+    fireEvent.click(screen.getByRole("button", { name: /^Re-baseline$/ }));
+    expect(screen.getByRole("button", { name: /Re-baseline now/ })).toBeDisabled();
+  });
+});
+
+describe("RebaselinePopover milestone forecast hint", () => {
+  it("renders the forecast hint in the milestone popover", () => {
+    render(<RebaselinePopover lang="en-US" action={milestoneAction()} bundle={bundle()} />);
+    fireEvent.click(screen.getByRole("button", { name: /^Re-baseline$/ }));
+    expect(screen.getByText(/Forecast finish: 2026-08-15/)).toBeTruthy();
   });
 });

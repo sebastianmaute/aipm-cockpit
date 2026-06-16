@@ -13,6 +13,7 @@ export interface RebaselineBundle {
   // Schedule/budget (A) path — Turso-gated:
   snapshotActive: boolean;
   onRebaselineSnapshot: () => void;
+  busy: boolean;
 }
 
 interface RebaselinePopoverProps {
@@ -89,6 +90,9 @@ export function RebaselinePopover({ lang, action, bundle }: RebaselinePopoverPro
               <p className="mb-2 text-xs text-foreground">
                 {t(lang, "actionRebaselineMilestoneDesc", milestone.name)}
               </p>
+              <p className="mb-2 text-xs text-muted-foreground">
+                {t(lang, "actionRebaselineForecastHint", milestoneRebaselineDate(milestone, bundle.tasks, TODAY_ISO()))}
+              </p>
               <label className="flex flex-col gap-1 text-xs text-foreground">
                 <span className="font-medium">{t(lang, "actionRebaselineNewDate")}</span>
                 <input
@@ -116,8 +120,9 @@ export function RebaselinePopover({ lang, action, bundle }: RebaselinePopoverPro
               <div className="mt-2 flex justify-end">
                 <button
                   type="button"
+                  disabled={bundle.busy}
                   onClick={(e) => { e.stopPropagation(); confirmSnapshot(); }}
-                  className="rounded-md border border-line px-3 py-1 text-xs font-medium text-AIPM-dark-blue hover:bg-surface-muted dark:text-AIPM-light-grey"
+                  className="rounded-md border border-line px-3 py-1 text-xs font-medium text-AIPM-dark-blue hover:bg-surface-muted disabled:opacity-50 dark:text-AIPM-light-grey"
                 >
                   {t(lang, "actionRebaselineConfirm")}
                 </button>

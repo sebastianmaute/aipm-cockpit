@@ -1098,9 +1098,10 @@ function TaskManagerInner() {
     [milestones, setMilestones, lang],
   );
 
+  const snapshotsRebaselineNow = snapshots.rebaselineNow;
   const handleRebaselineSnapshot = useCallback(() => {
-    void snapshots.rebaselineNow();
-  }, [snapshots]);
+    void snapshotsRebaselineNow();
+  }, [snapshotsRebaselineNow]);
 
   const rebaselineBundle = useMemo<RebaselineBundle | undefined>(
     () =>
@@ -1112,8 +1113,9 @@ function TaskManagerInner() {
             onRebaselineMilestone: handleRebaselineMilestone,
             snapshotActive: trendsActive,
             onRebaselineSnapshot: handleRebaselineSnapshot,
+            busy: snapshots.busy,
           },
-    [isPopout, milestones, tasks, handleRebaselineMilestone, handleRebaselineSnapshot, trendsActive],
+    [isPopout, milestones, tasks, handleRebaselineMilestone, handleRebaselineSnapshot, trendsActive, snapshots.busy],
   );
 
   // Keep the forwarding ref current after every commit (it's only ever read

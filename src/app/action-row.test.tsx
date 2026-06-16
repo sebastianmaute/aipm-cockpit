@@ -249,6 +249,7 @@ describe("ActionRow rebaseline", () => {
     onRebaselineMilestone: () => {},
     snapshotActive: true,
     onRebaselineSnapshot: () => {},
+    busy: false,
     ...over,
   });
   function action(source: string, whyKey: string, id: number): SuggestedAction {
