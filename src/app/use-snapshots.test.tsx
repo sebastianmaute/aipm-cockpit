@@ -129,6 +129,22 @@ describe("useSnapshots", () => {
     expect(onError).toHaveBeenCalled();
   });
 
+  it("rebaselineNow appends a manual snapshot and flags it as the new baseline", async () => {
+    // Use a snapshot in the current bucket (W24) so auto-capture is suppressed.
+    const existing = rec("2026-06-10T00:00:00.000Z", "2026-W24", true);
+    vi.spyOn(store, "loadSnapshots").mockResolvedValue([existing]);
+    const append = vi.spyOn(store, "appendSnapshot").mockResolvedValue();
+    const setBase = vi.spyOn(store, "setBaseline").mockResolvedValue();
+    const { result } = renderHook(() => useSnapshots(baseArgs));
+    await waitFor(() => expect(result.current.snapshots.length).toBe(1));
+    await act(async () => { await result.current.rebaselineNow(); });
+    expect(append).toHaveBeenCalledTimes(1);
+    const appended = append.mock.calls[0][1] as import("./snapshot").SnapshotRecord;
+    expect(appended.trigger).toBe("manual");
+    expect(setBase).toHaveBeenCalledWith(baseArgs.tursoConfig, appended.id, "p1");
+    expect(result.current.baseline?.id).toBe(appended.id);
+  });
+
   it("deleteSnapshots removes all given ids from state in one call", async () => {
     const snapA = rec("2026-05-25T00:00:00.000Z", "2026-W22");
     const snapB = rec("2026-06-01T00:00:00.000Z", "2026-W23");
