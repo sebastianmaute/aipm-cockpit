@@ -24,6 +24,7 @@ import { useWorkspaceCollapsed } from "./use-workspace-collapsed";
 import { useHolidaySet } from "./use-holiday-set";
 import { useTaskRowHandlers } from "./use-task-row-handlers";
 import { useCommTemplates } from "./use-comm-templates";
+import { useOperatingGuides } from "./use-operating-guides";
 import { renderTemplate, buildStakeholderUpdateVars } from "./comm-templates";
 import { htmlToPlainText } from "./html-to-text";
 import { useTaskSubmit } from "./use-task-submit";
@@ -1040,6 +1041,7 @@ function TaskManagerInner() {
 
   const commTemplatesActive = tursoConfig !== null && !isPopout;
   const commTemplates = useCommTemplates({ active: commTemplatesActive, config: tursoConfig });
+  const { guides: operatingGuides } = useOperatingGuides({ config: tursoConfig });
   // Stable callback (its own useCallback) — depend on this, not the whole hook
   // object, so consumers don't re-create on every render.
   const resolveCommBody = commTemplates.resolveTemplateBody;
@@ -1584,6 +1586,7 @@ function TaskManagerInner() {
     onOpenLearningSettings,
     onPushMilestonesToOutlook: calendarPushEnabled ? calendarPushToOutlook : undefined,
     calendarPushBusy: calendarPushEnabled ? calendarPushBusy : undefined,
+    guides: operatingGuides,
   };
 
   const workspaceEl = <WorkspaceSection {...workspaceProps} />;

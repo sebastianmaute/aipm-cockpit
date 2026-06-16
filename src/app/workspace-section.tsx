@@ -25,6 +25,7 @@ import type { SuggestedAction } from "./next-actions";
 import type { AssignOwnerBundle } from "./action-row";
 import type { EscalateBundle } from "./escalate-popover";
 import type { RebaselineBundle } from "./rebaseline-popover";
+import type { OperatingGuide } from "./operating-guide";
 import { ActionChips, chipsForView } from "./action-chips";
 import { ResourceDirectory } from "./resource-directory";
 import { DashboardPanel } from "./dashboard-panel";
@@ -207,6 +208,7 @@ export interface WorkspaceSectionProps {
   onOpenLearningSettings?: () => void;
   onPushMilestonesToOutlook?: () => void;
   calendarPushBusy?: boolean;
+  guides?: readonly OperatingGuide[];
 }
 
 export function WorkspaceSection({
@@ -291,6 +293,7 @@ export function WorkspaceSection({
   onOpenLearningSettings,
   onPushMilestonesToOutlook,
   calendarPushBusy,
+  guides = [],
 }: WorkspaceSectionProps) {
   const { settings, setSettings, lang } = useSettings();
   const features = settings.features;
@@ -530,6 +533,7 @@ export function WorkspaceSection({
             ai={settings.ai}
             dispatcher={dispatcher}
             onAcceptConsent={handleAcceptAiConsent}
+            guides={guides}
           />
         </div>
 
