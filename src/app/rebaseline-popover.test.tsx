@@ -76,3 +76,15 @@ describe("RebaselinePopover milestone forecast hint", () => {
     expect(screen.getByText(/Forecast finish: 2026-08-15/)).toBeTruthy();
   });
 });
+
+describe("RebaselinePopover deleted-source safety", () => {
+  it("suppresses the dialog body when the milestone is no longer present", () => {
+    // The source milestone (id 7) was deleted between render and open.
+    render(<RebaselinePopover lang="en-US" action={milestoneAction()} bundle={bundle({ milestones: [] })} />);
+    fireEvent.click(screen.getByRole("button", { name: /^Re-baseline$/ }));
+    // No dialog, no confirm, no date input — opening a stale row is a safe no-op.
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByRole("button", { name: /Re-baseline now/ })).toBeNull();
+    expect(screen.queryByLabelText("New target date")).toBeNull();
+  });
+});
