@@ -5,3 +5,13 @@ export interface LearningStore {
   load(): Promise<LearningSnapshot>;
   save(snap: LearningSnapshot): Promise<void>;
 }
+
+import type { TursoConfig } from "./turso-config";
+import type { NextActionsLearningConfig } from "./settings-types";
+import { localLearningStore } from "./learning-store-local";
+import { tursoLearningStore } from "./learning-store-turso";
+
+export function pickLearningStore(cfg: NextActionsLearningConfig, tursoConfig: TursoConfig | null): LearningStore {
+  if (cfg.store === "turso" && tursoConfig !== null) return tursoLearningStore(tursoConfig);
+  return localLearningStore();
+}
