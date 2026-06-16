@@ -70,7 +70,7 @@ const RAIL: { id: SectionId; labelKey: TranslationKey }[] = [
 ];
 
 // Advanced sections revealed only in expert mode.
-const EXPERT_IDS: readonly SectionId[] = ["nextActions", "notifications", "templates", "mode", "export"];
+const EXPERT_IDS: readonly SectionId[] = ["nextActions", "notifications", "templates", "mode", "export", "commTemplates"];
 // Connectivity sections grouped together above Information flows (own divider).
 const INTEGRATION_IDS: readonly SectionId[] = ["ai", "jira", "integrations"];
 // Storage gets its own divider group between connectivity and information flows.
@@ -79,34 +79,52 @@ const FLOWS_ID: SectionId = "informationFlows";
 
 export function SettingsView(props: SettingsViewProps) {
   const { lang, settings, onChange } = props;
-  // Default to an always-visible section ("mode" is expert-gated).
-  const [active, setActive] = useState<SectionId>("appearance");
+  // Default to an always-visible section. Appearance + Storage are now folded
+  // into General, so General is the landing section.
+  const [activeRaw, setActive] = useState<SectionId>("general");
+  // Appearance + Storage no longer have standalone rail entries; coerce any
+  // stale/external selection of them back to the General panel they live in.
+  const active: SectionId =
+    activeRaw === "appearance" || activeRaw === "storage" ? "general" : activeRaw;
   const [showVersion, setShowVersion] = useState(false);
 
   const expert = settings.expertMode === true;
   const byLabel = (a: { labelKey: TranslationKey }, b: { labelKey: TranslationKey }) =>
     t(lang, a.labelKey).localeCompare(t(lang, b.labelKey), localeFor(lang));
 
-  // Main group: everything except storage, integrations + flows, with expert-only
-  // sections shown only in expert mode. Alphabetical by label.
-  const mainEntries = RAIL.filter(
+  // Main group: everything except storage + appearance (folded into General),
+  // integrations, comm-templates, and flows, with expert-only sections shown
+  // only in expert mode. Alphabetical by label.
+  const mainEntriesSorted = RAIL.filter(
     (r) =>
       r.id !== FLOWS_ID &&
       r.id !== STORAGE_ID &&
+      r.id !== "appearance" &&
       r.id !== "commTemplates" &&
       !INTEGRATION_IDS.includes(r.id) &&
       (expert || !EXPERT_IDS.includes(r.id)),
   ).sort(byLabel);
+  // Comm templates is expert-gated AND requires the Turso-backed feature gate;
+  // when shown it sits directly below Templates rather than in alpha order.
+  const commTemplatesVisible =
+    props.commTemplatesEnabled === true && expert && !!RAIL.find((r) => r.id === "templates");
+  const mainEntries = (() => {
+    if (!commTemplatesVisible) return mainEntriesSorted;
+    const commEntry = RAIL.find((r) => r.id === "commTemplates");
+    const templatesIdx = mainEntriesSorted.findIndex((r) => r.id === "templates");
+    if (!commEntry || templatesIdx < 0) return mainEntriesSorted;
+    const next = [...mainEntriesSorted];
+    next.splice(templatesIdx + 1, 0, commEntry);
+    return next;
+  })();
   const integrationEntries = RAIL.filter((r) => INTEGRATION_IDS.includes(r.id)).sort(byLabel);
-  const storageEntry = RAIL.find((r) => r.id === STORAGE_ID);
   const flowsEntry = RAIL.find((r) => r.id === FLOWS_ID);
-  const commTemplatesEntry = props.commTemplatesEnabled ? RAIL.find((r) => r.id === "commTemplates") : undefined;
 
   const toggleExpert = (next: boolean) => {
     onChange({ ...settings, expertMode: next });
     // Leaving expert mode while parked on an expert-only section would blank the
     // panel — fall back to an always-visible section.
-    if (!next && EXPERT_IDS.includes(active)) setActive("appearance");
+    if (!next && EXPERT_IDS.includes(active)) setActive("general");
   };
 
   const renderRailButton = ({ id, labelKey }: { id: SectionId; labelKey: TranslationKey }) => {
@@ -155,18 +173,6 @@ export function SettingsView(props: SettingsViewProps) {
             {integrationEntries.map(renderRailButton)}
           </>
         )}
-        {storageEntry && (
-          <>
-            <hr className="my-1 border-line" />
-            {renderRailButton(storageEntry)}
-          </>
-        )}
-        {commTemplatesEntry && (
-          <>
-            <hr className="my-1 border-line" />
-            {renderRailButton(commTemplatesEntry)}
-          </>
-        )}
         {flowsEntry && (
           <>
             <hr className="my-1 border-line" />
@@ -189,14 +195,36 @@ export function SettingsView(props: SettingsViewProps) {
           />
         )}
         {active === "templates" && <TemplatesSection lang={lang} />}
-        {active === "appearance" && (
-          <AppearanceSection lang={lang} settings={settings} onChange={onChange} />
-        )}
         {active === "localization" && (
           <LocalizationSection lang={lang} settings={settings} onChange={onChange} />
         )}
         {active === "general" && (
-          <GeneralSection lang={lang} settings={settings} onChange={onChange} />
+          <>
+            <GeneralSection lang={lang} settings={settings} onChange={onChange} />
+            <hr className="my-6 border-line" />
+            <h3 className="mb-3 text-sm font-semibold text-foreground">
+              {t(lang, "settingsSectionAppearance")}
+            </h3>
+            <AppearanceSection lang={lang} settings={settings} onChange={onChange} />
+            <hr className="my-6 border-line" />
+            <h3 className="mb-3 text-sm font-semibold text-foreground">
+              {t(lang, "settingsSectionStorage")}
+            </h3>
+            <StorageConfigSection
+              lang={lang}
+              config={settings.storageConfig}
+              onChange={(storageConfig) => onChange({ ...settings, storageConfig })}
+              onRequestSwitch={props.onRequestStorageSwitch}
+              description={props.storageDescription}
+              ready={props.storageReady}
+              onPickFile={props.onPickStorageFile}
+              onOpenFile={props.onOpenStorageFile}
+              onGrantWrite={props.onGrantStorageWrite}
+              m365Enabled={settings.integrations?.m365?.enabled ?? false}
+              sharepointEnabled={settings.integrations?.m365?.sharepoint ?? false}
+              tursoEnabled={settings.integrations?.turso?.enabled ?? false}
+            />
+          </>
         )}
         {active === "notifications" && (
           <NotificationsSection lang={lang} settings={settings} onChange={onChange} />
@@ -221,22 +249,6 @@ export function SettingsView(props: SettingsViewProps) {
             config={settings.jira}
             onChange={(jira) => onChange({ ...settings, jira })}
             alwaysOpen
-          />
-        )}
-        {active === "storage" && (
-          <StorageConfigSection
-            lang={lang}
-            config={settings.storageConfig}
-            onChange={(storageConfig) => onChange({ ...settings, storageConfig })}
-            onRequestSwitch={props.onRequestStorageSwitch}
-            description={props.storageDescription}
-            ready={props.storageReady}
-            onPickFile={props.onPickStorageFile}
-            onOpenFile={props.onOpenStorageFile}
-            onGrantWrite={props.onGrantStorageWrite}
-            m365Enabled={settings.integrations?.m365?.enabled ?? false}
-            sharepointEnabled={settings.integrations?.m365?.sharepoint ?? false}
-            tursoEnabled={settings.integrations?.turso?.enabled ?? false}
           />
         )}
         {active === "integrations" && (

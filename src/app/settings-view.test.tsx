@@ -60,16 +60,10 @@ describe("SettingsView", () => {
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ expertMode: false }));
   });
 
-  it("clicking Appearance rail entry shows the Appearance section", () => {
-    render(<SettingsView {...makeProps()} />);
-    fireEvent.click(screen.getByRole("button", { name: t("en-US", "settingsSectionAppearance") }));
-    expect(screen.getByRole("radio", { name: t("en-US", "themeSystem") })).toBeInTheDocument();
-  });
-
   it("clicking a rail entry switches the visible section", () => {
     render(<SettingsView {...makeProps()} />);
-    fireEvent.click(screen.getByRole("button", { name: t("en-US", "settingsSectionStorage") }));
-    expect(screen.getByText("storage-stub")).toBeInTheDocument();
+    // Localization is an always-visible standalone rail entry.
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "settingsSectionLocalization") }));
     expect(screen.queryByRole("radio", { name: t("en-US", "themeSystem") })).not.toBeInTheDocument();
   });
 
@@ -79,5 +73,56 @@ describe("SettingsView", () => {
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "settingsSectionGeneral") }));
     fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "popoutReuseWindow") }));
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ popout: { reuseWindow: true } }));
+  });
+
+  it("General folds in the Appearance and Storage sub-sections with subheadings", () => {
+    render(<SettingsView {...makeProps()} />);
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "settingsSectionGeneral") }));
+    // Appearance sub-section content (theme control) renders inside General.
+    expect(screen.getByRole("radio", { name: t("en-US", "themeSystem") })).toBeInTheDocument();
+    // Storage sub-section content renders inside General.
+    expect(screen.getByText("storage-stub")).toBeInTheDocument();
+    // The folded sub-sections keep their labels as in-page subheadings.
+    expect(
+      screen.getByRole("heading", { name: t("en-US", "settingsSectionAppearance") }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: t("en-US", "settingsSectionStorage") }),
+    ).toBeInTheDocument();
+  });
+
+  it("does not show Storage or Appearance as standalone rail entries", () => {
+    render(<SettingsView {...makeProps()} />);
+    expect(
+      screen.queryByRole("button", { name: t("en-US", "settingsSectionStorage") }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: t("en-US", "settingsSectionAppearance") }),
+    ).toBeNull();
+  });
+
+  it("shows Communication templates in the rail directly below Templates in expert mode", () => {
+    render(<SettingsView {...makeProps({ settings: { ...defaultSettings, expertMode: true }, commTemplatesEnabled: true })} />);
+    const railButtons = screen
+      .getAllByRole("button")
+      .map((b) => b.textContent ?? "");
+    const templatesIdx = railButtons.indexOf(t("en-US", "settingsSectionTemplates"));
+    const commIdx = railButtons.indexOf(t("en-US", "settingsSectionCommTemplates"));
+    expect(templatesIdx).toBeGreaterThanOrEqual(0);
+    expect(commIdx).toBe(templatesIdx + 1);
+  });
+
+  it("hides Communication templates from the rail in non-expert mode", () => {
+    render(<SettingsView {...makeProps({ commTemplatesEnabled: true })} />);
+    expect(
+      screen.queryByRole("button", { name: t("en-US", "settingsSectionCommTemplates") }),
+    ).toBeNull();
+  });
+
+  it("hides Communication templates from the rail when the comm-templates gate is off", () => {
+    render(<SettingsView {...makeProps({ settings: { ...defaultSettings, expertMode: true }, commTemplatesEnabled: false })} />);
+    expect(
+      screen.queryByRole("button", { name: t("en-US", "settingsSectionCommTemplates") }),
+    ).toBeNull();
   });
 });
