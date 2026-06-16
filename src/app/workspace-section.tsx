@@ -202,6 +202,9 @@ export interface WorkspaceSectionProps {
   assignOwner?: AssignOwnerBundle;
   escalate?: EscalateBundle;
   rebaseline?: RebaselineBundle;
+  learningEnabled?: boolean;
+  expertMode?: boolean;
+  onOpenLearningSettings?: () => void;
   onPushMilestonesToOutlook?: () => void;
   calendarPushBusy?: boolean;
 }
@@ -283,6 +286,9 @@ export function WorkspaceSection({
   assignOwner,
   escalate,
   rebaseline,
+  learningEnabled,
+  expertMode,
+  onOpenLearningSettings,
   onPushMilestonesToOutlook,
   calendarPushBusy,
 }: WorkspaceSectionProps) {
@@ -894,7 +900,7 @@ export function WorkspaceSection({
 
         {activeTab === "actions" && (
           <div id="panel-actions" role="tabpanel" className={panelClass}>
-            <ActionsPanel lang={lang} actions={nextActions} onOpen={onOpenAction} onSnooze={onSnooze} onCreateTask={onCreateTask} onDraftMessage={onDraftMessage} assignOwner={assignOwner} escalate={escalate} rebaseline={rebaseline} />
+            <ActionsPanel lang={lang} actions={nextActions} onOpen={onOpenAction} onSnooze={onSnooze} onCreateTask={onCreateTask} onDraftMessage={onDraftMessage} assignOwner={assignOwner} escalate={escalate} rebaseline={rebaseline} learningEnabled={learningEnabled} expertMode={expertMode} onOpenLearningSettings={onOpenLearningSettings} />
           </div>
         )}
 

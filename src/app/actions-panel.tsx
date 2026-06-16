@@ -25,17 +25,39 @@ interface ActionsPanelProps {
   onDraftMessage?: (action: SuggestedAction) => void;
   escalate?: EscalateBundle;
   rebaseline?: RebaselineBundle;
+  learningEnabled?: boolean;
+  expertMode?: boolean;
+  onOpenLearningSettings?: () => void;
 }
 
-export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, assignOwner, onDraftMessage, escalate, rebaseline }: ActionsPanelProps) {
+export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, assignOwner, onDraftMessage, escalate, rebaseline, learningEnabled, expertMode, onOpenLearningSettings }: ActionsPanelProps) {
   const [monitorOpen, setMonitorOpen] = useState(false);
   return (
     <div className={VIEW_PANE_FILL_CLASS}>
-      <div className="mb-4 shrink-0">
-        <h2 className="text-lg font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
-          {t(lang, "actionCenterTitle")}
-        </h2>
-        <p className="text-sm text-muted-foreground">{t(lang, "actionCenterSubtitle")}</p>
+      <div className="mb-4 flex shrink-0 items-start justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
+            {t(lang, "actionCenterTitle")}
+          </h2>
+          <p className="text-sm text-muted-foreground">{t(lang, "actionCenterSubtitle")}</p>
+        </div>
+        {expertMode && (
+          <button
+            type="button"
+            onClick={onOpenLearningSettings}
+            aria-label={t(lang, "actionLearningGoToSettings")}
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-line bg-surface px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-surface-muted"
+          >
+            <span>{t(lang, "actionLearningPrefix")}</span>
+            <span
+              className={`rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                learningEnabled ? "bg-AIPM-green text-white" : "bg-surface-muted text-muted-foreground"
+              }`}
+            >
+              {t(lang, learningEnabled ? "actionLearningOn" : "actionLearningOff")}
+            </span>
+          </button>
+        )}
       </div>
       {actions.length === 0 ? (
         <p className="text-sm text-muted-foreground">{t(lang, "actionsEmptyState")}</p>

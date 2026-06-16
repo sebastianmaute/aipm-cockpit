@@ -60,4 +60,63 @@ describe("ActionsPanel", () => {
     expect(toggle).toHaveAttribute("aria-expanded", "true");
     expect(document.getElementById("action-monitor-list")).not.toHaveAttribute("hidden");
   });
+
+  describe("learning status pill (expert-only)", () => {
+    it("renders 'Learning is ON' with an ON pill when expert and enabled", () => {
+      render(
+        <ActionsPanel lang="en-US" actions={[]} onOpen={() => {}} expertMode learningEnabled />,
+      );
+      const pill = screen.getByRole("button", { name: /open next-actions settings/i });
+      expect(pill.textContent).toMatch(/Learning is/);
+      expect(pill.textContent).toMatch(/ON$/);
+    });
+
+    it("renders 'Learning is OFF' when expert and disabled", () => {
+      render(
+        <ActionsPanel
+          lang="en-US"
+          actions={[]}
+          onOpen={() => {}}
+          expertMode
+          learningEnabled={false}
+        />,
+      );
+      const pill = screen.getByRole("button", { name: /open next-actions settings/i });
+      expect(pill.textContent).toMatch(/Learning is/);
+      expect(pill.textContent).toMatch(/OFF$/);
+    });
+
+    it("does not render the pill when not in expert mode", () => {
+      render(
+        <ActionsPanel
+          lang="en-US"
+          actions={[]}
+          onOpen={() => {}}
+          expertMode={false}
+          learningEnabled
+        />,
+      );
+      expect(
+        screen.queryByRole("button", { name: /open next-actions settings/i }),
+      ).toBeNull();
+    });
+
+    it("calls onOpenLearningSettings when the pill is clicked", () => {
+      let opened = 0;
+      render(
+        <ActionsPanel
+          lang="en-US"
+          actions={[]}
+          onOpen={() => {}}
+          expertMode
+          learningEnabled
+          onOpenLearningSettings={() => {
+            opened += 1;
+          }}
+        />,
+      );
+      fireEvent.click(screen.getByRole("button", { name: /open next-actions settings/i }));
+      expect(opened).toBe(1);
+    });
+  });
 });

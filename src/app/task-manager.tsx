@@ -1571,6 +1571,9 @@ function TaskManagerInner() {
     assignOwner: assignOwnerBundle,
     escalate: escalateBundle,
     rebaseline: rebaselineBundle,
+    learningEnabled: settings.nextActionsLearning?.enabled ?? false,
+    expertMode: settings.expertMode === true,
+    onOpenLearningSettings: () => setActiveTab("settings"),
     onPushMilestonesToOutlook: calendarPushEnabled ? calendarPushToOutlook : undefined,
     calendarPushBusy: calendarPushEnabled ? calendarPushBusy : undefined,
   };
