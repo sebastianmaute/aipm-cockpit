@@ -23,6 +23,10 @@ describe("milestoneRebaselineDate", () => {
     const m = milestone({ date: "2026-09-01", linkedTaskIds: [] });
     expect(milestoneRebaselineDate(m, [], "2026-06-16")).toBe("2026-09-01");
   });
+  it("returns today when the milestone date equals today (tie-case, no linked tasks)", () => {
+    const m = milestone({ date: "2026-06-16", linkedTaskIds: [] });
+    expect(milestoneRebaselineDate(m, [], "2026-06-16")).toBe("2026-06-16");
+  });
 });
 
 describe("applyMilestoneRebaseline", () => {
@@ -48,4 +52,6 @@ describe("isValidIsoDate", () => {
     expect(isValidIsoDate("")).toBe(false);
     expect(isValidIsoDate("not-a-date")).toBe(false);
   });
+  it("accepts a leap-year Feb 29", () => { expect(isValidIsoDate("2024-02-29")).toBe(true); });
+  it("rejects a non-leap-year Feb 29", () => { expect(isValidIsoDate("2025-02-29")).toBe(false); });
 });
