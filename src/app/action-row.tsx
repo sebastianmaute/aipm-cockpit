@@ -8,6 +8,7 @@ import { SNOOZE_1H, SNOOZE_1D } from "./reminder-snooze";
 import { ACTION_SOURCE_LABEL } from "./action-source-label";
 import { ResourcePicker } from "./resource-picker";
 import { EscalatePopover, type EscalateBundle } from "./escalate-popover";
+import { RebaselinePopover, type RebaselineBundle } from "./rebaseline-popover";
 
 const TIER_DOT: Record<ActionTier, string> = {
   now: "bg-AIPM-pink",
@@ -30,9 +31,10 @@ interface ActionRowProps {
   assignOwner?: AssignOwnerBundle;
   onDraftMessage?: (action: SuggestedAction) => void;
   escalate?: EscalateBundle;
+  rebaseline?: RebaselineBundle;
 }
 
-export function ActionRow({ lang, action, onOpen, onSnooze, onCreateTask, assignOwner, onDraftMessage, escalate }: ActionRowProps) {
+export function ActionRow({ lang, action, onOpen, onSnooze, onCreateTask, assignOwner, onDraftMessage, escalate, rebaseline }: ActionRowProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
   const assignPopRef = useRef<HTMLSpanElement>(null);
@@ -66,6 +68,18 @@ export function ActionRow({ lang, action, onOpen, onSnooze, onCreateTask, assign
     escalate != null &&
     action.source === "raid" &&
     action.why.key === "actionRaidWhySeverity" &&
+    action.cta.kind === "open";
+  const canRebaselineMilestone =
+    rebaseline != null &&
+    action.source === "milestone" &&
+    (action.why.key === "actionMilestoneWhyAtRisk" ||
+     action.why.key === "actionMilestoneWhyOverdue") &&
+    action.cta.kind === "open";
+  const canRebaselineSnapshot =
+    rebaseline != null &&
+    rebaseline.snapshotActive &&
+    ((action.source === "schedule" && action.why.key === "actionScheduleWhySlipping") ||
+     (action.source === "budget" && action.why.key === "actionBudgetWhyWorsening")) &&
     action.cta.kind === "open";
   return (
     // Mouse convenience only — NOT role="button"/tabIndex: nesting an interactive
@@ -114,6 +128,9 @@ export function ActionRow({ lang, action, onOpen, onSnooze, onCreateTask, assign
         )}
         {canEscalate && escalate && (
           <EscalatePopover lang={lang} action={action} bundle={escalate} />
+        )}
+        {(canRebaselineMilestone || canRebaselineSnapshot) && rebaseline && (
+          <RebaselinePopover lang={lang} action={action} bundle={rebaseline} />
         )}
         {canAssign && assignOwner && (
           <span className="relative">
