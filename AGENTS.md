@@ -40,6 +40,9 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
   IndexedDB). Miss one and data silently drops on that backend.
 - **Turso-gated features** (Snapshots/Trends, version history) must check `tursoConfig !== null`,
   not just `storageConfig.kind === "turso"` (kind can be set while the config is unset/quarantined).
+- **CSP allowlist:** every host the BROWSER calls (Turso, Anthropic, MS Graph, MSAL, Jira) must be in
+  `src/proxy.ts` `connect-src`/`frame-src` — NOT `next.config`. A missing host fails only at RUNTIME
+  (unit tests mock `fetch`; `next build` passes), so it silently slips through CI. CSP edits need a dev-server restart.
 - **New Turso table that is NOT workspace data** (snapshots, version history, comm_templates)
   must stay OUT of `TABLE_NAMES` (a guard test enforces it) — else the workspace save's
   per-table DELETE wipes it. `SqlArg.value` (turso-schema) is string-only even for ints (`String(v)`).
@@ -57,3 +60,6 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
 - Heavy browser-only deps (rich-text editor, etc.) load via `next/dynamic({ ssr: false })` to
   stay off the main bundle; ProseMirror/Tiptap-style libs need `Range.getClientRects` +
   `getBoundingClientRect` jsdom stubs in their tests.
+- M365 Graph is called client-side via `useMsAuth().acquireToken(scopes, { interactive })` —
+  `interactive:true` pops an incremental-consent dialog for a new scope; background probes stay
+  silent. A new Graph host must be added to the CSP allowlist (above).
