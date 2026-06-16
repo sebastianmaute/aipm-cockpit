@@ -56,6 +56,9 @@ export function useActionLearning({
   // Guards a late mount-load promise from clobbering an outcome recorded before
   // the load resolved (load() is async even for the synchronous local store).
   const dirtyRef = useRef(false);
+  // Serializes saves so two rapid persists cannot land out-of-order on the async
+  // Turso store (a slower older write reverting a newer outcome).
+  const saveChainRef = useRef<Promise<void>>(Promise.resolve());
   useEffect(() => {
     snapRef.current = snap;
   });
@@ -74,7 +77,11 @@ export function useActionLearning({
           setNowTick(Date.now());
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        // Degrade to empty (analytics feature). Mark dirty so a later resolve
+        // can never clobber an outcome recorded in the meantime.
+        dirtyRef.current = true;
+      });
     return () => {
       live = false;
     };
@@ -94,9 +101,10 @@ export function useActionLearning({
     snapRef.current = next;
     setSnap(next);
     setNowTick(Date.now());
-    pickLearningStore(argsRef.current.config, argsRef.current.tursoConfig)
-      .save(next)
-      .catch(() => {});
+    // Chain saves so they run in enqueue order — the last record's snapshot is
+    // the last write even if an earlier (slower) save is still in flight.
+    const store = pickLearningStore(argsRef.current.config, argsRef.current.tursoConfig);
+    saveChainRef.current = saveChainRef.current.then(() => store.save(next)).catch(() => {});
   }, []);
 
   const record = useCallback(
