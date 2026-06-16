@@ -19,6 +19,7 @@ function makeSettings(): Settings {
       apiKey: "",
       model: "claude-sonnet-4-6",
       consentAccepted: false,
+      groundInGuides: true,
     },
     notifications: {
       reminderLeadDays: 7,
