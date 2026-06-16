@@ -1,6 +1,6 @@
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, test, vi } from "vitest";
+import { afterEach, describe, expect, it, test, vi } from "vitest";
 import { NotificationsSection } from "./notifications-section";
 import { defaultSettings } from "../settings-types";
 import { t } from "../i18n";
@@ -150,5 +150,59 @@ describe("jiraTokenError toggle", () => {
     );
     const next = onChange.mock.calls.at(-1)![0];
     expect(next.notifications.jiraTokenError.enabled).toBe(false);
+  });
+});
+
+function installNotification(result: NotificationPermission) {
+  const ctor = vi.fn();
+  (ctor as unknown as { permission: NotificationPermission }).permission = "default";
+  (ctor as unknown as { requestPermission: () => Promise<NotificationPermission> }).requestPermission =
+    vi.fn(async () => result);
+  (globalThis as unknown as { Notification: unknown }).Notification = ctor;
+  return ctor;
+}
+
+describe("NotificationsSection desktop toggle", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    delete (globalThis as unknown as { Notification?: unknown }).Notification;
+  });
+
+  it("requests permission on enable and turns on when granted", async () => {
+    installNotification("granted");
+    const onChange = vi.fn();
+    render(<NotificationsSection lang="en-US" settings={defaultSettings} onChange={onChange} />);
+    fireEvent.click(screen.getByLabelText(/Desktop notifications for urgent actions/i));
+    await waitFor(() => expect(onChange).toHaveBeenCalled());
+    const next = onChange.mock.calls.at(-1)![0];
+    expect(next.notifications.desktopUrgent.enabled).toBe(true);
+  });
+
+  it("stays off when permission is denied", async () => {
+    installNotification("denied");
+    const onChange = vi.fn();
+    render(<NotificationsSection lang="en-US" settings={defaultSettings} onChange={onChange} />);
+    fireEvent.click(screen.getByLabelText(/Desktop notifications for urgent actions/i));
+    await new Promise((r) => setTimeout(r, 0));
+    const calls = onChange.mock.calls.map((c) => c[0].notifications.desktopUrgent.enabled);
+    expect(calls.every((v: boolean) => v === false)).toBe(true);
+  });
+
+  it("disabling does not request permission", () => {
+    const ctor = installNotification("granted");
+    const onChange = vi.fn();
+    const settings = {
+      ...defaultSettings,
+      notifications: { ...defaultSettings.notifications, desktopUrgent: { enabled: true } },
+    };
+    render(<NotificationsSection lang="en-US" settings={settings} onChange={onChange} />);
+    fireEvent.click(screen.getByLabelText(/Desktop notifications for urgent actions/i));
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        notifications: expect.objectContaining({ desktopUrgent: { enabled: false } }),
+      }),
+    );
+    expect((ctor as unknown as { requestPermission: ReturnType<typeof vi.fn> }).requestPermission)
+      .not.toHaveBeenCalled();
   });
 });
