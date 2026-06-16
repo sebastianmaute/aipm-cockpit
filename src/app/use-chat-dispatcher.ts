@@ -9,6 +9,8 @@ import {
   type SetStateAction,
 } from "react";
 import { type Filters, type ToolDispatcher, toRaidSummary, toChangeSummary, toMilestoneSummary } from "./chat-tools";
+import { deriveMode, type AppMode, type FeatureModuleId } from "./feature-modules";
+import type { AppView } from "./nav-config";
 import { greetingName } from "./contacts";
 import { useFilters } from "./filters-context";
 import { t } from "./i18n";
@@ -38,6 +40,7 @@ export interface ChatDispatcherArgs {
   /** True in a popout/mirror window — mutating tools are refused so chat edits
    *  can't be silently lost (popouts neither persist nor broadcast). */
   isReadOnly: boolean;
+  currentView: AppView;
 }
 
 export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
@@ -58,6 +61,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   const tasksRef = useRef(tasks);
   const settingsRef = useRef(args.settings);
   const todayRef = useRef(args.today);
+  const viewRef = useRef(args.currentView);
   const editingIdRef = useRef(editingId);
   const raidRef = useRef(raid);
   const changesRef = useRef(changes);
@@ -71,6 +75,9 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   useEffect(() => {
     todayRef.current = args.today;
   }, [args.today]);
+  useEffect(() => {
+    viewRef.current = args.currentView;
+  }, [args.currentView]);
   useEffect(() => {
     editingIdRef.current = editingId;
   }, [editingId]);
@@ -321,6 +328,9 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
           taskCount: tasks.length,
           knownGroups: Array.from(groups).sort(),
           knownLabels: Array.from(labels).sort(),
+          mode: deriveMode(settingsRef.current.features) as AppMode,
+          enabledModules: settingsRef.current.features as FeatureModuleId[],
+          currentView: viewRef.current,
         };
       },
     }),

@@ -1,6 +1,8 @@
 import { sanitizeGroup, sanitizeLabels } from "./sanitize";
 import { PRIORITIES, type Priority, type Task, type RaidItem, type ChangeItem, type Milestone } from "./types";
 import type { Lang } from "./i18n";
+import type { AppMode, FeatureModuleId } from "./feature-modules";
+import type { AppView } from "./nav-config";
 
 type TaskInput = {
   taskName: string;
@@ -70,6 +72,9 @@ export type ToolDispatcher = {
     taskCount: number;
     knownGroups?: string[];
     knownLabels?: string[];
+    mode: AppMode;
+    enabledModules: FeatureModuleId[];
+    currentView: AppView;
   };
 };
 
