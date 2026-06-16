@@ -87,7 +87,7 @@ export function InfluenceInterestMatrix({
                     className="inline-flex min-h-5 min-w-5 items-center justify-center gap-0.5 rounded bg-surface px-1.5 py-0.5 text-[10px] font-medium text-foreground"
                   >
                     {isSelected ? <span aria-hidden>&#9679;</span> : null}
-                    {isSelected && needsComms && stakeholderId !== undefined ? (
+                    {isSelected && needsComms && stakeholderId !== undefined && onJumpToComms ? (
                       <span
                         role="button"
                         tabIndex={0}

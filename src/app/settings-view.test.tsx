@@ -125,4 +125,22 @@ describe("SettingsView", () => {
       screen.queryByRole("button", { name: t("en-US", "settingsSectionCommTemplates") }),
     ).toBeNull();
   });
+
+  it("coerces to General (no blank pane) when the comm-templates gate flips off while it is active", () => {
+    const { rerender } = render(
+      <SettingsView {...makeProps({ settings: { ...defaultSettings, expertMode: true }, commTemplatesEnabled: true })} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "settingsSectionCommTemplates") }));
+    // The Turso-backed feature gate flips off while Comm Templates is the active section.
+    rerender(
+      <SettingsView {...makeProps({ settings: { ...defaultSettings, expertMode: true }, commTemplatesEnabled: false })} />,
+    );
+    // The pane falls back to General (Appearance subheading visible) instead of going blank.
+    expect(
+      screen.getByRole("heading", { name: t("en-US", "settingsSectionAppearance") }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: t("en-US", "settingsSectionCommTemplates") }),
+    ).toBeNull();
+  });
 });

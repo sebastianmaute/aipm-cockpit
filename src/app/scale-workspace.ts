@@ -117,7 +117,9 @@ function remapStakeholder(
   // raci is keyed by milestone id (string) -> remap each key by the offset.
   const raci: Record<string, (typeof s.raci)[string]> = {};
   for (const [mid, role] of Object.entries(s.raci ?? {})) {
-    raci[String(bump(Number(mid), offset))] = role;
+    const n = Number(mid);
+    // Guard against a non-numeric RACI key (would become "NaN" and orphan the entry).
+    raci[Number.isFinite(n) ? String(bump(n, offset)) : mid] = role;
   }
   return {
     ...s,
@@ -178,6 +180,27 @@ function replicate<T>(
   return out;
 }
 
+/** Guard the id-offset invariant: every original entity id must be `< OFFSET`,
+ *  else replica k=0 and k=1 produce colliding ids and references cross replicas. */
+function assertIdsBelowOffset(ws: Workspace): void {
+  const ids = [
+    ...ws.tasks,
+    ...ws.raid,
+    ...(ws.milestones ?? []),
+    ...(ws.changes ?? []),
+    ...(ws.stakeholders ?? []),
+    ...ws.absences,
+    ...ws.shifts,
+    ...(ws.budgets ?? []),
+  ].map((e) => e.id);
+  const max = ids.length ? Math.max(...ids) : 0;
+  if (max >= OFFSET) {
+    throw new Error(
+      `scaleWorkspace: entity ids must be < OFFSET (${OFFSET}) to avoid cross-replica collisions; found ${max}`,
+    );
+  }
+}
+
 /**
  * Replicate every per-row content entity `factor` times with an id offset and a
  * full FK remap. Reference data (resources/roles/disciplines/grades) and
@@ -187,6 +210,7 @@ function replicate<T>(
  */
 export function scaleWorkspace(ws: Workspace, factor: number): Workspace {
   const n = Math.max(1, Math.floor(factor));
+  if (n > 1) assertIdsBelowOffset(ws);
 
   return {
     ...ws,

@@ -82,13 +82,21 @@ export function SettingsView(props: SettingsViewProps) {
   // Default to an always-visible section. Appearance + Storage are now folded
   // into General, so General is the landing section.
   const [activeRaw, setActive] = useState<SectionId>("general");
-  // Appearance + Storage no longer have standalone rail entries; coerce any
-  // stale/external selection of them back to the General panel they live in.
-  const active: SectionId =
-    activeRaw === "appearance" || activeRaw === "storage" ? "general" : activeRaw;
   const [showVersion, setShowVersion] = useState(false);
 
   const expert = settings.expertMode === true;
+  // Comm templates is expert-gated AND requires the Turso-backed feature gate.
+  const commTemplatesVisible =
+    props.commTemplatesEnabled === true && expert && !!RAIL.find((r) => r.id === "templates");
+  // Appearance + Storage are folded into General; Comm Templates can lose its
+  // rail entry when its feature gate (or expert mode) flips off. Coerce any
+  // stale/now-hidden selection back to General so the pane never goes blank.
+  const active: SectionId =
+    activeRaw === "appearance" ||
+    activeRaw === "storage" ||
+    (activeRaw === "commTemplates" && !commTemplatesVisible)
+      ? "general"
+      : activeRaw;
   const byLabel = (a: { labelKey: TranslationKey }, b: { labelKey: TranslationKey }) =>
     t(lang, a.labelKey).localeCompare(t(lang, b.labelKey), localeFor(lang));
 
@@ -104,10 +112,7 @@ export function SettingsView(props: SettingsViewProps) {
       !INTEGRATION_IDS.includes(r.id) &&
       (expert || !EXPERT_IDS.includes(r.id)),
   ).sort(byLabel);
-  // Comm templates is expert-gated AND requires the Turso-backed feature gate;
-  // when shown it sits directly below Templates rather than in alpha order.
-  const commTemplatesVisible =
-    props.commTemplatesEnabled === true && expert && !!RAIL.find((r) => r.id === "templates");
+  // When shown, Comm Templates sits directly below Templates (not in alpha order).
   const mainEntries = (() => {
     if (!commTemplatesVisible) return mainEntriesSorted;
     const commEntry = RAIL.find((r) => r.id === "commTemplates");
