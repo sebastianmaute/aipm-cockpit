@@ -711,7 +711,14 @@ function TaskManagerInner() {
     }
     return ids;
   }, [nextActions]);
-  const onJumpToComms = isPopout ? undefined : () => setActiveTab("actions");
+  // Deep-link to the Action Center for this stakeholder (uses the shared
+  // requestOpen primitive: switches to the actions view + sets #actions/<id>).
+  const jumpToComms = useCallback(
+    (stakeholderId: number) => requestOpen("actions", stakeholderId),
+    [requestOpen],
+  );
+  const onJumpToComms = isPopout ? undefined : jumpToComms;
+  const onOpenLearningSettings = useCallback(() => setActiveTab("settings"), [setActiveTab]);
   const openAction = useCallback(
     (a: SuggestedAction) => {
       if (a.cta.kind === "open") requestOpen(a.cta.view, Number(a.cta.id));
@@ -1573,7 +1580,7 @@ function TaskManagerInner() {
     rebaseline: rebaselineBundle,
     learningEnabled: settings.nextActionsLearning?.enabled ?? false,
     expertMode: settings.expertMode === true,
-    onOpenLearningSettings: () => setActiveTab("settings"),
+    onOpenLearningSettings,
     onPushMilestonesToOutlook: calendarPushEnabled ? calendarPushToOutlook : undefined,
     calendarPushBusy: calendarPushEnabled ? calendarPushBusy : undefined,
   };
