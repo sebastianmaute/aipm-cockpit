@@ -649,12 +649,14 @@ All, and Jira sync churn.
 
 | File | Description |
 |---|---|
-| `sample-workspace.md` | Hand-curated master (Markdown pipe-table, all entities incl. blended budgets) — the source of truth |
-| `sample-workspace.csv` | Hand-curated CSV companion (partial by format design: no budgets/changes) |
-| `sample-workspace.json` | Generated full JSON envelope (`schemaVersion: 9`, all entities + a demo `project` ProjectMeta + demo enrichment) |
-| `sample-workspace.sqlite3` | Generated SQLite database mirroring the **multi-tenant** Turso relational schema (schema v10: one `projects` row + `project_id` on every table; WAL journal mode); import with `turso db create lop-demo --from-file sample-workspace.sqlite3` |
+| `sample-workspace-small.md` | Hand-curated master (Markdown pipe-table, all entities incl. blended budgets) — the source of truth |
+| `sample-workspace-small.csv` | Hand-curated CSV companion (partial by format design: no budgets/changes) |
+| `sample-workspace-small.json` | Generated full JSON envelope (`schemaVersion: 9`, all entities + a demo `project` ProjectMeta + demo enrichment) |
+| `sample-workspace-small.sqlite3` | Generated SQLite database mirroring the **multi-tenant** Turso relational schema (schema v10: one `projects` row + `project_id` on every table; WAL journal mode); import with `turso db create lop-demo --from-file sample-workspace-small.sqlite3` |
+| `sample-workspace-big.{json,sqlite3}` | Generated 3× scale-up of the small workspace (pure `scaleWorkspace`: id-offset + full FK remap; reference data not replicated) — for testing larger projects |
+| `sample-workspace-huge.{json,sqlite3}` | Generated 10× scale-up of the small workspace, same method |
 
-`scripts/generate-sample-workspace.ts` parses the curated `sample-workspace.md`,
+`scripts/generate-sample-workspace.ts` parses the curated `sample-workspace-small.md`,
 enriches it with a demo change-log + RAID→stakeholder links + a synthesized
 `ProjectMeta` (with a stable id `sample-project-0001`), and emits the two
 COMPLETE, faithfully-round-tripping formats (`.json` + `.sqlite3`) via

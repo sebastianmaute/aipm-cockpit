@@ -34,7 +34,7 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
   a test asserting DE output must call `loadI18n("de")` (e.g. in `beforeAll`) before the assertion.
 - **Byte-stable serializers:** `golden-workspace.test` pins the exact CSV/Markdown storage bytes.
   A failure usually means a real format change — only regenerate the `__fixtures__` when the
-  *input* (`sample-workspace.json`) legitimately changed, never to mask a format diff.
+  *input* (`sample-workspace-small.json`) legitimately changed, never to mask a format diff.
 - **Palette:** only the sanctioned AIPM brand tokens (`globals.css`); no off-palette colors,
   gradients, or shadows. The a11y gate + palette-sweep test enforce contrast/token use.
   Note: palette-sweep scans CSS for `box-shadow` — an off-palette Tailwind class (e.g. `shadow-md`)

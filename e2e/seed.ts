@@ -6,7 +6,7 @@ import { test as base, expect, type Page } from "@playwright/test";
 // a11y/nav specs realistic data so colour-coded states (RAG amber/red, budget
 // over/under, completed-task greens, etc.) actually render and get scanned.
 const SAMPLE_WORKSPACE = JSON.parse(
-  readFileSync(join(process.cwd(), "sample-workspace.json"), "utf8"),
+  readFileSync(join(process.cwd(), "sample-workspace-small.json"), "utf8"),
 ) as Record<string, unknown>;
 
 // Registry + File System Access stub. Runs in the browser before app code on
