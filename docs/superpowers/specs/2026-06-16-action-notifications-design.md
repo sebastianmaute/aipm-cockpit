@@ -224,7 +224,7 @@ A labeled toggle ("Desktop notifications for urgent actions") in the notificatio
 | `settingsDesktopNotify` | `Desktop notifications for urgent actions` | German |
 | `settingsDesktopNotifyHint` | `Browser only; the app tab must be open. Notifies once per new urgent signal while the tab is in the background.` | German |
 | `notifyPermissionDenied` | `Notification permission was not granted.` | German |
-| `versionHighlightNotifications` | release-highlight one-liner | German |
+| `versionHighlightDesktopNotify` | release-highlight one-liner (NOTE: `versionHighlightNotifications` already exists for the old reminders feature — must use a distinct key) | German |
 
 The single-notification title/body **reuse the action's own `title`/`why` keys** — no new per-signal
 strings. Interpolation is 0-based positional (`{0}`). `Lang` is `"en-US" | "en-GB" | "de"` (no
@@ -234,7 +234,8 @@ via node UTF-8 CRLF write only (Edit tool corrupts umlauts; file is CRLF).
 ## Release
 
 - `version.ts` → `APP_VERSION = "0.94.0"`, new codename, `APP_BUILD_DATE`.
-- Append `"versionHighlightNotifications"` to `APP_HIGHLIGHT_KEYS` (+ EN/DE strings).
+- Append `"versionHighlightDesktopNotify"` to `APP_HIGHLIGHT_KEYS` (+ EN/DE strings). Do NOT reuse
+  `versionHighlightNotifications` (already defined for the old reminders feature).
 - `CHANGELOG.md` entry.
 
 ## Testing
