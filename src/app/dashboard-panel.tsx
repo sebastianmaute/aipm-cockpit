@@ -196,7 +196,19 @@ export function DashboardPanel(props: DashboardPanelProps) {
               onChange={(v) => setStatus((s) => ({ ...s, scopeOverride: v }))}
             />
           )}
-          <span className="ml-auto text-sm text-muted-foreground">
+          {props.onToggleTrends && (
+            <button
+              type="button"
+              aria-label={t(lang, showTrends ? "dashboardHideTrends" : "dashboardShowTrends")}
+              aria-pressed={showTrends}
+              title={t(lang, showTrends ? "dashboardHideTrends" : "dashboardShowTrends")}
+              onClick={() => props.onToggleTrends?.(!showTrends)}
+              className="ml-auto rounded-md border border-line bg-surface px-2 py-1 text-xs text-muted-foreground hover:bg-surface-muted print:hidden"
+            >
+              {t(lang, showTrends ? "dashboardHideTrends" : "dashboardShowTrends")}
+            </button>
+          )}
+          <span className={`${props.onToggleTrends ? "" : "ml-auto "}text-sm text-muted-foreground`}>
             {t(lang, "dashboardReportDate", today)}
           </span>
           <p className="basis-full text-xs text-muted-foreground">
@@ -363,39 +375,13 @@ export function DashboardPanel(props: DashboardPanelProps) {
           )}
         </div>
 
-        {/* Trends widget */}
+        {/* Trends widget (toggled from the top toolbar) */}
         {showTrends ? (
           <div className="rounded-lg border border-line bg-surface p-4">
-            <div className="mb-2 flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
-                {t(lang, "navTrends")}
-              </h3>
-              {props.onToggleTrends && (
-                <button
-                  type="button"
-                  aria-label={t(lang, "dashboardHideTrends")}
-                  aria-pressed={true}
-                  title={t(lang, "dashboardHideTrends")}
-                  onClick={() => props.onToggleTrends!(false)}
-                  className="rounded border border-line bg-surface px-2 py-0.5 text-xs text-muted-foreground hover:bg-surface-muted print:hidden"
-                >
-                  {t(lang, "dashboardHideTrends")}
-                </button>
-              )}
-            </div>
+            <h3 className="mb-2 text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
+              {t(lang, "navTrends")}
+            </h3>
             <p className="text-sm text-muted-foreground">{t(lang, "trendsRequireTurso")}</p>
-          </div>
-        ) : props.onToggleTrends ? (
-          <div className="flex justify-end print:hidden">
-            <button
-              type="button"
-              aria-label={t(lang, "dashboardShowTrends")}
-              aria-pressed={false}
-              onClick={() => props.onToggleTrends!(true)}
-              className="rounded-md border border-line bg-surface px-2 py-1 text-xs text-muted-foreground hover:bg-surface-muted"
-            >
-              + {t(lang, "dashboardShowTrends")}
-            </button>
           </div>
         ) : null}
 

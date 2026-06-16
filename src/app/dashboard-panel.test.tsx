@@ -534,6 +534,31 @@ describe("DashboardPanel Trends widget (showTrends)", () => {
     await user.click(addBtn);
     expect(onToggleTrends).toHaveBeenCalledWith(true);
   });
+
+  it("renders the Trends toggle in the dashboard top toolbar, not inside the trends widget", async () => {
+    const user = userEvent.setup();
+    const onToggleTrends = vi.fn();
+    render(<DashboardPanel {...baseProps} showTrends={true} onToggleTrends={onToggleTrends} />, { wrapper });
+
+    // Toggle reflects the current (shown) state.
+    const toggle = screen.getByRole("button", { name: /hide trends/i });
+
+    // It must live in the TOP toolbar — the band that contains the "Overall"
+    // status word — and NOT inside the Trends widget.
+    const overallWord = screen.getByText("Overall");
+    const topBand = overallWord.closest("div.rounded-lg");
+    expect(topBand).not.toBeNull();
+    expect(topBand!.contains(toggle)).toBe(true);
+
+    // The Trends widget heading must not be an ancestor of the toggle.
+    const trendsHeading = screen.getByText("Trends");
+    const trendsWidget = trendsHeading.closest("div.rounded-lg");
+    expect(trendsWidget!.contains(toggle)).toBe(false);
+
+    // Toggling still calls the handler with the negated state.
+    await user.click(toggle);
+    expect(onToggleTrends).toHaveBeenCalledWith(false);
+  });
 });
 
 describe("DashboardPanel top-band Budget/Scope pill gating", () => {
