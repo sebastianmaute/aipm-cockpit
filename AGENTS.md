@@ -9,7 +9,8 @@ This version has breaking changes — APIs, conventions, and file structure may 
 ```bash
 npm run dev                 # next dev (forked Next.js)
 npm run build               # next build (prebuild checks script-docs are in sync)
-npm run lint                # eslint  (CI runs with --max-warnings=0)
+npm run lint                # eslint  (CI --max-warnings=0: an unused import/var or `_`-prefixed
+                            # param is FATAL — no argsIgnorePattern; re-check after every extract)
 npx tsc --noEmit            # typecheck (enforces i18n EN/DE key parity)
 npm run test:run            # vitest (unit/integration)
 npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
@@ -22,6 +23,7 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
   The Edit tool corrupts umlauts AND curls double-quotes in `i18n.de.ts` (bites umlaut-free
   strings too); patch it via a node utf8 write and re-verify. The file is CRLF — a node
   replace whose anchor uses `\n` silently no-ops; match `\r\n`.
+  Interpolated strings use 0-based positional placeholders: `t(lang, key, a, b)` → `{0}`/`{1}`.
 - **Byte-stable serializers:** `golden-workspace.test` pins the exact CSV/Markdown storage bytes.
   A failure usually means a real format change — only regenerate the `__fixtures__` when the
   *input* (`sample-workspace.json`) legitimately changed, never to mask a format diff.

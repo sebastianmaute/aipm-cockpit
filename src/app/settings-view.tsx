@@ -243,6 +243,8 @@ export function SettingsView(props: SettingsViewProps) {
             onRemove={props.commTemplates.remove}
             onSetDefault={props.commTemplates.setDefault}
             config={props.commTemplatesConfig ?? null}
+            settings={settings}
+            onChange={onChange}
           />
         )}
         {active === "informationFlows" && (

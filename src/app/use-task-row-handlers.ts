@@ -6,6 +6,8 @@ import { isValidEmail } from "./sanitize";
 import { buildMailtoUrl } from "./mailto";
 import { htmlToPlainText } from "./html-to-text";
 import { renderTemplate, buildStatusInquiryVars } from "./comm-templates";
+import { sanitizeTemplateHtml } from "./sanitize-html";
+import { plainTextToHtml, type CommSendRequest } from "./comm-send";
 import { greetingName } from "./contacts";
 import { loadJiraApi } from "./use-jira-sync";
 import type { ActivityKind } from "./activity-log";
@@ -28,6 +30,7 @@ export interface UseTaskRowHandlersArgs {
   handleCancelEdit: () => void;
   logActivity: (kind: ActivityKind, ...args: (string | number)[]) => void;
   resolveTemplateBody?: (category: "status-inquiry") => string | null;
+  sendCommTemplate?: (req: CommSendRequest) => void;
 }
 
 export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
@@ -46,6 +49,7 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
     handleCancelEdit,
     logActivity,
     resolveTemplateBody,
+    sendCommTemplate,
   } = args;
 
   const { setActiveTab } = useWorkspaceTab();
@@ -143,8 +147,14 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
       const body = tplBody != null
         ? htmlToPlainText(renderTemplate(tplBody, "status-inquiry", buildStatusInquiryVars(task)))
         : t(lang, "emailBodyTemplate", greeting, task.id, task.taskName, task.dueDate, task.lastUpdateDate);
-      const url = buildMailtoUrl(email, subject, body);
-      window.location.href = url;
+      const html = tplBody != null
+        ? sanitizeTemplateHtml(renderTemplate(tplBody, "status-inquiry", buildStatusInquiryVars(task)))
+        : plainTextToHtml(body);
+      if (sendCommTemplate) {
+        sendCommTemplate({ to: email, subject, html, plain: body });
+      } else {
+        window.location.href = buildMailtoUrl(email, subject, body);
+      }
       setTasks((prev) =>
         prev.map((row) =>
           row.id === task.id
@@ -153,7 +163,7 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
         ),
       );
     },
-    [lang, setTasks, resolveTemplateBody],
+    [lang, setTasks, resolveTemplateBody, sendCommTemplate],
   );
 
   const onPushToJira = useCallback(

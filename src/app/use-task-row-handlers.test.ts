@@ -277,6 +277,16 @@ describe("useTaskRowHandlers — onSendInquiry", () => {
     // i18n fallback body does NOT contain the raw template markup
     expect(decodeURIComponent(hrefValue)).not.toContain("{{taskName}}");
   });
+
+  it("delegates to sendCommTemplate when provided", () => {
+    const sendCommTemplate = vi.fn();
+    const setTasks = vi.fn();
+    const task = makeTask({ id: 1, assigneeEmail: "alice@example.com", taskName: "Ship" });
+    const { result } = renderHook(() => useTaskRowHandlers(makeArgs({ setTasks, sendCommTemplate })));
+    act(() => result.current.onSendInquiry(task));
+    expect(sendCommTemplate).toHaveBeenCalledWith(expect.objectContaining({ to: "alice@example.com" }));
+    expect(hrefValue).toBe(""); // did NOT use mailto directly
+  });
 });
 
 describe("useTaskRowHandlers — onPushToJira", () => {

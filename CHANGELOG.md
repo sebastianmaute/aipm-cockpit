@@ -8,6 +8,15 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.91.0] - 2026-06-15 "Stross"
+
+### Added / Changed
+- **Communication templates HTML send (SP4)**: send templates as real HTML email
+  via Microsoft 365 Graph — an Outlook-draft mode (creates a reviewable HTML draft)
+  or an in-app preview-then-send mode, switchable in settings. The plain-text email
+  app (mailto) remains the default and the fallback when M365 is unavailable. This
+  completes the editable communication-templates roadmap.
+
 ## [0.90.0] - 2026-06-15 "Russ"
 
 ### Added / Changed

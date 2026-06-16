@@ -1,4 +1,5 @@
 // src/app/settings-types.ts
+import type { CommTemplateSendMode } from "./comm-send";
 import type { AddableReportId } from "./addable-reports";
 import type { StakeholderQuadrant } from "./stakeholders";
 import type { FeatureModuleId } from "./feature-modules";
@@ -330,6 +331,8 @@ export type Settings = {
   export?: ExportConfig;
   /** Per-widget dashboard visibility overrides. All default to shown. */
   dashboard?: { showTrends?: boolean };
+  /** How comm-template sends are dispatched. Readers fall back to "mailto" when unset. */
+  commTemplateSendMode?: CommTemplateSendMode;
 };
 
 export const defaultSettings: Settings = {
