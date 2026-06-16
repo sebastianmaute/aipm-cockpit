@@ -8,6 +8,11 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.93.0] - 2026-06-16 "Cadigan"
+
+### Added
+- **Re-baseline CTA (Action Center):** drifting rows now carry a one-click "Re-baseline" action. Slipping/overdue milestone rows open a confirm popover with the new target date prefilled to the linked-task forecast (editable) and move `milestone.date` on confirm — works on every backend. Schedule-slipping and budget-worsening rows capture the project's current state as a new Turso snapshot baseline (Turso-gated; the previous baseline is kept in history). Surface-only; the next-actions engine is unchanged. Execution-depth roadmap slice 5.
+
 ## [0.92.0] - 2026-06-16 "Asaro"
 
 ### Added
