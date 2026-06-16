@@ -12,6 +12,7 @@ import type { OperatingGuide, GuideScope } from "../operating-guide";
 import { guidesCharCount, GUIDE_CHAR_BUDGET } from "../operating-guide";
 import { FEATURE_MODULES } from "../feature-modules";
 import type { AppMode, FeatureModuleId } from "../feature-modules";
+import { allNavViews, navLabelKey, type AppView } from "../nav-config";
 
 interface AiSectionProps {
   lang: Lang;
@@ -51,6 +52,7 @@ function CapInput({
 }
 
 const APP_MODES: AppMode[] = ["simple", "modular", "advanced"];
+const SCOPE_VIEWS: AppView[] = allNavViews();
 
 interface GuideDraft {
   name: string;
@@ -58,10 +60,11 @@ interface GuideDraft {
   priority: number;
   scopeModes: AppMode[];
   scopeModules: FeatureModuleId[];
+  scopeViews: AppView[];
 }
 
 function emptyDraft(): GuideDraft {
-  return { name: "", content: "", priority: 10, scopeModes: [], scopeModules: [] };
+  return { name: "", content: "", priority: 10, scopeModes: [], scopeModules: [], scopeViews: [] };
 }
 
 function draftFromGuide(g: OperatingGuide): GuideDraft {
@@ -71,6 +74,7 @@ function draftFromGuide(g: OperatingGuide): GuideDraft {
     priority: g.priority,
     scopeModes: (g.scope.modes ?? []) as AppMode[],
     scopeModules: (g.scope.modules ?? []) as FeatureModuleId[],
+    scopeViews: (g.scope.views ?? []) as AppView[],
   };
 }
 
@@ -78,6 +82,7 @@ function draftToScope(draft: GuideDraft): GuideScope {
   return {
     ...(draft.scopeModes.length ? { modes: draft.scopeModes } : {}),
     ...(draft.scopeModules.length ? { modules: draft.scopeModules } : {}),
+    ...(draft.scopeViews.length ? { views: draft.scopeViews } : {}),
   };
 }
 
@@ -103,6 +108,13 @@ function GuideForm({ lang, draft, onChange, onSave, onCancel, busy }: GuideFormP
       ? draft.scopeModules.filter((m) => m !== id)
       : [...draft.scopeModules, id];
     onChange({ ...draft, scopeModules: next });
+  }
+
+  function toggleView(view: AppView) {
+    const next = draft.scopeViews.includes(view)
+      ? draft.scopeViews.filter((v) => v !== view)
+      : [...draft.scopeViews, view];
+    onChange({ ...draft, scopeViews: next });
   }
 
   return (
@@ -141,7 +153,9 @@ function GuideForm({ lang, draft, onChange, onSave, onCancel, busy }: GuideFormP
       </label>
       <fieldset>
         <legend className="mb-1 text-xs text-muted-foreground">
-          {draft.scopeModes.length === 0 && draft.scopeModules.length === 0
+          {draft.scopeModes.length === 0 &&
+          draft.scopeModules.length === 0 &&
+          draft.scopeViews.length === 0
             ? t(lang, "aiGuideScopeAny")
             : t(lang, "aiGuideScopeModes")}
         </legend>
@@ -171,6 +185,22 @@ function GuideForm({ lang, draft, onChange, onSave, onCancel, busy }: GuideFormP
                 onChange={() => toggleModule(m.id)}
               />
               {t(lang, m.labelKey)}
+            </label>
+          ))}
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend className="mb-1 text-xs text-muted-foreground">{t(lang, "aiGuideScopeViews")}</legend>
+        <div className="flex flex-wrap gap-3">
+          {SCOPE_VIEWS.map((view) => (
+            <label key={view} className="flex items-center gap-1 text-xs text-foreground">
+              <input
+                type="checkbox"
+                aria-label={t(lang, navLabelKey(view))}
+                checked={draft.scopeViews.includes(view)}
+                onChange={() => toggleView(view)}
+              />
+              {t(lang, navLabelKey(view))}
             </label>
           ))}
         </div>

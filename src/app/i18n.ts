@@ -1237,6 +1237,7 @@ const enUS = {
   aiGuideBudgetWarning: "Enabled guides exceed the recommended size and may raise token cost.",
   aiGuideScopeModes: "Modes",
   aiGuideScopeModules: "Modules",
+  aiGuideScopeViews: "Views",
   aiGuideScopeAny: "Always on",
   aiApiKeyTooltip: "Your Anthropic API key. Stored locally in this browser only.",
   aiModelTooltip: "Which Claude model the assistant uses.",

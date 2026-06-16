@@ -1254,6 +1254,7 @@ export const de: Record<TranslationKey, string> = {
   aiGuideBudgetWarning: "Aktivierte Leitfäden überschreiten die empfohlene Größe und können die Token-Kosten erhöhen.",
   aiGuideScopeModes: "Modi",
   aiGuideScopeModules: "Module",
+  aiGuideScopeViews: "Ansichten",
   aiGuideScopeAny: "Immer aktiv",
   aiApiKeyTooltip: "Ihr Anthropic-API-Schlüssel. Wird nur lokal in diesem Browser gespeichert.",
   aiModelTooltip: "Welches Claude-Modell der Assistent verwendet.",
