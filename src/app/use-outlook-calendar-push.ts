@@ -15,10 +15,11 @@ interface Args {
   setMilestones: (updater: (prev: Milestone[]) => Milestone[]) => void;
   isPopout: boolean;
   lang: Lang;
+  enabled: boolean;
 }
 
-export function useOutlookCalendarPush({ milestones, projectId, setMilestones, isPopout, lang }: Args) {
-  const { acquireToken } = useMsAuth(true);
+export function useOutlookCalendarPush({ milestones, projectId, setMilestones, isPopout, lang, enabled }: Args) {
+  const { acquireToken } = useMsAuth(enabled);
   const showToast = useToastContext();
   const [busy, setBusy] = useState(false);
 

@@ -29,7 +29,7 @@ describe("useOutlookCalendarPush", () => {
   it("creates new, deletes orphans, and writes the new event id back", async () => {
     const setMilestones = vi.fn();
     const { result } = renderHook(() =>
-      useOutlookCalendarPush({ milestones: [ms(1)], projectId: "p", setMilestones, isPopout: false, lang: "en-US" }));
+      useOutlookCalendarPush({ milestones: [ms(1)], projectId: "p", setMilestones, isPopout: false, lang: "en-US", enabled: true }));
     await act(async () => { await result.current.pushToOutlook(); });
     expect(createEvent).toHaveBeenCalledTimes(1);
     expect(deleteEvent).toHaveBeenCalledWith("tok", "orphan");
@@ -42,7 +42,7 @@ describe("useOutlookCalendarPush", () => {
     acquireToken.mockResolvedValueOnce(null);
     const setMilestones = vi.fn();
     const { result } = renderHook(() =>
-      useOutlookCalendarPush({ milestones: [ms(1)], projectId: "p", setMilestones, isPopout: false, lang: "en-US" }));
+      useOutlookCalendarPush({ milestones: [ms(1)], projectId: "p", setMilestones, isPopout: false, lang: "en-US", enabled: true }));
     await act(async () => { await result.current.pushToOutlook(); });
     expect(createEvent).not.toHaveBeenCalled();
     expect(setMilestones).not.toHaveBeenCalled();
@@ -51,7 +51,7 @@ describe("useOutlookCalendarPush", () => {
   it("no-ops in a popout", async () => {
     const setMilestones = vi.fn();
     const { result } = renderHook(() =>
-      useOutlookCalendarPush({ milestones: [ms(1)], projectId: "p", setMilestones, isPopout: true, lang: "en-US" }));
+      useOutlookCalendarPush({ milestones: [ms(1)], projectId: "p", setMilestones, isPopout: true, lang: "en-US", enabled: true }));
     await act(async () => { await result.current.pushToOutlook(); });
     expect(acquireToken).not.toHaveBeenCalled();
   });
