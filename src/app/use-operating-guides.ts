@@ -35,7 +35,9 @@ export function useOperatingGuides({ config }: UseOperatingGuidesArgs): UseOpera
   const [busy, setBusy] = useState(false);
   const cfgRef = useRef(config);
   const opSeqRef = useRef(0);
+  const mountedRef = useRef(true);
   useEffect(() => { cfgRef.current = config; }, [config]);
+  useEffect(() => () => { mountedRef.current = false; }, []);
 
   const refresh = useCallback(async () => {
     const startSeq = opSeqRef.current;
@@ -45,7 +47,7 @@ export function useOperatingGuides({ config }: UseOperatingGuidesArgs): UseOpera
         await saveGuide(cfgRef.current, builtinGuide());
         list = await loadGuides(cfgRef.current);
       }
-      if (opSeqRef.current !== startSeq) return;
+      if (opSeqRef.current !== startSeq || !mountedRef.current) return;
       setGuides(list);
     } catch {
       // optional feature — leave guides as-is
@@ -58,7 +60,10 @@ export function useOperatingGuides({ config }: UseOperatingGuidesArgs): UseOpera
     opSeqRef.current += 1;
     setBusy(true);
     try {
-      const maxP = guides.reduce((m, g) => Math.max(m, g.priority), 0);
+      // Read the current list from the store (not the possibly-stale `guides`
+      // closure) so rapid back-to-back creates can't collide on priority.
+      const existing = await loadGuides(cfgRef.current);
+      const maxP = existing.reduce((m, g) => Math.max(m, g.priority), 0);
       const suffix = Math.random().toString(36).slice(2, 8);
       const g: OperatingGuide = {
         id: `guide-${suffix}`, name, content, enabled: true,
@@ -69,7 +74,7 @@ export function useOperatingGuides({ config }: UseOperatingGuidesArgs): UseOpera
     } finally {
       setBusy(false);
     }
-  }, [guides, refresh]);
+  }, [refresh]);
 
   const update = useCallback(async (g: OperatingGuide) => {
     opSeqRef.current += 1;
