@@ -35,6 +35,7 @@ export interface UseSnapshotsResult {
   gaps: string[];
   busy: boolean;
   captureNow: () => Promise<void>;
+  rebaselineNow: () => Promise<void>;
   setBaseline: (id: string) => Promise<void>;
   deleteSnapshot: (id: string) => Promise<void>;
   deleteSnapshots: (ids: readonly string[]) => Promise<void>;
@@ -130,6 +131,22 @@ export function useSnapshots(args: UseSnapshotsArgs): UseSnapshotsResult {
     }
   }, [active, snapshots.length, makeRecord, currentBucket]);
 
+  const rebaselineNow = useCallback(async () => {
+    if (!active) return;
+    opSeqRef.current += 1;
+    setBusy(true);
+    try {
+      const rec = makeRecord("manual", false, currentBucket);
+      await storeAppend(cfgRef.current, rec, pidRef.current);
+      await storeSetBaseline(cfgRef.current, rec.id, pidRef.current);
+      setSnapshots((prev) => [...prev, rec].map((s) => ({ ...s, isBaseline: s.id === rec.id })));
+    } catch (err) {
+      errRef.current?.(err);
+    } finally {
+      setBusy(false);
+    }
+  }, [active, makeRecord, currentBucket]);
+
   const setBaseline = useCallback(async (id: string) => {
     if (!active) return;
     opSeqRef.current += 1;
@@ -178,5 +195,5 @@ export function useSnapshots(args: UseSnapshotsArgs): UseSnapshotsResult {
   const variance = latest ? computeVariance(baseline, latest) : [];
   const gaps = detectGaps(snapshots, cadence, today);
 
-  return { snapshots: sorted, baseline, latest, variance, gaps, busy, captureNow, setBaseline, deleteSnapshot, deleteSnapshots };
+  return { snapshots: sorted, baseline, latest, variance, gaps, busy, captureNow, rebaselineNow, setBaseline, deleteSnapshot, deleteSnapshots };
 }

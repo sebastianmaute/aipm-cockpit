@@ -240,3 +240,54 @@ describe("ActionRow escalate", () => {
     expect(screen.queryByRole("button", { name: ESCALATE })).toBeNull();
   });
 });
+
+describe("ActionRow rebaseline", () => {
+  const milestones = [{ id: 7, name: "Go-Live", date: "2026-06-01", linkedTaskIds: [] }] as never;
+  const tasks = [] as never;
+  const reb = (over = {}) => ({
+    milestones, tasks,
+    onRebaselineMilestone: () => {},
+    snapshotActive: true,
+    onRebaselineSnapshot: () => {},
+    busy: false,
+    ...over,
+  });
+  function action(source: string, whyKey: string, id: number): SuggestedAction {
+    return {
+      id: `${source}:${id}:x`, source, moduleId: undefined,
+      title: { key: "actionMilestoneTitle", params: ["X"] },
+      why: { key: whyKey }, score: 30, tier: "now",
+      cta: { kind: "open", view: "milestones", id },
+    } as never;
+  }
+  const REB = /^Re-baseline$/;
+
+  it("shows Re-baseline for a milestone at-risk row", () => {
+    render(<ActionRow lang="en-US" action={action("milestone", "actionMilestoneWhyAtRisk", 7)} onOpen={() => {}} rebaseline={reb()} />);
+    expect(screen.getByRole("button", { name: REB })).toBeInTheDocument();
+  });
+  it("shows Re-baseline for a milestone overdue row", () => {
+    render(<ActionRow lang="en-US" action={action("milestone", "actionMilestoneWhyOverdue", 7)} onOpen={() => {}} rebaseline={reb()} />);
+    expect(screen.getByRole("button", { name: REB })).toBeInTheDocument();
+  });
+  it("shows Re-baseline for a schedule-slipping row when snapshotActive", () => {
+    render(<ActionRow lang="en-US" action={action("schedule", "actionScheduleWhySlipping", 0)} onOpen={() => {}} rebaseline={reb()} />);
+    expect(screen.getByRole("button", { name: REB })).toBeInTheDocument();
+  });
+  it("shows Re-baseline for a budget-worsening row when snapshotActive", () => {
+    render(<ActionRow lang="en-US" action={action("budget", "actionBudgetWhyWorsening", 0)} onOpen={() => {}} rebaseline={reb()} />);
+    expect(screen.getByRole("button", { name: REB })).toBeInTheDocument();
+  });
+  it("hides the snapshot CTA when snapshotActive is false", () => {
+    render(<ActionRow lang="en-US" action={action("schedule", "actionScheduleWhySlipping", 0)} onOpen={() => {}} rebaseline={reb({ snapshotActive: false })} />);
+    expect(screen.queryByRole("button", { name: REB })).toBeNull();
+  });
+  it("does not show Re-baseline for a raid row", () => {
+    render(<ActionRow lang="en-US" action={action("raid", "actionRaidWhySeverity", 1)} onOpen={() => {}} rebaseline={reb()} />);
+    expect(screen.queryByRole("button", { name: REB })).toBeNull();
+  });
+  it("does not show Re-baseline when the bundle is absent", () => {
+    render(<ActionRow lang="en-US" action={action("milestone", "actionMilestoneWhyAtRisk", 7)} onOpen={() => {}} />);
+    expect(screen.queryByRole("button", { name: REB })).toBeNull();
+  });
+});
