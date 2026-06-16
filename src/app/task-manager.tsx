@@ -711,7 +711,7 @@ function TaskManagerInner() {
     }
     return ids;
   }, [nextActions]);
-  const onJumpToComms = isPopout ? undefined : () => setActiveTab("open-points");
+  const onJumpToComms = isPopout ? undefined : () => setActiveTab("actions");
   const openAction = useCallback(
     (a: SuggestedAction) => {
       if (a.cta.kind === "open") requestOpen(a.cta.view, Number(a.cta.id));
