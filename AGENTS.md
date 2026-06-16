@@ -84,6 +84,10 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
   (e.g. `action-notifications.ts` beside the `notifications.tsx` component).
 - Storage is a facade (`storage.ts`) over multiple backends: JSON file, CSV, Markdown, Turso
   (single + multi-tenant), IndexedDB. Snapshots/Trends and version history are Turso-ONLY.
+- Sample data is tiered: `sample-workspace-small.*` is the curated source; `-big` (3×) and
+  `-huge` (10×) JSON+SQLite are GENERATED via pure `scaleWorkspace(ws, factor)` (id-offset
+  `k*100000` + full FK remap; reference data — resources/roles/disciplines/grades — is NOT
+  replicated). Don't hand-edit `-big`/`-huge`; regenerate from `-small`.
 - Action-Center CTAs are surface-only: thread an optional handler
   task-manager → workspace-section → ActionsPanel → ActionRow (ActionsPanel renders in
   workspace-section, not task-manager, and renders TWO ActionRow lists — tier + monitor — so a new
