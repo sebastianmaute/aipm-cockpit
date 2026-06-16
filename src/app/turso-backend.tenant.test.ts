@@ -7,13 +7,37 @@ vi.mock("./turso-pipeline", { spy: true });
 import { LOAD_TIMEOUT_MS, runTursoPipeline } from "./turso-pipeline";
 import { TursoBackend } from "./turso-backend";
 import { tenantSchemaDdl, upsertProjectStatement } from "./turso-tenant-schema";
-import { TABLE_NAMES } from "./turso-schema";
+import { TABLE_NAMES, type SqlStmt } from "./turso-schema";
+import { tenantTableColumns } from "./turso-migrate";
 import type { ProjectMeta } from "./types";
 
 const cfg = { httpUrl: "https://x.turso.io", authToken: "t" };
 
 function okEmpty() {
   return { type: "ok" as const, response: { type: "execute", result: { cols: [], rows: [] } } };
+}
+
+/** Is this a column-ensure PRAGMA pipeline (every statement a PRAGMA table_info)? */
+function isPragmaPipeline(stmts: readonly SqlStmt[]): boolean {
+  return stmts.length > 0 && stmts.every((s) => s.sql.startsWith("PRAGMA table_info"));
+}
+
+/** PRAGMA table_info results reporting every tenant table's full column set, so
+ *  the column-ensure migration emits zero ALTERs (no second round-trip). */
+function upToDateTenantPragmaResults() {
+  return tenantTableColumns().map((spec) => ({
+    type: "ok" as const,
+    response: {
+      type: "execute",
+      result: {
+        cols: ["cid", "name", "type", "notnull", "dflt_value", "pk"].map((name) => ({ name })),
+        rows: spec.columns.map((name, i) => [
+          { value: String(i) }, { value: name }, { value: "TEXT" },
+          { value: "0" }, { value: "" }, { value: "0" },
+        ]),
+      },
+    },
+  }));
 }
 function meta(): ProjectMeta {
   return {
@@ -36,8 +60,17 @@ describe("TursoBackend (tenant mode)", () => {
   // real implementation, which throws/hits the network when invoked).
   beforeEach(() => {
     vi.mocked(runTursoPipeline).mockClear();
-    vi.mocked(runTursoPipeline).mockImplementation(async () => []);
+    // PRAGMA pipelines (the column-ensure migration) get up-to-date results so
+    // no ALTER round-trip is emitted; all other pipelines resolve to [].
+    vi.mocked(runTursoPipeline).mockImplementation(async (_cfg, stmts) =>
+      isPragmaPipeline(stmts) ? upToDateTenantPragmaResults() : [],
+    );
   });
+
+  /** Indices in mock.calls of the NON-PRAGMA (save/load) pipelines, in order —
+   *  lets assertions ignore the once-per-instance column-ensure PRAGMA call. */
+  const savePipelineCalls = () =>
+    vi.mocked(runTursoPipeline).mock.calls.filter((c) => !isPragmaPipeline(c[1]));
 
   it("kind is turso; isReady reflects config", async () => {
     expect(new TursoBackend(cfg, "p1").kind).toBe("turso");
@@ -63,17 +96,16 @@ describe("TursoBackend (tenant mode)", () => {
   });
 
   it("save uses the default pipeline timeout (no explicit timeoutMs)", async () => {
-    vi.mocked(runTursoPipeline).mockResolvedValueOnce([]);
     const { emptyWorkspace } = await import("./storage");
     await new TursoBackend(cfg, "p1").save(emptyWorkspace());
-    expect(vi.mocked(runTursoPipeline).mock.calls[0][2]).toBeUndefined();
+    // The overwrite pipeline (after the column-ensure PRAGMA) uses the default.
+    expect(savePipelineCalls()[0][2]).toBeUndefined();
   });
 
   it("save runs the scoped DELETE+INSERT transaction", async () => {
-    vi.mocked(runTursoPipeline).mockResolvedValueOnce([]);
     const { emptyWorkspace } = await import("./storage");
     await new TursoBackend(cfg, "p1").save(emptyWorkspace());
-    const stmts = vi.mocked(runTursoPipeline).mock.calls[0][1];
+    const stmts = savePipelineCalls()[0][1];
     expect(stmts[0].sql).toBe("BEGIN");
     expect(stmts.some((s) => s.sql.startsWith("DELETE FROM tasks WHERE project_id"))).toBe(true);
   });
@@ -86,13 +118,13 @@ describe("TursoBackend (tenant mode)", () => {
       const backend = new TursoBackend(cfg, "p1");
       const ws = emptyWorkspace();
       await backend.save(ws);
-      const full = vi.mocked(runTursoPipeline).mock.calls[0][1];
+      const full = savePipelineCalls()[0][1];
       // first save (no baseline) = full rewrite: one scoped DELETE per table
       expect(full.filter((s) => s.sql.startsWith("DELETE FROM"))).toHaveLength(TABLE_NAMES.length);
 
       const ws2 = { ...ws, tasks: [minimalTask as never] };
       await backend.save(ws2);
-      const sqls = vi.mocked(runTursoPipeline).mock.calls[1][1].map((s) => s.sql);
+      const sqls = savePipelineCalls()[1][1].map((s) => s.sql);
       expect(sqls[0]).toBe("BEGIN");
       expect(sqls[sqls.length - 1]).toBe("COMMIT");
       expect(sqls.filter((s) => s.startsWith("CREATE TABLE IF NOT EXISTS"))).toHaveLength(tenantSchemaDdl().length);
@@ -109,18 +141,21 @@ describe("TursoBackend (tenant mode)", () => {
       const backend = new TursoBackend(cfg, "p1");
       const ws = emptyWorkspace();
       await backend.save(ws);
-      expect(runTursoPipeline).toHaveBeenCalledTimes(1);
+      // First save: column-ensure PRAGMA + the overwrite.
+      expect(runTursoPipeline).toHaveBeenCalledTimes(2);
+      expect(savePipelineCalls()).toHaveLength(1);
 
       // New wrapper object, same per-table references — no pipeline call.
       await expect(backend.save({ ...ws })).resolves.toBeUndefined();
-      expect(runTursoPipeline).toHaveBeenCalledTimes(1);
+      expect(runTursoPipeline).toHaveBeenCalledTimes(2);
 
       const ws2 = { ...ws, tasks: [minimalTask as never] };
+      // Migration is memoized, so this rejection hits the overwrite pipeline.
       vi.mocked(runTursoPipeline).mockRejectedValueOnce(new Error("boom"));
       await expect(backend.save(ws2)).rejects.toThrow("boom");
 
       await backend.save(ws2); // retry succeeds via the base stub
-      const stmts = vi.mocked(runTursoPipeline).mock.calls[2][1];
+      const stmts = savePipelineCalls().at(-1)![1];
       expect(stmts.some((s) => s.sql === "DELETE FROM tasks WHERE project_id = ?")).toBe(true);
       expect(stmts.some((s) => s.sql.startsWith("INSERT INTO tasks"))).toBe(true);
     });
@@ -150,16 +185,24 @@ describe("TursoBackend (tenant mode)", () => {
       const order: string[] = [];
       let release!: () => void;
       const gate = new Promise<void>((resolve) => { release = resolve; });
-      vi.mocked(runTursoPipeline)
-        .mockImplementationOnce(async () => { order.push("tabA-start"); await gate; order.push("tabA-end"); return []; })
-        .mockImplementationOnce(async () => { order.push("tabB"); return []; });
+      // Each instance runs its own column-ensure PRAGMA first (per-instance memo);
+      // those resolve immediately so the gate only governs the overwrite pipelines.
+      let overwrites = 0;
+      vi.mocked(runTursoPipeline).mockImplementation(async (_cfg, stmts) => {
+        if (isPragmaPipeline(stmts)) return upToDateTenantPragmaResults();
+        overwrites += 1;
+        if (overwrites === 1) { order.push("tabA-start"); await gate; order.push("tabA-end"); return []; }
+        order.push("tabB");
+        return [];
+      });
       const { emptyWorkspace } = await import("./storage");
       // Two backend instances = two tabs pointing at the same DB + project.
       const tabA = new TursoBackend(cfg, "p1").save(emptyWorkspace());
       const tabB = new TursoBackend(cfg, "p1").save(emptyWorkspace());
       await new Promise((resolve) => setTimeout(resolve, 0));
-      // Tab B is queued behind tab A's in-flight pipeline — not interleaved.
-      expect(runTursoPipeline).toHaveBeenCalledTimes(1);
+      // Tab A (holding the lock) has run its column-ensure PRAGMA and started the
+      // gated overwrite; tab B is queued behind the lock — not interleaved.
+      expect(runTursoPipeline).toHaveBeenCalledTimes(2);
       release();
       await Promise.all([tabA, tabB]);
       expect(order).toEqual(["tabA-start", "tabA-end", "tabB"]);

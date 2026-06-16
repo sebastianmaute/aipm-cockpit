@@ -73,6 +73,15 @@ export class TursoBackend implements StorageBackend {
    */
   private baseline: Workspace | null = null;
 
+  /**
+   * Memoizes the one-time idempotent column-ensure migration (see
+   * ensureColumns). Held as a Promise so concurrent saves on the same instance
+   * await the SAME PRAGMA round-trip instead of each issuing their own. Reset to
+   * null only if the migration throws, so a transient failure can be retried by
+   * the next save (a successful run — including the zero-ALTER no-op — sticks).
+   */
+  private columnsEnsured: Promise<void> | null = null;
+
   constructor(
     private config: TursoConfig | null,
     private projectId?: string,
@@ -117,8 +126,13 @@ export class TursoBackend implements StorageBackend {
     }
     // Cross-tab single-writer: two full tabs on the same DB + project would
     // otherwise interleave per-table dirty writes into a state neither tab
-    // ever had. See withWriteLock.
-    await this.withWriteLock(() => runTursoPipeline(this.config, stmts));
+    // ever had. See withWriteLock. The column-ensure migration runs INSIDE the
+    // lock too: it is itself a write (ALTER TABLE), so it must self-heal an
+    // existing DB BEFORE the named-column INSERTs and be serialized with them.
+    await this.withWriteLock(async () => {
+      await this.ensureColumns();
+      return runTursoPipeline(this.config, stmts);
+    });
     // Reached only when the pipeline succeeded: a failed (or lock-aborted)
     // save keeps the old baseline so the next save retries the dirty tables.
     this.baseline = workspace;
@@ -151,6 +165,45 @@ export class TursoBackend implements StorageBackend {
       if (!granted) throw new TursoLockTimeoutError({ cause: err });
       throw err;
     }
+  }
+
+  /**
+   * Idempotent, once-per-instance column-ensure migration. SCHEMA_DDL uses
+   * `CREATE TABLE IF NOT EXISTS`, which never adds a column to an existing
+   * table — so a DB created before a new spec column (e.g. milestones'
+   * outlookEventId) lacks it, and the save's named-column INSERT fails. This
+   * reads each entity table's actual columns via PRAGMA table_info and issues
+   * `ALTER TABLE … ADD COLUMN … TEXT` only for genuinely-missing columns.
+   *
+   * Cheap on the common path: one PRAGMA pipeline per session, and the ALTER
+   * pipeline runs ONLY when something is missing (fresh / up-to-date DBs issue
+   * zero ALTERs and skip the second round-trip). Memoized via columnsEnsured so
+   * a no-op result is not re-checked on every subsequent save.
+   */
+  private ensureColumns(): Promise<void> {
+    if (this.columnsEnsured) return this.columnsEnsured;
+    const run = this.runColumnEnsure().catch((err) => {
+      // A failed migration must not stick: clear the memo so the next save
+      // retries, then propagate so this save fails rather than INSERTing into a
+      // still-missing column.
+      this.columnsEnsured = null;
+      throw err;
+    });
+    this.columnsEnsured = run;
+    return run;
+  }
+
+  private async runColumnEnsure(): Promise<void> {
+    const {
+      pragmaStatements, buildColumnEnsureAlters,
+      singleTenantTableColumns, tenantTableColumns,
+    } = await import("./turso-migrate");
+    const specs = this.projectId === undefined ? singleTenantTableColumns() : tenantTableColumns();
+    const tables = specs.map((s) => s.table);
+    const pragmaResults = await runTursoPipeline(this.config, pragmaStatements(tables));
+    const alters = buildColumnEnsureAlters(specs, pragmaResults);
+    if (alters.length === 0) return; // fresh / up-to-date DB — no second round-trip.
+    await runTursoPipeline(this.config, alters);
   }
 
   private async loadSingleTenant(): Promise<Workspace> {
