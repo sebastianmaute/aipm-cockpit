@@ -161,12 +161,9 @@ export function MilestonesPanel({
   return (
     <div ref={ref} className={CENTERED_HALF_PANE_CLASS}>
       <header className="mb-2 flex shrink-0 flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <h2 className="text-lg font-medium text-foreground">
-            {t(lang, "milestonesTitle")}
-          </h2>
-          <ResetSizeButton onClick={resetSize} lang={lang} />
-        </div>
+        <h2 className="text-lg font-medium text-foreground">
+          {t(lang, "milestonesTitle")}
+        </h2>
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
@@ -204,6 +201,7 @@ export function MilestonesPanel({
             <option value="achieved">{t(lang, "milestonesFilterAchieved")}</option>
             <option value="overdue">{t(lang, "milestonesFilterOverdue")}</option>
           </select>
+          <ResetSizeButton onClick={resetSize} lang={lang} />
         </div>
       </header>
       {sorted.length === 0 ? (
