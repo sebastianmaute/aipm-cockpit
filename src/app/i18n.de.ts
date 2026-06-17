@@ -455,6 +455,7 @@ export const de: Record<TranslationKey, string> = {
   aiPromptTrendActLabel: "Auf Trend reagieren",
   aiPromptTrendActBody: "Was sollte ich angesichts der aktuellen Trends tun, um im Plan zu bleiben?",
   versionHighlightAiAskClaude: "Claude zu jeder Ansicht fragen: Grundlegende Prompts mit einem Tipp und ansichtsspezifische Vorschläge im KI-Assistenten.",
+  versionHighlightUiBatch0990: "Anpassbare Bereiche, Trend-Deltas im Dashboard, gruppierte Berichte und eine klarere Schaltfläche \"Ask Claude\".",
 
   aiConsentTitle: "Claude-Chat aktivieren?",
   aiConsentBullet1:

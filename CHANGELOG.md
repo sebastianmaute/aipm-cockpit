@@ -8,6 +8,28 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.99.0] - 2026-06-17 "Brackett"
+
+### Added
+- **Dashboard variance summary** — an embedded, Turso-gated summary on the dashboard shows headline KPI
+  deltas against the baseline (no snapshots required).
+- **Resizable panes with right-aligned reset buttons** across Dashboard (fixing a broken reset), the
+  Action Center, and Documents; the Milestones reset-size button moved to the right of its header, and an
+  Influence/Interest reset-size button was added.
+- **Documents as a centered pane** — the Documents tab now renders as a centered, padded Milestones-style
+  pane; the Add-document button is gated behind an active M365 + SharePoint connection.
+- **Reports nav grouping** — the Budget and RAID reports are now grouped under the single Reports nav item.
+- **Ask Claude pill** — the "Ask Claude" control now leads the top-bar controls as a clearly labeled pill.
+
+### Changed
+- Removed the resize corner-hint glyph and added a scrollbar gap to pane scroll regions for cleaner chrome.
+- Restyled the Trends snapshot links to match the Open Points link style.
+- Strengthened the Next-actions CTA hover affordance; the Action Center learning flag now has an explanatory
+  tooltip that deep-links to the Next-actions settings.
+
+### Fixed
+- Influence/Interest dark-mode contrast.
+
 ## [0.98.0] - 2026-06-17 "Pohl"
 
 ### Added

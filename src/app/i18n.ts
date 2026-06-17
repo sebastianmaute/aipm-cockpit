@@ -454,6 +454,7 @@ const enUS = {
   aiPromptTrendActLabel: "Act on trend",
   aiPromptTrendActBody: "Given the current trends, what should I do to stay on track?",
   versionHighlightAiAskClaude: "Ask Claude about any view: one-tap foundational prompts and view-specific suggestions in the AI Assistant.",
+  versionHighlightUiBatch0990: "Resizable panes, dashboard trend deltas, grouped reports, and a clearer Ask Claude button.",
 
   aiConsentTitle: "Enable Claude chat?",
   aiConsentBullet1:
