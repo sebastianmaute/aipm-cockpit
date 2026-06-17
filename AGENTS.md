@@ -46,6 +46,10 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
   accessible name and keyboard operability — an unlabeled form control is an axe-critical FAIL.
   A `placeholder` is NOT an accessible name — an input needs `aria-label`/`<label>` (a placeholder-only
   input fails the axe gate even though it looks labeled).
+  In a LIST of rows, per-row controls need a row-UNIQUE accessible name (e.g.
+  `aria-label={`${t(lang,"edit")} – ${row.name}`}`) — N identical "Edit"/"Enabled" labels is a
+  WCAG 2.4.6 fail, but the axe gate can PASS it when the live app seeds only ONE row (the collision
+  never renders at scan time). Qualify the label; don't trust a green axe run with a single seeded row.
   Moving/folding a control INTO an axe-scanned view re-scans it: the gate scans `Settings`→General, so
   folding Storage/Appearance into General surfaced a pre-existing unlabeled `<select>` (a visible
   `<span>` label is NOT an `aria-label`/`<label>`) as axe-critical. Verify IA/UI/contrast changes with
@@ -98,3 +102,11 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
 - M365 Graph is called client-side via `useMsAuth().acquireToken(scopes, { interactive })` —
   `interactive:true` pops an incremental-consent dialog for a new scope; background probes stay
   silent. A new Graph host must be added to the CSP allowlist (above).
+- AI Assistant: `chat-panel.tsx` calls Anthropic directly (browser, `anthropic-dangerous-direct-
+  browser-access`). `buildSystemPrompt` returns a `SystemBlock[]`, NOT a string. Anthropic prompt
+  caching is PREFIX-based: stable/cacheable content (instructions + operating-guide text) MUST come
+  FIRST with the `cache_control:{type:"ephemeral"}` breakpoint after it, and volatile data (today,
+  task count, current view/mode) MUST come AFTER — mixing volatile data into the cached block (or
+  putting the big guide block last) means the cache never hits. Operating guides live in a global
+  store (`operating_guides`, out of TABLE_NAMES) surfaced by ONE `useOperatingGuides` instance in
+  task-manager, threaded to both ChatPanel (chat) and AiSection (editor).
