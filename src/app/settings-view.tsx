@@ -107,11 +107,14 @@ export function SettingsView(props: SettingsViewProps) {
   const commTemplatesVisible =
     props.commTemplatesEnabled === true && expert && !!RAIL.find((r) => r.id === "templates");
   // Appearance + Storage are folded into General; Comm Templates can lose its
-  // rail entry when its feature gate (or expert mode) flips off. Coerce any
-  // stale/now-hidden selection back to General so the pane never goes blank.
+  // rail entry when its feature gate (or expert mode) flips off; Next-actions is
+  // expert-only and loses its rail entry when expert mode is off. Coerce any
+  // stale/now-hidden selection back to General so the pane never goes blank (no
+  // ghost section with a body but no matching rail item).
   const active: SectionId =
     activeRaw === "appearance" ||
     activeRaw === "storage" ||
+    (activeRaw === "nextActions" && !expert) ||
     (activeRaw === "commTemplates" && !commTemplatesVisible)
       ? "general"
       : activeRaw;

@@ -98,7 +98,7 @@ export function AskClaudeMenu({
         <div
           role="dialog"
           aria-label={t(lang, "aiAskClaude")}
-          className="absolute left-0 top-full z-40 mt-2 w-72 overflow-y-auto rounded-lg border border-line bg-surface p-3"
+          className="absolute right-0 top-full z-40 mt-2 w-72 overflow-y-auto rounded-lg border border-line bg-surface p-3"
         >
           {onPage.length > 0 && (
             <PromptSection lang={lang} titleKey="aiAskClaudeOnPage" items={onPage} onPick={pick} />
