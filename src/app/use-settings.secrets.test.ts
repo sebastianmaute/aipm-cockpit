@@ -1,6 +1,9 @@
+import "fake-indexeddb/auto";
 import { describe, it, expect, afterEach } from "vitest";
-import { writeSettings, SETTINGS_KEY } from "./use-settings";
+import { writeSettings, SETTINGS_KEY, hydrateSecretsInto } from "./use-settings";
 import { defaultSettings } from "./settings-types";
+import { sealDevice, sealPassphrase } from "./secrets";
+import { saveSealed } from "./secrets-store";
 
 afterEach(() => localStorage.clear());
 
@@ -18,5 +21,25 @@ describe("writeSettings secret blanking", () => {
     expect(persisted.ai.apiKey).toBe("");
     expect(persisted.integrations.turso.authToken ?? "").toBe("");
     expect(persisted.integrations.turso.databaseUrl).toBe("libsql://x");
+  });
+});
+
+describe("hydrateSecretsInto", () => {
+  it("hydrateSecretsInto merges device secrets into in-memory settings", async () => {
+    saveSealed(await sealDevice("anthropicApiKey", "sk-live"));
+    const merged = await hydrateSecretsInto({
+      ...defaultSettings,
+      ai: { ...defaultSettings.ai, apiKey: "" },
+    });
+    expect(merged.ai.apiKey).toBe("sk-live");
+  });
+
+  it("hydrateSecretsInto leaves a passphrase-locked secret empty", async () => {
+    saveSealed(await sealPassphrase("anthropicApiKey", "sk-live", "pw"));
+    const merged = await hydrateSecretsInto({
+      ...defaultSettings,
+      ai: { ...defaultSettings.ai, apiKey: "" },
+    });
+    expect(merged.ai.apiKey).toBe("");
   });
 });
