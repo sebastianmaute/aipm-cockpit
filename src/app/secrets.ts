@@ -26,7 +26,6 @@ export class SecretUnlockError extends Error {
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- used in Task 2 (passphrase wrap)
 const PBKDF2_ITERS = 600_000;
 const DB_NAME = "lop-app-secrets";
 const STORE = "keys";
@@ -124,4 +123,36 @@ export async function sealDevice(id: SecretId, plaintext: string): Promise<Seale
 }
 export async function openDevice(s: SealedSecret): Promise<string> {
   return aesDecrypt(await getDeviceKey(), s);
+}
+
+async function deriveKey(passphrase: string, salt: Uint8Array<ArrayBuffer>): Promise<CryptoKey> {
+  const base = await subtle().importKey("raw", enc.encode(passphrase), "PBKDF2", false, [
+    "deriveKey",
+  ]);
+  return subtle().deriveKey(
+    { name: "PBKDF2", salt, iterations: PBKDF2_ITERS, hash: "SHA-256" },
+    base,
+    { name: "AES-GCM", length: 256 },
+    false,
+    ["encrypt", "decrypt"],
+  );
+}
+
+export async function sealPassphrase(
+  id: SecretId,
+  plaintext: string,
+  passphrase: string,
+): Promise<SealedSecret> {
+  const salt = randomBytes(16);
+  const key = await deriveKey(passphrase, salt);
+  return aesEncrypt(key, id, plaintext, {
+    wrap: "passphrase",
+    salt: toB64(salt.buffer),
+    kdf: { name: "PBKDF2", iters: PBKDF2_ITERS, hash: "SHA-256" },
+  });
+}
+export async function openPassphrase(s: SealedSecret, passphrase: string): Promise<string> {
+  if (!s.salt) throw new SecretUnlockError("missing-salt");
+  const key = await deriveKey(passphrase, fromB64(s.salt));
+  return aesDecrypt(key, s);
 }
