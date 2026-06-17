@@ -7,6 +7,8 @@ import { SettingsMenu } from "./settings-menu";
 import { ActionMenus } from "./action-menus";
 import { ProjectSwitcher, type ProjectSwitcherProps } from "./project-switcher";
 import { defaultExportConfig, type Settings } from "./settings-types";
+import { AskClaudeMenu } from "./ask-claude-menu";
+import type { AppView } from "./nav-config";
 
 export interface AppHeaderProps {
   handleCancelEdit: () => void;
@@ -29,6 +31,10 @@ export interface AppHeaderProps {
   lang: Lang;
   /** Opens the AI Assistant chat pop-out. */
   onOpenAiAssistant?: () => void;
+  /** Current view — drives the Ask-Claude menu's per-view suggestions. */
+  currentView?: AppView;
+  /** Picking an Ask-Claude prompt — wired to requestChat(body, true). */
+  onAskClaude?: (promptBody: string) => void;
   /** When set, renders the current-project indicator + switcher under the title. */
   projectSwitcher?: ProjectSwitcherProps;
 }
@@ -54,6 +60,8 @@ export function AppHeader({
   setSettings,
   lang,
   onOpenAiAssistant,
+  currentView,
+  onAskClaude,
   projectSwitcher,
 }: AppHeaderProps) {
   return (
@@ -79,6 +87,9 @@ export function AppHeader({
           className="h-7 w-auto"
         />
         <div className="flex items-center gap-1">
+          {currentView && onAskClaude && (
+            <AskClaudeMenu lang={lang} currentView={currentView} onAsk={onAskClaude} />
+          )}
           {onOpenAiAssistant && (
             <button
               type="button"

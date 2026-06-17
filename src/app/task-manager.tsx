@@ -68,6 +68,7 @@ import { useActionSnooze } from "./use-action-snooze";
 import { useActionNotifications } from "./use-action-notifications";
 import { isReportPopoutTab, openPopoutWindow } from "./broadcast-sync";
 import { ModernShell } from "./modern-shell";
+import { AskClaudeMenu } from "./ask-claude-menu";
 import { useHashView } from "./use-hash-view";
 import { navLabelKey, filterNavGroups } from "./nav-config";
 import type { AppView } from "./nav-config";
@@ -158,7 +159,7 @@ function TaskManagerInner() {
     resetColWidths,
     startColResize,
   } = useColumnManager();
-  const { isPopout, activeTab, setActiveTab, requestOpen, pendingOpen, clearPendingOpen } = useWorkspaceTab();
+  const { isPopout, activeTab, setActiveTab, requestOpen, pendingOpen, clearPendingOpen, requestChat } = useWorkspaceTab();
   useHashView(settings.layout === "modern", settings.features);
   // Classic mode has no panel for the modern-only views; fall back to chat.
   useEffect(() => {
@@ -1768,16 +1769,26 @@ function TaskManagerInner() {
       };
 
   const topBarMenus = (
-    <ActionMenus
-      lang={lang}
-      onCommand={handleCommand}
-      onVoiceError={(msg) => showToast("error", msg)}
-      exportConfig={settings.export ?? defaultExportConfig}
-      templates={projectTemplates}
-      onSaveTemplate={handleSaveTemplate}
-      onApplyTemplate={handleApplyTemplate}
-      expertMode={settings.expertMode}
-    />
+    <>
+      {/* Ask-Claude lives in the modern top bar too — the classic AppHeader wires
+          it separately (appHeaderEl); without this the menu would be invisible in
+          the default modern layout. */}
+      <AskClaudeMenu
+        lang={lang}
+        currentView={activeTab}
+        onAsk={(body) => requestChat(body, true)}
+      />
+      <ActionMenus
+        lang={lang}
+        onCommand={handleCommand}
+        onVoiceError={(msg) => showToast("error", msg)}
+        exportConfig={settings.export ?? defaultExportConfig}
+        templates={projectTemplates}
+        onSaveTemplate={handleSaveTemplate}
+        onApplyTemplate={handleApplyTemplate}
+        expertMode={settings.expertMode}
+      />
+    </>
   );
 
   // The Birthday / Jira-token / Storage reminder banners, shared by the classic
@@ -1915,6 +1926,8 @@ function TaskManagerInner() {
       setSettings={setSettings}
       lang={lang}
       onOpenAiAssistant={() => openPopoutWindow("chat", settings.popout.reuseWindow)}
+      currentView={activeTab}
+      onAskClaude={(body) => requestChat(body, true)}
       projectSwitcher={projectSwitcher}
     />
   );

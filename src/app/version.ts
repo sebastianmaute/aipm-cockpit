@@ -2,12 +2,12 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.97.0";
-export const APP_BUILD_DATE = "2026-06-16"; // 0.97.0 context-aware Claude core
+export const APP_VERSION = "0.98.0";
+export const APP_BUILD_DATE = "2026-06-17"; // 0.98.0 AI orchestration SP1 (Ask Claude)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The whole
- *  0.97.x line is "Gaiman" (Neil Gaiman); patch releases inherit
+ *  0.98.x line is "Pohl" (Frederik Pohl); patch releases inherit
  *  their minor version's codename rather than getting their own. */
-export const APP_MILESTONE = "Gaiman";
+export const APP_MILESTONE = "Pohl";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -108,4 +108,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightCalendarPush",
   "versionHighlightUiBatchVm",
   "versionHighlightAiContextCore",
+  "versionHighlightAiAskClaude",
 ] as const;

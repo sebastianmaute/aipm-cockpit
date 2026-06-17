@@ -10,6 +10,9 @@ interface WorkspaceTabContextValue {
   pendingOpen: { view: AppView; id: number } | null;
   requestOpen: (view: AppView, id: number) => void;
   clearPendingOpen: () => void;
+  pendingChatSeed: { prompt: string; autoSend: boolean } | null;
+  requestChat: (prompt: string, autoSend: boolean) => void;
+  clearChatSeed: () => void;
 }
 
 const WorkspaceTabContext = createContext<WorkspaceTabContextValue | null>(null);
@@ -30,8 +33,15 @@ export function WorkspaceTabProvider({ children }: { children: React.ReactNode }
     }
   }, [isPopout]);
   const clearPendingOpen = useCallback(() => setPendingOpen(null), []);
+  const [pendingChatSeed, setPendingChatSeed] = useState<{ prompt: string; autoSend: boolean } | null>(null);
+  const requestChat = useCallback((prompt: string, autoSend: boolean) => {
+    setActiveTab("chat");
+    setPendingChatSeed({ prompt, autoSend });
+    // No hash write: chat carries no item id (unlike requestOpen).
+  }, []);
+  const clearChatSeed = useCallback(() => setPendingChatSeed(null), []);
   return (
-    <WorkspaceTabContext.Provider value={{ activeTab, setActiveTab, isPopout, pendingOpen, requestOpen, clearPendingOpen }}>
+    <WorkspaceTabContext.Provider value={{ activeTab, setActiveTab, isPopout, pendingOpen, requestOpen, clearPendingOpen, pendingChatSeed, requestChat, clearChatSeed }}>
       {children}
     </WorkspaceTabContext.Provider>
   );

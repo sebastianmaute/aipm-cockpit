@@ -8,6 +8,17 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.98.0] - 2026-06-17 "Pohl"
+
+### Added
+- **Foundational one-tap prompts** — the AI Assistant now offers a row of one-tap prompts
+  (What's next? / Status overview / Prioritize) that send to Claude on click, no typing required.
+- **"Ask Claude" top-bar menu** — a shared, context-aware menu in the header surfaces view-specific
+  suggested prompts for whatever you are looking at; picking one opens the chat seeded with that prompt
+  and auto-sends it.
+- **Chat-seed channel** — a new `requestChat` entry on the workspace tab context lets any surface open
+  the AI Assistant pre-filled with a prompt (and optionally auto-send it).
+
 ## [0.97.0] - 2026-06-16 "Gaiman"
 
 ### Added
