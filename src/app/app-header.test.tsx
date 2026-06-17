@@ -1,5 +1,6 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { t } from "./i18n";
 import type React from "react";
 import { FiltersProvider } from "./filters-context";
 import { WorkspaceTabProvider } from "./workspace-tab-context";
@@ -70,6 +71,18 @@ describe("AppHeader", () => {
     expect(aiIdx).toBeGreaterThanOrEqual(0);
     expect(addIdx).toBeGreaterThanOrEqual(0);
     expect(aiIdx).toBeLessThan(addIdx);
+  });
+
+  it("renders the Ask-Claude menu when currentView and onAskClaude are provided", () => {
+    render(<AppHeader {...makeProps({ currentView: "raid", onAskClaude: vi.fn() })} />, {
+      wrapper: Wrapper,
+    });
+    expect(screen.getByRole("button", { name: t("en-US", "aiAskClaude") })).toBeTruthy();
+  });
+
+  it("omits the Ask-Claude menu when not wired", () => {
+    render(<AppHeader {...makeProps()} />, { wrapper: Wrapper });
+    expect(screen.queryByRole("button", { name: t("en-US", "aiAskClaude") })).toBeNull();
   });
 
   it("bell badge shows count when bannerCount is positive", () => {

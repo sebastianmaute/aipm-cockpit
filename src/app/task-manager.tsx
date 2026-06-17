@@ -158,7 +158,7 @@ function TaskManagerInner() {
     resetColWidths,
     startColResize,
   } = useColumnManager();
-  const { isPopout, activeTab, setActiveTab, requestOpen, pendingOpen, clearPendingOpen } = useWorkspaceTab();
+  const { isPopout, activeTab, setActiveTab, requestOpen, pendingOpen, clearPendingOpen, requestChat } = useWorkspaceTab();
   useHashView(settings.layout === "modern", settings.features);
   // Classic mode has no panel for the modern-only views; fall back to chat.
   useEffect(() => {
@@ -1915,6 +1915,8 @@ function TaskManagerInner() {
       setSettings={setSettings}
       lang={lang}
       onOpenAiAssistant={() => openPopoutWindow("chat", settings.popout.reuseWindow)}
+      currentView={activeTab}
+      onAskClaude={(body) => requestChat(body, true)}
       projectSwitcher={projectSwitcher}
     />
   );
