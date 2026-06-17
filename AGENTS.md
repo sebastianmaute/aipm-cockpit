@@ -15,7 +15,10 @@ npm run lint                # eslint  (CI --max-warnings=0: an unused import/var
                             # [snapshots.rebaselineNow]) — hoist it to a local const and depend on that.
                             # A react-hooks PURITY rule bans `Date.now()`/`Math.random()`/`new Date()`
                             # in a component RENDER body too (not just useMemo) — capture via a lazy
-                            # `useState(() => Date.now())`, or read it inside an effect/callback.)
+                            # `useState(() => Date.now())`, or read it inside an effect/callback.
+                            # `react-hooks/set-state-in-effect` is BANNED (fatal) — to sync state to a
+                            # changed prop, use the render-time reconcile pattern (`if (prop !== handled)
+                            # { setState(...) }` guarded by a nonce/last-seen state), NOT a useEffect.)
 npx tsc --noEmit            # typecheck (enforces i18n EN/DE key parity)
 npm run test:run            # vitest (unit/integration)
 npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
@@ -108,6 +111,10 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
 - Heavy browser-only deps (rich-text editor, etc.) load via `next/dynamic({ ssr: false })` to
   stay off the main bundle; ProseMirror/Tiptap-style libs need `Range.getClientRects` +
   `getBoundingClientRect` jsdom stubs in their tests.
+  jsdom has NO layout engine — `scrollHeight`/`offsetHeight`/`getBoundingClientRect` all return 0,
+  so any measure-based UI (textarea autogrow, resize) must stub `scrollHeight` in its test
+  (`Object.defineProperty(el, "scrollHeight", { configurable: true, value: N })`) — a pixel-height
+  assertion silently reads 0 otherwise.
 - M365 Graph is called client-side via `useMsAuth().acquireToken(scopes, { interactive })` —
   `interactive:true` pops an incremental-consent dialog for a new scope; background probes stay
   silent. A new Graph host must be added to the CSP allowlist (above).
