@@ -10,6 +10,8 @@ import { quadrantFor, type StakeholderQuadrant } from "./stakeholders";
 import { type Lang, t } from "./i18n";
 import type { Stakeholder } from "./types";
 import { CENTERED_HALF_PANE_CLASS } from "./view-styles";
+import { useResizable } from "./use-resizable";
+import { ResetSizeButton } from "./task-manager-ui";
 
 // --- Props ------------------------------------------------------------------
 
@@ -67,6 +69,8 @@ const QUADRANTS: QuadrantConfig[] = [
 // --- Component --------------------------------------------------------------
 
 export function StakeholderMapPanel({ lang, stakeholders }: StakeholderMapPanelProps) {
+  const { ref, reset } = useResizable("lop-app:stakeholder-map-size");
+
   // Group stakeholders by quadrant once.
   const byQuadrant = useMemo(() => {
     const map: Record<StakeholderQuadrant, Stakeholder[]> = {
@@ -82,12 +86,13 @@ export function StakeholderMapPanel({ lang, stakeholders }: StakeholderMapPanelP
   }, [stakeholders]);
 
   return (
-    <div data-testid="stakeholder-map-pane" className={CENTERED_HALF_PANE_CLASS}>
-      {/* Toolbar: title */}
-      <div className="mb-2 flex shrink-0 flex-wrap items-center gap-2">
-        <h2 className="text-sm font-semibold text-AIPM-dark-blue">
+    <div ref={ref} data-testid="stakeholder-map-pane" className={CENTERED_HALF_PANE_CLASS}>
+      {/* Toolbar: title left, controls right */}
+      <div className="mb-2 flex shrink-0 flex-wrap items-center justify-between gap-2">
+        <h2 className="text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
           {t(lang, "stakeholderMapTitle")}
         </h2>
+        <ResetSizeButton onClick={reset} lang={lang} />
       </div>
 
       {stakeholders.length === 0 ? (
@@ -115,14 +120,14 @@ export function StakeholderMapPanel({ lang, stakeholders }: StakeholderMapPanelP
                   data-testid={q.testId}
                   className={`flex flex-col gap-1.5 overflow-auto rounded-lg border border-line p-3 ${q.tintClass}`}
                 >
-                  <p className="text-xs font-semibold text-AIPM-dark-blue">
+                  <p className="text-xs font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
                     {t(lang, q.labelKey)}
                   </p>
                   <div className="flex flex-wrap gap-1">
                     {byQuadrant[q.id].map((s) => (
                       <span
                         key={s.id}
-                        className="inline-block rounded px-1.5 py-0.5 text-xs font-medium bg-surface-muted text-AIPM-dark-blue dark:text-foreground"
+                        className="inline-block rounded px-1.5 py-0.5 text-xs font-medium bg-surface text-foreground"
                       >
                         {s.name}
                       </span>
