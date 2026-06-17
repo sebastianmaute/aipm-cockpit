@@ -7,7 +7,8 @@ import { RagBadge } from "./rag-badge";
 import { healthText } from "./health";
 import { TrendChart, type TrendPoint } from "./trend-chart";
 import { formatCurrency } from "./resource-cost";
-import type { SnapshotRecord, VarianceKey, VarianceRow } from "./snapshot";
+import type { SnapshotRecord, VarianceRow } from "./snapshot";
+import { VARIANCE_LABEL_KEYS, fmtVarianceCell, fmtVarianceDelta } from "./variance-format";
 import { ReportCard } from "./report-table";
 import { useResizable } from "./use-resizable";
 import { useColumnResize } from "./use-column-resize";
@@ -43,35 +44,6 @@ export interface TrendsPanelProps {
   setBaseline: (id: string) => Promise<void>;
   deleteSnapshot: (id: string) => Promise<void>;
   deleteSnapshots: (ids: readonly string[]) => Promise<void>;
-}
-
-const VARIANCE_LABEL_KEYS: Record<VarianceKey, Parameters<typeof t>[1]> = {
-  remainingHours: "trendKpiRemainingHours",
-  remainingCost: "trendKpiRemainingCost",
-  pctComplete: "trendKpiPctComplete",
-  forecastEndDate: "trendKpiForecastSlip",
-  spi: "trendKpiSpi",
-  cpi: "trendKpiCpi",
-};
-
-function fmtCell(row: VarianceRow, which: "baseline" | "current"): string {
-  if (row.key === "forecastEndDate") return "—";
-  const v = row[which];
-  if (v === null) return "—";
-  if (row.key === "pctComplete") return `${v}%`;
-  return String(Math.round(v * 100) / 100);
-}
-
-function fmtDelta(row: VarianceRow, lang: Lang): string {
-  if (row.key === "forecastEndDate") {
-    if (row.deltaDays == null) return "—";
-    const d = row.deltaDays;
-    return d === 0 ? t(lang, "trendsNoSlip") : t(lang, d > 0 ? "trendsSlipDays" : "trendsAheadDays", Math.abs(d));
-  }
-  if (row.delta === null) return "—";
-  const sign = row.delta > 0 ? "+" : "";
-  if (row.key === "pctComplete") return `${sign}${row.delta}%`;
-  return `${sign}${Math.round(row.delta * 100) / 100}`;
 }
 
 function gapBetween(prev: SnapshotRecord, curr: SnapshotRecord, gaps: ReadonlySet<string>): boolean {
@@ -165,11 +137,11 @@ export function TrendsPanel(props: TrendsPanelProps) {
                 {variance.map((row) => (
                   <tr key={row.key}>
                     <td className="px-3 py-2 font-medium">{t(lang, VARIANCE_LABEL_KEYS[row.key])}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">{fmtCell(row, "baseline")}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">{fmtCell(row, "current")}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">{fmtVarianceCell(row, "baseline")}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">{fmtVarianceCell(row, "current")}</td>
                     <td className={`px-3 py-2 text-right tabular-nums ${row.health ? healthText[row.health] : ""}`}>
                       <span className="inline-flex items-center justify-end gap-1.5">
-                        {fmtDelta(row, lang)}
+                        {fmtVarianceDelta(row, lang)}
                         {row.health ? <RagBadge value={row.health} lang={lang} /> : null}
                       </span>
                     </td>

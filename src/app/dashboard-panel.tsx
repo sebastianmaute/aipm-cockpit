@@ -16,6 +16,9 @@ import { RagBadge } from "./rag-badge";
 import { BurndownCharts } from "./burndown-chart";
 import { ActionRow } from "./action-row";
 import type { SuggestedAction } from "./next-actions/types";
+import { useResizable } from "./use-resizable";
+import { VarianceSummary } from "./variance-summary";
+import type { VarianceRow } from "./snapshot";
 
 interface DashboardPanelProps {
   lang: Lang;
@@ -42,6 +45,8 @@ interface DashboardPanelProps {
   onOpenAction?: (a: SuggestedAction) => void;
   showTrends?: boolean;
   onToggleTrends?: (show: boolean) => void;
+  variance?: readonly VarianceRow[];
+  tursoActive?: boolean;
 }
 
 const CHANGE_STATUS_KEY: Record<ChangeStatus, TranslationKey> = {
@@ -89,7 +94,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
   const { showRaid = true, showBudget = true, showMilestones = true, showChanges = true } = props;
   const showTrends = props.showTrends !== false;
   const { status, setStatus } = useWorkspace();
-  const sizeRef = useRef<HTMLDivElement | null>(null);
+  const { ref: sizeRef, reset: resetSize } = useResizable("lop-app:dashboard-size");
 
   const locale = localeFor(lang);
   const money = (n: number) => formatCurrency(n, props.plan.currency || "EUR", locale);
@@ -160,7 +165,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
   };
 
   return (
-    <ReportCard lang={lang} sizeRef={sizeRef} onResetSize={() => undefined} title={t(lang, "navDashboard")}>
+    <ReportCard lang={lang} sizeRef={sizeRef} onResetSize={resetSize} title={t(lang, "navDashboard")}>
       <div className="space-y-4">
         {/* Overall band */}
         <div className="flex flex-wrap items-center gap-4 rounded-lg border border-line bg-surface p-4">
@@ -398,7 +403,13 @@ export function DashboardPanel(props: DashboardPanelProps) {
             <h3 className="mb-2 text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
               {t(lang, "navTrends")}
             </h3>
-            <p className="text-sm text-muted-foreground">{t(lang, "trendsRequireTurso")}</p>
+            {!props.tursoActive ? (
+              <p className="text-sm text-muted-foreground">{t(lang, "trendsRequireTurso")}</p>
+            ) : (props.variance?.length ?? 0) === 0 ? (
+              <p className="text-sm text-muted-foreground">{t(lang, "dashboardTrendsNoBaseline")}</p>
+            ) : (
+              <VarianceSummary variance={props.variance ?? []} lang={lang} />
+            )}
           </div>
         ) : null}
 
