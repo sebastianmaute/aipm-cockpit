@@ -163,6 +163,11 @@ export function DashboardPanel(props: DashboardPanelProps) {
     if ((status.narrative ?? "") !== "") {
       setStatus((s) => ({ ...s, narrative: "", narrativeUpdatedAt: new Date().toISOString() }));
     }
+    // Reset the box back to its default (min-h-24) resting height immediately so it
+    // never stays stuck at a previously-grown tall height. The useEffect([draftNarrative])
+    // pass re-measures after the cleared value lands in the DOM; this handler call just
+    // avoids any tall-flash window before that runs.
+    if (narrativeRef.current) resizeNarrative(narrativeRef.current);
   };
 
   return (

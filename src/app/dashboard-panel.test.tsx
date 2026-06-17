@@ -381,6 +381,71 @@ describe("DashboardPanel status narrative Clear button", () => {
     expect((screen.getByRole("textbox") as HTMLTextAreaElement).value).toBe("");
   });
 
+  it("Clear resets the textarea back to its default (short) height", async () => {
+    const user = userEvent.setup();
+    render(
+      <DashboardPanel
+        lang="en-US"
+        tasks={[]}
+        raid={[]}
+        budgets={[]}
+        plan={plan}
+        roles={[]}
+        resources={[]}
+        absences={[]}
+        holidaySet={new Set<string>()}
+        workdayHours={8}
+        today="2026-06-02"
+      />,
+      { wrapper },
+    );
+    const textarea = screen.getByRole("textbox") as HTMLTextAreaElement;
+    // jsdom has no layout, so stub scrollHeight to simulate a grown box.
+    Object.defineProperty(textarea, "scrollHeight", { configurable: true, value: 240 });
+    await user.type(textarea, "line one\nline two\nline three\nline four");
+    // The box grew to the tall scrollHeight on input.
+    expect(textarea.style.height).toBe("240px");
+    await user.click(screen.getByRole("button", { name: /save/i }));
+
+    // Now simulate the empty/short box: scrollHeight clamps to the min-height.
+    Object.defineProperty(textarea, "scrollHeight", { configurable: true, value: 96 });
+    await user.click(screen.getByRole("button", { name: /clear/i }));
+    // The resize path ran on Clear → inline height is back to the short value,
+    // not stuck at the previously-grown 240px.
+    expect((screen.getByRole("textbox") as HTMLTextAreaElement).value).toBe("");
+    expect((screen.getByRole("textbox") as HTMLTextAreaElement).style.height).toBe("96px");
+  });
+
+  it("auto-shrinks the textarea height as content is removed", async () => {
+    const user = userEvent.setup();
+    render(
+      <DashboardPanel
+        lang="en-US"
+        tasks={[]}
+        raid={[]}
+        budgets={[]}
+        plan={plan}
+        roles={[]}
+        resources={[]}
+        absences={[]}
+        holidaySet={new Set<string>()}
+        workdayHours={8}
+        today="2026-06-02"
+      />,
+      { wrapper },
+    );
+    const textarea = screen.getByRole("textbox") as HTMLTextAreaElement;
+    // Grow.
+    Object.defineProperty(textarea, "scrollHeight", { configurable: true, value: 200 });
+    await user.type(textarea, "line one\nline two\nline three");
+    expect(textarea.style.height).toBe("200px");
+    // Remove content → scrollHeight shrinks; the onInput resize (height="auto" first)
+    // lets the box shrink back down rather than staying tall.
+    Object.defineProperty(textarea, "scrollHeight", { configurable: true, value: 96 });
+    await user.clear(textarea);
+    expect(textarea.style.height).toBe("96px");
+  });
+
   it("Clear is disabled when the narrative is already empty", () => {
     render(
       <DashboardPanel

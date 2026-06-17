@@ -29,6 +29,8 @@ longer carries its own changelog comment.
 
 ### Fixed
 - Influence/Interest dark-mode contrast.
+- Dashboard status summary: the Clear button now resets the textarea to its default height, and the
+  textarea auto-shrinks as content is removed.
 
 ## [0.98.0] - 2026-06-17 "Pohl"
 
