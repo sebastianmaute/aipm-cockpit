@@ -1688,6 +1688,7 @@ export const de: Record<TranslationKey, string> = {
   actionLearningOn: "EIN",
   actionLearningOff: "AUS",
   actionLearningGoToSettings: "Einstellungen für nächste Aktionen öffnen",
+  actionLearningTooltip: "Die Aktions-Priorisierung lernt aus deinen Erledigt-/Schlummern-/Verwerfen-Entscheidungen. Klicken, um die Einstellungen zu öffnen.",
   stakeholderNeedsComms: "Kommunikation nötig — im Aktionscenter öffnen",
   versionHighlightUiBatchVm: "Verbesserungen an Einfluss/Interesse, Aktionscenter und Dashboard sowie skalierbare Beispieldaten.",
   versionHighlightAiContextCore: "Claude liest jetzt Ihre Betriebsleitfäden und passt sich an Ihren App-Modus und die aktuelle Ansicht an – als Berater in der Rolle eines leitenden Projektmanagers.",

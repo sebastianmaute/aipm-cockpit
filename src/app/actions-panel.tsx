@@ -2,7 +2,9 @@
 "use client";
 import { useState } from "react";
 import { type Lang, t, type TranslationKey } from "./i18n";
-import { VIEW_PANE_FILL_CLASS } from "./view-styles";
+import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
+import { useResizable } from "./use-resizable";
+import { ResetSizeButton } from "./task-manager-ui";
 import { ActionRow } from "./action-row";
 import type { AssignOwnerBundle } from "./action-row";
 import type { EscalateBundle } from "./escalate-popover";
@@ -32,8 +34,9 @@ interface ActionsPanelProps {
 
 export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, assignOwner, onDraftMessage, escalate, rebaseline, learningEnabled, expertMode, onOpenLearningSettings }: ActionsPanelProps) {
   const [monitorOpen, setMonitorOpen] = useState(false);
+  const { ref, reset } = useResizable("lop-app:actions-size");
   return (
-    <div className={VIEW_PANE_FILL_CLASS}>
+    <div ref={ref} className={VIEW_PANE_RESIZABLE_CLASS}>
       <div className="mb-4 flex shrink-0 items-start justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
@@ -41,28 +44,32 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
           </h2>
           <p className="text-sm text-muted-foreground">{t(lang, "actionCenterSubtitle")}</p>
         </div>
-        {expertMode && (
-          <button
-            type="button"
-            onClick={onOpenLearningSettings}
-            aria-label={t(lang, "actionLearningGoToSettings")}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-line bg-surface px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-surface-muted"
-          >
-            <span>{t(lang, "actionLearningPrefix")}</span>
-            <span
-              className={`rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
-                learningEnabled ? "bg-AIPM-green text-white" : "bg-surface-muted text-muted-foreground"
-              }`}
+        <div className="flex shrink-0 items-center gap-2">
+          {expertMode && (
+            <button
+              type="button"
+              onClick={onOpenLearningSettings}
+              aria-label={t(lang, "actionLearningGoToSettings")}
+              title={t(lang, "actionLearningTooltip")}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-line bg-surface px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:border-AIPM-dark-blue/40 hover:bg-surface-muted"
             >
-              {t(lang, learningEnabled ? "actionLearningOn" : "actionLearningOff")}
-            </span>
-          </button>
-        )}
+              <span>{t(lang, "actionLearningPrefix")}</span>
+              <span
+                className={`rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                  learningEnabled ? "bg-AIPM-green text-white" : "bg-surface-muted text-muted-foreground"
+                }`}
+              >
+                {t(lang, learningEnabled ? "actionLearningOn" : "actionLearningOff")}
+              </span>
+            </button>
+          )}
+          <ResetSizeButton onClick={reset} lang={lang} />
+        </div>
       </div>
       {actions.length === 0 ? (
         <p className="text-sm text-muted-foreground">{t(lang, "actionsEmptyState")}</p>
       ) : (
-        <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-auto">
+        <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-auto pr-2">
           {TIERS.map(({ tier, labelKey }) => {
             const rows = actions
               .filter((a) => a.tier === tier)

@@ -1662,6 +1662,7 @@ const enUS = {
   actionLearningOn: "ON",
   actionLearningOff: "OFF",
   actionLearningGoToSettings: "Open Next-actions settings",
+  actionLearningTooltip: "Action ranking learns from your act/snooze/dismiss choices. Click to open its settings.",
   stakeholderNeedsComms: "Needs communication — open in the Action Center",
   versionHighlightUiBatchVm: "Influence/Interest, Action Center, and dashboard polish, plus scalable sample datasets.",
   versionHighlightAiContextCore: "Claude now reads your operating guides and adapts to your app mode and current view, advising as a senior project manager.",

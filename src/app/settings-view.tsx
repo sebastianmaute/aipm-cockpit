@@ -46,6 +46,10 @@ interface SettingsViewProps {
   onChangeLearningConfig?: (c: NextActionsLearningConfig) => void;
   onResetLearning?: () => void;
   onOpenInsights?: () => void;
+  /** Deep-link target: when this changes, the view navigates to the named
+   *  section. The `nonce` lets a repeated request (same section) re-navigate
+   *  after the user has clicked elsewhere. */
+  requestSection?: { id: SectionId; nonce: number };
 }
 
 type SectionId =
@@ -84,6 +88,19 @@ export function SettingsView(props: SettingsViewProps) {
   // into General, so General is the landing section.
   const [activeRaw, setActive] = useState<SectionId>("general");
   const [showVersion, setShowVersion] = useState(false);
+
+  // Deep-link: honor an external request to jump to a specific section (e.g. the
+  // Action Center's "Learning is ON/OFF" pill jumps here to nextActions). We
+  // reconcile during render (React's "adjusting state when a prop changes"
+  // pattern) rather than in an effect — set-state-in-effect is lint-banned. The
+  // nonce makes a repeated request (same section) re-navigate.
+  const requestNonce = props.requestSection?.nonce;
+  const requestId = props.requestSection?.id;
+  const [handledNonce, setHandledNonce] = useState<number | undefined>(requestNonce);
+  if (requestNonce !== handledNonce) {
+    setHandledNonce(requestNonce);
+    if (requestId) setActive(requestId);
+  }
 
   const expert = settings.expertMode === true;
   // Comm templates is expert-gated AND requires the Turso-backed feature gate.

@@ -121,7 +121,7 @@ export function ActionRow({ lang, action, onOpen, onSnooze, onCreateTask, assign
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); onOpen(action); }}
-          className="rounded-md border border-line px-3 py-1 text-xs font-medium text-AIPM-dark-blue hover:bg-surface-muted dark:text-AIPM-light-grey"
+          className="rounded-md border border-line px-3 py-1 text-xs font-medium text-AIPM-dark-blue transition-colors hover:border-AIPM-dark-blue/40 hover:bg-surface-muted dark:text-AIPM-light-grey"
         >
           {t(lang, "actionOpen")}
         </button>
@@ -129,7 +129,7 @@ export function ActionRow({ lang, action, onOpen, onSnooze, onCreateTask, assign
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); onDraftMessage(action); }}
-            className="rounded-md border border-line px-2 py-1 text-xs font-medium text-AIPM-dark-blue hover:bg-surface-muted dark:text-AIPM-light-grey"
+            className="rounded-md border border-line px-2 py-1 text-xs font-medium text-AIPM-dark-blue transition-colors hover:border-AIPM-dark-blue/40 hover:bg-surface-muted dark:text-AIPM-light-grey"
           >
             {t(lang, "actionDraftMessage")}
           </button>
@@ -138,7 +138,7 @@ export function ActionRow({ lang, action, onOpen, onSnooze, onCreateTask, assign
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); onCreateTask(action); }}
-            className="rounded-md border border-line px-2 py-1 text-xs font-medium text-AIPM-dark-blue hover:bg-surface-muted dark:text-AIPM-light-grey"
+            className="rounded-md border border-line px-2 py-1 text-xs font-medium text-AIPM-dark-blue transition-colors hover:border-AIPM-dark-blue/40 hover:bg-surface-muted dark:text-AIPM-light-grey"
           >
             {t(lang, "actionCreateTask")}
           </button>
