@@ -119,7 +119,6 @@ const enUS = {
 
   showMore: "Show more",
   showLess: "Show less",
-  tableResizeHint: "Drag the bottom-right corner to resize the table.",
   tableResetSize: "Reset size",
   tableResetSizeHint: "Reset back to the default size.",
   colResetWidthsHint: "Reset all column widths back to their defaults.",
@@ -455,6 +454,7 @@ const enUS = {
   aiPromptTrendActLabel: "Act on trend",
   aiPromptTrendActBody: "Given the current trends, what should I do to stay on track?",
   versionHighlightAiAskClaude: "Ask Claude about any view: one-tap foundational prompts and view-specific suggestions in the AI Assistant.",
+  versionHighlightUiBatch0990: "Resizable panes, dashboard trend deltas, grouped reports, and a clearer Ask Claude button.",
 
   aiConsentTitle: "Enable Claude chat?",
   aiConsentBullet1:
@@ -1663,6 +1663,7 @@ const enUS = {
   actionLearningOn: "ON",
   actionLearningOff: "OFF",
   actionLearningGoToSettings: "Open Next-actions settings",
+  actionLearningTooltip: "Action ranking learns from your act/snooze/dismiss choices. Click to open its settings.",
   stakeholderNeedsComms: "Needs communication — open in the Action Center",
   versionHighlightUiBatchVm: "Influence/Interest, Action Center, and dashboard polish, plus scalable sample datasets.",
   versionHighlightAiContextCore: "Claude now reads your operating guides and adapts to your app mode and current view, advising as a senior project manager.",
@@ -1942,6 +1943,7 @@ const enUS = {
   dashboardStatusClear: "Clear",
   dashboardShowTrends: "Show trends",
   dashboardHideTrends: "Hide trends",
+  dashboardTrendsNoBaseline: "No baseline snapshot yet — set one in Trends.",
   notifUseGlobalLeadDays: "Use one global lead time (days ahead)",
   notifGlobalLeadDaysHint: "Untick to set each reminder's lead time individually.",
   notifJiraTokenError: "Show Jira token error banner",

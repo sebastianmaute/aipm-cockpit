@@ -46,6 +46,10 @@ interface SettingsViewProps {
   onChangeLearningConfig?: (c: NextActionsLearningConfig) => void;
   onResetLearning?: () => void;
   onOpenInsights?: () => void;
+  /** Deep-link target: when this changes, the view navigates to the named
+   *  section. The `nonce` lets a repeated request (same section) re-navigate
+   *  after the user has clicked elsewhere. */
+  requestSection?: { id: SectionId; nonce: number };
 }
 
 type SectionId =
@@ -85,16 +89,32 @@ export function SettingsView(props: SettingsViewProps) {
   const [activeRaw, setActive] = useState<SectionId>("general");
   const [showVersion, setShowVersion] = useState(false);
 
+  // Deep-link: honor an external request to jump to a specific section (e.g. the
+  // Action Center's "Learning is ON/OFF" pill jumps here to nextActions). We
+  // reconcile during render (React's "adjusting state when a prop changes"
+  // pattern) rather than in an effect — set-state-in-effect is lint-banned. The
+  // nonce makes a repeated request (same section) re-navigate.
+  const requestNonce = props.requestSection?.nonce;
+  const requestId = props.requestSection?.id;
+  const [handledNonce, setHandledNonce] = useState<number | undefined>(requestNonce);
+  if (requestNonce !== handledNonce) {
+    setHandledNonce(requestNonce);
+    if (requestId) setActive(requestId);
+  }
+
   const expert = settings.expertMode === true;
   // Comm templates is expert-gated AND requires the Turso-backed feature gate.
   const commTemplatesVisible =
     props.commTemplatesEnabled === true && expert && !!RAIL.find((r) => r.id === "templates");
   // Appearance + Storage are folded into General; Comm Templates can lose its
-  // rail entry when its feature gate (or expert mode) flips off. Coerce any
-  // stale/now-hidden selection back to General so the pane never goes blank.
+  // rail entry when its feature gate (or expert mode) flips off; Next-actions is
+  // expert-only and loses its rail entry when expert mode is off. Coerce any
+  // stale/now-hidden selection back to General so the pane never goes blank (no
+  // ghost section with a body but no matching rail item).
   const active: SectionId =
     activeRaw === "appearance" ||
     activeRaw === "storage" ||
+    (activeRaw === "nextActions" && !expert) ||
     (activeRaw === "commTemplates" && !commTemplatesVisible)
       ? "general"
       : activeRaw;

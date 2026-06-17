@@ -52,7 +52,10 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
   never renders at scan time). Qualify the label; don't trust a green axe run with a single seeded row.
   Moving/folding a control INTO an axe-scanned view re-scans it: the gate scans `Settings`→General, so
   folding Storage/Appearance into General surfaced a pre-existing unlabeled `<select>` (a visible
-  `<span>` label is NOT an `aria-label`/`<label>`) as axe-critical. Verify IA/UI/contrast changes with
+  `<span>` label is NOT an `aria-label`/`<label>`) as axe-critical.
+  The `A11Y_VIEWS` list (`e2e/a11y.spec.ts`) is 12 named views and does NOT include the chat/AI-Assistant
+  view — controls only on the chat surface aren't scanned, but anything in the always-present top bar IS
+  (scanned via every view). Verify IA/UI/contrast changes with
   `npx playwright test e2e/a11y.spec.ts --project=chromium -g "<View>"` (~16s, webServer auto-starts)
   BEFORE pushing — the unit suite (`test:run` = vitest) never runs playwright, so axe regressions slip
   the local gate and fail ONLY in CI.
@@ -96,6 +99,12 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
   task-manager → workspace-section → ActionsPanel → ActionRow (ActionsPanel renders in
   workspace-section, not task-manager, and renders TWO ActionRow lists — tier + monitor — so a new
   CTA prop must be threaded to BOTH); the `next-actions/` engine stays pure.
+- The shell renders the top bar in TWO independent places, both built in `task-manager.tsx`: the
+  classic `AppHeader` (`appHeaderEl`, used by the classic main-window `legacyTree`) and the modern
+  `ModernShell` `topBarMenus` slot (the DEFAULT layout). A new top-bar control must be wired into
+  BOTH or it's invisible in whichever layout you forgot (the modern default is the easy miss). The
+  popout `legacyTree` branch (`isPopout ? …`) renders NO header, so header controls correctly never
+  appear in popouts.
 - Heavy browser-only deps (rich-text editor, etc.) load via `next/dynamic({ ssr: false })` to
   stay off the main bundle; ProseMirror/Tiptap-style libs need `Range.getClientRects` +
   `getBoundingClientRect` jsdom stubs in their tests.

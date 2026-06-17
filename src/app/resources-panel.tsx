@@ -40,7 +40,7 @@ import {
 } from "./types";
 import { resourceDisplayName } from "./resource-foundation";
 import { useColumnResize } from "./use-column-resize";
-import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton, ResizeCornerHint } from "./task-manager-ui";
+import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton } from "./task-manager-ui";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import { useResizable } from "./use-resizable";
 import { RagBadge } from "./rag-badge";
@@ -701,7 +701,6 @@ function ResourcesPanelInner({
           />
         </>
       )}
-      <ResizeCornerHint lang={lang} />
     </section>
   );
 }

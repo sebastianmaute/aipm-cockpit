@@ -720,7 +720,14 @@ function TaskManagerInner() {
     [requestOpen],
   );
   const onJumpToComms = isPopout ? undefined : jumpToComms;
-  const onOpenLearningSettings = useCallback(() => setActiveTab("settings"), [setActiveTab]);
+  // Deep-link the Action Center's "Learning is ON/OFF" pill to the Next-actions
+  // settings section (where the learning controls live) — not the bare Settings
+  // root. The nonce re-fires navigation even on a repeat click.
+  const [settingsSectionRequest, setSettingsSectionRequest] = useState<{ id: "nextActions"; nonce: number } | undefined>(undefined);
+  const onOpenLearningSettings = useCallback(() => {
+    setSettingsSectionRequest((prev) => ({ id: "nextActions", nonce: (prev?.nonce ?? 0) + 1 }));
+    setActiveTab("settings");
+  }, [setActiveTab]);
   const openAction = useCallback(
     (a: SuggestedAction) => {
       if (a.cta.kind === "open") requestOpen(a.cta.view, Number(a.cta.id));
@@ -1716,6 +1723,7 @@ function TaskManagerInner() {
       onChangeLearningConfig={isPopout ? undefined : (c) => setSettings((s) => ({ ...s, nextActionsLearning: c }))}
       onResetLearning={isPopout ? undefined : () => { void learning.reset(); }}
       onOpenInsights={isPopout ? undefined : () => setActiveTab("learning-insights")}
+      requestSection={settingsSectionRequest}
     />
   );
 

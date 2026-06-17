@@ -42,7 +42,7 @@ import { RaidEditModal } from "./raid-edit-modal";
 import { useColumnResize } from "./use-column-resize";
 import { useResizable } from "./use-resizable";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
-import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton, ResizeCornerHint } from "./task-manager-ui";
+import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton } from "./task-manager-ui";
 import { InfoTooltip } from "./info-tooltip";
 
 const RAID_COL_WIDTHS = {
@@ -663,7 +663,6 @@ function RaidPanelInner({
           }}
         />
       )}
-      <ResizeCornerHint lang={lang} />
     </div>
   );
 }

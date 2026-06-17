@@ -122,8 +122,6 @@ export const de: Record<TranslationKey, string> = {
 
   showMore: "Mehr anzeigen",
   showLess: "Weniger anzeigen",
-  tableResizeHint:
-    "Ziehe die untere rechte Ecke, um die Tabellengröße zu ändern.",
   tableResetSize: "Größe zurücksetzen",
   tableResetSizeHint: "Auf die Standardgröße zurücksetzen.",
   colResetWidthsHint: "Alle Spaltenbreiten auf die Standardwerte zurücksetzen.",
@@ -457,6 +455,7 @@ export const de: Record<TranslationKey, string> = {
   aiPromptTrendActLabel: "Auf Trend reagieren",
   aiPromptTrendActBody: "Was sollte ich angesichts der aktuellen Trends tun, um im Plan zu bleiben?",
   versionHighlightAiAskClaude: "Claude zu jeder Ansicht fragen: Grundlegende Prompts mit einem Tipp und ansichtsspezifische Vorschläge im KI-Assistenten.",
+  versionHighlightUiBatch0990: "Anpassbare Bereiche, Trend-Deltas im Dashboard, gruppierte Berichte und eine klarere Schaltfläche \"Ask Claude\".",
 
   aiConsentTitle: "Claude-Chat aktivieren?",
   aiConsentBullet1:
@@ -1690,6 +1689,7 @@ export const de: Record<TranslationKey, string> = {
   actionLearningOn: "EIN",
   actionLearningOff: "AUS",
   actionLearningGoToSettings: "Einstellungen für nächste Aktionen öffnen",
+  actionLearningTooltip: "Die Aktions-Priorisierung lernt aus deinen Erledigt-/Schlummern-/Verwerfen-Entscheidungen. Klicken, um die Einstellungen zu öffnen.",
   stakeholderNeedsComms: "Kommunikation nötig — im Aktionscenter öffnen",
   versionHighlightUiBatchVm: "Verbesserungen an Einfluss/Interesse, Aktionscenter und Dashboard sowie skalierbare Beispieldaten.",
   versionHighlightAiContextCore: "Claude liest jetzt Ihre Betriebsleitfäden und passt sich an Ihren App-Modus und die aktuelle Ansicht an – als Berater in der Rolle eines leitenden Projektmanagers.",
@@ -1929,6 +1929,7 @@ export const de: Record<TranslationKey, string> = {
   dashboardStatusClear: "Leeren",
   dashboardShowTrends: "Trends anzeigen",
   dashboardHideTrends: "Trends ausblenden",
+  dashboardTrendsNoBaseline: "Noch kein Baseline-Snapshot — in Trends festlegen.",
   notifUseGlobalLeadDays: "Eine globale Vorlaufzeit (Tage im Voraus) verwenden",
   notifGlobalLeadDaysHint: "Deaktivieren, um die Vorlaufzeit jeder Erinnerung einzeln festzulegen.",
   notifJiraTokenError: "Jira-Token-Fehlerbanner anzeigen",

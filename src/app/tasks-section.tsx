@@ -18,7 +18,6 @@ import type { SuggestedAction } from "./next-actions/types";
 import {
   EraserIcon,
   ResetColWidthsButton,
-  ResizeCornerHint,
   ResetSizeIcon,
   SortableTh,
   Th,
@@ -555,7 +554,6 @@ export function TasksSection({
           </table>
         </RowContextProvider>
       </div>
-      <ResizeCornerHint lang={lang} />
     </section>
   );
 }

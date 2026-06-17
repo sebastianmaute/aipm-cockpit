@@ -28,7 +28,7 @@ import { type Lang, t } from "./i18n";
 import { SegmentedControl } from "./segmented-control";
 import { useColumnResize } from "./use-column-resize";
 import { useResizable } from "./use-resizable";
-import { ColumnResizeHandle, PrintButton, ResetColWidthsButton, ResetSizeButton, ResizeCornerHint } from "./task-manager-ui";
+import { ColumnResizeHandle, PrintButton, ResetColWidthsButton, ResetSizeButton } from "./task-manager-ui";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 
@@ -322,7 +322,6 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
           </table>
         </div>
       )}
-      <ResizeCornerHint lang={lang} />
     </section>
   );
 }

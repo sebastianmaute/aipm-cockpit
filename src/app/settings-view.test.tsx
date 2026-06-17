@@ -143,4 +143,38 @@ describe("SettingsView", () => {
       screen.queryByRole("button", { name: t("en-US", "settingsSectionCommTemplates") }),
     ).toBeNull();
   });
+
+  it("coerces a nextActions deep-link to General (no ghost section) when expert mode is off", () => {
+    // A deep-link targets the expert-only Next-actions section while expert mode
+    // is OFF — its rail entry is filtered out, so the body must fall back to
+    // General rather than render a ghost section with no matching rail item.
+    render(
+      <SettingsView
+        {...makeProps({ requestSection: { id: "nextActions", nonce: 1 } })}
+      />,
+    );
+    // General lands (Appearance subheading visible); no Next-actions rail entry.
+    expect(
+      screen.getByRole("heading", { name: t("en-US", "settingsSectionAppearance") }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: t("en-US", "settingsSectionNextActions") }),
+    ).toBeNull();
+  });
+
+  it("a nextActions deep-link lands on Next-actions when expert mode is on", () => {
+    render(
+      <SettingsView
+        {...makeProps({
+          settings: { ...defaultSettings, expertMode: true },
+          requestSection: { id: "nextActions", nonce: 1 },
+        })}
+      />,
+    );
+    // Expert mode keeps the deep-link target: the Next-actions rail entry exists
+    // and the Appearance (General) subheading is not what is shown.
+    expect(
+      screen.getByRole("button", { name: t("en-US", "settingsSectionNextActions") }),
+    ).toBeInTheDocument();
+  });
 });

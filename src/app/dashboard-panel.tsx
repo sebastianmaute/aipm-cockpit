@@ -16,6 +16,9 @@ import { RagBadge } from "./rag-badge";
 import { BurndownCharts } from "./burndown-chart";
 import { ActionRow } from "./action-row";
 import type { SuggestedAction } from "./next-actions/types";
+import { useResizable } from "./use-resizable";
+import { VarianceSummary } from "./variance-summary";
+import type { VarianceRow } from "./snapshot";
 
 interface DashboardPanelProps {
   lang: Lang;
@@ -42,6 +45,8 @@ interface DashboardPanelProps {
   onOpenAction?: (a: SuggestedAction) => void;
   showTrends?: boolean;
   onToggleTrends?: (show: boolean) => void;
+  variance?: readonly VarianceRow[];
+  tursoActive?: boolean;
 }
 
 const CHANGE_STATUS_KEY: Record<ChangeStatus, TranslationKey> = {
@@ -88,8 +93,9 @@ export function DashboardPanel(props: DashboardPanelProps) {
   const { lang, today, onOpenRaid, onOpenTask, topActions, onOpenAction } = props;
   const { showRaid = true, showBudget = true, showMilestones = true, showChanges = true } = props;
   const showTrends = props.showTrends !== false;
+  const varianceRows = props.variance ?? [];
   const { status, setStatus } = useWorkspace();
-  const sizeRef = useRef<HTMLDivElement | null>(null);
+  const { ref: sizeRef, reset: resetSize } = useResizable("lop-app:dashboard-size");
 
   const locale = localeFor(lang);
   const money = (n: number) => formatCurrency(n, props.plan.currency || "EUR", locale);
@@ -157,10 +163,15 @@ export function DashboardPanel(props: DashboardPanelProps) {
     if ((status.narrative ?? "") !== "") {
       setStatus((s) => ({ ...s, narrative: "", narrativeUpdatedAt: new Date().toISOString() }));
     }
+    // Reset the box back to its default (min-h-24) resting height immediately so it
+    // never stays stuck at a previously-grown tall height. The useEffect([draftNarrative])
+    // pass re-measures after the cleared value lands in the DOM; this handler call just
+    // avoids any tall-flash window before that runs.
+    if (narrativeRef.current) resizeNarrative(narrativeRef.current);
   };
 
   return (
-    <ReportCard lang={lang} sizeRef={sizeRef} onResetSize={() => undefined} title={t(lang, "navDashboard")}>
+    <ReportCard lang={lang} sizeRef={sizeRef} onResetSize={resetSize} title={t(lang, "navDashboard")}>
       <div className="space-y-4">
         {/* Overall band */}
         <div className="flex flex-wrap items-center gap-4 rounded-lg border border-line bg-surface p-4">
@@ -398,7 +409,13 @@ export function DashboardPanel(props: DashboardPanelProps) {
             <h3 className="mb-2 text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
               {t(lang, "navTrends")}
             </h3>
-            <p className="text-sm text-muted-foreground">{t(lang, "trendsRequireTurso")}</p>
+            {!props.tursoActive ? (
+              <p className="text-sm text-muted-foreground">{t(lang, "trendsRequireTurso")}</p>
+            ) : varianceRows.length === 0 ? (
+              <p className="text-sm text-muted-foreground">{t(lang, "dashboardTrendsNoBaseline")}</p>
+            ) : (
+              <VarianceSummary variance={varianceRows} lang={lang} />
+            )}
           </div>
         ) : null}
 

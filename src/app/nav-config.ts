@@ -70,17 +70,17 @@ export const NAV_GROUPS: NavGroup[] = [
           { view: "manage-roles" },
         ],
       },
-      { view: "budget", children: [{ view: "budget-report" }] },
+      { view: "budget" },
     ],
   },
   {
     labelKey: "navGroupRegisters",
     items: [
-      { view: "raid", children: [{ view: "raid-report" }] },
+      { view: "raid" },
       { view: "changes", children: [{ view: "change-report" }] },
       { view: "stakeholders", children: [{ view: "raci" }, { view: "stakeholder-map" }] },
       { view: "documents" },
-      { view: "reports" },
+      { view: "reports", children: [{ view: "budget-report" }, { view: "raid-report" }] },
     ],
   },
   {

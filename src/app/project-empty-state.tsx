@@ -28,7 +28,7 @@ import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
 import { type NewProjectOpts } from "./new-project-workspace";
 import { type Settings } from "./settings-types";
-import { ResetSizeButton, ResizeCornerHint } from "./task-manager-ui";
+import { ResetSizeButton } from "./task-manager-ui";
 import { useResizable } from "./use-resizable";
 import { type ProjectMeta, type Resource } from "./types";
 
@@ -191,7 +191,6 @@ export function ProjectEmptyState({
           )}
         </div>
 
-        <ResizeCornerHint lang={lang} />
       </div>
 
       {configModal !== null && (
