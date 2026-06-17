@@ -68,6 +68,7 @@ import { useActionSnooze } from "./use-action-snooze";
 import { useActionNotifications } from "./use-action-notifications";
 import { isReportPopoutTab, openPopoutWindow } from "./broadcast-sync";
 import { ModernShell } from "./modern-shell";
+import { AskClaudeMenu } from "./ask-claude-menu";
 import { useHashView } from "./use-hash-view";
 import { navLabelKey, filterNavGroups } from "./nav-config";
 import type { AppView } from "./nav-config";
@@ -1768,16 +1769,26 @@ function TaskManagerInner() {
       };
 
   const topBarMenus = (
-    <ActionMenus
-      lang={lang}
-      onCommand={handleCommand}
-      onVoiceError={(msg) => showToast("error", msg)}
-      exportConfig={settings.export ?? defaultExportConfig}
-      templates={projectTemplates}
-      onSaveTemplate={handleSaveTemplate}
-      onApplyTemplate={handleApplyTemplate}
-      expertMode={settings.expertMode}
-    />
+    <>
+      {/* Ask-Claude lives in the modern top bar too — the classic AppHeader wires
+          it separately (appHeaderEl); without this the menu would be invisible in
+          the default modern layout. */}
+      <AskClaudeMenu
+        lang={lang}
+        currentView={activeTab}
+        onAsk={(body) => requestChat(body, true)}
+      />
+      <ActionMenus
+        lang={lang}
+        onCommand={handleCommand}
+        onVoiceError={(msg) => showToast("error", msg)}
+        exportConfig={settings.export ?? defaultExportConfig}
+        templates={projectTemplates}
+        onSaveTemplate={handleSaveTemplate}
+        onApplyTemplate={handleApplyTemplate}
+        expertMode={settings.expertMode}
+      />
+    </>
   );
 
   // The Birthday / Jira-token / Storage reminder banners, shared by the classic

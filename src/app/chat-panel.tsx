@@ -4,9 +4,11 @@ import { memo, useEffect, useRef, useState } from "react";
 import { TOOL_DEFS, type ToolDispatcher, runTool } from "./chat-tools";
 import { type Lang, type TranslationKey, t } from "./i18n";
 import { selectActiveGuides, assembleGuideBlock, type OperatingGuide } from "./operating-guide";
-import { FOUNDATIONAL_PROMPTS } from "./ask-claude-prompts";
+import { FOUNDATIONAL_PROMPTS, type PromptDef } from "./ask-claude-prompts";
 
-type PromptChip = { labelKey: TranslationKey; bodyKey: TranslationKey; autoSend: boolean };
+// A starter chip: a prompt plus whether clicking it sends immediately
+// (foundational prompts) or just fills the input (the legacy chips).
+type PromptChip = PromptDef & { autoSend: boolean };
 
 const PROMPT_CHIPS: PromptChip[] = [
   { labelKey: "chatPromptUpdate", bodyKey: "chatPromptUpdateBody", autoSend: false },
