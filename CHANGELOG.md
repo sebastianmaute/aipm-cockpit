@@ -13,15 +13,27 @@ longer carries its own changelog comment.
 ### Fixed
 - **Turso empty state after archiving the last project** — when the portfolio is in Turso mode and the
   last active project is archived, the empty-state screen now offers a way forward instead of trapping
-  the user. It lists archived projects with a one-click **Restore**, and the **Load from file** button is
-  shown (in Turso mode it switches the portfolio to file mode and reloads, keeping the
-  `portfolioMode === "turso" ⇔ storageConfig.kind === "turso"` invariant intact). Previously "Load from
-  file" was hidden in Turso mode and no restore path existed on this screen.
+  the user. It lists archived projects with a one-click **Restore** **and a type-to-confirm Delete
+  (permanent)**, and the **Load from file** button is shown (in Turso mode it switches the portfolio to
+  file mode and reloads, keeping the `portfolioMode === "turso" ⇔ storageConfig.kind === "turso"`
+  invariant intact). Previously "Load from file" was hidden in Turso mode and no restore/delete path
+  existed on this screen.
+- **Sample-workspace data polish** — populated the previously-empty project `status` (overall RAG +
+  PM narrative) so the dashboard status summary demos real content; linked tasks #3/#9/#10 to their
+  matching resources (Aria/Sample were half-linked); corrected the Alex Example contact email to her real
+  Acme address (marked synced); and aligned the David Okoro stakeholder organization to the
+  project customer (Northwind Retail Group). Regenerated the `-big`/`-huge` datasets, the Turso SQLite
+  exports, and the golden serializer fixtures.
 
 ### Changed
 - **"Ask Claude" placement** — the Ask-Claude pill now sits in the top bar's left cluster, directly
   beside the project switcher, in both the modern and classic layouts (its dropdown now opens to the
   right so it never clips). Previously it sat in the right-hand control cluster.
+- **Influence/Interest map is interactive** — clicking a stakeholder chip on the map now opens that
+  stakeholder's editor (deep-link), instead of being inert text.
+- **Scaled demo datasets read as genuinely larger** — `scaleWorkspace` now gives replicated
+  stakeholders distinct names (and drops the now-stale shared-resource link) and qualifies replicated
+  work-item titles by workstream, instead of appending a "(2)"/"(3)" numeric suffix to identical rows.
 
 ## [0.99.0] - 2026-06-17 "Brackett"
 

@@ -84,6 +84,7 @@
           "type": "SS"
         }
       ],
+      "resourceId": 3,
       "documentLinks": []
     },
     {
@@ -247,6 +248,7 @@
           "type": "FF"
         }
       ],
+      "resourceId": 3,
       "documentLinks": [
         {
           "id": "dl-2",
@@ -282,6 +284,7 @@
           "type": "FS"
         }
       ],
+      "resourceId": 1,
       "documentLinks": []
     },
     {
@@ -383,7 +386,7 @@
     },
     {
       "id": 100001,
-      "taskName": "Design SSO architecture (2)",
+      "taskName": "Design SSO architecture — Payments",
       "assignee": "Alex Example",
       "assigneeEmail": "Sample.Dummy@example.com",
       "startDate": "2026-04-01",
@@ -414,7 +417,7 @@
     },
     {
       "id": 100002,
-      "taskName": "POC OIDC integration (2)",
+      "taskName": "POC OIDC integration — Payments",
       "assignee": "Sam Placeholder",
       "assigneeEmail": "Fictional.Jordan@example.com",
       "startDate": "2026-04-15",
@@ -443,7 +446,7 @@
     },
     {
       "id": 100003,
-      "taskName": "Stakeholder workshop (2)",
+      "taskName": "Stakeholder workshop — Payments",
       "assignee": "Taylor Specimen",
       "assigneeEmail": "aria.patel@example.com",
       "dueDate": "2026-05-05",
@@ -464,11 +467,12 @@
           "type": "SS"
         }
       ],
+      "resourceId": 3,
       "documentLinks": []
     },
     {
       "id": 100004,
-      "taskName": "Backend API skeleton (2)",
+      "taskName": "Backend API skeleton — Payments",
       "assignee": "Sam Placeholder",
       "assigneeEmail": "Fictional.Jordan@example.com",
       "startDate": "2026-05-04",
@@ -498,7 +502,7 @@
     },
     {
       "id": 100005,
-      "taskName": "Frontend login flow (2)",
+      "taskName": "Frontend login flow — Payments",
       "assignee": "Alex Example",
       "assigneeEmail": "Sample.Dummy@example.com",
       "startDate": "2026-05-15",
@@ -525,7 +529,7 @@
     },
     {
       "id": 100006,
-      "taskName": "Migration script for legacy users (2)",
+      "taskName": "Migration script for legacy users — Payments",
       "assignee": "Sam Placeholder",
       "assigneeEmail": "Fictional.Jordan@example.com",
       "startDate": "2026-05-12",
@@ -552,7 +556,7 @@
     },
     {
       "id": 100007,
-      "taskName": "Security review (2)",
+      "taskName": "Security review — Payments",
       "assignee": "Morgan Standin",
       "assigneeEmail": "Invented.Riley@example.com",
       "startDate": "2026-05-20",
@@ -578,7 +582,7 @@
     },
     {
       "id": 100008,
-      "taskName": "Load testing (2)",
+      "taskName": "Load testing — Payments",
       "assignee": "Sam Placeholder",
       "assigneeEmail": "Fictional.Jordan@example.com",
       "startDate": "2026-06-03",
@@ -608,7 +612,7 @@
     },
     {
       "id": 100009,
-      "taskName": "Documentation (2)",
+      "taskName": "Documentation — Payments",
       "assignee": "Taylor Specimen",
       "assigneeEmail": "aria.patel@example.com",
       "dueDate": "2026-06-15",
@@ -627,6 +631,7 @@
           "type": "FF"
         }
       ],
+      "resourceId": 3,
       "documentLinks": [
         {
           "id": "dl-2",
@@ -638,7 +643,7 @@
     },
     {
       "id": 100010,
-      "taskName": "Production cutover (2)",
+      "taskName": "Production cutover — Payments",
       "assignee": "Alex Example",
       "assigneeEmail": "Sample.Dummy@example.com",
       "dueDate": "2026-06-20",
@@ -662,11 +667,12 @@
           "type": "FS"
         }
       ],
+      "resourceId": 1,
       "documentLinks": []
     },
     {
       "id": 100011,
-      "taskName": "Quarterly OKR review (2)",
+      "taskName": "Quarterly OKR review — Payments",
       "assignee": "Morgan Standin",
       "assigneeEmail": "Invented.Riley@example.com",
       "dueDate": "2026-05-30",
@@ -686,7 +692,7 @@
     },
     {
       "id": 100012,
-      "taskName": "Vendor renewal: Datadog (2)",
+      "taskName": "Vendor renewal: Datadog — Payments",
       "assignee": "Taylor Specimen",
       "assigneeEmail": "aria.patel@example.com",
       "dueDate": "2026-07-01",
@@ -711,7 +717,7 @@
     },
     {
       "id": 100013,
-      "taskName": "Dev environment setup (2)",
+      "taskName": "Dev environment setup — Payments",
       "assignee": "Sam Placeholder",
       "assigneeEmail": "Fictional.Jordan@example.com",
       "startDate": "2026-03-28",
@@ -736,7 +742,7 @@
     },
     {
       "id": 100014,
-      "taskName": "Risk & compliance kick-off (2)",
+      "taskName": "Risk & compliance kick-off — Payments",
       "assignee": "Morgan Standin",
       "assigneeEmail": "Invented.Riley@example.com",
       "startDate": "2026-04-08",
@@ -763,7 +769,7 @@
     },
     {
       "id": 200001,
-      "taskName": "Design SSO architecture (3)",
+      "taskName": "Design SSO architecture — Mobile App",
       "assignee": "Alex Example",
       "assigneeEmail": "Sample.Dummy@example.com",
       "startDate": "2026-04-01",
@@ -794,7 +800,7 @@
     },
     {
       "id": 200002,
-      "taskName": "POC OIDC integration (3)",
+      "taskName": "POC OIDC integration — Mobile App",
       "assignee": "Sam Placeholder",
       "assigneeEmail": "Fictional.Jordan@example.com",
       "startDate": "2026-04-15",
@@ -823,7 +829,7 @@
     },
     {
       "id": 200003,
-      "taskName": "Stakeholder workshop (3)",
+      "taskName": "Stakeholder workshop — Mobile App",
       "assignee": "Taylor Specimen",
       "assigneeEmail": "aria.patel@example.com",
       "dueDate": "2026-05-05",
@@ -844,11 +850,12 @@
           "type": "SS"
         }
       ],
+      "resourceId": 3,
       "documentLinks": []
     },
     {
       "id": 200004,
-      "taskName": "Backend API skeleton (3)",
+      "taskName": "Backend API skeleton — Mobile App",
       "assignee": "Sam Placeholder",
       "assigneeEmail": "Fictional.Jordan@example.com",
       "startDate": "2026-05-04",
@@ -878,7 +885,7 @@
     },
     {
       "id": 200005,
-      "taskName": "Frontend login flow (3)",
+      "taskName": "Frontend login flow — Mobile App",
       "assignee": "Alex Example",
       "assigneeEmail": "Sample.Dummy@example.com",
       "startDate": "2026-05-15",
@@ -905,7 +912,7 @@
     },
     {
       "id": 200006,
-      "taskName": "Migration script for legacy users (3)",
+      "taskName": "Migration script for legacy users — Mobile App",
       "assignee": "Sam Placeholder",
       "assigneeEmail": "Fictional.Jordan@example.com",
       "startDate": "2026-05-12",
@@ -932,7 +939,7 @@
     },
     {
       "id": 200007,
-      "taskName": "Security review (3)",
+      "taskName": "Security review — Mobile App",
       "assignee": "Morgan Standin",
       "assigneeEmail": "Invented.Riley@example.com",
       "startDate": "2026-05-20",
@@ -958,7 +965,7 @@
     },
     {
       "id": 200008,
-      "taskName": "Load testing (3)",
+      "taskName": "Load testing — Mobile App",
       "assignee": "Sam Placeholder",
       "assigneeEmail": "Fictional.Jordan@example.com",
       "startDate": "2026-06-03",
@@ -988,7 +995,7 @@
     },
     {
       "id": 200009,
-      "taskName": "Documentation (3)",
+      "taskName": "Documentation — Mobile App",
       "assignee": "Taylor Specimen",
       "assigneeEmail": "aria.patel@example.com",
       "dueDate": "2026-06-15",
@@ -1007,6 +1014,7 @@
           "type": "FF"
         }
       ],
+      "resourceId": 3,
       "documentLinks": [
         {
           "id": "dl-2",
@@ -1018,7 +1026,7 @@
     },
     {
       "id": 200010,
-      "taskName": "Production cutover (3)",
+      "taskName": "Production cutover — Mobile App",
       "assignee": "Alex Example",
       "assigneeEmail": "Sample.Dummy@example.com",
       "dueDate": "2026-06-20",
@@ -1042,11 +1050,12 @@
           "type": "FS"
         }
       ],
+      "resourceId": 1,
       "documentLinks": []
     },
     {
       "id": 200011,
-      "taskName": "Quarterly OKR review (3)",
+      "taskName": "Quarterly OKR review — Mobile App",
       "assignee": "Morgan Standin",
       "assigneeEmail": "Invented.Riley@example.com",
       "dueDate": "2026-05-30",
@@ -1066,7 +1075,7 @@
     },
     {
       "id": 200012,
-      "taskName": "Vendor renewal: Datadog (3)",
+      "taskName": "Vendor renewal: Datadog — Mobile App",
       "assignee": "Taylor Specimen",
       "assigneeEmail": "aria.patel@example.com",
       "dueDate": "2026-07-01",
@@ -1091,7 +1100,7 @@
     },
     {
       "id": 200013,
-      "taskName": "Dev environment setup (3)",
+      "taskName": "Dev environment setup — Mobile App",
       "assignee": "Sam Placeholder",
       "assigneeEmail": "Fictional.Jordan@example.com",
       "startDate": "2026-03-28",
@@ -1116,7 +1125,7 @@
     },
     {
       "id": 200014,
-      "taskName": "Risk & compliance kick-off (3)",
+      "taskName": "Risk & compliance kick-off — Mobile App",
       "assignee": "Morgan Standin",
       "assigneeEmail": "Invented.Riley@example.com",
       "startDate": "2026-04-08",
@@ -1422,7 +1431,7 @@
     {
       "id": 100001,
       "category": "R",
-      "title": "Legacy user data corruption during migration (2)",
+      "title": "Legacy user data corruption during migration — Payments",
       "description": "50k bcrypt-hashed passwords; corruption could lock users out of all services.",
       "severity": "High",
       "probability": 3,
@@ -1451,7 +1460,7 @@
     {
       "id": 100002,
       "category": "R",
-      "title": "SSO provider outage during peak hours (2)",
+      "title": "SSO provider outage during peak hours — Payments",
       "description": "Vendor-side downtime would block all logins for all users.",
       "severity": "Medium",
       "probability": 2,
@@ -1473,7 +1482,7 @@
     {
       "id": 100003,
       "category": "R",
-      "title": "Performance regression on login under load (2)",
+      "title": "Performance regression on login under load — Payments",
       "description": "Auth path adds 200ms p95 latency vs baseline; could degrade homepage TTFB.",
       "severity": "High",
       "probability": 4,
@@ -1494,7 +1503,7 @@
     {
       "id": 100004,
       "category": "R",
-      "title": "Third-party dependency with known CVE (2)",
+      "title": "Third-party dependency with known CVE — Payments",
       "description": "passport-oauth2 v1.7.0 has CVE-2024-9999 (moderate); upgrade blocked by peer-dep conflict.",
       "severity": "Medium",
       "probability": 3,
@@ -1516,7 +1525,7 @@
     {
       "id": 100005,
       "category": "A",
-      "title": "Users accept 4-hour maintenance window for cutover (2)",
+      "title": "Users accept 4-hour maintenance window for cutover — Payments",
       "description": "Comms team confirmed via survey: 92% acceptance for off-hours maintenance.",
       "severity": "Medium",
       "status": "Validated",
@@ -1532,7 +1541,7 @@
     {
       "id": 100006,
       "category": "A",
-      "title": "All team members briefed on new auth flow (2)",
+      "title": "All team members briefed on new auth flow — Payments",
       "description": "Assumed frontend devs know the new cookie/token contract.",
       "status": "Invalidated",
       "owner": "Alex Example",
@@ -1551,7 +1560,7 @@
     {
       "id": 100007,
       "category": "A",
-      "title": "Staging environment mirrors production load (2)",
+      "title": "Staging environment mirrors production load — Payments",
       "description": "Capacity planning assumes staging handles realistic load. If wrong load tests will be misleading.",
       "status": "Open",
       "owner": "Sam Placeholder",
@@ -1569,7 +1578,7 @@
     {
       "id": 100008,
       "category": "I",
-      "title": "SSO redirect loop on Safari (2)",
+      "title": "SSO redirect loop on Safari — Payments",
       "description": "SameSite=Strict cookie + cross-origin redirect chain triggers Safari ITP loop — surfaced in testing.",
       "severity": "High",
       "status": "In Progress",
@@ -1592,7 +1601,7 @@
     {
       "id": 100009,
       "category": "I",
-      "title": "Rate-limit counter not resetting correctly (2)",
+      "title": "Rate-limit counter not resetting correctly — Payments",
       "description": "Sliding-window counter in Redis does not reset on TTL expiry under high concurrency; causes spurious 429s.",
       "severity": "High",
       "status": "Open",
@@ -1612,7 +1621,7 @@
     {
       "id": 100010,
       "category": "I",
-      "title": "Accessibility gap in login form (2)",
+      "title": "Accessibility gap in login form — Payments",
       "description": "Missing ARIA labels on password toggle button; flagged by axe-core in CI.",
       "severity": "Low",
       "status": "Resolved",
@@ -1632,7 +1641,7 @@
     {
       "id": 100011,
       "category": "D",
-      "title": "Compliance team sign-off for production (2)",
+      "title": "Compliance team sign-off for production — Payments",
       "description": "InfoSec must approve SOC2 evidence package before cutover.",
       "severity": "Medium",
       "status": "Open",
@@ -1654,7 +1663,7 @@
     {
       "id": 100012,
       "category": "D",
-      "title": "Network team firewall changes (2)",
+      "title": "Network team firewall changes — Payments",
       "description": "Egress rules to api.sso-provider.com on 443.",
       "severity": "Medium",
       "status": "Delivered",
@@ -1675,7 +1684,7 @@
     {
       "id": 100013,
       "category": "D",
-      "title": "DBA schema approval for migration tables (2)",
+      "title": "DBA schema approval for migration tables — Payments",
       "description": "DBA must approve 3 new tables + 2 indexes before migration script can run in prod.",
       "severity": "High",
       "status": "Open",
@@ -1698,7 +1707,7 @@
     {
       "id": 200001,
       "category": "R",
-      "title": "Legacy user data corruption during migration (3)",
+      "title": "Legacy user data corruption during migration — Mobile App",
       "description": "50k bcrypt-hashed passwords; corruption could lock users out of all services.",
       "severity": "High",
       "probability": 3,
@@ -1727,7 +1736,7 @@
     {
       "id": 200002,
       "category": "R",
-      "title": "SSO provider outage during peak hours (3)",
+      "title": "SSO provider outage during peak hours — Mobile App",
       "description": "Vendor-side downtime would block all logins for all users.",
       "severity": "Medium",
       "probability": 2,
@@ -1749,7 +1758,7 @@
     {
       "id": 200003,
       "category": "R",
-      "title": "Performance regression on login under load (3)",
+      "title": "Performance regression on login under load — Mobile App",
       "description": "Auth path adds 200ms p95 latency vs baseline; could degrade homepage TTFB.",
       "severity": "High",
       "probability": 4,
@@ -1770,7 +1779,7 @@
     {
       "id": 200004,
       "category": "R",
-      "title": "Third-party dependency with known CVE (3)",
+      "title": "Third-party dependency with known CVE — Mobile App",
       "description": "passport-oauth2 v1.7.0 has CVE-2024-9999 (moderate); upgrade blocked by peer-dep conflict.",
       "severity": "Medium",
       "probability": 3,
@@ -1792,7 +1801,7 @@
     {
       "id": 200005,
       "category": "A",
-      "title": "Users accept 4-hour maintenance window for cutover (3)",
+      "title": "Users accept 4-hour maintenance window for cutover — Mobile App",
       "description": "Comms team confirmed via survey: 92% acceptance for off-hours maintenance.",
       "severity": "Medium",
       "status": "Validated",
@@ -1808,7 +1817,7 @@
     {
       "id": 200006,
       "category": "A",
-      "title": "All team members briefed on new auth flow (3)",
+      "title": "All team members briefed on new auth flow — Mobile App",
       "description": "Assumed frontend devs know the new cookie/token contract.",
       "status": "Invalidated",
       "owner": "Alex Example",
@@ -1827,7 +1836,7 @@
     {
       "id": 200007,
       "category": "A",
-      "title": "Staging environment mirrors production load (3)",
+      "title": "Staging environment mirrors production load — Mobile App",
       "description": "Capacity planning assumes staging handles realistic load. If wrong load tests will be misleading.",
       "status": "Open",
       "owner": "Sam Placeholder",
@@ -1845,7 +1854,7 @@
     {
       "id": 200008,
       "category": "I",
-      "title": "SSO redirect loop on Safari (3)",
+      "title": "SSO redirect loop on Safari — Mobile App",
       "description": "SameSite=Strict cookie + cross-origin redirect chain triggers Safari ITP loop — surfaced in testing.",
       "severity": "High",
       "status": "In Progress",
@@ -1868,7 +1877,7 @@
     {
       "id": 200009,
       "category": "I",
-      "title": "Rate-limit counter not resetting correctly (3)",
+      "title": "Rate-limit counter not resetting correctly — Mobile App",
       "description": "Sliding-window counter in Redis does not reset on TTL expiry under high concurrency; causes spurious 429s.",
       "severity": "High",
       "status": "Open",
@@ -1888,7 +1897,7 @@
     {
       "id": 200010,
       "category": "I",
-      "title": "Accessibility gap in login form (3)",
+      "title": "Accessibility gap in login form — Mobile App",
       "description": "Missing ARIA labels on password toggle button; flagged by axe-core in CI.",
       "severity": "Low",
       "status": "Resolved",
@@ -1908,7 +1917,7 @@
     {
       "id": 200011,
       "category": "D",
-      "title": "Compliance team sign-off for production (3)",
+      "title": "Compliance team sign-off for production — Mobile App",
       "description": "InfoSec must approve SOC2 evidence package before cutover.",
       "severity": "Medium",
       "status": "Open",
@@ -1930,7 +1939,7 @@
     {
       "id": 200012,
       "category": "D",
-      "title": "Network team firewall changes (3)",
+      "title": "Network team firewall changes — Mobile App",
       "description": "Egress rules to api.sso-provider.com on 443.",
       "severity": "Medium",
       "status": "Delivered",
@@ -1951,7 +1960,7 @@
     {
       "id": 200013,
       "category": "D",
-      "title": "DBA schema approval for migration tables (3)",
+      "title": "DBA schema approval for migration tables — Mobile App",
       "description": "DBA must approve 3 new tables + 2 indexes before migration script can run in prod.",
       "severity": "High",
       "status": "Open",
@@ -2756,7 +2765,7 @@
     },
     {
       "id": 100001,
-      "name": "Identity Platform – T&M (2)",
+      "name": "Identity Platform – T&M — Payments",
       "type": "tm",
       "currency": "EUR",
       "startDate": "2026-04-01",
@@ -2819,7 +2828,7 @@
     },
     {
       "id": 100002,
-      "name": "Advisory Retainer (blended) (2)",
+      "name": "Advisory Retainer (blended) — Payments",
       "type": "tm",
       "currency": "EUR",
       "startDate": "2026-04-01",
@@ -2863,7 +2872,7 @@
     },
     {
       "id": 100003,
-      "name": "Capped SOW (rate override) (2)",
+      "name": "Capped SOW (rate override) — Payments",
       "type": "tm",
       "currency": "EUR",
       "startDate": "2026-04-01",
@@ -2894,7 +2903,7 @@
     },
     {
       "id": 100004,
-      "name": "Data Migration (fixed price) (2)",
+      "name": "Data Migration (fixed price) — Payments",
       "type": "fixed",
       "currency": "EUR",
       "startDate": "2026-04-01",
@@ -2935,7 +2944,7 @@
     },
     {
       "id": 100005,
-      "name": "Discovery Phase (closed) (2)",
+      "name": "Discovery Phase (closed) — Payments",
       "type": "tm",
       "currency": "EUR",
       "startDate": "2026-04-01",
@@ -2963,7 +2972,7 @@
     },
     {
       "id": 200001,
-      "name": "Identity Platform – T&M (3)",
+      "name": "Identity Platform – T&M — Mobile App",
       "type": "tm",
       "currency": "EUR",
       "startDate": "2026-04-01",
@@ -3026,7 +3035,7 @@
     },
     {
       "id": 200002,
-      "name": "Advisory Retainer (blended) (3)",
+      "name": "Advisory Retainer (blended) — Mobile App",
       "type": "tm",
       "currency": "EUR",
       "startDate": "2026-04-01",
@@ -3070,7 +3079,7 @@
     },
     {
       "id": 200003,
-      "name": "Capped SOW (rate override) (3)",
+      "name": "Capped SOW (rate override) — Mobile App",
       "type": "tm",
       "currency": "EUR",
       "startDate": "2026-04-01",
@@ -3101,7 +3110,7 @@
     },
     {
       "id": 200004,
-      "name": "Data Migration (fixed price) (3)",
+      "name": "Data Migration (fixed price) — Mobile App",
       "type": "fixed",
       "currency": "EUR",
       "startDate": "2026-04-01",
@@ -3142,7 +3151,7 @@
     },
     {
       "id": 200005,
-      "name": "Discovery Phase (closed) (3)",
+      "name": "Discovery Phase (closed) — Mobile App",
       "type": "tm",
       "currency": "EUR",
       "startDate": "2026-04-01",
@@ -3170,7 +3179,14 @@
     }
   ],
   "fxRates": null,
-  "status": {},
+  "status": {
+    "ragOverride": "A",
+    "scheduleOverride": "A",
+    "budgetOverride": "G",
+    "scopeOverride": "G",
+    "narrative": "Migration on track for the September go-live; design sign-off is complete and the OIDC PoC validated. Schedule is amber — the legacy-user migration script is the critical-path item and load testing slips if it lands late. Budget is tracking to plan and scope is stable.",
+    "narrativeUpdatedAt": "2026-05-28T09:00:00.000Z"
+  },
   "milestones": [
     {
       "id": 1,
@@ -3200,7 +3216,7 @@
     },
     {
       "id": 100001,
-      "name": "Design Sign-off (2)",
+      "name": "Design Sign-off — Payments",
       "date": "2026-04-20",
       "linkedTaskIds": [],
       "documentLinks": [
@@ -3214,19 +3230,19 @@
     },
     {
       "id": 100002,
-      "name": "Go-Live (2)",
+      "name": "Go-Live — Payments",
       "date": "2026-09-01",
       "linkedTaskIds": []
     },
     {
       "id": 100003,
-      "name": "Hypercare Exit (2)",
+      "name": "Hypercare Exit — Payments",
       "date": "2026-12-15",
       "linkedTaskIds": []
     },
     {
       "id": 200001,
-      "name": "Design Sign-off (3)",
+      "name": "Design Sign-off — Mobile App",
       "date": "2026-04-20",
       "linkedTaskIds": [],
       "documentLinks": [
@@ -3240,13 +3256,13 @@
     },
     {
       "id": 200002,
-      "name": "Go-Live (3)",
+      "name": "Go-Live — Mobile App",
       "date": "2026-09-01",
       "linkedTaskIds": []
     },
     {
       "id": 200003,
-      "name": "Hypercare Exit (3)",
+      "name": "Hypercare Exit — Mobile App",
       "date": "2026-12-15",
       "linkedTaskIds": []
     }
@@ -3302,7 +3318,7 @@
     },
     {
       "id": 100001,
-      "title": "Add MFA to SSO scope (2)",
+      "title": "Add MFA to SSO scope — Payments",
       "description": "Extend the current SSO implementation to require multi-factor authentication (TOTP / push) for all privileged accounts before production go-live. Driven by updated InfoSec policy issued 2026-05-20.",
       "type": "Scope",
       "status": "Under Review",
@@ -3327,7 +3343,7 @@
     },
     {
       "id": 100002,
-      "title": "Extend go-live by two weeks (2)",
+      "title": "Extend go-live by two weeks — Payments",
       "description": "Proposed two-week slip of the production cutover (from 2026-09-01 to 2026-09-15) to accommodate the MFA scope addition and unresolved SSO provider SLA concerns. Allows a full regression cycle and a second hypercare rehearsal.",
       "type": "Schedule",
       "status": "Proposed",
@@ -3350,7 +3366,7 @@
     },
     {
       "id": 200001,
-      "title": "Add MFA to SSO scope (3)",
+      "title": "Add MFA to SSO scope — Mobile App",
       "description": "Extend the current SSO implementation to require multi-factor authentication (TOTP / push) for all privileged accounts before production go-live. Driven by updated InfoSec policy issued 2026-05-20.",
       "type": "Scope",
       "status": "Under Review",
@@ -3375,7 +3391,7 @@
     },
     {
       "id": 200002,
-      "title": "Extend go-live by two weeks (3)",
+      "title": "Extend go-live by two weeks — Mobile App",
       "description": "Proposed two-week slip of the production cutover (from 2026-09-01 to 2026-09-15) to accommodate the MFA scope addition and unresolved SSO provider SLA concerns. Allows a full regression cycle and a second hypercare rehearsal.",
       "type": "Schedule",
       "status": "Proposed",
@@ -3458,7 +3474,7 @@
         "2": "C",
         "3": "C"
       },
-      "organization": "Acme Corp"
+      "organization": "Northwind Retail Group"
     },
     {
       "id": 5,
@@ -3498,7 +3514,7 @@
     },
     {
       "id": 100001,
-      "name": "Elena Fischer (2)",
+      "name": "Ivan Andersen",
       "category": "Sponsor",
       "influence": "High",
       "interest": "High",
@@ -3519,7 +3535,7 @@
     },
     {
       "id": 100002,
-      "name": "Sam Placeholder (2)",
+      "name": "Nina Silva",
       "category": "Internal",
       "influence": "High",
       "interest": "Medium",
@@ -3528,12 +3544,11 @@
         "100002": "A",
         "100003": "R"
       },
-      "organization": "Acme",
-      "resourceId": 2
+      "organization": "Acme"
     },
     {
       "id": 100003,
-      "name": "Taylor Specimen (2)",
+      "name": "Liam Oliveira",
       "category": "Internal",
       "influence": "Medium",
       "interest": "High",
@@ -3542,12 +3557,11 @@
         "100002": "R",
         "100003": "I"
       },
-      "organization": "Acme",
-      "resourceId": 3
+      "organization": "Acme"
     },
     {
       "id": 100004,
-      "name": "David Okoro (2)",
+      "name": "Maya Lindqvist",
       "category": "Customer",
       "influence": "Medium",
       "interest": "Medium",
@@ -3556,11 +3570,11 @@
         "100002": "C",
         "100003": "C"
       },
-      "organization": "Acme Corp"
+      "organization": "Northwind Retail Group"
     },
     {
       "id": 100005,
-      "name": "Morgan Standin (2)",
+      "name": "Olivia Ibrahim",
       "category": "Regulator",
       "influence": "High",
       "interest": "Low",
@@ -3569,12 +3583,11 @@
         "100002": "I",
         "100003": "C"
       },
-      "organization": "InfoSec Authority",
-      "resourceId": 4
+      "organization": "InfoSec Authority"
     },
     {
       "id": 100006,
-      "name": "Lena Vogt (2)",
+      "name": "Aisha Ferraro",
       "category": "Vendor",
       "influence": "Low",
       "interest": "Low",
@@ -3583,7 +3596,7 @@
     },
     {
       "id": 100007,
-      "name": "Sam Rivera (2)",
+      "name": "Sofia Costa",
       "category": "Other",
       "influence": "Low",
       "interest": "High",
@@ -3596,7 +3609,7 @@
     },
     {
       "id": 200001,
-      "name": "Elena Fischer (3)",
+      "name": "Mateo Dubois",
       "category": "Sponsor",
       "influence": "High",
       "interest": "High",
@@ -3617,7 +3630,7 @@
     },
     {
       "id": 200002,
-      "name": "Sam Placeholder (3)",
+      "name": "Ravi Andersen",
       "category": "Internal",
       "influence": "High",
       "interest": "Medium",
@@ -3626,12 +3639,11 @@
         "200002": "A",
         "200003": "R"
       },
-      "organization": "Acme",
-      "resourceId": 2
+      "organization": "Acme"
     },
     {
       "id": 200003,
-      "name": "Taylor Specimen (3)",
+      "name": "Priya Silva",
       "category": "Internal",
       "influence": "Medium",
       "interest": "High",
@@ -3640,12 +3652,11 @@
         "200002": "R",
         "200003": "I"
       },
-      "organization": "Acme",
-      "resourceId": 3
+      "organization": "Acme"
     },
     {
       "id": 200004,
-      "name": "David Okoro (3)",
+      "name": "Ivan Oliveira",
       "category": "Customer",
       "influence": "Medium",
       "interest": "Medium",
@@ -3654,11 +3665,11 @@
         "200002": "C",
         "200003": "C"
       },
-      "organization": "Acme Corp"
+      "organization": "Northwind Retail Group"
     },
     {
       "id": 200005,
-      "name": "Morgan Standin (3)",
+      "name": "Nina Lindqvist",
       "category": "Regulator",
       "influence": "High",
       "interest": "Low",
@@ -3667,12 +3678,11 @@
         "200002": "I",
         "200003": "C"
       },
-      "organization": "InfoSec Authority",
-      "resourceId": 4
+      "organization": "InfoSec Authority"
     },
     {
       "id": 200006,
-      "name": "Lena Vogt (3)",
+      "name": "Liam Ibrahim",
       "category": "Vendor",
       "influence": "Low",
       "interest": "Low",
@@ -3681,7 +3691,7 @@
     },
     {
       "id": 200007,
-      "name": "Sam Rivera (3)",
+      "name": "Maya Ferraro",
       "category": "Other",
       "influence": "Low",
       "interest": "High",
@@ -3736,7 +3746,7 @@
       {
         "name": "Alex Example",
         "email": "Sample.Dummy@example.com",
-        "synced": false
+        "synced": true
       }
     ],
     "docRepoLocation": "https://example.sharepoint.com/sites/cip-2026/Shared Documents",

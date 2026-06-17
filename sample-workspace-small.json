@@ -84,6 +84,7 @@
           "type": "SS"
         }
       ],
+      "resourceId": 3,
       "documentLinks": []
     },
     {
@@ -247,6 +248,7 @@
           "type": "FF"
         }
       ],
+      "resourceId": 3,
       "documentLinks": [
         {
           "id": "dl-2",
@@ -282,6 +284,7 @@
           "type": "FS"
         }
       ],
+      "resourceId": 1,
       "documentLinks": []
     },
     {
@@ -1200,7 +1203,14 @@
     }
   ],
   "fxRates": null,
-  "status": {},
+  "status": {
+    "ragOverride": "A",
+    "scheduleOverride": "A",
+    "budgetOverride": "G",
+    "scopeOverride": "G",
+    "narrative": "Migration on track for the September go-live; design sign-off is complete and the OIDC PoC validated. Schedule is amber — the legacy-user migration script is the critical-path item and load testing slips if it lands late. Budget is tracking to plan and scope is stable.",
+    "narrativeUpdatedAt": "2026-05-28T09:00:00.000Z"
+  },
   "milestones": [
     {
       "id": 1,
@@ -1340,7 +1350,7 @@
         "2": "C",
         "3": "C"
       },
-      "organization": "Acme Corp"
+      "organization": "Northwind Retail Group"
     },
     {
       "id": 5,
@@ -1422,7 +1432,7 @@
       {
         "name": "Alex Example",
         "email": "Sample.Dummy@example.com",
-        "synced": false
+        "synced": true
       }
     ],
     "docRepoLocation": "https://example.sharepoint.com/sites/cip-2026/Shared Documents",

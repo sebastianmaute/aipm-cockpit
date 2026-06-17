@@ -2090,6 +2090,7 @@ function TaskManagerInner() {
                 onLoadFromFile={handleLoadFromFileEmptyState}
                 archivedProjects={tursoArchived.map((e) => ({ id: e.id, name: e.meta.name }))}
                 onRestore={handleRestoreFromEmptyState}
+                onDeleteArchived={handleHardDeleteTursoProject}
               />
             ) : settings.layout === "classic" ? (
               legacyTree

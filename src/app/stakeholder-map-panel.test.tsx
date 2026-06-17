@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+import { render, screen, within, fireEvent } from "@testing-library/react";
 import { StakeholderMapPanel } from "./stakeholder-map-panel";
 import type { Stakeholder } from "./types";
 
@@ -15,6 +15,18 @@ describe("StakeholderMapPanel", () => {
     expect(within(manage).getByText("Sam")).toBeInTheDocument();
     const monitor = screen.getByTestId("quadrant-monitor");
     expect(within(monitor).getByText("Lee")).toBeInTheDocument();
+  });
+  it("plots non-interactive text chips when no open handler is given", () => {
+    render(<StakeholderMapPanel lang="en-US" stakeholders={items} />);
+    expect(screen.queryByRole("button", { name: /Sam/ })).toBeNull();
+  });
+  it("makes chips clickable buttons that open the stakeholder editor when wired", () => {
+    const onOpenStakeholder = vi.fn();
+    render(
+      <StakeholderMapPanel lang="en-US" stakeholders={items} onOpenStakeholder={onOpenStakeholder} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Sam/ }));
+    expect(onOpenStakeholder).toHaveBeenCalledWith(1);
   });
   it("shows an empty state when there are no stakeholders", () => {
     render(<StakeholderMapPanel lang="en-US" stakeholders={[]} />);

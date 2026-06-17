@@ -112,12 +112,31 @@ describe("scaleWorkspace", () => {
     expect(replica1Raid!.stakeholderIds).toEqual([100001]);
   });
 
-  it("factor 2 suffixes replica names but leaves originals pristine", () => {
+  it("factor 2 qualifies replica work-item titles by workstream, originals pristine", () => {
     const out = scaleWorkspace(tinyWs(), 2);
     const original = out.tasks.find((t) => t.id === 1);
     const replica = out.tasks.find((t) => t.id === 100001);
     expect(original!.taskName).toBe("Build thing");
-    expect(replica!.taskName).toBe("Build thing (2)");
+    // Distinct workstream qualifier — NOT a "(2)" numeric suffix.
+    expect(replica!.taskName).toBe("Build thing — Payments");
+    expect(replica!.taskName).not.toContain("(2)");
+  });
+
+  it("gives replica stakeholders distinct names and drops the stale resource link", () => {
+    const base = tinyWs();
+    // Link the original stakeholder to a (shared, non-replicated) resource.
+    const ws = { ...base, stakeholders: [{ ...base.stakeholders![0], resourceId: 2 }] };
+    const out = scaleWorkspace(ws, 2);
+    const original = (out.stakeholders ?? []).find((s) => s.id === 1);
+    const replica = (out.stakeholders ?? []).find((s) => s.id === 100001);
+    // Replica 0 pristine: name + resource link intact.
+    expect(original!.name).toBe("Sponsor Sam");
+    expect(original!.resourceId).toBe(2);
+    // Replica is a distinct person (real name, no numeric suffix) with no stale link.
+    expect(replica!.name).not.toBe("Sponsor Sam");
+    expect(replica!.name).not.toContain("(2)");
+    expect(replica!.name).toMatch(/^\S+ \S+$/);
+    expect(replica!.resourceId).toBeUndefined();
   });
 
   it("remaps the stakeholder RACI milestone keys per replica", () => {

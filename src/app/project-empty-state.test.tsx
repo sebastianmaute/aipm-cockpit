@@ -16,6 +16,7 @@ function setup(overrides: Partial<React.ComponentProps<typeof ProjectEmptyState>
     vi.fn<(meta: ProjectMeta, format: "json" | "csv" | "md", opts?: NewProjectOpts) => void>();
   const onLoadFromFile = vi.fn();
   const onRestore = vi.fn();
+  const onDeleteArchived = vi.fn();
   render(
     <ProjectEmptyState
       lang="en-US"
@@ -27,10 +28,11 @@ function setup(overrides: Partial<React.ComponentProps<typeof ProjectEmptyState>
       onCreate={onCreate}
       onLoadFromFile={onLoadFromFile}
       onRestore={onRestore}
+      onDeleteArchived={onDeleteArchived}
       {...overrides}
     />,
   );
-  return { onCreate, onLoadFromFile, onRestore };
+  return { onCreate, onLoadFromFile, onRestore, onDeleteArchived };
 }
 
 /** Fill every required project field so the form becomes valid.
@@ -178,6 +180,23 @@ describe("ProjectEmptyState", () => {
   it("file mode does not render the archived-projects restore list", () => {
     setup({ archivedProjects: [{ id: "p1", name: "Orion" }] });
     expect(screen.queryByRole("button", { name: /restore – orion/i })).toBeNull();
+  });
+
+  it("turso archived row offers a type-to-confirm Delete that calls onDeleteArchived", () => {
+    const { onDeleteArchived } = setup({
+      mode: "turso",
+      archivedProjects: [{ id: "p1", name: "Orion" }],
+    });
+    // Per-row delete is name-qualified; clicking opens the confirm dialog.
+    fireEvent.click(screen.getByRole("button", { name: /delete permanently – orion/i }));
+    const input = screen.getByRole("textbox");
+    // Confirm stays gated until the exact project name is typed.
+    fireEvent.change(input, { target: { value: "Orion" } });
+    // Dialog confirm's accessible name is exactly "Delete permanently"; the row
+    // trigger is "Delete permanently – Orion", so exact-match hits only the dialog.
+    const confirm = screen.getByRole("button", { name: "Delete permanently", exact: true });
+    fireEvent.click(confirm);
+    expect(onDeleteArchived).toHaveBeenCalledWith("p1");
   });
 
   it("turso mode hides the file-format selector in the create view", () => {

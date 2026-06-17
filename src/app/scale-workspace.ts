@@ -54,9 +54,53 @@ function bumpArray(ids: readonly number[], offset: number): number[] {
   return ids.map((id) => id + offset);
 }
 
-/** Append " (k+1)" to a name for replicas k>=1; replica 0 stays pristine. */
-function suffixName(name: string, replica: number): string {
-  return replica === 0 ? name : `${name} (${replica + 1})`;
+// Replicas must read like a genuinely larger dataset, not the same rows with a
+// "(2)" tacked on. Work-item titles get a distinct WORKSTREAM qualifier per
+// replica; stakeholders (people) get distinct names from first/last pools. Both
+// are deterministic functions of (replica, original id) so regeneration is
+// stable. Replica 0 is always pristine (byte-identical to the input).
+
+/** Workstream qualifiers for replica titles. Length covers huge (10×) — replicas
+ *  1..9 each get a distinct word; beyond that it cycles. */
+const WORKSTREAMS = [
+  "Payments",
+  "Mobile App",
+  "Data Migration",
+  "Partner API",
+  "Compliance",
+  "Analytics",
+  "Infrastructure",
+  "Support Portal",
+  "Reporting",
+  "Onboarding",
+  "Billing",
+  "Field Services",
+] as const;
+
+/** Distinct given/family name pools (20×20 = 400 combos) for replica people. */
+const FIRST_NAMES = [
+  "Liam", "Noah", "Olivia", "Emma", "Sofia", "Mateo", "Yuki", "Priya",
+  "Omar", "Nina", "Lucas", "Maya", "Diego", "Aisha", "Felix", "Zoe",
+  "Ravi", "Clara", "Ivan", "Leila",
+] as const;
+const LAST_NAMES = [
+  "Andersen", "Bianchi", "Costa", "Dubois", "Eriksson", "Ferraro", "Gupta",
+  "Haddad", "Ibrahim", "Jensen", "Kovac", "Lindqvist", "Moreau", "Novak",
+  "Oliveira", "Petrov", "Rossi", "Silva", "Tanaka", "Varga",
+] as const;
+
+/** Replica title: original for replica 0, else `<title> — <workstream>`. */
+function qualifyTitle(title: string, replica: number): string {
+  if (replica === 0) return title;
+  return `${title} — ${WORKSTREAMS[(replica - 1) % WORKSTREAMS.length]}`;
+}
+
+/** Deterministic distinct person name for a replica (>=1) keyed by entity id.
+ *  Coprime strides spread the (replica, seed) space across the pools. */
+function variedPersonName(replica: number, seed: number): string {
+  const first = FIRST_NAMES[(seed * 31 + replica * 7) % FIRST_NAMES.length];
+  const last = LAST_NAMES[(seed * 17 + replica * 23) % LAST_NAMES.length];
+  return `${first} ${last}`;
 }
 
 // --- per-entity remap functions -------------------------------------------
@@ -71,7 +115,7 @@ function remapTask(t: Task, offset: number, replica: number): Task {
   return {
     ...t,
     id: bump(t.id, offset),
-    taskName: suffixName(t.taskName, replica),
+    taskName: qualifyTitle(t.taskName, replica),
     // resourceId -> Resource (reference data, not replicated): leave as-is.
     ...(deps ? { dependencies: deps } : {}),
   };
@@ -81,7 +125,7 @@ function remapRaid(r: RaidItem, offset: number, replica: number): RaidItem {
   return {
     ...r,
     id: bump(r.id, offset),
-    title: suffixName(r.title, replica),
+    title: qualifyTitle(r.title, replica),
     linkedTaskIds: bumpArray(r.linkedTaskIds, offset),
     causedByRaidIds: bumpArray(r.causedByRaidIds, offset),
     stakeholderIds: bumpArray(r.stakeholderIds, offset),
@@ -93,7 +137,7 @@ function remapMilestone(m: Milestone, offset: number, replica: number): Mileston
   return {
     ...m,
     id: bump(m.id, offset),
-    name: suffixName(m.name, replica),
+    name: qualifyTitle(m.name, replica),
     linkedTaskIds: bumpArray(m.linkedTaskIds, offset),
   };
 }
@@ -102,7 +146,7 @@ function remapChange(c: ChangeItem, offset: number, replica: number): ChangeItem
   return {
     ...c,
     id: bump(c.id, offset),
-    title: suffixName(c.title, replica),
+    title: qualifyTitle(c.title, replica),
     linkedTaskIds: bumpArray(c.linkedTaskIds, offset),
     linkedRaidIds: bumpArray(c.linkedRaidIds, offset),
     stakeholderIds: bumpArray(c.stakeholderIds, offset),
@@ -124,8 +168,12 @@ function remapStakeholder(
   return {
     ...s,
     id: bump(s.id, offset),
-    name: suffixName(s.name, replica),
-    // resourceId -> Resource (reference data): leave as-is.
+    // Replicas are DISTINCT people, not "Name (2)". Replica 0 stays pristine.
+    name: replica === 0 ? s.name : variedPersonName(replica, s.id),
+    // A replica's distinct name no longer matches the resource it was linked to
+    // (resources are shared reference data, not replicated), so drop the link —
+    // the renamed replica stakeholder stands alone. Replica 0 keeps its link.
+    ...(replica === 0 ? {} : { resourceId: undefined }),
     raci,
   };
 }
@@ -155,7 +203,7 @@ function remapBudget(b: BudgetBucket, offset: number, replica: number): BudgetBu
   return {
     ...b,
     id: bump(b.id, offset),
-    name: suffixName(b.name, replica),
+    name: qualifyTitle(b.name, replica),
     successorId: bumpNullable(b.successorId, offset),
     allocations: b.allocations.map(remapBucketAllocation),
     ...(b.disciplineAllocations

@@ -4,14 +4,14 @@
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 1 | Design SSO architecture | Alex Example | Sample.Dummy@example.com | 2026-04-01 | 2026-04-20 | 2026-04-22 | High |  | Reviewed OIDC vs SAML; OIDC selected based on partner roadmap. | 2026-04-22 | 0 | Auth Migration | design\|architecture |  | LOP-101 | Story |  |  |  | 1 |  |  | [{"id":"dl-1","name":"OIDC Architecture Decision.docx","url":"https://example.sharepoint.com/sites/auth-migration/Shared%20Documents/OIDC-Architecture-Decision.docx","kind":"file"}] |
 | 2 | POC OIDC integration | Sam Placeholder | Fictional.Jordan@example.com | 2026-04-15 | 2026-04-30 | 2026-05-04 | High |  | Worked through token refresh edge cases. One inquiry from product lead about UX. Merged to main. | 2026-05-04 | 1 | Auth Migration | poc\|backend | FS:1 | LOP-102 | Story |  |  |  | 2 |  |  |  |
-| 3 | Stakeholder workshop | Taylor Specimen | aria.patel@example.com |  | 2026-05-05 | 2026-05-05 | Medium |  | Workshop with security, legal, product. Action items captured in Confluence: SSO-2026-Q2. | 2026-05-05 | 0 | Auth Migration | planning\|stakeholder | SS:2 |  |  |  |  |  |  |  |  |  |
+| 3 | Stakeholder workshop | Taylor Specimen | aria.patel@example.com |  | 2026-05-05 | 2026-05-05 | Medium |  | Workshop with security, legal, product. Action items captured in Confluence: SSO-2026-Q2. | 2026-05-05 | 0 | Auth Migration | planning\|stakeholder | SS:2 |  |  |  |  |  | 3 |  |  |  |
 | 4 | Backend API skeleton | Sam Placeholder | Fictional.Jordan@example.com | 2026-05-04 | 2026-05-12 | 2026-05-13 | Urgent | Waiting on database schema review from DBA team. | Stalled while Jane is on holiday. Rate-limit middleware design needs review; current draft uses sliding-window over Redis. |  | 3 | Auth Migration | backend\|api | FS:2 | LOP-103 | Story | 2026-05-13T10:30:00.000Z | 2026-05-13T10:35:12.000Z |  | 2 |  |  |  |
 | 5 | Frontend login flow | Alex Example | Sample.Dummy@example.com | 2026-05-15 | 2026-05-22 | 2026-05-14 | High |  | React component scaffolded; need to wire token storage. Considering httpOnly cookie vs sessionStorage tradeoff. |  | 0 | Auth Migration | frontend\|ui | FS:4 |  |  |  | 2026-05-14T16:20:00.000Z |  | 1 |  |  |  |
 | 6 | Migration script for legacy users | Sam Placeholder | Fictional.Jordan@example.com | 2026-05-12 | 2026-05-25 | 2026-05-15 | High | Pending DBA approval on dry-run plan. | 50k legacy users with bcrypt-hashed passwords. Plan for incremental migration in 5k batches with rollback markers. |  | 2 | Auth Migration | backend\|migration | FS:3 |  |  |  |  | R | 2 |  |  |  |
 | 7 | Security review | Morgan Standin | Invented.Riley@example.com | 2026-05-20 | 2026-06-02 | 2026-05-15 | Medium |  | Schedule with InfoSec. Expect ~1 week turnaround. Scope: token storage, redirect URIs, CSP, session fixation. |  | 0 | Auth Migration | security\|compliance | FS:4 |  |  |  |  |  | 4 |  |  |  |
 | 8 | Load testing | Sam Placeholder | Fictional.Jordan@example.com | 2026-06-03 | 2026-06-10 | 2026-05-15 | Medium |  | Target: 10k concurrent logins/sec sustained for 30 minutes. Tools: k6 or Gatling. Hold a slot in the staging env. |  | 0 | Auth Migration | testing\|performance | FS:5\|FS:6 |  |  |  |  |  | 2 |  |  |  |
-| 9 | Documentation | Taylor Specimen | aria.patel@example.com |  | 2026-06-15 | 2026-05-10 | Low |  | Update Confluence runbook + internal API docs. Add a runbook for token rotation incidents. |  | 0 | Auth Migration | docs | FF:8 |  |  |  |  |  |  |  |  | [{"id":"dl-2","name":"API Docs (Confluence export)","url":"https://example.sharepoint.com/sites/auth-migration/Shared%20Documents/API-Docs","kind":"folder"}] |
-| 10 | Production cutover | Alex Example | Sample.Dummy@example.com |  | 2026-06-20 | 2026-05-15 | Urgent |  | Maintenance window: Sun 02:00-06:00 UTC. Rollback via DNS flip (60s TTL pre-staged). Status page banner from -30min. |  | 0 | Auth Migration | deployment\|critical | FS:7\|FS:8 |  |  |  |  |  |  |  |  |  |
+| 9 | Documentation | Taylor Specimen | aria.patel@example.com |  | 2026-06-15 | 2026-05-10 | Low |  | Update Confluence runbook + internal API docs. Add a runbook for token rotation incidents. |  | 0 | Auth Migration | docs | FF:8 |  |  |  |  |  | 3 |  |  | [{"id":"dl-2","name":"API Docs (Confluence export)","url":"https://example.sharepoint.com/sites/auth-migration/Shared%20Documents/API-Docs","kind":"folder"}] |
+| 10 | Production cutover | Alex Example | Sample.Dummy@example.com |  | 2026-06-20 | 2026-05-15 | Urgent |  | Maintenance window: Sun 02:00-06:00 UTC. Rollback via DNS flip (60s TTL pre-staged). Status page banner from -30min. |  | 0 | Auth Migration | deployment\|critical | FS:7\|FS:8 |  |  |  |  |  | 1 |  |  |  |
 | 11 | Quarterly OKR review | Morgan Standin | Invented.Riley@example.com |  | 2026-05-30 | 2026-05-08 | Medium |  | Compile Q2 metrics: KR1 conversion, KR2 incident MTTR, KR3 NPS. Slides due 48h before steering committee. |  | 0 | Operations | okr\|reporting |  |  |  |  |  |  | 4 |  |  |  |
 | 12 | Vendor renewal: Datadog | Taylor Specimen | aria.patel@example.com |  | 2026-07-01 | 2026-05-15 | Low |  | Auto-renew expires 2026-07-15. Negotiate seat count downward (we overprovisioned by ~30%). |  | 0 | Operations | vendor\|renewal | SF:11 |  |  |  |  |  | 3 |  |  |  |
 | 13 | Dev environment setup | Sam Placeholder | Fictional.Jordan@example.com | 2026-03-28 | 2026-04-04 | 2026-04-05 | Medium |  | Docker Compose stack + seed data scripts ready. All four team members confirmed access. | 2026-04-05 | 0 | Auth Migration | infra\|devops |  | LOP-100 | Task | 2026-05-13T10:30:00.000Z |  |  | 2 |  |  |  |
@@ -105,6 +105,15 @@
 | 4 | Data Migration (fixed price) | 4400098499 | fixed | EUR | 80000 | 2026-04-01 | 2026-07-31 |  | open |  |  | 1;1;2026-04=60\|2026-05=60;2026-04=62\|2026-05=58~5;5;2026-04=40;2026-04=40 |  | 3 | detailed |  |  |  |
 | 5 | Discovery Phase (closed) | 4400053230 | tm | EUR |  | 2026-04-01 | 2026-04-30 | 1 | closed | 2026-04-30 |  | 3;3;2026-04=50;2026-04=30 |  | 4 | detailed |  |  |  |
 
+## Project Status
+
+- ragOverride: A
+- scheduleOverride: A
+- budgetOverride: G
+- scopeOverride: G
+- narrative: Migration on track for the September go-live; design sign-off is complete and the OIDC PoC validated. Schedule is amber — the legacy-user migration script is the critical-path item and load testing slips if it lands late. Budget is tracking to plan and scope is stable.
+- narrativeUpdatedAt: 2026-05-28T09:00:00.000Z
+
 ## Milestones
 
 | ID | Name | Date | Description | Achieved | LinkedTasks | LocalModified | DocumentLinks | OutlookEventId |
@@ -127,7 +136,7 @@
 | 1 | Elena Fischer | Acme |  |  | Sponsor | High | High |  |  | 1=A\|2=A\|3=C |  | [{"id":"dl-5","name":"Steering Committee Deck Q2.pptx","url":"https://example.sharepoint.com/sites/auth-migration/Shared%20Documents/Steering-Deck-Q2.pptx","kind":"file"}] |
 | 2 | Sam Placeholder | Acme |  |  | Internal | High | Medium |  | 2 | 1=R\|2=A\|3=R |  |  |
 | 3 | Taylor Specimen | Acme |  |  | Internal | Medium | High |  | 3 | 1=C\|2=R\|3=I |  |  |
-| 4 | David Okoro | Acme Corp |  |  | Customer | Medium | Medium |  |  | 1=I\|2=C\|3=C |  |  |
+| 4 | David Okoro | Northwind Retail Group |  |  | Customer | Medium | Medium |  |  | 1=I\|2=C\|3=C |  |  |
 | 5 | Morgan Standin | InfoSec Authority |  |  | Regulator | High | Low |  | 4 | 1=I\|2=I\|3=C |  |  |
 | 6 | Lena Vogt | CloudVendor GmbH |  |  | Vendor | Low | Low |  |  |  |  |  |
 | 7 | Sam Rivera | Community Forum |  |  | Other | Low | High |  |  | 1=I\|2=I\|3=R |  |  |
@@ -161,7 +170,7 @@
 - sharepointUrl: https://example.sharepoint.com/sites/cip-2026
 - confluenceUrl: https://example.atlassian.net/wiki/spaces/CIP
 - jiraUrl: https://example.atlassian.net/browse/CIP
-- contactPersons: David Okoro;david.okoro@northwind.example;0|Alex Example;Sample.Dummy@example.com;0
+- contactPersons: David Okoro;david.okoro@northwind.example;0|Alex Example;Sample.Dummy@example.com;1
 - docRepoLocation: https://example.sharepoint.com/sites/cip-2026/Shared Documents
 - regulatory: GDPR / data protection regulation|NIS2
 - notes: Generated sample project for the multi-tenant Turso demo database.
