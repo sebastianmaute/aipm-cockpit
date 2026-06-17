@@ -1,7 +1,7 @@
 import "fake-indexeddb/auto";
 import { describe, it, expect, afterEach } from "vitest";
 import { sealDevice, sealPassphrase } from "./secrets";
-import { saveSealed, loadSealed, removeSealed, readDeviceSecret, isPassphraseLocked } from "./secrets-store";
+import { saveSealed, loadSealed, removeSealed, readDeviceSecret, isPassphraseLocked, migratePlaintextSecrets } from "./secrets-store";
 
 afterEach(() => localStorage.clear());
 
@@ -22,6 +22,19 @@ describe("secrets-store", () => {
   it("removeSealed deletes the entry", async () => {
     saveSealed(await sealDevice("anthropicApiKey", "sk-1"));
     removeSealed("anthropicApiKey");
+    expect(loadSealed("anthropicApiKey")).toBeNull();
+  });
+
+  it("migrates plaintext apiKey + authToken to device-sealed secrets, blanks input", async () => {
+    const blanked = await migratePlaintextSecrets({ apiKey: "sk-x", authToken: "tok-y" });
+    expect(blanked).toEqual({ apiKey: "", authToken: "" });
+    expect(await readDeviceSecret("anthropicApiKey")).toBe("sk-x");
+    expect(await readDeviceSecret("tursoAuthToken")).toBe("tok-y");
+  });
+
+  it("is a no-op when inputs are already blank", async () => {
+    const blanked = await migratePlaintextSecrets({ apiKey: "", authToken: undefined });
+    expect(blanked).toEqual({ apiKey: "", authToken: "" });
     expect(loadSealed("anthropicApiKey")).toBeNull();
   });
 });

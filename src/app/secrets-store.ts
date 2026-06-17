@@ -4,7 +4,7 @@
 // localStorage["lop-app:secrets"], keyed by SecretId; the device key lives in
 // IndexedDB (see secrets.ts). Kept OUT of lop-app:settings and out of Turso.
 
-import { type SealedSecret, type SecretId, openDevice } from "./secrets";
+import { type SealedSecret, type SecretId, openDevice, sealDevice } from "./secrets";
 
 export const SECRETS_KEY = "lop-app:secrets";
 type Store = Partial<Record<SecretId, SealedSecret>>;
@@ -52,4 +52,21 @@ export async function readDeviceSecret(id: SecretId): Promise<string | null> {
   } catch {
     return null;
   }
+}
+
+/** Seal any non-empty plaintext secrets device-wrapped (only if not already
+ *  sealed) and return the blanked values to write back into settings. Idempotent. */
+export async function migratePlaintextSecrets(input: {
+  apiKey?: string;
+  authToken?: string;
+}): Promise<{ apiKey: string; authToken: string }> {
+  const apiKey = (input.apiKey ?? "").trim();
+  const authToken = (input.authToken ?? "").trim();
+  if (apiKey && !loadSealed("anthropicApiKey")) {
+    saveSealed(await sealDevice("anthropicApiKey", apiKey));
+  }
+  if (authToken && !loadSealed("tursoAuthToken")) {
+    saveSealed(await sealDevice("tursoAuthToken", authToken));
+  }
+  return { apiKey: "", authToken: "" };
 }
