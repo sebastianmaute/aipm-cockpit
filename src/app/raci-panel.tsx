@@ -13,7 +13,7 @@ import {
 import { type RaciRole, type Stakeholder, type Milestone } from "./types";
 import { RaciChipPicker, RaciLegend } from "./raci-chip-picker";
 import { useResizable } from "./use-resizable";
-import { ResetSizeButton, ResizeCornerHint } from "./task-manager-ui";
+import { ResetSizeButton } from "./task-manager-ui";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -131,7 +131,6 @@ export function RaciPanel({ lang, stakeholders, milestones, onSave }: RaciPanelP
       </div>
 
       <RaciLegend lang={lang} />
-      <ResizeCornerHint lang={lang} />
     </div>
   );
 }

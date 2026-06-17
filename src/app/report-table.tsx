@@ -7,7 +7,6 @@ import {
   PrintButton,
   ResetColWidthsButton,
   ResetSizeButton,
-  ResizeCornerHint,
 } from "./task-manager-ui";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { InfoTooltip } from "./info-tooltip";
@@ -199,8 +198,7 @@ export function ReportCard({
           <ResetSizeButton onClick={onResetSize} lang={lang} />
         </div>
       </div>
-      <div className="min-h-0 flex-1 space-y-6 overflow-y-auto">{children}</div>
-      <ResizeCornerHint lang={lang} />
+      <div className="min-h-0 flex-1 space-y-6 overflow-y-auto pr-2">{children}</div>
     </div>
   );
 }

@@ -9,11 +9,10 @@ function Harness() {
 }
 
 describe("ReportCard", () => {
-  test("renders content inside a resizable print-root card with corner hint", () => {
+  test("renders content inside a resizable print-root card", () => {
     const { container } = render(<Harness />);
     expect(screen.getByText("body")).toBeInTheDocument();
     expect(container.querySelector(".print-root")).toBeTruthy();
-    expect(container.textContent).toContain("⠿");
   });
 
   test("opts into landscape printing via .print-landscape on the card root", () => {

@@ -29,7 +29,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { useResizable } from "./use-resizable";
-import { PrintButton, ResetSizeButton, ResizeCornerHint } from "./task-manager-ui";
+import { PrintButton, ResetSizeButton } from "./task-manager-ui";
 import { PRIORITIES, type Absence, type Milestone, type Priority, type Task } from "./types";
 import { isAchieved, milestoneStatus, MILESTONE_DUE_SOON_WORKDAYS, sortMilestones } from "./milestones";
 import {
@@ -799,7 +799,6 @@ export function GanttPanel({
             </button>
           )}
         </div>
-        <ResizeCornerHint lang={lang} />
       </div>
     );
   }
@@ -1492,7 +1491,6 @@ export function GanttPanel({
         </div>
       </div>
       </div>
-      <ResizeCornerHint lang={lang} />
     </div>
   );
 }

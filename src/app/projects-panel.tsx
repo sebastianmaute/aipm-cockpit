@@ -30,7 +30,7 @@ import { ProjectForm } from "./project-form";
 import { type ProjectRegistryEntry } from "./projects-registry";
 import { type Settings } from "./settings-types";
 import { getTursoConfig } from "./turso-config";
-import { ResetSizeButton, ResizeCornerHint } from "./task-manager-ui";
+import { ResetSizeButton } from "./task-manager-ui";
 import { TypeToConfirmDialog } from "./type-to-confirm-dialog";
 import { useResizable } from "./use-resizable";
 import { CENTERED_HALF_PANE_CLASS } from "./view-styles";
@@ -456,7 +456,6 @@ export function ProjectsPanel({
               )}
             </div>
 
-            <ResizeCornerHint lang={lang} />
           </div>
         </Modal>
       )}

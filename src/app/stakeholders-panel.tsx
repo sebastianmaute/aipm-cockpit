@@ -21,7 +21,7 @@ import {
 import { useColumnResize } from "./use-column-resize";
 import { useResizable } from "./use-resizable";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
-import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton, ResizeCornerHint } from "./task-manager-ui";
+import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton } from "./task-manager-ui";
 import { InfoTooltip } from "./info-tooltip";
 import { resourceDisplayName } from "./resource-foundation";
 
@@ -408,7 +408,6 @@ function StakeholdersPanelInner({
           }}
         />
       )}
-      <ResizeCornerHint lang={lang} />
     </div>
   );
 }

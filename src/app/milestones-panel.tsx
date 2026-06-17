@@ -18,7 +18,7 @@ import {
 import { type Lang, t } from "./i18n";
 import { nextId } from "./resource-foundation";
 import { useColumnResize } from "./use-column-resize";
-import { ColumnResizeHandle, ResizeCornerHint, ResetSizeButton } from "./task-manager-ui";
+import { ColumnResizeHandle, ResetSizeButton } from "./task-manager-ui";
 import { useResizable } from "./use-resizable";
 import { CENTERED_HALF_PANE_CLASS } from "./view-styles";
 import { TABLE_HEAD_CLASS } from "./table-styles";
@@ -303,7 +303,6 @@ export function MilestonesPanel({
           onClose={() => setEditing(null)}
         />
       ) : null}
-      <ResizeCornerHint lang={lang} />
     </div>
   );
 }

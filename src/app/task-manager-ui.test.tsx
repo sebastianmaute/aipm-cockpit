@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { SortableTh, PrintButton, ResizeCornerHint, ResetSizeButton } from "./task-manager-ui";
+import { SortableTh, PrintButton, ResetSizeButton } from "./task-manager-ui";
 
 describe("SortableTh", () => {
   it("shows a 'Sort by <label>' tooltip and a green hover for the Dark-Blue header", () => {
@@ -44,19 +44,6 @@ describe("PrintButton", () => {
   });
 });
 
-describe("ResizeCornerHint", () => {
-  it("renders the inert braille corner glyph", () => {
-    const { container } = render(<ResizeCornerHint lang="en-US" />);
-    expect(container.textContent).toContain("⠿");
-  });
-
-  it("sets aria-hidden and uses the tableResizeHint translation", () => {
-    const { container } = render(<ResizeCornerHint lang="en-US" />);
-    const span = container.querySelector("span");
-    expect(span).toHaveAttribute("aria-hidden", "true");
-    expect(span).toHaveAttribute("title", "Drag the bottom-right corner to resize the table.");
-  });
-});
 
 describe("ResetSizeButton", () => {
   it("calls onClick when clicked", async () => {

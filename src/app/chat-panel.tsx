@@ -22,7 +22,7 @@ import { CHAT_MESSAGE_MAX } from "./sanitize";
 import type { AiConfig } from "./settings-types";
 import { useAiUsageContext } from "./ai-usage-context";
 import { useResizable } from "./use-resizable";
-import { ResizeCornerHint, ResetSizeButton } from "./task-manager-ui";
+import { ResetSizeButton } from "./task-manager-ui";
 import { CENTERED_HALF_PANE_CLASS } from "./view-styles";
 
 type TextBlock = { type: "text"; text: string };
@@ -556,7 +556,6 @@ function ChatPanelInner({
           </button>
         </div>
       </div>
-      <ResizeCornerHint lang={lang} />
     </div>
   );
 }

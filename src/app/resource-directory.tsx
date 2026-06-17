@@ -12,7 +12,7 @@ import type { Discipline, Grade, Resource, Role } from "./types";
 import { useColumnResize } from "./use-column-resize";
 import { useResizable } from "./use-resizable";
 import { INNER_TABLE_CLASS, VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
-import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton, ResizeCornerHint } from "./task-manager-ui";
+import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton } from "./task-manager-ui";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 
 const DIRECTORY_COL_WIDTHS = {
@@ -315,7 +315,6 @@ function ResourceDirectoryInner({
           </table>
         </div>
       )}
-      <ResizeCornerHint lang={lang} />
     </div>
   );
 }

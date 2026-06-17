@@ -152,13 +152,6 @@ describe("MilestonesPanel", () => {
     expect(root.className).toContain("w-[50%]");
   });
 
-  it("contains a ResizeCornerHint (resize corner affordance)", () => {
-    const { container } = renderMilestones();
-    // ResizeCornerHint renders an aria-hidden decorative element in the corner
-    const hint = container.querySelector("[aria-hidden='true']");
-    expect(hint).not.toBeNull();
-  });
-
   it("renders a Push-to-Outlook button when onPushToOutlook is provided and calls it on click", () => {
     const onPushToOutlook = vi.fn();
     render(

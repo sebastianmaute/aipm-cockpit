@@ -289,20 +289,6 @@ export function PrintButton({
   );
 }
 
-/** Inert bottom-right corner glyph hinting the pane is drag-resizable. The real
- *  resize is the native CSS `resize` handle; this is a visual cue only. */
-export function ResizeCornerHint({ lang }: { lang: Lang }) {
-  return (
-    <span
-      aria-hidden={true}
-      title={t(lang, "tableResizeHint")}
-      className="pointer-events-none absolute bottom-1 right-1 select-none text-muted-foreground"
-    >
-      ⠿
-    </span>
-  );
-}
-
 /** Icon button that resets a pane's user-dragged size back to the fill default. */
 export function ResetSizeButton({
   onClick,

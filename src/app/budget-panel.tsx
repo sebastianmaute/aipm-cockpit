@@ -9,7 +9,7 @@ import { eurToCurrency, resolveRate } from "./fx";
 import type { Absence, BudgetBucket, Discipline, FxRates, Grade, Resource, ResourcePlan, Role } from "./types";
 import { BudgetBucketModal } from "./budget-bucket-modal";
 import { useColumnResize } from "./use-column-resize";
-import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton, ResizeCornerHint } from "./task-manager-ui";
+import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton } from "./task-manager-ui";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import { useResizable } from "./use-resizable";
 import { RagBadge } from "./rag-badge";
@@ -518,7 +518,6 @@ export function BudgetPanel(props: BudgetPanelProps) {
         />
       )}
       </div>
-      <ResizeCornerHint lang={lang} />
     </div>
   );
 }
