@@ -7,7 +7,8 @@ import { type Settings } from "./settings-types";
 import { type StorageConfig } from "./storage";
 import { useTaskForm } from "./task-form-context";
 import { type Task } from "./types";
-import { ALL_MODULE_IDS } from "./feature-modules";
+import { ALL_MODULE_IDS, deriveMode } from "./feature-modules";
+import { type AppView } from "./nav-config";
 
 function makeSettings(): Settings {
   const storageConfig: StorageConfig = { kind: "browser" };
@@ -19,6 +20,7 @@ function makeSettings(): Settings {
       apiKey: "",
       model: "claude-sonnet-4-6",
       consentAccepted: false,
+      groundInGuides: true,
     },
     notifications: {
       reminderLeadDays: 7,
@@ -101,6 +103,7 @@ function seedTasks(): Task[] {
 function renderDispatcher(
   initial: Task[] = seedTasks(),
   isReadOnly = false,
+  currentView: AppView = "open-points",
 ) {
   const setSelectedIds = vi.fn();
   const setSettings = vi.fn();
@@ -116,6 +119,7 @@ function renderDispatcher(
         setSelectedIds,
         setSettings,
         isReadOnly,
+        currentView,
       }),
     { wrapper },
   );
@@ -284,6 +288,32 @@ describe("useChatDispatcher", () => {
     expect(after).toBe(before);
   });
 
+  it("snapshot exposes mode, enabledModules, and currentView", () => {
+    const settings = makeSettings();
+    settings.features = ["raid"];
+    const setSelectedIds = vi.fn();
+    const setSettings = vi.fn();
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <TestProviders>{children}</TestProviders>
+    );
+    const { result } = renderHook(
+      () =>
+        useChatDispatcher({
+          settings,
+          today: "2026-05-19",
+          setSelectedIds,
+          setSettings,
+          isReadOnly: false,
+          currentView: "milestones",
+        }),
+      { wrapper },
+    );
+    const snap = result.current.getSnapshot();
+    expect(snap.enabledModules).toEqual(["raid"]);
+    expect(snap.mode).toBe(deriveMode(["raid"]));
+    expect(snap.currentView).toBe("milestones");
+  });
+
   it("dispatcher identity is stable across editingId-change re-renders", () => {
     // Render the hook AND useTaskForm in the same TestProviders wrapper so
     // setEditingId triggers a re-render of the dispatcher's host component.
@@ -294,6 +324,7 @@ describe("useChatDispatcher", () => {
         setSelectedIds: vi.fn(),
         setSettings: vi.fn(),
         isReadOnly: false,
+        currentView: "open-points",
       });
       const form = useTaskForm();
       return { dispatcher, form };

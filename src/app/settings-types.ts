@@ -26,6 +26,7 @@ export type AiConfig = {
   consentAccepted: boolean;
   sessionTokenCap?: number;
   weeklyTokenCap?: number;
+  groundInGuides: boolean;
 };
 
 export const defaultAiConfig: AiConfig = {
@@ -34,6 +35,7 @@ export const defaultAiConfig: AiConfig = {
   consentAccepted: false,
   sessionTokenCap: DEFAULT_SESSION_TOKEN_CAP,
   weeklyTokenCap: DEFAULT_WEEKLY_TOKEN_CAP,
+  groundInGuides: true,
 };
 
 export function sanitizeAiConfig(raw: unknown): AiConfig {
@@ -56,6 +58,7 @@ export function sanitizeAiConfig(raw: unknown): AiConfig {
     consentAccepted: obj.consentAccepted === true,
     sessionTokenCap: coerceCap(obj.sessionTokenCap, DEFAULT_SESSION_TOKEN_CAP),
     weeklyTokenCap: coerceCap(obj.weeklyTokenCap, DEFAULT_WEEKLY_TOKEN_CAP),
+    groundInGuides: obj.groundInGuides !== false,
   };
 }
 

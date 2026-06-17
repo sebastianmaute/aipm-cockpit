@@ -3,9 +3,11 @@ import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { useState } from "react";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { ChatPanel } from "./chat-panel";
+import { ChatPanel, buildSystemPrompt, systemBlocksText } from "./chat-panel";
 import type { ToolDispatcher } from "./chat-tools";
 import { defaultAiConfig } from "./settings-types";
+import type { OperatingGuide } from "./operating-guide";
+import type { FeatureModuleId } from "./feature-modules";
 
 const src = readFileSync(
   join(process.cwd(), "src", "app", "chat-panel.tsx"),
@@ -31,6 +33,9 @@ function makeDispatcher(): ToolDispatcher {
       taskCount: 0,
       knownGroups: [],
       knownLabels: [],
+      mode: "advanced" as const,
+      enabledModules: [] as string[],
+      currentView: "open-points" as const,
     })),
   } as unknown as ToolDispatcher;
 }
@@ -276,5 +281,144 @@ describe("chat panel layout", () => {
       reset.compareDocumentPosition(textarea) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// buildSystemPrompt — app-context + operating-guide block
+// ---------------------------------------------------------------------------
+const snap = {
+  today: "2026-06-16",
+  language: "en-US" as const,
+  holidayCountries: [] as string[],
+  storageKind: "browser",
+  taskCount: 0,
+  knownGroups: [] as string[],
+  knownLabels: [] as string[],
+  mode: "advanced" as const,
+  enabledModules: ["raid", "milestones"] as FeatureModuleId[],
+  currentView: "milestones" as const,
+};
+
+const guide: OperatingGuide = {
+  id: "g",
+  name: "Lead",
+  content: "Be decisive.",
+  enabled: true,
+  priority: 1,
+  scope: {},
+  builtIn: true,
+};
+
+describe("buildSystemPrompt app-context + guides", () => {
+  it("includes an APP CONTEXT block with mode/modules/view", () => {
+    const s = systemBlocksText(buildSystemPrompt("en-US", snap, [], true));
+    expect(s).toContain("APP CONTEXT");
+    expect(s).toContain("Mode: advanced");
+    expect(s).toContain("Current view: milestones");
+    expect(s).toContain("senior project");
+  });
+
+  it("includes in-scope guides when grounding is ON", () => {
+    const s = systemBlocksText(buildSystemPrompt("en-US", snap, [guide], true));
+    expect(s).toContain("Be decisive.");
+    expect(s).toContain("priority order");
+  });
+
+  it("omits the guide block when grounding is OFF", () => {
+    const s = systemBlocksText(buildSystemPrompt("en-US", snap, [guide], false));
+    expect(s).not.toContain("Be decisive.");
+  });
+
+  it("omits the guide block when no guide is in scope", () => {
+    const off: OperatingGuide = { ...guide, scope: { views: ["budget" as const] } };
+    const s = systemBlocksText(buildSystemPrompt("en-US", snap, [off], true));
+    expect(s).not.toContain("Be decisive.");
+  });
+
+  it("caches the stable prefix (incl. guide) and leaves volatile state uncached", () => {
+    const blocks = buildSystemPrompt("en-US", snap, [guide], true);
+    // Block 0 = cached stable prefix, contains the guide text.
+    expect(blocks[0].cache_control?.type).toBe("ephemeral");
+    expect(blocks[0].text).toContain("Be decisive.");
+    // Block 1 = uncached volatile suffix, contains the APP CONTEXT + state.
+    expect(blocks[1].cache_control).toBeUndefined();
+    expect(blocks[1].text).toContain("APP CONTEXT");
+    expect(blocks[1].text).toContain("Current view: milestones");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Prompt caching — system sent as cache-controlled content block
+// ---------------------------------------------------------------------------
+describe("prompt caching", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("sends system as a cache-controlled content block", async () => {
+    let rejectFetch!: (reason: unknown) => void;
+    const pending = new Promise<Response>((_res, rej) => { rejectFetch = rej; });
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockReturnValue(pending);
+
+    render(
+      <ChatPanel
+        lang="en-US"
+        ai={AI_WITH_KEY}
+        dispatcher={makeDispatcher()}
+        onAcceptConsent={vi.fn()}
+      />,
+    );
+
+    const textarea = screen.getByPlaceholderText("Ask Claude about your tasks…");
+    fireEvent.change(textarea, { target: { value: "hello" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Stop" })).toBeInTheDocument(),
+    );
+
+    // Capture the fetch call body before aborting.
+    expect(fetchSpy.mock.calls.length).toBeGreaterThan(0);
+    const body = JSON.parse((fetchSpy.mock.calls[0][1] as RequestInit).body as string);
+    expect(Array.isArray(body.system)).toBe(true);
+    expect(body.system[0].cache_control.type).toBe("ephemeral");
+    expect(body.system[1].cache_control).toBeUndefined();
+
+    // Clean up pending fetch.
+    const abortError = Object.assign(new Error("Aborted"), { name: "AbortError" });
+    rejectFetch(abortError);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// guidesReady gate
+// ---------------------------------------------------------------------------
+describe("guidesReady gate", () => {
+  it("disables send and shows loading placeholder when grounding is on but guides are not ready", () => {
+    render(
+      <ChatPanel
+        lang="en-US"
+        ai={{ ...defaultAiConfig, consentAccepted: true, apiKey: "sk-test", groundInGuides: true }}
+        dispatcher={{
+          listTasks: vi.fn(() => []),
+          getTask: vi.fn(() => null),
+          createTask: vi.fn(),
+          updateTask: vi.fn(() => null),
+          deleteTask: vi.fn(() => false),
+          deleteAllTasks: vi.fn(() => 0),
+          listRaid: vi.fn(() => []),
+          listChanges: vi.fn(() => []),
+          listMilestones: vi.fn(() => []),
+          listStakeholders: vi.fn(() => []),
+          listDocuments: vi.fn(() => []),
+          getSnapshot: vi.fn(() => null),
+        } as unknown as Parameters<typeof ChatPanel>[0]["dispatcher"]}
+        onAcceptConsent={vi.fn()}
+        guidesReady={false}
+      />,
+    );
+    expect(screen.getByPlaceholderText("Loading operating guides…")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
   });
 });

@@ -8,6 +8,22 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.97.0] - 2026-06-16 "Gaiman"
+
+### Added
+- **Operating-guide library** — a global store (localStorage + optional Turso, kept outside `TABLE_NAMES`
+  so saves never wipe it) holds named operating guides. Each guide has a priority, an enable toggle, and
+  optional scope tags (mode / module / view) that narrow when it is injected. A built-in leadership guide
+  is seeded as an editable default on first use.
+- **App-context awareness** — the AI system prompt now receives the current app mode (simple / modular /
+  advanced), the list of enabled modules, and the active view. Claude uses this context to act as a senior
+  project & program manager and tailor advice to what is visible on screen.
+- **"Ground Claude in operating guides" master toggle** — a new AI settings control lets users enable or
+  disable guide injection globally. An in-app guide editor (scope + priority + body) and a token-budget
+  warning are shown alongside the toggle.
+- **Prompt caching of guide text** — the stable portion of the system prompt (guides + role context) is
+  marked for prompt caching to reduce latency and token cost on repeated turns.
+
 ## [0.96.0] - 2026-06-16 "VanderMeer"
 
 ### Added

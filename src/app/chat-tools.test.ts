@@ -98,6 +98,9 @@ function makeDispatcher(over: Partial<ToolDispatcher> = {}): ToolDispatcher {
       holidayCountries: ["DE"],
       storageKind: "browser",
       taskCount: 1,
+      mode: "advanced" as const,
+      enabledModules: [] as import("./feature-modules").FeatureModuleId[],
+      currentView: "chat" as import("./nav-config").AppView,
     })),
     ...over,
   };

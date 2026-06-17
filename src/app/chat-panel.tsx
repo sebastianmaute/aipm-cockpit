@@ -3,6 +3,7 @@
 import { memo, useEffect, useRef, useState } from "react";
 import { TOOL_DEFS, type ToolDispatcher, runTool } from "./chat-tools";
 import { type Lang, type TranslationKey, t } from "./i18n";
+import { selectActiveGuides, assembleGuideBlock, type OperatingGuide } from "./operating-guide";
 
 type PromptChip = { labelKey: TranslationKey; bodyKey: TranslationKey };
 
@@ -35,6 +36,8 @@ type ToolResultBlock = {
 };
 type ContentBlock = TextBlock | ToolUseBlock | ToolResultBlock;
 
+type SystemBlock = { type: "text"; text: string; cache_control?: { type: "ephemeral" } };
+
 type ApiMessage =
   | { role: "user"; content: string | ContentBlock[] }
   | { role: "assistant"; content: ContentBlock[] };
@@ -52,22 +55,55 @@ type DisplayItem =
 
 const ANTHROPIC_VERSION = "2023-06-01";
 
-function buildSystemPrompt(
+export function buildSystemPrompt(
   lang: Lang,
   snapshot: ReturnType<ToolDispatcher["getSnapshot"]>,
-): string {
+  guides: readonly OperatingGuide[],
+  groundInGuides: boolean,
+): SystemBlock[] {
   const groups = (snapshot.knownGroups ?? []).join(", ") || "(none)";
   const labels = (snapshot.knownLabels ?? []).join(", ") || "(none)";
-  return [
+  // STABLE prefix (cached): fixed instructions that never interpolate per-call
+  // state, plus the (large) guide text. Anthropic prompt-cache is prefix-based,
+  // so this must come FIRST and contain only call-invariant content.
+  const stableInstructions = [
     "You are an assistant embedded in the List of Open Points Tracker app, a list-of-open-points task manager.",
     "The user is a project lead tracking open tasks. Each task has: id, taskName, assignee, assigneeEmail, dueDate (YYYY-MM-DD), lastUpdateDate, priority (Low/Medium/High/Urgent), blockers, notes, group (single optional category), labels (zero or more tags).",
     "Use the provided tools to read and modify the app's state. Prefer calling tools over guessing. After modifying state, briefly confirm what changed.",
     "Before deleting tasks (delete_task or delete_all_tasks) confirm with the user in chat unless they were already explicit.",
-    `Today is ${snapshot.today}. UI language is ${snapshot.language}. Respond in the user's language. Storage backend: ${snapshot.storageKind}. Current task count: ${snapshot.taskCount}.`,
-    `Known groups: ${groups}. Known labels: ${labels}. When the user mentions a category, prefer reusing an existing group or label rather than creating near-duplicates.`,
     "When the user references a task by name or fragment, call list_tasks to find its ID first.",
     `Active language code: ${lang}.`,
   ].join("\n");
+  const guideBlock = groundInGuides
+    ? assembleGuideBlock(selectActiveGuides(guides, {
+        mode: snapshot.mode, modules: snapshot.enabledModules, view: snapshot.currentView,
+      }))
+    : "";
+  const stableText = [stableInstructions, guideBlock].filter(Boolean).join("\n\n");
+
+  // VOLATILE suffix (uncached): per-call state + the APP CONTEXT block. Placed
+  // AFTER the cached prefix so it never invalidates the cache.
+  const appContext = [
+    "APP CONTEXT — adapt your behavior to this.",
+    `Mode: ${snapshot.mode}. Enabled modules: ${snapshot.enabledModules.join(", ") || "(none)"}.`,
+    `Current view: ${snapshot.currentView}.`,
+    "In simple mode keep actions minimal and never reference disabled modules.",
+    "You are acting as a senior project & program manager.",
+  ].join("\n");
+  const volatileText = [
+    `Today is ${snapshot.today}. UI language is ${snapshot.language}. Respond in the user's language. Storage backend: ${snapshot.storageKind}. Current task count: ${snapshot.taskCount}.`,
+    `Known groups: ${groups}. Known labels: ${labels}. When the user mentions a category, prefer reusing an existing group or label rather than creating near-duplicates.`,
+    appContext,
+  ].join("\n");
+
+  return [
+    { type: "text", text: stableText, cache_control: { type: "ephemeral" } },
+    { type: "text", text: volatileText },
+  ];
+}
+
+export function systemBlocksText(blocks: SystemBlock[]): string {
+  return blocks.map((b) => b.text).join("\n\n");
 }
 
 type ApiUsage = { input_tokens: number; output_tokens: number };
@@ -75,7 +111,7 @@ type ApiUsage = { input_tokens: number; output_tokens: number };
 async function callClaude(
   apiKey: string,
   model: string,
-  system: string,
+  system: SystemBlock[],
   messages: ApiMessage[],
   signal?: AbortSignal,
 ): Promise<{
@@ -94,7 +130,7 @@ async function callClaude(
     body: JSON.stringify({
       model,
       max_tokens: 4096,
-      system,
+      system: system,
       messages,
       tools: TOOL_DEFS,
     }),
@@ -129,17 +165,21 @@ function ChatPanelImpl({
   ai,
   dispatcher,
   onAcceptConsent,
+  guides = [],
+  guidesReady = true,
 }: {
   lang: Lang;
   ai: AiConfig;
   dispatcher: ToolDispatcher;
   onAcceptConsent: () => void;
+  guides?: readonly OperatingGuide[];
+  guidesReady?: boolean;
 }) {
   if (!ai.consentAccepted) {
     return <ConsentScreen lang={lang} onAccept={onAcceptConsent} />;
   }
   return (
-    <ChatPanelInner lang={lang} ai={ai} dispatcher={dispatcher} />
+    <ChatPanelInner lang={lang} ai={ai} dispatcher={dispatcher} guides={guides} guidesReady={guidesReady} />
   );
 }
 
@@ -153,10 +193,14 @@ function ChatPanelInner({
   lang,
   ai,
   dispatcher,
+  guides = [],
+  guidesReady = true,
 }: {
   lang: Lang;
   ai: AiConfig;
   dispatcher: ToolDispatcher;
+  guides?: readonly OperatingGuide[];
+  guidesReady?: boolean;
 }) {
   const [history, setHistory] = useState<ApiMessage[]>([]);
   const [display, setDisplay] = useState<DisplayItem[]>([]);
@@ -175,9 +219,11 @@ function ChatPanelInner({
     scrollerRef.current.scrollTop = scrollerRef.current.scrollHeight;
   }, [display, busy]);
 
+  const guidesPending = ai.groundInGuides && !guidesReady;
+
   async function sendMessage() {
     const text = input.trim().slice(0, CHAT_MESSAGE_MAX);
-    if (!text || busy) return;
+    if (!text || busy || guidesPending) return;
     if (!ai.apiKey.trim()) {
       setError(t(lang, "chatNoApiKey"));
       return;
@@ -196,7 +242,7 @@ function ChatPanelInner({
     setHistory(newHistory);
     setDisplay((prev) => [...prev, { kind: "user", text }]);
 
-    const system = buildSystemPrompt(lang, dispatcher.getSnapshot());
+    const system = buildSystemPrompt(lang, dispatcher.getSnapshot(), guides, ai.groundInGuides);
     const messages = newHistory.slice();
 
     try {
@@ -424,8 +470,8 @@ function ChatPanelInner({
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={onKeyDown}
-          placeholder={t(lang, "chatPlaceholder")}
-          disabled={busy || apiKeyMissing}
+          placeholder={guidesPending ? t(lang, "chatGuidesLoading") : t(lang, "chatPlaceholder")}
+          disabled={busy || apiKeyMissing || guidesPending}
           className="min-w-0 flex-1 self-stretch resize-none rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none focus:ring-1 focus:ring-AIPM-green disabled:cursor-not-allowed disabled:opacity-50"
         />
         <div className="flex flex-col gap-2">
@@ -442,7 +488,7 @@ function ChatPanelInner({
             <button
               type="button"
               onClick={sendMessage}
-              disabled={!input.trim() || apiKeyMissing}
+              disabled={!input.trim() || apiKeyMissing || guidesPending}
               className="rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {t(lang, "chatSend")}
