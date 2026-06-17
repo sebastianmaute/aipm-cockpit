@@ -119,7 +119,6 @@ const enUS = {
 
   showMore: "Show more",
   showLess: "Show less",
-  tableResizeHint: "Drag the bottom-right corner to resize the table.",
   tableResetSize: "Reset size",
   tableResetSizeHint: "Reset back to the default size.",
   colResetWidthsHint: "Reset all column widths back to their defaults.",

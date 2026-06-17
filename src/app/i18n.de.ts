@@ -122,8 +122,6 @@ export const de: Record<TranslationKey, string> = {
 
   showMore: "Mehr anzeigen",
   showLess: "Weniger anzeigen",
-  tableResizeHint:
-    "Ziehe die untere rechte Ecke, um die Tabellengröße zu ändern.",
   tableResetSize: "Größe zurücksetzen",
   tableResetSizeHint: "Auf die Standardgröße zurücksetzen.",
   colResetWidthsHint: "Alle Spaltenbreiten auf die Standardwerte zurücksetzen.",
