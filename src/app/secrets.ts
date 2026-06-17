@@ -18,6 +18,23 @@ export interface SealedSecret {
   ciphertext: string; // base64
 }
 
+const WRAP_MODES: readonly WrapMode[] = ["device", "passphrase"];
+/** Runtime validation for a value parsed from untrusted storage. */
+export function isSealedSecret(x: unknown): x is SealedSecret {
+  if (!x || typeof x !== "object") return false;
+  const s = x as Record<string, unknown>;
+  return (
+    s.v === 1 &&
+    (s.id === "anthropicApiKey" || s.id === "tursoAuthToken") &&
+    typeof s.wrap === "string" &&
+    WRAP_MODES.includes(s.wrap as WrapMode) &&
+    s.alg === "AES-GCM" &&
+    typeof s.iv === "string" &&
+    typeof s.ciphertext === "string" &&
+    (s.wrap !== "passphrase" || typeof s.salt === "string")
+  );
+}
+
 /** Wrong passphrase / tampered ciphertext. Thrown by openPassphrase/openDevice. */
 export class SecretUnlockError extends Error {
   constructor(message = "secret-unlock-failed") {
@@ -33,8 +50,8 @@ const DEVICE_KEY_ID = "device-key";
 
 const subtle = (): SubtleCrypto => globalThis.crypto.subtle;
 
-function toB64(buf: ArrayBuffer): string {
-  const bytes = new Uint8Array(buf);
+function toB64(buf: ArrayBuffer | Uint8Array): string {
+  const bytes = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
   let s = "";
   for (const b of bytes) s += String.fromCharCode(b);
   return btoa(s);
@@ -60,6 +77,7 @@ function idbOpen(): Promise<IDBDatabase> {
     req.onupgradeneeded = () => req.result.createObjectStore(STORE);
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
+    req.onblocked = () => reject(new Error("idb-blocked"));
   });
 }
 function idbGet(db: IDBDatabase, key: string): Promise<unknown> {
@@ -78,8 +96,16 @@ function idbPut(db: IDBDatabase, key: string, value: unknown): Promise<void> {
   });
 }
 
-/** Get the persisted non-extractable device key, generating + storing it once. */
-export async function getDeviceKey(): Promise<CryptoKey> {
+/** Get the persisted non-extractable device key, generating + storing it once.
+ *  A module-level singleton promise ensures concurrent callers (e.g. two tabs)
+ *  share ONE load/generate, so they can't both generate + overwrite the key and
+ *  orphan ciphertext. On failure the cache resets so a later call can retry. */
+let deviceKeyPromise: Promise<CryptoKey> | null = null;
+export function getDeviceKey(): Promise<CryptoKey> {
+  if (!deviceKeyPromise) deviceKeyPromise = loadOrCreateDeviceKey();
+  return deviceKeyPromise;
+}
+async function loadOrCreateDeviceKey(): Promise<CryptoKey> {
   const db = await idbOpen();
   try {
     const existing = (await idbGet(db, DEVICE_KEY_ID)) as CryptoKey | undefined;
@@ -90,6 +116,9 @@ export async function getDeviceKey(): Promise<CryptoKey> {
     ]);
     await idbPut(db, DEVICE_KEY_ID, key);
     return key;
+  } catch (err) {
+    deviceKeyPromise = null; // allow a later retry
+    throw err;
   } finally {
     db.close();
   }
@@ -103,7 +132,7 @@ async function aesEncrypt(
 ): Promise<SealedSecret> {
   const iv = randomBytes(12);
   const ct = await subtle().encrypt({ name: "AES-GCM", iv }, key, enc.encode(plaintext));
-  return { v: 1, id, alg: "AES-GCM", iv: toB64(iv.buffer), ciphertext: toB64(ct), ...extra } as SealedSecret;
+  return { v: 1, id, alg: "AES-GCM", iv: toB64(iv), ciphertext: toB64(ct), ...extra } as SealedSecret;
 }
 async function aesDecrypt(key: CryptoKey, s: SealedSecret): Promise<string> {
   try {
@@ -147,7 +176,7 @@ export async function sealPassphrase(
   const key = await deriveKey(passphrase, salt);
   return aesEncrypt(key, id, plaintext, {
     wrap: "passphrase",
-    salt: toB64(salt.buffer),
+    salt: toB64(salt),
     kdf: { name: "PBKDF2", iters: PBKDF2_ITERS, hash: "SHA-256" },
   });
 }

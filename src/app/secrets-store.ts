@@ -4,7 +4,7 @@
 // localStorage["lop-app:secrets"], keyed by SecretId; the device key lives in
 // IndexedDB (see secrets.ts). Kept OUT of lop-app:settings and out of Turso.
 
-import { type SealedSecret, type SecretId, openDevice, sealDevice } from "./secrets";
+import { type SealedSecret, type SecretId, openDevice, sealDevice, isSealedSecret } from "./secrets";
 
 export const SECRETS_KEY = "lop-app:secrets";
 type Store = Partial<Record<SecretId, SealedSecret>>;
@@ -12,7 +12,13 @@ type Store = Partial<Record<SecretId, SealedSecret>>;
 function readStore(): Store {
   try {
     const raw = localStorage.getItem(SECRETS_KEY);
-    return raw ? (JSON.parse(raw) as Store) : {};
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const out: Store = {};
+    for (const id of ["anthropicApiKey", "tursoAuthToken"] as const) {
+      if (isSealedSecret(parsed[id])) out[id] = parsed[id] as SealedSecret;
+    }
+    return out;
   } catch {
     return {};
   }
@@ -54,8 +60,13 @@ export async function readDeviceSecret(id: SecretId): Promise<string | null> {
   }
 }
 
-/** Seal any non-empty plaintext secrets device-wrapped (only if not already
- *  sealed) and return the blanked values to write back into settings. Idempotent. */
+/** Seal any non-empty plaintext secrets device-wrapped and return the blanked
+ *  values to write back into settings. Idempotent.
+ *
+ *  Intentional migration skip: a secret is sealed ONLY when nothing is already
+ *  sealed for that id. An already-sealed secret — including a passphrase-wrapped
+ *  one — is deliberately left untouched, so migrating legacy plaintext never
+ *  clobbers a user's chosen wrap mode (e.g. downgrading passphrase to device). */
 export async function migratePlaintextSecrets(input: {
   apiKey?: string;
   authToken?: string;

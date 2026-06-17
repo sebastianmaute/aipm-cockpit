@@ -37,4 +37,15 @@ describe("secrets-store", () => {
     expect(blanked).toEqual({ apiKey: "", authToken: "" });
     expect(loadSealed("anthropicApiKey")).toBeNull();
   });
+
+  it("migratePlaintextSecrets does not clobber an already-sealed (passphrase) secret", async () => {
+    saveSealed(await sealPassphrase("anthropicApiKey", "sk-orig", "pw"));
+    await migratePlaintextSecrets({ apiKey: "sk-new-plaintext" });
+    expect(loadSealed("anthropicApiKey")?.wrap).toBe("passphrase"); // untouched
+  });
+
+  it("ignores a corrupt/garbage secrets record in localStorage", async () => {
+    localStorage.setItem("lop-app:secrets", JSON.stringify({ anthropicApiKey: { junk: true } }));
+    expect(loadSealed("anthropicApiKey")).toBeNull();
+  });
 });
