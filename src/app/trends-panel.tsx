@@ -234,7 +234,7 @@ export function TrendsPanel(props: TrendsPanelProps) {
                       <span className="inline-flex gap-2">
                         {!s.isBaseline && (
                           <button type="button" disabled={busy} onClick={() => { void setBaseline(s.id); }}
-                            className="text-xs text-AIPM-dark-blue underline hover:opacity-80 disabled:opacity-50">
+                            className="text-xs font-medium text-AIPM-green-strong underline-offset-2 hover:underline disabled:opacity-50">
                             {t(lang, "trendsSetBaseline")}
                           </button>
                         )}
@@ -246,7 +246,7 @@ export function TrendsPanel(props: TrendsPanelProps) {
                             void deleteSnapshot(s.id);
                             setSelected((prev) => { const next = new Set(prev); next.delete(s.id); return next; });
                           }}
-                          className="text-xs text-AIPM-pink-strong underline hover:opacity-80 disabled:opacity-50"
+                          className="text-xs font-medium text-AIPM-pink-strong underline-offset-2 hover:underline disabled:opacity-50"
                         >
                           {t(lang, "snapshotDelete")}
                         </button>
