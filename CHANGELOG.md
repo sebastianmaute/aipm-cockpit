@@ -8,6 +8,21 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.99.1] - 2026-06-17 "Brackett"
+
+### Fixed
+- **Turso empty state after archiving the last project** — when the portfolio is in Turso mode and the
+  last active project is archived, the empty-state screen now offers a way forward instead of trapping
+  the user. It lists archived projects with a one-click **Restore**, and the **Load from file** button is
+  shown (in Turso mode it switches the portfolio to file mode and reloads, keeping the
+  `portfolioMode === "turso" ⇔ storageConfig.kind === "turso"` invariant intact). Previously "Load from
+  file" was hidden in Turso mode and no restore path existed on this screen.
+
+### Changed
+- **"Ask Claude" placement** — the Ask-Claude pill now sits in the top bar's left cluster, directly
+  beside the project switcher, in both the modern and classic layouts (its dropdown now opens to the
+  right so it never clips). Previously it sat in the right-hand control cluster.
+
 ## [0.99.0] - 2026-06-17 "Brackett"
 
 ### Added

@@ -38,6 +38,8 @@ interface ModernShellProps {
   navBadges?: Partial<Record<AppView, number>>;
   /** When set, renders the current-project indicator + switcher in the TopBar. */
   projectSwitcher?: ProjectSwitcherProps;
+  /** Rendered in the TopBar's left cluster beside the project switcher (Ask-Claude). */
+  projectSwitcherTrailing?: React.ReactNode;
 }
 
 export function ModernShell({
@@ -52,6 +54,7 @@ export function ModernShell({
   navGroups,
   navBadges,
   projectSwitcher,
+  projectSwitcherTrailing,
 }: ModernShellProps) {
   const [versionOpen, setVersionOpen] = useState(false);
   const isEditing = activeView === "edit";
@@ -98,6 +101,7 @@ export function ModernShell({
           primaryAction={isEditing ? editActions : undefined}
           onToggleSidebar={onToggleCollapsed}
           projectSwitcher={projectSwitcher}
+          projectSwitcherTrailing={projectSwitcherTrailing}
         >
           {topBarMenus}
         </TopBar>

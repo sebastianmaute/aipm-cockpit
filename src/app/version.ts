@@ -2,8 +2,8 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.99.0";
-export const APP_BUILD_DATE = "2026-06-17"; // 0.99.0 UI/data batch (Brackett)
+export const APP_VERSION = "0.99.1";
+export const APP_BUILD_DATE = "2026-06-17"; // 0.99.1 Turso empty-state + Ask-Claude placement fixes (Brackett)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The whole
  *  0.99.x line is "Brackett" (Leigh Brackett); patch releases inherit
  *  their minor version's codename rather than getting their own. */

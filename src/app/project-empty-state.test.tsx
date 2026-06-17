@@ -15,6 +15,7 @@ function setup(overrides: Partial<React.ComponentProps<typeof ProjectEmptyState>
   const onCreate =
     vi.fn<(meta: ProjectMeta, format: "json" | "csv" | "md", opts?: NewProjectOpts) => void>();
   const onLoadFromFile = vi.fn();
+  const onRestore = vi.fn();
   render(
     <ProjectEmptyState
       lang="en-US"
@@ -25,10 +26,11 @@ function setup(overrides: Partial<React.ComponentProps<typeof ProjectEmptyState>
       onChangeSettings={vi.fn()}
       onCreate={onCreate}
       onLoadFromFile={onLoadFromFile}
+      onRestore={onRestore}
       {...overrides}
     />,
   );
-  return { onCreate, onLoadFromFile };
+  return { onCreate, onLoadFromFile, onRestore };
 }
 
 /** Fill every required project field so the form becomes valid.
@@ -146,14 +148,36 @@ describe("ProjectEmptyState", () => {
     expect(opts?.template).toBeUndefined();
   });
 
-  it("turso mode shows Create only (no Load from file)", () => {
+  it("turso mode still offers Load from file (it switches the portfolio to file mode)", () => {
     setup({ mode: "turso" });
     expect(
       screen.getByRole("button", { name: /create a new project/i }),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: /load from an existing file/i }),
-    ).toBeNull();
+      screen.getByRole("button", { name: /load from an existing file/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("turso mode lists archived projects with a row-unique Restore button; clicking calls onRestore", () => {
+    const { onRestore } = setup({
+      mode: "turso",
+      archivedProjects: [
+        { id: "p1", name: "Orion" },
+        { id: "p2", name: "Pegasus" },
+      ],
+    });
+    // Each row has a name-qualified accessible label (WCAG 2.4.6, not N identical "Restore").
+    const restoreOrion = screen.getByRole("button", { name: /restore – orion/i });
+    expect(restoreOrion).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /restore – pegasus/i })).toBeInTheDocument();
+    fireEvent.click(restoreOrion);
+    expect(onRestore).toHaveBeenCalledTimes(1);
+    expect(onRestore).toHaveBeenCalledWith("p1");
+  });
+
+  it("file mode does not render the archived-projects restore list", () => {
+    setup({ archivedProjects: [{ id: "p1", name: "Orion" }] });
+    expect(screen.queryByRole("button", { name: /restore – orion/i })).toBeNull();
   });
 
   it("turso mode hides the file-format selector in the create view", () => {

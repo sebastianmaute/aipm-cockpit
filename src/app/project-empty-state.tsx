@@ -52,10 +52,17 @@ export interface ProjectEmptyStateProps {
     format: "json" | "csv" | "md",
     opts?: NewProjectOpts,
   ) => void;
+  /** Load a project from a local file. In Turso mode this switches the portfolio
+   *  to file mode (the host reloads); in file mode it just opens the picker. */
   onLoadFromFile: () => void;
-  /** Turso mode: hide the "Load from file" choice and hide the file-format
-   *  selector in the create view. Defaults to "file". */
+  /** Turso mode: hide the file-format selector in the create view. Defaults to
+   *  "file". "Load from file" is offered in BOTH modes (Turso → switches mode). */
   mode?: "file" | "turso";
+  /** Turso mode only: archived projects offered for one-click restore (the user
+   *  may have archived their last active project and landed here). */
+  archivedProjects?: readonly { id: string; name: string }[];
+  /** Restore an archived Turso project by id (host reloads into it). */
+  onRestore?: (id: string) => void;
 }
 
 type View = "choices" | "create";
@@ -73,6 +80,8 @@ export function ProjectEmptyState({
   onCreate,
   onLoadFromFile,
   mode = "file",
+  archivedProjects = [],
+  onRestore,
 }: ProjectEmptyStateProps) {
   const [view, setView] = useState<View>("choices");
   const [configModal, setConfigModal] = useState<null | "turso" | "m365">(null);
@@ -139,16 +148,45 @@ export function ProjectEmptyState({
                 >
                   {t(lang, "projectsEmptyCreate")}
                 </button>
-                {mode === "file" && (
-                  <button
-                    type="button"
-                    onClick={onLoadFromFile}
-                    className={SECONDARY_BUTTON_CLASS}
-                  >
-                    {t(lang, "projectsEmptyLoad")}
-                  </button>
-                )}
+                {/* Load from file is offered in BOTH modes. In Turso mode the host
+                    handler switches the portfolio to file mode and reloads. */}
+                <button
+                  type="button"
+                  onClick={onLoadFromFile}
+                  className={SECONDARY_BUTTON_CLASS}
+                >
+                  {t(lang, "projectsEmptyLoad")}
+                </button>
               </div>
+
+              {/* Restore an archived project — Turso mode only, when archived
+                  projects exist (e.g. the user just archived their last active
+                  one and would otherwise be stuck on this screen). */}
+              {mode === "turso" && onRestore && archivedProjects.length > 0 && (
+                <div className="border-t border-line pt-4">
+                  <h3 className="mb-2 text-sm font-semibold text-foreground">
+                    {t(lang, "projectsArchived")}
+                  </h3>
+                  <ul className="flex flex-col gap-2">
+                    {archivedProjects.map((p) => (
+                      <li
+                        key={p.id}
+                        className="flex items-center justify-between gap-3 rounded-md border border-line bg-surface px-3 py-2 text-sm"
+                      >
+                        <span className="min-w-0 truncate text-foreground">{p.name}</span>
+                        <button
+                          type="button"
+                          onClick={() => onRestore(p.id)}
+                          aria-label={`${t(lang, "projectsRestore")} – ${p.name}`}
+                          className={SECONDARY_BUTTON_CLASS}
+                        >
+                          {t(lang, "projectsRestore")}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
               {/* Backend setup — configure storage / integrations before there
                   is any project to fall back to. */}

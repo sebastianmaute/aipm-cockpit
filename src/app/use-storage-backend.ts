@@ -594,7 +594,10 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // `format` undefined → auto-detect: a single picker accepts every supported
   // format (JSON/CSV/Markdown) and the format is derived from the picked file's
   // extension. Passing an explicit format keeps the old per-format picker.
-  async function loadProjectFromFile(format?: LocalStorageFormat): Promise<void> {
+  async function loadProjectFromFile(
+    format?: LocalStorageFormat,
+    opts?: { switchPortfolioToFileOnSuccess?: boolean },
+  ): Promise<void> {
     if (args.isPopout) return;
     // Flush the outgoing project to its OWN backend first (best-effort). Setting
     // suppressNextSaveRef below cancels the pending debounced save, so edits made
@@ -644,6 +647,18 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       suppressNextSaveRef.current = true;
       args.setStorageConfig(storageConfig);
       args.showToast("info", t(langRef.current, "projectLoadedToast", entry.name));
+      // Cross-mode load (portfolio is currently Turso, but the user is loading a
+      // local file from the empty state): persist the mode switch + file storage
+      // config SYNCHRONOUSLY and reload so the app re-initialises in FILE mode
+      // with the just-registered project active. Mirrors migrateCurrentProjectToTurso
+      // in reverse and keeps the invariant portfolioMode==="turso" ⇔ storageConfig
+      // kind "turso" intact (here both become file). Only runs on a SUCCESSFUL load
+      // (a cancelled picker throws → the catch below, before this point).
+      if (opts?.switchPortfolioToFileOnSuccess) {
+        writeSettings({ ...settingsRef.current, storageConfig });
+        savePortfolioMode("file");
+        window.location.reload();
+      }
     } catch (err) {
       reportProjectError(err);
     }
