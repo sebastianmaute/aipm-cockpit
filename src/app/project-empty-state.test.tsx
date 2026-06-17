@@ -192,9 +192,10 @@ describe("ProjectEmptyState", () => {
     const input = screen.getByRole("textbox");
     // Confirm stays gated until the exact project name is typed.
     fireEvent.change(input, { target: { value: "Orion" } });
-    // Dialog confirm's accessible name is exactly "Delete permanently"; the row
-    // trigger is "Delete permanently – Orion", so exact-match hits only the dialog.
-    const confirm = screen.getByRole("button", { name: "Delete permanently", exact: true });
+    // getByRole matches a string `name` as the full (normalized) accessible name,
+    // so "Delete permanently" hits the dialog confirm — NOT the row trigger
+    // "Delete permanently – Orion".
+    const confirm = screen.getByRole("button", { name: "Delete permanently" });
     fireEvent.click(confirm);
     expect(onDeleteArchived).toHaveBeenCalledWith("p1");
   });
