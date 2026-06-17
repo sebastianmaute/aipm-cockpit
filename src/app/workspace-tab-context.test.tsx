@@ -18,6 +18,22 @@ describe("pendingOpen", () => {
   });
 });
 
+describe("pendingChatSeed", () => {
+  it("requestChat switches to the chat tab and stores the seed", () => {
+    const { result } = renderHook(() => useWorkspaceTab(), { wrapper });
+    act(() => result.current.requestChat("Summarize risks", true));
+    expect(result.current.activeTab).toBe("chat");
+    expect(result.current.pendingChatSeed).toEqual({ prompt: "Summarize risks", autoSend: true });
+  });
+
+  it("clearChatSeed nulls the seed", () => {
+    const { result } = renderHook(() => useWorkspaceTab(), { wrapper });
+    act(() => result.current.requestChat("Summarize risks", true));
+    act(() => result.current.clearChatSeed());
+    expect(result.current.pendingChatSeed).toBeNull();
+  });
+});
+
 describe("WorkspaceTabContext", () => {
   it("default activeTab is 'chat' and isPopout is false", () => {
     const { result } = renderHook(() => useWorkspaceTab(), { wrapper });
