@@ -18,4 +18,11 @@ describe("VarianceSummary", () => {
     const { container } = render(<VarianceSummary variance={[]} lang="en-US" />);
     expect(container.firstChild).toBeNull();
   });
+  it("renders the forecast slip string for a forecastEndDate row", () => {
+    const forecastRows: VarianceRow[] = [
+      { key: "forecastEndDate", baseline: null, current: null, delta: null, deltaDays: 5, health: "R" },
+    ];
+    render(<VarianceSummary variance={forecastRows} lang="en-US" />);
+    expect(screen.getByText("+5 d late")).toBeInTheDocument();
+  });
 });

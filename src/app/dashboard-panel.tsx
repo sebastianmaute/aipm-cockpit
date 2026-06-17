@@ -93,6 +93,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
   const { lang, today, onOpenRaid, onOpenTask, topActions, onOpenAction } = props;
   const { showRaid = true, showBudget = true, showMilestones = true, showChanges = true } = props;
   const showTrends = props.showTrends !== false;
+  const varianceRows = props.variance ?? [];
   const { status, setStatus } = useWorkspace();
   const { ref: sizeRef, reset: resetSize } = useResizable("lop-app:dashboard-size");
 
@@ -405,10 +406,10 @@ export function DashboardPanel(props: DashboardPanelProps) {
             </h3>
             {!props.tursoActive ? (
               <p className="text-sm text-muted-foreground">{t(lang, "trendsRequireTurso")}</p>
-            ) : (props.variance?.length ?? 0) === 0 ? (
+            ) : varianceRows.length === 0 ? (
               <p className="text-sm text-muted-foreground">{t(lang, "dashboardTrendsNoBaseline")}</p>
             ) : (
-              <VarianceSummary variance={props.variance ?? []} lang={lang} />
+              <VarianceSummary variance={varianceRows} lang={lang} />
             )}
           </div>
         ) : null}
