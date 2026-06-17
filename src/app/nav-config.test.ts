@@ -54,17 +54,21 @@ describe("nav-config", () => {
     const resKids = subTabsFor("resources").map((c) => c.view);
     expect(resKids).toEqual(["directory", "workload", "calendar", "planning", "manage-roles"]);
     expect(subTabsFor("planning").map((c) => c.view)).toEqual(resKids);
-    expect(subTabsFor("raid").map((c) => c.view)).toEqual(["raid-report"]);
-    expect(subTabsFor("raid-report").map((c) => c.view)).toEqual(["raid-report"]);
+    expect(subTabsFor("raid").map((c) => c.view)).toEqual([]);
     expect(subTabsFor("chat")).toEqual([]);
     expect(subTabsFor("open-points")).toEqual([]);
   });
 
-  it("exposes budget-report as a child of budget", () => {
-    expect(subTabsFor("budget")).toEqual([{ view: "budget-report" }]);
-    expect(subTabsFor("budget-report")).toEqual([{ view: "budget-report" }]);
+  it("exposes budget-report and raid-report as children of reports", () => {
+    const reportKids = [{ view: "budget-report" }, { view: "raid-report" }];
+    expect(subTabsFor("reports")).toEqual(reportKids);
+    expect(subTabsFor("budget-report")).toEqual(reportKids);
+    expect(subTabsFor("raid-report")).toEqual(reportKids);
+    expect(subTabsFor("budget")).toEqual([]);
     expect(allNavViews()).toContain("budget-report");
+    expect(allNavViews()).toContain("raid-report");
     expect(navLabelKey("budget-report")).toBe("budgetReportTitle");
+    expect(navLabelKey("raid-report")).toBe("raidReportTitle");
   });
 
   it("includes changes + change-report in nav", () => {
@@ -151,5 +155,22 @@ describe("subTabsFor with features", () => {
   });
   it("is unchanged when no features arg is supplied", () => {
     expect(subTabsFor("resources").length).toBeGreaterThan(0);
+  });
+});
+
+function itemFor(view: string) {
+  return NAV_GROUPS.flatMap((g) => g.items).find((i) => i.view === view);
+}
+
+describe("Reports nav placement", () => {
+  it("budget-report and raid-report are children of reports", () => {
+    const reports = itemFor("reports");
+    const childViews = (reports?.children ?? []).map((c) => c.view);
+    expect(childViews).toContain("budget-report");
+    expect(childViews).toContain("raid-report");
+  });
+  it("budget and raid no longer list their report as a child", () => {
+    expect((itemFor("budget")?.children ?? []).map((c) => c.view)).not.toContain("budget-report");
+    expect((itemFor("raid")?.children ?? []).map((c) => c.view)).not.toContain("raid-report");
   });
 });
