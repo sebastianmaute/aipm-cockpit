@@ -2,10 +2,10 @@
 
 [![Pipeline Status](https://gitlab.example.com/example-group/public-collab/lop-app/badges/main/pipeline.svg)](https://gitlab.example.com/example-group/public-collab/lop-app/-/commits/main)
 [![coverage](https://gitlab.example.com/example-group/public-collab/lop-app/badges/main/coverage.svg)](https://gitlab.example.com/example-group/public-collab/lop-app/-/commits/main)
-[![version](https://img.shields.io/badge/version-v0.95.0_%22Hopkinson%22-2e7d32)](./CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-v0.99.0_%22Brackett%22-2e7d32)](./CHANGELOG.md)
 [![license](https://img.shields.io/badge/license-Apache--2.0-blue)](./LICENSE)
 
-> An AI-assisted project-command surface for project leads. It plugs into Microsoft 365 (Outlook contacts & calendar, SharePoint documents) and syncs bidirectionally with Jira — so it accelerates your existing workflow instead of becoming another place to maintain data. Local-first; no backend account required.
+> A project-command surface for project leads with a context-aware Claude copilot that knows your current view and is grounded in your operating guides. It plugs into Microsoft 365 (Outlook contacts & calendar, SharePoint documents) and syncs bidirectionally with Jira — so it accelerates your existing workflow instead of becoming another place to maintain data. Local-first; no backend account required.
 
 ---
 
@@ -25,9 +25,13 @@ Core workflow:
 8. Plan capacity, utilization, availability, and cost rates while accounting for holidays
 9. Run a portfolio of projects, each with its own workspace and metadata header
 
-### Not another data silo
+### A copilot that knows your project — not another data silo
 
-The tracker is built to *accelerate* your existing stack, not replace it. It pulls people in from your Outlook contacts, attaches documents straight from SharePoint, and keeps tasks in lockstep with Jira through **bidirectional sync** — so you stay in one place instead of re-keying the same data into yet another tool. Its **Action Center** turns live project data into a ranked list of next-best-actions, and that ranking now **learns** from how you respond (act / snooze / dismiss). The result: the tool tells you what to do next rather than asking you to keep one more list current.
+Two things set the tracker apart: it has an AI copilot that understands the project you're looking at, and it plugs into the stack you already use instead of becoming one more place to maintain data.
+
+**(1) An AI copilot that knows your project.** A context-aware Claude assistant that knows your current view and mode and is grounded in your operating guides — so it gives advice that fits *this* project, not generic chatbot answers. Per-view **"Ask Claude"** suggestions and one-tap foundational prompts ("What's next?", a status overview, "prioritize") mean the tool tells you what to do next, and it can act on it: create, update, and summarize tasks in natural language via tool calls, with a live token-usage panel, a Stop button, and a pop-out mirror. The **Action Center** complements this by ranking live project data into next-best-actions, and that ranking **learns** from how you respond (act / snooze / dismiss).
+
+**(2) Plugs into your existing stack (M365 + Jira).** It pulls people in from your Outlook contacts, imports calendar events as absences and pushes milestones back to Outlook, attaches documents straight from SharePoint, and keeps tasks in lockstep with Jira through **bidirectional sync** — so you accelerate your existing workflow instead of re-keying the same data into yet another tool.
 
 ## Features
 
@@ -40,7 +44,7 @@ Each row keeps a one-line summary. Expand **Details** for the full description.
 | Gantt chart | Visual timeline with drag-and-drop reorder and dependency arrows.<br><details><summary>Details</summary>Clicking a task name opens the task editor. Milestone overlays appear when the Milestones module is enabled; an inline add-milestone control creates milestones directly on the chart.</details> |
 | Task dependencies | FS / SS / FF / SF predecessor relationships with cycle detection.<br><details><summary>Details</summary>Dependencies are validated on save — circular chains are rejected before they can be persisted.</details> |
 | Groups & labels | Categorize tasks freely; filter by group or label. |
-| AI assistant (Claude) | Ask questions or create/update tasks in natural language (user-supplied API key, Settings → AI).<br><details><summary>Details</summary>Includes a live token-usage panel, a Stop button to interrupt a running response, and a pop-out window. The pop-out is a read-only mirror — its tools cannot mutate data. Tasks can be created, updated, and summarized via tool calls.</details> |
+| AI assistant (Claude) | Context-aware Claude assistant — knows your current view/mode, is grounded in operating guides, and offers per-view "Ask Claude" prompts; ask questions or create/update tasks in natural language (user-supplied API key, Settings → AI).<br><details><summary>Details</summary>Per-view "Ask Claude" suggestions and one-tap foundational prompts (what's next, status overview, prioritize); the assistant is grounded in your operating guides and the current view/mode. Includes a live token-usage panel, a Stop button to interrupt a running response, and a pop-out window. The pop-out is a read-only mirror — its tools cannot mutate data. Tasks can be created, updated, and summarized via tool calls.</details> |
 | Voice commands | Speak commands in English or German (Web Speech API). |
 | Reports | Summary view with overdue, due-soon, and completion stats.<br><details><summary>Details</summary>Addable report cards (Stakeholder, RAID, Resource, Budget, and more) built on a shared sortable/filterable/resizable report table; each card prints on its own.</details> |
 | RAID register | Risks / Assumptions / Issues / Dependencies log with parent/child cycle detection and true deep-linking (`#raid/<id>`).<br><details><summary>Details</summary>Sortable/filterable table, severity and status tracking, optional links to stakeholders, and RAID-review reminders for stale or overdue items.</details> |
