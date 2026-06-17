@@ -307,7 +307,7 @@ export function WorkspaceSection({
     [setSettings],
   );
   const { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, milestones } = useWorkspace();
-  const { activeTab, setActiveTab, isPopout } = useWorkspaceTab();
+  const { activeTab, setActiveTab, isPopout, pendingChatSeed, clearChatSeed } = useWorkspaceTab();
   const { raidFilterTaskId } = useFilters();
   // One-way signal: incrementing this opens the milestone create modal on the
   // Milestones tab (Gantt "Add milestone" parity with Add task).
@@ -537,6 +537,8 @@ export function WorkspaceSection({
             onAcceptConsent={handleAcceptAiConsent}
             guides={guides}
             guidesReady={guidesReady}
+            chatSeed={pendingChatSeed}
+            onChatSeedConsumed={clearChatSeed}
           />
         </div>
 

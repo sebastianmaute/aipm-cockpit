@@ -255,6 +255,111 @@ describe("suggested prompt chips", () => {
   });
 });
 
+describe("SP1 seed + foundational chips", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  function jsonResponse() {
+    return Promise.resolve({
+      ok: true,
+      text: () => Promise.resolve(""),
+      json: () =>
+        Promise.resolve({
+          content: [{ type: "text", text: "ok" }],
+          stop_reason: "end_turn",
+          usage: { input_tokens: 1, output_tokens: 1 },
+        }),
+    } as unknown as Response);
+  }
+
+  it("seeds the input without sending when autoSend is false", () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(jsonResponse);
+    const onChatSeedConsumed = vi.fn();
+    render(
+      <ChatPanel
+        lang="en-US"
+        ai={AI_WITH_KEY}
+        dispatcher={makeDispatcher()}
+        onAcceptConsent={vi.fn()}
+        chatSeed={{ prompt: "Summarize risks", autoSend: false }}
+        onChatSeedConsumed={onChatSeedConsumed}
+      />,
+    );
+    const textarea = screen.getByPlaceholderText(
+      "Ask Claude about your tasks…",
+    ) as HTMLTextAreaElement;
+    expect(textarea.value).toBe("Summarize risks");
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(onChatSeedConsumed).toHaveBeenCalledTimes(1);
+  });
+
+  it("auto-sends the seed when autoSend is true and the key is present", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(jsonResponse);
+    const onChatSeedConsumed = vi.fn();
+    render(
+      <ChatPanel
+        lang="en-US"
+        ai={AI_WITH_KEY}
+        dispatcher={makeDispatcher()}
+        onAcceptConsent={vi.fn()}
+        chatSeed={{ prompt: "What's next?", autoSend: true }}
+        onChatSeedConsumed={onChatSeedConsumed}
+      />,
+    );
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1));
+    expect(onChatSeedConsumed).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not auto-send when the api key is missing (seeds input only)", () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(jsonResponse);
+    const onChatSeedConsumed = vi.fn();
+    render(
+      <ChatPanel
+        lang="en-US"
+        ai={{ ...defaultAiConfig, consentAccepted: true, apiKey: "" }}
+        dispatcher={makeDispatcher()}
+        onAcceptConsent={vi.fn()}
+        chatSeed={{ prompt: "What's next?", autoSend: true }}
+        onChatSeedConsumed={onChatSeedConsumed}
+      />,
+    );
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(onChatSeedConsumed).toHaveBeenCalledTimes(1);
+  });
+
+  it("clicking a foundational chip auto-sends", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(jsonResponse);
+    render(
+      <ChatPanel
+        lang="en-US"
+        ai={AI_WITH_KEY}
+        dispatcher={makeDispatcher()}
+        onAcceptConsent={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "What's next?" }));
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1));
+  });
+
+  it("clicking an existing chip only fills (no send)", () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(jsonResponse);
+    render(
+      <ChatPanel
+        lang="en-US"
+        ai={AI_WITH_KEY}
+        dispatcher={makeDispatcher()}
+        onAcceptConsent={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Give me an update" }));
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+});
+
 describe("chat panel layout", () => {
   it("chat root is the centered half-size resizable card, not the plain fill card", () => {
     expect(src).toMatch(/CHAT_PANE_CLASS/);

@@ -4,14 +4,16 @@ import { memo, useEffect, useRef, useState } from "react";
 import { TOOL_DEFS, type ToolDispatcher, runTool } from "./chat-tools";
 import { type Lang, type TranslationKey, t } from "./i18n";
 import { selectActiveGuides, assembleGuideBlock, type OperatingGuide } from "./operating-guide";
+import { FOUNDATIONAL_PROMPTS } from "./ask-claude-prompts";
 
-type PromptChip = { labelKey: TranslationKey; bodyKey: TranslationKey };
+type PromptChip = { labelKey: TranslationKey; bodyKey: TranslationKey; autoSend: boolean };
 
 const PROMPT_CHIPS: PromptChip[] = [
-  { labelKey: "chatPromptUpdate", bodyKey: "chatPromptUpdateBody" },
-  { labelKey: "chatPromptOverdue", bodyKey: "chatPromptOverdue" },
-  { labelKey: "chatPromptAtRisk", bodyKey: "chatPromptAtRisk" },
-  { labelKey: "chatPromptStatusUpdate", bodyKey: "chatPromptStatusUpdate" },
+  { labelKey: "chatPromptUpdate", bodyKey: "chatPromptUpdateBody", autoSend: false },
+  { labelKey: "chatPromptOverdue", bodyKey: "chatPromptOverdue", autoSend: false },
+  { labelKey: "chatPromptAtRisk", bodyKey: "chatPromptAtRisk", autoSend: false },
+  { labelKey: "chatPromptStatusUpdate", bodyKey: "chatPromptStatusUpdate", autoSend: false },
+  ...FOUNDATIONAL_PROMPTS.map((p) => ({ ...p, autoSend: true })),
 ];
 import { Markdown } from "./markdown";
 import { CHAT_MESSAGE_MAX } from "./sanitize";
@@ -167,6 +169,8 @@ function ChatPanelImpl({
   onAcceptConsent,
   guides = [],
   guidesReady = true,
+  chatSeed = null,
+  onChatSeedConsumed,
 }: {
   lang: Lang;
   ai: AiConfig;
@@ -174,12 +178,22 @@ function ChatPanelImpl({
   onAcceptConsent: () => void;
   guides?: readonly OperatingGuide[];
   guidesReady?: boolean;
+  chatSeed?: { prompt: string; autoSend: boolean } | null;
+  onChatSeedConsumed?: () => void;
 }) {
   if (!ai.consentAccepted) {
     return <ConsentScreen lang={lang} onAccept={onAcceptConsent} />;
   }
   return (
-    <ChatPanelInner lang={lang} ai={ai} dispatcher={dispatcher} guides={guides} guidesReady={guidesReady} />
+    <ChatPanelInner
+      lang={lang}
+      ai={ai}
+      dispatcher={dispatcher}
+      guides={guides}
+      guidesReady={guidesReady}
+      chatSeed={chatSeed}
+      onChatSeedConsumed={onChatSeedConsumed}
+    />
   );
 }
 
@@ -195,12 +209,16 @@ function ChatPanelInner({
   dispatcher,
   guides = [],
   guidesReady = true,
+  chatSeed = null,
+  onChatSeedConsumed,
 }: {
   lang: Lang;
   ai: AiConfig;
   dispatcher: ToolDispatcher;
   guides?: readonly OperatingGuide[];
   guidesReady?: boolean;
+  chatSeed?: { prompt: string; autoSend: boolean } | null;
+  onChatSeedConsumed?: () => void;
 }) {
   const [history, setHistory] = useState<ApiMessage[]>([]);
   const [display, setDisplay] = useState<DisplayItem[]>([]);
@@ -220,9 +238,10 @@ function ChatPanelInner({
   }, [display, busy]);
 
   const guidesPending = ai.groundInGuides && !guidesReady;
+  const apiKeyMissing = !ai.apiKey.trim();
 
-  async function sendMessage() {
-    const text = input.trim().slice(0, CHAT_MESSAGE_MAX);
+  async function submitPrompt(textArg?: string) {
+    const text = (textArg ?? input).trim().slice(0, CHAT_MESSAGE_MAX);
     if (!text || busy || guidesPending) return;
     if (!ai.apiKey.trim()) {
       setError(t(lang, "chatNoApiKey"));
@@ -349,6 +368,31 @@ function ChatPanelInner({
     }
   }
 
+  // Mirror the latest submit handler + send-gate into a ref so the seed effect
+  // (which depends only on `chatSeed`) can read current values without listing
+  // them as deps. Refs are written in an effect — never during render.
+  const sendGateRef = useRef<{ blocked: boolean; submit: (text?: string) => void }>({
+    blocked: true,
+    submit: () => {},
+  });
+  useEffect(() => {
+    sendGateRef.current = {
+      blocked: guidesPending || apiKeyMissing || busy,
+      submit: submitPrompt,
+    };
+  });
+
+  useEffect(() => {
+    if (!chatSeed) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setInput(chatSeed.prompt);
+    if (chatSeed.autoSend && !sendGateRef.current.blocked) {
+      sendGateRef.current.submit(chatSeed.prompt);
+    }
+    onChatSeedConsumed?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chatSeed]);
+
   function stopChat() {
     cancelledRef.current = true;
     abortRef.current?.abort();
@@ -363,11 +407,9 @@ function ChatPanelInner({
   function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      sendMessage();
+      submitPrompt();
     }
   }
-
-  const apiKeyMissing = !ai.apiKey.trim();
 
   return (
     // Centered half-size card, top-anchored. The corner drags to a custom size
@@ -388,7 +430,11 @@ function ChatPanelInner({
                   <li key={chip.labelKey}>
                     <button
                       type="button"
-                      onClick={() => setInput(t(lang, chip.bodyKey))}
+                      onClick={() =>
+                        chip.autoSend
+                          ? submitPrompt(t(lang, chip.bodyKey))
+                          : setInput(t(lang, chip.bodyKey))
+                      }
                       className="rounded-full border border-AIPM-dark-blue/40 bg-surface px-3 py-1 text-xs font-medium text-AIPM-dark-blue hover:bg-AIPM-dark-blue/10 focus:outline-none focus:ring-2 focus:ring-AIPM-dark-blue/50 dark:border-AIPM-dark-blue/60 dark:text-AIPM-dark-blue dark:hover:bg-AIPM-dark-blue/20"
                     >
                       {t(lang, chip.labelKey)}
@@ -487,7 +533,7 @@ function ChatPanelInner({
           ) : (
             <button
               type="button"
-              onClick={sendMessage}
+              onClick={() => submitPrompt()}
               disabled={!input.trim() || apiKeyMissing || guidesPending}
               className="rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             >
