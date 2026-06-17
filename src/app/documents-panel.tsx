@@ -7,8 +7,11 @@ import { useWorkspaceTab } from "./workspace-tab-context";
 import { collectDocuments, type DocRef, type DocSource } from "./documents";
 import { isSafeHttpUrl, type DocumentLink } from "./document-link";
 import { DocumentLinksFieldGated } from "./document-links-field-gated";
-import { VIEW_PANE_CLASS, INNER_TABLE_CLASS } from "./view-styles";
+import { CENTERED_HALF_PANE_CLASS, INNER_TABLE_CLASS } from "./view-styles";
 import { TABLE_HEAD_CLASS } from "./table-styles";
+import { useResizable } from "./use-resizable";
+import { ResetSizeButton } from "./task-manager-ui";
+import { isSharePointEnabled } from "./m365-sharepoint";
 
 const SOURCE_LABEL = {
   task: "documentsSourceTask",
@@ -22,6 +25,8 @@ const SOURCE_LABEL = {
 export function DocumentsPanel() {
   const { settings } = useSettings();
   const lang = settings.language;
+  const { ref, reset } = useResizable("lop-app:documents-size");
+  const canAddDocument = isSharePointEnabled(settings.integrations);
   const ws = useWorkspace();
   const { requestOpen } = useWorkspaceTab();
   const { tasks, raid, changes, milestones, stakeholders, project } = ws;
@@ -85,18 +90,23 @@ export function DocumentsPanel() {
   const target = targets.find((s) => `${s.kind}:${s.id}` === targetKey);
 
   return (
-    <div className={VIEW_PANE_CLASS}>
+    <div ref={ref} className={CENTERED_HALF_PANE_CLASS}>
       <div className="mb-3 flex shrink-0 items-center justify-between gap-2">
         <h2 className="text-lg font-medium text-foreground">{t(lang, "documentsTitle")}</h2>
-        <button
-          type="button"
-          onClick={() => setAddOpen((o) => !o)}
-          className="rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-AIPM-dark-blue hover:bg-surface-muted dark:text-AIPM-light-grey"
-        >
-          + {t(lang, "documentsTabAdd")}
-        </button>
+        <div className="flex items-center gap-2">
+          {canAddDocument && (
+            <button
+              type="button"
+              onClick={() => setAddOpen((o) => !o)}
+              className="rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-AIPM-dark-blue hover:bg-surface-muted dark:text-AIPM-light-grey"
+            >
+              + {t(lang, "documentsTabAdd")}
+            </button>
+          )}
+          <ResetSizeButton onClick={reset} lang={lang} />
+        </div>
       </div>
-      {addOpen && (
+      {canAddDocument && addOpen && (
         <div className="mb-3 shrink-0 rounded-md border border-line bg-surface-muted p-3">
           <label className="mb-2 block text-sm text-foreground">
             {t(lang, "documentsTarget")}

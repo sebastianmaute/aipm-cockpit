@@ -1,13 +1,31 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { render, screen, fireEvent, within } from "@testing-library/react";
 import { useEffect, type ReactNode } from "react";
 import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { WorkspaceTabProvider, useWorkspaceTab } from "./workspace-tab-context";
 import { DocumentsPanel } from "./documents-panel";
+import { SETTINGS_KEY } from "./use-settings";
+import { defaultSettings } from "./settings-types";
 import { t } from "./i18n";
 import type { DocumentLink } from "./document-link";
 import type { Task } from "./types";
+
+afterEach(() => {
+  window.localStorage.clear();
+});
+
+/** Persist settings with the M365+SharePoint integration enabled so the gated
+ *  "Add document" control renders (useSettings hydrates from localStorage). */
+function enableSharePoint() {
+  window.localStorage.setItem(
+    SETTINGS_KEY,
+    JSON.stringify({
+      ...defaultSettings,
+      integrations: { m365: { ...defaultSettings.integrations?.m365, enabled: true, sharepoint: true } },
+    }),
+  );
+}
 
 const LINK: DocumentLink = {
   id: "dl-1",
@@ -103,10 +121,21 @@ describe("DocumentsPanel", () => {
     expect(screen.getByText(t("en-US", "documentsTabEmpty"))).toBeInTheDocument();
   });
 
-  it("toggles the add panel and lists attach targets", () => {
+  it("toggles the add panel and lists attach targets when SharePoint is enabled", async () => {
+    enableSharePoint();
     renderWithTasks([seededTask([LINK])]);
-    fireEvent.click(screen.getByRole("button", { name: new RegExp(t("en-US", "documentsTabAdd")) }));
+    // The Add button is gated on the M365+SharePoint integration, which hydrates
+    // asynchronously from localStorage — await it rather than reading synchronously.
+    const addBtn = await screen.findByRole("button", { name: new RegExp(t("en-US", "documentsTabAdd")) });
+    fireEvent.click(addBtn);
     const select = screen.getByRole("combobox");
     expect(within(select).getByText(`${t("en-US", "documentsSourceTask")}: Write spec`)).toBeInTheDocument();
+  });
+
+  it("hides the Add-document button when SharePoint is disabled", () => {
+    renderWithTasks([seededTask([LINK])]);
+    expect(
+      screen.queryByRole("button", { name: new RegExp(t("en-US", "documentsTabAdd")) }),
+    ).not.toBeInTheDocument();
   });
 });
