@@ -14,10 +14,20 @@ import { isSafeMode } from "./safe-mode";
 
 export const SETTINGS_KEY = "lop-app:settings";
 
-/** Synchronously write settings to localStorage. */
+/** Synchronously write settings to localStorage WITH the two at-rest secrets
+ *  blanked. Secret ciphertext is persisted separately (secrets-store) on change;
+ *  see the useSettings mount-load for the decrypt+merge back into memory. */
 export function writeSettings(settings: Settings): void {
+  const turso = settings.integrations?.turso;
+  const persistable: Settings = {
+    ...settings,
+    ai: { ...settings.ai, apiKey: "" },
+    integrations: turso
+      ? { ...settings.integrations, turso: { ...turso, authToken: "" } }
+      : settings.integrations,
+  };
   try {
-    window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+    window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(persistable));
   } catch {
     // quota exceeded / storage disabled — degrade gracefully, keep in-memory settings
   }
