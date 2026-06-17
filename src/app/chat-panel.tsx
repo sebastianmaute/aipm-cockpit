@@ -368,17 +368,22 @@ function ChatPanelInner({
     }
   }
 
-  // Mirror the latest submit handler + send-gate into a ref so the seed effect
-  // (which depends only on `chatSeed`) can read current values without listing
-  // them as deps. Refs are written in an effect — never during render.
-  const sendGateRef = useRef<{ blocked: boolean; submit: (text?: string) => void }>({
+  // Mirror the latest send-gate, submit handler, and consume callback into a
+  // ref so the seed effect can read current values while depending only on
+  // `chatSeed`. Refs are written in an effect — never during render. React
+  // fires effects in declaration order within the same commit, so when
+  // `chatSeed` changes this gate-mirror (declared first) refreshes the ref
+  // before the seed effect below reads it.
+  const sendGateRef = useRef<{ blocked: boolean; submit: (text?: string) => void; consume: () => void }>({
     blocked: true,
     submit: () => {},
+    consume: () => {},
   });
   useEffect(() => {
     sendGateRef.current = {
       blocked: guidesPending || apiKeyMissing || busy,
       submit: submitPrompt,
+      consume: () => onChatSeedConsumed?.(),
     };
   });
 
@@ -389,8 +394,7 @@ function ChatPanelInner({
     if (chatSeed.autoSend && !sendGateRef.current.blocked) {
       sendGateRef.current.submit(chatSeed.prompt);
     }
-    onChatSeedConsumed?.();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    sendGateRef.current.consume();
   }, [chatSeed]);
 
   function stopChat() {

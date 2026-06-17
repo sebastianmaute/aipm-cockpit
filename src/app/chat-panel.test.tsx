@@ -331,6 +331,24 @@ describe("SP1 seed + foundational chips", () => {
     expect(onChatSeedConsumed).toHaveBeenCalledTimes(1);
   });
 
+  it("does not auto-send when guides are pending (seeds input only)", () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(jsonResponse);
+    const onChatSeedConsumed = vi.fn();
+    render(
+      <ChatPanel
+        lang="en-US"
+        ai={{ ...defaultAiConfig, consentAccepted: true, apiKey: "sk-test", groundInGuides: true }}
+        dispatcher={makeDispatcher()}
+        onAcceptConsent={vi.fn()}
+        guidesReady={false}
+        chatSeed={{ prompt: "What's next?", autoSend: true }}
+        onChatSeedConsumed={onChatSeedConsumed}
+      />,
+    );
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(onChatSeedConsumed).toHaveBeenCalledTimes(1);
+  });
+
   it("clicking a foundational chip auto-sends", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(jsonResponse);
     render(
