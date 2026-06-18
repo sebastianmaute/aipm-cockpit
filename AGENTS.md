@@ -130,6 +130,23 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
   BOTH or invisible in whichever layout you forgot (modern default is easy miss). Popout
   `legacyTree` branch (`isPopout ? …`) renders NO header, so header controls correctly never
   appear in popouts.
+- **Remount-swallow (parent request/nonce → conditionally-mounted child):** modern shell renders
+  ONLY the active view; workspace-section renders ONLY the active tabpanel — so a view MOUNTS FRESH
+  each visit. A child consuming a parent "request"/nonce prop must NOT seed its last-seen/handled
+  ref from the LIVE prop (`useRef(prop)`/`useState(prop)`) — a fresh mount sees prop===seed and
+  silently SWALLOWS a pending request. Seed `undefined`/sentinel + guard `!== undefined`; parent must
+  CLEAR (consume) or monotonically bump the nonce so re-mounts don't re-fire stale. Bit settings-view
+  learning deep-link AND milestones-panel `openCreateNonce` (Gantt "Add milestone").
+- Task editor has TWO surfaces: modern DEFAULT uses full-page `TaskEditView` (ModernShell `editView`
+  slot; `useEditView = layout==="modern" && !isPopout`); classic/popout use `TaskFormModal` (which
+  already has `ModalHeader` title+✕). New editor controls/heading wire into the surface in play —
+  TaskEditView's control bar is SEPARATE from the modal's header.
+- **Scrollbar gap:** per-view inner scrollers (`min-h-0 flex-1 overflow-auto`) need `pr-2` for the
+  content↔scrollbar gap. Shared `INNER_TABLE_CLASS`/report-table/actions-panel already include it;
+  bare per-panel scrollers do NOT — add `pr-2` or content jams the scrollbar.
+- **Rounded table headers:** `TABLE_HEAD_CLASS` carries a `.lop-thead` marker; the Dark-Blue fill
+  lives on `<th>` (NOT `<thead>`) via `globals.css` so rounded first/last corners clip it, with
+  `border-spacing:0`. Don't move bg back to `<thead>` — a rounded `th` only clips a fill it paints.
 - Heavy browser-only deps (rich-text editor, etc.) load via `next/dynamic({ ssr: false })` to
   stay off main bundle; ProseMirror/Tiptap-style libs need `Range.getClientRects` +
   `getBoundingClientRect` jsdom stubs in tests.
