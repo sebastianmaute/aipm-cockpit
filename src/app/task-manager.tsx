@@ -117,6 +117,9 @@ import {
 import { deleteHandle } from "./project-file-handles";
 import { exportWorkspace, type ExportFormat } from "./export";
 import { ProjectEmptyState } from "./project-empty-state";
+import { SecretUnlockGate } from "./secret-unlock-gate";
+import { isPassphraseLocked } from "./secrets-store";
+import { unlockSecret } from "./use-secrets";
 import type { ProjectSwitcherProps } from "./project-switcher";
 import { loadPortfolioMode, type PortfolioMode } from "./portfolio-mode";
 import { listProjects, listArchivedProjects } from "./turso-portfolio";
@@ -2072,12 +2075,39 @@ function TaskManagerInner() {
       ? hydrated && tursoListLoaded && tursoProjects.length === 0
       : hydrated && registry.projects.length === 0;
 
+  // Turso boot unlock gate: when the auth token is sealed under a passphrase and
+  // not yet held in memory, nothing can load — prompt for the passphrase first.
+  // Takes priority over the empty-state and the main app. (synchronous localStorage
+  // read in render is pure — fine, do not move into an effect.)
+  const showTursoUnlock =
+    hydrated &&
+    portfolioMode === "turso" &&
+    isPassphraseLocked("tursoAuthToken") &&
+    !(settings.integrations?.turso?.authToken ?? "").trim();
+
   return (
     <ActivityLogProvider value={logActivity}>
       <AiUsageProvider lang={lang} ai={settings.ai} showToast={showToast}>
         <ToastProvider value={showToast}>
           <VoiceCommandProvider value={voiceHandlers}>
-            {showEmptyState ? (
+            {showTursoUnlock ? (
+              <SecretUnlockGate
+                lang={lang}
+                messageKey="secretUnlockTursoToken"
+                onUnlock={async (pw) => {
+                  const v = await unlockSecret("tursoAuthToken", pw);
+                  if (!v) return false;
+                  setSettings((s) => ({
+                    ...s,
+                    integrations: {
+                      ...s.integrations,
+                      turso: { ...(s.integrations?.turso ?? { enabled: true }), authToken: v },
+                    },
+                  }));
+                  return true;
+                }}
+              />
+            ) : showEmptyState ? (
               <ProjectEmptyState
                 lang={lang}
                 mode={portfolioMode}
