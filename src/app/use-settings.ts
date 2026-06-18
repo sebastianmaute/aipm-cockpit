@@ -337,13 +337,12 @@ export function useSettings(): {
   }, []);
 
   // Persist settings on every change, guarded by hydration so mount doesn't overwrite.
+  // Route through writeSettings so the two at-rest secrets (ai.apiKey,
+  // integrations.turso.authToken) are blanked before they hit localStorage —
+  // a raw JSON.stringify(settings) write would dump the decrypted plaintext.
   useEffect(() => {
     if (!hydrated || isSafeMode()) return;
-    try {
-      window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-    } catch {
-      // quota exceeded / storage disabled — degrade gracefully, keep in-memory settings
-    }
+    writeSettings(settings);
   }, [settings, hydrated]);
 
   // Sync document language attribute and ensure dict is loaded on mid-session switch.
