@@ -77,10 +77,10 @@ export const NAV_GROUPS: NavGroup[] = [
     labelKey: "navGroupRegisters",
     items: [
       { view: "raid" },
-      { view: "changes", children: [{ view: "change-report" }] },
+      { view: "changes" },
       { view: "stakeholders", children: [{ view: "raci" }, { view: "stakeholder-map" }] },
       { view: "documents" },
-      { view: "reports", children: [{ view: "budget-report" }, { view: "raid-report" }] },
+      { view: "reports", children: [{ view: "budget-report" }, { view: "raid-report" }, { view: "change-report" }] },
     ],
   },
   {

@@ -78,7 +78,7 @@ export function EscalatePopover({ lang, action, bundle }: EscalatePopoverProps) 
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={(e) => { e.stopPropagation(); toggleOpen(); }}
-        className="rounded-md border border-line px-2 py-1 text-xs font-medium text-AIPM-dark-blue hover:bg-surface-muted dark:text-AIPM-light-grey"
+        className="cursor-pointer rounded-md border border-line px-2 py-1 text-xs font-medium text-AIPM-dark-blue transition-colors hover:bg-surface-muted dark:text-AIPM-light-grey"
       >
         {t(lang, "actionEscalate")}
       </button>
@@ -125,7 +125,7 @@ export function EscalatePopover({ lang, action, bundle }: EscalatePopoverProps) 
               type="button"
               disabled={!canConfirm}
               onClick={(e) => { e.stopPropagation(); confirm(); }}
-              className="rounded-md border border-line px-3 py-1 text-xs font-medium text-AIPM-dark-blue hover:bg-surface-muted disabled:opacity-50 dark:text-AIPM-light-grey"
+              className="cursor-pointer rounded-md border border-line px-3 py-1 text-xs font-medium text-AIPM-dark-blue transition-colors hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 dark:text-AIPM-light-grey"
             >
               {t(lang, "actionEscalateConfirm")}
             </button>

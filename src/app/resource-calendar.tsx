@@ -173,7 +173,7 @@ function ResourceCalendarInner({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
-      <div ref={scrollRef} data-calendar-scroll className="min-h-0 flex-1 overflow-auto rounded-md border border-line">
+      <div ref={scrollRef} data-calendar-scroll className="min-h-0 flex-1 overflow-auto rounded-md border border-line pr-2">
         <table className="border-separate border-spacing-0 text-sm">
           <thead className={TABLE_HEAD_CLASS}>
             <tr>

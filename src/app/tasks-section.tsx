@@ -464,7 +464,7 @@ export function TasksSection({
       </div>{/* end shrink-0 */}
 
       <div
-        className="min-h-0 flex-1 w-full overflow-auto rounded-xl border border-line bg-surface"
+        className="min-h-0 flex-1 w-full overflow-auto rounded-xl border border-line bg-surface pr-2"
       >
         <RowContextProvider value={rowContextValue}>
           <table

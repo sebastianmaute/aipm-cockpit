@@ -286,7 +286,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
           <ResetSizeButton onClick={resetBudgetSize} lang={lang} />
         </div>
       </div>
-      <div className="min-h-0 flex-1 space-y-6 overflow-y-auto">
+      <div className="min-h-0 flex-1 space-y-6 overflow-y-auto pr-2">
       <section>
         <h2 className="mb-2 text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
           {t(lang, "budgetTitle")} — {t(lang, "budgetProjectTotal")}

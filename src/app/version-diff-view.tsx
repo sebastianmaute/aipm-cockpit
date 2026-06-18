@@ -1,6 +1,10 @@
 // src/app/version-diff-view.tsx
-// Read-only grouped diff display for version compare (Slice 2). Restore controls
-// (checkboxes) are added in Slice 3. Presentational only.
+// Read-only grouped diff display for version compare. Two layouts:
+//  - "inline" (default): one row per record, before→after shown inline; in the
+//    vs-now mode it also carries restore checkboxes (+ optional per-record
+//    "Restore this" buttons via onRestoreRecord).
+//  - "sideBySide": two columns (earlier | later) for a two-version compare.
+// Presentational only.
 
 import { useState } from "react";
 import { t } from "./i18n";
@@ -28,6 +32,10 @@ export function VersionDiffView({
   selection = {},
   onToggleRecord,
   onToggleField,
+  onRestoreRecord,
+  layout = "inline",
+  leftLabel,
+  rightLabel,
 }: {
   lang: Lang;
   changes: VersionChange[];
@@ -35,6 +43,14 @@ export function VersionDiffView({
   selection?: RestoreSelection;
   onToggleRecord?: (key: string) => void;
   onToggleField?: (key: string, field: string) => void;
+  /** When set (vs-now compare), each record row gets a "Restore this" button
+   *  that restores just that record. */
+  onRestoreRecord?: (key: string) => void;
+  /** "inline" stacks before→after per field; "sideBySide" shows two columns. */
+  layout?: "inline" | "sideBySide";
+  /** Column headers for the side-by-side layout (the two versions' labels). */
+  leftLabel?: string;
+  rightLabel?: string;
 }) {
   const [open, setOpen] = useState<Set<string>>(new Set());
   if (changes.length === 0) {
@@ -45,6 +61,50 @@ export function VersionDiffView({
 
   const keyOf = (c: VersionChange) => changeKey(c.collection, c.recordId);
   const toggle = (k: string) => setOpen((s) => { const n = new Set(s); if (n.has(k)) n.delete(k); else n.add(k); return n; });
+
+  if (layout === "sideBySide") {
+    // For a two-version compare: earlier state on the left, later on the right.
+    // `before` is the earlier (from) version, `after` the later (to) version.
+    return (
+      <div className="flex flex-col gap-3">
+        {(leftLabel || rightLabel) && (
+          <div className="grid grid-cols-2 gap-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <span className="truncate">{leftLabel}</span>
+            <span className="truncate">{rightLabel}</span>
+          </div>
+        )}
+        {[...groups.entries()].map(([label, items]) => (
+          <div key={label}>
+            <h3 className="mb-1 text-sm font-semibold text-foreground">{label}</h3>
+            <ul className="flex flex-col gap-2">
+              {items.map((c) => (
+                <li key={keyOf(c)} className="rounded-md border border-line bg-surface px-3 py-1.5 text-sm">
+                  <div className="mb-1 flex items-center justify-between gap-2">
+                    <span className="text-foreground">{c.recordLabel}</span>
+                    <span className={`text-xs ${TYPE_CLASS[c.type]}`}>{t(lang, TYPE_KEY[c.type])}</span>
+                  </div>
+                  <ul className="flex flex-col gap-0.5">
+                    {c.fields.map((f) => (
+                      <li key={f.field} className="grid grid-cols-2 gap-3 text-xs">
+                        <span className="flex flex-wrap items-baseline gap-1">
+                          <span className="font-medium text-muted-foreground">{f.label}:</span>
+                          <span className="text-foreground">{fmt(f.before)}</span>
+                        </span>
+                        <span className="flex flex-wrap items-baseline gap-1">
+                          <span className="font-medium text-muted-foreground">{f.label}:</span>
+                          <span className="text-foreground">{fmt(f.after)}</span>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-3">
@@ -75,6 +135,15 @@ export function VersionDiffView({
                       <span className="text-foreground">{c.recordLabel}</span>
                       <span className={`text-xs ${TYPE_CLASS[c.type]}`}>{t(lang, TYPE_KEY[c.type])}</span>
                     </button>
+                    {onRestoreRecord && (
+                      <button
+                        type="button"
+                        onClick={() => onRestoreRecord(keyOf(c))}
+                        className="ml-2 shrink-0 cursor-pointer rounded-md border border-line px-2 py-0.5 text-xs font-medium text-AIPM-dark-blue transition-colors hover:bg-surface-muted dark:text-AIPM-light-grey"
+                      >
+                        {t(lang, "historyRestoreRecord")}
+                      </button>
+                    )}
                   </div>
                   {expandable && open.has(k) && (
                     <ul className="mt-1 flex flex-col gap-0.5 border-t border-line pt-1">

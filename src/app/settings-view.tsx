@@ -1,7 +1,7 @@
 // src/app/settings-view.tsx
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { type Lang, type TranslationKey, t, localeFor } from "./i18n";
 import type { Settings, NextActionsLearningConfig } from "./settings-types";
 import type { StorageKind } from "./storage";
@@ -50,6 +50,11 @@ interface SettingsViewProps {
    *  section. The `nonce` lets a repeated request (same section) re-navigate
    *  after the user has clicked elsewhere. */
   requestSection?: { id: SectionId; nonce: number };
+  /** Called once after a `requestSection` deep-link has been applied, so the
+   *  parent can clear the pending request. Without this, a request lingers in
+   *  parent state and re-fires every time this view remounts (e.g. the user
+   *  re-opens Settings normally), wrongly jumping to the deep-linked section. */
+  onSectionConsumed?: () => void;
 }
 
 type SectionId =
@@ -96,11 +101,27 @@ export function SettingsView(props: SettingsViewProps) {
   // nonce makes a repeated request (same section) re-navigate.
   const requestNonce = props.requestSection?.nonce;
   const requestId = props.requestSection?.id;
-  const [handledNonce, setHandledNonce] = useState<number | undefined>(requestNonce);
-  if (requestNonce !== handledNonce) {
+  // Start "unhandled" (undefined), NOT at the current nonce — this view unmounts
+  // and remounts each time Settings is opened, so initialising to the live nonce
+  // made a freshly-mounted view treat the pending request as already handled and
+  // never navigate (the deep-link silently no-op'd). Reconcile during render
+  // (set-state-in-effect is lint-banned).
+  const [handledNonce, setHandledNonce] = useState<number | undefined>(undefined);
+  if (requestNonce !== undefined && requestNonce !== handledNonce) {
     setHandledNonce(requestNonce);
     if (requestId) setActive(requestId);
   }
+  // Tell the parent the request was consumed so it clears the pending state and
+  // a later normal re-open does not re-jump. Calls a prop (not local setState),
+  // so the set-state-in-effect rule does not apply.
+  const consumedNonceRef = useRef<number | undefined>(undefined);
+  const { onSectionConsumed } = props;
+  useEffect(() => {
+    if (requestNonce !== undefined && consumedNonceRef.current !== requestNonce) {
+      consumedNonceRef.current = requestNonce;
+      onSectionConsumed?.();
+    }
+  }, [requestNonce, onSectionConsumed]);
 
   const expert = settings.expertMode === true;
   // Comm templates is expert-gated AND requires the Turso-backed feature gate.

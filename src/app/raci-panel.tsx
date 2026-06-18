@@ -72,7 +72,7 @@ export function RaciPanel({ lang, stakeholders, milestones, onSave }: RaciPanelP
         <ResetSizeButton onClick={resetPaneSize} lang={lang} />
       </div>
 
-      <div className="min-h-0 flex-1 overflow-auto rounded-md border border-line">
+      <div className="min-h-0 flex-1 overflow-auto rounded-md border border-line pr-2">
         <table className="min-w-full text-left text-sm">
           <thead className={TABLE_HEAD_CLASS}>
             <tr>

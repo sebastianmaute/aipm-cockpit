@@ -80,6 +80,26 @@ body {
   font-family: var(--font-titillium), "Segoe UI", Arial, sans-serif;
 }
 
+/* Data-table header chrome (see TABLE_HEAD_CLASS / `lop-thead`). The Dark-Blue
+   header bar gets rounded top corners on BOTH ends so it reads as an enclosed
+   pill regardless of how deeply the table is inset in its card. The fill lives
+   on the <th> cells (not the <thead>) so the rounded corners actually clip it;
+   border-spacing is zeroed so the per-cell fills tile seamlessly into one bar.
+   Centralised here because ~25 tables share the marker via TABLE_HEAD_CLASS. */
+table:has(> .lop-thead) {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+.lop-thead > tr > th {
+  background-color: var(--AIPM-dark-blue);
+}
+.lop-thead > tr:first-child > th:first-child {
+  border-top-left-radius: 0.75rem;
+}
+.lop-thead > tr:first-child > th:last-child {
+  border-top-right-radius: 0.75rem;
+}
+
 /* Print: DIN A4 page, strip surface chrome, preserve semantic accents.
    See docs/superpowers/specs/2026-05-28-print-reports-design.md. */
 @media print {

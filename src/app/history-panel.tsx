@@ -10,7 +10,7 @@ import type { Lang } from "./i18n";
 import type { ProjectVersionMeta } from "./version-history";
 import type { VersionChange } from "./version-diff";
 import { VersionDiffView } from "./version-diff-view";
-import type { RestoreSelection } from "./version-restore";
+import { changeKey, type RestoreSelection } from "./version-restore";
 
 interface HistoryPanelProps {
   lang: Lang;
@@ -29,9 +29,15 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
   // we're comparing the current workspace against (null = two-version, view-only).
   const [selection, setSelection] = useState<RestoreSelection>({});
   const [compareFrom, setCompareFrom] = useState<{ id: string; label: string } | null>(null);
+  // Two-version compare can render unified (inline) or side-by-side; the labels
+  // head the two columns in the side-by-side layout.
+  const [sideBySide, setSideBySide] = useState(false);
+  const [compareLabels, setCompareLabels] = useState<{ left: string; right: string } | null>(null);
   // Inline manual-checkpoint naming (replaces the old prompt dialog).
   const [naming, setNaming] = useState(false);
   const [draftLabel, setDraftLabel] = useState("");
+
+  const labelOf = (v: ProjectVersionMeta) => v.label ?? new Date(v.capturedAt).toLocaleString();
 
   const toggleRecord = (key: string) =>
     setSelection((s) => { const n = { ...s }; if (n[key] !== undefined) delete n[key]; else n[key] = "all"; return n; });
@@ -68,14 +74,42 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id].slice(-2),
     );
 
-  const compareSelected = () => {
+  const compareSelected = (layout: "inline" | "sideBySide" = "inline") => {
     if (selected.length !== 2) return;
     // Order the two picks oldest→newest so the diff reads "from older → newer".
     const [a, b] = selected
       .map((id) => versions.find((v) => v.id === id))
       .filter((v): v is ProjectVersionMeta => !!v)
       .sort((x, y) => x.capturedAt.localeCompare(y.capturedAt));
-    if (a && b) { setCompareFrom(null); setSelection({}); void runDiff(a.id, b.id); }
+    if (a && b) {
+      setCompareFrom(null);
+      setSelection({});
+      setSideBySide(layout === "sideBySide");
+      setCompareLabels({ left: labelOf(a), right: labelOf(b) });
+      void runDiff(a.id, b.id);
+    }
+  };
+
+  // "Restore this state" on a version row: revert the WHOLE workspace to that
+  // version. We diff it against now and mark every change "all", reusing the
+  // selective-restore machinery (no separate full-restore path needed).
+  const restoreWholeVersion = async (v: ProjectVersionMeta) => {
+    const changes = await loadDiff(v.id, "now");
+    if (changes.length === 0) return; // already identical to current
+    const sel: RestoreSelection = {};
+    for (const c of changes) sel[changeKey(c.collection, c.recordId)] = "all";
+    await restore(v.id, sel, labelOf(v));
+  };
+
+  // "Restore this" on a single record row inside a vs-now diff.
+  const restoreRecord = (key: string) => {
+    const cf = compareFrom;
+    if (!cf) return;
+    void restore(cf.id, { [key]: "all" }, cf.label).then(() => {
+      setSelection({});
+      setDiff(null);
+      setCompareFrom(null);
+    });
   };
 
   return (
@@ -85,11 +119,19 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
         <span className="flex items-center gap-2">
           <button
             type="button"
-            onClick={compareSelected}
+            onClick={() => compareSelected("inline")}
             disabled={selected.length !== 2 || comparing}
             className="rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:border-AIPM-dark-blue disabled:opacity-50"
           >
             {t(lang, "historyCompareSelected")}
+          </button>
+          <button
+            type="button"
+            onClick={() => compareSelected("sideBySide")}
+            disabled={selected.length !== 2 || comparing}
+            className="rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:border-AIPM-dark-blue disabled:opacity-50"
+          >
+            {t(lang, "historyCompareSideBySide")}
           </button>
           {naming ? (
             <span className="flex items-center gap-2">
@@ -155,11 +197,19 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
               <span className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => { setCompareFrom({ id: v.id, label: v.label ?? new Date(v.capturedAt).toLocaleString() }); setSelection({}); void runDiff(v.id, "now"); }}
+                  onClick={() => { setSideBySide(false); setCompareLabels(null); setCompareFrom({ id: v.id, label: labelOf(v) }); setSelection({}); void runDiff(v.id, "now"); }}
                   disabled={comparing}
-                  className="text-xs text-AIPM-dark-blue hover:underline disabled:opacity-50"
+                  className="cursor-pointer text-xs text-AIPM-dark-blue hover:underline disabled:opacity-50"
                 >
                   {t(lang, "historyCompareVsNow")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { void restoreWholeVersion(v); }}
+                  disabled={busy || comparing}
+                  className="cursor-pointer rounded-md border border-line px-2 py-0.5 text-xs font-medium text-AIPM-dark-blue transition-colors hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 dark:text-AIPM-light-grey"
+                >
+                  {t(lang, "historyRestoreState")}
                 </button>
                 <span className="text-xs text-muted-foreground">{new Date(v.capturedAt).toLocaleString()}</span>
               </span>
@@ -174,9 +224,9 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
             <h3 className="text-sm font-semibold text-foreground">{t(lang, "historyCompareTitle")}</h3>
             <button
               type="button"
-              onClick={() => { setDiff(null); setSelected([]); setSelection({}); setCompareFrom(null); }}
+              onClick={() => { setDiff(null); setSelected([]); setSelection({}); setCompareFrom(null); setSideBySide(false); setCompareLabels(null); }}
               aria-label={t(lang, "alertModalClose")}
-              className="rounded-full px-1 text-muted-foreground hover:text-AIPM-pink"
+              className="cursor-pointer rounded-full px-1 text-muted-foreground hover:text-AIPM-pink"
             >
               ×
             </button>
@@ -188,6 +238,10 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
             selection={selection}
             onToggleRecord={toggleRecord}
             onToggleField={toggleField}
+            onRestoreRecord={compareFrom !== null ? restoreRecord : undefined}
+            layout={sideBySide ? "sideBySide" : "inline"}
+            leftLabel={sideBySide ? compareLabels?.left : undefined}
+            rightLabel={sideBySide ? compareLabels?.right : undefined}
           />
           {compareFrom !== null && (
             <button

@@ -1,9 +1,10 @@
 "use client";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { type Lang, t } from "./i18n";
 import type { SuggestedAction } from "./next-actions/types";
 import type { Milestone, Task } from "./types";
 import { milestoneRebaselineDate, isValidIsoDate } from "./action-rebaseline";
+import { usePopoverDismiss } from "./use-popover-dismiss";
 
 export interface RebaselineBundle {
   // Milestone (B) path — all backends:
@@ -26,6 +27,7 @@ const TODAY_ISO = () => new Date().toISOString().slice(0, 10);
 
 export function RebaselinePopover({ lang, action, bundle }: RebaselinePopoverProps) {
   const isMilestone = action.source === "milestone";
+  const wrapRef = useRef<HTMLSpanElement>(null);
   const popRef = useRef<HTMLSpanElement>(null);
   const [open, setOpen] = useState(false);
   const [date, setDate] = useState("");
@@ -37,12 +39,9 @@ export function RebaselinePopover({ lang, action, bundle }: RebaselinePopoverPro
     if (open) popRef.current?.querySelector<HTMLElement>("input,button,[tabindex]")?.focus();
   }, [open]);
 
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [open]);
+  // Close on outside-click or Escape (wrapper holds the trigger + the dialog).
+  const close = useCallback(() => setOpen(false), []);
+  usePopoverDismiss(open, wrapRef, close);
 
   const toggleOpen = () => {
     if (!open && milestone) {
@@ -66,13 +65,13 @@ export function RebaselinePopover({ lang, action, bundle }: RebaselinePopoverPro
   const canRender = isMilestone ? milestone != null : true;
 
   return (
-    <span className="relative">
+    <span ref={wrapRef} className="relative">
       <button
         type="button"
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={(e) => { e.stopPropagation(); toggleOpen(); }}
-        className="rounded-md border border-line px-2 py-1 text-xs font-medium text-AIPM-dark-blue hover:bg-surface-muted dark:text-AIPM-light-grey"
+        className="cursor-pointer rounded-md border border-line px-2 py-1 text-xs font-medium text-AIPM-dark-blue transition-colors hover:bg-surface-muted dark:text-AIPM-light-grey"
       >
         {t(lang, "actionRebaseline")}
       </button>
@@ -108,7 +107,7 @@ export function RebaselinePopover({ lang, action, bundle }: RebaselinePopoverPro
                   type="button"
                   disabled={!isValidIsoDate(date)}
                   onClick={(e) => { e.stopPropagation(); confirmMilestone(); }}
-                  className="rounded-md border border-line px-3 py-1 text-xs font-medium text-AIPM-dark-blue hover:bg-surface-muted disabled:opacity-50 dark:text-AIPM-light-grey"
+                  className="cursor-pointer rounded-md border border-line px-3 py-1 text-xs font-medium text-AIPM-dark-blue transition-colors hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 dark:text-AIPM-light-grey"
                 >
                   {t(lang, "actionRebaselineConfirm")}
                 </button>
@@ -122,7 +121,7 @@ export function RebaselinePopover({ lang, action, bundle }: RebaselinePopoverPro
                   type="button"
                   disabled={bundle.busy}
                   onClick={(e) => { e.stopPropagation(); confirmSnapshot(); }}
-                  className="rounded-md border border-line px-3 py-1 text-xs font-medium text-AIPM-dark-blue hover:bg-surface-muted disabled:opacity-50 dark:text-AIPM-light-grey"
+                  className="cursor-pointer rounded-md border border-line px-3 py-1 text-xs font-medium text-AIPM-dark-blue transition-colors hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 dark:text-AIPM-light-grey"
                 >
                   {t(lang, "actionRebaselineConfirm")}
                 </button>
