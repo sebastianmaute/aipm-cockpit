@@ -73,11 +73,24 @@ export async function migratePlaintextSecrets(input: {
 }): Promise<{ apiKey: string; authToken: string }> {
   const apiKey = (input.apiKey ?? "").trim();
   const authToken = (input.authToken ?? "").trim();
+  // Per-secret seal: a crypto/IndexedDB failure on one secret must neither
+  // reject the whole migration nor blank a secret we failed to persist. On a
+  // failed seal we return the ORIGINAL plaintext so the caller keeps it.
+  let apiKeyOut = "";
+  let authTokenOut = "";
   if (apiKey && !loadSealed("anthropicApiKey")) {
-    saveSealed(await sealDevice("anthropicApiKey", apiKey));
+    try {
+      saveSealed(await sealDevice("anthropicApiKey", apiKey));
+    } catch {
+      apiKeyOut = apiKey; // seal failed → keep plaintext un-migrated
+    }
   }
   if (authToken && !loadSealed("tursoAuthToken")) {
-    saveSealed(await sealDevice("tursoAuthToken", authToken));
+    try {
+      saveSealed(await sealDevice("tursoAuthToken", authToken));
+    } catch {
+      authTokenOut = authToken; // seal failed → keep plaintext un-migrated
+    }
   }
-  return { apiKey: "", authToken: "" };
+  return { apiKey: apiKeyOut, authToken: authTokenOut };
 }

@@ -247,8 +247,17 @@ export function useSettings(): {
             // secrets blanked, so a passphrase-locked secret (which
             // readDeviceSecret returns null for) stays empty until explicit
             // unlock — and a plaintext value never reaches in-memory state.
+            // Fallback: keep the plaintext-bearing in-memory settings (the
+            // pre-secrets-feature behaviour). If the secret store throws for
+            // any reason — no IndexedDB, no crypto.subtle, locked-down browser,
+            // test env — we commit this instead of crashing or losing the
+            // secret for the session.
+            let committed = merged;
             try {
-              await migratePlaintextSecrets({
+              // migratePlaintextSecrets is hardened to never reject: a failed
+              // seal (no IndexedDB / WebCrypto) leaves that secret un-migrated
+              // and RETURNS its original plaintext so we can keep it in memory.
+              const unmigrated = await migratePlaintextSecrets({
                 apiKey: merged.ai.apiKey,
                 authToken: merged.integrations?.turso?.authToken,
               });
@@ -262,12 +271,36 @@ export function useSettings(): {
                     }
                   : merged.integrations,
               });
+              // Re-merge any secret the seal failed to persist: hydration left
+              // it blank (nothing was sealed), so without this the in-memory
+              // plaintext would be lost for the session.
+              const turso = hydratedSettings.integrations?.turso;
+              committed = {
+                ...hydratedSettings,
+                ai: {
+                  ...hydratedSettings.ai,
+                  apiKey: hydratedSettings.ai.apiKey || unmigrated.apiKey,
+                },
+                integrations:
+                  turso && unmigrated.authToken && !turso.authToken
+                    ? {
+                        ...hydratedSettings.integrations,
+                        turso: { ...turso, authToken: unmigrated.authToken },
+                      }
+                    : hydratedSettings.integrations,
+              };
+            } catch {
+              // IndexedDB / WebCrypto unavailable — fall back to the in-memory
+              // plaintext secrets so the app still works this session.
+              committed = merged;
+            }
+            try {
               if (!cancelled) {
                 // Load applies locally only — every instance reads the same
                 // localStorage, so mark it synced to keep the broadcast effect
                 // from echoing the loaded value.
-                lastSyncedRef.current = hydratedSettings;
-                setSettings(hydratedSettings);
+                lastSyncedRef.current = committed;
+                setSettings(committed);
               }
             } finally {
               // Flip the ready flag only AFTER the secret merge resolves, so

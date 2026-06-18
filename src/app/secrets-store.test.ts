@@ -1,9 +1,13 @@
 import "fake-indexeddb/auto";
-import { describe, it, expect, afterEach } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
+import * as secrets from "./secrets";
 import { sealDevice, sealPassphrase } from "./secrets";
 import { saveSealed, loadSealed, removeSealed, readDeviceSecret, isPassphraseLocked, migratePlaintextSecrets } from "./secrets-store";
 
-afterEach(() => localStorage.clear());
+afterEach(() => {
+  localStorage.clear();
+  vi.restoreAllMocks();
+});
 
 describe("secrets-store", () => {
   it("saves, reads back a device secret, and reports not passphrase-locked", async () => {
@@ -42,6 +46,17 @@ describe("secrets-store", () => {
     saveSealed(await sealPassphrase("anthropicApiKey", "sk-orig", "pw"));
     await migratePlaintextSecrets({ apiKey: "sk-new-plaintext" });
     expect(loadSealed("anthropicApiKey")?.wrap).toBe("passphrase"); // untouched
+  });
+
+  it("does not reject when sealing fails (no IndexedDB/WebCrypto) and keeps the plaintext un-migrated", async () => {
+    // Simulate a degraded env: sealDevice rejects (e.g. indexedDB.open / crypto.subtle absent).
+    vi.spyOn(secrets, "sealDevice").mockRejectedValue(new Error("no IndexedDB"));
+    const result = await migratePlaintextSecrets({ apiKey: "sk-x", authToken: "tok-y" });
+    // Failed seals return the ORIGINAL plaintext so the caller keeps it for the session.
+    expect(result).toEqual({ apiKey: "sk-x", authToken: "tok-y" });
+    // Nothing was persisted to the secret store.
+    expect(loadSealed("anthropicApiKey")).toBeNull();
+    expect(loadSealed("tursoAuthToken")).toBeNull();
   });
 
   it("ignores a corrupt/garbage secrets record in localStorage", async () => {
