@@ -81,7 +81,19 @@ export function VersionDiffView({
                 <li key={keyOf(c)} className="rounded-md border border-line bg-surface px-3 py-1.5 text-sm">
                   <div className="mb-1 flex items-center justify-between gap-2">
                     <span className="text-foreground">{c.recordLabel}</span>
-                    <span className={`text-xs ${TYPE_CLASS[c.type]}`}>{t(lang, TYPE_KEY[c.type])}</span>
+                    <span className="flex items-center gap-2">
+                      <span className={`text-xs ${TYPE_CLASS[c.type]}`}>{t(lang, TYPE_KEY[c.type])}</span>
+                      {onRestoreRecord && (
+                        <button
+                          type="button"
+                          onClick={() => onRestoreRecord(keyOf(c))}
+                          title={t(lang, "historyRestoreRecordHint")}
+                          className="shrink-0 cursor-pointer rounded-md border border-line px-2 py-0.5 text-xs font-medium text-AIPM-dark-blue transition-colors hover:bg-surface-muted dark:text-AIPM-light-grey"
+                        >
+                          {t(lang, "historyRestoreRecord")}
+                        </button>
+                      )}
+                    </span>
                   </div>
                   <ul className="flex flex-col gap-0.5">
                     {c.fields.map((f) => (
@@ -139,6 +151,7 @@ export function VersionDiffView({
                       <button
                         type="button"
                         onClick={() => onRestoreRecord(keyOf(c))}
+                        title={t(lang, "historyRestoreRecordHint")}
                         className="ml-2 shrink-0 cursor-pointer rounded-md border border-line px-2 py-0.5 text-xs font-medium text-AIPM-dark-blue transition-colors hover:bg-surface-muted dark:text-AIPM-light-grey"
                       >
                         {t(lang, "historyRestoreRecord")}

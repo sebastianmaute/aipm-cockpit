@@ -27,7 +27,7 @@ export function TaskEditView({ onSubmit, footer, heading, onClose, ...fieldProps
     <div className="mx-auto w-full max-w-5xl">
       <section className="rounded-lg border border-line bg-surface">
         <form id={TASK_EDIT_FORM_ID} onSubmit={onSubmit} className="space-y-6 p-6">
-          <div className="flex items-center justify-between gap-4 border-b border-line px-6 py-2">
+          <div className="flex items-center justify-between gap-4 border-b border-line pb-3">
             {heading ? (
               <h2 className="truncate text-lg font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">{heading}</h2>
             ) : (

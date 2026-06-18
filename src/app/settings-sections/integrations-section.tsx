@@ -22,7 +22,7 @@ import { writeSettings } from "../use-settings";
 import { loadRegistry } from "../projects-registry";
 import { defaultStorageConfig } from "../workspace";
 import { saveSecretValue, setSecretPassphrase } from "../use-secrets";
-import { isPassphraseLocked } from "../secrets-store";
+import { isPassphraseLocked, loadSealed, removeSealed } from "../secrets-store";
 
 interface IntegrationsSectionProps {
   lang: Lang;
@@ -59,36 +59,60 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
     isPassphraseLocked("tursoAuthToken") ? "passphrase" : "device",
   );
   const [tokenPassphrase, setTokenPassphrase] = useState("");
+  const [tokenConfirm, setTokenConfirm] = useState("");
+  const [tokenStored, setTokenStored] = useState(() => loadSealed("tursoAuthToken") != null);
 
   function handleAuthTokenChange(value: string) {
     updateTurso({ authToken: value });
     if (tokenWrap === "device") {
-      void saveSecretValue("tursoAuthToken", value, "device");
+      void saveSecretValue("tursoAuthToken", value, "device").then(() => setTokenStored(true));
     }
   }
 
   function handleTokenLockToggle(checked: boolean) {
     if (checked) {
-      // device → passphrase: reveal the passphrase field + confirm button.
-      // Don't seal yet — we need the passphrase first.
+      // device → passphrase: reveal the passphrase + confirm fields + Save button.
+      // Don't seal yet — we need the (confirmed) passphrase first.
       setTokenWrap("passphrase");
       return;
     }
-    // passphrase → device: can't device-seal an empty token — leave as is.
-    if (!(turso.authToken ?? "").trim()) return;
+    // Unset the passphrase requirement. Re-seal device-wrapped if the plaintext
+    // is in memory (keeps the token); otherwise forget the locked-and-unknown
+    // secret. Either way flip wrap to device so the checkbox actually toggles.
     void (async () => {
-      await saveSecretValue("tursoAuthToken", turso.authToken ?? "", "device");
+      if ((turso.authToken ?? "").trim()) {
+        await saveSecretValue("tursoAuthToken", turso.authToken ?? "", "device");
+        setTokenStored(true);
+      } else if (isPassphraseLocked("tursoAuthToken")) {
+        removeSealed("tursoAuthToken");
+        setTokenStored(false);
+      }
       setTokenWrap("device");
       setTokenPassphrase("");
+      setTokenConfirm("");
     })();
   }
 
   function handleTokenLockConfirm() {
     void (async () => {
       await setSecretPassphrase("tursoAuthToken", turso.authToken ?? "", tokenPassphrase);
+      setTokenStored(true);
       setTokenPassphrase("");
+      setTokenConfirm("");
     })();
   }
+
+  function handleRemoveToken() {
+    if (!window.confirm(t(lang, "secretPassphraseRemoveConfirm"))) return;
+    removeSealed("tursoAuthToken");
+    updateTurso({ authToken: "" });
+    setTokenStored(false);
+    setTokenWrap("device");
+    setTokenPassphrase("");
+    setTokenConfirm("");
+  }
+
+  const tokenPassphraseMismatch = tokenPassphrase !== "" && tokenConfirm !== "" && tokenPassphrase !== tokenConfirm;
 
   const snapshots = settings.snapshots ?? defaultSnapshotSettings;
   function updateSnapshots(patch: Partial<SnapshotSettings>) {
@@ -346,27 +370,47 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
               </label>
               {tokenWrap === "passphrase" && (
                 <div className="mt-2 flex flex-col gap-2">
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="password"
-                      autoComplete="off"
-                      aria-label={t(lang, "secretPassphrasePlaceholder")}
-                      placeholder={t(lang, "secretPassphrasePlaceholder")}
-                      value={tokenPassphrase}
-                      onChange={(e) => setTokenPassphrase(e.target.value)}
-                      className="w-full rounded border border-line bg-surface px-2 py-1 text-sm text-foreground"
-                    />
-                    <button
-                      type="button"
-                      disabled={!(turso.authToken ?? "").trim() || !tokenPassphrase}
-                      onClick={handleTokenLockConfirm}
-                      className="whitespace-nowrap rounded-md border border-line bg-AIPM-green px-3 py-1 text-xs font-medium text-foreground disabled:opacity-50"
-                    >
-                      {t(lang, "secretLockPassphrase")}
-                    </button>
-                  </div>
+                  <input
+                    type="password"
+                    autoComplete="off"
+                    aria-label={t(lang, "secretPassphrasePlaceholder")}
+                    placeholder={t(lang, "secretPassphrasePlaceholder")}
+                    value={tokenPassphrase}
+                    onChange={(e) => setTokenPassphrase(e.target.value)}
+                    className="w-full rounded border border-line bg-surface px-2 py-1 text-sm text-foreground"
+                  />
+                  <input
+                    type="password"
+                    autoComplete="off"
+                    aria-label={t(lang, "secretPassphraseConfirm")}
+                    placeholder={t(lang, "secretPassphraseConfirm")}
+                    value={tokenConfirm}
+                    onChange={(e) => setTokenConfirm(e.target.value)}
+                    className="w-full rounded border border-line bg-surface px-2 py-1 text-sm text-foreground"
+                  />
+                  {tokenPassphraseMismatch && (
+                    <p className="text-xs text-AIPM-pink-strong">{t(lang, "secretPassphraseMismatch")}</p>
+                  )}
+                  <button
+                    type="button"
+                    disabled={!(turso.authToken ?? "").trim() || !tokenPassphrase || tokenPassphrase !== tokenConfirm}
+                    onClick={handleTokenLockConfirm}
+                    className="self-start whitespace-nowrap rounded-md border border-line bg-AIPM-green px-3 py-1 text-xs font-medium text-foreground disabled:opacity-50"
+                  >
+                    {t(lang, "secretPassphraseSave")}
+                  </button>
                   <p className="text-xs text-muted-foreground">{t(lang, "secretLockWarning")}</p>
                 </div>
+              )}
+              {tokenStored && (
+                <button
+                  type="button"
+                  onClick={handleRemoveToken}
+                  title={t(lang, "secretPassphraseRemoveHint")}
+                  className="mt-2 rounded-md border border-line px-3 py-1 text-xs font-medium text-AIPM-pink-strong hover:bg-surface-muted"
+                >
+                  {t(lang, "secretPassphraseRemove")}
+                </button>
               )}
             </div>
           )}

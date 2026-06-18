@@ -20,7 +20,7 @@ import { nextId } from "./resource-foundation";
 import { useColumnResize } from "./use-column-resize";
 import { ColumnResizeHandle, ResetSizeButton, ResetColWidthsButton } from "./task-manager-ui";
 import { useResizable } from "./use-resizable";
-import { CENTERED_HALF_PANE_CLASS } from "./view-styles";
+import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import type { ActivityKind } from "./activity-log";
 import type { Milestone } from "./types";
@@ -66,7 +66,10 @@ export function MilestonesPanel({
   calendarPushBusy?: boolean;
 }) {
   const { milestones, setMilestones, tasks } = useWorkspace();
-  const { ref, reset: resetSize } = useResizable("lop-app:milestones-size");
+  // `-full` suffix: the view changed from a centered half-width pane to full
+  // width, so use a fresh key — a stale half-width size persisted under the old
+  // key would otherwise override `w-full` and leave a gap on the right.
+  const { ref, reset: resetSize } = useResizable("lop-app:milestones-size-full");
   const [editing, setEditing] = useState<Milestone | null>(null);
   const [isNew, setIsNew] = useState(false);
   const [search, setSearch] = useState("");
@@ -171,7 +174,7 @@ export function MilestonesPanel({
   }
 
   return (
-    <div ref={ref} className={CENTERED_HALF_PANE_CLASS}>
+    <div ref={ref} className={VIEW_PANE_RESIZABLE_CLASS}>
       <header className="mb-2 flex shrink-0 flex-wrap items-center justify-between gap-2">
         <h2 className="text-lg font-medium text-foreground">
           {t(lang, "milestonesTitle")}
@@ -217,6 +220,7 @@ export function MilestonesPanel({
           <ResetSizeButton onClick={resetSize} lang={lang} />
         </div>
       </header>
+      <div className="min-h-0 flex-1 overflow-auto pr-2">
       {sorted.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           {t(lang, "milestonesEmpty")}
@@ -303,6 +307,7 @@ export function MilestonesPanel({
           </tbody>
         </table>
       )}
+      </div>
       {editing ? (
         <MilestoneEditModal
           lang={lang}

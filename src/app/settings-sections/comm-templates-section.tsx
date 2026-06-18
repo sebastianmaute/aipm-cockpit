@@ -9,6 +9,7 @@ import { useCommTemplateVersions } from "../use-comm-template-versions";
 import { diffLines } from "../text-diff";
 import { htmlToPlainText } from "../html-to-text";
 import { CommTemplateDiffView } from "../comm-template-diff-view";
+import { InfoTooltip } from "../info-tooltip";
 import dynamic from "next/dynamic";
 
 const RichTextEditor = dynamic(() => import("../rich-text-editor").then((m) => m.RichTextEditor), {
@@ -171,14 +172,17 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
       </div>
 
       <div>
-        <h3 className="mb-2 text-sm font-semibold text-foreground">{t(lang, CAT_LABEL_KEY[category])}</h3>
+        <h3 className="mb-2 flex items-center gap-1 text-sm font-semibold text-foreground">
+          {t(lang, CAT_LABEL_KEY[category])}
+          <InfoTooltip text={t(lang, "commTplRowsClickableHint")} />
+        </h3>
         {inCategory.length === 0 ? (
           <p className="text-sm text-muted-foreground">{t(lang, "commTplEmpty")}</p>
         ) : (
           <ul className="flex flex-col gap-2">
             {inCategory.map((tpl) => (
-              <li key={tpl.id} className="flex items-center justify-between gap-3 rounded-md border border-line bg-surface px-3 py-2">
-                <button type="button" onClick={() => selectTemplate(tpl)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
+              <li key={tpl.id} className="flex items-center justify-between gap-3 rounded-md border border-line bg-surface px-3 py-2 transition-colors hover:border-AIPM-dark-blue/40 hover:bg-surface-muted">
+                <button type="button" onClick={() => selectTemplate(tpl)} title={t(lang, "commTplRowsClickableHint")} className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left">
                   <span className="truncate text-sm font-medium text-foreground">{tpl.name}</span>
                   {tpl.isDefault && (
                     <span className="shrink-0 rounded bg-surface-muted px-1.5 py-0.5 text-xs text-foreground">

@@ -167,15 +167,49 @@ describe("AiSection", () => {
     await waitFor(async () => expect(await readDeviceSecret("anthropicApiKey")).toBe("sk-typed"));
   });
 
-  it("passphrase toggle locks the API key under a passphrase", async () => {
+  it("passphrase toggle locks the API key once the confirm matches", async () => {
     const settingsWithKey = {
       ...defaultSettings,
       ai: { ...defaultSettings.ai, apiKey: "sk-have" },
     };
     render(<AiSection lang="en-US" settings={settingsWithKey} onChange={vi.fn()} />);
-    fireEvent.click(screen.getByLabelText(/require a passphrase/i)); // reveal field
+    fireEvent.click(screen.getByLabelText(/require a passphrase/i)); // reveal fields
     fireEvent.change(screen.getByLabelText(/^passphrase$/i), { target: { value: "pw" } });
-    fireEvent.click(screen.getByRole("button", { name: /require a passphrase/i })); // confirm
+    fireEvent.change(screen.getByLabelText(/confirm passphrase/i), { target: { value: "pw" } });
+    fireEvent.click(screen.getByRole("button", { name: /save passphrase/i }));
     await waitFor(() => expect(isPassphraseLocked("anthropicApiKey")).toBe(true));
+  });
+
+  it("a mismatched confirm disables Save and shows the mismatch message", () => {
+    const settingsWithKey = {
+      ...defaultSettings,
+      ai: { ...defaultSettings.ai, apiKey: "sk-have" },
+    };
+    render(<AiSection lang="en-US" settings={settingsWithKey} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByLabelText(/require a passphrase/i));
+    fireEvent.change(screen.getByLabelText(/^passphrase$/i), { target: { value: "pw" } });
+    fireEvent.change(screen.getByLabelText(/confirm passphrase/i), { target: { value: "nope" } });
+    expect(screen.getByText(/passphrases do not match/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /save passphrase/i })).toBeDisabled();
+  });
+
+  it("removing the stored key forgets the secret and clears the api key", async () => {
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    const settingsWithKey = {
+      ...defaultSettings,
+      ai: { ...defaultSettings.ai, apiKey: "sk-have" },
+    };
+    const onChange = vi.fn();
+    render(<AiSection lang="en-US" settings={settingsWithKey} onChange={onChange} />);
+    // Lock under a passphrase first.
+    fireEvent.click(screen.getByLabelText(/require a passphrase/i));
+    fireEvent.change(screen.getByLabelText(/^passphrase$/i), { target: { value: "pw" } });
+    fireEvent.change(screen.getByLabelText(/confirm passphrase/i), { target: { value: "pw" } });
+    fireEvent.click(screen.getByRole("button", { name: /save passphrase/i }));
+    await waitFor(() => expect(isPassphraseLocked("anthropicApiKey")).toBe(true));
+    // Remove it entirely → forgets the secret and blanks the in-memory key.
+    fireEvent.click(screen.getByRole("button", { name: /remove stored secret/i }));
+    await waitFor(() => expect(isPassphraseLocked("anthropicApiKey")).toBe(false));
+    expect(onChange.mock.calls.at(-1)![0].ai.apiKey).toBe("");
   });
 });

@@ -29,6 +29,11 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
   // we're comparing the current workspace against (null = two-version, view-only).
   const [selection, setSelection] = useState<RestoreSelection>({});
   const [compareFrom, setCompareFrom] = useState<{ id: string; label: string } | null>(null);
+  // The version a per-row "Restore this" reverts TO. For a vs-now compare it is
+  // `compareFrom`; for a two-version compare it is the OLDER of the two picks.
+  // Separate from `compareFrom` because two-version compares restore per-row but
+  // do NOT offer the checkbox/"Restore selected" multi-select (compareFrom-gated).
+  const [restoreFrom, setRestoreFrom] = useState<{ id: string; label: string } | null>(null);
   // Two-version compare can render unified (inline) or side-by-side; the labels
   // head the two columns in the side-by-side layout.
   const [sideBySide, setSideBySide] = useState(false);
@@ -83,6 +88,8 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
       .sort((x, y) => x.capturedAt.localeCompare(y.capturedAt));
     if (a && b) {
       setCompareFrom(null);
+      // Per-row restore reverts to the OLDER pick (a); no multi-select here.
+      setRestoreFrom({ id: a.id, label: labelOf(a) });
       setSelection({});
       setSideBySide(layout === "sideBySide");
       setCompareLabels({ left: labelOf(a), right: labelOf(b) });
@@ -101,14 +108,16 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
     await restore(v.id, sel, labelOf(v));
   };
 
-  // "Restore this" on a single record row inside a vs-now diff.
+  // "Restore this" on a single record row — reverts that record to `restoreFrom`
+  // (the vs-now source, or the older pick in a two-version compare).
   const restoreRecord = (key: string) => {
-    const cf = compareFrom;
-    if (!cf) return;
-    void restore(cf.id, { [key]: "all" }, cf.label).then(() => {
+    const rf = restoreFrom;
+    if (!rf) return;
+    void restore(rf.id, { [key]: "all" }, rf.label).then(() => {
       setSelection({});
       setDiff(null);
       setCompareFrom(null);
+      setRestoreFrom(null);
     });
   };
 
@@ -121,6 +130,7 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
             type="button"
             onClick={() => compareSelected("inline")}
             disabled={selected.length !== 2 || comparing}
+            title={t(lang, "historyCompareSelectedHint")}
             className="rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:border-AIPM-dark-blue disabled:opacity-50"
           >
             {t(lang, "historyCompareSelected")}
@@ -129,6 +139,7 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
             type="button"
             onClick={() => compareSelected("sideBySide")}
             disabled={selected.length !== 2 || comparing}
+            title={t(lang, "historyCompareSideBySideHint")}
             className="rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:border-AIPM-dark-blue disabled:opacity-50"
           >
             {t(lang, "historyCompareSideBySide")}
@@ -197,8 +208,9 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
               <span className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => { setSideBySide(false); setCompareLabels(null); setCompareFrom({ id: v.id, label: labelOf(v) }); setSelection({}); void runDiff(v.id, "now"); }}
+                  onClick={() => { setSideBySide(false); setCompareLabels(null); setCompareFrom({ id: v.id, label: labelOf(v) }); setRestoreFrom({ id: v.id, label: labelOf(v) }); setSelection({}); void runDiff(v.id, "now"); }}
                   disabled={comparing}
+                  title={t(lang, "historyCompareVsNowHint")}
                   className="cursor-pointer text-xs text-AIPM-dark-blue hover:underline disabled:opacity-50"
                 >
                   {t(lang, "historyCompareVsNow")}
@@ -207,6 +219,7 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
                   type="button"
                   onClick={() => { void restoreWholeVersion(v); }}
                   disabled={busy || comparing}
+                  title={t(lang, "historyRestoreStateHint")}
                   className="cursor-pointer rounded-md border border-line px-2 py-0.5 text-xs font-medium text-AIPM-dark-blue transition-colors hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 dark:text-AIPM-light-grey"
                 >
                   {t(lang, "historyRestoreState")}
@@ -220,16 +233,31 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
 
       {diff !== null && (
         <div className="mt-4">
-          <div className="mb-2 flex items-center justify-between">
+          <div className="mb-2 flex items-center justify-between gap-2">
             <h3 className="text-sm font-semibold text-foreground">{t(lang, "historyCompareTitle")}</h3>
-            <button
-              type="button"
-              onClick={() => { setDiff(null); setSelected([]); setSelection({}); setCompareFrom(null); setSideBySide(false); setCompareLabels(null); }}
-              aria-label={t(lang, "alertModalClose")}
-              className="cursor-pointer rounded-full px-1 text-muted-foreground hover:text-AIPM-pink"
-            >
-              ×
-            </button>
+            <span className="flex items-center gap-2">
+              {/* "Restore selected" sits up here beside the per-row "Restore this"
+                  buttons (vs-now compare only — it acts on the ticked records). */}
+              {compareFrom !== null && (
+                <button
+                  type="button"
+                  disabled={Object.keys(selection).length === 0}
+                  onClick={() => { const cf = compareFrom; if (cf) void restore(cf.id, selection, cf.label).then(() => { setSelection({}); setDiff(null); setCompareFrom(null); setRestoreFrom(null); }); }}
+                  title={t(lang, "historyRestoreSelectedHint")}
+                  className="rounded-md bg-AIPM-dark-blue px-3 py-1 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
+                >
+                  {t(lang, "historyRestoreSelected")}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => { setDiff(null); setSelected([]); setSelection({}); setCompareFrom(null); setRestoreFrom(null); setSideBySide(false); setCompareLabels(null); }}
+                aria-label={t(lang, "alertModalClose")}
+                className="cursor-pointer rounded-full px-1 text-muted-foreground hover:text-AIPM-pink"
+              >
+                ×
+              </button>
+            </span>
           </div>
           <VersionDiffView
             lang={lang}
@@ -238,21 +266,11 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
             selection={selection}
             onToggleRecord={toggleRecord}
             onToggleField={toggleField}
-            onRestoreRecord={compareFrom !== null ? restoreRecord : undefined}
+            onRestoreRecord={restoreFrom !== null ? restoreRecord : undefined}
             layout={sideBySide ? "sideBySide" : "inline"}
             leftLabel={sideBySide ? compareLabels?.left : undefined}
             rightLabel={sideBySide ? compareLabels?.right : undefined}
           />
-          {compareFrom !== null && (
-            <button
-              type="button"
-              disabled={Object.keys(selection).length === 0}
-              onClick={() => { const cf = compareFrom; if (cf) void restore(cf.id, selection, cf.label).then(() => { setSelection({}); setDiff(null); setCompareFrom(null); }); }}
-              className="mt-2 rounded-md bg-AIPM-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
-            >
-              {t(lang, "historyRestoreSelected")}
-            </button>
-          )}
         </div>
       )}
     </div>

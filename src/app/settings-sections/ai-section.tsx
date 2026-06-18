@@ -14,7 +14,7 @@ import { FEATURE_MODULES } from "../feature-modules";
 import type { AppMode, FeatureModuleId } from "../feature-modules";
 import { allNavViews, navLabelKey, type AppView } from "../nav-config";
 import { saveSecretValue, setSecretPassphrase } from "../use-secrets";
-import { isPassphraseLocked } from "../secrets-store";
+import { isPassphraseLocked, loadSealed, removeSealed } from "../secrets-store";
 
 interface AiSectionProps {
   lang: Lang;
@@ -236,41 +236,70 @@ export function AiSection({ lang, settings, onChange, operatingGuides }: AiSecti
   const [formMode, setFormMode] = useState<null | "add" | string>(null);
   const [draft, setDraft] = useState<GuideDraft>(emptyDraft);
 
-  // API-key at-rest wrap mode + passphrase entry.
+  // API-key at-rest wrap mode + passphrase entry (with a confirm field so a typo
+  // can't silently lock the key under an unknown passphrase).
   const [keyWrap, setKeyWrap] = useState<"device" | "passphrase">(() =>
     isPassphraseLocked("anthropicApiKey") ? "passphrase" : "device",
   );
   const [keyPassphrase, setKeyPassphrase] = useState("");
+  const [keyConfirm, setKeyConfirm] = useState("");
+  const [keyStored, setKeyStored] = useState(() => loadSealed("anthropicApiKey") != null);
 
   function handleApiKeyChange(value: string) {
     onChange({ ...settings, ai: { ...settings.ai, apiKey: value } });
     if (keyWrap === "device") {
-      void saveSecretValue("anthropicApiKey", value, "device");
+      void saveSecretValue("anthropicApiKey", value, "device").then(() => setKeyStored(true));
     }
   }
 
   function handleLockToggle(checked: boolean) {
     if (checked) {
-      // device → passphrase: reveal the passphrase field + confirm button.
-      // Don't seal yet — we need the passphrase first.
+      // device → passphrase: reveal the passphrase + confirm fields + Save button.
+      // Don't seal yet — we need the (confirmed) passphrase first.
       setKeyWrap("passphrase");
       return;
     }
-    // passphrase → device: can't device-seal an empty/locked key — leave as is.
-    if (!settings.ai.apiKey.trim()) return;
+    // Unset the passphrase requirement. If the plaintext is in memory we can
+    // re-seal it device-wrapped (keeps the value); otherwise the value is locked
+    // and unknown, so we forget the sealed secret entirely (re-enter to use it).
+    // EITHER WAY the wrap state flips to device so the checkbox actually toggles
+    // (the old early-return left it stuck checked when the key was locked).
     void (async () => {
-      await saveSecretValue("anthropicApiKey", settings.ai.apiKey, "device");
+      if (settings.ai.apiKey.trim()) {
+        await saveSecretValue("anthropicApiKey", settings.ai.apiKey, "device");
+        setKeyStored(true);
+      } else if (isPassphraseLocked("anthropicApiKey")) {
+        removeSealed("anthropicApiKey");
+        setKeyStored(false);
+      }
       setKeyWrap("device");
       setKeyPassphrase("");
+      setKeyConfirm("");
     })();
   }
 
   function handleLockConfirm() {
     void (async () => {
       await setSecretPassphrase("anthropicApiKey", settings.ai.apiKey, keyPassphrase);
+      setKeyStored(true);
       setKeyPassphrase("");
+      setKeyConfirm("");
     })();
   }
+
+  // Forget the stored secret completely (ciphertext + passphrase) and blank the
+  // in-memory value, returning to the default device wrap.
+  function handleRemoveSecret() {
+    if (!window.confirm(t(lang, "secretPassphraseRemoveConfirm"))) return;
+    removeSealed("anthropicApiKey");
+    onChange({ ...settings, ai: { ...settings.ai, apiKey: "" } });
+    setKeyStored(false);
+    setKeyWrap("device");
+    setKeyPassphrase("");
+    setKeyConfirm("");
+  }
+
+  const keyPassphraseMismatch = keyPassphrase !== "" && keyConfirm !== "" && keyPassphrase !== keyConfirm;
 
   const og = operatingGuides;
 
@@ -347,27 +376,47 @@ export function AiSection({ lang, settings, onChange, operatingGuides }: AiSecti
         </label>
         {keyWrap === "passphrase" && (
           <div className="mt-2 flex flex-col gap-2">
-            <div className="flex items-center gap-2">
-              <input
-                type="password"
-                autoComplete="off"
-                aria-label={t(lang, "secretPassphrasePlaceholder")}
-                placeholder={t(lang, "secretPassphrasePlaceholder")}
-                value={keyPassphrase}
-                onChange={(e) => setKeyPassphrase(e.target.value)}
-                className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none focus:ring-1 focus:ring-AIPM-green"
-              />
-              <button
-                type="button"
-                disabled={!settings.ai.apiKey.trim() || !keyPassphrase}
-                onClick={handleLockConfirm}
-                className="whitespace-nowrap rounded-md border border-line bg-AIPM-green px-3 py-2 text-xs font-medium text-foreground disabled:opacity-50"
-              >
-                {t(lang, "secretLockPassphrase")}
-              </button>
-            </div>
+            <input
+              type="password"
+              autoComplete="off"
+              aria-label={t(lang, "secretPassphrasePlaceholder")}
+              placeholder={t(lang, "secretPassphrasePlaceholder")}
+              value={keyPassphrase}
+              onChange={(e) => setKeyPassphrase(e.target.value)}
+              className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none focus:ring-1 focus:ring-AIPM-green"
+            />
+            <input
+              type="password"
+              autoComplete="off"
+              aria-label={t(lang, "secretPassphraseConfirm")}
+              placeholder={t(lang, "secretPassphraseConfirm")}
+              value={keyConfirm}
+              onChange={(e) => setKeyConfirm(e.target.value)}
+              className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none focus:ring-1 focus:ring-AIPM-green"
+            />
+            {keyPassphraseMismatch && (
+              <p className="text-xs text-AIPM-pink-strong">{t(lang, "secretPassphraseMismatch")}</p>
+            )}
+            <button
+              type="button"
+              disabled={!settings.ai.apiKey.trim() || !keyPassphrase || keyPassphrase !== keyConfirm}
+              onClick={handleLockConfirm}
+              className="self-start whitespace-nowrap rounded-md border border-line bg-AIPM-green px-3 py-2 text-xs font-medium text-foreground disabled:opacity-50"
+            >
+              {t(lang, "secretPassphraseSave")}
+            </button>
             <p className="text-xs text-muted-foreground">{t(lang, "secretLockWarning")}</p>
           </div>
+        )}
+        {keyStored && (
+          <button
+            type="button"
+            onClick={handleRemoveSecret}
+            title={t(lang, "secretPassphraseRemoveHint")}
+            className="mt-2 rounded-md border border-line px-3 py-1.5 text-xs font-medium text-AIPM-pink-strong hover:bg-surface-muted"
+          >
+            {t(lang, "secretPassphraseRemove")}
+          </button>
         )}
       </div>
       <label className="mt-2 block">

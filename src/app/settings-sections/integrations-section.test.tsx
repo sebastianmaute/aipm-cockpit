@@ -63,11 +63,35 @@ describe("IntegrationsSection Turso auth token sealing", () => {
     await waitFor(async () => expect(await readDeviceSecret("tursoAuthToken")).toBe("tok-typed"));
   });
 
-  it("passphrase toggle locks the Turso token", async () => {
+  it("passphrase toggle locks the Turso token once the confirm matches", async () => {
     render(<IntegrationsSection lang="en-US" settings={tursoSettings("tok-have")} onChange={() => {}} />);
     fireEvent.click(screen.getByLabelText(/require a passphrase/i));
     fireEvent.change(screen.getByLabelText(/^passphrase$/i), { target: { value: "pw" } });
-    fireEvent.click(screen.getByRole("button", { name: /require a passphrase/i }));
+    fireEvent.change(screen.getByLabelText(/confirm passphrase/i), { target: { value: "pw" } });
+    fireEvent.click(screen.getByRole("button", { name: /save passphrase/i }));
     await waitFor(() => expect(isPassphraseLocked("tursoAuthToken")).toBe(true));
+  });
+
+  it("Save is disabled until the confirm passphrase matches", () => {
+    render(<IntegrationsSection lang="en-US" settings={tursoSettings("tok-have")} onChange={() => {}} />);
+    fireEvent.click(screen.getByLabelText(/require a passphrase/i));
+    fireEvent.change(screen.getByLabelText(/^passphrase$/i), { target: { value: "pw" } });
+    fireEvent.change(screen.getByLabelText(/confirm passphrase/i), { target: { value: "px" } });
+    expect(screen.getByText(/passphrases do not match/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /save passphrase/i })).toBeDisabled();
+  });
+
+  it("removing the stored token forgets the secret and unsets the lock", async () => {
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    render(<IntegrationsSection lang="en-US" settings={tursoSettings("tok-have")} onChange={() => {}} />);
+    // Lock under a passphrase first.
+    fireEvent.click(screen.getByLabelText(/require a passphrase/i));
+    fireEvent.change(screen.getByLabelText(/^passphrase$/i), { target: { value: "pw" } });
+    fireEvent.change(screen.getByLabelText(/confirm passphrase/i), { target: { value: "pw" } });
+    fireEvent.click(screen.getByRole("button", { name: /save passphrase/i }));
+    await waitFor(() => expect(isPassphraseLocked("tursoAuthToken")).toBe(true));
+    // Remove it entirely.
+    fireEvent.click(screen.getByRole("button", { name: /remove stored secret/i }));
+    await waitFor(() => expect(isPassphraseLocked("tursoAuthToken")).toBe(false));
   });
 });

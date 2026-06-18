@@ -8,6 +8,42 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.101.0] - 2026-06-18 "Kress"
+
+UI/UX + secrets-management batch.
+
+### Added
+- **Manual document links** — the Documents view's "Add document" button is now always available
+  (previously hidden unless SharePoint was enabled) and offers a manual name + URL entry (validated)
+  for linking any document; the SharePoint picker still appears when M365 + SharePoint is on.
+- **Stored-secret removal & passphrase confirm** — the Claude API key and Turso token settings now
+  have a confirm-passphrase field (Save is disabled until both match) and a "Remove stored secret"
+  button that forgets the ciphertext entirely.
+
+### Changed
+- **Reliable passphrase unset** — un-ticking "Require a passphrase to unlock" now always works
+  (previously the AI-key toggle silently snapped back when the value was locked): it re-seals the
+  value device-wrapped if it is in memory, otherwise forgets the locked-and-unknown secret.
+- **Project delete moved off the active row** — the current/non-archived project no longer shows a
+  destructive Archive/Delete button; those actions now live on the *other* (non-current) project rows
+  so you cannot destroy the project you are in.
+- **Full-width Milestones & Documents** — both views now fill the pane (were centered half-width) and
+  scroll their content. Their resize-size storage key was bumped so a stale half-width size can't
+  override the new full-width default (the pane is still user-resizable from the new baseline).
+- **History compare restore** — per-row "Restore this" now also appears in the two-version and
+  side-by-side compares (reverts the record to the older version); "Restore selected" moved up beside
+  the per-row restores in the compare-with-current view; all compare/restore buttons gained tooltips.
+- **Task editor alignment** — the "Edit task" heading and the control bar now line up with the field
+  sections (the extra inset was removed).
+
+### Fixed
+- **Next-action button hover** — row CTA buttons now hover to a brand-blue tint distinct from the
+  row's own hover, so the button affordance stays visible while the pointer is over the row.
+- **Comm-template discoverability** — the template-category heading has a tooltip explaining the rows
+  are clickable, and the rows themselves gained a hover effect.
+- **Scrollbar gap** — added the standard content↔scrollbar gap to the Projects list, the Resources
+  roll-up table, and the (now scrollable) Milestones table.
+
 ## [0.100.0] - 2026-06-18 "Hobb"
 
 UI/UX consistency batch across many views, plus deeper version-history controls.
