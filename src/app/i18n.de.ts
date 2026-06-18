@@ -31,6 +31,10 @@ export const de: Record<TranslationKey, string> = {
   dueDate: "Fälligkeitsdatum",
   lastUpdateDate: "Letzte Aktualisierung",
   blockers: "Blocker",
+  taskHintGroup: "Verwandte Aufgaben unter einem gemeinsamen Namen gruppieren (z. B. Workstream oder Epic), um sie zusammenzufassen.",
+  taskHintDependencies: "Aufgaben, die abgeschlossen sein müssen, bevor diese beginnen kann.",
+  taskHintBlockers: "Was diese Aufgabe derzeit aufhält — wird als Hindernis angezeigt.",
+  taskHintHealth: "Rot/Gelb/Grün-Status. Automatisch lassen oder manuell überschreiben.",
   notes: "Notizen",
 
   // Shared field labels (reused across multiple entity modals)
@@ -464,6 +468,7 @@ export const de: Record<TranslationKey, string> = {
   aiPromptTrendActBody: "Was sollte ich angesichts der aktuellen Trends tun, um im Plan zu bleiben?",
   versionHighlightAiAskClaude: "Claude zu jeder Ansicht fragen: Grundlegende Prompts mit einem Tipp und ansichtsspezifische Vorschläge im KI-Assistenten.",
   versionHighlightUiBatch0990: "Anpassbare Bereiche, Trend-Deltas im Dashboard, gruppierte Berichte und eine klarere Schaltfläche \"Ask Claude\".",
+  versionHighlightUiBatch0100: "Abgerundete Tabellenkopfzeilen mit einheitlichem Scrollbalken-Abstand, RAG-Prioritätspunkte, Dialoge schließen per Klick daneben, Wiederherstellung ganzer Versionen samt Nebeneinander-Vergleich und Tooltips im Aufgaben-Editor.",
 
   aiConsentTitle: "Claude-Chat aktivieren?",
   aiConsentBullet1:
@@ -2129,7 +2134,10 @@ export const de: Record<TranslationKey, string> = {
   historyCompareVsNow: "Mit aktuellem Stand verglichen",
   historyCompareSelect: "Zum Vergleich auswählen",
   historyCompareSelected: "Auswahl vergleichen",
+  historyCompareSideBySide: "Nebeneinander vergleichen",
   historyRestoreSelected: "Auswahl wiederherstellen",
+  historyRestoreState: "Diesen Stand wiederherstellen",
+  historyRestoreRecord: "Diesen Eintrag wiederherstellen",
   versionRetentionLabel: "Versionsverlauf: behalten",
   versionRetentionHelp: "Maximale Anzahl automatischer Versionen pro Projekt (benannte Checkpoints bleiben immer erhalten). Nur Turso-Backend.",
   versionRetentionUnit: "Versionen",

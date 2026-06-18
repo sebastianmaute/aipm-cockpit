@@ -727,10 +727,16 @@ function TaskManagerInner() {
   // settings section (where the learning controls live) — not the bare Settings
   // root. The nonce re-fires navigation even on a repeat click.
   const [settingsSectionRequest, setSettingsSectionRequest] = useState<{ id: "nextActions"; nonce: number } | undefined>(undefined);
+  // Monotonic nonce (a ref, never reset) so each deep-link request is distinct
+  // even after the previous one was consumed/cleared — robust whether SettingsView
+  // remounts (modern) or stays mounted.
+  const settingsSectionNonceRef = useRef(0);
   const onOpenLearningSettings = useCallback(() => {
-    setSettingsSectionRequest((prev) => ({ id: "nextActions", nonce: (prev?.nonce ?? 0) + 1 }));
+    settingsSectionNonceRef.current += 1;
+    setSettingsSectionRequest({ id: "nextActions", nonce: settingsSectionNonceRef.current });
     setActiveTab("settings");
   }, [setActiveTab]);
+  const clearSettingsSectionRequest = useCallback(() => setSettingsSectionRequest(undefined), []);
   const openAction = useCallback(
     (a: SuggestedAction) => {
       if (a.cta.kind === "open") requestOpen(a.cta.view, Number(a.cta.id));
@@ -1684,6 +1690,16 @@ function TaskManagerInner() {
 
   const editActions = (
     <>
+      {editingIsJiraLinked && settings.jira.enabled && (
+        <button
+          type="button"
+          onClick={() => { void handleJiraSync(); }}
+          disabled={jiraSyncing}
+          className="rounded-md border border-line bg-surface px-4 py-1.5 text-sm font-medium text-AIPM-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 dark:border-line dark:bg-surface dark:text-AIPM-light-grey dark:hover:bg-surface-muted"
+        >
+          {t(lang, jiraSyncing ? "jiraSyncing" : "jiraSync")}
+        </button>
+      )}
       <button
         type="button"
         onClick={handleCancelEdit}
@@ -1725,6 +1741,8 @@ function TaskManagerInner() {
       onRemoveContact={handleRemoveContact}
       onShowToast={showToast}
       onAddAssigneeToAddressBook={handleAddAssigneeToAddressBook}
+      heading={editingId !== null ? t(lang, "taskEditTitle") : t(lang, "tabNewTask")}
+      onClose={handleCancelEdit}
       footer={editActions}
     />
   );
@@ -1751,6 +1769,7 @@ function TaskManagerInner() {
       onResetLearning={isPopout ? undefined : () => { void learning.reset(); }}
       onOpenInsights={isPopout ? undefined : () => setActiveTab("learning-insights")}
       requestSection={settingsSectionRequest}
+      onSectionConsumed={clearSettingsSectionRequest}
     />
   );
 

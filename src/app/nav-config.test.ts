@@ -59,8 +59,8 @@ describe("nav-config", () => {
     expect(subTabsFor("open-points")).toEqual([]);
   });
 
-  it("exposes budget-report and raid-report as children of reports", () => {
-    const reportKids = [{ view: "budget-report" }, { view: "raid-report" }];
+  it("exposes budget-report, raid-report and change-report as children of reports", () => {
+    const reportKids = [{ view: "budget-report" }, { view: "raid-report" }, { view: "change-report" }];
     expect(subTabsFor("reports")).toEqual(reportKids);
     expect(subTabsFor("budget-report")).toEqual(reportKids);
     expect(subTabsFor("raid-report")).toEqual(reportKids);
@@ -76,9 +76,15 @@ describe("nav-config", () => {
     expect(allNavViews()).toContain("change-report");
   });
 
-  it("exposes change-report as a child of changes with label keys", () => {
-    expect(subTabsFor("changes")).toEqual([{ view: "change-report" }]);
-    expect(subTabsFor("change-report")).toEqual([{ view: "change-report" }]);
+  it("groups change-report under reports (not changes) with label keys", () => {
+    // change-report now lives beside budget-report/raid-report under the reports
+    // group; changes is a standalone register entry with no children.
+    expect(subTabsFor("changes")).toEqual([]);
+    expect(subTabsFor("change-report")).toEqual([
+      { view: "budget-report" },
+      { view: "raid-report" },
+      { view: "change-report" },
+    ]);
     expect(navLabelKey("changes")).toBe("navChanges");
     expect(navLabelKey("change-report")).toBe("changeReportTitle");
   });

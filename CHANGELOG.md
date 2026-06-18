@@ -8,6 +8,44 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.100.0] - 2026-06-18 "Hobb"
+
+UI/UX consistency batch across many views, plus deeper version-history controls.
+
+### Added
+- **Whole-version restore** — every row in Version history now has a "Restore this state" button
+  that reverts the entire workspace to that version (it diffs against the current state and restores
+  all changes), alongside the existing selective restore.
+- **Per-record restore in a comparison** — when comparing a version with the current state, each
+  changed record now carries a "Restore this" button to revert just that record.
+- **Side-by-side compare** — a "Compare side by side" button (beside "Compare selected") shows the
+  two selected versions in two columns instead of an inline before→after diff.
+- **Gantt → Milestones "Add milestone"** — clicking Add milestone in the Gantt now switches to the
+  Milestones view and opens the New milestone dialog directly (previously the dialog was swallowed
+  on the freshly-mounted view).
+- **Milestones column-width reset** — the Milestones table gained the same "reset column widths"
+  button the other tables have.
+- **Task editor** — the full-page task editor now shows an "Edit task" / "New task" heading top-left
+  and a ✕ close button beside the field cog; Jira-synced tasks get a "Sync with Jira" button beside
+  Cancel; and several fields (group, dependencies, blockers, health) gained explanatory tooltips.
+
+### Changed
+- **Rounded table headers** — every data-table header now has rounded top corners on both ends
+  (previously the right corner stayed square), unified via the shared header style.
+- **Consistent scrollbar gap** — Budget, Open Points, Stakeholders, RACI, RAID, Change log, Activity,
+  Manage Roles, Gantt and Calendar now keep a gap between their content and the scrollbar, matching
+  the Dashboard.
+- **Next-actions priority dots** now use the same Red/Amber/Green status colours as Open Points.
+- **Change report** moved under the Reports nav group, beside the Budget and RAID reports.
+- Next-actions action buttons show a pointer cursor on hover; the Re-baseline and Snooze dialogs
+  close on an outside click (as well as Escape).
+
+### Fixed
+- **"Learning is on/off" deep-link** — clicking the Action Center learning pill now actually opens
+  Settings → Next-actions (the request was being swallowed on the freshly-mounted Settings view).
+- **Resource workload over-extension** — the Workload table no longer stretches a mostly-empty table
+  far below a short resource list; it sizes to its content and scrolls only when it overflows.
+
 ## [0.99.1] - 2026-06-17 "Brackett"
 
 ### Security

@@ -18,7 +18,7 @@ import {
 import { type Lang, t } from "./i18n";
 import { nextId } from "./resource-foundation";
 import { useColumnResize } from "./use-column-resize";
-import { ColumnResizeHandle, ResetSizeButton } from "./task-manager-ui";
+import { ColumnResizeHandle, ResetSizeButton, ResetColWidthsButton } from "./task-manager-ui";
 import { useResizable } from "./use-resizable";
 import { CENTERED_HALF_PANE_CLASS } from "./view-styles";
 import { TABLE_HEAD_CLASS } from "./table-styles";
@@ -49,6 +49,7 @@ export function MilestonesPanel({
   holidaySet,
   logActivity,
   openCreateNonce,
+  onCreateConsumed,
   onPushToOutlook,
   calendarPushBusy,
 }: {
@@ -57,6 +58,10 @@ export function MilestonesPanel({
   holidaySet: ReadonlySet<string>;
   logActivity?: (kind: ActivityKind, ...args: (string | number)[]) => void;
   openCreateNonce?: number;
+  /** Called after an `openCreateNonce` create-request has been honoured so the
+   *  parent can reset the nonce. Without it a stale nonce re-opens the create
+   *  modal every time this panel remounts (e.g. navigating in from Gantt). */
+  onCreateConsumed?: () => void;
   onPushToOutlook?: () => void;
   calendarPushBusy?: boolean;
 }) {
@@ -90,7 +95,7 @@ export function MilestonesPanel({
     getValue,
   );
 
-  const { colWidths, startColResize } =
+  const { colWidths, startColResize, resetColWidths } =
     useColumnResize<MilestoneCol>("milestone", MILESTONE_COL_WIDTHS);
   const startResize = startColResize as (col: string, e: React.MouseEvent) => void;
 
@@ -102,15 +107,22 @@ export function MilestonesPanel({
   }
 
   // One-way signal from the parent (Gantt "Add milestone"): when the nonce
-  // changes to a positive value, open the create modal. Crucially does NOT
-  // auto-open on initial mount (the ref seeds from the first prop value).
-  const prevNonceRef = useRef(openCreateNonce ?? 0);
+  // changes to a positive value, open the create modal. The ref seeds from
+  // `undefined` (NOT the live prop) so a positive nonce that is already set when
+  // this panel first mounts — the Gantt→Milestones case, where the click both
+  // bumps the nonce and switches the tab, remounting us — still opens the modal.
+  // After honouring it we tell the parent to reset the nonce (onCreateConsumed)
+  // so a stale value does not re-open the modal on a later normal navigation.
+  const prevNonceRef = useRef<number | undefined>(undefined);
   useEffect(() => {
     const next = openCreateNonce ?? 0;
     if (next !== prevNonceRef.current) {
       prevNonceRef.current = next;
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: a one-way parent signal must open the modal on a nonce transition, not at render time
-      if (next > 0) openNew();
+      if (next > 0) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: a one-way parent signal must open the modal on a nonce transition, not at render time
+        openNew();
+        onCreateConsumed?.();
+      }
     }
     // openNew is a stable hoisted declaration; depend only on the nonce.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -201,6 +213,7 @@ export function MilestonesPanel({
             <option value="achieved">{t(lang, "milestonesFilterAchieved")}</option>
             <option value="overdue">{t(lang, "milestonesFilterOverdue")}</option>
           </select>
+          <ResetColWidthsButton onClick={resetColWidths} lang={lang} />
           <ResetSizeButton onClick={resetSize} lang={lang} />
         </div>
       </header>

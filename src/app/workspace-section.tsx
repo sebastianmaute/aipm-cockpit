@@ -835,6 +835,7 @@ export function WorkspaceSection({
               holidaySet={holidaySet}
               logActivity={logActivity}
               openCreateNonce={milestoneCreateNonce}
+              onCreateConsumed={() => setMilestoneCreateNonce(0)}
               onPushToOutlook={onPushMilestonesToOutlook}
               calendarPushBusy={calendarPushBusy}
             />

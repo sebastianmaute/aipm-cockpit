@@ -27,6 +27,10 @@ const enUS = {
   dueDate: "Due date",
   lastUpdateDate: "Last update date",
   blockers: "Blockers",
+  taskHintGroup: "Group related tasks under a shared name (e.g. a workstream or epic) to roll them up together.",
+  taskHintDependencies: "Tasks that must finish before this one can start.",
+  taskHintBlockers: "What is currently holding this task up — surfaced as an impediment.",
+  taskHintHealth: "Red/Amber/Green status. Leave on auto, or override to set it manually.",
   notes: "Notes",
 
   // Shared field labels (reused across multiple entity modals)
@@ -463,6 +467,7 @@ const enUS = {
   aiPromptTrendActBody: "Given the current trends, what should I do to stay on track?",
   versionHighlightAiAskClaude: "Ask Claude about any view: one-tap foundational prompts and view-specific suggestions in the AI Assistant.",
   versionHighlightUiBatch0990: "Resizable panes, dashboard trend deltas, grouped reports, and a clearer Ask Claude button.",
+  versionHighlightUiBatch0100: "Rounded table headers with a consistent scrollbar gap, RAG priority dots, click-away dialogs, whole-version restore plus side-by-side compare, and task-editor tooltips.",
 
   aiConsentTitle: "Enable Claude chat?",
   aiConsentBullet1:
@@ -2122,7 +2127,10 @@ const enUS = {
   historyCompareVsNow: "Compared with current",
   historyCompareSelect: "Select to compare",
   historyCompareSelected: "Compare selected",
+  historyCompareSideBySide: "Compare side by side",
   historyRestoreSelected: "Restore selected",
+  historyRestoreState: "Restore this state",
+  historyRestoreRecord: "Restore this",
   versionRetentionLabel: "Version history: keep",
   versionRetentionHelp: "Maximum automatic versions kept per project (named checkpoints are always kept). Turso backend only.",
   versionRetentionUnit: "versions",

@@ -1,6 +1,6 @@
 // src/app/action-row.tsx
 "use client";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { type Lang, t } from "./i18n";
 import type { SuggestedAction, ActionTier } from "./next-actions/types";
 import type { Resource } from "./types";
@@ -11,12 +11,18 @@ import { InfoTooltip } from "./info-tooltip";
 import { ResourcePicker } from "./resource-picker";
 import { EscalatePopover, type EscalateBundle } from "./escalate-popover";
 import { RebaselinePopover, type RebaselineBundle } from "./rebaseline-popover";
+import { usePopoverDismiss } from "./use-popover-dismiss";
+import { healthDot, type Health } from "./health";
 
-const TIER_DOT: Record<ActionTier, string> = {
-  now: "bg-AIPM-pink",
-  soon: "bg-AIPM-purple",
-  monitor: "bg-AIPM-medium-grey",
-};
+// Priority is shown with the SAME red/amber/green dot the Open Points table uses
+// for task health (healthDot), so "urgent" reads identically across the app:
+// now → R (red), soon → A (amber), monitor → G (green).
+const TIER_RAG: Record<ActionTier, Health> = { now: "R", soon: "A", monitor: "G" };
+
+/** Shared chrome for a row CTA button — bordered pill with an explicit pointer
+ *  cursor and a hover background so the affordance is obvious on hover. */
+const ACTION_BTN_CLASS =
+  "cursor-pointer rounded-md border border-line px-2 py-1 text-xs font-medium text-AIPM-dark-blue transition-colors hover:border-AIPM-dark-blue/40 hover:bg-surface-muted dark:text-AIPM-light-grey";
 
 export interface AssignOwnerBundle {
   resources: readonly Resource[];
@@ -40,6 +46,10 @@ export function ActionRow({ lang, action, onOpen, onSnooze, onCreateTask, assign
   const [menuOpen, setMenuOpen] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
   const assignPopRef = useRef<HTMLSpanElement>(null);
+  const menuWrapRef = useRef<HTMLSpanElement>(null);
+  // Snooze menu: dismiss on outside-click or Escape (wrapper holds trigger + menu).
+  const closeMenu = useCallback(() => setMenuOpen(false), []);
+  usePopoverDismiss(menuOpen, menuWrapRef, closeMenu);
 
   // Focus first focusable element when popover opens (a11y: dialog focus management).
   useEffect(() => {
@@ -92,7 +102,7 @@ export function ActionRow({ lang, action, onOpen, onSnooze, onCreateTask, assign
       onClick={() => onOpen(action)}
       className="flex cursor-pointer items-center gap-3 rounded-md border border-line bg-surface px-3 py-2 hover:bg-surface-muted"
     >
-      <span aria-hidden className={`h-2 w-2 shrink-0 rounded-full ${TIER_DOT[action.tier]}`} />
+      <span aria-hidden className={`h-2 w-2 shrink-0 rounded-full ${healthDot[TIER_RAG[action.tier]]}`} />
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-2">
           <span aria-hidden data-action-source-icon className="shrink-0 text-muted-foreground">
@@ -121,7 +131,7 @@ export function ActionRow({ lang, action, onOpen, onSnooze, onCreateTask, assign
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); onOpen(action); }}
-          className="rounded-md border border-line px-3 py-1 text-xs font-medium text-AIPM-dark-blue transition-colors hover:border-AIPM-dark-blue/40 hover:bg-surface-muted dark:text-AIPM-light-grey"
+          className={`${ACTION_BTN_CLASS} px-3`}
         >
           {t(lang, "actionOpen")}
         </button>
@@ -129,7 +139,7 @@ export function ActionRow({ lang, action, onOpen, onSnooze, onCreateTask, assign
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); onDraftMessage(action); }}
-            className="rounded-md border border-line px-2 py-1 text-xs font-medium text-AIPM-dark-blue transition-colors hover:border-AIPM-dark-blue/40 hover:bg-surface-muted dark:text-AIPM-light-grey"
+            className={ACTION_BTN_CLASS}
           >
             {t(lang, "actionDraftMessage")}
           </button>
@@ -138,7 +148,7 @@ export function ActionRow({ lang, action, onOpen, onSnooze, onCreateTask, assign
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); onCreateTask(action); }}
-            className="rounded-md border border-line px-2 py-1 text-xs font-medium text-AIPM-dark-blue transition-colors hover:border-AIPM-dark-blue/40 hover:bg-surface-muted dark:text-AIPM-light-grey"
+            className={ACTION_BTN_CLASS}
           >
             {t(lang, "actionCreateTask")}
           </button>
@@ -156,7 +166,7 @@ export function ActionRow({ lang, action, onOpen, onSnooze, onCreateTask, assign
               aria-haspopup="dialog"
               aria-expanded={assignOpen}
               onClick={(e) => { e.stopPropagation(); setAssignOpen((o) => !o); }}
-              className="rounded-md border border-line px-2 py-1 text-xs font-medium text-AIPM-dark-blue hover:bg-surface-muted dark:text-AIPM-light-grey"
+              className={ACTION_BTN_CLASS}
             >
               {t(lang, "actionAssignOwner")}
             </button>
@@ -182,13 +192,13 @@ export function ActionRow({ lang, action, onOpen, onSnooze, onCreateTask, assign
           </span>
         )}
         {onSnooze && (
-          <span className="relative">
+          <span ref={menuWrapRef} className="relative">
             <button
               type="button"
               aria-haspopup="true"
               aria-expanded={menuOpen}
               onClick={(e) => { e.stopPropagation(); setMenuOpen((o) => !o); }}
-              className="rounded-md border border-line px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-surface-muted"
+              className="cursor-pointer rounded-md border border-line px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-surface-muted"
             >
               {t(lang, "actionSnooze")} ▾
             </button>

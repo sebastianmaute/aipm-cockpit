@@ -296,7 +296,7 @@ function ChangePanelInner({
     <div ref={paneRef} className={VIEW_PANE_RESIZABLE_CLASS}>
       {toolbar}
 
-      <div className="min-h-[240px] flex-1 overflow-auto rounded-md border border-line">
+      <div className="min-h-[240px] flex-1 overflow-auto rounded-md border border-line pr-2">
         <table className="min-w-full text-left text-sm">
           <thead className={TABLE_HEAD_CLASS}>
             <tr>

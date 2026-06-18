@@ -163,18 +163,25 @@ describe("SettingsView", () => {
   });
 
   it("a nextActions deep-link lands on Next-actions when expert mode is on", () => {
+    const onSectionConsumed = vi.fn();
     render(
       <SettingsView
         {...makeProps({
           settings: { ...defaultSettings, expertMode: true },
           requestSection: { id: "nextActions", nonce: 1 },
+          onSectionConsumed,
         })}
       />,
     );
-    // Expert mode keeps the deep-link target: the Next-actions rail entry exists
-    // and the Appearance (General) subheading is not what is shown.
-    expect(
-      screen.getByRole("button", { name: t("en-US", "settingsSectionNextActions") }),
-    ).toBeInTheDocument();
+    // The deep-link must actually SELECT the Next-actions section, not merely keep
+    // its rail entry present. Assert the section body is shown (its hint text) and
+    // that the General/Appearance body (theme radios) is NOT — i.e. we navigated.
+    // (Regression guard: a fresh mount initialised `handledNonce` to the live nonce
+    // and swallowed the request, leaving the view on General.)
+    expect(screen.getByText(t("en-US", "nextActionsHint"))).toBeInTheDocument();
+    expect(screen.queryByRole("radio", { name: t("en-US", "themeSystem") })).toBeNull();
+    // The request is reported consumed so the parent can clear it (no re-jump on
+    // a later normal re-open).
+    expect(onSectionConsumed).toHaveBeenCalled();
   });
 });

@@ -93,7 +93,7 @@ describe("MilestonesPanel", () => {
     expect(getByText("No milestones yet.")).toBeTruthy();
   });
 
-  it("opens the create modal when openCreateNonce increments, not on mount", () => {
+  it("opens the create modal when openCreateNonce increments, not on a 0 mount", () => {
     const { rerender } = render(
       <MilestonesPanel {...baseProps} openCreateNonce={0} />,
       { wrapper },
@@ -101,6 +101,19 @@ describe("MilestonesPanel", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     rerender(<MilestonesPanel {...baseProps} openCreateNonce={1} />);
     expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
+  it("opens the create modal when it mounts with a positive nonce (Gantt → Milestones)", () => {
+    // The Gantt 'Add milestone' click bumps the nonce AND switches the tab, so
+    // this panel mounts fresh with the nonce already > 0. It must still open and
+    // report the request consumed (so a stale nonce does not re-open on remount).
+    const onCreateConsumed = vi.fn();
+    render(
+      <MilestonesPanel {...baseProps} openCreateNonce={1} onCreateConsumed={onCreateConsumed} />,
+      { wrapper },
+    );
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(onCreateConsumed).toHaveBeenCalled();
   });
 
   it("renders the New milestone button at the left, styled like Gantt (solid dark-blue)", () => {

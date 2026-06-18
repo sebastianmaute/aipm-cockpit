@@ -87,4 +87,12 @@ describe("TaskEditView", () => {
     fireEvent.submit(form);
     expect(onSubmit).toHaveBeenCalled();
   });
+
+  it("renders the heading top-left and a ✕ close that calls onClose", () => {
+    const onClose = vi.fn();
+    setup({ heading: "Edit task", onClose });
+    expect(screen.getByRole("heading", { name: "Edit task" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(onClose).toHaveBeenCalled();
+  });
 });

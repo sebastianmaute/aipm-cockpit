@@ -9,6 +9,7 @@ import type { listContacts } from "./contacts";
 import { DependenciesEditor } from "./dependencies-editor";
 import { formatDuration, parseDuration } from "./duration";
 import { CharCounter, FieldError, FieldNotice } from "./field-feedback";
+import { InfoTooltip } from "./info-tooltip";
 import {
   computeTaskHealth,
   HEALTH_VALUES,
@@ -355,7 +356,7 @@ export function TaskFormFields({
       )}
 
       <TaskFormSection index={3} title={t(lang, "taskFormSectionEffort")}>
-        <Field label={t(lang, "group")}>
+        <Field label={t(lang, "group")} hint={t(lang, "taskHintGroup")}>
           <ComboInput
             lang={lang}
             value={form.group}
@@ -417,7 +418,7 @@ export function TaskFormFields({
       {(isVisible("dependencies") || isVisible("blockers")) && (
       <TaskFormSection index={4} title={t(lang, "taskFormSectionRelationships")}>
         {isVisible("dependencies") && (
-        <Field label={t(lang, "depDependencies")} className="sm:col-span-2">
+        <Field label={t(lang, "depDependencies")} hint={t(lang, "taskHintDependencies")} className="sm:col-span-2">
           <DependenciesEditor
             lang={lang}
             value={form.dependencies}
@@ -431,7 +432,7 @@ export function TaskFormFields({
         )}
 
         {isVisible("blockers") && (
-        <Field label={t(lang, "blockers")} className="sm:col-span-2">
+        <Field label={t(lang, "blockers")} hint={t(lang, "taskHintBlockers")} className="sm:col-span-2">
           <textarea
             rows={2}
             value={form.blockers}
@@ -451,7 +452,7 @@ export function TaskFormFields({
 
       <TaskFormSection index={5} title={t(lang, "taskFormSectionStatus")}>
         {(isVisible("health") || isVisible("healthOverride")) && (
-        <Field label={t(lang, "health")} className="sm:col-span-2">
+        <Field label={t(lang, "health")} hint={t(lang, "taskHintHealth")} className="sm:col-span-2">
           {(() => {
             // Show what the auto-rule would say so the user can decide
             // whether to override it. Recomputed each render — cheap.
@@ -650,19 +651,29 @@ export function TaskFormSection({
 export function Field({
   label,
   required,
+  hint,
   className,
   children,
 }: {
   label: string;
   required?: boolean;
+  /** Optional explanatory tooltip shown via an InfoTooltip beside the label. */
+  hint?: string;
   className?: string;
   children: React.ReactNode;
 }) {
   return (
     <label className={`block ${className ?? ""}`}>
-      <span className="mb-1 block text-sm font-medium text-foreground">
+      <span className="mb-1 flex items-center gap-1 text-sm font-medium text-foreground">
         {label}
         {required && <span className="ml-0.5 text-AIPM-pink-strong">*</span>}
+        {hint && (
+          // preventDefault stops the wrapping <label> from also focusing/toggling
+          // its control when the tooltip trigger is clicked.
+          <span onClick={(e) => e.preventDefault()} className="inline-flex">
+            <InfoTooltip text={hint} />
+          </span>
+        )}
       </span>
       {children}
     </label>

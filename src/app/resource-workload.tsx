@@ -68,7 +68,11 @@ export function ResourceWorkload({
   const startColResize = colResize.startColResize as (col: string, e: React.MouseEvent) => void;
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    // max-h-full (not h-full): the card shrinks to its content so a short
+    // workload list (reference resources are NOT replicated, so even the huge
+    // sample has only a handful) does not stretch a mostly-empty table down past
+    // the viewport; it still scrolls if the list ever exceeds the pane.
+    <div className="flex max-h-full min-h-0 flex-col">
       <div className={INNER_TABLE_CLASS}>
       <table className="w-full text-left text-sm">
         <thead className={TABLE_HEAD_CLASS}>

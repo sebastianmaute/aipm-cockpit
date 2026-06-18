@@ -251,7 +251,7 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
           {t(lang, "activityNoMatches")}
         </div>
       ) : (
-        <div className="min-h-0 flex-1 overflow-auto rounded-md border border-line">
+        <div className="min-h-0 flex-1 overflow-auto rounded-md border border-line pr-2">
           <table className="w-full text-left text-sm">
             <thead className={TABLE_HEAD_CLASS}>
               <tr>

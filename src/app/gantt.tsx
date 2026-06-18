@@ -808,7 +808,7 @@ export function GanttPanel({
       {toolbar}
       <div
         ref={scrollRef}
-        className="min-h-[240px] w-full min-w-[480px] flex-1 overflow-auto rounded-md border border-line"
+        className="min-h-[240px] w-full min-w-[480px] flex-1 overflow-auto rounded-md border border-line pr-2"
       >
       <div
         ref={wrapperRef}
