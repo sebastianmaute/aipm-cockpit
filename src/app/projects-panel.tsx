@@ -215,7 +215,7 @@ export function ProjectsPanel({
       </header>
 
       {/* List ----------------------------------------------------------- */}
-      <div className="min-h-0 flex-1 overflow-auto pt-4">
+      <div className="min-h-0 flex-1 overflow-auto pr-2 pt-4">
         {projects.length === 0 ? (
           <p className="text-sm italic text-muted-foreground">
             {t(lang, "projectsEmptyTitle")}
@@ -310,10 +310,25 @@ export function ProjectsPanel({
                             )}
                           </div>
 
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => onSwitch(p.id)}
+                            aria-label={`${t(lang, "projectsSwitch")} – ${p.name}`}
+                            className={SECONDARY_BUTTON_CLASS}
+                          >
+                            {t(lang, "projectsSwitch")}
+                          </button>
+                          {/* Destructive actions live on NON-current rows only: the
+                              active/non-archived project you are in must not be
+                              archivable/deletable from under you (switch away first). */}
                           {isTurso ? (
                             <button
                               type="button"
                               onClick={() => handleArchive(p.id)}
+                              aria-label={`${t(lang, "projectsArchive")} – ${p.name}`}
                               title={t(lang, "projectsArchiveHint")}
                               className={DESTRUCTIVE_BUTTON_CLASS}
                             >
@@ -323,20 +338,13 @@ export function ProjectsPanel({
                             <button
                               type="button"
                               onClick={() => handleDelete(p.id)}
+                              aria-label={`${t(lang, "projectsDelete")} – ${p.name}`}
                               className={DESTRUCTIVE_BUTTON_CLASS}
                             >
                               {t(lang, "projectsDelete")}
                             </button>
                           )}
                         </>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => onSwitch(p.id)}
-                          className={SECONDARY_BUTTON_CLASS}
-                        >
-                          {t(lang, "projectsSwitch")}
-                        </button>
                       )}
                     </div>
                   </div>

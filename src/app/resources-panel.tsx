@@ -533,7 +533,7 @@ function ResourcesPanelInner({
                   {showRollup ? t(lang, "resourcesRollupHide") : t(lang, "resourcesRollupShow")}
                 </button>
                 {showRollup && (
-                  <div className="mt-2 overflow-auto rounded-md border border-line">
+                  <div className="mt-2 overflow-auto rounded-md border border-line pr-2">
                     <table className="w-full text-left text-sm">
                       <thead className={TABLE_HEAD_CLASS}>
                         <tr>

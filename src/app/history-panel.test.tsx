@@ -105,6 +105,23 @@ it("restores a single record from a vs-now comparison via its row button", async
   expect(restore).toHaveBeenCalledWith("v1", { "tasks:1": "all" }, "Baseline");
 });
 
+it("restores a single record from a two-version side-by-side compare (to the older version)", async () => {
+  const loadDiff = vi.fn().mockResolvedValue([
+    { collection: "tasks", collectionLabel: "Tasks", kind: "list", recordId: 1, recordLabel: "T1",
+      type: "modified", fields: [{ field: "title", label: "Title", before: "A", after: "B" }] },
+  ]);
+  const restore = vi.fn().mockResolvedValue(undefined);
+  render(<HistoryPanel lang="en-US" versions={metas} busy={false} onCaptureNow={vi.fn()} loadDiff={loadDiff} restore={restore} />);
+  const boxes = screen.getAllByRole("checkbox");
+  fireEvent.click(boxes[0]); // v2 (newer)
+  fireEvent.click(boxes[1]); // v1 (older)
+  fireEvent.click(screen.getByRole("button", { name: "Compare side by side" }));
+  await screen.findByText("T1");
+  // Per-row restore reverts that record to the OLDER pick (v1).
+  fireEvent.click(screen.getByRole("button", { name: "Restore this" }));
+  expect(restore).toHaveBeenCalledWith("v1", { "tasks:1": "all" }, expect.any(String));
+});
+
 it("restores ticked changes from a vs-now comparison", async () => {
   const versions = [{ id: "v1", projectId: "p1", capturedAt: "2026-06-10T09:00:00.000Z", trigger: "manual", label: "Baseline", summary: null }];
   const loadDiff = vi.fn().mockResolvedValue([

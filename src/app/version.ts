@@ -2,12 +2,12 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.100.0";
-export const APP_BUILD_DATE = "2026-06-18"; // 0.100.0 UI/UX batch: history restore + side-by-side, rounded headers, scrollbar gaps, next-actions polish (Hobb)
+export const APP_VERSION = "0.101.0";
+export const APP_BUILD_DATE = "2026-06-18"; // 0.101.0 UI/UX batch: passphrase confirm/remove/unset, history per-row restore in side-by-side, full-width Milestones/Documents + manual doc links, project-delete moved off active row, comm-template hints, next-actions hover (Kress)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The whole
- *  0.100.x line is "Hobb" (Robin Hobb); patch releases inherit
+ *  0.101.x line is "Kress" (Nancy Kress); patch releases inherit
  *  their minor version's codename rather than getting their own. */
-export const APP_MILESTONE = "Hobb";
+export const APP_MILESTONE = "Kress";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -111,4 +111,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightAiAskClaude",
   "versionHighlightUiBatch0990",
   "versionHighlightUiBatch0100",
+  "versionHighlightUiBatch0101",
 ] as const;

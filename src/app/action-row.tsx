@@ -21,8 +21,12 @@ const TIER_RAG: Record<ActionTier, Health> = { now: "R", soon: "A", monitor: "G"
 
 /** Shared chrome for a row CTA button — bordered pill with an explicit pointer
  *  cursor and a hover background so the affordance is obvious on hover. */
+// NOTE: the row itself hovers to `bg-surface-muted`, so a button hovering to the
+// SAME colour would be invisible while the pointer is over the (already-hovered)
+// row. Use a brand-blue tint + border emphasis so the button affordance still
+// reads on hover against the muted row.
 const ACTION_BTN_CLASS =
-  "cursor-pointer rounded-md border border-line px-2 py-1 text-xs font-medium text-AIPM-dark-blue transition-colors hover:border-AIPM-dark-blue/40 hover:bg-surface-muted dark:text-AIPM-light-grey";
+  "cursor-pointer rounded-md border border-line px-2 py-1 text-xs font-medium text-AIPM-dark-blue transition-colors hover:border-AIPM-dark-blue/40 hover:bg-AIPM-dark-blue/10 dark:text-AIPM-light-grey";
 
 export interface AssignOwnerBundle {
   resources: readonly Resource[];
@@ -198,7 +202,7 @@ export function ActionRow({ lang, action, onOpen, onSnooze, onCreateTask, assign
               aria-haspopup="true"
               aria-expanded={menuOpen}
               onClick={(e) => { e.stopPropagation(); setMenuOpen((o) => !o); }}
-              className="cursor-pointer rounded-md border border-line px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-surface-muted"
+              className="cursor-pointer rounded-md border border-line px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:border-AIPM-dark-blue/40 hover:bg-AIPM-dark-blue/10"
             >
               {t(lang, "actionSnooze")} ▾
             </button>

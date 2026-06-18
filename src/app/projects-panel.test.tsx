@@ -114,20 +114,29 @@ describe("ProjectsPanel", () => {
 
   it("calls onSwitch(id) when Switch is clicked on a non-current row", () => {
     const { onSwitch } = setup();
-    fireEvent.click(screen.getByRole("button", { name: "Switch project" }));
+    // Switch lives on the non-current row (Gemini/p2); its label is row-qualified.
+    fireEvent.click(screen.getByRole("button", { name: /switch project/i }));
     expect(onSwitch).toHaveBeenCalledWith("p2");
   });
 
-  it("deletes only when the confirm dialog is accepted", () => {
+  it("deletes only when the confirm dialog is accepted (on a non-current row)", () => {
     const { onDelete } = setup();
 
+    // Delete now lives on the NON-current row (Gemini/p2) — the active project
+    // (Apollo/p1) no longer exposes a destructive action.
     vi.spyOn(window, "confirm").mockReturnValueOnce(false);
-    fireEvent.click(screen.getByRole("button", { name: "Delete project" }));
+    fireEvent.click(screen.getByRole("button", { name: /delete project/i }));
     expect(onDelete).not.toHaveBeenCalled();
 
     vi.spyOn(window, "confirm").mockReturnValueOnce(true);
-    fireEvent.click(screen.getByRole("button", { name: "Delete project" }));
-    expect(onDelete).toHaveBeenCalledWith("p1");
+    fireEvent.click(screen.getByRole("button", { name: /delete project/i }));
+    expect(onDelete).toHaveBeenCalledWith("p2");
+  });
+
+  it("does not show a destructive action on the current/active row", () => {
+    setup();
+    // Only the non-current row has a delete; the current row shows Edit/Export only.
+    expect(screen.getAllByRole("button", { name: /delete project/i })).toHaveLength(1);
   });
 
   it("opens the create wizard and calls onCreate with meta + chosen format + opts", () => {
@@ -206,13 +215,13 @@ describe("ProjectsPanel", () => {
 });
 
 describe("ProjectsPanel file mode", () => {
-  it("keeps Load from file and the existing Delete", () => {
+  it("keeps Load from file and the Delete (now on non-current rows)", () => {
     setup({ mode: "file" });
     expect(
       screen.getByRole("button", { name: /load from file/i }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Delete project" }),
+      screen.getByRole("button", { name: /delete project/i }),
     ).toBeInTheDocument();
   });
 });
@@ -236,9 +245,10 @@ describe("ProjectsPanel turso mode", () => {
       onHardDelete,
     });
 
-    // Current row's destructive button is "Archive" in turso mode.
-    fireEvent.click(screen.getByRole("button", { name: /^archive$/i }));
-    expect(onArchive).toHaveBeenCalledWith("p1");
+    // Archive lives on the NON-current row (Gemini/p2) in turso mode; the active
+    // project (Apollo/p1) no longer exposes it. Label is row-qualified.
+    fireEvent.click(screen.getByRole("button", { name: /^archive –/i }));
+    expect(onArchive).toHaveBeenCalledWith("p2");
 
     // Reveal archived.
     fireEvent.click(screen.getByRole("button", { name: /show archived/i }));

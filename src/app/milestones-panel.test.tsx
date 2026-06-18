@@ -157,12 +157,13 @@ describe("MilestonesPanel", () => {
     expect(container.querySelectorAll(".cursor-col-resize").length).toBeGreaterThan(0);
   });
 
-  it("root uses CENTERED_HALF_PANE_CLASS (mx-auto, h-[50%], w-[50%])", () => {
+  it("root fills the pane full-width (VIEW_PANE_RESIZABLE_CLASS: h-full, w-full, resize)", () => {
     const { container } = renderMilestones();
     const root = container.firstElementChild as HTMLElement;
-    expect(root.className).toContain("mx-auto");
-    expect(root.className).toContain("h-[50%]");
-    expect(root.className).toContain("w-[50%]");
+    expect(root.className).toContain("h-full");
+    expect(root.className).toContain("w-full");
+    expect(root.className).toContain("resize");
+    expect(root.className).not.toContain("w-[50%]");
   });
 
   it("renders a Push-to-Outlook button when onPushToOutlook is provided and calls it on click", () => {
