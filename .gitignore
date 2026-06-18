@@ -67,3 +67,5 @@ next-env.d.ts
 # is committed (in WAL journal mode) but its sidecars must never be.
 *.sqlite3-shm
 *.sqlite3-wal
+# Local UI-demo recorder artifacts (not part of the repo)
+/demo/

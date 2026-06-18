@@ -73,9 +73,15 @@ export function AppHeader({
         <p className="mt-1 text-sm text-muted-foreground">
           {t(lang, "appSubtitle")}
         </p>
-        {projectSwitcher && (
-          <div className="mt-3">
-            <ProjectSwitcher {...projectSwitcher} />
+        {/* Ask-Claude sits beside the project switcher (modern layout mirrors this
+            in the TopBar's left cluster). The row renders when EITHER is present so
+            Ask-Claude never depends on a switcher being wired. */}
+        {(projectSwitcher || (currentView && onAskClaude)) && (
+          <div className="mt-3 flex items-center gap-2">
+            {projectSwitcher && <ProjectSwitcher {...projectSwitcher} />}
+            {currentView && onAskClaude && (
+              <AskClaudeMenu lang={lang} currentView={currentView} onAsk={onAskClaude} />
+            )}
           </div>
         )}
       </div>
@@ -87,9 +93,6 @@ export function AppHeader({
           className="h-7 w-auto"
         />
         <div className="flex items-center gap-1">
-          {currentView && onAskClaude && (
-            <AskClaudeMenu lang={lang} currentView={currentView} onAsk={onAskClaude} />
-          )}
           {onOpenAiAssistant && (
             <button
               type="button"

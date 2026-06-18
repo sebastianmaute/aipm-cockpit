@@ -307,7 +307,7 @@ export function WorkspaceSection({
     [setSettings],
   );
   const { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, milestones } = useWorkspace();
-  const { activeTab, setActiveTab, isPopout, pendingChatSeed, clearChatSeed } = useWorkspaceTab();
+  const { activeTab, setActiveTab, isPopout, pendingChatSeed, clearChatSeed, requestOpen } = useWorkspaceTab();
   const { raidFilterTaskId } = useFilters();
   // One-way signal: incrementing this opens the milestone create modal on the
   // Milestones tab (Gantt "Add milestone" parity with Add task).
@@ -779,7 +779,11 @@ export function WorkspaceSection({
 
         {activeTab === "stakeholder-map" && (
           <div id="panel-stakeholder-map" role="tabpanel" className={panelClass}>
-            <StakeholderMapPanel lang={lang} stakeholders={stakeholders} />
+            <StakeholderMapPanel
+              lang={lang}
+              stakeholders={stakeholders}
+              onOpenStakeholder={isPopout ? undefined : (id) => requestOpen("stakeholders", id)}
+            />
           </div>
         )}
 

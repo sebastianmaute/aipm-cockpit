@@ -1,15 +1,19 @@
-import { render, screen, fireEvent } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import "fake-indexeddb/auto";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { AiSection } from "./ai-section";
 import { defaultSettings } from "../settings-types";
 import { DEFAULT_SESSION_TOKEN_CAP, DEFAULT_WEEKLY_TOKEN_CAP } from "../settings-types";
 import { t } from "../i18n";
 import type { UseOperatingGuidesResult } from "../use-operating-guides";
+import { readDeviceSecret, isPassphraseLocked } from "../secrets-store";
 
 // Stub AiUsagePanel — it reads from context which isn't wired in these unit tests.
 vi.mock("./ai-usage-panel", () => ({
   AiUsagePanel: () => <div data-testid="ai-usage-panel" />,
 }));
+
+afterEach(() => localStorage.clear());
 
 describe("AiSection", () => {
   it("typing an API key persists ai.apiKey", () => {
@@ -151,5 +155,27 @@ describe("AiSection", () => {
     fireEvent.click(toggle);
     const last = onChange.mock.calls.at(-1)?.[0];
     expect(last.ai.groundInGuides).toBe(false);
+  });
+
+  // --- secret sealing + passphrase lock ---
+
+  it("device-seals the API key when edited so it survives blanked settings", async () => {
+    render(<AiSection lang="en-US" settings={defaultSettings} onChange={vi.fn()} />);
+    fireEvent.change(screen.getByPlaceholderText(t("en-US", "aiApiKeyPlaceholder")), {
+      target: { value: "sk-typed" },
+    });
+    await waitFor(async () => expect(await readDeviceSecret("anthropicApiKey")).toBe("sk-typed"));
+  });
+
+  it("passphrase toggle locks the API key under a passphrase", async () => {
+    const settingsWithKey = {
+      ...defaultSettings,
+      ai: { ...defaultSettings.ai, apiKey: "sk-have" },
+    };
+    render(<AiSection lang="en-US" settings={settingsWithKey} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByLabelText(/require a passphrase/i)); // reveal field
+    fireEvent.change(screen.getByLabelText(/^passphrase$/i), { target: { value: "pw" } });
+    fireEvent.click(screen.getByRole("button", { name: /require a passphrase/i })); // confirm
+    await waitFor(() => expect(isPassphraseLocked("anthropicApiKey")).toBe(true));
   });
 });

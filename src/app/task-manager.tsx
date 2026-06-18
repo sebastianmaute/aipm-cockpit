@@ -117,6 +117,9 @@ import {
 import { deleteHandle } from "./project-file-handles";
 import { exportWorkspace, type ExportFormat } from "./export";
 import { ProjectEmptyState } from "./project-empty-state";
+import { SecretUnlockGate } from "./secret-unlock-gate";
+import { isPassphraseLocked } from "./secrets-store";
+import { unlockSecret } from "./use-secrets";
 import type { ProjectSwitcherProps } from "./project-switcher";
 import { loadPortfolioMode, type PortfolioMode } from "./portfolio-mode";
 import { listProjects, listArchivedProjects } from "./turso-portfolio";
@@ -1311,6 +1314,30 @@ function TaskManagerInner() {
   // Navigate to the Projects view, whose panel hosts the create modal.
   const handleNewProject = useCallback(() => setActiveTab("projects"), [setActiveTab]);
 
+  // Empty-state "Load from file": in Turso mode this also flips the portfolio to
+  // file mode (loadProjectFromFile persists the switch + reloads on success), so
+  // the loaded project is reachable instead of being re-hidden by the Turso
+  // empty-state gate. In file mode it is the plain picker.
+  const handleLoadFromFileEmptyState = useCallback(() => {
+    void loadProjectFromFile(
+      undefined,
+      portfolioMode === "turso" ? { switchPortfolioToFileOnSuccess: true } : undefined,
+    );
+  }, [loadProjectFromFile, portfolioMode]);
+
+  // Empty-state "Restore an archived project": un-archive, refresh the list, and
+  // switch to it. The archived project's workspace is still in memory (archive
+  // doesn't clear it), so restoring the last-active id needs no reload; restoring
+  // a different archived id loads it via switchToTursoProject. Each callee surfaces
+  // its own error toast.
+  const handleRestoreFromEmptyState = useCallback((id: string) => {
+    void (async () => {
+      await restoreTursoProject(id);
+      await refreshTursoProjects();
+      await switchToTursoProject(id);
+    })();
+  }, [restoreTursoProject, refreshTursoProjects, switchToTursoProject]);
+
   // Export the CURRENT project's workspace. Snapshot is assembled from context
   // (same field set the save effect uses), including `project`.
   const handleExportCurrentProject = useCallback(
@@ -1776,16 +1803,20 @@ function TaskManagerInner() {
         onNew: handleNewProject,
       };
 
+  // Ask-Claude pill. In the modern layout it sits in the TopBar's LEFT cluster
+  // beside the project switcher (passed as projectSwitcherTrailing); the classic
+  // AppHeader wires its own copy beside the switcher under the title. Both sites
+  // must render it (dual-header rule) or it disappears in whichever layout is missed.
+  const askClaudeEl = (
+    <AskClaudeMenu
+      lang={lang}
+      currentView={activeTab}
+      onAsk={(body) => requestChat(body, true)}
+    />
+  );
+
   const topBarMenus = (
     <>
-      {/* Ask-Claude lives in the modern top bar too — the classic AppHeader wires
-          it separately (appHeaderEl); without this the menu would be invisible in
-          the default modern layout. */}
-      <AskClaudeMenu
-        lang={lang}
-        currentView={activeTab}
-        onAsk={(body) => requestChat(body, true)}
-      />
       <ActionMenus
         lang={lang}
         onCommand={handleCommand}
@@ -2011,6 +2042,7 @@ function TaskManagerInner() {
         banners={bannersEl}
         navGroups={filteredNavGroups}
         projectSwitcher={projectSwitcher}
+        projectSwitcherTrailing={askClaudeEl}
         navBadges={{ actions: nowCount }}
       />
       {modalsBlock}
@@ -2043,12 +2075,39 @@ function TaskManagerInner() {
       ? hydrated && tursoListLoaded && tursoProjects.length === 0
       : hydrated && registry.projects.length === 0;
 
+  // Turso boot unlock gate: when the auth token is sealed under a passphrase and
+  // not yet held in memory, nothing can load — prompt for the passphrase first.
+  // Takes priority over the empty-state and the main app. (synchronous localStorage
+  // read in render is pure — fine, do not move into an effect.)
+  const showTursoUnlock =
+    hydrated &&
+    portfolioMode === "turso" &&
+    isPassphraseLocked("tursoAuthToken") &&
+    !(settings.integrations?.turso?.authToken ?? "").trim();
+
   return (
     <ActivityLogProvider value={logActivity}>
       <AiUsageProvider lang={lang} ai={settings.ai} showToast={showToast}>
         <ToastProvider value={showToast}>
           <VoiceCommandProvider value={voiceHandlers}>
-            {showEmptyState ? (
+            {showTursoUnlock ? (
+              <SecretUnlockGate
+                lang={lang}
+                messageKey="secretUnlockTursoToken"
+                onUnlock={async (pw) => {
+                  const v = await unlockSecret("tursoAuthToken", pw);
+                  if (!v) return false;
+                  setSettings((s) => ({
+                    ...s,
+                    integrations: {
+                      ...s.integrations,
+                      turso: { ...(s.integrations?.turso ?? { enabled: true }), authToken: v },
+                    },
+                  }));
+                  return true;
+                }}
+              />
+            ) : showEmptyState ? (
               <ProjectEmptyState
                 lang={lang}
                 mode={portfolioMode}
@@ -2058,7 +2117,10 @@ function TaskManagerInner() {
                 settings={settings}
                 onChangeSettings={(next) => setSettings(() => next)}
                 onCreate={handleCreateProjectByMode}
-                onLoadFromFile={() => { void loadProjectFromFile(); }}
+                onLoadFromFile={handleLoadFromFileEmptyState}
+                archivedProjects={tursoArchived.map((e) => ({ id: e.id, name: e.meta.name }))}
+                onRestore={handleRestoreFromEmptyState}
+                onDeleteArchived={handleHardDeleteTursoProject}
               />
             ) : settings.layout === "classic" ? (
               legacyTree

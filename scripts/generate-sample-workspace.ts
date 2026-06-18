@@ -49,7 +49,7 @@ import { TABLE_NAMES } from "../src/app/turso-schema";
 import { tenantWorkspaceToStatements, upsertProjectStatement, PROJECTS_TABLE } from "../src/app/turso-tenant-schema";
 import { scaleWorkspace } from "../src/app/scale-workspace";
 import type { Workspace } from "../src/app/workspace";
-import type { ChangeItem, RaidItem, ProjectMeta } from "../src/app/types";
+import type { ChangeItem, RaidItem, ProjectMeta, ProjectStatus } from "../src/app/types";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -189,11 +189,28 @@ const sampleProjectMeta: ProjectMeta = {
   jiraUrl: "https://example.atlassian.net/browse/CIP",
   contactPersons: [
     { name: "David Okoro", email: "david.okoro@northwind.example", synced: false },
-    { name: "Alex Example", email: "Sample.Dummy@example.com", synced: false },
+    // Sample is resource #1 — use her real Acme address and mark synced.
+    { name: "Alex Example", email: "Sample.Dummy@example.com", synced: true },
   ],
   docRepoLocation: "https://example.sharepoint.com/sites/cip-2026/Shared Documents",
   regulatory: ["GDPR / data protection regulation", "NIS2"],
   notes: "Generated sample project for the multi-tenant Turso demo database.",
+};
+
+// A demo project status (overall RAG + PM narrative) so the dashboard status
+// summary renders real content instead of an empty card. Amber overall:
+// schedule is the risk (legacy-user migration on the critical path), budget +
+// scope steady.
+const sampleStatus: ProjectStatus = {
+  ragOverride: "A",
+  scheduleOverride: "A",
+  budgetOverride: "G",
+  scopeOverride: "G",
+  narrative:
+    "Migration on track for the September go-live; design sign-off is complete and the OIDC PoC validated. " +
+    "Schedule is amber — the legacy-user migration script is the critical-path item and load testing slips if it lands late. " +
+    "Budget is tracking to plan and scope is stable.",
+  narrativeUpdatedAt: "2026-05-28T09:00:00.000Z",
 };
 
 // Assemble the enriched workspace (immutable spread)
@@ -202,6 +219,7 @@ const enrichedWs = {
   raid: enrichedRaid,
   changes,
   project: sampleProjectMeta,
+  status: sampleStatus,
 };
 
 // ---------------------------------------------------------------------------

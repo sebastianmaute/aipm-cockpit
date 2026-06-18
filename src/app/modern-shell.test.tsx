@@ -36,6 +36,11 @@ describe("ModernShell", () => {
     expect(screen.queryByTestId("tasks")).toBeNull();
   });
 
+  it("renders projectSwitcherTrailing (Ask-Claude) in the top bar's left cluster", () => {
+    setup({ projectSwitcherTrailing: <div data-testid="ask-claude-slot" /> });
+    expect(screen.getByTestId("ask-claude-slot")).toBeTruthy();
+  });
+
   it("navigates when a sidebar item is clicked", () => {
     const { onNavigate } = setup({ activeView: "open-points" });
     fireEvent.click(screen.getByRole("button", { name: "RAID" }));

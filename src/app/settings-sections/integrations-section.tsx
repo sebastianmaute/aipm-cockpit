@@ -21,6 +21,8 @@ import { getTursoConfig, isLikelyRegionQualifiedTursoUrl } from "../turso-config
 import { writeSettings } from "../use-settings";
 import { loadRegistry } from "../projects-registry";
 import { defaultStorageConfig } from "../workspace";
+import { saveSecretValue, setSecretPassphrase } from "../use-secrets";
+import { isPassphraseLocked } from "../secrets-store";
 
 interface IntegrationsSectionProps {
   lang: Lang;
@@ -48,6 +50,44 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
       ...settings,
       integrations: { ...integrations, turso: { ...turso, ...patch } },
     });
+  }
+
+  // Turso auth-token at-rest wrap mode + passphrase entry. writeSettings blanks
+  // turso.authToken from persisted settings, so this device-seal is what survives
+  // a reload (mirrors the Anthropic API-key handling in ai-section.tsx).
+  const [tokenWrap, setTokenWrap] = useState<"device" | "passphrase">(() =>
+    isPassphraseLocked("tursoAuthToken") ? "passphrase" : "device",
+  );
+  const [tokenPassphrase, setTokenPassphrase] = useState("");
+
+  function handleAuthTokenChange(value: string) {
+    updateTurso({ authToken: value });
+    if (tokenWrap === "device") {
+      void saveSecretValue("tursoAuthToken", value, "device");
+    }
+  }
+
+  function handleTokenLockToggle(checked: boolean) {
+    if (checked) {
+      // device → passphrase: reveal the passphrase field + confirm button.
+      // Don't seal yet — we need the passphrase first.
+      setTokenWrap("passphrase");
+      return;
+    }
+    // passphrase → device: can't device-seal an empty token — leave as is.
+    if (!(turso.authToken ?? "").trim()) return;
+    void (async () => {
+      await saveSecretValue("tursoAuthToken", turso.authToken ?? "", "device");
+      setTokenWrap("device");
+      setTokenPassphrase("");
+    })();
+  }
+
+  function handleTokenLockConfirm() {
+    void (async () => {
+      await setSecretPassphrase("tursoAuthToken", turso.authToken ?? "", tokenPassphrase);
+      setTokenPassphrase("");
+    })();
   }
 
   const snapshots = settings.snapshots ?? defaultSnapshotSettings;
@@ -286,12 +326,49 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
               <input
                 type="password"
                 value={turso.authToken ?? ""}
-                onChange={(e) => updateTurso({ authToken: e.target.value })}
+                onChange={(e) => handleAuthTokenChange(e.target.value)}
                 placeholder={t(lang, "integrationsTursoTokenPlaceholder")}
                 className="mt-1 w-full rounded border border-line bg-surface px-2 py-1 text-foreground"
               />
               <FieldNotice>{t(lang, "credentialStorageNote")}</FieldNotice>
             </label>
+          )}
+          {!envTursoTokenSet && (
+            <div className="mt-1">
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  aria-label={t(lang, "secretLockPassphrase")}
+                  checked={tokenWrap === "passphrase"}
+                  onChange={(e) => handleTokenLockToggle(e.target.checked)}
+                />
+                <span className="text-xs text-foreground">{t(lang, "secretLockPassphrase")}</span>
+              </label>
+              {tokenWrap === "passphrase" && (
+                <div className="mt-2 flex flex-col gap-2">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="password"
+                      autoComplete="off"
+                      aria-label={t(lang, "secretPassphrasePlaceholder")}
+                      placeholder={t(lang, "secretPassphrasePlaceholder")}
+                      value={tokenPassphrase}
+                      onChange={(e) => setTokenPassphrase(e.target.value)}
+                      className="w-full rounded border border-line bg-surface px-2 py-1 text-sm text-foreground"
+                    />
+                    <button
+                      type="button"
+                      disabled={!(turso.authToken ?? "").trim() || !tokenPassphrase}
+                      onClick={handleTokenLockConfirm}
+                      className="whitespace-nowrap rounded-md border border-line bg-AIPM-green px-3 py-1 text-xs font-medium text-foreground disabled:opacity-50"
+                    >
+                      {t(lang, "secretLockPassphrase")}
+                    </button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">{t(lang, "secretLockWarning")}</p>
+                </div>
+              )}
+            </div>
           )}
           {/* Primary action: carry the current project into Turso. */}
           {canMoveToTurso && (

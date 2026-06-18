@@ -8,6 +8,43 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.99.1] - 2026-06-17 "Brackett"
+
+### Security
+- **Encrypted local credentials** — the Anthropic API key and Turso auth token are no longer
+  stored in plaintext. They are encrypted at rest with WebCrypto AES-256-GCM using a non-extractable
+  device-bound key (default), and can optionally be locked behind a per-secret passphrase
+  (PBKDF2-SHA-256). Existing plaintext credentials are migrated automatically on first load; a
+  passphrase-locked Anthropic key prompts to unlock in the chat panel, and a passphrase-locked Turso
+  token prompts at startup before the workspace loads. No recovery — a forgotten passphrase means
+  re-entering the value. (Same-origin code can still read a decrypted secret at runtime; this protects
+  against storage theft, profile sync, backups, and shared machines — not XSS.)
+
+### Fixed
+- **Turso empty state after archiving the last project** — when the portfolio is in Turso mode and the
+  last active project is archived, the empty-state screen now offers a way forward instead of trapping
+  the user. It lists archived projects with a one-click **Restore** **and a type-to-confirm Delete
+  (permanent)**, and the **Load from file** button is shown (in Turso mode it switches the portfolio to
+  file mode and reloads, keeping the `portfolioMode === "turso" ⇔ storageConfig.kind === "turso"`
+  invariant intact). Previously "Load from file" was hidden in Turso mode and no restore/delete path
+  existed on this screen.
+- **Sample-workspace data polish** — populated the previously-empty project `status` (overall RAG +
+  PM narrative) so the dashboard status summary demos real content; linked tasks #3/#9/#10 to their
+  matching resources (Aria/Sample were half-linked); corrected the Alex Example contact email to her real
+  Acme address (marked synced); and aligned the David Okoro stakeholder organization to the
+  project customer (Northwind Retail Group). Regenerated the `-big`/`-huge` datasets, the Turso SQLite
+  exports, and the golden serializer fixtures.
+
+### Changed
+- **"Ask Claude" placement** — the Ask-Claude pill now sits in the top bar's left cluster, directly
+  beside the project switcher, in both the modern and classic layouts (its dropdown now opens to the
+  right so it never clips). Previously it sat in the right-hand control cluster.
+- **Influence/Interest map is interactive** — clicking a stakeholder chip on the map now opens that
+  stakeholder's editor (deep-link), instead of being inert text.
+- **Scaled demo datasets read as genuinely larger** — `scaleWorkspace` now gives replicated
+  stakeholders distinct names (and drops the now-stale shared-resource link) and qualifies replicated
+  work-item titles by workstream, instead of appending a "(2)"/"(3)" numeric suffix to identical rows.
+
 ## [0.99.0] - 2026-06-17 "Brackett"
 
 ### Added

@@ -18,6 +18,9 @@ import { ResetSizeButton } from "./task-manager-ui";
 export interface StakeholderMapPanelProps {
   lang: Lang;
   stakeholders: readonly Stakeholder[];
+  /** Click a plotted stakeholder → open its editor (deep-link). When omitted the
+   *  chips are non-interactive text (e.g. read-only popout mirrors). */
+  onOpenStakeholder?: (id: number) => void;
 }
 
 // --- Quadrant cell config ---------------------------------------------------
@@ -68,7 +71,7 @@ const QUADRANTS: QuadrantConfig[] = [
 
 // --- Component --------------------------------------------------------------
 
-export function StakeholderMapPanel({ lang, stakeholders }: StakeholderMapPanelProps) {
+export function StakeholderMapPanel({ lang, stakeholders, onOpenStakeholder }: StakeholderMapPanelProps) {
   const { ref, reset } = useResizable("lop-app:stakeholder-map-size");
 
   // Group stakeholders by quadrant once.
@@ -124,14 +127,26 @@ export function StakeholderMapPanel({ lang, stakeholders }: StakeholderMapPanelP
                     {t(lang, q.labelKey)}
                   </p>
                   <div className="flex flex-wrap gap-1">
-                    {byQuadrant[q.id].map((s) => (
-                      <span
-                        key={s.id}
-                        className="inline-block rounded px-1.5 py-0.5 text-xs font-medium bg-surface text-foreground"
-                      >
-                        {s.name}
-                      </span>
-                    ))}
+                    {byQuadrant[q.id].map((s) =>
+                      onOpenStakeholder ? (
+                        <button
+                          key={s.id}
+                          type="button"
+                          onClick={() => onOpenStakeholder(s.id)}
+                          aria-label={`${t(lang, "edit")} – ${s.name}`}
+                          className="inline-block rounded px-1.5 py-0.5 text-xs font-medium bg-surface text-foreground hover:bg-AIPM-green/15 focus:outline-none focus:ring-2 focus:ring-AIPM-green"
+                        >
+                          {s.name}
+                        </button>
+                      ) : (
+                        <span
+                          key={s.id}
+                          className="inline-block rounded px-1.5 py-0.5 text-xs font-medium bg-surface text-foreground"
+                        >
+                          {s.name}
+                        </span>
+                      ),
+                    )}
                   </div>
                 </div>
               ))}

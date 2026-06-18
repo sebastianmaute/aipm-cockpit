@@ -1,3 +1,4 @@
+import "fake-indexeddb/auto";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { useState } from "react";
@@ -8,6 +9,8 @@ import type { ToolDispatcher } from "./chat-tools";
 import { defaultAiConfig } from "./settings-types";
 import type { OperatingGuide } from "./operating-guide";
 import type { FeatureModuleId } from "./feature-modules";
+import { saveSealed } from "./secrets-store";
+import { sealPassphrase } from "./secrets";
 
 const src = readFileSync(
   join(process.cwd(), "src", "app", "chat-panel.tsx"),
@@ -543,5 +546,67 @@ describe("guidesReady gate", () => {
     );
     expect(screen.getByPlaceholderText("Loading operating guides…")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Unlock prompt when the Anthropic key is passphrase-locked
+// ---------------------------------------------------------------------------
+describe("passphrase-locked API key unlock prompt", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    localStorage.clear();
+  });
+
+  function renderLocked() {
+    render(
+      <ChatPanel
+        lang="en-US"
+        ai={{ ...defaultAiConfig, consentAccepted: true, apiKey: "" }}
+        dispatcher={makeDispatcher()}
+        onAcceptConsent={vi.fn()}
+      />,
+    );
+  }
+
+  it("shows an Unlock prompt (not the no-API-key text) when the key is passphrase-locked", async () => {
+    await saveSealed(await sealPassphrase("anthropicApiKey", "sk-real", "pw"));
+    renderLocked();
+    expect(
+      await screen.findByRole("button", { name: /^unlock$/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("unlocks the key and reveals the chat input on the correct passphrase", async () => {
+    await saveSealed(await sealPassphrase("anthropicApiKey", "sk-real", "pw"));
+    renderLocked();
+    fireEvent.change(screen.getByLabelText(/^passphrase$/i), {
+      target: { value: "pw" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^unlock$/i }));
+    // After a successful unlock the Unlock prompt is gone and the chat textarea
+    // (the one with the chatPlaceholder) becomes enabled.
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("button", { name: /^unlock$/i }),
+      ).toBeNull(),
+    );
+    expect(
+      screen.getByPlaceholderText("Ask Claude about your tasks…"),
+    ).not.toBeDisabled();
+  });
+
+  it("shows an error on the wrong passphrase", async () => {
+    await saveSealed(await sealPassphrase("anthropicApiKey", "sk-real", "pw"));
+    renderLocked();
+    fireEvent.change(screen.getByLabelText(/^passphrase$/i), {
+      target: { value: "wrong" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^unlock$/i }));
+    await waitFor(() =>
+      expect(screen.getByText("Wrong passphrase.")).toBeInTheDocument(),
+    );
+    // Still locked: Unlock prompt remains.
+    expect(screen.getByRole("button", { name: /^unlock$/i })).toBeInTheDocument();
   });
 });

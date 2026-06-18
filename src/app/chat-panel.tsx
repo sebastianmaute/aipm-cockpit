@@ -24,6 +24,8 @@ import { useAiUsageContext } from "./ai-usage-context";
 import { useResizable } from "./use-resizable";
 import { ResetSizeButton } from "./task-manager-ui";
 import { CENTERED_HALF_PANE_CLASS } from "./view-styles";
+import { unlockSecret } from "./use-secrets";
+import { isPassphraseLocked } from "./secrets-store";
 
 type TextBlock = { type: "text"; text: string };
 type ToolUseBlock = {
@@ -227,6 +229,12 @@ function ChatPanelInner({
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Passphrase-unlock state: when the saved Anthropic key is passphrase-wrapped
+  // (no plaintext key in settings) the user unlocks it inline here; the
+  // decrypted value lives in `unlockedKey` for the rest of the session.
+  const [unlockedKey, setUnlockedKey] = useState<string | null>(null);
+  const [unlockPass, setUnlockPass] = useState("");
+  const [unlockError, setUnlockError] = useState(false);
   const scrollerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -240,12 +248,18 @@ function ChatPanelInner({
   }, [display, busy]);
 
   const guidesPending = ai.groundInGuides && !guidesReady;
-  const apiKeyMissing = !ai.apiKey.trim();
+  // The key actually used for calls/gating: a plaintext settings key wins,
+  // else the inline-unlocked passphrase key (if any).
+  const effectiveApiKey = ai.apiKey.trim() ? ai.apiKey : (unlockedKey ?? "");
+  const apiKeyMissing = !effectiveApiKey.trim();
+  // Cheap synchronous localStorage read — fine in the render body (pure read).
+  const apiKeyLocked =
+    !ai.apiKey.trim() && unlockedKey === null && isPassphraseLocked("anthropicApiKey");
 
   async function submitPrompt(textArg?: string) {
     const text = (textArg ?? input).trim().slice(0, CHAT_MESSAGE_MAX);
     if (!text || busy || guidesPending) return;
-    if (!ai.apiKey.trim()) {
+    if (!effectiveApiKey.trim()) {
       setError(t(lang, "chatNoApiKey"));
       return;
     }
@@ -276,7 +290,7 @@ function ChatPanelInner({
       for (let turn = 0; turn < 8; turn++) {
         if (cancelledRef.current) break;
         const response = await callClaude(
-          ai.apiKey,
+          effectiveApiKey,
           ai.model,
           system,
           messages,
@@ -399,6 +413,17 @@ function ChatPanelInner({
     sendGateRef.current.consume();
   }, [chatSeed]);
 
+  async function unlockApiKey() {
+    const v = await unlockSecret("anthropicApiKey", unlockPass);
+    if (v) {
+      setUnlockedKey(v);
+      setUnlockPass("");
+      setUnlockError(false);
+    } else {
+      setUnlockError(true);
+    }
+  }
+
   function stopChat() {
     cancelledRef.current = true;
     abortRef.current?.abort();
@@ -427,9 +452,42 @@ function ChatPanelInner({
       >
         {display.length === 0 ? (
           <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              {apiKeyMissing ? t(lang, "chatNoApiKey") : t(lang, "chatGreeting")}
-            </p>
+            {apiKeyLocked ? (
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">
+                  {t(lang, "secretUnlockApiKey")}
+                </p>
+                <div className="flex items-stretch gap-2">
+                  <input
+                    type="password"
+                    aria-label={t(lang, "secretPassphrasePlaceholder")}
+                    placeholder={t(lang, "secretPassphrasePlaceholder")}
+                    value={unlockPass}
+                    onChange={(e) => {
+                      setUnlockPass(e.target.value);
+                      setUnlockError(false);
+                    }}
+                    className="min-w-0 flex-1 rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none focus:ring-1 focus:ring-AIPM-green"
+                  />
+                  <button
+                    type="button"
+                    onClick={unlockApiKey}
+                    className="rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+                  >
+                    {t(lang, "secretUnlock")}
+                  </button>
+                </div>
+                {unlockError && (
+                  <p role="alert" className="text-sm text-AIPM-pink-strong">
+                    {t(lang, "secretUnlockFailed")}
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                {apiKeyMissing ? t(lang, "chatNoApiKey") : t(lang, "chatGreeting")}
+              </p>
+            )}
             {!apiKeyMissing && (
               <ul className="flex flex-wrap gap-2 list-none p-0 m-0" aria-label="Suggested prompts">
                 {PROMPT_CHIPS.map((chip) => (

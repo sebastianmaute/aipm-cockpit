@@ -11,16 +11,43 @@ import { sanitizeTemplates } from "./templates";
 import { sanitizeVersionRetention } from "./version-history";
 import { isPlainObject } from "./sanitize";
 import { isSafeMode } from "./safe-mode";
+import { migratePlaintextSecrets, readDeviceSecret } from "./secrets-store";
 
 export const SETTINGS_KEY = "lop-app:settings";
 
-/** Synchronously write settings to localStorage. */
+/** Synchronously write settings to localStorage WITH the two at-rest secrets
+ *  blanked. Secret ciphertext is persisted separately (secrets-store) on change;
+ *  see the useSettings mount-load for the decrypt+merge back into memory. */
 export function writeSettings(settings: Settings): void {
+  const turso = settings.integrations?.turso;
+  const persistable: Settings = {
+    ...settings,
+    ai: { ...settings.ai, apiKey: "" },
+    integrations: turso
+      ? { ...settings.integrations, turso: { ...turso, authToken: "" } }
+      : settings.integrations,
+  };
   try {
-    window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+    window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(persistable));
   } catch {
     // quota exceeded / storage disabled — degrade gracefully, keep in-memory settings
   }
+}
+
+/** Merge device-wrapped secrets into an in-memory Settings (passphrase-wrapped
+ *  ones stay blank until an explicit unlock). Reads the secret store. */
+export async function hydrateSecretsInto(settings: Settings): Promise<Settings> {
+  const apiKey = (await readDeviceSecret("anthropicApiKey")) ?? settings.ai.apiKey;
+  const token = await readDeviceSecret("tursoAuthToken");
+  const turso = settings.integrations?.turso;
+  return {
+    ...settings,
+    ai: { ...settings.ai, apiKey },
+    integrations:
+      turso && token !== null
+        ? { ...settings.integrations, turso: { ...turso, authToken: token } }
+        : settings.integrations,
+  };
 }
 
 const COMMS_QUADRANTS: readonly StakeholderQuadrant[] = [
@@ -213,23 +240,94 @@ export function useSettings(): {
             templates: sanitizeTemplates((parsed as Record<string, unknown>).templates),
             export: sanitizeExportConfig((parsed as Record<string, unknown>).export),
           };
-          Promise.resolve().then(() => {
-            if (!cancelled) {
-              // Load applies locally only — every instance reads the same
-              // localStorage, so mark it synced to keep the broadcast effect
-              // from echoing the loaded value.
-              lastSyncedRef.current = merged;
-              setSettings(merged);
+          void (async () => {
+            // Migrate any legacy plaintext secrets out of the parsed blob into
+            // the device-wrapped secret store, then merge the device-wrapped
+            // secrets back in. The merge runs against a copy with both at-rest
+            // secrets blanked, so a passphrase-locked secret (which
+            // readDeviceSecret returns null for) stays empty until explicit
+            // unlock — and a plaintext value never reaches in-memory state.
+            // Fallback: keep the plaintext-bearing in-memory settings (the
+            // pre-secrets-feature behaviour). If the secret store throws for
+            // any reason — no IndexedDB, no crypto.subtle, locked-down browser,
+            // test env — we commit this instead of crashing or losing the
+            // secret for the session.
+            let committed = merged;
+            try {
+              // migratePlaintextSecrets is hardened to never reject: a failed
+              // seal (no IndexedDB / WebCrypto) leaves that secret un-migrated
+              // and RETURNS its original plaintext so we can keep it in memory.
+              const unmigrated = await migratePlaintextSecrets({
+                apiKey: merged.ai.apiKey,
+                authToken: merged.integrations?.turso?.authToken,
+              });
+              const hydratedSettings = await hydrateSecretsInto({
+                ...merged,
+                ai: { ...merged.ai, apiKey: "" },
+                integrations: merged.integrations?.turso
+                  ? {
+                      ...merged.integrations,
+                      turso: { ...merged.integrations.turso, authToken: "" },
+                    }
+                  : merged.integrations,
+              });
+              // Re-merge any secret the seal failed to persist: hydration left
+              // it blank (nothing was sealed), so without this the in-memory
+              // plaintext would be lost for the session.
+              const turso = hydratedSettings.integrations?.turso;
+              committed = {
+                ...hydratedSettings,
+                ai: {
+                  ...hydratedSettings.ai,
+                  apiKey: hydratedSettings.ai.apiKey || unmigrated.apiKey,
+                },
+                integrations:
+                  turso && unmigrated.authToken && !turso.authToken
+                    ? {
+                        ...hydratedSettings.integrations,
+                        turso: { ...turso, authToken: unmigrated.authToken },
+                      }
+                    : hydratedSettings.integrations,
+              };
+            } catch {
+              // IndexedDB / WebCrypto unavailable — fall back to the in-memory
+              // plaintext secrets so the app still works this session.
+              committed = merged;
             }
+            try {
+              if (!cancelled) {
+                // Load applies locally only — every instance reads the same
+                // localStorage, so mark it synced to keep the broadcast effect
+                // from echoing the loaded value.
+                lastSyncedRef.current = committed;
+                setSettings(committed);
+              }
+            } finally {
+              // Flip the ready flag only AFTER the secret merge resolves, so
+              // consumers never observe a half-loaded settings object (the
+              // merged blob with blank secrets) as the hydrated state.
+              if (!cancelled) setHydrated(true);
+            }
+          })();
+        } else {
+          // Parsed value wasn't a settings object — nothing to merge; just
+          // mark hydration complete on the default settings already in state.
+          Promise.resolve().then(() => {
+            if (!cancelled) setHydrated(true);
           });
         }
+      } else {
+        // No persisted settings — defaults are already in state; mark hydrated.
+        Promise.resolve().then(() => {
+          if (!cancelled) setHydrated(true);
+        });
       }
     } catch {
       // ignore corrupt storage
+      Promise.resolve().then(() => {
+        if (!cancelled) setHydrated(true);
+      });
     }
-    Promise.resolve().then(() => {
-      if (!cancelled) setHydrated(true);
-    });
     loadI18n(resolvedLang).finally(() => {
       if (!cancelled) setI18nReady(true);
     });
@@ -239,13 +337,12 @@ export function useSettings(): {
   }, []);
 
   // Persist settings on every change, guarded by hydration so mount doesn't overwrite.
+  // Route through writeSettings so the two at-rest secrets (ai.apiKey,
+  // integrations.turso.authToken) are blanked before they hit localStorage —
+  // a raw JSON.stringify(settings) write would dump the decrypted plaintext.
   useEffect(() => {
     if (!hydrated || isSafeMode()) return;
-    try {
-      window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-    } catch {
-      // quota exceeded / storage disabled — degrade gracefully, keep in-memory settings
-    }
+    writeSettings(settings);
   }, [settings, hydrated]);
 
   // Sync document language attribute and ensure dict is loaded on mid-session switch.
