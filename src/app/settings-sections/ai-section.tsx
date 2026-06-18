@@ -13,6 +13,8 @@ import { guidesCharCount, GUIDE_CHAR_BUDGET } from "../operating-guide";
 import { FEATURE_MODULES } from "../feature-modules";
 import type { AppMode, FeatureModuleId } from "../feature-modules";
 import { allNavViews, navLabelKey, type AppView } from "../nav-config";
+import { saveSecretValue, setSecretPassphrase } from "../use-secrets";
+import { isPassphraseLocked } from "../secrets-store";
 
 interface AiSectionProps {
   lang: Lang;
@@ -234,6 +236,42 @@ export function AiSection({ lang, settings, onChange, operatingGuides }: AiSecti
   const [formMode, setFormMode] = useState<null | "add" | string>(null);
   const [draft, setDraft] = useState<GuideDraft>(emptyDraft);
 
+  // API-key at-rest wrap mode + passphrase entry.
+  const [keyWrap, setKeyWrap] = useState<"device" | "passphrase">(() =>
+    isPassphraseLocked("anthropicApiKey") ? "passphrase" : "device",
+  );
+  const [keyPassphrase, setKeyPassphrase] = useState("");
+
+  function handleApiKeyChange(value: string) {
+    onChange({ ...settings, ai: { ...settings.ai, apiKey: value } });
+    if (keyWrap === "device") {
+      void saveSecretValue("anthropicApiKey", value, "device");
+    }
+  }
+
+  function handleLockToggle(checked: boolean) {
+    if (checked) {
+      // device → passphrase: reveal the passphrase field + confirm button.
+      // Don't seal yet — we need the passphrase first.
+      setKeyWrap("passphrase");
+      return;
+    }
+    // passphrase → device: can't device-seal an empty/locked key — leave as is.
+    if (!settings.ai.apiKey.trim()) return;
+    void (async () => {
+      await saveSecretValue("anthropicApiKey", settings.ai.apiKey, "device");
+      setKeyWrap("device");
+      setKeyPassphrase("");
+    })();
+  }
+
+  function handleLockConfirm() {
+    void (async () => {
+      await setSecretPassphrase("anthropicApiKey", settings.ai.apiKey, keyPassphrase);
+      setKeyPassphrase("");
+    })();
+  }
+
   const og = operatingGuides;
 
   function openAdd() {
@@ -291,17 +329,47 @@ export function AiSection({ lang, settings, onChange, operatingGuides }: AiSecti
           type="password"
           autoComplete="off"
           value={settings.ai.apiKey}
-          onChange={(e) =>
-            onChange({
-              ...settings,
-              ai: { ...settings.ai, apiKey: e.target.value },
-            })
-          }
+          onChange={(e) => handleApiKeyChange(e.target.value)}
           placeholder={t(lang, "aiApiKeyPlaceholder")}
           className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none focus:ring-1 focus:ring-AIPM-green"
         />
         <FieldNotice>{t(lang, "credentialStorageNote")}</FieldNotice>
       </label>
+      <div className="mt-2">
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            aria-label={t(lang, "secretLockPassphrase")}
+            checked={keyWrap === "passphrase"}
+            onChange={(e) => handleLockToggle(e.target.checked)}
+          />
+          <span className="text-xs text-foreground">{t(lang, "secretLockPassphrase")}</span>
+        </label>
+        {keyWrap === "passphrase" && (
+          <div className="mt-2 flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <input
+                type="password"
+                autoComplete="off"
+                aria-label={t(lang, "secretPassphrasePlaceholder")}
+                placeholder={t(lang, "secretPassphrasePlaceholder")}
+                value={keyPassphrase}
+                onChange={(e) => setKeyPassphrase(e.target.value)}
+                className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none focus:ring-1 focus:ring-AIPM-green"
+              />
+              <button
+                type="button"
+                disabled={!settings.ai.apiKey.trim() || !keyPassphrase}
+                onClick={handleLockConfirm}
+                className="whitespace-nowrap rounded-md border border-line bg-AIPM-green px-3 py-2 text-xs font-medium text-foreground disabled:opacity-50"
+              >
+                {t(lang, "secretLockPassphrase")}
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground">{t(lang, "secretLockWarning")}</p>
+          </div>
+        )}
+      </div>
       <label className="mt-2 block">
         <span className="mb-1 flex items-center gap-1 text-xs text-muted-foreground">
           {t(lang, "aiModel")}
