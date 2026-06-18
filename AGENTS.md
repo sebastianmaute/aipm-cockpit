@@ -19,7 +19,11 @@ npm run lint                # eslint  (CI --max-warnings=0: an unused import/var
                             # `react-hooks/set-state-in-effect` is BANNED (fatal) — to sync state to a
                             # changed prop, use the render-time reconcile pattern (`if (prop !== handled)
                             # { setState(...) }` guarded by a nonce/last-seen state), NOT a useEffect.)
-npx tsc --noEmit            # typecheck (enforces i18n EN/DE key parity)
+npx tsc --noEmit            # typecheck (enforces i18n EN/DE key parity). `next build` does NOT
+                            # typecheck *.test.tsx and vitest never typechecks — a test-only type
+                            # error (e.g. an invalid getByRole `{exact:...}`; a string `name` is
+                            # ALREADY an exact match) passes build + tests but FAILS tsc (CI). Run
+                            # `npx tsc --noEmit` after editing ANY test.
 npm run test:run            # vitest (unit/integration)
 npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
 ```
@@ -82,6 +86,15 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
 - **New Turso table that is NOT workspace data** (snapshots, version history, comm_templates)
   must stay OUT of `TABLE_NAMES` (a guard test enforces it) — else the workspace save's
   per-table DELETE wipes it. `SqlArg.value` (turso-schema) is string-only even for ints (`String(v)`).
+- **Secrets at rest:** the Anthropic `apiKey` + Turso `authToken` are ENCRYPTED via `secrets.ts`
+  (AES-256-GCM; non-extractable device key in IndexedDB by default, optional per-secret PBKDF2
+  passphrase). `writeSettings` is the ONLY writer of `localStorage["lop-app:settings"]` and BLANKS
+  both fields — the settings persist EFFECT must call `writeSettings`, NEVER a raw `setItem` (a raw
+  write dumps the decrypted in-memory key/token to disk on every settings change — a real CRITICAL
+  we shipped and caught). Secrets are hydrated into memory on load (`hydrateSecretsInto`);
+  passphrase-wrapped ones stay empty until unlock. Anything reading a secret uses the live in-memory
+  value; if IndexedDB/WebCrypto is unavailable the load path degrades to in-memory plaintext (never
+  crash). `lop-app:secrets` ciphertext stays OUT of exports, Turso, and recovery `CONFIG_KEYS`.
 
 ## Architecture pointers
 
@@ -97,7 +110,16 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
 - Sample data is tiered: `sample-workspace-small.*` is the curated source; `-big` (3×) and
   `-huge` (10×) JSON+SQLite are GENERATED via pure `scaleWorkspace(ws, factor)` (id-offset
   `k*100000` + full FK remap; reference data — resources/roles/disciplines/grades — is NOT
-  replicated). Don't hand-edit `-big`/`-huge`; regenerate from `-small`.
+  replicated; replicas get distinct stakeholder names + workstream-qualified titles, not "(2)").
+  Don't hand-edit `-big`/`-huge`; regenerate from `-small`.
+  The MASTER is `sample-workspace-small.md` — `scripts/generate-sample-workspace.ts` PARSES it and
+  EMITS `.json` + `.sqlite3` + `-big`/`-huge` (regen: `npx vite-node scripts/generate-sample-
+  workspace.ts`, then regenerate `__fixtures__/golden-*` via the serializers). `project` meta +
+  `status` are SYNTHESIZED IN THE GEN SCRIPT (not in the .md). `sample-workspace-small.csv` is a
+  SEPARATE hand-curated artifact (parsed by the sample tests). MD table cells with internal `|` are
+  `\|`-escaped and the CSV has MULTI-LINE quoted fields → NEVER naive-split a row: edit the .md by
+  exact full-line replace, edit the .csv via the app codec (`csvToWorkspace`→patch→`workspaceToCsv`,
+  a verified data-safe round-trip).
 - Action-Center CTAs are surface-only: thread an optional handler
   task-manager → workspace-section → ActionsPanel → ActionRow (ActionsPanel renders in
   workspace-section, not task-manager, and renders TWO ActionRow lists — tier + monitor — so a new
