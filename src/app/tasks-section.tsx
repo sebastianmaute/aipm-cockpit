@@ -525,6 +525,10 @@ export function TasksSection({
         <TaskKanban
           lang={lang}
           tasks={filteredSortedTasks}
+          today={today}
+          holidaySet={holidaySet}
+          raidByTask={raidByTask}
+          changeByTask={changeByTask}
           onStatusChange={onStatusChange}
           onEdit={onEdit}
         />

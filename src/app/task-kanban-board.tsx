@@ -5,19 +5,39 @@
 // `task-kanban.tsx` would silently hijack the engine import (see AGENTS.md).
 import { useMemo } from "react";
 import { type Lang, t } from "./i18n";
-import { TASK_STATUSES, type Task, type TaskStatus } from "./types";
+import { TASK_STATUSES, type ChangeItem, type RaidItem, type Task, type TaskStatus } from "./types";
 import { statusLabelKey } from "./task-status-ui";
 import { groupByStatus } from "./task-kanban";
 import { isJiraSynced } from "./jira-status-map";
+import { TaskKanbanCard } from "./task-kanban-card";
 
 interface TaskKanbanProps {
   lang: Lang;
   tasks: readonly Task[];
+  /** today/holidaySet drive the per-card health dot + overdue emphasis. Optional
+   *  so lightweight callers (tests) can omit them; the live board always passes
+   *  the same values the table rows use. */
+  today?: string;
+  holidaySet?: Set<string>;
+  /** Per-task RAID / change references (same maps the table rows use). */
+  raidByTask?: Map<number, RaidItem[]>;
+  changeByTask?: Map<number, ChangeItem[]>;
   onStatusChange: (id: number, next: TaskStatus) => void;
   onEdit: (task: Task) => void;
 }
 
-export function TaskKanban({ lang, tasks, onStatusChange, onEdit }: TaskKanbanProps) {
+const EMPTY_HOLIDAYS: Set<string> = new Set();
+
+export function TaskKanban({
+  lang,
+  tasks,
+  today = "",
+  holidaySet = EMPTY_HOLIDAYS,
+  raidByTask,
+  changeByTask,
+  onStatusChange,
+  onEdit,
+}: TaskKanbanProps) {
   const cols = useMemo(() => groupByStatus(tasks), [tasks]);
   return (
     <div className="flex min-h-0 flex-1 gap-3 overflow-x-auto pb-2">
@@ -51,28 +71,16 @@ export function TaskKanban({ lang, tasks, onStatusChange, onEdit }: TaskKanbanPr
                   }}
                   className="rounded-lg border border-line bg-surface-muted p-2 text-sm"
                 >
-                  {/* Minimal card — SP-B Task 6 replaces with <TaskKanbanCard>. */}
-                  <button
-                    type="button"
-                    className="block text-left font-medium text-foreground"
-                    onClick={() => onEdit(task)}
-                  >
-                    {task.taskName}
-                  </button>
-                  <select
-                    aria-label={`${t(lang, "colTaskStatus")} – ${task.taskName}`}
-                    value={task.status}
-                    disabled={synced}
-                    title={synced ? t(lang, "jiraManagedTooltip") : undefined}
-                    onChange={(e) => onStatusChange(task.id, e.target.value as TaskStatus)}
-                    className="mt-1 block rounded border border-line bg-surface px-1 py-0.5 text-xs"
-                  >
-                    {TASK_STATUSES.map((s) => (
-                      <option key={s} value={s}>
-                        {t(lang, statusLabelKey(s))}
-                      </option>
-                    ))}
-                  </select>
+                  <TaskKanbanCard
+                    lang={lang}
+                    task={task}
+                    today={today}
+                    holidaySet={holidaySet}
+                    raidRefs={raidByTask?.get(task.id)}
+                    changeRefs={changeByTask?.get(task.id)}
+                    onStatusChange={onStatusChange}
+                    onEdit={onEdit}
+                  />
                 </article>
               );
             })}
