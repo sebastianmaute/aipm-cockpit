@@ -21,6 +21,7 @@
 
 import { useState } from "react";
 import { BackendConfigModal } from "./backend-config-modal";
+import { AiSection } from "./settings-sections/ai-section";
 import { type Contact } from "./contacts";
 import { CreateProjectWizard } from "./create-project-wizard";
 import { TypeToConfirmDialog } from "./type-to-confirm-dialog";
@@ -88,7 +89,7 @@ export function ProjectEmptyState({
   onDeleteArchived,
 }: ProjectEmptyStateProps) {
   const [view, setView] = useState<View>("choices");
-  const [configModal, setConfigModal] = useState<null | "turso" | "m365">(null);
+  const [configModal, setConfigModal] = useState<null | "turso" | "m365" | "ai">(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const { ref: sizeRef, reset: resetSize } = useResizable("lop-app:create-modal-size");
 
@@ -228,6 +229,14 @@ export function ProjectEmptyState({
                   >
                     {t(lang, "emptyStateConfigM365")}
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfigModal("ai")}
+                    title={t(lang, "emptyStateConfigAiTip")}
+                    className={SECONDARY_BUTTON_CLASS}
+                  >
+                    {t(lang, "emptyStateConfigAi")}
+                  </button>
                 </div>
               </div>
             </div>
@@ -255,12 +264,18 @@ export function ProjectEmptyState({
             lang,
             configModal === "turso"
               ? "storageOptionConfigure"
-              : "emptyStateConfigM365",
+              : configModal === "ai"
+                ? "emptyStateConfigAi"
+                : "emptyStateConfigM365",
           )}
           settings={settings}
           onChangeSettings={onChangeSettings}
           onClose={() => setConfigModal(null)}
-        />
+        >
+          {configModal === "ai" ? (
+            <AiSection lang={lang} settings={settings} onChange={onChangeSettings} hideUsage />
+          ) : undefined}
+        </BackendConfigModal>
       )}
 
       {deleteTarget && onDeleteArchived && (

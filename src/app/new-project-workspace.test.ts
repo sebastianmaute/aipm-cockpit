@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildNewProjectWorkspace } from "./new-project-workspace";
-import type { ProjectTemplate } from "./templates";
+import type { ProjectTemplate, TemplateSeed } from "./templates";
 import type { ProjectMeta } from "./types";
 
 const tpl: ProjectTemplate = {
@@ -68,5 +68,31 @@ describe("buildNewProjectWorkspace", () => {
     const ws = buildNewProjectWorkspace(meta, {});
     expect(ws.features).toBeUndefined();
     expect(ws.fieldVisibility).toBeUndefined();
+  });
+});
+
+const aiSeed: TemplateSeed = {
+  milestones: [{ id: 1, name: "Go-live", date: "2026-12-01", linkedTaskIds: [] }],
+};
+
+describe("buildNewProjectWorkspace aiSeed", () => {
+  it("appends aiSeed when Blank + includeSeed", () => {
+    const ws = buildNewProjectWorkspace(meta, { features: [], includeSeed: true, aiSeed });
+    expect(ws.milestones?.some((m) => m.name === "Go-live")).toBe(true);
+  });
+
+  it("ignores aiSeed when includeSeed is false", () => {
+    const ws = buildNewProjectWorkspace(meta, { features: [], includeSeed: false, aiSeed });
+    expect(ws.milestones?.some((m) => m.name === "Go-live")).toBe(false);
+  });
+
+  it("ignores aiSeed when a template is chosen (template seed wins)", () => {
+    const ws = buildNewProjectWorkspace(meta, {
+      template: { id: "t", name: "T", features: [], fieldVisibility: {} } as never,
+      features: [],
+      includeSeed: true,
+      aiSeed,
+    });
+    expect(ws.milestones?.some((m) => m.name === "Go-live")).toBe(false);
   });
 });

@@ -125,22 +125,10 @@ export function remapSeed(ws: Workspace, seed: TemplateSeed): TemplateSeed {
   return out;
 }
 
-/**
- * Apply a template to a workspace: replace field-visibility wholesale and,
- * when `includeSeed` is set, append the re-ided seed content non-destructively
- * (existing rows are kept; seed rows get fresh ids and valid internal refs).
- * Feature toggles are NOT applied here. Pure — never mutates the input.
- */
-export function applyTemplate(
-  ws: Workspace,
-  tpl: ProjectTemplate,
-  opts: ApplyTemplateOptions,
-): Workspace {
-  const base: Workspace = { ...ws, fieldVisibility: tpl.fieldVisibility };
-  if (!opts.includeSeed || !tpl.seed) return base;
-  const seed = remapSeed(ws, tpl.seed);
+/** Append an already-remapped seed onto a workspace, non-destructively. Pure. */
+export function appendSeed(ws: Workspace, seed: TemplateSeed): Workspace {
   return {
-    ...base,
+    ...ws,
     tasks: seed.tasks ? [...ws.tasks, ...seed.tasks] : ws.tasks,
     milestones: seed.milestones
       ? [...(ws.milestones ?? []), ...seed.milestones]
@@ -154,4 +142,20 @@ export function applyTemplate(
       : ws.stakeholders,
     budgets: seed.budgets ? [...(ws.budgets ?? []), ...seed.budgets] : ws.budgets,
   };
+}
+
+/**
+ * Apply a template to a workspace: replace field-visibility wholesale and,
+ * when `includeSeed` is set, append the re-ided seed content non-destructively
+ * (existing rows are kept; seed rows get fresh ids and valid internal refs).
+ * Feature toggles are NOT applied here. Pure — never mutates the input.
+ */
+export function applyTemplate(
+  ws: Workspace,
+  tpl: ProjectTemplate,
+  opts: ApplyTemplateOptions,
+): Workspace {
+  const base: Workspace = { ...ws, fieldVisibility: tpl.fieldVisibility };
+  if (!opts.includeSeed || !tpl.seed) return base;
+  return appendSeed(base, remapSeed(ws, tpl.seed));
 }

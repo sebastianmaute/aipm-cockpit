@@ -482,6 +482,19 @@ const enUS = {
   versionHighlightUiBatch0101: "Passphrase confirm/remove and a reliable unset for stored secrets, per-row restore in side-by-side history compare, full-width Milestones & Documents with manual document links, and clearer template/next-action affordances.",
   versionHighlightAiWriteTools: "The AI assistant can now create, update, and delete RAID items, change requests, milestones, and stakeholders — not just tasks.",
   versionHighlightAiDocIngest: "Attach a PDF, image, or text file to the chat: Claude reads it natively and can extract risks, milestones, and stakeholders straight into your project.",
+  aiCreateHeading: "Create with AI",
+  aiCreateDescribeLabel: "Describe your project",
+  aiCreateDescribePlaceholder:
+    "e.g. A 6-month CRM migration for ACME, go-live in Q4, key risks around data quality and team ramp-up.",
+  aiCreateGenerate: "Generate with AI",
+  aiCreateBusy: "Generating…",
+  aiCreateSkip: "Skip — set up manually",
+  aiCreateError: "Couldn't generate a proposal. Try rephrasing, or set up manually.",
+  aiCreateNeedsKey: "Add an Anthropic API key in Settings → AI to use this.",
+  aiCreateTemplateReplacesSeed: "Choosing a template replaces the AI-generated starter content.",
+  aiCreateIncludeContent: "Include AI-generated starter content",
+  versionHighlightAiCreateWizard:
+    "Create a project from a plain-language description — Claude proposes the setup and starter content.",
 
   aiConsentTitle: "Enable Claude chat?",
   aiConsentBullet1:
@@ -1314,6 +1327,14 @@ const enUS = {
   notifBirthdayTooltip: "Show a notification on team members' birthdays.",
   popoutReuseWindowTooltip: "Reuse a single pop-out window instead of opening a new one each time.",
   resourcesWorkdayHoursTooltip: "Hours in a standard working day, used for workload and capacity calculations.",
+  settingsResetHeading: "Reset application",
+  settingsResetDesc:
+    "Detach every project and erase all local app data on this device — settings, secrets (including your Anthropic API key) and layout. Your project files and databases are NOT deleted; they are only detached and can be re-opened later.",
+  settingsResetButton: "Reset to clean slate",
+  settingsResetDialogTitle: "Reset to clean slate?",
+  settingsResetDialogMessage:
+    "This detaches every project and erases all settings, secrets (including your Anthropic API key) and layout from this browser. Files and databases are NOT deleted. This cannot be undone — the app will reload.",
+  settingsResetConfirmLabel: "Reset everything",
   aiAssistantTooltip: "Connect an Anthropic API key to enable the in-app AI assistant.",
   aiGuidesHeading: "Operating guides",
   aiGuidesDesc: "Operating guides are markdown documents that steer how Claude behaves as your senior project manager. Add your own, scope them to a mode, module, or view, and order them by priority. When grounding is on, Claude reads every enabled, in-scope guide.",
@@ -2210,6 +2231,9 @@ const enUS = {
     "Set up the Turso database backend (URL and token) before creating a project.",
   emptyStateConfigM365Tip:
     "Sign in and configure Microsoft 365 (SharePoint, Outlook) before creating a project.",
+  emptyStateConfigAi: "Configure AI assistant",
+  emptyStateConfigAiTip:
+    "Add your Anthropic API key before creating a project — required for “Use AI”.",
   projectsDelete: "Delete project",
   projectsDeleteConfirm:
     "Remove this project from the list? The underlying file is NOT deleted.",

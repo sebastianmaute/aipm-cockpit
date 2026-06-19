@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyTemplate } from "./template-apply";
+import { applyTemplate, appendSeed } from "./template-apply";
 import { emptyWorkspace } from "./workspace";
 import type { ProjectTemplate, TemplateSeed } from "./templates";
 import type {
@@ -191,5 +191,17 @@ describe("applyTemplate", () => {
     const b3 = ws.budgets!.find((b) => b.name === "Phase3")!;
     expect(b2.successorId).toBe(b1.id);
     expect(b3.successorId).toBeNull();
+  });
+});
+
+describe("appendSeed", () => {
+  it("appends re-mapped seed rows non-destructively", () => {
+    const ws = emptyWorkspace();
+    const seed: TemplateSeed = {
+      milestones: [{ id: 9, name: "Kickoff", date: "2026-07-01", linkedTaskIds: [] }],
+    };
+    const next = appendSeed(ws, seed);
+    expect(next.milestones?.length).toBe((ws.milestones?.length ?? 0) + 1);
+    expect(next.milestones?.at(-1)?.name).toBe("Kickoff");
   });
 });

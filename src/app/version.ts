@@ -2,12 +2,12 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.102.0";
-export const APP_BUILD_DATE = "2026-06-18"; // 0.102.0 AI-orchestration SP2: AI write tools for RAID/Changes/Milestones/Stakeholders + document ingestion (attach PDF/image/text to the chat; Claude reads natively and creates records) (Tepper)
+export const APP_VERSION = "0.103.0";
+export const APP_BUILD_DATE = "2026-06-19"; // 0.103.0 AI-orchestration SP3: AI project-creation fast-path ("Use AI") — describe a project in plain language; Claude proposes setup + starter content, pre-filling the create wizard (Watts)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The whole
- *  0.102.x line is "Tepper" (Sheri S. Tepper); patch releases inherit
+ *  0.103.x line is "Watts" (Peter Watts); patch releases inherit
  *  their minor version's codename rather than getting their own. */
-export const APP_MILESTONE = "Tepper";
+export const APP_MILESTONE = "Watts";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -114,4 +114,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightUiBatch0101",
   "versionHighlightAiWriteTools",
   "versionHighlightAiDocIngest",
+  "versionHighlightAiCreateWizard",
 ] as const;

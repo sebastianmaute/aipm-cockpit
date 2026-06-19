@@ -23,6 +23,9 @@ export interface BackendConfigModalProps {
   settings: Settings;
   onChangeSettings: (s: Settings) => void;
   onClose: () => void;
+  /** Body override. When provided, render this instead of IntegrationsSection
+   *  (e.g. the AI-assistant config surface renders AiSection here). */
+  children?: React.ReactNode;
 }
 
 const SECONDARY_BUTTON_CLASS =
@@ -34,6 +37,7 @@ export function BackendConfigModal({
   settings,
   onChangeSettings,
   onClose,
+  children,
 }: BackendConfigModalProps) {
   const TITLE_ID = "backend-config-modal-title";
   return (
@@ -51,7 +55,9 @@ export function BackendConfigModal({
       >
         <ModalHeader lang={lang} title={title} titleId={TITLE_ID} onClose={onClose} />
         <div className="overflow-y-auto p-6">
-          <IntegrationsSection lang={lang} settings={settings} onChange={onChangeSettings} />
+          {children ?? (
+            <IntegrationsSection lang={lang} settings={settings} onChange={onChangeSettings} />
+          )}
         </div>
         <div className="flex shrink-0 justify-end border-t border-line p-4">
           <button type="button" onClick={onClose} className={SECONDARY_BUTTON_CLASS}>

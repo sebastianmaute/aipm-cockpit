@@ -1,8 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import { type Lang, t } from "../i18n";
 import type { Settings } from "../settings-types";
 import { InfoTooltip } from "../info-tooltip";
+import { TypeToConfirmDialog } from "../type-to-confirm-dialog";
+import { resetAppToCleanSlate } from "../app-reset";
 
 interface GeneralSectionProps {
   lang: Lang;
@@ -10,7 +13,12 @@ interface GeneralSectionProps {
   onChange: (s: Settings) => void;
 }
 
+/** The exact phrase the user must type to confirm a full reset. Deliberately a
+ *  fixed English phrase (a friction gate), not localized. */
+const RESET_CONFIRM_PHRASE = "yes, reset everything";
+
 export function GeneralSection({ lang, settings, onChange }: GeneralSectionProps) {
+  const [resetOpen, setResetOpen] = useState(false);
   return (
     <>
       <div className="mb-4">
@@ -54,6 +62,35 @@ export function GeneralSection({ lang, settings, onChange }: GeneralSectionProps
           />
         </label>
       </div>
+
+      <hr className="my-4 border-line" />
+
+      {/* Danger zone — full factory reset (detaches projects, no file/DB delete). */}
+      <div className="mb-2">
+        <h3 className="text-sm font-semibold text-AIPM-pink-strong">
+          {t(lang, "settingsResetHeading")}
+        </h3>
+        <p className="mt-1 text-xs text-muted-foreground">{t(lang, "settingsResetDesc")}</p>
+        <button
+          type="button"
+          onClick={() => setResetOpen(true)}
+          className="mt-3 rounded-md border border-AIPM-pink/50 bg-surface px-4 py-2 text-sm font-medium text-AIPM-pink-strong hover:bg-AIPM-pink/10"
+        >
+          {t(lang, "settingsResetButton")}
+        </button>
+      </div>
+
+      {resetOpen && (
+        <TypeToConfirmDialog
+          lang={lang}
+          title={t(lang, "settingsResetDialogTitle")}
+          message={t(lang, "settingsResetDialogMessage")}
+          confirmValue={RESET_CONFIRM_PHRASE}
+          confirmLabel={t(lang, "settingsResetConfirmLabel")}
+          onConfirm={() => resetAppToCleanSlate()}
+          onCancel={() => setResetOpen(false)}
+        />
+      )}
     </>
   );
 }

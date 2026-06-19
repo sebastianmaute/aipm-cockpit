@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { CreateProjectWizard } from "./create-project-wizard";
 import { type Contact } from "./contacts";
 import { type ProjectMeta } from "./types";
@@ -7,6 +7,16 @@ import { type NewProjectOpts } from "./new-project-workspace";
 import { defaultSettings } from "./settings-types";
 import { SETTINGS_KEY } from "./use-settings";
 import { t } from "./i18n";
+
+const generateMock = vi.fn();
+vi.mock("./use-project-proposal", () => ({
+  useProjectProposal: () => ({
+    generate: generateMock,
+    busy: false,
+    error: null,
+    reset: vi.fn(),
+  }),
+}));
 
 const STAKEHOLDERS = ["Alice Smith", "Bob Jones"];
 const ADDRESS_BOOK: Contact[] = [
@@ -301,5 +311,83 @@ describe("CreateProjectWizard", () => {
     expect(
       screen.getByRole("button", { name: /choose functions yourself/i }),
     ).toHaveAttribute("aria-pressed", "true");
+  });
+});
+
+describe("CreateProjectWizard AI Step 0", () => {
+  beforeEach(() => {
+    window.localStorage.removeItem(SETTINGS_KEY);
+    generateMock.mockReset();
+  });
+
+  // Render with an API key configured so Step 0 (Describe) shows.
+  function renderWithKey(
+    overrides: Partial<React.ComponentProps<typeof CreateProjectWizard>> = {},
+  ) {
+    const settings = {
+      ...defaultSettings,
+      ai: { ...defaultSettings.ai, apiKey: "sk-test" },
+    };
+    const onCreate = vi.fn<CreateFn>();
+    const onCancel = vi.fn();
+    render(
+      <CreateProjectWizard
+        lang="en-US"
+        stakeholderNames={STAKEHOLDERS}
+        addressBook={ADDRESS_BOOK}
+        resources={[]}
+        settings={settings}
+        onChangeSettings={vi.fn()}
+        onCreate={onCreate}
+        onCancel={onCancel}
+        {...overrides}
+      />,
+    );
+    return { onCreate, onCancel };
+  }
+
+  it("starts on Step 0 (Describe) when an API key is configured", () => {
+    renderWithKey();
+    expect(
+      screen.getByLabelText(t("en-US", "aiCreateDescribeLabel")),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: t("en-US", "aiCreateGenerate") }),
+    ).toBeInTheDocument();
+  });
+
+  it("starts on Step 1 (Details) when no API key is configured", () => {
+    setup();
+    expect(
+      screen.queryByLabelText(t("en-US", "aiCreateDescribeLabel")),
+    ).not.toBeInTheDocument();
+  });
+
+  it("Generate populates the Details form and advances to Step 1", async () => {
+    generateMock.mockResolvedValue({
+      meta: { name: "Proposed Project" },
+      features: [],
+      seed: undefined,
+    });
+    renderWithKey();
+    fireEvent.change(screen.getByLabelText(t("en-US", "aiCreateDescribeLabel")), {
+      target: { value: "a crm project" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: t("en-US", "aiCreateGenerate") }),
+    );
+    await waitFor(() =>
+      expect(screen.getByDisplayValue("Proposed Project")).toBeInTheDocument(),
+    );
+  });
+
+  it("Skip jumps straight to the Details form", () => {
+    renderWithKey();
+    fireEvent.click(
+      screen.getByRole("button", { name: t("en-US", "aiCreateSkip") }),
+    );
+    expect(
+      screen.queryByLabelText(t("en-US", "aiCreateDescribeLabel")),
+    ).not.toBeInTheDocument();
   });
 });

@@ -58,6 +58,8 @@ export interface CreateProjectFormProps {
   /** Prefill the field group (e.g. the wizard restoring captured details on
    *  Back). Forwarded to ProjectForm's `initial`. Defaults undefined → blank. */
   initialMeta?: ProjectMeta;
+  /** Create-mode prefill forwarded to ProjectForm (AI fast-path). */
+  initialDraftPatch?: Partial<import("./project-form-fields").ProjectFormDraft>;
   /** Prefill the selector. Defaults to "json". */
   initialFormat?: CreateFormat;
   /** Footer bottom-left slot, forwarded to ProjectForm. */
@@ -76,6 +78,7 @@ export function CreateProjectForm({
   hideFormat = false,
   submitLabel,
   initialMeta,
+  initialDraftPatch,
   initialFormat,
   footerLeft,
 }: CreateProjectFormProps) {
@@ -130,6 +133,7 @@ export function CreateProjectForm({
       )}
       <ProjectForm
         initial={initialMeta}
+        initialDraftPatch={initialDraftPatch}
         stakeholderNames={stakeholderNames}
         addressBook={addressBook}
         resources={resources}

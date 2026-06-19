@@ -482,6 +482,17 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightUiBatch0100: "Abgerundete Tabellenkopfzeilen mit einheitlichem Scrollbalken-Abstand, RAG-Prioritätspunkte, Dialoge schließen per Klick daneben, Wiederherstellung ganzer Versionen samt Nebeneinander-Vergleich und Tooltips im Aufgaben-Editor.",
   versionHighlightUiBatch0101: "Passphrase bestätigen/entfernen und ein zuverlässiges Aufheben für gespeicherte Geheimnisse, zeilenweise Wiederherstellung im Nebeneinander-Vergleich des Verlaufs, Meilensteine & Dokumente in voller Breite mit manuellen Dokument-Links sowie klarere Bedienelemente für Vorlagen und nächste Aktionen.",
   versionHighlightAiWriteTools: "Der KI-Assistent kann jetzt RAID-Einträge, Änderungsanträge, Meilensteine und Stakeholder anlegen, aktualisieren und löschen – nicht mehr nur Aufgaben.",
+  aiCreateHeading: "Mit KI erstellen",
+  aiCreateDescribeLabel: "Projekt beschreiben",
+  aiCreateDescribePlaceholder: "z. B. Eine 6-monatige CRM-Migration für ACME, Go-live in Q4, zentrale Risiken bei Datenqualität und Team-Aufbau.",
+  aiCreateGenerate: "Mit KI erstellen",
+  aiCreateBusy: "Wird erstellt…",
+  aiCreateSkip: "Überspringen – manuell einrichten",
+  aiCreateError: "Vorschlag konnte nicht erstellt werden. Bitte umformulieren oder manuell einrichten.",
+  aiCreateNeedsKey: "Fügen Sie unter Einstellungen → KI einen Anthropic-API-Schlüssel hinzu, um dies zu nutzen.",
+  aiCreateTemplateReplacesSeed: "Die Auswahl einer Vorlage ersetzt die von der KI erstellten Startinhalte.",
+  aiCreateIncludeContent: "Von der KI erstellte Startinhalte einbeziehen",
+  versionHighlightAiCreateWizard: "Erstellen Sie ein Projekt aus einer Beschreibung in natürlicher Sprache – Claude schlägt Einrichtung und Startinhalte vor.",
   versionHighlightAiDocIngest: "Hängen Sie ein PDF, Bild oder eine Textdatei an den Chat an: Claude liest sie direkt und kann Risiken, Meilensteine und Stakeholder unmittelbar in Ihr Projekt übernehmen.",
 
   aiConsentTitle: "Claude-Chat aktivieren?",
@@ -1326,6 +1337,14 @@ export const de: Record<TranslationKey, string> = {
   notifBirthdayTooltip: "Benachrichtigung an Geburtstagen von Teammitgliedern anzeigen.",
   popoutReuseWindowTooltip: "Ein einzelnes Pop-out-Fenster wiederverwenden, statt jedes Mal ein neues zu öffnen.",
   resourcesWorkdayHoursTooltip: "Stunden eines Standardarbeitstags, für Auslastungs- und Kapazitätsberechnungen.",
+  settingsResetHeading: "Anwendung zurücksetzen",
+  settingsResetDesc:
+    "Alle Projekte trennen und sämtliche lokalen App-Daten auf diesem Gerät löschen – Einstellungen, Geheimnisse (einschließlich Ihres Anthropic-API-Schlüssels) und Layout. Ihre Projektdateien und Datenbanken werden NICHT gelöscht; sie werden nur getrennt und können später erneut geöffnet werden.",
+  settingsResetButton: "Auf Werkszustand zurücksetzen",
+  settingsResetDialogTitle: "Auf Werkszustand zurücksetzen?",
+  settingsResetDialogMessage:
+    "Dadurch werden alle Projekte getrennt und sämtliche Einstellungen, Geheimnisse (einschließlich Ihres Anthropic-API-Schlüssels) und das Layout in diesem Browser gelöscht. Dateien und Datenbanken werden NICHT gelöscht. Dies kann nicht rückgängig gemacht werden – die App wird neu geladen.",
+  settingsResetConfirmLabel: "Alles zurücksetzen",
   aiAssistantTooltip: "Anthropic-API-Schlüssel verbinden, um den KI-Assistenten zu aktivieren.",
   aiGuidesHeading: "Betriebsleitfäden",
   aiGuidesDesc: "Betriebsleitfäden sind Markdown-Dokumente, die steuern, wie sich Claude als Ihr leitender Projektmanager verhält. Fügen Sie eigene hinzu, grenzen Sie sie auf einen Modus, ein Modul oder eine Ansicht ein und ordnen Sie sie nach Priorität. Wenn die Verankerung aktiv ist, liest Claude jeden aktivierten, im Geltungsbereich liegenden Leitfaden.",
@@ -2217,6 +2236,9 @@ export const de: Record<TranslationKey, string> = {
     "Turso-Datenbank-Backend (URL und Token) vor dem Anlegen eines Projekts einrichten.",
   emptyStateConfigM365Tip:
     "Bei Microsoft 365 anmelden und konfigurieren (SharePoint, Outlook), bevor ein Projekt angelegt wird.",
+  emptyStateConfigAi: "KI-Assistenten konfigurieren",
+  emptyStateConfigAiTip:
+    "Anthropic-API-Schlüssel hinzufügen, bevor ein Projekt angelegt wird – erforderlich für „Mit KI erstellen“.",
   projectsDelete: "Projekt entfernen",
   projectsDeleteConfirm:
     "Projekt aus der Liste entfernen? Die zugrunde liegende Datei wird NICHT gelöscht.",
