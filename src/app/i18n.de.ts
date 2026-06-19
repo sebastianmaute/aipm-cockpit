@@ -1337,6 +1337,14 @@ export const de: Record<TranslationKey, string> = {
   notifBirthdayTooltip: "Benachrichtigung an Geburtstagen von Teammitgliedern anzeigen.",
   popoutReuseWindowTooltip: "Ein einzelnes Pop-out-Fenster wiederverwenden, statt jedes Mal ein neues zu öffnen.",
   resourcesWorkdayHoursTooltip: "Stunden eines Standardarbeitstags, für Auslastungs- und Kapazitätsberechnungen.",
+  settingsResetHeading: "Anwendung zurücksetzen",
+  settingsResetDesc:
+    "Alle Projekte trennen und sämtliche lokalen App-Daten auf diesem Gerät löschen – Einstellungen, Geheimnisse (einschließlich Ihres Anthropic-API-Schlüssels) und Layout. Ihre Projektdateien und Datenbanken werden NICHT gelöscht; sie werden nur getrennt und können später erneut geöffnet werden.",
+  settingsResetButton: "Auf Werkszustand zurücksetzen",
+  settingsResetDialogTitle: "Auf Werkszustand zurücksetzen?",
+  settingsResetDialogMessage:
+    "Dadurch werden alle Projekte getrennt und sämtliche Einstellungen, Geheimnisse (einschließlich Ihres Anthropic-API-Schlüssels) und das Layout in diesem Browser gelöscht. Dateien und Datenbanken werden NICHT gelöscht. Dies kann nicht rückgängig gemacht werden – die App wird neu geladen.",
+  settingsResetConfirmLabel: "Alles zurücksetzen",
   aiAssistantTooltip: "Anthropic-API-Schlüssel verbinden, um den KI-Assistenten zu aktivieren.",
   aiGuidesHeading: "Betriebsleitfäden",
   aiGuidesDesc: "Betriebsleitfäden sind Markdown-Dokumente, die steuern, wie sich Claude als Ihr leitender Projektmanager verhält. Fügen Sie eigene hinzu, grenzen Sie sie auf einen Modus, ein Modul oder eine Ansicht ein und ordnen Sie sie nach Priorität. Wenn die Verankerung aktiv ist, liest Claude jeden aktivierten, im Geltungsbereich liegenden Leitfaden.",

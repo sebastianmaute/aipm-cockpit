@@ -24,6 +24,11 @@ AI-orchestration roadmap **SP3** — an "Use AI" fast-path for creating projects
 - **Configure the AI assistant from the new-project window.** The first-run empty state now offers a
   "Configure AI assistant" button alongside Turso and M365 setup — add your Anthropic API key before
   any project exists, which unlocks the "Use AI" describe step in the create wizard.
+- **Reset to clean slate (Settings → General).** A danger-zone "Reset to clean slate" button, gated by
+  a type-to-confirm dialog (type "yes, reset everything"), detaches every project and erases all
+  browser-local app data — settings, secrets (including the Anthropic API key) and layout — then
+  reloads to a fresh empty state. Project files and databases are NOT deleted; they are only detached
+  and can be re-opened later.
 
 ## [0.102.0] - 2026-06-18 "Tepper"
 

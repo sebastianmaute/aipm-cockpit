@@ -1327,6 +1327,14 @@ const enUS = {
   notifBirthdayTooltip: "Show a notification on team members' birthdays.",
   popoutReuseWindowTooltip: "Reuse a single pop-out window instead of opening a new one each time.",
   resourcesWorkdayHoursTooltip: "Hours in a standard working day, used for workload and capacity calculations.",
+  settingsResetHeading: "Reset application",
+  settingsResetDesc:
+    "Detach every project and erase all local app data on this device — settings, secrets (including your Anthropic API key) and layout. Your project files and databases are NOT deleted; they are only detached and can be re-opened later.",
+  settingsResetButton: "Reset to clean slate",
+  settingsResetDialogTitle: "Reset to clean slate?",
+  settingsResetDialogMessage:
+    "This detaches every project and erases all settings, secrets (including your Anthropic API key) and layout from this browser. Files and databases are NOT deleted. This cannot be undone — the app will reload.",
+  settingsResetConfirmLabel: "Reset everything",
   aiAssistantTooltip: "Connect an Anthropic API key to enable the in-app AI assistant.",
   aiGuidesHeading: "Operating guides",
   aiGuidesDesc: "Operating guides are markdown documents that steer how Claude behaves as your senior project manager. Add your own, scope them to a mode, module, or view, and order them by priority. When grounding is on, Claude reads every enabled, in-scope guide.",
