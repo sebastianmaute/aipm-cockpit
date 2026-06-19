@@ -80,6 +80,7 @@ import { computeDashboard } from "./dashboard";
 import { getTursoConfig } from "./turso-config";
 import { defaultExportConfig, defaultNextActionsLearning, defaultSnapshotSettings, type Settings } from "./settings-types";
 import { TaskEditView, TASK_EDIT_FORM_ID } from "./task-edit-view";
+import { TaskEditorActions } from "./task-editor-actions";
 import { APP_VERSION_LABEL } from "./version";
 import { ActionMenus } from "./action-menus";
 import { makeEditGuard } from "./read-only-guard";
@@ -1782,8 +1783,27 @@ function TaskManagerInner() {
   const editTitle =
     editingId !== null ? t(lang, "tabEditTask", editingId) : t(lang, "tabNewTask");
 
+  // Send inquiry / Push to Jira / Delete — only for an EXISTING task, never in
+  // popouts (read-only). Push is additionally hidden for unconfigured Jira or an
+  // already-synced task. Shared by the modern TaskEditView footer and the
+  // classic TaskFormModal (threaded as leadingActions).
+  const editorActions =
+    editingTask && !isPopout ? (
+      <TaskEditorActions
+        lang={lang}
+        task={editingTask}
+        jiraConfigured={settings.jira.enabled && !!settings.jira.projectKey}
+        onSendInquiry={onSendInquiry}
+        onPushToJira={(id) => {
+          void onPushToJira(id);
+        }}
+        onDelete={onDelete}
+      />
+    ) : null;
+
   const editActions = (
     <>
+      {editorActions}
       {editingIsJiraLinked && settings.jira.enabled && (
         <button
           type="button"
@@ -2013,6 +2033,7 @@ function TaskManagerInner() {
         lang={lang}
         isPopout={isPopout}
         showTaskFormModal={!useEditView}
+        taskEditorActions={editorActions}
         jiraConflicts={jiraConflicts}
         handleResolveConflicts={handleResolveConflicts}
         clearConflicts={clearConflicts}

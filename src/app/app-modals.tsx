@@ -1,6 +1,6 @@
 "use client";
 
-import React, { type RefObject } from "react";
+import React, { type ReactNode, type RefObject } from "react";
 import { TaskFormModal } from "./task-form-modal";
 import { type TaskFieldErrors } from "./task-validation";
 import { JiraConflictsModal } from "./jira-conflicts-modal";
@@ -64,6 +64,8 @@ export interface AppModalsProps {
   handleCancelEdit: () => void;
   handleRemoveContact: (name: string) => void;
   showToast: (kind: "info" | "error", text: string) => void;
+  /** Editor action buttons (Send inquiry / Push to Jira / Delete) for the classic modal footer. */
+  taskEditorActions?: ReactNode;
 
   // Resource edit modal
   editingResource: { resource: Resource; isNew: boolean } | null;
@@ -115,6 +117,7 @@ export function AppModals({
   handleCancelEdit,
   handleRemoveContact,
   showToast,
+  taskEditorActions,
   editingResource,
   onSaveResource,
   onDeleteResource,
@@ -149,6 +152,7 @@ export function AppModals({
           onCancel={handleCancelEdit}
           onRemoveContact={handleRemoveContact}
           onShowToast={showToast}
+          leadingActions={taskEditorActions}
         />
       )}
 
