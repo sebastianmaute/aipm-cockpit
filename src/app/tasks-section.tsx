@@ -2,7 +2,7 @@
 import type React from "react";
 import { useMemo } from "react";
 import { type Lang, type TranslationKey, priorityLabel, t } from "./i18n";
-import { PRIORITIES, type ChangeItem, type Priority, type RaidItem, type Task } from "./types";
+import { PRIORITIES, type ChangeItem, type Priority, type RaidItem, type Task, type TaskStatus } from "./types";
 import { useSettings } from "./use-settings";
 import { useHolidaySet } from "./use-holiday-set";
 import { type SortKey, useFilters } from "./filters-context";
@@ -59,6 +59,7 @@ export interface TasksSectionProps {
   onToggleComplete: (task: Task) => void;
   onSendInquiry: (task: Task) => void;
   onPushToJira: (id: number) => void;
+  onStatusChange: (id: number, next: TaskStatus) => void;
   onEdit: (task: Task) => void;
   onDelete: (id: number) => void;
   // column manager
@@ -113,6 +114,7 @@ export function TasksSection({
   onToggleComplete,
   onSendInquiry,
   onPushToJira,
+  onStatusChange,
   onEdit,
   onDelete,
   hiddenCols,
@@ -181,6 +183,7 @@ export function TasksSection({
       onToggleComplete,
       onSendInquiry,
       onPushToJira,
+      onStatusChange,
       onEdit,
       onDelete,
     }),
@@ -199,6 +202,7 @@ export function TasksSection({
       onToggleComplete,
       onSendInquiry,
       onPushToJira,
+      onStatusChange,
       onEdit,
       onDelete,
     ],

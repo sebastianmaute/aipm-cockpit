@@ -61,6 +61,7 @@ function makeContext(overrides: Partial<RowContextValue> = {}): RowContextValue 
     onToggleComplete: vi.fn(),
     onSendInquiry: vi.fn(),
     onPushToJira: vi.fn(),
+    onStatusChange: vi.fn(),
     onEdit: vi.fn(),
     onDelete: vi.fn(),
     ...overrides,
@@ -230,6 +231,29 @@ describe("TaskRow workflow-status badge", () => {
       }),
     );
     expect(queryByText("On Hold")).toBeNull();
+  });
+
+  test("changes status via the inline dropdown", () => {
+    const onStatusChange = vi.fn();
+    const ctx = makeContext({ onStatusChange });
+    const { getByRole } = render(
+      rowWrapper({
+        context: ctx,
+        children: (
+          <TaskRow
+            task={makeTask({ id: 1, taskName: "Alpha", status: "To Do" })}
+            isSelected={false}
+            isEditing={false}
+            isExpanded={false}
+            isPushing={false}
+            raidRefs={undefined}
+          />
+        ),
+      }),
+    );
+    const select = getByRole("combobox", { name: "Status – Alpha" });
+    fireEvent.change(select, { target: { value: "In Progress" } });
+    expect(onStatusChange).toHaveBeenCalledWith(1, "In Progress");
   });
 });
 

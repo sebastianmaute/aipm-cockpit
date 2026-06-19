@@ -10,8 +10,9 @@ import { sanitizeTemplateHtml } from "./sanitize-html";
 import { plainTextToHtml, type CommSendRequest } from "./comm-send";
 import { greetingName } from "./contacts";
 import { loadJiraApi } from "./use-jira-sync";
+import { applyStatusChange } from "./task-status";
 import type { ActivityKind } from "./activity-log";
-import type { Task } from "./types";
+import type { Task, TaskStatus } from "./types";
 import type { Settings } from "./settings-types";
 import { useWorkspaceTab } from "./workspace-tab-context";
 
@@ -101,10 +102,11 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
       setTasks((prev) =>
         prev.map((row) => {
           if (row.id !== task.id) return row;
-          if (row.completedDate) {
-            return { ...row, completedDate: undefined, localModifiedAt: stamp };
-          }
-          return { ...row, completedDate: today, localModifiedAt: stamp };
+          // Route through applyStatusChange so `status` stays in sync with
+          // `completedDate` (the Done ⟺ completedDate invariant). Reopening
+          // resets status to "To Do"; completing sets it to "Done".
+          const next: TaskStatus = row.completedDate ? "To Do" : "Done";
+          return { ...applyStatusChange(row, next, today), localModifiedAt: stamp };
         }),
       );
       if (editingId === task.id) handleCancelEditRef.current();
@@ -242,6 +244,20 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
     [settings.jira, lang, tasksRef, pushingIds, setTasks],
   );
 
+  const onStatusChange = useCallback(
+    (id: number, next: TaskStatus) => {
+      const stamp = new Date().toISOString();
+      setTasks((prev) =>
+        prev.map((row) =>
+          row.id === id
+            ? { ...applyStatusChange(row, next, today), localModifiedAt: stamp }
+            : row,
+        ),
+      );
+    },
+    [today, setTasks],
+  );
+
   const onEdit = useCallback(
     (task: Task) => {
       openEditModal(task);
@@ -297,6 +313,7 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
     onToggleComplete,
     onSendInquiry,
     onPushToJira,
+    onStatusChange,
     onEdit,
     onDelete,
     handleClearRaidTaskFilter,

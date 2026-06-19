@@ -1162,6 +1162,7 @@ function TaskManagerInner() {
     onToggleComplete,
     onSendInquiry,
     onPushToJira,
+    onStatusChange,
     onEdit,
     onDelete,
     handleClearRaidTaskFilter,
@@ -1741,6 +1742,7 @@ function TaskManagerInner() {
       onToggleComplete={onToggleComplete}
       onSendInquiry={onSendInquiry}
       onPushToJira={onPushToJira}
+      onStatusChange={onStatusChange}
       onEdit={onEdit}
       onDelete={onDelete}
       hiddenCols={hiddenCols}

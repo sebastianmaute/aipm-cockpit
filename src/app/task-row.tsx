@@ -1,12 +1,12 @@
 "use client";
 
-import { createContext, memo, useContext, type ReactNode } from "react";
+import { createContext, memo, useContext, type MouseEvent, type ReactNode } from "react";
 import { computeTaskHealth, formatHealthTooltip, healthDot, type TaskHealth } from "./health";
 import { priorityLabel, t, type Lang } from "./i18n";
 import { formatDuration } from "./duration";
 import { countByCategory } from "./raid";
-import { TaskStatusBadge } from "./task-status-badge";
-import { type ChangeItem, type Priority, type Task, type TaskDependency, type RaidItem } from "./types";
+import { statusBadgeClass, statusLabelKey } from "./task-status-ui";
+import { TASK_STATUSES, type ChangeItem, type Priority, type Task, type TaskDependency, type TaskStatus, type RaidItem } from "./types";
 
 export interface RowContextValue {
   lang: Lang;
@@ -29,6 +29,7 @@ export interface RowContextValue {
   onToggleComplete: (task: Task) => void;
   onSendInquiry: (task: Task) => void;
   onPushToJira: (id: number) => void;
+  onStatusChange: (id: number, next: TaskStatus) => void;
   onEdit: (task: Task) => void;
   onDelete: (id: number) => void;
 }
@@ -114,12 +115,14 @@ function Td({
   children,
   className,
   title,
+  onClick,
 }: {
   children: ReactNode;
   className?: string;
   title?: string;
+  onClick?: (e: MouseEvent<HTMLTableCellElement>) => void;
 }) {
-  return <td title={title} className={`px-4 py-3 ${className ?? ""}`}>{children}</td>;
+  return <td title={title} onClick={onClick} className={`px-4 py-3 ${className ?? ""}`}>{children}</td>;
 }
 
 interface TaskRowProps {
@@ -150,6 +153,7 @@ function TaskRowImpl({
     jiraSiteUrl,
     hiddenCols,
     onToggleSelect,
+    onStatusChange,
     onEdit,
   } = useTaskRowContext();
 
@@ -283,8 +287,19 @@ function TaskRowImpl({
         </Td>
       )}
       {!hiddenCols.has("taskStatus") && (
-        <Td>
-          <TaskStatusBadge status={task.status} lang={lang} />
+        <Td onClick={(e) => e.stopPropagation()}>
+          <select
+            aria-label={`${t(lang, "colTaskStatus")} – ${task.taskName}`}
+            value={task.status}
+            onChange={(e) => onStatusChange(task.id, e.target.value as TaskStatus)}
+            className={`rounded border border-line px-1.5 py-0.5 text-xs font-medium ${statusBadgeClass(task.status)}`}
+          >
+            {TASK_STATUSES.map((s) => (
+              <option key={s} value={s}>
+                {t(lang, statusLabelKey(s))}
+              </option>
+            ))}
+          </select>
         </Td>
       )}
       {!hiddenCols.has("blockers") && (
