@@ -35,6 +35,10 @@ import { type ProjectTemplate } from "./templates";
 import { type ProjectMeta, type Resource } from "./types";
 import { useTemplates } from "./use-templates";
 import { BackendConfigModal } from "./backend-config-modal";
+import { useProjectProposal } from "./use-project-proposal";
+import { proposalToDraftPatch, proposalToSeed, seedHasContent } from "./ai-project-proposal";
+import type { ProjectFormDraft } from "./project-form-fields";
+import type { TemplateSeed } from "./templates";
 
 type CreateFormat = "json" | "csv" | "md";
 
@@ -70,7 +74,7 @@ export interface CreateProjectWizardProps {
   hideFormat?: boolean;
 }
 
-type Step = 1 | 2 | 3;
+type Step = 0 | 1 | 2 | 3;
 
 /** True when a template carries any seed content worth offering to stamp. */
 function hasSeedContent(tpl: ProjectTemplate | null): boolean {
@@ -118,7 +122,16 @@ export function CreateProjectWizard({
 }: CreateProjectWizardProps) {
   const { templates } = useTemplates();
 
-  const [step, setStep] = useState<Step>(1);
+  const aiKey = settings.ai?.apiKey?.trim() ?? "";
+  const aiEnabled = aiKey.length > 0;
+  const { generate, busy: aiBusy, error: aiError } = useProjectProposal({
+    apiKey: aiKey,
+    model: settings.ai?.model ?? "claude-sonnet-4-6",
+  });
+  const [step, setStep] = useState<Step>(aiEnabled ? 0 : 1);
+  const [description, setDescription] = useState("");
+  const [draftPatch, setDraftPatch] = useState<Partial<ProjectFormDraft> | undefined>(undefined);
+  const [aiSeed, setAiSeed] = useState<TemplateSeed | undefined>(undefined);
   const [m365Open, setM365Open] = useState(false);
   const [meta, setMeta] = useState<ProjectMeta | null>(null);
   const [format, setFormat] = useState<CreateFormat>("json");
@@ -149,6 +162,18 @@ export function CreateProjectWizard({
   // the user has not touched the list, so a manual pick (incl. Blank) made on a
   // prior visit is never overwritten. Computed from the fresh meta `m` so it
   // does not lag the memoized `suggestion` by a render.
+  const handleGenerate = async () => {
+    const p = await generate(description);
+    if (!p) return; // error surfaced via aiError
+    const today = new Date().toISOString().slice(0, 10); // callback context — lint-safe
+    setDraftPatch(proposalToDraftPatch(p));
+    setFeatures(p.features.length ? p.features : [...ALL_MODULE_IDS]);
+    const seed = proposalToSeed(p, today);
+    setAiSeed(seed);
+    setIncludeSeed(seedHasContent(seed));
+    setStep(1);
+  };
+
   const handleDetails = (
     m: ProjectMeta,
     fmt: CreateFormat,
@@ -179,12 +204,14 @@ export function CreateProjectWizard({
       template: selectedTemplate ?? undefined,
       features,
       includeSeed,
+      aiSeed: selectedTemplate === null ? aiSeed : undefined,
       storage,
     });
   };
 
   const mode = deriveMode(features);
-  const offerSeed = hasSeedContent(selectedTemplate);
+  const aiSeedActive = selectedTemplate === null && seedHasContent(aiSeed);
+  const offerSeed = hasSeedContent(selectedTemplate) || aiSeedActive;
 
   // When M365 isn't enabled yet, offer a bottom-left shortcut to configure it
   // (opens the shared backend-config modal focused on M365).
@@ -199,11 +226,37 @@ export function CreateProjectWizard({
     <div className="flex min-h-0 flex-col">
       {/* Fixed header: step indicator (the modal panel owns resize/reset). */}
       <div className="flex shrink-0 items-start pb-4">
-        <StepIndicator lang={lang} step={step} />
+        {step >= 1 ? (
+          <StepIndicator lang={lang} step={step as Step} />
+        ) : (
+          <h2 className="text-base font-semibold text-foreground">{t(lang, "aiCreateHeading")}</h2>
+        )}
       </div>
 
       {/* Body — the modal panel scrolls, so this just stacks. */}
       <div className="min-h-0 flex-1">
+
+        {/* Step 0 — Describe (AI fast-path; only when an API key is set). */}
+        {step === 0 && (
+          <div className="flex flex-col gap-4 pb-2">
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="font-medium text-foreground">{t(lang, "aiCreateDescribeLabel")}</span>
+              <textarea
+                aria-label={t(lang, "aiCreateDescribeLabel")}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={6}
+                placeholder={t(lang, "aiCreateDescribePlaceholder")}
+                className="rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-AIPM-green"
+              />
+            </label>
+            {aiError && (
+              <p role="alert" className="text-sm text-AIPM-red">
+                {t(lang, aiError === "no-key" ? "aiCreateNeedsKey" : "aiCreateError")}
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Step 1 — Details: reuse the shared create form (its submit advances). */}
         {step === 1 && (
@@ -220,6 +273,7 @@ export function CreateProjectWizard({
             footerLeft={m365Button}
             submitLabel={t(lang, "wizardNext")}
             initialMeta={meta ?? undefined}
+            initialDraftPatch={meta ? undefined : draftPatch}
             initialFormat={format}
           />
         )}
@@ -300,6 +354,11 @@ export function CreateProjectWizard({
                 );
               })}
             </fieldset>
+            {seedHasContent(aiSeed) && selectedTemplate !== null && (
+              <p role="status" className="text-xs text-AIPM-red">
+                {t(lang, "aiCreateTemplateReplacesSeed")}
+              </p>
+            )}
           </div>
         )}
 
@@ -359,7 +418,7 @@ export function CreateProjectWizard({
                   onChange={(e) => setIncludeSeed(e.target.checked)}
                   className="h-4 w-4 accent-AIPM-green"
                 />
-                <span>{t(lang, "wizardIncludeContent")}</span>
+                <span>{t(lang, aiSeedActive ? "aiCreateIncludeContent" : "wizardIncludeContent")}</span>
               </label>
             )}
           </div>
@@ -367,7 +426,30 @@ export function CreateProjectWizard({
 
       </div>
 
-      {/* Pinned footer: navigation buttons for steps 2 and 3 */}
+      {/* Pinned footer: navigation buttons for steps 0, 2 and 3 */}
+      {step === 0 && (
+        <div className="flex shrink-0 justify-between gap-2 border-t border-line pt-4">
+          <div className="flex gap-2">
+            <button type="button" onClick={() => setStep(1)} className={SECONDARY_BUTTON_CLASS}>
+              {t(lang, "aiCreateSkip")}
+            </button>
+            {onCancel && (
+              <button type="button" onClick={onCancel} className={SECONDARY_BUTTON_CLASS}>
+                {t(lang, "cancel")}
+              </button>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={handleGenerate}
+            disabled={aiBusy || !description.trim()}
+            className={PRIMARY_BUTTON_CLASS}
+          >
+            {aiBusy ? t(lang, "aiCreateBusy") : t(lang, "aiCreateGenerate")}
+          </button>
+        </div>
+      )}
+
       {step === 2 && (
         <div className="flex shrink-0 justify-between gap-2 border-t border-line pt-4">
           <div className="flex gap-2">
