@@ -33,7 +33,8 @@ import { SegmentedControl } from "./segmented-control";
 import { useTaskForm } from "./task-form-context";
 import { useModalVisibility } from "./use-modal-visibility";
 import { type TaskErrorField, type TaskFieldErrors } from "./task-validation";
-import { PRIORITIES, type Absence, type Resource, type Task } from "./types";
+import { PRIORITIES, TASK_STATUSES, type Absence, type Resource, type Task, type TaskStatus } from "./types";
+import { statusLabelKey } from "./task-status-ui";
 
 // voice-button is lazy-loaded — it transitively pulls the Web Speech API
 // shims in voice.ts which we only need when the user clicks the mic.
@@ -144,6 +145,21 @@ export function TaskFormFields({
             />
           </Field>
         )}
+
+        {/* Status is a core workflow field — always shown (not gated by fieldVisibility). */}
+        <Field label={t(lang, "colTaskStatus")}>
+          <select
+            value={form.status}
+            onChange={(e) => setForm({ ...form, status: e.target.value as TaskStatus })}
+            className={inputClass}
+          >
+            {TASK_STATUSES.map((s) => (
+              <option key={s} value={s}>
+                {t(lang, statusLabelKey(s))}
+              </option>
+            ))}
+          </select>
+        </Field>
 
         <Field
           label={t(lang, "taskName")}

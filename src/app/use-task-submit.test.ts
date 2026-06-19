@@ -35,6 +35,7 @@ function validForm(): TaskFormDraft {
     dueDate: "2030-12-31",
     lastUpdateDate: "2030-01-01",
     priority: "Medium" as const,
+    status: "To Do" as const,
     blockers: "",
     notes: "",
     group: "",
@@ -307,6 +308,83 @@ describe("useTaskSubmit — resourceId threading", () => {
     act(() => result.current.openEditModal(linked));
     const seeded = setForm.mock.calls[0][0] as TaskFormDraft;
     expect(seeded.resourceId).toBe(9);
+  });
+});
+
+describe("useTaskSubmit — status on save", () => {
+  it("saves the chosen status on a new task", () => {
+    const setTasks = vi.fn();
+    const { result } = renderHook(() =>
+      useTaskSubmit(makeArgs({
+        setTasks, tasks: [], tasksRef: { current: [] },
+        form: { ...validForm(), status: "In Progress" },
+      })),
+    );
+    act(() => result.current.handleSubmit(fakeSubmitEvent()));
+    const nextList = setTasks.mock.calls[0][0] as Task[];
+    const created = nextList[nextList.length - 1];
+    expect(created.status).toBe("In Progress");
+  });
+
+  it("defaults a new task to To Do", () => {
+    const setTasks = vi.fn();
+    const { result } = renderHook(() =>
+      useTaskSubmit(makeArgs({ setTasks, tasks: [], tasksRef: { current: [] } })),
+    );
+    act(() => result.current.handleSubmit(fakeSubmitEvent()));
+    const nextList = setTasks.mock.calls[0][0] as Task[];
+    const created = nextList[nextList.length - 1];
+    expect(created.status).toBe("To Do");
+  });
+
+  it("creating a task as Done stamps completedDate", () => {
+    const setTasks = vi.fn();
+    const { result } = renderHook(() =>
+      useTaskSubmit(makeArgs({
+        setTasks, tasks: [], tasksRef: { current: [] },
+        form: { ...validForm(), status: "Done" },
+      })),
+    );
+    act(() => result.current.handleSubmit(fakeSubmitEvent()));
+    const nextList = setTasks.mock.calls[0][0] as Task[];
+    const created = nextList[nextList.length - 1];
+    expect(created.status).toBe("Done");
+    expect(created.completedDate).toBeTruthy();
+  });
+
+  it("editing a task to Done stamps completedDate; moving off Done clears it", () => {
+    const setTasks = vi.fn();
+    const existing = makeTask({ id: 1, assignee: "Bob", status: "To Do", completedDate: "" });
+
+    // To Do -> Done stamps completedDate.
+    const toDone = renderHook(() =>
+      useTaskSubmit(makeArgs({
+        setTasks, editingId: 1, tasks: [existing],
+        tasksRef: { current: [existing] },
+        form: { ...validForm(), assignee: "Bob", status: "Done" },
+      })),
+    );
+    act(() => toDone.result.current.handleSubmit(fakeSubmitEvent()));
+    const doneUpdater = setTasks.mock.calls[0][0] as (p: Task[]) => Task[];
+    const [doneRow] = doneUpdater([existing]);
+    expect(doneRow.status).toBe("Done");
+    expect(doneRow.completedDate).toBeTruthy();
+
+    // Done -> To Do clears completedDate.
+    setTasks.mockClear();
+    const doneTask = makeTask({ id: 1, assignee: "Bob", status: "Done", completedDate: "2030-01-01" });
+    const offDone = renderHook(() =>
+      useTaskSubmit(makeArgs({
+        setTasks, editingId: 1, tasks: [doneTask],
+        tasksRef: { current: [doneTask] },
+        form: { ...validForm(), assignee: "Bob", status: "To Do" },
+      })),
+    );
+    act(() => offDone.result.current.handleSubmit(fakeSubmitEvent()));
+    const offUpdater = setTasks.mock.calls[0][0] as (p: Task[]) => Task[];
+    const [offRow] = offUpdater([doneTask]);
+    expect(offRow.status).toBe("To Do");
+    expect(offRow.completedDate).toBe("");
   });
 });
 

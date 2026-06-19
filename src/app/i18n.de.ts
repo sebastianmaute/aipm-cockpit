@@ -102,6 +102,14 @@ export const de: Record<TranslationKey, string> = {
   priorityHigh: "Hoch",
   priorityUrgent: "Dringend",
 
+  statusToDo: "Zu erledigen",
+  statusInProgress: "In Arbeit",
+  statusOnHold: "Pausiert",
+  statusInReview: "In Prüfung",
+  statusCancelled: "Abgebrochen",
+  statusDone: "Erledigt",
+  colTaskStatus: "Status",
+
   tasks: "Aufgaben",
   tasksCount: "({0})",
   tasksCountFiltered: "({0} von {1})",

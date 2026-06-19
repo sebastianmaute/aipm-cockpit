@@ -99,6 +99,14 @@ const enUS = {
   priorityHigh: "High",
   priorityUrgent: "Urgent",
 
+  statusToDo: "To Do",
+  statusInProgress: "In Progress",
+  statusOnHold: "On Hold",
+  statusInReview: "In Review",
+  statusCancelled: "Cancelled",
+  statusDone: "Done",
+  colTaskStatus: "Status",
+
   tasks: "Tasks",
   tasksCount: "({0})",
   tasksCountFiltered: "({0} of {1})",
