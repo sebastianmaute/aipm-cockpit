@@ -21,6 +21,7 @@ interface TaskKanbanCardProps {
   changeRefs?: ChangeItem[];
   onStatusChange: (id: number, next: TaskStatus) => void;
   onEdit: (task: Task) => void;
+  onJumpToRaid: (taskId: number) => void;
 }
 
 export function TaskKanbanCard({
@@ -32,6 +33,7 @@ export function TaskKanbanCard({
   changeRefs,
   onStatusChange,
   onEdit,
+  onJumpToRaid,
 }: TaskKanbanCardProps) {
   const health: TaskHealth = computeTaskHealth(task, today, holidaySet);
   const healthTip = formatHealthTooltip(health, lang);
@@ -73,7 +75,9 @@ export function TaskKanbanCard({
             {task.jiraKey}
           </span>
         )}
-        {raidRefs && raidRefs.length > 0 && <RaidBadge taskId={task.id} refs={raidRefs} />}
+        {raidRefs && raidRefs.length > 0 && (
+          <RaidBadge taskId={task.id} refs={raidRefs} lang={lang} onJumpToRaid={onJumpToRaid} />
+        )}
         {changeRefs && changeRefs.length > 0 && (
           <span
             title={changesLabel}

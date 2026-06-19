@@ -531,6 +531,7 @@ export function TasksSection({
           changeByTask={changeByTask}
           onStatusChange={onStatusChange}
           onEdit={onEdit}
+          onJumpToRaid={onJumpToRaid}
         />
       ) : (
       <div

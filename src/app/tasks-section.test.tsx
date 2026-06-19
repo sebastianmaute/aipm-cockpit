@@ -14,9 +14,6 @@ vi.mock("./task-row", () => ({
   TaskRow: ({ task }: { task: { id: number; taskName: string } }) => (
     <tr><td>{task.taskName}</td></tr>
   ),
-  // task-raid-badge.tsx (used by the Kanban card in board mode) imports
-  // useTaskRowContext from this module, so the binding must exist on the mock.
-  useTaskRowContext: () => ({ lang: "en-US", onJumpToRaid: () => {} }),
 }));
 vi.mock("./use-settings", () => ({ useSettings: vi.fn() }));
 vi.mock("./use-holiday-set", () => ({ useHolidaySet: vi.fn() }));

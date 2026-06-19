@@ -1,21 +1,22 @@
 "use client";
 // src/app/task-raid-badge.tsx — RAID-reference badge shown on a task.
 // Extracted from task-row.tsx so both the table row AND the Kanban card can
-// render it without dragging the whole row module (RowContext/Td/TaskRowImpl)
-// into the card bundle. Mirrors the TaskStatusSelect extraction.
+// render it. Takes `lang`/`onJumpToRaid` as PROPS (not from RowContext) so it
+// works outside the table's RowContextProvider — the Kanban board renders cards
+// without that provider. Imports nothing from task-row (fully decoupled).
 import { memo } from "react";
-import { t } from "./i18n";
+import { type Lang, t } from "./i18n";
 import { countByCategory } from "./raid";
-import { useTaskRowContext } from "./task-row";
 import type { RaidItem } from "./types";
 
 interface RaidBadgeProps {
   taskId: number;
   refs: RaidItem[];
+  lang: Lang;
+  onJumpToRaid: (taskId: number) => void;
 }
 
-function RaidBadgeImpl({ taskId, refs }: RaidBadgeProps) {
-  const { lang, onJumpToRaid } = useTaskRowContext();
+function RaidBadgeImpl({ taskId, refs, lang, onJumpToRaid }: RaidBadgeProps) {
   const counts = countByCategory(refs);
   return (
     <button

@@ -152,6 +152,7 @@ function TaskRowImpl({
     jiraSiteUrl,
     hiddenCols,
     onToggleSelect,
+    onJumpToRaid,
     onStatusChange,
     onEdit,
   } = useTaskRowContext();
@@ -227,7 +228,7 @@ function TaskRowImpl({
           );
         })()}
         {raidRefs && raidRefs.length > 0 && (
-          <RaidBadge taskId={task.id} refs={raidRefs} />
+          <RaidBadge taskId={task.id} refs={raidRefs} lang={lang} onJumpToRaid={onJumpToRaid} />
         )}
         {changeRefs && changeRefs.length > 0 && (
           <span

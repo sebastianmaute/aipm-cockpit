@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { TaskKanban } from "./task-kanban-board";
-import type { Task } from "./types";
+import type { RaidItem, Task } from "./types";
 
 const t = (over: Partial<Task>): Task =>
   ({ id: 1, taskName: "Alpha", assignee: "", assigneeEmail: "", dueDate: "2026-06-01",
@@ -25,5 +25,23 @@ describe("TaskKanban", () => {
   it("a synced card is not draggable", () => {
     render(<TaskKanban lang="en-US" tasks={[t({ id: 9, jiraKey: "LOP-9" })]} onStatusChange={vi.fn()} onEdit={vi.fn()} />);
     expect(screen.getByTestId("kanban-card-9").getAttribute("draggable")).toBe("false");
+  });
+  // Regression: cards render OUTSIDE the table RowContextProvider, so a task
+  // with RAID refs must not crash the board (RaidBadge takes props, not context).
+  it("renders a RAID-linked card without crashing", () => {
+    const raidByTask = new Map<number, RaidItem[]>([
+      [3, [{ id: 1, category: "R", title: "R1" } as RaidItem]],
+    ]);
+    render(
+      <TaskKanban
+        lang="en-US"
+        tasks={[t({ id: 3, status: "To Do" })]}
+        raidByTask={raidByTask}
+        onStatusChange={vi.fn()}
+        onEdit={vi.fn()}
+        onJumpToRaid={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId("kanban-card-3")).toBeInTheDocument();
   });
 });

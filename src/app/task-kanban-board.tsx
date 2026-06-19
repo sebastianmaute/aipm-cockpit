@@ -24,9 +24,13 @@ interface TaskKanbanProps {
   changeByTask?: Map<number, ChangeItem[]>;
   onStatusChange: (id: number, next: TaskStatus) => void;
   onEdit: (task: Task) => void;
+  /** Deep-link to the RAID register for a task. Optional so lightweight callers
+   *  (tests) can omit it; falls back to a no-op when no RAID refs are present. */
+  onJumpToRaid?: (taskId: number) => void;
 }
 
 const EMPTY_HOLIDAYS: Set<string> = new Set();
+const NOOP_JUMP_TO_RAID: (taskId: number) => void = () => {};
 
 export function TaskKanban({
   lang,
@@ -37,6 +41,7 @@ export function TaskKanban({
   changeByTask,
   onStatusChange,
   onEdit,
+  onJumpToRaid = NOOP_JUMP_TO_RAID,
 }: TaskKanbanProps) {
   const cols = useMemo(() => groupByStatus(tasks), [tasks]);
   return (
@@ -80,6 +85,7 @@ export function TaskKanban({
                     changeRefs={changeByTask?.get(task.id)}
                     onStatusChange={onStatusChange}
                     onEdit={onEdit}
+                    onJumpToRaid={onJumpToRaid}
                   />
                 </article>
               );
