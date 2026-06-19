@@ -505,6 +505,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightAiActionSuggestions: "Action Center: KI-Triage per Klick + vorgeschlagene nächste Schritte",
   versionHighlightScheduledJobs: "Planen Sie wiederkehrende KI-Portfolioanalysen, die als Benachrichtigungen und als In-App-Verlauf erscheinen.",
   versionHighlightInstallable: "Installieren Sie den Tracker als Desktop- oder Mobil-App für den schnellen Start vom Startbildschirm oder Dock.",
+  versionHighlightTaskStatus: "Aufgaben haben jetzt einen Workflow-Status (Zu erledigen bis Erledigt) mit Statusspalte, Inline-Statusbearbeitung und einem Schalter zum Ausblenden erledigter Aufgaben.",
   scheduledJobsTitle: "Geplante Jobs",
   scheduledJobsToggle: "Geplante Jobs aktivieren",
   scheduledJobsHelp: "Führen Sie eine wiederkehrende KI-Portfolioanalyse nach Zeitplan aus. Ergebnisse erscheinen hier und als Desktop-Benachrichtigung.",

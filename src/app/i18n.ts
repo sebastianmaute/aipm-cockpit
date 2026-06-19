@@ -510,6 +510,8 @@ const enUS = {
     "Schedule recurring AI portfolio analyses that surface as notifications and an in-app history.",
   versionHighlightInstallable:
     "Install the tracker as a desktop or mobile app for quick launch from your home screen or dock.",
+  versionHighlightTaskStatus:
+    "Tasks now have a workflow status (To Do to Done) with a status column, inline status editing, and a hide-finished toggle.",
   scheduledJobsTitle: "Scheduled jobs",
   scheduledJobsToggle: "Enable scheduled jobs",
   scheduledJobsHelp:
