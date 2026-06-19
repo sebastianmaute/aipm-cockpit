@@ -215,6 +215,32 @@ describe("TasksSection", () => {
     expect(setTaskModalOpen).toHaveBeenCalledWith(true);
   });
 
+  it("renders a sortable workflow-status (taskStatus) column header", () => {
+    const setSortKey = vi.fn();
+    mockUseFilters.mockReturnValue({
+      search: "", setSearch: vi.fn(),
+      searchDebounced: "",
+      setSearchImmediate: vi.fn(),
+      priorityFilter: "All", setPriorityFilter: vi.fn(),
+      assigneeFilter: "All", setAssigneeFilter: vi.fn(),
+      groupFilter: "All", setGroupFilter: vi.fn(),
+      labelFilter: "All", setLabelFilter: vi.fn(),
+      sortKey: "taskName", sortDir: "asc",
+      setSortKey, setSortDir: vi.fn(),
+      raidFilterTaskId: null, setRaidFilterTaskId: vi.fn(),
+      resetFilters: vi.fn(),
+    });
+    const task = { id: 1, taskName: "T1" };
+    stubWorkspace([task], [task]);
+    render(<TasksSection {...makeProps()} />);
+    // The RAG-dot "status" header is a non-button sr-only span; the workflow
+    // taskStatus header is the only sortable button labelled "Status".
+    const header = screen.getByRole("button", { name: t("en-US", "colTaskStatus") });
+    fireEvent.click(header);
+    // sortKey was "taskName", so clicking a different column sets it directly.
+    expect(setSortKey).toHaveBeenCalledWith("taskStatus");
+  });
+
   it("fills available height and is resizable when fillHeight is set", () => {
     const task = { id: 1, taskName: "T1" };
     stubWorkspace([task], [task]);

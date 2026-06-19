@@ -190,6 +190,49 @@ describe("TaskRow", () => {
   });
 });
 
+describe("TaskRow workflow-status badge", () => {
+  test("renders the workflow-status label when the taskStatus column is visible", () => {
+    const ctx = makeContext(); // hiddenCols is empty → taskStatus column shown
+    const { getByText } = render(
+      rowWrapper({
+        context: ctx,
+        children: (
+          <TaskRow
+            task={makeTask({ id: 21, status: "In Review" })}
+            isSelected={false}
+            isEditing={false}
+            isExpanded={false}
+            isPushing={false}
+            raidRefs={undefined}
+          />
+        ),
+      }),
+    );
+    // statusInReview EN value is "In Review".
+    expect(getByText("In Review")).toBeTruthy();
+  });
+
+  test("hides the workflow-status badge when the taskStatus column is hidden", () => {
+    const ctx = makeContext({ hiddenCols: new Set(["taskStatus"]) });
+    const { queryByText } = render(
+      rowWrapper({
+        context: ctx,
+        children: (
+          <TaskRow
+            task={makeTask({ id: 22, status: "On Hold" })}
+            isSelected={false}
+            isEditing={false}
+            isExpanded={false}
+            isPushing={false}
+            raidRefs={undefined}
+          />
+        ),
+      }),
+    );
+    expect(queryByText("On Hold")).toBeNull();
+  });
+});
+
 describe("TaskRow zebra striping", () => {
   test("striped row carries the alternating background", () => {
     const ctx = makeContext();

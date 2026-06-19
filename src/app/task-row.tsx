@@ -5,6 +5,7 @@ import { computeTaskHealth, formatHealthTooltip, healthDot, type TaskHealth } fr
 import { priorityLabel, t, type Lang } from "./i18n";
 import { formatDuration } from "./duration";
 import { countByCategory } from "./raid";
+import { TaskStatusBadge } from "./task-status-badge";
 import { type ChangeItem, type Priority, type Task, type TaskDependency, type RaidItem } from "./types";
 
 export interface RowContextValue {
@@ -279,6 +280,11 @@ function TaskRowImpl({
           <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${priorityStyle[task.priority]}`}>
             {priorityLabel(lang, task.priority)}
           </span>
+        </Td>
+      )}
+      {!hiddenCols.has("taskStatus") && (
+        <Td>
+          <TaskStatusBadge status={task.status} lang={lang} />
         </Td>
       )}
       {!hiddenCols.has("blockers") && (

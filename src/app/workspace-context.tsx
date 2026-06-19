@@ -13,6 +13,7 @@ import { useFilters } from "./filters-context";
 import type { FeatureModuleId } from "./feature-modules";
 import type { FieldVisibilityConfig } from "./field-visibility";
 import { defaultResourcePlan } from "./resource-foundation";
+import { statusSortIndex } from "./task-status";
 import {
   PRIORITY_RANK,
   type Absence,
@@ -206,6 +207,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         cmp = (a.timeSpentMinutes ?? 0) - (b.timeSpentMinutes ?? 0);
       else if (sortKey === "priority")
         cmp = PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority];
+      else if (sortKey === "taskStatus")
+        cmp = statusSortIndex(a.status) - statusSortIndex(b.status);
       else if (sortKey === "startDate") {
         const av = a.startDate ?? "";
         const bv = b.startDate ?? "";

@@ -23,7 +23,7 @@ import {
   Th,
 } from "./task-manager-ui";
 
-const ALL_TASK_COLS = ["sel","status","id","taskName","assignee","startDate","dueDate","lastUpdateDate","priority","blockers","notes","depRelations","estimate","spent","actions"] as const;
+const ALL_TASK_COLS = ["sel","status","id","taskName","assignee","startDate","dueDate","lastUpdateDate","priority","taskStatus","blockers","notes","depRelations","estimate","spent","actions"] as const;
 
 const CONFIGURABLE_COLS: Array<{ key: string; labelKey: TranslationKey }> = [
   { key: "status",         labelKey: "colStatus" },
@@ -33,6 +33,7 @@ const CONFIGURABLE_COLS: Array<{ key: string; labelKey: TranslationKey }> = [
   { key: "dueDate",        labelKey: "due" },
   { key: "lastUpdateDate", labelKey: "lastUpdate" },
   { key: "priority",       labelKey: "priority" },
+  { key: "taskStatus",     labelKey: "colTaskStatus" },
   { key: "blockers",       labelKey: "blockers" },
   { key: "notes",          labelKey: "notes" },
   { key: "depRelations",   labelKey: "depRelations" },
@@ -497,6 +498,7 @@ export function TasksSection({
                 {!hiddenCols.has("dueDate") && <SortableTh label={t(lang, "due")} sortKey="dueDate" currentKey={sortKey} dir={sortDir} onClick={toggleSort} onResize={(e) => startColResize("dueDate", e)} lang={lang} />}
                 {!hiddenCols.has("lastUpdateDate") && <SortableTh label={t(lang, "lastUpdate")} sortKey="lastUpdateDate" currentKey={sortKey} dir={sortDir} onClick={toggleSort} onResize={(e) => startColResize("lastUpdateDate", e)} lang={lang} />}
                 {!hiddenCols.has("priority") && <SortableTh label={t(lang, "priority")} sortKey="priority" currentKey={sortKey} dir={sortDir} onClick={toggleSort} onResize={(e) => startColResize("priority", e)} lang={lang} />}
+                {!hiddenCols.has("taskStatus") && <SortableTh label={t(lang, "colTaskStatus")} sortKey="taskStatus" currentKey={sortKey} dir={sortDir} onClick={toggleSort} onResize={(e) => startColResize("taskStatus", e)} lang={lang} />}
                 {!hiddenCols.has("blockers") && <Th onResize={(e) => startColResize("blockers", e)}>{t(lang, "blockers")}</Th>}
                 {!hiddenCols.has("notes") && <Th onResize={(e) => startColResize("notes", e)}>{t(lang, "notes")}</Th>}
                 {!hiddenCols.has("depRelations") && <Th onResize={(e) => startColResize("depRelations", e)}>{t(lang, "depRelations")}</Th>}
