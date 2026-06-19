@@ -48,7 +48,9 @@ export function useActionAnalysis(ai: AiCreds) {
         setResult(parsed);
         return parsed;
       } catch (e) {
-        setError(e instanceof Error ? e.message : "error");
+        const msg = e instanceof Error ? e.message : "error";
+        // Only surface controlled tokens; anything else (e.g. a fetch TypeError) → "network".
+        setError(/^\d+$/.test(msg) || msg === "parse" ? msg : "network");
         return null;
       } finally {
         setBusy(false);

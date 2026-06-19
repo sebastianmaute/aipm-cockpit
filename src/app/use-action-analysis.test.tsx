@@ -28,15 +28,27 @@ describe("useActionAnalysis", () => {
     expect(result.current.error).not.toContain("secret-key");
   });
 
-  it("errors 'no-key' when apiKey is blank and 'parse' on malformed output", async () => {
+  it("errors 'no-key' when apiKey is blank", async () => {
     const { result } = renderHook(() => useActionAnalysis({ apiKey: "  ", model: "m" }));
     await act(async () => { await result.current.analyze("ctx"); });
     expect(result.current.error).toBe("no-key");
+  });
 
+  it("errors 'parse' on malformed tool output", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(ok({ content: [{ type: "text", text: "nope" }] }));
-    const { result: r2 } = renderHook(() => useActionAnalysis({ apiKey: "k", model: "m" }));
-    await act(async () => { await r2.current.analyze("ctx"); });
-    expect(r2.current.error).toBe("parse");
+    const { result } = renderHook(() => useActionAnalysis({ apiKey: "k", model: "m" }));
+    await act(async () => { await result.current.analyze("ctx"); });
+    expect(result.current.error).toBe("parse");
+  });
+
+  it("collapses an arbitrary fetch error to 'network' (no URL leaked)", async () => {
+    vi.spyOn(globalThis, "fetch").mockRejectedValue(
+      new TypeError("Failed to fetch https://api.anthropic.com/v1/messages"),
+    );
+    const { result } = renderHook(() => useActionAnalysis({ apiKey: "k", model: "m" }));
+    await act(async () => { await result.current.analyze("ctx"); });
+    expect(result.current.error).toBe("network");
+    expect(result.current.error).not.toContain("anthropic");
   });
 
   it("clear() resets result and error", async () => {
