@@ -160,6 +160,7 @@ describe("useJiraSync — handleJiraSync", () => {
     (jiraApi.searchAllIssues as ReturnType<typeof vi.fn>).mockResolvedValueOnce([remoteIssue]);
     (jiraApi.issueToTaskFields as ReturnType<typeof vi.fn>).mockReturnValue({
       taskName: "Remote name",
+      status: "To Do",
       jiraIssueType: "Task",
     });
 
@@ -178,6 +179,44 @@ describe("useJiraSync — handleJiraSync", () => {
     expect(logActivity).toHaveBeenCalled();
     expect(result.current.currentTasks[0].lastSyncedAt).toBeDefined();
     expect(result.current.currentTasks[0].lastSyncedAt).not.toBe("2026-01-01T00:00:00");
+  });
+
+  it("pull path: synced Done task reopened in Jira → status becomes In Progress and completedDate cleared", async () => {
+    (jiraApi.buildJql as ReturnType<typeof vi.fn>).mockReturnValueOnce("project = TEST");
+    const remoteIssue = {
+      key: "TEST-1",
+      fields: {
+        summary: "Reopened",
+        updated: "2026-05-10T00:00:00",
+        status: { statusCategory: { key: "indeterminate" } },
+      },
+    } as unknown as JiraIssue;
+    (jiraApi.searchAllIssues as ReturnType<typeof vi.fn>).mockResolvedValueOnce([remoteIssue]);
+    // Patch mirrors the real issueToTaskFields contract for a non-done issue:
+    // a valid open status and NO completedDate.
+    (jiraApi.issueToTaskFields as ReturnType<typeof vi.fn>).mockReturnValue({
+      taskName: "Reopened",
+      status: "In Progress",
+      completedDate: undefined,
+      jiraIssueType: "Task",
+    });
+
+    // Local task was previously Done (completedDate set) and synced.
+    const localTask = makeTask({
+      id: 1,
+      jiraKey: "TEST-1",
+      taskName: "Was done",
+      status: "Done",
+      completedDate: "2026-04-01",
+      lastSyncedAt: "2026-01-01T00:00:00",
+    });
+
+    const { result } = renderSync([localTask]);
+    await act(async () => { await result.current.handleJiraSync(); });
+
+    const updated = result.current.currentTasks[0];
+    expect(updated.status).toBe("In Progress");
+    expect(updated.completedDate).toBeFalsy();  // stale completedDate cleared (invariant holds)
   });
 
   it("push path: local changes newer than lastSync + remote not changed → updateIssue called", async () => {
@@ -228,6 +267,7 @@ describe("useJiraSync — handleJiraSync", () => {
     (jiraApi.isIssueDone as ReturnType<typeof vi.fn>).mockReturnValue(false);
     (jiraApi.issueToTaskFields as ReturnType<typeof vi.fn>).mockReturnValue({
       taskName: "Remote name",
+      status: "To Do",
     });
     // diffTaskAgainstIssue returns a non-empty field diff → real conflict
     (jiraApi.diffTaskAgainstIssue as ReturnType<typeof vi.fn>).mockReturnValue([
@@ -260,6 +300,7 @@ describe("useJiraSync — handleJiraSync", () => {
     (jiraApi.searchAllIssues as ReturnType<typeof vi.fn>).mockResolvedValueOnce([newRemoteIssue]);
     (jiraApi.issueToTaskFields as ReturnType<typeof vi.fn>).mockReturnValue({
       taskName: "Brand new",
+      status: "In Progress",
       jiraIssueType: "Task",
     });
 
@@ -269,6 +310,7 @@ describe("useJiraSync — handleJiraSync", () => {
     const created = result.current.currentTasks.find(t => t.jiraKey === "TEST-99");
     expect(created).toBeDefined();
     expect(created?.taskName).toBe("Brand new");
+    expect(created?.status).toBe("In Progress");  // status follows Jira statusCategory
   });
 
   it("error path: searchAllIssues throws network error → info toast (unreachable), jiraSyncing reset to false", async () => {
@@ -297,7 +339,7 @@ describe("useJiraSync — handleResolveConflicts", () => {
     } as unknown as JiraIssue;
     (jiraApi.searchAllIssues as ReturnType<typeof vi.fn>).mockResolvedValueOnce([remoteIssue]);
     (jiraApi.isIssueDone as ReturnType<typeof vi.fn>).mockReturnValue(false);
-    (jiraApi.issueToTaskFields as ReturnType<typeof vi.fn>).mockReturnValue({ taskName: "Remote name" });
+    (jiraApi.issueToTaskFields as ReturnType<typeof vi.fn>).mockReturnValue({ taskName: "Remote name", status: "To Do" });
     (jiraApi.diffTaskAgainstIssue as ReturnType<typeof vi.fn>).mockReturnValue([
       { key: "taskName", localValue: "Local name", remoteValue: "Remote name" },
     ]);

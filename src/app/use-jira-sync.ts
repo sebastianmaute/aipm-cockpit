@@ -7,7 +7,6 @@ import type { ConflictItem } from "./jira-api";
 import type { ConflictResolution } from "./jira-conflicts-modal";
 import type { Settings } from "./settings-types";
 import type { Task } from "./types";
-import { migrateTaskStatus } from "./task-status";
 import { daysUntil } from "./jira-token-status";
 import { useWorkspace } from "./workspace-context";
 
@@ -201,7 +200,11 @@ export function useJiraSync(args: UseJiraSyncArgs) {
             priority: patch.priority ?? row.priority,
             labels: patch.labels ?? row.labels,
             notes: patch.notes ?? row.notes,
-            completedDate: patch.completedDate ?? row.completedDate,
+            // Jira is authoritative for a synced task: take the patch's status +
+            // completedDate directly so a done→reopen clears completedDate, keeping
+            // the invariant `status==="Done" ⟺ completedDate set` consistent.
+            status: patch.status,
+            completedDate: patch.completedDate,
             jiraKey: issue.key,
             jiraIssueType: patch.jiraIssueType ?? row.jiraIssueType,
             lastSyncedAt: syncStamp,
@@ -217,7 +220,7 @@ export function useJiraSync(args: UseJiraSyncArgs) {
       for (const issue of issues) {
         if (existingKeys.has(issue.key)) continue;
         const patch = issueToTaskFields(issue, todayNow);
-        next.push(migrateTaskStatus({
+        next.push({
           id: nextId++,
           taskName: patch.taskName ?? issue.key,
           assignee: patch.assignee ?? "",
@@ -225,10 +228,12 @@ export function useJiraSync(args: UseJiraSyncArgs) {
           dueDate: patch.dueDate ?? "",
           lastUpdateDate: patch.lastUpdateDate ?? todayNow,
           priority: patch.priority ?? "Medium",
-          // Seed open; migrateTaskStatus(...) below derives "Done" for closed Jira issues (completedDate set).
-          status: "To Do",
+          // patch carries Jira's status (invariant-consistent with completedDate below).
+          status: patch.status,
           blockers: "",
           notes: patch.notes ?? "",
+          // Taken directly from the patch: a real date only when Jira is done, else
+          // undefined — keeping the `status==="Done" ⟺ completedDate set` invariant.
           completedDate: patch.completedDate,
           inquiriesSent: 0,
           group: jiraCfg.projectName || jiraCfg.projectKey || "",
@@ -236,7 +241,7 @@ export function useJiraSync(args: UseJiraSyncArgs) {
           jiraKey: issue.key,
           jiraIssueType: patch.jiraIssueType,
           lastSyncedAt: syncStamp,
-        }));
+        });
         added++;
       }
 
