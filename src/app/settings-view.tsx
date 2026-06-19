@@ -22,6 +22,7 @@ import { ExportSection } from "./settings-sections/export-section";
 import { JiraSettingsSection } from "./jira-settings";
 import { StorageConfigSection } from "./storage-config";
 import { CommTemplatesSection } from "./settings-sections/comm-templates-section";
+import { ScheduledJobsSection } from "./settings-sections/scheduled-jobs-section";
 import type { UseCommTemplatesResult } from "./use-comm-templates";
 import type { TursoConfig } from "./turso-config";
 import type { FeatureModuleId } from "./feature-modules";
@@ -41,6 +42,8 @@ interface SettingsViewProps {
   commTemplatesEnabled?: boolean;
   commTemplates?: UseCommTemplatesResult;
   commTemplatesConfig?: TursoConfig | null;
+  /** Turso config for the scheduled-jobs library (null = localStorage backend). */
+  scheduledJobsConfig?: TursoConfig | null;
   operatingGuides?: import("./use-operating-guides").UseOperatingGuidesResult;
   learningConfig?: NextActionsLearningConfig;
   onChangeLearningConfig?: (c: NextActionsLearningConfig) => void;
@@ -60,7 +63,7 @@ interface SettingsViewProps {
 type SectionId =
   | "mode" | "templates" | "appearance" | "localization" | "general" | "notifications"
   | "nextActions" | "ai" | "jira" | "storage" | "integrations" | "export" | "informationFlows"
-  | "commTemplates";
+  | "commTemplates" | "scheduledJobs";
 
 const RAIL: { id: SectionId; labelKey: TranslationKey }[] = [
   { id: "mode", labelKey: "settingsSectionMode" },
@@ -70,6 +73,7 @@ const RAIL: { id: SectionId; labelKey: TranslationKey }[] = [
   { id: "general", labelKey: "settingsSectionGeneral" },
   { id: "notifications", labelKey: "settingsSectionNotifications" },
   { id: "ai", labelKey: "settingsSectionAi" },
+  { id: "scheduledJobs", labelKey: "scheduledJobsTitle" },
   { id: "jira", labelKey: "settingsSectionJira" },
   { id: "storage", labelKey: "settingsSectionStorage" },
   { id: "integrations", labelKey: "settingsSectionIntegrations" },
@@ -82,7 +86,7 @@ const RAIL: { id: SectionId; labelKey: TranslationKey }[] = [
 // Advanced sections revealed only in expert mode.
 const EXPERT_IDS: readonly SectionId[] = ["nextActions", "notifications", "templates", "mode", "export", "commTemplates"];
 // Connectivity sections grouped together above Information flows (own divider).
-const INTEGRATION_IDS: readonly SectionId[] = ["ai", "jira", "integrations"];
+const INTEGRATION_IDS: readonly SectionId[] = ["ai", "scheduledJobs", "jira", "integrations"];
 // Storage gets its own divider group between connectivity and information flows.
 const STORAGE_ID: SectionId = "storage";
 const FLOWS_ID: SectionId = "informationFlows";
@@ -289,6 +293,14 @@ export function SettingsView(props: SettingsViewProps) {
         )}
         {active === "ai" && (
           <AiSection lang={lang} settings={settings} onChange={onChange} operatingGuides={props.operatingGuides} />
+        )}
+        {active === "scheduledJobs" && (
+          <ScheduledJobsSection
+            lang={lang}
+            settings={settings}
+            onChange={onChange}
+            config={props.scheduledJobsConfig ?? null}
+          />
         )}
         {active === "jira" && (
           <JiraSettingsSection
