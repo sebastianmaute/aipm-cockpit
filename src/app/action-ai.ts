@@ -152,3 +152,39 @@ export function groundEntity(
 
 // AppView re-exported for surface convenience.
 export type { AppView };
+
+/** Anthropic tool definition. Forced via tool_choice so the model always emits
+ *  one structured tool_use block. */
+export const ANALYZE_TOOL = {
+  name: "report_analysis",
+  description: "Report a triage summary and net-new suggested actions for the project. Call exactly once.",
+  input_schema: {
+    type: "object" as const,
+    properties: {
+      summary: { type: "string", description: "Short triage of what to focus on now, reasoning over the existing queue." },
+      actions: {
+        type: "array",
+        description: "Net-new, cross-cutting suggestions not already in the queue.",
+        items: {
+          type: "object",
+          properties: {
+            title: { type: "string", description: "Short action title." },
+            why: { type: "string", description: "One-line rationale." },
+            severity: { type: "string", enum: ["now", "soon", "monitor"] },
+            entity: {
+              type: "object",
+              description: "Optional. Only a view#id present in the digest.",
+              properties: {
+                view: { type: "string", enum: [...GROUNDABLE_VIEWS] },
+                id: { type: "string", description: "Numeric id as shown after '#'." },
+              },
+              required: ["view", "id"],
+            },
+          },
+          required: ["title", "why", "severity"],
+        },
+      },
+    },
+    required: ["summary", "actions"],
+  },
+};
