@@ -25,6 +25,7 @@ import type { SuggestedAction } from "./next-actions";
 import type { AssignOwnerBundle } from "./action-row";
 import type { EscalateBundle } from "./escalate-popover";
 import type { RebaselineBundle } from "./rebaseline-popover";
+import type { AiAnalysisBundle } from "./actions-panel";
 import type { OperatingGuide } from "./operating-guide";
 import { ActionChips, chipsForView } from "./action-chips";
 import { ResourceDirectory } from "./resource-directory";
@@ -206,6 +207,7 @@ export interface WorkspaceSectionProps {
   learningEnabled?: boolean;
   expertMode?: boolean;
   onOpenLearningSettings?: () => void;
+  aiAnalysis?: AiAnalysisBundle;
   onPushMilestonesToOutlook?: () => void;
   calendarPushBusy?: boolean;
   guides?: readonly OperatingGuide[];
@@ -292,6 +294,7 @@ export function WorkspaceSection({
   learningEnabled,
   expertMode,
   onOpenLearningSettings,
+  aiAnalysis,
   onPushMilestonesToOutlook,
   calendarPushBusy,
   guides = [],
@@ -916,7 +919,7 @@ export function WorkspaceSection({
 
         {activeTab === "actions" && (
           <div id="panel-actions" role="tabpanel" className={panelClass}>
-            <ActionsPanel lang={lang} actions={nextActions} onOpen={onOpenAction} onSnooze={onSnooze} onCreateTask={onCreateTask} onDraftMessage={onDraftMessage} assignOwner={assignOwner} escalate={escalate} rebaseline={rebaseline} learningEnabled={learningEnabled} expertMode={expertMode} onOpenLearningSettings={onOpenLearningSettings} />
+            <ActionsPanel lang={lang} actions={nextActions} onOpen={onOpenAction} onSnooze={onSnooze} onCreateTask={onCreateTask} onDraftMessage={onDraftMessage} assignOwner={assignOwner} escalate={escalate} rebaseline={rebaseline} learningEnabled={learningEnabled} expertMode={expertMode} onOpenLearningSettings={onOpenLearningSettings} aiAnalysis={aiAnalysis} />
           </div>
         )}
 

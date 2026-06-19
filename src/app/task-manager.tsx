@@ -128,6 +128,8 @@ import type { ProjectListEntry } from "./turso-tenant-schema";
 import type { ProjectRegistryEntry } from "./projects-registry";
 import { computeNextActions } from "./next-actions";
 import { buildActionInput } from "./next-actions-input";
+import { useActionAnalysis } from "./use-action-analysis";
+import { buildAnalysisContext, buildGroundingIndex, groundEntity, type AiAction } from "./action-ai";
 import { buildWorkloadAlerts } from "./next-actions-workload";
 import type { SuggestedAction } from "./next-actions";
 import { computeActionTrends } from "./next-actions/trends";
@@ -747,6 +749,55 @@ function TaskManagerInner() {
     if (typeof window !== "undefined") window.focus();
     setActiveTab("open-points");
   }, [setActiveTab]);
+
+  // Action Center "Analyze with AI": one forced-tool Anthropic call (no agentic
+  // loop). Reuses the live in-memory key; surfaced via the aiAnalysisBundle prop.
+  const actionAnalysis = useActionAnalysis({
+    apiKey: settings.ai?.apiKey?.trim() ?? "",
+    model: settings.ai?.model ?? "claude-sonnet-4-6",
+  });
+  const groundingIndex = useMemo(
+    () => buildGroundingIndex({ tasks, raid, milestones, changes, stakeholders }),
+    [tasks, raid, milestones, changes, stakeholders],
+  );
+  const runActionAnalysis = useCallback(() => {
+    const ctx = buildAnalysisContext({
+      projectName: project?.name ?? "",
+      today,
+      mode: deriveMode(settings.features),
+      enabledModules: settings.features,
+      taskCount: tasks.length,
+      tasks: tasks.map((x) => ({ id: x.id, title: x.taskName })),
+      raid: raid.map((x) => ({ id: x.id, title: x.title })),
+      milestones: milestones.map((x) => ({ id: x.id, title: x.name })),
+      changes: changes.map((x) => ({ id: x.id, title: x.title })),
+      stakeholders: stakeholders.map((x) => ({ id: x.id, name: x.name })),
+      queue: nextActions.map((a) => ({
+        title: t(lang, a.title.key, ...(a.title.params ?? [])),
+        why: t(lang, a.why.key, ...(a.why.params ?? [])),
+        tier: a.tier,
+      })),
+    });
+    void actionAnalysis.analyze(ctx);
+  }, [actionAnalysis, project, today, settings.features, tasks, raid, milestones, changes, stakeholders, nextActions, lang]);
+  const onActAi = useCallback(
+    (a: AiAction) => {
+      const g = groundEntity(a.entity, groundingIndex);
+      if (g) requestOpen(g.view as AppView, g.id);
+      else requestChat(`${a.title}\n\n${a.why}`, true);
+    },
+    [groundingIndex, requestOpen, requestChat],
+  );
+  // Hoisted member reads (exhaustive-deps rejects `obj.member` deps).
+  const aiClear = actionAnalysis.clear;
+  const aiBusy = actionAnalysis.busy;
+  const aiError = actionAnalysis.error;
+  const aiResult = actionAnalysis.result;
+  const aiEnabled = !!settings.ai?.apiKey?.trim() && settings.ai?.actionSuggestions !== false;
+  const aiAnalysisBundle = useMemo(
+    () => ({ enabled: aiEnabled, busy: aiBusy, error: aiError, result: aiResult, onAnalyze: runActionAnalysis, onClear: aiClear, onActAi }),
+    [aiEnabled, aiBusy, aiError, aiResult, runActionAnalysis, aiClear, onActAi],
+  );
 
   useActionNotifications({
     actions: nextActions,
@@ -1625,6 +1676,7 @@ function TaskManagerInner() {
     learningEnabled: settings.nextActionsLearning?.enabled ?? false,
     expertMode: settings.expertMode === true,
     onOpenLearningSettings,
+    aiAnalysis: aiAnalysisBundle,
     onPushMilestonesToOutlook: calendarPushEnabled ? calendarPushToOutlook : undefined,
     calendarPushBusy: calendarPushEnabled ? calendarPushBusy : undefined,
     guides: operatingGuides.guides,
