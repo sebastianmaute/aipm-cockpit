@@ -2,7 +2,8 @@
 import type React from "react";
 import { useMemo } from "react";
 import { type Lang, type TranslationKey, priorityLabel, t } from "./i18n";
-import { PRIORITIES, type ChangeItem, type Priority, type RaidItem, type Task, type TaskStatus } from "./types";
+import { PRIORITIES, TASK_STATUSES, type ChangeItem, type Priority, type RaidItem, type Task, type TaskStatus } from "./types";
+import { statusLabelKey } from "./task-status-ui";
 import { useSettings } from "./use-settings";
 import { useHolidaySet } from "./use-holiday-set";
 import { type SortKey, useFilters } from "./filters-context";
@@ -169,6 +170,7 @@ export function TasksSection({
   const { holidaySet } = useHolidaySet({ holidayCountries: settings.holidayCountries });
 
   const hideFinished = settings.hideFinishedTasks ?? false;
+  const tasksViewMode = settings.tasksViewMode ?? "table";
   const visibleRows = hideFinished
     ? filteredSortedTasks.filter((r) => !isTaskFinished(r))
     : filteredSortedTasks;
@@ -319,6 +321,28 @@ export function TasksSection({
             />
             {t(lang, "hideFinishedTasks")}
           </label>
+          <div
+            className="inline-flex overflow-hidden rounded-md border border-line"
+            role="group"
+            aria-label={t(lang, "tasksViewModeLabel")}
+          >
+            <button
+              type="button"
+              aria-pressed={tasksViewMode === "table"}
+              onClick={() => setSettings((s) => ({ ...s, tasksViewMode: "table" }))}
+              className={`px-2 py-1 text-xs ${tasksViewMode === "table" ? "bg-AIPM-dark-blue text-white" : "text-muted-foreground hover:bg-surface-muted"}`}
+            >
+              {t(lang, "tasksViewTable")}
+            </button>
+            <button
+              type="button"
+              aria-pressed={tasksViewMode === "board"}
+              onClick={() => setSettings((s) => ({ ...s, tasksViewMode: "board" }))}
+              className={`px-2 py-1 text-xs ${tasksViewMode === "board" ? "bg-AIPM-dark-blue text-white" : "text-muted-foreground hover:bg-surface-muted"}`}
+            >
+              {t(lang, "tasksViewBoard")}
+            </button>
+          </div>
         </div>
         <div className="flex gap-2">
           <button
@@ -494,6 +518,26 @@ export function TasksSection({
 
       </div>{/* end shrink-0 */}
 
+      {tasksViewMode === "board" ? (
+        /* SP-B Task 5 replaces this placeholder with <TaskKanban> (cards from
+           filteredSortedTasks, ignoring the hide-finished filter). */
+        <div
+          role="region"
+          aria-label={t(lang, "tasksViewBoard")}
+          className="flex min-h-0 flex-1 gap-3 overflow-x-auto pb-2 pr-2"
+        >
+          {TASK_STATUSES.map((s) => (
+            <section
+              key={s}
+              className="flex w-64 shrink-0 flex-col rounded-xl border border-line bg-surface"
+            >
+              <h3 className="border-b border-line px-3 py-2 text-sm font-medium text-foreground">
+                {t(lang, statusLabelKey(s))}
+              </h3>
+            </section>
+          ))}
+        </div>
+      ) : (
       <div
         className="min-h-0 flex-1 w-full overflow-auto rounded-xl border border-line bg-surface pr-2"
       >
@@ -586,6 +630,7 @@ export function TasksSection({
           </table>
         </RowContextProvider>
       </div>
+      )}
     </section>
   );
 }

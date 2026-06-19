@@ -107,6 +107,9 @@ const enUS = {
   statusDone: "Done",
   colTaskStatus: "Status",
   hideFinishedTasks: "Hide finished",
+  tasksViewModeLabel: "View",
+  tasksViewTable: "Table",
+  tasksViewBoard: "Board",
 
   tasks: "Tasks",
   tasksCount: "({0})",

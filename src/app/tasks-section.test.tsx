@@ -312,6 +312,30 @@ describe("TasksSection", () => {
     expect(screen.getByText("Charlie")).toBeInTheDocument();
   });
 
+  it("renders the board when tasksViewMode is 'board'", () => {
+    stubSettings({ tasksViewMode: "board" });
+    const task = { id: 1, taskName: "T1", status: "To Do" };
+    stubWorkspace([task], [task]);
+    render(<TasksSection {...makeProps()} />);
+    expect(
+      screen.getByRole("button", { name: t("en-US", "tasksViewBoard") }),
+    ).toHaveAttribute("aria-pressed", "true");
+    // A status column header is present in board mode.
+    expect(screen.getByText(t("en-US", "statusToDo"))).toBeInTheDocument();
+  });
+
+  it("renders the table when tasksViewMode is 'table'", () => {
+    stubSettings({ tasksViewMode: "table" });
+    const task = { id: 1, taskName: "T1", status: "To Do" };
+    stubWorkspace([task], [task]);
+    render(<TasksSection {...makeProps()} />);
+    expect(
+      screen.getByRole("button", { name: t("en-US", "tasksViewTable") }),
+    ).toHaveAttribute("aria-pressed", "true");
+    // The task table renders the row in table mode.
+    expect(screen.getByText("T1")).toBeInTheDocument();
+  });
+
   it("toggling 'Hide finished' persists via setSettings", () => {
     const setSettings = vi.fn();
     mockUseSettings.mockReturnValue({
