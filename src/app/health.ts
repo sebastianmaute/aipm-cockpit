@@ -6,7 +6,7 @@
 //
 // Auto-rule order, top to bottom (first match wins):
 //   1. `healthOverride` set on the task     → that color
-//   2. completedDate set                    → Green
+//   2. finished (Done or Cancelled)         → Green
 //   3. dueDate before today (overdue)       → Red
 //   4. blockers field non-empty             → Red
 //   5. dueDate === today                    → Amber
@@ -18,6 +18,7 @@
 
 import { workdaysUntil } from "./due-dates";
 import { type Lang, t } from "./i18n";
+import { isTaskFinished } from "./task-status";
 import type { Task } from "./types";
 
 export type Health = "R" | "A" | "G";
@@ -54,7 +55,10 @@ export function computeTaskHealth(
   if (task.healthOverride) {
     return { color: task.healthOverride, drivers: ["manual"] };
   }
-  if (task.completedDate) {
+  // A finished task is non-active: it must not be flagged red/amber/overdue.
+  // Done carries completedDate; Cancelled is terminal with no completedDate, so
+  // also guard on isTaskFinished so Cancelled takes the same Green path.
+  if (task.completedDate || isTaskFinished(task)) {
     return { color: "G", drivers: ["completed"] };
   }
 
