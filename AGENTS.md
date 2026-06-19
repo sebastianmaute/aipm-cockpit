@@ -218,6 +218,22 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
   `isPopout ? undefined` (popouts stay read-only even though advisory). Gated on key + `ai.action
   Suggestions !== false` (default ON). Rendered above the now/soon/monitor tiers; AI rows use a
   separate `ai-action-row.tsx` (NOT `ActionRow`).
+- **AI scheduled jobs (SP5):** opt-in recurring portfolio-analysis. Pure i18n-free `scheduled-jobs/`
+  engine (`isDue`/`nextRunAt`/`dueJobs`/`appendRun`; `now` ALWAYS passed in — no `Date.now()`/`new
+  Date()` inside, keeps it test-pure). Global `scheduled_jobs` store (JSON-blob row, Turso-gated +
+  localStorage fallback) OUT of `TABLE_NAMES` (guard test). Runner `use-scheduled-job-runner.ts` lives
+  in `task-manager` ABOVE the view; runs DUE jobs on mount/visibility/5-min-tick, SERIAL + overlap-
+  guarded; fail-once-per-slot (a failed run still advances `lastRunAt` — avoids re-spamming a BILLED
+  call). SP4's call extracted to NON-hook `runJobAnalysis` (`scheduled-job-analysis.ts`) so the runner
+  loops it; `use-action-analysis` delegates. ADVISORY only; never in popouts. Gated on key +
+  `ai.scheduledJobs === true` (default OFF / opt-in — UNLIKE `actionSuggestions`'s `!== false`).
 - **No `settings.mode` field:** PM mode is DERIVED — `deriveMode(settings.features)` (same call the
   chat snapshot uses in `use-chat-dispatcher.ts`). Reading `settings.mode` is `undefined`; use
   `deriveMode`.
+- **Installable PWA (SP5 Phase 6):** `public/manifest.webmanifest` + `public/sw.js` (static, NOT
+  bundled → can't `import` TS modules) registered from a CLIENT component (`service-worker-registrar.
+  tsx`) — an inline `<script>` can't carry proxy.ts's per-request CSP nonce. SW does NO caching / NO
+  fetch handler (hashed bundles → precache would serve stale JS). CSP needs explicit `worker-src
+  'self'` in `src/proxy.ts`: `script-src 'strict-dynamic'` makes browsers IGNORE `'self'` for the SW
+  load → without `worker-src` registration is blocked at RUNTIME (not caught by tests/build). Periodic
+  Background Sync deliberately NOT built (Chromium+installed+device-seal only; baseline covers on open).
