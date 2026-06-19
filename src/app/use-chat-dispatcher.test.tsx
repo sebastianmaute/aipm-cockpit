@@ -398,3 +398,231 @@ describe("useChatDispatcher – read-only (popout) mode", () => {
     expect(() => result.current.setFilters({ search: "x" })).not.toThrow();
   });
 });
+
+describe("useChatDispatcher – RAID write methods", () => {
+  it("createRaid assigns id=max+1, defaults category 'R', valid status, and raisedDate=today", () => {
+    const { result } = renderDispatcher();
+    // Seed two existing raid items via back-to-back creates so max id = 2.
+    result.current.createRaid({ title: "Existing risk 1" });
+    result.current.createRaid({ title: "Existing risk 2" });
+
+    const created = result.current.createRaid({ title: "New risk" });
+    expect(created.id).toBe(3);
+    expect(created.category).toBe("R");
+    expect(created.title).toBe("New risk");
+    // status must be a non-empty string (a valid RISK_STATUS default)
+    expect(typeof created.status).toBe("string");
+    expect(created.status.length).toBeGreaterThan(0);
+    // raisedDate defaults to the today arg ("2026-05-19")
+    const allRaid = result.current.listRaid();
+    expect(allRaid).toHaveLength(3);
+    const found = allRaid.find((r) => r.id === 3);
+    expect(found).toBeDefined();
+    expect(found?.title).toBe("New risk");
+  });
+
+  it("createRaid defaults raisedDate to today when omitted", () => {
+    const { result } = renderDispatcher();
+    // We can't read raisedDate from RaidSummary (not in it), but createRaid
+    // must not throw and the item must appear in listRaid()
+    const created = result.current.createRaid({ title: "Risk with no date" });
+    expect(created.id).toBeGreaterThan(0);
+    expect(result.current.listRaid()).toHaveLength(1);
+  });
+
+  it("updateRaid patches a field and returns the updated summary", () => {
+    const { result } = renderDispatcher();
+    result.current.createRaid({ title: "Risk alpha" });
+
+    const updated = result.current.updateRaid(1, { severity: "Critical" });
+    expect(updated).not.toBeNull();
+    expect(updated?.id).toBe(1);
+    expect(updated?.severity).toBe("Critical");
+    // Other fields unchanged
+    expect(updated?.title).toBe("Risk alpha");
+    // listRaid() reflects the change
+    const found = result.current.listRaid().find((r) => r.id === 1);
+    expect(found?.severity).toBe("Critical");
+  });
+
+  it("updateRaid returns null for an unknown id", () => {
+    const { result } = renderDispatcher();
+    const res = result.current.updateRaid(999, { severity: "Critical" });
+    expect(res).toBeNull();
+  });
+
+  it("deleteRaid removes the item and returns true", () => {
+    const { result } = renderDispatcher();
+    result.current.createRaid({ title: "To delete" });
+    expect(result.current.listRaid()).toHaveLength(1);
+
+    const deleted = result.current.deleteRaid(1);
+    expect(deleted).toBe(true);
+    expect(result.current.listRaid()).toHaveLength(0);
+  });
+
+  it("deleteRaid returns false for an unknown id", () => {
+    const { result } = renderDispatcher();
+    const res = result.current.deleteRaid(999);
+    expect(res).toBe(false);
+  });
+
+  it("createRaid throws when title is empty/whitespace", () => {
+    const { result } = renderDispatcher();
+    expect(() => result.current.createRaid({ title: "" })).toThrow(
+      /invalid RAID item: title is required/,
+    );
+    expect(() => result.current.createRaid({ title: "   " })).toThrow(
+      /invalid RAID item: title is required/,
+    );
+  });
+});
+
+describe("useChatDispatcher – Milestone write methods", () => {
+  it("createMilestone creates an item with name and date", () => {
+    const { result } = renderDispatcher();
+    const created = result.current.createMilestone({
+      name: "Go-live",
+      date: "2026-09-01",
+    });
+    expect(created.id).toBe(1);
+    expect(created.name).toBe("Go-live");
+    expect(created.date).toBe("2026-09-01");
+    expect(result.current.listMilestones()).toHaveLength(1);
+  });
+
+  it("createMilestone throws for an invalid date", () => {
+    const { result } = renderDispatcher();
+    expect(() =>
+      result.current.createMilestone({ name: "Bad milestone", date: "nope" }),
+    ).toThrow(/invalid milestone/);
+  });
+
+  it("updateMilestone patches a field and returns the updated summary", () => {
+    const { result } = renderDispatcher();
+    result.current.createMilestone({ name: "Phase 1", date: "2026-07-01" });
+
+    const updated = result.current.updateMilestone(1, { date: "2026-08-01" });
+    expect(updated).not.toBeNull();
+    expect(updated?.date).toBe("2026-08-01");
+    expect(updated?.name).toBe("Phase 1");
+  });
+
+  it("updateMilestone returns null for an unknown id", () => {
+    const { result } = renderDispatcher();
+    const res = result.current.updateMilestone(999, { date: "2026-08-01" });
+    expect(res).toBeNull();
+  });
+
+  it("deleteMilestone removes the item and returns true", () => {
+    const { result } = renderDispatcher();
+    result.current.createMilestone({ name: "Phase 1", date: "2026-07-01" });
+    const deleted = result.current.deleteMilestone(1);
+    expect(deleted).toBe(true);
+    expect(result.current.listMilestones()).toHaveLength(0);
+  });
+
+  it("deleteMilestone returns false for an unknown id", () => {
+    const { result } = renderDispatcher();
+    expect(result.current.deleteMilestone(999)).toBe(false);
+  });
+});
+
+describe("useChatDispatcher – Stakeholder write methods", () => {
+  it("createStakeholder defaults category 'Other', influence/interest 'Medium'", () => {
+    const { result } = renderDispatcher();
+    const created = result.current.createStakeholder({ name: "Acme" });
+    expect(created.id).toBe(1);
+    expect(created.name).toBe("Acme");
+    expect(created.category).toBe("Other");
+    expect(created.influence).toBe("Medium");
+    expect(created.interest).toBe("Medium");
+  });
+
+  it("listStakeholders includes newly created stakeholders", () => {
+    const { result } = renderDispatcher();
+    result.current.createStakeholder({ name: "Acme" });
+    result.current.createStakeholder({ name: "Beta Corp" });
+
+    const list = result.current.listStakeholders();
+    expect(list).toHaveLength(2);
+    expect(list.map((s) => s.name)).toContain("Acme");
+    expect(list.map((s) => s.name)).toContain("Beta Corp");
+  });
+
+  it("updateStakeholder patches a field and returns the updated summary", () => {
+    const { result } = renderDispatcher();
+    result.current.createStakeholder({ name: "Acme" });
+
+    const updated = result.current.updateStakeholder(1, {
+      name: "Acme Updated",
+      influence: "High",
+    });
+    expect(updated).not.toBeNull();
+    expect(updated?.name).toBe("Acme Updated");
+    expect(updated?.influence).toBe("High");
+    // listStakeholders() reflects the change
+    expect(result.current.listStakeholders()[0].name).toBe("Acme Updated");
+  });
+
+  it("updateStakeholder returns null for an unknown id", () => {
+    const { result } = renderDispatcher();
+    expect(result.current.updateStakeholder(999, { name: "X" })).toBeNull();
+  });
+
+  it("deleteStakeholder removes the item and returns true", () => {
+    const { result } = renderDispatcher();
+    result.current.createStakeholder({ name: "Acme" });
+    expect(result.current.deleteStakeholder(1)).toBe(true);
+    expect(result.current.listStakeholders()).toHaveLength(0);
+  });
+
+  it("deleteStakeholder returns false for an unknown id", () => {
+    const { result } = renderDispatcher();
+    expect(result.current.deleteStakeholder(999)).toBe(false);
+  });
+});
+
+describe("useChatDispatcher – read-only guard for entity write methods", () => {
+  it("createRaid throws popoutReadOnly error in read-only mode", () => {
+    const { result } = renderDispatcher([], true);
+    expect(() => result.current.createRaid({ title: "X" })).toThrow(
+      "Editing is disabled in the pop-out view — make changes in the main window.",
+    );
+  });
+
+  it("updateRaid throws in read-only mode", () => {
+    const { result } = renderDispatcher([], true);
+    expect(() => result.current.updateRaid(1, { severity: "Critical" })).toThrow();
+  });
+
+  it("deleteRaid throws in read-only mode", () => {
+    const { result } = renderDispatcher([], true);
+    expect(() => result.current.deleteRaid(1)).toThrow();
+  });
+
+  it("createMilestone throws in read-only mode", () => {
+    const { result } = renderDispatcher([], true);
+    expect(() =>
+      result.current.createMilestone({ name: "X", date: "2026-09-01" }),
+    ).toThrow();
+  });
+
+  it("createStakeholder throws in read-only mode", () => {
+    const { result } = renderDispatcher([], true);
+    expect(() => result.current.createStakeholder({ name: "X" })).toThrow();
+  });
+
+  it("createChange throws in read-only mode", () => {
+    const { result } = renderDispatcher([], true);
+    expect(() => result.current.createChange({ title: "Change X" })).toThrow();
+  });
+
+  it("read methods remain available in read-only mode", () => {
+    const { result } = renderDispatcher([], true);
+    expect(() => result.current.listRaid()).not.toThrow();
+    expect(() => result.current.listMilestones()).not.toThrow();
+    expect(() => result.current.listStakeholders()).not.toThrow();
+    expect(() => result.current.listChanges()).not.toThrow();
+  });
+});

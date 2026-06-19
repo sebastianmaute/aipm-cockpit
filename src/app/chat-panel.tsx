@@ -26,6 +26,13 @@ import { ResetSizeButton } from "./task-manager-ui";
 import { CENTERED_HALF_PANE_CLASS } from "./view-styles";
 import { unlockSecret } from "./use-secrets";
 import { isPassphraseLocked } from "./secrets-store";
+import {
+  type AttachmentBlock,
+  type AttachmentError,
+  classifyAttachment,
+  checkAttachmentSize,
+  buildAttachmentBlock,
+} from "./chat-attachments";
 
 type TextBlock = { type: "text"; text: string };
 type ToolUseBlock = {
@@ -40,7 +47,34 @@ type ToolResultBlock = {
   content: string;
   is_error?: boolean;
 };
-type ContentBlock = TextBlock | ToolUseBlock | ToolResultBlock;
+type ContentBlock = TextBlock | ToolUseBlock | ToolResultBlock | AttachmentBlock;
+
+/** A staged upload: the Anthropic content block plus display metadata. */
+type StagedAttachment = { id: string; name: string; block: AttachmentBlock };
+
+/** Read a File into the data shape `buildAttachmentBlock` expects: base64 (no
+ *  data: prefix) for pdf/image, decoded UTF-8 text for text. */
+function readAttachmentData(
+  file: File,
+  kind: "pdf" | "image" | "text",
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(reader.error ?? new Error("read failed"));
+    if (kind === "text") {
+      reader.onload = () => resolve(String(reader.result ?? ""));
+      reader.readAsText(file);
+    } else {
+      reader.onload = () => {
+        // readAsDataURL → "data:<mime>;base64,<DATA>"; keep only <DATA>.
+        const result = String(reader.result ?? "");
+        const comma = result.indexOf(",");
+        resolve(comma >= 0 ? result.slice(comma + 1) : result);
+      };
+      reader.readAsDataURL(file);
+    }
+  });
+}
 
 type SystemBlock = { type: "text"; text: string; cache_control?: { type: "ephemeral" } };
 
@@ -76,8 +110,10 @@ export function buildSystemPrompt(
     "You are an assistant embedded in the List of Open Points Tracker app, a list-of-open-points task manager.",
     "The user is a project lead tracking open tasks. Each task has: id, taskName, assignee, assigneeEmail, dueDate (YYYY-MM-DD), lastUpdateDate, priority (Low/Medium/High/Urgent), blockers, notes, group (single optional category), labels (zero or more tags).",
     "Use the provided tools to read and modify the app's state. Prefer calling tools over guessing. After modifying state, briefly confirm what changed.",
-    "Before deleting tasks (delete_task or delete_all_tasks) confirm with the user in chat unless they were already explicit.",
-    "When the user references a task by name or fragment, call list_tasks to find its ID first.",
+    "Beyond tasks you can also read and write RAID items (Risks/Assumptions/Issues/Dependencies), change-control items, milestones, and stakeholders via their list_/create_/update_/delete_ tools. RAID category is R/A/I/D; status must match the category. Dates are YYYY-MM-DD.",
+    "When the user attaches a document, read it and, when they ask, extract the relevant items (tasks, risks, milestones, stakeholders) and create them with the matching create_ tool. Summarise what you created and ask before bulk-creating many records.",
+    "Before deleting anything (delete_task, delete_all_tasks, delete_raid_item, delete_change, delete_milestone, delete_stakeholder) confirm with the user in chat unless they were already explicit.",
+    "When the user references a record by name or fragment, call the matching list_ tool to find its ID first.",
     `Active language code: ${lang}.`,
   ].join("\n");
   const guideBlock = groundInGuides
@@ -227,6 +263,7 @@ function ChatPanelInner({
   const [history, setHistory] = useState<ApiMessage[]>([]);
   const [display, setDisplay] = useState<DisplayItem[]>([]);
   const [input, setInput] = useState("");
+  const [attachments, setAttachments] = useState<StagedAttachment[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Passphrase-unlock state: when the saved Anthropic key is passphrase-wrapped
@@ -237,6 +274,8 @@ function ChatPanelInner({
   const [unlockError, setUnlockError] = useState(false);
   const scrollerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const attachSeqRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
   const cancelledRef = useRef(false);
   const { ref: chatRef, reset: resetChatSize } = useResizable("lop-app:chat-size");
@@ -258,24 +297,36 @@ function ChatPanelInner({
 
   async function submitPrompt(textArg?: string) {
     const text = (textArg ?? input).trim().slice(0, CHAT_MESSAGE_MAX);
-    if (!text || busy || guidesPending) return;
+    const atts = attachments;
+    if ((!text && atts.length === 0) || busy || guidesPending) return;
     if (!effectiveApiKey.trim()) {
       setError(t(lang, "chatNoApiKey"));
       return;
     }
     setError(null);
     setInput("");
+    setAttachments([]);
     setBusy(true);
     cancelledRef.current = false;
     const controller = new AbortController();
     abortRef.current = controller;
 
-    const newHistory: ApiMessage[] = [
-      ...history,
-      { role: "user", content: text },
-    ];
+    // With attachments the user turn is a multimodal content array (text first,
+    // then each document/image block); otherwise a plain string.
+    const content: string | ContentBlock[] =
+      atts.length > 0
+        ? [
+            ...(text ? [{ type: "text", text } as TextBlock] : []),
+            ...atts.map((a) => a.block),
+          ]
+        : text;
+    const newHistory: ApiMessage[] = [...history, { role: "user", content }];
     setHistory(newHistory);
-    setDisplay((prev) => [...prev, { kind: "user", text }]);
+    const displayText =
+      atts.length > 0
+        ? [text, ...atts.map((a) => `📎 ${a.name}`)].filter(Boolean).join("\n")
+        : text;
+    setDisplay((prev) => [...prev, { kind: "user", text: displayText }]);
 
     const system = buildSystemPrompt(lang, dispatcher.getSnapshot(), guides, ai.groundInGuides);
     const messages = newHistory.slice();
@@ -433,6 +484,50 @@ function ChatPanelInner({
     setHistory([]);
     setDisplay([]);
     setError(null);
+    setAttachments([]);
+  }
+
+  function attachmentErrorText(err: AttachmentError, name: string): string {
+    return t(
+      lang,
+      err === "too-large" ? "chatAttachmentTooLarge" : "chatAttachmentUnsupported",
+      name,
+    );
+  }
+
+  async function handleFiles(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    setError(null);
+    const staged: StagedAttachment[] = [];
+    for (const file of Array.from(files)) {
+      const sizeErr = checkAttachmentSize(file.size);
+      if (sizeErr) {
+        setError(attachmentErrorText(sizeErr, file.name));
+        continue;
+      }
+      const kind = classifyAttachment(file.type, file.name);
+      if (!kind) {
+        setError(t(lang, "chatAttachmentUnsupported", file.name));
+        continue;
+      }
+      try {
+        const data = await readAttachmentData(file, kind);
+        staged.push({
+          id: `att-${(attachSeqRef.current += 1)}`,
+          name: file.name,
+          block: buildAttachmentBlock(kind, file.type, data),
+        });
+      } catch {
+        setError(t(lang, "chatAttachmentReadFailed", file.name));
+      }
+    }
+    if (staged.length > 0) setAttachments((prev) => [...prev, ...staged]);
+    // Reset the input so re-selecting the same file fires onChange again.
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  function removeAttachment(id: string) {
+    setAttachments((prev) => prev.filter((a) => a.id !== id));
   }
 
   function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -567,7 +662,42 @@ function ChatPanelInner({
         </p>
       )}
 
+      {attachments.length > 0 && (
+        <ul className="mt-2 flex list-none flex-col gap-1 p-0">
+          {attachments.map((a) => (
+            <li
+              key={a.id}
+              className="flex items-center justify-between gap-2 rounded-md border border-AIPM-dark-blue/40 bg-surface px-2 py-1 text-xs text-foreground"
+            >
+              <span className="flex min-w-0 items-center gap-1">
+                <span aria-hidden>📎</span>
+                <span className="truncate">{a.name}</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => removeAttachment(a.id)}
+                aria-label={t(lang, "chatAttachmentRemove", a.name)}
+                title={t(lang, "chatAttachmentRemove", a.name)}
+                className="shrink-0 rounded px-1 font-semibold text-muted-foreground hover:text-AIPM-pink-strong"
+              >
+                ×
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
       <div className="mt-3 flex items-stretch gap-2">
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.txt,.md,.markdown,.csv,application/pdf,image/*,text/plain,text/markdown,text/csv"
+          onChange={(e) => handleFiles(e.target.files)}
+          className="hidden"
+          tabIndex={-1}
+          aria-hidden="true"
+        />
         <ResetSizeButton
           onClick={resetChatSize}
           lang={lang}
@@ -585,6 +715,16 @@ function ChatPanelInner({
           className="min-w-0 flex-1 self-stretch resize-none rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none focus:ring-1 focus:ring-AIPM-green disabled:cursor-not-allowed disabled:opacity-50"
         />
         <div className="flex flex-col gap-2">
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={busy || apiKeyMissing || guidesPending}
+            aria-label={t(lang, "chatAttach")}
+            title={t(lang, "chatAttach")}
+            className="rounded-md border border-line bg-surface px-4 py-2 text-sm font-medium text-foreground hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            📎
+          </button>
           {busy ? (
             <button
               type="button"
@@ -598,7 +738,7 @@ function ChatPanelInner({
             <button
               type="button"
               onClick={() => submitPrompt()}
-              disabled={!input.trim() || apiKeyMissing || guidesPending}
+              disabled={(!input.trim() && attachments.length === 0) || apiKeyMissing || guidesPending}
               className="rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {t(lang, "chatSend")}

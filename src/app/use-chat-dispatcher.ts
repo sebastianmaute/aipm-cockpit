@@ -8,7 +8,14 @@ import {
   type Dispatch,
   type SetStateAction,
 } from "react";
-import { type Filters, type ToolDispatcher, toRaidSummary, toChangeSummary, toMilestoneSummary } from "./chat-tools";
+import {
+  type Filters,
+  type ToolDispatcher,
+  toRaidSummary,
+  toChangeSummary,
+  toMilestoneSummary,
+  toStakeholderSummary,
+} from "./chat-tools";
 import { deriveMode, type FeatureModuleId } from "./feature-modules";
 import type { AppView } from "./nav-config";
 import { greetingName } from "./contacts";
@@ -26,11 +33,21 @@ import {
   sanitizeNotes,
   sanitizePriority,
   sanitizeTaskName,
+  sanitizeRaidItem,
+  sanitizeChangeItem,
+  sanitizeMilestone,
+  sanitizeStakeholder,
 } from "./sanitize";
 import { type Settings } from "./settings-types";
 import { emptyForm, useTaskForm } from "./task-form-context";
 import { type Task } from "./types";
 import { useWorkspace } from "./workspace-context";
+
+/** Next numeric id for an entity list (max + 1, or 1 when empty). Mirrors the
+ *  per-entity nextId helpers used by the panels. */
+function nextEntityId(list: readonly { id: number }[]): number {
+  return list.length > 0 ? Math.max(...list.map((r) => r.id)) + 1 : 1;
+}
 
 export interface ChatDispatcherArgs {
   settings: Settings;
@@ -44,7 +61,18 @@ export interface ChatDispatcherArgs {
 }
 
 export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
-  const { tasks, setTasks, raid, changes, milestones } = useWorkspace();
+  const {
+    tasks,
+    setTasks,
+    raid,
+    setRaid,
+    changes,
+    setChanges,
+    milestones,
+    setMilestones,
+    stakeholders,
+    setStakeholders,
+  } = useWorkspace();
   const { editingId, setEditingId, setForm } = useTaskForm();
   const {
     setSearch,
@@ -66,6 +94,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   const raidRef = useRef(raid);
   const changesRef = useRef(changes);
   const milestonesRef = useRef(milestones);
+  const stakeholdersRef = useRef(stakeholders);
   useEffect(() => {
     tasksRef.current = tasks;
   }, [tasks]);
@@ -90,6 +119,9 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   useEffect(() => {
     milestonesRef.current = milestones;
   }, [milestones]);
+  useEffect(() => {
+    stakeholdersRef.current = stakeholders;
+  }, [stakeholders]);
 
   // Helpers live inside the hook — they're not consumed anywhere else.
   // Stubbed for now; filled in by later tasks.
@@ -147,6 +179,10 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
       setLabelFilter,
     ],
   );
+
+  // Shared read-only refusal for the write tools (popout/mirror windows).
+  const readOnlyError = () =>
+    new Error(t(settingsRef.current.language, "popoutReadOnly"));
 
   const dispatcher = useMemo<ToolDispatcher>(
     () => ({
@@ -309,6 +345,174 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
       listRaid: () => raidRef.current.map(toRaidSummary),
       listChanges: () => changesRef.current.map(toChangeSummary),
       listMilestones: () => milestonesRef.current.map(toMilestoneSummary),
+      listStakeholders: () => stakeholdersRef.current.map(toStakeholderSummary),
+
+      createRaid: (input) => {
+        if (args.isReadOnly) throw readOnlyError();
+        const id = nextEntityId(raidRef.current);
+        const sanitized = sanitizeRaidItem({
+          ...input,
+          id,
+          raisedDate: input.raisedDate || todayRef.current,
+          linkedTaskIds: input.linkedTaskIds ?? [],
+          causedByRaidIds: input.causedByRaidIds ?? [],
+          stakeholderIds: input.stakeholderIds ?? [],
+        });
+        if (!sanitized) throw new Error("invalid RAID item: title is required");
+        // A malformed date the model supplied is dropped to "" by the sanitizer;
+        // fall back to today so a created item always carries a raised date.
+        const item = sanitized.raisedDate
+          ? sanitized
+          : { ...sanitized, raisedDate: todayRef.current };
+        const next = [...raidRef.current, item];
+        raidRef.current = next;
+        setRaid(next);
+        return toRaidSummary(item);
+      },
+      updateRaid: (id, patch) => {
+        if (args.isReadOnly) throw readOnlyError();
+        const existing = raidRef.current.find((r) => r.id === id);
+        if (!existing) return null;
+        const merged = sanitizeRaidItem({
+          ...existing,
+          ...patch,
+          id,
+          localModifiedAt: new Date().toISOString(),
+        });
+        if (!merged) throw new Error("invalid RAID item update");
+        const next = raidRef.current.map((r) => (r.id === id ? merged : r));
+        raidRef.current = next;
+        setRaid(next);
+        return toRaidSummary(merged);
+      },
+      deleteRaid: (id) => {
+        if (args.isReadOnly) throw readOnlyError();
+        if (!raidRef.current.some((r) => r.id === id)) return false;
+        const next = raidRef.current.filter((r) => r.id !== id);
+        raidRef.current = next;
+        setRaid(next);
+        return true;
+      },
+
+      createChange: (input) => {
+        if (args.isReadOnly) throw readOnlyError();
+        const id = nextEntityId(changesRef.current);
+        const sanitized = sanitizeChangeItem({
+          ...input,
+          id,
+          raisedDate: input.raisedDate || todayRef.current,
+          linkedTaskIds: input.linkedTaskIds ?? [],
+          linkedRaidIds: input.linkedRaidIds ?? [],
+          stakeholderIds: input.stakeholderIds ?? [],
+        });
+        if (!sanitized) throw new Error("invalid change: title is required");
+        const item = sanitized.raisedDate
+          ? sanitized
+          : { ...sanitized, raisedDate: todayRef.current };
+        const next = [...changesRef.current, item];
+        changesRef.current = next;
+        setChanges(next);
+        return toChangeSummary(item);
+      },
+      updateChange: (id, patch) => {
+        if (args.isReadOnly) throw readOnlyError();
+        const existing = changesRef.current.find((c) => c.id === id);
+        if (!existing) return null;
+        const merged = sanitizeChangeItem({
+          ...existing,
+          ...patch,
+          id,
+          localModifiedAt: new Date().toISOString(),
+        });
+        if (!merged) throw new Error("invalid change update");
+        const next = changesRef.current.map((c) => (c.id === id ? merged : c));
+        changesRef.current = next;
+        setChanges(next);
+        return toChangeSummary(merged);
+      },
+      deleteChange: (id) => {
+        if (args.isReadOnly) throw readOnlyError();
+        if (!changesRef.current.some((c) => c.id === id)) return false;
+        const next = changesRef.current.filter((c) => c.id !== id);
+        changesRef.current = next;
+        setChanges(next);
+        return true;
+      },
+
+      createMilestone: (input) => {
+        if (args.isReadOnly) throw readOnlyError();
+        const id = nextEntityId(milestonesRef.current);
+        const item = sanitizeMilestone({
+          ...input,
+          id,
+          linkedTaskIds: input.linkedTaskIds ?? [],
+        });
+        if (!item) throw new Error("invalid milestone: name and date (YYYY-MM-DD) are required");
+        const next = [...milestonesRef.current, item];
+        milestonesRef.current = next;
+        setMilestones(next);
+        return toMilestoneSummary(item);
+      },
+      updateMilestone: (id, patch) => {
+        if (args.isReadOnly) throw readOnlyError();
+        const existing = milestonesRef.current.find((m) => m.id === id);
+        if (!existing) return null;
+        const merged = sanitizeMilestone({
+          ...existing,
+          ...patch,
+          id,
+          localModifiedAt: new Date().toISOString(),
+        });
+        if (!merged) throw new Error("invalid milestone update");
+        const next = milestonesRef.current.map((m) => (m.id === id ? merged : m));
+        milestonesRef.current = next;
+        setMilestones(next);
+        return toMilestoneSummary(merged);
+      },
+      deleteMilestone: (id) => {
+        if (args.isReadOnly) throw readOnlyError();
+        if (!milestonesRef.current.some((m) => m.id === id)) return false;
+        const next = milestonesRef.current.filter((m) => m.id !== id);
+        milestonesRef.current = next;
+        setMilestones(next);
+        return true;
+      },
+
+      createStakeholder: (input) => {
+        if (args.isReadOnly) throw readOnlyError();
+        const id = nextEntityId(stakeholdersRef.current);
+        const item = sanitizeStakeholder({ ...input, id, raci: {} });
+        if (!item) throw new Error("invalid stakeholder: name is required");
+        const next = [...stakeholdersRef.current, item];
+        stakeholdersRef.current = next;
+        setStakeholders(next);
+        return toStakeholderSummary(item);
+      },
+      updateStakeholder: (id, patch) => {
+        if (args.isReadOnly) throw readOnlyError();
+        const existing = stakeholdersRef.current.find((s) => s.id === id);
+        if (!existing) return null;
+        const merged = sanitizeStakeholder({
+          ...existing,
+          ...patch,
+          id,
+          localModifiedAt: new Date().toISOString(),
+        });
+        if (!merged) throw new Error("invalid stakeholder update");
+        const next = stakeholdersRef.current.map((s) => (s.id === id ? merged : s));
+        stakeholdersRef.current = next;
+        setStakeholders(next);
+        return toStakeholderSummary(merged);
+      },
+      deleteStakeholder: (id) => {
+        if (args.isReadOnly) throw readOnlyError();
+        if (!stakeholdersRef.current.some((s) => s.id === id)) return false;
+        const next = stakeholdersRef.current.filter((s) => s.id !== id);
+        stakeholdersRef.current = next;
+        setStakeholders(next);
+        return true;
+      },
+
       getSnapshot: () => {
         const tasks = tasksRef.current;
         const groups = new Set<string>();

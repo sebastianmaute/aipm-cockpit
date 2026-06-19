@@ -92,6 +92,37 @@ function makeDispatcher(over: Partial<ToolDispatcher> = {}): ToolDispatcher {
     listMilestones: vi.fn(() => [makeMilestone()].map((m) => ({
       id: m.id, name: m.name, date: m.date, achievedDate: m.achievedDate,
     }))),
+    listStakeholders: vi.fn(() => [
+      { id: 40, name: "Jane Roe", category: "Sponsor", influence: "High", interest: "Low" },
+    ]),
+    createRaid: vi.fn((input) => ({
+      id: 11, category: "R", title: "T", status: "Open", stakeholderIds: [], ...(input as object),
+    })),
+    updateRaid: vi.fn((id: number) =>
+      id === 10 ? { id: 10, category: "R", title: "T", status: "Open", stakeholderIds: [] } : null,
+    ),
+    deleteRaid: vi.fn((id: number) => id === 10),
+    createChange: vi.fn((input) => ({
+      id: 21, title: "C", status: "Proposed", stakeholderIds: [], ...(input as object),
+    })),
+    updateChange: vi.fn((id: number) =>
+      id === 20 ? { id: 20, title: "C", status: "Proposed", stakeholderIds: [] } : null,
+    ),
+    deleteChange: vi.fn((id: number) => id === 20),
+    createMilestone: vi.fn((input) => ({
+      id: 31, name: "M", date: "2026-07-01", ...(input as object),
+    })),
+    updateMilestone: vi.fn((id: number) =>
+      id === 30 ? { id: 30, name: "M", date: "2026-07-01" } : null,
+    ),
+    deleteMilestone: vi.fn((id: number) => id === 30),
+    createStakeholder: vi.fn((input) => ({
+      id: 41, name: "S", category: "Other", influence: "Medium", interest: "Medium", ...(input as object),
+    })),
+    updateStakeholder: vi.fn((id: number) =>
+      id === 40 ? { id: 40, name: "S", category: "Other", influence: "Medium", interest: "Medium" } : null,
+    ),
+    deleteStakeholder: vi.fn((id: number) => id === 40),
     getSnapshot: vi.fn(() => ({
       today: "2026-06-02",
       language: "en-US" as const,
@@ -473,5 +504,127 @@ describe("runTool — list_milestones", () => {
     });
     const [item] = (await runTool(d, "list_milestones", {})) as { achievedDate?: string }[];
     expect(item.achievedDate).toBe("2026-06-28");
+  });
+});
+
+describe("runTool — list_stakeholders", () => {
+  it("returns stakeholder summaries from the dispatcher", async () => {
+    const d = makeDispatcher();
+    const result = await runTool(d, "list_stakeholders", {});
+    expect(d.listStakeholders).toHaveBeenCalledOnce();
+    expect(result).toEqual([
+      { id: 40, name: "Jane Roe", category: "Sponsor", influence: "High", interest: "Low" },
+    ]);
+  });
+});
+
+describe("TOOL_DEFS — write tools are registered with required fields", () => {
+  const expectedRequired: Record<string, string[]> = {
+    create_raid_item: ["title"],
+    update_raid_item: ["id"],
+    delete_raid_item: ["id"],
+    create_change: ["title"],
+    update_change: ["id"],
+    delete_change: ["id"],
+    create_milestone: ["name", "date"],
+    update_milestone: ["id"],
+    delete_milestone: ["id"],
+    create_stakeholder: ["name"],
+    update_stakeholder: ["id"],
+    delete_stakeholder: ["id"],
+  };
+
+  it("registers every write tool plus list_stakeholders", () => {
+    const names = TOOL_DEFS.map((t) => t.name);
+    for (const name of [...Object.keys(expectedRequired), "list_stakeholders"]) {
+      expect(names).toContain(name);
+    }
+  });
+
+  it("declares the right required fields per write tool", () => {
+    for (const [name, required] of Object.entries(expectedRequired)) {
+      const def = TOOL_DEFS.find((t) => t.name === name);
+      expect(def, name).toBeDefined();
+      expect((def!.input_schema as { required?: string[] }).required).toEqual(required);
+    }
+  });
+});
+
+describe("runTool — RAID write tools", () => {
+  it("create_raid_item forwards input and returns the summary", async () => {
+    const d = makeDispatcher();
+    const result = await runTool(d, "create_raid_item", { title: "New risk", category: "R" });
+    expect(d.createRaid).toHaveBeenCalledWith({ title: "New risk", category: "R" });
+    expect(result).toMatchObject({ id: 11, title: "New risk" });
+  });
+
+  it("update_raid_item strips id from the patch and forwards the rest", async () => {
+    const d = makeDispatcher();
+    await runTool(d, "update_raid_item", { id: 10, severity: "Critical" });
+    expect(d.updateRaid).toHaveBeenCalledWith(10, { severity: "Critical" });
+  });
+
+  it("update_raid_item throws when the item is not found", async () => {
+    const d = makeDispatcher();
+    await expect(runTool(d, "update_raid_item", { id: 99 })).rejects.toThrow(
+      "RAID item #99 not found",
+    );
+  });
+
+  it("delete_raid_item echoes the deleted id and throws when missing", async () => {
+    const d = makeDispatcher();
+    expect(await runTool(d, "delete_raid_item", { id: 10 })).toEqual({ deleted: 10 });
+    await expect(runTool(d, "delete_raid_item", { id: 99 })).rejects.toThrow(
+      "RAID item #99 not found",
+    );
+  });
+
+  it("update_raid_item throws on a non-numeric id", async () => {
+    const d = makeDispatcher();
+    await expect(runTool(d, "update_raid_item", { id: "x" })).rejects.toThrow(
+      "id must be a number",
+    );
+    expect(d.updateRaid).not.toHaveBeenCalled();
+  });
+});
+
+describe("runTool — change/milestone/stakeholder write tools", () => {
+  it("create_change forwards input and returns the summary", async () => {
+    const d = makeDispatcher();
+    const result = await runTool(d, "create_change", { title: "Scope creep", type: "Scope" });
+    expect(d.createChange).toHaveBeenCalledWith({ title: "Scope creep", type: "Scope" });
+    expect(result).toMatchObject({ id: 21 });
+  });
+
+  it("update_change strips id and delete_change echoes id", async () => {
+    const d = makeDispatcher();
+    await runTool(d, "update_change", { id: 20, status: "Approved" });
+    expect(d.updateChange).toHaveBeenCalledWith(20, { status: "Approved" });
+    expect(await runTool(d, "delete_change", { id: 20 })).toEqual({ deleted: 20 });
+  });
+
+  it("create_milestone forwards input; update/delete route by id", async () => {
+    const d = makeDispatcher();
+    await runTool(d, "create_milestone", { name: "GA", date: "2026-09-01" });
+    expect(d.createMilestone).toHaveBeenCalledWith({ name: "GA", date: "2026-09-01" });
+    await runTool(d, "update_milestone", { id: 30, achievedDate: "2026-09-02" });
+    expect(d.updateMilestone).toHaveBeenCalledWith(30, { achievedDate: "2026-09-02" });
+    expect(await runTool(d, "delete_milestone", { id: 30 })).toEqual({ deleted: 30 });
+  });
+
+  it("create_stakeholder forwards input; update/delete route by id", async () => {
+    const d = makeDispatcher();
+    await runTool(d, "create_stakeholder", { name: "Acme Corp", category: "Vendor" });
+    expect(d.createStakeholder).toHaveBeenCalledWith({ name: "Acme Corp", category: "Vendor" });
+    await runTool(d, "update_stakeholder", { id: 40, influence: "Low" });
+    expect(d.updateStakeholder).toHaveBeenCalledWith(40, { influence: "Low" });
+    expect(await runTool(d, "delete_stakeholder", { id: 40 })).toEqual({ deleted: 40 });
+  });
+
+  it("throws when updating a missing change/milestone/stakeholder", async () => {
+    const d = makeDispatcher();
+    await expect(runTool(d, "update_change", { id: 99 })).rejects.toThrow("change #99 not found");
+    await expect(runTool(d, "update_milestone", { id: 99 })).rejects.toThrow("milestone #99 not found");
+    await expect(runTool(d, "update_stakeholder", { id: 99 })).rejects.toThrow("stakeholder #99 not found");
   });
 });

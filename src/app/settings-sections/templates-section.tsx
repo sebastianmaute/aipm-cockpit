@@ -32,7 +32,7 @@ function newTemplateId(): string {
 }
 
 export function TemplatesSection({ lang }: TemplatesSectionProps) {
-  const { templates, userTemplates, addTemplate, updateTemplate, removeTemplate, duplicateTemplate } =
+  const { templates, userTemplates, addTemplate, updateTemplate, removeTemplate } =
     useTemplates();
   const buildCurrentWorkspace = useCurrentWorkspace();
   const { settings } = useSettings();
@@ -115,13 +115,6 @@ export function TemplatesSection({ lang }: TemplatesSectionProps) {
                 <span className="truncate text-sm font-medium text-foreground">{tpl.name}</span>
                 <span className="text-xs text-muted-foreground">{modeSummary(lang, tpl)}</span>
               </span>
-              <button
-                type="button"
-                onClick={() => duplicateTemplate(tpl.id)}
-                className="shrink-0 rounded-md border border-line px-3 py-1.5 text-sm hover:bg-surface-muted"
-              >
-                {t(lang, "templatesDuplicate")}
-              </button>
             </li>
           ))}
         </ul>

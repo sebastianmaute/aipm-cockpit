@@ -60,9 +60,9 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
   Moving/folding a control INTO an axe-scanned view re-scans it: gate scans `Settings`→General, so
   folding Storage/Appearance into General surfaced pre-existing unlabeled `<select>` (a visible
   `<span>` label is NOT an `aria-label`/`<label>`) as axe-critical.
-  `A11Y_VIEWS` list (`e2e/a11y.spec.ts`) is 12 named views and does NOT include chat/AI-Assistant
-  view — controls only on chat surface aren't scanned, but anything in always-present top bar IS
-  (scanned via every view). Verify IA/UI/contrast changes with
+  `A11Y_VIEWS` list (`e2e/a11y.spec.ts`) is 12 named views and does NOT include chat/AI-Assistant,
+  Projects, or Documents — controls only on those surfaces aren't scanned, but anything in the
+  always-present top bar IS (scanned via every view). Verify IA/UI/contrast changes with
   `npx playwright test e2e/a11y.spec.ts --project=chromium -g "<View>"` (~16s, webServer auto-starts)
   BEFORE pushing — unit suite (`test:run` = vitest) never runs playwright, so axe regressions slip
   local gate and fail ONLY in CI.
@@ -98,6 +98,12 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
 
 ## Architecture pointers
 
+- **Orientation / key files:** `task-manager.tsx` is the root orchestrator (owns layout, top bar,
+  view routing, and threads workspace + AI hooks down). `storage.ts` = backend facade;
+  `workspace-context.tsx` = live workspace state + setters; `types.ts` = all entity shapes + enum
+  consts; `sanitize.ts` = the single per-entity validators; `i18n.ts`/`i18n.de.ts` = EN/DE strings;
+  `nav-config.ts` = `AppView` list + nav labels. Pure engines live in i18n-free subdirs
+  (e.g. `next-actions/`).
 - `src/app/` is flat, organized by feature. Pure domain logic lives in i18n-free modules/subdirs
   (e.g. `next-actions/`, serializers); React surfaces import them. Keep engines i18n-free —
   surface translates.
@@ -144,6 +150,11 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
 - **Scrollbar gap:** per-view inner scrollers (`min-h-0 flex-1 overflow-auto`) need `pr-2` for the
   content↔scrollbar gap. Shared `INNER_TABLE_CLASS`/report-table/actions-panel already include it;
   bare per-panel scrollers do NOT — add `pr-2` or content jams the scrollbar.
+- **`useResizable(storageKey)` inline-size beats class width:** the hook writes a saved
+  `{width,height}` as an INLINE style, which OVERRIDES class `w-full`/width. Changing a resizable
+  pane's DEFAULT size (e.g. centered-half → full-width) silently no-ops for anyone with a persisted
+  size — BUMP the storageKey (e.g. `…-size` → `…-size-full`) so the stale size is discarded (pane
+  stays resizable from the new baseline). Bit Milestones/Documents going full-width.
 - **Rounded table headers:** `TABLE_HEAD_CLASS` carries a `.lop-thead` marker; the Dark-Blue fill
   lives on `<th>` (NOT `<thead>`) via `globals.css` so rounded first/last corners clip it, with
   `border-spacing:0`. Don't move bg back to `<thead>` — a rounded `th` only clips a fill it paints.
@@ -165,3 +176,20 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
   putting big guide block last) means cache never hits. Operating guides live in global
   store (`operating_guides`, out of TABLE_NAMES) surfaced by ONE `useOperatingGuides` instance in
   task-manager, threaded to both ChatPanel (chat) and AiSection (editor).
+- **AI write tools** declared in `chat-tools.ts` (`TOOL_DEFS` + `runTool` routing + `ToolDispatcher`
+  type), IMPLEMENTED in `use-chat-dispatcher.ts`. Tasks/RAID/Changes/Milestones/Stakeholders all have
+  create/update/delete. NEW entity write tool: add tool def + runTool case + `ToolDispatcher` method,
+  then implement in the dispatcher `useMemo` — guard `if (args.isReadOnly) throw readOnlyError()`
+  FIRST (popouts must not mutate), build the raw object and run it through the entity's `sanitizeX`
+  (the SINGLE validator — `sanitizeRaidItem` was added for this; enforces enums/dates/caps + per-
+  category RAID-status defaulting), id = `nextEntityId(ref.current)` (max+1), then update BOTH the ref
+  AND call `setX` (ref keeps back-to-back tool calls consistent). `runTool` write cases use
+  `requireId`/`patchWithoutId` (strips `id` from the update patch — a destructured `_id` would trip
+  the no-unused-vars CI rule).
+- **AI doc ingestion / multimodal**: `chat-panel.tsx`'s `ContentBlock` union includes `AttachmentBlock`
+  (image/document) from pure `chat-attachments.ts` (classify by mime+extension, 20 MB cap, build the
+  Anthropic block — PDF/image as base64 `source`, text as `{type:"text"}` document source; NO parsing
+  lib, Claude reads natively). The `FileReader` (readAsDataURL for binary, readAsText for text) lives
+  in chat-panel (module stays pure). A user turn with attachments sends `content` as `ContentBlock[]`
+  (text block first, then attachments) not a string. CSP already allows `api.anthropic.com`. Chat view
+  is NOT in the axe `A11Y_VIEWS` — verify chat controls by eye.

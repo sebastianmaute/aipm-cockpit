@@ -400,6 +400,11 @@ export const de: Record<TranslationKey, string> = {
   chatClear: "Chat leeren",
   chatStop: "Stopp",
   chatStopped: "Abgebrochen",
+  chatAttach: "Dokument anhängen",
+  chatAttachmentRemove: "{0} entfernen",
+  chatAttachmentTooLarge: "{0} ist zu groß (max. 20 MB)",
+  chatAttachmentUnsupported: "{0} ist kein unterstützter Dateityp",
+  chatAttachmentReadFailed: "{0} konnte nicht gelesen werden",
   chatToolCall: "Werkzeug verwendet: {0}",
   chatToolError: "Werkzeugfehler",
   chatError: "Chat fehlgeschlagen: {0}",
@@ -476,6 +481,8 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightUiBatch0990: "Anpassbare Bereiche, Trend-Deltas im Dashboard, gruppierte Berichte und eine klarere Schaltfläche \"Ask Claude\".",
   versionHighlightUiBatch0100: "Abgerundete Tabellenkopfzeilen mit einheitlichem Scrollbalken-Abstand, RAG-Prioritätspunkte, Dialoge schließen per Klick daneben, Wiederherstellung ganzer Versionen samt Nebeneinander-Vergleich und Tooltips im Aufgaben-Editor.",
   versionHighlightUiBatch0101: "Passphrase bestätigen/entfernen und ein zuverlässiges Aufheben für gespeicherte Geheimnisse, zeilenweise Wiederherstellung im Nebeneinander-Vergleich des Verlaufs, Meilensteine & Dokumente in voller Breite mit manuellen Dokument-Links sowie klarere Bedienelemente für Vorlagen und nächste Aktionen.",
+  versionHighlightAiWriteTools: "Der KI-Assistent kann jetzt RAID-Einträge, Änderungsanträge, Meilensteine und Stakeholder anlegen, aktualisieren und löschen – nicht mehr nur Aufgaben.",
+  versionHighlightAiDocIngest: "Hängen Sie ein PDF, Bild oder eine Textdatei an den Chat an: Claude liest sie direkt und kann Risiken, Meilensteine und Stakeholder unmittelbar in Ihr Projekt übernehmen.",
 
   aiConsentTitle: "Claude-Chat aktivieren?",
   aiConsentBullet1:
