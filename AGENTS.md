@@ -95,6 +95,12 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
   passphrase-wrapped ones stay empty until unlock. Anything reading a secret uses live in-memory
   value; if IndexedDB/WebCrypto unavailable load path degrades to in-memory plaintext (never
   crash). `lop-app:secrets` ciphertext stays OUT of exports, Turso, recovery `CONFIG_KEYS`.
+- **App config vs project data (reset/clear boundary):** `app-reset.ts` `clearAppConfig()` wipes
+  ALL `lop-app:*` localStorage (snapshot keys BEFORE the remove loop — index-shift) + deletes the
+  CONFIG IndexedDB DBs `lop-app-secrets` (device key) and `lop-app-project-handles` (FS-access
+  pointers). It must NEVER delete the WORKSPACE IndexedDB DB `lop-app` (project data) — reset is
+  detach-only ("no file/DB deletion"). Any new clear/reset path obeys the same split. IDB deletes
+  are fire-and-forget (awaiting can hang on `onblocked` across tabs).
 
 ## Architecture pointers
 
@@ -193,3 +199,12 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
   in chat-panel (module stays pure). A user turn with attachments sends `content` as `ContentBlock[]`
   (text block first, then attachments) not a string. CSP already allows `api.anthropic.com`. Chat view
   is NOT in the axe `A11Y_VIEWS` — verify chat controls by eye.
+- **AI project creation (SP3):** Step 0 "Describe" in `CreateProjectWizard` (gated on a configured
+  key) → ONE forced-tool Anthropic call (`tool_choice:{type:"tool",name:"propose_project"}`, no
+  agentic loop) in `use-project-proposal.ts`; pure contract/transforms in `ai-project-proposal.ts`.
+  The proposal pre-fills the form as a `Partial<ProjectFormDraft>` patch (`initialDraftPatch`), NOT
+  a `ProjectMeta` — `sanitizeProjectMeta`/`draftFromMeta` need many fields + present arrays Claude
+  can't infer (a sparse meta throws). Seed records run through each `sanitizeX` (temp id BEFORE
+  sanitize) → `appendSeed`/`remapSeed`; no new Workspace field. Model-supplied URLs gated by
+  `isSafeHttpUrl`. Empty-state offers "Configure AI assistant" (`BackendConfigModal` `children` +
+  `AiSection hideUsage`) so a first-run user can set the key.

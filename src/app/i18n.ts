@@ -495,6 +495,8 @@ const enUS = {
   aiCreateIncludeContent: "Include AI-generated starter content",
   versionHighlightAiCreateWizard:
     "Create a project from a plain-language description — Claude proposes the setup and starter content.",
+  versionHighlightAiActionSuggestions:
+    "Action Center: one-click AI triage + suggested next actions",
 
   aiConsentTitle: "Enable Claude chat?",
   aiConsentBullet1:
@@ -1737,6 +1739,18 @@ const enUS = {
   dashboardTopActions: "Top actions",
   actionsEmptyState: "You're all caught up — no actions right now.",
   actionOpen: "Open",
+  actionAiAnalyze: "Analyze with AI",
+  actionAiAnalyzing: "Analyzing…",
+  actionAiSectionTitle: "AI suggestions",
+  actionAiDisclaimer: "AI-generated — review before acting.",
+  actionAiSummaryLabel: "Focus now",
+  actionAiDiscuss: "Discuss in chat",
+  actionAiDismiss: "Dismiss AI suggestions",
+  actionAiErrorGeneric: "Couldn't analyze right now. Try again.",
+  actionAiErrorStatus: "Analysis failed ({0}). Try again.",
+  actionAiErrorNetwork: "Network error. Check your connection and try again.",
+  settingsAiActionSuggestions: "Action Center AI suggestions",
+  settingsAiActionSuggestionsHelp: "Show an “Analyze with AI” button in the Action Center.",
   actionDraftMessage: "Draft message",
   actionCreateTask: "Create task",
   actionEscalate: "Escalate",

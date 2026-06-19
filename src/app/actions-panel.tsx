@@ -6,6 +6,8 @@ import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { useResizable } from "./use-resizable";
 import { ResetSizeButton } from "./task-manager-ui";
 import { ActionRow } from "./action-row";
+import { AiActionRow } from "./ai-action-row";
+import type { AiAction, ActionAnalysis } from "./action-ai";
 import type { AssignOwnerBundle } from "./action-row";
 import type { EscalateBundle } from "./escalate-popover";
 import type { RebaselineBundle } from "./rebaseline-popover";
@@ -16,6 +18,16 @@ const TIERS: { tier: ActionTier; labelKey: TranslationKey }[] = [
   { tier: "soon", labelKey: "actionTierSoon" },
   { tier: "monitor", labelKey: "actionTierMonitor" },
 ];
+
+export interface AiAnalysisBundle {
+  enabled: boolean;
+  busy: boolean;
+  error: string | null;
+  result: ActionAnalysis | null;
+  onAnalyze: () => void;
+  onClear: () => void;
+  onActAi: (action: AiAction) => void;
+}
 
 interface ActionsPanelProps {
   lang: Lang;
@@ -30,9 +42,10 @@ interface ActionsPanelProps {
   learningEnabled?: boolean;
   expertMode?: boolean;
   onOpenLearningSettings?: () => void;
+  aiAnalysis?: AiAnalysisBundle;
 }
 
-export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, assignOwner, onDraftMessage, escalate, rebaseline, learningEnabled, expertMode, onOpenLearningSettings }: ActionsPanelProps) {
+export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, assignOwner, onDraftMessage, escalate, rebaseline, learningEnabled, expertMode, onOpenLearningSettings, aiAnalysis }: ActionsPanelProps) {
   const [monitorOpen, setMonitorOpen] = useState(false);
   const { ref, reset } = useResizable("lop-app:actions-size");
   return (
@@ -63,9 +76,64 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
               </span>
             </button>
           )}
+          {aiAnalysis?.enabled && (
+            <button
+              type="button"
+              onClick={aiAnalysis.onAnalyze}
+              disabled={aiAnalysis.busy}
+              aria-busy={aiAnalysis.busy}
+              aria-label={t(lang, aiAnalysis.busy ? "actionAiAnalyzing" : "actionAiAnalyze")}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-line bg-surface px-2 py-1 text-xs font-medium text-AIPM-dark-blue transition-colors hover:border-AIPM-dark-blue/40 hover:bg-surface-muted disabled:opacity-50 dark:text-AIPM-light-grey"
+            >
+              {t(lang, aiAnalysis.busy ? "actionAiAnalyzing" : "actionAiAnalyze")}
+            </button>
+          )}
           <ResetSizeButton onClick={reset} lang={lang} />
         </div>
       </div>
+      {aiAnalysis?.error && (
+        <p role="alert" className="mb-3 text-sm text-AIPM-pink-strong">
+          {/^\d+$/.test(aiAnalysis.error)
+            ? t(lang, "actionAiErrorStatus", aiAnalysis.error)
+            : aiAnalysis.error === "network"
+              ? t(lang, "actionAiErrorNetwork")
+              : t(lang, "actionAiErrorGeneric")}
+        </p>
+      )}
+      {aiAnalysis?.result && (
+        <section
+          className="mb-5 rounded-md border border-AIPM-dark-blue/30 bg-AIPM-dark-blue/5 p-3"
+          aria-label={t(lang, "actionAiSectionTitle")}
+        >
+          <div className="mb-2 flex items-start justify-between gap-2">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-AIPM-dark-blue dark:text-AIPM-light-grey">
+              {t(lang, "actionAiSectionTitle")}
+            </h3>
+            <button
+              type="button"
+              onClick={aiAnalysis.onClear}
+              aria-label={t(lang, "actionAiDismiss")}
+              className="shrink-0 text-xs text-muted-foreground hover:text-foreground"
+            >
+              ✕
+            </button>
+          </div>
+          <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+            {t(lang, "actionAiDisclaimer")}
+          </p>
+          {aiAnalysis.result.summary && (
+            <p className="mb-3 text-sm text-foreground">
+              <span className="font-medium">{t(lang, "actionAiSummaryLabel")}: </span>
+              {aiAnalysis.result.summary}
+            </p>
+          )}
+          <div className="flex flex-col gap-2">
+            {aiAnalysis.result.actions.map((a, i) => (
+              <AiActionRow key={`${a.title}:${i}`} lang={lang} action={a} onAct={aiAnalysis.onActAi} />
+            ))}
+          </div>
+        </section>
+      )}
       {actions.length === 0 ? (
         <p className="text-sm text-muted-foreground">{t(lang, "actionsEmptyState")}</p>
       ) : (

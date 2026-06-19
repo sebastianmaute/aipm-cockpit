@@ -27,6 +27,7 @@ export type AiConfig = {
   sessionTokenCap?: number;
   weeklyTokenCap?: number;
   groundInGuides: boolean;
+  actionSuggestions?: boolean; // Action Center "Analyze with AI" button. Default ON (undefined = on).
 };
 
 export const defaultAiConfig: AiConfig = {
