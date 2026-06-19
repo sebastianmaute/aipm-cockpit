@@ -497,6 +497,28 @@ const enUS = {
     "Create a project from a plain-language description — Claude proposes the setup and starter content.",
   versionHighlightAiActionSuggestions:
     "Action Center: one-click AI triage + suggested next actions",
+  versionHighlightScheduledJobs:
+    "Schedule recurring AI portfolio analyses that surface as notifications and an in-app history.",
+  scheduledJobsTitle: "Scheduled jobs",
+  scheduledJobsToggle: "Enable scheduled jobs",
+  scheduledJobsHelp:
+    "Run a recurring AI portfolio analysis on a schedule. Results appear here and as a desktop notification.",
+  scheduledJobsCostNote: "Each scheduled run makes a billed Anthropic API call.",
+  scheduledJobsAdd: "Add job",
+  cadenceDaily: "Daily",
+  cadenceWeekly: "Weekly",
+  cadenceTime: "Time",
+  cadenceDay: "Day",
+  scheduledJobName: "Job name",
+  scheduledJobEnabled: "Enabled",
+  scheduledJobLastRun: "Last run: {0}",
+  scheduledJobNeverRun: "Never run",
+  scheduledJobActionsN: "{0} suggestions",
+  scheduledJobFailed: "Run failed ({0})",
+  scheduledJobNotifyTitle: "Scheduled analysis: {0}",
+  scheduledJobNotifyBody: "{0}",
+  scheduledJobsBgNote:
+    "Background runs are supported on installed Chrome/Edge only; otherwise jobs run when you next open the app.",
 
   aiConsentTitle: "Enable Claude chat?",
   aiConsentBullet1:
