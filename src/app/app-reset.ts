@@ -11,10 +11,12 @@
 // the user can re-open them later via Load / Create.
 
 const LOP_APP_PREFIX = "lop-app:";
-/** IndexedDB database holding the non-extractable secrets device key. This is
- *  config, not project data, so a full reset removes it. The browser-backend
- *  WORKSPACE database has a different name and is deliberately NOT touched. */
-const SECRETS_DB = "lop-app-secrets";
+/** IndexedDB databases a full reset removes. These hold CONFIG, not project
+ *  data: the non-extractable secrets device key, and saved File-System-Access
+ *  handles (mere pointers/permissions to detached project files — clearing them
+ *  "detaches completely" without deleting any file). The browser-backend
+ *  WORKSPACE database (project data) has a different name and is NOT touched. */
+const CONFIG_DBS = ["lop-app-secrets", "lop-app-project-handles"] as const;
 
 /** Clear every `lop-app:*` localStorage key and forget the secrets device key.
  *  Leaves all workspace data stores (files / Turso / browser-backend IndexedDB)
@@ -35,13 +37,17 @@ export function clearAppConfig(): void {
       // ignore quota/disabled errors — best-effort.
     }
   }
-  // Forget the secrets device key (best-effort, fire-and-forget). Once the
-  // ciphertext in localStorage is gone the key is useless anyway, so we do not
-  // block the reload on this async delete completing.
-  try {
-    window.indexedDB?.deleteDatabase(SECRETS_DB);
-  } catch {
-    // ignore — IndexedDB unavailable.
+  // Drop the config IndexedDB databases (secrets device key + file handles),
+  // best-effort and fire-and-forget. We deliberately do NOT await these: the
+  // ciphertext is already gone from localStorage, and awaiting deleteDatabase
+  // can hang on `onblocked` when another tab holds the DB open. The reload
+  // closes this tab's connections so the delete proceeds.
+  for (const db of CONFIG_DBS) {
+    try {
+      window.indexedDB?.deleteDatabase(db);
+    } catch {
+      // ignore — IndexedDB unavailable.
+    }
   }
 }
 

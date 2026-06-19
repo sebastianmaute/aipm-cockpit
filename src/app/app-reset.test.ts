@@ -25,10 +25,13 @@ describe("clearAppConfig", () => {
     expect(localStorage.getItem("some-other-app:keep")).toBe("x");
   });
 
-  it("deletes the secrets device-key IndexedDB database", () => {
+  it("deletes the config IndexedDB databases (secrets device key + file handles)", () => {
     const spy = vi.spyOn(indexedDB, "deleteDatabase");
     clearAppConfig();
     expect(spy).toHaveBeenCalledWith("lop-app-secrets");
+    expect(spy).toHaveBeenCalledWith("lop-app-project-handles");
+    // The workspace data store is NEVER deleted (detach-only).
+    expect(spy).not.toHaveBeenCalledWith("lop-app");
   });
 });
 
