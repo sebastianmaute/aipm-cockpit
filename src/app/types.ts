@@ -42,6 +42,9 @@ export type Task = {
   dueDate: string;
   lastUpdateDate: string;
   priority: Priority;
+  /** Workflow status. Source of truth for "done": status==="Done" keeps the
+   *  invariant completedDate-set; "Cancelled" is terminal but not completed. */
+  status: TaskStatus;
   blockers: string;
   notes: string;
   /** YYYY-MM-DD when the task was marked complete; "" or absent when still open. */
@@ -82,6 +85,13 @@ export type Task = {
 };
 
 export const PRIORITIES: Priority[] = ["Low", "Medium", "High", "Urgent"];
+
+export type TaskStatus =
+  | "To Do" | "In Progress" | "On Hold" | "In Review" | "Cancelled" | "Done";
+export const TASK_STATUSES: TaskStatus[] = [
+  "To Do", "In Progress", "On Hold", "In Review", "Cancelled", "Done",
+];
+export const DEFAULT_TASK_STATUS: TaskStatus = "To Do";
 
 // ----------------------------------------------------------------------------
 // RAID log: Risks, Assumptions, Issues, Dependencies
