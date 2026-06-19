@@ -81,7 +81,8 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
               type="button"
               onClick={aiAnalysis.onAnalyze}
               disabled={aiAnalysis.busy}
-              aria-label={t(lang, "actionAiAnalyze")}
+              aria-busy={aiAnalysis.busy}
+              aria-label={t(lang, aiAnalysis.busy ? "actionAiAnalyzing" : "actionAiAnalyze")}
               className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-line bg-surface px-2 py-1 text-xs font-medium text-AIPM-dark-blue transition-colors hover:border-AIPM-dark-blue/40 hover:bg-surface-muted disabled:opacity-50 dark:text-AIPM-light-grey"
             >
               {t(lang, aiAnalysis.busy ? "actionAiAnalyzing" : "actionAiAnalyze")}

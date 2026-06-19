@@ -112,6 +112,20 @@ describe("ActionsPanel", () => {
       );
       expect(screen.getByText(/429/)).toBeInTheDocument();
     });
+
+    it("shows the network message for a network error", () => {
+      render(
+        <ActionsPanel lang="en-US" actions={[]} onOpen={vi.fn()} aiAnalysis={baseAi({ error: "network" })} />,
+      );
+      expect(screen.getByText(/network/i)).toBeInTheDocument();
+    });
+
+    it("shows the generic message for a non-status, non-network error", () => {
+      render(
+        <ActionsPanel lang="en-US" actions={[]} onOpen={vi.fn()} aiAnalysis={baseAi({ error: "parse" })} />,
+      );
+      expect(screen.getByText(/Couldn't analyze/i)).toBeInTheDocument();
+    });
   });
 
   describe("learning status pill (expert-only)", () => {
