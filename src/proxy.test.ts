@@ -45,6 +45,15 @@ describe("proxy CSP — connect-src", () => {
   });
 });
 
+describe("proxy CSP — worker-src", () => {
+  it("allows the PWA service worker (/sw.js) via an explicit worker-src 'self'", () => {
+    // script-src uses 'strict-dynamic', which makes browsers ignore 'self' for
+    // script loads — so the SW needs its own worker-src or registration is blocked.
+    const worker = directive(cspFor(), "worker-src");
+    expect(worker).toContain("'self'");
+  });
+});
+
 describe("proxy CSP — frame-src", () => {
   it("allows the MSAL silent-token-renewal iframe to load the login host", () => {
     // acquireTokenSilent renews tokens via a hidden iframe pointed at

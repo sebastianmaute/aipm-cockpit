@@ -53,6 +53,9 @@ function buildCsp(nonce: string): string {
   return [
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${scriptExtras}`,
+    // Service worker (/sw.js, PWA installability). Explicit so it is not subject
+    // to script-src's 'strict-dynamic' (which ignores 'self' for script loads).
+    "worker-src 'self'",
     styleElem,
     "style-src-attr 'unsafe-inline'",
     "img-src 'self' data:",

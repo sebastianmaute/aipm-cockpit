@@ -1,0 +1,14 @@
+{
+  "name": "List of Open Points Tracker",
+  "short_name": "LOP Tracker",
+  "description": "Draft status-inquiry emails for delayed items in a project's List of Open Points.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#004159",
+  "icons": [
+    { "src": "/icc_logo_192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/AIPM-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
