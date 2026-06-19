@@ -2,12 +2,12 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.104.0";
-export const APP_BUILD_DATE = "2026-06-19"; // 0.104.0 AI-orchestration SP4: Action Center AI suggestions — one-click Claude triage of the action queue plus net-new advisory actions (Hutchinson)
+export const APP_VERSION = "0.105.0";
+export const APP_BUILD_DATE = "2026-06-19"; // 0.105.0 AI-orchestration SP5: scheduled Claude jobs — recurring advisory portfolio analysis (due-on-open/tick baseline) surfaced as desktop notifications + in-app run history (Morgan)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The whole
- *  0.104.x line is "Hutchinson" (Dave Hutchinson); patch releases inherit
+ *  0.105.x line is "Morgan" (Richard Morgan); patch releases inherit
  *  their minor version's codename rather than getting their own. */
-export const APP_MILESTONE = "Hutchinson";
+export const APP_MILESTONE = "Morgan";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -116,4 +116,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightAiDocIngest",
   "versionHighlightAiCreateWizard",
   "versionHighlightAiActionSuggestions",
+  "versionHighlightScheduledJobs",
 ] as const;

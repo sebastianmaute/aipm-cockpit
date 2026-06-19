@@ -8,6 +8,16 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.105.0] - 2026-06-19 "Morgan"
+
+AI-orchestration roadmap **SP5** — scheduled Claude jobs (baseline). Closes the roadmap.
+
+### Added
+- **Scheduled jobs:** define recurring "portfolio analysis" jobs (daily/weekly cadence) that run a Claude analysis on a schedule. The baseline scheduler runs due jobs while the app is open — on load, on tab re-focus, and on a light interval — and catches up jobs missed while closed on next open (no server cron; honest about the browser constraint). Results surface as a desktop notification and a per-job run history in the new Settings → "Scheduled jobs" section. Advisory only — jobs never write to the workspace; they reuse the SP4 read-only analysis call. Opt-in: gated on a configured Anthropic key + the new `ai.scheduledJobs` toggle (default **off**, since each run is a billed API call). Persisted in a global `scheduled_jobs` store (Turso, kept out of `TABLE_NAMES`, with a localStorage fallback). Never runs in popouts.
+
+### Changed
+- The Action Center "Analyze with AI" call and the scheduled-job runner now share one workspace-context builder (no behaviour change).
+
 ## [0.104.0] - 2026-06-19 "Hutchinson"
 
 AI-orchestration roadmap **SP4** — AI suggestions in the Action Center.

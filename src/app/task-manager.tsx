@@ -130,6 +130,8 @@ import { computeNextActions } from "./next-actions";
 import { buildActionInput } from "./next-actions-input";
 import { useActionAnalysis } from "./use-action-analysis";
 import { buildAnalysisContext, buildGroundingIndex, groundEntity, type AiAction } from "./action-ai";
+import { useScheduledJobs } from "./use-scheduled-jobs";
+import { useScheduledJobRunner } from "./use-scheduled-job-runner";
 import { buildWorkloadAlerts } from "./next-actions-workload";
 import type { SuggestedAction } from "./next-actions";
 import { computeActionTrends } from "./next-actions/trends";
@@ -764,26 +766,32 @@ function TaskManagerInner() {
     () => buildGroundingIndex({ tasks, raid, milestones, changes, stakeholders }),
     [tasks, raid, milestones, changes, stakeholders],
   );
+  // Shared workspace digest builder — used by the Action Center "Analyze with
+  // AI" button AND the SP5 scheduled-job runner (both feed the same SP4 call).
+  const buildAiContext = useCallback(
+    () =>
+      buildAnalysisContext({
+        projectName: project?.name ?? "",
+        today,
+        mode: deriveMode(settings.features),
+        enabledModules: settings.features,
+        taskCount: tasks.length,
+        tasks: tasks.map((x) => ({ id: x.id, title: x.taskName })),
+        raid: raid.map((x) => ({ id: x.id, title: x.title })),
+        milestones: milestones.map((x) => ({ id: x.id, title: x.name })),
+        changes: changes.map((x) => ({ id: x.id, title: x.title })),
+        stakeholders: stakeholders.map((x) => ({ id: x.id, name: x.name })),
+        queue: nextActions.map((a) => ({
+          title: t(lang, a.title.key, ...(a.title.params ?? [])),
+          why: t(lang, a.why.key, ...(a.why.params ?? [])),
+          tier: a.tier,
+        })),
+      }),
+    [project, today, settings.features, tasks, raid, milestones, changes, stakeholders, nextActions, lang],
+  );
   const runActionAnalysis = useCallback(() => {
-    const ctx = buildAnalysisContext({
-      projectName: project?.name ?? "",
-      today,
-      mode: deriveMode(settings.features),
-      enabledModules: settings.features,
-      taskCount: tasks.length,
-      tasks: tasks.map((x) => ({ id: x.id, title: x.taskName })),
-      raid: raid.map((x) => ({ id: x.id, title: x.title })),
-      milestones: milestones.map((x) => ({ id: x.id, title: x.name })),
-      changes: changes.map((x) => ({ id: x.id, title: x.title })),
-      stakeholders: stakeholders.map((x) => ({ id: x.id, name: x.name })),
-      queue: nextActions.map((a) => ({
-        title: t(lang, a.title.key, ...(a.title.params ?? [])),
-        why: t(lang, a.why.key, ...(a.why.params ?? [])),
-        tier: a.tier,
-      })),
-    });
-    void aiAnalyze(ctx);
-  }, [aiAnalyze, project, today, settings.features, tasks, raid, milestones, changes, stakeholders, nextActions, lang]);
+    void aiAnalyze(buildAiContext());
+  }, [aiAnalyze, buildAiContext]);
   const onActAi = useCallback(
     (a: AiAction) => {
       const g = groundEntity(a.entity, groundingIndex);
@@ -811,6 +819,34 @@ function TaskManagerInner() {
     requestOpen,
     openActionCenter,
   });
+
+  // SP5 scheduled jobs: recurring advisory analysis runs (due-on-open / tick).
+  // Opt-in (default OFF), key required, never in popouts. Reuses the SP4
+  // context builder + analysis call; results surface as a desktop notification
+  // and in the Settings "Scheduled jobs" run history.
+  const scheduledJobs = useScheduledJobs({ config: tursoConfig });
+  const notifyScheduledJob = useCallback(
+    (jobName: string, summary: string) => {
+      if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+      try {
+        new Notification(t(lang, "scheduledJobNotifyTitle", jobName), {
+          body: t(lang, "scheduledJobNotifyBody", summary),
+        });
+      } catch {
+        /* notification fire is best-effort */
+      }
+    },
+    [lang],
+  );
+  useScheduledJobRunner({
+    enabled: !isPopout && !!settings.ai?.apiKey?.trim() && settings.ai?.scheduledJobs === true,
+    jobs: scheduledJobs.jobs,
+    recordRun: scheduledJobs.recordRun,
+    buildContext: buildAiContext,
+    ai: { apiKey: settings.ai?.apiKey?.trim() ?? "", model: settings.ai?.model ?? "claude-sonnet-4-6" },
+    notify: notifyScheduledJob,
+  });
+
   const snoozeAction = useCallback(
     (a: SuggestedAction, ms: number) => { void recordLearning(a, "snoozed"); actionSnooze.snooze(a.id, ms); },
     [actionSnooze, recordLearning],
@@ -1819,6 +1855,7 @@ function TaskManagerInner() {
       commTemplatesEnabled={commTemplatesActive}
       commTemplates={commTemplates}
       commTemplatesConfig={tursoConfig}
+      scheduledJobsConfig={tursoConfig}
       operatingGuides={operatingGuides}
       learningConfig={settings.nextActionsLearning ?? defaultNextActionsLearning}
       onChangeLearningConfig={isPopout ? undefined : (c) => setSettings((s) => ({ ...s, nextActionsLearning: c }))}
