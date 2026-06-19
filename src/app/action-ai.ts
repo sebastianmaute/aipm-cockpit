@@ -109,5 +109,41 @@ export function buildAnalysisSystemPrompt(): string {
   ].join(" ");
 }
 
+export interface GroundingIndex {
+  "open-points": ReadonlySet<number>;
+  raid: ReadonlySet<number>;
+  milestones: ReadonlySet<number>;
+  changes: ReadonlySet<number>;
+  stakeholders: ReadonlySet<number>;
+}
+
+export function buildGroundingIndex(ws: {
+  tasks: readonly { id: number }[];
+  raid: readonly { id: number }[];
+  milestones: readonly { id: number }[];
+  changes: readonly { id: number }[];
+  stakeholders: readonly { id: number }[];
+}): GroundingIndex {
+  const ids = (rows: readonly { id: number }[]) => new Set(rows.map((r) => r.id));
+  return {
+    "open-points": ids(ws.tasks), raid: ids(ws.raid), milestones: ids(ws.milestones),
+    changes: ids(ws.changes), stakeholders: ids(ws.stakeholders),
+  };
+}
+
+/** Re-validate a model entity ref against the live workspace. Returns a numeric
+ *  deep-link target, or null (→ surface falls back to Discuss-in-chat). */
+export function groundEntity(
+  entity: { view: GroundableView; id: string } | undefined,
+  index: GroundingIndex,
+): { view: GroundableView; id: number } | null {
+  if (!entity) return null;
+  const n = Number(entity.id);
+  if (!Number.isInteger(n)) return null;
+  const set = index[entity.view];
+  if (!set || !set.has(n)) return null;
+  return { view: entity.view, id: n };
+}
+
 // AppView re-exported for surface convenience.
 export type { AppView };

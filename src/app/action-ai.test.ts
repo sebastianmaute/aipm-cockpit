@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { parseAnalysis } from "./action-ai";
 import { buildAnalysisContext, buildAnalysisSystemPrompt, CONTEXT_CAP_PER_CATEGORY } from "./action-ai";
+import { buildGroundingIndex, groundEntity } from "./action-ai";
 
 describe("parseAnalysis", () => {
   it("parses a valid analysis", () => {
@@ -86,5 +87,22 @@ describe("buildAnalysisSystemPrompt", () => {
     expect(p).toBe(buildAnalysisSystemPrompt());
     expect(p.toLowerCase()).toContain("project manager");
     expect(p).toContain("report_analysis");
+  });
+});
+
+describe("groundEntity", () => {
+  const index = buildGroundingIndex({
+    tasks: [{ id: 7 }], raid: [{ id: 1 }], milestones: [{ id: 2 }], changes: [{ id: 9 }], stakeholders: [{ id: 3 }],
+  });
+
+  it("returns the ref when the id exists in that view", () => {
+    expect(groundEntity({ view: "milestones", id: "2" }, index)).toEqual({ view: "milestones", id: 2 });
+    expect(groundEntity({ view: "open-points", id: "7" }, index)).toEqual({ view: "open-points", id: 7 });
+  });
+
+  it("returns null for unknown id, unknown view, non-numeric id, or undefined", () => {
+    expect(groundEntity({ view: "milestones", id: "999" }, index)).toBeNull();
+    expect(groundEntity({ view: "raid", id: "abc" }, index)).toBeNull();
+    expect(groundEntity(undefined, index)).toBeNull();
   });
 });
