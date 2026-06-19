@@ -34,7 +34,6 @@ import { type Settings } from "./settings-types";
 import { type ProjectTemplate } from "./templates";
 import { type ProjectMeta, type Resource } from "./types";
 import { useTemplates } from "./use-templates";
-import { BackendConfigModal } from "./backend-config-modal";
 import { useProjectProposal } from "./use-project-proposal";
 import { proposalToDraftPatch, proposalToSeed, seedHasContent } from "./ai-project-proposal";
 import type { ProjectFormDraft } from "./project-form-fields";
@@ -132,7 +131,6 @@ export function CreateProjectWizard({
   const [description, setDescription] = useState("");
   const [draftPatch, setDraftPatch] = useState<Partial<ProjectFormDraft> | undefined>(undefined);
   const [aiSeed, setAiSeed] = useState<TemplateSeed | undefined>(undefined);
-  const [m365Open, setM365Open] = useState(false);
   const [meta, setMeta] = useState<ProjectMeta | null>(null);
   const [format, setFormat] = useState<CreateFormat>("json");
   const [storage, setStorage] = useState<"file" | "turso">("file");
@@ -216,28 +214,15 @@ export function CreateProjectWizard({
   const aiSeedActive = selectedTemplate === null && seedHasContent(aiSeed);
   const offerSeed = hasSeedContent(selectedTemplate) || aiSeedActive;
 
-  // When M365 isn't enabled yet, offer a bottom-left shortcut to configure it
-  // (opens the shared backend-config modal focused on M365).
-  const m365NeedsSetup = !settings.integrations?.m365?.enabled;
-  const m365Button = m365NeedsSetup ? (
-    <button type="button" onClick={() => setM365Open(true)} className={SECONDARY_BUTTON_CLASS}>
-      {t(lang, "emptyStateConfigM365")}
-    </button>
-  ) : null;
-
   // Step-1 footer left slot: a Back-to-Describe button (only on the AI fast-path,
-  // before details are captured) plus the M365 shortcut. Without this, an AI user
-  // who lands on Step 1 has no way back to re-describe — only Cancel.
-  const step1FooterLeft = (
-    <>
-      {aiEnabled && !meta && (
-        <button type="button" onClick={() => setStep(0)} className={SECONDARY_BUTTON_CLASS}>
-          {t(lang, "wizardBack")}
-        </button>
-      )}
-      {m365Button}
-    </>
-  );
+  // before details are captured). Without it, an AI user who lands on Step 1 has
+  // no way back to re-describe — only Cancel.
+  const step1FooterLeft =
+    aiEnabled && !meta ? (
+      <button type="button" onClick={() => setStep(0)} className={SECONDARY_BUTTON_CLASS}>
+        {t(lang, "wizardBack")}
+      </button>
+    ) : undefined;
 
   return (
     <div className="flex min-h-0 flex-col">
@@ -450,20 +435,22 @@ export function CreateProjectWizard({
             <button type="button" onClick={() => { resetAi(); setStep(1); }} className={SECONDARY_BUTTON_CLASS}>
               {t(lang, "aiCreateSkip")}
             </button>
+          </div>
+          <div className="flex gap-2">
             {onCancel && (
               <button type="button" onClick={onCancel} className={SECONDARY_BUTTON_CLASS}>
                 {t(lang, "cancel")}
               </button>
             )}
+            <button
+              type="button"
+              onClick={handleGenerate}
+              disabled={aiBusy || !description.trim()}
+              className={PRIMARY_BUTTON_CLASS}
+            >
+              {aiBusy ? t(lang, "aiCreateBusy") : t(lang, "aiCreateGenerate")}
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={handleGenerate}
-            disabled={aiBusy || !description.trim()}
-            className={PRIMARY_BUTTON_CLASS}
-          >
-            {aiBusy ? t(lang, "aiCreateBusy") : t(lang, "aiCreateGenerate")}
-          </button>
         </div>
       )}
 
@@ -473,16 +460,17 @@ export function CreateProjectWizard({
             <button type="button" onClick={() => setStep(1)} className={SECONDARY_BUTTON_CLASS}>
               {t(lang, "wizardBack")}
             </button>
+          </div>
+          <div className="flex gap-2">
             {onCancel && (
               <button type="button" onClick={onCancel} className={SECONDARY_BUTTON_CLASS}>
                 {t(lang, "cancel")}
               </button>
             )}
-            {m365Button}
+            <button type="button" onClick={() => setStep(3)} className={PRIMARY_BUTTON_CLASS}>
+              {t(lang, "wizardNext")}
+            </button>
           </div>
-          <button type="button" onClick={() => setStep(3)} className={PRIMARY_BUTTON_CLASS}>
-            {t(lang, "wizardNext")}
-          </button>
         </div>
       )}
 
@@ -492,27 +480,18 @@ export function CreateProjectWizard({
             <button type="button" onClick={() => setStep(2)} className={SECONDARY_BUTTON_CLASS}>
               {t(lang, "wizardBack")}
             </button>
+          </div>
+          <div className="flex gap-2">
             {onCancel && (
               <button type="button" onClick={onCancel} className={SECONDARY_BUTTON_CLASS}>
                 {t(lang, "cancel")}
               </button>
             )}
-            {m365Button}
+            <button type="button" onClick={handleCreate} className={PRIMARY_BUTTON_CLASS}>
+              {t(lang, "wizardCreate")}
+            </button>
           </div>
-          <button type="button" onClick={handleCreate} className={PRIMARY_BUTTON_CLASS}>
-            {t(lang, "wizardCreate")}
-          </button>
         </div>
-      )}
-
-      {m365Open && (
-        <BackendConfigModal
-          lang={lang}
-          title={t(lang, "emptyStateConfigM365")}
-          settings={settings}
-          onChangeSettings={onChangeSettings}
-          onClose={() => setM365Open(false)}
-        />
       )}
     </div>
   );
