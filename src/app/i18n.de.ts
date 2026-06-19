@@ -973,6 +973,7 @@ export const de: Record<TranslationKey, string> = {
     "{0} in Jira als {1} angelegt. Bearbeiter wurde nicht übertragen – bitte in Jira setzen.",
   jiraPushPrereq:
     "Bitte Jira in den Einstellungen aktivieren und ein Projekt wählen, bevor Aufgaben übertragen werden.",
+  jiraManagedTooltip: "In Jira verwaltet",
 
   tabActivity: "Aktivität",
   activityEmpty: "Noch keine Aktivität aufgezeichnet.",

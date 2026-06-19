@@ -971,6 +971,7 @@ const enUS = {
     "Created {0} in Jira as {1}. Assignee wasn't pushed — set it in Jira.",
   jiraPushPrereq:
     "Enable Jira and pick a project in Settings before pushing tasks.",
+  jiraManagedTooltip: "Managed in Jira",
 
   tabActivity: "Activity",
   activityEmpty: "No activity recorded yet.",

@@ -297,6 +297,8 @@ function TaskRowImpl({
             aria-label={`${t(lang, "colTaskStatus")} – ${task.taskName}`}
             value={task.status}
             onChange={(e) => onStatusChange(task.id, e.target.value as TaskStatus)}
+            disabled={!!task.jiraKey}
+            title={task.jiraKey ? t(lang, "jiraManagedTooltip") : undefined}
             className={`rounded border border-line px-1.5 py-0.5 text-xs font-medium ${statusBadgeClass(task.status)}`}
           >
             {TASK_STATUSES.map((s) => (
