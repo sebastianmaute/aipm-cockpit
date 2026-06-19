@@ -153,6 +153,19 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
   slot; `useEditView = layout==="modern" && !isPopout`); classic/popout use `TaskFormModal` (which
   already has `ModalHeader` title+✕). New editor controls/heading wire into the surface in play —
   TaskEditView's control bar is SEPARATE from the modal's header.
+- **Task status model (SP-A, v0.107.0):** `Task.status` (To Do/In Progress/On Hold/In Review/
+  Cancelled/Done) is the SOURCE OF TRUTH for "done", but `completedDate` is AUTO-MANAGED to keep
+  the invariant **`status==="Done" ⟺ completedDate set`** — so the ~30 existing completedDate-based
+  derivations were left untouched. Pure i18n-free engine `task-status.ts` owns it:
+  `applyStatusChange(task,next,today)` is the SOLE writer of status+completedDate — EVERY status
+  mutation (form save create+update in `use-task-submit`, inline dropdown + `onToggleComplete` in
+  `use-task-row-handlers`, AI/Jira/template seeds) routes through it; `migrateTaskStatus` runs on
+  ALL SIX load paths (completedDate set → Done, else To Do). `isTaskFinished`=Done|Cancelled;
+  Cancelled is terminal-but-NOT-completed (excluded from overdue/next-actions/health-red, but
+  completion-% still counts Done only). UI labels via `task-status-ui.ts` (AIPM palette tokens only).
+  ★ The table status column key is **`taskStatus`** — the pre-existing `"status"` col key is the
+  RAG/health DOT (its header is "Health"/DE "Ampel"). ★ The tasks view ("Open Points") IS in the
+  axe `A11Y_VIEWS`, so the inline status `<select>` needs a row-UNIQUE label (`Status – <task>`).
 - **Scrollbar gap:** per-view inner scrollers (`min-h-0 flex-1 overflow-auto`) need `pr-2` for the
   content↔scrollbar gap. Shared `INNER_TABLE_CLASS`/report-table/actions-panel already include it;
   bare per-panel scrollers do NOT — add `pr-2` or content jams the scrollbar.
