@@ -171,6 +171,43 @@ describe("AiSection", () => {
     expect(last.ai.groundInGuides).toBe(false);
   });
 
+  it("action suggestions toggle is checked by default (undefined = on)", () => {
+    const settingsDefaultOn = {
+      ...defaultSettings,
+      ai: { ...defaultSettings.ai, actionSuggestions: undefined },
+    };
+    render(
+      <AiSection
+        lang="en-US"
+        settings={settingsDefaultOn}
+        onChange={vi.fn()}
+        operatingGuides={stubGuides()}
+      />,
+    );
+    const toggle = screen.getByLabelText(t("en-US", "settingsAiActionSuggestions"));
+    expect(toggle).toBeChecked();
+  });
+
+  it("toggling action suggestions calls onChange with actionSuggestions false", () => {
+    const onChange = vi.fn();
+    const settingsDefaultOn = {
+      ...defaultSettings,
+      ai: { ...defaultSettings.ai, actionSuggestions: undefined },
+    };
+    render(
+      <AiSection
+        lang="en-US"
+        settings={settingsDefaultOn}
+        onChange={onChange}
+        operatingGuides={stubGuides()}
+      />,
+    );
+    const toggle = screen.getByLabelText(t("en-US", "settingsAiActionSuggestions"));
+    fireEvent.click(toggle);
+    const last = onChange.mock.calls.at(-1)?.[0];
+    expect(last.ai.actionSuggestions).toBe(false);
+  });
+
   // --- secret sealing + passphrase lock ---
 
   it("device-seals the API key when edited so it survives blanked settings", async () => {

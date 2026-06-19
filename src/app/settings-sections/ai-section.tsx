@@ -514,6 +514,30 @@ export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage
           <span className="text-xs text-foreground">{t(lang, "aiGroundInGuides")}</span>
         </label>
 
+        {/* Action Center AI suggestions toggle (default ON; undefined = on) */}
+        <label className="mt-3 flex items-center gap-2">
+          <input
+            type="checkbox"
+            aria-label={t(lang, "settingsAiActionSuggestions")}
+            checked={settings.ai.actionSuggestions !== false}
+            onChange={() =>
+              onChange({
+                ...settings,
+                ai: {
+                  ...settings.ai,
+                  actionSuggestions: !(settings.ai.actionSuggestions !== false),
+                },
+              })
+            }
+          />
+          <span className="text-xs text-foreground">
+            {t(lang, "settingsAiActionSuggestions")}
+          </span>
+        </label>
+        <p className="mt-1 text-xs text-muted-foreground">
+          {t(lang, "settingsAiActionSuggestionsHelp")}
+        </p>
+
         {og != null && (
           <>
             {overBudget && (
