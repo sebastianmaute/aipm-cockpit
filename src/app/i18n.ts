@@ -106,6 +106,7 @@ const enUS = {
   statusCancelled: "Cancelled",
   statusDone: "Done",
   colTaskStatus: "Status",
+  hideFinishedTasks: "Hide finished",
 
   tasks: "Tasks",
   tasksCount: "({0})",

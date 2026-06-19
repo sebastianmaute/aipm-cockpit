@@ -10,6 +10,7 @@ import { useWorkspace } from "./workspace-context";
 import { useTaskForm } from "./task-form-context";
 import { BulkEditModal } from "./bulk-edit-modal";
 import { RowContextProvider, TaskRow, type RowContextValue } from "./task-row";
+import { isTaskFinished } from "./task-status";
 import { DEFAULT_COL_WIDTHS } from "./use-column-manager";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
@@ -164,8 +165,13 @@ export function TasksSection({
 
   const { editingId, bulkEditOpen, setBulkEditOpen } = useTaskForm();
 
-  const { settings } = useSettings();
+  const { settings, setSettings } = useSettings();
   const { holidaySet } = useHolidaySet({ holidayCountries: settings.holidayCountries });
+
+  const hideFinished = settings.hideFinishedTasks ?? false;
+  const visibleRows = hideFinished
+    ? filteredSortedTasks.filter((r) => !isTaskFinished(r))
+    : filteredSortedTasks;
 
   const rowContextValue = useMemo<RowContextValue>(
     () => ({
@@ -289,10 +295,19 @@ export function TasksSection({
           </div>
           <h2 className="text-lg font-medium text-foreground">
             {t(lang, "tasks")}{" "}
-            {filteredSortedTasks.length !== tasks.length
-              ? t(lang, "tasksCountFiltered", filteredSortedTasks.length, tasks.length)
-              : t(lang, "tasksCount", filteredSortedTasks.length)}
+            {visibleRows.length !== tasks.length
+              ? t(lang, "tasksCountFiltered", visibleRows.length, tasks.length)
+              : t(lang, "tasksCount", visibleRows.length)}
           </h2>
+          <label className="flex items-center gap-1 text-xs text-muted-foreground">
+            <input
+              type="checkbox"
+              checked={hideFinished}
+              onChange={(e) => setSettings((s) => ({ ...s, hideFinishedTasks: e.target.checked }))}
+              className="h-3.5 w-3.5 rounded border-line text-AIPM-dark-blue focus:ring-AIPM-green"
+            />
+            {t(lang, "hideFinishedTasks")}
+          </label>
         </div>
         <div className="flex gap-2">
           <button
@@ -521,14 +536,14 @@ export function TasksSection({
                   </td>
                 </tr>
               )}
-              {tasks.length > 0 && filteredSortedTasks.length === 0 && (
+              {tasks.length > 0 && visibleRows.length === 0 && (
                 <tr>
                   <td colSpan={visibleColumnCount} className="p-10 text-center text-sm text-muted-foreground">
                     {t(lang, "noTasksFiltered")}
                   </td>
                 </tr>
               )}
-              {filteredSortedTasks.map((task, i) => (
+              {visibleRows.map((task, i) => (
                 <TaskRow
                   key={task.id}
                   task={task}

@@ -334,6 +334,8 @@ export type Settings = {
   layout: "modern" | "classic";
   /** Expert mode reveals advanced settings sections + template actions. */
   expertMode?: boolean;
+  /** Per-device tasks-view toggle: hide finished (Done + Cancelled) tasks. Default OFF. */
+  hideFinishedTasks?: boolean;
   reports?: { extra: AddableReportId[] };
   integrations?: IntegrationsSettings;
   snapshots?: SnapshotSettings;
@@ -364,6 +366,7 @@ export const defaultSettings: Settings = {
   resources: { workdayHours: 8 },
   layout: "modern",
   expertMode: false,
+  hideFinishedTasks: false,
   reports: { extra: ["raid-report", "budget-report"] },
   integrations: defaultIntegrations,
   snapshots: defaultSnapshotSettings,

@@ -66,6 +66,35 @@ describe("useSettings", () => {
       expect(result.current.settings.reports?.extra).toEqual(["budget-report"]);
     });
 
+    it("hideFinishedTasks defaults to false when absent from persisted blob", async () => {
+      const legacy: Record<string, unknown> = { ...defaultSettings };
+      delete legacy.hideFinishedTasks;
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(legacy));
+      const { result } = renderHook(() => useSettings());
+      await act(async () => {});
+      expect(result.current.settings.hideFinishedTasks).toBe(false);
+    });
+
+    it("hideFinishedTasks coerces non-true values to false", async () => {
+      localStorage.setItem(
+        SETTINGS_KEY,
+        JSON.stringify({ ...defaultSettings, hideFinishedTasks: "yes" }),
+      );
+      const { result } = renderHook(() => useSettings());
+      await act(async () => {});
+      expect(result.current.settings.hideFinishedTasks).toBe(false);
+    });
+
+    it("hideFinishedTasks is true only when persisted strictly true", async () => {
+      localStorage.setItem(
+        SETTINGS_KEY,
+        JSON.stringify({ ...defaultSettings, hideFinishedTasks: true }),
+      );
+      const { result } = renderHook(() => useSettings());
+      await act(async () => {});
+      expect(result.current.settings.hideFinishedTasks).toBe(true);
+    });
+
     it("preserves an explicitly emptied reports.extra (removal sticks)", async () => {
       localStorage.setItem(
         SETTINGS_KEY,
