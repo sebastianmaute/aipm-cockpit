@@ -2,8 +2,8 @@
 import type React from "react";
 import { useMemo } from "react";
 import { type Lang, type TranslationKey, priorityLabel, t } from "./i18n";
-import { PRIORITIES, TASK_STATUSES, type ChangeItem, type Priority, type RaidItem, type Task, type TaskStatus } from "./types";
-import { statusLabelKey } from "./task-status-ui";
+import { PRIORITIES, type ChangeItem, type Priority, type RaidItem, type Task, type TaskStatus } from "./types";
+import { TaskKanban } from "./task-kanban-board";
 import { useSettings } from "./use-settings";
 import { useHolidaySet } from "./use-holiday-set";
 import { type SortKey, useFilters } from "./filters-context";
@@ -519,24 +519,15 @@ export function TasksSection({
       </div>{/* end shrink-0 */}
 
       {tasksViewMode === "board" ? (
-        /* SP-B Task 5 replaces this placeholder with <TaskKanban> (cards from
-           filteredSortedTasks, ignoring the hide-finished filter). */
-        <div
-          role="region"
-          aria-label={t(lang, "tasksViewBoard")}
-          className="flex min-h-0 flex-1 gap-3 overflow-x-auto pb-2 pr-2"
-        >
-          {TASK_STATUSES.map((s) => (
-            <section
-              key={s}
-              className="flex w-64 shrink-0 flex-col rounded-xl border border-line bg-surface"
-            >
-              <h3 className="border-b border-line px-3 py-2 text-sm font-medium text-foreground">
-                {t(lang, statusLabelKey(s))}
-              </h3>
-            </section>
-          ))}
-        </div>
+        /* Board view shows every search/people-filtered task (NOT the
+           hide-finished filtered `visibleRows`) so cancelled/done columns
+           stay populated. SP-B Task 6 swaps in the rich <TaskKanbanCard>. */
+        <TaskKanban
+          lang={lang}
+          tasks={filteredSortedTasks}
+          onStatusChange={onStatusChange}
+          onEdit={onEdit}
+        />
       ) : (
       <div
         className="min-h-0 flex-1 w-full overflow-auto rounded-xl border border-line bg-surface pr-2"

@@ -321,7 +321,9 @@ describe("TasksSection", () => {
       screen.getByRole("button", { name: t("en-US", "tasksViewBoard") }),
     ).toHaveAttribute("aria-pressed", "true");
     // A status column header is present in board mode.
-    expect(screen.getByText(t("en-US", "statusToDo"))).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: new RegExp(t("en-US", "statusToDo")) }),
+    ).toBeInTheDocument();
   });
 
   it("renders the table when tasksViewMode is 'table'", () => {
