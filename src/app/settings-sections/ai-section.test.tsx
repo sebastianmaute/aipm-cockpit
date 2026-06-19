@@ -13,7 +13,16 @@ vi.mock("./ai-usage-panel", () => ({
   AiUsagePanel: () => <div data-testid="ai-usage-panel" />,
 }));
 
-afterEach(() => localStorage.clear());
+afterEach(async () => {
+  // Editing the API key fires an un-awaited device-seal (handleApiKeyChange →
+  // saveSecretValue, which encrypts then writes the ciphertext to localStorage).
+  // Flush those pending writes BEFORE clearing, so a late seal from this test
+  // cannot land in localStorage during the next test and race its own seal of
+  // the same key — the cross-test "expected 'sk-typed' got 'sk-test'" flake.
+  await new Promise((r) => setTimeout(r, 0));
+  await new Promise((r) => setTimeout(r, 0));
+  localStorage.clear();
+});
 
 describe("AiSection", () => {
   it("typing an API key persists ai.apiKey", () => {

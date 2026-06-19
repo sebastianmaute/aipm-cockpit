@@ -10,7 +10,15 @@ import {
 } from "../settings-types";
 import { readDeviceSecret, isPassphraseLocked } from "../secrets-store";
 
-afterEach(() => localStorage.clear());
+afterEach(async () => {
+  // Editing the Turso auth token fires an un-awaited device-seal (encrypts then
+  // writes ciphertext to localStorage). Flush those pending writes BEFORE
+  // clearing, so a late seal from this test cannot leak into the next test and
+  // race its own seal of the same key (the cross-test stale-token flake).
+  await new Promise((r) => setTimeout(r, 0));
+  await new Promise((r) => setTimeout(r, 0));
+  localStorage.clear();
+});
 
 function m365EnabledSettings() {
   return {
