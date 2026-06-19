@@ -1,7 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { parseAnalysis } from "./action-ai";
-import { buildAnalysisContext, buildAnalysisSystemPrompt, CONTEXT_CAP_PER_CATEGORY } from "./action-ai";
-import { buildGroundingIndex, groundEntity } from "./action-ai";
+import {
+  parseAnalysis,
+  buildAnalysisContext,
+  buildAnalysisSystemPrompt,
+  CONTEXT_CAP_PER_CATEGORY,
+  buildGroundingIndex,
+  groundEntity,
+} from "./action-ai";
 
 describe("parseAnalysis", () => {
   it("parses a valid analysis", () => {
@@ -46,6 +51,18 @@ describe("parseAnalysis", () => {
     });
     expect(out!.actions.length).toBeLessThanOrEqual(8);
     expect(out!.actions[0].entity).toBeUndefined();
+  });
+
+  it("returns null when the summary is blank/whitespace", () => {
+    expect(parseAnalysis({ summary: "   ", actions: [] })).toBeNull();
+  });
+
+  it("coerces a numeric entity id to a string", () => {
+    const out = parseAnalysis({
+      summary: "s",
+      actions: [{ title: "t", why: "w", severity: "now", entity: { view: "milestones", id: 5 } }],
+    });
+    expect(out!.actions[0].entity).toEqual({ view: "milestones", id: "5" });
   });
 });
 
@@ -104,5 +121,10 @@ describe("groundEntity", () => {
     expect(groundEntity({ view: "milestones", id: "999" }, index)).toBeNull();
     expect(groundEntity({ view: "raid", id: "abc" }, index)).toBeNull();
     expect(groundEntity(undefined, index)).toBeNull();
+  });
+
+  it("returns null for a blank id (no Number('')===0 coercion hole) and an absent id 0", () => {
+    expect(groundEntity({ view: "milestones", id: "" }, index)).toBeNull();
+    expect(groundEntity({ view: "raid", id: "0" }, index)).toBeNull();
   });
 });

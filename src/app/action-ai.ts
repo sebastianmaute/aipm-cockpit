@@ -40,6 +40,8 @@ export function parseAnalysis(input: unknown): ActionAnalysis | null {
   if (!input || typeof input !== "object") return null;
   const obj = input as { summary?: unknown; actions?: unknown };
   if (typeof obj.summary !== "string" || !Array.isArray(obj.actions)) return null;
+  const summary = obj.summary.trim();
+  if (!summary) return null;
   const actions: AiAction[] = [];
   for (const raw of obj.actions) {
     if (!raw || typeof raw !== "object") continue;
@@ -51,7 +53,7 @@ export function parseAnalysis(input: unknown): ActionAnalysis | null {
     actions.push({ title, why, severity, entity: asEntity(a.entity) });
     if (actions.length >= MAX_AI_ACTIONS) break;
   }
-  return { summary: obj.summary.trim(), actions };
+  return { summary, actions };
 }
 
 export const CONTEXT_CAP_PER_CATEGORY = 30;
@@ -73,8 +75,11 @@ export interface AnalysisContextInput {
 function capList(view: GroundableView, rows: readonly { id: number; title?: string; name?: string }[]): string {
   const shown = rows.slice(0, CONTEXT_CAP_PER_CATEGORY);
   const lines = shown.map((r) => `- ${view}#${r.id}: ${(r.title ?? r.name ?? "").slice(0, 120)}`);
-  if (rows.length > CONTEXT_CAP_PER_CATEGORY) lines.push(`- …(${rows.length - CONTEXT_CAP_PER_CATEGORY} more truncated)`);
-  return lines.join("\n");
+  const withTrunc =
+    rows.length > CONTEXT_CAP_PER_CATEGORY
+      ? [...lines, `- …(${rows.length - CONTEXT_CAP_PER_CATEGORY} more truncated)`]
+      : lines;
+  return withTrunc.join("\n");
 }
 
 /** Compact, token-bounded workspace digest + the current deterministic queue.
@@ -138,8 +143,8 @@ export function groundEntity(
   index: GroundingIndex,
 ): { view: GroundableView; id: number } | null {
   if (!entity) return null;
+  if (!/^\d+$/.test(entity.id)) return null;
   const n = Number(entity.id);
-  if (!Number.isInteger(n)) return null;
   const set = index[entity.view];
   if (!set || !set.has(n)) return null;
   return { view: entity.view, id: n };
