@@ -1,5 +1,7 @@
+import "fake-indexeddb/auto";
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
+import { t } from "./i18n";
 import { ProjectEmptyState } from "./project-empty-state";
 import { type Contact } from "./contacts";
 import { type ProjectMeta } from "./types";
@@ -90,6 +92,21 @@ describe("ProjectEmptyState", () => {
     expect(
       screen.getByRole("button", { name: /configure m365 integration/i }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /configure ai assistant/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("opens the AI-assistant config modal (key input shown, no usage bars) when its button is clicked", () => {
+    setup();
+    fireEvent.click(screen.getByRole("button", { name: /configure ai assistant/i }));
+    // Second dialog opened, with the API-key input (placeholder, not a usage panel).
+    expect(screen.getAllByRole("dialog")).toHaveLength(2);
+    expect(
+      screen.getByPlaceholderText(t("en-US", "aiApiKeyPlaceholder")),
+    ).toBeInTheDocument();
+    // hideUsage: the live usage bars (progressbars) are not rendered here.
+    expect(screen.queryAllByRole("progressbar")).toHaveLength(0);
   });
 
   it("opens the backend-config modal when a backend button is clicked", () => {

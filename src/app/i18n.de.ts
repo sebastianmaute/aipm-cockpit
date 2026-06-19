@@ -2228,6 +2228,9 @@ export const de: Record<TranslationKey, string> = {
     "Turso-Datenbank-Backend (URL und Token) vor dem Anlegen eines Projekts einrichten.",
   emptyStateConfigM365Tip:
     "Bei Microsoft 365 anmelden und konfigurieren (SharePoint, Outlook), bevor ein Projekt angelegt wird.",
+  emptyStateConfigAi: "KI-Assistenten konfigurieren",
+  emptyStateConfigAiTip:
+    "Anthropic-API-Schlüssel hinzufügen, bevor ein Projekt angelegt wird – erforderlich für „Mit KI erstellen“.",
   projectsDelete: "Projekt entfernen",
   projectsDeleteConfirm:
     "Projekt aus der Liste entfernen? Die zugrunde liegende Datei wird NICHT gelöscht.",

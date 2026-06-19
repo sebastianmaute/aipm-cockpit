@@ -21,6 +21,9 @@ interface AiSectionProps {
   settings: Settings;
   onChange: (s: Settings) => void;
   operatingGuides?: UseOperatingGuidesResult;
+  /** Hide the live usage bars (which need an AiUsageProvider). Set on the
+   *  new-project config surface, where there is no project/usage context yet. */
+  hideUsage?: boolean;
 }
 
 function CapInput({
@@ -228,7 +231,7 @@ function GuideForm({ lang, draft, onChange, onSave, onCancel, busy }: GuideFormP
   );
 }
 
-export function AiSection({ lang, settings, onChange, operatingGuides }: AiSectionProps) {
+export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage }: AiSectionProps) {
   const sessionCap = settings.ai.sessionTokenCap ?? DEFAULT_SESSION_TOKEN_CAP;
   const weeklyCap = settings.ai.weeklyTokenCap ?? DEFAULT_WEEKLY_TOKEN_CAP;
 
@@ -488,7 +491,7 @@ export function AiSection({ lang, settings, onChange, operatingGuides }: AiSecti
       />
 
       {/* Live usage bars — sourced from AiUsageProvider */}
-      <AiUsagePanel lang={lang} sessionCap={sessionCap} weeklyCap={weeklyCap} />
+      {!hideUsage && <AiUsagePanel lang={lang} sessionCap={sessionCap} weeklyCap={weeklyCap} />}
 
       {/* Operating guides */}
       <div className="mt-4 border-t border-line pt-4">

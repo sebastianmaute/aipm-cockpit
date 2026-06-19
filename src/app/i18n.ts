@@ -2223,6 +2223,9 @@ const enUS = {
     "Set up the Turso database backend (URL and token) before creating a project.",
   emptyStateConfigM365Tip:
     "Sign in and configure Microsoft 365 (SharePoint, Outlook) before creating a project.",
+  emptyStateConfigAi: "Configure AI assistant",
+  emptyStateConfigAiTip:
+    "Add your Anthropic API key before creating a project — required for “Use AI”.",
   projectsDelete: "Delete project",
   projectsDeleteConfirm:
     "Remove this project from the list? The underlying file is NOT deleted.",

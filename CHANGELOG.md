@@ -21,6 +21,9 @@ AI-orchestration roadmap **SP3** — an "Use AI" fast-path for creating projects
   instead replaces the AI-generated starter content (shown inline). Skip the step any time to set up
   manually. One structured Claude call; every proposed record passes the same per-entity validators
   as manual entry.
+- **Configure the AI assistant from the new-project window.** The first-run empty state now offers a
+  "Configure AI assistant" button alongside Turso and M365 setup — add your Anthropic API key before
+  any project exists, which unlocks the "Use AI" describe step in the create wizard.
 
 ## [0.102.0] - 2026-06-18 "Tepper"
 

@@ -75,6 +75,11 @@ describe("AiSection", () => {
     expect(screen.getByTestId("ai-usage-panel")).toBeInTheDocument();
   });
 
+  it("hides the usage panel when hideUsage is set (new-project config surface)", () => {
+    render(<AiSection lang="en-US" settings={defaultSettings} onChange={vi.fn()} hideUsage />);
+    expect(screen.queryByTestId("ai-usage-panel")).not.toBeInTheDocument();
+  });
+
   // --- operating-guide library UI ---
 
   function stubGuides(over: Partial<UseOperatingGuidesResult> = {}): UseOperatingGuidesResult {
