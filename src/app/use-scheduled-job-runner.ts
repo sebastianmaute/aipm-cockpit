@@ -57,6 +57,12 @@ export function useScheduledJobRunner(args: ScheduledJobRunnerArgs): void {
 
       isRunningRef.current = true;
       try {
+        // recordRun sets lastRunAt = ranAt for BOTH success and failure, so a
+        // job runs at most once per cadence slot even if it fails
+        // (fail-once-per-slot) — deliberate: a persistent failure (bad key,
+        // outage) must NOT re-spam a billed API call every tick. A transient
+        // failure waits for the next slot; the failed run stays visible in the
+        // job's history.
         const ranAt = at.toISOString();
         for (const job of due) {
           try {

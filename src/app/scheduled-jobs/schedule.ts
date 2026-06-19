@@ -6,6 +6,9 @@ function parseHM(timeOfDay: string): { h: number; m: number } {
 }
 
 function currentSlot(cadence: JobCadence, now: Date): Date | null {
+  // `now` and the slot use LOCAL time (setHours). `lastRunAt` is persisted as an
+  // ISO (UTC) string but isDue compares it via Date epoch-ms, so the local/UTC
+  // mix is correct — both sides resolve to the same absolute instant.
   const { h, m } = parseHM(cadence.timeOfDay);
   const slot = new Date(now);
   slot.setHours(h, m, 0, 0);
