@@ -482,6 +482,19 @@ const enUS = {
   versionHighlightUiBatch0101: "Passphrase confirm/remove and a reliable unset for stored secrets, per-row restore in side-by-side history compare, full-width Milestones & Documents with manual document links, and clearer template/next-action affordances.",
   versionHighlightAiWriteTools: "The AI assistant can now create, update, and delete RAID items, change requests, milestones, and stakeholders — not just tasks.",
   versionHighlightAiDocIngest: "Attach a PDF, image, or text file to the chat: Claude reads it natively and can extract risks, milestones, and stakeholders straight into your project.",
+  aiCreateHeading: "Create with AI",
+  aiCreateDescribeLabel: "Describe your project",
+  aiCreateDescribePlaceholder:
+    "e.g. A 6-month CRM migration for ACME, go-live in Q4, key risks around data quality and team ramp-up.",
+  aiCreateGenerate: "Generate with AI",
+  aiCreateBusy: "Generating…",
+  aiCreateSkip: "Skip — set up manually",
+  aiCreateError: "Couldn't generate a proposal. Try rephrasing, or set up manually.",
+  aiCreateNeedsKey: "Add an Anthropic API key in Settings → AI to use this.",
+  aiCreateTemplateReplacesSeed: "Choosing a template replaces the AI-generated starter content.",
+  aiCreateIncludeContent: "Include AI-generated starter content",
+  versionHighlightAiCreateWizard:
+    "Create a project from a plain-language description — Claude proposes the setup and starter content.",
 
   aiConsentTitle: "Enable Claude chat?",
   aiConsentBullet1:
