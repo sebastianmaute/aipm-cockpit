@@ -756,6 +756,10 @@ function TaskManagerInner() {
     apiKey: settings.ai?.apiKey?.trim() ?? "",
     model: settings.ai?.model ?? "claude-sonnet-4-6",
   });
+  // Hoisted member reads (exhaustive-deps rejects `obj.member` deps; the hook
+  // returns a fresh object each render so depending on the whole thing defeats
+  // every downstream memo).
+  const aiAnalyze = actionAnalysis.analyze;
   const groundingIndex = useMemo(
     () => buildGroundingIndex({ tasks, raid, milestones, changes, stakeholders }),
     [tasks, raid, milestones, changes, stakeholders],
@@ -778,8 +782,8 @@ function TaskManagerInner() {
         tier: a.tier,
       })),
     });
-    void actionAnalysis.analyze(ctx);
-  }, [actionAnalysis, project, today, settings.features, tasks, raid, milestones, changes, stakeholders, nextActions, lang]);
+    void aiAnalyze(ctx);
+  }, [aiAnalyze, project, today, settings.features, tasks, raid, milestones, changes, stakeholders, nextActions, lang]);
   const onActAi = useCallback(
     (a: AiAction) => {
       const g = groundEntity(a.entity, groundingIndex);
@@ -1676,7 +1680,7 @@ function TaskManagerInner() {
     learningEnabled: settings.nextActionsLearning?.enabled ?? false,
     expertMode: settings.expertMode === true,
     onOpenLearningSettings,
-    aiAnalysis: aiAnalysisBundle,
+    aiAnalysis: isPopout ? undefined : aiAnalysisBundle,
     onPushMilestonesToOutlook: calendarPushEnabled ? calendarPushToOutlook : undefined,
     calendarPushBusy: calendarPushEnabled ? calendarPushBusy : undefined,
     guides: operatingGuides.guides,

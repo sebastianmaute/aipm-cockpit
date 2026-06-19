@@ -525,7 +525,7 @@ export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage
                 ...settings,
                 ai: {
                   ...settings.ai,
-                  actionSuggestions: !(settings.ai.actionSuggestions !== false),
+                  actionSuggestions: settings.ai.actionSuggestions === false,
                 },
               })
             }
