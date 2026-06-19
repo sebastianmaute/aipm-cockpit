@@ -98,6 +98,12 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
 
 ## Architecture pointers
 
+- **Orientation / key files:** `task-manager.tsx` is the root orchestrator (owns layout, top bar,
+  view routing, and threads workspace + AI hooks down). `storage.ts` = backend facade;
+  `workspace-context.tsx` = live workspace state + setters; `types.ts` = all entity shapes + enum
+  consts; `sanitize.ts` = the single per-entity validators; `i18n.ts`/`i18n.de.ts` = EN/DE strings;
+  `nav-config.ts` = `AppView` list + nav labels. Pure engines live in i18n-free subdirs
+  (e.g. `next-actions/`).
 - `src/app/` is flat, organized by feature. Pure domain logic lives in i18n-free modules/subdirs
   (e.g. `next-actions/`, serializers); React surfaces import them. Keep engines i18n-free —
   surface translates.
