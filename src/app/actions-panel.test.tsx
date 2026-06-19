@@ -1,7 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { ActionsPanel } from "./actions-panel";
 import type { SuggestedAction } from "./next-actions/types";
+import type { ActionAnalysis } from "./action-ai";
 
 const mk = (id: string, tier: SuggestedAction["tier"]): SuggestedAction => ({
   id, source: "raid", moduleId: "raid",
@@ -59,6 +61,57 @@ describe("ActionsPanel", () => {
     fireEvent.click(toggle);
     expect(toggle).toHaveAttribute("aria-expanded", "true");
     expect(document.getElementById("action-monitor-list")).not.toHaveAttribute("hidden");
+  });
+
+  describe("AI analysis section", () => {
+    const mkAi = () => ({
+      enabled: true,
+      busy: false,
+      error: null as string | null,
+      result: null as ActionAnalysis | null,
+      onAnalyze: vi.fn(),
+      onClear: vi.fn(),
+      onActAi: vi.fn(),
+    });
+    const baseAi = (over: Partial<ReturnType<typeof mkAi>> = {}) => ({ ...mkAi(), ...over });
+
+    it("hides the Analyze button when aiAnalysis is absent or disabled", () => {
+      const { rerender } = render(<ActionsPanel lang="en-US" actions={[]} onOpen={vi.fn()} />);
+      expect(screen.queryByRole("button", { name: /Analyze with AI/i })).toBeNull();
+      rerender(
+        <ActionsPanel lang="en-US" actions={[]} onOpen={vi.fn()} aiAnalysis={baseAi({ enabled: false })} />,
+      );
+      expect(screen.queryByRole("button", { name: /Analyze with AI/i })).toBeNull();
+    });
+
+    it("shows the button when enabled and calls onAnalyze on click", async () => {
+      const ai = baseAi();
+      render(<ActionsPanel lang="en-US" actions={[]} onOpen={vi.fn()} aiAnalysis={ai} />);
+      await userEvent.click(screen.getByRole("button", { name: /Analyze with AI/i }));
+      expect(ai.onAnalyze).toHaveBeenCalled();
+    });
+
+    it("renders the AI section with summary + rows and a dismiss control", async () => {
+      const result: ActionAnalysis = {
+        summary: "Focus on M2.",
+        actions: [
+          { title: "Unblock M2", why: "blocked", severity: "now", entity: { view: "milestones", id: "2" } },
+        ],
+      };
+      const ai = baseAi({ result });
+      render(<ActionsPanel lang="en-US" actions={[]} onOpen={vi.fn()} aiAnalysis={ai} />);
+      expect(screen.getByText("Focus on M2.")).toBeInTheDocument();
+      expect(screen.getByText("Unblock M2")).toBeInTheDocument();
+      await userEvent.click(screen.getByRole("button", { name: /Dismiss AI suggestions/i }));
+      expect(ai.onClear).toHaveBeenCalled();
+    });
+
+    it("shows a status-only error when present", () => {
+      render(
+        <ActionsPanel lang="en-US" actions={[]} onOpen={vi.fn()} aiAnalysis={baseAi({ error: "429" })} />,
+      );
+      expect(screen.getByText(/429/)).toBeInTheDocument();
+    });
   });
 
   describe("learning status pill (expert-only)", () => {
