@@ -6,7 +6,8 @@
 // Cancel+Save-right footer). Built as a standalone component using the shared
 // Modal + ModalHeader + useDraggable, like change-edit-modal.tsx.
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useEscapeKey } from "./use-escape-key";
 import { type Lang, t, type TranslationKey } from "./i18n";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
@@ -93,13 +94,7 @@ export function StakeholderEditModal({
 
   const { offset, handleProps } = useDraggable(true);
 
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onCancel();
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onCancel]);
+  useEscapeKey(onCancel);
 
   function update<K extends keyof Stakeholder>(key: K, value: Stakeholder[K]) {
     setError(null);
