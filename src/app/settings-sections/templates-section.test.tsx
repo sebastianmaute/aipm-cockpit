@@ -25,11 +25,9 @@ describe("TemplatesSection", () => {
     expect(screen.getByText("Standard PM")).toBeInTheDocument();
     expect(screen.getByText("Full delivery")).toBeInTheDocument();
   });
-  it("duplicating a built-in adds a user template row", () => {
+  it("built-in templates have no action button", () => {
     render(<TemplatesSection lang="en-US" />, { wrapper });
-    const dup = screen.getAllByRole("button", { name: t("en-US", "templatesDuplicate") });
-    fireEvent.click(dup[0]);
-    expect(screen.getByDisplayValue(/copy/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: t("en-US", "templatesDuplicate") })).toBeNull();
   });
   it("saves the current project as a user template", () => {
     render(<TemplatesSection lang="en-US" />, { wrapper });

@@ -395,6 +395,11 @@ const enUS = {
   chatClear: "Clear chat",
   chatStop: "Stop",
   chatStopped: "Stopped",
+  chatAttach: "Attach a document",
+  chatAttachmentRemove: "Remove {0}",
+  chatAttachmentTooLarge: "{0} is too large (max 20 MB)",
+  chatAttachmentUnsupported: "{0} is not a supported file type",
+  chatAttachmentReadFailed: "Could not read {0}",
   chatToolCall: "Used {0}",
   chatToolError: "Tool error",
   chatError: "Chat failed: {0}",
@@ -475,6 +480,8 @@ const enUS = {
   versionHighlightUiBatch0990: "Resizable panes, dashboard trend deltas, grouped reports, and a clearer Ask Claude button.",
   versionHighlightUiBatch0100: "Rounded table headers with a consistent scrollbar gap, RAG priority dots, click-away dialogs, whole-version restore plus side-by-side compare, and task-editor tooltips.",
   versionHighlightUiBatch0101: "Passphrase confirm/remove and a reliable unset for stored secrets, per-row restore in side-by-side history compare, full-width Milestones & Documents with manual document links, and clearer template/next-action affordances.",
+  versionHighlightAiWriteTools: "The AI assistant can now create, update, and delete RAID items, change requests, milestones, and stakeholders — not just tasks.",
+  versionHighlightAiDocIngest: "Attach a PDF, image, or text file to the chat: Claude reads it natively and can extract risks, milestones, and stakeholders straight into your project.",
 
   aiConsentTitle: "Enable Claude chat?",
   aiConsentBullet1:

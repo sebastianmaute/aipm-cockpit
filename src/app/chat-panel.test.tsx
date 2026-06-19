@@ -610,3 +610,81 @@ describe("passphrase-locked API key unlock prompt", () => {
     expect(screen.getByRole("button", { name: /^unlock$/i })).toBeInTheDocument();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Document attachments (SP2 ingestion)
+// ---------------------------------------------------------------------------
+describe("document attachments", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  function renderWithKey() {
+    return render(
+      <ChatPanel
+        lang="en-US"
+        ai={AI_WITH_KEY}
+        dispatcher={makeDispatcher()}
+        onAcceptConsent={vi.fn()}
+      />,
+    );
+  }
+
+  function fileInputOf(container: HTMLElement) {
+    return container.querySelector('input[type="file"]') as HTMLInputElement;
+  }
+
+  it("attaching a text file stages a chip and enables Send with an empty textarea", async () => {
+    const { container } = renderWithKey();
+    const file = new File(["risk: budget overrun"], "notes.txt", { type: "text/plain" });
+    fireEvent.change(fileInputOf(container), { target: { files: [file] } });
+    expect(await screen.findByText("notes.txt")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Send" })).not.toBeDisabled();
+  });
+
+  it("rejects an unsupported file type with an error and stages no chip", async () => {
+    const { container } = renderWithKey();
+    const file = new File(["x"], "archive.zip", { type: "application/zip" });
+    fireEvent.change(fileInputOf(container), { target: { files: [file] } });
+    expect(await screen.findByRole("alert")).toHaveTextContent(/not a supported file type/i);
+    expect(screen.queryByText("archive.zip")).toBeNull();
+  });
+
+  it("removing a staged attachment clears its chip", async () => {
+    const { container } = renderWithKey();
+    const file = new File(["hi"], "notes.txt", { type: "text/plain" });
+    fireEvent.change(fileInputOf(container), { target: { files: [file] } });
+    await screen.findByText("notes.txt");
+    fireEvent.click(screen.getByRole("button", { name: "Remove notes.txt" }));
+    expect(screen.queryByText("notes.txt")).toBeNull();
+  });
+
+  it("sends the attachment as a text document block, then clears the chip", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(() =>
+      Promise.resolve({
+        ok: true,
+        text: () => Promise.resolve(""),
+        json: () =>
+          Promise.resolve({
+            content: [{ type: "text", text: "ok" }],
+            stop_reason: "end_turn",
+            usage: { input_tokens: 1, output_tokens: 1 },
+          }),
+      } as unknown as Response),
+    );
+    const { container } = renderWithKey();
+    const file = new File(["budget overrun risk"], "notes.txt", { type: "text/plain" });
+    fireEvent.change(fileInputOf(container), { target: { files: [file] } });
+    await screen.findByText("notes.txt");
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalled());
+
+    type Block = { type: string; source?: { type: string; data: string } };
+    const body = JSON.parse((fetchSpy.mock.calls[0][1] as RequestInit).body as string);
+    const userMsg = body.messages[body.messages.length - 1];
+    expect(Array.isArray(userMsg.content)).toBe(true);
+    const doc = (userMsg.content as Block[]).find((b) => b.type === "document");
+    expect(doc?.source?.type).toBe("text");
+    expect(doc?.source?.data).toContain("budget overrun");
+    // Chip is cleared once the message is sent.
+    await waitFor(() => expect(screen.queryByText("notes.txt")).toBeNull());
+  });
+});

@@ -1,6 +1,36 @@
 import { sanitizeGroup, sanitizeLabels } from "./sanitize";
-import { PRIORITIES, type Priority, type Task, type RaidItem, type ChangeItem, type Milestone } from "./types";
+import {
+  PRIORITIES,
+  RAID_CATEGORIES,
+  RAID_SEVERITIES,
+  RISK_STATUSES,
+  ASSUMPTION_STATUSES,
+  ISSUE_STATUSES,
+  DEPENDENCY_STATUSES,
+  CHANGE_TYPES,
+  CHANGE_STATUSES,
+  STAKEHOLDER_CATEGORIES,
+  INFLUENCE_INTEREST_LEVELS,
+  type Priority,
+  type Task,
+  type RaidItem,
+  type ChangeItem,
+  type Milestone,
+  type Stakeholder,
+} from "./types";
 import type { Lang } from "./i18n";
+
+/** Every RAID status across the four categories (deduped). The tool schema
+ *  offers the whole union; `sanitizeRaidItem` enforces the per-category subset
+ *  and falls back to that category's default when the model picks a mismatch. */
+const ALL_RAID_STATUSES = Array.from(
+  new Set<string>([
+    ...(RISK_STATUSES as unknown as string[]),
+    ...(ASSUMPTION_STATUSES as unknown as string[]),
+    ...(ISSUE_STATUSES as unknown as string[]),
+    ...(DEPENDENCY_STATUSES as unknown as string[]),
+  ]),
+);
 import type { AppMode, FeatureModuleId } from "./feature-modules";
 import type { AppView } from "./nav-config";
 
@@ -51,6 +81,76 @@ export type MilestoneSummary = {
   achievedDate?: string;
 };
 
+export type StakeholderSummary = {
+  id: number;
+  name: string;
+  category: string;
+  influence: string;
+  interest: string;
+  organization?: string;
+  email?: string;
+};
+
+/** Loose write-tool inputs: the model supplies these, the dispatcher routes
+ *  them through the entity sanitizer which enforces enums/caps/required fields
+ *  and fills defaults. Only the human-required field is non-optional here. */
+export type RaidInput = {
+  category?: string;
+  title: string;
+  description?: string;
+  owner?: string;
+  ownerEmail?: string;
+  severity?: string;
+  probability?: number;
+  impact?: number;
+  status?: string;
+  mitigation?: string;
+  raisedDate?: string;
+  targetDate?: string;
+  closedDate?: string;
+  linkedTaskIds?: number[];
+  causedByRaidIds?: number[];
+  stakeholderIds?: number[];
+};
+
+export type ChangeInput = {
+  title: string;
+  description?: string;
+  type?: string;
+  status?: string;
+  impact?: string;
+  impactDescription?: string;
+  scheduleImpactDays?: number;
+  costImpact?: number;
+  requestedBy?: string;
+  raisedDate?: string;
+  decisionBy?: string;
+  decisionDate?: string;
+  resolutionNotes?: string;
+  linkedTaskIds?: number[];
+  linkedRaidIds?: number[];
+  stakeholderIds?: number[];
+};
+
+export type MilestoneInput = {
+  name: string;
+  date: string;
+  description?: string;
+  achievedDate?: string;
+  linkedTaskIds?: number[];
+};
+
+export type StakeholderInput = {
+  name: string;
+  organization?: string;
+  title?: string;
+  email?: string;
+  category?: string;
+  influence?: string;
+  interest?: string;
+  notes?: string;
+};
+
 export type ToolDispatcher = {
   listTasks(): readonly Task[];
   getTask(id: number): Task | null;
@@ -64,6 +164,19 @@ export type ToolDispatcher = {
   listRaid(): RaidSummary[];
   listChanges(): ChangeSummary[];
   listMilestones(): MilestoneSummary[];
+  listStakeholders(): StakeholderSummary[];
+  createRaid(input: RaidInput): RaidSummary;
+  updateRaid(id: number, patch: Partial<RaidInput>): RaidSummary | null;
+  deleteRaid(id: number): boolean;
+  createChange(input: ChangeInput): ChangeSummary;
+  updateChange(id: number, patch: Partial<ChangeInput>): ChangeSummary | null;
+  deleteChange(id: number): boolean;
+  createMilestone(input: MilestoneInput): MilestoneSummary;
+  updateMilestone(id: number, patch: Partial<MilestoneInput>): MilestoneSummary | null;
+  deleteMilestone(id: number): boolean;
+  createStakeholder(input: StakeholderInput): StakeholderSummary;
+  updateStakeholder(id: number, patch: Partial<StakeholderInput>): StakeholderSummary | null;
+  deleteStakeholder(id: number): boolean;
   getSnapshot(): {
     today: string;
     language: Lang;
@@ -112,6 +225,106 @@ const taskFields = {
     items: { type: "string" as const },
     description: "Optional list of label/tag strings",
   },
+};
+
+const idList = (description: string) => ({
+  type: "array" as const,
+  items: { type: "number" as const },
+  description,
+});
+
+const raidFields = {
+  category: {
+    type: "string" as const,
+    enum: RAID_CATEGORIES as unknown as string[],
+    description: "R=Risk, A=Assumption, I=Issue, D=Dependency. Defaults to R.",
+  },
+  title: { type: "string" as const, description: "Short title of the RAID item" },
+  description: { type: "string" as const, description: "Full description" },
+  owner: { type: "string" as const, description: "Person accountable" },
+  ownerEmail: { type: "string" as const, description: "Owner's email" },
+  severity: {
+    type: "string" as const,
+    enum: RAID_SEVERITIES as unknown as string[],
+    description: "Severity level",
+  },
+  probability: { type: "number" as const, description: "Risk probability 1-5" },
+  impact: { type: "number" as const, description: "Risk impact 1-5" },
+  status: {
+    type: "string" as const,
+    enum: ALL_RAID_STATUSES,
+    description:
+      "Status valid for the category (Risk: Open/Mitigated/Realized/Closed; Assumption: Pending/Validated/Invalidated; Issue: Open/In Progress/Resolved/Closed; Dependency: Open/In Progress/Delivered/Blocked).",
+  },
+  mitigation: { type: "string" as const, description: "Mitigation / response plan" },
+  raisedDate: { type: "string" as const, description: "Date raised, YYYY-MM-DD (defaults to today)" },
+  targetDate: { type: "string" as const, description: "Target resolution date YYYY-MM-DD" },
+  closedDate: { type: "string" as const, description: "Date closed YYYY-MM-DD" },
+  linkedTaskIds: idList("IDs of related tasks"),
+  causedByRaidIds: idList("IDs of RAID items that cause this one"),
+  stakeholderIds: idList("IDs of related stakeholders"),
+};
+
+const changeFields = {
+  title: { type: "string" as const, description: "Short title of the change request" },
+  description: { type: "string" as const, description: "Full description" },
+  type: {
+    type: "string" as const,
+    enum: CHANGE_TYPES as unknown as string[],
+    description: "Change type. Defaults to Other.",
+  },
+  status: {
+    type: "string" as const,
+    enum: CHANGE_STATUSES as unknown as string[],
+    description: "Change status. Defaults to Proposed.",
+  },
+  impact: {
+    type: "string" as const,
+    enum: RAID_SEVERITIES as unknown as string[],
+    description: "Impact level",
+  },
+  impactDescription: { type: "string" as const, description: "Impact detail" },
+  scheduleImpactDays: { type: "number" as const, description: "Schedule impact in days" },
+  costImpact: { type: "number" as const, description: "Cost impact" },
+  requestedBy: { type: "string" as const, description: "Who requested the change" },
+  raisedDate: { type: "string" as const, description: "Date raised YYYY-MM-DD (defaults to today)" },
+  decisionBy: { type: "string" as const, description: "Decision maker" },
+  decisionDate: { type: "string" as const, description: "Decision date YYYY-MM-DD" },
+  resolutionNotes: { type: "string" as const, description: "Resolution notes" },
+  linkedTaskIds: idList("IDs of related tasks"),
+  linkedRaidIds: idList("IDs of related RAID items"),
+  stakeholderIds: idList("IDs of related stakeholders"),
+};
+
+const milestoneFields = {
+  name: { type: "string" as const, description: "Milestone name" },
+  date: { type: "string" as const, description: "Target date YYYY-MM-DD" },
+  description: { type: "string" as const, description: "Description" },
+  achievedDate: { type: "string" as const, description: "Sign-off date YYYY-MM-DD (omit if not yet achieved)" },
+  linkedTaskIds: idList("IDs of related tasks"),
+};
+
+const stakeholderFields = {
+  name: { type: "string" as const, description: "Stakeholder name" },
+  organization: { type: "string" as const, description: "Organization" },
+  title: { type: "string" as const, description: "Job title / role" },
+  email: { type: "string" as const, description: "Email address" },
+  category: {
+    type: "string" as const,
+    enum: STAKEHOLDER_CATEGORIES as unknown as string[],
+    description: "Stakeholder category. Defaults to Other.",
+  },
+  influence: {
+    type: "string" as const,
+    enum: INFLUENCE_INTEREST_LEVELS as unknown as string[],
+    description: "Influence level. Defaults to Medium.",
+  },
+  interest: {
+    type: "string" as const,
+    enum: INFLUENCE_INTEREST_LEVELS as unknown as string[],
+    description: "Interest level. Defaults to Medium.",
+  },
+  notes: { type: "string" as const, description: "Free-form notes" },
 };
 
 export const TOOL_DEFS = [
@@ -217,7 +430,7 @@ export const TOOL_DEFS = [
   {
     name: "list_raid",
     description:
-      "List all RAID items (Risks, Assumptions, Issues, Decisions) with id, category, title, status, severity, owner, and stakeholderIds. Read-only.",
+      "List all RAID items (Risks, Assumptions, Issues, Dependencies) with id, category, title, status, severity, owner, and stakeholderIds. Read-only.",
     input_schema: { type: "object", properties: {} },
   },
   {
@@ -231,6 +444,123 @@ export const TOOL_DEFS = [
     description:
       "List all project milestones with id, name, target date, and achievedDate (if signed off). Read-only.",
     input_schema: { type: "object", properties: {} },
+  },
+  {
+    name: "list_stakeholders",
+    description:
+      "List all stakeholders with id, name, category, influence, interest, organization, and email. Read-only.",
+    input_schema: { type: "object", properties: {} },
+  },
+  {
+    name: "create_raid_item",
+    description:
+      "Create a RAID item (Risk, Assumption, Issue, or Dependency). Required: title. category defaults to R; status defaults to that category's first state.",
+    input_schema: {
+      type: "object",
+      properties: raidFields,
+      required: ["title"],
+    },
+  },
+  {
+    name: "update_raid_item",
+    description: "Update fields on an existing RAID item. Only the fields you pass change.",
+    input_schema: {
+      type: "object",
+      properties: { id: { type: "number" }, ...raidFields },
+      required: ["id"],
+    },
+  },
+  {
+    name: "delete_raid_item",
+    description: "Delete a RAID item by ID. Confirm with the user first unless they were explicit.",
+    input_schema: {
+      type: "object",
+      properties: { id: { type: "number" } },
+      required: ["id"],
+    },
+  },
+  {
+    name: "create_change",
+    description:
+      "Create a change-control item. Required: title. type defaults to Other, status to Proposed.",
+    input_schema: {
+      type: "object",
+      properties: changeFields,
+      required: ["title"],
+    },
+  },
+  {
+    name: "update_change",
+    description: "Update fields on an existing change item. Only the fields you pass change.",
+    input_schema: {
+      type: "object",
+      properties: { id: { type: "number" }, ...changeFields },
+      required: ["id"],
+    },
+  },
+  {
+    name: "delete_change",
+    description: "Delete a change item by ID. Confirm with the user first unless they were explicit.",
+    input_schema: {
+      type: "object",
+      properties: { id: { type: "number" } },
+      required: ["id"],
+    },
+  },
+  {
+    name: "create_milestone",
+    description: "Create a project milestone. Required: name and date (YYYY-MM-DD).",
+    input_schema: {
+      type: "object",
+      properties: milestoneFields,
+      required: ["name", "date"],
+    },
+  },
+  {
+    name: "update_milestone",
+    description: "Update fields on an existing milestone. Only the fields you pass change.",
+    input_schema: {
+      type: "object",
+      properties: { id: { type: "number" }, ...milestoneFields },
+      required: ["id"],
+    },
+  },
+  {
+    name: "delete_milestone",
+    description: "Delete a milestone by ID. Confirm with the user first unless they were explicit.",
+    input_schema: {
+      type: "object",
+      properties: { id: { type: "number" } },
+      required: ["id"],
+    },
+  },
+  {
+    name: "create_stakeholder",
+    description:
+      "Create a stakeholder. Required: name. category defaults to Other; influence/interest default to Medium.",
+    input_schema: {
+      type: "object",
+      properties: stakeholderFields,
+      required: ["name"],
+    },
+  },
+  {
+    name: "update_stakeholder",
+    description: "Update fields on an existing stakeholder. Only the fields you pass change.",
+    input_schema: {
+      type: "object",
+      properties: { id: { type: "number" }, ...stakeholderFields },
+      required: ["id"],
+    },
+  },
+  {
+    name: "delete_stakeholder",
+    description: "Delete a stakeholder by ID. Confirm with the user first unless they were explicit.",
+    input_schema: {
+      type: "object",
+      properties: { id: { type: "number" } },
+      required: ["id"],
+    },
   },
 ];
 
@@ -264,6 +594,20 @@ function buildPatch(input: Record<string, unknown>): Partial<Task> {
   return patch;
 }
 
+/** Parse the numeric `id` field, throwing if absent/non-numeric. */
+function requireId(input: Record<string, unknown>): number {
+  const id = Number(input.id);
+  if (!Number.isFinite(id)) throw new Error("id must be a number");
+  return id;
+}
+
+/** A shallow copy of the tool input with `id` removed — the update patch. */
+function patchWithoutId<T>(input: Record<string, unknown>): Partial<T> {
+  const patch = { ...input };
+  delete patch.id;
+  return patch as Partial<T>;
+}
+
 export function toRaidSummary(item: RaidItem): RaidSummary {
   return {
     id: item.id,
@@ -293,6 +637,18 @@ export function toMilestoneSummary(item: Milestone): MilestoneSummary {
     name: item.name,
     date: item.date,
     achievedDate: item.achievedDate,
+  };
+}
+
+export function toStakeholderSummary(item: Stakeholder): StakeholderSummary {
+  return {
+    id: item.id,
+    name: item.name,
+    category: item.category,
+    influence: item.influence,
+    interest: item.interest,
+    organization: item.organization,
+    email: item.email,
   };
 }
 
@@ -410,6 +766,73 @@ export async function runTool(
 
     case "list_milestones":
       return d.listMilestones();
+
+    case "list_stakeholders":
+      return d.listStakeholders();
+
+    case "create_raid_item":
+      return d.createRaid(input as RaidInput);
+
+    case "update_raid_item": {
+      const id = requireId(input);
+      const updated = d.updateRaid(id, patchWithoutId(input));
+      if (!updated) throw new Error(`RAID item #${id} not found`);
+      return updated;
+    }
+
+    case "delete_raid_item": {
+      const id = requireId(input);
+      if (!d.deleteRaid(id)) throw new Error(`RAID item #${id} not found`);
+      return { deleted: id };
+    }
+
+    case "create_change":
+      return d.createChange(input as ChangeInput);
+
+    case "update_change": {
+      const id = requireId(input);
+      const updated = d.updateChange(id, patchWithoutId(input));
+      if (!updated) throw new Error(`change #${id} not found`);
+      return updated;
+    }
+
+    case "delete_change": {
+      const id = requireId(input);
+      if (!d.deleteChange(id)) throw new Error(`change #${id} not found`);
+      return { deleted: id };
+    }
+
+    case "create_milestone":
+      return d.createMilestone(input as MilestoneInput);
+
+    case "update_milestone": {
+      const id = requireId(input);
+      const updated = d.updateMilestone(id, patchWithoutId(input));
+      if (!updated) throw new Error(`milestone #${id} not found`);
+      return updated;
+    }
+
+    case "delete_milestone": {
+      const id = requireId(input);
+      if (!d.deleteMilestone(id)) throw new Error(`milestone #${id} not found`);
+      return { deleted: id };
+    }
+
+    case "create_stakeholder":
+      return d.createStakeholder(input as StakeholderInput);
+
+    case "update_stakeholder": {
+      const id = requireId(input);
+      const updated = d.updateStakeholder(id, patchWithoutId(input));
+      if (!updated) throw new Error(`stakeholder #${id} not found`);
+      return updated;
+    }
+
+    case "delete_stakeholder": {
+      const id = requireId(input);
+      if (!d.deleteStakeholder(id)) throw new Error(`stakeholder #${id} not found`);
+      return { deleted: id };
+    }
 
     default:
       throw new Error(`unknown tool: ${name}`);

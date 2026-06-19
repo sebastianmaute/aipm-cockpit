@@ -8,6 +8,31 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.102.0] - 2026-06-18 "Tepper"
+
+AI-orchestration roadmap **SP2** — the embedded Claude assistant gains write tools beyond tasks,
+plus document ingestion.
+
+### Added
+- **AI write tools for the whole register** — Claude can now create, update, and delete RAID items
+  (Risks/Assumptions/Issues/Dependencies), change-control items, milestones, and stakeholders, and
+  list stakeholders — not just tasks. Each entity routes through its existing sanitizer (enum/date/
+  cap validation, per-category RAID status defaulting) and the popout read-only guard refuses every
+  write in mirror windows, same as task edits.
+- **Document ingestion** — attach a PDF, image (PNG/JPEG/GIF/WebP), or text file (.txt/.md/.csv) to
+  the AI Assistant. PDFs and images go to Claude as native multimodal blocks; text files are inlined.
+  Claude reads the document and, on request, extracts tasks/risks/milestones/stakeholders and creates
+  them with the matching write tool. 20 MB per-file cap; unsupported types are rejected with a clear
+  message. No new parsing dependency — this uses Claude's native document/image support.
+
+### Changed
+- The AI system prompt now briefs Claude on the RAID/Change/Milestone/Stakeholder tools and on the
+  attach-and-extract workflow, and the confirm-before-delete rule now covers every delete tool.
+
+### Removed
+- The **Duplicate** button on built-in templates (Settings → Templates). Built-ins remain display-only;
+  user templates are still created via "Save current project".
+
 ## [0.101.0] - 2026-06-18 "Kress"
 
 UI/UX + secrets-management batch.

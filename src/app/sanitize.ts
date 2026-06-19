@@ -30,6 +30,17 @@ import {
   type PlanningMode,
   SUPPORTED_CURRENCIES,
   isBudgetCurrency,
+  RAID_CATEGORIES,
+  RAID_SEVERITIES,
+  RISK_STATUSES,
+  ASSUMPTION_STATUSES,
+  ISSUE_STATUSES,
+  DEPENDENCY_STATUSES,
+  type RaidItem,
+  type RaidCategory,
+  type RaidSeverity,
+  type RaidStatus,
+  type RiskScale,
   CHANGE_TYPES,
   CHANGE_STATUSES,
   type ChangeItem,
@@ -952,6 +963,89 @@ export function sanitizeChangeItem(input: unknown): ChangeItem | null {
   const lma = sanitizeText(o.localModifiedAt, TEXTAREA_MAX); if (lma) item.localModifiedAt = lma;
   const dl = sanitizeDocumentLinks((input as Record<string, unknown>).documentLinks);
   if (dl.length) item.documentLinks = dl;
+  return item;
+}
+
+// --- RAID sanitizer --------------------------------------------------------
+
+const RAID_CATEGORY_SET = new Set<string>(RAID_CATEGORIES);
+const RAID_SEVERITY_SET = new Set<string>(RAID_SEVERITIES);
+const RISK_STATUS_SET = new Set<string>(RISK_STATUSES);
+const ASSUMPTION_STATUS_SET = new Set<string>(ASSUMPTION_STATUSES);
+const ISSUE_STATUS_SET = new Set<string>(ISSUE_STATUSES);
+const DEPENDENCY_STATUS_SET = new Set<string>(DEPENDENCY_STATUSES);
+
+function statusSetForCategory(cat: RaidCategory): { set: Set<string>; statuses: RaidStatus[] } {
+  switch (cat) {
+    case "A": return { set: ASSUMPTION_STATUS_SET, statuses: ASSUMPTION_STATUSES };
+    case "I": return { set: ISSUE_STATUS_SET, statuses: ISSUE_STATUSES };
+    case "D": return { set: DEPENDENCY_STATUS_SET, statuses: DEPENDENCY_STATUSES };
+    default:  return { set: RISK_STATUS_SET, statuses: RISK_STATUSES };
+  }
+}
+
+/** Accept only well-formed RAID items from untrusted JSON. id>0 + title required. */
+export function sanitizeRaidItem(input: unknown): RaidItem | null {
+  if (!isPlainObject(input)) return null;
+  const o = input;
+  const id = toNumber(o.id);
+  if (!Number.isFinite(id) || id <= 0) return null;
+  const title = sanitizeText(o.title, TASK_NAME_MAX);
+  if (!title) return null;
+
+  const category: RaidCategory =
+    typeof o.category === "string" && RAID_CATEGORY_SET.has(o.category)
+      ? (o.category as RaidCategory)
+      : "R";
+
+  const { set: statusSet, statuses } = statusSetForCategory(category);
+  const status: RaidStatus =
+    typeof o.status === "string" && statusSet.has(o.status)
+      ? (o.status as RaidStatus)
+      : statuses[0];
+
+  const item: RaidItem = {
+    id: Math.floor(id),
+    category,
+    title,
+    status,
+    raisedDate: sanitizeIsoDate(o.raisedDate),
+    linkedTaskIds: sanitizeIdList(o.linkedTaskIds),
+    causedByRaidIds: sanitizeIdList(o.causedByRaidIds),
+    stakeholderIds: sanitizeIdList(o.stakeholderIds),
+  };
+
+  const description = sanitizeMultiline(o.description, TEXTAREA_MAX);
+  if (description) item.description = description;
+  const mitigation = sanitizeMultiline(o.mitigation, TEXTAREA_MAX);
+  if (mitigation) item.mitigation = mitigation;
+  const owner = sanitizeText(o.owner, BUDGET_NAME_MAX);
+  if (owner) item.owner = owner;
+  const ownerEmail = sanitizeEmail(o.ownerEmail);
+  if (ownerEmail) item.ownerEmail = ownerEmail;
+  const ownerResourceId = fkIdOrUndefined(o.ownerResourceId);
+  if (ownerResourceId !== undefined) item.ownerResourceId = ownerResourceId;
+  else if (o.ownerResourceId === null) item.ownerResourceId = null;
+
+  if (typeof o.severity === "string" && RAID_SEVERITY_SET.has(o.severity)) {
+    item.severity = o.severity as RaidSeverity;
+  }
+
+  const prob = toNumber(o.probability);
+  if (Number.isInteger(prob) && prob >= 1 && prob <= 5) item.probability = prob as RiskScale;
+  const imp = toNumber(o.impact);
+  if (Number.isInteger(imp) && imp >= 1 && imp <= 5) item.impact = imp as RiskScale;
+
+  const targetDate = sanitizeIsoDate(o.targetDate);
+  if (targetDate) item.targetDate = targetDate;
+  const closedDate = sanitizeIsoDate(o.closedDate);
+  if (closedDate) item.closedDate = closedDate;
+  const lma = sanitizeText(o.localModifiedAt, TEXTAREA_MAX);
+  if (lma) item.localModifiedAt = lma;
+
+  const dl = sanitizeDocumentLinks((input as Record<string, unknown>).documentLinks);
+  if (dl.length) item.documentLinks = dl;
+
   return item;
 }
 
