@@ -8,6 +8,17 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.108.0] - 2026-06-19 "Banks"
+
+Kanban board (SP-B).
+
+### Added
+- **Kanban board view for tasks:** a Table/Board toggle shows tasks as columns by status; drag a card between columns or use the per-card status select. Compact cards show assignee, due date, priority, health, Jira key, and RAID/Change links.
+- **Send inquiry / Push to Jira / Delete** buttons in the task editor.
+
+### Changed
+- Jira-synced tasks now derive their status from the Jira status category and are read-only in the board and the table status dropdown — change them in Jira and the next sync reflects it.
+
 ## [0.107.0] - 2026-06-19 "LeGuin"
 
 Task workflow status (SP-A).

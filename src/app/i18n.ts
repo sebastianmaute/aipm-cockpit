@@ -515,6 +515,8 @@ const enUS = {
     "Install the tracker as a desktop or mobile app for quick launch from your home screen or dock.",
   versionHighlightTaskStatus:
     "Tasks now have a workflow status (To Do to Done) with a status column, inline status editing, and a hide-finished toggle.",
+  versionHighlightKanban:
+    "Tasks can now be viewed as a drag-and-drop Kanban board grouped by status; Jira-synced tasks stay read-only at their Jira status, and the editor gained Send inquiry / Push to Jira / Delete buttons.",
   scheduledJobsTitle: "Scheduled jobs",
   scheduledJobsToggle: "Enable scheduled jobs",
   scheduledJobsHelp:
