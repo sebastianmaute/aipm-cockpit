@@ -54,5 +54,60 @@ export function parseAnalysis(input: unknown): ActionAnalysis | null {
   return { summary: obj.summary.trim(), actions };
 }
 
+export const CONTEXT_CAP_PER_CATEGORY = 30;
+
+export interface AnalysisContextInput {
+  projectName: string;
+  today: string;
+  mode: string;
+  enabledModules: readonly string[];
+  taskCount: number;
+  tasks: readonly { id: number; title: string }[];
+  raid: readonly { id: number; title: string }[];
+  milestones: readonly { id: number; title: string }[];
+  changes: readonly { id: number; title: string }[];
+  stakeholders: readonly { id: number; name: string }[];
+  queue: readonly { title: string; why: string; tier: "now" | "soon" | "monitor" }[];
+}
+
+function capList(view: GroundableView, rows: readonly { id: number; title?: string; name?: string }[]): string {
+  const shown = rows.slice(0, CONTEXT_CAP_PER_CATEGORY);
+  const lines = shown.map((r) => `- ${view}#${r.id}: ${(r.title ?? r.name ?? "").slice(0, 120)}`);
+  if (rows.length > CONTEXT_CAP_PER_CATEGORY) lines.push(`- …(${rows.length - CONTEXT_CAP_PER_CATEGORY} more truncated)`);
+  return lines.join("\n");
+}
+
+/** Compact, token-bounded workspace digest + the current deterministic queue.
+ *  Volatile data — sent as the user message, never in the cached system block. */
+export function buildAnalysisContext(input: AnalysisContextInput): string {
+  const queue = input.queue.length
+    ? input.queue.map((q) => `- [${q.tier}] ${q.title} — ${q.why}`).join("\n")
+    : "(none)";
+  return [
+    `Project: ${input.projectName}. Today: ${input.today}. Mode: ${input.mode}.`,
+    `Enabled modules: ${input.enabledModules.join(", ") || "(none)"}. Open task count: ${input.taskCount}.`,
+    `Entities are listed as "view#id: title"; reference an entity only by an id shown here. Lists are capped at ${CONTEXT_CAP_PER_CATEGORY} per category.`,
+    "",
+    "## Open tasks", capList("open-points", input.tasks),
+    "## Active RAID", capList("raid", input.raid),
+    "## Upcoming milestones", capList("milestones", input.milestones),
+    "## Pending changes", capList("changes", input.changes),
+    "## Stakeholders", capList("stakeholders", input.stakeholders),
+    "",
+    "## Current rule-based action queue", queue,
+  ].join("\n");
+}
+
+/** Stable, cacheable system prompt. Senior-PM framing consistent with SP0. */
+export function buildAnalysisSystemPrompt(): string {
+  return [
+    "You are a senior project manager assisting with a project tracker.",
+    "You are given a digest of the project's open work and the queue of actions the app's rules already surfaced.",
+    "Call the report_analysis tool exactly once. In `summary`, briefly triage what the user should focus on now, reasoning over the existing queue (do not just repeat it).",
+    "In `actions`, propose only NET-NEW, cross-cutting suggestions the rules cannot derive (root-cause links, sequencing, risks spanning entities). Do not duplicate the existing queue.",
+    "Set an action's `entity` only to a view#id pair that appears in the digest; omit `entity` if you cannot ground it. Keep every title and why short (one line each).",
+  ].join(" ");
+}
+
 // AppView re-exported for surface convenience.
 export type { AppView };
