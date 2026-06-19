@@ -208,7 +208,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       else if (sortKey === "priority")
         cmp = PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority];
       else if (sortKey === "taskStatus")
-        cmp = statusSortIndex(a.status) - statusSortIndex(b.status);
+        cmp =
+          statusSortIndex(a.status) - statusSortIndex(b.status) ||
+          (a.id - b.id);
       else if (sortKey === "startDate") {
         const av = a.startDate ?? "";
         const bv = b.startDate ?? "";

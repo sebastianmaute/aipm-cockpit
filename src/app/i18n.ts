@@ -111,6 +111,7 @@ const enUS = {
   tasks: "Tasks",
   tasksCount: "({0})",
   tasksCountFiltered: "({0} of {1})",
+  tasksFinishedHidden: "{0} finished hidden",
   clearAll: "Clear all",
   searchPlaceholder: "Search task name, assignee, blockers, notes…",
   allPriorities: "All priorities",
@@ -143,7 +144,6 @@ const enUS = {
   configureFields: "Configure fields",
   resetToDefault: "Reset to default",
   fieldViewLabel: "Field view",
-  colStatus: "Status",
   colEstimate: "Est.",
   colSpent: "Spent",
   workspaceResizeHint:
@@ -651,6 +651,7 @@ const enUS = {
   healthDriverDueToday: "due today",
   healthDriverDueSoon: "due soon",
   healthDriverCompleted: "completed",
+  healthDriverCancelled: "cancelled",
   healthDriverOnTrack: "on track",
   healthTooltip: "{0}: {1}",
   reportsGroupHealth: "Group health",

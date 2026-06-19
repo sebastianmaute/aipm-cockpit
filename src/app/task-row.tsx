@@ -115,13 +115,18 @@ function Td({
   children,
   className,
   title,
-  onClick,
+  stopClick,
 }: {
   children: ReactNode;
   className?: string;
   title?: string;
-  onClick?: (e: MouseEvent<HTMLTableCellElement>) => void;
+  /** Keep a click inside this cell from bubbling to the row's row-click
+   *  handler (e.g. the inline status dropdown). */
+  stopClick?: boolean;
 }) {
+  const onClick = stopClick
+    ? (e: MouseEvent<HTMLTableCellElement>) => e.stopPropagation()
+    : undefined;
   return <td title={title} onClick={onClick} className={`px-4 py-3 ${className ?? ""}`}>{children}</td>;
 }
 
@@ -287,7 +292,7 @@ function TaskRowImpl({
         </Td>
       )}
       {!hiddenCols.has("taskStatus") && (
-        <Td onClick={(e) => e.stopPropagation()}>
+        <Td stopClick>
           <select
             aria-label={`${t(lang, "colTaskStatus")} – ${task.taskName}`}
             value={task.status}

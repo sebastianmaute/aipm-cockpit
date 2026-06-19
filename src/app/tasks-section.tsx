@@ -27,7 +27,7 @@ import {
 const ALL_TASK_COLS = ["sel","status","id","taskName","assignee","startDate","dueDate","lastUpdateDate","priority","taskStatus","blockers","notes","depRelations","estimate","spent","actions"] as const;
 
 const CONFIGURABLE_COLS: Array<{ key: string; labelKey: TranslationKey }> = [
-  { key: "status",         labelKey: "colStatus" },
+  { key: "status",         labelKey: "health" },
   { key: "id",             labelKey: "id" },
   { key: "assignee",       labelKey: "assignee" },
   { key: "startDate",      labelKey: "start" },
@@ -172,6 +172,11 @@ export function TasksSection({
   const visibleRows = hideFinished
     ? filteredSortedTasks.filter((r) => !isTaskFinished(r))
     : filteredSortedTasks;
+  // How many of the currently-matching rows the hide-finished toggle removed,
+  // so the "X of Y" count below isn't ambiguous when finished rows are hidden.
+  const finishedHidden = hideFinished
+    ? filteredSortedTasks.length - visibleRows.length
+    : 0;
 
   const rowContextValue = useMemo<RowContextValue>(
     () => ({
@@ -298,6 +303,12 @@ export function TasksSection({
             {visibleRows.length !== tasks.length
               ? t(lang, "tasksCountFiltered", visibleRows.length, tasks.length)
               : t(lang, "tasksCount", visibleRows.length)}
+            {finishedHidden > 0 && (
+              <span className="text-muted-foreground">
+                {" "}
+                {t(lang, "tasksFinishedHidden", finishedHidden)}
+              </span>
+            )}
           </h2>
           <label className="flex items-center gap-1 text-xs text-muted-foreground">
             <input
@@ -509,7 +520,7 @@ export function TasksSection({
                     className="h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue focus:ring-AIPM-green"
                   />
                 </Th>
-                {!hiddenCols.has("status") && <Th onResize={(e) => startColResize("status", e)}><span className="sr-only">Status</span></Th>}
+                {!hiddenCols.has("status") && <Th onResize={(e) => startColResize("status", e)}><span className="sr-only">{t(lang, "health")}</span></Th>}
                 {!hiddenCols.has("id") && <SortableTh label={t(lang, "id")} sortKey="id" currentKey={sortKey} dir={sortDir} onClick={toggleSort} onResize={(e) => startColResize("id", e)} lang={lang} />}
                 <SortableTh label={t(lang, "task")} sortKey="taskName" currentKey={sortKey} dir={sortDir} onClick={toggleSort} onResize={(e) => startColResize("taskName", e)} lang={lang} />
                 {!hiddenCols.has("assignee") && <SortableTh label={t(lang, "assignee")} sortKey="assignee" currentKey={sortKey} dir={sortDir} onClick={toggleSort} onResize={(e) => startColResize("assignee", e)} lang={lang} />}

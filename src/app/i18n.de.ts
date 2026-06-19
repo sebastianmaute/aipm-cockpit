@@ -114,6 +114,7 @@ export const de: Record<TranslationKey, string> = {
   tasks: "Aufgaben",
   tasksCount: "({0})",
   tasksCountFiltered: "({0} von {1})",
+  tasksFinishedHidden: "{0} erledigte ausgeblendet",
   clearAll: "Alle löschen",
   searchPlaceholder: "Suche Aufgabenname, Zugewiesen, Blocker, Notizen…",
   allPriorities: "Alle Prioritäten",
@@ -146,7 +147,6 @@ export const de: Record<TranslationKey, string> = {
   configureFields: "Felder konfigurieren",
   resetToDefault: "Auf Standard zurücksetzen",
   fieldViewLabel: "Feldansicht",
-  colStatus: "Status",
   colEstimate: "Schätzung",
   colSpent: "Aufgewandt",
   workspaceResizeHint:
@@ -652,6 +652,7 @@ export const de: Record<TranslationKey, string> = {
   healthDriverDueToday: "heute fällig",
   healthDriverDueSoon: "bald fällig",
   healthDriverCompleted: "erledigt",
+  healthDriverCancelled: "abgebrochen",
   healthDriverOnTrack: "im Plan",
   healthTooltip: "{0}: {1}",
   reportsGroupHealth: "Status nach Gruppe",

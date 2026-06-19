@@ -35,6 +35,7 @@ export type HealthDriver =
   | "dueToday"
   | "dueSoon"
   | "completed"
+  | "cancelled"
   | "onTrack";
 
 export type TaskHealth = {
@@ -59,7 +60,10 @@ export function computeTaskHealth(
   // Done carries completedDate; Cancelled is terminal with no completedDate, so
   // also guard on isTaskFinished so Cancelled takes the same Green path.
   if (task.completedDate || isTaskFinished(task)) {
-    return { color: "G", drivers: ["completed"] };
+    return {
+      color: "G",
+      drivers: [task.status === "Cancelled" ? "cancelled" : "completed"],
+    };
   }
 
   const drivers: HealthDriver[] = [];
@@ -112,7 +116,7 @@ export type GroupHealth = {
  * Worst-case aggregation: any Red → Red; else any Amber → Amber; else Green.
  *
  * The driver list collects per-task drivers but excludes the noisy ones
- * ("onTrack", "completed") so the steering view doesn't show "Group is
+ * ("onTrack", "completed", "cancelled") so the steering view doesn't show "Group is
  * Red — also 12 tasks are on track".
  */
 export function computeGroupHealth(
@@ -167,6 +171,7 @@ export function formatHealthTooltip(health: TaskHealth, lang: Lang): string {
     | "healthDriverDueToday"
     | "healthDriverDueSoon"
     | "healthDriverCompleted"
+    | "healthDriverCancelled"
     | "healthDriverOnTrack"> = {
     manual: "healthDriverManual",
     overdue: "healthDriverOverdue",
@@ -174,6 +179,7 @@ export function formatHealthTooltip(health: TaskHealth, lang: Lang): string {
     dueToday: "healthDriverDueToday",
     dueSoon: "healthDriverDueSoon",
     completed: "healthDriverCompleted",
+    cancelled: "healthDriverCancelled",
     onTrack: "healthDriverOnTrack",
   };
   const drivers = health.drivers

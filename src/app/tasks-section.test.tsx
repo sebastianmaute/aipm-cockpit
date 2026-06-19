@@ -276,6 +276,30 @@ describe("TasksSection", () => {
     expect(screen.queryByText("Charlie")).not.toBeInTheDocument();
   });
 
+  it("shows a finished-hidden count hint when hideFinishedTasks hides rows", () => {
+    stubSettings({ hideFinishedTasks: true });
+    const alpha = { id: 1, taskName: "Alpha", status: "To Do" };
+    const bravo = { id: 2, taskName: "Bravo", status: "Done" };
+    const charlie = { id: 3, taskName: "Charlie", status: "Cancelled" };
+    stubWorkspace([alpha, bravo, charlie], [alpha, bravo, charlie]);
+    render(<TasksSection {...makeProps()} />);
+    // 2 finished rows (Done + Cancelled) were hidden out of 3 matching rows.
+    expect(
+      screen.getByText(t("en-US", "tasksFinishedHidden", 2)),
+    ).toBeInTheDocument();
+  });
+
+  it("omits the finished-hidden hint when nothing is hidden", () => {
+    stubSettings({ hideFinishedTasks: true });
+    const alpha = { id: 1, taskName: "Alpha", status: "To Do" };
+    const bravo = { id: 2, taskName: "Bravo", status: "In Progress" };
+    stubWorkspace([alpha, bravo], [alpha, bravo]);
+    render(<TasksSection {...makeProps()} />);
+    expect(
+      screen.queryByText(t("en-US", "tasksFinishedHidden", 0)),
+    ).not.toBeInTheDocument();
+  });
+
   it("shows all tasks (incl. Done and Cancelled) when hideFinishedTasks is off", () => {
     stubSettings({ hideFinishedTasks: false });
     const alpha = { id: 1, taskName: "Alpha", status: "To Do" };
