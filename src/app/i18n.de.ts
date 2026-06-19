@@ -493,6 +493,7 @@ export const de: Record<TranslationKey, string> = {
   aiCreateTemplateReplacesSeed: "Die Auswahl einer Vorlage ersetzt die von der KI erstellten Startinhalte.",
   aiCreateIncludeContent: "Von der KI erstellte Startinhalte einbeziehen",
   versionHighlightAiCreateWizard: "Erstellen Sie ein Projekt aus einer Beschreibung in natürlicher Sprache – Claude schlägt Einrichtung und Startinhalte vor.",
+  versionHighlightAiActionSuggestions: "Action Center: KI-Triage per Klick + vorgeschlagene nächste Schritte",
   versionHighlightAiDocIngest: "Hängen Sie ein PDF, Bild oder eine Textdatei an den Chat an: Claude liest sie direkt und kann Risiken, Meilensteine und Stakeholder unmittelbar in Ihr Projekt übernehmen.",
 
   aiConsentTitle: "Claude-Chat aktivieren?",

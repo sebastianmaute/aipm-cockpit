@@ -495,6 +495,8 @@ const enUS = {
   aiCreateIncludeContent: "Include AI-generated starter content",
   versionHighlightAiCreateWizard:
     "Create a project from a plain-language description — Claude proposes the setup and starter content.",
+  versionHighlightAiActionSuggestions:
+    "Action Center: one-click AI triage + suggested next actions",
 
   aiConsentTitle: "Enable Claude chat?",
   aiConsentBullet1:

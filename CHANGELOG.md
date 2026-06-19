@@ -8,6 +8,13 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.104.0] - 2026-06-19 "Hutchinson"
+
+AI-orchestration roadmap **SP4** — AI suggestions in the Action Center.
+
+### Added
+- **Action Center AI suggestions:** a manual "Analyze with AI" button runs one Claude call that returns a triage summary of the existing action queue plus net-new, cross-cutting advisory actions. Each AI action opens its referenced entity (when grounded to a real id) or seeds the AI chat. Advisory only — the deterministic engine is unchanged. Gated on a configured Anthropic key + the new Settings → AI "Action Center AI suggestions" toggle (default on).
+
 ## [0.103.0] - 2026-06-19 "Watts"
 
 AI-orchestration roadmap **SP3** — an "Use AI" fast-path for creating projects.
