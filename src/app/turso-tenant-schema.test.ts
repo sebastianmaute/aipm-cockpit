@@ -54,7 +54,7 @@ describe("turso-tenant-schema", () => {
     const ws = { ...emptyWorkspace(),
       tasks: [{ id: 1, taskName: "T1", assignee: "", assigneeEmail: "",
         startDate: "2026-01-01", dueDate: "2026-06-01", lastUpdateDate: "2026-01-01",
-        priority: "Medium" as const, blockers: "", notes: "",
+        status: "To Do" as const, priority: "Medium" as const, blockers: "", notes: "",
         completedDate: undefined, inquiriesSent: 0, group: undefined, labels: [],
         dependencies: [], jiraKey: undefined, jiraIssueType: undefined,
         lastSyncedAt: undefined, localModifiedAt: undefined, healthOverride: undefined,
@@ -77,7 +77,7 @@ describe("turso-tenant-schema", () => {
     const ws = { ...emptyWorkspace(),
       tasks: [{ id: 1, taskName: "T1", assignee: "", assigneeEmail: "",
         dueDate: "2026-06-01", lastUpdateDate: "2026-01-01",
-        priority: "Medium" as const, blockers: "", notes: "" } as never] };
+        status: "To Do" as const, priority: "Medium" as const, blockers: "", notes: "" } as never] };
     const stmts = tenantWorkspaceToStatements(ws, "p1", new Set(["tasks"]));
     const sqls = stmts.map((s) => s.sql);
     expect(sqls[0]).toBe("BEGIN");

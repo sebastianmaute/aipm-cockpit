@@ -211,6 +211,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
           lastUpdateDate:
             sanitizeIsoDate(input.lastUpdateDate) || todayRef.current,
           priority: sanitizePriority(input.priority),
+          status: "To Do",
           blockers: sanitizeBlockers(input.blockers),
           notes: sanitizeNotes(input.notes),
           inquiriesSent: 0,

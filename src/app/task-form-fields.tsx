@@ -465,6 +465,8 @@ export function TaskFormFields({
               dueDate: form.dueDate,
               lastUpdateDate: form.lastUpdateDate,
               priority: form.priority,
+              // Preview-only object for health derivation; status is not displayed, so a fixed seed is fine.
+              status: "To Do",
               blockers: form.blockers,
               notes: form.notes,
               group: form.group,

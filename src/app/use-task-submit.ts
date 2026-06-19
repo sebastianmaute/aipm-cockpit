@@ -165,7 +165,8 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
         setEditingId(null);
         logActivity("task.updated", updatedId, taskName);
       } else {
-        const newTask: Task = { id: nextId(tasks), ...payload, inquiriesSent: 0 };
+        // TODO(SP-A Task 5): use form.status
+        const newTask: Task = { id: nextId(tasks), ...payload, status: "To Do", inquiriesSent: 0 };
         const newId = newTask.id;
         const shouldPush =
           form.pushToJira &&

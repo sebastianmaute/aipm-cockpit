@@ -220,6 +220,7 @@ function buildSeedTask(raw: unknown, id: number, today: string): Task | null {
     dueDate: sanitizeIsoDate(raw.dueDate),
     lastUpdateDate: today,
     priority: sanitizePriority(raw.priority),
+    status: "To Do",
     blockers: "",
     notes: sanitizeNotes(raw.notes),
     inquiriesSent: 0,

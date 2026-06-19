@@ -6,6 +6,7 @@
 
 import { defaultResourcePlan } from "./resource-foundation";
 import { sanitizeProjectMeta } from "./sanitize";
+import { migrateTaskStatus } from "./task-status";
 import {
   type Absence,
   type BudgetBucket,
@@ -199,6 +200,9 @@ export class BrowserBackend implements StorageBackend {
       // from the (possibly successful) idbGetAll attempts above.
     }
 
+    // Migrate legacy task rows (IDB or localStorage) lacking a workflow status
+    // to a valid TaskStatus before assembling the workspace.
+    tasks = tasks.map(migrateTaskStatus);
     const raw: Workspace = { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, milestones, changes, stakeholders };
     if (project) raw.project = project;
     if (fieldVisibility) raw.fieldVisibility = fieldVisibility;

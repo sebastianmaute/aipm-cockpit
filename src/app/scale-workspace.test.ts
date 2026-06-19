@@ -14,6 +14,7 @@ function tinyWs(): Workspace {
     assigneeEmail: "ada@example.com",
     dueDate: "2026-01-01",
     lastUpdateDate: "2026-01-01",
+    status: "To Do",
     priority: "Medium",
     blockers: "",
     notes: "",

@@ -64,6 +64,7 @@ import type { ExportConfig } from "./settings-types";
 import { EXPORT_SECTION_KEYS } from "./settings-types";
 import { type Workspace, migrateWorkspaceV9, sanitizeProjectStatus } from "./workspace";
 import { sanitizeFieldVisibility, type FieldVisibilityConfig } from "./field-visibility";
+import { migrateTaskStatus } from "./task-status";
 
 export const CSV_COLUMNS: Array<keyof Task> = [
   "id",
@@ -74,6 +75,7 @@ export const CSV_COLUMNS: Array<keyof Task> = [
   "dueDate",
   "lastUpdateDate",
   "priority",
+  "status",
   "blockers",
   "notes",
   "completedDate",
@@ -1449,7 +1451,7 @@ export function buildTaskFromObj(obj: Record<string, string>): Task | null {
   const id = Number(obj.id);
   if (!Number.isFinite(id) || id <= 0) return null;
   const inq = Number(obj.inquiriesSent);
-  return {
+  return migrateTaskStatus({
     id,
     taskName: obj.taskName ?? "",
     assignee: obj.assignee ?? "",
@@ -1458,6 +1460,7 @@ export function buildTaskFromObj(obj: Record<string, string>): Task | null {
     dueDate: obj.dueDate ?? "",
     lastUpdateDate: obj.lastUpdateDate ?? "",
     priority: ((obj.priority as Priority) || "Medium") as Priority,
+    status: obj.status as Task["status"],
     blockers: obj.blockers ?? "",
     notes: obj.notes ?? "",
     completedDate: obj.completedDate || undefined,
@@ -1474,7 +1477,7 @@ export function buildTaskFromObj(obj: Record<string, string>): Task | null {
     originalEstimateMinutes: sanitizeOptionalMinutes(obj.originalEstimateMinutes),
     timeSpentMinutes: sanitizeOptionalMinutes(obj.timeSpentMinutes),
     documentLinks: decodeDocumentLinks(obj.documentLinks),
-  };
+  });
 }
 
 function csvToTasks(csv: string): Task[] {

@@ -35,6 +35,7 @@ function task(
     dueDate: "",
     lastUpdateDate: "",
     priority: "Medium",
+    status: "To Do",
     blockers: "",
     notes: "",
     ...extra,

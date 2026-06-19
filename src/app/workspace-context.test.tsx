@@ -20,6 +20,7 @@ function makeTask(overrides: Partial<import("./types").Task> = {}): import("./ty
     assigneeEmail: "",
     dueDate: "2026-12-01",
     lastUpdateDate: "2026-05-18",
+    status: "To Do",
     priority: "Medium",
     blockers: "",
     notes: "",

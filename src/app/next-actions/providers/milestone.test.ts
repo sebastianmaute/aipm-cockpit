@@ -47,6 +47,7 @@ function task(overrides: Partial<Task> = {}): Task {
     assigneeEmail: "",
     dueDate: "2026-08-01",
     lastUpdateDate: TODAY,
+    status: "To Do",
     priority: "Medium",
     blockers: "",
     notes: "",

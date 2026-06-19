@@ -54,7 +54,7 @@ describe("templateFromWorkspace", () => {
     expect(t.builtIn).toBeFalsy();
   });
   it("captures seedable content when includeContent is true", () => {
-    const task = { id: 1, taskName: "A", assignee: "", assigneeEmail: "", dueDate: "", lastUpdateDate: "", priority: "Medium" as const, blockers: "", notes: "" };
+    const task = { id: 1, taskName: "A", assignee: "", assigneeEmail: "", dueDate: "", lastUpdateDate: "", status: "To Do" as const, priority: "Medium" as const, blockers: "", notes: "" };
     const ws = { ...emptyWorkspace(), tasks: [task] };
     const t = templateFromWorkspace(ws, [], { name: "T", includeContent: true }, "id2");
     expect(t.seed?.tasks).toHaveLength(1);

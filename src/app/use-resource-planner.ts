@@ -542,6 +542,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
         dueDate: item.targetDate ?? today,
         lastUpdateDate: today,
         priority: "Medium",
+        status: "To Do",
         blockers: "",
         notes: item.mitigation ?? item.description ?? "",
         inquiriesSent: 0,

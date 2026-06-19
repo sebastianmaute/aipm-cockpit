@@ -7,6 +7,7 @@
 // (which re-exports everything).
 
 import { decodeDocumentLinks } from "./document-link";
+import { migrateTaskStatus } from "./task-status";
 import { sanitizeFieldVisibility, type FieldVisibilityConfig } from "./field-visibility";
 import { sanitizeFeatures, type FeatureModuleId } from "./feature-modules";
 import { defaultResourcePlan } from "./resource-foundation";
@@ -275,6 +276,7 @@ const MD_COLUMNS: Array<{ key: keyof Task; label: string }> = [
   { key: "dueDate", label: "Due" },
   { key: "lastUpdateDate", label: "Last update" },
   { key: "priority", label: "Priority" },
+  { key: "status", label: "Status" },
   { key: "blockers", label: "Blockers" },
   { key: "notes", label: "Notes" },
   { key: "completedDate", label: "Completed" },
@@ -1088,6 +1090,7 @@ function markdownToTasks(md: string): Task[] {
     else if (norm === "lastupdate" || norm === "lastupdatedate")
       colMap[idx] = "lastUpdateDate";
     else if (norm === "priority") colMap[idx] = "priority";
+    else if (norm === "status") colMap[idx] = "status";
     else if (norm === "blockers") colMap[idx] = "blockers";
     else if (norm === "notes") colMap[idx] = "notes";
     else if (norm === "completed" || norm === "completeddate")
@@ -1128,7 +1131,7 @@ function markdownToTasks(md: string): Task[] {
     const id = Number(obj.id);
     if (!Number.isFinite(id) || id <= 0) continue;
     const inq = Number(obj.inquiriesSent);
-    tasks.push({
+    tasks.push(migrateTaskStatus({
       id,
       taskName: obj.taskName ?? "",
       assignee: obj.assignee ?? "",
@@ -1137,6 +1140,7 @@ function markdownToTasks(md: string): Task[] {
       dueDate: obj.dueDate ?? "",
       lastUpdateDate: obj.lastUpdateDate ?? "",
       priority: ((obj.priority as Priority) || "Medium") as Priority,
+      status: obj.status as Task["status"],
       blockers: obj.blockers ?? "",
       notes: obj.notes ?? "",
       completedDate: obj.completedDate || undefined,
@@ -1153,7 +1157,7 @@ function markdownToTasks(md: string): Task[] {
       originalEstimateMinutes: sanitizeOptionalMinutes(obj.originalEstimateMinutes),
       timeSpentMinutes: sanitizeOptionalMinutes(obj.timeSpentMinutes),
       documentLinks: decodeDocumentLinks(obj.documentLinks),
-    });
+    }));
   }
   return dropDanglingDependencies(tasks);
 }

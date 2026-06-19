@@ -20,6 +20,7 @@ function mkTask(id: number, name: string, deps: TaskDependency[] = []): Task {
     assigneeEmail: "",
     dueDate: "",
     lastUpdateDate: "",
+    status: "To Do",
     priority: "Medium",
     blockers: "",
     notes: "",
