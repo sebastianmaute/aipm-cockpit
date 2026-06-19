@@ -495,6 +495,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightAiCreateWizard: "Erstellen Sie ein Projekt aus einer Beschreibung in natürlicher Sprache – Claude schlägt Einrichtung und Startinhalte vor.",
   versionHighlightAiActionSuggestions: "Action Center: KI-Triage per Klick + vorgeschlagene nächste Schritte",
   versionHighlightScheduledJobs: "Planen Sie wiederkehrende KI-Portfolioanalysen, die als Benachrichtigungen und als In-App-Verlauf erscheinen.",
+  versionHighlightInstallable: "Installieren Sie den Tracker als Desktop- oder Mobil-App für den schnellen Start vom Startbildschirm oder Dock.",
   scheduledJobsTitle: "Geplante Jobs",
   scheduledJobsToggle: "Geplante Jobs aktivieren",
   scheduledJobsHelp: "Führen Sie eine wiederkehrende KI-Portfolioanalyse nach Zeitplan aus. Ergebnisse erscheinen hier und als Desktop-Benachrichtigung.",

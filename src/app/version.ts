@@ -2,12 +2,12 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.105.0";
-export const APP_BUILD_DATE = "2026-06-19"; // 0.105.0 AI-orchestration SP5: scheduled Claude jobs — recurring advisory portfolio analysis (due-on-open/tick baseline) surfaced as desktop notifications + in-app run history (Morgan)
+export const APP_VERSION = "0.106.0";
+export const APP_BUILD_DATE = "2026-06-19"; // 0.106.0 Installable PWA: web manifest + minimal (no-cache) service worker so the tracker can be installed as a desktop/mobile app (Sterling)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The whole
- *  0.105.x line is "Morgan" (Richard Morgan); patch releases inherit
+ *  0.106.x line is "Sterling" (Bruce Sterling); patch releases inherit
  *  their minor version's codename rather than getting their own. */
-export const APP_MILESTONE = "Morgan";
+export const APP_MILESTONE = "Sterling";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -117,4 +117,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightAiCreateWizard",
   "versionHighlightAiActionSuggestions",
   "versionHighlightScheduledJobs",
+  "versionHighlightInstallable",
 ] as const;

@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { Titillium_Web } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "./use-theme";
+import { ServiceWorkerRegistrar } from "./service-worker-registrar";
 
 const titillium = Titillium_Web({
   subsets: ["latin"],
@@ -17,6 +18,7 @@ export const metadata: Metadata = {
   title: "List of Open Points Tracker",
   description:
     "Draft status-inquiry emails for delayed items in a project's List of Open Points.",
+  manifest: "/manifest.webmanifest",
 };
 
 export default async function RootLayout({
@@ -46,6 +48,7 @@ export default async function RootLayout({
           suppressHydrationWarning
           dangerouslySetInnerHTML={{ __html: NO_FLASH_THEME_SCRIPT }}
         />
+        <ServiceWorkerRegistrar />
         <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>
