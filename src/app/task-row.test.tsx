@@ -19,6 +19,7 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     assigneeEmail: "",
     dueDate: "2026-12-01",
     lastUpdateDate: "2026-05-18",
+    status: "To Do",
     priority: "Medium",
     blockers: "",
     notes: "",
@@ -60,6 +61,7 @@ function makeContext(overrides: Partial<RowContextValue> = {}): RowContextValue 
     onToggleComplete: vi.fn(),
     onSendInquiry: vi.fn(),
     onPushToJira: vi.fn(),
+    onStatusChange: vi.fn(),
     onEdit: vi.fn(),
     onDelete: vi.fn(),
     ...overrides,
@@ -186,6 +188,72 @@ describe("TaskRow", () => {
     act(() => setSel(true));
 
     expect(renderSpy.mock.calls.length).toBeGreaterThan(before);
+  });
+});
+
+describe("TaskRow workflow-status badge", () => {
+  test("renders the workflow-status label when the taskStatus column is visible", () => {
+    const ctx = makeContext(); // hiddenCols is empty → taskStatus column shown
+    const { getByText } = render(
+      rowWrapper({
+        context: ctx,
+        children: (
+          <TaskRow
+            task={makeTask({ id: 21, status: "In Review" })}
+            isSelected={false}
+            isEditing={false}
+            isExpanded={false}
+            isPushing={false}
+            raidRefs={undefined}
+          />
+        ),
+      }),
+    );
+    // statusInReview EN value is "In Review".
+    expect(getByText("In Review")).toBeTruthy();
+  });
+
+  test("hides the workflow-status badge when the taskStatus column is hidden", () => {
+    const ctx = makeContext({ hiddenCols: new Set(["taskStatus"]) });
+    const { queryByText } = render(
+      rowWrapper({
+        context: ctx,
+        children: (
+          <TaskRow
+            task={makeTask({ id: 22, status: "On Hold" })}
+            isSelected={false}
+            isEditing={false}
+            isExpanded={false}
+            isPushing={false}
+            raidRefs={undefined}
+          />
+        ),
+      }),
+    );
+    expect(queryByText("On Hold")).toBeNull();
+  });
+
+  test("changes status via the inline dropdown", () => {
+    const onStatusChange = vi.fn();
+    const ctx = makeContext({ onStatusChange });
+    const { getByRole } = render(
+      rowWrapper({
+        context: ctx,
+        children: (
+          <TaskRow
+            task={makeTask({ id: 1, taskName: "Alpha", status: "To Do" })}
+            isSelected={false}
+            isEditing={false}
+            isExpanded={false}
+            isPushing={false}
+            raidRefs={undefined}
+          />
+        ),
+      }),
+    );
+    const select = getByRole("combobox", { name: "Status – Alpha" });
+    fireEvent.change(select, { target: { value: "In Progress" } });
+    expect(onStatusChange).toHaveBeenCalledWith(1, "In Progress");
   });
 });
 

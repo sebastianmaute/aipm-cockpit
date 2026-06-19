@@ -11,6 +11,7 @@ function task(over: Partial<Task> = {}): Task {
     assigneeEmail: "ada@example.com",
     dueDate: "2030-01-01",
     lastUpdateDate: "2029-01-01",
+    status: "To Do",
     priority: "Medium",
     blockers: "",
     notes: "",

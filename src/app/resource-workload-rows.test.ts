@@ -6,7 +6,7 @@ const res = (id: number, firstName: string, lastName: string, email?: string): R
   ({ id, firstName, lastName, email, roleId: null, utilizationMode: "percent", utilization: {} });
 const task = (id: number, assignee: string, over: Partial<Task> = {}): Task =>
   ({ id, taskName: `T${id}`, assignee, assigneeEmail: "", dueDate: "2026-12-31", lastUpdateDate: "2026-01-01",
-     priority: "Medium", blockers: "", notes: "", inquiriesSent: 0, ...over });
+     status: "To Do", priority: "Medium", blockers: "", notes: "", inquiriesSent: 0, ...over });
 const raidItem = (id: number, over: Partial<RaidItem> = {}): RaidItem =>
   ({ id, category: "R", title: `R${id}`, status: "Open", linkedTaskIds: [], raisedDate: "2026-01-01",
      causedByRaidIds: [], stakeholderIds: [], ...over });

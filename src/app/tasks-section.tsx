@@ -2,7 +2,7 @@
 import type React from "react";
 import { useMemo } from "react";
 import { type Lang, type TranslationKey, priorityLabel, t } from "./i18n";
-import { PRIORITIES, type ChangeItem, type Priority, type RaidItem, type Task } from "./types";
+import { PRIORITIES, type ChangeItem, type Priority, type RaidItem, type Task, type TaskStatus } from "./types";
 import { useSettings } from "./use-settings";
 import { useHolidaySet } from "./use-holiday-set";
 import { type SortKey, useFilters } from "./filters-context";
@@ -10,6 +10,7 @@ import { useWorkspace } from "./workspace-context";
 import { useTaskForm } from "./task-form-context";
 import { BulkEditModal } from "./bulk-edit-modal";
 import { RowContextProvider, TaskRow, type RowContextValue } from "./task-row";
+import { isTaskFinished } from "./task-status";
 import { DEFAULT_COL_WIDTHS } from "./use-column-manager";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
@@ -23,16 +24,17 @@ import {
   Th,
 } from "./task-manager-ui";
 
-const ALL_TASK_COLS = ["sel","status","id","taskName","assignee","startDate","dueDate","lastUpdateDate","priority","blockers","notes","depRelations","estimate","spent","actions"] as const;
+const ALL_TASK_COLS = ["sel","status","id","taskName","assignee","startDate","dueDate","lastUpdateDate","priority","taskStatus","blockers","notes","depRelations","estimate","spent","actions"] as const;
 
 const CONFIGURABLE_COLS: Array<{ key: string; labelKey: TranslationKey }> = [
-  { key: "status",         labelKey: "colStatus" },
+  { key: "status",         labelKey: "health" },
   { key: "id",             labelKey: "id" },
   { key: "assignee",       labelKey: "assignee" },
   { key: "startDate",      labelKey: "start" },
   { key: "dueDate",        labelKey: "due" },
   { key: "lastUpdateDate", labelKey: "lastUpdate" },
   { key: "priority",       labelKey: "priority" },
+  { key: "taskStatus",     labelKey: "colTaskStatus" },
   { key: "blockers",       labelKey: "blockers" },
   { key: "notes",          labelKey: "notes" },
   { key: "depRelations",   labelKey: "depRelations" },
@@ -58,6 +60,7 @@ export interface TasksSectionProps {
   onToggleComplete: (task: Task) => void;
   onSendInquiry: (task: Task) => void;
   onPushToJira: (id: number) => void;
+  onStatusChange: (id: number, next: TaskStatus) => void;
   onEdit: (task: Task) => void;
   onDelete: (id: number) => void;
   // column manager
@@ -112,6 +115,7 @@ export function TasksSection({
   onToggleComplete,
   onSendInquiry,
   onPushToJira,
+  onStatusChange,
   onEdit,
   onDelete,
   hiddenCols,
@@ -161,8 +165,18 @@ export function TasksSection({
 
   const { editingId, bulkEditOpen, setBulkEditOpen } = useTaskForm();
 
-  const { settings } = useSettings();
+  const { settings, setSettings } = useSettings();
   const { holidaySet } = useHolidaySet({ holidayCountries: settings.holidayCountries });
+
+  const hideFinished = settings.hideFinishedTasks ?? false;
+  const visibleRows = hideFinished
+    ? filteredSortedTasks.filter((r) => !isTaskFinished(r))
+    : filteredSortedTasks;
+  // How many of the currently-matching rows the hide-finished toggle removed,
+  // so the "X of Y" count below isn't ambiguous when finished rows are hidden.
+  const finishedHidden = hideFinished
+    ? filteredSortedTasks.length - visibleRows.length
+    : 0;
 
   const rowContextValue = useMemo<RowContextValue>(
     () => ({
@@ -180,6 +194,7 @@ export function TasksSection({
       onToggleComplete,
       onSendInquiry,
       onPushToJira,
+      onStatusChange,
       onEdit,
       onDelete,
     }),
@@ -198,6 +213,7 @@ export function TasksSection({
       onToggleComplete,
       onSendInquiry,
       onPushToJira,
+      onStatusChange,
       onEdit,
       onDelete,
     ],
@@ -284,10 +300,25 @@ export function TasksSection({
           </div>
           <h2 className="text-lg font-medium text-foreground">
             {t(lang, "tasks")}{" "}
-            {filteredSortedTasks.length !== tasks.length
-              ? t(lang, "tasksCountFiltered", filteredSortedTasks.length, tasks.length)
-              : t(lang, "tasksCount", filteredSortedTasks.length)}
+            {visibleRows.length !== tasks.length
+              ? t(lang, "tasksCountFiltered", visibleRows.length, tasks.length)
+              : t(lang, "tasksCount", visibleRows.length)}
+            {finishedHidden > 0 && (
+              <span className="text-muted-foreground">
+                {" "}
+                {t(lang, "tasksFinishedHidden", finishedHidden)}
+              </span>
+            )}
           </h2>
+          <label className="flex items-center gap-1 text-xs text-muted-foreground">
+            <input
+              type="checkbox"
+              checked={hideFinished}
+              onChange={(e) => setSettings((s) => ({ ...s, hideFinishedTasks: e.target.checked }))}
+              className="h-3.5 w-3.5 rounded border-line text-AIPM-dark-blue focus:ring-AIPM-green"
+            />
+            {t(lang, "hideFinishedTasks")}
+          </label>
         </div>
         <div className="flex gap-2">
           <button
@@ -489,7 +520,7 @@ export function TasksSection({
                     className="h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue focus:ring-AIPM-green"
                   />
                 </Th>
-                {!hiddenCols.has("status") && <Th onResize={(e) => startColResize("status", e)}><span className="sr-only">Status</span></Th>}
+                {!hiddenCols.has("status") && <Th onResize={(e) => startColResize("status", e)}><span className="sr-only">{t(lang, "health")}</span></Th>}
                 {!hiddenCols.has("id") && <SortableTh label={t(lang, "id")} sortKey="id" currentKey={sortKey} dir={sortDir} onClick={toggleSort} onResize={(e) => startColResize("id", e)} lang={lang} />}
                 <SortableTh label={t(lang, "task")} sortKey="taskName" currentKey={sortKey} dir={sortDir} onClick={toggleSort} onResize={(e) => startColResize("taskName", e)} lang={lang} />
                 {!hiddenCols.has("assignee") && <SortableTh label={t(lang, "assignee")} sortKey="assignee" currentKey={sortKey} dir={sortDir} onClick={toggleSort} onResize={(e) => startColResize("assignee", e)} lang={lang} />}
@@ -497,6 +528,7 @@ export function TasksSection({
                 {!hiddenCols.has("dueDate") && <SortableTh label={t(lang, "due")} sortKey="dueDate" currentKey={sortKey} dir={sortDir} onClick={toggleSort} onResize={(e) => startColResize("dueDate", e)} lang={lang} />}
                 {!hiddenCols.has("lastUpdateDate") && <SortableTh label={t(lang, "lastUpdate")} sortKey="lastUpdateDate" currentKey={sortKey} dir={sortDir} onClick={toggleSort} onResize={(e) => startColResize("lastUpdateDate", e)} lang={lang} />}
                 {!hiddenCols.has("priority") && <SortableTh label={t(lang, "priority")} sortKey="priority" currentKey={sortKey} dir={sortDir} onClick={toggleSort} onResize={(e) => startColResize("priority", e)} lang={lang} />}
+                {!hiddenCols.has("taskStatus") && <SortableTh label={t(lang, "colTaskStatus")} sortKey="taskStatus" currentKey={sortKey} dir={sortDir} onClick={toggleSort} onResize={(e) => startColResize("taskStatus", e)} lang={lang} />}
                 {!hiddenCols.has("blockers") && <Th onResize={(e) => startColResize("blockers", e)}>{t(lang, "blockers")}</Th>}
                 {!hiddenCols.has("notes") && <Th onResize={(e) => startColResize("notes", e)}>{t(lang, "notes")}</Th>}
                 {!hiddenCols.has("depRelations") && <Th onResize={(e) => startColResize("depRelations", e)}>{t(lang, "depRelations")}</Th>}
@@ -515,14 +547,14 @@ export function TasksSection({
                   </td>
                 </tr>
               )}
-              {tasks.length > 0 && filteredSortedTasks.length === 0 && (
+              {tasks.length > 0 && visibleRows.length === 0 && (
                 <tr>
                   <td colSpan={visibleColumnCount} className="p-10 text-center text-sm text-muted-foreground">
                     {t(lang, "noTasksFiltered")}
                   </td>
                 </tr>
               )}
-              {filteredSortedTasks.map((task, i) => (
+              {visibleRows.map((task, i) => (
                 <TaskRow
                   key={task.id}
                   task={task}

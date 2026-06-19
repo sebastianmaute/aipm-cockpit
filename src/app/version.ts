@@ -2,12 +2,12 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.106.0";
-export const APP_BUILD_DATE = "2026-06-19"; // 0.106.0 Installable PWA: web manifest + minimal (no-cache) service worker so the tracker can be installed as a desktop/mobile app (Sterling)
+export const APP_VERSION = "0.107.0";
+export const APP_BUILD_DATE = "2026-06-19"; // 0.107.0 Task workflow status: status enum (To Do..Done), status column + inline dropdown, hide-finished toggle (LeGuin)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The whole
- *  0.106.x line is "Sterling" (Bruce Sterling); patch releases inherit
+ *  0.107.x line is "LeGuin" (Ursula K. Le Guin); patch releases inherit
  *  their minor version's codename rather than getting their own. */
-export const APP_MILESTONE = "Sterling";
+export const APP_MILESTONE = "LeGuin";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -118,4 +118,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightAiActionSuggestions",
   "versionHighlightScheduledJobs",
   "versionHighlightInstallable",
+  "versionHighlightTaskStatus",
 ] as const;

@@ -49,6 +49,7 @@ function createTask(overrides: Partial<Task> = {}): Task {
     assigneeEmail: "test@example.com",
     dueDate: "2026-06-01",
     lastUpdateDate: "2026-05-01",
+    status: "To Do",
     priority: "Medium",
     blockers: "",
     notes: "",
@@ -129,6 +130,37 @@ describe("computeTaskHealth", () => {
         completedDate: "2026-05-20",
         blockers: "something",
       });
+
+      const health = computeTaskHealth(task, today, holidays);
+
+      expect(health.color).toBe("G");
+      expect(health.drivers).toEqual(["completed"]);
+    });
+
+    it("returns Green with 'cancelled' (not 'completed') for a Cancelled task", () => {
+      const task = createTask({ status: "Cancelled" });
+
+      const health = computeTaskHealth(task, today, holidays);
+
+      expect(health.color).toBe("G");
+      expect(health.drivers).toEqual(["cancelled"]);
+    });
+
+    it("returns Green with 'cancelled' even when the Cancelled task is overdue/blocked", () => {
+      const task = createTask({
+        status: "Cancelled",
+        dueDate: "2026-05-15",
+        blockers: "something",
+      });
+
+      const health = computeTaskHealth(task, today, holidays);
+
+      expect(health.color).toBe("G");
+      expect(health.drivers).toEqual(["cancelled"]);
+    });
+
+    it("keeps 'completed' (not 'cancelled') for a Done task with a completedDate", () => {
+      const task = createTask({ status: "Done", completedDate: "2026-05-20" });
 
       const health = computeTaskHealth(task, today, holidays);
 
@@ -734,6 +766,17 @@ describe("formatHealthTooltip", () => {
     expect(tooltip).toContain("healthDriverBlocked");
   });
 
+  it("maps the 'cancelled' driver to its i18n key", () => {
+    const health: TaskHealth = {
+      color: "G",
+      drivers: ["cancelled"],
+    };
+
+    const tooltip = formatHealthTooltip(health, "en-US");
+
+    expect(tooltip).toContain("healthDriverCancelled");
+  });
+
   it("uses healthTooltip i18n key for the final format", () => {
     const health: TaskHealth = {
       color: "G",
@@ -753,6 +796,7 @@ describe("formatHealthTooltip", () => {
       "dueToday",
       "dueSoon",
       "completed",
+      "cancelled",
       "onTrack",
     ] as const;
 

@@ -9,6 +9,7 @@ import { t, type Lang } from "./i18n";
 import { nextId } from "./resource-foundation";
 import { type Settings } from "./settings-types";
 import { type Task, type RaidItem } from "./types";
+import { applyStatusChange } from "./task-status";
 import {
   ASSIGNEE_MAX,
   EMAIL_MAX,
@@ -158,14 +159,22 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
         setTasks((prev) =>
           prev.map((row) =>
             row.id === editingId
-              ? { ...row, ...payload, localModifiedAt: stamp }
+              ? applyStatusChange(
+                  { ...row, ...payload, localModifiedAt: stamp },
+                  form.status,
+                  today,
+                )
               : row,
           ),
         );
         setEditingId(null);
         logActivity("task.updated", updatedId, taskName);
       } else {
-        const newTask: Task = { id: nextId(tasks), ...payload, inquiriesSent: 0 };
+        const newTask: Task = applyStatusChange(
+          { id: nextId(tasks), ...payload, status: form.status, inquiriesSent: 0 },
+          form.status,
+          today,
+        );
         const newId = newTask.id;
         const shouldPush =
           form.pushToJira &&
@@ -248,6 +257,7 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
         dueDate: task.dueDate,
         lastUpdateDate: task.lastUpdateDate,
         priority: task.priority,
+        status: task.status,
         blockers: task.blockers,
         notes: task.notes,
         group: task.group ?? "",

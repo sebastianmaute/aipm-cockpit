@@ -22,6 +22,7 @@ import { useWorkspace } from "./workspace-context";
 import { useFilters } from "./filters-context";
 import { useTaskForm, emptyForm, emptyBulkEdit } from "./task-form-context";
 import { useSettings } from "./use-settings";
+import type { Settings } from "./settings-types";
 import { useHolidaySet } from "./use-holiday-set";
 import { TasksSection, type TasksSectionProps } from "./tasks-section";
 
@@ -73,7 +74,7 @@ function stubWorkspace(tasks: unknown[], filteredSortedTasks: unknown[]) {
   });
 }
 
-function stubSettings() {
+function stubSettings(overrides: Record<string, unknown> = {}) {
   mockUseSettings.mockReturnValue({
     settings: {
       holidayCountries: [],
@@ -86,6 +87,8 @@ function stubSettings() {
       ai: { consentAccepted: false },
       lang: "en-US",
       popout: { reuseWindow: false },
+      hideFinishedTasks: false,
+      ...overrides,
     },
     setSettings: vi.fn(),
     hydrated: true,
@@ -110,6 +113,7 @@ function makeProps(): TasksSectionProps {
     onToggleComplete: vi.fn(),
     onSendInquiry: vi.fn(),
     onPushToJira: vi.fn(),
+    onStatusChange: vi.fn(),
     onEdit: vi.fn(),
     onDelete: vi.fn(),
     // column manager
@@ -215,6 +219,32 @@ describe("TasksSection", () => {
     expect(setTaskModalOpen).toHaveBeenCalledWith(true);
   });
 
+  it("renders a sortable workflow-status (taskStatus) column header", () => {
+    const setSortKey = vi.fn();
+    mockUseFilters.mockReturnValue({
+      search: "", setSearch: vi.fn(),
+      searchDebounced: "",
+      setSearchImmediate: vi.fn(),
+      priorityFilter: "All", setPriorityFilter: vi.fn(),
+      assigneeFilter: "All", setAssigneeFilter: vi.fn(),
+      groupFilter: "All", setGroupFilter: vi.fn(),
+      labelFilter: "All", setLabelFilter: vi.fn(),
+      sortKey: "taskName", sortDir: "asc",
+      setSortKey, setSortDir: vi.fn(),
+      raidFilterTaskId: null, setRaidFilterTaskId: vi.fn(),
+      resetFilters: vi.fn(),
+    });
+    const task = { id: 1, taskName: "T1" };
+    stubWorkspace([task], [task]);
+    render(<TasksSection {...makeProps()} />);
+    // The RAG-dot "status" header is a non-button sr-only span; the workflow
+    // taskStatus header is the only sortable button labelled "Status".
+    const header = screen.getByRole("button", { name: t("en-US", "colTaskStatus") });
+    fireEvent.click(header);
+    // sortKey was "taskName", so clicking a different column sets it directly.
+    expect(setSortKey).toHaveBeenCalledWith("taskStatus");
+  });
+
   it("fills available height and is resizable when fillHeight is set", () => {
     const task = { id: 1, taskName: "T1" };
     stubWorkspace([task], [task]);
@@ -232,6 +262,87 @@ describe("TasksSection", () => {
     const section = container.querySelector("section");
     expect(section?.className).toContain("h-[560px]");
     expect(section?.className).toContain("resize");
+  });
+
+  it("hides Done and Cancelled tasks when hideFinishedTasks is on", () => {
+    stubSettings({ hideFinishedTasks: true });
+    const alpha = { id: 1, taskName: "Alpha", status: "To Do" };
+    const bravo = { id: 2, taskName: "Bravo", status: "Done" };
+    const charlie = { id: 3, taskName: "Charlie", status: "Cancelled" };
+    stubWorkspace([alpha, bravo, charlie], [alpha, bravo, charlie]);
+    render(<TasksSection {...makeProps()} />);
+    expect(screen.getByText("Alpha")).toBeInTheDocument();
+    expect(screen.queryByText("Bravo")).not.toBeInTheDocument();
+    expect(screen.queryByText("Charlie")).not.toBeInTheDocument();
+  });
+
+  it("shows a finished-hidden count hint when hideFinishedTasks hides rows", () => {
+    stubSettings({ hideFinishedTasks: true });
+    const alpha = { id: 1, taskName: "Alpha", status: "To Do" };
+    const bravo = { id: 2, taskName: "Bravo", status: "Done" };
+    const charlie = { id: 3, taskName: "Charlie", status: "Cancelled" };
+    stubWorkspace([alpha, bravo, charlie], [alpha, bravo, charlie]);
+    render(<TasksSection {...makeProps()} />);
+    // 2 finished rows (Done + Cancelled) were hidden out of 3 matching rows.
+    expect(
+      screen.getByText(t("en-US", "tasksFinishedHidden", 2)),
+    ).toBeInTheDocument();
+  });
+
+  it("omits the finished-hidden hint when nothing is hidden", () => {
+    stubSettings({ hideFinishedTasks: true });
+    const alpha = { id: 1, taskName: "Alpha", status: "To Do" };
+    const bravo = { id: 2, taskName: "Bravo", status: "In Progress" };
+    stubWorkspace([alpha, bravo], [alpha, bravo]);
+    render(<TasksSection {...makeProps()} />);
+    expect(
+      screen.queryByText(t("en-US", "tasksFinishedHidden", 0)),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows all tasks (incl. Done and Cancelled) when hideFinishedTasks is off", () => {
+    stubSettings({ hideFinishedTasks: false });
+    const alpha = { id: 1, taskName: "Alpha", status: "To Do" };
+    const bravo = { id: 2, taskName: "Bravo", status: "Done" };
+    const charlie = { id: 3, taskName: "Charlie", status: "Cancelled" };
+    stubWorkspace([alpha, bravo, charlie], [alpha, bravo, charlie]);
+    render(<TasksSection {...makeProps()} />);
+    expect(screen.getByText("Alpha")).toBeInTheDocument();
+    expect(screen.getByText("Bravo")).toBeInTheDocument();
+    expect(screen.getByText("Charlie")).toBeInTheDocument();
+  });
+
+  it("toggling 'Hide finished' persists via setSettings", () => {
+    const setSettings = vi.fn();
+    mockUseSettings.mockReturnValue({
+      settings: {
+        holidayCountries: [],
+        jira: { siteUrl: "", enabled: false, projectKey: "", issueTypes: [] },
+        notifications: { reminderLeadDays: 7, banner: { enabled: false }, popup: { enabled: false } },
+        ai: { consentAccepted: false },
+        lang: "en-US",
+        popout: { reuseWindow: false },
+        hideFinishedTasks: false,
+      },
+      setSettings,
+      hydrated: true,
+      i18nReady: true,
+      lang: "en-US",
+    });
+    const task = { id: 1, taskName: "T1", status: "To Do" };
+    stubWorkspace([task], [task]);
+    render(<TasksSection {...makeProps()} />);
+    fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "hideFinishedTasks") }));
+    expect(setSettings).toHaveBeenCalledTimes(1);
+    // Capture the functional updater and apply it to a known baseline. The
+    // handler forwards e.target.checked (which RTL reports as the controlled
+    // prop value, false) into a spread update — so the updater writes false and
+    // preserves siblings. This is non-tautological: a handler that hardcoded
+    // `true`, dropped the spread, or no-op'd would fail these assertions.
+    const updater = setSettings.mock.calls[0][0] as (s: Settings) => Settings;
+    const next = updater({ hideFinishedTasks: true, language: "en-US" } as Settings);
+    expect(next.hideFinishedTasks).toBe(false);
+    expect(next.language).toBe("en-US");
   });
 
   it("gives the tasks search box a descriptive tooltip", () => {

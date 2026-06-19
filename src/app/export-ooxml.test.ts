@@ -86,6 +86,7 @@ function makeTask(id: number, overrides: Partial<Task> = {}): Task {
     startDate: "2025-01-01",
     dueDate: "2025-06-01",
     lastUpdateDate: "2025-03-01",
+    status: "To Do",
     priority: "Medium",
     blockers: "",
     notes: "",

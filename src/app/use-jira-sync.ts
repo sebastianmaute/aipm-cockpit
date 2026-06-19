@@ -7,6 +7,7 @@ import type { ConflictItem } from "./jira-api";
 import type { ConflictResolution } from "./jira-conflicts-modal";
 import type { Settings } from "./settings-types";
 import type { Task } from "./types";
+import { migrateTaskStatus } from "./task-status";
 import { daysUntil } from "./jira-token-status";
 import { useWorkspace } from "./workspace-context";
 
@@ -216,7 +217,7 @@ export function useJiraSync(args: UseJiraSyncArgs) {
       for (const issue of issues) {
         if (existingKeys.has(issue.key)) continue;
         const patch = issueToTaskFields(issue, todayNow);
-        next.push({
+        next.push(migrateTaskStatus({
           id: nextId++,
           taskName: patch.taskName ?? issue.key,
           assignee: patch.assignee ?? "",
@@ -224,6 +225,8 @@ export function useJiraSync(args: UseJiraSyncArgs) {
           dueDate: patch.dueDate ?? "",
           lastUpdateDate: patch.lastUpdateDate ?? todayNow,
           priority: patch.priority ?? "Medium",
+          // Seed open; migrateTaskStatus(...) below derives "Done" for closed Jira issues (completedDate set).
+          status: "To Do",
           blockers: "",
           notes: patch.notes ?? "",
           completedDate: patch.completedDate,
@@ -233,7 +236,7 @@ export function useJiraSync(args: UseJiraSyncArgs) {
           jiraKey: issue.key,
           jiraIssueType: patch.jiraIssueType,
           lastSyncedAt: syncStamp,
-        });
+        }));
         added++;
       }
 

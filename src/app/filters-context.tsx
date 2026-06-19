@@ -31,6 +31,7 @@ export type SortKey =
   | "dueDate"
   | "lastUpdateDate"
   | "priority"
+  | "taskStatus"
   | "estimate"
   | "spent";
 export type SortDir = "asc" | "desc";

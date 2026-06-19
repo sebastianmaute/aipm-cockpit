@@ -21,6 +21,7 @@ function makeTask(over: Partial<Task> & Pick<Task, "id" | "dueDate">): Task {
     assignee: "alice",
     assigneeEmail: "",
     lastUpdateDate: "2024-01-01",
+    status: "To Do",
     priority: "Medium",
     blockers: "",
     notes: "",

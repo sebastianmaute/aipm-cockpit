@@ -15,6 +15,7 @@ import {
 } from "./resource-foundation";
 import { sanitizeFieldVisibility, type FieldVisibilityConfig } from "./field-visibility";
 import { sanitizeFeatures, type FeatureModuleId } from "./feature-modules";
+import { migrateTaskStatus } from "./task-status";
 import {
   sanitizeAbsence,
   sanitizeBudgetBucket,
@@ -307,7 +308,7 @@ export function jsonToWorkspace(text: string): Workspace {
     const p = parsed as Record<string, unknown>;
     if (!Array.isArray(p.tasks) || !Array.isArray(p.raid)) return emptyWorkspace();
     const raw: Workspace = {
-      tasks: p.tasks as Task[],
+      tasks: (p.tasks as Task[]).map(migrateTaskStatus),
       raid: p.raid as RaidItem[],
       absences: ((p.absences as unknown[]) ?? []).map((a) => sanitizeAbsence(a)).filter((a): a is Absence => a !== null),
       shifts: ((p.shifts as unknown[]) ?? []).map((s) => sanitizeShift(s)).filter((s): s is Shift => s !== null),

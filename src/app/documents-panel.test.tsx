@@ -42,6 +42,7 @@ function seededTask(documentLinks: DocumentLink[]): Task {
     assigneeEmail: "ada@example.com",
     dueDate: "2026-07-01",
     lastUpdateDate: "2026-06-01",
+    status: "To Do",
     priority: "Medium",
     blockers: "",
     notes: "",

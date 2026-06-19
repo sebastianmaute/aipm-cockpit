@@ -8,6 +8,18 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.107.0] - 2026-06-19 "LeGuin"
+
+Task workflow status (SP-A).
+
+### Added
+- **Task workflow status** (To Do / In Progress / On Hold / In Review / Cancelled / Done): a status column with palette-tokened badges, an inline status dropdown in each task row, and a status picker in the task editor (both the modern full-page editor and the classic/popout modal).
+- **"Hide finished" toggle** in the tasks view (hides Done + Cancelled tasks).
+
+### Changed
+- `status` is now the source of truth for task completion; `completedDate` is auto-managed (invariant: Done ⟺ `completedDate` set). Cancelled tasks are terminal but excluded from overdue flags, suggested next actions, and completion metrics.
+- Legacy tasks migrate on load: a set `completedDate` maps to **Done**, otherwise **To Do**.
+
 ## [0.106.0] - 2026-06-19 "Sterling"
 
 Installable PWA (SP5 Phase 6 — scoped to installability only).

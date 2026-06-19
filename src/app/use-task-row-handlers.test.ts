@@ -35,6 +35,7 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     assigneeEmail: "alice@example.com",
     dueDate: "2030-12-31",
     lastUpdateDate: "2030-01-01",
+    status: "To Do",
     priority: "Medium",
     blockers: "",
     notes: "",
@@ -176,8 +177,34 @@ describe("useTaskRowHandlers — onToggleComplete state & guards", () => {
     );
     act(() => result.current.onToggleComplete(task));
     const updater = setTasks.mock.calls[0][0] as (p: Task[]) => Task[];
-    expect(updater([task])[0].completedDate).toBeUndefined();
+    expect(updater([task])[0].completedDate).toBeFalsy();
     expect(logActivity).toHaveBeenCalledWith("task.reopened", 1, task.taskName);
+  });
+
+  it("completing a task sets status Done + completedDate (invariant)", () => {
+    const setTasks = vi.fn();
+    const task = makeTask({ id: 1, completedDate: undefined, status: "To Do" });
+    const { result } = renderHook(() =>
+      useTaskRowHandlers(makeArgs({ setTasks, today: "2030-01-01" })),
+    );
+    act(() => result.current.onToggleComplete(task));
+    const updater = setTasks.mock.calls[0][0] as (p: Task[]) => Task[];
+    const [updated] = updater([task]);
+    expect(updated.status).toBe("Done");
+    expect(updated.completedDate).toBeTruthy();
+  });
+
+  it("reopening clears status to To Do + completedDate empty (invariant)", () => {
+    const setTasks = vi.fn();
+    const task = makeTask({ id: 1, completedDate: "2030-01-01", status: "Done" });
+    const { result } = renderHook(() =>
+      useTaskRowHandlers(makeArgs({ setTasks })),
+    );
+    act(() => result.current.onToggleComplete(task));
+    const updater = setTasks.mock.calls[0][0] as (p: Task[]) => Task[];
+    const [updated] = updater([task]);
+    expect(updated.status).toBe("To Do");
+    expect(updated.completedDate).toBeFalsy();
   });
 
   it("cancels the open editor when toggling the task being edited", () => {

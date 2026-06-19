@@ -5,7 +5,7 @@ import type { Role, Task } from "./types";
 function task(o: Partial<Task> = {}): Task {
   return {
     id: 1, taskName: "T", assignee: "A", assigneeEmail: "a@x.io",
-    dueDate: "2026-06-10", lastUpdateDate: "2026-06-01", priority: "Medium",
+    dueDate: "2026-06-10", lastUpdateDate: "2026-06-01", status: "To Do", priority: "Medium",
     blockers: "", notes: "", ...o,
   };
 }

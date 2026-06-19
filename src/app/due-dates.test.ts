@@ -11,6 +11,7 @@ function makeTask(overrides: Partial<Task>): Task {
     assigneeEmail: "",
     dueDate: "",
     lastUpdateDate: "",
+    status: "To Do",
     priority: "Medium",
     blockers: "",
     notes: "",

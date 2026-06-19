@@ -6,7 +6,7 @@
 //
 // Auto-rule order, top to bottom (first match wins):
 //   1. `healthOverride` set on the task     → that color
-//   2. completedDate set                    → Green
+//   2. finished (Done or Cancelled)         → Green
 //   3. dueDate before today (overdue)       → Red
 //   4. blockers field non-empty             → Red
 //   5. dueDate === today                    → Amber
@@ -18,6 +18,7 @@
 
 import { workdaysUntil } from "./due-dates";
 import { type Lang, t } from "./i18n";
+import { isTaskFinished } from "./task-status";
 import type { Task } from "./types";
 
 export type Health = "R" | "A" | "G";
@@ -34,6 +35,7 @@ export type HealthDriver =
   | "dueToday"
   | "dueSoon"
   | "completed"
+  | "cancelled"
   | "onTrack";
 
 export type TaskHealth = {
@@ -54,8 +56,14 @@ export function computeTaskHealth(
   if (task.healthOverride) {
     return { color: task.healthOverride, drivers: ["manual"] };
   }
-  if (task.completedDate) {
-    return { color: "G", drivers: ["completed"] };
+  // A finished task is non-active: it must not be flagged red/amber/overdue.
+  // Done carries completedDate; Cancelled is terminal with no completedDate, so
+  // also guard on isTaskFinished so Cancelled takes the same Green path.
+  if (task.completedDate || isTaskFinished(task)) {
+    return {
+      color: "G",
+      drivers: [task.status === "Cancelled" ? "cancelled" : "completed"],
+    };
   }
 
   const drivers: HealthDriver[] = [];
@@ -108,7 +116,7 @@ export type GroupHealth = {
  * Worst-case aggregation: any Red → Red; else any Amber → Amber; else Green.
  *
  * The driver list collects per-task drivers but excludes the noisy ones
- * ("onTrack", "completed") so the steering view doesn't show "Group is
+ * ("onTrack", "completed", "cancelled") so the steering view doesn't show "Group is
  * Red — also 12 tasks are on track".
  */
 export function computeGroupHealth(
@@ -163,6 +171,7 @@ export function formatHealthTooltip(health: TaskHealth, lang: Lang): string {
     | "healthDriverDueToday"
     | "healthDriverDueSoon"
     | "healthDriverCompleted"
+    | "healthDriverCancelled"
     | "healthDriverOnTrack"> = {
     manual: "healthDriverManual",
     overdue: "healthDriverOverdue",
@@ -170,6 +179,7 @@ export function formatHealthTooltip(health: TaskHealth, lang: Lang): string {
     dueToday: "healthDriverDueToday",
     dueSoon: "healthDriverDueSoon",
     completed: "healthDriverCompleted",
+    cancelled: "healthDriverCancelled",
     onTrack: "healthDriverOnTrack",
   };
   const drivers = health.drivers

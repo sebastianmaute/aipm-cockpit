@@ -99,9 +99,19 @@ const enUS = {
   priorityHigh: "High",
   priorityUrgent: "Urgent",
 
+  statusToDo: "To Do",
+  statusInProgress: "In Progress",
+  statusOnHold: "On Hold",
+  statusInReview: "In Review",
+  statusCancelled: "Cancelled",
+  statusDone: "Done",
+  colTaskStatus: "Status",
+  hideFinishedTasks: "Hide finished",
+
   tasks: "Tasks",
   tasksCount: "({0})",
   tasksCountFiltered: "({0} of {1})",
+  tasksFinishedHidden: "{0} finished hidden",
   clearAll: "Clear all",
   searchPlaceholder: "Search task name, assignee, blockers, notes…",
   allPriorities: "All priorities",
@@ -134,7 +144,6 @@ const enUS = {
   configureFields: "Configure fields",
   resetToDefault: "Reset to default",
   fieldViewLabel: "Field view",
-  colStatus: "Status",
   colEstimate: "Est.",
   colSpent: "Spent",
   workspaceResizeHint:
@@ -501,6 +510,8 @@ const enUS = {
     "Schedule recurring AI portfolio analyses that surface as notifications and an in-app history.",
   versionHighlightInstallable:
     "Install the tracker as a desktop or mobile app for quick launch from your home screen or dock.",
+  versionHighlightTaskStatus:
+    "Tasks now have a workflow status (To Do to Done) with a status column, inline status editing, and a hide-finished toggle.",
   scheduledJobsTitle: "Scheduled jobs",
   scheduledJobsToggle: "Enable scheduled jobs",
   scheduledJobsHelp:
@@ -640,6 +651,7 @@ const enUS = {
   healthDriverDueToday: "due today",
   healthDriverDueSoon: "due soon",
   healthDriverCompleted: "completed",
+  healthDriverCancelled: "cancelled",
   healthDriverOnTrack: "on track",
   healthTooltip: "{0}: {1}",
   reportsGroupHealth: "Group health",

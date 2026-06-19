@@ -395,6 +395,7 @@ export function ReportsPanel({
     | "healthDriverDueToday"
     | "healthDriverDueSoon"
     | "healthDriverCompleted"
+    | "healthDriverCancelled"
     | "healthDriverOnTrack"> = {
     manual: "healthDriverManual",
     overdue: "healthDriverOverdue",
@@ -402,6 +403,7 @@ export function ReportsPanel({
     dueToday: "healthDriverDueToday",
     dueSoon: "healthDriverDueSoon",
     completed: "healthDriverCompleted",
+    cancelled: "healthDriverCancelled",
     onTrack: "healthDriverOnTrack",
   };
 

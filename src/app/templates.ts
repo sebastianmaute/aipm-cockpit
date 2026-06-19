@@ -1,4 +1,5 @@
 import { sanitizeFeatures, type FeatureModuleId } from "./feature-modules";
+import { migrateTaskStatus } from "./task-status";
 import type { Workspace } from "./workspace";
 import {
   sanitizeFieldVisibility,
@@ -119,6 +120,7 @@ function sanitizeSeedTask(raw: unknown): Task | null {
     dueDate: sanitizeIsoDate(raw.dueDate),
     lastUpdateDate: sanitizeIsoDate(raw.lastUpdateDate),
     priority: sanitizePriority(raw.priority),
+    status: raw.status as Task["status"],
     blockers: sanitizeBlockers(raw.blockers),
     notes: sanitizeNotes(raw.notes),
   };
@@ -157,7 +159,9 @@ function sanitizeSeedTask(raw: unknown): Task | null {
         .filter((d): d is TaskDependency => d !== null)
     : [];
   if (deps.length) task.dependencies = deps;
-  return task;
+  // Derive a valid workflow status (Done-if-completedDate, else To Do) for
+  // legacy/sparse seed content; a present-and-valid status is preserved.
+  return migrateTaskStatus(task);
 }
 
 function sanitizeRiskScale(raw: unknown): 1 | 2 | 3 | 4 | 5 | undefined {

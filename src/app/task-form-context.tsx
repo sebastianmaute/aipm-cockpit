@@ -11,7 +11,7 @@ import {
 } from "react";
 import { type Health } from "./health";
 import type { DocumentLink } from "./document-link";
-import { type Priority, type TaskDependency } from "./types";
+import { type Priority, type TaskDependency, type TaskStatus } from "./types";
 
 function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
@@ -26,6 +26,7 @@ export function emptyForm() {
     dueDate: "",
     lastUpdateDate: todayISO(),
     priority: "Medium" as Priority,
+    status: "To Do" as TaskStatus,
     blockers: "",
     notes: "",
     group: "",

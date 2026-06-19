@@ -1,3 +1,4 @@
+import { isTaskFinished } from "./task-status";
 import type { Task, Absence } from "./types";
 
 export function workdaysUntil(
@@ -46,7 +47,9 @@ export function getAlertableTasks(
   const EMPTY: ReadonlySet<string> = new Set();
   const out: AlertableTask[] = [];
   for (const task of tasks) {
-    if (!task.dueDate || task.completedDate) continue;
+    // completedDate excludes Done; isTaskFinished also excludes Cancelled
+    // (terminal, no completedDate) — Cancelled tasks must not raise due alerts.
+    if (!task.dueDate || task.completedDate || isTaskFinished(task)) continue;
     if (task.dueDate < today) { out.push({ task, category: "overdue", workDaysLeft: 0 }); continue; }
     if (task.dueDate === today) { out.push({ task, category: "today", workDaysLeft: 0 }); continue; }
     const absenceDays = absMap.get(task.assignee.trim().toLowerCase()) ?? EMPTY;
