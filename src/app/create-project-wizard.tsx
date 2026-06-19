@@ -82,7 +82,7 @@ function hasSeedContent(tpl: ProjectTemplate | null): boolean {
   return Object.values(tpl.seed).some((v) => Array.isArray(v) && v.length > 0);
 }
 
-function StepIndicator({ lang, step }: { lang: Lang; step: Step }) {
+function StepIndicator({ lang, step }: { lang: Lang; step: 1 | 2 | 3 }) {
   const labels: { n: Step; key: "wizardStepDetails" | "wizardStepTemplate" | "wizardStepFunctions" }[] = [
     { n: 1, key: "wizardStepDetails" },
     { n: 2, key: "wizardStepTemplate" },
@@ -124,7 +124,7 @@ export function CreateProjectWizard({
 
   const aiKey = settings.ai?.apiKey?.trim() ?? "";
   const aiEnabled = aiKey.length > 0;
-  const { generate, busy: aiBusy, error: aiError } = useProjectProposal({
+  const { generate, busy: aiBusy, error: aiError, reset: resetAi } = useProjectProposal({
     apiKey: aiKey,
     model: settings.ai?.model ?? "claude-sonnet-4-6",
   });
@@ -166,6 +166,9 @@ export function CreateProjectWizard({
     const p = await generate(description);
     if (!p) return; // error surfaced via aiError
     const today = new Date().toISOString().slice(0, 10); // callback context — lint-safe
+    // Clear any meta captured from a prior manual Step-1 visit so the fresh AI
+    // draftPatch wins on the next Step-1 mount (initialMeta would otherwise shadow it).
+    setMeta(null);
     setDraftPatch(proposalToDraftPatch(p));
     setFeatures(p.features.length ? p.features : [...ALL_MODULE_IDS]);
     const seed = proposalToSeed(p, today);
@@ -222,12 +225,26 @@ export function CreateProjectWizard({
     </button>
   ) : null;
 
+  // Step-1 footer left slot: a Back-to-Describe button (only on the AI fast-path,
+  // before details are captured) plus the M365 shortcut. Without this, an AI user
+  // who lands on Step 1 has no way back to re-describe — only Cancel.
+  const step1FooterLeft = (
+    <>
+      {aiEnabled && !meta && (
+        <button type="button" onClick={() => setStep(0)} className={SECONDARY_BUTTON_CLASS}>
+          {t(lang, "wizardBack")}
+        </button>
+      )}
+      {m365Button}
+    </>
+  );
+
   return (
     <div className="flex min-h-0 flex-col">
       {/* Fixed header: step indicator (the modal panel owns resize/reset). */}
       <div className="flex shrink-0 items-start pb-4">
         {step >= 1 ? (
-          <StepIndicator lang={lang} step={step as Step} />
+          <StepIndicator lang={lang} step={step as 1 | 2 | 3} />
         ) : (
           <h2 className="text-base font-semibold text-foreground">{t(lang, "aiCreateHeading")}</h2>
         )}
@@ -270,7 +287,7 @@ export function CreateProjectWizard({
             onCreate={handleDetails}
             onCancel={onCancel}
             hideFormat={hideFormat}
-            footerLeft={m365Button}
+            footerLeft={step1FooterLeft}
             submitLabel={t(lang, "wizardNext")}
             initialMeta={meta ?? undefined}
             initialDraftPatch={meta ? undefined : draftPatch}
@@ -430,7 +447,7 @@ export function CreateProjectWizard({
       {step === 0 && (
         <div className="flex shrink-0 justify-between gap-2 border-t border-line pt-4">
           <div className="flex gap-2">
-            <button type="button" onClick={() => setStep(1)} className={SECONDARY_BUTTON_CLASS}>
+            <button type="button" onClick={() => { resetAi(); setStep(1); }} className={SECONDARY_BUTTON_CLASS}>
               {t(lang, "aiCreateSkip")}
             </button>
             {onCancel && (

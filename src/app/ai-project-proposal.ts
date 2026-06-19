@@ -6,6 +6,7 @@ import { ALL_MODULE_IDS, type FeatureModuleId } from "./feature-modules";
 import type { ProjectFormDraft } from "./project-form-fields";
 import type { TemplateSeed } from "./templates";
 import type { Task } from "./types";
+import { isSafeHttpUrl } from "./document-link";
 import {
   sanitizeRaidItem,
   sanitizeChangeItem,
@@ -188,7 +189,9 @@ export function proposalToDraftPatch(p: ProjectProposal): Partial<ProjectFormDra
   if (m.startDate) patch.startDate = m.startDate;
   if (m.endDate) patch.endDate = m.endDate;
   if (m.description) patch.description = m.description;
-  if (m.jiraUrl) patch.jiraUrl = m.jiraUrl;
+  // Defense-in-depth: model output is attacker-influenceable — reject a
+  // javascript:/data: URL before it ever reaches the form field.
+  if (m.jiraUrl && isSafeHttpUrl(m.jiraUrl)) patch.jiraUrl = m.jiraUrl;
   return patch;
 }
 

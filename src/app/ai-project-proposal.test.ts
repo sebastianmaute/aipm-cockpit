@@ -53,6 +53,14 @@ describe("proposalToDraftPatch", () => {
     // Unsupplied fields are absent (not "")
     expect("jiraUrl" in patch).toBe(false);
   });
+
+  it("keeps a safe http(s) jiraUrl but drops a javascript: URL from model output", () => {
+    expect(
+      proposalToDraftPatch({ meta: { name: "X", jiraUrl: "https://acme.atlassian.net" }, features: [] }).jiraUrl,
+    ).toBe("https://acme.atlassian.net");
+    const unsafe = proposalToDraftPatch({ meta: { name: "X", jiraUrl: "javascript:alert(1)" }, features: [] });
+    expect("jiraUrl" in unsafe).toBe(false);
+  });
 });
 
 describe("proposalToSeed", () => {
