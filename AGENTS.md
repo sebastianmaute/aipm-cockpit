@@ -208,3 +208,16 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
   sanitize) → `appendSeed`/`remapSeed`; no new Workspace field. Model-supplied URLs gated by
   `isSafeHttpUrl`. Empty-state offers "Configure AI assistant" (`BackendConfigModal` `children` +
   `AiSection hideUsage`) so a first-run user can set the key.
+- **AI Action Center suggestions (SP4):** Action Center "Analyze with AI" button → ONE forced-tool
+  Anthropic call (`tool_choice:{type:"tool",name:"report_analysis"}`, no loop) in
+  `use-action-analysis.ts`; pure contract/transforms in `action-ai.ts` (`parseAnalysis` validates
+  untrusted model output; `groundEntity` RE-VALIDATES model entity ids against the live workspace
+  before any `requestOpen` deep-link — hallucinated id → fall back to `requestChat`). ADVISORY only
+  (no write tool; deterministic `next-actions/` engine untouched; no new Workspace field). Hook lives
+  in `task-manager.tsx` ABOVE the view so the in-memory result survives view remounts; bundle is
+  `isPopout ? undefined` (popouts stay read-only even though advisory). Gated on key + `ai.action
+  Suggestions !== false` (default ON). Rendered above the now/soon/monitor tiers; AI rows use a
+  separate `ai-action-row.tsx` (NOT `ActionRow`).
+- **No `settings.mode` field:** PM mode is DERIVED — `deriveMode(settings.features)` (same call the
+  chat snapshot uses in `use-chat-dispatcher.ts`). Reading `settings.mode` is `undefined`; use
+  `deriveMode`.

@@ -7,7 +7,8 @@
 // Built as a standalone component using the shared ModalHeader + useDraggable,
 // like resource-edit-modal.tsx / absence-edit-modal.tsx.
 
-import { useEffect, useId, useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
+import { useEscapeKey } from "./use-escape-key";
 import { type Lang, t, type TranslationKey } from "./i18n";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
@@ -105,13 +106,7 @@ export function ChangeEditModal({
 
   const { offset, handleProps } = useDraggable(true);
 
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onCancel();
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onCancel]);
+  useEscapeKey(onCancel);
 
   const availableTasks = useMemo(() => {
     const linked = new Set(draft.linkedTaskIds);

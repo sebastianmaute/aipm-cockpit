@@ -10,18 +10,10 @@ import { useFilters } from "./filters-context";
 import { useTaskForm, emptyBulkEdit, emptyForm } from "./task-form-context";
 import {
   isValidEmail,
-  sanitizeAssignee,
-  sanitizeBlockers,
-  sanitizeEmail,
-  sanitizeGroup,
-  sanitizeIsoDate,
-  sanitizeLabels,
-  sanitizeNotes,
-  sanitizePriority,
   sanitizeTaskName,
   sanitizeVoiceTranscript,
 } from "./sanitize";
-import { greetingName } from "./contacts";
+import { buildBulkEditUpdates, buildInquiryMessage } from "./bulk-operations-helpers";
 
 export interface BulkRowHandlers {
   onEdit: (task: Task) => void;
@@ -146,30 +138,15 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
         return;
       }
     }
-    const newDue = fields.dueDate ? sanitizeIsoDate(bulkEdit.dueDate) : "";
-    if (fields.dueDate && (!newDue || newDue < today)) {
-      showToastRef.current("error", t(lang, "errorPastDate"));
+    const built = buildBulkEditUpdates(bulkEdit, today);
+    if (!built.ok) {
+      showToastRef.current(
+        "error",
+        t(lang, built.error === "pastDate" ? "errorPastDate" : "errorInvalidEmail"),
+      );
       return;
     }
-    const newEmail = fields.assigneeEmail
-      ? sanitizeEmail(bulkEdit.assigneeEmail)
-      : "";
-    if (fields.assigneeEmail && newEmail && !isValidEmail(newEmail)) {
-      showToastRef.current("error", t(lang, "errorInvalidEmail"));
-      return;
-    }
-    const updates: Partial<Task> = {};
-    if (fields.priority) updates.priority = sanitizePriority(bulkEdit.priority);
-    if (fields.dueDate) updates.dueDate = newDue;
-    if (fields.lastUpdateDate)
-      updates.lastUpdateDate =
-        sanitizeIsoDate(bulkEdit.lastUpdateDate) || today;
-    if (fields.assignee) updates.assignee = sanitizeAssignee(bulkEdit.assignee);
-    if (fields.assigneeEmail) updates.assigneeEmail = newEmail;
-    if (fields.blockers) updates.blockers = sanitizeBlockers(bulkEdit.blockers);
-    if (fields.notes) updates.notes = sanitizeNotes(bulkEdit.notes);
-    if (fields.group) updates.group = sanitizeGroup(bulkEdit.group);
-    if (fields.labels) updates.labels = sanitizeLabels(bulkEdit.labels);
+    const updates = built.updates;
     const count = selectedIds.size;
     const stamp = new Date().toISOString();
     setTasks((prev) =>
@@ -251,21 +228,7 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
     }
 
     for (const [email, taskList] of groups) {
-      const greeting = greetingName(taskList[0].assignee) || taskList[0].assignee;
-      const subject =
-        taskList.length === 1
-          ? t(lang, "emailSubject", taskList[0].id, taskList[0].taskName)
-          : t(lang, "emailSubjectBulk", taskList.length);
-      let body: string;
-      if (taskList.length === 1) {
-        const t0 = taskList[0];
-        body = t(lang, "emailBodyTemplate", greeting, t0.id, t0.taskName, t0.dueDate, t0.lastUpdateDate);
-      } else {
-        const items = taskList
-          .map((tk) => `- #${tk.id}: ${tk.taskName} (${tk.dueDate})`)
-          .join("\n");
-        body = t(lang, "emailBodyBulkTemplate", greeting, taskList.length, items);
-      }
+      const { subject, body } = buildInquiryMessage(taskList, lang);
       const url = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
       window.open(url);
     }

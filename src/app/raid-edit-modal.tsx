@@ -8,7 +8,8 @@
 // (change-edit-modal.tsx / stakeholder-edit-modal.tsx) the panel owns the
 // draft state and passes it down with change callbacks.
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import { useEscapeKey } from "./use-escape-key";
 import { ModalFieldControls } from "./modal-field-controls";
 import { useModalVisibility } from "./use-modal-visibility";
 import { SegmentedControl } from "./segmented-control";
@@ -101,13 +102,7 @@ export function RaidEditModal({
     setCategoryUnlocked(false);
   }
 
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onCancel();
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onCancel]);
+  useEscapeKey(onCancel);
 
   const statusOpts = statusOptionsFor(draft.category);
 
