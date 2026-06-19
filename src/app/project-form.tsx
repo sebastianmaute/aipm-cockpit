@@ -46,6 +46,9 @@ export interface ProjectFormProps {
   /** Optional content rendered at the footer's bottom-left (e.g. a
    *  "Configure M365 integration" button). */
   footerLeft?: React.ReactNode;
+  /** Create-mode prefill (e.g. the AI fast-path). Applied over emptyProjectDraft().
+   *  Ignored when `initial` (edit mode) is provided. */
+  initialDraftPatch?: Partial<ProjectFormDraft>;
 }
 
 /** Build the editable draft from an existing ProjectMeta (edit mode). */
@@ -92,9 +95,10 @@ export function ProjectForm({
   onCancel,
   submitLabel,
   footerLeft,
+  initialDraftPatch,
 }: ProjectFormProps) {
   const [draft, setDraft] = useState<ProjectFormDraft>(() =>
-    initial ? draftFromMeta(initial) : emptyProjectDraft(),
+    initial ? draftFromMeta(initial) : { ...emptyProjectDraft(), ...initialDraftPatch },
   );
   const [touched, setTouched] = useState<Set<ProjectErrorField>>(() => new Set());
   const [submitted, setSubmitted] = useState(false);

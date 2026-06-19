@@ -236,3 +236,34 @@ describe("ProjectForm", () => {
     expect(screen.getByText(/enable microsoft 365/i)).toBeInTheDocument();
   });
 });
+
+describe("ProjectForm initialDraftPatch", () => {
+  it("prefills supplied draft fields in create mode", () => {
+    setup({ initialDraftPatch: { name: "Seeded Name", products: "Widget" } });
+    expect(screen.getByDisplayValue("Seeded Name") as HTMLInputElement).toBeTruthy();
+    expect(screen.getByDisplayValue("Widget") as HTMLInputElement).toBeTruthy();
+  });
+
+  it("ignores initialDraftPatch in edit mode (initial wins)", () => {
+    const initial = {
+      name: "Edit Mode Name",
+      code: "EM-1",
+      projectManager: "PM",
+      keyStakeholdersInternal: [],
+      keyStakeholdersExternal: [],
+      customer: "Cust",
+      naceSection: "C",
+      identityTypes: [],
+      products: "Edit Mode Product",
+      deployment: "Cloud",
+      startDate: "2026-01-01",
+      endDate: "2026-06-01",
+      profitCenter: "PC-1",
+      contactPersons: [],
+      regulatory: [],
+    } as unknown as ProjectMeta;
+    setup({ initial, initialDraftPatch: { name: "Seeded Name", products: "Widget" } });
+    expect(screen.getByDisplayValue("Edit Mode Name")).toBeTruthy();
+    expect(screen.queryByDisplayValue("Seeded Name")).toBeNull();
+  });
+});
