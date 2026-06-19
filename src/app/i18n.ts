@@ -499,6 +499,8 @@ const enUS = {
     "Action Center: one-click AI triage + suggested next actions",
   versionHighlightScheduledJobs:
     "Schedule recurring AI portfolio analyses that surface as notifications and an in-app history.",
+  versionHighlightInstallable:
+    "Install the tracker as a desktop or mobile app for quick launch from your home screen or dock.",
   scheduledJobsTitle: "Scheduled jobs",
   scheduledJobsToggle: "Enable scheduled jobs",
   scheduledJobsHelp:

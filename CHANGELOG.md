@@ -8,6 +8,13 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.106.0] - 2026-06-19 "Sterling"
+
+Installable PWA (SP5 Phase 6 — scoped to installability only).
+
+### Added
+- **Install as an app:** a web manifest + a minimal service worker let you install the tracker as a standalone desktop/mobile app (launch from the home screen / dock). The service worker does **no** caching — every request goes to the network, so installed copies never serve stale bundles. Registered from a client component (CSP-nonce-safe); CSP gains an explicit `worker-src 'self'`. Periodic Background Sync (running scheduled jobs while the app is closed) is intentionally **not** included — the SP5 baseline already runs due jobs when you next open the app.
+
 ## [0.105.0] - 2026-06-19 "Morgan"
 
 AI-orchestration roadmap **SP5** — scheduled Claude jobs (baseline). Closes the roadmap.
