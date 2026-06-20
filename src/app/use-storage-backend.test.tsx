@@ -91,7 +91,7 @@ import { TursoLockTimeoutError } from "./turso-backend";
 
 // portfolio-mode is a pure module backed by jsdom localStorage — use it for real
 // so saveCurrentTursoProjectId / loadCurrentTursoProjectId round-trip as in prod.
-import { loadCurrentTursoProjectId, saveCurrentTursoProjectId } from "./portfolio-mode";
+import { loadCurrentTursoProjectId, saveCurrentTursoProjectId, savePortfolioMode, loadPortfolioMode } from "./portfolio-mode";
 
 // ── Mock backend ──────────────────────────────────────────────────────────────
 const mockBackend = {
@@ -1081,6 +1081,93 @@ describe("useStorageBackend — project flows", () => {
     const reg = loadRegistry();
     expect(reg.projects.some((p) => p.name === "New Proj")).toBe(true);
     expect(reg.currentProjectId).not.toBeNull();
+  });
+
+  // ── createDemoProject — registers the demo as a REAL local project ──────────
+  // Regression guard for the SP-F CRITICAL: the empty-state "Explore a demo
+  // project" CTA must register a project (raise the registry count) so the
+  // showEmptyState gate flips false and the views + tour overlay mount. An
+  // apply-only path left the registry empty and the demo invisible.
+  it("createDemoProject registers the supplied workspace as a real project (registry count rises) + applies its data, no file picker", async () => {
+    const targetSave = vi.fn().mockResolvedValue(undefined);
+    const targetBackend = {
+      kind: "browser",
+      load: vi.fn().mockResolvedValue(emptyWorkspace()),
+      save: targetSave,
+      isReady: vi.fn().mockResolvedValue(true),
+      describe: vi.fn().mockResolvedValue("Browser"),
+    };
+    createBackendMock
+      .mockReturnValueOnce(mockBackend)
+      .mockReturnValue(targetBackend);
+
+    const sampleWs = {
+      ...emptyWorkspace(),
+      project: { name: "Demo PM", code: "DEMO" },
+      tasks: [{ id: 1, taskName: "Sample task" } as unknown as Task],
+    };
+
+    const { result } = renderBackend(makeArgs({ setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+
+    await act(async () => {
+      await result.current.createDemoProject(sampleWs as never);
+    });
+    await act(async () => { await Promise.resolve(); });
+
+    // Registry now holds exactly one project, derived from the sample meta…
+    const reg = loadRegistry();
+    expect(reg.projects).toHaveLength(1);
+    expect(reg.projects[0]?.name).toBe("Demo PM");
+    expect(reg.currentProjectId).not.toBeNull();
+    // …the sample data was applied into workspace state…
+    expect(result.current.tasks[0]?.id).toBe(1);
+    // …it was persisted to the browser/IDB backend (NO file picker)…
+    expect(targetSave).toHaveBeenCalledWith(expect.objectContaining({ project: expect.objectContaining({ code: "DEMO" }) }));
+    expect(storageMod.pickFileForBackend).not.toHaveBeenCalled();
+    // …and the config was repointed at the frictionless browser backend.
+    expect(setStorageConfig).toHaveBeenCalledWith({ kind: "browser" });
+  });
+
+  // In TURSO portfolio mode a local demo can't flip the Turso-branch empty-state
+  // gate, so createDemoProject must durably persist (registry + settings + mode)
+  // and switch the portfolio to file mode + reload. Hardened path: all writes land
+  // BEFORE the reload, and it does NOT apply in place (the reload would discard it).
+  it("createDemoProject in Turso mode persists registry+settings+file-mode and reloads (no in-place apply)", async () => {
+    const targetBackend = {
+      kind: "browser",
+      load: vi.fn().mockResolvedValue(emptyWorkspace()),
+      save: vi.fn().mockResolvedValue(undefined),
+      isReady: vi.fn().mockResolvedValue(true),
+      describe: vi.fn().mockResolvedValue("Browser"),
+    };
+    createBackendMock.mockReturnValueOnce(mockBackend).mockReturnValue(targetBackend);
+    savePortfolioMode("turso");
+
+    const sampleWs = { ...emptyWorkspace(), project: { name: "Demo PM", code: "DEMO" } };
+
+    const reloadSpy = vi.fn();
+    const originalLocation = window.location;
+    Object.defineProperty(window, "location", { configurable: true, value: { ...originalLocation, reload: reloadSpy } });
+    try {
+      const { result } = renderBackend(makeArgs({ setStorageConfig }));
+      await act(async () => { await Promise.resolve(); });
+      await act(async () => { await result.current.createDemoProject(sampleWs as never); });
+      await act(async () => { await Promise.resolve(); });
+
+      // Durable writes landed BEFORE the reload: registry has the demo, portfolio
+      // mode flipped to file, settings persisted the browser storageConfig.
+      expect(loadRegistry().projects).toHaveLength(1);
+      expect(loadPortfolioMode()).toBe("file");
+      const persisted = JSON.parse(window.localStorage.getItem("lop-app:settings") ?? "{}");
+      expect(persisted.storageConfig?.kind).toBe("browser");
+      expect(reloadSpy).toHaveBeenCalledTimes(1);
+      // In-place apply skipped (reload discards it) — no success toast fired.
+      expect(setStorageConfig).not.toHaveBeenCalled();
+    } finally {
+      Object.defineProperty(window, "location", { configurable: true, value: originalLocation });
+      savePortfolioMode("file");
+    }
   });
 
   // ── R3: registry persistence failure must be surfaced ───────────────────────

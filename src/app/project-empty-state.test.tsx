@@ -248,4 +248,20 @@ describe("ProjectEmptyState", () => {
     const [, format] = onCreate.mock.calls[0];
     expect(format).toBe("csv");
   });
+
+  it("shows 'Explore a demo project' and calls onLoadDemo when provided", () => {
+    const onLoadDemo = vi.fn();
+    setup({ onLoadDemo });
+    fireEvent.click(
+      screen.getByRole("button", { name: t("en-US", "tourLoadDemo") }),
+    );
+    expect(onLoadDemo).toHaveBeenCalledTimes(1);
+  });
+
+  it("hides the demo CTA when onLoadDemo is not provided", () => {
+    setup();
+    expect(
+      screen.queryByRole("button", { name: t("en-US", "tourLoadDemo") }),
+    ).toBeNull();
+  });
 });

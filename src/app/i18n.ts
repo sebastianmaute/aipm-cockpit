@@ -537,6 +537,8 @@ const enUS = {
     "Create a project by importing a file, a SharePoint document, or a Confluence page - the AI reads it and pre-fills the new-project wizard.",
   versionHighlightSteering:
     "Steering committee: record members, the meeting schedule, and information-pack cadence rules. Pack reminders surface in the Action Center, and meetings plus reminders can be pushed to your Outlook calendar.",
+  versionHighlightTour:
+    "Guided tour + demo: a first-run walkthrough of the main areas (modern layout), a one-click demo project to explore, and a 'Take the tour' entry in the Help menu to replay it anytime.",
   scheduledJobsTitle: "Scheduled jobs",
   scheduledJobsToggle: "Enable scheduled jobs",
   scheduledJobsHelp:
@@ -1901,6 +1903,40 @@ const enUS = {
   committeePushError: "Could not push reminders to Outlook.",
   committeePushResult: "Synced {0} meeting(s), {1} reminder(s) to Outlook.",
   committeePushPartial: "{0} event(s) could not be synced.",
+
+  // --- Guided tour (SP-F) ---
+  tourLaunch: "Take the tour",
+  tourLoadDemo: "Explore a demo project",
+  tourSkip: "Skip",
+  tourNext: "Next",
+  tourBack: "Back",
+  tourDone: "Done",
+  tourShowMe: "Show me",
+  tourDemoError: "Couldn't load the demo project.",
+  tourStepWelcomeTitle: "Welcome to the PM Tracker",
+  tourStepWelcomeBody: "A quick tour of the main areas. You can skip anytime and replay it later from the Help menu.",
+  tourStepProjectsTitle: "Projects",
+  tourStepProjectsBody: "Create a project from scratch, import one from a file, SharePoint, or Confluence, or let AI draft it from a description.",
+  tourStepTasksTitle: "Open points",
+  tourStepTasksBody: "Track work as tasks in a table or a Kanban board, with status, RAID links, and Jira sync.",
+  tourStepActionsTitle: "Action Center",
+  tourStepActionsBody: "Ranked suggested next actions from your tasks, RAID, milestones, budget, and committee reminders — with one-click CTAs.",
+  tourStepChatTitle: "AI assistant",
+  tourStepChatBody: "Ask Claude about this project, attach documents, or have it create and update records for you.",
+  tourStepDashboardTitle: "Dashboard",
+  tourStepDashboardBody: "A portfolio overview: health, completion, budget, and (on Turso) trend snapshots.",
+  tourStepReportsTitle: "Reports",
+  tourStepReportsBody: "Composable budget, RAID, and change reports you can sort, filter, reorder, and print.",
+  tourStepRaidTitle: "RAID log",
+  tourStepRaidBody: "Risks, assumptions, issues, and dependencies — with owners, severity, and review reminders.",
+  tourStepMilestonesTitle: "Milestones & Gantt",
+  tourStepMilestonesBody: "Plan milestones on a timeline and push them to your Outlook calendar.",
+  tourStepStakeholdersTitle: "Stakeholders",
+  tourStepStakeholdersBody: "Map stakeholders, RACI, and communication reminders.",
+  tourStepSteeringTitle: "Steering committee",
+  tourStepSteeringBody: "Record committee members, the meeting schedule, and info-pack reminders — and push them to Outlook.",
+  tourStepSettingsTitle: "Settings & storage",
+  tourStepSettingsBody: "Switch storage backends, tune next-action weights, configure AI and integrations, and set your mode.",
 
   // --- UI polish batch (0.76.0) ---
   // Modal heading fixes

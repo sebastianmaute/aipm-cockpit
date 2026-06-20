@@ -8,6 +8,11 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.112.0] - 2026-06-20 "Okorafor"
+
+### Added
+- Guided tour + demo showcase: first-run users get a short walkthrough of the main areas in the modern layout, a one-click "Explore a demo project" that loads sample data, and a "Take the tour" entry in the Help menu to replay it anytime. Per-device; the tour does not run in the classic layout or popouts.
+
 ## [0.111.0] - 2026-06-20 "Chambers"
 
 ### Added

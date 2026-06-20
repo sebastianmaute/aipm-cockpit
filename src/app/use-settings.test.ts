@@ -124,6 +124,17 @@ describe("useSettings", () => {
       expect(result.current.settings.tasksViewMode).toBe("board");
     });
 
+    it("tourSeen defaults to undefined (auto-launch eligible)", () => {
+      expect(defaultSettings.tourSeen).toBeUndefined();
+    });
+
+    it("tourSeen round-trips through writeSettings -> load (not stripped by persist)", async () => {
+      writeSettings({ ...defaultSettings, tourSeen: true });
+      const { result } = renderHook(() => useSettings());
+      await act(async () => {});
+      expect(result.current.settings.tourSeen).toBe(true);
+    });
+
     it("preserves an explicitly emptied reports.extra (removal sticks)", async () => {
       localStorage.setItem(
         SETTINGS_KEY,

@@ -2,6 +2,13 @@
 import { type Lang, t } from "./i18n";
 import { NAV_GROUPS, navLabelKey, type AppView, type NavGroup, type NavItem } from "./nav-config";
 import { NavIcon } from "./nav-icons";
+import { TOUR_ANCHORS } from "./app-tour";
+
+// Guided-tour spotlight anchors live on the matching nav buttons.
+const NAV_TOUR_ID: Partial<Record<AppView, string>> = {
+  "open-points": TOUR_ANCHORS.navTasks,
+  actions: TOUR_ANCHORS.navActions,
+};
 
 interface SidebarNavProps {
   lang: Lang;
@@ -58,6 +65,7 @@ export function SidebarNav({ lang, activeView, onNavigate, collapsed = false, na
                     aria-current={active ? "page" : undefined}
                     aria-label={collapsed ? label : undefined}
                     title={collapsed ? label : undefined}
+                    data-tour-id={NAV_TOUR_ID[item.view]}
                     className={navItemClass(active, "root", collapsed)}
                   >
                     <NavIcon view={item.view} />

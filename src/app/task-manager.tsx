@@ -76,7 +76,7 @@ import type { AppView } from "./nav-config";
 import { useSnapshots } from "./use-snapshots";
 import { useVersionHistory } from "./use-version-history";
 import { DEFAULT_VERSION_RETENTION } from "./version-history";
-import { workspaceToJson, type Workspace } from "./workspace";
+import { workspaceToJson, jsonToWorkspace, type Workspace } from "./workspace";
 import { computeDashboard } from "./dashboard";
 import { getTursoConfig } from "./turso-config";
 import { defaultExportConfig, defaultNextActionsLearning, defaultSnapshotSettings, resolveNextActionsConfig, type Settings } from "./settings-types";
@@ -125,6 +125,9 @@ import { SecretUnlockGate } from "./secret-unlock-gate";
 import { isPassphraseLocked } from "./secrets-store";
 import { unlockSecret } from "./use-secrets";
 import type { ProjectSwitcherProps } from "./project-switcher";
+import { useTour } from "./use-tour";
+import { TourOverlay } from "./tour-overlay";
+import { TOUR_ANCHORS } from "./app-tour";
 import { loadPortfolioMode, type PortfolioMode } from "./portfolio-mode";
 import { listProjects, listArchivedProjects } from "./turso-portfolio";
 import { useTursoProjects } from "./use-turso-projects";
@@ -373,7 +376,7 @@ function TaskManagerInner() {
   const {
     storageDescription, storageReady, onPickStorageFile, onGrantWriteAccess,
     onOpenStorageFile, onRequestStorageSwitch,
-    switchToProject, createProject, loadProjectFromFile,
+    switchToProject, createProject, createDemoProject, loadProjectFromFile,
     switchToTursoProject, createTursoProject, migrateCurrentProjectToTurso, archiveTursoProject,
     restoreTursoProject, hardDeleteTursoProject, tursoProjectId,
   } =
@@ -913,6 +916,36 @@ function TaskManagerInner() {
     setProject(w.project); setMilestones(w.milestones ?? []); setChanges(w.changes ?? []); setStakeholders(w.stakeholders ?? []);
     setSteeringCommittee(w.steeringCommittee);
   }, [setTasks, setRaid, setAbsences, setShifts, setResources, setRoles, setDisciplines, setGrades, setPlan, setBudgets, setFxRates, setStatus, setProject, setMilestones, setChanges, setStakeholders, setSteeringCommittee]);
+
+  // Guided tour (SP-F): modern-shell, non-popout only. Auto-launches once for a
+  // first-run user; re-launchable from the Help panel. State lives above the
+  // view so it survives the view remount that the modern shell performs.
+  const tour = useTour({
+    layout: settings.layout,
+    isPopout,
+    hydrated,
+    tourSeen: settings.tourSeen,
+    features: settings.features,
+    setSettings,
+  });
+  const startTour = tour.start;
+
+  // Load the curated sample workspace as a REAL, deletable demo project and kick
+  // off the tour. The CTA is empty-state-only (no real project to clobber), so
+  // registering it is safe; registering is also what flips the empty-state gate
+  // off so the views + tour overlay actually mount. Errors toast, never crash.
+  const loadDemo = useCallback(async () => {
+    try {
+      const mod = await import("../../sample-workspace-small.json");
+      const ws = jsonToWorkspace(
+        JSON.stringify((mod as { default?: unknown }).default ?? mod),
+      );
+      await createDemoProject(ws);
+      startTour();
+    } catch {
+      showToast("error", t(lang, "tourDemoError"));
+    }
+  }, [createDemoProject, startTour, showToast, lang]);
 
   // Stable onError so useVersionHistory's `refresh` callback keeps a stable
   // identity — an inline arrow here re-creates refresh every render, re-running
@@ -1993,6 +2026,7 @@ function TaskManagerInner() {
         onSwitch: handleSwitchProjectByMode,
         onLoadFromFile: () => { void loadProjectFromFile(); },
         onNew: handleNewProject,
+        dataTourId: TOUR_ANCHORS.projectSwitcher,
       };
 
   // Ask-Claude pill. In the modern layout it sits in the TopBar's LEFT cluster
@@ -2000,11 +2034,13 @@ function TaskManagerInner() {
   // AppHeader wires its own copy beside the switcher under the title. Both sites
   // must render it (dual-header rule) or it disappears in whichever layout is missed.
   const askClaudeEl = (
-    <AskClaudeMenu
-      lang={lang}
-      currentView={activeTab}
-      onAsk={(body) => requestChat(body, true)}
-    />
+    <span data-tour-id={TOUR_ANCHORS.askClaude}>
+      <AskClaudeMenu
+        lang={lang}
+        currentView={activeTab}
+        onAsk={(body) => requestChat(body, true)}
+      />
+    </span>
   );
 
   const topBarMenus = (
@@ -2018,6 +2054,7 @@ function TaskManagerInner() {
         onSaveTemplate={handleSaveTemplate}
         onApplyTemplate={handleApplyTemplate}
         expertMode={settings.expertMode}
+        onTakeTour={settings.layout === "modern" && !isPopout ? startTour : undefined}
       />
     </>
   );
@@ -2238,6 +2275,18 @@ function TaskManagerInner() {
         projectSwitcherTrailing={askClaudeEl}
         navBadges={{ actions: nowCount }}
       />
+      {tour.isOpen && settings.layout === "modern" && !isPopout && (
+        <TourOverlay
+          lang={lang}
+          steps={tour.steps}
+          index={tour.index}
+          onBack={tour.back}
+          onNext={tour.next}
+          onSkip={tour.skip}
+          onDone={tour.done}
+          onShowMe={(step) => tour.showMe(step, setActiveTab)}
+        />
+      )}
       {modalsBlock}
     </>
   );
@@ -2311,6 +2360,7 @@ function TaskManagerInner() {
                 onChangeSettings={(next) => setSettings(() => next)}
                 onCreate={handleCreateProjectByMode}
                 onLoadFromFile={handleLoadFromFileEmptyState}
+                onLoadDemo={() => { void loadDemo(); }}
                 archivedProjects={tursoArchived.map((e) => ({ id: e.id, name: e.meta.name }))}
                 onRestore={handleRestoreFromEmptyState}
                 onDeleteArchived={handleHardDeleteTursoProject}

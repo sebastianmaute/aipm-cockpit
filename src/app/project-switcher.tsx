@@ -20,6 +20,9 @@ export interface ProjectSwitcherProps {
   /** Turso mode: hide the "Load from file" dropdown item (Turso has no file
    *  load). Defaults to "file". */
   mode?: "file" | "turso";
+  /** Guided-tour spotlight anchor (`data-tour-id`) placed on the switcher's
+   *  outer container so the tour can highlight it. */
+  dataTourId?: string;
 }
 
 /**
@@ -41,6 +44,7 @@ export function ProjectSwitcher({
   onNew,
   readOnly = false,
   mode = "file",
+  dataTourId,
 }: ProjectSwitcherProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -70,6 +74,7 @@ export function ProjectSwitcher({
   if (readOnly) {
     return (
       <div
+        data-tour-id={dataTourId}
         title={label}
         className="flex max-w-[16rem] items-center gap-2 rounded-md border border-line bg-surface-muted px-3 py-1.5 text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey"
       >
@@ -87,7 +92,7 @@ export function ProjectSwitcher({
   }
 
   return (
-    <div ref={ref} className="relative">
+    <div ref={ref} data-tour-id={dataTourId} className="relative">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
