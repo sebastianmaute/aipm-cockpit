@@ -296,7 +296,7 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
                 <tr key={entry.id} className="align-top">
                   <td className="whitespace-nowrap px-3 py-2 font-mono text-[11px] tabular-nums text-muted-foreground">
                     <time dateTime={entry.timestamp}>
-                      {formatDisplayTimestamp(entry.timestamp, displayTz, lang)}
+                      {formatDisplayTimestamp(entry.timestamp, displayTz, lang, { withSeconds: true })}
                     </time>
                   </td>
                   <td className="whitespace-nowrap px-3 py-2 font-mono text-[11px] text-muted-foreground">

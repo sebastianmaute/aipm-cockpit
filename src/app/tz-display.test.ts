@@ -13,4 +13,9 @@ describe("formatDisplayTimestamp", () => {
   it("returns the raw input on an unparseable date", () => {
     expect(formatDisplayTimestamp("not-a-date", "UTC", "en-GB")).toBe("not-a-date");
   });
+  it("includes seconds only when withSeconds is set (activity log)", () => {
+    const iso = "2026-06-20T22:00:45Z";
+    expect(formatDisplayTimestamp(iso, "UTC", "en-GB")).not.toContain(":45");      // minute precision
+    expect(formatDisplayTimestamp(iso, "UTC", "en-GB", { withSeconds: true })).toContain(":45"); // seconds
+  });
 });
