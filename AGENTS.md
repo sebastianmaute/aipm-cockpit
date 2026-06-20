@@ -236,6 +236,22 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
   sanitize) → `appendSeed`/`remapSeed`; no new Workspace field. Model-supplied URLs gated by
   `isSafeHttpUrl`. Empty-state offers "Configure AI assistant" (`BackendConfigModal` `children` +
   `AiSection hideUsage`) so a first-run user can set the key.
+- **Create project from source (SP-D, v0.110.0):** the create wizard's Step 0 (now extracted to
+  `step0-import-panel.tsx`) adds Upload-file / SharePoint / Confluence-URL import alongside Describe;
+  all funnel into SP3's `useProjectProposal().generate(...)` — widened to `string | ContentBlock[]`
+  (multimodal: PDF/image read natively via SP2 `chat-attachments`, NO parsing lib). File: 20 MB cap +
+  `classifyAttachment` reused. SharePoint: existing `SharePointPickerModal` → `fetchSharePointFileContent`
+  via Graph `/shares/{u!base64(url)}/driveItem/content` (reuses `PICKER_SCOPES`, so no extra consent).
+  ★★ Confluence: the new `src/app/api/confluence/page/route.ts` MUST REUSE `api/jira/_helpers`
+  (`parseJiraRequest`/`callJira`/`forwardJsonResponse`) — NEVER a raw `fetch` (that bypasses the
+  SSRF allowlist to `*.atlassian.net` + Basic auth + timeout). Confluence is the SAME Atlassian host,
+  just the `/wiki/rest/api/content/{id}?expand=body.view` path; validate `pageId` with `/^\d+$/`
+  SERVER-SIDE before building the path (path-injection guard). Browser→`/api/confluence` is
+  same-origin (no CSP host needed; Graph already allowlisted). ★ Gating: file+describe always,
+  SharePoint on `isSharePointEnabled`, Confluence on FULL Jira config (`enabled&&siteUrl&&apiToken&&email`).
+  ★ Error boundary: SOURCE failures → sanitized `importError`; the Anthropic `generate` failure →
+  the hook's `aiError` (kept separate — don't let a generic source error clobber it). No key/token/body
+  ever logged or rendered.
 - **AI Action Center suggestions (SP4):** Action Center "Analyze with AI" button → ONE forced-tool
   Anthropic call (`tool_choice:{type:"tool",name:"report_analysis"}`, no loop) in
   `use-action-analysis.ts`; pure contract/transforms in `action-ai.ts` (`parseAnalysis` validates
