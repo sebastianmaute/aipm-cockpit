@@ -517,6 +517,8 @@ const enUS = {
     "Tasks now have a workflow status (To Do to Done) with a status column, inline status editing, and a hide-finished toggle.",
   versionHighlightKanban:
     "Tasks can now be viewed as a drag-and-drop Kanban board grouped by status; Jira-synced tasks stay read-only at their Jira status, and the editor gained Send inquiry / Push to Jira / Delete buttons.",
+  versionHighlightWeightSuggest:
+    "Claude can now suggest adjustments to your next-actions ranking weights from your project, trends, and what you act on - review each in the settings and Accept the ones you want.",
   scheduledJobsTitle: "Scheduled jobs",
   scheduledJobsToggle: "Enable scheduled jobs",
   scheduledJobsHelp:

@@ -8,6 +8,11 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.109.0] - 2026-06-20 "Leckie"
+
+### Added
+- AI-suggested next-actions weight adjustments: a "Suggest with AI" button in the next-actions settings proposes new values for the confidence weights (and, optionally, all firing thresholds) from your project, snapshot trends, and your act/snooze/dismiss history. Review the per-row rationale and Accept the ones you want; values are always clamped to safe bounds.
+
 ## [0.108.0] - 2026-06-19 "Banks"
 
 Kanban board (SP-B).
