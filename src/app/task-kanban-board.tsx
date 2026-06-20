@@ -71,9 +71,7 @@ export function TaskKanban({
                   key={task.id}
                   data-testid={`kanban-card-${task.id}`}
                   draggable={!synced}
-                  onDragStart={(e) => {
-                    if (!synced) e.dataTransfer.setData("text/plain", String(task.id));
-                  }}
+                  onDragStart={(e) => e.dataTransfer.setData("text/plain", String(task.id))}
                   className="rounded-lg border border-line bg-surface-muted p-2 text-sm"
                 >
                   <TaskKanbanCard
