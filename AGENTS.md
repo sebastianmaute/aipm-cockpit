@@ -210,6 +210,26 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
   putting big guide block last) means cache never hits. Operating guides live in global
   store (`operating_guides`, out of TABLE_NAMES) surfaced by ONE `useOperatingGuides` instance in
   task-manager, threaded to both ChatPanel (chat) and AiSection (editor).
+- **AI app-feature guide (v0.116.0):** view-scoped built-in operating guides that teach the assistant
+  the APP's features (so it answers "how do I …?"). Source `lib/app-feature-guide.md` = `## Overview`
+  (no marker → always-on) + per-view `## Title` each followed by `<!-- views: <AppView ids> -->`,
+  each ending with a truthful `AI:` line (what it can/can't do via TOOLS — don't over-claim).
+  `scripts/gen-operating-guide.mjs` `parseFeatureGuide(md, VALID_VIEWS)` (exported, pure) → emits
+  `BUILTIN_FEATURE_GUIDES` (`builtin-app-overview` scope {} + `builtin-feature-<view>` scope
+  {views:[…]}) into `operating-guide-builtin.generated.ts` beside the leadership constant.
+  ★★ the generator's `writeFileSync` is inside `if (isMain)` — so a vitest `import { parseFeatureGuide }`
+  does NOT rewrite the generated file (don't move the write to top level). Prebuild regenerates; the
+  `operating-guide-builtin.test.ts` sync-guard re-parses the md + `toEqual`s the committed array (drift
+  fails CI; keep the test's `VALID_VIEWS` == the generator's, == nav-config `AppView`).
+  ★ Adding a section: TAG it (`<!-- views: … -->`) with REAL AppView ids — `parseFeatureGuide` THROWS
+  on an unknown id AND on an untagged non-Overview section (no silent drop).
+  Seeded by `use-operating-guides` `builtinSeeds()`/`reconcileBuiltins()`: on every load it refreshes
+  built-in content/name/scope but PRESERVES the user's `enabled`/`priority` (no toggle-clobber on
+  upgrade; existing leadership-only users get the feature guides next load); all built-ins undeletable
+  via `BUILTIN_IDS`. `selectActiveGuides` loads overview + the current view's guide into the cached
+  prompt prefix (view change re-caches that slice). Guide content is ENGLISH-ONLY (no i18n). Knowledge
+  only — adds NO new AI tools. (Separately, the task create/update tools now expose `status`, routed
+  through `applyStatusChange`, synced tasks read-only — MR !99.)
 - **AI write tools** declared in `chat-tools.ts` (`TOOL_DEFS` + `runTool` routing + `ToolDispatcher`
   type), IMPLEMENTED in `use-chat-dispatcher.ts`. Tasks/RAID/Changes/Milestones/Stakeholders all have
   create/update/delete. NEW entity write tool: add tool def + runTool case + `ToolDispatcher` method,
