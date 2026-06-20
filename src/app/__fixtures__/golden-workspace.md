@@ -170,6 +170,7 @@
 - sharepointUrl: https://example.sharepoint.com/sites/cip-2026
 - confluenceUrl: https://example.atlassian.net/wiki/spaces/CIP
 - jiraUrl: https://example.atlassian.net/browse/CIP
+- operatingTimezone: Europe/Berlin
 - contactPersons: David Okoro;david.okoro@northwind.example;0|Alex Example;Sample.Dummy@example.com;1
 - docRepoLocation: https://example.sharepoint.com/sites/cip-2026/Shared Documents
 - regulatory: GDPR / data protection regulation|NIS2

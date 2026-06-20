@@ -625,6 +625,9 @@ export type ProjectMeta = {
   sharepointUrl?: string;
   confluenceUrl?: string;
   jiraUrl?: string;
+  /** IANA operating timezone for this project (e.g. "Asia/Kolkata"). Drives the
+   *  effective zone for day-boundary logic when no per-device override is set. */
+  operatingTimezone?: string;
   contactPersons: ContactPerson[];
   docRepoLocation?: string;
   regulatory: RegulatoryRequirement[];

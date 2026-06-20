@@ -11,6 +11,7 @@ import { InfoTooltip } from "./info-tooltip";
 import { AppearanceSection } from "./settings-sections/appearance-section";
 import { LocalizationSection } from "./settings-sections/localization-section";
 import { GeneralSection } from "./settings-sections/general-section";
+import { TimezoneSettingsSection } from "./settings-sections/timezone-settings-section";
 import { NotificationsSection } from "./settings-sections/notifications-section";
 import { NextActionsSection } from "./settings-sections/next-actions-section";
 import { type SuggestionScope } from "./next-actions-tuning";
@@ -261,6 +262,11 @@ export function SettingsView(props: SettingsViewProps) {
               {t(lang, "settingsSectionAppearance")}
             </h3>
             <AppearanceSection lang={lang} settings={settings} onChange={onChange} />
+            <hr className="my-6 border-line" />
+            <h3 className="mb-3 text-sm font-semibold text-foreground">
+              {t(lang, "tzSettingsTitle")}
+            </h3>
+            <TimezoneSettingsSection lang={lang} settings={settings} onChange={onChange} />
             <hr className="my-6 border-line" />
             <h3 className="mb-3 text-sm font-semibold text-foreground">
               {t(lang, "settingsSectionStorage")}

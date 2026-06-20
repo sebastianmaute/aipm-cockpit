@@ -166,6 +166,7 @@ const PROJECT_FIELD_I18N_KEYS: Readonly<Record<keyof ProjectMeta, TranslationKey
   sharepointUrl:             "projectSharepoint",
   confluenceUrl:             "projectConfluence",
   jiraUrl:                   "projectJira",
+  operatingTimezone:         "projectOperatingTimezone",
   contactPersons:            "projectContactPersons",
   docRepoLocation:           "projectDocRepo",
   regulatory:                "projectRegulatory",

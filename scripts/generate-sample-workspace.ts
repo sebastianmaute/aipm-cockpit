@@ -187,6 +187,7 @@ const sampleProjectMeta: ProjectMeta = {
   sharepointUrl: "https://example.sharepoint.com/sites/cip-2026",
   confluenceUrl: "https://example.atlassian.net/wiki/spaces/CIP",
   jiraUrl: "https://example.atlassian.net/browse/CIP",
+  operatingTimezone: "Europe/Berlin",
   contactPersons: [
     { name: "David Okoro", email: "david.okoro@northwind.example", synced: false },
     // Sample is resource #1 — use her real Acme address and mark synced.

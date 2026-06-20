@@ -11,12 +11,7 @@ import { mergeImportedResources, type OutlookContact } from "./outlook-contacts"
 import { eventsToAbsences, type AbsenceImportTarget, type OutlookEvent } from "./outlook-calendar";
 import type { AbsenceType } from "./types";
 
-function isoToday(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
-function emptyAbsenceDraft(id: number): Absence {
-  const today = isoToday();
+function emptyAbsenceDraft(id: number, today: string): Absence {
   return {
     id,
     assignee: "",
@@ -40,6 +35,8 @@ function emptyShiftDraft(id: number): Shift {
 
 export interface UseResourcePlannerArgs {
   lang: Lang;
+  /** Today (YYYY-MM-DD) in the resolved effective timezone, from the caller. */
+  today: string;
   logActivity: (kind: ActivityKind, ...args: (string | number)[]) => void;
   showToast: (kind: "info" | "error", text: string) => void;
   workdayHours: number;
@@ -68,7 +65,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
     setPlan,
   } = useWorkspace();
 
-  const { workdayHours, holidaySet } = args;
+  const { workdayHours, holidaySet, today } = args;
 
   const langRef = useRef(args.lang);
   const logActivityRef = useRef(args.logActivity);
@@ -113,7 +110,6 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
       if (triggersAutoIssue) {
         const newIssueId = nextRaidId(baseList);
         autoIssueId = newIssueId;
-        const today = isoToday();
         const autoIssue: RaidItem = {
           id: newIssueId,
           category: "I",
@@ -156,7 +152,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
         logActivityRef.current("raid.autoIssue", item.id, autoIssueId);
       }
     },
-    [raid, setRaid],
+    [raid, setRaid, today],
   );
 
   const handleDeleteRaidItem = useCallback(
@@ -175,13 +171,13 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
       const nextId =
         absences.length > 0 ? Math.max(...absences.map((a) => a.id)) + 1 : 1;
       const draft: Absence = {
-        ...emptyAbsenceDraft(nextId),
+        ...emptyAbsenceDraft(nextId, today),
         ...seed,
         id: nextId,
       };
       setEditingAbsence({ absence: draft, isNew: true });
     },
-    [absences],
+    [absences, today],
   );
 
   const handleImportAbsences = useCallback(
@@ -533,7 +529,6 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
       const newId =
         list.length > 0 ? Math.max(...list.map((tk) => tk.id)) + 1 : 1;
       const stamp = new Date().toISOString();
-      const today = isoToday();
       const newTask: Task = {
         id: newId,
         taskName: item.title,
@@ -564,7 +559,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
       );
       return newId;
     },
-    [raid, setRaid, setTasks],
+    [raid, setRaid, setTasks, today],
   );
 
   const handleSetUtilization = useCallback(

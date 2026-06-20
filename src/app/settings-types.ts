@@ -358,6 +358,10 @@ export type Settings = {
   tasksViewMode?: "table" | "board";
   /** Per-device: the guided tour has been seen/skipped (suppresses auto-launch). */
   tourSeen?: boolean;
+  /** Per-device override of the app timezone (IANA). Undefined = follow project/browser. */
+  timezone?: string;
+  /** Per-device extra zones to surface (calendar + per-window switcher), IANA strings. */
+  additionalTimezones?: string[];
   reports?: { extra: AddableReportId[] };
   integrations?: IntegrationsSettings;
   snapshots?: SnapshotSettings;
