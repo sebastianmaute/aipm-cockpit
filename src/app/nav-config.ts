@@ -34,6 +34,7 @@ export type AppView =
   | "activity"
   | "settings"
   | "learning-insights"
+  | "steering-committee"
   | "edit";
 
 export interface NavItem {
@@ -89,7 +90,7 @@ export const NAV_GROUPS: NavGroup[] = [
   },
 ];
 
-const LABEL_KEYS: Record<Exclude<AppView, "edit" | "learning-insights">, TranslationKey> = {
+const LABEL_KEYS: Record<Exclude<AppView, "edit" | "learning-insights" | "steering-committee">, TranslationKey> = {
   projects: "navProjects",
   dashboard: "navDashboard",
   actions: "navActions",
@@ -185,6 +186,8 @@ export function navLabelKey(view: AppView): TranslationKey {
   // in NAV_GROUPS; give them a harmless valid key rather than masking it.
   if (view === "edit") return "navOpenPoints";
   if (view === "learning-insights") return "learningInsightsTitle";
+  // "steering-committee" gets its own nav label in a later slice; placeholder keeps this total.
+  if (view === "steering-committee") return "actionSourceCommittee";
   return LABEL_KEYS[view];
 }
 

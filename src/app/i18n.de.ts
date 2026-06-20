@@ -1661,6 +1661,7 @@ export const de: Record<TranslationKey, string> = {
   // --- Termin- + Auslastungs-Provider (0.80.0) ---
   actionSourceSchedule: "Termin",
   actionSourceWorkload: "Auslastung",
+  actionSourceCommittee: "Lenkungsausschuss",
   actionScheduleTitle: "{0} ist im Verzug",
   actionScheduleWhyBehind: "Schedule Performance Index liegt bei {0} (unter 1,0 = hinter Plan)",
   actionScheduleWhySlipping: "SPI {0} — Zeitplan verzögert sich",
@@ -1851,6 +1852,8 @@ export const de: Record<TranslationKey, string> = {
   actionBudgetWhyImproving: "CPI {0} — über Budget, aber verbessert sich",
   actionCommsTitle: "Stakeholder informieren: {0}",
   actionCommsWhy: "{0}-Update fällig",
+  actionCommitteeInfoTitle: "{0} für {1} verteilen",
+  actionCommitteeInfoWhy: "Fällig {0} — {1} ({2} Tage)",
   actionCreatedFromNote: "Aus: {0} — {1}",
 
   // --- UI polish batch (0.76.0) ---

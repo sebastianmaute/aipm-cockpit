@@ -1681,6 +1681,7 @@ const enUS = {
   // --- Schedule + workload providers (0.80.0) ---
   actionSourceSchedule: "Schedule",
   actionSourceWorkload: "Workload",
+  actionSourceCommittee: "Steering committee",
   actionScheduleTitle: "{0} is behind schedule",
   actionScheduleWhyBehind: "Schedule performance index is {0} (under 1.0 = behind plan)",
   actionScheduleWhySlipping: "SPI {0} — schedule slipping",
@@ -1868,6 +1869,8 @@ const enUS = {
   actionBudgetWhyImproving: "CPI {0} — over budget but improving",
   actionCommsTitle: "Update stakeholder: {0}",
   actionCommsWhy: "{0} update due",
+  actionCommitteeInfoTitle: "Circulate {0} for {1}",
+  actionCommitteeInfoWhy: "Due {0} — {1} ({2} days)",
   actionCreatedFromNote: "From: {0} — {1}",
 
   // --- UI polish batch (0.76.0) ---

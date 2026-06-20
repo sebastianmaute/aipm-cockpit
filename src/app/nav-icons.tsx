@@ -54,6 +54,8 @@ const ICON_PATHS: Record<AppView, string> = {
   // "learning-insights" has no sidebar entry (settings-launched); provide a
   // harmless glyph so the map stays total.
   "learning-insights": "M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2M12 8v4l3 3",
+  // "steering-committee" nav entry lands in a later slice; group glyph keeps the map total.
+  "steering-committee": "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75",
   // "edit" has no sidebar entry; provide a harmless glyph so the map is total.
   edit: "M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z",
 };
