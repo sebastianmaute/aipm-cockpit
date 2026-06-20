@@ -29,6 +29,7 @@ export type AiConfig = {
   groundInGuides: boolean;
   actionSuggestions?: boolean; // Action Center "Analyze with AI" button. Default ON (undefined = on).
   scheduledJobs?: boolean; // Scheduled Claude jobs (SP5). Default OFF (opt-in) — recurring billed calls.
+  suggestAllNextActionThresholds?: boolean; // AI weight suggestions (SP-C). Default OFF (opt-in).
 };
 
 export const defaultAiConfig: AiConfig = {
@@ -62,6 +63,7 @@ export function sanitizeAiConfig(raw: unknown): AiConfig {
     weeklyTokenCap: coerceCap(obj.weeklyTokenCap, DEFAULT_WEEKLY_TOKEN_CAP),
     groundInGuides: obj.groundInGuides !== false,
     scheduledJobs: obj.scheduledJobs === true,
+    suggestAllNextActionThresholds: obj.suggestAllNextActionThresholds === true,
   };
 }
 
