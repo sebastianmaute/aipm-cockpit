@@ -47,6 +47,7 @@ import {
   type Role,
   type Shift,
   type Stakeholder,
+  type SteeringCommittee,
   type Task,
 } from "./types";
 
@@ -95,6 +96,10 @@ export type Workspace = {
    *  (legacy / inherits the current active set); [] = Simple mode. Serializes to nothing
    *  when undefined. */
   features?: readonly FeatureModuleId[];
+  /** Steering committee config (board membership, meetings, info-pack cadence).
+   *  Optional & additive: undefined serializes to nothing; persistence/UI land
+   *  in later SP-E tasks. */
+  steeringCommittee?: Readonly<SteeringCommittee>;
 };
 
 const SCHEMA_VERSION = 11;
