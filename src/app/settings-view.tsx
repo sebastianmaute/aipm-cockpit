@@ -13,6 +13,7 @@ import { LocalizationSection } from "./settings-sections/localization-section";
 import { GeneralSection } from "./settings-sections/general-section";
 import { NotificationsSection } from "./settings-sections/notifications-section";
 import { NextActionsSection } from "./settings-sections/next-actions-section";
+import { type SuggestionScope } from "./next-actions-tuning";
 import { AiSection } from "./settings-sections/ai-section";
 import { IntegrationsSection } from "./settings-sections/integrations-section";
 import { ModeSection } from "./settings-sections/mode-section";
@@ -49,6 +50,9 @@ interface SettingsViewProps {
   onChangeLearningConfig?: (c: NextActionsLearningConfig) => void;
   onResetLearning?: () => void;
   onOpenInsights?: () => void;
+  /** SP-C: builds the AI weight-suggestion context for the requested scope.
+   *  Omitted (e.g. in popouts) hides the "Suggest with AI" control. */
+  buildWeightSuggestionContext?: (scope: SuggestionScope) => string;
   /** Deep-link target: when this changes, the view navigates to the named
    *  section. The `nonce` lets a repeated request (same section) re-navigate
    *  after the user has clicked elsewhere. */
@@ -289,6 +293,7 @@ export function SettingsView(props: SettingsViewProps) {
             onChangeLearningConfig={props.onChangeLearningConfig}
             onResetLearning={props.onResetLearning}
             onOpenInsights={props.onOpenInsights}
+            buildWeightSuggestionContext={props.buildWeightSuggestionContext}
           />
         )}
         {active === "ai" && (

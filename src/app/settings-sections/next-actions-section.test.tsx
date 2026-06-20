@@ -4,6 +4,21 @@ import { NextActionsSection } from "./next-actions-section";
 import { defaultSettings, defaultNextActionsConfig } from "../settings-types";
 import { t } from "../i18n";
 
+// Mock the AI hook so the AI-suggested column renders without any network call.
+vi.mock("../use-weight-suggestions", () => ({
+  useWeightSuggestions: () => ({
+    run: vi.fn(),
+    busy: false,
+    error: null,
+    clear: vi.fn(),
+    result: {
+      suggestions: [{ field: "clarityBonus", current: 15, suggested: 20, rationale: "act on clear" }],
+      overallRationale: "",
+      recommendEnableLearning: false,
+    },
+  }),
+}));
+
 describe("NextActionsSection", () => {
   it("renders a number input per threshold and edits patch settings.nextActions", () => {
     const onChange = vi.fn();
@@ -116,5 +131,30 @@ describe("NextActionsSection learning controls", () => {
   it("renders no learning controls when the props are omitted", () => {
     render(<NextActionsSection lang="en-US" settings={defaultSettings} onChange={vi.fn()} />);
     expect(screen.queryByLabelText(t("en-US", "settingsLearningEnable"))).toBeNull();
+  });
+});
+
+describe("NextActionsSection AI weight suggestions", () => {
+  const aiSettings = { ...defaultSettings, ai: { ...defaultSettings.ai, apiKey: "sk-test" } };
+
+  it("shows an AI suggestion and Accept applies it", () => {
+    const onChange = vi.fn();
+    render(
+      <NextActionsSection
+        lang="en-US"
+        settings={aiSettings}
+        onChange={onChange}
+        buildWeightSuggestionContext={() => "ctx"}
+      />,
+    );
+    // The mocked hook suggests clarityBonus = 20.
+    expect(screen.getByText("20")).toBeInTheDocument();
+    const accept = screen.getByRole("button", {
+      name: `${t("en-US", "weightSuggestAccept")} - ${t("en-US", "naClarityBonus")}`,
+    });
+    fireEvent.click(accept);
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ nextActions: expect.objectContaining({ clarityBonus: 20 }) }),
+    );
   });
 });

@@ -10,7 +10,7 @@ export interface WeightSuggestion { field: TunableField; current: number; sugges
 
 const MAX_SUGGESTIONS = ALL_TUNABLE_FIELDS.length;
 const MAX_RATIONALE = 240;
-const CONTROL_CHARS = /[\x00-\x1f]/g; // strip ASCII control chars from untrusted rationale
+export const CONTROL_CHARS = /[\x00-\x1f]/g; // strip ASCII control chars from untrusted rationale
 
 function allowedFields(scope: SuggestionScope): Set<TunableField> {
   return new Set(scope === "all" ? ALL_TUNABLE_FIELDS : WEIGHT_FIELDS);

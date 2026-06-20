@@ -1,9 +1,8 @@
 // src/app/weight-suggestion-ai.ts - pure, i18n-free forced-tool contract for SP-C.
 import { type NextActionsConfig } from "./settings-types";
-import { ALL_TUNABLE_FIELDS, parseWeightSuggestions, WEIGHT_FIELDS, type SuggestionScope, type WeightSuggestion } from "./next-actions-tuning";
+import { ALL_TUNABLE_FIELDS, CONTROL_CHARS, parseWeightSuggestions, WEIGHT_FIELDS, type SuggestionScope, type WeightSuggestion } from "./next-actions-tuning";
 
 export interface SuggestionResult { suggestions: WeightSuggestion[]; overallRationale: string; recommendEnableLearning: boolean; }
-const CONTROL_CHARS = /[\x00-\x1f]/g;
 
 export interface SuggestionContextInput {
   workspaceDigest: string;

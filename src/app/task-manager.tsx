@@ -78,7 +78,9 @@ import { DEFAULT_VERSION_RETENTION } from "./version-history";
 import { workspaceToJson, type Workspace } from "./workspace";
 import { computeDashboard } from "./dashboard";
 import { getTursoConfig } from "./turso-config";
-import { defaultExportConfig, defaultNextActionsLearning, defaultSnapshotSettings, type Settings } from "./settings-types";
+import { defaultExportConfig, defaultNextActionsLearning, defaultSnapshotSettings, resolveNextActionsConfig, type Settings } from "./settings-types";
+import { buildSuggestionContext } from "./weight-suggestion-ai";
+import { type SuggestionScope } from "./next-actions-tuning";
 import { TaskEditView, TASK_EDIT_FORM_ID } from "./task-edit-view";
 import { TaskEditorActions } from "./task-editor-actions";
 import { APP_VERSION_LABEL } from "./version";
@@ -146,6 +148,10 @@ function todayISO() {
 // Idle window before an auto version is captured after a save. Coalesces a
 // burst of saves into a single version.
 const VERSION_IDLE_MS = 180_000; // 3 minutes
+
+// Cap on the per-kind lines in the SP-C weight-suggestion learning summary,
+// keeping the AI context token-bounded.
+const MAX_LEARNING_SUMMARY_ENTRIES = 20;
 
 // TaskManagerInner consumes the FiltersProvider context. The default
 // export below wraps this in <FiltersProvider> so useFilters() works.
@@ -793,6 +799,35 @@ function TaskManagerInner() {
   const runActionAnalysis = useCallback(() => {
     void aiAnalyze(buildAiContext());
   }, [aiAnalyze, buildAiContext]);
+  // SP-C: compact, token-bounded context for the AI weight-suggestion call.
+  // The workspace digest is reused from the SP4/SP5 builder; the learning
+  // summary is one line per signal kind (act/snooze/dismiss counts). Trends
+  // are not threaded here — the dashboard owns the snapshot source — so we
+  // pass a sentinel rather than add heavy new wiring.
+  const learningState = learning.state;
+  const learningEnabled = (settings.nextActionsLearning ?? defaultNextActionsLearning).enabled;
+  const buildWeightSuggestionContext = useCallback(
+    (scope: SuggestionScope) => {
+      const kinds = Object.entries(learningState);
+      const learningSummary = !learningEnabled
+        ? "(learning disabled)"
+        : kinds.length === 0
+          ? "(no history)"
+          : kinds
+              .slice(0, MAX_LEARNING_SUMMARY_ENTRIES)
+              .map(([kind, s]) => `- ${kind}: acted ${s.acted}, snoozed ${s.snoozed}, dismissed ${s.dismissed}`)
+              .join("\n");
+      return buildSuggestionContext({
+        workspaceDigest: buildAiContext(),
+        current: resolveNextActionsConfig(settings.nextActions),
+        scope,
+        learning: learningSummary,
+        trends: "(no snapshots)",
+        learningEnabled,
+      });
+    },
+    [buildAiContext, settings.nextActions, learningState, learningEnabled],
+  );
   const onActAi = useCallback(
     (a: AiAction) => {
       const g = groundEntity(a.entity, groundingIndex);
@@ -1880,6 +1915,7 @@ function TaskManagerInner() {
       scheduledJobsConfig={tursoConfig}
       operatingGuides={operatingGuides}
       learningConfig={settings.nextActionsLearning ?? defaultNextActionsLearning}
+      buildWeightSuggestionContext={isPopout ? undefined : buildWeightSuggestionContext}
       onChangeLearningConfig={isPopout ? undefined : (c) => setSettings((s) => ({ ...s, nextActionsLearning: c }))}
       onResetLearning={isPopout ? undefined : () => { void learning.reset(); }}
       onOpenInsights={isPopout ? undefined : () => setActiveTab("learning-insights")}
