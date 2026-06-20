@@ -23,7 +23,9 @@ export function TzClockStrip({ lang, defaultTz, zones }: TzClockStripProps) {
 
   if (zones.length === 0) return null;
   const iso = now.toISOString();
-  const all = [defaultTz, ...zones];
+  // Exclude the default zone if it's also in the additional list — avoids a
+  // duplicate chip + a duplicate React key on the tz string.
+  const all = [defaultTz, ...zones.filter((z) => z !== defaultTz)];
   return (
     <div
       aria-label={t(lang, "tzClockStripLabel")}

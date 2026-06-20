@@ -16,4 +16,12 @@ describe("TzClockStrip", () => {
     const { container } = render(<TzClockStrip lang="en-US" defaultTz="Europe/Berlin" zones={[]} />);
     expect(container.firstChild).toBeNull();
   });
+  it("does not render the default zone twice when it is also in the additional list", () => {
+    render(<TzClockStrip lang="en-US" defaultTz="Europe/Berlin" zones={["Europe/Berlin", "Asia/Kolkata"]} />);
+    const region = screen.getByLabelText(t("en-US", "tzClockStripLabel"));
+    const berlinChips = region.querySelectorAll('[class*="font-medium"]');
+    const labels = Array.from(berlinChips).map((e) => e.textContent);
+    expect(labels.filter((l) => l === "Europe/Berlin")).toHaveLength(1);
+    expect(labels).toContain("Asia/Kolkata");
+  });
 });
