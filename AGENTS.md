@@ -166,6 +166,21 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
   ★ The table status column key is **`taskStatus`** — the pre-existing `"status"` col key is the
   RAG/health DOT (its header is "Health"/DE "Ampel"). ★ The tasks view ("Open Points") IS in the
   axe `A11Y_VIEWS`, so the inline status `<select>` needs a row-UNIQUE label (`Status – <task>`).
+- **Kanban board (SP-B, v0.108.0):** tasks pane has a Table/Board toggle (per-device
+  `settings.tasksViewMode`). Board component is **`task-kanban-board.tsx`** — NOT
+  `task-kanban.tsx` (the pure `task-kanban.ts` engine shadows a `.tsx` sibling via
+  `.ts`-before-`.tsx` resolution). Native HTML5 DnD (no lib); the per-card status `<select>`
+  (shared `TaskStatusSelect`, also used by the table row) is the keyboard path. ★★ The board
+  renders OUTSIDE `RowContextProvider` (which wraps only the table body) — so ANY component a
+  Kanban card renders must take what it needs as PROPS, never `useTaskRowContext()` (that THROWS
+  → board crashes on RAID-linked cards; bit `RaidBadge`, now in `task-raid-badge.tsx` taking
+  `lang`+`onJumpToRaid` as props). Test cards/board with a populated `raidByTask` or the crash
+  path stays untested. ★ Jira-synced tasks (`!!task.jiraKey`) are read-only: sync maps
+  `statusCategory`→`status` via `jiraCategoryToStatus` INSIDE `issueToTaskFields`' patch and
+  applies `patch.status` DIRECTLY — NOT through `applyStatusChange` (which would stamp `today`
+  instead of Jira's resolution date). The board/table selects + drag are disabled for synced;
+  `onStatusChange` no-ops on `jiraKey`. Board is NOT in the axe `A11Y_VIEWS` (gate scans the
+  table view) — board a11y is eye-verified (row-unique select labels + per-column `aria-label`).
 - **Scrollbar gap:** per-view inner scrollers (`min-h-0 flex-1 overflow-auto`) need `pr-2` for the
   content↔scrollbar gap. Shared `INNER_TABLE_CLASS`/report-table/actions-panel already include it;
   bare per-panel scrollers do NOT — add `pr-2` or content jams the scrollbar.
