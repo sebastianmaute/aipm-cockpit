@@ -57,6 +57,9 @@ export interface ProjectEmptyStateProps {
   /** Load a project from a local file. In Turso mode this switches the portfolio
    *  to file mode (the host reloads); in file mode it just opens the picker. */
   onLoadFromFile: () => void;
+  /** Load the bundled demo project (guided-tour entry point). When omitted, the
+   *  "Explore a demo project" CTA is not rendered. */
+  onLoadDemo?: () => void;
   /** Turso mode: hide the file-format selector in the create view. Defaults to
    *  "file". "Load from file" is offered in BOTH modes (Turso → switches mode). */
   mode?: "file" | "turso";
@@ -83,6 +86,7 @@ export function ProjectEmptyState({
   onChangeSettings,
   onCreate,
   onLoadFromFile,
+  onLoadDemo,
   mode = "file",
   archivedProjects = [],
   onRestore,
@@ -163,6 +167,17 @@ export function ProjectEmptyState({
                 >
                   {t(lang, "projectsEmptyLoad")}
                 </button>
+                {/* Explore a demo project — guided-tour entry point. Rendered
+                    only when a demo-load handler is wired (empty-state only). */}
+                {onLoadDemo && (
+                  <button
+                    type="button"
+                    onClick={onLoadDemo}
+                    className={SECONDARY_BUTTON_CLASS}
+                  >
+                    {t(lang, "tourLoadDemo")}
+                  </button>
+                )}
               </div>
 
               {/* Restore an archived project — Turso mode only, when archived
