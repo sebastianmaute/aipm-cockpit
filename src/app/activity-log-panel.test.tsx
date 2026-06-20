@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { ActivityLogPanel } from "./activity-log-panel";
+import { DisplayTimezoneProvider } from "./display-timezone-context";
 import type { ActivityEntry } from "./activity-log";
+
+// All panel renders go through the provider — the panel reads useDisplayTimezone().
+// A non-UTC zone (Asia/Kolkata, +5:30) makes the zone conversion observable.
+function renderPanel(ui: React.ReactNode) {
+  return render(<DisplayTimezoneProvider effectiveTz="Asia/Kolkata">{ui}</DisplayTimezoneProvider>);
+}
 
 function entry(p: Partial<ActivityEntry>): ActivityEntry {
   return {
@@ -19,8 +26,16 @@ const entries: ActivityEntry[] = [
 ];
 
 describe("ActivityLogPanel", () => {
+  it("renders timestamps in the display timezone (not the raw ISO)", () => {
+    // 2026-05-28T10:00:00Z in Asia/Kolkata (+5:30) is 15:30 → "03:30 PM".
+    renderPanel(<ActivityLogPanel lang="en-US" entries={[entry({ id: 1 })]} onClear={() => {}} />);
+    const time = screen.getByText(/05\/28\/2026/);
+    expect(time.textContent).toContain("03:30");
+    expect(time.textContent).not.toContain("2026-05-28T10:00:00.000Z");
+  });
+
   it("marks the pane as a print-root for scoped printing", () => {
-    const { container } = render(
+    const { container } = renderPanel(
       <ActivityLogPanel lang="en-US" entries={entries} onClear={() => {}} />,
     );
     expect((container.firstElementChild as HTMLElement).className).toContain("print-root");
@@ -29,12 +44,12 @@ describe("ActivityLogPanel", () => {
   });
 
   it("renders a print button in the header", () => {
-    render(<ActivityLogPanel lang="en-US" entries={entries} onClear={() => {}} />);
+    renderPanel(<ActivityLogPanel lang="en-US" entries={entries} onClear={() => {}} />);
     expect(screen.getByRole("button", { name: /print/i })).toBeInTheDocument();
   });
 
   it("wraps header controls in a print:hidden container so they are hidden when printing", () => {
-    const { container } = render(
+    const { container } = renderPanel(
       <ActivityLogPanel lang="en-US" entries={entries} onClear={() => {}} />,
     );
     // Tailwind encodes print:hidden as the class string "print:hidden".
@@ -46,7 +61,7 @@ describe("ActivityLogPanel", () => {
   });
 
   it("does NOT mark the log table inside a print:hidden container", () => {
-    const { container } = render(
+    const { container } = renderPanel(
       <ActivityLogPanel lang="en-US" entries={entries} onClear={() => {}} />,
     );
     const table = container.querySelector("table");

@@ -344,6 +344,28 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
   Settings picker: `settings-sections/timezone-settings-section.tsx` ("System default" option value
   `""` → override undefined; row-unique remove labels — Settings/General is axe-scanned). Project form:
   operating-tz `<select>` (blank → undefined).
+- **Timezone display (TZ-2, v0.114.0):** SECOND tz sub-project (TZ-3 = calendar multi-tz, NOT BUILT).
+  Renders INSTANT timestamps in a session display zone over TZ-1's effective zone. ★ DISPLAY-ONLY +
+  EPHEMERAL: `display-timezone-context.tsx` holds an in-memory `override` (useState, NEVER persisted —
+  resets on reload); `displayTz = override ?? effectiveTz` (effectiveTz = TZ-1
+  `resolveTimezone(settings.timezone, project?.operatingTimezone)`). `useDisplayTimezone()` →
+  `{displayTz, effectiveTz, isOverridden, setDisplayOverride, resetDisplayTz}`. Shared formatter
+  `tz-display.ts` `formatDisplayTimestamp(iso, tz, lang, {withSeconds?})` wraps TZ-1 `formatInZone`
+  with `timeZoneName:"short"` (zone label) — the ACTIVITY LOG passes `{withSeconds:true}` (sub-minute
+  entries), history/trends use minute precision.
+  ★★ **ONLY instant-timestamp DISPLAYS convert** (`activity-log-panel`, `history-panel` capturedAt
+  labels, `trends-panel` capturedAt cell) — every `capturedAt` used as a SORT/dedup/column-width/
+  row-SELECTION key STAYS on raw ISO (converting a shared display+key value is an ordering bug; the
+  review specifically checked this). Date-only fields, the gantt month-axis, and storage/export
+  `toISOString` stamps are untouched.
+  ★★ **Switcher `display-tz-switcher.tsx` wired into BOTH headers** (modern `topBarMenus` + classic
+  `AppHeader` via a NEW `trailing?` prop — AppHeader builds Ask-Claude internally so it had no element
+  slot) — dual-header rule; NOT in popouts (no header). The `DisplayTimezoneProvider` wraps BOTH
+  task-manager return branches (popout + main) with `effectiveTz`, so popout timestamps convert to the
+  effective DEFAULT (no switcher there). Options: Default(`value=""`→clears override) + UTC +
+  `settings.additionalTimezones` (extras filtered to drop UTC/effective dups). `DisplayTzSwitcherConnected`
+  is a MODULE-LEVEL wrapper (static-components rule); switcher `<select>` carries `aria-label`
+  (top bar axe-scanned every view).
 - **AI Action Center suggestions (SP4):** Action Center "Analyze with AI" button → ONE forced-tool
   Anthropic call (`tool_choice:{type:"tool",name:"report_analysis"}`, no loop) in
   `use-action-analysis.ts`; pure contract/transforms in `action-ai.ts` (`parseAnalysis` validates

@@ -37,6 +37,8 @@ export interface AppHeaderProps {
   onAskClaude?: (promptBody: string) => void;
   /** When set, renders the current-project indicator + switcher under the title. */
   projectSwitcher?: ProjectSwitcherProps;
+  /** Extra control rendered beside the project switcher / Ask-Claude row (e.g. the display-tz switcher). */
+  trailing?: React.ReactNode;
 }
 
 export function AppHeader({
@@ -63,6 +65,7 @@ export function AppHeader({
   currentView,
   onAskClaude,
   projectSwitcher,
+  trailing,
 }: AppHeaderProps) {
   return (
     <header className="mb-8 flex items-start justify-between gap-4">
@@ -76,12 +79,13 @@ export function AppHeader({
         {/* Ask-Claude sits beside the project switcher (modern layout mirrors this
             in the TopBar's left cluster). The row renders when EITHER is present so
             Ask-Claude never depends on a switcher being wired. */}
-        {(projectSwitcher || (currentView && onAskClaude)) && (
+        {(projectSwitcher || (currentView && onAskClaude) || trailing) && (
           <div className="mt-3 flex items-center gap-2">
             {projectSwitcher && <ProjectSwitcher {...projectSwitcher} />}
             {currentView && onAskClaude && (
               <AskClaudeMenu lang={lang} currentView={currentView} onAsk={onAskClaude} />
             )}
+            {trailing}
           </div>
         )}
       </div>

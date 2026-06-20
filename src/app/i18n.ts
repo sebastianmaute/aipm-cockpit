@@ -532,15 +532,17 @@ const enUS = {
   versionHighlightKanban:
     "Tasks can now be viewed as a drag-and-drop Kanban board grouped by status; Jira-synced tasks stay read-only at their Jira status, and the editor gained Send inquiry / Push to Jira / Delete buttons.",
   versionHighlightWeightSuggest:
-    "Claude can now suggest adjustments to your next-actions ranking weights from your project, trends, and what you act on - review each in the settings and Accept the ones you want.",
+    "Claude can now suggest adjustments to your next-actions ranking weights from your project, trends, and what you act on — review each in the settings and Accept the ones you want.",
   versionHighlightProjectImport:
-    "Create a project by importing a file, a SharePoint document, or a Confluence page - the AI reads it and pre-fills the new-project wizard.",
+    "Create a project by importing a file, a SharePoint document, or a Confluence page — the AI reads it and pre-fills the new-project wizard.",
   versionHighlightSteering:
     "Steering committee: record members, the meeting schedule, and information-pack cadence rules. Pack reminders surface in the Action Center, and meetings plus reminders can be pushed to your Outlook calendar.",
   versionHighlightTour:
     "Guided tour + demo: a first-run walkthrough of the main areas (modern layout), a one-click demo project to explore, and a 'Take the tour' entry in the Help menu to replay it anytime.",
   versionHighlightTimezones:
     "Timezones (foundation): set a per-project operating timezone and a per-device default; the app's date logic (overdue, reminders, due dates) now follows your timezone instead of UTC.",
+  versionHighlightTimezoneDisplay:
+    "Timezone display: timestamps (activity log, version history, trends) now render in a display timezone you pick from the top bar — defaulting to your configured zone — with the zone shown. The choice is per session.",
   scheduledJobsTitle: "Scheduled jobs",
   scheduledJobsToggle: "Enable scheduled jobs",
   scheduledJobsHelp:
@@ -2033,7 +2035,7 @@ const enUS = {
   errorBoundaryReset: "Reset config & reload",
   snapshotConfigIncomplete: "Recording is on, but no Turso database URL is set yet - no snapshots will be captured until it is configured.",
   storageTursoLeaveWarn: "Snapshot trend recording only works on the Turso backend. Switching to {1} stops recording (your {0} items are still converted). Your recorded snapshots are kept in Turso and recording resumes when you switch back. Continue?",
-  versionHighlightTrends: "Baseline + variance / burn-down trends - periodic Turso snapshots show slippage over time",
+  versionHighlightTrends: "Baseline + variance / burn-down trends — periodic Turso snapshots show slippage over time",
 
   navChanges: "Changes",
   changeReportTitle: "Change Report",
@@ -2084,7 +2086,7 @@ const enUS = {
   dashboardChangesHeading: "Changes",
   dashboardChangesPending: "{0} pending",
   taskRowChangesBadge: "{0} changes",
-  versionHighlightChangeLog: "Change-control log - a RAID-sibling register for tracking change requests",
+  versionHighlightChangeLog: "Change-control log — a RAID-sibling register for tracking change requests",
 
   navStakeholders: "Stakeholders",
   stakeholderRaciTitle: "RACI Matrix",
@@ -2294,6 +2296,8 @@ const enUS = {
   tzAdditionalLabel: "Additional timezones",
   tzAddLabel: "Add timezone",
   tzRemoveLabel: "Remove",
+  displayTzLabel: "Display timezone",
+  displayTzDefault: "Default",
   projectLinkSalesforce: "Link to Salesforce",
   projectLinkSharepoint: "Link to SharePoint",
   projectLinkConfluence: "Link to Confluence",

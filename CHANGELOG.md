@@ -8,6 +8,11 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.114.0] - 2026-06-20 "Wilson"
+
+### Added
+- Timezone display: timestamps in the activity log, version history, and trends now render in a display timezone you choose from a top-bar switcher (Default / UTC / your additional zones), with the zone shown next to each time. The choice applies for the session and resets on reload; the underlying data is unchanged.
+
 ## [0.113.0] - 2026-06-20 "Kress"
 
 ### Added

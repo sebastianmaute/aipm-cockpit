@@ -23,8 +23,9 @@ import {
   type ActivityGroup,
   activityGroupOf,
 } from "./activity-log";
-import { localeFor } from "./date-format";
 import { type Lang, t } from "./i18n";
+import { useDisplayTimezone } from "./display-timezone-context";
+import { formatDisplayTimestamp } from "./tz-display";
 import { SegmentedControl } from "./segmented-control";
 import { useColumnResize } from "./use-column-resize";
 import { useResizable } from "./use-resizable";
@@ -49,19 +50,6 @@ type SortKey = "timestamp" | "kind" | "message";
 type SortDir = "asc" | "desc";
 type SearchMode = "literal" | "wildcard" | "regex";
 type GroupFilter = ActivityGroup | "all";
-
-function formatTimestamp(iso: string, lang: Lang): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.valueOf())) return iso;
-  return d.toLocaleString(localeFor(lang), {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  });
-}
 
 // Escape regex special characters except `*` and `?` (which we substitute
 // for wildcard semantics). Used only by wildcard mode.
@@ -94,6 +82,7 @@ function buildMatcher(query: string, mode: SearchMode): Matcher | null {
 }
 
 function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
+  const { displayTz } = useDisplayTimezone();
   const [searchQuery, setSearchQuery] = useState("");
   const [searchMode, setSearchMode] = useState<SearchMode>("literal");
   const [groupFilter, setGroupFilter] = useState<GroupFilter>("all");
@@ -307,7 +296,7 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
                 <tr key={entry.id} className="align-top">
                   <td className="whitespace-nowrap px-3 py-2 font-mono text-[11px] tabular-nums text-muted-foreground">
                     <time dateTime={entry.timestamp}>
-                      {formatTimestamp(entry.timestamp, lang)}
+                      {formatDisplayTimestamp(entry.timestamp, displayTz, lang, { withSeconds: true })}
                     </time>
                   </td>
                   <td className="whitespace-nowrap px-3 py-2 font-mono text-[11px] text-muted-foreground">
