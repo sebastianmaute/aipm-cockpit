@@ -1,4 +1,4 @@
-<!-- Generated: 2026-06-11 | Files scanned: types.ts, storage.ts, sanitize.ts, raid.ts, activity-log.ts, contacts.ts, resource-foundation.ts, resource-capacity.ts, reminder-snooze.ts, use-settings.ts, jira-token-status.ts, duration.ts + msal-config.ts, turso-config.ts, project-options.ts, nace-sections.ts, portfolio-mode.ts, projects-registry.ts, project-file-handles.ts, turso-tenant-schema.ts, feature-modules.ts, document-link.ts | Token estimate: ~1500 | Updated for 0.29.0–0.60.0: ProjectStatus + Milestone[] persisted (v6 additive, no schema bump); budget-health + budget-burndown pure modules; ChangeItem[] change-control register persisted (schema v7 additive); RaidItem/ChangeItem gained `stakeholderIds` stakeholder-communication links (v0.55); Settings.features feature-module map (Simple/Modular/Advanced); ProjectMeta multi-project header persisted (Workspace schema v9 additive; Phase 1); Turso multi-tenancy (one shared DB, `project_id` on every table, tenant schema v10); snapshot tables scoped per project_id; sample-workspace.json + sample-workspace.sqlite3 generated from the curated .md (Turso import, sqlite now multi-tenant v10); DocumentLink[] on all six entities (workspace schema v10, turso single-tenant v10, turso multi-tenant v11); data version history (`version-history.ts` ProjectVersion/ProjectVersionMeta types + `Settings.versionHistoryRetention`; append-only `project_versions` table kept out of TABLE_NAMES, Turso-only) [0.66.0–0.69.0] -->
+<!-- Generated: 2026-06-11 | Files scanned: types.ts, storage.ts, sanitize.ts, raid.ts, activity-log.ts, contacts.ts, resource-foundation.ts, resource-capacity.ts, reminder-snooze.ts, use-settings.ts, jira-token-status.ts, duration.ts + msal-config.ts, turso-config.ts, project-options.ts, nace-sections.ts, portfolio-mode.ts, projects-registry.ts, project-file-handles.ts, turso-tenant-schema.ts, feature-modules.ts, document-link.ts | Token estimate: ~1500 | Updated for 0.29.0–0.60.0: ProjectStatus + Milestone[] persisted (v6 additive, no schema bump); budget-health + budget-burndown pure modules; ChangeItem[] change-control register persisted (schema v7 additive); RaidItem/ChangeItem gained `stakeholderIds` stakeholder-communication links (v0.55); Settings.features feature-module map (Simple/Modular/Advanced); ProjectMeta multi-project header persisted (Workspace schema v9 additive; Phase 1); Turso multi-tenancy (one shared DB, `project_id` on every table, tenant schema v10); snapshot tables scoped per project_id; sample-workspace.json + sample-workspace.sqlite3 generated from the curated .md (Turso import, sqlite now multi-tenant v10); DocumentLink[] on all six entities (workspace schema v10, turso single-tenant v10, turso multi-tenant v11); data version history (`version-history.ts` ProjectVersion/ProjectVersionMeta types + `Settings.versionHistoryRetention`; append-only `project_versions` table kept out of TABLE_NAMES, Turso-only) [0.66.0–0.69.0]; Task.status enum + completedDate invariant (`task-status.ts`) [0.107.0]; tasksViewMode [0.108.0]; Workspace.steeringCommittee (`SteeringCommittee`/`CommitteeMeeting`/`InfoSchedule`) [0.111.0]; settings.tourSeen [0.112.0]; ProjectMeta.operatingTimezone + settings.timezone/additionalTimezones [0.113.0–0.115.0]; AI config ai.scheduledJobs/actionSuggestions/suggestAllNextActionThresholds + global scheduled_jobs store [0.97.0–0.110.0] -->
 
 # Data
 
@@ -24,6 +24,11 @@ Task {
   dueDate         "YYYY-MM-DD"
   lastUpdateDate  "YYYY-MM-DD"
   priority        "Low" | "Medium" | "High" | "Urgent"
+  status          TaskStatus               // 0.107.0 — "To Do"|"In Progress"|"On Hold"|
+                                           //   "In Review"|"Cancelled"|"Done"; SOURCE OF TRUTH
+                                           //   for "done". Invariant: status==="Done" ⟺ completedDate
+                                           //   set. Sole writer is applyStatusChange (task-status.ts);
+                                           //   migrateTaskStatus backfills on all six load paths.
   blockers        string
   notes           string
   completedDate?  "YYYY-MM-DD"
@@ -292,7 +297,23 @@ ProjectMeta {
   docRepoLocation?        string
   regulatory              RegulatoryRequirement[]  // required (non-empty unless lenient);
                                                    //   "Not applicable" collapses the rest
+  operatingTimezone?      string           // 0.113.0: IANA operating tz (e.g. "Asia/Kolkata");
+                                           //   drives day-boundary logic via resolveTimezone
   notes?                  string
+}
+
+// Steering committee — 0.111.0 --------------------------------------------
+CommitteeMeeting { id: number; date: "YYYY-MM-DD"; title: string;
+                   agenda?: string; location?: string; outlookEventId? }
+InfoSchedule     { id: number; label: string; leadDays: number }  // working days before
+                                                                   //   a meeting a pack circulates
+SteeringCommittee {
+  name                  string
+  memberResourceIds     number[]           // FK → Resource.id
+  meetings              CommitteeMeeting[]
+  infoSchedules         InfoSchedule[]
+  infoReminderEventIds? Record<string,string>   // pushed Outlook event ids per reminder
+  pendingDeleteEventIds? string[]                // orphaned ids of deleted meetings, cleared on next push
 }
 ```
 
@@ -320,6 +341,8 @@ type Workspace = {
                                             //   (byte-identical to pre-field serialization)
   features?: FeatureModuleId[];             // per-project enabled modules (functions).
                                             //   Present-only: undefined ⇒ no override; [] ⇒ Simple
+  steeringCommittee?: SteeringCommittee;    // 0.111.0+; optional. Committee + meetings +
+                                            //   info-schedule rules; persisted across all backends
 };
 
 type StorageKind =
@@ -441,7 +464,7 @@ legacy keys are removed.
 | Key | Shape |
 |---|---|
 | `lop-theme` | `"light"` \| `"dark"` \| `"system"` — persisted theme preference. Default `"system"` (absent = system). Read by the no-flash inline script in `layout.tsx` before hydration and by `use-theme.tsx` at runtime. Separate from the workspace `Settings` object. |
-| `lop-app:settings` | JSON envelope: `{ language, holidayCountries, ai, jira, notifications, storage, integrations?, layout?, reports?, popout?, resources?, snapshots?, features?, export? }`. The `layout` field: `"modern" \| "classic"` (default modern). The `jira` sub-object includes `tokenExpiresAt` + `tokenInvalidAt`. **0.21.0+** `integrations` sub-object: `{ m365Enabled: boolean, m365ClientId?: string, m365TenantId?: string, tursoEnabled: boolean, tursoDbUrl?: string, tursoAuthToken?: string }` (Settings → Integrations inputs); overridden by `NEXT_PUBLIC_*` env vars. The `notifications` sub-object: `{ reminderLeadDays, banner: {enabled}, toast: {enabled}, popup: {enabled}, birthday: {enabled} }`. **0.54.0+** `features`: `FeatureModuleId[]` (the enabled feature modules — `dashboard`, `trends`, `gantt`, `milestones`, `resources`, `budget`, `raid`, `changes`, `stakeholders`, `history` (0.66.0+, Turso version history); `feature-modules.ts`). `sanitizeFeatures(undefined) ⇒ all modules` (legacy migration); `[] ⇒ Simple`, all ⇒ Advanced, partial ⇒ Modular (`deriveMode`). Gates nav / automation / dashboard / reports. |
+| `lop-app:settings` | JSON envelope: `{ language, holidayCountries, ai, jira, notifications, storage, integrations?, layout?, reports?, popout?, resources?, snapshots?, features?, export? }`. The `layout` field: `"modern" \| "classic"` (default modern). The `jira` sub-object includes `tokenExpiresAt` + `tokenInvalidAt`. **0.21.0+** `integrations` sub-object: `{ m365Enabled: boolean, m365ClientId?: string, m365TenantId?: string, tursoEnabled: boolean, tursoDbUrl?: string, tursoAuthToken?: string }` (Settings → Integrations inputs); overridden by `NEXT_PUBLIC_*` env vars. The `notifications` sub-object: `{ reminderLeadDays, banner: {enabled}, toast: {enabled}, popup: {enabled}, birthday: {enabled} }`. **0.54.0+** `features`: `FeatureModuleId[]` (the enabled feature modules — `dashboard`, `trends`, `gantt`, `milestones`, `resources`, `budget`, `raid`, `changes`, `stakeholders`, `history` (0.66.0+, Turso version history); `feature-modules.ts`). `sanitizeFeatures(undefined) ⇒ all modules` (legacy migration); `[] ⇒ Simple`, all ⇒ Advanced, partial ⇒ Modular (`deriveMode`). Gates nav / automation / dashboard / reports. **0.97.0+** `ai` sub-object grew master `groundInGuides` (default ON) + `actionSuggestions?` (Action-Center "Analyze with AI", default ON) + `scheduledJobs?` (recurring billed analysis, default OFF/opt-in) + `suggestAllNextActionThresholds?` (AI weight suggestions, default OFF). **0.108.0+** `tasksViewMode: "table" \| "board"` (per-device Kanban toggle). **0.112.0+** `tourSeen?: boolean` (guided-tour seen flag). **0.113.0+** `timezone?: string` (per-device display/operating tz override; undefined = follow project/browser) + `additionalTimezones?: string[]` (extra zones for the display switcher + calendar clock strip). |
 | `lop-app:reminder-snooze:due` | Epoch-ms timestamp (stored as decimal string) until which the due-date reminder banner is snoozed; absent or elapsed = not snoozed |
 | `lop-app:reminder-snooze:birthday` | Epoch-ms timestamp until which the birthday reminder banner is snoozed; absent or elapsed = not snoozed |
 | `lop-app:reminder-snooze:jiraToken` | Epoch-ms timestamp until which the Jira token expiry banner is snoozed; absent or elapsed = not snoozed |
@@ -457,6 +480,7 @@ legacy keys are removed.
 | `lop-app:turso-current-project` | Turso-mode last-selected project id (string); absent = none. The Turso `projects` table is the source of truth — this only caches the selection (`portfolio-mode.ts`). |
 | `lop-app:projects` | File-mode project registry (v0.58 Phase 1; `projects-registry.ts`): `{ projects: ProjectRegistryEntry[], currentProjectId: string \| null }` where `ProjectRegistryEntry = { id, name, code, storageConfig }`. Malformed entries dropped on load; dangling `currentProjectId` coerced to `null`. |
 | `lop-app:action-learning` | **0.95.0+** Action Center learning store (local backend): per-kind outcome stats (`acted` / `snoozed` / `dismissed` / `last_at`) + explicit overrides. Opt-in; absent until the learning layer records its first outcome. Manual reset = delete this key. The alternative backend is the global Turso `action_learning` table (see below). |
+| `lop-app:scheduled-jobs` | **0.97.0+ (SP5)** AI scheduled-jobs store (local backend): `ScheduledJob[]` (`{ id, cadence, lastRunAt?, runs: ScheduledJobRun[] }`, history capped at `JOB_HISTORY_CAP = 10`). Opt-in (`ai.scheduledJobs`); used when `tursoConfig === null`. The cross-device backend is the global Turso `scheduled_jobs` table (see below). |
 | `lop-app:tasks`, `lop-app:raid` | **Legacy** — removed after first successful IDB save |
 
 ## File-backend formats
@@ -550,6 +574,14 @@ and version tables it is kept **out of** the workspace `TABLE_NAMES`, so a
 workspace save's clear-all never touches it; a manual reset is
 `DELETE FROM action_learning`. Writes are a full rewrite (DELETE then re-insert)
 of the table.
+
+**AI scheduled jobs** (`scheduled-jobs-store.ts`, opt-in, SP5): a **global**
+(cross-project) `scheduled_jobs` table storing the `ScheduledJob[]` as a JSON
+blob row. Like the snapshot / version / learning tables it is kept **out of**
+the workspace `TABLE_NAMES` (guard test), so a workspace save's clear-all never
+wipes it; writes are a full rewrite (DELETE then re-insert, no per-id diffing).
+Selected only when `tursoConfig !== null`; otherwise the local
+`lop-app:scheduled-jobs` key is the backend.
 
 ## Sanitization (`sanitize.ts`)
 

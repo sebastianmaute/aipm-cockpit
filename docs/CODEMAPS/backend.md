@@ -1,12 +1,13 @@
-<!-- Generated: 2026-06-11 | Files scanned: src/proxy.ts + 10 (src/app/api/jira) + client storage backends | Token estimate: ~600 | Updated for 0.29.0–0.60.0: still no server-side app backend; client-side Turso multi-tenant backend + portfolio-mode (0.58.0–0.59.0); SharePoint Graph pure core + picker scope (0.60.0 "Stephenson"); data version history (`version-store.ts` + `version-schema.ts`: append-only `project_versions` over the same `/v2/pipeline` transport, pruned by retention, Turso-only) [0.66.0–0.69.0] -->
+<!-- Generated: 2026-06-11 | Files scanned: src/proxy.ts + 10 (src/app/api/jira) + api/confluence + client storage backends | Token estimate: ~600 | Updated for 0.29.0–0.60.0: still no server-side app backend; client-side Turso multi-tenant backend + portfolio-mode (0.58.0–0.59.0); SharePoint Graph pure core + picker scope (0.60.0 "Stephenson"); data version history (`version-store.ts` + `version-schema.ts`: append-only `project_versions` over the same `/v2/pipeline` transport, pruned by retention, Turso-only) [0.66.0–0.69.0]; Confluence page proxy route reusing the hardened Jira helpers (0.110.0); AI scheduled-jobs global store (`scheduled-jobs-store.ts`, out of TABLE_NAMES, Turso-or-localStorage) [SP5] -->
 
 # Backend
 
 No application backend in the traditional sense — no DB, no auth middleware,
-no business logic on the server. Two thin server-side concerns only:
+no business logic on the server. Three thin server-side concerns only:
 
 1. `src/proxy.ts` — Next.js 16 middleware that attaches a per-request CSP nonce.
 2. `src/app/api/jira/*` — CORS proxy routes that forward to Atlassian Cloud.
+3. `src/app/api/confluence/page/route.ts` — Confluence-page fetch proxy (same Atlassian host as Jira; 0.110.0).
 
 ## Middleware (`src/proxy.ts`)
 
@@ -54,7 +55,20 @@ response.
 | `POST /api/jira/update-issue` | Push local task edits back to Jira |
 | `POST /api/jira/transition-issue` | Change workflow status (e.g. Done) |
 
-## Shared helpers (not routes)
+## Confluence route (0.110.0+)
+
+| Route | Purpose |
+|---|---|
+| `POST /api/confluence/page` | Fetch a Confluence page body for AI project import (`/wiki/rest/api/content/{id}?expand=body.view`) |
+
+Confluence is the **same Atlassian host** as Jira, so the route **reuses the
+hardened Jira `_helpers`** (`parseJiraRequest` / `callJira` /
+`forwardJsonResponse`) — never a raw `fetch` — inheriting the SSRF allowlist
+(`*.atlassian.net`), HTTPS-only Basic auth, rate-limit, and timeout. The `pageId`
+is validated server-side with `/^\d+$/` before the path is built (path-injection
+guard). The browser-side helper is the pure `confluence-api.ts`
+(`fetchConfluencePage(url, creds)`); the import UI lives in `step0-import-panel.tsx`.
+Gated on full Jira config (`enabled && siteUrl && apiToken && email`).
 
 - `src/app/api/jira/_helpers.ts` — credential validation, Basic-auth header builder, common error translation, and `parseJiraRequest(request)`: the shared route entry point that runs the rate-limit check, parses the JSON body, and extracts credentials, returning either a ready-to-send error `Response` or `{ creds, body }`. Every route calls it instead of repeating that boilerplate. Outbound site URLs are normalised by `normalizeSiteUrl`: **HTTPS only** — plaintext `http://` is rejected so Basic credentials are never sent in the clear — and `isPrivateHost` rejects loopback / RFC-1918 / link-local plus IPv6 unique-local (`fc00::/7`), IPv6 link-local (`fe80::/10`), and IPv4-mapped (`::ffff:`) addresses (SSRF guard). ADF (Atlassian Document Format) ↔ plain-text conversion now lives in `src/app/adf.ts` (shared with client-side import/export paths).
 - `src/app/api/jira/_rate-limit.ts` — per-IP / per-credentials rate-limit using an in-memory token bucket. Resets on server restart (acceptable for current scale).
@@ -97,6 +111,10 @@ All backends implement the `StorageBackend` interface (`load(): Promise<Workspac
 
 - `version-schema.ts` — DDL + SQL builders for the append-only `project_versions` table (full workspace JSON payload per version). Kept out of the workspace `TABLE_NAMES` (like the snapshot tables), so a workspace save's clear-all never wipes it.
 - `version-store.ts` — async CRUD (list / get / insert / prune) over the same Turso `/v2/pipeline` transport as the main backend; prunes auto-versions to `Settings.versionHistoryRetention`, leaving named checkpoints. Only active in Turso mode with the History feature module enabled.
+
+### AI scheduled-jobs store (Turso-or-localStorage, SP5)
+
+- `scheduled-jobs-store.ts` — persistence for opt-in AI scheduled jobs (`ai.scheduledJobs`). `tursoConfig === null` → the `lop-app:scheduled-jobs` localStorage key; `tursoConfig !== null` → a **global** `scheduled_jobs` Turso table (cross-device, JSON-blob row). Kept **out of** the workspace `TABLE_NAMES` (guard test) so a workspace save's clear-all never wipes it. The pure schedule engine is `scheduled-jobs/` (`isDue` / `nextRunAt` / `dueJobs` / `appendRun`; `now` always passed in). The runner is the client hook `use-scheduled-job-runner.ts`; the billed analysis call is the non-hook `scheduled-job-analysis.ts`.
 
 ### Portfolio mode (multi-project, client-side, 0.58.0–0.59.0)
 

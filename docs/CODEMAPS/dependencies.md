@@ -1,4 +1,4 @@
-<!-- Generated: 2026-06-10 | Files scanned: package.json, package-lock.json, vitest.config.ts, playwright.config.ts | Token estimate: ~700 | Updated for 0.59.0 "Gibson": test stack upgraded to Vitest 4; added fake-indexeddb + fast-check dev deps; no new runtime deps -->
+<!-- Generated: 2026-06-10 | Files scanned: package.json, package-lock.json, vitest.config.ts, playwright.config.ts | Token estimate: ~700 | Updated for 0.59.0 "Gibson": test stack upgraded to Vitest 4; added fake-indexeddb + fast-check dev deps; no new runtime deps. 0.97.0–0.115.0 (AI orchestration SP0–SP5, Task.status/Kanban, steering committee, guided tour, timezones): NO new runtime deps — timezones use native `Intl.DateTimeFormat`, Kanban uses native HTML5 DnD, AI uses raw `fetch` to api.anthropic.com, Confluence reuses the in-tree Jira proxy -->
 
 # Dependencies
 
@@ -36,6 +36,8 @@ Deliberately small surface. The runtime dep tree fits on one screen.
 | `@playwright/test` | ^1.49.0 | E2E runner (`playwright.config.ts`); Chromium-only by default |
 
 **0.59.0 "Gibson":** the test stack moved to Vitest 4 (`vitest` + `@vitest/coverage-v8` → ^4.1.8) and gained `fake-indexeddb` + `fast-check`. Runtime deps unchanged. Test count grows with each release; see CHANGELOG for per-release totals.
+
+**0.97.0–0.115.0:** the AI-orchestration suite (SP0–SP5), Task.status + Kanban board, steering committee, guided tour, and the timezone subsystem all shipped with **zero new runtime or dev dependencies**. Timezone formatting and zone enumeration use the native `Intl.DateTimeFormat` / `Intl.supportedValuesOf` APIs (`timezone.ts` / `tz-display.ts` / `tz-clock.ts`); the Kanban board uses native HTML5 drag-and-drop (no DnD library); AI calls hit `api.anthropic.com` directly via `fetch`; Confluence import reuses the in-tree Jira proxy helpers.
 
 ### `overrides` / `allowScripts`
 
@@ -112,7 +114,7 @@ These were considered or asked about but **are not in the dep tree**:
 
 | Package | Why not |
 |---|---|
-| `moment` / `dayjs` / `date-fns` / `luxon` (direct) | We don't do date math; the codebase uses ISO `YYYY-MM-DD` strings + native `Date`. Moment is transitive via `date-holidays`, not direct. |
+| `moment` / `dayjs` / `date-fns` / `luxon` (direct) | We don't do date math; the codebase uses ISO `YYYY-MM-DD` strings + native `Date`. Moment is transitive via `date-holidays`, not direct. Timezone handling (0.113.0+) uses the native `Intl.DateTimeFormat` / `Intl.supportedValuesOf("timeZone")` APIs — no Luxon/Temporal/tz library. |
 | `style-loader` / `mini-css-extract-plugin` | Next handles CSS internally. Not present, not needed. |
 | `@tanstack/react-virtual` / virtualization libs | Task table not virtualized (high-risk refactor). |
 | State stores (zustand / jotai / redux-toolkit) | Single god-component owns state; `tasksRef` mirroring discussed as future cleanup. |

@@ -6,15 +6,23 @@ this file covers what to do when the app needs to ship or starts misbehaving.
 
 ## What this app is, operationally
 
-- **Pure client-side app** with thin Next.js route handlers for Jira CORS
-  proxying. No database, no auth middleware, no session store, no background
-  jobs.
+- **Pure client-side app** with thin Next.js route handlers for Jira and
+  Confluence CORS proxying. No database, no auth middleware, no session store,
+  and no _server_ background jobs. "Scheduled jobs" (recurring Claude analyses,
+  0.105.0+) run entirely in the browser while the app is open — there is no
+  server cron; missed runs catch up on next open. They are opt-in and off by
+  default (see "Disable / reset scheduled jobs" below).
 - **All user data lives in the browser** (`IndexedDB` for tasks/RAID,
   `localStorage` for settings + credentials). Losing the server tier loses
   nothing about the users; losing the browser profile loses the user's data.
 - **Outbound calls** from the server are only to `api.atlassian.com` from
-  `/api/jira/*`, and only with credentials forwarded from the request body.
-  The browser calls `api.anthropic.com` directly (no server proxy).
+  `/api/jira/*` and `/api/confluence/page` (both Atlassian — the Confluence
+  route reuses the Jira proxy helpers, the same SSRF allowlist, and the
+  user-supplied Atlassian credentials; no new outbound host). Both go out only
+  with credentials forwarded from the request body. The browser calls
+  `api.anthropic.com` (Claude), `api.turso.io` (Turso), `graph.microsoft.com`
+  (M365 Graph), and `login.microsoftonline.com` (MSAL) directly (no server
+  proxy).
 
 This shape means most "incidents" are either build failures, browser-side
 errors visible only in DevTools, or Atlassian / Anthropic outages we cannot
@@ -75,11 +83,18 @@ scripts and SSR `<style>` blocks. Production CSP is nonce-strict for
 keeps `'unsafe-inline'` because React renders `style={{...}}` props as the
 `style` HTML attribute (Gantt/table use dynamic px math). The app never
 renders untrusted HTML — no `dangerouslySetInnerHTML` anywhere — so the
-attribute allowance is low-risk. `connect-src` allows
-`https://api.anthropic.com`. **If you add a new outbound origin** (e.g. a
-different LLM, a logging endpoint), update `connect-src` in `src/proxy.ts`
-or the browser will block the call silently except for a DevTools console
-message.
+attribute allowance is low-risk. `connect-src` allows the browser-called
+origins (`api.anthropic.com`, `api.turso.io`, `graph.microsoft.com`,
+`login.microsoftonline.com`); `worker-src 'self'` is set for the installable
+PWA's service worker (0.106.0+). The recent feature batch (timezones, guided
+tour, steering committee, Kanban, scheduled jobs, Confluence import) added
+**no new outbound host**: committee Outlook push uses the already-allowlisted
+Graph host, scheduled jobs use the already-allowlisted Anthropic host, and the
+Confluence proxy is same-origin (browser → `/api/confluence/page`, which then
+calls the already-allowlisted Atlassian host server-side). **If you add a new
+outbound origin** (e.g. a different LLM, a logging endpoint), update
+`connect-src` in `src/proxy.ts` or the browser will block the call silently
+except for a DevTools console message.
 
 Because `src/proxy.ts` sets the per-request nonce, all pages must render
 dynamically. `src/app/page.tsx` calls `await connection()` to opt in; new
@@ -93,7 +108,8 @@ that no longer matches the per-request CSP header.
 2. Open Settings → Storage. The page should not 500.
 3. Add a task; refresh; confirm it persists.
 4. Open the Version popover (info icon in header). `APP_VERSION` and
-   `APP_BUILD_DATE` should match the build you just shipped.
+   `APP_BUILD_DATE` should match the build you just shipped (current release:
+   **v0.115.0 "Sturgeon"**).
 5. If Jira is in use: open Settings → Jira, enter test creds, hit Test —
    the route handler at `/api/jira/test` should respond.
 
@@ -128,6 +144,14 @@ The repo contains **no production secrets**. Multiple credential paths, all brow
 | **Turso** Database URL + Auth Token | Browser `localStorage` or `NEXT_PUBLIC_*` env vars | `api.turso.io` (direct from browser) | Stored in Settings → Integrations or env vars; **recommend scoped token with minimal permissions** |
 
 **Important:** The `NEXT_PUBLIC_*` env vars are **build-time public** — they are inlined into the JavaScript bundle and visible in the browser. Use them only for non-secret client-side config (e.g., Entra Client ID). The Turso auth token should **not** be exposed as a build-time env var in public deployments — use Settings inputs instead, or a scoped token if env var is unavoidable.
+
+The recent feature batch (timezones, guided tour, steering committee, Kanban,
+scheduled jobs, Confluence import) introduced **no new credential**: Confluence
+reuses the existing Atlassian (Jira) token, scheduled jobs reuse the Anthropic
+key, and committee Outlook push reuses the M365 Graph token. The Anthropic key
+and Turso auth token remain encrypted at rest (see `secrets.ts` —
+AES-256-GCM, non-extractable device key by default, optional per-secret
+passphrase).
 
 If a deployment-host compromise is suspected, **no server-side secret needs
 rotation** because the server holds none. Users may want to rotate their own
@@ -246,6 +270,30 @@ localStorage key; for the **Turso store**, run `DELETE FROM action_learning`
 **never blocks boot** — a load failure is swallowed and the engine falls back to
 the intrinsic ranking — and it is **ignored in safe-mode** (`?safe=1`), so it can
 never wedge startup.
+
+### "Disable / reset scheduled jobs"
+Scheduled jobs (0.105.0+) are **opt-in and off by default** — each run is a
+billed Anthropic call. They are gated on a configured Anthropic key **and** the
+`ai.scheduledJobs` toggle. To turn them off: Settings → "Scheduled jobs" → flip
+the master toggle off (or remove the Anthropic key). Jobs run only while the app
+is open (on load, on tab re-focus, and on a light interval), catch up missed
+runs on next open, are **advisory only** (they never write to the workspace),
+and **never run in popouts**. State persists in a global `scheduled_jobs` store
+(Turso, kept out of `TABLE_NAMES`, with a localStorage fallback) — to wipe it,
+clear the `scheduled_jobs` localStorage key or `DELETE FROM scheduled_jobs` on
+Turso. There is no server cron and no Periodic Background Sync, so jobs cannot
+fire while every tab is closed.
+
+### "Overdue / due-soon dates look wrong by a day"
+Cause: timezone resolution (0.113.0+), not data corruption. The app now derives
+its day boundary (what counts as overdue, due today, or due soon) from a
+resolved timezone — a per-project operating timezone, falling back to the
+per-device default (Settings → Timezone) — instead of UTC. Existing data is
+unchanged; this is a display/logic preference only. Fix: set the correct
+per-device default or per-project operating timezone in Settings. The display
+timezone switcher in the top bar (Default / UTC / additional zones) only affects
+how timestamps render for the session and resets on reload; it does not change
+the underlying data or the due-date logic.
 
 ### "CSP blocks a new feature"
 Symptoms: a specific resource fails in DevTools Console with `Refused to
