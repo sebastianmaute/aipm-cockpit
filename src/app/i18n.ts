@@ -541,6 +541,8 @@ const enUS = {
     "Guided tour + demo: a first-run walkthrough of the main areas (modern layout), a one-click demo project to explore, and a 'Take the tour' entry in the Help menu to replay it anytime.",
   versionHighlightTimezones:
     "Timezones (foundation): set a per-project operating timezone and a per-device default; the app's date logic (overdue, reminders, due dates) now follows your timezone instead of UTC.",
+  versionHighlightTimezoneDisplay:
+    "Timezone display: timestamps (activity log, version history, trends) now render in a display timezone you pick from the top bar - defaulting to your configured zone - with the zone shown. The choice is per session.",
   scheduledJobsTitle: "Scheduled jobs",
   scheduledJobsToggle: "Enable scheduled jobs",
   scheduledJobsHelp:

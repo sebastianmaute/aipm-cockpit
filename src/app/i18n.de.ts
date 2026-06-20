@@ -529,6 +529,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightSteering: "Lenkungsausschuss: Erfassen Sie Mitglieder, den Sitzungsplan und Regeln für den Vorlauf von Informationspaketen. Erinnerungen erscheinen im Aktionscenter, und Sitzungen samt Erinnerungen können in Ihren Outlook-Kalender übertragen werden.",
   versionHighlightTour: "Geführte Tour + Demo: ein Rundgang durch die wichtigsten Bereiche beim ersten Start (moderne Ansicht), ein Demo-Projekt zum Erkunden per Klick und ein Eintrag \"Tour starten\" im Hilfe-Menü zum jederzeitigen Wiederholen.",
   versionHighlightTimezones: "Zeitzonen (Grundlage): Legen Sie eine Betriebszeitzone pro Projekt und einen geräteweiten Standard fest; die Datumslogik der App (überfällig, Erinnerungen, Fälligkeiten) richtet sich jetzt nach Ihrer Zeitzone statt nach UTC.",
+  versionHighlightTimezoneDisplay: "Zeitzonen-Anzeige: Zeitstempel (Aktivitätsprotokoll, Versionsverlauf, Trends) erscheinen jetzt in einer oben wählbaren Anzeige-Zeitzone - standardmäßig Ihre konfigurierte Zone - mit Zonenangabe. Die Auswahl gilt pro Sitzung.",
   scheduledJobsTitle: "Geplante Jobs",
   scheduledJobsToggle: "Geplante Jobs aktivieren",
   scheduledJobsHelp: "Führen Sie eine wiederkehrende KI-Portfolioanalyse nach Zeitplan aus. Ergebnisse erscheinen hier und als Desktop-Benachrichtigung.",
