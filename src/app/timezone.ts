@@ -22,6 +22,15 @@ export function browserTimeZone(): string {
   }
 }
 
+/** The selectable IANA zone list for pickers. Uses `Intl.supportedValuesOf`
+ *  where available; falls back to the host zone + UTC on older engines (never
+ *  crash). Shared by the settings + project-form timezone pickers. */
+export function tzZones(): string[] {
+  return typeof Intl.supportedValuesOf === "function"
+    ? Intl.supportedValuesOf("timeZone")
+    : [browserTimeZone(), "UTC"];
+}
+
 /** YYYY-MM-DD of `now` as seen in `tz`. Falls back to UTC if `tz` is rejected. */
 export function todayInZone(now: Date, tz: string): string {
   const zone = isValidTimeZone(tz) ? tz : "UTC";

@@ -17,7 +17,7 @@ import { FieldError } from "./field-feedback";
 import { InfoTooltip } from "./info-tooltip";
 import { t, type Lang } from "./i18n";
 import type { DocumentLink } from "./document-link";
-import { browserTimeZone } from "./timezone";
+import { tzZones } from "./timezone";
 import { DocumentLinksFieldGated } from "./document-links-field-gated";
 import {
   IDENTITY_TYPES,
@@ -95,12 +95,9 @@ export function emptyProjectDraft(): ProjectFormDraft {
 export const inputClass =
   "w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none focus:ring-1 focus:ring-AIPM-green dark:border-line dark:bg-surface dark:text-foreground";
 
-// IANA zone list for the operating-timezone select. Guarded: older runtimes
-// without Intl.supportedValuesOf fall back to the host zone + UTC.
-const TIMEZONE_OPTIONS: readonly string[] =
-  typeof Intl.supportedValuesOf === "function"
-    ? Intl.supportedValuesOf("timeZone")
-    : [browserTimeZone(), "UTC"];
+// IANA zone list for the operating-timezone select (shared with the settings
+// picker via timezone.ts; guarded fallback for older runtimes inside tzZones).
+const TIMEZONE_OPTIONS: readonly string[] = tzZones();
 
 // Suggested identity-count steps (datalist) — guidance only; any number is valid.
 const IDENTITY_COUNT_STEPS = [

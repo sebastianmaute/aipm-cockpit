@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { todayInZone, isValidTimeZone, resolveTimezone, formatInZone } from "./timezone";
+import { todayInZone, isValidTimeZone, resolveTimezone, formatInZone, tzZones } from "./timezone";
 
 describe("timezone", () => {
   it("todayInZone returns the local calendar date in the zone", () => {
@@ -25,5 +25,10 @@ describe("timezone", () => {
   it("formatInZone renders an ISO instant in a zone", () => {
     const out = formatInZone("2026-06-20T22:00:00Z", "Asia/Kolkata", { hour: "2-digit", minute: "2-digit", hour12: false }, "en-GB");
     expect(out).toContain("03:30");
+  });
+  it("tzZones returns a non-empty list of valid zones (shared by the pickers)", () => {
+    const zones = tzZones();
+    expect(zones.length).toBeGreaterThan(0);
+    expect(zones.every(isValidTimeZone)).toBe(true);
   });
 });

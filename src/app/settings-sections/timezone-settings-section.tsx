@@ -3,20 +3,12 @@
 import { useState } from "react";
 import { type Lang, t } from "../i18n";
 import type { Settings } from "../settings-types";
-import { browserTimeZone, isValidTimeZone } from "../timezone";
+import { browserTimeZone, isValidTimeZone, tzZones } from "../timezone";
 
 interface TimezoneSettingsSectionProps {
   lang: Lang;
   settings: Settings;
   onChange: (s: Settings) => void;
-}
-
-/** Available IANA zones, with a defensive fallback for runtimes lacking
- *  `Intl.supportedValuesOf` (never crash). */
-function tzZones(): string[] {
-  return typeof Intl.supportedValuesOf === "function"
-    ? Intl.supportedValuesOf("timeZone")
-    : [browserTimeZone(), "UTC"];
 }
 
 export function TimezoneSettingsSection({ lang, settings, onChange }: TimezoneSettingsSectionProps) {
