@@ -255,6 +255,20 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
   call). SP4's call extracted to NON-hook `runJobAnalysis` (`scheduled-job-analysis.ts`) so the runner
   loops it; `use-action-analysis` delegates. ADVISORY only; never in popouts. Gated on key +
   `ai.scheduledJobs === true` (default OFF / opt-in — UNLIKE `actionSuggestions`'s `!== false`).
+- **AI weight suggestions (SP-C, v0.109.0):** "Suggest with AI" in the next-actions settings →
+  ONE forced-tool call (`suggest_weights`, `tool_choice` forced, NO loop) in
+  `weight-suggestion-call.ts` (mirrors `scheduled-job-analysis.ts` security EXACTLY — never
+  logs/echoes apiKey or body; thrown errors carry only HTTP-status digits or `"parse"`). Pure
+  contract `next-actions-tuning.ts` + `weight-suggestion-ai.ts`; hook `use-weight-suggestions.ts`.
+  ★★ EVERY model-proposed value reaching `settings.nextActions` MUST pass `parseWeightSuggestions`
+  → `NEXT_ACTIONS_FIELD_COERCE[field]` — the SAME per-field validators `resolveNextActionsConfig`
+  uses (hoisted to a shared exported map in `settings-types.ts`; a hallucinated/out-of-bounds value
+  can never land). Accept writes via the settings setter (→ `writeSettings`), never raw setItem.
+  Targets the 3 confidence weights by default; opt-in `ai.suggestAllNextActionThresholds` (default
+  OFF) widens to all 10. Learning history + `summarizeTrendsForPrompt(actionTrends)` = INPUTS;
+  ephemeral result; popout read-only. ★ A pure rationale sanitizer regex is the SHARED
+  `CONTROL_CHARS = /[\x00-\x1f]/g` (use `\x` HEX escapes — never type literal control bytes; they
+  corrupt the file to binary).
 - **No `settings.mode` field:** PM mode is DERIVED — `deriveMode(settings.features)` (same call the
   chat snapshot uses in `use-chat-dispatcher.ts`). Reading `settings.mode` is `undefined`; use
   `deriveMode`.
