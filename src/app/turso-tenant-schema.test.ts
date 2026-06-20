@@ -117,6 +117,23 @@ describe("turso-tenant-schema", () => {
     expect(decoded.features).toEqual(["raid"]);
   });
 
+  it("round-trips the steering committee through the tenant path", () => {
+    const ws = {
+      ...emptyWorkspace(),
+      steeringCommittee: {
+        name: "Board",
+        memberResourceIds: [1, 2],
+        meetings: [{ id: 1, date: "2026-07-10", title: "July" }],
+        infoSchedules: [{ id: 1, label: "Pack", leadDays: 3 }],
+      },
+    };
+    const results = simulateSelect(tenantWorkspaceToStatements(ws, "p1"));
+    const decoded = rowsToWorkspace(results);
+    expect(decoded.steeringCommittee?.name).toBe("Board");
+    expect(decoded.steeringCommittee?.meetings[0].title).toBe("July");
+    expect(decoded.steeringCommittee?.infoSchedules[0].leadDays).toBe(3);
+  });
+
   it("persists an empty features array (not dropped) through the tenant path", () => {
     const ws = { ...emptyWorkspace(), features: [] as const };
     const results = simulateSelect(tenantWorkspaceToStatements(ws, "p1"));

@@ -30,6 +30,7 @@ import {
   sanitizeRole,
   sanitizeShift,
   sanitizeStakeholder,
+  sanitizeSteeringCommittee,
 } from "./sanitize";
 import {
   type Absence,
@@ -280,6 +281,9 @@ export function workspaceToJson(ws: Workspace): string {
       // Additive: present (incl. explicit [] = Simple) emits the key; undefined
       // (no override) omits it, so legacy files round-trip without a `features` key.
       ...(ws.features ? { features: ws.features } : {}),
+      // Additive: only present when a committee is configured, so legacy files
+      // stay free of a `steeringCommittee` key.
+      ...(ws.steeringCommittee ? { steeringCommittee: ws.steeringCommittee } : {}),
     },
     null,
     2,
@@ -344,6 +348,12 @@ export function jsonToWorkspace(text: string): Workspace {
     // preserved rather than expanded to all modules by sanitizeFeatures(undefined).
     if (p.features !== undefined) {
       raw.features = sanitizeFeatures(p.features);
+    }
+    // Additive: sanitize an incoming committee when present; garbage sanitizes
+    // to undefined and the key stays off so committee-less files round-trip.
+    if (p.steeringCommittee !== undefined) {
+      const committee = sanitizeSteeringCommittee(p.steeringCommittee);
+      if (committee) raw.steeringCommittee = committee;
     }
     return migrateWorkspaceV9(raw);
   } catch {

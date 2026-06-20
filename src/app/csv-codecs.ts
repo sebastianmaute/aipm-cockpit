@@ -30,6 +30,7 @@ import {
   sanitizeShift,
   sanitizeStakeholder,
   sanitizeProjectMeta,
+  sanitizeSteeringCommittee,
   encodeRaciMap,
   decodeRaciMap,
   serializeDependencies,
@@ -58,6 +59,7 @@ import {
   type Role,
   type Shift,
   type Stakeholder,
+  type SteeringCommittee,
   type Task,
 } from "./types";
 import type { ExportConfig } from "./settings-types";
@@ -198,6 +200,7 @@ const CSV_SECTION_STATUS = "# PROJECT STATUS";
 const CSV_SECTION_PROJECT = "# PROJECT META";
 const CSV_SECTION_FIELD_VIS = "# FIELD-VISIBILITY";
 const CSV_SECTION_FUNCTIONS = "# FUNCTIONS";
+const CSV_SECTION_STEERING = "# STEERING COMMITTEE";
 
 export function shiftFieldToString(s: Shift, col: string): string {
   switch (col) {
@@ -713,6 +716,27 @@ export function csvToFeatures(text: string): FeatureModuleId[] | undefined {
   }
 }
 
+// --- Steering-committee encoder / decoder ------------------------------------
+//
+// The steering committee is a single NESTED object (board membership, meetings,
+// info-pack cadence), so — like field-visibility — it serializes as one
+// `config,<json>` row rather than a column table. Storage-only, NOT a
+// user-exportable section: emission is gated purely on the value being present.
+
+export function steeringCommitteeToCsv(committee: SteeringCommittee, neutralize = false): string {
+  return ["config", csvCellEscape(JSON.stringify(committee), neutralize)].join(",");
+}
+
+export function csvToSteeringCommittee(text: string): SteeringCommittee | undefined {
+  const rows = parseCsv(text).filter((r) => r.length >= 2 && r[0] === "config");
+  if (rows.length === 0) return undefined;
+  try {
+    return sanitizeSteeringCommittee(JSON.parse(rows[0][1]));
+  } catch {
+    return undefined;
+  }
+}
+
 // --- Project metadata encoder / decoder --------------------------------------
 //
 // ProjectMeta is a SINGLE object (like ProjectStatus), so it serializes as a
@@ -1013,6 +1037,10 @@ export function workspaceToCsv(ws: Workspace, config?: ExportConfig): string {
     csvPush(CSV_SECTION_FIELD_VIS, fieldVisibilityToCsv(ws.fieldVisibility, neutralize));
   if (ws.features !== undefined)
     csvPush(CSV_SECTION_FUNCTIONS, featuresToCsv(ws.features, neutralize));
+  // Steering committee — storage-only, emitted last so it never shifts existing
+  // fixture bytes; absent emits nothing (byte-stability for committee-less files).
+  if (config === undefined && ws.steeringCommittee)
+    csvPush(CSV_SECTION_STEERING, steeringCommitteeToCsv(ws.steeringCommittee, neutralize));
   return parts.join("\r\n");
 }
 
@@ -1099,9 +1127,10 @@ function splitCsvSections(csv: string): {
   projectText: string;
   fieldVisText: string;
   functionsText: string;
+  steeringText: string;
 } {
   const lines = csv.split(/\r?\n/);
-  let mode: "tasks" | "raid" | "absences" | "shifts" | "resources" | "roles" | "disciplines" | "grades" | "plan" | "budgets" | "fxrates" | "status" | "milestones" | "changes" | "stakeholders" | "project" | "fieldVis" | "functions" | null = null;
+  let mode: "tasks" | "raid" | "absences" | "shifts" | "resources" | "roles" | "disciplines" | "grades" | "plan" | "budgets" | "fxrates" | "status" | "milestones" | "changes" | "stakeholders" | "project" | "fieldVis" | "functions" | "steering" | null = null;
   const tasksLines: string[] = [];
   const raidLines: string[] = [];
   const absencesLines: string[] = [];
@@ -1120,6 +1149,7 @@ function splitCsvSections(csv: string): {
   const projectLines: string[] = [];
   const fieldVisLines: string[] = [];
   const functionsLines: string[] = [];
+  const steeringLines: string[] = [];
   for (const line of lines) {
     const trimmed = line.trimStart();
     if (trimmed.startsWith(CSV_SECTION_BUDGETS)) { mode = "budgets"; continue; }
@@ -1135,6 +1165,7 @@ function splitCsvSections(csv: string): {
     if (trimmed.startsWith(CSV_SECTION_SHIFTS)) { mode = "shifts"; continue; }
     if (trimmed.startsWith(CSV_SECTION_FIELD_VIS)) { mode = "fieldVis"; continue; }
     if (trimmed.startsWith(CSV_SECTION_FUNCTIONS)) { mode = "functions"; continue; }
+    if (trimmed.startsWith(CSV_SECTION_STEERING)) { mode = "steering"; continue; }
     if (trimmed.startsWith(CSV_SECTION_PROJECT)) { mode = "project"; continue; }
     if (trimmed.startsWith(CSV_SECTION_STATUS)) { mode = "status"; continue; }
     if (trimmed.startsWith(CSV_SECTION_MILESTONES)) { mode = "milestones"; continue; }
@@ -1158,6 +1189,7 @@ function splitCsvSections(csv: string): {
     else if (mode === "project") projectLines.push(line);
     else if (mode === "fieldVis") fieldVisLines.push(line);
     else if (mode === "functions") functionsLines.push(line);
+    else if (mode === "steering") steeringLines.push(line);
     // (else: line before the first marker — drop it.)
   }
   return {
@@ -1179,6 +1211,7 @@ function splitCsvSections(csv: string): {
     projectText: projectLines.join("\r\n"),
     fieldVisText: fieldVisLines.join("\r\n"),
     functionsText: functionsLines.join("\r\n"),
+    steeringText: steeringLines.join("\r\n"),
   };
 }
 
@@ -1438,6 +1471,10 @@ export function csvToWorkspace(csv: string): Workspace {
   if (s.functionsText.trim()) {
     const f = csvToFeatures(s.functionsText);
     if (f !== undefined) ws.features = f;
+  }
+  if (s.steeringText.trim()) {
+    const sc = csvToSteeringCommittee(s.steeringText);
+    if (sc) ws.steeringCommittee = sc;
   }
   return migrateWorkspaceV9(ws);
 }

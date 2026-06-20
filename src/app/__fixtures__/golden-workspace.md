@@ -174,3 +174,32 @@
 - docRepoLocation: https://example.sharepoint.com/sites/cip-2026/Shared Documents
 - regulatory: GDPR / data protection regulation|NIS2
 - notes: Generated sample project for the multi-tenant Turso demo database.
+
+## Steering Committee
+
+```json
+{
+  "name": "CIP Steering Committee",
+  "memberResourceIds": [
+    1,
+    2,
+    3
+  ],
+  "meetings": [
+    {
+      "id": 1,
+      "date": "2026-07-10",
+      "title": "Q3 steering review",
+      "agenda": "Migration readiness, load-test results, go-live gate decision.",
+      "location": "Teams"
+    }
+  ],
+  "infoSchedules": [
+    {
+      "id": 1,
+      "label": "Board info pack",
+      "leadDays": 3
+    }
+  ]
+}
+```

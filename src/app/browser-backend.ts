@@ -5,7 +5,7 @@
 // storage.ts (which re-exports everything).
 
 import { defaultResourcePlan } from "./resource-foundation";
-import { sanitizeProjectMeta } from "./sanitize";
+import { sanitizeProjectMeta, sanitizeSteeringCommittee } from "./sanitize";
 import { migrateTaskStatus } from "./task-status";
 import {
   type Absence,
@@ -23,6 +23,7 @@ import {
   type Role,
   type Shift,
   type Stakeholder,
+  type SteeringCommittee,
   type Task,
 } from "./types";
 import {
@@ -56,6 +57,7 @@ import { sanitizeFeatures, type FeatureModuleId } from "./feature-modules";
 // were lost on reload in the default single-project browser storage mode.
 const KV_FIELDVIS_KEY = "fieldVisibility";
 const KV_FEATURES_KEY = "features";
+const KV_STEERING_KEY = "steeringCommittee";
 import {
   type StorageBackend,
   type Workspace,
@@ -120,6 +122,7 @@ export class BrowserBackend implements StorageBackend {
     let project: ProjectMeta | undefined;
     let fieldVisibility: Workspace["fieldVisibility"] | undefined;
     let features: readonly FeatureModuleId[] | undefined;
+    let steeringCommittee: SteeringCommittee | undefined;
     try {
       // Independent stores/keys — fetch in parallel instead of ~16 awaits in
       // sequence. Result assembly below keeps the original order/defaults.
@@ -142,6 +145,7 @@ export class BrowserBackend implements StorageBackend {
         idbProject,
         idbFieldVisibility,
         idbFeatures,
+        idbSteeringCommittee,
       ] = await Promise.all([
         idbGetAll<Task>(IDB_TASKS_STORE),
         idbGetAll<RaidItem>(IDB_RAID_STORE),
@@ -161,6 +165,7 @@ export class BrowserBackend implements StorageBackend {
         idbGet(KV_PROJECT_KEY),
         idbGet(KV_FIELDVIS_KEY),
         idbGet(KV_FEATURES_KEY),
+        idbGet(KV_STEERING_KEY),
       ]);
       tasks = idbTasks;
       raid = idbRaid;
@@ -186,6 +191,8 @@ export class BrowserBackend implements StorageBackend {
         idbFeatures !== undefined && idbFeatures !== null
           ? sanitizeFeatures(idbFeatures)
           : undefined;
+      // Optional singleton: junk/empty committee sanitizes to undefined.
+      steeringCommittee = sanitizeSteeringCommittee(idbSteeringCommittee);
     } catch {
       // IDB unavailable or upgrade failed. Fall through — the legacy
       // migration block below will still try localStorage, and if that's
@@ -207,6 +214,7 @@ export class BrowserBackend implements StorageBackend {
     if (project) raw.project = project;
     if (fieldVisibility) raw.fieldVisibility = fieldVisibility;
     if (features !== undefined) raw.features = features;
+    if (steeringCommittee) raw.steeringCommittee = steeringCommittee;
     const ws = migrateWorkspaceV9(raw);
 
     try {
@@ -327,6 +335,10 @@ export class BrowserBackend implements StorageBackend {
       ws.features !== undefined
         ? idbSet(KV_FEATURES_KEY, ws.features)
         : idbDelete(KV_FEATURES_KEY),
+      // Delete-on-absent so a cleared committee doesn't linger and reload stale.
+      ws.steeringCommittee
+        ? idbSet(KV_STEERING_KEY, ws.steeringCommittee)
+        : idbDelete(KV_STEERING_KEY),
     ]);
 
     // Refresh baselines so the next save's diff is computed against what's
