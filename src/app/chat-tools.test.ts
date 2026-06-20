@@ -183,11 +183,24 @@ describe("runTool — create_task", () => {
       assigneeEmail: undefined,
       lastUpdateDate: undefined,
       priority: undefined,
+      status: undefined,
       blockers: undefined,
       notes: undefined,
       group: undefined,
       labels: undefined,
     });
+  });
+
+  it("passes a supplied status through to createTask", async () => {
+    const d = makeDispatcher();
+    await runTool(d, "create_task", {
+      taskName: "Beta",
+      assignee: "Bob",
+      dueDate: "2026-07-01",
+      status: "Done",
+    });
+    const arg = (d.createTask as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(arg.status).toBe("Done");
   });
 
   it("passes through and sanitizes optional fields", async () => {
@@ -266,6 +279,12 @@ describe("runTool — update_task / buildPatch", () => {
     const d = makeDispatcher();
     await runTool(d, "update_task", { id: 1, priority: "Low" });
     expect(d.updateTask).toHaveBeenCalledWith(1, { priority: "Low" });
+  });
+
+  it("carries a status value through in the patch", async () => {
+    const d = makeDispatcher();
+    await runTool(d, "update_task", { id: 1, status: "In Progress" });
+    expect(d.updateTask).toHaveBeenCalledWith(1, { status: "In Progress" });
   });
 
   it("sanitizes group and labels in the patch", async () => {

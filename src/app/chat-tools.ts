@@ -11,6 +11,7 @@ import {
   CHANGE_STATUSES,
   STAKEHOLDER_CATEGORIES,
   INFLUENCE_INTEREST_LEVELS,
+  TASK_STATUSES,
   type Priority,
   type Task,
   type RaidItem,
@@ -41,6 +42,7 @@ type TaskInput = {
   dueDate: string;
   lastUpdateDate?: string;
   priority?: Priority;
+  status?: string;
   blockers?: string;
   notes?: string;
   group?: string;
@@ -213,6 +215,12 @@ const taskFields = {
     type: "string" as const,
     enum: PRIORITIES as unknown as string[],
     description: "Priority level",
+  },
+  status: {
+    type: "string" as const,
+    enum: TASK_STATUSES as unknown as string[],
+    description:
+      "Task status: To Do, In Progress, On Hold, In Review, Cancelled, or Done. Defaults to To Do on create. Cannot be changed for Jira-synced tasks.",
   },
   blockers: { type: "string" as const, description: "What's blocking progress" },
   notes: { type: "string" as const, description: "Free-form notes" },
@@ -587,6 +595,13 @@ function buildPatch(input: Record<string, unknown>): Partial<Task> {
     const p = asPriority(input.priority);
     if (p) patch.priority = p;
   }
+  if (input.status !== undefined) {
+    const s = asString(input.status);
+    // Carry the raw value through; the dispatcher validates against
+    // TASK_STATUSES and routes it through applyStatusChange (the sole writer
+    // of status + completedDate). A non-string is ignored.
+    if (s !== undefined) patch.status = s as Task["status"];
+  }
   if (input.blockers !== undefined) patch.blockers = asString(input.blockers) ?? "";
   if (input.notes !== undefined) patch.notes = asString(input.notes) ?? "";
   if (input.group !== undefined) patch.group = sanitizeGroup(input.group);
@@ -688,6 +703,7 @@ export async function runTool(
         assigneeEmail: asString(input.assigneeEmail),
         lastUpdateDate: asString(input.lastUpdateDate),
         priority: asPriority(input.priority),
+        status: asString(input.status),
         blockers: asString(input.blockers),
         notes: asString(input.notes),
         group: asString(input.group),
