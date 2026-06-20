@@ -2286,6 +2286,8 @@ export const de: Record<TranslationKey, string> = {
   tzAdditionalLabel: "Weitere Zeitzonen",
   tzAddLabel: "Zeitzone hinzufügen",
   tzRemoveLabel: "Entfernen",
+  displayTzLabel: "Anzeige-Zeitzone",
+  displayTzDefault: "Standard",
   projectLinkSalesforce: "Link zu Salesforce",
   projectLinkSharepoint: "Link zu SharePoint",
   projectLinkConfluence: "Link zu Confluence",

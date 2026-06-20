@@ -2294,6 +2294,8 @@ const enUS = {
   tzAdditionalLabel: "Additional timezones",
   tzAddLabel: "Add timezone",
   tzRemoveLabel: "Remove",
+  displayTzLabel: "Display timezone",
+  displayTzDefault: "Default",
   projectLinkSalesforce: "Link to Salesforce",
   projectLinkSharepoint: "Link to SharePoint",
   projectLinkConfluence: "Link to Confluence",
