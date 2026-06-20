@@ -34,8 +34,9 @@ import { type Settings } from "./settings-types";
 import { type ProjectTemplate } from "./templates";
 import { type ProjectMeta, type Resource } from "./types";
 import { useTemplates } from "./use-templates";
-import { useProjectProposal } from "./use-project-proposal";
+import { useProjectProposal, type ProposalContent } from "./use-project-proposal";
 import { proposalToDraftPatch, proposalToSeed, seedHasContent } from "./ai-project-proposal";
+import { Step0ImportPanel } from "./step0-import-panel";
 import type { ProjectFormDraft } from "./project-form-fields";
 import type { TemplateSeed } from "./templates";
 
@@ -128,7 +129,6 @@ export function CreateProjectWizard({
     model: settings.ai?.model ?? "claude-sonnet-4-6",
   });
   const [step, setStep] = useState<Step>(aiEnabled ? 0 : 1);
-  const [description, setDescription] = useState("");
   const [draftPatch, setDraftPatch] = useState<Partial<ProjectFormDraft> | undefined>(undefined);
   const [aiSeed, setAiSeed] = useState<TemplateSeed | undefined>(undefined);
   const [meta, setMeta] = useState<ProjectMeta | null>(null);
@@ -160,8 +160,11 @@ export function CreateProjectWizard({
   // the user has not touched the list, so a manual pick (incl. Blank) made on a
   // prior visit is never overwritten. Computed from the fresh meta `m` so it
   // does not lag the memoized `suggestion` by a render.
-  const handleGenerate = async () => {
-    const p = await generate(description);
+  // Shared post-proposal pre-fill: every Step-0 source (Describe, file,
+  // SharePoint, Confluence) funnels its content through this. The model output
+  // populates the Step-1 form draft + feature set + starter seed and advances.
+  const runIngest = async (content: ProposalContent) => {
+    const p = await generate(content);
     if (!p) return; // error surfaced via aiError
     const today = new Date().toISOString().slice(0, 10); // callback context — lint-safe
     // Clear any meta captured from a prior manual Step-1 visit so the fresh AI
@@ -235,30 +238,24 @@ export function CreateProjectWizard({
         )}
       </div>
 
-      {/* Body — the modal panel scrolls, so this just stacks. */}
-      <div className="min-h-0 flex-1">
+      {/* Step 0 — Describe / import (AI fast-path; only when an API key is set).
+          The panel owns its own pinned footer (Skip / Cancel / Generate). */}
+      {step === 0 && (
+        <Step0ImportPanel
+          lang={lang}
+          settings={settings}
+          aiBusy={aiBusy}
+          aiError={aiError}
+          onIngest={runIngest}
+          onResetAi={resetAi}
+          onSkip={() => setStep(1)}
+          onCancel={onCancel}
+        />
+      )}
 
-        {/* Step 0 — Describe (AI fast-path; only when an API key is set). */}
-        {step === 0 && (
-          <div className="flex flex-col gap-4 pb-2">
-            <label className="flex flex-col gap-1 text-sm">
-              <span className="font-medium text-foreground">{t(lang, "aiCreateDescribeLabel")}</span>
-              <textarea
-                aria-label={t(lang, "aiCreateDescribeLabel")}
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={6}
-                placeholder={t(lang, "aiCreateDescribePlaceholder")}
-                className="rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-AIPM-green"
-              />
-            </label>
-            {aiError && (
-              <p role="alert" className="text-sm text-AIPM-red">
-                {t(lang, aiError === "no-key" ? "aiCreateNeedsKey" : "aiCreateError")}
-              </p>
-            )}
-          </div>
-        )}
+      {/* Body — the modal panel scrolls, so this just stacks. */}
+      {step >= 1 && (
+      <div className="min-h-0 flex-1">
 
         {/* Step 1 — Details: reuse the shared create form (its submit advances). */}
         {step === 1 && (
@@ -427,33 +424,9 @@ export function CreateProjectWizard({
         )}
 
       </div>
-
-      {/* Pinned footer: navigation buttons for steps 0, 2 and 3 */}
-      {step === 0 && (
-        <div className="flex shrink-0 justify-between gap-2 border-t border-line pt-4">
-          <div className="flex gap-2">
-            <button type="button" onClick={() => { resetAi(); setStep(1); }} className={SECONDARY_BUTTON_CLASS}>
-              {t(lang, "aiCreateSkip")}
-            </button>
-          </div>
-          <div className="flex gap-2">
-            {onCancel && (
-              <button type="button" onClick={onCancel} className={SECONDARY_BUTTON_CLASS}>
-                {t(lang, "cancel")}
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={handleGenerate}
-              disabled={aiBusy || !description.trim()}
-              className={PRIMARY_BUTTON_CLASS}
-            >
-              {aiBusy ? t(lang, "aiCreateBusy") : t(lang, "aiCreateGenerate")}
-            </button>
-          </div>
-        </div>
       )}
 
+      {/* Pinned footer: navigation buttons for steps 2 and 3 (step 0 owns its own). */}
       {step === 2 && (
         <div className="flex shrink-0 justify-between gap-2 border-t border-line pt-4">
           <div className="flex gap-2">

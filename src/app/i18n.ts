@@ -505,6 +505,20 @@ const enUS = {
   aiCreateNeedsKey: "Add an Anthropic API key in Settings → AI to use this.",
   aiCreateTemplateReplacesSeed: "Choosing a template replaces the AI-generated starter content.",
   aiCreateIncludeContent: "Include AI-generated starter content",
+  wizardImportMethodDescribe: "Describe",
+  wizardImportMethodFile: "Upload a file",
+  wizardImportMethodSharePoint: "From SharePoint",
+  wizardImportMethodConfluence: "From Confluence",
+  wizardImportSharePointBrowse: "Browse SharePoint…",
+  wizardImportFileLabel: "Choose a file (PDF, image, or text)",
+  wizardImportFilePrompt: "Create a project from this document:",
+  wizardImportConfluencePrompt: "Create a project from this Confluence page:",
+  wizardImportConfluenceUrl: "Confluence page URL",
+  wizardImportFetch: "Fetch",
+  wizardImportErrorUnsupported: "That file type is not supported.",
+  wizardImportErrorTooLarge: "That file is too large (max 20 MB).",
+  wizardImportErrorConfluenceUrl: "Could not read that Confluence URL.",
+  wizardImportErrorSource: "Could not import from that source.",
   versionHighlightAiCreateWizard:
     "Create a project from a plain-language description — Claude proposes the setup and starter content.",
   versionHighlightAiActionSuggestions:
@@ -519,6 +533,8 @@ const enUS = {
     "Tasks can now be viewed as a drag-and-drop Kanban board grouped by status; Jira-synced tasks stay read-only at their Jira status, and the editor gained Send inquiry / Push to Jira / Delete buttons.",
   versionHighlightWeightSuggest:
     "Claude can now suggest adjustments to your next-actions ranking weights from your project, trends, and what you act on - review each in the settings and Accept the ones you want.",
+  versionHighlightProjectImport:
+    "Create a project by importing a file, a SharePoint document, or a Confluence page - the AI reads it and pre-fills the new-project wizard.",
   scheduledJobsTitle: "Scheduled jobs",
   scheduledJobsToggle: "Enable scheduled jobs",
   scheduledJobsHelp:

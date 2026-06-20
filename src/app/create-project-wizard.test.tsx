@@ -390,4 +390,50 @@ describe("CreateProjectWizard AI Step 0", () => {
       screen.queryByLabelText(t("en-US", "aiCreateDescribeLabel")),
     ).not.toBeInTheDocument();
   });
+
+  it("ingests an uploaded file and runs the proposal with content blocks", async () => {
+    generateMock.mockResolvedValue({
+      meta: { name: "From File Project" },
+      features: [],
+      seed: undefined,
+    });
+    renderWithKey();
+
+    // Switch the import method to "file".
+    fireEvent.click(
+      screen.getByRole("button", { name: t("en-US", "wizardImportMethodFile") }),
+    );
+
+    // Fire a change on the file input with a small text file.
+    const input = screen.getByLabelText(
+      t("en-US", "wizardImportFileLabel"),
+    ) as HTMLInputElement;
+    const file = new File(["hi"], "brief.txt", { type: "text/plain" });
+    fireEvent.change(input, { target: { files: [file] } });
+
+    // The FileReader read is async — wait for generate to be called.
+    await waitFor(() => expect(generateMock).toHaveBeenCalledTimes(1));
+    const arg = generateMock.mock.calls[0][0];
+    expect(Array.isArray(arg)).toBe(true);
+    const last = arg[arg.length - 1];
+    // Text attachment → a document block with a text source.
+    expect(last.type).toBe("document");
+    expect(last.source.type).toBe("text");
+    expect(last.source.data).toBe("hi");
+  });
+
+  it("hides SharePoint without M365 and Confluence without Jira config", () => {
+    // defaultSettings: M365 disabled + no jira creds.
+    renderWithKey();
+    expect(
+      screen.queryByRole("button", {
+        name: t("en-US", "wizardImportMethodSharePoint"),
+      }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("button", {
+        name: t("en-US", "wizardImportMethodConfluence"),
+      }),
+    ).toBeNull();
+  });
 });
