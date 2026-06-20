@@ -15,13 +15,18 @@ export function TimezoneSettingsSection({ lang, settings, onChange }: TimezoneSe
   const zones = tzZones();
   const additional = settings.additionalTimezones ?? [];
   const [pending, setPending] = useState("");
+  // The resolved default (per-device override, else the browser zone). Excluded
+  // from the add list so a user can't add it as a redundant "additional" zone.
+  // (Per-project operatingTimezone isn't in scope here; the calendar strip dedupes
+  // that rarer case regardless.)
+  const defaultZone = settings.timezone || browserTimeZone();
 
   function setDefault(value: string) {
     onChange({ ...settings, timezone: value || undefined });
   }
 
   function addZone() {
-    if (!pending || !isValidTimeZone(pending) || additional.includes(pending)) return;
+    if (!pending || !isValidTimeZone(pending) || additional.includes(pending) || pending === defaultZone) return;
     onChange({ ...settings, additionalTimezones: [...additional, pending] });
     setPending("");
   }
@@ -64,7 +69,7 @@ export function TimezoneSettingsSection({ lang, settings, onChange }: TimezoneSe
           >
             <option value="">{t(lang, "tzAddLabel")}</option>
             {zones
-              .filter((z) => !additional.includes(z))
+              .filter((z) => !additional.includes(z) && z !== defaultZone)
               .map((z) => (
                 <option key={z} value={z}>
                   {z}

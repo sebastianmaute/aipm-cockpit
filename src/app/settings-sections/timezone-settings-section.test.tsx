@@ -49,6 +49,17 @@ describe("TimezoneSettingsSection", () => {
     );
   });
 
+  it("does not add the default zone as a redundant additional", () => {
+    const { onChange } = setup({ timezone: "Europe/Berlin" });
+    const addSelect = screen.getByRole("combobox", { name: t("en-US", "tzAddLabel") }) as HTMLSelectElement;
+    // The default zone isn't even offered as an add option…
+    expect(Array.from(addSelect.options).map((o) => o.value)).not.toContain("Europe/Berlin");
+    // …and forcing it through addZone is a no-op.
+    fireEvent.change(addSelect, { target: { value: "Europe/Berlin" } });
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "tzAddLabel") }));
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
   it("does not add a duplicate zone", () => {
     const { onChange } = setup({ additionalTimezones: ["America/New_York"] });
     const addSelect = screen.getByRole("combobox", { name: t("en-US", "tzAddLabel") });

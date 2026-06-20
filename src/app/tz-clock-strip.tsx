@@ -28,6 +28,7 @@ export function TzClockStrip({ lang, defaultTz, zones }: TzClockStripProps) {
   const all = [defaultTz, ...zones.filter((z) => z !== defaultTz)];
   return (
     <div
+      role="region"
       aria-label={t(lang, "tzClockStripLabel")}
       className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 overflow-x-auto rounded-md border border-line bg-surface px-3 py-1.5 pr-2 text-xs text-foreground"
     >
