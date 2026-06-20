@@ -8,6 +8,11 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.113.0] - 2026-06-20 "Kress"
+
+### Added
+- Timezones (foundation): set a per-project operating timezone and a per-device default (plus a list of additional zones). The app's day-boundary logic - what counts as overdue, due today, or due soon - now follows the resolved timezone instead of UTC. (Display of timestamps and the calendar's multi-timezone view follow in later updates.)
+
 ## [0.112.0] - 2026-06-20 "Okorafor"
 
 ### Added
