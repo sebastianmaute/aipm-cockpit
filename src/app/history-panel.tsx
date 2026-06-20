@@ -7,6 +7,8 @@
 import { useState } from "react";
 import { t } from "./i18n";
 import type { Lang } from "./i18n";
+import { useDisplayTimezone } from "./display-timezone-context";
+import { formatDisplayTimestamp } from "./tz-display";
 import type { ProjectVersionMeta } from "./version-history";
 import type { VersionChange } from "./version-diff";
 import { VersionDiffView } from "./version-diff-view";
@@ -22,6 +24,7 @@ interface HistoryPanelProps {
 }
 
 export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, restore }: HistoryPanelProps) {
+  const { displayTz } = useDisplayTimezone();
   const [diff, setDiff] = useState<VersionChange[] | null>(null);
   const [comparing, setComparing] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
@@ -42,7 +45,7 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
   const [naming, setNaming] = useState(false);
   const [draftLabel, setDraftLabel] = useState("");
 
-  const labelOf = (v: ProjectVersionMeta) => v.label ?? new Date(v.capturedAt).toLocaleString();
+  const labelOf = (v: ProjectVersionMeta) => v.label ?? formatDisplayTimestamp(v.capturedAt, displayTz, lang);
 
   const toggleRecord = (key: string) =>
     setSelection((s) => { const n = { ...s }; if (n[key] !== undefined) delete n[key]; else n[key] = "all"; return n; });
@@ -196,13 +199,13 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
                   type="checkbox"
                   checked={selected.includes(v.id)}
                   onChange={() => toggleSelect(v.id)}
-                  aria-label={`${t(lang, "historyCompareSelect")} ${v.label ?? new Date(v.capturedAt).toLocaleString()}`}
+                  aria-label={`${t(lang, "historyCompareSelect")} ${v.label ?? formatDisplayTimestamp(v.capturedAt, displayTz, lang)}`}
                   className="accent-AIPM-dark-blue"
                 />
                 <span className={`rounded px-1.5 py-0.5 text-xs ${v.trigger === "manual" ? "bg-AIPM-green/15 text-AIPM-dark-blue dark:text-AIPM-light-grey" : "bg-surface-muted text-muted-foreground"}`}>
                   {v.trigger === "manual" ? `★ ${t(lang, "historyManual")}` : t(lang, "historyAuto")}
                 </span>
-                <span className="text-foreground">{v.label ?? new Date(v.capturedAt).toLocaleString()}</span>
+                <span className="text-foreground">{v.label ?? formatDisplayTimestamp(v.capturedAt, displayTz, lang)}</span>
                 {v.summary && <span className="text-xs text-muted-foreground">{v.summary}</span>}
               </span>
               <span className="flex items-center gap-2">
@@ -224,7 +227,7 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
                 >
                   {t(lang, "historyRestoreState")}
                 </button>
-                <span className="text-xs text-muted-foreground">{new Date(v.capturedAt).toLocaleString()}</span>
+                <span className="text-xs text-muted-foreground">{formatDisplayTimestamp(v.capturedAt, displayTz, lang)}</span>
               </span>
             </li>
           ))}

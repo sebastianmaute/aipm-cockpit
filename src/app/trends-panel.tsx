@@ -14,6 +14,8 @@ import { useResizable } from "./use-resizable";
 import { useColumnResize } from "./use-column-resize";
 import { ColumnResizeHandle } from "./task-manager-ui";
 import { InfoTooltip } from "./info-tooltip";
+import { useDisplayTimezone } from "./display-timezone-context";
+import { formatDisplayTimestamp } from "./tz-display";
 
 const VARIANCE_COL_WIDTHS = {
   kpi: 200,
@@ -66,6 +68,7 @@ function trendPoints(snaps: readonly SnapshotRecord[], gaps: ReadonlySet<string>
 
 export function TrendsPanel(props: TrendsPanelProps) {
   const { lang, active, snapshots, baseline, variance, gaps, busy, captureNow, setBaseline, deleteSnapshot, deleteSnapshots } = props;
+  const { displayTz } = useDisplayTimezone();
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const { ref, reset } = useResizable("lop-app:trends-size");
   const varianceResize = useColumnResize<VarianceCol>("trends-variance", VARIANCE_COL_WIDTHS);
@@ -224,10 +227,10 @@ export function TrendsPanel(props: TrendsPanelProps) {
                             return next;
                           });
                         }}
-                        aria-label={t(lang, "snapshotSelectRow", s.capturedAt.slice(0, 16))}
+                        aria-label={t(lang, "snapshotSelectRow", formatDisplayTimestamp(s.capturedAt, displayTz, lang))}
                       />
                     </td>
-                    <td className="px-3 py-2 tabular-nums">{s.capturedAt.slice(0, 16).replace("T", " ")}</td>
+                    <td className="px-3 py-2 tabular-nums">{formatDisplayTimestamp(s.capturedAt, displayTz, lang)}</td>
                     <td className="px-3 py-2">{t(lang, s.trigger === "auto" ? "trendsTriggerAuto" : "trendsTriggerManual")}</td>
                     <td className="px-3 py-2">{s.isBaseline ? "★" : ""}</td>
                     <td className="px-3 py-2 text-right">
