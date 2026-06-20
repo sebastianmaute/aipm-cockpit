@@ -527,6 +527,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightWeightSuggest: "Claude kann jetzt Anpassungen Ihrer Priorisierungsgewichte für nächste Aktionen aus Projekt, Trends und Ihrem Verhalten vorschlagen - prüfen Sie jeden Vorschlag in den Einstellungen und übernehmen Sie die gewünschten.",
   versionHighlightProjectImport: "Erstellen Sie ein Projekt, indem Sie eine Datei, ein SharePoint-Dokument oder eine Confluence-Seite importieren - die KI liest es und füllt den Assistenten für neue Projekte vor.",
   versionHighlightSteering: "Lenkungsausschuss: Erfassen Sie Mitglieder, den Sitzungsplan und Regeln für den Vorlauf von Informationspaketen. Erinnerungen erscheinen im Aktionscenter, und Sitzungen samt Erinnerungen können in Ihren Outlook-Kalender übertragen werden.",
+  versionHighlightTour: "Geführte Tour + Demo: ein Rundgang durch die wichtigsten Bereiche beim ersten Start (moderne Ansicht), ein Demo-Projekt zum Erkunden per Klick und ein Eintrag \"Tour starten\" im Hilfe-Menü zum jederzeitigen Wiederholen.",
   scheduledJobsTitle: "Geplante Jobs",
   scheduledJobsToggle: "Geplante Jobs aktivieren",
   scheduledJobsHelp: "Führen Sie eine wiederkehrende KI-Portfolioanalyse nach Zeitplan aus. Ergebnisse erscheinen hier und als Desktop-Benachrichtigung.",

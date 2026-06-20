@@ -537,6 +537,8 @@ const enUS = {
     "Create a project by importing a file, a SharePoint document, or a Confluence page - the AI reads it and pre-fills the new-project wizard.",
   versionHighlightSteering:
     "Steering committee: record members, the meeting schedule, and information-pack cadence rules. Pack reminders surface in the Action Center, and meetings plus reminders can be pushed to your Outlook calendar.",
+  versionHighlightTour:
+    "Guided tour + demo: a first-run walkthrough of the main areas (modern layout), a one-click demo project to explore, and a 'Take the tour' entry in the Help menu to replay it anytime.",
   scheduledJobsTitle: "Scheduled jobs",
   scheduledJobsToggle: "Enable scheduled jobs",
   scheduledJobsHelp:
