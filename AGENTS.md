@@ -314,6 +314,36 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
   so auto-launch re-fires the tour. Demo CTA is empty-state-only (never clobbers a real project);
   the demo is a normal deletable project (non-destructive to any Turso DB). Tour view NOT in axe
   `A11Y_VIEWS` (eye-verified); spotlight positioning eye-verified (jsdom rect=0).
+- **Timezones (TZ-1, v0.113.0):** FIRST of 3 tz sub-projects (TZ-2 = display routing + per-window
+  switcher; TZ-3 = calendar multi-tz — both NOT YET BUILT). Pure i18n-free `timezone.ts` (Intl only,
+  NO dep): `todayInZone(now,tz)` (uses `Intl.DateTimeFormat("en-CA").formatToParts` — date-line + DST
+  correct, NOT offset math), `formatInZone` (TZ-2 consumes; built+tested but currently UNUSED — not
+  dead code), `isValidTimeZone`, `browserTimeZone()` (env read — a FUNCTION not a module const, SSR/
+  test-safe), `tzZones()` (shared picker list, guarded `Intl.supportedValuesOf` → `[browserTimeZone(),
+  "UTC"]` fallback), `resolveTimezone(overrideTz, projectTz)` = override ?? project ?? browser (each
+  validity-gated, always returns a valid zone).
+  ★★ **The effective tz = `resolveTimezone(settings.timezone, project?.operatingTimezone)` and the
+  app's central `today` now derives in it** — `task-manager` `todayISO()` → `effectiveToday(tz)` =
+  `todayInZone(new Date(), tz)` (a MODULE fn so `new Date()` isn't in a render body), so overdue/
+  next-actions/reminders/due-date logic follow the zone. Secondary derivations aligned:
+  `use-resource-planner` now takes `today` as a PARAM (fed the effective today); `use-bulk-operations`
+  resolves tz in a callback. ★ The ~30 OTHER `new Date().toISOString().slice(0,10)` sites (export/
+  codec/backend stamps, plan-start defaults, gantt/calendar DISPLAY) STAY UTC by design — none
+  compares a UTC-today against the zone-today (verified: no off-by-one). DISPLAY of timestamps is
+  still browser-local until TZ-2 (logic/display split is intentional for the phased rollout).
+  ★★ **`operatingTimezone` lives on `ProjectMeta`, NOT a top-level Workspace field** — it rides the
+  existing project-meta serialization via the single `PROJECT_CSV_COLUMNS` list (drives CSV cols + MD
+  `projectFieldToString` generic arm + Turso TENANT DDL/insert), mirroring `jiraUrl` EXACTLY; add the
+  column there + the decoder + `sanitizeProjectMeta` (validate via `isValidTimeZone`) + regenerate
+  golden fixtures (the sample's project meta is SYNTHESIZED in `generate-sample-workspace.ts`, not the
+  `.md`). ★ Adding ANY `ProjectMeta` key forces an `export-sections.ts` `PROJECT_FIELD_I18N_KEYS`
+  exhaustive-`Record` entry + its i18n key (tsc-forced). ★ Turso SINGLE schema doesn't persist
+  `ws.project` (tenant projects row via portfolio upsert); `turso-migrate` ALTER-adds the column.
+  Per-device `settings.timezone?` (override; undefined = follow project/browser) + `additionalTimezones?`
+  (TZ-2/TZ-3 consume; currently UNUSED) — persist via `writeSettings` (spreads, no allowlist edit).
+  Settings picker: `settings-sections/timezone-settings-section.tsx` ("System default" option value
+  `""` → override undefined; row-unique remove labels — Settings/General is axe-scanned). Project form:
+  operating-tz `<select>` (blank → undefined).
 - **AI Action Center suggestions (SP4):** Action Center "Analyze with AI" button → ONE forced-tool
   Anthropic call (`tool_choice:{type:"tool",name:"report_analysis"}`, no loop) in
   `use-action-analysis.ts`; pure contract/transforms in `action-ai.ts` (`parseAnalysis` validates
