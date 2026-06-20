@@ -752,6 +752,7 @@ export const PROJECT_CSV_COLUMNS: Array<keyof ProjectMeta> = [
   "customer", "naceSection", "identityTypes", "identityCount", "stakeholderCount",
   "products", "platform", "deployment", "startDate", "endDate",
   "profitCenter", "quotes", "salesforceUrl", "sharepointUrl", "confluenceUrl", "jiraUrl",
+  "operatingTimezone",
   "contactPersons", "docRepoLocation", "regulatory", "notes",
   "documentLinks",
 ];
@@ -939,6 +940,7 @@ function decodeProjectObj(obj: Record<string, string>): Record<string, unknown> 
     sharepointUrl: scalar("sharepointUrl"),
     confluenceUrl: scalar("confluenceUrl"),
     jiraUrl: scalar("jiraUrl"),
+    operatingTimezone: scalar("operatingTimezone"),
     contactPersons: decodeContactPersons(obj.contactPersons ?? ""),
     docRepoLocation: scalar("docRepoLocation"),
     regulatory: decodeProjectList(obj.regulatory ?? ""),
