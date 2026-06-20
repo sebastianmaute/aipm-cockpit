@@ -15,6 +15,7 @@ function makeArgs(
 ): UseResourcePlannerArgs {
   return {
     lang: "en-US" as Lang,
+    today: "2026-06-20",
     logActivity: vi.fn(),
     showToast: vi.fn(),
     workdayHours: 8,

@@ -14,6 +14,7 @@ import {
   sanitizeVoiceTranscript,
 } from "./sanitize";
 import { buildBulkEditUpdates, buildInquiryMessage } from "./bulk-operations-helpers";
+import { todayInZone, resolveTimezone } from "./timezone";
 
 export interface BulkRowHandlers {
   onEdit: (task: Task) => void;
@@ -32,7 +33,7 @@ export interface UseBulkOperationsArgs {
 }
 
 export function useBulkOperations(args: UseBulkOperationsArgs) {
-  const { tasks, setTasks, filteredSortedTasks } = useWorkspace();
+  const { tasks, setTasks, filteredSortedTasks, project } = useWorkspace();
   const { setSearchImmediate } = useFilters();
   const {
     bulkEdit,
@@ -119,9 +120,10 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
     });
   }, []);
 
+  const tz = resolveTimezone(args.settings.timezone, project?.operatingTimezone);
   const applyBulkEdit = useCallback(() => {
     const lang = langRef.current;
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayInZone(new Date(), tz);
     const fields = bulkEdit.enabled;
     const anyEnabled = Object.values(fields).some(Boolean);
     if (!anyEnabled) {
@@ -166,7 +168,7 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
     setBulkEditOpen(false);
     setBulkEdit(emptyBulkEdit());
     setSelectedIds(new Set());
-  }, [bulkEdit, selectedIds, tasks, setTasks, setBulkEdit, setBulkEditOpen]);
+  }, [bulkEdit, selectedIds, tasks, setTasks, setBulkEdit, setBulkEditOpen, tz]);
 
   const handleClearAll = useCallback(() => {
     if (tasks.length === 0) return;

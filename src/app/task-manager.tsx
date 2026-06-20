@@ -144,9 +144,12 @@ import type { SuggestedAction } from "./next-actions";
 import { computeActionTrends, summarizeTrendsForPrompt } from "./next-actions/trends";
 import { buildTaskSeedFromAction } from "./action-task-seed";
 import { emptyForm } from "./task-form-context";
+import { todayInZone, resolveTimezone } from "./timezone";
 
-function todayISO() {
-  return new Date().toISOString().slice(0, 10);
+// Today (YYYY-MM-DD) in the resolved effective zone. A module fn so the
+// `new Date()` read stays out of the render body (react-hooks purity rule).
+function effectiveToday(tz: string): string {
+  return todayInZone(new Date(), tz);
 }
 
 // Idle window before an auto version is captured after a save. Coalesces a
@@ -307,7 +310,8 @@ function TaskManagerInner() {
   );
   const { ref: modalRef } = useResizable("lop-app:task-modal-size");
 
-  const today = todayISO();
+  const effectiveTz = resolveTimezone(settings.timezone, project?.operatingTimezone);
+  const today = effectiveToday(effectiveTz);
 
   // Set the browser tab title in popout mode. The main-window title is
   // managed by `next/metadata` via layout.tsx; this only fires when
@@ -581,7 +585,7 @@ function TaskManagerInner() {
     handleImportAbsences,
     handleCloseResourceModal,
     handleSetAllUtilizationMode,
-  } = useResourcePlanner({ lang, logActivity, showToast, workdayHours: settings.resources.workdayHours, holidaySet });
+  } = useResourcePlanner({ lang, today, logActivity, showToast, workdayHours: settings.resources.workdayHours, holidaySet });
 
   // Change Log CRUD. The hook reads/writes `changes` via WorkspaceProvider.
   const { handleSaveChange, handleDeleteChange } = useChangeLog({ today, logActivity });
