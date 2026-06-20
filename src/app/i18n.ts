@@ -1897,6 +1897,8 @@ const enUS = {
   committeePushOutlook: "Push to Outlook",
   committeePushBusy: "Pushing…",
   committeePushError: "Could not push reminders to Outlook.",
+  committeePushResult: "Synced {0} meeting(s), {1} reminder(s) to Outlook.",
+  committeePushPartial: "{0} event(s) could not be synced.",
 
   // --- UI polish batch (0.76.0) ---
   // Modal heading fixes

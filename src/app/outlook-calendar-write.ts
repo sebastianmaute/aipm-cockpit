@@ -1,6 +1,6 @@
 // src/app/outlook-calendar-write.ts — Microsoft Graph calendar write (events). Pure
 // given an access token: no MSAL, no React. graph.microsoft.com is already CSP-allowlisted.
-import type { Milestone } from "./types";
+import type { Milestone, CommitteeMeeting } from "./types";
 import type { ExistingEvent } from "./calendar-reconcile";
 
 const GRAPH = "https://graph.microsoft.com/v1.0";
@@ -39,6 +39,50 @@ export function milestoneToGraphEvent(m: Milestone, projectId: string): GraphEve
     isAllDay: true,
     start: { dateTime: `${m.date}T00:00:00`, timeZone: "UTC" },
     end: { dateTime: `${nextDay(m.date)}T00:00:00`, timeZone: "UTC" },
+    categories: [categoryFor(projectId)],
+    body: { contentType: "Text", content: "Managed by the AIPM PM Tracker." },
+  };
+}
+
+/**
+ * A steering-committee MEETING as an all-day Graph event. The model has NO
+ * time-of-day field (only a date), so — like milestones — the event is all-day.
+ * Tagged with the project category so it reconciles alongside milestones.
+ */
+export function committeeMeetingToGraphEvent(
+  meeting: CommitteeMeeting,
+  committeeName: string,
+  projectId: string,
+): GraphEvent {
+  const subject = committeeName ? `${committeeName}: ${meeting.title}` : meeting.title;
+  return {
+    subject,
+    isAllDay: true,
+    start: { dateTime: `${meeting.date}T00:00:00`, timeZone: "UTC" },
+    end: { dateTime: `${nextDay(meeting.date)}T00:00:00`, timeZone: "UTC" },
+    categories: [categoryFor(projectId)],
+    body: {
+      contentType: "Text",
+      content: [meeting.location ? `Location: ${meeting.location}` : "", meeting.agenda ?? "", "Managed by the AIPM PM Tracker."]
+        .filter(Boolean)
+        .join("\n\n"),
+    },
+  };
+}
+
+/**
+ * An INFO-PACK reminder instance as an all-day Graph event on its due date.
+ * `meetingTitle` is woven into the subject so the reminder is self-describing.
+ */
+export function committeeInfoToGraphEvent(
+  item: { label: string; dueDate: string; meetingTitle: string },
+  projectId: string,
+): GraphEvent {
+  return {
+    subject: `${item.label} — ${item.meetingTitle}`,
+    isAllDay: true,
+    start: { dateTime: `${item.dueDate}T00:00:00`, timeZone: "UTC" },
+    end: { dateTime: `${nextDay(item.dueDate)}T00:00:00`, timeZone: "UTC" },
     categories: [categoryFor(projectId)],
     body: { contentType: "Text", content: "Managed by the AIPM PM Tracker." },
   };

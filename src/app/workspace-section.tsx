@@ -211,6 +211,7 @@ export interface WorkspaceSectionProps {
   aiAnalysis?: AiAnalysisBundle;
   onPushMilestonesToOutlook?: () => void;
   calendarPushBusy?: boolean;
+  committeeOutlookPush?: { onPush: () => void; busy: boolean };
   guides?: readonly OperatingGuide[];
   guidesReady?: boolean;
 }
@@ -298,6 +299,7 @@ export function WorkspaceSection({
   aiAnalysis,
   onPushMilestonesToOutlook,
   calendarPushBusy,
+  committeeOutlookPush,
   guides = [],
   guidesReady = true,
 }: WorkspaceSectionProps) {
@@ -854,6 +856,7 @@ export function WorkspaceSection({
               onChange={setSteeringCommittee}
               resources={resources}
               today={today}
+              outlookPush={committeeOutlookPush}
             />
           </div>
         )}

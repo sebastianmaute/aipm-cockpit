@@ -60,6 +60,7 @@ import { getJiraTokenAlert } from "./jira-token-status";
 import { effectiveLeadDays } from "./notifications-lead";
 import { WorkspaceSection } from "./workspace-section";
 import { useOutlookCalendarPush } from "./use-outlook-calendar-push";
+import { useCommitteeOutlookPush } from "./use-committee-outlook-push";
 import { RolesPanel } from "./roles-panel";
 import { getUpcomingBirthdays } from "./birthdays";
 import { useBirthdayAlerts } from "./use-birthday-alerts";
@@ -1644,6 +1645,19 @@ function TaskManagerInner() {
   const calendarPushToOutlook = calendarPush.pushToOutlook;
   const calendarPushBusy = calendarPush.busy;
 
+  // Push the steering committee's meetings + info-pack reminders to Outlook.
+  // Reuses the SAME M365 enablement gate and stable project id as milestones.
+  const committeePush = useCommitteeOutlookPush({
+    committee: steeringCommittee,
+    committeeName: steeringCommittee?.name ?? "",
+    projectId: calendarProjectId,
+    today,
+    setSteeringCommittee,
+    isPopout,
+    lang,
+    enabled: calendarPushEnabled,
+  });
+
   if (!i18nReady) return null;
 
   // Shared props for WorkspaceSection. Spread into both the classic (no
@@ -1760,6 +1774,10 @@ function TaskManagerInner() {
     aiAnalysis: isPopout ? undefined : aiAnalysisBundle,
     onPushMilestonesToOutlook: calendarPushEnabled ? calendarPushToOutlook : undefined,
     calendarPushBusy: calendarPushEnabled ? calendarPushBusy : undefined,
+    committeeOutlookPush:
+      calendarPushEnabled && !isPopout
+        ? { onPush: committeePush.pushToOutlook, busy: committeePush.busy }
+        : undefined,
     guides: operatingGuides.guides,
     guidesReady: operatingGuides.ready,
   };

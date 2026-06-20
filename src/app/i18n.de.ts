@@ -1880,6 +1880,8 @@ export const de: Record<TranslationKey, string> = {
   committeePushOutlook: "An Outlook senden",
   committeePushBusy: "Wird gesendet…",
   committeePushError: "Erinnerungen konnten nicht an Outlook gesendet werden.",
+  committeePushResult: "{0} Sitzung(en), {1} Erinnerung(en) mit Outlook synchronisiert.",
+  committeePushPartial: "{0} Termin(e) konnten nicht synchronisiert werden.",
 
   // --- UI polish batch (0.76.0) ---
   changeEditTitle: "Änderung bearbeiten",
