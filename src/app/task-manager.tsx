@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createSettingsLogger, SETTINGS_LOG_DEBOUNCE_MS } from "./settings-log";
 import { getBucketReminders } from "./budget-report";
-import { t } from "./i18n";
+import { type Lang, t } from "./i18n";
 import { useChatDispatcher } from "./use-chat-dispatcher";
 import { useActivityLog } from "./use-activity-log";
 import { ActivityLogProvider } from "./activity-log-context";
@@ -145,9 +145,19 @@ import { computeActionTrends, summarizeTrendsForPrompt } from "./next-actions/tr
 import { buildTaskSeedFromAction } from "./action-task-seed";
 import { emptyForm } from "./task-form-context";
 import { todayInZone, resolveTimezone } from "./timezone";
+import { DisplayTimezoneProvider, useDisplayTimezone } from "./display-timezone-context";
+import { DisplayTzSwitcher } from "./display-tz-switcher";
 
 // Today (YYYY-MM-DD) in the resolved effective zone. A module fn so the
 // `new Date()` read stays out of the render body (react-hooks purity rule).
+// Connected display-timezone switcher. A module-level wrapper (static-components
+// rule) so it can read the DisplayTimezoneContext that wraps both shells — the
+// header element it produces is rendered inside the provider in both layouts.
+function DisplayTzSwitcherConnected({ lang, additionalTimezones }: { lang: Lang; additionalTimezones: readonly string[] }) {
+  const ctx = useDisplayTimezone();
+  return <DisplayTzSwitcher lang={lang} ctx={ctx} additionalTimezones={additionalTimezones} />;
+}
+
 function effectiveToday(tz: string): string {
   return todayInZone(new Date(), tz);
 }
@@ -2047,8 +2057,15 @@ function TaskManagerInner() {
     </span>
   );
 
+  // Session display-timezone switcher. Sits in both header sites alongside the
+  // Ask-Claude pill (dual-header rule); never in popouts (they have no header).
+  const displayTzSwitcherEl = (
+    <DisplayTzSwitcherConnected lang={lang} additionalTimezones={settings.additionalTimezones ?? []} />
+  );
+
   const topBarMenus = (
     <>
+      {displayTzSwitcherEl}
       <ActionMenus
         lang={lang}
         onCommand={handleCommand}
@@ -2202,6 +2219,7 @@ function TaskManagerInner() {
       currentView={activeTab}
       onAskClaude={(body) => requestChat(body, true)}
       projectSwitcher={projectSwitcher}
+      trailing={displayTzSwitcherEl}
     />
   );
 
@@ -2300,7 +2318,9 @@ function TaskManagerInner() {
       <ActivityLogProvider value={logActivity}>
         <AiUsageProvider lang={lang} ai={settings.ai} showToast={showToast}>
           <ToastProvider value={showToast}>
-            <VoiceCommandProvider value={voiceHandlers}>{legacyTree}</VoiceCommandProvider>
+            <VoiceCommandProvider value={voiceHandlers}>
+              <DisplayTimezoneProvider effectiveTz={effectiveTz}>{legacyTree}</DisplayTimezoneProvider>
+            </VoiceCommandProvider>
           </ToastProvider>
         </AiUsageProvider>
       </ActivityLogProvider>
@@ -2336,6 +2356,7 @@ function TaskManagerInner() {
       <AiUsageProvider lang={lang} ai={settings.ai} showToast={showToast}>
         <ToastProvider value={showToast}>
           <VoiceCommandProvider value={voiceHandlers}>
+            <DisplayTimezoneProvider effectiveTz={effectiveTz}>
             {showTursoUnlock ? (
               <SecretUnlockGate
                 lang={lang}
@@ -2374,6 +2395,7 @@ function TaskManagerInner() {
             ) : (
               modernTree
             )}
+            </DisplayTimezoneProvider>
           </VoiceCommandProvider>
         </ToastProvider>
       </AiUsageProvider>
