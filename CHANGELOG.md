@@ -8,6 +8,11 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.110.0] - 2026-06-20 "Reynolds"
+
+### Added
+- Create a project from a source: in the new-project wizard you can now upload a file (PDF, image, or text), pick a SharePoint document, or paste a Confluence page URL - the AI reads the content and pre-fills the project details. Confluence is fetched through a same-origin proxy reusing your Atlassian (Jira) credentials; SharePoint via Microsoft Graph.
+
 ## [0.109.0] - 2026-06-20 "Leckie"
 
 ### Added
