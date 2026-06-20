@@ -252,6 +252,36 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
   ★ Error boundary: SOURCE failures → sanitized `importError`; the Anthropic `generate` failure →
   the hook's `aiError` (kept separate — don't let a generic source error clobber it). No key/token/body
   ever logged or rendered.
+- **Steering committee (SP-E, v0.111.0):** opt-in per-project `Workspace.steeringCommittee`
+  (`{name, memberResourceIds[], meetings[], infoSchedules[], infoReminderEventIds?, pendingDeleteEventIds?}`;
+  pure validator `sanitizeSteeringCommittee` — never throws, bad dates dropped, leadDays>=0, ids deduped).
+  Nav view `steering-committee` → `steering-committee-panel.tsx`, mounted ONCE in `workspace-section.tsx`
+  (`activeTab==="steering-committee"`) which covers BOTH shells (modern + classic route view bodies
+  through WorkspaceSection); the Push-to-Outlook button lives IN the panel so no top-bar control. NOT in
+  axe `A11Y_VIEWS` → eye-verify row-unique labels (`${edit} – ${meeting.title}`).
+  ★★ Persists as a JSON BLOB, NOT a row table: CSV `# STEERING COMMITTEE` (`config,<json>` row) + MD
+  `## Steering Committee` (fenced JSON) + Turso `meta` row `steering_committee` (REUSES the `meta`
+  singleton — NOT a new `TABLE_NAMES` entry) + JSON + IDB KV slot. Storage-ONLY (gated `config===undefined`,
+  like fieldVisibility/features — EXCLUDED from user exports); committee-less ws stays BYTE-STABLE (section
+  emitted only when present). ★ Adding a FIELD to the nested object costs ZERO extra write paths (rides the
+  blob) — only extend `sanitizeSteeringCommittee` (that's how `pendingDeleteEventIds` was added).
+  ★★ Adding to the `ActionSource` / `AppView` unions surfaced FOUR exhaustive `Record<>` maps tsc forced
+  extending (`action-source-label`, `action-source-icon`, `nav-icons` ICON_PATHS, `nav-config`
+  LABEL_KEYS/`navLabelKey`) — "Map-based, no break" was WRONG; grep the union members.
+  Pure engines: `steering-reminders.ts` (`dueInfoReminders` — working-day lead, `today` passed in, no
+  `Date.now()`) + `committee-calendar-reconcile.ts` (`planCommitteeReconcile` is ID-TRACKED: derives
+  create/update/delete from the committee's OWN stored ids, NO `listProjectEvents`).
+  Provider `next-actions/providers/committee-info.ts`: ★ optional `ActionInput.steeringCommittee` MUST be
+  populated in task-manager's `buildActionInput` or the provider silently returns [] live; "upcoming" tier
+  skipped. ★ Outlook push `use-committee-outlook-push.ts` (mirrors milestone push; `Calendars.ReadWrite`,
+  popout no-op, M365-gated, status-only logs — never token/body): meeting events keyed 1:1 on
+  `meeting.outlookEventId`, info-instances in `infoReminderEventIds["<meetingId>:<scheduleId>"]`.
+  ★★ A deleted meeting loses its `outlookEventId` (stored on the meeting obj, not a map) → the panel
+  stashes it in `pendingDeleteEventIds` for the next push to delete + clear (info-instances ARE map-tracked
+  so they prune automatically). ★★ `outlook-calendar-write.ts` `graph()` tolerates 404 ONLY for DELETE;
+  PATCH/POST THROW `GraphCalendarError(404)` so an event deleted in Outlook gets re-created next push
+  (committee + milestone hooks self-heal by clearing the stale id) — it previously swallowed 404 for ALL
+  methods, making the milestone 404 branch DEAD.
 - **AI Action Center suggestions (SP4):** Action Center "Analyze with AI" button → ONE forced-tool
   Anthropic call (`tool_choice:{type:"tool",name:"report_analysis"}`, no loop) in
   `use-action-analysis.ts`; pure contract/transforms in `action-ai.ts` (`parseAnalysis` validates
