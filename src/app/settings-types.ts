@@ -356,6 +356,8 @@ export type Settings = {
   hideFinishedTasks?: boolean;
   /** Per-device tasks-pane layout: table list or Kanban board. Default "table". */
   tasksViewMode?: "table" | "board";
+  /** Per-device: the guided tour has been seen/skipped (suppresses auto-launch). */
+  tourSeen?: boolean;
   reports?: { extra: AddableReportId[] };
   integrations?: IntegrationsSettings;
   snapshots?: SnapshotSettings;
