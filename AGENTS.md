@@ -366,6 +366,20 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
   `settings.additionalTimezones` (extras filtered to drop UTC/effective dups). `DisplayTzSwitcherConnected`
   is a MODULE-LEVEL wrapper (static-components rule); switcher `<select>` carries `aria-label`
   (top bar axe-scanned every view).
+- **Calendar timezones (TZ-3, v0.115.0):** FINAL tz sub-project — COMPLETES the timezone roadmap
+  (TZ-1 model+logic, TZ-2 display+switcher, TZ-3 calendar). A live multi-zone "world clock" strip atop
+  the Calendar view. Pure `tz-clock.ts` `formatZoneClock(iso,tz,lang)` (wraps TZ-1 `formatInZone`;
+  time + SHORT DATE so the date-line rollover shows). `tz-clock-strip.tsx`: live `now` via a LAZY
+  `useState(() => new Date())` + a `useEffect` `setInterval(…,60_000)` cleared on unmount (NOT a
+  render-body `new Date()`); renders the default zone + each additional zone; `role="region"` +
+  `aria-label`; ★ DEDUPES the default out of the list (`[defaultTz, ...zones.filter(z => z !==
+  defaultTz)]`) to avoid a double chip + a duplicate React key. Wired in `workspace-section.tsx` ONLY
+  when `activeTab==="calendar"` && `settings.additionalTimezones` non-empty (returns null otherwise);
+  default = `resolveTimezone(settings.timezone, project?.operatingTimezone)` (the EFFECTIVE zone, NOT
+  the TZ-2 display override). Date-grid cells/logic untouched (the grid is date-only — no per-cell
+  conversion). Calendar is NOT in axe `A11Y_VIEWS` (eye-verified). ★ The TZ-1 settings editor now also
+  excludes the resolved default (`settings.timezone || browserTimeZone()`) from the add-additional
+  list (the per-project operating-tz case is rarer; the strip dedupes it regardless).
 - **AI Action Center suggestions (SP4):** Action Center "Analyze with AI" button → ONE forced-tool
   Anthropic call (`tool_choice:{type:"tool",name:"report_analysis"}`, no loop) in
   `use-action-analysis.ts`; pure contract/transforms in `action-ai.ts` (`parseAnalysis` validates

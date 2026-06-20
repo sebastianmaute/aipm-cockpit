@@ -28,6 +28,8 @@ import type { RebaselineBundle } from "./rebaseline-popover";
 import type { AiAnalysisBundle } from "./actions-panel";
 import type { OperatingGuide } from "./operating-guide";
 import { ActionChips, chipsForView } from "./action-chips";
+import { TzClockStrip } from "./tz-clock-strip";
+import { resolveTimezone } from "./timezone";
 import { ResourceDirectory } from "./resource-directory";
 import { DashboardPanel } from "./dashboard-panel";
 import { MilestonesPanel } from "./milestones-panel";
@@ -312,7 +314,7 @@ export function WorkspaceSection({
     () => setSettings((s) => ({ ...s, ai: { ...s.ai, consentAccepted: true } })),
     [setSettings],
   );
-  const { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, milestones, steeringCommittee, setSteeringCommittee } = useWorkspace();
+  const { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, milestones, project, steeringCommittee, setSteeringCommittee } = useWorkspace();
   const { activeTab, setActiveTab, isPopout, pendingChatSeed, clearChatSeed, requestOpen } = useWorkspaceTab();
   const { raidFilterTaskId } = useFilters();
   // One-way signal: incrementing this opens the milestone create modal on the
@@ -326,6 +328,7 @@ export function WorkspaceSection({
   // Panel wrappers. The pt-4 offset clears the tab strip in classic/popout mode;
   // in fullBleed the strip is hidden, so we drop it to align the per-view card
   // with the modern shell's inset edge (matching the Tasks pane exactly).
+  const effectiveTz = resolveTimezone(settings.timezone, project?.operatingTimezone);
   const panelClass = fullBleed ? "min-h-0 flex-1" : "min-h-0 flex-1 pt-4";
   const panelScrollClass = fullBleed
     ? "min-h-0 flex-1 overflow-y-auto"
@@ -680,6 +683,9 @@ export function WorkspaceSection({
             role="tabpanel"
             className={panelClass}
           >
+            {activeTab === "calendar" && (settings.additionalTimezones?.length ?? 0) > 0 && (
+              <TzClockStrip lang={lang} defaultTz={effectiveTz} zones={settings.additionalTimezones ?? []} />
+            )}
             <ResourcesPanel
               view={activeTab}
               lang={lang}

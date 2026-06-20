@@ -8,6 +8,11 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.115.0] - 2026-06-20 "Sturgeon"
+
+### Added
+- Calendar timezones: the Calendar view now shows a live "world clock" strip with the current time (and date) in your default timezone plus each additional zone configured in Settings — useful for coordinating across distributed teams. The strip appears only when you've added extra zones.
+
 ## [0.114.0] - 2026-06-20 "Wilson"
 
 ### Added
