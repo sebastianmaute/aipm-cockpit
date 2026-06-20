@@ -535,6 +535,8 @@ const enUS = {
     "Claude can now suggest adjustments to your next-actions ranking weights from your project, trends, and what you act on - review each in the settings and Accept the ones you want.",
   versionHighlightProjectImport:
     "Create a project by importing a file, a SharePoint document, or a Confluence page - the AI reads it and pre-fills the new-project wizard.",
+  versionHighlightSteering:
+    "Steering committee: record members, the meeting schedule, and information-pack cadence rules. Pack reminders surface in the Action Center, and meetings plus reminders can be pushed to your Outlook calendar.",
   scheduledJobsTitle: "Scheduled jobs",
   scheduledJobsToggle: "Enable scheduled jobs",
   scheduledJobsHelp:

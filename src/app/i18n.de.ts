@@ -526,6 +526,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightKanban: "Aufgaben lassen sich jetzt als Drag-and-drop-Kanban-Board nach Status anzeigen; mit Jira synchronisierte Aufgaben bleiben schreibgeschützt auf ihrem Jira-Status, und der Editor erhielt Schaltflächen für Anfrage senden / Zu Jira senden / Löschen.",
   versionHighlightWeightSuggest: "Claude kann jetzt Anpassungen Ihrer Priorisierungsgewichte für nächste Aktionen aus Projekt, Trends und Ihrem Verhalten vorschlagen - prüfen Sie jeden Vorschlag in den Einstellungen und übernehmen Sie die gewünschten.",
   versionHighlightProjectImport: "Erstellen Sie ein Projekt, indem Sie eine Datei, ein SharePoint-Dokument oder eine Confluence-Seite importieren - die KI liest es und füllt den Assistenten für neue Projekte vor.",
+  versionHighlightSteering: "Lenkungsausschuss: Erfassen Sie Mitglieder, den Sitzungsplan und Regeln für den Vorlauf von Informationspaketen. Erinnerungen erscheinen im Aktionscenter, und Sitzungen samt Erinnerungen können in Ihren Outlook-Kalender übertragen werden.",
   scheduledJobsTitle: "Geplante Jobs",
   scheduledJobsToggle: "Geplante Jobs aktivieren",
   scheduledJobsHelp: "Führen Sie eine wiederkehrende KI-Portfolioanalyse nach Zeitplan aus. Ergebnisse erscheinen hier und als Desktop-Benachrichtigung.",
