@@ -1,6 +1,10 @@
-import { describe, it, expect } from "vitest";
-import { milestoneToGraphEvent, categoryFor } from "./outlook-calendar-write";
+import { describe, it, expect, vi, afterEach } from "vitest";
+import {
+  milestoneToGraphEvent, categoryFor, updateEvent, deleteEvent, GraphCalendarError,
+} from "./outlook-calendar-write";
 import type { Milestone } from "./types";
+
+const EVENT = milestoneToGraphEvent({ id: 1, name: "X", date: "2026-08-01", linkedTaskIds: [] }, "p");
 
 describe("milestoneToGraphEvent", () => {
   it("builds an all-day event with end = date + 1 day, category, subject", () => {
@@ -17,5 +21,25 @@ describe("milestoneToGraphEvent", () => {
   });
   it("throws on a malformed milestone date", () => {
     expect(() => milestoneToGraphEvent({ id: 1, name: "X", date: "not-a-date", linkedTaskIds: [] }, "p")).toThrow();
+  });
+});
+
+describe("graph() 404 handling", () => {
+  afterEach(() => { vi.unstubAllGlobals(); });
+
+  it("updateEvent THROWS GraphCalendarError(404) when the event was deleted in Outlook", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("", { status: 404 })));
+    await expect(updateEvent("tok", "gone", EVENT)).rejects.toMatchObject({ status: 404 });
+    await expect(updateEvent("tok", "gone", EVENT)).rejects.toBeInstanceOf(GraphCalendarError);
+  });
+
+  it("deleteEvent TOLERATES 404 (already gone = success)", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("", { status: 404 })));
+    await expect(deleteEvent("tok", "gone")).resolves.toBeUndefined();
+  });
+
+  it("updateEvent resolves on 200", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("{}", { status: 200 })));
+    await expect(updateEvent("tok", "ev", EVENT)).resolves.toBeUndefined();
   });
 });

@@ -85,6 +85,49 @@ describe("useCommitteeOutlookPush", () => {
     expect(next.infoReminderEventIds!["1:9"]).toBeUndefined();
   });
 
+  it("deletes an orphaned deleted-meeting event (pendingDeleteEventIds) and clears it", async () => {
+    // A meeting was deleted while carrying a pushed event id — stashed in
+    // pendingDeleteEventIds. The push must delete it and clear the pending list.
+    const c = committee({ infoSchedules: [], pendingDeleteEventIds: ["orphan-evt"] });
+    const setSteeringCommittee = vi.fn();
+    const { result } = renderHook(() =>
+      useCommitteeOutlookPush({
+        committee: c, committeeName: "Board", projectId: "p", today: TODAY,
+        setSteeringCommittee, isPopout: false, lang: "en-US", enabled: true,
+      }));
+    await act(async () => { await result.current.pushToOutlook(); });
+
+    expect(deleteEvent).toHaveBeenCalledWith("tok", "orphan-evt");
+    const updater = setSteeringCommittee.mock.calls.at(-1)![0];
+    const next = updater(committee({ infoSchedules: [], pendingDeleteEventIds: ["orphan-evt"] }))!;
+    expect(next.pendingDeleteEventIds).toBeUndefined(); // cleared after delete
+  });
+
+  it("self-heals a 404 on meeting update: clears the stale id so next push re-creates", async () => {
+    // Meeting carries a stored eventId, but it was deleted in Outlook → update 404s.
+    updateEvent.mockRejectedValueOnce(new GraphCalendarError(404, "gone"));
+    const c = committee({
+      infoSchedules: [],
+      meetings: [{ id: 1, date: "2026-07-15", title: "Q3 review", outlookEventId: "dead-ev" }],
+    });
+    const setSteeringCommittee = vi.fn();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { result } = renderHook(() =>
+      useCommitteeOutlookPush({
+        committee: c, committeeName: "Board", projectId: "p", today: TODAY,
+        setSteeringCommittee, isPopout: false, lang: "en-US", enabled: true,
+      }));
+    await act(async () => { await result.current.pushToOutlook(); });
+
+    expect(updateEvent).toHaveBeenCalled();
+    // Not a hard failure (no partial-fail error toast); the id is cleared instead.
+    expect(showToast).not.toHaveBeenCalledWith("error", expect.any(String));
+    const updater = setSteeringCommittee.mock.calls.at(-1)![0];
+    const next = updater(c)!;
+    expect(next.meetings[0].outlookEventId).toBeUndefined();
+    warn.mockRestore();
+  });
+
   it("no-ops in a popout", async () => {
     const setSteeringCommittee = vi.fn();
     const { result } = renderHook(() =>

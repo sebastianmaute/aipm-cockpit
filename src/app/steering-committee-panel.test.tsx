@@ -53,6 +53,27 @@ describe("SteeringCommitteePanel", () => {
     expect(removeButtons).toHaveLength(1);
   });
 
+  it("stashes a deleted meeting's pushed event id into pendingDeleteEventIds", () => {
+    const onChange = vi.fn();
+    const withEvent: SteeringCommittee = {
+      ...committee,
+      meetings: [{ id: 1, date: "2026-07-01", title: "Kickoff", outlookEventId: "ev-1" }],
+    };
+    render(
+      <SteeringCommitteePanel
+        lang="en-US"
+        committee={withEvent}
+        onChange={onChange}
+        resources={RESOURCES}
+        today={TODAY}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: `${t("en-US", "delete")} – Kickoff` }));
+    const next = onChange.mock.calls.at(-1)![0] as SteeringCommittee;
+    expect(next.meetings).toHaveLength(0);
+    expect(next.pendingDeleteEventIds).toEqual(["ev-1"]);
+  });
+
   it("adds a meeting immutably and calls onChange with a new object", () => {
     const onChange = vi.fn();
     render(
@@ -132,12 +153,11 @@ describe("SteeringCommitteePanel", () => {
         onChange={() => {}}
         resources={RESOURCES}
         today={TODAY}
-        outlookPush={{ onPush: () => {}, busy: true, error: "boom" }}
+        outlookPush={{ onPush: () => {}, busy: true }}
       />,
     );
     const btn = screen.getByRole("button", { name: t("en-US", "committeePushBusy") });
     expect(btn).toBeDisabled();
-    expect(screen.getByRole("alert")).toHaveTextContent("boom");
   });
 });
 

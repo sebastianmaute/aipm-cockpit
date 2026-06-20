@@ -409,4 +409,13 @@ describe("sanitizeSteeringCommittee", () => {
     expect(sanitizeSteeringCommittee(null)).toBeUndefined();
     expect(sanitizeSteeringCommittee("x")).toBeUndefined();
   });
+  it("validates pendingDeleteEventIds (strings only, deduped) and omits when empty", () => {
+    const out = sanitizeSteeringCommittee({
+      name: "B", memberResourceIds: [], meetings: [], infoSchedules: [],
+      pendingDeleteEventIds: ["a", "a", 5, null, "b"],
+    })!;
+    expect(out.pendingDeleteEventIds).toEqual(["a", "b"]);
+    const none = sanitizeSteeringCommittee({ name: "B", memberResourceIds: [], meetings: [], infoSchedules: [], pendingDeleteEventIds: [] })!;
+    expect(none.pendingDeleteEventIds).toBeUndefined();
+  });
 });

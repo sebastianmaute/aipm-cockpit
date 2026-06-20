@@ -21,4 +21,13 @@ describe("planCommitteeReconcile", () => {
     expect(r.infoUpdate.map((i) => i.eventId)).toContain("old-info");
     expect(r.deleteEventIds).toContain("stale-removed"); // "9:1" no longer desired
   });
+  it("folds pendingDeleteEventIds (orphaned deleted-meeting events) into deleteEventIds, deduped", () => {
+    const r = planCommitteeReconcile(
+      { ...base, pendingDeleteEventIds: ["orphan-meeting-ev", "stale-removed"] },
+      "2026-07-01",
+    );
+    expect(r.deleteEventIds).toContain("orphan-meeting-ev");
+    // "stale-removed" appears via both paths but is deduped to a single entry.
+    expect(r.deleteEventIds.filter((id) => id === "stale-removed")).toHaveLength(1);
+  });
 });

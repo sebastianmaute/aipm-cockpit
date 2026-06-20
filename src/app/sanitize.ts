@@ -1309,7 +1309,7 @@ export function sanitizeSteeringCommittee(raw: unknown): SteeringCommittee | und
         const out: CommitteeMeeting = { id: mm.id, date: mm.date, title: str(mm.title, 200) };
         if (typeof mm.agenda === "string") out.agenda = mm.agenda.slice(0, 2000);
         if (typeof mm.location === "string") out.location = mm.location.slice(0, 300);
-        if (typeof mm.outlookEventId === "string") out.outlookEventId = mm.outlookEventId;
+        if (typeof mm.outlookEventId === "string") out.outlookEventId = mm.outlookEventId.slice(0, 1024);
         return [out];
       })
     : [];
@@ -1325,14 +1325,18 @@ export function sanitizeSteeringCommittee(raw: unknown): SteeringCommittee | und
   const eventIds: Record<string, string> = {};
   if (r.infoReminderEventIds && typeof r.infoReminderEventIds === "object") {
     for (const [k, v] of Object.entries(r.infoReminderEventIds as Record<string, unknown>)) {
-      if (typeof v === "string") eventIds[k] = v;
+      if (typeof v === "string") eventIds[k] = v.slice(0, 1024);
     }
   }
+  const pendingDelete = Array.isArray(r.pendingDeleteEventIds)
+    ? [...new Set(r.pendingDeleteEventIds.filter((x): x is string => typeof x === "string").map((x) => x.slice(0, 1024)))]
+    : [];
   return {
     name: str(r.name, 200),
     memberResourceIds: members,
     meetings,
     infoSchedules,
     ...(Object.keys(eventIds).length ? { infoReminderEventIds: eventIds } : {}),
+    ...(pendingDelete.length ? { pendingDeleteEventIds: pendingDelete } : {}),
   };
 }

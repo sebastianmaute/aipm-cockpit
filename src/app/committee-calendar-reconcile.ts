@@ -38,6 +38,10 @@ export function planCommitteeReconcile(committee: SteeringCommittee, today: stri
     else infoCreate.push({ key, label: d.label, dueDate: d.dueDate, meetingTitle: d.meetingTitle });
   }
 
-  const deleteEventIds = Object.entries(stored).filter(([k]) => !desiredKeys.has(k)).map(([, v]) => v);
+  // Stale info-instance ids (key no longer desired) + ids of deleted meetings
+  // (stashed in pendingDeleteEventIds — a deleted meeting is gone from
+  // `meetings`, so its event id can only be recovered from there). Dedup.
+  const staleInfoIds = Object.entries(stored).filter(([k]) => !desiredKeys.has(k)).map(([, v]) => v);
+  const deleteEventIds = [...new Set([...staleInfoIds, ...(committee.pendingDeleteEventIds ?? [])])];
   return { meetingCreate, meetingUpdate, infoCreate, infoUpdate, deleteEventIds };
 }

@@ -94,7 +94,14 @@ async function graph(token: string, method: string, path: string, payload?: unkn
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     body: payload === undefined ? undefined : JSON.stringify(payload),
   });
-  if (!res.ok && res.status !== 404) throw new GraphCalendarError(res.status, `Graph ${method} ${path} failed (${res.status})`);
+  // Tolerate 404 ONLY for DELETE (deleting an already-gone event is success).
+  // A 404 on PATCH means the event was deleted in Outlook — that MUST throw so
+  // the caller can clear the stale id and re-create on the next push (otherwise
+  // the update silently no-ops and the event never reappears).
+  const tolerate404 = method === "DELETE";
+  if (!res.ok && !(tolerate404 && res.status === 404)) {
+    throw new GraphCalendarError(res.status, `Graph ${method} ${path} failed (${res.status})`);
+  }
   return res;
 }
 

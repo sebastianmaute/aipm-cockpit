@@ -43,8 +43,9 @@ export interface SteeringCommitteePanelProps {
   onChange: (next: SteeringCommittee | undefined) => void;
   resources: readonly Resource[];
   today: string;
-  /** Supplied by Task 7 (Outlook push). When absent the button is hidden. */
-  outlookPush?: { onPush: () => void; busy: boolean; error?: string };
+  /** Supplied by Task 7 (Outlook push). When absent the button is hidden.
+   *  Errors surface via toast (not inline), so no `error` field is threaded. */
+  outlookPush?: { onPush: () => void; busy: boolean };
 }
 
 export function SteeringCommitteePanel({
@@ -104,7 +105,15 @@ export function SteeringCommitteePanel({
   }
 
   function deleteMeeting(id: number) {
-    update({ meetings: c.meetings.filter((m) => m.id !== id) });
+    const gone = c.meetings.find((m) => m.id === id);
+    const meetings = c.meetings.filter((m) => m.id !== id);
+    // A deleted meeting leaves `meetings`, so its pushed Outlook event id can no
+    // longer be reconciled — stash it for the next push to delete + clear.
+    if (gone?.outlookEventId) {
+      update({ meetings, pendingDeleteEventIds: [...(c.pendingDeleteEventIds ?? []), gone.outlookEventId] });
+    } else {
+      update({ meetings });
+    }
   }
 
   // --- Info schedules --------------------------------------------------------
@@ -401,11 +410,6 @@ export function SteeringCommitteePanel({
             >
               {t(lang, outlookPush.busy ? "committeePushBusy" : "committeePushOutlook")}
             </button>
-            {outlookPush.error ? (
-              <p role="alert" className="mt-1 text-xs text-AIPM-pink-strong">
-                {outlookPush.error}
-              </p>
-            ) : null}
           </section>
         ) : null}
       </div>
