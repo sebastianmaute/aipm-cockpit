@@ -24,6 +24,7 @@ export function parseFeatureGuide(md, validViews) {
     const content = [`## ${cur.title}`, ...cur.body].join("\n").trim();
     if (cur.title === "Overview") guides.push({ id: "builtin-app-overview", name: "App overview", content, scope: {} });
     else if (cur.scopeViews) guides.push({ id: `builtin-feature-${cur.scopeViews[0]}`, name: `Feature: ${cur.title}`, content, scope: { views: cur.scopeViews } });
+    else throw new Error(`app-feature-guide: section "${cur.title}" has no "<!-- views: ... -->" marker (and is not Overview) — it would be silently dropped`);
     cur = null;
   };
   for (const line of lines) {

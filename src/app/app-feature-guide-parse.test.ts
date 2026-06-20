@@ -31,4 +31,8 @@ describe("parseFeatureGuide", () => {
     const bad = `## Overview\n- x\n## Bad\n<!-- views: not-a-view -->\n- y\n`;
     expect(() => parseFeatureGuide(bad, valid)).toThrow(/not-a-view/);
   });
+  it("throws on a non-Overview section with no views marker (no silent drop)", () => {
+    const bad = `## Overview\n- x\n## Untagged\n- y\n`;
+    expect(() => parseFeatureGuide(bad, valid)).toThrow(/Untagged/);
+  });
 });
