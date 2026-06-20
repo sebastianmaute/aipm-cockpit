@@ -57,6 +57,9 @@ import {
   type IdentityType,
   type Deployment,
   type RegulatoryRequirement,
+  type SteeringCommittee,
+  type CommitteeMeeting,
+  type InfoSchedule,
 } from "./types";
 import {
   IDENTITY_TYPE_SET,
@@ -1285,4 +1288,55 @@ export function sanitizeProjectMeta(
   if (dl.length) meta.documentLinks = dl;
 
   return meta;
+}
+
+/** Defensive decode for the optional Workspace.steeringCommittee field. Never
+ *  throws: bad dates / non-number ids / negative leadDays are dropped or
+ *  clamped, strings are capped, and absent/garbage input returns undefined. */
+export function sanitizeSteeringCommittee(raw: unknown): SteeringCommittee | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const r = raw as Record<string, unknown>;
+  const str = (v: unknown, cap: number) => (typeof v === "string" ? v.slice(0, cap) : "");
+  const isDate = (v: unknown): v is string => typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v);
+  const members = Array.isArray(r.memberResourceIds)
+    ? [...new Set(r.memberResourceIds.filter((x): x is number => typeof x === "number"))]
+    : [];
+  const meetings = Array.isArray(r.meetings)
+    ? r.meetings.flatMap((m): CommitteeMeeting[] => {
+        if (!m || typeof m !== "object") return [];
+        const mm = m as Record<string, unknown>;
+        if (typeof mm.id !== "number" || !isDate(mm.date)) return [];
+        const out: CommitteeMeeting = { id: mm.id, date: mm.date, title: str(mm.title, 200) };
+        if (typeof mm.agenda === "string") out.agenda = mm.agenda.slice(0, 2000);
+        if (typeof mm.location === "string") out.location = mm.location.slice(0, 300);
+        if (typeof mm.outlookEventId === "string") out.outlookEventId = mm.outlookEventId.slice(0, 1024);
+        return [out];
+      })
+    : [];
+  const infoSchedules = Array.isArray(r.infoSchedules)
+    ? r.infoSchedules.flatMap((s): InfoSchedule[] => {
+        if (!s || typeof s !== "object") return [];
+        const ss = s as Record<string, unknown>;
+        if (typeof ss.id !== "number") return [];
+        const lead = Number(ss.leadDays);
+        return [{ id: ss.id, label: str(ss.label, 200), leadDays: Number.isFinite(lead) && lead >= 0 ? Math.round(lead) : 0 }];
+      })
+    : [];
+  const eventIds: Record<string, string> = {};
+  if (r.infoReminderEventIds && typeof r.infoReminderEventIds === "object") {
+    for (const [k, v] of Object.entries(r.infoReminderEventIds as Record<string, unknown>)) {
+      if (typeof v === "string") eventIds[k] = v.slice(0, 1024);
+    }
+  }
+  const pendingDelete = Array.isArray(r.pendingDeleteEventIds)
+    ? [...new Set(r.pendingDeleteEventIds.filter((x): x is string => typeof x === "string").map((x) => x.slice(0, 1024)))]
+    : [];
+  return {
+    name: str(r.name, 200),
+    memberResourceIds: members,
+    meetings,
+    infoSchedules,
+    ...(Object.keys(eventIds).length ? { infoReminderEventIds: eventIds } : {}),
+    ...(pendingDelete.length ? { pendingDeleteEventIds: pendingDelete } : {}),
+  };
 }

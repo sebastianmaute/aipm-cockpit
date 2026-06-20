@@ -26,6 +26,7 @@ import {
   sanitizeResource,
   sanitizeRole,
   sanitizeShift,
+  sanitizeSteeringCommittee,
   fkIdOrUndefined,
 } from "./sanitize";
 import {
@@ -45,6 +46,7 @@ import {
   type Role,
   type Shift,
   type Stakeholder,
+  type SteeringCommittee,
   type Task,
 } from "./types";
 import type { ExportConfig } from "./settings-types";
@@ -237,6 +239,23 @@ export function markdownToFeatures(md: string): FeatureModuleId[] | undefined {
   if (!m) return undefined;
   try {
     return sanitizeFeatures(JSON.parse(m[1]));
+  } catch {
+    return undefined;
+  }
+}
+
+/** Serializes the steering committee (nested object) as JSON inside a fenced
+ *  block under "## Steering Committee" (JSON sidesteps Markdown table escaping;
+ *  same approach as field-visibility/functions). Emitted only when present. */
+export function steeringCommitteeToMarkdown(committee: SteeringCommittee): string {
+  return ["## Steering Committee", "", "```json", JSON.stringify(committee, null, 2), "```", ""].join("\n");
+}
+
+export function markdownToSteeringCommittee(md: string): SteeringCommittee | undefined {
+  const m = /## Steering Committee\s*\n+```json\s*\n([\s\S]*?)\n```/.exec(md);
+  if (!m) return undefined;
+  try {
+    return sanitizeSteeringCommittee(JSON.parse(m[1]));
   } catch {
     return undefined;
   }
@@ -613,6 +632,10 @@ export function workspaceToMarkdown(ws: Workspace, config?: ExportConfig): strin
     mdParts.push(fieldVisibilityToMarkdown(ws.fieldVisibility));
   if (config === undefined && ws.features !== undefined)
     mdParts.push(featuresToMarkdown(ws.features));
+  // Steering committee — storage-only, emitted last (byte-stability); absent
+  // emits nothing so committee-less workspaces round-trip unchanged.
+  if (config === undefined && ws.steeringCommittee)
+    mdParts.push(steeringCommitteeToMarkdown(ws.steeringCommittee));
   const out = mdParts.join("\n");
   return out;
 }
@@ -1058,6 +1081,8 @@ export function markdownToWorkspace(md: string): Workspace {
   if (fv) ws.fieldVisibility = fv;
   const fns = markdownToFeatures(md);
   if (fns !== undefined) ws.features = fns;
+  const sc = markdownToSteeringCommittee(md);
+  if (sc) ws.steeringCommittee = sc;
   return migrateWorkspaceV9(ws);
 }
 

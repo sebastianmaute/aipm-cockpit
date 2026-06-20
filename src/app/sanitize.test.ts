@@ -384,3 +384,38 @@ describe("sanitizeProjectMeta – jiraUrl", () => {
     expect(sanitizeProjectMeta({ ...base, startDate: "" })).toBeNull();
   });
 });
+
+import { sanitizeSteeringCommittee } from "./sanitize";
+describe("sanitizeSteeringCommittee", () => {
+  it("keeps a valid committee + drops bad meetings/schedules", () => {
+    const out = sanitizeSteeringCommittee({
+      name: "Project Board",
+      memberResourceIds: [1, 2, "x", 2],
+      meetings: [
+        { id: 1, date: "2026-07-01", title: "Kickoff", agenda: "a" },
+        { id: 2, date: "not-a-date", title: "bad" },
+        { id: 3, title: "no date" },
+      ],
+      infoSchedules: [{ id: 1, label: "Board pack", leadDays: 3 }, { id: 2, label: "x", leadDays: -5 }],
+    })!;
+    expect(out.name).toBe("Project Board");
+    expect(out.memberResourceIds).toEqual([1, 2]);
+    expect(out.meetings.map((m) => m.id)).toEqual([1]);
+    expect(out.infoSchedules).toHaveLength(2);
+    expect(out.infoSchedules[1].leadDays).toBe(0);
+  });
+  it("returns undefined for absent/garbage input (never throws)", () => {
+    expect(sanitizeSteeringCommittee(undefined)).toBeUndefined();
+    expect(sanitizeSteeringCommittee(null)).toBeUndefined();
+    expect(sanitizeSteeringCommittee("x")).toBeUndefined();
+  });
+  it("validates pendingDeleteEventIds (strings only, deduped) and omits when empty", () => {
+    const out = sanitizeSteeringCommittee({
+      name: "B", memberResourceIds: [], meetings: [], infoSchedules: [],
+      pendingDeleteEventIds: ["a", "a", 5, null, "b"],
+    })!;
+    expect(out.pendingDeleteEventIds).toEqual(["a", "b"]);
+    const none = sanitizeSteeringCommittee({ name: "B", memberResourceIds: [], meetings: [], infoSchedules: [], pendingDeleteEventIds: [] })!;
+    expect(none.pendingDeleteEventIds).toBeUndefined();
+  });
+});

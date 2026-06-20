@@ -35,6 +35,7 @@ describe("useCurrentWorkspace", () => {
         "shifts",
         "stakeholders",
         "status",
+        "steeringCommittee",
         "tasks",
       ].sort(),
     );

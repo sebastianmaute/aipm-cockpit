@@ -1,6 +1,6 @@
 // src/app/outlook-calendar-write.ts — Microsoft Graph calendar write (events). Pure
 // given an access token: no MSAL, no React. graph.microsoft.com is already CSP-allowlisted.
-import type { Milestone } from "./types";
+import type { Milestone, CommitteeMeeting } from "./types";
 import type { ExistingEvent } from "./calendar-reconcile";
 
 const GRAPH = "https://graph.microsoft.com/v1.0";
@@ -44,13 +44,64 @@ export function milestoneToGraphEvent(m: Milestone, projectId: string): GraphEve
   };
 }
 
+/**
+ * A steering-committee MEETING as an all-day Graph event. The model has NO
+ * time-of-day field (only a date), so — like milestones — the event is all-day.
+ * Tagged with the project category so it reconciles alongside milestones.
+ */
+export function committeeMeetingToGraphEvent(
+  meeting: CommitteeMeeting,
+  committeeName: string,
+  projectId: string,
+): GraphEvent {
+  const subject = committeeName ? `${committeeName}: ${meeting.title}` : meeting.title;
+  return {
+    subject,
+    isAllDay: true,
+    start: { dateTime: `${meeting.date}T00:00:00`, timeZone: "UTC" },
+    end: { dateTime: `${nextDay(meeting.date)}T00:00:00`, timeZone: "UTC" },
+    categories: [categoryFor(projectId)],
+    body: {
+      contentType: "Text",
+      content: [meeting.location ? `Location: ${meeting.location}` : "", meeting.agenda ?? "", "Managed by the AIPM PM Tracker."]
+        .filter(Boolean)
+        .join("\n\n"),
+    },
+  };
+}
+
+/**
+ * An INFO-PACK reminder instance as an all-day Graph event on its due date.
+ * `meetingTitle` is woven into the subject so the reminder is self-describing.
+ */
+export function committeeInfoToGraphEvent(
+  item: { label: string; dueDate: string; meetingTitle: string },
+  projectId: string,
+): GraphEvent {
+  return {
+    subject: `${item.label} — ${item.meetingTitle}`,
+    isAllDay: true,
+    start: { dateTime: `${item.dueDate}T00:00:00`, timeZone: "UTC" },
+    end: { dateTime: `${nextDay(item.dueDate)}T00:00:00`, timeZone: "UTC" },
+    categories: [categoryFor(projectId)],
+    body: { contentType: "Text", content: "Managed by the AIPM PM Tracker." },
+  };
+}
+
 async function graph(token: string, method: string, path: string, payload?: unknown): Promise<Response> {
   const res = await fetch(`${GRAPH}${path}`, {
     method,
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     body: payload === undefined ? undefined : JSON.stringify(payload),
   });
-  if (!res.ok && res.status !== 404) throw new GraphCalendarError(res.status, `Graph ${method} ${path} failed (${res.status})`);
+  // Tolerate 404 ONLY for DELETE (deleting an already-gone event is success).
+  // A 404 on PATCH means the event was deleted in Outlook — that MUST throw so
+  // the caller can clear the stale id and re-create on the next push (otherwise
+  // the update silently no-ops and the event never reappears).
+  const tolerate404 = method === "DELETE";
+  if (!res.ok && !(tolerate404 && res.status === 404)) {
+    throw new GraphCalendarError(res.status, `Graph ${method} ${path} failed (${res.status})`);
+  }
   return res;
 }
 

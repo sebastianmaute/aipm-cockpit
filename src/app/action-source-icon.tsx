@@ -63,4 +63,12 @@ export const ACTION_SOURCE_ICON: Record<ActionSource, ReactNode> = {
       <path d="M3 13V8M8 13V4M13 13v-3" strokeLinecap="round" />
     </svg>
   ),
+  // committee: people / group
+  committee: (
+    <svg aria-hidden viewBox="0 0 16 16" className={ICON_CLASS} fill="none" stroke="currentColor" strokeWidth="1.5">
+      <circle cx="5.5" cy="5" r="2" />
+      <circle cx="11" cy="5.5" r="1.5" />
+      <path d="M2 13v-1.5a3 3 0 0 1 3-3h1a3 3 0 0 1 3 3V13M10 13v-1a2.5 2.5 0 0 1 2.5-2.5H13" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  ),
 };

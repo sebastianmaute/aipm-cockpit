@@ -60,6 +60,7 @@ import { getJiraTokenAlert } from "./jira-token-status";
 import { effectiveLeadDays } from "./notifications-lead";
 import { WorkspaceSection } from "./workspace-section";
 import { useOutlookCalendarPush } from "./use-outlook-calendar-push";
+import { useCommitteeOutlookPush } from "./use-committee-outlook-push";
 import { RolesPanel } from "./roles-panel";
 import { getUpcomingBirthdays } from "./birthdays";
 import { useBirthdayAlerts } from "./use-birthday-alerts";
@@ -231,6 +232,8 @@ function TaskManagerInner() {
     changes,
     setChanges,
     setStakeholders,
+    steeringCommittee,
+    setSteeringCommittee,
     setFieldVisibility,
     fxRates,
     project,
@@ -687,6 +690,7 @@ function TaskManagerInner() {
           changes,
           milestones,
           stakeholders,
+          steeringCommittee,
           dashboard: dashboardModel,
           commsReminders: comms.items,
           features: settings.features,
@@ -713,7 +717,7 @@ function TaskManagerInner() {
           learnedBias,
         }),
       ),
-    [tasks, raid, changes, milestones, stakeholders, dashboardModel, comms.items, settings.features, settings.notifications, settings.nextActions, project, today, workloadAlerts, actionSnooze.dismissed, actionTrends, learnedBias],
+    [tasks, raid, changes, milestones, stakeholders, steeringCommittee, dashboardModel, comms.items, settings.features, settings.notifications, settings.nextActions, project, today, workloadAlerts, actionSnooze.dismissed, actionTrends, learnedBias],
   );
   const nowCount = nextActions.filter((a) => a.tier === "now").length;
   // Stakeholder ids with a pending stakeholder-comms next-action. Feeds the
@@ -907,7 +911,8 @@ function TaskManagerInner() {
     setResources(w.resources ?? []); setRoles(w.roles ?? []); setDisciplines(w.disciplines ?? []); setGrades(w.grades ?? []);
     if (w.plan) setPlan(w.plan); setBudgets(w.budgets ?? []); setFxRates(w.fxRates ?? null); setStatus(w.status ?? {});
     setProject(w.project); setMilestones(w.milestones ?? []); setChanges(w.changes ?? []); setStakeholders(w.stakeholders ?? []);
-  }, [setTasks, setRaid, setAbsences, setShifts, setResources, setRoles, setDisciplines, setGrades, setPlan, setBudgets, setFxRates, setStatus, setProject, setMilestones, setChanges, setStakeholders]);
+    setSteeringCommittee(w.steeringCommittee);
+  }, [setTasks, setRaid, setAbsences, setShifts, setResources, setRoles, setDisciplines, setGrades, setPlan, setBudgets, setFxRates, setStatus, setProject, setMilestones, setChanges, setStakeholders, setSteeringCommittee]);
 
   // Stable onError so useVersionHistory's `refresh` callback keeps a stable
   // identity — an inline arrow here re-creates refresh every render, re-running
@@ -1640,6 +1645,19 @@ function TaskManagerInner() {
   const calendarPushToOutlook = calendarPush.pushToOutlook;
   const calendarPushBusy = calendarPush.busy;
 
+  // Push the steering committee's meetings + info-pack reminders to Outlook.
+  // Reuses the SAME M365 enablement gate and stable project id as milestones.
+  const committeePush = useCommitteeOutlookPush({
+    committee: steeringCommittee,
+    committeeName: steeringCommittee?.name ?? "",
+    projectId: calendarProjectId,
+    today,
+    setSteeringCommittee,
+    isPopout,
+    lang,
+    enabled: calendarPushEnabled,
+  });
+
   if (!i18nReady) return null;
 
   // Shared props for WorkspaceSection. Spread into both the classic (no
@@ -1756,6 +1774,10 @@ function TaskManagerInner() {
     aiAnalysis: isPopout ? undefined : aiAnalysisBundle,
     onPushMilestonesToOutlook: calendarPushEnabled ? calendarPushToOutlook : undefined,
     calendarPushBusy: calendarPushEnabled ? calendarPushBusy : undefined,
+    committeeOutlookPush:
+      calendarPushEnabled && !isPopout
+        ? { onPush: committeePush.pushToOutlook, busy: committeePush.busy }
+        : undefined,
     guides: operatingGuides.guides,
     guidesReady: operatingGuides.ready,
   };

@@ -125,6 +125,9 @@ export function tenantWorkspaceToStatements(ws: Workspace, projectId: string, di
     if (ws.features !== undefined) {
       out.push(tenantInsert("meta", ["key", "value"], ["features", JSON.stringify(ws.features)], projectId));
     }
+    if (ws.steeringCommittee) {
+      out.push(tenantInsert("meta", ["key", "value"], ["steering_committee", JSON.stringify(ws.steeringCommittee)], projectId));
+    }
   }
   out.push({ sql: "COMMIT" });
   return out;

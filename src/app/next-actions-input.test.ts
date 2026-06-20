@@ -24,6 +24,13 @@ describe("buildActionInput", () => {
     const d = new Set(["x"]);
     expect(buildActionInput({ ...base, dismissed: d }).dismissed).toBe(d);
   });
+  it("surfaces a provided steeringCommittee on the built ActionInput", () => {
+    const committee = { name: "SteerCo", memberResourceIds: [], meetings: [], infoSchedules: [] };
+    expect(buildActionInput({ ...base, steeringCommittee: committee }).steeringCommittee).toBe(committee);
+  });
+  it("leaves steeringCommittee undefined when omitted", () => {
+    expect(buildActionInput(base).steeringCommittee).toBeUndefined();
+  });
 });
 
 describe("confidence field passthrough", () => {

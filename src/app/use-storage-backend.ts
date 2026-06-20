@@ -100,6 +100,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     milestones, setMilestones,
     changes, setChanges,
     stakeholders, setStakeholders,
+    setSteeringCommittee,
   } = useWorkspace();
 
   // Reactive refs — synced via useEffect so effects don't re-register on every render
@@ -166,6 +167,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     setMilestones(workspace.milestones ?? []);
     setChanges(workspace.changes ?? []);
     setStakeholders(workspace.stakeholders ?? []);
+    setSteeringCommittee(workspace.steeringCommittee);
   };
 
   const refreshBackendStatus = async () => {

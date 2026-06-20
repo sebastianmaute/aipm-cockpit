@@ -8,6 +8,11 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.111.0] - 2026-06-20 "Chambers"
+
+### Added
+- Steering committee: a new view to record the committee name, its members (linked to your resources), the meeting schedule (date, title, agenda, location), and "information schedule" rules - how many working days before each meeting a pack should circulate. The resulting pack reminders appear in the Action Center, and the committee's meetings plus the reminder due-dates can be pushed to your Outlook calendar (re-pushing never duplicates).
+
 ## [0.110.0] - 2026-06-20 "Reynolds"
 
 ### Added

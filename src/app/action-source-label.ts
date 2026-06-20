@@ -12,4 +12,5 @@ export const ACTION_SOURCE_LABEL: Record<ActionSource, TranslationKey> = {
   "stakeholder-comms": "actionSourceComms",
   schedule: "actionSourceSchedule",
   workload: "actionSourceWorkload",
+  committee: "actionSourceCommittee",
 };

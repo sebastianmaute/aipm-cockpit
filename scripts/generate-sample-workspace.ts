@@ -49,7 +49,7 @@ import { TABLE_NAMES } from "../src/app/turso-schema";
 import { tenantWorkspaceToStatements, upsertProjectStatement, PROJECTS_TABLE } from "../src/app/turso-tenant-schema";
 import { scaleWorkspace } from "../src/app/scale-workspace";
 import type { Workspace } from "../src/app/workspace";
-import type { ChangeItem, RaidItem, ProjectMeta, ProjectStatus } from "../src/app/types";
+import type { ChangeItem, RaidItem, ProjectMeta, ProjectStatus, SteeringCommittee } from "../src/app/types";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -213,6 +213,26 @@ const sampleStatus: ProjectStatus = {
   narrativeUpdatedAt: "2026-05-28T09:00:00.000Z",
 };
 
+// A demo steering committee (board membership + a scheduled meeting + an
+// info-pack cadence) so the steering-committee surface renders real content.
+// Members reference real resource ids (1 = Alex Example / PM, 2 / 3 = senior team).
+const sampleSteeringCommittee: SteeringCommittee = {
+  name: "CIP Steering Committee",
+  memberResourceIds: [1, 2, 3],
+  meetings: [
+    {
+      id: 1,
+      date: "2026-07-10",
+      title: "Q3 steering review",
+      agenda: "Migration readiness, load-test results, go-live gate decision.",
+      location: "Teams",
+    },
+  ],
+  infoSchedules: [
+    { id: 1, label: "Board info pack", leadDays: 3 },
+  ],
+};
+
 // Assemble the enriched workspace (immutable spread)
 const enrichedWs = {
   ...ws,
@@ -220,6 +240,7 @@ const enrichedWs = {
   changes,
   project: sampleProjectMeta,
   status: sampleStatus,
+  steeringCommittee: sampleSteeringCommittee,
 };
 
 // ---------------------------------------------------------------------------

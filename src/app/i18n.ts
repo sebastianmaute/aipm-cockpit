@@ -535,6 +535,8 @@ const enUS = {
     "Claude can now suggest adjustments to your next-actions ranking weights from your project, trends, and what you act on - review each in the settings and Accept the ones you want.",
   versionHighlightProjectImport:
     "Create a project by importing a file, a SharePoint document, or a Confluence page - the AI reads it and pre-fills the new-project wizard.",
+  versionHighlightSteering:
+    "Steering committee: record members, the meeting schedule, and information-pack cadence rules. Pack reminders surface in the Action Center, and meetings plus reminders can be pushed to your Outlook calendar.",
   scheduledJobsTitle: "Scheduled jobs",
   scheduledJobsToggle: "Enable scheduled jobs",
   scheduledJobsHelp:
@@ -1681,6 +1683,7 @@ const enUS = {
   // --- Schedule + workload providers (0.80.0) ---
   actionSourceSchedule: "Schedule",
   actionSourceWorkload: "Workload",
+  actionSourceCommittee: "Steering committee",
   actionScheduleTitle: "{0} is behind schedule",
   actionScheduleWhyBehind: "Schedule performance index is {0} (under 1.0 = behind plan)",
   actionScheduleWhySlipping: "SPI {0} — schedule slipping",
@@ -1868,7 +1871,36 @@ const enUS = {
   actionBudgetWhyImproving: "CPI {0} — over budget but improving",
   actionCommsTitle: "Update stakeholder: {0}",
   actionCommsWhy: "{0} update due",
+  actionCommitteeInfoTitle: "Circulate {0} for {1}",
+  actionCommitteeInfoWhy: "Due {0} — {1} ({2} days)",
   actionCreatedFromNote: "From: {0} — {1}",
+
+  // --- Steering committee panel (SP-E) ---
+  committeeNav: "Steering committee",
+  committeeTitle: "Steering committee",
+  committeeName: "Committee name",
+  committeeMembers: "Members",
+  committeeAddMember: "Add member",
+  committeeMeetings: "Meetings",
+  committeeMeetingDate: "Date",
+  committeeMeetingTitle: "Title",
+  committeeMeetingAgenda: "Agenda",
+  committeeMeetingLocation: "Location",
+  committeeAddMeeting: "Add meeting",
+  committeeInfoSchedules: "Info schedules",
+  committeeScheduleLabel: "Label",
+  committeeScheduleLeadDays: "Lead days",
+  committeeAddSchedule: "Add schedule",
+  committeeReminders: "Info reminders",
+  committeeRemindersNone: "No info reminders due.",
+  committeeReminderOverdue: "Overdue / due now",
+  committeeReminderSoon: "Soon",
+  committeeReminderUpcoming: "Upcoming",
+  committeePushOutlook: "Push to Outlook",
+  committeePushBusy: "Pushing…",
+  committeePushError: "Could not push reminders to Outlook.",
+  committeePushResult: "Synced {0} meeting(s), {1} reminder(s) to Outlook.",
+  committeePushPartial: "{0} event(s) could not be synced.",
 
   // --- UI polish batch (0.76.0) ---
   // Modal heading fixes

@@ -23,6 +23,7 @@ import { sanitizeFeatures } from "./feature-modules";
 import {
   sanitizeResource, sanitizeRole, sanitizeBudgetBucket, sanitizeDiscipline,
   sanitizeGrade, sanitizeAbsence, sanitizeShift, sanitizeFxRates, sanitizePlan,
+  sanitizeSteeringCommittee,
 } from "./sanitize";
 import type {
   Task, RaidItem, Absence, Shift, Resource, Role, Discipline, Grade, BudgetBucket, Milestone, ChangeItem, Stakeholder,
@@ -146,6 +147,15 @@ export function rowsToWorkspace(results: PipelineResultLike[]): Workspace {
       // malformed — leave undefined
     }
   }
+  const scRow = rowObjects(byTable.get("meta")).find((r) => r.key === "steering_committee");
+  if (scRow?.value) {
+    try {
+      const sc = sanitizeSteeringCommittee(JSON.parse(scRow.value));
+      if (sc) ws.steeringCommittee = sc;
+    } catch {
+      // malformed — leave undefined
+    }
+  }
   return migrateWorkspaceV9(ws);
 }
 
@@ -186,6 +196,7 @@ export function dirtyWorkspaceTables(prev: Workspace, next: Workspace): Set<stri
   if (prev.status !== next.status) dirty.add("meta");
   if (prev.fieldVisibility !== next.fieldVisibility) dirty.add("meta");
   if (prev.features !== next.features) dirty.add("meta");
+  if (prev.steeringCommittee !== next.steeringCommittee) dirty.add("meta");
   return dirty;
 }
 
@@ -244,6 +255,15 @@ export function workspaceToStatements(ws: Workspace, dirtyTables?: ReadonlySet<s
         args: [
           { type: "text", value: "features" },
           { type: "text", value: JSON.stringify(ws.features) },
+        ],
+      });
+    }
+    if (ws.steeringCommittee) {
+      out.push({
+        sql: `INSERT INTO meta (key, value) VALUES (?, ?)`,
+        args: [
+          { type: "text", value: "steering_committee" },
+          { type: "text", value: JSON.stringify(ws.steeringCommittee) },
         ],
       });
     }

@@ -219,6 +219,38 @@ export type Milestone = {
 };
 
 // ----------------------------------------------------------------------------
+// Steering committee — board membership, scheduled meetings, and the cadence
+// of information packs sent ahead of meetings. Optional nested Workspace field.
+
+export interface CommitteeMeeting {
+  id: number;
+  date: string;
+  title: string;
+  agenda?: string;
+  location?: string;
+  outlookEventId?: string;
+}
+
+export interface InfoSchedule {
+  id: number;
+  label: string;
+  leadDays: number;
+}
+
+export interface SteeringCommittee {
+  name: string;
+  memberResourceIds: number[];
+  meetings: CommitteeMeeting[];
+  infoSchedules: InfoSchedule[];
+  infoReminderEventIds?: Record<string, string>;
+  /** Outlook event ids of meetings that were DELETED in the panel while still
+   *  carrying a pushed event. A deleted meeting leaves `meetings` (so the
+   *  reconcile can no longer see its id), so the panel stashes the orphaned id
+   *  here for the next Outlook push to delete + clear. */
+  pendingDeleteEventIds?: string[];
+}
+
+// ----------------------------------------------------------------------------
 // Change control register — tracks change requests through their lifecycle.
 
 export const CHANGE_TYPES = ["Scope", "Schedule", "Cost", "Quality", "Other"] as const;

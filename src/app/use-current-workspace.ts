@@ -22,6 +22,7 @@ export function useCurrentWorkspace(): () => Workspace {
       milestones: ws.milestones,
       changes: ws.changes,
       stakeholders: ws.stakeholders,
+      steeringCommittee: ws.steeringCommittee,
       project: ws.project,
       fieldVisibility: ws.fieldVisibility,
     }),
