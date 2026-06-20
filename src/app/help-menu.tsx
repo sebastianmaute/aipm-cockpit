@@ -82,7 +82,7 @@ function savePos(p: Pos) {
   }
 }
 
-export function HelpMenu({ lang }: { lang: Lang }) {
+export function HelpMenu({ lang, onTakeTour }: { lang: Lang; onTakeTour?: () => void }) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<Pos | null>(null);
   const [activeIdx, setActiveIdx] = useState(0);
@@ -381,6 +381,18 @@ export function HelpMenu({ lang }: { lang: Lang }) {
           </div>
 
           <div className="flex shrink-0 items-center justify-between gap-4 border-t border-line px-4 py-2">
+            {onTakeTour && (
+              <button
+                type="button"
+                onClick={() => {
+                  setOpen(false);
+                  onTakeTour();
+                }}
+                className="text-xs font-medium text-AIPM-dark-blue underline-offset-2 hover:underline dark:text-AIPM-blue"
+              >
+                {t(lang, "tourLaunch")}
+              </button>
+            )}
             <a
               href={POLICY_URL}
               target="_blank"
