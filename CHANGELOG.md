@@ -18,7 +18,7 @@ longer carries its own changelog comment.
 ### Added
 - Timezone display: timestamps in the activity log, version history, and trends now render in a display timezone you choose from a top-bar switcher (Default / UTC / your additional zones), with the zone shown next to each time. The choice applies for the session and resets on reload; the underlying data is unchanged.
 
-## [0.113.0] - 2026-06-20 "Kress"
+## [0.113.0] - 2026-06-20 "Kowal"
 
 ### Added
 - Timezones (foundation): set a per-project operating timezone and a per-device default (plus a list of additional zones). The app's day-boundary logic - what counts as overdue, due today, or due soon - now follows the resolved timezone instead of UTC. (Display of timestamps and the calendar's multi-timezone view follow in later updates.)
@@ -137,7 +137,7 @@ plus document ingestion.
 - The **Duplicate** button on built-in templates (Settings → Templates). Built-ins remain display-only;
   user templates are still created via "Save current project".
 
-## [0.101.0] - 2026-06-18 "Kress"
+## [0.101.0] - 2026-06-18 "Norton"
 
 UI/UX + secrets-management batch.
 
@@ -325,7 +325,7 @@ UI/UX consistency batch across many views, plus deeper version-history controls.
 - **New-project wizard** — an informational note recommends the Turso backend (richer features, more
   complete data model, more automation than file storage).
 
-## [0.95.0] - 2026-06-16 "Hopkinson"
+## [0.95.0] - 2026-06-16 "McCaffrey"
 
 ### Added
 - **Action Center learning layer** — the Action Center now learns from how you respond to suggested
@@ -362,7 +362,7 @@ UI/UX consistency batch across many views, plus deeper version-history controls.
   app (mailto) remains the default and the fallback when M365 is unavailable. This
   completes the editable communication-templates roadmap.
 
-## [0.90.0] - 2026-06-15 "Russ"
+## [0.90.0] - 2026-06-15 "Abercrombie"
 
 ### Added / Changed
 - **Communication templates versions (SP3)**: save named versions of a template,
@@ -371,7 +371,7 @@ UI/UX consistency batch across many views, plus deeper version-history controls.
   live in an append-only Turso table (out of the workspace save cycle). This
   completes the editable-templates roadmap ahead of the optional Graph HTML-send slice.
 
-## [0.89.0] - 2026-06-15 "Bujold"
+## [0.89.0] - 2026-06-15 "Rothfuss"
 
 ### Added / Changed
 - **Communication templates rich-text editor (SP2)**: the Turso-only template
@@ -381,7 +381,7 @@ UI/UX consistency batch across many views, plus deeper version-history controls.
   still stored as HTML and flattened to plain text on send (rich HTML send
   arrives with the Graph slice). SP3 (named versions + compare/restore) is next.
 
-## [0.88.0] - 2026-06-15 "Niven"
+## [0.88.0] - 2026-06-15 "Card"
 
 ### Added / Changed
 - **Communication templates (SP1)**: author named, categorized email templates
@@ -406,7 +406,7 @@ UI/UX consistency batch across many views, plus deeper version-history controls.
   (0.85.0), this slice continues resolving Action Center signals directly in the
   inbox, reducing modal navigation for common triage actions.
 
-## [0.86.0] - 2026-06-15 "Hamilton"
+## [0.86.0] - 2026-06-15 "Verne"
 
 ### Added / Changed
 - **Assign owner from Action Center**: RAID risks without an owner now show an
@@ -417,7 +417,7 @@ UI/UX consistency batch across many views, plus deeper version-history controls.
   slice continues the pattern of resolving Action Center signals directly in the
   inbox, reducing modal navigation for common triage actions.
 
-## [0.85.0] - 2026-06-14 "Liu"
+## [0.85.0] - 2026-06-14 "Dick"
 
 ### Added / Changed
 - **Tooltip clamp**: long tooltips across planning, RAID, and settings surfaces are
@@ -454,7 +454,7 @@ UI/UX consistency batch across many views, plus deeper version-history controls.
   and report tables received missing `aria-label` / `role` corrections surfaced
   by the Playwright axe gate.
 
-## [0.84.0] - 2026-06-14 "Cherryh"
+## [0.84.0] - 2026-06-14 "Wyndham"
 
 ### Added / Changed
 - Action Center gains a **"Create task" CTA** on every signal card (except
@@ -468,7 +468,7 @@ UI/UX consistency batch across many views, plus deeper version-history controls.
   editable; the task is only created when the user saves, preserving the
   normal task-creation guardrails and validation.
 
-## [0.83.0] - 2026-06-14 "Robinson"
+## [0.83.0] - 2026-06-14 "Aldiss"
 
 ### Added / Changed
 - The Action Center now ranks suggested actions by **confidence** — how
@@ -671,7 +671,7 @@ UI/UX consistency batch across many views, plus deeper version-history controls.
   persist `storageConfig.kind="turso"`, so the workspace backend follows the
   portfolio instead of staying on the local file (which broke snapshot capture).
 
-## [0.74.0] - 2026-06-13 "Niven"
+## [0.74.0] - 2026-06-13 "Lem"
 
 Create-project wizard & empty-state overhaul — a wider, resizable modal, a
 focused required-field form with the rest tucked behind an optional section, a

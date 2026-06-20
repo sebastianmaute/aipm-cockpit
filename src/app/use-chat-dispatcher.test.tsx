@@ -195,6 +195,70 @@ describe("useChatDispatcher", () => {
     expect(result.current.getTask(1)?.priority).toBe("Urgent");
   });
 
+  it("createTask defaults status to 'To Do' when omitted", () => {
+    const { result } = renderDispatcher();
+    const created = result.current.createTask({
+      taskName: "Delta",
+      assignee: "Dave",
+      dueDate: "2026-06-04",
+    });
+    expect(created.status).toBe("To Do");
+    expect(created.completedDate ?? "").toBe("");
+  });
+
+  it("createTask with status 'Done' routes through applyStatusChange and sets completedDate", () => {
+    const { result } = renderDispatcher();
+    const created = result.current.createTask({
+      taskName: "Delta",
+      assignee: "Dave",
+      dueDate: "2026-06-04",
+      status: "Done",
+    });
+    expect(created.status).toBe("Done");
+    // completedDate stamped to today (proves it went through applyStatusChange,
+    // not a raw status assignment which would leave completedDate unset).
+    expect(created.completedDate).toBe("2026-05-19");
+  });
+
+  it("createTask ignores an invalid status and falls back to default", () => {
+    const { result } = renderDispatcher();
+    const created = result.current.createTask({
+      taskName: "Delta",
+      assignee: "Dave",
+      dueDate: "2026-06-04",
+      status: "Bogus",
+    });
+    expect(created.status).toBe("To Do");
+  });
+
+  it("updateTask changes status via applyStatusChange on a non-synced task", () => {
+    const { result } = renderDispatcher();
+    const updated = result.current.updateTask(1, { status: "In Progress" });
+    expect(updated?.status).toBe("In Progress");
+    expect(result.current.getTask(1)?.status).toBe("In Progress");
+  });
+
+  it("updateTask to 'Done' stamps completedDate; reopening clears it", () => {
+    const { result } = renderDispatcher();
+    const done = result.current.updateTask(1, { status: "Done" });
+    expect(done?.status).toBe("Done");
+    expect(done?.completedDate).toBe("2026-05-19");
+    const reopened = result.current.updateTask(1, { status: "To Do" });
+    expect(reopened?.status).toBe("To Do");
+    expect(reopened?.completedDate ?? "").toBe("");
+  });
+
+  it("updateTask rejects a status change on a jiraKey-linked task and leaves it unchanged", () => {
+    const tasksWithJira = seedTasks().map((t, i) =>
+      i === 0 ? { ...t, jiraKey: "LOP-1" } : t,
+    );
+    const { result } = renderDispatcher(tasksWithJira);
+    expect(() =>
+      result.current.updateTask(1, { status: "In Progress" }),
+    ).toThrow(/managed in Jira/);
+    expect(result.current.getTask(1)?.status).toBe("To Do");
+  });
+
   it("updateTask rejects assignee changes on a jiraKey-linked task", () => {
     const tasksWithJira = seedTasks().map((t, i) =>
       i === 0 ? { ...t, jiraKey: "LOP-1" } : t,

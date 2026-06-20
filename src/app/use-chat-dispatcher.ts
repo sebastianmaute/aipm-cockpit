@@ -40,8 +40,16 @@ import {
 } from "./sanitize";
 import { type Settings } from "./settings-types";
 import { emptyForm, useTaskForm } from "./task-form-context";
-import { type Task } from "./types";
+import { applyStatusChange } from "./task-status";
+import { DEFAULT_TASK_STATUS, TASK_STATUSES, type Task, type TaskStatus } from "./types";
 import { useWorkspace } from "./workspace-context";
+
+const STATUS_SET = new Set<string>(TASK_STATUSES);
+
+/** True when `v` is one of the known task statuses. */
+function isTaskStatus(v: unknown): v is TaskStatus {
+  return typeof v === "string" && STATUS_SET.has(v);
+}
 
 /** Next numeric id for an entity list (max + 1, or 1 when empty). Mirrors the
  *  per-entity nextId helpers used by the panels. */
@@ -202,7 +210,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         const email = sanitizeEmail(input.assigneeEmail);
         if (email && !isValidEmail(email))
           throw new Error("assigneeEmail is invalid");
-        const newTask: Task = {
+        const baseTask: Task = {
           id,
           taskName,
           assignee,
@@ -211,13 +219,19 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
           lastUpdateDate:
             sanitizeIsoDate(input.lastUpdateDate) || todayRef.current,
           priority: sanitizePriority(input.priority),
-          status: "To Do",
+          status: DEFAULT_TASK_STATUS,
           blockers: sanitizeBlockers(input.blockers),
           notes: sanitizeNotes(input.notes),
           inquiriesSent: 0,
           group: sanitizeGroup(input.group),
           labels: sanitizeLabels(input.labels),
         };
+        // A model-supplied status routes through applyStatusChange (the sole
+        // writer of status + completedDate) so e.g. Done stamps completedDate.
+        // An invalid value falls back to the default.
+        const newTask = isTaskStatus(input.status)
+          ? applyStatusChange(baseTask, input.status, todayRef.current)
+          : baseTask;
         const next = [...list, newTask];
         tasksRef.current = next; // keep ref in sync for back-to-back tool calls
         setTasks(next);
@@ -245,6 +259,14 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
           ) {
             throw new Error(
               `Reopening ${existing.jiraKey} must be done in Jira (workflow transition required).`,
+            );
+          }
+          if (
+            patch.status !== undefined &&
+            patch.status !== existing.status
+          ) {
+            throw new Error(
+              `Status for ${existing.jiraKey} is managed in Jira; change it via the Jira workflow and re-sync.`,
             );
           }
         }
@@ -283,12 +305,18 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
           cleanPatch.group = sanitizeGroup(patch.group);
         if (patch.labels !== undefined)
           cleanPatch.labels = sanitizeLabels(patch.labels);
-        const merged: Task = {
+        const mergedBase: Task = {
           ...existing,
           ...cleanPatch,
           id: existing.id,
           localModifiedAt: new Date().toISOString(),
         };
+        // A valid status change routes through applyStatusChange — the sole
+        // writer of status + completedDate (keeps the Done⟺completedDate
+        // invariant). Invalid values are ignored (status left unchanged).
+        const merged = isTaskStatus(patch.status)
+          ? applyStatusChange(mergedBase, patch.status, todayRef.current)
+          : mergedBase;
         const next = tasksRef.current.map((row) =>
           row.id === id ? merged : row,
         );

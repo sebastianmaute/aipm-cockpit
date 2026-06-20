@@ -29,6 +29,7 @@ export const ASK_CLAUDE_PROMPTS: Partial<Record<AppView, PromptDef[]>> = {
   "open-points": [
     { labelKey: "aiPromptOpenOverdueLabel", bodyKey: "aiPromptOpenOverdueBody" },
     { labelKey: "aiPromptOpenFocusLabel", bodyKey: "aiPromptOpenFocusBody" },
+    { labelKey: "aiPromptOpenStaleLabel", bodyKey: "aiPromptOpenStaleBody" },
   ],
   raid: [
     { labelKey: "aiPromptRaidTopLabel", bodyKey: "aiPromptRaidTopBody" },
@@ -73,6 +74,10 @@ export const ASK_CLAUDE_PROMPTS: Partial<Record<AppView, PromptDef[]>> = {
   trends: [
     { labelKey: "aiPromptTrendReadLabel", bodyKey: "aiPromptTrendReadBody" },
     { labelKey: "aiPromptTrendActLabel", bodyKey: "aiPromptTrendActBody" },
+  ],
+  "steering-committee": [
+    { labelKey: "aiPromptScUpcomingLabel", bodyKey: "aiPromptScUpcomingBody" },
+    { labelKey: "aiPromptScAgendaLabel", bodyKey: "aiPromptScAgendaBody" },
   ],
 };
 

@@ -488,6 +488,12 @@ const enUS = {
   aiPromptTrendReadBody: "What is the schedule and budget trend telling me about where we're heading?",
   aiPromptTrendActLabel: "Act on trend",
   aiPromptTrendActBody: "Given the current trends, what should I do to stay on track?",
+  aiPromptOpenStaleLabel: "Stale in progress",
+  aiPromptOpenStaleBody: "List tasks that are not Done but overdue, and flag In Progress tasks that haven't been updated recently so I can chase or reset them.",
+  aiPromptScUpcomingLabel: "Upcoming meetings",
+  aiPromptScUpcomingBody: "Summarize the upcoming steering committee meetings and what packs or decisions are due for each.",
+  aiPromptScAgendaLabel: "Draft agenda",
+  aiPromptScAgendaBody: "Draft an agenda for the next steering committee meeting based on current risks, decisions, and milestones.",
   versionHighlightAiAskClaude: "Ask Claude about any view: one-tap foundational prompts and view-specific suggestions in the AI Assistant.",
   versionHighlightUiBatch0990: "Resizable panes, dashboard trend deltas, grouped reports, and a clearer Ask Claude button.",
   versionHighlightUiBatch0100: "Rounded table headers with a consistent scrollbar gap, RAG priority dots, click-away dialogs, whole-version restore plus side-by-side compare, and task-editor tooltips.",
@@ -813,6 +819,9 @@ const enUS = {
   helpSecTasksTitle: "Tasks list",
   helpSecTasksBody:
     "Sort by clicking column headers. Filter via the search box and the priority / assignee dropdowns. Tick the row checkboxes to multi-select; a bulk-edit bar appears for batch updates. Per-row actions: Mark complete / Reopen, Send inquiry, Push to Jira (when Jira is enabled and the row is unlinked), Edit, Delete. Long notes collapse to the first line — click \"Show more\" to expand. Drag the table's bottom-right corner to resize.",
+  helpSecTaskStatusTitle: "Task status & Kanban board",
+  helpSecTaskStatusBody:
+    "Each task carries a status — To Do, In Progress, On Hold, In Review, Cancelled, or Done — that is the single source of truth for whether the task is finished. Set it from the status dropdown on the row or in the editor; marking a task Done stamps its completion date automatically (and clearing Done removes it). The Open Points view has a Table / Board toggle: the Board is a Kanban with one column per status. Drag a card between columns to change its status, or use the per-card status dropdown for keyboard access. Cards show the assignee, due date, priority, health, Jira key, and any RAID / Change links. Tasks synced from Jira are read-only here — their status follows the Jira status category, so change them in Jira and the next sync reflects it. The view choice is saved per device.",
   helpSecGanttTitle: "Gantt chart",
   helpSecGanttBody:
     "Visual project timeline driven by start / due dates and the predecessor graph. Drag a bar to move it, drag its right edge to extend the due date, and drag the handles to draw a dependency between tasks (FS, SS, FF, SF). Cycles are blocked and flagged. Click a bar to open the task editor. Today line, weekend shading, holiday columns, and per-assignee absences are shaded onto the timeline automatically.",
@@ -822,6 +831,9 @@ const enUS = {
   helpSecResourcesTitle: "Resources",
   helpSecResourcesBody:
     "Capacity and contact management for the people on your project, across four sub-tabs. Directory is an address book — one row per resource with name, title, contact details, company, and birthday; click a name to edit, or use \"+ Add resource\". Workload shows per-assignee stats (open / overdue tasks, upcoming absences, configured shift), with assignees that have no resource grouped under \"Unlinked\". Calendar is a 30-day grid of tasks, absences, and holidays per resource. Planning is the per-period utilization grid (week or month) → capacity, internal/external cost, and margin, with a read-only rollup and a pop-out report. \"Open address book\" launches the Directory in its own window. Add shifts and absences to shape availability; birthdays raise a reminder. Resource data lives in the same storage backend as tasks.",
+  helpSecSteeringTitle: "Steering committee",
+  helpSecSteeringBody:
+    "Record your project's steering committee in one place: the committee name, its members (each linked to one of your resources), and the meeting schedule — date, title, agenda, and location for each meeting. The \"information schedule\" rules set how many working days before each meeting an information pack should circulate; the resulting pack reminders appear in the Action Center so nothing slips. When Outlook is connected you can push the committee's meetings and the reminder due-dates to your calendar in one click — re-pushing updates the existing events instead of creating duplicates.",
   helpSecActivityTitle: "Activity log",
   helpSecActivityBody:
     "Append-only log of task, RAID, absence, and shift changes in this browser. Sort by time / kind, filter by entity group, and search by text, wildcard (`*`, `?`), or regex. Useful for audit-style review after bulk edits or Jira syncs. The log lives in this browser only — it is never written to any export file — and trims the oldest entries when it exceeds 500. \"Clear log\" asks for confirmation before deleting all entries.",
@@ -834,6 +846,9 @@ const enUS = {
   helpSecNotifTitle: "Due-date notifications",
   helpSecNotifBody:
     "Banner sits between the header and the workspace while any task needs attention; birthdays raise their own banner. Toast and pop-up fire once per app load if enabled. Set how many days ahead reminders arrive in Settings → Notifications — one \"days ahead\" value covers both due dates and birthdays; a reminder that would land on a weekend, holiday, or absence day is shifted earlier so it reaches you on a working day. Snooze any reminder for 1 hour or 1 day — it stays hidden (and the toast stays quiet) until the snooze elapses. The bell icon in the header reopens the list anytime, with an unread-count badge. Configure each channel independently.",
+  helpSecTimezonesTitle: "Timezones",
+  helpSecTimezonesBody:
+    "Set a per-device default timezone and a per-project operating timezone in Settings, plus a list of additional zones you work across. The app's day-boundary logic — what counts as overdue, due today, or due soon — follows the resolved timezone instead of UTC. A top-bar timezone switcher controls how timestamps are displayed in the activity log, version history, and trends (Default / UTC / any of your additional zones), with the zone shown next to each time; that display choice applies for the session and resets on reload, while the underlying data is unchanged. When you have added extra zones, the Calendar view shows a live \"world clock\" strip with the current time and date in your default zone plus each additional zone — handy for coordinating distributed teams.",
   helpSecJiraTitle: "Jira sync",
   helpSecJiraBody:
     "Settings → Jira: paste your Atlassian site URL, email, and API token, pick a project + issue types, and choose an assignee scope. The Sync button next to the tasks list pulls remote changes, pushes local edits, and queues true conflicts in a per-task review dialog. Push to Jira (row action) or the \"Also create in Jira\" checkbox in the task modal creates a brand-new issue. Notes ↔ Jira description sync is lossy — rich formatting flattens to plain text. Jira-managed fields (assignee, status reopen) are locked in the app. Record your token's expiry in \"Token expires on\" to get a reminder banner before it lapses (and once it has); if a sync finds the token expired or invalid, or can't reach Jira, you get a clear, actionable message instead of a generic failure.",
@@ -846,9 +861,15 @@ const enUS = {
   helpSecAiTitle: "AI chat",
   helpSecAiBody:
     "Add an Anthropic API key in Settings → AI, then accept the consent screen on the AI Assistant tab. Messages and task data are sent directly from your browser to api.anthropic.com — Acme's AI usage policy applies. The key is stored in this browser's localStorage. Claude can list, create, update, and delete tasks on your behalf via tool calls.",
+  helpSecAiAdvancedTitle: "AI assistance (advanced)",
+  helpSecAiAdvancedBody:
+    "Beyond the chat, an Anthropic key unlocks several optional, advisory AI helpers. Create project with AI: in the new-project wizard, describe the project in plain words or import a source — upload a file, pick a SharePoint document, or paste a Confluence page URL — and Claude pre-fills the form for you to review. Analyze with AI: the Action Center's button runs one analysis pass over your reports and suggests where to focus; it never edits your data, and the deterministic next-action engine is untouched. Suggest with AI: in the next-actions settings, Claude proposes tweaks to the ranking weights that you accept per row. Scheduled jobs: opt in (Settings → Scheduled jobs) to run a recurring portfolio analysis on a daily or weekly cadence — the scheduler runs due jobs while the app is open and catches up missed runs on next launch, surfacing results as a notification and a run history. Each scheduled run is a billed API call, so it is off by default. None of these features run in pop-out windows.",
   helpSecInputFeedbackTitle: "Input feedback",
   helpSecInputFeedbackBody:
     "Capped text fields show a live character counter as you approach the limit — it stays hidden until roughly 80% full and turns a warning color when you reach the cap. Numeric fields (shift hours, change schedule-days/cost, budget amounts and rate overrides) are automatically clamped to their allowed range on blur, with an inline notice if the value was adjusted. If a label contains separator characters that must be stripped, a notice appears next to the field. When you save a record and any entries were trimmed or clamped to fit storage limits, a brief summary toast confirms what was adjusted.",
+  helpSecTourTitle: "Guided tour & demo",
+  helpSecTourBody:
+    "First-run users get a short guided walkthrough of the main areas of the modern layout. \"Explore a demo project\" loads the bundled sample data in one click so you can try the app with realistic content before adding your own. To replay the walkthrough anytime, click \"Take the tour\" at the bottom of this Help menu. The tour is per device and runs only in the modern layout — it does not appear in Classic mode or in pop-out windows.",
   helpSecFieldVisibilityTitle: "Field visibility",
   helpSecFieldVisibilityBody:
     "Every entity editor (tasks, RAID, changes, milestones, stakeholders, resources, absences, and budgets) has a Simple / Advanced / Full switch that controls how many fields are shown, plus a cog to show or hide individual fields. Simple shows the essentials, Advanced (the default) shows the common set, and Full shows everything. Required fields are always shown regardless of the view, and the setting is saved per project. Hiding a field only changes what you see — it never deletes the data behind it, so switching to a fuller view brings the values back unchanged.",

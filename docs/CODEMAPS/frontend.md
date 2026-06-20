@@ -1,4 +1,4 @@
-<!-- Generated: 2026-06-11 | Files scanned: ~150 (src/app/*.tsx, *.ts, settings-sections/, dashboard-sections/) | Token estimate: ~1850 | Updated for 0.29.0–0.60.0: modern sidebar layout + UI-consistency sweep + Health Dashboard + Milestones + Earned Value + budget/dashboard RAG + burn-down + UI refinements + baseline/variance trends + change-control Log + stakeholder report + influence/interest matrix + Simple/Modular/Advanced mode + stakeholder communication reminders + input sanitization feedback + configurable multi-section export + AI usage panel + information-flows diagram + multi-project portfolio (file & Turso) + SharePoint picker + document links on 6 entities + data version history (capture/compare/selective restore, Turso) [0.66.0–0.69.0] + standalone Documents tab aggregating links across entities + project [0.81.0] -->
+<!-- Generated: 2026-06-11 | Files scanned: ~150 (src/app/*.tsx, *.ts, settings-sections/, dashboard-sections/) | Token estimate: ~1850 | Updated for 0.29.0–0.60.0: modern sidebar layout + UI-consistency sweep + Health Dashboard + Milestones + Earned Value + budget/dashboard RAG + burn-down + UI refinements + baseline/variance trends + change-control Log + stakeholder report + influence/interest matrix + Simple/Modular/Advanced mode + stakeholder communication reminders + input sanitization feedback + configurable multi-section export + AI usage panel + information-flows diagram + multi-project portfolio (file & Turso) + SharePoint picker + document links on 6 entities + data version history (capture/compare/selective restore, Turso) [0.66.0–0.69.0] + standalone Documents tab aggregating links across entities + project [0.81.0]; AI orchestration SP0–SP5 (Ask-Claude top-bar menu, operating-guide grounding, write tools, doc ingestion, AI project creation/import via step0-import-panel, Action-Center "Analyze with AI", scheduled jobs, next-actions weight suggestions) [0.97.0–0.110.0]; Task.status + Kanban Table/Board toggle (`task-kanban-board.tsx`, `task-status-*`) [0.107.0–0.108.0]; steering-committee view + Outlook push [0.111.0]; guided tour overlay [0.112.0]; timezones — operating tz, display-tz switcher, calendar world-clock strip [0.113.0–0.115.0] -->
 
 # Frontend
 
@@ -49,6 +49,7 @@ src/app/layout.tsx           — root layout, security headers, globals.css,
         │   ├── RaidPanel (raid-panel.tsx) — mounted; hidden when off ✚
         │   ├── ResourcesPanel (resources-panel.tsx) — conditional mount ★
         │   ├── BudgetPanel (budget-panel.tsx) — conditional mount ★
+        │   ├── SteeringCommitteePanel (steering-committee-panel.tsx) — conditional mount ★ (0.111.0+)
         │   ├── ActivityLogPanel (activity-log-panel.tsx) — conditional mount ★
         │   ├── ResourcesReportPanel (resources-report.tsx) — popout-only ★
         │   └── ResourceDirectory (resource-directory.tsx) — popout-only ★
@@ -98,7 +99,7 @@ prerendered.
 | `colWidths`, `hiddenCols` | UI table prefs in `localStorage` (colWidths debounced 250 ms) |
 | `search` + `searchDebounced` + `taskSearchIndex` | 150 ms search debounce + precomputed lowercase index |
 | `selectedIds`, `bulkEdit`, `expandedNotes` | Per-session UI only |
-| `activeTab` (`AppView`, nav-config.ts) | `"projects"` (Portfolio group) \| `"open-points"` \| `"chat"` \| `"dashboard"` \| `"trends"` \| `"milestones"` \| `"gantt"` \| `"resources"` (+ sub-views `"directory"` \| `"workload"` \| `"calendar"` \| `"planning"` \| `"manage-roles"`) \| `"budget"` \| `"budget-report"` \| `"raid"` \| `"raid-report"` \| `"changes"` \| `"change-report"` \| `"stakeholders"` \| `"raci"` \| `"stakeholder-map"` \| `"documents"` \| `"reports"` \| `"activity"` \| `"actions"` \| `"history"` \| `"settings"` \| `"edit"` (main-only); synced to URL hash via `useHashView`. Nav groups: **Portfolio** (projects) / Overview / Plan / Registers / System |
+| `activeTab` (`AppView`, nav-config.ts) | `"projects"` (Portfolio group) \| `"open-points"` \| `"chat"` \| `"dashboard"` \| `"trends"` \| `"milestones"` \| `"gantt"` \| `"resources"` (+ sub-views `"directory"` \| `"workload"` \| `"calendar"` \| `"planning"` \| `"manage-roles"`) \| `"budget"` \| `"budget-report"` \| `"raid"` \| `"raid-report"` \| `"changes"` \| `"change-report"` \| `"stakeholders"` \| `"raci"` \| `"stakeholder-map"` \| `"steering-committee"` (0.111.0+) \| `"documents"` \| `"reports"` \| `"activity"` \| `"actions"` \| `"history"` \| `"settings"` \| `"edit"` (main-only); synced to URL hash via `useHashView`. Nav groups: **Portfolio** (projects) / Overview / Plan / Registers / System |
 | `budgets: BudgetBucket[]`, `fxRates: FxRates \| null` | Persisted via `StorageBackend.save()`; lives in `WorkspaceContext`; `fxRates` refreshed on demand via `useFxRates` (Refresh ECB rates button) |
 | `dueSnooze` / `birthdaySnooze` / `jiraTokenSnooze` | `useReminderSnooze("due")` / `useReminderSnooze("birthday")` / `useReminderSnooze("jiraToken")` — each yields `{ isSnoozed, snoozedUntil, snooze, clear }`; banners are gated on `!isSnoozed` |
 | `raidFilterTaskId` | Cross-tab nav: jump from a task row to RAID pre-filtered for that task |
@@ -214,6 +215,40 @@ prerendered.
 | **Documents** | | |
 | `documents.ts` | Pure aggregator: `collectDocuments({tasks,raid,changes,milestones,stakeholders,project})` → flat `DocRef[]` (one per link) with its source `{kind,id,name,view}` and array index | No React; 0.81.0+ |
 | `documents-panel.tsx` | Documents view (`documents` AppView, Registers group): one table of every linked file across the 5 entities + project — open link, jump to source editor (`requestOpen`), remove, or attach a new link to any target via `DocumentLinksFieldGated` | Conditional mount; 0.81.0+ |
+| **Task status & Kanban (0.107.0–0.108.0)** | | |
+| `task-status.ts` | Pure i18n-free status engine: `TaskStatus` enum, `applyStatusChange(task,next,today)` (SOLE writer of status+completedDate, keeps the `Done ⟺ completedDate` invariant), `migrateTaskStatus` (run on all six load paths), `isTaskFinished` (Done\|Cancelled) | Pure; 0.107.0+ |
+| `task-status-ui.ts` | UI label/colour map for each status (AIPM palette tokens only) | Pure; 0.107.0+ |
+| `task-status-badge.tsx` / `task-status-select.tsx` | Status badge + the shared `TaskStatusSelect` dropdown (keyboard path; disabled for Jira-synced tasks); used by both the table row and Kanban cards | Components; 0.107.0+ |
+| `task-kanban.ts` | Pure board engine: column grouping + ordering by status | Pure; 0.108.0+ |
+| `task-kanban-board.tsx` | Board view (Table/Board toggle on the tasks pane via `settings.tasksViewMode`): native HTML5 DnD columns; renders cards via `task-kanban-card.tsx`. Renders OUTSIDE `RowContextProvider` — cards take everything as props. NOT in the axe `A11Y_VIEWS` (table view is the gated one) | Component; 0.108.0+ |
+| `task-kanban-card.tsx` | One Kanban card: title, badges, per-card `TaskStatusSelect` | Component; 0.108.0+ |
+| `task-raid-badge.tsx` | `RaidBadge` — RAID-link badge taking `lang` + `onJumpToRaid` as props (extracted so the prop-only Kanban card can render it without `useTaskRowContext`) | Component; 0.108.0+ |
+| **Steering committee (0.111.0+)** | | |
+| `steering-committee-panel.tsx` | Steering-committee view (`steering-committee` AppView, Registers group): committee name, member-resource picker, meeting schedule (date/title/agenda/location), and "information schedule" lead-day rules; "Push to Outlook" pushes meetings + reminder due-dates | Conditional mount; 0.111.0+ |
+| `steering-reminders.ts` | Pure engine: `dueInfoReminders(committee, today)` → tiered (`now`/`soon`/`upcoming`) pack reminders | Pure; 0.111.0+ |
+| `committee-calendar-reconcile.ts` | Pure reconcile planner: `planCommitteeReconcile(committee, today)` diffs committee meetings + reminder due-dates vs pushed Outlook events → create/update/delete plan (idempotent re-push) | Pure; 0.111.0+ |
+| `use-committee-outlook-push.ts` | `useCommitteeOutlookPush()` — wires `acquireToken(Calendars.ReadWrite)` + reconcile plan to push committee meetings/reminders; opt-in, M365-gated | Client hook; 0.111.0+ |
+| `next-actions/providers/committee-info.ts` | Next-actions provider surfacing committee pack reminders into the Action Center | Pure; 0.111.0+ |
+| **Guided tour (0.112.0+)** | | |
+| `app-tour.ts` | Pure tour model: `TOUR_STEPS` / `TOUR_ANCHORS` / `visibleSteps(features)` / `clampStep` | Pure; 0.112.0+ |
+| `tour-overlay.tsx` | `TourOverlay` — first-run modern-layout walkthrough (spotlight + modal steps) + "Explore a demo project" + Help-menu replay; never in classic layout / popouts | Component; 0.112.0+ |
+| `use-tour.ts` | `useTour()` — drives step progression; persists seen state to `settings.tourSeen` (per-device) | Client hook; 0.112.0+ |
+| **Timezones (0.113.0–0.115.0)** | | |
+| `timezone.ts` | Pure tz core: `isValidTimeZone`, `browserTimeZone`, `tzZones`, `todayInZone(now,tz)`, `formatInZone`, `resolveTimezone(overrideTz, projectTz)` — makes day-boundary logic follow the resolved IANA zone instead of UTC | Pure; 0.113.0+ |
+| `settings-sections/timezone-settings-section.tsx` | Settings → Timezone: per-project operating tz + per-device default (`settings.timezone`) + additional zones (`settings.additionalTimezones`) | Component; 0.113.0+ |
+| `tz-display.ts` | `formatDisplayTimestamp(...)` — renders a timestamp in the chosen display zone with the zone shown next to the time | Pure; 0.114.0+ |
+| `display-timezone-context.tsx` | `DisplayTimezoneProvider` + hook: session display-zone state (Default / UTC / additional zones), resets on reload | Context; 0.114.0+ |
+| `display-tz-switcher.tsx` | `DisplayTzSwitcher` top-bar control selecting the display zone for activity log / version history / trends timestamps | Component; 0.114.0+ |
+| `tz-clock.ts` | `formatZoneClock(iso, tz, lang)` — current time + date for a zone | Pure; 0.115.0+ |
+| `tz-clock-strip.tsx` | `TzClockStrip` — Calendar world-clock strip showing the live time in the default + each additional zone (rendered only when extra zones are configured) | Component; 0.115.0+ |
+| **AI orchestration (0.97.0–0.110.0)** | | |
+| `ask-claude-menu.tsx` / `ask-claude-prompts.ts` | Per-view "Ask Claude" top-bar menu (mirrors ExportMenu); pure i18n-free prompt-key model; pick → switch to chat + auto-send via the `requestChat` channel | Component + pure; 0.98.0+ |
+| `use-action-analysis.ts` / `action-ai.ts` | Action-Center "Analyze with AI": ONE forced-tool `report_analysis` call; pure `action-ai.ts` validates untrusted model output + `groundEntity` re-validates ids vs the live workspace before any deep-link. Advisory only (no write tool); hook lives ABOVE the view so the result survives remounts; popout-disabled | Hook + pure; SP4 |
+| `ai-action-row.tsx` | Separate row component for AI-suggested actions (above the now/soon/monitor tiers) | Component; SP4 |
+| `scheduled-job-analysis.ts` | Non-hook `runJobAnalysis` (SP4's call extracted) the scheduled-jobs runner loops; `use-action-analysis` delegates to it | Pure-ish; SP5 |
+| `use-scheduled-job-runner.ts` / `use-scheduled-jobs.ts` | Runner lives ABOVE the view: runs DUE jobs on mount/visibility/5-min tick, serial + overlap-guarded, fail-once-per-slot; CRUD hook over `scheduled-jobs-store.ts`. Gated on key + `ai.scheduledJobs === true` (opt-in) | Client hooks; SP5 |
+| `weight-suggestion-ai.ts` / `weight-suggestion-call.ts` / `next-actions-tuning.ts` / `use-weight-suggestions.ts` | "Suggest with AI" in next-actions settings: ONE forced-tool `suggest_weights` call (`weight-suggestion-call.ts` mirrors the scheduled-job security exactly); every proposed value passes `parseWeightSuggestions` → the shared `NEXT_ACTIONS_FIELD_COERCE` validators before reaching `settings.nextActions`; per-row Accept. Opt-in widen via `ai.suggestAllNextActionThresholds` | Pure + hook; SP-C (0.109.0) |
+| `step0-import-panel.tsx` / `confluence-api.ts` | Create-wizard Step 0 import (Upload-file / SharePoint / Confluence-URL) feeding `useProjectProposal().generate(string \| ContentBlock[])`; `confluence-api.ts` is the pure browser helper hitting `/api/confluence/page` | Component + pure; SP-D (0.110.0) |
 | **Input Feedback** | | |
 | `sanitize-report.ts` | Pure adjustment-descriptor module: `TextCapAdjustment`, `ClampAdjustment`, `LabelStripAdjustment` — describes what sanitize.ts changed so editors can surface it | No React; 0.56.0+ |
 | `field-feedback.tsx` | `CharCounter` (approaches-cap counter badge), `FieldNotice` (inline on-blur notice), `useAdjustmentTracker` (accumulates per-save adjustment list for the toast) | Components + hook; 0.56.0+ |
