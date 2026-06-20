@@ -282,6 +282,38 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
   PATCH/POST THROW `GraphCalendarError(404)` so an event deleted in Outlook gets re-created next push
   (committee + milestone hooks self-heal by clearing the stale id) — it previously swallowed 404 for ALL
   methods, making the milestone 404 branch DEAD.
+- **Guided tour + demo (SP-F, v0.112.0):** MODERN-shell-only onboarding (never classic/popout).
+  Pure i18n-free `app-tour.ts` (`TOUR_STEPS` ~12 keys-only, `visibleSteps(features)` drops steps
+  whose `view` is a disabled module via `isViewEnabled`, `clampStep`). `tour-overlay.tsx` =
+  controlled component: centered modal OR anchored "spotlight" over a `[data-tour-id]` element —
+  ★ a MISSING anchor (gated/unmounted view) FALLS BACK to a centered modal (never points at
+  nothing); role=dialog/aria-modal/Escape-skips/focus. `use-tour.ts` (in task-manager, above the
+  view): open/index + per-device `settings.tourSeen` (written via `setSettings`->`writeSettings`,
+  which spreads the whole object so a new flag persists with NO allowlist edit) + ★ RENDER-TIME
+  auto-launch (`if (eligible && !autoHandled) { setAutoHandled(true); setIsOpen(true) }` during
+  render — NOT a useEffect; set-state-in-effect is banned) gated `hydrated && layout==="modern"
+  && !isPopout && !tourSeen`. Overlay mounted ONCE in the modern tree (not classic); Help
+  "Take the tour" re-launch via `HelpMenu onTakeTour` (threaded through `ActionMenus`, passed
+  only when modern && !popout). 4 `data-tour-id` anchors: sidebar tasks/actions (`NAV_TOUR_ID`
+  map in `sidebar-nav.tsx`), Ask-Claude `<span>` wrapper, project-switcher container.
+  ★★★ **DEMO CTA MUST REGISTER A PROJECT, not just apply data.** The empty-state "Explore a demo
+  project" loads `sample-workspace-small.json` (lazy `import("../../sample-workspace-small.json")`
+  — first JSON import in app code; `resolveJsonModule` is on). It MUST go through
+  `createDemoProject(ws)` (new `useStorageBackend` method) which REGISTERS a real project
+  (`addProject`+`commitRegistry`), because the empty-state gate is `showEmptyState =
+  registry.projects.length===0` (file mode) — an apply-only path (`applyRestoredWorkspace`+
+  `startTour`) leaves the registry empty so `showEmptyState` stays TRUE -> `modernTree` (which holds
+  BOTH the views AND `TourOverlay`) never mounts -> demo invisible + tour never renders. (Shipped
+  this exact CRITICAL; caught in final review. Applying workspace data != showing it.) `createDemoProject`
+  uses the `browser`/IndexedDB backend kind (NO file picker — frictionless) + derives meta from
+  `ws.project`. ★ Turso portfolio mode: a local demo can't flip the turso-branch empty-state gate
+  (it reads the Turso project LIST), so it persists registry+settings+`savePortfolioMode("file")`
+  and `window.location.reload()`s (mirrors `loadProjectFromFile`'s switchPortfolioToFileOnSuccess) —
+  ALL durable writes BEFORE the reload, and SKIP the in-place `applyWorkspace`/`setStorageConfig`
+  (the reload discards them; avoids a mount-then-teardown flash); after reload `tourSeen` is unset
+  so auto-launch re-fires the tour. Demo CTA is empty-state-only (never clobbers a real project);
+  the demo is a normal deletable project (non-destructive to any Turso DB). Tour view NOT in axe
+  `A11Y_VIEWS` (eye-verified); spotlight positioning eye-verified (jsdom rect=0).
 - **AI Action Center suggestions (SP4):** Action Center "Analyze with AI" button → ONE forced-tool
   Anthropic call (`tool_choice:{type:"tool",name:"report_analysis"}`, no loop) in
   `use-action-analysis.ts`; pure contract/transforms in `action-ai.ts` (`parseAnalysis` validates
