@@ -137,7 +137,7 @@ import { useScheduledJobs } from "./use-scheduled-jobs";
 import { useScheduledJobRunner } from "./use-scheduled-job-runner";
 import { buildWorkloadAlerts } from "./next-actions-workload";
 import type { SuggestedAction } from "./next-actions";
-import { computeActionTrends } from "./next-actions/trends";
+import { computeActionTrends, summarizeTrendsForPrompt } from "./next-actions/trends";
 import { buildTaskSeedFromAction } from "./action-task-seed";
 import { emptyForm } from "./task-form-context";
 
@@ -802,8 +802,8 @@ function TaskManagerInner() {
   // SP-C: compact, token-bounded context for the AI weight-suggestion call.
   // The workspace digest is reused from the SP4/SP5 builder; the learning
   // summary is one line per signal kind (act/snooze/dismiss counts). Trends
-  // are not threaded here — the dashboard owns the snapshot source — so we
-  // pass a sentinel rather than add heavy new wiring.
+  // are a compact direction summary of the live snapshot trends when active
+  // (Turso); otherwise a "(no snapshots)" sentinel.
   const learningState = learning.state;
   const learningEnabled = (settings.nextActionsLearning ?? defaultNextActionsLearning).enabled;
   const buildWeightSuggestionContext = useCallback(
@@ -822,11 +822,11 @@ function TaskManagerInner() {
         current: resolveNextActionsConfig(settings.nextActions),
         scope,
         learning: learningSummary,
-        trends: "(no snapshots)",
+        trends: trendsActive && actionTrends ? summarizeTrendsForPrompt(actionTrends) : "(no snapshots)",
         learningEnabled,
       });
     },
-    [buildAiContext, settings.nextActions, learningState, learningEnabled],
+    [buildAiContext, settings.nextActions, learningState, learningEnabled, trendsActive, actionTrends],
   );
   const onActAi = useCallback(
     (a: AiAction) => {
