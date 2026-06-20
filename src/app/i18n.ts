@@ -551,6 +551,8 @@ const enUS = {
     "Timezone display: timestamps (activity log, version history, trends) now render in a display timezone you pick from the top bar — defaulting to your configured zone — with the zone shown. The choice is per session.",
   versionHighlightTimezoneCalendar:
     "Calendar timezones: the Calendar view shows a live strip with the current time in your default timezone plus each additional zone you configured — handy for distributed teams.",
+  versionHighlightAiFeatureGuide:
+    "The AI assistant understands the app: a built-in, per-view feature guide lets it explain what each area does and point you to capabilities — just ask 'how do I …?'.",
   scheduledJobsTitle: "Scheduled jobs",
   scheduledJobsToggle: "Enable scheduled jobs",
   scheduledJobsHelp:

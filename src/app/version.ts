@@ -2,12 +2,12 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.115.0";
-export const APP_BUILD_DATE = "2026-06-20"; // 0.115.0 Calendar multi-timezone strip (Sturgeon)
+export const APP_VERSION = "0.116.0";
+export const APP_BUILD_DATE = "2026-06-20"; // 0.116.0 AI app-feature guide (Vonnegut)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The whole
- *  0.115.x line is "Sturgeon" (Theodore Sturgeon); patch releases inherit
+ *  0.116.x line is "Vonnegut" (Kurt Vonnegut); patch releases inherit
  *  their minor version's codename rather than getting their own. */
-export const APP_MILESTONE = "Sturgeon";
+export const APP_MILESTONE = "Vonnegut";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -127,4 +127,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightTimezones",
   "versionHighlightTimezoneDisplay",
   "versionHighlightTimezoneCalendar",
+  "versionHighlightAiFeatureGuide",
 ] as const;

@@ -537,6 +537,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightTimezones: "Zeitzonen (Grundlage): Legen Sie eine Betriebszeitzone pro Projekt und einen geräteweiten Standard fest; die Datumslogik der App (überfällig, Erinnerungen, Fälligkeiten) richtet sich jetzt nach Ihrer Zeitzone statt nach UTC.",
   versionHighlightTimezoneDisplay: "Zeitzonen-Anzeige: Zeitstempel (Aktivitätsprotokoll, Versionsverlauf, Trends) erscheinen jetzt in einer oben wählbaren Anzeige-Zeitzone — standardmäßig Ihre konfigurierte Zone — mit Zonenangabe. Die Auswahl gilt pro Sitzung.",
   versionHighlightTimezoneCalendar: "Kalender-Zeitzonen: Die Kalenderansicht zeigt eine Live-Leiste mit der aktuellen Zeit in Ihrer Standard-Zeitzone sowie jeder weiteren konfigurierten Zone — praktisch für verteilte Teams.",
+  versionHighlightAiFeatureGuide: "Der KI-Assistent versteht die App: Ein integrierter, ansichtsbezogener Funktionsleitfaden lässt ihn erklären, was jeder Bereich kann, und Sie zu Funktionen führen — fragen Sie einfach \"Wie mache ich …?\".",
   scheduledJobsTitle: "Geplante Jobs",
   scheduledJobsToggle: "Geplante Jobs aktivieren",
   scheduledJobsHelp: "Führen Sie eine wiederkehrende KI-Portfolioanalyse nach Zeitplan aus. Ergebnisse erscheinen hier und als Desktop-Benachrichtigung.",
