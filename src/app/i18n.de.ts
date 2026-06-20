@@ -2278,6 +2278,7 @@ export const de: Record<TranslationKey, string> = {
   projectSharepoint: "SharePoint",
   projectConfluence: "Confluence",
   projectJira: "Jira",
+  projectOperatingTimezone: "Betriebszeitzone",
   projectLinkSalesforce: "Link zu Salesforce",
   projectLinkSharepoint: "Link zu SharePoint",
   projectLinkConfluence: "Link zu Confluence",

@@ -2285,6 +2285,7 @@ const enUS = {
   projectSharepoint: "SharePoint",
   projectConfluence: "Confluence",
   projectJira: "Jira",
+  projectOperatingTimezone: "Operating timezone",
   projectLinkSalesforce: "Link to Salesforce",
   projectLinkSharepoint: "Link to SharePoint",
   projectLinkConfluence: "Link to Confluence",

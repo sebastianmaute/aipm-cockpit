@@ -70,6 +70,7 @@ import {
 import { NACE_SECTION_SET } from "./nace-sections";
 import { defaultResourcePlan, splitName } from "./resource-foundation";
 import { sanitizeDocumentLinks } from "./document-link";
+import { isValidTimeZone } from "./timezone";
 
 // --- Length caps -----------------------------------------------------------
 
@@ -1162,6 +1163,11 @@ function sanitizeStringArray(input: unknown, cap: number): string[] {
  * tools, form round-trips). Returns null when any required field is absent
  * or invalid.
  */
+/** Keep a valid IANA timezone string; drop empty/junk/non-string. */
+export function sanitizeTimezone(raw: unknown): string | undefined {
+  return typeof raw === "string" && isValidTimeZone(raw) ? raw : undefined;
+}
+
 export function sanitizeProjectMeta(
   input: unknown,
   opts: { lenientRequiredArrays?: boolean } = {},
@@ -1268,6 +1274,7 @@ export function sanitizeProjectMeta(
   const sharepointUrl = sanitizeText(o.sharepointUrl, BUDGET_NAME_MAX); if (sharepointUrl) meta.sharepointUrl = sharepointUrl;
   const confluenceUrl = sanitizeText(o.confluenceUrl, BUDGET_NAME_MAX); if (confluenceUrl) meta.confluenceUrl = confluenceUrl;
   const jiraUrl = sanitizeText(o.jiraUrl, BUDGET_NAME_MAX); if (jiraUrl) meta.jiraUrl = jiraUrl;
+  const operatingTimezone = sanitizeTimezone(o.operatingTimezone); if (operatingTimezone) meta.operatingTimezone = operatingTimezone;
   const docRepoLocation = sanitizeText(o.docRepoLocation, BUDGET_NAME_MAX); if (docRepoLocation) meta.docRepoLocation = docRepoLocation;
   const notes = sanitizeText(o.notes, TEXTAREA_MAX); if (notes) meta.notes = notes;
 

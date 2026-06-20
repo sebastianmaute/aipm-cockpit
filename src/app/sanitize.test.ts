@@ -16,6 +16,7 @@ import {
   sanitizeBudgetBucket,
   sanitizeFxRates,
   sanitizeProjectMeta,
+  sanitizeTimezone,
 } from "./sanitize";
 import {
   encodePeriodMap,
@@ -417,5 +418,27 @@ describe("sanitizeSteeringCommittee", () => {
     expect(out.pendingDeleteEventIds).toEqual(["a", "b"]);
     const none = sanitizeSteeringCommittee({ name: "B", memberResourceIds: [], meetings: [], infoSchedules: [], pendingDeleteEventIds: [] })!;
     expect(none.pendingDeleteEventIds).toBeUndefined();
+  });
+});
+
+describe("sanitizeTimezone", () => {
+  it("keeps a valid IANA zone, drops junk/empty/non-string", () => {
+    expect(sanitizeTimezone("Asia/Kolkata")).toBe("Asia/Kolkata");
+    expect(sanitizeTimezone("Not/AZone")).toBeUndefined();
+    expect(sanitizeTimezone("")).toBeUndefined();
+    expect(sanitizeTimezone(42)).toBeUndefined();
+  });
+  it("sanitizeProjectMeta keeps a valid operatingTimezone, drops a bad one", () => {
+    // A bare {name,code} returns null (required fields missing), so use a complete
+    // valid meta to actually exercise the operatingTimezone branch.
+    const validBase = {
+      name: "P", code: "C", projectManager: "M", customer: "X", products: "Y",
+      profitCenter: "Z", naceSection: "A", deployment: "Cloud",
+      identityTypes: [], identityCount: "0", regulatory: ["Not applicable"],
+      keyStakeholdersInternal: [], keyStakeholdersExternal: [],
+      startDate: "2026-01-01", endDate: "2026-02-01", contactPersons: [],
+    };
+    expect(sanitizeProjectMeta({ ...validBase, operatingTimezone: "Europe/Berlin" })?.operatingTimezone).toBe("Europe/Berlin");
+    expect(sanitizeProjectMeta({ ...validBase, operatingTimezone: "X/Y" })?.operatingTimezone).toBeUndefined();
   });
 });
