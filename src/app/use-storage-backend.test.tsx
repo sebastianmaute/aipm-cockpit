@@ -1083,6 +1083,52 @@ describe("useStorageBackend — project flows", () => {
     expect(reg.currentProjectId).not.toBeNull();
   });
 
+  // ── createDemoProject — registers the demo as a REAL local project ──────────
+  // Regression guard for the SP-F CRITICAL: the empty-state "Explore a demo
+  // project" CTA must register a project (raise the registry count) so the
+  // showEmptyState gate flips false and the views + tour overlay mount. An
+  // apply-only path left the registry empty and the demo invisible.
+  it("createDemoProject registers the supplied workspace as a real project (registry count rises) + applies its data, no file picker", async () => {
+    const targetSave = vi.fn().mockResolvedValue(undefined);
+    const targetBackend = {
+      kind: "browser",
+      load: vi.fn().mockResolvedValue(emptyWorkspace()),
+      save: targetSave,
+      isReady: vi.fn().mockResolvedValue(true),
+      describe: vi.fn().mockResolvedValue("Browser"),
+    };
+    createBackendMock
+      .mockReturnValueOnce(mockBackend)
+      .mockReturnValue(targetBackend);
+
+    const sampleWs = {
+      ...emptyWorkspace(),
+      project: { name: "Demo PM", code: "DEMO" },
+      tasks: [{ id: 1, taskName: "Sample task" } as unknown as Task],
+    };
+
+    const { result } = renderBackend(makeArgs({ setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+
+    await act(async () => {
+      await result.current.createDemoProject(sampleWs as never);
+    });
+    await act(async () => { await Promise.resolve(); });
+
+    // Registry now holds exactly one project, derived from the sample meta…
+    const reg = loadRegistry();
+    expect(reg.projects).toHaveLength(1);
+    expect(reg.projects[0]?.name).toBe("Demo PM");
+    expect(reg.currentProjectId).not.toBeNull();
+    // …the sample data was applied into workspace state…
+    expect(result.current.tasks[0]?.id).toBe(1);
+    // …it was persisted to the browser/IDB backend (NO file picker)…
+    expect(targetSave).toHaveBeenCalledWith(expect.objectContaining({ project: expect.objectContaining({ code: "DEMO" }) }));
+    expect(storageMod.pickFileForBackend).not.toHaveBeenCalled();
+    // …and the config was repointed at the frictionless browser backend.
+    expect(setStorageConfig).toHaveBeenCalledWith({ kind: "browser" });
+  });
+
   // ── R3: registry persistence failure must be surfaced ───────────────────────
   it("createProject surfaces a registry save failure as an error toast while still updating the in-memory registry", async () => {
     const onRegistryChange = vi.fn();

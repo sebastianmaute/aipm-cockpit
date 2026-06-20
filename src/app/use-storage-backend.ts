@@ -32,7 +32,7 @@ import { localKindForFormat, deriveRegistryEntry } from "./use-project-switch";
 import { buildNewProjectWorkspace, type NewProjectOpts } from "./new-project-workspace";
 import type { ProjectMeta } from "./types";
 import { getTursoConfig } from "./turso-config";
-import { loadCurrentTursoProjectId, saveCurrentTursoProjectId, savePortfolioMode } from "./portfolio-mode";
+import { loadCurrentTursoProjectId, loadPortfolioMode, saveCurrentTursoProjectId, savePortfolioMode } from "./portfolio-mode";
 import { TursoBackend } from "./turso-backend";
 import {
   createProject as portfolioCreate,
@@ -666,6 +666,62 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     }
   }
 
+  /**
+   * Register the supplied workspace as a REAL local project (empty-state "Explore
+   * a demo project" CTA). Mirrors createProject's register → save → apply → point
+   * sequence, but takes a FULL workspace (the curated sample) instead of building
+   * an empty one, and targets the BROWSER/IndexedDB local backend so there is NO
+   * file picker (frictionless first run). Registering a project is what flips the
+   * empty-state gate off so the views — and the guided-tour overlay — actually
+   * mount; an apply-only path left the registry empty and the demo invisible.
+   */
+  async function createDemoProject(ws: Workspace): Promise<void> {
+    if (args.isPopout) return;
+    // Flush the outgoing project first (best-effort) — mirrors createProject.
+    // suppressNextSaveRef below cancels the pending debounced save.
+    try {
+      await backend.save(currentWorkspace());
+    } catch {
+      // Swallow — the outgoing backend may be unconfigured. The demo is the intent.
+    }
+    const id = crypto.randomUUID();
+    // Browser/IndexedDB local backend — the default first-run kind. NO file picker
+    // and persistBackendHandle is a no-op for it (it stores no FileSystem handle).
+    const storageConfig: StorageConfig = { kind: "browser" };
+    // Prefer the sample's own project meta (sample-workspace-small.json carries one);
+    // synthesize a minimal label only if it is somehow missing.
+    const meta: Pick<ProjectMeta, "name" | "code"> = ws.project
+      ? { name: ws.project.name, code: ws.project.code }
+      : { name: "Demo project", code: "DEMO" };
+    try {
+      const targetBackend = backendFor(storageConfig);
+      await targetBackend.save(ws);
+      await persistBackendHandle(targetBackend, id);
+      const registry = addProject(
+        loadRegistry(),
+        { id, name: meta.name, code: meta.code, storageConfig },
+        true,
+      );
+      commitRegistry(registry);
+      applyWorkspace(ws);
+      suppressNextLoadRef.current = true;
+      suppressNextSaveRef.current = true;
+      args.setStorageConfig(storageConfig);
+      args.showToast("info", t(langRef.current, "projectCreatedToast", meta.name));
+      // Turso portfolio mode: a local project does NOT flip the turso-branch
+      // empty-state gate (it reads the Turso project list). Switch the portfolio
+      // to file mode + reload so the registry-branch gate governs and the demo
+      // shows. Mirrors loadProjectFromFile's switchPortfolioToFileOnSuccess.
+      if (loadPortfolioMode() === "turso") {
+        writeSettings({ ...settingsRef.current, storageConfig });
+        savePortfolioMode("file");
+        window.location.reload();
+      }
+    } catch (err) {
+      reportProjectError(err);
+    }
+  }
+
   // ── Turso portfolio (multi-tenant) project flows ───────────────────────────
   // These mirror the FILE flows above (switchToProject / createProject) but scope
   // to the shared Turso DB: the `projects` table is the source of truth, and the
@@ -848,6 +904,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     onRequestStorageSwitch,
     switchToProject,
     createProject,
+    createDemoProject,
     loadProjectFromFile,
     switchToTursoProject,
     createTursoProject,

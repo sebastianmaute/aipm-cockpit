@@ -376,7 +376,7 @@ function TaskManagerInner() {
   const {
     storageDescription, storageReady, onPickStorageFile, onGrantWriteAccess,
     onOpenStorageFile, onRequestStorageSwitch,
-    switchToProject, createProject, loadProjectFromFile,
+    switchToProject, createProject, createDemoProject, loadProjectFromFile,
     switchToTursoProject, createTursoProject, migrateCurrentProjectToTurso, archiveTursoProject,
     restoreTursoProject, hardDeleteTursoProject, tursoProjectId,
   } =
@@ -930,20 +930,22 @@ function TaskManagerInner() {
   });
   const startTour = tour.start;
 
-  // Load the curated sample workspace as a throwaway demo (empty-state only, so
-  // it never clobbers real data) and kick off the tour. Errors toast, never crash.
+  // Load the curated sample workspace as a REAL, deletable demo project and kick
+  // off the tour. The CTA is empty-state-only (no real project to clobber), so
+  // registering it is safe; registering is also what flips the empty-state gate
+  // off so the views + tour overlay actually mount. Errors toast, never crash.
   const loadDemo = useCallback(async () => {
     try {
       const mod = await import("../../sample-workspace-small.json");
       const ws = jsonToWorkspace(
         JSON.stringify((mod as { default?: unknown }).default ?? mod),
       );
-      applyRestoredWorkspace(ws);
+      await createDemoProject(ws);
       startTour();
     } catch {
       showToast("error", t(lang, "tourDemoError"));
     }
-  }, [applyRestoredWorkspace, startTour, showToast, lang]);
+  }, [createDemoProject, startTour, showToast, lang]);
 
   // Stable onError so useVersionHistory's `refresh` callback keeps a stable
   // identity — an inline arrow here re-creates refresh every render, re-running
