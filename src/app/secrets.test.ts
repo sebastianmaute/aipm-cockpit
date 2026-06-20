@@ -25,7 +25,14 @@ describe("secrets", () => {
 
   it("openDevice rejects tampered ciphertext with SecretUnlockError", async () => {
     const sealed = await sealDevice("anthropicApiKey", "sk-keep");
-    const flipped = { ...sealed, ciphertext: sealed.ciphertext.slice(0, -2) + (sealed.ciphertext.endsWith("A") ? "B" : "A") + "=" };
+    // Flip exactly one byte of the GCM ciphertext (the trailing 16 bytes are the
+    // auth tag) without changing its length. AES-GCM verification ALWAYS fails on
+    // any single-byte change, so tamper detection is deterministic.
+    const bytes = Uint8Array.from(atob(sealed.ciphertext), (c) => c.charCodeAt(0));
+    bytes[bytes.length - 1] ^= 0xff;
+    let s = "";
+    for (const b of bytes) s += String.fromCharCode(b);
+    const flipped = { ...sealed, ciphertext: btoa(s) };
     await expect(openDevice(flipped as typeof sealed)).rejects.toBeInstanceOf(SecretUnlockError);
   });
 });
