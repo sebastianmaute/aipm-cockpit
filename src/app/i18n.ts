@@ -1873,6 +1873,31 @@ const enUS = {
   actionCommitteeInfoWhy: "Due {0} — {1} ({2} days)",
   actionCreatedFromNote: "From: {0} — {1}",
 
+  // --- Steering committee panel (SP-E) ---
+  committeeNav: "Steering committee",
+  committeeTitle: "Steering committee",
+  committeeName: "Committee name",
+  committeeMembers: "Members",
+  committeeAddMember: "Add member",
+  committeeMeetings: "Meetings",
+  committeeMeetingDate: "Date",
+  committeeMeetingTitle: "Title",
+  committeeMeetingAgenda: "Agenda",
+  committeeMeetingLocation: "Location",
+  committeeAddMeeting: "Add meeting",
+  committeeInfoSchedules: "Info schedules",
+  committeeScheduleLabel: "Label",
+  committeeScheduleLeadDays: "Lead days",
+  committeeAddSchedule: "Add schedule",
+  committeeReminders: "Info reminders",
+  committeeRemindersNone: "No info reminders due.",
+  committeeReminderOverdue: "Overdue / due now",
+  committeeReminderSoon: "Soon",
+  committeeReminderUpcoming: "Upcoming",
+  committeePushOutlook: "Push to Outlook",
+  committeePushBusy: "Pushing…",
+  committeePushError: "Could not push reminders to Outlook.",
+
   // --- UI polish batch (0.76.0) ---
   // Modal heading fixes
   changeEditTitle: "Edit change",

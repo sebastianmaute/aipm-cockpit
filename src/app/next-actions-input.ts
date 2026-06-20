@@ -8,7 +8,7 @@ import type { DashboardModel } from "./dashboard";
 import type { StakeholderCommsReminder } from "./stakeholder-comms";
 import type { FeatureModuleId } from "./feature-modules";
 import type { WorkloadAlert } from "./next-actions-workload";
-import type { Task, RaidItem, ChangeItem, Milestone, Stakeholder } from "./types";
+import type { Task, RaidItem, ChangeItem, Milestone, Stakeholder, SteeringCommittee } from "./types";
 
 export interface BuildActionInputArgs {
   tasks: readonly Task[];
@@ -16,6 +16,7 @@ export interface BuildActionInputArgs {
   changes: readonly ChangeItem[];
   milestones: readonly Milestone[];
   stakeholders: readonly Stakeholder[];
+  steeringCommittee?: SteeringCommittee;
   dashboard: DashboardModel;
   commsReminders: readonly StakeholderCommsReminder[];
   features: readonly FeatureModuleId[];
@@ -49,6 +50,7 @@ export function buildActionInput(a: BuildActionInputArgs): ActionInput {
     changes: a.changes,
     milestones: a.milestones,
     stakeholders: a.stakeholders,
+    steeringCommittee: a.steeringCommittee,
     dashboard: a.dashboard,
     commsReminders: a.commsReminders,
     features: a.features,

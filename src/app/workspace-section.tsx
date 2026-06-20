@@ -31,6 +31,7 @@ import { ActionChips, chipsForView } from "./action-chips";
 import { ResourceDirectory } from "./resource-directory";
 import { DashboardPanel } from "./dashboard-panel";
 import { MilestonesPanel } from "./milestones-panel";
+import { SteeringCommitteePanel } from "./steering-committee-panel";
 
 const ChatPanel = dynamic(
   () => import("./chat-panel").then((m) => m.ChatPanel),
@@ -309,7 +310,7 @@ export function WorkspaceSection({
     () => setSettings((s) => ({ ...s, ai: { ...s.ai, consentAccepted: true } })),
     [setSettings],
   );
-  const { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, milestones } = useWorkspace();
+  const { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, milestones, steeringCommittee, setSteeringCommittee } = useWorkspace();
   const { activeTab, setActiveTab, isPopout, pendingChatSeed, clearChatSeed, requestOpen } = useWorkspaceTab();
   const { raidFilterTaskId } = useFilters();
   // One-way signal: incrementing this opens the milestone create modal on the
@@ -841,6 +842,18 @@ export function WorkspaceSection({
               onCreateConsumed={() => setMilestoneCreateNonce(0)}
               onPushToOutlook={onPushMilestonesToOutlook}
               calendarPushBusy={calendarPushBusy}
+            />
+          </div>
+        )}
+
+        {activeTab === "steering-committee" && (
+          <div id="panel-steering-committee" role="tabpanel" className={panelScrollClass}>
+            <SteeringCommitteePanel
+              lang={lang}
+              committee={steeringCommittee}
+              onChange={setSteeringCommittee}
+              resources={resources}
+              today={today}
             />
           </div>
         )}

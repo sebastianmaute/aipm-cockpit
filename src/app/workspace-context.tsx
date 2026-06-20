@@ -31,6 +31,7 @@ import {
   type Role,
   type Shift,
   type Stakeholder,
+  type SteeringCommittee,
   type Task,
 } from "./types";
 
@@ -87,6 +88,9 @@ interface WorkspaceValue {
 
   stakeholders: readonly Stakeholder[];
   setStakeholders: Dispatch<SetStateAction<readonly Stakeholder[]>>;
+
+  steeringCommittee: SteeringCommittee | undefined;
+  setSteeringCommittee: Dispatch<SetStateAction<SteeringCommittee | undefined>>;
 }
 
 const WorkspaceContext = createContext<WorkspaceValue | undefined>(undefined);
@@ -110,6 +114,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [milestones, setMilestones] = useState<readonly Milestone[]>([]);
   const [changes, setChanges] = useState<readonly ChangeItem[]>([]);
   const [stakeholders, setStakeholders] = useState<readonly Stakeholder[]>([]);
+  const [steeringCommittee, setSteeringCommittee] = useState<SteeringCommittee | undefined>(undefined);
   const {
     searchDebounced,
     priorityFilter,
@@ -271,6 +276,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       milestones, setMilestones,
       changes, setChanges,
       stakeholders, setStakeholders,
+      steeringCommittee, setSteeringCommittee,
     }),
     [
       tasks,
@@ -297,6 +303,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       milestones,
       changes,
       stakeholders,
+      steeringCommittee,
     ],
   );
 

@@ -80,6 +80,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { view: "raid" },
       { view: "changes" },
       { view: "stakeholders", children: [{ view: "raci" }, { view: "stakeholder-map" }] },
+      { view: "steering-committee" },
       { view: "documents" },
       { view: "reports", children: [{ view: "budget-report" }, { view: "raid-report" }, { view: "change-report" }] },
     ],
@@ -90,7 +91,7 @@ export const NAV_GROUPS: NavGroup[] = [
   },
 ];
 
-const LABEL_KEYS: Record<Exclude<AppView, "edit" | "learning-insights" | "steering-committee">, TranslationKey> = {
+const LABEL_KEYS: Record<Exclude<AppView, "edit" | "learning-insights">, TranslationKey> = {
   projects: "navProjects",
   dashboard: "navDashboard",
   actions: "navActions",
@@ -119,6 +120,7 @@ const LABEL_KEYS: Record<Exclude<AppView, "edit" | "learning-insights" | "steeri
   reports: "tabReports",
   activity: "tabActivity",
   settings: "settings",
+  "steering-committee": "committeeNav",
 };
 
 const ALL_NAV_VIEWS: AppView[] = NAV_GROUPS.flatMap((g) =>
@@ -186,8 +188,6 @@ export function navLabelKey(view: AppView): TranslationKey {
   // in NAV_GROUPS; give them a harmless valid key rather than masking it.
   if (view === "edit") return "navOpenPoints";
   if (view === "learning-insights") return "learningInsightsTitle";
-  // "steering-committee" gets its own nav label in a later slice; placeholder keeps this total.
-  if (view === "steering-committee") return "actionSourceCommittee";
   return LABEL_KEYS[view];
 }
 
