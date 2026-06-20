@@ -91,7 +91,7 @@ import { TursoLockTimeoutError } from "./turso-backend";
 
 // portfolio-mode is a pure module backed by jsdom localStorage — use it for real
 // so saveCurrentTursoProjectId / loadCurrentTursoProjectId round-trip as in prod.
-import { loadCurrentTursoProjectId, saveCurrentTursoProjectId } from "./portfolio-mode";
+import { loadCurrentTursoProjectId, saveCurrentTursoProjectId, savePortfolioMode, loadPortfolioMode } from "./portfolio-mode";
 
 // ── Mock backend ──────────────────────────────────────────────────────────────
 const mockBackend = {
@@ -1127,6 +1127,47 @@ describe("useStorageBackend — project flows", () => {
     expect(storageMod.pickFileForBackend).not.toHaveBeenCalled();
     // …and the config was repointed at the frictionless browser backend.
     expect(setStorageConfig).toHaveBeenCalledWith({ kind: "browser" });
+  });
+
+  // In TURSO portfolio mode a local demo can't flip the Turso-branch empty-state
+  // gate, so createDemoProject must durably persist (registry + settings + mode)
+  // and switch the portfolio to file mode + reload. Hardened path: all writes land
+  // BEFORE the reload, and it does NOT apply in place (the reload would discard it).
+  it("createDemoProject in Turso mode persists registry+settings+file-mode and reloads (no in-place apply)", async () => {
+    const targetBackend = {
+      kind: "browser",
+      load: vi.fn().mockResolvedValue(emptyWorkspace()),
+      save: vi.fn().mockResolvedValue(undefined),
+      isReady: vi.fn().mockResolvedValue(true),
+      describe: vi.fn().mockResolvedValue("Browser"),
+    };
+    createBackendMock.mockReturnValueOnce(mockBackend).mockReturnValue(targetBackend);
+    savePortfolioMode("turso");
+
+    const sampleWs = { ...emptyWorkspace(), project: { name: "Demo PM", code: "DEMO" } };
+
+    const reloadSpy = vi.fn();
+    const originalLocation = window.location;
+    Object.defineProperty(window, "location", { configurable: true, value: { ...originalLocation, reload: reloadSpy } });
+    try {
+      const { result } = renderBackend(makeArgs({ setStorageConfig }));
+      await act(async () => { await Promise.resolve(); });
+      await act(async () => { await result.current.createDemoProject(sampleWs as never); });
+      await act(async () => { await Promise.resolve(); });
+
+      // Durable writes landed BEFORE the reload: registry has the demo, portfolio
+      // mode flipped to file, settings persisted the browser storageConfig.
+      expect(loadRegistry().projects).toHaveLength(1);
+      expect(loadPortfolioMode()).toBe("file");
+      const persisted = JSON.parse(window.localStorage.getItem("lop-app:settings") ?? "{}");
+      expect(persisted.storageConfig?.kind).toBe("browser");
+      expect(reloadSpy).toHaveBeenCalledTimes(1);
+      // In-place apply skipped (reload discards it) — no success toast fired.
+      expect(setStorageConfig).not.toHaveBeenCalled();
+    } finally {
+      Object.defineProperty(window, "location", { configurable: true, value: originalLocation });
+      savePortfolioMode("file");
+    }
   });
 
   // ── R3: registry persistence failure must be surfaced ───────────────────────

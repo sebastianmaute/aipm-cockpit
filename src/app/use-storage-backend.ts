@@ -702,21 +702,33 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         { id, name: meta.name, code: meta.code, storageConfig },
         true,
       );
+      // Turso portfolio mode: a local (browser-backed) demo project can't flip the
+      // Turso-branch empty-state gate (it reads the Turso project LIST), so switch
+      // the portfolio to file mode and reload — a portfolio-mode switch requires a
+      // reload (mirrors loadProjectFromFile's switchPortfolioToFileOnSuccess).
+      // Everything the reloaded app needs is DURABLY persisted before the reload:
+      // the workspace to IndexedDB (awaited above) and the registry + settings +
+      // portfolio mode to localStorage (synchronous) here. We deliberately SKIP the
+      // in-place applyWorkspace/setStorageConfig React updates (the reload discards
+      // them) to avoid a flash of the demo mounting then tearing down. After reload
+      // showEmptyState is false (the registry now has the demo) and tourSeen is
+      // still unset, so the tour auto-launches. The user's Turso DB is untouched
+      // (non-destructive detach); switching back to Turso mode restores their list.
+      if (loadPortfolioMode() === "turso") {
+        saveRegistry(registry);
+        writeSettings({ ...settingsRef.current, storageConfig });
+        savePortfolioMode("file");
+        if (typeof window !== "undefined") window.location.reload();
+        return;
+      }
+
+      // Default (file/local) mode: apply in place, no reload.
       commitRegistry(registry);
       applyWorkspace(ws);
       suppressNextLoadRef.current = true;
       suppressNextSaveRef.current = true;
       args.setStorageConfig(storageConfig);
       args.showToast("info", t(langRef.current, "projectCreatedToast", meta.name));
-      // Turso portfolio mode: a local project does NOT flip the turso-branch
-      // empty-state gate (it reads the Turso project list). Switch the portfolio
-      // to file mode + reload so the registry-branch gate governs and the demo
-      // shows. Mirrors loadProjectFromFile's switchPortfolioToFileOnSuccess.
-      if (loadPortfolioMode() === "turso") {
-        writeSettings({ ...settingsRef.current, storageConfig });
-        savePortfolioMode("file");
-        window.location.reload();
-      }
     } catch (err) {
       reportProjectError(err);
     }
