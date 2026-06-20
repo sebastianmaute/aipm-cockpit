@@ -82,6 +82,7 @@ function draftFromMeta(meta: ProjectMeta): ProjectFormDraft {
     regulatory: [...meta.regulatory],
     notes: meta.notes ?? "",
     documentLinks: meta.documentLinks ?? [],
+    operatingTimezone: meta.operatingTimezone ?? "",
   };
 }
 
@@ -153,6 +154,7 @@ export function ProjectForm({
       regulatory: draft.regulatory,
       notes: draft.notes,
       documentLinks: draft.documentLinks,
+      operatingTimezone: draft.operatingTimezone || undefined,
     });
 
     // Guard: should pass since validation passed. If it ever returns null,

@@ -237,6 +237,51 @@ describe("ProjectForm", () => {
   });
 });
 
+describe("ProjectForm operating timezone", () => {
+  it("shows the operating timezone from an initial meta (draftFromMeta round-trip)", () => {
+    const initial = {
+      name: "TZ Project",
+      code: "TZ-1",
+      projectManager: "PM",
+      keyStakeholdersInternal: [],
+      keyStakeholdersExternal: [],
+      customer: "Cust",
+      naceSection: "C",
+      identityTypes: [],
+      products: "Widget",
+      deployment: "Cloud",
+      startDate: "2026-01-01",
+      endDate: "2026-06-01",
+      profitCenter: "PC-1",
+      contactPersons: [],
+      regulatory: [],
+      operatingTimezone: "Europe/Berlin",
+    } as unknown as ProjectMeta;
+    setup({ initial });
+    const select = screen.getByLabelText("Operating timezone", { exact: false }) as HTMLSelectElement;
+    expect(select.value).toBe("Europe/Berlin");
+  });
+
+  it("submits the selected operating timezone", () => {
+    const { onSubmit } = setup();
+    fillRequired();
+    fireEvent.change(screen.getByLabelText("Operating timezone", { exact: false }), {
+      target: { value: "Europe/Berlin" },
+    });
+    fireEvent.click(saveButton());
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    expect(onSubmit.mock.calls[0][0].operatingTimezone).toBe("Europe/Berlin");
+  });
+
+  it("submits with no operatingTimezone when the field is left blank", () => {
+    const { onSubmit } = setup();
+    fillRequired();
+    fireEvent.click(saveButton());
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    expect(onSubmit.mock.calls[0][0].operatingTimezone).toBeUndefined();
+  });
+});
+
 describe("ProjectForm initialDraftPatch", () => {
   it("prefills supplied draft fields in create mode", () => {
     setup({ initialDraftPatch: { name: "Seeded Name", products: "Widget" } });
