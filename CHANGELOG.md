@@ -8,6 +8,11 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.116.0] - 2026-06-20 "Vonnegut"
+
+### Added
+- The AI assistant understands the app's features: a built-in, view-scoped feature guide (in the operating-guide library, on by default, individually toggleable) tells the assistant what each view does and whether it can act on it — so it can answer "how do I …?" and guide you to capabilities. Knowledge only; it adds no new automated actions.
+
 ## [0.115.0] - 2026-06-20 "Sturgeon"
 
 ### Added

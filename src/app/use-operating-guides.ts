@@ -8,7 +8,7 @@ import { loadGuides, saveGuide, removeGuide } from "./operating-guide-store";
 import type { OperatingGuide, GuideScope } from "./operating-guide";
 import type { TursoConfig } from "./turso-config";
 import {
-  BUILTIN_GUIDE_ID, BUILTIN_GUIDE_NAME, BUILTIN_GUIDE_CONTENT,
+  BUILTIN_GUIDE_ID, BUILTIN_GUIDE_NAME, BUILTIN_GUIDE_CONTENT, BUILTIN_FEATURE_GUIDES,
 } from "./operating-guide-builtin.generated";
 
 export interface UseOperatingGuidesArgs {
@@ -24,11 +24,45 @@ export interface UseOperatingGuidesResult {
   refresh: () => Promise<void>;
 }
 
-function builtinGuide(): OperatingGuide {
-  return {
-    id: BUILTIN_GUIDE_ID, name: BUILTIN_GUIDE_NAME, content: BUILTIN_GUIDE_CONTENT,
-    enabled: true, priority: 1, scope: {}, builtIn: true,
-  };
+/** All built-in guides: the leadership guide (priority 1) followed by the
+ *  view-scoped feature guides. These are seeded into an empty store and kept
+ *  fresh (content/name/scope) on every load via reconcileBuiltins. */
+export function builtinSeeds(): OperatingGuide[] {
+  return [
+    {
+      id: BUILTIN_GUIDE_ID, name: BUILTIN_GUIDE_NAME, content: BUILTIN_GUIDE_CONTENT,
+      enabled: true, priority: 1, scope: {}, builtIn: true,
+    },
+    ...BUILTIN_FEATURE_GUIDES.map((g, i) => ({
+      id: g.id, name: g.name, content: g.content, enabled: true,
+      priority: 2 + i, scope: g.scope as GuideScope, builtIn: true,
+    })),
+  ];
+}
+
+const BUILTIN_IDS = new Set(builtinSeeds().map((g) => g.id));
+
+/** For each built-in: seed it if absent; if present, refresh content/name/scope
+ *  but PRESERVE the user's enabled + priority. Returns only the rows that need
+ *  saving (idempotent — an unchanged store yields an empty list). */
+export function reconcileBuiltins(existing: OperatingGuide[]): OperatingGuide[] {
+  const byId = new Map(existing.map((g) => [g.id, g]));
+  const out: OperatingGuide[] = [];
+  for (const seed of builtinSeeds()) {
+    const cur = byId.get(seed.id);
+    if (!cur) {
+      out.push(seed);
+      continue;
+    }
+    if (
+      cur.content !== seed.content ||
+      cur.name !== seed.name ||
+      JSON.stringify(cur.scope) !== JSON.stringify(seed.scope)
+    ) {
+      out.push({ ...seed, enabled: cur.enabled, priority: cur.priority });
+    }
+  }
+  return out;
 }
 
 export function useOperatingGuides({ config }: UseOperatingGuidesArgs): UseOperatingGuidesResult {
@@ -45,8 +79,9 @@ export function useOperatingGuides({ config }: UseOperatingGuidesArgs): UseOpera
     const startSeq = opSeqRef.current;
     try {
       let list = await loadGuides(cfgRef.current);
-      if (list.length === 0) {
-        await saveGuide(cfgRef.current, builtinGuide());
+      const toSave = reconcileBuiltins(list);
+      if (toSave.length > 0) {
+        for (const g of toSave) await saveGuide(cfgRef.current, g);
         list = await loadGuides(cfgRef.current);
       }
       if (opSeqRef.current !== startSeq || !mountedRef.current) return;
@@ -92,7 +127,7 @@ export function useOperatingGuides({ config }: UseOperatingGuidesArgs): UseOpera
   }, [refresh]);
 
   const remove = useCallback(async (id: string) => {
-    if (id === BUILTIN_GUIDE_ID) return; // built-in is undeletable
+    if (BUILTIN_IDS.has(id)) return; // built-ins are undeletable
     opSeqRef.current += 1;
     setBusy(true);
     try {
