@@ -6,8 +6,13 @@
 
 import { useCallback, useState } from "react";
 import { parseProposal, PROPOSAL_TOOL, buildProposalSystemPrompt, type ProjectProposal } from "./ai-project-proposal";
+import { type AttachmentBlock } from "./chat-attachments";
 
 const ANTHROPIC_VERSION = "2023-06-01";
+
+/** The user-message content the proposal call accepts: a plain string (SP3) or
+ *  a multimodal block array (text + PDF/image/text attachments) for SP-D. */
+export type ProposalContent = string | Array<{ type: "text"; text: string } | AttachmentBlock>;
 
 interface AiCreds {
   apiKey: string;
@@ -25,7 +30,7 @@ export function useProjectProposal(ai: AiCreds) {
   const [error, setError] = useState<string | null>(null);
 
   const generate = useCallback(
-    async (description: string): Promise<ProjectProposal | null> => {
+    async (input: ProposalContent): Promise<ProjectProposal | null> => {
       const key = ai.apiKey.trim();
       if (!key) {
         setError("no-key");
@@ -46,7 +51,7 @@ export function useProjectProposal(ai: AiCreds) {
             model: ai.model,
             max_tokens: 4096,
             system: buildProposalSystemPrompt(),
-            messages: [{ role: "user", content: description }],
+            messages: [{ role: "user", content: input }],
             tools: [PROPOSAL_TOOL],
             tool_choice: { type: "tool", name: "propose_project" },
           }),

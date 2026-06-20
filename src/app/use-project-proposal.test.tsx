@@ -41,4 +41,16 @@ describe("useProjectProposal", () => {
     expect(result.current.error).toBe("no-key");
     expect(fetchSpy).not.toHaveBeenCalled();
   });
+
+  it("sends a content-block array verbatim as the user message content", async () => {
+    const fetchMock = mockFetchToolUse({ meta: { name: "P" }, features: [] });
+    const { result } = renderHook(() => useProjectProposal(ai));
+    const blocks = [
+      { type: "text", text: "Create a project from this doc:" },
+      { type: "document", source: { type: "base64", media_type: "application/pdf", data: "QUJD" } },
+    ];
+    await act(async () => { await result.current.generate(blocks as never); });
+    const body = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string);
+    expect(body.messages[0].content).toEqual(blocks); // array passed through, NOT stringified
+  });
 });
