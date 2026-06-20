@@ -517,6 +517,8 @@ const enUS = {
     "Tasks now have a workflow status (To Do to Done) with a status column, inline status editing, and a hide-finished toggle.",
   versionHighlightKanban:
     "Tasks can now be viewed as a drag-and-drop Kanban board grouped by status; Jira-synced tasks stay read-only at their Jira status, and the editor gained Send inquiry / Push to Jira / Delete buttons.",
+  versionHighlightWeightSuggest:
+    "Claude can now suggest adjustments to your next-actions ranking weights from your project, trends, and what you act on - review each in the settings and Accept the ones you want.",
   scheduledJobsTitle: "Scheduled jobs",
   scheduledJobsToggle: "Enable scheduled jobs",
   scheduledJobsHelp:
@@ -2115,6 +2117,17 @@ const enUS = {
   nextActionsHint: "These thresholds tune which signals raise a suggested action. Day-based lead times live under Notifications. Invalid values fall back to the default.",
   nextActionsReset: "Reset to defaults",
   nextActionsDefault: "default {0}",
+  weightSuggestRun: "Suggest with AI",
+  weightSuggestColumn: "AI suggested",
+  weightSuggestAccept: "Accept",
+  weightSuggestAcceptAll: "Accept all",
+  weightSuggestEnableLearning: "Enable learning",
+  weightSuggestScopeAll: "Also suggest firing thresholds",
+  weightSuggestBusy: "Analyzing...",
+  weightSuggestErrorKey: "Configure an AI key first.",
+  weightSuggestErrorNetwork: "Could not reach the AI service.",
+  weightSuggestErrorParse: "The AI returned an unexpected response.",
+  weightSuggestNone: "No adjustments suggested.",
   naScopePendingRed: "Pending changes to flag",
   naScopePendingRedHint: "Raise an aggregate scope action once at least this many change items are still pending.",
   naScheduleSpiWarn: "Schedule SPI — warn below",

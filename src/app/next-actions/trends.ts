@@ -52,3 +52,15 @@ function spiTrend(prev: SnapshotRecord, latest: SnapshotRecord): TrendDir | unde
   const d = latest.spi - prev.spi;
   return Math.abs(d) <= SPI_EPSILON ? "flat" : d < 0 ? "worsening" : "improving";
 }
+
+// Compact, token-bounded one-line trend summary for the AI weight-suggestion
+// prompt. Pure (no React/i18n) so it stays unit-testable. Emits "schedule: X,
+// budget: Y" from the aggregate-metric directions; returns a clear sentinel
+// when there is no usable trend data.
+export function summarizeTrendsForPrompt(trends: ActionTrends | undefined): string {
+  if (!trends) return "(no trend data)";
+  const parts: string[] = [];
+  if (trends.schedule) parts.push(`schedule: ${trends.schedule}`);
+  if (trends.budget) parts.push(`budget: ${trends.budget}`);
+  return parts.length === 0 ? "(no trend data)" : parts.join(", ");
+}

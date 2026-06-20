@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeActionTrends } from "./trends";
+import { computeActionTrends, summarizeTrendsForPrompt } from "./trends";
 import type { SnapshotRecord } from "../snapshot";
 
 function snap(over: Partial<SnapshotRecord>): SnapshotRecord {
@@ -58,5 +58,23 @@ describe("computeActionTrends", () => {
       snap({ capturedAt: "2026-01-08T00:00:00.000Z", spi: 0.8 }),
     ]);
     expect(none?.schedule).toBeUndefined();
+  });
+});
+
+describe("summarizeTrendsForPrompt", () => {
+  it("returns a clear sentinel for undefined trends", () => {
+    expect(summarizeTrendsForPrompt(undefined)).toBe("(no trend data)");
+  });
+  it("returns a clear sentinel for an empty trends object", () => {
+    expect(summarizeTrendsForPrompt({})).toBe("(no trend data)");
+  });
+  it("summarizes schedule before budget", () => {
+    expect(summarizeTrendsForPrompt({ schedule: "worsening", budget: "improving" })).toBe(
+      "schedule: worsening, budget: improving",
+    );
+  });
+  it("includes only the metrics that are present", () => {
+    expect(summarizeTrendsForPrompt({ budget: "flat" })).toBe("budget: flat");
+    expect(summarizeTrendsForPrompt({ schedule: "improving" })).toBe("schedule: improving");
   });
 });

@@ -29,6 +29,7 @@ export type AiConfig = {
   groundInGuides: boolean;
   actionSuggestions?: boolean; // Action Center "Analyze with AI" button. Default ON (undefined = on).
   scheduledJobs?: boolean; // Scheduled Claude jobs (SP5). Default OFF (opt-in) — recurring billed calls.
+  suggestAllNextActionThresholds?: boolean; // AI weight suggestions (SP-C). Default OFF (opt-in).
 };
 
 export const defaultAiConfig: AiConfig = {
@@ -62,6 +63,7 @@ export function sanitizeAiConfig(raw: unknown): AiConfig {
     weeklyTokenCap: coerceCap(obj.weeklyTokenCap, DEFAULT_WEEKLY_TOKEN_CAP),
     groundInGuides: obj.groundInGuides !== false,
     scheduledJobs: obj.scheduledJobs === true,
+    suggestAllNextActionThresholds: obj.suggestAllNextActionThresholds === true,
   };
 }
 
@@ -286,24 +288,40 @@ export const defaultNextActionsConfig: NextActionsConfig = {
   staticPenalty: 25,
 };
 
+const intMin1 = (v: unknown, def: number): number => {
+  const n = Number(v);
+  return Number.isFinite(n) && n >= 1 ? Math.round(n) : def;
+};
+const intMin0 = (v: unknown, def: number): number => {
+  const n = Number(v);
+  return Number.isFinite(n) && n >= 0 ? Math.round(n) : def;
+};
+const ratio = (v: unknown, def: number): number => {
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 && n <= 2 ? n : def;
+};
+
+/** Per-field validator for NextActionsConfig - the SINGLE source of clamping,
+ *  used by resolveNextActionsConfig AND the AI weight-suggestion parser. */
+export const NEXT_ACTIONS_FIELD_COERCE: Record<keyof NextActionsConfig, (v: unknown, def: number) => number> = {
+  scopePendingRed: intMin1,
+  scheduleSpiWarn: ratio,
+  scheduleSpiCritical: ratio,
+  workloadAllocatedPct: intMin1,
+  workloadAllocatedCritical: intMin1,
+  workloadOverdueThreshold: intMin1,
+  workloadOverdueUrgent: intMin1,
+  clarityBonus: intMin0,
+  semiClarityBonus: intMin0,
+  staticPenalty: intMin0,
+};
+
 /** Unset -> default (fresh copy); otherwise coerce each field to a finite value
  *  within sane bounds, falling back to the default per field. */
 export function resolveNextActionsConfig(raw: unknown): NextActionsConfig {
   if (!raw || typeof raw !== "object") return { ...defaultNextActionsConfig };
   const obj = raw as Record<string, unknown>;
   const d = defaultNextActionsConfig;
-  const intMin1 = (v: unknown, def: number): number => {
-    const n = Number(v);
-    return Number.isFinite(n) && n >= 1 ? Math.round(n) : def;
-  };
-  const intMin0 = (v: unknown, def: number): number => {
-    const n = Number(v);
-    return Number.isFinite(n) && n >= 0 ? Math.round(n) : def;
-  };
-  const ratio = (v: unknown, def: number): number => {
-    const n = Number(v);
-    return Number.isFinite(n) && n > 0 && n <= 2 ? n : def;
-  };
   return {
     scopePendingRed: intMin1(obj.scopePendingRed, d.scopePendingRed),
     scheduleSpiWarn: ratio(obj.scheduleSpiWarn, d.scheduleSpiWarn),
