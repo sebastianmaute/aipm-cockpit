@@ -95,6 +95,35 @@ describe("useSettings", () => {
       expect(result.current.settings.hideFinishedTasks).toBe(true);
     });
 
+    it("defaults tasksViewMode to 'table' when absent from persisted blob", async () => {
+      const legacy: Record<string, unknown> = { ...defaultSettings };
+      delete legacy.tasksViewMode;
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(legacy));
+      const { result } = renderHook(() => useSettings());
+      await act(async () => {});
+      expect(result.current.settings.tasksViewMode).toBe("table");
+    });
+
+    it("tasksViewMode coerces invalid values to 'table'", async () => {
+      localStorage.setItem(
+        SETTINGS_KEY,
+        JSON.stringify({ ...defaultSettings, tasksViewMode: "garbage" }),
+      );
+      const { result } = renderHook(() => useSettings());
+      await act(async () => {});
+      expect(result.current.settings.tasksViewMode).toBe("table");
+    });
+
+    it("tasksViewMode is 'board' only when persisted strictly 'board'", async () => {
+      localStorage.setItem(
+        SETTINGS_KEY,
+        JSON.stringify({ ...defaultSettings, tasksViewMode: "board" }),
+      );
+      const { result } = renderHook(() => useSettings());
+      await act(async () => {});
+      expect(result.current.settings.tasksViewMode).toBe("board");
+    });
+
     it("preserves an explicitly emptied reports.extra (removal sticks)", async () => {
       localStorage.setItem(
         SETTINGS_KEY,

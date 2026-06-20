@@ -110,6 +110,9 @@ export const de: Record<TranslationKey, string> = {
   statusDone: "Erledigt",
   colTaskStatus: "Status",
   hideFinishedTasks: "Erledigte ausblenden",
+  tasksViewModeLabel: "Ansicht",
+  tasksViewTable: "Tabelle",
+  tasksViewBoard: "Board",
 
   tasks: "Aufgaben",
   tasksCount: "({0})",
@@ -506,6 +509,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightScheduledJobs: "Planen Sie wiederkehrende KI-Portfolioanalysen, die als Benachrichtigungen und als In-App-Verlauf erscheinen.",
   versionHighlightInstallable: "Installieren Sie den Tracker als Desktop- oder Mobil-App für den schnellen Start vom Startbildschirm oder Dock.",
   versionHighlightTaskStatus: "Aufgaben haben jetzt einen Workflow-Status (Zu erledigen bis Erledigt) mit Statusspalte, Inline-Statusbearbeitung und einem Schalter zum Ausblenden erledigter Aufgaben.",
+  versionHighlightKanban: "Aufgaben lassen sich jetzt als Drag-and-drop-Kanban-Board nach Status anzeigen; mit Jira synchronisierte Aufgaben bleiben schreibgeschützt auf ihrem Jira-Status, und der Editor erhielt Schaltflächen für Anfrage senden / Zu Jira senden / Löschen.",
   scheduledJobsTitle: "Geplante Jobs",
   scheduledJobsToggle: "Geplante Jobs aktivieren",
   scheduledJobsHelp: "Führen Sie eine wiederkehrende KI-Portfolioanalyse nach Zeitplan aus. Ergebnisse erscheinen hier und als Desktop-Benachrichtigung.",
@@ -973,6 +977,7 @@ export const de: Record<TranslationKey, string> = {
     "{0} in Jira als {1} angelegt. Bearbeiter wurde nicht übertragen – bitte in Jira setzen.",
   jiraPushPrereq:
     "Bitte Jira in den Einstellungen aktivieren und ein Projekt wählen, bevor Aufgaben übertragen werden.",
+  jiraManagedTooltip: "In Jira verwaltet",
 
   tabActivity: "Aktivität",
   activityEmpty: "Noch keine Aktivität aufgezeichnet.",

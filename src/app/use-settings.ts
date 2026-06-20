@@ -222,6 +222,7 @@ export function useSettings(): {
             layout: coerceLayout((parsed as Record<string, unknown>).layout),
             expertMode: (parsed as Record<string, unknown>).expertMode === true,
             hideFinishedTasks: (parsed as Record<string, unknown>).hideFinishedTasks === true,
+            tasksViewMode: (parsed as Record<string, unknown>).tasksViewMode === "board" ? "board" : "table",
             holidayCountries: Array.isArray(parsed.holidayCountries)
               ? (parsed.holidayCountries as unknown[]).filter(
                   (v): v is string => typeof v === "string",

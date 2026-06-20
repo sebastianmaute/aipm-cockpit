@@ -255,6 +255,46 @@ describe("TaskRow workflow-status badge", () => {
     fireEvent.change(select, { target: { value: "In Progress" } });
     expect(onStatusChange).toHaveBeenCalledWith(1, "In Progress");
   });
+
+  test("disables the inline status select for a Jira-synced task", () => {
+    const ctx = makeContext();
+    const { getByRole } = render(
+      rowWrapper({
+        context: ctx,
+        children: (
+          <TaskRow
+            task={makeTask({ id: 1, taskName: "Sync", status: "In Progress", jiraKey: "LOP-1" })}
+            isSelected={false}
+            isEditing={false}
+            isExpanded={false}
+            isPushing={false}
+            raidRefs={undefined}
+          />
+        ),
+      }),
+    );
+    expect(getByRole("combobox", { name: "Status – Sync" })).toBeDisabled();
+  });
+
+  test("leaves the inline status select enabled for a non-synced task", () => {
+    const ctx = makeContext();
+    const { getByRole } = render(
+      rowWrapper({
+        context: ctx,
+        children: (
+          <TaskRow
+            task={makeTask({ id: 2, taskName: "Local", status: "To Do" })}
+            isSelected={false}
+            isEditing={false}
+            isExpanded={false}
+            isPushing={false}
+            raidRefs={undefined}
+          />
+        ),
+      }),
+    );
+    expect(getByRole("combobox", { name: "Status – Local" })).not.toBeDisabled();
+  });
 });
 
 describe("TaskRow zebra striping", () => {

@@ -336,6 +336,8 @@ export type Settings = {
   expertMode?: boolean;
   /** Per-device tasks-view toggle: hide finished (Done + Cancelled) tasks. Default OFF. */
   hideFinishedTasks?: boolean;
+  /** Per-device tasks-pane layout: table list or Kanban board. Default "table". */
+  tasksViewMode?: "table" | "board";
   reports?: { extra: AddableReportId[] };
   integrations?: IntegrationsSettings;
   snapshots?: SnapshotSettings;
@@ -367,6 +369,7 @@ export const defaultSettings: Settings = {
   layout: "modern",
   expertMode: false,
   hideFinishedTasks: false,
+  tasksViewMode: "table",
   reports: { extra: ["raid-report", "budget-report"] },
   integrations: defaultIntegrations,
   snapshots: defaultSnapshotSettings,

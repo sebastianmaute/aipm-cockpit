@@ -249,7 +249,7 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
       const stamp = new Date().toISOString();
       setTasks((prev) =>
         prev.map((row) =>
-          row.id === id
+          row.id === id && !row.jiraKey
             ? { ...applyStatusChange(row, next, today), localModifiedAt: stamp }
             : row,
         ),

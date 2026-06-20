@@ -126,6 +126,29 @@ describe("useTaskRowHandlers", () => {
     expect(openEditModal).toHaveBeenCalledWith(task);
   });
 
+  it("onStatusChange no-ops for a Jira-synced task", () => {
+    const setTasks = vi.fn();
+    const synced = makeTask({ id: 1, jiraKey: "LOP-1", status: "In Progress" });
+    const { result } = renderHook(() =>
+      useTaskRowHandlers(makeArgs({ setTasks })),
+    );
+    act(() => result.current.onStatusChange(1, "Done"));
+    // The produced list leaves the synced row's status unchanged.
+    const updater = setTasks.mock.calls[0][0] as (p: Task[]) => Task[];
+    expect(updater([synced])[0].status).toBe("In Progress");
+  });
+
+  it("onStatusChange updates a non-synced task (gate is conditional)", () => {
+    const setTasks = vi.fn();
+    const open = makeTask({ id: 1, status: "To Do" });
+    const { result } = renderHook(() =>
+      useTaskRowHandlers(makeArgs({ setTasks })),
+    );
+    act(() => result.current.onStatusChange(1, "In Progress"));
+    const updater = setTasks.mock.calls[0][0] as (p: Task[]) => Task[];
+    expect(updater([open])[0].status).toBe("In Progress");
+  });
+
   it("handleClearRaidTaskFilter calls setRaidFilterTaskId with null", () => {
     const setRaidFilterTaskId = vi.fn();
     const { result } = renderHook(() =>

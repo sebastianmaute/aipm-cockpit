@@ -1,6 +1,6 @@
 "use client";
 
-import { type RefObject } from "react";
+import { type ReactNode, type RefObject } from "react";
 import { ModalFieldControls } from "./modal-field-controls";
 import { ModalHeader } from "./modal-header";
 import { useDraggable } from "./use-draggable";
@@ -37,6 +37,8 @@ export interface TaskFormModalProps {
   onRemoveContact: (name: string) => void;
   onShowToast: (kind: "info" | "error", text: string) => void;
   onAddAssigneeToAddressBook: (name: string, email: string) => void;
+  /** Editor action buttons (Send inquiry / Push to Jira / Delete) rendered in the footer before Cancel/Save. */
+  leadingActions?: ReactNode;
 }
 
 export function TaskFormModal({
@@ -64,6 +66,7 @@ export function TaskFormModal({
   onRemoveContact,
   onShowToast,
   onAddAssigneeToAddressBook,
+  leadingActions,
 }: TaskFormModalProps) {
   const { editingId, taskModalOpen } = useTaskForm();
   const isEditing = editingId !== null;
@@ -121,6 +124,7 @@ export function TaskFormModal({
             onAddAssigneeToAddressBook={onAddAssigneeToAddressBook}
           />
           <div className="flex justify-end gap-2">
+            {leadingActions}
             <button
               type="button"
               onClick={onCancel}

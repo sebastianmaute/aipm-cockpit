@@ -4,9 +4,10 @@ import { createContext, memo, useContext, type MouseEvent, type ReactNode } from
 import { computeTaskHealth, formatHealthTooltip, healthDot, type TaskHealth } from "./health";
 import { priorityLabel, t, type Lang } from "./i18n";
 import { formatDuration } from "./duration";
-import { countByCategory } from "./raid";
-import { statusBadgeClass, statusLabelKey } from "./task-status-ui";
-import { TASK_STATUSES, type ChangeItem, type Priority, type Task, type TaskDependency, type TaskStatus, type RaidItem } from "./types";
+import { RaidBadge } from "./task-raid-badge";
+import { priorityStyle } from "./task-status-ui";
+import { TaskStatusSelect } from "./task-status-select";
+import { type ChangeItem, type Task, type TaskDependency, type TaskStatus, type RaidItem } from "./types";
 
 export interface RowContextValue {
   lang: Lang;
@@ -89,13 +90,6 @@ function summarizeNote(
   return { text: firstLine.slice(0, cut).trimEnd(), truncated: true };
 }
 
-const priorityStyle: Record<Priority, string> = {
-  Low: "bg-surface-muted text-muted-foreground",
-  Medium: "bg-AIPM-blue/15 text-AIPM-dark-blue dark:bg-AIPM-blue/20 dark:text-AIPM-light-grey",
-  High: "bg-AIPM-purple/15 text-AIPM-dark-blue dark:bg-AIPM-purple/20 dark:text-AIPM-light-grey",
-  Urgent: "bg-AIPM-pink/15 text-AIPM-dark-blue dark:bg-AIPM-pink/20 dark:text-AIPM-light-grey",
-};
-
 /**
  * Build the Jira browse URL only when siteUrl parses to an http(s) origin.
  * Without this guard, a user-supplied siteUrl like "javascript:..." would
@@ -158,6 +152,7 @@ function TaskRowImpl({
     jiraSiteUrl,
     hiddenCols,
     onToggleSelect,
+    onJumpToRaid,
     onStatusChange,
     onEdit,
   } = useTaskRowContext();
@@ -233,7 +228,7 @@ function TaskRowImpl({
           );
         })()}
         {raidRefs && raidRefs.length > 0 && (
-          <RaidBadge taskId={task.id} refs={raidRefs} />
+          <RaidBadge taskId={task.id} refs={raidRefs} lang={lang} onJumpToRaid={onJumpToRaid} />
         )}
         {changeRefs && changeRefs.length > 0 && (
           <span
@@ -293,18 +288,7 @@ function TaskRowImpl({
       )}
       {!hiddenCols.has("taskStatus") && (
         <Td stopClick>
-          <select
-            aria-label={`${t(lang, "colTaskStatus")} – ${task.taskName}`}
-            value={task.status}
-            onChange={(e) => onStatusChange(task.id, e.target.value as TaskStatus)}
-            className={`rounded border border-line px-1.5 py-0.5 text-xs font-medium ${statusBadgeClass(task.status)}`}
-          >
-            {TASK_STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {t(lang, statusLabelKey(s))}
-              </option>
-            ))}
-          </select>
+          <TaskStatusSelect lang={lang} task={task} onStatusChange={onStatusChange} />
         </Td>
       )}
       {!hiddenCols.has("blockers") && (
@@ -474,28 +458,3 @@ function DependencyChipsImpl({ deps }: DependencyChipsProps) {
 
 const DependencyChips = memo(DependencyChipsImpl);
 
-interface RaidBadgeProps {
-  taskId: number;
-  refs: RaidItem[];
-}
-
-function RaidBadgeImpl({ taskId, refs }: RaidBadgeProps) {
-  const { lang, onJumpToRaid } = useTaskRowContext();
-  const counts = countByCategory(refs);
-  return (
-    <button
-      type="button"
-      onClick={(e) => {
-        e.stopPropagation();
-        onJumpToRaid(taskId);
-      }}
-      title={t(lang, "raidReferencedBy", refs.length)}
-      aria-label={t(lang, "raidReferencedBy", refs.length)}
-      className="ml-1 inline-flex items-center rounded bg-AIPM-purple px-1.5 py-0.5 text-[10px] font-medium text-white hover:bg-AIPM-purple/90"
-    >
-      {t(lang, "raidReferencedByMix", counts.R, counts.A, counts.I, counts.D)}
-    </button>
-  );
-}
-
-const RaidBadge = memo(RaidBadgeImpl);

@@ -1,6 +1,16 @@
 // src/app/task-status-ui.ts — status → i18n label key (UI layer; not in the pure engine).
 import type { TranslationKey } from "./i18n";
-import type { TaskStatus } from "./types";
+import type { Priority, TaskStatus } from "./types";
+
+// Priority badge tints — sanctioned AIPM palette tokens ONLY (see globals.css).
+// Shared by the table row (task-row.tsx) and the Kanban card so both surfaces
+// render an identical badge.
+export const priorityStyle: Record<Priority, string> = {
+  Low: "bg-surface-muted text-muted-foreground",
+  Medium: "bg-AIPM-blue/15 text-AIPM-dark-blue dark:bg-AIPM-blue/20 dark:text-AIPM-light-grey",
+  High: "bg-AIPM-purple/15 text-AIPM-dark-blue dark:bg-AIPM-purple/20 dark:text-AIPM-light-grey",
+  Urgent: "bg-AIPM-pink/15 text-AIPM-dark-blue dark:bg-AIPM-pink/20 dark:text-AIPM-light-grey",
+};
 
 const STATUS_LABEL_KEY: Record<TaskStatus, TranslationKey> = {
   "To Do": "statusToDo",

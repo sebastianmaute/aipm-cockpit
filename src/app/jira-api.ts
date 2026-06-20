@@ -4,6 +4,7 @@
 // Atlassian on the user's behalf.
 
 import { adfToText, textToAdf } from "./adf";
+import { jiraCategoryToStatus } from "./jira-status-map";
 import {
   sanitizeAssignee,
   sanitizeEmail,
@@ -13,7 +14,7 @@ import {
   sanitizeTaskName,
 } from "./sanitize";
 import type { JiraConfig } from "./settings-types";
-import type { Priority, Task } from "./types";
+import type { Priority, Task, TaskStatus } from "./types";
 
 export type JiraCreds = Pick<JiraConfig, "siteUrl" | "email" | "apiToken">;
 
@@ -201,7 +202,7 @@ function mapPriority(name: string | undefined): Priority {
 export function issueToTaskFields(
   issue: JiraIssue,
   todayIso: string,
-): Partial<Task> {
+): Partial<Task> & { status: TaskStatus } {
   const f = issue.fields ?? {};
   const updated = (f.updated ?? "").slice(0, 10);
   const resolved = (f.resolutiondate ?? "").slice(0, 10);
@@ -220,6 +221,7 @@ export function issueToTaskFields(
     completedDate: isDone
       ? sanitizeIsoDate(resolved) || sanitizeIsoDate(updated) || todayIso
       : undefined,
+    status: jiraCategoryToStatus(statusKey),
     jiraKey: issue.key,
     jiraIssueType: f.issuetype?.name ?? undefined,
   };
