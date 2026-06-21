@@ -25,11 +25,12 @@
 // Nothing here is animated; this is a static, scrollable readout you can
 // glance at. For dynamic editing, the user goes back to the tasks list.
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { useResizable } from "./use-resizable";
 import { useGanttBarDrag } from "./use-gantt-bar-drag";
+import { useGanttPrefs } from "./use-gantt-prefs";
 import { PrintButton, ResetSizeButton } from "./task-manager-ui";
 import { PRIORITIES, type Absence, type Milestone, type Priority, type Task } from "./types";
 import { isAchieved, milestoneStatus, MILESTONE_DUE_SOON_WORKDAYS, sortMilestones } from "./milestones";
@@ -40,7 +41,6 @@ import {
   BAR_VPADDING_PX,
   computeCriticalPath,
   DAY_WIDTH_PX,
-  DEFAULT_PREFS,
   deriveBar,
   diffDays,
   EDGE_STROKE_MUTED,
@@ -50,20 +50,17 @@ import {
   fmtFull,
   fmtMonth,
   type GanttBarEdit,
-  type GanttPrefs,
   type GanttSort,
   type GanttStatusFilter,
   HEADER_HEIGHT_PX,
   HEADER_ROW_HEIGHT_PX,
   LEFT_GUTTER_PX,
-  loadPrefs,
   MILESTONE_DIAMOND_PX,
   milestoneDiamondProps,
   naturalCompare,
   parseISO,
   priorityFillClass,
   ROW_HEIGHT_PX,
-  savePrefs,
   todayUTC,
   toISODay,
 } from "./gantt-engine";
@@ -97,23 +94,19 @@ export function GanttPanel({
   const { ref: ganttRef, reset: resetGanttSize } = useResizable("lop-app:gantt-size");
 
   // --- prefs: sort + filters + custom order, persisted in localStorage ---
-  const [prefs, setPrefs] = useState<GanttPrefs>(DEFAULT_PREFS);
-  const prefsHydratedRef = useRef(false);
-
-  // Mount-time hydration. We intentionally start with DEFAULT_PREFS so the
-  // server-rendered HTML and the first client render match; the real values
-  // are applied via setState after mount, triggering a single re-render.
-  useEffect(() => {
-    if (prefsHydratedRef.current) return;
-    prefsHydratedRef.current = true;
-    setPrefs(loadPrefs());
-  }, []);
-
-  // Persist on every change after hydration.
-  useEffect(() => {
-    if (!prefsHydratedRef.current) return;
-    savePrefs(prefs);
-  }, [prefs]);
+  // The hook owns the state + hydration/persistence and exposes per-control
+  // setters; setPrefs is used directly by the custom-order drag-reorder path.
+  const {
+    prefs,
+    setPrefs,
+    setSort,
+    setSearch,
+    setStatusFilter,
+    setPriorityFilter,
+    setAssigneeFilter,
+    resetFilters,
+    toggleCriticalPath,
+  } = useGanttPrefs();
 
   // Today is used in date math (overdue computation, range padding). It's
   // evaluated once per render — server / client first paint produce the
@@ -281,34 +274,6 @@ export function GanttPanel({
     visible.forEach((task, idx) => m.set(task.id, idx));
     return m;
   }, [visible]);
-
-  function setSort(sort: GanttSort) {
-    setPrefs((p) => ({ ...p, sort }));
-  }
-  function setSearch(search: string) {
-    setPrefs((p) => ({ ...p, search }));
-  }
-  function setStatusFilter(status: GanttStatusFilter) {
-    setPrefs((p) => ({ ...p, status }));
-  }
-  function setPriorityFilter(priority: Priority | "All") {
-    setPrefs((p) => ({ ...p, priority }));
-  }
-  function setAssigneeFilter(assignee: string) {
-    setPrefs((p) => ({ ...p, assignee }));
-  }
-  function resetFilters() {
-    setPrefs((p) => ({
-      ...p,
-      search: "",
-      status: "all",
-      priority: "All",
-      assignee: "All",
-    }));
-  }
-  function toggleCriticalPath() {
-    setPrefs((p) => ({ ...p, showCriticalPath: !p.showCriticalPath }));
-  }
 
   // --- drag-and-drop reordering --------------------------------------
   // Track the id currently being dragged + the row we're hovering over.
