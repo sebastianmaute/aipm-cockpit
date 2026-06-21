@@ -14,8 +14,8 @@ export const COLOR_MEDIUM_GREY = "939598";
 export const COLOR_WHITE = "FFFFFF";
 export const COLOR_TEXT = "1A1A1A";
 
-// Per-section row cap for PPTX (xlsx reuses it). Sections with more rows emit
-// a truncation-notice slide. 100 keeps file size manageable.
+// Per-section row cap for PPTX. Sections with more rows emit a truncation-
+// notice slide. 100 keeps file size manageable.
 export const PPTX_MAX_ROWS_PER_SECTION = 100;
 
 /** XML-escape a string for use in text content or attribute values. */
