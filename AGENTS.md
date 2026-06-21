@@ -23,8 +23,19 @@ npx tsc --noEmit            # typecheck (enforces i18n EN/DE key parity). `next 
                             # typecheck *.test.tsx and vitest never typechecks — a test-only type
                             # error (e.g. an invalid getByRole `{exact:...}`; a string `name` is
                             # ALREADY an exact match) passes build + tests but FAILS tsc (CI). Run
-                            # `npx tsc --noEmit` after editing ANY test.
-npm run test:run            # vitest (unit/integration)
+                            # `npx tsc --noEmit` after editing ANY test. fast-check gotchas that pass
+                            # vitest but FAIL tsc/the test: `fc.date()` can emit an Invalid Date →
+                            # `.toISOString()` throws — pass `{noInvalidDate:true}` or map an integer
+                            # ms range to `new Date(ms)`; the regex `/s` (dotAll) flag fails tsc
+                            # (target < es2018) — use `[\s\S]` instead.
+npm run test:run            # vitest (unit/integration). testTimeout/hookTimeout = 20s
+                            # (raised from the 5s default in vitest.config) — the CPU-heavy
+                            # fast-check property suites (`*.property.test.ts`, ~100 runs each) +
+                            # fake-indexeddb setup can starve a worker past 5s under full-suite
+                            # parallel load on a slow machine → a RARE, non-deterministic timeout
+                            # that never repros in isolation or in CI. Don't "fix" such a flake by
+                            # editing the property logic before ruling out a load timeout (run the
+                            # property thousands of times in isolation first; logic bugs repro there).
 npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
 ```
 
