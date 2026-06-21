@@ -31,7 +31,7 @@ import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { useResizable } from "./use-resizable";
 import { useGanttBarDrag } from "./use-gantt-bar-drag";
 import { useGanttPrefs } from "./use-gantt-prefs";
-import { GanttHeader, GanttToolbar } from "./gantt-chrome";
+import { GanttDependencyLayer, GanttHeader, GanttToolbar } from "./gantt-chrome";
 import { type Absence, type Milestone, type Priority, type Task } from "./types";
 import { isAchieved, milestoneStatus, MILESTONE_DUE_SOON_WORKDAYS, sortMilestones } from "./milestones";
 import {
@@ -43,8 +43,6 @@ import {
   DAY_WIDTH_PX,
   deriveBar,
   diffDays,
-  EDGE_STROKE_MUTED,
-  edgeKey,
   EMPTY_HOLIDAY_SET,
   fmtFull,
   fmtMonth,
@@ -509,148 +507,17 @@ export function GanttPanel({
 
           {/* Dependency arrow layer — sits over the rows but under the bars
               for hover contrast. */}
-          <svg
-            aria-hidden
-            className="pointer-events-none absolute left-0 top-0 z-0"
-            width={chartWidthPx}
-            height={totalRowsCount * ROW_HEIGHT_PX}
-            viewBox={`0 0 ${chartWidthPx} ${totalRowsCount * ROW_HEIGHT_PX}`}
-          >
-            <defs>
-              <marker
-                id="gantt-arrow"
-                viewBox="0 0 10 10"
-                refX="8"
-                refY="5"
-                markerWidth="6"
-                markerHeight="6"
-                orient="auto-start-reverse"
-                fill={EDGE_STROKE_MUTED}
-              >
-                <path d="M 0 0 L 10 5 L 0 10 z" />
-              </marker>
-              <marker
-                id="gantt-arrow-critical"
-                viewBox="0 0 10 10"
-                refX="8"
-                refY="5"
-                markerWidth="7"
-                markerHeight="7"
-                orient="auto-start-reverse"
-                fill="rgb(220, 38, 38)"
-              >
-                <path d="M 0 0 L 10 5 L 0 10 z" />
-              </marker>
-            </defs>
-            {layout.placeable.flatMap((task, rowIdx) => {
-              if (!task.dependencies || task.dependencies.length === 0) {
-                return [];
-              }
-              const myBar = layout.bars.get(task.id);
-              if (!myBar) return [];
-              const myStartX =
-                LEFT_GUTTER_PX +
-                diffDays(range.min, myBar.start) * DAY_WIDTH_PX;
-              const myEndX =
-                LEFT_GUTTER_PX +
-                (diffDays(range.min, myBar.end) + 1) * DAY_WIDTH_PX;
-              const myYMid = rowIdx * ROW_HEIGHT_PX + ROW_HEIGHT_PX / 2;
-              return task.dependencies.map((dep, depIdx) => {
-                const predRowIdx = rowIndexById.get(dep.taskId) ?? -1;
-                if (predRowIdx < 0) return null;
-                const predBar = layout.bars.get(dep.taskId);
-                if (!predBar) return null;
-                const predStartX =
-                  LEFT_GUTTER_PX +
-                  diffDays(range.min, predBar.start) * DAY_WIDTH_PX;
-                const predEndX =
-                  LEFT_GUTTER_PX +
-                  (diffDays(range.min, predBar.end) + 1) * DAY_WIDTH_PX;
-                const predYMid =
-                  predRowIdx * ROW_HEIGHT_PX + ROW_HEIGHT_PX / 2;
-
-                // Pick which edges of each bar the arrow connects.
-                let x1: number;
-                let x2: number;
-                switch (dep.type) {
-                  case "FS":
-                    x1 = predEndX;
-                    x2 = myStartX;
-                    break;
-                  case "SS":
-                    x1 = predStartX;
-                    x2 = myStartX;
-                    break;
-                  case "FF":
-                    x1 = predEndX;
-                    x2 = myEndX;
-                    break;
-                  case "SF":
-                    x1 = predStartX;
-                    x2 = myEndX;
-                    break;
-                }
-                // Simple elbow with curved corners.
-                const midX = (x1 + x2) / 2;
-                const path = `M ${x1} ${predYMid} C ${midX} ${predYMid}, ${midX} ${myYMid}, ${x2} ${myYMid}`;
-                const isCritical = critical.criticalEdges.has(
-                  edgeKey(dep.taskId, task.id, dep.type),
-                );
-                return (
-                  <path
-                    key={`${task.id}-${depIdx}`}
-                    d={path}
-                    stroke={isCritical ? "rgb(220, 38, 38)" : EDGE_STROKE_MUTED}
-                    strokeOpacity={isCritical ? 0.85 : 0.45}
-                    strokeWidth={isCritical ? 2 : 1.25}
-                    fill="none"
-                    markerEnd={
-                      isCritical ? "url(#gantt-arrow-critical)" : "url(#gantt-arrow)"
-                    }
-                  />
-                );
-              });
-            })}
-            {/* Linked-task -> milestone connectors. Informational only:
-                a faint, thin line from each linked task's bar end to its
-                milestone diamond. Deliberately NOT the critical-path red —
-                a muted grey dash (lighter than the non-critical dependency
-                edge) so it reads as context, not a schedule driver.
-                Linked tasks with no bar (deleted/filtered) are skipped. */}
-            {sortedMilestones.flatMap((m, mIdx) => {
-              const md = parseISO(m.date);
-              if (!md) return [];
-              const milestoneX =
-                LEFT_GUTTER_PX + diffDays(range.min, md) * DAY_WIDTH_PX;
-              const milestoneYMid =
-                (rowsCount + mIdx) * ROW_HEIGHT_PX + ROW_HEIGHT_PX / 2;
-              return (m.linkedTaskIds ?? []).flatMap((taskId) => {
-                const bar = layout.bars.get(taskId);
-                if (!bar) return [];
-                const taskRowIdx = rowIndexById.get(taskId) ?? -1;
-                if (taskRowIdx < 0) return [];
-                const taskEndX =
-                  LEFT_GUTTER_PX +
-                  (diffDays(range.min, bar.end) + 1) * DAY_WIDTH_PX;
-                const taskYMid =
-                  taskRowIdx * ROW_HEIGHT_PX + ROW_HEIGHT_PX / 2;
-                const midX = (taskEndX + milestoneX) / 2;
-                const path = `M ${taskEndX} ${taskYMid} C ${midX} ${taskYMid}, ${midX} ${milestoneYMid}, ${milestoneX} ${milestoneYMid}`;
-                return (
-                  <path
-                    key={`m-${m.id}-link-${taskId}`}
-                    d={path}
-                    data-milestone-connector
-                    stroke={EDGE_STROKE_MUTED}
-                    strokeOpacity={0.35}
-                    strokeWidth={1}
-                    strokeDasharray="3 3"
-                    fill="none"
-                  />
-                );
-              });
-            })}
-          </svg>
+          <GanttDependencyLayer
+            placeable={layout.placeable}
+            bars={layout.bars}
+            rowIndexById={rowIndexById}
+            range={range}
+            critical={critical}
+            sortedMilestones={sortedMilestones}
+            rowsCount={rowsCount}
+            chartWidthPx={chartWidthPx}
+            totalRowsCount={totalRowsCount}
+          />
 
           {layout.placeable.map((task) => {
             const bar = layout.bars.get(task.id);
