@@ -24,7 +24,6 @@ import {
 import {
   RAID_CATEGORIES,
   RAID_SEVERITIES,
-  RISK_SCALES,
   type RaidCategory,
   type RaidItem,
   type RaidSeverity,
@@ -36,6 +35,8 @@ import {
 } from "./types";
 import type { Contact } from "./contacts";
 import { ResourcePicker } from "./resource-picker";
+import { RiskMatrix } from "./raid-risk-matrix";
+import { RaidCausedByField, RaidLinkedTasksField } from "./raid-edit-fields";
 import { categoryLabel, severityLabel, statusLabel } from "./raid-labels";
 import { CharCounter, useAdjustmentTracker } from "./field-feedback";
 import { describeTextCap } from "./sanitize-report";
@@ -534,173 +535,33 @@ export function RaidEditModal({
           </label>
 
           {isVisible("linkedTasks") && (
-          <div className="sm:col-span-2">
-            <div className="mb-2 flex items-center justify-between gap-2">
-              <span className="flex items-center gap-1 text-sm font-medium text-foreground">
-                {t(lang, "raidLinkedTasks")}
-                <InfoTooltip text={t(lang, "raidFieldLinkedTasksHint")} />
-              </span>
-              <button
-                type="button"
-                onClick={onCreateMitigationTask}
-                disabled={isNew}
-                title={t(lang, "raidCreateMitigationTaskHint")}
-                className="rounded-md border border-AIPM-dark-blue bg-surface px-2 py-1 text-xs font-medium text-AIPM-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 dark:border-AIPM-blue dark:text-AIPM-blue"
-              >
-                {t(lang, "raidCreateMitigationTask")}
-              </button>
-            </div>
-            <div className="mb-2 flex flex-wrap gap-1.5">
-              {draft.linkedTaskIds.length === 0 && (
-                <span className="text-xs italic text-muted-foreground">—</span>
-              )}
-              {draft.linkedTaskIds.map((tid) => {
-                const tk = tasks.find((task) => task.id === tid);
-                return (
-                  <span
-                    key={tid}
-                    className="inline-flex items-center gap-1 rounded bg-surface-muted px-2 py-0.5 text-xs text-foreground"
-                  >
-                    <span className="font-mono">#{tid}</span>
-                    <span className="max-w-[200px] truncate">
-                      {tk?.taskName ?? ""}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => removeLinked(tid)}
-                      aria-label={t(lang, "raidUnlinkTask")}
-                      title={t(lang, "raidUnlinkTask")}
-                      className="text-muted-foreground hover:text-AIPM-pink"
-                    >
-                      ×
-                    </button>
-                  </span>
-                );
-              })}
-            </div>
-            <div className="relative">
-              <input
-                type="text"
-                value={taskPickerQuery}
-                onChange={(e) => setTaskPickerQuery(e.target.value)}
-                placeholder={t(lang, "raidLinkPickerPlaceholder")}
-                className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm"
-              />
-              {taskPickerQuery.trim() !== "" && availableTasks.length > 0 && (
-                <ul className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md border border-line bg-surface">
-                  {availableTasks.map((tk) => (
-                    <li key={tk.id}>
-                      <button
-                        type="button"
-                        onClick={() => addLinked(tk.id)}
-                        className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-surface-muted"
-                      >
-                        <span className="font-mono text-xs text-muted-foreground">
-                          #{tk.id}
-                        </span>
-                        <span className="truncate">{tk.taskName}</span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </div>
+          <RaidLinkedTasksField
+            lang={lang}
+            linkedTaskIds={draft.linkedTaskIds}
+            tasks={tasks}
+            isNew={isNew}
+            onCreateMitigationTask={onCreateMitigationTask}
+            taskPickerQuery={taskPickerQuery}
+            setTaskPickerQuery={setTaskPickerQuery}
+            availableTasks={availableTasks}
+            addLinked={addLinked}
+            removeLinked={removeLinked}
+          />
           )}
 
-          {/* Caused by ----------------------------------------------- */}
           {isVisible("linkedRaid") && (
-          <div className="sm:col-span-2">
-            <div className="mb-2 flex items-center justify-between gap-2">
-              <span className="flex items-center gap-1 text-sm font-medium text-foreground">
-                {t(lang, "raidCausedBy")}
-                <InfoTooltip text={t(lang, "raidFieldCausedByHint")} />
-              </span>
-            </div>
-            <div className="mb-2 flex flex-wrap items-center gap-1.5">
-              {parentItems.length === 0 && (
-                <span className="text-xs italic text-muted-foreground">—</span>
-              )}
-              {parentItems.map((p) => (
-                <span
-                  key={p.id}
-                  className="inline-flex items-center gap-1 rounded bg-surface-muted px-2 py-0.5 text-xs text-foreground"
-                >
-                  <button
-                    type="button"
-                    onClick={() => onJumpToRaid(p.id)}
-                    title={p.title}
-                    className="inline-flex items-center gap-1 hover:underline"
-                  >
-                    <span className="font-mono">
-                      ↩ {p.category}#{p.id}
-                    </span>
-                    <span className="max-w-[220px] truncate">{p.title}</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => removeCausedBy(p.id)}
-                    aria-label={t(lang, "raidCausedByClear")}
-                    title={t(lang, "raidCausedByClear")}
-                    className="text-muted-foreground hover:text-AIPM-pink"
-                  >
-                    ×
-                  </button>
-                </span>
-              ))}
-            </div>
-            <div className="relative">
-              <input
-                type="text"
-                value={causePickerQuery}
-                onChange={(e) => setCausePickerQuery(e.target.value)}
-                placeholder={t(lang, "raidCausedByPlaceholder")}
-                className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm"
-              />
-              {causePickerQuery.trim() !== "" && availableCauses.length > 0 && (
-                <ul className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md border border-line bg-surface">
-                  {availableCauses.map((r) => (
-                    <li key={r.id}>
-                      <button
-                        type="button"
-                        onClick={() => addCausedBy(r.id)}
-                        className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-surface-muted"
-                      >
-                        <span className="font-mono text-xs text-muted-foreground">
-                          {r.category}#{r.id}
-                        </span>
-                        <span className="truncate">{r.title}</span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </div>
-          )}
-
-          {/* Items caused by this — read-only. The user breaks the link by
-              editing the child. Only shown for saved items with children. */}
-          {isVisible("linkedRaid") && !isNew && causedChildren.length > 0 && (
-            <div className="sm:col-span-2">
-              <span className="mb-2 block text-sm font-medium text-foreground">
-                {t(lang, "raidCausedThis")}
-              </span>
-              <div className="flex flex-wrap gap-1.5">
-                {causedChildren.map((c) => (
-                  <button
-                    key={c.id}
-                    type="button"
-                    onClick={() => onJumpToRaid(c.id)}
-                    title={c.title}
-                    className="inline-flex items-center gap-1 rounded bg-AIPM-purple/10 px-2 py-0.5 text-xs text-AIPM-purple hover:bg-AIPM-purple/20 dark:bg-AIPM-purple/15 dark:hover:bg-AIPM-purple/25"
-                  >
-                    <span className="font-mono">{c.category}#{c.id}</span>
-                    <span className="max-w-[220px] truncate">{c.title}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
+          <RaidCausedByField
+            lang={lang}
+            parentItems={parentItems}
+            causePickerQuery={causePickerQuery}
+            setCausePickerQuery={setCausePickerQuery}
+            availableCauses={availableCauses}
+            addCausedBy={addCausedBy}
+            removeCausedBy={removeCausedBy}
+            onJumpToRaid={onJumpToRaid}
+            causedChildren={causedChildren}
+            isNew={isNew}
+          />
           )}
 
           {/* Stakeholders ------------------------------------------- */}
@@ -773,93 +634,6 @@ export function RaidEditModal({
             </div>
           </div>
         </form>
-      </div>
-    </div>
-  );
-}
-
-// --- 5×5 risk matrix --------------------------------------------------
-
-function RiskMatrix({
-  probability,
-  impact,
-  onPick,
-  lang,
-}: {
-  probability: RiskScale;
-  impact: RiskScale;
-  onPick: (probability: RiskScale, impact: RiskScale) => void;
-  lang: Lang;
-}) {
-  function cellColor(p: RiskScale, i: RiskScale): string {
-    const score = p * i;
-    if (score <= 5)
-      return "bg-AIPM-green/20 hover:bg-AIPM-green/30 dark:bg-AIPM-green/20 dark:hover:bg-AIPM-green/30";
-    if (score <= 10)
-      return "bg-AIPM-blue/20 hover:bg-AIPM-blue/30 dark:bg-AIPM-blue/20 dark:hover:bg-AIPM-blue/30";
-    if (score <= 15)
-      return "bg-AIPM-purple/25 hover:bg-AIPM-purple/35 dark:bg-AIPM-purple/25 dark:hover:bg-AIPM-purple/35";
-    return "bg-AIPM-pink/30 hover:bg-AIPM-pink/40 dark:bg-AIPM-pink/30 dark:hover:bg-AIPM-pink/40";
-  }
-
-  return (
-    <div className="inline-flex items-center gap-1">
-      {/* Vertical probability axis label — mirrors the horizontal "← Impact →"
-          footer. Rotated -90deg so the arrows end up pointing ↓ (low) at the
-          bottom and ↑ (high) at the top, matching the matrix orientation
-          (5 at the top, 1 at the bottom). */}
-      <div className="flex w-4 items-center justify-center">
-        <span
-          className="whitespace-nowrap text-[10px] text-muted-foreground"
-          style={{ transform: "rotate(-90deg)" }}
-        >
-          ← {t(lang, "raidProbability")} →
-        </span>
-      </div>
-      <div className="inline-block">
-      <div className="mb-1 grid grid-cols-[auto_repeat(5,2rem)] gap-0.5 text-[10px] text-muted-foreground">
-        <span />
-        {RISK_SCALES.map((i) => (
-          <span key={`imp-${i}`} className="text-center">
-            {i}
-          </span>
-        ))}
-      </div>
-      {/* Probability rows from 5 (top) down to 1 (bottom) so higher risk
-          appears in the top-right corner, matching standard risk-matrix
-          orientation. */}
-      {([5, 4, 3, 2, 1] as RiskScale[]).map((p) => (
-        <div
-          key={`row-${p}`}
-          className="grid grid-cols-[auto_repeat(5,2rem)] gap-0.5"
-        >
-          <span className="self-center pr-1 text-[10px] text-muted-foreground">
-            {p}
-          </span>
-          {RISK_SCALES.map((i) => {
-            const isSelected = probability === p && impact === i;
-            return (
-              <button
-                key={`cell-${p}-${i}`}
-                type="button"
-                onClick={() => onPick(p, i)}
-                aria-label={`${t(lang, "raidProbability")} ${p}, ${t(lang, "raidImpact")} ${i}`}
-                className={`h-8 w-8 rounded text-[10px] font-medium text-foreground ${cellColor(p, i)} ${
-                  isSelected ? "ring-2 ring-AIPM-green ring-offset-1" : ""
-                }`}
-              >
-                {p * i}
-              </button>
-            );
-          })}
-        </div>
-      ))}
-      <div className="mt-1 grid grid-cols-[auto_repeat(5,2rem)] gap-0.5">
-        <span />
-        <span className="col-span-5 text-center text-[10px] text-muted-foreground">
-          ← {t(lang, "raidImpact")} →
-        </span>
-      </div>
       </div>
     </div>
   );
