@@ -110,6 +110,12 @@ const enUS = {
   tasksViewModeLabel: "View",
   tasksViewTable: "Table",
   tasksViewBoard: "Board",
+  dashboardDensityLabel: "Density",
+  dashboardDensityHint: "Compact tightens the Dashboard spacing to fit more on screen. Saved per device.",
+  dashboardDensityComfortable: "Comfortable",
+  dashboardDensityCompact: "Compact",
+  dashboardDensityCompactView: "Compact view",
+  dashboardDensityComfortableView: "Comfortable view",
 
   tasks: "Tasks",
   tasksCount: "({0})",
@@ -565,6 +571,8 @@ const enUS = {
     "The Dashboard's headline numbers — completion, overdue tasks, open RAID — now show a trend arrow and the change since your last visit, so you can see at a glance which way the project is moving.",
   versionHighlightBurndownSparkline:
     "The Dashboard now shows a small completion-trend sparkline under the headline numbers, so you can see how % complete has moved over recent snapshots or activity at a glance.",
+  versionHighlightDashboardDensity:
+    "The Dashboard has a new Comfortable/Compact density toggle — switch to Compact to tighten the spacing and fit more of the cockpit on screen. Your choice is remembered per device.",
   dashboardCompletionTrend: "Completion trend",
   dashboardCompletionTrendPoints: "{0} points",
   dashboardCompletionTrendAria: "Completion trend: {0}% now, from {1}% over {2} points",

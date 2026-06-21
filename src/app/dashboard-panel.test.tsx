@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { type ReactNode } from "react";
 import { FiltersProvider } from "./filters-context";
@@ -849,5 +849,44 @@ describe("DashboardPanel completion-trend card", () => {
   it("hides the trend card when there is no series", () => {
     render(<DashboardPanel {...baseProps} snapshots={[]} />, { wrapper });
     expect(screen.queryByText("Completion trend")).toBeNull();
+  });
+});
+
+describe("DashboardPanel density (slice #8)", () => {
+  it("applies the comfortable spacing class by default", () => {
+    const { container } = render(<DashboardPanel {...fullProps} />, { wrapper });
+    expect(container.querySelector(".space-y-4")).not.toBeNull();
+    expect(container.querySelector(".space-y-2")).toBeNull();
+  });
+
+  it("applies the compact spacing class when density is compact", () => {
+    // The comfortable test confirms `.space-y-2` is the container-only class, so
+    // its presence here is decisive proof the container flipped to compact.
+    const { container } = render(<DashboardPanel {...fullProps} density="compact" />, { wrapper });
+    expect(container.querySelector(".space-y-2")).not.toBeNull();
+  });
+
+  it("renders no density toggle when onToggleDensity is omitted", () => {
+    render(<DashboardPanel {...fullProps} />, { wrapper });
+    expect(screen.queryByRole("button", { name: "Compact view" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Comfortable view" })).toBeNull();
+  });
+
+  it("toggles comfortable -> compact via the on-panel button", () => {
+    const onToggleDensity = vi.fn();
+    render(<DashboardPanel {...fullProps} density="comfortable" onToggleDensity={onToggleDensity} />, { wrapper });
+    const btn = screen.getByRole("button", { name: "Compact view" });
+    expect(btn).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(btn);
+    expect(onToggleDensity).toHaveBeenCalledWith("compact");
+  });
+
+  it("toggles compact -> comfortable and reflects aria-pressed", () => {
+    const onToggleDensity = vi.fn();
+    render(<DashboardPanel {...fullProps} density="compact" onToggleDensity={onToggleDensity} />, { wrapper });
+    const btn = screen.getByRole("button", { name: "Comfortable view" });
+    expect(btn).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(btn);
+    expect(onToggleDensity).toHaveBeenCalledWith("comfortable");
   });
 });

@@ -356,6 +356,8 @@ export type Settings = {
   hideFinishedTasks?: boolean;
   /** Per-device tasks-pane layout: table list or Kanban board. Default "table". */
   tasksViewMode?: "table" | "board";
+  /** Per-device Dashboard density (spacing only). Default "comfortable". */
+  dashboardDensity?: "comfortable" | "compact";
   /** Per-device: the guided tour has been seen/skipped (suppresses auto-launch). */
   tourSeen?: boolean;
   /** Per-device override of the app timezone (IANA). Undefined = follow project/browser. */
@@ -394,6 +396,7 @@ export const defaultSettings: Settings = {
   expertMode: false,
   hideFinishedTasks: false,
   tasksViewMode: "table",
+  dashboardDensity: "comfortable",
   reports: { extra: ["raid-report", "budget-report"] },
   integrations: defaultIntegrations,
   snapshots: defaultSnapshotSettings,

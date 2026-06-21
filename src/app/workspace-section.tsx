@@ -778,6 +778,8 @@ export function WorkspaceSection({
               onOpenChange={() => setActiveTab("changes")}
               onNavigate={setActiveTab}
               aiConfigured={!!settings.ai.apiKey?.trim()}
+              density={settings.dashboardDensity ?? "comfortable"}
+              onToggleDensity={isPopout ? undefined : (d) => setSettings((s) => ({ ...s, dashboardDensity: d }))}
             />
           </div>
         )}
