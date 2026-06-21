@@ -549,6 +549,7 @@ export const de: Record<TranslationKey, string> = {
   milestoneHorizonLater: "Später",
   milestoneHorizonEmpty: "Keine anstehenden Meilensteine",
   milestoneHorizonCount: "{0} ({1})",
+  milestoneHorizonMore: "+{0} weitere",
   dashboardGreetingMorning: "Guten Morgen",
   dashboardGreetingAfternoon: "Guten Tag",
   dashboardGreetingEvening: "Guten Abend",

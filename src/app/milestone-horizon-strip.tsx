@@ -22,6 +22,11 @@ function entryAlert(e: HorizonEntry): boolean {
   return e.status === "overdue" || e.status === "at-risk";
 }
 
+/** Per-bucket chip cap so a large portfolio's "Later" bucket can't flood the
+ *  dashboard. The header still shows the bucket's TRUE total; overflow collapses
+ *  into a "+N more" affordance. */
+const MAX_PER_BUCKET = 5;
+
 export function MilestoneHorizonStrip({ lang, buckets, onOpenMilestone }: MilestoneHorizonStripProps) {
   const total = ORDER.reduce((n, k) => n + buckets[k].length, 0);
   if (total === 0) {
@@ -35,7 +40,7 @@ export function MilestoneHorizonStrip({ lang, buckets, onOpenMilestone }: Milest
             {t(lang, "milestoneHorizonCount", t(lang, LABEL_KEY[k]), String(buckets[k].length))}
           </p>
           <ul className="flex flex-wrap gap-2">
-            {buckets[k].map((e) => {
+            {buckets[k].slice(0, MAX_PER_BUCKET).map((e) => {
               const alert = entryAlert(e);
               const label = `${alert ? "⚠ " : ""}${e.milestone.name} · ${e.milestone.date}`;
               return (
@@ -66,6 +71,23 @@ export function MilestoneHorizonStrip({ lang, buckets, onOpenMilestone }: Milest
                 </li>
               );
             })}
+            {buckets[k].length > MAX_PER_BUCKET && (
+              <li>
+                {onOpenMilestone ? (
+                  <button
+                    type="button"
+                    onClick={() => onOpenMilestone()}
+                    className="rounded-full px-2.5 py-0.5 text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    {t(lang, "milestoneHorizonMore", String(buckets[k].length - MAX_PER_BUCKET))}
+                  </button>
+                ) : (
+                  <span className="px-2.5 py-0.5 text-xs text-muted-foreground">
+                    {t(lang, "milestoneHorizonMore", String(buckets[k].length - MAX_PER_BUCKET))}
+                  </span>
+                )}
+              </li>
+            )}
           </ul>
         </div>
       ))}

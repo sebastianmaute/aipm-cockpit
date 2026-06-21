@@ -37,4 +37,11 @@ describe("MilestoneHorizonStrip", () => {
     render(<MilestoneHorizonStrip lang="en-US" buckets={buckets({ thisWeek: [{ milestone: m(4, "2026-06-28"), status: "at-risk" }] })} />);
     expect(screen.getByText(/⚠/)).toBeInTheDocument();
   });
+
+  test("caps a bucket at 5 chips and shows '+N more' (header keeps the true total)", () => {
+    const many = Array.from({ length: 8 }, (_, i) => ({ milestone: m(i + 1, `2026-09-0${(i % 9) + 1}`), status: "on-track" as const }));
+    render(<MilestoneHorizonStrip lang="en-US" buckets={buckets({ later: many })} />);
+    expect(screen.getByText(/Later \(8\)/)).toBeInTheDocument();
+    expect(screen.getByText(/\+3 more/)).toBeInTheDocument();
+  });
 });

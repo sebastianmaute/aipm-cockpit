@@ -565,6 +565,7 @@ const enUS = {
   milestoneHorizonLater: "Later",
   milestoneHorizonEmpty: "No upcoming milestones",
   milestoneHorizonCount: "{0} ({1})",
+  milestoneHorizonMore: "+{0} more",
   dashboardGreetingMorning: "Good morning",
   dashboardGreetingAfternoon: "Good afternoon",
   dashboardGreetingEvening: "Good evening",
