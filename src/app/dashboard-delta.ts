@@ -77,7 +77,7 @@ export function computeDelta(args: {
   overdue: readonly Task[];
   today: string;
 }): DeltaResult {
-  const { prior, activity, currentRag, overdue } = args;
+  const { prior, activity, currentRag, overdue, today } = args;
   const since = prior.lastVisitAt;
   const isFirstVisit = since === undefined;
 
@@ -91,8 +91,13 @@ export function computeDelta(args: {
     }
   }
 
+  // Newly overdue = became overdue SINCE the last visit. A task due on the
+  // last-visit date wasn't overdue then (due end-of-day) but is now, so the
+  // lower bound is inclusive (`>= sinceDate`). The `< today` guard keeps the
+  // engine self-defensive: it never reports a not-yet-due task as overdue even
+  // if the caller passes an unfiltered list.
   const sinceDate = since ? since.slice(0, 10) : "";
-  const newOverdue = isFirstVisit ? [] : overdue.filter((t) => t.dueDate >= sinceDate);
+  const newOverdue = isFirstVisit ? [] : overdue.filter((t) => t.dueDate >= sinceDate && t.dueDate < today);
 
   const ragFlips: RagFlip[] = [];
   if (!isFirstVisit) {
