@@ -255,7 +255,7 @@ prerendered.
 | `toast-context.tsx` | `ToastContext` + `useToast()` — shared imperative toast access so editor modals can fire the save-time "fields adjusted" toast without prop-drilling | Context; 0.56.0+ |
 | **Chat & Voice** | | |
 | `chat-panel.tsx` | "AI Assistant": Claude chat with tool calls via `dispatcher`; suggested-prompt chips, Stop button (aborts the in-flight turn), centered resizable pane, consent screen; records token usage to AiUsageProvider. Top-bar exposes a pop-out button (0.57+) | Conditional mount; history in TaskManager |
-| `chat-tools.ts` | Tool dispatcher object; CRUD on tasks/RAID | Huge `useMemo` in TaskManager |
+| `chat-tools.ts` | `runTool` routing + `ToolDispatcher` type; CRUD on tasks/RAID/Changes/Milestones/Stakeholders. Tool SCHEMAS live in pure `chat-tool-defs.ts` (re-exported here); tools are IMPLEMENTED in `use-chat-dispatcher.ts` | Barrel-ish; dispatcher `useMemo` in TaskManager |
 | `use-chat-dispatcher.ts` | Hook wrapping chat tools | |
 | `voice-button.tsx` + `voice.ts` | Web Speech API integration | Lazy-imported |
 | **Activity & Notifications** | | |
@@ -299,7 +299,7 @@ prerendered.
 | `nace-sections.ts` | Static `NACE_SECTIONS` list (NACE Rev 2.1 industry sections A–U) | Pure; 0.58.0+ |
 | `projects-registry.ts` | Pure registry core (`addProject`/`removeProject`/`setCurrentProject`/… immutable, id-supplied) + guarded localStorage IO (`lop-app:projects`); file-mode source of truth | Pure + IO; 0.58.0+ |
 | `project-file-handles.ts` | Dedicated IndexedDB DB (`lop-app-project-handles`) storing per-project `FileSystemFileHandle`s out-of-line, keyed by projectId; avoids touching storage.ts's IDB schema | 0.58.0+ |
-| `use-project-switch.ts` | Pure switch/create/load helpers (format→local-kind map, name-from-filename, registry-entry builder); stateful flows live in `use-storage-backend.ts` | Pure; 0.58.0+ |
+| `use-project-switch.ts` | Pure switch/create/load helpers (format→local-kind map, name-from-filename, registry-entry builder); stateful flows live in `use-storage-backend.ts` (persistence core; project flows extracted to `use-storage-file-ops` / `use-storage-turso-ops` hook factories) | Pure; 0.58.0+ |
 | `portfolio-mode.ts` | Global portfolio mode (`"file" \| "turso"`) + last-selected Turso project id in localStorage; guarded IO | Pure + IO; 0.59.0+ |
 | `turso-portfolio.ts` | Turso project CRUD over the shared DB's `projects` table (list/listArchived/create/updateMeta/archive/restore/hardDelete); ensures schema on every call | 0.59.0+ |
 | `type-to-confirm-dialog.tsx` | `TypeToConfirmDialog` — reusable destructive confirm modal; confirm button stays disabled until the exact value (e.g. project name) is typed; used for hard-delete | Component; 0.59.0+ |
@@ -342,10 +342,10 @@ prerendered.
 | `use-bulk-operations.ts` | Bulk-edit operations (e.g. apply field to selected) | |
 | `markdown.tsx` | Renders chat / report markdown safely | |
 | `help-search.ts` | Pure helpers for the Help full-text search (section matching + match-highlight segmentation) | Pure; 0.51.0+ |
-| `export.ts`, `export-ooxml.ts` | Export engines (CSV/MD/JSON/PDF/DOCX/XLSX/PPTX); honour `ExportConfig` per-section toggles (0.57+) | Lazy-imported |
+| `export.ts`, `export-ooxml.ts` | Export engines (CSV/MD/JSON/PDF/DOCX/XLSX/PPTX); honour `ExportConfig` per-section toggles (0.57+). `export-ooxml.ts` is a barrel re-exporting `buildDocx`/`buildXlsx`/`buildPptx` from `export-docx`/`-xlsx`/`-pptx` over `export-ooxml-shared` | Lazy-imported |
 | `export-sections.ts` | Pure generic export-sections model + `buildExportSections(ws, cfg, lang)`: derives ordered `ExportSection[]` (title/columns/rows per entity) from the same CSV column constants + field-to-string helpers; gated by `ExportConfig` toggles AND non-empty data. Single source of truth consumed by all format builders | Pure; 0.57.0+ |
 | `zip.ts` | Hand-rolled STORE-method ZIP writer | No external dep |
-| `sanitize.ts` | Input validation for all inbound fields | Pure |
+| `sanitize.ts` | Input validation for all inbound fields. Barrel (`export *`) over `sanitize-core` (primitives + caps) / `sanitize-entities` / `sanitize-records` | Pure |
 | `health.ts` | RAG status computation + color helpers; gains `healthText` (colorized overall text, 0.48.0+) | Pure |
 | `due-dates.ts` | Due-date sorting + alertable task logic | Pure |
 | `feature-modules.ts` | Module registry (`FEATURE_MODULES`, `FeatureModuleId`, `ALL_MODULE_IDS`) + pure helpers: `sanitizeFeatures()`, `deriveMode()`, `isModuleEnabled()` / `isViewEnabled()`, `enabledNavViews()`, `visibleReports()`, and `disabledViewRedirect(active, features, layout, isPopout)` — where the app lands when the active view's module is disabled (applied by the redirect effect in task-manager, deps include `settings.features`) | Pure; `Settings.features` gates nav/automation/reports by mode; 0.54.0+ |
@@ -364,7 +364,7 @@ prerendered.
 | M365 toggle enabled first time | `@azure/msal-browser` (via `use-ms-auth.ts`) | ~50 KB |
 | Outlook contacts/calendar import opened | `outlook-import-modal.tsx`, `outlook-calendar-import-modal.tsx` + hooks | small |
 | Jira config first used | `jira-api.ts` (~400 LOC) | ~10 KB |
-| User picks DOCX/XLSX/PPTX export | `export-ooxml.ts` (~1,300 lines, plus `zip.ts`) | ~45 KB |
+| User picks DOCX/XLSX/PPTX export | `export-ooxml.ts` barrel → `export-docx`/`-xlsx`/`-pptx` + `export-ooxml-shared`, plus `zip.ts` | ~45 KB |
 | Active language is `de` | `i18n.de.ts` (~700 keys) | ~20 KB |
 | User selects ≥1 holiday country | `date-holidays` (+ moment, moment-tz) | ~100 KB+ |
 | User opens Absence or Shift editor | `absence-edit-modal`, `shift-edit-modal` | small |
