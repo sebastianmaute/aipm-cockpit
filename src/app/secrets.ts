@@ -5,7 +5,7 @@
 // device-bound key (default) or a PBKDF2-derived passphrase key. i18n-free.
 
 export type WrapMode = "device" | "passphrase";
-export type SecretId = "anthropicApiKey" | "tursoAuthToken";
+export type SecretId = "anthropicApiKey" | "tursoAuthToken" | "jiraApiToken";
 
 export interface SealedSecret {
   v: 1;
@@ -25,7 +25,7 @@ export function isSealedSecret(x: unknown): x is SealedSecret {
   const s = x as Record<string, unknown>;
   return (
     s.v === 1 &&
-    (s.id === "anthropicApiKey" || s.id === "tursoAuthToken") &&
+    (s.id === "anthropicApiKey" || s.id === "tursoAuthToken" || s.id === "jiraApiToken") &&
     typeof s.wrap === "string" &&
     WRAP_MODES.includes(s.wrap as WrapMode) &&
     s.alg === "AES-GCM" &&
