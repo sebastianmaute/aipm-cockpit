@@ -8,6 +8,14 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.122.0] - 2026-06-21 "Herbert"
+
+### Added
+- **Dashboard completion-trend sparkline.** A compact line under the at-a-glance
+  KPI strip shows how % complete has moved over recent Turso snapshots, falling
+  back to a reconstruction from the local activity log when snapshots aren't
+  available. Self-hides until there are at least two data points.
+
 ## [0.121.0] - 2026-06-21 "Stephenson"
 
 ### Added

@@ -311,6 +311,24 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
   and the aria-label ("Complete up 5% since last visit") aren't unitless/ambiguous; counts pass `""`. ★
   `Tile` (`report-table.tsx`) gained an optional `trend` slot. Dashboard IS in axe `A11Y_VIEWS` (strip
   tiles are non-interactive `<div>`s; arrow label-bleed guarded). Trend templates are i18n EN+DE.
+- **Dashboard completion-trend sparkline (v0.122.0):** slice 6 of the landing cockpit ("what's the
+  trajectory"). A compact axis-less line of % complete over time, in a self-hiding card directly below
+  the KPI strip. Pure i18n-free `completion-trend.ts` `computeCompletionTrend({snapshots, activity,
+  currentDone, currentTotal, today})` → `CompletionPoint[]` (`{label,percent}`). ★★ SOURCE PRIORITY: if
+  `snapshots` yields ≥2 points → exact `SnapshotRecord.pctComplete` series (Turso path); ELSE reconstruct
+  done/total from the LOCAL activity log — anchor at the live counts and walk `task.created/completed/
+  reopened/deleted` BACKWARD per day (deleted task's done-state unknown → assumed NOT done; documented
+  approximation, like `newOverdue`). Neither ≥2 → `[]` (card hidden). Pure: `today`+counts passed in (no
+  `new Date()`/clock); percents clamped 0–100; future-dated + non-task events ignored; trailing cap
+  `MAX_POINTS=12`. ★ ALWAYS-ON, no `tursoConfig` guard — on file/IDB `snapshots` is `[]` so the log path
+  runs automatically (reads snapshots opportunistically, never WRITES → the Turso-gated rule doesn't
+  apply). Presentational `sparkline.tsx` (pure SVG `<polyline>`, `stroke-AIPM-dark-blue`, null for <2
+  points, SVG `aria-hidden` — the CARD WRAPPER carries the full `aria-label`, label-bleed class). ★ New
+  optional `DashboardPanel` prop `snapshots?` threaded from `trends.snapshots` (workspace-section); the
+  panel ALREADY loads `activity` itself via `loadActivityLog()` (no activity prop). ★ series `useMemo`
+  deps hoisted to scalar locals (`snapCount`/`activityCount`/`currentDone`/`currentTotal`/`today`) — the
+  exhaustive-deps complex-expression ban. `model.progress` exposes `completed`+`total`. Dashboard IS in
+  axe `A11Y_VIEWS` (sparkline non-interactive). i18n EN+DE.
 - **RAID edit modal map:** `RaidEditModal` (`raid-edit-modal.tsx`) owns the draft, query state,
   derived option lists, and add/remove handlers; presentational `raid-risk-matrix.tsx` (`RiskMatrix`
   5×5 picker, Risk items only) and `raid-edit-fields.tsx` (`RaidLinkedTasksField`, `RaidCausedByField`
