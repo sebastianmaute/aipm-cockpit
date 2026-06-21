@@ -769,6 +769,7 @@ export function WorkspaceSection({
               showTrends={settings.dashboard?.showTrends !== false}
               onToggleTrends={(show) => setSettings((s) => ({ ...s, dashboard: { ...s.dashboard, showTrends: show } }))}
               variance={trends.variance}
+              snapshots={trends.snapshots}
               tursoActive={trends.active}
               topActions={nextActions.slice(0, 5)}
               onOpenAction={onOpenAction}
