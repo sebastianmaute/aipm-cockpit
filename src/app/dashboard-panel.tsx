@@ -22,6 +22,8 @@ import type { VarianceRow } from "./snapshot";
 import { useLandingDelta } from "./use-landing-delta";
 import { buildGreeting, type RagScope } from "./dashboard-delta";
 import { DashboardDeltaStrip } from "./dashboard-delta-strip";
+import { bucketMilestonesByHorizon } from "./milestones";
+import { MilestoneHorizonStrip } from "./milestone-horizon-strip";
 
 interface DashboardPanelProps {
   lang: Lang;
@@ -158,6 +160,18 @@ export function DashboardPanel(props: DashboardPanelProps) {
   // Representative task for the strip's task chips (first overdue, else first
   // due-soon). undefined ⇒ the strip downgrades those chips to info-only spans.
   const repTaskId = model.overdue[0]?.id ?? model.dueSoon[0]?.id;
+
+  // Forward "what's coming" milestone horizon for the dashboard strip.
+  const milestoneBuckets = useMemo(
+    () =>
+      bucketMilestonesByHorizon(
+        showMilestones ? (props.milestones ?? []) : [],
+        new Map(props.tasks.map((t) => [t.id, t] as const)),
+        today,
+        props.holidaySet,
+      ),
+    [showMilestones, props.milestones, props.tasks, today, props.holidaySet],
+  );
 
   // Derived-state pattern: track the last stored value we seeded from so we can
   // reset the draft when an external workspace reload changes status.narrative.
@@ -425,27 +439,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           {showMilestones && (
             <Section title={t(lang, "dashboardMilestones")} boxed>
-              {model.overdueMilestones.length + model.atRiskMilestones.length + model.dueSoonMilestones.length === 0 ? (
-                <p className="text-sm text-muted-foreground">—</p>
-              ) : (
-                <ul className="space-y-1 text-sm">
-                  {[...model.overdueMilestones, ...model.atRiskMilestones, ...model.dueSoonMilestones].map((m) => (
-                    <li key={m.id}>
-                      {props.onOpenMilestone ? (
-                        <button
-                          type="button"
-                          className="rounded-md border border-transparent px-2 py-0.5 text-left text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted"
-                          onClick={() => props.onOpenMilestone!()}
-                        >
-                          {model.atRiskMilestones.includes(m) ? "⚠ " : ""}{m.name} · {m.date}
-                        </button>
-                      ) : (
-                        <span>{model.atRiskMilestones.includes(m) ? "⚠ " : ""}{m.name} · {m.date}</span>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              )}
+              <MilestoneHorizonStrip lang={lang} buckets={milestoneBuckets} onOpenMilestone={props.onOpenMilestone} />
             </Section>
           )}
           {showChanges && (

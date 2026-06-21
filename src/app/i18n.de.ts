@@ -541,6 +541,15 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightJiraEncryption: "Ihr Jira-API-Token wird jetzt verschlüsselt gespeichert (AES-256-GCM, gerätegebunden) statt im Klartext — wie der Anthropic-Schlüssel und das Turso-Token.",
   versionHighlightLandingCockpit:
     "Das Dashboard ist jetzt ein Landing-Cockpit: eine Begrüßung und eine „Seit deinem letzten Besuch“-Leiste zeigen, was sich geändert hat (neue Einträge, Statuswechsel), und die priorisierte Nächste-Schritte-Liste steht oben, damit du zuerst siehst, was dich braucht.",
+  versionHighlightMilestoneHorizon:
+    "Die Meilensteinliste im Dashboard ist jetzt ein „Was kommt“-Horizont: Überfällig, Diese Woche, Nächste 2 Wochen und Später – so siehst du den Weg nach vorn auf einen Blick.",
+  milestoneHorizonOverdue: "Überfällig",
+  milestoneHorizonThisWeek: "Diese Woche",
+  milestoneHorizonNext2Weeks: "Nächste 2 Wochen",
+  milestoneHorizonLater: "Später",
+  milestoneHorizonEmpty: "Keine anstehenden Meilensteine",
+  milestoneHorizonCount: "{0} ({1})",
+  milestoneHorizonMore: "+{0} weitere",
   dashboardGreetingMorning: "Guten Morgen",
   dashboardGreetingAfternoon: "Guten Tag",
   dashboardGreetingEvening: "Guten Abend",

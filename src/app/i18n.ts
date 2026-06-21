@@ -557,6 +557,15 @@ const enUS = {
     "Your Jira API token is now encrypted at rest (AES-256-GCM, device-wrapped) instead of stored in plain text — matching the Anthropic key and Turso token.",
   versionHighlightLandingCockpit:
     "The Dashboard is now a landing cockpit: a greeting plus a \"since you last looked\" strip surfaces what changed (new items, status flips), and the ranked next-actions queue sits up top so you see what needs you first.",
+  versionHighlightMilestoneHorizon:
+    "The Dashboard's milestone list is now a \"what's coming\" horizon: Overdue, This week, Next 2 weeks, and Later — so you can see the road ahead at a glance.",
+  milestoneHorizonOverdue: "Overdue",
+  milestoneHorizonThisWeek: "This week",
+  milestoneHorizonNext2Weeks: "Next 2 weeks",
+  milestoneHorizonLater: "Later",
+  milestoneHorizonEmpty: "No upcoming milestones",
+  milestoneHorizonCount: "{0} ({1})",
+  milestoneHorizonMore: "+{0} more",
   dashboardGreetingMorning: "Good morning",
   dashboardGreetingAfternoon: "Good afternoon",
   dashboardGreetingEvening: "Good evening",

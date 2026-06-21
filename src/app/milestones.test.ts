@@ -3,6 +3,7 @@ import {
   isAchieved, isAtRisk, milestoneStatus, sortMilestones,
   partitionMilestones, milestoneScheduleContribution,
   filterMilestones,
+  bucketMilestonesByHorizon, HORIZON_THIS_WEEK_DAYS, HORIZON_NEXT_DAYS,
 } from "./milestones";
 import type { Milestone, Task } from "./types";
 
@@ -113,5 +114,60 @@ describe("filterMilestones", () => {
   });
   it("status=all returns everything", () => {
     expect(filterMilestones(all, { query: "", status: "all", today: filterToday }).map((m) => m.id).sort()).toEqual([1, 2, 3]);
+  });
+});
+
+describe("bucketMilestonesByHorizon", () => {
+  const today = "2026-06-21";
+  const noTasks = new Map<number, Task>();
+  const hs = new Set<string>();
+  const ms = (id: number, date: string, extra: Partial<Milestone> = {}): Milestone =>
+    ({ id, name: `M${id}`, date, linkedTaskIds: [], ...extra } as Milestone);
+
+  it("excludes achieved milestones", () => {
+    const b = bucketMilestonesByHorizon([ms(1, "2026-06-25", { achievedDate: "2026-06-20" })], noTasks, today, hs);
+    expect(b.overdue.length + b.thisWeek.length + b.next2Weeks.length + b.later.length).toBe(0);
+  });
+
+  it("buckets a past unachieved milestone as overdue", () => {
+    const b = bucketMilestonesByHorizon([ms(1, "2026-06-10")], noTasks, today, hs);
+    expect(b.overdue.map((e) => e.milestone.id)).toEqual([1]);
+    expect(b.overdue[0].status).toBe("overdue");
+  });
+
+  it("buckets by calendar-day windows (boundaries 0,7,8,21,22)", () => {
+    const list = [
+      ms(1, "2026-06-21"),
+      ms(2, "2026-06-28"),
+      ms(3, "2026-06-29"),
+      ms(4, "2026-07-12"),
+      ms(5, "2026-07-13"),
+    ];
+    const b = bucketMilestonesByHorizon(list, noTasks, today, hs);
+    expect(b.thisWeek.map((e) => e.milestone.id)).toEqual([1, 2]);
+    expect(b.next2Weeks.map((e) => e.milestone.id)).toEqual([3, 4]);
+    expect(b.later.map((e) => e.milestone.id)).toEqual([5]);
+  });
+
+  it("carries the at-risk status into a future bucket", () => {
+    const tasks = new Map<number, Task>([[10, { id: 10, dueDate: "2026-06-30" } as Task]]);
+    const b = bucketMilestonesByHorizon([ms(1, "2026-06-28", { linkedTaskIds: [10] })], tasks, today, hs);
+    expect(b.thisWeek[0].status).toBe("at-risk");
+  });
+
+  it("sorts each bucket by date then id", () => {
+    const b = bucketMilestonesByHorizon([ms(2, "2026-07-30"), ms(1, "2026-07-20")], noTasks, today, hs);
+    expect(b.later.map((e) => e.milestone.id)).toEqual([1, 2]);
+  });
+
+  it("treats a malformed date as later (never crashes, never mis-overdues)", () => {
+    const b = bucketMilestonesByHorizon([ms(1, "not-a-date")], noTasks, today, hs);
+    expect(b.overdue.length).toBe(0);
+    expect(b.later.map((e) => e.milestone.id)).toEqual([1]);
+  });
+
+  it("exposes the window threshold constants", () => {
+    expect(HORIZON_THIS_WEEK_DAYS).toBe(7);
+    expect(HORIZON_NEXT_DAYS).toBe(21);
   });
 });

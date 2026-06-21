@@ -247,6 +247,24 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
   Dashboard IS in the axe `A11Y_VIEWS` — strip chips are real `<button>`s (text = accessible name), flip
   labels are `<span>`s; the `<details>` is keyboard-native and keeps the override `<select>`s in the DOM
   (so `getByText("Overall")` still resolves).
+- **Milestone horizon strip (v0.119.0):** slice 2 of the landing cockpit ("what's coming"). Pure engine
+  `bucketMilestonesByHorizon` (in `milestones.ts`) buckets NON-achieved milestones into
+  `overdue`/`thisWeek`/`next2Weeks`/`later` by CALENDAR days (`HORIZON_THIS_WEEK_DAYS=7`,
+  `HORIZON_NEXT_DAYS=21`; UTC-midnight `Date.parse`, no `new Date()` of now — `today` passed in);
+  overdue-first, a `d < 0` safety net also routes to overdue, an unparseable date → `later` (never
+  crashes, never false-overdues). Each `HorizonEntry` carries its `milestoneStatus` so the strip flags
+  overdue/at-risk. Presentational `milestone-horizon-strip.tsx` REPLACED the old flat dashboard
+  Milestones list (same `showMilestones`-gated `Section` slot in `dashboard-panel.tsx`; buckets via a
+  `useMemo` over `props.milestones`+`props.tasks`+`today`+`holidaySet`; `onOpenMilestone` ignores its
+  arg → routes to the milestones view, so no dead-click concern). ★ The ENGINE is uncapped (full +
+  testable); the STRIP caps each bucket at `MAX_PER_BUCKET = 5` rendered chips with a "+N more"
+  affordance (the bucket header still shows the TRUE total) — without the cap a large portfolio's
+  `later` bucket floods the dashboard cell. ★★ REUSABLE a11y LANDMINE: a `RagBadge` (renders
+  `<span role="img" aria-label="Red"/"Amber">`) placed INSIDE a `<button>`/clickable chip BLEEDS its
+  label into the element's computed accessible name (→ "Red ⚠ M1 · date"). Wrap it in
+  `<span aria-hidden="true">` whenever the visible ⚠/text already conveys the meaning — applies to ANY
+  RagBadge-in-button, not just here. ★ Dashboard IS in axe `A11Y_VIEWS`; chips are real `<button>`s with
+  row-unique text names.
 - **RAID edit modal map:** `RaidEditModal` (`raid-edit-modal.tsx`) owns the draft, query state,
   derived option lists, and add/remove handlers; presentational `raid-risk-matrix.tsx` (`RiskMatrix`
   5×5 picker, Risk items only) and `raid-edit-fields.tsx` (`RaidLinkedTasksField`, `RaidCausedByField`
