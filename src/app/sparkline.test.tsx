@@ -18,8 +18,16 @@ describe("Sparkline", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  test("svg is aria-hidden (meaning rides the parent wrapper)", () => {
+  test("svg is decorative (aria-hidden) when no ariaLabel is given", () => {
     const { container } = render(<Sparkline points={pts([10, 20])} />);
-    expect(container.querySelector("svg")!.getAttribute("aria-hidden")).toBe("true");
+    const svg = container.querySelector("svg")!;
+    expect(svg.getAttribute("aria-hidden")).toBe("true");
+    expect(svg.getAttribute("role")).toBeNull();
+  });
+
+  test("exposes role=img + aria-label when ariaLabel is given (bare-div label is not announced)", () => {
+    const { getByRole } = render(<Sparkline points={pts([10, 20])} ariaLabel="Completion trend: 20% now" />);
+    const svg = getByRole("img", { name: "Completion trend: 20% now" });
+    expect(svg.getAttribute("aria-hidden")).toBeNull();
   });
 });

@@ -300,16 +300,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
 
         {/* Completion-trend sparkline — self-hides without >= 2 points */}
         {completionSeries.length >= 2 && (
-          <div
-            className="rounded border border-line bg-surface p-3"
-            aria-label={t(
-              lang,
-              "dashboardCompletionTrendAria",
-              completionSeries[completionSeries.length - 1].percent,
-              completionSeries[0].percent,
-              completionSeries.length,
-            )}
-          >
+          <div className="rounded border border-line bg-surface p-3">
             <div className="mb-1 flex items-baseline justify-between">
               <span className="text-xs uppercase tracking-wide text-muted-foreground">
                 {t(lang, "dashboardCompletionTrend")}
@@ -318,7 +309,16 @@ export function DashboardPanel(props: DashboardPanelProps) {
                 {t(lang, "dashboardCompletionTrendPoints", completionSeries.length)}
               </span>
             </div>
-            <Sparkline points={completionSeries} />
+            <Sparkline
+              points={completionSeries}
+              ariaLabel={t(
+                lang,
+                "dashboardCompletionTrendAria",
+                completionSeries[completionSeries.length - 1].percent,
+                completionSeries[0].percent,
+                completionSeries.length,
+              )}
+            />
           </div>
         )}
 

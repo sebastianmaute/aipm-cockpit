@@ -841,6 +841,9 @@ describe("DashboardPanel completion-trend card", () => {
     );
     expect(screen.getByText("Completion trend")).toBeInTheDocument();
     expect(container.querySelector("polyline")).not.toBeNull();
+    // The graphic carries an announced accessible name (role=img), not a dead
+    // aria-label on a bare wrapper div.
+    expect(screen.getByRole("img", { name: /Completion trend: \d+% now/ })).toBeInTheDocument();
   });
 
   it("hides the trend card when there is no series", () => {
