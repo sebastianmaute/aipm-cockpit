@@ -1,222 +1,91 @@
 "use client";
-import dynamic from "next/dynamic";
 import type React from "react";
-import { useCallback, useState } from "react";
-import { t } from "./i18n";
-import { openPopoutWindow } from "./broadcast-sync";
-import { useSettings } from "./use-settings";
-import { useWorkspace } from "./workspace-context";
-import { useWorkspaceTab } from "./workspace-tab-context";
-import { useFilters } from "./filters-context";
-import { TabButton, ResetSizeIcon } from "./task-manager-ui";
-import { navLabelKey, subTabsFor } from "./nav-config";
-import { isModuleEnabled } from "./feature-modules";
-import { DEFAULT_EXTRA_REPORTS } from "./addable-reports";
-import type { ToolDispatcher } from "./chat-tools";
-import type { UseSnapshotsResult } from "./use-snapshots";
-import type { UseVersionHistoryResult } from "./use-version-history";
-import type { ActivityEntry, ActivityKind } from "./activity-log";
-import type { Absence, BudgetBucket, ChangeItem, ProjectMeta, RaidItem, Resource, Shift, Stakeholder, Task } from "./types";
-import type { NewProjectOpts } from "./new-project-workspace";
-import type { Settings } from "./settings-types";
-import type { ProjectRegistryEntry } from "./projects-registry";
-import type { Contact } from "./contacts";
-import type { SuggestedAction } from "./next-actions";
-import type { AssignOwnerBundle } from "./action-row";
-import type { EscalateBundle } from "./escalate-popover";
-import type { RebaselineBundle } from "./rebaseline-popover";
-import type { AiAnalysisBundle } from "./actions-panel";
-import type { OperatingGuide } from "./operating-guide";
-import { ActionChips, chipsForView } from "./action-chips";
-import { TzClockStrip } from "./tz-clock-strip";
-import { resolveTimezone } from "./timezone";
-import { ResourceDirectory } from "./resource-directory";
-import { DashboardPanel } from "./dashboard-panel";
-import { MilestonesPanel } from "./milestones-panel";
-import { SteeringCommitteePanel } from "./steering-committee-panel";
+import {
+  useCallback,
+  useState,
+} from "react";
+import {
+  t,
+} from "./i18n";
+import {
+  openPopoutWindow,
+} from "./broadcast-sync";
+import {
+  useSettings,
+} from "./use-settings";
+import {
+  useWorkspace,
+} from "./workspace-context";
+import {
+  useWorkspaceTab,
+} from "./workspace-tab-context";
+import {
+  useFilters,
+} from "./filters-context";
+import {
+  TabButton,
+  ResetSizeIcon,
+} from "./task-manager-ui";
+import {
+  navLabelKey,
+  subTabsFor,
+} from "./nav-config";
+import {
+  isModuleEnabled,
+} from "./feature-modules";
+import {
+  DEFAULT_EXTRA_REPORTS,
+} from "./addable-reports";
 
-const ChatPanel = dynamic(
-  () => import("./chat-panel").then((m) => m.ChatPanel),
-  { ssr: false },
-);
-const GanttPanel = dynamic(
-  () => import("./gantt").then((m) => m.GanttPanel),
-  { ssr: false },
-);
-const ReportsPanel = dynamic(
-  () => import("./reports").then((m) => m.ReportsPanel),
-  { ssr: false },
-);
-const RaidPanel = dynamic(
-  () => import("./raid-panel").then((m) => m.RaidPanel),
-  { ssr: false },
-);
-const ResourcesPanel = dynamic(
-  () => import("./resources-panel").then((m) => m.ResourcesPanel),
-  { ssr: false },
-);
-const ActivityLogPanel = dynamic(
-  () => import("./activity-log-panel").then((m) => m.ActivityLogPanel),
-  { ssr: false },
-);
-const ResourcesReportPanel = dynamic(
-  () => import("./resources-report").then((m) => m.ResourcesReportPanel),
-  { ssr: false },
-);
-const RaidReportPanel = dynamic(
-  () => import("./raid-report-panel").then((m) => m.RaidReportPanel),
-  { ssr: false },
-);
-const ChangePanel = dynamic(
-  () => import("./change-panel").then((m) => m.ChangePanel),
-  { ssr: false },
-);
-const ChangeReportPanel = dynamic(
-  () => import("./change-report-panel").then((m) => m.ChangeReportPanel),
-  { ssr: false },
-);
-const StakeholdersPanel = dynamic(
-  () => import("./stakeholders-panel").then((m) => m.StakeholdersPanel),
-  { ssr: false },
-);
-const RaciPanel = dynamic(
-  () => import("./raci-panel").then((m) => m.RaciPanel),
-  { ssr: false },
-);
-const StakeholderMapPanel = dynamic(
-  () => import("./stakeholder-map-panel").then((m) => m.StakeholderMapPanel),
-  { ssr: false },
-);
-const BudgetPanel = dynamic(
-  () => import("./budget-panel").then((m) => m.BudgetPanel),
-  { ssr: false },
-);
-const BudgetReportPanel = dynamic(
-  () => import("./budget-report-panel").then((m) => m.BudgetReportPanel),
-  { ssr: false },
-);
-const TrendsPanel = dynamic(
-  () => import("./trends-panel").then((m) => m.TrendsPanel),
-  { ssr: false },
-);
-const HistoryPanel = dynamic(
-  () => import("./history-panel").then((m) => m.HistoryPanel),
-  { ssr: false },
-);
-const ProjectsPanel = dynamic(
-  () => import("./projects-panel").then((m) => m.ProjectsPanel),
-  { ssr: false },
-);
-const ActionsPanel = dynamic(
-  () => import("./actions-panel").then((m) => m.ActionsPanel),
-  { ssr: false },
-);
-const DocumentsPanel = dynamic(
-  () => import("./documents-panel").then((m) => m.DocumentsPanel),
-  { ssr: false },
-);
+import {
+  ActionChips,
+  chipsForView,
+} from "./action-chips";
+import {
+  TzClockStrip,
+} from "./tz-clock-strip";
+import {
+  resolveTimezone,
+} from "./timezone";
+import {
+  ResourceDirectory,
+} from "./resource-directory";
+import {
+  DashboardPanel,
+} from "./dashboard-panel";
+import {
+  MilestonesPanel,
+} from "./milestones-panel";
+import {
+  SteeringCommitteePanel,
+} from "./steering-committee-panel";
 
-export interface WorkspaceSectionProps {
-  today: string;
-  holidaySet: Set<string>;
-  workspaceRef: React.RefObject<HTMLElement | null>;
-  resetWorkspaceSize: () => void;
-  workspaceCollapsed: boolean;
-  setWorkspaceCollapsed: React.Dispatch<React.SetStateAction<boolean>>;
-  dispatcher: ToolDispatcher;
-  fullBleed?: boolean;
-  handleGanttBarUpdate: (edit: {
-    taskId: number;
-    startDate: string;
-    dueDate: string;
-  }) => void;
-  handleCancelEdit: () => void;
-  setTaskModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  contactsList: Contact[];
-  onCreateResource: (name: string, email: string) => number;
-  handleClearRaidTaskFilter: () => void;
-  handleSaveRaidItem: (item: RaidItem) => void;
-  handleDeleteRaidItem: (id: number) => void;
-  changes: readonly ChangeItem[];
-  handleSaveChange: (item: ChangeItem) => void;
-  handleDeleteChange: (id: number, title: string) => void;
-  stakeholders: readonly Stakeholder[];
-  handleSaveStakeholder: (item: Stakeholder) => void;
-  handleDeleteStakeholder: (id: number, name: string) => void;
-  /** Stakeholder ids with a pending stakeholder-comms next-action (drives the matrix icon). */
-  commsPendingStakeholderIds?: ReadonlySet<number>;
-  /** Jump to the Action Center for the given stakeholder. */
-  onJumpToComms?: (stakeholderId: number) => void;
-  handleCreateMitigationTaskFromRaid: (raidId: number) => number | null | undefined;
-  handleJumpToTaskFromRaid: (taskId: number) => void;
-  activityLog: ActivityEntry[];
-  logActivity: (kind: ActivityKind, ...args: (string | number)[]) => void;
-  handleClearActivityLog: () => void;
-  handleOpenAddAbsence: () => void;
-  handleEditAbsence: (absence: Absence) => void;
-  handleOpenShiftEditor: (
-    existingShift: Shift | null,
-    assignee: { display: string; email: string },
-  ) => void;
-  manageRolesView?: React.ReactNode;
-  onAssignRole: (resourceId: number, disciplineId: number, gradeId: number) => void;
-  onSetUtilization: (resourceId: number, periodKey: string, value: number) => void;
-  onSetAllUtilizationMode: (mode: "percent" | "hours") => void;
-  onSetAbsenceOverride: (resourceId: number, periodKey: string, hours: number | null) => void;
-  onSetPlanWindow: (startDate: string, endDate: string) => void;
-  onEditResource: (resource: Resource) => void;
-  onAddResource: (seed?: Partial<Resource>) => void;
-  onImportOutlook?: () => void;
-  onImportOutlookCalendar?: () => void;
-  onEditTask?: (task: Task) => void;
-  onChangeBudgets: (next: BudgetBucket[]) => void;
-  onRefreshFx: () => void;
-  fxLoading?: boolean;
-  trends: UseSnapshotsResult & { active: boolean };
-  versionHistory: UseVersionHistoryResult;
-  // Multi-project (Projects view). The mutating callbacks are no-ops in popouts
-  // (their hook implementations early-return on isPopout); the panel still
-  // renders read-only there, matching every other panel. Mode-aware: file mode
-  // uses the localStorage registry; turso mode uses the shared DB project list
-  // (archive/restore/hard-delete instead of delete-from-registry).
-  mode: "file" | "turso";
-  projects: ProjectRegistryEntry[];
-  currentProjectId: string | null;
-  currentProject?: ProjectMeta;
-  archivedProjects?: ProjectRegistryEntry[];
-  projectStakeholderNames: string[];
-  projectAddressBook: Contact[];
-  projectResources: readonly Resource[];
-  projectSettings: Settings;
-  onChangeProjectSettings: (s: Settings) => void;
-  onSwitchProject: (id: string) => void;
-  onCreateProject: (meta: ProjectMeta, format: "json" | "csv" | "md", opts?: NewProjectOpts) => void;
-  onUpdateCurrentProject: (meta: ProjectMeta) => void;
-  onDeleteProject: (id: string) => void;
-  onExportCurrentProject: (format: string) => void;
-  onLoadProjectFromFile: () => void;
-  onMigrateProjectToTurso: () => void;
-  onArchiveProject?: (id: string) => void;
-  onRestoreProject?: (id: string) => void;
-  onHardDeleteProject?: (id: string) => void;
-  nextActions: readonly SuggestedAction[];
-  onOpenAction: (a: SuggestedAction) => void;
-  onSnooze?: (a: SuggestedAction, ms: number) => void;
-  onCreateTask?: (a: SuggestedAction) => void;
-  onDraftMessage?: (a: SuggestedAction) => void;
-  assignOwner?: AssignOwnerBundle;
-  escalate?: EscalateBundle;
-  rebaseline?: RebaselineBundle;
-  learningEnabled?: boolean;
-  expertMode?: boolean;
-  onOpenLearningSettings?: () => void;
-  aiAnalysis?: AiAnalysisBundle;
-  onPushMilestonesToOutlook?: () => void;
-  calendarPushBusy?: boolean;
-  committeeOutlookPush?: { onPush: () => void; busy: boolean };
-  guides?: readonly OperatingGuide[];
-  guidesReady?: boolean;
-}
+import {
+  ChatPanel,
+  GanttPanel,
+  ReportsPanel,
+  RaidPanel,
+  ResourcesPanel,
+  ActivityLogPanel,
+  ResourcesReportPanel,
+  RaidReportPanel,
+  ChangePanel,
+  ChangeReportPanel,
+  StakeholdersPanel,
+  RaciPanel,
+  StakeholderMapPanel,
+  BudgetPanel,
+  BudgetReportPanel,
+  TrendsPanel,
+  HistoryPanel,
+  ProjectsPanel,
+  ActionsPanel,
+  DocumentsPanel,
+} from "./workspace-panels";
+import type { WorkspaceSectionProps } from "./workspace-section-types";
+// Re-export so existing importers of `WorkspaceSectionProps` from
+// "./workspace-section" keep working (the type now lives in the types module).
+export type { WorkspaceSectionProps } from "./workspace-section-types";
 
 export function WorkspaceSection({
   today,
