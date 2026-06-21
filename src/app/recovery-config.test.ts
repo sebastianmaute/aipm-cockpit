@@ -61,11 +61,11 @@ describe("recovery-config", () => {
   it("exportConfig emits the live config keys with secrets redacted", () => {
     window.localStorage.setItem(
       SETTINGS_KEY,
-      JSON.stringify({ ai: { apiKey: "ASECRET" }, integrations: { turso: { authToken: "SECRET" } }, jira: { token: "JSECRET" } }),
+      JSON.stringify({ ai: { apiKey: "ASECRET" }, integrations: { turso: { authToken: "SECRET" } }, jira: { apiToken: "JSECRET" } }),
     );
     const out = JSON.parse(exportConfig());
     expect(out[SETTINGS_KEY].integrations.turso.authToken).toBe("***REDACTED***");
-    expect(out[SETTINGS_KEY].jira.token).toBe("***REDACTED***");
+    expect(out[SETTINGS_KEY].jira.apiToken).toBe("***REDACTED***");
     expect(out[SETTINGS_KEY].ai.apiKey).toBe("***REDACTED***");
   });
 
