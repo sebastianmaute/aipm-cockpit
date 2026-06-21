@@ -8,6 +8,18 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.118.0] - 2026-06-21 "Atwood"
+
+### Added
+- **Dashboard landing cockpit.** The Dashboard now opens with a greeting and a
+  "Since you last looked" strip that surfaces what changed since your previous
+  visit — new/updated tasks, RAID and milestone activity, newly-overdue items,
+  and project RAG status flips — with clickable chips that jump to the relevant
+  view. The ranked next-actions queue is promoted to the top so the most
+  important work is visible first, and the RAG override controls are folded into
+  an "Adjust health ratings" disclosure to reduce clutter. Per-device,
+  per-project state is stored locally (never exported).
+
 ## [0.117.0] - 2026-06-21 "Bradbury"
 
 ### Security
