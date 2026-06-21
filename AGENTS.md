@@ -263,8 +263,12 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
   `<span role="img" aria-label="Red"/"Amber">`) placed INSIDE a `<button>`/clickable chip BLEEDS its
   label into the element's computed accessible name (→ "Red ⚠ M1 · date"). Wrap it in
   `<span aria-hidden="true">` whenever the visible ⚠/text already conveys the meaning — applies to ANY
-  RagBadge-in-button, not just here. ★ Dashboard IS in axe `A11Y_VIEWS`; chips are real `<button>`s with
-  row-unique text names.
+  RagBadge-in-button, not just here. ★★ INVERSE trap (same class): an `aria-label` on a NON-interactive
+  BARE `<div>`/wrapper (no `role`) is NOT announced by screen readers — it's dead markup. To name a
+  decorative graphic (SVG sparkline/chart), put `role="img"` + `aria-label` ON THE GRAPHIC element
+  itself (mirrors `trend-chart.tsx`), NOT on a wrapper div. axe does NOT flag the dead-label case, so it
+  passes the gate while the meaning is invisible (caught in slice-6 sparkline review). ★ Dashboard IS in
+  axe `A11Y_VIEWS`; chips are real `<button>`s with row-unique text names.
 - **Dashboard coaching CTAs (v0.120.0):** slice 3 of the landing cockpit (first-open story). Pure
   i18n-free `dashboard-coaching.ts` `computeCoaching({taskCount,milestoneCount,budgetCount,
   showMilestones,showBudget,aiConfigured})` → ordered `CoachingCta[]` (`{key,labelKey,view}`,
@@ -311,6 +315,25 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
   and the aria-label ("Complete up 5% since last visit") aren't unitless/ambiguous; counts pass `""`. ★
   `Tile` (`report-table.tsx`) gained an optional `trend` slot. Dashboard IS in axe `A11Y_VIEWS` (strip
   tiles are non-interactive `<div>`s; arrow label-bleed guarded). Trend templates are i18n EN+DE.
+- **Dashboard completion-trend sparkline (v0.122.0):** slice 6 of the landing cockpit ("what's the
+  trajectory"). A compact axis-less line of % complete over time, in a self-hiding card directly below
+  the KPI strip. Pure i18n-free `completion-trend.ts` `computeCompletionTrend({snapshots, activity,
+  currentDone, currentTotal, today})` → `CompletionPoint[]` (`{label,percent}`). ★★ SOURCE PRIORITY: if
+  `snapshots` yields ≥2 points → exact `SnapshotRecord.pctComplete` series (Turso path); ELSE reconstruct
+  done/total from the LOCAL activity log — anchor at the live counts and walk `task.created/completed/
+  reopened/deleted` BACKWARD per day (deleted task's done-state unknown → assumed NOT done; documented
+  approximation, like `newOverdue`). Neither ≥2 → `[]` (card hidden). Pure: `today`+counts passed in (no
+  `new Date()`/clock); percents clamped 0–100; future-dated + non-task events ignored; trailing cap
+  `MAX_POINTS=12`. ★ ALWAYS-ON, no `tursoConfig` guard — on file/IDB `snapshots` is `[]` so the log path
+  runs automatically (reads snapshots opportunistically, never WRITES → the Turso-gated rule doesn't
+  apply). Presentational `sparkline.tsx` (pure SVG `<polyline>`, `stroke-AIPM-dark-blue`, null for <2
+  points; optional `ariaLabel` prop → SVG gets `role="img"`+`aria-label` (announced), else `aria-hidden`
+  decorative — the name rides the GRAPHIC, not the bare card div; see the inverse-label-bleed trap above). ★ New
+  optional `DashboardPanel` prop `snapshots?` threaded from `trends.snapshots` (workspace-section); the
+  panel ALREADY loads `activity` itself via `loadActivityLog()` (no activity prop). ★ series `useMemo`
+  deps hoisted to scalar locals (`snapCount`/`activityCount`/`currentDone`/`currentTotal`/`today`) — the
+  exhaustive-deps complex-expression ban. `model.progress` exposes `completed`+`total`. Dashboard IS in
+  axe `A11Y_VIEWS` (sparkline non-interactive). i18n EN+DE.
 - **RAID edit modal map:** `RaidEditModal` (`raid-edit-modal.tsx`) owns the draft, query state,
   derived option lists, and add/remove handlers; presentational `raid-risk-matrix.tsx` (`RiskMatrix`
   5×5 picker, Risk items only) and `raid-edit-fields.tsx` (`RaidLinkedTasksField`, `RaidCausedByField`

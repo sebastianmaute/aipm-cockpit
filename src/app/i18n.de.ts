@@ -547,6 +547,11 @@ export const de: Record<TranslationKey, string> = {
     "Neue Projekte erhalten im Dashboard eine „Erste Schritte“-Karte mit Ein-Klick-Schritten – Aufgabe anlegen, KI-Assistenten einrichten, Meilenstein anlegen, Budget einrichten – die verschwindet, sobald es losgeht.",
   versionHighlightTrendArrows:
     "Die wichtigsten Kennzahlen im Dashboard – Fertigstellung, überfällige Aufgaben, offene RAID – zeigen jetzt einen Trendpfeil und die Veränderung seit deinem letzten Besuch, damit du auf einen Blick siehst, in welche Richtung sich das Projekt bewegt.",
+  versionHighlightBurndownSparkline:
+    "Das Dashboard zeigt jetzt unter den Kennzahlen eine kleine Trendlinie zum Fertigstellungsgrad, sodass auf einen Blick sichtbar ist, wie sich der Fortschritt über die letzten Snapshots oder Aktivitäten entwickelt hat.",
+  dashboardCompletionTrend: "Fertigstellungstrend",
+  dashboardCompletionTrendPoints: "{0} Punkte",
+  dashboardCompletionTrendAria: "Fertigstellungstrend: {0}% jetzt, von {1}% über {2} Punkte",
   dashboardKpiStrip: "Auf einen Blick",
   dashboardKpiComplete: "Fertig",
   dashboardKpiOverdue: "Überfällig",

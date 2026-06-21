@@ -563,6 +563,11 @@ const enUS = {
     "New projects get a \"Get started\" card on the Dashboard with one-tap steps — add a task, configure the AI assistant, add a milestone, set up a budget — that disappears once you're underway.",
   versionHighlightTrendArrows:
     "The Dashboard's headline numbers — completion, overdue tasks, open RAID — now show a trend arrow and the change since your last visit, so you can see at a glance which way the project is moving.",
+  versionHighlightBurndownSparkline:
+    "The Dashboard now shows a small completion-trend sparkline under the headline numbers, so you can see how % complete has moved over recent snapshots or activity at a glance.",
+  dashboardCompletionTrend: "Completion trend",
+  dashboardCompletionTrendPoints: "{0} points",
+  dashboardCompletionTrendAria: "Completion trend: {0}% now, from {1}% over {2} points",
   dashboardKpiStrip: "At a glance",
   dashboardKpiComplete: "Complete",
   dashboardKpiOverdue: "Overdue",

@@ -813,3 +813,41 @@ describe("DashboardPanel top-band Budget/Scope pill gating", () => {
     expect(screen.queryAllByText("Scope").length).toBe(0);
   });
 });
+
+describe("DashboardPanel completion-trend card", () => {
+  function snapRec(capturedAt: string, pct: number) {
+    return {
+      id: capturedAt, capturedAt, bucket: capturedAt.slice(0, 10), cadence: "daily" as const,
+      trigger: "manual" as const, isBaseline: false, remainingHours: null, remainingCost: null,
+      pctComplete: pct, forecastEndDate: "2026-12-31", planEndDate: "2026-12-31",
+      spi: null, cpi: null, overallRag: "" as const, scheduleRag: "" as const,
+      budgetRag: "" as const, scopeRag: "" as const, currency: "EUR", milestones: [], series: [],
+    };
+  }
+
+  const baseProps = {
+    lang: "en-US" as const,
+    tasks: [], raid: [], budgets: [], plan, roles: [], resources: [], absences: [],
+    holidaySet: new Set<string>(), workdayHours: 8, today: "2026-06-21",
+  };
+
+  it("shows the trend card when snapshots yield >= 2 points", () => {
+    const { container } = render(
+      <DashboardPanel
+        {...baseProps}
+        snapshots={[snapRec("2026-06-10T00:00:00.000Z", 20), snapRec("2026-06-14T00:00:00.000Z", 55)]}
+      />,
+      { wrapper },
+    );
+    expect(screen.getByText("Completion trend")).toBeInTheDocument();
+    expect(container.querySelector("polyline")).not.toBeNull();
+    // The graphic carries an announced accessible name (role=img), not a dead
+    // aria-label on a bare wrapper div.
+    expect(screen.getByRole("img", { name: /Completion trend: \d+% now/ })).toBeInTheDocument();
+  });
+
+  it("hides the trend card when there is no series", () => {
+    render(<DashboardPanel {...baseProps} snapshots={[]} />, { wrapper });
+    expect(screen.queryByText("Completion trend")).toBeNull();
+  });
+});
