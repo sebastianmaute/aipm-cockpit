@@ -181,6 +181,18 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
   instead of Jira's resolution date). The board/table selects + drag are disabled for synced;
   `onStatusChange` no-ops on `jiraKey`. Board is NOT in the axe `A11Y_VIEWS` (gate scans the
   table view) — board a11y is eye-verified (row-unique select labels + per-column `aria-label`).
+- **Gantt module map:** `GanttPanel` (`gantt.tsx`) is the orchestrator only (data derivation +
+  layout); the heavy parts are extracted. Pure i18n-free ENGINE is `gantt-engine.ts` (date math,
+  prefs load/save, critical-path, derive-bar — note `.ts` shadows no `.tsx`). React pieces:
+  hooks `use-gantt-bar-drag.ts` (bar move/resize — window pointer-listener drag lifecycle +
+  `previewDates`/`startBarDrag`, mirrors drag into state for the preview bar) and
+  `use-gantt-prefs.ts` (sort/filter prefs state + localStorage hydrate/persist + setters);
+  presentational `gantt-chrome.tsx` (`GanttToolbar`, `GanttHeader` axis, `GanttDependencyLayer`
+  SVG arrows + milestone connectors) and `gantt-rows.tsx` (`GanttTaskRow`, `GanttMilestoneRow`).
+  Rows/chrome are PURE — `GanttPanel` threads data + the drag state/handlers (incl. the same
+  `interactingWithBarRef` the row's `onDragStart` reads synchronously) down as props. ★ Gantt IS in
+  the axe `A11Y_VIEWS` (12-view gate). ★ One brittle markup-ORDER source test reads `gantt-chrome.tsx`
+  now (toolbar markup moved there), not `gantt.tsx`.
 - **Scrollbar gap:** per-view inner scrollers (`min-h-0 flex-1 overflow-auto`) need `pr-2` for the
   content↔scrollbar gap. Shared `INNER_TABLE_CLASS`/report-table/actions-panel already include it;
   bare per-panel scrollers do NOT — add `pr-2` or content jams the scrollbar.
@@ -202,8 +214,12 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
 - M365 Graph called client-side via `useMsAuth().acquireToken(scopes, { interactive })` —
   `interactive:true` pops incremental-consent dialog for new scope; background probes stay
   silent. New Graph host must be added to CSP allowlist (above).
-- AI Assistant: `chat-panel.tsx` calls Anthropic directly (browser, `anthropic-dangerous-direct-
-  browser-access`). `buildSystemPrompt` returns `SystemBlock[]`, NOT a string. Anthropic prompt
+- AI Assistant: `chat-panel.tsx` is the React surface; the non-React WIRE LAYER (Anthropic
+  protocol types `TextBlock`/`ContentBlock`/`SystemBlock`/`ApiMessage`/`DisplayItem`, `callClaude`,
+  `buildSystemPrompt`, `systemBlocksText`, `readAttachmentData`, `stringifyResult`) lives in pure
+  i18n-free `chat-api.ts` — import from there, NOT chat-panel (tests do too). It calls Anthropic
+  directly (browser, `anthropic-dangerous-direct-browser-access`). `buildSystemPrompt` returns
+  `SystemBlock[]`, NOT a string. Anthropic prompt
   caching is PREFIX-based: stable/cacheable content (instructions + operating-guide text) MUST come
   FIRST with `cache_control:{type:"ephemeral"}` breakpoint after it, and volatile data (today,
   task count, current view/mode) MUST come AFTER — mixing volatile data into cached block (or
