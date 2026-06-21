@@ -69,3 +69,6 @@ next-env.d.ts
 *.sqlite3-wal
 # Local UI-demo recorder artifacts (not part of the repo)
 /demo/
+
+# Brainstorm/plan/spec working docs — kept LOCAL only, not part of the repo
+/docs/superpowers/
