@@ -178,18 +178,16 @@ export function DashboardPanel(props: DashboardPanelProps) {
     [showMilestones, props.milestones, props.tasks, today, props.holidaySet],
   );
 
-  // First-open coaching CTAs (self-hide once any task exists).
+  // First-open coaching CTAs (self-hide once any task exists). Counts hoisted to
+  // locals so the dep array stays scalar (exhaustive-deps rejects a `?.length`
+  // member expression in the array).
+  const taskCount = props.tasks.length;
+  const milestoneCount = props.milestones?.length ?? 0;
+  const budgetCount = props.budgets.length;
+  const aiConfigured = props.aiConfigured ?? false;
   const coachingCtas = useMemo(
-    () =>
-      computeCoaching({
-        taskCount: props.tasks.length,
-        milestoneCount: props.milestones?.length ?? 0,
-        budgetCount: props.budgets.length,
-        showMilestones,
-        showBudget,
-        aiConfigured: props.aiConfigured ?? false,
-      }),
-    [props.tasks.length, props.milestones, props.budgets.length, showMilestones, showBudget, props.aiConfigured],
+    () => computeCoaching({ taskCount, milestoneCount, budgetCount, showMilestones, showBudget, aiConfigured }),
+    [taskCount, milestoneCount, budgetCount, showMilestones, showBudget, aiConfigured],
   );
 
   // Derived-state pattern: track the last stored value we seeded from so we can
