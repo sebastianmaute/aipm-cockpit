@@ -138,7 +138,7 @@ export function SortHeaderButton({
   );
 }
 
-export function Tile({ label, value, rag }: { label: React.ReactNode; value: React.ReactNode; rag?: React.ReactNode }) {
+export function Tile({ label, value, rag, trend }: { label: React.ReactNode; value: React.ReactNode; rag?: React.ReactNode; trend?: React.ReactNode }) {
   return (
     <div className="rounded-lg border border-line bg-surface p-3">
       <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
@@ -146,6 +146,7 @@ export function Tile({ label, value, rag }: { label: React.ReactNode; value: Rea
         <span>{value}</span>
         {rag}
       </div>
+      {trend ? <div className="mt-1">{trend}</div> : null}
     </div>
   );
 }

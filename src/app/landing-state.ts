@@ -16,6 +16,7 @@ function isLandingState(v: unknown): v is LandingState {
   const s = v as LandingState;
   if (s.lastVisitAt !== undefined && typeof s.lastVisitAt !== "string") return false;
   if (s.rag !== undefined && (typeof s.rag !== "object" || s.rag === null)) return false;
+  if (s.metrics !== undefined && (typeof s.metrics !== "object" || s.metrics === null)) return false;
   return true;
 }
 

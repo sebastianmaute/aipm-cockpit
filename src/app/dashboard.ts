@@ -193,6 +193,9 @@ export type DashboardModel = {
   burndown: BurndownSeries | null;
   evm: EvmMetrics;
   topRaid: RaidItem[];
+  /** Total open (non-terminal) RAID items — the trend-arrow source, since
+   *  `topRaid` is capped and can't reflect the true count. */
+  openRaidCount: number;
   overdue: Task[];
   dueSoon: Task[];
   overdueMilestones: Milestone[];
@@ -288,6 +291,7 @@ export function computeDashboard(input: DashboardInput, opts: DashboardOptions =
     burndown,
     evm,
     topRaid: selectTopRaid(input.raid, topRaidN),
+    openRaidCount: input.raid.filter((r) => !isTerminalStatus(r.status, r.category)).length,
     overdue,
     dueSoon,
     overdueMilestones: ms.overdue,

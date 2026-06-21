@@ -545,6 +545,15 @@ export const de: Record<TranslationKey, string> = {
     "Die Meilensteinliste im Dashboard ist jetzt ein „Was kommt“-Horizont: Überfällig, Diese Woche, Nächste 2 Wochen und Später – so siehst du den Weg nach vorn auf einen Blick.",
   versionHighlightCoaching:
     "Neue Projekte erhalten im Dashboard eine „Erste Schritte“-Karte mit Ein-Klick-Schritten – Aufgabe anlegen, KI-Assistenten einrichten, Meilenstein anlegen, Budget einrichten – die verschwindet, sobald es losgeht.",
+  versionHighlightTrendArrows:
+    "Die wichtigsten Kennzahlen im Dashboard – Fertigstellung, überfällige Aufgaben, offene RAID – zeigen jetzt einen Trendpfeil und die Veränderung seit deinem letzten Besuch, damit du auf einen Blick siehst, in welche Richtung sich das Projekt bewegt.",
+  dashboardKpiStrip: "Auf einen Blick",
+  dashboardKpiComplete: "Fertig",
+  dashboardKpiOverdue: "Überfällig",
+  dashboardKpiOpenRaid: "Offene RAID",
+  dashboardTrendUp: "{0} um {1} gestiegen seit letztem Besuch",
+  dashboardTrendDown: "{0} um {1} gesunken seit letztem Besuch",
+  dashboardTrendFlat: "{0} unverändert seit letztem Besuch",
   coachingTitle: "Erste Schritte",
   coachingSubtitle: "Ein paar Schritte zum Einrichten dieses Projekts:",
   coachingAddTask: "Erste Aufgabe anlegen",

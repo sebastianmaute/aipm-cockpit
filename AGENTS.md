@@ -286,6 +286,31 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
   slice-1 greeting summary is now suppressed when `needsYou===0 && milestonesSoon===0` (avoids "0 items
   need you" on a blank project). Dashboard IS in axe `A11Y_VIEWS` — but the live demo seeds a POPULATED
   project so the coaching card is ABSENT at scan time (its buttons are eye/unit-verified, not axe-gated).
+- **Dashboard KPI trend arrows (v0.121.0):** slice 4 of the landing cockpit ("which way is it moving").
+  An "at a glance" 3-tile KPI strip (completion % · overdue · open RAID) below the coaching card, each
+  tile carrying a trend arrow (↑/↓/→) + signed delta vs the user's LAST VISIT. Pure i18n-free engine
+  `dashboard-trends.ts` `computeMetricTrends(prior, current)` → `Record<MetricKey, MetricTrend>`
+  (`{value, delta, direction, improved}`); per-metric `HIGHER_IS_BETTER` (completion up = good; overdue/
+  openRaid up = bad). ★ `delta===null ⟺ improved===null ⟺ no prior value` (first visit / pre-metrics
+  state) → the arrow renders NOTHING; an exactly-flat `delta===0` → `improved:false` + `direction:"flat"`
+  (intended — "unchanged", muted color, NOT worsened). Presentational `trend-arrow.tsx` returns `null`
+  when `improved===null || delta===null`; glyph + signed delta are `aria-hidden`, the WRAPPER carries the
+  full `aria-label` (the RagBadge-in-button label-bleed landmine class — never let the glyph become the
+  accessible name). ★★ REUSES slice-1's per-project `landing-state` snapshot — `LandingState.metrics?:
+  MetricSnapshot` rides the SAME single `lop-app:landing-state` localStorage map (ZERO new backend write
+  paths, OUT of exports/Turso, cleared by `clearAppConfig`); `landing-state.ts` guard accepts an optional
+  metrics object. `use-landing-delta` now returns `{delta, trends}` (call sites updated) — trends are
+  mount-captured in the SAME lazy `useState` (reads `prior.metrics` before advancing) and `metrics` is
+  written in the SAME debounced 4s advance (popout read-only). ★ The KPI tile VALUE reads LIVE `model`
+  (`progress.percent`/`overdue.length`/`openRaidCount`); the arrow is mount-captured vs the prior — same
+  intentional mount-snapshot asymmetry as the delta strip (a mid-visit reload can briefly diverge value vs
+  arrow; accepted, mirrors slice 1). ★ `DashboardModel.openRaidCount` is the TRUE open (non-terminal) RAID
+  count — `topRaid` is capped at 5 so can't be the trend source; it's a REQUIRED field but the only literal
+  `DashboardModel` construction (`snapshot.test`) is an `as unknown as` cast so it didn't break. ★ The
+  `complete` KPI is a PERCENTAGE → `TrendArrow` takes a `unit` prop (`"%"`) so the visible delta (`+5%`)
+  and the aria-label ("Complete up 5% since last visit") aren't unitless/ambiguous; counts pass `""`. ★
+  `Tile` (`report-table.tsx`) gained an optional `trend` slot. Dashboard IS in axe `A11Y_VIEWS` (strip
+  tiles are non-interactive `<div>`s; arrow label-bleed guarded). Trend templates are i18n EN+DE.
 - **RAID edit modal map:** `RaidEditModal` (`raid-edit-modal.tsx`) owns the draft, query state,
   derived option lists, and add/remove handlers; presentational `raid-risk-matrix.tsx` (`RiskMatrix`
   5×5 picker, Risk items only) and `raid-edit-fields.tsx` (`RaidLinkedTasksField`, `RaidCausedByField`

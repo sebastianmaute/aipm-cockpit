@@ -5,6 +5,7 @@
 
 import type { ActivityEntry, ActivityKind } from "./activity-log";
 import type { Health } from "./health";
+import type { MetricSnapshot } from "./dashboard-trends";
 import type { Task } from "./types";
 
 export type RagScope = "overall" | "schedule" | "budget" | "scope";
@@ -16,6 +17,8 @@ export type LandingState = {
   lastVisitAt?: string;
   /** RAG snapshot captured at the prior visit. */
   rag?: Partial<Record<RagScope, Health>>;
+  /** KPI values captured at the prior visit, backing the trend arrows. */
+  metrics?: MetricSnapshot;
 };
 
 export type DeltaCounts = Record<DeltaGroup, Record<DeltaVerb, number>>;
