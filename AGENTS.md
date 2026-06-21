@@ -204,6 +204,12 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
   5×5 picker, Risk items only) and `raid-edit-fields.tsx` (`RaidLinkedTasksField`, `RaidCausedByField`
   — the two chip-picker sections, threaded handlers/state as props). The panel still owns draft state
   (these are pure render). RAID IS in the axe `A11Y_VIEWS`.
+- **OOXML export map:** the hand-rolled Office export (no lib; own `zip.ts` writer) is split by
+  format: `export-docx.ts` (`buildDocx`), `export-xlsx.ts` (`buildXlsx`), `export-pptx.ts`
+  (`buildPptx`) over shared `export-ooxml-shared.ts` (brand palette consts, `xmlEscape`, `todayHuman`,
+  `PPTX_MAX_ROWS_PER_SECTION`). `export-ooxml.ts` is now a BARREL re-exporting the 3 builders —
+  `export.ts` consumes them via `await import("./export-ooxml")` and `export-ooxml.test.ts` imports
+  from the barrel, so keep those three names exported there. (Sections come from `export-sections.ts`.)
 - **Scrollbar gap:** per-view inner scrollers (`min-h-0 flex-1 overflow-auto`) need `pr-2` for the
   content↔scrollbar gap. Shared `INNER_TABLE_CLASS`/report-table/actions-panel already include it;
   bare per-panel scrollers do NOT — add `pr-2` or content jams the scrollbar.
