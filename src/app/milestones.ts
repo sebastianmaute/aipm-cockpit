@@ -97,3 +97,49 @@ export function milestoneScheduleContribution(
   if (atRisk.length > 0 || dueSoon.length > 0) return "A";
   return null;
 }
+
+export type MilestoneHorizon = "overdue" | "thisWeek" | "next2Weeks" | "later";
+export type HorizonEntry = { milestone: Milestone; status: MilestoneStatus };
+export type MilestoneHorizonBuckets = Record<MilestoneHorizon, HorizonEntry[]>;
+
+/** Calendar-day window thresholds for the dashboard horizon strip. */
+export const HORIZON_THIS_WEEK_DAYS = 7;
+export const HORIZON_NEXT_DAYS = 21;
+
+/** Whole calendar days from `fromISO` to `toISO` (both YYYY-MM-DD, parsed as
+ *  UTC midnight). NaN when either is unparseable. Pure — no "now". */
+function calendarDaysBetween(fromISO: string, toISO: string): number {
+  const from = Date.parse(`${fromISO}T00:00:00Z`);
+  const to = Date.parse(`${toISO}T00:00:00Z`);
+  if (Number.isNaN(from) || Number.isNaN(to)) return NaN;
+  return Math.round((to - from) / 86_400_000);
+}
+
+/** Bucket non-achieved milestones into a forward time horizon for the dashboard
+ *  "what's coming" strip. Overdue first; the rest by calendar days until due.
+ *  Each entry carries its `milestoneStatus` so callers can flag at-risk. */
+export function bucketMilestonesByHorizon(
+  milestones: readonly Milestone[],
+  tasksById: ReadonlyMap<number, Task>,
+  todayISO: string,
+  holidaySet: ReadonlySet<string>,
+  leadWorkdays: number = MILESTONE_DUE_SOON_WORKDAYS,
+): MilestoneHorizonBuckets {
+  const buckets: MilestoneHorizonBuckets = { overdue: [], thisWeek: [], next2Weeks: [], later: [] };
+  for (const m of milestones) {
+    if (m.achievedDate) continue;
+    const status = milestoneStatus(m, tasksById, todayISO, holidaySet, leadWorkdays);
+    if (status === "overdue") {
+      buckets.overdue.push({ milestone: m, status });
+      continue;
+    }
+    const d = calendarDaysBetween(todayISO, m.date);
+    if (!Number.isNaN(d) && d <= HORIZON_THIS_WEEK_DAYS) buckets.thisWeek.push({ milestone: m, status });
+    else if (!Number.isNaN(d) && d <= HORIZON_NEXT_DAYS) buckets.next2Weeks.push({ milestone: m, status });
+    else buckets.later.push({ milestone: m, status });
+  }
+  const byDate = (a: HorizonEntry, b: HorizonEntry) =>
+    a.milestone.date.localeCompare(b.milestone.date) || a.milestone.id - b.milestone.id;
+  (Object.keys(buckets) as MilestoneHorizon[]).forEach((k) => buckets[k].sort(byDate));
+  return buckets;
+}
