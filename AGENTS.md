@@ -220,6 +220,13 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
   records (whichever cluster); a new shared primitive goes in core. Each `*_SET`/`*_RE` const must
   stay in the file with its consumers. Golden byte-stability + `sanitize.test`/`.property` + the 37
   importers guard behavior.
+- **Workspace-section module map:** `workspace-section.tsx` is the view ROUTER (the tabpanel switch);
+  it imports the lazy panels from `workspace-panels.tsx` (the 20 `dynamic(ssr:false)` view-panel
+  `export const`s — keep new lazy panels there) and the props contract `WorkspaceSectionProps` from
+  `workspace-section-types.ts`, which it RE-EXPORTS (so importers of the type from `./workspace-section`
+  are unchanged). Static (non-lazy) panels (Dashboard/Milestones/SteeringCommittee/ResourceDirectory)
+  stay imported directly in `workspace-section.tsx`. (Routes the axe-scanned views, so changes there
+  re-scan them.)
 - **Scrollbar gap:** per-view inner scrollers (`min-h-0 flex-1 overflow-auto`) need `pr-2` for the
   content↔scrollbar gap. Shared `INNER_TABLE_CLASS`/report-table/actions-panel already include it;
   bare per-panel scrollers do NOT — add `pr-2` or content jams the scrollbar.
