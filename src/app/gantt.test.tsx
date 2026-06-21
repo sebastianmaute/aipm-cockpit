@@ -231,7 +231,9 @@ describe("GanttPanel dependency arrows", () => {
 // ---------- source-scan tests (Task 6: toolbar ordering + pane resize) ------
 
 test("gantt toolbar: + Add Task markup precedes the search input", () => {
-  const src = readFileSync(join(__dirname, "gantt.tsx"), "utf8");
+  // Toolbar markup lives in gantt-chrome.tsx (GanttToolbar) since the
+  // GanttPanel decomposition; the ordering guarantee moved with it.
+  const src = readFileSync(join(__dirname, "gantt-chrome.tsx"), "utf8");
   const addIdx = src.indexOf("onClick={onAddTask}");
   const searchIdx = src.indexOf('type="search"');
   expect(addIdx).toBeGreaterThan(-1);
