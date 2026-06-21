@@ -543,6 +543,14 @@ export const de: Record<TranslationKey, string> = {
     "Das Dashboard ist jetzt ein Landing-Cockpit: eine Begrüßung und eine „Seit deinem letzten Besuch“-Leiste zeigen, was sich geändert hat (neue Einträge, Statuswechsel), und die priorisierte Nächste-Schritte-Liste steht oben, damit du zuerst siehst, was dich braucht.",
   versionHighlightMilestoneHorizon:
     "Die Meilensteinliste im Dashboard ist jetzt ein „Was kommt“-Horizont: Überfällig, Diese Woche, Nächste 2 Wochen und Später – so siehst du den Weg nach vorn auf einen Blick.",
+  versionHighlightCoaching:
+    "Neue Projekte erhalten im Dashboard eine „Erste Schritte“-Karte mit Ein-Klick-Schritten – Aufgabe anlegen, KI-Assistenten einrichten, Meilenstein anlegen, Budget einrichten – die verschwindet, sobald es losgeht.",
+  coachingTitle: "Erste Schritte",
+  coachingSubtitle: "Ein paar Schritte zum Einrichten dieses Projekts:",
+  coachingAddTask: "Erste Aufgabe anlegen",
+  coachingConfigureAi: "KI-Assistenten einrichten",
+  coachingAddMilestone: "Meilenstein anlegen",
+  coachingSetBudget: "Budget einrichten",
   milestoneHorizonOverdue: "Überfällig",
   milestoneHorizonThisWeek: "Diese Woche",
   milestoneHorizonNext2Weeks: "Nächste 2 Wochen",

@@ -8,6 +8,15 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.120.0] - 2026-06-21 "Chiang"
+
+### Added
+- **Dashboard get-started coaching.** A new project's Dashboard now shows a
+  "Get started" card with one-tap setup CTAs — add your first task, configure
+  the AI assistant, add a milestone, set up a budget — each jumping to the right
+  view. The card self-hides once the project has any task, so it never nags an
+  active project.
+
 ## [0.119.0] - 2026-06-21 "Gibson"
 
 ### Changed
