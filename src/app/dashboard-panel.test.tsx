@@ -570,6 +570,35 @@ describe("DashboardPanel landing cockpit", () => {
   });
 });
 
+describe("DashboardPanel coaching card", () => {
+  it("shows the Get started card on a blank project (no tasks)", () => {
+    render(<DashboardPanel {...fullProps} aiConfigured={false} onNavigate={vi.fn()} />, { wrapper });
+    expect(screen.getByText("Get started")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add your first task" })).toBeInTheDocument();
+  });
+
+  it("hides the coaching card once a task exists", () => {
+    render(
+      <DashboardPanel
+        {...fullProps}
+        tasks={[{ id: 1, title: "T", status: "Open", linkedRaidIds: [], subtaskIds: [], parentId: null, assigneeIds: [] } as never]}
+        aiConfigured={false}
+        onNavigate={vi.fn()}
+      />,
+      { wrapper },
+    );
+    expect(screen.queryByText("Get started")).toBeNull();
+  });
+
+  it("navigates when a coaching CTA is clicked", async () => {
+    const user = userEvent.setup();
+    const onNavigate = vi.fn();
+    render(<DashboardPanel {...fullProps} aiConfigured={false} onNavigate={onNavigate} />, { wrapper });
+    await user.click(screen.getByRole("button", { name: "Configure AI assistant" }));
+    expect(onNavigate).toHaveBeenCalledWith("settings");
+  });
+});
+
 describe("DashboardPanel milestone horizon", () => {
   it("renders a horizon bucket header instead of the flat list", () => {
     render(<DashboardPanel {...fullProps} />, { wrapper });

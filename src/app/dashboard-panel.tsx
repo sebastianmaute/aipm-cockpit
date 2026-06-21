@@ -24,6 +24,9 @@ import { buildGreeting, type RagScope } from "./dashboard-delta";
 import { DashboardDeltaStrip } from "./dashboard-delta-strip";
 import { bucketMilestonesByHorizon } from "./milestones";
 import { MilestoneHorizonStrip } from "./milestone-horizon-strip";
+import { computeCoaching } from "./dashboard-coaching";
+import { DashboardCoachingCard } from "./dashboard-coaching-card";
+import type { AppView } from "./nav-config";
 
 interface DashboardPanelProps {
   lang: Lang;
@@ -55,6 +58,8 @@ interface DashboardPanelProps {
   projectId?: string;
   isPopout?: boolean;
   onOpenChange?: () => void;
+  onNavigate?: (view: AppView) => void;
+  aiConfigured?: boolean;
 }
 
 const CHANGE_STATUS_KEY: Record<ChangeStatus, TranslationKey> = {
@@ -173,6 +178,20 @@ export function DashboardPanel(props: DashboardPanelProps) {
     [showMilestones, props.milestones, props.tasks, today, props.holidaySet],
   );
 
+  // First-open coaching CTAs (self-hide once any task exists).
+  const coachingCtas = useMemo(
+    () =>
+      computeCoaching({
+        taskCount: props.tasks.length,
+        milestoneCount: props.milestones?.length ?? 0,
+        budgetCount: props.budgets.length,
+        showMilestones,
+        showBudget,
+        aiConfigured: props.aiConfigured ?? false,
+      }),
+    [props.tasks.length, props.milestones, props.budgets.length, showMilestones, showBudget, props.aiConfigured],
+  );
+
   // Derived-state pattern: track the last stored value we seeded from so we can
   // reset the draft when an external workspace reload changes status.narrative.
   const [prevStoredNarrative, setPrevStoredNarrative] = useState(status.narrative ?? "");
@@ -233,6 +252,9 @@ export function DashboardPanel(props: DashboardPanelProps) {
           onOpenMilestone={props.onOpenMilestone}
           onOpenChange={props.onOpenChange}
         />
+
+        {/* First-open coaching — self-hides once the project has any task */}
+        <DashboardCoachingCard lang={lang} ctas={coachingCtas} onNavigate={props.onNavigate ?? (() => {})} />
 
         {/* Top actions — promoted to the top so the PM sees what needs them first */}
         {topActions && topActions.length > 0 && (

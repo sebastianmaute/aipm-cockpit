@@ -775,6 +775,8 @@ export function WorkspaceSection({
               projectId={currentProjectId ?? "default"}
               isPopout={isPopout}
               onOpenChange={() => setActiveTab("changes")}
+              onNavigate={setActiveTab}
+              aiConfigured={!!settings.ai.apiKey?.trim()}
             />
           </div>
         )}
