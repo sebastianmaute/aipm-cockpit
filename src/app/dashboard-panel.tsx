@@ -18,11 +18,13 @@ import { ActionRow } from "./action-row";
 import type { SuggestedAction } from "./next-actions/types";
 import { useResizable } from "./use-resizable";
 import { VarianceSummary } from "./variance-summary";
-import type { VarianceRow } from "./snapshot";
+import type { VarianceRow, SnapshotRecord } from "./snapshot";
 import { useLandingDelta } from "./use-landing-delta";
 import { buildGreeting, type RagScope } from "./dashboard-delta";
 import { DashboardDeltaStrip } from "./dashboard-delta-strip";
 import { TrendArrow } from "./trend-arrow";
+import { computeCompletionTrend } from "./completion-trend";
+import { Sparkline } from "./sparkline";
 import { bucketMilestonesByHorizon } from "./milestones";
 import { MilestoneHorizonStrip } from "./milestone-horizon-strip";
 import { computeCoaching } from "./dashboard-coaching";
@@ -55,6 +57,7 @@ interface DashboardPanelProps {
   showTrends?: boolean;
   onToggleTrends?: (show: boolean) => void;
   variance?: readonly VarianceRow[];
+  snapshots?: readonly SnapshotRecord[];
   tursoActive?: boolean;
   projectId?: string;
   isPopout?: boolean;
@@ -142,6 +145,21 @@ export function DashboardPanel(props: DashboardPanelProps) {
       showRaid, showBudget, showMilestones, showChanges,
       status, activity, today,
     ],
+  );
+
+  // Completion-trend sparkline (slice #6). Snapshot-preferred, activity-log
+  // fallback. Deps hoisted to scalars (exhaustive-deps bans obj.member/.length
+  // in the array).
+  const snapshots = props.snapshots ?? [];
+  const snapCount = snapshots.length;
+  const activityCount = activity.length;
+  const currentDone = model.progress.completed;
+  const currentTotal = model.progress.total;
+  const completionSeries = useMemo(
+    () =>
+      computeCompletionTrend({ snapshots, activity, currentDone, currentTotal, today }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [snapCount, activityCount, currentDone, currentTotal, today],
   );
 
   // Landing cockpit: greeting + "since you last looked" delta.
@@ -279,6 +297,30 @@ export function DashboardPanel(props: DashboardPanelProps) {
             trend={<TrendArrow trend={trends.openRaid} metricLabel={t(lang, "dashboardKpiOpenRaid")} lang={lang} />}
           />
         </div>
+
+        {/* Completion-trend sparkline — self-hides without >= 2 points */}
+        {completionSeries.length >= 2 && (
+          <div
+            className="rounded border border-line bg-surface p-3"
+            aria-label={t(
+              lang,
+              "dashboardCompletionTrendAria",
+              completionSeries[completionSeries.length - 1].percent,
+              completionSeries[0].percent,
+              completionSeries.length,
+            )}
+          >
+            <div className="mb-1 flex items-baseline justify-between">
+              <span className="text-xs uppercase tracking-wide text-muted-foreground">
+                {t(lang, "dashboardCompletionTrend")}
+              </span>
+              <span className="text-xs text-muted-foreground tabular-nums">
+                {t(lang, "dashboardCompletionTrendPoints", completionSeries.length)}
+              </span>
+            </div>
+            <Sparkline points={completionSeries} />
+          </div>
+        )}
 
         {/* Top actions — promoted to the top so the PM sees what needs them first */}
         {topActions && topActions.length > 0 && (
