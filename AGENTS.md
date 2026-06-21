@@ -257,9 +257,12 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
   prompt prefix (view change re-caches that slice). Guide content is ENGLISH-ONLY (no i18n). Knowledge
   only — adds NO new AI tools. (Separately, the task create/update tools now expose `status`, routed
   through `applyStatusChange`, synced tasks read-only — MR !99.)
-- **AI write tools** declared in `chat-tools.ts` (`TOOL_DEFS` + `runTool` routing + `ToolDispatcher`
-  type), IMPLEMENTED in `use-chat-dispatcher.ts`. Tasks/RAID/Changes/Milestones/Stakeholders all have
-  create/update/delete. NEW entity write tool: add tool def + runTool case + `ToolDispatcher` method,
+- **AI write tools**: tool SCHEMAS (`TOOL_DEFS` + the per-entity field-property helpers
+  `taskFields`/`raidFields`/… + `ALL_RAID_STATUSES`) live in pure `chat-tool-defs.ts`; `chat-tools.ts`
+  re-exports `TOOL_DEFS` (so `chat-api` imports it unchanged) and holds the `runTool` routing +
+  `ToolDispatcher` type + arg-coercion/summary helpers; tools are IMPLEMENTED in
+  `use-chat-dispatcher.ts`. Tasks/RAID/Changes/Milestones/Stakeholders all have
+  create/update/delete. NEW entity write tool: add tool def (in `chat-tool-defs.ts`) + runTool case + `ToolDispatcher` method,
   then implement in the dispatcher `useMemo` — guard `if (args.isReadOnly) throw readOnlyError()`
   FIRST (popouts must not mutate), build the raw object and run it through the entity's `sanitizeX`
   (the SINGLE validator — `sanitizeRaidItem` was added for this; enforces enums/dates/caps + per-
