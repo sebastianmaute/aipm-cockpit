@@ -72,8 +72,11 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
 - **New persisted `Workspace` field → SIX write paths** (JSON/CSV/MD/Turso-single/Turso-tenant/
   IndexedDB). Miss one and data silently drops on that backend.
 - **New COLUMN on existing entity** (e.g. `Milestone.outlookEventId`): add to entity's
-  `*_CSV_COLUMNS` (covers CSV **and** Turso single+tenant — DDL/insert derive from it), plus
-  markdown codec + `sanitize.ts`; REGENERATE `__fixtures__/golden-*` (legit new-column format change)
+  `*_CSV_COLUMNS` (in `csv-codecs-core.ts` — covers CSV **and** Turso single+tenant, DDL/insert
+  derive from it; also extend that entity's `*FieldToString`/`build*FromObj` THERE), plus the
+  markdown codec (`*_MD_COLUMNS` + table codec in `markdown-codecs-core.ts`) + `sanitize.ts` (see
+  "Codec module maps" / "Sanitize module map" for which sub-file); REGENERATE `__fixtures__/golden-*`
+  (legit new-column format change)
   and append column to curated `sample-workspace` `.md`/`.csv`. EXISTING Turso DBs:
   `CREATE TABLE IF NOT EXISTS` can't add column and save INSERTs *named* columns, so old DB
   errors on save — `turso-migrate.ts` self-heals (PRAGMA-diff → `ALTER ADD COLUMN`, run inside
