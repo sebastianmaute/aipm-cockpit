@@ -8,6 +8,14 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.119.0] - 2026-06-21 "Gibson"
+
+### Changed
+- **Dashboard milestone horizon.** The Dashboard's milestone list is now a
+  "what's coming" horizon — Overdue, This week, Next 2 weeks, and Later —
+  with at-risk milestones flagged, replacing the flat near-term list. Pure
+  date-bucketing; works on every storage backend.
+
 ## [0.118.0] - 2026-06-21 "Atwood"
 
 ### Added
