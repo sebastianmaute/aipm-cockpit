@@ -5,7 +5,6 @@ import { useBroadcastSync } from "./broadcast-sync";
 import { type Lang, t } from "./i18n";
 import type { Settings } from "./settings-types";
 import {
-  type LocalStorageFormat,
   type StorageConfig,
   type StorageKind,
   type Workspace,
@@ -15,35 +14,17 @@ import {
   getBackendFileHandle,
   openFileForBackend,
   pickFileForBackend,
-  pickOpenFileAny,
-  formatFromFileName,
   requestWriteAccessForBackend,
-  setBackendFileHandle,
 } from "./storage";
-import {
-  addProject,
-  loadRegistry,
-  saveRegistry,
-  setCurrentProject as setCurrentProjectInRegistry,
-  type ProjectsRegistry,
-} from "./projects-registry";
-import { getHandle, saveHandle } from "./project-file-handles";
-import { localKindForFormat, deriveRegistryEntry } from "./use-project-switch";
-import { buildNewProjectWorkspace, type NewProjectOpts } from "./new-project-workspace";
-import type { ProjectMeta } from "./types";
+import { saveRegistry, type ProjectsRegistry } from "./projects-registry";
+import { saveHandle } from "./project-file-handles";
 import { getTursoConfig } from "./turso-config";
-import { loadCurrentTursoProjectId, loadPortfolioMode, saveCurrentTursoProjectId, savePortfolioMode } from "./portfolio-mode";
-import { TursoBackend } from "./turso-backend";
-import {
-  createProject as portfolioCreate,
-  archiveProject as portfolioArchive,
-  restoreProject as portfolioRestore,
-  hardDeleteProject as portfolioHardDelete,
-} from "./turso-portfolio";
+import { loadCurrentTursoProjectId } from "./portfolio-mode";
 import { isTursoLockTimeout, tursoErrorKind } from "./storage-error";
 import { useMsAuth } from "./use-ms-auth";
 import { useWorkspace } from "./workspace-context";
-import { writeSettings } from "./use-settings";
+import { useTursoProjectOps } from "./use-storage-turso-ops";
+import { useFileProjectOps } from "./use-storage-file-ops";
 
 // Hoisted to module scope — static map, no per-render allocation
 const STORAGE_LABEL_KEYS: Record<StorageKind, Parameters<typeof t>[1]> = {
@@ -488,399 +469,6 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
    * Unlike a storage switch, this does NOT migrate current data into the target
    * — it replaces the current workspace with the target's own saved data.
    */
-  async function switchToProject(id: string): Promise<void> {
-    if (args.isPopout) return;
-    const registry = loadRegistry();
-    const target = registry.projects.find((p) => p.id === id);
-    if (!target) {
-      args.showToast("error", t(langRef.current, "projectSwitchNotFound"));
-      return;
-    }
-    if (registry.currentProjectId === id) return;
-    try {
-      // 1. Persist the outgoing project's data to its own backend (best-effort:
-      //    a failing save must not strand the user on the old project).
-      try {
-        await backend.save(currentWorkspace());
-      } catch {
-        // Swallow — the outgoing backend may be unconfigured (e.g. no file
-        // permission). The switch itself is the user's intent.
-      }
-      // 2. Build the target backend and attach its stored handle for files.
-      const targetBackend = backendFor(target.storageConfig);
-      const isFile = target.storageConfig.kind.startsWith("local-");
-      if (isFile) {
-        const handle = await getHandle(id);
-        if (!handle) {
-          args.showToast("error", t(langRef.current, "projectSwitchHandleMissing"));
-          return;
-        }
-        const attach = setBackendFileHandle(targetBackend, handle);
-        if (attach) await attach;
-        // Re-prompt for permission if it was lost across reloads (user gesture
-        // context: switching is triggered from a click).
-        const grant = requestWriteAccessForBackend(targetBackend);
-        if (grant) await grant;
-      }
-      // 3. Load the target's existing data and apply it.
-      const loaded = await targetBackend.load();
-      applyWorkspace(loaded);
-      // 4. Suppress the auto-load the storageConfig change triggers (we just
-      //    loaded), then point the active backend + registry at the target.
-      suppressNextLoadRef.current = true;
-      suppressNextSaveRef.current = true;
-      args.setStorageConfig(target.storageConfig);
-      commitRegistry(setCurrentProjectInRegistry(registry, id));
-      args.showToast("info", t(langRef.current, "projectSwitchedToast", target.name));
-    } catch (err) {
-      reportProjectError(err);
-    }
-  }
-
-  /**
-   * Create a new project: pick a file location, write an EMPTY workspace that
-   * carries the supplied meta, persist the handle per-project, register +
-   * select it, then apply the new (empty) workspace into state.
-   */
-  async function createProject(
-    meta: ProjectMeta,
-    format: LocalStorageFormat,
-    opts: NewProjectOpts = {},
-  ): Promise<void> {
-    if (args.isPopout) return;
-    // Flush the outgoing project to its OWN backend first (best-effort). Setting
-    // suppressNextSaveRef below cancels the pending debounced save, so edits made
-    // within the 500ms window before creating another project would otherwise be
-    // lost. Mirrors switchToProject's flush; must use the CURRENT active backend.
-    try {
-      await backend.save(currentWorkspace());
-    } catch {
-      // Swallow — the outgoing backend may be unconfigured (e.g. no file
-      // permission). Creating the new project is the user's intent.
-    }
-    const id = crypto.randomUUID();
-    const storageConfig: StorageConfig = { kind: localKindForFormat(format) };
-    // Empty workspace by default; with a template/features opts it applies the
-    // template's field-visibility + optional seed and sets per-project features.
-    const ws: Workspace = buildNewProjectWorkspace(meta, opts);
-    try {
-      const targetBackend = backendFor(storageConfig);
-      // Save picker — grants readwrite implicitly when the user picks a file.
-      const pick = pickFileForBackend(targetBackend);
-      if (pick) await pick;
-      await targetBackend.save(ws);
-      await persistBackendHandle(targetBackend, id);
-      const registry = addProject(
-        loadRegistry(),
-        { id, name: meta.name, code: meta.code, storageConfig },
-        true,
-      );
-      commitRegistry(registry);
-      // Apply the new (empty + meta) workspace and point the active backend at it.
-      applyWorkspace(ws);
-      suppressNextLoadRef.current = true;
-      suppressNextSaveRef.current = true;
-      args.setStorageConfig(storageConfig);
-      args.showToast("info", t(langRef.current, "projectCreatedToast", meta.name));
-    } catch (err) {
-      reportProjectError(err);
-    }
-  }
-
-  /**
-   * Load a project from an arbitrary file the user picks. Opens the file,
-   * reads its workspace, derives a registry entry (name/code from the loaded
-   * project meta, else the file name), persists the handle, registers +
-   * selects it, and applies the loaded data.
-   */
-  // `format` undefined → auto-detect: a single picker accepts every supported
-  // format (JSON/CSV/Markdown) and the format is derived from the picked file's
-  // extension. Passing an explicit format keeps the old per-format picker.
-  async function loadProjectFromFile(
-    format?: LocalStorageFormat,
-    opts?: { switchPortfolioToFileOnSuccess?: boolean },
-  ): Promise<void> {
-    if (args.isPopout) return;
-    // Flush the outgoing project to its OWN backend first (best-effort). Setting
-    // suppressNextSaveRef below cancels the pending debounced save, so edits made
-    // within the 500ms window before opening another project would otherwise be
-    // lost. Mirrors switchToProject's flush; must use the CURRENT active backend.
-    try {
-      await backend.save(currentWorkspace());
-    } catch {
-      // Swallow — the outgoing backend may be unconfigured (e.g. no file
-      // permission). Opening the new project is the user's intent.
-    }
-    const id = crypto.randomUUID();
-    try {
-      // Auto-detect: pick a file across all formats FIRST (still in the click's
-      // user-gesture), derive the format from its name, then bind the handle to
-      // the matching backend without a second picker. requestWriteAccess is
-      // best-effort here so a later save doesn't need a fresh gesture; load only
-      // needs read, so a denied upgrade does not block opening the project.
-      let resolvedFormat = format;
-      let preopenedBackend: ReturnType<typeof backendFor> | null = null;
-      if (resolvedFormat === undefined) {
-        const handle = await pickOpenFileAny();
-        resolvedFormat = formatFromFileName(handle.name);
-        preopenedBackend = backendFor({ kind: localKindForFormat(resolvedFormat) });
-        await setBackendFileHandle(preopenedBackend, handle);
-        await requestWriteAccessForBackend(preopenedBackend);
-      }
-      const storageConfig: StorageConfig = { kind: localKindForFormat(resolvedFormat) };
-      const targetBackend = preopenedBackend ?? backendFor(storageConfig);
-      if (!preopenedBackend) {
-        const open = openFileForBackend(targetBackend);
-        if (!open) return;
-        await open;
-      }
-      const loaded = await targetBackend.load();
-      const fileName = targetBackend.describe ? await targetBackend.describe() : null;
-      await persistBackendHandle(targetBackend, id);
-      const entry = deriveRegistryEntry({
-        id,
-        storageConfig,
-        project: loaded.project,
-        fileName: fileName ?? undefined,
-      });
-      commitRegistry(addProject(loadRegistry(), entry, true));
-      applyWorkspace(loaded);
-      suppressNextLoadRef.current = true;
-      suppressNextSaveRef.current = true;
-      args.setStorageConfig(storageConfig);
-      args.showToast("info", t(langRef.current, "projectLoadedToast", entry.name));
-      // Cross-mode load (portfolio is currently Turso, but the user is loading a
-      // local file from the empty state): persist the mode switch + file storage
-      // config SYNCHRONOUSLY and reload so the app re-initialises in FILE mode
-      // with the just-registered project active. Mirrors migrateCurrentProjectToTurso
-      // in reverse and keeps the invariant portfolioMode==="turso" ⇔ storageConfig
-      // kind "turso" intact (here both become file). Only runs on a SUCCESSFUL load
-      // (a cancelled picker throws → the catch below, before this point).
-      if (opts?.switchPortfolioToFileOnSuccess) {
-        writeSettings({ ...settingsRef.current, storageConfig });
-        savePortfolioMode("file");
-        window.location.reload();
-      }
-    } catch (err) {
-      reportProjectError(err);
-    }
-  }
-
-  /**
-   * Register the supplied workspace as a REAL local project (empty-state "Explore
-   * a demo project" CTA). Mirrors createProject's register → save → apply → point
-   * sequence, but takes a FULL workspace (the curated sample) instead of building
-   * an empty one, and targets the BROWSER/IndexedDB local backend so there is NO
-   * file picker (frictionless first run). Registering a project is what flips the
-   * empty-state gate off so the views — and the guided-tour overlay — actually
-   * mount; an apply-only path left the registry empty and the demo invisible.
-   */
-  async function createDemoProject(ws: Workspace): Promise<void> {
-    if (args.isPopout) return;
-    // Flush the outgoing project first (best-effort) — mirrors createProject.
-    // suppressNextSaveRef below cancels the pending debounced save.
-    try {
-      await backend.save(currentWorkspace());
-    } catch {
-      // Swallow — the outgoing backend may be unconfigured. The demo is the intent.
-    }
-    const id = crypto.randomUUID();
-    // Browser/IndexedDB local backend — the default first-run kind. NO file picker
-    // and persistBackendHandle is a no-op for it (it stores no FileSystem handle).
-    const storageConfig: StorageConfig = { kind: "browser" };
-    // Prefer the sample's own project meta (sample-workspace-small.json carries one);
-    // synthesize a minimal label only if it is somehow missing.
-    const meta: Pick<ProjectMeta, "name" | "code"> = ws.project
-      ? { name: ws.project.name, code: ws.project.code }
-      : { name: "Demo project", code: "DEMO" };
-    try {
-      const targetBackend = backendFor(storageConfig);
-      await targetBackend.save(ws);
-      await persistBackendHandle(targetBackend, id);
-      const registry = addProject(
-        loadRegistry(),
-        { id, name: meta.name, code: meta.code, storageConfig },
-        true,
-      );
-      // Turso portfolio mode: a local (browser-backed) demo project can't flip the
-      // Turso-branch empty-state gate (it reads the Turso project LIST), so switch
-      // the portfolio to file mode and reload — a portfolio-mode switch requires a
-      // reload (mirrors loadProjectFromFile's switchPortfolioToFileOnSuccess).
-      // Everything the reloaded app needs is DURABLY persisted before the reload:
-      // the workspace to IndexedDB (awaited above) and the registry + settings +
-      // portfolio mode to localStorage (synchronous) here. We deliberately SKIP the
-      // in-place applyWorkspace/setStorageConfig React updates (the reload discards
-      // them) to avoid a flash of the demo mounting then tearing down. After reload
-      // showEmptyState is false (the registry now has the demo) and tourSeen is
-      // still unset, so the tour auto-launches. The user's Turso DB is untouched
-      // (non-destructive detach); switching back to Turso mode restores their list.
-      if (loadPortfolioMode() === "turso") {
-        saveRegistry(registry);
-        writeSettings({ ...settingsRef.current, storageConfig });
-        savePortfolioMode("file");
-        if (typeof window !== "undefined") window.location.reload();
-        return;
-      }
-
-      // Default (file/local) mode: apply in place, no reload.
-      commitRegistry(registry);
-      applyWorkspace(ws);
-      suppressNextLoadRef.current = true;
-      suppressNextSaveRef.current = true;
-      args.setStorageConfig(storageConfig);
-      args.showToast("info", t(langRef.current, "projectCreatedToast", meta.name));
-    } catch (err) {
-      reportProjectError(err);
-    }
-  }
-
-  // ── Turso portfolio (multi-tenant) project flows ───────────────────────────
-  // These mirror the FILE flows above (switchToProject / createProject) but scope
-  // to the shared Turso DB: the `projects` table is the source of truth, and the
-  // active project id is React state (tursoProjectId) cached in localStorage. Like
-  // the file handlers, they read live render-scope state and MUST NOT be memoized.
-
-  async function switchToTursoProject(id: string): Promise<void> {
-    if (args.isPopout) return;
-    const cfg = tursoConfigNow();
-    if (!cfg) {
-      args.showToast("error", t(langRef.current, "projectsTursoUnreachable"));
-      return;
-    }
-    if (tursoProjectId === id) return;
-    try {
-      // Best-effort flush of the outgoing project to the active backend.
-      try { await backend.save(currentWorkspace()); } catch { /* best-effort flush */ }
-      const target = new TursoBackend(cfg, id);
-      const loaded = await target.load();
-      applyWorkspace(loaded);
-      suppressNextLoadRef.current = true;
-      suppressNextSaveRef.current = true;
-      setTursoProjectId(id);
-      saveCurrentTursoProjectId(id);
-      args.showToast("info", t(langRef.current, "projectSwitchedToast", loaded.project?.name ?? id));
-    } catch (err) {
-      reportProjectError(err);
-    }
-  }
-
-  async function createTursoProject(meta: ProjectMeta, opts: NewProjectOpts = {}): Promise<void> {
-    if (args.isPopout) return;
-    const cfg = tursoConfigNow();
-    if (!cfg) {
-      args.showToast("error", t(langRef.current, "projectsTursoUnreachable"));
-      return;
-    }
-    // Flush the outgoing project first (setting suppressNextSaveRef below cancels
-    // the pending debounced save). Mirrors the file createProject flush.
-    try { await backend.save(currentWorkspace()); } catch { /* best-effort flush */ }
-    const id = crypto.randomUUID();
-    const ws = buildNewProjectWorkspace(meta, opts);
-    try {
-      await portfolioCreate(cfg, meta, id);
-      // Persist the new workspace (per-project features / field-visibility / seed)
-      // into the new project's Turso tables NOW. The suppressNextSaveRef below
-      // cancels the autosave the applyWorkspace setState would otherwise trigger,
-      // so without this explicit save those rows would not land until the next
-      // user edit. The file path saves explicitly too (targetBackend.save).
-      await new TursoBackend(cfg, id).save(ws);
-      applyWorkspace(ws);
-      suppressNextLoadRef.current = true;
-      suppressNextSaveRef.current = true;
-      setTursoProjectId(id);
-      saveCurrentTursoProjectId(id);
-      args.showToast("info", t(langRef.current, "projectCreatedToast", meta.name));
-    } catch (err) {
-      reportProjectError(err);
-    }
-  }
-
-  // Migrate the CURRENT (file-mode) project into a brand-new Turso project,
-  // carrying its full workspace, then switch the portfolio to Turso and reload so
-  // the migrated project is the active one. Unlike createTursoProject (which
-  // builds a fresh workspace), this copies the live workspace verbatim.
-  async function migrateCurrentProjectToTurso(): Promise<void> {
-    if (args.isPopout) return;
-    const cfg = tursoConfigNow();
-    if (!cfg) {
-      args.showToast("error", t(langRef.current, "projectsTursoUnreachable"));
-      return;
-    }
-    const ws = currentWorkspace();
-    const meta = ws.project;
-    if (!meta) {
-      args.showToast("error", t(langRef.current, "projectMigrateNoProject"));
-      return;
-    }
-    // Flush the current file project before copying it.
-    try { await backend.save(ws); } catch { /* best-effort flush */ }
-    const id = crypto.randomUUID();
-    try {
-      await portfolioCreate(cfg, meta, id);
-      await new TursoBackend(cfg, id).save(ws);
-      // Make the migrated project the active Turso project and switch the
-      // portfolio to Turso. The reload re-initialises the app in Turso mode.
-      saveCurrentTursoProjectId(id);
-      savePortfolioMode("turso");
-      // Point the workspace storage backend at Turso too, persisted SYNCHRONOUSLY
-      // so it survives the reload below. Without this the portfolio flips to Turso
-      // while the backend memo still rebuilds a FILE/browser backend (its
-      // storageConfig.kind is unchanged) — so the workspace keeps loading the
-      // local file and snapshot capture (which reads the Turso config) fails with
-      // "Storage not ready". portfolioMode === "turso" must imply storageConfig
-      // kind "turso".
-      writeSettings({ ...settingsRef.current, storageConfig: { kind: "turso" } });
-      window.location.reload();
-    } catch (err) {
-      reportProjectError(err);
-    }
-  }
-
-  async function archiveTursoProject(id: string): Promise<void> {
-    if (args.isPopout) return;
-    const cfg = tursoConfigNow();
-    if (!cfg) {
-      args.showToast("error", t(langRef.current, "projectsTursoUnreachable"));
-      return;
-    }
-    try {
-      await portfolioArchive(cfg, id);
-      args.showToast("info", t(langRef.current, "projectArchivedToast"));
-    } catch (err) {
-      reportProjectError(err);
-    }
-  }
-
-  async function restoreTursoProject(id: string): Promise<void> {
-    if (args.isPopout) return;
-    const cfg = tursoConfigNow();
-    if (!cfg) {
-      args.showToast("error", t(langRef.current, "projectsTursoUnreachable"));
-      return;
-    }
-    try {
-      await portfolioRestore(cfg, id);
-      args.showToast("info", t(langRef.current, "projectRestoredToast"));
-    } catch (err) {
-      reportProjectError(err);
-    }
-  }
-
-  async function hardDeleteTursoProject(id: string): Promise<void> {
-    if (args.isPopout) return;
-    const cfg = tursoConfigNow();
-    if (!cfg) {
-      args.showToast("error", t(langRef.current, "projectsTursoUnreachable"));
-      return;
-    }
-    try {
-      await portfolioHardDelete(cfg, id);
-      args.showToast("info", t(langRef.current, "projectHardDeletedToast"));
-    } catch (err) {
-      reportProjectError(err);
-    }
-  }
-
   // Copy the handle the backend just stored (via pick/open) into the per-project
   // handle store, so switchToProject can re-attach it later. The LocalFileBackend
   // already persisted it under its own kv key; this mirrors it per-project.
@@ -906,6 +494,51 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       args.showToast("error", t(langRef.current, "storageLoadFailed", msg));
     }
   }
+
+  const {
+    switchToTursoProject,
+    createTursoProject,
+    migrateCurrentProjectToTurso,
+    archiveTursoProject,
+    restoreTursoProject,
+    hardDeleteTursoProject,
+  } = useTursoProjectOps({
+    isPopout: args.isPopout,
+    showToast: args.showToast,
+    langRef,
+    settingsRef,
+    tursoConfigNow,
+    tursoProjectId,
+    setTursoProjectId,
+    backend,
+    currentWorkspace,
+    applyWorkspace,
+    suppressNextLoadRef,
+    suppressNextSaveRef,
+    reportProjectError,
+  });
+
+  const {
+    switchToProject,
+    createProject,
+    loadProjectFromFile,
+    createDemoProject,
+  } = useFileProjectOps({
+    isPopout: args.isPopout,
+    showToast: args.showToast,
+    setStorageConfig: args.setStorageConfig,
+    langRef,
+    settingsRef,
+    backend,
+    currentWorkspace,
+    applyWorkspace,
+    backendFor,
+    commitRegistry,
+    persistBackendHandle,
+    reportProjectError,
+    suppressNextLoadRef,
+    suppressNextSaveRef,
+  });
 
   return {
     storageDescription,
