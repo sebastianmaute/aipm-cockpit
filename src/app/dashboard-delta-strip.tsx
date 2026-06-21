@@ -59,9 +59,11 @@ export function DashboardDeltaStrip({ lang, delta, greeting, onOpenTask, onOpenR
         <span className="text-lg font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
           {t(lang, greeting.greetingKey)}
         </span>
-        <span className="text-sm text-muted-foreground">
-          {t(lang, "dashboardGreetingSummary", String(greeting.summary.needsYou), String(greeting.summary.milestonesSoon))}
-        </span>
+        {(greeting.summary.needsYou > 0 || greeting.summary.milestonesSoon > 0) && (
+          <span className="text-sm text-muted-foreground">
+            {t(lang, "dashboardGreetingSummary", String(greeting.summary.needsYou), String(greeting.summary.milestonesSoon))}
+          </span>
+        )}
       </div>
 
       <div className="mt-2">

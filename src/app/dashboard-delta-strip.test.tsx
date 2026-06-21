@@ -17,6 +17,16 @@ describe("DashboardDeltaStrip", () => {
     expect(screen.getByText(/Welcome/i)).toBeInTheDocument();
   });
 
+  test("suppresses the greeting summary when nothing needs the user (blank project)", () => {
+    render(<DashboardDeltaStrip lang="en-US" delta={delta({ isFirstVisit: true, total: 0 })} greeting={{ greetingKey: "dashboardGreetingMorning", summary: { needsYou: 0, milestonesSoon: 0 } }} />);
+    expect(screen.queryByText(/items need you/i)).toBeNull();
+  });
+
+  test("shows the greeting summary when there is something to surface", () => {
+    render(<DashboardDeltaStrip lang="en-US" delta={delta({ total: 0 })} greeting={{ greetingKey: "dashboardGreetingMorning", summary: { needsYou: 2, milestonesSoon: 1 } }} />);
+    expect(screen.getByText(/2 items need you/i)).toBeInTheDocument();
+  });
+
   test("zero delta (returning) → all caught up", () => {
     render(<DashboardDeltaStrip lang="en-US" delta={delta({ total: 0 })} greeting={{ greetingKey: "dashboardGreetingAfternoon", summary: { needsYou: 0, milestonesSoon: 0 } }} />);
     expect(screen.getByText(/All caught up/i)).toBeInTheDocument();
