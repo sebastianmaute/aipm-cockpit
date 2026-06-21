@@ -20,6 +20,7 @@ import {
   type JiraConfig,
   defaultJiraConfig,
 } from "./settings-types";
+import { saveSecretValue } from "./use-secrets";
 
 const inputClass =
   "w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none focus:ring-1 focus:ring-AIPM-green disabled:cursor-not-allowed disabled:opacity-50";
@@ -154,6 +155,15 @@ export function JiraSettingsSection({
     onChange({ ...config, [key]: value });
   }
 
+  // The API token is a secret: device-seal it into the secrets store (AES-256-GCM)
+  // the moment it changes, mirroring the Anthropic key / Turso token. writeSettings
+  // blanks `jira.apiToken` from the localStorage settings blob, so this seal is what
+  // survives a reload; on load it is decrypted back into memory (hydrateSecretsInto).
+  function handleApiTokenChange(value: string) {
+    update("apiToken", value);
+    void saveSecretValue("jiraApiToken", value, "device");
+  }
+
   function toggleIssueType(name: string) {
     const next = config.issueTypes.includes(name)
       ? config.issueTypes.filter((n) => n !== name)
@@ -271,7 +281,7 @@ export function JiraSettingsSection({
                 type="password"
                 autoComplete="off"
                 value={config.apiToken}
-                onChange={(e) => update("apiToken", e.target.value)}
+                onChange={(e) => handleApiTokenChange(e.target.value)}
                 placeholder="ATATT…"
                 className={inputClass}
               />

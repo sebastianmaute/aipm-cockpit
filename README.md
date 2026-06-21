@@ -76,7 +76,7 @@ Each row keeps a one-line summary. Expand **Details** for the full description.
 | Printing | Scoped print — printing a report prints just that view (sidebar, banners, and other panes are hidden). |
 | SharePoint document links | Attach SharePoint files and folders to tasks, RAID items, changes, stakeholders, milestones, and projects via a built-in browser.<br><details><summary>Details</summary>A custom Microsoft Graph browser (search sites, navigate libraries/folders, pick a file or folder) replaces blind URL paste. Links open in a new tab and round-trip losslessly across all storage backends. Requires M365 sign-in; the "Browse…" button also appears in the SharePoint storage-backend config.</details> |
 | Documents tab | A single view that aggregates every linked document across the project.<br><details><summary>Details</summary>Lists every link carried by tasks, RAID items, changes, milestones, stakeholders, and the project header in one table: open a link in a new tab, jump to its source item's editor, remove it, or attach a new one to any item via the same SharePoint picker / paste-URL field. Links stay on their source items (no separate store), so removing a link here is identical to removing it from that item's editor.</details> |
-| Encrypted secrets at rest | The Anthropic API key and Turso auth token are encrypted in the browser with AES-256-GCM rather than stored in plain text.<br><details><summary>Details</summary>Ciphertext lives in `localStorage["lop-app:secrets"]` and both fields are blanked from the settings blob before it is persisted. The wrapping key is a non-extractable WebCrypto **device key** kept in IndexedDB by default; optionally set a **passphrase** per secret (PBKDF2, 600k iterations) so the value stays sealed until you unlock it. The ciphertext is excluded from workspace exports and never written to Turso. See [Security Model](#security-model).</details> |
+| Encrypted secrets at rest | The Anthropic API key, Turso auth token, and Jira API token are encrypted in the browser with AES-256-GCM rather than stored in plain text.<br><details><summary>Details</summary>Ciphertext lives in `localStorage["lop-app:secrets"]` and each field is blanked from the settings blob before it is persisted. The wrapping key is a non-extractable WebCrypto **device key** kept in IndexedDB by default; the Anthropic key and Turso token can optionally take a **passphrase** (PBKDF2, 600k iterations) so the value stays sealed until you unlock it (the Jira token is device-wrapped only). The ciphertext is excluded from workspace exports and never written to Turso. See [Security Model](#security-model).</details> |
 
 ## Quick Start
 
@@ -173,7 +173,7 @@ All browser-to-Jira traffic is proxied through Next.js API routes rather than ca
 | `POST /api/jira/update-issue` | Push local task edits back to Jira |
 | `POST /api/jira/transition-issue` | Change an issue's workflow status category |
 
-Bidirectional sync with conflict resolution is available from the Jira settings section. Credentials (site URL, email, API token) are stored in `localStorage` unencrypted (unlike the Anthropic key and Turso auth token, which are encrypted at rest — see [Security Model](#security-model)) and sent only to your own Atlassian domain.
+Bidirectional sync with conflict resolution is available from the Jira settings section. The API token is **encrypted at rest** (AES-256-GCM device-wrapped, like the Anthropic key and Turso token — see [Security Model](#security-model)); the site URL and email are stored in `localStorage` unencrypted (identifying, not secret). Credentials are sent only to your own Atlassian domain.
 
 ### Microsoft 365
 
@@ -257,7 +257,7 @@ No environment variables are **required** — all integrations work via in-app S
 | `NEXT_PUBLIC_TURSO_DATABASE_URL` | Turso database URL (overrides Settings → Integrations input) |
 | `NEXT_PUBLIC_TURSO_AUTH_TOKEN` | Turso auth token (overrides Settings → Integrations input); **recommend a scoped token** |
 
-> ⚠️ **Security:** When entered in Settings, the Anthropic API key and Turso auth token are **encrypted at rest** (AES-256-GCM; see [Security Model](#security-model)). A Turso token supplied via `NEXT_PUBLIC_TURSO_AUTH_TOKEN` is different — `NEXT_PUBLIC_*` env vars are **inlined into the build at compile time and are not secret**, so prefer a database/operation-scoped token there and rotate it if it may have been exposed. Jira credentials (site URL, email, API token) are entered in Settings and stored in `localStorage` **unencrypted**.
+> ⚠️ **Security:** When entered in Settings, the Anthropic API key and Turso auth token are **encrypted at rest** (AES-256-GCM; see [Security Model](#security-model)). A Turso token supplied via `NEXT_PUBLIC_TURSO_AUTH_TOKEN` is different — `NEXT_PUBLIC_*` env vars are **inlined into the build at compile time and are not secret**, so prefer a database/operation-scoped token there and rotate it if it may have been exposed. The Jira API token is likewise **encrypted at rest**; the Jira site URL and email are stored in `localStorage` unencrypted (identifying, not secret).
 
 ## Security Model
 
@@ -267,8 +267,8 @@ This is a **local-first, bring-your-own-key** application. There is no applicati
 
 | Data | Location |
 |------|----------|
-| **Anthropic API key, Turso auth token** | **Encrypted at rest** — AES-256-GCM ciphertext in `localStorage["lop-app:secrets"]`; these two fields are blanked from the settings blob before it is written. The wrapping key is a non-extractable WebCrypto **device key** in IndexedDB by default, or a **per-secret passphrase** (PBKDF2, 600k iterations) if you set one (passphrase-locked secrets stay sealed until you unlock them) |
-| Jira credentials (site URL, email, API token), Turso database URL, all other settings | `localStorage["lop-app:settings"]`, **unencrypted** |
+| **Anthropic API key, Turso auth token, Jira API token** | **Encrypted at rest** — AES-256-GCM ciphertext in `localStorage["lop-app:secrets"]`; these fields are blanked from the settings blob before it is written. The wrapping key is a non-extractable WebCrypto **device key** in IndexedDB by default. The Anthropic key and Turso token additionally support a **per-secret passphrase** (PBKDF2, 600k iterations) that keeps the value sealed until you unlock it; the Jira token is device-wrapped only |
+| Jira site URL + email, Turso database URL, all other settings | `localStorage["lop-app:settings"]`, **unencrypted** (the Jira site URL and email are identifying, not secret) |
 | Device key (wraps the secrets above) | IndexedDB DB `lop-app-secrets`, non-extractable |
 | Workspace data (tasks, RAID, changes, milestones, stakeholders, …) | `IndexedDB` on the default Browser backend, or whichever storage backend you configure |
 

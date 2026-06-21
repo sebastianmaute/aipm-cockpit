@@ -89,12 +89,20 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
 - **New Turso table NOT workspace data** (snapshots, version history, comm_templates)
   must stay OUT of `TABLE_NAMES` (guard test enforces) — else workspace save's
   per-table DELETE wipes it. `SqlArg.value` (turso-schema) is string-only even for ints (`String(v)`).
-- **Secrets at rest:** Anthropic `apiKey` + Turso `authToken` ENCRYPTED via `secrets.ts`
-  (AES-256-GCM; non-extractable device key in IndexedDB by default, optional per-secret PBKDF2
-  passphrase). `writeSettings` is ONLY writer of `localStorage["lop-app:settings"]` and BLANKS
-  both fields — settings persist EFFECT must call `writeSettings`, NEVER raw `setItem` (raw
+- **Secrets at rest:** Anthropic `apiKey` + Turso `authToken` + Jira `apiToken` (`SecretId` union)
+  ENCRYPTED via `secrets.ts` (AES-256-GCM; non-extractable device key in IndexedDB by default,
+  optional per-secret PBKDF2 passphrase — Jira is device-only so far, no passphrase UI). ★ Adding a
+  SecretId means SIX edits in lockstep: `SecretId` union, `isSealedSecret` id allowlist + `readStore`
+  allowlist loop (both HARDCODE the id list — a missed one silently drops the ciphertext on read),
+  `migratePlaintextSecrets` (seal + return), `writeSettings` blank, `hydrateSecretsInto` restore +
+  the load-effect migrate/hydrate/re-merge block, and a seal-on-edit call in the field's settings
+  section (`saveSecretValue(id,…,"device")`). ★ `jira` lives at TOP-LEVEL `settings.jira` (NOT under
+  `settings.integrations`); `email`/`siteUrl` stay plaintext (identifying, and `email` is needed for
+  the Basic-auth header). `writeSettings` is ONLY writer of `localStorage["lop-app:settings"]` and
+  BLANKS those fields — settings persist EFFECT must call `writeSettings`, NEVER raw `setItem` (raw
   write dumps decrypted in-memory key/token to disk on every settings change — real CRITICAL
-  we shipped and caught). Secrets hydrated into memory on load (`hydrateSecretsInto`);
+  we shipped and caught). M365 stores NO secret (clientId/tenantId are public; MSAL owns its token
+  cache) — nothing to encrypt there. Secrets hydrated into memory on load (`hydrateSecretsInto`);
   passphrase-wrapped ones stay empty until unlock. Anything reading a secret uses live in-memory
   value; if IndexedDB/WebCrypto unavailable load path degrades to in-memory plaintext (never
   crash). `lop-app:secrets` ciphertext stays OUT of exports, Turso, recovery `CONFIG_KEYS`.

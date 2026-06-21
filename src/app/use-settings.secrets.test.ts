@@ -9,7 +9,7 @@ import { saveSealed } from "./secrets-store";
 afterEach(() => localStorage.clear());
 
 describe("writeSettings secret blanking", () => {
-  it("never persists apiKey or turso authToken into lop-app:settings", () => {
+  it("never persists apiKey, turso authToken, or jira apiToken into lop-app:settings", () => {
     writeSettings({
       ...defaultSettings,
       ai: { ...defaultSettings.ai, apiKey: "sk-secret" },
@@ -17,11 +17,16 @@ describe("writeSettings secret blanking", () => {
         ...defaultSettings.integrations,
         turso: { enabled: true, databaseUrl: "libsql://x", authToken: "tok-secret" },
       },
+      jira: { ...defaultSettings.jira, siteUrl: "https://x.atlassian.net", email: "a@b.c", apiToken: "jira-secret" },
     });
     const persisted = JSON.parse(localStorage.getItem(SETTINGS_KEY)!);
     expect(persisted.ai.apiKey).toBe("");
     expect(persisted.integrations.turso.authToken ?? "").toBe("");
     expect(persisted.integrations.turso.databaseUrl).toBe("libsql://x");
+    // Jira token blanked, but identifying (non-secret) fields preserved.
+    expect(persisted.jira.apiToken ?? "").toBe("");
+    expect(persisted.jira.siteUrl).toBe("https://x.atlassian.net");
+    expect(persisted.jira.email).toBe("a@b.c");
   });
 });
 
@@ -68,6 +73,15 @@ describe("hydrateSecretsInto", () => {
       ai: { ...defaultSettings.ai, apiKey: "" },
     });
     expect(merged.ai.apiKey).toBe("sk-live");
+  });
+
+  it("hydrateSecretsInto merges the device-sealed jira apiToken into settings.jira", async () => {
+    saveSealed(await sealDevice("jiraApiToken", "jira-live"));
+    const merged = await hydrateSecretsInto({
+      ...defaultSettings,
+      jira: { ...defaultSettings.jira, apiToken: "" },
+    });
+    expect(merged.jira.apiToken).toBe("jira-live");
   });
 
   it("hydrateSecretsInto leaves a passphrase-locked secret empty", async () => {

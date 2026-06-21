@@ -15,7 +15,7 @@ function readStore(): Store {
     if (!raw) return {};
     const parsed = JSON.parse(raw) as Record<string, unknown>;
     const out: Store = {};
-    for (const id of ["anthropicApiKey", "tursoAuthToken"] as const) {
+    for (const id of ["anthropicApiKey", "tursoAuthToken", "jiraApiToken"] as const) {
       if (isSealedSecret(parsed[id])) out[id] = parsed[id] as SealedSecret;
     }
     return out;
@@ -70,14 +70,17 @@ export async function readDeviceSecret(id: SecretId): Promise<string | null> {
 export async function migratePlaintextSecrets(input: {
   apiKey?: string;
   authToken?: string;
-}): Promise<{ apiKey: string; authToken: string }> {
+  jiraApiToken?: string;
+}): Promise<{ apiKey: string; authToken: string; jiraApiToken: string }> {
   const apiKey = (input.apiKey ?? "").trim();
   const authToken = (input.authToken ?? "").trim();
+  const jiraApiToken = (input.jiraApiToken ?? "").trim();
   // Per-secret seal: a crypto/IndexedDB failure on one secret must neither
   // reject the whole migration nor blank a secret we failed to persist. On a
   // failed seal we return the ORIGINAL plaintext so the caller keeps it.
   let apiKeyOut = "";
   let authTokenOut = "";
+  let jiraApiTokenOut = "";
   if (apiKey && !loadSealed("anthropicApiKey")) {
     try {
       saveSealed(await sealDevice("anthropicApiKey", apiKey));
@@ -92,5 +95,12 @@ export async function migratePlaintextSecrets(input: {
       authTokenOut = authToken; // seal failed → keep plaintext un-migrated
     }
   }
-  return { apiKey: apiKeyOut, authToken: authTokenOut };
+  if (jiraApiToken && !loadSealed("jiraApiToken")) {
+    try {
+      saveSealed(await sealDevice("jiraApiToken", jiraApiToken));
+    } catch {
+      jiraApiTokenOut = jiraApiToken; // seal failed → keep plaintext un-migrated
+    }
+  }
+  return { apiKey: apiKeyOut, authToken: authTokenOut, jiraApiToken: jiraApiTokenOut };
 }

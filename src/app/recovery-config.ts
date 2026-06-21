@@ -118,8 +118,8 @@ function redactSettings(raw: string): unknown {
         turso: { ...integrations.turso, authToken: REDACTED },
       };
     }
-    const jira = out.jira as { token?: string } | undefined;
-    if (jira?.token) out.jira = { ...jira, token: REDACTED };
+    const jira = out.jira as { apiToken?: string } | undefined;
+    if (jira?.apiToken) out.jira = { ...jira, apiToken: REDACTED };
     // Defense-in-depth: writeSettings already blanks ai.apiKey before persisting,
     // but redact here too so a config export can never leak it if that regresses.
     const ai = out.ai as { apiKey?: string } | undefined;
