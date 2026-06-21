@@ -265,6 +265,27 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
   `<span aria-hidden="true">` whenever the visible ⚠/text already conveys the meaning — applies to ANY
   RagBadge-in-button, not just here. ★ Dashboard IS in axe `A11Y_VIEWS`; chips are real `<button>`s with
   row-unique text names.
+- **Dashboard coaching CTAs (v0.120.0):** slice 3 of the landing cockpit (first-open story). Pure
+  i18n-free `dashboard-coaching.ts` `computeCoaching({taskCount,milestoneCount,budgetCount,
+  showMilestones,showBudget,aiConfigured})` → ordered `CoachingCta[]` (`{key,labelKey,view}`,
+  keys+`AppView` only). ★ GATED on `taskCount === 0` (blank project) → returns `[]` once any task
+  exists, so the card SELF-HIDES and never nags an active project (no dismiss control). Order: Add
+  task(`open-points`) · Configure AI(`settings`) · Add milestone(`milestones`) · Set budget(`budget`),
+  each gated on its module/empty condition. Presentational `dashboard-coaching-card.tsx` (returns null
+  when empty); rendered in `dashboard-panel.tsx` right after the delta strip. ★★ NAV from the dashboard
+  uses a single `onNavigate` prop wired to `useWorkspaceTab().setActiveTab` (the SINGLE active-view
+  source — routes to `open-points` correctly even though tasks render in a separate `TasksSection`, not
+  WorkspaceSection). ★★ The Anthropic-key "configured" signal is `settings.ai.apiKey` (NOT top-level
+  `settings.apiKey` — that does not exist; `apiKey` lives on the nested `AiConfig`); use
+  `!!settings.ai.apiKey?.trim()` (in-memory hydrated value, blanked on disk by `writeSettings`,
+  passphrase-locked → `""` → treated unconfigured). ★ New `DashboardPanel` props `onNavigate?`/
+  `aiConfigured?` are OPTIONAL (back-compat with ~30 test render sites). ★★ EXHAUSTIVE-DEPS LANDMINE
+  (reinforces the obj.member rule): a `?.length`/`obj.member`/any complex expression INSIDE a `useMemo`
+  dep array is a FATAL `--max-warnings=0` warning ("complex expression in the dependency array") — HOIST
+  it to a scalar local (`const milestoneCount = props.milestones?.length ?? 0`) and depend on that. ★ The
+  slice-1 greeting summary is now suppressed when `needsYou===0 && milestonesSoon===0` (avoids "0 items
+  need you" on a blank project). Dashboard IS in axe `A11Y_VIEWS` — but the live demo seeds a POPULATED
+  project so the coaching card is ABSENT at scan time (its buttons are eye/unit-verified, not axe-gated).
 - **RAID edit modal map:** `RaidEditModal` (`raid-edit-modal.tsx`) owns the draft, query state,
   derived option lists, and add/remove handlers; presentational `raid-risk-matrix.tsx` (`RiskMatrix`
   5×5 picker, Risk items only) and `raid-edit-fields.tsx` (`RaidLinkedTasksField`, `RaidCausedByField`
