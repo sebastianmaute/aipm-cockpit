@@ -8,6 +8,11 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.117.0] - 2026-06-21 "Bradbury"
+
+### Security
+- The Jira API token is now **encrypted at rest** (AES-256-GCM, device-wrapped in the browser) instead of being stored in plain text in `localStorage` — matching the existing handling of the Anthropic API key and the Turso auth token. The token is blanked from the persisted settings blob and held as ciphertext in `localStorage["lop-app:secrets"]`, wrapped by a non-extractable WebCrypto device key; an existing plaintext token migrates to the sealed store on next load. The Jira site URL and email remain stored unencrypted (identifying, not secret). Microsoft 365 needs no change — only the public client/tenant IDs are stored, and MSAL owns its own token cache.
+
 ## [0.116.0] - 2026-06-20 "Vonnegut"
 
 ### Added
