@@ -14,6 +14,14 @@ export default defineConfig({
     setupFiles: ["./vitest.setup.ts"],
     css: true,
     include: ["src/**/*.{test,spec}.{ts,tsx}"],
+    // Headroom above the 5s default: the CPU-heavy property suites (fast-check,
+    // 100 runs each) plus fake-indexeddb setup occasionally exceed 5s when a
+    // worker is starved under full-suite parallel load on slower machines —
+    // a rare, non-deterministic timeout that never reproduces in isolation or
+    // in CI. Raising the ceiling absorbs the scheduling spike without changing
+    // any test logic; a genuinely hung test still fails, just later.
+    testTimeout: 20000,
+    hookTimeout: 20000,
     coverage: {
       provider: "v8",
       reporter: ["text", "html"],
