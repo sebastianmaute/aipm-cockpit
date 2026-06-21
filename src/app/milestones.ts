@@ -107,7 +107,9 @@ export const HORIZON_THIS_WEEK_DAYS = 7;
 export const HORIZON_NEXT_DAYS = 21;
 
 /** Whole calendar days from `fromISO` to `toISO` (both YYYY-MM-DD, parsed as
- *  UTC midnight). NaN when either is unparseable. Pure — no "now". */
+ *  UTC midnight). SIGNED: positive when `toISO` is in the future relative to
+ *  `fromISO`, negative when in the past. NaN when either is unparseable. Pure —
+ *  no "now". */
 function calendarDaysBetween(fromISO: string, toISO: string): number {
   const from = Date.parse(`${fromISO}T00:00:00Z`);
   const to = Date.parse(`${toISO}T00:00:00Z`);
@@ -134,7 +136,11 @@ export function bucketMilestonesByHorizon(
       continue;
     }
     const d = calendarDaysBetween(todayISO, m.date);
-    if (!Number.isNaN(d) && d <= HORIZON_THIS_WEEK_DAYS) buckets.thisWeek.push({ milestone: m, status });
+    // Safety net: a non-overdue status with a PAST date (negative d) still
+    // belongs in `overdue`, not `thisWeek`. Currently unreachable (milestoneStatus
+    // strict-`<`-dates to "overdue" first), but robust if that logic ever changes.
+    if (!Number.isNaN(d) && d < 0) buckets.overdue.push({ milestone: m, status });
+    else if (!Number.isNaN(d) && d <= HORIZON_THIS_WEEK_DAYS) buckets.thisWeek.push({ milestone: m, status });
     else if (!Number.isNaN(d) && d <= HORIZON_NEXT_DAYS) buckets.next2Weeks.push({ milestone: m, status });
     else buckets.later.push({ milestone: m, status });
   }

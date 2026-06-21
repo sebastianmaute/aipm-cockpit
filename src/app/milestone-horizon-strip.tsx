@@ -46,12 +46,20 @@ export function MilestoneHorizonStrip({ lang, buckets, onOpenMilestone }: Milest
                       onClick={() => onOpenMilestone()}
                       className="inline-flex items-center gap-1 rounded-full border border-line bg-surface px-2.5 py-0.5 text-xs text-foreground hover:bg-surface-muted hover:border-AIPM-dark-blue"
                     >
-                      {alert && <RagBadge value={e.status === "overdue" ? "R" : "A"} lang={lang} />}
+                      {alert && (
+                        <span aria-hidden="true">
+                          <RagBadge value={e.status === "overdue" ? "R" : "A"} lang={lang} />
+                        </span>
+                      )}
                       {label}
                     </button>
                   ) : (
                     <span className="inline-flex items-center gap-1 rounded-full border border-line px-2.5 py-0.5 text-xs text-muted-foreground">
-                      {alert && <RagBadge value={e.status === "overdue" ? "R" : "A"} lang={lang} />}
+                      {alert && (
+                        <span aria-hidden="true">
+                          <RagBadge value={e.status === "overdue" ? "R" : "A"} lang={lang} />
+                        </span>
+                      )}
                       {label}
                     </span>
                   )}
