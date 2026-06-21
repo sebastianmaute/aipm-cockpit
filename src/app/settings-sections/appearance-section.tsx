@@ -2,6 +2,7 @@
 
 import { type Lang, t } from "../i18n";
 import { SegmentedControl } from "../segmented-control";
+import type { DashboardDensity } from "../dashboard-density";
 import type { Settings } from "../settings-types";
 import type { Theme } from "../theme";
 import { useTheme } from "../use-theme";
@@ -49,6 +50,23 @@ export function AppearanceSection({ lang, settings, onChange }: AppearanceSectio
             { value: "classic", label: t(lang, "layoutClassic") },
           ]}
           onChange={(v) => onChange({ ...settings, layout: v })}
+        />
+      </div>
+
+      <div className="mb-4">
+        <span className="mb-1 flex items-center gap-1 text-sm font-medium text-foreground">
+          {t(lang, "dashboardDensityLabel")}
+          <InfoTooltip text={t(lang, "dashboardDensityHint")} />
+        </span>
+        <SegmentedControl<DashboardDensity>
+          value={settings.dashboardDensity ?? "comfortable"}
+          ariaLabel={t(lang, "dashboardDensityLabel")}
+          className="w-full"
+          options={[
+            { value: "comfortable", label: t(lang, "dashboardDensityComfortable") },
+            { value: "compact", label: t(lang, "dashboardDensityCompact") },
+          ]}
+          onChange={(v) => onChange({ ...settings, dashboardDensity: v })}
         />
       </div>
     </>

@@ -8,6 +8,15 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.123.0] - 2026-06-21 "Atwood"
+
+### Added
+- **Dashboard density toggle.** A per-device Comfortable/Compact preference for
+  the Dashboard. Compact tightens the cockpit's vertical rhythm, KPI gap, and
+  card padding to fit more on screen — spacing only, no font or color change.
+  Toggle it from the on-panel button beside the Trends toggle or from
+  Settings → Appearance; the choice is remembered per device.
+
 ## [0.122.0] - 2026-06-21 "Herbert"
 
 ### Added

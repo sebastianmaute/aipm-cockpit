@@ -113,6 +113,11 @@ export const de: Record<TranslationKey, string> = {
   tasksViewModeLabel: "Ansicht",
   tasksViewTable: "Tabelle",
   tasksViewBoard: "Board",
+  dashboardDensityLabel: "Dichte",
+  dashboardDensityHint: "Kompakt verringert die Abstände im Dashboard, um mehr auf den Bildschirm zu bringen. Wird pro Gerät gespeichert.",
+  dashboardDensityComfortable: "Komfortabel",
+  dashboardDensityCompact: "Kompakt",
+  dashboardDensityCompactView: "Kompakte Ansicht",
 
   tasks: "Aufgaben",
   tasksCount: "({0})",
@@ -549,6 +554,8 @@ export const de: Record<TranslationKey, string> = {
     "Die wichtigsten Kennzahlen im Dashboard – Fertigstellung, überfällige Aufgaben, offene RAID – zeigen jetzt einen Trendpfeil und die Veränderung seit deinem letzten Besuch, damit du auf einen Blick siehst, in welche Richtung sich das Projekt bewegt.",
   versionHighlightBurndownSparkline:
     "Das Dashboard zeigt jetzt unter den Kennzahlen eine kleine Trendlinie zum Fertigstellungsgrad, sodass auf einen Blick sichtbar ist, wie sich der Fortschritt über die letzten Snapshots oder Aktivitäten entwickelt hat.",
+  versionHighlightDashboardDensity:
+    "Das Dashboard hat einen neuen Umschalter für die Dichte (Komfortabel/Kompakt) – wechsle zu Kompakt, um die Abstände zu verringern und mehr vom Cockpit auf dem Bildschirm unterzubringen. Deine Wahl wird pro Gerät gespeichert.",
   dashboardCompletionTrend: "Fertigstellungstrend",
   dashboardCompletionTrendPoints: "{0} Punkte",
   dashboardCompletionTrendAria: "Fertigstellungstrend: {0}% jetzt, von {1}% über {2} Punkte",

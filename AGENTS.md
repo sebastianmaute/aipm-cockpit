@@ -68,6 +68,12 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
   `aria-label={`${t(lang,"edit")} – ${row.name}`}`) — N identical "Edit"/"Enabled" labels is
   WCAG 2.4.6 fail, but axe gate can PASS it when live app seeds only ONE row (collision
   never renders at scan time). Qualify label; don't trust green axe run with single seeded row.
+  ★★ TOGGLE-BUTTON name/state coherence: a `<button aria-pressed>` whose VISIBLE LABEL flips to the
+  OPPOSITE action (e.g. "Comfortable view" while compact is active) announces "Comfortable view,
+  pressed" — implying the WRONG mode is on (WCAG 4.1.2). axe PASSES it (a name exists). Fix: PIN the
+  label to what the toggle ENABLES ("Compact view") and let `aria-pressed` track THAT state, so
+  "Compact view, pressed" ⇒ compact is on. (Bit the dashboard density toggle; the older Trends toggle
+  still has the inverted pattern.)
   Moving/folding a control INTO an axe-scanned view re-scans it: gate scans `Settings`→General, so
   folding Storage/Appearance into General surfaced pre-existing unlabeled `<select>` (a visible
   `<span>` label is NOT an `aria-label`/`<label>`) as axe-critical.
@@ -334,6 +340,21 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
   deps hoisted to scalar locals (`snapCount`/`activityCount`/`currentDone`/`currentTotal`/`today`) — the
   exhaustive-deps complex-expression ban. `model.progress` exposes `completed`+`total`. Dashboard IS in
   axe `A11Y_VIEWS` (sparkline non-interactive). i18n EN+DE.
+- **Dashboard density toggle (v0.123.0):** slice 8 of the landing cockpit ("fit more on screen"). Per-device
+  Comfortable/Compact preference, SPACING ONLY (no font/palette/contrast change). Pure i18n-free
+  `dashboard-density.ts` `densityClasses(d)` → `{outer,kpiGap,cardPad}` class strings — comfortable
+  REPRODUCES the current literals (`space-y-4`/`gap-2`/`p-3`, a no-op for existing users), compact
+  tightens (`space-y-2`/`gap-1`/`p-2`). `DashboardPanel` takes `density?` (default `"comfortable"` —
+  back-compat with the ~30 test render sites) + `onToggleDensity?`; applies `dc.outer` to the panel
+  container, `dc.kpiGap` to the KPI grid, `dc.cardPad` to the sparkline card. ★★ TWO controls, ONE setting
+  (`settings.dashboardDensity?`, per-device, persisted via `setSettings`→`writeSettings` SPREAD — no
+  allowlist edit, mirrors `tasksViewMode`): on-panel toggle button beside the Trends toggle (now both wrapped
+  in one `ml-auto flex` cluster; `aria-pressed`, text label = accessible name, `print:hidden`) AND a third
+  `SegmentedControl<DashboardDensity>` in `AppearanceSection` (Settings→General). `onToggleDensity` is
+  `isPopout ? undefined` (popouts render no toggle but still honour the `density` prop). ★ Settings→General
+  AND Dashboard are BOTH axe-scanned — SegmentedControl's `ariaLabel` + the on-panel button's text name keep
+  the gate green (verified). ★ Compact-test asserts `.space-y-2` PRESENCE only (it's container-only; a nested
+  `space-y-4` elsewhere makes a global-absence check brittle). i18n EN+DE.
 - **RAID edit modal map:** `RaidEditModal` (`raid-edit-modal.tsx`) owns the draft, query state,
   derived option lists, and add/remove handlers; presentational `raid-risk-matrix.tsx` (`RiskMatrix`
   5×5 picker, Risk items only) and `raid-edit-fields.tsx` (`RaidLinkedTasksField`, `RaidCausedByField`
