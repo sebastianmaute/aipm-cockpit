@@ -28,7 +28,7 @@
     "lint": "Run ESLint (`eslint-config-next` preset)",
     "test": "Vitest unit/component tests in watch mode",
     "test:run": "Vitest, single run (CI-friendly)",
-    "test:coverage": "Vitest + v8 coverage report (fails below 70%)",
+    "test:coverage": "Vitest + v8 coverage report (thresholds: lines 90 / statements 87 / functions 89 / branches 78)",
     "e2e": "Playwright functional E2E (smoke + app nav + a11y), headless — the CI suite",
     "e2e:ui": "Playwright interactive UI mode",
     "e2e:smoke": "Standalone smoke driver (scripts/e2e-smoke.mjs): seeds a project, walks every view, fails on any console/page error. Needs a running server",
