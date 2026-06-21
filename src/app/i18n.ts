@@ -115,7 +115,6 @@ const enUS = {
   dashboardDensityComfortable: "Comfortable",
   dashboardDensityCompact: "Compact",
   dashboardDensityCompactView: "Compact view",
-  dashboardDensityComfortableView: "Comfortable view",
 
   tasks: "Tasks",
   tasksCount: "({0})",

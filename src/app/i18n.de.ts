@@ -118,7 +118,6 @@ export const de: Record<TranslationKey, string> = {
   dashboardDensityComfortable: "Komfortabel",
   dashboardDensityCompact: "Kompakt",
   dashboardDensityCompactView: "Kompakte Ansicht",
-  dashboardDensityComfortableView: "Komfortable Ansicht",
 
   tasks: "Aufgaben",
   tasksCount: "({0})",

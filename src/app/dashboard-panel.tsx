@@ -398,15 +398,20 @@ export function DashboardPanel(props: DashboardPanelProps) {
           {(props.onToggleDensity || props.onToggleTrends) && (
             <div className="ml-auto flex items-center gap-2 print:hidden">
               {props.onToggleDensity && (
+                // Stable label names what the toggle enables ("Compact view");
+                // aria-pressed tracks whether compact is active. Pinning the
+                // label (instead of flipping it to the opposite word) keeps the
+                // name + pressed-state coherent for screen readers — "Compact
+                // view, pressed" ⇒ compact is on.
                 <button
                   type="button"
-                  aria-label={t(lang, density === "compact" ? "dashboardDensityComfortableView" : "dashboardDensityCompactView")}
+                  aria-label={t(lang, "dashboardDensityCompactView")}
                   aria-pressed={density === "compact"}
-                  title={t(lang, density === "compact" ? "dashboardDensityComfortableView" : "dashboardDensityCompactView")}
+                  title={t(lang, "dashboardDensityCompactView")}
                   onClick={() => props.onToggleDensity?.(density === "compact" ? "comfortable" : "compact")}
-                  className="rounded-md border border-line bg-surface px-2 py-1 text-xs text-muted-foreground hover:bg-surface-muted"
+                  className="rounded-md border border-line bg-surface px-2 py-1 text-xs text-muted-foreground hover:bg-surface-muted focus-visible:ring-1 focus-visible:ring-AIPM-green"
                 >
-                  {t(lang, density === "compact" ? "dashboardDensityComfortableView" : "dashboardDensityCompactView")}
+                  {t(lang, "dashboardDensityCompactView")}
                 </button>
               )}
               {props.onToggleTrends && (
@@ -416,7 +421,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
                   aria-pressed={showTrends}
                   title={t(lang, showTrends ? "dashboardHideTrends" : "dashboardShowTrends")}
                   onClick={() => props.onToggleTrends?.(!showTrends)}
-                  className="rounded-md border border-line bg-surface px-2 py-1 text-xs text-muted-foreground hover:bg-surface-muted"
+                  className="rounded-md border border-line bg-surface px-2 py-1 text-xs text-muted-foreground hover:bg-surface-muted focus-visible:ring-1 focus-visible:ring-AIPM-green"
                 >
                   {t(lang, showTrends ? "dashboardHideTrends" : "dashboardShowTrends")}
                 </button>

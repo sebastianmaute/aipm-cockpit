@@ -869,22 +869,22 @@ describe("DashboardPanel density (slice #8)", () => {
   it("renders no density toggle when onToggleDensity is omitted", () => {
     render(<DashboardPanel {...fullProps} />, { wrapper });
     expect(screen.queryByRole("button", { name: "Compact view" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Comfortable view" })).toBeNull();
   });
 
-  it("toggles comfortable -> compact via the on-panel button", () => {
+  it("toggles comfortable -> compact via the on-panel button (aria-pressed reflects compact)", () => {
     const onToggleDensity = vi.fn();
     render(<DashboardPanel {...fullProps} density="comfortable" onToggleDensity={onToggleDensity} />, { wrapper });
+    // Stable label names the toggle target; aria-pressed=false ⇒ compact is off.
     const btn = screen.getByRole("button", { name: "Compact view" });
     expect(btn).toHaveAttribute("aria-pressed", "false");
     fireEvent.click(btn);
     expect(onToggleDensity).toHaveBeenCalledWith("compact");
   });
 
-  it("toggles compact -> comfortable and reflects aria-pressed", () => {
+  it("toggles compact -> comfortable; aria-pressed is true while compact is active", () => {
     const onToggleDensity = vi.fn();
     render(<DashboardPanel {...fullProps} density="compact" onToggleDensity={onToggleDensity} />, { wrapper });
-    const btn = screen.getByRole("button", { name: "Comfortable view" });
+    const btn = screen.getByRole("button", { name: "Compact view" });
     expect(btn).toHaveAttribute("aria-pressed", "true");
     fireEvent.click(btn);
     expect(onToggleDensity).toHaveBeenCalledWith("comfortable");
