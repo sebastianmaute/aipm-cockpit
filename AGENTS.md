@@ -220,6 +220,25 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
   records (whichever cluster); a new shared primitive goes in core. Each `*_SET`/`*_RE` const must
   stay in the file with its consumers. Golden byte-stability + `sanitize.test`/`.property` + the 37
   importers guard behavior.
+- **Codec module maps:** `csv-codecs.ts` and `markdown-codecs.ts` are now BARRELS (`export *`) — keep
+  importing from `./csv-codecs` / `./markdown-codecs` (storage facade + `local-file-backend` + tests
+  unchanged). Pure i18n-free, byte-stable (golden-workspace pins exact bytes). One-way deps:
+  • CSV (core ← config ← decode): `csv-codecs-core.ts` (leaf — `*_CSV_COLUMNS` registries, parse
+  helpers, the `fieldToString` family + `build*FromObj` decoders shared with the MD codec & Turso
+  schema, csv escaping, per-section entity encoders, and the low-level `parseCsv` tokenizer),
+  `csv-codecs-config.ts` (status/field-visibility/features/steering config-blob codecs + ProjectMeta
+  codecs + the `workspaceToCsv` ENCODER assembler), `csv-codecs-decode.ts` (`splitCsvSections` +
+  row→object helpers + entity decoders + `decodeRatesMap` + the `csvToWorkspace` assembler).
+  • MD (core ← decode): `markdown-codecs-core.ts` (leaf — `*_MD_COLUMNS`, `mdEscape`/`mdUnescape`,
+  per-entity table encoders, config/project MD codecs, the THREE self-contained table decoders
+  `markdownToMilestones`/`Changes`/`Stakeholders`, the `workspaceToMarkdown` encoder, and the shared
+  row primitives `splitMdRow`+`markdownTableToObjects`), `markdown-codecs-decode.ts`
+  (`splitMarkdownSections` + remaining entity decoders + `markdownToWorkspace`). ★★ `parseCsv` (CSV) and
+  `splitMdRow`+`markdownTableToObjects` (MD) were HOISTED into the respective CORE so the config-blob /
+  early table decoders share them WITHOUT a config↔decode / core↔decode cycle. ★ Cross-module-referenced
+  core internals (the `CSV_SECTION_*` consts, entity encoders, `csvCellEscape`; `mdUnescape`, the row
+  primitives, the three MD table decoders) were promoted to EXPORTS — additive. A new per-section codec
+  goes in core; a new config-blob codec in `csv-codecs-config`; a new assembler stays with its peer.
 - **Workspace-section module map:** `workspace-section.tsx` is the view ROUTER (the tabpanel switch);
   it imports the lazy panels from `workspace-panels.tsx` (the 20 `dynamic(ssr:false)` view-panel
   `export const`s — keep new lazy panels there) and the props contract `WorkspaceSectionProps` from
