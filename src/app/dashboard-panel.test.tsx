@@ -570,6 +570,20 @@ describe("DashboardPanel landing cockpit", () => {
   });
 });
 
+describe("DashboardPanel milestone horizon", () => {
+  it("renders a horizon bucket header instead of the flat list", () => {
+    render(<DashboardPanel {...fullProps} />, { wrapper });
+    // Go-Live dated 2026-06-01 with today 2026-06-02 → Overdue bucket.
+    expect(screen.getByText(/Overdue \(1\)/)).toBeInTheDocument();
+  });
+
+  it("still hides the whole milestones section when showMilestones is false", () => {
+    render(<DashboardPanel {...fullProps} showMilestones={false} />, { wrapper });
+    expect(screen.queryByText(/Overdue \(/)).toBeNull();
+    expect(screen.queryByText("Milestones")).toBeNull();
+  });
+});
+
 describe("RegistersBand link styling", () => {
   it("uses the directory hover affordance, not underline", () => {
     render(
