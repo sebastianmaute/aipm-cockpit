@@ -585,8 +585,11 @@ Selected only when `tursoConfig !== null`; otherwise the local
 
 ## Sanitization (`sanitize.ts`)
 
-All inbound fields from files, CSV, Markdown, Jira, and chat tool calls pass
-through `sanitize.ts` helpers: `sanitizeTaskName`, `sanitizeAssignee`,
+`sanitize.ts` is a barrel (`export *`) over `sanitize-core` (primitives + length
+caps), `sanitize-entities`, and `sanitize-records` (one-way deps core ← entities
+← records); importers keep using `./sanitize`. All inbound fields from files,
+CSV, Markdown, Jira, and chat tool calls pass through its helpers:
+`sanitizeTaskName`, `sanitizeAssignee`,
 `sanitizeEmail`, `sanitizeIsoDate`, `sanitizePriority`, `sanitizeNonNegInt`,
 `sanitizeNotes`, `sanitizeBlockers`, `sanitizeGroup`, `sanitizeLabel(s)`,
 `parseDependenciesString`, `serializeDependencies`, `sanitizeDependencies`,
