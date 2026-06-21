@@ -559,6 +559,14 @@ const enUS = {
     "The Dashboard is now a landing cockpit: a greeting plus a \"since you last looked\" strip surfaces what changed (new items, status flips), and the ranked next-actions queue sits up top so you see what needs you first.",
   versionHighlightMilestoneHorizon:
     "The Dashboard's milestone list is now a \"what's coming\" horizon: Overdue, This week, Next 2 weeks, and Later — so you can see the road ahead at a glance.",
+  versionHighlightCoaching:
+    "New projects get a \"Get started\" card on the Dashboard with one-tap steps — add a task, configure the AI assistant, add a milestone, set up a budget — that disappears once you're underway.",
+  coachingTitle: "Get started",
+  coachingSubtitle: "A few steps to set up this project:",
+  coachingAddTask: "Add your first task",
+  coachingConfigureAi: "Configure AI assistant",
+  coachingAddMilestone: "Add a milestone",
+  coachingSetBudget: "Set up a budget",
   milestoneHorizonOverdue: "Overdue",
   milestoneHorizonThisWeek: "This week",
   milestoneHorizonNext2Weeks: "Next 2 weeks",
