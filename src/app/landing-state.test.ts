@@ -29,6 +29,16 @@ describe("landing-state", () => {
     expect(loadLandingState(`p${String(LANDING_STATE_MAX_PROJECTS + 4).padStart(2, "0")}`).lastVisitAt).toBeDefined();
   });
 
+  test("round-trips a metrics snapshot", () => {
+    saveLandingState("p1", { lastVisitAt: "2026-06-20T00:00:00.000Z", metrics: { complete: 50, overdue: 2, openRaid: 1 } });
+    expect(loadLandingState("p1").metrics).toEqual({ complete: 50, overdue: 2, openRaid: 1 });
+  });
+
+  test("rejects a state whose metrics is not an object", () => {
+    window.localStorage.setItem("lop-app:landing-state", JSON.stringify({ p1: { lastVisitAt: "x", metrics: 5 } }));
+    expect(loadLandingState("p1")).toEqual({});
+  });
+
   test("corrupt JSON → empty object, no throw", () => {
     window.localStorage.setItem("lop-app:landing-state", "{not json");
     expect(loadLandingState("p1")).toEqual({});

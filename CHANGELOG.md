@@ -8,6 +8,16 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.121.0] - 2026-06-21 "Stephenson"
+
+### Added
+- **Dashboard KPI trend arrows.** The "at a glance" headline numbers —
+  completion %, overdue tasks, open RAID — now carry a trend arrow (↑/↓/→) and
+  the signed change since your last visit, colored green when the project moved
+  the right way and pink when it didn't. The comparison reuses the same
+  per-visit snapshot as the "since you last looked" strip, so first-time and
+  fresh visits show no arrow until there is a prior to compare against.
+
 ## [0.120.0] - 2026-06-21 "Chiang"
 
 ### Added

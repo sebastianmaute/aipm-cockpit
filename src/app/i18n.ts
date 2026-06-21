@@ -561,6 +561,15 @@ const enUS = {
     "The Dashboard's milestone list is now a \"what's coming\" horizon: Overdue, This week, Next 2 weeks, and Later — so you can see the road ahead at a glance.",
   versionHighlightCoaching:
     "New projects get a \"Get started\" card on the Dashboard with one-tap steps — add a task, configure the AI assistant, add a milestone, set up a budget — that disappears once you're underway.",
+  versionHighlightTrendArrows:
+    "The Dashboard's headline numbers — completion, overdue tasks, open RAID — now show a trend arrow and the change since your last visit, so you can see at a glance which way the project is moving.",
+  dashboardKpiStrip: "At a glance",
+  dashboardKpiComplete: "Complete",
+  dashboardKpiOverdue: "Overdue",
+  dashboardKpiOpenRaid: "Open RAID",
+  dashboardTrendUp: "{0} up {1} since last visit",
+  dashboardTrendDown: "{0} down {1} since last visit",
+  dashboardTrendFlat: "{0} unchanged since last visit",
   coachingTitle: "Get started",
   coachingSubtitle: "A few steps to set up this project:",
   coachingAddTask: "Add your first task",

@@ -22,6 +22,7 @@ import type { VarianceRow } from "./snapshot";
 import { useLandingDelta } from "./use-landing-delta";
 import { buildGreeting, type RagScope } from "./dashboard-delta";
 import { DashboardDeltaStrip } from "./dashboard-delta-strip";
+import { TrendArrow } from "./trend-arrow";
 import { bucketMilestonesByHorizon } from "./milestones";
 import { MilestoneHorizonStrip } from "./milestone-horizon-strip";
 import { computeCoaching } from "./dashboard-coaching";
@@ -150,9 +151,15 @@ export function DashboardPanel(props: DashboardPanelProps) {
     budget: model.budget.effective,
     scope: model.scope.effective,
   };
-  const delta = useLandingDelta({
+  const currentMetrics = {
+    complete: model.progress.percent,
+    overdue: model.overdue.length,
+    openRaid: model.openRaidCount,
+  };
+  const { delta, trends } = useLandingDelta({
     projectId: props.projectId ?? "default",
     currentRag,
+    currentMetrics,
     overdue: model.overdue,
     today,
     isPopout: props.isPopout ?? false,
@@ -253,6 +260,25 @@ export function DashboardPanel(props: DashboardPanelProps) {
 
         {/* First-open coaching — self-hides once the project has any task */}
         <DashboardCoachingCard lang={lang} ctas={coachingCtas} onNavigate={props.onNavigate ?? (() => {})} />
+
+        {/* At-a-glance KPI strip with trend arrows vs the last visit */}
+        <div className="grid grid-cols-3 gap-2">
+          <Tile
+            label={t(lang, "dashboardKpiComplete")}
+            value={`${model.progress.percent}%`}
+            trend={<TrendArrow trend={trends.complete} metricLabel={t(lang, "dashboardKpiComplete")} lang={lang} />}
+          />
+          <Tile
+            label={t(lang, "dashboardKpiOverdue")}
+            value={String(model.overdue.length)}
+            trend={<TrendArrow trend={trends.overdue} metricLabel={t(lang, "dashboardKpiOverdue")} lang={lang} />}
+          />
+          <Tile
+            label={t(lang, "dashboardKpiOpenRaid")}
+            value={String(model.openRaidCount)}
+            trend={<TrendArrow trend={trends.openRaid} metricLabel={t(lang, "dashboardKpiOpenRaid")} lang={lang} />}
+          />
+        </div>
 
         {/* Top actions — promoted to the top so the PM sees what needs them first */}
         {topActions && topActions.length > 0 && (
