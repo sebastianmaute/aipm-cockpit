@@ -68,6 +68,12 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
   `aria-label={`${t(lang,"edit")} – ${row.name}`}`) — N identical "Edit"/"Enabled" labels is
   WCAG 2.4.6 fail, but axe gate can PASS it when live app seeds only ONE row (collision
   never renders at scan time). Qualify label; don't trust green axe run with single seeded row.
+  ★★ TOGGLE-BUTTON name/state coherence: a `<button aria-pressed>` whose VISIBLE LABEL flips to the
+  OPPOSITE action (e.g. "Comfortable view" while compact is active) announces "Comfortable view,
+  pressed" — implying the WRONG mode is on (WCAG 4.1.2). axe PASSES it (a name exists). Fix: PIN the
+  label to what the toggle ENABLES ("Compact view") and let `aria-pressed` track THAT state, so
+  "Compact view, pressed" ⇒ compact is on. (Bit the dashboard density toggle; the older Trends toggle
+  still has the inverted pattern.)
   Moving/folding a control INTO an axe-scanned view re-scans it: gate scans `Settings`→General, so
   folding Storage/Appearance into General surfaced pre-existing unlabeled `<select>` (a visible
   `<span>` label is NOT an `aria-label`/`<label>`) as axe-critical.
