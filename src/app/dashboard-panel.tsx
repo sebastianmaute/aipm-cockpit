@@ -266,7 +266,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
           <Tile
             label={t(lang, "dashboardKpiComplete")}
             value={`${model.progress.percent}%`}
-            trend={<TrendArrow trend={trends.complete} metricLabel={t(lang, "dashboardKpiComplete")} lang={lang} />}
+            trend={<TrendArrow trend={trends.complete} metricLabel={t(lang, "dashboardKpiComplete")} unit="%" lang={lang} />}
           />
           <Tile
             label={t(lang, "dashboardKpiOverdue")}

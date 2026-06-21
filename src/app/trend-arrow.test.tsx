@@ -34,6 +34,12 @@ describe("TrendArrow", () => {
     expect(el.className).toContain("text-AIPM-pink-strong");
   });
 
+  test("unit suffix appears in both the visible delta and the accessible label", () => {
+    render(<TrendArrow lang="en-US" metricLabel="Complete" unit="%" trend={trend({ value: 65, delta: 5, direction: "up", improved: true })} />);
+    const el = screen.getByLabelText(/Complete up 5% since/i);
+    expect(el.textContent).toContain("+5%");
+  });
+
   test("flat (delta 0) → muted token, 'unchanged' label", () => {
     render(<TrendArrow lang="en-US" metricLabel="Overdue" trend={trend({ value: 5, delta: 0, direction: "flat", improved: false })} />);
     const el = screen.getByLabelText(/Overdue unchanged/i);
