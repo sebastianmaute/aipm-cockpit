@@ -457,18 +457,6 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     );
   }
 
-  /**
-   * Switch the active project to `id`.
-   *
-   * Flow: save the CURRENT project's data to the active backend → build the
-   * target backend, attach its stored file handle (file projects), re-prompt
-   * for permission if it was lost → LOAD the target's existing data and apply
-   * it → suppress the auto-load that the storageConfig change would trigger →
-   * point the active config + registry at the target.
-   *
-   * Unlike a storage switch, this does NOT migrate current data into the target
-   * — it replaces the current workspace with the target's own saved data.
-   */
   // Copy the handle the backend just stored (via pick/open) into the per-project
   // handle store, so switchToProject can re-attach it later. The LocalFileBackend
   // already persisted it under its own kv key; this mirrors it per-project.
