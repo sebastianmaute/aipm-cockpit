@@ -193,6 +193,17 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
   `interactingWithBarRef` the row's `onDragStart` reads synchronously) down as props. ★ Gantt IS in
   the axe `A11Y_VIEWS` (12-view gate). ★ One brittle markup-ORDER source test reads `gantt-chrome.tsx`
   now (toolbar markup moved there), not `gantt.tsx`.
+- **Reports module map:** `ReportsPanel` (`reports.tsx`) owns data + sort/column-resize state;
+  pure i18n-free `reports-stats.ts` (`computeStats` + `Stats`/`GroupOrLabelRow`) and presentational
+  `reports-tables.tsx` (`GroupOrLabelTable`, `AssigneeTable`, `Tile`, `Section`, `StackedBar` + the
+  shared `REPORTS_*_COL_WIDTHS` consts and `AssigneeSort`/`GroupOrLabelSort` types). One-way dep
+  (reports → reports-tables → reports-stats); per-type report engines/panels (budget/raid/resource/
+  stakeholder) already live in their own files. Reports IS in the axe `A11Y_VIEWS`.
+- **RAID edit modal map:** `RaidEditModal` (`raid-edit-modal.tsx`) owns the draft, query state,
+  derived option lists, and add/remove handlers; presentational `raid-risk-matrix.tsx` (`RiskMatrix`
+  5×5 picker, Risk items only) and `raid-edit-fields.tsx` (`RaidLinkedTasksField`, `RaidCausedByField`
+  — the two chip-picker sections, threaded handlers/state as props). The panel still owns draft state
+  (these are pure render). RAID IS in the axe `A11Y_VIEWS`.
 - **Scrollbar gap:** per-view inner scrollers (`min-h-0 flex-1 overflow-auto`) need `pr-2` for the
   content↔scrollbar gap. Shared `INNER_TABLE_CLASS`/report-table/actions-panel already include it;
   bare per-panel scrollers do NOT — add `pr-2` or content jams the scrollbar.
