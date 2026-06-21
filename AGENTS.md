@@ -107,7 +107,7 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
 - **Orientation / key files:** `task-manager.tsx` is the root orchestrator (owns layout, top bar,
   view routing, and threads workspace + AI hooks down). `storage.ts` = backend facade;
   `workspace-context.tsx` = live workspace state + setters; `types.ts` = all entity shapes + enum
-  consts; `sanitize.ts` = the single per-entity validators; `i18n.ts`/`i18n.de.ts` = EN/DE strings;
+  consts; `sanitize.ts` = the single per-entity validators (now a BARREL — see "Sanitize module map"); `i18n.ts`/`i18n.de.ts` = EN/DE strings;
   `nav-config.ts` = `AppView` list + nav labels. Pure engines live in i18n-free subdirs
   (e.g. `next-actions/`).
 - `src/app/` is flat, organized by feature. Pure domain logic lives in i18n-free modules/subdirs
@@ -210,6 +210,16 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
   `PPTX_MAX_ROWS_PER_SECTION`). `export-ooxml.ts` is now a BARREL re-exporting the 3 builders —
   `export.ts` consumes them via `await import("./export-ooxml")` and `export-ooxml.test.ts` imports
   from the barrel, so keep those three names exported there. (Sections come from `export-sections.ts`.)
+- **Sanitize module map:** `sanitize.ts` is now a BARREL (`export *`) over three files — keep importing
+  from `./sanitize` (≈37 importers unchanged). Pure i18n-free, one-way deps (core ← entities ← records):
+  `sanitize-core.ts` (primitives + length caps: `sanitizeText`/`sanitizeMultiline`/`toNumber` now
+  EXPORTED, plus the field/date/email/label/dependency sanitizers), `sanitize-entities.ts`
+  (Absence/Shift/Resource/Role/Discipline/Grade/Plan/Budget/allocations/FxRates), `sanitize-records.ts`
+  (Milestone/Change/RAID/Stakeholder/ProjectMeta/SteeringCommittee/timezone — imports only
+  `BUDGET_NAME_MAX`+`sanitizeIdList` from entities). ★ A NEW entity sanitizer goes in entities or
+  records (whichever cluster); a new shared primitive goes in core. Each `*_SET`/`*_RE` const must
+  stay in the file with its consumers. Golden byte-stability + `sanitize.test`/`.property` + the 37
+  importers guard behavior.
 - **Scrollbar gap:** per-view inner scrollers (`min-h-0 flex-1 overflow-auto`) need `pr-2` for the
   content↔scrollbar gap. Shared `INNER_TABLE_CLASS`/report-table/actions-panel already include it;
   bare per-panel scrollers do NOT — add `pr-2` or content jams the scrollbar.
