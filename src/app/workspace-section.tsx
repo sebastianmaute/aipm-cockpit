@@ -772,6 +772,9 @@ export function WorkspaceSection({
               tursoActive={trends.active}
               topActions={nextActions.slice(0, 5)}
               onOpenAction={onOpenAction}
+              projectId={currentProjectId ?? "default"}
+              isPopout={isPopout}
+              onOpenChange={() => setActiveTab("changes")}
             />
           </div>
         )}

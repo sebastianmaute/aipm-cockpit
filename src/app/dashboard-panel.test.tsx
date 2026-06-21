@@ -535,6 +535,41 @@ describe("DashboardPanel budget-burn CPI stat", () => {
   });
 });
 
+describe("DashboardPanel landing cockpit", () => {
+  const action1 = {
+    id: "raid:1:severity",
+    source: "raid" as const,
+    moduleId: "raid" as const,
+    title: { key: "actionRaidTitle" as const, params: [1, "X"] as (string | number)[] },
+    why: { key: "actionRaidWhySeverity" as const, params: ["High"] as (string | number)[] },
+    score: 60,
+    tier: "now" as const,
+    cta: { kind: "open" as const, view: "raid" as const, id: 1 },
+  };
+
+  it("renders the delta-strip welcome line on a first visit", () => {
+    render(<DashboardPanel {...fullProps} projectId="p-landing-greet" />, { wrapper });
+    expect(screen.getByText(/Welcome/i)).toBeInTheDocument();
+  });
+
+  it("folds the RAG override selects into an Adjust-health disclosure", () => {
+    render(<DashboardPanel {...fullProps} projectId="p-landing-disc" />, { wrapper });
+    const summary = screen.getByText("Adjust health ratings");
+    expect(summary.closest("details")).not.toBeNull();
+  });
+
+  it("renders Top actions above the RAID registers band in DOM order", () => {
+    render(
+      <DashboardPanel {...fullProps} projectId="p-landing-order" topActions={[action1]} onOpenAction={vi.fn()} />,
+      { wrapper },
+    );
+    const topActions = screen.getByText("Top actions");
+    const registers = screen.getByText("Top open RAID");
+    // Node.DOCUMENT_POSITION_FOLLOWING (4) ⇒ registers comes AFTER topActions.
+    expect(topActions.compareDocumentPosition(registers) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+});
+
 describe("RegistersBand link styling", () => {
   it("uses the directory hover affordance, not underline", () => {
     render(

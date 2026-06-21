@@ -19,6 +19,9 @@ import type { SuggestedAction } from "./next-actions/types";
 import { useResizable } from "./use-resizable";
 import { VarianceSummary } from "./variance-summary";
 import type { VarianceRow } from "./snapshot";
+import { useLandingDelta } from "./use-landing-delta";
+import { buildGreeting, type RagScope } from "./dashboard-delta";
+import { DashboardDeltaStrip } from "./dashboard-delta-strip";
 
 interface DashboardPanelProps {
   lang: Lang;
@@ -47,6 +50,9 @@ interface DashboardPanelProps {
   onToggleTrends?: (show: boolean) => void;
   variance?: readonly VarianceRow[];
   tursoActive?: boolean;
+  projectId?: string;
+  isPopout?: boolean;
+  onOpenChange?: () => void;
 }
 
 const CHANGE_STATUS_KEY: Record<ChangeStatus, TranslationKey> = {
@@ -130,6 +136,29 @@ export function DashboardPanel(props: DashboardPanelProps) {
     ],
   );
 
+  // Landing cockpit: greeting + "since you last looked" delta.
+  const currentRag: Record<RagScope, Health | null> = {
+    overall: model.overall.effective,
+    schedule: model.schedule.effective,
+    budget: model.budget.effective,
+    scope: model.scope.effective,
+  };
+  const delta = useLandingDelta({
+    projectId: props.projectId ?? "default",
+    currentRag,
+    overdue: model.overdue,
+    today,
+    isPopout: props.isPopout ?? false,
+  });
+  // Hour captured once (lazy) to keep `new Date()` out of the render body.
+  const [greetHour] = useState(() => new Date().getHours());
+  const milestonesSoon =
+    model.overdueMilestones.length + model.atRiskMilestones.length + model.dueSoonMilestones.length;
+  const greeting = buildGreeting(greetHour, { needsYou: topActions?.length ?? 0, milestonesSoon });
+  // Representative task for the strip's task chips (first overdue, else first
+  // due-soon). undefined ⇒ the strip downgrades those chips to info-only spans.
+  const repTaskId = model.overdue[0]?.id ?? model.dueSoon[0]?.id;
+
   // Derived-state pattern: track the last stored value we seeded from so we can
   // reset the draft when an external workspace reload changes status.narrative.
   const [prevStoredNarrative, setPrevStoredNarrative] = useState(status.narrative ?? "");
@@ -173,6 +202,38 @@ export function DashboardPanel(props: DashboardPanelProps) {
   return (
     <ReportCard lang={lang} sizeRef={sizeRef} onResetSize={resetSize} title={t(lang, "navDashboard")}>
       <div className="space-y-4">
+        {/* Landing: greeting + since-you-last-looked */}
+        <DashboardDeltaStrip
+          lang={lang}
+          delta={delta}
+          greeting={greeting}
+          onOpenTask={
+            // onOpenTask opens a SPECIFIC task editor by id, so only wire it
+            // when a representative task exists — otherwise the strip renders
+            // the chip as a non-interactive span (no dead -1 click). RAID/
+            // milestone/change handlers route to the VIEW (ignore the id), so
+            // they stay wired unconditionally below.
+            onOpenTask && repTaskId !== undefined ? () => onOpenTask(repTaskId) : undefined
+          }
+          onOpenRaid={onOpenRaid ? () => onOpenRaid(model.topRaid[0]?.id ?? -1) : undefined}
+          onOpenMilestone={props.onOpenMilestone}
+          onOpenChange={props.onOpenChange}
+        />
+
+        {/* Top actions — promoted to the top so the PM sees what needs them first */}
+        {topActions && topActions.length > 0 && (
+          <section>
+            <h3 className="mb-2 text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
+              {t(lang, "dashboardTopActions")}
+            </h3>
+            <div className="flex flex-col gap-2">
+              {topActions.map((a) => (
+                <ActionRow key={a.id} lang={lang} action={a} onOpen={onOpenAction ?? (() => {})} />
+              ))}
+            </div>
+          </section>
+        )}
+
         {/* Overall band */}
         <div className="flex flex-wrap items-center gap-4 rounded-lg border border-line bg-surface p-4">
           <div className="flex items-center gap-2 text-2xl font-bold">
@@ -182,42 +243,49 @@ export function DashboardPanel(props: DashboardPanelProps) {
               {healthColorName(model.overall.effective, lang)}
             </span>
           </div>
-          <OverrideSelect
-            lang={lang}
-            label={t(lang, "dashboardOverall")}
-            value={status.ragOverride}
-            computed={model.overall.computed}
-            effective={model.overall.effective}
-            onChange={(v) => setStatus((s) => ({ ...s, ragOverride: v }))}
-          />
-          <OverrideSelect
-            lang={lang}
-            label={t(lang, "dashboardSubSchedule")}
-            value={status.scheduleOverride}
-            computed={model.schedule.computed}
-            effective={model.schedule.effective}
-            onChange={(v) => setStatus((s) => ({ ...s, scheduleOverride: v }))}
-          />
-          {showBudget && (
-            <OverrideSelect
-              lang={lang}
-              label={t(lang, "dashboardSubBudget")}
-              value={status.budgetOverride}
-              computed={model.budget.computed}
-              effective={model.budget.effective}
-              onChange={(v) => setStatus((s) => ({ ...s, budgetOverride: v }))}
-            />
-          )}
-          {showChanges && (
-            <OverrideSelect
-              lang={lang}
-              label={t(lang, "dashboardSubScope")}
-              value={status.scopeOverride}
-              computed={null}
-              effective={model.scope.effective}
-              onChange={(v) => setStatus((s) => ({ ...s, scopeOverride: v }))}
-            />
-          )}
+          <details className="basis-full print:hidden">
+            <summary className="cursor-pointer text-sm font-medium text-muted-foreground hover:text-foreground">
+              {t(lang, "dashboardAdjustHealth")}
+            </summary>
+            <div className="mt-2 flex flex-wrap items-center gap-4">
+              <OverrideSelect
+                lang={lang}
+                label={t(lang, "dashboardOverall")}
+                value={status.ragOverride}
+                computed={model.overall.computed}
+                effective={model.overall.effective}
+                onChange={(v) => setStatus((s) => ({ ...s, ragOverride: v }))}
+              />
+              <OverrideSelect
+                lang={lang}
+                label={t(lang, "dashboardSubSchedule")}
+                value={status.scheduleOverride}
+                computed={model.schedule.computed}
+                effective={model.schedule.effective}
+                onChange={(v) => setStatus((s) => ({ ...s, scheduleOverride: v }))}
+              />
+              {showBudget && (
+                <OverrideSelect
+                  lang={lang}
+                  label={t(lang, "dashboardSubBudget")}
+                  value={status.budgetOverride}
+                  computed={model.budget.computed}
+                  effective={model.budget.effective}
+                  onChange={(v) => setStatus((s) => ({ ...s, budgetOverride: v }))}
+                />
+              )}
+              {showChanges && (
+                <OverrideSelect
+                  lang={lang}
+                  label={t(lang, "dashboardSubScope")}
+                  value={status.scopeOverride}
+                  computed={null}
+                  effective={model.scope.effective}
+                  onChange={(v) => setStatus((s) => ({ ...s, scopeOverride: v }))}
+                />
+              )}
+            </div>
+          </details>
           {props.onToggleTrends && (
             <button
               type="button"
@@ -419,36 +487,20 @@ export function DashboardPanel(props: DashboardPanelProps) {
           </div>
         ) : null}
 
-        {/* Top actions + Recent activity (side-by-side on large screens) */}
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          {/* Top actions */}
-          {topActions && topActions.length > 0 && (
-            <section>
-              <h3 className="mb-2 text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
-                {t(lang, "dashboardTopActions")}
-              </h3>
-              <div className="flex flex-col gap-2">
-                {topActions.map((a) => (
-                  <ActionRow key={a.id} lang={lang} action={a} onOpen={onOpenAction ?? (() => {})} />
-                ))}
-              </div>
-            </section>
+        {/* Recent activity (Top actions now lives at the top of the panel) */}
+        <Section title={t(lang, "dashboardRecentActivity")} boxed>
+          {model.recentActivity.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{t(lang, "dashboardEmpty")}</p>
+          ) : (
+            <ul className="space-y-1 text-sm">
+              {model.recentActivity.map((e) => (
+                <li key={e.id} className="text-muted-foreground">
+                  {e.timestamp.slice(0, 10)} · {e.kind}
+                </li>
+              ))}
+            </ul>
           )}
-          {/* Recent activity */}
-          <Section title={t(lang, "dashboardRecentActivity")} boxed>
-            {model.recentActivity.length === 0 ? (
-              <p className="text-sm text-muted-foreground">{t(lang, "dashboardEmpty")}</p>
-            ) : (
-              <ul className="space-y-1 text-sm">
-                {model.recentActivity.map((e) => (
-                  <li key={e.id} className="text-muted-foreground">
-                    {e.timestamp.slice(0, 10)} · {e.kind}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Section>
-        </div>
+        </Section>
       </div>
     </ReportCard>
   );
