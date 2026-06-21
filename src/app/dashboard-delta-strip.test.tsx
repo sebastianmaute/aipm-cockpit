@@ -31,6 +31,14 @@ describe("DashboardDeltaStrip", () => {
     expect(onOpenTask).toHaveBeenCalledTimes(1);
   });
 
+  test("task chip is non-interactive text (not a button) when no handler is wired", () => {
+    const counts = emptyCounts(); counts.tasks.updated = 4;
+    render(<DashboardDeltaStrip lang="en-US" delta={delta({ counts, total: 4 })} greeting={{ greetingKey: "dashboardGreetingMorning", summary: { needsYou: 0, milestonesSoon: 0 } }} />);
+    // No onOpenTask → the chip renders as a span, never a dead button.
+    expect(screen.queryByRole("button", { name: /4 tasks updated/i })).toBeNull();
+    expect(screen.getByText(/4 tasks updated/i)).toBeInTheDocument();
+  });
+
   test("renders a RAG flip label (non-interactive)", () => {
     render(<DashboardDeltaStrip lang="en-US" delta={delta({ ragFlips: [{ scope: "schedule", from: "G", to: "A", worsened: true }], total: 1 })} greeting={{ greetingKey: "dashboardGreetingMorning", summary: { needsYou: 0, milestonesSoon: 0 } }} />);
     expect(screen.getByText(/→/)).toBeInTheDocument();

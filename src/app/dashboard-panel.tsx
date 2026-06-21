@@ -155,6 +155,9 @@ export function DashboardPanel(props: DashboardPanelProps) {
   const milestonesSoon =
     model.overdueMilestones.length + model.atRiskMilestones.length + model.dueSoonMilestones.length;
   const greeting = buildGreeting(greetHour, { needsYou: topActions?.length ?? 0, milestonesSoon });
+  // Representative task for the strip's task chips (first overdue, else first
+  // due-soon). undefined ⇒ the strip downgrades those chips to info-only spans.
+  const repTaskId = model.overdue[0]?.id ?? model.dueSoon[0]?.id;
 
   // Derived-state pattern: track the last stored value we seeded from so we can
   // reset the draft when an external workspace reload changes status.narrative.
@@ -204,7 +207,14 @@ export function DashboardPanel(props: DashboardPanelProps) {
           lang={lang}
           delta={delta}
           greeting={greeting}
-          onOpenTask={onOpenTask ? () => onOpenTask(model.overdue[0]?.id ?? model.dueSoon[0]?.id ?? -1) : undefined}
+          onOpenTask={
+            // onOpenTask opens a SPECIFIC task editor by id, so only wire it
+            // when a representative task exists — otherwise the strip renders
+            // the chip as a non-interactive span (no dead -1 click). RAID/
+            // milestone/change handlers route to the VIEW (ignore the id), so
+            // they stay wired unconditionally below.
+            onOpenTask && repTaskId !== undefined ? () => onOpenTask(repTaskId) : undefined
+          }
           onOpenRaid={onOpenRaid ? () => onOpenRaid(model.topRaid[0]?.id ?? -1) : undefined}
           onOpenMilestone={props.onOpenMilestone}
           onOpenChange={props.onOpenChange}
