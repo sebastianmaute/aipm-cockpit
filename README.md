@@ -2,7 +2,7 @@
 
 [![Pipeline Status](https://gitlab.example.com/example-group/public-collab/lop-app/badges/main/pipeline.svg)](https://gitlab.example.com/example-group/public-collab/lop-app/-/commits/main)
 [![coverage](https://gitlab.example.com/example-group/public-collab/lop-app/badges/main/coverage.svg)](https://gitlab.example.com/example-group/public-collab/lop-app/-/commits/main)
-[![version](https://img.shields.io/badge/version-v0.115.0_%22Sturgeon%22-2e7d32)](./CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-v0.116.0_%22Vonnegut%22-2e7d32)](./CHANGELOG.md)
 [![license](https://img.shields.io/badge/license-Apache--2.0-blue)](./LICENSE)
 
 > A project-command surface for project leads with a context-aware Claude copilot that knows your current view and is grounded in your operating guides. It plugs into Microsoft 365 (Outlook contacts & calendar, SharePoint documents) and syncs bidirectionally with Jira — so it accelerates your existing workflow instead of becoming another place to maintain data. Local-first; no backend account required.
@@ -76,6 +76,7 @@ Each row keeps a one-line summary. Expand **Details** for the full description.
 | Printing | Scoped print — printing a report prints just that view (sidebar, banners, and other panes are hidden). |
 | SharePoint document links | Attach SharePoint files and folders to tasks, RAID items, changes, stakeholders, milestones, and projects via a built-in browser.<br><details><summary>Details</summary>A custom Microsoft Graph browser (search sites, navigate libraries/folders, pick a file or folder) replaces blind URL paste. Links open in a new tab and round-trip losslessly across all storage backends. Requires M365 sign-in; the "Browse…" button also appears in the SharePoint storage-backend config.</details> |
 | Documents tab | A single view that aggregates every linked document across the project.<br><details><summary>Details</summary>Lists every link carried by tasks, RAID items, changes, milestones, stakeholders, and the project header in one table: open a link in a new tab, jump to its source item's editor, remove it, or attach a new one to any item via the same SharePoint picker / paste-URL field. Links stay on their source items (no separate store), so removing a link here is identical to removing it from that item's editor.</details> |
+| Encrypted secrets at rest | The Anthropic API key and Turso auth token are encrypted in the browser with AES-256-GCM rather than stored in plain text.<br><details><summary>Details</summary>Ciphertext lives in `localStorage["lop-app:secrets"]` and both fields are blanked from the settings blob before it is persisted. The wrapping key is a non-extractable WebCrypto **device key** kept in IndexedDB by default; optionally set a **passphrase** per secret (PBKDF2, 600k iterations) so the value stays sealed until you unlock it. The ciphertext is excluded from workspace exports and never written to Turso. See [Security Model](#security-model).</details> |
 
 ## Quick Start
 
@@ -113,7 +114,7 @@ No environment variables are required to run the app — every integration is co
 | `npm run lint` | Run ESLint (`eslint-config-next` preset) |
 | `npm run test` | Vitest unit/component tests in watch mode |
 | `npm run test:run` | Vitest, single run (CI-friendly) |
-| `npm run test:coverage` | Vitest + v8 coverage report (fails below 70%) |
+| `npm run test:coverage` | Vitest + v8 coverage report (thresholds: lines 90 / statements 87 / functions 89 / branches 78) |
 | `npm run e2e` | Playwright functional E2E (smoke + app nav + a11y), headless — the CI suite |
 | `npm run e2e:ui` | Playwright interactive UI mode |
 | `npm run e2e:smoke` | Standalone smoke driver (scripts/e2e-smoke.mjs): seeds a project, walks every view, fails on any console/page error. Needs a running server |
@@ -172,7 +173,7 @@ All browser-to-Jira traffic is proxied through Next.js API routes rather than ca
 | `POST /api/jira/update-issue` | Push local task edits back to Jira |
 | `POST /api/jira/transition-issue` | Change an issue's workflow status category |
 
-Bidirectional sync with conflict resolution is available from the Jira settings section. Credentials (site URL, email, API token) are stored in `localStorage` and sent only to your own Atlassian domain.
+Bidirectional sync with conflict resolution is available from the Jira settings section. Credentials (site URL, email, API token) are stored in `localStorage` unencrypted (unlike the Anthropic key and Turso auth token, which are encrypted at rest — see [Security Model](#security-model)) and sent only to your own Atlassian domain.
 
 ### Microsoft 365
 
@@ -190,7 +191,7 @@ Microsoft 365 features use MSAL (browser PKCE — no backend token exchange) and
 
 1. Register an app in [Microsoft Entra admin center](https://entra.microsoft.com/) as a single-page application (SPA).
 2. Add a redirect URI: `http://localhost:3000` for dev, or your production URL.
-3. Grant API permissions: `Contacts.Read`, `Calendars.Read`, `Files.ReadWrite.All`, `Sites.Read.All` (or narrower equivalents).
+3. Grant API permissions: `Contacts.Read`, `Calendars.Read`, `Calendars.ReadWrite` (milestone write-back), `Files.ReadWrite.All`, `Sites.Read.All` (or narrower equivalents — grant only the scopes for the features you use).
 4. Copy the **Client ID** and **Tenant ID** into Settings → Integrations, or provide them via the env vars below.
 
 ## Automation / Notifications
@@ -242,7 +243,7 @@ When Jira integration is enabled and a token-expiry date is recorded, the app su
 - **UI**: React 19, Tailwind CSS 4
 - **Language**: TypeScript 5
 - **Testing**: Vitest 4 (unit/component, v8 coverage), Playwright (E2E)
-- **AI**: Anthropic Claude API (key stored client-side in Settings)
+- **AI**: Anthropic Claude API (key entered client-side in Settings; encrypted at rest)
 - **Optional storage**: Turso (libSQL), Microsoft Graph / SharePoint
 
 ## Environment Variables & Security
@@ -256,7 +257,7 @@ No environment variables are **required** — all integrations work via in-app S
 | `NEXT_PUBLIC_TURSO_DATABASE_URL` | Turso database URL (overrides Settings → Integrations input) |
 | `NEXT_PUBLIC_TURSO_AUTH_TOKEN` | Turso auth token (overrides Settings → Integrations input); **recommend a scoped token** |
 
-> ⚠️ **Security:** Turso auth tokens live in the browser (`localStorage`, or as `NEXT_PUBLIC_*` env vars, which are inlined at build time and are **not** secret). Use a token scoped to the minimum required database and operations, and rotate it if it may have been exposed. The Claude API key and Jira credentials are likewise entered in Settings and stored in `localStorage`.
+> ⚠️ **Security:** When entered in Settings, the Anthropic API key and Turso auth token are **encrypted at rest** (AES-256-GCM; see [Security Model](#security-model)). A Turso token supplied via `NEXT_PUBLIC_TURSO_AUTH_TOKEN` is different — `NEXT_PUBLIC_*` env vars are **inlined into the build at compile time and are not secret**, so prefer a database/operation-scoped token there and rotate it if it may have been exposed. Jira credentials (site URL, email, API token) are entered in Settings and stored in `localStorage` **unencrypted**.
 
 ## Security Model
 
@@ -266,10 +267,12 @@ This is a **local-first, bring-your-own-key** application. There is no applicati
 
 | Data | Location |
 |------|----------|
-| Anthropic API key, Jira credentials (site URL, email, API token), Turso database URL + auth token, all other settings | `localStorage`, **unencrypted** |
+| **Anthropic API key, Turso auth token** | **Encrypted at rest** — AES-256-GCM ciphertext in `localStorage["lop-app:secrets"]`; these two fields are blanked from the settings blob before it is written. The wrapping key is a non-extractable WebCrypto **device key** in IndexedDB by default, or a **per-secret passphrase** (PBKDF2, 600k iterations) if you set one (passphrase-locked secrets stay sealed until you unlock them) |
+| Jira credentials (site URL, email, API token), Turso database URL, all other settings | `localStorage["lop-app:settings"]`, **unencrypted** |
+| Device key (wraps the secrets above) | IndexedDB DB `lop-app-secrets`, non-extractable |
 | Workspace data (tasks, RAID, changes, milestones, stakeholders, …) | `IndexedDB` on the default Browser backend, or whichever storage backend you configure |
 
-Credentials are deliberately excluded from workspace exports (JSON/CSV/Markdown), the activity log, and console output — they exist only in `localStorage`.
+If WebCrypto / IndexedDB is unavailable the app degrades to holding the secrets in memory rather than crashing. Credentials are deliberately excluded from workspace exports (JSON/CSV/Markdown), the activity log, and console output; the secrets ciphertext is likewise excluded from exports and never written to Turso.
 
 ### What leaves the browser
 
