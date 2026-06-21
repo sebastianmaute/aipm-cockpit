@@ -242,6 +242,23 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
   core internals (the `CSV_SECTION_*` consts, entity encoders, `csvCellEscape`; `mdUnescape`, the row
   primitives, the three MD table decoders) were promoted to EXPORTS — additive. A new per-section codec
   goes in core; a new config-blob codec in `csv-codecs-config`; a new assembler stays with its peer.
+- **useStorageBackend module map:** `use-storage-backend.ts` keeps the PERSISTENCE core (backend memo,
+  reactive refs, `applyWorkspace`, the load/save debounce effects, broadcast sync, the storage-file
+  controls `onPick`/`onGrant`/`onOpen`/`onRequestStorageSwitch`, and the shared helpers
+  `backendFor`/`currentWorkspace`/`commitRegistry`/`persistBackendHandle`/`tursoConfigNow`/
+  `reportProjectError`). The two project-operation clusters live in hook factories it composes:
+  `use-storage-file-ops.ts` `useFileProjectOps` (switchToProject / createProject / loadProjectFromFile /
+  createDemoProject) and `use-storage-turso-ops.ts` `useTursoProjectOps` (switch/create/migrate/archive/
+  restore/hardDelete Turso portfolio projects). Each takes a typed `deps` object (the live render-scope
+  closure values + the shared helpers) and returns the handlers, spread into the hook's return.
+  ★★ These handlers MUST NOT be memoized — they read live render-scope state every call (the same
+  reason the originals were bare `function` declarations). ★★ The factories are named `use*` and called
+  UNCONDITIONALLY (before the single `return`, no early-return precedes them) because the react-hooks
+  PURITY rule REJECTS passing a ref object into a plain function call during render — a `use*` hook may
+  receive the hook's refs, a plain `createX(deps)` cannot (this is why they aren't plain factories).
+  ★ A new project flow goes in file-ops or turso-ops (whichever backend); a new persistence concern or
+  shared helper stays in `use-storage-backend.ts` and is threaded into the deps. Public return shape is
+  unchanged (task-manager + `use-storage-backend.test.tsx` untouched).
 - **Workspace-section module map:** `workspace-section.tsx` is the view ROUTER (the tabpanel switch);
   it imports the lazy panels from `workspace-panels.tsx` (the 20 `dynamic(ssr:false)` view-panel
   `export const`s — keep new lazy panels there) and the props contract `WorkspaceSectionProps` from
