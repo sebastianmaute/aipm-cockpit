@@ -221,6 +221,32 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
   shared `REPORTS_*_COL_WIDTHS` consts and `AssigneeSort`/`GroupOrLabelSort` types). One-way dep
   (reports → reports-tables → reports-stats); per-type report engines/panels (budget/raid/resource/
   stakeholder) already live in their own files. Reports IS in the axe `A11Y_VIEWS`.
+- **Dashboard landing cockpit (v0.118.0):** the Dashboard opens with a greeting + "since you last
+  looked" delta strip, then the ranked top-actions queue (promoted ABOVE the health band), with the
+  four RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosure. `DashboardPanel`
+  (`dashboard-panel.tsx`) still owns `computeDashboard`; the cockpit adds: pure i18n-free
+  `dashboard-delta.ts` (`computeDelta` diffs the activity log by `timestamp > lastVisitAt` + a prior
+  RAG snapshot → `DeltaResult`; `buildGreeting`); per-project localStorage store `landing-state.ts`;
+  hook `use-landing-delta.ts`; presentational `dashboard-delta-strip.tsx`. ★★ `landing-state.ts` is a
+  per-BROWSER, per-PROJECT store (single key `lop-app:landing-state` → `{[projectId]: LandingState}`
+  map, capped 50 most-recent) — NOT a Workspace field (zero backend write paths), OUT of exports/Turso,
+  cleared by `clearAppConfig`'s `lop-app:*` sweep. Keyed off workspace-section's `currentProjectId ??
+  "default"`. ★★ `use-landing-delta` captures the delta ONCE at mount via a LAZY
+  `useState(() => computeDelta(loadPrior, …))` (reads the PRIOR snapshot before advancing) and advances
+  the stored snapshot in a DEBOUNCED (4s) `useEffect` that ONLY writes localStorage (a side-effect, NOT
+  setState) — both shapes are deliberate to pass the react-hooks PURITY + `set-state-in-effect` bans;
+  `new Date()` lives in the timeout callback. Popout = read-only (no advance). ★★ CHIP CLICK ROUTING
+  ASYMMETRY: `onOpenRaid`/`onOpenMilestone`/`onOpenChange` IGNORE their id arg (workspace-section just
+  `setActiveTab(view)`), so a `-1` fallback is a safe view-switch; but `onOpenTask` OPENS A SPECIFIC
+  EDITOR by id (`tasks.find(id)`), so it MUST be gated on a real `repTaskId` (first overdue/due-soon) or
+  the chip is a DEAD `-1` no-op button (an a11y/UX smell — the strip downgrades a handler-less chip to a
+  non-interactive `<span>`). ★ `DashboardPanel.projectId` is OPTIONAL (defaults `"default"`) so the ~30
+  existing test render sites don't break. ★ greeting hour via lazy `useState(() => new Date().getHours())`
+  (purity — no `Date` in a render body). ★ `newOverdue` lower bound is INCLUSIVE (`dueDate >= sinceDate
+  && < today`): a task due ON the last-visit date wasn't overdue then (due end-of-day) but is now. ★
+  Dashboard IS in the axe `A11Y_VIEWS` — strip chips are real `<button>`s (text = accessible name), flip
+  labels are `<span>`s; the `<details>` is keyboard-native and keeps the override `<select>`s in the DOM
+  (so `getByText("Overall")` still resolves).
 - **RAID edit modal map:** `RaidEditModal` (`raid-edit-modal.tsx`) owns the draft, query state,
   derived option lists, and add/remove handlers; presentational `raid-risk-matrix.tsx` (`RiskMatrix`
   5×5 picker, Risk items only) and `raid-edit-fields.tsx` (`RaidLinkedTasksField`, `RaidCausedByField`
