@@ -263,8 +263,12 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
   `<span role="img" aria-label="Red"/"Amber">`) placed INSIDE a `<button>`/clickable chip BLEEDS its
   label into the element's computed accessible name (→ "Red ⚠ M1 · date"). Wrap it in
   `<span aria-hidden="true">` whenever the visible ⚠/text already conveys the meaning — applies to ANY
-  RagBadge-in-button, not just here. ★ Dashboard IS in axe `A11Y_VIEWS`; chips are real `<button>`s with
-  row-unique text names.
+  RagBadge-in-button, not just here. ★★ INVERSE trap (same class): an `aria-label` on a NON-interactive
+  BARE `<div>`/wrapper (no `role`) is NOT announced by screen readers — it's dead markup. To name a
+  decorative graphic (SVG sparkline/chart), put `role="img"` + `aria-label` ON THE GRAPHIC element
+  itself (mirrors `trend-chart.tsx`), NOT on a wrapper div. axe does NOT flag the dead-label case, so it
+  passes the gate while the meaning is invisible (caught in slice-6 sparkline review). ★ Dashboard IS in
+  axe `A11Y_VIEWS`; chips are real `<button>`s with row-unique text names.
 - **Dashboard coaching CTAs (v0.120.0):** slice 3 of the landing cockpit (first-open story). Pure
   i18n-free `dashboard-coaching.ts` `computeCoaching({taskCount,milestoneCount,budgetCount,
   showMilestones,showBudget,aiConfigured})` → ordered `CoachingCta[]` (`{key,labelKey,view}`,
@@ -323,7 +327,8 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
   `MAX_POINTS=12`. ★ ALWAYS-ON, no `tursoConfig` guard — on file/IDB `snapshots` is `[]` so the log path
   runs automatically (reads snapshots opportunistically, never WRITES → the Turso-gated rule doesn't
   apply). Presentational `sparkline.tsx` (pure SVG `<polyline>`, `stroke-AIPM-dark-blue`, null for <2
-  points, SVG `aria-hidden` — the CARD WRAPPER carries the full `aria-label`, label-bleed class). ★ New
+  points; optional `ariaLabel` prop → SVG gets `role="img"`+`aria-label` (announced), else `aria-hidden`
+  decorative — the name rides the GRAPHIC, not the bare card div; see the inverse-label-bleed trap above). ★ New
   optional `DashboardPanel` prop `snapshots?` threaded from `trends.snapshots` (workspace-section); the
   panel ALREADY loads `activity` itself via `loadActivityLog()` (no activity prop). ★ series `useMemo`
   deps hoisted to scalar locals (`snapCount`/`activityCount`/`currentDone`/`currentTotal`/`today`) — the
