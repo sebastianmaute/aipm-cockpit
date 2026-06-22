@@ -30,7 +30,7 @@ export function useDeepLinkRowFlash(view: AppView): {
   flashId: number | null;
   containerRef: React.RefObject<HTMLDivElement | null>;
 } {
-  const { pendingOpen } = useWorkspaceTab();
+  const { pendingOpen, pendingFlash, clearPendingFlash } = useWorkspaceTab();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [flashId, setFlashId] = useState<number | null>(null);
   // Monotonic nonce: bumped on every fresh matching request so the side-effect
@@ -54,6 +54,23 @@ export function useDeepLinkRowFlash(view: AppView): {
     if (targetId !== null) {
       setFlashId(targetId);
       setFlashSeq((s) => s + 1);
+    }
+  }
+
+  // Parallel reconcile for the FLASH-ONLY signal: same render-time pattern, but
+  // this source carries no editor-open/tab-switch, so the hook itself consumes
+  // (clears) pendingFlash once handled. Seeded `undefined` so a fresh mount that
+  // already sees pendingFlash still fires (do NOT seed from the live prop).
+  const [handledFlash, setHandledFlash] = useState<
+    { view: AppView; id: number } | null | undefined
+  >(undefined);
+  if (pendingFlash !== handledFlash) {
+    setHandledFlash(pendingFlash);
+    const flashTarget = targetIdFor(pendingFlash, view);
+    if (flashTarget !== null) {
+      setFlashId(flashTarget);
+      setFlashSeq((s) => s + 1);
+      clearPendingFlash();
     }
   }
 
