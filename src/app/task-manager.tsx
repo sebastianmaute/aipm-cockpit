@@ -190,7 +190,7 @@ function TaskManagerInner() {
     resetColWidths,
     startColResize,
   } = useColumnManager();
-  const { isPopout, activeTab, setActiveTab, requestOpen, pendingOpen, clearPendingOpen, requestChat } = useWorkspaceTab();
+  const { isPopout, activeTab, setActiveTab, requestOpen, pendingOpen, clearPendingOpen, requestChat, requestFlash } = useWorkspaceTab();
   useHashView(settings.layout === "modern", settings.features);
   // Classic mode has no panel for the modern-only views; fall back to chat.
   useEffect(() => {
@@ -296,15 +296,24 @@ function TaskManagerInner() {
   // modal and are unaffected (the effect is gated on `useEditView`).
   const useEditView = settings.layout === "modern" && !isPopout;
   const editorReturnRef = useRef<AppView>("open-points");
+  // When a deep-link opened the full-page editor, remember the task id so we can
+  // flash its row/card on the list once the editor closes and the list re-mounts.
+  const flashOnEditReturnRef = useRef<number | null>(null);
   useEffect(() => {
     if (!useEditView) return;
     if (taskModalOpen && activeTab !== "edit") {
       editorReturnRef.current = activeTab;
       setActiveTab("edit");
     } else if (!taskModalOpen && activeTab === "edit") {
-      setActiveTab(editorReturnRef.current);
+      const back = editorReturnRef.current;
+      setActiveTab(back);
+      if (flashOnEditReturnRef.current !== null) {
+        const flashTaskId = flashOnEditReturnRef.current;
+        flashOnEditReturnRef.current = null;
+        if (back === "open-points") requestFlash("open-points", flashTaskId);
+      }
     }
-  }, [useEditView, taskModalOpen, activeTab, setActiveTab]);
+  }, [useEditView, taskModalOpen, activeTab, setActiveTab, requestFlash]);
 
   // Populated after useBulkOperations is called below; onDelete calls through
   // this ref so it doesn't depend on deselectId being defined first.
@@ -1231,9 +1240,12 @@ function TaskManagerInner() {
   useEffect(() => {
     if (pendingOpen?.view !== "open-points") return;
     const task = tasks.find((t) => t.id === pendingOpen.id);
-    if (task) openEditModal(task);
+    if (task) {
+      if (useEditView) flashOnEditReturnRef.current = task.id;
+      openEditModal(task);
+    }
     clearPendingOpen();
-  }, [pendingOpen, tasks, openEditModal, clearPendingOpen]);
+  }, [pendingOpen, tasks, openEditModal, clearPendingOpen, useEditView]);
 
   const commTemplatesActive = tursoConfig !== null && !isPopout;
   const commTemplates = useCommTemplates({ active: commTemplatesActive, config: tursoConfig });
