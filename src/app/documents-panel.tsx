@@ -10,8 +10,12 @@ import { DocumentLinksFieldGated } from "./document-links-field-gated";
 import { VIEW_PANE_RESIZABLE_CLASS, INNER_TABLE_CLASS } from "./view-styles";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import { useResizable } from "./use-resizable";
-import { ResetSizeButton } from "./task-manager-ui";
+import { useColumnResize } from "./use-column-resize";
+import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton } from "./task-manager-ui";
 import { isSharePointEnabled } from "./m365-sharepoint";
+
+const DOCS_COL_WIDTHS = { document: 360, source: 240 } as const;
+type DocCol = keyof typeof DOCS_COL_WIDTHS;
 
 const SOURCE_LABEL = {
   task: "documentsSourceTask",
@@ -28,6 +32,8 @@ export function DocumentsPanel() {
   // `-full` suffix: the view changed from a centered half-width pane to full
   // width — use a fresh key so a stale half-width size doesn't override `w-full`.
   const { ref, reset } = useResizable("lop-app:documents-size-full");
+  const { colWidths, startColResize, resetColWidths } = useColumnResize<DocCol>("documents", DOCS_COL_WIDTHS);
+  const startResize = startColResize as (col: string, e: React.MouseEvent) => void;
   const canAddDocument = isSharePointEnabled(settings.integrations);
   const ws = useWorkspace();
   const { requestOpen } = useWorkspaceTab();
@@ -119,6 +125,7 @@ export function DocumentsPanel() {
           >
             + {t(lang, "documentsTabAdd")}
           </button>
+          <ResetColWidthsButton onClick={resetColWidths} lang={lang} />
           <ResetSizeButton onClick={reset} lang={lang} />
         </div>
       </div>
@@ -190,8 +197,14 @@ export function DocumentsPanel() {
         <table className="w-full text-left text-sm">
           <thead className={TABLE_HEAD_CLASS}>
             <tr>
-              <th className="px-3 py-2">{t(lang, "documentsColDocument")}</th>
-              <th className="px-3 py-2">{t(lang, "documentsColSource")}</th>
+              <th className="relative px-3 py-2" style={{ width: colWidths.document, minWidth: colWidths.document }}>
+                {t(lang, "documentsColDocument")}
+                <ColumnResizeHandle col="document" onMouseDown={startResize} />
+              </th>
+              <th className="relative px-3 py-2" style={{ width: colWidths.source, minWidth: colWidths.source }}>
+                {t(lang, "documentsColSource")}
+                <ColumnResizeHandle col="source" onMouseDown={startResize} />
+              </th>
               <th className="px-3 py-2" />
             </tr>
           </thead>

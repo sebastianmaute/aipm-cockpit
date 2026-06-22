@@ -8,6 +8,17 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.134.0] - 2026-06-22 "Vance"
+
+### Changed
+- The Change report lays its summary tables out in two columns — By type beside By status, By impact beside By requestor — instead of one stacked column.
+- The Milestones panel now uses the standard bordered inner-scroller shell (matching the Resource Directory).
+- The global search box sits at the left edge of the top-bar action cluster instead of between the icons.
+- The Steering Committee content now has padding inside its panel shell.
+
+### Added
+- Column resizing, with a Reset-columns button, on the Documents panel and on the Steering Committee meetings and information-schedule tables.
+
 ## [0.133.0] - 2026-06-22 "Tiptree"
 
 ### Added

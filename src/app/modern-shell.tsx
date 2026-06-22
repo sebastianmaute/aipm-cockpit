@@ -17,6 +17,8 @@ interface ModernShellProps {
   bannerCount: number;
   onShowAlerts: () => void;
   onOpenAiAssistant?: () => void;
+  /** Rendered at the LEFT edge of the TopBar's action cluster (global search). */
+  search?: React.ReactNode;
   topBarMenus: React.ReactNode;
   sidebarFooter: React.ReactNode;
   tasksSection: React.ReactNode;
@@ -44,6 +46,7 @@ interface ModernShellProps {
 export function ModernShell({
   lang, activeView, onNavigate, version, mode, bannerCount, onShowAlerts,
   onOpenAiAssistant,
+  search = null,
   topBarMenus, sidebarFooter, tasksSection, workspace,
   editView = null, editTitle = "",
   settingsView = null,
@@ -100,6 +103,7 @@ export function ModernShell({
           onToggleSidebar={onToggleCollapsed}
           projectSwitcher={projectSwitcher}
           projectSwitcherTrailing={projectSwitcherTrailing}
+          search={search}
         >
           {topBarMenus}
         </TopBar>

@@ -132,615 +132,624 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
 
 ## Architecture pointers
 
-- **Orientation / key files:** `task-manager.tsx` is the root orchestrator (owns layout, top bar,
-  view routing, and threads workspace + AI hooks down). `storage.ts` = backend facade;
+> Bullets describe CURRENT behavior; version/MR provenance lives in git + CHANGELOG, not here.
+
+- **Orientation / key files:** `task-manager.tsx` = root orchestrator (layout, top bar, view
+  routing; threads workspace + AI hooks down). `storage.ts` = backend facade;
   `workspace-context.tsx` = live workspace state + setters; `types.ts` = all entity shapes + enum
-  consts; `sanitize.ts` = the single per-entity validators (now a BARREL — see "Sanitize module map"); `i18n.ts`/`i18n.de.ts` = EN/DE strings;
-  `nav-config.ts` = `AppView` list + nav labels. Pure engines live in i18n-free subdirs
-  (e.g. `next-actions/`).
+  consts; `sanitize.ts` = single per-entity validators (a BARREL — see "Sanitize module map");
+  `i18n.ts`/`i18n.de.ts` = EN/DE strings; `nav-config.ts` = `AppView` list + nav labels.
 - `src/app/` is flat, organized by feature. Pure domain logic lives in i18n-free modules/subdirs
-  (e.g. `next-actions/`, serializers); React surfaces import them. Keep engines i18n-free —
-  surface translates.
-  Before creating `<name>.ts`, check for existing `<name>.tsx` (and vice versa) — a bare
-  `./<name>` import resolves `.ts` AHEAD of `.tsx`, so new pure `foo.ts` silently hijacks existing
-  `foo.tsx` component import and breaks its tests. Name pure module distinctly
-  (e.g. `action-notifications.ts` beside `notifications.tsx` component).
-- Storage is a facade (`storage.ts`) over multiple backends: JSON file, CSV, Markdown, Turso
-  (single + multi-tenant), IndexedDB. Snapshots/Trends + version history are Turso-ONLY.
-- Sample data tiered: `sample-workspace-small.*` is curated source; `-big` (3×) and
-  `-huge` (10×) JSON+SQLite GENERATED via pure `scaleWorkspace(ws, factor)` (id-offset
-  `k*100000` + full FK remap; reference data — resources/roles/disciplines/grades — NOT
-  replicated; replicas get distinct stakeholder names + workstream-qualified titles, not "(2)").
-  Don't hand-edit `-big`/`-huge`; regenerate from `-small`.
-  MASTER is `sample-workspace-small.md` — `scripts/generate-sample-workspace.ts` PARSES it and
-  EMITS `.json` + `.sqlite3` + `-big`/`-huge` (regen: `npx vite-node scripts/generate-sample-
-  workspace.ts`, then regenerate `__fixtures__/golden-*` via serializers). `project` meta +
-  `status` SYNTHESIZED IN GEN SCRIPT (not in .md). `sample-workspace-small.csv` is
-  SEPARATE hand-curated artifact (parsed by sample tests). MD table cells with internal `|` are
-  `\|`-escaped and CSV has MULTI-LINE quoted fields → NEVER naive-split a row: edit .md by
-  exact full-line replace, edit .csv via app codec (`csvToWorkspace`→patch→`workspaceToCsv`,
-  verified data-safe round-trip).
-- Action-Center CTAs surface-only: thread optional handler
-  task-manager → workspace-section → ActionsPanel → ActionRow (ActionsPanel renders in
-  workspace-section, not task-manager, and renders TWO ActionRow lists — tier + monitor — so new
-  CTA prop must thread to BOTH); `next-actions/` engine stays pure.
-- Shell renders top bar in TWO independent places, both built in `task-manager.tsx`: classic
-  `AppHeader` (`appHeaderEl`, used by classic main-window `legacyTree`) and modern
-  `ModernShell` `topBarMenus` slot (DEFAULT layout). New top-bar control must wire into
-  BOTH or invisible in whichever layout you forgot (modern default is easy miss). Popout
-  `legacyTree` branch (`isPopout ? …`) renders NO header, so header controls correctly never
-  appear in popouts.
-- **Remount-swallow (parent request/nonce → conditionally-mounted child):** modern shell renders
-  ONLY the active view; workspace-section renders ONLY the active tabpanel — so a view MOUNTS FRESH
-  each visit. A child consuming a parent "request"/nonce prop must NOT seed its last-seen/handled
-  ref from the LIVE prop (`useRef(prop)`/`useState(prop)`) — a fresh mount sees prop===seed and
-  silently SWALLOWS a pending request. Seed `undefined`/sentinel + guard `!== undefined`; parent must
-  CLEAR (consume) or monotonically bump the nonce so re-mounts don't re-fire stale. Bit settings-view
-  learning deep-link AND milestones-panel `openCreateNonce` (Gantt "Add milestone").
-- Task editor has TWO surfaces: modern DEFAULT uses full-page `TaskEditView` (ModernShell `editView`
-  slot; `useEditView = layout==="modern" && !isPopout`); classic/popout use `TaskFormModal` (which
-  already has `ModalHeader` title+✕). New editor controls/heading wire into the surface in play —
+  (e.g. `next-actions/`, serializers); React surfaces import them and translate — keep engines i18n-free.
+  ★ Before creating `<name>.ts`, check for existing `<name>.tsx` (and vice versa) — a bare `./<name>`
+  import resolves `.ts` AHEAD of `.tsx`, so a new pure `foo.ts` silently hijacks an existing `foo.tsx`
+  component import and breaks its tests. Name the pure module distinctly (e.g. `action-notifications.ts`
+  beside `notifications.tsx`).
+- Storage facade (`storage.ts`) over backends: JSON file, CSV, Markdown, Turso (single + multi-tenant),
+  IndexedDB. Snapshots/Trends + version history are Turso-ONLY.
+- **Sample data** tiered: `sample-workspace-small.*` is curated source; `-big` (3×) and `-huge` (10×)
+  JSON+SQLite GENERATED via pure `scaleWorkspace(ws, factor)` (id-offset `k*100000` + full FK remap;
+  reference data — resources/roles/disciplines/grades — NOT replicated; replicas get distinct
+  stakeholder names + workstream-qualified titles, not "(2)"). Don't hand-edit `-big`/`-huge`; regenerate.
+  MASTER is `sample-workspace-small.md` — `scripts/generate-sample-workspace.ts` PARSES it and EMITS
+  `.json` + `.sqlite3` + `-big`/`-huge` (regen: `npx vite-node scripts/generate-sample-workspace.ts`,
+  then regenerate `__fixtures__/golden-*` via serializers). `project` meta + `status` SYNTHESIZED IN
+  GEN SCRIPT (not in .md). `sample-workspace-small.csv` is a SEPARATE hand-curated artifact (parsed by
+  sample tests). MD table cells with internal `|` are `\|`-escaped and CSV has MULTI-LINE quoted fields
+  → NEVER naive-split a row: edit .md by exact full-line replace, edit .csv via app codec
+  (`csvToWorkspace`→patch→`workspaceToCsv`, verified data-safe round-trip).
+- **Action-Center CTAs surface-only:** thread optional handler task-manager → workspace-section →
+  ActionsPanel → ActionRow (ActionsPanel renders in workspace-section, not task-manager, and renders
+  TWO ActionRow lists — tier + monitor — so a new CTA prop must thread to BOTH); `next-actions/` engine
+  stays pure.
+- **Top bar in TWO independent places**, both built in `task-manager.tsx`: classic `AppHeader`
+  (`appHeaderEl`, used by classic main-window `legacyTree`) and modern `ModernShell` `topBarMenus` slot
+  (DEFAULT layout). A new top-bar control must wire into BOTH or it's invisible in whichever layout you
+  forgot (modern default is the easy miss). Popout `legacyTree` branch renders NO header, so header
+  controls correctly never appear in popouts.
+- **Remount-swallow (parent request/nonce → conditionally-mounted child):** modern shell renders ONLY
+  the active view; workspace-section renders ONLY the active tabpanel — so a view MOUNTS FRESH each
+  visit. A child consuming a parent "request"/nonce prop must NOT seed its last-seen/handled ref from the
+  LIVE prop (`useRef(prop)`/`useState(prop)`) — a fresh mount sees prop===seed and silently SWALLOWS a
+  pending request. Seed `undefined`/sentinel + guard `!== undefined`; parent must CLEAR (consume) or
+  monotonically bump the nonce so re-mounts don't re-fire stale. Bit settings-view learning deep-link AND
+  milestones-panel `openCreateNonce` (Gantt "Add milestone").
+- **Task editor has TWO surfaces:** modern DEFAULT uses full-page `TaskEditView` (ModernShell `editView`
+  slot; `useEditView = layout==="modern" && !isPopout`); classic/popout use `TaskFormModal` (which has
+  its own `ModalHeader` title+✕). New editor controls/heading wire into the surface in play —
   TaskEditView's control bar is SEPARATE from the modal's header.
-- **Task status model (SP-A, v0.107.0):** `Task.status` (To Do/In Progress/On Hold/In Review/
-  Cancelled/Done) is the SOURCE OF TRUTH for "done", but `completedDate` is AUTO-MANAGED to keep
-  the invariant **`status==="Done" ⟺ completedDate set`** — so the ~30 existing completedDate-based
-  derivations were left untouched. Pure i18n-free engine `task-status.ts` owns it:
-  `applyStatusChange(task,next,today)` is the SOLE writer of status+completedDate — EVERY status
-  mutation (form save create+update in `use-task-submit`, inline dropdown + `onToggleComplete` in
-  `use-task-row-handlers`, AI/Jira/template seeds) routes through it; `migrateTaskStatus` runs on
-  ALL SIX load paths (completedDate set → Done, else To Do). `isTaskFinished`=Done|Cancelled;
-  Cancelled is terminal-but-NOT-completed (excluded from overdue/next-actions/health-red, but
-  completion-% still counts Done only). UI labels via `task-status-ui.ts` (AIPM palette tokens only).
-  ★ The table status column key is **`taskStatus`** — the pre-existing `"status"` col key is the
-  RAG/health DOT (its header is "Health"/DE "Ampel"). ★ The tasks view ("Open Points") IS in the
-  axe `A11Y_VIEWS`, so the inline status `<select>` needs a row-UNIQUE label (`Status – <task>`).
-- **Kanban board (SP-B, v0.108.0):** tasks pane has a Table/Board toggle (per-device
-  `settings.tasksViewMode`). Board component is **`task-kanban-board.tsx`** — NOT
-  `task-kanban.tsx` (the pure `task-kanban.ts` engine shadows a `.tsx` sibling via
-  `.ts`-before-`.tsx` resolution). Native HTML5 DnD (no lib); the per-card status `<select>`
-  (shared `TaskStatusSelect`, also used by the table row) is the keyboard path. ★★ The board
-  renders OUTSIDE `RowContextProvider` (which wraps only the table body) — so ANY component a
-  Kanban card renders must take what it needs as PROPS, never `useTaskRowContext()` (that THROWS
-  → board crashes on RAID-linked cards; bit `RaidBadge`, now in `task-raid-badge.tsx` taking
-  `lang`+`onJumpToRaid` as props). Test cards/board with a populated `raidByTask` or the crash
-  path stays untested. ★ Jira-synced tasks (`!!task.jiraKey`) are read-only: sync maps
-  `statusCategory`→`status` via `jiraCategoryToStatus` INSIDE `issueToTaskFields`' patch and
-  applies `patch.status` DIRECTLY — NOT through `applyStatusChange` (which would stamp `today`
-  instead of Jira's resolution date). The board/table selects + drag are disabled for synced;
-  `onStatusChange` no-ops on `jiraKey`. Board is NOT in the axe `A11Y_VIEWS` (gate scans the
-  table view) — board a11y is eye-verified (row-unique select labels + per-column `aria-label`).
-- **Gantt module map:** `GanttPanel` (`gantt.tsx`) is the orchestrator only (data derivation +
-  layout); the heavy parts are extracted. Pure i18n-free ENGINE is `gantt-engine.ts` (date math,
-  prefs load/save, critical-path, derive-bar — note `.ts` shadows no `.tsx`). React pieces:
-  hooks `use-gantt-bar-drag.ts` (bar move/resize — window pointer-listener drag lifecycle +
-  `previewDates`/`startBarDrag`, mirrors drag into state for the preview bar) and
-  `use-gantt-prefs.ts` (sort/filter prefs state + localStorage hydrate/persist + setters);
-  presentational `gantt-chrome.tsx` (`GanttToolbar`, `GanttHeader` axis, `GanttDependencyLayer`
-  SVG arrows + milestone connectors) and `gantt-rows.tsx` (`GanttTaskRow`, `GanttMilestoneRow`).
-  Rows/chrome are PURE — `GanttPanel` threads data + the drag state/handlers (incl. the same
-  `interactingWithBarRef` the row's `onDragStart` reads synchronously) down as props. ★ Gantt IS in
-  the axe `A11Y_VIEWS` (12-view gate). ★ One brittle markup-ORDER source test reads `gantt-chrome.tsx`
-  now (toolbar markup moved there), not `gantt.tsx`.
-- **Reports module map:** `ReportsPanel` (`reports.tsx`) owns data + sort/column-resize state;
-  pure i18n-free `reports-stats.ts` (`computeStats` + `Stats`/`GroupOrLabelRow`) and presentational
-  `reports-tables.tsx` (`GroupOrLabelTable`, `AssigneeTable`, `Tile`, `Section`, `StackedBar` + the
-  shared `REPORTS_*_COL_WIDTHS` consts and `AssigneeSort`/`GroupOrLabelSort` types). One-way dep
-  (reports → reports-tables → reports-stats); per-type report engines/panels (budget/raid/resource/
-  stakeholder) already live in their own files. Reports IS in the axe `A11Y_VIEWS`.
-- **Dashboard landing cockpit (v0.118.0):** the Dashboard opens with a greeting + "since you last
-  looked" delta strip, then the ranked top-actions queue (promoted ABOVE the health band), with the
-  four RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosure. `DashboardPanel`
-  (`dashboard-panel.tsx`) still owns `computeDashboard`; the cockpit adds: pure i18n-free
-  `dashboard-delta.ts` (`computeDelta` diffs the activity log by `timestamp > lastVisitAt` + a prior
-  RAG snapshot → `DeltaResult`; `buildGreeting`); per-project localStorage store `landing-state.ts`;
-  hook `use-landing-delta.ts`; presentational `dashboard-delta-strip.tsx`. ★★ `landing-state.ts` is a
-  per-BROWSER, per-PROJECT store (single key `lop-app:landing-state` → `{[projectId]: LandingState}`
-  map, capped 50 most-recent) — NOT a Workspace field (zero backend write paths), OUT of exports/Turso,
-  cleared by `clearAppConfig`'s `lop-app:*` sweep. Keyed off workspace-section's `currentProjectId ??
-  "default"`. ★★ `use-landing-delta` captures the delta ONCE at mount via a LAZY
-  `useState(() => computeDelta(loadPrior, …))` (reads the PRIOR snapshot before advancing) and advances
-  the stored snapshot in a DEBOUNCED (4s) `useEffect` that ONLY writes localStorage (a side-effect, NOT
-  setState) — both shapes are deliberate to pass the react-hooks PURITY + `set-state-in-effect` bans;
-  `new Date()` lives in the timeout callback. Popout = read-only (no advance). ★★ CHIP CLICK ROUTING
-  (as of v0.124.0): the Dashboard now DEEP-LINKS RAID / milestone / change to the SPECIFIC item via
-  `requestOpen(view, id)` (wired in `workspace-section.tsx`, the same channel the Action Center uses) —
-  `onOpenRaid`/`onOpenMilestone`/`onOpenChange` carry their id arg through. Only the AGGREGATE delta-strip
-  milestone/change chips and the milestone-horizon "+N more" affordance stay view-LEVEL (they pass
-  sentinel `-1` → the target panel's `pendingOpen` effect finds no item → view switch only, opens nothing).
-  STILL TRUE: `onOpenTask` OPENS A SPECIFIC EDITOR by id (`tasks.find(id)`), so it MUST be gated on a real
-  `repTaskId` (first overdue/due-soon) or the chip is a DEAD `-1` no-op button (an a11y/UX smell — the
-  strip downgrades a handler-less chip to a non-interactive `<span>`). ★ `DashboardPanel.projectId` is OPTIONAL (defaults `"default"`) so the ~30
-  existing test render sites don't break. ★ greeting hour via lazy `useState(() => new Date().getHours())`
-  (purity — no `Date` in a render body). ★ `newOverdue` lower bound is INCLUSIVE (`dueDate >= sinceDate
-  && < today`): a task due ON the last-visit date wasn't overdue then (due end-of-day) but is now. ★
-  Dashboard IS in the axe `A11Y_VIEWS` — strip chips are real `<button>`s (text = accessible name), flip
-  labels are `<span>`s; the `<details>` is keyboard-native and keeps the override `<select>`s in the DOM
-  (so `getByText("Overall")` still resolves).
-- **Milestone horizon strip (v0.119.0):** slice 2 of the landing cockpit ("what's coming"). Pure engine
-  `bucketMilestonesByHorizon` (in `milestones.ts`) buckets NON-achieved milestones into
-  `overdue`/`thisWeek`/`next2Weeks`/`later` by CALENDAR days (`HORIZON_THIS_WEEK_DAYS=7`,
-  `HORIZON_NEXT_DAYS=21`; UTC-midnight `Date.parse`, no `new Date()` of now — `today` passed in);
-  overdue-first, a `d < 0` safety net also routes to overdue, an unparseable date → `later` (never
-  crashes, never false-overdues). Each `HorizonEntry` carries its `milestoneStatus` so the strip flags
-  overdue/at-risk. Presentational `milestone-horizon-strip.tsx` REPLACED the old flat dashboard
-  Milestones list (same `showMilestones`-gated `Section` slot in `dashboard-panel.tsx`; buckets via a
-  `useMemo` over `props.milestones`+`props.tasks`+`today`+`holidaySet`; `onOpenMilestone` ignores its
-  arg → routes to the milestones view, so no dead-click concern). ★ The ENGINE is uncapped (full +
-  testable); the STRIP caps each bucket at `MAX_PER_BUCKET = 5` rendered chips with a "+N more"
-  affordance (the bucket header still shows the TRUE total) — without the cap a large portfolio's
-  `later` bucket floods the dashboard cell. ★★ REUSABLE a11y LANDMINE: a `RagBadge` (renders
-  `<span role="img" aria-label="Red"/"Amber">`) placed INSIDE a `<button>`/clickable chip BLEEDS its
-  label into the element's computed accessible name (→ "Red ⚠ M1 · date"). Wrap it in
+- **Task status model:** `Task.status` (To Do/In Progress/On Hold/In Review/Cancelled/Done) is the
+  SOURCE OF TRUTH for "done", but `completedDate` is AUTO-MANAGED to keep the invariant
+  **`status==="Done" ⟺ completedDate set`** — so the ~30 existing completedDate-based derivations were
+  left untouched. Pure i18n-free engine `task-status.ts`: `applyStatusChange(task,next,today)` is the SOLE
+  writer of status+completedDate — EVERY status mutation (form save create+update in `use-task-submit`,
+  inline dropdown + `onToggleComplete` in `use-task-row-handlers`, AI/Jira/template seeds) routes through
+  it; `migrateTaskStatus` runs on ALL SIX load paths (completedDate set → Done, else To Do).
+  `isTaskFinished`=Done|Cancelled; Cancelled is terminal-but-NOT-completed (excluded from
+  overdue/next-actions/health-red, but completion-% still counts Done only). UI labels via
+  `task-status-ui.ts` (AIPM palette tokens only). ★ The table status column key is **`taskStatus`** — the
+  pre-existing `"status"` col key is the RAG/health DOT (header "Health"/DE "Ampel"). ★ The tasks view
+  ("Open Points") IS in axe `A11Y_VIEWS`, so the inline status `<select>` needs a row-UNIQUE label
+  (`Status – <task>`).
+- **Kanban board:** tasks pane has a Table/Board toggle (per-device `settings.tasksViewMode`). Board
+  component is **`task-kanban-board.tsx`** — NOT `task-kanban.tsx` (the pure `task-kanban.ts` engine
+  shadows a `.tsx` sibling via `.ts`-before-`.tsx` resolution). Native HTML5 DnD (no lib); the per-card
+  status `<select>` (shared `TaskStatusSelect`, also used by the table row) is the keyboard path. ★★ The
+  board renders OUTSIDE `RowContextProvider` (which wraps only the table body) — so ANY component a Kanban
+  card renders must take what it needs as PROPS, never `useTaskRowContext()` (that THROWS → board crashes
+  on RAID-linked cards; bit `RaidBadge`, now in `task-raid-badge.tsx` taking `lang`+`onJumpToRaid` as
+  props). Test cards/board with a populated `raidByTask` or the crash path stays untested. ★ Jira-synced
+  tasks (`!!task.jiraKey`) are read-only: sync maps `statusCategory`→`status` via `jiraCategoryToStatus`
+  INSIDE `issueToTaskFields`' patch and applies `patch.status` DIRECTLY — NOT through `applyStatusChange`
+  (which would stamp `today` instead of Jira's resolution date). Board/table selects + drag are disabled
+  for synced; `onStatusChange` no-ops on `jiraKey`. Board is NOT in axe `A11Y_VIEWS` (gate scans the table
+  view) — board a11y is eye-verified (row-unique select labels + per-column `aria-label`).
+- **Gantt module map:** `GanttPanel` (`gantt.tsx`) is orchestrator only (data derivation + layout); heavy
+  parts extracted. Pure i18n-free ENGINE `gantt-engine.ts` (date math, prefs load/save, critical-path,
+  derive-bar). React pieces: hooks `use-gantt-bar-drag.ts` (bar move/resize — window pointer-listener drag
+  lifecycle + `previewDates`/`startBarDrag`, mirrors drag into state for the preview bar) and
+  `use-gantt-prefs.ts` (sort/filter prefs state + localStorage hydrate/persist + setters); presentational
+  `gantt-chrome.tsx` (`GanttToolbar`, `GanttHeader` axis, `GanttDependencyLayer` SVG arrows + milestone
+  connectors) and `gantt-rows.tsx` (`GanttTaskRow`, `GanttMilestoneRow`). Rows/chrome are PURE —
+  `GanttPanel` threads data + drag state/handlers (incl. the same `interactingWithBarRef` the row's
+  `onDragStart` reads synchronously) down as props. ★ Gantt IS in axe `A11Y_VIEWS`. ★ One brittle
+  markup-ORDER source test reads `gantt-chrome.tsx` (toolbar markup moved there), not `gantt.tsx`.
+- **Reports module map:** `ReportsPanel` (`reports.tsx`) owns data + sort/column-resize state; pure
+  i18n-free `reports-stats.ts` (`computeStats` + `Stats`/`GroupOrLabelRow`) and presentational
+  `reports-tables.tsx` (`GroupOrLabelTable`, `AssigneeTable`, `Tile`, `Section`, `StackedBar` + shared
+  `REPORTS_*_COL_WIDTHS` consts and `AssigneeSort`/`GroupOrLabelSort` types). One-way dep (reports →
+  reports-tables → reports-stats); per-type report engines/panels (budget/raid/resource/stakeholder) live
+  in their own files. Reports IS in axe `A11Y_VIEWS`.
+
+### Dashboard landing cockpit
+
+The Dashboard (`dashboard-panel.tsx`, owns `computeDashboard`) opens with a greeting + "since you last
+looked" delta strip, then the ranked top-actions queue (promoted ABOVE the health band), with the four
+RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosure. Dashboard IS in axe
+`A11Y_VIEWS`. Built as slices:
+
+- **Delta strip:** pure i18n-free `dashboard-delta.ts` (`computeDelta` diffs the activity log by
+  `timestamp > lastVisitAt` + a prior RAG snapshot → `DeltaResult`; `buildGreeting`); per-project
+  localStorage store `landing-state.ts`; hook `use-landing-delta.ts`; presentational
+  `dashboard-delta-strip.tsx`. ★★ `landing-state.ts` is a per-BROWSER, per-PROJECT store (single key
+  `lop-app:landing-state` → `{[projectId]: LandingState}` map, capped 50 most-recent) — NOT a Workspace
+  field (zero backend write paths), OUT of exports/Turso, cleared by `clearAppConfig`'s `lop-app:*` sweep.
+  Keyed off workspace-section's `currentProjectId ?? "default"`. ★★ `use-landing-delta` captures the delta
+  ONCE at mount via a LAZY `useState(() => computeDelta(loadPrior, …))` (reads the PRIOR snapshot before
+  advancing) and advances the stored snapshot in a DEBOUNCED (4s) `useEffect` that ONLY writes localStorage
+  (a side-effect, NOT setState) — both shapes are deliberate to pass the react-hooks PURITY +
+  `set-state-in-effect` bans; `new Date()` lives in the timeout callback. Popout = read-only (no advance).
+  ★★ CHIP CLICK ROUTING: deep-links RAID/milestone/change to the SPECIFIC item via `requestOpen(view, id)`
+  (wired in `workspace-section.tsx`, same channel as the Action Center) — `onOpenRaid`/`onOpenMilestone`/
+  `onOpenChange` carry their id arg. Only the AGGREGATE delta-strip milestone/change chips + the
+  milestone-horizon "+N more" affordance stay view-LEVEL (pass sentinel `-1` → target panel's `pendingOpen`
+  effect finds no item → view switch only). `onOpenTask` OPENS A SPECIFIC EDITOR by id (`tasks.find(id)`),
+  so it MUST be gated on a real `repTaskId` (first overdue/due-soon) or the chip is a DEAD `-1` no-op button
+  (the strip downgrades a handler-less chip to a non-interactive `<span>`). ★ `DashboardPanel.projectId` is
+  OPTIONAL (defaults `"default"`) so the ~30 existing test render sites don't break. ★ greeting hour via
+  lazy `useState(() => new Date().getHours())` (purity — no `Date` in render body). ★ `newOverdue` lower
+  bound is INCLUSIVE (`dueDate >= sinceDate && < today`): a task due ON the last-visit date wasn't overdue
+  then (due end-of-day) but is now. ★ strip chips are real `<button>`s (text = accessible name), flip labels
+  are `<span>`s; the `<details>` is keyboard-native and keeps the override `<select>`s in the DOM (so
+  `getByText("Overall")` still resolves).
+- **Milestone horizon strip ("what's coming"):** pure engine `bucketMilestonesByHorizon` (in
+  `milestones.ts`) buckets NON-achieved milestones into `overdue`/`thisWeek`/`next2Weeks`/`later` by
+  CALENDAR days (`HORIZON_THIS_WEEK_DAYS=7`, `HORIZON_NEXT_DAYS=21`; UTC-midnight `Date.parse`, no
+  `new Date()` of now — `today` passed in); overdue-first, a `d < 0` safety net also routes to overdue, an
+  unparseable date → `later` (never crashes, never false-overdues). Each `HorizonEntry` carries its
+  `milestoneStatus`. Presentational `milestone-horizon-strip.tsx` REPLACED the old flat dashboard
+  Milestones list (same `showMilestones`-gated `Section` slot; buckets via a `useMemo` over
+  `props.milestones`+`props.tasks`+`today`+`holidaySet`; `onOpenMilestone` ignores its arg → routes to the
+  milestones view). ★ The ENGINE is uncapped (full + testable); the STRIP caps each bucket at
+  `MAX_PER_BUCKET = 5` rendered chips with a "+N more" affordance (bucket header still shows the TRUE
+  total) — without the cap a large portfolio's `later` bucket floods the cell. ★★ REUSABLE a11y LANDMINE: a
+  `RagBadge` (renders `<span role="img" aria-label="Red"/"Amber">`) placed INSIDE a `<button>`/clickable
+  chip BLEEDS its label into the element's computed accessible name (→ "Red ⚠ M1 · date"). Wrap it in
   `<span aria-hidden="true">` whenever the visible ⚠/text already conveys the meaning — applies to ANY
-  RagBadge-in-button, not just here. ★★ INVERSE trap (same class): an `aria-label` on a NON-interactive
-  BARE `<div>`/wrapper (no `role`) is NOT announced by screen readers — it's dead markup. To name a
-  decorative graphic (SVG sparkline/chart), put `role="img"` + `aria-label` ON THE GRAPHIC element
-  itself (mirrors `trend-chart.tsx`), NOT on a wrapper div. axe does NOT flag the dead-label case, so it
-  passes the gate while the meaning is invisible (caught in slice-6 sparkline review). ★ Dashboard IS in
-  axe `A11Y_VIEWS`; chips are real `<button>`s with row-unique text names.
-- **Dashboard coaching CTAs (v0.120.0):** slice 3 of the landing cockpit (first-open story). Pure
-  i18n-free `dashboard-coaching.ts` `computeCoaching({taskCount,milestoneCount,budgetCount,
-  showMilestones,showBudget,aiConfigured})` → ordered `CoachingCta[]` (`{key,labelKey,view}`,
-  keys+`AppView` only). ★ GATED on `taskCount === 0` (blank project) → returns `[]` once any task
-  exists, so the card SELF-HIDES and never nags an active project (no dismiss control). Order: Add
-  task(`open-points`) · Configure AI(`settings`) · Add milestone(`milestones`) · Set budget(`budget`),
-  each gated on its module/empty condition. Presentational `dashboard-coaching-card.tsx` (returns null
-  when empty); rendered in `dashboard-panel.tsx` right after the delta strip. ★★ NAV from the dashboard
-  uses a single `onNavigate` prop wired to `useWorkspaceTab().setActiveTab` (the SINGLE active-view
-  source — routes to `open-points` correctly even though tasks render in a separate `TasksSection`, not
-  WorkspaceSection). ★★ The Anthropic-key "configured" signal is `settings.ai.apiKey` (NOT top-level
-  `settings.apiKey` — that does not exist; `apiKey` lives on the nested `AiConfig`); use
-  `!!settings.ai.apiKey?.trim()` (in-memory hydrated value, blanked on disk by `writeSettings`,
-  passphrase-locked → `""` → treated unconfigured). ★ New `DashboardPanel` props `onNavigate?`/
-  `aiConfigured?` are OPTIONAL (back-compat with ~30 test render sites). ★★ EXHAUSTIVE-DEPS LANDMINE
-  (reinforces the obj.member rule): a `?.length`/`obj.member`/any complex expression INSIDE a `useMemo`
-  dep array is a FATAL `--max-warnings=0` warning ("complex expression in the dependency array") — HOIST
-  it to a scalar local (`const milestoneCount = props.milestones?.length ?? 0`) and depend on that. ★ The
-  slice-1 greeting summary is now suppressed when `needsYou===0 && milestonesSoon===0` (avoids "0 items
-  need you" on a blank project). Dashboard IS in axe `A11Y_VIEWS` — but the live demo seeds a POPULATED
-  project so the coaching card is ABSENT at scan time (its buttons are eye/unit-verified, not axe-gated).
-- **Dashboard KPI trend arrows (v0.121.0):** slice 4 of the landing cockpit ("which way is it moving").
-  An "at a glance" 3-tile KPI strip (completion % · overdue · open RAID) below the coaching card, each
-  tile carrying a trend arrow (↑/↓/→) + signed delta vs the user's LAST VISIT. Pure i18n-free engine
-  `dashboard-trends.ts` `computeMetricTrends(prior, current)` → `Record<MetricKey, MetricTrend>`
-  (`{value, delta, direction, improved}`); per-metric `HIGHER_IS_BETTER` (completion up = good; overdue/
-  openRaid up = bad). ★ `delta===null ⟺ improved===null ⟺ no prior value` (first visit / pre-metrics
-  state) → the arrow renders NOTHING; an exactly-flat `delta===0` → `improved:false` + `direction:"flat"`
-  (intended — "unchanged", muted color, NOT worsened). Presentational `trend-arrow.tsx` returns `null`
-  when `improved===null || delta===null`; glyph + signed delta are `aria-hidden`, the WRAPPER carries the
-  full `aria-label` (the RagBadge-in-button label-bleed landmine class — never let the glyph become the
-  accessible name). ★★ REUSES slice-1's per-project `landing-state` snapshot — `LandingState.metrics?:
-  MetricSnapshot` rides the SAME single `lop-app:landing-state` localStorage map (ZERO new backend write
-  paths, OUT of exports/Turso, cleared by `clearAppConfig`); `landing-state.ts` guard accepts an optional
-  metrics object. `use-landing-delta` now returns `{delta, trends}` (call sites updated) — trends are
-  mount-captured in the SAME lazy `useState` (reads `prior.metrics` before advancing) and `metrics` is
-  written in the SAME debounced 4s advance (popout read-only). ★ The KPI tile VALUE reads LIVE `model`
-  (`progress.percent`/`overdue.length`/`openRaidCount`); the arrow is mount-captured vs the prior — same
-  intentional mount-snapshot asymmetry as the delta strip (a mid-visit reload can briefly diverge value vs
-  arrow; accepted, mirrors slice 1). ★ `DashboardModel.openRaidCount` is the TRUE open (non-terminal) RAID
-  count — `topRaid` is capped at 5 so can't be the trend source; it's a REQUIRED field but the only literal
-  `DashboardModel` construction (`snapshot.test`) is an `as unknown as` cast so it didn't break. ★ The
-  `complete` KPI is a PERCENTAGE → `TrendArrow` takes a `unit` prop (`"%"`) so the visible delta (`+5%`)
-  and the aria-label ("Complete up 5% since last visit") aren't unitless/ambiguous; counts pass `""`. ★
-  `Tile` (`report-table.tsx`) gained an optional `trend` slot. Dashboard IS in axe `A11Y_VIEWS` (strip
-  tiles are non-interactive `<div>`s; arrow label-bleed guarded). Trend templates are i18n EN+DE.
-- **Dashboard completion-trend sparkline (v0.122.0):** slice 6 of the landing cockpit ("what's the
-  trajectory"). A compact axis-less line of % complete over time, in a self-hiding card directly below
-  the KPI strip. Pure i18n-free `completion-trend.ts` `computeCompletionTrend({snapshots, activity,
-  currentDone, currentTotal, today})` → `CompletionPoint[]` (`{label,percent}`). ★★ SOURCE PRIORITY: if
-  `snapshots` yields ≥2 points → exact `SnapshotRecord.pctComplete` series (Turso path); ELSE reconstruct
-  done/total from the LOCAL activity log — anchor at the live counts and walk `task.created/completed/
-  reopened/deleted` BACKWARD per day (deleted task's done-state unknown → assumed NOT done; documented
-  approximation, like `newOverdue`). Neither ≥2 → `[]` (card hidden). Pure: `today`+counts passed in (no
-  `new Date()`/clock); percents clamped 0–100; future-dated + non-task events ignored; trailing cap
-  `MAX_POINTS=12`. ★ ALWAYS-ON, no `tursoConfig` guard — on file/IDB `snapshots` is `[]` so the log path
-  runs automatically (reads snapshots opportunistically, never WRITES → the Turso-gated rule doesn't
-  apply). Presentational `sparkline.tsx` (pure SVG `<polyline>`, `stroke-AIPM-dark-blue`, null for <2
-  points; optional `ariaLabel` prop → SVG gets `role="img"`+`aria-label` (announced), else `aria-hidden`
-  decorative — the name rides the GRAPHIC, not the bare card div; see the inverse-label-bleed trap above). ★ New
-  optional `DashboardPanel` prop `snapshots?` threaded from `trends.snapshots` (workspace-section); the
-  panel ALREADY loads `activity` itself via `loadActivityLog()` (no activity prop). ★ series `useMemo`
-  deps hoisted to scalar locals (`snapCount`/`activityCount`/`currentDone`/`currentTotal`/`today`) — the
-  exhaustive-deps complex-expression ban. `model.progress` exposes `completed`+`total`. Dashboard IS in
-  axe `A11Y_VIEWS` (sparkline non-interactive). i18n EN+DE.
-- **Dashboard density toggle (v0.123.0):** slice 8 of the landing cockpit ("fit more on screen"). Per-device
-  Comfortable/Compact preference, SPACING ONLY (no font/palette/contrast change). Pure i18n-free
-  `dashboard-density.ts` `densityClasses(d)` → `{outer,kpiGap,cardPad}` class strings — comfortable
-  REPRODUCES the current literals (`space-y-4`/`gap-2`/`p-3`, a no-op for existing users), compact
-  tightens (`space-y-2`/`gap-1`/`p-2`). `DashboardPanel` takes `density?` (default `"comfortable"` —
-  back-compat with the ~30 test render sites) + `onToggleDensity?`; applies `dc.outer` to the panel
-  container, `dc.kpiGap` to the KPI grid, `dc.cardPad` to the sparkline card. ★★ TWO controls, ONE setting
-  (`settings.dashboardDensity?`, per-device, persisted via `setSettings`→`writeSettings` SPREAD — no
-  allowlist edit, mirrors `tasksViewMode`): on-panel toggle button beside the Trends toggle (now both wrapped
-  in one `ml-auto flex` cluster; `aria-pressed`, text label = accessible name, `print:hidden`) AND a third
-  `SegmentedControl<DashboardDensity>` in `AppearanceSection` (Settings→General). `onToggleDensity` is
-  `isPopout ? undefined` (popouts render no toggle but still honour the `density` prop). ★ Settings→General
-  AND Dashboard are BOTH axe-scanned — SegmentedControl's `ariaLabel` + the on-panel button's text name keep
-  the gate green (verified). ★ Compact-test asserts `.space-y-2` PRESENCE only (it's container-only; a nested
-  `space-y-4` elsewhere makes a global-absence check brittle). i18n EN+DE.
-- **Dashboard click-through (v0.124.0):** `Tile` (`report-table.tsx`) gained an optional `onActivate`/`activateLabel` clickable variant (renders a real `<button>` — axe-safe name via `activateLabel`); pure i18n-free `activityViewOf` (`dashboard-activity-nav.ts`) maps an activity `kind`→`AppView` for recent-activity row navigation; KPI/progress/burn tiles + the completion sparkline launch their view via `onNavigate`, Top Changes rows + RAID register rows + horizon chips deep-link the item.
-- **Deep-link row flash (v0.125.0):** shared `use-deeplink-row-flash.ts` — `useDeepLinkRowFlash(view)` (render-time reconcile sets `flashId` + a monotonic `flashSeq` nonce; an effect keyed on `[flashId, flashSeq]` does the rAF `scrollIntoView({block:"center"})` + a `DEEPLINK_FLASH_MS=1800` auto-clear; the nonce makes a same-id re-request re-fire) + `flashOutlineClass(isFlashed)`. Each of the five deep-linkable panels (raid/milestones/changes/stakeholders/tasks) attaches `containerRef` to its `overflow-auto` scroll container and adds `data-deeplink-row={id}` + `flashOutlineClass(flashId===id)` to rows; static `outline-AIPM-green` (no bg → never fights row `bg-*` state classes; palette-safe). Fires ALONGSIDE the editor-open effect and does NOT clear `pendingOpen` (the panel's own effect does — both fire in the same commit; the side-effect is keyed on `flashId` NOT `pendingOpen` so the panel's `clearPendingOpen` can't cancel the scroll/auto-clear). ★ The Kanban **board** is ALSO wired (v0.126.0): `tasks-section.tsx` threads the SAME `containerRef`+`flashId` from the hook into `<TaskKanban>` (only one of the table/board branches mounts at a time, so the single ref is free); `task-kanban-board.tsx` attaches `containerRef` to the outer `overflow-x-auto` div and adds `data-deeplink-row`+`flashOutlineClass` to each card `<article>` (card scroll works because the per-column vertical scroller is a descendant of the outer ref). ★ Remaining graceful no-ops (no scroll/outline — never crashes; editor still opens): tasks **modern full-page edit** (list unmounted) + any row/card hidden by an active filter/search (e.g. `hideFinishedTasks`, milestone filters). ★ One by-design value limit + the modern-editor-return path (v0.127.0): (a) toggling tasks table↔board WITHIN the 1.8s window re-points the shared `containerRef` so the OUTLINE shows on the new view, but the scroll won't re-fire (`flashId`/`flashSeq` unchanged → effect doesn't re-run) — best-effort; (b) every `open-points` task deep-link ALSO opens the editor, which in the DEFAULT modern layout is the full-page `TaskEditView` (list/board unmounted) so the flash can't show WHILE editing — so a modern full-page task deep-link now flashes the row/card ON EDITOR RETURN via a flash-only `pendingFlash` channel on `WorkspaceTabContext`: `requestFlash(view,id)` sets `pendingFlash` ONLY (no `activeTab`/hash side-effects), `useDeepLinkRowFlash` consumes it (the SAME parallel render-reconcile, sentinel-seeded `handledFlash`) and SELF-CLEARS via `clearPendingFlash`; `task-manager`'s `flashOnEditReturnRef` is set when a deep-link opens the modern full-page editor and fired in the view-switch close branch when returning to `open-points` (works for cancel + save). Classic/popout still uses the immediate path (modal overlays, list behind); the other four panels (RAID modal, inline-draft changes/milestones/stakeholders) show the flash in modern as before.
-- **Global search (v0.128.0):** pure i18n-free `global-search.ts` (`searchWorkspace(ws, query)` → ranked `SearchResult[]`; id-exact > title-hit > body-hit tiers, per-type cap `SEARCH_MAX_PER_TYPE` round-robin-merged under `SEARCH_MAX_RESULTS`, `SEARCH_MIN_QUERY=2` with pure-numeric `#id` queries exempt from the min). Presentational `global-search-box.tsx` uses `combobox-shared` (`role=combobox/listbox/option`); module-level `GlobalSearchConnected` wraps `useWorkspace`+`useWorkspaceTab` and is mounted in BOTH headers (modern `topBarMenus` + classic `AppHeader trailing`, not popout). Result select → `requestOpen(view,id)` → deep-link + row flash. ★ The search input is a top-bar control → scanned in EVERY axe view; keep its combobox a11y (aria-label + roles) intact. ★ i18n key is `searchGlobalPlaceholder` (plain `searchPlaceholder` was already taken by the task-table search). ★ v0.129.0 polish: a document keydown FOCUS SHORTCUT in `global-search-box` (⌘K/Ctrl-K always; "/" only when no INPUT/TEXTAREA/SELECT/contentEditable is active — never hijacks typing; Escape blurs). Pure `search-highlight.ts` `splitHighlight(text,query)` (indexOf-based, NOT a RegExp from input → no metachar/`/s`-flag traps) renders matched segments as `<mark class="bg-AIPM-green/20 text-inherit">` (palette token) in result title+subtitle, query-mode only. Pure `search-recents.ts` (per-device `lop-app:search-recents`, `MAX_RECENTS=8`, validated load, pure `pushRecent` dedupe+cap) — recents shown when the box is focused with an EMPTY query, FILTERED to items still present in the live workspace (stale/other-project drop); OUT of exports/Turso, cleared by `clearAppConfig`'s `lop-app:*` sweep. Unified `items` list (recents on empty, results otherwise) drives the combobox; "Recent" header is a non-option `<div>` outside the `<ul>`.
-- **RAID edit modal map:** `RaidEditModal` (`raid-edit-modal.tsx`) owns the draft, query state,
-  derived option lists, and add/remove handlers; presentational `raid-risk-matrix.tsx` (`RiskMatrix`
-  5×5 picker, Risk items only) and `raid-edit-fields.tsx` (`RaidLinkedTasksField`, `RaidCausedByField`
-  — the two chip-picker sections, threaded handlers/state as props). The panel still owns draft state
-  (these are pure render). RAID IS in the axe `A11Y_VIEWS`.
-- **OOXML export map:** the hand-rolled Office export (no lib; own `zip.ts` writer) is split by
-  format: `export-docx.ts` (`buildDocx`), `export-xlsx.ts` (`buildXlsx`), `export-pptx.ts`
-  (`buildPptx`) over shared `export-ooxml-shared.ts` (brand palette consts, `xmlEscape`, `todayHuman`,
-  `PPTX_MAX_ROWS_PER_SECTION`). `export-ooxml.ts` is now a BARREL re-exporting the 3 builders —
-  `export.ts` consumes them via `await import("./export-ooxml")` and `export-ooxml.test.ts` imports
-  from the barrel, so keep those three names exported there. (Sections come from `export-sections.ts`.)
-- **Sanitize module map:** `sanitize.ts` is now a BARREL (`export *`) over three files — keep importing
-  from `./sanitize` (≈37 importers unchanged). Pure i18n-free, one-way deps (core ← entities ← records):
-  `sanitize-core.ts` (primitives + length caps: `sanitizeText`/`sanitizeMultiline`/`toNumber` now
-  EXPORTED, plus the field/date/email/label/dependency sanitizers), `sanitize-entities.ts`
+  RagBadge-in-button. ★★ INVERSE trap (same class): an `aria-label` on a NON-interactive BARE `<div>`/wrapper
+  (no `role`) is NOT announced by screen readers — dead markup. To name a decorative graphic (SVG
+  sparkline/chart), put `role="img"` + `aria-label` ON THE GRAPHIC element itself (mirrors
+  `trend-chart.tsx`), NOT on a wrapper div. axe does NOT flag the dead-label case, so it passes the gate
+  while the meaning is invisible.
+- **Coaching CTAs (first-open story):** pure i18n-free `dashboard-coaching.ts`
+  `computeCoaching({taskCount,milestoneCount,budgetCount,showMilestones,showBudget,aiConfigured})` →
+  ordered `CoachingCta[]` (`{key,labelKey,view}`, keys+`AppView` only). ★ GATED on `taskCount === 0`
+  (blank project) → returns `[]` once any task exists, so the card SELF-HIDES (no dismiss control). Order:
+  Add task(`open-points`) · Configure AI(`settings`) · Add milestone(`milestones`) · Set budget(`budget`),
+  each gated on its module/empty condition. Presentational `dashboard-coaching-card.tsx` (returns null when
+  empty); rendered right after the delta strip. ★★ NAV from the dashboard uses a single `onNavigate` prop
+  wired to `useWorkspaceTab().setActiveTab` (the SINGLE active-view source — routes to `open-points`
+  correctly even though tasks render in a separate `TasksSection`, not WorkspaceSection). ★★ The
+  Anthropic-key "configured" signal is `settings.ai.apiKey` (NOT top-level `settings.apiKey` — that does
+  not exist; `apiKey` lives on the nested `AiConfig`); use `!!settings.ai.apiKey?.trim()` (in-memory
+  hydrated value, blanked on disk by `writeSettings`, passphrase-locked → `""` → unconfigured). ★ New
+  `DashboardPanel` props `onNavigate?`/`aiConfigured?` are OPTIONAL (back-compat with ~30 test sites).
+  ★★ EXHAUSTIVE-DEPS LANDMINE: a `?.length`/`obj.member`/any complex expression INSIDE a `useMemo` dep array
+  is a FATAL `--max-warnings=0` warning — HOIST it to a scalar local (`const milestoneCount =
+  props.milestones?.length ?? 0`) and depend on that. ★ The greeting summary is suppressed when
+  `needsYou===0 && milestonesSoon===0` (avoids "0 items need you" on a blank project). ★ The live demo seeds
+  a POPULATED project so the coaching card is ABSENT at scan time (buttons eye/unit-verified, not axe-gated).
+- **KPI trend arrows ("which way is it moving"):** an "at a glance" 3-tile KPI strip (completion % · overdue
+  · open RAID) below the coaching card, each tile with a trend arrow (↑/↓/→) + signed delta vs LAST VISIT.
+  Pure i18n-free `dashboard-trends.ts` `computeMetricTrends(prior, current)` → `Record<MetricKey,
+  MetricTrend>` (`{value, delta, direction, improved}`); per-metric `HIGHER_IS_BETTER` (completion up = good;
+  overdue/openRaid up = bad). ★ `delta===null ⟺ improved===null ⟺ no prior value` → arrow renders NOTHING;
+  exactly-flat `delta===0` → `improved:false` + `direction:"flat"` ("unchanged", muted, NOT worsened).
+  Presentational `trend-arrow.tsx` returns `null` when `improved===null || delta===null`; glyph + signed
+  delta are `aria-hidden`, the WRAPPER carries the full `aria-label` (label-bleed class — never let the glyph
+  become the accessible name). ★★ REUSES the per-project `landing-state` snapshot — `LandingState.metrics?:
+  MetricSnapshot` rides the SAME `lop-app:landing-state` map (zero new backend paths); guard accepts an
+  optional metrics object. `use-landing-delta` returns `{delta, trends}` — trends mount-captured in the SAME
+  lazy `useState` (reads `prior.metrics` before advancing), `metrics` written in the SAME debounced 4s
+  advance (popout read-only). ★ The KPI tile VALUE reads LIVE `model`
+  (`progress.percent`/`overdue.length`/`openRaidCount`); the arrow is mount-captured vs prior — same
+  mount-snapshot asymmetry as the delta strip (a mid-visit reload can briefly diverge value vs arrow;
+  accepted). ★ `DashboardModel.openRaidCount` is the TRUE open (non-terminal) RAID count — `topRaid` is
+  capped at 5 so can't be the source; REQUIRED field but the only literal `DashboardModel` construction
+  (`snapshot.test`) is an `as unknown as` cast. ★ `complete` KPI is a PERCENTAGE → `TrendArrow` takes a
+  `unit` prop (`"%"`) so the visible delta (`+5%`) + aria-label aren't ambiguous; counts pass `""`. ★ `Tile`
+  (`report-table.tsx`) gained an optional `trend` slot. Trend templates are i18n EN+DE.
+- **Completion-trend sparkline ("trajectory"):** compact axis-less line of % complete over time, in a
+  self-hiding card below the KPI strip. Pure i18n-free `completion-trend.ts`
+  `computeCompletionTrend({snapshots, activity, currentDone, currentTotal, today})` → `CompletionPoint[]`
+  (`{label,percent}`). ★★ SOURCE PRIORITY: if `snapshots` yields ≥2 points → exact
+  `SnapshotRecord.pctComplete` series (Turso path); ELSE reconstruct done/total from the LOCAL activity log —
+  anchor at the live counts and walk `task.created/completed/reopened/deleted` BACKWARD per day (deleted
+  task's done-state unknown → assumed NOT done; documented approximation, like `newOverdue`). Neither ≥2 →
+  `[]` (card hidden). Pure: `today`+counts passed in; percents clamped 0–100; future-dated + non-task events
+  ignored; trailing cap `MAX_POINTS=12`. ★ ALWAYS-ON, no `tursoConfig` guard — on file/IDB `snapshots` is
+  `[]` so the log path runs automatically (reads snapshots opportunistically, never WRITES). Presentational
+  `sparkline.tsx` (pure SVG `<polyline>`, `stroke-AIPM-dark-blue`, null for <2 points; optional `ariaLabel`
+  prop → SVG gets `role="img"`+`aria-label`, else `aria-hidden` decorative — name rides the GRAPHIC, not the
+  bare card div). ★ New optional `DashboardPanel` prop `snapshots?` threaded from `trends.snapshots`; the
+  panel ALREADY loads `activity` via `loadActivityLog()` (no activity prop). ★ series `useMemo` deps hoisted
+  to scalar locals (`snapCount`/`activityCount`/`currentDone`/`currentTotal`/`today`). `model.progress`
+  exposes `completed`+`total`. i18n EN+DE.
+- **Density toggle ("fit more on screen"):** per-device Comfortable/Compact, SPACING ONLY (no
+  font/palette/contrast change). Pure i18n-free `dashboard-density.ts` `densityClasses(d)` →
+  `{outer,kpiGap,cardPad}` class strings — comfortable REPRODUCES the current literals
+  (`space-y-4`/`gap-2`/`p-3`, a no-op for existing users), compact tightens (`space-y-2`/`gap-1`/`p-2`).
+  `DashboardPanel` takes `density?` (default `"comfortable"`) + `onToggleDensity?`. ★★ TWO controls, ONE
+  setting (`settings.dashboardDensity?`, per-device, persisted via `setSettings`→`writeSettings` SPREAD —
+  no allowlist edit, mirrors `tasksViewMode`): on-panel toggle button + a `SegmentedControl<DashboardDensity>`
+  in `AppearanceSection` (Settings→General). `onToggleDensity` is `isPopout ? undefined` (popouts honour the
+  `density` prop but render no toggle). ★ Settings→General AND Dashboard are BOTH axe-scanned —
+  SegmentedControl's `ariaLabel` + the on-panel button's text name keep the gate green. ★ Compact-test
+  asserts `.space-y-2` PRESENCE only (container-only; a global-absence check is brittle). i18n EN+DE.
+- **Click-through:** `Tile` (`report-table.tsx`) gained an optional `onActivate`/`activateLabel` clickable
+  variant (renders a real `<button>` — axe-safe name via `activateLabel`); pure i18n-free `activityViewOf`
+  (`dashboard-activity-nav.ts`) maps an activity `kind`→`AppView`; KPI/progress/burn tiles + the completion
+  sparkline launch their view via `onNavigate`, Top Changes rows + RAID register rows + horizon chips
+  deep-link the item.
+
+- **Deep-link row flash:** shared `use-deeplink-row-flash.ts` — `useDeepLinkRowFlash(view)` (render-time
+  reconcile sets `flashId` + a monotonic `flashSeq` nonce; an effect keyed on `[flashId, flashSeq]` does the
+  rAF `scrollIntoView({block:"center"})` + a `DEEPLINK_FLASH_MS=1800` auto-clear; the nonce makes a same-id
+  re-request re-fire) + `flashOutlineClass(isFlashed)`. Each of the five deep-linkable panels
+  (raid/milestones/changes/stakeholders/tasks) attaches `containerRef` to its `overflow-auto` scroll
+  container and adds `data-deeplink-row={id}` + `flashOutlineClass(flashId===id)` to rows; static
+  `outline-AIPM-green` (no bg → never fights row `bg-*` state classes; palette-safe). Fires ALONGSIDE the
+  editor-open effect and does NOT clear `pendingOpen` (the panel's own effect does — both fire in the same
+  commit; the side-effect is keyed on `flashId` NOT `pendingOpen` so `clearPendingOpen` can't cancel the
+  scroll/auto-clear). ★ The Kanban **board** is ALSO wired: `tasks-section.tsx` threads the SAME
+  `containerRef`+`flashId` into `<TaskKanban>` (only one of table/board mounts at a time, so the single ref
+  is free); `task-kanban-board.tsx` attaches `containerRef` to the outer `overflow-x-auto` div and adds
+  `data-deeplink-row`+`flashOutlineClass` to each card `<article>` (card scroll works because the per-column
+  vertical scroller is a descendant of the outer ref). ★ Graceful no-ops (no scroll/outline, never crashes;
+  editor still opens): tasks **modern full-page edit** (list unmounted) + any row/card hidden by an active
+  filter/search (`hideFinishedTasks`, milestone filters). ★ By-design limit + modern-editor-return path: (a)
+  toggling tasks table↔board WITHIN the 1.8s window re-points the shared `containerRef` so the OUTLINE shows
+  on the new view, but the scroll won't re-fire (`flashId`/`flashSeq` unchanged); (b) every `open-points`
+  task deep-link ALSO opens the editor, which in the DEFAULT modern layout is full-page `TaskEditView`
+  (list/board unmounted) so the flash can't show WHILE editing — a modern full-page task deep-link flashes
+  the row/card ON EDITOR RETURN via a flash-only `pendingFlash` channel on `WorkspaceTabContext`:
+  `requestFlash(view,id)` sets `pendingFlash` ONLY (no `activeTab`/hash side-effects), `useDeepLinkRowFlash`
+  consumes it (the SAME parallel render-reconcile, sentinel-seeded `handledFlash`) and SELF-CLEARS via
+  `clearPendingFlash`; `task-manager`'s `flashOnEditReturnRef` is set when a deep-link opens the modern
+  full-page editor and fired in the view-switch close branch when returning to `open-points` (works for
+  cancel + save). Classic/popout uses the immediate path; the other four panels show the flash in modern as
+  before.
+- **Global search:** pure i18n-free `global-search.ts` (`searchWorkspace(ws, query)` → ranked
+  `SearchResult[]`; id-exact > title-hit > body-hit tiers, per-type cap `SEARCH_MAX_PER_TYPE`
+  round-robin-merged under `SEARCH_MAX_RESULTS`, `SEARCH_MIN_QUERY=2` with pure-numeric `#id` queries exempt
+  from the min). Presentational `global-search-box.tsx` uses `combobox-shared`
+  (`role=combobox/listbox/option`); module-level `GlobalSearchConnected` wraps `useWorkspace`+
+  `useWorkspaceTab`, mounted in BOTH headers (modern `topBarMenus`/`search` slot + classic `AppHeader
+  trailing`, not popout). Result select → `requestOpen(view,id)` → deep-link + row flash. ★ The search input
+  is a top-bar control → scanned in EVERY axe view; keep its combobox a11y (aria-label + roles) intact. ★
+  i18n key is `searchGlobalPlaceholder` (`searchPlaceholder` was taken by the task-table search). ★ Document
+  keydown FOCUS SHORTCUT (⌘K/Ctrl-K always; "/" only when no INPUT/TEXTAREA/SELECT/contentEditable is active;
+  Escape blurs). Pure `search-highlight.ts` `splitHighlight(text,query)` (indexOf-based, NOT a RegExp from
+  input → no metachar/`/s`-flag traps) renders matched segments as `<mark class="bg-AIPM-green/20
+  text-inherit">` in result title+subtitle, query-mode only. Pure `search-recents.ts` (per-device
+  `lop-app:search-recents`, `MAX_RECENTS=8`, validated load, pure `pushRecent` dedupe+cap) — recents shown
+  when the box is focused with an EMPTY query, FILTERED to items still present in the live workspace; OUT of
+  exports/Turso, cleared by `clearAppConfig`. Unified `items` list (recents on empty, results otherwise)
+  drives the combobox; "Recent" header is a non-option `<div>` outside the `<ul>`.
+- **RAID edit modal map:** `RaidEditModal` (`raid-edit-modal.tsx`) owns draft, query state, derived option
+  lists, add/remove handlers; presentational `raid-risk-matrix.tsx` (`RiskMatrix` 5×5 picker, Risk items
+  only) and `raid-edit-fields.tsx` (`RaidLinkedTasksField`, `RaidCausedByField` — the two chip-picker
+  sections, threaded handlers/state as props). RAID IS in axe `A11Y_VIEWS`.
+- **OOXML export map:** hand-rolled Office export (no lib; own `zip.ts` writer) split by format:
+  `export-docx.ts` (`buildDocx`), `export-xlsx.ts` (`buildXlsx`), `export-pptx.ts` (`buildPptx`) over shared
+  `export-ooxml-shared.ts` (brand palette consts, `xmlEscape`, `todayHuman`, `PPTX_MAX_ROWS_PER_SECTION`).
+  `export-ooxml.ts` is a BARREL re-exporting the 3 builders — `export.ts` consumes them via `await
+  import("./export-ooxml")` and `export-ooxml.test.ts` imports from the barrel, so keep those three names
+  exported there. (Sections come from `export-sections.ts`.)
+- **Sanitize module map:** `sanitize.ts` is a BARREL (`export *`) over three files — keep importing from
+  `./sanitize` (≈37 importers). Pure i18n-free, one-way deps (core ← entities ← records): `sanitize-core.ts`
+  (primitives + length caps: `sanitizeText`/`sanitizeMultiline`/`toNumber` EXPORTED, plus the
+  field/date/email/label/dependency sanitizers), `sanitize-entities.ts`
   (Absence/Shift/Resource/Role/Discipline/Grade/Plan/Budget/allocations/FxRates), `sanitize-records.ts`
   (Milestone/Change/RAID/Stakeholder/ProjectMeta/SteeringCommittee/timezone — imports only
-  `BUDGET_NAME_MAX`+`sanitizeIdList` from entities). ★ A NEW entity sanitizer goes in entities or
-  records (whichever cluster); a new shared primitive goes in core. Each `*_SET`/`*_RE` const must
-  stay in the file with its consumers. Golden byte-stability + `sanitize.test`/`.property` + the 37
-  importers guard behavior.
-- **Codec module maps:** `csv-codecs.ts` and `markdown-codecs.ts` are now BARRELS (`export *`) — keep
-  importing from `./csv-codecs` / `./markdown-codecs` (storage facade + `local-file-backend` + tests
-  unchanged). Pure i18n-free, byte-stable (golden-workspace pins exact bytes). One-way deps:
-  • CSV (core ← config ← decode): `csv-codecs-core.ts` (leaf — `*_CSV_COLUMNS` registries, parse
-  helpers, the `fieldToString` family + `build*FromObj` decoders shared with the MD codec & Turso
-  schema, csv escaping, per-section entity encoders, and the low-level `parseCsv` tokenizer),
-  `csv-codecs-config.ts` (status/field-visibility/features/steering config-blob codecs + ProjectMeta
-  codecs + the `workspaceToCsv` ENCODER assembler), `csv-codecs-decode.ts` (`splitCsvSections` +
-  row→object helpers + entity decoders + `decodeRatesMap` + the `csvToWorkspace` assembler).
-  • MD (core ← decode): `markdown-codecs-core.ts` (leaf — `*_MD_COLUMNS`, `mdEscape`/`mdUnescape`,
-  per-entity table encoders, config/project MD codecs, the THREE self-contained table decoders
-  `markdownToMilestones`/`Changes`/`Stakeholders`, the `workspaceToMarkdown` encoder, and the shared
-  row primitives `splitMdRow`+`markdownTableToObjects`), `markdown-codecs-decode.ts`
-  (`splitMarkdownSections` + remaining entity decoders + `markdownToWorkspace`). ★★ `parseCsv` (CSV) and
-  `splitMdRow`+`markdownTableToObjects` (MD) were HOISTED into the respective CORE so the config-blob /
-  early table decoders share them WITHOUT a config↔decode / core↔decode cycle. ★ Cross-module-referenced
-  core internals (the `CSV_SECTION_*` consts, entity encoders, `csvCellEscape`; `mdUnescape`, the row
-  primitives, the three MD table decoders) were promoted to EXPORTS — additive. A new per-section codec
-  goes in core; a new config-blob codec in `csv-codecs-config`; a new assembler stays with its peer.
+  `BUDGET_NAME_MAX`+`sanitizeIdList` from entities). ★ A NEW entity sanitizer goes in entities or records
+  (whichever cluster); a new shared primitive goes in core. Each `*_SET`/`*_RE` const stays in the file with
+  its consumers. Golden byte-stability + `sanitize.test`/`.property` + the 37 importers guard behavior.
+- **Codec module maps:** `csv-codecs.ts` and `markdown-codecs.ts` are BARRELS (`export *`) — keep importing
+  from `./csv-codecs` / `./markdown-codecs`. Pure i18n-free, byte-stable (golden-workspace pins exact bytes).
+  One-way deps:
+  • CSV (core ← config ← decode): `csv-codecs-core.ts` (leaf — `*_CSV_COLUMNS` registries, parse helpers,
+  the `fieldToString` family + `build*FromObj` decoders shared with the MD codec & Turso schema, csv
+  escaping, per-section entity encoders, the low-level `parseCsv` tokenizer), `csv-codecs-config.ts`
+  (status/field-visibility/features/steering config-blob codecs + ProjectMeta codecs + the `workspaceToCsv`
+  ENCODER assembler), `csv-codecs-decode.ts` (`splitCsvSections` + row→object helpers + entity decoders +
+  `decodeRatesMap` + the `csvToWorkspace` assembler).
+  • MD (core ← decode): `markdown-codecs-core.ts` (leaf — `*_MD_COLUMNS`, `mdEscape`/`mdUnescape`, per-entity
+  table encoders, config/project MD codecs, the THREE self-contained table decoders
+  `markdownToMilestones`/`Changes`/`Stakeholders`, the `workspaceToMarkdown` encoder, the shared row
+  primitives `splitMdRow`+`markdownTableToObjects`), `markdown-codecs-decode.ts` (`splitMarkdownSections` +
+  remaining entity decoders + `markdownToWorkspace`). ★★ `parseCsv` (CSV) and
+  `splitMdRow`+`markdownTableToObjects` (MD) were HOISTED into the respective CORE so the config-blob / early
+  table decoders share them WITHOUT a config↔decode / core↔decode cycle. ★ Cross-module-referenced core
+  internals (the `CSV_SECTION_*` consts, entity encoders, `csvCellEscape`; `mdUnescape`, the row primitives,
+  the three MD table decoders) are EXPORTS. A new per-section codec goes in core; a new config-blob codec in
+  `csv-codecs-config`; a new assembler stays with its peer.
 - **useStorageBackend module map:** `use-storage-backend.ts` keeps the PERSISTENCE core (backend memo,
-  reactive refs, `applyWorkspace`, the load/save debounce effects, broadcast sync, the storage-file
-  controls `onPick`/`onGrant`/`onOpen`/`onRequestStorageSwitch`, and the shared helpers
+  reactive refs, `applyWorkspace`, the load/save debounce effects, broadcast sync, the storage-file controls
+  `onPick`/`onGrant`/`onOpen`/`onRequestStorageSwitch`, and shared helpers
   `backendFor`/`currentWorkspace`/`commitRegistry`/`persistBackendHandle`/`tursoConfigNow`/
   `reportProjectError`). The two project-operation clusters live in hook factories it composes:
   `use-storage-file-ops.ts` `useFileProjectOps` (switchToProject / createProject / loadProjectFromFile /
-  createDemoProject) and `use-storage-turso-ops.ts` `useTursoProjectOps` (switch/create/migrate/archive/
-  restore/hardDelete Turso portfolio projects). Each takes a typed `deps` object (the live render-scope
-  closure values + the shared helpers) and returns the handlers, spread into the hook's return.
-  ★★ These handlers MUST NOT be memoized — they read live render-scope state every call (the same
-  reason the originals were bare `function` declarations). ★★ The factories are named `use*` and called
-  UNCONDITIONALLY (before the single `return`, no early-return precedes them) because the react-hooks
-  PURITY rule REJECTS passing a ref object into a plain function call during render — a `use*` hook may
-  receive the hook's refs, a plain `createX(deps)` cannot (this is why they aren't plain factories).
-  ★ A new project flow goes in file-ops or turso-ops (whichever backend); a new persistence concern or
+  createDemoProject) and `use-storage-turso-ops.ts` `useTursoProjectOps`
+  (switch/create/migrate/archive/restore/hardDelete Turso portfolio projects). Each takes a typed `deps`
+  object (the live render-scope closure values + shared helpers) and returns the handlers. ★★ These handlers
+  MUST NOT be memoized — they read live render-scope state every call (the same reason the originals were
+  bare `function` declarations). ★★ The factories are named `use*` and called UNCONDITIONALLY (before the
+  single `return`, no early-return precedes them) because the react-hooks PURITY rule REJECTS passing a ref
+  object into a plain function call during render — a `use*` hook may receive the hook's refs, a plain
+  `createX(deps)` cannot. ★ A new project flow goes in file-ops or turso-ops; a new persistence concern or
   shared helper stays in `use-storage-backend.ts` and is threaded into the deps. Public return shape is
-  unchanged (task-manager + `use-storage-backend.test.tsx` untouched).
-- **Workspace-section module map:** `workspace-section.tsx` is the view ROUTER (the tabpanel switch);
-  it imports the lazy panels from `workspace-panels.tsx` (the 20 `dynamic(ssr:false)` view-panel
-  `export const`s — keep new lazy panels there) and the props contract `WorkspaceSectionProps` from
-  `workspace-section-types.ts`, which it RE-EXPORTS (so importers of the type from `./workspace-section`
-  are unchanged). Static (non-lazy) panels (Dashboard/Milestones/SteeringCommittee/ResourceDirectory)
-  stay imported directly in `workspace-section.tsx`. (Routes the axe-scanned views, so changes there
-  re-scan them.)
-- **UI shell batch (v0.131.0):** consolidated shell/UI polish.
-  • Default landing view is now `dashboard` (set in `workspace-tab-context.tsx`; was `chat`).
-  • Steering committee panel now uses the STANDARD resizable content-pane shell
-  (`VIEW_PANE_RESIZABLE_CLASS` + `useResizable("lop-app:steering-size")` + `ResetSizeButton`, header
-  OUTSIDE the bordered scroller — mirrors the other content panes).
+  unchanged.
+- **Workspace-section module map:** `workspace-section.tsx` is the view ROUTER (the tabpanel switch); it
+  imports the lazy panels from `workspace-panels.tsx` (the 20 `dynamic(ssr:false)` view-panel `export
+  const`s — keep new lazy panels there) and the props contract `WorkspaceSectionProps` from
+  `workspace-section-types.ts`, which it RE-EXPORTS. Static (non-lazy) panels
+  (Dashboard/Milestones/SteeringCommittee/ResourceDirectory) stay imported directly. Routes the axe-scanned
+  views, so changes there re-scan them.
+- **UI shell:**
+  • Default landing view is `dashboard` (set in `workspace-tab-context.tsx`).
+  • Steering committee panel uses the STANDARD resizable content-pane shell
+  (`VIEW_PANE_RESIZABLE_CLASS` + `useResizable("lop-app:steering-size")` + `ResetSizeButton`, header OUTSIDE
+  the bordered scroller).
   • Dashboard density/Trends toggles render in the `ReportCard` `toolbarExtra` slot (left of Print); the
   report date sits on the "Overall" line.
-  • `settings.showDisplayTzSwitcher?` (per-device, default **false**) gates the top-bar
-  `displayTzSwitcherEl` — both header mounts share the ONE gated element (off → no switcher anywhere).
-  • Task-editor actions render ONLY in the editor surface (TaskEditView footer / TaskFormModal), NEVER
-  the top bar — `ModernShell` no longer takes an `editActions`/`primaryAction` for the edit case.
+  • `settings.showDisplayTzSwitcher?` (per-device, default **false**) gates the top-bar `displayTzSwitcherEl`
+  — both header mounts share the ONE gated element.
+  • Task-editor actions render ONLY in the editor surface (TaskEditView footer / TaskFormModal), NEVER the
+  top bar — `ModernShell` takes no `editActions`/`primaryAction` for the edit case.
   • `task-jira-badge.tsx` = SHARED read-only Jira badge (lock SVG `aria-hidden` + `jiraSyncedReadOnly`
-  title/aria; link variant when `href`), used by BOTH the Kanban card and the table row; takes everything
-  as PROPS (board renders outside RowContextProvider).
-  • Settings-section deep-link is now GENERAL: dashboard `onNavigate(view, section?: SettingsSectionId)` →
+  title/aria; link variant when `href`), used by BOTH the Kanban card and the table row; takes everything as
+  PROPS (board renders outside RowContextProvider).
+  • Settings-section deep-link is GENERAL: dashboard `onNavigate(view, section?: SettingsSectionId)` →
   task-manager `onOpenSettingsSection(section)` → `settingsSectionRequest` → SettingsView. `SettingsSectionId`
   (mirrored in `dashboard-coaching.ts`) is a SUBSET of settings-view `SectionId`.
 - **Scrollbar gap:** per-view inner scrollers (`min-h-0 flex-1 overflow-auto`) need `pr-2` for the
-  content↔scrollbar gap. Shared `INNER_TABLE_CLASS`/report-table/actions-panel already include it;
-  bare per-panel scrollers do NOT — add `pr-2` or content jams the scrollbar.
-- **`useResizable(storageKey)` inline-size beats class width:** the hook writes a saved
-  `{width,height}` as an INLINE style, which OVERRIDES class `w-full`/width. Changing a resizable
-  pane's DEFAULT size (e.g. centered-half → full-width) silently no-ops for anyone with a persisted
-  size — BUMP the storageKey (e.g. `…-size` → `…-size-full`) so the stale size is discarded (pane
-  stays resizable from the new baseline). Bit Milestones/Documents going full-width.
-- **Rounded table headers:** `TABLE_HEAD_CLASS` carries a `.lop-thead` marker; the Dark-Blue fill
-  lives on `<th>` (NOT `<thead>`) via `globals.css` so rounded first/last corners clip it, with
-  `border-spacing:0`. Don't move bg back to `<thead>` — a rounded `th` only clips a fill it paints.
-- Heavy browser-only deps (rich-text editor, etc.) load via `next/dynamic({ ssr: false })` to
-  stay off main bundle; ProseMirror/Tiptap-style libs need `Range.getClientRects` +
-  `getBoundingClientRect` jsdom stubs in tests.
-  jsdom has NO layout engine — `scrollHeight`/`offsetHeight`/`getBoundingClientRect` all return 0,
-  so any measure-based UI (textarea autogrow, resize) must stub `scrollHeight` in its test
-  (`Object.defineProperty(el, "scrollHeight", { configurable: true, value: N })`) — pixel-height
-  assertion silently reads 0 otherwise.
-- M365 Graph called client-side via `useMsAuth().acquireToken(scopes, { interactive })` —
-  `interactive:true` pops incremental-consent dialog for new scope; background probes stay
-  silent. New Graph host must be added to CSP allowlist (above).
-- AI Assistant: `chat-panel.tsx` is the React surface; the non-React WIRE LAYER (Anthropic
-  protocol types `TextBlock`/`ContentBlock`/`SystemBlock`/`ApiMessage`/`DisplayItem`, `callClaude`,
-  `buildSystemPrompt`, `systemBlocksText`, `readAttachmentData`, `stringifyResult`) lives in pure
-  i18n-free `chat-api.ts` — import from there, NOT chat-panel (tests do too). It calls Anthropic
-  directly (browser, `anthropic-dangerous-direct-browser-access`). `buildSystemPrompt` returns
-  `SystemBlock[]`, NOT a string. Anthropic prompt
-  caching is PREFIX-based: stable/cacheable content (instructions + operating-guide text) MUST come
-  FIRST with `cache_control:{type:"ephemeral"}` breakpoint after it, and volatile data (today,
-  task count, current view/mode) MUST come AFTER — mixing volatile data into cached block (or
-  putting big guide block last) means cache never hits. Operating guides live in global
-  store (`operating_guides`, out of TABLE_NAMES) surfaced by ONE `useOperatingGuides` instance in
-  task-manager, threaded to both ChatPanel (chat) and AiSection (editor).
-- **AI app-feature guide (v0.116.0):** view-scoped built-in operating guides that teach the assistant
-  the APP's features (so it answers "how do I …?"). Source `lib/app-feature-guide.md` = `## Overview`
-  (no marker → always-on) + per-view `## Title` each followed by `<!-- views: <AppView ids> -->`,
-  each ending with a truthful `AI:` line (what it can/can't do via TOOLS — don't over-claim).
-  `scripts/gen-operating-guide.mjs` `parseFeatureGuide(md, VALID_VIEWS)` (exported, pure) → emits
-  `BUILTIN_FEATURE_GUIDES` (`builtin-app-overview` scope {} + `builtin-feature-<view>` scope
-  {views:[…]}) into `operating-guide-builtin.generated.ts` beside the leadership constant.
-  ★★ the generator's `writeFileSync` is inside `if (isMain)` — so a vitest `import { parseFeatureGuide }`
-  does NOT rewrite the generated file (don't move the write to top level). Prebuild regenerates; the
-  `operating-guide-builtin.test.ts` sync-guard re-parses the md + `toEqual`s the committed array (drift
-  fails CI; keep the test's `VALID_VIEWS` == the generator's, == nav-config `AppView`).
-  ★ Adding a section: TAG it (`<!-- views: … -->`) with REAL AppView ids — `parseFeatureGuide` THROWS
-  on an unknown id AND on an untagged non-Overview section (no silent drop).
-  Seeded by `use-operating-guides` `builtinSeeds()`/`reconcileBuiltins()`: on every load it refreshes
-  built-in content/name/scope but PRESERVES the user's `enabled`/`priority` (no toggle-clobber on
-  upgrade; existing leadership-only users get the feature guides next load); all built-ins undeletable
-  via `BUILTIN_IDS`. `selectActiveGuides` loads overview + the current view's guide into the cached
-  prompt prefix (view change re-caches that slice). Guide content is ENGLISH-ONLY (no i18n). Knowledge
-  only — adds NO new AI tools. (Separately, the task create/update tools now expose `status`, routed
-  through `applyStatusChange`, synced tasks read-only — MR !99.)
-- **AI write tools**: tool SCHEMAS (`TOOL_DEFS` + the per-entity field-property helpers
-  `taskFields`/`raidFields`/… + `ALL_RAID_STATUSES`) live in pure `chat-tool-defs.ts`; `chat-tools.ts`
-  re-exports `TOOL_DEFS` (so `chat-api` imports it unchanged) and holds the `runTool` routing +
-  `ToolDispatcher` type + arg-coercion/summary helpers; tools are IMPLEMENTED in
-  `use-chat-dispatcher.ts`. Tasks/RAID/Changes/Milestones/Stakeholders all have
-  create/update/delete. NEW entity write tool: add tool def (in `chat-tool-defs.ts`) + runTool case + `ToolDispatcher` method,
-  then implement in the dispatcher `useMemo` — guard `if (args.isReadOnly) throw readOnlyError()`
-  FIRST (popouts must not mutate), build the raw object and run it through the entity's `sanitizeX`
-  (the SINGLE validator — `sanitizeRaidItem` was added for this; enforces enums/dates/caps + per-
-  category RAID-status defaulting), id = `nextEntityId(ref.current)` (max+1), then update BOTH the ref
-  AND call `setX` (ref keeps back-to-back tool calls consistent). `runTool` write cases use
-  `requireId`/`patchWithoutId` (strips `id` from the update patch — a destructured `_id` would trip
-  the no-unused-vars CI rule).
-- **AI doc ingestion / multimodal**: `chat-panel.tsx`'s `ContentBlock` union includes `AttachmentBlock`
-  (image/document) from pure `chat-attachments.ts` (classify by mime+extension, 20 MB cap, build the
-  Anthropic block — PDF/image as base64 `source`, text as `{type:"text"}` document source; NO parsing
-  lib, Claude reads natively). The `FileReader` (readAsDataURL for binary, readAsText for text) lives
-  in chat-panel (module stays pure). A user turn with attachments sends `content` as `ContentBlock[]`
-  (text block first, then attachments) not a string. CSP already allows `api.anthropic.com`. Chat view
-  is NOT in the axe `A11Y_VIEWS` — verify chat controls by eye.
-- **AI project creation (SP3):** Step 0 "Describe" in `CreateProjectWizard` (gated on a configured
-  key) → ONE forced-tool Anthropic call (`tool_choice:{type:"tool",name:"propose_project"}`, no
-  agentic loop) in `use-project-proposal.ts`; pure contract/transforms in `ai-project-proposal.ts`.
-  The proposal pre-fills the form as a `Partial<ProjectFormDraft>` patch (`initialDraftPatch`), NOT
-  a `ProjectMeta` — `sanitizeProjectMeta`/`draftFromMeta` need many fields + present arrays Claude
-  can't infer (a sparse meta throws). Seed records run through each `sanitizeX` (temp id BEFORE
-  sanitize) → `appendSeed`/`remapSeed`; no new Workspace field. Model-supplied URLs gated by
-  `isSafeHttpUrl`. Empty-state offers "Configure AI assistant" (`BackendConfigModal` `children` +
-  `AiSection hideUsage`) so a first-run user can set the key.
-- **Create project from source (SP-D, v0.110.0):** the create wizard's Step 0 (now extracted to
-  `step0-import-panel.tsx`) adds Upload-file / SharePoint / Confluence-URL import alongside Describe;
-  all funnel into SP3's `useProjectProposal().generate(...)` — widened to `string | ContentBlock[]`
-  (multimodal: PDF/image read natively via SP2 `chat-attachments`, NO parsing lib). File: 20 MB cap +
-  `classifyAttachment` reused. SharePoint: existing `SharePointPickerModal` → `fetchSharePointFileContent`
-  via Graph `/shares/{u!base64(url)}/driveItem/content` (reuses `PICKER_SCOPES`, so no extra consent).
-  ★★ Confluence: the new `src/app/api/confluence/page/route.ts` MUST REUSE `api/jira/_helpers`
-  (`parseJiraRequest`/`callJira`/`forwardJsonResponse`) — NEVER a raw `fetch` (that bypasses the
-  SSRF allowlist to `*.atlassian.net` + Basic auth + timeout). Confluence is the SAME Atlassian host,
-  just the `/wiki/rest/api/content/{id}?expand=body.view` path; validate `pageId` with `/^\d+$/`
-  SERVER-SIDE before building the path (path-injection guard). Browser→`/api/confluence` is
-  same-origin (no CSP host needed; Graph already allowlisted). ★ Gating: file+describe always,
-  SharePoint on `isSharePointEnabled`, Confluence on FULL Jira config (`enabled&&siteUrl&&apiToken&&email`).
-  ★ Error boundary: SOURCE failures → sanitized `importError`; the Anthropic `generate` failure →
-  the hook's `aiError` (kept separate — don't let a generic source error clobber it). No key/token/body
+  content↔scrollbar gap. Shared `INNER_TABLE_CLASS`/report-table/actions-panel already include it; bare
+  per-panel scrollers do NOT — add `pr-2` or content jams the scrollbar.
+- **`useResizable(storageKey)` inline-size beats class width:** the hook writes a saved `{width,height}` as
+  an INLINE style, which OVERRIDES class `w-full`/width. Changing a resizable pane's DEFAULT size silently
+  no-ops for anyone with a persisted size — BUMP the storageKey (e.g. `…-size` → `…-size-full`) so the stale
+  size is discarded (pane stays resizable from the new baseline). Bit Milestones/Documents going full-width.
+- **Rounded table headers:** `TABLE_HEAD_CLASS` carries a `.lop-thead` marker; the Dark-Blue fill lives on
+  `<th>` (NOT `<thead>`) via `globals.css` so rounded first/last corners clip it, with `border-spacing:0`.
+  Don't move bg back to `<thead>` — a rounded `th` only clips a fill it paints.
+- **Heavy browser-only deps** (rich-text editor, etc.) load via `next/dynamic({ ssr: false })` to stay off
+  the main bundle; ProseMirror/Tiptap-style libs need `Range.getClientRects` + `getBoundingClientRect` jsdom
+  stubs in tests. jsdom has NO layout engine — `scrollHeight`/`offsetHeight`/`getBoundingClientRect` all
+  return 0, so measure-based UI (textarea autogrow, resize) must stub `scrollHeight` in its test
+  (`Object.defineProperty(el, "scrollHeight", { configurable: true, value: N })`) — pixel-height assertion
+  silently reads 0 otherwise.
+- **M365 Graph** called client-side via `useMsAuth().acquireToken(scopes, { interactive })` —
+  `interactive:true` pops an incremental-consent dialog for a new scope; background probes stay silent. New
+  Graph host must be added to the CSP allowlist (above).
+
+### AI Assistant
+
+- **Wire layer:** `chat-panel.tsx` is the React surface; the non-React WIRE LAYER (Anthropic protocol types
+  `TextBlock`/`ContentBlock`/`SystemBlock`/`ApiMessage`/`DisplayItem`, `callClaude`, `buildSystemPrompt`,
+  `systemBlocksText`, `readAttachmentData`, `stringifyResult`) lives in pure i18n-free `chat-api.ts` — import
+  from there, NOT chat-panel. Calls Anthropic directly (browser,
+  `anthropic-dangerous-direct-browser-access`). `buildSystemPrompt` returns `SystemBlock[]`, NOT a string.
+  ★★ Anthropic prompt caching is PREFIX-based: stable/cacheable content (instructions + operating-guide text)
+  MUST come FIRST with `cache_control:{type:"ephemeral"}` breakpoint after it, and volatile data (today, task
+  count, current view/mode) MUST come AFTER — mixing volatile data into the cached block (or putting the big
+  guide block last) means the cache never hits. Operating guides live in a global store (`operating_guides`,
+  out of TABLE_NAMES) surfaced by ONE `useOperatingGuides` instance in task-manager, threaded to both
+  ChatPanel (chat) and AiSection (editor).
+- **App-feature guide:** view-scoped built-in operating guides that teach the assistant the APP's features
+  (so it answers "how do I …?"). Source `lib/app-feature-guide.md` = `## Overview` (no marker → always-on) +
+  per-view `## Title` each followed by `<!-- views: <AppView ids> -->`, each ending with a truthful `AI:` line
+  (what it can/can't do via TOOLS — don't over-claim). `scripts/gen-operating-guide.mjs`
+  `parseFeatureGuide(md, VALID_VIEWS)` (exported, pure) → emits `BUILTIN_FEATURE_GUIDES` (`builtin-app-overview`
+  scope {} + `builtin-feature-<view>` scope {views:[…]}) into `operating-guide-builtin.generated.ts`. ★★ the
+  generator's `writeFileSync` is inside `if (isMain)` — so a vitest `import { parseFeatureGuide }` does NOT
+  rewrite the generated file (don't move the write to top level). Prebuild regenerates; the
+  `operating-guide-builtin.test.ts` sync-guard re-parses the md + `toEqual`s the committed array (drift fails
+  CI; keep the test's `VALID_VIEWS` == the generator's, == nav-config `AppView`). ★ Adding a section: TAG it
+  (`<!-- views: … -->`) with REAL AppView ids — `parseFeatureGuide` THROWS on an unknown id AND on an untagged
+  non-Overview section. Seeded by `use-operating-guides` `builtinSeeds()`/`reconcileBuiltins()`: on every load
+  it refreshes built-in content/name/scope but PRESERVES the user's `enabled`/`priority` (no toggle-clobber on
+  upgrade); all built-ins undeletable via `BUILTIN_IDS`. `selectActiveGuides` loads overview + the current
+  view's guide into the cached prompt prefix (view change re-caches that slice). Guide content is
+  ENGLISH-ONLY (no i18n). Knowledge only — adds NO new AI tools.
+- **AI write tools:** tool SCHEMAS (`TOOL_DEFS` + per-entity field-property helpers `taskFields`/`raidFields`/…
+  + `ALL_RAID_STATUSES`) live in pure `chat-tool-defs.ts`; `chat-tools.ts` re-exports `TOOL_DEFS` (so
+  `chat-api` imports it unchanged) and holds `runTool` routing + the `ToolDispatcher` type + arg-coercion/
+  summary helpers; tools are IMPLEMENTED in `use-chat-dispatcher.ts`. Tasks/RAID/Changes/Milestones/
+  Stakeholders all have create/update/delete. NEW entity write tool: add tool def (in `chat-tool-defs.ts`) +
+  runTool case + `ToolDispatcher` method, then implement in the dispatcher `useMemo` — guard
+  `if (args.isReadOnly) throw readOnlyError()` FIRST (popouts must not mutate), build the raw object and run
+  it through the entity's `sanitizeX` (the SINGLE validator — `sanitizeRaidItem` enforces enums/dates/caps +
+  per-category RAID-status defaulting), id = `nextEntityId(ref.current)` (max+1), then update BOTH the ref AND
+  call `setX` (ref keeps back-to-back tool calls consistent). `runTool` write cases use
+  `requireId`/`patchWithoutId` (strips `id` from the update patch — a destructured `_id` would trip the
+  no-unused-vars rule).
+- **AI doc ingestion / multimodal:** `chat-panel.tsx`'s `ContentBlock` union includes `AttachmentBlock`
+  (image/document) from pure `chat-attachments.ts` (classify by mime+extension, 20 MB cap, build the Anthropic
+  block — PDF/image as base64 `source`, text as `{type:"text"}` document source; NO parsing lib, Claude reads
+  natively). The `FileReader` (readAsDataURL for binary, readAsText for text) lives in chat-panel (module
+  stays pure). A user turn with attachments sends `content` as `ContentBlock[]` (text block first, then
+  attachments) not a string. CSP already allows `api.anthropic.com`. Chat view is NOT in axe `A11Y_VIEWS` —
+  verify chat controls by eye.
+- **AI project creation:** Step 0 "Describe" in `CreateProjectWizard` (gated on a configured key) → ONE
+  forced-tool Anthropic call (`tool_choice:{type:"tool",name:"propose_project"}`, no agentic loop) in
+  `use-project-proposal.ts`; pure contract/transforms in `ai-project-proposal.ts`. The proposal pre-fills the
+  form as a `Partial<ProjectFormDraft>` patch (`initialDraftPatch`), NOT a `ProjectMeta` —
+  `sanitizeProjectMeta`/`draftFromMeta` need many fields + present arrays Claude can't infer (a sparse meta
+  throws). Seed records run through each `sanitizeX` (temp id BEFORE sanitize) → `appendSeed`/`remapSeed`; no
+  new Workspace field. Model-supplied URLs gated by `isSafeHttpUrl`. Empty-state offers "Configure AI
+  assistant" (`BackendConfigModal` `children` + `AiSection hideUsage`).
+- **Create project from source:** the create wizard's Step 0 (extracted to `step0-import-panel.tsx`) adds
+  Upload-file / SharePoint / Confluence-URL import alongside Describe; all funnel into
+  `useProjectProposal().generate(...)` — widened to `string | ContentBlock[]` (multimodal: PDF/image read
+  natively via `chat-attachments`, NO parsing lib). File: 20 MB cap + `classifyAttachment` reused. SharePoint:
+  `SharePointPickerModal` → `fetchSharePointFileContent` via Graph `/shares/{u!base64(url)}/driveItem/content`
+  (reuses `PICKER_SCOPES`, no extra consent). ★★ Confluence: `src/app/api/confluence/page/route.ts` MUST REUSE
+  `api/jira/_helpers` (`parseJiraRequest`/`callJira`/`forwardJsonResponse`) — NEVER a raw `fetch` (that
+  bypasses the SSRF allowlist to `*.atlassian.net` + Basic auth + timeout). Confluence is the SAME Atlassian
+  host, just the `/wiki/rest/api/content/{id}?expand=body.view` path; validate `pageId` with `/^\d+$/`
+  SERVER-SIDE before building the path (path-injection guard). Browser→`/api/confluence` is same-origin (no
+  CSP host needed). ★ Gating: file+describe always, SharePoint on `isSharePointEnabled`, Confluence on FULL
+  Jira config (`enabled&&siteUrl&&apiToken&&email`). ★ Error boundary: SOURCE failures → sanitized
+  `importError`; the Anthropic `generate` failure → the hook's `aiError` (kept separate). No key/token/body
   ever logged or rendered.
-- **Steering committee (SP-E, v0.111.0):** opt-in per-project `Workspace.steeringCommittee`
-  (`{name, memberResourceIds[], meetings[], infoSchedules[], infoReminderEventIds?, pendingDeleteEventIds?}`;
-  pure validator `sanitizeSteeringCommittee` — never throws, bad dates dropped, leadDays>=0, ids deduped).
-  Nav view `steering-committee` → `steering-committee-panel.tsx`, mounted ONCE in `workspace-section.tsx`
-  (`activeTab==="steering-committee"`) which covers BOTH shells (modern + classic route view bodies
-  through WorkspaceSection); the Push-to-Outlook button lives IN the panel so no top-bar control. NOT in
-  axe `A11Y_VIEWS` → eye-verify row-unique labels (`${edit} – ${meeting.title}`).
-  ★★ Persists as a JSON BLOB, NOT a row table: CSV `# STEERING COMMITTEE` (`config,<json>` row) + MD
-  `## Steering Committee` (fenced JSON) + Turso `meta` row `steering_committee` (REUSES the `meta`
-  singleton — NOT a new `TABLE_NAMES` entry) + JSON + IDB KV slot. Storage-ONLY (gated `config===undefined`,
-  like fieldVisibility/features — EXCLUDED from user exports); committee-less ws stays BYTE-STABLE (section
-  emitted only when present). ★ Adding a FIELD to the nested object costs ZERO extra write paths (rides the
-  blob) — only extend `sanitizeSteeringCommittee` (that's how `pendingDeleteEventIds` was added).
-  ★★ Adding to the `ActionSource` / `AppView` unions surfaced FOUR exhaustive `Record<>` maps tsc forced
-  extending (`action-source-label`, `action-source-icon`, `nav-icons` ICON_PATHS, `nav-config`
-  LABEL_KEYS/`navLabelKey`) — "Map-based, no break" was WRONG; grep the union members.
-  Pure engines: `steering-reminders.ts` (`dueInfoReminders` — working-day lead, `today` passed in, no
-  `Date.now()`) + `committee-calendar-reconcile.ts` (`planCommitteeReconcile` is ID-TRACKED: derives
-  create/update/delete from the committee's OWN stored ids, NO `listProjectEvents`).
-  Provider `next-actions/providers/committee-info.ts`: ★ optional `ActionInput.steeringCommittee` MUST be
-  populated in task-manager's `buildActionInput` or the provider silently returns [] live; "upcoming" tier
-  skipped. ★ Outlook push `use-committee-outlook-push.ts` (mirrors milestone push; `Calendars.ReadWrite`,
-  popout no-op, M365-gated, status-only logs — never token/body): meeting events keyed 1:1 on
-  `meeting.outlookEventId`, info-instances in `infoReminderEventIds["<meetingId>:<scheduleId>"]`.
-  ★★ A deleted meeting loses its `outlookEventId` (stored on the meeting obj, not a map) → the panel
-  stashes it in `pendingDeleteEventIds` for the next push to delete + clear (info-instances ARE map-tracked
-  so they prune automatically). ★★ `outlook-calendar-write.ts` `graph()` tolerates 404 ONLY for DELETE;
-  PATCH/POST THROW `GraphCalendarError(404)` so an event deleted in Outlook gets re-created next push
-  (committee + milestone hooks self-heal by clearing the stale id) — it previously swallowed 404 for ALL
-  methods, making the milestone 404 branch DEAD.
-- **Guided tour + demo (SP-F, v0.112.0):** MODERN-shell-only onboarding (never classic/popout).
-  Pure i18n-free `app-tour.ts` (`TOUR_STEPS` ~12 keys-only, `visibleSteps(features)` drops steps
-  whose `view` is a disabled module via `isViewEnabled`, `clampStep`). `tour-overlay.tsx` =
-  controlled component: centered modal OR anchored "spotlight" over a `[data-tour-id]` element —
-  ★ a MISSING anchor (gated/unmounted view) FALLS BACK to a centered modal (never points at
-  nothing); role=dialog/aria-modal/Escape-skips/focus. `use-tour.ts` (in task-manager, above the
-  view): open/index + per-device `settings.tourSeen` (written via `setSettings`->`writeSettings`,
-  which spreads the whole object so a new flag persists with NO allowlist edit) + ★ RENDER-TIME
-  auto-launch (`if (eligible && !autoHandled) { setAutoHandled(true); setIsOpen(true) }` during
-  render — NOT a useEffect; set-state-in-effect is banned) gated `hydrated && layout==="modern"
-  && !isPopout && !tourSeen`. Overlay mounted ONCE in the modern tree (not classic); Help
-  "Take the tour" re-launch via `HelpMenu onTakeTour` (threaded through `ActionMenus`, passed
-  only when modern && !popout). 4 `data-tour-id` anchors: sidebar tasks/actions (`NAV_TOUR_ID`
-  map in `sidebar-nav.tsx`), Ask-Claude `<span>` wrapper, project-switcher container.
-  ★★★ **DEMO CTA MUST REGISTER A PROJECT, not just apply data.** The empty-state "Explore a demo
-  project" loads `sample-workspace-small.json` (lazy `import("../../sample-workspace-small.json")`
-  — first JSON import in app code; `resolveJsonModule` is on). It MUST go through
-  `createDemoProject(ws)` (new `useStorageBackend` method) which REGISTERS a real project
-  (`addProject`+`commitRegistry`), because the empty-state gate is `showEmptyState =
-  registry.projects.length===0` (file mode) — an apply-only path (`applyRestoredWorkspace`+
-  `startTour`) leaves the registry empty so `showEmptyState` stays TRUE -> `modernTree` (which holds
-  BOTH the views AND `TourOverlay`) never mounts -> demo invisible + tour never renders. (Shipped
-  this exact CRITICAL; caught in final review. Applying workspace data != showing it.) `createDemoProject`
-  uses the `browser`/IndexedDB backend kind (NO file picker — frictionless) + derives meta from
-  `ws.project`. ★ Turso portfolio mode: a local demo can't flip the turso-branch empty-state gate
-  (it reads the Turso project LIST), so it persists registry+settings+`savePortfolioMode("file")`
-  and `window.location.reload()`s (mirrors `loadProjectFromFile`'s switchPortfolioToFileOnSuccess) —
-  ALL durable writes BEFORE the reload, and SKIP the in-place `applyWorkspace`/`setStorageConfig`
-  (the reload discards them; avoids a mount-then-teardown flash); after reload `tourSeen` is unset
-  so auto-launch re-fires the tour. Demo CTA is empty-state-only (never clobbers a real project);
-  the demo is a normal deletable project (non-destructive to any Turso DB). Tour view NOT in axe
-  `A11Y_VIEWS` (eye-verified); spotlight positioning eye-verified (jsdom rect=0).
-- **Timezones (TZ-1, v0.113.0):** FIRST of 3 tz sub-projects (TZ-2 = display routing + per-window
-  switcher; TZ-3 = calendar multi-tz — both NOT YET BUILT). Pure i18n-free `timezone.ts` (Intl only,
-  NO dep): `todayInZone(now,tz)` (uses `Intl.DateTimeFormat("en-CA").formatToParts` — date-line + DST
-  correct, NOT offset math), `formatInZone` (TZ-2 consumes; built+tested but currently UNUSED — not
-  dead code), `isValidTimeZone`, `browserTimeZone()` (env read — a FUNCTION not a module const, SSR/
-  test-safe), `tzZones()` (shared picker list, guarded `Intl.supportedValuesOf` → `[browserTimeZone(),
-  "UTC"]` fallback), `resolveTimezone(overrideTz, projectTz)` = override ?? project ?? browser (each
-  validity-gated, always returns a valid zone).
-  ★★ **The effective tz = `resolveTimezone(settings.timezone, project?.operatingTimezone)` and the
-  app's central `today` now derives in it** — `task-manager` `todayISO()` → `effectiveToday(tz)` =
-  `todayInZone(new Date(), tz)` (a MODULE fn so `new Date()` isn't in a render body), so overdue/
-  next-actions/reminders/due-date logic follow the zone. Secondary derivations aligned:
-  `use-resource-planner` now takes `today` as a PARAM (fed the effective today); `use-bulk-operations`
-  resolves tz in a callback. ★ The ~30 OTHER `new Date().toISOString().slice(0,10)` sites (export/
-  codec/backend stamps, plan-start defaults, gantt/calendar DISPLAY) STAY UTC by design — none
-  compares a UTC-today against the zone-today (verified: no off-by-one). DISPLAY of timestamps is
-  still browser-local until TZ-2 (logic/display split is intentional for the phased rollout).
-  ★★ **`operatingTimezone` lives on `ProjectMeta`, NOT a top-level Workspace field** — it rides the
-  existing project-meta serialization via the single `PROJECT_CSV_COLUMNS` list (drives CSV cols + MD
-  `projectFieldToString` generic arm + Turso TENANT DDL/insert), mirroring `jiraUrl` EXACTLY; add the
-  column there + the decoder + `sanitizeProjectMeta` (validate via `isValidTimeZone`) + regenerate
-  golden fixtures (the sample's project meta is SYNTHESIZED in `generate-sample-workspace.ts`, not the
-  `.md`). ★ Adding ANY `ProjectMeta` key forces an `export-sections.ts` `PROJECT_FIELD_I18N_KEYS`
-  exhaustive-`Record` entry + its i18n key (tsc-forced). ★ Turso SINGLE schema doesn't persist
-  `ws.project` (tenant projects row via portfolio upsert); `turso-migrate` ALTER-adds the column.
-  Per-device `settings.timezone?` (override; undefined = follow project/browser) + `additionalTimezones?`
-  (TZ-2/TZ-3 consume; currently UNUSED) — persist via `writeSettings` (spreads, no allowlist edit).
-  Settings picker: `settings-sections/timezone-settings-section.tsx` ("System default" option value
-  `""` → override undefined; row-unique remove labels — Settings/General is axe-scanned). Project form:
-  operating-tz `<select>` (blank → undefined).
-- **Timezone display (TZ-2, v0.114.0):** SECOND tz sub-project (TZ-3 = calendar multi-tz, NOT BUILT).
-  Renders INSTANT timestamps in a session display zone over TZ-1's effective zone. ★ DISPLAY-ONLY +
-  EPHEMERAL: `display-timezone-context.tsx` holds an in-memory `override` (useState, NEVER persisted —
-  resets on reload); `displayTz = override ?? effectiveTz` (effectiveTz = TZ-1
-  `resolveTimezone(settings.timezone, project?.operatingTimezone)`). `useDisplayTimezone()` →
+- **AI Action Center suggestions:** Action Center "Analyze with AI" → ONE forced-tool call
+  (`tool_choice:{type:"tool",name:"report_analysis"}`, no loop) in `use-action-analysis.ts`; pure contract/
+  transforms in `action-ai.ts` (`parseAnalysis` validates untrusted model output; `groundEntity` RE-VALIDATES
+  model entity ids against the live workspace before any `requestOpen` deep-link — hallucinated id → fall back
+  to `requestChat`). ADVISORY only (no write tool; deterministic `next-actions/` engine untouched; no new
+  Workspace field). Hook lives in `task-manager.tsx` ABOVE the view so the in-memory result survives view
+  remounts; bundle is `isPopout ? undefined`. Gated on key + `ai.actionSuggestions !== false` (default ON).
+  Rendered above the now/soon/monitor tiers; AI rows use a separate `ai-action-row.tsx` (NOT `ActionRow`).
+- **AI scheduled jobs:** opt-in recurring portfolio-analysis. Pure i18n-free `scheduled-jobs/` engine
+  (`isDue`/`nextRunAt`/`dueJobs`/`appendRun`; `now` ALWAYS passed in — no `Date.now()`/`new Date()` inside).
+  Global `scheduled_jobs` store (JSON-blob row, Turso-gated + localStorage fallback) OUT of `TABLE_NAMES`.
+  Runner `use-scheduled-job-runner.ts` lives in `task-manager` ABOVE the view; runs DUE jobs on
+  mount/visibility/5-min-tick, SERIAL + overlap-guarded; fail-once-per-slot (a failed run still advances
+  `lastRunAt` — avoids re-spamming a BILLED call). The call is the NON-hook `runJobAnalysis`
+  (`scheduled-job-analysis.ts`) so the runner loops it; `use-action-analysis` delegates. ADVISORY only; never
+  in popouts. Gated on key + `ai.scheduledJobs === true` (default OFF / opt-in — UNLIKE
+  `actionSuggestions`'s `!== false`).
+- **AI weight suggestions:** "Suggest with AI" in the next-actions settings → ONE forced-tool call
+  (`suggest_weights`, forced, NO loop) in `weight-suggestion-call.ts` (mirrors `scheduled-job-analysis.ts`
+  security EXACTLY — never logs/echoes apiKey or body; thrown errors carry only HTTP-status digits or
+  `"parse"`). Pure contract `next-actions-tuning.ts` + `weight-suggestion-ai.ts`; hook
+  `use-weight-suggestions.ts`. ★★ EVERY model-proposed value reaching `settings.nextActions` MUST pass
+  `parseWeightSuggestions` → `NEXT_ACTIONS_FIELD_COERCE[field]` — the SAME per-field validators
+  `resolveNextActionsConfig` uses (hoisted to a shared exported map in `settings-types.ts`; a
+  hallucinated/out-of-bounds value can never land). Accept writes via the settings setter (→ `writeSettings`),
+  never raw setItem. Targets the 3 confidence weights by default; opt-in
+  `ai.suggestAllNextActionThresholds` (default OFF) widens to all 10. Learning history +
+  `summarizeTrendsForPrompt(actionTrends)` = INPUTS; ephemeral result; popout read-only. ★ A pure rationale
+  sanitizer regex is the SHARED `CONTROL_CHARS = /[\x00-\x1f]/g` (use `\x` HEX escapes — never type literal
+  control bytes; they corrupt the file to binary).
+- **No `settings.mode` field:** PM mode is DERIVED — `deriveMode(settings.features)` (same call the chat
+  snapshot uses in `use-chat-dispatcher.ts`). Reading `settings.mode` is `undefined`; use `deriveMode`.
+
+### Steering committee
+
+Opt-in per-project `Workspace.steeringCommittee` (`{name, memberResourceIds[], meetings[], infoSchedules[],
+infoReminderEventIds?, pendingDeleteEventIds?}`; pure validator `sanitizeSteeringCommittee` — never throws,
+bad dates dropped, leadDays>=0, ids deduped). Nav view `steering-committee` → `steering-committee-panel.tsx`,
+mounted ONCE in `workspace-section.tsx` (covers BOTH shells); the Push-to-Outlook button lives IN the panel so
+no top-bar control. NOT in axe `A11Y_VIEWS` → eye-verify row-unique labels (`${edit} – ${meeting.title}`).
+★★ Persists as a JSON BLOB, NOT a row table: CSV `# STEERING COMMITTEE` (`config,<json>` row) + MD `## Steering
+Committee` (fenced JSON) + Turso `meta` row `steering_committee` (REUSES the `meta` singleton — NOT a new
+`TABLE_NAMES` entry) + JSON + IDB KV slot. Storage-ONLY (gated `config===undefined`, like
+fieldVisibility/features — EXCLUDED from user exports); committee-less ws stays BYTE-STABLE. ★ Adding a FIELD
+to the nested object costs ZERO extra write paths (rides the blob) — only extend `sanitizeSteeringCommittee`.
+★★ Adding to the `ActionSource` / `AppView` unions surfaced FOUR exhaustive `Record<>` maps tsc forced
+extending (`action-source-label`, `action-source-icon`, `nav-icons` ICON_PATHS, `nav-config`
+LABEL_KEYS/`navLabelKey`) — "Map-based, no break" was WRONG; grep the union members.
+Pure engines: `steering-reminders.ts` (`dueInfoReminders` — working-day lead, `today` passed in, no
+`Date.now()`) + `committee-calendar-reconcile.ts` (`planCommitteeReconcile` is ID-TRACKED: derives
+create/update/delete from the committee's OWN stored ids, NO `listProjectEvents`). Provider
+`next-actions/providers/committee-info.ts`: ★ optional `ActionInput.steeringCommittee` MUST be populated in
+task-manager's `buildActionInput` or the provider silently returns [] live. ★ Outlook push
+`use-committee-outlook-push.ts` (mirrors milestone push; `Calendars.ReadWrite`, popout no-op, M365-gated,
+status-only logs — never token/body): meeting events keyed 1:1 on `meeting.outlookEventId`, info-instances in
+`infoReminderEventIds["<meetingId>:<scheduleId>"]`. ★★ A deleted meeting loses its `outlookEventId` (stored on
+the meeting obj, not a map) → the panel stashes it in `pendingDeleteEventIds` for the next push to delete +
+clear (info-instances ARE map-tracked so they prune automatically). ★★ `outlook-calendar-write.ts` `graph()`
+tolerates 404 ONLY for DELETE; PATCH/POST THROW `GraphCalendarError(404)` so an event deleted in Outlook gets
+re-created next push (committee + milestone hooks self-heal by clearing the stale id).
+
+### Guided tour + demo
+
+MODERN-shell-only onboarding (never classic/popout). Pure i18n-free `app-tour.ts` (`TOUR_STEPS` ~12 keys-only,
+`visibleSteps(features)` drops steps whose `view` is a disabled module via `isViewEnabled`, `clampStep`).
+`tour-overlay.tsx` = controlled component: centered modal OR anchored "spotlight" over a `[data-tour-id]`
+element — ★ a MISSING anchor (gated/unmounted view) FALLS BACK to a centered modal (never points at nothing);
+role=dialog/aria-modal/Escape-skips/focus. `use-tour.ts` (in task-manager, above the view): open/index +
+per-device `settings.tourSeen` (written via `setSettings`→`writeSettings`, which spreads the whole object so a
+new flag persists with NO allowlist edit) + ★ RENDER-TIME auto-launch (`if (eligible && !autoHandled) {
+setAutoHandled(true); setIsOpen(true) }` during render — NOT a useEffect; set-state-in-effect is banned) gated
+`hydrated && layout==="modern" && !isPopout && !tourSeen`. Overlay mounted ONCE in the modern tree; Help "Take
+the tour" re-launch via `HelpMenu onTakeTour` (threaded through `ActionMenus`, passed only when modern &&
+!popout). 4 `data-tour-id` anchors: sidebar tasks/actions (`NAV_TOUR_ID` map in `sidebar-nav.tsx`), Ask-Claude
+`<span>` wrapper, project-switcher container.
+★★★ **DEMO CTA MUST REGISTER A PROJECT, not just apply data.** The empty-state "Explore a demo project" loads
+`sample-workspace-small.json` (lazy `import("../../sample-workspace-small.json")`; `resolveJsonModule` on). It
+MUST go through `createDemoProject(ws)` (a `useStorageBackend` method) which REGISTERS a real project
+(`addProject`+`commitRegistry`), because the empty-state gate is `showEmptyState =
+registry.projects.length===0` (file mode) — an apply-only path (`applyRestoredWorkspace`+`startTour`) leaves
+the registry empty so `showEmptyState`
+stays TRUE → `modernTree` (which holds BOTH the views AND `TourOverlay`) never mounts → demo invisible + tour
+never renders. Applying workspace data != showing it. `createDemoProject` uses the `browser`/IndexedDB backend
+kind (NO file picker) + derives meta from `ws.project`. ★ Turso portfolio mode: a local demo can't flip the
+turso-branch empty-state gate (it reads the Turso project LIST), so it persists
+registry+settings+`savePortfolioMode("file")` and `window.location.reload()`s (mirrors `loadProjectFromFile`'s
+switchPortfolioToFileOnSuccess) — ALL durable writes BEFORE the reload, SKIP the in-place
+`applyWorkspace`/`setStorageConfig` (the reload discards them; avoids a mount-then-teardown flash); after
+reload `tourSeen` is unset so auto-launch re-fires the tour. Demo CTA is empty-state-only; the demo is a normal
+deletable project (non-destructive to any Turso DB). Tour view NOT in axe `A11Y_VIEWS` (eye-verified);
+spotlight positioning eye-verified (jsdom rect=0).
+
+### Timezones
+
+Pure i18n-free `timezone.ts` (Intl only, NO dep): `todayInZone(now,tz)` (uses
+`Intl.DateTimeFormat("en-CA").formatToParts` — date-line + DST correct, NOT offset math), `formatInZone`,
+`isValidTimeZone`, `browserTimeZone()` (env read — a FUNCTION not a module const, SSR/test-safe), `tzZones()`
+(shared picker list, guarded `Intl.supportedValuesOf` → `[browserTimeZone(), "UTC"]` fallback),
+`resolveTimezone(overrideTz, projectTz)` = override ?? project ?? browser (each validity-gated, always returns
+a valid zone).
+- **Model + logic (TZ-1):** ★★ the effective tz = `resolveTimezone(settings.timezone,
+  project?.operatingTimezone)` and the app's central `today` derives in it — `task-manager` `todayISO()` →
+  `effectiveToday(tz)` = `todayInZone(new Date(), tz)` (a MODULE fn so `new Date()` isn't in a render body),
+  so overdue/next-actions/reminders/due-date logic follow the zone. Secondary derivations:
+  `use-resource-planner` takes `today` as a PARAM (fed the effective today); `use-bulk-operations` resolves tz
+  in a callback. ★ The ~30 OTHER `new Date().toISOString().slice(0,10)` sites (export/codec/backend stamps,
+  plan-start defaults, gantt/calendar DISPLAY) STAY UTC by design — none compares a UTC-today against the
+  zone-today (verified: no off-by-one). ★★ `operatingTimezone` lives on `ProjectMeta`, NOT a top-level
+  Workspace field — it rides the existing project-meta serialization via the single `PROJECT_CSV_COLUMNS` list
+  (drives CSV cols + MD `projectFieldToString` generic arm + Turso TENANT DDL/insert), mirroring `jiraUrl`
+  EXACTLY; add the column there + the decoder + `sanitizeProjectMeta` (validate via `isValidTimeZone`) +
+  regenerate golden fixtures (the sample's project meta is SYNTHESIZED in `generate-sample-workspace.ts`, not
+  the `.md`). ★ Adding ANY `ProjectMeta` key forces an `export-sections.ts` `PROJECT_FIELD_I18N_KEYS`
+  exhaustive-`Record` entry + its i18n key (tsc-forced). ★ Turso SINGLE schema doesn't persist `ws.project`
+  (tenant projects row via portfolio upsert); `turso-migrate` ALTER-adds the column. Per-device
+  `settings.timezone?` (override; undefined = follow project/browser) + `additionalTimezones?`; persist via
+  `writeSettings` (spreads, no allowlist edit). Settings picker:
+  `settings-sections/timezone-settings-section.tsx` ("System default" value `""` → override undefined;
+  row-unique remove labels — Settings/General is axe-scanned). Project form: operating-tz `<select>` (blank →
+  undefined).
+- **Display routing (TZ-2):** renders INSTANT timestamps in a session display zone over the TZ-1 effective
+  zone. ★ DISPLAY-ONLY + EPHEMERAL: `display-timezone-context.tsx` holds an in-memory `override` (useState,
+  NEVER persisted — resets on reload); `displayTz = override ?? effectiveTz`. `useDisplayTimezone()` →
   `{displayTz, effectiveTz, isOverridden, setDisplayOverride, resetDisplayTz}`. Shared formatter
-  `tz-display.ts` `formatDisplayTimestamp(iso, tz, lang, {withSeconds?})` wraps TZ-1 `formatInZone`
-  with `timeZoneName:"short"` (zone label) — the ACTIVITY LOG passes `{withSeconds:true}` (sub-minute
-  entries), history/trends use minute precision.
-  ★★ **ONLY instant-timestamp DISPLAYS convert** (`activity-log-panel`, `history-panel` capturedAt
-  labels, `trends-panel` capturedAt cell) — every `capturedAt` used as a SORT/dedup/column-width/
-  row-SELECTION key STAYS on raw ISO (converting a shared display+key value is an ordering bug; the
-  review specifically checked this). Date-only fields, the gantt month-axis, and storage/export
-  `toISOString` stamps are untouched.
-  ★★ **Switcher `display-tz-switcher.tsx` wired into BOTH headers** (modern `topBarMenus` + classic
-  `AppHeader` via a NEW `trailing?` prop — AppHeader builds Ask-Claude internally so it had no element
-  slot) — dual-header rule; NOT in popouts (no header). The `DisplayTimezoneProvider` wraps BOTH
-  task-manager return branches (popout + main) with `effectiveTz`, so popout timestamps convert to the
-  effective DEFAULT (no switcher there). Options: Default(`value=""`→clears override) + UTC +
-  `settings.additionalTimezones` (extras filtered to drop UTC/effective dups). `DisplayTzSwitcherConnected`
-  is a MODULE-LEVEL wrapper (static-components rule); switcher `<select>` carries `aria-label`
-  (top bar axe-scanned every view).
-- **Calendar timezones (TZ-3, v0.115.0):** FINAL tz sub-project — COMPLETES the timezone roadmap
-  (TZ-1 model+logic, TZ-2 display+switcher, TZ-3 calendar). A live multi-zone "world clock" strip atop
-  the Calendar view. Pure `tz-clock.ts` `formatZoneClock(iso,tz,lang)` (wraps TZ-1 `formatInZone`;
-  time + SHORT DATE so the date-line rollover shows). `tz-clock-strip.tsx`: live `now` via a LAZY
-  `useState(() => new Date())` + a `useEffect` `setInterval(…,60_000)` cleared on unmount (NOT a
-  render-body `new Date()`); renders the default zone + each additional zone; `role="region"` +
-  `aria-label`; ★ DEDUPES the default out of the list (`[defaultTz, ...zones.filter(z => z !==
-  defaultTz)]`) to avoid a double chip + a duplicate React key. Wired in `workspace-section.tsx` ONLY
-  when `activeTab==="calendar"` && `settings.additionalTimezones` non-empty (returns null otherwise);
-  default = `resolveTimezone(settings.timezone, project?.operatingTimezone)` (the EFFECTIVE zone, NOT
-  the TZ-2 display override). Date-grid cells/logic untouched (the grid is date-only — no per-cell
-  conversion). Calendar is NOT in axe `A11Y_VIEWS` (eye-verified). ★ The TZ-1 settings editor now also
-  excludes the resolved default (`settings.timezone || browserTimeZone()`) from the add-additional
-  list (the per-project operating-tz case is rarer; the strip dedupes it regardless).
-- **AI Action Center suggestions (SP4):** Action Center "Analyze with AI" button → ONE forced-tool
-  Anthropic call (`tool_choice:{type:"tool",name:"report_analysis"}`, no loop) in
-  `use-action-analysis.ts`; pure contract/transforms in `action-ai.ts` (`parseAnalysis` validates
-  untrusted model output; `groundEntity` RE-VALIDATES model entity ids against the live workspace
-  before any `requestOpen` deep-link — hallucinated id → fall back to `requestChat`). ADVISORY only
-  (no write tool; deterministic `next-actions/` engine untouched; no new Workspace field). Hook lives
-  in `task-manager.tsx` ABOVE the view so the in-memory result survives view remounts; bundle is
-  `isPopout ? undefined` (popouts stay read-only even though advisory). Gated on key + `ai.action
-  Suggestions !== false` (default ON). Rendered above the now/soon/monitor tiers; AI rows use a
-  separate `ai-action-row.tsx` (NOT `ActionRow`).
-- **AI scheduled jobs (SP5):** opt-in recurring portfolio-analysis. Pure i18n-free `scheduled-jobs/`
-  engine (`isDue`/`nextRunAt`/`dueJobs`/`appendRun`; `now` ALWAYS passed in — no `Date.now()`/`new
-  Date()` inside, keeps it test-pure). Global `scheduled_jobs` store (JSON-blob row, Turso-gated +
-  localStorage fallback) OUT of `TABLE_NAMES` (guard test). Runner `use-scheduled-job-runner.ts` lives
-  in `task-manager` ABOVE the view; runs DUE jobs on mount/visibility/5-min-tick, SERIAL + overlap-
-  guarded; fail-once-per-slot (a failed run still advances `lastRunAt` — avoids re-spamming a BILLED
-  call). SP4's call extracted to NON-hook `runJobAnalysis` (`scheduled-job-analysis.ts`) so the runner
-  loops it; `use-action-analysis` delegates. ADVISORY only; never in popouts. Gated on key +
-  `ai.scheduledJobs === true` (default OFF / opt-in — UNLIKE `actionSuggestions`'s `!== false`).
-- **AI weight suggestions (SP-C, v0.109.0):** "Suggest with AI" in the next-actions settings →
-  ONE forced-tool call (`suggest_weights`, `tool_choice` forced, NO loop) in
-  `weight-suggestion-call.ts` (mirrors `scheduled-job-analysis.ts` security EXACTLY — never
-  logs/echoes apiKey or body; thrown errors carry only HTTP-status digits or `"parse"`). Pure
-  contract `next-actions-tuning.ts` + `weight-suggestion-ai.ts`; hook `use-weight-suggestions.ts`.
-  ★★ EVERY model-proposed value reaching `settings.nextActions` MUST pass `parseWeightSuggestions`
-  → `NEXT_ACTIONS_FIELD_COERCE[field]` — the SAME per-field validators `resolveNextActionsConfig`
-  uses (hoisted to a shared exported map in `settings-types.ts`; a hallucinated/out-of-bounds value
-  can never land). Accept writes via the settings setter (→ `writeSettings`), never raw setItem.
-  Targets the 3 confidence weights by default; opt-in `ai.suggestAllNextActionThresholds` (default
-  OFF) widens to all 10. Learning history + `summarizeTrendsForPrompt(actionTrends)` = INPUTS;
-  ephemeral result; popout read-only. ★ A pure rationale sanitizer regex is the SHARED
-  `CONTROL_CHARS = /[\x00-\x1f]/g` (use `\x` HEX escapes — never type literal control bytes; they
-  corrupt the file to binary).
-- **No `settings.mode` field:** PM mode is DERIVED — `deriveMode(settings.features)` (same call the
-  chat snapshot uses in `use-chat-dispatcher.ts`). Reading `settings.mode` is `undefined`; use
-  `deriveMode`.
-- **Installable PWA (SP5 Phase 6):** `public/manifest.webmanifest` + `public/sw.js` (static, NOT
-  bundled → can't `import` TS modules) registered from a CLIENT component (`service-worker-registrar.
-  tsx`) — an inline `<script>` can't carry proxy.ts's per-request CSP nonce. SW does NO caching / NO
-  fetch handler (hashed bundles → precache would serve stale JS). CSP needs explicit `worker-src
-  'self'` in `src/proxy.ts`: `script-src 'strict-dynamic'` makes browsers IGNORE `'self'` for the SW
-  load → without `worker-src` registration is blocked at RUNTIME (not caught by tests/build). Periodic
-  Background Sync deliberately NOT built (Chromium+installed+device-seal only; baseline covers on open).
-- **Saved views (tasks, v0.130.0):** pure i18n-free `saved-views.ts` (per-device `lop-app:saved-views`,
-  `MAX_SAVED_VIEWS=30`, `id=max+1`, validated load, oldest dropped at cap; `SavedViewPayload` = useFilters
-  fields + sortKey/sortDir + `hiddenCols[]`, EXCLUDES colWidths/hideFinishedTasks/tasksViewMode/raidFilterTaskId).
-  Hook `use-saved-views.ts` (functional-updater mutators + a `useEffect([views])` persist — no stale closure).
-  `saved-views-control.tsx` in the tasks toolbar applies a view through every `useFilters` setter
-  (+`setRaidFilterTaskId(null)`, `setHiddenCols(new Set(...))`); single labeled controls (select+save+delete)
-  → no row-unique-label landmine; Open Points IS axe-scanned. ★ GLOBAL presets (not per-project) → applying
-  one whose assignee/group isn't in the current project just yields an empty filter (graceful). OUT of
-  exports/Turso, cleared by `clearAppConfig`'s `lop-app:*` sweep. SP1 = tasks only; other views are future phases.
-  ★ The control renders in BOTH table and board modes (by design — its filters+sort apply to the board too,
-  which shows the filtered/sorted tasks); the preset's hiddenCols are dormant in board and take visible effect
-  on return to table.
-- **Saved views — cross-view (SP2, v0.132.0):** extends presets to RAID/Milestones/Changes/Stakeholders via a
-  SEPARATE generic stack — tasks' bespoke `saved-views.ts`/`filters-context`/`saved-views-control.tsx` path is
-  UNCHANGED. Pure i18n-free `panel-views.ts` (per-device `lop-app:panel-views` — a DIFFERENT key from tasks'
-  `lop-app:saved-views`; view-tagged entries `{id,name,view,state}`, `MAX_PANEL_VIEWS=30` PER view, `id=max+1`
-  across the whole list, validated load). Generic `panel-filters-context.tsx` (`PanelFiltersProvider`/
-  `usePanelFilters`) holds `{search, filters:Record<string,string>, sort:{key,dir}|null}` + setters/`applyState`/
-  `reset`; seeded per-panel with `*_FILTER_DEFAULTS`. Hook `use-panel-views.ts` (`usePanelViews(view)`).
-  `panel-views-control.tsx` reuses the existing `savedViews*` i18n keys (no new control strings). ★★ Each panel
-  SPLIT into an outer wrapper rendering `<PanelFiltersProvider defaults={…}><XPanelBody/></…>` (body consumes the
-  context instead of local `useState`); provider lifetime = panel mount, so filter-reset-on-unmount is unchanged
-  (saved views are the only persistence). ★ `pf.filters.X`/`pf.sort` are typed loosely (`Record<string,string>`,
-  `sort.key:string`) — panels CAST to their own union (`sort.key as RaidSortKey`, `filters.category as RaidCategory`)
-  at the `compareX`/derive call sites; HOIST each `pf.filters.X` to a scalar local before a `useMemo` dep array
-  (exhaustive-deps bans `obj.member` deps). ★ RAID passes `onApply={() => onClearTaskFilter?.()}` so applying a
-  preset drops the transient task backlink (mirrors tasks clearing `raidFilterTaskId`). ★ Milestones' sort is
-  never null (default `{date,asc}`); its wrapper casts `dir as "asc"|"desc"` for `useSortableFilter` (report-table
+  `tz-display.ts` `formatDisplayTimestamp(iso, tz, lang, {withSeconds?})` wraps `formatInZone` with
+  `timeZoneName:"short"` — the ACTIVITY LOG passes `{withSeconds:true}`, history/trends use minute precision.
+  ★★ ONLY instant-timestamp DISPLAYS convert (`activity-log-panel`, `history-panel` capturedAt labels,
+  `trends-panel` capturedAt cell) — every `capturedAt` used as a SORT/dedup/column-width/row-SELECTION key
+  STAYS on raw ISO (converting a shared display+key value is an ordering bug). Date-only fields, the gantt
+  month-axis, and storage/export `toISOString` stamps are untouched. ★★ Switcher `display-tz-switcher.tsx`
+  wired into BOTH headers (modern `topBarMenus` + classic `AppHeader` via the `trailing?` prop — AppHeader
+  builds Ask-Claude internally so it had no element slot); NOT in popouts. The `DisplayTimezoneProvider` wraps
+  BOTH task-manager return branches (popout + main) with `effectiveTz`, so popout timestamps convert to the
+  effective DEFAULT. Options: Default(`value=""`→clears override) + UTC + `settings.additionalTimezones`
+  (extras filtered to drop UTC/effective dups). `DisplayTzSwitcherConnected` is a MODULE-LEVEL wrapper;
+  switcher `<select>` carries `aria-label` (top bar axe-scanned every view).
+- **Calendar multi-tz (TZ-3):** a live multi-zone "world clock" strip atop the Calendar view. Pure
+  `tz-clock.ts` `formatZoneClock(iso,tz,lang)` (wraps `formatInZone`; time + SHORT DATE so the date-line
+  rollover shows). `tz-clock-strip.tsx`: live `now` via a LAZY `useState(() => new Date())` + a `useEffect`
+  `setInterval(…,60_000)` cleared on unmount (NOT a render-body `new Date()`); renders the default zone + each
+  additional zone; `role="region"` + `aria-label`; ★ DEDUPES the default out of the list (`[defaultTz,
+  ...zones.filter(z => z !== defaultTz)]`) to avoid a double chip + duplicate React key. Wired in
+  `workspace-section.tsx` ONLY when `activeTab==="calendar"` && `settings.additionalTimezones` non-empty;
+  default = `resolveTimezone(settings.timezone, project?.operatingTimezone)` (the EFFECTIVE zone, NOT the TZ-2
+  display override). Date-grid cells/logic untouched (the grid is date-only). Calendar is NOT in axe
+  `A11Y_VIEWS` (eye-verified). ★ The TZ-1 settings editor also excludes the resolved default (`settings.timezone
+  || browserTimeZone()`) from the add-additional list.
+
+### Saved views
+
+- **Tasks:** pure i18n-free `saved-views.ts` (per-device `lop-app:saved-views`, `MAX_SAVED_VIEWS=30`,
+  `id=max+1`, validated load, oldest dropped at cap; `SavedViewPayload` = useFilters fields + sortKey/sortDir +
+  `hiddenCols[]`, EXCLUDES colWidths/hideFinishedTasks/tasksViewMode/raidFilterTaskId). Hook `use-saved-views.ts`
+  (functional-updater mutators + a `useEffect([views])` persist — no stale closure). `saved-views-control.tsx`
+  in the tasks toolbar applies a view through every `useFilters` setter (+`setRaidFilterTaskId(null)`,
+  `setHiddenCols(new Set(...))`); single labeled controls (select+save+delete) → no row-unique-label landmine;
+  Open Points IS axe-scanned. ★ GLOBAL presets (not per-project) → applying one whose assignee/group isn't in
+  the current project just yields an empty filter (graceful). OUT of exports/Turso, cleared by `clearAppConfig`.
+  ★ The control renders in BOTH table and board modes (its filters+sort apply to the board too; the preset's
+  hiddenCols are dormant in board and take visible effect on return to table).
+- **Cross-view (RAID/Milestones/Changes/Stakeholders):** a SEPARATE generic stack — tasks' bespoke
+  `saved-views.ts`/`filters-context`/`saved-views-control.tsx` path is UNCHANGED. Pure i18n-free
+  `panel-views.ts` (per-device `lop-app:panel-views` — a DIFFERENT key from tasks' `lop-app:saved-views`;
+  view-tagged entries `{id,name,view,state}`, `MAX_PANEL_VIEWS=30` PER view, `id=max+1` across the whole list,
+  validated load). Generic `panel-filters-context.tsx` (`PanelFiltersProvider`/`usePanelFilters`) holds
+  `{search, filters:Record<string,string>, sort:{key,dir}|null}` + setters/`applyState`/`reset`; seeded
+  per-panel with `*_FILTER_DEFAULTS`. Hook `use-panel-views.ts` (`usePanelViews(view)`). `panel-views-control.tsx`
+  reuses the existing `savedViews*` i18n keys (no new control strings). ★★ Each panel SPLIT into an outer
+  wrapper rendering `<PanelFiltersProvider defaults={…}><XPanelBody/></…>` (body consumes the context instead
+  of local `useState`); provider lifetime = panel mount, so filter-reset-on-unmount is unchanged. ★
+  `pf.filters.X`/`pf.sort` are typed loosely (`Record<string,string>`, `sort.key:string`) — panels CAST to
+  their own union (`sort.key as RaidSortKey`, `filters.category as RaidCategory`) at the `compareX`/derive call
+  sites; HOIST each `pf.filters.X` to a scalar local before a `useMemo` dep array (exhaustive-deps bans
+  `obj.member` deps). ★ RAID passes `onApply={() => onClearTaskFilter?.()}` so applying a preset drops the
+  transient task backlink (mirrors tasks clearing `raidFilterTaskId`). ★ Milestones' sort is never null
+  (default `{date,asc}`); its wrapper casts `dir as "asc"|"desc"` for `useSortableFilter` (report-table
   `SortDir` includes `"off"`, which the setter never emits). Column widths/pane size still persist separately
-  (`useColumnResize`/`useResizable`) — presets don't touch them. RAID + Milestones ARE axe-scanned (gate verified);
-  Changes/Stakeholders eye-verified. OUT of exports/Turso, cleared by `clearAppConfig`'s `lop-app:*` sweep.
-  Reports (3 sorts × 3 tables) deferred to a future slice.
-- **Saved views — Reports (SP3, v0.133.0):** dedicated bespoke store `reports-views.ts` (per-device `lop-app:reports-views`, `MAX_REPORTS_VIEWS=30`, `id=max+1`, validated load, oldest dropped at cap) — Reports' 3 tables (byAssignee/byGroup/byLabel) each carry `{filter, sort:{key,dir}|null}`, which the generic `PanelFiltersState` ({search,filters,sort}) can't hold, so this is SEPARATE from BOTH the tasks bespoke path AND the `panel-views.ts` generic stack. `useReportsViews` + props-based `reports-views-control.tsx` (NO context — `ReportsPanel` already centralizes the six sort/filter `useState`; the control takes `currentState`+`onApply`, instantiates the hook itself). Sort `dir` uses report-table's SortDir SUPERSET incl `"off"` (same Milestones landmine — a narrower union silently drops the view on reload). Apply guards each `sort` non-null and casts `key:string`→the table's key union (`as AssigneeSort`/`as GroupOrLabelSort`) — safe since captured keys came from that table. Column widths/pane size persist separately (`useColumnResize`/`useResizable`) — presets don't touch them. OUT of exports/Turso, cleared by `clearAppConfig`'s `lop-app:*` sweep. CLOSES the saved-views roadmap. Reports IS axe-scanned (single labeled controls — no row-unique-label concern).
+  (`useColumnResize`/`useResizable`). RAID + Milestones ARE axe-scanned; Changes/Stakeholders eye-verified. OUT
+  of exports/Turso, cleared by `clearAppConfig`.
+- **Reports:** dedicated bespoke store `reports-views.ts` (per-device `lop-app:reports-views`,
+  `MAX_REPORTS_VIEWS=30`, `id=max+1`, validated load, oldest dropped at cap) — Reports' 3 tables
+  (byAssignee/byGroup/byLabel) each carry `{filter, sort:{key,dir}|null}`, which the generic
+  `PanelFiltersState` ({search,filters,sort}) can't hold, so this is SEPARATE from BOTH the tasks bespoke path
+  AND the `panel-views.ts` generic stack. `useReportsViews` + props-based `reports-views-control.tsx` (NO
+  context — `ReportsPanel` already centralizes the six sort/filter `useState`; the control takes
+  `currentState`+`onApply`, instantiates the hook itself). Sort `dir` uses report-table's SortDir SUPERSET
+  incl `"off"` (the Milestones landmine — a narrower union silently drops the view on reload). Apply guards
+  each `sort` non-null and casts `key:string`→the table's key union (`as AssigneeSort`/`as GroupOrLabelSort`).
+  Column widths/pane size persist separately. OUT of exports/Turso, cleared by `clearAppConfig`. Reports IS
+  axe-scanned (single labeled controls).
+
+### Installable PWA
+
+`public/manifest.webmanifest` + `public/sw.js` (static, NOT bundled → can't `import` TS modules) registered
+from a CLIENT component (`service-worker-registrar.tsx`) — an inline `<script>` can't carry proxy.ts's
+per-request CSP nonce. SW does NO caching / NO fetch handler (hashed bundles → precache would serve stale JS).
+CSP needs explicit `worker-src 'self'` in `src/proxy.ts`: `script-src 'strict-dynamic'` makes browsers IGNORE
+`'self'` for the SW load → without `worker-src` registration is blocked at RUNTIME (not caught by
+tests/build). Periodic Background Sync deliberately NOT built (Chromium+installed+device-seal only; baseline
+covers on open).

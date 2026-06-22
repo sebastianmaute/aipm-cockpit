@@ -18,11 +18,15 @@ interface TopBarProps {
   /** Rendered in the LEFT cluster immediately after the project switcher (e.g. the
    *  Ask-Claude menu, which the user expects beside the project dropdown). */
   projectSwitcherTrailing?: React.ReactNode;
+  /** Rendered at the LEFT edge of the right (action) cluster, before the icon
+   *  buttons — the global search box sits here so it reads as a single control
+   *  ahead of the icons rather than wedged between them. */
+  search?: React.ReactNode;
   /** Menu components (Export/Help/Version/Settings/Voice) rendered as-is. */
   children?: React.ReactNode;
 }
 
-export function TopBar({ lang, title, bannerCount, onShowAlerts, onOpenAiAssistant, primaryAction, onToggleSidebar, projectSwitcher, projectSwitcherTrailing, children }: TopBarProps) {
+export function TopBar({ lang, title, bannerCount, onShowAlerts, onOpenAiAssistant, primaryAction, onToggleSidebar, projectSwitcher, projectSwitcherTrailing, search, children }: TopBarProps) {
   return (
     <header className="flex items-center justify-between gap-4 border-b border-line bg-surface px-6 py-3">
       <div className="flex min-w-0 items-center gap-3">
@@ -46,6 +50,7 @@ export function TopBar({ lang, title, bannerCount, onShowAlerts, onOpenAiAssista
         {projectSwitcherTrailing}
       </div>
       <div className="flex items-center gap-1">
+        {search}
         {onOpenAiAssistant && (
           <button
             type="button"
