@@ -2081,7 +2081,6 @@ function TaskManagerInner() {
 
   const topBarMenus = (
     <>
-      <GlobalSearchConnected lang={lang} />
       {displayTzSwitcherEl}
       <ActionMenus
         lang={lang}
@@ -2290,6 +2289,7 @@ function TaskManagerInner() {
         bannerCount={nowCount}
         onShowAlerts={() => setActiveTab("actions")}
         onOpenAiAssistant={() => openPopoutWindow("chat", settings.popout.reuseWindow)}
+        search={<GlobalSearchConnected lang={lang} />}
         topBarMenus={topBarMenus}
         collapsed={sidebarCollapsed}
         onToggleCollapsed={toggleSidebar}

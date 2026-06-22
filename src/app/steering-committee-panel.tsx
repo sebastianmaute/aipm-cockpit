@@ -10,11 +10,17 @@ import { type Lang, t } from "./i18n";
 import { ResourcePicker } from "./resource-picker";
 import { resourceDisplayName } from "./resource-foundation";
 import { dueInfoReminders, type InfoReminder, type ReminderTier } from "./steering-reminders";
-import { ResetSizeButton } from "./task-manager-ui";
+import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton } from "./task-manager-ui";
 import { useResizable } from "./use-resizable";
+import { useColumnResize } from "./use-column-resize";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import type { CommitteeMeeting, InfoSchedule, Resource, SteeringCommittee } from "./types";
+
+const MEETING_COL_WIDTHS = { date: 150, title: 240, location: 200 } as const;
+type MeetingCol = keyof typeof MEETING_COL_WIDTHS;
+const SCHEDULE_COL_WIDTHS = { label: 260, leadDays: 120 } as const;
+type ScheduleCol = keyof typeof SCHEDULE_COL_WIDTHS;
 
 const EMPTY_COMMITTEE: SteeringCommittee = {
   name: "",
@@ -61,6 +67,14 @@ export function SteeringCommitteePanel({
 }: SteeringCommitteePanelProps) {
   const c = committee ?? EMPTY_COMMITTEE;
   const { ref: paneRef, reset: resetSize } = useResizable("lop-app:steering-size");
+  const meetingCols = useColumnResize<MeetingCol>("committeeMeetings", MEETING_COL_WIDTHS);
+  const scheduleCols = useColumnResize<ScheduleCol>("committeeSchedules", SCHEDULE_COL_WIDTHS);
+  const startMeetingResize = meetingCols.startColResize as (col: string, e: React.MouseEvent) => void;
+  const startScheduleResize = scheduleCols.startColResize as (col: string, e: React.MouseEvent) => void;
+  const resetCols = () => {
+    meetingCols.resetColWidths();
+    scheduleCols.resetColWidths();
+  };
 
   // New-meeting / new-schedule draft state (kept local; commit on Add).
   const [meetingDraft, setMeetingDraft] = useState<{ date: string; title: string; agenda: string; location: string }>({
@@ -148,11 +162,14 @@ export function SteeringCommitteePanel({
     <div ref={paneRef} className={VIEW_PANE_RESIZABLE_CLASS}>
       <div className="mb-2 flex shrink-0 items-center justify-between">
         <h2 className="text-lg font-medium text-foreground">{t(lang, "committeeTitle")}</h2>
-        <ResetSizeButton onClick={resetSize} lang={lang} />
+        <div className="flex items-center gap-2">
+          <ResetColWidthsButton onClick={resetCols} lang={lang} />
+          <ResetSizeButton onClick={resetSize} lang={lang} />
+        </div>
       </div>
 
-      <div className="min-h-[240px] flex-1 overflow-auto rounded-md border border-line pr-2">
-        <div className="flex flex-col gap-6">
+      <div className="min-h-[240px] flex-1 overflow-auto rounded-xl border border-line">
+        <div className="flex flex-col gap-6 p-3">
         {/* Name */}
         <section>
           <label htmlFor="committee-name" className="mb-1 block text-sm font-medium text-foreground">
@@ -214,9 +231,18 @@ export function SteeringCommitteePanel({
             <table className="mb-2 w-full text-sm">
               <thead className={TABLE_HEAD_CLASS}>
                 <tr className="text-left">
-                  <th className="px-3 py-2">{t(lang, "committeeMeetingDate")}</th>
-                  <th className="px-3 py-2">{t(lang, "committeeMeetingTitle")}</th>
-                  <th className="px-3 py-2">{t(lang, "committeeMeetingLocation")}</th>
+                  <th className="relative px-3 py-2" style={{ width: meetingCols.colWidths.date, minWidth: meetingCols.colWidths.date }}>
+                    {t(lang, "committeeMeetingDate")}
+                    <ColumnResizeHandle col="date" onMouseDown={startMeetingResize} />
+                  </th>
+                  <th className="relative px-3 py-2" style={{ width: meetingCols.colWidths.title, minWidth: meetingCols.colWidths.title }}>
+                    {t(lang, "committeeMeetingTitle")}
+                    <ColumnResizeHandle col="title" onMouseDown={startMeetingResize} />
+                  </th>
+                  <th className="relative px-3 py-2" style={{ width: meetingCols.colWidths.location, minWidth: meetingCols.colWidths.location }}>
+                    {t(lang, "committeeMeetingLocation")}
+                    <ColumnResizeHandle col="location" onMouseDown={startMeetingResize} />
+                  </th>
                   <th className="px-3 py-2" />
                 </tr>
               </thead>
@@ -306,8 +332,14 @@ export function SteeringCommitteePanel({
             <table className="mb-2 w-full text-sm">
               <thead className={TABLE_HEAD_CLASS}>
                 <tr className="text-left">
-                  <th className="px-3 py-2">{t(lang, "committeeScheduleLabel")}</th>
-                  <th className="px-3 py-2">{t(lang, "committeeScheduleLeadDays")}</th>
+                  <th className="relative px-3 py-2" style={{ width: scheduleCols.colWidths.label, minWidth: scheduleCols.colWidths.label }}>
+                    {t(lang, "committeeScheduleLabel")}
+                    <ColumnResizeHandle col="label" onMouseDown={startScheduleResize} />
+                  </th>
+                  <th className="relative px-3 py-2" style={{ width: scheduleCols.colWidths.leadDays, minWidth: scheduleCols.colWidths.leadDays }}>
+                    {t(lang, "committeeScheduleLeadDays")}
+                    <ColumnResizeHandle col="leadDays" onMouseDown={startScheduleResize} />
+                  </th>
                   <th className="px-3 py-2" />
                 </tr>
               </thead>

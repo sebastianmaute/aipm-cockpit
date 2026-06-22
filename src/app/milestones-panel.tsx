@@ -30,7 +30,7 @@ import { nextId } from "./resource-foundation";
 import { useColumnResize } from "./use-column-resize";
 import { ColumnResizeHandle, ResetSizeButton, ResetColWidthsButton } from "./task-manager-ui";
 import { useResizable } from "./use-resizable";
-import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
+import { VIEW_PANE_RESIZABLE_CLASS, INNER_TABLE_CLASS } from "./view-styles";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import type { ActivityKind } from "./activity-log";
 import type { Milestone } from "./types";
@@ -242,7 +242,7 @@ function MilestonesPanelBody({
           <ResetSizeButton onClick={resetSize} lang={lang} />
         </div>
       </header>
-      <div ref={containerRef} className="min-h-0 flex-1 overflow-auto pr-2">
+      <div ref={containerRef} className={INNER_TABLE_CLASS}>
       {sorted.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           {t(lang, "milestonesEmpty")}
