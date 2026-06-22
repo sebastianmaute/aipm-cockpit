@@ -147,6 +147,7 @@ const enUS = {
 
   edit: "Edit",
   clear: "Clear",
+  loading: "Loading…",
   print: "Print",
   printHint: "Open the browser print dialog for an A4 handout",
   delete: "Delete",

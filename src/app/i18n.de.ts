@@ -150,6 +150,7 @@ export const de: Record<TranslationKey, string> = {
 
   edit: "Bearbeiten",
   clear: "Leeren",
+  loading: "Wird geladen…",
   print: "Drucken",
   printHint: "Browser-Druckdialog für ein A4-Handout öffnen",
   delete: "Löschen",

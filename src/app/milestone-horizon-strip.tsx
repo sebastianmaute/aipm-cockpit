@@ -2,6 +2,7 @@
 
 import { t, type Lang } from "./i18n";
 import { RagBadge } from "./rag-badge";
+import { INTERACTIVE } from "./interaction-styles";
 import type { MilestoneHorizon, MilestoneHorizonBuckets, HorizonEntry } from "./milestones";
 
 interface MilestoneHorizonStripProps {
@@ -49,7 +50,7 @@ export function MilestoneHorizonStrip({ lang, buckets, onOpenMilestone }: Milest
                     <button
                       type="button"
                       onClick={() => onOpenMilestone(e.milestone.id)}
-                      className="inline-flex items-center gap-1 rounded-full border border-line bg-surface px-2.5 py-0.5 text-xs text-foreground hover:bg-surface-muted hover:border-AIPM-dark-blue"
+                      className={`inline-flex items-center gap-1 rounded-full border border-line bg-surface px-2.5 py-0.5 text-xs text-foreground hover:bg-surface-muted hover:border-AIPM-dark-blue ${INTERACTIVE}`}
                     >
                       {alert && (
                         <span aria-hidden="true">
@@ -77,7 +78,7 @@ export function MilestoneHorizonStrip({ lang, buckets, onOpenMilestone }: Milest
                   <button
                     type="button"
                     onClick={() => onOpenMilestone(-1)}
-                    className="rounded-full px-2.5 py-0.5 text-xs text-muted-foreground hover:text-foreground"
+                    className={`rounded-full px-2.5 py-0.5 text-xs text-muted-foreground hover:text-foreground ${INTERACTIVE}`}
                   >
                     {t(lang, "milestoneHorizonMore", String(buckets[k].length - MAX_PER_BUCKET))}
                   </button>

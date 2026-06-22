@@ -9,6 +9,7 @@ import {
   ResetSizeButton,
 } from "./task-manager-ui";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
+import { INTERACTIVE } from "./interaction-styles";
 import { InfoTooltip } from "./info-tooltip";
 
 export type SortDir = "asc" | "desc" | "off";
@@ -93,7 +94,7 @@ export function TableFilter({
           onClick={() => onChange("")}
           aria-label={t(lang, "clear")}
           title={t(lang, "clear")}
-          className="rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-muted-foreground hover:bg-surface-muted hover:text-foreground"
+          className={`rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-muted-foreground hover:bg-surface-muted hover:text-foreground ${INTERACTIVE}`}
         >
           ×
         </button>
@@ -121,7 +122,7 @@ export function SortHeaderButton({
     <button
       type="button"
       onClick={onClick}
-      className={`inline-flex items-center gap-1 ${active ? "text-AIPM-green" : ""} hover:text-AIPM-green`}
+      className={`inline-flex items-center gap-1 ${active ? "text-AIPM-green" : ""} hover:text-AIPM-green ${INTERACTIVE}`}
     >
       {label}
       {indicator}
@@ -164,7 +165,7 @@ export function Tile({
         type="button"
         aria-label={activateLabel}
         onClick={onActivate}
-        className="w-full rounded-lg border border-line bg-surface p-3 text-left hover:border-AIPM-dark-blue hover:bg-surface-muted focus-visible:ring-1 focus-visible:ring-AIPM-green"
+        className={`w-full rounded-lg border border-line bg-surface p-3 text-left hover:border-AIPM-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
       >
         {inner}
       </button>

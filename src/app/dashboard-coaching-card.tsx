@@ -1,6 +1,7 @@
 "use client";
 
 import { t, type Lang } from "./i18n";
+import { INTERACTIVE } from "./interaction-styles";
 import type { CoachingCta, SettingsSectionId } from "./dashboard-coaching";
 import type { AppView } from "./nav-config";
 
@@ -22,7 +23,7 @@ export function DashboardCoachingCard({ lang, ctas, onNavigate }: DashboardCoach
             key={cta.key}
             type="button"
             onClick={() => onNavigate(cta.view, cta.section)}
-            className="rounded-md border border-line bg-surface px-3 py-1 text-xs font-medium text-foreground hover:bg-surface-muted hover:border-AIPM-dark-blue"
+            className={`rounded-md border border-line bg-surface px-3 py-1 text-xs font-medium text-foreground hover:bg-surface-muted hover:border-AIPM-dark-blue ${INTERACTIVE}`}
           >
             {t(lang, cta.labelKey)}
           </button>
