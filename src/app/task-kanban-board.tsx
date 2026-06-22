@@ -10,6 +10,7 @@ import { statusLabelKey } from "./task-status-ui";
 import { groupByStatus } from "./task-kanban";
 import { isJiraSynced } from "./jira-status-map";
 import { TaskKanbanCard } from "./task-kanban-card";
+import { flashOutlineClass } from "./use-deeplink-row-flash";
 
 interface TaskKanbanProps {
   lang: Lang;
@@ -27,6 +28,10 @@ interface TaskKanbanProps {
   /** Deep-link to the RAID register for a task. Optional so lightweight callers
    *  (tests) can omit it; falls back to a no-op when no RAID refs are present. */
   onJumpToRaid?: (taskId: number) => void;
+  /** Deep-link scroll/flash wiring (shared with the table via useDeepLinkRowFlash).
+   *  Optional so lightweight callers/tests can omit them. */
+  containerRef?: React.RefObject<HTMLDivElement | null>;
+  flashId?: number | null;
 }
 
 const EMPTY_HOLIDAYS: Set<string> = new Set();
@@ -42,10 +47,12 @@ export function TaskKanban({
   onStatusChange,
   onEdit,
   onJumpToRaid = NOOP_JUMP_TO_RAID,
+  containerRef,
+  flashId = null,
 }: TaskKanbanProps) {
   const cols = useMemo(() => groupByStatus(tasks), [tasks]);
   return (
-    <div className="flex min-h-0 flex-1 gap-3 overflow-x-auto pb-2">
+    <div ref={containerRef} className="flex min-h-0 flex-1 gap-3 overflow-x-auto pb-2">
       {TASK_STATUSES.map((status) => (
         <section
           key={status}
@@ -70,9 +77,12 @@ export function TaskKanban({
                 <article
                   key={task.id}
                   data-testid={`kanban-card-${task.id}`}
+                  data-deeplink-row={task.id}
                   draggable={!synced}
                   onDragStart={(e) => e.dataTransfer.setData("text/plain", String(task.id))}
-                  className="rounded-lg border border-line bg-surface-muted p-2 text-sm"
+                  className={["rounded-lg border border-line bg-surface-muted p-2 text-sm", flashOutlineClass(flashId === task.id)]
+                    .filter(Boolean)
+                    .join(" ")}
                 >
                   <TaskKanbanCard
                     lang={lang}
