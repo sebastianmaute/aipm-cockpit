@@ -44,6 +44,7 @@ import { useResizable } from "./use-resizable";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton } from "./task-manager-ui";
 import { InfoTooltip } from "./info-tooltip";
+import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
 
 const CHANGE_COL_WIDTHS = {
   id: 60,
@@ -248,7 +249,7 @@ function ChangePanelBody({
       <button
         type="button"
         onClick={openNew}
-        className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90"
+        className={`rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90 ${INTERACTIVE}`}
       >
         + {t(lang, "changesAdd")}
       </button>
@@ -258,13 +259,13 @@ function ChangePanelBody({
         onChange={(e) => pf.setSearch(e.target.value)}
         placeholder={t(lang, "changeFilterSearch")}
         aria-label={t(lang, "changeFilterSearch")}
-        className="min-w-[12rem] flex-1 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-foreground focus:border-AIPM-dark-blue focus:outline-none focus:ring-1 focus:ring-AIPM-green"
+        className={`min-w-[12rem] flex-1 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-foreground focus:border-AIPM-dark-blue focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
       />
       <select
         value={typeFilter}
         onChange={(e) => pf.setFilter("type", e.target.value)}
         aria-label={t(lang, "changeFieldType")}
-        className="h-[30px] rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-foreground"
+        className={`h-[30px] rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-foreground ${FOCUS_RING} ${TRANSITION}`}
       >
         <option value="All">{t(lang, "changeFilterTypeAll")}</option>
         {CHANGE_TYPES.map((ty) => (
@@ -277,7 +278,7 @@ function ChangePanelBody({
         value={statusFilter}
         onChange={(e) => pf.setFilter("status", e.target.value)}
         aria-label={t(lang, "changeFieldStatus")}
-        className="h-[30px] rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-foreground"
+        className={`h-[30px] rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-foreground ${FOCUS_RING} ${TRANSITION}`}
       >
         <option value="All">{t(lang, "changeFilterStatusAll")}</option>
         {CHANGE_STATUSES.map((st) => (
@@ -292,7 +293,7 @@ function ChangePanelBody({
           type="button"
           onClick={() => pf.resetFilters()}
           title={t(lang, "resetFiltersHint")}
-          className="rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted"
+          className={`rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`}
         >
           {t(lang, "ganttResetFilters")}
         </button>
@@ -311,44 +312,44 @@ function ChangePanelBody({
           <thead className={TABLE_HEAD_CLASS}>
             <tr>
               <th className="relative px-3 py-2" style={{ width: colWidths.id, minWidth: colWidths.id }} aria-sort={ariaSort("id")}>
-                <button type="button" onClick={() => toggleSort("id")} aria-label={t(lang, "id")} className="inline-flex items-center gap-1 hover:text-AIPM-green">
+                <button type="button" onClick={() => toggleSort("id")} aria-label={t(lang, "id")} className={`inline-flex items-center gap-1 hover:text-AIPM-green ${INTERACTIVE}`}>
                   #{sortArrow("id")}
                 </button>
                 <ColumnResizeHandle col="id" onMouseDown={startResize} />
               </th>
               <th className="relative px-3 py-2" style={{ width: colWidths.type, minWidth: colWidths.type }} aria-sort={ariaSort("type")}>
-                <button type="button" onClick={() => toggleSort("type")} className="inline-flex items-center gap-1 hover:text-AIPM-green">
+                <button type="button" onClick={() => toggleSort("type")} className={`inline-flex items-center gap-1 hover:text-AIPM-green ${INTERACTIVE}`}>
                   {t(lang, "changeFieldType")}{sortArrow("type")}
                 </button>
                 <ColumnResizeHandle col="type" onMouseDown={startResize} />
               </th>
               <th className="relative px-3 py-2" style={{ width: colWidths.title, minWidth: colWidths.title }} aria-sort={ariaSort("title")}>
-                <button type="button" onClick={() => toggleSort("title")} className="inline-flex items-center gap-1 hover:text-AIPM-green">
+                <button type="button" onClick={() => toggleSort("title")} className={`inline-flex items-center gap-1 hover:text-AIPM-green ${INTERACTIVE}`}>
                   {t(lang, "changeFieldTitle")}{sortArrow("title")}
                 </button>
                 <ColumnResizeHandle col="title" onMouseDown={startResize} />
               </th>
               <th className="relative px-3 py-2" style={{ width: colWidths.impact, minWidth: colWidths.impact }} aria-sort={ariaSort("impact")}>
-                <button type="button" onClick={() => toggleSort("impact")} className="inline-flex items-center gap-1 hover:text-AIPM-green">
+                <button type="button" onClick={() => toggleSort("impact")} className={`inline-flex items-center gap-1 hover:text-AIPM-green ${INTERACTIVE}`}>
                   {t(lang, "changeFieldImpact")}{sortArrow("impact")}
                 </button>
                 <InfoTooltip text={t(lang, "changeFieldImpactHint")} />
                 <ColumnResizeHandle col="impact" onMouseDown={startResize} />
               </th>
               <th className="relative px-3 py-2" style={{ width: colWidths.status, minWidth: colWidths.status }} aria-sort={ariaSort("status")}>
-                <button type="button" onClick={() => toggleSort("status")} className="inline-flex items-center gap-1 hover:text-AIPM-green">
+                <button type="button" onClick={() => toggleSort("status")} className={`inline-flex items-center gap-1 hover:text-AIPM-green ${INTERACTIVE}`}>
                   {t(lang, "changeFieldStatus")}{sortArrow("status")}
                 </button>
                 <ColumnResizeHandle col="status" onMouseDown={startResize} />
               </th>
               <th className="relative px-3 py-2" style={{ width: colWidths.requestedBy, minWidth: colWidths.requestedBy }} aria-sort={ariaSort("requestedBy")}>
-                <button type="button" onClick={() => toggleSort("requestedBy")} className="inline-flex items-center gap-1 hover:text-AIPM-green">
+                <button type="button" onClick={() => toggleSort("requestedBy")} className={`inline-flex items-center gap-1 hover:text-AIPM-green ${INTERACTIVE}`}>
                   {t(lang, "changeFieldRequestedBy")}{sortArrow("requestedBy")}
                 </button>
                 <ColumnResizeHandle col="requestedBy" onMouseDown={startResize} />
               </th>
               <th className="relative px-3 py-2" style={{ width: colWidths.raisedDate, minWidth: colWidths.raisedDate }} aria-sort={ariaSort("raisedDate")}>
-                <button type="button" onClick={() => toggleSort("raisedDate")} className="inline-flex items-center gap-1 hover:text-AIPM-green">
+                <button type="button" onClick={() => toggleSort("raisedDate")} className={`inline-flex items-center gap-1 hover:text-AIPM-green ${INTERACTIVE}`}>
                   {t(lang, "changeFieldRaisedDate")}{sortArrow("raisedDate")}
                 </button>
                 <ColumnResizeHandle col="raisedDate" onMouseDown={startResize} />
