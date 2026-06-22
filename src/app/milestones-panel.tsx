@@ -274,7 +274,11 @@ export function MilestonesPanel({
             {sorted.map((m) => {
               const s = milestoneStatus(m, tasksById, today, holidaySet);
               return (
-                <tr key={m.id} data-deeplink-row={m.id} className={`border-t border-line ${flashOutlineClass(flashId === m.id)}`}>
+                <tr
+                  key={m.id}
+                  data-deeplink-row={m.id}
+                  className={["border-t border-line", flashOutlineClass(flashId === m.id)].filter(Boolean).join(" ")}
+                >
                   <td className="py-1" style={{ width: colWidths.name }}>
                     <button
                       type="button"

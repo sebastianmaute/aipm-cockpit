@@ -510,12 +510,16 @@ function RaidPanelInner({
                   key={item.id}
                   data-deeplink-row={item.id}
                   onClick={() => openEdit(item)}
-                  className={`cursor-pointer align-top hover:bg-surface-muted ${
+                  className={[
+                    "cursor-pointer align-top hover:bg-surface-muted",
                     // De-emphasize terminal rows with a background tint, NOT opacity
                     // (opacity dims all text/badges below the WCAG AA threshold —
                     // mirrors the task-row precedent).
-                    terminal ? "bg-surface-muted" : ""
-                  } ${flashOutlineClass(flashId === item.id)}`}
+                    terminal ? "bg-surface-muted" : "",
+                    flashOutlineClass(flashId === item.id),
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
                 >
                   <td className="px-3 py-2 font-mono text-muted-foreground">
                     #{item.id}

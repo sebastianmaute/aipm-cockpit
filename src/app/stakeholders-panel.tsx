@@ -346,7 +346,9 @@ function StakeholdersPanelInner({
                 <tr
                   key={item.id}
                   data-deeplink-row={item.id}
-                  className={`cursor-pointer align-top hover:bg-surface-muted ${flashOutlineClass(flashId === item.id)}`}
+                  className={["cursor-pointer align-top hover:bg-surface-muted", flashOutlineClass(flashId === item.id)]
+                    .filter(Boolean)
+                    .join(" ")}
                   onClick={() => openEdit(item)}
                 >
                   <td className="px-3 py-2">

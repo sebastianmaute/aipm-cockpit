@@ -369,7 +369,9 @@ function ChangePanelInner({
                   key={item.id}
                   data-deeplink-row={item.id}
                   onClick={() => openEdit(item)}
-                  className={`cursor-pointer align-top hover:bg-surface-muted ${flashOutlineClass(flashId === item.id)}`}
+                  className={["cursor-pointer align-top hover:bg-surface-muted", flashOutlineClass(flashId === item.id)]
+                    .filter(Boolean)
+                    .join(" ")}
                 >
                   <td className="px-3 py-2 font-mono text-muted-foreground">
                     #{item.id}

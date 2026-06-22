@@ -183,7 +183,12 @@ function TaskRowImpl({
           : "";
 
   return (
-    <tr data-deeplink-row={task.id} className={`align-top ${stateClass} ${flashOutlineClass(isFlashed)}`}>
+    <tr
+      data-deeplink-row={task.id}
+      className={["align-top", stateClass, flashOutlineClass(isFlashed)]
+        .filter(Boolean)
+        .join(" ")}
+    >
       <Td>
         <input
           type="checkbox"
