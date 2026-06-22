@@ -27,7 +27,7 @@ import { computeCompletionTrend } from "./completion-trend";
 import { Sparkline } from "./sparkline";
 import { bucketMilestonesByHorizon } from "./milestones";
 import { MilestoneHorizonStrip } from "./milestone-horizon-strip";
-import { computeCoaching } from "./dashboard-coaching";
+import { computeCoaching, type SettingsSectionId } from "./dashboard-coaching";
 import { DashboardCoachingCard } from "./dashboard-coaching-card";
 import { densityClasses, type DashboardDensity } from "./dashboard-density";
 import { navLabelKey, type AppView } from "./nav-config";
@@ -64,7 +64,7 @@ interface DashboardPanelProps {
   projectId?: string;
   isPopout?: boolean;
   onOpenChange?: (id: number) => void;
-  onNavigate?: (view: AppView) => void;
+  onNavigate?: (view: AppView, section?: SettingsSectionId) => void;
   aiConfigured?: boolean;
   /** Per-device cockpit density (spacing only). Default "comfortable". */
   density?: DashboardDensity;

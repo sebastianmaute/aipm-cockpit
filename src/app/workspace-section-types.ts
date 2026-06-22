@@ -150,6 +150,8 @@ export interface WorkspaceSectionProps {
   learningEnabled?: boolean;
   expertMode?: boolean;
   onOpenLearningSettings?: () => void;
+  /** Deep-link the Dashboard coaching "Configure AI assistant" CTA to Settings → AI. */
+  onConfigureAiSettings?: () => void;
   aiAnalysis?: AiAnalysisBundle;
   onPushMilestonesToOutlook?: () => void;
   calendarPushBusy?: boolean;

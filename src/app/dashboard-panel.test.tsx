@@ -596,7 +596,7 @@ describe("DashboardPanel coaching card", () => {
     const onNavigate = vi.fn();
     render(<DashboardPanel {...fullProps} aiConfigured={false} onNavigate={onNavigate} />, { wrapper });
     await user.click(screen.getByRole("button", { name: "Configure AI assistant" }));
-    expect(onNavigate).toHaveBeenCalledWith("settings");
+    expect(onNavigate).toHaveBeenCalledWith("settings", "ai");
   });
 });
 
