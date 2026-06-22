@@ -53,6 +53,7 @@ import { TasksSection } from "./tasks-section";
 import { useResizable } from "./use-resizable";
 import { WorkspaceTabProvider, useWorkspaceTab } from "./workspace-tab-context";
 import { AppHeader } from "./app-header";
+import { GlobalSearchConnected } from "./global-search-box";
 import { BirthdayBanner, JiraTokenBanner, StorageBanner } from "./notifications";
 import { tursoErrorKind, type StorageErrorKind } from "./storage-error";
 import { useStakeholderComms } from "./use-stakeholder-comms";
@@ -2077,6 +2078,7 @@ function TaskManagerInner() {
 
   const topBarMenus = (
     <>
+      <GlobalSearchConnected lang={lang} />
       {displayTzSwitcherEl}
       <ActionMenus
         lang={lang}
@@ -2231,7 +2233,12 @@ function TaskManagerInner() {
       currentView={activeTab}
       onAskClaude={(body) => requestChat(body, true)}
       projectSwitcher={projectSwitcher}
-      trailing={displayTzSwitcherEl}
+      trailing={
+        <div className="flex items-center gap-2">
+          <GlobalSearchConnected lang={lang} />
+          {displayTzSwitcherEl}
+        </div>
+      }
     />
   );
 
