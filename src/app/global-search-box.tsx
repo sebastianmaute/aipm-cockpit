@@ -127,11 +127,18 @@ export function GlobalSearchBox({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Persist recents once per commit with the latest list. Using a side-effect
+  // here (not inside the functional updater) avoids both stale-closure writes
+  // and the set-state-in-effect rule (saveRecents is localStorage, not setState).
+  useEffect(() => {
+    saveRecents(recents);
+  }, [recents]);
+
   function select(r: SearchResult) {
     onSelect(r);
-    const next = pushRecent(recents, r);
-    setRecents(next);
-    saveRecents(next);
+    // Functional updater so back-to-back selects each apply to the freshest
+    // list (no stale-closure drop); the persistence effect writes the result.
+    setRecents((prev) => pushRecent(prev, r));
     setQuery("");
     setOpen(false);
   }
