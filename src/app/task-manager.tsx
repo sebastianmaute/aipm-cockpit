@@ -2309,7 +2309,6 @@ function TaskManagerInner() {
         workspace={workspaceFullBleedEl}
         editView={editViewEl}
         editTitle={editTitle}
-        editActions={editActions}
         settingsView={settingsViewEl}
         learningInsightsView={learningInsightsEl}
         banners={bannersEl}
