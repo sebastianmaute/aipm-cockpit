@@ -8,6 +8,11 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.129.0] - 2026-06-22 "Slonczewski"
+
+### Changed
+- Global search polish: press ⌘K / Ctrl-K (or "/") to jump to the search box; matched text is highlighted in results; recently opened items appear when you focus the empty search box.
+
 ## [0.128.0] - 2026-06-22 "Harrison"
 
 ### Added
