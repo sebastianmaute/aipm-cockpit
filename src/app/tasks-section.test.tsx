@@ -12,7 +12,7 @@ vi.mock("./task-form-context", async (importOriginal) => {
 vi.mock("./task-row", () => ({
   RowContextProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   TaskRow: ({ task }: { task: { id: number; taskName: string } }) => (
-    <tr><td>{task.taskName}</td></tr>
+    <tr data-deeplink-row={task.id}><td>{task.taskName}</td></tr>
   ),
 }));
 vi.mock("./use-settings", () => ({ useSettings: vi.fn() }));
@@ -183,6 +183,19 @@ describe("TasksSection", () => {
     stubWorkspace([task], [task]);
     const { container } = render(<TasksSection {...makeProps()} />);
     expect(container.querySelector("table")).toBeInTheDocument();
+  });
+
+  it("tags each task row with its id via data-deeplink-row (deep-link flash wiring)", () => {
+    const rows = [
+      { id: 11, taskName: "T11" },
+      { id: 22, taskName: "T22" },
+    ];
+    stubWorkspace(rows, rows);
+    const { container } = render(<TasksSection {...makeProps()} />);
+    const tagged = container.querySelectorAll("[data-deeplink-row]");
+    expect(tagged.length).toBe(rows.length);
+    const ids = Array.from(tagged).map((r) => r.getAttribute("data-deeplink-row"));
+    expect(ids).toContain(String(rows[0].id));
   });
 
   it("renders a Dark-Blue sticky table header", () => {

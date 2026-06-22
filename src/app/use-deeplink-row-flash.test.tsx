@@ -161,6 +161,28 @@ describe("useDeepLinkRowFlash", () => {
     }
   });
 
+  it("re-scrolls when the SAME id is re-requested within the flash window", () => {
+    // Regression: with the effect keyed on `[flashId]` only, a second
+    // requestOpen(view, 5) while flashId is already 5 calls setFlashId(5) — same
+    // value → React bails the update → the effect never re-runs → no re-scroll.
+    // The monotonic flashSeq dep forces the effect to re-run per fresh request.
+    const { getByText } = render(
+      <Providers>
+        <Probe view="changes" />
+      </Providers>,
+    );
+
+    fireEvent.click(getByText("go"));
+    expect(Element.prototype.scrollIntoView).toHaveBeenCalledTimes(1);
+
+    // Panel consumes the request (pendingOpen → null) so the next click yields a
+    // FRESH pendingOpen object carrying the same id 5, without advancing the timer.
+    fireEvent.click(getByText("clear"));
+    fireEvent.click(getByText("go"));
+
+    expect(Element.prototype.scrollIntoView).toHaveBeenCalledTimes(2);
+  });
+
   it("flashOutlineClass returns outline classes only when flashed", () => {
     expect(flashOutlineClass(true)).toContain("outline-AIPM-green");
     expect(flashOutlineClass(false)).toBe("");

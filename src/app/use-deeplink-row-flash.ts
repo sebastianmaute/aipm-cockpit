@@ -33,6 +33,14 @@ export function useDeepLinkRowFlash(view: AppView): {
   const { pendingOpen } = useWorkspaceTab();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [flashId, setFlashId] = useState<number | null>(null);
+  // Monotonic nonce: bumped on every fresh matching request so the side-effect
+  // re-runs (re-scroll + re-arm the clear timer) even when the SAME id is
+  // re-requested within the flash window — `setFlashId(sameValue)` would bail the
+  // state update and leave a `[flashId]`-only effect dormant (no re-scroll, stale
+  // timer). When the timer sets `flashId=null`, flashSeq is unchanged but flashId
+  // changed → effect re-runs → early-returns. No infinite loop: bumping flashSeq
+  // does not change `pendingOpen`/`handled`, so the reconcile only fires per request.
+  const [flashSeq, setFlashSeq] = useState(0);
   // Render-time reconcile (NOT a useEffect — set-state-in-effect is banned): when
   // a new matching deep-link lands, sync flashId during render. `handled` tracks
   // the last pendingOpen object reference we acted on so we fire exactly once per
@@ -43,7 +51,10 @@ export function useDeepLinkRowFlash(view: AppView): {
   const targetId = targetIdFor(pendingOpen, view);
   if (pendingOpen !== handled) {
     setHandled(pendingOpen);
-    if (targetId !== null) setFlashId(targetId);
+    if (targetId !== null) {
+      setFlashId(targetId);
+      setFlashSeq((s) => s + 1);
+    }
   }
 
   // Keyed on flashId, NOT pendingOpen: the destination panel clears pendingOpen
@@ -64,7 +75,7 @@ export function useDeepLinkRowFlash(view: AppView): {
       cancelAnimationFrame(raf);
       clearTimeout(timer);
     };
-  }, [flashId]);
+  }, [flashId, flashSeq]);
 
   return { flashId, containerRef };
 }
