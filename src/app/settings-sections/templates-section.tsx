@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { type Lang, t } from "../i18n";
+import { FOCUS_RING, INTERACTIVE, TRANSITION } from "../interaction-styles";
+import { EmptyState } from "../empty-state";
 import { deriveMode } from "../feature-modules";
 import { templateFromWorkspace, type ProjectTemplate } from "../templates";
 import { useTemplates } from "../use-templates";
@@ -85,7 +87,7 @@ export function TemplatesSection({ lang }: TemplatesSectionProps) {
             checked={includeContent}
             aria-label={t(lang, "templateIncludeContent")}
             onChange={(e) => setIncludeContent(e.target.checked)}
-            className="h-4 w-4 rounded border-line text-AIPM-green-strong focus:ring-AIPM-green"
+            className={`h-4 w-4 rounded border-line text-AIPM-green-strong ${FOCUS_RING} ${TRANSITION}`}
           />
           <span>{t(lang, "templateIncludeContent")}</span>
         </label>
@@ -94,7 +96,7 @@ export function TemplatesSection({ lang }: TemplatesSectionProps) {
             type="button"
             onClick={saveCurrent}
             disabled={!trimmed}
-            className="shrink-0 rounded-md border border-line px-3 py-1.5 text-sm hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50"
+            className={`shrink-0 rounded-md border border-line px-3 py-1.5 text-sm hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
           >
             {t(lang, "templateSaveAction")}
           </button>
@@ -125,7 +127,7 @@ export function TemplatesSection({ lang }: TemplatesSectionProps) {
           {t(lang, "templatesYoursLabel")}
         </h3>
         {userTemplates.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t(lang, "templatesEmpty")}</p>
+          <EmptyState compact title={t(lang, "templatesEmpty")} />
         ) : (
           <ul className="flex flex-col gap-2">
             {userTemplates.map((tpl) => (
@@ -152,7 +154,7 @@ export function TemplatesSection({ lang }: TemplatesSectionProps) {
                 <button
                   type="button"
                   onClick={() => removeTemplate(tpl.id)}
-                  className="shrink-0 rounded-md border border-line px-3 py-1.5 text-sm text-AIPM-purple hover:bg-surface-muted"
+                  className={`shrink-0 rounded-md border border-line px-3 py-1.5 text-sm text-AIPM-purple hover:bg-surface-muted ${INTERACTIVE}`}
                 >
                   {t(lang, "templatesDelete")}
                 </button>

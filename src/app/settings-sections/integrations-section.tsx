@@ -23,6 +23,7 @@ import { loadRegistry } from "../projects-registry";
 import { defaultStorageConfig } from "../workspace";
 import { saveSecretValue, setSecretPassphrase } from "../use-secrets";
 import { isPassphraseLocked, loadSealed, removeSealed } from "../secrets-store";
+import { FOCUS_RING, TRANSITION, INTERACTIVE } from "../interaction-styles";
 
 interface IntegrationsSectionProps {
   lang: Lang;
@@ -208,7 +209,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                 value={m365.clientId ?? ""}
                 onChange={(e) => updateM365({ clientId: e.target.value })}
                 placeholder={t(lang, "integrationsM365ClientIdPlaceholder")}
-                className="mt-1 w-full rounded border border-line bg-surface px-2 py-1 text-foreground"
+                className={`mt-1 w-full rounded border border-line bg-surface px-2 py-1 text-foreground ${FOCUS_RING} ${TRANSITION}`}
               />
             </label>
           )}
@@ -223,7 +224,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                 value={m365.tenantId ?? ""}
                 onChange={(e) => updateM365({ tenantId: e.target.value })}
                 placeholder={t(lang, "integrationsM365TenantIdPlaceholder")}
-                className="mt-1 w-full rounded border border-line bg-surface px-2 py-1 text-foreground"
+                className={`mt-1 w-full rounded border border-line bg-surface px-2 py-1 text-foreground ${FOCUS_RING} ${TRANSITION}`}
               />
             </label>
           )}
@@ -237,7 +238,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                 <button
                   type="button"
                   onClick={() => { void auth.signOut(); }}
-                  className="rounded border border-line bg-surface px-2 py-1 text-xs hover:bg-surface-muted"
+                  className={`rounded border border-line bg-surface px-2 py-1 text-xs hover:bg-surface-muted ${INTERACTIVE}`}
                 >
                   {t(lang, "integrationsM365SignOut")}
                 </button>
@@ -252,7 +253,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                     ? t(lang, "integrationsM365NeedsConfig")
                     : undefined
                 }
-                className="rounded border border-AIPM-dark-blue bg-AIPM-dark-blue px-2 py-1 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90 disabled:cursor-not-allowed disabled:opacity-50"
+                className={`rounded border border-AIPM-dark-blue bg-AIPM-dark-blue px-2 py-1 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90 disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
               >
                 {t(lang, "integrationsM365SignIn")}
               </button>
@@ -332,7 +333,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                 value={turso.databaseUrl ?? ""}
                 onChange={(e) => updateTurso({ databaseUrl: e.target.value })}
                 placeholder={t(lang, "integrationsTursoUrlPlaceholder")}
-                className="mt-1 w-full rounded border border-line bg-surface px-2 py-1 text-foreground"
+                className={`mt-1 w-full rounded border border-line bg-surface px-2 py-1 text-foreground ${FOCUS_RING} ${TRANSITION}`}
               />
               {isLikelyRegionQualifiedTursoUrl(turso.databaseUrl ?? "") && (
                 <p className="mt-1 text-xs text-AIPM-pink-strong">
@@ -352,7 +353,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                 value={turso.authToken ?? ""}
                 onChange={(e) => handleAuthTokenChange(e.target.value)}
                 placeholder={t(lang, "integrationsTursoTokenPlaceholder")}
-                className="mt-1 w-full rounded border border-line bg-surface px-2 py-1 text-foreground"
+                className={`mt-1 w-full rounded border border-line bg-surface px-2 py-1 text-foreground ${FOCUS_RING} ${TRANSITION}`}
               />
               <FieldNotice>{t(lang, "credentialStorageNote")}</FieldNotice>
             </label>
@@ -377,7 +378,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                     placeholder={t(lang, "secretPassphrasePlaceholder")}
                     value={tokenPassphrase}
                     onChange={(e) => setTokenPassphrase(e.target.value)}
-                    className="w-full rounded border border-line bg-surface px-2 py-1 text-sm text-foreground"
+                    className={`w-full rounded border border-line bg-surface px-2 py-1 text-sm text-foreground ${FOCUS_RING} ${TRANSITION}`}
                   />
                   <input
                     type="password"
@@ -386,7 +387,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                     placeholder={t(lang, "secretPassphraseConfirm")}
                     value={tokenConfirm}
                     onChange={(e) => setTokenConfirm(e.target.value)}
-                    className="w-full rounded border border-line bg-surface px-2 py-1 text-sm text-foreground"
+                    className={`w-full rounded border border-line bg-surface px-2 py-1 text-sm text-foreground ${FOCUS_RING} ${TRANSITION}`}
                   />
                   {tokenPassphraseMismatch && (
                     <p className="text-xs text-AIPM-pink-strong">{t(lang, "secretPassphraseMismatch")}</p>
@@ -395,7 +396,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                     type="button"
                     disabled={!(turso.authToken ?? "").trim() || !tokenPassphrase || tokenPassphrase !== tokenConfirm}
                     onClick={handleTokenLockConfirm}
-                    className="self-start whitespace-nowrap rounded-md border border-line bg-AIPM-green px-3 py-1 text-xs font-medium text-foreground disabled:opacity-50"
+                    className={`self-start whitespace-nowrap rounded-md border border-line bg-AIPM-green px-3 py-1 text-xs font-medium text-foreground disabled:opacity-50 ${INTERACTIVE}`}
                   >
                     {t(lang, "secretPassphraseSave")}
                   </button>
@@ -407,7 +408,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                   type="button"
                   onClick={handleRemoveToken}
                   title={t(lang, "secretPassphraseRemoveHint")}
-                  className="mt-2 rounded-md border border-line px-3 py-1 text-xs font-medium text-AIPM-pink-strong hover:bg-surface-muted"
+                  className={`mt-2 rounded-md border border-line px-3 py-1 text-xs font-medium text-AIPM-pink-strong hover:bg-surface-muted ${INTERACTIVE}`}
                 >
                   {t(lang, "secretPassphraseRemove")}
                 </button>
@@ -420,7 +421,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
               <button
                 type="button"
                 onClick={onMigrateToTurso}
-                className="rounded-md bg-AIPM-dark-blue px-3 py-1.5 text-xs font-medium text-white hover:opacity-90"
+                className={`rounded-md bg-AIPM-dark-blue px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 ${INTERACTIVE}`}
               >
                 {t(lang, "projectMigrateToTurso")}
               </button>
@@ -449,7 +450,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                 aria-label={t(lang, "snapshotCadenceLabel")}
                 value={snapshots.cadence}
                 onChange={(e) => updateSnapshots({ cadence: e.target.value as SnapshotCadence })}
-                className="mt-1 w-full rounded border border-line bg-surface px-2 py-1 text-foreground"
+                className={`mt-1 w-full rounded border border-line bg-surface px-2 py-1 text-foreground ${FOCUS_RING} ${TRANSITION}`}
               >
                 <option value="weekly">{t(lang, "snapshotCadenceWeekly")}</option>
                 <option value="daily">{t(lang, "snapshotCadenceDaily")}</option>
@@ -469,7 +470,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                 aria-label={t(lang, "portfolioModeLabel")}
                 value={pendingMode}
                 onChange={(e) => setPendingMode(e.target.value as PortfolioMode)}
-                className="mt-1 w-full rounded border border-line bg-surface px-2 py-1 text-foreground"
+                className={`mt-1 w-full rounded border border-line bg-surface px-2 py-1 text-foreground ${FOCUS_RING} ${TRANSITION}`}
               >
                 <option value="file">{t(lang, "portfolioModeFile")}</option>
                 <option value="turso" disabled={!tursoConfigured}>
@@ -487,7 +488,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                 <button
                   type="button"
                   onClick={confirmPortfolioModeSwitch}
-                  className="mt-2 rounded-md bg-AIPM-dark-blue px-3 py-1.5 text-xs font-medium text-white hover:opacity-90"
+                  className={`mt-2 rounded-md bg-AIPM-dark-blue px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 ${INTERACTIVE}`}
                 >
                   {t(lang, "portfolioModeSwitchConfirm")}
                 </button>

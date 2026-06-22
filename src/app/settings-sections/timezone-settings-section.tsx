@@ -4,6 +4,7 @@ import { useState } from "react";
 import { type Lang, t } from "../i18n";
 import type { Settings } from "../settings-types";
 import { browserTimeZone, isValidTimeZone, tzZones } from "../timezone";
+import { FOCUS_RING, INTERACTIVE, TRANSITION } from "../interaction-styles";
 
 interface TimezoneSettingsSectionProps {
   lang: Lang;
@@ -45,7 +46,7 @@ export function TimezoneSettingsSection({ lang, settings, onChange }: TimezoneSe
           value={settings.timezone ?? ""}
           aria-label={t(lang, "tzDefaultLabel")}
           onChange={(e) => setDefault(e.target.value)}
-          className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none focus:ring-1 focus:ring-AIPM-green"
+          className={`w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
         >
           <option value="">{`${t(lang, "tzSystemDefault")} (${browserTimeZone()})`}</option>
           {zones.map((z) => (
@@ -65,7 +66,7 @@ export function TimezoneSettingsSection({ lang, settings, onChange }: TimezoneSe
             value={pending}
             aria-label={t(lang, "tzAddLabel")}
             onChange={(e) => setPending(e.target.value)}
-            className="min-w-0 flex-1 rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none focus:ring-1 focus:ring-AIPM-green"
+            className={`min-w-0 flex-1 rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
           >
             <option value="">{t(lang, "tzAddLabel")}</option>
             {zones
@@ -80,7 +81,7 @@ export function TimezoneSettingsSection({ lang, settings, onChange }: TimezoneSe
             type="button"
             onClick={addZone}
             disabled={!pending}
-            className="shrink-0 rounded-md bg-AIPM-dark-blue px-3 py-2 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            className={`shrink-0 rounded-md bg-AIPM-dark-blue px-3 py-2 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
           >
             {t(lang, "tzAddLabel")}
           </button>
@@ -98,7 +99,7 @@ export function TimezoneSettingsSection({ lang, settings, onChange }: TimezoneSe
                   type="button"
                   onClick={() => removeZone(zone)}
                   aria-label={`${t(lang, "tzRemoveLabel")} – ${zone}`}
-                  className="text-muted-foreground hover:text-AIPM-pink"
+                  className={`text-muted-foreground hover:text-AIPM-pink ${INTERACTIVE}`}
                 >
                   <svg
                     viewBox="0 0 20 20"
@@ -125,6 +126,7 @@ export function TimezoneSettingsSection({ lang, settings, onChange }: TimezoneSe
             type="checkbox"
             checked={!!settings.showDisplayTzSwitcher}
             onChange={(e) => onChange({ ...settings, showDisplayTzSwitcher: e.target.checked })}
+            className={`${FOCUS_RING} ${TRANSITION}`}
           />
           {t(lang, "tzShowSwitcher")}
         </label>

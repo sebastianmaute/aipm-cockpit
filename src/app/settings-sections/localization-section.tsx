@@ -5,6 +5,8 @@ import { COUNTRIES } from "../holidays";
 import { type Lang, t } from "../i18n";
 import type { Settings } from "../settings-types";
 import { InfoTooltip } from "../info-tooltip";
+import { EmptyState } from "../empty-state";
+import { FOCUS_RING, INTERACTIVE, TRANSITION } from "../interaction-styles";
 
 interface LocalizationSectionProps {
   lang: Lang;
@@ -53,7 +55,7 @@ export function LocalizationSection({ lang, settings, onChange }: LocalizationSe
           onChange={(e) =>
             onChange({ ...settings, language: e.target.value as Lang })
           }
-          className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none focus:ring-1 focus:ring-AIPM-green"
+          className={`w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
         >
           <option value="en-US">English (US)</option>
           <option value="en-GB">English (UK)</option>
@@ -70,7 +72,7 @@ export function LocalizationSection({ lang, settings, onChange }: LocalizationSe
           <select
             value={pending}
             onChange={(e) => setPending(e.target.value)}
-            className="min-w-0 flex-1 rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none focus:ring-1 focus:ring-AIPM-green"
+            className={`min-w-0 flex-1 rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
           >
             <option value="">{t(lang, "selectCountry")}</option>
             {available.map((c) => (
@@ -83,16 +85,14 @@ export function LocalizationSection({ lang, settings, onChange }: LocalizationSe
             type="button"
             onClick={addCountry}
             disabled={!pending}
-            className="shrink-0 rounded-md bg-AIPM-dark-blue px-3 py-2 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            className={`shrink-0 rounded-md bg-AIPM-dark-blue px-3 py-2 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
           >
             {t(lang, "add")}
           </button>
         </div>
 
         {settings.holidayCountries.length === 0 ? (
-          <p className="mt-2 text-xs text-muted-foreground">
-            {t(lang, "noCountriesSelected")}
-          </p>
+          <EmptyState compact title={t(lang, "noCountriesSelected")} />
         ) : (
           <ul className="mt-2 space-y-1">
             {settings.holidayCountries.map((code) => (
@@ -107,7 +107,7 @@ export function LocalizationSection({ lang, settings, onChange }: LocalizationSe
                   type="button"
                   onClick={() => removeCountry(code)}
                   aria-label={`${t(lang, "remove")} ${countryName(code)}`}
-                  className="text-muted-foreground hover:text-AIPM-pink"
+                  className={`text-muted-foreground hover:text-AIPM-pink ${INTERACTIVE}`}
                 >
                   <svg
                     viewBox="0 0 20 20"

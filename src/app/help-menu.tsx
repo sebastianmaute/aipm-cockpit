@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { INTERACTIVE } from "./interaction-styles";
 import { matchesQuery, highlightSegments } from "./help-search";
 import { type Lang, type TranslationKey, t } from "./i18n";
 import { useResizable } from "./use-resizable";
@@ -269,7 +270,7 @@ export function HelpMenu({ lang, onTakeTour }: { lang: Lang; onTakeTour?: () => 
               type="button"
               onClick={() => setOpen(false)}
               aria-label="Close"
-              className="rounded p-1 text-foreground hover:bg-surface-muted hover:text-AIPM-dark-blue dark:text-muted-foreground dark:hover:text-AIPM-light-grey"
+              className={`rounded p-1 text-foreground hover:bg-surface-muted hover:text-AIPM-dark-blue dark:text-muted-foreground dark:hover:text-AIPM-light-grey ${INTERACTIVE}`}
             >
               <svg
                 viewBox="0 0 20 20"
@@ -322,8 +323,8 @@ export function HelpMenu({ lang, onTakeTour }: { lang: Lang; onTakeTour?: () => 
                       onKeyDown={onTabKeyDown}
                       className={
                         isActive
-                          ? "block w-full border-l-2 border-AIPM-dark-blue bg-surface-muted px-3 py-1.5 text-left text-xs font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey"
-                          : "block w-full border-l-2 border-transparent px-3 py-1.5 text-left text-xs text-foreground hover:bg-surface-muted hover:text-AIPM-dark-blue dark:text-muted-foreground dark:hover:text-AIPM-light-grey"
+                          ? `block w-full border-l-2 border-AIPM-dark-blue bg-surface-muted px-3 py-1.5 text-left text-xs font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey ${INTERACTIVE}`
+                          : `block w-full border-l-2 border-transparent px-3 py-1.5 text-left text-xs text-foreground hover:bg-surface-muted hover:text-AIPM-dark-blue dark:text-muted-foreground dark:hover:text-AIPM-light-grey ${INTERACTIVE}`
                       }
                     >
                       {t(lang, s.titleKey)}
@@ -393,7 +394,7 @@ export function HelpMenu({ lang, onTakeTour }: { lang: Lang; onTakeTour?: () => 
                   setOpen(false);
                   onTakeTour();
                 }}
-                className="text-xs font-medium text-AIPM-dark-blue underline-offset-2 hover:underline dark:text-AIPM-blue"
+                className={`text-xs font-medium text-AIPM-dark-blue underline-offset-2 hover:underline dark:text-AIPM-blue ${INTERACTIVE}`}
               >
                 {t(lang, "tourLaunch")}
               </button>

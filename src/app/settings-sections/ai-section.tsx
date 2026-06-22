@@ -15,6 +15,7 @@ import type { AppMode, FeatureModuleId } from "../feature-modules";
 import { allNavViews, navLabelKey, type AppView } from "../nav-config";
 import { saveSecretValue, setSecretPassphrase } from "../use-secrets";
 import { isPassphraseLocked, loadSealed, removeSealed } from "../secrets-store";
+import { FOCUS_RING, TRANSITION, INTERACTIVE } from "../interaction-styles";
 
 interface AiSectionProps {
   lang: Lang;
@@ -50,7 +51,7 @@ function CapInput({
           const n = parseInt(e.target.value, 10);
           onChange(Number.isFinite(n) && n > 0 ? n : defaultValue);
         }}
-        className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none focus:ring-1 focus:ring-AIPM-green"
+        className={`w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
       />
     </label>
   );
@@ -130,7 +131,7 @@ function GuideForm({ lang, draft, onChange, onSave, onCancel, busy }: GuideFormP
           type="text"
           value={draft.name}
           onChange={(e) => onChange({ ...draft, name: e.target.value })}
-          className="w-full rounded-md border border-line bg-surface px-2 py-1 text-sm text-foreground focus:border-line focus:outline-none focus:ring-1 focus:ring-AIPM-green"
+          className={`w-full rounded-md border border-line bg-surface px-2 py-1 text-sm text-foreground focus:border-line focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
         />
       </label>
       <label className="block">
@@ -139,7 +140,7 @@ function GuideForm({ lang, draft, onChange, onSave, onCancel, busy }: GuideFormP
           value={draft.content}
           rows={6}
           onChange={(e) => onChange({ ...draft, content: e.target.value })}
-          className="w-full rounded-md border border-line bg-surface px-2 py-1 text-sm text-foreground focus:border-line focus:outline-none focus:ring-1 focus:ring-AIPM-green"
+          className={`w-full rounded-md border border-line bg-surface px-2 py-1 text-sm text-foreground focus:border-line focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
         />
       </label>
       <label className="block">
@@ -153,7 +154,7 @@ function GuideForm({ lang, draft, onChange, onSave, onCancel, busy }: GuideFormP
             const n = parseInt(e.target.value, 10);
             onChange({ ...draft, priority: Number.isFinite(n) && n > 0 ? n : draft.priority });
           }}
-          className="w-24 rounded-md border border-line bg-surface px-2 py-1 text-sm text-foreground focus:border-line focus:outline-none focus:ring-1 focus:ring-AIPM-green"
+          className={`w-24 rounded-md border border-line bg-surface px-2 py-1 text-sm text-foreground focus:border-line focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
         />
       </label>
       <fieldset>
@@ -215,14 +216,14 @@ function GuideForm({ lang, draft, onChange, onSave, onCancel, busy }: GuideFormP
           type="button"
           disabled={busy || !draft.name.trim()}
           onClick={onSave}
-          className="rounded-md border border-line bg-AIPM-green px-3 py-1 text-xs font-medium text-foreground disabled:opacity-50"
+          className={`rounded-md border border-line bg-AIPM-green px-3 py-1 text-xs font-medium text-foreground disabled:opacity-50 ${INTERACTIVE}`}
         >
           {t(lang, "aiGuideSave")}
         </button>
         <button
           type="button"
           onClick={onCancel}
-          className="rounded-md border border-line bg-surface px-3 py-1 text-xs font-medium text-foreground hover:bg-surface"
+          className={`rounded-md border border-line bg-surface px-3 py-1 text-xs font-medium text-foreground hover:bg-surface ${INTERACTIVE}`}
         >
           {t(lang, "aiGuideCancel")}
         </button>
@@ -363,7 +364,7 @@ export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage
           value={settings.ai.apiKey}
           onChange={(e) => handleApiKeyChange(e.target.value)}
           placeholder={t(lang, "aiApiKeyPlaceholder")}
-          className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none focus:ring-1 focus:ring-AIPM-green"
+          className={`w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
         />
         <FieldNotice>{t(lang, "credentialStorageNote")}</FieldNotice>
       </label>
@@ -386,7 +387,7 @@ export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage
               placeholder={t(lang, "secretPassphrasePlaceholder")}
               value={keyPassphrase}
               onChange={(e) => setKeyPassphrase(e.target.value)}
-              className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none focus:ring-1 focus:ring-AIPM-green"
+              className={`w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
             />
             <input
               type="password"
@@ -395,7 +396,7 @@ export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage
               placeholder={t(lang, "secretPassphraseConfirm")}
               value={keyConfirm}
               onChange={(e) => setKeyConfirm(e.target.value)}
-              className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none focus:ring-1 focus:ring-AIPM-green"
+              className={`w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
             />
             {keyPassphraseMismatch && (
               <p className="text-xs text-AIPM-pink-strong">{t(lang, "secretPassphraseMismatch")}</p>
@@ -404,7 +405,7 @@ export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage
               type="button"
               disabled={!settings.ai.apiKey.trim() || !keyPassphrase || keyPassphrase !== keyConfirm}
               onClick={handleLockConfirm}
-              className="self-start whitespace-nowrap rounded-md border border-line bg-AIPM-green px-3 py-2 text-xs font-medium text-foreground disabled:opacity-50"
+              className={`self-start whitespace-nowrap rounded-md border border-line bg-AIPM-green px-3 py-2 text-xs font-medium text-foreground disabled:opacity-50 ${INTERACTIVE}`}
             >
               {t(lang, "secretPassphraseSave")}
             </button>
@@ -416,7 +417,7 @@ export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage
             type="button"
             onClick={handleRemoveSecret}
             title={t(lang, "secretPassphraseRemoveHint")}
-            className="mt-2 rounded-md border border-line px-3 py-1.5 text-xs font-medium text-AIPM-pink-strong hover:bg-surface-muted"
+            className={`mt-2 rounded-md border border-line px-3 py-1.5 text-xs font-medium text-AIPM-pink-strong hover:bg-surface-muted ${INTERACTIVE}`}
           >
             {t(lang, "secretPassphraseRemove")}
           </button>
@@ -438,7 +439,7 @@ export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage
               },
             })
           }
-          className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none focus:ring-1 focus:ring-AIPM-green"
+          className={`w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
         >
           <option value="claude-sonnet-4-6">Claude Sonnet 4.6</option>
           <option value="claude-opus-4-7">Claude Opus 4.7</option>
@@ -461,7 +462,7 @@ export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage
                 ai: { ...settings.ai, consentAccepted: false },
               })
             }
-            className="text-xs font-medium text-AIPM-pink-strong underline-offset-2 hover:underline"
+            className={`text-xs font-medium text-AIPM-pink-strong underline-offset-2 hover:underline ${INTERACTIVE}`}
           >
             {t(lang, "aiConsentRevoke")}
           </button>
@@ -580,7 +581,7 @@ export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage
                         type="button"
                         aria-label={`${t(lang, "aiGuideEdit")} – ${g.name}`}
                         onClick={() => openEdit(g)}
-                        className="rounded-md border border-line bg-surface px-2 py-0.5 text-xs font-medium text-foreground"
+                        className={`rounded-md border border-line bg-surface px-2 py-0.5 text-xs font-medium text-foreground ${INTERACTIVE}`}
                       >
                         {t(lang, "aiGuideEdit")}
                       </button>
@@ -589,7 +590,7 @@ export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage
                           type="button"
                           aria-label={`${t(lang, "aiGuideDelete")} – ${g.name}`}
                           onClick={() => { void og.remove(g.id); }}
-                          className="rounded-md border border-line bg-surface px-2 py-0.5 text-xs font-medium text-AIPM-pink-strong"
+                          className={`rounded-md border border-line bg-surface px-2 py-0.5 text-xs font-medium text-AIPM-pink-strong ${INTERACTIVE}`}
                         >
                           {t(lang, "aiGuideDelete")}
                         </button>
@@ -614,7 +615,7 @@ export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage
               <button
                 type="button"
                 onClick={openAdd}
-                className="mt-3 rounded-md border border-line bg-surface px-3 py-1.5 text-xs font-medium text-foreground"
+                className={`mt-3 rounded-md border border-line bg-surface px-3 py-1.5 text-xs font-medium text-foreground ${INTERACTIVE}`}
               >
                 {t(lang, "aiGuideAdd")}
               </button>

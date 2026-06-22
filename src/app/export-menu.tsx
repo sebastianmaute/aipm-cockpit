@@ -9,6 +9,7 @@
 // what each output looks like before they pick one.
 
 import { useEffect, useRef, useState } from "react";
+import { INTERACTIVE } from "./interaction-styles";
 import { type ExportFormat, exportWorkspace } from "./export";
 import { type Lang, type TranslationKey, t } from "./i18n";
 import type { Absence, BudgetBucket, Discipline, FxRates, Grade, RaidItem, Resource, ResourcePlan, Role, Shift, Task } from "./types";
@@ -130,7 +131,7 @@ export function ExportMenu({
                 <button
                   type="button"
                   onClick={() => pick(o.format)}
-                  className="flex w-full flex-col items-start gap-0.5 rounded-md px-2.5 py-2 text-left text-sm hover:bg-surface-muted"
+                  className={`flex w-full flex-col items-start gap-0.5 rounded-md px-2.5 py-2 text-left text-sm hover:bg-surface-muted ${INTERACTIVE}`}
                 >
                   <span className="font-medium text-AIPM-dark-blue dark:text-AIPM-light-grey">
                     {t(lang, o.labelKey)}

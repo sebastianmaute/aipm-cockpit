@@ -13,6 +13,7 @@ import type { Settings } from "../settings-types";
 import type { TursoConfig } from "../turso-config";
 import { useScheduledJobs } from "../use-scheduled-jobs";
 import type { JobCadence, ScheduledJob } from "../scheduled-jobs/types";
+import { FOCUS_RING, TRANSITION, INTERACTIVE } from "../interaction-styles";
 
 export interface ScheduledJobsSectionProps {
   lang: Lang;
@@ -22,7 +23,7 @@ export interface ScheduledJobsSectionProps {
 }
 
 const INPUT_CLASS =
-  "rounded-md border border-line bg-surface px-2 py-1 text-sm text-foreground focus:border-line focus:outline-none focus:ring-1 focus:ring-AIPM-green";
+  `rounded-md border border-line bg-surface px-2 py-1 text-sm text-foreground focus:border-line focus:outline-none ${FOCUS_RING} ${TRANSITION}`;
 
 // Weekday short labels by index (0=Sun..6=Sat), reusing the existing shift keys.
 const WEEKDAY_KEYS: TranslationKey[] = [
@@ -103,7 +104,7 @@ function JobRow({
           onClick={() => onDelete(job.id)}
           disabled={busy}
           aria-label={`${t(lang, "delete")} – ${job.name}`}
-          className="rounded-md border border-line bg-surface px-2 py-1 text-xs font-medium text-AIPM-pink-strong hover:bg-surface-muted disabled:opacity-50"
+          className={`rounded-md border border-line bg-surface px-2 py-1 text-xs font-medium text-AIPM-pink-strong hover:bg-surface-muted disabled:opacity-50 ${INTERACTIVE}`}
         >
           {t(lang, "delete")}
         </button>
@@ -170,7 +171,7 @@ function JobRow({
             type="button"
             onClick={() => setExpanded((v) => !v)}
             aria-label={`${t(lang, expanded ? "showLess" : "showMore")} – ${job.name}`}
-            className="rounded-md border border-line bg-surface px-2 py-0.5 text-xs font-medium text-foreground hover:bg-surface-muted"
+            className={`rounded-md border border-line bg-surface px-2 py-0.5 text-xs font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`}
           >
             {t(lang, expanded ? "showLess" : "showMore")}
           </button>
@@ -254,7 +255,7 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
                 type="button"
                 onClick={addJob}
                 disabled={busy}
-                className="self-start rounded-md border border-line bg-AIPM-green px-3 py-1.5 text-xs font-medium text-foreground disabled:opacity-50"
+                className={`self-start rounded-md border border-line bg-AIPM-green px-3 py-1.5 text-xs font-medium text-foreground disabled:opacity-50 ${INTERACTIVE}`}
               >
                 {t(lang, "scheduledJobsAdd")}
               </button>
