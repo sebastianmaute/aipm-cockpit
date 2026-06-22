@@ -56,6 +56,16 @@ describe("ChangePanel", () => {
     fireEvent.click(getByText("Alpha scope"));
     expect(getByDisplayValue("Alpha scope")).toBeTruthy();
   });
+  it("tags every change row with its id via data-deeplink-row (deep-link flash wiring)", () => {
+    // jsdom has no layout engine; the flash hook calls scrollIntoView on the
+    // matching row — stub it so a (hypothetical) flash never crashes the render.
+    Element.prototype.scrollIntoView = vi.fn();
+    const { container } = render(<ChangePanel {...base} />, { wrapper: Providers });
+    const rows = container.querySelectorAll("[data-deeplink-row]");
+    expect(rows.length).toBe(base.changes.length);
+    const ids = Array.from(rows).map((r) => r.getAttribute("data-deeplink-row"));
+    expect(ids).toContain(String(base.changes[0].id));
+  });
 });
 
 describe("ChangePanel — raidEnabled", () => {

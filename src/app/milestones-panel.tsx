@@ -9,6 +9,7 @@ import {
 import { MilestoneEditModal } from "./milestone-edit-modal";
 import { useWorkspace } from "./workspace-context";
 import { useWorkspaceTab } from "./workspace-tab-context";
+import { useDeepLinkRowFlash, flashOutlineClass } from "./use-deeplink-row-flash";
 import {
   filterMilestones,
   milestoneStatus,
@@ -134,6 +135,7 @@ export function MilestonesPanel({
   // Deep-link: when a suggested-action chip requests opening a milestone, open
   // its edit modal once and clear the pending signal.
   const { pendingOpen, clearPendingOpen } = useWorkspaceTab();
+  const { flashId, containerRef } = useDeepLinkRowFlash("milestones");
   useEffect(() => {
     if (pendingOpen?.view !== "milestones") return;
     const m = milestones.find((x) => x.id === pendingOpen.id);
@@ -220,7 +222,7 @@ export function MilestonesPanel({
           <ResetSizeButton onClick={resetSize} lang={lang} />
         </div>
       </header>
-      <div className="min-h-0 flex-1 overflow-auto pr-2">
+      <div ref={containerRef} className="min-h-0 flex-1 overflow-auto pr-2">
       {sorted.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           {t(lang, "milestonesEmpty")}
@@ -272,7 +274,7 @@ export function MilestonesPanel({
             {sorted.map((m) => {
               const s = milestoneStatus(m, tasksById, today, holidaySet);
               return (
-                <tr key={m.id} className="border-t border-line">
+                <tr key={m.id} data-deeplink-row={m.id} className={`border-t border-line ${flashOutlineClass(flashId === m.id)}`}>
                   <td className="py-1" style={{ width: colWidths.name }}>
                     <button
                       type="button"

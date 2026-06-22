@@ -8,6 +8,7 @@
 import { memo, useEffect, useMemo, useState } from "react";
 import { StakeholderEditModal } from "./stakeholder-edit-modal";
 import { useWorkspaceTab } from "./workspace-tab-context";
+import { useDeepLinkRowFlash, flashOutlineClass } from "./use-deeplink-row-flash";
 import { compareStakeholder, nextStakeholderId, type StakeholderSortKey } from "./stakeholders";
 import { type Lang, t, type TranslationKey } from "./i18n";
 import { TABLE_HEAD_CLASS } from "./table-styles";
@@ -147,6 +148,7 @@ function StakeholdersPanelInner({
   // Deep-link: when a suggested-action chip requests opening a stakeholder,
   // open its edit modal once and clear the pending signal.
   const { pendingOpen, clearPendingOpen } = useWorkspaceTab();
+  const { flashId, containerRef } = useDeepLinkRowFlash("stakeholders");
   useEffect(() => {
     if (pendingOpen?.view !== "stakeholders") return;
     const item = stakeholders.find((s) => s.id === pendingOpen.id);
@@ -218,7 +220,7 @@ function StakeholdersPanelInner({
     <div ref={paneRef} className={VIEW_PANE_RESIZABLE_CLASS}>
       {toolbar}
 
-      <div className="min-h-[240px] flex-1 overflow-auto rounded-md border border-line pr-2">
+      <div ref={containerRef} className="min-h-[240px] flex-1 overflow-auto rounded-md border border-line pr-2">
         <table className="min-w-full text-left text-sm">
           <thead className={TABLE_HEAD_CLASS}>
             <tr>
@@ -343,7 +345,8 @@ function StakeholdersPanelInner({
               return (
                 <tr
                   key={item.id}
-                  className="cursor-pointer align-top hover:bg-surface-muted"
+                  data-deeplink-row={item.id}
+                  className={`cursor-pointer align-top hover:bg-surface-muted ${flashOutlineClass(flashId === item.id)}`}
                   onClick={() => openEdit(item)}
                 >
                   <td className="px-3 py-2">

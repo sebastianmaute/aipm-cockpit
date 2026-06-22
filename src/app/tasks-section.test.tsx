@@ -17,6 +17,10 @@ vi.mock("./task-row", () => ({
 }));
 vi.mock("./use-settings", () => ({ useSettings: vi.fn() }));
 vi.mock("./use-holiday-set", () => ({ useHolidaySet: vi.fn() }));
+vi.mock("./use-deeplink-row-flash", () => ({
+  useDeepLinkRowFlash: () => ({ flashId: null, containerRef: { current: null } }),
+  flashOutlineClass: () => "",
+}));
 
 import { useWorkspace } from "./workspace-context";
 import { useFilters } from "./filters-context";

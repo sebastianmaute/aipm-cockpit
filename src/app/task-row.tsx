@@ -7,6 +7,7 @@ import { formatDuration } from "./duration";
 import { RaidBadge } from "./task-raid-badge";
 import { priorityStyle } from "./task-status-ui";
 import { TaskStatusSelect } from "./task-status-select";
+import { flashOutlineClass } from "./use-deeplink-row-flash";
 import { type ChangeItem, type Task, type TaskDependency, type TaskStatus, type RaidItem } from "./types";
 
 export interface RowContextValue {
@@ -133,6 +134,7 @@ interface TaskRowProps {
   raidRefs: RaidItem[] | undefined;
   changeRefs?: ChangeItem[];
   isStriped?: boolean;
+  isFlashed?: boolean;
 }
 
 function TaskRowImpl({
@@ -144,6 +146,7 @@ function TaskRowImpl({
   raidRefs,
   changeRefs,
   isStriped = false,
+  isFlashed = false,
 }: TaskRowProps) {
   const {
     lang,
@@ -180,7 +183,7 @@ function TaskRowImpl({
           : "";
 
   return (
-    <tr className={`align-top ${stateClass}`}>
+    <tr data-deeplink-row={task.id} className={`align-top ${stateClass} ${flashOutlineClass(isFlashed)}`}>
       <Td>
         <input
           type="checkbox"

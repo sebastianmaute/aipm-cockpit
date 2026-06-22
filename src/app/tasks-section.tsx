@@ -11,6 +11,7 @@ import { useWorkspace } from "./workspace-context";
 import { useTaskForm } from "./task-form-context";
 import { BulkEditModal } from "./bulk-edit-modal";
 import { RowContextProvider, TaskRow, type RowContextValue } from "./task-row";
+import { useDeepLinkRowFlash } from "./use-deeplink-row-flash";
 import { isTaskFinished } from "./task-status";
 import { DEFAULT_COL_WIDTHS } from "./use-column-manager";
 import { TABLE_HEAD_CLASS } from "./table-styles";
@@ -168,6 +169,7 @@ export function TasksSection({
 
   const { settings, setSettings } = useSettings();
   const { holidaySet } = useHolidaySet({ holidayCountries: settings.holidayCountries });
+  const { flashId, containerRef } = useDeepLinkRowFlash("open-points");
 
   const hideFinished = settings.hideFinishedTasks ?? false;
   const tasksViewMode = settings.tasksViewMode ?? "table";
@@ -535,6 +537,7 @@ export function TasksSection({
         />
       ) : (
       <div
+        ref={containerRef}
         className="min-h-0 flex-1 w-full overflow-auto rounded-xl border border-line bg-surface pr-2"
       >
         <RowContextProvider value={rowContextValue}>
@@ -605,6 +608,7 @@ export function TasksSection({
                   raidRefs={raidByTask.get(task.id)}
                   changeRefs={changeByTask.get(task.id)}
                   isStriped={i % 2 === 1}
+                  isFlashed={flashId === task.id}
                 />
               ))}
               <tr>
