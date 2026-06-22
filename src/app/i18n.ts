@@ -2399,6 +2399,7 @@ const enUS = {
   searchResultChange: "Change",
   searchResultMilestone: "Milestone",
   searchResultStakeholder: "Stakeholder",
+  searchRecent: "Recent",
   projectLinkSalesforce: "Link to Salesforce",
   projectLinkSharepoint: "Link to SharePoint",
   projectLinkConfluence: "Link to Confluence",
