@@ -30,7 +30,8 @@ import { MilestoneHorizonStrip } from "./milestone-horizon-strip";
 import { computeCoaching } from "./dashboard-coaching";
 import { DashboardCoachingCard } from "./dashboard-coaching-card";
 import { densityClasses, type DashboardDensity } from "./dashboard-density";
-import type { AppView } from "./nav-config";
+import { navLabelKey, type AppView } from "./nav-config";
+import { activityViewOf } from "./dashboard-activity-nav";
 
 interface DashboardPanelProps {
   lang: Lang;
@@ -48,7 +49,7 @@ interface DashboardPanelProps {
   changes?: readonly ChangeItem[];
   onOpenRaid?: (id: number) => void;
   onOpenTask?: (id: number) => void;
-  onOpenMilestone?: () => void;
+  onOpenMilestone?: (id: number) => void;
   showRaid?: boolean;
   showBudget?: boolean;
   showMilestones?: boolean;
@@ -62,7 +63,7 @@ interface DashboardPanelProps {
   tursoActive?: boolean;
   projectId?: string;
   isPopout?: boolean;
-  onOpenChange?: () => void;
+  onOpenChange?: (id: number) => void;
   onNavigate?: (view: AppView) => void;
   aiConfigured?: boolean;
   /** Per-device cockpit density (spacing only). Default "comfortable". */
@@ -279,8 +280,8 @@ export function DashboardPanel(props: DashboardPanelProps) {
             onOpenTask && repTaskId !== undefined ? () => onOpenTask(repTaskId) : undefined
           }
           onOpenRaid={onOpenRaid ? () => onOpenRaid(model.topRaid[0]?.id ?? -1) : undefined}
-          onOpenMilestone={props.onOpenMilestone}
-          onOpenChange={props.onOpenChange}
+          onOpenMilestone={props.onOpenMilestone ? () => props.onOpenMilestone!(-1) : undefined}
+          onOpenChange={props.onOpenChange ? () => props.onOpenChange!(-1) : undefined}
         />
 
         {/* First-open coaching — self-hides once the project has any task */}
@@ -292,42 +293,63 @@ export function DashboardPanel(props: DashboardPanelProps) {
             label={t(lang, "dashboardKpiComplete")}
             value={`${model.progress.percent}%`}
             trend={<TrendArrow trend={trends.complete} metricLabel={t(lang, "dashboardKpiComplete")} unit="%" lang={lang} />}
+            onActivate={props.onNavigate ? () => props.onNavigate!("open-points") : undefined}
+            activateLabel={t(lang, "dashboardOpenTasksView")}
           />
           <Tile
             label={t(lang, "dashboardKpiOverdue")}
             value={String(model.overdue.length)}
             trend={<TrendArrow trend={trends.overdue} metricLabel={t(lang, "dashboardKpiOverdue")} lang={lang} />}
+            onActivate={props.onNavigate ? () => props.onNavigate!("open-points") : undefined}
+            activateLabel={t(lang, "dashboardOpenTasksView")}
           />
           <Tile
             label={t(lang, "dashboardKpiOpenRaid")}
             value={String(model.openRaidCount)}
             trend={<TrendArrow trend={trends.openRaid} metricLabel={t(lang, "dashboardKpiOpenRaid")} lang={lang} />}
+            onActivate={props.onNavigate ? () => props.onNavigate!("raid") : undefined}
+            activateLabel={t(lang, "dashboardOpenRaidView")}
           />
         </div>
 
         {/* Completion-trend sparkline — self-hides without >= 2 points */}
-        {completionSeries.length >= 2 && (
-          <div className={`rounded border border-line bg-surface ${dc.cardPad}`}>
-            <div className="mb-1 flex items-baseline justify-between">
-              <span className="text-xs uppercase tracking-wide text-muted-foreground">
-                {t(lang, "dashboardCompletionTrend")}
-              </span>
-              <span className="text-xs text-muted-foreground tabular-nums">
-                {t(lang, "dashboardCompletionTrendPoints", completionSeries.length)}
-              </span>
-            </div>
-            <Sparkline
-              points={completionSeries}
-              ariaLabel={t(
-                lang,
-                "dashboardCompletionTrendAria",
-                completionSeries[completionSeries.length - 1].percent,
-                completionSeries[0].percent,
-                completionSeries.length,
-              )}
-            />
-          </div>
-        )}
+        {completionSeries.length >= 2 && (() => {
+          const sparkBody = (
+            <>
+              <div className="mb-1 flex items-baseline justify-between">
+                <span className="text-xs uppercase tracking-wide text-muted-foreground">
+                  {t(lang, "dashboardCompletionTrend")}
+                </span>
+                <span className="text-xs text-muted-foreground tabular-nums">
+                  {t(lang, "dashboardCompletionTrendPoints", completionSeries.length)}
+                </span>
+              </div>
+              <Sparkline
+                points={completionSeries}
+                ariaLabel={t(
+                  lang,
+                  "dashboardCompletionTrendAria",
+                  completionSeries[completionSeries.length - 1].percent,
+                  completionSeries[0].percent,
+                  completionSeries.length,
+                )}
+              />
+            </>
+          );
+          const trendView = props.tursoActive ? "trends" : "open-points";
+          return props.onNavigate ? (
+            <button
+              type="button"
+              aria-label={t(lang, props.tursoActive ? "dashboardOpenTrendsView" : "dashboardOpenTasksView")}
+              onClick={() => props.onNavigate!(trendView)}
+              className={`block w-full rounded border border-line bg-surface text-left hover:border-AIPM-dark-blue focus-visible:ring-1 focus-visible:ring-AIPM-green ${dc.cardPad}`}
+            >
+              {sparkBody}
+            </button>
+          ) : (
+            <div className={`rounded border border-line bg-surface ${dc.cardPad}`}>{sparkBody}</div>
+          );
+        })()}
 
         {/* Top actions — promoted to the top so the PM sees what needs them first */}
         {topActions && topActions.length > 0 && (
@@ -482,6 +504,8 @@ export function DashboardPanel(props: DashboardPanelProps) {
               <Tile
                 label={t(lang, "dashboardPercentComplete", String(model.progress.percent))}
                 value={t(lang, "dashboardCompletedOf", String(model.progress.completed), String(model.progress.total))}
+                onActivate={props.onNavigate ? () => props.onNavigate!("open-points") : undefined}
+                activateLabel={t(lang, "dashboardOpenTasksView")}
               />
               <Tile
                 label="R / A / G"
@@ -494,6 +518,8 @@ export function DashboardPanel(props: DashboardPanelProps) {
                     <span className={healthText.G}>{model.progress.counts.G}</span>
                   </span>
                 }
+                onActivate={props.onNavigate ? () => props.onNavigate!("open-points") : undefined}
+                activateLabel={t(lang, "dashboardOpenTasksView")}
               />
             </div>
             <p className="mt-2 text-xs text-muted-foreground">{t(lang, "dashboardProgressCaption")}</p>
@@ -506,15 +532,21 @@ export function DashboardPanel(props: DashboardPanelProps) {
                     label={t(lang, "dashboardSubBudget")}
                     value={`${money(model.burn.consumedValue)} / ${money(model.burn.budgetValue)}`}
                     rag={<RagBadge value={ratioHealth(model.burn.consumedValue, model.burn.budgetValue)} lang={lang} title={t(lang, "dashboardSubBudget")} />}
+                    onActivate={props.onNavigate ? () => props.onNavigate!("budget") : undefined}
+                    activateLabel={t(lang, "dashboardOpenBudgetView")}
                   />
                   <Tile
                     label="h"
                     value={`${Math.round(model.burn.actualHours)} / ${Math.round(model.burn.budgetHours)}`}
                     rag={<RagBadge value={ratioHealth(model.burn.actualHours, model.burn.budgetHours)} lang={lang} title="h" />}
+                    onActivate={props.onNavigate ? () => props.onNavigate!("budget") : undefined}
+                    activateLabel={t(lang, "dashboardOpenBudgetView")}
                   />
                   <Tile
                     label={t(lang, "evmCpi")}
                     value={model.evm.cpi != null ? model.evm.cpi.toFixed(2) : "—"}
+                    onActivate={props.onNavigate ? () => props.onNavigate!("budget") : undefined}
+                    activateLabel={t(lang, "dashboardOpenBudgetView")}
                   />
                 </div>
               ) : (
@@ -522,8 +554,18 @@ export function DashboardPanel(props: DashboardPanelProps) {
               )}
               {model.evm.coverage.withEstimate > 0 ? (
                 <div className="mt-2 flex flex-wrap gap-2">
-                  <Tile label={t(lang, "evmSpi")} value={model.evm.spi != null ? model.evm.spi.toFixed(2) : "—"} />
-                  <Tile label={t(lang, "evmCpi")} value={model.evm.cpi != null ? model.evm.cpi.toFixed(2) : "—"} />
+                  <Tile
+                    label={t(lang, "evmSpi")}
+                    value={model.evm.spi != null ? model.evm.spi.toFixed(2) : "—"}
+                    onActivate={props.onNavigate ? () => props.onNavigate!("budget") : undefined}
+                    activateLabel={t(lang, "dashboardOpenBudgetView")}
+                  />
+                  <Tile
+                    label={t(lang, "evmCpi")}
+                    value={model.evm.cpi != null ? model.evm.cpi.toFixed(2) : "—"}
+                    onActivate={props.onNavigate ? () => props.onNavigate!("budget") : undefined}
+                    activateLabel={t(lang, "dashboardOpenBudgetView")}
+                  />
                 </div>
               ) : (
                 <p className="mt-2 text-sm text-muted-foreground">{t(lang, "evmNoEstimates")}</p>
@@ -567,14 +609,32 @@ export function DashboardPanel(props: DashboardPanelProps) {
                 <p className="text-sm text-muted-foreground">{t(lang, "dashboardChangesEmpty")}</p>
               ) : (
                 <ul className="space-y-1 text-sm">
-                  {model.topChanges.map((c) => (
-                    <li key={c.id} className="flex items-center gap-2">
-                      <RagBadge value={changeImpactRag(c.impact)} lang={lang} />
-                      <span className="text-muted-foreground">#{c.id}</span>
-                      <span className="font-medium">{c.title}</span>
-                      <span className="text-muted-foreground">· {t(lang, CHANGE_STATUS_KEY[c.status])}</span>
-                    </li>
-                  ))}
+                  {model.topChanges.map((c) => {
+                    const content = (
+                      <>
+                        <RagBadge value={changeImpactRag(c.impact)} lang={lang} />
+                        <span className="text-muted-foreground">#{c.id}</span>
+                        <span className="font-medium">{c.title}</span>
+                        <span className="text-muted-foreground">· {t(lang, CHANGE_STATUS_KEY[c.status])}</span>
+                      </>
+                    );
+                    return (
+                      <li key={c.id}>
+                        {props.onOpenChange ? (
+                          <button
+                            type="button"
+                            aria-label={t(lang, "dashboardOpenChangeItem", c.title)}
+                            onClick={() => props.onOpenChange!(c.id)}
+                            className="flex w-full items-center gap-2 rounded-md border border-transparent px-1 py-0.5 text-left hover:border-AIPM-dark-blue hover:bg-surface-muted focus-visible:ring-1 focus-visible:ring-AIPM-green"
+                          >
+                            {content}
+                          </button>
+                        ) : (
+                          <span className="flex items-center gap-2">{content}</span>
+                        )}
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
             </Section>
@@ -603,11 +663,26 @@ export function DashboardPanel(props: DashboardPanelProps) {
             <p className="text-sm text-muted-foreground">{t(lang, "dashboardEmpty")}</p>
           ) : (
             <ul className="space-y-1 text-sm">
-              {model.recentActivity.map((e) => (
-                <li key={e.id} className="text-muted-foreground">
-                  {e.timestamp.slice(0, 10)} · {e.kind}
-                </li>
-              ))}
+              {model.recentActivity.map((e) => {
+                const view = activityViewOf(e.kind);
+                const label = `${e.timestamp.slice(0, 10)} · ${e.kind}`;
+                return (
+                  <li key={e.id}>
+                    {view && props.onNavigate ? (
+                      <button
+                        type="button"
+                        aria-label={t(lang, "dashboardActivityOpenView", t(lang, navLabelKey(view)))}
+                        onClick={() => props.onNavigate!(view)}
+                        className="w-full rounded-md border border-transparent px-1 py-0.5 text-left text-muted-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted focus-visible:ring-1 focus-visible:ring-AIPM-green"
+                      >
+                        {label}
+                      </button>
+                    ) : (
+                      <span className="text-muted-foreground">{label}</span>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           )}
         </Section>

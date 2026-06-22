@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { type ReactNode } from "react";
@@ -7,11 +7,12 @@ import { WorkspaceProvider } from "./workspace-context";
 import { DashboardPanel } from "./dashboard-panel";
 import { RegistersBand } from "./dashboard-sections/registers-band";
 import { healthText } from "./health";
+import { loadActivityLog, type ActivityEntry } from "./activity-log";
 import type { RaidItem, Milestone, ChangeItem } from "./types";
 
 vi.mock("./activity-log", async (orig) => ({
   ...(await orig<typeof import("./activity-log")>()),
-  loadActivityLog: () => [],
+  loadActivityLog: vi.fn(() => []),
 }));
 
 function wrapper({ children }: { children: ReactNode }) {
@@ -888,5 +889,74 @@ describe("DashboardPanel density (slice #8)", () => {
     expect(btn).toHaveAttribute("aria-pressed", "true");
     fireEvent.click(btn);
     expect(onToggleDensity).toHaveBeenCalledWith("comfortable");
+  });
+});
+
+describe("DashboardPanel click-through parity (slice #9)", () => {
+  afterEach(() => {
+    vi.mocked(loadActivityLog).mockReturnValue([]);
+    localStorage.clear();
+  });
+
+  it("navigates to raid when the Open RAID KPI tile is clicked", () => {
+    const onNavigate = vi.fn();
+    render(<DashboardPanel {...fullProps} onNavigate={onNavigate} />, { wrapper });
+    fireEvent.click(screen.getByRole("button", { name: "Open the RAID register" }));
+    expect(onNavigate).toHaveBeenCalledWith("raid");
+  });
+
+  it("navigates to open-points when a tasks-list tile is clicked", () => {
+    const onNavigate = vi.fn();
+    render(<DashboardPanel {...fullProps} onNavigate={onNavigate} />, { wrapper });
+    // "Open the tasks list" repeats (Complete/Overdue KPI + progress tiles) → getAllByRole.
+    const tileButtons = screen.getAllByRole("button", { name: "Open the tasks list" });
+    expect(tileButtons.length).toBeGreaterThan(0);
+    fireEvent.click(tileButtons[0]);
+    expect(onNavigate).toHaveBeenCalledWith("open-points");
+  });
+
+  it("opens a specific change by id when a Top Changes row is clicked", () => {
+    const onOpenChange = vi.fn();
+    render(
+      <DashboardPanel
+        {...fullProps}
+        showChanges
+        changes={[
+          {
+            id: 7, title: "Scope cut", description: "", type: "Scope", status: "Proposed",
+            impact: "High", raisedDate: "2026-05-01", linkedTaskIds: [], linkedRaidIds: [], stakeholderIds: [],
+          },
+        ] as ChangeItem[]}
+        onOpenChange={onOpenChange}
+      />,
+      { wrapper },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Open change Scope cut" }));
+    expect(onOpenChange).toHaveBeenCalledWith(7);
+  });
+
+  it("navigates by activity kind: a task.created row links to open-points", () => {
+    vi.mocked(loadActivityLog).mockReturnValue([
+      { id: 1, timestamp: "2026-06-20T10:00:00.000Z", kind: "task.created", args: [] },
+    ] as ActivityEntry[]);
+    const onNavigate = vi.fn();
+    render(<DashboardPanel {...fullProps} onNavigate={onNavigate} />, { wrapper });
+    // dashboardActivityOpenView = "Open {0}", interpolated with the nav label
+    // "Open Points" → exact accessible name "Open Open Points" (unique vs the
+    // KPI tiles / print button).
+    const row = screen.getByRole("button", { name: "Open Open Points" });
+    fireEvent.click(row);
+    expect(onNavigate).toHaveBeenCalledWith("open-points");
+  });
+
+  it("renders a static (non-button) row for a non-deep-linkable activity kind", () => {
+    vi.mocked(loadActivityLog).mockReturnValue([
+      { id: 2, timestamp: "2026-06-20T11:00:00.000Z", kind: "settings.updated", args: [] },
+    ] as ActivityEntry[]);
+    const onNavigate = vi.fn();
+    render(<DashboardPanel {...fullProps} onNavigate={onNavigate} />, { wrapper });
+    // settings.updated has no deep-link destination → its row stays a span.
+    expect(screen.getByText(/2026-06-20 · settings\.updated/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /settings\.updated/ })).toBeNull();
   });
 });
