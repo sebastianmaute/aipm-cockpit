@@ -8,6 +8,11 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.128.0] - 2026-06-22 "Harrison"
+
+### Added
+- Global search in the top bar: query tasks, RAID items, changes, milestones, and stakeholders at once; selecting a result jumps to the item, opens its editor, and highlights its row. Type a number to jump to an item by id.
+
 ## [0.127.0] - 2026-06-22 "Sawyer"
 
 ### Changed
