@@ -1,7 +1,9 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { fireEvent } from "@testing-library/react";
 import { GlobalSearchBox } from "./global-search-box";
+import { saveRecents } from "./search-recents";
 import { t } from "./i18n";
 import type { Task, RaidItem, ChangeItem, Milestone, Stakeholder } from "./types";
 
@@ -15,6 +17,12 @@ const raid = [{ id: 5, title: "Vendor risk", owner: "Carol" }] as unknown as Rai
 const changes = [] as unknown as ChangeItem[];
 const milestones = [] as unknown as Milestone[];
 const stakeholders = [] as unknown as Stakeholder[];
+
+beforeEach(() => {
+  localStorage.clear();
+  // jsdom has no layout engine — stub scrollIntoView so highlight nav doesn't throw.
+  Element.prototype.scrollIntoView = vi.fn();
+});
 
 function renderBox(onSelect = vi.fn()) {
   render(
@@ -104,5 +112,64 @@ describe("GlobalSearchBox", () => {
   it("exposes role=combobox with the searchLabel aria-label", () => {
     const { input } = renderBox();
     expect(input).toHaveAttribute("aria-label", t("en-US", "searchLabel"));
+  });
+
+  it("⌘K (or Ctrl+K) focuses the search input", () => {
+    const { input } = renderBox();
+    expect(document.activeElement).not.toBe(input);
+    fireEvent.keyDown(document, { key: "k", metaKey: true });
+    expect(document.activeElement).toBe(input);
+  });
+
+  it("'/' focuses the search input when no editable element is focused", () => {
+    const { input } = renderBox();
+    expect(document.activeElement).toBe(document.body);
+    fireEvent.keyDown(document, { key: "/" });
+    expect(document.activeElement).toBe(input);
+  });
+
+  it("'/' does NOT steal focus from another editable element", () => {
+    const { input } = renderBox();
+    const other = document.createElement("textarea");
+    document.body.appendChild(other);
+    other.focus();
+    expect(document.activeElement).toBe(other);
+    fireEvent.keyDown(document, { key: "/" });
+    expect(document.activeElement).toBe(other);
+    expect(document.activeElement).not.toBe(input);
+    other.remove();
+  });
+
+  it("shows recent items (that still exist) on empty focus and selects on click", async () => {
+    saveRecents([
+      { type: "task", id: 1, view: "open-points", title: "Recent A", subtitle: "Alice" },
+    ]);
+    const { onSelect, input } = renderBox();
+    fireEvent.focus(input);
+    expect(screen.getByText(t("en-US", "searchRecent"))).toBeInTheDocument();
+    const opt = screen.getByRole("option", { name: /Recent A/i });
+    expect(opt).toBeInTheDocument();
+    await userEvent.click(opt);
+    expect(onSelect).toHaveBeenCalledTimes(1);
+    expect(onSelect.mock.calls[0][0]).toMatchObject({ type: "task", id: 1 });
+  });
+
+  it("filters out a recent item whose id no longer exists in the workspace", () => {
+    saveRecents([
+      { type: "task", id: 999, view: "open-points", title: "Ghost task", subtitle: "" },
+    ]);
+    const { input } = renderBox();
+    fireEvent.focus(input);
+    expect(screen.queryByText(t("en-US", "searchRecent"))).not.toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: /Ghost task/i })).not.toBeInTheDocument();
+  });
+
+  it("highlights the matched substring in results with a <mark>", async () => {
+    const { input } = renderBox();
+    await userEvent.type(input, "log");
+    const listbox = screen.getByRole("listbox");
+    const mark = listbox.querySelector("mark");
+    expect(mark).not.toBeNull();
+    expect(mark?.textContent?.toLowerCase()).toBe("log");
   });
 });
