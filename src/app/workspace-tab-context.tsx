@@ -10,6 +10,9 @@ interface WorkspaceTabContextValue {
   pendingOpen: { view: AppView; id: number } | null;
   requestOpen: (view: AppView, id: number) => void;
   clearPendingOpen: () => void;
+  pendingFlash: { view: AppView; id: number } | null;
+  requestFlash: (view: AppView, id: number) => void;
+  clearPendingFlash: () => void;
   pendingChatSeed: { prompt: string; autoSend: boolean } | null;
   requestChat: (prompt: string, autoSend: boolean) => void;
   clearChatSeed: () => void;
@@ -33,6 +36,13 @@ export function WorkspaceTabProvider({ children }: { children: React.ReactNode }
     }
   }, [isPopout]);
   const clearPendingOpen = useCallback(() => setPendingOpen(null), []);
+  // Flash-only signal: highlight a row WITHOUT opening an editor or switching the
+  // active tab (unlike requestOpen — no setActiveTab, no hash write).
+  const [pendingFlash, setPendingFlash] = useState<{ view: AppView; id: number } | null>(null);
+  const requestFlash = useCallback((view: AppView, id: number) => {
+    setPendingFlash({ view, id });
+  }, []);
+  const clearPendingFlash = useCallback(() => setPendingFlash(null), []);
   const [pendingChatSeed, setPendingChatSeed] = useState<{ prompt: string; autoSend: boolean } | null>(null);
   const requestChat = useCallback((prompt: string, autoSend: boolean) => {
     setActiveTab("chat");
@@ -41,7 +51,7 @@ export function WorkspaceTabProvider({ children }: { children: React.ReactNode }
   }, []);
   const clearChatSeed = useCallback(() => setPendingChatSeed(null), []);
   return (
-    <WorkspaceTabContext.Provider value={{ activeTab, setActiveTab, isPopout, pendingOpen, requestOpen, clearPendingOpen, pendingChatSeed, requestChat, clearChatSeed }}>
+    <WorkspaceTabContext.Provider value={{ activeTab, setActiveTab, isPopout, pendingOpen, requestOpen, clearPendingOpen, pendingFlash, requestFlash, clearPendingFlash, pendingChatSeed, requestChat, clearChatSeed }}>
       {children}
     </WorkspaceTabContext.Provider>
   );

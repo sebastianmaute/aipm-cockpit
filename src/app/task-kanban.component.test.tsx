@@ -44,4 +44,42 @@ describe("TaskKanban", () => {
     );
     expect(screen.getByTestId("kanban-card-3")).toBeInTheDocument();
   });
+  // Deep-link flash (#11): cards carry data-deeplink-row and the flashed card gets
+  // the outline class so useDeepLinkRowFlash can scroll + highlight it in board mode.
+  it("every card carries data-deeplink-row equal to its task id", () => {
+    render(
+      <TaskKanban
+        lang="en-US"
+        tasks={[t({ id: 4, status: "To Do" }), t({ id: 5, status: "Done" })]}
+        onStatusChange={vi.fn()}
+        onEdit={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId("kanban-card-4").getAttribute("data-deeplink-row")).toBe("4");
+    expect(screen.getByTestId("kanban-card-5").getAttribute("data-deeplink-row")).toBe("5");
+  });
+  it("flashId outlines only the matching card", () => {
+    render(
+      <TaskKanban
+        lang="en-US"
+        tasks={[t({ id: 4, status: "To Do" }), t({ id: 5, status: "Done" })]}
+        onStatusChange={vi.fn()}
+        onEdit={vi.fn()}
+        flashId={4}
+      />,
+    );
+    expect(screen.getByTestId("kanban-card-4").className).toContain("outline-AIPM-green");
+    expect(screen.getByTestId("kanban-card-5").className).not.toContain("outline-AIPM-green");
+  });
+  it("no card is outlined when flashId is omitted", () => {
+    render(
+      <TaskKanban
+        lang="en-US"
+        tasks={[t({ id: 4, status: "To Do" })]}
+        onStatusChange={vi.fn()}
+        onEdit={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId("kanban-card-4").className).not.toContain("outline-AIPM-green");
+  });
 });

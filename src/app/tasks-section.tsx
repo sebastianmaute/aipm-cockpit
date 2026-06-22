@@ -534,6 +534,8 @@ export function TasksSection({
           onStatusChange={onStatusChange}
           onEdit={onEdit}
           onJumpToRaid={onJumpToRaid}
+          containerRef={containerRef}
+          flashId={flashId}
         />
       ) : (
       <div

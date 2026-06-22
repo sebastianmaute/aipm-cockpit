@@ -8,6 +8,16 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.127.0] - 2026-06-22 "Sawyer"
+
+### Changed
+- In the default modern layout, a Dashboard or Action Center deep-link to a task now scrolls to and briefly highlights the task in the list/board when you close the full-page editor — previously the highlight was hidden behind the editor and never seen. Classic/popout and the other panels already highlighted on deep-link.
+
+## [0.126.0] - 2026-06-22 "McIntyre"
+
+### Added
+- Deep-link scroll + highlight now also works in the tasks **Kanban board**: a Dashboard or Action Center deep-link to a task scrolls its board card into view and briefly outlines it (`outline-AIPM-green`), matching the table-row behaviour. Closes the board-mode gap left by 0.125.0. The remaining graceful no-ops are the tasks full-page editor (list unmounted) and any card hidden by an active filter/search.
+
 ## [0.125.0] - 2026-06-22 "Brunner"
 
 ### Added
