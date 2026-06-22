@@ -38,10 +38,11 @@ describe("GlobalSearchBox", () => {
     expect(screen.getByRole("listbox")).toBeInTheDocument();
     const options = screen.getAllByRole("option");
     expect(options.length).toBeGreaterThan(0);
-    // The option's button is named "Task – Build login page".
-    expect(
-      screen.getByRole("button", { name: /Task – Build login page/i }),
-    ).toBeInTheDocument();
+    // The option element itself is named "Task – Build login page" — no nested
+    // interactive descendant (ARIA listbox pattern).
+    const opt = screen.getByRole("option", { name: /Task – Build login page/i });
+    expect(opt).toBeInTheDocument();
+    for (const o of options) expect(o.querySelector("button")).toBeNull();
   });
 
   it("ArrowDown then Enter selects the highlighted result", async () => {
@@ -65,10 +66,21 @@ describe("GlobalSearchBox", () => {
   it("clicking an option fires onSelect with that result", async () => {
     const { onSelect, input } = renderBox();
     await userEvent.type(input, "vendor");
-    const btn = screen.getByRole("button", { name: /RAID – Vendor risk/i });
-    await userEvent.click(btn);
+    const opt = screen.getByRole("option", { name: /RAID – Vendor risk/i });
+    await userEvent.click(opt);
     expect(onSelect).toHaveBeenCalledTimes(1);
     expect(onSelect.mock.calls[0][0]).toMatchObject({ view: "raid", id: 5 });
+  });
+
+  it("ArrowDown sets aria-activedescendant on the input to the highlighted option's id", async () => {
+    const { input } = renderBox();
+    await userEvent.type(input, "login");
+    await userEvent.keyboard("{ArrowDown}");
+    const activeId = input.getAttribute("aria-activedescendant");
+    expect(activeId).toBeTruthy();
+    const opt = screen.getByRole("option", { name: /Task – Build login page/i });
+    expect(opt.id).toBe(activeId);
+    expect(opt).toHaveAttribute("aria-selected", "true");
   });
 
   it("Escape closes the listbox and clears the query", async () => {

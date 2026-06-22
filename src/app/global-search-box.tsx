@@ -100,6 +100,9 @@ export function GlobalSearchBox({
         placeholder={t(lang, "searchGlobalPlaceholder")}
         aria-expanded={isOpen}
         aria-controls={isOpen && results.length > 0 ? listId : undefined}
+        aria-activedescendant={
+          isOpen && results.length > 0 && highlight >= 0 ? `${listId}-opt-${highlight}` : undefined
+        }
         aria-autocomplete="list"
         value={query}
         onChange={(e) => {
@@ -116,28 +119,29 @@ export function GlobalSearchBox({
           className="absolute z-30 mt-1 max-h-72 w-full overflow-auto rounded-md border border-line bg-surface pr-2 text-sm"
         >
           {results.map((r, i) => (
-            <li key={`${r.type}-${r.id}`} role="option" aria-selected={i === highlight}>
-              <button
-                type="button"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => select(r)}
-                aria-label={`${t(lang, typeLabelKey(r.type))} – ${r.title}`}
-                className={`flex w-full flex-col items-start gap-0.5 px-3 py-1.5 text-left ${
-                  i === highlight
-                    ? "bg-surface-muted text-AIPM-dark-blue"
-                    : "text-foreground hover:bg-surface-muted"
-                }`}
-              >
-                <span className="flex w-full items-center gap-2">
-                  <span className="truncate">{r.title}</span>
-                  <span className="ml-auto shrink-0 rounded border border-line px-1 text-xs text-muted-foreground">
-                    {t(lang, typeLabelKey(r.type))}
-                  </span>
+            <li
+              key={`${r.type}-${r.id}`}
+              id={`${listId}-opt-${i}`}
+              role="option"
+              aria-selected={i === highlight}
+              aria-label={`${t(lang, typeLabelKey(r.type))} – ${r.title}`}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => select(r)}
+              className={`flex cursor-pointer flex-col items-start gap-0.5 px-3 py-1.5 text-left ${
+                i === highlight
+                  ? "bg-surface-muted text-AIPM-dark-blue"
+                  : "text-foreground hover:bg-surface-muted"
+              }`}
+            >
+              <span className="flex w-full items-center gap-2">
+                <span className="truncate">{r.title}</span>
+                <span className="ml-auto shrink-0 rounded border border-line px-1 text-xs text-muted-foreground">
+                  {t(lang, typeLabelKey(r.type))}
                 </span>
-                {r.subtitle && (
-                  <span className="truncate text-xs text-muted-foreground">{r.subtitle}</span>
-                )}
-              </button>
+              </span>
+              {r.subtitle && (
+                <span className="truncate text-xs text-muted-foreground">{r.subtitle}</span>
+              )}
             </li>
           ))}
         </ul>
