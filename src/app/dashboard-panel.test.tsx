@@ -901,17 +901,16 @@ describe("DashboardPanel click-through parity (slice #9)", () => {
   it("navigates to raid when the Open RAID KPI tile is clicked", () => {
     const onNavigate = vi.fn();
     render(<DashboardPanel {...fullProps} onNavigate={onNavigate} />, { wrapper });
-    fireEvent.click(screen.getByRole("button", { name: "Open the RAID register" }));
+    // Tile names are now metric-qualified for uniqueness: "Open RAID – Open the RAID register".
+    fireEvent.click(screen.getByRole("button", { name: /Open RAID –/ }));
     expect(onNavigate).toHaveBeenCalledWith("raid");
   });
 
-  it("navigates to open-points when a tasks-list tile is clicked", () => {
+  it("navigates to open-points when the Complete KPI tile is clicked", () => {
     const onNavigate = vi.fn();
     render(<DashboardPanel {...fullProps} onNavigate={onNavigate} />, { wrapper });
-    // "Open the tasks list" repeats (Complete/Overdue KPI + progress tiles) → getAllByRole.
-    const tileButtons = screen.getAllByRole("button", { name: "Open the tasks list" });
-    expect(tileButtons.length).toBeGreaterThan(0);
-    fireEvent.click(tileButtons[0]);
+    // Qualified name is now unique (e.g. "Complete – Open the tasks list") → getByRole works.
+    fireEvent.click(screen.getByRole("button", { name: /Complete – Open the tasks list/ }));
     expect(onNavigate).toHaveBeenCalledWith("open-points");
   });
 
@@ -941,10 +940,9 @@ describe("DashboardPanel click-through parity (slice #9)", () => {
     ] as ActivityEntry[]);
     const onNavigate = vi.fn();
     render(<DashboardPanel {...fullProps} onNavigate={onNavigate} />, { wrapper });
-    // dashboardActivityOpenView = "Open {0}", interpolated with the nav label
-    // "Open Points" → exact accessible name "Open Open Points" (unique vs the
-    // KPI tiles / print button).
-    const row = screen.getByRole("button", { name: "Open Open Points" });
+    // Accessible name PREFIXES the visible "date · kind" with the open-view
+    // hint → "2026-06-20 · task.created – Open Open Points" (unique + informative).
+    const row = screen.getByRole("button", { name: /task\.created.*Open Points/ });
     fireEvent.click(row);
     expect(onNavigate).toHaveBeenCalledWith("open-points");
   });

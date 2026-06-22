@@ -294,21 +294,21 @@ export function DashboardPanel(props: DashboardPanelProps) {
             value={`${model.progress.percent}%`}
             trend={<TrendArrow trend={trends.complete} metricLabel={t(lang, "dashboardKpiComplete")} unit="%" lang={lang} />}
             onActivate={props.onNavigate ? () => props.onNavigate!("open-points") : undefined}
-            activateLabel={t(lang, "dashboardOpenTasksView")}
+            activateLabel={`${t(lang, "dashboardKpiComplete")} – ${t(lang, "dashboardOpenTasksView")}`}
           />
           <Tile
             label={t(lang, "dashboardKpiOverdue")}
             value={String(model.overdue.length)}
             trend={<TrendArrow trend={trends.overdue} metricLabel={t(lang, "dashboardKpiOverdue")} lang={lang} />}
             onActivate={props.onNavigate ? () => props.onNavigate!("open-points") : undefined}
-            activateLabel={t(lang, "dashboardOpenTasksView")}
+            activateLabel={`${t(lang, "dashboardKpiOverdue")} – ${t(lang, "dashboardOpenTasksView")}`}
           />
           <Tile
             label={t(lang, "dashboardKpiOpenRaid")}
             value={String(model.openRaidCount)}
             trend={<TrendArrow trend={trends.openRaid} metricLabel={t(lang, "dashboardKpiOpenRaid")} lang={lang} />}
             onActivate={props.onNavigate ? () => props.onNavigate!("raid") : undefined}
-            activateLabel={t(lang, "dashboardOpenRaidView")}
+            activateLabel={`${t(lang, "dashboardKpiOpenRaid")} – ${t(lang, "dashboardOpenRaidView")}`}
           />
         </div>
 
@@ -505,7 +505,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
                 label={t(lang, "dashboardPercentComplete", String(model.progress.percent))}
                 value={t(lang, "dashboardCompletedOf", String(model.progress.completed), String(model.progress.total))}
                 onActivate={props.onNavigate ? () => props.onNavigate!("open-points") : undefined}
-                activateLabel={t(lang, "dashboardOpenTasksView")}
+                activateLabel={`${t(lang, "dashboardPercentComplete", String(model.progress.percent))} – ${t(lang, "dashboardOpenTasksView")}`}
               />
               <Tile
                 label="R / A / G"
@@ -519,7 +519,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
                   </span>
                 }
                 onActivate={props.onNavigate ? () => props.onNavigate!("open-points") : undefined}
-                activateLabel={t(lang, "dashboardOpenTasksView")}
+                activateLabel={`R / A / G – ${t(lang, "dashboardOpenTasksView")}`}
               />
             </div>
             <p className="mt-2 text-xs text-muted-foreground">{t(lang, "dashboardProgressCaption")}</p>
@@ -533,20 +533,20 @@ export function DashboardPanel(props: DashboardPanelProps) {
                     value={`${money(model.burn.consumedValue)} / ${money(model.burn.budgetValue)}`}
                     rag={<RagBadge value={ratioHealth(model.burn.consumedValue, model.burn.budgetValue)} lang={lang} title={t(lang, "dashboardSubBudget")} />}
                     onActivate={props.onNavigate ? () => props.onNavigate!("budget") : undefined}
-                    activateLabel={t(lang, "dashboardOpenBudgetView")}
+                    activateLabel={`${t(lang, "dashboardSubBudget")} – ${t(lang, "dashboardOpenBudgetView")}`}
                   />
                   <Tile
                     label="h"
                     value={`${Math.round(model.burn.actualHours)} / ${Math.round(model.burn.budgetHours)}`}
                     rag={<RagBadge value={ratioHealth(model.burn.actualHours, model.burn.budgetHours)} lang={lang} title="h" />}
                     onActivate={props.onNavigate ? () => props.onNavigate!("budget") : undefined}
-                    activateLabel={t(lang, "dashboardOpenBudgetView")}
+                    activateLabel={`h – ${t(lang, "dashboardOpenBudgetView")}`}
                   />
                   <Tile
                     label={t(lang, "evmCpi")}
                     value={model.evm.cpi != null ? model.evm.cpi.toFixed(2) : "—"}
                     onActivate={props.onNavigate ? () => props.onNavigate!("budget") : undefined}
-                    activateLabel={t(lang, "dashboardOpenBudgetView")}
+                    activateLabel={`${t(lang, "evmCpi")} – ${t(lang, "dashboardOpenBudgetView")}`}
                   />
                 </div>
               ) : (
@@ -558,13 +558,13 @@ export function DashboardPanel(props: DashboardPanelProps) {
                     label={t(lang, "evmSpi")}
                     value={model.evm.spi != null ? model.evm.spi.toFixed(2) : "—"}
                     onActivate={props.onNavigate ? () => props.onNavigate!("budget") : undefined}
-                    activateLabel={t(lang, "dashboardOpenBudgetView")}
+                    activateLabel={`${t(lang, "evmSpi")} – ${t(lang, "dashboardOpenBudgetView")}`}
                   />
                   <Tile
                     label={t(lang, "evmCpi")}
                     value={model.evm.cpi != null ? model.evm.cpi.toFixed(2) : "—"}
                     onActivate={props.onNavigate ? () => props.onNavigate!("budget") : undefined}
-                    activateLabel={t(lang, "dashboardOpenBudgetView")}
+                    activateLabel={`${t(lang, "evmCpi")} – ${t(lang, "dashboardOpenBudgetView")}`}
                   />
                 </div>
               ) : (
@@ -671,7 +671,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
                     {view && props.onNavigate ? (
                       <button
                         type="button"
-                        aria-label={t(lang, "dashboardActivityOpenView", t(lang, navLabelKey(view)))}
+                        aria-label={`${label} – ${t(lang, "dashboardActivityOpenView", t(lang, navLabelKey(view)))}`}
                         onClick={() => props.onNavigate!(view)}
                         className="w-full rounded-md border border-transparent px-1 py-0.5 text-left text-muted-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted focus-visible:ring-1 focus-visible:ring-AIPM-green"
                       >
