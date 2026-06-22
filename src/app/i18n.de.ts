@@ -129,6 +129,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightGlobalSearch: "Globale Suche über Aufgaben, RAID, Änderungen, Meilensteine und Stakeholder",
   versionHighlightSavedViews: "Benannte Filter-, Sortier- und Spaltenvorlagen für die Aufgabenliste speichern und erneut anwenden",
   versionHighlightSavedViewsPanels: "Gespeicherte Ansichten gelten jetzt auch für die Bereiche RAID, Meilensteine, Änderungen und Stakeholder",
+  versionHighlightSavedViewsReports: "Gespeicherte Ansichten gelten jetzt auch für den Bereich Berichte",
 
   tasks: "Aufgaben",
   tasksCount: "({0})",
