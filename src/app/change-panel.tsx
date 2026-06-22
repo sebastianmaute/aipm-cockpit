@@ -163,7 +163,7 @@ function ChangePanelBody({
     });
 
     return sort
-      ? [...filtered].sort((a, b) => compareChange(a, b, sort.key as ChangeSortKey, sort.dir))
+      ? [...filtered].sort((a, b) => compareChange(a, b, sort.key as ChangeSortKey, sort.dir as "asc" | "desc"))
       : filtered
           .slice()
           .sort((a, b) => compareChange(a, b, "raisedDate", "desc") || a.id - b.id);
@@ -290,7 +290,7 @@ function ChangePanelBody({
       {filtersActive && (
         <button
           type="button"
-          onClick={() => pf.reset()}
+          onClick={() => pf.resetFilters()}
           title={t(lang, "resetFiltersHint")}
           className="rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted"
         >

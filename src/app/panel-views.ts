@@ -1,4 +1,8 @@
-import type { SortDir } from "./filters-context";
+// report-table's SortDir is the SUPERSET ("asc"|"desc"|"off") — the Milestones
+// panel cycles a column through "off" via useSortableFilter, so the persisted
+// sort must be able to hold it (filters-context's SortDir omits "off", which
+// would silently fail validation and drop the saved view on reload).
+import type { SortDir } from "./report-table";
 
 export type PanelViewKind = "raid" | "milestones" | "changes" | "stakeholders";
 export const PANEL_VIEW_KINDS: readonly PanelViewKind[] = ["raid", "milestones", "changes", "stakeholders"];
@@ -30,7 +34,7 @@ function isValidSort(value: unknown): value is PanelSort {
   if (value === null) return true;
   if (typeof value !== "object") return false;
   const s = value as Record<string, unknown>;
-  return typeof s.key === "string" && (s.dir === "asc" || s.dir === "desc");
+  return typeof s.key === "string" && (s.dir === "asc" || s.dir === "desc" || s.dir === "off");
 }
 
 function isValidState(value: unknown): value is PanelFiltersState {

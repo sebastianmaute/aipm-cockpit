@@ -204,7 +204,7 @@ function RaidPanelBody({
     });
 
     const ordered = sort
-      ? [...filtered].sort((a, b) => compareRaid(a, b, sort.key as RaidSortKey, sort.dir))
+      ? [...filtered].sort((a, b) => compareRaid(a, b, sort.key as RaidSortKey, sort.dir as "asc" | "desc"))
       : filtered.slice().sort((a, b) => {
           const aClosed = isTerminalStatus(a.status, a.category);
           const bClosed = isTerminalStatus(b.status, b.category);
@@ -414,7 +414,7 @@ function RaidPanelBody({
         <button
           type="button"
           onClick={() => {
-            pf.reset();
+            pf.resetFilters();
             onClearTaskFilter();
           }}
           title={t(lang, "resetFiltersHint")}

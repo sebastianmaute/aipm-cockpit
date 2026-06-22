@@ -42,4 +42,15 @@ describe("panel-filters-context", () => {
     expect(result.current.filters.status).toBe("All");
     expect(result.current.sort).toBeNull();
   });
+
+  it("resetFilters clears search + filters but KEEPS the active sort", () => {
+    const { result } = renderHook(() => usePanelFilters(), { wrapper: wrap(DEFAULTS) });
+    act(() => result.current.setSearch("q"));
+    act(() => result.current.setFilter("status", "Open"));
+    act(() => result.current.setSort({ key: "name", dir: "desc" }));
+    act(() => result.current.resetFilters());
+    expect(result.current.search).toBe("");
+    expect(result.current.filters.status).toBe("All");
+    expect(result.current.sort).toEqual({ key: "name", dir: "desc" });
+  });
 });

@@ -62,4 +62,13 @@ describe("panel-views store", () => {
     savePanelViews(list);
     expect(loadPanelViews()).toEqual(list);
   });
+
+  it("persists a sort dir of 'off' (Milestones cycles asc->desc->off)", () => {
+    let list: PanelView[] = [];
+    list = addPanelView(list, "milestones", "Off", { search: "", filters: { status: "all" }, sort: { key: "date", dir: "off" } });
+    savePanelViews(list);
+    // Must survive validation — an 'off' dir previously failed isValidSort and
+    // the whole entry was silently dropped on reload.
+    expect(loadPanelViews()).toEqual(list);
+  });
 });

@@ -128,7 +128,7 @@ function StakeholdersPanelBody({
       : stakeholders;
 
     return sort
-      ? [...filtered].sort((a, b) => compareStakeholder(a, b, sort.key as StakeholderSortKey, sort.dir))
+      ? [...filtered].sort((a, b) => compareStakeholder(a, b, sort.key as StakeholderSortKey, sort.dir as "asc" | "desc"))
       : filtered.slice().sort((a, b) => compareStakeholder(a, b, "name", "asc"));
   }, [stakeholders, search, sort]);
 

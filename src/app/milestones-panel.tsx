@@ -96,7 +96,7 @@ function MilestonesPanelBody({
 
   const sort = (pf.sort ?? MILESTONE_FILTER_DEFAULTS.sort) as { key: "name" | "date"; dir: SortDir };
   const setSort = (next: { key: "name" | "date"; dir: SortDir }) =>
-    pf.setSort({ key: next.key, dir: next.dir as "asc" | "desc" });
+    pf.setSort({ key: next.key, dir: next.dir });
   const status = pf.filters.status as MilestoneFilterStatus;
 
   const getValue = useCallback(
