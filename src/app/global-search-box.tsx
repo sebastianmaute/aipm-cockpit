@@ -80,10 +80,10 @@ export function GlobalSearchBox({
       e.preventDefault();
       moveHighlight(-1);
     } else if (e.key === "Enter") {
-      if (highlight >= 0 && highlight < results.length) {
-        e.preventDefault();
-        select(results[highlight]);
-      }
+      e.preventDefault();
+      if (results.length === 0) return;
+      const idx = highlight >= 0 && highlight < results.length ? highlight : 0;
+      select(results[idx]);
     } else if (e.key === "Escape") {
       setQuery("");
       setOpen(false);
@@ -99,7 +99,7 @@ export function GlobalSearchBox({
         aria-label={t(lang, "searchLabel")}
         placeholder={t(lang, "searchGlobalPlaceholder")}
         aria-expanded={isOpen}
-        aria-controls={listId}
+        aria-controls={isOpen && results.length > 0 ? listId : undefined}
         aria-autocomplete="list"
         value={query}
         onChange={(e) => {

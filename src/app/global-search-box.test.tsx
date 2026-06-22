@@ -54,6 +54,14 @@ describe("GlobalSearchBox", () => {
     expect(arg.id).toBe(1);
   });
 
+  it("Enter with no ArrowDown selects the FIRST result", async () => {
+    const { onSelect, input } = renderBox();
+    await userEvent.type(input, "page");
+    await userEvent.keyboard("{Enter}");
+    expect(onSelect).toHaveBeenCalledTimes(1);
+    expect(onSelect.mock.calls[0][0]).toMatchObject({ view: "open-points", id: 1 });
+  });
+
   it("clicking an option fires onSelect with that result", async () => {
     const { onSelect, input } = renderBox();
     await userEvent.type(input, "vendor");
