@@ -752,8 +752,8 @@ export function WorkspaceSection({
               workdayHours={settings.resources.workdayHours}
               today={today}
               milestones={milestones}
-              onOpenRaid={() => {
-                setActiveTab("raid");
+              onOpenRaid={(id) => {
+                requestOpen("raid", id);
                 handleClearRaidTaskFilter();
                 if (workspaceCollapsed) setWorkspaceCollapsed(false);
               }}
@@ -761,7 +761,7 @@ export function WorkspaceSection({
                 const task = tasks.find((t) => t.id === id);
                 if (task) onEditTask(task);
               } : undefined}
-              onOpenMilestone={() => setActiveTab("milestones")}
+              onOpenMilestone={(id) => requestOpen("milestones", id)}
               showRaid={isModuleEnabled("raid", settings.features)}
               showBudget={isModuleEnabled("budget", settings.features)}
               showMilestones={isModuleEnabled("milestones", settings.features)}
@@ -775,7 +775,7 @@ export function WorkspaceSection({
               onOpenAction={onOpenAction}
               projectId={currentProjectId ?? "default"}
               isPopout={isPopout}
-              onOpenChange={() => setActiveTab("changes")}
+              onOpenChange={(id) => requestOpen("changes", id)}
               onNavigate={setActiveTab}
               aiConfigured={!!settings.ai.apiKey?.trim()}
               density={settings.dashboardDensity ?? "comfortable"}
