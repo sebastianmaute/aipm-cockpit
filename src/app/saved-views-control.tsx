@@ -27,6 +27,12 @@ export function SavedViewsControl({ lang, hiddenCols, setHiddenCols }: SavedView
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState("");
 
+  // A previously-selected id may have been evicted (cap of MAX_SAVED_VIEWS)
+  // by a later save. Derive the effective selection so a stale id renders the
+  // placeholder and disables Delete. Pure render derivation — no state/effect.
+  const selectionValid = selectedId !== "" && views.some((v) => v.id === selectedId);
+  const selectValue = selectionValid ? String(selectedId) : "";
+
   function capturePayload(): SavedViewPayload {
     return {
       search: f.search,
@@ -56,7 +62,7 @@ export function SavedViewsControl({ lang, hiddenCols, setHiddenCols }: SavedView
     <div className="inline-flex items-center gap-1">
       <select
         aria-label={t(lang, "savedViewsApply")}
-        value={selectedId}
+        value={selectValue}
         onChange={(e) => {
           const raw = e.target.value;
           if (raw === "") {
@@ -88,6 +94,7 @@ export function SavedViewsControl({ lang, hiddenCols, setHiddenCols }: SavedView
           />
           <button
             type="button"
+            aria-label={t(lang, "savedViewsSave")}
             onClick={() => {
               const n = name.trim();
               if (n) addView(n, capturePayload());
@@ -126,9 +133,9 @@ export function SavedViewsControl({ lang, hiddenCols, setHiddenCols }: SavedView
         type="button"
         aria-label={t(lang, "savedViewsDelete")}
         title={t(lang, "savedViewsDelete")}
-        disabled={selectedId === ""}
+        disabled={!selectionValid}
         onClick={() => {
-          if (selectedId !== "") {
+          if (selectionValid) {
             removeView(Number(selectedId));
             setSelectedId("");
           }

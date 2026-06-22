@@ -703,3 +703,6 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
   → no row-unique-label landmine; Open Points IS axe-scanned. ★ GLOBAL presets (not per-project) → applying
   one whose assignee/group isn't in the current project just yields an empty filter (graceful). OUT of
   exports/Turso, cleared by `clearAppConfig`'s `lop-app:*` sweep. SP1 = tasks only; other views are future phases.
+  ★ The control renders in BOTH table and board modes (by design — its filters+sort apply to the board too,
+  which shows the filtered/sorted tasks); the preset's hiddenCols are dormant in board and take visible effect
+  on return to table.
