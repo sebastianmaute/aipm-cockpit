@@ -25,6 +25,7 @@ import { InfoTooltip } from "./info-tooltip";
 import { ratioHealth, marginHealth, costPerformanceHealth } from "./budget-health";
 import { computeBurndownSeries } from "./budget-burndown";
 import { BurndownCharts } from "./burndown-chart";
+import { EmptyState } from "./empty-state";
 
 const DETAIL_COL_WIDTHS = {
   bucket: 160, mode: 90, type: 80, status: 80, currency: 110,
@@ -73,8 +74,8 @@ export function BudgetReportPanel({
 
   if (buckets.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed border-line p-10 text-center text-sm text-muted-foreground">
-        {t(lang, "budgetReportEmpty")}
+      <div className="rounded-lg border border-dashed border-line p-10">
+        <EmptyState compact title={t(lang, "budgetReportEmpty")} />
       </div>
     );
   }

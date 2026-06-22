@@ -26,6 +26,7 @@ import { useToastContext } from "./toast-context";
 import { ModalFieldControls } from "./modal-field-controls";
 import { useModalVisibility } from "./use-modal-visibility";
 import { InfoTooltip } from "./info-tooltip";
+import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
 
 interface BudgetBucketModalProps {
   lang: Lang;
@@ -40,7 +41,7 @@ interface BudgetBucketModalProps {
 }
 
 const inputClass =
-  "w-full rounded-md border border-line bg-surface px-3 py-2 text-sm";
+  `w-full rounded-md border border-line bg-surface px-3 py-2 text-sm ${FOCUS_RING} ${TRANSITION}`;
 
 export function BudgetBucketModal({
   lang,
@@ -445,7 +446,7 @@ export function BudgetBucketModal({
               onClick={togglePlanningMode}
               aria-pressed={!isBlended}
               aria-label={t(lang, "budgetDetailedPlanning")}
-              className={`w-fit rounded-md border px-3 py-1.5 text-xs font-medium ${
+              className={`w-fit rounded-md border px-3 py-1.5 text-xs font-medium ${INTERACTIVE} ${
                 !isBlended
                   ? "border-AIPM-dark-blue bg-AIPM-dark-blue text-white"
                   : "border-line bg-surface text-foreground hover:bg-surface-muted"
@@ -545,7 +546,7 @@ export function BudgetBucketModal({
                   <button
                     type="button"
                     onClick={() => removeRole(a.roleId)}
-                    className="rounded-md border border-transparent px-2 py-0.5 text-xs text-muted-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted"
+                    className={`rounded-md border border-transparent px-2 py-0.5 text-xs text-muted-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
                   >
                     {t(lang, "budgetRemoveRole")}
                   </button>
@@ -566,6 +567,7 @@ export function BudgetBucketModal({
                             type="checkbox"
                             checked={a.resourceIds.includes(r.id)}
                             onChange={() => toggleResource(a.roleId, r.id)}
+                            className={`${FOCUS_RING} ${TRANSITION}`}
                           />
                           {resourceDisplayName(r)}
                         </label>
@@ -600,7 +602,7 @@ export function BudgetBucketModal({
                 type="button"
                 onClick={addRole}
                 disabled={roleToAdd === ""}
-                className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90 disabled:opacity-50"
+                className={`rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90 disabled:opacity-50 ${INTERACTIVE}`}
               >
                 + {t(lang, "budgetAddRole")}
               </button>
@@ -621,7 +623,7 @@ export function BudgetBucketModal({
                     <button
                       type="button"
                       onClick={() => removeDiscipline(a.disciplineId)}
-                      className="rounded-md border border-transparent px-2 py-0.5 text-xs text-muted-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted"
+                      className={`rounded-md border border-transparent px-2 py-0.5 text-xs text-muted-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
                     >
                       {t(lang, "budgetRemoveDiscipline")}
                     </button>
@@ -636,6 +638,7 @@ export function BudgetBucketModal({
                               type="checkbox"
                               checked={a.resourceIds.includes(r.id)}
                               onChange={() => toggleDisciplineResource(a.disciplineId, r.id)}
+                              className={`${FOCUS_RING} ${TRANSITION}`}
                             />
                             {resourceDisplayName(r)}
                           </label>
@@ -662,7 +665,7 @@ export function BudgetBucketModal({
                   type="button"
                   onClick={addDiscipline}
                   disabled={disciplineToAdd === ""}
-                  className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90 disabled:opacity-50"
+                  className={`rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90 disabled:opacity-50 ${INTERACTIVE}`}
                 >
                   + {t(lang, "budgetAddDiscipline")}
                 </button>
@@ -679,14 +682,14 @@ export function BudgetBucketModal({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted"
+            className={`rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`}
           >
             {t(lang, "cancel")}
           </button>
           <button
             type="button"
             onClick={save}
-            className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:bg-AIPM-dark-blue/90"
+            className={`rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:bg-AIPM-dark-blue/90 ${INTERACTIVE}`}
           >
             {t(lang, "budgetSave")}
           </button>

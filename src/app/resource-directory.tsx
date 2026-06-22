@@ -14,6 +14,7 @@ import { useResizable } from "./use-resizable";
 import { INNER_TABLE_CLASS, VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton } from "./task-manager-ui";
 import { TABLE_HEAD_CLASS } from "./table-styles";
+import { FOCUS_RING, TRANSITION, INTERACTIVE } from "./interaction-styles";
 
 const DIRECTORY_COL_WIDTHS = {
   name: 180,
@@ -82,7 +83,7 @@ function DirectoryRoleSelects({
             setDisc(v);
             if (v !== "" && grad !== "") onAssignRole(resource.id, v, Number(grad));
           }}
-          className="rounded border border-line bg-surface-muted px-1.5 py-0.5 text-xs"
+          className={`rounded border border-line bg-surface-muted px-1.5 py-0.5 text-xs ${FOCUS_RING} ${TRANSITION}`}
         >
           <option value="">—</option>
           {disciplines.map((d) => (
@@ -99,7 +100,7 @@ function DirectoryRoleSelects({
             setGrad(v);
             if (disc !== "" && v !== "") onAssignRole(resource.id, Number(disc), v);
           }}
-          className="rounded border border-line bg-surface-muted px-1.5 py-0.5 text-xs"
+          className={`rounded border border-line bg-surface-muted px-1.5 py-0.5 text-xs ${FOCUS_RING} ${TRANSITION}`}
         >
           <option value="">—</option>
           {grades.map((g) => (
@@ -194,14 +195,14 @@ function ResourceDirectoryInner({
         <button
           type="button"
           onClick={onAddResource}
-          className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90"
+          className={`rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90 ${INTERACTIVE}`}
         >
           {t(lang, "resourcesAddResource")}
         </button>
         <button
           type="button"
           onClick={onAddAbsence}
-          className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90"
+          className={`rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90 ${INTERACTIVE}`}
         >
           {t(lang, "resourcesAddAbsence")}
         </button>
@@ -212,13 +213,13 @@ function ResourceDirectoryInner({
           placeholder={t(lang, "directorySearchPlaceholder")}
           aria-label={t(lang, "directorySearchPlaceholder")}
           title={t(lang, "directorySearchHint")}
-          className="min-w-0 flex-1 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-AIPM-dark-blue focus:outline-none"
+          className={`min-w-0 flex-1 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-AIPM-dark-blue focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
         />
         {onImportOutlook && (
           <button
             type="button"
             onClick={onImportOutlook}
-            className="shrink-0 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted"
+            className={`shrink-0 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
           >
             {t(lang, "outlookImportButton")}
           </button>
@@ -236,49 +237,49 @@ function ResourceDirectoryInner({
             <thead className={TABLE_HEAD_CLASS}>
               <tr>
                 <th className="relative px-3 py-2 font-medium" style={{ width: colWidths.name, minWidth: colWidths.name }}>
-                  <button type="button" onClick={() => toggleSort("name")} aria-label={t(lang, "sortBy", t(lang, "assignee"))} title={t(lang, "sortBy", t(lang, "assignee"))} className="hover:text-AIPM-green">
+                  <button type="button" onClick={() => toggleSort("name")} aria-label={t(lang, "sortBy", t(lang, "assignee"))} title={t(lang, "sortBy", t(lang, "assignee"))} className={`hover:text-AIPM-green ${INTERACTIVE}`}>
                     {t(lang, "assignee")}{sortIndicator("name")}
                   </button>
                   <ColumnResizeHandle col="name" onMouseDown={startColResize} />
                 </th>
                 <th className="relative px-3 py-2 font-medium" style={{ width: colWidths.discipline, minWidth: colWidths.discipline }}>
-                  <button type="button" onClick={() => toggleSort("discipline")} aria-label={t(lang, "sortBy", t(lang, "rolesDiscipline"))} title={t(lang, "sortBy", t(lang, "rolesDiscipline"))} className="hover:text-AIPM-green">
+                  <button type="button" onClick={() => toggleSort("discipline")} aria-label={t(lang, "sortBy", t(lang, "rolesDiscipline"))} title={t(lang, "sortBy", t(lang, "rolesDiscipline"))} className={`hover:text-AIPM-green ${INTERACTIVE}`}>
                     {t(lang, "rolesDiscipline")}{sortIndicator("discipline")}
                   </button>
                   <ColumnResizeHandle col="discipline" onMouseDown={startColResize} />
                 </th>
                 <th className="relative px-3 py-2 font-medium" style={{ width: colWidths.grade, minWidth: colWidths.grade }}>
-                  <button type="button" onClick={() => toggleSort("grade")} aria-label={t(lang, "sortBy", t(lang, "rolesGrade"))} title={t(lang, "sortBy", t(lang, "rolesGrade"))} className="hover:text-AIPM-green">
+                  <button type="button" onClick={() => toggleSort("grade")} aria-label={t(lang, "sortBy", t(lang, "rolesGrade"))} title={t(lang, "sortBy", t(lang, "rolesGrade"))} className={`hover:text-AIPM-green ${INTERACTIVE}`}>
                     {t(lang, "rolesGrade")}{sortIndicator("grade")}
                   </button>
                   <ColumnResizeHandle col="grade" onMouseDown={startColResize} />
                 </th>
                 <th className="relative px-3 py-2 font-medium" style={{ width: colWidths.title, minWidth: colWidths.title }}>
-                  <button type="button" onClick={() => toggleSort("title")} aria-label={t(lang, "sortBy", t(lang, "resourceColTitle"))} title={t(lang, "sortBy", t(lang, "resourceColTitle"))} className="hover:text-AIPM-green">
+                  <button type="button" onClick={() => toggleSort("title")} aria-label={t(lang, "sortBy", t(lang, "resourceColTitle"))} title={t(lang, "sortBy", t(lang, "resourceColTitle"))} className={`hover:text-AIPM-green ${INTERACTIVE}`}>
                     {t(lang, "resourceColTitle")}{sortIndicator("title")}
                   </button>
                   <ColumnResizeHandle col="title" onMouseDown={startColResize} />
                 </th>
                 <th className="relative px-3 py-2 font-medium" style={{ width: colWidths.department, minWidth: colWidths.department }}>
-                  <button type="button" onClick={() => toggleSort("department")} aria-label={t(lang, "sortBy", t(lang, "resourceColDepartment"))} title={t(lang, "sortBy", t(lang, "resourceColDepartment"))} className="hover:text-AIPM-green">
+                  <button type="button" onClick={() => toggleSort("department")} aria-label={t(lang, "sortBy", t(lang, "resourceColDepartment"))} title={t(lang, "sortBy", t(lang, "resourceColDepartment"))} className={`hover:text-AIPM-green ${INTERACTIVE}`}>
                     {t(lang, "resourceColDepartment")}{sortIndicator("department")}
                   </button>
                   <ColumnResizeHandle col="department" onMouseDown={startColResize} />
                 </th>
                 <th className="relative px-3 py-2 font-medium" style={{ width: colWidths.phone, minWidth: colWidths.phone }}>
-                  <button type="button" onClick={() => toggleSort("phone")} aria-label={t(lang, "sortBy", t(lang, "resourceColPhone"))} title={t(lang, "sortBy", t(lang, "resourceColPhone"))} className="hover:text-AIPM-green">
+                  <button type="button" onClick={() => toggleSort("phone")} aria-label={t(lang, "sortBy", t(lang, "resourceColPhone"))} title={t(lang, "sortBy", t(lang, "resourceColPhone"))} className={`hover:text-AIPM-green ${INTERACTIVE}`}>
                     {t(lang, "resourceColPhone")}{sortIndicator("phone")}
                   </button>
                   <ColumnResizeHandle col="phone" onMouseDown={startColResize} />
                 </th>
                 <th className="relative px-3 py-2 font-medium" style={{ width: colWidths.email, minWidth: colWidths.email }}>
-                  <button type="button" onClick={() => toggleSort("email")} aria-label={t(lang, "sortBy", t(lang, "email"))} title={t(lang, "sortBy", t(lang, "email"))} className="hover:text-AIPM-green">
+                  <button type="button" onClick={() => toggleSort("email")} aria-label={t(lang, "sortBy", t(lang, "email"))} title={t(lang, "sortBy", t(lang, "email"))} className={`hover:text-AIPM-green ${INTERACTIVE}`}>
                     {t(lang, "email")}{sortIndicator("email")}
                   </button>
                   <ColumnResizeHandle col="email" onMouseDown={startColResize} />
                 </th>
                 <th className="relative px-3 py-2 font-medium" style={{ width: colWidths.birthday, minWidth: colWidths.birthday }}>
-                  <button type="button" onClick={() => toggleSort("birthday")} aria-label={t(lang, "sortBy", t(lang, "resourceColBirthday"))} title={t(lang, "sortBy", t(lang, "resourceColBirthday"))} className="hover:text-AIPM-green">
+                  <button type="button" onClick={() => toggleSort("birthday")} aria-label={t(lang, "sortBy", t(lang, "resourceColBirthday"))} title={t(lang, "sortBy", t(lang, "resourceColBirthday"))} className={`hover:text-AIPM-green ${INTERACTIVE}`}>
                     {t(lang, "resourceColBirthday")}{sortIndicator("birthday")}
                   </button>
                   <ColumnResizeHandle col="birthday" onMouseDown={startColResize} />
@@ -292,7 +293,7 @@ function ResourceDirectoryInner({
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); onEditResource(r); }}
-                      className="rounded-md border border-transparent px-2 py-0.5 font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted"
+                      className={`rounded-md border border-transparent px-2 py-0.5 font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
                     >
                       {resourceDisplayName(r)}
                     </button>

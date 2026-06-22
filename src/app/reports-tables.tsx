@@ -12,6 +12,7 @@ import {
 import { ColumnResizeHandle } from "./task-manager-ui";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import { type Lang, t } from "./i18n";
+import { EmptyState } from "./empty-state";
 import { type GroupOrLabelRow, type Stats } from "./reports-stats";
 
 export const REPORTS_INQUIRY_COL_WIDTHS = {
@@ -81,7 +82,7 @@ export function GroupOrLabelTable({
   const { sorted, click } = useSortableFilter(rows, sort, setSort, filter, getValue);
 
   if (rows.length === 0) {
-    return <p className="text-sm text-muted-foreground">{t(lang, emptyKey)}</p>;
+    return <EmptyState compact title={t(lang, emptyKey)} />;
   }
 
   return (

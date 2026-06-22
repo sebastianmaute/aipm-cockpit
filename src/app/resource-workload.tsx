@@ -6,6 +6,7 @@ import { type Lang, t } from "./i18n";
 import { buildResourceWorkload } from "./resource-workload-rows";
 import type { Absence, RaidItem, Resource, Shift, Task } from "./types";
 import { INNER_TABLE_CLASS } from "./view-styles";
+import { INTERACTIVE } from "./interaction-styles";
 import { ColumnResizeHandle } from "./task-manager-ui";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 
@@ -157,7 +158,7 @@ export function ResourceWorkload({
                       ? t(lang, "resourcesEditShift")
                       : t(lang, "resourcesDefaultShift")
                   }
-                  className={`rounded-md border border-transparent px-2 py-0.5 text-xs hover:border-AIPM-dark-blue hover:bg-surface-muted ${
+                  className={`rounded-md border border-transparent px-2 py-0.5 text-xs hover:border-AIPM-dark-blue hover:bg-surface-muted ${INTERACTIVE} ${
                     row.shift
                       ? "text-foreground"
                       : "text-muted-foreground italic"
@@ -177,7 +178,7 @@ export function ResourceWorkload({
                           type="button"
                           onClick={(e) => { e.stopPropagation(); onEditAbsence(a); }}
                           title={a.note ?? ""}
-                          className="inline-flex items-center gap-1 rounded-md border border-line bg-surface px-2 py-0.5 text-xs text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted"
+                          className={`inline-flex items-center gap-1 rounded-md border border-line bg-surface px-2 py-0.5 text-xs text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
                         >
                           <span>{shortDateRange(a, lang)}</span>
                           <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
@@ -223,7 +224,7 @@ export function ResourceWorkload({
                           email: row.email || undefined,
                         })
                       }
-                      className="ml-2 rounded-md border border-line bg-surface px-2 py-0.5 text-xs font-normal text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted"
+                      className={`ml-2 rounded-md border border-line bg-surface px-2 py-0.5 text-xs font-normal text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
                     >
                       {t(lang, "resourcesAddAsResource")}
                     </button>
@@ -282,7 +283,7 @@ export function ResourceWorkload({
                               type="button"
                               onClick={() => onEditAbsence(a)}
                               title={a.note ?? ""}
-                              className="inline-flex items-center gap-1 rounded-md border border-line bg-surface px-2 py-0.5 text-xs text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted"
+                              className={`inline-flex items-center gap-1 rounded-md border border-line bg-surface px-2 py-0.5 text-xs text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
                             >
                               <span>{shortDateRange(a, lang)}</span>
                               <span className="text-[10px] uppercase tracking-wide text-muted-foreground">

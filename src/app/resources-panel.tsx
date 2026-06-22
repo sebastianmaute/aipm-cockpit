@@ -47,6 +47,7 @@ import { RagBadge } from "./rag-badge";
 import { marginAmountHealth } from "./budget-health";
 import { useSortableFilter, TableFilter, SortHeaderButton, type SortDir } from "./report-table";
 import { InfoTooltip } from "./info-tooltip";
+import { FOCUS_RING, TRANSITION, INTERACTIVE } from "./interaction-styles";
 
 const PLANNING_COL_WIDTHS = {
   assignee: 160,
@@ -300,7 +301,7 @@ function ResourcesPanelInner({
           <button
             type="button"
             onClick={onImportOutlookCalendar}
-            className="rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted dark:text-AIPM-light-grey"
+            className={`rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted dark:text-AIPM-light-grey ${INTERACTIVE}`}
           >
             {t(lang, "outlookCalImportButton")}
           </button>
@@ -341,13 +342,13 @@ function ResourcesPanelInner({
                 <span className="flex items-center gap-1">{t(lang, "resourcesPlanStart")}<InfoTooltip text={t(lang, "resourcesPlanStartHint")} /></span>
                 <input type="date" aria-label={t(lang, "resourcesPlanStart")} value={plan.startDate}
                   onChange={(e) => onSetPlanWindow(e.target.value, plan.endDate)}
-                  className="rounded border border-line px-2 py-1.5 text-sm dark:bg-surface" />
+                  className={`rounded border border-line px-2 py-1.5 text-sm dark:bg-surface ${FOCUS_RING} ${TRANSITION}`} />
               </label>
               <label className="flex items-center gap-1">
                 <span className="flex items-center gap-1">{t(lang, "resourcesPlanEnd")}<InfoTooltip text={t(lang, "resourcesPlanEndHint")} /></span>
                 <input type="date" aria-label={t(lang, "resourcesPlanEnd")} value={plan.endDate}
                   onChange={(e) => onSetPlanWindow(plan.startDate, e.target.value)}
-                  className="rounded border border-line px-2 py-1.5 text-sm dark:bg-surface" />
+                  className={`rounded border border-line px-2 py-1.5 text-sm dark:bg-surface ${FOCUS_RING} ${TRANSITION}`} />
               </label>
               <SegmentedControl<"week" | "month">
                 value={viewGranularity}
@@ -474,7 +475,7 @@ function ResourcesPanelInner({
                             readOnly={derived}
                             onClick={(e) => e.stopPropagation()}
                             onChange={(e) => { if (!derived) onSetUtilization(r.id, p.key, Number(e.target.value) || 0); }}
-                            className={`w-16 rounded border border-line px-1 py-0.5 text-right tabular-nums dark:bg-surface${derived ? " bg-surface-muted opacity-60" : ""}`} />
+                            className={`w-16 rounded border border-line px-1 py-0.5 text-right tabular-nums dark:bg-surface ${FOCUS_RING} ${TRANSITION}${derived ? " bg-surface-muted opacity-60" : ""}`} />
                           <input type="number" min={0} step={1}
                             aria-label={`Absence override for ${resourceDisplayName(r)} in ${p.key}`}
                             title={t(lang, "resourcesAbsenceOverrideHint")}
@@ -483,7 +484,7 @@ function ResourcesPanelInner({
                             readOnly={derived}
                             onClick={(e) => e.stopPropagation()}
                             onChange={(e) => { if (!derived) onSetAbsenceOverride(r.id, p.key, e.target.value === "" ? null : Number(e.target.value)); }}
-                            className={`mt-0.5 w-16 rounded border border-AIPM-purple/40 px-1 py-0.5 text-right text-sm tabular-nums text-AIPM-purple dark:border-AIPM-purple/50 dark:bg-surface dark:text-AIPM-purple${derived ? " bg-surface-muted opacity-60" : ""}`} />
+                            className={`mt-0.5 w-16 rounded border border-AIPM-purple/40 px-1 py-0.5 text-right text-sm tabular-nums text-AIPM-purple dark:border-AIPM-purple/50 dark:bg-surface dark:text-AIPM-purple ${FOCUS_RING} ${TRANSITION}${derived ? " bg-surface-muted opacity-60" : ""}`} />
                         </td>
                         );
                       })}
@@ -529,7 +530,7 @@ function ResourcesPanelInner({
               <div className="mt-3">
                 <button type="button" onClick={() => setShowRollup((v) => !v)}
                   title={t(lang, "resourcesRollupHint")}
-                  className="rounded-md border border-line bg-surface px-2.5 py-1 text-xs font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted dark:text-AIPM-light-grey">
+                  className={`rounded-md border border-line bg-surface px-2.5 py-1 text-xs font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted dark:text-AIPM-light-grey ${INTERACTIVE}`}>
                   {showRollup ? t(lang, "resourcesRollupHide") : t(lang, "resourcesRollupShow")}
                 </button>
                 {showRollup && (
@@ -618,7 +619,7 @@ function ResourcesPanelInner({
                   aria-label={t(lang, "calendarPrev")}
                   title={t(lang, "calendarPrev")}
                   onClick={() => setCalendarAnchor((a) => stepAnchor(a, calendarMode === "week" ? "week" : "month", -1))}
-                  className="rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted"
+                  className={`rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`}
                 >
                   ◀
                 </button>
@@ -632,7 +633,7 @@ function ResourcesPanelInner({
                   aria-label={t(lang, "calendarNext")}
                   title={t(lang, "calendarNext")}
                   onClick={() => setCalendarAnchor((a) => stepAnchor(a, calendarMode === "week" ? "week" : "month", 1))}
-                  className="rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted"
+                  className={`rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`}
                 >
                   ▶
                 </button>
@@ -641,7 +642,7 @@ function ResourcesPanelInner({
                   aria-label={t(lang, "calendarToday")}
                   title={t(lang, "calendarToday")}
                   onClick={() => setCalendarAnchor(today)}
-                  className="rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted"
+                  className={`rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`}
                 >
                   {t(lang, "calendarToday")}
                 </button>
@@ -656,7 +657,7 @@ function ResourcesPanelInner({
                     aria-label={t(lang, "calendarFrom")}
                     value={calendarFrom}
                     onChange={(e) => setCalendarFrom(e.target.value)}
-                    className="rounded border border-line px-2 py-1.5 text-sm dark:bg-surface"
+                    className={`rounded border border-line px-2 py-1.5 text-sm dark:bg-surface ${FOCUS_RING} ${TRANSITION}`}
                   />
                 </label>
                 <label className="flex items-center gap-1">
@@ -666,7 +667,7 @@ function ResourcesPanelInner({
                     aria-label={t(lang, "calendarTo")}
                     value={calendarTo}
                     onChange={(e) => setCalendarTo(e.target.value)}
-                    className="rounded border border-line px-2 py-1.5 text-sm dark:bg-surface"
+                    className={`rounded border border-line px-2 py-1.5 text-sm dark:bg-surface ${FOCUS_RING} ${TRANSITION}`}
                   />
                 </label>
                 <button
@@ -678,7 +679,7 @@ function ResourcesPanelInner({
                     setCalendarFrom(w.startDate);
                     setCalendarTo(w.endDate);
                   }}
-                  className="rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted"
+                  className={`rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`}
                 >
                   {t(lang, "calendarToday")}
                 </button>

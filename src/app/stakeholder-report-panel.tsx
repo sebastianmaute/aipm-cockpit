@@ -5,6 +5,7 @@
 // like RaidReportPanel. No mutation — purely derived from props.
 
 import { type Lang, t, type TranslationKey } from "./i18n";
+import { EmptyState } from "./empty-state";
 import { InfoTooltip } from "./info-tooltip";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import {
@@ -74,9 +75,7 @@ export function StakeholderReportPanel({
 
   const content =
     stakeholders.length === 0 ? (
-      <p className="p-6 text-center text-sm text-muted-foreground">
-        {t(lang, "stakeholdersEmpty")}
-      </p>
+      <EmptyState compact title={t(lang, "stakeholdersEmpty")} />
     ) : (
       <div className="space-y-6">
         {/* Summary tiles */}
@@ -138,9 +137,7 @@ export function StakeholderReportPanel({
             {t(lang, "stakeholderRaciTitle")}
           </h3>
           {milestones.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              {t(lang, "raciNoMilestones")}
-            </p>
+            <EmptyState compact title={t(lang, "raciNoMilestones")} />
           ) : (
             <div className="overflow-x-auto rounded-md border border-line">
               <table className="min-w-full text-left text-sm">
