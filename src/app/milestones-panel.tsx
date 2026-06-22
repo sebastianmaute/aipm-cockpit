@@ -6,6 +6,15 @@ import {
   useSortableFilter,
   type SortDir,
 } from "./report-table";
+import { PanelFiltersProvider, usePanelFilters } from "./panel-filters-context";
+import { PanelViewsControl } from "./panel-views-control";
+import type { PanelFiltersState } from "./panel-views";
+
+const MILESTONE_FILTER_DEFAULTS: PanelFiltersState = {
+  search: "",
+  filters: { status: "all" },
+  sort: { key: "date", dir: "asc" },
+};
 import { MilestoneEditModal } from "./milestone-edit-modal";
 import { useWorkspace } from "./workspace-context";
 import { useWorkspaceTab } from "./workspace-tab-context";
@@ -44,16 +53,7 @@ const STATUS_KEY: Record<
   "on-track": "milestoneStatusOnTrack",
 };
 
-export function MilestonesPanel({
-  lang,
-  today,
-  holidaySet,
-  logActivity,
-  openCreateNonce,
-  onCreateConsumed,
-  onPushToOutlook,
-  calendarPushBusy,
-}: {
+type MilestonesPanelProps = {
   lang: Lang;
   today: string;
   holidaySet: ReadonlySet<string>;
@@ -65,7 +65,26 @@ export function MilestonesPanel({
   onCreateConsumed?: () => void;
   onPushToOutlook?: () => void;
   calendarPushBusy?: boolean;
-}) {
+};
+
+export function MilestonesPanel(props: MilestonesPanelProps) {
+  return (
+    <PanelFiltersProvider defaults={MILESTONE_FILTER_DEFAULTS}>
+      <MilestonesPanelBody {...props} />
+    </PanelFiltersProvider>
+  );
+}
+
+function MilestonesPanelBody({
+  lang,
+  today,
+  holidaySet,
+  logActivity,
+  openCreateNonce,
+  onCreateConsumed,
+  onPushToOutlook,
+  calendarPushBusy,
+}: MilestonesPanelProps) {
   const { milestones, setMilestones, tasks } = useWorkspace();
   // `-full` suffix: the view changed from a centered half-width pane to full
   // width, so use a fresh key — a stale half-width size persisted under the old
@@ -73,12 +92,12 @@ export function MilestonesPanel({
   const { ref, reset: resetSize } = useResizable("lop-app:milestones-size-full");
   const [editing, setEditing] = useState<Milestone | null>(null);
   const [isNew, setIsNew] = useState(false);
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<MilestoneFilterStatus>("all");
-  const [sort, setSort] = useState<{ key: "name" | "date"; dir: SortDir }>({
-    key: "date",
-    dir: "asc",
-  });
+  const pf = usePanelFilters();
+
+  const sort = (pf.sort ?? MILESTONE_FILTER_DEFAULTS.sort) as { key: "name" | "date"; dir: SortDir };
+  const setSort = (next: { key: "name" | "date"; dir: SortDir }) =>
+    pf.setSort({ key: next.key, dir: next.dir as "asc" | "desc" });
+  const status = pf.filters.status as MilestoneFilterStatus;
 
   const getValue = useCallback(
     (m: Milestone, key: "name" | "date") => (key === "name" ? m.name : m.date),
@@ -86,8 +105,8 @@ export function MilestonesPanel({
   );
 
   const filtered = filterMilestones(milestones, {
-    query: search,
-    status: statusFilter,
+    query: pf.search,
+    status,
     today,
   });
 
@@ -201,15 +220,15 @@ export function MilestonesPanel({
           ) : null}
           <input
             type="search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            value={pf.search}
+            onChange={(e) => pf.setSearch(e.target.value)}
             placeholder={t(lang, "milestonesFilterName")}
             aria-label={t(lang, "milestonesFilterName")}
             className="min-w-[10rem] rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-foreground focus:border-AIPM-dark-blue focus:outline-none focus:ring-1 focus:ring-AIPM-green"
           />
           <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as MilestoneFilterStatus)}
+            value={status}
+            onChange={(e) => pf.setFilter("status", e.target.value)}
             aria-label={t(lang, "milestonesFilterStatus")}
             className="rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-foreground focus:border-AIPM-dark-blue focus:outline-none focus:ring-1 focus:ring-AIPM-green"
           >
@@ -218,6 +237,7 @@ export function MilestonesPanel({
             <option value="achieved">{t(lang, "milestonesFilterAchieved")}</option>
             <option value="overdue">{t(lang, "milestonesFilterOverdue")}</option>
           </select>
+          <PanelViewsControl lang={lang} view="milestones" />
           <ResetColWidthsButton onClick={resetColWidths} lang={lang} />
           <ResetSizeButton onClick={resetSize} lang={lang} />
         </div>
