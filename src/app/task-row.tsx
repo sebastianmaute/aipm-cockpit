@@ -4,6 +4,7 @@ import { createContext, memo, useContext, type MouseEvent, type ReactNode } from
 import { computeTaskHealth, formatHealthTooltip, healthDot, type TaskHealth } from "./health";
 import { priorityLabel, t, type Lang } from "./i18n";
 import { formatDuration } from "./duration";
+import { JiraBadge } from "./task-jira-badge";
 import { RaidBadge } from "./task-raid-badge";
 import { priorityStyle } from "./task-status-ui";
 import { TaskStatusSelect } from "./task-status-select";
@@ -220,19 +221,14 @@ function TaskRowImpl({
           const href = safeJiraIssueHref(jiraSiteUrl, task.jiraKey);
           if (!href) return null;
           return (
-            <a
-              href={href}
-              target="_blank"
-              rel="noopener noreferrer"
-              title={
-                task.jiraIssueType
-                  ? `${task.jiraKey} (${task.jiraIssueType})`
-                  : task.jiraKey
-              }
-              className="ml-1 inline-block rounded bg-surface-muted px-1.5 py-0.5 text-[10px] font-medium text-AIPM-dark-blue no-underline hover:bg-AIPM-dark-blue hover:text-white dark:text-AIPM-blue dark:hover:bg-AIPM-dark-blue dark:hover:text-white"
-            >
-              {task.jiraKey}
-            </a>
+            <span className="ml-1">
+              <JiraBadge
+                jiraKey={task.jiraKey}
+                lang={lang}
+                href={href}
+                issueType={task.jiraIssueType}
+              />
+            </span>
           );
         })()}
         {raidRefs && raidRefs.length > 0 && (

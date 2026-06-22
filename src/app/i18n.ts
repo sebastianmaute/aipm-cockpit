@@ -1103,6 +1103,7 @@ const enUS = {
   jiraPushPrereq:
     "Enable Jira and pick a project in Settings before pushing tasks.",
   jiraManagedTooltip: "Managed in Jira",
+  jiraSyncedReadOnly: "Synced with Jira — drag and manual status change disabled",
 
   tabActivity: "Activity",
   activityEmpty: "No activity recorded yet.",

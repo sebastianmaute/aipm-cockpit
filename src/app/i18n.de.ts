@@ -1095,6 +1095,7 @@ export const de: Record<TranslationKey, string> = {
   jiraPushPrereq:
     "Bitte Jira in den Einstellungen aktivieren und ein Projekt wählen, bevor Aufgaben übertragen werden.",
   jiraManagedTooltip: "In Jira verwaltet",
+  jiraSyncedReadOnly: "Mit Jira synchronisiert — Ziehen und manuelle Statusänderung deaktiviert",
 
   tabActivity: "Aktivität",
   activityEmpty: "Noch keine Aktivität aufgezeichnet.",
