@@ -8,6 +8,19 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.131.0] - 2026-06-22 "Aldiss"
+
+### Changed
+- The app now opens on the Dashboard instead of the AI Assistant.
+- Dashboard: the Compact-view and Trends toggles moved into the card's header toolbar (beside Print), and the report date now sits on the "Overall" line.
+- Steering committee now uses the same resizable, bordered pane layout as the other content views.
+- Task-editor actions (send inquiry, delete, cancel, update) now live only in the editor, not the top bar.
+
+### Added
+- "Configure AI assistant" on the Dashboard now jumps straight to Settings → AI.
+- Optional setting to show a timezone switcher in the top bar (Settings → timezone; hidden by default).
+- Jira-synced tasks show a read-only badge (lock icon + tooltip) on the board and table, indicating drag and manual status changes are disabled.
+
 ## [0.130.0] - 2026-06-22 "Ballard"
 
 ### Added
