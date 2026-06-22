@@ -7,6 +7,15 @@
 // callback props — the parent owns the canonical `changes` array.
 
 import { memo, useEffect, useMemo, useState } from "react";
+import { PanelFiltersProvider, usePanelFilters } from "./panel-filters-context";
+import { PanelViewsControl } from "./panel-views-control";
+import type { PanelFiltersState } from "./panel-views";
+
+const CHANGE_FILTER_DEFAULTS: PanelFiltersState = {
+  search: "",
+  filters: { type: "All", status: "All" },
+  sort: null,
+};
 import { ChangeEditModal } from "./change-edit-modal";
 import { useWorkspaceTab } from "./workspace-tab-context";
 import { useDeepLinkRowFlash, flashOutlineClass } from "./use-deeplink-row-flash";
@@ -113,7 +122,7 @@ function impactLabel(i: NonNullable<ChangeItem["impact"]>, lang: Lang): string {
 
 // --- Component -----------------------------------------------------------
 
-function ChangePanelInner({
+function ChangePanelBody({
   lang,
   tasks,
   raid,
@@ -125,12 +134,14 @@ function ChangePanelInner({
   stakeholdersEnabled = true,
   stakeholders = [],
 }: ChangePanelProps) {
-  const [typeFilter, setTypeFilter] = useState<"All" | ChangeType>("All");
-  const [statusFilter, setStatusFilter] = useState<"All" | ChangeStatus>("All");
-  const [search, setSearch] = useState("");
-  const [sort, setSort] = useState<{ key: ChangeSortKey; dir: "asc" | "desc" } | null>(null);
+  const pf = usePanelFilters();
+  const { search, sort } = pf;
+  const typeFilter = pf.filters.type;
+  const statusFilter = pf.filters.status;
   const toggleSort = (key: ChangeSortKey) =>
-    setSort((s) => (s?.key !== key ? { key, dir: "asc" } : s.dir === "asc" ? { key, dir: "desc" } : null));
+    pf.setSort(
+      pf.sort?.key !== key ? { key, dir: "asc" } : pf.sort.dir === "asc" ? { key, dir: "desc" } : null,
+    );
 
   // Modal: null = closed, otherwise editing a draft. `isNew` gates the modal's
   // Delete button (a brand-new draft has nothing to delete yet).
@@ -152,7 +163,7 @@ function ChangePanelInner({
     });
 
     return sort
-      ? [...filtered].sort((a, b) => compareChange(a, b, sort.key, sort.dir))
+      ? [...filtered].sort((a, b) => compareChange(a, b, sort.key as ChangeSortKey, sort.dir as "asc" | "desc"))
       : filtered
           .slice()
           .sort((a, b) => compareChange(a, b, "raisedDate", "desc") || a.id - b.id);
@@ -244,14 +255,14 @@ function ChangePanelInner({
       <input
         type="search"
         value={search}
-        onChange={(e) => setSearch(e.target.value)}
+        onChange={(e) => pf.setSearch(e.target.value)}
         placeholder={t(lang, "changeFilterSearch")}
         aria-label={t(lang, "changeFilterSearch")}
         className="min-w-[12rem] flex-1 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-foreground focus:border-AIPM-dark-blue focus:outline-none focus:ring-1 focus:ring-AIPM-green"
       />
       <select
         value={typeFilter}
-        onChange={(e) => setTypeFilter(e.target.value as "All" | ChangeType)}
+        onChange={(e) => pf.setFilter("type", e.target.value)}
         aria-label={t(lang, "changeFieldType")}
         className="h-[30px] rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-foreground"
       >
@@ -264,7 +275,7 @@ function ChangePanelInner({
       </select>
       <select
         value={statusFilter}
-        onChange={(e) => setStatusFilter(e.target.value as "All" | ChangeStatus)}
+        onChange={(e) => pf.setFilter("status", e.target.value)}
         aria-label={t(lang, "changeFieldStatus")}
         className="h-[30px] rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-foreground"
       >
@@ -275,14 +286,11 @@ function ChangePanelInner({
           </option>
         ))}
       </select>
+      <PanelViewsControl lang={lang} view="changes" />
       {filtersActive && (
         <button
           type="button"
-          onClick={() => {
-            setSearch("");
-            setTypeFilter("All");
-            setStatusFilter("All");
-          }}
+          onClick={() => pf.resetFilters()}
           title={t(lang, "resetFiltersHint")}
           className="rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted"
         >
@@ -433,4 +441,12 @@ function ChangePanelInner({
 // memo-wrap so the panel skips re-render when the parent re-renders for
 // unrelated reasons. Relies on handler props being stable refs (the parent
 // wraps them in useCallback).
-export const ChangePanel = memo(ChangePanelInner);
+const ChangePanelMemo = memo(ChangePanelBody);
+
+export function ChangePanel(props: ChangePanelProps) {
+  return (
+    <PanelFiltersProvider defaults={CHANGE_FILTER_DEFAULTS}>
+      <ChangePanelMemo {...props} />
+    </PanelFiltersProvider>
+  );
+}

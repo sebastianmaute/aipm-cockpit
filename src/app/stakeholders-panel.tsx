@@ -11,6 +11,9 @@ import { useWorkspaceTab } from "./workspace-tab-context";
 import { useDeepLinkRowFlash, flashOutlineClass } from "./use-deeplink-row-flash";
 import { compareStakeholder, nextStakeholderId, type StakeholderSortKey } from "./stakeholders";
 import { type Lang, t, type TranslationKey } from "./i18n";
+import { PanelFiltersProvider, usePanelFilters } from "./panel-filters-context";
+import { PanelViewsControl } from "./panel-views-control";
+import type { PanelFiltersState } from "./panel-views";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import {
   type InfluenceInterest,
@@ -25,6 +28,8 @@ import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton } from "./task-manager-ui";
 import { InfoTooltip } from "./info-tooltip";
 import { resourceDisplayName } from "./resource-foundation";
+
+const STAKEHOLDER_FILTER_DEFAULTS: PanelFiltersState = { search: "", filters: {}, sort: null };
 
 // --- Column widths ----------------------------------------------------------
 
@@ -90,7 +95,7 @@ function Chip({ label, className }: { label: string; className?: string }) {
 
 // --- Component --------------------------------------------------------------
 
-function StakeholdersPanelInner({
+function StakeholdersPanelBody({
   lang,
   stakeholders,
   resources,
@@ -100,12 +105,12 @@ function StakeholdersPanelInner({
   commsPendingStakeholderIds,
   onJumpToComms,
 }: StakeholdersPanelProps) {
-  const [search, setSearch] = useState("");
-  const [sort, setSort] = useState<{ key: StakeholderSortKey; dir: "asc" | "desc" } | null>(null);
+  const pf = usePanelFilters();
+  const { search, sort } = pf;
 
   const toggleSort = (key: StakeholderSortKey) =>
-    setSort((s) =>
-      s?.key !== key ? { key, dir: "asc" } : s.dir === "asc" ? { key, dir: "desc" } : null,
+    pf.setSort(
+      pf.sort?.key !== key ? { key, dir: "asc" } : pf.sort.dir === "asc" ? { key, dir: "desc" } : null,
     );
 
   const [draft, setDraft] = useState<Stakeholder | null>(null);
@@ -123,7 +128,7 @@ function StakeholdersPanelInner({
       : stakeholders;
 
     return sort
-      ? [...filtered].sort((a, b) => compareStakeholder(a, b, sort.key, sort.dir))
+      ? [...filtered].sort((a, b) => compareStakeholder(a, b, sort.key as StakeholderSortKey, sort.dir as "asc" | "desc"))
       : filtered.slice().sort((a, b) => compareStakeholder(a, b, "name", "asc"));
   }, [stakeholders, search, sort]);
 
@@ -196,7 +201,7 @@ function StakeholdersPanelInner({
       <input
         type="search"
         value={search}
-        onChange={(e) => setSearch(e.target.value)}
+        onChange={(e) => pf.setSearch(e.target.value)}
         placeholder={t(lang, "stakeholderFieldName")}
         aria-label={t(lang, "stakeholderFieldName")}
         className="min-w-[12rem] flex-1 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-foreground focus:border-AIPM-dark-blue focus:outline-none focus:ring-1 focus:ring-AIPM-green"
@@ -204,13 +209,14 @@ function StakeholdersPanelInner({
       {search && (
         <button
           type="button"
-          onClick={() => setSearch("")}
+          onClick={() => pf.setSearch("")}
           aria-label={t(lang, "clear")}
           className="rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted"
         >
           ×
         </button>
       )}
+      <PanelViewsControl lang={lang} view="stakeholders" />
       <ResetColWidthsButton onClick={resetColWidths} lang={lang} />
       <ResetSizeButton onClick={resetPaneSize} lang={lang} />
     </div>
@@ -417,4 +423,12 @@ function StakeholdersPanelInner({
   );
 }
 
-export const StakeholdersPanel = memo(StakeholdersPanelInner);
+const StakeholdersPanelMemo = memo(StakeholdersPanelBody);
+
+export function StakeholdersPanel(props: StakeholdersPanelProps) {
+  return (
+    <PanelFiltersProvider defaults={STAKEHOLDER_FILTER_DEFAULTS}>
+      <StakeholdersPanelMemo {...props} />
+    </PanelFiltersProvider>
+  );
+}

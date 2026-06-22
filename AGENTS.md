@@ -723,3 +723,23 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
   ★ The control renders in BOTH table and board modes (by design — its filters+sort apply to the board too,
   which shows the filtered/sorted tasks); the preset's hiddenCols are dormant in board and take visible effect
   on return to table.
+- **Saved views — cross-view (SP2, v0.132.0):** extends presets to RAID/Milestones/Changes/Stakeholders via a
+  SEPARATE generic stack — tasks' bespoke `saved-views.ts`/`filters-context`/`saved-views-control.tsx` path is
+  UNCHANGED. Pure i18n-free `panel-views.ts` (per-device `lop-app:panel-views` — a DIFFERENT key from tasks'
+  `lop-app:saved-views`; view-tagged entries `{id,name,view,state}`, `MAX_PANEL_VIEWS=30` PER view, `id=max+1`
+  across the whole list, validated load). Generic `panel-filters-context.tsx` (`PanelFiltersProvider`/
+  `usePanelFilters`) holds `{search, filters:Record<string,string>, sort:{key,dir}|null}` + setters/`applyState`/
+  `reset`; seeded per-panel with `*_FILTER_DEFAULTS`. Hook `use-panel-views.ts` (`usePanelViews(view)`).
+  `panel-views-control.tsx` reuses the existing `savedViews*` i18n keys (no new control strings). ★★ Each panel
+  SPLIT into an outer wrapper rendering `<PanelFiltersProvider defaults={…}><XPanelBody/></…>` (body consumes the
+  context instead of local `useState`); provider lifetime = panel mount, so filter-reset-on-unmount is unchanged
+  (saved views are the only persistence). ★ `pf.filters.X`/`pf.sort` are typed loosely (`Record<string,string>`,
+  `sort.key:string`) — panels CAST to their own union (`sort.key as RaidSortKey`, `filters.category as RaidCategory`)
+  at the `compareX`/derive call sites; HOIST each `pf.filters.X` to a scalar local before a `useMemo` dep array
+  (exhaustive-deps bans `obj.member` deps). ★ RAID passes `onApply={() => onClearTaskFilter?.()}` so applying a
+  preset drops the transient task backlink (mirrors tasks clearing `raidFilterTaskId`). ★ Milestones' sort is
+  never null (default `{date,asc}`); its wrapper casts `dir as "asc"|"desc"` for `useSortableFilter` (report-table
+  `SortDir` includes `"off"`, which the setter never emits). Column widths/pane size still persist separately
+  (`useColumnResize`/`useResizable`) — presets don't touch them. RAID + Milestones ARE axe-scanned (gate verified);
+  Changes/Stakeholders eye-verified. OUT of exports/Turso, cleared by `clearAppConfig`'s `lop-app:*` sweep.
+  Reports (3 sorts × 3 tables) deferred to a future slice.
