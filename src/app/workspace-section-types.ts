@@ -55,6 +55,9 @@ import type {
 import type {
   OperatingGuide,
 } from "./operating-guide";
+import type {
+  SettingsSectionId,
+} from "./dashboard-coaching";
 
 export interface WorkspaceSectionProps {
   today: string;
@@ -150,6 +153,8 @@ export interface WorkspaceSectionProps {
   learningEnabled?: boolean;
   expertMode?: boolean;
   onOpenLearningSettings?: () => void;
+  /** Deep-link the Dashboard to a specific Settings section (e.g. Settings → AI). */
+  onOpenSettingsSection?: (id: SettingsSectionId) => void;
   aiAnalysis?: AiAnalysisBundle;
   onPushMilestonesToOutlook?: () => void;
   calendarPushBusy?: boolean;

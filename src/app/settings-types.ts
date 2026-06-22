@@ -364,6 +364,8 @@ export type Settings = {
   timezone?: string;
   /** Per-device extra zones to surface (calendar + per-window switcher), IANA strings. */
   additionalTimezones?: string[];
+  /** Per-device: show the top-bar display-timezone switcher. Default OFF. */
+  showDisplayTzSwitcher?: boolean;
   reports?: { extra: AddableReportId[] };
   integrations?: IntegrationsSettings;
   snapshots?: SnapshotSettings;
@@ -397,6 +399,7 @@ export const defaultSettings: Settings = {
   hideFinishedTasks: false,
   tasksViewMode: "table",
   dashboardDensity: "comfortable",
+  showDisplayTzSwitcher: false,
   reports: { extra: ["raid-report", "budget-report"] },
   integrations: defaultIntegrations,
   snapshots: defaultSnapshotSettings,

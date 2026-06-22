@@ -425,6 +425,23 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
   are unchanged). Static (non-lazy) panels (Dashboard/Milestones/SteeringCommittee/ResourceDirectory)
   stay imported directly in `workspace-section.tsx`. (Routes the axe-scanned views, so changes there
   re-scan them.)
+- **UI shell batch (v0.131.0):** consolidated shell/UI polish.
+  • Default landing view is now `dashboard` (set in `workspace-tab-context.tsx`; was `chat`).
+  • Steering committee panel now uses the STANDARD resizable content-pane shell
+  (`VIEW_PANE_RESIZABLE_CLASS` + `useResizable("lop-app:steering-size")` + `ResetSizeButton`, header
+  OUTSIDE the bordered scroller — mirrors the other content panes).
+  • Dashboard density/Trends toggles render in the `ReportCard` `toolbarExtra` slot (left of Print); the
+  report date sits on the "Overall" line.
+  • `settings.showDisplayTzSwitcher?` (per-device, default **false**) gates the top-bar
+  `displayTzSwitcherEl` — both header mounts share the ONE gated element (off → no switcher anywhere).
+  • Task-editor actions render ONLY in the editor surface (TaskEditView footer / TaskFormModal), NEVER
+  the top bar — `ModernShell` no longer takes an `editActions`/`primaryAction` for the edit case.
+  • `task-jira-badge.tsx` = SHARED read-only Jira badge (lock SVG `aria-hidden` + `jiraSyncedReadOnly`
+  title/aria; link variant when `href`), used by BOTH the Kanban card and the table row; takes everything
+  as PROPS (board renders outside RowContextProvider).
+  • Settings-section deep-link is now GENERAL: dashboard `onNavigate(view, section?: SettingsSectionId)` →
+  task-manager `onOpenSettingsSection(section)` → `settingsSectionRequest` → SettingsView. `SettingsSectionId`
+  (mirrored in `dashboard-coaching.ts`) is a SUBSET of settings-view `SectionId`.
 - **Scrollbar gap:** per-view inner scrollers (`min-h-0 flex-1 overflow-auto`) need `pr-2` for the
   content↔scrollbar gap. Shared `INNER_TABLE_CLASS`/report-table/actions-panel already include it;
   bare per-panel scrollers do NOT — add `pr-2` or content jams the scrollbar.

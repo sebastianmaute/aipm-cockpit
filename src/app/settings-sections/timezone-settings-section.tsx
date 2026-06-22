@@ -118,6 +118,18 @@ export function TimezoneSettingsSection({ lang, settings, onChange }: TimezoneSe
           </ul>
         )}
       </div>
+
+      <div className="mt-4">
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={!!settings.showDisplayTzSwitcher}
+            onChange={(e) => onChange({ ...settings, showDisplayTzSwitcher: e.target.checked })}
+          />
+          {t(lang, "tzShowSwitcher")}
+        </label>
+        <p className="mt-1 text-xs text-muted-foreground">{t(lang, "tzShowSwitcherHint")}</p>
+      </div>
     </>
   );
 }

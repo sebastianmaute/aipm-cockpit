@@ -24,6 +24,26 @@ const committee: SteeringCommittee = {
 const TODAY = "2026-06-20";
 
 describe("SteeringCommitteePanel", () => {
+  it("uses the standard resizable content-pane shell with a reset-size control", () => {
+    const { container } = render(
+      <SteeringCommitteePanel
+        lang="en-US"
+        committee={committee}
+        onChange={() => {}}
+        resources={RESOURCES}
+        today={TODAY}
+      />,
+    );
+    const root = container.firstChild as HTMLElement;
+    // VIEW_PANE_RESIZABLE_CLASS hallmarks (see view-styles.ts).
+    expect(root.className).toContain("resize");
+    expect(root.className).toContain("min-h-[300px]");
+    // Reset-size control present with its accessible name.
+    expect(
+      screen.getByRole("button", { name: t("en-US", "tableResetSizeHint") }),
+    ).toBeInTheDocument();
+  });
+
   it("renders the committee name in the name field", () => {
     render(
       <SteeringCommitteePanel

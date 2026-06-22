@@ -27,7 +27,7 @@ import { computeCompletionTrend } from "./completion-trend";
 import { Sparkline } from "./sparkline";
 import { bucketMilestonesByHorizon } from "./milestones";
 import { MilestoneHorizonStrip } from "./milestone-horizon-strip";
-import { computeCoaching } from "./dashboard-coaching";
+import { computeCoaching, type SettingsSectionId } from "./dashboard-coaching";
 import { DashboardCoachingCard } from "./dashboard-coaching-card";
 import { densityClasses, type DashboardDensity } from "./dashboard-density";
 import { navLabelKey, type AppView } from "./nav-config";
@@ -64,7 +64,7 @@ interface DashboardPanelProps {
   projectId?: string;
   isPopout?: boolean;
   onOpenChange?: (id: number) => void;
-  onNavigate?: (view: AppView) => void;
+  onNavigate?: (view: AppView, section?: SettingsSectionId) => void;
   aiConfigured?: boolean;
   /** Per-device cockpit density (spacing only). Default "comfortable". */
   density?: DashboardDensity;
@@ -263,8 +263,49 @@ export function DashboardPanel(props: DashboardPanelProps) {
     if (narrativeRef.current) resizeNarrative(narrativeRef.current);
   };
 
+  const toolbarExtra =
+    props.onToggleDensity || props.onToggleTrends ? (
+      <div className="flex items-center gap-2 print:hidden">
+        {props.onToggleDensity && (
+          // Stable label names what the toggle enables ("Compact view");
+          // aria-pressed tracks whether compact is active. Pinning the
+          // label (instead of flipping it to the opposite word) keeps the
+          // name + pressed-state coherent for screen readers — "Compact
+          // view, pressed" ⇒ compact is on.
+          <button
+            type="button"
+            aria-label={t(lang, "dashboardDensityCompactView")}
+            aria-pressed={density === "compact"}
+            title={t(lang, "dashboardDensityCompactView")}
+            onClick={() => props.onToggleDensity?.(density === "compact" ? "comfortable" : "compact")}
+            className="rounded-md border border-line bg-surface px-2 py-1 text-xs text-muted-foreground hover:bg-surface-muted focus-visible:ring-1 focus-visible:ring-AIPM-green"
+          >
+            {t(lang, "dashboardDensityCompactView")}
+          </button>
+        )}
+        {props.onToggleTrends && (
+          <button
+            type="button"
+            aria-label={t(lang, showTrends ? "dashboardHideTrends" : "dashboardShowTrends")}
+            aria-pressed={showTrends}
+            title={t(lang, showTrends ? "dashboardHideTrends" : "dashboardShowTrends")}
+            onClick={() => props.onToggleTrends?.(!showTrends)}
+            className="rounded-md border border-line bg-surface px-2 py-1 text-xs text-muted-foreground hover:bg-surface-muted focus-visible:ring-1 focus-visible:ring-AIPM-green"
+          >
+            {t(lang, showTrends ? "dashboardHideTrends" : "dashboardShowTrends")}
+          </button>
+        )}
+      </div>
+    ) : undefined;
+
   return (
-    <ReportCard lang={lang} sizeRef={sizeRef} onResetSize={resetSize} title={t(lang, "navDashboard")}>
+    <ReportCard
+      lang={lang}
+      sizeRef={sizeRef}
+      onResetSize={resetSize}
+      toolbarExtra={toolbarExtra}
+      title={t(lang, "navDashboard")}
+    >
       <div className={dc.outer}>
         {/* Landing: greeting + since-you-last-looked */}
         <DashboardDeltaStrip
@@ -374,6 +415,9 @@ export function DashboardPanel(props: DashboardPanelProps) {
               {healthColorName(model.overall.effective, lang)}
             </span>
           </div>
+          <span className="ml-auto text-sm text-muted-foreground">
+            {t(lang, "dashboardReportDate", today)}
+          </span>
           <details className="basis-full print:hidden">
             <summary className="cursor-pointer text-sm font-medium text-muted-foreground hover:text-foreground">
               {t(lang, "dashboardAdjustHealth")}
@@ -417,42 +461,6 @@ export function DashboardPanel(props: DashboardPanelProps) {
               )}
             </div>
           </details>
-          {(props.onToggleDensity || props.onToggleTrends) && (
-            <div className="ml-auto flex items-center gap-2 print:hidden">
-              {props.onToggleDensity && (
-                // Stable label names what the toggle enables ("Compact view");
-                // aria-pressed tracks whether compact is active. Pinning the
-                // label (instead of flipping it to the opposite word) keeps the
-                // name + pressed-state coherent for screen readers — "Compact
-                // view, pressed" ⇒ compact is on.
-                <button
-                  type="button"
-                  aria-label={t(lang, "dashboardDensityCompactView")}
-                  aria-pressed={density === "compact"}
-                  title={t(lang, "dashboardDensityCompactView")}
-                  onClick={() => props.onToggleDensity?.(density === "compact" ? "comfortable" : "compact")}
-                  className="rounded-md border border-line bg-surface px-2 py-1 text-xs text-muted-foreground hover:bg-surface-muted focus-visible:ring-1 focus-visible:ring-AIPM-green"
-                >
-                  {t(lang, "dashboardDensityCompactView")}
-                </button>
-              )}
-              {props.onToggleTrends && (
-                <button
-                  type="button"
-                  aria-label={t(lang, showTrends ? "dashboardHideTrends" : "dashboardShowTrends")}
-                  aria-pressed={showTrends}
-                  title={t(lang, showTrends ? "dashboardHideTrends" : "dashboardShowTrends")}
-                  onClick={() => props.onToggleTrends?.(!showTrends)}
-                  className="rounded-md border border-line bg-surface px-2 py-1 text-xs text-muted-foreground hover:bg-surface-muted focus-visible:ring-1 focus-visible:ring-AIPM-green"
-                >
-                  {t(lang, showTrends ? "dashboardHideTrends" : "dashboardShowTrends")}
-                </button>
-              )}
-            </div>
-          )}
-          <span className={`${(props.onToggleTrends || props.onToggleDensity) ? "" : "ml-auto "}text-sm text-muted-foreground`}>
-            {t(lang, "dashboardReportDate", today)}
-          </span>
           <p className="basis-full text-xs text-muted-foreground">
             {t(lang, "dashboardRagThresholds")}
           </p>

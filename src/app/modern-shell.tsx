@@ -24,7 +24,6 @@ interface ModernShellProps {
   /** Phase 2: full-page task editor, shown when activeView === "edit". */
   editView?: React.ReactNode;
   editTitle?: string;
-  editActions?: React.ReactNode;
   /** Phase 4B: full-page Settings, shown when activeView === "settings". */
   settingsView?: React.ReactNode;
   /** Settings-launched learning insights, shown when activeView === "learning-insights". */
@@ -46,7 +45,7 @@ export function ModernShell({
   lang, activeView, onNavigate, version, mode, bannerCount, onShowAlerts,
   onOpenAiAssistant,
   topBarMenus, sidebarFooter, tasksSection, workspace,
-  editView = null, editTitle = "", editActions = null,
+  editView = null, editTitle = "",
   settingsView = null,
   learningInsightsView = null,
   banners = null,
@@ -98,7 +97,6 @@ export function ModernShell({
           bannerCount={bannerCount}
           onShowAlerts={onShowAlerts}
           onOpenAiAssistant={onOpenAiAssistant}
-          primaryAction={isEditing ? editActions : undefined}
           onToggleSidebar={onToggleCollapsed}
           projectSwitcher={projectSwitcher}
           projectSwitcherTrailing={projectSwitcherTrailing}

@@ -7,6 +7,7 @@ import { WorkspaceProvider } from "./workspace-context";
 import { DashboardPanel } from "./dashboard-panel";
 import { RegistersBand } from "./dashboard-sections/registers-band";
 import { healthText } from "./health";
+import { t } from "./i18n";
 import { loadActivityLog, type ActivityEntry } from "./activity-log";
 import type { RaidItem, Milestone, ChangeItem } from "./types";
 
@@ -595,7 +596,7 @@ describe("DashboardPanel coaching card", () => {
     const onNavigate = vi.fn();
     render(<DashboardPanel {...fullProps} aiConfigured={false} onNavigate={onNavigate} />, { wrapper });
     await user.click(screen.getByRole("button", { name: "Configure AI assistant" }));
-    expect(onNavigate).toHaveBeenCalledWith("settings");
+    expect(onNavigate).toHaveBeenCalledWith("settings", "ai");
   });
 });
 
@@ -767,7 +768,7 @@ describe("DashboardPanel Trends widget (showTrends)", () => {
     expect(onToggleTrends).toHaveBeenCalledWith(true);
   });
 
-  it("renders the Trends toggle in the dashboard top toolbar, not inside the trends widget", async () => {
+  it("renders the Trends toggle in the ReportCard header toolbar (beside Print), not in the Overall band or trends widget", async () => {
     const user = userEvent.setup();
     const onToggleTrends = vi.fn();
     render(<DashboardPanel {...baseProps} showTrends={true} onToggleTrends={onToggleTrends} />, { wrapper });
@@ -775,12 +776,18 @@ describe("DashboardPanel Trends widget (showTrends)", () => {
     // Toggle reflects the current (shown) state.
     const toggle = screen.getByRole("button", { name: /hide trends/i });
 
-    // It must live in the TOP toolbar — the band that contains the "Overall"
-    // status word — and NOT inside the Trends widget.
+    // It must NOT live in the Overall band (the rounded-lg div containing the
+    // "Overall" status word) — it was relocated to the card header toolbar.
     const overallWord = screen.getByText("Overall");
     const topBand = overallWord.closest("div.rounded-lg");
     expect(topBand).not.toBeNull();
-    expect(topBand!.contains(toggle)).toBe(true);
+    expect(topBand!.contains(toggle)).toBe(false);
+
+    // It shares the header toolbar with the Print button.
+    const printBtn = screen.getByRole("button", { name: t("en-US", "printHint") });
+    const toolbar = printBtn.parentElement;
+    expect(toolbar).not.toBeNull();
+    expect(toolbar!.contains(toggle)).toBe(true);
 
     // The Trends widget heading must not be an ancestor of the toggle.
     const trendsHeading = screen.getByText("Trends");
@@ -790,6 +797,36 @@ describe("DashboardPanel Trends widget (showTrends)", () => {
     // Toggling still calls the handler with the negated state.
     await user.click(toggle);
     expect(onToggleTrends).toHaveBeenCalledWith(false);
+  });
+
+  it("renders the density toggle in the ReportCard header toolbar beside Print", () => {
+    const onToggleDensity = vi.fn();
+    render(<DashboardPanel {...fullProps} density="comfortable" onToggleDensity={onToggleDensity} />, { wrapper });
+
+    const densityToggle = screen.getByRole("button", { name: "Compact view" });
+    const printBtn = screen.getByRole("button", { name: t("en-US", "printHint") });
+    const toolbar = printBtn.parentElement;
+    expect(toolbar).not.toBeNull();
+    expect(toolbar!.contains(densityToggle)).toBe(true);
+
+    // And NOT inside the Overall band.
+    const topBand = screen.getByText("Overall").closest("div.rounded-lg");
+    expect(topBand!.contains(densityToggle)).toBe(false);
+  });
+
+  it("places the report-date text on the same row as the Overall label", () => {
+    render(<DashboardPanel {...baseProps} today="2026-06-21" />, { wrapper });
+    const dateText = screen.getByText(t("en-US", "dashboardReportDate", "2026-06-21"));
+    // The report-date span sits in the Overall band (rounded-lg).
+    const band = dateText.closest("div.rounded-lg");
+    expect(band).not.toBeNull();
+    // The element immediately BEFORE the date is the bold "Overall: <color>"
+    // div (text-2xl font-bold). The date carries ml-auto so it floats right on
+    // the same flex row; the <details> after it is basis-full and wraps below.
+    const before = dateText.previousElementSibling;
+    expect(before).not.toBeNull();
+    expect(before!.className).toContain("font-bold");
+    expect(before!.textContent).toContain("Overall");
   });
 });
 

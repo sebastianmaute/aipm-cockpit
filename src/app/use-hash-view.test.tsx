@@ -84,7 +84,7 @@ describe("useHashView", () => {
       () => { useHashView(false); return useWorkspaceTab(); },
       { wrapper },
     );
-    expect(result.current.activeTab).toBe("chat");
+    expect(result.current.activeTab).toBe("dashboard");
   });
 
   it("removes the hashchange listener on unmount", () => {

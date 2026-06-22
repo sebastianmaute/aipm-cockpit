@@ -52,19 +52,26 @@ describe("ModernShell", () => {
     expect(screen.getByRole("heading", { name: "Gantt" })).toBeTruthy();
   });
 
-  it("shows the edit view, edit title, and edit actions for the edit view", () => {
+  it("shows the edit view and edit title, but never surfaces edit actions in the top bar", () => {
+    // Editor actions render inside the editor (editView footer) only. ModernShell
+    // must NOT surface a duplicate copy in the top bar — there is no editActions
+    // prop and no top-bar primaryAction while editing.
     setup({
       activeView: "edit",
-      editView: <div data-testid="edit" />,
+      editView: (
+        <div data-testid="edit">
+          <button type="button">Save changes</button>
+        </div>
+      ),
       editTitle: "Editing task #5",
-      editActions: <button type="button">Save changes</button>,
     });
     expect(screen.getByTestId("edit")).toBeTruthy();
     expect(screen.queryByTestId("tasks")).toBeNull();
     expect(screen.queryByTestId("workspace")).toBeNull();
     expect(screen.getByRole("heading", { name: "Editing task #5" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Save changes" })).toBeTruthy();
-    // The default New-task button is replaced by the edit actions.
+    // The editor renders exactly one "Save changes"; the top bar adds no second copy.
+    expect(screen.getAllByRole("button", { name: "Save changes" })).toHaveLength(1);
+    // No top-bar primaryAction (New-task button) while editing.
     expect(screen.queryByRole("button", { name: "New task" })).toBeNull();
   });
 

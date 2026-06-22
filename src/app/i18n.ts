@@ -1103,6 +1103,7 @@ const enUS = {
   jiraPushPrereq:
     "Enable Jira and pick a project in Settings before pushing tasks.",
   jiraManagedTooltip: "Managed in Jira",
+  jiraSyncedReadOnly: "Synced with Jira — drag and manual status change disabled",
 
   tabActivity: "Activity",
   activityEmpty: "No activity recorded yet.",
@@ -2396,6 +2397,9 @@ const enUS = {
   tzAdditionalLabel: "Additional timezones",
   tzAddLabel: "Add timezone",
   tzRemoveLabel: "Remove",
+  tzShowSwitcher: "Show timezone switcher in the top bar",
+  tzShowSwitcherHint:
+    "Adds a dropdown to the top bar for changing the displayed timezone for this session.",
   displayTzLabel: "Display timezone",
   displayTzDefault: "Default",
   tzClockStripLabel: "Current time by zone",

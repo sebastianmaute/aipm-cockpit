@@ -19,6 +19,12 @@ describe("computeCoaching", () => {
     expect(ctas[1].view).toBe("settings");
   });
 
+  test("the Configure-AI cta deep-links to the AI settings section", () => {
+    const ctas = computeCoaching({ ...base, aiConfigured: false, showMilestones: false, showBudget: false });
+    const ai = ctas.find((c) => c.key === "ai");
+    expect(ai).toEqual({ key: "ai", labelKey: "coachingConfigureAi", view: "settings", section: "ai" });
+  });
+
   test("offers Add-milestone only when the module is on and none exist", () => {
     expect(computeCoaching({ ...base }).some((c) => c.key === "milestone")).toBe(true);
     expect(computeCoaching({ ...base, milestoneCount: 2 }).some((c) => c.key === "milestone")).toBe(false);

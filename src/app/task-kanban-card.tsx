@@ -6,6 +6,7 @@
 import { type Lang, priorityLabel, t } from "./i18n";
 import { computeTaskHealth, formatHealthTooltip, healthDot, type TaskHealth } from "./health";
 import { isTaskFinished } from "./task-status";
+import { JiraBadge } from "./task-jira-badge";
 import { RaidBadge } from "./task-raid-badge";
 import { priorityStyle } from "./task-status-ui";
 import { TaskStatusSelect } from "./task-status-select";
@@ -68,11 +69,7 @@ export function TaskKanbanCard({
         <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${priorityClass}`}>
           {priorityLabel(lang, task.priority)}
         </span>
-        {task.jiraKey && (
-          <span className="inline-block rounded bg-surface px-1.5 py-0.5 text-[10px] font-medium text-AIPM-dark-blue dark:text-AIPM-blue">
-            {task.jiraKey}
-          </span>
-        )}
+        {task.jiraKey && <JiraBadge jiraKey={task.jiraKey} lang={lang} />}
         {raidRefs && raidRefs.length > 0 && (
           <RaidBadge taskId={task.id} refs={raidRefs} lang={lang} onJumpToRaid={onJumpToRaid} />
         )}

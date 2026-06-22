@@ -10,6 +10,9 @@ import { type Lang, t } from "./i18n";
 import { ResourcePicker } from "./resource-picker";
 import { resourceDisplayName } from "./resource-foundation";
 import { dueInfoReminders, type InfoReminder, type ReminderTier } from "./steering-reminders";
+import { ResetSizeButton } from "./task-manager-ui";
+import { useResizable } from "./use-resizable";
+import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import type { CommitteeMeeting, InfoSchedule, Resource, SteeringCommittee } from "./types";
 
@@ -57,6 +60,7 @@ export function SteeringCommitteePanel({
   outlookPush,
 }: SteeringCommitteePanelProps) {
   const c = committee ?? EMPTY_COMMITTEE;
+  const { ref: paneRef, reset: resetSize } = useResizable("lop-app:steering-size");
 
   // New-meeting / new-schedule draft state (kept local; commit on Add).
   const [meetingDraft, setMeetingDraft] = useState<{ date: string; title: string; agenda: string; location: string }>({
@@ -141,12 +145,14 @@ export function SteeringCommitteePanel({
   for (const r of reminders) byTier[r.tier].push(r);
 
   return (
-    <div className="min-h-0 flex-1 overflow-auto pr-2">
-      <header className="mb-3">
+    <div ref={paneRef} className={VIEW_PANE_RESIZABLE_CLASS}>
+      <div className="mb-2 flex shrink-0 items-center justify-between">
         <h2 className="text-lg font-medium text-foreground">{t(lang, "committeeTitle")}</h2>
-      </header>
+        <ResetSizeButton onClick={resetSize} lang={lang} />
+      </div>
 
-      <div className="flex flex-col gap-6">
+      <div className="min-h-[240px] flex-1 overflow-auto rounded-md border border-line pr-2">
+        <div className="flex flex-col gap-6">
         {/* Name */}
         <section>
           <label htmlFor="committee-name" className="mb-1 block text-sm font-medium text-foreground">
@@ -208,10 +214,10 @@ export function SteeringCommitteePanel({
             <table className="mb-2 w-full text-sm">
               <thead className={TABLE_HEAD_CLASS}>
                 <tr className="text-left">
-                  <th className="py-1">{t(lang, "committeeMeetingDate")}</th>
-                  <th>{t(lang, "committeeMeetingTitle")}</th>
-                  <th>{t(lang, "committeeMeetingLocation")}</th>
-                  <th />
+                  <th className="px-3 py-2">{t(lang, "committeeMeetingDate")}</th>
+                  <th className="px-3 py-2">{t(lang, "committeeMeetingTitle")}</th>
+                  <th className="px-3 py-2">{t(lang, "committeeMeetingLocation")}</th>
+                  <th className="px-3 py-2" />
                 </tr>
               </thead>
               <tbody>
@@ -300,9 +306,9 @@ export function SteeringCommitteePanel({
             <table className="mb-2 w-full text-sm">
               <thead className={TABLE_HEAD_CLASS}>
                 <tr className="text-left">
-                  <th className="py-1">{t(lang, "committeeScheduleLabel")}</th>
-                  <th>{t(lang, "committeeScheduleLeadDays")}</th>
-                  <th />
+                  <th className="px-3 py-2">{t(lang, "committeeScheduleLabel")}</th>
+                  <th className="px-3 py-2">{t(lang, "committeeScheduleLeadDays")}</th>
+                  <th className="px-3 py-2" />
                 </tr>
               </thead>
               <tbody>
@@ -412,6 +418,7 @@ export function SteeringCommitteePanel({
             </button>
           </section>
         ) : null}
+        </div>
       </div>
     </div>
   );

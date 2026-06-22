@@ -1,13 +1,13 @@
 "use client";
 
 import { t, type Lang } from "./i18n";
-import type { CoachingCta } from "./dashboard-coaching";
+import type { CoachingCta, SettingsSectionId } from "./dashboard-coaching";
 import type { AppView } from "./nav-config";
 
 interface DashboardCoachingCardProps {
   lang: Lang;
   ctas: readonly CoachingCta[];
-  onNavigate: (view: AppView) => void;
+  onNavigate: (view: AppView, section?: SettingsSectionId) => void;
 }
 
 export function DashboardCoachingCard({ lang, ctas, onNavigate }: DashboardCoachingCardProps) {
@@ -21,7 +21,7 @@ export function DashboardCoachingCard({ lang, ctas, onNavigate }: DashboardCoach
           <button
             key={cta.key}
             type="button"
-            onClick={() => onNavigate(cta.view)}
+            onClick={() => onNavigate(cta.view, cta.section)}
             className="rounded-md border border-line bg-surface px-3 py-1 text-xs font-medium text-foreground hover:bg-surface-muted hover:border-AIPM-dark-blue"
           >
             {t(lang, cta.labelKey)}

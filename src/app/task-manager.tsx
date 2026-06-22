@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createSettingsLogger, SETTINGS_LOG_DEBOUNCE_MS } from "./settings-log";
+import type { SettingsSectionId } from "./dashboard-coaching";
 import { getBucketReminders } from "./budget-report";
 import { type Lang, t } from "./i18n";
 import { useChatDispatcher } from "./use-chat-dispatcher";
@@ -768,16 +769,17 @@ function TaskManagerInner() {
   // Deep-link the Action Center's "Learning is ON/OFF" pill to the Next-actions
   // settings section (where the learning controls live) — not the bare Settings
   // root. The nonce re-fires navigation even on a repeat click.
-  const [settingsSectionRequest, setSettingsSectionRequest] = useState<{ id: "nextActions"; nonce: number } | undefined>(undefined);
+  const [settingsSectionRequest, setSettingsSectionRequest] = useState<{ id: SettingsSectionId; nonce: number } | undefined>(undefined);
   // Monotonic nonce (a ref, never reset) so each deep-link request is distinct
   // even after the previous one was consumed/cleared — robust whether SettingsView
   // remounts (modern) or stays mounted.
   const settingsSectionNonceRef = useRef(0);
-  const onOpenLearningSettings = useCallback(() => {
+  const onOpenSettingsSection = useCallback((id: SettingsSectionId) => {
     settingsSectionNonceRef.current += 1;
-    setSettingsSectionRequest({ id: "nextActions", nonce: settingsSectionNonceRef.current });
+    setSettingsSectionRequest({ id, nonce: settingsSectionNonceRef.current });
     setActiveTab("settings");
   }, [setActiveTab]);
+  const onOpenLearningSettings = useCallback(() => onOpenSettingsSection("nextActions"), [onOpenSettingsSection]);
   const clearSettingsSectionRequest = useCallback(() => setSettingsSectionRequest(undefined), []);
   const openAction = useCallback(
     (a: SuggestedAction) => {
@@ -1831,6 +1833,7 @@ function TaskManagerInner() {
     learningEnabled: settings.nextActionsLearning?.enabled ?? false,
     expertMode: settings.expertMode === true,
     onOpenLearningSettings,
+    onOpenSettingsSection: isPopout ? undefined : onOpenSettingsSection,
     aiAnalysis: isPopout ? undefined : aiAnalysisBundle,
     onPushMilestonesToOutlook: calendarPushEnabled ? calendarPushToOutlook : undefined,
     calendarPushBusy: calendarPushEnabled ? calendarPushBusy : undefined,
@@ -2072,9 +2075,9 @@ function TaskManagerInner() {
 
   // Session display-timezone switcher. Sits in both header sites alongside the
   // Ask-Claude pill (dual-header rule); never in popouts (they have no header).
-  const displayTzSwitcherEl = (
+  const displayTzSwitcherEl = settings.showDisplayTzSwitcher ? (
     <DisplayTzSwitcherConnected lang={lang} additionalTimezones={settings.additionalTimezones ?? []} />
-  );
+  ) : null;
 
   const topBarMenus = (
     <>
@@ -2307,7 +2310,6 @@ function TaskManagerInner() {
         workspace={workspaceFullBleedEl}
         editView={editViewEl}
         editTitle={editTitle}
-        editActions={editActions}
         settingsView={settingsViewEl}
         learningInsightsView={learningInsightsEl}
         banners={bannersEl}

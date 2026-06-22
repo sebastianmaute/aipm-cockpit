@@ -68,6 +68,16 @@ describe("TimezoneSettingsSection", () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
+  it("toggling the show-switcher checkbox sets showDisplayTzSwitcher: true", () => {
+    const { onChange } = setup({ showDisplayTzSwitcher: false });
+    const checkbox = screen.getByRole("checkbox", { name: t("en-US", "tzShowSwitcher") });
+    expect(checkbox).not.toBeChecked();
+    fireEvent.click(checkbox);
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ showDisplayTzSwitcher: true }),
+    );
+  });
+
   it("removing a zone filters it out, with a row-unique remove label", () => {
     const { onChange } = setup({ additionalTimezones: ["America/New_York", "Asia/Tokyo"] });
     const removeBtn = screen.getByRole("button", {
