@@ -127,6 +127,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightClickThrough: "Dashboard-Kacheln, -Listen und -Chips sind jetzt anklickbar — direkt zum Element oder zur Ansicht springen",
   versionHighlightDeepLinkFlash: "Deep-Links scrollen jetzt zur Zielzeile in der Liste und heben sie hervor",
   versionHighlightGlobalSearch: "Globale Suche über Aufgaben, RAID, Änderungen, Meilensteine und Stakeholder",
+  versionHighlightSavedViews: "Benannte Filter-, Sortier- und Spaltenvorlagen für die Aufgabenliste speichern und erneut anwenden",
 
   tasks: "Aufgaben",
   tasksCount: "({0})",

@@ -694,3 +694,12 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
   'self'` in `src/proxy.ts`: `script-src 'strict-dynamic'` makes browsers IGNORE `'self'` for the SW
   load → without `worker-src` registration is blocked at RUNTIME (not caught by tests/build). Periodic
   Background Sync deliberately NOT built (Chromium+installed+device-seal only; baseline covers on open).
+- **Saved views (tasks, v0.130.0):** pure i18n-free `saved-views.ts` (per-device `lop-app:saved-views`,
+  `MAX_SAVED_VIEWS=30`, `id=max+1`, validated load, oldest dropped at cap; `SavedViewPayload` = useFilters
+  fields + sortKey/sortDir + `hiddenCols[]`, EXCLUDES colWidths/hideFinishedTasks/tasksViewMode/raidFilterTaskId).
+  Hook `use-saved-views.ts` (functional-updater mutators + a `useEffect([views])` persist — no stale closure).
+  `saved-views-control.tsx` in the tasks toolbar applies a view through every `useFilters` setter
+  (+`setRaidFilterTaskId(null)`, `setHiddenCols(new Set(...))`); single labeled controls (select+save+delete)
+  → no row-unique-label landmine; Open Points IS axe-scanned. ★ GLOBAL presets (not per-project) → applying
+  one whose assignee/group isn't in the current project just yields an empty filter (graceful). OUT of
+  exports/Turso, cleared by `clearAppConfig`'s `lop-app:*` sweep. SP1 = tasks only; other views are future phases.
