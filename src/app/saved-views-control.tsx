@@ -95,6 +95,7 @@ export function SavedViewsControl({ lang, hiddenCols, setHiddenCols }: SavedView
           <button
             type="button"
             aria-label={t(lang, "savedViewsSave")}
+            disabled={name.trim() === ""}
             onClick={() => {
               const n = name.trim();
               if (n) addView(n, capturePayload());
