@@ -8,6 +8,12 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## 0.124.0 "Pratchett" — 2026-06-22
+
+### Dashboard click-through parity
+- Every Dashboard surface is now clickable: KPI tiles, Progress/Budget tiles and the completion sparkline jump to their view; Top Changes rows, RAID register rows and milestone horizon chips open the specific item; recent-activity rows jump to the relevant view by kind.
+- Resolves the prior asymmetry where RAID/milestone/change navigation dropped the item id — now they deep-link via the shared `requestOpen` channel (the same one the Action Center uses).
+
 ## [0.123.0] - 2026-06-21 "Atwood"
 
 ### Added

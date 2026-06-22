@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { type ReactNode } from "react";
@@ -7,11 +7,12 @@ import { WorkspaceProvider } from "./workspace-context";
 import { DashboardPanel } from "./dashboard-panel";
 import { RegistersBand } from "./dashboard-sections/registers-band";
 import { healthText } from "./health";
+import { loadActivityLog, type ActivityEntry } from "./activity-log";
 import type { RaidItem, Milestone, ChangeItem } from "./types";
 
 vi.mock("./activity-log", async (orig) => ({
   ...(await orig<typeof import("./activity-log")>()),
-  loadActivityLog: () => [],
+  loadActivityLog: vi.fn(() => []),
 }));
 
 function wrapper({ children }: { children: ReactNode }) {
@@ -480,15 +481,16 @@ describe("DashboardPanel budget-burn CPI stat", () => {
     },
   ] as never[];
 
-  // The burn-tile group is the flex row that holds the Sub-budget + hours
-  // tiles (the hours tile is labelled "h"); the new CPI stat must live there,
-  // distinct from the separate EVM SPI/CPI block.
-  function burnTileGroup(): HTMLElement {
-    const hoursTile = screen.getByText("h").closest("div.rounded-lg") as HTMLElement;
-    return hoursTile.parentElement as HTMLElement;
+  // CPI is an EVM index → it lives ONLY in the EVM SPI/CPI row (the burn row now
+  // holds just Sub-budget + "h"). The EVM row renders only when there's estimate
+  // coverage; its CPI tile sits beside the SPI tile.
+  function evmCpiTile(): HTMLElement {
+    const spiTile = screen.getByText("SPI").closest("div.rounded-lg") as HTMLElement;
+    const evmRow = spiTile.parentElement as HTMLElement;
+    return within(evmRow).getByText("CPI").closest("div.rounded-lg") as HTMLElement;
   }
 
-  it("shows the CPI value in the budget-burn tile group when model.evm.cpi is present", () => {
+  it("shows the CPI value in the EVM row when model.evm.cpi is present", () => {
     render(
       <DashboardPanel
         lang="en-US"
@@ -505,17 +507,14 @@ describe("DashboardPanel budget-burn CPI stat", () => {
       />,
       { wrapper },
     );
-    const group = burnTileGroup();
-    const cpiLabel = within(group).getByText("CPI");
-    const tile = cpiLabel.closest("div.rounded-lg") as HTMLElement;
-    expect(within(tile).getByText("0.95")).toBeInTheDocument();
+    expect(within(evmCpiTile()).getByText("0.95")).toBeInTheDocument();
   });
 
-  it("shows an em dash in the budget-burn CPI stat when model.evm.cpi is null", () => {
+  it("does not duplicate CPI in the budget-burn (Sub-budget + hours) row", () => {
     render(
       <DashboardPanel
         lang="en-US"
-        tasks={[]}
+        tasks={taskWithCpi}
         raid={[]}
         budgets={minimalBudget as never}
         plan={plan}
@@ -528,10 +527,11 @@ describe("DashboardPanel budget-burn CPI stat", () => {
       />,
       { wrapper },
     );
-    const group = burnTileGroup();
-    const cpiLabel = within(group).getByText("CPI");
-    const tile = cpiLabel.closest("div.rounded-lg") as HTMLElement;
-    expect(within(tile).getByText("—")).toBeInTheDocument();
+    // The burn row (the flex row containing the "h" tile) must NOT contain a CPI
+    // tile — CPI now lives only in the EVM row, so CPI appears exactly once.
+    const burnRow = (screen.getByText("h").closest("div.rounded-lg") as HTMLElement).parentElement as HTMLElement;
+    expect(within(burnRow).queryByText("CPI")).toBeNull();
+    expect(screen.getAllByText("CPI")).toHaveLength(1);
   });
 });
 
@@ -888,5 +888,72 @@ describe("DashboardPanel density (slice #8)", () => {
     expect(btn).toHaveAttribute("aria-pressed", "true");
     fireEvent.click(btn);
     expect(onToggleDensity).toHaveBeenCalledWith("comfortable");
+  });
+});
+
+describe("DashboardPanel click-through parity (slice #9)", () => {
+  afterEach(() => {
+    vi.mocked(loadActivityLog).mockReturnValue([]);
+    localStorage.clear();
+  });
+
+  it("navigates to raid when the Open RAID KPI tile is clicked", () => {
+    const onNavigate = vi.fn();
+    render(<DashboardPanel {...fullProps} onNavigate={onNavigate} />, { wrapper });
+    // Tile names are now metric-qualified for uniqueness: "Open RAID – Open the RAID register".
+    fireEvent.click(screen.getByRole("button", { name: /Open RAID –/ }));
+    expect(onNavigate).toHaveBeenCalledWith("raid");
+  });
+
+  it("navigates to open-points when the Complete KPI tile is clicked", () => {
+    const onNavigate = vi.fn();
+    render(<DashboardPanel {...fullProps} onNavigate={onNavigate} />, { wrapper });
+    // Qualified name is now unique (e.g. "Complete – Open the tasks list") → getByRole works.
+    fireEvent.click(screen.getByRole("button", { name: /Complete – Open the tasks list/ }));
+    expect(onNavigate).toHaveBeenCalledWith("open-points");
+  });
+
+  it("opens a specific change by id when a Top Changes row is clicked", () => {
+    const onOpenChange = vi.fn();
+    render(
+      <DashboardPanel
+        {...fullProps}
+        showChanges
+        changes={[
+          {
+            id: 7, title: "Scope cut", description: "", type: "Scope", status: "Proposed",
+            impact: "High", raisedDate: "2026-05-01", linkedTaskIds: [], linkedRaidIds: [], stakeholderIds: [],
+          },
+        ] as ChangeItem[]}
+        onOpenChange={onOpenChange}
+      />,
+      { wrapper },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Open change Scope cut" }));
+    expect(onOpenChange).toHaveBeenCalledWith(7);
+  });
+
+  it("navigates by activity kind: a task.created row links to open-points", () => {
+    vi.mocked(loadActivityLog).mockReturnValue([
+      { id: 1, timestamp: "2026-06-20T10:00:00.000Z", kind: "task.created", args: [] },
+    ] as ActivityEntry[]);
+    const onNavigate = vi.fn();
+    render(<DashboardPanel {...fullProps} onNavigate={onNavigate} />, { wrapper });
+    // Accessible name PREFIXES the visible "date · kind" with the open-view
+    // hint → "2026-06-20 · task.created – Open Open Points" (unique + informative).
+    const row = screen.getByRole("button", { name: /task\.created.*Open Points/ });
+    fireEvent.click(row);
+    expect(onNavigate).toHaveBeenCalledWith("open-points");
+  });
+
+  it("renders a static (non-button) row for a non-deep-linkable activity kind", () => {
+    vi.mocked(loadActivityLog).mockReturnValue([
+      { id: 2, timestamp: "2026-06-20T11:00:00.000Z", kind: "settings.updated", args: [] },
+    ] as ActivityEntry[]);
+    const onNavigate = vi.fn();
+    render(<DashboardPanel {...fullProps} onNavigate={onNavigate} />, { wrapper });
+    // settings.updated has no deep-link destination → its row stays a span.
+    expect(screen.getByText(/2026-06-20 · settings\.updated/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /settings\.updated/ })).toBeNull();
   });
 });

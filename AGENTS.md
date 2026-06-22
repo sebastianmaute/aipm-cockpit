@@ -242,11 +242,14 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
   the stored snapshot in a DEBOUNCED (4s) `useEffect` that ONLY writes localStorage (a side-effect, NOT
   setState) — both shapes are deliberate to pass the react-hooks PURITY + `set-state-in-effect` bans;
   `new Date()` lives in the timeout callback. Popout = read-only (no advance). ★★ CHIP CLICK ROUTING
-  ASYMMETRY: `onOpenRaid`/`onOpenMilestone`/`onOpenChange` IGNORE their id arg (workspace-section just
-  `setActiveTab(view)`), so a `-1` fallback is a safe view-switch; but `onOpenTask` OPENS A SPECIFIC
-  EDITOR by id (`tasks.find(id)`), so it MUST be gated on a real `repTaskId` (first overdue/due-soon) or
-  the chip is a DEAD `-1` no-op button (an a11y/UX smell — the strip downgrades a handler-less chip to a
-  non-interactive `<span>`). ★ `DashboardPanel.projectId` is OPTIONAL (defaults `"default"`) so the ~30
+  (as of v0.124.0): the Dashboard now DEEP-LINKS RAID / milestone / change to the SPECIFIC item via
+  `requestOpen(view, id)` (wired in `workspace-section.tsx`, the same channel the Action Center uses) —
+  `onOpenRaid`/`onOpenMilestone`/`onOpenChange` carry their id arg through. Only the AGGREGATE delta-strip
+  milestone/change chips and the milestone-horizon "+N more" affordance stay view-LEVEL (they pass
+  sentinel `-1` → the target panel's `pendingOpen` effect finds no item → view switch only, opens nothing).
+  STILL TRUE: `onOpenTask` OPENS A SPECIFIC EDITOR by id (`tasks.find(id)`), so it MUST be gated on a real
+  `repTaskId` (first overdue/due-soon) or the chip is a DEAD `-1` no-op button (an a11y/UX smell — the
+  strip downgrades a handler-less chip to a non-interactive `<span>`). ★ `DashboardPanel.projectId` is OPTIONAL (defaults `"default"`) so the ~30
   existing test render sites don't break. ★ greeting hour via lazy `useState(() => new Date().getHours())`
   (purity — no `Date` in a render body). ★ `newOverdue` lower bound is INCLUSIVE (`dueDate >= sinceDate
   && < today`): a task due ON the last-visit date wasn't overdue then (due end-of-day) but is now. ★
@@ -355,6 +358,7 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
   AND Dashboard are BOTH axe-scanned — SegmentedControl's `ariaLabel` + the on-panel button's text name keep
   the gate green (verified). ★ Compact-test asserts `.space-y-2` PRESENCE only (it's container-only; a nested
   `space-y-4` elsewhere makes a global-absence check brittle). i18n EN+DE.
+- **Dashboard click-through (v0.124.0):** `Tile` (`report-table.tsx`) gained an optional `onActivate`/`activateLabel` clickable variant (renders a real `<button>` — axe-safe name via `activateLabel`); pure i18n-free `activityViewOf` (`dashboard-activity-nav.ts`) maps an activity `kind`→`AppView` for recent-activity row navigation; KPI/progress/burn tiles + the completion sparkline launch their view via `onNavigate`, Top Changes rows + RAID register rows + horizon chips deep-link the item.
 - **RAID edit modal map:** `RaidEditModal` (`raid-edit-modal.tsx`) owns the draft, query state,
   derived option lists, and add/remove handlers; presentational `raid-risk-matrix.tsx` (`RiskMatrix`
   5×5 picker, Risk items only) and `raid-edit-fields.tsx` (`RaidLinkedTasksField`, `RaidCausedByField`

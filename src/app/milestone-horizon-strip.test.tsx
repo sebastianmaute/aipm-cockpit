@@ -1,4 +1,4 @@
-import { describe, expect, test, vi } from "vitest";
+import { describe, expect, it, test, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { MilestoneHorizonStrip } from "./milestone-horizon-strip";
 import type { MilestoneHorizonBuckets } from "./milestones";
@@ -43,5 +43,34 @@ describe("MilestoneHorizonStrip", () => {
     render(<MilestoneHorizonStrip lang="en-US" buckets={buckets({ later: many })} />);
     expect(screen.getByText(/Later \(8\)/)).toBeInTheDocument();
     expect(screen.getByText(/\+3 more/)).toBeInTheDocument();
+  });
+});
+
+describe("MilestoneHorizonStrip click-through", () => {
+  it("calls onOpenMilestone with the chip's milestone id", () => {
+    const onOpen = vi.fn();
+    const buckets = {
+      overdue: [],
+      thisWeek: [{ milestone: { id: 42, name: "M42", date: "2026-07-01" }, status: "upcoming" }],
+      next2Weeks: [],
+      later: [],
+    } as never;
+    render(<MilestoneHorizonStrip lang="en-US" buckets={buckets} onOpenMilestone={onOpen} />);
+    fireEvent.click(screen.getByRole("button", { name: /M42/ }));
+    expect(onOpen).toHaveBeenCalledWith(42);
+  });
+
+  it("calls onOpenMilestone with -1 for the +N more affordance", () => {
+    const onOpen = vi.fn();
+    const entry = (id: number) => ({ milestone: { id, name: `M${id}`, date: "2026-07-01" }, status: "upcoming" });
+    const buckets = {
+      overdue: [],
+      thisWeek: [],
+      next2Weeks: [],
+      later: [entry(1), entry(2), entry(3), entry(4), entry(5), entry(6)],
+    } as never;
+    render(<MilestoneHorizonStrip lang="en-US" buckets={buckets} onOpenMilestone={onOpen} />);
+    fireEvent.click(screen.getByRole("button", { name: /more|\+1/ }));
+    expect(onOpen).toHaveBeenCalledWith(-1);
   });
 });
