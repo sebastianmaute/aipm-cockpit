@@ -2074,9 +2074,9 @@ function TaskManagerInner() {
 
   // Session display-timezone switcher. Sits in both header sites alongside the
   // Ask-Claude pill (dual-header rule); never in popouts (they have no header).
-  const displayTzSwitcherEl = (
+  const displayTzSwitcherEl = settings.showDisplayTzSwitcher ? (
     <DisplayTzSwitcherConnected lang={lang} additionalTimezones={settings.additionalTimezones ?? []} />
-  );
+  ) : null;
 
   const topBarMenus = (
     <>

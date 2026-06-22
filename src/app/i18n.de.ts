@@ -2384,6 +2384,9 @@ export const de: Record<TranslationKey, string> = {
   tzAdditionalLabel: "Weitere Zeitzonen",
   tzAddLabel: "Zeitzone hinzufügen",
   tzRemoveLabel: "Entfernen",
+  tzShowSwitcher: "Zeitzonen-Umschalter in der Kopfzeile anzeigen",
+  tzShowSwitcherHint:
+    "Fügt der Kopfzeile ein Auswahlfeld hinzu, um die angezeigte Zeitzone für diese Sitzung zu ändern.",
   displayTzLabel: "Anzeige-Zeitzone",
   displayTzDefault: "Standard",
   tzClockStripLabel: "Aktuelle Zeit nach Zone",

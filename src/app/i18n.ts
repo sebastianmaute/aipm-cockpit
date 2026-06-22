@@ -2396,6 +2396,9 @@ const enUS = {
   tzAdditionalLabel: "Additional timezones",
   tzAddLabel: "Add timezone",
   tzRemoveLabel: "Remove",
+  tzShowSwitcher: "Show timezone switcher in the top bar",
+  tzShowSwitcherHint:
+    "Adds a dropdown to the top bar for changing the displayed timezone for this session.",
   displayTzLabel: "Display timezone",
   displayTzDefault: "Default",
   tzClockStripLabel: "Current time by zone",
