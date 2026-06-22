@@ -17,6 +17,7 @@ import { DEFAULT_COL_WIDTHS } from "./use-column-manager";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { ActionChips, chipsForView } from "./action-chips";
+import { SavedViewsControl } from "./saved-views-control";
 import type { SuggestedAction } from "./next-actions/types";
 import {
   EraserIcon,
@@ -302,6 +303,7 @@ export function TasksSection({
               </div>
             )}
           </div>
+          <SavedViewsControl lang={lang} hiddenCols={hiddenCols} setHiddenCols={setHiddenCols} />
           <h2 className="text-lg font-medium text-foreground">
             {t(lang, "tasks")}{" "}
             {visibleRows.length !== tasks.length

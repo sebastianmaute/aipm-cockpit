@@ -8,6 +8,11 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.130.0] - 2026-06-22 "Ballard"
+
+### Added
+- Saved views for the tasks list: save the current filters, sort, and visible columns as a named preset and re-apply it from the toolbar (per device). Delete presets you no longer need.
+
 ## [0.129.0] - 2026-06-22 "Slonczewski"
 
 ### Changed
