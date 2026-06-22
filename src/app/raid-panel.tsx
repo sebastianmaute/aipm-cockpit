@@ -11,6 +11,9 @@
 // owns the canonical `raid` array and persists it via the storage backend.
 
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
+import { PanelFiltersProvider, usePanelFilters } from "./panel-filters-context";
+import { PanelViewsControl } from "./panel-views-control";
+import type { PanelFiltersState } from "./panel-views";
 import { useWorkspaceTab } from "./workspace-tab-context";
 import { useDeepLinkRowFlash, flashOutlineClass } from "./use-deeplink-row-flash";
 import { TABLE_HEAD_CLASS } from "./table-styles";
@@ -45,6 +48,12 @@ import { useResizable } from "./use-resizable";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton } from "./task-manager-ui";
 import { InfoTooltip } from "./info-tooltip";
+
+const RAID_FILTER_DEFAULTS: PanelFiltersState = {
+  search: "",
+  filters: { category: "All", severity: "All", status: "All" },
+  sort: null,
+};
 
 const RAID_COL_WIDTHS = {
   id: 60,
@@ -116,7 +125,7 @@ const severityRank: Record<RaidSeverity, number> = {
 
 // --- Component -----------------------------------------------------------
 
-function RaidPanelInner({
+function RaidPanelBody({
   lang,
   tasks,
   raid,
@@ -133,19 +142,15 @@ function RaidPanelInner({
   onCreateMitigationTask,
   onJumpToTask,
 }: RaidPanelProps) {
-  const [categoryFilter, setCategoryFilter] = useState<"All" | RaidCategory>(
-    "All",
-  );
-  const [severityFilter, setSeverityFilter] = useState<"All" | RaidSeverity>(
-    "All",
-  );
-  const [statusFilter, setStatusFilter] = useState<"All" | "Open" | "Closed">(
-    "All",
-  );
-  const [search, setSearch] = useState("");
-  const [sort, setSort] = useState<{ key: RaidSortKey; dir: "asc" | "desc" } | null>(null);
+  const pf = usePanelFilters();
+  const { search, sort } = pf;
+  const categoryFilter = pf.filters.category;
+  const severityFilter = pf.filters.severity;
+  const statusFilter = pf.filters.status;
   const toggleSort = (key: RaidSortKey) =>
-    setSort((s) => (s?.key !== key ? { key, dir: "asc" } : s.dir === "asc" ? { key, dir: "desc" } : null));
+    pf.setSort(
+      pf.sort?.key !== key ? { key, dir: "asc" } : pf.sort.dir === "asc" ? { key, dir: "desc" } : null,
+    );
 
   // Modal: null = closed, otherwise we're editing a draft (which may or may
   // not already exist in `raid`). `isNew` distinguishes — needed because
@@ -199,7 +204,7 @@ function RaidPanelInner({
     });
 
     const ordered = sort
-      ? [...filtered].sort((a, b) => compareRaid(a, b, sort.key, sort.dir))
+      ? [...filtered].sort((a, b) => compareRaid(a, b, sort.key as RaidSortKey, sort.dir))
       : filtered.slice().sort((a, b) => {
           const aClosed = isTerminalStatus(a.status, a.category);
           const bClosed = isTerminalStatus(b.status, b.category);
@@ -216,7 +221,7 @@ function RaidPanelInner({
   }, [raid, filterTaskId, categoryFilter, severityFilter, statusFilter, search, sort]);
 
   const effectiveCategory: RaidCategory =
-    categoryFilter === "All" ? "R" : categoryFilter;
+    categoryFilter === "All" ? "R" : (categoryFilter as RaidCategory);
 
   function openNew(category: RaidCategory = "R") {
     const probability: RiskScale = 3;
@@ -344,7 +349,7 @@ function RaidPanelInner({
       <input
         type="search"
         value={search}
-        onChange={(e) => setSearch(e.target.value)}
+        onChange={(e) => pf.setSearch(e.target.value)}
         placeholder={t(lang, "raidSearchPlaceholder")}
         aria-label={t(lang, "raidSearchPlaceholder")}
         title={t(lang, "raidSearchHint")}
@@ -353,7 +358,7 @@ function RaidPanelInner({
       <select
         value={categoryFilter}
         onChange={(e) =>
-          setCategoryFilter(e.target.value as "All" | RaidCategory)
+          pf.setFilter("category", e.target.value)
         }
         aria-label={t(lang, "raidCategory")}
         title={t(lang, "raidCategoryFilterHint")}
@@ -369,7 +374,7 @@ function RaidPanelInner({
       <select
         value={severityFilter}
         onChange={(e) =>
-          setSeverityFilter(e.target.value as "All" | RaidSeverity)
+          pf.setFilter("severity", e.target.value)
         }
         aria-label={t(lang, "raidSeverity")}
         title={t(lang, "raidSeverityFilterHint")}
@@ -385,7 +390,7 @@ function RaidPanelInner({
       <select
         value={statusFilter}
         onChange={(e) =>
-          setStatusFilter(e.target.value as "All" | "Open" | "Closed")
+          pf.setFilter("status", e.target.value)
         }
         aria-label={t(lang, "raidStatus")}
         title={t(lang, "raidStatusFilterHint")}
@@ -409,10 +414,7 @@ function RaidPanelInner({
         <button
           type="button"
           onClick={() => {
-            setSearch("");
-            setCategoryFilter("All");
-            setSeverityFilter("All");
-            setStatusFilter("All");
+            pf.reset();
             onClearTaskFilter();
           }}
           title={t(lang, "resetFiltersHint")}
@@ -423,6 +425,7 @@ function RaidPanelInner({
       )}
       <ResetColWidthsButton onClick={resetColWidths} lang={lang} />
       <ResetSizeButton onClick={resetRaidSize} lang={lang} />
+      <PanelViewsControl lang={lang} view="raid" onApply={() => { if (filterTaskId !== null) onClearTaskFilter?.(); }} />
     </div>
   );
 
@@ -678,4 +681,12 @@ function RaidPanelInner({
 // unrelated reasons (search keystrokes, column drag, etc.). Memoization
 // relies on the handler props being stable refs — TaskManager wraps them in
 // useCallback for that reason.
-export const RaidPanel = memo(RaidPanelInner);
+const RaidPanelMemo = memo(RaidPanelBody);
+
+export function RaidPanel(props: RaidPanelProps) {
+  return (
+    <PanelFiltersProvider defaults={RAID_FILTER_DEFAULTS}>
+      <RaidPanelMemo {...props} />
+    </PanelFiltersProvider>
+  );
+}
