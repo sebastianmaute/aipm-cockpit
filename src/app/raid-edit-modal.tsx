@@ -43,6 +43,7 @@ import { describeTextCap } from "./sanitize-report";
 import { TASK_NAME_MAX, TEXTAREA_MAX, ASSIGNEE_MAX } from "./sanitize";
 import { useToastContext } from "./toast-context";
 import { InfoTooltip } from "./info-tooltip";
+import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
 
 export type RaidEditModalProps = {
   lang: Lang;
@@ -238,7 +239,7 @@ export function RaidEditModal({
             type="button"
             onClick={onCancel}
             aria-label={t(lang, "cancel")}
-            className="rounded-md p-2 text-foreground hover:bg-surface-muted hover:text-AIPM-dark-blue"
+            className={`rounded-md p-2 text-foreground hover:bg-surface-muted hover:text-AIPM-dark-blue ${INTERACTIVE}`}
           >
             <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-4 w-4">
               <path
@@ -310,7 +311,7 @@ export function RaidEditModal({
               <button
                 type="button"
                 onClick={() => setCategoryUnlocked(true)}
-                className="self-start text-[11px] font-medium text-muted-foreground underline-offset-2 hover:text-AIPM-dark-blue hover:underline"
+                className={`self-start text-[11px] font-medium text-muted-foreground underline-offset-2 hover:text-AIPM-dark-blue hover:underline ${INTERACTIVE}`}
               >
                 {t(lang, "raidAdvancedChangeCategory")}
               </button>
@@ -354,7 +355,7 @@ export function RaidEditModal({
               onBlur={(e) => onChange({ ...draft, title: describeTextCap(e.target.value, TASK_NAME_MAX).value.trim() })}
               placeholder={t(lang, "raidPlaceholderTitle")}
               aria-describedby="raid-title-counter"
-              className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
+              className={`rounded-md border border-line bg-surface px-3 py-2 text-sm ${FOCUS_RING} ${TRANSITION}`}
             />
             <CharCounter value={draft.title} max={TASK_NAME_MAX} id="raid-title-counter" lang={lang} />
           </label>
@@ -374,7 +375,7 @@ export function RaidEditModal({
               onBlur={(e) => onChange({ ...draft, description: describeTextCap(e.target.value, TEXTAREA_MAX).value || undefined })}
               placeholder={t(lang, "raidPlaceholderDescription")}
               aria-describedby="raid-description-counter"
-              className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
+              className={`rounded-md border border-line bg-surface px-3 py-2 text-sm ${FOCUS_RING} ${TRANSITION}`}
             />
             <CharCounter value={draft.description ?? ""} max={TEXTAREA_MAX} id="raid-description-counter" lang={lang} />
           </label>
@@ -467,7 +468,7 @@ export function RaidEditModal({
               onChange={(e) =>
                 onChange({ ...draft, ownerEmail: e.target.value || undefined })
               }
-              className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
+              className={`rounded-md border border-line bg-surface px-3 py-2 text-sm ${FOCUS_RING} ${TRANSITION}`}
             />
           </label>
           )}
@@ -482,7 +483,7 @@ export function RaidEditModal({
               type="date"
               value={draft.raisedDate}
               onChange={(e) => onChange({ ...draft, raisedDate: e.target.value })}
-              className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
+              className={`rounded-md border border-line bg-surface px-3 py-2 text-sm ${FOCUS_RING} ${TRANSITION}`}
             />
           </label>
           )}
@@ -499,7 +500,7 @@ export function RaidEditModal({
               onChange={(e) =>
                 onChange({ ...draft, targetDate: e.target.value || undefined })
               }
-              className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
+              className={`rounded-md border border-line bg-surface px-3 py-2 text-sm ${FOCUS_RING} ${TRANSITION}`}
             />
           </label>
           )}
@@ -519,7 +520,7 @@ export function RaidEditModal({
               onBlur={(e) => onChange({ ...draft, mitigation: describeTextCap(e.target.value, TEXTAREA_MAX).value || undefined })}
               placeholder={t(lang, "raidPlaceholderMitigation")}
               aria-describedby="raid-mitigation-counter"
-              className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
+              className={`rounded-md border border-line bg-surface px-3 py-2 text-sm ${FOCUS_RING} ${TRANSITION}`}
             />
             <CharCounter value={draft.mitigation ?? ""} max={TEXTAREA_MAX} id="raid-mitigation-counter" lang={lang} />
           </label>
@@ -584,7 +585,7 @@ export function RaidEditModal({
                         checked={(draft.stakeholderIds ?? []).includes(sh.id)}
                         onChange={() => toggleStakeholder(sh.id)}
                         aria-label={sh.name}
-                        className="accent-AIPM-green"
+                        className={`accent-AIPM-green ${FOCUS_RING} ${TRANSITION}`}
                       />
                       <span className="max-w-[200px] truncate">{sh.name}</span>
                     </label>
@@ -611,7 +612,7 @@ export function RaidEditModal({
                   if (window.confirm(t(lang, "raidConfirmDelete"))) onDelete();
                 }}
                 disabled={isNew}
-                className="rounded-md border border-AIPM-pink/40 bg-surface px-3 py-2 text-sm font-medium text-AIPM-pink-strong hover:bg-AIPM-pink/10 disabled:cursor-not-allowed disabled:opacity-50"
+                className={`rounded-md border border-AIPM-pink/40 bg-surface px-3 py-2 text-sm font-medium text-AIPM-pink-strong hover:bg-AIPM-pink/10 disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
               >
                 {t(lang, "raidDelete")}
               </button>
@@ -621,13 +622,13 @@ export function RaidEditModal({
               <button
                 type="button"
                 onClick={onCancel}
-                className="rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted"
+                className={`rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`}
               >
                 {t(lang, "cancel")}
               </button>
               <button
                 type="submit"
-                className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:bg-AIPM-dark-blue/90"
+                className={`rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:bg-AIPM-dark-blue/90 ${INTERACTIVE}`}
               >
                 {t(lang, "raidSave")}
               </button>

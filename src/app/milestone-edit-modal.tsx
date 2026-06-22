@@ -13,6 +13,7 @@ import { useDraggable } from "./use-draggable";
 import { DocumentLinksFieldGated } from "./document-links-field-gated";
 import { ModalFieldControls } from "./modal-field-controls";
 import { useModalVisibility } from "./use-modal-visibility";
+import { FOCUS_RING, TRANSITION } from "./interaction-styles";
 import type { Milestone, Task } from "./types";
 
 interface Props {
@@ -141,7 +142,7 @@ export function MilestoneEditModal({
               required
               value={draft.name}
               onChange={(e) => update("name", e.target.value)}
-              className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
+              className={`rounded-md border border-line bg-surface px-3 py-2 text-sm ${FOCUS_RING} ${TRANSITION}`}
             />
           </label>
 
@@ -155,7 +156,7 @@ export function MilestoneEditModal({
               required
               value={draft.date}
               onChange={(e) => update("date", e.target.value)}
-              className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
+              className={`rounded-md border border-line bg-surface px-3 py-2 text-sm ${FOCUS_RING} ${TRANSITION}`}
             />
           </label>
           )}
@@ -170,7 +171,7 @@ export function MilestoneEditModal({
               onChange={(e) =>
                 update("description", e.target.value || undefined)
               }
-              className="min-h-16 rounded-md border border-line bg-surface px-3 py-2 text-sm"
+              className={`min-h-16 rounded-md border border-line bg-surface px-3 py-2 text-sm ${FOCUS_RING} ${TRANSITION}`}
             />
           </label>
           )}
@@ -199,6 +200,7 @@ export function MilestoneEditModal({
                     : undefined,
                 )
               }
+              className={`${FOCUS_RING} ${TRANSITION}`}
             />
             <span className="font-medium text-foreground">
               {t(lang, "milestoneAchieved")}
@@ -221,6 +223,7 @@ export function MilestoneEditModal({
                       type="checkbox"
                       checked={draft.linkedTaskIds.includes(tk.id)}
                       onChange={() => toggleLinked(tk.id)}
+                      className={`${FOCUS_RING} ${TRANSITION}`}
                     />
                     <span>
                       #{tk.id} {tk.taskName}

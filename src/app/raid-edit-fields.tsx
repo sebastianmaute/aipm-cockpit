@@ -7,6 +7,7 @@
 import { type Lang, t } from "./i18n";
 import { InfoTooltip } from "./info-tooltip";
 import { type RaidItem, type Task } from "./types";
+import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
 
 export function RaidLinkedTasksField({
   lang,
@@ -43,7 +44,7 @@ export function RaidLinkedTasksField({
           onClick={onCreateMitigationTask}
           disabled={isNew}
           title={t(lang, "raidCreateMitigationTaskHint")}
-          className="rounded-md border border-AIPM-dark-blue bg-surface px-2 py-1 text-xs font-medium text-AIPM-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 dark:border-AIPM-blue dark:text-AIPM-blue"
+          className={`rounded-md border border-AIPM-dark-blue bg-surface px-2 py-1 text-xs font-medium text-AIPM-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 dark:border-AIPM-blue dark:text-AIPM-blue ${INTERACTIVE}`}
         >
           {t(lang, "raidCreateMitigationTask")}
         </button>
@@ -68,7 +69,7 @@ export function RaidLinkedTasksField({
                 onClick={() => removeLinked(tid)}
                 aria-label={t(lang, "raidUnlinkTask")}
                 title={t(lang, "raidUnlinkTask")}
-                className="text-muted-foreground hover:text-AIPM-pink"
+                className={`text-muted-foreground hover:text-AIPM-pink ${INTERACTIVE}`}
               >
                 ×
               </button>
@@ -82,7 +83,7 @@ export function RaidLinkedTasksField({
           value={taskPickerQuery}
           onChange={(e) => setTaskPickerQuery(e.target.value)}
           placeholder={t(lang, "raidLinkPickerPlaceholder")}
-          className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm"
+          className={`w-full rounded-md border border-line bg-surface px-3 py-2 text-sm ${FOCUS_RING} ${TRANSITION}`}
         />
         {taskPickerQuery.trim() !== "" && availableTasks.length > 0 && (
           <ul className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md border border-line bg-surface">
@@ -91,7 +92,7 @@ export function RaidLinkedTasksField({
                 <button
                   type="button"
                   onClick={() => addLinked(tk.id)}
-                  className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-surface-muted"
+                  className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-surface-muted ${INTERACTIVE}`}
                 >
                   <span className="font-mono text-xs text-muted-foreground">
                     #{tk.id}
@@ -153,7 +154,7 @@ export function RaidCausedByField({
                 type="button"
                 onClick={() => onJumpToRaid(p.id)}
                 title={p.title}
-                className="inline-flex items-center gap-1 hover:underline"
+                className={`inline-flex items-center gap-1 hover:underline ${INTERACTIVE}`}
               >
                 <span className="font-mono">
                   ↩ {p.category}#{p.id}
@@ -165,7 +166,7 @@ export function RaidCausedByField({
                 onClick={() => removeCausedBy(p.id)}
                 aria-label={t(lang, "raidCausedByClear")}
                 title={t(lang, "raidCausedByClear")}
-                className="text-muted-foreground hover:text-AIPM-pink"
+                className={`text-muted-foreground hover:text-AIPM-pink ${INTERACTIVE}`}
               >
                 ×
               </button>
@@ -178,7 +179,7 @@ export function RaidCausedByField({
             value={causePickerQuery}
             onChange={(e) => setCausePickerQuery(e.target.value)}
             placeholder={t(lang, "raidCausedByPlaceholder")}
-            className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm"
+            className={`w-full rounded-md border border-line bg-surface px-3 py-2 text-sm ${FOCUS_RING} ${TRANSITION}`}
           />
           {causePickerQuery.trim() !== "" && availableCauses.length > 0 && (
             <ul className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md border border-line bg-surface">
@@ -187,7 +188,7 @@ export function RaidCausedByField({
                   <button
                     type="button"
                     onClick={() => addCausedBy(r.id)}
-                    className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-surface-muted"
+                    className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-surface-muted ${INTERACTIVE}`}
                   >
                     <span className="font-mono text-xs text-muted-foreground">
                       {r.category}#{r.id}
@@ -215,7 +216,7 @@ export function RaidCausedByField({
                 type="button"
                 onClick={() => onJumpToRaid(c.id)}
                 title={c.title}
-                className="inline-flex items-center gap-1 rounded bg-AIPM-purple/10 px-2 py-0.5 text-xs text-AIPM-purple hover:bg-AIPM-purple/20 dark:bg-AIPM-purple/15 dark:hover:bg-AIPM-purple/25"
+                className={`inline-flex items-center gap-1 rounded bg-AIPM-purple/10 px-2 py-0.5 text-xs text-AIPM-purple hover:bg-AIPM-purple/20 dark:bg-AIPM-purple/15 dark:hover:bg-AIPM-purple/25 ${INTERACTIVE}`}
               >
                 <span className="font-mono">{c.category}#{c.id}</span>
                 <span className="max-w-[220px] truncate">{c.title}</span>
