@@ -8,6 +8,11 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.125.0] - 2026-06-22 "Brunner"
+
+### Added
+- Dashboard and Action Center deep-links now scroll the target row into view and briefly highlight it (an `outline-AIPM-green` flash) in its list — across the RAID, milestones, changes, stakeholders, and tasks panels — in addition to opening the item's editor.
+
 ## 0.124.0 "Pratchett" — 2026-06-22
 
 ### Dashboard click-through parity

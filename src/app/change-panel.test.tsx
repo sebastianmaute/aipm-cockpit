@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render } from "@testing-library/react";
 import { useEffect, useRef, type ReactNode } from "react";
 import { FiltersProvider } from "./filters-context";
@@ -42,6 +42,18 @@ function Seed({ tier }: { tier: "full" }) {
 }
 
 describe("ChangePanel", () => {
+  // jsdom has no layout engine and does not define scrollIntoView, so vi.spyOn
+  // can't wrap it. The deep-link flash hook calls it on the matching row — assign a
+  // stub before each test and restore the original (undefined) after, so it never
+  // crashes the render and never leaks into later tests.
+  const originalScrollIntoView = Element.prototype.scrollIntoView;
+  beforeEach(() => {
+    Element.prototype.scrollIntoView = vi.fn();
+  });
+  afterEach(() => {
+    Element.prototype.scrollIntoView = originalScrollIntoView;
+  });
+
   it("renders a row per change", () => {
     const { getByText } = render(<ChangePanel {...base} />, { wrapper: Providers });
     expect(getByText("Alpha scope")).toBeTruthy();
@@ -55,6 +67,13 @@ describe("ChangePanel", () => {
     const { getByText, getByDisplayValue } = render(<ChangePanel {...base} />, { wrapper: Providers });
     fireEvent.click(getByText("Alpha scope"));
     expect(getByDisplayValue("Alpha scope")).toBeTruthy();
+  });
+  it("tags every change row with its id via data-deeplink-row (deep-link flash wiring)", () => {
+    const { container } = render(<ChangePanel {...base} />, { wrapper: Providers });
+    const rows = container.querySelectorAll("[data-deeplink-row]");
+    expect(rows.length).toBe(base.changes.length);
+    const ids = Array.from(rows).map((r) => r.getAttribute("data-deeplink-row"));
+    expect(ids).toContain(String(base.changes[0].id));
   });
 });
 

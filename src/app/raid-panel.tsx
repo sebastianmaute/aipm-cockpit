@@ -12,6 +12,7 @@
 
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { useWorkspaceTab } from "./workspace-tab-context";
+import { useDeepLinkRowFlash, flashOutlineClass } from "./use-deeplink-row-flash";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import { type Lang, t } from "./i18n";
 import { categoryLabel, severityLabel, statusLabel } from "./raid-labels";
@@ -254,6 +255,7 @@ function RaidPanelInner({
   // its edit modal once and immediately clear the pending request so it does
   // not re-fire on subsequent renders.
   const { pendingOpen, clearPendingOpen } = useWorkspaceTab();
+  const { flashId, containerRef } = useDeepLinkRowFlash("raid");
   useEffect(() => {
     if (pendingOpen?.view !== "raid") return;
     const item = raidById.get(pendingOpen.id);
@@ -428,7 +430,7 @@ function RaidPanelInner({
     <div ref={raidRef} className={VIEW_PANE_RESIZABLE_CLASS}>
       {toolbar}
 
-      <div className="min-h-[240px] flex-1 overflow-auto rounded-md border border-line pr-2">
+      <div ref={containerRef} className="min-h-[240px] flex-1 overflow-auto rounded-md border border-line pr-2">
         <table className="min-w-full text-left text-sm">
           <thead className={TABLE_HEAD_CLASS}>
             <tr>
@@ -506,13 +508,18 @@ function RaidPanelInner({
               return (
                 <tr
                   key={item.id}
+                  data-deeplink-row={item.id}
                   onClick={() => openEdit(item)}
-                  className={`cursor-pointer align-top hover:bg-surface-muted ${
+                  className={[
+                    "cursor-pointer align-top hover:bg-surface-muted",
                     // De-emphasize terminal rows with a background tint, NOT opacity
                     // (opacity dims all text/badges below the WCAG AA threshold —
                     // mirrors the task-row precedent).
-                    terminal ? "bg-surface-muted" : ""
-                  }`}
+                    terminal ? "bg-surface-muted" : "",
+                    flashOutlineClass(flashId === item.id),
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
                 >
                   <td className="px-3 py-2 font-mono text-muted-foreground">
                     #{item.id}

@@ -122,6 +122,7 @@ const enUS = {
   dashboardOpenChangeItem: "Open change {0}",
   dashboardActivityOpenView: "Open {0}",
   versionHighlightClickThrough: "Dashboard tiles, lists and chips are now clickable — jump straight to the item or view",
+  versionHighlightDeepLinkFlash: "Deep-links now scroll to and highlight the target row in its list",
 
   tasks: "Tasks",
   tasksCount: "({0})",

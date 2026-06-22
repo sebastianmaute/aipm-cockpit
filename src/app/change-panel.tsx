@@ -9,6 +9,7 @@
 import { memo, useEffect, useMemo, useState } from "react";
 import { ChangeEditModal } from "./change-edit-modal";
 import { useWorkspaceTab } from "./workspace-tab-context";
+import { useDeepLinkRowFlash, flashOutlineClass } from "./use-deeplink-row-flash";
 import {
   changeImpactRag,
   compareChange,
@@ -188,6 +189,7 @@ function ChangePanelInner({
   // edit modal once and clear the pending signal. Skip id 0 — the aggregate
   // change CTA only navigates to the view.
   const { pendingOpen, clearPendingOpen } = useWorkspaceTab();
+  const { flashId, containerRef } = useDeepLinkRowFlash("changes");
   useEffect(() => {
     if (pendingOpen?.view !== "changes" || pendingOpen.id === 0) return;
     const item = changes.find((c) => c.id === pendingOpen.id);
@@ -296,7 +298,7 @@ function ChangePanelInner({
     <div ref={paneRef} className={VIEW_PANE_RESIZABLE_CLASS}>
       {toolbar}
 
-      <div className="min-h-[240px] flex-1 overflow-auto rounded-md border border-line pr-2">
+      <div ref={containerRef} className="min-h-[240px] flex-1 overflow-auto rounded-md border border-line pr-2">
         <table className="min-w-full text-left text-sm">
           <thead className={TABLE_HEAD_CLASS}>
             <tr>
@@ -365,8 +367,11 @@ function ChangePanelInner({
               return (
                 <tr
                   key={item.id}
+                  data-deeplink-row={item.id}
                   onClick={() => openEdit(item)}
-                  className="cursor-pointer align-top hover:bg-surface-muted"
+                  className={["cursor-pointer align-top hover:bg-surface-muted", flashOutlineClass(flashId === item.id)]
+                    .filter(Boolean)
+                    .join(" ")}
                 >
                   <td className="px-3 py-2 font-mono text-muted-foreground">
                     #{item.id}
