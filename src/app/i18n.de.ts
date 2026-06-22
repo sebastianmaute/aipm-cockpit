@@ -126,6 +126,7 @@ export const de: Record<TranslationKey, string> = {
   dashboardActivityOpenView: "{0} öffnen",
   versionHighlightClickThrough: "Dashboard-Kacheln, -Listen und -Chips sind jetzt anklickbar — direkt zum Element oder zur Ansicht springen",
   versionHighlightDeepLinkFlash: "Deep-Links scrollen jetzt zur Zielzeile in der Liste und heben sie hervor",
+  versionHighlightGlobalSearch: "Globale Suche über Aufgaben, RAID, Änderungen, Meilensteine und Stakeholder",
 
   tasks: "Aufgaben",
   tasksCount: "({0})",
