@@ -16,12 +16,14 @@ function Providers({ children }: { children: ReactNode }) {
 /** Probe: mounts the hook for `view` and exposes flashId + a requestOpen trigger. */
 function Probe({ view }: { view: AppView }) {
   const { flashId, containerRef } = useDeepLinkRowFlash(view);
-  const { requestOpen } = useWorkspaceTab();
+  const { requestOpen, clearPendingOpen } = useWorkspaceTab();
   return (
     <div>
       <span data-testid="flash">{String(flashId)}</span>
       <button onClick={() => requestOpen("changes", 5)}>go</button>
       <button onClick={() => requestOpen("changes", -1)}>go-sentinel</button>
+      {/* Simulates the destination panel clearing pendingOpen after a deep-link lands. */}
+      <button onClick={() => clearPendingOpen()}>clear</button>
       <div ref={containerRef}>
         <table>
           <tbody>
@@ -111,6 +113,48 @@ describe("useDeepLinkRowFlash", () => {
         vi.advanceTimersByTime(DEEPLINK_FLASH_MS);
       });
 
+      expect(getByTestId("flash").textContent).toBe("null");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("still scrolls and auto-clears after the panel clears pendingOpen", () => {
+    // Regression: the destination panel clears pendingOpen (object→null) right
+    // after the deep-link lands. The side-effect must NOT be keyed on pendingOpen
+    // (that dep change would tear it down — cancelling the scroll + auto-clear
+    // timer, leaving flashId stuck on the id forever).
+    vi.useFakeTimers();
+    try {
+      const { getByText, getByTestId } = render(
+        <Providers>
+          <Probe view="changes" />
+        </Providers>,
+      );
+
+      fireEvent.click(getByText("go"));
+      expect(getByTestId("flash").textContent).toBe("5");
+
+      // Panel consumes the request — pendingOpen flips to null. With the bug
+      // (effect keyed on pendingOpen) this tears the effect down, cancelling the
+      // pending rAF scroll and the auto-clear timer.
+      fireEvent.click(getByText("clear"));
+      expect(getByTestId("flash").textContent).toBe("5"); // flash still on
+
+      // Flush the rAF (faked under useFakeTimers) → scroll must still fire.
+      act(() => {
+        vi.advanceTimersToNextFrame();
+      });
+      expect(Element.prototype.scrollIntoView).toHaveBeenCalledTimes(1);
+      expect(Element.prototype.scrollIntoView).toHaveBeenCalledWith({
+        block: "center",
+        behavior: "auto",
+      });
+
+      // The auto-clear timer must survive the pendingOpen clear.
+      act(() => {
+        vi.advanceTimersByTime(DEEPLINK_FLASH_MS);
+      });
       expect(getByTestId("flash").textContent).toBe("null");
     } finally {
       vi.useRealTimers();

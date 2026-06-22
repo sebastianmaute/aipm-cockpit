@@ -46,12 +46,17 @@ export function useDeepLinkRowFlash(view: AppView): {
     if (targetId !== null) setFlashId(targetId);
   }
 
+  // Keyed on flashId, NOT pendingOpen: the destination panel clears pendingOpen
+  // (object→null) almost immediately after a deep-link lands, and a pendingOpen
+  // dep would tear this effect down — cancelling the rAF scroll before it fires
+  // and the auto-clear timer (leaving the outline stuck on forever). flashId only
+  // changes when a new request lands or the timer clears it, so the scroll +
+  // auto-clear survive the pendingOpen clear.
   useEffect(() => {
-    const id = targetIdFor(pendingOpen, view);
-    if (id === null) return;
+    if (flashId === null) return;
     const raf = requestAnimationFrame(() => {
       containerRef.current
-        ?.querySelector(`[data-deeplink-row="${id}"]`)
+        ?.querySelector(`[data-deeplink-row="${flashId}"]`)
         ?.scrollIntoView({ block: "center", behavior: "auto" });
     });
     const timer = setTimeout(() => setFlashId(null), DEEPLINK_FLASH_MS);
@@ -59,7 +64,7 @@ export function useDeepLinkRowFlash(view: AppView): {
       cancelAnimationFrame(raf);
       clearTimeout(timer);
     };
-  }, [pendingOpen, view]);
+  }, [flashId]);
 
   return { flashId, containerRef };
 }
