@@ -8,6 +8,11 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.133.0] - 2026-06-22 "Tiptree"
+
+### Added
+- Saved views now extend to the Reports panel. Each of the three report tables (By assignee, By group, By label) persists its sort and filter as named per-device presets, completing the saved-views roadmap (tasks 0.130.0, cross-view 0.132.0, Reports 0.133.0).
+
 ## [0.132.0] - 2026-06-22 "Disch"
 
 ### Added

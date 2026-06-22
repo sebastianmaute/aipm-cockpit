@@ -126,6 +126,7 @@ const enUS = {
   versionHighlightGlobalSearch: "Global search across tasks, RAID, changes, milestones, and stakeholders",
   versionHighlightSavedViews: "Save and re-apply named filter, sort, and column presets for the tasks list",
   versionHighlightSavedViewsPanels: "Saved views now cover the RAID, Milestones, Changes, and Stakeholders panels too",
+  versionHighlightSavedViewsReports: "Saved views now cover the Reports panel too",
 
   tasks: "Tasks",
   tasksCount: "({0})",

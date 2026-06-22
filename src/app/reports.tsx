@@ -36,6 +36,8 @@ import { BudgetReportPanel } from "./budget-report-panel";
 import { ResourcesReportPanel } from "./resources-report";
 import { StakeholderReportPanel } from "./stakeholder-report-panel";
 import { ADDABLE_REPORTS, type AddableReportId } from "./addable-reports";
+import { ReportsViewsControl } from "./reports-views-control";
+import { type ReportsViewState } from "./reports-views";
 import { visibleReports, type FeatureModuleId, ALL_MODULE_IDS } from "./feature-modules";
 import { ActionChips, chipsForView } from "./action-chips";
 import type { AppView } from "./nav-config";
@@ -159,6 +161,20 @@ export function ReportsPanel({
   };
   const { ref: reportsRef, reset: resetReportsSize } = useResizable("lop-app:reports-size");
 
+  const reportsViewState: ReportsViewState = {
+    assignee: { filter: assigneeFilter, sort: assigneeSort },
+    group: { filter: groupFilter, sort: groupSort },
+    label: { filter: labelFilter, sort: labelSort },
+  };
+  const applyReportsView = (s: ReportsViewState) => {
+    setAssigneeFilter(s.assignee.filter);
+    if (s.assignee.sort) setAssigneeSort(s.assignee.sort as AssigneeSort);
+    setGroupFilter(s.group.filter);
+    if (s.group.sort) setGroupSort(s.group.sort as GroupOrLabelSort);
+    setLabelFilter(s.label.filter);
+    if (s.label.sort) setLabelSort(s.label.sort as GroupOrLabelSort);
+  };
+
   if (stats.total === 0) {
     return (
       <div className="rounded-lg border border-dashed border-line p-10 text-center text-sm text-muted-foreground">
@@ -255,7 +271,7 @@ export function ReportsPanel({
   };
 
   return (
-    <ReportCard lang={lang} sizeRef={reportsRef} onResetSize={resetReportsSize} onResetCols={resetAllReports} toolbarExtra={<>{addReportControl}{removeReportControl}</>} title={t(lang, "tabReports")}>
+    <ReportCard lang={lang} sizeRef={reportsRef} onResetSize={resetReportsSize} onResetCols={resetAllReports} toolbarExtra={<><ReportsViewsControl lang={lang} currentState={reportsViewState} onApply={applyReportsView} />{addReportControl}{removeReportControl}</>} title={t(lang, "tabReports")}>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Tile label={t(lang, "reportsTotal")} value={stats.total} />
         <Tile label={t(lang, "reportsOpen")} value={stats.open} />

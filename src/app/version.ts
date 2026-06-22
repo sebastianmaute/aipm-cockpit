@@ -2,11 +2,11 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.132.0";
-export const APP_BUILD_DATE = "2026-06-22"; // 0.132.0: saved views for RAID/Milestones/Changes/Stakeholders (Disch)
+export const APP_VERSION = "0.133.0";
+export const APP_BUILD_DATE = "2026-06-22"; // 0.133.0: saved views for Reports panel (Tiptree)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.132.x line is "Disch" (Thomas M. Disch). */
-export const APP_MILESTONE = "Disch";
+ *  0.133.x line is "Tiptree" (James Tiptree Jr.). */
+export const APP_MILESTONE = "Tiptree";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -139,4 +139,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightGlobalSearch",
   "versionHighlightSavedViews",
   "versionHighlightSavedViewsPanels",
+  "versionHighlightSavedViewsReports",
 ] as const;
