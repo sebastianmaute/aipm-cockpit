@@ -26,7 +26,7 @@ export function WorkspaceTabProvider({ children }: { children: React.ReactNode }
   // `popoutTab` may still carry legacy popout slugs (`resource-report`,
   // `address-book`) that map onto the resources/directory views; route them
   // through slugToView so the initial AppView is always a valid view.
-  const [activeTab, setActiveTab] = useState<AppView>(popoutTab ? slugToView(popoutTab) : "chat");
+  const [activeTab, setActiveTab] = useState<AppView>(popoutTab ? slugToView(popoutTab) : "dashboard");
   const [pendingOpen, setPendingOpen] = useState<{ view: AppView; id: number } | null>(null);
   const requestOpen = useCallback((view: AppView, id: number) => {
     setActiveTab(view);

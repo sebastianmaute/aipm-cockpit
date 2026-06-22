@@ -35,9 +35,9 @@ describe("pendingChatSeed", () => {
 });
 
 describe("WorkspaceTabContext", () => {
-  it("default activeTab is 'chat' and isPopout is false", () => {
+  it("default activeTab is 'dashboard' and isPopout is false", () => {
     const { result } = renderHook(() => useWorkspaceTab(), { wrapper });
-    expect(result.current.activeTab).toBe("chat");
+    expect(result.current.activeTab).toBe("dashboard");
     expect(result.current.isPopout).toBe(false);
   });
 
