@@ -142,11 +142,11 @@ describe("WorkspaceSection", () => {
     expect(document.querySelector("section")).toBeInTheDocument();
   });
 
-  it("chat panel is visible by default (no hidden attr)", () => {
+  it("chat panel is hidden by default (Dashboard is the default view)", () => {
     render(<WorkspaceSection {...makeProps()} />, { wrapper: Wrapper });
     const panelChat = document.getElementById("panel-chat");
     expect(panelChat).not.toBeNull();
-    expect(panelChat).not.toHaveAttribute("hidden");
+    expect(panelChat).toHaveAttribute("hidden");
   });
 
   it("raid panel has hidden attr when activeTab is 'chat'", () => {
