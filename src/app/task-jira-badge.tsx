@@ -41,7 +41,7 @@ function JiraBadgeImpl({ jiraKey, lang, href, issueType }: JiraBadgeProps) {
   if (href) {
     const title = issueType
       ? `${jiraKey} (${issueType}) — ${readOnly}`
-      : readOnly;
+      : `${jiraKey} — ${readOnly}`;
     return (
       <a
         href={href}

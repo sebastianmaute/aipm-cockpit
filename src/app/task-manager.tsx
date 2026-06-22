@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createSettingsLogger, SETTINGS_LOG_DEBOUNCE_MS } from "./settings-log";
+import type { SettingsSectionId } from "./dashboard-coaching";
 import { getBucketReminders } from "./budget-report";
 import { type Lang, t } from "./i18n";
 import { useChatDispatcher } from "./use-chat-dispatcher";
@@ -768,12 +769,12 @@ function TaskManagerInner() {
   // Deep-link the Action Center's "Learning is ON/OFF" pill to the Next-actions
   // settings section (where the learning controls live) — not the bare Settings
   // root. The nonce re-fires navigation even on a repeat click.
-  const [settingsSectionRequest, setSettingsSectionRequest] = useState<{ id: "nextActions" | "ai"; nonce: number } | undefined>(undefined);
+  const [settingsSectionRequest, setSettingsSectionRequest] = useState<{ id: SettingsSectionId; nonce: number } | undefined>(undefined);
   // Monotonic nonce (a ref, never reset) so each deep-link request is distinct
   // even after the previous one was consumed/cleared — robust whether SettingsView
   // remounts (modern) or stays mounted.
   const settingsSectionNonceRef = useRef(0);
-  const onOpenSettingsSection = useCallback((id: "nextActions" | "ai") => {
+  const onOpenSettingsSection = useCallback((id: SettingsSectionId) => {
     settingsSectionNonceRef.current += 1;
     setSettingsSectionRequest({ id, nonce: settingsSectionNonceRef.current });
     setActiveTab("settings");
@@ -1832,7 +1833,7 @@ function TaskManagerInner() {
     learningEnabled: settings.nextActionsLearning?.enabled ?? false,
     expertMode: settings.expertMode === true,
     onOpenLearningSettings,
-    onConfigureAiSettings: isPopout ? undefined : () => onOpenSettingsSection("ai"),
+    onOpenSettingsSection: isPopout ? undefined : onOpenSettingsSection,
     aiAnalysis: isPopout ? undefined : aiAnalysisBundle,
     onPushMilestonesToOutlook: calendarPushEnabled ? calendarPushToOutlook : undefined,
     calendarPushBusy: calendarPushEnabled ? calendarPushBusy : undefined,

@@ -167,7 +167,7 @@ export function WorkspaceSection({
   learningEnabled,
   expertMode,
   onOpenLearningSettings,
-  onConfigureAiSettings,
+  onOpenSettingsSection,
   aiAnalysis,
   onPushMilestonesToOutlook,
   calendarPushBusy,
@@ -786,7 +786,7 @@ export function WorkspaceSection({
               }}
               onNavigate={(v, section) => {
                 setActiveTab(v);
-                if (section === "ai" && onConfigureAiSettings) onConfigureAiSettings();
+                if (section && onOpenSettingsSection) onOpenSettingsSection(section);
               }}
               aiConfigured={!!settings.ai.apiKey?.trim()}
               density={settings.dashboardDensity ?? "comfortable"}
