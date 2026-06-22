@@ -8,6 +8,11 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.131.1] - 2026-06-22 "Aldiss"
+
+### Fixed
+- Hiding the top-bar timezone switcher now also clears any active display-timezone override, so timestamps no longer stay stuck in a previously chosen zone with no visible control to reset it.
+
 ## [0.131.0] - 2026-06-22 "Aldiss"
 
 ### Changed

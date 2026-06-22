@@ -15,8 +15,25 @@ interface DisplayTimezoneValue {
 
 const Ctx = createContext<DisplayTimezoneValue | null>(null);
 
-export function DisplayTimezoneProvider({ effectiveTz, children }: { effectiveTz: string; children: React.ReactNode }) {
+export function DisplayTimezoneProvider({
+  effectiveTz,
+  showSwitcher,
+  children,
+}: {
+  effectiveTz: string;
+  // When the top-bar switcher is hidden (opt-out), a previously-set override
+  // would otherwise be stranded with no control to clear it until reload.
+  // Undefined = caller doesn't gate the switcher → never auto-reset (back-compat).
+  showSwitcher?: boolean;
+  children: React.ReactNode;
+}) {
   const [override, setOverride] = useState<string | undefined>(undefined);
+  // Render-time reconcile (NOT a useEffect — set-state-in-effect is banned):
+  // clear a stranded override the moment the switcher is hidden. Guarded by
+  // `override !== undefined` so it's idempotent and can't loop.
+  if (showSwitcher === false && override !== undefined) {
+    setOverride(undefined);
+  }
   const setDisplayOverride = useCallback((tz: string | undefined) => setOverride(tz), []);
   const resetDisplayTz = useCallback(() => setOverride(undefined), []);
   const value = useMemo<DisplayTimezoneValue>(() => ({
