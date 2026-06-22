@@ -125,6 +125,7 @@ const enUS = {
   versionHighlightDeepLinkFlash: "Deep-links now scroll to and highlight the target row in its list",
   versionHighlightGlobalSearch: "Global search across tasks, RAID, changes, milestones, and stakeholders",
   versionHighlightSavedViews: "Save and re-apply named filter, sort, and column presets for the tasks list",
+  versionHighlightSavedViewsPanels: "Saved views now cover the RAID, Milestones, Changes, and Stakeholders panels too",
 
   tasks: "Tasks",
   tasksCount: "({0})",

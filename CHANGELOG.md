@@ -8,6 +8,11 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.132.0] - 2026-06-22 "Disch"
+
+### Added
+- Saved views now extend beyond the tasks list to the RAID, Milestones, Changes, and Stakeholders panels. Each panel gains the same Save / apply / delete preset control, capturing its search, filters, and sort. Presets are per-device and scoped to their own panel; column widths and pane sizes continue to persist independently.
+
 ## [0.131.1] - 2026-06-22 "Aldiss"
 
 ### Fixed

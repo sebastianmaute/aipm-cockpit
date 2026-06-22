@@ -128,6 +128,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightDeepLinkFlash: "Deep-Links scrollen jetzt zur Zielzeile in der Liste und heben sie hervor",
   versionHighlightGlobalSearch: "Globale Suche über Aufgaben, RAID, Änderungen, Meilensteine und Stakeholder",
   versionHighlightSavedViews: "Benannte Filter-, Sortier- und Spaltenvorlagen für die Aufgabenliste speichern und erneut anwenden",
+  versionHighlightSavedViewsPanels: "Gespeicherte Ansichten gelten jetzt auch für die Bereiche RAID, Meilensteine, Änderungen und Stakeholder",
 
   tasks: "Aufgaben",
   tasksCount: "({0})",
