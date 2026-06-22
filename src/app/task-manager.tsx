@@ -2340,7 +2340,7 @@ function TaskManagerInner() {
         <AiUsageProvider lang={lang} ai={settings.ai} showToast={showToast}>
           <ToastProvider value={showToast}>
             <VoiceCommandProvider value={voiceHandlers}>
-              <DisplayTimezoneProvider effectiveTz={effectiveTz}>{legacyTree}</DisplayTimezoneProvider>
+              <DisplayTimezoneProvider effectiveTz={effectiveTz} showSwitcher={!!settings.showDisplayTzSwitcher}>{legacyTree}</DisplayTimezoneProvider>
             </VoiceCommandProvider>
           </ToastProvider>
         </AiUsageProvider>
@@ -2377,7 +2377,7 @@ function TaskManagerInner() {
       <AiUsageProvider lang={lang} ai={settings.ai} showToast={showToast}>
         <ToastProvider value={showToast}>
           <VoiceCommandProvider value={voiceHandlers}>
-            <DisplayTimezoneProvider effectiveTz={effectiveTz}>
+            <DisplayTimezoneProvider effectiveTz={effectiveTz} showSwitcher={!!settings.showDisplayTzSwitcher}>
             {showTursoUnlock ? (
               <SecretUnlockGate
                 lang={lang}

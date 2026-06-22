@@ -2,8 +2,8 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.131.0";
-export const APP_BUILD_DATE = "2026-06-22"; // 0.131.0 UI shell batch (Aldiss)
+export const APP_VERSION = "0.131.1";
+export const APP_BUILD_DATE = "2026-06-22"; // 0.131.1 fix: clear stranded display-tz override (Aldiss)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The whole
  *  0.131.x line is "Aldiss" (Brian W. Aldiss); patch releases inherit
  *  their minor version's codename rather than getting their own. */
