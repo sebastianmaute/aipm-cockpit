@@ -118,6 +118,13 @@ export const de: Record<TranslationKey, string> = {
   dashboardDensityComfortable: "Komfortabel",
   dashboardDensityCompact: "Kompakt",
   dashboardDensityCompactView: "Kompakte Ansicht",
+  dashboardOpenTasksView: "Aufgabenliste öffnen",
+  dashboardOpenRaidView: "RAID-Register öffnen",
+  dashboardOpenBudgetView: "Budget öffnen",
+  dashboardOpenTrendsView: "Trends öffnen",
+  dashboardOpenChangeItem: "Änderung {0} öffnen",
+  dashboardActivityOpenView: "{0} öffnen",
+  versionHighlightClickThrough: "Dashboard-Kacheln, -Listen und -Chips sind jetzt anklickbar — direkt zum Element oder zur Ansicht springen",
 
   tasks: "Aufgaben",
   tasksCount: "({0})",

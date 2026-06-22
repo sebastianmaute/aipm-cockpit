@@ -115,6 +115,13 @@ const enUS = {
   dashboardDensityComfortable: "Comfortable",
   dashboardDensityCompact: "Compact",
   dashboardDensityCompactView: "Compact view",
+  dashboardOpenTasksView: "Open the tasks list",
+  dashboardOpenRaidView: "Open the RAID register",
+  dashboardOpenBudgetView: "Open the budget",
+  dashboardOpenTrendsView: "Open trends",
+  dashboardOpenChangeItem: "Open change {0}",
+  dashboardActivityOpenView: "Open {0}",
+  versionHighlightClickThrough: "Dashboard tiles, lists and chips are now clickable — jump straight to the item or view",
 
   tasks: "Tasks",
   tasksCount: "({0})",
