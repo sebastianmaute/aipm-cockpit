@@ -138,17 +138,39 @@ export function SortHeaderButton({
   );
 }
 
-export function Tile({ label, value, rag, trend }: { label: React.ReactNode; value: React.ReactNode; rag?: React.ReactNode; trend?: React.ReactNode }) {
-  return (
-    <div className="rounded-lg border border-line bg-surface p-3">
+export function Tile({
+  label, value, rag, trend, onActivate, activateLabel,
+}: {
+  label: React.ReactNode;
+  value: React.ReactNode;
+  rag?: React.ReactNode;
+  trend?: React.ReactNode;
+  onActivate?: () => void;
+  activateLabel?: string;
+}) {
+  const inner = (
+    <>
       <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
       <div className="mt-1 flex items-center justify-between gap-1.5 text-xl font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey tabular-nums">
         <span>{value}</span>
         {rag}
       </div>
       {trend ? <div className="mt-1">{trend}</div> : null}
-    </div>
+    </>
   );
+  if (onActivate) {
+    return (
+      <button
+        type="button"
+        aria-label={activateLabel}
+        onClick={onActivate}
+        className="w-full rounded-lg border border-line bg-surface p-3 text-left hover:border-AIPM-dark-blue hover:bg-surface-muted focus-visible:ring-1 focus-visible:ring-AIPM-green"
+      >
+        {inner}
+      </button>
+    );
+  }
+  return <div className="rounded-lg border border-line bg-surface p-3">{inner}</div>;
 }
 
 export function Section({

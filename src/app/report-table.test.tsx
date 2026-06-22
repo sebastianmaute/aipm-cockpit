@@ -1,5 +1,5 @@
-import { describe, expect, test } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, expect, it, test, vi } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { useRef } from "react";
 import { ReportCard, Section, Tile } from "./report-table";
 
@@ -71,4 +71,19 @@ describe("Tile rag slot", () => {
 test("Tile renders a ReactNode value", () => {
   render(<Tile label="Split" value={<span data-testid="node">1 / 2 / 3</span>} />);
   expect(screen.getByTestId("node")).toHaveTextContent("1 / 2 / 3");
+});
+
+describe("Tile clickable variant", () => {
+  it("renders a button with the activateLabel name and fires onActivate", () => {
+    const onActivate = vi.fn();
+    render(<Tile label="Overdue" value="3" onActivate={onActivate} activateLabel="Open the tasks list" />);
+    const btn = screen.getByRole("button", { name: "Open the tasks list" });
+    fireEvent.click(btn);
+    expect(onActivate).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders a non-interactive tile without onActivate", () => {
+    render(<Tile label="Complete" value="42%" />);
+    expect(screen.queryByRole("button")).toBeNull();
+  });
 });
