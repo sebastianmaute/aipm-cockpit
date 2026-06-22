@@ -130,6 +130,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightSavedViews: "Benannte Filter-, Sortier- und Spaltenvorlagen für die Aufgabenliste speichern und erneut anwenden",
   versionHighlightSavedViewsPanels: "Gespeicherte Ansichten gelten jetzt auch für die Bereiche RAID, Meilensteine, Änderungen und Stakeholder",
   versionHighlightSavedViewsReports: "Gespeicherte Ansichten gelten jetzt auch für den Bereich Berichte",
+  versionHighlightUiBatch0134: "Zweispaltiges Berichtslayout, Spaltenbreiten in Dokumente und Lenkungsausschuss anpassbar und das Suchfeld links neben den Symbolen der oberen Leiste",
 
   tasks: "Aufgaben",
   tasksCount: "({0})",

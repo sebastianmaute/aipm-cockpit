@@ -127,6 +127,7 @@ const enUS = {
   versionHighlightSavedViews: "Save and re-apply named filter, sort, and column presets for the tasks list",
   versionHighlightSavedViewsPanels: "Saved views now cover the RAID, Milestones, Changes, and Stakeholders panels too",
   versionHighlightSavedViewsReports: "Saved views now cover the Reports panel too",
+  versionHighlightUiBatch0134: "Two-column Reports layout, column resizing on Documents and Steering Committee, and the search box moved left of the top-bar icons",
 
   tasks: "Tasks",
   tasksCount: "({0})",
