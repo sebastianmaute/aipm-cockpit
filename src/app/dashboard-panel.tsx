@@ -540,13 +540,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
                     value={`${Math.round(model.burn.actualHours)} / ${Math.round(model.burn.budgetHours)}`}
                     rag={<RagBadge value={ratioHealth(model.burn.actualHours, model.burn.budgetHours)} lang={lang} title="h" />}
                     onActivate={props.onNavigate ? () => props.onNavigate!("budget") : undefined}
-                    activateLabel={`h – ${t(lang, "dashboardOpenBudgetView")}`}
-                  />
-                  <Tile
-                    label={t(lang, "evmCpi")}
-                    value={model.evm.cpi != null ? model.evm.cpi.toFixed(2) : "—"}
-                    onActivate={props.onNavigate ? () => props.onNavigate!("budget") : undefined}
-                    activateLabel={`${t(lang, "evmCpi")} – ${t(lang, "dashboardOpenBudgetView")}`}
+                    activateLabel={`${t(lang, "resourcesUtilModeHours")} – ${t(lang, "dashboardOpenBudgetView")}`}
                   />
                 </div>
               ) : (

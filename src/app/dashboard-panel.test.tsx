@@ -481,15 +481,16 @@ describe("DashboardPanel budget-burn CPI stat", () => {
     },
   ] as never[];
 
-  // The burn-tile group is the flex row that holds the Sub-budget + hours
-  // tiles (the hours tile is labelled "h"); the new CPI stat must live there,
-  // distinct from the separate EVM SPI/CPI block.
-  function burnTileGroup(): HTMLElement {
-    const hoursTile = screen.getByText("h").closest("div.rounded-lg") as HTMLElement;
-    return hoursTile.parentElement as HTMLElement;
+  // CPI is an EVM index → it lives ONLY in the EVM SPI/CPI row (the burn row now
+  // holds just Sub-budget + "h"). The EVM row renders only when there's estimate
+  // coverage; its CPI tile sits beside the SPI tile.
+  function evmCpiTile(): HTMLElement {
+    const spiTile = screen.getByText("SPI").closest("div.rounded-lg") as HTMLElement;
+    const evmRow = spiTile.parentElement as HTMLElement;
+    return within(evmRow).getByText("CPI").closest("div.rounded-lg") as HTMLElement;
   }
 
-  it("shows the CPI value in the budget-burn tile group when model.evm.cpi is present", () => {
+  it("shows the CPI value in the EVM row when model.evm.cpi is present", () => {
     render(
       <DashboardPanel
         lang="en-US"
@@ -506,17 +507,14 @@ describe("DashboardPanel budget-burn CPI stat", () => {
       />,
       { wrapper },
     );
-    const group = burnTileGroup();
-    const cpiLabel = within(group).getByText("CPI");
-    const tile = cpiLabel.closest("div.rounded-lg") as HTMLElement;
-    expect(within(tile).getByText("0.95")).toBeInTheDocument();
+    expect(within(evmCpiTile()).getByText("0.95")).toBeInTheDocument();
   });
 
-  it("shows an em dash in the budget-burn CPI stat when model.evm.cpi is null", () => {
+  it("does not duplicate CPI in the budget-burn (Sub-budget + hours) row", () => {
     render(
       <DashboardPanel
         lang="en-US"
-        tasks={[]}
+        tasks={taskWithCpi}
         raid={[]}
         budgets={minimalBudget as never}
         plan={plan}
@@ -529,10 +527,11 @@ describe("DashboardPanel budget-burn CPI stat", () => {
       />,
       { wrapper },
     );
-    const group = burnTileGroup();
-    const cpiLabel = within(group).getByText("CPI");
-    const tile = cpiLabel.closest("div.rounded-lg") as HTMLElement;
-    expect(within(tile).getByText("—")).toBeInTheDocument();
+    // The burn row (the flex row containing the "h" tile) must NOT contain a CPI
+    // tile — CPI now lives only in the EVM row, so CPI appears exactly once.
+    const burnRow = (screen.getByText("h").closest("div.rounded-lg") as HTMLElement).parentElement as HTMLElement;
+    expect(within(burnRow).queryByText("CPI")).toBeNull();
+    expect(screen.getAllByText("CPI")).toHaveLength(1);
   });
 });
 
