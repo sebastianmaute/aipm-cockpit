@@ -7,7 +7,7 @@ import type { MilestoneHorizon, MilestoneHorizonBuckets, HorizonEntry } from "./
 interface MilestoneHorizonStripProps {
   lang: Lang;
   buckets: MilestoneHorizonBuckets;
-  onOpenMilestone?: () => void;
+  onOpenMilestone?: (id: number) => void;
 }
 
 const ORDER: readonly MilestoneHorizon[] = ["overdue", "thisWeek", "next2Weeks", "later"];
@@ -48,7 +48,7 @@ export function MilestoneHorizonStrip({ lang, buckets, onOpenMilestone }: Milest
                   {onOpenMilestone ? (
                     <button
                       type="button"
-                      onClick={() => onOpenMilestone()}
+                      onClick={() => onOpenMilestone(e.milestone.id)}
                       className="inline-flex items-center gap-1 rounded-full border border-line bg-surface px-2.5 py-0.5 text-xs text-foreground hover:bg-surface-muted hover:border-AIPM-dark-blue"
                     >
                       {alert && (
@@ -76,7 +76,7 @@ export function MilestoneHorizonStrip({ lang, buckets, onOpenMilestone }: Milest
                 {onOpenMilestone ? (
                   <button
                     type="button"
-                    onClick={() => onOpenMilestone()}
+                    onClick={() => onOpenMilestone(-1)}
                     className="rounded-full px-2.5 py-0.5 text-xs text-muted-foreground hover:text-foreground"
                   >
                     {t(lang, "milestoneHorizonMore", String(buckets[k].length - MAX_PER_BUCKET))}
