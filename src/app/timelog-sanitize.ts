@@ -15,7 +15,7 @@ function dedupeLast<T>(items: T[], key: (t: T) => number): T[] {
 }
 
 export function sanitizeTimelogLinks(raw: unknown): TimelogLinks | undefined {
-  if (!raw || typeof raw !== "object") return undefined;
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
   const r = raw as Record<string, unknown>;
   const rawUsers = Array.isArray(r.userLinks) ? r.userLinks : [];
   const rawProjects = Array.isArray(r.projectLinks) ? r.projectLinks : [];
@@ -34,7 +34,7 @@ export function sanitizeTimelogLinks(raw: unknown): TimelogLinks | undefined {
       .map((p): TimelogProjectLink | null => {
         const o = (p && typeof p === "object" ? p : {}) as Record<string, unknown>;
         if (!isNum(o.timelogProjectId)) return null;
-        const bucketId = isNum(o.bucketId) ? o.bucketId : o.bucketId === null ? null : null;
+        const bucketId = isNum(o.bucketId) ? o.bucketId : null;
         return { timelogProjectId: o.timelogProjectId, bucketId, manual: Boolean(o.manual) };
       })
       .filter((x): x is TimelogProjectLink => x !== null),

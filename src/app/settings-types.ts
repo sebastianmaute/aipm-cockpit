@@ -348,6 +348,8 @@ export type Settings = {
   ai: AiConfig;
   notifications: NotificationsConfig;
   jira: JiraConfig;
+  /** Intentionally optional (mirrors other optional-but-defaulted fields like snapshots?);
+   *  readers use `settings.timelog ?? defaultTimelogConfig`. */
   timelog?: TimelogConfig;
   popout: { reuseWindow: boolean };
   resources: { workdayHours: number };

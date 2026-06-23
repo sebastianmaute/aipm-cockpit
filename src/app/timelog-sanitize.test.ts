@@ -6,6 +6,7 @@ describe("sanitizeTimelogLinks", () => {
   it("returns undefined for non-objects", () => {
     expect(sanitizeTimelogLinks(null)).toBeUndefined();
     expect(sanitizeTimelogLinks(42)).toBeUndefined();
+    expect(sanitizeTimelogLinks([])).toBeUndefined();
   });
   it("keeps valid links and coerces manual to boolean", () => {
     const out = sanitizeTimelogLinks({
@@ -52,5 +53,11 @@ describe("sanitizeTimelogConfig", () => {
     expect(out.enabled).toBe(true);
     expect(out.host).toBe("app1.timelog.com");
     expect(out.scopeMode).toBe("auto");
+  });
+  it("passes through a valid tokenInvalidAt string and drops a non-string", () => {
+    const valid = sanitizeTimelogConfig({ tokenInvalidAt: "2026-06-23T10:00:00.000Z" });
+    expect(valid.tokenInvalidAt).toBe("2026-06-23T10:00:00.000Z");
+    const invalid = sanitizeTimelogConfig({ tokenInvalidAt: 12345 });
+    expect(invalid.tokenInvalidAt).toBeUndefined();
   });
 });
