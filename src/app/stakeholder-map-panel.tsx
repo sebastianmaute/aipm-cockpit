@@ -10,6 +10,8 @@ import { quadrantFor, type StakeholderQuadrant } from "./stakeholders";
 import { type Lang, t } from "./i18n";
 import type { Stakeholder } from "./types";
 import { CENTERED_HALF_PANE_CLASS } from "./view-styles";
+import { EmptyState } from "./empty-state";
+import { TRANSITION, PRESS } from "./interaction-styles";
 import { useResizable } from "./use-resizable";
 import { ResetSizeButton } from "./task-manager-ui";
 
@@ -99,9 +101,7 @@ export function StakeholderMapPanel({ lang, stakeholders, onOpenStakeholder }: S
       </div>
 
       {stakeholders.length === 0 ? (
-        <p className="py-10 text-center text-sm text-muted-foreground">
-          {t(lang, "stakeholderMapEmpty")}
-        </p>
+        <EmptyState compact title={t(lang, "stakeholderMapEmpty")} />
       ) : (
         <div className="flex min-h-0 flex-1 gap-2">
           {/* Vertical axis label (Influence) */}
@@ -134,7 +134,7 @@ export function StakeholderMapPanel({ lang, stakeholders, onOpenStakeholder }: S
                           type="button"
                           onClick={() => onOpenStakeholder(s.id)}
                           aria-label={`${t(lang, "edit")} – ${s.name}`}
-                          className="inline-block rounded px-1.5 py-0.5 text-xs font-medium bg-surface text-foreground hover:bg-AIPM-green/15 focus:outline-none focus:ring-2 focus:ring-AIPM-green"
+                          className={`inline-block rounded px-1.5 py-0.5 text-xs font-medium bg-surface text-foreground hover:bg-AIPM-green/15 focus:outline-none focus:ring-2 focus:ring-AIPM-green ${TRANSITION} ${PRESS}`}
                         >
                           {s.name}
                         </button>

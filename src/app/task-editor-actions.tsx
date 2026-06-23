@@ -1,4 +1,5 @@
 import { type Lang, t } from "./i18n";
+import { INTERACTIVE } from "./interaction-styles";
 import type { Task } from "./types";
 
 interface TaskEditorActionsProps {
@@ -14,7 +15,7 @@ interface TaskEditorActionsProps {
 }
 
 const ACTION_BUTTON_CLASS =
-  "rounded-md border border-line bg-surface px-4 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted dark:border-line dark:bg-surface dark:text-foreground dark:hover:bg-surface-muted";
+  `rounded-md border border-line bg-surface px-4 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted dark:border-line dark:bg-surface dark:text-foreground dark:hover:bg-surface-muted ${INTERACTIVE}`;
 
 /**
  * Action buttons for the task editor (modern TaskEditView footer + classic

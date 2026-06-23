@@ -13,6 +13,8 @@ import type { ProjectVersionMeta } from "./version-history";
 import type { VersionChange } from "./version-diff";
 import { VersionDiffView } from "./version-diff-view";
 import { changeKey, type RestoreSelection } from "./version-restore";
+import { EmptyState } from "./empty-state";
+import { FOCUS_RING, TRANSITION, INTERACTIVE } from "./interaction-styles";
 
 interface HistoryPanelProps {
   lang: Lang;
@@ -134,7 +136,7 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
             onClick={() => compareSelected("inline")}
             disabled={selected.length !== 2 || comparing}
             title={t(lang, "historyCompareSelectedHint")}
-            className="rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:border-AIPM-dark-blue disabled:opacity-50"
+            className={`rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:border-AIPM-dark-blue disabled:opacity-50 ${INTERACTIVE}`}
           >
             {t(lang, "historyCompareSelected")}
           </button>
@@ -143,7 +145,7 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
             onClick={() => compareSelected("sideBySide")}
             disabled={selected.length !== 2 || comparing}
             title={t(lang, "historyCompareSideBySideHint")}
-            className="rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:border-AIPM-dark-blue disabled:opacity-50"
+            className={`rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:border-AIPM-dark-blue disabled:opacity-50 ${INTERACTIVE}`}
           >
             {t(lang, "historyCompareSideBySide")}
           </button>
@@ -156,13 +158,13 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
                 onChange={(e) => setDraftLabel(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") confirmSave(); else if (e.key === "Escape") cancelSave(); }}
                 placeholder={t(lang, "historyManualLabelPrompt")}
-                className="rounded-md border border-line bg-surface px-3 py-1.5 text-sm text-foreground focus:border-AIPM-dark-blue focus:outline-none"
+                className={`rounded-md border border-line bg-surface px-3 py-1.5 text-sm text-foreground focus:border-AIPM-dark-blue focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
               />
               <button
                 type="button"
                 onClick={confirmSave}
                 disabled={busy}
-                className="rounded-md bg-AIPM-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+                className={`rounded-md bg-AIPM-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 ${INTERACTIVE}`}
               >
                 {t(lang, "add")}
               </button>
@@ -170,7 +172,7 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
                 type="button"
                 onClick={cancelSave}
                 aria-label={t(lang, "cancel")}
-                className="rounded-full px-1 text-muted-foreground hover:text-AIPM-pink"
+                className={`rounded-full px-1 text-muted-foreground hover:text-AIPM-pink ${INTERACTIVE}`}
               >
                 ×
               </button>
@@ -180,7 +182,7 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
               type="button"
               onClick={() => setNaming(true)}
               disabled={busy}
-              className="rounded-md bg-AIPM-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+              className={`rounded-md bg-AIPM-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 ${INTERACTIVE}`}
             >
               {t(lang, "historySaveNow")}
             </button>
@@ -189,7 +191,7 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
       </div>
 
       {versions.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{t(lang, "historyEmpty")}</p>
+        <EmptyState compact title={t(lang, "historyEmpty")} />
       ) : (
         <ul className="flex flex-col gap-1">
           {versions.map((v) => (
@@ -214,7 +216,7 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
                   onClick={() => { setSideBySide(false); setCompareLabels(null); setCompareFrom({ id: v.id, label: labelOf(v) }); setRestoreFrom({ id: v.id, label: labelOf(v) }); setSelection({}); void runDiff(v.id, "now"); }}
                   disabled={comparing}
                   title={t(lang, "historyCompareVsNowHint")}
-                  className="cursor-pointer text-xs text-AIPM-dark-blue hover:underline disabled:opacity-50"
+                  className={`cursor-pointer text-xs text-AIPM-dark-blue hover:underline disabled:opacity-50 ${INTERACTIVE}`}
                 >
                   {t(lang, "historyCompareVsNow")}
                 </button>
@@ -223,7 +225,7 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
                   onClick={() => { void restoreWholeVersion(v); }}
                   disabled={busy || comparing}
                   title={t(lang, "historyRestoreStateHint")}
-                  className="cursor-pointer rounded-md border border-line px-2 py-0.5 text-xs font-medium text-AIPM-dark-blue transition-colors hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 dark:text-AIPM-light-grey"
+                  className={`cursor-pointer rounded-md border border-line px-2 py-0.5 text-xs font-medium text-AIPM-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 dark:text-AIPM-light-grey ${INTERACTIVE}`}
                 >
                   {t(lang, "historyRestoreState")}
                 </button>
@@ -247,7 +249,7 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
                   disabled={Object.keys(selection).length === 0}
                   onClick={() => { const cf = compareFrom; if (cf) void restore(cf.id, selection, cf.label).then(() => { setSelection({}); setDiff(null); setCompareFrom(null); setRestoreFrom(null); }); }}
                   title={t(lang, "historyRestoreSelectedHint")}
-                  className="rounded-md bg-AIPM-dark-blue px-3 py-1 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
+                  className={`rounded-md bg-AIPM-dark-blue px-3 py-1 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50 ${INTERACTIVE}`}
                 >
                   {t(lang, "historyRestoreSelected")}
                 </button>
@@ -256,7 +258,7 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
                 type="button"
                 onClick={() => { setDiff(null); setSelected([]); setSelection({}); setCompareFrom(null); setRestoreFrom(null); setSideBySide(false); setCompareLabels(null); }}
                 aria-label={t(lang, "alertModalClose")}
-                className="cursor-pointer rounded-full px-1 text-muted-foreground hover:text-AIPM-pink"
+                className={`cursor-pointer rounded-full px-1 text-muted-foreground hover:text-AIPM-pink ${INTERACTIVE}`}
               >
                 ×
               </button>

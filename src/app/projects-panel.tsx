@@ -34,6 +34,8 @@ import { ResetSizeButton } from "./task-manager-ui";
 import { TypeToConfirmDialog } from "./type-to-confirm-dialog";
 import { useResizable } from "./use-resizable";
 import { CENTERED_HALF_PANE_CLASS } from "./view-styles";
+import { EmptyState } from "./empty-state";
+import { INTERACTIVE, TRANSITION, PRESS } from "./interaction-styles";
 import { type ProjectMeta, type Resource } from "./types";
 
 /** File formats a brand-new project's workspace can be created in.
@@ -53,14 +55,14 @@ const EXPORT_FORMAT_LABEL: Record<ExportFormat, string> = {
 };
 
 const PRIMARY_BUTTON_CLASS =
-  "rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-AIPM-dark-blue focus:ring-offset-2";
+  `rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-AIPM-dark-blue focus:ring-offset-2 ${TRANSITION} ${PRESS}`;
 
 const SECONDARY_BUTTON_CLASS =
-  "rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted";
+  `rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`;
 
 /** Destructive (pink) action button — delete / archive / permanent-delete. */
 const DESTRUCTIVE_BUTTON_CLASS =
-  "rounded-md border border-AIPM-pink/40 bg-surface px-3 py-1.5 text-sm font-medium text-AIPM-pink-strong hover:bg-AIPM-pink/10 dark:border-AIPM-pink/50";
+  `rounded-md border border-AIPM-pink/40 bg-surface px-3 py-1.5 text-sm font-medium text-AIPM-pink-strong hover:bg-AIPM-pink/10 dark:border-AIPM-pink/50 ${INTERACTIVE}`;
 
 export interface ProjectsPanelProps {
   projects: ProjectRegistryEntry[];
@@ -217,9 +219,7 @@ export function ProjectsPanel({
       {/* List ----------------------------------------------------------- */}
       <div className="min-h-0 flex-1 overflow-auto pr-2 pt-4">
         {projects.length === 0 ? (
-          <p className="text-sm italic text-muted-foreground">
-            {t(lang, "projectsEmptyTitle")}
-          </p>
+          <EmptyState compact title={t(lang, "projectsEmptyTitle")} />
         ) : (
           <ul className="flex flex-col gap-2">
             {projects.map((p) => {
@@ -300,7 +300,7 @@ export function ProjectsPanel({
                                       type="button"
                                       role="menuitem"
                                       onClick={() => handleExport(fmt)}
-                                      className="block w-full px-3 py-1.5 text-left text-sm hover:bg-surface-muted"
+                                      className={`block w-full px-3 py-1.5 text-left text-sm hover:bg-surface-muted ${INTERACTIVE}`}
                                     >
                                       {EXPORT_FORMAT_LABEL[fmt]}
                                     </button>
@@ -361,9 +361,7 @@ export function ProjectsPanel({
               {t(lang, "projectsArchived")}
             </h3>
             {(archivedProjects ?? []).length === 0 ? (
-              <p className="text-sm italic text-muted-foreground">
-                {t(lang, "projectsEmptyTitle")}
-              </p>
+              <EmptyState compact title={t(lang, "projectsEmptyTitle")} />
             ) : (
               <ul className="flex flex-col gap-2">
                 {(archivedProjects ?? []).map((p) => (

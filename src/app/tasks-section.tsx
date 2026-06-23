@@ -18,6 +18,7 @@ import { TABLE_HEAD_CLASS } from "./table-styles";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { ActionChips, chipsForView } from "./action-chips";
 import { SavedViewsControl } from "./saved-views-control";
+import { FOCUS_RING, INTERACTIVE, TRANSITION } from "./interaction-styles";
 import type { SuggestedAction } from "./next-actions/types";
 import {
   EraserIcon,
@@ -46,7 +47,7 @@ const CONFIGURABLE_COLS: Array<{ key: string; labelKey: TranslationKey }> = [
 ];
 
 const inputClass =
-  "w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none focus:ring-1 focus:ring-AIPM-green";
+  `w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none ${FOCUS_RING} ${TRANSITION}`;
 
 export interface TasksSectionProps {
   lang: Lang;
@@ -264,7 +265,7 @@ export function TasksSection({
               aria-label={t(lang, "colConfigTitle")}
               title={t(lang, "colConfigTitle")}
               aria-expanded={colConfigOpen}
-              className="rounded-md p-1.5 text-muted-foreground hover:bg-surface-muted hover:text-muted-foreground"
+              className={`rounded-md p-1.5 text-muted-foreground hover:bg-surface-muted hover:text-muted-foreground ${INTERACTIVE}`}
             >
               <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-4 w-4">
                 <path fillRule="evenodd" d="M7.84 1.804A1 1 0 018.82 1h2.36a1 1 0 01.98.804l.25 1.252a6.013 6.013 0 011.317.757l1.198-.42a1 1 0 011.15.376l1.18 2.044a1 1 0 01-.205 1.274l-.96.836a6.02 6.02 0 010 1.514l.96.836a1 1 0 01.205 1.274l-1.18 2.044a1 1 0 01-1.15.376l-1.198-.42a6.014 6.014 0 01-1.317.757l-.25 1.252a1 1 0 01-.98.804H8.82a1 1 0 01-.98-.804l-.25-1.252a6.013 6.013 0 01-1.317-.757l-1.198.42a1 1 0 01-1.15-.376L2.745 13.3a1 1 0 01.205-1.274l.96-.836a6.023 6.023 0 010-1.514l-.96-.836a1 1 0 01-.205-1.274L3.925 5.52a1 1 0 011.15-.376l1.198.42a6.013 6.013 0 011.317-.757l.25-1.252zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
@@ -334,7 +335,7 @@ export function TasksSection({
               type="button"
               aria-pressed={tasksViewMode === "table"}
               onClick={() => setSettings((s) => ({ ...s, tasksViewMode: "table" }))}
-              className={`px-2 py-1 text-xs ${tasksViewMode === "table" ? "bg-AIPM-dark-blue text-white" : "text-muted-foreground hover:bg-surface-muted"}`}
+              className={`px-2 py-1 text-xs ${tasksViewMode === "table" ? "bg-AIPM-dark-blue text-white" : "text-muted-foreground hover:bg-surface-muted"} ${INTERACTIVE}`}
             >
               {t(lang, "tasksViewTable")}
             </button>
@@ -342,7 +343,7 @@ export function TasksSection({
               type="button"
               aria-pressed={tasksViewMode === "board"}
               onClick={() => setSettings((s) => ({ ...s, tasksViewMode: "board" }))}
-              className={`px-2 py-1 text-xs ${tasksViewMode === "board" ? "bg-AIPM-dark-blue text-white" : "text-muted-foreground hover:bg-surface-muted"}`}
+              className={`px-2 py-1 text-xs ${tasksViewMode === "board" ? "bg-AIPM-dark-blue text-white" : "text-muted-foreground hover:bg-surface-muted"} ${INTERACTIVE}`}
             >
               {t(lang, "tasksViewBoard")}
             </button>
@@ -357,7 +358,7 @@ export function TasksSection({
             }}
             aria-label={t(lang, "addTaskButton")}
             title={t(lang, "addTaskButton")}
-            className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90"
+            className={`rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90 ${INTERACTIVE}`}
           >
             + {t(lang, "addTaskButton")}
           </button>
@@ -371,7 +372,7 @@ export function TasksSection({
                   ? t(lang, "jiraSync")
                   : t(lang, "jiraSyncNoScope")
               }
-              className="inline-flex items-center gap-1.5 rounded-md border border-AIPM-dark-blue bg-surface px-2.5 py-1.5 text-xs font-medium text-AIPM-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50"
+              className={`inline-flex items-center gap-1.5 rounded-md border border-AIPM-dark-blue bg-surface px-2.5 py-1.5 text-xs font-medium text-AIPM-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
             >
               <svg
                 viewBox="0 0 20 20"
@@ -393,7 +394,7 @@ export function TasksSection({
             onClick={resetTableSize}
             aria-label={t(lang, "tableResetSizeHint")}
             title={t(lang, "tableResetSizeHint")}
-            className="rounded-md border border-line bg-surface p-1.5 text-muted-foreground hover:bg-surface-muted hover:text-foreground"
+            className={`rounded-md border border-line bg-surface p-1.5 text-muted-foreground hover:bg-surface-muted hover:text-foreground ${INTERACTIVE}`}
           >
             <ResetSizeIcon />
           </button>
@@ -404,7 +405,7 @@ export function TasksSection({
             disabled={tasks.length === 0}
             aria-label={t(lang, "clearAll")}
             title={t(lang, "clearAll")}
-            className="rounded-md border border-line bg-surface p-1.5 text-muted-foreground hover:bg-surface-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+            className={`rounded-md border border-line bg-surface p-1.5 text-muted-foreground hover:bg-surface-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
           >
             <EraserIcon />
           </button>
@@ -486,7 +487,7 @@ export function TasksSection({
             <button
               type="button"
               onClick={handleBulkSendInquiry}
-              className="rounded-md bg-AIPM-green px-3 py-1.5 text-sm font-medium text-AIPM-dark-blue hover:opacity-90"
+              className={`rounded-md bg-AIPM-green px-3 py-1.5 text-sm font-medium text-AIPM-dark-blue hover:opacity-90 ${INTERACTIVE}`}
             >
               {t(lang, "bulkSendInquiries")}
             </button>
@@ -494,14 +495,14 @@ export function TasksSection({
               type="button"
               onClick={() => setBulkEditOpen((o) => !o)}
               aria-pressed={bulkEditOpen}
-              className="rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted"
+              className={`rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`}
             >
               {t(lang, "bulkEdit")}
             </button>
             <button
               type="button"
               onClick={clearSelection}
-              className="rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted"
+              className={`rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`}
             >
               {t(lang, "clearSelection")}
             </button>
@@ -621,7 +622,7 @@ export function TasksSection({
                     type="button"
                     onClick={() => { handleCancelEdit(); setTaskModalOpen(true); }}
                     aria-label={t(lang, "addTask")}
-                    className="group flex w-full cursor-pointer items-center gap-2 border-b border-dashed border-line px-3 py-1.5 text-sm text-muted-foreground hover:bg-AIPM-dark-blue/5 hover:text-AIPM-dark-blue dark:hover:bg-white/5"
+                    className={`group flex w-full cursor-pointer items-center gap-2 border-b border-dashed border-line px-3 py-1.5 text-sm text-muted-foreground hover:bg-AIPM-dark-blue/5 hover:text-AIPM-dark-blue dark:hover:bg-white/5 ${INTERACTIVE}`}
                   >
                     <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-3.5 w-3.5 opacity-50 group-hover:opacity-100">
                       <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />

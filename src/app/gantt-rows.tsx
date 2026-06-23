@@ -3,6 +3,7 @@
 // GanttMilestoneRow (a diamond at the milestone's date). Presentational —
 // GanttPanel owns the data, drag state, and handlers and threads them in.
 import { type Lang, t } from "./i18n";
+import { INTERACTIVE } from "./interaction-styles";
 import { type Absence, type Milestone, type Task } from "./types";
 import { isAchieved, milestoneStatus, MILESTONE_DUE_SOON_WORKDAYS } from "./milestones";
 import { type BarDrag, type GanttBarDrag } from "./use-gantt-bar-drag";
@@ -172,7 +173,7 @@ export function GanttTaskRow({
             onClick={() => onEditTask(task)}
             onPointerDown={(e) => e.stopPropagation()}
             title={`${task.taskName} — ${t(lang, "clickToEdit")}`}
-            className={`truncate rounded-md border border-transparent px-1 py-0.5 text-left hover:border-AIPM-dark-blue hover:bg-surface-muted ${
+            className={`truncate rounded-md border border-transparent px-1 py-0.5 text-left hover:border-AIPM-dark-blue hover:bg-surface-muted ${INTERACTIVE} ${
               isComplete
                 ? "text-muted-foreground line-through"
                 : "text-foreground"
@@ -443,7 +444,7 @@ export function GanttMilestoneRow({
             type="button"
             onClick={() => onEditMilestone(m)}
             title={`${m.name} · ${m.date} — ${t(lang, "clickToEdit")}`}
-            className={`truncate rounded-md border border-transparent px-1 py-0.5 text-left hover:border-AIPM-dark-blue hover:bg-surface-muted ${
+            className={`truncate rounded-md border border-transparent px-1 py-0.5 text-left hover:border-AIPM-dark-blue hover:bg-surface-muted ${INTERACTIVE} ${
               achieved
                 ? "text-muted-foreground line-through"
                 : "text-foreground"
