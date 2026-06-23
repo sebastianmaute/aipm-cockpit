@@ -60,14 +60,11 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
     },
   });
 
-  // Fetched users + project refs are populated by the Fetch handler.
-  // ★ SCOPE NOTE: Timelog does not have a dedicated "list projects" endpoint
-  //   accessible without time-items; project refs are derived from the fetched
-  //   time-items via the sync hook (which doesn't expose raw items) or from
-  //   existing projectLinks. For now, project rows are derived from the current
-  //   persisted projectLinks — newly encountered projects only become visible
-  //   after a sync refreshes the cache (future slice: expose raw items from
-  //   use-timelog-sync and collect distinct project refs there).
+  // Fetched users are populated by the Fetch handler. Project rows come from
+  // `sync.projectRefs` (distinct projects seen in the latest fetch — this lets
+  // brand-new, never-linked Timelog projects appear and be matched) MERGED with
+  // any already-linked projects not present in that fetch (so prior mappings
+  // still render even when no current bookings reference them).
   const [fetchedUsers, setFetchedUsers] = useState<TimelogUser[]>([]);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
@@ -94,20 +91,28 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
     });
   }
 
+  // Hoist obj.member values to scalar locals before any useMemo dep array.
+  const projectLinks = links.projectLinks;
+  const fetchedProjectRefs = sync.projectRefs;
+
   // Derive effective user matches (auto + manual, manual wins)
   const effectiveUserLinks = useMemo(
     () => autoMatchUsers(fetchedUsers, resources, links),
     [fetchedUsers, resources, links],
   );
 
-  // Project refs derived from persisted project links (see SCOPE NOTE above)
+  // Merge fetched project refs with any already-linked projects absent from the
+  // latest fetch (synthetic placeholder name = the id) so prior maps still show.
   const knownProjectRefs = useMemo((): TimelogProjectRef[] => {
-    return links.projectLinks.map((l) => ({
-      id: l.timelogProjectId,
-      name: String(l.timelogProjectId),
-      no: "",
-    }));
-  }, [links.projectLinks]);
+    const seen = new Set(fetchedProjectRefs.map((r) => r.id));
+    const merged: TimelogProjectRef[] = [...fetchedProjectRefs];
+    for (const l of projectLinks) {
+      if (!seen.has(l.timelogProjectId)) {
+        merged.push({ id: l.timelogProjectId, name: String(l.timelogProjectId), no: "" });
+      }
+    }
+    return merged;
+  }, [fetchedProjectRefs, projectLinks]);
 
   const effectiveProjectLinks = useMemo(
     () => autoMatchProjects(knownProjectRefs, budgets, links),

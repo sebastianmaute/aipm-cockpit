@@ -35,6 +35,8 @@ it("self mode aggregates the token user's items and caches them", async () => {
   const { result } = renderHook(() => useTimelogSync(args()));
   await act(async () => { await result.current.sync("2026-06-01", "2026-06-30"); });
   expect(result.current.aggregates?.byBucket[7]["2026-06"].hours).toBe(4);
+  // Distinct project refs collected from the fetched items (item() uses projectId 9)
+  expect(result.current.projectRefs).toEqual([{ id: 9, name: "", no: "" }]);
 });
 
 it("org mode is fail-soft: one employee error does not abort the others", async () => {

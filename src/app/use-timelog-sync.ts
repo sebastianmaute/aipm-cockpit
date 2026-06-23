@@ -13,6 +13,7 @@ import {
 } from "./timelog-api";
 import { aggregateActuals, type ActualsAggregate } from "./timelog-actuals";
 import { saveActualsCache, loadActualsCache } from "./timelog-actuals-store";
+import type { TimelogProjectRef } from "./timelog-match";
 import type { TimelogLinks, TimelogScopeMode, TimelogTimeItem } from "./timelog-types";
 
 type Args = {
@@ -36,6 +37,9 @@ export function useTimelogSync(args: Args) {
 
   const [aggregates, setAggregates] = useState<ActualsAggregate | undefined>(() => loadActualsCache(projectId)?.aggregates);
   const [fetchedAt, setFetchedAt] = useState<string | undefined>(() => loadActualsCache(projectId)?.fetchedAt);
+  // Distinct Timelog projects seen in the most recent fetch. In-memory only —
+  // empty until a Fetch runs (the intended bootstrap path for project matching).
+  const [projectRefs, setProjectRefs] = useState<TimelogProjectRef[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<number | null>(null);
 
@@ -69,8 +73,17 @@ export function useTimelogSync(args: Args) {
         }
 
         const agg = aggregateActuals(items, links);
+        // Collect the distinct projects seen so the matching UI can bootstrap
+        // brand-new (never-linked) Timelog projects from real bookings.
+        const refMap = new Map<number, TimelogProjectRef>();
+        for (const it of items) {
+          if (!refMap.has(it.projectId)) {
+            refMap.set(it.projectId, { id: it.projectId, name: it.projectName, no: it.projectNo });
+          }
+        }
         const at = new Date().toISOString(); // inside callback — purity-rule-safe
         setAggregates(agg);
+        setProjectRefs([...refMap.values()]);
         setFetchedAt(at);
         saveActualsCache(projectId, { fetchedAt: at, aggregates: agg });
         onTokenValid();
@@ -85,5 +98,5 @@ export function useTimelogSync(args: Args) {
     [isPopout, scopeMode, creds, links, projectId, onTokenInvalid, onTokenValid],
   );
 
-  return { aggregates, fetchedAt, busy, error, sync };
+  return { aggregates, fetchedAt, projectRefs, busy, error, sync };
 }

@@ -1,6 +1,6 @@
 // src/app/timelog-panel.test.tsx
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, fireEvent, act, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 import { useEffect, type ReactNode } from "react";
 import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
@@ -11,7 +11,6 @@ import { defaultSettings } from "./settings-types";
 import { t } from "./i18n";
 import type { Resource, BudgetBucket } from "./types";
 import type { TimelogLinks } from "./timelog-types";
-import type { ActualsAggregate } from "./timelog-actuals";
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -40,15 +39,6 @@ vi.mock("./timelog-api", () => ({
   },
 }));
 
-// Defined before vi.mock factories (hoisted) — inline the value in the factory.
-const FIXED_AGGREGATE: ActualsAggregate = {
-  byBucket: { 10: { "2026-06": { hours: 8, billableHours: 6 } } },
-  byResource: { 1: { hours: 8, billableHours: 6 } },
-  unattributed: { hours: 2, billableHours: 0 },
-};
-
-const mockSyncFn = vi.fn().mockResolvedValue(undefined);
-
 vi.mock("./use-timelog-sync", () => ({
   useTimelogSync: vi.fn().mockReturnValue({
     aggregates: {
@@ -57,6 +47,7 @@ vi.mock("./use-timelog-sync", () => ({
       unattributed: { hours: 2, billableHours: 0 },
     },
     fetchedAt: "2026-06-23T10:00:00.000Z",
+    projectRefs: [{ id: 9, name: "ForgeOps", no: "PO-1" }],
     busy: false,
     error: null,
     sync: vi.fn().mockResolvedValue(undefined),
@@ -183,8 +174,8 @@ describe("TimelogPanel", () => {
   });
 
   describe("Projects matching table — row-unique labels and manual links", () => {
-    // knownProjectRefs is synchronously derived from links.projectLinks, so
-    // this table is always populated when INITIAL_LINKS has projectLinks.
+    // Rows come from sync.projectRefs (mock: ForgeOps id 9) MERGED with
+    // already-linked projects absent from the fetch (INITIAL_LINKS: id 99).
 
     it("renders a row-unique accessible name for the project select", () => {
       enableTimelog();
@@ -199,6 +190,50 @@ describe("TimelogPanel", () => {
       // Project id 99 → display id "99" (name === String(id) fallback)
       const expectedLabel = `${t("en-US", "timelogMatchProjects")} – 99`;
       expect(screen.getByRole("combobox", { name: expectedLabel })).toBeInTheDocument();
+    });
+
+    it("renders a row for a freshly fetched (never-linked) project", () => {
+      enableTimelog();
+      render(
+        <>
+          <SeedWorkspace links={INITIAL_LINKS} />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+
+      // sync.projectRefs supplies ForgeOps (id 9) — a project with NO prior link,
+      // proving project matching is bootstrappable from fetched bookings.
+      const expectedLabel = `${t("en-US", "timelogMatchProjects")} – ForgeOps`;
+      expect(screen.getByRole("combobox", { name: expectedLabel })).toBeInTheDocument();
+    });
+
+    it("persists a manual link when a freshly fetched project is mapped to a bucket", () => {
+      enableTimelog();
+      render(
+        <>
+          <SeedWorkspace links={INITIAL_LINKS} />
+          <LinksProbe testId="links-probe" />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+
+      const expectedLabel = `${t("en-US", "timelogMatchProjects")} – ForgeOps`;
+      const select = screen.getByRole("combobox", { name: expectedLabel });
+
+      // Map ForgeOps (id 9) to bucket 10 (Alpha Project)
+      act(() => {
+        fireEvent.change(select, { target: { value: "10" } });
+      });
+
+      const probe = screen.getByTestId("links-probe");
+      const parsed = JSON.parse(probe.textContent ?? "null") as TimelogLinks | null;
+      expect(parsed).not.toBeNull();
+      const link = parsed!.projectLinks.find((l) => l.timelogProjectId === 9);
+      expect(link).toBeDefined();
+      expect(link!.manual).toBe(true);
+      expect(link!.bucketId).toBe(10);
     });
 
     it("persists a manual project link when the user changes the select", () => {
