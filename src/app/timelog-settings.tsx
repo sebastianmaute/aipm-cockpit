@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { t, type Lang } from "./i18n";
+import { FieldNotice } from "./field-feedback";
 import type { TimelogConfig, TimelogScopeMode } from "./timelog-types";
 import { saveSecretValue } from "./use-secrets";
 import { listUsers, getPrivileges } from "./timelog-api";
@@ -14,6 +15,7 @@ interface Props {
 
 export function TimelogSettings({ lang, config, onChange }: Props) {
   const [testResult, setTestResult] = useState<string | null>(null);
+  const [testing, setTesting] = useState(false);
   const set = (patch: Partial<TimelogConfig>) => onChange({ ...config, ...patch });
 
   function handleToken(value: string) {
@@ -22,6 +24,7 @@ export function TimelogSettings({ lang, config, onChange }: Props) {
   }
 
   async function test() {
+    setTesting(true);
     setTestResult(null);
     try {
       const creds = { host: config.host, tenant: config.tenant, token: config.apiToken };
@@ -35,8 +38,13 @@ export function TimelogSettings({ lang, config, onChange }: Props) {
       setTestResult(t(lang, "timelogTestOk", String(users.length), scope));
       set({ tokenInvalidAt: undefined });
     } catch (e) {
-      const status = (e as { status?: number }).status ?? 0;
+      const status =
+        e instanceof Error && typeof (e as unknown as { status?: unknown }).status === "number"
+          ? (e as unknown as { status: number }).status
+          : 0;
       setTestResult(t(lang, "timelogTestFail", String(status)));
+    } finally {
+      setTesting(false);
     }
   }
 
@@ -51,7 +59,6 @@ export function TimelogSettings({ lang, config, onChange }: Props) {
           className="h-4 w-4"
           checked={config.enabled}
           onChange={(e) => set({ enabled: e.target.checked })}
-          aria-label={t(lang, "timelogEnable")}
         />
         <span>{t(lang, "timelogEnable")}</span>
       </label>
@@ -62,7 +69,6 @@ export function TimelogSettings({ lang, config, onChange }: Props) {
             <input
               className={field}
               value={config.host}
-              aria-label={t(lang, "timelogHost")}
               onChange={(e) => set({ host: e.target.value })}
             />
           </label>
@@ -71,7 +77,6 @@ export function TimelogSettings({ lang, config, onChange }: Props) {
             <input
               className={field}
               value={config.tenant}
-              aria-label={t(lang, "timelogTenant")}
               onChange={(e) => set({ tenant: e.target.value })}
             />
           </label>
@@ -81,7 +86,6 @@ export function TimelogSettings({ lang, config, onChange }: Props) {
               className={field}
               type="email"
               value={config.email}
-              aria-label={t(lang, "timelogEmail")}
               onChange={(e) => set({ email: e.target.value })}
             />
           </label>
@@ -90,10 +94,12 @@ export function TimelogSettings({ lang, config, onChange }: Props) {
             <input
               className={field}
               type="password"
-              value={config.apiToken}
+              autoComplete="off"
               aria-label={t(lang, "timelogToken")}
+              value={config.apiToken}
               onChange={(e) => handleToken(e.target.value)}
             />
+            <FieldNotice>{t(lang, "credentialStorageNote")}</FieldNotice>
           </label>
           {config.tokenInvalidAt && (
             <p className="text-xs text-AIPM-pink-strong">{t(lang, "timelogTokenInvalid")}</p>
@@ -103,7 +109,6 @@ export function TimelogSettings({ lang, config, onChange }: Props) {
             <select
               className={field}
               value={config.scopeMode}
-              aria-label={t(lang, "timelogScope")}
               onChange={(e) => set({ scopeMode: e.target.value as TimelogScopeMode })}
             >
               <option value="auto">{t(lang, "timelogScopeAuto")}</option>
@@ -114,7 +119,8 @@ export function TimelogSettings({ lang, config, onChange }: Props) {
           <button
             type="button"
             onClick={() => void test()}
-            className={`self-start rounded-md border border-line bg-surface px-3 py-1 text-xs font-medium text-AIPM-dark-blue dark:text-AIPM-light-grey ${INTERACTIVE}`}
+            disabled={testing}
+            className={`self-start rounded-md border border-line bg-surface px-3 py-1 text-xs font-medium text-AIPM-dark-blue disabled:cursor-not-allowed disabled:opacity-50 dark:text-AIPM-light-grey ${INTERACTIVE}`}
           >
             {t(lang, "timelogTest")}
           </button>
