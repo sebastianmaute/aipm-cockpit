@@ -128,6 +128,9 @@ export function tenantWorkspaceToStatements(ws: Workspace, projectId: string, di
     if (ws.steeringCommittee) {
       out.push(tenantInsert("meta", ["key", "value"], ["steering_committee", JSON.stringify(ws.steeringCommittee)], projectId));
     }
+    if (ws.timelogLinks) {
+      out.push(tenantInsert("meta", ["key", "value"], ["timelog_links", JSON.stringify(ws.timelogLinks)], projectId));
+    }
   }
   out.push({ sql: "COMMIT" });
   return out;

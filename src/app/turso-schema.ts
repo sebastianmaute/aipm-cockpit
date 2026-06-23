@@ -25,6 +25,7 @@ import {
   sanitizeGrade, sanitizeAbsence, sanitizeShift, sanitizeFxRates, sanitizePlan,
   sanitizeSteeringCommittee,
 } from "./sanitize";
+import { sanitizeTimelogLinks } from "./timelog-sanitize";
 import type {
   Task, RaidItem, Absence, Shift, Resource, Role, Discipline, Grade, BudgetBucket, Milestone, ChangeItem, Stakeholder,
 } from "./types";
@@ -156,6 +157,15 @@ export function rowsToWorkspace(results: PipelineResultLike[]): Workspace {
       // malformed — leave undefined
     }
   }
+  const tlRow = rowObjects(byTable.get("meta")).find((r) => r.key === "timelog_links");
+  if (tlRow?.value) {
+    try {
+      const tl = sanitizeTimelogLinks(JSON.parse(tlRow.value));
+      if (tl) ws.timelogLinks = tl;
+    } catch {
+      // malformed — leave undefined
+    }
+  }
   return migrateWorkspaceV9(ws);
 }
 
@@ -197,6 +207,7 @@ export function dirtyWorkspaceTables(prev: Workspace, next: Workspace): Set<stri
   if (prev.fieldVisibility !== next.fieldVisibility) dirty.add("meta");
   if (prev.features !== next.features) dirty.add("meta");
   if (prev.steeringCommittee !== next.steeringCommittee) dirty.add("meta");
+  if (prev.timelogLinks !== next.timelogLinks) dirty.add("meta");
   return dirty;
 }
 
@@ -264,6 +275,15 @@ export function workspaceToStatements(ws: Workspace, dirtyTables?: ReadonlySet<s
         args: [
           { type: "text", value: "steering_committee" },
           { type: "text", value: JSON.stringify(ws.steeringCommittee) },
+        ],
+      });
+    }
+    if (ws.timelogLinks) {
+      out.push({
+        sql: `INSERT INTO meta (key, value) VALUES (?, ?)`,
+        args: [
+          { type: "text", value: "timelog_links" },
+          { type: "text", value: JSON.stringify(ws.timelogLinks) },
         ],
       });
     }

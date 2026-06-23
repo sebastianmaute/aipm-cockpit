@@ -6,6 +6,7 @@
 
 import { defaultResourcePlan } from "./resource-foundation";
 import { sanitizeProjectMeta, sanitizeSteeringCommittee } from "./sanitize";
+import { sanitizeTimelogLinks } from "./timelog-sanitize";
 import { migrateTaskStatus } from "./task-status";
 import {
   type Absence,
@@ -58,6 +59,7 @@ import { sanitizeFeatures, type FeatureModuleId } from "./feature-modules";
 const KV_FIELDVIS_KEY = "fieldVisibility";
 const KV_FEATURES_KEY = "features";
 const KV_STEERING_KEY = "steeringCommittee";
+const KV_TIMELOG_LINKS_KEY = "timelogLinks";
 import {
   type StorageBackend,
   type Workspace,
@@ -123,6 +125,7 @@ export class BrowserBackend implements StorageBackend {
     let fieldVisibility: Workspace["fieldVisibility"] | undefined;
     let features: readonly FeatureModuleId[] | undefined;
     let steeringCommittee: SteeringCommittee | undefined;
+    let timelogLinks: Workspace["timelogLinks"] | undefined;
     try {
       // Independent stores/keys — fetch in parallel instead of ~16 awaits in
       // sequence. Result assembly below keeps the original order/defaults.
@@ -146,6 +149,7 @@ export class BrowserBackend implements StorageBackend {
         idbFieldVisibility,
         idbFeatures,
         idbSteeringCommittee,
+        idbTimelogLinks,
       ] = await Promise.all([
         idbGetAll<Task>(IDB_TASKS_STORE),
         idbGetAll<RaidItem>(IDB_RAID_STORE),
@@ -166,6 +170,7 @@ export class BrowserBackend implements StorageBackend {
         idbGet(KV_FIELDVIS_KEY),
         idbGet(KV_FEATURES_KEY),
         idbGet(KV_STEERING_KEY),
+        idbGet(KV_TIMELOG_LINKS_KEY),
       ]);
       tasks = idbTasks;
       raid = idbRaid;
@@ -193,6 +198,8 @@ export class BrowserBackend implements StorageBackend {
           : undefined;
       // Optional singleton: junk/empty committee sanitizes to undefined.
       steeringCommittee = sanitizeSteeringCommittee(idbSteeringCommittee);
+      // Optional singleton: junk/empty links sanitize to undefined.
+      timelogLinks = sanitizeTimelogLinks(idbTimelogLinks) ?? undefined;
     } catch {
       // IDB unavailable or upgrade failed. Fall through — the legacy
       // migration block below will still try localStorage, and if that's
@@ -215,6 +222,7 @@ export class BrowserBackend implements StorageBackend {
     if (fieldVisibility) raw.fieldVisibility = fieldVisibility;
     if (features !== undefined) raw.features = features;
     if (steeringCommittee) raw.steeringCommittee = steeringCommittee;
+    if (timelogLinks) raw.timelogLinks = timelogLinks;
     const ws = migrateWorkspaceV9(raw);
 
     try {
@@ -339,6 +347,10 @@ export class BrowserBackend implements StorageBackend {
       ws.steeringCommittee
         ? idbSet(KV_STEERING_KEY, ws.steeringCommittee)
         : idbDelete(KV_STEERING_KEY),
+      // Delete-on-absent so cleared timelog links don't linger and reload stale.
+      ws.timelogLinks
+        ? idbSet(KV_TIMELOG_LINKS_KEY, ws.timelogLinks)
+        : idbDelete(KV_TIMELOG_LINKS_KEY),
     ]);
 
     // Refresh baselines so the next save's diff is computed against what's
