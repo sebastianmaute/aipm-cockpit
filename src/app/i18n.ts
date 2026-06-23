@@ -130,6 +130,7 @@ const enUS = {
   versionHighlightUiBatch0134: "Two-column Reports layout, column resizing on Documents and Steering Committee, and the search box moved left of the top-bar icons",
   versionHighlightInteractionStates: "Consistent hover, focus, and press feedback on every control, with loading skeletons and composed empty states across the app",
   versionHighlightBulkEdit: "Select multiple rows in the RAID, Milestones, Changes, and Stakeholders panels and apply field changes to all of them at once",
+  versionHighlightDensityRhythm: "Dashboard compact density now tightens the two-column section gaps too, and the report health and inquiry tile grids share one spacing rhythm",
 
   tasks: "Tasks",
   tasksCount: "({0})",

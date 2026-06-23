@@ -508,7 +508,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
         </Section>
 
         {/* Progress + Budget burn */}
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className={`grid md:grid-cols-2 ${dc.sectionGap}`}>
           <Section title={t(lang, "dashboardProgress")} boxed>
             <div className="flex flex-wrap gap-2">
               <Tile
@@ -598,7 +598,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
         />
 
         {/* Milestones + Changes (side-by-side on large screens) */}
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <div className={`grid grid-cols-1 lg:grid-cols-2 ${dc.sectionGap}`}>
           {showMilestones && (
             <Section title={t(lang, "dashboardMilestones")} boxed>
               <MilestoneHorizonStrip lang={lang} buckets={milestoneBuckets} onOpenMilestone={props.onOpenMilestone} />

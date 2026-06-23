@@ -2,11 +2,11 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.136.0";
-export const APP_BUILD_DATE = "2026-06-23"; // 0.136.0: multi-row bulk edit for RAID/Milestones/Changes/Stakeholders panels (Moorcock)
+export const APP_VERSION = "0.137.0";
+export const APP_BUILD_DATE = "2026-06-23"; // 0.137.0: dashboard compact-density section gaps + report tile-grid rhythm (Bear)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.136.x line is "Moorcock" (Michael Moorcock). */
-export const APP_MILESTONE = "Moorcock";
+ *  0.137.x line is "Bear" (Greg Bear). */
+export const APP_MILESTONE = "Bear";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -143,4 +143,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightUiBatch0134",
   "versionHighlightInteractionStates",
   "versionHighlightBulkEdit",
+  "versionHighlightDensityRhythm",
 ] as const;

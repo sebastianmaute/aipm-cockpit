@@ -133,6 +133,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightUiBatch0134: "Zweispaltiges Berichtslayout, Spaltenbreiten in Dokumente und Lenkungsausschuss anpassbar und das Suchfeld links neben den Symbolen der oberen Leiste",
   versionHighlightInteractionStates: "Einheitliches Hover-, Fokus- und Press-Feedback auf allen Bedienelementen, dazu Lade-Skelette und gestaltete Leerzustände in der gesamten App",
   versionHighlightBulkEdit: "Mehrere Zeilen in den Panels RAID, Meilensteine, Änderungen und Stakeholder auswählen und Feldänderungen auf alle gleichzeitig anwenden",
+  versionHighlightDensityRhythm: "Die kompakte Dichte des Dashboards verkleinert jetzt auch die Abstände der zweispaltigen Bereiche, und die Kachelraster für Berichtsgesundheit und Anfragen nutzen denselben Abstandsrhythmus",
 
   tasks: "Aufgaben",
   tasksCount: "({0})",

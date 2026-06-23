@@ -327,8 +327,13 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   exposes `completed`+`total`. i18n EN+DE.
 - **Density toggle ("fit more on screen"):** per-device Comfortable/Compact, SPACING ONLY (no
   font/palette/contrast change). Pure i18n-free `dashboard-density.ts` `densityClasses(d)` →
-  `{outer,kpiGap,cardPad}` class strings — comfortable REPRODUCES the current literals
-  (`space-y-4`/`gap-2`/`p-3`, a no-op for existing users), compact tightens (`space-y-2`/`gap-1`/`p-2`).
+  `{outer,kpiGap,cardPad,sectionGap}` class strings — comfortable REPRODUCES the current literals
+  (`space-y-4`/`gap-2`/`p-3`/`gap-4`, a no-op for existing users), compact tightens
+  (`space-y-2`/`gap-1`/`p-2`/`gap-2`). `sectionGap` drives the two-column section grids
+  (Progress+Budget, Milestones+Changes) so compact mode compresses them too. ★ Any NEW
+  spacing on a cockpit slice MUST use a `dc.*` class (`outer`/`kpiGap`/`cardPad`/`sectionGap`),
+  NOT a literal `gap-*`/`space-y-*`/`p-*` — a literal ignores compact mode (bit the two section
+  grids: they stayed `gap-4` while everything else compressed).
   `DashboardPanel` takes `density?` (default `"comfortable"`) + `onToggleDensity?`. ★★ TWO controls, ONE
   setting (`settings.dashboardDensity?`, per-device, persisted via `setSettings`→`writeSettings` SPREAD —
   no allowlist edit, mirrors `tasksViewMode`): on-panel toggle button + a `SegmentedControl<DashboardDensity>`

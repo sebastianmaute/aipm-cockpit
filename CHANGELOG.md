@@ -8,6 +8,13 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.137.0] - 2026-06-23 "Bear"
+
+### Changed
+
+- Dashboard compact density now also tightens the gap between the two-column section grids (Progress + Budget, Milestones + Changes). Previously these gaps stayed at the comfortable size, so compact mode compressed everything except them; the spacing is now uniform. Added a `sectionGap` class to `dashboard-density.ts` (comfortable is unchanged — a no-op for existing users).
+- Aligned the Reports health-card tile grid spacing (`gap-2` → `gap-3`) to match the adjacent inquiry tile grid, so the two peer grids share one rhythm.
+
 ## [0.136.0] - 2026-06-23 "Moorcock"
 
 ### Added
