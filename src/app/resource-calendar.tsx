@@ -15,6 +15,7 @@ import { localeFor } from "./date-format";
 import { type Lang, t } from "./i18n";
 import type { Absence, AbsenceType, Resource } from "./types";
 import { resourceDisplayName, splitName } from "./resource-foundation";
+import { INTERACTIVE } from "./interaction-styles";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 
 interface CalendarAssignee {
@@ -287,7 +288,7 @@ function ResourceCalendarInner({
                           onClick={handleClick}
                           title={tip}
                           aria-label={tip}
-                          className={`flex h-full w-full items-center justify-center text-[11px] font-semibold tabular-nums focus:outline-none focus:ring-1 focus:ring-inset focus:ring-AIPM-green ${baseBg}`}
+                          className={`flex h-full w-full items-center justify-center text-[11px] font-semibold tabular-nums focus:ring-inset ${INTERACTIVE} ${baseBg}`}
                         >
                           {hit ? (
                             <span className="text-foreground">

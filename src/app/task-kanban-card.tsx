@@ -4,6 +4,7 @@
 // Jira/RAID/change badges) but laid out for a narrow column. The status
 // <select> and badges are shared with the row via TaskStatusSelect / RaidBadge.
 import { type Lang, priorityLabel, t } from "./i18n";
+import { INTERACTIVE } from "./interaction-styles";
 import { computeTaskHealth, formatHealthTooltip, healthDot, type TaskHealth } from "./health";
 import { isTaskFinished } from "./task-status";
 import { JiraBadge } from "./task-jira-badge";
@@ -59,7 +60,7 @@ export function TaskKanbanCard({
           type="button"
           onClick={() => onEdit(task)}
           title={`${task.taskName} — ${t(lang, "clickToEdit")}`}
-          className="cursor-pointer rounded-md border border-transparent px-1 text-left font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface"
+          className={`cursor-pointer rounded-md border border-transparent px-1 text-left font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface ${INTERACTIVE}`}
         >
           {task.taskName}
         </button>

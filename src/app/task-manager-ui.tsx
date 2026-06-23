@@ -2,6 +2,7 @@
 import type React from "react";
 import { type SortDir, type SortKey } from "./filters-context";
 import { type Lang, t } from "./i18n";
+import { FOCUS_RING, INTERACTIVE } from "./interaction-styles";
 
 export function TabButton({
   active,
@@ -33,7 +34,7 @@ export function TabButton({
         aria-selected={active}
         aria-controls={controls}
         onClick={onClick}
-        className={`py-2 pl-4 text-sm font-medium ${onPopout ? "pr-1" : "pr-4"}`}
+        className={`py-2 pl-4 text-sm font-medium ${FOCUS_RING} ${onPopout ? "pr-1" : "pr-4"}`}
       >
         {children}
       </button>
@@ -46,7 +47,7 @@ export function TabButton({
           }}
           aria-label={popoutLabel}
           title={popoutLabel}
-          className="rounded-tr-md px-1.5 py-2 opacity-50 hover:opacity-100 focus-visible:opacity-100"
+          className={`rounded-tr-md px-1.5 py-2 opacity-50 transition-opacity hover:opacity-100 focus-visible:opacity-100 ${FOCUS_RING}`}
         >
           <svg
             viewBox="0 0 16 16"
@@ -234,7 +235,7 @@ export function SortableTh({
         type="button"
         onClick={() => onClick(sortKey)}
         title={t(lang, "sortBy", label)}
-        className={`inline-flex items-center gap-1 uppercase tracking-wide hover:text-AIPM-green ${isActive ? "text-AIPM-green" : ""}`}
+        className={`inline-flex items-center gap-1 uppercase tracking-wide hover:text-AIPM-green ${INTERACTIVE} ${isActive ? "text-AIPM-green" : ""}`}
       >
         {label}
         <span aria-hidden className="text-[0.65rem]">
@@ -261,7 +262,7 @@ export function ResetColWidthsButton({
       onClick={onClick}
       aria-label={t(lang, "colResetWidthsHint")}
       title={t(lang, "colResetWidthsHint")}
-      className="rounded-md border border-line bg-surface p-1.5 text-muted-foreground hover:bg-surface-muted hover:text-foreground"
+      className={`rounded-md border border-line bg-surface p-1.5 text-muted-foreground hover:bg-surface-muted hover:text-foreground ${INTERACTIVE}`}
     >
       <ResetColWidthsIcon />
     </button>
@@ -281,7 +282,7 @@ export function PrintButton({
       onClick={onClick ?? (() => window.print())}
       aria-label={t(lang, "printHint")}
       title={t(lang, "printHint")}
-      className="inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted print:hidden"
+      className={`inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted print:hidden ${INTERACTIVE}`}
     >
       <PrinterIcon />
       {t(lang, "print")}
@@ -305,7 +306,7 @@ export function ResetSizeButton({
       onClick={onClick}
       aria-label={t(lang, "tableResetSizeHint")}
       title={t(lang, "tableResetSizeHint")}
-      className={`rounded-md border border-line bg-surface p-1.5 text-muted-foreground hover:bg-surface-muted hover:text-foreground ${className ?? ""}`}
+      className={`rounded-md border border-line bg-surface p-1.5 text-muted-foreground hover:bg-surface-muted hover:text-foreground ${INTERACTIVE} ${className ?? ""}`}
     >
       <ResetSizeIcon />
     </button>

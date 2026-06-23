@@ -9,6 +9,7 @@ import { RaidBadge } from "./task-raid-badge";
 import { priorityStyle } from "./task-status-ui";
 import { TaskStatusSelect } from "./task-status-select";
 import { flashOutlineClass } from "./use-deeplink-row-flash";
+import { INTERACTIVE } from "./interaction-styles";
 import { type ChangeItem, type Task, type TaskDependency, type TaskStatus, type RaidItem } from "./types";
 
 export interface RowContextValue {
@@ -214,7 +215,7 @@ function TaskRowImpl({
           onClick={() => onEdit(task)}
           title={`#${task.id} — ${t(lang, "clickToEdit")}`}
           aria-label={`#${task.id} — ${t(lang, "clickToEdit")}`}
-          className="cursor-pointer rounded-md border border-transparent px-2 py-0.5 font-mono text-muted-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted"
+          className={`cursor-pointer rounded-md border border-transparent px-2 py-0.5 font-mono text-muted-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
         >#{task.id}</button>
         {(() => {
           if (!task.jiraKey || !jiraSiteUrl) return null;
@@ -251,7 +252,7 @@ function TaskRowImpl({
           type="button"
           onClick={() => onEdit(task)}
           title={`${task.taskName} — ${t(lang, "clickToEdit")}`}
-          className="cursor-pointer rounded-md border border-transparent px-2 py-0.5 text-left font-medium hover:border-AIPM-dark-blue hover:bg-surface-muted"
+          className={`cursor-pointer rounded-md border border-transparent px-2 py-0.5 text-left font-medium hover:border-AIPM-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
         >{task.taskName}</button>
         {(task.group || (task.labels?.length ?? 0) > 0) && (
           <div className="mt-1 flex flex-wrap gap-1">
@@ -351,7 +352,7 @@ function NotesCellImpl({ notes, isExpanded, taskId }: NotesCellProps) {
         <button
           type="button"
           onClick={() => onToggleNoteExpanded(taskId)}
-          className="self-start text-xs font-medium text-AIPM-dark-blue underline-offset-2 hover:underline dark:text-AIPM-blue"
+          className={`self-start text-xs font-medium text-AIPM-dark-blue underline-offset-2 hover:underline dark:text-AIPM-blue ${INTERACTIVE}`}
           aria-expanded={isExpanded}
         >
           {isExpanded ? t(lang, "showLess") : t(lang, "showMore")}
@@ -385,7 +386,7 @@ function TaskActionsImpl({ task, isPushing }: TaskActionsProps) {
         <button
           type="button"
           onClick={() => onToggleComplete(task)}
-          className="text-xs font-medium text-AIPM-green-strong underline-offset-2 hover:underline"
+          className={`text-xs font-medium text-AIPM-green-strong underline-offset-2 hover:underline ${INTERACTIVE}`}
         >
           {task.completedDate ? t(lang, "reopenTask") : t(lang, "markComplete")}
         </button>
@@ -393,7 +394,7 @@ function TaskActionsImpl({ task, isPushing }: TaskActionsProps) {
           <button
             type="button"
             onClick={() => onSendInquiry(task)}
-            className="text-xs font-medium text-AIPM-dark-blue underline-offset-2 hover:underline dark:text-AIPM-blue"
+            className={`text-xs font-medium text-AIPM-dark-blue underline-offset-2 hover:underline dark:text-AIPM-blue ${INTERACTIVE}`}
           >
             {t(lang, "sendInquiry")}
           </button>
@@ -403,7 +404,7 @@ function TaskActionsImpl({ task, isPushing }: TaskActionsProps) {
             type="button"
             onClick={() => onPushToJira(task.id)}
             disabled={isPushing}
-            className="text-xs font-medium text-AIPM-dark-blue underline-offset-2 hover:underline disabled:cursor-not-allowed disabled:opacity-50 dark:text-AIPM-blue"
+            className={`text-xs font-medium text-AIPM-dark-blue underline-offset-2 hover:underline disabled:cursor-not-allowed disabled:opacity-50 dark:text-AIPM-blue ${INTERACTIVE}`}
           >
             {isPushing ? t(lang, "jiraPushing") : t(lang, "jiraPushToJira")}
           </button>
@@ -413,14 +414,14 @@ function TaskActionsImpl({ task, isPushing }: TaskActionsProps) {
         <button
           type="button"
           onClick={() => onEdit(task)}
-          className="text-xs font-medium text-foreground underline-offset-2 hover:underline"
+          className={`text-xs font-medium text-foreground underline-offset-2 hover:underline ${INTERACTIVE}`}
         >
           {t(lang, "edit")}
         </button>
         <button
           type="button"
           onClick={() => onDelete(task.id)}
-          className="text-xs font-medium text-AIPM-pink-strong underline-offset-2 hover:underline"
+          className={`text-xs font-medium text-AIPM-pink-strong underline-offset-2 hover:underline ${INTERACTIVE}`}
         >
           {t(lang, "delete")}
         </button>

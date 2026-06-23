@@ -28,6 +28,8 @@ import { Sparkline } from "./sparkline";
 import { bucketMilestonesByHorizon } from "./milestones";
 import { MilestoneHorizonStrip } from "./milestone-horizon-strip";
 import { computeCoaching, type SettingsSectionId } from "./dashboard-coaching";
+import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { EmptyState } from "./empty-state";
 import { DashboardCoachingCard } from "./dashboard-coaching-card";
 import { densityClasses, type DashboardDensity } from "./dashboard-density";
 import { navLabelKey, type AppView } from "./nav-config";
@@ -96,7 +98,7 @@ function OverrideSelect({
       <RagBadge value={effective} lang={lang} title={`${label}: ${effective ? healthColorName(effective, lang) : "—"}`} />
       <span className="font-medium">{label}</span>
       <select
-        className="rounded border border-line bg-surface px-1.5 py-0.5 text-sm print:hidden"
+        className={`rounded border border-line bg-surface px-1.5 py-0.5 text-sm print:hidden ${TRANSITION} ${FOCUS_RING}`}
         value={value ?? ""}
         onChange={(e) => onChange((e.target.value || undefined) as "R" | "A" | "G" | undefined)}
       >
@@ -278,7 +280,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
             aria-pressed={density === "compact"}
             title={t(lang, "dashboardDensityCompactView")}
             onClick={() => props.onToggleDensity?.(density === "compact" ? "comfortable" : "compact")}
-            className="rounded-md border border-line bg-surface px-2 py-1 text-xs text-muted-foreground hover:bg-surface-muted focus-visible:ring-1 focus-visible:ring-AIPM-green"
+            className={`rounded-md border border-line bg-surface px-2 py-1 text-xs text-muted-foreground hover:bg-surface-muted ${INTERACTIVE}`}
           >
             {t(lang, "dashboardDensityCompactView")}
           </button>
@@ -290,7 +292,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
             aria-pressed={showTrends}
             title={t(lang, showTrends ? "dashboardHideTrends" : "dashboardShowTrends")}
             onClick={() => props.onToggleTrends?.(!showTrends)}
-            className="rounded-md border border-line bg-surface px-2 py-1 text-xs text-muted-foreground hover:bg-surface-muted focus-visible:ring-1 focus-visible:ring-AIPM-green"
+            className={`rounded-md border border-line bg-surface px-2 py-1 text-xs text-muted-foreground hover:bg-surface-muted ${INTERACTIVE}`}
           >
             {t(lang, showTrends ? "dashboardHideTrends" : "dashboardShowTrends")}
           </button>
@@ -383,7 +385,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
               type="button"
               aria-label={t(lang, props.tursoActive ? "dashboardOpenTrendsView" : "dashboardOpenTasksView")}
               onClick={() => props.onNavigate!(trendView)}
-              className={`block w-full rounded border border-line bg-surface text-left hover:border-AIPM-dark-blue focus-visible:ring-1 focus-visible:ring-AIPM-green ${dc.cardPad}`}
+              className={`block w-full rounded border border-line bg-surface text-left hover:border-AIPM-dark-blue ${INTERACTIVE} ${dc.cardPad}`}
             >
               {sparkBody}
             </button>
@@ -419,7 +421,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
             {t(lang, "dashboardReportDate", today)}
           </span>
           <details className="basis-full print:hidden">
-            <summary className="cursor-pointer text-sm font-medium text-muted-foreground hover:text-foreground">
+            <summary className={`cursor-pointer text-sm font-medium text-muted-foreground hover:text-foreground ${TRANSITION} ${FOCUS_RING}`}>
               {t(lang, "dashboardAdjustHealth")}
             </summary>
             <div className="mt-2 flex flex-wrap items-center gap-4">
@@ -471,7 +473,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
           <div>
             <textarea
               ref={narrativeRef}
-              className="min-h-24 w-full resize-none rounded-md border border-line bg-surface p-2 text-sm"
+              className={`min-h-24 w-full resize-none rounded-md border border-line bg-surface p-2 text-sm ${TRANSITION} ${FOCUS_RING}`}
               placeholder={t(lang, "dashboardNarrativePlaceholder")}
               value={draftNarrative}
               onChange={(e) => setDraftNarrative(e.target.value)}
@@ -483,7 +485,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
                 type="button"
                 onClick={commitNarrative}
                 disabled={draftNarrative.trim() === (status.narrative ?? "")}
-                className="rounded-md bg-AIPM-dark-blue px-3 py-1 text-xs font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                className={`rounded-md bg-AIPM-dark-blue px-3 py-1 text-xs font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
               >
                 {t(lang, "dashboardStatusSave")}
               </button>
@@ -492,7 +494,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
                 onClick={clearNarrative}
                 onMouseDown={(e) => e.preventDefault()}
                 disabled={(status.narrative ?? "") === "" && draftNarrative === ""}
-                className="rounded-md border border-line bg-surface px-3 py-1 text-xs font-medium text-foreground hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50"
+                className={`rounded-md border border-line bg-surface px-3 py-1 text-xs font-medium text-foreground hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
               >
                 {t(lang, "dashboardStatusClear")}
               </button>
@@ -608,7 +610,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
                 {t(lang, "dashboardChangesPending", String(model.changes.pending))}
               </p>
               {model.topChanges.length === 0 ? (
-                <p className="text-sm text-muted-foreground">{t(lang, "dashboardChangesEmpty")}</p>
+                <EmptyState compact title={t(lang, "dashboardChangesEmpty")} />
               ) : (
                 <ul className="space-y-1 text-sm">
                   {model.topChanges.map((c) => {
@@ -627,7 +629,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
                             type="button"
                             aria-label={t(lang, "dashboardOpenChangeItem", c.title)}
                             onClick={() => props.onOpenChange!(c.id)}
-                            className="flex w-full items-center gap-2 rounded-md border border-transparent px-1 py-0.5 text-left hover:border-AIPM-dark-blue hover:bg-surface-muted focus-visible:ring-1 focus-visible:ring-AIPM-green"
+                            className={`flex w-full items-center gap-2 rounded-md border border-transparent px-1 py-0.5 text-left hover:border-AIPM-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
                           >
                             {content}
                           </button>
@@ -662,7 +664,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
         {/* Recent activity (Top actions now lives at the top of the panel) */}
         <Section title={t(lang, "dashboardRecentActivity")} boxed>
           {model.recentActivity.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t(lang, "dashboardEmpty")}</p>
+            <EmptyState compact title={t(lang, "dashboardEmpty")} />
           ) : (
             <ul className="space-y-1 text-sm">
               {model.recentActivity.map((e) => {
@@ -675,7 +677,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
                         type="button"
                         aria-label={`${label} – ${t(lang, "dashboardActivityOpenView", t(lang, navLabelKey(view)))}`}
                         onClick={() => props.onNavigate!(view)}
-                        className="w-full rounded-md border border-transparent px-1 py-0.5 text-left text-muted-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted focus-visible:ring-1 focus-visible:ring-AIPM-green"
+                        className={`w-full rounded-md border border-transparent px-1 py-0.5 text-left text-muted-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
                       >
                         {label}
                       </button>

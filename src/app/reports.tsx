@@ -1,6 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { EmptyState } from "./empty-state";
+import { FOCUS_RING, INTERACTIVE, TRANSITION } from "./interaction-styles";
 import { useColumnResize } from "./use-column-resize";
 import { useResizable } from "./use-resizable";
 import { ColumnResizeHandle } from "./task-manager-ui";
@@ -228,7 +230,7 @@ export function ReportsPanel({
         const id = e.target.value as AddableReportId;
         if (id) onChangeExtraReports?.([...extraReports, id]);
       }}
-      className="rounded-md border border-line bg-surface px-2 py-1.5 text-xs disabled:opacity-50"
+      className={`rounded-md border border-line bg-surface px-2 py-1.5 text-xs disabled:opacity-50 ${FOCUS_RING} ${TRANSITION}`}
     >
       <option value="">{remainingReports.length === 0 ? t(lang, "reportsAddReportNone") : `+ ${t(lang, "reportsAddReport")}`}</option>
       {remainingReports.map((r) => (
@@ -245,7 +247,7 @@ export function ReportsPanel({
         const id = e.target.value as AddableReportId;
         if (id) onChangeExtraReports?.(extraReports.filter((x) => x !== id));
       }}
-      className="rounded-md border border-line bg-surface px-2 py-1.5 text-xs"
+      className={`rounded-md border border-line bg-surface px-2 py-1.5 text-xs ${FOCUS_RING} ${TRANSITION}`}
     >
       <option value="">{`− ${t(lang, "reportsRemoveReport")}`}</option>
       {extraReports.map((id) => {
@@ -356,9 +358,7 @@ export function ReportsPanel({
 
       <Section title={t(lang, "reportsCompletionOutcomes")}>
         {completedTotal === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            {t(lang, "reportsNoCompletions")}
-          </p>
+          <EmptyState compact title={t(lang, "reportsNoCompletions")} />
         ) : (
           <StackedBar
             segments={[
@@ -527,7 +527,7 @@ export function ReportsPanel({
                 onClick={() => onChangeExtraReports?.(extraReports.filter((x) => x !== id))}
                 aria-label={removeLabel}
                 title={removeLabel}
-                className="rounded-md border border-transparent px-2 py-0.5 text-xs text-muted-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted print:hidden"
+                className={`rounded-md border border-transparent px-2 py-0.5 text-xs text-muted-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted print:hidden ${INTERACTIVE}`}
               >
                 ×
               </button>

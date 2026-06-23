@@ -10,6 +10,7 @@ import { DependenciesEditor } from "./dependencies-editor";
 import { formatDuration, parseDuration } from "./duration";
 import { CharCounter, FieldError, FieldNotice } from "./field-feedback";
 import { InfoTooltip } from "./info-tooltip";
+import { FOCUS_RING, INTERACTIVE, TRANSITION } from "./interaction-styles";
 import {
   computeTaskHealth,
   HEALTH_VALUES,
@@ -46,7 +47,7 @@ const InlineMicButton = dynamic(
 // Same compact input class the rest of the form uses. Declared here to avoid
 // a circular import back into task-form-modal.tsx.
 export const inputClass =
-  "w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none focus:ring-1 focus:ring-AIPM-green dark:border-line dark:bg-surface dark:text-foreground";
+  `w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none dark:border-line dark:bg-surface dark:text-foreground ${FOCUS_RING} ${TRANSITION}`;
 
 export interface TaskFormFieldsProps {
   lang: Lang;
@@ -247,7 +248,7 @@ export function TaskFormFields({
               disabled={editingIsJiraLinked}
               aria-label={t(lang, "taskAddAssigneeToAddressBook")}
               title={t(lang, "taskAddAssigneeToAddressBook")}
-              className="shrink-0 rounded-md border border-line bg-surface px-3 py-2 text-sm font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 dark:border-line dark:bg-surface dark:text-foreground dark:hover:bg-surface-muted"
+              className={`shrink-0 rounded-md border border-line bg-surface px-3 py-2 text-sm font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 dark:border-line dark:bg-surface dark:text-foreground dark:hover:bg-surface-muted ${INTERACTIVE}`}
             >
               +
             </button>
@@ -496,7 +497,7 @@ export function TaskFormFields({
               healthColorName(autoHealth.color, lang),
             );
             const chipBase =
-              "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium focus:outline-none focus:ring-1";
+              `inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium ${INTERACTIVE}`;
             const chipInactive =
               "border-line bg-surface text-foreground hover:bg-surface-muted dark:border-line dark:bg-surface dark:text-foreground dark:hover:bg-surface-muted";
             const chipActive: Record<Health, string> = {

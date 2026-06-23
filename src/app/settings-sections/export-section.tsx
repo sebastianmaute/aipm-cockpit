@@ -2,6 +2,7 @@
 "use client";
 
 import { type Lang, type TranslationKey, t } from "../i18n";
+import { FOCUS_RING, TRANSITION } from "../interaction-styles";
 import type { Settings } from "../settings-types";
 import { EXPORT_SECTION_KEYS, defaultExportConfig, type ExportSectionKey } from "../settings-types";
 
@@ -55,7 +56,7 @@ export function ExportSection({ lang, settings, onChange }: ExportSectionProps) 
                   type="checkbox"
                   checked={checked}
                   onChange={(e) => handleToggle(key, e.target.checked)}
-                  className="h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue focus:ring-AIPM-green"
+                  className={`h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue ${FOCUS_RING} ${TRANSITION}`}
                 />
                 {t(lang, LABEL_KEYS[key])}
               </label>

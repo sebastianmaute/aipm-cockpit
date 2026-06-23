@@ -33,6 +33,7 @@ import { useToastContext } from "./toast-context";
 import { ModalFieldControls } from "./modal-field-controls";
 import { useModalVisibility } from "./use-modal-visibility";
 import { InfoTooltip } from "./info-tooltip";
+import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
 
 export interface StakeholderEditModalProps {
   lang: Lang;
@@ -72,7 +73,7 @@ const RACI_LABEL_KEYS: Record<RaciRole, TranslationKey> = {
   I: "raciRoleI",
 };
 
-const INPUT_CLASS = "rounded-md border border-line bg-surface px-3 py-2 text-sm";
+const INPUT_CLASS = `rounded-md border border-line bg-surface px-3 py-2 text-sm ${FOCUS_RING} ${TRANSITION}`;
 
 export function StakeholderEditModal({
   lang,
@@ -372,7 +373,7 @@ export function StakeholderEditModal({
                 }}
                 disabled={isNew}
                 aria-label={t(lang, "stakeholdersDelete")}
-                className="rounded-md border border-AIPM-pink/40 bg-surface px-3 py-1.5 text-sm font-medium text-AIPM-pink-strong hover:bg-AIPM-pink/10 disabled:cursor-not-allowed disabled:opacity-50 dark:border-AIPM-pink/50"
+                className={`rounded-md border border-AIPM-pink/40 bg-surface px-3 py-1.5 text-sm font-medium text-AIPM-pink-strong hover:bg-AIPM-pink/10 disabled:cursor-not-allowed disabled:opacity-50 dark:border-AIPM-pink/50 ${INTERACTIVE}`}
               >
                 {t(lang, "delete")}
               </button>
@@ -381,14 +382,14 @@ export function StakeholderEditModal({
               <button
                 type="button"
                 onClick={onCancel}
-                className="rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted"
+                className={`rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`}
               >
                 {t(lang, "cancel")}
               </button>
               <button
                 type="submit"
                 disabled={saveDisabled}
-                className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:bg-AIPM-dark-blue/90 disabled:cursor-not-allowed disabled:opacity-50"
+                className={`rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:bg-AIPM-dark-blue/90 disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
               >
                 {t(lang, "raidSave")}
               </button>

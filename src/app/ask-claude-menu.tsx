@@ -5,6 +5,7 @@
 // onAsk(promptBody) — wired upstream to requestChat(body, true), which switches
 // to the chat tab and auto-sends.
 import { useEffect, useRef, useState } from "react";
+import { INTERACTIVE } from "./interaction-styles";
 import { type Lang, type TranslationKey, t } from "./i18n";
 import type { AppView } from "./nav-config";
 import { promptsForView, type PromptDef } from "./ask-claude-prompts";
@@ -31,7 +32,7 @@ function PromptSection({
             <button
               type="button"
               onClick={() => onPick(def)}
-              className="w-full rounded-md px-2.5 py-1.5 text-left text-sm text-AIPM-dark-blue hover:bg-surface-muted dark:text-AIPM-light-grey"
+              className={`w-full rounded-md px-2.5 py-1.5 text-left text-sm text-AIPM-dark-blue hover:bg-surface-muted dark:text-AIPM-light-grey ${INTERACTIVE}`}
             >
               {t(lang, def.labelKey)}
             </button>

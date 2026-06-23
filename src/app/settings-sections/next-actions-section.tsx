@@ -14,6 +14,7 @@ import {
 import { InfoTooltip } from "../info-tooltip";
 import { useWeightSuggestions } from "../use-weight-suggestions";
 import { applyWeightSuggestion, type SuggestionScope, type WeightSuggestion } from "../next-actions-tuning";
+import { FOCUS_RING, TRANSITION, INTERACTIVE } from "../interaction-styles";
 
 interface NextActionsSectionProps {
   lang: Lang;
@@ -136,7 +137,7 @@ export function NextActionsSection({
             type="button"
             onClick={runSuggest}
             disabled={suggest.busy}
-            className="rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50"
+            className={`rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
           >
             {suggest.busy ? t(lang, "weightSuggestBusy") : t(lang, "weightSuggestRun")}
           </button>
@@ -144,7 +145,7 @@ export function NextActionsSection({
             <button
               type="button"
               onClick={acceptAll}
-              className="rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted"
+              className={`rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`}
             >
               {t(lang, "weightSuggestAcceptAll")}
             </button>
@@ -174,7 +175,7 @@ export function NextActionsSection({
         <button
           type="button"
           onClick={() => onChangeLearningConfig({ ...learningConfig, enabled: true })}
-          className="mb-3 rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted"
+          className={`mb-3 rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`}
         >
           {t(lang, "weightSuggestEnableLearning")}
         </button>
@@ -201,7 +202,7 @@ export function NextActionsSection({
                     type="button"
                     onClick={() => acceptSuggestion(s)}
                     aria-label={`${t(lang, "weightSuggestAccept")} - ${fieldLabel}`}
-                    className="rounded-md border border-line bg-surface px-2 py-0.5 text-xs font-medium text-foreground hover:bg-surface-muted"
+                    className={`rounded-md border border-line bg-surface px-2 py-0.5 text-xs font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`}
                   >
                     {t(lang, "weightSuggestAccept")}
                   </button>
@@ -220,7 +221,7 @@ export function NextActionsSection({
                   const next = f.kind === "ratio" ? raw : Math.round(raw);
                   patch({ [f.key]: next } as Partial<NextActionsConfig>);
                 }}
-                className="w-24 rounded-md border border-line px-2 py-1 text-right tabular-nums"
+                className={`w-24 rounded-md border border-line px-2 py-1 text-right tabular-nums ${FOCUS_RING} ${TRANSITION}`}
               />
             </span>
           </label>
@@ -231,7 +232,7 @@ export function NextActionsSection({
         type="button"
         onClick={resetDefaults}
         disabled={isDefault}
-        className="mt-2 rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50"
+        className={`mt-2 rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
       >
         {t(lang, "nextActionsReset")}
       </button>
@@ -270,7 +271,7 @@ export function NextActionsSection({
               onChange={(e) =>
                 onChangeLearningConfig({ ...learningConfig, store: e.target.value as LearningStoreKind })
               }
-              className="rounded-md border border-line bg-surface px-2 py-1 text-sm"
+              className={`rounded-md border border-line bg-surface px-2 py-1 text-sm ${FOCUS_RING} ${TRANSITION}`}
             >
               {LEARNING_STORE_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>
@@ -286,14 +287,14 @@ export function NextActionsSection({
               onClick={() => {
                 if (window.confirm(t(lang, "settingsLearningResetConfirm"))) onResetLearning();
               }}
-              className="rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted"
+              className={`rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`}
             >
               {t(lang, "settingsLearningReset")}
             </button>
             <button
               type="button"
               onClick={onOpenInsights}
-              className="rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted"
+              className={`rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`}
             >
               {t(lang, "settingsLearningInsights")}
             </button>

@@ -10,6 +10,8 @@ import { diffLines } from "../text-diff";
 import { htmlToPlainText } from "../html-to-text";
 import { CommTemplateDiffView } from "../comm-template-diff-view";
 import { InfoTooltip } from "../info-tooltip";
+import { EmptyState } from "../empty-state";
+import { FOCUS_RING, INTERACTIVE, TRANSITION } from "../interaction-styles";
 import dynamic from "next/dynamic";
 
 const RichTextEditor = dynamic(() => import("../rich-text-editor").then((m) => m.RichTextEditor), {
@@ -126,7 +128,7 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
               name="commSendMode"
               checked={(props.settings.commTemplateSendMode ?? "mailto") === value}
               onChange={() => props.onChange({ ...props.settings, commTemplateSendMode: value })}
-              className="h-4 w-4 cursor-pointer border-line text-AIPM-dark-blue focus:ring-AIPM-green"
+              className={`h-4 w-4 cursor-pointer border-line text-AIPM-dark-blue ${FOCUS_RING} ${TRANSITION}`}
             />
             <span>{t(lang, key)}</span>
           </label>
@@ -165,7 +167,7 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
           type="button"
           onClick={createTemplate}
           disabled={!newName.trim()}
-          className="shrink-0 rounded-md border border-line px-3 py-1.5 text-sm hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50"
+          className={`shrink-0 rounded-md border border-line px-3 py-1.5 text-sm hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
         >
           {t(lang, "commTplCreate")}
         </button>
@@ -177,12 +179,12 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
           <InfoTooltip text={t(lang, "commTplRowsClickableHint")} />
         </h3>
         {inCategory.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t(lang, "commTplEmpty")}</p>
+          <EmptyState compact title={t(lang, "commTplEmpty")} />
         ) : (
           <ul className="flex flex-col gap-2">
             {inCategory.map((tpl) => (
               <li key={tpl.id} className="flex items-center justify-between gap-3 rounded-md border border-line bg-surface px-3 py-2 transition-colors hover:border-AIPM-dark-blue/40 hover:bg-surface-muted">
-                <button type="button" onClick={() => selectTemplate(tpl)} title={t(lang, "commTplRowsClickableHint")} className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left">
+                <button type="button" onClick={() => selectTemplate(tpl)} title={t(lang, "commTplRowsClickableHint")} className={`flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left ${INTERACTIVE}`}>
                   <span className="truncate text-sm font-medium text-foreground">{tpl.name}</span>
                   {tpl.isDefault && (
                     <span className="shrink-0 rounded bg-surface-muted px-1.5 py-0.5 text-xs text-foreground">
@@ -194,7 +196,7 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
                   type="button"
                   onClick={() => props.onSetDefault(category, tpl.id)}
                   disabled={tpl.isDefault}
-                  className="shrink-0 rounded-md border border-line px-2 py-1 text-xs hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50"
+                  className={`shrink-0 rounded-md border border-line px-2 py-1 text-xs hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
                 >
                   {t(lang, "commTplSetDefault")}
                 </button>
@@ -202,7 +204,7 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
                   type="button"
                   onClick={() => { props.onRemove(tpl.id); if (selectedId === tpl.id) { setSelectedId(null); setBodyDraft(""); } }}
                   aria-label={`${t(lang, "commTplDelete")}: ${tpl.name}`}
-                  className="shrink-0 rounded-md border border-line px-2 py-1 text-xs text-AIPM-purple hover:bg-surface-muted"
+                  className={`shrink-0 rounded-md border border-line px-2 py-1 text-xs text-AIPM-purple hover:bg-surface-muted ${INTERACTIVE}`}
                 >
                   {t(lang, "commTplDelete")}
                 </button>
@@ -241,7 +243,7 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
               <button
                 type="button"
                 onClick={cancelEdit}
-                className="shrink-0 rounded-md border border-line px-2 py-1 text-xs hover:bg-surface-muted"
+                className={`shrink-0 rounded-md border border-line px-2 py-1 text-xs hover:bg-surface-muted ${INTERACTIVE}`}
               >
                 {t(lang, "commTemplateCancelEdit")}
               </button>
@@ -274,13 +276,13 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
               <button
                 type="button"
                 onClick={saveCurrentVersion}
-                className="shrink-0 rounded-md border border-line px-2 py-1 text-xs hover:bg-surface-muted"
+                className={`shrink-0 rounded-md border border-line px-2 py-1 text-xs hover:bg-surface-muted ${INTERACTIVE}`}
               >
                 {t(lang, "commTplSaveVersion")}
               </button>
             </div>
             {versions.versions.length === 0 && (
-              <p className="text-xs text-muted-foreground">{t(lang, "commTplVersionsEmpty")}</p>
+              <EmptyState compact title={t(lang, "commTplVersionsEmpty")} />
             )}
             <ul className="flex flex-col gap-1">
               <li className="flex items-center justify-between gap-2 rounded-md border border-line bg-surface px-2 py-1">
@@ -290,9 +292,9 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
                   onClick={() => toggleCompare(CURRENT_ID)}
                   aria-pressed={compareIds.includes(CURRENT_ID)}
                   aria-label={`${t(lang, "commTplCompare")}: ${t(lang, "commTplCurrent")}`}
-                  className={compareIds.includes(CURRENT_ID)
+                  className={`${compareIds.includes(CURRENT_ID)
                     ? "shrink-0 rounded-md border border-line bg-AIPM-dark-blue px-2 py-0.5 text-[11px] text-white"
-                    : "shrink-0 rounded-md border border-line px-2 py-0.5 text-[11px] hover:bg-surface-muted"}
+                    : "shrink-0 rounded-md border border-line px-2 py-0.5 text-[11px] hover:bg-surface-muted"} ${INTERACTIVE}`}
                 >
                   {t(lang, "commTplCompare")}
                 </button>
@@ -312,9 +314,9 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
                     onClick={() => toggleCompare(v.id)}
                     aria-pressed={compareIds.includes(v.id)}
                     aria-label={`${t(lang, "commTplCompare")}: ${v.name}`}
-                    className={compareIds.includes(v.id)
+                    className={`${compareIds.includes(v.id)
                       ? "shrink-0 rounded-md border border-line bg-AIPM-dark-blue px-2 py-0.5 text-[11px] text-white"
-                      : "shrink-0 rounded-md border border-line px-2 py-0.5 text-[11px] hover:bg-surface-muted"}
+                      : "shrink-0 rounded-md border border-line px-2 py-0.5 text-[11px] hover:bg-surface-muted"} ${INTERACTIVE}`}
                   >
                     {t(lang, "commTplCompare")}
                   </button>
@@ -322,7 +324,7 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
                     type="button"
                     onClick={() => restoreVersion(v.body)}
                     aria-label={`${t(lang, "commTplRestore")}: ${v.name}`}
-                    className="shrink-0 rounded-md border border-line px-2 py-0.5 text-[11px] hover:bg-surface-muted"
+                    className={`shrink-0 rounded-md border border-line px-2 py-0.5 text-[11px] hover:bg-surface-muted ${INTERACTIVE}`}
                   >
                     {t(lang, "commTplRestore")}
                   </button>

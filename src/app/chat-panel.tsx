@@ -24,6 +24,7 @@ import { useAiUsageContext } from "./ai-usage-context";
 import { useResizable } from "./use-resizable";
 import { ResetSizeButton } from "./task-manager-ui";
 import { CENTERED_HALF_PANE_CLASS } from "./view-styles";
+import { INTERACTIVE, FOCUS_RING, TRANSITION, PRESS } from "./interaction-styles";
 import { unlockSecret } from "./use-secrets";
 import { isPassphraseLocked } from "./secrets-store";
 import {
@@ -411,12 +412,12 @@ function ChatPanelInner({
                       setUnlockPass(e.target.value);
                       setUnlockError(false);
                     }}
-                    className="min-w-0 flex-1 rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none focus:ring-1 focus:ring-AIPM-green"
+                    className={`min-w-0 flex-1 rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
                   />
                   <button
                     type="button"
                     onClick={unlockApiKey}
-                    className="rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+                    className={`rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 ${INTERACTIVE}`}
                   >
                     {t(lang, "secretUnlock")}
                   </button>
@@ -443,7 +444,7 @@ function ChatPanelInner({
                           ? submitPrompt(t(lang, chip.bodyKey))
                           : setInput(t(lang, chip.bodyKey))
                       }
-                      className="rounded-full border border-AIPM-dark-blue/40 bg-surface px-3 py-1 text-xs font-medium text-AIPM-dark-blue hover:bg-AIPM-dark-blue/10 focus:outline-none focus:ring-2 focus:ring-AIPM-dark-blue/50 dark:border-AIPM-dark-blue/60 dark:text-AIPM-dark-blue dark:hover:bg-AIPM-dark-blue/20"
+                      className={`rounded-full border border-AIPM-dark-blue/40 bg-surface px-3 py-1 text-xs font-medium text-AIPM-dark-blue hover:bg-AIPM-dark-blue/10 focus:outline-none focus:ring-2 focus:ring-AIPM-dark-blue/50 dark:border-AIPM-dark-blue/60 dark:text-AIPM-dark-blue dark:hover:bg-AIPM-dark-blue/20 ${TRANSITION} ${PRESS}`}
                     >
                       {t(lang, chip.labelKey)}
                     </button>
@@ -527,7 +528,7 @@ function ChatPanelInner({
                 onClick={() => removeAttachment(a.id)}
                 aria-label={t(lang, "chatAttachmentRemove", a.name)}
                 title={t(lang, "chatAttachmentRemove", a.name)}
-                className="shrink-0 rounded px-1 font-semibold text-muted-foreground hover:text-AIPM-pink-strong"
+                className={`shrink-0 rounded px-1 font-semibold text-muted-foreground hover:text-AIPM-pink-strong ${INTERACTIVE}`}
               >
                 ×
               </button>
@@ -561,7 +562,7 @@ function ChatPanelInner({
           onKeyDown={handleKeyDown}
           placeholder={guidesPending ? t(lang, "chatGuidesLoading") : t(lang, "chatPlaceholder")}
           disabled={busy || apiKeyMissing || guidesPending}
-          className="min-w-0 flex-1 self-stretch resize-none rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none focus:ring-1 focus:ring-AIPM-green disabled:cursor-not-allowed disabled:opacity-50"
+          className={`min-w-0 flex-1 self-stretch resize-none rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING} ${TRANSITION}`}
         />
         <div className="flex flex-col gap-2">
           <button
@@ -570,7 +571,7 @@ function ChatPanelInner({
             disabled={busy || apiKeyMissing || guidesPending}
             aria-label={t(lang, "chatAttach")}
             title={t(lang, "chatAttach")}
-            className="rounded-md border border-line bg-surface px-4 py-2 text-sm font-medium text-foreground hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50"
+            className={`rounded-md border border-line bg-surface px-4 py-2 text-sm font-medium text-foreground hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
           >
             📎
           </button>
@@ -579,7 +580,7 @@ function ChatPanelInner({
               type="button"
               onClick={stopChat}
               aria-label={t(lang, "chatStop")}
-              className="rounded-md bg-AIPM-pink px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+              className={`rounded-md bg-AIPM-pink px-4 py-2 text-sm font-medium text-white hover:opacity-90 ${INTERACTIVE}`}
             >
               {t(lang, "chatStop")}
             </button>
@@ -588,7 +589,7 @@ function ChatPanelInner({
               type="button"
               onClick={() => submitPrompt()}
               disabled={(!input.trim() && attachments.length === 0) || apiKeyMissing || guidesPending}
-              className="rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+              className={`rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
             >
               {t(lang, "chatSend")}
             </button>
@@ -597,7 +598,7 @@ function ChatPanelInner({
             type="button"
             onClick={clearChat}
             disabled={busy || display.length === 0}
-            className="rounded-md border border-line bg-surface px-4 py-2 text-xs font-medium text-foreground hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50"
+            className={`rounded-md border border-line bg-surface px-4 py-2 text-xs font-medium text-foreground hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
           >
             {t(lang, "chatClear")}
           </button>
@@ -667,7 +668,7 @@ function ConsentScreen({
           type="button"
           onClick={onAccept}
           disabled={!policyAccepted}
-          className="rounded-md bg-AIPM-purple px-4 py-2 text-sm font-medium text-white hover:bg-AIPM-purple/90 focus:outline-none focus:ring-2 focus:ring-AIPM-purple focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+          className={`rounded-md bg-AIPM-purple px-4 py-2 text-sm font-medium text-white hover:bg-AIPM-purple/90 focus:outline-none focus:ring-2 focus:ring-AIPM-purple focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${TRANSITION} ${PRESS}`}
         >
           {t(lang, "aiConsentAccept")}
         </button>

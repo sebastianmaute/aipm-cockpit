@@ -6,6 +6,7 @@ import type { Settings } from "../settings-types";
 import { InfoTooltip } from "../info-tooltip";
 import { TypeToConfirmDialog } from "../type-to-confirm-dialog";
 import { resetAppToCleanSlate } from "../app-reset";
+import { FOCUS_RING, INTERACTIVE, TRANSITION } from "../interaction-styles";
 
 interface GeneralSectionProps {
   lang: Lang;
@@ -33,7 +34,7 @@ export function GeneralSection({ lang, settings, onChange }: GeneralSectionProps
                   popout: { ...settings.popout, reuseWindow: e.target.checked },
                 })
               }
-              className="h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue focus:ring-AIPM-green"
+              className={`h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue ${FOCUS_RING} ${TRANSITION}`}
             />
             <span className="text-sm text-foreground">
               {t(lang, "popoutReuseWindow")}
@@ -58,7 +59,7 @@ export function GeneralSection({ lang, settings, onChange }: GeneralSectionProps
               const n = Math.min(24, Math.max(1, Number(e.target.value) || 8));
               onChange({ ...settings, resources: { ...settings.resources, workdayHours: n } });
             }}
-            className="w-20 rounded-md border border-line px-2 py-1 text-sm"
+            className={`w-20 rounded-md border border-line px-2 py-1 text-sm ${FOCUS_RING} ${TRANSITION}`}
           />
         </label>
       </div>
@@ -74,7 +75,7 @@ export function GeneralSection({ lang, settings, onChange }: GeneralSectionProps
         <button
           type="button"
           onClick={() => setResetOpen(true)}
-          className="mt-3 rounded-md border border-AIPM-pink/50 bg-surface px-4 py-2 text-sm font-medium text-AIPM-pink-strong hover:bg-AIPM-pink/10"
+          className={`mt-3 rounded-md border border-AIPM-pink/50 bg-surface px-4 py-2 text-sm font-medium text-AIPM-pink-strong hover:bg-AIPM-pink/10 ${INTERACTIVE}`}
         >
           {t(lang, "settingsResetButton")}
         </button>

@@ -13,6 +13,8 @@ import { useResizable } from "./use-resizable";
 import { useColumnResize } from "./use-column-resize";
 import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton } from "./task-manager-ui";
 import { isSharePointEnabled } from "./m365-sharepoint";
+import { EmptyState } from "./empty-state";
+import { FOCUS_RING, TRANSITION, INTERACTIVE } from "./interaction-styles";
 
 const DOCS_COL_WIDTHS = { document: 360, source: 240 } as const;
 type DocCol = keyof typeof DOCS_COL_WIDTHS;
@@ -121,7 +123,7 @@ export function DocumentsPanel() {
             type="button"
             onClick={() => setAddOpen((o) => !o)}
             aria-expanded={addOpen}
-            className="rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-AIPM-dark-blue hover:bg-surface-muted dark:text-AIPM-light-grey"
+            className={`rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-AIPM-dark-blue hover:bg-surface-muted dark:text-AIPM-light-grey ${INTERACTIVE}`}
           >
             + {t(lang, "documentsTabAdd")}
           </button>
@@ -136,7 +138,7 @@ export function DocumentsPanel() {
             <select
               value={targetKey}
               onChange={(e) => setTargetKey(e.target.value)}
-              className="ml-2 rounded-md border border-line bg-surface px-2 py-1 text-sm"
+              className={`ml-2 rounded-md border border-line bg-surface px-2 py-1 text-sm ${FOCUS_RING} ${TRANSITION}`}
             >
               <option value="">—</option>
               {targets.map((s) => (
@@ -157,7 +159,7 @@ export function DocumentsPanel() {
                     value={manualName}
                     aria-label={t(lang, "documentsManualName")}
                     onChange={(e) => setManualName(e.target.value)}
-                    className="rounded-md border border-line bg-surface px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-AIPM-green"
+                    className={`rounded-md border border-line bg-surface px-2 py-1 text-sm text-foreground focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
                   />
                 </label>
                 <label className="flex flex-1 flex-col gap-1 text-xs text-foreground">
@@ -168,14 +170,14 @@ export function DocumentsPanel() {
                     aria-label={t(lang, "documentsManualUrl")}
                     onChange={(e) => setManualUrl(e.target.value)}
                     onKeyDown={(e) => { if (e.key === "Enter") addManualLink(target); }}
-                    className="w-full min-w-[12rem] rounded-md border border-line bg-surface px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-AIPM-green"
+                    className={`w-full min-w-[12rem] rounded-md border border-line bg-surface px-2 py-1 text-sm text-foreground focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
                   />
                 </label>
                 <button
                   type="button"
                   onClick={() => addManualLink(target)}
                   disabled={!manualValid}
-                  className="rounded-md border border-line bg-surface px-3 py-1 text-sm font-medium text-AIPM-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 dark:text-AIPM-light-grey"
+                  className={`rounded-md border border-line bg-surface px-3 py-1 text-sm font-medium text-AIPM-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 dark:text-AIPM-light-grey ${INTERACTIVE}`}
                 >
                   {t(lang, "documentsManualAdd")}
                 </button>
@@ -230,7 +232,7 @@ export function DocumentsPanel() {
                   <button
                     type="button"
                     onClick={() => requestOpen(ref.source.view, ref.source.id)}
-                    className="text-muted-foreground hover:text-AIPM-dark-blue hover:underline"
+                    className={`text-muted-foreground hover:text-AIPM-dark-blue hover:underline ${INTERACTIVE}`}
                   >
                     {t(lang, SOURCE_LABEL[ref.source.kind])}: {ref.source.name}
                   </button>
@@ -241,7 +243,7 @@ export function DocumentsPanel() {
                     aria-label={t(lang, "documentsRemove")}
                     title={t(lang, "documentsRemove")}
                     onClick={() => remove(ref)}
-                    className="rounded-md px-2 py-0.5 text-xs text-muted-foreground hover:text-AIPM-pink-strong"
+                    className={`rounded-md px-2 py-0.5 text-xs text-muted-foreground hover:text-AIPM-pink-strong ${INTERACTIVE}`}
                   >
                     ✕
                   </button>
@@ -251,7 +253,7 @@ export function DocumentsPanel() {
           </tbody>
         </table>
         {docs.length === 0 && (
-          <p className="p-4 text-sm text-muted-foreground">{t(lang, "documentsTabEmpty")}</p>
+          <EmptyState compact title={t(lang, "documentsTabEmpty")} />
         )}
       </div>
     </div>

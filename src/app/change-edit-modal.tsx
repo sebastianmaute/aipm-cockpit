@@ -33,6 +33,7 @@ import { BUDGET_NAME_MAX, TEXTAREA_MAX, AMOUNT_MAX } from "./sanitize";
 import { useToastContext } from "./toast-context";
 import { DocumentLinksFieldGated } from "./document-links-field-gated";
 import { InfoTooltip } from "./info-tooltip";
+import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
 
 export interface ChangeEditModalProps {
   lang: Lang;
@@ -77,7 +78,7 @@ const IMPACT_LABEL_KEYS: Record<ChangeImpact, TranslationKey> = {
   Critical: "raidSeverityCritical",
 };
 
-const INPUT_CLASS = "rounded-md border border-line bg-surface px-3 py-2 text-sm";
+const INPUT_CLASS = `rounded-md border border-line bg-surface px-3 py-2 text-sm ${FOCUS_RING} ${TRANSITION}`;
 
 export function ChangeEditModal({
   lang,
@@ -542,7 +543,7 @@ export function ChangeEditModal({
                       onClick={() => removeLinkedTask(tid)}
                       aria-label={t(lang, "raidUnlinkTask")}
                       title={t(lang, "raidUnlinkTask")}
-                      className="text-muted-foreground hover:text-AIPM-pink"
+                      className={`text-muted-foreground hover:text-AIPM-pink ${INTERACTIVE}`}
                     >
                       ×
                     </button>
@@ -556,7 +557,7 @@ export function ChangeEditModal({
                 value={taskPickerQuery}
                 onChange={(e) => setTaskPickerQuery(e.target.value)}
                 placeholder={t(lang, "raidLinkPickerPlaceholder")}
-                className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm"
+                className={`w-full rounded-md border border-line bg-surface px-3 py-2 text-sm ${FOCUS_RING} ${TRANSITION}`}
               />
               {taskPickerQuery.trim() !== "" && availableTasks.length > 0 && (
                 <ul className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md border border-line bg-surface">
@@ -565,7 +566,7 @@ export function ChangeEditModal({
                       <button
                         type="button"
                         onClick={() => addLinkedTask(tk.id)}
-                        className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-surface-muted"
+                        className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-surface-muted ${INTERACTIVE}`}
                       >
                         <span className="font-mono text-xs text-muted-foreground">
                           #{tk.id}
@@ -604,7 +605,7 @@ export function ChangeEditModal({
                       onClick={() => removeLinkedRaid(rid)}
                       aria-label={t(lang, "changeUnlinkRaid")}
                       title={t(lang, "changeUnlinkRaid")}
-                      className="text-muted-foreground hover:text-AIPM-pink"
+                      className={`text-muted-foreground hover:text-AIPM-pink ${INTERACTIVE}`}
                     >
                       ×
                     </button>
@@ -618,7 +619,7 @@ export function ChangeEditModal({
                 value={raidPickerQuery}
                 onChange={(e) => setRaidPickerQuery(e.target.value)}
                 placeholder={t(lang, "raidLinkPickerPlaceholder")}
-                className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm"
+                className={`w-full rounded-md border border-line bg-surface px-3 py-2 text-sm ${FOCUS_RING} ${TRANSITION}`}
               />
               {raidPickerQuery.trim() !== "" && availableRaid.length > 0 && (
                 <ul className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md border border-line bg-surface">
@@ -627,7 +628,7 @@ export function ChangeEditModal({
                       <button
                         type="button"
                         onClick={() => addLinkedRaid(r.id)}
-                        className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-surface-muted"
+                        className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-surface-muted ${INTERACTIVE}`}
                       >
                         <span className="font-mono text-xs text-muted-foreground">
                           #{r.id}
@@ -661,7 +662,7 @@ export function ChangeEditModal({
                         checked={(draft.stakeholderIds ?? []).includes(sh.id)}
                         onChange={() => toggleStakeholder(sh.id)}
                         aria-label={sh.name}
-                        className="accent-AIPM-green"
+                        className={`accent-AIPM-green ${FOCUS_RING} ${TRANSITION}`}
                       />
                       <span className="max-w-[200px] truncate">{sh.name}</span>
                     </label>
@@ -688,7 +689,7 @@ export function ChangeEditModal({
                   if (window.confirm(t(lang, "raidConfirmDelete"))) onDelete();
                 }}
                 disabled={isNew}
-                className="rounded-md border border-AIPM-pink/40 bg-surface px-3 py-1.5 text-sm font-medium text-AIPM-pink-strong hover:bg-AIPM-pink/10 disabled:cursor-not-allowed disabled:opacity-50 dark:border-AIPM-pink/50"
+                className={`rounded-md border border-AIPM-pink/40 bg-surface px-3 py-1.5 text-sm font-medium text-AIPM-pink-strong hover:bg-AIPM-pink/10 disabled:cursor-not-allowed disabled:opacity-50 dark:border-AIPM-pink/50 ${INTERACTIVE}`}
               >
                 {t(lang, "delete")}
               </button>
@@ -697,14 +698,14 @@ export function ChangeEditModal({
               <button
                 type="button"
                 onClick={onCancel}
-                className="rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted"
+                className={`rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`}
               >
                 {t(lang, "cancel")}
               </button>
               <button
                 type="submit"
                 disabled={saveDisabled}
-                className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:bg-AIPM-dark-blue/90 disabled:cursor-not-allowed disabled:opacity-50"
+                className={`rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:bg-AIPM-dark-blue/90 disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
               >
                 {t(lang, "raidSave")}
               </button>

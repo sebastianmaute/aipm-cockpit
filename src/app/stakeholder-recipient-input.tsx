@@ -13,6 +13,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import type React from "react";
+import { INTERACTIVE } from "./interaction-styles";
 
 export interface StakeholderRecipientInputProps {
   value: string[];
@@ -156,7 +157,7 @@ export function StakeholderRecipientInput({
                     remove(name);
                   }}
                   aria-label={`Remove ${name}`}
-                  className="-mr-1 rounded-full text-muted-foreground hover:text-AIPM-pink"
+                  className={`-mr-1 rounded-full text-muted-foreground hover:text-AIPM-pink ${INTERACTIVE}`}
                 >
                   <svg
                     viewBox="0 0 20 20"

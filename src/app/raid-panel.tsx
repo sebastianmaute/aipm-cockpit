@@ -48,6 +48,7 @@ import { useResizable } from "./use-resizable";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton } from "./task-manager-ui";
 import { InfoTooltip } from "./info-tooltip";
+import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
 
 const RAID_FILTER_DEFAULTS: PanelFiltersState = {
   search: "",
@@ -342,7 +343,7 @@ function RaidPanelBody({
       <button
         type="button"
         onClick={() => openNew()}
-        className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90"
+        className={`rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90 ${INTERACTIVE}`}
       >
         {t(lang, "raidAddItem")}
       </button>
@@ -353,7 +354,7 @@ function RaidPanelBody({
         placeholder={t(lang, "raidSearchPlaceholder")}
         aria-label={t(lang, "raidSearchPlaceholder")}
         title={t(lang, "raidSearchHint")}
-        className="min-w-[12rem] flex-1 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-foreground focus:border-AIPM-dark-blue focus:outline-none focus:ring-1 focus:ring-AIPM-green"
+        className={`min-w-[12rem] flex-1 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-foreground focus:border-AIPM-dark-blue focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
       />
       <select
         value={categoryFilter}
@@ -362,7 +363,7 @@ function RaidPanelBody({
         }
         aria-label={t(lang, "raidCategory")}
         title={t(lang, "raidCategoryFilterHint")}
-        className="h-[30px] rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-foreground"
+        className={`h-[30px] rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-foreground ${FOCUS_RING} ${TRANSITION}`}
       >
         <option value="All">{t(lang, "raidCategoryAll")}</option>
         {RAID_CATEGORIES.map((c) => (
@@ -378,7 +379,7 @@ function RaidPanelBody({
         }
         aria-label={t(lang, "raidSeverity")}
         title={t(lang, "raidSeverityFilterHint")}
-        className="h-[30px] rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-foreground"
+        className={`h-[30px] rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-foreground ${FOCUS_RING} ${TRANSITION}`}
       >
         <option value="All">{t(lang, "raidSeverityAll")}</option>
         {RAID_SEVERITIES.map((s) => (
@@ -394,7 +395,7 @@ function RaidPanelBody({
         }
         aria-label={t(lang, "raidStatus")}
         title={t(lang, "raidStatusFilterHint")}
-        className="h-[30px] rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-foreground"
+        className={`h-[30px] rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-foreground ${FOCUS_RING} ${TRANSITION}`}
       >
         <option value="All">{t(lang, "raidStatusAll")}</option>
         <option value="Open">{t(lang, "raidStatusOpen")}</option>
@@ -405,7 +406,7 @@ function RaidPanelBody({
           type="button"
           onClick={onClearTaskFilter}
           title={t(lang, "ganttResetFilters")}
-          className="rounded-md border border-AIPM-purple/40 bg-AIPM-purple/10 px-2.5 py-1.5 text-xs font-medium text-AIPM-purple hover:bg-AIPM-purple/20 dark:border-AIPM-purple/50 dark:bg-AIPM-purple/15"
+          className={`rounded-md border border-AIPM-purple/40 bg-AIPM-purple/10 px-2.5 py-1.5 text-xs font-medium text-AIPM-purple hover:bg-AIPM-purple/20 dark:border-AIPM-purple/50 dark:bg-AIPM-purple/15 ${INTERACTIVE}`}
         >
           #{filterTaskId} ×
         </button>
@@ -418,7 +419,7 @@ function RaidPanelBody({
             onClearTaskFilter();
           }}
           title={t(lang, "resetFiltersHint")}
-          className="rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted"
+          className={`rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`}
         >
           {t(lang, "ganttResetFilters")}
         </button>
@@ -438,44 +439,44 @@ function RaidPanelBody({
           <thead className={TABLE_HEAD_CLASS}>
             <tr>
               <th className="relative px-3 py-2" style={{ width: colWidths.id, minWidth: colWidths.id }} aria-sort={sort?.key === "id" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
-                <button type="button" onClick={() => toggleSort("id")} aria-label={t(lang, "id")} className="inline-flex items-center gap-1 hover:text-AIPM-green">
+                <button type="button" onClick={() => toggleSort("id")} aria-label={t(lang, "id")} className={`inline-flex items-center gap-1 hover:text-AIPM-green ${INTERACTIVE}`}>
                   #{sort?.key === "id" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
                 </button>
                 <ColumnResizeHandle col="id" onMouseDown={startResize} />
               </th>
               <th className="relative px-3 py-2" style={{ width: colWidths.category, minWidth: colWidths.category }} aria-sort={sort?.key === "category" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
-                <button type="button" onClick={() => toggleSort("category")} className="inline-flex items-center gap-1 hover:text-AIPM-green">
+                <button type="button" onClick={() => toggleSort("category")} className={`inline-flex items-center gap-1 hover:text-AIPM-green ${INTERACTIVE}`}>
                   {t(lang, "raidCategory")}{sort?.key === "category" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
                 </button>
                 <ColumnResizeHandle col="category" onMouseDown={startResize} />
               </th>
               <th className="relative px-3 py-2" style={{ width: colWidths.title, minWidth: colWidths.title }} aria-sort={sort?.key === "title" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
-                <button type="button" onClick={() => toggleSort("title")} className="inline-flex items-center gap-1 hover:text-AIPM-green">
+                <button type="button" onClick={() => toggleSort("title")} className={`inline-flex items-center gap-1 hover:text-AIPM-green ${INTERACTIVE}`}>
                   {t(lang, "raidTitle")}{sort?.key === "title" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
                 </button>
                 <ColumnResizeHandle col="title" onMouseDown={startResize} />
               </th>
               <th className="relative px-3 py-2" style={{ width: colWidths.severity, minWidth: colWidths.severity }} aria-sort={sort?.key === "severity" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
-                <button type="button" onClick={() => toggleSort("severity")} className="inline-flex items-center gap-1 hover:text-AIPM-green">
+                <button type="button" onClick={() => toggleSort("severity")} className={`inline-flex items-center gap-1 hover:text-AIPM-green ${INTERACTIVE}`}>
                   {t(lang, "raidSeverity")}{sort?.key === "severity" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
                 </button>
                 <InfoTooltip text={t(lang, "raidSeverityHint")} />
                 <ColumnResizeHandle col="severity" onMouseDown={startResize} />
               </th>
               <th className="relative px-3 py-2" style={{ width: colWidths.status, minWidth: colWidths.status }} aria-sort={sort?.key === "status" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
-                <button type="button" onClick={() => toggleSort("status")} className="inline-flex items-center gap-1 hover:text-AIPM-green">
+                <button type="button" onClick={() => toggleSort("status")} className={`inline-flex items-center gap-1 hover:text-AIPM-green ${INTERACTIVE}`}>
                   {t(lang, "raidStatus")}{sort?.key === "status" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
                 </button>
                 <ColumnResizeHandle col="status" onMouseDown={startResize} />
               </th>
               <th className="relative px-3 py-2" style={{ width: colWidths.owner, minWidth: colWidths.owner }} aria-sort={sort?.key === "owner" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
-                <button type="button" onClick={() => toggleSort("owner")} className="inline-flex items-center gap-1 hover:text-AIPM-green">
+                <button type="button" onClick={() => toggleSort("owner")} className={`inline-flex items-center gap-1 hover:text-AIPM-green ${INTERACTIVE}`}>
                   {t(lang, "raidOwner")}{sort?.key === "owner" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
                 </button>
                 <ColumnResizeHandle col="owner" onMouseDown={startResize} />
               </th>
               <th className="relative px-3 py-2" style={{ width: colWidths.targetDate, minWidth: colWidths.targetDate }} aria-sort={sort?.key === "targetDate" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
-                <button type="button" onClick={() => toggleSort("targetDate")} className="inline-flex items-center gap-1 hover:text-AIPM-green">
+                <button type="button" onClick={() => toggleSort("targetDate")} className={`inline-flex items-center gap-1 hover:text-AIPM-green ${INTERACTIVE}`}>
                   {t(lang, "raidTargetDate")}{sort?.key === "targetDate" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
                 </button>
                 <ColumnResizeHandle col="targetDate" onMouseDown={startResize} />
@@ -577,7 +578,7 @@ function RaidPanelBody({
                                 onJumpToTask(tid);
                               }}
                               title={tk?.taskName ?? `#${tid}`}
-                              className="inline-flex rounded bg-surface-muted px-1.5 py-0.5 font-mono text-[10px] text-AIPM-dark-blue hover:bg-AIPM-dark-blue hover:text-white"
+                              className={`inline-flex rounded bg-surface-muted px-1.5 py-0.5 font-mono text-[10px] text-AIPM-dark-blue hover:bg-AIPM-dark-blue hover:text-white ${INTERACTIVE}`}
                             >
                               #{tid}
                             </button>
@@ -606,7 +607,7 @@ function RaidPanelBody({
                                   if (parent) openEdit(parent);
                                 }}
                                 title={parent?.title ?? `RAID #${pid}`}
-                                className="inline-flex items-center gap-1 rounded bg-surface-muted px-1.5 py-0.5 font-mono text-[10px] text-AIPM-dark-blue hover:bg-AIPM-dark-blue hover:text-white"
+                                className={`inline-flex items-center gap-1 rounded bg-surface-muted px-1.5 py-0.5 font-mono text-[10px] text-AIPM-dark-blue hover:bg-AIPM-dark-blue hover:text-white ${INTERACTIVE}`}
                               >
                                 ↩ #{pid}
                               </button>
@@ -633,7 +634,7 @@ function RaidPanelBody({
                   type="button"
                   onClick={() => openNew(effectiveCategory)}
                   aria-label={t(lang, "raidAddItem")}
-                  className="group flex w-full cursor-pointer items-center gap-2 border-b border-dashed border-line px-3 py-1.5 text-sm text-muted-foreground hover:bg-AIPM-dark-blue/5 hover:text-AIPM-dark-blue"
+                  className={`group flex w-full cursor-pointer items-center gap-2 border-b border-dashed border-line px-3 py-1.5 text-sm text-muted-foreground hover:bg-AIPM-dark-blue/5 hover:text-AIPM-dark-blue ${INTERACTIVE}`}
                 >
                   <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-3.5 w-3.5 opacity-50 group-hover:opacity-100">
                     <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />

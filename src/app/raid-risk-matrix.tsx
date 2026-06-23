@@ -5,6 +5,7 @@
 // probability/impact plus an onPick callback.
 import { type Lang, t } from "./i18n";
 import { RISK_SCALES, type RiskScale } from "./types";
+import { INTERACTIVE } from "./interaction-styles";
 
 export function RiskMatrix({
   probability,
@@ -72,7 +73,7 @@ export function RiskMatrix({
                 aria-label={`${t(lang, "raidProbability")} ${p}, ${t(lang, "raidImpact")} ${i}`}
                 className={`h-8 w-8 rounded text-[10px] font-medium text-foreground ${cellColor(p, i)} ${
                   isSelected ? "ring-2 ring-AIPM-green ring-offset-1" : ""
-                }`}
+                } ${INTERACTIVE}`}
               >
                 {p * i}
               </button>

@@ -15,6 +15,7 @@ import {
   VERSION_RETENTION_STEP,
   sanitizeVersionRetention,
 } from "../version-history";
+import { FOCUS_RING, INTERACTIVE, TRANSITION } from "../interaction-styles";
 
 interface ModeSectionProps {
   lang: Lang;
@@ -73,7 +74,7 @@ export function ModeSection({ lang, settings, onCommitFeatures, onChange }: Mode
           type="button"
           aria-label="Apply Simple preset"
           onClick={() => setDraft([])}
-          className="rounded-md border border-line px-3 py-1.5 text-sm hover:bg-surface-muted"
+          className={`rounded-md border border-line px-3 py-1.5 text-sm hover:bg-surface-muted ${INTERACTIVE}`}
         >
           {t(lang, "modePresetSimple")}
         </button>
@@ -81,7 +82,7 @@ export function ModeSection({ lang, settings, onCommitFeatures, onChange }: Mode
           type="button"
           aria-label="Apply Advanced preset"
           onClick={() => setDraft([...ALL_MODULE_IDS])}
-          className="rounded-md border border-line px-3 py-1.5 text-sm hover:bg-surface-muted"
+          className={`rounded-md border border-line px-3 py-1.5 text-sm hover:bg-surface-muted ${INTERACTIVE}`}
         >
           {t(lang, "modePresetAdvanced")}
         </button>
@@ -97,7 +98,7 @@ export function ModeSection({ lang, settings, onCommitFeatures, onChange }: Mode
               type="checkbox"
               checked={draft.includes(m.id)}
               onChange={() => toggle(m.id)}
-              className="h-4 w-4 accent-AIPM-green"
+              className={`h-4 w-4 accent-AIPM-green ${FOCUS_RING} ${TRANSITION}`}
             />
             <span>{t(lang, m.labelKey)}</span>
           </label>
@@ -126,7 +127,7 @@ export function ModeSection({ lang, settings, onCommitFeatures, onChange }: Mode
                 versionHistoryRetention: sanitizeVersionRetention(e.target.value),
               })
             }
-            className="w-20 rounded-md border border-line px-2 py-1 text-right tabular-nums"
+            className={`w-20 rounded-md border border-line px-2 py-1 text-right tabular-nums ${FOCUS_RING} ${TRANSITION}`}
           />
           <span className="text-xs text-muted-foreground">{t(lang, "versionRetentionUnit")}</span>
         </label>
@@ -138,7 +139,7 @@ export function ModeSection({ lang, settings, onCommitFeatures, onChange }: Mode
           type="button"
           disabled={!dirty}
           onClick={() => onCommitFeatures(ALL_MODULE_IDS.filter((id) => draft.includes(id)))}
-          className="rounded-md bg-AIPM-green px-4 py-2 text-sm font-medium text-AIPM-dark-blue disabled:opacity-50"
+          className={`rounded-md bg-AIPM-green px-4 py-2 text-sm font-medium text-AIPM-dark-blue disabled:opacity-50 ${INTERACTIVE}`}
         >
           {t(lang, "modeSave")}
         </button>
@@ -146,7 +147,7 @@ export function ModeSection({ lang, settings, onCommitFeatures, onChange }: Mode
           type="button"
           disabled={!dirty}
           onClick={() => setDraft(saved)}
-          className="rounded-md border border-line px-4 py-2 text-sm disabled:opacity-50"
+          className={`rounded-md border border-line px-4 py-2 text-sm disabled:opacity-50 ${INTERACTIVE}`}
         >
           {t(lang, "modeDiscard")}
         </button>

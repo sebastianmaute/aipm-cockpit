@@ -8,6 +8,7 @@ import type { StorageKind } from "./storage";
 import { APP_LICENSE, APP_LICENSE_URL, APP_VERSION_LABEL } from "./version";
 import { VersionInfoModal } from "./version-info";
 import { InfoTooltip } from "./info-tooltip";
+import { FOCUS_RING, INTERACTIVE, TRANSITION } from "./interaction-styles";
 import { AppearanceSection } from "./settings-sections/appearance-section";
 import { LocalizationSection } from "./settings-sections/localization-section";
 import { GeneralSection } from "./settings-sections/general-section";
@@ -191,11 +192,11 @@ export function SettingsView(props: SettingsViewProps) {
         type="button"
         aria-current={isActive ? "page" : undefined}
         onClick={() => setActive(id)}
-        className={
+        className={`${
           isActive
             ? "rounded-md bg-AIPM-dark-blue px-3 py-2 text-left text-sm font-medium text-white"
             : "rounded-md px-3 py-2 text-left text-sm text-foreground hover:bg-surface-muted"
-        }
+        } ${INTERACTIVE}`}
       >
         {t(lang, labelKey)}
       </button>
@@ -215,7 +216,7 @@ export function SettingsView(props: SettingsViewProps) {
             checked={expert}
             aria-label={t(lang, "settingsExpertMode")}
             onChange={(e) => toggleExpert(e.target.checked)}
-            className="h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue focus:ring-AIPM-green"
+            className={`h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue ${FOCUS_RING} ${TRANSITION}`}
           />
           <span className="inline-flex items-center gap-1">
             {t(lang, "settingsExpertMode")}

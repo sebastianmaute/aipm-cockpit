@@ -17,6 +17,7 @@ import type React from "react";
 import type { Contact } from "./contacts";
 import { type Lang, t } from "./i18n";
 import { resourceDisplayName } from "./resource-foundation";
+import { FOCUS_RING, INTERACTIVE, TRANSITION } from "./interaction-styles";
 import type { Resource } from "./types";
 
 export interface ResourcePickerValue {
@@ -196,7 +197,7 @@ export function ResourcePicker({
           aria-controls={listboxId}
           aria-activedescendant={open && rows.length ? `${listboxId}-opt-${highlight}` : undefined}
           aria-autocomplete="list"
-          className={`w-full rounded-md border bg-surface px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-AIPM-green disabled:cursor-not-allowed disabled:bg-surface-muted disabled:text-muted-foreground ${
+          className={`w-full rounded-md border bg-surface px-3 py-2 text-sm text-foreground disabled:cursor-not-allowed disabled:bg-surface-muted disabled:text-muted-foreground ${FOCUS_RING} ${TRANSITION} ${
             linked ? "border-AIPM-green pr-8" : dangling ? "border-AIPM-pink pr-8" : "border-line"
           }`}
         />
@@ -208,7 +209,7 @@ export function ResourcePicker({
             title={linked ? t(lang, "resourcePickerLinked") : t(lang, "resourcePickerUnlink")}
             className={`absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 ${
               linked ? "text-AIPM-green-strong" : "text-AIPM-pink-strong"
-            } hover:bg-surface-muted`}
+            } hover:bg-surface-muted ${INTERACTIVE}`}
           >
             <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-3.5 w-3.5">
               <path fillRule="evenodd" d="M4.28 4.28a.75.75 0 011.06 0L10 8.94l4.66-4.66a.75.75 0 111.06 1.06L11.06 10l4.66 4.66a.75.75 0 11-1.06 1.06L10 11.06l-4.66 4.66a.75.75 0 01-1.06-1.06L8.94 10 4.28 5.34a.75.75 0 010-1.06z" clipRule="evenodd" />
@@ -256,7 +257,7 @@ export function ResourcePicker({
                       e.preventDefault();
                       choose(row);
                     }}
-                    className="flex w-full min-w-0 flex-col items-start text-left"
+                    className={`flex w-full min-w-0 flex-col items-start text-left ${INTERACTIVE}`}
                   >
                     {row.kind === "add" ? (
                       <span className="font-medium text-AIPM-green-strong">

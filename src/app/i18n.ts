@@ -128,6 +128,7 @@ const enUS = {
   versionHighlightSavedViewsPanels: "Saved views now cover the RAID, Milestones, Changes, and Stakeholders panels too",
   versionHighlightSavedViewsReports: "Saved views now cover the Reports panel too",
   versionHighlightUiBatch0134: "Two-column Reports layout, column resizing on Documents and Steering Committee, and the search box moved left of the top-bar icons",
+  versionHighlightInteractionStates: "Consistent hover, focus, and press feedback on every control, with loading skeletons and composed empty states across the app",
 
   tasks: "Tasks",
   tasksCount: "({0})",
@@ -147,6 +148,7 @@ const enUS = {
 
   edit: "Edit",
   clear: "Clear",
+  loading: "Loading…",
   print: "Print",
   printHint: "Open the browser print dialog for an A4 handout",
   delete: "Delete",

@@ -2,6 +2,7 @@
 
 import type React from "react";
 import { type Lang, t } from "./i18n";
+import { INTERACTIVE } from "./interaction-styles";
 import { ModalFieldControls } from "./modal-field-controls";
 import { TaskFormFields, type TaskFormFieldsProps } from "./task-form-fields";
 
@@ -41,7 +42,7 @@ export function TaskEditView({ onSubmit, footer, heading, onClose, ...fieldProps
                   onClick={onClose}
                   aria-label={t(lang, "alertModalClose")}
                   title={t(lang, "alertModalClose")}
-                  className="cursor-pointer rounded-md p-2 text-muted-foreground hover:bg-surface-muted hover:text-AIPM-dark-blue dark:hover:text-AIPM-light-grey"
+                  className={`cursor-pointer rounded-md p-2 text-muted-foreground hover:bg-surface-muted hover:text-AIPM-dark-blue dark:hover:text-AIPM-light-grey ${INTERACTIVE}`}
                 >
                   <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-4 w-4">
                     <path

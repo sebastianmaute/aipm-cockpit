@@ -2,6 +2,7 @@
 
 import { t, type Lang } from "./i18n";
 import { RagBadge } from "./rag-badge";
+import { INTERACTIVE } from "./interaction-styles";
 import { healthColorName } from "./health";
 import type { DeltaResult, GreetingTimeKey, RagScope } from "./dashboard-delta";
 
@@ -80,7 +81,7 @@ export function DashboardDeltaStrip({ lang, delta, greeting, onOpenTask, onOpenR
                   key={chip.key}
                   type="button"
                   onClick={chip.onClick}
-                  className="rounded-full border border-line bg-surface px-2.5 py-0.5 text-xs text-foreground hover:bg-surface-muted hover:border-AIPM-dark-blue"
+                  className={`rounded-full border border-line bg-surface px-2.5 py-0.5 text-xs text-foreground hover:bg-surface-muted hover:border-AIPM-dark-blue ${INTERACTIVE}`}
                 >
                   {chip.label}
                 </button>

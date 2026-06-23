@@ -10,6 +10,7 @@
 // so the badge must never call useTaskRowContext(). Imports nothing from task-row.
 import { memo, type ReactNode } from "react";
 import { type Lang, t } from "./i18n";
+import { INTERACTIVE } from "./interaction-styles";
 
 interface JiraBadgeProps {
   jiraKey: string;
@@ -49,7 +50,7 @@ function JiraBadgeImpl({ jiraKey, lang, href, issueType }: JiraBadgeProps) {
         rel="noopener noreferrer"
         title={title}
         aria-label={readOnly}
-        className={`${BADGE_CLASS} hover:underline`}
+        className={`${BADGE_CLASS} hover:underline ${INTERACTIVE}`}
       >
         {lockIcon}
         {jiraKey}

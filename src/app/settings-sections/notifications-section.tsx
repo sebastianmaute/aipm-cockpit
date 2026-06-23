@@ -5,6 +5,7 @@ import type { ChannelConfig, NotificationsConfig, Settings } from "../settings-t
 import type { StakeholderQuadrant } from "../stakeholders";
 import { InfoTooltip } from "../info-tooltip";
 import { useToastContext } from "../toast-context";
+import { FOCUS_RING, TRANSITION } from "../interaction-styles";
 
 interface NotificationsSectionProps {
   lang: Lang;
@@ -85,7 +86,7 @@ export function NotificationsSection({ lang, settings, onChange }: Notifications
               reminderLeadDays: Math.max(0, Math.min(365, Math.round(Number(e.target.value) || 0))),
             })
           }
-          className="w-20 rounded-md border border-line px-2 py-1 text-right tabular-nums"
+          className={`w-20 rounded-md border border-line px-2 py-1 text-right tabular-nums ${FOCUS_RING} ${TRANSITION}`}
         />
       </label>
 
@@ -132,7 +133,7 @@ export function NotificationsSection({ lang, settings, onChange }: Notifications
               ),
             })
           }
-          className="w-20 rounded-md border border-line px-2 py-1 text-right tabular-nums"
+          className={`w-20 rounded-md border border-line px-2 py-1 text-right tabular-nums ${FOCUS_RING} ${TRANSITION}`}
         />
       </label>
 
@@ -230,7 +231,7 @@ function CommsLeadDaysBlock({ lang, leadDays, onChange }: CommsLeadDaysBlockProp
             aria-label={t(lang, QUADRANT_LABEL_KEYS[q])}
             value={leadDays[q]}
             onChange={(e) => handleChange(q, e.target.value)}
-            className="w-20 rounded-md border border-line px-2 py-1 text-right tabular-nums"
+            className={`w-20 rounded-md border border-line px-2 py-1 text-right tabular-nums ${FOCUS_RING} ${TRANSITION}`}
           />
         </label>
       ))}
@@ -297,7 +298,7 @@ function NotificationRow({
           value={config.leadDays ?? ""}
           placeholder={useGlobalLeadDays ? "—" : ""}
           onChange={(e) => handleLeadDaysChange(e.target.value)}
-          className="w-16 rounded-md border border-line px-2 py-1 text-right tabular-nums disabled:cursor-not-allowed disabled:opacity-40"
+          className={`w-16 rounded-md border border-line px-2 py-1 text-right tabular-nums disabled:cursor-not-allowed disabled:opacity-40 ${FOCUS_RING} ${TRANSITION}`}
         />
       )}
     </div>

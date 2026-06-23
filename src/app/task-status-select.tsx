@@ -7,6 +7,7 @@ import { type Lang, t } from "./i18n";
 import { TASK_STATUSES, type Task, type TaskStatus } from "./types";
 import { statusBadgeClass, statusLabelKey } from "./task-status-ui";
 import { isJiraSynced } from "./jira-status-map";
+import { FOCUS_RING, TRANSITION } from "./interaction-styles";
 
 interface TaskStatusSelectProps {
   lang: Lang;
@@ -23,7 +24,7 @@ export function TaskStatusSelect({ lang, task, onStatusChange }: TaskStatusSelec
       disabled={synced}
       title={synced ? t(lang, "jiraManagedTooltip") : undefined}
       onChange={(e) => onStatusChange(task.id, e.target.value as TaskStatus)}
-      className={`rounded border border-line px-1.5 py-0.5 text-xs font-medium ${statusBadgeClass(task.status)}`}
+      className={`rounded border border-line px-1.5 py-0.5 text-xs font-medium ${statusBadgeClass(task.status)} ${FOCUS_RING} ${TRANSITION}`}
     >
       {TASK_STATUSES.map((s) => (
         <option key={s} value={s}>{t(lang, statusLabelKey(s))}</option>

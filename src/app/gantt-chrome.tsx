@@ -3,6 +3,7 @@
 // dependency/connector arrow overlay. All pure (no local state); GanttPanel
 // owns the data + handlers and passes them in.
 import { type Lang, t } from "./i18n";
+import { FOCUS_RING, INTERACTIVE, TRANSITION } from "./interaction-styles";
 import { PrintButton, ResetSizeButton } from "./task-manager-ui";
 import { PRIORITIES, type Milestone, type Priority, type Task } from "./types";
 import {
@@ -61,7 +62,7 @@ export function GanttToolbar({
           onClick={onAddTask}
           aria-label={t(lang, "addTaskButton")}
           title={t(lang, "addTaskButton")}
-          className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90"
+          className={`rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90 ${INTERACTIVE}`}
         >
           + {t(lang, "addTaskButton")}
         </button>
@@ -72,7 +73,7 @@ export function GanttToolbar({
           onClick={onAddMilestone}
           aria-label={t(lang, "ganttAddMilestone")}
           title={t(lang, "ganttAddMilestone")}
-          className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90"
+          className={`rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90 ${INTERACTIVE}`}
         >
           + {t(lang, "ganttAddMilestone")}
         </button>
@@ -84,7 +85,7 @@ export function GanttToolbar({
         placeholder={t(lang, "searchPlaceholder")}
         aria-label={t(lang, "searchPlaceholder")}
         title={t(lang, "ganttSearchHint")}
-        className="min-w-[12rem] flex-1 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-foreground focus:border-AIPM-dark-blue focus:outline-none focus:ring-1 focus:ring-AIPM-green"
+        className={`min-w-[12rem] flex-1 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-foreground focus:border-AIPM-dark-blue ${FOCUS_RING} ${TRANSITION}`}
       />
       <select
         value={prefs.status}
@@ -93,7 +94,7 @@ export function GanttToolbar({
         }
         aria-label={t(lang, "ganttFilterStatus")}
         title={t(lang, "ganttStatusFilterHint")}
-        className="h-[30px] rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-foreground focus:border-AIPM-dark-blue focus:outline-none focus:ring-1 focus:ring-AIPM-green"
+        className={`h-[30px] rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-foreground focus:border-AIPM-dark-blue ${FOCUS_RING} ${TRANSITION}`}
       >
         <option value="all">{t(lang, "ganttStatusAll")}</option>
         <option value="open">{t(lang, "ganttStatusOpen")}</option>
@@ -107,7 +108,7 @@ export function GanttToolbar({
         }
         aria-label={t(lang, "allPriorities")}
         title={t(lang, "priorityFilterHint")}
-        className="h-[30px] rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-foreground focus:border-AIPM-dark-blue focus:outline-none focus:ring-1 focus:ring-AIPM-green"
+        className={`h-[30px] rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-foreground focus:border-AIPM-dark-blue ${FOCUS_RING} ${TRANSITION}`}
       >
         <option value="All">{t(lang, "allPriorities")}</option>
         {PRIORITIES.map((p) => (
@@ -121,7 +122,7 @@ export function GanttToolbar({
         onChange={(e) => setAssigneeFilter(e.target.value)}
         aria-label={t(lang, "allAssignees")}
         title={t(lang, "assigneeFilterHint")}
-        className="h-[30px] rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-foreground focus:border-AIPM-dark-blue focus:outline-none focus:ring-1 focus:ring-AIPM-green"
+        className={`h-[30px] rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-foreground focus:border-AIPM-dark-blue ${FOCUS_RING} ${TRANSITION}`}
       >
         <option value="All">{t(lang, "allAssignees")}</option>
         {assigneeOptions.map((a) => (
@@ -137,7 +138,7 @@ export function GanttToolbar({
           onChange={(e) => setSort(e.target.value as GanttSort)}
           aria-label={t(lang, "ganttSortLabel")}
           title={t(lang, "ganttSortHint")}
-          className="h-[30px] rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-foreground focus:border-AIPM-dark-blue focus:outline-none focus:ring-1 focus:ring-AIPM-green"
+          className={`h-[30px] rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-foreground focus:border-AIPM-dark-blue ${FOCUS_RING} ${TRANSITION}`}
         >
           <option value="auto">{t(lang, "ganttSortAuto")}</option>
           <option value="due">{t(lang, "ganttSortDue")}</option>
@@ -153,7 +154,7 @@ export function GanttToolbar({
           type="button"
           onClick={resetFilters}
           title={t(lang, "resetFiltersHint")}
-          className="rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted"
+          className={`rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`}
         >
           {t(lang, "ganttResetFilters")}
         </button>

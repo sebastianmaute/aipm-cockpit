@@ -28,6 +28,7 @@ import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton } from "./task-manager-ui";
 import { InfoTooltip } from "./info-tooltip";
 import { resourceDisplayName } from "./resource-foundation";
+import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
 
 const STAKEHOLDER_FILTER_DEFAULTS: PanelFiltersState = { search: "", filters: {}, sort: null };
 
@@ -194,7 +195,7 @@ function StakeholdersPanelBody({
         onClick={openNew}
         aria-label={t(lang, "stakeholdersAdd")}
         title={t(lang, "stakeholdersAdd")}
-        className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90"
+        className={`rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90 ${INTERACTIVE}`}
       >
         + {t(lang, "stakeholdersAdd")}
       </button>
@@ -204,14 +205,14 @@ function StakeholdersPanelBody({
         onChange={(e) => pf.setSearch(e.target.value)}
         placeholder={t(lang, "stakeholderFieldName")}
         aria-label={t(lang, "stakeholderFieldName")}
-        className="min-w-[12rem] flex-1 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-foreground focus:border-AIPM-dark-blue focus:outline-none focus:ring-1 focus:ring-AIPM-green"
+        className={`min-w-[12rem] flex-1 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-foreground focus:border-AIPM-dark-blue focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
       />
       {search && (
         <button
           type="button"
           onClick={() => pf.setSearch("")}
           aria-label={t(lang, "clear")}
-          className="rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted"
+          className={`rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`}
         >
           ×
         </button>
@@ -238,7 +239,7 @@ function StakeholdersPanelBody({
                 <button
                   type="button"
                   onClick={() => toggleSort("name")}
-                  className="inline-flex items-center gap-1 hover:text-AIPM-green"
+                  className={`inline-flex items-center gap-1 hover:text-AIPM-green ${INTERACTIVE}`}
                 >
                   {t(lang, "stakeholderFieldName")}{sortArrow("name")}
                 </button>
@@ -252,7 +253,7 @@ function StakeholdersPanelBody({
                 <button
                   type="button"
                   onClick={() => toggleSort("organization")}
-                  className="inline-flex items-center gap-1 hover:text-AIPM-green"
+                  className={`inline-flex items-center gap-1 hover:text-AIPM-green ${INTERACTIVE}`}
                 >
                   {t(lang, "stakeholderFieldOrganization")}{sortArrow("organization")}
                 </button>
@@ -275,7 +276,7 @@ function StakeholdersPanelBody({
                 <button
                   type="button"
                   onClick={() => toggleSort("category")}
-                  className="inline-flex items-center gap-1 hover:text-AIPM-green"
+                  className={`inline-flex items-center gap-1 hover:text-AIPM-green ${INTERACTIVE}`}
                 >
                   {t(lang, "stakeholderFieldCategory")}{sortArrow("category")}
                 </button>
@@ -289,7 +290,7 @@ function StakeholdersPanelBody({
                 <button
                   type="button"
                   onClick={() => toggleSort("influence")}
-                  className="inline-flex items-center gap-1 hover:text-AIPM-green"
+                  className={`inline-flex items-center gap-1 hover:text-AIPM-green ${INTERACTIVE}`}
                 >
                   {t(lang, "stakeholderFieldInfluence")}{sortArrow("influence")}
                 </button>
@@ -304,7 +305,7 @@ function StakeholdersPanelBody({
                 <button
                   type="button"
                   onClick={() => toggleSort("interest")}
-                  className="inline-flex items-center gap-1 hover:text-AIPM-green"
+                  className={`inline-flex items-center gap-1 hover:text-AIPM-green ${INTERACTIVE}`}
                 >
                   {t(lang, "stakeholderFieldInterest")}{sortArrow("interest")}
                 </button>

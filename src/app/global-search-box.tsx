@@ -12,6 +12,7 @@ import {
 import { splitHighlight } from "./search-highlight";
 import { loadRecents, pushRecent, saveRecents } from "./search-recents";
 import { type Lang, type TranslationKey, t } from "./i18n";
+import { FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { useWorkspace } from "./workspace-context";
 import { useWorkspaceTab } from "./workspace-tab-context";
 
@@ -197,7 +198,7 @@ export function GlobalSearchBox({
           setOpen(true);
         }}
         onKeyDown={onKeyDown}
-        className="w-full rounded-md border border-line bg-surface px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-AIPM-dark-blue focus:outline-none focus:ring-1 focus:ring-AIPM-green"
+        className={`w-full rounded-md border border-line bg-surface px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-AIPM-dark-blue focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
       />
       {isOpen && items.length > 0 && (
         <div className="absolute z-30 mt-1 max-h-72 w-full overflow-auto rounded-md border border-line bg-surface pr-2 text-sm">
