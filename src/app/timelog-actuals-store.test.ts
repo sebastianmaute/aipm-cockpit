@@ -25,4 +25,15 @@ describe("timelog actuals cache", () => {
     window.localStorage.setItem(TIMELOG_ACTUALS_KEY, JSON.stringify({ p: { fetchedAt: 5 } }));
     expect(loadActualsCache("p")).toBeUndefined();
   });
+  it("returns undefined for an entry with a valid fetchedAt but no aggregates", () => {
+    window.localStorage.setItem(TIMELOG_ACTUALS_KEY, JSON.stringify({ p: { fetchedAt: "2026-01-01T00:00:00Z" } }));
+    expect(loadActualsCache("p")).toBeUndefined();
+  });
+  it("evicts the oldest project beyond the 50-project cap", () => {
+    for (let i = 0; i <= 50; i++) {
+      saveActualsCache(`p-${i}`, { fetchedAt: `2000-01-01T00:00:${String(i).padStart(2, "0")}Z`, aggregates: agg(i) });
+    }
+    expect(loadActualsCache("p-0")).toBeUndefined();
+    expect(loadActualsCache("p-50")?.aggregates.unattributed.hours).toBe(50);
+  });
 });
