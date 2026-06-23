@@ -14,10 +14,9 @@ export function unwrapTaf(json: unknown): Record<string, unknown>[] {
   if (!json || typeof json !== "object") return [];
   const r = json as Record<string, unknown>;
   if (Array.isArray(r.Entities)) {
-    return (r.Entities as unknown[]).map((e) => {
-      const o = (e && typeof e === "object" ? e : {}) as Record<string, unknown>;
-      return (o.Properties && typeof o.Properties === "object" ? o.Properties : o) as Record<string, unknown>;
-    });
+    return (r.Entities as unknown[])
+      .filter((e): e is Record<string, unknown> => !!e && typeof e === "object")
+      .map((o) => (o.Properties && typeof o.Properties === "object" ? o.Properties : o) as Record<string, unknown>);
   }
   if (r.Properties && typeof r.Properties === "object") return [r.Properties as Record<string, unknown>];
   return [];
@@ -40,10 +39,14 @@ const dateOnly = (v: unknown): string => s(v).slice(0, 10);
 export async function listUsers(creds: TimelogCreds): Promise<TimelogUser[]> {
   return (await call(creds, "/v1/user")).map((p) => ({
     userId: num(p.UserID), firstName: s(p.FirstName), lastName: s(p.LastName),
+    // Default-true: a user row without an explicit flag is treated as active.
     initials: s(p.Initials), email: s(p.Email), isActive: p.IsActive !== false,
   }));
 }
 
+// /v1/user-setting returns Properties.Privileges (a plain sub-object). Defaulting
+// registrationAllTasks to false is the SAFE degradation: a wrong/absent nesting
+// makes scope fall back to self-only, never over-fetching org-wide data.
 export async function getPrivileges(creds: TimelogCreds): Promise<{ registrationAllTasks: boolean }> {
   const rows = await call(creds, "/v1/user-setting");
   const privs = (rows[0]?.Privileges ?? {}) as Record<string, unknown>;
@@ -55,6 +58,8 @@ function mapTimeItem(p: Record<string, unknown>): TimelogTimeItem {
     timeRegistrationId: num(p.TimeRegistrationID), userId: num(p.UserID),
     projectId: num(p.ProjectID), projectName: s(p.ProjectName), projectNo: s(p.ProjectNo),
     taskId: num(p.TaskID), date: dateOnly(p.Date), hours: num(p.Hours),
+    // Default-false: a registration without an explicit flag is non-billable,
+    // so we never over-count billable hours.
     billableHours: num(p.BillableHours), isBillable: p.IsBillable === true,
   };
 }

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { unwrapTaf, listUsers, listTimeItemsSelf, type TimelogCreds } from "./timelog-api";
+import { unwrapTaf, listUsers, listTimeItemsSelf, listEmployeeTimeItems,
+  getPrivileges, getFinancialDataSelf, type TimelogCreds } from "./timelog-api";
 
 const creds: TimelogCreds = { host: "app2.timelog.com", tenant: "Acme", token: "tok" };
 afterEach(() => vi.restoreAllMocks());
@@ -15,6 +16,9 @@ describe("unwrapTaf", () => {
   });
   it("returns [] for an empty/odd payload", () => {
     expect(unwrapTaf(null)).toEqual([]);
+  });
+  it("drops non-object entities from a list", () => {
+    expect(unwrapTaf({ Entities: [null, { Properties: { X: 1 } }] })).toEqual([{ X: 1 }]);
   });
 });
 
@@ -44,5 +48,45 @@ describe("listTimeItemsSelf", () => {
     const items = await listTimeItemsSelf(creds, "2026-06-01", "2026-06-30");
     expect(items[0]).toEqual({ timeRegistrationId: 1, userId: 5, projectId: 9, projectName: "P", projectNo: "P1",
       taskId: 3, date: "2026-06-10", hours: 4, billableHours: 4, isBillable: true });
+  });
+});
+
+describe("getPrivileges", () => {
+  it("reads RegistrationAllTasks from Properties.Privileges", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({
+      Entities: [{ Properties: { Privileges: { RegistrationAllTasks: true } } }],
+    }), { status: 200 }));
+    expect(await getPrivileges(creds)).toEqual({ registrationAllTasks: true });
+  });
+  it("defaults registrationAllTasks to false when Privileges is absent", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({
+      Entities: [{ Properties: {} }],
+    }), { status: 200 }));
+    expect(await getPrivileges(creds)).toEqual({ registrationAllTasks: false });
+  });
+});
+
+describe("listEmployeeTimeItems", () => {
+  it("POSTs the approval endpoint with employeeUserId as a string query param", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({
+      Entities: [],
+    }), { status: 200 }));
+    await listEmployeeTimeItems(creds, 42, "2026-06-01", "2026-06-30");
+    const [, init] = fetchMock.mock.calls[0];
+    const body = JSON.parse((init as RequestInit).body as string);
+    expect(body.path).toBe("/v1/approval/timesheets/get-status-by-period-with-rejected-time-tracking-items");
+    expect(body.query.employeeUserId).toBe("42");
+  });
+});
+
+describe("getFinancialDataSelf", () => {
+  it("maps a financial-day single and trims the date", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({
+      Properties: { UserID: 5, Date: "2026-06-10T00:00:00", TotalActualHour: 8, TotalBillableHour: 6,
+        TotalBillableAmount: 900, BillableCurrencyABB: "EUR" },
+    }), { status: 200 }));
+    const days = await getFinancialDataSelf(creds, "2026-06-01", "2026-06-30");
+    expect(days[0]).toEqual({ userId: 5, date: "2026-06-10", totalActualHour: 8, totalBillableHour: 6,
+      totalBillableAmount: 900, billableCurrency: "EUR" });
   });
 });
