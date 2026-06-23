@@ -102,7 +102,7 @@ describe("DocumentsPanel", () => {
   it("removes the row when the ✕ remove button is clicked", () => {
     renderWithTasks([seededTask([LINK])]);
     expect(screen.getByText(/Spec\.docx/)).toBeInTheDocument();
-    const remove = screen.getByRole("button", { name: t("en-US", "documentsRemove") });
+    const remove = screen.getByRole("button", { name: `${t("en-US", "documentsRemove")} – ${LINK.name}` });
     fireEvent.click(remove);
     expect(screen.queryByText(/Spec\.docx/)).not.toBeInTheDocument();
     // Empty state shows once the last link is gone.

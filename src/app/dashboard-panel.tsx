@@ -331,7 +331,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
         <DashboardCoachingCard lang={lang} ctas={coachingCtas} onNavigate={props.onNavigate ?? (() => {})} />
 
         {/* At-a-glance KPI strip with trend arrows vs the last visit */}
-        <div className={`grid grid-cols-3 ${dc.kpiGap}`}>
+        <div className={`grid grid-cols-1 sm:grid-cols-3 ${dc.kpiGap}`}>
           <Tile
             label={t(lang, "dashboardKpiComplete")}
             value={`${model.progress.percent}%`}

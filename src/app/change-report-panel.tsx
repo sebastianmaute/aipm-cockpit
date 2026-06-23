@@ -150,11 +150,11 @@ export function ChangeReportPanel({ lang, items, embedded = false }: Props) {
         <Tile label={t(lang, "changeReportRejected")} value={String(byStatus.Rejected)} />
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <TypeTable lang={lang} counts={byType} colResize={typeCols} />
         <StatusTable lang={lang} counts={byStatus} colResize={statusCols} />
       </div>
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <ImpactTable lang={lang} items={items} colResize={impactCols} />
         <RequestorTable lang={lang} items={items} colResize={requestorCols} />
       </div>
