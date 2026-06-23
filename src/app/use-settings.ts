@@ -3,6 +3,7 @@
 import { type Dispatch, type SetStateAction, useEffect, useRef, useState } from "react";
 import { type Lang, loadI18n, migrateLang } from "./i18n";
 import { defaultSettings, sanitizeIntegrations, type Settings, type NextActionsLearningConfig } from "./settings-types";
+import { defaultTimelogConfig } from "./timelog-types";
 import { defaultNotificationsConfig, resolveSnapshotSettings, resolveNextActionsConfig, sanitizeAiConfig, sanitizeExportConfig } from "./settings-types";
 import type { StakeholderQuadrant } from "./stakeholders";
 import { resolveExtraReports } from "./addable-reports";
@@ -222,6 +223,10 @@ export function useSettings(): {
             jira: {
               ...defaultSettings.jira,
               ...(isPlainObject(parsed.jira) ? parsed.jira : {}),
+            },
+            timelog: {
+              ...defaultTimelogConfig,
+              ...(isPlainObject(parsed.timelog) ? parsed.timelog : {}),
             },
             popout: {
               ...defaultSettings.popout,
