@@ -131,6 +131,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightSavedViewsPanels: "Gespeicherte Ansichten gelten jetzt auch für die Bereiche RAID, Meilensteine, Änderungen und Stakeholder",
   versionHighlightSavedViewsReports: "Gespeicherte Ansichten gelten jetzt auch für den Bereich Berichte",
   versionHighlightUiBatch0134: "Zweispaltiges Berichtslayout, Spaltenbreiten in Dokumente und Lenkungsausschuss anpassbar und das Suchfeld links neben den Symbolen der oberen Leiste",
+  versionHighlightInteractionStates: "Einheitliches Hover-, Fokus- und Press-Feedback auf allen Bedienelementen, dazu Lade-Skelette und gestaltete Leerzustände in der gesamten App",
 
   tasks: "Aufgaben",
   tasksCount: "({0})",

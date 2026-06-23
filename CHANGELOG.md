@@ -8,6 +8,19 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.135.0] - 2026-06-23 "Silverberg"
+
+### Added
+
+- Shared interaction-state atoms (`interaction-styles.ts`) — a canonical keyboard focus ring, a 150 ms colour transition, and a subtle button press — composed onto every interactive control for consistent hover/focus/press feedback across the app.
+- `EmptyState` component for composed "nothing here" views, replacing bare no-data lines on roughly fifteen lists (Dashboard, Milestones, Reports, Settings, History, Trends, Documents, Projects, and more).
+- `Skeleton` / `PanelSkeleton` loading placeholders shown while each of the twenty lazily-loaded view panels fetches its chunk, so a first visit shimmers into place instead of flashing blank.
+
+### Changed
+
+- Normalised every weak `focus:ring-1` to the 2 px standard ring; form fields gain a focus ring + transition, buttons additionally get a press; bespoke semantic focus colours (invalid-state, consent, critical-path) are left intact.
+- Swept Dashboard, the four entity panels and their edit modals (RAID / Milestones / Changes / Stakeholders), Budget / Resources / Reports, all Settings sections, the top-bar menus and global search, and Tasks / Kanban / Gantt for interaction-state consistency.
+
 ## [0.134.0] - 2026-06-22 "Vance"
 
 ### Changed
