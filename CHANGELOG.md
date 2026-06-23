@@ -8,6 +8,17 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.138.0] - 2026-06-23 "Brunner"
+
+### Changed
+
+- The Dashboard KPI strip and the budget project/bucket metric cards (contribution margin, CPI, consumption) and the per-bucket hours breakdown now stack to a single column on small screens instead of forcing three or four columns and overflowing. The Jira-settings issue-type checkbox list collapses the same way. Desktop layouts are unchanged — these are additive responsive breakpoints matching the grid pattern already used by the Reports tile grids.
+- Aligned the Change report's two side-by-side table grids (`gap-6` → `gap-4`) with the RAID report and the app-wide two-column gap convention, so the report tabs share one spacing rhythm.
+
+### Fixed
+
+- The Documents panel's per-row remove buttons now carry a row-unique accessible name (e.g. "Remove – Spec.docx") instead of an identical "Remove" on every row, so screen-reader users can tell which document a button deletes (WCAG 2.4.6). The Documents view is outside the axe CI gate, so this was previously undetected.
+
 ## [0.137.0] - 2026-06-23 "Bear"
 
 ### Changed

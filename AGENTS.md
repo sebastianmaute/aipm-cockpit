@@ -471,6 +471,14 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
 - **Scrollbar gap:** per-view inner scrollers (`min-h-0 flex-1 overflow-auto`) need `pr-2` for the
   content↔scrollbar gap. Shared `INNER_TABLE_CLASS`/report-table/actions-panel already include it; bare
   per-panel scrollers do NOT — add `pr-2` or content jams the scrollbar.
+- **Responsive metric grids:** a multi-column grid of CONTENT cards (KPI tiles, budget CCI cards, hours
+  breakdown, checkbox lists) must carry a `grid-cols-1` (or `grid-cols-2`) mobile base and only widen at
+  `sm:`/`lg:` — a bare `grid grid-cols-3`/`grid-cols-4` overflows a phone/narrow-tablet viewport (the
+  cells crush + text wraps). The convention is the Reports tile grid (`grid-cols-1 ... sm:grid-cols-2
+  lg:grid-cols-3` / `grid-cols-2 ... sm:grid-cols-4`). EXEMPT: a 2×2 grid whose two dimensions are
+  SEMANTIC (the stakeholder interest×power matrix) and a side-by-side diff grid — collapsing those to one
+  column destroys the meaning; leave them `grid-cols-2`. Most views are NOT in the axe gate's narrow-width
+  scan, so a responsive break slips CI — eye-check new metric strips at ~375px.
 - **Interaction-state atoms (`interaction-styles.ts`):** pure class-string consts every interactive control
   composes so hover/focus/press read identically app-wide — `FOCUS_RING` (canonical
   `focus:outline-none focus:ring-2 focus:ring-AIPM-green`), `TRANSITION` (`transition-colors duration-150`),

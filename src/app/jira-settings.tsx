@@ -373,7 +373,7 @@ export function JiraSettingsSection({
                   {t(lang, "jiraIssueTypes")}
                   <InfoTooltip text={t(lang, "jiraIssueTypesTooltip")} />
                 </span>
-                <ul className="grid grid-cols-2 gap-1">
+                <ul className="grid grid-cols-1 gap-1 sm:grid-cols-2">
                   {issueTypes
                     .filter((it) => !it.subtask)
                     .map((it) => (

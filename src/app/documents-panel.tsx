@@ -240,7 +240,7 @@ export function DocumentsPanel() {
                 <td className="px-3 py-2 text-right">
                   <button
                     type="button"
-                    aria-label={t(lang, "documentsRemove")}
+                    aria-label={`${t(lang, "documentsRemove")} – ${ref.link.name}`}
                     title={t(lang, "documentsRemove")}
                     onClick={() => remove(ref)}
                     className={`rounded-md px-2 py-0.5 text-xs text-muted-foreground hover:text-AIPM-pink-strong ${INTERACTIVE}`}

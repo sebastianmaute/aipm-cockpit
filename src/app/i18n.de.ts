@@ -134,6 +134,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightInteractionStates: "Einheitliches Hover-, Fokus- und Press-Feedback auf allen Bedienelementen, dazu Lade-Skelette und gestaltete Leerzustände in der gesamten App",
   versionHighlightBulkEdit: "Mehrere Zeilen in den Panels RAID, Meilensteine, Änderungen und Stakeholder auswählen und Feldänderungen auf alle gleichzeitig anwenden",
   versionHighlightDensityRhythm: "Die kompakte Dichte des Dashboards verkleinert jetzt auch die Abstände der zweispaltigen Bereiche, und die Kachelraster für Berichtsgesundheit und Anfragen nutzen denselben Abstandsrhythmus",
+  versionHighlightResponsiveGrids: "Die Kennzahlenraster von Dashboard, Budget und Jira-Einstellungen brechen auf kleinen Bildschirmen jetzt auf eine Spalte um, statt überzulaufen, die Entfernen-Schaltflächen im Dokumentebereich nennen die zu löschende Datei, und die Änderungsbericht-Tabellen nutzen denselben Rasterrhythmus",
 
   tasks: "Aufgaben",
   tasksCount: "({0})",
