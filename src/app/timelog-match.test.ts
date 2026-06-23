@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { autoMatchUsers, autoMatchProjects } from "./timelog-match";
-import type { TimelogUser } from "./timelog-types";
+import type { TimelogUser, TimelogLinks } from "./timelog-types";
 import type { Resource, BudgetBucket } from "./types";
 
 const res = (id: number, firstName: string, lastName: string, email?: string): Resource =>
@@ -44,5 +44,11 @@ describe("autoMatchProjects", () => {
     const existing = { userLinks: [], projectLinks: [{ timelogProjectId: 9, bucketId: 1, manual: true }] };
     const links = autoMatchProjects([{ id: 9, name: "ForgeOps", no: "" }], [bucket(5, "ForgeOps")], existing);
     expect(links).toContainEqual({ timelogProjectId: 9, bucketId: 1, manual: true });
+  });
+  it("preserves a manual null-bucket link and does NOT auto-override it", () => {
+    const existing: TimelogLinks = { userLinks: [], projectLinks: [{ timelogProjectId: 9, bucketId: null, manual: true }] };
+    const links = autoMatchProjects([{ id: 9, name: "ForgeOps", no: "" }], [bucket(5, "ForgeOps")], existing);
+    expect(links).toContainEqual({ timelogProjectId: 9, bucketId: null, manual: true });
+    expect(links).not.toContainEqual({ timelogProjectId: 9, bucketId: 5, manual: false });
   });
 });

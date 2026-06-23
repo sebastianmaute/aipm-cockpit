@@ -18,10 +18,12 @@ export function autoMatchUsers(
     if (u.email) match = resources.find((r) => r.email && norm(r.email) === norm(u.email));
     if (!match && u.initials) {
       const ini = norm(u.initials);
-      match = resources.find((r) => norm(`${r.firstName[0] ?? ""}${r.lastName[0] ?? ""}`) === ini);
+      if (ini) match = resources.find((r) => norm(`${r.firstName[0] ?? ""}${r.lastName[0] ?? ""}`) === ini);
     }
-    if (!match && (u.firstName || u.lastName))
-      match = resources.find((r) => norm(`${r.firstName} ${r.lastName}`) === norm(`${u.firstName} ${u.lastName}`));
+    if (!match) {
+      const userName = norm(`${u.firstName} ${u.lastName}`);
+      if (userName) match = resources.find((r) => norm(`${r.firstName} ${r.lastName}`) === userName);
+    }
     if (match) out.push({ timelogUserId: u.userId, resourceId: match.id, manual: false });
   }
   return out;
@@ -39,7 +41,8 @@ export function autoMatchProjects(
   const out: TimelogProjectLink[] = [...manual];
   for (const p of tlProjects) {
     if (pinned.has(p.id)) continue;
-    let match = buckets.find((b) => norm(b.name) === norm(p.name));
+    const pName = norm(p.name);
+    let match = pName ? buckets.find((b) => norm(b.name) === pName) : undefined;
     if (!match && p.no) match = buckets.find((b) => b.poNumber && norm(b.poNumber) === norm(p.no));
     if (match) out.push({ timelogProjectId: p.id, bucketId: match.id, manual: false });
   }
