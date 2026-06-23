@@ -40,7 +40,7 @@ describe("applyActualsToBuckets", () => {
   });
   it("leaves a bucket with no allocations untouched (no crash)", () => {
     const empty = { ...bucket(7), allocations: [] } as BudgetBucket;
-    expect(applyActualsToBuckets([empty], overlay)).toEqual([empty]);
+    expect(applyActualsToBuckets([empty], overlay)[0]).toBe(empty);
   });
   it("does not touch buckets absent from the overlay", () => {
     const other = bucket(8, { "2026-06": 3 });
