@@ -34,9 +34,8 @@ export function useTimelogSync(args: Args) {
   const onTokenInvalid = args.onTokenInvalid;
   const onTokenValid = args.onTokenValid;
 
-  const cached = loadActualsCache(projectId);
-  const [aggregates, setAggregates] = useState<ActualsAggregate | undefined>(cached?.aggregates);
-  const [fetchedAt, setFetchedAt] = useState<string | undefined>(cached?.fetchedAt);
+  const [aggregates, setAggregates] = useState<ActualsAggregate | undefined>(() => loadActualsCache(projectId)?.aggregates);
+  const [fetchedAt, setFetchedAt] = useState<string | undefined>(() => loadActualsCache(projectId)?.fetchedAt);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<number | null>(null);
 
@@ -77,7 +76,7 @@ export function useTimelogSync(args: Args) {
         onTokenValid();
       } catch (e) {
         const status = e instanceof TimelogError ? e.status : 0;
-        setError(status || 1);
+        setError(status > 0 ? status : -1); // -1 = unknown/non-HTTP error
         if (status === 401 || status === 403) onTokenInvalid();
       } finally {
         setBusy(false);
