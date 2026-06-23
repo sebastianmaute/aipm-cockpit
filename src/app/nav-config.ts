@@ -35,6 +35,7 @@ export type AppView =
   | "settings"
   | "learning-insights"
   | "steering-committee"
+  | "timelog"
   | "edit";
 
 export interface NavItem {
@@ -81,6 +82,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { view: "changes" },
       { view: "stakeholders", children: [{ view: "raci" }, { view: "stakeholder-map" }] },
       { view: "steering-committee" },
+      { view: "timelog" },
       { view: "documents" },
       { view: "reports", children: [{ view: "budget-report" }, { view: "raid-report" }, { view: "change-report" }] },
     ],
@@ -121,6 +123,7 @@ const LABEL_KEYS: Record<Exclude<AppView, "edit" | "learning-insights">, Transla
   activity: "tabActivity",
   settings: "settings",
   "steering-committee": "committeeNav",
+  timelog: "navTimelog",
 };
 
 const ALL_NAV_VIEWS: AppView[] = NAV_GROUPS.flatMap((g) =>

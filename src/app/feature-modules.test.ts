@@ -15,9 +15,9 @@ import {
 } from "./feature-modules";
 
 describe("feature-modules registry", () => {
-  it("has 11 modules and uses each id once", () => {
-    expect(ALL_MODULE_IDS).toHaveLength(11);
-    expect(new Set(ALL_MODULE_IDS).size).toBe(11);
+  it("has 12 modules and uses each id once", () => {
+    expect(ALL_MODULE_IDS).toHaveLength(12);
+    expect(new Set(ALL_MODULE_IDS).size).toBe(12);
   });
 
   it("every module's parent view appears in its views list", () => {

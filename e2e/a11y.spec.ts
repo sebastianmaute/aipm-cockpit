@@ -7,7 +7,7 @@ import { test, expect, gotoApp, openView } from "./seed";
 // names, labels, landmarks, ARIA) AND `color-contrast`, which now passes after
 // the palette tuning, the status-chip rework (dark-blue text on the hue tint
 // instead of same-hue text), and dropping the opacity-dim on completed rows.
-const A11Y_VIEWS = ["Dashboard", "Open Points", "Gantt", "Resources", "Budget", "RAID", "Settings", "Stakeholders", "Changes", "Milestones", "Reports", "Activity"] as const;
+const A11Y_VIEWS = ["Dashboard", "Open Points", "Gantt", "Resources", "Budget", "RAID", "Settings", "Stakeholders", "Changes", "Milestones", "Reports", "Activity", "Time bookings"] as const;
 
 for (const name of A11Y_VIEWS) {
   test(`a11y: ${name} has no critical/serious WCAG A/AA violations`, async ({ page }) => {

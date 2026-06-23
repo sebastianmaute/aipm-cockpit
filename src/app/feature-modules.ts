@@ -13,7 +13,8 @@ export type FeatureModuleId =
   | "changes"
   | "stakeholders"
   | "history"
-  | "documents";
+  | "documents"
+  | "timelog";
 
 export interface FeatureModule {
   id: FeatureModuleId;
@@ -47,6 +48,7 @@ export const FEATURE_MODULES: readonly FeatureModule[] = [
   },
   { id: "history", labelKey: "navHistory", views: ["history"] },
   { id: "documents", labelKey: "navDocuments", descKey: "documentsModuleDesc", views: ["documents"] },
+  { id: "timelog", labelKey: "navTimelog", views: ["timelog"] },
 ] as const;
 
 /** Views always present regardless of mode. */
