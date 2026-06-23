@@ -27,6 +27,7 @@ export function writeSettings(settings: Settings): void {
       ? { ...settings.integrations, turso: { ...turso, authToken: "" } }
       : settings.integrations,
     jira: settings.jira ? { ...settings.jira, apiToken: "" } : settings.jira,
+    timelog: settings.timelog ? { ...settings.timelog, apiToken: "" } : settings.timelog,
   };
   try {
     window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(persistable));
@@ -41,6 +42,7 @@ export async function hydrateSecretsInto(settings: Settings): Promise<Settings> 
   const apiKey = (await readDeviceSecret("anthropicApiKey")) ?? settings.ai.apiKey;
   const token = await readDeviceSecret("tursoAuthToken");
   const jiraToken = await readDeviceSecret("jiraApiToken");
+  const timelogToken = await readDeviceSecret("timelogApiToken");
   const turso = settings.integrations?.turso;
   return {
     ...settings,
@@ -53,6 +55,10 @@ export async function hydrateSecretsInto(settings: Settings): Promise<Settings> 
       settings.jira && jiraToken !== null
         ? { ...settings.jira, apiToken: jiraToken }
         : settings.jira,
+    timelog:
+      settings.timelog && timelogToken !== null
+        ? { ...settings.timelog, apiToken: timelogToken }
+        : settings.timelog,
   };
 }
 
@@ -269,6 +275,7 @@ export function useSettings(): {
                 apiKey: merged.ai.apiKey,
                 authToken: merged.integrations?.turso?.authToken,
                 jiraApiToken: merged.jira?.apiToken,
+                timelogApiToken: merged.timelog?.apiToken,
               });
               const mergedTurso = merged.integrations?.turso;
               const hydratedSettings = await hydrateSecretsInto({
@@ -278,12 +285,14 @@ export function useSettings(): {
                   ? { ...merged.integrations, turso: { ...mergedTurso, authToken: "" } }
                   : merged.integrations,
                 jira: merged.jira ? { ...merged.jira, apiToken: "" } : merged.jira,
+                timelog: merged.timelog ? { ...merged.timelog, apiToken: "" } : merged.timelog,
               });
               // Re-merge any secret the seal failed to persist: hydration left
               // it blank (nothing was sealed), so without this the in-memory
               // plaintext would be lost for the session.
               const turso = hydratedSettings.integrations?.turso;
               const jira = hydratedSettings.jira;
+              const timelog = hydratedSettings.timelog;
               committed = {
                 ...hydratedSettings,
                 ai: {
@@ -298,6 +307,10 @@ export function useSettings(): {
                   jira && unmigrated.jiraApiToken && !jira.apiToken
                     ? { ...jira, apiToken: unmigrated.jiraApiToken }
                     : jira,
+                timelog:
+                  timelog && unmigrated.timelogApiToken && !timelog.apiToken
+                    ? { ...timelog, apiToken: unmigrated.timelogApiToken }
+                    : timelog,
               };
             } catch {
               // IndexedDB / WebCrypto unavailable — fall back to the in-memory
