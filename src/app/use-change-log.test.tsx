@@ -82,4 +82,21 @@ describe("useChangeLog — logActivity", () => {
     expect(logActivity).toHaveBeenCalledOnce();
     expect(logActivity).toHaveBeenCalledWith("change.deleted", 5, "To delete");
   });
+
+  it("persists every one of N back-to-back saves in a single tick (bulk edit)", () => {
+    const { result } = renderHook(() => useChangeLog({ today: "2026-06-09" }), { wrapper: Wrapper });
+    act(() => result.current.handleSaveChange(ci({ id: 1, title: "A" })));
+    act(() => result.current.handleSaveChange(ci({ id: 2, title: "B" })));
+    // Two updates dispatched in ONE tick (as a bulk apply does) — both must
+    // compose; a stale-closure setter would let the last write clobber the first.
+    act(() => {
+      result.current.handleSaveChange(ci({ id: 1, title: "A2" }));
+      result.current.handleSaveChange(ci({ id: 2, title: "B2" }));
+    });
+    const titles = result.current.changes
+      .filter((c) => c.id === 1 || c.id === 2)
+      .sort((a, b) => a.id - b.id)
+      .map((c) => c.title);
+    expect(titles).toEqual(["A2", "B2"]);
+  });
 });

@@ -89,4 +89,17 @@ describe("useStakeholders — logActivity", () => {
     expect(logActivity).toHaveBeenCalledOnce();
     expect(logActivity).toHaveBeenCalledWith("stakeholder.deleted", 7, "S7");
   });
+
+  it("persists every one of N back-to-back saves in a single tick (bulk edit)", () => {
+    const { result } = renderHook(() => useStakeholders({ today: "2026-06-09" }), { wrapper: Wrapper });
+    act(() => result.current.handleSaveStakeholder(mk(1)));
+    act(() => result.current.handleSaveStakeholder(mk(2)));
+    // Two updates in ONE tick (a bulk apply) — both must compose, not clobber.
+    act(() => {
+      result.current.handleSaveStakeholder({ ...mk(1), influence: "High" });
+      result.current.handleSaveStakeholder({ ...mk(2), influence: "Low" });
+    });
+    expect(result.current.stakeholders.find((s) => s.id === 1)?.influence).toBe("High");
+    expect(result.current.stakeholders.find((s) => s.id === 2)?.influence).toBe("Low");
+  });
 });
