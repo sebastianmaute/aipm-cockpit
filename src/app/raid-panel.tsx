@@ -49,6 +49,10 @@ import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton } from "./task-manager-ui";
 import { InfoTooltip } from "./info-tooltip";
 import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { useRowSelection } from "./use-row-selection";
+import { BulkEditBar } from "./bulk-edit-bar";
+import { BulkEditPanel, selectField, dateField, type BulkField } from "./bulk-edit-panel";
+import { resourceDisplayName } from "./resource-foundation";
 
 const RAID_FILTER_DEFAULTS: PanelFiltersState = {
   search: "",
@@ -159,6 +163,10 @@ function RaidPanelBody({
   const [draft, setDraft] = useState<RaidItem | null>(null);
   const [isNew, setIsNew] = useState(false);
 
+  // Multi-row selection + bulk-edit panel (Severity / Owner / Target date).
+  const sel = useRowSelection();
+  const [bulkOpen, setBulkOpen] = useState(false);
+
   const tasksById = useMemo(() => {
     const map = new Map<number, Task>();
     for (const tk of tasks) map.set(tk.id, tk);
@@ -220,6 +228,48 @@ function RaidPanelBody({
         });
     return ordered;
   }, [raid, filterTaskId, categoryFilter, severityFilter, statusFilter, search, sort]);
+
+  const visibleIds = useMemo(() => visible.map((r) => r.id), [visible]);
+
+  // Bulk-editable fields. Status is intentionally omitted: RAID status is
+  // category-specific (sanitizeRaidItem silently defaults a mismatch), so a
+  // single status across a mixed-category selection would surprise.
+  const bulkFields = useMemo<BulkField[]>(() => {
+    const fields: BulkField[] = [
+      selectField(
+        "severity",
+        t(lang, "raidSeverity"),
+        RAID_SEVERITIES.map((s) => ({ value: s, label: severityLabel(s, lang) })),
+      ),
+    ];
+    if (resources.length > 0) {
+      fields.push(
+        selectField("owner", t(lang, "raidOwner"), [
+          ...resources.map((r) => ({ value: String(r.id), label: resourceDisplayName(r) })),
+          { value: "", label: "—" },
+        ]),
+      );
+    }
+    fields.push(dateField("targetDate", t(lang, "raidTargetDate")));
+    return fields;
+  }, [lang, resources]);
+
+  const applyBulk = (changes: Record<string, string>) => {
+    for (const id of sel.selectedIds) {
+      const item = raidById.get(id);
+      if (!item) continue;
+      let patched: RaidItem = { ...item };
+      if (changes.severity !== undefined) patched = { ...patched, severity: changes.severity as RaidSeverity };
+      if (changes.targetDate !== undefined) patched = { ...patched, targetDate: changes.targetDate || undefined };
+      if (changes.owner !== undefined) {
+        const r = changes.owner ? resources.find((x) => String(x.id) === changes.owner) : undefined;
+        patched = { ...patched, owner: r ? resourceDisplayName(r) : "", ownerEmail: r?.email, ownerResourceId: r ? r.id : null };
+      }
+      onSave(patched);
+    }
+    setBulkOpen(false);
+    sel.clear();
+  };
 
   const effectiveCategory: RaidCategory =
     categoryFilter === "All" ? "R" : (categoryFilter as RaidCategory);
@@ -434,10 +484,33 @@ function RaidPanelBody({
     <div ref={raidRef} className={VIEW_PANE_RESIZABLE_CLASS}>
       {toolbar}
 
+      <BulkEditBar
+        lang={lang}
+        count={sel.count}
+        open={bulkOpen}
+        onToggleOpen={() => setBulkOpen((o) => !o)}
+        onClear={() => {
+          sel.clear();
+          setBulkOpen(false);
+        }}
+      />
+      {bulkOpen && sel.count > 0 && (
+        <BulkEditPanel lang={lang} count={sel.count} fields={bulkFields} onApply={applyBulk} onCancel={() => setBulkOpen(false)} />
+      )}
+
       <div ref={containerRef} className="min-h-[240px] flex-1 overflow-auto rounded-md border border-line pr-2">
         <table className="min-w-full text-left text-sm">
           <thead className={TABLE_HEAD_CLASS}>
             <tr>
+              <th className="px-3 py-2" style={{ width: 36, minWidth: 36 }}>
+                <input
+                  type="checkbox"
+                  aria-label={t(lang, "selectAllVisibleRows")}
+                  checked={sel.allSelected(visibleIds)}
+                  onChange={() => sel.toggleAllVisible(visibleIds)}
+                  className={`h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue ${FOCUS_RING} ${TRANSITION}`}
+                />
+              </th>
               <th className="relative px-3 py-2" style={{ width: colWidths.id, minWidth: colWidths.id }} aria-sort={sort?.key === "id" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
                 <button type="button" onClick={() => toggleSort("id")} aria-label={t(lang, "id")} className={`inline-flex items-center gap-1 hover:text-AIPM-green ${INTERACTIVE}`}>
                   #{sort?.key === "id" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
@@ -494,14 +567,14 @@ function RaidPanelBody({
           <tbody className="divide-y divide-line">
             {raid.length === 0 && (
               <tr>
-                <td colSpan={9} className="p-10 text-center text-sm text-muted-foreground">
+                <td colSpan={10} className="p-10 text-center text-sm text-muted-foreground">
                   {t(lang, "raidEmpty")}
                 </td>
               </tr>
             )}
             {raid.length > 0 && visible.length === 0 && (
               <tr>
-                <td colSpan={9} className="p-10 text-center text-sm text-muted-foreground">
+                <td colSpan={10} className="p-10 text-center text-sm text-muted-foreground">
                   {t(lang, "raidNoMatches")}
                 </td>
               </tr>
@@ -525,6 +598,15 @@ function RaidPanelBody({
                     .filter(Boolean)
                     .join(" ")}
                 >
+                  <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      aria-label={t(lang, "selectItem", item.title)}
+                      checked={sel.isSelected(item.id)}
+                      onChange={() => sel.toggle(item.id)}
+                      className={`h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue ${FOCUS_RING} ${TRANSITION}`}
+                    />
+                  </td>
                   <td className="px-3 py-2 font-mono text-muted-foreground">
                     #{item.id}
                   </td>

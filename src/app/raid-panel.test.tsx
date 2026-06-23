@@ -338,3 +338,27 @@ describe("RaidPanel — document links", () => {
     );
   });
 });
+
+describe("RAID bulk edit", () => {
+  it("applies a bulk severity change to the selected row via onSave", () => {
+    const onSave = vi.fn();
+    const raid = [makeRaidItem({ id: 1, title: "Vendor risk", severity: "Low" })];
+    renderPanel(makeProps({ raid, onSave }));
+
+    // select the row
+    fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "selectItem", "Vendor risk") }));
+    // open the bulk panel
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "bulkEdit") }));
+    // enable Severity + set it to High (the bulk select shares its name with the
+    // toolbar filter — disambiguate by the bulk control's id)
+    fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "raidSeverity") }));
+    const bulkSeverity = screen
+      .getAllByRole("combobox", { name: t("en-US", "raidSeverity") })
+      .find((el) => el.id === "bulk-severity")!;
+    fireEvent.change(bulkSeverity, { target: { value: "High" } });
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "bulkApplyCount", "1") }));
+
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ id: 1, severity: "High" }));
+  });
+});
