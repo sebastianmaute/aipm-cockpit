@@ -466,6 +466,29 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
 - **Scrollbar gap:** per-view inner scrollers (`min-h-0 flex-1 overflow-auto`) need `pr-2` for the
   content↔scrollbar gap. Shared `INNER_TABLE_CLASS`/report-table/actions-panel already include it; bare
   per-panel scrollers do NOT — add `pr-2` or content jams the scrollbar.
+- **Interaction-state atoms (`interaction-styles.ts`):** pure class-string consts every interactive control
+  composes so hover/focus/press read identically app-wide — `FOCUS_RING` (canonical
+  `focus:outline-none focus:ring-2 focus:ring-AIPM-green`), `TRANSITION` (`transition-colors duration-150`),
+  `PRESS` (`active:translate-y-px`), and `INTERACTIVE` = all three. Palette-safe by construction (no color but
+  the brand ring; no shadow/gradient). ★ Apply ADDITIVELY — append the atom AFTER the control's own color
+  classes; convert a plain-string `className` to a template literal. ★ Buttons get `${INTERACTIVE}`; FORM
+  FIELDS (`<input>`/`<select>`/`<textarea>`) get `${FOCUS_RING} ${TRANSITION}` ONLY — never PRESS (a 1px
+  translate on a field is wrong). ★ A control that ALREADY has a complete `focus:ring-2` keeps it — add motion
+  only (`${TRANSITION} ${PRESS}`), don't re-add the ring. ★★ Do NOT override a BESPOKE SEMANTIC focus ring
+  (invalid-state `AIPM-pink`, consent `AIPM-purple`, critical-path toggle) with the green `FOCUS_RING` — leave
+  those, add motion only. ★ Weak legacy `focus:ring-1 focus:ring-AIPM-green` fragments are normalized to the
+  `ring-2` standard. The shared report/table primitives (`Tile`/`SortHeaderButton`/`TableFilter` in
+  `report-table.tsx`, `task-manager-ui.tsx` tabs/reset/print/sort) already carry the atoms.
+- **Empty + loading primitives:** `empty-state.tsx` `EmptyState` (presentational; `title`/`description`/
+  `actions[]` props, i18n done by caller; CTA buttons carry `INTERACTIVE`; `compact` for inline card slots) —
+  use it instead of a bare `<p>no data</p>` for true "no rows" messages (NOT `<td>`-cell or dashed-`<div>`
+  card empties; the swap still renders the title text so `getByText` tests survive). `skeleton.tsx`
+  `Skeleton` (decorative `animate-pulse` `bg-surface-muted` block, `aria-hidden`) + `PanelSkeleton`
+  (full-pane loading placeholder over `VIEW_PANE_FILL_CLASS`). ★★ `PanelSkeleton` `lang` is OPTIONAL: WITH
+  lang → `role="status"`+`aria-live` + sr-only translated label; WITHOUT → purely decorative `aria-hidden`
+  shimmer (no announcement, but no worse than blank). `workspace-panels.tsx` wires the prop-less decorative
+  variant as the `loading` fallback on all 20 lazy `dynamic()` view panels (so all are full-pane — don't wire
+  it into a non-full-pane lazy mount). New i18n key `loading` (EN/DE).
 - **`useResizable(storageKey)` inline-size beats class width:** the hook writes a saved `{width,height}` as
   an INLINE style, which OVERRIDES class `w-full`/width. Changing a resizable pane's DEFAULT size silently
   no-ops for anyone with a persisted size — BUMP the storageKey (e.g. `…-size` → `…-size-full`) so the stale
