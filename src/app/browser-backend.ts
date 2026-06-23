@@ -199,7 +199,7 @@ export class BrowserBackend implements StorageBackend {
       // Optional singleton: junk/empty committee sanitizes to undefined.
       steeringCommittee = sanitizeSteeringCommittee(idbSteeringCommittee);
       // Optional singleton: junk/empty links sanitize to undefined.
-      timelogLinks = sanitizeTimelogLinks(idbTimelogLinks) ?? undefined;
+      timelogLinks = sanitizeTimelogLinks(idbTimelogLinks);
     } catch {
       // IDB unavailable or upgrade failed. Fall through — the legacy
       // migration block below will still try localStorage, and if that's
