@@ -16,6 +16,8 @@ import { PanelViewsControl } from "./panel-views-control";
 import type { PanelFiltersState } from "./panel-views";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import {
+  INFLUENCE_INTEREST_LEVELS,
+  STAKEHOLDER_CATEGORIES,
   type InfluenceInterest,
   type Milestone,
   type Resource,
@@ -29,6 +31,9 @@ import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton } from "./tas
 import { InfoTooltip } from "./info-tooltip";
 import { resourceDisplayName } from "./resource-foundation";
 import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { useRowSelection } from "./use-row-selection";
+import { BulkEditBar } from "./bulk-edit-bar";
+import { BulkEditPanel, selectField, type BulkField } from "./bulk-edit-panel";
 
 const STAKEHOLDER_FILTER_DEFAULTS: PanelFiltersState = { search: "", filters: {}, sort: null };
 
@@ -117,6 +122,16 @@ function StakeholdersPanelBody({
   const [draft, setDraft] = useState<Stakeholder | null>(null);
   const [isNew, setIsNew] = useState(false);
 
+  // Multi-row selection + bulk-edit panel (Category / Influence / Interest).
+  const sel = useRowSelection();
+  const [bulkOpen, setBulkOpen] = useState(false);
+
+  const stakeholderById = useMemo(() => {
+    const map = new Map<number, Stakeholder>();
+    for (const s of stakeholders) map.set(s.id, s);
+    return map;
+  }, [stakeholders]);
+
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
     const filtered = q
@@ -132,6 +147,45 @@ function StakeholdersPanelBody({
       ? [...filtered].sort((a, b) => compareStakeholder(a, b, sort.key as StakeholderSortKey, sort.dir as "asc" | "desc"))
       : filtered.slice().sort((a, b) => compareStakeholder(a, b, "name", "asc"));
   }, [stakeholders, search, sort]);
+
+  const visibleIds = useMemo(() => visible.map((s) => s.id), [visible]);
+
+  // Bulk-editable fields: Category / Influence / Interest (all are simple
+  // enums, so a single value applies cleanly across a mixed selection).
+  const bulkFields = useMemo<BulkField[]>(
+    () => [
+      selectField(
+        "category",
+        t(lang, "stakeholderFieldCategory"),
+        STAKEHOLDER_CATEGORIES.map((c) => ({ value: c, label: t(lang, CATEGORY_KEY[c]) })),
+      ),
+      selectField(
+        "influence",
+        t(lang, "stakeholderFieldInfluence"),
+        INFLUENCE_INTEREST_LEVELS.map((v) => ({ value: v, label: t(lang, LEVEL_KEY[v]) })),
+      ),
+      selectField(
+        "interest",
+        t(lang, "stakeholderFieldInterest"),
+        INFLUENCE_INTEREST_LEVELS.map((v) => ({ value: v, label: t(lang, LEVEL_KEY[v]) })),
+      ),
+    ],
+    [lang],
+  );
+
+  const applyBulk = (changes: Record<string, string>) => {
+    for (const id of sel.selectedIds) {
+      const item = stakeholderById.get(id);
+      if (!item) continue;
+      let patched: Stakeholder = { ...item };
+      if (changes.category !== undefined) patched = { ...patched, category: changes.category as StakeholderCategory };
+      if (changes.influence !== undefined) patched = { ...patched, influence: changes.influence as InfluenceInterest };
+      if (changes.interest !== undefined) patched = { ...patched, interest: changes.interest as InfluenceInterest };
+      onSave(patched);
+    }
+    setBulkOpen(false);
+    sel.clear();
+  };
 
   function openNew() {
     setDraft({
@@ -227,10 +281,33 @@ function StakeholdersPanelBody({
     <div ref={paneRef} className={VIEW_PANE_RESIZABLE_CLASS}>
       {toolbar}
 
+      <BulkEditBar
+        lang={lang}
+        count={sel.count}
+        open={bulkOpen}
+        onToggleOpen={() => setBulkOpen((o) => !o)}
+        onClear={() => {
+          sel.clear();
+          setBulkOpen(false);
+        }}
+      />
+      {bulkOpen && sel.count > 0 && (
+        <BulkEditPanel lang={lang} count={sel.count} fields={bulkFields} onApply={applyBulk} onCancel={() => setBulkOpen(false)} />
+      )}
+
       <div ref={containerRef} className="min-h-[240px] flex-1 overflow-auto rounded-md border border-line pr-2">
         <table className="min-w-full text-left text-sm">
           <thead className={TABLE_HEAD_CLASS}>
             <tr>
+              <th className="px-3 py-2" style={{ width: 36, minWidth: 36 }}>
+                <input
+                  type="checkbox"
+                  aria-label={t(lang, "selectAllVisibleRows")}
+                  checked={sel.allSelected(visibleIds)}
+                  onChange={() => sel.toggleAllVisible(visibleIds)}
+                  className={`h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue ${FOCUS_RING} ${TRANSITION}`}
+                />
+              </th>
               <th
                 className="relative px-3 py-2"
                 style={{ width: colWidths.name, minWidth: colWidths.name }}
@@ -335,14 +412,14 @@ function StakeholdersPanelBody({
           <tbody className="divide-y divide-line">
             {stakeholders.length === 0 && (
               <tr>
-                <td colSpan={8} className="p-10 text-center text-sm text-muted-foreground">
+                <td colSpan={9} className="p-10 text-center text-sm text-muted-foreground">
                   {t(lang, "stakeholdersEmpty")}
                 </td>
               </tr>
             )}
             {stakeholders.length > 0 && visible.length === 0 && (
               <tr>
-                <td colSpan={8} className="p-10 text-center text-sm text-muted-foreground">
+                <td colSpan={9} className="p-10 text-center text-sm text-muted-foreground">
                   {t(lang, "stakeholdersNoResults")}
                 </td>
               </tr>
@@ -358,6 +435,15 @@ function StakeholdersPanelBody({
                     .join(" ")}
                   onClick={() => openEdit(item)}
                 >
+                  <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      aria-label={t(lang, "selectItem", item.name)}
+                      checked={sel.isSelected(item.id)}
+                      onChange={() => sel.toggle(item.id)}
+                      className={`h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue ${FOCUS_RING} ${TRANSITION}`}
+                    />
+                  </td>
                   <td className="px-3 py-2">
                     <button
                       type="button"

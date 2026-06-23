@@ -129,6 +129,7 @@ const enUS = {
   versionHighlightSavedViewsReports: "Saved views now cover the Reports panel too",
   versionHighlightUiBatch0134: "Two-column Reports layout, column resizing on Documents and Steering Committee, and the search box moved left of the top-bar icons",
   versionHighlightInteractionStates: "Consistent hover, focus, and press feedback on every control, with loading skeletons and composed empty states across the app",
+  versionHighlightBulkEdit: "Select multiple rows in the RAID, Milestones, Changes, and Stakeholders panels and apply field changes to all of them at once",
 
   tasks: "Tasks",
   tasksCount: "({0})",
@@ -297,6 +298,10 @@ const enUS = {
   bulkEditTitleMany: "Bulk edit ({0} tasks)",
   bulkApplyOne: "Apply to 1 task",
   bulkApplyMany: "Apply to {0} tasks",
+  selectItem: "Select {0}",
+  selectAllVisibleRows: "Select all visible rows",
+  bulkEditCount: "Bulk edit ({0})",
+  bulkApplyCount: "Apply to {0}",
   bulkEditNoFields: "Tick at least one field to update.",
   bulkEditDoneOne: "Updated 1 task.",
   bulkEditDoneMany: "Updated {0} tasks.",

@@ -90,10 +90,12 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
     (item: RaidItem) => {
       const stamp = new Date().toISOString();
       const previous = raid.find((r) => r.id === item.id);
-      const idx = raid.findIndex((r) => r.id === item.id);
       const withStamp: RaidItem = { ...item, localModifiedAt: stamp };
+      // Base off the CURRENT closure — used only to derive the auto-issue id; the
+      // real write below uses a functional updater so bulk (N saves in one tick)
+      // composes instead of each call clobbering the last.
       const baseList =
-        idx < 0
+        raid.findIndex((r) => r.id === item.id) < 0
           ? [...raid, withStamp]
           : raid.map((r) => (r.id === item.id ? withStamp : r));
 
@@ -107,11 +109,11 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
         );
 
       let autoIssueId: number | null = null;
+      let autoIssue: RaidItem | null = null;
       if (triggersAutoIssue) {
-        const newIssueId = nextRaidId(baseList);
-        autoIssueId = newIssueId;
-        const autoIssue: RaidItem = {
-          id: newIssueId,
+        autoIssueId = nextRaidId(baseList);
+        autoIssue = {
+          id: autoIssueId,
           category: "I",
           title: item.title,
           description: item.description,
@@ -127,13 +129,18 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
           targetDate: item.targetDate,
           localModifiedAt: stamp,
         };
-        setRaid([...baseList, autoIssue]);
+      }
+
+      setRaid((prev) => {
+        const i = prev.findIndex((r) => r.id === item.id);
+        const base = i < 0 ? [...prev, withStamp] : prev.map((r) => (r.id === item.id ? withStamp : r));
+        return autoIssue ? [...base, autoIssue] : base;
+      });
+      if (autoIssue) {
         showToastRef.current(
           "info",
-          t(langRef.current, "raidAutoCreatedIssue", item.id, newIssueId),
+          t(langRef.current, "raidAutoCreatedIssue", item.id, autoIssueId ?? 0),
         );
-      } else {
-        setRaid(baseList);
       }
 
       if (previous === undefined) {

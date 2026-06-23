@@ -489,6 +489,24 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   shimmer (no announcement, but no worse than blank). `workspace-panels.tsx` wires the prop-less decorative
   variant as the `loading` fallback on all 20 lazy `dynamic()` view panels (so all are full-pane — don't wire
   it into a non-full-pane lazy mount). New i18n key `loading` (EN/DE).
+- **Bulk edit (entity panels):** generic multi-row bulk edit shared across
+  RAID/Milestones/Changes/Stakeholders. Pure `row-selection.ts` (set ops) +
+  `use-row-selection.ts` (Set<number> selection, filter-aware select-all);
+  `bulk-edit-bar.tsx` ("N selected" + toggle + clear); `bulk-edit-panel.tsx`
+  (generic per-field enable-checkbox panel driven by a `BulkField[]` descriptor +
+  `selectField`/`dateField`/`textField` builders; Apply emits ONLY ticked fields;
+  entity logic stays in the caller's `onApply`). Each panel adds a checkbox column
+  (row-unique `selectItem` labels + `selectAllVisibleRows`), the bar, and the
+  panel; bump the empty/no-match/add-row `colSpan` by 1. No new persisted field —
+  patches ride the existing single-item save path via `sanitizeX`.
+  ★★ FUNCTIONAL-SETTER LANDMINE: bulk `applyBulk` LOOPS the single-item save handler
+  N times in ONE tick. A handler that does `setX(<value from closure>)`
+  (non-functional) makes every call read the SAME stale array → last write wins →
+  all but one row silently dropped. EVERY entity save handler MUST use
+  `setX(prev => …)`. Bit RAID/Changes/Stakeholders (Milestones was already
+  functional); single-row tests + a mocked `onSave` hid it — regression-tested with
+  a per-hook "N saves in one tick" test. ★ RAID Status is OMITTED from bulk
+  (category-specific; `sanitizeRaidItem` silently defaults a mismatch).
 - **`useResizable(storageKey)` inline-size beats class width:** the hook writes a saved `{width,height}` as
   an INLINE style, which OVERRIDES class `w-full`/width. Changing a resizable pane's DEFAULT size silently
   no-ops for anyone with a persisted size — BUMP the storageKey (e.g. `…-size` → `…-size-full`) so the stale

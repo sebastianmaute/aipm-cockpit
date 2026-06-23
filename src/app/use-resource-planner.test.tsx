@@ -383,6 +383,26 @@ describe("useResourcePlanner", () => {
       expect(logActivity).toHaveBeenCalledWith("raid.autoIssue", 1, expect.any(Number));
     });
 
+    it("persists every one of N back-to-back saves in a single tick (bulk edit)", () => {
+      const { result } = renderPlanner();
+      const base = (id: number, title: string): RaidItem => ({
+        id, category: "R", title, description: "", severity: "Medium", status: "Open",
+        owner: "", ownerEmail: "", mitigation: undefined, linkedTaskIds: [], causedByRaidIds: [],
+        stakeholderIds: [], raisedDate: "2026-05-20", targetDate: undefined,
+        localModifiedAt: "2026-05-20T00:00:00.000Z",
+      });
+      act(() => { result.current.planner.handleSaveRaidItem(base(1, "A")); });
+      act(() => { result.current.planner.handleSaveRaidItem(base(2, "B")); });
+      // Two updates in ONE tick (a bulk apply) — both must compose, not clobber.
+      act(() => {
+        result.current.planner.handleSaveRaidItem({ ...base(1, "A"), severity: "High" });
+        result.current.planner.handleSaveRaidItem({ ...base(2, "B"), severity: "Low" });
+      });
+      const raid = result.current.workspace.raid as RaidItem[];
+      expect(raid.find((r) => r.id === 1)?.severity).toBe("High");
+      expect(raid.find((r) => r.id === 2)?.severity).toBe("Low");
+    });
+
     it("handleCreateMitigationTaskFromRaid adds task and links it to raid item", () => {
       const { result } = renderPlanner();
       const raidItem: RaidItem = {

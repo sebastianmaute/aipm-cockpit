@@ -113,3 +113,26 @@ describe("StakeholdersPanel", () => {
     expect(onJumpToComms).toHaveBeenCalledWith(42);
   });
 });
+
+describe("Stakeholders bulk edit", () => {
+  it("applies a bulk influence change to the selected row via onSave", () => {
+    const stakeholder = sampleStakeholder({ id: 1, name: "Dana", influence: "Low" });
+    const props = renderStakeholders({ stakeholders: [stakeholder] });
+
+    // select the row
+    fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "selectItem", "Dana") }));
+    // open the bulk panel
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "bulkEdit") }));
+    // enable Influence + set it to High (the bulk select shares its name with the
+    // column-header sort control — disambiguate by the bulk control's id)
+    fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "stakeholderFieldInfluence") }));
+    const bulkInfluence = screen
+      .getAllByRole("combobox", { name: t("en-US", "stakeholderFieldInfluence") })
+      .find((el) => el.id === "bulk-influence")!;
+    fireEvent.change(bulkInfluence, { target: { value: "High" } });
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "bulkApplyCount", "1") }));
+
+    expect(props.onSave).toHaveBeenCalledTimes(1);
+    expect(props.onSave).toHaveBeenCalledWith(expect.objectContaining({ id: 1, influence: "High" }));
+  });
+});

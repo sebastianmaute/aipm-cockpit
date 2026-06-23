@@ -27,7 +27,13 @@ export function useChangeLog(args: UseChangeLogArgs) {
   const handleSaveChange = useCallback((item: ChangeItem) => {
     const withStamp: ChangeItem = { ...item, localModifiedAt: new Date().toISOString() };
     const isNew = changes.findIndex((c) => c.id === item.id) < 0;
-    setChanges(isNew ? [...changes, withStamp] : changes.map((c) => (c.id === item.id ? withStamp : c)));
+    // Functional updater so N back-to-back saves in one tick (bulk edit) each
+    // see the latest array and compose, instead of all reading the same stale
+    // closure and the last write clobbering the rest.
+    setChanges((prev) => {
+      const idx = prev.findIndex((c) => c.id === item.id);
+      return idx < 0 ? [...prev, withStamp] : prev.map((c) => (c.id === item.id ? withStamp : c));
+    });
     args.logActivity?.(isNew ? "change.created" : "change.updated", item.id, item.title);
   }, [changes, setChanges, args]);
 

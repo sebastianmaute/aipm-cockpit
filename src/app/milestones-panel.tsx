@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   SortHeaderButton,
   useSortableFilter,
@@ -34,6 +34,9 @@ import { VIEW_PANE_RESIZABLE_CLASS, INNER_TABLE_CLASS } from "./view-styles";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import { EmptyState } from "./empty-state";
 import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { useRowSelection } from "./use-row-selection";
+import { BulkEditBar } from "./bulk-edit-bar";
+import { BulkEditPanel, dateField, type BulkField } from "./bulk-edit-panel";
 import type { ActivityKind } from "./activity-log";
 import type { Milestone } from "./types";
 
@@ -125,6 +128,43 @@ function MilestonesPanelBody({
   const startResize = startColResize as (col: string, e: React.MouseEvent) => void;
 
   const tasksById = new Map(tasks.map((tk) => [tk.id, tk] as const));
+
+  // Multi-row selection + bulk-edit panel (Target date / Achieved date).
+  const sel = useRowSelection();
+  const [bulkOpen, setBulkOpen] = useState(false);
+
+  const milestoneById = useMemo(() => {
+    const map = new Map<number, Milestone>();
+    for (const ms of milestones) map.set(ms.id, ms);
+    return map;
+  }, [milestones]);
+
+  const visibleIds = useMemo(() => sorted.map((m) => m.id), [sorted]);
+
+  // Bulk-editable fields. Milestones have no status/owner; the two date fields
+  // mirror the edit modal (target date + sign-off / achieved date).
+  const bulkFields = useMemo<BulkField[]>(
+    () => [
+      dateField("date", t(lang, "milestoneDate")),
+      dateField("achievedDate", t(lang, "achievedDate")),
+    ],
+    [lang],
+  );
+
+  const applyBulk = (changes: Record<string, string>) => {
+    for (const id of sel.selectedIds) {
+      const item = milestoneById.get(id);
+      if (!item) continue;
+      const patched: Milestone = { ...item };
+      // `date` is required — only overwrite when the user supplied a value.
+      if (changes.date !== undefined && changes.date) patched.date = changes.date;
+      if (changes.achievedDate !== undefined)
+        patched.achievedDate = changes.achievedDate || undefined;
+      save(patched);
+    }
+    setBulkOpen(false);
+    sel.clear();
+  };
 
   function openNew() {
     setIsNew(true);
@@ -244,6 +284,21 @@ function MilestonesPanelBody({
           <ResetSizeButton onClick={resetSize} lang={lang} />
         </div>
       </header>
+
+      <BulkEditBar
+        lang={lang}
+        count={sel.count}
+        open={bulkOpen}
+        onToggleOpen={() => setBulkOpen((o) => !o)}
+        onClear={() => {
+          sel.clear();
+          setBulkOpen(false);
+        }}
+      />
+      {bulkOpen && sel.count > 0 && (
+        <BulkEditPanel lang={lang} count={sel.count} fields={bulkFields} onApply={applyBulk} onCancel={() => setBulkOpen(false)} />
+      )}
+
       <div ref={containerRef} className={INNER_TABLE_CLASS}>
       {sorted.length === 0 ? (
         <EmptyState compact title={t(lang, "milestonesEmpty")} />
@@ -251,6 +306,15 @@ function MilestonesPanelBody({
         <table className="w-full text-sm">
           <thead className={TABLE_HEAD_CLASS}>
             <tr className="text-left">
+              <th className="px-3 py-1" style={{ width: 36, minWidth: 36 }}>
+                <input
+                  type="checkbox"
+                  aria-label={t(lang, "selectAllVisibleRows")}
+                  checked={sel.allSelected(visibleIds)}
+                  onChange={() => sel.toggleAllVisible(visibleIds)}
+                  className={`h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue ${FOCUS_RING} ${TRANSITION}`}
+                />
+              </th>
               <th
                 className="relative py-1"
                 style={{ width: colWidths.name, minWidth: colWidths.name }}
@@ -299,6 +363,15 @@ function MilestonesPanelBody({
                   data-deeplink-row={m.id}
                   className={["border-t border-line", flashOutlineClass(flashId === m.id)].filter(Boolean).join(" ")}
                 >
+                  <td className="px-3 py-1" onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      aria-label={t(lang, "selectItem", m.name)}
+                      checked={sel.isSelected(m.id)}
+                      onChange={() => sel.toggle(m.id)}
+                      className={`h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue ${FOCUS_RING} ${TRANSITION}`}
+                    />
+                  </td>
                   <td className="py-1" style={{ width: colWidths.name }}>
                     <button
                       type="button"

@@ -8,6 +8,18 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.136.0] - 2026-06-23 "Moorcock"
+
+### Added
+
+- Multi-row bulk edit on the RAID, Milestones, Changes, and Stakeholders panels: select rows with the new checkbox column (or select-all), then apply field changes to the whole selection at once via an inline panel where each field has its own enable toggle.
+  - RAID: severity, owner, target date. Milestones: target date, achieved date. Changes: status, type, impact, requested by. Stakeholders: category, influence, interest.
+- Built on a reusable stack (`row-selection`, `use-row-selection`, `bulk-edit-bar`, `bulk-edit-panel`); edits ride the existing per-entity save + sanitize path, so no new stored data.
+
+### Fixed
+
+- Entity save handlers (RAID/Changes/Stakeholders) now use functional state updaters, so applying a bulk edit to several rows persists every row instead of only the last one.
+
 ## [0.135.0] - 2026-06-23 "Silverberg"
 
 ### Added

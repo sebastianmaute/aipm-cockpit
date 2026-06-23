@@ -132,6 +132,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightSavedViewsReports: "Gespeicherte Ansichten gelten jetzt auch für den Bereich Berichte",
   versionHighlightUiBatch0134: "Zweispaltiges Berichtslayout, Spaltenbreiten in Dokumente und Lenkungsausschuss anpassbar und das Suchfeld links neben den Symbolen der oberen Leiste",
   versionHighlightInteractionStates: "Einheitliches Hover-, Fokus- und Press-Feedback auf allen Bedienelementen, dazu Lade-Skelette und gestaltete Leerzustände in der gesamten App",
+  versionHighlightBulkEdit: "Mehrere Zeilen in den Panels RAID, Meilensteine, Änderungen und Stakeholder auswählen und Feldänderungen auf alle gleichzeitig anwenden",
 
   tasks: "Aufgaben",
   tasksCount: "({0})",
@@ -302,6 +303,10 @@ export const de: Record<TranslationKey, string> = {
   bulkEditTitleMany: "Sammelbearbeitung ({0} Aufgaben)",
   bulkApplyOne: "Auf 1 Aufgabe anwenden",
   bulkApplyMany: "Auf {0} Aufgaben anwenden",
+  selectItem: "{0} auswählen",
+  selectAllVisibleRows: "Alle sichtbaren Zeilen auswählen",
+  bulkEditCount: "Sammelbearbeitung ({0})",
+  bulkApplyCount: "Auf {0} anwenden",
   bulkEditNoFields: "Mindestens ein Feld zum Aktualisieren auswählen.",
   bulkEditDoneOne: "1 Aufgabe aktualisiert.",
   bulkEditDoneMany: "{0} Aufgaben aktualisiert.",

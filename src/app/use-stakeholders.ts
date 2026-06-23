@@ -15,7 +15,12 @@ export function useStakeholders(args: UseStakeholdersArgs) {
   const handleSaveStakeholder = useCallback((item: Stakeholder) => {
     const withStamp: Stakeholder = { ...item, localModifiedAt: new Date().toISOString() };
     const isNew = stakeholders.findIndex((s) => s.id === item.id) < 0;
-    setStakeholders(isNew ? [...stakeholders, withStamp] : stakeholders.map((s) => (s.id === item.id ? withStamp : s)));
+    // Functional updater so N back-to-back saves in one tick (bulk edit) compose
+    // instead of each reading the same stale closure (last write would win).
+    setStakeholders((prev) => {
+      const idx = prev.findIndex((s) => s.id === item.id);
+      return idx < 0 ? [...prev, withStamp] : prev.map((s) => (s.id === item.id ? withStamp : s));
+    });
     args.logActivity?.(isNew ? "stakeholder.created" : "stakeholder.updated", item.id, item.name);
   }, [stakeholders, setStakeholders, args]);
 

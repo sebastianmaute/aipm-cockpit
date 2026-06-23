@@ -210,3 +210,31 @@ describe("MilestonesPanel", () => {
     expect(btn).toBeDisabled();
   });
 });
+
+describe("Milestones bulk edit", () => {
+  it("applies a bulk target-date change to the selected row via setMilestones", () => {
+    renderMilestones({ milestones: [m("Alpha", "2026-06-10", { id: 1 })] });
+
+    // select the row
+    fireEvent.click(
+      screen.getByRole("checkbox", { name: t("en-US", "selectItem", "Alpha") }),
+    );
+    // open the bulk panel
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "bulkEdit") }));
+    // enable Target date (checkbox name = the date label) + set a new date.
+    // The date input shares its aria-label with the column header sort button,
+    // so disambiguate the input by the bulk control's id.
+    fireEvent.click(
+      screen.getByRole("checkbox", { name: t("en-US", "milestoneDate") }),
+    );
+    const dateInput = document.getElementById("bulk-date") as HTMLInputElement;
+    fireEvent.change(dateInput, { target: { value: "2026-07-15" } });
+    fireEvent.click(
+      screen.getByRole("button", { name: t("en-US", "bulkApplyCount", "1") }),
+    );
+
+    // The new date is persisted through the same setMilestones save path.
+    expect(screen.getByText("2026-07-15")).toBeInTheDocument();
+    expect(screen.queryByText("2026-06-10")).not.toBeInTheDocument();
+  });
+});
