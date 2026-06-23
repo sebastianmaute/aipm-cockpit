@@ -40,4 +40,20 @@ describe("timelog proxy SSRF guard", () => {
     const out = await parseTimelogRequest(req({ ...creds, path: "/v1/time-tracking-item/get-by-date", query: { startDate: "2026-06-01" } }));
     expect("error" in out).toBe(false);
   });
+  it("rejects a host with a port (app2.timelog.com:8080)", async () => {
+    const r = await callTimelog({ ...creds, host: "app2.timelog.com:8080" }, "/v1/user", { method: "GET" });
+    expect(r.status).toBe(400);
+  });
+  it("rejects a host with userinfo (evil.com@app2.timelog.com)", async () => {
+    const r = await callTimelog({ ...creds, host: "evil.com@app2.timelog.com" }, "/v1/user", { method: "GET" });
+    expect(r.status).toBe(400);
+  });
+  it("parseTimelogRequest rejects a path with traversal (/v1/../../etc)", async () => {
+    const out = await parseTimelogRequest(req({ ...creds, path: "/v1/../../etc" }));
+    expect("error" in out && (out.error as Response).status).toBe(400);
+  });
+  it("parseTimelogRequest rejects a path with CRLF injection", async () => {
+    const out = await parseTimelogRequest(req({ ...creds, path: "/v1/x\r\nX: y" }));
+    expect("error" in out && (out.error as Response).status).toBe(400);
+  });
 });

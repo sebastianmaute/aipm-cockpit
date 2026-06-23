@@ -84,6 +84,10 @@ function isAllowedTimelogHost(h: string): boolean {
 }
 
 function normalizeHost(host: string): string | null {
+  // A bare DNS hostname never contains userinfo ("@") or a port (":"). Reject
+  // both up front so credential-injection ("evil.com@app.timelog.com") and
+  // port-bearing ("app.timelog.com:8080") forms can't slip past the suffix match.
+  if (host.includes("@") || host.includes(":")) return null;
   const h = host.toLowerCase();
   if (!isAllowedTimelogHost(h)) return null;
   if (isPrivateHost(h)) return null;
@@ -109,7 +113,7 @@ export type TimelogRequest = {
 export async function parseTimelogRequest(
   request: Request,
 ): Promise<{ error: Response } | TimelogRequest> {
-  const limited = rateLimit(request);
+  const limited = rateLimit(request, "timelog");
   if (limited) return { error: limited };
 
   let body: unknown;
@@ -126,6 +130,16 @@ export async function parseTimelogRequest(
 
   const b = body as Record<string, unknown>;
   const path = typeof b.path === "string" ? b.path : "";
+  // Reject traversal ("..") and any CRLF/fragment that could smuggle a second
+  // request line or escape the /v1/ namespace before the prefix check.
+  if (
+    path.includes("..") ||
+    path.includes("\r") ||
+    path.includes("\n") ||
+    path.includes("#")
+  ) {
+    return { error: Response.json({ error: "invalid-path" }, { status: 400 }) };
+  }
   if (!/^\/v1\//.test(path)) {
     return { error: Response.json({ error: "invalid-path" }, { status: 400 }) };
   }
