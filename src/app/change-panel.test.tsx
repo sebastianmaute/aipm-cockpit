@@ -6,6 +6,7 @@ import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { WorkspaceTabProvider } from "./workspace-tab-context";
 import { ChangePanel } from "./change-panel";
 import { applyTier } from "./field-visibility";
+import { t } from "./i18n";
 import type { ChangeItem } from "./types";
 
 function ci(over: Partial<ChangeItem>): ChangeItem {
@@ -101,5 +102,39 @@ describe("ChangePanel — raidEnabled", () => {
     );
     fireEvent.click(getByText("Alpha scope"));
     expect(getByText("Linked RAID items")).toBeTruthy();
+  });
+});
+
+describe("Changes bulk edit", () => {
+  const originalScrollIntoView = Element.prototype.scrollIntoView;
+  beforeEach(() => {
+    Element.prototype.scrollIntoView = vi.fn();
+  });
+  afterEach(() => {
+    Element.prototype.scrollIntoView = originalScrollIntoView;
+  });
+
+  it("applies a bulk status change to the selected row via onSave", () => {
+    const onSave = vi.fn();
+    const changes = [ci({ id: 1, title: "Alpha scope", status: "Proposed" })];
+    const { getByRole, getAllByRole } = render(
+      <ChangePanel {...base} changes={changes} onSave={onSave} />,
+      { wrapper: Providers },
+    );
+
+    // select the row
+    fireEvent.click(getByRole("checkbox", { name: t("en-US", "selectItem", "Alpha scope") }));
+    // open the bulk panel
+    fireEvent.click(getByRole("button", { name: t("en-US", "bulkEdit") }));
+    // enable Status + set it to Approved (the bulk select shares its name with the
+    // toolbar filter — disambiguate by the bulk control's id)
+    fireEvent.click(getByRole("checkbox", { name: t("en-US", "changeFieldStatus") }));
+    const bulkStatus = getAllByRole("combobox", { name: t("en-US", "changeFieldStatus") })
+      .find((el) => el.id === "bulk-status")!;
+    fireEvent.change(bulkStatus, { target: { value: "Approved" } });
+    fireEvent.click(getByRole("button", { name: t("en-US", "bulkApplyCount", "1") }));
+
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ id: 1, status: "Approved" }));
   });
 });
