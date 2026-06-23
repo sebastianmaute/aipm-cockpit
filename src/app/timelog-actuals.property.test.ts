@@ -21,8 +21,10 @@ describe("aggregateActuals conservation", () => {
         };
         const out = aggregateActuals(items, links);
         const bucketSum = Object.values(out.byBucket).flatMap((p) => Object.values(p)).reduce((s, c) => s + c.hours, 0);
+        const resourceSum = Object.values(out.byResource).reduce((s, c) => s + c.hours, 0);
         const total = items.reduce((s, i) => s + i.hours, 0);
         expect(bucketSum + out.unattributed.hours).toBe(total);
+        expect(resourceSum).toBe(bucketSum);
       },
     ));
   });
