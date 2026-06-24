@@ -13,7 +13,7 @@ const titillium = Titillium_Web({
   display: "swap",
 });
 
-const NO_FLASH_THEME_SCRIPT = `(function(){try{var t=localStorage.getItem("lop-theme")||"system";var d=t==="dark"||(t==="system"&&window.matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.classList.toggle("dark",d);}catch(e){}})();`;
+const NO_FLASH_THEME_SCRIPT = `(function(){try{var s=localStorage.getItem("lop-style")||"AIPM";if(s!=="AIPM"&&s!=="mockup"){s="AIPM";}document.documentElement.setAttribute("data-style",s);var t=localStorage.getItem("lop-theme")||"system";var d=t==="dark"||(t==="system"&&window.matchMedia("(prefers-color-scheme: dark)").matches);if(s==="mockup"){d=false;}document.documentElement.classList.toggle("dark",d);}catch(e){}})();`;
 
 export const metadata: Metadata = {
   title: "List of Open Points Tracker",
