@@ -15,11 +15,13 @@ import { aggregateActuals, type ActualsAggregate } from "./timelog-actuals";
 import { saveActualsCache, loadActualsCache } from "./timelog-actuals-store";
 import type { TimelogProjectRef } from "./timelog-match";
 import type { TimelogLinks, TimelogScopeMode, TimelogTimeItem } from "./timelog-types";
+import type { PlanGranularity } from "./types";
 
 type Args = {
   creds: TimelogCreds;
   links: TimelogLinks;
   scopeMode: TimelogScopeMode;
+  granularity: PlanGranularity;
   projectId: string;
   isPopout: boolean;
   onTokenInvalid: () => void;
@@ -30,6 +32,7 @@ export function useTimelogSync(args: Args) {
   const projectId = args.projectId;
   const isPopout = args.isPopout;
   const scopeMode = args.scopeMode;
+  const granularity = args.granularity;
   const creds = args.creds;
   const links = args.links;
   const onTokenInvalid = args.onTokenInvalid;
@@ -74,7 +77,7 @@ export function useTimelogSync(args: Args) {
           }
         }
 
-        const agg = aggregateActuals(items, links);
+        const agg = aggregateActuals(items, links, granularity);
         // Collect the distinct projects seen so the matching UI can bootstrap
         // brand-new (never-linked) Timelog projects from real bookings.
         const refMap = new Map<number, TimelogProjectRef>();
@@ -97,7 +100,7 @@ export function useTimelogSync(args: Args) {
         setBusy(false);
       }
     },
-    [isPopout, scopeMode, creds, links, projectId, onTokenInvalid, onTokenValid],
+    [isPopout, scopeMode, granularity, creds, links, projectId, onTokenInvalid, onTokenValid],
   );
 
   return { aggregates, fetchedAt, projectRefs, busy, error, sync };

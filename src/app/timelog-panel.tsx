@@ -27,6 +27,7 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
   const timelogLinks = ws.timelogLinks;
   const budgets = ws.budgets;
   const resources = ws.resources;
+  const planGranularity = ws.plan?.granularity ?? "month";
 
   const links: TimelogLinks = useMemo(
     () => timelogLinks ?? { userLinks: [], projectLinks: [] },
@@ -42,6 +43,7 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
     creds,
     links,
     scopeMode: cfg.scopeMode,
+    granularity: planGranularity,
     projectId,
     isPopout,
     onTokenInvalid: () => {
@@ -76,6 +78,7 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
   }
 
   function manualLinkUser(timelogUserId: number, resourceId: number | null) {
+    if (isPopout) return;
     const rest = links.userLinks.filter((l) => l.timelogUserId !== timelogUserId);
     setLinks({
       ...links,
@@ -87,6 +90,7 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
   }
 
   function manualLinkProject(timelogProjectId: number, bucketId: number | null) {
+    if (isPopout) return;
     const rest = links.projectLinks.filter((l) => l.timelogProjectId !== timelogProjectId);
     setLinks({
       ...links,
@@ -150,18 +154,32 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
   const billablePct = bookedHours > 0 ? Math.round((billableHours / bookedHours) * 100) : 0;
 
   // Apply-to-budget diff
+  // `pendingApply` is snapshotted at confirm-open time so the shown diff count
+  // and the actually-applied overlay are always the same value (TOCTOU guard).
+  const [confirming, setConfirming] = useState(false);
+  const [pendingApply, setPendingApply] = useState<import("./timelog-actuals").ActualsByBucket | null>(null);
+
   const applyDiff = useMemo(
-    () => (overlay ? planApply(budgets, overlay) : []),
-    [overlay, budgets],
+    () => (pendingApply ? planApply(budgets, pendingApply) : overlay ? planApply(budgets, overlay) : []),
+    [pendingApply, overlay, budgets],
   );
 
-  const [confirming, setConfirming] = useState(false);
+  function openConfirm() {
+    if (!overlay) return;
+    setPendingApply(overlay);
+    setConfirming(true);
+  }
 
   function applyToBudget() {
-    if (!sync.aggregates) return;
-    const ov = sync.aggregates.byBucket;
-    ws.setBudgets((prev) => applyActualsToBuckets(prev, ov));
+    if (!pendingApply) return;
+    ws.setBudgets((prev) => applyActualsToBuckets(prev, pendingApply));
     setConfirming(false);
+    setPendingApply(null);
+  }
+
+  function cancelConfirm() {
+    setConfirming(false);
+    setPendingApply(null);
   }
 
   // Fetch handler — new Date() lives here (inside callback), never in render
@@ -196,7 +214,7 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
         <h2 className="text-lg font-semibold text-foreground">{t(lang, "timelogTitle")}</h2>
         <button
           type="button"
-          disabled={sync.busy || isPopout || isMisconfigured}
+          disabled={sync.busy || isPopout || isMisconfigured || confirming}
           onClick={() => void handleFetch()}
           className={`rounded-md border border-line px-3 py-1.5 text-sm font-medium text-foreground disabled:opacity-50 ${INTERACTIVE}`}
         >
@@ -289,6 +307,7 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
                         <select
                           aria-label={selectLabel}
                           value={link?.resourceId ?? ""}
+                          disabled={isPopout}
                           onChange={(e) =>
                             manualLinkUser(
                               u.userId,
@@ -317,6 +336,7 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
                           <button
                             type="button"
                             aria-label={clearLabel}
+                            disabled={isPopout}
                             onClick={() => manualLinkUser(u.userId, null)}
                             className={`rounded border border-line px-2 py-0.5 text-xs text-muted-foreground ${INTERACTIVE}`}
                           >
@@ -364,6 +384,7 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
                         <select
                           aria-label={selectLabel}
                           value={pLink?.bucketId ?? ""}
+                          disabled={isPopout}
                           onChange={(e) =>
                             manualLinkProject(
                               p.id,
@@ -391,6 +412,7 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
                         <button
                           type="button"
                           aria-label={clearLabel}
+                          disabled={isPopout}
                           onClick={() => manualLinkProject(p.id, null)}
                           className={`rounded border border-line px-2 py-0.5 text-xs text-muted-foreground ${INTERACTIVE}`}
                         >
@@ -411,7 +433,7 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
         <button
           type="button"
           disabled={applyDiff.length === 0 || isPopout}
-          onClick={() => setConfirming(true)}
+          onClick={openConfirm}
           className={`rounded-md border border-line px-3 py-1.5 text-sm font-medium text-foreground disabled:opacity-40 ${INTERACTIVE}`}
         >
           {t(lang, "timelogApply")}
@@ -430,7 +452,7 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
           </button>
           <button
             type="button"
-            onClick={() => setConfirming(false)}
+            onClick={cancelConfirm}
             className={`rounded-md border border-line px-3 py-1 text-sm text-muted-foreground ${INTERACTIVE}`}
           >
             {t(lang, "cancel")}

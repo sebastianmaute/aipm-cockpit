@@ -26,7 +26,7 @@ const item = (userId: number, hours: number) => ({ timeRegistrationId: 1, userId
 beforeEach(() => { vi.clearAllMocks(); window.localStorage.clear(); });
 
 function args(over: Partial<Parameters<typeof useTimelogSync>[0]> = {}) {
-  return { creds, links, scopeMode: "auto" as const, projectId: "p1", isPopout: false, onTokenInvalid: vi.fn(), onTokenValid: vi.fn(), ...over };
+  return { creds, links, scopeMode: "auto" as const, granularity: "month" as const, projectId: "p1", isPopout: false, onTokenInvalid: vi.fn(), onTokenValid: vi.fn(), ...over };
 }
 
 it("self mode aggregates the token user's items and caches them", async () => {
@@ -61,4 +61,15 @@ it("popout is read-only: sync is a no-op", async () => {
   const { result } = renderHook(() => useTimelogSync(args({ scopeMode: "self", isPopout: true })));
   await act(async () => { await result.current.sync("2026-06-01", "2026-06-30"); });
   expect(api.listTimeItemsSelf).not.toHaveBeenCalled();
+});
+
+it("week granularity: aggregates under weekly key (2026-W24), not monthly key (2026-06)", async () => {
+  // item date 2026-06-10 is Wednesday of ISO week 2026-W24
+  (api.getPrivileges as ReturnType<typeof vi.fn>).mockResolvedValue({ registrationAllTasks: false });
+  (api.listTimeItemsSelf as ReturnType<typeof vi.fn>).mockResolvedValue([item(5, 4)]);
+  const { result } = renderHook(() => useTimelogSync(args({ scopeMode: "self", granularity: "week" })));
+  await act(async () => { await result.current.sync("2026-06-01", "2026-06-30"); });
+  const byPeriod = result.current.aggregates?.byBucket[7];
+  expect(byPeriod?.["2026-W24"]?.hours).toBe(4);
+  expect(byPeriod?.["2026-06"]).toBeUndefined();
 });

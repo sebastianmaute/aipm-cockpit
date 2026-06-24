@@ -14,7 +14,8 @@ function monthPeriods(startDate: string, endDate: string): Period[] {
   const endM = Number(endDate.slice(5, 7));
   while (y < endY || (y === endY && m <= endM)) {
     const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate();
-    out.push({ key: `${y}-${pad(m)}`, start: `${y}-${pad(m)}-01`, end: `${y}-${pad(m)}-${pad(lastDay)}` });
+    const start = `${y}-${pad(m)}-01`;
+    out.push({ key: periodKeyForDate(start, "month"), start, end: `${y}-${pad(m)}-${pad(lastDay)}` });
     m++;
     if (m > 12) { m = 1; y++; }
   }
@@ -32,6 +33,21 @@ function isoWeekParts(d: Date): { year: number; week: number } {
   firstThu.setUTCDate(firstThu.getUTCDate() - firstThuDay + 3);
   const week = 1 + Math.round((t.getTime() - firstThu.getTime()) / (7 * 86400000));
   return { year: isoYear, week };
+}
+
+/**
+ * The period key that `generatePeriods` would assign to the period containing
+ * `dateISO`. This is the canonical mapping function — `generatePeriods` uses
+ * it internally so the two code paths CANNOT drift.
+ *   month → "YYYY-MM"
+ *   week  → "YYYY-Www" (ISO-8601 week)
+ */
+export function periodKeyForDate(dateISO: string, granularity: PlanGranularity): string {
+  if (granularity === "month") {
+    return dateISO.slice(0, 7); // "YYYY-MM"
+  }
+  const { year, week } = isoWeekParts(new Date(`${dateISO}T00:00:00Z`));
+  return `${year}-W${pad(week)}`;
 }
 
 function mondayOf(d: Date): Date {
@@ -52,8 +68,8 @@ function weekPeriods(startDate: string, endDate: string): Period[] {
   while (cur <= end) {
     const sun = new Date(cur);
     sun.setUTCDate(sun.getUTCDate() + 6);
-    const { year, week } = isoWeekParts(cur);
-    out.push({ key: `${year}-W${pad(week)}`, start: iso(cur), end: iso(sun) });
+    const start = iso(cur);
+    out.push({ key: periodKeyForDate(start, "week"), start, end: iso(sun) });
     cur = new Date(cur);
     cur.setUTCDate(cur.getUTCDate() + 7);
   }

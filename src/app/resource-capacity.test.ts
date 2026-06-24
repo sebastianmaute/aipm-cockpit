@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import { generatePeriods, workdaysInRange, absencesForResource, absenceWorkdays, periodCapacityHours, displayCapacityHours, convertUtilization } from "./resource-capacity";
+import { generatePeriods, periodKeyForDate, workdaysInRange, absencesForResource, absenceWorkdays, periodCapacityHours, displayCapacityHours, convertUtilization } from "./resource-capacity";
 import type { Absence, Resource } from "./types";
 import type { Period } from "./resource-capacity";
 
@@ -21,6 +21,41 @@ describe("generatePeriods - week", () => {
     expect(p[0].end).toBe("2026-01-04");
     expect(p[1].key).toBe("2026-W02");
     expect(p[1].start).toBe("2026-01-05");
+  });
+});
+
+describe("periodKeyForDate", () => {
+  test("month granularity returns YYYY-MM", () => {
+    expect(periodKeyForDate("2026-06-10", "month")).toBe("2026-06");
+    expect(periodKeyForDate("2026-01-01", "month")).toBe("2026-01");
+  });
+
+  test("week granularity matches generatePeriods key for dates within a period", () => {
+    // Verify by generating a week-period range and finding which period contains each date
+    const periods = generatePeriods("2025-12-29", "2026-01-10", "week");
+    const findKey = (date: string) => periods.find((p) => p.start <= date && date <= p.end)?.key;
+
+    // 2026-01-01 is Thursday; ISO week 2026-W01 (Mon 2025-12-29 – Sun 2026-01-04)
+    expect(periodKeyForDate("2026-01-01", "week")).toBe("2026-W01");
+    expect(periodKeyForDate("2026-01-01", "week")).toBe(findKey("2026-01-01"));
+
+    // 2026-01-05 is Monday; starts ISO week 2026-W02
+    expect(periodKeyForDate("2026-01-05", "week")).toBe("2026-W02");
+    expect(periodKeyForDate("2026-01-05", "week")).toBe(findKey("2026-01-05"));
+
+    // Sunday 2026-01-04 still belongs to W01
+    expect(periodKeyForDate("2026-01-04", "week")).toBe("2026-W01");
+    expect(periodKeyForDate("2026-01-04", "week")).toBe(findKey("2026-01-04"));
+  });
+
+  test("week key matches generatePeriods at a year boundary (ISO week spans Dec→Jan)", () => {
+    // 2025-12-29 is Mon of ISO 2026-W01 (year rolls to 2026)
+    const periods = generatePeriods("2025-12-28", "2026-01-05", "week");
+    const findKey = (date: string) => periods.find((p) => p.start <= date && date <= p.end)?.key;
+
+    expect(periodKeyForDate("2025-12-29", "week")).toBe(findKey("2025-12-29"));
+    expect(periodKeyForDate("2025-12-31", "week")).toBe(findKey("2025-12-31"));
+    expect(periodKeyForDate("2026-01-01", "week")).toBe(findKey("2026-01-01"));
   });
 });
 

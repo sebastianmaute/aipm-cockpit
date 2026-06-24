@@ -1,4 +1,6 @@
 // src/app/timelog-actuals.ts — pure, i18n-free aggregation of Timelog bookings.
+import type { PlanGranularity } from "./types";
+import { periodKeyForDate } from "./resource-capacity";
 import type { TimelogTimeItem, TimelogLinks } from "./timelog-types";
 
 export type HourCell = { hours: number; billableHours: number };
@@ -10,13 +12,16 @@ export type ActualsAggregate = {
   unattributed: HourCell;
 };
 
-const periodKey = (isoDate: string): string => isoDate.slice(0, 7); // "YYYY-MM"
 const add = (cell: HourCell | undefined, it: TimelogTimeItem): HourCell => ({
   hours: (cell?.hours ?? 0) + it.hours,
   billableHours: (cell?.billableHours ?? 0) + it.billableHours,
 });
 
-export function aggregateActuals(items: readonly TimelogTimeItem[], links: TimelogLinks): ActualsAggregate {
+export function aggregateActuals(
+  items: readonly TimelogTimeItem[],
+  links: TimelogLinks,
+  granularity: PlanGranularity = "month",
+): ActualsAggregate {
   const userToRes = new Map(links.userLinks.map((l) => [l.timelogUserId, l.resourceId]));
   const projToBucket = new Map(links.projectLinks.map((l) => [l.timelogProjectId, l.bucketId]));
   const byBucket: ActualsByBucket = {};
@@ -31,7 +36,7 @@ export function aggregateActuals(items: readonly TimelogTimeItem[], links: Timel
       continue;
     }
     byResource[resourceId] = add(byResource[resourceId], it);
-    const pk = periodKey(it.date);
+    const pk = periodKeyForDate(it.date, granularity);
     byBucket[bucketId] ??= {};
     byBucket[bucketId][pk] = add(byBucket[bucketId][pk], it);
   }
