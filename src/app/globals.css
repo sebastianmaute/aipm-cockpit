@@ -34,6 +34,20 @@
      ~3.76:1 on white — fails AA). Bright AIPM-pink stays for fills/borders and
      text on dark surfaces. */
   --AIPM-pink-strong: #c41e5a;
+
+  /* ---- CI-style role tokens (dual-ci). AIPM values reproduce the current look;
+     the :root[data-style="mockup"] block overrides them. ---- */
+  --rag-red: #ef4444;
+  --rag-amber: #f59e0b;
+  --rag-green: #10b981;
+  --rag-red-text: var(--AIPM-pink-strong);
+  --rag-amber-text: var(--AIPM-purple);
+  --rag-green-text: var(--AIPM-green-strong);
+  --table-head-bg: var(--AIPM-dark-blue);
+  --table-head-fg: #ffffff;
+  --shadow-card: none;
+  --shadow-control: none;
+  --gradient-kpi: none;
 }
 
 @theme inline {
@@ -56,6 +70,14 @@
   --color-AIPM-purple: var(--AIPM-purple);
   --color-AIPM-green-strong: var(--AIPM-green-strong);
   --color-AIPM-pink-strong: var(--AIPM-pink-strong);
+  --color-rag-red: var(--rag-red);
+  --color-rag-amber: var(--rag-amber);
+  --color-rag-green: var(--rag-green);
+  --color-rag-red-text: var(--rag-red-text);
+  --color-rag-amber-text: var(--rag-amber-text);
+  --color-rag-green-text: var(--rag-green-text);
+  --color-table-head-bg: var(--table-head-bg);
+  --color-table-head-fg: var(--table-head-fg);
 }
 
 .dark {
@@ -72,6 +94,21 @@
   --AIPM-green-strong: #84bd00;
   /* Dark mode: the bright pink is AA on dark surfaces, so -strong == AIPM-pink. */
   --AIPM-pink-strong: #e5497c;
+}
+
+/* Mockup CI — richer look (docs/patterns/*.png). Light-only this slice. */
+:root[data-style="mockup"] {
+  --rag-red: #d64545;
+  --rag-amber: #f0a020;
+  --rag-green: #5aa700;
+  --rag-red-text: #c0392b;
+  --rag-amber-text: #a96a00;
+  --rag-green-text: #3d7a00;
+  --table-head-bg: #f1f3f4;
+  --table-head-fg: #3f4448;
+  --shadow-card: 0 1px 3px rgba(0, 65, 89, 0.12), 0 1px 2px rgba(0, 65, 89, 0.08);
+  --shadow-control: 0 1px 2px rgba(0, 65, 89, 0.10);
+  --gradient-kpi: linear-gradient(90deg, var(--rag-red), var(--rag-amber), var(--rag-green));
 }
 
 body {
@@ -91,7 +128,8 @@ table:has(> .lop-thead) {
   border-spacing: 0;
 }
 .lop-thead > tr > th {
-  background-color: var(--AIPM-dark-blue);
+  background-color: var(--table-head-bg);
+  color: var(--table-head-fg);
 }
 .lop-thead > tr:first-child > th:first-child {
   border-top-left-radius: 0.75rem;

@@ -15,4 +15,4 @@
  * rounded `<th>` can only clip a fill it actually paints.
  */
 export const TABLE_HEAD_CLASS =
-  "lop-thead sticky top-0 z-10 text-xs uppercase tracking-wide text-white";
+  "lop-thead sticky top-0 z-10 text-xs uppercase tracking-wide text-[var(--table-head-fg)]";
