@@ -9,8 +9,8 @@ describe("no-flash boot script", () => {
     expect(src).toContain('localStorage.getItem("lop-style")');
     expect(src).toContain('setAttribute("data-style"');
   });
-  it("pins light under mockup", () => {
-    expect(src).toMatch(/mockup/);
+  it("pins light under mockup (forces d=false)", () => {
+    expect(src).toContain('if(s==="mockup"){d=false;}');
   });
   it("still applies the dark class from lop-theme", () => {
     expect(src).toContain('classList.toggle("dark"');
