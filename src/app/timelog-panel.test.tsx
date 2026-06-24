@@ -1,5 +1,5 @@
 // src/app/timelog-panel.test.tsx
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import { useEffect, type ReactNode } from "react";
 import { FiltersProvider } from "./filters-context";
@@ -40,7 +40,14 @@ vi.mock("./timelog-api", () => ({
 }));
 
 vi.mock("./use-timelog-sync", () => ({
-  useTimelogSync: vi.fn().mockReturnValue({
+  useTimelogSync: vi.fn(),
+}));
+
+// Default mock return (re-applied per test in beforeEach so error-state tests
+// that override it don't leak into the next test). Persistent mockReturnValue
+// (NOT ...Once) because React may render the component multiple times.
+function defaultSyncReturn() {
+  return {
     aggregates: {
       byBucket: { 10: { "2026-06": { hours: 8, billableHours: 6 } } },
       byResource: { 1: { hours: 8, billableHours: 6 } },
@@ -51,8 +58,8 @@ vi.mock("./use-timelog-sync", () => ({
     busy: false,
     error: null,
     sync: vi.fn().mockResolvedValue(undefined),
-  }),
-}));
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -141,6 +148,13 @@ function enableTimelog() {
 afterEach(() => {
   window.localStorage.clear();
   vi.clearAllMocks();
+});
+
+beforeEach(async () => {
+  const { useTimelogSync } = await import("./use-timelog-sync");
+  vi.mocked(useTimelogSync).mockReturnValue(
+    defaultSyncReturn() as unknown as ReturnType<typeof useTimelogSync>,
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -263,6 +277,30 @@ describe("TimelogPanel", () => {
       expect(link!.manual).toBe(true);
       expect(link!.bucketId).toBe(10);
     });
+
+    it("removes the project link (no null-bucket tombstone) when Clear is clicked", () => {
+      enableTimelog();
+      render(
+        <>
+          <SeedWorkspace links={INITIAL_LINKS} />
+          <LinksProbe testId="links-probe" />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+
+      // Project 99 is linked to bucket 10 initially. Clear should remove the row.
+      const clearLabel = `${t("en-US", "timelogMatchClear")} – 99`;
+      act(() => {
+        fireEvent.click(screen.getByRole("button", { name: clearLabel }));
+      });
+
+      const probe = screen.getByTestId("links-probe");
+      const parsed = JSON.parse(probe.textContent ?? "null") as TimelogLinks | null;
+      expect(parsed).not.toBeNull();
+      // No tombstone: the link for project 99 is gone entirely.
+      expect(parsed!.projectLinks.find((l) => l.timelogProjectId === 99)).toBeUndefined();
+    });
   });
 
   describe("Apply to budget", () => {
@@ -325,6 +363,54 @@ describe("TimelogPanel", () => {
       expect(
         screen.queryByText(t("en-US", "timelogApplyConfirm", "1")),
       ).not.toBeInTheDocument();
+    });
+  });
+
+  describe("Fetch error surfacing", () => {
+    it("renders the token-invalid message when sync.error is a 401", async () => {
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      vi.mocked(useTimelogSync).mockReturnValue({
+        aggregates: undefined,
+        fetchedAt: undefined,
+        projectRefs: [],
+        busy: false,
+        error: 401,
+        sync: vi.fn().mockResolvedValue(undefined),
+      } as unknown as ReturnType<typeof useTimelogSync>);
+
+      enableTimelog();
+      render(
+        <>
+          <SeedWorkspace links={INITIAL_LINKS} />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+
+      expect(screen.getByText(t("en-US", "timelogTokenInvalid"))).toBeInTheDocument();
+    });
+
+    it("renders a generic failure line when sync.error is a non-auth status", async () => {
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      vi.mocked(useTimelogSync).mockReturnValue({
+        aggregates: undefined,
+        fetchedAt: undefined,
+        projectRefs: [],
+        busy: false,
+        error: 500,
+        sync: vi.fn().mockResolvedValue(undefined),
+      } as unknown as ReturnType<typeof useTimelogSync>);
+
+      enableTimelog();
+      render(
+        <>
+          <SeedWorkspace links={INITIAL_LINKS} />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+
+      expect(screen.getByText(t("en-US", "timelogTestFail"))).toBeInTheDocument();
     });
   });
 });

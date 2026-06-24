@@ -15,6 +15,7 @@ import { defaultTimelogConfig, type TimelogLinks, type TimelogUser } from "./tim
 import { listUsers } from "./timelog-api";
 import { VIEW_PANE_FILL_CLASS } from "./view-styles";
 import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { TABLE_HEAD_CLASS } from "./table-styles";
 import { Tile } from "./report-table";
 
 export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?: boolean }) {
@@ -87,7 +88,9 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
     const rest = links.projectLinks.filter((l) => l.timelogProjectId !== timelogProjectId);
     setLinks({
       ...links,
-      projectLinks: [...rest, { timelogProjectId, bucketId, manual: true }],
+      // Mirror manualLinkUser: a null bucket (Clear) REMOVES the link rather than
+      // persisting a null-bucketId tombstone.
+      projectLinks: bucketId === null ? rest : [...rest, { timelogProjectId, bucketId, manual: true }],
     });
   }
 
@@ -170,18 +173,16 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
       ws.project?.startDate ??
       new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
-    // Fetch users in parallel with the time-items sync
-    try {
-      const [users] = await Promise.allSettled([
-        listUsers(creds),
-        sync.sync(start, end),
-      ]);
-      if (users.status === "fulfilled") {
-        setFetchedUsers(users.value);
-      }
-    } catch {
-      setFetchError("fetch-failed");
-    }
+    // Fetch users in parallel with the time-items sync. allSettled never
+    // rejects, so inspect each result's status explicitly (an outer catch
+    // would be dead code). A rejected listUsers surfaces a visible error;
+    // the sync's own failure is surfaced via sync.error below.
+    const [users] = await Promise.allSettled([
+      listUsers(creds),
+      sync.sync(start, end),
+    ]);
+    setFetchedUsers(users.status === "fulfilled" ? users.value : []);
+    if (users.status === "rejected") setFetchError("fetch-failed");
   }
 
   const isMisconfigured = !cfg.enabled || !cfg.host || !cfg.apiToken;
@@ -208,10 +209,14 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
         </p>
       )}
 
-      {/* Fetch error */}
-      {fetchError && (
+      {/* Fetch error — a rejected listUsers, or the sync hook's own error.
+          Auth failures (401/403) show the token-invalid message; any other
+          truthy status (or a listUsers rejection) shows a generic failure. */}
+      {(fetchError || sync.error) && (
         <p className="mb-3 rounded-md border border-line bg-surface-muted px-3 py-2 text-sm text-muted-foreground">
-          {t(lang, "timelogTestFail")}
+          {sync.error === 401 || sync.error === 403
+            ? t(lang, "timelogTokenInvalid")
+            : t(lang, "timelogTestFail")}
         </p>
       )}
 
@@ -256,6 +261,14 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
+              <thead className={TABLE_HEAD_CLASS}>
+                <tr>
+                  <th scope="col" className="px-2 py-1 text-left">{t(lang, "timelogMatchPeople")}</th>
+                  <th scope="col" className="px-2 py-1 text-left">{t(lang, "tabResources")}</th>
+                  <th scope="col" className="px-2 py-1 text-left">{t(lang, "status")}</th>
+                  <th scope="col" className="px-2 py-1 text-left">{t(lang, "timelogMatchClear")}</th>
+                </tr>
+              </thead>
               <tbody>
                 {fetchedUsers.map((u) => {
                   const link = effectiveUserLinks.find((l) => l.timelogUserId === u.userId);
@@ -328,10 +341,18 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
+              <thead className={TABLE_HEAD_CLASS}>
+                <tr>
+                  <th scope="col" className="px-2 py-1 text-left">{t(lang, "timelogMatchProjects")}</th>
+                  <th scope="col" className="px-2 py-1 text-left">{t(lang, "tabBudget")}</th>
+                  <th scope="col" className="px-2 py-1 text-left">{t(lang, "status")}</th>
+                  <th scope="col" className="px-2 py-1 text-left">{t(lang, "timelogMatchClear")}</th>
+                </tr>
+              </thead>
               <tbody>
                 {knownProjectRefs.map((p) => {
                   const pLink = effectiveProjectLinks.find((l) => l.timelogProjectId === p.id);
-                  const displayId = p.name !== String(p.id) ? p.name : String(p.id);
+                  const displayId = p.name;
                   const selectLabel = `${t(lang, "timelogMatchProjects")} – ${displayId}`;
                   const clearLabel = `${t(lang, "timelogMatchClear")} – ${displayId}`;
                   return (
