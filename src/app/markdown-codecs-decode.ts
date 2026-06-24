@@ -52,6 +52,7 @@ import {
   markdownToStakeholders,
   markdownToStatus,
   markdownToSteeringCommittee,
+  markdownToTimelogLinks,
   mdUnescape,
   splitMdRow,
 } from "./markdown-codecs-core";
@@ -449,6 +450,8 @@ export function markdownToWorkspace(md: string): Workspace {
   if (fns !== undefined) ws.features = fns;
   const sc = markdownToSteeringCommittee(md);
   if (sc) ws.steeringCommittee = sc;
+  const tl = markdownToTimelogLinks(md);
+  if (tl) ws.timelogLinks = tl;
   return migrateWorkspaceV9(ws);
 }
 

@@ -7,6 +7,8 @@
 
 import { encodeDocumentLinks, decodeDocumentLinks } from "./document-link";
 import { sanitizeProjectMeta, sanitizeSteeringCommittee } from "./sanitize";
+import { sanitizeTimelogLinks } from "./timelog-sanitize";
+import type { TimelogLinks } from "./timelog-types";
 import { sanitizeFeatures, type FeatureModuleId } from "./feature-modules";
 import {
   type ContactPerson,
@@ -35,6 +37,7 @@ import {
   CSV_SECTION_STAKEHOLDERS,
   CSV_SECTION_STATUS,
   CSV_SECTION_STEERING,
+  CSV_SECTION_TIMELOG_LINKS,
   CSV_SECTION_TASKS,
   absencesToCsv,
   budgetsToCsv,
@@ -137,6 +140,22 @@ export function csvToSteeringCommittee(text: string): SteeringCommittee | undefi
   if (rows.length === 0) return undefined;
   try {
     return sanitizeSteeringCommittee(JSON.parse(rows[0][1]));
+  } catch {
+    return undefined;
+  }
+}
+
+// --- Timelog-links encoder / decoder -----------------------------------------
+
+export function timelogLinksToCsv(links: TimelogLinks, neutralize = false): string {
+  return ["config", csvCellEscape(JSON.stringify(links), neutralize)].join(",");
+}
+
+export function csvToTimelogLinks(text: string): TimelogLinks | undefined {
+  const rows = parseCsv(text).filter((r) => r.length >= 2 && r[0] === "config");
+  if (rows.length === 0) return undefined;
+  try {
+    return sanitizeTimelogLinks(JSON.parse(rows[0][1]));
   } catch {
     return undefined;
   }
@@ -448,5 +467,8 @@ export function workspaceToCsv(ws: Workspace, config?: ExportConfig): string {
   // fixture bytes; absent emits nothing (byte-stability for committee-less files).
   if (config === undefined && ws.steeringCommittee)
     csvPush(CSV_SECTION_STEERING, steeringCommitteeToCsv(ws.steeringCommittee, neutralize));
+  // Timelog links — storage-only, same byte-stability gate as steering.
+  if (config === undefined && ws.timelogLinks)
+    csvPush(CSV_SECTION_TIMELOG_LINKS, timelogLinksToCsv(ws.timelogLinks, neutralize));
   return parts.join("\r\n");
 }

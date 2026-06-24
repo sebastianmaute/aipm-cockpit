@@ -8,6 +8,11 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.139.0] - 2026-06-24 "Bacigalupi"
+
+### Added
+- **Timelog integration**: connect a Timelog timekeeping account (Settings → Integrations) to pull actual time bookings via a server-side SSRF-guarded `/api/timelog` proxy. Match Timelog users→resources and projects→budget buckets (auto-match by email/name/PO, manual override always wins). New "Time bookings" view surfaces booked-vs-budget win/loss and time KPIs (booked hours, billable %, unattributed) with a non-destructive "Apply to budget" action. Per-device device-sealed token; per-project link mappings persist across all backends.
+
 ## [0.138.0] - 2026-06-23 "Brunner"
 
 ### Changed

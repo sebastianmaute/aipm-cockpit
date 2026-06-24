@@ -24,6 +24,8 @@ import { defaultStorageConfig } from "../workspace";
 import { saveSecretValue, setSecretPassphrase } from "../use-secrets";
 import { isPassphraseLocked, loadSealed, removeSealed } from "../secrets-store";
 import { FOCUS_RING, TRANSITION, INTERACTIVE } from "../interaction-styles";
+import { TimelogSettings } from "../timelog-settings";
+import { defaultTimelogConfig } from "../timelog-types";
 
 interface IntegrationsSectionProps {
   lang: Lang;
@@ -497,6 +499,11 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
           </div>
         </div>
       )}
+      <TimelogSettings
+        lang={lang}
+        config={settings.timelog ?? defaultTimelogConfig}
+        onChange={(next) => onChange({ ...settings, timelog: next })}
+      />
     </div>
   );
 }

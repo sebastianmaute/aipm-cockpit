@@ -34,6 +34,7 @@ import {
   type SteeringCommittee,
   type Task,
 } from "./types";
+import type { TimelogLinks } from "./timelog-types";
 
 /** Workspace-section state is `readonly X[]` on purpose: these arrays become
  *  the `Workspace` sections handed to storage, and the Turso dirty-table save
@@ -91,6 +92,9 @@ interface WorkspaceValue {
 
   steeringCommittee: SteeringCommittee | undefined;
   setSteeringCommittee: Dispatch<SetStateAction<SteeringCommittee | undefined>>;
+
+  timelogLinks: TimelogLinks | undefined;
+  setTimelogLinks: Dispatch<SetStateAction<TimelogLinks | undefined>>;
 }
 
 const WorkspaceContext = createContext<WorkspaceValue | undefined>(undefined);
@@ -115,6 +119,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [changes, setChanges] = useState<readonly ChangeItem[]>([]);
   const [stakeholders, setStakeholders] = useState<readonly Stakeholder[]>([]);
   const [steeringCommittee, setSteeringCommittee] = useState<SteeringCommittee | undefined>(undefined);
+  const [timelogLinks, setTimelogLinks] = useState<TimelogLinks | undefined>(undefined);
   const {
     searchDebounced,
     priorityFilter,
@@ -277,6 +282,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       changes, setChanges,
       stakeholders, setStakeholders,
       steeringCommittee, setSteeringCommittee,
+      timelogLinks, setTimelogLinks,
     }),
     [
       tasks,
@@ -304,6 +310,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       changes,
       stakeholders,
       steeringCommittee,
+      timelogLinks,
     ],
   );
 

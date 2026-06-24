@@ -32,6 +32,8 @@ import {
   sanitizeStakeholder,
   sanitizeSteeringCommittee,
 } from "./sanitize";
+import { sanitizeTimelogLinks } from "./timelog-sanitize";
+import type { TimelogLinks } from "./timelog-types";
 import {
   type Absence,
   type BudgetBucket,
@@ -101,6 +103,9 @@ export type Workspace = {
    *  Optional & additive: undefined serializes to nothing; persistence/UI land
    *  in later SP-E tasks. */
   steeringCommittee?: Readonly<SteeringCommittee>;
+  /** Timelog integration link mappings (user→resource, project→bucket).
+   *  Optional & additive: undefined serializes to nothing (byte-stable). */
+  timelogLinks?: Readonly<TimelogLinks>;
 };
 
 const SCHEMA_VERSION = 11;
@@ -284,6 +289,9 @@ export function workspaceToJson(ws: Workspace): string {
       // Additive: only present when a committee is configured, so legacy files
       // stay free of a `steeringCommittee` key.
       ...(ws.steeringCommittee ? { steeringCommittee: ws.steeringCommittee } : {}),
+      // Additive: only present when timelog links are configured, so legacy
+      // files stay free of a `timelogLinks` key.
+      ...(ws.timelogLinks ? { timelogLinks: ws.timelogLinks } : {}),
     },
     null,
     2,
@@ -354,6 +362,11 @@ export function jsonToWorkspace(text: string): Workspace {
     if (p.steeringCommittee !== undefined) {
       const committee = sanitizeSteeringCommittee(p.steeringCommittee);
       if (committee) raw.steeringCommittee = committee;
+    }
+    // Additive: sanitize incoming timelog links when present.
+    if (p.timelogLinks !== undefined) {
+      const links = sanitizeTimelogLinks(p.timelogLinks);
+      if (links) raw.timelogLinks = links;
     }
     return migrateWorkspaceV9(raw);
   } catch {

@@ -88,3 +88,7 @@ export const DocumentsPanel = dynamic(
   () => import("./documents-panel").then((m) => m.DocumentsPanel),
   { ssr: false, loading },
 );
+export const TimelogPanel = dynamic(
+  () => import("./timelog-panel").then((m) => m.TimelogPanel),
+  { ssr: false, loading },
+);

@@ -11,6 +11,7 @@ import {
   type StorageConfig,
   defaultStorageConfig,
 } from "./workspace";
+import { type TimelogConfig, defaultTimelogConfig } from "./timelog-types";
 
 export type ChatModel =
   | "claude-sonnet-4-6"
@@ -347,6 +348,9 @@ export type Settings = {
   ai: AiConfig;
   notifications: NotificationsConfig;
   jira: JiraConfig;
+  /** Intentionally optional (mirrors other optional-but-defaulted fields like snapshots?);
+   *  readers use `settings.timelog ?? defaultTimelogConfig`. */
+  timelog?: TimelogConfig;
   popout: { reuseWindow: boolean };
   resources: { workdayHours: number };
   layout: "modern" | "classic";
@@ -392,6 +396,7 @@ export const defaultSettings: Settings = {
   ai: defaultAiConfig,
   notifications: defaultNotificationsConfig,
   jira: defaultJiraConfig,
+  timelog: defaultTimelogConfig,
   popout: { reuseWindow: false },
   resources: { workdayHours: 8 },
   layout: "modern",

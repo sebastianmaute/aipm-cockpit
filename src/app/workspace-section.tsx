@@ -81,6 +81,7 @@ import {
   ProjectsPanel,
   ActionsPanel,
   DocumentsPanel,
+  TimelogPanel,
 } from "./workspace-panels";
 import type { WorkspaceSectionProps } from "./workspace-section-types";
 // Re-export so existing importers of `WorkspaceSectionProps` from
@@ -836,6 +837,12 @@ export function WorkspaceSection({
         {activeTab === "documents" && (
           <div id="panel-documents" role="tabpanel" className={panelClass}>
             <DocumentsPanel />
+          </div>
+        )}
+
+        {activeTab === "timelog" && (
+          <div id="panel-timelog" role="tabpanel" className={panelClass}>
+            <TimelogPanel lang={lang} isPopout={isPopout} />
           </div>
         )}
 

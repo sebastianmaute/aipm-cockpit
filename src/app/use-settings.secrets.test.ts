@@ -3,6 +3,7 @@ import { describe, it, expect, afterEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
 import { writeSettings, SETTINGS_KEY, hydrateSecretsInto, useSettings } from "./use-settings";
 import { defaultSettings } from "./settings-types";
+import { defaultTimelogConfig } from "./timelog-types";
 import { sealDevice, sealPassphrase } from "./secrets";
 import { saveSealed } from "./secrets-store";
 
@@ -84,6 +85,15 @@ describe("hydrateSecretsInto", () => {
     expect(merged.jira.apiToken).toBe("jira-live");
   });
 
+  it("hydrateSecretsInto merges the device-sealed timelog apiToken into settings.timelog", async () => {
+    saveSealed(await sealDevice("timelogApiToken", "timelog-live"));
+    const merged = await hydrateSecretsInto({
+      ...defaultSettings,
+      timelog: { ...defaultTimelogConfig, apiToken: "" },
+    });
+    expect(merged.timelog?.apiToken).toBe("timelog-live");
+  });
+
   it("hydrateSecretsInto leaves a passphrase-locked secret empty", async () => {
     saveSealed(await sealPassphrase("anthropicApiKey", "sk-live", "pw"));
     const merged = await hydrateSecretsInto({
@@ -91,5 +101,16 @@ describe("hydrateSecretsInto", () => {
       ai: { ...defaultSettings.ai, apiKey: "" },
     });
     expect(merged.ai.apiKey).toBe("");
+  });
+});
+
+describe("writeSettings timelog token blanking", () => {
+  it("writeSettings blanks settings.timelog.apiToken on disk", () => {
+    writeSettings({
+      ...defaultSettings,
+      timelog: { ...defaultTimelogConfig, apiToken: "secret" },
+    });
+    const persisted = JSON.parse(localStorage.getItem(SETTINGS_KEY)!);
+    expect(persisted.timelog.apiToken ?? "").toBe("");
   });
 });

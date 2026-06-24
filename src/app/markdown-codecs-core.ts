@@ -10,6 +10,8 @@
 import { sanitizeFieldVisibility, type FieldVisibilityConfig } from "./field-visibility";
 import { sanitizeFeatures, type FeatureModuleId } from "./feature-modules";
 import { sanitizeSteeringCommittee } from "./sanitize";
+import { sanitizeTimelogLinks } from "./timelog-sanitize";
+import type { TimelogLinks } from "./timelog-types";
 import {
   type Absence,
   type BudgetBucket,
@@ -231,6 +233,20 @@ export function markdownToSteeringCommittee(md: string): SteeringCommittee | und
   if (!m) return undefined;
   try {
     return sanitizeSteeringCommittee(JSON.parse(m[1]));
+  } catch {
+    return undefined;
+  }
+}
+
+export function timelogLinksToMarkdown(links: TimelogLinks): string {
+  return ["## Timelog Links", "", "```json", JSON.stringify(links, null, 2), "```", ""].join("\n");
+}
+
+export function markdownToTimelogLinks(md: string): TimelogLinks | undefined {
+  const m = /## Timelog Links\s*\n+```json\s*\n([\s\S]*?)\n```/.exec(md);
+  if (!m) return undefined;
+  try {
+    return sanitizeTimelogLinks(JSON.parse(m[1]));
   } catch {
     return undefined;
   }
@@ -611,6 +627,9 @@ export function workspaceToMarkdown(ws: Workspace, config?: ExportConfig): strin
   // emits nothing so committee-less workspaces round-trip unchanged.
   if (config === undefined && ws.steeringCommittee)
     mdParts.push(steeringCommitteeToMarkdown(ws.steeringCommittee));
+  // Timelog links — storage-only, same byte-stability gate as steering.
+  if (config === undefined && ws.timelogLinks)
+    mdParts.push(timelogLinksToMarkdown(ws.timelogLinks));
   const out = mdParts.join("\n");
   return out;
 }

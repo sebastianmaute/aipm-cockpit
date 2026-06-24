@@ -668,6 +668,17 @@ clear (info-instances ARE map-tracked so they prune automatically). ★★ `outl
 tolerates 404 ONLY for DELETE; PATCH/POST THROW `GraphCalendarError(404)` so an event deleted in Outlook gets
 re-created next push (committee + milestone hooks self-heal by clearing the stale id).
 
+### Timelog integration
+
+Opt-in timekeeping integration (Settings → Integrations). Key landmines:
+- **Browser → proxy only (CORS):** all reads go through `src/app/api/timelog/route.ts` + `_helpers.ts` (clone of jira `_helpers`: allowlist `*.timelog.com`, private-IP block, reject `:`/`@` in host + `..`/CRLF/`#` in path, `/v1/` path allowlist, Bearer auth, 10s timeout, own `"timelog"` rate-limit scope). CSP needs NO new host — same-origin `/api/*` like Jira.
+- **TAF envelope:** Timelog Web API v1 wraps responses as `{Entities:[{Properties}]}` (lists) or `{Properties}` (single) — `unwrapTaf` in `timelog-api.ts` normalises both. Time reads are self-scoped (token owner); org-wide needs the `approval/timesheets/...with-rejected-time-tracking-items?employeeUserId` endpoint, gated by `RegistrationAllTasks` privilege probe (`scopeMode` auto/self/org).
+- **Secret:** `timelogApiToken` is the 4th `SecretId` (device-sealed only; the 6-edit lockstep applies — `SecretId` union, `isSealedSecret` allowlist, `readStore` allowlist loop, `migratePlaintextSecrets`, `writeSettings` blank, `hydrateSecretsInto`, + `saveSecretValue` seal-on-edit in `timelog-settings.tsx`). `settings.timelog` is TOP-LEVEL (mirrors `settings.jira`, NOT under `integrations`).
+- **`Workspace.timelogLinks`** persists as a JSON meta-blob (same pattern as `steeringCommittee`): 6 write paths (JSON/CSV/MD/Turso-single/Turso-tenant/IndexedDB). NOT a `TABLE_NAMES` entry, NOT a column; excluded from exports; absent workspace stays byte-stable.
+- **Actuals cache:** fetched actuals are per-device (`lop-app:timelog-actuals`, mirrors `landing-state`; out of exports/Turso; cleared by `clearAppConfig`) — NOT workspace data. Pure `timelog-actuals.ts` aggregation routes unmapped user/project/null-bucket hours to an `unattributed` total (never dropped).
+- **Apply to budget:** `timelog-apply.ts` is the ONLY write into the persisted budget — writes each bucket's period total into its FIRST allocation's `actualHours` via a FUNCTIONAL `setBudgets(prev=>…)` updater. Everything else is read-only overlay. ★★ The actuals period KEY MUST match the plan granularity: `computeBucketReport` sums `actualHours` ONLY over the plan's period keys (`bucketActivePeriods`→`generatePeriods`, `PlanGranularity` "week"→`"YYYY-Www"` / "month"→`"YYYY-MM"`). `aggregateActuals(items, links, granularity)` keys via the SHARED `periodKeyForDate` (in `resource-capacity.ts`, the single source `generatePeriods` itself uses — don't re-derive ISO weeks). Pass `plan.granularity` panel→`useTimelogSync`→engine; default "month". A monthly key on a weekly plan silently drops the hours from win/loss. ★ Apply uses a `pendingApply` SNAPSHOT taken at confirm-open (not live aggregates) so the shown diff == the diff applied; Fetch is disabled while confirming. Matching `<select>`s/Clear are `isPopout`-disabled + handlers early-return (popout = read-only).
+- **`timelog` view IS in axe `A11Y_VIEWS`** ("Time bookings"); project-row discovery comes from `useTimelogSync().projectRefs` (distinct projects in fetched items) merged with already-linked projects.
+
 ### Guided tour + demo
 
 MODERN-shell-only onboarding (never classic/popout). Pure i18n-free `app-tour.ts` (`TOUR_STEPS` ~12 keys-only,

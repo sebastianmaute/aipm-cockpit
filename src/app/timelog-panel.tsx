@@ -1,0 +1,464 @@
+"use client";
+// src/app/timelog-panel.tsx
+// User-facing Timelog integration view: people/project matching tables, KPI
+// tiles, and the apply-to-budget flow. Consumes only pure engines + context —
+// no direct API calls in render; all network happens inside event handlers.
+import { useMemo, useState } from "react";
+import { t, type Lang } from "./i18n";
+import { useWorkspace } from "./workspace-context";
+import { useSettings } from "./use-settings";
+import { useTimelogSync } from "./use-timelog-sync";
+import { autoMatchUsers, autoMatchProjects, type TimelogProjectRef } from "./timelog-match";
+import { planApply, applyActualsToBuckets } from "./timelog-apply";
+import { sanitizeTimelogLinks } from "./timelog-sanitize";
+import { defaultTimelogConfig, type TimelogLinks, type TimelogUser } from "./timelog-types";
+import { listUsers } from "./timelog-api";
+import { VIEW_PANE_FILL_CLASS } from "./view-styles";
+import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { TABLE_HEAD_CLASS } from "./table-styles";
+import { Tile } from "./report-table";
+
+export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?: boolean }) {
+  const ws = useWorkspace();
+  const { settings, setSettings } = useSettings();
+  const cfg = settings.timelog ?? defaultTimelogConfig;
+
+  // Stable references hoisted out of useMemo deps to avoid obj.member lint errors
+  const timelogLinks = ws.timelogLinks;
+  const budgets = ws.budgets;
+  const resources = ws.resources;
+  const planGranularity = ws.plan?.granularity ?? "month";
+
+  const links: TimelogLinks = useMemo(
+    () => timelogLinks ?? { userLinks: [], projectLinks: [] },
+    [timelogLinks],
+  );
+  const projectId = ws.project?.code ?? "default";
+  const creds = useMemo(
+    () => ({ host: cfg.host, tenant: cfg.tenant, token: cfg.apiToken }),
+    [cfg.host, cfg.tenant, cfg.apiToken],
+  );
+
+  const sync = useTimelogSync({
+    creds,
+    links,
+    scopeMode: cfg.scopeMode,
+    granularity: planGranularity,
+    projectId,
+    isPopout,
+    onTokenInvalid: () => {
+      const at = new Date().toISOString();
+      setSettings((s) => ({
+        ...s,
+        timelog: { ...(s.timelog ?? defaultTimelogConfig), tokenInvalidAt: at },
+      }));
+    },
+    onTokenValid: () => {
+      if (cfg.tokenInvalidAt) {
+        setSettings((s) => {
+          const tl = s.timelog ?? defaultTimelogConfig;
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const { tokenInvalidAt, ...rest } = tl;
+          return { ...s, timelog: rest };
+        });
+      }
+    },
+  });
+
+  // Fetched users are populated by the Fetch handler. Project rows come from
+  // `sync.projectRefs` (distinct projects seen in the latest fetch — this lets
+  // brand-new, never-linked Timelog projects appear and be matched) MERGED with
+  // any already-linked projects not present in that fetch (so prior mappings
+  // still render even when no current bookings reference them).
+  const [fetchedUsers, setFetchedUsers] = useState<TimelogUser[]>([]);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+
+  function setLinks(next: TimelogLinks) {
+    ws.setTimelogLinks(sanitizeTimelogLinks(next) ?? { userLinks: [], projectLinks: [] });
+  }
+
+  function manualLinkUser(timelogUserId: number, resourceId: number | null) {
+    if (isPopout) return;
+    const rest = links.userLinks.filter((l) => l.timelogUserId !== timelogUserId);
+    setLinks({
+      ...links,
+      userLinks:
+        resourceId === null
+          ? rest
+          : [...rest, { timelogUserId, resourceId, manual: true }],
+    });
+  }
+
+  function manualLinkProject(timelogProjectId: number, bucketId: number | null) {
+    if (isPopout) return;
+    const rest = links.projectLinks.filter((l) => l.timelogProjectId !== timelogProjectId);
+    setLinks({
+      ...links,
+      // Mirror manualLinkUser: a null bucket (Clear) REMOVES the link rather than
+      // persisting a null-bucketId tombstone.
+      projectLinks: bucketId === null ? rest : [...rest, { timelogProjectId, bucketId, manual: true }],
+    });
+  }
+
+  // Hoist obj.member values to scalar locals before any useMemo dep array.
+  const projectLinks = links.projectLinks;
+  const fetchedProjectRefs = sync.projectRefs;
+
+  // Derive effective user matches (auto + manual, manual wins)
+  const effectiveUserLinks = useMemo(
+    () => autoMatchUsers(fetchedUsers, resources, links),
+    [fetchedUsers, resources, links],
+  );
+
+  // Merge fetched project refs with any already-linked projects absent from the
+  // latest fetch (synthetic placeholder name = the id) so prior maps still show.
+  const knownProjectRefs = useMemo((): TimelogProjectRef[] => {
+    const seen = new Set(fetchedProjectRefs.map((r) => r.id));
+    const merged: TimelogProjectRef[] = [...fetchedProjectRefs];
+    for (const l of projectLinks) {
+      if (!seen.has(l.timelogProjectId)) {
+        merged.push({ id: l.timelogProjectId, name: String(l.timelogProjectId), no: "" });
+      }
+    }
+    return merged;
+  }, [fetchedProjectRefs, projectLinks]);
+
+  const effectiveProjectLinks = useMemo(
+    () => autoMatchProjects(knownProjectRefs, budgets, links),
+    [knownProjectRefs, budgets, links],
+  );
+
+  // KPI values
+  const overlay = sync.aggregates?.byBucket;
+  const syncAggregates = sync.aggregates;
+
+  const byResource = useMemo(
+    () => syncAggregates?.byResource ?? {},
+    [syncAggregates],
+  );
+  const unattributed = useMemo(
+    () => syncAggregates?.unattributed ?? { hours: 0, billableHours: 0 },
+    [syncAggregates],
+  );
+
+  const bookedHours = useMemo(
+    () => Object.values(byResource).reduce((s, c) => s + c.hours, 0),
+    [byResource],
+  );
+
+  const billableHours = useMemo(
+    () => Object.values(byResource).reduce((s, c) => s + c.billableHours, 0),
+    [byResource],
+  );
+
+  const billablePct = bookedHours > 0 ? Math.round((billableHours / bookedHours) * 100) : 0;
+
+  // Apply-to-budget diff
+  // `pendingApply` is snapshotted at confirm-open time so the shown diff count
+  // and the actually-applied overlay are always the same value (TOCTOU guard).
+  const [confirming, setConfirming] = useState(false);
+  const [pendingApply, setPendingApply] = useState<import("./timelog-actuals").ActualsByBucket | null>(null);
+
+  const applyDiff = useMemo(
+    () => (pendingApply ? planApply(budgets, pendingApply) : overlay ? planApply(budgets, overlay) : []),
+    [pendingApply, overlay, budgets],
+  );
+
+  function openConfirm() {
+    if (!overlay) return;
+    setPendingApply(overlay);
+    setConfirming(true);
+  }
+
+  function applyToBudget() {
+    if (!pendingApply) return;
+    ws.setBudgets((prev) => applyActualsToBuckets(prev, pendingApply));
+    setConfirming(false);
+    setPendingApply(null);
+  }
+
+  function cancelConfirm() {
+    setConfirming(false);
+    setPendingApply(null);
+  }
+
+  // Fetch handler — new Date() lives here (inside callback), never in render
+  async function handleFetch() {
+    if (isPopout || sync.busy) return;
+    setFetchError(null);
+    const now = new Date();
+    const end = now.toISOString().slice(0, 10);
+    // Use project span if available, else rolling 90-day window
+    const start =
+      ws.project?.startDate ??
+      new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
+    // Fetch users in parallel with the time-items sync. allSettled never
+    // rejects, so inspect each result's status explicitly (an outer catch
+    // would be dead code). A rejected listUsers surfaces a visible error;
+    // the sync's own failure is surfaced via sync.error below.
+    const [users] = await Promise.allSettled([
+      listUsers(creds),
+      sync.sync(start, end),
+    ]);
+    setFetchedUsers(users.status === "fulfilled" ? users.value : []);
+    if (users.status === "rejected") setFetchError("fetch-failed");
+  }
+
+  const isMisconfigured = !cfg.enabled || !cfg.host || !cfg.apiToken;
+
+  return (
+    <div className={VIEW_PANE_FILL_CLASS}>
+      {/* Header */}
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <h2 className="text-lg font-semibold text-foreground">{t(lang, "timelogTitle")}</h2>
+        <button
+          type="button"
+          disabled={sync.busy || isPopout || isMisconfigured || confirming}
+          onClick={() => void handleFetch()}
+          className={`rounded-md border border-line px-3 py-1.5 text-sm font-medium text-foreground disabled:opacity-50 ${INTERACTIVE}`}
+        >
+          {sync.busy ? t(lang, "loadingTimelog") : t(lang, "timelogSync")}
+        </button>
+      </div>
+
+      {/* Token-invalid warning */}
+      {cfg.tokenInvalidAt && (
+        <p className="mb-3 rounded-md border border-line bg-surface-muted px-3 py-2 text-sm text-muted-foreground">
+          {t(lang, "timelogTokenInvalid")}
+        </p>
+      )}
+
+      {/* Fetch error — a rejected listUsers, or the sync hook's own error.
+          Auth failures (401/403) show the token-invalid message; any other
+          truthy status (or a listUsers rejection) shows a generic failure. */}
+      {(fetchError || sync.error) && (
+        <p className="mb-3 rounded-md border border-line bg-surface-muted px-3 py-2 text-sm text-muted-foreground">
+          {sync.error === 401 || sync.error === 403
+            ? t(lang, "timelogTokenInvalid")
+            : t(lang, "timelogTestFail")}
+        </p>
+      )}
+
+      {/* Misconfigured notice */}
+      {isMisconfigured && (
+        <p className="mb-3 text-sm text-muted-foreground">
+          {t(lang, "timelogEnable")}
+        </p>
+      )}
+
+      {/* Last synced + unattributed */}
+      {sync.fetchedAt && (
+        <p className="mb-3 text-xs text-muted-foreground">
+          {t(lang, "timelogLastSynced", sync.fetchedAt)}{" "}
+          {t(lang, "timelogUnattributed", String(Math.round(unattributed.hours)))}
+        </p>
+      )}
+
+      {/* KPI tiles */}
+      <div className="mb-6 grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <Tile
+          label={t(lang, "timelogKpiBooked")}
+          value={`${Math.round(bookedHours)} h`}
+        />
+        <Tile
+          label={t(lang, "timelogKpiBillable")}
+          value={`${billablePct} %`}
+        />
+        <Tile
+          label={t(lang, "timelogKpiWinLoss")}
+          value={`${Math.round(unattributed.hours)} h`}
+        />
+      </div>
+
+      {/* People matching table */}
+      <section className="mb-6">
+        <h3 className="mb-2 text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
+          {t(lang, "timelogMatchPeople")}
+        </h3>
+        {fetchedUsers.length === 0 ? (
+          <p className="text-sm text-muted-foreground">{t(lang, "timelogMatchNone")}</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className={TABLE_HEAD_CLASS}>
+                <tr>
+                  <th scope="col" className="px-2 py-1 text-left">{t(lang, "timelogMatchPeople")}</th>
+                  <th scope="col" className="px-2 py-1 text-left">{t(lang, "tabResources")}</th>
+                  <th scope="col" className="px-2 py-1 text-left">{t(lang, "status")}</th>
+                  <th scope="col" className="px-2 py-1 text-left">{t(lang, "timelogMatchClear")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {fetchedUsers.map((u) => {
+                  const link = effectiveUserLinks.find((l) => l.timelogUserId === u.userId);
+                  const displayId = u.email || String(u.userId);
+                  const selectLabel = `${t(lang, "timelogMatchPeople")} – ${displayId}`;
+                  const clearLabel = `${t(lang, "timelogMatchClear")} – ${displayId}`;
+                  return (
+                    <tr key={u.userId} className="border-b border-line last:border-0">
+                      <td className="py-2 pr-3 text-foreground">
+                        {u.firstName} {u.lastName}
+                        {u.email && (
+                          <span className="ml-1 text-xs text-muted-foreground">{u.email}</span>
+                        )}
+                      </td>
+                      <td className="py-2 pr-2">
+                        <select
+                          aria-label={selectLabel}
+                          value={link?.resourceId ?? ""}
+                          disabled={isPopout}
+                          onChange={(e) =>
+                            manualLinkUser(
+                              u.userId,
+                              e.target.value === "" ? null : Number(e.target.value),
+                            )
+                          }
+                          className={`rounded border border-line bg-surface px-2 py-1 text-sm text-foreground ${FOCUS_RING} ${TRANSITION}`}
+                        >
+                          <option value="">{t(lang, "timelogMatchNone")}</option>
+                          {resources.map((r) => (
+                            <option key={r.id} value={r.id}>
+                              {r.firstName} {r.lastName}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="py-2 pr-2">
+                        {link && (
+                          <span className="rounded-full border border-line px-2 py-0.5 text-xs text-muted-foreground">
+                            {t(lang, link.manual ? "timelogMatchManual" : "timelogMatchAuto")}
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-2">
+                        {link && (
+                          <button
+                            type="button"
+                            aria-label={clearLabel}
+                            disabled={isPopout}
+                            onClick={() => manualLinkUser(u.userId, null)}
+                            className={`rounded border border-line px-2 py-0.5 text-xs text-muted-foreground ${INTERACTIVE}`}
+                          >
+                            {t(lang, "timelogMatchClear")}
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      {/* Projects matching table */}
+      <section className="mb-6">
+        <h3 className="mb-2 text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
+          {t(lang, "timelogMatchProjects")}
+        </h3>
+        {knownProjectRefs.length === 0 ? (
+          <p className="text-sm text-muted-foreground">{t(lang, "timelogMatchNone")}</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className={TABLE_HEAD_CLASS}>
+                <tr>
+                  <th scope="col" className="px-2 py-1 text-left">{t(lang, "timelogMatchProjects")}</th>
+                  <th scope="col" className="px-2 py-1 text-left">{t(lang, "tabBudget")}</th>
+                  <th scope="col" className="px-2 py-1 text-left">{t(lang, "status")}</th>
+                  <th scope="col" className="px-2 py-1 text-left">{t(lang, "timelogMatchClear")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {knownProjectRefs.map((p) => {
+                  const pLink = effectiveProjectLinks.find((l) => l.timelogProjectId === p.id);
+                  const displayId = p.name;
+                  const selectLabel = `${t(lang, "timelogMatchProjects")} – ${displayId}`;
+                  const clearLabel = `${t(lang, "timelogMatchClear")} – ${displayId}`;
+                  return (
+                    <tr key={p.id} className="border-b border-line last:border-0">
+                      <td className="py-2 pr-3 text-foreground">{displayId}</td>
+                      <td className="py-2 pr-2">
+                        <select
+                          aria-label={selectLabel}
+                          value={pLink?.bucketId ?? ""}
+                          disabled={isPopout}
+                          onChange={(e) =>
+                            manualLinkProject(
+                              p.id,
+                              e.target.value === "" ? null : Number(e.target.value),
+                            )
+                          }
+                          className={`rounded border border-line bg-surface px-2 py-1 text-sm text-foreground ${FOCUS_RING} ${TRANSITION}`}
+                        >
+                          <option value="">{t(lang, "timelogMatchNone")}</option>
+                          {budgets.map((b) => (
+                            <option key={b.id} value={b.id}>
+                              {b.name}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="py-2 pr-2">
+                        {pLink && (
+                          <span className="rounded-full border border-line px-2 py-0.5 text-xs text-muted-foreground">
+                            {t(lang, pLink.manual ? "timelogMatchManual" : "timelogMatchAuto")}
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-2">
+                        <button
+                          type="button"
+                          aria-label={clearLabel}
+                          disabled={isPopout}
+                          onClick={() => manualLinkProject(p.id, null)}
+                          className={`rounded border border-line px-2 py-0.5 text-xs text-muted-foreground ${INTERACTIVE}`}
+                        >
+                          {t(lang, "timelogMatchClear")}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      {/* Apply to budget */}
+      {!confirming ? (
+        <button
+          type="button"
+          disabled={applyDiff.length === 0 || isPopout}
+          onClick={openConfirm}
+          className={`rounded-md border border-line px-3 py-1.5 text-sm font-medium text-foreground disabled:opacity-40 ${INTERACTIVE}`}
+        >
+          {t(lang, "timelogApply")}
+        </button>
+      ) : (
+        <div className="flex items-center gap-3 rounded-md border border-line bg-surface-muted px-3 py-2">
+          <p className="text-sm text-foreground">
+            {t(lang, "timelogApplyConfirm", String(applyDiff.length))}
+          </p>
+          <button
+            type="button"
+            onClick={applyToBudget}
+            className={`rounded-md border border-line px-3 py-1 text-sm font-medium text-foreground ${INTERACTIVE}`}
+          >
+            {t(lang, "timelogApply")}
+          </button>
+          <button
+            type="button"
+            onClick={cancelConfirm}
+            className={`rounded-md border border-line px-3 py-1 text-sm text-muted-foreground ${INTERACTIVE}`}
+          >
+            {t(lang, "cancel")}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
