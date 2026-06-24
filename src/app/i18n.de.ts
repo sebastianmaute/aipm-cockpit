@@ -135,6 +135,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightBulkEdit: "Mehrere Zeilen in den Panels RAID, Meilensteine, Änderungen und Stakeholder auswählen und Feldänderungen auf alle gleichzeitig anwenden",
   versionHighlightDensityRhythm: "Die kompakte Dichte des Dashboards verkleinert jetzt auch die Abstände der zweispaltigen Bereiche, und die Kachelraster für Berichtsgesundheit und Anfragen nutzen denselben Abstandsrhythmus",
   versionHighlightResponsiveGrids: "Die Kennzahlenraster von Dashboard, Budget und Jira-Einstellungen brechen auf kleinen Bildschirmen jetzt auf eine Spalte um, statt überzulaufen, die Entfernen-Schaltflächen im Dokumentebereich nennen die zu löschende Datei, und die Änderungsbericht-Tabellen nutzen denselben Rasterrhythmus",
+  versionHighlightTimelog: "Verbinde ein Timelog-Zeiterfassungskonto, um Ist-Zeitbuchungen abzurufen, Timelog-Personen und -Projekte deinen Ressourcen und Budgets zuzuordnen und Gewinn/Verlust (Ist vs. Budget) sowie weitere Zeit-Kennzahlen zu sehen",
 
   tasks: "Aufgaben",
   tasksCount: "({0})",

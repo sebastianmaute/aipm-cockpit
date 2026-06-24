@@ -132,6 +132,7 @@ const enUS = {
   versionHighlightBulkEdit: "Select multiple rows in the RAID, Milestones, Changes, and Stakeholders panels and apply field changes to all of them at once",
   versionHighlightDensityRhythm: "Dashboard compact density now tightens the two-column section gaps too, and the report health and inquiry tile grids share one spacing rhythm",
   versionHighlightResponsiveGrids: "Dashboard, budget, and Jira-settings metric grids now stack to a single column on small screens instead of overflowing, the Documents remove buttons announce which file they delete, and the change-report tables share the report grid rhythm",
+  versionHighlightTimelog: "Connect a Timelog timekeeping account to pull actual time bookings, match Timelog people and projects to your resources and budgets, and see booked-vs-budget win/loss and other time KPIs",
 
   tasks: "Tasks",
   tasksCount: "({0})",
