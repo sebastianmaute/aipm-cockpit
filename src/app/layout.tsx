@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { Titillium_Web } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "./use-theme";
+import { CiStyleProvider } from "./use-style";
 import { ServiceWorkerRegistrar } from "./service-worker-registrar";
 
 const titillium = Titillium_Web({
@@ -49,7 +50,7 @@ export default async function RootLayout({
           dangerouslySetInnerHTML={{ __html: NO_FLASH_THEME_SCRIPT }}
         />
         <ServiceWorkerRegistrar />
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider><CiStyleProvider>{children}</CiStyleProvider></ThemeProvider>
       </body>
     </html>
   );

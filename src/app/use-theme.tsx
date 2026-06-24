@@ -30,8 +30,11 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   // Apply the resolved theme as a `.dark` class on <html>, and (in system mode)
   // keep it in sync with OS changes.
   useEffect(() => {
-    const apply = () =>
-      document.documentElement.classList.toggle("dark", resolveTheme(theme, prefersDark()) === "dark");
+    const apply = () => {
+      const mockup = document.documentElement.getAttribute("data-style") === "mockup";
+      const dark = !mockup && resolveTheme(theme, prefersDark()) === "dark";
+      document.documentElement.classList.toggle("dark", dark);
+    };
     apply();
     if (theme !== "system") return;
     const mql = window.matchMedia("(prefers-color-scheme: dark)");
