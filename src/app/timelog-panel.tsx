@@ -44,11 +44,13 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
     scopeMode: cfg.scopeMode,
     projectId,
     isPopout,
-    onTokenInvalid: () =>
+    onTokenInvalid: () => {
+      const at = new Date().toISOString();
       setSettings((s) => ({
         ...s,
-        timelog: { ...(s.timelog ?? defaultTimelogConfig), tokenInvalidAt: new Date().toISOString() },
-      })),
+        timelog: { ...(s.timelog ?? defaultTimelogConfig), tokenInvalidAt: at },
+      }));
+    },
     onTokenValid: () => {
       if (cfg.tokenInvalidAt) {
         setSettings((s) => {
@@ -195,7 +197,7 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
         <button
           type="button"
           disabled={sync.busy || isPopout || isMisconfigured}
-          onClick={handleFetch}
+          onClick={() => void handleFetch()}
           className={`rounded-md border border-line px-3 py-1.5 text-sm font-medium text-foreground disabled:opacity-50 ${INTERACTIVE}`}
         >
           {sync.busy ? t(lang, "loadingTimelog") : t(lang, "timelogSync")}

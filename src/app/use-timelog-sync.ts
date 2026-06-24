@@ -60,7 +60,9 @@ export function useTimelogSync(args: Args) {
         if (resolvedScope === "self") {
           items = await listTimeItemsSelf(creds, startDate, endDate);
         } else {
-          // Org mode: iterate users serially, fail-soft per employee
+          // Org mode: iterate users serially, fail-soft per employee.
+          // Deliberately serial (not Promise.all) to avoid hammering the
+          // Timelog API with unbounded parallel requests and hitting rate limits.
           const users = await listUsers(creds);
           for (const u of users) {
             try {

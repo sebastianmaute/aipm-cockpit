@@ -101,7 +101,7 @@ const TIMELOG_UPSTREAM_TIMEOUT_MS = 10_000;
 export type TimelogRequest = {
   creds: TimelogCreds;
   path: string;
-  query: Record<string, string>;
+  query: Record<string, unknown>;
   body: Record<string, unknown>;
 };
 
@@ -146,7 +146,7 @@ export async function parseTimelogRequest(
 
   const query =
     b.query && typeof b.query === "object" && !Array.isArray(b.query)
-      ? (b.query as Record<string, string>)
+      ? (b.query as Record<string, unknown>)
       : {};
 
   return { creds, path, query, body: b };

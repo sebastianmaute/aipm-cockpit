@@ -1119,6 +1119,7 @@ const enUS = {
   jiraSyncedReadOnly: "Synced with Jira — drag and manual status change disabled",
 
   navTimelog: "Time bookings",
+  timelogModuleDesc: "Pull actual time bookings from Timelog and compare them against your budget",
   timelogTitle: "Timelog time bookings",
   timelogEnable: "Enable Timelog integration",
   timelogHost: "Host",

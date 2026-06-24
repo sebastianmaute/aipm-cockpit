@@ -48,7 +48,7 @@ export const FEATURE_MODULES: readonly FeatureModule[] = [
   },
   { id: "history", labelKey: "navHistory", views: ["history"] },
   { id: "documents", labelKey: "navDocuments", descKey: "documentsModuleDesc", views: ["documents"] },
-  { id: "timelog", labelKey: "navTimelog", views: ["timelog"] },
+  { id: "timelog", labelKey: "navTimelog", descKey: "timelogModuleDesc", views: ["timelog"] },
 ] as const;
 
 /** Views always present regardless of mode. */

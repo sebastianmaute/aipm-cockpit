@@ -1111,6 +1111,7 @@ export const de: Record<TranslationKey, string> = {
   jiraSyncedReadOnly: "Mit Jira synchronisiert — Ziehen und manuelle Statusänderung deaktiviert",
 
   navTimelog: "Zeitbuchungen",
+  timelogModuleDesc: "Ist-Zeitbuchungen aus Timelog abrufen und mit deinem Budget vergleichen",
   timelogTitle: "Timelog-Zeitbuchungen",
   timelogEnable: "Timelog-Integration aktivieren",
   timelogHost: "Host",
