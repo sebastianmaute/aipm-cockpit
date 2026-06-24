@@ -14,7 +14,8 @@ export function CiStyleProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     document.documentElement.setAttribute("data-style", style);
-    if (style === "mockup") document.documentElement.classList.remove("dark");
+    // .dark is owned solely by ThemeProvider; notify it to re-apply for the new style.
+    window.dispatchEvent(new Event("lop-style-change"));
   }, [style]);
 
   const setStyle = useCallback((next: CiStyle) => {
