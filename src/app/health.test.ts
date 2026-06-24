@@ -5,6 +5,7 @@ import {
   healthColorName,
   formatHealthTooltip,
   healthDot,
+  healthText,
   type TaskHealth,
 } from "./health";
 import type { Task } from "./types";
@@ -813,21 +814,26 @@ describe("formatHealthTooltip", () => {
 });
 
 describe("healthDot", () => {
-  it("returns Tailwind class for Red", () => {
-    expect(healthDot.R).toBe("bg-red-500");
+  it("returns RAG role-token class for Red", () => {
+    expect(healthDot.R).toBe("bg-[var(--rag-red)]");
   });
 
-  it("returns Tailwind class for Amber", () => {
-    expect(healthDot.A).toBe("bg-amber-500");
+  it("returns RAG role-token class for Amber", () => {
+    expect(healthDot.A).toBe("bg-[var(--rag-amber)]");
   });
 
-  it("returns Tailwind class for Green", () => {
-    expect(healthDot.G).toBe("bg-emerald-500");
+  it("returns RAG role-token class for Green", () => {
+    expect(healthDot.G).toBe("bg-[var(--rag-green)]");
   });
 
   it("is indexed by all Health colors", () => {
     expect(healthDot).toHaveProperty("R");
     expect(healthDot).toHaveProperty("A");
     expect(healthDot).toHaveProperty("G");
+  });
+
+  it("uses role-token indirection so style switches reflow RAG color", () => {
+    expect(healthDot.A).toBe("bg-[var(--rag-amber)]");
+    expect(healthText.A).toBe("text-[var(--rag-amber-text)]");
   });
 });

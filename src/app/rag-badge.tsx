@@ -15,7 +15,7 @@ export function RagBadge({
   const label = title ?? name;
   const base = "inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[9px] font-bold text-white [-webkit-print-color-adjust:exact] [print-color-adjust:exact]";
   if (!value) {
-    return <span role="img" aria-label={label} title={label} className={`${base} bg-slate-300`}>—</span>;
+    return <span role="img" aria-label={label} title={label} className={`${base} bg-surface-muted`}>—</span>;
   }
   return <span role="img" aria-label={label} title={label} className={`${base} ${healthDot[value]}`}>{value}</span>;
 }
