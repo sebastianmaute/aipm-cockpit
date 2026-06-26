@@ -479,11 +479,14 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   LIGHT-ONLY + PINS light: `use-style` fires a `lop-style-change` event; `use-theme` is the SOLE `.dark`
   writer and re-applies on that event (switching back to AIPM restores dark). ALL style difference is CSS
   role tokens in `globals.css`: `--rag-red/amber/green` (+ `-text` AA variants), `--table-head-bg/-fg`,
-  `--table-head-accent` (sort-button active/hover), `--shadow-card/-control`, `--gradient-kpi`. AIPM values
+  `--table-head-accent` (sort-button active/hover), `--shadow-card/-control/-card-hover`, `--gradient-kpi`,
+  `--rag-green-chip`/`--rag-red-chip` + `--delta-chip-pad` (KPI delta pills), `--segment-track-bg/-active-bg/-active-fg`. AIPM values
   reproduce the old look (no-op); mockup overrides
   in `:root[data-style="mockup"]`. RAG flows through `health.ts` (`healthDot`/`healthText` →
-  `--rag-*` / `--rag-*-text` token families (e.g. `bg-[var(--rag-red)]`, `text-[var(--rag-green-text)]`)). `--gradient-kpi` is RESERVED (no correct
-  "more=better" bar yet — never apply to effort/usage bars, which are more=worse). Shadows/gradients
+  `--rag-*` / `--rag-*-text` token families (e.g. `bg-[var(--rag-red)]`, `text-[var(--rag-green-text)]`)). `--gradient-kpi` is APPLIED to the completion-% gauge
+  (`KpiGradientBar` in `report-table.tsx`, the Tile `bar` slot) — AIPM `var(--AIPM-green)` solid, Mockup the
+  red→amber→green gradient (inline `style`, the ONLY legal gradient path). It is the SOLE "more=better"
+  visual; NEVER apply to effort/usage bars (more=worse — gradient inverts the signal). Shadows/gradients
   legal ONLY via tokens (e.g. `shadow-[var(--shadow-card)]` — use the `--shadow-*` token family); `shell-palette-guard` bans raw
   `shadow*`/`drop-shadow`/`bg-gradient-` via strip-then-ban. The axe gate (`e2e/a11y.spec.ts`) scans
   EVERY shipped combo: AIPM-light, AIPM-dark, Mockup-light (3 × A11Y_VIEWS = 39 passes), seeding
@@ -495,6 +498,14 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   ★★ Data-table header sort buttons (`report-table` SortHeaderButton AND `task-manager-ui` SortableTh)
   use `text-[var(--table-head-accent)]` for active/hover — raw `text-AIPM-green` is sub-AA (2.03:1) on the
   Mockup light header AND a blanket `.lop-thead button{color}` rule silently kills the sort affordance.
+  ★★ A TRANSLUCENT role-token tint (`rgba(...)`) over a parent whose bg CHANGES on hover (e.g. a `Tile`
+  button's `hover:bg-surface-muted`) RE-composites darker → its TEXT can drop below AA on hover. The axe
+  gate scans RESTING state only, so it PASSES. Use OPAQUE pre-composited tints — `--rag-green-chip`/
+  `--rag-red-chip` are opaque hex (NOT rgba) for exactly this (bit the KPI delta chips).
+  ★★ A STRUCTURAL style diff that must stay an AIPM no-op (padding/size, not color) can't ride a Tailwind
+  class (a class isn't token-toggleable). Put it in a token applied via INLINE STYLE, gated on presence:
+  e.g. `--delta-chip-pad` (AIPM `0` ⇒ byte-identical; Mockup pads the pill), `style={chip ? {padding:
+  "var(--delta-chip-pad)"} : undefined}` — so AIPM is untouched AND a chip-less (flat) trend gets no empty bubble.
 - **Scrollbar gap:** per-view inner scrollers (`min-h-0 flex-1 overflow-auto`) need `pr-2` for the
   content↔scrollbar gap. Shared `INNER_TABLE_CLASS`/report-table/actions-panel already include it; bare
   per-panel scrollers do NOT — add `pr-2` or content jams the scrollbar.

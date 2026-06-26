@@ -45,4 +45,42 @@ describe("TrendArrow", () => {
     const el = screen.getByLabelText(/Overdue unchanged/i);
     expect(el.className).toContain("text-muted-foreground");
   });
+
+  // Pill chip tests — verify token-driven chip bg and rounded-full pill shape.
+  // Under AIPM the tokens are transparent so the pill is invisible; under mockup
+  // the tokens resolve to tinted bg colours.
+
+  test("(a) improved trend renders green chip bg and rounded-full pill", () => {
+    render(<TrendArrow lang="en-US" metricLabel="Completion" trend={trend({ value: 60, delta: 5, direction: "up", improved: true })} />);
+    const el = screen.getByLabelText(/Completion up 5 since/i);
+    expect(el.className).toContain("bg-[var(--rag-green-chip)]");
+    expect(el.className).toContain("rounded-full");
+  });
+
+  test("(b) worsened (up, non-improved) trend renders red chip bg", () => {
+    render(<TrendArrow lang="en-US" metricLabel="Overdue" trend={trend({ value: 5, delta: 3, direction: "up", improved: false })} />);
+    const el = screen.getByLabelText(/Overdue up 3 since/i);
+    expect(el.className).toContain("bg-[var(--rag-red-chip)]");
+    expect(el.className).toContain("rounded-full");
+  });
+
+  test("(c) worsened (down, non-improved) trend renders red chip bg", () => {
+    render(<TrendArrow lang="en-US" metricLabel="Completion" trend={trend({ value: 40, delta: -5, direction: "down", improved: false })} />);
+    const el = screen.getByLabelText(/Completion down 5 since/i);
+    expect(el.className).toContain("bg-[var(--rag-red-chip)]");
+  });
+
+  test("(d) flat trend has no chip bg token (neither green nor red chip)", () => {
+    render(<TrendArrow lang="en-US" metricLabel="Overdue" trend={trend({ value: 5, delta: 0, direction: "flat", improved: false })} />);
+    const el = screen.getByLabelText(/Overdue unchanged/i);
+    expect(el.className).not.toContain("bg-[var(--rag-green-chip)]");
+    expect(el.className).not.toContain("bg-[var(--rag-red-chip)]");
+  });
+
+  test("(e) null improved (first visit) renders nothing", () => {
+    const { container } = render(
+      <TrendArrow lang="en-US" metricLabel="Overdue" trend={trend({ value: 3, delta: null, direction: "flat", improved: null })} />,
+    );
+    expect(container).toBeEmptyDOMElement();
+  });
 });

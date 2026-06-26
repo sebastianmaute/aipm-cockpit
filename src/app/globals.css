@@ -48,7 +48,23 @@
   --table-head-accent: var(--AIPM-green);
   --shadow-card: none;
   --shadow-control: none;
-  --gradient-kpi: none; /* reserved — apply to a "more=better" fill bar (e.g. a future %-complete visual bar); NOT the effort/usage bars (more=worse, gradient would invert the signal) */
+  /* KPI "more=better" fill bar. AIPM = solid brand green; mockup overrides to the
+     red→amber→green gradient. Applied ONLY to the completion-% bar (never effort/
+     usage bars, which are more=worse). */
+  --gradient-kpi: var(--AIPM-green);
+  --shadow-card-hover: none;
+  /* Delta-chip backgrounds for the KPI trend pills. Transparent under AIPM (chip is
+     invisible — plain glyph+text, the legacy look); tinted under mockup. */
+  --rag-green-chip: transparent;
+  --rag-red-chip: transparent;
+  /* Trend-pill padding. AIPM = 0 (byte-identical legacy glyph+text); mockup pads it
+     into a chip. Applied via inline style, gated on a chip being shown. */
+  --delta-chip-pad: 0;
+  /* Segmented-control active/track. AIPM = legacy dark-blue solid pill on a surface
+     track (no-op); mockup = white pill + green text on a light-grey track. */
+  --segment-track-bg: var(--surface);
+  --segment-active-bg: var(--AIPM-dark-blue);
+  --segment-active-fg: #ffffff;
 }
 
 @theme inline {
@@ -112,6 +128,18 @@
   --shadow-card: 0 1px 3px rgba(0, 65, 89, 0.12), 0 1px 2px rgba(0, 65, 89, 0.08);
   --shadow-control: 0 1px 2px rgba(0, 65, 89, 0.10);
   --gradient-kpi: linear-gradient(90deg, var(--rag-red), var(--rag-amber), var(--rag-green));
+  --shadow-card-hover: 0 4px 10px rgba(0, 65, 89, 0.14), 0 2px 4px rgba(0, 65, 89, 0.10);
+  /* Opaque (pre-composited over white), NOT rgba — the chip sits inside the
+     completion Tile which flips to bg-surface-muted on hover; a translucent tint
+     would re-composite over the darker hover bg and drop the green/red chip TEXT
+     below AA (3.7:1). Opaque tints keep --rag-green-text/#3d7a00 + --rag-red-text/
+     #c0392b at >=4.6:1 on every state. */
+  --rag-green-chip: #e6f2d8;
+  --rag-red-chip: #fae9e9;
+  --delta-chip-pad: 0.125rem 0.375rem;
+  --segment-track-bg: #eef1f3;
+  --segment-active-bg: #ffffff;
+  --segment-active-fg: var(--table-head-accent);
 }
 
 body {

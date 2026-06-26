@@ -42,7 +42,7 @@ export function SegmentedControl<T extends string>({
       aria-label={ariaLabel}
       title={title}
       aria-disabled={disabled || undefined}
-      className={`inline-flex flex-wrap rounded-md border border-line bg-surface ${
+      className={`inline-flex flex-wrap rounded-md border border-line bg-[var(--segment-track-bg)] ${
         disabled ? "opacity-60" : ""
       } ${className}`}
     >
@@ -64,7 +64,7 @@ export function SegmentedControl<T extends string>({
               last ? "rounded-r-md" : "",
               idx > 0 ? "border-l border-line" : "",
               selected
-                ? "bg-AIPM-dark-blue text-white"
+                ? "bg-[var(--segment-active-bg)] text-[var(--segment-active-fg)] shadow-[var(--shadow-control)]"
                 : "text-foreground enabled:hover:bg-surface-muted disabled:cursor-not-allowed",
             ]
               .filter(Boolean)

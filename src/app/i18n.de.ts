@@ -137,6 +137,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightResponsiveGrids: "Die Kennzahlenraster von Dashboard, Budget und Jira-Einstellungen brechen auf kleinen Bildschirmen jetzt auf eine Spalte um, statt überzulaufen, die Entfernen-Schaltflächen im Dokumentebereich nennen die zu löschende Datei, und die Änderungsbericht-Tabellen nutzen denselben Rasterrhythmus",
   versionHighlightTimelog: "Verbinde ein Timelog-Zeiterfassungskonto, um Ist-Zeitbuchungen abzurufen, Timelog-Personen und -Projekte deinen Ressourcen und Budgets zuzuordnen und Gewinn/Verlust (Ist vs. Budget) sowie weitere Zeit-Kennzahlen zu sehen",
   versionHighlightDualCi: "Wechsle in Einstellungen – Darstellung zwischen dem Acme-Look und einem reichhaltigeren Dashboard-Stil (Schatten, Verläufe, Rot/Gelb-Status)",
+  versionHighlightMockupPolish: "Der Dashboard-Stil erhält eine Fortschrittsanzeige, getönte Delta-Chips und eine hellere Optik für aktive Bedienelemente; der Acme-Look bleibt unverändert",
 
   tasks: "Aufgaben",
   tasksCount: "({0})",

@@ -1,7 +1,7 @@
 import { describe, expect, it, test, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { useRef } from "react";
-import { ReportCard, Section, Tile } from "./report-table";
+import { KpiGradientBar, ReportCard, Section, Tile } from "./report-table";
 
 function Harness() {
   const ref = useRef<HTMLDivElement | null>(null);
@@ -108,5 +108,43 @@ describe("Section boxed shadow token opt-in", () => {
   it("boxed variant carries shadow-[var(--shadow-card)] class", () => {
     const { container } = render(<Section title="T" boxed>x</Section>);
     expect((container.firstChild as HTMLElement).className).toContain("shadow-[var(--shadow-card)]");
+  });
+});
+
+describe("KpiGradientBar", () => {
+  it("fill child has inline width matching the percent", () => {
+    const { container } = render(<KpiGradientBar percent={60} label="Complete" />);
+    const fill = container.querySelector("[style]") as HTMLElement;
+    expect(fill.style.width).toBe("60%");
+  });
+
+  it("clamps percent above 100 to 100%", () => {
+    const { container } = render(<KpiGradientBar percent={150} label="Complete" />);
+    const fill = container.querySelector("[style]") as HTMLElement;
+    expect(fill.style.width).toBe("100%");
+  });
+
+  it("clamps percent below 0 to 0%", () => {
+    const { container } = render(<KpiGradientBar percent={-10} label="Complete" />);
+    const fill = container.querySelector("[style]") as HTMLElement;
+    expect(fill.style.width).toBe("0%");
+  });
+
+  it("falls back to 0% for a non-finite percent (NaN)", () => {
+    const { container } = render(<KpiGradientBar percent={NaN} label="Complete" />);
+    const fill = container.querySelector("[style]") as HTMLElement;
+    expect(fill.style.width).toBe("0%");
+  });
+
+  it("bar element has role=img with aria-label containing the percent", () => {
+    render(<KpiGradientBar percent={60} label="Complete" />);
+    const bar = screen.getByRole("img");
+    expect(bar).toHaveAttribute("aria-label", "Complete: 60%");
+  });
+
+  it("fill background uses the gradient-kpi token", () => {
+    const { container } = render(<KpiGradientBar percent={50} label="Complete" />);
+    const fill = container.querySelector("[style]") as HTMLElement;
+    expect(fill.style.background).toBe("var(--gradient-kpi)");
   });
 });
