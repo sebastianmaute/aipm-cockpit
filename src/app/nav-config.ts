@@ -36,6 +36,7 @@ export type AppView =
   | "learning-insights"
   | "steering-committee"
   | "timelog"
+  | "portfolio-health"
   | "edit";
 
 export interface NavItem {
@@ -51,7 +52,7 @@ export interface NavGroup {
 export const NAV_GROUPS: NavGroup[] = [
   {
     labelKey: "navPortfolio",
-    items: [{ view: "projects" }],
+    items: [{ view: "projects" }, { view: "portfolio-health" }],
   },
   {
     labelKey: "navGroupOverview",
@@ -95,6 +96,7 @@ export const NAV_GROUPS: NavGroup[] = [
 
 const LABEL_KEYS: Record<Exclude<AppView, "edit" | "learning-insights">, TranslationKey> = {
   projects: "navProjects",
+  "portfolio-health": "navPortfolioHealth",
   dashboard: "navDashboard",
   actions: "navActions",
   trends: "navTrends",
@@ -138,7 +140,7 @@ export function allNavViews(): AppView[] {
 /** Views that are only reachable on a Turso backend. They are pruned from the
  *  nav when `storageKind !== "turso"` so they never render a dead tab on the
  *  file backend. "history" is gated this way (version history lives in Turso). */
-const TURSO_ONLY_VIEWS: readonly AppView[] = ["history"];
+const TURSO_ONLY_VIEWS: readonly AppView[] = ["history", "portfolio-health"];
 
 /** NAV_GROUPS pruned to enabled views: disabled items and children removed,
  *  and any group left with no items dropped. Core views always survive.
