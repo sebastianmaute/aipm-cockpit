@@ -756,7 +756,9 @@ describe("DashboardPanel Trends widget (showTrends)", () => {
     const user = userEvent.setup();
     const onToggleTrends = vi.fn();
     render(<DashboardPanel {...baseProps} showTrends={true} onToggleTrends={onToggleTrends} />, { wrapper });
-    const removeBtn = screen.getByRole("button", { name: /hide trends/i });
+    // Label is pinned to "Trends"; aria-pressed conveys the shown state.
+    const removeBtn = screen.getByRole("button", { name: "Trends" });
+    expect(removeBtn).toHaveAttribute("aria-pressed", "true");
     await user.click(removeBtn);
     expect(onToggleTrends).toHaveBeenCalledWith(false);
   });
@@ -765,7 +767,8 @@ describe("DashboardPanel Trends widget (showTrends)", () => {
     const user = userEvent.setup();
     const onToggleTrends = vi.fn();
     render(<DashboardPanel {...baseProps} showTrends={false} onToggleTrends={onToggleTrends} />, { wrapper });
-    const addBtn = screen.getByRole("button", { name: /show trends/i });
+    const addBtn = screen.getByRole("button", { name: "Trends" });
+    expect(addBtn).toHaveAttribute("aria-pressed", "false");
     await user.click(addBtn);
     expect(onToggleTrends).toHaveBeenCalledWith(true);
   });
@@ -775,8 +778,8 @@ describe("DashboardPanel Trends widget (showTrends)", () => {
     const onToggleTrends = vi.fn();
     render(<DashboardPanel {...baseProps} showTrends={true} onToggleTrends={onToggleTrends} />, { wrapper });
 
-    // Toggle reflects the current (shown) state.
-    const toggle = screen.getByRole("button", { name: /hide trends/i });
+    // Toggle reflects the current (shown) state via aria-pressed.
+    const toggle = screen.getByRole("button", { name: "Trends" });
 
     // It must NOT live in the Overall band (the rounded-lg div containing the
     // "Overall" status word) — it was relocated to the card header toolbar.
@@ -791,8 +794,10 @@ describe("DashboardPanel Trends widget (showTrends)", () => {
     expect(toolbar).not.toBeNull();
     expect(toolbar!.contains(toggle)).toBe(true);
 
-    // The Trends widget heading must not be an ancestor of the toggle.
-    const trendsHeading = screen.getByText("Trends");
+    // The Trends widget heading must not be an ancestor of the toggle. (Query
+    // the heading by role so it doesn't collide with the toggle button, which
+    // now also reads "Trends".)
+    const trendsHeading = screen.getByRole("heading", { name: "Trends" });
     const trendsWidget = trendsHeading.closest("div.rounded-lg");
     expect(trendsWidget!.contains(toggle)).toBe(false);
 

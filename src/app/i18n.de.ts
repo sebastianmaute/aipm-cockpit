@@ -2265,6 +2265,7 @@ export const de: Record<TranslationKey, string> = {
   dashboardStatusClear: "Leeren",
   dashboardShowTrends: "Trends anzeigen",
   dashboardHideTrends: "Trends ausblenden",
+  dashboardTrendsLabel: "Trends",
   dashboardTrendsNoBaseline: "Noch kein Baseline-Snapshot — in Trends festlegen.",
   notifUseGlobalLeadDays: "Eine globale Vorlaufzeit (Tage im Voraus) verwenden",
   notifGlobalLeadDaysHint: "Deaktivieren, um die Vorlaufzeit jeder Erinnerung einzeln festzulegen.",

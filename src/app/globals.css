@@ -34,6 +34,10 @@
      ~3.76:1 on white — fails AA). Bright AIPM-pink stays for fills/borders and
      text on dark surfaces. */
   --AIPM-pink-strong: #c41e5a;
+  /* AA-compliant darker purple for purple TEXT on a light purple tint
+     (bg-AIPM-purple/10 ≈ 3.6:1 with bright AIPM-purple — fails AA). Bright
+     AIPM-purple stays for fills/borders and text on dark surfaces. */
+  --AIPM-purple-strong: #7a2d72;
 
   /* ---- CI-style role tokens (dual-ci). AIPM values reproduce the current look;
      the :root[data-style="mockup"] block overrides them. ---- */
@@ -87,6 +91,7 @@
   --color-AIPM-purple: var(--AIPM-purple);
   --color-AIPM-green-strong: var(--AIPM-green-strong);
   --color-AIPM-pink-strong: var(--AIPM-pink-strong);
+  --color-AIPM-purple-strong: var(--AIPM-purple-strong);
   --color-rag-red: var(--rag-red);
   --color-rag-amber: var(--rag-amber);
   --color-rag-green: var(--rag-green);
@@ -110,8 +115,13 @@
   /* On dark surfaces the bright brand green already has ample contrast — keep
      it (the darker on-light variant would read as muddy here). */
   --AIPM-green-strong: #84bd00;
-  /* Dark mode: the bright pink is AA on dark surfaces, so -strong == AIPM-pink. */
-  --AIPM-pink-strong: #e5497c;
+  /* Dark mode: slightly brighter than the bright AIPM-pink so pink TEXT clears
+     AA even on the LIGHTER dark surface (bg-surface-muted #1b2024) — e.g. the
+     overdue due-date on a Kanban card; #e5497c was only 4.36:1 there. */
+  --AIPM-pink-strong: #e96089;
+  /* Dark mode: a lighter purple is AA on the dark purple tint (the light
+     #7a2d72 would be too dark there). */
+  --AIPM-purple-strong: #d98cc8;
 }
 
 /* Mockup CI — richer look (docs/patterns/*.png). Light-only this slice. */

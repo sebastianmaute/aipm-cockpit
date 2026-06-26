@@ -2298,6 +2298,7 @@ const enUS = {
   dashboardStatusClear: "Clear",
   dashboardShowTrends: "Show trends",
   dashboardHideTrends: "Hide trends",
+  dashboardTrendsLabel: "Trends",
   dashboardTrendsNoBaseline: "No baseline snapshot yet — set one in Trends.",
   notifUseGlobalLeadDays: "Use one global lead time (days ahead)",
   notifGlobalLeadDaysHint: "Untick to set each reminder's lead time individually.",

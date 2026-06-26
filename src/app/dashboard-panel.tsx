@@ -286,15 +286,19 @@ export function DashboardPanel(props: DashboardPanelProps) {
           </button>
         )}
         {props.onToggleTrends && (
+          // Stable label names what the toggle ENABLES ("Trends"); aria-pressed
+          // tracks whether trends are shown. Pinning the label (instead of
+          // flipping to "Hide trends") keeps name + pressed-state coherent —
+          // "Trends, pressed" ⇒ trends are on (mirrors the density toggle).
           <button
             type="button"
-            aria-label={t(lang, showTrends ? "dashboardHideTrends" : "dashboardShowTrends")}
+            aria-label={t(lang, "dashboardTrendsLabel")}
             aria-pressed={showTrends}
-            title={t(lang, showTrends ? "dashboardHideTrends" : "dashboardShowTrends")}
+            title={t(lang, "dashboardTrendsLabel")}
             onClick={() => props.onToggleTrends?.(!showTrends)}
             className={`rounded-md border border-line bg-surface px-2 py-1 text-xs text-muted-foreground hover:bg-surface-muted ${INTERACTIVE}`}
           >
-            {t(lang, showTrends ? "dashboardHideTrends" : "dashboardShowTrends")}
+            {t(lang, "dashboardTrendsLabel")}
           </button>
         )}
       </div>
