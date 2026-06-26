@@ -8,6 +8,18 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.142.0] - 2026-06-26 "Herbert"
+
+### Added
+- **Guided backend setup wizard**: a stepped wizard (Settings → Integrations, and the new-project window) walks through storage & connections (IndexedDB / file / Turso single / Turso multi-tenant + Microsoft 365), the AI assistant key, Jira, and Timelog, ending with a review summary. Integration steps are skippable; the existing flat Settings → Integrations panel remains as the advanced/edit surface. The wizard never appears in pop-out windows.
+- **Information-flows diagram**: the Settings → Information flows diagram now includes the Timelog integration node (reached via the `/api/timelog` server-side proxy).
+
+### Changed
+- **Task editor Delete button**: moved to the footer's left edge and colorized (pink/destructive), separated from the other actions — matching the change-control edit modal. Applies to both the modern full-page task editor and the classic task modal.
+
+### Fixed
+- Delete button hover state now meets WCAG AA contrast in dark mode.
+
 ## [0.141.0] - 2026-06-26 "Gibson"
 
 ### Added

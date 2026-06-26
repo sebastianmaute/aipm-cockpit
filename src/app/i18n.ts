@@ -135,6 +135,7 @@ const enUS = {
   versionHighlightTimelog: "Connect a Timelog timekeeping account to pull actual time bookings, match Timelog people and projects to your resources and budgets, and see booked-vs-budget win/loss and other time KPIs",
   versionHighlightDualCi: "Switch between the Acme look and a richer Dashboard style (shadows, gradients, red/amber status) in Settings - Appearance",
   versionHighlightMockupPolish: "The Dashboard style gains a completion gauge bar, tinted delta chips and a lighter active-control look; the Acme look is unchanged",
+  versionHighlightSetupWizard: "A guided backend setup wizard walks you through storage and integrations from Settings or the new-project window",
 
   tasks: "Tasks",
   tasksCount: "({0})",
@@ -951,6 +952,9 @@ const enUS = {
   helpSecStorageTitle: "Storage",
   helpSecStorageBody:
     "Tasks live in this browser's IndexedDB by default (record-level writes; legacy localStorage data migrates automatically on first load). Switch to a local JSON, CSV, or Markdown file in Settings → Storage to sync with disk (Chrome / Edge / Opera). The browser will ask for write permission on the first save; if it denies, click \"Grant write access\" in Settings. SharePoint backends are coming soon. The bundled sample-workspace-small.sqlite3 can be imported directly into a Turso database (e.g. via the Turso CLI: turso db create lop-demo --from-file sample-workspace-small.sqlite3), then configure the database URL and token in Settings → Integrations.",
+  helpSecSetupWizardTitle: "Backend setup wizard",
+  helpSecSetupWizardBody:
+    "A guided, stepped alternative to the flat Settings → Integrations panel. Launch it from the \"Run setup wizard\" button in Settings → Integrations, or from the new-project window. It walks you through storage & connections (browser IndexedDB, a local JSON/CSV/Markdown file, a single Turso database or multi-tenant Turso, plus Microsoft 365 sign-in), then the AI assistant key, Jira, and Timelog — each integration step is optional and can be skipped — and ends with a review summary of what is configured. Everything it changes is the same as editing the flat Integrations panel; the panel stays available for later edits. The wizard is not shown in pop-out windows.",
   helpSecVersionHistoryTitle: "Version history (Turso)",
   helpSecVersionHistoryBody:
     "When the storage backend is Turso and the History module is enabled, every project keeps an append-only history of full-workspace versions. Captures happen automatically a few minutes after your edits settle (rapid autosaves coalesce into one version; identical payloads are skipped), and you can take a named checkpoint anytime with \"Save version now\". Open the History view to compare a version with the current data or tick two versions to diff them against each other — a field-level diff grouped by entity type, each record expandable before → after. From a \"compared with current\" view, tick whole records or individual fields and click \"Restore selected\" to revert just those — a non-destructive change that is itself captured as a new version and recorded in the activity log. Auto-versions are pruned to the limit in Settings → \"Version history: keep N versions\" (minimum 50, in steps of 10); named checkpoints are never pruned.",
