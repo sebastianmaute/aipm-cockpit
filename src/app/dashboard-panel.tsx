@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ReportCard, Section, Tile } from "./report-table";
+import { KpiGradientBar, ReportCard, Section, Tile } from "./report-table";
 import { computeDashboard } from "./dashboard";
 import { RegistersBand } from "./dashboard-sections/registers-band";
 import { useWorkspace } from "./workspace-context";
@@ -335,6 +335,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
           <Tile
             label={t(lang, "dashboardKpiComplete")}
             value={`${model.progress.percent}%`}
+            bar={<KpiGradientBar percent={model.progress.percent} label={t(lang, "dashboardKpiComplete")} />}
             trend={<TrendArrow trend={trends.complete} metricLabel={t(lang, "dashboardKpiComplete")} unit="%" lang={lang} />}
             onActivate={props.onNavigate ? () => props.onNavigate!("open-points") : undefined}
             activateLabel={`${t(lang, "dashboardKpiComplete")} – ${t(lang, "dashboardOpenTasksView")}`}

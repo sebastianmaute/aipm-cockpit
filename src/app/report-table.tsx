@@ -140,12 +140,13 @@ export function SortHeaderButton({
 }
 
 export function Tile({
-  label, value, rag, trend, onActivate, activateLabel,
+  label, value, rag, trend, bar, onActivate, activateLabel,
 }: {
   label: React.ReactNode;
   value: React.ReactNode;
   rag?: React.ReactNode;
   trend?: React.ReactNode;
+  bar?: React.ReactNode;
   onActivate?: () => void;
   activateLabel?: string;
 }) {
@@ -156,6 +157,7 @@ export function Tile({
         <span>{value}</span>
         {rag}
       </div>
+      {bar ? <div className="mt-1.5">{bar}</div> : null}
       {trend ? <div className="mt-1">{trend}</div> : null}
     </>
   );
@@ -165,13 +167,30 @@ export function Tile({
         type="button"
         aria-label={activateLabel}
         onClick={onActivate}
-        className={`w-full rounded-lg border border-line bg-surface p-3 text-left shadow-[var(--shadow-card)] hover:border-AIPM-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
+        className={`w-full rounded-lg border border-line bg-surface p-3 text-left shadow-[var(--shadow-card)] hover:border-AIPM-dark-blue hover:bg-surface-muted hover:shadow-[var(--shadow-card-hover)] ${INTERACTIVE}`}
       >
         {inner}
       </button>
     );
   }
   return <div className="rounded-lg border border-line bg-surface p-3 shadow-[var(--shadow-card)]">{inner}</div>;
+}
+
+/** Slim "more=better" completion gauge. Fill width tracks `percent` (0–100);
+ *  the fill background is the `--gradient-kpi` role token (solid brand green under
+ *  AIPM, red→amber→green gradient under mockup). The gradient token can only be
+ *  applied via inline style — a `bg-gradient-*` utility is palette-guard-banned. */
+export function KpiGradientBar({ percent, label }: { percent: number; label: string }) {
+  const pct = Math.max(0, Math.min(100, Math.round(percent)));
+  return (
+    <div
+      role="img"
+      aria-label={`${label}: ${pct}%`}
+      className="h-1.5 w-full overflow-hidden rounded-full bg-surface-muted"
+    >
+      <div className="h-full rounded-full" style={{ width: `${pct}%`, background: "var(--gradient-kpi)" }} />
+    </div>
+  );
 }
 
 export function Section({
