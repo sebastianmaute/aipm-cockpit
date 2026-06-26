@@ -1,5 +1,5 @@
 // src/app/backend-setup-steps.test.ts
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import {
   BACKEND_SETUP_STEPS,
   clampStep,
@@ -7,6 +7,10 @@ import {
 } from "./backend-setup-steps";
 import { defaultSettings, defaultM365Integrations } from "./settings-types";
 import { defaultTimelogConfig } from "./timelog-types";
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 // ---------------------------------------------------------------------------
 // clampStep
@@ -93,6 +97,10 @@ describe("summarizeBackendSetup", () => {
   });
 
   it("a Turso kind WITHOUT url+token is NOT configured (but still labels the kind)", () => {
+    // getTursoConfig falls back to NEXT_PUBLIC_TURSO_* env vars; clear them so a
+    // host/CI shell that exports them can't flip this to configured (spurious fail).
+    vi.stubEnv("NEXT_PUBLIC_TURSO_DATABASE_URL", "");
+    vi.stubEnv("NEXT_PUBLIC_TURSO_AUTH_TOKEN", "");
     const settings = { ...defaultSettings, storageConfig: { kind: "turso" as const } };
     const items = summarizeBackendSetup(settings);
     const storage = items.find((i) => i.key === "storage");

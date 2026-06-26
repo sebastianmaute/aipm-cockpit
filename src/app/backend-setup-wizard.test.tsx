@@ -167,23 +167,25 @@ describe("BackendSetupWizard", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it("step resets to 0 after close-and-reopen sequence", () => {
-    const { rerender, onClose } = setup();
-    fireEvent.click(nextBtn()); // → step 2
+  it("a freshly mounted wizard starts on step 1 (production gates the mount on wizardOpen → remounts each open)", () => {
+    // Both real call sites render `{wizardOpen && <BackendSetupWizard .../>}`, so
+    // closing UNMOUNTS the wizard and reopening MOUNTS a fresh instance at step 0.
+    function Harness({ mounted }: { mounted: boolean }) {
+      return mounted ? (
+        <BackendSetupWizard
+          lang="en-US"
+          open
+          settings={defaultSettings}
+          onChangeSettings={vi.fn()}
+          onClose={vi.fn()}
+        />
+      ) : null;
+    }
+    const { rerender } = render(<Harness mounted />);
+    fireEvent.click(nextBtn()); // → step 2 (AI)
     expect(screen.getByTestId("ai-section")).toBeInTheDocument();
-    // simulate close
-    fireEvent.click(screen.getAllByRole("button", { name: t("en-US", "alertModalClose") })[0]);
-    expect(onClose).toHaveBeenCalledTimes(1);
-    // rerender with open=true again (caller re-mounts or keeps open state)
-    rerender(
-      <BackendSetupWizard
-        lang="en-US"
-        open
-        settings={defaultSettings}
-        onChangeSettings={vi.fn()}
-        onClose={onClose}
-      />,
-    );
+    rerender(<Harness mounted={false} />); // close → unmount
+    rerender(<Harness mounted />); // reopen → fresh mount
     expect(screen.getByTestId("integrations-section")).toBeInTheDocument();
   });
 
