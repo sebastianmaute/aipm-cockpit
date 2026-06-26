@@ -29,6 +29,7 @@ import { ScheduledJobsSection } from "./settings-sections/scheduled-jobs-section
 import type { UseCommTemplatesResult } from "./use-comm-templates";
 import type { TursoConfig } from "./turso-config";
 import type { FeatureModuleId } from "./feature-modules";
+import { BackendSetupWizard } from "./backend-setup-wizard";
 
 interface SettingsViewProps {
   lang: Lang;
@@ -64,6 +65,8 @@ interface SettingsViewProps {
    *  parent state and re-fires every time this view remounts (e.g. the user
    *  re-opens Settings normally), wrongly jumping to the deep-linked section. */
   onSectionConsumed?: () => void;
+  /** When true (popout window) the "Run setup wizard" launch button is hidden. */
+  isPopout?: boolean;
 }
 
 type SectionId =
@@ -103,6 +106,7 @@ export function SettingsView(props: SettingsViewProps) {
   // into General, so General is the landing section.
   const [activeRaw, setActive] = useState<SectionId>("general");
   const [showVersion, setShowVersion] = useState(false);
+  const [wizardOpen, setWizardOpen] = useState(false);
 
   // Deep-link: honor an external request to jump to a specific section (e.g. the
   // Action Center's "Learning is ON/OFF" pill jumps here to nextActions). We
@@ -323,7 +327,20 @@ export function SettingsView(props: SettingsViewProps) {
           />
         )}
         {active === "integrations" && (
-          <IntegrationsSection lang={lang} settings={settings} onChange={onChange} onMigrateToTurso={props.onMigrateToTurso} />
+          <div>
+            {!props.isPopout && (
+              <div className="mb-4">
+                <button
+                  type="button"
+                  onClick={() => setWizardOpen(true)}
+                  className={`rounded-md border border-line bg-surface px-4 py-2 text-sm font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`}
+                >
+                  {t(lang, "setupWizardRun")}
+                </button>
+              </div>
+            )}
+            <IntegrationsSection lang={lang} settings={settings} onChange={onChange} onMigrateToTurso={props.onMigrateToTurso} />
+          </div>
         )}
         {active === "export" && (
           <ExportSection lang={lang} settings={settings} onChange={onChange} />
@@ -368,6 +385,13 @@ export function SettingsView(props: SettingsViewProps) {
       </a>
     </footer>
 
+    <BackendSetupWizard
+      lang={lang}
+      open={wizardOpen}
+      settings={settings}
+      onChangeSettings={onChange}
+      onClose={() => setWizardOpen(false)}
+    />
     <VersionInfoModal lang={lang} open={showVersion} onClose={() => setShowVersion(false)} />
     </>
   );

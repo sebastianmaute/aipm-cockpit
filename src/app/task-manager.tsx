@@ -2012,6 +2012,7 @@ function TaskManagerInner() {
       onOpenInsights={isPopout ? undefined : () => setActiveTab("learning-insights")}
       requestSection={settingsSectionRequest}
       onSectionConsumed={clearSettingsSectionRequest}
+      isPopout={isPopout}
     />
   );
 
