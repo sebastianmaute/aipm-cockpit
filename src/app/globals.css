@@ -47,7 +47,7 @@
   --table-head-fg: #ffffff;
   --shadow-card: none;
   --shadow-control: none;
-  --gradient-kpi: none;
+  --gradient-kpi: none; /* reserved — apply to a "more=better" fill bar (e.g. a future %-complete visual bar); NOT the effort/usage bars (more=worse, gradient would invert the signal) */
 }
 
 @theme inline {

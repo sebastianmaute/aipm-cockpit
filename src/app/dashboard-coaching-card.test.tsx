@@ -34,4 +34,10 @@ describe("DashboardCoachingCard", () => {
     fireEvent.click(screen.getByRole("button", { name: "Add your first task" }));
     expect(onNavigate).toHaveBeenCalledWith("open-points", undefined);
   });
+
+  test("card root opts into the shadow-card token (no-op under AIPM)", () => {
+    const { container } = render(<DashboardCoachingCard lang="en-US" ctas={CTAS} onNavigate={() => {}} />);
+    const root = container.firstChild as HTMLElement;
+    expect(root.className.includes("shadow-[var(--shadow-card)]")).toBe(true);
+  });
 });
