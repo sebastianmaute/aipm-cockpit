@@ -2394,7 +2394,7 @@ const enUS = {
   naFormulaTiers: "Tier: Now at score ≥ 60, Soon ≥ 30, otherwise Monitor.",
   naFormulaThresholds: "The threshold settings above decide whether a signal fires at all, before it is scored.",
   infoFlowsIntro: "A read-only overview of the app's interfaces, integrations, and data sources.",
-  infoFlowsDiagramAriaLabel: "Information flows: browser PWA connected to local storage, Turso cloud DB, Jira, Microsoft 365, and the Anthropic API.",
+  infoFlowsDiagramAriaLabel: "Information flows: browser PWA connected to local storage, Turso cloud DB, Jira, Microsoft 365, Timelog, and the Anthropic API.",
   infoFlowsLegendLocalLabel: "Local storage",
   infoFlowsLegendLocalDesc: "Browser IndexedDB and localStorage — default offline-first storage.",
   infoFlowsLegendTursoLabel: "Turso (libSQL)",
@@ -2405,6 +2405,8 @@ const enUS = {
   infoFlowsLegendM365Desc: "Graph API + MSAL login — SharePoint files, contacts, and calendar.",
   infoFlowsLegendAnthropicLabel: "Anthropic API",
   infoFlowsLegendAnthropicDesc: "Claude AI model powering the built-in Assistant chat.",
+  infoFlowsLegendTimelogLabel: "Timelog",
+  infoFlowsLegendTimelogDesc: "Time-tracking system accessed via the app's /api/timelog server-side proxy.",
 
   // --- Multi-project UI ---
   // Nav

@@ -20,7 +20,7 @@ describe("InformationFlowsSection", () => {
     ).toBeInTheDocument();
   });
 
-  it("shows all five legend entries in the dl list", () => {
+  it("shows all six legend entries in the dl list", () => {
     const { container } = render(<InformationFlowsSection lang="en-US" />);
     const dl = container.querySelector("dl");
     expect(dl).not.toBeNull();
@@ -31,6 +31,7 @@ describe("InformationFlowsSection", () => {
     expect(legend.getByText("Turso (libSQL)")).toBeInTheDocument();
     expect(legend.getByText("Anthropic API")).toBeInTheDocument();
     expect(legend.getByText("Local storage")).toBeInTheDocument();
+    expect(legend.getByText("Timelog")).toBeInTheDocument();
   });
 
   it("shows the Jira description in the legend", () => {
@@ -61,5 +62,11 @@ describe("InformationFlowsSection", () => {
     const { container } = render(<InformationFlowsSection lang="en-US" />);
     const dl = container.querySelector("dl")!;
     expect(within(dl).getByText(/IndexedDB/i)).toBeInTheDocument();
+  });
+
+  it("shows the Timelog description in the legend", () => {
+    const { container } = render(<InformationFlowsSection lang="en-US" />);
+    const dl = container.querySelector("dl")!;
+    expect(within(dl).getByText(/\/api\/timelog/i)).toBeInTheDocument();
   });
 });

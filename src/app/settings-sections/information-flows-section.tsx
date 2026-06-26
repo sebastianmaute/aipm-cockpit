@@ -15,7 +15,8 @@ function DiagramTitle() {
       <desc>
         A diagram showing the browser PWA at the centre connected to: local
         IndexedDB/localStorage, optional Turso cloud DB, Jira via API proxy,
-        Microsoft 365 (Graph + MSAL), and the Anthropic AI API.
+        Microsoft 365 (Graph + MSAL), Timelog via API proxy, and the Anthropic
+        AI API.
       </desc>
     </>
   );
@@ -59,6 +60,20 @@ function TursoNode() {
         fontSize="10.5" fontWeight="600">Turso (libSQL)</text>
       <text x="415" y="57" textAnchor="middle" fill="var(--AIPM-dark-grey)"
         fontSize="9">optional cloud DB</text>
+    </g>
+  );
+}
+
+// Timelog node – top-centre (directly above the PWA)
+function TimelogNode() {
+  return (
+    <g>
+      <rect x="185" y="20" width="130" height="50" rx="8"
+        fill="var(--AIPM-light-grey)" stroke="var(--AIPM-medium-grey)" strokeWidth="1.5" />
+      <text x="250" y="41" textAnchor="middle" fill="var(--AIPM-dark-blue)"
+        fontSize="10.5" fontWeight="600">Timelog</text>
+      <text x="250" y="57" textAnchor="middle" fill="var(--AIPM-dark-grey)"
+        fontSize="9">via /api/timelog proxy</text>
     </g>
   );
 }
@@ -121,6 +136,8 @@ function Connectors() {
       <line x1="150" y1="45" x2="185" y2="155" {...lineProps} />
       {/* Turso ↔ PWA */}
       <line x1="350" y1="45" x2="315" y2="155" {...lineProps} />
+      {/* Timelog ↔ PWA */}
+      <line x1="250" y1="70" x2="250" y2="145" {...lineProps} />
       {/* Jira ↔ PWA */}
       <line x1="150" y1="305" x2="185" y2="185" {...lineProps} />
       {/* M365 ↔ PWA */}
@@ -158,6 +175,7 @@ function Legend({ lang }: LegendProps) {
     { labelKey: "infoFlowsLegendTursoLabel", descKey: "infoFlowsLegendTursoDesc" },
     { labelKey: "infoFlowsLegendJiraLabel", descKey: "infoFlowsLegendJiraDesc" },
     { labelKey: "infoFlowsLegendM365Label", descKey: "infoFlowsLegendM365Desc" },
+    { labelKey: "infoFlowsLegendTimelogLabel", descKey: "infoFlowsLegendTimelogDesc" },
     { labelKey: "infoFlowsLegendAnthropicLabel", descKey: "infoFlowsLegendAnthropicDesc" },
   ];
 
@@ -200,6 +218,7 @@ export function InformationFlowsSection({ lang }: InformationFlowsSectionProps) 
         <Connectors />
         <LocalStorageNode />
         <TursoNode />
+        <TimelogNode />
         <PwaNode />
         <JiraNode />
         <M365Node />

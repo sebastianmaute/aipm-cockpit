@@ -2382,7 +2382,7 @@ export const de: Record<TranslationKey, string> = {
   naFormulaTiers: "Stufe: Jetzt ab score ≥ 60, Bald ≥ 30, sonst Beobachten.",
   naFormulaThresholds: "Die Schwellenwerte oben entscheiden, ob ein Signal überhaupt ausgelöst wird, bevor es bewertet wird.",
   infoFlowsIntro: "Eine schreibgeschützte Übersicht der Schnittstellen, Integrationen und Datenquellen der App.",
-  infoFlowsDiagramAriaLabel: "Informationsflüsse: Browser-PWA verbunden mit lokalem Speicher, Turso-Cloud-DB, Jira, Microsoft 365 und der Anthropic-API.",
+  infoFlowsDiagramAriaLabel: "Informationsflüsse: Browser-PWA verbunden mit lokalem Speicher, Turso-Cloud-DB, Jira, Microsoft 365, Timelog und der Anthropic-API.",
   infoFlowsLegendLocalLabel: "Lokaler Speicher",
   infoFlowsLegendLocalDesc: "Browser IndexedDB und localStorage — Standard-Offline-Speicher.",
   infoFlowsLegendTursoLabel: "Turso (libSQL)",
@@ -2393,6 +2393,8 @@ export const de: Record<TranslationKey, string> = {
   infoFlowsLegendM365Desc: "Graph-API + MSAL-Login — SharePoint-Dateien, Kontakte und Kalender.",
   infoFlowsLegendAnthropicLabel: "Anthropic-API",
   infoFlowsLegendAnthropicDesc: "Claude-KI-Modell für den integrierten Assistenten-Chat.",
+  infoFlowsLegendTimelogLabel: "Timelog",
+  infoFlowsLegendTimelogDesc: "Zeiterfassungssystem, erreichbar über den serverseitigen Proxy /api/timelog der App.",
 
   // --- Multi-project UI ---
   // Nav
