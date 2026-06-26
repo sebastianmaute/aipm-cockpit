@@ -479,7 +479,8 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   LIGHT-ONLY + PINS light: `use-style` fires a `lop-style-change` event; `use-theme` is the SOLE `.dark`
   writer and re-applies on that event (switching back to AIPM restores dark). ALL style difference is CSS
   role tokens in `globals.css`: `--rag-red/amber/green` (+ `-text` AA variants), `--table-head-bg/-fg`,
-  `--shadow-card/-control`, `--gradient-kpi`. AIPM values reproduce the old look (no-op); mockup overrides
+  `--table-head-accent` (sort-button active/hover), `--shadow-card/-control`, `--gradient-kpi`. AIPM values
+  reproduce the old look (no-op); mockup overrides
   in `:root[data-style="mockup"]`. RAG flows through `health.ts` (`healthDot`/`healthText` →
   `--rag-*` / `--rag-*-text` token families (e.g. `bg-[var(--rag-red)]`, `text-[var(--rag-green-text)]`)). `--gradient-kpi` is RESERVED (no correct
   "more=better" bar yet — never apply to effort/usage bars, which are more=worse). Shadows/gradients
@@ -488,6 +489,12 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   EVERY shipped combo: AIPM-light, AIPM-dark, Mockup-light (3 × A11Y_VIEWS = 39 passes), seeding
   `lop-style`/`lop-theme` via `addInitScript`. Appearance Style switch disables the theme control while
   Mockup is active.
+  ★★ ANY RAG-semantic color (status values, KPI deltas, win/loss, stacked-bar segments — NOT just the
+  dots) MUST use the `--rag-*`/`--rag-*-text` tokens, never raw `text-AIPM-green`/`-pink-strong`, or it
+  won't switch under Mockup (bit trend-arrow / reports-tables / StackedBar / budget / raid-report).
+  ★★ Data-table header sort buttons (`report-table` SortHeaderButton AND `task-manager-ui` SortableTh)
+  use `text-[var(--table-head-accent)]` for active/hover — raw `text-AIPM-green` is sub-AA (2.03:1) on the
+  Mockup light header AND a blanket `.lop-thead button{color}` rule silently kills the sort affordance.
 - **Scrollbar gap:** per-view inner scrollers (`min-h-0 flex-1 overflow-auto`) need `pr-2` for the
   content↔scrollbar gap. Shared `INNER_TABLE_CLASS`/report-table/actions-panel already include it; bare
   per-panel scrollers do NOT — add `pr-2` or content jams the scrollbar.
