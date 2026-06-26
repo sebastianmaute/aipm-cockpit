@@ -11,7 +11,11 @@ export function readStoredStyle(raw: string | null): CiStyle {
 }
 
 /** Mockup ships light-only -> it PINS light regardless of the theme choice.
- *  AIPM honours the resolved theme. */
+ *  AIPM honours the resolved theme.
+ *  NOTE: the production "pins light" rule is applied INLINE at two sites that
+ *  cannot import this (use-theme.tsx reads the data-style attr; the layout.tsx
+ *  boot script is a pre-paint inline string). This helper is the canonical
+ *  statement of the rule + is unit-tested; keep the three in sync if it changes. */
 export function effectiveDark(resolvedThemeDark: boolean, style: CiStyle): boolean {
   return style === "mockup" ? false : resolvedThemeDark;
 }

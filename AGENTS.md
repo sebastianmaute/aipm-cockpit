@@ -36,7 +36,7 @@ npm run test:run            # vitest (unit/integration). testTimeout/hookTimeout
                             # that never repros in isolation or in CI. Don't "fix" such a flake by
                             # editing the property logic before ruling out a load timeout (run the
                             # property thousands of times in isolation first; logic bugs repro there).
-npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
+npm run e2e                 # playwright (incl. the 13-view axe a11y gate)
 ```
 
 ## Hard constraints (CI-enforced — these gate merges)
@@ -77,7 +77,7 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
   Moving/folding a control INTO an axe-scanned view re-scans it: gate scans `Settings`→General, so
   folding Storage/Appearance into General surfaced pre-existing unlabeled `<select>` (a visible
   `<span>` label is NOT an `aria-label`/`<label>`) as axe-critical.
-  `A11Y_VIEWS` list (`e2e/a11y.spec.ts`) is 12 named views and does NOT include chat/AI-Assistant,
+  `A11Y_VIEWS` list (`e2e/a11y.spec.ts`) is 13 named views and does NOT include chat/AI-Assistant,
   Projects, or Documents — controls only on those surfaces aren't scanned, but anything in the
   always-present top bar IS (scanned via every view). Verify IA/UI/contrast changes with
   `npx playwright test e2e/a11y.spec.ts --project=chromium -g "<View>"` (~16s, webServer auto-starts)
