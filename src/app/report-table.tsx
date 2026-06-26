@@ -181,7 +181,11 @@ export function Tile({
  *  AIPM, red→amber→green gradient under mockup). The gradient token can only be
  *  applied via inline style — raw gradient utilities are palette-guard-banned. */
 export function KpiGradientBar({ percent, label }: { percent: number; label: string }) {
-  const pct = Math.max(0, Math.min(100, Math.round(percent)));
+  // Guard NaN before clamping: Math.round(NaN) === NaN survives Math.min/max and
+  // would emit width:"NaN%" (invalid → fill collapses to 0). The `number` contract
+  // admits NaN/±Infinity; ±Infinity clamp fine, NaN must fall back to 0.
+  const safe = Number.isFinite(percent) ? percent : 0;
+  const pct = Math.max(0, Math.min(100, Math.round(safe)));
   return (
     <div
       role="img"

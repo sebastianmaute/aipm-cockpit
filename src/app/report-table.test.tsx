@@ -130,6 +130,12 @@ describe("KpiGradientBar", () => {
     expect(fill.style.width).toBe("0%");
   });
 
+  it("falls back to 0% for a non-finite percent (NaN)", () => {
+    const { container } = render(<KpiGradientBar percent={NaN} label="Complete" />);
+    const fill = container.querySelector("[style]") as HTMLElement;
+    expect(fill.style.width).toBe("0%");
+  });
+
   it("bar element has role=img with aria-label containing the percent", () => {
     render(<KpiGradientBar percent={60} label="Complete" />);
     const bar = screen.getByRole("img");
