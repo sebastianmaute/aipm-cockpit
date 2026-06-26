@@ -111,6 +111,13 @@
   --gradient-kpi: linear-gradient(90deg, var(--rag-red), var(--rag-amber), var(--rag-green));
 }
 
+/* Mockup: table-header sort buttons use text-AIPM-green (#84bd00) which contrasts
+   well on the dark AIPM header but fails AA on the light mockup header (#f1f3f4,
+   ratio ≈ 2:1). Inherit the header's --table-head-fg (#3f4448) instead. */
+:root[data-style="mockup"] .lop-thead button {
+  color: var(--table-head-fg);
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
