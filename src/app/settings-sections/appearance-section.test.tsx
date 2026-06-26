@@ -94,4 +94,18 @@ describe("AppearanceSection style control", () => {
     renderSection();
     expect(screen.queryByText(t("en-US", "styleMockupLightOnly"))).not.toBeInTheDocument();
   });
+
+  it("switching back from mockup to Acme re-enables the theme control and removes the note", () => {
+    renderSection({}, "mockup");
+    // Starts disabled in mockup.
+    expect(screen.getByRole("radiogroup", { name: t("en-US", "theme") })).toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByText(t("en-US", "styleMockupLightOnly"))).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("radio", { name: t("en-US", "styleIcc") }));
+
+    expect(screen.getByRole("radio", { name: t("en-US", "themeLight") })).not.toBeDisabled();
+    expect(screen.getByRole("radio", { name: t("en-US", "themeDark") })).not.toBeDisabled();
+    expect(screen.getByRole("radio", { name: t("en-US", "themeSystem") })).not.toBeDisabled();
+    expect(screen.queryByText(t("en-US", "styleMockupLightOnly"))).not.toBeInTheDocument();
+  });
 });
