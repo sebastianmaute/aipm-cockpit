@@ -13,7 +13,7 @@
 //   • Settings → Integrations section (isPopout-gated)
 //   • Create-project wizard (always available)
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { t, type Lang } from "./i18n";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
@@ -53,9 +53,8 @@ function StepIndicator({ lang, step }: { lang: Lang; step: number }) {
       aria-label={t(lang, "wizardStepsLabel")}
     >
       {BACKEND_SETUP_STEPS.map(({ key, titleKey }, i) => (
-        <li key={key} className="flex items-center gap-2">
+        <li key={key} aria-current={step === i ? "step" : undefined} className="flex items-center gap-2">
           <span
-            aria-current={step === i ? "step" : undefined}
             className={
               step === i
                 ? "rounded-full bg-AIPM-green/15 px-3 py-1 font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey"
@@ -126,6 +125,11 @@ export interface BackendSetupWizardProps {
   settings: Settings;
   onChangeSettings: (s: Settings) => void;
   onClose: () => void;
+  /** Triggers a local→Turso workspace migration; threaded into the storage
+   *  step's IntegrationsSection so "Move to Turso" is offered where available
+   *  (Settings launch). Absent from the create-project launch (no existing
+   *  workspace to migrate). */
+  onMigrateToTurso?: () => void;
 }
 
 export function BackendSetupWizard({
@@ -134,8 +138,12 @@ export function BackendSetupWizard({
   settings,
   onChangeSettings,
   onClose,
+  onMigrateToTurso,
 }: BackendSetupWizardProps) {
   const [step, setStep] = useState(0);
+  // Primary (Next/Finish) button is always present; focus it after a Skip so
+  // focus isn't dropped to <body> when the conditional Skip button unmounts.
+  const nextButtonRef = useRef<HTMLButtonElement>(null);
 
   const currentStep = BACKEND_SETUP_STEPS[step];
   const isFirst = step === 0;
@@ -152,6 +160,7 @@ export function BackendSetupWizard({
 
   function handleNext() {
     setStep((s) => clampStep(s + 1, TOTAL));
+    nextButtonRef.current?.focus();
   }
 
   // Jira onChange adapter
@@ -194,6 +203,7 @@ export function BackendSetupWizard({
               lang={lang}
               settings={settings}
               onChange={onChangeSettings}
+              onMigrateToTurso={onMigrateToTurso}
             />
           )}
 
@@ -252,23 +262,17 @@ export function BackendSetupWizard({
               </button>
             )}
 
-            {isLast ? (
-              <button
-                type="button"
-                onClick={handleClose}
-                className={PRIMARY_BTN}
-              >
-                {t(lang, "setupWizardFinish")}
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={handleNext}
-                className={PRIMARY_BTN}
-              >
-                {t(lang, "wizardNext")}
-              </button>
-            )}
+            {/* ONE persistent primary button across all steps (label + handler
+                swap on the last step) — a stable element so focusing it after a
+                Skip survives the re-render. */}
+            <button
+              ref={nextButtonRef}
+              type="button"
+              onClick={isLast ? handleClose : handleNext}
+              className={PRIMARY_BTN}
+            >
+              {t(lang, isLast ? "setupWizardFinish" : "wizardNext")}
+            </button>
           </div>
         </div>
       </div>

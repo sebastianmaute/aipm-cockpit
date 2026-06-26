@@ -66,7 +66,7 @@ export function TaskDeleteButton({
     <button
       type="button"
       onClick={() => onDelete(taskId)}
-      className={`rounded-md border border-AIPM-pink/40 bg-surface px-4 py-1.5 text-sm font-medium text-AIPM-pink-strong hover:bg-AIPM-pink/10 disabled:cursor-not-allowed disabled:opacity-50 dark:border-AIPM-pink/50 ${INTERACTIVE}`}
+      className={`rounded-md border border-AIPM-pink/40 bg-surface px-4 py-1.5 text-sm font-medium text-AIPM-pink-strong hover:bg-AIPM-pink/10 disabled:cursor-not-allowed disabled:opacity-50 dark:border-AIPM-pink/50 dark:hover:bg-AIPM-pink/5 ${INTERACTIVE}`}
     >
       {t(lang, "delete")}
     </button>

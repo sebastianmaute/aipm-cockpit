@@ -40,6 +40,7 @@ import { Step0ImportPanel } from "./step0-import-panel";
 import type { ProjectFormDraft } from "./project-form-fields";
 import type { TemplateSeed } from "./templates";
 import { BackendSetupWizard } from "./backend-setup-wizard";
+import { INTERACTIVE } from "./interaction-styles";
 
 type CreateFormat = "json" | "csv" | "md";
 
@@ -241,7 +242,7 @@ export function CreateProjectWizard({
         <button
           type="button"
           onClick={() => setWizardOpen(true)}
-          className="shrink-0 rounded-md border border-line bg-surface px-3 py-1 text-xs font-medium text-foreground hover:bg-surface-muted"
+          className={`shrink-0 rounded-md border border-line bg-surface px-3 py-1 text-xs font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`}
         >
           {t(lang, "setupWizardRun")}
         </button>
