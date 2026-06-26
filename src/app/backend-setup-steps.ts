@@ -5,13 +5,20 @@
 import type { TranslationKey } from "./i18n";
 import type { Settings } from "./settings-types";
 
+// clampStep is shared with the guided tour — re-export rather than re-implement
+// (identical bounds-clamp; one fix can't drift from the other).
+export { clampStep } from "./app-tour";
+
 export type BackendSetupStepKey =
   | "storage"
   | "ai"
   | "jira"
-  | "timelog"
   | "review";
 
+// The "Storage & connections" step reuses the whole IntegrationsSection, which
+// already includes Microsoft 365 AND Timelog — so there is no dedicated Timelog
+// step (it would duplicate the same form). Jira + AI are NOT part of
+// IntegrationsSection, so they get their own steps.
 export const BACKEND_SETUP_STEPS: readonly {
   key: BackendSetupStepKey;
   titleKey: TranslationKey;
@@ -20,18 +27,12 @@ export const BACKEND_SETUP_STEPS: readonly {
   { key: "storage", titleKey: "setupWizardStepStorage", skippable: false },
   { key: "ai",      titleKey: "setupWizardStepAi",      skippable: true  },
   { key: "jira",    titleKey: "setupWizardStepJira",    skippable: true  },
-  { key: "timelog", titleKey: "setupWizardStepTimelog", skippable: true  },
   { key: "review",  titleKey: "setupWizardStepReview",  skippable: false },
 ] as const;
 
-/** Clamp an index to [0, total-1]; returns 0 for an empty list. */
-export function clampStep(index: number, total: number): number {
-  if (total <= 0) return 0;
-  return Math.max(0, Math.min(index, total - 1));
-}
-
 export type SetupSummaryItem = {
-  key: BackendSetupStepKey;
+  /** React list key — covers more areas (M365, Timelog) than the step keys. */
+  key: string;
   labelKey: TranslationKey;
   configured: boolean;
   /** Optional human-readable detail (e.g. the storage kind). */
@@ -40,33 +41,44 @@ export type SetupSummaryItem = {
 
 /**
  * Pure summary of which areas are configured — drives the Review step.
- * Storage is always "configured" (it defaults to indexeddb); only the
- * optional integrations (AI key, Jira enabled, Timelog enabled) can be
- * unconfigured.
+ * A local-file/IndexedDB storage backend always "works"; a Turso backend is
+ * only configured once a database URL AND auth token are present (the
+ * `storageConfig.kind === "turso"` vs real-config landmine — kind can be
+ * "turso" with the config quarantined/empty, which must NOT read as green).
  */
 export function summarizeBackendSetup(settings: Settings): SetupSummaryItem[] {
-  const storageKind = settings.storageConfig?.kind ?? "indexeddb";
+  const storageKind = settings.storageConfig?.kind ?? "browser";
+  const turso = settings.integrations?.turso;
+  const storageConfigured =
+    storageKind === "turso"
+      ? !!(turso?.databaseUrl?.trim() && turso?.authToken?.trim())
+      : true;
   return [
     {
       key: "storage",
       labelKey: "setupWizardStepStorage",
-      configured: true,
+      configured: storageConfigured,
       detailText: storageKind,
+    },
+    {
+      key: "m365",
+      labelKey: "integrationsM365",
+      configured: !!settings.integrations?.m365?.enabled,
     },
     {
       key: "ai",
       labelKey: "setupWizardStepAi",
-      configured: !!(settings.ai?.apiKey?.trim()),
+      configured: !!settings.ai?.apiKey?.trim(),
     },
     {
       key: "jira",
       labelKey: "setupWizardStepJira",
-      configured: !!(settings.jira?.enabled),
+      configured: !!settings.jira?.enabled,
     },
     {
       key: "timelog",
       labelKey: "setupWizardStepTimelog",
-      configured: !!(settings.timelog?.enabled),
+      configured: !!settings.timelog?.enabled,
     },
   ];
 }

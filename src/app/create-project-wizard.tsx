@@ -476,13 +476,15 @@ export function CreateProjectWizard({
           </div>
         </div>
       )}
-      <BackendSetupWizard
-        lang={lang}
-        open={wizardOpen}
-        settings={settings}
-        onChangeSettings={onChangeSettings}
-        onClose={() => setWizardOpen(false)}
-      />
+      {wizardOpen && (
+        <BackendSetupWizard
+          lang={lang}
+          open
+          settings={settings}
+          onChangeSettings={onChangeSettings}
+          onClose={() => setWizardOpen(false)}
+        />
+      )}
     </div>
   );
 }

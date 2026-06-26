@@ -25,8 +25,6 @@ import {
 import { IntegrationsSection } from "./settings-sections/integrations-section";
 import { AiSection } from "./settings-sections/ai-section";
 import { JiraSettingsSection } from "./jira-settings";
-import { TimelogSettings } from "./timelog-settings";
-import { defaultTimelogConfig } from "./timelog-types";
 import { type Settings } from "./settings-types";
 import { INTERACTIVE } from "./interaction-styles";
 
@@ -168,11 +166,6 @@ export function BackendSetupWizard({
     onChangeSettings({ ...settings, jira: next });
   }
 
-  // Timelog onChange adapter
-  function handleTimelogChange(next: NonNullable<Settings["timelog"]>) {
-    onChangeSettings({ ...settings, timelog: next });
-  }
-
   return (
     <Modal
       open={open}
@@ -204,6 +197,7 @@ export function BackendSetupWizard({
               settings={settings}
               onChange={onChangeSettings}
               onMigrateToTurso={onMigrateToTurso}
+              hidePortfolioSwitch
             />
           )}
 
@@ -222,14 +216,6 @@ export function BackendSetupWizard({
               config={settings.jira}
               onChange={handleJiraChange}
               alwaysOpen
-            />
-          )}
-
-          {currentStep.key === "timelog" && (
-            <TimelogSettings
-              lang={lang}
-              config={settings.timelog ?? defaultTimelogConfig}
-              onChange={handleTimelogChange}
             />
           )}
 

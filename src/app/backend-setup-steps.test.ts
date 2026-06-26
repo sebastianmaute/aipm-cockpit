@@ -5,7 +5,7 @@ import {
   clampStep,
   summarizeBackendSetup,
 } from "./backend-setup-steps";
-import { defaultSettings } from "./settings-types";
+import { defaultSettings, defaultM365Integrations } from "./settings-types";
 import { defaultTimelogConfig } from "./timelog-types";
 
 // ---------------------------------------------------------------------------
@@ -40,8 +40,8 @@ describe("clampStep", () => {
 // ---------------------------------------------------------------------------
 
 describe("BACKEND_SETUP_STEPS", () => {
-  it("has exactly 5 steps", () => {
-    expect(BACKEND_SETUP_STEPS).toHaveLength(5);
+  it("has exactly 4 steps (no dedicated Timelog step — it lives in the Storage step's IntegrationsSection)", () => {
+    expect(BACKEND_SETUP_STEPS).toHaveLength(4);
   });
 
   it("step keys are in the expected order", () => {
@@ -49,7 +49,6 @@ describe("BACKEND_SETUP_STEPS", () => {
       "storage",
       "ai",
       "jira",
-      "timelog",
       "review",
     ]);
   });
@@ -66,12 +65,8 @@ describe("BACKEND_SETUP_STEPS", () => {
     expect(BACKEND_SETUP_STEPS[2].skippable).toBe(true);
   });
 
-  it("timelog step is skippable", () => {
-    expect(BACKEND_SETUP_STEPS[3].skippable).toBe(true);
-  });
-
   it("review step is not skippable", () => {
-    expect(BACKEND_SETUP_STEPS[4].skippable).toBe(false);
+    expect(BACKEND_SETUP_STEPS[3].skippable).toBe(false);
   });
 
   it("every step has a non-empty titleKey", () => {
@@ -86,22 +81,45 @@ describe("BACKEND_SETUP_STEPS", () => {
 // ---------------------------------------------------------------------------
 
 describe("summarizeBackendSetup", () => {
-  it("returns 4 items (storage, ai, jira, timelog — review is the container)", () => {
-    expect(summarizeBackendSetup(defaultSettings)).toHaveLength(4);
+  it("returns 5 items (storage, m365, ai, jira, timelog — review is the container)", () => {
+    expect(summarizeBackendSetup(defaultSettings)).toHaveLength(5);
   });
 
-  it("storage is always configured (true) with a detailText", () => {
+  it("a default (local) storage backend is configured with a detailText", () => {
     const items = summarizeBackendSetup(defaultSettings);
     const storage = items.find((i) => i.key === "storage");
     expect(storage?.configured).toBe(true);
     expect(storage?.detailText).toBeTruthy();
   });
 
-  it("storage detailText reflects storageConfig.kind", () => {
+  it("a Turso kind WITHOUT url+token is NOT configured (but still shows the kind)", () => {
     const settings = { ...defaultSettings, storageConfig: { kind: "turso" as const } };
     const items = summarizeBackendSetup(settings);
     const storage = items.find((i) => i.key === "storage");
     expect(storage?.detailText).toBe("turso");
+    expect(storage?.configured).toBe(false);
+  });
+
+  it("a Turso kind WITH url+token is configured", () => {
+    const settings = {
+      ...defaultSettings,
+      storageConfig: { kind: "turso" as const },
+      integrations: {
+        ...defaultSettings.integrations,
+        turso: { enabled: true, databaseUrl: "libsql://x.turso.io", authToken: "tok" },
+      },
+    };
+    const items = summarizeBackendSetup(settings);
+    expect(items.find((i) => i.key === "storage")?.configured).toBe(true);
+  });
+
+  it("m365 is unconfigured by default and configured when enabled", () => {
+    expect(summarizeBackendSetup(defaultSettings).find((i) => i.key === "m365")?.configured).toBe(false);
+    const settings = {
+      ...defaultSettings,
+      integrations: { ...defaultSettings.integrations, m365: { ...defaultM365Integrations, enabled: true } },
+    };
+    expect(summarizeBackendSetup(settings).find((i) => i.key === "m365")?.configured).toBe(true);
   });
 
   it("ai is unconfigured when apiKey is absent", () => {

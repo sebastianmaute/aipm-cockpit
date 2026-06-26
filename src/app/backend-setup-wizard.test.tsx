@@ -23,10 +23,6 @@ vi.mock("./jira-settings", () => ({
   JiraSettingsSection: () => <div data-testid="jira-section">Jira</div>,
 }));
 
-vi.mock("./timelog-settings", () => ({
-  TimelogSettings: () => <div data-testid="timelog-section">Timelog</div>,
-}));
-
 vi.mock("./modal", () => ({
   Modal: ({
     children,
@@ -128,7 +124,7 @@ describe("BackendSetupWizard", () => {
     expect(screen.getByTestId("jira-section")).toBeInTheDocument();
   });
 
-  it("advances through all 5 steps correctly", () => {
+  it("advances through all 4 steps correctly (Timelog rides the Storage step)", () => {
     setup();
     // step 1 → Storage
     expect(screen.getByTestId("integrations-section")).toBeInTheDocument();
@@ -136,9 +132,7 @@ describe("BackendSetupWizard", () => {
     expect(screen.getByTestId("ai-section")).toBeInTheDocument();
     fireEvent.click(nextBtn()); // → step 3 Jira
     expect(screen.getByTestId("jira-section")).toBeInTheDocument();
-    fireEvent.click(nextBtn()); // → step 4 Timelog
-    expect(screen.getByTestId("timelog-section")).toBeInTheDocument();
-    fireEvent.click(nextBtn()); // → step 5 Review
+    fireEvent.click(nextBtn()); // → step 4 Review
     // Review renders the summary list
     expect(screen.getByText(t("en-US", "setupWizardReviewIntro"))).toBeInTheDocument();
   });
@@ -146,20 +140,20 @@ describe("BackendSetupWizard", () => {
   it("Review step shows Finish (not Next)", () => {
     setup();
     // advance to last step
-    for (let i = 0; i < 4; i++) fireEvent.click(nextBtn());
+    for (let i = 0; i < 3; i++) fireEvent.click(nextBtn());
     expect(screen.queryByRole("button", { name: t("en-US", "wizardNext") })).toBeNull();
     expect(finishBtn()).toBeInTheDocument();
   });
 
   it("Review step: Skip is not shown (not skippable)", () => {
     setup();
-    for (let i = 0; i < 4; i++) fireEvent.click(nextBtn());
+    for (let i = 0; i < 3; i++) fireEvent.click(nextBtn());
     expect(skipBtn()).toBeNull();
   });
 
   it("Finish on the review step calls onClose", () => {
     const { onClose } = setup();
-    for (let i = 0; i < 4; i++) fireEvent.click(nextBtn());
+    for (let i = 0; i < 3; i++) fireEvent.click(nextBtn());
     fireEvent.click(finishBtn());
     expect(onClose).toHaveBeenCalledTimes(1);
   });
@@ -199,7 +193,7 @@ describe("BackendSetupWizard", () => {
       ai: { ...defaultSettings.ai, apiKey: "sk-ant-test" },
     };
     setup({ settings: settingsWithAi });
-    for (let i = 0; i < 4; i++) fireEvent.click(nextBtn());
+    for (let i = 0; i < 3; i++) fireEvent.click(nextBtn());
     expect(screen.getAllByText(t("en-US", "setupWizardConfigured")).length).toBeGreaterThan(0);
     expect(screen.getAllByText(t("en-US", "setupWizardNotConfigured")).length).toBeGreaterThan(0);
   });

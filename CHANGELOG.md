@@ -19,6 +19,7 @@ longer carries its own changelog comment.
 
 ### Fixed
 - Delete button hover state now meets WCAG AA contrast in dark mode.
+- Setup wizard: the review step reports Turso storage as configured only when a database URL **and** token are present (not merely the kind), and now includes Microsoft 365; the Timelog form is no longer duplicated across two steps; and the portfolio-mode "Save & switch" (which reloads the page) is hidden inside the wizard so it can't discard an in-progress create-project draft. Nested modals (the wizard opened from the create-project window) now handle Escape/Tab independently — closing the wizard no longer dismisses the create dialog underneath.
 
 ## [0.141.0] - 2026-06-26 "Gibson"
 

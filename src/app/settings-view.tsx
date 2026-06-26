@@ -385,14 +385,16 @@ export function SettingsView(props: SettingsViewProps) {
       </a>
     </footer>
 
-    <BackendSetupWizard
-      lang={lang}
-      open={wizardOpen}
-      settings={settings}
-      onChangeSettings={onChange}
-      onClose={() => setWizardOpen(false)}
-      onMigrateToTurso={props.onMigrateToTurso}
-    />
+    {wizardOpen && (
+      <BackendSetupWizard
+        lang={lang}
+        open
+        settings={settings}
+        onChangeSettings={onChange}
+        onClose={() => setWizardOpen(false)}
+        onMigrateToTurso={props.onMigrateToTurso}
+      />
+    )}
     <VersionInfoModal lang={lang} open={showVersion} onClose={() => setShowVersion(false)} />
     </>
   );

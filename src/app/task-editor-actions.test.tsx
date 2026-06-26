@@ -91,4 +91,15 @@ describe("TaskDeleteButton", () => {
     fireEvent.click(btn);
     expect(onDelete).toHaveBeenCalledWith(99);
   });
+
+  it("remains available for a Jira-synced task (delete is NOT gated on jiraKey)", () => {
+    // Jira-synced tasks are read-only for status/fields, but they must stay
+    // DELETABLE from the editor — the button takes only an id, with no jiraKey
+    // gate, so a future read-only sweep can't silently make synced tasks
+    // undeletable. (The editor-level gate is editingTask && !isPopout only.)
+    const onDelete = vi.fn();
+    render(<TaskDeleteButton lang="en-US" taskId={7} onDelete={onDelete} />);
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    expect(onDelete).toHaveBeenCalledWith(7);
+  });
 });
