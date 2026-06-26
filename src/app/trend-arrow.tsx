@@ -32,6 +32,15 @@ export function TrendArrow({ trend, metricLabel, unit = "", lang }: TrendArrowPr
         ? "text-muted-foreground"
         : "text-[var(--rag-red-text)]";
 
+  // Tinted pill bg via role tokens. AIPM tokens are transparent → visually unchanged;
+  // mockup overrides render the tinted chip. Flat (unchanged) gets no bg at all.
+  const chipClass =
+    trend.improved
+      ? "bg-[var(--rag-green-chip)]"
+      : trend.direction === "flat"
+        ? ""
+        : "bg-[var(--rag-red-chip)]";
+
   const label =
     trend.direction === "up"
       ? t(lang, "dashboardTrendUp", metricLabel, magnitudeStr)
@@ -43,7 +52,7 @@ export function TrendArrow({ trend, metricLabel, unit = "", lang }: TrendArrowPr
   const signed = trend.direction === "up" ? `+${magnitudeStr}` : trend.direction === "down" ? `−${magnitudeStr}` : "";
 
   return (
-    <span aria-label={label} className={`inline-flex items-center gap-0.5 text-xs font-medium tabular-nums ${colorClass}`}>
+    <span aria-label={label} className={`inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-xs font-medium tabular-nums ${colorClass} ${chipClass}`}>
       <span aria-hidden="true">{GLYPH[trend.direction]}</span>
       {signed ? <span aria-hidden="true">{signed}</span> : null}
     </span>
