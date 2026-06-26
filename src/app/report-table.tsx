@@ -179,7 +179,7 @@ export function Tile({
 /** Slim "more=better" completion gauge. Fill width tracks `percent` (0–100);
  *  the fill background is the `--gradient-kpi` role token (solid brand green under
  *  AIPM, red→amber→green gradient under mockup). The gradient token can only be
- *  applied via inline style — a `bg-gradient-*` utility is palette-guard-banned. */
+ *  applied via inline style — raw gradient utilities are palette-guard-banned. */
 export function KpiGradientBar({ percent, label }: { percent: number; label: string }) {
   const pct = Math.max(0, Math.min(100, Math.round(percent)));
   return (

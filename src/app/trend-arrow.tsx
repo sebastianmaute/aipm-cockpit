@@ -41,6 +41,11 @@ export function TrendArrow({ trend, metricLabel, unit = "", lang }: TrendArrowPr
         ? ""
         : "bg-[var(--rag-red-chip)]";
 
+  // Pill padding is token-driven (AIPM `--delta-chip-pad: 0` → byte-identical legacy
+  // look; mockup pads the tinted pill) and applied ONLY when a chip is shown, so a
+  // flat/unchanged trend never gets an empty padded bubble under mockup either.
+  const chipStyle = chipClass ? { padding: "var(--delta-chip-pad)" } : undefined;
+
   const label =
     trend.direction === "up"
       ? t(lang, "dashboardTrendUp", metricLabel, magnitudeStr)
@@ -52,7 +57,7 @@ export function TrendArrow({ trend, metricLabel, unit = "", lang }: TrendArrowPr
   const signed = trend.direction === "up" ? `+${magnitudeStr}` : trend.direction === "down" ? `−${magnitudeStr}` : "";
 
   return (
-    <span aria-label={label} className={`inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-xs font-medium tabular-nums ${colorClass} ${chipClass}`}>
+    <span aria-label={label} style={chipStyle} className={`inline-flex items-center gap-0.5 rounded-full text-xs font-medium tabular-nums ${colorClass} ${chipClass}`}>
       <span aria-hidden="true">{GLYPH[trend.direction]}</span>
       {signed ? <span aria-hidden="true">{signed}</span> : null}
     </span>

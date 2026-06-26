@@ -6,7 +6,7 @@ const start = css.indexOf(":root {");
 const rootBlock = css.slice(start, css.indexOf("\n}", start));
 
 describe("CI-style role tokens", () => {
-  it.each(["--rag-red","--rag-amber","--rag-green","--rag-red-text","--rag-amber-text","--rag-green-text","--table-head-bg","--table-head-fg","--shadow-card","--shadow-control","--gradient-kpi","--shadow-card-hover","--rag-green-chip","--rag-red-chip","--segment-track-bg","--segment-active-bg","--segment-active-fg"])(
+  it.each(["--rag-red","--rag-amber","--rag-green","--rag-red-text","--rag-amber-text","--rag-green-text","--table-head-bg","--table-head-fg","--shadow-card","--shadow-control","--gradient-kpi","--shadow-card-hover","--rag-green-chip","--rag-red-chip","--delta-chip-pad","--segment-track-bg","--segment-active-bg","--segment-active-fg"])(
     "defines %s in :root", (t) => expect(rootBlock).toContain(`${t}:`),
   );
   it("defines a mockup override block", () => {
@@ -29,6 +29,7 @@ describe("CI-style role tokens", () => {
     expect(rootBlock).toMatch(/--shadow-card-hover:\s*none/);
     expect(rootBlock).toMatch(/--rag-green-chip:\s*transparent/);
     expect(rootBlock).toMatch(/--rag-red-chip:\s*transparent/);
+    expect(rootBlock).toMatch(/--delta-chip-pad:\s*0/);
     expect(rootBlock).toMatch(/--segment-track-bg:\s*var\(--surface\)/);
     expect(rootBlock).toMatch(/--segment-active-bg:\s*var\(--AIPM-dark-blue\)/);
     expect(rootBlock).toMatch(/--segment-active-fg:\s*#ffffff/);

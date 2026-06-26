@@ -57,6 +57,9 @@
      invisible — plain glyph+text, the legacy look); tinted under mockup. */
   --rag-green-chip: transparent;
   --rag-red-chip: transparent;
+  /* Trend-pill padding. AIPM = 0 (byte-identical legacy glyph+text); mockup pads it
+     into a chip. Applied via inline style, gated on a chip being shown. */
+  --delta-chip-pad: 0;
   /* Segmented-control active/track. AIPM = legacy dark-blue solid pill on a surface
      track (no-op); mockup = white pill + green text on a light-grey track. */
   --segment-track-bg: var(--surface);
@@ -128,6 +131,7 @@
   --shadow-card-hover: 0 4px 10px rgba(0, 65, 89, 0.14), 0 2px 4px rgba(0, 65, 89, 0.10);
   --rag-green-chip: rgba(90, 167, 0, 0.14);
   --rag-red-chip: rgba(214, 69, 69, 0.12);
+  --delta-chip-pad: 0.125rem 0.375rem;
   --segment-track-bg: #eef1f3;
   --segment-active-bg: #ffffff;
   --segment-active-fg: var(--table-head-accent);
