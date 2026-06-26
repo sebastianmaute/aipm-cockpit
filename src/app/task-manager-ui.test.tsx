@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { SortableTh, PrintButton, ResetSizeButton } from "./task-manager-ui";
 
 describe("SortableTh", () => {
-  it("shows a 'Sort by <label>' tooltip and a green hover for the Dark-Blue header", () => {
+  it("shows a 'Sort by <label>' tooltip and an accent hover for the Dark-Blue header", () => {
     render(
       <table><thead><tr>
         <SortableTh label="Task" sortKey="taskName" currentKey="taskName" dir="asc" onClick={vi.fn()} lang="en-US" />
@@ -12,7 +12,7 @@ describe("SortableTh", () => {
     );
     const btn = screen.getByRole("button", { name: /task/i });
     expect(btn).toHaveAttribute("title", "Sort by Task");
-    expect(btn.className).toContain("hover:text-AIPM-green");
+    expect(btn.className).toContain("hover:text-[var(--table-head-accent)]");
     expect(btn.className).not.toContain("text-foreground");
   });
 });
