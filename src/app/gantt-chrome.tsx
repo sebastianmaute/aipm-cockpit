@@ -249,7 +249,7 @@ export function GanttHeader({
                 key={i}
                 className={`flex items-center justify-center border-r text-[10px] ${
                   isToday
-                    ? "border-AIPM-dark-blue bg-AIPM-dark-blue/10 font-semibold text-AIPM-dark-blue"
+                    ? "border-AIPM-dark-blue bg-AIPM-dark-blue/10 font-semibold text-AIPM-dark-blue dark:text-foreground"
                     : isWeekend
                       ? "border-line bg-surface-muted/60 text-muted-foreground"
                       : "border-line text-muted-foreground"
