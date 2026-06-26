@@ -337,17 +337,17 @@ export function ReportsPanel({
           segments={[
             {
               value: stats.openByStatus.red,
-              color: "bg-AIPM-pink",
+              color: "bg-[var(--rag-red)]",
               label: t(lang, "alertCatOverdue"),
             },
             {
               value: stats.openByStatus.yellow,
-              color: "bg-AIPM-purple",
+              color: "bg-[var(--rag-amber)]",
               label: t(lang, "reportsDueSoon"),
             },
             {
               value: stats.openByStatus.green,
-              color: "bg-AIPM-green",
+              color: "bg-[var(--rag-green)]",
               label: t(lang, "reportsOnTrack"),
             },
           ]}
@@ -364,12 +364,12 @@ export function ReportsPanel({
             segments={[
               {
                 value: stats.completedOnTime,
-                color: "bg-AIPM-green",
+                color: "bg-[var(--rag-green)]",
                 label: t(lang, "reportsCompletedOnTime"),
               },
               {
                 value: stats.completedLate,
-                color: "bg-AIPM-pink",
+                color: "bg-[var(--rag-red)]",
                 label: t(lang, "reportsCompletedLate"),
               },
             ]}

@@ -45,6 +45,7 @@
   --rag-green-text: var(--AIPM-green-strong);
   --table-head-bg: var(--AIPM-dark-blue);
   --table-head-fg: #ffffff;
+  --table-head-accent: var(--AIPM-green);
   --shadow-card: none;
   --shadow-control: none;
   --gradient-kpi: none; /* reserved — apply to a "more=better" fill bar (e.g. a future %-complete visual bar); NOT the effort/usage bars (more=worse, gradient would invert the signal) */
@@ -78,6 +79,7 @@
   --color-rag-green-text: var(--rag-green-text);
   --color-table-head-bg: var(--table-head-bg);
   --color-table-head-fg: var(--table-head-fg);
+  --color-table-head-accent: var(--table-head-accent);
 }
 
 .dark {
@@ -106,16 +108,10 @@
   --rag-green-text: #3d7a00;
   --table-head-bg: #f1f3f4;
   --table-head-fg: #3f4448;
+  --table-head-accent: #3d7a00;
   --shadow-card: 0 1px 3px rgba(0, 65, 89, 0.12), 0 1px 2px rgba(0, 65, 89, 0.08);
   --shadow-control: 0 1px 2px rgba(0, 65, 89, 0.10);
   --gradient-kpi: linear-gradient(90deg, var(--rag-red), var(--rag-amber), var(--rag-green));
-}
-
-/* Mockup: table-header sort buttons use text-AIPM-green (#84bd00) which contrasts
-   well on the dark AIPM header but fails AA on the light mockup header (#f1f3f4,
-   ratio ≈ 2:1). Inherit the header's --table-head-fg (#3f4448) instead. */
-:root[data-style="mockup"] .lop-thead button {
-  color: var(--table-head-fg);
 }
 
 body {

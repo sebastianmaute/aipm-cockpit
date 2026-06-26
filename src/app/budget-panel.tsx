@@ -111,7 +111,7 @@ export interface BudgetPanelProps {
 
 function Cci({ label, hint, value, currency, locale, lang, rag, primary = "amount" }: { label: string; hint?: string; value: CciValue; currency: string; locale: string; lang: Lang; rag?: Health | null; primary?: "amount" | "percent" }) {
   const pct = value.percent == null ? "—" : `${value.percent.toFixed(1)}%`;
-  const tone = value.amount >= 0 ? "text-AIPM-green-strong" : "text-AIPM-pink-strong";
+  const tone = value.amount >= 0 ? "text-[var(--rag-green-text)]" : "text-[var(--rag-red-text)]";
   const bigFigure = primary === "percent" ? pct : formatCurrency(value.amount, currency, locale);
   const smallFigure = primary === "percent" ? formatCurrency(value.amount, currency, locale) : pct;
   return (

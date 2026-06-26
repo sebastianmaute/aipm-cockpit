@@ -137,8 +137,8 @@ export function GroupOrLabelTable({
                   <td className="px-3 py-2 font-medium text-AIPM-dark-blue dark:text-AIPM-light-grey">{row.name}</td>
                   <td className="px-3 py-2 text-right">{row.total}</td>
                   <td className="px-3 py-2 text-right">{row.open}</td>
-                  <td className="px-3 py-2 text-right text-AIPM-green-strong">{row.completed}</td>
-                  <td className={`px-3 py-2 text-right ${row.overdue > 0 ? "text-AIPM-pink-strong font-semibold" : ""}`}>{row.overdue}</td>
+                  <td className="px-3 py-2 text-right text-[var(--rag-green-text)]">{row.completed}</td>
+                  <td className={`px-3 py-2 text-right ${row.overdue > 0 ? "text-[var(--rag-red-text)] font-semibold" : ""}`}>{row.overdue}</td>
                   <td className="px-3 py-2 text-right">{row.inquiries}</td>
                 </tr>
               ))
@@ -231,9 +231,9 @@ export function AssigneeTable({
                   <td className="px-3 py-2 font-medium text-AIPM-dark-blue dark:text-AIPM-light-grey">{row.name}</td>
                   <td className="px-3 py-2 text-right">{row.total}</td>
                   <td className="px-3 py-2 text-right">{row.open}</td>
-                  <td className={`px-3 py-2 text-right ${row.overdue > 0 ? "text-AIPM-pink-strong font-semibold" : ""}`}>{row.overdue}</td>
-                  <td className="px-3 py-2 text-right text-AIPM-green-strong">{row.onTime}</td>
-                  <td className="px-3 py-2 text-right text-AIPM-pink-strong">{row.late}</td>
+                  <td className={`px-3 py-2 text-right ${row.overdue > 0 ? "text-[var(--rag-red-text)] font-semibold" : ""}`}>{row.overdue}</td>
+                  <td className="px-3 py-2 text-right text-[var(--rag-green-text)]">{row.onTime}</td>
+                  <td className="px-3 py-2 text-right text-[var(--rag-red-text)]">{row.late}</td>
                   <td className="px-3 py-2 text-right">{row.inquiries}</td>
                 </tr>
               ))
@@ -260,7 +260,7 @@ export function Tile({
         {label}
       </p>
       <p
-        className={`mt-1 text-2xl font-semibold ${danger ? "text-AIPM-pink-strong" : "text-AIPM-dark-blue dark:text-AIPM-light-grey"}`}
+        className={`mt-1 text-2xl font-semibold ${danger ? "text-[var(--rag-red-text)]" : "text-AIPM-dark-blue dark:text-AIPM-light-grey"}`}
       >
         {value}
       </p>
