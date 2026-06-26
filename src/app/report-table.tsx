@@ -165,13 +165,13 @@ export function Tile({
         type="button"
         aria-label={activateLabel}
         onClick={onActivate}
-        className={`w-full rounded-lg border border-line bg-surface p-3 text-left hover:border-AIPM-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
+        className={`w-full rounded-lg border border-line bg-surface p-3 text-left shadow-[var(--shadow-card)] hover:border-AIPM-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
       >
         {inner}
       </button>
     );
   }
-  return <div className="rounded-lg border border-line bg-surface p-3">{inner}</div>;
+  return <div className="rounded-lg border border-line bg-surface p-3 shadow-[var(--shadow-card)]">{inner}</div>;
 }
 
 export function Section({
@@ -188,7 +188,7 @@ export function Section({
     </>
   );
   return boxed ? (
-    <div className="rounded-lg border border-line bg-surface p-4">{body}</div>
+    <div className="rounded-lg border border-line bg-surface p-4 shadow-[var(--shadow-card)]">{body}</div>
   ) : (
     <div>{body}</div>
   );

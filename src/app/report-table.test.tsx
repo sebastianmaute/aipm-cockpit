@@ -87,3 +87,26 @@ describe("Tile clickable variant", () => {
     expect(screen.queryByRole("button")).toBeNull();
   });
 });
+
+describe("Tile shadow token opt-in", () => {
+  it("button variant carries shadow-[var(--shadow-card)] class", () => {
+    const { container } = render(
+      <Tile label="KPI" value="7" onActivate={() => {}} activateLabel="Open view" />,
+    );
+    const btn = container.querySelector("button");
+    expect(btn?.className).toContain("shadow-[var(--shadow-card)]");
+  });
+
+  it("static div variant carries shadow-[var(--shadow-card)] class", () => {
+    const { container } = render(<Tile label="KPI" value="7" />);
+    const card = container.firstChild as HTMLElement;
+    expect(card.className).toContain("shadow-[var(--shadow-card)]");
+  });
+});
+
+describe("Section boxed shadow token opt-in", () => {
+  it("boxed variant carries shadow-[var(--shadow-card)] class", () => {
+    const { container } = render(<Section title="T" boxed>x</Section>);
+    expect((container.firstChild as HTMLElement).className).toContain("shadow-[var(--shadow-card)]");
+  });
+});

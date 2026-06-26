@@ -55,7 +55,7 @@ export function DashboardDeltaStrip({ lang, delta, greeting, onOpenTask, onOpenR
   const sinceDate = delta.since ? delta.since.slice(0, 10) : "";
 
   return (
-    <div className="rounded-lg border border-line bg-surface p-4">
+    <div className="rounded-lg border border-line bg-surface p-4 shadow-[var(--shadow-card)]">
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <span className="text-lg font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
           {t(lang, greeting.greetingKey)}

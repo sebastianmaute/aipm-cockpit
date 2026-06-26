@@ -385,12 +385,12 @@ export function DashboardPanel(props: DashboardPanelProps) {
               type="button"
               aria-label={t(lang, props.tursoActive ? "dashboardOpenTrendsView" : "dashboardOpenTasksView")}
               onClick={() => props.onNavigate!(trendView)}
-              className={`block w-full rounded border border-line bg-surface text-left hover:border-AIPM-dark-blue ${INTERACTIVE} ${dc.cardPad}`}
+              className={`block w-full rounded border border-line bg-surface text-left shadow-[var(--shadow-card)] hover:border-AIPM-dark-blue ${INTERACTIVE} ${dc.cardPad}`}
             >
               {sparkBody}
             </button>
           ) : (
-            <div className={`rounded border border-line bg-surface ${dc.cardPad}`}>{sparkBody}</div>
+            <div className={`rounded border border-line bg-surface shadow-[var(--shadow-card)] ${dc.cardPad}`}>{sparkBody}</div>
           );
         })()}
 
@@ -409,7 +409,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
         )}
 
         {/* Overall band */}
-        <div className="flex flex-wrap items-center gap-4 rounded-lg border border-line bg-surface p-4">
+        <div className="flex flex-wrap items-center gap-4 rounded-lg border border-line bg-surface p-4 shadow-[var(--shadow-card)]">
           <div className="flex items-center gap-2 text-2xl font-bold">
             <RagBadge value={model.overall.effective} lang={lang} />
             {t(lang, "dashboardOverall")}:{" "}
@@ -647,7 +647,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
 
         {/* Trends widget (toggled from the top toolbar) */}
         {showTrends ? (
-          <div className="rounded-lg border border-line bg-surface p-4">
+          <div className="rounded-lg border border-line bg-surface p-4 shadow-[var(--shadow-card)]">
             <h3 className="mb-2 text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
               {t(lang, "navTrends")}
             </h3>
