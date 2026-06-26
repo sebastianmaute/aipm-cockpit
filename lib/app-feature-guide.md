@@ -113,4 +113,5 @@ Per-view reference for the AI assistant: what each surface does and what the ass
 
 - Storage backend, timezone (default, per-project, and additional clock zones), AI configuration, opt-in scheduled jobs, guided-tour replay, and next-action weights.
 - Secrets (API key, auth token) are stored encrypted at rest.
-- AI: can explain where each setting lives and what it does; cannot change settings (user UI action).
+- A **guided backend setup wizard** (Settings → Integrations → "Run setup wizard") steps through storage, AI, Jira, Timelog, and shows a configured/not-configured summary — the same wizard is also reachable from the new-project window. Users can skip any integration step and return to the flat Integrations panel to adjust settings at any time.
+- AI: can explain where each setting lives and what it does; cannot open or run the setup wizard (it is a UI affordance only).

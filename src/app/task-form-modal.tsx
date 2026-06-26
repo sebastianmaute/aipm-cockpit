@@ -38,8 +38,10 @@ export interface TaskFormModalProps {
   onRemoveContact: (name: string) => void;
   onShowToast: (kind: "info" | "error", text: string) => void;
   onAddAssigneeToAddressBook: (name: string, email: string) => void;
-  /** Editor action buttons (Send inquiry / Push to Jira / Delete) rendered in the footer before Cancel/Save. */
+  /** Editor action buttons (Send inquiry / Push to Jira) rendered in the footer before Cancel/Save. */
   leadingActions?: ReactNode;
+  /** Destructive Delete button rendered on the left of the footer. */
+  deleteAction?: ReactNode;
 }
 
 export function TaskFormModal({
@@ -68,6 +70,7 @@ export function TaskFormModal({
   onShowToast,
   onAddAssigneeToAddressBook,
   leadingActions,
+  deleteAction,
 }: TaskFormModalProps) {
   const { editingId, taskModalOpen } = useTaskForm();
   const isEditing = editingId !== null;
@@ -124,22 +127,25 @@ export function TaskFormModal({
             onShowToast={onShowToast}
             onAddAssigneeToAddressBook={onAddAssigneeToAddressBook}
           />
-          <div className="flex justify-end gap-2">
-            {leadingActions}
-            <button
-              type="button"
-              onClick={onCancel}
-              className={`rounded-md border border-line bg-surface px-4 py-2 text-sm font-medium text-foreground hover:bg-surface-muted dark:border-line dark:bg-surface dark:text-foreground dark:hover:bg-surface-muted ${INTERACTIVE}`}
-            >
-              {t(lang, "cancel")}
-            </button>
-            <button
-              type="submit"
-              disabled={saveDisabled}
-              className="rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-AIPM-dark-blue focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {isEditing ? t(lang, "updateTask") : t(lang, "addTask")}
-            </button>
+          <div className="flex items-center justify-between gap-2">
+            <div>{deleteAction}</div>
+            <div className="flex items-center gap-2">
+              {leadingActions}
+              <button
+                type="button"
+                onClick={onCancel}
+                className={`rounded-md border border-line bg-surface px-4 py-2 text-sm font-medium text-foreground hover:bg-surface-muted dark:border-line dark:bg-surface dark:text-foreground dark:hover:bg-surface-muted ${INTERACTIVE}`}
+              >
+                {t(lang, "cancel")}
+              </button>
+              <button
+                type="submit"
+                disabled={saveDisabled}
+                className="rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-AIPM-dark-blue focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isEditing ? t(lang, "updateTask") : t(lang, "addTask")}
+              </button>
+            </div>
           </div>
         </form>
       </div>

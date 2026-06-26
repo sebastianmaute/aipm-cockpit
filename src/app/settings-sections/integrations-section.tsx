@@ -36,9 +36,14 @@ interface IntegrationsSectionProps {
    *  the portfolio is still on File with Turso configured, a "Move to Turso"
    *  button is shown. Omitted in the create-flow modal (no project to move). */
   onMigrateToTurso?: () => void;
+  /** Hide the portfolio-mode switch (the "Save & switch" control that reloads
+   *  the page). Set by the setup wizard, where a full reload would discard an
+   *  in-progress create-project draft and switching app-wide storage mid-setup
+   *  is out of scope — that stays an advanced action in the flat Settings panel. */
+  hidePortfolioSwitch?: boolean;
 }
 
-export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso }: IntegrationsSectionProps) {
+export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso, hidePortfolioSwitch }: IntegrationsSectionProps) {
   const integrations = settings.integrations ?? defaultIntegrations;
   const m365 = integrations.m365 ?? defaultM365Integrations;
   const turso = integrations.turso ?? defaultTursoIntegrations;
@@ -463,6 +468,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
               <p className="mt-1 text-xs text-AIPM-pink-strong">{t(lang, "snapshotConfigIncomplete")}</p>
             )}
           </div>
+          {!hidePortfolioSwitch && (
           <div className="mt-2 border-t border-line pt-2">
             <label className="block text-xs">
               <span className="inline-flex items-center gap-1 text-muted-foreground">
@@ -497,6 +503,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
               </div>
             )}
           </div>
+          )}
         </div>
       )}
       <TimelogSettings

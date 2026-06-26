@@ -141,7 +141,7 @@ export const BUILTIN_FEATURE_GUIDES: { id: string; name: string; content: string
   {
     "id": "builtin-feature-settings",
     "name": "Feature: Settings",
-    "content": "## Settings\n\n\n- Storage backend, timezone (default, per-project, and additional clock zones), AI configuration, opt-in scheduled jobs, guided-tour replay, and next-action weights.\n- Secrets (API key, auth token) are stored encrypted at rest.\n- AI: can explain where each setting lives and what it does; cannot change settings (user UI action).",
+    "content": "## Settings\n\n\n- Storage backend, timezone (default, per-project, and additional clock zones), AI configuration, opt-in scheduled jobs, guided-tour replay, and next-action weights.\n- Secrets (API key, auth token) are stored encrypted at rest.\n- A **guided backend setup wizard** (Settings → Integrations → \"Run setup wizard\") steps through storage, AI, Jira, Timelog, and shows a configured/not-configured summary — the same wizard is also reachable from the new-project window. Users can skip any integration step and return to the flat Integrations panel to adjust settings at any time.\n- AI: can explain where each setting lives and what it does; cannot open or run the setup wizard (it is a UI affordance only).",
     "scope": {
       "views": [
         "settings"

@@ -8,6 +8,19 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.142.0] - 2026-06-26 "Herbert"
+
+### Added
+- **Guided backend setup wizard**: a stepped wizard (Settings → Integrations, and the new-project window) walks through storage & connections (IndexedDB / file / Turso single / Turso multi-tenant + Microsoft 365), the AI assistant key, Jira, and Timelog, ending with a review summary. Integration steps are skippable; the existing flat Settings → Integrations panel remains as the advanced/edit surface. The wizard never appears in pop-out windows.
+- **Information-flows diagram**: the Settings → Information flows diagram now includes the Timelog integration node (reached via the `/api/timelog` server-side proxy).
+
+### Changed
+- **Task editor Delete button**: moved to the footer's left edge and colorized (pink/destructive), separated from the other actions — matching the change-control edit modal. Applies to both the modern full-page task editor and the classic task modal.
+
+### Fixed
+- Delete button hover state now meets WCAG AA contrast in dark mode.
+- Setup wizard: the review step reports Turso storage as configured only when a database URL **and** token are present (not merely the kind), and now includes Microsoft 365; the Timelog form is no longer duplicated across two steps; and the portfolio-mode "Save & switch" (which reloads the page) is hidden inside the wizard so it can't discard an in-progress create-project draft. Nested modals (the wizard opened from the create-project window) now handle Escape/Tab independently — closing the wizard no longer dismisses the create dialog underneath.
+
 ## [0.141.0] - 2026-06-26 "Gibson"
 
 ### Added

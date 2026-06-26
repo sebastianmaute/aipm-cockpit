@@ -138,6 +138,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightTimelog: "Verbinde ein Timelog-Zeiterfassungskonto, um Ist-Zeitbuchungen abzurufen, Timelog-Personen und -Projekte deinen Ressourcen und Budgets zuzuordnen und Gewinn/Verlust (Ist vs. Budget) sowie weitere Zeit-Kennzahlen zu sehen",
   versionHighlightDualCi: "Wechsle in Einstellungen – Darstellung zwischen dem Acme-Look und einem reichhaltigeren Dashboard-Stil (Schatten, Verläufe, Rot/Gelb-Status)",
   versionHighlightMockupPolish: "Der Dashboard-Stil erhält eine Fortschrittsanzeige, getönte Delta-Chips und eine hellere Optik für aktive Bedienelemente; der Acme-Look bleibt unverändert",
+  versionHighlightSetupWizard: "Ein geführter Einrichtungsassistent führt Sie aus den Einstellungen oder dem Fenster für neue Projekte durch Speicher und Integrationen.",
 
   tasks: "Aufgaben",
   tasksCount: "({0})",
@@ -942,6 +943,9 @@ export const de: Record<TranslationKey, string> = {
   helpSecStorageTitle: "Speicherort",
   helpSecStorageBody:
     "Aufgaben liegen standardmäßig in der IndexedDB des Browsers (Datensatz-Updates; alte localStorage-Daten werden beim ersten Laden automatisch migriert). In den Einstellungen → Speicher auf eine lokale JSON-, CSV- oder Markdown-Datei umstellen (Chrome / Edge / Opera). Der Browser fragt beim ersten Speichern nach Schreibrechten; falls verweigert, in den Einstellungen \"Schreibzugriff erteilen\" klicken. SharePoint-Backends folgen. Die mitgelieferte sample-workspace-small.sqlite3 lässt sich direkt in eine Turso-Datenbank importieren (z. B. per Turso-CLI: turso db create lop-demo --from-file sample-workspace-small.sqlite3); anschließend die Datenbank-URL und den Token unter Einstellungen → Integrationen eintragen.",
+  helpSecSetupWizardTitle: "Einrichtungsassistent",
+  helpSecSetupWizardBody:
+    "Eine geführte, schrittweise Alternative zum flachen Bereich Einstellungen → Integrationen. Starten Sie ihn über die Schaltfläche zum Starten des Einrichtungsassistenten unter Einstellungen → Integrationen oder im Fenster für neue Projekte. Er führt Sie durch Speicher und Verbindungen (Browser-IndexedDB, eine lokale JSON-, CSV- oder Markdown-Datei, eine einzelne Turso-Datenbank oder Multi-Tenant-Turso sowie die Microsoft-365-Anmeldung und Timelog), dann den KI-Schlüssel und Jira – jeder optional und überspringbar – und endet mit einer Zusammenfassung des konfigurierten Status (Speicher, Microsoft 365, KI, Jira und Timelog). Alle Änderungen entsprechen dem Bearbeiten des flachen Integrationen-Bereichs; der Bereich bleibt für spätere Änderungen verfügbar. Der Assistent wird in Pop-out-Fenstern nicht angezeigt.",
   helpSecVersionHistoryTitle: "Versionsverlauf (Turso)",
   helpSecVersionHistoryBody:
     "Wenn das Speicher-Backend Turso ist und das Modul Verlauf aktiviert ist, führt jedes Projekt einen Append-only-Verlauf vollständiger Arbeitsbereich-Versionen. Versionen werden einige Minuten nach Abschluss Ihrer Bearbeitungen automatisch erfasst (schnell aufeinanderfolgende Speichervorgänge werden zu einer Version zusammengefasst; identische Inhalte werden übersprungen), und Sie können jederzeit mit \"Version jetzt speichern\" einen benannten Prüfpunkt anlegen. In der Verlaufsansicht können Sie eine Version mit den aktuellen Daten vergleichen oder zwei Versionen markieren, um sie miteinander zu vergleichen – ein feldgenauer Vergleich, gruppiert nach Entitätstyp, mit aufklappbarem Vorher → Nachher je Datensatz. In einer Ansicht \"mit aktuellen Daten verglichen\" markieren Sie ganze Datensätze oder einzelne Felder und klicken auf \"Auswahl wiederherstellen\", um nur diese zurückzusetzen – eine zerstörungsfreie Änderung, die selbst als neue Version erfasst und im Aktivitätslog protokolliert wird. Automatische Versionen werden auf das Limit unter Einstellungen → \"Versionsverlauf: N Versionen behalten\" begrenzt (mindestens 50, in Schritten von 10); benannte Prüfpunkte werden nie entfernt.",
@@ -2382,7 +2386,7 @@ export const de: Record<TranslationKey, string> = {
   naFormulaTiers: "Stufe: Jetzt ab score ≥ 60, Bald ≥ 30, sonst Beobachten.",
   naFormulaThresholds: "Die Schwellenwerte oben entscheiden, ob ein Signal überhaupt ausgelöst wird, bevor es bewertet wird.",
   infoFlowsIntro: "Eine schreibgeschützte Übersicht der Schnittstellen, Integrationen und Datenquellen der App.",
-  infoFlowsDiagramAriaLabel: "Informationsflüsse: Browser-PWA verbunden mit lokalem Speicher, Turso-Cloud-DB, Jira, Microsoft 365 und der Anthropic-API.",
+  infoFlowsDiagramAriaLabel: "Informationsflüsse: Browser-PWA verbunden mit lokalem Speicher, Turso-Cloud-DB, Jira, Microsoft 365, Timelog und der Anthropic-API.",
   infoFlowsLegendLocalLabel: "Lokaler Speicher",
   infoFlowsLegendLocalDesc: "Browser IndexedDB und localStorage — Standard-Offline-Speicher.",
   infoFlowsLegendTursoLabel: "Turso (libSQL)",
@@ -2393,6 +2397,8 @@ export const de: Record<TranslationKey, string> = {
   infoFlowsLegendM365Desc: "Graph-API + MSAL-Login — SharePoint-Dateien, Kontakte und Kalender.",
   infoFlowsLegendAnthropicLabel: "Anthropic-API",
   infoFlowsLegendAnthropicDesc: "Claude-KI-Modell für den integrierten Assistenten-Chat.",
+  infoFlowsLegendTimelogLabel: "Timelog",
+  infoFlowsLegendTimelogDesc: "Zeiterfassungssystem, erreichbar über den serverseitigen Proxy /api/timelog der App.",
 
   // --- Multi-project UI ---
   // Nav
@@ -2565,6 +2571,18 @@ export const de: Record<TranslationKey, string> = {
   wizardStepFunctions: "Funktionen",
   wizardNext: "Weiter",
   wizardBack: "Zurück",
+  setupWizardTitle: "Einrichtungsassistent",
+  setupWizardStepStorage: "Speicher & Verbindungen",
+  setupWizardStepAi: "KI-Assistent",
+  setupWizardStepJira: "Jira",
+  setupWizardStepTimelog: "Timelog",
+  setupWizardStepReview: "Übersicht",
+  setupWizardRun: "Einrichtungsassistenten starten",
+  setupWizardSkip: "Überspringen",
+  setupWizardReviewIntro: "Hier ist eine Zusammenfassung Ihrer Backend-Konfiguration.",
+  setupWizardConfigured: "Konfiguriert",
+  setupWizardNotConfigured: "Nicht konfiguriert",
+  setupWizardFinish: "Fertigstellen",
   wizardBlankTemplate: "Leer — Funktionen selbst auswählen",
   wizardIncludeContent: "Beispielinhalte einschließen",
   wizardCreate: "Projekt erstellen",

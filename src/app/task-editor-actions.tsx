@@ -11,7 +11,6 @@ interface TaskEditorActionsProps {
   onSendInquiry: (task: Task) => void;
   /** Fire-and-forget wrapper around the async push. */
   onPushToJira: (taskId: number) => void;
-  onDelete: (id: number) => void;
 }
 
 const ACTION_BUTTON_CLASS =
@@ -29,7 +28,6 @@ export function TaskEditorActions({
   jiraConfigured,
   onSendInquiry,
   onPushToJira,
-  onDelete,
 }: TaskEditorActionsProps) {
   const showPush = jiraConfigured && !task.jiraKey;
   return (
@@ -50,13 +48,27 @@ export function TaskEditorActions({
           {t(lang, "jiraPushToJira")}
         </button>
       )}
-      <button
-        type="button"
-        onClick={() => onDelete(task.id)}
-        className={ACTION_BUTTON_CLASS}
-      >
-        {t(lang, "delete")}
-      </button>
     </>
+  );
+}
+
+/** Pink destructive Delete button for the task editor footer left side. */
+export function TaskDeleteButton({
+  lang,
+  taskId,
+  onDelete,
+}: {
+  lang: Lang;
+  taskId: number;
+  onDelete: (id: number) => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onDelete(taskId)}
+      className={`rounded-md border border-AIPM-pink/40 bg-surface px-4 py-1.5 text-sm font-medium text-AIPM-pink-strong hover:bg-AIPM-pink/10 disabled:cursor-not-allowed disabled:opacity-50 dark:border-AIPM-pink/50 dark:hover:bg-AIPM-pink/5 ${INTERACTIVE}`}
+    >
+      {t(lang, "delete")}
+    </button>
   );
 }

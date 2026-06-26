@@ -85,7 +85,7 @@ import { defaultExportConfig, defaultNextActionsLearning, defaultSnapshotSetting
 import { buildSuggestionContext } from "./weight-suggestion-ai";
 import { type SuggestionScope } from "./next-actions-tuning";
 import { TaskEditView, TASK_EDIT_FORM_ID } from "./task-edit-view";
-import { TaskEditorActions } from "./task-editor-actions";
+import { TaskDeleteButton, TaskEditorActions } from "./task-editor-actions";
 import { APP_VERSION_LABEL } from "./version";
 import { ActionMenus } from "./action-menus";
 import { makeEditGuard } from "./read-only-guard";
@@ -1903,8 +1903,8 @@ function TaskManagerInner() {
   const editTitle =
     editingId !== null ? t(lang, "tabEditTask", editingId) : t(lang, "tabNewTask");
 
-  // Send inquiry / Push to Jira / Delete — only for an EXISTING task, never in
-  // popouts (read-only). Push is additionally hidden for unconfigured Jira or an
+  // Send inquiry / Push to Jira — only for an EXISTING task, never in popouts
+  // (read-only). Push is additionally hidden for unconfigured Jira or an
   // already-synced task. Shared by the modern TaskEditView footer and the
   // classic TaskFormModal (threaded as leadingActions).
   const editorActions =
@@ -1917,8 +1917,13 @@ function TaskManagerInner() {
         onPushToJira={(id) => {
           void onPushToJira(id);
         }}
-        onDelete={onDelete}
       />
+    ) : null;
+
+  // Delete button — left side of footer, only for an EXISTING task, never in popouts.
+  const editorDeleteAction =
+    editingTask && !isPopout ? (
+      <TaskDeleteButton lang={lang} taskId={editingTask.id} onDelete={onDelete} />
     ) : null;
 
   const editActions = (
@@ -1978,6 +1983,7 @@ function TaskManagerInner() {
       heading={editingId !== null ? t(lang, "taskEditTitle") : t(lang, "tabNewTask")}
       onClose={handleCancelEdit}
       footer={editActions}
+      footerLeading={editorDeleteAction}
     />
   );
 
@@ -2006,6 +2012,7 @@ function TaskManagerInner() {
       onOpenInsights={isPopout ? undefined : () => setActiveTab("learning-insights")}
       requestSection={settingsSectionRequest}
       onSectionConsumed={clearSettingsSectionRequest}
+      isPopout={isPopout}
     />
   );
 
@@ -2166,6 +2173,7 @@ function TaskManagerInner() {
         isPopout={isPopout}
         showTaskFormModal={!useEditView}
         taskEditorActions={editorActions}
+        taskDeleteAction={editorDeleteAction}
         jiraConflicts={jiraConflicts}
         handleResolveConflicts={handleResolveConflicts}
         clearConflicts={clearConflicts}

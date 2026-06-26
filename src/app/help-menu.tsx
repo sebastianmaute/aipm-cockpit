@@ -42,6 +42,7 @@ const SECTIONS: Array<{
   { titleKey: "helpSecTimezonesTitle", bodyKey: "helpSecTimezonesBody" },
   { titleKey: "helpSecJiraTitle", bodyKey: "helpSecJiraBody" },
   { titleKey: "helpSecStorageTitle", bodyKey: "helpSecStorageBody" },
+  { titleKey: "helpSecSetupWizardTitle", bodyKey: "helpSecSetupWizardBody" },
   { titleKey: "helpSecVersionHistoryTitle", bodyKey: "helpSecVersionHistoryBody" },
   { titleKey: "helpSecAiTitle", bodyKey: "helpSecAiBody" },
   { titleKey: "helpSecAiAdvancedTitle", bodyKey: "helpSecAiAdvancedBody" },

@@ -159,6 +159,8 @@ Atlassian tokens and Anthropic keys defensively.
 
 ## Setup & Integration Configuration
 
+Integration config (storage backend, AI, Jira, Timelog, M365) can be done via the **guided setup wizard** (Settings → Integrations → "Run setup wizard", or from the new-project window) or directly through the flat Integrations panel. The wizard steps through each area in order; all integration steps are skippable.
+
 ### Environment variables (build-time, optional)
 
 Set these at build time to pre-configure integrations (all can be overridden in-app via Settings → Integrations):

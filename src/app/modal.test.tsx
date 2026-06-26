@@ -161,3 +161,70 @@ describe("Modal", () => {
     expect(last).toHaveFocus();
   });
 });
+
+// Nested modals (e.g. the backend setup wizard opened from inside the
+// create-project modal). Only the TOPMOST open modal may respond to Escape /
+// Tab — guards the modalStack regression that re-shipped twice.
+describe("Modal — nested stacking", () => {
+  test("Escape closes only the topmost (last-opened) modal", () => {
+    const outerClose = vi.fn();
+    const innerClose = vi.fn();
+    render(
+      <>
+        <Modal open onClose={outerClose} ariaLabel="Outer">
+          <p>outer</p>
+        </Modal>
+        <Modal open onClose={innerClose} ariaLabel="Inner">
+          <p>inner</p>
+        </Modal>
+      </>,
+    );
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(innerClose).toHaveBeenCalledTimes(1);
+    expect(outerClose).not.toHaveBeenCalled();
+  });
+
+  test("topmost stays correct after the parent modal re-renders with a NEW onClose identity", () => {
+    // Reproduces the original bug: typing in the nested wizard re-renders the
+    // parent, handing it a fresh onClose closure. The stack must NOT re-order.
+    const innerClose = vi.fn();
+    function Harness({ outerClose }: { outerClose: () => void }) {
+      return (
+        <>
+          <Modal open onClose={outerClose} ariaLabel="Outer">
+            <p>outer</p>
+          </Modal>
+          <Modal open onClose={innerClose} ariaLabel="Inner">
+            <p>inner</p>
+          </Modal>
+        </>
+      );
+    }
+    const { rerender } = render(<Harness outerClose={vi.fn()} />);
+    const outerClose2 = vi.fn();
+    rerender(<Harness outerClose={outerClose2} />);
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(innerClose).toHaveBeenCalledTimes(1);
+    expect(outerClose2).not.toHaveBeenCalled();
+  });
+
+  test("after the topmost closes, the next modal becomes topmost for Escape", () => {
+    const outerClose = vi.fn();
+    function Harness({ innerOpen }: { innerOpen: boolean }) {
+      return (
+        <>
+          <Modal open onClose={outerClose} ariaLabel="Outer">
+            <p>outer</p>
+          </Modal>
+          <Modal open={innerOpen} onClose={() => {}} ariaLabel="Inner">
+            <p>inner</p>
+          </Modal>
+        </>
+      );
+    }
+    const { rerender } = render(<Harness innerOpen />);
+    rerender(<Harness innerOpen={false} />); // inner unmounts → pops the stack
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(outerClose).toHaveBeenCalledTimes(1);
+  });
+});
