@@ -134,6 +134,7 @@ const enUS = {
   versionHighlightResponsiveGrids: "Dashboard, budget, and Jira-settings metric grids now stack to a single column on small screens instead of overflowing, the Documents remove buttons announce which file they delete, and the change-report tables share the report grid rhythm",
   versionHighlightTimelog: "Connect a Timelog timekeeping account to pull actual time bookings, match Timelog people and projects to your resources and budgets, and see booked-vs-budget win/loss and other time KPIs",
   versionHighlightDualCi: "Switch between the Acme look and a richer Dashboard style (shadows, gradients, red/amber status) in Settings - Appearance",
+  versionHighlightMockupPolish: "The Dashboard style gains a completion gauge bar, tinted delta chips and a lighter active-control look; the Acme look is unchanged",
 
   tasks: "Tasks",
   tasksCount: "({0})",

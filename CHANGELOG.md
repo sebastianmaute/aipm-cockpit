@@ -8,6 +8,11 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.141.0] - 2026-06-26 "Gibson"
+
+### Added
+- **Mockup-style polish**: the "Dashboard" visual style moves closer to its design reference — a completion-% gauge bar under the completion KPI (red→amber→green gradient; the Acme style shows a solid brand-green bar), trend deltas as tinted pill chips, a lighter active look for segmented controls (white pill + green text on a grey track), and a subtle hover-lift on clickable tiles. All differences flow through CSS role tokens, so the Acme style is unchanged. Chip tints are opaque pre-composited colors so the delta text stays WCAG AA even on tile hover.
+
 ## [0.140.0] - 2026-06-26 "Egan"
 
 ### Added
