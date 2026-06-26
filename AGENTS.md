@@ -182,7 +182,10 @@ npm run e2e                 # playwright (incl. the 13-view axe a11y gate)
 - **Task editor has TWO surfaces:** modern DEFAULT uses full-page `TaskEditView` (ModernShell `editView`
   slot; `useEditView = layout==="modern" && !isPopout`); classic/popout use `TaskFormModal` (which has
   its own `ModalHeader` title+✕). New editor controls/heading wire into the surface in play —
-  TaskEditView's control bar is SEPARATE from the modal's header.
+  TaskEditView's control bar is SEPARATE from the modal's header. ★ The Delete button lives footer-LEFT +
+  pink/destructive (mirrors `change-edit-modal`), wired in BOTH surfaces: exported `TaskDeleteButton`
+  (`task-editor-actions.tsx`); `TaskFormModal` takes a `deleteAction` prop; `TaskEditView` takes a
+  `footerLeading` prop. Dark-mode hover uses `dark:hover:bg-AIPM-pink/5`.
 - **Task status model:** `Task.status` (To Do/In Progress/On Hold/In Review/Cancelled/Done) is the
   SOURCE OF TRUTH for "done", but `completedDate` is AUTO-MANAGED to keep the invariant
   **`status==="Done" ⟺ completedDate set`** — so the ~30 existing completedDate-based derivations were
@@ -473,6 +476,17 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   • Settings-section deep-link is GENERAL: dashboard `onNavigate(view, section?: SettingsSectionId)` →
   task-manager `onOpenSettingsSection(section)` → `settingsSectionRequest` → SettingsView. `SettingsSectionId`
   (mirrored in `dashboard-coaching.ts`) is a SUBSET of settings-view `SectionId`.
+  • **Backend setup wizard:** `backend-setup-wizard.tsx` (5-step modal: Storage → AI → Jira → Timelog →
+  Review; skippable integration steps; Review shows configured/not-configured summary driven by pure
+  `backend-setup-steps.ts` — `BackendSetupStepKey`, `BACKEND_SETUP_STEPS`, `clampStep`,
+  `summarizeBackendSetup`). Reuses existing section components as step bodies (IntegrationsSection,
+  AiSection, JiraSettingsSection, TimelogSettings) and threads the SAME `settings`+`onChangeSettings` —
+  no new persistence path. Two launch points: Settings → Integrations ("Run setup wizard" button) and the
+  create-project wizard header. `isPopout`-gated (never shown in pop-outs). `SettingsView` gained an
+  `isPopout` prop threaded from task-manager. `onMigrateToTurso` is threaded ONLY on the Settings launch
+  (no existing workspace to migrate in create-project).
+  • **Info-flows diagram** (`settings-sections/information-flows-section.tsx`) now has **6 nodes**: local
+  storage, Turso, Jira, M365 (Graph + MSAL), Anthropic API, and Timelog (via `/api/timelog` proxy).
   • **Dual-CI / style axis:** `data-style="AIPM"|"mockup"` on `<html>` is ORTHOGONAL to `.dark`; set by
   `use-style.tsx` (`useCiStyle`, `lop-style` localStorage, NOT the settings blob) + the extended no-flash
   boot script in `layout.tsx` (reads `lop-style`+`lop-theme` pre-paint). Mockup ("Dashboard" style) is
