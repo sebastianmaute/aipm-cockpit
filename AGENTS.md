@@ -468,6 +468,21 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   • Settings-section deep-link is GENERAL: dashboard `onNavigate(view, section?: SettingsSectionId)` →
   task-manager `onOpenSettingsSection(section)` → `settingsSectionRequest` → SettingsView. `SettingsSectionId`
   (mirrored in `dashboard-coaching.ts`) is a SUBSET of settings-view `SectionId`.
+  • **Dual-CI / style axis:** `data-style="AIPM"|"mockup"` on `<html>` is ORTHOGONAL to `.dark`; set by
+  `use-style.tsx` (`useCiStyle`, `lop-style` localStorage, NOT the settings blob) + the extended no-flash
+  boot script in `layout.tsx` (reads `lop-style`+`lop-theme` pre-paint). Mockup ("Dashboard" style) is
+  LIGHT-ONLY + PINS light: `use-style` fires a `lop-style-change` event; `use-theme` is the SOLE `.dark`
+  writer and re-applies on that event (switching back to AIPM restores dark). ALL style difference is CSS
+  role tokens in `globals.css`: `--rag-red/amber/green` (+ `-text` AA variants), `--table-head-bg/-fg`,
+  `--shadow-card/-control`, `--gradient-kpi`. AIPM values reproduce the old look (no-op); mockup overrides
+  in `:root[data-style="mockup"]`. RAG flows through `health.ts` (`healthDot`/`healthText` →
+  `bg-[var(--rag-*)]`/`text-[var(--rag-*-text)]`). `--gradient-kpi` is RESERVED (no correct
+  "more=better" bar yet — never apply to effort/usage bars, which are more=worse). Shadows/gradients
+  legal ONLY via tokens (`shadow-[var(--shadow-*)]`); `shell-palette-guard` bans raw
+  `shadow*`/`drop-shadow`/`bg-gradient-` via strip-then-ban. The axe gate (`e2e/a11y.spec.ts`) scans
+  EVERY shipped combo: AIPM-light, AIPM-dark, Mockup-light (3 × A11Y_VIEWS = 39 passes), seeding
+  `lop-style`/`lop-theme` via `addInitScript`. Appearance Style switch disables the theme control while
+  Mockup is active.
 - **Scrollbar gap:** per-view inner scrollers (`min-h-0 flex-1 overflow-auto`) need `pr-2` for the
   content↔scrollbar gap. Shared `INNER_TABLE_CLASS`/report-table/actions-panel already include it; bare
   per-panel scrollers do NOT — add `pr-2` or content jams the scrollbar.
