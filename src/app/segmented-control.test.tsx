@@ -92,4 +92,34 @@ describe("SegmentedControl palette", () => {
     expect(group.className).not.toContain("shadow");
     expect(group.className).not.toContain("zinc");
   });
+
+  test("active button carries token-driven bg/fg classes; inactive button does not", () => {
+    // Arrange
+    render(
+      <SegmentedControl
+        value="a"
+        ariaLabel="token-test"
+        options={[
+          { value: "a", label: "A" },
+          { value: "b", label: "B" },
+        ]}
+        onChange={() => {}}
+      />,
+    );
+
+    // Act
+    const selected = screen.getByRole("radio", { name: "A" });
+    const unselected = screen.getByRole("radio", { name: "B" });
+
+    // Assert — selected carries token classes
+    expect(selected.className).toContain("bg-[var(--segment-active-bg)]");
+    expect(selected.className).toContain("text-[var(--segment-active-fg)]");
+    // Assert — unselected does NOT carry them
+    expect(unselected.className).not.toContain("bg-[var(--segment-active-bg)]");
+    expect(unselected.className).not.toContain("text-[var(--segment-active-fg)]");
+    // Assert — wrapper uses track token (not raw bg-surface)
+    const group = screen.getByRole("radiogroup");
+    expect(group.className).toContain("bg-[var(--segment-track-bg)]");
+    expect(group.className).not.toContain("bg-surface");
+  });
 });
