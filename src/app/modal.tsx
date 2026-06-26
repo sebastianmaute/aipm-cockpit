@@ -89,6 +89,27 @@ export function Modal({
   const pressStartedOnBackdrop = useRef(false);
   // Stable per-instance token for the open-modal stack (topmost-only handling).
   const tokenRef = useRef<symbol>(Symbol("modal"));
+  // Mirror onClose into a ref so the keydown effect can depend on [open] ALONE.
+  // If it depended on [open, onClose], an unstable parent onClose identity would
+  // re-run the effect and re-order the stack — making the wrong (parent) modal
+  // topmost and misrouting Escape/Tab to it (closing a nested modal's parent).
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
+
+  // Open-modal stack membership — keyed on [open] ONLY, so push/pop happens
+  // exactly on mount-open / unmount-close. Stack order == mount order, so the
+  // last-opened (nested) modal is always topmost.
+  useEffect(() => {
+    if (!open) return;
+    const token = tokenRef.current;
+    modalStack.push(token);
+    return () => {
+      const i = modalStack.lastIndexOf(token);
+      if (i !== -1) modalStack.splice(i, 1);
+    };
+  }, [open]);
 
   // Focus management: save the previously-focused element, move focus into
   // the dialog after children mount, restore on close/unmount.
@@ -130,14 +151,13 @@ export function Modal({
   useEffect(() => {
     if (!open) return;
     const token = tokenRef.current;
-    modalStack.push(token);
 
     function onKeyDown(e: KeyboardEvent) {
       // Only the topmost open modal handles keyboard — nested modals stack.
       if (modalStack[modalStack.length - 1] !== token) return;
       if (e.key === "Escape") {
         e.preventDefault();
-        onClose();
+        onCloseRef.current();
         return;
       }
       if (e.key !== "Tab") return;
@@ -174,12 +194,9 @@ export function Modal({
     }
 
     document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("keydown", onKeyDown);
-      const i = modalStack.lastIndexOf(token);
-      if (i !== -1) modalStack.splice(i, 1);
-    };
-  }, [open, onClose]);
+    return () => document.removeEventListener("keydown", onKeyDown);
+    // onClose is read via onCloseRef, so [open] is the complete dep set.
+  }, [open]);
 
   if (!open) return null;
 

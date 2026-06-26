@@ -85,18 +85,18 @@ describe("summarizeBackendSetup", () => {
     expect(summarizeBackendSetup(defaultSettings)).toHaveLength(5);
   });
 
-  it("a default (local) storage backend is configured with a detailText", () => {
+  it("a default (local) storage backend is configured with a detail label key", () => {
     const items = summarizeBackendSetup(defaultSettings);
     const storage = items.find((i) => i.key === "storage");
     expect(storage?.configured).toBe(true);
-    expect(storage?.detailText).toBeTruthy();
+    expect(storage?.detailKey).toBe("storageBrowser");
   });
 
-  it("a Turso kind WITHOUT url+token is NOT configured (but still shows the kind)", () => {
+  it("a Turso kind WITHOUT url+token is NOT configured (but still labels the kind)", () => {
     const settings = { ...defaultSettings, storageConfig: { kind: "turso" as const } };
     const items = summarizeBackendSetup(settings);
     const storage = items.find((i) => i.key === "storage");
-    expect(storage?.detailText).toBe("turso");
+    expect(storage?.detailKey).toBe("storageTurso");
     expect(storage?.configured).toBe(false);
   });
 

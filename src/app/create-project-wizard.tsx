@@ -41,6 +41,7 @@ import type { ProjectFormDraft } from "./project-form-fields";
 import type { TemplateSeed } from "./templates";
 import { BackendSetupWizard } from "./backend-setup-wizard";
 import { INTERACTIVE } from "./interaction-styles";
+import { WizardStepIndicator } from "./wizard-step-indicator";
 
 type CreateFormat = "json" | "csv" | "md";
 
@@ -84,32 +85,13 @@ function hasSeedContent(tpl: ProjectTemplate | null): boolean {
   return Object.values(tpl.seed).some((v) => Array.isArray(v) && v.length > 0);
 }
 
-function StepIndicator({ lang, step }: { lang: Lang; step: 1 | 2 | 3 }) {
-  const labels: { n: Step; key: "wizardStepDetails" | "wizardStepTemplate" | "wizardStepFunctions" }[] = [
-    { n: 1, key: "wizardStepDetails" },
-    { n: 2, key: "wizardStepTemplate" },
-    { n: 3, key: "wizardStepFunctions" },
-  ];
-  return (
-    <ol className="mb-5 flex items-center gap-2 text-sm" aria-label={t(lang, "wizardStepsLabel")}>
-      {labels.map(({ n, key }, i) => (
-        <li key={n} className="flex items-center gap-2">
-          <span
-            aria-current={step === n ? "step" : undefined}
-            className={
-              step === n
-                ? "rounded-full bg-AIPM-green/15 px-3 py-1 font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey"
-                : "px-3 py-1 text-muted-foreground"
-            }
-          >
-            {n}. {t(lang, key)}
-          </span>
-          {i < labels.length - 1 && <span aria-hidden className="text-muted-foreground">›</span>}
-        </li>
-      ))}
-    </ol>
-  );
-}
+// Steps 1-3 of the create wizard (step 0 is the optional AI "Describe" panel and
+// is excluded from the rail). Rendered via the shared WizardStepIndicator.
+const CREATE_WIZARD_STEPS = [
+  { titleKey: "wizardStepDetails" },
+  { titleKey: "wizardStepTemplate" },
+  { titleKey: "wizardStepFunctions" },
+] as const;
 
 export function CreateProjectWizard({
   lang,
@@ -235,7 +217,7 @@ export function CreateProjectWizard({
       {/* Fixed header: step indicator (the modal panel owns resize/reset). */}
       <div className="flex shrink-0 items-start justify-between gap-3 pb-4">
         {step >= 1 ? (
-          <StepIndicator lang={lang} step={step as 1 | 2 | 3} />
+          <WizardStepIndicator lang={lang} current={step - 1} steps={CREATE_WIZARD_STEPS} />
         ) : (
           <h2 className="text-base font-semibold text-foreground">{t(lang, "aiCreateHeading")}</h2>
         )}

@@ -6,8 +6,11 @@
 //   Step 1 — Storage & connections  (IntegrationsSection, not skippable)
 //   Step 2 — AI assistant           (AiSection,           skippable)
 //   Step 3 — Jira                   (JiraSettingsSection, skippable)
-//   Step 4 — Timelog                (TimelogSettings,     skippable)
-//   Step 5 — Review                 (summary list,        not skippable)
+//   Step 4 — Review                 (summary list,        not skippable)
+//
+// There is NO dedicated Timelog (or M365) step: IntegrationsSection already
+// renders both on the Storage step, so a separate step would duplicate the
+// same form. The Review summary still reports Timelog + M365 status.
 //
 // Launch points:
 //   • Settings → Integrations section (isPopout-gated)
@@ -27,6 +30,7 @@ import { AiSection } from "./settings-sections/ai-section";
 import { JiraSettingsSection } from "./jira-settings";
 import { type Settings } from "./settings-types";
 import { INTERACTIVE } from "./interaction-styles";
+import { WizardStepIndicator } from "./wizard-step-indicator";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -41,38 +45,6 @@ const PRIMARY_BTN =
   `rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white hover:bg-AIPM-dark-blue/90 disabled:opacity-50 ${INTERACTIVE}`;
 
 // ---------------------------------------------------------------------------
-// StepIndicator
-// ---------------------------------------------------------------------------
-
-function StepIndicator({ lang, step }: { lang: Lang; step: number }) {
-  return (
-    <ol
-      className="mb-5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm"
-      aria-label={t(lang, "wizardStepsLabel")}
-    >
-      {BACKEND_SETUP_STEPS.map(({ key, titleKey }, i) => (
-        <li key={key} aria-current={step === i ? "step" : undefined} className="flex items-center gap-2">
-          <span
-            className={
-              step === i
-                ? "rounded-full bg-AIPM-green/15 px-3 py-1 font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey"
-                : "px-3 py-1 text-muted-foreground"
-            }
-          >
-            {i + 1}. {t(lang, titleKey)}
-          </span>
-          {i < TOTAL - 1 && (
-            <span aria-hidden className="text-muted-foreground">
-              ›
-            </span>
-          )}
-        </li>
-      ))}
-    </ol>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // ReviewStep
 // ---------------------------------------------------------------------------
 
@@ -84,21 +56,21 @@ function ReviewStep({ lang, settings }: { lang: Lang; settings: Settings }) {
         {t(lang, "setupWizardReviewIntro")}
       </p>
       <ul className="flex flex-col gap-3">
-        {items.map(({ key, labelKey, configured, detailText }) => (
+        {items.map(({ key, labelKey, configured, detailKey }) => (
           <li
             key={key}
             className="flex items-center justify-between gap-4 rounded-lg border border-line p-3 text-sm"
           >
             <span className="font-medium text-foreground">{t(lang, labelKey)}</span>
             <span className="flex items-center gap-2">
-              {detailText && (
-                <span className="text-xs text-muted-foreground">{detailText}</span>
+              {detailKey && (
+                <span className="text-xs text-muted-foreground">{t(lang, detailKey)}</span>
               )}
               <span
                 className={
                   configured
-                    ? "text-[var(--rag-green-text,var(--rag-green))]"
-                    : "text-[var(--rag-red-text,var(--rag-red))]"
+                    ? "text-[var(--rag-green-text)]"
+                    : "text-[var(--rag-red-text)]"
                 }
               >
                 {configured
@@ -189,7 +161,7 @@ export function BackendSetupWizard({
 
         {/* Body */}
         <div className="min-h-0 flex-1 overflow-y-auto p-6">
-          <StepIndicator lang={lang} step={step} />
+          <WizardStepIndicator lang={lang} current={step} steps={BACKEND_SETUP_STEPS} />
 
           {currentStep.key === "storage" && (
             <IntegrationsSection
