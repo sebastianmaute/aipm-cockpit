@@ -60,6 +60,11 @@ npm run e2e                 # playwright (incl. the 13-view axe a11y gate)
   gradients, shadows. a11y gate + palette-sweep test enforce contrast/token use.
   Note: palette-sweep scans CSS for `box-shadow` — an off-palette Tailwind class (e.g. `shadow-md`)
   on element PASSES CI but still forbidden; check new components by eye.
+  ★ Tailwind v4 auto-scans ALL repo files (incl. `.md`/comments) for class candidates — NEVER put a
+  `*` wildcard inside a Tailwind arbitrary-value bracket (a `--foo-*` glob inside `[var(…)]`) in ANY
+  tracked file; Tailwind emits it as invalid CSS and `globals.css` fails to compile → app 500s.
+  Use a real token name in examples (e.g. `shadow-[var(--shadow-card)]`); write token FAMILIES as bare
+  `--foo-*` globs outside any Tailwind bracket.
 - **a11y (axe gate):** every new interactive control (button/checkbox/input/drag handle) needs
   accessible name + keyboard operability — unlabeled form control is axe-critical FAIL.
   `placeholder` is NOT an accessible name — input needs `aria-label`/`<label>` (placeholder-only
@@ -476,9 +481,9 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   role tokens in `globals.css`: `--rag-red/amber/green` (+ `-text` AA variants), `--table-head-bg/-fg`,
   `--shadow-card/-control`, `--gradient-kpi`. AIPM values reproduce the old look (no-op); mockup overrides
   in `:root[data-style="mockup"]`. RAG flows through `health.ts` (`healthDot`/`healthText` →
-  `bg-[var(--rag-*)]`/`text-[var(--rag-*-text)]`). `--gradient-kpi` is RESERVED (no correct
+  `--rag-*` / `--rag-*-text` token families (e.g. `bg-[var(--rag-red)]`, `text-[var(--rag-green-text)]`)). `--gradient-kpi` is RESERVED (no correct
   "more=better" bar yet — never apply to effort/usage bars, which are more=worse). Shadows/gradients
-  legal ONLY via tokens (`shadow-[var(--shadow-*)]`); `shell-palette-guard` bans raw
+  legal ONLY via tokens (e.g. `shadow-[var(--shadow-card)]` — use the `--shadow-*` token family); `shell-palette-guard` bans raw
   `shadow*`/`drop-shadow`/`bg-gradient-` via strip-then-ban. The axe gate (`e2e/a11y.spec.ts`) scans
   EVERY shipped combo: AIPM-light, AIPM-dark, Mockup-light (3 × A11Y_VIEWS = 39 passes), seeding
   `lop-style`/`lop-theme` via `addInitScript`. Appearance Style switch disables the theme control while

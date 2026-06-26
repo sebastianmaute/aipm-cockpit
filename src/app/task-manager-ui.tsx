@@ -235,7 +235,7 @@ export function SortableTh({
         type="button"
         onClick={() => onClick(sortKey)}
         title={t(lang, "sortBy", label)}
-        className={`inline-flex items-center gap-1 uppercase tracking-wide hover:text-AIPM-green ${INTERACTIVE} ${isActive ? "text-AIPM-green" : ""}`}
+        className={`inline-flex items-center gap-1 uppercase tracking-wide hover:text-[var(--table-head-accent)] ${INTERACTIVE} ${isActive ? "text-[var(--table-head-accent)]" : ""}`}
       >
         {label}
         <span aria-hidden className="text-[0.65rem]">
