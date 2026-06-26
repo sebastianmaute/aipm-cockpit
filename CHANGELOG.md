@@ -8,6 +8,14 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.140.0] - 2026-06-26 "Egan"
+
+### Added
+- **Dual-CI visual style switch**: a new "Dashboard" visual style (soft shadows, gradient-ready bars, conventional red/amber/green status, light table header) selectable in Settings - Appearance, alongside the flat Acme style. Orthogonal to light/dark (the Dashboard style is light-only and pins light while active). All styling is CSS-token-driven; the palette-sweep + axe gates now scan every shipped combo (AIPM-light, AIPM-dark, Dashboard-light).
+
+### Fixed
+- Dark-mode contrast (WCAG AA) for Acme-dark-blue text on dark surfaces in the RAID, Gantt, and Budget views (surfaced by the expanded axe matrix).
+
 ## [0.139.0] - 2026-06-24 "Bacigalupi"
 
 ### Added

@@ -2,12 +2,12 @@ import { describe, it, expect } from "vitest";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 
 describe("TABLE_HEAD_CLASS", () => {
-  it("is a white-text, sticky header carrying the rounded-header marker", () => {
+  it("is a token-fg-text, sticky header carrying the rounded-header marker", () => {
     // The Dark-Blue fill now lives on the <th> cells (set via the `lop-thead`
     // rule in globals.css) so the rounded corners can clip it — the class no
     // longer carries `bg-AIPM-dark-blue` itself.
     expect(TABLE_HEAD_CLASS).toContain("lop-thead");
-    expect(TABLE_HEAD_CLASS).toContain("text-white");
+    expect(TABLE_HEAD_CLASS).toContain("text-[var(--table-head-fg)]");
     expect(TABLE_HEAD_CLASS).toContain("sticky");
     expect(TABLE_HEAD_CLASS).toContain("top-0");
     expect(TABLE_HEAD_CLASS).toContain("z-10");
@@ -21,7 +21,7 @@ describe("TABLE_HEAD_CLASS", () => {
 
   it("matches the exact expected class string", () => {
     expect(TABLE_HEAD_CLASS).toBe(
-      "lop-thead sticky top-0 z-10 text-xs uppercase tracking-wide text-white",
+      "lop-thead sticky top-0 z-10 text-xs uppercase tracking-wide text-[var(--table-head-fg)]",
     );
   });
 });

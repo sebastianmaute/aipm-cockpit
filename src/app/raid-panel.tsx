@@ -660,7 +660,7 @@ function RaidPanelBody({
                                 onJumpToTask(tid);
                               }}
                               title={tk?.taskName ?? `#${tid}`}
-                              className={`inline-flex rounded bg-surface-muted px-1.5 py-0.5 font-mono text-[10px] text-AIPM-dark-blue hover:bg-AIPM-dark-blue hover:text-white ${INTERACTIVE}`}
+                              className={`inline-flex rounded bg-surface-muted px-1.5 py-0.5 font-mono text-[10px] text-AIPM-dark-blue hover:bg-AIPM-dark-blue hover:text-white dark:text-foreground ${INTERACTIVE}`}
                             >
                               #{tid}
                             </button>
@@ -689,7 +689,7 @@ function RaidPanelBody({
                                   if (parent) openEdit(parent);
                                 }}
                                 title={parent?.title ?? `RAID #${pid}`}
-                                className={`inline-flex items-center gap-1 rounded bg-surface-muted px-1.5 py-0.5 font-mono text-[10px] text-AIPM-dark-blue hover:bg-AIPM-dark-blue hover:text-white ${INTERACTIVE}`}
+                                className={`inline-flex items-center gap-1 rounded bg-surface-muted px-1.5 py-0.5 font-mono text-[10px] text-AIPM-dark-blue hover:bg-AIPM-dark-blue hover:text-white dark:text-foreground ${INTERACTIVE}`}
                               >
                                 ↩ #{pid}
                               </button>

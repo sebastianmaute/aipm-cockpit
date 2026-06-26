@@ -109,13 +109,13 @@ describe("DashboardPanel captions and thresholds", () => {
     expect(screen.getByText(/burn-down shows remaining budget/)).toBeInTheDocument();
   });
 
-  it("applies the AIPM colour class to the overall status word", () => {
+  it("applies the RAG role-token colour class to the overall status word", () => {
     renderDashboard();
     const overallSpans = screen.getAllByText(/^(Green|Amber|Red)$/).filter((el) =>
-      /text-AIPM-(green|purple|pink)/.test(el.className),
+      /text-\[var\(--rag-(green|amber|red)-text\)\]/.test(el.className),
     );
     expect(overallSpans.length).toBeGreaterThan(0);
-    expect(overallSpans[0].className).toMatch(/text-AIPM-green/);
+    expect(overallSpans[0].className).toMatch(/text-\[var\(--rag-green-text\)\]/);
   });
 });
 
@@ -169,9 +169,11 @@ describe("DashboardPanel RAG polish (Task 3)", () => {
       />,
       { wrapper },
     );
-    const redCount = screen.getByText("1", { selector: `span.${healthText.R.replace(/\s+/g, ".")}` });
-    expect(redCount).toBeInTheDocument();
-    expect(redCount.className).toContain("text-AIPM-pink");
+    const redCount = screen
+      .getAllByText("1")
+      .find((el) => el.tagName === "SPAN" && el.className.includes(healthText.R));
+    expect(redCount).toBeDefined();
+    expect(redCount?.className).toContain("text-[var(--rag-red-text)]");
   });
 
   it("wraps the Progress section in a boxed rounded-lg card", () => {

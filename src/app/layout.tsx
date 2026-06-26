@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { Titillium_Web } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "./use-theme";
+import { CiStyleProvider } from "./use-style";
 import { ServiceWorkerRegistrar } from "./service-worker-registrar";
 
 const titillium = Titillium_Web({
@@ -12,7 +13,7 @@ const titillium = Titillium_Web({
   display: "swap",
 });
 
-const NO_FLASH_THEME_SCRIPT = `(function(){try{var t=localStorage.getItem("lop-theme")||"system";var d=t==="dark"||(t==="system"&&window.matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.classList.toggle("dark",d);}catch(e){}})();`;
+const NO_FLASH_THEME_SCRIPT = `(function(){try{var s=localStorage.getItem("lop-style")||"AIPM";if(s!=="AIPM"&&s!=="mockup"){s="AIPM";}document.documentElement.setAttribute("data-style",s);var t=localStorage.getItem("lop-theme")||"system";var d=t==="dark"||(t==="system"&&window.matchMedia("(prefers-color-scheme: dark)").matches);if(s==="mockup"){d=false;}document.documentElement.classList.toggle("dark",d);}catch(e){}})();`;
 
 export const metadata: Metadata = {
   title: "List of Open Points Tracker",
@@ -49,7 +50,7 @@ export default async function RootLayout({
           dangerouslySetInnerHTML={{ __html: NO_FLASH_THEME_SCRIPT }}
         />
         <ServiceWorkerRegistrar />
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider><CiStyleProvider>{children}</CiStyleProvider></ThemeProvider>
       </body>
     </html>
   );

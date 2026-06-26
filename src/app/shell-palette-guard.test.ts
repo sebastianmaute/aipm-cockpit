@@ -14,7 +14,12 @@ const SHELL_FILES = [
 // Raw hex like bg-[#fff] in a className is off-palette; tokens must be used.
 // `from/to/via` cover Tailwind gradient color-stop utilities (e.g. from-[#fff]).
 const HEX_IN_CLASS = /(?:bg|text|border|ring|fill|stroke|from|to|via)-\[#[0-9a-fA-F]{3,8}\]/;
-const SHADOW_OR_GRADIENT = /\b(?:shadow(?:-[a-z0-9]+)?|bg-gradient-)/;
+// Strip token-driven shadow forms first, then ban any remaining raw shadow
+// (incl. drop-shadow / inset-shadow). Avoids a lookbehind that would exempt
+// hyphen-preceded shadow utilities.
+const TOKEN_SHADOW = /(?:drop-|inset-)?shadow-\[var\(--[^\]]*\]/g;
+const RAW_SHADOW = /\b(?:drop-shadow|inset-shadow|shadow)(?:-[a-z0-9]+|-\[[^\]]*\])?\b/;
+const RAW_GRADIENT = /\bbg-gradient-/;
 
 describe("shell palette guard", () => {
   it("resolves shell sources from the project cwd", () => {
@@ -41,19 +46,23 @@ describe("shell palette guard", () => {
       },
     );
 
-    it.each(["shadow", "shadow-md", "bg-gradient-to-r"])(
-      "flags shadow/gradient utility %s",
-      (cls) => {
-        expect(SHADOW_OR_GRADIENT.test(cls)).toBe(true);
-      },
+    it.each(["shadow","shadow-md","shadow-lg","shadow-sm","shadow-[0_2px_4px_#000]","drop-shadow-md","drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]","bg-gradient-to-r"])(
+      "flags raw shadow/gradient utility %s",
+      (cls) => { const s = cls.replace(TOKEN_SHADOW, ""); expect(RAW_SHADOW.test(s) || RAW_GRADIENT.test(s)).toBe(true); },
+    );
+    it.each(["shadow-[var(--shadow-card)]","shadow-[var(--shadow-control)]","drop-shadow-[var(--shadow-card)]","shadow-[var(--shadow-card)] drop-shadow-[var(--shadow-card)]"])(
+      "allows token-driven shadow %s",
+      (cls) => { const s = cls.replace(TOKEN_SHADOW, ""); expect(RAW_SHADOW.test(s) || RAW_GRADIENT.test(s)).toBe(false); },
     );
   });
 
   for (const file of SHELL_FILES) {
-    it(`${file} uses palette tokens (no raw hex, no shadow/gradient)`, () => {
+    it(`${file} uses palette tokens (no raw hex, no raw shadow/gradient)`, () => {
       const src = readFileSync(join(process.cwd(), "src/app", file), "utf8");
+      const stripped = src.replace(TOKEN_SHADOW, "");
       expect(HEX_IN_CLASS.test(src)).toBe(false);
-      expect(SHADOW_OR_GRADIENT.test(src)).toBe(false);
+      expect(RAW_SHADOW.test(stripped)).toBe(false);
+      expect(RAW_GRADIENT.test(stripped)).toBe(false);
     });
   }
 });

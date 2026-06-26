@@ -27,17 +27,26 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     typeof window === "undefined" ? "system" : readStoredTheme(localStorage.getItem(THEME_STORAGE_KEY)),
   );
 
-  // Apply the resolved theme as a `.dark` class on <html>, and (in system mode)
-  // keep it in sync with OS changes.
+  // Apply the resolved theme as a `.dark` class on <html>, and keep it in sync
+  // with OS changes (system mode) and CI-style changes (lop-style-change event).
+  // This is the SOLE writer of document.documentElement.classList "dark".
   useEffect(() => {
-    const apply = () =>
-      document.documentElement.classList.toggle("dark", resolveTheme(theme, prefersDark()) === "dark");
+    const apply = () => {
+      const mockup = document.documentElement.getAttribute("data-style") === "mockup";
+      const dark = !mockup && resolveTheme(theme, prefersDark()) === "dark";
+      document.documentElement.classList.toggle("dark", dark);
+    };
     apply();
-    if (theme !== "system") return;
-    const mql = window.matchMedia("(prefers-color-scheme: dark)");
-    const onChange = () => apply();
-    mql.addEventListener("change", onChange);
-    return () => mql.removeEventListener("change", onChange);
+    window.addEventListener("lop-style-change", apply);
+    let mql: MediaQueryList | undefined;
+    if (theme === "system") {
+      mql = window.matchMedia("(prefers-color-scheme: dark)");
+      mql.addEventListener("change", apply);
+    }
+    return () => {
+      window.removeEventListener("lop-style-change", apply);
+      mql?.removeEventListener("change", apply);
+    };
   }, [theme]);
 
   const setTheme = useCallback((next: Theme) => {

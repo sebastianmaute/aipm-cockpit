@@ -9,21 +9,39 @@ import { test, expect, gotoApp, openView } from "./seed";
 // instead of same-hue text), and dropping the opacity-dim on completed rows.
 const A11Y_VIEWS = ["Dashboard", "Open Points", "Gantt", "Resources", "Budget", "RAID", "Settings", "Stakeholders", "Changes", "Milestones", "Reports", "Activity", "Time bookings"] as const;
 
-for (const name of A11Y_VIEWS) {
-  test(`a11y: ${name} has no critical/serious WCAG A/AA violations`, async ({ page }) => {
-    await gotoApp(page);
-    await openView(page, name);
+// Every shipped style/theme combo is scanned. Mockup is light-only.
+const COMBOS = [
+  { style: "AIPM",    theme: "light" },
+  { style: "AIPM",    theme: "dark"  },
+  { style: "mockup", theme: "light" },
+] as const;
 
-    const results = await new AxeBuilder({ page })
-      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
-      .analyze();
+for (const combo of COMBOS) {
+  for (const name of A11Y_VIEWS) {
+    test(`a11y: ${combo.style}/${combo.theme} — ${name}`, async ({ page }) => {
+      // Seed localStorage BEFORE the app navigates so the no-flash boot script
+      // in layout.tsx reads the right style/theme and sets data-style/.dark.
+      // addInitScript runs before every navigation, so this fires on the
+      // page.goto("/") inside gotoApp — after the page fixture's favicon seed.
+      await page.addInitScript(`
+        localStorage.setItem("lop-style", ${JSON.stringify(combo.style)});
+        localStorage.setItem("lop-theme", ${JSON.stringify(combo.theme)});
+      `);
 
-    const blocking = results.violations.filter(
-      (v) => v.impact === "critical" || v.impact === "serious",
-    );
-    const summary = blocking
-      .map((v) => `${v.impact} · ${v.id}: ${v.help} (${v.nodes.length} node(s))`)
-      .join("\n");
-    expect(blocking, `${name} a11y violations:\n${summary}`).toEqual([]);
-  });
+      await gotoApp(page);
+      await openView(page, name);
+
+      const results = await new AxeBuilder({ page })
+        .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+        .analyze();
+
+      const blocking = results.violations.filter(
+        (v) => v.impact === "critical" || v.impact === "serious",
+      );
+      const summary = blocking
+        .map((v) => `${v.impact} · ${v.id}: ${v.help} (${v.nodes.length} node(s))`)
+        .join("\n");
+      expect(blocking, `${name} a11y violations:\n${summary}`).toEqual([]);
+    });
+  }
 }

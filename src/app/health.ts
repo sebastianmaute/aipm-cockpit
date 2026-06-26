@@ -190,25 +190,28 @@ export function formatHealthTooltip(health: TaskHealth, lang: Lang): string {
 
 /**
  * Tailwind class for the RAG status dot, indexed by health color.
- * Standard steering-committee palette, distinct from the AIPM-pink
- * "overdue" highlight used elsewhere.
+ * Uses CSS role tokens (--rag-red/amber/green) so the dot color reflows when
+ * the CI style switches. AIPM token values equal bg-red-500/bg-amber-500/
+ * bg-emerald-500, so the rendered look is identical for existing users.
  */
 export const healthDot: Record<Health, string> = {
-  R: "bg-red-500",
-  A: "bg-amber-500",
-  G: "bg-emerald-500",
+  R: "bg-[var(--rag-red)]",
+  A: "bg-[var(--rag-amber)]",
+  G: "bg-[var(--rag-green)]",
 };
 
 /**
- * Tailwind text-colour class for a RAG value, AIPM brand palette. Used to tint
- * inline status text, e.g. the dashboard "Overall: Green" label. Distinct from
- * healthDot, which uses semantic Tailwind colours for the dot fill.
+ * Tailwind text-colour class for a RAG value. Uses CSS role tokens
+ * (--rag-red-text/amber-text/green-text) so text color reflows when the CI
+ * style switches. AIPM token values equal text-AIPM-pink-strong/text-AIPM-purple/
+ * text-AIPM-green-strong, so the rendered look is identical for existing users.
+ * Used to tint inline status text, e.g. the dashboard "Overall: Green" label.
  */
 export const healthText: Record<Health, string> = {
-  R: "text-AIPM-pink-strong",
-  A: "text-AIPM-purple",
+  R: "text-[var(--rag-red-text)]",
+  A: "text-[var(--rag-amber-text)]",
   // AA-accessible green for text on light surfaces (brand green is only 2.26:1
   // on white). See --AIPM-green-strong in globals.css.
-  G: "text-AIPM-green-strong",
+  G: "text-[var(--rag-green-text)]",
 };
 

@@ -27,10 +27,10 @@ export function TrendArrow({ trend, metricLabel, unit = "", lang }: TrendArrowPr
   const magnitudeStr = `${magnitude}${unit}`;
   const colorClass =
     trend.improved
-      ? "text-AIPM-green-strong"
+      ? "text-[var(--rag-green-text)]"
       : trend.direction === "flat"
         ? "text-muted-foreground"
-        : "text-AIPM-pink-strong";
+        : "text-[var(--rag-red-text)]";
 
   const label =
     trend.direction === "up"

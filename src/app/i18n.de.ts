@@ -136,6 +136,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightDensityRhythm: "Die kompakte Dichte des Dashboards verkleinert jetzt auch die Abstände der zweispaltigen Bereiche, und die Kachelraster für Berichtsgesundheit und Anfragen nutzen denselben Abstandsrhythmus",
   versionHighlightResponsiveGrids: "Die Kennzahlenraster von Dashboard, Budget und Jira-Einstellungen brechen auf kleinen Bildschirmen jetzt auf eine Spalte um, statt überzulaufen, die Entfernen-Schaltflächen im Dokumentebereich nennen die zu löschende Datei, und die Änderungsbericht-Tabellen nutzen denselben Rasterrhythmus",
   versionHighlightTimelog: "Verbinde ein Timelog-Zeiterfassungskonto, um Ist-Zeitbuchungen abzurufen, Timelog-Personen und -Projekte deinen Ressourcen und Budgets zuzuordnen und Gewinn/Verlust (Ist vs. Budget) sowie weitere Zeit-Kennzahlen zu sehen",
+  versionHighlightDualCi: "Wechsle in Einstellungen – Darstellung zwischen dem Acme-Look und einem reichhaltigeren Dashboard-Stil (Schatten, Verläufe, Rot/Gelb-Status)",
 
   tasks: "Aufgaben",
   tasksCount: "({0})",
@@ -212,6 +213,10 @@ export const de: Record<TranslationKey, string> = {
   themeDark: "Dunkel",
   themeSystem: "System",
   themeHint: "Hell, dunkel oder der Systemeinstellung folgen.",
+  styleLabel: "Visueller Stil",
+  styleIcc: "Acme",
+  styleMockup: "Dashboard",
+  styleMockupLightOnly: "Der Dashboard-Stil ist nur hell - das Thema ist deaktiviert, solange er aktiv ist.",
   language: "Sprache",
   holidayCountries: "Feiertagsländer",
   selectCountry: "Land auswählen…",

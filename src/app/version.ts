@@ -2,11 +2,11 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.139.0";
-export const APP_BUILD_DATE = "2026-06-24"; // 0.139.0: Timelog time-booking integration — actuals overlay, identity+project matching, win/loss KPIs (Bacigalupi)
+export const APP_VERSION = "0.140.0";
+export const APP_BUILD_DATE = "2026-06-26"; // 0.140.0: dual-CI visual style switch — Acme vs Dashboard look (Egan)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.139.x line is "Bacigalupi" (Paolo Bacigalupi). */
-export const APP_MILESTONE = "Bacigalupi";
+ *  0.140.x line is "Egan" (Greg Egan). */
+export const APP_MILESTONE = "Egan";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -146,4 +146,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightDensityRhythm",
   "versionHighlightResponsiveGrids",
   "versionHighlightTimelog",
+  "versionHighlightDualCi",
 ] as const;

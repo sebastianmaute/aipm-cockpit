@@ -36,7 +36,7 @@ npm run test:run            # vitest (unit/integration). testTimeout/hookTimeout
                             # that never repros in isolation or in CI. Don't "fix" such a flake by
                             # editing the property logic before ruling out a load timeout (run the
                             # property thousands of times in isolation first; logic bugs repro there).
-npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
+npm run e2e                 # playwright (incl. the 13-view axe a11y gate)
 ```
 
 ## Hard constraints (CI-enforced — these gate merges)
@@ -60,6 +60,11 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
   gradients, shadows. a11y gate + palette-sweep test enforce contrast/token use.
   Note: palette-sweep scans CSS for `box-shadow` — an off-palette Tailwind class (e.g. `shadow-md`)
   on element PASSES CI but still forbidden; check new components by eye.
+  ★ Tailwind v4 auto-scans ALL repo files (incl. `.md`/comments) for class candidates — NEVER put a
+  `*` wildcard inside a Tailwind arbitrary-value bracket (a `--foo-*` glob inside `[var(…)]`) in ANY
+  tracked file; Tailwind emits it as invalid CSS and `globals.css` fails to compile → app 500s.
+  Use a real token name in examples (e.g. `shadow-[var(--shadow-card)]`); write token FAMILIES as bare
+  `--foo-*` globs outside any Tailwind bracket.
 - **a11y (axe gate):** every new interactive control (button/checkbox/input/drag handle) needs
   accessible name + keyboard operability — unlabeled form control is axe-critical FAIL.
   `placeholder` is NOT an accessible name — input needs `aria-label`/`<label>` (placeholder-only
@@ -77,7 +82,7 @@ npm run e2e                 # playwright (incl. the 12-view axe a11y gate)
   Moving/folding a control INTO an axe-scanned view re-scans it: gate scans `Settings`→General, so
   folding Storage/Appearance into General surfaced pre-existing unlabeled `<select>` (a visible
   `<span>` label is NOT an `aria-label`/`<label>`) as axe-critical.
-  `A11Y_VIEWS` list (`e2e/a11y.spec.ts`) is 12 named views and does NOT include chat/AI-Assistant,
+  `A11Y_VIEWS` list (`e2e/a11y.spec.ts`) is 13 named views and does NOT include chat/AI-Assistant,
   Projects, or Documents — controls only on those surfaces aren't scanned, but anything in the
   always-present top bar IS (scanned via every view). Verify IA/UI/contrast changes with
   `npx playwright test e2e/a11y.spec.ts --project=chromium -g "<View>"` (~16s, webServer auto-starts)
@@ -468,6 +473,28 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   • Settings-section deep-link is GENERAL: dashboard `onNavigate(view, section?: SettingsSectionId)` →
   task-manager `onOpenSettingsSection(section)` → `settingsSectionRequest` → SettingsView. `SettingsSectionId`
   (mirrored in `dashboard-coaching.ts`) is a SUBSET of settings-view `SectionId`.
+  • **Dual-CI / style axis:** `data-style="AIPM"|"mockup"` on `<html>` is ORTHOGONAL to `.dark`; set by
+  `use-style.tsx` (`useCiStyle`, `lop-style` localStorage, NOT the settings blob) + the extended no-flash
+  boot script in `layout.tsx` (reads `lop-style`+`lop-theme` pre-paint). Mockup ("Dashboard" style) is
+  LIGHT-ONLY + PINS light: `use-style` fires a `lop-style-change` event; `use-theme` is the SOLE `.dark`
+  writer and re-applies on that event (switching back to AIPM restores dark). ALL style difference is CSS
+  role tokens in `globals.css`: `--rag-red/amber/green` (+ `-text` AA variants), `--table-head-bg/-fg`,
+  `--table-head-accent` (sort-button active/hover), `--shadow-card/-control`, `--gradient-kpi`. AIPM values
+  reproduce the old look (no-op); mockup overrides
+  in `:root[data-style="mockup"]`. RAG flows through `health.ts` (`healthDot`/`healthText` →
+  `--rag-*` / `--rag-*-text` token families (e.g. `bg-[var(--rag-red)]`, `text-[var(--rag-green-text)]`)). `--gradient-kpi` is RESERVED (no correct
+  "more=better" bar yet — never apply to effort/usage bars, which are more=worse). Shadows/gradients
+  legal ONLY via tokens (e.g. `shadow-[var(--shadow-card)]` — use the `--shadow-*` token family); `shell-palette-guard` bans raw
+  `shadow*`/`drop-shadow`/`bg-gradient-` via strip-then-ban. The axe gate (`e2e/a11y.spec.ts`) scans
+  EVERY shipped combo: AIPM-light, AIPM-dark, Mockup-light (3 × A11Y_VIEWS = 39 passes), seeding
+  `lop-style`/`lop-theme` via `addInitScript`. Appearance Style switch disables the theme control while
+  Mockup is active.
+  ★★ ANY RAG-semantic color (status values, KPI deltas, win/loss, stacked-bar segments — NOT just the
+  dots) MUST use the `--rag-*`/`--rag-*-text` tokens, never raw `text-AIPM-green`/`-pink-strong`, or it
+  won't switch under Mockup (bit trend-arrow / reports-tables / StackedBar / budget / raid-report).
+  ★★ Data-table header sort buttons (`report-table` SortHeaderButton AND `task-manager-ui` SortableTh)
+  use `text-[var(--table-head-accent)]` for active/hover — raw `text-AIPM-green` is sub-AA (2.03:1) on the
+  Mockup light header AND a blanket `.lop-thead button{color}` rule silently kills the sort affordance.
 - **Scrollbar gap:** per-view inner scrollers (`min-h-0 flex-1 overflow-auto`) need `pr-2` for the
   content↔scrollbar gap. Shared `INNER_TABLE_CLASS`/report-table/actions-panel already include it; bare
   per-panel scrollers do NOT — add `pr-2` or content jams the scrollbar.
