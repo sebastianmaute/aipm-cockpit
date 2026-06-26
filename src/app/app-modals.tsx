@@ -64,8 +64,10 @@ export interface AppModalsProps {
   handleCancelEdit: () => void;
   handleRemoveContact: (name: string) => void;
   showToast: (kind: "info" | "error", text: string) => void;
-  /** Editor action buttons (Send inquiry / Push to Jira / Delete) for the classic modal footer. */
+  /** Editor action buttons (Send inquiry / Push to Jira) for the classic modal footer. */
   taskEditorActions?: ReactNode;
+  /** Pink destructive Delete button for the left side of the classic modal footer. */
+  taskDeleteAction?: ReactNode;
 
   // Resource edit modal
   editingResource: { resource: Resource; isNew: boolean } | null;
@@ -118,6 +120,7 @@ export function AppModals({
   handleRemoveContact,
   showToast,
   taskEditorActions,
+  taskDeleteAction,
   editingResource,
   onSaveResource,
   onDeleteResource,
@@ -153,6 +156,7 @@ export function AppModals({
           onRemoveContact={handleRemoveContact}
           onShowToast={showToast}
           leadingActions={taskEditorActions}
+          deleteAction={taskDeleteAction}
         />
       )}
 

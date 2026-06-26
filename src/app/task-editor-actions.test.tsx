@@ -1,7 +1,7 @@
 // src/app/task-editor-actions.test.tsx
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { TaskEditorActions } from "./task-editor-actions";
+import { TaskDeleteButton, TaskEditorActions } from "./task-editor-actions";
 import type { Task } from "./types";
 
 function makeTask(overrides: Partial<Task> = {}): Task {
@@ -21,11 +21,10 @@ function makeTask(overrides: Partial<Task> = {}): Task {
 }
 
 describe("TaskEditorActions", () => {
-  it("fires send-inquiry and delete; hides Push to Jira for an already-synced task", () => {
+  it("fires send-inquiry; hides Push to Jira for an already-synced task", () => {
     const syncedTask = makeTask({ jiraKey: "LOP-7" });
     const onSendInquiry = vi.fn();
     const onPushToJira = vi.fn();
-    const onDelete = vi.fn();
 
     render(
       <TaskEditorActions
@@ -34,17 +33,14 @@ describe("TaskEditorActions", () => {
         jiraConfigured
         onSendInquiry={onSendInquiry}
         onPushToJira={onPushToJira}
-        onDelete={onDelete}
       />,
     );
 
     expect(screen.queryByRole("button", { name: "Push to Jira" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Delete" })).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "Send inquiry" }));
     expect(onSendInquiry).toHaveBeenCalledWith(syncedTask);
-
-    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
-    expect(onDelete).toHaveBeenCalledWith(syncedTask.id);
   });
 
   it("shows Push to Jira for an unsynced task when Jira configured; click calls onPushToJira(id)", () => {
@@ -58,7 +54,6 @@ describe("TaskEditorActions", () => {
         jiraConfigured
         onSendInquiry={vi.fn()}
         onPushToJira={onPushToJira}
-        onDelete={vi.fn()}
       />,
     );
 
@@ -74,10 +69,26 @@ describe("TaskEditorActions", () => {
         jiraConfigured={false}
         onSendInquiry={vi.fn()}
         onPushToJira={vi.fn()}
-        onDelete={vi.fn()}
       />,
     );
 
     expect(screen.queryByRole("button", { name: "Push to Jira" })).toBeNull();
+  });
+});
+
+describe("TaskDeleteButton", () => {
+  it("renders a pink Delete button and fires onDelete with the task id", () => {
+    const onDelete = vi.fn();
+
+    render(
+      <TaskDeleteButton lang="en-US" taskId={99} onDelete={onDelete} />,
+    );
+
+    const btn = screen.getByRole("button", { name: "Delete" });
+    expect(btn).toBeInTheDocument();
+    expect(btn.className).toMatch(/AIPM-pink/);
+
+    fireEvent.click(btn);
+    expect(onDelete).toHaveBeenCalledWith(99);
   });
 });

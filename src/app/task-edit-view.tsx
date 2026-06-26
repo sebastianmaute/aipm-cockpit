@@ -14,6 +14,8 @@ export interface TaskEditViewProps extends TaskFormFieldsProps {
   lang: Lang;
   onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
   footer?: React.ReactNode;
+  /** Destructive action (Delete button) rendered on the left of the footer. */
+  footerLeading?: React.ReactNode;
   /** Heading shown top-left of the control bar (e.g. "Edit task" / "New task").
    *  Optional so existing render tests need not supply it. */
   heading?: string;
@@ -22,7 +24,7 @@ export interface TaskEditViewProps extends TaskFormFieldsProps {
   onClose?: () => void;
 }
 
-export function TaskEditView({ onSubmit, footer, heading, onClose, ...fieldProps }: TaskEditViewProps) {
+export function TaskEditView({ onSubmit, footer, footerLeading, heading, onClose, ...fieldProps }: TaskEditViewProps) {
   const { lang } = fieldProps;
   return (
     <div className="mx-auto w-full max-w-5xl">
@@ -56,7 +58,12 @@ export function TaskEditView({ onSubmit, footer, heading, onClose, ...fieldProps
             </div>
           </div>
           <TaskFormFields {...fieldProps} />
-          {footer && <div className="flex justify-end gap-2 border-t border-line pt-4">{footer}</div>}
+          {(footer || footerLeading) && (
+            <div className="flex items-center justify-between gap-2 border-t border-line pt-4">
+              <div>{footerLeading}</div>
+              <div className="flex items-center gap-2">{footer}</div>
+            </div>
+          )}
         </form>
       </section>
     </div>
