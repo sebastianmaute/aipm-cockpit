@@ -6,6 +6,7 @@ import type { PortfolioRow } from "./portfolio-rollup";
 const mockHook = vi.fn();
 vi.mock("./use-portfolio-health", () => ({
   usePortfolioHealth: (...args: unknown[]) => mockHook(...args),
+  PORTFOLIO_LOAD_FAILED: "portfolio-load-failed",
 }));
 
 // Control the Turso-config gate directly (real getTursoConfig validates URLs).

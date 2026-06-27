@@ -13,7 +13,7 @@ import { type Settings } from "./settings-types";
 import type { ProjectRegistryEntry } from "./projects-registry";
 import type { Health } from "./health";
 import type { SubStatus } from "./dashboard";
-import { usePortfolioHealth } from "./use-portfolio-health";
+import { usePortfolioHealth, PORTFOLIO_LOAD_FAILED } from "./use-portfolio-health";
 import type { MilestoneHealthBucket } from "./portfolio-rollup";
 import { EmptyState } from "./empty-state";
 import { PanelSkeleton } from "./skeleton";
@@ -90,9 +90,10 @@ export function PortfolioHealthPanel({
   }
   if (loading) return <PanelSkeleton lang={lang} />;
   if (error) {
+    const description = error === PORTFOLIO_LOAD_FAILED ? t(lang, "portfolioLoadErrorDesc") : error;
     return (
       <div className={VIEW_PANE_FILL_CLASS}>
-        <EmptyState title={t(lang, "portfolioLoadErrorTitle")} description={error} />
+        <EmptyState title={t(lang, "portfolioLoadErrorTitle")} description={description} />
       </div>
     );
   }

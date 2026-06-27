@@ -2409,6 +2409,7 @@ export const de: Record<TranslationKey, string> = {
   portfolioNeedsTursoTitle: "Portfolio-Status benötigt Turso",
   portfolioNeedsTursoDesc: "Stellen Sie dieses Portfolio auf eine Turso-Datenbank um, um den Status aller Projekte zusammenzufassen.",
   portfolioLoadErrorTitle: "Portfolio konnte nicht geladen werden",
+  portfolioLoadErrorDesc: "Keines der Projekte konnte geladen werden. Prüfen Sie die Turso-Verbindung und versuchen Sie es erneut.",
   portfolioEmptyTitle: "Noch keine Projekte",
   portfolioEmptyDesc: "Legen Sie Projekte in diesem Turso-Portfolio an, um ihren Status hier zu sehen.",
   portfolioKpiProjects: "Projekte",

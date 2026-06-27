@@ -58,13 +58,18 @@ for (const combo of COMBOS) {
     await gotoApp(page);
     await openView(page, "Open Points");
     // DOM-click the Board toggle (mirrors openView) so the auto-launched guided
-    // tour overlay can't intercept a real pointer click.
-    await page.evaluate(() => {
+    // tour overlay can't intercept a real pointer click. Assert it was found so
+    // a missing/renamed toggle fails loudly instead of silently scanning the
+    // table view (which would make this a no-op duplicate of "Open Points").
+    const clickedBoard = await page.evaluate(() => {
       const btn = [...document.querySelectorAll("button")].find(
         (b) => (b.textContent || "").trim() === "Board",
       );
-      (btn as HTMLElement | undefined)?.click();
+      if (!btn) return false;
+      (btn as HTMLElement).click();
+      return true;
     });
+    expect(clickedBoard, "Board toggle not found in Open Points").toBe(true);
     await waitForViewSettled(page);
 
     const results = await new AxeBuilder({ page })

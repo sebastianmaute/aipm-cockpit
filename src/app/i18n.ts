@@ -2421,6 +2421,7 @@ const enUS = {
   portfolioNeedsTursoTitle: "Portfolio health needs Turso",
   portfolioNeedsTursoDesc: "Switch this portfolio to a Turso database to roll up health across all your projects.",
   portfolioLoadErrorTitle: "Couldn't load the portfolio",
+  portfolioLoadErrorDesc: "None of the projects could be loaded. Check the Turso connection and try again.",
   portfolioEmptyTitle: "No projects yet",
   portfolioEmptyDesc: "Create projects in this Turso portfolio to see their health here.",
   portfolioKpiProjects: "Projects",
