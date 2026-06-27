@@ -205,27 +205,10 @@ export type DashboardModel = {
   narrative: { text: string; updatedAt?: string };
 };
 
-export interface DashboardInput {
-  tasks: readonly Task[];
-  raid: readonly RaidItem[];
-  budgets: readonly BudgetBucket[];
-  plan: ResourcePlan;
-  roles: readonly Role[];
-  resources: readonly Resource[];
-  absences: readonly Absence[];
-  workdayHours: number;
-  holidaySet: ReadonlySet<string>;
-  status: ProjectStatus;
-  activity: readonly ActivityEntry[];
-  today: string;
-  milestones: readonly Milestone[];
-  changes: readonly ChangeItem[];
-}
-
 /** The workspace entities `computeDashboard` reads. `milestones`/`changes` are
- *  optional here (default `[]`) so callers needn't repeat `?? []`. Callers do
- *  their OWN gating (feature-module off, no-plan budgets, …) BEFORE building —
- *  pass an empty array for a gated-off entity. */
+ *  optional here (default `[]` in `buildDashboardInput`) so callers needn't
+ *  repeat `?? []`. Callers do their OWN gating (feature-module off, no-plan
+ *  budgets, …) BEFORE building — pass an empty array for a gated-off entity. */
 export interface DashboardEntities {
   tasks: readonly Task[];
   raid: readonly RaidItem[];
@@ -248,10 +231,16 @@ export interface DashboardContext {
   today: string;
 }
 
-/** Assemble a `DashboardInput` from entities + context — the SINGLE place the
- *  14-field shape + array defaults live, so the four call sites (dashboard
- *  panel, task-manager snapshot + render model, portfolio rollup) can't drift
- *  when a field is added. */
+/** Full `computeDashboard` input — DERIVED from entities + context so the field
+ *  shape lives in exactly ONE place: add a field to `DashboardEntities` or
+ *  `DashboardContext`, never here. `Required<>` makes the optional-on-input
+ *  `milestones`/`changes` non-optional once assembled. */
+export type DashboardInput = DashboardContext & Required<DashboardEntities>;
+
+/** Assemble a `DashboardInput` from entities + context — applies the `?? []`
+ *  defaults for `milestones`/`changes` so all four call sites (dashboard panel,
+ *  task-manager snapshot + render model, portfolio rollup) share one assembler
+ *  and can't drift on defaults. */
 export function buildDashboardInput(e: DashboardEntities, ctx: DashboardContext): DashboardInput {
   return {
     tasks: e.tasks,

@@ -141,8 +141,8 @@ export function DashboardPanel(props: DashboardPanelProps) {
             roles: props.roles,
             resources: props.resources,
             absences: props.absences,
-            milestones: showMilestones ? (props.milestones ?? []) : [],
-            changes: showChanges ? (props.changes ?? []) : [],
+            milestones: showMilestones ? props.milestones : [],
+            changes: showChanges ? props.changes : [],
           },
           {
             workdayHours: props.workdayHours,
