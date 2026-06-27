@@ -205,7 +205,11 @@ export type DashboardModel = {
   narrative: { text: string; updatedAt?: string };
 };
 
-export interface DashboardInput {
+/** The workspace entities `computeDashboard` reads. `milestones`/`changes` are
+ *  optional here (default `[]` in `buildDashboardInput`) so callers needn't
+ *  repeat `?? []`. Callers do their OWN gating (feature-module off, no-plan
+ *  budgets, …) BEFORE building — pass an empty array for a gated-off entity. */
+export interface DashboardEntities {
   tasks: readonly Task[];
   raid: readonly RaidItem[];
   budgets: readonly BudgetBucket[];
@@ -213,13 +217,47 @@ export interface DashboardInput {
   roles: readonly Role[];
   resources: readonly Resource[];
   absences: readonly Absence[];
+  milestones?: readonly Milestone[];
+  changes?: readonly ChangeItem[];
+}
+
+/** The non-entity context (today/zone-derived date, settings-derived scalars,
+ *  live status + activity log) every dashboard computation needs. */
+export interface DashboardContext {
   workdayHours: number;
   holidaySet: ReadonlySet<string>;
   status: ProjectStatus;
   activity: readonly ActivityEntry[];
   today: string;
-  milestones: readonly Milestone[];
-  changes: readonly ChangeItem[];
+}
+
+/** Full `computeDashboard` input — DERIVED from entities + context so the field
+ *  shape lives in exactly ONE place: add a field to `DashboardEntities` or
+ *  `DashboardContext`, never here. `Required<>` makes the optional-on-input
+ *  `milestones`/`changes` non-optional once assembled. */
+export type DashboardInput = DashboardContext & Required<DashboardEntities>;
+
+/** Assemble a `DashboardInput` from entities + context — applies the `?? []`
+ *  defaults for `milestones`/`changes` so all four call sites (dashboard panel,
+ *  task-manager snapshot + render model, portfolio rollup) share one assembler
+ *  and can't drift on defaults. */
+export function buildDashboardInput(e: DashboardEntities, ctx: DashboardContext): DashboardInput {
+  return {
+    tasks: e.tasks,
+    raid: e.raid,
+    budgets: e.budgets,
+    plan: e.plan,
+    roles: e.roles,
+    resources: e.resources,
+    absences: e.absences,
+    milestones: e.milestones ?? [],
+    changes: e.changes ?? [],
+    workdayHours: ctx.workdayHours,
+    holidaySet: ctx.holidaySet,
+    status: ctx.status,
+    activity: ctx.activity,
+    today: ctx.today,
+  };
 }
 
 export interface DashboardOptions {

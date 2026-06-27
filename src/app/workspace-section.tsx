@@ -78,6 +78,7 @@ import {
   BudgetReportPanel,
   TrendsPanel,
   HistoryPanel,
+  PortfolioHealthPanel,
   ProjectsPanel,
   ActionsPanel,
   DocumentsPanel,
@@ -824,6 +825,20 @@ export function WorkspaceSection({
               onCaptureNow={(label) => void versionHistory.captureNow(label)}
               loadDiff={versionHistory.loadDiff}
               restore={versionHistory.restore}
+            />
+          </div>
+        )}
+
+        {activeTab === "portfolio-health" && (
+          <div id="panel-portfolio-health" role="tabpanel" className={panelScrollClass}>
+            <PortfolioHealthPanel
+              lang={lang}
+              settings={settings}
+              projects={projects}
+              today={today}
+              holidaySet={holidaySet}
+              workdayHours={settings.resources.workdayHours}
+              onSwitchProject={isPopout ? undefined : onSwitchProject}
             />
           </div>
         )}

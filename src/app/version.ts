@@ -2,11 +2,11 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.142.0";
-export const APP_BUILD_DATE = "2026-06-26"; // 0.142.0: guided backend setup wizard + task-editor delete polish + info-flows Timelog node (Herbert)
+export const APP_VERSION = "0.143.0";
+export const APP_BUILD_DATE = "2026-06-27"; // 0.143.0: Portfolio health rollup + a11y/responsive hardening (Haldeman)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.142.x line is "Herbert" (Frank Herbert). */
-export const APP_MILESTONE = "Herbert";
+ *  0.143.x line is "Haldeman" (Joe Haldeman). */
+export const APP_MILESTONE = "Haldeman";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -149,4 +149,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightDualCi",
   "versionHighlightMockupPolish",
   "versionHighlightSetupWizard",
+  "versionHighlightPortfolioHealth",
 ] as const;

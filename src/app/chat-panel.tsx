@@ -628,13 +628,13 @@ function ConsentScreen({
   ];
   return (
     <div className="rounded-lg border border-AIPM-purple/40 bg-AIPM-purple/10 p-5 dark:border-AIPM-purple/50 dark:bg-AIPM-purple/15">
-      <h3 className="text-base font-semibold text-AIPM-purple">
+      <h3 className="text-base font-semibold text-AIPM-purple-strong">
         {t(lang, "aiConsentTitle")}
       </h3>
-      <p className="mt-2 text-sm text-AIPM-purple/80">
+      <p className="mt-2 text-sm text-AIPM-purple-strong">
         {t(lang, "aiConsentNotAccepted")}
       </p>
-      <ul className="mt-3 space-y-2 text-sm text-AIPM-purple">
+      <ul className="mt-3 space-y-2 text-sm text-AIPM-purple-strong">
         {bullets.map((k) => (
           <li key={k} className="flex gap-2">
             <span aria-hidden className="mt-0.5">
@@ -649,12 +649,12 @@ function ConsentScreen({
           href={POLICY_URL}
           target="_blank"
           rel="noopener noreferrer"
-          className="font-medium text-AIPM-purple underline underline-offset-2 hover:text-AIPM-purple/80"
+          className="font-medium text-AIPM-purple-strong underline underline-offset-2 hover:text-AIPM-purple-strong/80"
         >
           {t(lang, "aiConsentPolicyLink")} ↗
         </a>
       </p>
-      <label className="mt-4 flex cursor-pointer items-start gap-2 text-sm text-AIPM-purple">
+      <label className="mt-4 flex cursor-pointer items-start gap-2 text-sm text-AIPM-purple-strong">
         <input
           type="checkbox"
           checked={policyAccepted}

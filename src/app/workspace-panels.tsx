@@ -12,6 +12,10 @@ export const ChatPanel = dynamic(
   () => import("./chat-panel").then((m) => m.ChatPanel),
   { ssr: false, loading },
 );
+export const PortfolioHealthPanel = dynamic(
+  () => import("./portfolio-health-panel").then((m) => m.PortfolioHealthPanel),
+  { ssr: false, loading },
+);
 export const GanttPanel = dynamic(
   () => import("./gantt").then((m) => m.GanttPanel),
   { ssr: false, loading },

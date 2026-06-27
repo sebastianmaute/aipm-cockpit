@@ -163,7 +163,7 @@ export async function openView(page: Page, name: string): Promise<void> {
  * The poll MUST be driver-side: `page.clock.install` (see gotoApp) fakes the
  * page's `setTimeout`, so an in-page timer-based settle would never fire.
  */
-async function waitForViewSettled(page: Page): Promise<void> {
+export async function waitForViewSettled(page: Page): Promise<void> {
   // Fonts affect text metrics (→ the large-vs-normal contrast threshold); let
   // them settle if the browser exposes the API. Tolerant — never blocks.
   await page

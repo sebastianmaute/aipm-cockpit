@@ -77,8 +77,9 @@ npm run e2e                 # playwright (incl. the 13-view axe a11y gate)
   OPPOSITE action (e.g. "Comfortable view" while compact is active) announces "Comfortable view,
   pressed" — implying the WRONG mode is on (WCAG 4.1.2). axe PASSES it (a name exists). Fix: PIN the
   label to what the toggle ENABLES ("Compact view") and let `aria-pressed` track THAT state, so
-  "Compact view, pressed" ⇒ compact is on. (Bit the dashboard density toggle; the older Trends toggle
-  still has the inverted pattern.)
+  "Compact view, pressed" ⇒ compact is on. Both dashboard toggles (density + Trends, the latter pinned
+  to a stable "Trends" label) now follow this — pin-the-enabled-label + `aria-pressed` is the RULE for
+  any new toggle button.
   Moving/folding a control INTO an axe-scanned view re-scans it: gate scans `Settings`→General, so
   folding Storage/Appearance into General surfaced pre-existing unlabeled `<select>` (a visible
   `<span>` label is NOT an `aria-label`/`<label>`) as axe-critical.
@@ -103,8 +104,11 @@ npm run e2e                 # playwright (incl. the 13-view axe a11y gate)
   `CREATE TABLE IF NOT EXISTS` can't add column and save INSERTs *named* columns, so old DB
   errors on save — `turso-migrate.ts` self-heals (PRAGMA-diff → `ALTER ADD COLUMN`, run inside
   write lock before save).
-- **Turso-gated features** (Snapshots/Trends, version history) must check `tursoConfig !== null`,
-  not just `storageConfig.kind === "turso"` (kind can be set while config unset/quarantined).
+- **Turso-gated features** (Snapshots/Trends, version history, Portfolio health) must check
+  `tursoConfig !== null`, not just `storageConfig.kind === "turso"` (kind can be set while config
+  unset/quarantined). Nav-gating: add the view to `TURSO_ONLY_VIEWS` (`nav-config.ts`) → `filterNavGroups`
+  prunes it from the sidebar in file mode (so it can't render a dead tab); the panel STILL runtime-guards.
+  ★ such a view is NOT reachable by the file-mode e2e seed → keep it OUT of `A11Y_VIEWS` (unit/eye-verify).
 - **CSP allowlist:** every host BROWSER calls (Turso, Anthropic, MS Graph, MSAL, Jira) must be in
   `src/proxy.ts` `connect-src`/`frame-src` — NOT `next.config`. Missing host fails only at RUNTIME
   (unit tests mock `fetch`; `next build` passes), so silently slips through CI. CSP edits need dev-server restart.
@@ -459,6 +463,20 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   `workspace-section-types.ts`, which it RE-EXPORTS. Static (non-lazy) panels
   (Dashboard/Milestones/SteeringCommittee/ResourceDirectory) stay imported directly. Routes the axe-scanned
   views, so changes there re-scan them.
+- **Portfolio health (Turso-only cross-project rollup):** view `portfolio-health` (`portfolio-health-panel.tsx`,
+  lazy). Pure `portfolio-rollup.ts` (`aggregatePortfolio`/`deriveMilestoneHealthBucket`) + hook
+  `use-portfolio-health.ts`: for each portfolio project it does `new TursoBackend(cfg, projectId).load()` then
+  runs the pure `computeDashboard` → per-project RAG/completion/openRAID/milestone rows + aggregate KPIs.
+  ★★ Loads SEQUENTIALLY — `TursoBackend.load()` embeds `CREATE TABLE IF NOT EXISTS` DDL OUTSIDE the write
+  lock, so parallel loads contend → `SQLITE_BUSY` (the "read-only load" assumption is FALSE). ★★ total
+  failure (every project errors) surfaces an error (`PORTFOLIO_LOAD_FAILED`), NOT the empty state (else an
+  outage reads as "no projects"). ★ budget RAG needs a REAL plan (period-key alignment) → pass budgets ONLY
+  when `ws.plan` exists, never against the placeholder `FALLBACK_PLAN`. ★ effect deps: `configKey` must
+  include the authToken (token rotation reloads); `holidaySet` (a Set) via a derived content key. ★ all four
+  `computeDashboard` call sites (this hook, dashboard-panel, task-manager snapshot + render model) assemble
+  their input via the shared `buildDashboardInput(entities, ctx)` in `dashboard.ts` (one place for the
+  14-field shape + `?? []` array defaults); callers do their OWN gating (feature-off / no-plan budgets)
+  BEFORE building — pass `[]` for a gated-off entity.
 - **UI shell:**
   • Default landing view is `dashboard` (set in `workspace-tab-context.tsx`).
   • Steering committee panel uses the STANDARD resizable content-pane shell
@@ -476,15 +494,27 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   • Settings-section deep-link is GENERAL: dashboard `onNavigate(view, section?: SettingsSectionId)` →
   task-manager `onOpenSettingsSection(section)` → `settingsSectionRequest` → SettingsView. `SettingsSectionId`
   (mirrored in `dashboard-coaching.ts`) is a SUBSET of settings-view `SectionId`.
-  • **Backend setup wizard:** `backend-setup-wizard.tsx` (5-step modal: Storage → AI → Jira → Timelog →
-  Review; skippable integration steps; Review shows configured/not-configured summary driven by pure
-  `backend-setup-steps.ts` — `BackendSetupStepKey`, `BACKEND_SETUP_STEPS`, `clampStep`,
-  `summarizeBackendSetup`). Reuses existing section components as step bodies (IntegrationsSection,
-  AiSection, JiraSettingsSection, TimelogSettings) and threads the SAME `settings`+`onChangeSettings` —
-  no new persistence path. Two launch points: Settings → Integrations ("Run setup wizard" button) and the
-  create-project wizard header. `isPopout`-gated (never shown in pop-outs). `SettingsView` gained an
-  `isPopout` prop threaded from task-manager. `onMigrateToTurso` is threaded ONLY on the Settings launch
-  (no existing workspace to migrate in create-project).
+  • **Backend setup wizard:** `backend-setup-wizard.tsx` (4-step modal: Storage & connections → AI → Jira
+  → Review; integration steps skippable; Review summarises configured/not-configured for storage/M365/AI/
+  Jira/Timelog, driven by pure `backend-setup-steps.ts` — `BackendSetupStepKey`, `BACKEND_SETUP_STEPS`,
+  `clampStep` (re-exported from `app-tour`), `summarizeBackendSetup`). ★ NO dedicated Timelog/M365 step:
+  step 1 reuses the WHOLE `IntegrationsSection` (which already renders storage+Turso+M365+Timelog), so a
+  separate step would duplicate the form. Step bodies: IntegrationsSection, AiSection, JiraSettingsSection;
+  threads the SAME `settings`+`onChangeSettings` — no new persistence path. ★ Wizard passes
+  `IntegrationsSection hidePortfolioSwitch` so the portfolio "Save & switch" `window.location.reload()`
+  can't nuke a create-project draft. Shared `WizardStepIndicator` (`wizard-step-indicator.tsx`) de-dups
+  the two wizards' step rails. Two launch points: Settings → Integrations ("Run setup wizard" button) and
+  the create-project wizard header, both gated `{wizardOpen && …}` (fresh mount per open → step resets).
+  `isPopout`-gated (never shown in pop-outs). `SettingsView` gained an `isPopout` prop threaded from
+  task-manager. `onMigrateToTurso` is threaded ONLY on the Settings launch (no existing workspace to
+  migrate in create-project).
+  • ★★ **Shared `Modal` (`modal.tsx`) STACKS — topmost-only Escape/Tab.** A module-level `modalStack` of
+  per-instance Symbol tokens; only the last-opened modal handles Escape/Tab, so a nested modal (wizard
+  opened from inside the create-project modal) no longer double-fires Escape and dismisses the parent.
+  LANDMINE (bit twice): the keydown effect must depend on `[open]` ALONE and read `onClose` via a ref —
+  if it deps `[open, onClose]`, an unstable parent `onClose` identity (re-created each render/keystroke)
+  re-runs the effect and re-pushes that modal's token to the top → wrong modal becomes topmost. Push/pop
+  lives in a SEPARATE `[open]`-only effect (order = mount order). Regression-tested in `modal.test.tsx`.
   • **Info-flows diagram** (`settings-sections/information-flows-section.tsx`) now has **6 nodes**: local
   storage, Turso, Jira, M365 (Graph + MSAL), Anthropic API, and Timelog (via `/api/timelog` proxy).
   • **Dual-CI / style axis:** `data-style="AIPM"|"mockup"` on `<html>` is ORTHOGONAL to `.dark`; set by
@@ -516,6 +546,12 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   button's `hover:bg-surface-muted`) RE-composites darker → its TEXT can drop below AA on hover. The axe
   gate scans RESTING state only, so it PASSES. Use OPAQUE pre-composited tints — `--rag-green-chip`/
   `--rag-red-chip` are opaque hex (NOT rgba) for exactly this (bit the KPI delta chips).
+  ★★ PURPLE TEXT on a purple tint needs `--AIPM-purple-strong` (light `#7a2d72`, dark `#d98cc8`), the AA
+  companion mirroring `AIPM-pink-strong`/`AIPM-green-strong` — plain `text-AIPM-purple` (#aa4899) on
+  `bg-AIPM-purple/10` is 3.6:1 (bit the AI-consent block). Bright `AIPM-purple` stays for fills/borders.
+  ★★ A `-strong` text token tuned AA on `bg-surface` can still FAIL on the lighter `bg-surface-muted` —
+  dark `--AIPM-pink-strong` was bumped `#e5497c`→`#e96089` so overdue pink text clears AA on a Kanban
+  card (`bg-surface-muted`), not just on `bg-surface`. Brightening a dark text token only RAISES contrast.
   ★★ A STRUCTURAL style diff that must stay an AIPM no-op (padding/size, not color) can't ride a Tailwind
   class (a class isn't token-toggleable). Put it in a token applied via INLINE STYLE, gated on presence:
   e.g. `--delta-chip-pad` (AIPM `0` ⇒ byte-identical; Mockup pads the pill), `style={chip ? {padding:

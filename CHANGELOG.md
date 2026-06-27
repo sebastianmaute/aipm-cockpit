@@ -8,6 +8,17 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.143.0] - 2026-06-27 "Haldeman"
+
+### Added
+- **Portfolio health view** (Turso portfolios): a cross-project rollup that loads each project and runs the dashboard engine to show per-project RAG (overall/schedule/budget), completion %, open RAID and milestone health, plus aggregate KPIs across the portfolio. Turso-only (file-mode shows a "switch to Turso" hint); read-only and safe in pop-outs.
+
+### Changed
+- **Accessibility hardening**: the dashboard Trends toggle now keeps a stable "Trends" label with `aria-pressed` tracking the shown state (was announcing the opposite action); the AI-assistant and Kanban-board views are now covered by the accessibility gate.
+
+### Fixed
+- WCAG AA contrast on the AI-consent block (new darker purple) and on overdue due-dates on Kanban cards in dark mode.
+
 ## [0.142.0] - 2026-06-26 "Herbert"
 
 ### Added
