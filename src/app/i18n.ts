@@ -136,6 +136,7 @@ const enUS = {
   versionHighlightDualCi: "Switch between the Acme look and a richer Dashboard style (shadows, gradients, red/amber status) in Settings - Appearance",
   versionHighlightMockupPolish: "The Dashboard style gains a completion gauge bar, tinted delta chips and a lighter active-control look; the Acme look is unchanged",
   versionHighlightSetupWizard: "A guided backend setup wizard walks you through storage and integrations from Settings or the new-project window",
+  versionHighlightPortfolioHealth: "A Turso-only Portfolio health view rolls up RAG status, completion and open RAID across all your projects",
 
   tasks: "Tasks",
   tasksCount: "({0})",

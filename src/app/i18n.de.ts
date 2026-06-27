@@ -139,6 +139,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightDualCi: "Wechsle in Einstellungen – Darstellung zwischen dem Acme-Look und einem reichhaltigeren Dashboard-Stil (Schatten, Verläufe, Rot/Gelb-Status)",
   versionHighlightMockupPolish: "Der Dashboard-Stil erhält eine Fortschrittsanzeige, getönte Delta-Chips und eine hellere Optik für aktive Bedienelemente; der Acme-Look bleibt unverändert",
   versionHighlightSetupWizard: "Ein geführter Einrichtungsassistent führt Sie aus den Einstellungen oder dem Fenster für neue Projekte durch Speicher und Integrationen.",
+  versionHighlightPortfolioHealth: "Eine reine Turso-Ansicht \"Portfolio-Status\" bündelt RAG-Status, Fortschritt und offene RAID-Einträge über alle Projekte.",
 
   tasks: "Aufgaben",
   tasksCount: "({0})",
