@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { KpiGradientBar, ReportCard, Section, Tile } from "./report-table";
-import { computeDashboard } from "./dashboard";
+import { buildDashboardInput, computeDashboard } from "./dashboard";
 import { RegistersBand } from "./dashboard-sections/registers-band";
 import { useWorkspace } from "./workspace-context";
 import { loadActivityLog, type ActivityEntry } from "./activity-log";
@@ -131,22 +131,28 @@ export function DashboardPanel(props: DashboardPanelProps) {
 
   const model = useMemo(
     () =>
-      computeDashboard({
-        tasks: props.tasks,
-        raid: showRaid ? props.raid : [],
-        budgets: showBudget ? props.budgets : [],
-        plan: props.plan,
-        roles: props.roles,
-        resources: props.resources,
-        absences: props.absences,
-        workdayHours: props.workdayHours,
-        holidaySet: props.holidaySet,
-        status,
-        activity,
-        today,
-        milestones: showMilestones ? (props.milestones ?? []) : [],
-        changes: showChanges ? (props.changes ?? []) : [],
-      }),
+      computeDashboard(
+        buildDashboardInput(
+          {
+            tasks: props.tasks,
+            raid: showRaid ? props.raid : [],
+            budgets: showBudget ? props.budgets : [],
+            plan: props.plan,
+            roles: props.roles,
+            resources: props.resources,
+            absences: props.absences,
+            milestones: showMilestones ? (props.milestones ?? []) : [],
+            changes: showChanges ? (props.changes ?? []) : [],
+          },
+          {
+            workdayHours: props.workdayHours,
+            holidaySet: props.holidaySet,
+            status,
+            activity,
+            today,
+          },
+        ),
+      ),
     [
       props.tasks, props.raid, props.budgets, props.plan,
       props.roles, props.resources, props.absences,

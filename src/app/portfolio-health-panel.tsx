@@ -11,6 +11,7 @@ import { type Lang, t } from "./i18n";
 import { getTursoConfig } from "./turso-config";
 import { type Settings } from "./settings-types";
 import type { ProjectRegistryEntry } from "./projects-registry";
+import { healthDot, healthColorName } from "./health";
 import type { Health } from "./health";
 import type { SubStatus } from "./dashboard";
 import { usePortfolioHealth, PORTFOLIO_LOAD_FAILED } from "./use-portfolio-health";
@@ -32,22 +33,15 @@ export interface PortfolioHealthPanelProps {
   onSwitchProject?: (id: string) => void;
 }
 
-// RAG value → role-token bg + translated label. Tokens flip under the Mockup
-// style; text label carries the meaning so colour is never the sole signal.
-function ragMeta(lang: Lang, v: SubStatus): { token: string; label: string } {
-  if (v === "R") return { token: "--rag-red", label: t(lang, "healthRed") };
-  if (v === "A") return { token: "--rag-amber", label: t(lang, "healthAmber") };
-  if (v === "G") return { token: "--rag-green", label: t(lang, "healthGreen") };
-  return { token: "", label: "—" };
-}
-
+// RAG cell — reuses health.ts `healthDot` (role-token bg class) + `healthColorName`
+// (translated label) so the dot reflows under Mockup and the text label carries
+// the meaning (colour never the sole signal). null SubStatus → "—".
 function RagCell({ lang, value }: { lang: Lang; value: SubStatus }) {
-  const { token, label } = ragMeta(lang, value);
-  if (!token) return <span className="text-muted-foreground">—</span>;
+  if (!value) return <span className="text-muted-foreground">—</span>;
   return (
     <span className="inline-flex items-center gap-1.5">
-      <span aria-hidden className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: `var(${token})` }} />
-      <span>{label}</span>
+      <span aria-hidden className={`inline-block h-2.5 w-2.5 rounded-full ${healthDot[value]}`} />
+      <span>{healthColorName(value, lang)}</span>
     </span>
   );
 }

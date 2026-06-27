@@ -21,6 +21,7 @@ vi.mock("./turso-backend", () => ({
 }));
 
 vi.mock("./dashboard", () => ({
+  buildDashboardInput: (e: unknown) => e,
   computeDashboard: () => ({
     overall: { effective: "G" },
     schedule: { effective: "G" },

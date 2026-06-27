@@ -472,8 +472,11 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   failure (every project errors) surfaces an error (`PORTFOLIO_LOAD_FAILED`), NOT the empty state (else an
   outage reads as "no projects"). ★ budget RAG needs a REAL plan (period-key alignment) → pass budgets ONLY
   when `ws.plan` exists, never against the placeholder `FALLBACK_PLAN`. ★ effect deps: `configKey` must
-  include the authToken (token rotation reloads); `holidaySet` (a Set) via a derived content key. ★ it's the
-  4th `computeDashboard` input-assembly site (dashboard-panel + task-manager ×2) — no shared builder yet.
+  include the authToken (token rotation reloads); `holidaySet` (a Set) via a derived content key. ★ all four
+  `computeDashboard` call sites (this hook, dashboard-panel, task-manager snapshot + render model) assemble
+  their input via the shared `buildDashboardInput(entities, ctx)` in `dashboard.ts` (one place for the
+  14-field shape + `?? []` array defaults); callers do their OWN gating (feature-off / no-plan budgets)
+  BEFORE building — pass `[]` for a gated-off entity.
 - **UI shell:**
   • Default landing view is `dashboard` (set in `workspace-tab-context.tsx`).
   • Steering committee panel uses the STANDARD resizable content-pane shell

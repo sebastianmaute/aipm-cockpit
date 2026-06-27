@@ -79,7 +79,7 @@ import { useSnapshots } from "./use-snapshots";
 import { useVersionHistory } from "./use-version-history";
 import { DEFAULT_VERSION_RETENTION } from "./version-history";
 import { workspaceToJson, jsonToWorkspace, type Workspace } from "./workspace";
-import { computeDashboard } from "./dashboard";
+import { buildDashboardInput, computeDashboard } from "./dashboard";
 import { getTursoConfig } from "./turso-config";
 import { defaultExportConfig, defaultNextActionsLearning, defaultSnapshotSettings, resolveNextActionsConfig, type Settings } from "./settings-types";
 import { buildSuggestionContext } from "./weight-suggestion-ai";
@@ -462,22 +462,12 @@ function TaskManagerInner() {
     projectId: portfolioMode === "turso" ? (tursoProjectId ?? "") : "",
     today: new Date(),
     buildContext: () => {
-      const model = computeDashboard({
-        tasks,
-        raid,
-        budgets,
-        plan,
-        roles,
-        resources,
-        absences,
-        workdayHours: settings.resources.workdayHours,
-        holidaySet,
-        status,
-        activity: activityLog,
-        today,
-        milestones,
-        changes,
-      });
+      const model = computeDashboard(
+        buildDashboardInput(
+          { tasks, raid, budgets, plan, roles, resources, absences, milestones, changes },
+          { workdayHours: settings.resources.workdayHours, holidaySet, status, activity: activityLog, today },
+        ),
+      );
       return {
         model,
         tasks,
@@ -672,22 +662,12 @@ function TaskManagerInner() {
   // but memoized so nextActions and the dashboard panel share one computation.
   const dashboardModel = useMemo(
     () =>
-      computeDashboard({
-        tasks,
-        raid,
-        budgets,
-        plan,
-        roles,
-        resources,
-        absences,
-        workdayHours: settings.resources.workdayHours,
-        holidaySet,
-        status,
-        activity: activityLog,
-        today,
-        milestones,
-        changes,
-      }),
+      computeDashboard(
+        buildDashboardInput(
+          { tasks, raid, budgets, plan, roles, resources, absences, milestones, changes },
+          { workdayHours: settings.resources.workdayHours, holidaySet, status, activity: activityLog, today },
+        ),
+      ),
     [tasks, raid, budgets, plan, roles, resources, absences, settings.resources.workdayHours, holidaySet, status, activityLog, today, milestones, changes],
   );
 
