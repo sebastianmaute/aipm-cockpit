@@ -292,9 +292,11 @@ export function DashboardPanel(props: DashboardPanelProps) {
           <div className={`break-inside-avoid ${dc.cardGap}`}>
             <DashboardKpiStrip lang={lang} model={model} trends={trends} onNavigate={props.onNavigate} dc={dc} />
           </div>
-          <div className={`break-inside-avoid ${dc.cardGap}`}>
-            <DashboardTopActions lang={lang} topActions={topActions} onOpenAction={onOpenAction} dc={dc} />
-          </div>
+          {topActions?.length ? (
+            <div className={`break-inside-avoid ${dc.cardGap}`}>
+              <DashboardTopActions lang={lang} topActions={topActions} onOpenAction={onOpenAction} dc={dc} />
+            </div>
+          ) : null}
           {showRaid && (
             <div className={`break-inside-avoid ${dc.cardGap}`}>
               <RaidRegisterCard lang={lang} topRaid={model.topRaid} onOpenRaid={onOpenRaid} showRaid={showRaid} />
