@@ -6,7 +6,6 @@ import type { ProjectStatus } from "../types";
 import { computeDashboard, buildDashboardInput } from "../dashboard";
 import { densityClasses } from "../dashboard-density";
 import { computeMetricTrends } from "../dashboard-trends";
-import type { SuggestedAction } from "../next-actions/types";
 import { DashboardHero } from "./dashboard-hero";
 
 const plan = { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month" as const, currency: "EUR" };
@@ -22,18 +21,7 @@ function model() {
 
 const trends = computeMetricTrends(undefined, { complete: 0, overdue: 0, openRaid: 0 });
 
-const sampleAction: SuggestedAction = {
-  id: "raid:1:severity",
-  source: "raid",
-  moduleId: "raid",
-  title: { key: "actionRaidTitle", params: [1, "X"] },
-  why: { key: "actionRaidWhySeverity", params: ["High"] },
-  score: 60,
-  tier: "now",
-  cta: { kind: "open", view: "raid", id: 1 },
-};
-
-function Host(props: { topActions?: readonly SuggestedAction[] }) {
+function Host() {
   const [status, setStatus] = useState<ProjectStatus>({});
   return (
     <DashboardHero
@@ -43,8 +31,6 @@ function Host(props: { topActions?: readonly SuggestedAction[] }) {
       trends={trends}
       status={status}
       setStatus={setStatus}
-      topActions={props.topActions}
-      onOpenAction={vi.fn()}
       onNavigate={vi.fn()}
       showBudget
       showChanges
@@ -70,19 +56,5 @@ describe("DashboardHero", () => {
     // setStatus drove status.ragOverride; OverrideSelect reads value from props.status,
     // so the controlled select now reflects "R" (proves the write path is wired).
     expect(select.value).toBe("R");
-  });
-
-  it("renders the Top actions heading only when topActions has items", () => {
-    const { rerender } = render(<Host />);
-    expect(screen.queryByText("Top actions")).toBeNull();
-    rerender(<Host topActions={[]} />);
-    expect(screen.queryByText("Top actions")).toBeNull();
-  });
-
-  it("renders the Top actions heading + an ActionRow when a real action is passed", () => {
-    render(<Host topActions={[sampleAction]} />);
-    expect(screen.getByText("Top actions")).toBeInTheDocument();
-    // The ActionRow render path is exercised: the action's title resolves.
-    expect(screen.getByText(/X/)).toBeInTheDocument();
   });
 });

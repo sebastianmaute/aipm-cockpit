@@ -4,7 +4,6 @@ import type { Dispatch, SetStateAction } from "react";
 import { type Lang, t } from "../i18n";
 import { healthColorName, healthText, type Health } from "../health";
 import { RagBadge } from "../rag-badge";
-import { ActionRow } from "../action-row";
 import { TRANSITION, FOCUS_RING } from "../interaction-styles";
 import type { DashboardModel } from "../dashboard";
 import type { MetricKey, MetricTrend } from "../dashboard-trends";
@@ -61,7 +60,7 @@ export interface DashboardHeroProps {
 }
 
 export function DashboardHero(props: DashboardHeroProps) {
-  const { lang, today, model, status, setStatus, topActions, onOpenAction, showBudget, showChanges, dc } = props;
+  const { lang, today, model, status, setStatus, showBudget, showChanges, dc } = props;
   return (
     <div className={dc.outer}>
       {/* Overall band */}
@@ -92,17 +91,6 @@ export function DashboardHero(props: DashboardHeroProps) {
         <p className="basis-full text-xs text-muted-foreground">{t(lang, "dashboardRagThresholds")}</p>
       </div>
 
-      {/* Top actions — KPI strip extracted to DashboardKpiStrip (standalone masonry item). */}
-      {topActions && topActions.length > 0 ? (
-        <section>
-          <h3 className="mb-2 text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">{t(lang, "dashboardTopActions")}</h3>
-          <div className="flex flex-col gap-2">
-            {topActions.map((a) => (
-              <ActionRow key={a.id} lang={lang} action={a} onOpen={onOpenAction ?? (() => {})} />
-            ))}
-          </div>
-        </section>
-      ) : null}
     </div>
   );
 }
