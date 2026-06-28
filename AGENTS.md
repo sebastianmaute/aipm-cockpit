@@ -687,8 +687,10 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   removed. ★ FILTERED-empty + popout (no create handler) fall back to the plain text box (gantt) or the
   no-matches row (tables) — never a dead add affordance. ★ Test gotcha: the box's "+ Add X…" text collides
   with the header add-button on a `getByRole("button",{name:/add x/i})` query — render WITH one item when
-  asserting the header button. ★ READ-ONLY empties (no add action): documents renders the `EmptyState` alone
-  (no scroller, no empty table headers); activity uses a natural-height dashed box (drop `flex-1`). ★ Steering
+  asserting the header button. ★ Documents uses the clickable box too — it opens the add-document panel
+  (`setAddOpen(true)`; manual-link entry needs no SharePoint). ★ Activity is fully FLAT: the data-view
+  scroller has NO border (border dropped per request) and the empty/no-match states are natural-height dashed
+  boxes (`flex-1` dropped) — read-only, no add affordance. ★ Steering
   committee is a FORM (no empty state) — its content scroller is flattened (border removed) always. This
   SUPERSEDES the older "use EmptyState, not a dashed-div" rule for the add-first-item case (EmptyState still
   stands for read-only "no data" messages).
