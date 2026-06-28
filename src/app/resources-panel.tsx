@@ -283,7 +283,7 @@ function ResourcesPanelInner({
   const renderHeader = () => (
     <header className="mb-2 flex shrink-0 items-center justify-between gap-2">
       <h2 className="text-lg font-medium text-foreground">
-        {t(lang, "tabResources")}
+        {t(lang, view === "workload" ? "resourcesViewWorkload" : view === "calendar" ? "resourcesViewCalendar" : "resourcesViewPlanning")}
         {rows.length > 0 && (
           <span className="ml-2 text-sm font-normal text-muted-foreground">
             {t(lang, "tasksCount", rows.length)}
