@@ -13,7 +13,6 @@ import { useResizable } from "./use-resizable";
 import { useColumnResize } from "./use-column-resize";
 import { ColumnResizeHandle, PrintButton, ResetColWidthsButton, ResetSizeButton } from "./task-manager-ui";
 import { isSharePointEnabled } from "./m365-sharepoint";
-import { EmptyState } from "./empty-state";
 import { FOCUS_RING, TRANSITION, INTERACTIVE } from "./interaction-styles";
 
 const DOCS_COL_WIDTHS = { document: 360, source: 240 } as const;
@@ -197,7 +196,15 @@ export function DocumentsPanel() {
         </div>
       )}
       {docs.length === 0 ? (
-        <EmptyState compact title={t(lang, "documentsTabEmpty")} />
+        // Empty → gantt-style clickable dashed box: opens the add-document panel.
+        <button
+          type="button"
+          onClick={() => setAddOpen(true)}
+          className={`flex w-full flex-col items-center gap-2 rounded-xl border border-dashed border-line p-10 text-center text-sm text-muted-foreground hover:border-AIPM-dark-blue hover:text-AIPM-dark-blue dark:hover:text-AIPM-light-grey ${INTERACTIVE}`}
+        >
+          <span>{t(lang, "documentsTabEmpty")}</span>
+          <span className="font-medium">+ {t(lang, "documentsTabAdd")}…</span>
+        </button>
       ) : (
         <div className={INNER_TABLE_CLASS}>
         <table className="w-full text-left text-sm">
