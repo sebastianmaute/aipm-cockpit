@@ -521,9 +521,12 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   BEFORE building — pass `[]` for a gated-off entity.
 - **UI shell:**
   • **Help view:** `help` AppView in the SYSTEM nav group below Settings (help-circle icon). `HelpView`
-  (`help-view.tsx`, lazy) is a searchable/printable in-pane page reusing the SHARED `HELP_SECTIONS`
-  (`help-sections.ts`, extracted from `help-menu.tsx` — the floating top-bar Help panel stays + imports the
-  same list). ★ Adding `help` to `AppView` forced FOUR edits (tsc/runtime): `CORE_VIEWS` (`feature-modules.ts`
+  (`help-view.tsx`, STATIC import — it takes an `onTakeTour` callback and `dynamic()` strips function props
+  under the RSC serializable-props rule) renders the SHARED backbone `help-content.ts` (`HELP_ENTRIES`:
+  HelpGroup `concepts`/`workflows`/`features`/`automated`, EN/DE, `relatedViews`/`relatedConcepts` for later
+  SPs) GROUPED — grouped TOC + group headers (`HELP_GROUP_LABEL`, exhaustive `Record<HelpGroup>`) + per-concept
+  "Related:" links + a "Take the tour" button. The floating top-bar Help panel stays features-only via the
+  derived `HELP_SECTIONS` (`help-sections.ts` was renamed to `help-content.ts`). ★ Adding `help` to `AppView` forced FOUR edits (tsc/runtime): `CORE_VIEWS` (`feature-modules.ts`
   — else `filterNavGroups` prunes it), `LABEL_KEYS` + `navLabelKey` (`nav-config.ts`), `ICON_PATHS`
   (`nav-icons.tsx`, exhaustive `Record<AppView>`), + i18n `navHelp`. NOT a popout tab. Not in `A11Y_VIEWS`
   (the sidebar entry IS scanned every view; eye-verify the page).
