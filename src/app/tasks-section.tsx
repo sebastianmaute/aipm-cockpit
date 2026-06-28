@@ -545,8 +545,23 @@ export function TasksSection({
       ) : (
       <div
         ref={containerRef}
-        className="min-h-0 flex-1 w-full overflow-auto rounded-xl border border-line bg-surface pr-2"
+        className={tasks.length === 0 ? undefined : "min-h-0 flex-1 w-full overflow-auto rounded-xl border border-line bg-surface pr-2"}
       >
+        {tasks.length === 0 ? (
+          // Empty → clickable dashed box (budget/gantt empty-state convention):
+          // descriptive text + "+ Add task…", the box opens the task editor.
+          <button
+            type="button"
+            onClick={() => {
+              handleCancelEdit();
+              setTaskModalOpen(true);
+            }}
+            className={`flex w-full flex-col items-center gap-2 rounded-xl border border-dashed border-line p-10 text-center text-sm text-muted-foreground hover:border-AIPM-dark-blue hover:text-AIPM-dark-blue dark:hover:text-AIPM-light-grey ${INTERACTIVE}`}
+          >
+            <span>{t(lang, "noTasks")}</span>
+            <span className="font-medium">+ {t(lang, "addTaskButton")}…</span>
+          </button>
+        ) : (
         <RowContextProvider value={rowContextValue}>
           <table
             className="divide-y divide-line text-left text-sm"
@@ -590,14 +605,7 @@ export function TasksSection({
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
-              {tasks.length === 0 && (
-                <tr>
-                  <td colSpan={visibleColumnCount} className="p-10 text-center text-sm text-muted-foreground">
-                    {t(lang, "noTasks")}
-                  </td>
-                </tr>
-              )}
-              {tasks.length > 0 && visibleRows.length === 0 && (
+              {visibleRows.length === 0 && (
                 <tr>
                   <td colSpan={visibleColumnCount} className="p-10 text-center text-sm text-muted-foreground">
                     {t(lang, "noTasksFiltered")}
@@ -636,6 +644,7 @@ export function TasksSection({
             </tbody>
           </table>
         </RowContextProvider>
+        )}
       </div>
       )}
     </section>

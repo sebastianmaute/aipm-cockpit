@@ -298,7 +298,7 @@ function StakeholdersPanelBody({
         )}
       </div>
 
-      <div ref={containerRef} className="min-h-[240px] flex-1 overflow-auto rounded-md border border-line pr-2">
+      <div ref={containerRef} className={stakeholders.length === 0 ? undefined : "min-h-[240px] flex-1 overflow-auto rounded-md border border-line pr-2"}>
         {stakeholders.length === 0 ? (
           // Empty → clickable dashed box (mirrors the budget "+ add bucket"
           // empty state): descriptive text + "+ Add stakeholder…", box adds one.

@@ -499,7 +499,20 @@ function RaidPanelBody({
         <BulkEditPanel lang={lang} count={sel.count} fields={bulkFields} onApply={applyBulk} onCancel={() => setBulkOpen(false)} />
       )}
 
-      <div ref={containerRef} className="min-h-[240px] flex-1 overflow-auto rounded-md border border-line pr-2">
+      <div ref={containerRef} className={raid.length === 0 ? undefined : "min-h-[240px] flex-1 overflow-auto rounded-md border border-line pr-2"}>
+        {raid.length === 0 ? (
+          // Empty → clickable dashed box (budget/gantt empty-state convention):
+          // descriptive text + "+ Add RAID item…", the box opens the create form.
+          <button
+            type="button"
+            onClick={() => openNew(effectiveCategory)}
+            aria-label={t(lang, "raidAddItem")}
+            className={`flex w-full flex-col items-center gap-2 rounded-md border border-dashed border-line p-10 text-center text-sm text-muted-foreground hover:border-AIPM-dark-blue hover:text-AIPM-dark-blue dark:hover:text-AIPM-light-grey ${INTERACTIVE}`}
+          >
+            <span>{t(lang, "raidEmpty")}</span>
+            <span className="font-medium">+ {t(lang, "raidAddItem")}…</span>
+          </button>
+        ) : (
         <table className="min-w-full text-left text-sm">
           <thead className={TABLE_HEAD_CLASS}>
             <tr>
@@ -566,14 +579,7 @@ function RaidPanelBody({
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
-            {raid.length === 0 && (
-              <tr>
-                <td colSpan={10} className="p-10 text-center text-sm text-muted-foreground">
-                  {t(lang, "raidEmpty")}
-                </td>
-              </tr>
-            )}
-            {raid.length > 0 && visible.length === 0 && (
+            {visible.length === 0 && (
               <tr>
                 <td colSpan={10} className="p-10 text-center text-sm text-muted-foreground">
                   {t(lang, "raidNoMatches")}
@@ -728,6 +734,7 @@ function RaidPanelBody({
             </tr>
           </tbody>
         </table>
+        )}
       </div>
 
       {draft && (

@@ -301,7 +301,7 @@ function MilestonesPanelBody({
         )}
       </div>
 
-      <div ref={containerRef} className={INNER_TABLE_CLASS}>
+      <div ref={containerRef} className={sorted.length === 0 ? undefined : INNER_TABLE_CLASS}>
       {sorted.length === 0 ? (
         // Empty → clickable dashed box (mirrors the budget "+ add bucket" empty
         // state): descriptive text + "+ New milestone…", the whole box adds one.
