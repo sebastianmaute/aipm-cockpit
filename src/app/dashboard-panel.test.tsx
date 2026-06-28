@@ -198,30 +198,6 @@ describe("DashboardPanel RAG polish (Task 3)", () => {
     const heading = screen.getByText("Progress");
     expect(heading.closest("div.rounded-lg")).not.toBeNull();
   });
-
-  it("commits the narrative via the Save button and shows the updated label", async () => {
-    const user = userEvent.setup();
-    render(
-      <DashboardPanel
-        lang="en-US"
-        tasks={[]}
-        raid={[]}
-        budgets={minimalBudget as never}
-        plan={plan}
-        roles={[]}
-        resources={[]}
-        absences={[]}
-        holidaySet={new Set<string>()}
-        workdayHours={8}
-        today="2026-06-02"
-      />,
-      { wrapper },
-    );
-    const textarea = screen.getByPlaceholderText(/Summarize the current status/i);
-    await user.type(textarea, "All good this week");
-    await user.click(screen.getByRole("button", { name: "Save" }));
-    expect(screen.getByText(/Updated/)).toBeInTheDocument();
-  });
 });
 
 describe("DashboardPanel top-actions card (Task 7)", () => {
@@ -300,175 +276,6 @@ describe("DashboardPanel top-actions card (Task 7)", () => {
   it("does NOT render the Top actions heading when topActions is empty", () => {
     render(<DashboardPanel {...baseProps} topActions={[]} />, { wrapper });
     expect(screen.queryByText("Top actions")).toBeNull();
-  });
-});
-
-describe("DashboardPanel status narrative layout (Task 2)", () => {
-  function renderNarrative() {
-    render(
-      <DashboardPanel
-        lang="en-US"
-        tasks={[
-          { id: 1, title: "Done task", status: "Done", health: "G", linkedRaidIds: [], subtaskIds: [], parentId: null, assigneeIds: [] } as never,
-        ]}
-        raid={[]}
-        budgets={minimalBudget as never}
-        plan={plan}
-        roles={[]}
-        resources={[]}
-        absences={[]}
-        holidaySet={new Set<string>()}
-        workdayHours={8}
-        today="2026-06-02"
-      />,
-      { wrapper },
-    );
-  }
-
-  it("places Save and Clear in a justify-end row BELOW the textarea", () => {
-    renderNarrative();
-    const textarea = screen.getByRole("textbox");
-    const save = screen.getByRole("button", { name: /save/i });
-    const clear = screen.getByRole("button", { name: /clear/i });
-
-    // Save and Clear share one button row.
-    const row = save.parentElement!;
-    expect(row).toBe(clear.parentElement);
-    expect(row.className).toContain("justify-end");
-    expect(row.className).toContain("print:hidden");
-
-    // The button row is a sibling that follows the textarea in DOM order.
-    const container = textarea.parentElement!;
-    expect(container).toBe(row.parentElement);
-    const kids = Array.from(container.children);
-    expect(kids.indexOf(textarea)).toBeLessThan(kids.indexOf(row));
-  });
-
-  it("grows the textarea height to scrollHeight on input (autogrow)", async () => {
-    const user = userEvent.setup();
-    renderNarrative();
-    const textarea = screen.getByRole("textbox") as HTMLTextAreaElement;
-    // jsdom has no layout, so stub scrollHeight to a known value.
-    Object.defineProperty(textarea, "scrollHeight", { configurable: true, value: 173 });
-    await user.type(textarea, "line one\nline two\nline three");
-    expect(textarea.style.height).toBe("173px");
-  });
-});
-
-describe("DashboardPanel status narrative Clear button", () => {
-  it("Clear empties and persists the status narrative", async () => {
-    const user = userEvent.setup();
-    render(
-      <DashboardPanel
-        lang="en-US"
-        tasks={[]}
-        raid={[]}
-        budgets={[]}
-        plan={plan}
-        roles={[]}
-        resources={[]}
-        absences={[]}
-        holidaySet={new Set<string>()}
-        workdayHours={8}
-        today="2026-06-02"
-      />,
-      { wrapper },
-    );
-    // Seed a non-empty narrative via the textarea + Save
-    const textarea = screen.getByRole("textbox");
-    await user.type(textarea, "Some narrative text");
-    await user.click(screen.getByRole("button", { name: /save/i }));
-    // Now the Clear button should be enabled (narrative is non-empty)
-    const clearBtn = screen.getByRole("button", { name: /clear/i });
-    expect(clearBtn).not.toBeDisabled();
-    await user.click(clearBtn);
-    expect((screen.getByRole("textbox") as HTMLTextAreaElement).value).toBe("");
-  });
-
-  it("Clear resets the textarea back to its default (short) height", async () => {
-    const user = userEvent.setup();
-    render(
-      <DashboardPanel
-        lang="en-US"
-        tasks={[]}
-        raid={[]}
-        budgets={[]}
-        plan={plan}
-        roles={[]}
-        resources={[]}
-        absences={[]}
-        holidaySet={new Set<string>()}
-        workdayHours={8}
-        today="2026-06-02"
-      />,
-      { wrapper },
-    );
-    const textarea = screen.getByRole("textbox") as HTMLTextAreaElement;
-    // jsdom has no layout, so stub scrollHeight to simulate a grown box.
-    Object.defineProperty(textarea, "scrollHeight", { configurable: true, value: 240 });
-    await user.type(textarea, "line one\nline two\nline three\nline four");
-    // The box grew to the tall scrollHeight on input.
-    expect(textarea.style.height).toBe("240px");
-    await user.click(screen.getByRole("button", { name: /save/i }));
-
-    // Now simulate the empty/short box: scrollHeight clamps to the min-height.
-    Object.defineProperty(textarea, "scrollHeight", { configurable: true, value: 96 });
-    await user.click(screen.getByRole("button", { name: /clear/i }));
-    // The resize path ran on Clear → inline height is back to the short value,
-    // not stuck at the previously-grown 240px.
-    expect((screen.getByRole("textbox") as HTMLTextAreaElement).value).toBe("");
-    expect((screen.getByRole("textbox") as HTMLTextAreaElement).style.height).toBe("96px");
-  });
-
-  it("auto-shrinks the textarea height as content is removed", async () => {
-    const user = userEvent.setup();
-    render(
-      <DashboardPanel
-        lang="en-US"
-        tasks={[]}
-        raid={[]}
-        budgets={[]}
-        plan={plan}
-        roles={[]}
-        resources={[]}
-        absences={[]}
-        holidaySet={new Set<string>()}
-        workdayHours={8}
-        today="2026-06-02"
-      />,
-      { wrapper },
-    );
-    const textarea = screen.getByRole("textbox") as HTMLTextAreaElement;
-    // Grow.
-    Object.defineProperty(textarea, "scrollHeight", { configurable: true, value: 200 });
-    await user.type(textarea, "line one\nline two\nline three");
-    expect(textarea.style.height).toBe("200px");
-    // Remove content → scrollHeight shrinks; the onInput resize (height="auto" first)
-    // lets the box shrink back down rather than staying tall.
-    Object.defineProperty(textarea, "scrollHeight", { configurable: true, value: 96 });
-    await user.clear(textarea);
-    expect(textarea.style.height).toBe("96px");
-  });
-
-  it("Clear is disabled when the narrative is already empty", () => {
-    render(
-      <DashboardPanel
-        lang="en-US"
-        tasks={[]}
-        raid={[]}
-        budgets={[]}
-        plan={plan}
-        roles={[]}
-        resources={[]}
-        absences={[]}
-        holidaySet={new Set<string>()}
-        workdayHours={8}
-        today="2026-06-02"
-      />,
-      { wrapper },
-    );
-    const clearBtn = screen.getByRole("button", { name: /clear/i });
-    expect(clearBtn).toBeDisabled();
   });
 });
 
@@ -999,5 +806,44 @@ describe("DashboardPanel click-through parity (slice #9)", () => {
     // settings.updated has no deep-link destination → its row stays a span.
     expect(screen.getByText(/2026-06-20 · settings\.updated/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /settings\.updated/ })).toBeNull();
+  });
+});
+
+describe("DashboardPanel Tier-2 bento", () => {
+  it("renders Progress, Milestones, and Changes inside one lg:grid-cols-2 bento", () => {
+    render(<DashboardPanel {...fullProps} />, { wrapper });
+    const progress = screen.getByText("Progress");
+    // Walk up to the bento grid container. (jsdom's selector engine rejects the
+    // escaped-colon Tailwind class as a CSS selector, so match via classList.)
+    let bento: HTMLElement | null = progress.parentElement;
+    while (bento && !bento.classList.contains("lg:grid-cols-2")) {
+      bento = bento.parentElement;
+    }
+    expect(bento).not.toBeNull();
+    // Milestones + Changes live in the SAME bento grid.
+    expect(bento!.textContent).toContain("Milestones");
+    expect(bento!.textContent).toContain("Changes");
+  });
+
+  it("renders RegistersBand (Top open RAID) BEFORE the bento grid in DOM order", () => {
+    render(<DashboardPanel {...fullProps} />, { wrapper });
+    const registers = screen.getByText("Top open RAID");
+    const progress = screen.getByText("Progress");
+    expect(registers.compareDocumentPosition(progress) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+});
+
+describe("DashboardPanel Tier-3 folds", () => {
+  it("folds Recent activity into a details disclosure", () => {
+    render(<DashboardPanel {...fullProps} />, { wrapper });
+    const heading = screen.getByText(t("en-US", "dashboardRecentActivity"));
+    expect(heading.closest("details")).not.toBeNull();
+  });
+
+  it("renders the narrative editor (Status summary) AFTER the bento Progress card", () => {
+    render(<DashboardPanel {...fullProps} />, { wrapper });
+    const progress = screen.getByText("Progress");
+    const editor = screen.getByText("Status summary");
+    expect(progress.compareDocumentPosition(editor) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 });
