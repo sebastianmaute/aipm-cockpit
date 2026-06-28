@@ -196,7 +196,10 @@ export function DocumentsPanel() {
           )}
         </div>
       )}
-      <div className={INNER_TABLE_CLASS}>
+      {docs.length === 0 ? (
+        <EmptyState compact title={t(lang, "documentsTabEmpty")} />
+      ) : (
+        <div className={INNER_TABLE_CLASS}>
         <table className="w-full text-left text-sm">
           <thead className={TABLE_HEAD_CLASS}>
             <tr>
@@ -253,10 +256,8 @@ export function DocumentsPanel() {
             ))}
           </tbody>
         </table>
-        {docs.length === 0 && (
-          <EmptyState compact title={t(lang, "documentsTabEmpty")} />
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
