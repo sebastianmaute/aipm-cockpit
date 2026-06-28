@@ -77,9 +77,9 @@ npm run e2e                 # playwright (incl. the 13-view axe a11y gate)
   OPPOSITE action (e.g. "Comfortable view" while compact is active) announces "Comfortable view,
   pressed" — implying the WRONG mode is on (WCAG 4.1.2). axe PASSES it (a name exists). Fix: PIN the
   label to what the toggle ENABLES ("Compact view") and let `aria-pressed` track THAT state, so
-  "Compact view, pressed" ⇒ compact is on. Both dashboard toggles (density + Trends, the latter pinned
-  to a stable "Trends" label) now follow this — pin-the-enabled-label + `aria-pressed` is the RULE for
-  any new toggle button.
+  "Compact view, pressed" ⇒ compact is on. (The dashboard's own density + Trends toggles followed this
+  before they were REMOVED — density moved to Settings → Appearance, Trends is now Turso-gated.) The
+  pin-the-enabled-label + `aria-pressed` pattern remains the RULE for any new toggle button.
   Moving/folding a control INTO an axe-scanned view re-scans it: gate scans `Settings`→General, so
   folding Storage/Appearance into General surfaced pre-existing unlabeled `<select>` (a visible
   `<span>` label is NOT an `aria-label`/`<label>`) as axe-critical.
