@@ -5,8 +5,7 @@ import { type Lang, t, localeFor } from "./i18n";
 import { currencySymbol } from "./resource-cost";
 import { roleLabel } from "./resource-foundation";
 import type { Discipline, Grade, Role } from "./types";
-import { useColumnResize } from "./use-column-resize";
-import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton, PrintButton } from "./task-manager-ui";
+import { ResetSizeButton, PrintButton } from "./task-manager-ui";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import { INNER_TABLE_CLASS } from "./view-styles";
 import { InfoTooltip } from "./info-tooltip";
@@ -17,7 +16,6 @@ export const ROLES_COL_WIDTHS = {
   internal: 120,
   external: 120,
 } as const;
-export type RolesCol = keyof typeof ROLES_COL_WIDTHS;
 
 export interface RolesEditorProps {
   lang: Lang;
@@ -59,12 +57,6 @@ export function RolesEditor({
   const [newGrade, setNewGrade] = useState("");
   const [comboDiscipline, setComboDiscipline] = useState<number | "">("");
   const [comboGrade, setComboGrade] = useState<number | "">("");
-  const { colWidths, startColResize, resetColWidths } = useColumnResize<RolesCol>(
-    "roles",
-    ROLES_COL_WIDTHS,
-  );
-  const startResize = startColResize as (col: string, e: React.MouseEvent) => void;
-
   type SortKey = "discipline" | "grade" | "internal" | "external";
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" } | null>(null);
   function toggleSort(key: SortKey) {
@@ -103,7 +95,6 @@ export function RolesEditor({
           <h4 className="text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">{t(lang, "rolesRateCard")}</h4>
           <div className="flex flex-row flex-nowrap items-center gap-2">
             {onResetSize && <ResetSizeButton onClick={onResetSize} lang={lang} />}
-            <ResetColWidthsButton onClick={resetColWidths} lang={lang} />
             <PrintButton lang={lang} />
           </div>
         </div>
@@ -115,41 +106,37 @@ export function RolesEditor({
           <table className="w-full text-left text-sm">
             <thead className={TABLE_HEAD_CLASS}>
               <tr>
-                <th className="relative px-3 py-2 font-medium" style={{ width: colWidths.discipline, minWidth: colWidths.discipline }}>
+                <th className="relative px-3 py-2 font-medium" style={{ width: ROLES_COL_WIDTHS.discipline, minWidth: ROLES_COL_WIDTHS.discipline }}>
                   <span className="inline-flex items-center gap-1">
                     <button type="button" onClick={() => toggleSort("discipline")} className="inline-flex items-center gap-1 hover:text-AIPM-green">
                       {t(lang, "rolesDiscipline")}{sort?.key === "discipline" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
                     </button>
                     <InfoTooltip text={t(lang, "rolesDisciplineHint")} />
                   </span>
-                  <ColumnResizeHandle col="discipline" onMouseDown={startResize} />
                 </th>
-                <th className="relative px-3 py-2 font-medium" style={{ width: colWidths.grade, minWidth: colWidths.grade }}>
+                <th className="relative px-3 py-2 font-medium" style={{ width: ROLES_COL_WIDTHS.grade, minWidth: ROLES_COL_WIDTHS.grade }}>
                   <span className="inline-flex items-center gap-1">
                     <button type="button" onClick={() => toggleSort("grade")} className="inline-flex items-center gap-1 hover:text-AIPM-green">
                       {t(lang, "rolesGrade")}{sort?.key === "grade" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
                     </button>
                     <InfoTooltip text={t(lang, "rolesGradeHint")} />
                   </span>
-                  <ColumnResizeHandle col="grade" onMouseDown={startResize} />
                 </th>
-                <th className="relative px-3 py-2 text-right font-medium" style={{ width: colWidths.internal, minWidth: colWidths.internal }}>
+                <th className="relative px-3 py-2 text-right font-medium" style={{ width: ROLES_COL_WIDTHS.internal, minWidth: ROLES_COL_WIDTHS.internal }}>
                   <span className="inline-flex items-center gap-1">
                     <button type="button" onClick={() => toggleSort("internal")} className="inline-flex items-center gap-1 hover:text-AIPM-green">
                       {t(lang, "rolesInternalRate")}{sort?.key === "internal" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
                     </button>
                     <InfoTooltip text={t(lang, "rolesInternalRateHint")} />
                   </span>
-                  <ColumnResizeHandle col="internal" onMouseDown={startResize} />
                 </th>
-                <th className="relative px-3 py-2 text-right font-medium" style={{ width: colWidths.external, minWidth: colWidths.external }}>
+                <th className="relative px-3 py-2 text-right font-medium" style={{ width: ROLES_COL_WIDTHS.external, minWidth: ROLES_COL_WIDTHS.external }}>
                   <span className="inline-flex items-center gap-1">
                     <button type="button" onClick={() => toggleSort("external")} className="inline-flex items-center gap-1 hover:text-AIPM-green">
                       {t(lang, "rolesExternalRate")}{sort?.key === "external" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
                     </button>
                     <InfoTooltip text={t(lang, "rolesExternalRateHint")} />
                   </span>
-                  <ColumnResizeHandle col="external" onMouseDown={startResize} />
                 </th>
                 <th className="px-3 py-2" />
               </tr>
