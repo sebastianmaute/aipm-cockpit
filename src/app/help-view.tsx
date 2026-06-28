@@ -30,7 +30,7 @@ function Highlighted({ text, query }: { text: string; query: string }) {
 /** In-pane Help view (sidebar nav entry, below Settings). Renders the shared
  *  help sections (the same content as the floating top-bar Help panel) as a
  *  searchable, printable page. */
-export function HelpView({ lang }: { lang: Lang }) {
+export function HelpView({ lang, onTakeTour }: { lang: Lang; onTakeTour?: () => void }) {
   const [query, setQuery] = useState("");
   const { ref, reset } = useResizable("lop-app:help-view-size");
   const filtered = useMemo(
@@ -55,6 +55,15 @@ export function HelpView({ lang }: { lang: Lang }) {
           className={`ml-2 min-w-[12rem] rounded-md border border-line bg-surface px-2 py-1 text-sm text-foreground placeholder:text-muted-foreground ${FOCUS_RING} ${TRANSITION} print:hidden`}
         />
         <span className="ml-auto" />
+        {onTakeTour && (
+          <button
+            type="button"
+            onClick={onTakeTour}
+            className={`rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90 ${INTERACTIVE} print:hidden`}
+          >
+            {t(lang, "tourLaunch")}
+          </button>
+        )}
         <PrintButton lang={lang} />
         <ResetSizeButton onClick={reset} lang={lang} />
       </div>

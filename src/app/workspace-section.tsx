@@ -56,6 +56,7 @@ import {
 import {
   MilestonesPanel,
 } from "./milestones-panel";
+import { HelpView } from "./help-view";
 import {
   SteeringCommitteePanel,
 } from "./steering-committee-panel";
@@ -67,7 +68,6 @@ import {
   RaidPanel,
   ResourcesPanel,
   ActivityLogPanel,
-  HelpView,
   ResourcesReportPanel,
   RaidReportPanel,
   ChangePanel,
@@ -172,6 +172,7 @@ export function WorkspaceSection({
   expertMode,
   onOpenLearningSettings,
   onOpenSettingsSection,
+  onTakeTour,
   aiAnalysis,
   onPushMilestonesToOutlook,
   calendarPushBusy,
@@ -610,7 +611,7 @@ export function WorkspaceSection({
 
         {activeTab === "help" && (
           <div id="panel-help" role="tabpanel" className={panelClass}>
-            <HelpView lang={lang} />
+            <HelpView lang={lang} onTakeTour={onTakeTour} />
           </div>
         )}
 

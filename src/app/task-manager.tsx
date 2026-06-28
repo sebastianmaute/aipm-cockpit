@@ -1816,6 +1816,7 @@ function TaskManagerInner() {
     expertMode: settings.expertMode === true,
     onOpenLearningSettings,
     onOpenSettingsSection: isPopout ? undefined : onOpenSettingsSection,
+    onTakeTour: settings.layout === "modern" && !isPopout ? startTour : undefined,
     aiAnalysis: isPopout ? undefined : aiAnalysisBundle,
     onPushMilestonesToOutlook: calendarPushEnabled ? calendarPushToOutlook : undefined,
     calendarPushBusy: calendarPushEnabled ? calendarPushBusy : undefined,
