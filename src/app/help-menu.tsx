@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { INTERACTIVE } from "./interaction-styles";
 import { matchesQuery, highlightSegments } from "./help-search";
 import { type Lang, t } from "./i18n";
-import { HELP_SECTIONS as SECTIONS } from "./help-sections";
+import { HELP_SECTIONS as SECTIONS } from "./help-content";
 import { useResizable } from "./use-resizable";
 import { APP_LICENSE_URL } from "./version";
 
