@@ -1,12 +1,10 @@
 "use client";
 
 import type { Dispatch, SetStateAction } from "react";
-import { KpiGradientBar, Tile } from "../report-table";
 import { type Lang, t } from "../i18n";
 import { healthColorName, healthText, type Health } from "../health";
 import { RagBadge } from "../rag-badge";
 import { ActionRow } from "../action-row";
-import { TrendArrow } from "../trend-arrow";
 import { TRANSITION, FOCUS_RING } from "../interaction-styles";
 import type { DashboardModel } from "../dashboard";
 import type { MetricKey, MetricTrend } from "../dashboard-trends";
@@ -63,7 +61,7 @@ export interface DashboardHeroProps {
 }
 
 export function DashboardHero(props: DashboardHeroProps) {
-  const { lang, today, model, trends, status, setStatus, topActions, onOpenAction, onNavigate, showBudget, showChanges, dc } = props;
+  const { lang, today, model, status, setStatus, topActions, onOpenAction, showBudget, showChanges, dc } = props;
   return (
     <div className={dc.outer}>
       {/* Overall band */}
@@ -94,46 +92,17 @@ export function DashboardHero(props: DashboardHeroProps) {
         <p className="basis-full text-xs text-muted-foreground">{t(lang, "dashboardRagThresholds")}</p>
       </div>
 
-      {/* KPI strip + Top actions side-by-side on lg. Without top actions the
-          KPI grid is the sole child and must stay full-width (drop the second
-          column) — otherwise it renders at 50% on large screens. */}
-      <div className={`grid grid-cols-1 ${topActions?.length ? "lg:grid-cols-2" : ""} ${dc.sectionGap} items-start`}>
-        <div className={`grid grid-cols-1 sm:grid-cols-3 ${dc.kpiGap}`}>
-          <Tile
-            label={t(lang, "dashboardKpiComplete")}
-            value={`${model.progress.percent}%`}
-            bar={<KpiGradientBar percent={model.progress.percent} label={t(lang, "dashboardKpiComplete")} />}
-            trend={<TrendArrow trend={trends.complete} metricLabel={t(lang, "dashboardKpiComplete")} unit="%" lang={lang} />}
-            onActivate={onNavigate ? () => onNavigate("open-points") : undefined}
-            activateLabel={`${t(lang, "dashboardKpiComplete")} – ${t(lang, "dashboardOpenTasksView")}`}
-          />
-          <Tile
-            label={t(lang, "dashboardKpiOverdue")}
-            value={String(model.overdue.length)}
-            trend={<TrendArrow trend={trends.overdue} metricLabel={t(lang, "dashboardKpiOverdue")} lang={lang} />}
-            onActivate={onNavigate ? () => onNavigate("open-points") : undefined}
-            activateLabel={`${t(lang, "dashboardKpiOverdue")} – ${t(lang, "dashboardOpenTasksView")}`}
-          />
-          <Tile
-            label={t(lang, "dashboardKpiOpenRaid")}
-            value={String(model.openRaidCount)}
-            trend={<TrendArrow trend={trends.openRaid} metricLabel={t(lang, "dashboardKpiOpenRaid")} lang={lang} />}
-            onActivate={onNavigate ? () => onNavigate("raid") : undefined}
-            activateLabel={`${t(lang, "dashboardKpiOpenRaid")} – ${t(lang, "dashboardOpenRaidView")}`}
-          />
-        </div>
-
-        {topActions && topActions.length > 0 ? (
-          <section>
-            <h3 className="mb-2 text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">{t(lang, "dashboardTopActions")}</h3>
-            <div className="flex flex-col gap-2">
-              {topActions.map((a) => (
-                <ActionRow key={a.id} lang={lang} action={a} onOpen={onOpenAction ?? (() => {})} />
-              ))}
-            </div>
-          </section>
-        ) : null}
-      </div>
+      {/* Top actions — KPI strip extracted to DashboardKpiStrip (standalone masonry item). */}
+      {topActions && topActions.length > 0 ? (
+        <section>
+          <h3 className="mb-2 text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">{t(lang, "dashboardTopActions")}</h3>
+          <div className="flex flex-col gap-2">
+            {topActions.map((a) => (
+              <ActionRow key={a.id} lang={lang} action={a} onOpen={onOpenAction ?? (() => {})} />
+            ))}
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }

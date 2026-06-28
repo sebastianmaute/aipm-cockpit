@@ -54,11 +54,9 @@ function Host(props: { topActions?: readonly SuggestedAction[] }) {
 }
 
 describe("DashboardHero", () => {
-  it("renders the Overall band, the 3 KPI tiles, and the Adjust-health disclosure", () => {
+  it("renders the Overall band and the Adjust-health disclosure", () => {
     render(<Host />);
     expect(screen.getByText("Overall")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Complete – Open the tasks list/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Open RAID –/ })).toBeInTheDocument();
     expect(screen.getByText("Adjust health ratings").closest("details")).not.toBeNull();
   });
 
