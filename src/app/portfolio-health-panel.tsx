@@ -19,8 +19,9 @@ import type { MilestoneHealthBucket } from "./portfolio-rollup";
 import { EmptyState } from "./empty-state";
 import { PanelSkeleton } from "./skeleton";
 import { Tile, KpiGradientBar } from "./report-table";
-import { PrintButton } from "./task-manager-ui";
-import { VIEW_PANE_FILL_CLASS } from "./view-styles";
+import { PrintButton, ResetSizeButton } from "./task-manager-ui";
+import { useResizable } from "./use-resizable";
+import { VIEW_PANE_FILL_CLASS, VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { INTERACTIVE } from "./interaction-styles";
 
 export interface PortfolioHealthPanelProps {
@@ -75,6 +76,7 @@ export function PortfolioHealthPanel({
     holidaySet,
     workdayHours,
   );
+  const { ref: paneRef, reset: resetSize } = useResizable("lop-app:portfolio-health-size");
 
   if (!tursoConfig) {
     return (
@@ -101,12 +103,16 @@ export function PortfolioHealthPanel({
   }
 
   return (
-    <div className={`print-root print-landscape ${VIEW_PANE_FILL_CLASS} overflow-y-auto pr-2`}>
-      <div className="mb-3 flex items-center justify-between gap-2">
+    <div ref={paneRef} className={`print-root print-landscape ${VIEW_PANE_RESIZABLE_CLASS}`}>
+      <div className="mb-2 flex shrink-0 items-center justify-between gap-2">
         <h2 className="text-lg font-medium text-foreground">{t(lang, "navPortfolioHealth")}</h2>
-        <PrintButton lang={lang} />
+        <div className="flex items-center gap-2 print:hidden">
+          <PrintButton lang={lang} />
+          <ResetSizeButton onClick={resetSize} lang={lang} />
+        </div>
       </div>
 
+      <div className="min-h-[240px] flex-1 overflow-auto rounded-xl border border-line p-3 pr-2 print:max-h-none print:overflow-visible">
       {/* Aggregate KPI strip */}
       <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Tile label={t(lang, "portfolioKpiProjects")} value={aggregate.projectCount} />
@@ -159,6 +165,7 @@ export function PortfolioHealthPanel({
           ))}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }
