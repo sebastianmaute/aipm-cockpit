@@ -39,7 +39,11 @@ export function useHashView(enabled: boolean = true, features?: readonly Feature
   useLayoutEffect(() => {
     if (!enabled || isPopout) return;
     const apply = () => {
-      const { view, itemId } = parseHash(currentHash());
+      const raw = currentHash();
+      // Fresh open / no view encoded ("" or bare "#") lands on the Dashboard
+      // home rather than the parseHash slug fallback.
+      const blank = raw === "" || raw === "#";
+      const { view, itemId } = blank ? { view: "dashboard" as const, itemId: null } : parseHash(raw);
       if (features && !isViewEnabled(view, features)) return; // disabled target: ignore the hash
       setActiveTab(view);
       if (itemId != null) requestOpen(view, itemId);

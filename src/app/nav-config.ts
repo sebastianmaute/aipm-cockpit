@@ -56,7 +56,11 @@ export const NAV_GROUPS: NavGroup[] = [
   },
   {
     labelKey: "navGroupOverview",
-    items: [{ view: "dashboard" }, { view: "actions" }, { view: "trends" }, { view: "open-points" }, { view: "chat" }],
+    items: [
+      { view: "dashboard", children: [{ view: "actions" }, { view: "trends" }] },
+      { view: "open-points" },
+      { view: "chat" },
+    ],
   },
   {
     labelKey: "navGroupPlan",
@@ -140,7 +144,7 @@ export function allNavViews(): AppView[] {
 /** Views that are only reachable on a Turso backend. They are pruned from the
  *  nav when `storageKind !== "turso"` so they never render a dead tab on the
  *  file backend. "history" is gated this way (version history lives in Turso). */
-const TURSO_ONLY_VIEWS: readonly AppView[] = ["history", "portfolio-health"];
+const TURSO_ONLY_VIEWS: readonly AppView[] = ["history", "portfolio-health", "trends"];
 
 /** NAV_GROUPS pruned to enabled views: disabled items and children removed,
  *  and any group left with no items dropped. Core views always survive.
