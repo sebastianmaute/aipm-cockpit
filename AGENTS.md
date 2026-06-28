@@ -248,8 +248,9 @@ wide-screen voids (huge whitespace under the short KPI/Progress cards). ★★ M
 re-split: its KPI strip + Top-actions had to join the same flow as the other short/tall cards. Reading
 order is column-major (top→bottom per column); cards are ordered priority-first. New density key
 `dc.cardGap` (`mb-4` comfortable / `mb-2` compact) is the inter-card vertical margin (multicol ignores
-`gap`/`space-y` between items). The Trends widget (`showTrends`-gated `VarianceSummary`) is a masonry
-card placed directly after Progress; the footer holds only the status-summary + recent-activity
+`gap`/`space-y` between items). The Trends widget (`props.tursoActive`-gated `VarianceSummary`) is a masonry
+card placed directly after Progress and is itself a click-through button → navigates to the Trends view
+(`onNavigate("trends")`); the footer holds only the status-summary + recent-activity
 `<details>`. The presentational slices:
 - `dashboard-sections/dashboard-hero.tsx` (`DashboardHero`) — now ONLY the compact Overall RAG band +
   Adjust-health `<details>`; OWNS the `OverrideSelect` helper. Props trimmed to
@@ -381,13 +382,13 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   spacing on a cockpit slice MUST use a `dc.*` class (`outer`/`kpiGap`/`cardPad`/`sectionGap`),
   NOT a literal `gap-*`/`space-y-*`/`p-*` — a literal ignores compact mode (bit the two section
   grids: they stayed `gap-4` while everything else compressed).
-  `DashboardPanel` takes `density?` (default `"comfortable"`) + `onToggleDensity?`. ★★ TWO controls, ONE
-  setting (`settings.dashboardDensity?`, per-device, persisted via `setSettings`→`writeSettings` SPREAD —
-  no allowlist edit, mirrors `tasksViewMode`): on-panel toggle button + a `SegmentedControl<DashboardDensity>`
-  in `AppearanceSection` (Settings→General). `onToggleDensity` is `isPopout ? undefined` (popouts honour the
-  `density` prop but render no toggle). ★ Settings→General AND Dashboard are BOTH axe-scanned —
-  SegmentedControl's `ariaLabel` + the on-panel button's text name keep the gate green. ★ Compact-test
-  asserts `.space-y-2` PRESENCE only (container-only; a global-absence check is brittle). i18n EN+DE.
+  `DashboardPanel` takes `density?` (default `"comfortable"`). ★★ ONE control now (the on-panel toggle was
+  REMOVED): the SOLE density control is a `SegmentedControl<DashboardDensity>` in `AppearanceSection`
+  (Settings→General), writing `settings.dashboardDensity?` (per-device, persisted via
+  `setSettings`→`writeSettings` SPREAD — no allowlist edit, mirrors `tasksViewMode`). The panel just reads
+  the `density` prop. ★ Settings→General is axe-scanned — SegmentedControl's `ariaLabel` keeps the gate
+  green. ★ Compact-test asserts `.space-y-2` PRESENCE only (container-only; a global-absence check is
+  brittle). i18n EN+DE.
 - **Click-through:** `Tile` (`report-table.tsx`) gained an optional `onActivate`/`activateLabel` clickable
   variant (renders a real `<button>` — axe-safe name via `activateLabel`); pure i18n-free `activityViewOf`
   (`dashboard-activity-nav.ts`) maps an activity `kind`→`AppView`; KPI/progress/burn tiles + the completion
@@ -499,7 +500,10 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   (Dashboard/Milestones/SteeringCommittee/ResourceDirectory) stay imported directly. Routes the axe-scanned
   views, so changes there re-scan them.
 - **Portfolio health (Turso-only cross-project rollup):** view `portfolio-health` (`portfolio-health-panel.tsx`,
-  lazy). Pure `portfolio-rollup.ts` (`aggregatePortfolio`/`deriveMilestoneHealthBucket`) + hook
+  lazy). Uses the STANDARD resizable content-pane shell (`VIEW_PANE_RESIZABLE_CLASS` +
+  `useResizable("lop-app:portfolio-health-size")` + `ResetSizeButton`; header OUTSIDE the bordered scroller,
+  `print-root print-landscape`) — the empty/loading/error states stay full-fill (`VIEW_PANE_FILL_CLASS`).
+  Pure `portfolio-rollup.ts` (`aggregatePortfolio`/`deriveMilestoneHealthBucket`) + hook
   `use-portfolio-health.ts`: for each portfolio project it does `new TursoBackend(cfg, projectId).load()` then
   runs the pure `computeDashboard` → per-project RAG/completion/openRAID/milestone rows + aggregate KPIs.
   ★★ Loads SEQUENTIALLY — `TursoBackend.load()` embeds `CREATE TABLE IF NOT EXISTS` DDL OUTSIDE the write
@@ -513,12 +517,18 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   14-field shape + `?? []` array defaults); callers do their OWN gating (feature-off / no-plan budgets)
   BEFORE building — pass `[]` for a gated-off entity.
 - **UI shell:**
-  • Default landing view is `dashboard` (set in `workspace-tab-context.tsx`).
+  • Default landing view is `dashboard` (`workspace-tab-context.tsx` initial `activeTab`); `useHashView`
+  also lands a fresh/empty hash ("" or bare "#") on `dashboard` (not the `slugToView` "open-points"
+  fallback), so opening the app at `/` goes to the Dashboard home. Deep-links + reload-on-a-view still honour the hash.
+  • Nav: `actions` (Next actions) + `trends` are SUB-MENU children of `dashboard` in the Overview group
+  (`nav-config.ts`); `trends` is in `TURSO_ONLY_VIEWS` so the Trends sub-entry only shows on a Turso backend.
   • Steering committee panel uses the STANDARD resizable content-pane shell
   (`VIEW_PANE_RESIZABLE_CLASS` + `useResizable("lop-app:steering-size")` + `ResetSizeButton`, header OUTSIDE
   the bordered scroller).
-  • Dashboard density/Trends toggles render in the `ReportCard` `toolbarExtra` slot (left of Print); the
-  report date sits on the "Overall" line.
+  • Dashboard has NO on-panel density or Trends toggle (both removed + unwired). Density is set ONLY via
+  Settings → Appearance (`settings.dashboardDensity`); the dashboard Trends card is Turso-gated
+  (`props.tursoActive`), not toggled. The `ReportCard` `toolbarExtra` slot is unused on the dashboard now;
+  the report date sits on the "Overall" line.
   • `settings.showDisplayTzSwitcher?` (per-device, default **false**) gates the top-bar `displayTzSwitcherEl`
   — both header mounts share the ONE gated element.
   • Task-editor actions render ONLY in the editor surface (TaskEditView footer / TaskFormModal), NEVER the
