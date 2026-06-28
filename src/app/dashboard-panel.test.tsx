@@ -832,3 +832,18 @@ describe("DashboardPanel Tier-2 bento", () => {
     expect(registers.compareDocumentPosition(progress) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 });
+
+describe("DashboardPanel Tier-3 folds", () => {
+  it("folds Recent activity into a details disclosure", () => {
+    render(<DashboardPanel {...fullProps} />, { wrapper });
+    const heading = screen.getByText(t("en-US", "dashboardRecentActivity"));
+    expect(heading.closest("details")).not.toBeNull();
+  });
+
+  it("renders the narrative editor (Status summary) AFTER the bento Progress card", () => {
+    render(<DashboardPanel {...fullProps} />, { wrapper });
+    const progress = screen.getByText("Progress");
+    const editor = screen.getByText("Status summary");
+    expect(progress.compareDocumentPosition(editor) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+});
