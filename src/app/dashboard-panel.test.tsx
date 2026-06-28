@@ -808,3 +808,27 @@ describe("DashboardPanel click-through parity (slice #9)", () => {
     expect(screen.queryByRole("button", { name: /settings\.updated/ })).toBeNull();
   });
 });
+
+describe("DashboardPanel Tier-2 bento", () => {
+  it("renders Progress, Milestones, and Changes inside one lg:grid-cols-2 bento", () => {
+    render(<DashboardPanel {...fullProps} />, { wrapper });
+    const progress = screen.getByText("Progress");
+    // Walk up to the bento grid container. (jsdom's selector engine rejects the
+    // escaped-colon Tailwind class as a CSS selector, so match via classList.)
+    let bento: HTMLElement | null = progress.parentElement;
+    while (bento && !bento.classList.contains("lg:grid-cols-2")) {
+      bento = bento.parentElement;
+    }
+    expect(bento).not.toBeNull();
+    // Milestones + Changes live in the SAME bento grid.
+    expect(bento!.textContent).toContain("Milestones");
+    expect(bento!.textContent).toContain("Changes");
+  });
+
+  it("renders RegistersBand (Top open RAID) BEFORE the bento grid in DOM order", () => {
+    render(<DashboardPanel {...fullProps} />, { wrapper });
+    const registers = screen.getByText("Top open RAID");
+    const progress = screen.getByText("Progress");
+    expect(registers.compareDocumentPosition(progress) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+});

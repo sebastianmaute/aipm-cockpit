@@ -288,50 +288,22 @@ export function DashboardPanel(props: DashboardPanelProps) {
           dc={dc}
         />
 
-        {/* Completion-trend sparkline — self-hides without >= 2 points */}
-        {completionSeries.length >= 2 && (() => {
-          const sparkBody = (
-            <>
-              <div className="mb-1 flex items-baseline justify-between">
-                <span className="text-xs uppercase tracking-wide text-muted-foreground">
-                  {t(lang, "dashboardCompletionTrend")}
-                </span>
-                <span className="text-xs text-muted-foreground tabular-nums">
-                  {t(lang, "dashboardCompletionTrendPoints", completionSeries.length)}
-                </span>
-              </div>
-              <Sparkline
-                points={completionSeries}
-                ariaLabel={t(
-                  lang,
-                  "dashboardCompletionTrendAria",
-                  completionSeries[completionSeries.length - 1].percent,
-                  completionSeries[0].percent,
-                  completionSeries.length,
-                )}
-              />
-            </>
-          );
-          const trendView = props.tursoActive ? "trends" : "open-points";
-          return props.onNavigate ? (
-            <button
-              type="button"
-              aria-label={t(lang, props.tursoActive ? "dashboardOpenTrendsView" : "dashboardOpenTasksView")}
-              onClick={() => props.onNavigate!(trendView)}
-              className={`block w-full rounded border border-line bg-surface text-left shadow-[var(--shadow-card)] hover:border-AIPM-dark-blue ${INTERACTIVE} ${dc.cardPad}`}
-            >
-              {sparkBody}
-            </button>
-          ) : (
-            <div className={`rounded border border-line bg-surface shadow-[var(--shadow-card)] ${dc.cardPad}`}>{sparkBody}</div>
-          );
-        })()}
-
         {/* Narrative editor (folded) */}
         <NarrativeEditor lang={lang} status={status} setStatus={setStatus} />
 
-        {/* Progress + Budget burn */}
-        <div className={`grid md:grid-cols-2 ${dc.sectionGap}`}>
+        {/* Tier 2 — operational core, full width */}
+        <RegistersBand
+          lang={lang}
+          topRaid={model.topRaid}
+          overdue={model.overdue}
+          dueSoon={model.dueSoon}
+          onOpenRaid={onOpenRaid}
+          onOpenTask={onOpenTask}
+          showRaid={showRaid}
+        />
+
+        {/* Tier 2 — detail bento: Progress · Budget · Milestones · Changes · Sparkline */}
+        <div className={`grid grid-cols-1 lg:grid-cols-2 ${dc.sectionGap} items-start`}>
           <Section title={t(lang, "dashboardProgress")} boxed>
             <div className="flex flex-wrap gap-2">
               <Tile
@@ -407,21 +379,6 @@ export function DashboardPanel(props: DashboardPanelProps) {
               ) : null}
             </Section>
           )}
-        </div>
-
-        {/* RAID + upcoming tasks + Milestones */}
-        <RegistersBand
-          lang={lang}
-          topRaid={model.topRaid}
-          overdue={model.overdue}
-          dueSoon={model.dueSoon}
-          onOpenRaid={onOpenRaid}
-          onOpenTask={onOpenTask}
-          showRaid={showRaid}
-        />
-
-        {/* Milestones + Changes (side-by-side on large screens) */}
-        <div className={`grid grid-cols-1 lg:grid-cols-2 ${dc.sectionGap}`}>
           {showMilestones && (
             <Section title={t(lang, "dashboardMilestones")} boxed>
               <MilestoneHorizonStrip lang={lang} buckets={milestoneBuckets} onOpenMilestone={props.onOpenMilestone} />
@@ -466,6 +423,44 @@ export function DashboardPanel(props: DashboardPanelProps) {
               )}
             </Section>
           )}
+          {/* Completion-trend sparkline — self-hides without >= 2 points */}
+          {completionSeries.length >= 2 && (() => {
+            const sparkBody = (
+              <>
+                <div className="mb-1 flex items-baseline justify-between">
+                  <span className="text-xs uppercase tracking-wide text-muted-foreground">
+                    {t(lang, "dashboardCompletionTrend")}
+                  </span>
+                  <span className="text-xs text-muted-foreground tabular-nums">
+                    {t(lang, "dashboardCompletionTrendPoints", completionSeries.length)}
+                  </span>
+                </div>
+                <Sparkline
+                  points={completionSeries}
+                  ariaLabel={t(
+                    lang,
+                    "dashboardCompletionTrendAria",
+                    completionSeries[completionSeries.length - 1].percent,
+                    completionSeries[0].percent,
+                    completionSeries.length,
+                  )}
+                />
+              </>
+            );
+            const trendView = props.tursoActive ? "trends" : "open-points";
+            return props.onNavigate ? (
+              <button
+                type="button"
+                aria-label={t(lang, props.tursoActive ? "dashboardOpenTrendsView" : "dashboardOpenTasksView")}
+                onClick={() => props.onNavigate!(trendView)}
+                className={`block w-full rounded border border-line bg-surface text-left shadow-[var(--shadow-card)] hover:border-AIPM-dark-blue ${INTERACTIVE} ${dc.cardPad}`}
+              >
+                {sparkBody}
+              </button>
+            ) : (
+              <div className={`rounded border border-line bg-surface shadow-[var(--shadow-card)] ${dc.cardPad}`}>{sparkBody}</div>
+            );
+          })()}
         </div>
 
         {/* Trends widget (toggled from the top toolbar) */}
