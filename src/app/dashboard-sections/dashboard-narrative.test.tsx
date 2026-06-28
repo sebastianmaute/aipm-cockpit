@@ -25,9 +25,16 @@ describe("NarrativeSummary", () => {
 
 // A host that owns ProjectStatus state so the editor's commit/clear + the
 // render-time reconcile run against a real setState (mirrors WorkspaceProvider).
-function EditorHost({ initial = "" }: { initial?: string }) {
+function EditorHost({ initial = "", externalNarrative }: { initial?: string; externalNarrative?: string }) {
   const [status, setStatus] = useState<ProjectStatus>({ narrative: initial });
-  return <NarrativeEditor lang="en-US" status={status} setStatus={setStatus} />;
+  return (
+    <>
+      <button type="button" onClick={() => setStatus({ narrative: externalNarrative ?? "" })}>
+        external reload
+      </button>
+      <NarrativeEditor lang="en-US" status={status} setStatus={setStatus} />
+    </>
+  );
 }
 
 describe("NarrativeEditor", () => {
@@ -64,5 +71,19 @@ describe("NarrativeEditor", () => {
   it("Clear is disabled when the narrative is already empty", () => {
     render(<EditorHost />);
     expect(screen.getByRole("button", { name: /clear/i })).toBeDisabled();
+  });
+
+  it("re-seeds the draft when status.narrative changes externally (workspace reload)", async () => {
+    const user = userEvent.setup();
+    render(<EditorHost externalNarrative="External status from reload" />);
+    await user.click(screen.getByText("Status summary"));
+    const textarea = screen.getByRole("textbox") as HTMLTextAreaElement;
+    // Local edit (uncommitted) — the draft diverges from the stored narrative.
+    await user.type(textarea, "Local edit");
+    expect(textarea.value).toBe("Local edit");
+    // An external workspace reload changes status.narrative; the render-time
+    // reconcile must replace the draft with the new stored value.
+    await user.click(screen.getByRole("button", { name: /external reload/i }));
+    expect((screen.getByRole("textbox") as HTMLTextAreaElement).value).toBe("External status from reload");
   });
 });

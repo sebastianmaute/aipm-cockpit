@@ -64,7 +64,9 @@ export function NarrativeEditor({
     if ((status.narrative ?? "") !== "") {
       setStatus((s) => ({ ...s, narrative: "", narrativeUpdatedAt: new Date().toISOString() }));
     }
-    if (narrativeRef.current) resizeNarrative(narrativeRef.current);
+    // No synchronous resize here: the draft state hasn't flushed yet, so the
+    // textarea still holds its old value. The useEffect([draftNarrative]) pass
+    // re-measures after the cleared value lands in the DOM.
   };
 
   return (
@@ -76,6 +78,7 @@ export function NarrativeEditor({
         <textarea
           ref={narrativeRef}
           className={`min-h-24 w-full resize-none rounded-md border border-line bg-surface p-2 text-sm ${TRANSITION} ${FOCUS_RING}`}
+          aria-label={t(lang, "dashboardNarrativePlaceholder")}
           placeholder={t(lang, "dashboardNarrativePlaceholder")}
           value={draftNarrative}
           onChange={(e) => setDraftNarrative(e.target.value)}
