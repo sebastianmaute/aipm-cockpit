@@ -332,6 +332,23 @@ export function DashboardPanel(props: DashboardPanelProps) {
               <p className="mt-2 text-xs text-muted-foreground">{t(lang, "dashboardProgressCaption")}</p>
             </Section>
           </div>
+          {/* Trends — masonry card directly after Progress (toggled from the top toolbar) */}
+          {showTrends ? (
+            <div className={`break-inside-avoid ${dc.cardGap}`}>
+              <div className={`rounded-lg border border-line bg-surface ${dc.cardPad} shadow-[var(--shadow-card)]`}>
+                <h3 className="mb-2 text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
+                  {t(lang, "navTrends")}
+                </h3>
+                {!props.tursoActive ? (
+                  <p className="text-sm text-muted-foreground">{t(lang, "trendsRequireTurso")}</p>
+                ) : varianceRows.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">{t(lang, "dashboardTrendsNoBaseline")}</p>
+                ) : (
+                  <VarianceSummary variance={varianceRows} lang={lang} />
+                )}
+              </div>
+            </div>
+          ) : null}
           {showBudget && (
             <div className={`break-inside-avoid ${dc.cardGap}`}>
               <Section title={t(lang, "dashboardBudgetBurn")} boxed>
@@ -513,22 +530,6 @@ export function DashboardPanel(props: DashboardPanelProps) {
             )}
           </div>
         </details>
-
-        {/* Trends widget (toggled from the top toolbar) */}
-        {showTrends ? (
-          <div className="rounded-lg border border-line bg-surface p-4 shadow-[var(--shadow-card)]">
-            <h3 className="mb-2 text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
-              {t(lang, "navTrends")}
-            </h3>
-            {!props.tursoActive ? (
-              <p className="text-sm text-muted-foreground">{t(lang, "trendsRequireTurso")}</p>
-            ) : varianceRows.length === 0 ? (
-              <p className="text-sm text-muted-foreground">{t(lang, "dashboardTrendsNoBaseline")}</p>
-            ) : (
-              <VarianceSummary variance={varianceRows} lang={lang} />
-            )}
-          </div>
-        ) : null}
       </div>
     </ReportCard>
   );
