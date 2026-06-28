@@ -774,8 +774,6 @@ export function WorkspaceSection({
               showBudget={isModuleEnabled("budget", settings.features)}
               showMilestones={isModuleEnabled("milestones", settings.features)}
               showChanges={isModuleEnabled("changes", settings.features)}
-              showTrends={settings.dashboard?.showTrends !== false}
-              onToggleTrends={(show) => setSettings((s) => ({ ...s, dashboard: { ...s.dashboard, showTrends: show } }))}
               variance={trends.variance}
               snapshots={trends.snapshots}
               tursoActive={trends.active}
@@ -793,7 +791,6 @@ export function WorkspaceSection({
               }}
               aiConfigured={isAiEnabled(settings.ai)}
               density={settings.dashboardDensity ?? "comfortable"}
-              onToggleDensity={isPopout ? undefined : (d) => setSettings((s) => ({ ...s, dashboardDensity: d }))}
             />
           </div>
         )}

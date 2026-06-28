@@ -60,8 +60,6 @@ interface DashboardPanelProps {
   showChanges?: boolean;
   topActions?: readonly SuggestedAction[];
   onOpenAction?: (a: SuggestedAction) => void;
-  showTrends?: boolean;
-  onToggleTrends?: (show: boolean) => void;
   variance?: readonly VarianceRow[];
   snapshots?: readonly SnapshotRecord[];
   tursoActive?: boolean;
@@ -70,10 +68,8 @@ interface DashboardPanelProps {
   onOpenChange?: (id: number) => void;
   onNavigate?: (view: AppView, section?: SettingsSectionId) => void;
   aiConfigured?: boolean;
-  /** Per-device cockpit density (spacing only). Default "comfortable". */
+  /** Per-device cockpit density (spacing only). Default "comfortable". Set via Settings → Appearance. */
   density?: DashboardDensity;
-  /** When provided, renders the on-panel density toggle (omit in popouts). */
-  onToggleDensity?: (d: DashboardDensity) => void;
 }
 
 const CHANGE_STATUS_KEY: Record<ChangeStatus, TranslationKey> = {
@@ -88,7 +84,6 @@ const CHANGE_STATUS_KEY: Record<ChangeStatus, TranslationKey> = {
 export function DashboardPanel(props: DashboardPanelProps) {
   const { lang, today, onOpenRaid, onOpenTask, topActions, onOpenAction } = props;
   const { showRaid = true, showBudget = true, showMilestones = true, showChanges = true } = props;
-  const showTrends = props.showTrends !== false;
   const density: DashboardDensity = props.density ?? "comfortable";
   const dc = densityClasses(density);
   const varianceRows = props.variance ?? [];
@@ -202,51 +197,11 @@ export function DashboardPanel(props: DashboardPanelProps) {
     [taskCount, milestoneCount, budgetCount, showMilestones, showBudget, aiConfigured],
   );
 
-  const toolbarExtra =
-    props.onToggleDensity || props.onToggleTrends ? (
-      <div className="flex items-center gap-2 print:hidden">
-        {props.onToggleDensity && (
-          // Stable label names what the toggle enables ("Compact view");
-          // aria-pressed tracks whether compact is active. Pinning the
-          // label (instead of flipping it to the opposite word) keeps the
-          // name + pressed-state coherent for screen readers — "Compact
-          // view, pressed" ⇒ compact is on.
-          <button
-            type="button"
-            aria-label={t(lang, "dashboardDensityCompactView")}
-            aria-pressed={density === "compact"}
-            title={t(lang, "dashboardDensityCompactView")}
-            onClick={() => props.onToggleDensity?.(density === "compact" ? "comfortable" : "compact")}
-            className={`rounded-md border border-line bg-surface px-2 py-1 text-xs text-muted-foreground hover:bg-surface-muted ${INTERACTIVE}`}
-          >
-            {t(lang, "dashboardDensityCompactView")}
-          </button>
-        )}
-        {props.onToggleTrends && (
-          // Stable label names what the toggle ENABLES ("Trends"); aria-pressed
-          // tracks whether trends are shown. Pinning the label (instead of
-          // flipping to "Hide trends") keeps name + pressed-state coherent —
-          // "Trends, pressed" ⇒ trends are on (mirrors the density toggle).
-          <button
-            type="button"
-            aria-label={t(lang, "dashboardTrendsLabel")}
-            aria-pressed={showTrends}
-            title={t(lang, "dashboardTrendsLabel")}
-            onClick={() => props.onToggleTrends?.(!showTrends)}
-            className={`rounded-md border border-line bg-surface px-2 py-1 text-xs text-muted-foreground hover:bg-surface-muted ${INTERACTIVE}`}
-          >
-            {t(lang, "dashboardTrendsLabel")}
-          </button>
-        )}
-      </div>
-    ) : undefined;
-
   return (
     <ReportCard
       lang={lang}
       sizeRef={sizeRef}
       onResetSize={resetSize}
-      toolbarExtra={toolbarExtra}
       title={t(lang, "navDashboard")}
     >
       <div className={dc.outer}>
@@ -332,21 +287,37 @@ export function DashboardPanel(props: DashboardPanelProps) {
               <p className="mt-2 text-xs text-muted-foreground">{t(lang, "dashboardProgressCaption")}</p>
             </Section>
           </div>
-          {/* Trends — masonry card directly after Progress (toggled from the top toolbar) */}
-          {showTrends ? (
+          {/* Trends — masonry card after Progress; Turso-only. Clicking jumps to the Trends view. */}
+          {props.tursoActive ? (
             <div className={`break-inside-avoid ${dc.cardGap}`}>
-              <div className={`rounded-lg border border-line bg-surface ${dc.cardPad} shadow-[var(--shadow-card)]`}>
-                <h3 className="mb-2 text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
-                  {t(lang, "navTrends")}
-                </h3>
-                {!props.tursoActive ? (
-                  <p className="text-sm text-muted-foreground">{t(lang, "trendsRequireTurso")}</p>
-                ) : varianceRows.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">{t(lang, "dashboardTrendsNoBaseline")}</p>
+              {(() => {
+                const trendsBody = (
+                  <>
+                    <h3 className="mb-2 text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
+                      {t(lang, "navTrends")}
+                    </h3>
+                    {varianceRows.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">{t(lang, "dashboardTrendsNoBaseline")}</p>
+                    ) : (
+                      <VarianceSummary variance={varianceRows} lang={lang} />
+                    )}
+                  </>
+                );
+                return props.onNavigate ? (
+                  <button
+                    type="button"
+                    aria-label={t(lang, "dashboardOpenTrendsView")}
+                    onClick={() => props.onNavigate!("trends")}
+                    className={`block w-full rounded-lg border border-line bg-surface text-left shadow-[var(--shadow-card)] hover:border-AIPM-dark-blue ${INTERACTIVE} ${dc.cardPad}`}
+                  >
+                    {trendsBody}
+                  </button>
                 ) : (
-                  <VarianceSummary variance={varianceRows} lang={lang} />
-                )}
-              </div>
+                  <div className={`rounded-lg border border-line bg-surface ${dc.cardPad} shadow-[var(--shadow-card)]`}>
+                    {trendsBody}
+                  </div>
+                );
+              })()}
             </div>
           ) : null}
           {showBudget && (
