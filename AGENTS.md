@@ -238,7 +238,7 @@ npm run e2e                 # playwright (incl. the 13-view axe a11y gate)
 **Layout = single masonry (CSS multicol, NOT a fixed grid).** `dashboard-panel.tsx` stays a thin
 orchestrator (data derivation + the `computeDashboard` memo) and renders three zones: a full-width
 HEADLINE (`DashboardDeltaStrip` · `NarrativeSummary` · `DashboardCoachingCard` · `DashboardHero`) → ONE
-masonry flow → a full-width FOOTER (`NarrativeEditor` · Recent-activity `<details>` · Trends).
+masonry flow → a full-width FOOTER (`NarrativeEditor` · Recent-activity `<details>`).
 ★★ The masonry is a CSS multicolumn container — `columns-1 lg:columns-2 xl:columns-3 ${dc.sectionGap}`
 (default `column-fill: balance` equalises column heights) — NOT `grid-cols-*`. Each card is wrapped in
 `<div className="break-inside-avoid ${dc.cardGap}">` so no card splits across a column. This REPLACED the
@@ -248,8 +248,9 @@ wide-screen voids (huge whitespace under the short KPI/Progress cards). ★★ M
 re-split: its KPI strip + Top-actions had to join the same flow as the other short/tall cards. Reading
 order is column-major (top→bottom per column); cards are ordered priority-first. New density key
 `dc.cardGap` (`mb-4` comfortable / `mb-2` compact) is the inter-card vertical margin (multicol ignores
-`gap`/`space-y` between items). Footer strips stay full-width stacked (Trends' `VarianceSummary` table
-needs full width — would cram in a 1/3 column). The presentational slices:
+`gap`/`space-y` between items). The Trends widget (`showTrends`-gated `VarianceSummary`) is a masonry
+card placed directly after Progress; the footer holds only the status-summary + recent-activity
+`<details>`. The presentational slices:
 - `dashboard-sections/dashboard-hero.tsx` (`DashboardHero`) — now ONLY the compact Overall RAG band +
   Adjust-health `<details>`; OWNS the `OverrideSelect` helper. Props trimmed to
   `{lang, today, model, status, setStatus, showBudget?, showChanges?, dc}` — `trends`/`topActions`/
